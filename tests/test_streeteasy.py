@@ -1,12 +1,29 @@
 from apartments.streeteasy import (
     _event_datetime,
     listing_is_furnished,
+    parse_price_history_html,
     split_unit,
     unit_format,
     unit_is_excluded,
     unit_kind,
     unit_suffix,
 )
+
+
+def test_two_and_three_column_history_tables():
+    html = """
+    <div data-testid="priceHistoryTable"><table><tbody>
+      <tr><td><p>12/18/2023</p></td><td><p><b>$8,100</b></p><p>Listed by The Blueground</p></td></tr>
+      <tr><td><p>12/6/2023</p></td><td><p><b>$6,200</b></p></td><td><a href="/rental/123">Rented by Cushman &amp; Wakefield (Management)</a></td></tr>
+    </tbody></table></div>
+    """
+    events = parse_price_history_html(html)
+    assert events[0] == {
+        "date": "12/18/2023", "base_rent": 8100,
+        "event": "Listed by The Blueground", "listing_url": None,
+    }
+    assert events[1]["event"] == "Rented by Cushman & Wakefield (Management)"
+    assert events[1]["listing_url"] == "/rental/123"
 
 
 def test_event_datetime():

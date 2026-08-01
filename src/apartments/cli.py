@@ -8,7 +8,7 @@ from .csv_import import ingest_csv
 from .db import DEFAULT_DB, connect
 from .nyc import ingest_pluto
 from .rentcast import collect
-from .streeteasy import ingest_export
+from .streeteasy import infer_furnishing_periods, ingest_export, reparse_capture_histories
 
 app = typer.Typer(no_args_is_help=True, help="Collect and inspect Chelsea rental data.")
 load_dotenv()
@@ -77,6 +77,23 @@ def import_captures(
         typer.echo(f"FAILED {path}: {error}", err=True)
     if failures:
         raise typer.Exit(1)
+
+
+@app.command("reparse-history")
+def reparse_history(
+    root: Path = typer.Argument(Path("data")),
+    db: Path = typer.Option(DEFAULT_DB),
+):
+    units, events = reparse_capture_histories(root, str(db))
+    typer.echo(f"Reparsed {events} history events for {units} units into {db}")
+
+
+@app.command("infer-furnishing-periods")
+def infer_furnishing(
+    db: Path = typer.Option(DEFAULT_DB),
+):
+    periods = infer_furnishing_periods(str(db))
+    typer.echo(f"Created {len(periods)} historical furnishing periods in {db}")
 
 
 @app.command("summary")

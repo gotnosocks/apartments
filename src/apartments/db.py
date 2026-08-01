@@ -69,6 +69,20 @@ CREATE TABLE IF NOT EXISTS unit_aliases (
     PRIMARY KEY (building_slug, canonical_unit, alias_unit)
 );
 
+CREATE TABLE IF NOT EXISTS unit_furnishing_periods (
+    source VARCHAR NOT NULL,
+    building_slug VARCHAR NOT NULL,
+    unit VARCHAR NOT NULL,
+    starts_on DATE NOT NULL,
+    ends_on DATE,
+    furnishing_status VARCHAR NOT NULL,
+    operator VARCHAR,
+    confidence DOUBLE,
+    evidence VARCHAR,
+    updated_at TIMESTAMPTZ DEFAULT current_timestamp,
+    PRIMARY KEY (source, building_slug, unit, starts_on, furnishing_status)
+);
+
 CREATE TABLE IF NOT EXISTS listing_snapshots (
     source VARCHAR NOT NULL,
     source_listing_id VARCHAR NOT NULL,

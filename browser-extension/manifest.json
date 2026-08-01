@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "StreetEasy Listing Exporter",
-  "version": "0.7.1",
+  "version": "0.8.0",
   "description": "Export the currently open StreetEasy unit and its expanded price history to a local JSON file.",
   "permissions": ["activeTab", "scripting", "downloads", "storage", "sidePanel"],
   "host_permissions": [

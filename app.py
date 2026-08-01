@@ -50,6 +50,22 @@ def load_data(db_path: str, modified_ns: int) -> tuple[pd.DataFrame, pd.DataFram
 
 
 @st.cache_data(show_spinner=False)
+def load_furnishing_periods(db_path: str, modified_ns: int) -> pd.DataFrame:
+    del modified_ns
+    connection = duckdb.connect(db_path, read_only=True)
+    periods = connection.execute(
+        """SELECT unit, starts_on, ends_on, furnishing_status, operator,
+                  confidence, evidence
+           FROM unit_furnishing_periods
+           WHERE source='streeteasy' AND building_slug=?
+           ORDER BY unit, starts_on""",
+        [BUILDING_SLUG],
+    ).df()
+    connection.close()
+    return periods
+
+
+@st.cache_data(show_spinner=False)
 def load_model_outputs(modified_ns: int) -> tuple[pd.DataFrame, dict]:
     del modified_ns
     monthly = pd.read_parquet(MODEL_DIR / "monthly_index.parquet")
@@ -220,7 +236,7 @@ with model_tab:
             r"y_{i,t} \sim \operatorname{StudentT}(\nu=5,\, \mu_{i,t},\, \sigma)"
         )
         st.latex(
-            r"\mu_{i,t} = \alpha + B_t + \beta_F F_i"
+            r"\mu_{i,t} = \alpha + B_t + \beta_F F_{i,t}"
             r" + \beta_1 I_{1\mathrm{BR},i} + \beta_2 I_{2\mathrm{BR+},i}"
             r" + \beta_S z(\log(\mathrm{sqft}_i)) + \beta_M M_i + u_i"
         )
@@ -229,7 +245,9 @@ with model_tab:
             Where:
 
             - $B_t$ is the building-wide rent factor for month $t$.
-            - $F_i$ is 1 for a unit currently classified as furnished and 0 otherwise.
+            - $F_{i,t}$ is 1 after that unit's first explicit `Listed by The Blueground`
+              event and 0 during earlier conventionally managed listing periods. Uncertain transfer
+              windows are omitted from model training.
             - The bedroom indicators compare one- and two-bedroom units with studios.
             - $z(\log(\mathrm{sqft}))$ is standardized log square footage.
             - $M_i$ indicates that square footage was missing and imputed from the bedroom group.
@@ -267,8 +285,9 @@ with model_tab:
 
             ### Important limitations
 
-            - The furnished flag comes from the currently captured unit page and is applied to
-              that unit's post-2019 history. It may not describe every historical listing.
+            - A furnished era begins at the first explicit Blueground listing. This is strong
+              marketing evidence, but it does not prove who held the underlying lease or identify
+              the exact date furniture was installed.
             - StreetEasy history is selected listing data and may omit off-platform rentals.
             - Repeated monthly observations from the same unit are correlated; the unit random
               effect handles persistent correlation, but not every time-varying unit difference.
@@ -318,10 +337,17 @@ with model_tab:
             "bedroom count, square footage, missing square footage, and unit random effects."
         )
         st.warning(
-            "Furnished is currently a unit-level flag taken from the captured current listing and "
-            "applied to that unit's complete post-cutoff history. Treat its coefficient as a furnished-unit "
-            "cohort comparison, not yet as a causal furnished-listing premium."
+            "Historical furnishing is inferred from the first explicit 'Listed by The Blueground' "
+            "event. This supports a furnished-marketing interpretation but does not establish the "
+            "underlying landlord/tenant relationship, so the coefficient is not necessarily causal."
         )
+        with st.expander("Inferred historical furnishing periods"):
+            furnishing_periods = load_furnishing_periods(str(db_path), db_path.stat().st_mtime_ns)
+            st.dataframe(furnishing_periods, use_container_width=True, hide_index=True)
+            st.caption(
+                "Confirmed furnished periods start with an explicit Blueground listing. "
+                "Unknown transition periods are excluded from model fitting."
+            )
         with st.expander("Model assumptions and diagnostics"):
             st.json(model_metadata)
 

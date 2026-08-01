@@ -1,9 +1,11 @@
 import hashlib
 import json
 import re
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
 from urllib.parse import urlparse
+
+from bs4 import BeautifulSoup
 
 from .db import connect
 from .scope import normalize_address
@@ -16,6 +18,41 @@ def unit_is_excluded(building_slug: str | None, unit: str | None) -> bool:
         return False
     exclusions = json.loads(EXCLUDED_UNITS_PATH.read_text(encoding="utf-8"))
     return str(unit).upper() in {key.upper() for key in exclusions.get(building_slug or "", {})}
+
+
+def parse_price_history_html(html: str) -> list[dict]:
+    """Parse both the older three-column and newer two-column history tables."""
+    soup = BeautifulSoup(html, "html.parser")
+    table = soup.select_one('[data-testid="priceHistoryTable"]')
+    if not table:
+        return []
+    events = []
+    seen = set()
+    for row in table.select("tbody tr"):
+        cells = row.select("td")
+        if len(cells) < 2:
+            continue
+        date_match = re.search(r"\d{1,2}/\d{1,2}/\d{4}", cells[0].get_text(" ", strip=True))
+        price_match = re.search(r"\$([\d,]+)", cells[1].get_text(" ", strip=True))
+        if not date_match:
+            continue
+        if len(cells) >= 3:
+            event = cells[2].get_text(" ", strip=True)
+        else:
+            paragraphs = [p.get_text(" ", strip=True) for p in cells[1].select("p") if not p.select_one("b")]
+            event = " ".join(value for value in paragraphs if value and not re.fullmatch(r"\$[\d,]+", value))
+        link = row.select_one('[data-testid="priceHistoryLink"], a[href]')
+        parsed = {
+            "date": date_match.group(0),
+            "base_rent": int(price_match.group(1).replace(",", "")) if price_match else None,
+            "event": event,
+            "listing_url": link.get("href") if link else None,
+        }
+        key = tuple(parsed.values())
+        if key not in seen:
+            seen.add(key)
+            events.append(parsed)
+    return events
 
 
 def _event_datetime(value: str | None) -> str | None:
@@ -210,3 +247,121 @@ def ingest_export(
     if owns_connection:
         db.close()
     return source_id, event_count
+
+
+def reparse_capture_histories(
+    root: Path,
+    db_path: str = "data/apartments.duckdb",
+) -> tuple[int, int]:
+    """Replace structured history with rows reparsed from each latest rendered page."""
+    latest: dict[str, tuple[str, Path, dict]] = {}
+    for structured_path in root.rglob("structured.json"):
+        if ":Zone.Identifier" in str(structured_path):
+            continue
+        item = json.loads(structured_path.read_text(encoding="utf-8"))
+        source_id = item.get("source_listing_id")
+        html_path = structured_path.parent / "page.html"
+        if not source_id or not html_path.exists() or unit_is_excluded(item.get("building_slug"), item.get("unit")):
+            continue
+        captured_at = item.get("captured_at") or ""
+        if source_id not in latest or captured_at > latest[source_id][0]:
+            latest[source_id] = (captured_at, html_path, item)
+
+    db = connect(db_path)
+    units_reparsed = 0
+    events_written = 0
+    for source_id, (_, html_path, _) in sorted(latest.items()):
+        events = parse_price_history_html(html_path.read_text(encoding="utf-8", errors="replace"))
+        if not events:
+            continue
+        db.execute(
+            "DELETE FROM listing_events WHERE source='streeteasy' AND source_listing_id=?",
+            [source_id],
+        )
+        for event in events:
+            event_at = _event_datetime(event.get("date"))
+            event_type = event.get("event") or ""
+            event_price = event.get("base_rent")
+            key_text = f"streeteasy|{source_id}|{event_at}|{event_type}|{event_price}|{event.get('listing_url')}"
+            event_key = hashlib.sha256(key_text.encode()).hexdigest()
+            db.execute(
+                """INSERT INTO listing_events VALUES (?, 'streeteasy', ?, ?, ?, ?, ?)
+                   ON CONFLICT DO NOTHING""",
+                [event_key, source_id, event_at, event_type, event_price, json.dumps(event)],
+            )
+        units_reparsed += 1
+        events_written += len(events)
+    db.close()
+    return units_reparsed, events_written
+
+
+def infer_furnishing_periods(
+    db_path: str = "data/apartments.duckdb",
+    building_slug: str = "the-sierra-chelsea",
+) -> list[dict]:
+    """Infer historical furnished eras from explicit Blueground listing events."""
+    db = connect(db_path)
+    db.execute(
+        "DELETE FROM unit_furnishing_periods WHERE source='streeteasy' AND building_slug=?",
+        [building_slug],
+    )
+    rows = db.execute(
+        """SELECT l.unit, min(CAST(e.event_at AS DATE)) AS first_event,
+                  min(CAST(e.event_at AS DATE)) FILTER (
+                    WHERE lower(e.event_type) = 'listed by the blueground'
+                  ) AS first_blueground
+           FROM listings l
+           JOIN listing_events e USING (source, source_listing_id)
+           WHERE l.source='streeteasy' AND l.source_listing_id LIKE ?
+             AND l.is_furnished
+           GROUP BY l.unit ORDER BY l.unit""",
+        [f"{building_slug}/%"],
+    ).fetchall()
+    periods = []
+
+    def add(unit, start, end, status, confidence, evidence, operator=None):
+        if not start or (end and end < start):
+            return
+        record = {
+            "unit": unit, "starts_on": start, "ends_on": end,
+            "furnishing_status": status, "operator": operator,
+            "confidence": confidence, "evidence": evidence,
+        }
+        periods.append(record)
+        db.execute(
+            """INSERT INTO unit_furnishing_periods VALUES
+               ('streeteasy', ?, ?, ?, ?, ?, ?, ?, ?, now())""",
+            [building_slug, unit, start, end, status, operator, confidence, evidence],
+        )
+
+    for unit, first_event, first_blueground in rows:
+        if not first_blueground:
+            continue
+        prior_rented = db.execute(
+            """SELECT max(CAST(e.event_at AS DATE))
+               FROM listing_events e JOIN listings l USING (source, source_listing_id)
+               WHERE l.source='streeteasy' AND l.source_listing_id=?
+                 AND CAST(e.event_at AS DATE) < ?
+                 AND lower(e.event_type) LIKE 'rented by %'
+                 AND lower(e.event_type) NOT LIKE '%blueground%'""",
+            [f"{building_slug}/{unit.lower()}", first_blueground],
+        ).fetchone()[0]
+        if first_event < first_blueground:
+            likely_end = prior_rented or (first_blueground - timedelta(days=1))
+            add(
+                unit, first_event, likely_end, "likely-unfurnished", 0.8,
+                "Pre-Blueground history is attributed to conventional building managers or brokers.",
+            )
+            if prior_rented and prior_rented + timedelta(days=1) < first_blueground:
+                add(
+                    unit, prior_rented + timedelta(days=1), first_blueground - timedelta(days=1),
+                    "unknown-transition", 0.4,
+                    "After a non-Blueground rented event but before the first explicit Blueground listing.",
+                )
+        add(
+            unit, first_blueground, None, "confirmed-furnished", 0.95,
+            "First explicit 'Listed by The Blueground' event; current page says Furnished and advertises flexible stays.",
+            "The Blueground",
+        )
+    db.close()
+    return periods

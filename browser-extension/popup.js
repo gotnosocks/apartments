@@ -439,11 +439,21 @@ async function collectStreetEasyListing() {
 
   const history = [...historyBox.querySelectorAll("tbody tr")].map((row) => {
     const cells = [...row.querySelectorAll("td")];
-    const link = cells[2]?.querySelector("a[href]");
+    const link = row.querySelector('[data-testid="priceHistoryLink"], a[href]');
+    let event = clean(cells[2]?.textContent);
+    // Newer StreetEasy tables put the event in a second paragraph of the
+    // price cell instead of using a third table cell.
+    if (!event && cells[1]) {
+      event = [...cells[1].querySelectorAll("p")]
+        .filter((paragraph) => !paragraph.querySelector("b"))
+        .map((paragraph) => clean(paragraph.textContent))
+        .filter((value) => value && !/^\$[\d,]+$/.test(value))
+        .join(" ");
+    }
     return {
       date: clean(cells[0]?.textContent),
       base_rent: money(cells[1]?.textContent),
-      event: clean(cells[2]?.textContent),
+      event,
       listing_url: link?.href || null
     };
   }).filter((row) => row.date || row.event);

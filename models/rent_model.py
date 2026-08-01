@@ -25,20 +25,33 @@ def prepare_data(db_path: Path) -> tuple[pd.DataFrame, pd.DatetimeIndex]:
     connection = duckdb.connect(str(db_path), read_only=True)
     events = connection.execute(
         """SELECT l.unit, l.bedrooms, l.bathrooms, l.square_feet,
-                  COALESCE(l.is_furnished, false) AS is_furnished,
+                  CASE
+                    WHEN fp.furnishing_status = 'confirmed-furnished' THEN true
+                    WHEN fp.furnishing_status = 'unknown-transition' THEN NULL
+                    ELSE false
+                  END AS is_furnished,
+                  fp.furnishing_status,
                   CAST(e.event_at AS DATE) AS event_date,
                   e.price AS asking_rent
            FROM listing_events e
            JOIN listings l USING (source, source_listing_id)
+           LEFT JOIN unit_furnishing_periods fp
+             ON fp.source=e.source
+            AND fp.building_slug=?
+            AND fp.unit=l.unit
+            AND CAST(e.event_at AS DATE) >= fp.starts_on
+            AND (fp.ends_on IS NULL OR CAST(e.event_at AS DATE) <= fp.ends_on)
            WHERE e.source = 'streeteasy'
              AND e.source_listing_id LIKE ?
              AND e.event_at >= ?
              AND e.price BETWEEN 1000 AND 30000
              AND COALESCE(l.unit_is_specific, true)""",
-        [f"{BUILDING_SLUG}/%", CUTOFF.date()],
+        [BUILDING_SLUG, f"{BUILDING_SLUG}/%", CUTOFF.date()],
     ).df()
     connection.close()
     events["event_date"] = pd.to_datetime(events["event_date"])
+    events = events.dropna(subset=["is_furnished"]).copy()  # Exclude uncertain transfer windows.
+    events["is_furnished"] = events["is_furnished"].astype(bool)
     events["month"] = events["event_date"].dt.to_period("M").dt.to_timestamp()
 
     # Repeated status events and daily furnished repricing otherwise give some
@@ -171,7 +184,7 @@ def save_outputs(inference, data: pd.DataFrame, months: pd.DatetimeIndex, output
         "min_ess_bulk": float(diagnostics["ess_bulk"].min()),
         "assumptions": [
             "One median asking-rent observation per unit-month.",
-            "The current unit-level furnished flag is applied throughout the post-cutoff history.",
+            "Furnished status begins at each unit's first explicit 'Listed by The Blueground' event; uncertain transfer windows are excluded.",
             "Monthly building trend is a Gaussian random walk anchored at 100 in May 2019.",
             "Bedroom count, imputed square footage, missing-square-footage status, and unit random effects are controls.",
         ],

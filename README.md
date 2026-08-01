@@ -25,6 +25,8 @@ Capture files and the active database are excluded from Git.
 
 ```bash
 uv run apartments import-captures data
+uv run apartments reparse-history data
+uv run apartments infer-furnishing-periods
 uv run apartments summary
 ```
 
@@ -46,8 +48,10 @@ comparisons, unit detail, and data-quality views. Units `7` and `8` are excluded
 
 The PyMC model uses observations from May 2019 onward, aggregates to one median
 asking rent per unit-month, and estimates a latent monthly building trend with
-95% credible intervals. It includes a furnished-unit factor plus controls for
-bedrooms, square footage, missing square footage, and unit random effects.
+95% credible intervals. Historical furnished eras begin at the first explicit
+`Listed by The Blueground` event; uncertain management-to-Blueground transition
+windows are omitted. The model includes controls for bedrooms, square footage,
+missing square footage, and unit random effects.
 
 ```bash
 uv sync --extra app --extra model
@@ -55,6 +59,5 @@ uv run python models/rent_model.py
 ```
 
 Outputs are written to `data/model/` and displayed in the Streamlit **Bayesian
-model** tab. The current furnished flag is unit-level, so its coefficient should
-be interpreted as a furnished-unit cohort effect until historical listing-level
-furnishing can be identified.
+model** tab. The furnishing timeline is evidence-based but does not prove the
+underlying landlord/tenant relationship or exact furniture-installation date.

@@ -34,6 +34,8 @@ This version uses the Chromium Side Panel API and is intended for current Edge o
 
 Each timestamped unit capture contains `manifest.json`, `structured.json`, rendered
 `page.html`, `assets.json`, and downloaded photo/floor-plan assets with SHA-256 hashes.
+Price-history extraction supports both StreetEasy's older three-column table and
+newer two-column table where event text appears beneath the price.
 If no directory is selected, the extension falls back to the previous JSON download.
 
 ## Import
