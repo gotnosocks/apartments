@@ -1,0 +1,2 @@
+source,source_listing_id,address,unit,zipcode,property_type,bedrooms,bathrooms,square_feet,asking_rent,status,listed_date,removed_date,days_on_market,observed_at,source_url
+manual,example-1,130 W 15th St,4A,10011,Condo,1,1,700,5000,Active,2026-08-01,,0,2026-08-01T12:00:00-04:00,https://example.com/listing

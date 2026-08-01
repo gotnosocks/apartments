@@ -1,0 +1,12 @@
+{
+  "the-sierra-chelsea": {
+    "7": {
+      "classification": "invalid-unit",
+      "reason": "Non-specific listing; not a valid physical unit"
+    },
+    "8": {
+      "classification": "invalid-unit",
+      "reason": "Non-specific listing; not a valid physical unit"
+    }
+  }
+}

@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <style>
+    html, body { min-height: 100%; }
+    body { font: 14px system-ui, sans-serif; min-width: 320px; margin: 14px; color: #202124; }
+    h1 { font-size: 16px; margin: 0 0 10px; }
+    button { padding: 8px 10px; font-weight: 600; cursor: pointer; }
+    button:disabled { cursor: default; opacity: .55; }
+    .primary { width: 100%; margin-bottom: 8px; }
+    .actions { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+    #status { margin: 10px 0; line-height: 1.35; overflow-wrap: anywhere; }
+    .error { color: #b3261e; }
+    .success { color: #137333; }
+    #queueHeader { display: flex; justify-content: space-between; align-items: center; margin-top: 12px; }
+    #queueHeader strong { font-size: 14px; }
+    #clear, #restoreBad { border: 0; background: none; color: #164db4; padding: 4px; font-weight: 500; }
+    #queue { border-top: 1px solid #ddd; max-height: calc(100vh - 355px); min-height: 180px; overflow-y: auto; }
+    .unit { display: grid; grid-template-columns: 22px 1fr auto; gap: 7px; align-items: center; padding: 7px 2px; border-bottom: 1px solid #eee; }
+    .unitActions { display: flex; gap: 4px; }
+    .unitActions .bad { color: #b3261e; }
+    .unit.done { color: #5f6368; }
+    .unit button { padding: 4px 8px; font-size: 12px; }
+    .mark { text-align: center; color: #137333; }
+    .empty { padding: 12px 2px; color: #5f6368; }
+    .hint { color: #5f6368; font-size: 12px; line-height: 1.35; margin: 6px 0 10px; }
+  </style>
+</head>
+<body>
+  <h1>StreetEasy capture</h1>
+  <button id="chooseDirectory" class="primary">Choose capture directory</button>
+  <div id="directory" class="hint">No directory selected; JSON download fallback is active.</div>
+  <button id="collect" class="primary">1. Open unavailable units and collect</button>
+  <button id="export" class="primary">2. Export this unit and open next</button>
+  <div class="actions">
+    <button id="next">Open next pending</button>
+    <button id="markPending">Mark current pending</button>
+  </div>
+  <div id="status">Open a building or unit page.</div>
+  <p class="hint">Collection opens “View unavailable units” when present. If StreetEasy paginates the result, collect each additional page; links are merged.</p>
+  <div id="queueHeader">
+    <strong id="summary">No queue</strong>
+    <span><button id="restoreBad">Restore bad</button><button id="clear">Clear queue</button></span>
+  </div>
+  <div id="queue"></div>
+  <script src="popup.js"></script>
+</body>
+</html>

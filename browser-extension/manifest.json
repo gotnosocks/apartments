@@ -1,0 +1,25 @@
+{
+  "manifest_version": 3,
+  "name": "StreetEasy Listing Exporter",
+  "version": "0.7.1",
+  "description": "Export the currently open StreetEasy unit and its expanded price history to a local JSON file.",
+  "permissions": ["activeTab", "scripting", "downloads", "storage", "sidePanel"],
+  "host_permissions": [
+    "https://photos.zillowstatic.com/*",
+    "https://streeteasy.com/*"
+  ],
+  "action": {
+    "default_title": "Open StreetEasy capture"
+  },
+  "side_panel": {
+    "default_path": "popup.html"
+  },
+  "background": {
+    "service_worker": "background.js"
+  },
+  "browser_specific_settings": {
+    "gecko": {
+      "id": "streeteasy-exporter@chelsea-apartments.local"
+    }
+  }
+}

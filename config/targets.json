@@ -1,0 +1,22 @@
+{
+  "building": {
+    "input_address": "130 W 15th Street, New York, NY 10011",
+    "canonical_address": "130 WEST 15 STREET",
+    "borough": "Manhattan",
+    "bbl": "1007907502",
+    "bin": "1080572",
+    "latitude": 40.738349,
+    "longitude": -73.997531
+  },
+  "street": {
+    "name": "WEST 15 STREET",
+    "borough": "Manhattan",
+    "from_avenue": "6 AVENUE",
+    "to_avenue": "7 AVENUE",
+    "minimum_house_number": 100,
+    "maximum_house_number": 199,
+    "search_latitude": 40.7385,
+    "search_longitude": -73.9975,
+    "search_radius_miles": 0.5
+  }
+}
