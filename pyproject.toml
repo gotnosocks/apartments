@@ -22,6 +22,7 @@ model = [
     "arviz>=0.20",
     "h5netcdf>=1.6",
     "h5py>=3.12",
+    "nutpie>=0.16",
     "pandas>=2.2",
     "pyarrow>=19.0",
     "pymc>=5.20",

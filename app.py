@@ -66,13 +66,15 @@ def load_furnishing_periods(db_path: str, modified_ns: int) -> pd.DataFrame:
 
 
 @st.cache_data(show_spinner=False)
-def load_model_outputs(model_dir: str, modified_ns: int) -> tuple[pd.DataFrame, dict]:
+def load_model_outputs(model_dir: str, modified_ns: int) -> tuple[pd.DataFrame, pd.DataFrame, dict]:
     del modified_ns
     path = Path(model_dir)
     index = pd.read_parquet(path / "index.parquet")
     index["period"] = pd.to_datetime(index["period"])
+    bedroom_prices = pd.read_parquet(path / "bedroom_prices.parquet")
+    bedroom_prices["period"] = pd.to_datetime(bedroom_prices["period"])
     metadata = json.loads((path / "metadata.json").read_text())
-    return index, metadata
+    return index, bedroom_prices, metadata
 
 
 def bedroom_label(value) -> str:
@@ -220,14 +222,12 @@ with model_tab:
             """
             ### Goal
 
-            The primary model estimates a shared weekly rent level for The Sierra Chelsea,
-            while an otherwise equivalent monthly model serves as a sensitivity test. Both adjust
-            for differences among the apartments observed in each period. The models use
+            The model estimates a shared weekly rent level for The Sierra Chelsea while adjusting
+            for differences among the apartments observed in each week. It uses
             StreetEasy **asking rents**, not signed lease rents. Data before May 2019 is excluded.
 
             To stop frequently repriced furnished listings from dominating the fit, all events
-            for the same unit and calendar week are reduced to one median asking rent in the
-            primary model. The sensitivity model uses one median per unit-month.
+            for the same unit and calendar week are reduced to one median asking rent.
 
             ### Observation model
 
@@ -240,7 +240,7 @@ with model_tab:
         )
         st.latex(
             r"\mu_{i,t} = \alpha + B_t + \beta_F F_{i,t}"
-            r" + \beta_1 I_{1\mathrm{BR},i} + \beta_2 I_{2\mathrm{BR+},i}"
+            r" + \gamma_1 I(\mathrm{BR}_i\ge1) + \gamma_2 I(\mathrm{BR}_i\ge2)"
             r" + \beta_S z(\log(\mathrm{sqft}_i)) + \beta_M M_i + u_i"
         )
         st.markdown(
@@ -251,7 +251,9 @@ with model_tab:
             - $F_{i,t}$ is 1 after that unit's first explicit `Listed by The Blueground`
               event and 0 during earlier conventionally managed listing periods. Uncertain transfer
               windows are omitted from model training.
-            - The bedroom indicators compare one- and two-bedroom units with studios.
+            - $\gamma_1$ is the first-bedroom premium: one- and two-bedroom units both receive it.
+            - $\gamma_2$ is the incremental second-bedroom premium: only two-bedroom units receive it.
+              The total two-bedroom versus studio effect is $\gamma_1+\gamma_2$.
             - $z(\log(\mathrm{sqft}))$ is standardized log square footage.
             - $M_i$ indicates that square footage was missing and imputed from the bedroom group.
             - $u_i$ is a unit-specific adjustment for persistent unmeasured differences such as
@@ -261,8 +263,7 @@ with model_tab:
 
             ### Evolution of the building factor
 
-            The building factor follows a weekly Gaussian random walk. The monthly sensitivity
-            model uses the same equation at a monthly time step:
+            The building factor follows a weekly Gaussian random walk:
             """
         )
         st.latex(r"B_0 = 0")
@@ -272,7 +273,7 @@ with model_tab:
         )
         st.latex(r"u_i \sim \mathcal{N}(0,\sigma_{\mathrm{unit}})")
         st.markdown(
-            "This allows adjacent months to be similar without forcing the trend to be linear. "
+            "This allows adjacent weeks to be similar without forcing the trend to be linear. "
             "The displayed building index is anchored at 100 in the first period containing May 2019:"
         )
         st.latex(r"\mathrm{Index}_t = 100\,\exp(B_t)")
@@ -301,22 +302,15 @@ with model_tab:
         )
 
     weekly_dir = MODEL_DIR / "weekly"
-    monthly_dir = MODEL_DIR / "monthly"
     if not (weekly_dir / "index.parquet").exists():
-        st.info("Run `uv run python models/rent_model.py --frequency weekly` to fit the primary model.")
+        st.info("Run `uv run python models/rent_model.py --frequency weekly` to fit the model.")
     else:
         weekly_mtime = max(
             (weekly_dir / "index.parquet").stat().st_mtime_ns,
+            (weekly_dir / "bedroom_prices.parquet").stat().st_mtime_ns,
             (weekly_dir / "metadata.json").stat().st_mtime_ns,
         )
-        weekly_index, weekly_metadata = load_model_outputs(str(weekly_dir), weekly_mtime)
-        monthly_available = (monthly_dir / "index.parquet").exists()
-        if monthly_available:
-            monthly_mtime = max(
-                (monthly_dir / "index.parquet").stat().st_mtime_ns,
-                (monthly_dir / "metadata.json").stat().st_mtime_ns,
-            )
-            monthly_index, monthly_metadata = load_model_outputs(str(monthly_dir), monthly_mtime)
+        weekly_index, bedroom_prices, weekly_metadata = load_model_outputs(str(weekly_dir), weekly_mtime)
 
         fig = go.Figure()
         fig.add_trace(go.Scatter(
@@ -326,43 +320,72 @@ with model_tab:
         fig.add_trace(go.Scatter(
             x=weekly_index["period"], y=weekly_index["index_lower"],
             mode="lines", line={"width": 0}, fill="tonexty",
-            fillcolor="rgba(22,77,180,0.18)", name="Weekly 95% credible interval",
+            fillcolor="rgba(22,77,180,0.18)", name="95% credible interval",
         ))
         fig.add_trace(go.Scatter(
             x=weekly_index["period"], y=weekly_index["index_median"],
-            mode="lines", line={"color": "#164db4", "width": 2}, name="Weekly posterior median",
+            mode="lines", line={"color": "#164db4", "width": 2}, name="Posterior median",
         ))
-        if monthly_available:
-            fig.add_trace(go.Scatter(
-                x=monthly_index["period"], y=monthly_index["index_median"],
-                mode="lines+markers", line={"color": "#d97706", "width": 2, "dash": "dash"},
-                marker={"size": 4}, name="Monthly sensitivity median",
-            ))
         fig.add_hline(y=100, line_dash="dot", line_color="gray")
         fig.update_layout(
-            xaxis_title="Date", yaxis_title="Rent index (first post-cutoff period = 100)",
-            height=590, hovermode="x unified",
+            xaxis_title="Week", yaxis_title="Rent index (first post-cutoff week = 100)",
+            height=560, hovermode="x unified",
         )
         st.plotly_chart(fig, use_container_width=True)
 
-        premium = weekly_metadata["furnished_premium_percent"]
-        c1, c2, c3, c4 = st.columns(4)
-        c1.metric("Weekly furnished effect", f"{premium['median']:+.1f}%")
-        c2.metric("Weekly 95% interval", f"{premium['lower_95']:+.1f}% to {premium['upper_95']:+.1f}%")
-        c3.metric("Unit-week observations", f"{weekly_metadata['observations']:,}")
-        c4.metric("Units", weekly_metadata["units"])
-        if monthly_available:
-            monthly_premium = monthly_metadata["furnished_premium_percent"]
-            st.info(
-                f"Monthly sensitivity: furnished effect {monthly_premium['median']:+.1f}% "
-                f"(95% interval {monthly_premium['lower_95']:+.1f}% to "
-                f"{monthly_premium['upper_95']:+.1f}%) from "
-                f"{monthly_metadata['observations']:,} unit-month observations."
-            )
+        st.subheader("Adjusted one- and two-bedroom asking prices")
+        price_fig = go.Figure()
+        colors = {
+            "1 BR": ("#164db4", "rgba(22,77,180,0.16)"),
+            "2 BR": ("#b3261e", "rgba(179,38,30,0.14)"),
+        }
+        for bedroom_group in ["1 BR", "2 BR"]:
+            group = bedroom_prices[bedroom_prices["bedroom_group"] == bedroom_group]
+            line_color, fill_color = colors[bedroom_group]
+            price_fig.add_trace(go.Scatter(
+                x=group["period"], y=group["price_upper"], mode="lines",
+                line={"width": 0}, hoverinfo="skip", showlegend=False,
+            ))
+            price_fig.add_trace(go.Scatter(
+                x=group["period"], y=group["price_lower"], mode="lines",
+                line={"width": 0}, fill="tonexty", fillcolor=fill_color,
+                hoverinfo="skip", showlegend=False,
+            ))
+            price_fig.add_trace(go.Scatter(
+                x=group["period"], y=group["price_median"], mode="lines",
+                line={"color": line_color, "width": 2}, name=bedroom_group,
+            ))
+        price_fig.update_layout(
+            xaxis_title="Week", yaxis_title="Adjusted asking rent",
+            yaxis_tickprefix="$", yaxis_tickformat=",", height=560, hovermode="x unified",
+        )
+        st.plotly_chart(price_fig, use_container_width=True)
+        typical_sizes = bedroom_prices.groupby("bedroom_group")["typical_square_feet"].first().to_dict()
         st.caption(
-            f"PyMC Student-t models using data from {weekly_metadata['cutoff']} onward. "
-            "The weekly random-walk innovation prior is scaled tighter than the monthly prior. "
-            "Both models use the same apartment controls and unit random effects."
+            "Posterior prices for typical unfurnished units with average unit effect and observed "
+            f"square footage: approximately {typical_sizes['1 BR']:.0f} ft² for 1 BR and "
+            f"{typical_sizes['2 BR']:.0f} ft² for 2 BR. Bands are 95% credible intervals."
+        )
+
+        furnished = weekly_metadata["furnished_premium_percent"]
+        bedrooms = weekly_metadata["bedroom_premiums_percent"]
+        first = bedrooms["first_bedroom"]
+        second = bedrooms["second_bedroom_increment"]
+        total = bedrooms["two_bedroom_vs_studio"]
+        c1, c2, c3, c4 = st.columns(4)
+        c1.metric("First bedroom premium", f"{first['median']:+.1f}%")
+        c2.metric("Second bedroom increment", f"{second['median']:+.1f}%")
+        c3.metric("2 BR vs studio", f"{total['median']:+.1f}%")
+        c4.metric("Furnished effect", f"{furnished['median']:+.1f}%")
+        st.caption(
+            f"95% intervals — first bedroom: {first['lower_95']:+.1f}% to {first['upper_95']:+.1f}%; "
+            f"second increment: {second['lower_95']:+.1f}% to {second['upper_95']:+.1f}%; "
+            f"2 BR vs studio: {total['lower_95']:+.1f}% to {total['upper_95']:+.1f}%; "
+            f"furnished: {furnished['lower_95']:+.1f}% to {furnished['upper_95']:+.1f}%."
+        )
+        st.caption(
+            f"PyMC Student-t model using {weekly_metadata['observations']:,} unit-week observations "
+            f"from {weekly_metadata['units']} units since {weekly_metadata['cutoff']}."
         )
         st.warning(
             "Historical furnishing is inferred from the first explicit 'Listed by The Blueground' "
@@ -377,11 +400,7 @@ with model_tab:
                 "Unknown transition periods are excluded from model fitting."
             )
         with st.expander("Model assumptions and diagnostics"):
-            st.markdown("**Weekly primary model**")
             st.json(weekly_metadata)
-            if monthly_available:
-                st.markdown("**Monthly sensitivity model**")
-                st.json(monthly_metadata)
 
 with latest_tab:
     st.subheader("Latest observed asking rent for each unit")

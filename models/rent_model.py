@@ -1,8 +1,8 @@
-"""Bayesian weekly/monthly rent index for The Sierra Chelsea.
+"""Bayesian weekly rent index for The Sierra Chelsea.
 
 The response is log asking rent. Observations are collapsed to one median per
-unit-period so frequently repriced furnished listings do not dominate ordinary
-rentals. Weekly is the primary model; monthly is a sensitivity analysis.
+unit-week so frequently repriced furnished listings do not dominate ordinary
+rentals.
 """
 
 from __future__ import annotations
@@ -22,7 +22,6 @@ CUTOFF = pd.Timestamp("2019-05-01")
 BUILDING_SLUG = "the-sierra-chelsea"
 FREQUENCIES = {
     "weekly": {"rw_prior": 0.03, "date_freq": "W-MON", "label": "week"},
-    "monthly": {"rw_prior": 0.06, "date_freq": "MS", "label": "month"},
 }
 
 
@@ -62,13 +61,10 @@ def prepare_data(
     events["event_date"] = pd.to_datetime(events["event_date"])
     events = events.dropna(subset=["is_furnished"]).copy()
     events["is_furnished"] = events["is_furnished"].astype(bool)
-    if frequency == "weekly":
-        # Monday-starting calendar week containing the observed event.
-        events["period"] = events["event_date"] - pd.to_timedelta(
-            events["event_date"].dt.weekday, unit="D"
-        )
-    else:
-        events["period"] = events["event_date"].dt.to_period("M").dt.to_timestamp()
+    # Monday-starting calendar week containing the observed event.
+    events["period"] = events["event_date"] - pd.to_timedelta(
+        events["event_date"].dt.weekday, unit="D"
+    )
 
     period_data = events.groupby(["unit", "period"], as_index=False).agg(
         asking_rent=("asking_rent", "median"),
@@ -82,7 +78,9 @@ def prepare_data(
     period_data["bedrooms"] = period_data["bedrooms"].astype(int)
     period_data["sqft_missing"] = period_data["square_feet"].isna().astype(int)
     bedroom_medians = period_data.groupby("bedrooms")["square_feet"].transform("median")
-    period_data["square_feet_imputed"] = period_data["square_feet"].fillna(bedroom_medians)
+    period_data["square_feet_imputed"] = period_data["square_feet"].fillna(
+        bedroom_medians
+    )
     period_data["square_feet_imputed"] = period_data["square_feet_imputed"].fillna(
         period_data["square_feet"].median()
     )
@@ -121,21 +119,35 @@ def fit_model(
     with pm.Model(coords=coords) as model:
         period_idx = pm.Data("period_idx", data["period_idx"].to_numpy(), dims="obs_id")
         unit_idx = pm.Data("unit_idx", data["unit_idx"].to_numpy(), dims="obs_id")
-        furnished = pm.Data("furnished", data["is_furnished"].astype(float).to_numpy(), dims="obs_id")
-        one_bed = pm.Data("one_bed", (data["bedrooms"] == 1).astype(float).to_numpy(), dims="obs_id")
-        two_bed = pm.Data("two_bed", (data["bedrooms"] >= 2).astype(float).to_numpy(), dims="obs_id")
+        furnished = pm.Data(
+            "furnished", data["is_furnished"].astype(float).to_numpy(), dims="obs_id"
+        )
+        has_first_bedroom = pm.Data(
+            "has_first_bedroom",
+            (data["bedrooms"] >= 1).astype(float).to_numpy(),
+            dims="obs_id",
+        )
+        has_second_bedroom = pm.Data(
+            "has_second_bedroom",
+            (data["bedrooms"] >= 2).astype(float).to_numpy(),
+            dims="obs_id",
+        )
         log_sqft_z = pm.Data("log_sqft_z", data["log_sqft_z"].to_numpy(), dims="obs_id")
-        sqft_missing = pm.Data("sqft_missing", data["sqft_missing"].to_numpy(), dims="obs_id")
+        sqft_missing = pm.Data(
+            "sqft_missing", data["sqft_missing"].to_numpy(), dims="obs_id"
+        )
 
         alpha = pm.Normal("alpha", mu=np.log(5500), sigma=0.7)
         beta_furnished = pm.Normal("beta_furnished", mu=0.15, sigma=0.25)
-        beta_one_bed = pm.Normal("beta_one_bed", mu=0.25, sigma=0.3)
-        beta_two_bed = pm.Normal("beta_two_bed", mu=0.55, sigma=0.35)
+        beta_first_bedroom = pm.Normal("beta_first_bedroom", mu=0.2, sigma=0.3)
+        beta_second_bedroom = pm.Normal("beta_second_bedroom", mu=0.1, sigma=0.25)
         beta_log_sqft = pm.Normal("beta_log_sqft", mu=0.5, sigma=0.3)
         beta_sqft_missing = pm.Normal("beta_sqft_missing", mu=0, sigma=0.15)
 
         sigma_rw = pm.HalfNormal("sigma_rw", sigma=FREQUENCIES[frequency]["rw_prior"])
-        rw_steps = pm.Normal("building_rw_steps", mu=0, sigma=sigma_rw, dims="trend_step")
+        rw_steps = pm.Normal(
+            "building_rw_steps", mu=0, sigma=sigma_rw, dims="trend_step"
+        )
         building_trend = pm.Deterministic(
             "building_trend",
             pt.concatenate([pt.zeros(1), pt.cumsum(rw_steps)]),
@@ -151,18 +163,26 @@ def fit_model(
             alpha
             + building_trend[period_idx]
             + beta_furnished * furnished
-            + beta_one_bed * one_bed
-            + beta_two_bed * two_bed
+            + beta_first_bedroom * has_first_bedroom
+            + beta_second_bedroom * has_second_bedroom
             + beta_log_sqft * log_sqft_z
             + beta_sqft_missing * sqft_missing
             + unit_effect[unit_idx]
         )
-        pm.StudentT("log_rent", nu=5, mu=mu, sigma=sigma, observed=data["log_rent"], dims="obs_id")
+        pm.StudentT(
+            "log_rent",
+            nu=5,
+            mu=mu,
+            sigma=sigma,
+            observed=data["log_rent"],
+            dims="obs_id",
+        )
         inference = pm.sample(
             draws=draws,
             tune=tune,
             chains=chains,
             cores=min(chains, 4),
+            nuts_sampler="nutpie",
             target_accept=0.92,
             random_seed=150130,
             progressbar=False,
@@ -184,19 +204,70 @@ def save_outputs(
 
     trend = inference.posterior["building_trend"].values.reshape(-1, len(periods))
     index_samples = 100 * np.exp(trend)
-    prediction = pd.DataFrame({
-        "period": periods,
-        "index_median": np.median(index_samples, axis=0),
-        "index_lower": np.quantile(index_samples, 0.025, axis=0),
-        "index_upper": np.quantile(index_samples, 0.975, axis=0),
-    })
+    prediction = pd.DataFrame(
+        {
+            "period": periods,
+            "index_median": np.median(index_samples, axis=0),
+            "index_lower": np.quantile(index_samples, 0.025, axis=0),
+            "index_upper": np.quantile(index_samples, 0.975, axis=0),
+        }
+    )
     prediction.to_parquet(output_dir / "index.parquet", index=False)
 
-    furnished = inference.posterior["beta_furnished"].values.reshape(-1)
+    posterior = inference.posterior
+    furnished = posterior["beta_furnished"].values.reshape(-1)
     premium = 100 * (np.exp(furnished) - 1)
+    first_bedroom = posterior["beta_first_bedroom"].values.reshape(-1)
+    second_bedroom = posterior["beta_second_bedroom"].values.reshape(-1)
+    bedroom_effects = {
+        "first_bedroom": 100 * (np.exp(first_bedroom) - 1),
+        "second_bedroom_increment": 100 * (np.exp(second_bedroom) - 1),
+        "two_bedroom_vs_studio": 100 * (np.exp(first_bedroom + second_bedroom) - 1),
+    }
+
+    # Adjusted dollar trajectories use each bedroom group's typical square
+    # footage, an unfurnished listing, observed square footage, and zero unit effect.
+    unit_characteristics = (
+        data.sort_values("period").groupby("unit", as_index=False).first()
+    )
+    alpha = posterior["alpha"].values.reshape(-1, 1)
+    beta_size = posterior["beta_log_sqft"].values.reshape(-1, 1)
+    bedroom_rows = []
+    for bedrooms, name in [(1, "1 BR"), (2, "2 BR")]:
+        group = unit_characteristics[unit_characteristics["bedrooms"] == bedrooms]
+        typical_sqft = float(group["square_feet_imputed"].median())
+        typical_log_sqft_z = float(group["log_sqft_z"].median())
+        bedroom_term = first_bedroom.reshape(-1, 1)
+        if bedrooms == 2:
+            bedroom_term = bedroom_term + second_bedroom.reshape(-1, 1)
+        price_samples = np.exp(
+            alpha + trend + bedroom_term + beta_size * typical_log_sqft_z
+        )
+        for index, period in enumerate(periods):
+            bedroom_rows.append(
+                {
+                    "period": period,
+                    "bedroom_group": name,
+                    "typical_square_feet": typical_sqft,
+                    "price_median": float(np.median(price_samples[:, index])),
+                    "price_lower": float(np.quantile(price_samples[:, index], 0.025)),
+                    "price_upper": float(np.quantile(price_samples[:, index], 0.975)),
+                }
+            )
+    pd.DataFrame(bedroom_rows).to_parquet(
+        output_dir / "bedroom_prices.parquet", index=False
+    )
+
     diagnostics = az.summary(
         inference,
-        var_names=["beta_furnished", "sigma_rw", "sigma_unit", "sigma"],
+        var_names=[
+            "beta_furnished",
+            "beta_first_bedroom",
+            "beta_second_bedroom",
+            "sigma_rw",
+            "sigma_unit",
+            "sigma",
+        ],
         kind="diagnostics",
     )
     label = FREQUENCIES[frequency]["label"]
@@ -214,13 +285,24 @@ def save_outputs(
             "lower_95": float(np.quantile(premium, 0.025)),
             "upper_95": float(np.quantile(premium, 0.975)),
         },
+        "bedroom_premiums_percent": {
+            name: {
+                "median": float(np.median(samples)),
+                "lower_95": float(np.quantile(samples, 0.025)),
+                "upper_95": float(np.quantile(samples, 0.975)),
+            }
+            for name, samples in bedroom_effects.items()
+        },
         "max_rhat": float(diagnostics["r_hat"].max()),
         "min_ess_bulk": float(diagnostics["ess_bulk"].min()),
+        "sampler": "nutpie",
+        "divergences": int(inference.sample_stats["diverging"].sum().item()),
         "assumptions": [
             f"One median asking-rent observation per unit-{label}.",
             "Furnished status begins at each unit's first explicit 'Listed by The Blueground' event; uncertain transfer windows are excluded.",
             f"The {frequency} building trend is a Gaussian random walk anchored at 100 in the first post-cutoff {label}.",
-            "Bedroom count, imputed square footage, missing-square-footage status, and unit random effects are controls.",
+            "Cumulative >=1-bedroom and >=2-bedroom indicators estimate the first and incremental second bedroom premiums.",
+            "Imputed square footage, missing-square-footage status, and unit random effects are controls.",
         ],
     }
     (output_dir / "metadata.json").write_text(json.dumps(metadata, indent=2))
@@ -243,7 +325,9 @@ def main() -> None:
         f"over {len(periods)} {label}s; "
         f"{data.loc[data.is_furnished, 'unit'].nunique()} furnished units."
     )
-    inference = fit_model(data, periods, args.frequency, args.draws, args.tune, args.chains)
+    inference = fit_model(
+        data, periods, args.frequency, args.draws, args.tune, args.chains
+    )
     save_outputs(inference, data, periods, args.frequency, output)
     print(f"Saved model outputs to {output}")
 

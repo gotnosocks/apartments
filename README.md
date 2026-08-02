@@ -46,18 +46,18 @@ comparisons, unit detail, and data-quality views. Units `7` and `8` are excluded
 
 ## Bayesian model
 
-The primary PyMC model uses observations from May 2019 onward, aggregates to one
-median asking rent per unit-week, and estimates a latent weekly building trend
-with 95% credible intervals. A separate monthly model is retained as a sensitivity
-test. Historical furnished eras begin at the first explicit
+The PyMC model uses observations from May 2019 onward, aggregates to one median
+asking rent per unit-week, and estimates a latent weekly building trend with
+95% credible intervals. Historical furnished eras begin at the first explicit
 `Listed by The Blueground` event; uncertain management-to-Blueground transition
-windows are omitted. The model includes controls for bedrooms, square footage,
-missing square footage, and unit random effects.
+windows are omitted. Cumulative indicators estimate the first-bedroom and
+incremental second-bedroom premiums. The model also controls for square footage,
+missing square footage, and unit random effects. Sampling uses Nutpie's NUTS
+backend with four chains.
 
 ```bash
 uv sync --extra app --extra model
 uv run python models/rent_model.py --frequency weekly
-uv run python models/rent_model.py --frequency monthly
 ```
 
 Outputs are written to `data/model/` and displayed in the Streamlit **Bayesian
