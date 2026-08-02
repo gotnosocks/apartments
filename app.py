@@ -66,12 +66,13 @@ def load_furnishing_periods(db_path: str, modified_ns: int) -> pd.DataFrame:
 
 
 @st.cache_data(show_spinner=False)
-def load_model_outputs(modified_ns: int) -> tuple[pd.DataFrame, dict]:
+def load_model_outputs(model_dir: str, modified_ns: int) -> tuple[pd.DataFrame, dict]:
     del modified_ns
-    monthly = pd.read_parquet(MODEL_DIR / "monthly_index.parquet")
-    monthly["month"] = pd.to_datetime(monthly["month"])
-    metadata = json.loads((MODEL_DIR / "metadata.json").read_text())
-    return monthly, metadata
+    path = Path(model_dir)
+    index = pd.read_parquet(path / "index.parquet")
+    index["period"] = pd.to_datetime(index["period"])
+    metadata = json.loads((path / "metadata.json").read_text())
+    return index, metadata
 
 
 def bedroom_label(value) -> str:
@@ -213,22 +214,24 @@ with trend_tab:
     st.dataframe(yearly, use_container_width=True, hide_index=True)
 
 with model_tab:
-    st.subheader("Bayesian monthly building rent index")
+    st.subheader("Bayesian weekly building rent index")
     with st.expander("Model explainer and equations", expanded=False):
         st.markdown(
             """
             ### Goal
 
-            The model estimates a shared monthly rent level for The Sierra Chelsea while
-            adjusting for differences among the apartments observed in each month. It uses
+            The primary model estimates a shared weekly rent level for The Sierra Chelsea,
+            while an otherwise equivalent monthly model serves as a sensitivity test. Both adjust
+            for differences among the apartments observed in each period. The models use
             StreetEasy **asking rents**, not signed lease rents. Data before May 2019 is excluded.
 
             To stop frequently repriced furnished listings from dominating the fit, all events
-            for the same unit and calendar month are reduced to one median asking rent.
+            for the same unit and calendar week are reduced to one median asking rent in the
+            primary model. The sensitivity model uses one median per unit-month.
 
             ### Observation model
 
-            Let $y_{i,t}$ be the logarithm of the median asking rent for unit $i$ in month $t$.
+            Let $y_{i,t}$ be the logarithm of the median asking rent for unit $i$ in week $t$.
             A simplified version of the fitted model is:
             """
         )
@@ -244,7 +247,7 @@ with model_tab:
             r"""
             Where:
 
-            - $B_t$ is the building-wide rent factor for month $t$.
+            - $B_t$ is the building-wide rent factor for week $t$ in the primary model.
             - $F_{i,t}$ is 1 after that unit's first explicit `Listed by The Blueground`
               event and 0 during earlier conventionally managed listing periods. Uncertain transfer
               windows are omitted from model training.
@@ -258,7 +261,8 @@ with model_tab:
 
             ### Evolution of the building factor
 
-            The building factor follows a monthly Gaussian random walk:
+            The building factor follows a weekly Gaussian random walk. The monthly sensitivity
+            model uses the same equation at a monthly time step:
             """
         )
         st.latex(r"B_0 = 0")
@@ -269,7 +273,7 @@ with model_tab:
         st.latex(r"u_i \sim \mathcal{N}(0,\sigma_{\mathrm{unit}})")
         st.markdown(
             "This allows adjacent months to be similar without forcing the trend to be linear. "
-            "The displayed building index is anchored at 100 in May 2019:"
+            "The displayed building index is anchored at 100 in the first period containing May 2019:"
         )
         st.latex(r"\mathrm{Index}_t = 100\,\exp(B_t)")
         st.markdown("The furnished coefficient is converted from log-rent units into a percentage:")
@@ -278,9 +282,9 @@ with model_tab:
             """
             ### Uncertainty
 
-            PyMC samples from the joint posterior distribution of all coefficients, monthly
+            PyMC samples from the joint posterior distribution of all coefficients, weekly
             factors, unit effects, and variance parameters. The shaded band is the 2.5th–97.5th
-            posterior percentile for each monthly index value. It reflects model and sampling
+            posterior percentile for each weekly index value. It reflects model and sampling
             uncertainty, but not every possible source of data error.
 
             ### Important limitations
@@ -289,52 +293,76 @@ with model_tab:
               marketing evidence, but it does not prove who held the underlying lease or identify
               the exact date furniture was installed.
             - StreetEasy history is selected listing data and may omit off-platform rentals.
-            - Repeated monthly observations from the same unit are correlated; the unit random
+            - Repeated weekly observations from the same unit are correlated; the unit random
               effect handles persistent correlation, but not every time-varying unit difference.
             - The index is composition-adjusted by the listed controls, but it is not a formal
               market or signed-lease index.
             """
         )
 
-    if not (MODEL_DIR / "monthly_index.parquet").exists():
-        st.info("Run `uv run python models/rent_model.py` to fit the model.")
+    weekly_dir = MODEL_DIR / "weekly"
+    monthly_dir = MODEL_DIR / "monthly"
+    if not (weekly_dir / "index.parquet").exists():
+        st.info("Run `uv run python models/rent_model.py --frequency weekly` to fit the primary model.")
     else:
-        model_mtime = max(
-            (MODEL_DIR / "monthly_index.parquet").stat().st_mtime_ns,
-            (MODEL_DIR / "metadata.json").stat().st_mtime_ns,
+        weekly_mtime = max(
+            (weekly_dir / "index.parquet").stat().st_mtime_ns,
+            (weekly_dir / "metadata.json").stat().st_mtime_ns,
         )
-        model_index, model_metadata = load_model_outputs(model_mtime)
+        weekly_index, weekly_metadata = load_model_outputs(str(weekly_dir), weekly_mtime)
+        monthly_available = (monthly_dir / "index.parquet").exists()
+        if monthly_available:
+            monthly_mtime = max(
+                (monthly_dir / "index.parquet").stat().st_mtime_ns,
+                (monthly_dir / "metadata.json").stat().st_mtime_ns,
+            )
+            monthly_index, monthly_metadata = load_model_outputs(str(monthly_dir), monthly_mtime)
+
         fig = go.Figure()
         fig.add_trace(go.Scatter(
-            x=model_index["month"], y=model_index["index_upper"],
+            x=weekly_index["period"], y=weekly_index["index_upper"],
             mode="lines", line={"width": 0}, hoverinfo="skip", showlegend=False,
         ))
         fig.add_trace(go.Scatter(
-            x=model_index["month"], y=model_index["index_lower"],
+            x=weekly_index["period"], y=weekly_index["index_lower"],
             mode="lines", line={"width": 0}, fill="tonexty",
-            fillcolor="rgba(22,77,180,0.18)", name="95% credible interval",
+            fillcolor="rgba(22,77,180,0.18)", name="Weekly 95% credible interval",
         ))
         fig.add_trace(go.Scatter(
-            x=model_index["month"], y=model_index["index_median"],
-            mode="lines", line={"color": "#164db4", "width": 3}, name="Posterior median",
+            x=weekly_index["period"], y=weekly_index["index_median"],
+            mode="lines", line={"color": "#164db4", "width": 2}, name="Weekly posterior median",
         ))
+        if monthly_available:
+            fig.add_trace(go.Scatter(
+                x=monthly_index["period"], y=monthly_index["index_median"],
+                mode="lines+markers", line={"color": "#d97706", "width": 2, "dash": "dash"},
+                marker={"size": 4}, name="Monthly sensitivity median",
+            ))
         fig.add_hline(y=100, line_dash="dot", line_color="gray")
         fig.update_layout(
-            xaxis_title="Month", yaxis_title="Rent index (May 2019 = 100)",
-            height=560, hovermode="x unified",
+            xaxis_title="Date", yaxis_title="Rent index (first post-cutoff period = 100)",
+            height=590, hovermode="x unified",
         )
         st.plotly_chart(fig, use_container_width=True)
 
-        premium = model_metadata["furnished_premium_percent"]
+        premium = weekly_metadata["furnished_premium_percent"]
         c1, c2, c3, c4 = st.columns(4)
-        c1.metric("Furnished effect", f"{premium['median']:+.1f}%")
-        c2.metric("95% interval", f"{premium['lower_95']:+.1f}% to {premium['upper_95']:+.1f}%")
-        c3.metric("Unit-month observations", f"{model_metadata['observations']:,}")
-        c4.metric("Units", model_metadata["units"])
+        c1.metric("Weekly furnished effect", f"{premium['median']:+.1f}%")
+        c2.metric("Weekly 95% interval", f"{premium['lower_95']:+.1f}% to {premium['upper_95']:+.1f}%")
+        c3.metric("Unit-week observations", f"{weekly_metadata['observations']:,}")
+        c4.metric("Units", weekly_metadata["units"])
+        if monthly_available:
+            monthly_premium = monthly_metadata["furnished_premium_percent"]
+            st.info(
+                f"Monthly sensitivity: furnished effect {monthly_premium['median']:+.1f}% "
+                f"(95% interval {monthly_premium['lower_95']:+.1f}% to "
+                f"{monthly_premium['upper_95']:+.1f}%) from "
+                f"{monthly_metadata['observations']:,} unit-month observations."
+            )
         st.caption(
-            f"PyMC Student-t model using data from {model_metadata['cutoff']} onward. "
-            "The latent monthly building factor follows a Gaussian random walk. Controls include "
-            "bedroom count, square footage, missing square footage, and unit random effects."
+            f"PyMC Student-t models using data from {weekly_metadata['cutoff']} onward. "
+            "The weekly random-walk innovation prior is scaled tighter than the monthly prior. "
+            "Both models use the same apartment controls and unit random effects."
         )
         st.warning(
             "Historical furnishing is inferred from the first explicit 'Listed by The Blueground' "
@@ -349,7 +377,11 @@ with model_tab:
                 "Unknown transition periods are excluded from model fitting."
             )
         with st.expander("Model assumptions and diagnostics"):
-            st.json(model_metadata)
+            st.markdown("**Weekly primary model**")
+            st.json(weekly_metadata)
+            if monthly_available:
+                st.markdown("**Monthly sensitivity model**")
+                st.json(monthly_metadata)
 
 with latest_tab:
     st.subheader("Latest observed asking rent for each unit")
