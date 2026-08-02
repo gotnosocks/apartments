@@ -54,9 +54,9 @@ from January 2022 onward, aggregates to one median asking rent per building-unit
 and estimates a shared latent weekly local trend with 95% credible intervals plus
 time-constant adjusted building offsets. Every unit with any confirmed Blueground furnished period
 is excluded entirely, including its earlier conventional-rental history; the model
-therefore has no furnished covariate. Cumulative indicators estimate the first-bedroom and
-incremental second-bedroom premiums. Floor effects cumulatively sum adjacent-level
-changes under a shared shrinkage prior. Marketed and physical floor numbers are
+therefore has no furnished covariate. Cumulative indicators estimate incremental bedroom
+premiums. One physical-floor curve is shared completely across all buildings and
+cumulatively sums adjacent-level changes under a shared shrinkage prior. Marketed and physical floor numbers are
 stored separately: because Sierra has no marketed floor 13, marketed floors 14 and
 15 map to physical floors 13 and 14. The same building configuration classifies
 Sierra A–J as garden-facing, K as both-facing, and L onward as street-facing

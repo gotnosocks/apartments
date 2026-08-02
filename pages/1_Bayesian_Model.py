@@ -76,7 +76,7 @@ with st.expander("Model explainer and equations", expanded=False):
           with garden exposure.
         - $K_i$ identifies Sierra's K stack, estimating its both-facing deviation from the midpoint
           of the garden-only and skyline-only groups. Frontage is neutral for the other buildings.
-        - $A_{f(i)}$ is a building-specific cumulative physical-floor effect. Sierra skips
+        - $A_{f(i)}$ is one cumulative physical-floor effect shared completely by all buildings. Sierra skips
           marketed floor 13, so marketed floor 14 is physical floor 13 and PH is physical floor 14.
         - $u_i$ is a unit-specific adjustment for persistent unmeasured differences such as
           layout, light, exposure, renovations, or floor.
@@ -94,7 +94,7 @@ with st.expander("Model explainer and equations", expanded=False):
         r"\epsilon_t \sim \mathcal{N}(0,\sigma_B)"
     )
     st.latex(r"u_i \sim \mathcal{N}(0,\sigma_{\mathrm{unit}})")
-    st.markdown("Physical floor 3 is anchored at zero in all three buildings. Other levels accumulate shrunk adjacent-floor changes:")
+    st.markdown("One shared floor curve is anchored at physical floor 3. Other levels accumulate shrunk adjacent-floor changes:")
     st.latex(
         r"A_{f_0}=0,\qquad A_{f_j}=A_{f_{j-1}}+\delta_j,\qquad "
         r"\delta_j\sim\mathcal{N}(0,\sigma_{\mathrm{floor}})"
@@ -153,7 +153,17 @@ else:
     )
     selected_building_name = building_names[selected_building]
     bedroom_prices = bedroom_prices[bedroom_prices["building_slug"] == selected_building]
-    floor_effects = floor_effects[floor_effects["building_slug"] == selected_building]
+    shared_floor_effects = (
+        floor_effects.groupby("physical_floor", as_index=False)
+        .agg(
+            cumulative_median=("cumulative_median", "first"),
+            cumulative_lower=("cumulative_lower", "first"),
+            cumulative_upper=("cumulative_upper", "first"),
+            increment_median=("increment_median", "first"),
+            units=("units", "sum"),
+        )
+        .sort_values("physical_floor")
+    )
     observation_diagnostics = observation_diagnostics[
         observation_diagnostics["building_slug"] == selected_building
     ]
@@ -223,23 +233,23 @@ else:
         f"sizes are {size_description}. Bands are 95% credible intervals."
     )
 
-    st.subheader(f"Cumulative floor premium — {selected_building_name}")
+    st.subheader("Shared cumulative physical-floor premium")
     floor_fig = go.Figure(go.Scatter(
-        x=floor_effects["physical_floor"],
-        y=floor_effects["cumulative_median"],
+        x=shared_floor_effects["physical_floor"],
+        y=shared_floor_effects["cumulative_median"],
         mode="lines+markers",
         line={"color": "#6f42c1", "width": 2},
         marker={"size": 8},
         error_y={
             "type": "data",
             "symmetric": False,
-            "array": floor_effects["cumulative_upper"] - floor_effects["cumulative_median"],
-            "arrayminus": floor_effects["cumulative_median"] - floor_effects["cumulative_lower"],
+            "array": shared_floor_effects["cumulative_upper"] - shared_floor_effects["cumulative_median"],
+            "arrayminus": shared_floor_effects["cumulative_median"] - shared_floor_effects["cumulative_lower"],
             "color": "rgba(111,66,193,0.55)",
         },
-        customdata=floor_effects[["floor_label", "units", "increment_median"]],
+        customdata=shared_floor_effects[["physical_floor", "units", "increment_median"]],
         hovertemplate=(
-            "Floor %{customdata[0]}<br>Cumulative premium: %{y:.1f}%"
+            "Physical floor %{customdata[0]}<br>Cumulative premium: %{y:.1f}%"
             "<br>Units: %{customdata[1]}"
             "<br>Change from lower level: %{customdata[2]:+.1f}%<extra></extra>"
         ),
@@ -247,28 +257,24 @@ else:
     floor_fig.add_hline(y=0, line_dash="dot", line_color="gray")
     floor_fig.update_layout(
         xaxis={
-            "title": "Marketed floor",
+            "title": "Physical floor",
             "tickmode": "array",
-            "tickvals": floor_effects["physical_floor"].tolist(),
-            "ticktext": floor_effects["floor_label"].tolist(),
+            "tickvals": shared_floor_effects["physical_floor"].tolist(),
             "range": [
-                floor_effects["physical_floor"].min() - 0.4,
-                floor_effects["physical_floor"].max() + 0.4,
+                shared_floor_effects["physical_floor"].min() - 0.4,
+                shared_floor_effects["physical_floor"].max() + 0.4,
             ],
         },
         yaxis_title="Premium relative to floor 3",
         yaxis_ticksuffix="%", height=480,
     )
     st.plotly_chart(floor_fig, use_container_width=True)
-    floor_note = (
-        " For Sierra, the axis retains marketed labels: floor 14 is physical floor 13 and PH "
-        "is physical floor 14."
-        if selected_building == "the-sierra-chelsea" else ""
-    )
     st.caption(
-        "Each point is the cumulative sum of posterior changes from lower physical floors. "
-        "The shared floor-change scale shrinks neighboring levels toward similar rents."
-        + floor_note + " Error bars are 95% credible intervals."
+        "This is one floor curve shared completely by all three buildings, not a separate "
+        "estimate for the selected building. Each point cumulatively sums adjacent physical-floor "
+        "changes, which are shrunk toward zero; unit counts are totals across buildings. Floor 3 "
+        "is the reference. Sierra marketed floor 14 is physical floor 13 and PH is physical "
+        "floor 14. Error bars are 95% credible intervals."
     )
 
     if selected_building == "the-sierra-chelsea":

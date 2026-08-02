@@ -151,32 +151,17 @@ def fit_model(
     chains: int,
 ):
     unit_names = sorted(data["unit_key"].unique())
-    floor_groups = {
-        building: sorted(group["physical_floor"].unique())
-        for building, group in data.groupby("building_slug")
-    }
-    floor_cells = [
-        (building, floor)
-        for building in BUILDINGS
-        for floor in floor_groups[building]
-    ]
-    floor_steps = [
-        (building, floor)
-        for building in BUILDINGS
-        for floor in floor_groups[building][1:]
-    ]
-    floor_lookup = {cell: index for index, cell in enumerate(floor_cells)}
-    floor_indices = np.array([
-        floor_lookup[(building, floor)]
-        for building, floor in zip(data["building_slug"], data["physical_floor"])
-    ])
+    floor_levels = sorted(data["physical_floor"].unique())
+    floor_steps = floor_levels[1:]
+    floor_lookup = {floor: index for index, floor in enumerate(floor_levels)}
+    floor_indices = data["physical_floor"].map(floor_lookup).to_numpy()
     coords = {
         "obs_id": np.arange(len(data)),
         "period": periods.strftime("%Y-%m-%d").tolist(),
         "trend_step": periods.strftime("%Y-%m-%d").tolist()[1:],
         "building": list(BUILDINGS),
-        "floor_cell": [f"{building}:{floor}" for building, floor in floor_cells],
-        "floor_step": [f"{building}:{floor}" for building, floor in floor_steps],
+        "floor_level": floor_levels,
+        "floor_step": floor_steps,
         "unit": unit_names,
     }
     with pm.Model(coords=coords) as model:
@@ -239,24 +224,19 @@ def fit_model(
             dims="period",
         )
 
-        # Each level's effect is the cumulative sum of adjacent-floor changes.
-        # A shared innovation scale shrinks those changes toward zero.
+        # Every building uses the same cumulative effect at a given physical floor.
+        # A shared innovation scale shrinks adjacent-floor changes toward zero.
         sigma_floor = pm.HalfNormal("sigma_floor", sigma=0.03)
         floor_change_z = pm.Normal("floor_change_z", mu=0, sigma=1, dims="floor_step")
         floor_changes = pm.Deterministic(
             "floor_changes", floor_change_z * sigma_floor, dims="floor_step"
         )
-        floor_effect_blocks = []
-        step_offset = 0
-        for building in BUILDINGS:
-            step_count = len(floor_groups[building]) - 1
-            building_changes = floor_changes[step_offset:step_offset + step_count]
-            raw_floor_effect = pt.concatenate([pt.zeros(1), pt.cumsum(building_changes)])
-            reference_index = floor_groups[building].index(FLOOR_REFERENCES[building])
-            floor_effect_blocks.append(raw_floor_effect - raw_floor_effect[reference_index])
-            step_offset += step_count
+        raw_floor_effect = pt.concatenate([pt.zeros(1), pt.cumsum(floor_changes)])
+        reference_index = floor_levels.index(3)
         floor_effect = pm.Deterministic(
-            "floor_effect", pt.concatenate(floor_effect_blocks), dims="floor_cell"
+            "floor_effect",
+            raw_floor_effect - raw_floor_effect[reference_index],
+            dims="floor_level",
         )
 
         sigma_unit = pm.HalfNormal("sigma_unit", sigma=0.25)
@@ -344,19 +324,11 @@ def save_outputs(
         "both_vs_single_facing_midpoint": 100 * (np.exp(both_facing) - 1),
     }
 
-    floor_groups = {
-        building: sorted(group["physical_floor"].unique())
-        for building, group in data.groupby("building_slug")
-    }
-    floor_cells = [
-        (building, floor)
-        for building in BUILDINGS
-        for floor in floor_groups[building]
-    ]
-    floor_lookup = {cell: index for index, cell in enumerate(floor_cells)}
-    floor_effect_samples = posterior["floor_effect"].values.reshape(-1, len(floor_cells))
+    floor_levels = sorted(data["physical_floor"].unique())
+    floor_lookup = {floor: index for index, floor in enumerate(floor_levels)}
+    floor_effect_samples = posterior["floor_effect"].values.reshape(-1, len(floor_levels))
     floor_change_samples = posterior["floor_changes"].values.reshape(
-        -1, len(floor_cells) - len(BUILDINGS)
+        -1, len(floor_levels) - 1
     )
     unit_counts_by_floor = data.groupby(["building_slug", "physical_floor"])["unit"].nunique()
     floor_characteristics = data.groupby(["building_slug", "physical_floor"]).agg(
@@ -364,41 +336,40 @@ def save_outputs(
         is_penthouse=("unit_format", lambda values: (values == "penthouse").any()),
     )
     floor_rows = []
-    change_index = 0
-    for index, (building, floor) in enumerate(floor_cells):
-        building_floor_index = floor_groups[building].index(floor)
-        cumulative = 100 * (np.exp(floor_effect_samples[:, index]) - 1)
-        if building_floor_index == 0:
-            change = np.zeros(floor_effect_samples.shape[0])
-        else:
-            change = 100 * (np.exp(floor_change_samples[:, change_index]) - 1)
-            change_index += 1
-        characteristics = floor_characteristics.loc[(building, floor)]
-        floor_rows.append({
-            "building_slug": building,
-            "building_name": BUILDINGS[building],
-            "physical_floor": int(floor),
-            "marketed_floor": int(characteristics["marketed_floor"]),
-            "floor_label": (
-                "PH" if characteristics["is_penthouse"]
-                else str(int(characteristics["marketed_floor"]))
-            ),
-            "units": int(unit_counts_by_floor.get((building, floor), 0)),
-            "cumulative_median": float(np.median(cumulative)),
-            "cumulative_lower": float(np.quantile(cumulative, 0.025)),
-            "cumulative_upper": float(np.quantile(cumulative, 0.975)),
-            "increment_median": float(np.median(change)),
-            "increment_lower": float(np.quantile(change, 0.025)),
-            "increment_upper": float(np.quantile(change, 0.975)),
-        })
+    for building in BUILDINGS:
+        building_floors = sorted(
+            data.loc[data["building_slug"] == building, "physical_floor"].unique()
+        )
+        for floor in building_floors:
+            floor_index = floor_lookup[floor]
+            cumulative = 100 * (np.exp(floor_effect_samples[:, floor_index]) - 1)
+            if floor_index == 0:
+                change = np.zeros(floor_effect_samples.shape[0])
+            else:
+                change = 100 * (np.exp(floor_change_samples[:, floor_index - 1]) - 1)
+            characteristics = floor_characteristics.loc[(building, floor)]
+            floor_rows.append({
+                "building_slug": building,
+                "building_name": BUILDINGS[building],
+                "physical_floor": int(floor),
+                "marketed_floor": int(characteristics["marketed_floor"]),
+                "floor_label": (
+                    "PH" if characteristics["is_penthouse"]
+                    else str(int(characteristics["marketed_floor"]))
+                ),
+                "units": int(unit_counts_by_floor.get((building, floor), 0)),
+                "cumulative_median": float(np.median(cumulative)),
+                "cumulative_lower": float(np.quantile(cumulative, 0.025)),
+                "cumulative_upper": float(np.quantile(cumulative, 0.975)),
+                "increment_median": float(np.median(change)),
+                "increment_lower": float(np.quantile(change, 0.025)),
+                "increment_upper": float(np.quantile(change, 0.975)),
+            })
     pd.DataFrame(floor_rows).to_parquet(output_dir / "floor_effects.parquet", index=False)
 
     # In-sample observation diagnostics. The tail probability integrates the
     # Student-t CDF over posterior parameter draws; it is not a leave-one-out score.
-    observation_floor_idx = np.array([
-        floor_lookup[(building, floor)]
-        for building, floor in zip(data["building_slug"], data["physical_floor"])
-    ])
+    observation_floor_idx = data["physical_floor"].map(floor_lookup).to_numpy()
     observation_mu = (
         posterior["alpha"].values.reshape(-1, 1)
         + trend[:, data["period_idx"].to_numpy()]
@@ -465,7 +436,7 @@ def save_outputs(
             unit_characteristics["building_slug"] == building
         ]
         reference_floor = reference_floors[building]
-        reference_floor_index = floor_lookup[(building, reference_floor)]
+        reference_floor_index = floor_lookup[reference_floor]
         reference_floor_term = floor_effect_samples[:, reference_floor_index].reshape(-1, 1)
         building_term = building_offset_samples[:, building_index].reshape(-1, 1)
         for bedrooms in sorted(building_units["bedrooms"].unique()):
@@ -581,7 +552,7 @@ def save_outputs(
             f"A shared three-building {frequency} market trend is a Gaussian random walk anchored at 100 in the first post-cutoff {label}.",
             "Stonehenge Gardens and 101 W 15th each have a time-constant adjusted offset relative to The Sierra Chelsea.",
             "Cumulative >=1-bedroom, >=2-bedroom, and >=3-bedroom indicators estimate incremental bedroom premiums.",
-            "Physical floor 3 is the floor-effect baseline in both buildings; other floors cumulatively sum shrunk adjacent-level changes.",
+            "One completely shared physical-floor curve applies to all buildings, anchored at floor 3 and formed by cumulative shrunk adjacent-level changes.",
             "Marketed floors 14 and 15 map to physical floors 13 and 14 because the building has no marketed floor 13.",
             "For Sierra, suffixes A-J are garden-facing, K faces both directions, and L onward are street-facing (marketed as skyline).",
             "Sierra facing is effect-coded as skyline versus garden plus a both-facing deviation; frontage is neutral for the other buildings.",
