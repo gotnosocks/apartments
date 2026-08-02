@@ -1,34 +1,15 @@
 import json
 from pathlib import Path
 
-import duckdb
 import pandas as pd
 import plotly.graph_objects as go
 import streamlit as st
 
-DEFAULT_DB = Path("data/apartments.duckdb")
-BUILDING_SLUG = "the-sierra-chelsea"
 MODEL_DIR = Path("data/model")
 
 st.set_page_config(page_title="Sierra Chelsea Bayesian model", page_icon="📈", layout="wide")
 st.title("The Sierra Chelsea — Bayesian rent model")
 st.caption("Weekly composition-adjusted StreetEasy asking-rent analysis with posterior uncertainty.")
-
-
-@st.cache_data(show_spinner=False)
-def load_furnishing_periods(db_path: str, modified_ns: int) -> pd.DataFrame:
-    del modified_ns
-    connection = duckdb.connect(db_path, read_only=True)
-    periods = connection.execute(
-        """SELECT unit, starts_on, ends_on, furnishing_status, operator,
-                  confidence, evidence
-           FROM unit_furnishing_periods
-           WHERE source='streeteasy' AND building_slug=?
-           ORDER BY unit, starts_on""",
-        [BUILDING_SLUG],
-    ).df()
-    connection.close()
-    return periods
 
 
 @st.cache_data(show_spinner=False)
@@ -48,12 +29,6 @@ def load_model_outputs(
     return index, bedroom_prices, floor_effects, observation_diagnostics, metadata
 
 
-db_input = st.sidebar.text_input("DuckDB path", str(DEFAULT_DB))
-db_path = Path(db_input)
-if not db_path.exists():
-    st.error(f"Database not found: {db_path}")
-    st.stop()
-
 st.subheader("Bayesian weekly building rent index")
 with st.expander("Model explainer and equations", expanded=False):
     st.markdown(
@@ -64,8 +39,9 @@ with st.expander("Model explainer and equations", expanded=False):
         for differences among the apartments observed in each week. It uses
         StreetEasy **asking rents**, not signed lease rents. Data before May 2019 is excluded.
 
-        To stop frequently repriced furnished listings from dominating the fit, all events
-        for the same unit and calendar week are reduced to one median asking rent.
+        Every unit with a confirmed Blueground furnished period is excluded from the model,
+        including its earlier history. For the remaining units, all events in the same calendar
+        week are reduced to one median asking rent.
 
         ### Observation model
 
@@ -77,7 +53,7 @@ with st.expander("Model explainer and equations", expanded=False):
         r"y_{i,t} \sim \operatorname{StudentT}(\nu=5,\, \mu_{i,t},\, \sigma)"
     )
     st.latex(
-        r"\mu_{i,t} = \alpha + B_t + \beta_F F_{i,t}"
+        r"\mu_{i,t} = \alpha + B_t"
         r" + \gamma_1 I(\mathrm{BR}_i\ge1) + \gamma_2 I(\mathrm{BR}_i\ge2)"
         r" + \beta_S z(\log(\mathrm{sqft}_i)) + \beta_M M_i"
         r" + \beta_O C_i + \beta_K K_i + A_{f(i)} + u_i"
@@ -86,10 +62,7 @@ with st.expander("Model explainer and equations", expanded=False):
         r"""
         Where:
 
-        - $B_t$ is the building-wide rent factor for week $t$ in the primary model.
-        - $F_{i,t}$ is 1 after that unit's first explicit `Listed by The Blueground`
-          event and 0 during earlier conventionally managed listing periods. Uncertain transfer
-          windows are omitted from model training.
+        - $B_t$ is the building-wide rent factor for week $t$.
         - $\gamma_1$ is the first-bedroom premium: one- and two-bedroom units both receive it.
         - $\gamma_2$ is the incremental second-bedroom premium: only two-bedroom units receive it.
           The total two-bedroom versus studio effect is $\gamma_1+\gamma_2$.
@@ -129,8 +102,6 @@ with st.expander("Model explainer and equations", expanded=False):
         "The displayed building index is anchored at 100 in the first period containing May 2019:"
     )
     st.latex(r"\mathrm{Index}_t = 100\,\exp(B_t)")
-    st.markdown("The furnished coefficient is converted from log-rent units into a percentage:")
-    st.latex(r"\mathrm{Furnished\ effect} = 100\,[\exp(\beta_F)-1]\%")
     st.markdown(
         """
         ### Uncertainty
@@ -142,9 +113,8 @@ with st.expander("Model explainer and equations", expanded=False):
 
         ### Important limitations
 
-        - A furnished era begins at the first explicit Blueground listing. This is strong
-          marketing evidence, but it does not prove who held the underlying lease or identify
-          the exact date furniture was installed.
+        - Excluding all Blueground-associated units avoids their dynamic furnished pricing but
+          also removes otherwise useful conventional-rental history from those apartments.
         - StreetEasy history is selected listing data and may omit off-platform rentals.
         - Repeated weekly observations from the same unit are correlated; the unit random
           effect handles persistent correlation, but not every time-varying unit difference.
@@ -224,7 +194,7 @@ else:
     st.plotly_chart(price_fig, use_container_width=True)
     typical_sizes = bedroom_prices.groupby("bedroom_group")["typical_square_feet"].first().to_dict()
     st.caption(
-        "Posterior prices for typical unfurnished floor-8 units with average unit effect, average "
+        "Posterior prices for typical non-Blueground floor-8 units with average unit effect, average "
         "single-facing exposure, and observed "
         f"square footage: approximately {typical_sizes['Studio']:.0f} ft² for studios, "
         f"{typical_sizes['1 BR']:.0f} ft² for 1 BR, and {typical_sizes['2 BR']:.0f} ft² "
@@ -392,7 +362,7 @@ else:
             outlier_table[[
                 "unit", "period", "bedroom_group", "marketed_floor",
                 "asking_rent", "fitted_rent", "residual_percent",
-                "standardized_residual", "tail_probability", "is_furnished",
+                "standardized_residual", "tail_probability",
             ]],
             use_container_width=True,
             hide_index=True,
@@ -405,21 +375,18 @@ else:
             },
         )
 
-    furnished = weekly_metadata["furnished_premium_percent"]
     bedrooms = weekly_metadata["bedroom_premiums_percent"]
     first = bedrooms["first_bedroom"]
     second = bedrooms["second_bedroom_increment"]
     total = bedrooms["two_bedroom_vs_studio"]
-    c1, c2, c3, c4 = st.columns(4)
+    c1, c2, c3 = st.columns(3)
     c1.metric("First bedroom premium", f"{first['median']:+.1f}%")
     c2.metric("Conditional second-bedroom increment", f"{second['median']:+.1f}%")
     c3.metric("2 BR vs studio", f"{total['median']:+.1f}%")
-    c4.metric("Furnished effect", f"{furnished['median']:+.1f}%")
     st.caption(
         f"95% intervals — first bedroom: {first['lower_95']:+.1f}% to {first['upper_95']:+.1f}%; "
         f"second increment: {second['lower_95']:+.1f}% to {second['upper_95']:+.1f}%; "
-        f"2 BR vs studio: {total['lower_95']:+.1f}% to {total['upper_95']:+.1f}%; "
-        f"furnished: {furnished['lower_95']:+.1f}% to {furnished['upper_95']:+.1f}%."
+        f"2 BR vs studio: {total['lower_95']:+.1f}% to {total['upper_95']:+.1f}%."
     )
     latest_adjusted = (
         bedroom_prices.sort_values("period").groupby("bedroom_group").tail(1)
@@ -437,16 +404,8 @@ else:
         f"from {weekly_metadata['units']} units since {weekly_metadata['cutoff']}."
     )
     st.warning(
-        "Historical furnishing is inferred from the first explicit 'Listed by The Blueground' "
-        "event. This supports a furnished-marketing interpretation but does not establish the "
-        "underlying landlord/tenant relationship, so the coefficient is not necessarily causal."
+        "All units with any confirmed Blueground furnished period are excluded entirely, "
+        "including their earlier conventional-rental histories."
     )
-    with st.expander("Inferred historical furnishing periods"):
-        furnishing_periods = load_furnishing_periods(str(db_path), db_path.stat().st_mtime_ns)
-        st.dataframe(furnishing_periods, use_container_width=True, hide_index=True)
-        st.caption(
-            "Confirmed furnished periods start with an explicit Blueground listing. "
-            "Unknown transition periods are excluded from model fitting."
-        )
     with st.expander("Model assumptions and diagnostics"):
         st.json(weekly_metadata)

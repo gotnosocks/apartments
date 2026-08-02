@@ -50,9 +50,9 @@ residual, and outlier-table diagnostics. Units `7` and `8` are excluded.
 
 The PyMC model uses observations from May 2019 onward, aggregates to one median
 asking rent per unit-week, and estimates a latent weekly building trend with
-95% credible intervals. Historical furnished eras begin at the first explicit
-`Listed by The Blueground` event; uncertain management-to-Blueground transition
-windows are omitted. Cumulative indicators estimate the first-bedroom and
+95% credible intervals. Every unit with any confirmed Blueground furnished period
+is excluded entirely, including its earlier conventional-rental history; the model
+therefore has no furnished covariate. Cumulative indicators estimate the first-bedroom and
 incremental second-bedroom premiums. Floor effects cumulatively sum adjacent-level
 changes under a shared shrinkage prior. Marketed and physical floor numbers are
 stored separately: because Sierra has no marketed floor 13, marketed floors 14 and
@@ -69,6 +69,5 @@ uv sync --extra app --extra model
 uv run python models/rent_model.py --frequency weekly
 ```
 
-Outputs are written to `data/model/` and displayed in the Streamlit **Bayesian
-model** tab. The furnishing timeline is evidence-based but does not prove the
-underlying landlord/tenant relationship or exact furniture-installation date.
+Outputs are written to `data/model/` and displayed on the dedicated Streamlit
+**Bayesian Model** page.
