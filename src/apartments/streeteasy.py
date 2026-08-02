@@ -14,23 +14,36 @@ EXCLUDED_UNITS_PATH = Path("config/excluded_units.json")
 BUILDING_OVERRIDES_PATH = Path("config/building_overrides.json")
 
 
+def building_override(building_slug: str | None) -> dict:
+    if not BUILDING_OVERRIDES_PATH.exists():
+        return {}
+    return json.loads(BUILDING_OVERRIDES_PATH.read_text(encoding="utf-8")).get(
+        building_slug or "", {}
+    )
+
+
 def floor_override(
     building_slug: str | None,
     unit: str | None,
     format_name: str,
 ) -> int | None:
-    """Return a building-specific canonical floor without altering raw captures."""
-    if not BUILDING_OVERRIDES_PATH.exists():
-        return None
-    overrides = json.loads(BUILDING_OVERRIDES_PATH.read_text(encoding="utf-8")).get(
-        building_slug or "", {}
-    )
+    """Return a building-specific marketed floor without altering raw captures."""
+    overrides = building_override(building_slug)
     by_unit = {key.upper(): value for key, value in overrides.get("floor_by_unit", {}).items()}
     if str(unit).upper() in by_unit:
         return int(by_unit[str(unit).upper()])
     by_format = overrides.get("floor_by_unit_format", {})
     value = by_format.get(format_name)
     return int(value) if value is not None else None
+
+
+def physical_floor(marketed_floor: int | None, has_floor_13: bool | None) -> int | None:
+    """Convert a marketed floor label to its physical elevation index."""
+    if marketed_floor is None:
+        return None
+    if has_floor_13 is False and marketed_floor > 13:
+        return marketed_floor - 1
+    return marketed_floor
 
 
 def unit_is_excluded(building_slug: str | None, unit: str | None) -> bool:
@@ -165,6 +178,9 @@ def ingest_export(
     configured_floor = floor_override(item.get("building_slug"), item.get("unit"), format_name)
     if configured_floor is not None:
         floor = configured_floor
+    override = building_override(item.get("building_slug"))
+    has_floor_13 = override.get("has_floor_13")
+    physical_floor_value = physical_floor(floor, has_floor_13)
     unit_letter = item.get("unit_letter") or inferred_letter
     suffix = item.get("unit_suffix") or unit_suffix(item.get("unit"))
     floor_inference = (
@@ -189,23 +205,27 @@ def ingest_export(
     })
     db.execute(
         """INSERT INTO buildings (
-            source, source_id, canonical_address, borough, zipcode, raw_json, updated_at
-        ) VALUES ('streeteasy', ?, ?, 'Manhattan', ?, ?, now())
+            source, source_id, canonical_address, borough, zipcode,
+            has_floor_13, raw_json, updated_at
+        ) VALUES ('streeteasy', ?, ?, 'Manhattan', ?, ?, ?, now())
         ON CONFLICT (source, source_id) DO UPDATE SET
             canonical_address=excluded.canonical_address, zipcode=excluded.zipcode,
+            has_floor_13=excluded.has_floor_13,
             raw_json=excluded.raw_json, updated_at=now()""",
-        [item.get("building_slug"), item.get("building_address"), item.get("zipcode"), building_raw],
+        [item.get("building_slug"), item.get("building_address"), item.get("zipcode"),
+         has_floor_13, building_raw],
     )
     db.execute(
         """INSERT INTO listings (
             source, source_listing_id, address_line, canonical_address, unit,
-            floor, unit_letter, unit_suffix, unit_format, floor_inference,
+            floor, physical_floor, unit_letter, unit_suffix, unit_format, floor_inference,
             unit_kind, unit_is_specific, is_furnished, city, state, zipcode, property_type, bedrooms,
             bathrooms, square_feet, listing_type, raw_json
-        ) VALUES ('streeteasy', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'New York', 'NY', ?, 'Rental unit', ?, ?, ?, 'Rental', ?)
+        ) VALUES ('streeteasy', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'New York', 'NY', ?, 'Rental unit', ?, ?, ?, 'Rental', ?)
         ON CONFLICT (source, source_listing_id) DO UPDATE SET
             address_line=excluded.address_line, canonical_address=excluded.canonical_address,
-            unit=excluded.unit, floor=excluded.floor, unit_letter=excluded.unit_letter,
+            unit=excluded.unit, floor=excluded.floor, physical_floor=excluded.physical_floor,
+            unit_letter=excluded.unit_letter,
             unit_suffix=excluded.unit_suffix, unit_format=excluded.unit_format,
             floor_inference=excluded.floor_inference, unit_kind=excluded.unit_kind,
             unit_is_specific=excluded.unit_is_specific,
@@ -214,7 +234,7 @@ def ingest_export(
             square_feet=excluded.square_feet, last_seen_at=now(),
             raw_json=excluded.raw_json""",
         [source_id, item.get("address"), normalize_address(item.get("address")),
-         item.get("unit"), floor, unit_letter, suffix, format_name, floor_inference,
+         item.get("unit"), floor, physical_floor_value, unit_letter, suffix, format_name, floor_inference,
          kind, is_specific, is_furnished, item.get("zipcode"), attributes.get("bedrooms"),
          attributes.get("bathrooms"), attributes.get("square_feet"), raw],
     )

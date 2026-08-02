@@ -1,5 +1,6 @@
 {
   "the-sierra-chelsea": {
+    "has_floor_13": false,
     "floor_by_unit_format": {
       "penthouse": 15
     }

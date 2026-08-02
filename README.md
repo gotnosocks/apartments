@@ -52,9 +52,10 @@ asking rent per unit-week, and estimates a latent weekly building trend with
 `Listed by The Blueground` event; uncertain management-to-Blueground transition
 windows are omitted. Cumulative indicators estimate the first-bedroom and
 incremental second-bedroom premiums. Floor effects cumulatively sum adjacent-level
-changes under a shared shrinkage prior, with penthouses treated as effective floor
-15. The canonical floor assignment comes from `config/building_overrides.json`
-during capture ingestion rather than from model-specific SQL. The model also
+changes under a shared shrinkage prior. Marketed and physical floor numbers are
+stored separately: because Sierra has no marketed floor 13, marketed floors 14 and
+15 map to physical floors 13 and 14. This building-level rule comes from
+`config/building_overrides.json` during capture ingestion rather than model-specific SQL. The model also
 controls for square footage, missing square footage, and unit random effects.
 Sampling uses Nutpie's NUTS
 backend with four chains.

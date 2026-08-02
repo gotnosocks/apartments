@@ -259,8 +259,9 @@ with model_tab:
               The total two-bedroom versus studio effect is $\gamma_1+\gamma_2$.
             - $z(\log(\mathrm{sqft}))$ is standardized log square footage.
             - $M_i$ indicates that square footage was missing and imputed from the bedroom group.
-            - $A_{f(i)}$ is the cumulative effect for the unit's floor, with penthouses treated as
-              effective floor 15.
+            - $A_{f(i)}$ is the cumulative effect for the unit's physical floor. Because the
+              building skips marketed floor 13, marketed floor 14 is physical floor 13 and the
+              penthouse level is physical floor 14.
             - $u_i$ is a unit-specific adjustment for persistent unmeasured differences such as
               layout, light, exposure, renovations, or floor.
             - A Student-t likelihood is used instead of a normal likelihood so unusual prices
@@ -410,9 +411,10 @@ with model_tab:
         )
         st.plotly_chart(floor_fig, use_container_width=True)
         st.caption(
-            "Each point is the cumulative sum of posterior changes from lower represented floors. "
-            "The shared floor-change scale shrinks neighboring levels toward similar rents; PH is "
-            "modeled as effective floor 15. Error bars are 95% credible intervals."
+            "Each point is the cumulative sum of posterior changes from lower physical floors. "
+            "The shared floor-change scale shrinks neighboring levels toward similar rents. The "
+            "axis retains marketed labels: floor 14 is physical floor 13 and PH is physical floor "
+            "14. Error bars are 95% credible intervals."
         )
 
         furnished = weekly_metadata["furnished_premium_percent"]

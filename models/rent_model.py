@@ -34,7 +34,7 @@ def prepare_data(
     connection = duckdb.connect(str(db_path), read_only=True)
     events = connection.execute(
         """SELECT l.unit, l.bedrooms, l.bathrooms, l.square_feet,
-                  l.floor AS effective_floor,
+                  l.floor AS marketed_floor, l.physical_floor, l.unit_format,
                   CASE
                     WHEN fp.furnishing_status = 'confirmed-furnished' THEN true
                     WHEN fp.furnishing_status = 'unknown-transition' THEN NULL
@@ -72,13 +72,16 @@ def prepare_data(
         bedrooms=("bedrooms", "first"),
         bathrooms=("bathrooms", "first"),
         square_feet=("square_feet", "first"),
-        effective_floor=("effective_floor", "first"),
+        marketed_floor=("marketed_floor", "first"),
+        physical_floor=("physical_floor", "first"),
+        unit_format=("unit_format", "first"),
         is_furnished=("is_furnished", "first"),
         source_events=("asking_rent", "size"),
     )
-    period_data = period_data.dropna(subset=["bedrooms", "effective_floor", "asking_rent"]).copy()
+    period_data = period_data.dropna(subset=["bedrooms", "physical_floor", "asking_rent"]).copy()
     period_data["bedrooms"] = period_data["bedrooms"].astype(int)
-    period_data["effective_floor"] = period_data["effective_floor"].astype(int)
+    period_data["marketed_floor"] = period_data["marketed_floor"].astype(int)
+    period_data["physical_floor"] = period_data["physical_floor"].astype(int)
     period_data["square_feet"] = period_data["square_feet"].astype(float)
     period_data["sqft_missing"] = period_data["square_feet"].isna().astype(int)
     bedroom_medians = period_data.groupby("bedrooms")["square_feet"].transform("median")
@@ -114,9 +117,9 @@ def fit_model(
     chains: int,
 ):
     unit_names = sorted(data["unit"].unique())
-    floor_levels = sorted(data["effective_floor"].unique())
+    floor_levels = sorted(data["physical_floor"].unique())
     floor_lookup = {floor: index for index, floor in enumerate(floor_levels)}
-    floor_indices = data["effective_floor"].map(floor_lookup).astype(int).to_numpy()
+    floor_indices = data["physical_floor"].map(floor_lookup).astype(int).to_numpy()
     coords = {
         "obs_id": np.arange(len(data)),
         "period": periods.strftime("%Y-%m-%d").tolist(),
@@ -252,7 +255,11 @@ def save_outputs(
     floor_levels = posterior.coords["floor"].values.astype(int)
     floor_effect_samples = posterior["floor_effect"].values.reshape(-1, len(floor_levels))
     floor_change_samples = posterior["floor_changes"].values.reshape(-1, len(floor_levels) - 1)
-    unit_counts_by_floor = data.groupby("effective_floor")["unit"].nunique()
+    unit_counts_by_floor = data.groupby("physical_floor")["unit"].nunique()
+    floor_characteristics = data.groupby("physical_floor").agg(
+        marketed_floor=("marketed_floor", "first"),
+        is_penthouse=("unit_format", lambda values: (values == "penthouse").any()),
+    )
     floor_rows = []
     for index, floor in enumerate(floor_levels):
         cumulative = 100 * (np.exp(floor_effect_samples[:, index]) - 1)
@@ -262,8 +269,12 @@ def save_outputs(
             else 100 * (np.exp(floor_change_samples[:, index - 1]) - 1)
         )
         floor_rows.append({
-            "effective_floor": int(floor),
-            "floor_label": "PH" if floor == 15 else str(floor),
+            "physical_floor": int(floor),
+            "marketed_floor": int(floor_characteristics.loc[floor, "marketed_floor"]),
+            "floor_label": (
+                "PH" if floor_characteristics.loc[floor, "is_penthouse"]
+                else str(int(floor_characteristics.loc[floor, "marketed_floor"]))
+            ),
             "units": int(unit_counts_by_floor.get(floor, 0)),
             "cumulative_median": float(np.median(cumulative)),
             "cumulative_lower": float(np.quantile(cumulative, 0.025)),
@@ -364,7 +375,8 @@ def save_outputs(
             "Furnished status begins at each unit's first explicit 'Listed by The Blueground' event; uncertain transfer windows are excluded.",
             f"The {frequency} building trend is a Gaussian random walk anchored at 100 in the first post-cutoff {label}.",
             "Cumulative >=1-bedroom and >=2-bedroom indicators estimate the first and incremental second bedroom premiums.",
-            "Floor 3 is the floor-effect baseline; each higher floor effect cumulatively sums shrunk adjacent-level changes, and penthouses are effective floor 15.",
+            "Physical floor 3 is the floor-effect baseline; each higher physical floor cumulatively sums shrunk adjacent-level changes.",
+            "Marketed floors 14 and 15 map to physical floors 13 and 14 because the building has no marketed floor 13.",
             "Imputed square footage, missing-square-footage status, and unit random effects are controls.",
         ],
     }
