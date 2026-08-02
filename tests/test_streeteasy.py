@@ -1,5 +1,6 @@
 from apartments.streeteasy import (
     _event_datetime,
+    floor_override,
     listing_is_furnished,
     parse_price_history_html,
     split_unit,
@@ -52,6 +53,12 @@ def test_split_unit():
     assert split_unit("PHB") == (None, "B")
     assert unit_suffix("PHB") == "B"
     assert unit_format("PHB") == "penthouse"
+
+
+def test_building_floor_override():
+    assert floor_override("the-sierra-chelsea", "PHB", "penthouse") == 15
+    assert floor_override("the-sierra-chelsea", "14B", "floor-letter") is None
+    assert floor_override("another-building", "PHB", "penthouse") is None
 
 
 def test_furnished_detection():

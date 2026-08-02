@@ -11,6 +11,26 @@ from .db import connect
 from .scope import normalize_address
 
 EXCLUDED_UNITS_PATH = Path("config/excluded_units.json")
+BUILDING_OVERRIDES_PATH = Path("config/building_overrides.json")
+
+
+def floor_override(
+    building_slug: str | None,
+    unit: str | None,
+    format_name: str,
+) -> int | None:
+    """Return a building-specific canonical floor without altering raw captures."""
+    if not BUILDING_OVERRIDES_PATH.exists():
+        return None
+    overrides = json.loads(BUILDING_OVERRIDES_PATH.read_text(encoding="utf-8")).get(
+        building_slug or "", {}
+    )
+    by_unit = {key.upper(): value for key, value in overrides.get("floor_by_unit", {}).items()}
+    if str(unit).upper() in by_unit:
+        return int(by_unit[str(unit).upper()])
+    by_format = overrides.get("floor_by_unit_format", {})
+    value = by_format.get(format_name)
+    return int(value) if value is not None else None
 
 
 def unit_is_excluded(building_slug: str | None, unit: str | None) -> bool:
@@ -140,13 +160,21 @@ def ingest_export(
         return source_id, 0
     attributes = item.get("attributes", {})
     inferred_floor, inferred_letter = split_unit(item.get("unit"))
+    format_name = item.get("unit_format") or unit_format(item.get("unit"))
     floor = item.get("floor") if item.get("floor") is not None else inferred_floor
+    configured_floor = floor_override(item.get("building_slug"), item.get("unit"), format_name)
+    if configured_floor is not None:
+        floor = configured_floor
     unit_letter = item.get("unit_letter") or inferred_letter
     suffix = item.get("unit_suffix") or unit_suffix(item.get("unit"))
-    format_name = item.get("unit_format") or unit_format(item.get("unit"))
-    floor_inference = item.get("floor_inference") or (
-        "heuristic-first-digit" if format_name == "numeric" else
-        "parsed-floor-letter" if format_name == "floor-letter" else None
+    floor_inference = (
+        "building-override"
+        if configured_floor is not None
+        else item.get("floor_inference")
+        or (
+            "heuristic-first-digit" if format_name == "numeric" else
+            "parsed-floor-letter" if format_name == "floor-letter" else None
+        )
     )
     kind = item.get("unit_kind") or unit_kind(item.get("unit"))
     is_specific = item.get("unit_is_specific") if item.get("unit_is_specific") is not None else kind == "physical-unit"

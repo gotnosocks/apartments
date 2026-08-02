@@ -66,15 +66,18 @@ def load_furnishing_periods(db_path: str, modified_ns: int) -> pd.DataFrame:
 
 
 @st.cache_data(show_spinner=False)
-def load_model_outputs(model_dir: str, modified_ns: int) -> tuple[pd.DataFrame, pd.DataFrame, dict]:
+def load_model_outputs(
+    model_dir: str, modified_ns: int
+) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame, dict]:
     del modified_ns
     path = Path(model_dir)
     index = pd.read_parquet(path / "index.parquet")
     index["period"] = pd.to_datetime(index["period"])
     bedroom_prices = pd.read_parquet(path / "bedroom_prices.parquet")
     bedroom_prices["period"] = pd.to_datetime(bedroom_prices["period"])
+    floor_effects = pd.read_parquet(path / "floor_effects.parquet")
     metadata = json.loads((path / "metadata.json").read_text())
-    return index, bedroom_prices, metadata
+    return index, bedroom_prices, floor_effects, metadata
 
 
 def bedroom_label(value) -> str:
@@ -241,7 +244,7 @@ with model_tab:
         st.latex(
             r"\mu_{i,t} = \alpha + B_t + \beta_F F_{i,t}"
             r" + \gamma_1 I(\mathrm{BR}_i\ge1) + \gamma_2 I(\mathrm{BR}_i\ge2)"
-            r" + \beta_S z(\log(\mathrm{sqft}_i)) + \beta_M M_i + u_i"
+            r" + \beta_S z(\log(\mathrm{sqft}_i)) + \beta_M M_i + A_{f(i)} + u_i"
         )
         st.markdown(
             r"""
@@ -256,6 +259,8 @@ with model_tab:
               The total two-bedroom versus studio effect is $\gamma_1+\gamma_2$.
             - $z(\log(\mathrm{sqft}))$ is standardized log square footage.
             - $M_i$ indicates that square footage was missing and imputed from the bedroom group.
+            - $A_{f(i)}$ is the cumulative effect for the unit's floor, with penthouses treated as
+              effective floor 15.
             - $u_i$ is a unit-specific adjustment for persistent unmeasured differences such as
               layout, light, exposure, renovations, or floor.
             - A Student-t likelihood is used instead of a normal likelihood so unusual prices
@@ -272,6 +277,11 @@ with model_tab:
             r"\epsilon_t \sim \mathcal{N}(0,\sigma_B)"
         )
         st.latex(r"u_i \sim \mathcal{N}(0,\sigma_{\mathrm{unit}})")
+        st.markdown("Floor 3 is anchored at zero. Each higher represented level accumulates a shrunk adjacent-floor change:")
+        st.latex(
+            r"A_{f_0}=0,\qquad A_{f_j}=A_{f_{j-1}}+\delta_j,\qquad "
+            r"\delta_j\sim\mathcal{N}(0,\sigma_{\mathrm{floor}})"
+        )
         st.markdown(
             "This allows adjacent weeks to be similar without forcing the trend to be linear. "
             "The displayed building index is anchored at 100 in the first period containing May 2019:"
@@ -308,9 +318,12 @@ with model_tab:
         weekly_mtime = max(
             (weekly_dir / "index.parquet").stat().st_mtime_ns,
             (weekly_dir / "bedroom_prices.parquet").stat().st_mtime_ns,
+            (weekly_dir / "floor_effects.parquet").stat().st_mtime_ns,
             (weekly_dir / "metadata.json").stat().st_mtime_ns,
         )
-        weekly_index, bedroom_prices, weekly_metadata = load_model_outputs(str(weekly_dir), weekly_mtime)
+        weekly_index, bedroom_prices, floor_effects, weekly_metadata = load_model_outputs(
+            str(weekly_dir), weekly_mtime
+        )
 
         fig = go.Figure()
         fig.add_trace(go.Scatter(
@@ -363,10 +376,43 @@ with model_tab:
         st.plotly_chart(price_fig, use_container_width=True)
         typical_sizes = bedroom_prices.groupby("bedroom_group")["typical_square_feet"].first().to_dict()
         st.caption(
-            "Posterior prices for typical unfurnished units with average unit effect and observed "
+            "Posterior prices for typical unfurnished floor-8 units with average unit effect and observed "
             f"square footage: approximately {typical_sizes['Studio']:.0f} ft² for studios, "
             f"{typical_sizes['1 BR']:.0f} ft² for 1 BR, and {typical_sizes['2 BR']:.0f} ft² "
             "for 2 BR. Bands are 95% credible intervals."
+        )
+
+        st.subheader("Cumulative floor premium")
+        floor_fig = go.Figure(go.Scatter(
+            x=floor_effects["floor_label"],
+            y=floor_effects["cumulative_median"],
+            mode="lines+markers",
+            line={"color": "#6f42c1", "width": 2},
+            marker={"size": 8},
+            error_y={
+                "type": "data",
+                "symmetric": False,
+                "array": floor_effects["cumulative_upper"] - floor_effects["cumulative_median"],
+                "arrayminus": floor_effects["cumulative_median"] - floor_effects["cumulative_lower"],
+                "color": "rgba(111,66,193,0.55)",
+            },
+            customdata=floor_effects[["units", "increment_median"]],
+            hovertemplate=(
+                "Floor %{x}<br>Cumulative premium: %{y:.1f}%"
+                "<br>Units: %{customdata[0]}"
+                "<br>Change from lower level: %{customdata[1]:+.1f}%<extra></extra>"
+            ),
+        ))
+        floor_fig.add_hline(y=0, line_dash="dot", line_color="gray")
+        floor_fig.update_layout(
+            xaxis_title="Floor", yaxis_title="Premium relative to floor 3",
+            yaxis_ticksuffix="%", height=480,
+        )
+        st.plotly_chart(floor_fig, use_container_width=True)
+        st.caption(
+            "Each point is the cumulative sum of posterior changes from lower represented floors. "
+            "The shared floor-change scale shrinks neighboring levels toward similar rents; PH is "
+            "modeled as effective floor 15. Error bars are 95% credible intervals."
         )
 
         furnished = weekly_metadata["furnished_premium_percent"]
