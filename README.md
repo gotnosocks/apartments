@@ -40,9 +40,10 @@ uv sync --extra app
 uv run streamlit run app.py
 ```
 
-Open the local URL printed by Streamlit. The app includes all-unit history,
-monthly building trends, a Bayesian building index, latest-rent and square-footage
-comparisons, unit detail, and data-quality views. Units `7` and `8` are excluded.
+Open the local URL printed by Streamlit. The main rental explorer includes
+all-unit history, monthly trends, latest-rent and square-footage comparisons,
+unit detail, and data-quality views. The Bayesian analysis is a dedicated page
+in Streamlit's sidebar navigation. Units `7` and `8` are excluded.
 
 ## Bayesian model
 
