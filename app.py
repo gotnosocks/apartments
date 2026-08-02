@@ -7,16 +7,22 @@ import plotly.graph_objects as go
 import streamlit as st
 
 DEFAULT_DB = Path("data/apartments.duckdb")
-BUILDING_SLUG = "the-sierra-chelsea"
-KNOWN_INVALID_UNITS = {"7", "8"}
+BUILDINGS = {
+    "the-sierra-chelsea": "The Sierra Chelsea",
+    "stonehenge-gardens": "Stonehenge Gardens",
+    "101w15-101-west-15th-street-new_york": "101 W 15th",
+}
+KNOWN_INVALID_UNITS = {"the-sierra-chelsea": {"7", "8"}}
 
-st.set_page_config(page_title="Sierra Chelsea rents", page_icon="🏢", layout="wide")
-st.title("The Sierra Chelsea — rental price history")
+st.set_page_config(page_title="West 15th Street rents", page_icon="🏢", layout="wide")
+st.title("West 15th Street — rental price history")
 st.caption("StreetEasy asking-rent and status history captured from individual unit pages.")
 
 
 @st.cache_data(show_spinner=False)
-def load_data(db_path: str, modified_ns: int) -> tuple[pd.DataFrame, pd.DataFrame]:
+def load_data(
+    db_path: str, building_slug: str, modified_ns: int
+) -> tuple[pd.DataFrame, pd.DataFrame]:
     del modified_ns  # Included only to invalidate the cache when DuckDB changes.
     connection = duckdb.connect(db_path, read_only=True)
     listings = connection.execute(
@@ -25,8 +31,8 @@ def load_data(db_path: str, modified_ns: int) -> tuple[pd.DataFrame, pd.DataFram
                   square_feet, canonical_address
            FROM listings
            WHERE source = 'streeteasy'
-             AND source_listing_id LIKE ?""",
-        [f"{BUILDING_SLUG}/%"],
+             AND building_slug = ?""",
+        [building_slug],
     ).df()
     events = connection.execute(
         """SELECT e.source_listing_id, l.unit, l.floor, l.unit_format,
@@ -36,11 +42,11 @@ def load_data(db_path: str, modified_ns: int) -> tuple[pd.DataFrame, pd.DataFram
            FROM listing_events e
            JOIN listings l USING (source, source_listing_id)
            WHERE e.source = 'streeteasy'
-             AND e.source_listing_id LIKE ?
+             AND l.building_slug = ?
              AND e.price IS NOT NULL
              AND e.event_at IS NOT NULL
            ORDER BY e.event_at, l.unit""",
-        [f"{BUILDING_SLUG}/%"],
+        [building_slug],
     ).df()
     connection.close()
     events["event_date"] = pd.to_datetime(events["event_date"])
@@ -62,7 +68,11 @@ if not db_path.exists():
     st.error(f"Database not found: {db_path}")
     st.stop()
 
-listings, events = load_data(str(db_path), db_path.stat().st_mtime_ns)
+building_slug = st.sidebar.selectbox(
+    "Building", options=list(BUILDINGS), format_func=lambda slug: BUILDINGS[slug]
+)
+st.header(BUILDINGS[building_slug])
+listings, events = load_data(str(db_path), building_slug, db_path.stat().st_mtime_ns)
 if events.empty:
     st.warning("No priced history events were found. Run `uv run apartments import-captures data`.")
     st.stop()
@@ -71,7 +81,7 @@ listings["bedroom_group"] = listings["bedrooms"].map(bedroom_label)
 events["bedroom_group"] = events["bedrooms"].map(bedroom_label)
 
 all_units = sorted(listings["unit"].dropna().astype(str).unique(), key=lambda value: (len(value), value))
-default_invalid = sorted(KNOWN_INVALID_UNITS.intersection(all_units))
+default_invalid = sorted(KNOWN_INVALID_UNITS.get(building_slug, set()).intersection(all_units))
 invalid_units = st.sidebar.multiselect(
     "Exclude invalid/non-unit identifiers",
     all_units,

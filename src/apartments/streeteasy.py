@@ -386,7 +386,6 @@ def infer_furnishing_periods(
            FROM listings l
            JOIN listing_events e USING (source, source_listing_id)
            WHERE l.source='streeteasy' AND l.source_listing_id LIKE ?
-             AND l.is_furnished
            GROUP BY l.unit ORDER BY l.unit""",
         [f"{building_slug}/%"],
     ).fetchall()
@@ -433,7 +432,7 @@ def infer_furnishing_periods(
                 )
         add(
             unit, first_blueground, None, "confirmed-furnished", 0.95,
-            "First explicit 'Listed by The Blueground' event; current page says Furnished and advertises flexible stays.",
+            "First explicit 'Listed by The Blueground' event in captured StreetEasy history.",
             "The Blueground",
         )
     db.close()

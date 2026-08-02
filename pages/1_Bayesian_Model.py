@@ -9,7 +9,7 @@ MODEL_DIR = Path("data/model")
 
 st.set_page_config(page_title="West 15th Street Bayesian model", page_icon="📈", layout="wide")
 st.title("West 15th Street — Bayesian rent model")
-st.caption("Weekly composition-adjusted StreetEasy asking-rent analysis for The Sierra Chelsea and Stonehenge Gardens.")
+st.caption("Weekly composition-adjusted StreetEasy asking-rent analysis for The Sierra Chelsea, Stonehenge Gardens, and 101 W 15th.")
 
 
 @st.cache_data(show_spinner=False)
@@ -35,8 +35,8 @@ with st.expander("Model explainer and equations", expanded=False):
         """
         ### Goal
 
-        The model estimates a shared weekly rent level for The Sierra Chelsea and neighboring
-        Stonehenge Gardens while adjusting for building and apartment differences. It uses
+        The model estimates a shared weekly rent level for three neighboring West 15th Street
+        buildings while adjusting for building and apartment differences. It uses
         StreetEasy **asking rents**, not signed lease rents. Data before May 2019 is excluded.
 
         Every unit with a confirmed Blueground furnished period is excluded from the model,
@@ -53,7 +53,7 @@ with st.expander("Model explainer and equations", expanded=False):
         r"y_{i,t} \sim \operatorname{StudentT}(\nu=5,\, \mu_{i,t},\, \sigma)"
     )
     st.latex(
-        r"\mu_{i,t} = \alpha + B_t + \beta_H H_i"
+        r"\mu_{i,t} = \alpha + B_t + \beta_H H_i + \beta_{101} Q_i"
         r" + \gamma_1 I(\mathrm{BR}_i\ge1) + \gamma_2 I(\mathrm{BR}_i\ge2)"
         r" + \gamma_3 I(\mathrm{BR}_i\ge3)"
         r" + \beta_S z(\log(\mathrm{sqft}_i)) + \beta_M M_i"
@@ -64,7 +64,8 @@ with st.expander("Model explainer and equations", expanded=False):
         Where:
 
         - $B_t$ is the shared local rent factor for week $t$.
-        - $H_i$ identifies Stonehenge Gardens; $\beta_H$ is its adjusted level relative to Sierra.
+        - $H_i$ and $Q_i$ identify Stonehenge Gardens and 101 W 15th; their coefficients are
+          adjusted levels relative to Sierra.
         - $\gamma_1$ is the first-bedroom premium: one- and two-bedroom units both receive it.
         - $\gamma_2$ and $\gamma_3$ are incremental second- and third-bedroom premiums.
           The total three-bedroom versus studio effect is $\gamma_1+\gamma_2+\gamma_3$.
@@ -74,8 +75,7 @@ with st.expander("Model explainer and equations", expanded=False):
           zero for K units that face both directions. Thus $\beta_O$ directly compares skyline
           with garden exposure.
         - $K_i$ identifies Sierra's K stack, estimating its both-facing deviation from the midpoint
-          of the garden-only and skyline-only groups. Stonehenge facing is neutral until its stack
-          orientation is configured.
+          of the garden-only and skyline-only groups. Frontage is neutral for the other buildings.
         - $A_{f(i)}$ is a building-specific cumulative physical-floor effect. Sierra skips
           marketed floor 13, so marketed floor 14 is physical floor 13 and PH is physical floor 14.
         - $u_i$ is a unit-specific adjustment for persistent unmeasured differences such as
@@ -409,18 +409,22 @@ else:
     first = bedrooms["first_bedroom"]
     second = bedrooms["second_bedroom_increment"]
     third = bedrooms["third_bedroom_increment"]
-    building_effect = weekly_metadata["stonehenge_vs_sierra_percent"]
-    c1, c2, c3, c4 = st.columns(4)
+    building_effects = weekly_metadata["building_effects_vs_sierra_percent"]
+    stonehenge_effect = building_effects["stonehenge-gardens"]
+    building_101_effect = building_effects["101w15-101-west-15th-street-new_york"]
+    c1, c2, c3, c4, c5 = st.columns(5)
     c1.metric("First bedroom premium", f"{first['median']:+.1f}%")
     c2.metric("Second-bedroom increment", f"{second['median']:+.1f}%")
     c3.metric("Third-bedroom increment", f"{third['median']:+.1f}%")
-    c4.metric("Stonehenge vs Sierra", f"{building_effect['median']:+.1f}%")
+    c4.metric("Stonehenge vs Sierra", f"{stonehenge_effect['median']:+.1f}%")
+    c5.metric("101 W 15th vs Sierra", f"{building_101_effect['median']:+.1f}%")
     st.caption(
         f"95% intervals — first bedroom: {first['lower_95']:+.1f}% to {first['upper_95']:+.1f}%; "
         f"second increment: {second['lower_95']:+.1f}% to {second['upper_95']:+.1f}%; "
         f"third increment: {third['lower_95']:+.1f}% to {third['upper_95']:+.1f}%; "
-        f"Stonehenge vs Sierra: {building_effect['lower_95']:+.1f}% to "
-        f"{building_effect['upper_95']:+.1f}%."
+        f"Stonehenge vs Sierra: {stonehenge_effect['lower_95']:+.1f}% to "
+        f"{stonehenge_effect['upper_95']:+.1f}%; 101 W 15th vs Sierra: "
+        f"{building_101_effect['lower_95']:+.1f}% to {building_101_effect['upper_95']:+.1f}%."
     )
     latest_adjusted = (
         bedroom_prices.sort_values("period").groupby("bedroom_group").tail(1)
