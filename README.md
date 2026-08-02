@@ -48,17 +48,19 @@ residual, and outlier-table diagnostics. Units `7` and `8` are excluded.
 
 ## Bayesian model
 
-The PyMC model uses observations from May 2019 onward, aggregates to one median
-asking rent per unit-week, and estimates a latent weekly building trend with
-95% credible intervals. Every unit with any confirmed Blueground furnished period
+The PyMC model combines The Sierra Chelsea and neighboring Stonehenge Gardens
+from May 2019 onward, aggregates to one median asking rent per building-unit-week,
+and estimates a shared latent weekly local trend with 95% credible intervals plus
+a time-constant adjusted building offset. Every unit with any confirmed Blueground furnished period
 is excluded entirely, including its earlier conventional-rental history; the model
 therefore has no furnished covariate. Cumulative indicators estimate the first-bedroom and
 incremental second-bedroom premiums. Floor effects cumulatively sum adjacent-level
 changes under a shared shrinkage prior. Marketed and physical floor numbers are
 stored separately: because Sierra has no marketed floor 13, marketed floors 14 and
 15 map to physical floors 13 and 14. The same building configuration classifies
-A–J as garden-facing, K as both-facing, and L onward as street-facing (called
-skyline in Sierra marketing). These rules come from `config/building_overrides.json`
+Sierra A–J as garden-facing, K as both-facing, and L onward as street-facing
+(called skyline in Sierra marketing). Stonehenge facing remains neutral pending
+a verified courtyard/14th Street stack map. These rules come from `config/building_overrides.json`
 during capture ingestion rather than model-specific SQL. The model also controls
 for square footage, missing square footage, and unit random effects.
 Sampling uses Nutpie's NUTS

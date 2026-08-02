@@ -91,8 +91,9 @@ def reparse_history(
 @app.command("infer-furnishing-periods")
 def infer_furnishing(
     db: Path = typer.Option(DEFAULT_DB),
+    building_slug: str = typer.Option("the-sierra-chelsea"),
 ):
-    periods = infer_furnishing_periods(str(db))
+    periods = infer_furnishing_periods(str(db), building_slug)
     typer.echo(f"Created {len(periods)} historical furnishing periods in {db}")
 
 

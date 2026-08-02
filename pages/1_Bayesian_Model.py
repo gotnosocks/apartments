@@ -7,9 +7,9 @@ import streamlit as st
 
 MODEL_DIR = Path("data/model")
 
-st.set_page_config(page_title="Sierra Chelsea Bayesian model", page_icon="📈", layout="wide")
-st.title("The Sierra Chelsea — Bayesian rent model")
-st.caption("Weekly composition-adjusted StreetEasy asking-rent analysis with posterior uncertainty.")
+st.set_page_config(page_title="West 15th Street Bayesian model", page_icon="📈", layout="wide")
+st.title("West 15th Street — Bayesian rent model")
+st.caption("Weekly composition-adjusted StreetEasy asking-rent analysis for The Sierra Chelsea and Stonehenge Gardens.")
 
 
 @st.cache_data(show_spinner=False)
@@ -29,14 +29,14 @@ def load_model_outputs(
     return index, bedroom_prices, floor_effects, observation_diagnostics, metadata
 
 
-st.subheader("Bayesian weekly building rent index")
+st.subheader("Bayesian weekly local rent index")
 with st.expander("Model explainer and equations", expanded=False):
     st.markdown(
         """
         ### Goal
 
-        The model estimates a shared weekly rent level for The Sierra Chelsea while adjusting
-        for differences among the apartments observed in each week. It uses
+        The model estimates a shared weekly rent level for The Sierra Chelsea and neighboring
+        Stonehenge Gardens while adjusting for building and apartment differences. It uses
         StreetEasy **asking rents**, not signed lease rents. Data before May 2019 is excluded.
 
         Every unit with a confirmed Blueground furnished period is excluded from the model,
@@ -53,8 +53,9 @@ with st.expander("Model explainer and equations", expanded=False):
         r"y_{i,t} \sim \operatorname{StudentT}(\nu=5,\, \mu_{i,t},\, \sigma)"
     )
     st.latex(
-        r"\mu_{i,t} = \alpha + B_t"
+        r"\mu_{i,t} = \alpha + B_t + \beta_H H_i"
         r" + \gamma_1 I(\mathrm{BR}_i\ge1) + \gamma_2 I(\mathrm{BR}_i\ge2)"
+        r" + \gamma_3 I(\mathrm{BR}_i\ge3)"
         r" + \beta_S z(\log(\mathrm{sqft}_i)) + \beta_M M_i"
         r" + \beta_O C_i + \beta_K K_i + A_{f(i)} + u_i"
     )
@@ -62,20 +63,21 @@ with st.expander("Model explainer and equations", expanded=False):
         r"""
         Where:
 
-        - $B_t$ is the building-wide rent factor for week $t$.
+        - $B_t$ is the shared local rent factor for week $t$.
+        - $H_i$ identifies Stonehenge Gardens; $\beta_H$ is its adjusted level relative to Sierra.
         - $\gamma_1$ is the first-bedroom premium: one- and two-bedroom units both receive it.
-        - $\gamma_2$ is the incremental second-bedroom premium: only two-bedroom units receive it.
-          The total two-bedroom versus studio effect is $\gamma_1+\gamma_2$.
+        - $\gamma_2$ and $\gamma_3$ are incremental second- and third-bedroom premiums.
+          The total three-bedroom versus studio effect is $\gamma_1+\gamma_2+\gamma_3$.
         - $z(\log(\mathrm{sqft}))$ is standardized log square footage.
         - $M_i$ indicates that square footage was missing and imputed from the bedroom group.
-        - $C_i$ is the facing contrast: $-0.5$ for garden, $+0.5$ for skyline/street, and
+        - For Sierra, $C_i$ is the facing contrast: $-0.5$ for garden, $+0.5$ for skyline/street, and
           zero for K units that face both directions. Thus $\beta_O$ directly compares skyline
           with garden exposure.
-        - $K_i$ identifies the K stack, estimating its both-facing deviation from the midpoint
-          of the garden-only and skyline-only groups.
-        - $A_{f(i)}$ is the cumulative effect for the unit's physical floor. Because the
-          building skips marketed floor 13, marketed floor 14 is physical floor 13 and the
-          penthouse level is physical floor 14.
+        - $K_i$ identifies Sierra's K stack, estimating its both-facing deviation from the midpoint
+          of the garden-only and skyline-only groups. Stonehenge facing is neutral until its stack
+          orientation is configured.
+        - $A_{f(i)}$ is a building-specific cumulative physical-floor effect. Sierra skips
+          marketed floor 13, so marketed floor 14 is physical floor 13 and PH is physical floor 14.
         - $u_i$ is a unit-specific adjustment for persistent unmeasured differences such as
           layout, light, exposure, renovations, or floor.
         - A Student-t likelihood is used instead of a normal likelihood so unusual prices
@@ -83,7 +85,7 @@ with st.expander("Model explainer and equations", expanded=False):
 
         ### Evolution of the building factor
 
-        The building factor follows a weekly Gaussian random walk:
+        The shared local factor follows a weekly Gaussian random walk:
         """
     )
     st.latex(r"B_0 = 0")
@@ -92,7 +94,7 @@ with st.expander("Model explainer and equations", expanded=False):
         r"\epsilon_t \sim \mathcal{N}(0,\sigma_B)"
     )
     st.latex(r"u_i \sim \mathcal{N}(0,\sigma_{\mathrm{unit}})")
-    st.markdown("Floor 3 is anchored at zero. Each higher represented level accumulates a shrunk adjacent-floor change:")
+    st.markdown("Physical floor 3 is anchored at zero in both buildings. Other levels accumulate shrunk adjacent-floor changes:")
     st.latex(
         r"A_{f_0}=0,\qquad A_{f_j}=A_{f_{j-1}}+\delta_j,\qquad "
         r"\delta_j\sim\mathcal{N}(0,\sigma_{\mathrm{floor}})"
@@ -143,6 +145,19 @@ else:
         weekly_metadata,
     ) = load_model_outputs(str(weekly_dir), weekly_mtime)
 
+    building_names = weekly_metadata["buildings"]
+    selected_building = st.selectbox(
+        "Building for adjusted-price and diagnostic views",
+        options=list(building_names),
+        format_func=lambda slug: building_names[slug],
+    )
+    selected_building_name = building_names[selected_building]
+    bedroom_prices = bedroom_prices[bedroom_prices["building_slug"] == selected_building]
+    floor_effects = floor_effects[floor_effects["building_slug"] == selected_building]
+    observation_diagnostics = observation_diagnostics[
+        observation_diagnostics["building_slug"] == selected_building
+    ]
+
     fig = go.Figure()
     fig.add_trace(go.Scatter(
         x=weekly_index["period"], y=weekly_index["index_upper"],
@@ -170,8 +185,13 @@ else:
         "Studio": ("#5f6368", "rgba(95,99,104,0.13)"),
         "1 BR": ("#164db4", "rgba(22,77,180,0.16)"),
         "2 BR": ("#b3261e", "rgba(179,38,30,0.14)"),
+        "3 BR": ("#188038", "rgba(24,128,56,0.14)"),
     }
-    for bedroom_group in ["Studio", "1 BR", "2 BR"]:
+    bedroom_order = [
+        group for group in ["Studio", "1 BR", "2 BR", "3 BR"]
+        if group in set(bedroom_prices["bedroom_group"])
+    ]
+    for bedroom_group in bedroom_order:
         group = bedroom_prices[bedroom_prices["bedroom_group"] == bedroom_group]
         line_color, fill_color = colors[bedroom_group]
         price_fig.add_trace(go.Scatter(
@@ -193,15 +213,17 @@ else:
     )
     st.plotly_chart(price_fig, use_container_width=True)
     typical_sizes = bedroom_prices.groupby("bedroom_group")["typical_square_feet"].first().to_dict()
+    reference_floor = int(bedroom_prices["reference_floor"].iloc[0])
+    size_description = ", ".join(
+        f"{group}: {typical_sizes[group]:.0f} ft²" for group in bedroom_order
+    )
     st.caption(
-        "Posterior prices for typical non-Blueground floor-8 units with average unit effect, average "
-        "single-facing exposure, and observed "
-        f"square footage: approximately {typical_sizes['Studio']:.0f} ft² for studios, "
-        f"{typical_sizes['1 BR']:.0f} ft² for 1 BR, and {typical_sizes['2 BR']:.0f} ft² "
-        "for 2 BR. Bands are 95% credible intervals."
+        f"Posterior prices for typical non-Blueground {selected_building_name} units on floor "
+        f"{reference_floor}, with average unit effect and neutral facing adjustment. Typical "
+        f"sizes are {size_description}. Bands are 95% credible intervals."
     )
 
-    st.subheader("Cumulative floor premium")
+    st.subheader(f"Cumulative floor premium — {selected_building_name}")
     floor_fig = go.Figure(go.Scatter(
         x=floor_effects["physical_floor"],
         y=floor_effects["cumulative_median"],
@@ -238,29 +260,34 @@ else:
         yaxis_ticksuffix="%", height=480,
     )
     st.plotly_chart(floor_fig, use_container_width=True)
+    floor_note = (
+        " For Sierra, the axis retains marketed labels: floor 14 is physical floor 13 and PH "
+        "is physical floor 14."
+        if selected_building == "the-sierra-chelsea" else ""
+    )
     st.caption(
         "Each point is the cumulative sum of posterior changes from lower physical floors. "
-        "The shared floor-change scale shrinks neighboring levels toward similar rents. The "
-        "axis retains marketed labels: floor 14 is physical floor 13 and PH is physical floor "
-        "14. Error bars are 95% credible intervals."
+        "The shared floor-change scale shrinks neighboring levels toward similar rents."
+        + floor_note + " Error bars are 95% credible intervals."
     )
 
-    st.subheader("Garden and skyline exposure")
-    facing = weekly_metadata["facing_effects_percent"]
-    skyline = facing["skyline_vs_garden"]
-    both_exposure = facing["both_vs_single_facing_midpoint"]
-    facing_col1, facing_col2 = st.columns(2)
-    facing_col1.metric("Skyline vs garden", f"{skyline['median']:+.1f}%")
-    facing_col2.metric(
-        "K both-facing vs single-facing midpoint", f"{both_exposure['median']:+.1f}%"
-    )
-    st.caption(
-        f"95% intervals — skyline versus garden: {skyline['lower_95']:+.1f}% to "
-        f"{skyline['upper_95']:+.1f}%; K both-facing deviation: "
-        f"{both_exposure['lower_95']:+.1f}% to {both_exposure['upper_95']:+.1f}%. "
-        "A–J are classified as garden, K as both, and L onward as street-facing "
-        "(marketed as skyline)."
-    )
+    if selected_building == "the-sierra-chelsea":
+        st.subheader("Garden and skyline exposure")
+        facing = weekly_metadata["facing_effects_percent"]
+        skyline = facing["skyline_vs_garden"]
+        both_exposure = facing["both_vs_single_facing_midpoint"]
+        facing_col1, facing_col2 = st.columns(2)
+        facing_col1.metric("Skyline vs garden", f"{skyline['median']:+.1f}%")
+        facing_col2.metric(
+            "K both-facing vs single-facing midpoint", f"{both_exposure['median']:+.1f}%"
+        )
+        st.caption(
+            f"95% intervals — skyline versus garden: {skyline['lower_95']:+.1f}% to "
+            f"{skyline['upper_95']:+.1f}%; K both-facing deviation: "
+            f"{both_exposure['lower_95']:+.1f}% to {both_exposure['upper_95']:+.1f}%. "
+            "A–J are classified as garden, K as both, and L onward as street-facing "
+            "(marketed as skyline)."
+        )
 
     st.subheader("Observation fit and outlier diagnostics")
     outlier_count = int(observation_diagnostics["is_outlier_95"].sum())
@@ -329,7 +356,10 @@ else:
         st.plotly_chart(diagnostic_fig, use_container_width=True)
     with time_tab:
         time_fig = go.Figure()
-        bedroom_colors = {"Studio": "#5f6368", "1 BR": "#164db4", "2 BR": "#b3261e"}
+        bedroom_colors = {
+            "Studio": "#5f6368", "1 BR": "#164db4",
+            "2 BR": "#b3261e", "3 BR": "#188038",
+        }
         for bedroom_group, color in bedroom_colors.items():
             group = observation_diagnostics[
                 observation_diagnostics["bedroom_group"] == bedroom_group
@@ -378,15 +408,19 @@ else:
     bedrooms = weekly_metadata["bedroom_premiums_percent"]
     first = bedrooms["first_bedroom"]
     second = bedrooms["second_bedroom_increment"]
-    total = bedrooms["two_bedroom_vs_studio"]
-    c1, c2, c3 = st.columns(3)
+    third = bedrooms["third_bedroom_increment"]
+    building_effect = weekly_metadata["stonehenge_vs_sierra_percent"]
+    c1, c2, c3, c4 = st.columns(4)
     c1.metric("First bedroom premium", f"{first['median']:+.1f}%")
-    c2.metric("Conditional second-bedroom increment", f"{second['median']:+.1f}%")
-    c3.metric("2 BR vs studio", f"{total['median']:+.1f}%")
+    c2.metric("Second-bedroom increment", f"{second['median']:+.1f}%")
+    c3.metric("Third-bedroom increment", f"{third['median']:+.1f}%")
+    c4.metric("Stonehenge vs Sierra", f"{building_effect['median']:+.1f}%")
     st.caption(
         f"95% intervals — first bedroom: {first['lower_95']:+.1f}% to {first['upper_95']:+.1f}%; "
         f"second increment: {second['lower_95']:+.1f}% to {second['upper_95']:+.1f}%; "
-        f"2 BR vs studio: {total['lower_95']:+.1f}% to {total['upper_95']:+.1f}%."
+        f"third increment: {third['lower_95']:+.1f}% to {third['upper_95']:+.1f}%; "
+        f"Stonehenge vs Sierra: {building_effect['lower_95']:+.1f}% to "
+        f"{building_effect['upper_95']:+.1f}%."
     )
     latest_adjusted = (
         bedroom_prices.sort_values("period").groupby("bedroom_group").tail(1)

@@ -237,13 +237,14 @@ def ingest_export(
     )
     db.execute(
         """INSERT INTO listings (
-            source, source_listing_id, address_line, canonical_address, unit,
+            source, source_listing_id, building_slug, address_line, canonical_address, unit,
             floor, physical_floor, unit_letter, unit_suffix, unit_format, floor_inference,
             unit_kind, unit_is_specific, is_furnished, is_garden_facing,
             is_street_facing, city, state, zipcode, property_type, bedrooms,
             bathrooms, square_feet, listing_type, raw_json
-        ) VALUES ('streeteasy', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'New York', 'NY', ?, 'Rental unit', ?, ?, ?, 'Rental', ?)
+        ) VALUES ('streeteasy', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'New York', 'NY', ?, 'Rental unit', ?, ?, ?, 'Rental', ?)
         ON CONFLICT (source, source_listing_id) DO UPDATE SET
+            building_slug=excluded.building_slug,
             address_line=excluded.address_line, canonical_address=excluded.canonical_address,
             unit=excluded.unit, floor=excluded.floor, physical_floor=excluded.physical_floor,
             unit_letter=excluded.unit_letter,
@@ -256,7 +257,7 @@ def ingest_export(
             bedrooms=excluded.bedrooms, bathrooms=excluded.bathrooms,
             square_feet=excluded.square_feet, last_seen_at=now(),
             raw_json=excluded.raw_json""",
-        [source_id, item.get("address"), normalize_address(item.get("address")),
+        [source_id, item.get("building_slug"), item.get("address"), normalize_address(item.get("address")),
          item.get("unit"), floor, physical_floor_value, unit_letter, suffix, format_name, floor_inference,
          kind, is_specific, is_furnished, is_garden_facing, is_street_facing,
          item.get("zipcode"), attributes.get("bedrooms"),
