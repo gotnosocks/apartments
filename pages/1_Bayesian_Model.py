@@ -37,7 +37,7 @@ with st.expander("Model explainer and equations", expanded=False):
 
         The model estimates a shared weekly rent level for three neighboring West 15th Street
         buildings while adjusting for building and apartment differences. It uses
-        StreetEasy **asking rents**, not signed lease rents. Data before May 2019 is excluded.
+        StreetEasy **asking rents**, not signed lease rents. Data before January 2022 is excluded.
 
         Every unit with a confirmed Blueground furnished period is excluded from the model,
         including its earlier history. For the remaining units, all events in the same calendar
@@ -94,14 +94,14 @@ with st.expander("Model explainer and equations", expanded=False):
         r"\epsilon_t \sim \mathcal{N}(0,\sigma_B)"
     )
     st.latex(r"u_i \sim \mathcal{N}(0,\sigma_{\mathrm{unit}})")
-    st.markdown("Physical floor 3 is anchored at zero in both buildings. Other levels accumulate shrunk adjacent-floor changes:")
+    st.markdown("Physical floor 3 is anchored at zero in all three buildings. Other levels accumulate shrunk adjacent-floor changes:")
     st.latex(
         r"A_{f_0}=0,\qquad A_{f_j}=A_{f_{j-1}}+\delta_j,\qquad "
         r"\delta_j\sim\mathcal{N}(0,\sigma_{\mathrm{floor}})"
     )
     st.markdown(
         "This allows adjacent weeks to be similar without forcing the trend to be linear. "
-        "The displayed building index is anchored at 100 in the first period containing May 2019:"
+        "The displayed building index is anchored at 100 in the first period containing January 2022:"
     )
     st.latex(r"\mathrm{Index}_t = 100\,\exp(B_t)")
     st.markdown(

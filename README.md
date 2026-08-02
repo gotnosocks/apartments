@@ -50,7 +50,7 @@ residual, and outlier-table diagnostics. Units `7` and `8` are excluded.
 ## Bayesian model
 
 The PyMC model combines The Sierra Chelsea, Stonehenge Gardens, and 101 W 15th
-from May 2019 onward, aggregates to one median asking rent per building-unit-week,
+from January 2022 onward, aggregates to one median asking rent per building-unit-week,
 and estimates a shared latent weekly local trend with 95% credible intervals plus
 time-constant adjusted building offsets. Every unit with any confirmed Blueground furnished period
 is excluded entirely, including its earlier conventional-rental history; the model

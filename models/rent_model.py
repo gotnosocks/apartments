@@ -19,7 +19,7 @@ import pymc as pm
 import pytensor.tensor as pt
 from scipy.special import stdtr
 
-CUTOFF = pd.Timestamp("2019-05-01")
+CUTOFF = pd.Timestamp("2022-01-01")
 BUILDINGS = {
     "the-sierra-chelsea": "The Sierra Chelsea",
     "stonehenge-gardens": "Stonehenge Gardens",
