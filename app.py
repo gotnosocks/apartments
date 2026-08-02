@@ -333,13 +333,14 @@ with model_tab:
         )
         st.plotly_chart(fig, use_container_width=True)
 
-        st.subheader("Adjusted one- and two-bedroom asking prices")
+        st.subheader("Adjusted asking prices by bedroom count")
         price_fig = go.Figure()
         colors = {
+            "Studio": ("#5f6368", "rgba(95,99,104,0.13)"),
             "1 BR": ("#164db4", "rgba(22,77,180,0.16)"),
             "2 BR": ("#b3261e", "rgba(179,38,30,0.14)"),
         }
-        for bedroom_group in ["1 BR", "2 BR"]:
+        for bedroom_group in ["Studio", "1 BR", "2 BR"]:
             group = bedroom_prices[bedroom_prices["bedroom_group"] == bedroom_group]
             line_color, fill_color = colors[bedroom_group]
             price_fig.add_trace(go.Scatter(
@@ -363,8 +364,9 @@ with model_tab:
         typical_sizes = bedroom_prices.groupby("bedroom_group")["typical_square_feet"].first().to_dict()
         st.caption(
             "Posterior prices for typical unfurnished units with average unit effect and observed "
-            f"square footage: approximately {typical_sizes['1 BR']:.0f} ft² for 1 BR and "
-            f"{typical_sizes['2 BR']:.0f} ft² for 2 BR. Bands are 95% credible intervals."
+            f"square footage: approximately {typical_sizes['Studio']:.0f} ft² for studios, "
+            f"{typical_sizes['1 BR']:.0f} ft² for 1 BR, and {typical_sizes['2 BR']:.0f} ft² "
+            "for 2 BR. Bands are 95% credible intervals."
         )
 
         furnished = weekly_metadata["furnished_premium_percent"]

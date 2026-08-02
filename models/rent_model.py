@@ -233,12 +233,14 @@ def save_outputs(
     alpha = posterior["alpha"].values.reshape(-1, 1)
     beta_size = posterior["beta_log_sqft"].values.reshape(-1, 1)
     bedroom_rows = []
-    for bedrooms, name in [(1, "1 BR"), (2, "2 BR")]:
+    for bedrooms, name in [(0, "Studio"), (1, "1 BR"), (2, "2 BR")]:
         group = unit_characteristics[unit_characteristics["bedrooms"] == bedrooms]
         typical_sqft = float(group["square_feet_imputed"].median())
         typical_log_sqft_z = float(group["log_sqft_z"].median())
-        bedroom_term = first_bedroom.reshape(-1, 1)
-        if bedrooms == 2:
+        bedroom_term = np.zeros_like(first_bedroom).reshape(-1, 1)
+        if bedrooms >= 1:
+            bedroom_term = bedroom_term + first_bedroom.reshape(-1, 1)
+        if bedrooms >= 2:
             bedroom_term = bedroom_term + second_bedroom.reshape(-1, 1)
         price_samples = np.exp(
             alpha + trend + bedroom_term + beta_size * typical_log_sqft_z
