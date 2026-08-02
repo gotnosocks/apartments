@@ -385,7 +385,7 @@ with model_tab:
 
         st.subheader("Cumulative floor premium")
         floor_fig = go.Figure(go.Scatter(
-            x=floor_effects["floor_label"],
+            x=floor_effects["physical_floor"],
             y=floor_effects["cumulative_median"],
             mode="lines+markers",
             line={"color": "#6f42c1", "width": 2},
@@ -397,16 +397,26 @@ with model_tab:
                 "arrayminus": floor_effects["cumulative_median"] - floor_effects["cumulative_lower"],
                 "color": "rgba(111,66,193,0.55)",
             },
-            customdata=floor_effects[["units", "increment_median"]],
+            customdata=floor_effects[["floor_label", "units", "increment_median"]],
             hovertemplate=(
-                "Floor %{x}<br>Cumulative premium: %{y:.1f}%"
-                "<br>Units: %{customdata[0]}"
-                "<br>Change from lower level: %{customdata[1]:+.1f}%<extra></extra>"
+                "Floor %{customdata[0]}<br>Cumulative premium: %{y:.1f}%"
+                "<br>Units: %{customdata[1]}"
+                "<br>Change from lower level: %{customdata[2]:+.1f}%<extra></extra>"
             ),
         ))
         floor_fig.add_hline(y=0, line_dash="dot", line_color="gray")
         floor_fig.update_layout(
-            xaxis_title="Floor", yaxis_title="Premium relative to floor 3",
+            xaxis={
+                "title": "Marketed floor",
+                "tickmode": "array",
+                "tickvals": floor_effects["physical_floor"].tolist(),
+                "ticktext": floor_effects["floor_label"].tolist(),
+                "range": [
+                    floor_effects["physical_floor"].min() - 0.4,
+                    floor_effects["physical_floor"].max() + 0.4,
+                ],
+            },
+            yaxis_title="Premium relative to floor 3",
             yaxis_ticksuffix="%", height=480,
         )
         st.plotly_chart(floor_fig, use_container_width=True)
