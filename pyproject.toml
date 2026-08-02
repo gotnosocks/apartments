@@ -26,6 +26,7 @@ model = [
     "pandas>=2.2",
     "pyarrow>=19.0",
     "pymc>=5.20",
+    "scipy>=1.14",
 ]
 
 [project.scripts]

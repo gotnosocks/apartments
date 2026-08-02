@@ -17,6 +17,7 @@ import numpy as np
 import pandas as pd
 import pymc as pm
 import pytensor.tensor as pt
+from scipy.special import stdtr
 
 CUTOFF = pd.Timestamp("2019-05-01")
 BUILDING_SLUG = "the-sierra-chelsea"
@@ -284,6 +285,54 @@ def save_outputs(
             "increment_upper": float(np.quantile(change, 0.975)),
         })
     pd.DataFrame(floor_rows).to_parquet(output_dir / "floor_effects.parquet", index=False)
+
+    # In-sample observation diagnostics. The tail probability integrates the
+    # Student-t CDF over posterior parameter draws; it is not a leave-one-out score.
+    observation_floor_lookup = {floor: index for index, floor in enumerate(floor_levels)}
+    observation_floor_idx = data["physical_floor"].map(observation_floor_lookup).to_numpy()
+    observation_mu = (
+        posterior["alpha"].values.reshape(-1, 1)
+        + trend[:, data["period_idx"].to_numpy()]
+        + furnished.reshape(-1, 1) * data["is_furnished"].astype(float).to_numpy()
+        + first_bedroom.reshape(-1, 1) * (data["bedrooms"] >= 1).astype(float).to_numpy()
+        + second_bedroom.reshape(-1, 1) * (data["bedrooms"] >= 2).astype(float).to_numpy()
+        + posterior["beta_log_sqft"].values.reshape(-1, 1) * data["log_sqft_z"].to_numpy()
+        + posterior["beta_sqft_missing"].values.reshape(-1, 1) * data["sqft_missing"].to_numpy()
+        + floor_effect_samples[:, observation_floor_idx]
+        + posterior["unit_effect"].values.reshape(-1, data["unit"].nunique())[
+            :, data["unit_idx"].to_numpy()
+        ]
+    )
+    observed_log_rent = data["log_rent"].to_numpy()
+    fitted_log_rent = np.median(observation_mu, axis=0)
+    sigma_samples = posterior["sigma"].values.reshape(-1, 1)
+    standardized = (observed_log_rent - observation_mu) / sigma_samples
+    predictive_cdf = stdtr(5, standardized)
+    lower_tail_probability = predictive_cdf.mean(axis=0)
+    two_sided_tail_probability = 2 * np.minimum(
+        lower_tail_probability, 1 - lower_tail_probability
+    )
+    observation_diagnostics = data[[
+        "unit", "period", "asking_rent", "bedrooms", "marketed_floor",
+        "physical_floor", "square_feet", "square_feet_imputed", "sqft_missing",
+        "is_furnished", "source_events",
+    ]].copy()
+    observation_diagnostics["bedroom_group"] = observation_diagnostics["bedrooms"].map(
+        {0: "Studio", 1: "1 BR", 2: "2 BR"}
+    )
+    observation_diagnostics["fitted_rent"] = np.exp(fitted_log_rent)
+    observation_diagnostics["residual_dollars"] = (
+        observation_diagnostics["asking_rent"] - observation_diagnostics["fitted_rent"]
+    )
+    observation_diagnostics["residual_percent"] = 100 * (
+        observation_diagnostics["asking_rent"] / observation_diagnostics["fitted_rent"] - 1
+    )
+    observation_diagnostics["standardized_residual"] = np.median(standardized, axis=0)
+    observation_diagnostics["tail_probability"] = two_sided_tail_probability
+    observation_diagnostics["is_outlier_95"] = two_sided_tail_probability < 0.05
+    observation_diagnostics.to_parquet(
+        output_dir / "observation_diagnostics.parquet", index=False
+    )
 
     # Adjusted dollar trajectories use each bedroom group's typical square
     # footage at floor 8, an unfurnished listing, observed square footage, and

@@ -34,7 +34,7 @@ def load_furnishing_periods(db_path: str, modified_ns: int) -> pd.DataFrame:
 @st.cache_data(show_spinner=False)
 def load_model_outputs(
     model_dir: str, modified_ns: int
-) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame, dict]:
+) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame, pd.DataFrame, dict]:
     del modified_ns
     path = Path(model_dir)
     index = pd.read_parquet(path / "index.parquet")
@@ -42,8 +42,10 @@ def load_model_outputs(
     bedroom_prices = pd.read_parquet(path / "bedroom_prices.parquet")
     bedroom_prices["period"] = pd.to_datetime(bedroom_prices["period"])
     floor_effects = pd.read_parquet(path / "floor_effects.parquet")
+    observation_diagnostics = pd.read_parquet(path / "observation_diagnostics.parquet")
+    observation_diagnostics["period"] = pd.to_datetime(observation_diagnostics["period"])
     metadata = json.loads((path / "metadata.json").read_text())
-    return index, bedroom_prices, floor_effects, metadata
+    return index, bedroom_prices, floor_effects, observation_diagnostics, metadata
 
 
 db_input = st.sidebar.text_input("DuckDB path", str(DEFAULT_DB))
@@ -146,18 +148,24 @@ with st.expander("Model explainer and equations", expanded=False):
     )
 
 weekly_dir = MODEL_DIR / "weekly"
-if not (weekly_dir / "index.parquet").exists():
+required_model_files = [
+    weekly_dir / "index.parquet",
+    weekly_dir / "bedroom_prices.parquet",
+    weekly_dir / "floor_effects.parquet",
+    weekly_dir / "observation_diagnostics.parquet",
+    weekly_dir / "metadata.json",
+]
+if not all(path.exists() for path in required_model_files):
     st.info("Run `uv run python models/rent_model.py --frequency weekly` to fit the model.")
 else:
-    weekly_mtime = max(
-        (weekly_dir / "index.parquet").stat().st_mtime_ns,
-        (weekly_dir / "bedroom_prices.parquet").stat().st_mtime_ns,
-        (weekly_dir / "floor_effects.parquet").stat().st_mtime_ns,
-        (weekly_dir / "metadata.json").stat().st_mtime_ns,
-    )
-    weekly_index, bedroom_prices, floor_effects, weekly_metadata = load_model_outputs(
-        str(weekly_dir), weekly_mtime
-    )
+    weekly_mtime = max(path.stat().st_mtime_ns for path in required_model_files)
+    (
+        weekly_index,
+        bedroom_prices,
+        floor_effects,
+        observation_diagnostics,
+        weekly_metadata,
+    ) = load_model_outputs(str(weekly_dir), weekly_mtime)
 
     fig = go.Figure()
     fig.add_trace(go.Scatter(
@@ -259,6 +267,119 @@ else:
         "axis retains marketed labels: floor 14 is physical floor 13 and PH is physical floor "
         "14. Error bars are 95% credible intervals."
     )
+
+    st.subheader("Observation fit and outlier diagnostics")
+    outlier_count = int(observation_diagnostics["is_outlier_95"].sum())
+    st.caption(
+        f"{outlier_count:,} of {len(observation_diagnostics):,} unit-week observations have a "
+        "two-sided posterior predictive tail probability below 5%. These are in-sample "
+        "diagnostics, so they are useful for finding structure the model missed but are less "
+        "stringent than leave-one-out residuals."
+    )
+    fit_tab, time_tab, outlier_tab = st.tabs(
+        ["Observed vs fitted", "Residuals over time", "Largest outliers"]
+    )
+    with fit_tab:
+        diagnostic_fig = go.Figure()
+        residual_color_limit = max(
+            10.0,
+            float(observation_diagnostics["residual_percent"].abs().quantile(0.98)),
+        )
+        diagnostic_fig.add_trace(go.Scattergl(
+            x=observation_diagnostics["fitted_rent"],
+            y=observation_diagnostics["asking_rent"],
+            mode="markers",
+            marker={
+                "size": 6,
+                "opacity": 0.62,
+                "color": observation_diagnostics["residual_percent"],
+                "colorscale": "RdBu_r",
+                "cmin": -residual_color_limit,
+                "cmax": residual_color_limit,
+                "colorbar": {"title": "Observed vs fitted (%)"},
+            },
+            customdata=observation_diagnostics[[
+                "unit", "period", "bedroom_group", "marketed_floor",
+                "residual_percent", "standardized_residual", "tail_probability",
+            ]],
+            hovertemplate=(
+                "Unit %{customdata[0]} · %{customdata[1]|%Y-%m-%d}"
+                "<br>%{customdata[2]} · floor %{customdata[3]}"
+                "<br>Fitted: $%{x:,.0f}<br>Observed: $%{y:,.0f}"
+                "<br>Residual: %{customdata[4]:+.1f}%"
+                "<br>Standardized: %{customdata[5]:+.2f}"
+                "<br>Tail probability: %{customdata[6]:.3f}<extra></extra>"
+            ),
+            name="Observations",
+        ))
+        axis_min = float(min(
+            observation_diagnostics["fitted_rent"].min(),
+            observation_diagnostics["asking_rent"].min(),
+        ))
+        axis_max = float(max(
+            observation_diagnostics["fitted_rent"].max(),
+            observation_diagnostics["asking_rent"].max(),
+        ))
+        diagnostic_fig.add_trace(go.Scatter(
+            x=[axis_min, axis_max], y=[axis_min, axis_max], mode="lines",
+            line={"color": "#555", "dash": "dash"}, name="Perfect fit",
+            hoverinfo="skip",
+        ))
+        diagnostic_fig.update_layout(
+            xaxis_title="Posterior median fitted rent",
+            yaxis_title="Observed asking rent",
+            xaxis_tickprefix="$", yaxis_tickprefix="$",
+            xaxis_tickformat=",", yaxis_tickformat=",",
+            height=620,
+        )
+        st.plotly_chart(diagnostic_fig, use_container_width=True)
+    with time_tab:
+        time_fig = go.Figure()
+        bedroom_colors = {"Studio": "#5f6368", "1 BR": "#164db4", "2 BR": "#b3261e"}
+        for bedroom_group, color in bedroom_colors.items():
+            group = observation_diagnostics[
+                observation_diagnostics["bedroom_group"] == bedroom_group
+            ]
+            time_fig.add_trace(go.Scattergl(
+                x=group["period"], y=group["residual_percent"], mode="markers",
+                marker={"size": 6, "opacity": 0.55, "color": color},
+                customdata=group[["unit", "asking_rent", "fitted_rent", "tail_probability"]],
+                hovertemplate=(
+                    "Unit %{customdata[0]} · %{x|%Y-%m-%d}"
+                    "<br>Observed: $%{customdata[1]:,.0f}"
+                    "<br>Fitted: $%{customdata[2]:,.0f}"
+                    "<br>Residual: %{y:+.1f}%"
+                    "<br>Tail probability: %{customdata[3]:.3f}<extra></extra>"
+                ),
+                name=bedroom_group,
+            ))
+        time_fig.add_hline(y=0, line_dash="dash", line_color="#555")
+        time_fig.update_layout(
+            xaxis_title="Week", yaxis_title="Observed minus fitted",
+            yaxis_ticksuffix="%", height=560,
+        )
+        st.plotly_chart(time_fig, use_container_width=True)
+    with outlier_tab:
+        outlier_table = observation_diagnostics.sort_values(
+            ["tail_probability", "period"]
+        ).head(50).copy()
+        outlier_table["period"] = outlier_table["period"].dt.date
+        st.dataframe(
+            outlier_table[[
+                "unit", "period", "bedroom_group", "marketed_floor",
+                "asking_rent", "fitted_rent", "residual_percent",
+                "standardized_residual", "tail_probability", "is_furnished",
+            ]],
+            use_container_width=True,
+            hide_index=True,
+            column_config={
+                "asking_rent": st.column_config.NumberColumn(format="$%d"),
+                "fitted_rent": st.column_config.NumberColumn(format="$%.0f"),
+                "residual_percent": st.column_config.NumberColumn(format="%.1f%%"),
+                "standardized_residual": st.column_config.NumberColumn(format="%.2f"),
+                "tail_probability": st.column_config.NumberColumn(format="%.4f"),
+            },
+        )
 
     furnished = weekly_metadata["furnished_premium_percent"]
     bedrooms = weekly_metadata["bedroom_premiums_percent"]

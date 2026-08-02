@@ -368,6 +368,8 @@ model = [
     { name = "pyarrow" },
     { name = "pymc", version = "5.28.5", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.12'" },
     { name = "pymc", version = "6.2.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.12'" },
+    { name = "scipy", version = "1.17.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.12'" },
+    { name = "scipy", version = "1.18.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.12'" },
 ]
 
 [package.metadata]
@@ -386,6 +388,7 @@ requires-dist = [
     { name = "pymc", marker = "extra == 'model'", specifier = ">=5.20" },
     { name = "pytest", marker = "extra == 'dev'", specifier = ">=8.0" },
     { name = "python-dotenv", specifier = ">=1.0" },
+    { name = "scipy", marker = "extra == 'model'", specifier = ">=1.14" },
     { name = "streamlit", marker = "extra == 'app'", specifier = ">=1.42" },
     { name = "typer", specifier = ">=0.15" },
 ]
