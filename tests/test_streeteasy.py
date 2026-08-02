@@ -5,6 +5,7 @@ from apartments.streeteasy import (
     parse_price_history_html,
     physical_floor,
     split_unit,
+    unit_facing,
     unit_format,
     unit_is_excluded,
     unit_kind,
@@ -65,6 +66,12 @@ def test_building_floor_override():
     assert physical_floor(15, False) == 14
     assert physical_floor(14, True) == 14
     assert physical_floor(14, None) == 14
+    assert unit_facing("the-sierra-chelsea", "A") == (True, False)
+    assert unit_facing("the-sierra-chelsea", "J") == (True, False)
+    assert unit_facing("the-sierra-chelsea", "K") == (True, True)
+    assert unit_facing("the-sierra-chelsea", "L") == (False, True)
+    assert unit_facing("the-sierra-chelsea", "W") == (False, True)
+    assert unit_facing("another-building", "K") == (None, None)
 
 
 def test_furnished_detection():

@@ -36,6 +36,7 @@ def prepare_data(
     events = connection.execute(
         """SELECT l.unit, l.bedrooms, l.bathrooms, l.square_feet,
                   l.floor AS marketed_floor, l.physical_floor, l.unit_format,
+                  l.is_garden_facing, l.is_street_facing,
                   CASE
                     WHEN fp.furnishing_status = 'confirmed-furnished' THEN true
                     WHEN fp.furnishing_status = 'unknown-transition' THEN NULL
@@ -76,14 +77,27 @@ def prepare_data(
         marketed_floor=("marketed_floor", "first"),
         physical_floor=("physical_floor", "first"),
         unit_format=("unit_format", "first"),
+        is_garden_facing=("is_garden_facing", "first"),
+        is_street_facing=("is_street_facing", "first"),
         is_furnished=("is_furnished", "first"),
         source_events=("asking_rent", "size"),
     )
-    period_data = period_data.dropna(subset=["bedrooms", "physical_floor", "asking_rent"]).copy()
+    period_data = period_data.dropna(subset=[
+        "bedrooms", "physical_floor", "is_garden_facing", "is_street_facing", "asking_rent"
+    ]).copy()
     period_data["bedrooms"] = period_data["bedrooms"].astype(int)
     period_data["marketed_floor"] = period_data["marketed_floor"].astype(int)
     period_data["physical_floor"] = period_data["physical_floor"].astype(int)
     period_data["square_feet"] = period_data["square_feet"].astype(float)
+    period_data["is_garden_facing"] = period_data["is_garden_facing"].astype(bool)
+    period_data["is_street_facing"] = period_data["is_street_facing"].astype(bool)
+    period_data["facing_contrast"] = (
+        period_data["is_street_facing"].astype(float)
+        - period_data["is_garden_facing"].astype(float)
+    ) / 2
+    period_data["both_facing"] = (
+        period_data["is_garden_facing"] & period_data["is_street_facing"]
+    ).astype(float)
     period_data["sqft_missing"] = period_data["square_feet"].isna().astype(int)
     bedroom_medians = period_data.groupby("bedrooms")["square_feet"].transform("median")
     period_data["square_feet_imputed"] = period_data["square_feet"].fillna(
@@ -150,6 +164,12 @@ def fit_model(
         sqft_missing = pm.Data(
             "sqft_missing", data["sqft_missing"].to_numpy(), dims="obs_id"
         )
+        facing_contrast = pm.Data(
+            "facing_contrast", data["facing_contrast"].to_numpy(), dims="obs_id"
+        )
+        both_facing = pm.Data(
+            "both_facing", data["both_facing"].to_numpy(), dims="obs_id"
+        )
 
         alpha = pm.Normal("alpha", mu=np.log(5500), sigma=0.7)
         beta_furnished = pm.Normal("beta_furnished", mu=0.15, sigma=0.25)
@@ -157,6 +177,8 @@ def fit_model(
         beta_second_bedroom = pm.Normal("beta_second_bedroom", mu=0.1, sigma=0.25)
         beta_log_sqft = pm.Normal("beta_log_sqft", mu=0.5, sigma=0.3)
         beta_sqft_missing = pm.Normal("beta_sqft_missing", mu=0, sigma=0.15)
+        beta_skyline_vs_garden = pm.Normal("beta_skyline_vs_garden", mu=0, sigma=0.15)
+        beta_both_facing = pm.Normal("beta_both_facing", mu=0, sigma=0.15)
 
         sigma_rw = pm.HalfNormal("sigma_rw", sigma=FREQUENCIES[frequency]["rw_prior"])
         rw_steps = pm.Normal(
@@ -194,6 +216,8 @@ def fit_model(
             + beta_second_bedroom * has_second_bedroom
             + beta_log_sqft * log_sqft_z
             + beta_sqft_missing * sqft_missing
+            + beta_skyline_vs_garden * facing_contrast
+            + beta_both_facing * both_facing
             + floor_effect[floor_idx]
             + unit_effect[unit_idx]
         )
@@ -252,6 +276,12 @@ def save_outputs(
         "second_bedroom_increment": 100 * (np.exp(second_bedroom) - 1),
         "two_bedroom_vs_studio": 100 * (np.exp(first_bedroom + second_bedroom) - 1),
     }
+    skyline_vs_garden = posterior["beta_skyline_vs_garden"].values.reshape(-1)
+    both_facing = posterior["beta_both_facing"].values.reshape(-1)
+    facing_effects = {
+        "skyline_vs_garden": 100 * (np.exp(skyline_vs_garden) - 1),
+        "both_vs_single_facing_midpoint": 100 * (np.exp(both_facing) - 1),
+    }
 
     floor_levels = posterior.coords["floor"].values.astype(int)
     floor_effect_samples = posterior["floor_effect"].values.reshape(-1, len(floor_levels))
@@ -298,6 +328,8 @@ def save_outputs(
         + second_bedroom.reshape(-1, 1) * (data["bedrooms"] >= 2).astype(float).to_numpy()
         + posterior["beta_log_sqft"].values.reshape(-1, 1) * data["log_sqft_z"].to_numpy()
         + posterior["beta_sqft_missing"].values.reshape(-1, 1) * data["sqft_missing"].to_numpy()
+        + skyline_vs_garden.reshape(-1, 1) * data["facing_contrast"].to_numpy()
+        + both_facing.reshape(-1, 1) * data["both_facing"].to_numpy()
         + floor_effect_samples[:, observation_floor_idx]
         + posterior["unit_effect"].values.reshape(-1, data["unit"].nunique())[
             :, data["unit_idx"].to_numpy()
@@ -315,7 +347,7 @@ def save_outputs(
     observation_diagnostics = data[[
         "unit", "period", "asking_rent", "bedrooms", "marketed_floor",
         "physical_floor", "square_feet", "square_feet_imputed", "sqft_missing",
-        "is_furnished", "source_events",
+        "is_garden_facing", "is_street_facing", "is_furnished", "source_events",
     ]].copy()
     observation_diagnostics["bedroom_group"] = observation_diagnostics["bedrooms"].map(
         {0: "Studio", 1: "1 BR", 2: "2 BR"}
@@ -383,6 +415,8 @@ def save_outputs(
             "beta_furnished",
             "beta_first_bedroom",
             "beta_second_bedroom",
+            "beta_skyline_vs_garden",
+            "beta_both_facing",
             "sigma_rw",
             "sigma_floor",
             "sigma_unit",
@@ -415,6 +449,14 @@ def save_outputs(
             }
             for name, samples in bedroom_effects.items()
         },
+        "facing_effects_percent": {
+            name: {
+                "median": float(np.median(samples)),
+                "lower_95": float(np.quantile(samples, 0.025)),
+                "upper_95": float(np.quantile(samples, 0.975)),
+            }
+            for name, samples in facing_effects.items()
+        },
         "max_rhat": float(diagnostics["r_hat"].max()),
         "min_ess_bulk": float(diagnostics["ess_bulk"].min()),
         "sampler": "nutpie",
@@ -426,6 +468,8 @@ def save_outputs(
             "Cumulative >=1-bedroom and >=2-bedroom indicators estimate the first and incremental second bedroom premiums.",
             "Physical floor 3 is the floor-effect baseline; each higher physical floor cumulatively sums shrunk adjacent-level changes.",
             "Marketed floors 14 and 15 map to physical floors 13 and 14 because the building has no marketed floor 13.",
+            "Suffixes A-J are garden-facing, K faces both directions, and L onward are street-facing (marketed as skyline).",
+            "Facing is effect-coded as skyline versus garden plus a both-facing deviation from the single-facing midpoint.",
             "Imputed square footage, missing-square-footage status, and unit random effects are controls.",
         ],
     }

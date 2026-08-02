@@ -46,6 +46,25 @@ def physical_floor(marketed_floor: int | None, has_floor_13: bool | None) -> int
     return marketed_floor
 
 
+def unit_facing(
+    building_slug: str | None,
+    suffix: str | None,
+) -> tuple[bool | None, bool | None]:
+    """Return canonical (garden, street) exposure from a configured suffix split."""
+    rule = building_override(building_slug).get("facing_suffix_split")
+    value = (suffix or "").strip().upper()
+    if not rule or len(value) != 1 or not value.isalpha():
+        return None, None
+    pivot = str(rule["pivot"]).upper()
+    if value < pivot:
+        faces = {str(rule["lower"]).lower()}
+    elif value > pivot:
+        faces = {str(rule["upper"]).lower()}
+    else:
+        faces = {str(face).lower() for face in rule.get("pivot_faces", [])}
+    return "garden" in faces, "street" in faces
+
+
 def unit_is_excluded(building_slug: str | None, unit: str | None) -> bool:
     if not EXCLUDED_UNITS_PATH.exists():
         return False
@@ -183,6 +202,7 @@ def ingest_export(
     physical_floor_value = physical_floor(floor, has_floor_13)
     unit_letter = item.get("unit_letter") or inferred_letter
     suffix = item.get("unit_suffix") or unit_suffix(item.get("unit"))
+    is_garden_facing, is_street_facing = unit_facing(item.get("building_slug"), suffix)
     floor_inference = (
         "building-override"
         if configured_floor is not None
@@ -219,9 +239,10 @@ def ingest_export(
         """INSERT INTO listings (
             source, source_listing_id, address_line, canonical_address, unit,
             floor, physical_floor, unit_letter, unit_suffix, unit_format, floor_inference,
-            unit_kind, unit_is_specific, is_furnished, city, state, zipcode, property_type, bedrooms,
+            unit_kind, unit_is_specific, is_furnished, is_garden_facing,
+            is_street_facing, city, state, zipcode, property_type, bedrooms,
             bathrooms, square_feet, listing_type, raw_json
-        ) VALUES ('streeteasy', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'New York', 'NY', ?, 'Rental unit', ?, ?, ?, 'Rental', ?)
+        ) VALUES ('streeteasy', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'New York', 'NY', ?, 'Rental unit', ?, ?, ?, 'Rental', ?)
         ON CONFLICT (source, source_listing_id) DO UPDATE SET
             address_line=excluded.address_line, canonical_address=excluded.canonical_address,
             unit=excluded.unit, floor=excluded.floor, physical_floor=excluded.physical_floor,
@@ -230,12 +251,15 @@ def ingest_export(
             floor_inference=excluded.floor_inference, unit_kind=excluded.unit_kind,
             unit_is_specific=excluded.unit_is_specific,
             is_furnished=excluded.is_furnished,
+            is_garden_facing=excluded.is_garden_facing,
+            is_street_facing=excluded.is_street_facing,
             bedrooms=excluded.bedrooms, bathrooms=excluded.bathrooms,
             square_feet=excluded.square_feet, last_seen_at=now(),
             raw_json=excluded.raw_json""",
         [source_id, item.get("address"), normalize_address(item.get("address")),
          item.get("unit"), floor, physical_floor_value, unit_letter, suffix, format_name, floor_inference,
-         kind, is_specific, is_furnished, item.get("zipcode"), attributes.get("bedrooms"),
+         kind, is_specific, is_furnished, is_garden_facing, is_street_facing,
+         item.get("zipcode"), attributes.get("bedrooms"),
          attributes.get("bathrooms"), attributes.get("square_feet"), raw],
     )
     captured_at = item.get("captured_at")

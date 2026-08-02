@@ -1,6 +1,13 @@
 {
   "the-sierra-chelsea": {
     "has_floor_13": false,
+    "facing_suffix_split": {
+      "pivot": "K",
+      "lower": "garden",
+      "upper": "street",
+      "pivot_faces": ["garden", "street"],
+      "street_label": "Skyline"
+    },
     "floor_by_unit_format": {
       "penthouse": 15
     }

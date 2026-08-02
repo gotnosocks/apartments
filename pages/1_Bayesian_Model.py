@@ -79,7 +79,8 @@ with st.expander("Model explainer and equations", expanded=False):
     st.latex(
         r"\mu_{i,t} = \alpha + B_t + \beta_F F_{i,t}"
         r" + \gamma_1 I(\mathrm{BR}_i\ge1) + \gamma_2 I(\mathrm{BR}_i\ge2)"
-        r" + \beta_S z(\log(\mathrm{sqft}_i)) + \beta_M M_i + A_{f(i)} + u_i"
+        r" + \beta_S z(\log(\mathrm{sqft}_i)) + \beta_M M_i"
+        r" + \beta_O C_i + \beta_K K_i + A_{f(i)} + u_i"
     )
     st.markdown(
         r"""
@@ -94,6 +95,11 @@ with st.expander("Model explainer and equations", expanded=False):
           The total two-bedroom versus studio effect is $\gamma_1+\gamma_2$.
         - $z(\log(\mathrm{sqft}))$ is standardized log square footage.
         - $M_i$ indicates that square footage was missing and imputed from the bedroom group.
+        - $C_i$ is the facing contrast: $-0.5$ for garden, $+0.5$ for skyline/street, and
+          zero for K units that face both directions. Thus $\beta_O$ directly compares skyline
+          with garden exposure.
+        - $K_i$ identifies the K stack, estimating its both-facing deviation from the midpoint
+          of the garden-only and skyline-only groups.
         - $A_{f(i)}$ is the cumulative effect for the unit's physical floor. Because the
           building skips marketed floor 13, marketed floor 14 is physical floor 13 and the
           penthouse level is physical floor 14.
@@ -218,7 +224,8 @@ else:
     st.plotly_chart(price_fig, use_container_width=True)
     typical_sizes = bedroom_prices.groupby("bedroom_group")["typical_square_feet"].first().to_dict()
     st.caption(
-        "Posterior prices for typical unfurnished floor-8 units with average unit effect and observed "
+        "Posterior prices for typical unfurnished floor-8 units with average unit effect, average "
+        "single-facing exposure, and observed "
         f"square footage: approximately {typical_sizes['Studio']:.0f} ft² for studios, "
         f"{typical_sizes['1 BR']:.0f} ft² for 1 BR, and {typical_sizes['2 BR']:.0f} ft² "
         "for 2 BR. Bands are 95% credible intervals."
@@ -266,6 +273,23 @@ else:
         "The shared floor-change scale shrinks neighboring levels toward similar rents. The "
         "axis retains marketed labels: floor 14 is physical floor 13 and PH is physical floor "
         "14. Error bars are 95% credible intervals."
+    )
+
+    st.subheader("Garden and skyline exposure")
+    facing = weekly_metadata["facing_effects_percent"]
+    skyline = facing["skyline_vs_garden"]
+    both_exposure = facing["both_vs_single_facing_midpoint"]
+    facing_col1, facing_col2 = st.columns(2)
+    facing_col1.metric("Skyline vs garden", f"{skyline['median']:+.1f}%")
+    facing_col2.metric(
+        "K both-facing vs single-facing midpoint", f"{both_exposure['median']:+.1f}%"
+    )
+    st.caption(
+        f"95% intervals — skyline versus garden: {skyline['lower_95']:+.1f}% to "
+        f"{skyline['upper_95']:+.1f}%; K both-facing deviation: "
+        f"{both_exposure['lower_95']:+.1f}% to {both_exposure['upper_95']:+.1f}%. "
+        "A–J are classified as garden, K as both, and L onward as street-facing "
+        "(marketed as skyline)."
     )
 
     st.subheader("Observation fit and outlier diagnostics")
