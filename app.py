@@ -43,7 +43,7 @@ def load_data(
            JOIN listings l USING (source, source_listing_id)
            WHERE e.source = 'streeteasy'
              AND l.building_slug = ?
-             AND e.price IS NOT NULL
+             AND e.price > 0
              AND e.event_at IS NOT NULL
            ORDER BY e.event_at, l.unit""",
         [building_slug],

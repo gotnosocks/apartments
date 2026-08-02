@@ -430,13 +430,21 @@ else:
         bedroom_prices.sort_values("period").groupby("bedroom_group").tail(1)
         .set_index("bedroom_group")["price_median"]
     )
-    typical_two_bed_gap = 100 * (latest_adjusted["2 BR"] / latest_adjusted["1 BR"] - 1)
-    st.info(
-        f"The {second['median']:+.1f}% second-bedroom coefficient holds square footage and floor "
-        f"constant. It is not the price gap between typical apartments. At the modeled typical "
-        f"sizes shown above, the latest adjusted 2 BR price is {typical_two_bed_gap:.1f}% above "
-        "the adjusted 1 BR price."
-    )
+    if {"1 BR", "2 BR"}.issubset(latest_adjusted.index):
+        typical_two_bed_gap = 100 * (
+            latest_adjusted["2 BR"] / latest_adjusted["1 BR"] - 1
+        )
+        st.info(
+            f"The {second['median']:+.1f}% second-bedroom coefficient holds square footage and floor "
+            f"constant. It is not the price gap between typical apartments. At the modeled typical "
+            f"sizes shown above, the latest adjusted 2 BR price is {typical_two_bed_gap:.1f}% above "
+            "the adjusted 1 BR price."
+        )
+    else:
+        st.info(
+            "This building has no modeled 2 BR trajectory, so its adjusted studio/1 BR chart "
+            "cannot illustrate the model-wide second-bedroom increment."
+        )
     st.caption(
         f"PyMC Student-t model using {weekly_metadata['observations']:,} unit-week observations "
         f"from {weekly_metadata['units']} units since {weekly_metadata['cutoff']}."
