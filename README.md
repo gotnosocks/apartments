@@ -41,7 +41,7 @@ uv run streamlit run app.py
 ```
 
 Open the local URL printed by Streamlit. The main rental explorer has a building
-selector for all three modeled properties and includes all-unit history, monthly
+selector for all five modeled properties and includes all-unit history, monthly
 trends, latest-rent and square-footage comparisons,
 unit detail, and data-quality views. The Bayesian analysis is a dedicated page
 in Streamlit's sidebar navigation and includes observed-versus-fitted, temporal
@@ -49,8 +49,8 @@ residual, and outlier-table diagnostics. Units `7` and `8` are excluded.
 
 ## Bayesian model
 
-The PyMC model combines The Sierra Chelsea, Stonehenge Gardens, and 101 W 15th
-from January 2022 onward, aggregates to one median asking rent per building-unit-week,
+The PyMC model combines The Sierra Chelsea, Stonehenge Gardens, 101 W 15th,
+117 W 13th, and 128 W 13th from January 2022 onward, aggregates to one median asking rent per building-unit-week,
 and estimates a shared latent weekly local trend with 95% credible intervals plus
 time-constant adjusted building offsets. Every unit with any confirmed Blueground furnished period
 is excluded entirely, including its earlier conventional-rental history; the model
@@ -60,8 +60,8 @@ cumulatively sums adjacent-level changes under a shared shrinkage prior. Markete
 stored separately: because Sierra has no marketed floor 13, marketed floors 14 and
 15 map to physical floors 13 and 14. The same building configuration classifies
 Sierra A–J as garden-facing, K as both-facing, and L onward as street-facing
-(called skyline in Sierra marketing). Frontage remains neutral for Stonehenge and
-101 W 15th. These rules come from `config/building_overrides.json`
+(called skyline in Sierra marketing). Frontage remains neutral for the other buildings.
+These rules come from `config/building_overrides.json`
 during capture ingestion rather than model-specific SQL. The model also controls
 for square footage, missing square footage, and unit random effects.
 Sampling uses Nutpie's NUTS

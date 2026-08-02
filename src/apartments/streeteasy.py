@@ -32,6 +32,10 @@ def floor_override(
     by_unit = {key.upper(): value for key, value in overrides.get("floor_by_unit", {}).items()}
     if str(unit).upper() in by_unit:
         return int(by_unit[str(unit).upper()])
+    if overrides.get("floor_from_unit_leading_digit"):
+        match = re.match(r"^(\d)", str(unit).strip())
+        if match:
+            return int(match.group(1))
     by_format = overrides.get("floor_by_unit_format", {})
     value = by_format.get(format_name)
     return int(value) if value is not None else None

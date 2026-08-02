@@ -11,5 +11,13 @@
     "floor_by_unit_format": {
       "penthouse": 15
     }
+  },
+  "117-west-13-street-new_york": {
+    "has_floor_13": true,
+    "floor_from_unit_leading_digit": true
+  },
+  "128-west-13-street-new_york": {
+    "has_floor_13": true,
+    "floor_from_unit_leading_digit": true
   }
 }

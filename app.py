@@ -11,11 +11,13 @@ BUILDINGS = {
     "the-sierra-chelsea": "The Sierra Chelsea",
     "stonehenge-gardens": "Stonehenge Gardens",
     "101w15-101-west-15th-street-new_york": "101 W 15th",
+    "117-west-13-street-new_york": "117 W 13th",
+    "128-west-13-street-new_york": "128 W 13th",
 }
 KNOWN_INVALID_UNITS = {"the-sierra-chelsea": {"7", "8"}}
 
-st.set_page_config(page_title="West 15th Street rents", page_icon="🏢", layout="wide")
-st.title("West 15th Street — rental price history")
+st.set_page_config(page_title="West 13th and 15th Street rents", page_icon="🏢", layout="wide")
+st.title("West 13th and 15th Streets — rental price history")
 st.caption("StreetEasy asking-rent and status history captured from individual unit pages.")
 
 

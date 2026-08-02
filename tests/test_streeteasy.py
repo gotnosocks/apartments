@@ -66,6 +66,9 @@ def test_building_floor_override():
     assert physical_floor(15, False) == 14
     assert physical_floor(14, True) == 14
     assert physical_floor(14, None) == 14
+    assert floor_override("117-west-13-street-new_york", "52A", "floor-letter") == 5
+    assert floor_override("117-west-13-street-new_york", "8/9", "other") == 8
+    assert floor_override("128-west-13-street-new_york", "20B", "floor-letter") == 2
     assert unit_facing("the-sierra-chelsea", "A") == (True, False)
     assert unit_facing("the-sierra-chelsea", "J") == (True, False)
     assert unit_facing("the-sierra-chelsea", "K") == (True, True)

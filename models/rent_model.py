@@ -1,4 +1,4 @@
-"""Bayesian weekly rent model for neighboring West 15th Street buildings.
+"""Bayesian weekly rent model for nearby West 13th and West 15th Street buildings.
 
 The response is log asking rent. Observations are collapsed to one median per
 building-unit-week. Units with confirmed Blueground furnished periods are
@@ -24,12 +24,16 @@ BUILDINGS = {
     "the-sierra-chelsea": "The Sierra Chelsea",
     "stonehenge-gardens": "Stonehenge Gardens",
     "101w15-101-west-15th-street-new_york": "101 W 15th",
+    "117-west-13-street-new_york": "117 W 13th",
+    "128-west-13-street-new_york": "128 W 13th",
 }
 REFERENCE_BUILDING = "the-sierra-chelsea"
 FLOOR_REFERENCES = {
     "the-sierra-chelsea": 3,
     "stonehenge-gardens": 3,
     "101w15-101-west-15th-street-new_york": 3,
+    "117-west-13-street-new_york": 3,
+    "128-west-13-street-new_york": 3,
 }
 FREQUENCIES = {
     "weekly": {"rw_prior": 0.03, "date_freq": "W-MON", "label": "week"},
@@ -52,7 +56,7 @@ def prepare_data(
            FROM listing_events e
            JOIN listings l USING (source, source_listing_id)
            WHERE e.source = 'streeteasy'
-             AND l.building_slug IN (?, ?, ?)
+             AND l.building_slug IN (?, ?, ?, ?, ?)
              AND e.event_at >= ?
              AND e.price BETWEEN 1000 AND 30000
              AND COALESCE(l.unit_is_specific, true)
@@ -72,7 +76,7 @@ def prepare_data(
             """SELECT DISTINCT building_slug, unit
                FROM unit_furnishing_periods
                WHERE source='streeteasy'
-                 AND building_slug IN (?, ?, ?)
+                 AND building_slug IN (?, ?, ?, ?, ?)
                  AND furnishing_status='confirmed-furnished'
                ORDER BY building_slug, unit""",
             list(BUILDINGS),
@@ -201,9 +205,13 @@ def fit_model(
         beta_third_bedroom = pm.Normal("beta_third_bedroom", mu=0.1, sigma=0.3)
         beta_stonehenge = pm.Normal("beta_stonehenge", mu=-0.15, sigma=0.3)
         beta_101w15 = pm.Normal("beta_101w15", mu=-0.1, sigma=0.3)
+        beta_117w13 = pm.Normal("beta_117w13", mu=0, sigma=0.3)
+        beta_128w13 = pm.Normal("beta_128w13", mu=0, sigma=0.3)
         building_offset = pm.Deterministic(
             "building_offset",
-            pt.stack([0, beta_stonehenge, beta_101w15]),
+            pt.stack([
+                0, beta_stonehenge, beta_101w15, beta_117w13, beta_128w13
+            ]),
             dims="building",
         )
         beta_log_sqft = pm.Normal("beta_log_sqft", mu=0.5, sigma=0.3)
@@ -428,6 +436,8 @@ def save_outputs(
         "the-sierra-chelsea": 8,
         "stonehenge-gardens": 4,
         "101w15-101-west-15th-street-new_york": 4,
+        "117-west-13-street-new_york": 4,
+        "128-west-13-street-new_york": 4,
     }
     bedroom_rows = []
     bedroom_names = {0: "Studio", 1: "1 BR", 2: "2 BR", 3: "3 BR"}
@@ -484,6 +494,8 @@ def save_outputs(
             "beta_third_bedroom",
             "beta_stonehenge",
             "beta_101w15",
+            "beta_117w13",
+            "beta_128w13",
             "beta_skyline_vs_garden",
             "beta_both_facing",
             "sigma_rw",
@@ -494,12 +506,16 @@ def save_outputs(
         kind="diagnostics",
     )
     label = FREQUENCIES[frequency]["label"]
-    stonehenge_effect = 100 * (
-        np.exp(posterior["beta_stonehenge"].values.reshape(-1)) - 1
-    )
-    building_101_effect = 100 * (
-        np.exp(posterior["beta_101w15"].values.reshape(-1)) - 1
-    )
+    building_effects = {}
+    for building_index, building in enumerate(BUILDINGS):
+        if building == REFERENCE_BUILDING:
+            continue
+        samples = 100 * (np.exp(building_offset_samples[:, building_index]) - 1)
+        building_effects[building] = {
+            "median": float(np.median(samples)),
+            "lower_95": float(np.quantile(samples, 0.025)),
+            "upper_95": float(np.quantile(samples, 0.975)),
+        }
     metadata = {
         "buildings": BUILDINGS,
         "reference_building": REFERENCE_BUILDING,
@@ -514,18 +530,7 @@ def save_outputs(
         "excluded_blueground_units": data.attrs.get("excluded_blueground_units", []),
         "floor_references": FLOOR_REFERENCES,
         "bedroom_price_reference_floors": reference_floors,
-        "building_effects_vs_sierra_percent": {
-            "stonehenge-gardens": {
-                "median": float(np.median(stonehenge_effect)),
-                "lower_95": float(np.quantile(stonehenge_effect, 0.025)),
-                "upper_95": float(np.quantile(stonehenge_effect, 0.975)),
-            },
-            "101w15-101-west-15th-street-new_york": {
-                "median": float(np.median(building_101_effect)),
-                "lower_95": float(np.quantile(building_101_effect, 0.025)),
-                "upper_95": float(np.quantile(building_101_effect, 0.975)),
-            },
-        },
+        "building_effects_vs_sierra_percent": building_effects,
         "bedroom_premiums_percent": {
             name: {
                 "median": float(np.median(samples)),
@@ -549,8 +554,8 @@ def save_outputs(
         "assumptions": [
             f"One median asking-rent observation per unit-{label}.",
             "Every unit with any confirmed Blueground furnished period is excluded from all model training periods.",
-            f"A shared three-building {frequency} market trend is a Gaussian random walk anchored at 100 in the first post-cutoff {label}.",
-            "Stonehenge Gardens and 101 W 15th each have a time-constant adjusted offset relative to The Sierra Chelsea.",
+            f"A shared five-building {frequency} market trend is a Gaussian random walk anchored at 100 in the first post-cutoff {label}.",
+            "Each non-reference building has a time-constant adjusted offset relative to The Sierra Chelsea.",
             "Cumulative >=1-bedroom, >=2-bedroom, and >=3-bedroom indicators estimate incremental bedroom premiums.",
             "One completely shared physical-floor curve applies to all buildings, anchored at floor 3 and formed by cumulative shrunk adjacent-level changes.",
             "Marketed floors 14 and 15 map to physical floors 13 and 14 because the building has no marketed floor 13.",
