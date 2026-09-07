@@ -30,6 +30,7 @@ async function summary(){
  if(gen?.cooldown && gen.cooldown>Date.now()/1000)notice.textContent=`Crawl paused until ${date(gen.cooldown)}. Queued pages are preserved.`;
  else if(!data.captured.listing)notice.textContent='No listing detail pages have been captured yet. Search pages and queued listing URLs are shown separately; queued URLs are not downloaded data.';
  else notice.textContent='Counts reflect captured pages, not proof of complete historical coverage. Inspect queued pages and crawl issues for gaps.';
+ if(data.profile?.neighborhood==='chelsea')notice.textContent += ` Scope: Chelsea + West Chelsea, excluding Hudson Yards. ${number(data.scope_queue?.pending)} scoped pages queued; average delay ${data.profile.delay}s. Directory coverage is not yet verified.`;
  $('archive-path').textContent=data.archive_path;
  $('updated-at').textContent='Updated '+new Date().toLocaleTimeString();
  $('recent-errors').hidden=!data.errors.length;$('errors-list').replaceChildren();

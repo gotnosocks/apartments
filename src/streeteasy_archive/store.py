@@ -37,6 +37,8 @@ class ArchiveStore:
         CREATE INDEX IF NOT EXISTS observations_url ON observations(url,id);
         CREATE TABLE IF NOT EXISTS snapshots(id INTEGER PRIMARY KEY, generation INTEGER NOT NULL, url TEXT NOT NULL, body_hash TEXT NOT NULL, observed REAL NOT NULL, extraction_version INTEGER, extracted TEXT, UNIQUE(generation,url,body_hash));
         CREATE TABLE IF NOT EXISTS metadata(key TEXT PRIMARY KEY, value TEXT NOT NULL);
+        CREATE TABLE IF NOT EXISTS scope_urls(generation INTEGER NOT NULL, url TEXT NOT NULL, reason TEXT NOT NULL, PRIMARY KEY(generation,url));
+        CREATE TABLE IF NOT EXISTS scope_buildings(generation INTEGER NOT NULL, url TEXT NOT NULL, PRIMARY KEY(generation,url));
         CREATE TABLE IF NOT EXISTS har_entries(fingerprint TEXT PRIMARY KEY);
         ''')
         columns = {row[1] for row in self.db.execute('PRAGMA table_xinfo(frontier)')}
@@ -121,22 +123,23 @@ class ArchiveStore:
             self.db.execute("UPDATE frontier SET state='pending' WHERE state='inflight'" +
                             (' AND generation=?' if generation else ''), (generation,) if generation else ())
 
-    def note_response(self):
+    def note_response(self, minimum_delay=5):
         with self._tx():
-            self.db.execute("INSERT INTO metadata VALUES('next_request',?) ON CONFLICT(key) DO UPDATE SET value=excluded.value", (str(time.time() + 5),))
+            self.db.execute("INSERT INTO metadata VALUES('next_request',?) ON CONFLICT(key) DO UPDATE SET value=excluded.value", (str(time.time() + minimum_delay),))
 
     def request_delay(self):
         row = self.db.execute("SELECT value FROM metadata WHERE key='next_request'").fetchone()
         return max(0, float(row[0]) - time.time()) if row else 0
 
-    def claim(self, generation, now=None, url_prefix=None):
+    def claim(self, generation, now=None, url_prefix=None, scoped=False):
         now = time.time() if now is None else now
         with self._tx():
             row = self.db.execute('''SELECT f.* FROM frontier f JOIN generations g ON g.id=f.generation
                 WHERE f.generation=? AND f.state='pending' AND f.next_attempt<=?
                 AND (g.cooldown IS NULL OR g.cooldown<=?)
+                AND (?=0 OR EXISTS(SELECT 1 FROM scope_urls scope WHERE scope.generation=f.generation AND scope.url=f.url))
                 AND (? IS NULL OR f.url=? OR substr(f.url,1,length(?)+1)=? || '/' OR substr(f.url,1,length(?)+1)=? || '?') ORDER BY f.priority,f.rowid LIMIT 1''',
-                (generation, now, now, url_prefix, url_prefix, url_prefix, url_prefix, url_prefix, url_prefix)).fetchone()
+                (generation, now, now, int(scoped), url_prefix, url_prefix, url_prefix, url_prefix, url_prefix, url_prefix)).fetchone()
             if row:
                 self.db.execute("UPDATE frontier SET state='inflight',attempts=attempts+1 WHERE generation=? AND url=?", (generation, row['url']))
                 self.db.execute("UPDATE generations SET status='active',cooldown=NULL WHERE id=?", (generation,))
@@ -269,7 +272,10 @@ class ArchiveStore:
         errors = self.db.execute("SELECT count(*) FROM observations WHERE generation=? AND error IS NOT NULL AND error!='redirect observed'", (generation,)).fetchone()[0]
         last_error = self.db.execute('SELECT url,error FROM observations WHERE generation=? AND error IS NOT NULL ORDER BY id DESC LIMIT 1', (generation,)).fetchone()
         kinds = {r[0]: r[1] for r in self.db.execute('SELECT kind,count(*) FROM frontier WHERE generation=? GROUP BY kind', (generation,))}
-        return {'generation': generation, 'name': row['name'], 'status': row['status'],
+        profile_row = self.db.execute('SELECT value FROM metadata WHERE key=?', (f'crawl_profile:{generation}',)).fetchone()
+        profile = json.loads(profile_row[0]) if profile_row else None
+        scoped = {r[0]: r[1] for r in self.db.execute('SELECT f.state,count(*) FROM frontier f JOIN scope_urls s ON s.generation=f.generation AND s.url=f.url WHERE f.generation=? GROUP BY f.state', (generation,))}
+        return {'profile': profile, 'scope_queue': scoped, 'generation': generation, 'name': row['name'], 'status': row['status'],
                 'cooldown': row['cooldown'], 'coverage_gaps': errors, 'by_kind': kinds,
                 'last_error': dict(last_error) if last_error else None, **counts}
 

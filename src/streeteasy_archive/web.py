@@ -88,7 +88,10 @@ def create_app(data_dir='data'):
             AND (o.status BETWEEN 200 AND 299 OR o.status=304)) GROUP BY f.kind''', (gen, gen))}
         counts = db().execute('SELECT count(*),COALESCE(sum(size),0) FROM bodies').fetchone()
         errors = [dict(row) for row in db().execute("SELECT id,url,status,error,fetched FROM observations WHERE generation=? AND error IS NOT NULL AND error!='redirect observed' ORDER BY id DESC LIMIT 10", (gen,))]
-        return jsonify(generation=state, generations=generations, queue=queue, captured=captured,
+        profile_row = db().execute('SELECT value FROM metadata WHERE key=?', (f'crawl_profile:{gen}',)).fetchone()
+        profile = json.loads(profile_row[0]) if profile_row else None
+        scoped = {r[0]: r[1] for r in db().execute('SELECT f.state,count(*) FROM frontier f JOIN scope_urls s ON s.generation=f.generation AND s.url=f.url WHERE f.generation=? GROUP BY f.state', (gen,))}
+        return jsonify(profile=profile, scope_queue=scoped, generation=state, generations=generations, queue=queue, captured=captured,
                        responses=db().execute('SELECT count(*) FROM observations').fetchone()[0],
                        unique_bodies=counts[0], body_bytes=counts[1], errors=errors,
                        writer_running=writer_running(), archive_path=str(root))

@@ -209,3 +209,35 @@ trial Oxylabs residential proxies against the same small sample; compare Oxylabs
 Web Scraper API and Zyte API if managed fetching is needed. No paid service has
 been tested or configured. Compare complete archived pages and actual cost, not
 provider headline success rates. Provider pricing must be checked at trial time.
+
+### Running Chelsea, excluding Hudson Yards
+
+```sh
+uv run --extra browser streeteasy-archive resume --neighborhood chelsea \
+  --transport firefox --delay 60 --wait-for-cooldown
+```
+
+This starts an unlimited-budget crawl of the scoped queue. `--wait-for-cooldown`
+waits for an existing cooldown once; a newly encountered challenge still pauses
+and exits, with no automatic retry loop. One navigation runs at a time, with
+30–90 second randomized start spacing at the 60-second setting. Browser assets
+can generate additional requests. Scope, transport and delay persist for later
+`resume` commands. The neighborhood scope includes StreetEasy Chelsea (115) and
+West Chelsea (163), excluding Hudson Yards (146) and Staten Island Chelsea.
+
+Scope evidence comes from explicit result-card neighborhoods, primary building
+associations, filtered building-directory ItemLists, and property-history links.
+Unrelated navigation/recommendation URLs remain outside the runnable scope.
+Archived pages are processed offline to populate the scope without redownloading.
+The archive browser shows scoped pending counts and the cooldown alongside global
+archive totals. Worker metadata and output live at `data/chelsea-worker.json` and
+`data/chelsea-worker.log` when launched by the assistant.
+
+**Coverage limitation:** on September 7 the Chelsea building directory returned a
+403 challenge. No complete off-market building inventory or complete unavailable
+unit roster has been verified. TEN23's saved building data lists current units,
+but does not expose paths for all unavailable units. The crawl follows explicit
+historical links and preserves complete embedded response data; it does not guess
+unit numbers or claim all Chelsea history is complete. The citywide off-market
+sitemaps are known but cannot yet identify Chelsea membership without additional
+building metadata. These gaps need follow-up after the directory can be accessed.

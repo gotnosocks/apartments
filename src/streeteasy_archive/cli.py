@@ -36,8 +36,11 @@ def main(argv=None):
     sub = parser.add_subparsers(dest='command', required=True)
     for name in ('backfill', 'update', 'resume'):
         command = sub.add_parser(name)
-        command.add_argument('--transport', choices=('http', 'firefox'), default='http')
+        command.add_argument('--transport', choices=('http', 'firefox'))
         command.add_argument('--firefox-binary')
+        command.add_argument('--neighborhood', choices=('chelsea',), help='persistent Chelsea + West Chelsea scope, excluding Hudson Yards')
+        command.add_argument('--delay', type=float, help='average delay seconds; randomized half to 1.5 times this value')
+        command.add_argument('--wait-for-cooldown', action='store_true', help='wait for an existing cooldown once; a new challenge still exits')
         command.add_argument('--building', help='restrict this run to a building URL and child detail URLs; repeat on resume')
         command.add_argument('--max-requests', type=int, default=0, help='request budget; zero is unlimited')
         command.add_argument('--revisit-interval', type=float, default=0, help='update interval in seconds for known buildings/listings')
@@ -75,6 +78,7 @@ def main(argv=None):
             return import_har(store, args.path)
         if args.command == 'export':
             return export(store, args.generation, args.path, args.offline_reextract)
+        previous_profile = store.db.execute('SELECT value FROM metadata WHERE key=?', (f'crawl_profile:{generation}',)).fetchone()
         if args.command == 'update':
             generation = store.new_generation('update')
             store.seed(generation)
@@ -84,6 +88,21 @@ def main(argv=None):
                 raise ValueError('no existing crawl; start with backfill or import-har')
             generation = store.new_generation('backfill')
             store.seed(generation)
+        profile_key = f'crawl_profile:{generation}'
+        row = store.db.execute('SELECT value FROM metadata WHERE key=?', (profile_key,)).fetchone()
+        profile = json.loads(row[0]) if row else json.loads(previous_profile[0]) if previous_profile else {}
+        args.neighborhood = args.neighborhood or profile.get('neighborhood')
+        args.transport = args.transport or profile.get('transport', 'firefox' if args.neighborhood else 'http')
+        args.delay = args.delay if args.delay is not None else profile.get('delay', 60 if args.neighborhood else 10)
+        if not math.isfinite(args.delay) or args.delay < 10:
+            raise ValueError('--delay must be finite and at least 10 seconds')
+        if args.neighborhood and args.building:
+            raise ValueError('use either --neighborhood or --building')
+        if args.neighborhood:
+            from .scope import configure
+            configure(store, generation)
+            with store._tx():
+                store.db.execute('INSERT OR REPLACE INTO metadata VALUES(?,?)', (profile_key, json.dumps({'neighborhood': args.neighborhood, 'transport': args.transport, 'delay': args.delay})))
         if args.building:
             building = canonical_url(args.building)
             if not building or kind_for(building) != 'building':
@@ -91,6 +110,10 @@ def main(argv=None):
             args.building = building.rstrip('/')
             store.enqueue(generation, [{'url': args.building, 'kind': 'building'}])
         state = store.status(generation)
+        while args.wait_for_cooldown and state['cooldown'] and state['cooldown'] > time.time():
+            print(f"Waiting for cooldown until {state['cooldown']}; no site requests", flush=True)
+            time.sleep(min(60, state['cooldown'] - time.time()))
+            state = store.status(generation)
         if state['cooldown'] and state['cooldown'] > time.time():
             print(json.dumps(state, indent=2))
             print('crawl is cooling down; resume after the reported UTC epoch timestamp', file=sys.stderr)
@@ -212,7 +235,7 @@ def run_crawler(args, generation, lock=None):
     process = CrawlerProcess(settings=settings)
     errors = []
     crawler = process.create_crawler(ArchiveSpider)
-    deferred = process.crawl(crawler, data_dir=args.data, generation=generation, max_requests=args.max_requests, building=args.building)
+    deferred = process.crawl(crawler, data_dir=args.data, generation=generation, max_requests=args.max_requests, building=args.building, neighborhood=args.neighborhood, delay=args.delay)
     deferred.addErrback(lambda failure: errors.append(str(failure)))
     process.start()
     store = ArchiveStore(args.data)

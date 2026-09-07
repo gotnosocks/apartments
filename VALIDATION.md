@@ -71,3 +71,26 @@ crawler and SQLite archive:
 - Local app API at http://127.0.0.1:8765/api/summary reads the live archive and
   reports no active writer. This pilot is not a complete building history or a
   neighborhood backfill; scoped work remains queued for explicit later runs.
+
+## Chelsea scoped worker — 2026-09-07
+
+Two Herdr gpt-5.6-luna agents reviewed geography and embedded data. Chelsea area
+115 includes West Chelsea 163; Hudson Yards 146 is outside this hierarchy.
+Persistent scope tables and profile prevent an unqualified resume from crawling
+the pre-existing citywide queue. Tests cover unrelated neighborhoods, global area
+dictionaries, historical-link provenance, offline completed-page reuse, scope
+persistence, and inline Flight records. Existing tests: 33 passed / 1 skipped;
+subsequent scope suite: 4 passed after adding the inline-record regression.
+
+One live directory diagnostic returned 403, archived as a coverage gap with a
+900-second cooldown (until 17:15:29 EDT). No live requests were issued while
+preparing the worker after that challenge. The worker waits for this cooldown,
+then uses stock Firefox, concurrency one, average 60-second delay, no proxy,
+no account, and no automatic retry or identity switching on another challenge.
+Complete neighborhood/off-market coverage is explicitly unverified.
+
+Worker launch verified: PID 82451, detached process, log at
+`data/chelsea-worker.log`; profile reports Chelsea / Firefox / delay 60, 64 scoped
+pending URLs and 7 completed scoped URLs. Local `/api/summary` reports the writer
+active and the cooldown until 17:15:29 EDT. Archive browser restarted with the
+scope status UI. Final targeted scope + Scrapy integration checks: 7 passed.

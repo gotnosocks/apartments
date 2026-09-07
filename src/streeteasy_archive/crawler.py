@@ -69,20 +69,29 @@ class ArchiveSpider(scrapy.Spider):
         'USER_AGENT': 'StreetEasyArchive/0.1 (personal archival research)',
     }
 
-    def __init__(self, data_dir='data', generation=None, max_requests=0, building=None, **kwargs):
+    def __init__(self, data_dir='data', generation=None, max_requests=0, building=None, neighborhood=None, delay=None, **kwargs):
         super().__init__(**kwargs)
         self.store = ArchiveStore(data_dir)
         self.generation = int(generation or self.store.current_generation() or self.store.new_generation())
         self.max_requests = int(max_requests)
         self.building = building
+        self.neighborhood = neighborhood
+        self.delay = float(delay or 10)
         self.sent = 0
         self.stopped = False
+
+    @classmethod
+    def from_crawler(cls, crawler, *args, **kwargs):
+        spider = super().from_crawler(crawler, *args, **kwargs)
+        crawler.settings.set('DOWNLOAD_DELAY', spider.delay, priority='cmdline')
+        crawler.settings.set('AUTOTHROTTLE_START_DELAY', spider.delay, priority='cmdline')
+        return spider
 
     def _request(self):
         if self.stopped or (self.max_requests and self.sent >= self.max_requests):
             return None
         while True:
-            row = self.store.claim(self.generation, url_prefix=self.building)
+            row = self.store.claim(self.generation, url_prefix=self.building, scoped=bool(self.neighborhood))
             if not row:
                 return None
             canonical = canonical_url(row['url'])
@@ -107,7 +116,7 @@ class ArchiveSpider(scrapy.Spider):
             yield request
 
     def parse(self, response):
-        self.store.note_response()
+        self.store.note_response(self.delay / 2)
         url = response.meta['archive_url']
         headers = response.meta.get('archive_response_headers', dict(response.headers.to_unicode_dict()))
         lower = {k.lower(): v for k, v in headers.items()}
@@ -126,6 +135,9 @@ class ArchiveSpider(scrapy.Spider):
             self.store.record_gap(self.generation, url, status, headers,
                                   'redirect observed' if links else 'redirect coverage gap',
                                   discovered=links, body=body if response.meta.get('archive_body_captured', True) else None, content_type=content_type)
+            if self.neighborhood and links:
+                from .scope import enroll
+                enroll(self.store, self.generation, {link['url']: 'property history redirect from ' + url for link in links})
         elif status >= 400:
             self.store.record_gap(self.generation, url, status, headers,
                                   f'HTTP {status} coverage gap', body=body, content_type=content_type)
@@ -148,10 +160,13 @@ class ArchiveSpider(scrapy.Spider):
             else:
                 self.store.record(self.generation, url, status, headers, body,
                                   content_type, data, discovered=links)
+                if self.neighborhood:
+                    from .scope import expand
+                    expand(self.store, self.generation, data, url)
         yield from self.start_requests()
 
     def errback(self, failure):
-        self.store.note_response()
+        self.store.note_response(self.delay / 2)
         self.store.record_gap(self.generation, failure.request.meta['archive_url'], None, {},
                               f'transient failure: {failure.value}', complete=False, pause_seconds=300)
         self.stopped = True
