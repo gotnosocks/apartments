@@ -37,3 +37,37 @@ running. `status: active` means an unfinished generation, not a running process.
   QA is claimed.
 - Listing detail URLs now have indexed queue priority over search pages. A
   search-to-detail regression verifies full detail body, JSON, and history capture.
+
+## Firefox building pilot — 2026-09-07
+
+The prior HTTP 403 diagnosis is superseded for the tested Firefox transport.
+Stock installed Firefox 156 + Selenium 4.48/geckodriver, fresh headless profiles,
+no proxy/account, captured TEN23 at 500 West 23rd Street through the real Scrapy
+crawler and SQLite archive:
+
+- Initial budget of 3: building page, media gallery, apartment 4C; all HTTP 200.
+- Resume budget of 4: apartments 4E, 8D, 9H, 6F; all HTTP 200. Previously completed
+  pages were not fetched again. Each of these five unit pages contains two tables
+  and 93–95 scripts, including price history and embedded data.
+- One intervening local decoder error on 4E paused the queue. It was fixed and
+  the local-error cooldown cleared; the subsequent resume succeeded. The failed
+  observation remains visible as historical diagnostic evidence. It was not a
+  StreetEasy 403 or rate-limit response.
+- String-valued BiDi response data is browser-decoded text and is UTF-8 encoded;
+  base64-valued data is decoded as bytes. Do not infer wire-byte fidelity from
+  string data. Native BiDi payload retention was added for the resumed run.
+  An attempted offline encoding conversion failed before any writes; the first
+  three captures were not modified or re-downloaded (only representation metadata
+  was clarified).
+- Showcase/similarHDP2 tracking aliases are now normalized. Queued obsolete aliases
+  are retired without downloading; owner-export and media-gallery endpoints are
+  excluded from future listing discovery. The gallery already captured remains.
+- Evidence: ignored data/diagnostics/building-smoke.log and
+  data/diagnostics/building-resume-fixed.log; observations 4–6 and 8–11.
+- Offline tests: 30 passed, 1 opt-in browser test skipped. Explicit browser test:
+  2 passed, covering scope/resume plus real Firefox loopback HTML Unicode/NUL,
+  exact UTF-8 fixture content, conditional 304, and prevention of redirect/image
+  requests. No live site requests are made by the test suite.
+- Local app API at http://127.0.0.1:8765/api/summary reads the live archive and
+  reports no active writer. This pilot is not a complete building history or a
+  neighborhood backfill; scoped work remains queued for explicit later runs.

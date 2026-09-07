@@ -11,6 +11,7 @@ dependencies = ["Scrapy>=2.18", "parsel>=1.8", "Flask>=3.1,<4", "waitress>=3,<4"
 
 [project.optional-dependencies]
 dev = ["pytest>=8"]
+browser = ["selenium==4.48.0"]
 
 [project.scripts]
 streeteasy-archive = "streeteasy_archive.cli:main"

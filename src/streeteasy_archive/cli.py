@@ -36,6 +36,9 @@ def main(argv=None):
     sub = parser.add_subparsers(dest='command', required=True)
     for name in ('backfill', 'update', 'resume'):
         command = sub.add_parser(name)
+        command.add_argument('--transport', choices=('http', 'firefox'), default='http')
+        command.add_argument('--firefox-binary')
+        command.add_argument('--building', help='restrict this run to a building URL and child detail URLs; repeat on resume')
         command.add_argument('--max-requests', type=int, default=0, help='request budget; zero is unlimited')
         command.add_argument('--revisit-interval', type=float, default=0, help='update interval in seconds for known buildings/listings')
     sub.add_parser('status').add_argument('--generation', type=int)
@@ -81,6 +84,12 @@ def main(argv=None):
                 raise ValueError('no existing crawl; start with backfill or import-har')
             generation = store.new_generation('backfill')
             store.seed(generation)
+        if args.building:
+            building = canonical_url(args.building)
+            if not building or kind_for(building) != 'building':
+                raise ValueError('--building requires a StreetEasy building page URL')
+            args.building = building.rstrip('/')
+            store.enqueue(generation, [{'url': args.building, 'kind': 'building'}])
         state = store.status(generation)
         if state['cooldown'] and state['cooldown'] > time.time():
             print(json.dumps(state, indent=2))
@@ -196,10 +205,14 @@ def export(store, generation, path, offline):
 def run_crawler(args, generation, lock=None):
     from scrapy.crawler import CrawlerProcess
     from .crawler import ArchiveSpider
-    process = CrawlerProcess(settings={'LOG_LEVEL': 'INFO'})
+    settings = {'LOG_LEVEL': 'INFO'}
+    if args.transport == 'firefox':
+        settings['DOWNLOAD_HANDLERS'] = {'https': 'streeteasy_archive.browser.FirefoxDownloadHandler'}
+        settings['ARCHIVE_FIREFOX_BINARY'] = args.firefox_binary
+    process = CrawlerProcess(settings=settings)
     errors = []
     crawler = process.create_crawler(ArchiveSpider)
-    deferred = process.crawl(crawler, data_dir=args.data, generation=generation, max_requests=args.max_requests)
+    deferred = process.crawl(crawler, data_dir=args.data, generation=generation, max_requests=args.max_requests, building=args.building)
     deferred.addErrback(lambda failure: errors.append(str(failure)))
     process.start()
     store = ArchiveStore(args.data)

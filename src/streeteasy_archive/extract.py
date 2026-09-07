@@ -14,7 +14,7 @@ from parsel import Selector
 from lxml import etree
 
 VERSION = 1
-_TRACKING = {'featured', 'infeed', 'from', 'source', 'ref', 'referrer', 'gclid', 'fbclid'}
+_TRACKING = {'featured', 'infeed', 'lstt', 'showcase', 'similarhdp2', 'from', 'source', 'ref', 'referrer', 'gclid', 'fbclid'}
 
 
 def canonical_url(value: str, base: str = 'https://streeteasy.com/') -> str | None:
@@ -44,7 +44,7 @@ def kind_for(url: str) -> str | None:
     if re.fullmatch(r'/building/[^/]+/(?:sales|rentals|past-sales|past-rentals|sold|rented|for-sale|for-rent|units|history)(?:/.*)?', path):
         return 'building'
     if re.fullmatch(r'/building/[^/]+/[a-zA-Z0-9_-]+', path):
-        if path.rsplit('/', 1)[1] not in {'documents', 'floorplans', 'photos', 'contact', 'messages', 'edit', 'manage', 'units', 'history'}:
+        if path.rsplit('/', 1)[1] not in {'documents', 'floorplans', 'photos', 'media_gallery', 'export_owner_list', 'contact', 'messages', 'edit', 'manage', 'units', 'history'}:
             return 'listing'
     if re.match(r'^/buildings(?:/|$)', path):
         return None if re.search(r'new-jersey|hoboken|jersey-city|hudson-county|newport|bergen-lafayette|bayonne|east-newark|union-city|north-bergen|weehawken|guttenberg|harrison|kearny|secaucus|west-new-york', path) else 'directory'

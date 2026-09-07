@@ -1,6 +1,6 @@
 import gzip
 import json
-from streeteasy_archive.extract import canonical_url, discover, extract
+from streeteasy_archive.extract import kind_for, canonical_url, discover, extract
 
 
 def test_scope_and_identity():
@@ -36,3 +36,14 @@ def test_raw_json_and_security_scope():
     assert canonical_url('https://user:password@streeteasy.com/rental/1') is None
     assert canonical_url('https://streeteasy.com:9999/rental/1') is None
     assert discover(b'<a href="https://streeteasy.com.evil.org/sale/123">x</a>', 'https://streeteasy.com') == []
+
+
+def test_detail_tracking_token_does_not_duplicate_canonical_listing():
+    assert canonical_url('/building/ten23/04c?lstt=opaque-tracking&featured=1&utm_source=x') == 'https://streeteasy.com/building/ten23/04c'
+
+
+def test_showcase_alias_and_nonlisting_endpoints():
+    base = 'https://streeteasy.com/building/example'
+    assert canonical_url(base + '/1a?showcase=1&similarHDP2=1') == base + '/1a'
+    assert kind_for(base + '/export_owner_list') is None
+    assert kind_for(base + '/media_gallery') is None

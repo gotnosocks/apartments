@@ -129,18 +129,27 @@ class ArchiveStore:
         row = self.db.execute("SELECT value FROM metadata WHERE key='next_request'").fetchone()
         return max(0, float(row[0]) - time.time()) if row else 0
 
-    def claim(self, generation, now=None):
+    def claim(self, generation, now=None, url_prefix=None):
         now = time.time() if now is None else now
         with self._tx():
             row = self.db.execute('''SELECT f.* FROM frontier f JOIN generations g ON g.id=f.generation
                 WHERE f.generation=? AND f.state='pending' AND f.next_attempt<=?
-                AND (g.cooldown IS NULL OR g.cooldown<=?) ORDER BY f.priority,f.rowid LIMIT 1''',
-                (generation, now, now)).fetchone()
+                AND (g.cooldown IS NULL OR g.cooldown<=?)
+                AND (? IS NULL OR f.url=? OR substr(f.url,1,length(?)+1)=? || '/' OR substr(f.url,1,length(?)+1)=? || '?') ORDER BY f.priority,f.rowid LIMIT 1''',
+                (generation, now, now, url_prefix, url_prefix, url_prefix, url_prefix, url_prefix, url_prefix)).fetchone()
             if row:
                 self.db.execute("UPDATE frontier SET state='inflight',attempts=attempts+1 WHERE generation=? AND url=?", (generation, row['url']))
                 self.db.execute("UPDATE generations SET status='active',cooldown=NULL WHERE id=?", (generation,))
                 self.db.execute("INSERT INTO metadata VALUES('next_request',?) ON CONFLICT(key) DO UPDATE SET value=excluded.value", (str(now + 5),))
             return row
+
+    def resolve_obsolete_url(self, generation, old_url, new_url=None, kind=None):
+        """Retire old tracking aliases or excluded endpoints without downloading."""
+        with self._tx():
+            if new_url:
+                self._enqueue(generation, [{'url': new_url, 'kind': kind}])
+            self.db.execute("UPDATE frontier SET state='done' WHERE generation=? AND url=?",
+                            (generation, old_url))
 
     def conditional_headers(self, generation, url):
         row = self.db.execute('SELECT etag,modified FROM frontier WHERE generation=? AND url=?', (generation, url)).fetchone()

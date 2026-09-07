@@ -69,24 +69,31 @@ class ArchiveSpider(scrapy.Spider):
         'USER_AGENT': 'StreetEasyArchive/0.1 (personal archival research)',
     }
 
-    def __init__(self, data_dir='data', generation=None, max_requests=0, **kwargs):
+    def __init__(self, data_dir='data', generation=None, max_requests=0, building=None, **kwargs):
         super().__init__(**kwargs)
         self.store = ArchiveStore(data_dir)
         self.generation = int(generation or self.store.current_generation() or self.store.new_generation())
         self.max_requests = int(max_requests)
+        self.building = building
         self.sent = 0
         self.stopped = False
 
     def _request(self):
         if self.stopped or (self.max_requests and self.sent >= self.max_requests):
             return None
-        row = self.store.claim(self.generation)
-        if not row:
-            return None
+        while True:
+            row = self.store.claim(self.generation, url_prefix=self.building)
+            if not row:
+                return None
+            canonical = canonical_url(row['url'])
+            kind = kind_for(canonical) if canonical else None
+            if canonical == row['url'] and kind:
+                break
+            self.store.resolve_obsolete_url(self.generation, row['url'], canonical if kind else None, kind)
         self.sent += 1
         return scrapy.Request(row['url'], headers=self.store.conditional_headers(self.generation, row['url']),
                               callback=self.parse, errback=self.errback, dont_filter=True,
-                              meta={'archive_url': row['url'], 'dont_redirect': True, 'handle_httpstatus_all': True})
+                              meta={'archive_url': row['url'], 'archive_kind': row['kind'], 'dont_redirect': True, 'handle_httpstatus_all': True})
 
     def start_requests(self):
         request = self._request()
@@ -102,7 +109,7 @@ class ArchiveSpider(scrapy.Spider):
     def parse(self, response):
         self.store.note_response()
         url = response.meta['archive_url']
-        headers = dict(response.headers.to_unicode_dict())
+        headers = response.meta.get('archive_response_headers', dict(response.headers.to_unicode_dict()))
         lower = {k.lower(): v for k, v in headers.items()}
         content_type = lower.get('content-type', '')
         body = bytes(response.body)
@@ -118,7 +125,7 @@ class ArchiveSpider(scrapy.Spider):
             links = approved_links([{'url': location}], url) if location else []
             self.store.record_gap(self.generation, url, status, headers,
                                   'redirect observed' if links else 'redirect coverage gap',
-                                  discovered=links, body=body, content_type=content_type)
+                                  discovered=links, body=body if response.meta.get('archive_body_captured', True) else None, content_type=content_type)
         elif status >= 400:
             self.store.record_gap(self.generation, url, status, headers,
                                   f'HTTP {status} coverage gap', body=body, content_type=content_type)
@@ -131,6 +138,8 @@ class ArchiveSpider(scrapy.Spider):
                     body = self.store.get_body(previous['body_hash'])
                     content_type = content_type or previous['content_type'] or ''
                 data = extract(body, url, content_type)
+                if response.meta.get('archive_browser'):
+                    data['browser_capture'] = response.meta['archive_browser']
                 links = approved_links(data['links'], url)
             except Exception as exc:
                 self.store.record_gap(self.generation, url, status, headers,

@@ -163,3 +163,49 @@ with `resume --max-requests 100` to use that frontier. No crawler is left runnin
 `status: active` denotes an unfinished generation. Exit status 3 means a persisted
 cooldown/access pause; 2 means an error; 0 includes an intentional request-budget
 stop. `status` reports pending work separately, and works while the crawler runs.
+
+### Firefox and a single-building pilot
+
+Install the optional browser transport with `uv sync --extra dev --extra browser`.
+It uses installed Firefox (automatically detected on macOS) and Selenium Manager
+for geckodriver. No StreetEasy account or proxy is needed for the successful pilot.
+
+```sh
+uv run --extra browser streeteasy-archive resume --transport firefox \
+  --building https://streeteasy.com/building/ten23-500-west-23rd-street-new_york \
+  --max-requests 4
+```
+
+For a new archive use `backfill` instead of `resume`. Repeat `--building` and
+`--transport firefox` on each scoped run. The scope includes that building's URL,
+query variants and child detail paths; it does not include standalone `/rental/`
+URLs or imply complete historical coverage. Other discovered URLs stay queued but
+are not downloaded during the scoped run. `--max-requests` counts page navigations,
+not browser subresources. Saved pages are skipped on resume. Completed archives
+can use `update` for revisits; an unfinished generation must first be completed.
+
+Firefox uses a fresh profile per page, normal browser identity, verified TLS,
+one navigation at a time, and the existing Scrapy delays and durable cooldowns.
+Images, media, fonts, non-GET requests and navigation to another document are
+blocked. Scripts and other page resources may still load. Redirect status/headers
+are archived and approved destinations enter the queue; Firefox redirect bodies
+are unavailable. A challenge pauses the run rather than triggering driver or
+proxy rotation. Pass `--firefox-binary /path/to/firefox` to select an installation.
+
+The browser archive retains the BiDi response payload, serialized response body,
+response headers, and rendered DOM separately in extraction metadata. Base64 data
+preserves entity bytes; string data preserves browser-decoded text encoded as
+UTF-8, which is **not a guarantee of original wire bytes**. The first three pilot
+captures predate retention of the native BiDi payload but retain their serialized
+bodies and DOM. No encoding repair or re-download of those three was required.
+Selenium is pinned because its responseCompleted binding needs a small compatibility
+shim to retain the request ID. Check this shim when upgrading Selenium.
+
+Run browser integration checks against a loopback fixture only:
+`ARCHIVE_TEST_FIREFOX=1 uv run --extra browser --extra dev pytest tests/test_browser.py -q`.
+
+Proxy fallback: retain direct Firefox as the baseline. If sustained access fails,
+trial Oxylabs residential proxies against the same small sample; compare Oxylabs
+Web Scraper API and Zyte API if managed fetching is needed. No paid service has
+been tested or configured. Compare complete archived pages and actual cost, not
+provider headline success rates. Provider pricing must be checked at trial time.
