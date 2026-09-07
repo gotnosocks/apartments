@@ -1,0 +1,139 @@
+# StreetEasy Archive
+
+Python + Scrapy crawler for an evolving local archive of public NYC listing and
+building pages. It stores original HTTP response bodies, not just a fixed table of
+listing fields. Git and Jujutsu share this repository.
+
+**Coverage is best effort, not a claim that every historical listing is public.**
+On September 7, 2026, a direct public building-page probe returned HTTP 403. No
+account was created, no terms were accepted, and no challenge was bypassed. The
+supplied HAR contains the homepage and a Chelsea rental search page, not a full
+listing or building-history browsing session. Offline tests and HAR import can
+validate the archive without resolving that live-access limitation.
+
+## Install
+
+```sh
+cd ~/code/streeteasy-archive
+uv sync --extra dev
+```
+
+## Crawl and resume
+
+```sh
+uv run streeteasy-archive backfill --max-requests 100
+uv run streeteasy-archive status
+uv run streeteasy-archive resume --max-requests 100
+# After the preceding crawl generation finishes:
+uv run streeteasy-archive update --max-requests 100
+```
+
+`--max-requests` bounds a single invocation; zero means no request-count limit.
+Use Ctrl-C once for a graceful stop, then `resume`. Data defaults to `./data`;
+select another archive with the global `--data /absolute/path` option before the
+command. Keep using the same archive directory to resume or update it.
+
+Discovery starts with the NYC sitemap index, building directory, and sale/rental
+searches. It follows active and **off-market building sitemaps**, building pages,
+public unavailable-unit/history links, listing links in HTML and embedded data,
+and pagination links. It does not depend on a building having an active listing.
+No IDs are brute-forced. It follows only recognized StreetEasy page paths and
+approved public redirects; it does not navigate authentication or account pages.
+
+The crawler uses one outstanding request, randomized delays with a five-second
+minimum, and Scrapy AutoThrottle. Robots enforcement is disabled at the user's
+explicit request. Cookies, automatic retries, and automatic redirects are disabled.
+Access blocks, rate limits, challenges, and transient failures pause the crawl
+and persist its cooldown. Repeatedly launching a command cannot bypass a pending
+cooldown. The same archive permits only one mutating process at a time.
+
+SQLite tracks pending, in-flight, and completed URLs. A resumed run skips completed
+URLs and recovers requests that were in flight. Response recording and newly
+discovered URLs commit together. A process killed after the server sent a response
+but before local commit may need to repeat **that one uncommitted request**;
+exactly-once network delivery is impossible to guarantee across that crash window.
+
+## Incremental collection
+
+`update` creates a new pass once the previous one has finished. It rediscovers the
+site and revalidates known URLs using ETag / Last-Modified when available. A 304
+observation refers back to the archived body. Identical bodies share the same
+SHA-256-addressed file; changed bodies remain available as separate versions.
+
+`--revisit-interval SECONDS` can reduce checks of recently fetched building/listing
+pages. The default is zero, checking all known pages on every update. Discovery
+pages are refreshed each pass. A longer interval saves requests but delays change
+detection. Sitemap lastmod is captured as evidence, not treated as an exhaustive
+listing change feed. If the server does not provide validators, detecting a change
+requires downloading the page again; content deduplication saves storage, not that
+network transfer. There is no verified public feed of every StreetEasy change.
+
+## Import the supplied HAR without network access
+
+```sh
+uv run streeteasy-archive import-har \
+  '/Users/ben/Desktop/streeteasy.com_Archive [26-09-07 13-53-49].har'
+uv run streeteasy-archive export data/observations.jsonl --offline-reextract
+```
+
+Only StreetEasy response content is imported. Request cookies, authorization
+headers, POST bodies, and browser sessions are never replayed. Sensitive response
+headers are omitted. The original HAR remains where you put it and is ignored by
+Git. Response bodies can themselves contain embedded identifiers or personal
+information: treat the local archive as private data. HAR text bodies are saved
+as their available decoded content, not represented as original wire bytes.
+
+## Archive and schema evolution
+
+- `data/archive.sqlite3`: crawl generations, durable frontier, observations,
+  snapshot extractions, and body metadata.
+- `data/bodies/<prefix>/<sha256>.gz`: original response entity bytes, compressed
+  locally. Scrapy decodes HTTP content encoding before archival; binary gzip
+  sitemap files remain recoverable as received by the parser.
+- JSONL export: per-observation metadata, body reference, and derived extraction.
+
+Extraction preserves all script text, JSON-LD/JSON, decoded React Flight chunks,
+metadata, data attributes, text, links, image URLs, and table HTML. JavaScript is
+never executed. Images and floorplan **URLs** are preserved; external image binaries
+are not fetched. The complete source body is authoritative. Extend `extract.py`
+and rerun `export --offline-reextract` to evolve your downstream schema without
+fetching the site again. No columnar schema is imposed on the archive.
+
+Back up the entire data directory together. Stop the crawler before a simple
+filesystem copy so the SQLite WAL and body files stay consistent.
+
+## Coverage limits
+
+A drained frontier means all *discovered* URLs were handled, not that StreetEasy's
+entire historical database was downloaded. Removed/unlinked pages, undisclosed
+API data, account-only history, and histories behind interactive controls without
+public links may be missing. HTTP errors, blocked requests, and unsupported
+redirects must be investigated through status and observation metadata. Search
+result caps can also limit discovery; building sitemaps provide an independent
+route but cannot prove completeness. The archive retains raw pages so deeper
+history extraction can be added when representative public responses are available.
+
+The source sitemap index was inspected at
+<https://streeteasy.com/sitemaps/secure/nyc_sitemap_index.xml>; it includes
+`nyc_buildings_*` and `nyc_off_market_buildings_*`. A public building page at
+<https://streeteasy.com/building/147-west-22-street-new_york> exposes unavailable
+sales/rentals in the web index, but direct crawler access was blocked during this
+implementation. Scrapy documentation: <https://docs.scrapy.org/en/latest/>.
+
+## Development
+
+```sh
+uv run pytest -q
+jj status
+jj log
+git log --oneline
+```
+
+The tests use synthetic responses and local fixtures; they do not contact StreetEasy.
+
+Validation from this implementation is recorded in [VALIDATION.md](VALIDATION.md).
+The supplied HAR has already been imported into the local `data/` archive; start
+with `resume --max-requests 100` to use that frontier. No crawler is left running.
+`status: active` denotes an unfinished generation. Exit status 3 means a persisted
+cooldown/access pause; 2 means an error; 0 includes an intentional request-budget
+stop. `status` reports pending work separately, and works while the crawler runs.
