@@ -94,3 +94,19 @@ Worker launch verified: PID 82451, detached process, log at
 pending URLs and 7 completed scoped URLs. Local `/api/summary` reports the writer
 active and the cooldown until 17:15:29 EDT. Archive browser restarted with the
 scope status UI. Final targeted scope + Scrapy integration checks: 7 passed.
+
+## Pacing trial — 2026-09-07, 17:28–17:31 EDT
+
+Gracefully stopped the 60-second worker and resumed four queued pages with a
+45-second configured delay, retaining concurrency one and stop-on-challenge.
+Observations 24–27 all returned HTTP 200 with archived bodies and no new error or
+cooldown. Mean spacing between successful responses was 54.35 seconds, versus
+74.48 seconds across 11 successful responses in the preceding baseline. This
+small sample does not establish a safe detection threshold or long-run success.
+The unlimited scoped worker resumed at 45 seconds (PID 85518); current PID and
+command are recorded in data/chelsea-worker.json. Delay remains randomized,
+22.5–67.5 seconds before browser overhead/AutoThrottle effects. No concurrency,
+proxy, fingerprint, account or challenge-handling changes were made. A Luna
+review attributed existing callback warnings to subresource interception races;
+the archived main-document bodies were present. Detailed trial evidence is in
+data/diagnostics/speed-trial.json and data/chelsea-speed-trial.log.
