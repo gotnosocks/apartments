@@ -110,3 +110,17 @@ proxy, fingerprint, account or challenge-handling changes were made. A Luna
 review attributed existing callback warnings to subresource interception races;
 the archived main-document bodies were present. Detailed trial evidence is in
 data/diagnostics/speed-trial.json and data/chelsea-speed-trial.log.
+
+## Second pacing trial — 2026-09-07, 19:07–19:10 EDT
+
+The preceding 45-second worker handled 101 observed responses before shutdown
+was requested: 93 HTTP 200 and 8 HTTP 308 redirects, without a new challenge or
+cooldown. Mean spacing among successful pages was 60.68 seconds (including time
+spent on intervening redirects). Graceful shutdown drained its pending request.
+
+Four queued pages at a 35-second configured delay (observations 130–133) all
+returned HTTP 200 with no errors, averaging 42.11 seconds between saved responses.
+The unlimited Chelsea worker resumed at 35 seconds, PID 93034. Concurrency remains
+one, delay randomized 17.5–52.5 seconds before browser/AutoThrottle overhead, and
+new challenges stop the worker. This sample is not proof of long-term reliability.
+Evidence: data/diagnostics/speed-trial-35.json and data/chelsea-speed-trial-35.log.
