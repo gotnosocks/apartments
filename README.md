@@ -18,6 +18,32 @@ cd ~/code/streeteasy-archive
 uv sync --extra dev
 ```
 
+## Local archive browser
+
+```sh
+uv run streeteasy-archive serve --port 8765
+```
+
+Open <http://127.0.0.1:8765>. The Flask/Waitress app reads the live SQLite archive
+in read-only mode and refreshes its overview every ten seconds. It can run beside
+the crawler. It does not fetch pages from StreetEasy or upload the archive.
+
+Browse captured pages or the pending queue, filter by page type and URL/address,
+select a crawl generation, and inspect response headers, extracted JSON, raw
+source, or historical observations. Source is displayed as text; downloading it
+returns an attachment. Listing-detail counts include only successfully captured
+**detail pages**, not search results or discovered URLs. `Open original` is an
+explicit link to StreetEasy.
+
+The default view shows captured pages. With the supplied HAR, this is the homepage
+and Chelsea search page. Select **Listing details → Queued** to inspect the 14
+known detail URLs. No detail response is claimed to be captured from that HAR.
+
+The crawler prioritizes discovered listing detail URLs ahead of search pages,
+including `/sale/<id>`, `/rental/<id>`, and modern `/building/<slug>/<unit>` pages.
+A regression test follows a synthetic search link into a detail response and checks
+that its full body, pricing JSON, and history table are archived separately.
+
 ## Crawl and resume
 
 ```sh

@@ -7,7 +7,7 @@ name = "streeteasy-archive"
 version = "0.1.0"
 description = "A durable, lossless-friendly StreetEasy archive crawler"
 requires-python = ">=3.11"
-dependencies = ["Scrapy>=2.18", "parsel>=1.8"]
+dependencies = ["Scrapy>=2.18", "parsel>=1.8", "Flask>=3.1,<4", "waitress>=3,<4"]
 
 [project.optional-dependencies]
 dev = ["pytest>=8"]
@@ -21,3 +21,6 @@ pythonpath = ["src"]
 
 [tool.setuptools.packages.find]
 where = ["src"]
+
+[tool.setuptools.package-data]
+streeteasy_archive = ["templates/*.html", "static/*"]

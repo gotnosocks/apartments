@@ -150,3 +150,35 @@ def test_archive_relocation_and_old_har_does_not_replace_new(tmp_path):
     shutil.copytree(tmp_path / 'original', tmp_path / 'copy')
     copy = ArchiveStore(tmp_path / 'copy')
     assert copy.get_body(body_hash).startswith(b'<a ')
+
+
+def test_detail_pages_take_priority_over_searches(tmp_path):
+    store = ArchiveStore(tmp_path)
+    gen = store.new_generation()
+    store.enqueue(gen, [{'url': 'https://streeteasy.com/for-rent/nyc', 'kind': 'search'},
+                        {'url': 'https://streeteasy.com/building/example/5a', 'kind': 'listing'},
+                        {'url': 'https://streeteasy.com/rental/123', 'kind': 'listing'}])
+    assert store.claim(gen)['url'] == 'https://streeteasy.com/building/example/5a'
+    store.record(gen, 'https://streeteasy.com/building/example/5a', 200, {}, b'<title>Detail</title>')
+    assert store.claim(gen)['url'] == 'https://streeteasy.com/rental/123'
+
+
+def test_search_discovers_and_archives_actual_detail_body(tmp_path):
+    store = ArchiveStore(tmp_path)
+    gen = store.new_generation()
+    search = 'https://streeteasy.com/for-rent/nyc'
+    detail = 'https://streeteasy.com/building/example/4a'
+    store.enqueue(gen, [{'url': search, 'kind': 'search'}])
+    store.claim(gen)
+    spider = ArchiveSpider(data_dir=tmp_path, generation=gen)
+    search_response = Response(search, body=f'<a href="{detail}">Apartment 4A</a>'.encode(), request=Request(search, meta={'archive_url': search}))
+    requests = list(spider.parse(search_response))
+    assert len(requests) == 1 and requests[0].url == detail
+    detail_body = b'<title>Apartment 4A</title><script type="application/ld+json">{"price":4200,"numberOfBedrooms":2}</script><table><tr><td>Rented 2021</td></tr></table>'
+    assert list(spider.parse(Response(detail, body=detail_body, headers={'Content-Type': 'text/html'}, request=requests[0]))) == []
+    assert store.get_body(store.latest_body(None, detail)) == detail_body
+    snapshot = json.loads(store.db.execute('SELECT extracted FROM snapshots WHERE url=?', (detail,)).fetchone()[0])
+    assert snapshot['title'] == 'Apartment 4A'
+    assert snapshot['scripts'][0]['json']['price'] == 4200
+    assert 'Rented 2021' in snapshot['tables'][0]
+    spider.store.close()

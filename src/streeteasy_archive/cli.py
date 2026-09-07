@@ -39,6 +39,7 @@ def main(argv=None):
         command.add_argument('--max-requests', type=int, default=0, help='request budget; zero is unlimited')
         command.add_argument('--revisit-interval', type=float, default=0, help='update interval in seconds for known buildings/listings')
     sub.add_parser('status').add_argument('--generation', type=int)
+    sub.add_parser('serve').add_argument('--port', type=int, default=8765)
     sub.add_parser('import-har').add_argument('path')
     export_parser = sub.add_parser('export')
     export_parser.add_argument('path')
@@ -47,6 +48,14 @@ def main(argv=None):
     args = parser.parse_args(argv)
     if getattr(args, 'max_requests', 0) < 0 or getattr(args, 'revisit_interval', 0) < 0 or not math.isfinite(getattr(args, 'revisit_interval', 0)):
         parser.error('request budget and interval must be finite nonnegative numbers')
+    if args.command == 'serve':
+        if not 1 <= args.port <= 65535:
+            parser.error('port must be between 1 and 65535')
+        from .web import create_app
+        from waitress import serve
+        print(f'Archive browser: http://127.0.0.1:{args.port}', flush=True)
+        serve(create_app(args.data), host='127.0.0.1', port=args.port, threads=4)
+        return 0
     lock = None
     if args.command not in ('status', 'export'):
         lock = acquire_lock(args.data)

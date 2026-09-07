@@ -39,6 +39,11 @@ class ArchiveStore:
         CREATE TABLE IF NOT EXISTS metadata(key TEXT PRIMARY KEY, value TEXT NOT NULL);
         CREATE TABLE IF NOT EXISTS har_entries(fingerprint TEXT PRIMARY KEY);
         ''')
+        columns = {row[1] for row in self.db.execute('PRAGMA table_xinfo(frontier)')}
+        if 'priority' not in columns:
+            self.db.execute("ALTER TABLE frontier ADD COLUMN priority INTEGER GENERATED ALWAYS AS (CASE kind WHEN 'listing' THEN 0 WHEN 'sitemap' THEN 1 WHEN 'search' THEN 3 ELSE 2 END) VIRTUAL")
+        self.db.execute('CREATE INDEX IF NOT EXISTS frontier_priority ON frontier(generation,state,priority)')
+        self.db.commit()
 
     def close(self):
         self.db.close()
@@ -129,7 +134,7 @@ class ArchiveStore:
         with self._tx():
             row = self.db.execute('''SELECT f.* FROM frontier f JOIN generations g ON g.id=f.generation
                 WHERE f.generation=? AND f.state='pending' AND f.next_attempt<=?
-                AND (g.cooldown IS NULL OR g.cooldown<=?) ORDER BY f.rowid LIMIT 1''',
+                AND (g.cooldown IS NULL OR g.cooldown<=?) ORDER BY f.priority,f.rowid LIMIT 1''',
                 (generation, now, now)).fetchone()
             if row:
                 self.db.execute("UPDATE frontier SET state='inflight',attempts=attempts+1 WHERE generation=? AND url=?", (generation, row['url']))

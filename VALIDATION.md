@@ -1,7 +1,7 @@
 # Validation — 2026-09-07
 
 - Python 3.14.0; Scrapy 2.18.0; dependencies pinned in `uv.lock`.
-- `uv run pytest -q`: **22 passed**. Tests use synthetic responses; no test sends
+- `uv run pytest -q`: **27 passed**. Tests use synthetic responses; no test sends
   requests to StreetEasy. Integration tests run the actual Scrapy engine through
   a fixture download handler.
 - Coverage includes crash recovery, transactional discovery rollback, body dedup,
@@ -24,3 +24,16 @@
 Local data and the export are under `data/` and are ignored by Git/Jujutsu. The
 original HAR was not copied into the repository. No crawler process is left
 running. `status: active` means an unfinished generation, not a running process.
+
+## Local browser follow-up
+
+- Added a read-only Flask/Waitress app against the same live archive, with server-side
+  pagination, URL/type/state filters, generation selection, source and extraction
+  views, metadata, historical observations, and a 10-second overview refresh.
+- API tests verify captured-detail counts, queued URLs, live updates, history,
+  attachments, source-as-text, invalid-input handling, and read-only routes.
+- JavaScript syntax checked with `node --check`; local route and API responses
+  verified. Browser automation was unavailable, so no visual/browser interaction
+  QA is claimed.
+- Listing detail URLs now have indexed queue priority over search pages. A
+  search-to-detail regression verifies full detail body, JSON, and history capture.
