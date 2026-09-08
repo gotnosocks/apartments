@@ -117,7 +117,10 @@ def _event_datetime(value: str | None) -> str | None:
     try:
         return datetime.strptime(value, "%m/%d/%Y").date().isoformat()
     except ValueError:
-        return None
+        try:
+            return datetime.fromisoformat(value).date().isoformat()
+        except ValueError:
+            return None
 
 
 def _is_generic_layout(unit: str | None) -> bool:
@@ -186,6 +189,33 @@ def ingest_export(
     connection=None,
 ) -> tuple[str, int]:
     item = json.loads(path.read_text(encoding="utf-8"))
+    manifest_path = path.parent / "manifest.json"
+    assets_path = path.parent / "assets.json"
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8")) if manifest_path.exists() else {}
+    assets = json.loads(assets_path.read_text(encoding="utf-8")) if assets_path.exists() else []
+    return ingest_item(
+        item,
+        db_path,
+        connection=connection,
+        bundle_path=path.parent,
+        page_html_path=path.parent / "page.html",
+        manifest=manifest,
+        assets=assets,
+    )
+
+
+def ingest_item(
+    item: dict,
+    db_path: str = "data/apartments.duckdb",
+    connection=None,
+    *,
+    bundle_path: Path | str | None = None,
+    page_html_path: Path | str | None = None,
+    manifest: dict | None = None,
+    assets: list[dict] | None = None,
+    capture_id: str | None = None,
+) -> tuple[str, int]:
+    """Ingest one normalized StreetEasy capture from any durable source."""
     if item.get("source") != "streeteasy" or not isinstance(item.get("price_history"), list):
         raise ValueError("This does not look like a StreetEasy exporter JSON file")
 
@@ -289,25 +319,25 @@ def ingest_export(
              event.get("base_rent"), json.dumps(event)],
         )
         event_count += 1
-    capture_id = hashlib.sha256(
+    capture_id = capture_id or hashlib.sha256(
         f"streeteasy|{source_id}|{item.get('captured_at')}".encode()
     ).hexdigest()
-    manifest_path = path.parent / "manifest.json"
-    assets_path = path.parent / "assets.json"
-    manifest = json.loads(manifest_path.read_text(encoding="utf-8")) if manifest_path.exists() else {}
+    bundle_path = Path(bundle_path) if bundle_path is not None else None
+    page_html_path = Path(page_html_path) if page_html_path is not None else None
     db.execute(
         """INSERT INTO captures VALUES (?, 'streeteasy', ?, ?, ?, ?, ?, ?)
            ON CONFLICT (capture_id) DO UPDATE SET
              bundle_path=excluded.bundle_path, page_html_path=excluded.page_html_path,
              manifest_json=excluded.manifest_json, structured_json=excluded.structured_json""",
-        [capture_id, source_id, item.get("captured_at"), str(path.parent),
-         str(path.parent / "page.html") if (path.parent / "page.html").exists() else None,
-         json.dumps(manifest), raw],
+        [capture_id, source_id, item.get("captured_at"),
+         str(bundle_path) if bundle_path is not None else None,
+         str(page_html_path) if page_html_path is not None and page_html_path.exists() else None,
+         json.dumps(manifest or {}), raw],
     )
-    if assets_path.exists():
-        for asset in json.loads(assets_path.read_text(encoding="utf-8")):
+    if assets:
+        for asset in assets:
             asset_key = asset.get("sha256") or hashlib.sha256(asset["url"].encode()).hexdigest()
-            local_path = str(path.parent / asset["local_file"]) if asset.get("local_file") else None
+            local_path = str(bundle_path / asset["local_file"]) if bundle_path and asset.get("local_file") else None
             db.execute(
                 """INSERT INTO assets VALUES (?, ?, ?, ?, ?, ?, ?)
                    ON CONFLICT (asset_key) DO UPDATE SET

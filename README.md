@@ -33,6 +33,21 @@ uv run apartments summary
 The import is idempotent. Raw captures remain the source of truth and can be
 reparsed later as the parser improves.
 
+The automated crawler and its full Git history live in
+`tools/streeteasy-archive`. Its multi-gigabyte live archive stays in the original
+ignored data directory, so the crawler and archive browser can continue running
+without copying data into Git. Import every new listing revision into DuckDB with:
+
+```bash
+uv run apartments import-archive /Users/ben/code/streeteasy-archive/data
+```
+
+This command opens the crawler's SQLite catalog read-only, reads its compressed
+response bodies, and skips archive snapshots already present in DuckDB. It uses
+the complete embedded `propertyHistory` data, including rows hidden behind the
+page's **Show more** button. Each normalized record and each underlying archive
+snapshot reference remain available for future parser and schema changes.
+
 ## Interactive analysis
 
 ```bash

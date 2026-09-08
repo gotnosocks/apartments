@@ -5,6 +5,7 @@ import typer
 from dotenv import load_dotenv
 
 from .csv_import import ingest_csv
+from .archive_import import import_archive
 from .db import DEFAULT_DB, connect
 from .nyc import ingest_pluto
 from .rentcast import collect
@@ -76,6 +77,24 @@ def import_captures(
     for path, error in failures:
         typer.echo(f"FAILED {path}: {error}", err=True)
     if failures:
+        raise typer.Exit(1)
+
+
+@app.command("import-archive")
+def import_streeteasy_archive(
+    root: Path = typer.Argument(
+        Path("../streeteasy-archive/data"),
+        help="Live StreetEasy Archive data directory.",
+    ),
+    db: Path = typer.Option(DEFAULT_DB),
+    limit: int = typer.Option(0, min=0, help="Stop after this many new captures; zero imports all."),
+):
+    counts = import_archive(root, db, limit)
+    typer.echo(
+        "Imported {imported} new captures and {events} history events "
+        "({skipped} already present, {unrecognized} non-detail pages, {failed} failures).".format(**counts)
+    )
+    if counts["failed"]:
         raise typer.Exit(1)
 
 
