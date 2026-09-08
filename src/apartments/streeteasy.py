@@ -326,6 +326,9 @@ def ingest_item(
     capture_id = capture_id or hashlib.sha256(
         f"streeteasy|{source_id}|{item.get('captured_at')}".encode()
     ).hexdigest()
+    from .temporal import retain_capture
+    retain_capture(db, capture_id, item, manifest,
+                   time_basis=(manifest or {}).get('collection_time_basis'))
     bundle_path = Path(bundle_path) if bundle_path is not None else None
     page_html_path = Path(page_html_path) if page_html_path is not None else None
     db.execute(

@@ -107,6 +107,31 @@ def reparse_history(
     typer.echo(f"Reparsed {events} history events for {units} units into {db}")
 
 
+@app.command("backfill-temporal")
+def backfill_temporal(
+    archive: Path = typer.Option(Path(__file__).resolve().parents[2] / "data/archive"),
+    db: Path = typer.Option(DEFAULT_DB),
+):
+    """Retain attribute versions and fetch evidence from existing local data."""
+    import sqlite3
+    from .temporal import backfill_capture_history, sync_observations
+    source = sqlite3.connect((archive.resolve() / 'archive.sqlite3').as_uri() + '?mode=ro', uri=True)
+    target = connect(db)
+    try:
+        target.execute('BEGIN TRANSACTION')
+        try:
+            observations = sync_observations(source, target)
+            target.execute('COMMIT')
+        except Exception:
+            target.execute('ROLLBACK')
+            raise
+        versions = backfill_capture_history(target, source)
+    finally:
+        target.close()
+        source.close()
+    typer.echo(f"Added {versions} attribute versions and {observations} collection observations; no pages downloaded.")
+
+
 @app.command("infer-furnishing-periods")
 def infer_furnishing(
     db: Path = typer.Option(DEFAULT_DB),

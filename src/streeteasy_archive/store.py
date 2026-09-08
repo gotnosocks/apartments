@@ -200,6 +200,7 @@ class ArchiveStore:
 
     def record(self, generation, url, status, headers, body=None, content_type='',
                extracted=None, error=None, discovered=None, fetched=None, har_fingerprint=None):
+        collected_at = time.time() if fetched is None else fetched
         headers = _headers(headers)
         lower = {k.lower(): v for k, v in headers.items()}
         unchanged = status == 304
@@ -211,7 +212,7 @@ class ArchiveStore:
             content_type = content_type or previous['content_type']
         with self._tx():
             self.db.execute('''INSERT INTO observations(generation,url,fetched,status,content_type,headers,body_hash,not_modified,error)
-                VALUES(?,?,?,?,?,?,?,?,?)''', (generation, url, time.time() if fetched is None else fetched,
+                VALUES(?,?,?,?,?,?,?,?,?)''', (generation, url, collected_at,
                 status, content_type, json.dumps(headers), digest, int(unchanged), error))
             previous_success = self.latest_response(url)
             update_frontier = fetched is None or previous_success is None or fetched >= previous_success['fetched']
@@ -225,7 +226,7 @@ class ArchiveStore:
             self._enqueue(generation, discovered or [])
             if extracted is not None and digest:
                 self.db.execute('''INSERT OR IGNORE INTO snapshots(generation,url,body_hash,observed,extraction_version,extracted)
-                    VALUES(?,?,?,?,?,?)''', (generation, url, digest, time.time(),
+                    VALUES(?,?,?,?,?,?)''', (generation, url, digest, collected_at,
                     extracted.get('extraction_version'), json.dumps(extracted)))
             if har_fingerprint:
                 self.db.execute('INSERT OR IGNORE INTO har_entries VALUES(?)', (har_fingerprint,))

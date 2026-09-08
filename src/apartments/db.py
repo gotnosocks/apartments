@@ -1,6 +1,7 @@
 from pathlib import Path
 
 import duckdb
+from .temporal import SCHEMA as TEMPORAL_SCHEMA
 
 DEFAULT_DB = Path("data/apartments.duckdb")
 
@@ -159,4 +160,5 @@ def connect(path: Path | str = DEFAULT_DB) -> duckdb.DuckDBPyConnection:
     path.parent.mkdir(parents=True, exist_ok=True)
     connection = duckdb.connect(str(path))
     connection.execute(SCHEMA)
+    connection.execute(TEMPORAL_SCHEMA)
     return connection

@@ -5,6 +5,9 @@ rental explorer, and pricing model. Git and colocated Jujutsu track this reposit
 
 Latest results: [September 8 Chelsea analysis](docs/analysis/chelsea-2026-09-08.md).
 
+[Point-in-time retention](docs/data/point-in-time.md) documents collection clocks,
+append-only apartment attributes, and the evidence available at a historical cutoff.
+
 ## Setup
 
 ```sh

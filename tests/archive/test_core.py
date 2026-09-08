@@ -26,6 +26,16 @@ def test_content_dedup_and_304_reuses_previous_generation(tmp_path):
     assert s.latest_body(None, url) == digest
 
 
+def test_imported_snapshot_keeps_original_collection_time(tmp_path):
+    s = ArchiveStore(tmp_path)
+    g = s.new_generation('import')
+    s.record(g, 'https://streeteasy.com/rental/1', 200, {}, b'body',
+             extracted={'extraction_version': 1}, fetched=1000)
+    assert s.db.execute('SELECT fetched FROM observations').fetchone()[0] == 1000
+    assert s.db.execute('SELECT observed FROM snapshots').fetchone()[0] == 1000
+    s.close()
+
+
 def test_cooldown_keeps_frontier_and_redirect_scope(tmp_path):
     s = ArchiveStore(tmp_path); g = s.new_generation("blocked"); url = "https://streeteasy.com/building/a"
     s.enqueue(g, [{"url": url, "kind": "building"}]); s.claim(g); s.cooldown(g, 120, "403")

@@ -188,8 +188,12 @@ def import_archive(
     if not sqlite_path.exists():
         raise FileNotFoundError(f"StreetEasy archive database not found: {sqlite_path}")
     source = sqlite3.connect(f"file:{quote(str(sqlite_path))}?mode=ro", uri=True, timeout=30)
+    has_observations = source.execute("SELECT 1 FROM sqlite_master WHERE name='observations'").fetchone() is not None
+    collection_time = """coalesce((SELECT min(o.fetched) FROM observations o
+        WHERE o.generation=s.generation AND o.url=s.url AND o.body_hash=s.body_hash
+          AND o.error IS NULL AND (o.status BETWEEN 200 AND 299 OR o.status=304)),s.observed)""" if has_observations else 's.observed'
     rows = source.execute(
-        """SELECT s.id,s.url,s.observed,s.body_hash,b.path
+        f"""SELECT s.id,s.url,{collection_time},s.body_hash,b.path
            FROM snapshots s
            JOIN bodies b ON b.hash=s.body_hash
            JOIN frontier f ON f.generation=s.generation AND f.url=s.url
@@ -226,7 +230,8 @@ def import_archive(
                         item, str(db_path), connection=target,
                         bundle_path=archive_root, page_html_path=body_path,
                         manifest={"source": "streeteasy-archive", "snapshot_id": snapshot_id,
-                                  "url": url, "body_hash": body_hash},
+                                  "url": url, "body_hash": body_hash,
+                                  "collection_time_basis": "archive_response_fetched" if has_observations else "snapshot_timestamp"},
                         capture_id=capture_id,
                     )
                 target.execute("INSERT INTO archive_imports(capture_id,outcome) VALUES (?,?)",
@@ -241,6 +246,14 @@ def import_archive(
                 print(f"Import failed for snapshot {snapshot_id} ({url}): {error}", file=sys.stderr)
             if limit and counts["imported"] >= limit:
                 break
+        from .temporal import sync_observations
+        target.execute('BEGIN TRANSACTION')
+        try:
+            counts['observations_added'] = sync_observations(source, target)
+            target.execute('COMMIT')
+        except Exception:
+            target.execute('ROLLBACK')
+            raise
     finally:
         source.close()
         target.close()
