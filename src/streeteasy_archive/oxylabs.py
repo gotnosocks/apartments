@@ -11,7 +11,7 @@ import requests
 from dotenv import load_dotenv
 from scrapy.http import HtmlResponse
 
-from .extract import canonical_url
+from .extract import canonical_url, is_unavailable_url
 
 API_URL = "https://realtime.oxylabs.io/v1/queries"
 _PRIVATE_KEYS = {"authorization", "proxy-authorization", "cookie", "cookies", "set-cookie", "www-authenticate", "x-api-key", "_request", "session_info"}
@@ -104,7 +104,15 @@ class OxylabsDownloadHandler:
         url = _target_url(request.url)
         username, password = _credentials()
         payload = {"source": "universal", "url": url}
-        if self.settings and self.settings.getbool("ARCHIVE_OXYLABS_RENDER", False):
+        if is_unavailable_url(url):
+            category = 'For rent' if 'unavailable-rentals' in url else 'For sale'
+            payload.update(url=url.split('?')[0], render='html', browser_instructions=[
+                {'type': 'click', 'selector': {'type': 'xpath', 'value': '//button[contains(., "View unavailable units")]'}},
+                {'type': 'wait', 'wait_time_s': 8},
+                {'type': 'click', 'selector': {'type': 'xpath', 'value': f'//*[@role="dialog"]//button[normalize-space(.)="{category}"]'}},
+                {'type': 'wait', 'wait_time_s': 2},
+            ])
+        elif self.settings and self.settings.getbool("ARCHIVE_OXYLABS_RENDER", False):
             payload["render"] = "html"
         result = None
         for attempt in range(3):
@@ -149,6 +157,8 @@ class OxylabsDownloadHandler:
                             if str(key).lower() not in {"content-encoding", "content-length"}}
         response = HtmlResponse(url=url, status=status, headers=response_headers, body=body, request=request, encoding="utf-8")
         response.meta["archive_provider"] = {
+            "target_url": payload['url'],
+            "browser_instructions": payload.get('browser_instructions', []),
             "results": _safe_envelope(results),
             "api_headers": {k: v for k, v in getattr(result, 'headers', {}).items()
                             if k.lower().startswith('x-ratelimit-') or k.lower() == 'x-oxylabs-job-id'},

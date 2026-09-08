@@ -98,7 +98,7 @@ class ArchiveStore:
             {'url': 'https://streeteasy.com/for-rent/nyc', 'kind': 'search'},
         ])
 
-    def revisit_known(self, generation, interval=0):
+    def revisit_known(self, generation, interval=0, include_listings=True):
         """Copy latest URL state; keep deferred rows to prevent rediscovery bypass."""
         cutoff = time.time() - max(0, interval)
         rows = self.db.execute('''SELECT f.*,
@@ -109,7 +109,10 @@ class ArchiveStore:
             (generation,)).fetchall()
         with self._tx():
             for row in rows:
-                if row['kind'] not in ('sitemap', 'directory', 'search', 'building', 'listing'):
+                allowed = ('sitemap', 'directory', 'search', 'building', 'listing', 'inventory')
+                if row['kind'] not in allowed:
+                    continue
+                if not include_listings and row['kind'] in ('listing', 'inventory'):
                     continue
                 deferred = row['kind'] in ('building', 'listing') and row['fetched'] is not None and row['fetched'] > cutoff
                 self.db.execute('''INSERT INTO frontier(generation,url,kind,lastmod,state,etag,modified)

@@ -69,7 +69,7 @@ class ArchiveSpider(scrapy.Spider):
         'USER_AGENT': 'StreetEasyArchive/0.1 (personal archival research)',
     }
 
-    def __init__(self, data_dir='data', generation=None, max_requests=0, building=None, neighborhood=None, delay=None, transport='http', concurrency=5, **kwargs):
+    def __init__(self, data_dir='data', generation=None, max_requests=0, building=None, neighborhood=None, delay=None, transport='http', concurrency=5, include_unavailable=False, **kwargs):
         super().__init__(**kwargs)
         self.store = ArchiveStore(data_dir)
         self.generation = int(generation or self.store.current_generation() or self.store.new_generation())
@@ -79,6 +79,7 @@ class ArchiveSpider(scrapy.Spider):
         self.transport = transport
         self.delay = float(delay if delay is not None else (0 if transport == 'oxylabs' else 10))
         self.concurrency = int(concurrency) if transport == 'oxylabs' else 1
+        self.include_unavailable = bool(include_unavailable)
         self.outstanding = 0
         self.sent = 0
         self.stopped = False
@@ -101,12 +102,19 @@ class ArchiveSpider(scrapy.Spider):
         if self.stopped or (self.max_requests and self.sent >= self.max_requests):
             return None
         while True:
-            row = self.store.claim(self.generation, url_prefix=self.building, scoped=bool(self.neighborhood))
+            # Building scope is represented by verified scope membership too:
+            # historical inventory endpoints and rental URLs do not share the
+            # building URL prefix.
+            row = self.store.claim(self.generation,
+                                   url_prefix=self.building if self.neighborhood else None,
+                                   scoped=bool(self.neighborhood or self.building))
             if not row:
                 return None
             canonical = canonical_url(row['url'])
             kind = kind_for(canonical) if canonical else None
             if canonical == row['url'] and kind:
+                if kind == 'inventory' and self.transport != 'oxylabs':
+                    raise RuntimeError('Unavailable inventory requires --transport oxylabs; use --no-include-unavailable for direct transports')
                 break
             self.store.resolve_obsolete_url(self.generation, row['url'], canonical if kind else None, kind)
         self.sent += 1
@@ -150,7 +158,7 @@ class ArchiveSpider(scrapy.Spider):
             self.store.record_gap(self.generation, url, status, headers,
                                   'redirect observed' if links else 'redirect coverage gap',
                                   discovered=links, body=body if response.meta.get('archive_body_captured', True) else None, content_type=content_type)
-            if self.neighborhood and links:
+            if (self.neighborhood or self.building) and links:
                 from .scope import enroll
                 enroll(self.store, self.generation, {link['url']: 'property history redirect from ' + url for link in links})
         elif status >= 400:
@@ -169,17 +177,22 @@ class ArchiveSpider(scrapy.Spider):
                     data['browser_capture'] = response.meta['archive_browser']
                 if response.meta.get('archive_provider'):
                     data['provider_capture'] = response.meta['archive_provider']
-                links = approved_links(data['links'], url)
+                from .scope import discovery_links
+                links = discovery_links(data, url, self.include_unavailable)
             except Exception as exc:
                 self.store.record_gap(self.generation, url, status, headers,
                                       f'parser coverage gap: {type(exc).__name__}: {exc}',
-                                      body=body, content_type=content_type)
+                                      body=body, content_type=content_type,
+                                      complete=response.meta.get('archive_kind') != 'inventory',
+                                      pause_seconds=300 if response.meta.get('archive_kind') == 'inventory' else None)
+                if response.meta.get('archive_kind') == 'inventory':
+                    self.stopped = True
             else:
                 self.store.record(self.generation, url, status, headers, body,
                                   content_type, data, discovered=links)
-                if self.neighborhood:
+                if self.neighborhood or self.building:
                     from .scope import expand
-                    expand(self.store, self.generation, data, url)
+                    expand(self.store, self.generation, data, url, self.include_unavailable, building=self.building)
         transport_errors = response.meta.get('archive_browser', {}).get('interception', {}).get('errors', [])
         if transport_errors:
             # The main response above remains archived. Halt further traffic when

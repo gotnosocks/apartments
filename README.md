@@ -35,6 +35,41 @@ resumes its durable queue; it does not restart from zero. An exhausted scoped
 queue means discovered pages were handled, not proof of complete historical coverage.
 Use `streeteasy-archive --help` for bounded backfill and update options.
 
+Backfills now open **View unavailable units** and follow its rental/sale detail
+links, in addition to the current units and their price-history links. This uses
+Oxylabs browser instructions for inventory pages; ordinary detail pages continue
+to use server HTML. `update` defaults to current-only discovery; pass
+`--include-unavailable` to include historical inventory, or
+`--no-include-unavailable` to explicitly disable it. `resume` remembers the mode
+and scope. Full price history already present on a fetched detail page is always
+retained, even in current-only mode.
+
+```sh
+# Repair/extend a building backfill without resetting completed pages:
+uv run streeteasy-archive backfill --building https://streeteasy.com/building/the-sierra-chelsea --transport oxylabs
+# Resume that saved building and mode, optionally with a request budget:
+uv run streeteasy-archive resume --max-requests 100
+# Use the historical discovery for Chelsea instead:
+uv run streeteasy-archive backfill --neighborhood chelsea --transport oxylabs
+# Once the prior crawl is complete, start a lean new observation pass:
+uv run streeteasy-archive update --neighborhood chelsea --transport oxylabs
+```
+
+Expanded inventories have separate archive keys such as
+`?archive_view=unavailable-rentals`. This is an internal capture identifier, not a
+StreetEasy query parameter: the transport visits the base building URL and opens
+the requested panel. Raw expanded HTML, table rows, source totals, fetch time,
+and provider instructions are retained. A missing panel or incomplete row count
+creates a resumable coverage error instead of silently reporting success.
+
+The September 8 repair test captured all 393 unavailable rental inventory rows
+for Sierra Chelsea, followed four detail pages, and imported four additional
+units (12K, 3B, 4C, PHD). The database grew from four to eight Sierra units;
+the remaining detail/history queue still requires a backfill run. Inventory rows
+are listing episodes, not necessarily distinct physical units. The earlier
+Chelsea model is therefore based on incomplete building coverage and should be
+refit after the expanded backfill is imported.
+
 ## Import and analyze
 
 ```sh

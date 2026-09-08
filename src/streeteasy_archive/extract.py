@@ -13,8 +13,15 @@ from urllib.parse import parse_qsl, urlencode, urljoin, urlsplit, urlunsplit
 from parsel import Selector
 from lxml import etree
 
-VERSION = 3
+VERSION = 4
 _TRACKING = {'featured', 'infeed', 'lstt', 'showcase', 'similarhdp2', 'from', 'source', 'ref', 'referrer', 'gclid', 'fbclid'}
+
+
+def is_unavailable_url(url):
+    """Archive-only view key; the transport loads the underlying building URL."""
+    p = urlsplit(url)
+    return bool(re.fullmatch(r'/building/[^/]+', p.path) and
+                dict(parse_qsl(p.query)).get('archive_view') in ('unavailable-rentals', 'unavailable-sales'))
 
 
 def canonical_url(value: str, base: str = 'https://streeteasy.com/') -> str | None:
@@ -32,6 +39,8 @@ def canonical_url(value: str, base: str = 'https://streeteasy.com/') -> str | No
 
 
 def kind_for(url: str) -> str | None:
+    if is_unavailable_url(url):
+        return 'inventory'
     path = urlsplit(url).path
     if re.fullmatch(r'/sitemaps/secure/nyc_(?:sitemap_index\.xml|(?:off_market_buildings|buildings|building_searches|rental_searches|sale_searches|sales|rentals)_\d+\.xml(?:\.gz)?)', path):
         return 'sitemap'
@@ -161,6 +170,32 @@ def extract(body: bytes, url: str, content_type: str = '') -> dict:
         except ValueError:
             pass
     sel = _selector(body)
+    if is_unavailable_url(url):
+        dialog = sel.css('[role="dialog"]')
+        category_label = 'For rent' if 'unavailable-rentals' in url else 'For sale'
+        selected = dialog.css('button[aria-pressed="true"]').xpath('normalize-space(.)').getall()
+        if category_label not in selected:
+            raise ValueError('unavailable inventory category was not selected')
+        labels = dialog.css('[role="tab"]').xpath('string(.)').getall()
+        totals = [int(m.group(1)) for label in labels if (m := re.fullmatch(r'All\s*\(([\d,]+)\)', label.strip().replace(',', '')))]
+        rows = dialog.css('tbody tr')
+        links = []
+        for row in rows:
+            urls = [canonical_url(u, url) for u in row.css('a::attr(href)').getall()]
+            urls = [u for u in urls if u and kind_for(u) == 'listing']
+            if urls:
+                links.append({'url': urls[0], 'kind': 'listing'})
+        if not totals or len(links) != totals[0]:
+            raise ValueError(f'unavailable inventory incomplete: {len(links)} rows, displayed totals {totals}')
+        # A blocked asynchronous request can render an empty table over a building
+        # whose source summary reports hundreds of records. Fail visibly.
+        from .scope import summary_counts
+        category = 'rentalSummary' if 'unavailable-rentals' in url else 'saleSummary'
+        expected = summary_counts({'scripts': _scripts(sel)}, category)
+        if expected and max(expected) > totals[0]:
+            raise ValueError('unavailable inventory smaller than building summary')
+        result['inventory'] = {'count': totals[0], 'links': links,
+                               'rows': [r.get() for r in rows], 'expected_counts': expected}
     result.update({
         'title': sel.css('title::text').get(),
         'meta': [dict(x.attrib) for x in sel.css('meta')],
