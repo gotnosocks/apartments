@@ -7,18 +7,12 @@ import plotly.graph_objects as go
 import streamlit as st
 
 DEFAULT_DB = Path("data/apartments.duckdb")
-BUILDINGS = {
-    "the-sierra-chelsea": "The Sierra Chelsea",
-    "stonehenge-gardens": "Stonehenge Gardens",
-    "101w15-101-west-15th-street-new_york": "101 W 15th",
-    "117-west-13-street-new_york": "117 W 13th",
-    "128-west-13-street-new_york": "128 W 13th",
-}
 KNOWN_INVALID_UNITS = {"the-sierra-chelsea": {"7", "8"}}
 
-st.set_page_config(page_title="West 13th and 15th Street rents", page_icon="🏢", layout="wide")
-st.title("West 13th and 15th Streets — rental price history")
+st.set_page_config(page_title="Chelsea rents", page_icon="🏢", layout="wide")
+st.title("Chelsea — rental price history")
 st.caption("StreetEasy asking-rent and status history captured from individual unit pages.")
+st.sidebar.link_button("Live scrape archive", "http://localhost:8765/")
 
 
 @st.cache_data(show_spinner=False)
@@ -70,6 +64,16 @@ if not db_path.exists():
     st.error(f"Database not found: {db_path}")
     st.stop()
 
+with duckdb.connect(str(db_path), read_only=True) as connection:
+    BUILDINGS = dict(connection.execute("""
+        SELECT building_slug, coalesce(max(canonical_address), building_slug)
+        FROM listings WHERE source='streeteasy' AND building_slug IS NOT NULL
+        GROUP BY building_slug ORDER BY 2
+    """).fetchall())
+if not BUILDINGS:
+    st.info("Import the local archive with `uv run apartments import-archive`.")
+    st.stop()
+st.sidebar.caption(f"{len(BUILDINGS)} buildings with imported rental records")
 building_slug = st.sidebar.selectbox(
     "Building", options=list(BUILDINGS), format_func=lambda slug: BUILDINGS[slug]
 )

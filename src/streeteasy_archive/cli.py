@@ -46,7 +46,7 @@ def resolve_delay(explicit, transport, neighborhood, profile):
 
 def main(argv=None):
     parser = argparse.ArgumentParser(prog='streeteasy-archive')
-    parser.add_argument('--data', default='data', help='archive directory (default: ./data)')
+    parser.add_argument('--data', default=str(Path(__file__).resolve().parents[2] / 'data/archive'), help='archive directory (default: apartments/data/archive)')
     sub = parser.add_subparsers(dest='command', required=True)
     for name in ('backfill', 'update', 'resume'):
         command = sub.add_parser(name)

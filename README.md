@@ -1,91 +1,78 @@
-# Chelsea apartment data
+# Chelsea apartments
 
-Local StreetEasy capture and NYC rental-analysis pipeline.
+One Python project for the StreetEasy scraper, durable raw archive, local archive browser,
+rental explorer, and pricing model. Git and colocated Jujutsu track this repository.
 
 ## Setup
 
-```bash
-uv sync --extra dev
-uv run apartments init
-uv run apartments fetch-nyc
+```sh
+cd ~/code/apartments
+uv sync --extra dev --extra app --extra model
 ```
 
-See [`browser-extension/README.md`](browser-extension/README.md) to install the
-manually initiated browser capture extension.
+Optional direct Firefox transport: add `--extra browser`. Oxylabs credentials belong
+in the ignored, owner-only project `.env` as `OXYLABS_USERNAME` and `OXYLABS_PASSWORD`.
+The existing local credentials have been moved here; do not put them in Git.
 
-## Storage
+## Collect and browse
 
-- `data/captures/`: immutable rendered HTML, structured JSON and page assets
-- `data/apartments.duckdb`: queryable building, listing, history, capture and asset tables
-- `data/exports/`: optional analytical exports
+```sh
+uv run streeteasy-archive status
+uv run streeteasy-archive serve --port 8765
+uv run streeteasy-archive resume --transport oxylabs --max-requests 100
+```
 
-Capture files and the active database are excluded from Git.
+The default raw archive is `data/archive`. Its SQLite queue, compressed response
+bodies, crawl scope, and cooldowns moved together from the former standalone
+repository. The archive browser at http://localhost:8765 reads this live archive.
+The saved Chelsea profile retains its concurrency and rate settings. Scraping
+resumes its durable queue; it does not restart from zero. An exhausted scoped
+queue means discovered pages were handled, not proof of complete historical coverage.
+Use `streeteasy-archive --help` for bounded backfill and update options.
 
-## Ingest captures
+## Import and analyze
 
-```bash
-uv run apartments import-captures data
-uv run apartments reparse-history data
-uv run apartments infer-furnishing-periods
+```sh
+uv run apartments import-archive
 uv run apartments summary
+uv run streamlit run app.py --server.port 8501
 ```
 
-The import is idempotent. Raw captures remain the source of truth and can be
-reparsed later as the parser improves.
+The importer reads the raw archive locally and writes `data/apartments.duckdb`.
+It imports full embedded rental history, including rows hidden behind Show more,
+and preserves raw event objects and links to original response bodies. Sale data
+stays in the raw archive and is excluded from rental analysis. Each capture and
+its import marker commit atomically; failures remain retryable. Subsequent passes
+skip both imported captures and already classified non-rental pages.
 
-The automated crawler and its full Git history live in
-`tools/streeteasy-archive`. Its multi-gigabyte live archive stays in the original
-ignored data directory, so the crawler and archive browser can continue running
-without copying data into Git. Import every new listing revision into DuckDB with:
+The rental explorer discovers its buildings from the database. Its Bayesian Model
+page reads generated model artifacts. Original manual browser capture imports
+remain available through `apartments import-captures`.
 
-```bash
-uv run apartments import-archive /Users/ben/code/streeteasy-archive/data
+## Storage and provenance
+
+- `src/streeteasy_archive/`: scraper and archive browser, installed by this project.
+- `src/apartments/`: normalization and analysis ingestion.
+- `data/archive/`: authoritative SQLite catalog and content-addressed compressed bodies.
+- `data/apartments.duckdb`: derived rental records, snapshots, and historical events.
+- `data/model/`: reproducible model inputs, posterior draws, diagnostics, and summaries.
+- `models/rent_model.py`: pricing model; use `--help` for fit settings.
+- `docs/archive/`: historical scraper design/validation notes; paths and access observations there reflect earlier revisions.
+
+All data and credentials are excluded from version control. Back up the complete
+archive with its writer stopped. Reprocessing archived HTML needs no StreetEasy
+requests. Apartment attributes use the newest listing episode rather than whichever
+historical page happened to be scraped last. Historical renovations/layout changes
+can still make constant unit attributes an imperfect description of old listings.
+
+## Development
+
+```sh
+uv run --extra dev pytest -q
+jj status
+git log --graph --oneline
 ```
 
-This command opens the crawler's SQLite catalog read-only, reads its compressed
-response bodies, and skips archive snapshots already present in DuckDB. It uses
-the complete embedded `propertyHistory` data, including rows hidden behind the
-page's **Show more** button. Each normalized record and each underlying archive
-snapshot reference remain available for future parser and schema changes.
-
-## Interactive analysis
-
-```bash
-uv sync --extra app
-uv run streamlit run app.py
-```
-
-Open the local URL printed by Streamlit. The main rental explorer has a building
-selector for all five modeled properties and includes all-unit history, monthly
-trends, latest-rent and square-footage comparisons,
-unit detail, and data-quality views. The Bayesian analysis is a dedicated page
-in Streamlit's sidebar navigation and includes observed-versus-fitted, temporal
-residual, and outlier-table diagnostics. Units `7` and `8` are excluded.
-
-## Bayesian model
-
-The PyMC model combines The Sierra Chelsea, Stonehenge Gardens, 101 W 15th,
-117 W 13th, and 128 W 13th from January 2022 onward, aggregates to one median asking rent per building-unit-week,
-and estimates a shared latent weekly local trend with 95% credible intervals plus
-time-constant adjusted building offsets. Every unit with any confirmed Blueground furnished period
-is excluded entirely, including its earlier conventional-rental history; the model
-therefore has no furnished covariate. Cumulative indicators estimate incremental bedroom
-premiums. One physical-floor curve is shared completely across all buildings and
-cumulatively sums adjacent-level changes under a shared shrinkage prior. Marketed and physical floor numbers are
-stored separately: because Sierra has no marketed floor 13, marketed floors 14 and
-15 map to physical floors 13 and 14. The same building configuration classifies
-Sierra A–J as garden-facing, K as both-facing, and L onward as street-facing
-(called skyline in Sierra marketing). Frontage remains neutral for the other buildings.
-These rules come from `config/building_overrides.json`
-during capture ingestion rather than model-specific SQL. The model also controls
-for square footage, missing square footage, and unit random effects.
-Sampling uses Nutpie's NUTS
-backend with four chains.
-
-```bash
-uv sync --extra app --extra model
-uv run python models/rent_model.py --frequency weekly
-```
-
-Outputs are written to `data/model/` and displayed on the dedicated Streamlit
-**Bayesian Model** page.
+The consolidation/model experiment is on `feature/chelsea-analysis`; the preceding
+version is preserved at `archive/pre-chelsea-model-20260908`. The scraper history is
+part of this repository's commit graph. There is no nested scraper project to install.

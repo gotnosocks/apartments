@@ -83,7 +83,7 @@ def import_captures(
 @app.command("import-archive")
 def import_streeteasy_archive(
     root: Path = typer.Argument(
-        Path("../streeteasy-archive/data"),
+        Path(__file__).resolve().parents[2] / "data/archive",
         help="Live StreetEasy Archive data directory.",
     ),
     db: Path = typer.Option(DEFAULT_DB),

@@ -1,3 +1,5 @@
+> Historical implementation notes. Use the root README for current paths and commands.
+
 # StreetEasy Archive
 
 Python + Scrapy crawler for an evolving local archive of public NYC listing and

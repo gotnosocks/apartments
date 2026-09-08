@@ -7,6 +7,7 @@ import hashlib
 import json
 import re
 import sqlite3
+import sys
 from datetime import UTC, datetime
 from pathlib import Path
 from urllib.parse import quote, urlparse
@@ -200,63 +201,47 @@ def import_archive(
         "SELECT capture_id FROM captures WHERE json_extract_string(manifest_json, '$.source')='streeteasy-archive'"
     ).fetchall()}
     counts = {"examined": 0, "imported": 0, "skipped": 0, "unrecognized": 0, "failed": 0, "events": 0}
-    batch_ids: list[str] = []
-    batch_events = 0
-    target.execute("BEGIN TRANSACTION")
-
-    def commit_batch() -> None:
-        nonlocal batch_events
-        if not batch_ids:
-            return
-        target.execute("COMMIT")
-        counts["imported"] += len(batch_ids)
-        counts["events"] += batch_events
-        known.update(batch_ids)
-        batch_ids.clear()
-        batch_events = 0
-        target.execute("BEGIN TRANSACTION")
-
-    for snapshot_id, url, observed, body_hash, relative_path in rows:
-        capture_id = hashlib.sha256(f"streeteasy-archive|{snapshot_id}|{url}|{body_hash}".encode()).hexdigest()
-        counts["examined"] += 1
-        if capture_id in known:
-            counts["skipped"] += 1
-            continue
-        try:
-            body_path = archive_root / relative_path
-            with gzip.open(body_path, "rb") as stream:
-                item = normalize_listing(stream.read(), url, observed)
-            if item is None:
-                counts["unrecognized"] += 1
+    target.execute("""CREATE TABLE IF NOT EXISTS archive_imports (
+        capture_id VARCHAR PRIMARY KEY, outcome VARCHAR NOT NULL,
+        imported_at TIMESTAMPTZ DEFAULT current_timestamp
+    )""")
+    known.update(row[0] for row in target.execute("SELECT capture_id FROM archive_imports").fetchall())
+    try:
+        for snapshot_id, url, observed, body_hash, relative_path in rows:
+            capture_id = hashlib.sha256(f"streeteasy-archive|{snapshot_id}|{url}|{body_hash}".encode()).hexdigest()
+            counts["examined"] += 1
+            if capture_id in known:
+                counts["skipped"] += 1
                 continue
-            _, event_count = ingest_item(
-                item,
-                str(db_path),
-                connection=target,
-                bundle_path=archive_root,
-                page_html_path=body_path,
-                manifest={
-                    "source": "streeteasy-archive",
-                    "snapshot_id": snapshot_id,
-                    "url": url,
-                    "body_hash": body_hash,
-                },
-                capture_id=capture_id,
-            )
-            batch_ids.append(capture_id)
-            batch_events += event_count
-            if len(batch_ids) >= 100:
-                commit_batch()
-        except Exception:
-            target.execute("ROLLBACK")
-            batch_ids.clear()
-            batch_events = 0
-            counts["failed"] += 1
             target.execute("BEGIN TRANSACTION")
-        if limit and counts["imported"] + len(batch_ids) >= limit:
-            break
-    commit_batch()
-    target.execute("COMMIT")
-    source.close()
-    target.close()
+            try:
+                body_path = (archive_root / relative_path).resolve()
+                if not body_path.is_relative_to(archive_root):
+                    raise ValueError("Archived body path escapes archive directory")
+                with gzip.open(body_path, "rb") as stream:
+                    item = normalize_listing(stream.read(), url, observed)
+                event_count = 0
+                if item is not None:
+                    _, event_count = ingest_item(
+                        item, str(db_path), connection=target,
+                        bundle_path=archive_root, page_html_path=body_path,
+                        manifest={"source": "streeteasy-archive", "snapshot_id": snapshot_id,
+                                  "url": url, "body_hash": body_hash},
+                        capture_id=capture_id,
+                    )
+                target.execute("INSERT INTO archive_imports(capture_id,outcome) VALUES (?,?)",
+                               [capture_id, "rental" if item is not None else "not_rental"])
+                target.execute("COMMIT")
+                counts["imported" if item is not None else "unrecognized"] += 1
+                counts["events"] += event_count
+                known.add(capture_id)
+            except Exception as error:
+                target.execute("ROLLBACK")
+                counts["failed"] += 1
+                print(f"Import failed for snapshot {snapshot_id} ({url}): {error}", file=sys.stderr)
+            if limit and counts["imported"] >= limit:
+                break
+    finally:
+        source.close()
+        target.close()
     return counts

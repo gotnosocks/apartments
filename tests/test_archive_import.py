@@ -4,6 +4,7 @@ import sqlite3
 
 from apartments.archive_import import import_archive, normalize_listing
 from apartments.db import connect
+from apartments.streeteasy import ingest_item
 
 
 def listing_html():
@@ -62,7 +63,21 @@ def test_normalize_listing_rejects_sale_history():
     assert normalize_listing(body, "https://streeteasy.com/sale/5116510", 1_700_000_000) is None
 
 
-def test_import_archive_is_incremental(tmp_path):
+def test_old_listing_scraped_later_does_not_replace_current_attributes(tmp_path):
+    item = normalize_listing(listing_html(), "https://streeteasy.com/rental/5116510", 1_700_000_000)
+    item["archive_listing"]["createdAt"] = "2026-01-01T00:00:00Z"
+    db = connect(tmp_path / "analysis.duckdb")
+    ingest_item(item, connection=db)
+    item["archive_listing"]["createdAt"] = "2015-01-01T00:00:00Z"
+    item["captured_at"] = "2026-09-08T00:00:00Z"
+    item["attributes"]["square_feet"] = 999
+    ingest_item(item, connection=db)
+    assert db.execute("SELECT square_feet FROM listings").fetchone()[0] == 475
+    assert db.execute("SELECT count(*) FROM listing_snapshots").fetchone()[0] == 2
+    db.close()
+
+
+def test_import_archive_is_incremental(tmp_path, monkeypatch):
     archive = tmp_path / "archive"
     body_dir = archive / "bodies" / "aa"
     body_dir.mkdir(parents=True)
@@ -93,3 +108,30 @@ def test_import_archive_is_incremental(tmp_path):
     assert db.execute("SELECT count(*) FROM listing_events").fetchone()[0] == 3
     assert db.execute("SELECT count(*) FROM captures").fetchone()[0] == 1
     db.close()
+
+    # A failed capture must roll back its own writes without losing neighbors,
+    # and must remain eligible for a later retry.
+    source = sqlite3.connect(archive / "archive.sqlite3")
+    source.executemany("INSERT INTO snapshots VALUES (?,1,?,'abc',?)", [
+        (2, url, 1_700_000_001), (3, url, 1_700_000_002),
+    ])
+    source.commit()
+    source.close()
+    from apartments import archive_import
+    original_ingest = archive_import.ingest_item
+
+    def fail_second(*args, **kwargs):
+        result = original_ingest(*args, **kwargs)
+        if kwargs["manifest"]["snapshot_id"] == 2:
+            raise RuntimeError("Simulated failure after capture write")
+        return result
+
+    monkeypatch.setattr(archive_import, "ingest_item", fail_second)
+    attempted = import_archive(archive, db_path)
+    assert attempted["failed"] == 1
+    assert attempted["imported"] == 1
+    db = connect(db_path)
+    assert db.execute("SELECT count(*) FROM captures").fetchone()[0] == 2
+    db.close()
+    monkeypatch.setattr(archive_import, "ingest_item", original_ingest)
+    assert import_archive(archive, db_path)["imported"] == 1

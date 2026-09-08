@@ -290,7 +290,11 @@ def ingest_item(
             is_street_facing=excluded.is_street_facing,
             bedrooms=excluded.bedrooms, bathrooms=excluded.bathrooms,
             square_feet=excluded.square_feet, last_seen_at=now(),
-            raw_json=excluded.raw_json""",
+            raw_json=excluded.raw_json
+        WHERE coalesce(json_extract_string(excluded.raw_json, '$.archive_listing.createdAt'),
+                       json_extract_string(excluded.raw_json, '$.captured_at'), '')
+           >= coalesce(json_extract_string(listings.raw_json, '$.archive_listing.createdAt'),
+                       json_extract_string(listings.raw_json, '$.captured_at'), '')""",
         [source_id, item.get("building_slug"), item.get("address"), normalize_address(item.get("address")),
          item.get("unit"), floor, physical_floor_value, unit_letter, suffix, format_name, floor_inference,
          kind, is_specific, is_furnished, is_garden_facing, is_street_facing,

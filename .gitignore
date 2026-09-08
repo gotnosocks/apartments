@@ -9,3 +9,5 @@ data/captures/
 data/streeteasy/
 data/model/
 data/exports/
+data/archive/
+*.duckdb.wal
