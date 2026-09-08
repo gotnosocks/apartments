@@ -44,3 +44,12 @@ def test_direct_transport_stays_sequential(tmp_path):
     s=spider(tmp_path,transport='firefox')
     assert len(list(s.start_requests()))==1
     s.store.close()
+
+
+def test_configured_twenty_slots_respect_budget(tmp_path):
+    s=ArchiveSpider.from_crawler(Crawler(ArchiveSpider, Settings()),data_dir=tmp_path,transport='oxylabs',concurrency=20,max_requests=17)
+    s.store.enqueue(s.generation,[{'url':f'https://streeteasy.com/rental/{n}','kind':'listing'} for n in range(100,130)])
+    batch=list(s.start_requests())
+    assert len(batch)==17 and len({r.url for r in batch})==17
+    assert s.crawler.settings.getint('CONCURRENT_REQUESTS')==20
+    s.store.close()

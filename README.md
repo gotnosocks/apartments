@@ -296,3 +296,9 @@ historical page exposes all data without additional requests.
 The continued Chelsea run uses `--max-requests 0` (no local request cap), five
 concurrent jobs and two submissions/second. Provider quota/auth failures stop the
 worker; it does not purchase credits, upgrade plans or enable auto-top-up.
+
+Subscription configuration: `resume --transport oxylabs --concurrency 20 --api-rps 40`.
+Both settings persist in the Chelsea profile. Fresh subscription response headers
+confirmed a 50 jobs/second total limit; the run uses 20 in-flight jobs with a
+40 submissions/second ceiling. Fetch latency can keep actual throughput lower.
+Rendering remains disabled. Earlier trial settings above document the trial run.

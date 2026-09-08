@@ -57,6 +57,7 @@ class OxylabsDownloadHandler:
 
     def __init__(self, settings=None):
         self.settings = settings
+        self._submission_interval = 1 / (settings.getfloat("ARCHIVE_API_RPS", 2) if settings else 2)
         self._submission_lock = asyncio.Lock()
         self._next_submission = 0.0
 
@@ -65,7 +66,7 @@ class OxylabsDownloadHandler:
         # but the trial accepts only three rendered job submissions per second.
         async with self._submission_lock:
             await asyncio.sleep(max(0, self._next_submission - time.monotonic()))
-            self._next_submission = time.monotonic() + 0.5
+            self._next_submission = time.monotonic() + self._submission_interval
 
     def _defer_submissions(self, value, attempt):
         delay = 2 ** (attempt + 1)

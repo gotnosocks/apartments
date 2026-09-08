@@ -52,6 +52,8 @@ def main(argv=None):
         command = sub.add_parser(name)
         command.add_argument('--transport', choices=('http', 'firefox', 'oxylabs'))
         command.add_argument('--firefox-binary')
+        command.add_argument('--concurrency', type=int, help='Oxylabs concurrent jobs (1-20)')
+        command.add_argument('--api-rps', type=float, help='Oxylabs submissions per second (0-50, exclusive of zero)')
         command.add_argument('--oxylabs-render', action='store_true', help='request rendered HTML instead of server HTML for this run')
         command.add_argument('--neighborhood', choices=('chelsea',), help='persistent Chelsea + West Chelsea scope, excluding Hudson Yards')
         command.add_argument('--delay', type=float, help='request delay seconds; defaults to 0 for Oxylabs, randomized for direct transports')
@@ -108,6 +110,10 @@ def main(argv=None):
         profile = json.loads(row[0]) if row else json.loads(previous_profile[0]) if previous_profile else {}
         args.neighborhood = args.neighborhood or profile.get('neighborhood')
         args.transport = args.transport or profile.get('transport', 'firefox' if args.neighborhood else 'http')
+        args.concurrency = args.concurrency if args.concurrency is not None else profile.get('concurrency', 5)
+        args.api_rps = args.api_rps if args.api_rps is not None else profile.get('api_rps', 2)
+        if not 1 <= args.concurrency <= 20 or not math.isfinite(args.api_rps) or not 0 < args.api_rps <= 50:
+            raise ValueError('concurrency must be 1-20 and api-rps must be finite and greater than 0, up to 50')
         args.delay = resolve_delay(args.delay, args.transport, args.neighborhood, profile)
         if args.neighborhood and args.building:
             raise ValueError('use either --neighborhood or --building')
@@ -115,7 +121,7 @@ def main(argv=None):
             from .scope import configure
             configure(store, generation)
             with store._tx():
-                store.db.execute('INSERT OR REPLACE INTO metadata VALUES(?,?)', (profile_key, json.dumps({'neighborhood': args.neighborhood, 'transport': args.transport, 'delay': args.delay, 'pacing_version': 2})))
+                store.db.execute('INSERT OR REPLACE INTO metadata VALUES(?,?)', (profile_key, json.dumps({'neighborhood': args.neighborhood, 'transport': args.transport, 'delay': args.delay, 'pacing_version': 2, 'concurrency': args.concurrency, 'api_rps': args.api_rps})))
         if args.building:
             building = canonical_url(args.building)
             if not building or kind_for(building) != 'building':
@@ -249,10 +255,11 @@ def run_crawler(args, generation, lock=None):
         settings['DOWNLOAD_HANDLERS'] = {'https': 'streeteasy_archive.oxylabs.OxylabsDownloadHandler'}
         settings['DOWNLOAD_TIMEOUT'] = 200
         settings['ARCHIVE_OXYLABS_RENDER'] = args.oxylabs_render
+        settings['ARCHIVE_API_RPS'] = args.api_rps
     process = CrawlerProcess(settings=settings)
     errors = []
     crawler = process.create_crawler(ArchiveSpider)
-    deferred = process.crawl(crawler, data_dir=args.data, generation=generation, max_requests=args.max_requests, building=args.building, neighborhood=args.neighborhood, delay=args.delay, transport=args.transport)
+    deferred = process.crawl(crawler, data_dir=args.data, generation=generation, max_requests=args.max_requests, building=args.building, neighborhood=args.neighborhood, delay=args.delay, transport=args.transport, concurrency=args.concurrency)
     deferred.addErrback(lambda failure: errors.append(str(failure)))
     process.start()
     store = ArchiveStore(args.data)

@@ -69,7 +69,7 @@ class ArchiveSpider(scrapy.Spider):
         'USER_AGENT': 'StreetEasyArchive/0.1 (personal archival research)',
     }
 
-    def __init__(self, data_dir='data', generation=None, max_requests=0, building=None, neighborhood=None, delay=None, transport='http', **kwargs):
+    def __init__(self, data_dir='data', generation=None, max_requests=0, building=None, neighborhood=None, delay=None, transport='http', concurrency=5, **kwargs):
         super().__init__(**kwargs)
         self.store = ArchiveStore(data_dir)
         self.generation = int(generation or self.store.current_generation() or self.store.new_generation())
@@ -78,7 +78,7 @@ class ArchiveSpider(scrapy.Spider):
         self.neighborhood = neighborhood
         self.transport = transport
         self.delay = float(delay if delay is not None else (0 if transport == 'oxylabs' else 10))
-        self.concurrency = 5 if transport == 'oxylabs' else 1
+        self.concurrency = int(concurrency) if transport == 'oxylabs' else 1
         self.outstanding = 0
         self.sent = 0
         self.stopped = False
