@@ -4,6 +4,7 @@ One Python project for the StreetEasy scraper, durable raw archive, local archiv
 rental explorer, and pricing model. Git and colocated Jujutsu track this repository.
 
 Latest results: [September 8 Chelsea analysis](docs/analysis/chelsea-2026-09-08.md).
+Updated coverage: [September 8 cloud preparation](docs/analysis/chelsea-2026-09-08-cloud-preparation.md).
 
 [Point-in-time retention](docs/data/point-in-time.md) documents collection clocks,
 append-only apartment attributes, and the evidence available at a historical cutoff.
@@ -20,6 +21,12 @@ in the ignored, owner-only project `.env` as `OXYLABS_USERNAME` and `OXYLABS_PAS
 The existing local credentials have been moved here; do not put them in Git.
 
 ## Collect and browse
+
+The [cloud archive is authoritative](docs/data/cloud-authority.md). Start the
+current browser with `uv run streeteasy-archive serve-cloud --port 8765`.
+The local archive is retained as a backup; use the remote scraping workflow for
+new collection. The legacy local commands below remain documented for standalone
+archives and recovery.
 
 ```sh
 uv run streeteasy-archive status
@@ -71,6 +78,10 @@ Chelsea model is therefore based on incomplete building coverage and should be
 refit after the expanded backfill is imported.
 
 ## Import and analyze
+
+For this laptop, use the [Modal processing workflow](docs/data/modal-processing.md)
+for bulk import, coverage audits, preparation, and fitting. The commands below
+remain available for small local imports and browsing.
 
 ```sh
 uv run apartments import-archive

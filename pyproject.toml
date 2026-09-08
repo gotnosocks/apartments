@@ -17,6 +17,7 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
+modal = ["modal==1.5.5"]
 browser = ["selenium==4.48.0"]
 app = [
   "pandas>=2.2",
@@ -31,7 +32,7 @@ model = [
     "nutpie>=0.16",
     "pandas>=2.2",
     "pyarrow>=19.0",
-    "pymc>=5.20",
+    "pymc>=6.2",
     "scipy>=1.14",
 ]
 

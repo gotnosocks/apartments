@@ -1,6 +1,7 @@
 import gzip
 import json
 import sqlite3
+import pytest
 
 from apartments.archive_import import import_archive, normalize_listing
 from apartments.db import connect
@@ -77,7 +78,8 @@ def test_old_listing_scraped_later_does_not_replace_current_attributes(tmp_path)
     db.close()
 
 
-def test_import_archive_is_incremental(tmp_path, monkeypatch):
+@pytest.mark.parametrize('shared_bodies', [False, True])
+def test_import_archive_is_incremental(tmp_path, monkeypatch, shared_bodies):
     archive = tmp_path / "archive"
     body_dir = archive / "bodies" / "aa"
     body_dir.mkdir(parents=True)
@@ -97,9 +99,16 @@ def test_import_archive_is_incremental(tmp_path, monkeypatch):
     source.commit()
     source.close()
 
+    importer = import_archive
+    if shared_bodies:
+        shared = tmp_path / 'shared-bodies'
+        (archive / 'bodies').rename(shared)
+        (archive / 'bodies').symlink_to(shared, target_is_directory=True)
+        from functools import partial
+        importer = partial(import_archive, body_root=shared)
     db_path = tmp_path / "apartments.duckdb"
-    first = import_archive(archive, db_path)
-    second = import_archive(archive, db_path)
+    first = importer(archive, db_path)
+    second = importer(archive, db_path)
     assert first["imported"] == 1
     assert first["events"] == 3
     assert second["imported"] == 0
@@ -127,11 +136,11 @@ def test_import_archive_is_incremental(tmp_path, monkeypatch):
         return result
 
     monkeypatch.setattr(archive_import, "ingest_item", fail_second)
-    attempted = import_archive(archive, db_path)
+    attempted = importer(archive, db_path)
     assert attempted["failed"] == 1
     assert attempted["imported"] == 1
     db = connect(db_path)
     assert db.execute("SELECT count(*) FROM captures").fetchone()[0] == 2
     db.close()
     monkeypatch.setattr(archive_import, "ingest_item", original_ingest)
-    assert import_archive(archive, db_path)["imported"] == 1
+    assert importer(archive, db_path)["imported"] == 1

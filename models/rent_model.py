@@ -108,7 +108,9 @@ def prepare_data(db_path: Path, frequency='monthly', start=None):
     return data, periods
 
 
-def fit_model(data, periods, frequency='monthly', draws=1000, tune=1000, chains=4, train_mask=None):
+def fit_model(data, periods, frequency='monthly', draws=1000, tune=1000, chains=4, train_mask=None, *, backend='numba', gradient_backend=None):
+    if backend not in ('numba', 'jax'):
+        raise ValueError('Nutpie backend must be numba or jax')
     buildings = sorted(data.building_slug.unique())
     units = sorted(data.unit_key.unique())
     floors = sorted(data.floor_level.unique())
@@ -137,7 +139,8 @@ def fit_model(data, periods, frequency='monthly', draws=1000, tune=1000, chains=
         sigma = pm.HalfNormal('sigma', .3)
         pm.StudentT('log_rent', nu=5, mu=mu, sigma=sigma, observed=train.log_rent.to_numpy(dtype=float))
         return pm.sample(draws=draws, tune=tune, chains=chains, cores=min(chains, 4),
-                         nuts_sampler='nutpie', target_accept=.95, random_seed=150130,
+                         nuts_sampler='nutpie', backend=backend,
+                         compile_kwargs=({'gradient_backend': gradient_backend} if gradient_backend else {}), target_accept=.95, random_seed=150130,
                          progressbar=False, return_inferencedata=True)
 
 

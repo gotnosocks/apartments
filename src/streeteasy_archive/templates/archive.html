@@ -3,13 +3,14 @@
 <head>
   <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
   <title>StreetEasy Archive</title>
-  <meta name="description" content="Browse your local StreetEasy archive, crawl queue, response history, and saved source data.">
+  <meta name="description" content="Browse your StreetEasy archive, crawl queue, response history, and saved source data.">
   <link rel="stylesheet" href="/static/archive.css"><script defer src="/static/archive.js"></script>
 </head>
 <body>
-<header><div class="brand"><span class="mark" aria-hidden="true">SE</span><div><strong>StreetEasy Archive</strong><span class="muted">NYC · Local collection</span></div></div><div class="head-actions"><span id="connection" class="pill">Connecting</span><button id="refresh">Refresh</button></div></header>
+<header><div class="brand"><span class="mark" aria-hidden="true">SE</span><div><strong>StreetEasy Archive</strong><span class="muted">NYC · Archived collection</span></div></div><div class="head-actions"><span id="connection" class="pill">Connecting</span><button id="refresh">Refresh</button></div></header>
 <main>
   <div class="heading"><h1>Collection overview</h1><label class="generation-label">Crawl <select id="generation" aria-label="Crawl generation"><option value="">Latest</option></select></label></div>
+  <div id="storage-note" class="notice" hidden></div>
   <div id="error" class="notice error" role="alert" hidden></div>
   <section class="metrics" aria-label="Archive summary">
     <article><span>Listing detail pages</span><strong id="details-count">—</strong><small>Successfully captured</small></article>
@@ -20,7 +21,7 @@
   <div id="coverage-note" class="notice" hidden></div>
   <section class="workspace">
     <div class="collection">
-      <div class="section-heading"><div><h2>Pages</h2><p id="result-count">Loading collection…</p></div><span class="live-label">Auto-refresh · 10s</span></div>
+      <div class="section-heading"><div><h2>Pages</h2><p id="result-count">Loading collection…</p></div><span id="poll-label" class="live-label">Auto-refresh · 10s</span></div>
       <form id="filters" class="filters">
         <label class="search-label"><span class="sr-only">Search URL or address</span><input id="query" type="search" placeholder="Search URL or address…"></label>
         <label><span class="sr-only">Page type</span><select id="kind"><option value="">All page types</option><option value="listing">Listing details</option><option value="building">Buildings</option><option value="search">Search pages</option><option value="directory">Directories</option><option value="sitemap">Sitemaps</option><option value="homepage">Homepage</option></select></label>

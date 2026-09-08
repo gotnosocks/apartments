@@ -34,3 +34,24 @@ def test_all_buildings_missing_covariates_and_furnished_unit_exclusion(tmp_path)
     assert set(data.loc[data.period.dt.year.eq(2010),'asking_rent']) == {3000}
     assert data.attrs['coverage']['furnished_units_excluded'] == 1
     assert data[model.FEATURES].to_numpy(dtype=float).shape == (4,6)
+
+
+@pytest.mark.parametrize('backend', ['numba', 'jax'])
+def test_nutpie_backend_selection_preserves_model(monkeypatch, backend):
+    import pandas as pd
+    data = pd.DataFrame({
+        'building_slug': ['b', 'b'], 'unit_key': ['b/1', 'b/1'],
+        'floor_level': [1, 1], 'period_idx': [0, 1], 'building_idx': [0, 0],
+        'unit_idx': [0, 0], 'floor_idx': [0, 0], 'log_rent': [8., 8.1],
+        **{feature: [0., 0.] for feature in model.FEATURES}})
+    captured = {}
+    def sample(**kwargs):
+        captured.update(kwargs)
+        captured['variables'] = set(model.pm.modelcontext(None).named_vars)
+        return 'inference'
+    monkeypatch.setattr(model.pm, 'sample', sample)
+    assert model.fit_model(data, pd.date_range('2025-01-01', periods=2, freq='MS'), backend=backend) == 'inference'
+    assert captured['nuts_sampler'] == 'nutpie'
+    assert captured['backend'] == backend
+    assert captured['target_accept'] == .95
+    assert {'log_rent', 'unit_effect', 'trend', 'building_offset'} <= captured['variables']

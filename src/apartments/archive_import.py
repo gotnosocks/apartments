@@ -181,9 +181,11 @@ def import_archive(
     archive_root: Path,
     db_path: Path | str = "data/apartments.duckdb",
     limit: int = 0,
+    body_root: Path | None = None,
 ) -> dict[str, int]:
     """Import new listing snapshots from a live archive without locking its writer."""
     archive_root = archive_root.expanduser().resolve()
+    allowed_body_root = body_root.expanduser().resolve() if body_root else archive_root
     sqlite_path = archive_root / "archive.sqlite3"
     if not sqlite_path.exists():
         raise FileNotFoundError(f"StreetEasy archive database not found: {sqlite_path}")
@@ -220,7 +222,7 @@ def import_archive(
             target.execute("BEGIN TRANSACTION")
             try:
                 body_path = (archive_root / relative_path).resolve()
-                if not body_path.is_relative_to(archive_root):
+                if not body_path.is_relative_to(allowed_body_root):
                     raise ValueError("Archived body path escapes archive directory")
                 with gzip.open(body_path, "rb") as stream:
                     item = normalize_listing(stream.read(), url, observed)

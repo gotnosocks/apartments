@@ -19,6 +19,9 @@ from .store import ArchiveStore
 def acquire_lock(data):
     import fcntl
     path = Path(data)
+    if (path / 'CLOUD_AUTHORITATIVE.json').exists():
+        print('This local archive is a backup and cannot be written. Use the cloud resume workflow; serve-cloud reads the authoritative archive.', file=sys.stderr)
+        return None
     path.mkdir(parents=True, exist_ok=True)
     lock = (path / 'crawler.lock').open('a')
     try:
@@ -69,6 +72,7 @@ def main(argv=None):
         command.add_argument('--revisit-interval', type=float, default=0, help='update interval in seconds for known buildings/listings')
     sub.add_parser('status').add_argument('--generation', type=int)
     sub.add_parser('serve').add_argument('--port', type=int, default=8765)
+    sub.add_parser('serve-cloud').add_argument('--port', type=int, default=8765)
     sub.add_parser('import-har').add_argument('path')
     export_parser = sub.add_parser('export')
     export_parser.add_argument('path')
@@ -77,13 +81,18 @@ def main(argv=None):
     args = parser.parse_args(argv)
     if getattr(args, 'max_requests', 0) < 0 or getattr(args, 'revisit_interval', 0) < 0 or not math.isfinite(getattr(args, 'revisit_interval', 0)):
         parser.error('request budget and interval must be finite nonnegative numbers')
-    if args.command == 'serve':
+    if args.command in ('serve', 'serve-cloud'):
         if not 1 <= args.port <= 65535:
             parser.error('port must be between 1 and 65535')
-        from .web import create_app
         from waitress import serve
+        if args.command == 'serve-cloud':
+            from .cloud_browser import create_app
+            browser_app = create_app()
+        else:
+            from .web import create_app
+            browser_app = create_app(args.data)
         print(f'Archive browser: http://127.0.0.1:{args.port}', flush=True)
-        serve(create_app(args.data), host='127.0.0.1', port=args.port, threads=4)
+        serve(browser_app, host='127.0.0.1', port=args.port, threads=4)
         return 0
     lock = None
     if args.command not in ('status', 'export'):

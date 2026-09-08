@@ -11,3 +11,6 @@ data/model/
 data/exports/
 data/archive/
 *.duckdb.wal
+
+data/logs/
+data/modal-upload/
