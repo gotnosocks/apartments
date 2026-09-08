@@ -67,7 +67,9 @@ class OxylabsDownloadHandler:
             result.raise_for_status()
             envelope = result.json()
         except requests.RequestException as exc:
-            raise RuntimeError("Oxylabs request failed") from None
+            status = exc.response.status_code if exc.response is not None else None
+            detail = f"HTTP {status}" if status is not None else type(exc).__name__
+            raise RuntimeError(f"Oxylabs request failed ({detail})") from None
         except (ValueError, TypeError) as exc:
             raise RuntimeError("Oxylabs returned invalid JSON") from None
 
