@@ -36,7 +36,7 @@ def main(argv=None):
     sub = parser.add_subparsers(dest='command', required=True)
     for name in ('backfill', 'update', 'resume'):
         command = sub.add_parser(name)
-        command.add_argument('--transport', choices=('http', 'firefox'))
+        command.add_argument('--transport', choices=('http', 'firefox', 'oxylabs'))
         command.add_argument('--firefox-binary')
         command.add_argument('--neighborhood', choices=('chelsea',), help='persistent Chelsea + West Chelsea scope, excluding Hudson Yards')
         command.add_argument('--delay', type=float, help='average delay seconds; randomized half to 1.5 times this value')
@@ -232,6 +232,9 @@ def run_crawler(args, generation, lock=None):
     if args.transport == 'firefox':
         settings['DOWNLOAD_HANDLERS'] = {'https': 'streeteasy_archive.browser.FirefoxDownloadHandler'}
         settings['ARCHIVE_FIREFOX_BINARY'] = args.firefox_binary
+    elif args.transport == 'oxylabs':
+        settings['DOWNLOAD_HANDLERS'] = {'https': 'streeteasy_archive.oxylabs.OxylabsDownloadHandler'}
+        settings['DOWNLOAD_TIMEOUT'] = 200
     process = CrawlerProcess(settings=settings)
     errors = []
     crawler = process.create_crawler(ArchiveSpider)

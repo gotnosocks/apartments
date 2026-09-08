@@ -241,3 +241,30 @@ historical links and preserves complete embedded response data; it does not gues
 unit numbers or claim all Chelsea history is complete. The citywide off-market
 sitemaps are known but cannot yet identify Chelsea membership without additional
 building metadata. These gaps need follow-up after the directory can be accessed.
+
+### Oxylabs Web Scraper API
+
+Store `OXYLABS_USERNAME` and `OXYLABS_PASSWORD` in the repository-root `.env`
+(or export them in the environment). `.env` is ignored by git; keep it owner-only
+with `chmod 600 .env`. These are API credentials, not your dashboard login.
+
+Resume with a bounded trial:
+
+```sh
+streeteasy-archive --data data resume --transport oxylabs --max-requests 200
+```
+
+The Chelsea profile remembers the transport. The handler uses the Realtime API
+with `source=universal` and `render=html`; it archives returned HTML plus sanitized
+provider result metadata. No image-download product or structured/AI parser is
+requested. Rendering may still load assets inside the provider's browser.
+Returned UTF-8 HTML is provider-rendered content, not original wire bytes.
+Provider API failures leave URLs pending and pause the crawl; authentication errors
+never become successful page captures. Existing cooldown and single-writer rules
+still apply. This does not implement an automatic worker supervisor.
+
+September 7 trial: Chelsea building directory and TEN23 #4C both returned real
+HTTP 200 pages. #4C retained 102 embedded price-history events through January 2015.
+Directory discovery supports legacy result cards with explicit Chelsea/West Chelsea
+labels, excluding navigation recommendations and Hudson Yards. These checks do not
+establish complete historical-unit discovery or citywide coverage.

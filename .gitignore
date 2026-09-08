@@ -8,3 +8,8 @@ data/
 .jj/
 dist/
 build/
+
+# Local provider credentials
+.env
+.env.*
+!.env.example

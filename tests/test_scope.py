@@ -73,3 +73,16 @@ def test_membership_split_across_flight_scripts(tmp_path):
     expand(s,g,data,'https://streeteasy.com/for-rent/chelsea')
     assert s.db.execute('SELECT 1 FROM scope_urls WHERE url=?', ('https://streeteasy.com/building/inside/09b',)).fetchone()
     s.close()
+
+
+def test_legacy_directory_cards_exclude_navigation_and_other_areas(tmp_path):
+    from streeteasy_archive.extract import extract
+    html = b"""<a href='/building/menu'>menu</a>
+    <li class='item building'><h2 class='details-title'><a href='/building/offmarket'>Home</a></h2><div class='details_info'><span class='detail_cell'>Rental Building in West Chelsea</span></div></li>
+    <li class='item building'><h2 class='details-title'><a href='/building/outside'>Other</a></h2><div class='details_info'><span class='detail_cell'>Condo in Hudson Yards</span></div></li>"""
+    url = 'https://streeteasy.com/buildings/chelsea'
+    s = ArchiveStore(tmp_path); g = s.new_generation()
+    expand(s, g, extract(html, url, 'text/html'), url)
+    roots = {r[0] for r in s.db.execute('SELECT url FROM scope_buildings')}
+    assert roots == {'https://streeteasy.com/building/offmarket'}
+    s.close()

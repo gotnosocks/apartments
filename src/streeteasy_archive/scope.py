@@ -96,6 +96,11 @@ def expand(store, generation, data, source_url):
     # A directory's result ItemList can contain buildings with no active listing.
     # Keep the source filter as evidence; missing result lists are not guessed.
     if directory_page(source_url) and '/buildings/' in source_url:
+        for item in data.get('directory_buildings', []):
+            url = canonical_url(item.get('url') or '')
+            if url and kind_for(url) == 'building' and re.search(r'\bin (?:West )?Chelsea$', item.get('area_label', '').strip()):
+                roots.add(building_root(url))
+                candidates[url] = 'directory result card with explicit Chelsea neighborhood'
         for obj in records:
             if obj.get('@type') == 'ItemList':
                 for item in obj.get('itemListElement', []):

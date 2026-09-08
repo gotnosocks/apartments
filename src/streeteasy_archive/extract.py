@@ -13,7 +13,7 @@ from urllib.parse import parse_qsl, urlencode, urljoin, urlsplit, urlunsplit
 from parsel import Selector
 from lxml import etree
 
-VERSION = 2
+VERSION = 3
 _TRACKING = {'featured', 'infeed', 'lstt', 'showcase', 'similarhdp2', 'from', 'source', 'ref', 'referrer', 'gclid', 'fbclid'}
 
 
@@ -170,5 +170,9 @@ def extract(body: bytes, url: str, content_type: str = '') -> dict:
         'anchors': [{'attributes': dict(x.attrib), 'text': x.xpath('string(.)').get()} for x in sel.css('a')],
         'images': [dict(x.attrib) for x in sel.css('img, source')],
         'tables': [x.get() for x in sel.css('table')],
+        'directory_buildings': [
+            {'url': canonical_url(x.css('.details-title a::attr(href)').get() or '', url),
+             'area_label': ' '.join(x.css('.details_info .detail_cell').xpath('string(.)').getall())}
+            for x in sel.css('li.item.building')],
     })
     return result

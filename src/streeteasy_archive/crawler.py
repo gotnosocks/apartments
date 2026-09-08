@@ -152,6 +152,8 @@ class ArchiveSpider(scrapy.Spider):
                 data = extract(body, url, content_type)
                 if response.meta.get('archive_browser'):
                     data['browser_capture'] = response.meta['archive_browser']
+                if response.meta.get('archive_provider'):
+                    data['provider_capture'] = response.meta['archive_provider']
                 links = approved_links(data['links'], url)
             except Exception as exc:
                 self.store.record_gap(self.generation, url, status, headers,
