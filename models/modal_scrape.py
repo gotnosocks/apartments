@@ -9,9 +9,10 @@ import time
 import modal
 
 ROOT = Path(__file__).resolve().parents[1]
-SECRET_NAME = 'chelsea-oxylabs'
+SECRET_NAME = 'oxylabs'
 volume = modal.Volume.from_name('chelsea-archive', create_if_missing=True)
 locks = modal.Dict.from_name('chelsea-scrape-locks', create_if_missing=True)
+runs = modal.Dict.from_name('chelsea-backfill-runs', create_if_missing=True)
 app = modal.App('chelsea-remote-scrape')
 image = (modal.Image.debian_slim(python_version='3.12')
          .pip_install('Scrapy==2.18.0', 'parsel==1.10.0', 'beautifulsoup4==4.14.3',
@@ -52,6 +53,34 @@ def command(workspace, max_requests, concurrency, api_rps):
             '--concurrency', str(concurrency), '--api-rps', str(api_rps), '--delay', '0']
 
 
+
+def run_logged(args, log, timeout=3300):
+    """Keep the durable batch log and stream the same progress to Modal."""
+    import subprocess
+    import threading
+    def forward(pipe, output):
+        for line in iter(pipe.readline, b''):
+            output.write(line)
+            output.flush()
+            print(line.decode('utf-8', errors='replace'), end='', flush=True)
+    with log.open('wb') as output:
+        with subprocess.Popen(args, stdout=subprocess.PIPE, stderr=subprocess.STDOUT) as process:
+            reader = threading.Thread(target=forward, args=(process.stdout, output), daemon=True)
+            reader.start()
+            try:
+                code = process.wait(timeout=timeout)
+            except subprocess.TimeoutExpired:
+                process.kill()
+                process.wait()
+                code = 124
+            finally:
+                if process.poll() is None:
+                    process.kill()
+                    process.wait()
+                reader.join()
+    return code
+
+
 def clone_snapshot(base, workspace, snapshot):
     """Bulk-copy a closed immutable snapshot; share raw bodies without copying them."""
     from streeteasy_archive.snapshot_copy import copy_closed_database
@@ -74,7 +103,7 @@ def clone_snapshot(base, workspace, snapshot):
               max_containers=1, retries=0, volumes={'/archive':volume},
               secrets=[modal.Secret.from_name(SECRET_NAME)], include_source=False)
 def resume(snapshot: str, workspace_id: str, max_requests: int=100,
-           concurrency: int=5, api_rps: float=1):
+           concurrency: int=10, api_rps: float=2):
     import sqlite3
     import subprocess
     import uuid
@@ -90,28 +119,30 @@ def resume(snapshot: str, workspace_id: str, max_requests: int=100,
         volume.reload()
         workspace = Path('/archive/crawls')/workspace_id
         workspace.parent.mkdir(parents=True, exist_ok=True)
+        print('Opening resumable cloud archive: '+workspace_id, flush=True)
         clone_snapshot(Path('/archive/snapshots')/snapshot, workspace, snapshot)
         volume.commit()
+        print(f'Starting crawl batch: budget={max_requests}, concurrency={concurrency}, api_rps={api_rps}', flush=True)
+        with sqlite3.connect(workspace/'archive.sqlite3') as before_db:
+            done_before = before_db.execute("SELECT count(*) FROM frontier f JOIN scope_urls s USING(generation,url) WHERE f.generation=(SELECT max(id) FROM generations) AND f.state='done'").fetchone()[0]
+        before_db.close()
         log = workspace/f'run-{owner}.log'
-        with log.open('wb') as output:
-            try:
-                process = subprocess.run(command(workspace,max_requests,concurrency,api_rps),
-                                         stdout=output, stderr=subprocess.STDOUT, timeout=3300)
-                code = process.returncode
-            except subprocess.TimeoutExpired:
-                code = 124
+        code = run_logged(command(workspace,max_requests,concurrency,api_rps), log)
         # Subprocess has exited; flush SQLite before committing remote files.
         with sqlite3.connect(workspace/'archive.sqlite3') as db:
             db.execute('PRAGMA wal_checkpoint(TRUNCATE)')
             generation = db.execute('SELECT max(id) FROM generations').fetchone()[0]
             queue = dict(db.execute('SELECT state,count(*) FROM frontier WHERE generation=? GROUP BY state', (generation,)))
+            scoped = dict(db.execute('SELECT f.state,count(*) FROM frontier f JOIN scope_urls s USING(generation,url) WHERE f.generation=? GROUP BY f.state', (generation,)))
             state = db.execute('SELECT status,cooldown FROM generations WHERE id=?',(generation,)).fetchone()
         db.close()
         result = {'workspace':workspace_id, 'source_snapshot':snapshot,
-                  'exit_code':code, 'queue':queue, 'state':state,
+                  'exit_code':code, 'queue':queue, 'scope_queue':scoped, 'state':state,
+                  'made_progress':scoped.get('done',0) > done_before,
                   'log':str(log.relative_to('/archive')), 'max_requests':max_requests,
                   'concurrency':concurrency, 'api_rps':api_rps}
         (workspace/'last-run.json').write_text(json.dumps(result,indent=2))
+        print(json.dumps(result),flush=True)
         volume.commit()
         committed = True
         return result
@@ -119,6 +150,65 @@ def resume(snapshot: str, workspace_id: str, max_requests: int=100,
         # Hard timeout/crash/commit failure leaves the lock for explicit inspection.
         if committed:
             locks.pop('writer')
+
+
+def continuation(result):
+    """Completion refers to discovered scope only, never guaranteed NYC coverage."""
+    if result['exit_code'] != 0 and not (result['exit_code'] == 124 and result.get('made_progress')):
+        return 'needs_attention'
+    queue = result['scope_queue']
+    if queue.get('pending',0) or queue.get('inflight',0):
+        return 'continue'
+    if queue.get('deferred',0):
+        return 'coverage_gaps'
+    return 'queue_drained'
+
+
+@app.function(image=image, cpu=(0.125,0.125), memory=(256,256), timeout=86400,
+              max_containers=1, retries=0, include_source=False)
+def finish_backfill(snapshot: str, workspace: str, total_budget: int=30000,
+                    batch_size: int=750, concurrency: int=10, api_rps: float=2):
+    """Cheap cloud controller; serial bounded workers survive laptop disconnects."""
+    import uuid
+    safe_id(snapshot); safe_id(workspace)
+    if not 1 <= total_budget <= 30000:
+        raise ValueError('Overall request budget must be 1–30000')
+    validate_budget(batch_size,concurrency,api_rps)
+    run_id = str(uuid.uuid4())
+    report = {'run_id':run_id,'workspace':workspace,'status':'running',
+              'allocated_requests':0,'total_budget':total_budget,'batches':[]}
+    runs[run_id] = report
+    runs['latest:'+workspace] = run_id
+    print(json.dumps({'run_id':run_id,'workspace':workspace}),flush=True)
+    try:
+        previous_queue = None
+        while report['allocated_requests'] < total_budget:
+            if runs.get('stop-after-batch:'+workspace, False):
+                report['status'] = 'stopped_at_batch_boundary'
+                break
+            budget = min(batch_size,total_budget-report['allocated_requests'])
+            report['allocated_requests'] += budget
+            runs[run_id] = report
+            result = resume.remote(snapshot,workspace,budget,concurrency,api_rps)
+            report['batches'].append(result)
+            decision = continuation(result)
+            if decision != 'continue':
+                report['status'] = decision
+                break
+            if result['scope_queue'] == previous_queue:
+                report['status'] = 'no_progress'
+                break
+            previous_queue = result['scope_queue']
+            runs[run_id] = report
+        else:
+            report['status'] = 'budget_reached'
+    except Exception as exc:
+        report['status'] = 'failed'
+        report['error_type'] = type(exc).__name__
+        runs[run_id] = report
+        raise
+    runs[run_id] = report
+    return report
 
 
 
@@ -176,17 +266,20 @@ def publish_snapshot(workspace_id: str, new_snapshot: str, seed_database: bool=F
 
 @app.local_entrypoint()
 def main(snapshot: str='chelsea-20260908', workspace: str='chelsea-resume',
-         max_requests: int=100, concurrency: int=5, api_rps: float=1,
-         action: str='resume', new_snapshot: str='', seed_database: bool=False):
+         max_requests: int=100, concurrency: int=10, api_rps: float=2,
+         action: str='resume', new_snapshot: str='', seed_database: bool=False,
+         total_budget: int=30000, batch_size: int=750):
     safe_id(snapshot); safe_id(workspace)
-    if action == 'publish-snapshot':
+    if action == 'finish':
+        result = finish_backfill.remote(snapshot,workspace,total_budget,batch_size,concurrency,api_rps)
+    elif action == 'publish-snapshot':
         safe_id(new_snapshot)
         result = publish_snapshot.remote(workspace,new_snapshot,seed_database)
     elif action == 'resume':
         validate_budget(max_requests, concurrency, api_rps)
         result = resume.remote(snapshot,workspace,max_requests,concurrency,api_rps)
     else:
-        raise ValueError('Action must be resume or publish-snapshot')
+        raise ValueError('Action must be resume, finish, or publish-snapshot')
     print(json.dumps(result,indent=2))
 
 

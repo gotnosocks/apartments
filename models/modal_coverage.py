@@ -7,6 +7,7 @@ archive volume without copying the archive locally.
 from __future__ import annotations
 
 import json
+import gzip
 import re
 import sqlite3
 import time
@@ -51,14 +52,17 @@ def _successful_observation(db, url: str, body_hash: str | None = None):
 def _inventory_result(data: dict, source_url: str) -> dict:
     inventory = data.get("inventory") or {}
     links = inventory.get("links") or []
+    records = inventory.get("records") or links  # pre-closing-schema captures
     displayed = inventory.get("count")
     expected = inventory.get("expected_counts") or []
     expected_max = max(expected) if expected else None
     link_urls = {x.get("url") for x in links if isinstance(x, dict) and x.get("url")}
-    complete = (isinstance(displayed, int) and len(links) == displayed
+    complete = (isinstance(displayed, int) and len(records) == displayed
                 and (expected_max is None or expected_max <= displayed))
     return {"url": source_url, "category": _inventory_category(source_url),
-            "displayed_count": displayed, "detail_link_count": len(links),
+            "displayed_count": displayed, "record_count": len(records),
+            "detail_link_count": len(links),
+            "closing_record_count": sum(x.get("kind") == "closing" for x in records if isinstance(x, dict)),
             "unique_detail_link_count": len(link_urls), "expected_summary_max": expected_max,
             "complete": complete}
 
@@ -170,6 +174,60 @@ def audit_snapshot(snapshot: str) -> dict:
 
 @app.function(image=image, cpu=(2, 2), memory=(8192, 8192), timeout=3600,
               max_containers=1, retries=0, volumes={"/archive": volume}, include_source=False)
+def debug_inventory_failures(snapshot: str, limit: int = 20) -> dict:
+    """Inspect a small number of failed inventory bodies without provider calls."""
+    if not re.fullmatch(r"[A-Za-z0-9_-]+", snapshot):
+        raise ValueError("invalid snapshot id")
+    from parsel import Selector
+    from lxml import etree
+    from streeteasy_archive.extract import _scripts
+    from streeteasy_archive.scope import summary_counts
+    db_path = Path("/archive/snapshots") / snapshot / "archive.sqlite3"
+    db = sqlite3.connect(f"file:{db_path}?mode=ro", uri=True)
+    rows = []
+    query = """SELECT o.url,o.error,o.status,o.body_hash,b.path FROM observations o
+               LEFT JOIN bodies b ON b.hash=o.body_hash
+               WHERE o.url LIKE '%archive_view=unavailable-%' AND o.error LIKE 'parser coverage gap%'
+                 AND o.id=(SELECT max(o2.id) FROM observations o2 WHERE o2.url=o.url)
+               ORDER BY o.url LIMIT ?"""
+    try:
+        for url, error, status, body_hash, relative in db.execute(query, (min(max(limit, 1), 100),)):
+            item = {"url": url, "status": status, "error": error, "body_hash": body_hash}
+            if not relative:
+                item["body"] = "missing"
+                rows.append(item)
+                continue
+            try:
+                with gzip.open(Path("/archive") / relative, "rb") as stream:
+                    body = stream.read(32 * 1024 * 1024 + 1)
+                sel = Selector(root=etree.fromstring(body.strip() or b"<html/>", etree.HTMLParser(no_network=True)), type="html")
+                dialogs = sel.css('[role="dialog"]')
+                labels = [x.strip() for x in dialogs.css('[role="tab"]').xpath('string(.)').getall() if x.strip()]
+                selected = [x.strip() for x in dialogs.css('button[aria-pressed="true"]').xpath('string(.)').getall() if x.strip()]
+                hrefs = dialogs.css('a::attr(href)').getall()
+                unit_hrefs = [x for x in hrefs if re.search(r"/(?:rental|sale)/\d+", x)]
+                rows_count = len(dialogs.css('tbody tr'))
+                all_labels = re.findall(r"All\s*\(\s*([\d,]+)\s*\)", " ".join(labels))
+                scripts = _scripts(sel)
+                item.update({"bytes": len(body), "title": sel.css('title::text').get(),
+                             "dialog_count": len(dialogs), "tab_labels": labels[:20],
+                             "selected_buttons": selected[:10], "tbody_row_count": rows_count,
+                             "dialog_detail_href_count": len(unit_hrefs),
+                             "all_tab_counts": [int(x.replace(',', '')) for x in all_labels],
+                             "raw_summary_counts": {"rentals": summary_counts({"scripts": scripts}, "rentalSummary"),
+                                                    "sales": summary_counts({"scripts": scripts}, "saleSummary")},
+                             "expected_selector": '[role=dialog] tbody tr',
+                             "detail_selector": '[role=dialog] tbody tr a[href*=/rental/]'})
+            except Exception as exc:
+                item["body_parse_error"] = f"{type(exc).__name__}: {exc}"
+            rows.append(item)
+    finally:
+        db.close()
+    return {"snapshot": snapshot, "failed_inventory_count_sampled": len(rows), "failures": rows}
+
+
+@app.function(image=image, cpu=(2, 2), memory=(8192, 8192), timeout=3600,
+              max_containers=1, retries=0, volumes={"/archive": volume}, include_source=False)
 def audit(snapshot: str):
     report = audit_snapshot(snapshot)
     out = Path("/archive/snapshots") / snapshot / "coverage.json"
@@ -179,5 +237,10 @@ def audit(snapshot: str):
 
 
 @app.local_entrypoint()
-def main(snapshot: str = "chelsea-20260908"):
-    print(json.dumps(audit.remote(snapshot), indent=2, sort_keys=True))
+def main(snapshot: str = "chelsea-20260908", action: str = "audit"):
+    if action == "debug":
+        print(json.dumps(debug_inventory_failures.remote(snapshot), indent=2, sort_keys=True))
+    elif action == "audit":
+        print(json.dumps(audit.remote(snapshot), indent=2, sort_keys=True))
+    else:
+        raise ValueError("action must be audit or debug")

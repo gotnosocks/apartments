@@ -106,11 +106,25 @@ class OxylabsDownloadHandler:
         payload = {"source": "universal", "url": url}
         if is_unavailable_url(url):
             category = 'For rent' if 'unavailable-rentals' in url else 'For sale'
+            detail_paths = ['/rental/'] if category == 'For rent' else ['/sale/', '/closing/']
+            detail_condition = ' or '.join(f'contains(@href,"{path}")' for path in detail_paths)
             payload.update(url=url.split('?')[0], render='html', browser_instructions=[
-                {'type': 'click', 'selector': {'type': 'xpath', 'value': '//button[contains(., "View unavailable units")]'}},
-                {'type': 'wait', 'wait_time_s': 8},
-                {'type': 'click', 'selector': {'type': 'xpath', 'value': f'//*[@role="dialog"]//button[normalize-space(.)="{category}"]'}},
-                {'type': 'wait', 'wait_time_s': 2},
+                {'type': 'click', 'selector': {'type': 'xpath', 'value': '//button[contains(., "View unavailable units")]'},
+                 'timeout_s': 60, 'on_error': 'error'},
+                {'type': 'wait_for_element', 'selector': {'type': 'xpath', 'value': '//*[@role="dialog"]'},
+                 'timeout_s': 60, 'on_error': 'error'},
+                {'type': 'click', 'selector': {'type': 'xpath', 'value': f'//*[@role="dialog"]//button[normalize-space(.)="{category}"]'},
+                 'timeout_s': 60, 'on_error': 'error'},
+                # Confirm the requested tab became active before accepting
+                # the response; failed captures previously returned the other
+                # category or the one-row loading placeholder.
+                {'type': 'wait_for_element', 'selector': {'type': 'xpath', 'value': f'//*[@role="dialog"]//button[@aria-pressed="true" and normalize-space(.)="{category}"]'},
+                 'timeout_s': 60, 'on_error': 'error'},
+                # Scope only schedules categories whose building summary is
+                # positive, so a real detail row is the required terminal
+                # condition. All(0) and loading placeholders remain gaps.
+                {'type': 'wait_for_element', 'selector': {'type': 'xpath', 'value': f'//*[@role="dialog"]//tbody//tr[.//a[{detail_condition}]]'},
+                 'timeout_s': 60, 'on_error': 'error'},
             ])
         elif self.settings and self.settings.getbool("ARCHIVE_OXYLABS_RENDER", False):
             payload["render"] = "html"

@@ -12,6 +12,10 @@ import scrapy
 from .extract import canonical_url, discover, extract, kind_for
 from .store import ArchiveStore
 
+CONTENT_RETRY_LIMIT = 3
+CONTENT_RETRY_DELAY = 300
+CONTENT_RETRY_BACKOFF = 24 * 60 * 60
+
 
 def approved_links(items, base):
     result = []
@@ -84,6 +88,14 @@ class ArchiveSpider(scrapy.Spider):
         self.sent = 0
         self.stopped = False
 
+    def _content_retry_seconds(self, url):
+        """Bound parser retries while leaving the incomplete URL resumable."""
+        row = self.store.db.execute(
+            'SELECT attempts FROM frontier WHERE generation=? AND url=?',
+            (self.generation, url)).fetchone()
+        attempts = int(row['attempts']) if row else 0
+        return CONTENT_RETRY_DELAY if attempts < CONTENT_RETRY_LIMIT else CONTENT_RETRY_BACKOFF
+
     @classmethod
     def from_crawler(cls, crawler, *args, **kwargs):
         spider = super().from_crawler(crawler, *args, **kwargs)
@@ -107,7 +119,8 @@ class ArchiveSpider(scrapy.Spider):
             # building URL prefix.
             row = self.store.claim(self.generation,
                                    url_prefix=self.building if self.neighborhood else None,
-                                   scoped=bool(self.neighborhood or self.building))
+                                   scoped=bool(self.neighborhood or self.building),
+                                   prefer_inventory=self.include_unavailable)
             if not row:
                 return None
             canonical = canonical_url(row['url'])
@@ -183,10 +196,8 @@ class ArchiveSpider(scrapy.Spider):
                 self.store.record_gap(self.generation, url, status, headers,
                                       f'parser coverage gap: {type(exc).__name__}: {exc}',
                                       body=body, content_type=content_type,
-                                      complete=response.meta.get('archive_kind') != 'inventory',
-                                      pause_seconds=300 if response.meta.get('archive_kind') == 'inventory' else None)
-                if response.meta.get('archive_kind') == 'inventory':
-                    self.stopped = True
+                                      complete=False,
+                                      retry_seconds=self._content_retry_seconds(url))
             else:
                 self.store.record(self.generation, url, status, headers, body,
                                   content_type, data, discovered=links)

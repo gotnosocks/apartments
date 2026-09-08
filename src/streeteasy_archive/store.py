@@ -134,15 +134,21 @@ class ArchiveStore:
         row = self.db.execute("SELECT value FROM metadata WHERE key='next_request'").fetchone()
         return max(0, float(row[0]) - time.time()) if row else 0
 
-    def claim(self, generation, now=None, url_prefix=None, scoped=False):
+    def claim(self, generation, now=None, url_prefix=None, scoped=False, prefer_inventory=False):
         now = time.time() if now is None else now
         with self._tx():
             row = self.db.execute('''SELECT f.* FROM frontier f JOIN generations g ON g.id=f.generation
                 WHERE f.generation=? AND f.state='pending' AND f.next_attempt<=?
                 AND (g.cooldown IS NULL OR g.cooldown<=?)
                 AND (?=0 OR EXISTS(SELECT 1 FROM scope_urls scope WHERE scope.generation=f.generation AND scope.url=f.url))
-                AND (? IS NULL OR f.url=? OR substr(f.url,1,length(?)+1)=? || '/' OR substr(f.url,1,length(?)+1)=? || '?') ORDER BY f.priority,f.rowid LIMIT 1''',
-                (generation, now, now, int(scoped), url_prefix, url_prefix, url_prefix, url_prefix, url_prefix, url_prefix)).fetchone()
+                AND (? IS NULL OR f.url=? OR substr(f.url,1,length(?)+1)=? || '/' OR substr(f.url,1,length(?)+1)=? || '?')
+                -- Unavailable inventories are the source of historical unit
+                -- discovery. Give them a durable turn before the growing
+                -- listing queue; listings still precede buildings/searches.
+                ORDER BY CASE WHEN ? THEN CASE WHEN f.kind='inventory' THEN 0 ELSE f.priority + 1 END
+                           ELSE f.priority END, f.rowid LIMIT 1''',
+                (generation, now, now, int(scoped), url_prefix, url_prefix, url_prefix, url_prefix, url_prefix, url_prefix,
+                 int(prefer_inventory))).fetchone()
             if row:
                 self.db.execute("UPDATE frontier SET state='inflight',attempts=attempts+1 WHERE generation=? AND url=?", (generation, row['url']))
                 self.db.execute("UPDATE generations SET status='active',cooldown=NULL WHERE id=?", (generation,))
@@ -278,13 +284,17 @@ class ArchiveStore:
         counts = dict.fromkeys(('pending', 'inflight', 'done', 'deferred'), 0)
         counts.update({r[0]: r[1] for r in self.db.execute('SELECT state,count(*) FROM frontier WHERE generation=? GROUP BY state', (generation,))})
         errors = self.db.execute("SELECT count(*) FROM observations WHERE generation=? AND error IS NOT NULL AND error!='redirect observed'", (generation,)).fetchone()[0]
+        current_errors = self.db.execute('''SELECT count(*) FROM observations o
+            WHERE o.generation=? AND o.error IS NOT NULL AND o.error!='redirect observed'
+              AND o.id=(SELECT max(o2.id) FROM observations o2 WHERE o2.url=o.url)''', (generation,)).fetchone()[0]
         last_error = self.db.execute('SELECT url,error FROM observations WHERE generation=? AND error IS NOT NULL ORDER BY id DESC LIMIT 1', (generation,)).fetchone()
         kinds = {r[0]: r[1] for r in self.db.execute('SELECT kind,count(*) FROM frontier WHERE generation=? GROUP BY kind', (generation,))}
         profile_row = self.db.execute('SELECT value FROM metadata WHERE key=?', (f'crawl_profile:{generation}',)).fetchone()
         profile = json.loads(profile_row[0]) if profile_row else None
         scoped = {r[0]: r[1] for r in self.db.execute('SELECT f.state,count(*) FROM frontier f JOIN scope_urls s ON s.generation=f.generation AND s.url=f.url WHERE f.generation=? GROUP BY f.state', (generation,))}
         return {'profile': profile, 'scope_queue': scoped, 'generation': generation, 'name': row['name'], 'status': row['status'],
-                'cooldown': row['cooldown'], 'coverage_gaps': errors, 'by_kind': kinds,
+                'cooldown': row['cooldown'], 'coverage_gaps': errors,
+                'current_coverage_gaps': current_errors, 'by_kind': kinds,
                 'last_error': dict(last_error) if last_error else None, **counts}
 
     def observations(self, generation):

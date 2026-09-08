@@ -86,3 +86,41 @@ def test_legacy_directory_cards_exclude_navigation_and_other_areas(tmp_path):
     roots = {r[0] for r in s.db.execute('SELECT url FROM scope_buildings')}
     assert roots == {'https://streeteasy.com/building/offmarket'}
     s.close()
+
+
+def test_resume_watermark_skips_old_evidence_and_reads_new(tmp_path, monkeypatch):
+    import streeteasy_archive.scope as scope
+    s=ArchiveStore(tmp_path); g=s.new_generation()
+    root='https://streeteasy.com/building/inside'
+    s.record(g,root,200,{},b'first','text/html',payload({'name':'Inside','slug':'inside','area':{'id':'chelsea'}}))
+    configure(s,g)
+    original=scope.expand; calls=[]
+    def track(*args,**kwargs):
+        calls.append(args[3]); return original(*args,**kwargs)
+    monkeypatch.setattr(scope,'expand',track)
+    configure(s,g); assert calls==[]
+    s.record(g,root,200,{},b'next','text/html',payload({'name':'Inside','slug':'inside','area':{'id':'chelsea'}},links=[root+'/2a']))
+    configure(s,g)
+    assert calls==[root]
+    assert s.db.execute('SELECT 1 FROM scope_urls WHERE url=?',(root+'/2a',)).fetchone()
+    s.close()
+
+
+def test_scope_batch_rolls_back_its_watermark_on_failure(tmp_path,monkeypatch):
+    import pytest
+    import streeteasy_archive.scope as scope
+    s=ArchiveStore(tmp_path); g=s.new_generation()
+    root='https://streeteasy.com/building/inside'
+    s.record(g,root,200,{},b'first','text/html',payload({'name':'Inside','slug':'inside','area':{'id':'chelsea'}}))
+    original=scope._enroll
+    def fail(store,generation,urls,roots=()):
+        original(store,generation,urls,roots)
+        if root in roots: raise RuntimeError('simulated interruption')
+    monkeypatch.setattr(scope,'_enroll',fail)
+    with pytest.raises(RuntimeError): configure(s,g)
+    assert s.db.execute('SELECT value FROM metadata WHERE key=?',(scope._marker_key(g,None,True),)).fetchone()[0]=='0'
+    assert not s.db.execute('SELECT 1 FROM scope_buildings WHERE url=?',(root,)).fetchone()
+    monkeypatch.setattr(scope,'_enroll',original)
+    configure(s,g)
+    assert s.db.execute('SELECT 1 FROM scope_buildings WHERE url=?',(root,)).fetchone()
+    s.close()

@@ -1,5 +1,8 @@
 import asyncio
 import pytest
+from scrapy.crawler import Crawler
+from scrapy.http import HtmlResponse
+from scrapy.settings import Settings
 from streeteasy_archive.extract import extract, kind_for
 from streeteasy_archive.scope import configure_building, discovery_links, expand
 from streeteasy_archive.store import ArchiveStore
@@ -26,6 +29,19 @@ def test_complete_inventory_discovers_detail_pages_and_rejects_truncation():
         extract(inventory_html(393), VIEW)
     with pytest.raises(ValueError, match='category'):
         extract(inventory_html(), ROOT + '?archive_view=unavailable-sales')
+
+
+def test_sales_inventory_preserves_recorded_closings_without_queueing_them():
+    body = b'''<div role="dialog"><button aria-pressed="true">For sale</button>
+      <button role="tab">All (2)</button><table><tbody>
+      <tr><td><a href="/sale/123">#1A</a></td></tr>
+      <tr><td><a href="/closing/456">#2A</a></td></tr>
+      </tbody></table></div>'''
+    data = extract(body, ROOT + '?archive_view=unavailable-sales')
+    assert len(data['inventory']['records']) == 2
+    assert data['inventory']['records'][1] == {
+        'url': 'https://streeteasy.com/closing/456', 'kind': 'closing'}
+    assert len(data['inventory']['links']) == 1
 
 
 def test_backfill_reuses_building_and_adds_inventory_and_history(tmp_path):
@@ -83,5 +99,38 @@ def test_inventory_transport_expands_correct_category(monkeypatch):
     response = asyncio.run(OxylabsDownloadHandler().download_request(Request(VIEW)))
     assert payloads[0]['url'] == ROOT
     assert payloads[0]['render'] == 'html'
-    assert 'For rent' in payloads[0]['browser_instructions'][2]['selector']['value']
+    instructions = payloads[0]['browser_instructions']
+    assert 'For rent' in instructions[2]['selector']['value']
+    assert [item['type'] for item in instructions] == [
+        'click', 'wait_for_element', 'click', 'wait_for_element', 'wait_for_element']
+    assert 'aria-pressed="true"' in instructions[3]['selector']['value']
+    assert '/rental/' in instructions[4]['selector']['value']
+    assert './/a[' in instructions[4]['selector']['value']
     assert response.url == VIEW  # Distinct durable queue/capture identity.
+
+    sale_view = ROOT + '?archive_view=unavailable-sales'
+    asyncio.run(OxylabsDownloadHandler().download_request(Request(sale_view)))
+    assert '/sale/' in payloads[-1]['browser_instructions'][-1]['selector']['value']
+    assert '/closing/' in payloads[-1]['browser_instructions'][-1]['selector']['value']
+
+
+def test_inventory_parser_gap_is_saved_and_does_not_pause_other_work(tmp_path):
+    from streeteasy_archive.crawler import ArchiveSpider
+
+    spider = ArchiveSpider.from_crawler(
+        Crawler(ArchiveSpider, Settings()), data_dir=tmp_path,
+        transport='oxylabs', concurrency=1, include_unavailable=True)
+    spider.store.enqueue(spider.generation, [{'url': VIEW, 'kind': 'inventory'}])
+    request = list(spider.start_requests())[0]
+    response = HtmlResponse(url=VIEW, body=b'<div role="dialog"></div>', request=request)
+    assert list(spider.parse(response)) == []
+    row = spider.store.db.execute(
+        'SELECT state,next_attempt FROM frontier WHERE generation=? AND url=?',
+        (spider.generation, VIEW)).fetchone()
+    assert row['state'] == 'pending' and row['next_attempt'] > 0
+    assert spider.store.db.execute(
+        'SELECT body_hash FROM observations WHERE url=? ORDER BY id DESC LIMIT 1',
+        (VIEW,)).fetchone()['body_hash']
+    assert not spider.stopped
+    assert spider.store.status(spider.generation)['status'] != 'paused'
+    spider.store.close()

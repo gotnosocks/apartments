@@ -13,7 +13,7 @@ from urllib.parse import parse_qsl, urlencode, urljoin, urlsplit, urlunsplit
 from parsel import Selector
 from lxml import etree
 
-VERSION = 4
+VERSION = 5
 _TRACKING = {'featured', 'infeed', 'lstt', 'showcase', 'similarhdp2', 'from', 'source', 'ref', 'referrer', 'gclid', 'fbclid'}
 
 
@@ -180,13 +180,21 @@ def extract(body: bytes, url: str, content_type: str = '') -> dict:
         totals = [int(m.group(1)) for label in labels if (m := re.fullmatch(r'All\s*\(([\d,]+)\)', label.strip().replace(',', '')))]
         rows = dialog.css('tbody tr')
         links = []
+        records = []
         for row in rows:
             urls = [canonical_url(u, url) for u in row.css('a::attr(href)').getall()]
-            urls = [u for u in urls if u and kind_for(u) == 'listing']
-            if urls:
-                links.append({'url': urls[0], 'kind': 'listing'})
-        if not totals or len(links) != totals[0]:
-            raise ValueError(f'unavailable inventory incomplete: {len(links)} rows, displayed totals {totals}')
+            listing = next((u for u in urls if u and kind_for(u) == 'listing'), None)
+            closing = next((u for u in urls if u and re.fullmatch(r'https://streeteasy\.com/closing/\d+', u)), None)
+            if listing:
+                links.append({'url': listing, 'kind': 'listing'})
+                records.append({'url': listing, 'kind': 'listing'})
+            elif closing:
+                # Sales inventory includes recorded closings alongside old
+                # listing episodes. Preserve these records, but do not queue
+                # closing pages as listing detail captures.
+                records.append({'url': closing, 'kind': 'closing'})
+        if not totals or len(records) != totals[0]:
+            raise ValueError(f'unavailable inventory incomplete: {len(records)} rows, displayed totals {totals}')
         # A blocked asynchronous request can render an empty table over a building
         # whose source summary reports hundreds of records. Fail visibly.
         from .scope import summary_counts
@@ -194,7 +202,7 @@ def extract(body: bytes, url: str, content_type: str = '') -> dict:
         expected = summary_counts({'scripts': _scripts(sel)}, category)
         if expected and max(expected) > totals[0]:
             raise ValueError('unavailable inventory smaller than building summary')
-        result['inventory'] = {'count': totals[0], 'links': links,
+        result['inventory'] = {'count': totals[0], 'links': links, 'records': records,
                                'rows': [r.get() for r in rows], 'expected_counts': expected}
     result.update({
         'title': sel.css('title::text').get(),

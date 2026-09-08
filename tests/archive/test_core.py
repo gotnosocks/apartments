@@ -33,6 +33,22 @@ def test_imported_snapshot_keeps_original_collection_time(tmp_path):
              extracted={'extraction_version': 1}, fetched=1000)
     assert s.db.execute('SELECT fetched FROM observations').fetchone()[0] == 1000
     assert s.db.execute('SELECT observed FROM snapshots').fetchone()[0] == 1000
+
+
+def test_status_distinguishes_current_from_cumulative_coverage_gaps(tmp_path):
+    s = ArchiveStore(tmp_path)
+    g = s.new_generation()
+    url = 'https://streeteasy.com/rental/1'
+    s.enqueue(g, [{'url': url, 'kind': 'listing'}])
+    s.record_gap(g, url, 404, {}, 'HTTP 404 coverage gap', body=b'missing')
+    assert s.status(g)['coverage_gaps'] == 1
+    assert s.status(g)['current_coverage_gaps'] == 1
+    s.enqueue(g, [{'url': url, 'kind': 'listing'}])
+    s.claim(g)
+    s.record(g, url, 200, {}, b'<html/>', 'text/html', {'title': 'recovered'})
+    assert s.status(g)['coverage_gaps'] == 1
+    assert s.status(g)['current_coverage_gaps'] == 0
+    s.close()
     s.close()
 
 
@@ -42,3 +58,16 @@ def test_cooldown_keeps_frontier_and_redirect_scope(tmp_path):
     assert s.status(g)["pending"] == 1
     assert approved_links([{"url": "/login", "kind": "building"}, {"url": "/building/a", "kind": "building"}], url)[0]["url"].endswith("/building/a")
     assert retry_after({"Retry-After": "999999"}) == 999999.0
+
+
+def test_unavailable_inventory_gets_turn_before_growing_listing_queue(tmp_path):
+    store = ArchiveStore(tmp_path)
+    gen = store.new_generation()
+    store.enqueue(gen, [
+        {'url': 'https://streeteasy.com/rental/123', 'kind': 'listing'},
+        {'url': 'https://streeteasy.com/building/example?archive_view=unavailable-rentals', 'kind': 'inventory'},
+        {'url': 'https://streeteasy.com/building/example', 'kind': 'building'},
+    ])
+    assert store.claim(gen, prefer_inventory=True)['kind'] == 'inventory'
+    assert store.claim(gen, prefer_inventory=True)['kind'] == 'listing'
+    store.close()
