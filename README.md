@@ -285,3 +285,14 @@ HTTP 429 responses receive at most two retries, with a shared backoff that honor
 Retry-After up to 60 seconds; longer waits or exhausted retries pause durably.
 Rate-limit response headers and submission-attempt counts are saved with provider
 metadata. Target-page challenges still pause without automatic retries.
+
+Oxylabs now defaults to **unrendered server HTML**. Live A/B checks retained all
+102 TEN23 #4C history events (matching date, price, description and listing fields)
+and all 11 Chelsea directory cards; neither response required forced rendering.
+Full HTML and embedded scripts remain archived. Use `--oxylabs-render` on a run
+that specifically needs browser-rendered content. This is not proof that every
+historical page exposes all data without additional requests.
+
+The continued Chelsea run uses `--max-requests 0` (no local request cap), five
+concurrent jobs and two submissions/second. Provider quota/auth failures stop the
+worker; it does not purchase credits, upgrade plans or enable auto-top-up.

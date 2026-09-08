@@ -37,7 +37,7 @@ def test_handler_sends_realtime_request_and_preserves_envelope(monkeypatch):
     response = run(oxylabs.OxylabsDownloadHandler(), request)
 
     assert calls[0][0] == (oxylabs.API_URL,)
-    assert calls[0][1]["json"] == {"source": "universal", "url": request.url, "render": "html"}
+    assert calls[0][1]["json"] == {"source": "universal", "url": request.url}
     assert calls[0][1]["auth"] == ("user", "password")
     assert calls[0][1]["timeout"] == 180
     assert response.status == 201

@@ -85,7 +85,9 @@ class OxylabsDownloadHandler:
     async def download_request(self, request, spider=None):
         url = _target_url(request.url)
         username, password = _credentials()
-        payload = {"source": "universal", "url": url, "render": "html"}
+        payload = {"source": "universal", "url": url}
+        if self.settings and self.settings.getbool("ARCHIVE_OXYLABS_RENDER", False):
+            payload["render"] = "html"
         try:
             for attempt in range(3):
                 await self._submission_slot()

@@ -52,6 +52,7 @@ def main(argv=None):
         command = sub.add_parser(name)
         command.add_argument('--transport', choices=('http', 'firefox', 'oxylabs'))
         command.add_argument('--firefox-binary')
+        command.add_argument('--oxylabs-render', action='store_true', help='request rendered HTML instead of server HTML for this run')
         command.add_argument('--neighborhood', choices=('chelsea',), help='persistent Chelsea + West Chelsea scope, excluding Hudson Yards')
         command.add_argument('--delay', type=float, help='request delay seconds; defaults to 0 for Oxylabs, randomized for direct transports')
         command.add_argument('--wait-for-cooldown', action='store_true', help='wait for an existing cooldown once; a new challenge still exits')
@@ -247,6 +248,7 @@ def run_crawler(args, generation, lock=None):
     elif args.transport == 'oxylabs':
         settings['DOWNLOAD_HANDLERS'] = {'https': 'streeteasy_archive.oxylabs.OxylabsDownloadHandler'}
         settings['DOWNLOAD_TIMEOUT'] = 200
+        settings['ARCHIVE_OXYLABS_RENDER'] = args.oxylabs_render
     process = CrawlerProcess(settings=settings)
     errors = []
     crawler = process.create_crawler(ArchiveSpider)
