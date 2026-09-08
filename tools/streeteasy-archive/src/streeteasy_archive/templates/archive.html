@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>StreetEasy Archive</title>
+  <meta name="description" content="Browse your local StreetEasy archive, crawl queue, response history, and saved source data.">
+  <link rel="stylesheet" href="/static/archive.css"><script defer src="/static/archive.js"></script>
+</head>
+<body>
+<header><div class="brand"><span class="mark" aria-hidden="true">SE</span><div><strong>StreetEasy Archive</strong><span class="muted">NYC · Local collection</span></div></div><div class="head-actions"><span id="connection" class="pill">Connecting</span><button id="refresh">Refresh</button></div></header>
+<main>
+  <div class="heading"><h1>Collection overview</h1><label class="generation-label">Crawl <select id="generation" aria-label="Crawl generation"><option value="">Latest</option></select></label></div>
+  <div id="error" class="notice error" role="alert" hidden></div>
+  <section class="metrics" aria-label="Archive summary">
+    <article><span>Listing detail pages</span><strong id="details-count">—</strong><small>Successfully captured</small></article>
+    <article><span>Building pages</span><strong id="buildings-count">—</strong><small>Successfully captured</small></article>
+    <article><span>Saved responses</span><strong id="responses-count">—</strong><small id="body-size">Across all crawls</small></article>
+    <article><span>Queued pages</span><strong id="pending-count">—</strong><small id="crawl-state">Loading archive</small></article>
+  </section>
+  <div id="coverage-note" class="notice" hidden></div>
+  <section class="workspace">
+    <div class="collection">
+      <div class="section-heading"><div><h2>Pages</h2><p id="result-count">Loading collection…</p></div><span class="live-label">Auto-refresh · 10s</span></div>
+      <form id="filters" class="filters">
+        <label class="search-label"><span class="sr-only">Search URL or address</span><input id="query" type="search" placeholder="Search URL or address…"></label>
+        <label><span class="sr-only">Page type</span><select id="kind"><option value="">All page types</option><option value="listing">Listing details</option><option value="building">Buildings</option><option value="search">Search pages</option><option value="directory">Directories</option><option value="sitemap">Sitemaps</option><option value="homepage">Homepage</option></select></label>
+        <label><span class="sr-only">Capture or queue state</span><select id="state"><option value="captured">Captured</option><option value="">All states</option><option value="pending">Queued</option><option value="inflight">In flight</option><option value="deferred">Deferred</option><option value="errors">Errors</option></select></label>
+      </form>
+      <div class="table-wrap"><table><thead><tr><th>Page</th><th>Type</th><th>Capture</th></tr></thead><tbody id="rows"></tbody></table></div>
+      <div id="empty" class="empty" hidden><strong>No pages match these filters.</strong><p>Try another page type or select “All states” to see queued URLs.</p></div>
+      <footer class="pagination"><span id="page-label">—</span><div><button id="previous" disabled>Previous</button><button id="next" disabled>Next</button></div></footer>
+    </div>
+    <aside class="inspector" aria-label="Page inspector">
+      <div id="inspector-empty" class="empty inspector-placeholder"><span class="inspector-symbol" aria-hidden="true">↗</span><h2>Inspect a page</h2><p>Select a captured or queued page to see its source, metadata, and history.</p></div>
+      <div id="inspector-content" hidden>
+        <div class="inspector-heading"><span id="detail-kind" class="eyebrow"></span><h2 id="detail-title"></h2><a id="original-link" target="_blank" rel="noopener noreferrer">Open original ↗</a></div>
+        <div id="detail-status" class="detail-status"></div>
+        <div class="tabs" role="tablist" aria-label="Page information"><button role="tab" aria-selected="true" data-tab="overview">Overview</button><button role="tab" aria-selected="false" data-tab="data">Data</button><button role="tab" aria-selected="false" data-tab="raw">Source</button><button role="tab" aria-selected="false" data-tab="history">History</button></div>
+        <section id="panel" role="tabpanel" aria-live="polite"></section>
+      </div>
+    </aside>
+  </section>
+  <section id="recent-errors" class="recent-errors" hidden><h2>Unresolved crawl issues</h2><div id="errors-list"></div></section>
+  <div class="footnote"><span id="archive-path"></span><span id="updated-at"></span></div>
+</main>
+</body>
+</html>

@@ -1,0 +1,15 @@
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+*.egg-info/
+data/
+*.har
+.jj/
+dist/
+build/
+
+# Local provider credentials
+.env
+.env.*
+!.env.example
