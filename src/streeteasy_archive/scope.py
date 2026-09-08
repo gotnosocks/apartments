@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 import re
 from urllib.parse import urlsplit, parse_qsl
-from .extract import canonical_url, kind_for
+from .extract import canonical_url, kind_for, flight_text
 
 SEEDS = [f'https://streeteasy.com/{kind}/{area}'
          for kind in ('for-rent', 'for-sale', 'buildings')
@@ -21,17 +21,16 @@ def objects(data):
         elif isinstance(value, list):
             for child in value:
                 yield from walk(child)
-    for script in data.get('scripts', []):
+    scripts = data.get('scripts', [])
+    for script in scripts:
         yield from walk(script.get('json'))
-        for chunk in script.get('flight_chunks', []):
-            if not isinstance(chunk, list) or len(chunk) < 2 or not isinstance(chunk[1], str):
-                continue
-            for marker in re.finditer(r'(?<![A-Za-z0-9_])[0-9a-f]+:(?=[{\[])', chunk[1]):
-                try:
-                    value, _ = json.JSONDecoder().raw_decode(chunk[1][marker.end():])
-                except ValueError:
-                    continue
-                yield from walk(value)
+    stream = flight_text(scripts)
+    for marker in re.finditer(r'(?<![A-Za-z0-9_])[0-9a-f]+:(?=[{\[])', stream):
+        try:
+            value, _ = json.JSONDecoder().raw_decode(stream[marker.end():])
+        except ValueError:
+            continue
+        yield from walk(value)
 
 
 def building_root(url):

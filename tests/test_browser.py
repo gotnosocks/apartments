@@ -69,3 +69,64 @@ def test_firefox_entity_conditional_and_redirect():
     finally:
         server.shutdown()
         server.server_close()
+
+
+def test_interception_races_are_not_uncaught_and_real_failures_remain_visible():
+    pytest.importorskip('selenium')
+    from selenium.common.exceptions import WebDriverException
+    from streeteasy_archive.browser import RequestPolicy
+    class Network:
+        def __init__(self):
+            self.calls = []
+            self.failure = None
+        def fail_request(self, **kwargs):
+            self.calls.append(('fail', kwargs))
+            if self.failure:
+                raise self.failure
+        def continue_request(self, **kwargs):
+            self.calls.append(('continue', kwargs))
+            if self.failure:
+                raise self.failure
+    network = Network()
+    policy = RequestPolicy(network, 'https://streeteasy.com/building/test/1a', {'If-None-Match': '"v1"'})
+    policy.intercept = 'ours'
+    def event(url, resource='image', blocked=True, intercept='ours'):
+        return {'isBlocked': blocked, 'intercepts': [intercept], 'request': {
+            'request': 'r1', 'url': url, 'destination': resource, 'method': 'GET',
+            'headers': [{'name': 'if-none-match', 'value': {'type': 'string', 'value': 'old'}}]}}
+    policy(event('https://example.com/photo', blocked=False))
+    policy(event('https://example.com/photo', intercept='someone-else'))
+    assert network.calls == []
+    network.failure = WebDriverException('no such request: cancelled by browser')
+    policy(event('https://example.com/photo'))
+    assert policy.diagnostics() == {'warnings': {'cancelled_subresource': 1}, 'errors': []}
+    network.failure = WebDriverException('Timed out waiting for response')
+    policy(event('https://example.com/photo'))
+    assert len(policy.diagnostics()['errors']) == 1
+    network.failure = None
+    policy(event(policy.main_url, 'document'))
+    assert network.calls[-1][1]['headers'] == [{'name': 'If-None-Match', 'value': {'type': 'string', 'value': '"v1"'}}]
+    network.failure = WebDriverException('no such request: main navigation disappeared')
+    policy(event(policy.main_url, 'document'))
+    assert len(policy.diagnostics()['errors']) == 1
+    before = len(network.calls)
+    policy.closed.set()
+    policy(event('https://example.com/photo'))
+    assert len(network.calls) == before
+
+
+def test_interception_failure_saves_document_before_pausing(tmp_path):
+    from scrapy import Request
+    from scrapy.http import HtmlResponse
+    from streeteasy_archive.crawler import ArchiveSpider
+    store = ArchiveStore(tmp_path); gen = store.new_generation()
+    url = 'https://streeteasy.com/building/example/1a'
+    store.enqueue(gen, [{'url': url, 'kind': 'listing'}]);store.close()
+    spider = ArchiveSpider(data_dir=tmp_path, generation=gen)
+    request = Request(url, meta={'archive_url': url, 'archive_browser': {'interception': {'errors': ['script interception timeout']}}})
+    response = HtmlResponse(url, status=200, body=b'<title>Preserved</title>', request=request)
+    assert list(spider.parse(response)) == []
+    assert spider.store.latest_response(url)['status'] == 200
+    assert spider.store.status(gen)['status'] == 'paused'
+    assert spider.stopped
+    spider.store.close()

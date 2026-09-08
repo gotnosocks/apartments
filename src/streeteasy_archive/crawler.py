@@ -65,7 +65,7 @@ class ArchiveSpider(scrapy.Spider):
         'HTTPPROXY_ENABLED': False,
         'DOWNLOAD_TIMEOUT': 45,
         'DOWNLOAD_MAXSIZE': 32 * 1024 * 1024,
-        'DOWNLOADER_CLIENTCONTEXTFACTORY': 'scrapy.core.downloader.contextfactory.BrowserLikeContextFactory',
+        'DOWNLOAD_VERIFY_CERTIFICATES': True,
         'USER_AGENT': 'StreetEasyArchive/0.1 (personal archival research)',
     }
 
@@ -163,7 +163,16 @@ class ArchiveSpider(scrapy.Spider):
                 if self.neighborhood:
                     from .scope import expand
                     expand(self.store, self.generation, data, url)
-        yield from self.start_requests()
+        transport_errors = response.meta.get('archive_browser', {}).get('interception', {}).get('errors', [])
+        if transport_errors:
+            # The main response above remains archived. Halt further traffic when
+            # browser interception fails rather than silently accepting instability.
+            with self.store._tx():
+                self.store.db.execute("UPDATE generations SET status='paused',cooldown=? WHERE id=?", (time.time() + 300, self.generation))
+            self.logger.error('Browser interception errors; response saved and crawl paused: %s', transport_errors)
+            self.stopped = True
+        else:
+            yield from self.start_requests()
 
     def errback(self, failure):
         self.store.note_response(self.delay / 2)

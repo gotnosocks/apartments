@@ -13,6 +13,8 @@ from selenium.common.exceptions import WebDriverException
 import base64
 import json
 import queue
+import threading
+from collections import Counter
 from dataclasses import asdict, is_dataclass
 from urllib.parse import urlsplit
 
@@ -60,6 +62,63 @@ def _header_value(value):
     return value
 
 
+class RequestPolicy:
+    """Resolve only our blocked events; preserve failures outside callback threads."""
+    def __init__(self, network, main_url, conditional_headers=None):
+        self.network = network
+        self.main_url = main_url
+        self.headers = conditional_headers or {}
+        self.intercept = None
+        self.closed = threading.Event()
+        self.errors = queue.Queue()
+        self.warnings = Counter()
+        self.lock = threading.Lock()
+
+    def __call__(self, event):
+        if self.closed.is_set() or not event.get('isBlocked'):
+            return
+        if self.intercept not in event.get('intercepts', []):
+            return
+        request = event.get('request', {})
+        url = request.get('url', '')
+        if url.startswith('data:'):
+            return
+        request_id = request.get('request')
+        resource = (request.get('destination') or request.get('initiatorType') or '').lower()
+        document = resource in ('document', 'iframe')
+        main = url == self.main_url and document
+        try:
+            if request.get('method') != 'GET' or (document and not main) or resource in ('image', 'media', 'font'):
+                self.network.fail_request(request=request_id)
+            else:
+                headers = None
+                if main and self.headers:
+                    names = {k.lower() for k in self.headers}
+                    headers = [h for h in request.get('headers', []) if h['name'].lower() not in names]
+                    headers += [{'name': k, 'value': {'type': 'string', 'value': v}} for k, v in self.headers.items()]
+                self.network.continue_request(request=request_id, headers=headers)
+        except Exception as exc:
+            if self.closed.is_set():
+                return  # Firefox shutdown cancelled outstanding subresources.
+            text = str(exc).lower()
+            stale = isinstance(exc, WebDriverException) and 'no such request' in text
+            if stale and not main:
+                # Firefox already cancelled it. No retry or further command is useful.
+                with self.lock:
+                    self.warnings['cancelled_subresource'] += 1
+            else:
+                # Timeouts and unexpected failures must be visible and pause the
+                # crawler after saving any available main-document response.
+                self.errors.put(f'{resource or "unknown"} interception: {type(exc).__name__}: {exc}')
+
+    def diagnostics(self):
+        errors = []
+        while not self.errors.empty():
+            errors.append(self.errors.get_nowait())
+        with self.lock:
+            return {'warnings': dict(self.warnings), 'errors': errors}
+
+
 def capture_main_document(url: str, conditional_headers: dict[str, str] | None = None, binary=None) -> dict:
     """Capture one public main-document response, retaining its rendered DOM separately."""
     parsed = urlsplit(url)
@@ -80,6 +139,7 @@ def capture_main_document(url: str, conditional_headers: dict[str, str] | None =
     collector = None
     response_events: queue.Queue = queue.Queue()
     request_handler = None
+    policy = None
     response_handler = None
     try:
         network = driver.network
@@ -96,34 +156,16 @@ def capture_main_document(url: str, conditional_headers: dict[str, str] | None =
         )
         collector = _plain(collector_result).get("collector", collector_result)
 
-        allowed_host = parsed.hostname
         main_url = url
-        conditional_headers = {k: v for k, v in (conditional_headers or {}).items()}
-
-        def request_policy(request):
-            host = urlsplit(request.url).hostname
-            resource_type = (request.resource_type or "").lower()
-            is_document = resource_type in {"document", "iframe"}
-            is_image = resource_type == "image"
-            if request.method != "GET" or (is_document and request.url != main_url):
-                request.fail()
-                return
-            if resource_type in {"image", "media", "font"}:
-                request.fail()
-                return
-            # Conditional headers are deliberately scoped to the exact main URL.
-            if request.url == main_url and resource_type == "document" and conditional_headers:
-                names = {k.lower() for k in conditional_headers}
-                merged = {k: v for k, v in request.headers.items() if k.lower() not in names}
-                merged.update(conditional_headers)
-                request.set_headers(merged)
+        policy = RequestPolicy(network, main_url, conditional_headers)
 
         def response_complete(event):
             response = _response(event)
             if response.get("url") == main_url:
                 response_events.put((event, response))
 
-        request_handler = network.add_request_handler(request_policy)
+        request_handler = network.add_event_handler('before_request', policy)
+        policy.intercept = network.add_intercept(phases=['beforeRequestSent'])['intercept']
         response_handler = network.add_event_handler("response_completed", response_complete)
         navigation_error = None
         try:
@@ -150,6 +192,7 @@ def capture_main_document(url: str, conditional_headers: dict[str, str] | None =
         if len(body) > 32 * 1024 * 1024:
             raise ValueError("browser response exceeds 32 MiB")
         return {
+            "interception": policy.diagnostics(),
             "response_data": result,
             "body_captured": not redirect,
             "rendered_html": driver.page_source if response.get("status") == 200 and not navigation_error else None,
@@ -161,6 +204,11 @@ def capture_main_document(url: str, conditional_headers: dict[str, str] | None =
             "body_sha256": __import__("hashlib").sha256(body).hexdigest(),
         }
     finally:
+        if policy is not None:
+            policy.closed.set()
+        with suppress(Exception):
+            if request_handler is not None:
+                network.remove_event_handler('before_request', request_handler)
         with suppress(Exception):
             driver.quit()
 
@@ -183,6 +231,7 @@ class FirefoxDownloadHandler(HTTP11DownloadHandler):
             'rendered_html': capture['rendered_html'],
             'body_representation': 'BiDi base64 bytes or browser-decoded text encoded as UTF-8',
             'response_data': capture['response_data'],
+            'interception': capture['interception'],
         }
         request.meta['archive_response_headers'] = capture['headers']
         request.meta['archive_body_captured'] = capture['body_captured']

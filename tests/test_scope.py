@@ -64,3 +64,12 @@ def test_inline_flight_records_and_related_building_rejection(tmp_path):
     roots = {r[0] for r in s.db.execute('SELECT url FROM scope_buildings')}
     assert roots == {'https://streeteasy.com/building/inside'}
     s.close()
+
+
+def test_membership_split_across_flight_scripts(tmp_path):
+    s = ArchiveStore(tmp_path); g = s.new_generation()
+    text = 'a:' + json.dumps({'areaName': 'Chelsea', 'urlPath': '/building/inside/09b'})
+    data = {'scripts': [{'flight_chunks': [[1, text[:20]]]}, {'flight_chunks': [[1, text[20:]]]}], 'links': []}
+    expand(s,g,data,'https://streeteasy.com/for-rent/chelsea')
+    assert s.db.execute('SELECT 1 FROM scope_urls WHERE url=?', ('https://streeteasy.com/building/inside/09b',)).fetchone()
+    s.close()

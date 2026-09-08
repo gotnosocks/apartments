@@ -47,3 +47,15 @@ def test_showcase_alias_and_nonlisting_endpoints():
     assert canonical_url(base + '/1a?showcase=1&similarHDP2=1') == base + '/1a'
     assert kind_for(base + '/export_owner_list') is None
     assert kind_for(base + '/media_gallery') is None
+
+
+def test_flight_urls_split_across_script_tags():
+    import json
+    from streeteasy_archive.extract import discover
+    base = 'https://streeteasy.com/building/ohm-312-11th-avenue-new_york'
+    parts = ['a:{"documentsUrl":"' + base + '/d', 'ocuments","urlPath":"' + base + '/09b"}\n']
+    body = ''.join('<script>self.__next_f.push(' + json.dumps([1, text]) + ')</script>' for text in parts).encode()
+    urls = {r['url'] for r in discover(body, base)}
+    assert base + '/d' not in urls
+    assert base + '/documents' not in urls
+    assert base + '/09b' in urls

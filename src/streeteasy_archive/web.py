@@ -87,7 +87,13 @@ def create_app(data_dir='data'):
             AND o.generation<=? AND o.error IS NULL AND o.body_hash IS NOT NULL
             AND (o.status BETWEEN 200 AND 299 OR o.status=304)) GROUP BY f.kind''', (gen, gen))}
         counts = db().execute('SELECT count(*),COALESCE(sum(size),0) FROM bodies').fetchone()
-        errors = [dict(row) for row in db().execute("SELECT id,url,status,error,fetched FROM observations WHERE generation=? AND error IS NOT NULL AND error!='redirect observed' ORDER BY id DESC LIMIT 10", (gen,))]
+        errors = [dict(row) for row in db().execute("""SELECT e.id,e.url,e.status,e.error,e.fetched
+            FROM observations e WHERE e.generation=? AND e.error IS NOT NULL AND e.error!='redirect observed'
+            AND NOT EXISTS(SELECT 1 FROM frontier f WHERE f.generation=e.generation AND f.url=e.url AND f.kind='excluded')
+            AND NOT EXISTS(SELECT 1 FROM observations good WHERE good.url=e.url AND good.error IS NULL
+                AND (good.status BETWEEN 200 AND 299 OR good.status=304)
+                AND (good.fetched>e.fetched OR (good.fetched=e.fetched AND good.id>e.id)))
+            ORDER BY e.id DESC LIMIT 10""", (gen,))]
         profile_row = db().execute('SELECT value FROM metadata WHERE key=?', (f'crawl_profile:{gen}',)).fetchone()
         profile = json.loads(profile_row[0]) if profile_row else None
         scoped = {r[0]: r[1] for r in db().execute('SELECT f.state,count(*) FROM frontier f JOIN scope_urls s ON s.generation=f.generation AND s.url=f.url WHERE f.generation=? GROUP BY f.state', (gen,))}

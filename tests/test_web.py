@@ -59,3 +59,17 @@ def test_empty_archive_shell_and_missing_body(tmp_path):
     assert client.get('/api/summary').json['generation'] is None
     assert client.get('/api/pages').json['total'] == 0
     assert client.get('/api/observations/999/raw').status_code == 404
+
+
+def test_summary_omits_resolved_errors_but_history_preserves_them(tmp_path):
+    store, gen, url, body = fixture_archive(tmp_path)
+    store.record_gap(gen,url,404,{},'HTTP 404 coverage gap',body=b'missing')
+    client = create_app(tmp_path).test_client()
+    assert len(client.get('/api/summary').json['errors']) == 1
+    store.record(gen,url,200,{},body,'text/html',{'title':'Recovered'})
+    assert client.get('/api/summary').json['errors'] == []
+    assert any(row['status']==404 for row in client.get('/api/page',query_string={'url':url}).json['history'])
+    excluded = 'https://streeteasy.com/building/example/d'
+    store.enqueue(gen,[{'url':excluded,'kind':'excluded'}])
+    store.record_gap(gen,excluded,404,{},'old split URL artifact',body=b'missing')
+    assert client.get('/api/summary').json['errors'] == []

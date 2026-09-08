@@ -124,3 +124,37 @@ The unlimited Chelsea worker resumed at 35 seconds, PID 93034. Concurrency remai
 one, delay randomized 17.5–52.5 seconds before browser/AutoThrottle overhead, and
 new challenges stop the worker. This sample is not proof of long-term reliability.
 Evidence: data/diagnostics/speed-trial-35.json and data/chelsea-speed-trial-35.log.
+
+## Error repair — 2026-09-07, 20:27 EDT
+
+The new 404 (observation186, OHM `/d`) was an extraction artifact. In archived
+observation148 (`/rental/902386`), `/documents` is split across two Flight script
+chunks as `/d` and `ocuments`. Reassembling text chunks before URL discovery and
+scope JSON parsing removes the false unit URL. Extraction version2 was applied
+offline to160 saved snapshots;23 obsolete URLs (split fragments, previously
+normalized tracking aliases and excluded endpoints) were retired. Raw responses
+and observations remain unchanged. Repair details: data/diagnostics/chunk-reassembly-repair.json.
+A Luna agent traced the 404 independently (Herdr was unavailable).
+
+Firefox interception now uses Selenium's public BiDi event/command APIs directly,
+so completion errors occur inside our handler rather than deferred reconciliation
+outside its exception boundary. Already-cancelled subresources are counted as
+warnings; unexpected errors/timeouts are retained in capture metadata and pause
+further crawling after saving the main document. Shutdown stops processing new
+asset callbacks. Local browser checks passed for Unicode HTML, conditional304,
+redirect/image blocking; unit regressions cover stale requests, other intercepts,
+real failures, headers and shutdown. An additional regression verifies the main
+body is saved before pausing on an interception failure.
+
+A two-request live check saved HTTP308 and HTTP200 responses, with no uncaught
+callback exceptions. The successful page recorded one cancelled-subresource
+warning and zero interception errors. This does not guarantee no future browser
+failures. TLS verification remains enabled using Scrapy's current
+DOWNLOAD_VERIFY_CERTIFICATES setting. Dashboard unresolved issues now excludes
+errors superseded by a successful response and retired URL artifacts; original
+errors remain in page observation history. Test and smoke logs are retained.
+
+Final verification:39 standard tests passed,1 opt-in browser test skipped; explicit
+browser test suite passed3 tests. Continuous worker restarted at saved35-second
+pace (PID9315); local dashboard restarted (PID9316). API confirms writer active,
+no cooldown, and only the earlier directory403 remaining as an unresolved issue.

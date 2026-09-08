@@ -13,7 +13,7 @@ from urllib.parse import parse_qsl, urlencode, urljoin, urlsplit, urlunsplit
 from parsel import Selector
 from lxml import etree
 
-VERSION = 1
+VERSION = 2
 _TRACKING = {'featured', 'infeed', 'lstt', 'showcase', 'similarhdp2', 'from', 'source', 'ref', 'referrer', 'gclid', 'fbclid'}
 
 
@@ -90,6 +90,13 @@ def _scripts(sel: Selector) -> list[dict]:
     return result
 
 
+def flight_text(scripts):
+    """Flight text is a stream: script/chunk boundaries can bisect any JSON value."""
+    return ''.join(chunk[1] for script in scripts for chunk in script.get('flight_chunks', [])
+                   if isinstance(chunk, list) and len(chunk) > 1 and chunk[0] == 1
+                   and isinstance(chunk[1], str))
+
+
 def _strings(value):
     if isinstance(value, str):
         yield value
@@ -130,13 +137,17 @@ def discover(body: bytes, url: str, content_type: str = '') -> list[dict]:
         sel = _selector(body)
         for link in sel.css('a::attr(href), link[rel="next"]::attr(href)'):
             add(link.get())
-        for script in _scripts(sel):
-            candidates = [script['text'], *_strings(script.get('json')), *_strings(script.get('flight_chunks'))]
-            for text in candidates:
-                # Flight payload URLs may be JSON-escaped inside strings.
-                text = text.replace('\\/', '/').replace('\\u0026', '&')
-                for value in re.findall(r'(?:https?://(?:www\.)?streeteasy\.com)?/(?:building|buildings|sale|rental|for-sale|for-rent)/[^\s"<>\\]+', text):
-                    add(value)
+        scripts = _scripts(sel)
+        candidates = [flight_text(scripts)]
+        for script in scripts:
+            # Never scan a partial Flight script: it can end halfway through a URL.
+            if not script.get('flight_chunks'):
+                candidates.append(script['text'])
+            candidates.extend(_strings(script.get('json')))
+        for text in candidates:
+            text = text.replace('\\/', '/').replace('\\u0026', '&')
+            for value in re.findall(r'(?:https?://(?:www\.)?streeteasy\.com)?/(?:building|buildings|sale|rental|for-sale|for-rent)/[^\s"<>\\]+', text):
+                add(value)
     return list(found.values())
 
 
