@@ -3,6 +3,8 @@ from __future__ import annotations
 
 import os
 import asyncio
+import time
+import email.utils
 from pathlib import Path
 
 import requests
@@ -55,15 +57,45 @@ class OxylabsDownloadHandler:
 
     def __init__(self, settings=None):
         self.settings = settings
+        self._submission_lock = asyncio.Lock()
+        self._next_submission = 0.0
+
+    async def _submission_slot(self):
+        # Rate and concurrency are separate: five jobs can render simultaneously,
+        # but the trial accepts only three rendered job submissions per second.
+        async with self._submission_lock:
+            await asyncio.sleep(max(0, self._next_submission - time.monotonic()))
+            self._next_submission = time.monotonic() + 0.5
+
+    def _defer_submissions(self, value, attempt):
+        delay = 2 ** (attempt + 1)
+        try:
+            delay = max(delay, float(value))
+        except (TypeError, ValueError):
+            try:
+                delay = max(delay, email.utils.parsedate_to_datetime(value).timestamp() - time.time())
+            except (TypeError, ValueError, OverflowError):
+                pass
+        # Longer waits belong in the durable crawl cooldown, not an API call.
+        if delay > 60:
+            return False
+        self._next_submission = max(self._next_submission, time.monotonic() + delay)
+        return True
 
     async def download_request(self, request, spider=None):
         url = _target_url(request.url)
         username, password = _credentials()
         payload = {"source": "universal", "url": url, "render": "html"}
         try:
-            result = await asyncio.to_thread(requests.post, API_URL, json=payload,
-                                              auth=(username, password), timeout=180,
-                                              allow_redirects=False)
+            for attempt in range(3):
+                await self._submission_slot()
+                result = await asyncio.to_thread(requests.post, API_URL, json=payload,
+                                                  auth=(username, password), timeout=180,
+                                                  allow_redirects=False)
+                if result.status_code != 429 or attempt == 2:
+                    break
+                if not self._defer_submissions(result.headers.get("Retry-After"), attempt):
+                    break
             result.raise_for_status()
             envelope = result.json()
         except requests.RequestException as exc:
@@ -91,7 +123,12 @@ class OxylabsDownloadHandler:
         response_headers = {key: value for key, value in headers.items()
                             if str(key).lower() not in {"content-encoding", "content-length"}}
         response = HtmlResponse(url=url, status=status, headers=response_headers, body=body, request=request, encoding="utf-8")
-        response.meta["archive_provider"] = {"results": _safe_envelope(results)}
+        response.meta["archive_provider"] = {
+            "results": _safe_envelope(results),
+            "api_headers": {k: v for k, v in getattr(result, 'headers', {}).items()
+                            if k.lower().startswith('x-ratelimit-') or k.lower() == 'x-oxylabs-job-id'},
+            "submission_attempts": attempt + 1,
+        }
         response.meta["archive_response_headers"] = _safe_envelope(headers)
         return response
 

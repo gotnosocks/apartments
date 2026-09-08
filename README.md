@@ -277,3 +277,11 @@ server load. Existing pre-migration API profiles automatically drop the inherite
 Firefox delay; an explicit `--delay N` sets and persists an API delay if desired.
 Direct Firefox/HTTP transports retain their conservative pacing. Challenge checks,
 HTTP failure pauses, request budgets and durable writer locks remain enabled.
+
+Oxylabs trial submission limits differ from concurrency: the documented trial
+allows 10 total jobs/second but only 3 rendered jobs/second. The transport keeps
+five concurrent jobs and spaces submissions by 0.5 seconds (2/second). API-level
+HTTP 429 responses receive at most two retries, with a shared backoff that honors
+Retry-After up to 60 seconds; longer waits or exhausted retries pause durably.
+Rate-limit response headers and submission-attempt counts are saved with provider
+metadata. Target-page challenges still pause without automatic retries.

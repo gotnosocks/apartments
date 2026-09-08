@@ -42,7 +42,7 @@ def test_handler_sends_realtime_request_and_preserves_envelope(monkeypatch):
     assert calls[0][1]["timeout"] == 180
     assert response.status == 201
     assert bytes(response.body) == "<html>raw ✓</html>".encode()
-    assert response.meta["archive_provider"] == {"results": envelope["results"]}
+    assert response.meta["archive_provider"]["results"] == envelope["results"]
 
 
 def test_handler_strips_wire_length_encoding_and_sensitive_provider_fields(monkeypatch):
@@ -116,3 +116,41 @@ def test_result_validation_and_error_status(monkeypatch, payload):
     else:
         with pytest.raises(RuntimeError):
             run(oxylabs.OxylabsDownloadHandler(), Request("https://streeteasy.com/building/example"))
+
+
+def test_submission_rate_separate_from_concurrency(monkeypatch):
+    clock = [0.0]
+    starts = []
+    async def sleep(delay): clock[0] += delay
+    monkeypatch.setattr(oxylabs.time, 'monotonic', lambda: clock[0])
+    monkeypatch.setattr(oxylabs.asyncio, 'sleep', sleep)
+    async def scenario():
+        handler = oxylabs.OxylabsDownloadHandler()
+        async def submit():
+            await handler._submission_slot()
+            starts.append(clock[0])
+        await asyncio.gather(*(submit() for _ in range(5)))
+    asyncio.run(scenario())
+    assert starts == [0, .5, 1, 1.5, 2]
+
+
+def test_provider_429_retries_bounded_without_changing_target(monkeypatch):
+    monkeypatch.setenv('OXYLABS_USERNAME', 'user')
+    monkeypatch.setenv('OXYLABS_PASSWORD', 'password')
+    limited = FakeResponse({}, 429); limited.headers = {'Retry-After': '2'}
+    ok = FakeResponse({'results': [{'status_code': 200, 'content':'<html/>'}]})
+    calls = []
+    async def slot(self): pass
+    monkeypatch.setattr(oxylabs.OxylabsDownloadHandler, '_submission_slot', slot)
+    def post(*args, **kwargs):
+        calls.append(kwargs['json']['url'])
+        return limited if len(calls) < 3 else ok
+    monkeypatch.setattr(oxylabs.requests, 'post', post)
+    r=run(oxylabs.OxylabsDownloadHandler(), Request('https://streeteasy.com/rental/123'))
+    assert len(calls)==3 and len(set(calls))==1
+    assert r.meta['archive_provider']['submission_attempts']==3
+    calls.clear()
+    monkeypatch.setattr(oxylabs.requests, 'post', lambda *a, **k: (calls.append(1) or limited))
+    with pytest.raises(RuntimeError, match='HTTP 429'):
+        run(oxylabs.OxylabsDownloadHandler(), Request('https://streeteasy.com/rental/123'))
+    assert len(calls)==3
