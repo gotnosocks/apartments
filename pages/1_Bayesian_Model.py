@@ -30,7 +30,7 @@ if missing:
     st.caption("All available history is used by default; this page does not start sampling.")
     st.stop()
 
-metadata, index, effects, coefficients, diagnostics = load_outputs(str(MODEL_DIR), max(p.stat().st_mtime_ns for p in MODEL_DIR.glob("*.parquet")))
+metadata, index, effects, coefficients, diagnostics = load_outputs(str(MODEL_DIR), max((MODEL_DIR / name).stat().st_mtime_ns for name in required))
 coverage = metadata.get("coverage", {})
 c1, c2, c3, c4 = st.columns(4)
 c1.metric("Buildings", f"{len(metadata.get('buildings', {})):,}")
@@ -69,6 +69,8 @@ validation = metadata.get("validation")
 if validation:
     st.subheader("Withheld-price test")
     st.caption(validation.get("limitation", ""))
+    if validation.get("max_rhat", 0) > 1.01 or validation.get("divergences", 0):
+        st.warning("The withheld-price fit has a convergence warning; treat its metrics as provisional.")
     st.json(validation)
 
 st.subheader("Observation diagnostics")

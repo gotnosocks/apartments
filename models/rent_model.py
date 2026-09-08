@@ -163,7 +163,7 @@ def interval(values):
 def diagnostic_summary(inference):
     # Exclude anchored deterministic trend[0], whose variance is exactly zero.
     diag = az.summary(inference, var_names=['alpha','beta','sigma','sigma_rw','sigma_building',
-                                           'sigma_unit','sigma_floor','building_z','unit_z','floor_z','step_z'], kind='diagnostics')
+                                           'sigma_unit','sigma_floor','building_z','unit_z','floor_z','step_z'], kind='diagnostics', round_to='none')
     return {'max_rhat': float(diag.r_hat.max()), 'min_ess_bulk': float(diag.ess_bulk.min()),
             'divergences': int(inference.sample_stats.diverging.sum().item())}
 
@@ -233,6 +233,8 @@ def main():
     parser.add_argument('--tune',type=int,default=1000)
     parser.add_argument('--chains',type=int,default=4)
     parser.add_argument('--validate-from',help='Also refit withholding prices from this date onward')
+    parser.add_argument('--validation-draws',type=int,help='Override posterior draws for the withheld-price fit')
+    parser.add_argument('--validation-tune',type=int,help='Override tuning draws for the withheld-price fit')
     args = parser.parse_args()
     data, periods = prepare_data(args.db,args.frequency,args.start)
     output = args.output or Path('data/model')/args.frequency
@@ -243,7 +245,9 @@ def main():
         if not train_mask.any() or train_mask.all():
             raise ValueError('Validation split needs both training and withheld periods')
         print('Fitting temporal price holdout...',flush=True)
-        holdout = fit_model(data,periods,args.frequency,args.draws,args.tune,args.chains,train_mask)
+        validation_draws = args.validation_draws or args.draws
+        validation_tune = args.validation_tune or args.tune
+        holdout = fit_model(data,periods,args.frequency,validation_draws,validation_tune,args.chains,train_mask)
         held = data.loc[~train_mask]
         predictions = np.exp(np.median(predict(holdout,held),axis=0))
         last_rent = data.loc[train_mask].sort_values('period').groupby('unit_key').asking_rent.last()
@@ -255,6 +259,7 @@ def main():
         output.mkdir(parents=True,exist_ok=True)
         comparison.to_parquet(output/'validation.parquet',index=False)
         validation = {'from':args.validate_from,'observations':len(held),'previously_seen_unit_observations':int(seen.sum()),
+                      'draws_per_chain':validation_draws,'tune_per_chain':validation_tune,'chains':args.chains,
                       'median_absolute_percent_error':float(np.median(np.abs(predictions/held.asking_rent.to_numpy()-1))*100),
                       'seen_unit_model_median_absolute_percent_error':float(np.median(np.abs(predictions[seen]/held.asking_rent.to_numpy()[seen]-1))*100) if seen.any() else None,
                       'seen_unit_last_rent_median_absolute_percent_error':float(np.median(np.abs(baseline.to_numpy()[seen]/held.asking_rent.to_numpy()[seen]-1))*100) if seen.any() else None,

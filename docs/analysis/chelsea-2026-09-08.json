@@ -1,0 +1,80 @@
+{
+  "date": "2026-09-08",
+  "coverage": {
+    "archived_rental_units": 317,
+    "archived_rental_buildings": 163,
+    "raw_events": 8441,
+    "furnished_units_excluded": 30,
+    "invalid_or_outside_window_events": 3,
+    "furnished_events_excluded": 627,
+    "unique_unit_date_prices": 7527,
+    "modeled_units": 287,
+    "modeled_buildings": 147,
+    "unit_period_observations": 2386,
+    "unknown_floor_observations": 767,
+    "missing_size_observations": 1104,
+    "earliest_date": "2006-04-02",
+    "latest_date": "2026-09-07"
+  },
+  "full_fit": {
+    "max_rhat": 1.0056980699948836,
+    "min_ess_bulk": 819.2831061804677,
+    "divergences": 0,
+    "training_sha256": "15bf4d538ae709f6e1d2a3eb09d6bf2772ce0193560cd9ee86c023f0e4a17f7f"
+  },
+  "validation": {
+    "from": "2026-01-01",
+    "observations": 459,
+    "previously_seen_unit_observations": 377,
+    "median_absolute_percent_error": 6.508195757325275,
+    "seen_unit_model_median_absolute_percent_error": 6.083193211766824,
+    "seen_unit_last_rent_median_absolute_percent_error": 11.607738492328224,
+    "max_rhat": 1.006680450731637,
+    "min_ess_bulk": 752.9339237863667,
+    "divergences": 0,
+    "limitation": "Prices are withheld; latest archived covariates and full-data size scaling are retained. This is a retrospective price test, not a fully time-causal backtest.",
+    "draws_per_chain": 2000,
+    "tune_per_chain": 1500,
+    "chains": 4
+  },
+  "rent_changes_percent": {
+    "2022-01_to_2026-09": {
+      "median": 22.22087008357827,
+      "lower_95": 17.498086222993532,
+      "upper_95": 27.20759123383707
+    },
+    "2025-09_to_2026-09": {
+      "median": 6.921640476693819,
+      "lower_95": 4.3215269593800825,
+      "upper_95": 9.650482885916166
+    }
+  },
+  "run_manifest": {
+    "date": "2026-09-08",
+    "python": "3.14.0",
+    "packages": {
+      "pymc": "6.2.0",
+      "nutpie": "0.16.11",
+      "arviz": "1.2.0",
+      "numpy": "2.4.6",
+      "pandas": "3.0.5",
+      "duckdb": "1.5.5"
+    },
+    "full_fit": {
+      "draws_per_chain": 1000,
+      "tune_per_chain": 1000,
+      "chains": 4,
+      "seed": 150130
+    },
+    "validation_fit": {
+      "draws_per_chain": 2000,
+      "tune_per_chain": 1500,
+      "chains": 4,
+      "seed": 150130,
+      "from": "2026-01-01"
+    },
+    "reproduction_command": "uv run --extra model python models/rent_model.py --validate-from 2026-01-01 --validation-draws 2000 --validation-tune 1500",
+    "model_source_sha256": "33d962e5c2719386769cce2b5b4446121ee16bc87d70bb7f31efcba00428b72b",
+    "uv_lock_sha256": "a286a71fdb0733da1f9c385a971e96d9aaed631a89e56a73f90ef108ae330bff"
+  }
+}

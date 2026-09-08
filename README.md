@@ -3,6 +3,8 @@
 One Python project for the StreetEasy scraper, durable raw archive, local archive browser,
 rental explorer, and pricing model. Git and colocated Jujutsu track this repository.
 
+Latest results: [September 8 Chelsea analysis](docs/analysis/chelsea-2026-09-08.md).
+
 ## Setup
 
 ```sh
@@ -80,7 +82,8 @@ part of this repository's commit graph. There is no nested scraper project to in
 ## Chelsea pricing model
 
 ```sh
-uv run --extra model python models/rent_model.py --validate-from 2026-01-01
+uv run --extra model python models/rent_model.py --validate-from 2026-01-01 \
+  --validation-draws 2000 --validation-tune 1500
 ```
 
 The default fits all available history as monthly unit-level median prices. It
