@@ -194,6 +194,15 @@ class ArchiveSpider(scrapy.Spider):
     def errback(self, failure):
         self.outstanding = max(0, self.outstanding - 1)
         self.store.note_response(self.delay / 2)
+        if self.transport == 'oxylabs':
+            from .oxylabs import RetryableOxylabsError
+            if isinstance(failure.value, RetryableOxylabsError):
+                self.store.record_gap(
+                    self.generation, failure.request.meta['archive_url'], None, {},
+                    f'transient provider job failure after retries: {failure.value}',
+                    complete=False, retry_seconds=300)
+                yield from self.start_requests()
+                return
         self.store.record_gap(self.generation, failure.request.meta['archive_url'], None, {},
                               f'transient failure: {failure.value}', complete=False, pause_seconds=300)
         self.stopped = True

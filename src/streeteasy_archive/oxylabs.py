@@ -18,6 +18,23 @@ _PRIVATE_KEYS = {"authorization", "proxy-authorization", "cookie", "cookies", "s
 MAX_BODY = 32 * 1024 * 1024
 
 
+class RetryableOxylabsError(RuntimeError):
+    """A provider-side job failure that is safe to retry for the same URL."""
+
+
+def _result_item(envelope):
+    results = envelope.get("results") if isinstance(envelope, dict) else None
+    if not isinstance(results, list) or len(results) != 1 or not isinstance(results[0], dict):
+        raise RetryableOxylabsError("Oxylabs response did not contain one result")
+    item = results[0]
+    status = item.get("status_code", item.get("status"))
+    content = item.get("content")
+    if (isinstance(status, bool) or not isinstance(status, int)
+            or not 100 <= status <= 599 or not isinstance(content, (str, bytes))):
+        raise RetryableOxylabsError("Oxylabs result is missing status or content")
+    return results, item, status, content
+
+
 def _credentials() -> tuple[str, str]:
     # Loading is deliberately limited to the project .env and the process
     # environment. Values are never included in errors or response metadata.
@@ -89,33 +106,38 @@ class OxylabsDownloadHandler:
         payload = {"source": "universal", "url": url}
         if self.settings and self.settings.getbool("ARCHIVE_OXYLABS_RENDER", False):
             payload["render"] = "html"
-        try:
-            for attempt in range(3):
+        result = None
+        for attempt in range(3):
+            result = None
+            try:
                 await self._submission_slot()
                 result = await asyncio.to_thread(requests.post, API_URL, json=payload,
                                                   auth=(username, password), timeout=180,
                                                   allow_redirects=False)
-                if result.status_code != 429 or attempt == 2:
-                    break
-                if not self._defer_submissions(result.headers.get("Retry-After"), attempt):
-                    break
-            result.raise_for_status()
-            envelope = result.json()
-        except requests.RequestException as exc:
-            status = exc.response.status_code if exc.response is not None else None
-            detail = f"HTTP {status}" if status is not None else type(exc).__name__
-            raise RuntimeError(f"Oxylabs request failed ({detail})") from None
-        except (ValueError, TypeError) as exc:
-            raise RuntimeError("Oxylabs returned invalid JSON") from None
+                if result.status_code == 401 or result.status_code == 403:
+                    result.raise_for_status()
+                if result.status_code == 429 or result.status_code >= 500:
+                    result.raise_for_status()
+                envelope = result.json()
+                results, item, status, content = _result_item(envelope)
+                break
+            except requests.RequestException as exc:
+                api_status = exc.response.status_code if exc.response is not None else None
+                if api_status in (401, 403):
+                    raise RuntimeError(f"Oxylabs request failed (HTTP {api_status})") from None
+                detail = f"HTTP {api_status}" if api_status is not None else type(exc).__name__
+                failure = f"Oxylabs request failed ({detail})"
+            except (ValueError, TypeError):
+                failure = "Oxylabs returned invalid JSON"
+            except RetryableOxylabsError as exc:
+                failure = str(exc)
+            retry_headers = getattr(result, "headers", {}) if result is not None else {}
+            if attempt == 2 or not self._defer_submissions(
+                    retry_headers.get("Retry-After"), attempt):
+                raise RetryableOxylabsError(failure) from None
+        else:  # pragma: no cover - loop always breaks or raises
+            raise RetryableOxylabsError("Oxylabs job failed")
 
-        results = envelope.get("results") if isinstance(envelope, dict) else None
-        if not isinstance(results, list) or len(results) != 1 or not isinstance(results[0], dict):
-            raise RuntimeError("Oxylabs response did not contain one result")
-        item = results[0]
-        status = item.get("status_code", item.get("status"))
-        content = item.get("content")
-        if isinstance(status, bool) or not isinstance(status, int) or not 100 <= status <= 599 or not isinstance(content, (str, bytes)):
-            raise RuntimeError("Oxylabs result is missing status or content")
         body = content.encode("utf-8") if isinstance(content, str) else content
         if len(body) > MAX_BODY:
             raise RuntimeError("Oxylabs response exceeds 32 MiB")

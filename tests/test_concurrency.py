@@ -3,6 +3,8 @@ from scrapy.http import HtmlResponse
 from scrapy.crawler import Crawler
 from scrapy.settings import Settings
 from streeteasy_archive.crawler import ArchiveSpider
+from streeteasy_archive.oxylabs import RetryableOxylabsError
+from twisted.python.failure import Failure
 
 
 def spider(tmp_path, budget=0, transport='oxylabs'):
@@ -52,4 +54,23 @@ def test_configured_twenty_slots_respect_budget(tmp_path):
     batch=list(s.start_requests())
     assert len(batch)==17 and len({r.url for r in batch})==17
     assert s.crawler.settings.getint('CONCURRENT_REQUESTS')==20
+    s.store.close()
+
+
+def test_exhausted_provider_job_defers_one_url_and_refills_slot(tmp_path):
+    s = spider(tmp_path)
+    batch = list(s.start_requests())
+    failed = batch[0]
+    failure = Failure(RetryableOxylabsError('incomplete result'))
+    failure.request = failed
+
+    replacement = list(s.errback(failure))
+
+    row = s.store.db.execute(
+        'SELECT state,next_attempt FROM frontier WHERE generation=? AND url=?',
+        (s.generation, failed.url)).fetchone()
+    assert row['state'] == 'pending' and row['next_attempt'] > 0
+    assert len(replacement) == 1
+    assert not s.stopped
+    assert s.store.status(s.generation)['status'] != 'paused'
     s.store.close()

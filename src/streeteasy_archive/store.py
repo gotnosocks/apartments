@@ -232,7 +232,8 @@ class ArchiveStore:
         return digest
 
     def record_gap(self, generation, url, status, headers, reason, discovered=None,
-                   body=None, content_type='', complete=True, pause_seconds=None):
+                   body=None, content_type='', complete=True, pause_seconds=None,
+                   retry_seconds=None):
         digest = self.put_body(body) if body is not None else None
         with self._tx():
             self.db.execute('''INSERT INTO observations(generation,url,fetched,status,content_type,headers,body_hash,error)
@@ -240,6 +241,9 @@ class ArchiveStore:
                 json.dumps(_headers(headers)), digest, reason))
             self.db.execute('UPDATE frontier SET state=? WHERE generation=? AND url=?',
                             ('done' if complete else 'pending', generation, url))
+            if retry_seconds is not None:
+                self.db.execute('UPDATE frontier SET next_attempt=? WHERE generation=? AND url=?',
+                                (time.time() + max(0, retry_seconds), generation, url))
             self._enqueue(generation, discovered or [])
             if pause_seconds is not None:
                 self.db.execute("UPDATE generations SET status='paused',cooldown=? WHERE id=?",

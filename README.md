@@ -302,3 +302,8 @@ Both settings persist in the Chelsea profile. Fresh subscription response header
 confirmed a 50 jobs/second total limit; the run uses 20 in-flight jobs with a
 40 submissions/second ceiling. Fetch latency can keep actual throughput lower.
 Rendering remains disabled. Earlier trial settings above document the trial run.
+
+Oxylabs job envelopes that arrive without a usable status or body, along with
+provider 5xx/429 and network failures, are retried up to three times. If those
+retries still fail, only that URL is deferred for five minutes while other queue
+items continue. Account-wide authentication failures still pause the crawl.

@@ -75,8 +75,10 @@ def test_handler_rejects_invalid_status_values(monkeypatch, status):
     monkeypatch.setenv("OXYLABS_PASSWORD", "password")
     payload = {"results": [{"status_code": status, "content": "body"}]}
     monkeypatch.setattr(oxylabs.requests, "post", lambda *args, **kwargs: FakeResponse(payload))
+    handler = oxylabs.OxylabsDownloadHandler()
+    handler._defer_submissions = lambda value, attempt: True
     with pytest.raises(RuntimeError, match="missing status"):
-        run(oxylabs.OxylabsDownloadHandler(), Request("https://streeteasy.com/building/example"))
+        run(handler, Request("https://streeteasy.com/building/example"))
 
 
 def test_handler_rejects_oversized_body(monkeypatch):
@@ -110,12 +112,14 @@ def test_result_validation_and_error_status(monkeypatch, payload):
     monkeypatch.setenv("OXYLABS_USERNAME", "user")
     monkeypatch.setenv("OXYLABS_PASSWORD", "password")
     monkeypatch.setattr(oxylabs.requests, "post", lambda *args, **kwargs: FakeResponse(payload))
+    handler = oxylabs.OxylabsDownloadHandler()
+    handler._defer_submissions = lambda value, attempt: True
     if payload["results"] and payload["results"][0].get("status_code") == 403:
-        response = run(oxylabs.OxylabsDownloadHandler(), Request("https://streeteasy.com/building/example"))
+        response = run(handler, Request("https://streeteasy.com/building/example"))
         assert response.status == 403
     else:
         with pytest.raises(RuntimeError):
-            run(oxylabs.OxylabsDownloadHandler(), Request("https://streeteasy.com/building/example"))
+            run(handler, Request("https://streeteasy.com/building/example"))
 
 
 def test_submission_rate_separate_from_concurrency(monkeypatch):
@@ -167,3 +171,44 @@ def test_explicit_render_override(monkeypatch):
     monkeypatch.setattr(oxylabs.requests,'post',post)
     run(oxylabs.OxylabsDownloadHandler(Settings({'ARCHIVE_OXYLABS_RENDER':True})),Request('https://streeteasy.com/rental/123'))
     assert payloads[0]['render']=='html'
+
+
+def test_incomplete_provider_result_is_retried(monkeypatch):
+    monkeypatch.setenv('OXYLABS_USERNAME', 'user')
+    monkeypatch.setenv('OXYLABS_PASSWORD', 'password')
+    responses = [
+        FakeResponse({'results': [{'job_id': 'incomplete'}]}),
+        FakeResponse({'results': [{'status_code': 200, 'content': '<html>ok</html>'}]}),
+    ]
+    for response in responses:
+        response.headers = {}
+    calls = []
+    monkeypatch.setattr(oxylabs.requests, 'post',
+                        lambda *args, **kwargs: (calls.append(kwargs['json']['url']) or responses.pop(0)))
+    handler = oxylabs.OxylabsDownloadHandler()
+    handler._defer_submissions = lambda value, attempt: True
+
+    response = run(handler, Request('https://streeteasy.com/buildings/chelsea?page=4'))
+
+    assert response.status == 200
+    assert bytes(response.body) == b'<html>ok</html>'
+    assert len(calls) == 2
+    assert response.meta['archive_provider']['submission_attempts'] == 2
+
+
+def test_incomplete_provider_result_exhaustion_is_typed(monkeypatch):
+    monkeypatch.setenv('OXYLABS_USERNAME', 'user')
+    monkeypatch.setenv('OXYLABS_PASSWORD', 'password')
+    calls = []
+    def post(*args, **kwargs):
+        calls.append(1)
+        response = FakeResponse({'results': [{'job_id': 'incomplete'}]})
+        response.headers = {}
+        return response
+    monkeypatch.setattr(oxylabs.requests, 'post', post)
+    handler = oxylabs.OxylabsDownloadHandler()
+    handler._defer_submissions = lambda value, attempt: True
+
+    with pytest.raises(oxylabs.RetryableOxylabsError, match='missing status or content'):
+        run(handler, Request('https://streeteasy.com/buildings/chelsea?page=4'))
+    assert len(calls) == 3
