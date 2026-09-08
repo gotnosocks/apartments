@@ -63,6 +63,36 @@ def _safe_envelope(value):
     return value
 
 
+def build_payload(url, render=False):
+    url = _target_url(url)
+    payload = {"source": "universal", "url": url}
+    if is_unavailable_url(url):
+        category = 'For rent' if 'unavailable-rentals' in url else 'For sale'
+        detail_paths = ['/rental/'] if category == 'For rent' else ['/sale/', '/closing/']
+        detail_condition = ' or '.join(f'contains(@href,"{path}")' for path in detail_paths)
+        payload.update(url=url.split('?')[0], render='html', browser_instructions=[
+            {'type': 'click', 'selector': {'type': 'xpath', 'value': '//button[contains(., "View unavailable units")]'},
+             'timeout_s': 60, 'on_error': 'error'},
+            {'type': 'wait_for_element', 'selector': {'type': 'xpath', 'value': '//*[@role="dialog"]'},
+             'timeout_s': 60, 'on_error': 'error'},
+            {'type': 'click', 'selector': {'type': 'xpath', 'value': f'//*[@role="dialog"]//button[normalize-space(.)="{category}"]'},
+             'timeout_s': 60, 'on_error': 'error'},
+            # Confirm the requested tab became active before accepting
+            # the response; failed captures previously returned the other
+            # category or the one-row loading placeholder.
+            {'type': 'wait_for_element', 'selector': {'type': 'xpath', 'value': f'//*[@role="dialog"]//button[@aria-pressed="true" and normalize-space(.)="{category}"]'},
+             'timeout_s': 60, 'on_error': 'error'},
+            # Scope only schedules categories whose building summary is
+            # positive, so a real detail row is the required terminal
+            # condition. All(0) and loading placeholders remain gaps.
+            {'type': 'wait_for_element', 'selector': {'type': 'xpath', 'value': f'//*[@role="dialog"]//tbody//tr[.//a[{detail_condition}]]'},
+             'timeout_s': 60, 'on_error': 'error'},
+        ])
+    elif render:
+        payload["render"] = "html"
+    return payload
+
+
 class OxylabsDownloadHandler:
     """Fetch one canonical StreetEasy document through Oxylabs."""
 
@@ -103,31 +133,7 @@ class OxylabsDownloadHandler:
     async def download_request(self, request, spider=None):
         url = _target_url(request.url)
         username, password = _credentials()
-        payload = {"source": "universal", "url": url}
-        if is_unavailable_url(url):
-            category = 'For rent' if 'unavailable-rentals' in url else 'For sale'
-            detail_paths = ['/rental/'] if category == 'For rent' else ['/sale/', '/closing/']
-            detail_condition = ' or '.join(f'contains(@href,"{path}")' for path in detail_paths)
-            payload.update(url=url.split('?')[0], render='html', browser_instructions=[
-                {'type': 'click', 'selector': {'type': 'xpath', 'value': '//button[contains(., "View unavailable units")]'},
-                 'timeout_s': 60, 'on_error': 'error'},
-                {'type': 'wait_for_element', 'selector': {'type': 'xpath', 'value': '//*[@role="dialog"]'},
-                 'timeout_s': 60, 'on_error': 'error'},
-                {'type': 'click', 'selector': {'type': 'xpath', 'value': f'//*[@role="dialog"]//button[normalize-space(.)="{category}"]'},
-                 'timeout_s': 60, 'on_error': 'error'},
-                # Confirm the requested tab became active before accepting
-                # the response; failed captures previously returned the other
-                # category or the one-row loading placeholder.
-                {'type': 'wait_for_element', 'selector': {'type': 'xpath', 'value': f'//*[@role="dialog"]//button[@aria-pressed="true" and normalize-space(.)="{category}"]'},
-                 'timeout_s': 60, 'on_error': 'error'},
-                # Scope only schedules categories whose building summary is
-                # positive, so a real detail row is the required terminal
-                # condition. All(0) and loading placeholders remain gaps.
-                {'type': 'wait_for_element', 'selector': {'type': 'xpath', 'value': f'//*[@role="dialog"]//tbody//tr[.//a[{detail_condition}]]'},
-                 'timeout_s': 60, 'on_error': 'error'},
-            ])
-        elif self.settings and self.settings.getbool("ARCHIVE_OXYLABS_RENDER", False):
-            payload["render"] = "html"
+        payload = build_payload(url, bool(self.settings and self.settings.getbool("ARCHIVE_OXYLABS_RENDER", False)))
         result = None
         for attempt in range(3):
             result = None
