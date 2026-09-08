@@ -268,3 +268,11 @@ HTTP 200 pages. #4C retained 102 embedded price-history events through January 2
 Directory discovery supports legacy result cards with explicit Chelsea/West Chelsea
 labels, excluding navigation recommendations and Hudson Yards. These checks do not
 establish complete historical-unit discovery or citywide coverage.
+
+Oxylabs pacing now defaults to zero added delay, with AutoThrottle and random
+jitter disabled. Only one API request is in flight, and the next starts after its
+response has been archived. Provider rendering time is not interpreted as origin
+server load. Existing pre-migration API profiles automatically drop the inherited
+Firefox delay; an explicit `--delay N` sets and persists an API delay if desired.
+Direct Firefox/HTTP transports retain their conservative pacing. Challenge checks,
+HTTP failure pauses, request budgets and durable writer locks remain enabled.

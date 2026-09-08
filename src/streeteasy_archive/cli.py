@@ -30,6 +30,20 @@ def acquire_lock(data):
         return None
 
 
+def resolve_delay(explicit, transport, neighborhood, profile):
+    if explicit is not None:
+        delay = explicit
+    elif transport == 'oxylabs':
+        # Earlier API profiles inherited Firefox's delay. Migrate them once.
+        delay = profile.get('delay', 0) if profile.get('pacing_version') == 2 and profile.get('transport') == transport else 0
+    else:
+        delay = profile.get('delay', 60 if neighborhood else 10) if profile.get('transport') == transport else (60 if neighborhood else 10)
+    minimum = 0 if transport == 'oxylabs' else 10
+    if not math.isfinite(delay) or delay < minimum:
+        raise ValueError(f'--delay must be finite and at least {minimum} seconds for {transport}')
+    return delay
+
+
 def main(argv=None):
     parser = argparse.ArgumentParser(prog='streeteasy-archive')
     parser.add_argument('--data', default='data', help='archive directory (default: ./data)')
@@ -39,7 +53,7 @@ def main(argv=None):
         command.add_argument('--transport', choices=('http', 'firefox', 'oxylabs'))
         command.add_argument('--firefox-binary')
         command.add_argument('--neighborhood', choices=('chelsea',), help='persistent Chelsea + West Chelsea scope, excluding Hudson Yards')
-        command.add_argument('--delay', type=float, help='average delay seconds; randomized half to 1.5 times this value')
+        command.add_argument('--delay', type=float, help='request delay seconds; defaults to 0 for Oxylabs, randomized for direct transports')
         command.add_argument('--wait-for-cooldown', action='store_true', help='wait for an existing cooldown once; a new challenge still exits')
         command.add_argument('--building', help='restrict this run to a building URL and child detail URLs; repeat on resume')
         command.add_argument('--max-requests', type=int, default=0, help='request budget; zero is unlimited')
@@ -93,16 +107,14 @@ def main(argv=None):
         profile = json.loads(row[0]) if row else json.loads(previous_profile[0]) if previous_profile else {}
         args.neighborhood = args.neighborhood or profile.get('neighborhood')
         args.transport = args.transport or profile.get('transport', 'firefox' if args.neighborhood else 'http')
-        args.delay = args.delay if args.delay is not None else profile.get('delay', 60 if args.neighborhood else 10)
-        if not math.isfinite(args.delay) or args.delay < 10:
-            raise ValueError('--delay must be finite and at least 10 seconds')
+        args.delay = resolve_delay(args.delay, args.transport, args.neighborhood, profile)
         if args.neighborhood and args.building:
             raise ValueError('use either --neighborhood or --building')
         if args.neighborhood:
             from .scope import configure
             configure(store, generation)
             with store._tx():
-                store.db.execute('INSERT OR REPLACE INTO metadata VALUES(?,?)', (profile_key, json.dumps({'neighborhood': args.neighborhood, 'transport': args.transport, 'delay': args.delay})))
+                store.db.execute('INSERT OR REPLACE INTO metadata VALUES(?,?)', (profile_key, json.dumps({'neighborhood': args.neighborhood, 'transport': args.transport, 'delay': args.delay, 'pacing_version': 2})))
         if args.building:
             building = canonical_url(args.building)
             if not building or kind_for(building) != 'building':
@@ -238,7 +250,7 @@ def run_crawler(args, generation, lock=None):
     process = CrawlerProcess(settings=settings)
     errors = []
     crawler = process.create_crawler(ArchiveSpider)
-    deferred = process.crawl(crawler, data_dir=args.data, generation=generation, max_requests=args.max_requests, building=args.building, neighborhood=args.neighborhood, delay=args.delay)
+    deferred = process.crawl(crawler, data_dir=args.data, generation=generation, max_requests=args.max_requests, building=args.building, neighborhood=args.neighborhood, delay=args.delay, transport=args.transport)
     deferred.addErrback(lambda failure: errors.append(str(failure)))
     process.start()
     store = ArchiveStore(args.data)

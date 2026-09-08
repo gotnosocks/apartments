@@ -69,20 +69,26 @@ class ArchiveSpider(scrapy.Spider):
         'USER_AGENT': 'StreetEasyArchive/0.1 (personal archival research)',
     }
 
-    def __init__(self, data_dir='data', generation=None, max_requests=0, building=None, neighborhood=None, delay=None, **kwargs):
+    def __init__(self, data_dir='data', generation=None, max_requests=0, building=None, neighborhood=None, delay=None, transport='http', **kwargs):
         super().__init__(**kwargs)
         self.store = ArchiveStore(data_dir)
         self.generation = int(generation or self.store.current_generation() or self.store.new_generation())
         self.max_requests = int(max_requests)
         self.building = building
         self.neighborhood = neighborhood
-        self.delay = float(delay or 10)
+        self.transport = transport
+        self.delay = float(delay if delay is not None else (0 if transport == 'oxylabs' else 10))
         self.sent = 0
         self.stopped = False
 
     @classmethod
     def from_crawler(cls, crawler, *args, **kwargs):
         spider = super().from_crawler(crawler, *args, **kwargs)
+        if spider.transport == 'oxylabs':
+            # API latency includes provider rendering/retries, not origin load.
+            crawler.settings.set('DOWNLOAD_TIMEOUT', 200, priority='cmdline')
+            crawler.settings.set('AUTOTHROTTLE_ENABLED', False, priority='cmdline')
+            crawler.settings.set('RANDOMIZE_DOWNLOAD_DELAY', False, priority='cmdline')
         crawler.settings.set('DOWNLOAD_DELAY', spider.delay, priority='cmdline')
         crawler.settings.set('AUTOTHROTTLE_START_DELAY', spider.delay, priority='cmdline')
         return spider
@@ -111,7 +117,8 @@ class ArchiveSpider(scrapy.Spider):
 
     async def start(self):
         # Across process restarts, Scrapy's in-memory download slot is new.
-        await asyncio.sleep(self.store.request_delay())
+        if self.transport != 'oxylabs':
+            await asyncio.sleep(self.store.request_delay())
         for request in self.start_requests():
             yield request
 
