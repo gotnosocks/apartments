@@ -54,7 +54,7 @@ def command(workspace, max_requests, concurrency, api_rps):
 
 def clone_snapshot(base, workspace, snapshot):
     """Bulk-copy a closed immutable snapshot; share raw bodies without copying them."""
-    from streeteasy_archive.cloud_state import copy_closed_database
+    from streeteasy_archive.snapshot_copy import copy_closed_database
     if not (base/'complete.json').exists():
         raise ValueError('Snapshot upload is incomplete')
     marker = workspace/'origin.json'
@@ -112,16 +112,6 @@ def resume(snapshot: str, workspace_id: str, max_requests: int=100,
                   'log':str(log.relative_to('/archive')), 'max_requests':max_requests,
                   'concurrency':concurrency, 'api_rps':api_rps}
         (workspace/'last-run.json').write_text(json.dumps(result,indent=2))
-        pointer_path = Path('/archive/authoritative.json')
-        if pointer_path.exists():
-            pointer = json.loads(pointer_path.read_text())
-            if pointer.get('archive_path') == workspace.relative_to('/archive').as_posix():
-                from streeteasy_archive.cloud_state import publish_browser_checkpoint
-                checkpoint = publish_browser_checkpoint(workspace, Path('/archive'))
-                pointer['committed_at'] = checkpoint['committed_at']
-                partial_pointer = pointer_path.with_suffix('.partial.json')
-                partial_pointer.write_text(json.dumps(pointer,indent=2))
-                partial_pointer.replace(pointer_path)
         volume.commit()
         committed = True
         return result
@@ -147,7 +137,7 @@ def publish_workspace(workspace, destination, snapshots, new_snapshot, seed_data
                           or Path(str(seed)+'.wal').exists()):
         raise ValueError('Seed database must have a completed preparation and no active WAL')
     destination.mkdir(parents=True)
-    from streeteasy_archive.cloud_state import checkpoint_database, copy_closed_database
+    from streeteasy_archive.snapshot_copy import checkpoint_database, copy_closed_database
     checkpoint_database(workspace/'archive.sqlite3')
     copy_closed_database(workspace/'archive.sqlite3', destination/'archive.sqlite3')
     if seed_database:

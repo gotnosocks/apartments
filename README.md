@@ -22,11 +22,8 @@ The existing local credentials have been moved here; do not put them in Git.
 
 ## Collect and browse
 
-The [cloud archive is authoritative](docs/data/cloud-authority.md). Start the
-current browser with `uv run streeteasy-archive serve-cloud --port 8765`.
-The local archive is retained as a backup; use the remote scraping workflow for
-new collection. The legacy local commands below remain documented for standalone
-archives and recovery.
+The browser reads a local archive. Cloud browsing and automatic browser checkpoints
+are not enabled; download a cloud snapshot manually when needed.
 
 ```sh
 uv run streeteasy-archive status

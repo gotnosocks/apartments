@@ -2,7 +2,6 @@
 const $ = id => document.getElementById(id);
 const labels = {listing:'Listing detail',building:'Building',search:'Search page',directory:'Directory',sitemap:'Sitemap',homepage:'Homepage'};
 let currentPage=1, selectedUrl=null, detail=null, observation=null, extracted=null, activeTab='overview', requestSerial=0;
-let cloudMode=false, lastActivity=Date.now(), refreshBusy=false;
 const number = value => Number(value||0).toLocaleString();
 const date = value => value ? new Date(value*1000).toLocaleString(undefined,{month:'short',day:'numeric',year:'numeric',hour:'2-digit',minute:'2-digit'}) : 'Not fetched';
 const bytes = value => value>=1048576 ? (value/1048576).toFixed(1)+' MB' : Math.round(value/1024)+' KB';
@@ -13,14 +12,6 @@ function fail(error){$('error').textContent=error.message;$('error').hidden=fals
 function pageName(url){try{const path=new URL(url).pathname;if(path==='/')return 'StreetEasy homepage';return decodeURIComponent(path).replace(/^\/(building|buildings|for-rent|for-sale|rental|sale)\//,'').replaceAll('-',' ').replaceAll('_',' ');}catch{return url;}}
 async function summary(){
  const data=await get('/api/summary?'+params());
- cloudMode=data.storage_mode==='cloud';
- const storageNote=$('storage-note');storageNote.hidden=!cloudMode;
- if(cloudMode){
-  const committed=data.cloud_committed_at;
-  const commitTime=committed?(typeof committed==='number'?date(committed):new Date(committed).toLocaleString()):'not reported';
-  storageNote.textContent=`Authoritative archive: Modal cloud. Local archive is a backup. Last cloud commit: ${commitTime}.`;
- }
- pollLabel();
  const selected=$('generation').value;
  $('generation').replaceChildren(node('option','Latest'));
  $('generation').firstChild.value='';
@@ -64,7 +55,7 @@ async function pages(){
  const count=Math.max(1,Math.ceil(data.total/data.page_size));
  $('page-label').textContent=`Page ${data.page} of ${count}`;$('previous').disabled=currentPage<=1;$('next').disabled=currentPage>=count;
 }
-async function refresh(){if(refreshBusy)return;refreshBusy=true;try{$('error').hidden=true;await Promise.all([summary(),pages()]);}catch(error){fail(error);}finally{refreshBusy=false;}}
+async function refresh(){try{$('error').hidden=true;await Promise.all([summary(),pages()]);}catch(error){fail(error);}}
 function field(label,value){const wrapper=node('div',undefined,'field');wrapper.append(node('dt',label),node('dd',value==null?'—':String(value)));return wrapper;}
 async function selectPage(url){
  selectedUrl=url;detail=null;activeTab='overview';extracted=null;observation=null;
@@ -130,9 +121,4 @@ $('previous').addEventListener('click',()=>{currentPage--;pages().catch(fail);})
 $('next').addEventListener('click',()=>{currentPage++;pages().catch(fail);});
 const tabs=[...document.querySelectorAll('[data-tab]')];
 for(const button of tabs){button.addEventListener('click',()=>{activeTab=button.dataset.tab;renderPanel().catch(fail);});button.addEventListener('keydown',event=>{if(['ArrowLeft','ArrowRight','Home','End'].includes(event.key)){event.preventDefault();let index=tabs.indexOf(button);index=event.key==='Home'?0:event.key==='End'?tabs.length-1:(index+(event.key==='ArrowRight'?1:-1)+tabs.length)%tabs.length;tabs[index].click();tabs[index].focus();}});}
-function pollLabel(){const idle=cloudMode&&Date.now()-lastActivity>=120000;$('poll-label').textContent=cloudMode?(idle?'Auto-refresh paused · inactive':'Auto-refresh · 30s while active'):'Auto-refresh · 10s';}
-function active(){lastActivity=Date.now();pollLabel();}
-for(const event of ['pointerdown','keydown','scroll'])document.addEventListener(event,active,{passive:true});
-document.addEventListener('visibilitychange',()=>{if(!document.hidden)active();});
-async function poll(){pollLabel();if(!document.hidden&&(!cloudMode||Date.now()-lastActivity<120000))await refresh();setTimeout(poll,cloudMode?30000:10000);}
-refresh().finally(()=>setTimeout(poll,cloudMode?30000:10000));
+refresh();setInterval(()=>{if(!document.hidden)refresh();},10000);

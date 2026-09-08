@@ -1,11 +1,9 @@
-"""Cloud writer helpers; no Modal SDK and no implicit Volume commits."""
+"""Safe file copying for explicitly requested archive snapshots."""
 from __future__ import annotations
 
-import json
 from pathlib import Path
 import sqlite3
 import shutil
-import time
 
 
 def checkpoint_database(source):
@@ -47,36 +45,3 @@ def copy_closed_database(source, destination):
     finally:
         db.close()
 
-
-def publish_browser_checkpoint(archive_root, cloud_root):
-    """Publish a closed, standalone SQLite copy under the caller's writer lock.
-
-    Readers use the replaced database, never the active writer's cross-container WAL.
-    The caller must commit the Volume after this helper returns.
-    """
-    archive = Path(archive_root).resolve()
-    root = Path(cloud_root).resolve()
-    relative = archive.relative_to(root).as_posix()
-    browser = root/'browser'
-    if archive == browser:
-        raise ValueError('Browser checkpoint cannot be its own source')
-    browser.mkdir(parents=True, exist_ok=True)
-    bodies = browser/'bodies'
-    if bodies.is_symlink():
-        if bodies.resolve() != (root/'bodies').resolve():
-            raise ValueError('Browser body link points to another archive')
-    elif bodies.exists():
-        raise ValueError('Browser bodies must be a link to shared cloud bodies')
-    else:
-        bodies.symlink_to(root/'bodies', target_is_directory=True)
-    partial = browser/'archive.partial.sqlite3'
-    for suffix in ('', '-wal', '-shm'):
-        Path(str(partial)+suffix).unlink(missing_ok=True)
-    checkpoint_database(archive/'archive.sqlite3')
-    copy_closed_database(archive/'archive.sqlite3', partial)
-    partial.replace(browser/'archive.sqlite3')
-    record = {'committed_at':time.time(), 'archive_path':relative}
-    metadata = browser/'checkpoint.partial.json'
-    metadata.write_text(json.dumps(record,indent=2))
-    metadata.replace(browser/'checkpoint.json')
-    return record
