@@ -78,6 +78,8 @@ class ArchiveSpider(scrapy.Spider):
         self.neighborhood = neighborhood
         self.transport = transport
         self.delay = float(delay if delay is not None else (0 if transport == 'oxylabs' else 10))
+        self.concurrency = 5 if transport == 'oxylabs' else 1
+        self.outstanding = 0
         self.sent = 0
         self.stopped = False
 
@@ -85,6 +87,8 @@ class ArchiveSpider(scrapy.Spider):
     def from_crawler(cls, crawler, *args, **kwargs):
         spider = super().from_crawler(crawler, *args, **kwargs)
         if spider.transport == 'oxylabs':
+            crawler.settings.set('CONCURRENT_REQUESTS', spider.concurrency, priority='cmdline')
+            crawler.settings.set('CONCURRENT_REQUESTS_PER_DOMAIN', spider.concurrency, priority='cmdline')
             # API latency includes provider rendering/retries, not origin load.
             crawler.settings.set('DOWNLOAD_TIMEOUT', 200, priority='cmdline')
             crawler.settings.set('AUTOTHROTTLE_ENABLED', False, priority='cmdline')
@@ -106,13 +110,16 @@ class ArchiveSpider(scrapy.Spider):
                 break
             self.store.resolve_obsolete_url(self.generation, row['url'], canonical if kind else None, kind)
         self.sent += 1
+        self.outstanding += 1
         return scrapy.Request(row['url'], headers=self.store.conditional_headers(self.generation, row['url']),
                               callback=self.parse, errback=self.errback, dont_filter=True,
                               meta={'archive_url': row['url'], 'archive_kind': row['kind'], 'dont_redirect': True, 'handle_httpstatus_all': True})
 
     def start_requests(self):
-        request = self._request()
-        if request:
+        while self.outstanding < self.concurrency:
+            request = self._request()
+            if request is None:
+                break
             yield request
 
     async def start(self):
@@ -123,6 +130,7 @@ class ArchiveSpider(scrapy.Spider):
             yield request
 
     def parse(self, response):
+        self.outstanding = max(0, self.outstanding - 1)
         self.store.note_response(self.delay / 2)
         url = response.meta['archive_url']
         headers = response.meta.get('archive_response_headers', dict(response.headers.to_unicode_dict()))
@@ -184,6 +192,7 @@ class ArchiveSpider(scrapy.Spider):
             yield from self.start_requests()
 
     def errback(self, failure):
+        self.outstanding = max(0, self.outstanding - 1)
         self.store.note_response(self.delay / 2)
         self.store.record_gap(self.generation, failure.request.meta['archive_url'], None, {},
                               f'transient failure: {failure.value}', complete=False, pause_seconds=300)

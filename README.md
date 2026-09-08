@@ -254,7 +254,8 @@ Resume with a bounded trial:
 streeteasy-archive --data data resume --transport oxylabs --max-requests 200
 ```
 
-The Chelsea profile remembers the transport. The handler uses the Realtime API
+The Chelsea profile remembers the transport. Oxylabs uses five concurrent requests;
+direct transports remain sequential. The handler uses the Realtime API
 with `source=universal` and `render=html`; it archives returned HTML plus sanitized
 provider result metadata. No image-download product or structured/AI parser is
 requested. Rendering may still load assets inside the provider's browser.
@@ -270,8 +271,8 @@ labels, excluding navigation recommendations and Hudson Yards. These checks do n
 establish complete historical-unit discovery or citywide coverage.
 
 Oxylabs pacing now defaults to zero added delay, with AutoThrottle and random
-jitter disabled. Only one API request is in flight, and the next starts after its
-response has been archived. Provider rendering time is not interpreted as origin
+jitter disabled. Up to five API requests are in flight. A completed response is archived before
+its slot is refilled; archive writes remain serialized on the reactor thread. Provider rendering time is not interpreted as origin
 server load. Existing pre-migration API profiles automatically drop the inherited
 Firefox delay; an explicit `--delay N` sets and persists an API delay if desired.
 Direct Firefox/HTTP transports retain their conservative pacing. Challenge checks,
