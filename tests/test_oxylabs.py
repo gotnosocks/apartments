@@ -154,3 +154,16 @@ def test_provider_429_retries_bounded_without_changing_target(monkeypatch):
     with pytest.raises(RuntimeError, match='HTTP 429'):
         run(oxylabs.OxylabsDownloadHandler(), Request('https://streeteasy.com/rental/123'))
     assert len(calls)==3
+
+
+def test_explicit_render_override(monkeypatch):
+    from scrapy.settings import Settings
+    monkeypatch.setenv('OXYLABS_USERNAME', 'user')
+    monkeypatch.setenv('OXYLABS_PASSWORD', 'password')
+    payloads=[]
+    def post(*args, **kwargs):
+        payloads.append(kwargs['json'])
+        return FakeResponse({'results':[{'status_code':200,'content':'<html/>'}]})
+    monkeypatch.setattr(oxylabs.requests,'post',post)
+    run(oxylabs.OxylabsDownloadHandler(Settings({'ARCHIVE_OXYLABS_RENDER':True})),Request('https://streeteasy.com/rental/123'))
+    assert payloads[0]['render']=='html'
