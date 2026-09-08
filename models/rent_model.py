@@ -1,15 +1,15 @@
-"""Bayesian weekly rent model for nearby West 13th and West 15th Street buildings.
-
-The response is log asking rent. Observations are collapsed to one median per
-building-unit-week. Units with confirmed Blueground furnished periods are
-excluded from modeling.
-"""
-
+"""Fit a pooled Chelsea asking-rent model from the local archive-derived database."""
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
+import os
 from pathlib import Path
+
+# Nutpie compiles the graph through Numba. Avoid PyTensor's unrelated C linker,
+# which can select an unavailable Apple linker on machines without full Xcode.
+os.environ.setdefault('PYTENSOR_FLAGS', 'cxx=')
 
 import arviz as az
 import duckdb
@@ -17,578 +17,255 @@ import numpy as np
 import pandas as pd
 import pymc as pm
 import pytensor.tensor as pt
-from scipy.special import stdtr
 
-CUTOFF = pd.Timestamp("2022-01-01")
-BUILDINGS = {
-    "the-sierra-chelsea": "The Sierra Chelsea",
-    "stonehenge-gardens": "Stonehenge Gardens",
-    "101w15-101-west-15th-street-new_york": "101 W 15th",
-    "117-west-13-street-new_york": "117 W 13th",
-    "128-west-13-street-new_york": "128 W 13th",
-}
-REFERENCE_BUILDING = "the-sierra-chelsea"
-FLOOR_REFERENCES = {
-    "the-sierra-chelsea": 3,
-    "stonehenge-gardens": 3,
-    "101w15-101-west-15th-street-new_york": 3,
-    "117-west-13-street-new_york": 3,
-    "128-west-13-street-new_york": 3,
-}
-FREQUENCIES = {
-    "weekly": {"rw_prior": 0.03, "date_freq": "W-MON", "label": "week"},
-}
+FEATURES = ['bedrooms', 'bathrooms', 'log_sqft_z', 'bedrooms_missing',
+            'bathrooms_missing', 'sqft_missing']
 
 
-def prepare_data(
-    db_path: Path,
-    frequency: str = "weekly",
-) -> tuple[pd.DataFrame, pd.DatetimeIndex]:
-    if frequency not in FREQUENCIES:
-        raise ValueError(f"Unknown frequency: {frequency}")
-    connection = duckdb.connect(str(db_path), read_only=True)
-    events = connection.execute(
-        """SELECT l.building_slug, l.unit, l.bedrooms, l.bathrooms, l.square_feet,
-                  l.floor AS marketed_floor, l.physical_floor, l.unit_format,
-                  l.is_garden_facing, l.is_street_facing,
-                  CAST(e.event_at AS DATE) AS event_date,
-                  e.price AS asking_rent
-           FROM listing_events e
-           JOIN listings l USING (source, source_listing_id)
-           WHERE e.source = 'streeteasy'
-             AND l.building_slug IN (?, ?, ?, ?, ?)
-             AND e.event_at >= ?
-             AND e.price BETWEEN 1000 AND 30000
-             AND COALESCE(l.unit_is_specific, true)
-             AND NOT EXISTS (
-                 SELECT 1
-                 FROM unit_furnishing_periods fp
-                 WHERE fp.source=e.source
-                   AND fp.building_slug=l.building_slug
-                   AND fp.unit=l.unit
-                   AND fp.furnishing_status='confirmed-furnished'
-             )""",
-        [*BUILDINGS, CUTOFF.date()],
-    ).df()
-    excluded_blueground_units = [
-        {"building_slug": row[0], "unit": row[1]}
-        for row in connection.execute(
-            """SELECT DISTINCT building_slug, unit
-               FROM unit_furnishing_periods
-               WHERE source='streeteasy'
-                 AND building_slug IN (?, ?, ?, ?, ?)
-                 AND furnishing_status='confirmed-furnished'
-               ORDER BY building_slug, unit""",
-            list(BUILDINGS),
-        ).fetchall()
-    ]
-    connection.close()
-    events["event_date"] = pd.to_datetime(events["event_date"])
-    # Monday-starting calendar week containing the observed event.
-    events["period"] = events["event_date"] - pd.to_timedelta(
-        events["event_date"].dt.weekday, unit="D"
-    )
-
-    period_data = events.groupby(["building_slug", "unit", "period"], as_index=False).agg(
-        asking_rent=("asking_rent", "median"),
-        bedrooms=("bedrooms", "first"),
-        bathrooms=("bathrooms", "first"),
-        square_feet=("square_feet", "first"),
-        marketed_floor=("marketed_floor", "first"),
-        physical_floor=("physical_floor", "first"),
-        unit_format=("unit_format", "first"),
-        is_garden_facing=("is_garden_facing", "first"),
-        is_street_facing=("is_street_facing", "first"),
-        source_events=("asking_rent", "size"),
-    )
-    period_data = period_data.dropna(subset=[
-        "bedrooms", "physical_floor", "asking_rent"
-    ]).copy()
-    period_data["bedrooms"] = period_data["bedrooms"].astype(int)
-    period_data["marketed_floor"] = period_data["marketed_floor"].astype(int)
-    period_data["physical_floor"] = period_data["physical_floor"].astype(int)
-    period_data["square_feet"] = period_data["square_feet"].astype(float)
-    period_data["is_garden_facing"] = period_data["is_garden_facing"].fillna(False).astype(bool)
-    period_data["is_street_facing"] = period_data["is_street_facing"].fillna(False).astype(bool)
-    period_data["facing_contrast"] = (
-        period_data["is_street_facing"].astype(float)
-        - period_data["is_garden_facing"].astype(float)
-    ) / 2
-    period_data["both_facing"] = (
-        period_data["is_garden_facing"] & period_data["is_street_facing"]
-    ).astype(float)
-    period_data["sqft_missing"] = period_data["square_feet"].isna().astype(int)
-    bedroom_medians = period_data.groupby(["building_slug", "bedrooms"])["square_feet"].transform("median")
-    period_data["square_feet_imputed"] = period_data["square_feet"].fillna(
-        bedroom_medians
-    )
-    period_data["square_feet_imputed"] = period_data["square_feet_imputed"].fillna(
-        period_data["square_feet"].median()
-    )
-    log_sqft = np.log(period_data["square_feet_imputed"])
-    period_data["log_sqft_z"] = (log_sqft - log_sqft.mean()) / log_sqft.std()
-    period_data["log_rent"] = np.log(period_data["asking_rent"])
-
-    periods = pd.date_range(
-        period_data["period"].min(),
-        period_data["period"].max(),
-        freq=FREQUENCIES[frequency]["date_freq"],
-    )
-    period_lookup = {period: index for index, period in enumerate(periods)}
-    period_data["unit_key"] = period_data["building_slug"] + "/" + period_data["unit"]
-    unit_names = sorted(period_data["unit_key"].unique())
-    unit_lookup = {unit: index for index, unit in enumerate(unit_names)}
-    building_lookup = {building: index for index, building in enumerate(BUILDINGS)}
-    period_data["period_idx"] = period_data["period"].map(period_lookup).astype(int)
-    period_data["unit_idx"] = period_data["unit_key"].map(unit_lookup).astype(int)
-    period_data["building_idx"] = period_data["building_slug"].map(building_lookup).astype(int)
-    period_data.attrs["excluded_blueground_units"] = excluded_blueground_units
-    return period_data, periods
+def prepare_data(db_path: Path, frequency='monthly', start=None):
+    if frequency not in ('monthly', 'weekly'):
+        raise ValueError('Frequency must be monthly or weekly')
+    with duckdb.connect(str(db_path), read_only=True) as db:
+        events = db.execute('''SELECT l.source_listing_id,l.building_slug,l.unit,
+            l.bedrooms,l.bathrooms,l.square_feet,l.physical_floor,l.floor_inference,
+            CAST(e.event_at AS DATE) AS event_date,e.price AS asking_rent,
+            e.event_type,CAST(e.raw_json AS VARCHAR) AS event_json,
+            l.unit_is_specific,l.is_furnished
+            FROM listing_events e JOIN listings l USING(source,source_listing_id)
+            WHERE e.source='streeteasy' ''').df()
+        captures = db.execute('''SELECT source_listing_id, structured_json
+            FROM captures WHERE source='streeteasy' ''').fetchall()
+        names = dict(db.execute('''SELECT building_slug,
+            coalesce(max(canonical_address),building_slug) FROM listings
+            WHERE source='streeteasy' GROUP BY building_slug''').fetchall())
+    if events.empty:
+        raise ValueError('Import rental captures before fitting the model')
+    events['event_date'] = pd.to_datetime(events.event_date)
+    # Exclude a whole unit if any archived episode explicitly marks it furnished.
+    # This conservative rule also removes its conventional rental history.
+    furnished_ids = set(events.loc[events.is_furnished.fillna(False), 'source_listing_id'])
+    evidence = (events.event_json.fillna('') + ' ' + events.event_type.fillna('')).str.lower()
+    furnished_ids.update(events.loc[evidence.str.contains(r'blueground|\bfurnished\b', regex=True), 'source_listing_id'])
+    for source_id, raw in captures:
+        item = json.loads(raw)
+        if any(str(feature).upper() == 'FURNISHED' for feature in item.get('home_features', [])):
+            furnished_ids.add(source_id)
+    coverage = {'archived_rental_units': int(events.source_listing_id.nunique()),
+                'archived_rental_buildings': int(events.building_slug.nunique()),
+                'raw_events': len(events), 'furnished_units_excluded': len(furnished_ids)}
+    valid = events.asking_rent.gt(0) & events.event_date.notna() & events.unit_is_specific.fillna(True)
+    if start is not None:
+        valid &= events.event_date.ge(pd.Timestamp(start))
+    coverage['invalid_or_outside_window_events'] = int((~valid).sum())
+    coverage['furnished_events_excluded'] = int((valid & events.source_listing_id.isin(furnished_ids)).sum())
+    events = events.loc[valid & ~events.source_listing_id.isin(furnished_ids)].copy()
+    if events.empty:
+        raise ValueError('No observations remain after the model exclusions')
+    # Several captures repeat an event; count a price only once per unit/date.
+    events = events.drop_duplicates(['source_listing_id', 'event_date', 'asking_rent'])
+    coverage['unique_unit_date_prices'] = len(events)
+    events.loc[events.floor_inference.eq('heuristic-first-digit'), 'physical_floor'] = np.nan
+    if frequency == 'monthly':
+        events['period'] = events.event_date.dt.to_period('M').dt.to_timestamp()
+        freq = 'MS'
+    else:
+        events['period'] = events.event_date - pd.to_timedelta(events.event_date.dt.weekday, unit='D')
+        freq = 'W-MON'
+    data = events.groupby(['building_slug', 'unit', 'period'], as_index=False).agg(
+        asking_rent=('asking_rent', 'median'), bedrooms=('bedrooms', 'first'),
+        bathrooms=('bathrooms', 'first'), square_feet=('square_feet', 'first'),
+        physical_floor=('physical_floor', 'first'), source_events=('asking_rent', 'size'))
+    for col in ['bedrooms', 'bathrooms', 'square_feet', 'physical_floor']:
+        data[col] = pd.to_numeric(data[col], errors='coerce')
+    data.loc[data.square_feet.le(0), 'square_feet'] = np.nan
+    for col in ['bedrooms', 'bathrooms']:
+        data[col + '_missing'] = data[col].isna().astype(float)
+        median = data[col].median()
+        data[col] = data[col].fillna(median if pd.notna(median) else 0)
+    data['sqft_missing'] = data.square_feet.isna().astype(float)
+    group_median = data.groupby('bedrooms').square_feet.transform('median')
+    overall = data.square_feet.median()
+    data['square_feet_imputed'] = data.square_feet.fillna(group_median).fillna(overall if pd.notna(overall) else 700)
+    log_size = np.log(data.square_feet_imputed)
+    size_scale = float(log_size.std())
+    if not np.isfinite(size_scale) or size_scale == 0:
+        size_scale = 1.0
+    data['log_sqft_z'] = (log_size - log_size.mean()) / size_scale
+    data['log_rent'] = np.log(data.asking_rent)
+    data['floor_level'] = data.physical_floor.fillna(-1).astype(int)
+    data['unit_key'] = data.building_slug + '/' + data.unit.astype(str)
+    periods = pd.date_range(data.period.min(), data.period.max(), freq=freq)
+    for col, idx in [('building_slug', 'building_idx'), ('unit_key', 'unit_idx'), ('floor_level', 'floor_idx')]:
+        values = sorted(data[col].unique())
+        data[idx] = data[col].map(dict(zip(values, range(len(values))))).astype(int)
+    data['period_idx'] = data.period.map(dict(zip(periods, range(len(periods))))).astype(int)
+    coverage.update(modeled_units=int(data.unit_key.nunique()), modeled_buildings=int(data.building_slug.nunique()),
+                    unit_period_observations=len(data), unknown_floor_observations=int(data.physical_floor.isna().sum()),
+                    missing_size_observations=int(data.sqft_missing.sum()),
+                    earliest_date=str(events.event_date.min().date()), latest_date=str(events.event_date.max().date()))
+    data.attrs.update(coverage=coverage, names=names, excluded_furnished_units=sorted(furnished_ids),
+                      size_log_mean=float(log_size.mean()), size_log_scale=size_scale)
+    return data, periods
 
 
-def fit_model(
-    data: pd.DataFrame,
-    periods: pd.DatetimeIndex,
-    frequency: str,
-    draws: int,
-    tune: int,
-    chains: int,
-):
-    unit_names = sorted(data["unit_key"].unique())
-    floor_levels = sorted(data["physical_floor"].unique())
-    floor_steps = floor_levels[1:]
-    floor_lookup = {floor: index for index, floor in enumerate(floor_levels)}
-    floor_indices = data["physical_floor"].map(floor_lookup).to_numpy()
-    coords = {
-        "obs_id": np.arange(len(data)),
-        "period": periods.strftime("%Y-%m-%d").tolist(),
-        "trend_step": periods.strftime("%Y-%m-%d").tolist()[1:],
-        "building": list(BUILDINGS),
-        "floor_level": floor_levels,
-        "floor_step": floor_steps,
-        "unit": unit_names,
-    }
-    with pm.Model(coords=coords) as model:
-        period_idx = pm.Data("period_idx", data["period_idx"].to_numpy(), dims="obs_id")
-        unit_idx = pm.Data("unit_idx", data["unit_idx"].to_numpy(), dims="obs_id")
-        floor_idx = pm.Data("floor_idx", floor_indices, dims="obs_id")
-        building_idx = pm.Data("building_idx", data["building_idx"].to_numpy(), dims="obs_id")
-        has_first_bedroom = pm.Data(
-            "has_first_bedroom",
-            (data["bedrooms"] >= 1).astype(float).to_numpy(),
-            dims="obs_id",
-        )
-        has_second_bedroom = pm.Data(
-            "has_second_bedroom",
-            (data["bedrooms"] >= 2).astype(float).to_numpy(),
-            dims="obs_id",
-        )
-        has_third_bedroom = pm.Data(
-            "has_third_bedroom",
-            (data["bedrooms"] >= 3).astype(float).to_numpy(),
-            dims="obs_id",
-        )
-        log_sqft_z = pm.Data("log_sqft_z", data["log_sqft_z"].to_numpy(), dims="obs_id")
-        sqft_missing = pm.Data(
-            "sqft_missing", data["sqft_missing"].to_numpy(), dims="obs_id"
-        )
-        facing_contrast = pm.Data(
-            "facing_contrast", data["facing_contrast"].to_numpy(), dims="obs_id"
-        )
-        both_facing = pm.Data(
-            "both_facing", data["both_facing"].to_numpy(), dims="obs_id"
-        )
-
-        alpha = pm.Normal("alpha", mu=np.log(5500), sigma=0.7)
-        beta_first_bedroom = pm.Normal("beta_first_bedroom", mu=0.2, sigma=0.3)
-        beta_second_bedroom = pm.Normal("beta_second_bedroom", mu=0.1, sigma=0.25)
-        beta_third_bedroom = pm.Normal("beta_third_bedroom", mu=0.1, sigma=0.3)
-        beta_stonehenge = pm.Normal("beta_stonehenge", mu=-0.15, sigma=0.3)
-        beta_101w15 = pm.Normal("beta_101w15", mu=-0.1, sigma=0.3)
-        beta_117w13 = pm.Normal("beta_117w13", mu=0, sigma=0.3)
-        beta_128w13 = pm.Normal("beta_128w13", mu=0, sigma=0.3)
-        building_offset = pm.Deterministic(
-            "building_offset",
-            pt.stack([
-                0, beta_stonehenge, beta_101w15, beta_117w13, beta_128w13
-            ]),
-            dims="building",
-        )
-        beta_log_sqft = pm.Normal("beta_log_sqft", mu=0.5, sigma=0.3)
-        beta_sqft_missing = pm.Normal("beta_sqft_missing", mu=0, sigma=0.15)
-        beta_skyline_vs_garden = pm.Normal("beta_skyline_vs_garden", mu=0, sigma=0.15)
-        beta_both_facing = pm.Normal("beta_both_facing", mu=0, sigma=0.15)
-
-        sigma_rw = pm.HalfNormal("sigma_rw", sigma=FREQUENCIES[frequency]["rw_prior"])
-        building_rw_z = pm.Normal(
-            "building_rw_z", mu=0, sigma=1, dims="trend_step"
-        )
-        rw_steps = pm.Deterministic(
-            "building_rw_steps", building_rw_z * sigma_rw, dims="trend_step"
-        )
-        building_trend = pm.Deterministic(
-            "building_trend",
-            pt.concatenate([pt.zeros(1), pt.cumsum(rw_steps)]),
-            dims="period",
-        )
-
-        # Every building uses the same cumulative effect at a given physical floor.
-        # A shared innovation scale shrinks adjacent-floor changes toward zero.
-        sigma_floor = pm.HalfNormal("sigma_floor", sigma=0.03)
-        floor_change_z = pm.Normal("floor_change_z", mu=0, sigma=1, dims="floor_step")
-        floor_changes = pm.Deterministic(
-            "floor_changes", floor_change_z * sigma_floor, dims="floor_step"
-        )
-        raw_floor_effect = pt.concatenate([pt.zeros(1), pt.cumsum(floor_changes)])
-        reference_index = floor_levels.index(3)
-        floor_effect = pm.Deterministic(
-            "floor_effect",
-            raw_floor_effect - raw_floor_effect[reference_index],
-            dims="floor_level",
-        )
-
-        sigma_unit = pm.HalfNormal("sigma_unit", sigma=0.25)
-        unit_z = pm.Normal("unit_z", mu=0, sigma=1, dims="unit")
-        unit_effect = pm.Deterministic("unit_effect", unit_z * sigma_unit, dims="unit")
-        sigma = pm.HalfNormal("sigma", sigma=0.15)
-
-        mu = (
-            alpha
-            + building_trend[period_idx]
-            + building_offset[building_idx]
-            + beta_first_bedroom * has_first_bedroom
-            + beta_second_bedroom * has_second_bedroom
-            + beta_third_bedroom * has_third_bedroom
-            + beta_log_sqft * log_sqft_z
-            + beta_sqft_missing * sqft_missing
-            + beta_skyline_vs_garden * facing_contrast
-            + beta_both_facing * both_facing
-            + floor_effect[floor_idx]
-            + unit_effect[unit_idx]
-        )
-        pm.StudentT(
-            "log_rent",
-            nu=5,
-            mu=mu,
-            sigma=sigma,
-            observed=data["log_rent"],
-            dims="obs_id",
-        )
-        inference = pm.sample(
-            draws=draws,
-            tune=tune,
-            chains=chains,
-            cores=min(chains, 4),
-            nuts_sampler="nutpie",
-            target_accept=0.92,
-            random_seed=150130,
-            progressbar=False,
-            return_inferencedata=True,
-        )
-    return inference
+def fit_model(data, periods, frequency='monthly', draws=1000, tune=1000, chains=4, train_mask=None):
+    buildings = sorted(data.building_slug.unique())
+    units = sorted(data.unit_key.unique())
+    floors = sorted(data.floor_level.unique())
+    train = data if train_mask is None else data.loc[train_mask]
+    coords = {'building': buildings, 'unit': units, 'floor': [str(x) for x in floors],
+              'period': periods.strftime('%Y-%m-%d').tolist(),
+              'step': np.arange(max(0, len(periods)-1)), 'feature': FEATURES}
+    with pm.Model(coords=coords):
+        alpha = pm.Normal('alpha', np.log(5000), 1)
+        sigma_building = pm.HalfNormal('sigma_building', .5)
+        building_z = pm.Normal('building_z', 0, 1, dims='building')
+        building = pm.Deterministic('building_offset', (building_z-pt.mean(building_z))*sigma_building, dims='building')
+        sigma_unit = pm.HalfNormal('sigma_unit', .4)
+        unit_z = pm.Normal('unit_z', 0, 1, dims='unit')
+        unit = pm.Deterministic('unit_effect', unit_z*sigma_unit, dims='unit')
+        sigma_floor = pm.HalfNormal('sigma_floor', .15)
+        floor_z = pm.Normal('floor_z', 0, 1, dims='floor')
+        floor = pm.Deterministic('floor_effect', (floor_z-pt.mean(floor_z))*sigma_floor, dims='floor')
+        sigma_rw = pm.HalfNormal('sigma_rw', .08 if frequency == 'monthly' else .04)
+        step_z = pm.Normal('step_z', 0, 1, dims='step')
+        trend = pm.Deterministic('trend', pt.concatenate([pt.zeros(1), pt.cumsum(step_z*sigma_rw)]), dims='period')
+        beta = pm.Normal('beta', mu=[.15, .1, .3, 0, 0, 0], sigma=[.3, .3, .3, .3, .3, .3], dims='feature')
+        mu = (alpha + trend[train.period_idx.to_numpy()] + building[train.building_idx.to_numpy()]
+              + unit[train.unit_idx.to_numpy()] + floor[train.floor_idx.to_numpy()]
+              + pt.dot(train[FEATURES].to_numpy(dtype=float), beta))
+        sigma = pm.HalfNormal('sigma', .3)
+        pm.StudentT('log_rent', nu=5, mu=mu, sigma=sigma, observed=train.log_rent.to_numpy(dtype=float))
+        return pm.sample(draws=draws, tune=tune, chains=chains, cores=min(chains, 4),
+                         nuts_sampler='nutpie', target_accept=.95, random_seed=150130,
+                         progressbar=False, return_inferencedata=True)
 
 
-def save_outputs(
-    inference,
-    data: pd.DataFrame,
-    periods: pd.DatetimeIndex,
-    frequency: str,
-    output_dir: Path,
-) -> None:
-    output_dir.mkdir(parents=True, exist_ok=True)
-    inference.to_netcdf(output_dir / "posterior.nc")
-    data.to_parquet(output_dir / "training_data.parquet", index=False)
-
-    trend = inference.posterior["building_trend"].values.reshape(-1, len(periods))
-    index_samples = 100 * np.exp(trend)
-    prediction = pd.DataFrame(
-        {
-            "period": periods,
-            "index_median": np.median(index_samples, axis=0),
-            "index_lower": np.quantile(index_samples, 0.025, axis=0),
-            "index_upper": np.quantile(index_samples, 0.975, axis=0),
-        }
-    )
-    prediction.to_parquet(output_dir / "index.parquet", index=False)
-
-    posterior = inference.posterior
-    first_bedroom = posterior["beta_first_bedroom"].values.reshape(-1)
-    second_bedroom = posterior["beta_second_bedroom"].values.reshape(-1)
-    third_bedroom = posterior["beta_third_bedroom"].values.reshape(-1)
-    building_offset_samples = posterior["building_offset"].values.reshape(-1, len(BUILDINGS))
-    bedroom_effects = {
-        "first_bedroom": 100 * (np.exp(first_bedroom) - 1),
-        "second_bedroom_increment": 100 * (np.exp(second_bedroom) - 1),
-        "third_bedroom_increment": 100 * (np.exp(third_bedroom) - 1),
-        "two_bedroom_vs_studio": 100 * (np.exp(first_bedroom + second_bedroom) - 1),
-        "three_bedroom_vs_studio": 100 * (
-            np.exp(first_bedroom + second_bedroom + third_bedroom) - 1
-        ),
-    }
-    skyline_vs_garden = posterior["beta_skyline_vs_garden"].values.reshape(-1)
-    both_facing = posterior["beta_both_facing"].values.reshape(-1)
-    facing_effects = {
-        "skyline_vs_garden": 100 * (np.exp(skyline_vs_garden) - 1),
-        "both_vs_single_facing_midpoint": 100 * (np.exp(both_facing) - 1),
-    }
-
-    floor_levels = sorted(data["physical_floor"].unique())
-    floor_lookup = {floor: index for index, floor in enumerate(floor_levels)}
-    floor_effect_samples = posterior["floor_effect"].values.reshape(-1, len(floor_levels))
-    floor_change_samples = posterior["floor_changes"].values.reshape(
-        -1, len(floor_levels) - 1
-    )
-    unit_counts_by_floor = data.groupby(["building_slug", "physical_floor"])["unit"].nunique()
-    floor_characteristics = data.groupby(["building_slug", "physical_floor"]).agg(
-        marketed_floor=("marketed_floor", "first"),
-        is_penthouse=("unit_format", lambda values: (values == "penthouse").any()),
-    )
-    floor_rows = []
-    for building in BUILDINGS:
-        building_floors = sorted(
-            data.loc[data["building_slug"] == building, "physical_floor"].unique()
-        )
-        for floor in building_floors:
-            floor_index = floor_lookup[floor]
-            cumulative = 100 * (np.exp(floor_effect_samples[:, floor_index]) - 1)
-            if floor_index == 0:
-                change = np.zeros(floor_effect_samples.shape[0])
-            else:
-                change = 100 * (np.exp(floor_change_samples[:, floor_index - 1]) - 1)
-            characteristics = floor_characteristics.loc[(building, floor)]
-            floor_rows.append({
-                "building_slug": building,
-                "building_name": BUILDINGS[building],
-                "physical_floor": int(floor),
-                "marketed_floor": int(characteristics["marketed_floor"]),
-                "floor_label": (
-                    "PH" if characteristics["is_penthouse"]
-                    else str(int(characteristics["marketed_floor"]))
-                ),
-                "units": int(unit_counts_by_floor.get((building, floor), 0)),
-                "cumulative_median": float(np.median(cumulative)),
-                "cumulative_lower": float(np.quantile(cumulative, 0.025)),
-                "cumulative_upper": float(np.quantile(cumulative, 0.975)),
-                "increment_median": float(np.median(change)),
-                "increment_lower": float(np.quantile(change, 0.025)),
-                "increment_upper": float(np.quantile(change, 0.975)),
-            })
-    pd.DataFrame(floor_rows).to_parquet(output_dir / "floor_effects.parquet", index=False)
-
-    # In-sample observation diagnostics. The tail probability integrates the
-    # Student-t CDF over posterior parameter draws; it is not a leave-one-out score.
-    observation_floor_idx = data["physical_floor"].map(floor_lookup).to_numpy()
-    observation_mu = (
-        posterior["alpha"].values.reshape(-1, 1)
-        + trend[:, data["period_idx"].to_numpy()]
-        + building_offset_samples[:, data["building_idx"].to_numpy()]
-        + first_bedroom.reshape(-1, 1) * (data["bedrooms"] >= 1).astype(float).to_numpy()
-        + second_bedroom.reshape(-1, 1) * (data["bedrooms"] >= 2).astype(float).to_numpy()
-        + third_bedroom.reshape(-1, 1) * (data["bedrooms"] >= 3).astype(float).to_numpy()
-        + posterior["beta_log_sqft"].values.reshape(-1, 1) * data["log_sqft_z"].to_numpy()
-        + posterior["beta_sqft_missing"].values.reshape(-1, 1) * data["sqft_missing"].to_numpy()
-        + skyline_vs_garden.reshape(-1, 1) * data["facing_contrast"].to_numpy()
-        + both_facing.reshape(-1, 1) * data["both_facing"].to_numpy()
-        + floor_effect_samples[:, observation_floor_idx]
-        + posterior["unit_effect"].values.reshape(-1, data["unit_key"].nunique())[
-            :, data["unit_idx"].to_numpy()
-        ]
-    )
-    observed_log_rent = data["log_rent"].to_numpy()
-    fitted_log_rent = np.median(observation_mu, axis=0)
-    sigma_samples = posterior["sigma"].values.reshape(-1, 1)
-    standardized = (observed_log_rent - observation_mu) / sigma_samples
-    predictive_cdf = stdtr(5, standardized)
-    lower_tail_probability = predictive_cdf.mean(axis=0)
-    two_sided_tail_probability = 2 * np.minimum(
-        lower_tail_probability, 1 - lower_tail_probability
-    )
-    observation_diagnostics = data[[
-        "building_slug", "unit", "period", "asking_rent", "bedrooms", "marketed_floor",
-        "physical_floor", "square_feet", "square_feet_imputed", "sqft_missing",
-        "is_garden_facing", "is_street_facing", "source_events",
-    ]].copy()
-    observation_diagnostics["bedroom_group"] = observation_diagnostics["bedrooms"].map(
-        {0: "Studio", 1: "1 BR", 2: "2 BR", 3: "3 BR"}
-    )
-    observation_diagnostics["fitted_rent"] = np.exp(fitted_log_rent)
-    observation_diagnostics["residual_dollars"] = (
-        observation_diagnostics["asking_rent"] - observation_diagnostics["fitted_rent"]
-    )
-    observation_diagnostics["residual_percent"] = 100 * (
-        observation_diagnostics["asking_rent"] / observation_diagnostics["fitted_rent"] - 1
-    )
-    observation_diagnostics["standardized_residual"] = np.median(standardized, axis=0)
-    observation_diagnostics["tail_probability"] = two_sided_tail_probability
-    observation_diagnostics["is_outlier_95"] = two_sided_tail_probability < 0.05
-    observation_diagnostics.to_parquet(
-        output_dir / "observation_diagnostics.parquet", index=False
-    )
-
-    # Adjusted dollar trajectories use each building-bedroom group's typical
-    # square footage at a representative floor, neutral facing, and zero unit effect.
-    unit_characteristics = (
-        data.sort_values("period").groupby("unit_key", as_index=False).first()
-    )
-    alpha = posterior["alpha"].values.reshape(-1, 1)
-    beta_size = posterior["beta_log_sqft"].values.reshape(-1, 1)
-    reference_floors = {
-        "the-sierra-chelsea": 8,
-        "stonehenge-gardens": 4,
-        "101w15-101-west-15th-street-new_york": 4,
-        "117-west-13-street-new_york": 4,
-        "128-west-13-street-new_york": 4,
-    }
-    bedroom_rows = []
-    bedroom_names = {0: "Studio", 1: "1 BR", 2: "2 BR", 3: "3 BR"}
-    for building_index, building in enumerate(BUILDINGS):
-        building_units = unit_characteristics[
-            unit_characteristics["building_slug"] == building
-        ]
-        reference_floor = reference_floors[building]
-        reference_floor_index = floor_lookup[reference_floor]
-        reference_floor_term = floor_effect_samples[:, reference_floor_index].reshape(-1, 1)
-        building_term = building_offset_samples[:, building_index].reshape(-1, 1)
-        for bedrooms in sorted(building_units["bedrooms"].unique()):
-            group = building_units[building_units["bedrooms"] == bedrooms]
-            typical_sqft = float(group["square_feet_imputed"].median())
-            typical_log_sqft_z = float(group["log_sqft_z"].median())
-            bedroom_term = np.zeros_like(first_bedroom).reshape(-1, 1)
-            if bedrooms >= 1:
-                bedroom_term += first_bedroom.reshape(-1, 1)
-            if bedrooms >= 2:
-                bedroom_term += second_bedroom.reshape(-1, 1)
-            if bedrooms >= 3:
-                bedroom_term += third_bedroom.reshape(-1, 1)
-            price_samples = np.exp(
-                alpha
-                + trend
-                + building_term
-                + bedroom_term
-                + beta_size * typical_log_sqft_z
-                + reference_floor_term
-            )
-            for index, period in enumerate(periods):
-                bedroom_rows.append(
-                    {
-                        "building_slug": building,
-                        "building_name": BUILDINGS[building],
-                        "reference_floor": reference_floor,
-                        "period": period,
-                        "bedroom_group": bedroom_names[int(bedrooms)],
-                        "typical_square_feet": typical_sqft,
-                        "price_median": float(np.median(price_samples[:, index])),
-                        "price_lower": float(np.quantile(price_samples[:, index], 0.025)),
-                        "price_upper": float(np.quantile(price_samples[:, index], 0.975)),
-                    }
-                )
-    pd.DataFrame(bedroom_rows).to_parquet(
-        output_dir / "bedroom_prices.parquet", index=False
-    )
-
-    diagnostics = az.summary(
-        inference,
-        var_names=[
-            "beta_first_bedroom",
-            "beta_second_bedroom",
-            "beta_third_bedroom",
-            "beta_stonehenge",
-            "beta_101w15",
-            "beta_117w13",
-            "beta_128w13",
-            "beta_skyline_vs_garden",
-            "beta_both_facing",
-            "sigma_rw",
-            "sigma_floor",
-            "sigma_unit",
-            "sigma",
-        ],
-        kind="diagnostics",
-    )
-    label = FREQUENCIES[frequency]["label"]
-    building_effects = {}
-    for building_index, building in enumerate(BUILDINGS):
-        if building == REFERENCE_BUILDING:
-            continue
-        samples = 100 * (np.exp(building_offset_samples[:, building_index]) - 1)
-        building_effects[building] = {
-            "median": float(np.median(samples)),
-            "lower_95": float(np.quantile(samples, 0.025)),
-            "upper_95": float(np.quantile(samples, 0.975)),
-        }
-    metadata = {
-        "buildings": BUILDINGS,
-        "reference_building": REFERENCE_BUILDING,
-        "frequency": frequency,
-        "cutoff": CUTOFF.date().isoformat(),
-        "index_base_period": periods[0].date().isoformat(),
-        "observations": len(data),
-        "units": int(data["unit_key"].nunique()),
-        "units_by_building": data.groupby("building_slug")["unit"].nunique().to_dict(),
-        "observations_by_building": data.groupby("building_slug").size().to_dict(),
-        "periods": len(periods),
-        "excluded_blueground_units": data.attrs.get("excluded_blueground_units", []),
-        "floor_references": FLOOR_REFERENCES,
-        "bedroom_price_reference_floors": reference_floors,
-        "building_effects_vs_sierra_percent": building_effects,
-        "bedroom_premiums_percent": {
-            name: {
-                "median": float(np.median(samples)),
-                "lower_95": float(np.quantile(samples, 0.025)),
-                "upper_95": float(np.quantile(samples, 0.975)),
-            }
-            for name, samples in bedroom_effects.items()
-        },
-        "facing_effects_percent": {
-            name: {
-                "median": float(np.median(samples)),
-                "lower_95": float(np.quantile(samples, 0.025)),
-                "upper_95": float(np.quantile(samples, 0.975)),
-            }
-            for name, samples in facing_effects.items()
-        },
-        "max_rhat": float(diagnostics["r_hat"].max()),
-        "min_ess_bulk": float(diagnostics["ess_bulk"].min()),
-        "sampler": "nutpie",
-        "divergences": int(inference.sample_stats["diverging"].sum().item()),
-        "assumptions": [
-            f"One median asking-rent observation per unit-{label}.",
-            "Every unit with any confirmed Blueground furnished period is excluded from all model training periods.",
-            f"A shared five-building {frequency} market trend is a Gaussian random walk anchored at 100 in the first post-cutoff {label}.",
-            "Each non-reference building has a time-constant adjusted offset relative to The Sierra Chelsea.",
-            "Cumulative >=1-bedroom, >=2-bedroom, and >=3-bedroom indicators estimate incremental bedroom premiums.",
-            "One completely shared physical-floor curve applies to all buildings, anchored at floor 3 and formed by cumulative shrunk adjacent-level changes.",
-            "Marketed floors 14 and 15 map to physical floors 13 and 14 because the building has no marketed floor 13.",
-            "For Sierra, suffixes A-J are garden-facing, K faces both directions, and L onward are street-facing (marketed as skyline).",
-            "Sierra facing is effect-coded as skyline versus garden plus a both-facing deviation; frontage is neutral for the other buildings.",
-            "Imputed square footage, missing-square-footage status, and unit random effects are controls.",
-        ],
-    }
-    (output_dir / "metadata.json").write_text(json.dumps(metadata, indent=2))
+def samples(posterior, variable):
+    value = posterior[variable]
+    return value.stack(sample=('chain', 'draw')).transpose('sample', ...).values
 
 
-def main() -> None:
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--db", type=Path, default=Path("data/apartments.duckdb"))
-    parser.add_argument("--frequency", choices=sorted(FREQUENCIES), default="weekly")
-    parser.add_argument("--output", type=Path)
-    parser.add_argument("--draws", type=int, default=1000)
-    parser.add_argument("--tune", type=int, default=1000)
-    parser.add_argument("--chains", type=int, default=4)
+def predict(inference, data):
+    p = inference.posterior
+    return (samples(p, 'alpha')[:, None] + samples(p, 'trend')[:, data.period_idx.to_numpy()]
+            + samples(p, 'building_offset')[:, data.building_idx.to_numpy()]
+            + samples(p, 'unit_effect')[:, data.unit_idx.to_numpy()]
+            + samples(p, 'floor_effect')[:, data.floor_idx.to_numpy()]
+            + samples(p, 'beta') @ data[FEATURES].to_numpy(dtype=float).T)
+
+
+def interval(values):
+    return {'median': float(np.median(values)), 'lower_95': float(np.quantile(values, .025)),
+            'upper_95': float(np.quantile(values, .975))}
+
+
+def diagnostic_summary(inference):
+    # Exclude anchored deterministic trend[0], whose variance is exactly zero.
+    diag = az.summary(inference, var_names=['alpha','beta','sigma','sigma_rw','sigma_building',
+                                           'sigma_unit','sigma_floor','building_z','unit_z','floor_z','step_z'], kind='diagnostics')
+    return {'max_rhat': float(diag.r_hat.max()), 'min_ess_bulk': float(diag.ess_bulk.min()),
+            'divergences': int(inference.sample_stats.diverging.sum().item())}
+
+
+def save_outputs(inference, data, periods, frequency, output, validation=None):
+    output.mkdir(parents=True, exist_ok=True)
+    inference.to_netcdf(output / 'posterior.nc')
+    data.to_parquet(output / 'training_data.parquet', index=False)
+    p = inference.posterior
+    trend = samples(p, 'trend')
+    # Rebase to January 2022 if observed span includes it, to make old sparse tails
+    # less dominant in the visual scale. The fit itself retains all history.
+    base = int(periods.searchsorted(pd.Timestamp('2022-01-01')))
+    base = min(base, len(periods)-1)
+    index = 100*np.exp(trend-trend[:, base, None])
+    counts = data.groupby('period').agg(observations=('unit_key','size'), units=('unit_key','nunique'))
+    chart = pd.DataFrame({'period': periods, 'index_median': np.median(index,axis=0),
+                          'index_lower': np.quantile(index,.025,axis=0), 'index_upper': np.quantile(index,.975,axis=0)})
+    chart = chart.join(counts, on='period').fillna({'observations':0,'units':0})
+    chart.to_parquet(output / 'index.parquet', index=False)
+    buildings = sorted(data.building_slug.unique())
+    offsets = samples(p, 'building_offset')
+    rows = []
+    for i, building in enumerate(buildings):
+        group = data[data.building_slug.eq(building)]
+        rows.append({'building_slug':building,'building_name':data.attrs['names'].get(building,building),
+                     **interval(100*np.expm1(offsets[:,i])), 'units':group.unit_key.nunique(),'observations':len(group)})
+    pd.DataFrame(rows).to_parquet(output / 'building_effects.parquet', index=False)
+    beta = samples(p, 'beta')
+    pd.DataFrame([{'term':name, **interval(100*np.expm1(beta[:,i]))}
+                  for i,name in enumerate(FEATURES)]).to_parquet(output / 'coefficients.parquet', index=False)
+    mu = predict(inference, data)
+    diagnostic = data[['building_slug','unit','period','asking_rent']].copy()
+    diagnostic['fitted_rent'] = np.exp(np.median(mu,axis=0))
+    diagnostic['residual_percent'] = 100*(diagnostic.asking_rent/diagnostic.fitted_rent-1)
+    diagnostic.to_parquet(output / 'observation_diagnostics.parquet', index=False)
+    metadata = {**diagnostic_summary(inference), 'frequency':frequency,
+                'observations':len(data),'units':data.unit_key.nunique(),
+                'buildings':{b:data.attrs['names'].get(b,b) for b in buildings},
+                'coverage':data.attrs['coverage'], 'index_base_period':str(periods[base].date()),
+                'excluded_furnished_units':data.attrs['excluded_furnished_units'],
+                'training_sha256':hashlib.sha256((output/'training_data.parquet').read_bytes()).hexdigest(),
+                'size_log_scale':data.attrs['size_log_scale'],
+                'assumptions':[
+                    'All available imported rental history is used unless --start is supplied; this is not complete Chelsea coverage.',
+                    'Any unit with explicit furnished or Blueground evidence is excluded, including earlier unfurnished history.',
+                    'One median rent per unit and calendar period, after deduplicating unit/date/price events.',
+                    'Building and unit effects are hierarchically pooled; building offsets are relative to the unweighted modeled-building mean.',
+                    'Physical floors are categories; unknown and unsupported first-digit floor guesses form an explicit unknown category.',
+                    'Bedrooms and bathrooms have linear log-rent slopes; size uses standardized log square feet with missing-value controls.',
+                    'A shared Gaussian random walk models monthly/weekly changes. Student-t residuals reduce outlier influence.',
+                    'No signed leases are observed. Histories are selectively available, sparse early periods have limited support, and repeated episodes may remain correlated.',
+                    'Unit attributes come from the latest archived listing episode; historical renovations and changes of layout are not modeled.',
+                    'Residual charts are in-sample diagnostics, not independent predictive validation.'],
+                'validation':validation}
+    (output/'metadata.json').write_text(json.dumps(metadata,indent=2))
+    print(json.dumps({**metadata['coverage'], **diagnostic_summary(inference)},indent=2), flush=True)
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--db',type=Path,default=Path('data/apartments.duckdb'))
+    parser.add_argument('--frequency',choices=['monthly','weekly'],default='monthly')
+    parser.add_argument('--start',help='Optional ISO start date; default uses all history')
+    parser.add_argument('--output',type=Path)
+    parser.add_argument('--draws',type=int,default=1000)
+    parser.add_argument('--tune',type=int,default=1000)
+    parser.add_argument('--chains',type=int,default=4)
+    parser.add_argument('--validate-from',help='Also refit withholding prices from this date onward')
     args = parser.parse_args()
-    output = args.output or Path("data/model") / args.frequency
-    data, periods = prepare_data(args.db, args.frequency)
-    label = FREQUENCIES[args.frequency]["label"]
-    print(
-        f"Fitting {len(data)} unit-{label} observations from {data.unit_key.nunique()} units "
-        f"over {len(periods)} {label}s after excluding confirmed Blueground units."
-    )
-    inference = fit_model(
-        data, periods, args.frequency, args.draws, args.tune, args.chains
-    )
-    save_outputs(inference, data, periods, args.frequency, output)
-    print(f"Saved model outputs to {output}")
+    data, periods = prepare_data(args.db,args.frequency,args.start)
+    output = args.output or Path('data/model')/args.frequency
+    print(json.dumps(data.attrs['coverage'],indent=2),flush=True)
+    validation = None
+    if args.validate_from:
+        train_mask = data.period < pd.Timestamp(args.validate_from)
+        if not train_mask.any() or train_mask.all():
+            raise ValueError('Validation split needs both training and withheld periods')
+        print('Fitting temporal price holdout...',flush=True)
+        holdout = fit_model(data,periods,args.frequency,args.draws,args.tune,args.chains,train_mask)
+        held = data.loc[~train_mask]
+        predictions = np.exp(np.median(predict(holdout,held),axis=0))
+        last_rent = data.loc[train_mask].sort_values('period').groupby('unit_key').asking_rent.last()
+        baseline = held.unit_key.map(last_rent)
+        seen = baseline.notna().to_numpy()
+        comparison = held[['unit_key','period','asking_rent']].copy()
+        comparison['predicted_rent'] = predictions
+        comparison['last_observed_rent'] = baseline.to_numpy()
+        output.mkdir(parents=True,exist_ok=True)
+        comparison.to_parquet(output/'validation.parquet',index=False)
+        validation = {'from':args.validate_from,'observations':len(held),'previously_seen_unit_observations':int(seen.sum()),
+                      'median_absolute_percent_error':float(np.median(np.abs(predictions/held.asking_rent.to_numpy()-1))*100),
+                      'seen_unit_model_median_absolute_percent_error':float(np.median(np.abs(predictions[seen]/held.asking_rent.to_numpy()[seen]-1))*100) if seen.any() else None,
+                      'seen_unit_last_rent_median_absolute_percent_error':float(np.median(np.abs(baseline.to_numpy()[seen]/held.asking_rent.to_numpy()[seen]-1))*100) if seen.any() else None,
+                      **diagnostic_summary(holdout),
+                      'limitation':'Prices are withheld; latest archived covariates and full-data size scaling are retained. This is a retrospective price test, not a fully time-causal backtest.'}
+        holdout.to_netcdf(output/'validation_posterior.nc')
+        print(json.dumps(validation,indent=2),flush=True)
+    print('Fitting all eligible history...',flush=True)
+    inference = fit_model(data,periods,args.frequency,args.draws,args.tune,args.chains)
+    save_outputs(inference,data,periods,args.frequency,output,validation)
 
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     main()

@@ -76,3 +76,26 @@ git log --graph --oneline
 The consolidation/model experiment is on `feature/chelsea-analysis`; the preceding
 version is preserved at `archive/pre-chelsea-model-20260908`. The scraper history is
 part of this repository's commit graph. There is no nested scraper project to install.
+
+## Chelsea pricing model
+
+```sh
+uv run --extra model python models/rent_model.py --validate-from 2026-01-01
+```
+
+The default fits all available history as monthly unit-level median prices. It
+replaces the five-building model with pooled effects for every eligible building
+and unit, a shared time trend, categorical floors including unknown floors, and
+bedroom/bathroom/size controls. Unsupported first-digit floor guesses are treated
+as unknown. Units with explicit furnished or Blueground evidence anywhere in the
+archive are excluded entirely. Missing floor and size values do not remove units.
+The likelihood is Student-t on log asking rent. The index is rebased to January
+2022 when the modeled span includes that month.
+
+`--validate-from` also fits a separate model withholding prices from that date,
+then compares it with a last-observed-unit-rent baseline. This is a retrospective
+price test: apartment characteristics and size scaling use the captured data, so
+it is not a fully time-causal backtest. Each run saves training data, posterior
+draws, convergence diagnostics, coverage, and output tables in `data/model/monthly`.
+The model page in the analysis app reads these outputs. Sparse early years and
+selective public listing histories limit interpretations as a Chelsea market index.

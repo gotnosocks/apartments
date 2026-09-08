@@ -165,7 +165,7 @@ with history_tab:
     if filtered["unit"].nunique() > 30:
         fig.update_layout(showlegend=False)
         st.caption("The legend is hidden when more than 30 units are selected; hover to identify a unit.")
-    st.plotly_chart(fig, use_container_width=True)
+    st.plotly_chart(fig, width="stretch")
 
 with trend_tab:
     st.subheader("Monthly median observed rent")
@@ -193,13 +193,13 @@ with trend_tab:
         labels={"month": "Month", "median_rent": "Median asking rent", "bedroom_group": "Bedrooms"},
     )
     fig.update_layout(yaxis_tickprefix="$", yaxis_tickformat=",", height=550)
-    st.plotly_chart(fig, use_container_width=True)
+    st.plotly_chart(fig, width="stretch")
 
     yearly = monthly_unit.assign(year=monthly_unit["month"].dt.year)
     yearly = yearly.groupby(["year", "bedroom_group"], as_index=False).agg(
         median_rent=("asking_rent", "median"), units=("unit", "nunique")
     )
-    st.dataframe(yearly, use_container_width=True, hide_index=True)
+    st.dataframe(yearly, width="stretch", hide_index=True)
 
 with latest_tab:
     st.subheader("Latest observed asking rent for each unit")
@@ -213,7 +213,7 @@ with latest_tab:
         labels={"floor": "Inferred floor", "asking_rent": "Latest observed rent", "bedroom_group": "Bedrooms"},
     )
     fig.update_layout(yaxis_tickprefix="$", yaxis_tickformat=",", height=550)
-    st.plotly_chart(fig, use_container_width=True)
+    st.plotly_chart(fig, width="stretch")
     st.caption("Penthouse units have no inferred numbered floor and therefore do not appear in the floor-axis plot.")
 
     sqft = latest.dropna(subset=["square_feet", "rent_per_sqft"])
@@ -228,7 +228,7 @@ with latest_tab:
             labels={"square_feet": "Square feet", "asking_rent": "Latest observed rent"},
         )
         fig.update_layout(yaxis_tickprefix="$", yaxis_tickformat=",", height=500)
-        st.plotly_chart(fig, use_container_width=True)
+        st.plotly_chart(fig, width="stretch")
 
 with unit_tab:
     unit_choice = st.selectbox("Unit", sorted(filtered["unit"].astype(str).unique()))
@@ -242,10 +242,10 @@ with unit_tab:
     )
     fig.update_traces(mode="lines+markers")
     fig.update_layout(yaxis_tickprefix="$", yaxis_tickformat=",", height=450)
-    st.plotly_chart(fig, use_container_width=True)
+    st.plotly_chart(fig, width="stretch")
     st.dataframe(
         unit_events[["event_date", "asking_rent", "event_type"]].sort_values("event_date", ascending=False),
-        use_container_width=True,
+        width="stretch",
         hide_index=True,
     )
 
@@ -254,16 +254,16 @@ with data_tab:
     coverage = listings.assign(has_sqft=listings["square_feet"].notna()).groupby(
         ["bedroom_group", "unit_format", "is_furnished"], dropna=False, as_index=False
     ).agg(units=("unit", "nunique"), units_with_sqft=("has_sqft", "sum"))
-    st.dataframe(coverage, use_container_width=True, hide_index=True)
+    st.dataframe(coverage, width="stretch", hide_index=True)
 
     st.subheader("Event types")
     event_counts = filtered.groupby("event_type", dropna=False).size().reset_index(name="observations")
-    st.dataframe(event_counts.sort_values("observations", ascending=False), use_container_width=True, hide_index=True)
+    st.dataframe(event_counts.sort_values("observations", ascending=False), width="stretch", hide_index=True)
 
     st.subheader("Filtered observations")
     st.dataframe(
         filtered[["unit", "floor", "bedroom_group", "is_furnished", "square_feet", "event_date", "asking_rent", "event_type"]]
         .sort_values("event_date", ascending=False),
-        use_container_width=True,
+        width="stretch",
         hide_index=True,
     )
