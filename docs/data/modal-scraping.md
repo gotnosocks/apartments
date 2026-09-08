@@ -20,7 +20,7 @@ The default is 100 scheduled requests, five concurrent jobs and one submission p
 
 The first run bulk-copies the closed, WAL-free uploaded snapshot SQLite database into `/crawls/chelsea-resume/` on Volume `chelsea-archive`. It shares content-addressed body files at `/bodies`, without changing existing bodies or the source snapshot database. Subsequent runs with that workspace resume its own queue. A workspace cannot be silently repointed to another snapshot. An incomplete clone requires inspection or a new workspace ID.
 
-One CPU-only worker uses two cores and 8 GiB, a one-hour hard timeout and no Modal retries. A subprocess deadline at 55 minutes leaves time to checkpoint and commit its output. A new process for each run avoids reusing a stopped Twisted reactor. Normal completion commits the SQLite archive and run log, then releases the distributed lock. No browser checkpoint or automatic browsing copy is created. Exit code 3 generally denotes the crawler's pause/cooldown state; examine the returned state and log before resuming.
+One CPU-only non-preemptible worker uses one core and 2 GiB, a one-hour hard timeout and no Modal retries. A subprocess deadline at 55 minutes leaves time to checkpoint and commit its output. A new process for each run avoids reusing a stopped Twisted reactor. Normal completion commits the SQLite archive and run log, then releases the distributed lock. No browser checkpoint or automatic browsing copy is created. Exit code 3 generally denotes the crawler's pause/cooldown state; examine the returned state and log before resuming.
 
 A Modal Dict atomic `put(..., skip_if_exists=True)` enforces one writer across app invocations. There is no automatic expiry or stale-lock takeover. If a worker crashes, times out, or cannot commit, the lock remains:
 
@@ -97,3 +97,11 @@ For a safe update, set `stop-after-batch:chelsea-resume` to `True` in the
 and the writer lock to disappear. Clear the flag before starting a replacement.
 Do not suspend the controller process: Modal can interpret lost heartbeats as
 failure and cancel its worker before a commit finishes.
+
+The writer and small controller use `nonpreemptible=True`. Modal automatically
+replays preempted functions even with application retries disabled; the old replay
+correctly refused its predecessor's stale lock. Non-preemptible functions have
+a 3x CPU/memory rate, so the writer allocation was reduced from 2 cores/8 GiB
+to 1 core/2 GiB (observed scraper RSS was about 187 MB; rendering runs at Oxylabs).
+This prevents infrastructure preemption, not all possible failures. Crashes still
+retain the lock for explicit archive validation before recovery.

@@ -99,8 +99,8 @@ def clone_snapshot(base, workspace, snapshot):
     marker.write_text(json.dumps({'snapshot':snapshot, 'created_at_epoch':time.time()}))
 
 
-@app.function(image=image, cpu=(2,2), memory=(8192,8192), timeout=3600,
-              max_containers=1, retries=0, volumes={'/archive':volume},
+@app.function(image=image, cpu=(1,1), memory=(2048,2048), timeout=3600,
+              nonpreemptible=True, max_containers=1, retries=0, volumes={'/archive':volume},
               secrets=[modal.Secret.from_name(SECRET_NAME)], include_source=False)
 def resume(snapshot: str, workspace_id: str, max_requests: int=100,
            concurrency: int=10, api_rps: float=2):
@@ -165,7 +165,7 @@ def continuation(result):
 
 
 @app.function(image=image, cpu=(0.125,0.125), memory=(256,256), timeout=86400,
-              max_containers=1, retries=0, include_source=False)
+              nonpreemptible=True, max_containers=1, retries=0, include_source=False)
 def finish_backfill(snapshot: str, workspace: str, total_budget: int=30000,
                     batch_size: int=750, concurrency: int=10, api_rps: float=2):
     """Cheap cloud controller; serial bounded workers survive laptop disconnects."""
