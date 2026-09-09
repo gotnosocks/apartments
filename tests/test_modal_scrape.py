@@ -103,3 +103,25 @@ def test_controller_honors_stop_flag_before_dispatch(monkeypatch):
     report = m.finish_backfill.local('source', 'test', total_budget=100)
     assert report['status'] == 'stopped_at_batch_boundary'
     assert report['allocated_requests'] == 0
+
+
+def test_submit_uses_deployed_spawn_and_records_call(monkeypatch):
+    from types import SimpleNamespace
+    state = {}; calls = []
+    monkeypatch.setattr(m, 'runs', state)
+    monkeypatch.setattr(m, 'locks', {})
+    def lookup(app, name):
+        assert (app, name) == ('chelsea-remote-scrape', 'finish_backfill')
+        return SimpleNamespace(spawn=lambda *a: (calls.append(a) or SimpleNamespace(object_id='fc-test')))
+    monkeypatch.setattr(m.modal.Function, 'from_name', lookup)
+    result = m.submit_backfill(total_budget=123)
+    assert result['call_id'] == 'fc-test'
+    assert calls == [('chelsea-20260908', 'chelsea-resume', 123, 750, 10, 2)]
+    assert state['submission:chelsea-resume'] == result
+
+
+def test_submit_refuses_existing_controller(monkeypatch):
+    monkeypatch.setattr(m, 'locks', {})
+    monkeypatch.setattr(m, 'runs', {'latest:chelsea-resume':'run', 'run':{'status':'running'}})
+    with pytest.raises(RuntimeError, match='Controller reports running'):
+        m.submit_backfill()

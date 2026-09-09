@@ -298,14 +298,37 @@ def clear_lock(owner):
     print('Cleared the explicitly selected writer lock.')
 
 
+def submit_backfill(snapshot='chelsea-20260908', workspace='chelsea-resume', total_budget=1000):
+    """Submit to a deployed app; the laptop need not remain connected."""
+    safe_id(snapshot); safe_id(workspace)
+    if not 1 <= total_budget <= 30000:
+        raise ValueError('Require a finite total budget from 1 to 30000')
+    if locks.get('writer', None):
+        raise RuntimeError('Writer already active; do not submit another controller')
+    latest = runs.get('latest:'+workspace, None)
+    if latest and runs.get(latest, {}).get('status') == 'running':
+        raise RuntimeError('Controller reports running; verify its state before replacement')
+    if runs.get('stop-after-batch:'+workspace, False):
+        raise RuntimeError('Clear the batch stop flag before submitting')
+    call = modal.Function.from_name('chelsea-remote-scrape', 'finish_backfill').spawn(
+        snapshot, workspace, total_budget, 750, 10, 2)
+    report = {'call_id':call.object_id, 'workspace':workspace, 'total_budget':total_budget,
+              'submitted_at_epoch':time.time()}
+    runs['submission:'+workspace] = report
+    return report
+
+
 if __name__ == '__main__':
     import argparse
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('action', choices=['setup-secret','show-lock','clear-lock'])
+    parser.add_argument('action', choices=['setup-secret','show-lock','clear-lock','submit'])
     parser.add_argument('--owner')
+    parser.add_argument('--total-budget', type=int, default=1000)
     args = parser.parse_args()
     if args.action == 'setup-secret':
         setup_secret()
+    elif args.action == 'submit':
+        print(json.dumps(submit_backfill(total_budget=args.total_budget), indent=2))
     elif args.action == 'show-lock':
         print(json.dumps(locks.get('writer', None), indent=2))
     else:

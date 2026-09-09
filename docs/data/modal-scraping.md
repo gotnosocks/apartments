@@ -105,3 +105,22 @@ a 3x CPU/memory rate, so the writer allocation was reduced from 2 cores/8 GiB
 to 1 core/2 GiB (observed scraper RSS was about 187 MB; rendering runs at Oxylabs).
 This prevents infrastructure preemption, not all possible failures. Crashes still
 retain the lock for explicit archive validation before recovery.
+
+
+## Durable background launch
+
+For long backfills, deploy the functions, then spawn the deployed controller:
+
+```sh
+.venv/bin/modal deploy models/modal_scrape.py
+.venv/bin/python models/modal_scrape.py submit --total-budget 23250
+```
+
+Choose the remaining authorized budget explicitly. Do not redeploy while a writer
+is active. `submit` refuses an active writer, a controller reporting running, or a
+pending stop flag. It saves the returned call ID under `submission:chelsea-resume`
+in the run Dict. Query the live report there and Modal logs, not a local log tail:
+a disconnected log-stream client can leave a stale file. This replaces the old
+`modal run --detach ... --action finish` workflow, whose ephemeral application was
+cancelled after the local client disconnected. A deployment has no warm-container
+minimum, so idle functions do not reserve CPU or GPU workers.
