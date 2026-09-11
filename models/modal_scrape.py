@@ -99,7 +99,7 @@ def clone_snapshot(base, workspace, snapshot):
     marker.write_text(json.dumps({'snapshot':snapshot, 'created_at_epoch':time.time()}))
 
 
-@app.function(image=image, cpu=(1,1), memory=(2048,2048), timeout=3600,
+@app.function(image=image, cpu=(1,1), memory=(2048,2048), timeout=5400,
               nonpreemptible=True, max_containers=1, retries=0, volumes={'/archive':volume},
               secrets=[modal.Secret.from_name(SECRET_NAME)], include_source=False)
 def resume(snapshot: str, workspace_id: str, max_requests: int=100,
