@@ -18,7 +18,7 @@ async function summary(){
  for(const gen of data.generations){const option=node('option',`#${gen.id} · ${gen.name}`);option.value=gen.id;$('generation').append(option);}
  $('generation').value=selected;
  $('details-count').textContent=number(data.captured.listing);
- $('buildings-count').textContent=number(data.captured.building);
+ $('buildings-count').textContent=number(data.building_coverage?.main_pages_captured);
  $('responses-count').textContent=number(data.responses);
  $('body-size').textContent=`${number(data.unique_bodies)} unique bodies · ${bytes(data.body_bytes)}`;
  $('pending-count').textContent=number((data.queue.pending||0)+(data.queue.inflight||0));
@@ -31,6 +31,7 @@ async function summary(){
  else if(!data.captured.listing)notice.textContent='No listing detail pages have been captured yet. Search pages and queued listing URLs are shown separately; queued URLs are not downloaded data.';
  else notice.textContent='Counts reflect captured pages, not proof of complete historical coverage. Inspect queued pages and crawl issues for gaps.';
  if(data.profile?.neighborhood==='chelsea')notice.textContent += ` Scope: Chelsea + West Chelsea, excluding Hudson Yards. ${number(data.scope_queue?.pending)} scoped pages queued; average delay ${data.profile.delay}s. Directory coverage is not yet verified.`;
+ if(data.building_coverage)notice.textContent += ` ${number(data.building_coverage.expanded_inventories_captured)} expanded inventories captured; ${number(data.building_coverage.building_urls_superseded)} duplicate building URLs superseded.`;
  $('archive-path').textContent=data.archive_path;
  $('updated-at').textContent='Updated '+new Date().toLocaleTimeString();
  $('recent-errors').hidden=!data.errors.length;$('errors-list').replaceChildren();

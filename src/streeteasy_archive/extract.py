@@ -33,6 +33,19 @@ def canonical_url(value: str, base: str = 'https://streeteasy.com/') -> str | No
             return None
         query = [(k, v) for k, v in parse_qsl(p.query, keep_blank_values=True)
                  if not k.lower().startswith('utm_') and k.lower() not in _TRACKING]
+        # Building pages are also emitted by several directory/inventory
+        # links with presentation-only filters. Collapse those aliases while
+        # retaining archive views and every parameter whose meaning is unknown
+        # to the archive. Unit/detail paths can use these parameters as real
+        # request intent, so only the exact main building path is eligible.
+        if re.fullmatch(r'/building/[^/]+/?', p.path):
+            query = [
+                (key, value) for key, value in query
+                if not (
+                    key.lower() == 'similar' and value == '1'
+                    or key.lower() == 'unit_type' and value.lower() in {'rentals', 'sales'}
+                )
+            ]
         return urlunsplit(('https', 'streeteasy.com', p.path.rstrip('/') or '/', urlencode(sorted(query)), ''))
     except ValueError:
         return None

@@ -49,6 +49,23 @@ def test_showcase_alias_and_nonlisting_endpoints():
     assert kind_for(base + '/media_gallery') is None
 
 
+def test_main_building_presentation_filters_collapse_aliases():
+    base = 'https://streeteasy.com/building/example'
+    assert canonical_url(base + '?similar=1&unit_type=rentals') == canonical_url(base)
+    assert canonical_url(base + '?unit_type=sales&similar=1') == canonical_url(base)
+
+
+def test_main_building_inventory_intents_and_other_parameters_are_preserved():
+    base = 'https://streeteasy.com/building/example'
+    rentals = canonical_url(base + '?archive_view=unavailable-rentals&similar=1&page=2&future=x')
+    sales = canonical_url(base + '?archive_view=unavailable-sales&unit_type=sales&page=2&future=x')
+    assert rentals == 'https://streeteasy.com/building/example?archive_view=unavailable-rentals&future=x&page=2'
+    assert sales == 'https://streeteasy.com/building/example?archive_view=unavailable-sales&future=x&page=2'
+
+    unit = canonical_url(base + '/4c?similar=1&unit_type=sales&page=2&future=x')
+    assert unit == 'https://streeteasy.com/building/example/4c?future=x&page=2&similar=1&unit_type=sales'
+
+
 def test_flight_urls_split_across_script_tags():
     import json
     from streeteasy_archive.extract import discover

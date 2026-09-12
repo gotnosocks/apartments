@@ -11,6 +11,7 @@ from urllib.parse import quote
 from flask import Flask, Response, abort, g, jsonify, render_template, request
 
 from .extract import extract
+from .store import building_coverage
 
 
 def create_app(data_dir='data'):
@@ -97,7 +98,7 @@ def create_app(data_dir='data'):
         profile_row = db().execute('SELECT value FROM metadata WHERE key=?', (f'crawl_profile:{gen}',)).fetchone()
         profile = json.loads(profile_row[0]) if profile_row else None
         scoped = {r[0]: r[1] for r in db().execute('SELECT f.state,count(*) FROM frontier f JOIN scope_urls s ON s.generation=f.generation AND s.url=f.url WHERE f.generation=? GROUP BY f.state', (gen,))}
-        return jsonify(profile=profile, scope_queue=scoped, generation=state, generations=generations, queue=queue, captured=captured,
+        return jsonify(building_coverage=building_coverage(db(), gen), profile=profile, scope_queue=scoped, generation=state, generations=generations, queue=queue, captured=captured,
                        responses=db().execute('SELECT count(*) FROM observations').fetchone()[0],
                        unique_bodies=counts[0], body_bytes=counts[1], errors=errors,
                        writer_running=writer_running(), archive_path=str(root))
@@ -125,7 +126,7 @@ def create_app(data_dir='data'):
         elif state == 'errors':
             where.append('o.error IS NOT NULL')
         elif state:
-            if state not in ('pending', 'inflight', 'done', 'deferred'):
+            if state not in ('pending', 'inflight', 'done', 'deferred', 'superseded', 'excluded'):
                 abort(400, description='Invalid queue state')
             where.append('f.state=?')
             params.append(state)

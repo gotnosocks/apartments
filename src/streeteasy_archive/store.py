@@ -19,6 +19,23 @@ def _headers(value):
     return {str(k): v for k, v in (value or {}).items() if str(k).lower() not in SENSITIVE}
 
 
+def building_coverage(db, generation):
+    """Separate building resources, inventory intents, and URL queue bookkeeping."""
+    import re
+    rows = db.execute('''SELECT f.url,f.kind,f.state,EXISTS(SELECT 1 FROM observations o
+        WHERE o.generation=f.generation AND o.url=f.url AND o.error IS NULL
+        AND o.body_hash IS NOT NULL AND (o.status BETWEEN 200 AND 299 OR o.status=304)) captured
+        FROM frontier f WHERE f.generation=? AND f.kind IN ('building','inventory')''', (generation,)).fetchall()
+    return {
+        'known_scope_roots': db.execute('SELECT count(*) FROM scope_buildings WHERE generation=?', (generation,)).fetchone()[0],
+        'main_pages_captured': sum(bool(captured) for url, kind, state, captured in rows
+                                   if re.fullmatch(r'https://streeteasy.com/building/[^/?#]+', url)),
+        'expanded_inventories_captured': sum(bool(captured) for url, kind, state, captured in rows if kind == 'inventory'),
+        'building_urls_done': sum(state == 'done' for url, kind, state, captured in rows if kind == 'building'),
+        'building_urls_superseded': sum(state == 'superseded' for url, kind, state, captured in rows if kind == 'building'),
+    }
+
+
 class ArchiveStore:
     def __init__(self, data_dir='data'):
         self.root = Path(data_dir).resolve()
@@ -39,6 +56,7 @@ class ArchiveStore:
         CREATE TABLE IF NOT EXISTS metadata(key TEXT PRIMARY KEY, value TEXT NOT NULL);
         CREATE TABLE IF NOT EXISTS scope_urls(generation INTEGER NOT NULL, url TEXT NOT NULL, reason TEXT NOT NULL, PRIMARY KEY(generation,url));
         CREATE TABLE IF NOT EXISTS scope_buildings(generation INTEGER NOT NULL, url TEXT NOT NULL, PRIMARY KEY(generation,url));
+        CREATE TABLE IF NOT EXISTS url_aliases(generation INTEGER NOT NULL, url TEXT NOT NULL, target_url TEXT NOT NULL, reason TEXT NOT NULL, created REAL NOT NULL, PRIMARY KEY(generation,url));
         CREATE TABLE IF NOT EXISTS har_entries(fingerprint TEXT PRIMARY KEY);
         ''')
         columns = {row[1] for row in self.db.execute('PRAGMA table_xinfo(frontier)')}
@@ -76,15 +94,28 @@ class ArchiveStore:
             self.db.execute("UPDATE generations SET status='complete'")
             return self.db.execute('INSERT INTO generations(name,created) VALUES(?,?)', (name, time.time())).lastrowid
 
+    def _remember_alias(self, generation, url, target_url, reason='canonical URL normalization'):
+        """Keep the discovered spelling and transfer scope, without fabricating a fetch."""
+        self.db.execute('INSERT OR IGNORE INTO url_aliases VALUES(?,?,?,?,?)',
+                        (generation, url, target_url, reason, time.time()))
+        self.db.execute('''INSERT OR IGNORE INTO scope_urls(generation,url,reason)
+            SELECT generation,?,reason FROM scope_urls WHERE generation=? AND url=?''',
+            (target_url, generation, url))
+
     def _enqueue(self, generation, items):
+        from .extract import canonical_url
         for item in items:
+            original = item['url']
+            url = canonical_url(original) or original
+            if url != original:
+                self._remember_alias(generation, original, url)
             self.db.execute('''INSERT INTO frontier(generation,url,kind,lastmod) VALUES(?,?,?,?)
                 ON CONFLICT(generation,url) DO UPDATE SET
                 state=CASE WHEN frontier.state='deferred' AND excluded.lastmod IS NOT NULL
                     AND excluded.lastmod IS NOT frontier.lastmod THEN 'pending' ELSE frontier.state END,
                 kind=COALESCE(excluded.kind,frontier.kind),
                 lastmod=COALESCE(excluded.lastmod,frontier.lastmod)''',
-                (generation, item['url'], item.get('kind'), item.get('lastmod')))
+                (generation, url, item.get('kind'), item.get('lastmod')))
 
     def enqueue(self, generation, items):
         with self._tx():
@@ -107,19 +138,34 @@ class ArchiveStore:
             FROM frontier f JOIN (SELECT url,MAX(generation) g FROM frontier
             WHERE generation<? GROUP BY url) latest ON f.url=latest.url AND f.generation=latest.g''',
             (generation,)).fetchall()
+        from .extract import canonical_url
+        # Old completed variants remain in the archive. Refresh each canonical
+        # request only once; validators and freshness belong to the exact URL.
+        selected = {}
+        aliases = []
+        for row in rows:
+            url = canonical_url(row['url']) or row['url']
+            if url != row['url']:
+                aliases.append((row['url'], url))
+            if url not in selected or row['url'] == url:
+                selected[url] = row
         with self._tx():
-            for row in rows:
+            for old_url, url in aliases:
+                self._remember_alias(generation, old_url, url)
+            for url, row in selected.items():
                 allowed = ('sitemap', 'directory', 'search', 'building', 'listing', 'inventory')
                 if row['kind'] not in allowed:
                     continue
                 if not include_listings and row['kind'] in ('listing', 'inventory'):
                     continue
-                deferred = row['kind'] in ('building', 'listing') and row['fetched'] is not None and row['fetched'] > cutoff
+                exact = url == row['url']
+                deferred = exact and row['kind'] in ('building', 'listing') and row['fetched'] is not None and row['fetched'] > cutoff
                 self.db.execute('''INSERT INTO frontier(generation,url,kind,lastmod,state,etag,modified)
                     VALUES(?,?,?,?,?,?,?) ON CONFLICT(generation,url) DO UPDATE SET
                     etag=excluded.etag,modified=excluded.modified,lastmod=excluded.lastmod''',
-                    (generation, row['url'], row['kind'], row['lastmod'],
-                     'deferred' if deferred else 'pending', row['etag'], row['modified']))
+                    (generation, url, row['kind'], row['lastmod'] if exact else None,
+                     'deferred' if deferred else 'pending', row['etag'] if exact else None,
+                     row['modified'] if exact else None))
 
     def recover_inflight(self, generation=None):
         with self._tx():
@@ -156,12 +202,55 @@ class ArchiveStore:
             return row
 
     def resolve_obsolete_url(self, generation, old_url, new_url=None, kind=None):
-        """Retire old tracking aliases or excluded endpoints without downloading."""
+        """Retire old aliases or excluded endpoints without claiming a download."""
         with self._tx():
             if new_url:
+                self._remember_alias(generation, old_url, new_url)
                 self._enqueue(generation, [{'url': new_url, 'kind': kind}])
-            self.db.execute("UPDATE frontier SET state='done' WHERE generation=? AND url=?",
-                            (generation, old_url))
+            self.db.execute("UPDATE frontier SET state=? WHERE generation=? AND url=?",
+                            ('superseded' if new_url else 'excluded', generation, old_url))
+
+    def deduplicate_building_views(self, generation, dry_run=False):
+        """Retire queued main-page aliases only with successful same-generation evidence.
+
+        Expanded inventories, pagination and unknown query intent remain separate.
+        Historical observations and completed frontier rows are never rewritten.
+        Call under the archive writer lock, before starting network requests.
+        """
+        from .extract import canonical_url
+        from urllib.parse import urlsplit
+        import re
+        with self._tx():
+            rows = self.db.execute("SELECT url,state FROM frontier WHERE generation=? AND kind='building'",
+                                   (generation,)).fetchall()
+            result = {'aliases': 0, 'superseded': 0, 'awaiting_canonical_capture': 0,
+                      'already_superseded': 0, 'dry_run': dry_run}
+            for row in rows:
+                original = row['url']
+                target = canonical_url(original)
+                if (not target or target == original or urlsplit(target).query
+                        or not re.fullmatch(r'/building/[^/]+', urlsplit(target).path)):
+                    continue
+                result['aliases'] += 1
+                if not dry_run:
+                    self._remember_alias(generation, original, target, 'equivalent main building view')
+                if row['state'] == 'superseded':
+                    result['already_superseded'] += 1
+                if row['state'] not in ('pending', 'deferred'):
+                    continue
+                success = self.db.execute('''SELECT 1 FROM frontier f WHERE f.generation=? AND f.url=?
+                    AND f.state='done' AND EXISTS(SELECT 1 FROM observations o
+                        WHERE o.generation=f.generation AND o.url=f.url AND o.error IS NULL
+                        AND o.body_hash IS NOT NULL AND (o.status BETWEEN 200 AND 299 OR o.status=304))''',
+                    (generation, target)).fetchone()
+                if not success:
+                    result['awaiting_canonical_capture'] += 1
+                    continue
+                result['superseded'] += 1
+                if not dry_run:
+                    self.db.execute("UPDATE frontier SET state='superseded' WHERE generation=? AND url=?",
+                                    (generation, original))
+            return result
 
     def conditional_headers(self, generation, url):
         row = self.db.execute('SELECT etag,modified FROM frontier WHERE generation=? AND url=?', (generation, url)).fetchone()
@@ -292,7 +381,7 @@ class ArchiveStore:
         profile_row = self.db.execute('SELECT value FROM metadata WHERE key=?', (f'crawl_profile:{generation}',)).fetchone()
         profile = json.loads(profile_row[0]) if profile_row else None
         scoped = {r[0]: r[1] for r in self.db.execute('SELECT f.state,count(*) FROM frontier f JOIN scope_urls s ON s.generation=f.generation AND s.url=f.url WHERE f.generation=? GROUP BY f.state', (generation,))}
-        return {'profile': profile, 'scope_queue': scoped, 'generation': generation, 'name': row['name'], 'status': row['status'],
+        return {'building_coverage': building_coverage(self.db, generation), 'profile': profile, 'scope_queue': scoped, 'generation': generation, 'name': row['name'], 'status': row['status'],
                 'cooldown': row['cooldown'], 'coverage_gaps': errors,
                 'current_coverage_gaps': current_errors, 'by_kind': kinds,
                 'last_error': dict(last_error) if last_error else None, **counts}

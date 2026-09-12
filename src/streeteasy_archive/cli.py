@@ -147,6 +147,8 @@ def main(argv=None):
             args.building = building.rstrip('/')
             from .scope import configure_building
             configure_building(store, generation, args.building, args.include_unavailable)
+        deduplication = store.deduplicate_building_views(generation)
+        print(json.dumps({'building_view_deduplication': deduplication}), flush=True)
         profile_data = {
             'neighborhood': args.neighborhood,
             'building': args.building,
