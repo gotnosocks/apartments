@@ -147,6 +147,9 @@ def main(argv=None):
             args.building = building.rstrip('/')
             from .scope import configure_building
             configure_building(store, generation, args.building, args.include_unavailable)
+        store.recover_inflight(generation)
+        listing_rules = store.apply_listing_rules(generation)
+        print(json.dumps({'listing_rules': listing_rules}), flush=True)
         deduplication = store.deduplicate_building_views(generation)
         print(json.dumps({'building_view_deduplication': deduplication}), flush=True)
         profile_data = {

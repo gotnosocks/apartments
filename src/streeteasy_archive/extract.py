@@ -24,6 +24,20 @@ def is_unavailable_url(url):
                 dict(parse_qsl(p.query)).get('archive_view') in ('unavailable-rentals', 'unavailable-sales'))
 
 
+def is_gallery_url(url):
+    """Return whether *url* is a known StreetEasy media-gallery endpoint."""
+    path = urlsplit(url).path.rstrip('/')
+    return bool(re.fullmatch(
+        r'(?:'
+        r'/building/[^/]+/media_gallery'
+        r'|/building/[^/]+/[A-Za-z0-9_-]+/media_gallery'
+        r'|/building/[^/]+/(?:rental|sale)/\d+/media_gallery'
+        r'|/(?:rental|sale)/\d+/media_gallery'
+        r')',
+        path,
+    ))
+
+
 def canonical_url(value: str, base: str = 'https://streeteasy.com/') -> str | None:
     try:
         p = urlsplit(urljoin(base, value.strip()))
@@ -52,6 +66,8 @@ def canonical_url(value: str, base: str = 'https://streeteasy.com/') -> str | No
 
 
 def kind_for(url: str) -> str | None:
+    if is_gallery_url(url):
+        return None
     if is_unavailable_url(url):
         return 'inventory'
     path = urlsplit(url).path

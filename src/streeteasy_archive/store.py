@@ -63,7 +63,17 @@ class ArchiveStore:
         if 'priority' not in columns:
             self.db.execute("ALTER TABLE frontier ADD COLUMN priority INTEGER GENERATED ALWAYS AS (CASE kind WHEN 'listing' THEN 0 WHEN 'sitemap' THEN 1 WHEN 'search' THEN 3 ELSE 2 END) VIRTUAL")
         self.db.execute('CREATE INDEX IF NOT EXISTS frontier_priority ON frontier(generation,state,priority)')
+        if 'listing_key' not in columns:
+            from .listing_identity import listing_key
+            self.db.create_function('archive_listing_key', 1, listing_key)
+            print('Indexing explicit listing identities from queue metadata', flush=True)
+            with self._tx():
+                self.db.execute('ALTER TABLE frontier ADD COLUMN listing_key TEXT')
+                # Schema and backfill commit together so interruption can retry safely.
+                self.db.execute("UPDATE frontier SET listing_key=archive_listing_key(url) WHERE kind='listing'")
+        self.db.execute('CREATE INDEX IF NOT EXISTS frontier_listing_identity ON frontier(generation,listing_key,state)')
         self.db.commit()
+        self._listing_evidence_cache = {}
 
     def close(self):
         self.db.close()
@@ -103,19 +113,23 @@ class ArchiveStore:
             (target_url, generation, url))
 
     def _enqueue(self, generation, items):
-        from .extract import canonical_url
+        from .extract import canonical_url, is_gallery_url
+        from .listing_identity import listing_key
         for item in items:
             original = item['url']
             url = canonical_url(original) or original
+            if is_gallery_url(url):
+                continue
             if url != original:
                 self._remember_alias(generation, original, url)
-            self.db.execute('''INSERT INTO frontier(generation,url,kind,lastmod) VALUES(?,?,?,?)
+            self.db.execute('''INSERT INTO frontier(generation,url,kind,lastmod,listing_key) VALUES(?,?,?,?,?)
                 ON CONFLICT(generation,url) DO UPDATE SET
                 state=CASE WHEN frontier.state='deferred' AND excluded.lastmod IS NOT NULL
                     AND excluded.lastmod IS NOT frontier.lastmod THEN 'pending' ELSE frontier.state END,
+                listing_key=excluded.listing_key,
                 kind=COALESCE(excluded.kind,frontier.kind),
                 lastmod=COALESCE(excluded.lastmod,frontier.lastmod)''',
-                (generation, url, item.get('kind'), item.get('lastmod')))
+                (generation, url, item.get('kind'), item.get('lastmod'), listing_key(url)))
 
     def enqueue(self, generation, items):
         with self._tx():
@@ -138,13 +152,35 @@ class ArchiveStore:
             FROM frontier f JOIN (SELECT url,MAX(generation) g FROM frontier
             WHERE generation<? GROUP BY url) latest ON f.url=latest.url AND f.generation=latest.g''',
             (generation,)).fetchall()
-        from .extract import canonical_url
+        from .extract import canonical_url, is_gallery_url
+        from .listing_identity import listing_key
         # Old completed variants remain in the archive. Refresh each canonical
         # request only once; validators and freshness belong to the exact URL.
         selected = {}
         aliases = []
+        fresh_aliases = {}
+        if interval > 0:
+            for alias in self.db.execute('SELECT url,target_url,reason FROM url_aliases WHERE generation<?', (generation,)):
+                key = listing_key(alias['url'])
+                if not key or listing_key(alias['target_url']) != key:
+                    continue
+                try:
+                    proof = json.loads(alias['reason'])
+                except (ValueError, TypeError):
+                    continue
+                if not isinstance(proof, dict) or proof.get('validation') != 'inline-identified-listing-history-v1':
+                    continue
+                latest = self.db.execute('''SELECT id,fetched,status,error FROM observations
+                    WHERE generation<? AND url=? ORDER BY fetched DESC,id DESC LIMIT 1''',
+                    (generation, alias['target_url'])).fetchone()
+                if (latest and latest['id'] == proof.get('observation_id') and latest['error'] is None
+                        and latest['status'] is not None and (200 <= latest['status'] < 300 or latest['status'] == 304)
+                        and latest['fetched'] > cutoff):
+                    fresh_aliases[alias['url']] = latest['fetched']
         for row in rows:
             url = canonical_url(row['url']) or row['url']
+            if is_gallery_url(url):
+                continue
             if url != row['url']:
                 aliases.append((row['url'], url))
             if url not in selected or row['url'] == url:
@@ -159,13 +195,16 @@ class ArchiveStore:
                 if not include_listings and row['kind'] in ('listing', 'inventory'):
                     continue
                 exact = url == row['url']
-                deferred = exact and row['kind'] in ('building', 'listing') and row['fetched'] is not None and row['fetched'] > cutoff
-                self.db.execute('''INSERT INTO frontier(generation,url,kind,lastmod,state,etag,modified)
-                    VALUES(?,?,?,?,?,?,?) ON CONFLICT(generation,url) DO UPDATE SET
+                fetched = row['fetched']
+                if url in fresh_aliases:
+                    fetched = max(fetched or 0, fresh_aliases[url])
+                deferred = exact and row['kind'] in ('building', 'listing') and fetched is not None and fetched > cutoff
+                self.db.execute('''INSERT INTO frontier(generation,url,kind,lastmod,state,etag,modified,listing_key)
+                    VALUES(?,?,?,?,?,?,?,?) ON CONFLICT(generation,url) DO UPDATE SET
                     etag=excluded.etag,modified=excluded.modified,lastmod=excluded.lastmod''',
                     (generation, url, row['kind'], row['lastmod'] if exact else None,
                      'deferred' if deferred else 'pending', row['etag'] if exact else None,
-                     row['modified'] if exact else None))
+                     row['modified'] if exact else None, listing_key(url)))
 
     def recover_inflight(self, generation=None):
         with self._tx():
@@ -183,23 +222,28 @@ class ArchiveStore:
     def claim(self, generation, now=None, url_prefix=None, scoped=False, prefer_inventory=False):
         now = time.time() if now is None else now
         with self._tx():
-            row = self.db.execute('''SELECT f.* FROM frontier f JOIN generations g ON g.id=f.generation
-                WHERE f.generation=? AND f.state='pending' AND f.next_attempt<=?
-                AND (g.cooldown IS NULL OR g.cooldown<=?)
-                AND (?=0 OR EXISTS(SELECT 1 FROM scope_urls scope WHERE scope.generation=f.generation AND scope.url=f.url))
-                AND (? IS NULL OR f.url=? OR substr(f.url,1,length(?)+1)=? || '/' OR substr(f.url,1,length(?)+1)=? || '?')
-                -- Unavailable inventories are the source of historical unit
-                -- discovery. Give them a durable turn before the growing
-                -- listing queue; listings still precede buildings/searches.
-                ORDER BY CASE WHEN ? THEN CASE WHEN f.kind='inventory' THEN 0 ELSE f.priority + 1 END
-                           ELSE f.priority END, f.rowid LIMIT 1''',
-                (generation, now, now, int(scoped), url_prefix, url_prefix, url_prefix, url_prefix, url_prefix, url_prefix,
-                 int(prefer_inventory))).fetchone()
-            if row:
-                self.db.execute("UPDATE frontier SET state='inflight',attempts=attempts+1 WHERE generation=? AND url=?", (generation, row['url']))
-                self.db.execute("UPDATE generations SET status='active',cooldown=NULL WHERE id=?", (generation,))
-                self.db.execute("INSERT INTO metadata VALUES('next_request',?) ON CONFLICT(key) DO UPDATE SET value=excluded.value", (str(now + 5),))
-            return row
+            while True:
+                row = self.db.execute('''SELECT f.* FROM frontier f JOIN generations g ON g.id=f.generation
+                    WHERE f.generation=? AND f.state='pending' AND f.next_attempt<=?
+                    AND (f.listing_key IS NULL OR NOT EXISTS(SELECT 1 FROM frontier busy
+                        WHERE busy.generation=f.generation AND busy.listing_key=f.listing_key AND busy.state='inflight'))
+                    AND (g.cooldown IS NULL OR g.cooldown<=?)
+                    AND (?=0 OR EXISTS(SELECT 1 FROM scope_urls scope WHERE scope.generation=f.generation AND scope.url=f.url))
+                    AND (? IS NULL OR f.url=? OR substr(f.url,1,length(?)+1)=? || '/' OR substr(f.url,1,length(?)+1)=? || '?')
+                    -- Unavailable inventories are the source of historical unit
+                    -- discovery. Give them a durable turn before the growing
+                    -- listing queue; listings still precede buildings/searches.
+                    ORDER BY CASE WHEN ? THEN CASE WHEN f.kind='inventory' THEN 0 ELSE f.priority + 1 END
+                               ELSE f.priority END, f.rowid LIMIT 1''',
+                    (generation, now, now, int(scoped), url_prefix, url_prefix, url_prefix, url_prefix, url_prefix, url_prefix,
+                     int(prefer_inventory))).fetchone()
+                if row and self._reuse_listing_capture(generation, row):
+                    continue
+                if row:
+                    self.db.execute("UPDATE frontier SET state='inflight',attempts=attempts+1 WHERE generation=? AND url=?", (generation, row['url']))
+                    self.db.execute("UPDATE generations SET status='active',cooldown=NULL WHERE id=?", (generation,))
+                    self.db.execute("INSERT INTO metadata VALUES('next_request',?) ON CONFLICT(key) DO UPDATE SET value=excluded.value", (str(now + 5),))
+                return row
 
     def resolve_obsolete_url(self, generation, old_url, new_url=None, kind=None):
         """Retire old aliases or excluded endpoints without claiming a download."""
@@ -251,6 +295,66 @@ class ArchiveStore:
                     self.db.execute("UPDATE frontier SET state='superseded' WHERE generation=? AND url=?",
                                     (generation, original))
             return result
+
+    def _reuse_listing_capture(self, generation, row):
+        """Called inside a write transaction, before reserving a provider request."""
+        from .listing_identity import capture_evidence
+        key = row['listing_key']
+        if not key:
+            return False
+        # ORDER BY url otherwise makes SQLite prefer a full generation scan.
+        candidates = self.db.execute('''SELECT url FROM frontier INDEXED BY frontier_listing_identity WHERE generation=?
+            AND listing_key=? AND state='done' AND url!=? ORDER BY url''',
+            (generation, key, row['url'])).fetchall()
+        for candidate in candidates:
+            target = candidate['url']
+            observation = self.db.execute('''SELECT id,status,error,body_hash FROM observations
+                WHERE generation=? AND url=? ORDER BY id DESC LIMIT 1''', (generation, target)).fetchone()
+            if (not observation or observation['error'] is not None or not observation['body_hash']
+                    or observation['status'] is None
+                    or not (200 <= observation['status'] < 300 or observation['status'] == 304)):
+                continue
+            if not self.body_path(observation['body_hash']).is_file():
+                continue
+            cache_key = (generation, target, observation['body_hash'])
+            if cache_key not in self._listing_evidence_cache:
+                snapshot = self.db.execute('''SELECT id,extracted FROM snapshots
+                    WHERE generation=? AND url=? AND body_hash=?''', cache_key).fetchone()
+                evidence = None
+                if snapshot:
+                    try:
+                        evidence = capture_evidence(json.loads(snapshot['extracted']), target)
+                    except (ValueError, TypeError, KeyError):
+                        pass
+                    if evidence:
+                        evidence = dict(evidence, snapshot_id=snapshot['id'], body_hash=observation['body_hash'])
+                self._listing_evidence_cache[cache_key] = evidence
+            evidence = self._listing_evidence_cache[cache_key]
+            if not evidence or evidence['listing_key'] != key:
+                continue
+            # Keep the exact capture and its time; never manufacture an alias observation.
+            proof = dict(evidence, observation_id=observation['id'], reason='confirmed same-listing full-detail capture')
+            self._remember_alias(generation, row['url'], target, json.dumps(proof, sort_keys=True))
+            self.db.execute("UPDATE frontier SET state='superseded' WHERE generation=? AND url=?",
+                            (generation, row['url']))
+            return True
+        return False
+
+    def apply_listing_rules(self, generation):
+        """Reconcile existing pending aliases/gallery routes without provider calls."""
+        from .extract import is_gallery_url
+        result = {'galleries_excluded': 0, 'listing_aliases_superseded': 0}
+        with self._tx():
+            rows = self.db.execute("SELECT * FROM frontier WHERE generation=? AND state IN ('pending','deferred')",
+                                   (generation,)).fetchall()
+            for row in rows:
+                if is_gallery_url(row['url']):
+                    self.db.execute("UPDATE frontier SET state='excluded' WHERE generation=? AND url=?",
+                                    (generation, row['url']))
+                    result['galleries_excluded'] += 1
+                elif row['state'] == 'pending' and self._reuse_listing_capture(generation, row):
+                    result['listing_aliases_superseded'] += 1
+        return result
 
     def conditional_headers(self, generation, url):
         row = self.db.execute('SELECT etag,modified FROM frontier WHERE generation=? AND url=?', (generation, url)).fetchone()

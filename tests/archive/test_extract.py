@@ -1,6 +1,6 @@
 import gzip
 import json
-from streeteasy_archive.extract import kind_for, canonical_url, discover, extract
+from streeteasy_archive.extract import is_gallery_url, kind_for, canonical_url, discover, extract
 
 
 def test_scope_and_identity():
@@ -47,6 +47,36 @@ def test_showcase_alias_and_nonlisting_endpoints():
     assert canonical_url(base + '/1a?showcase=1&similarHDP2=1') == base + '/1a'
     assert kind_for(base + '/export_owner_list') is None
     assert kind_for(base + '/media_gallery') is None
+
+
+def test_media_gallery_routes_are_excluded_but_source_metadata_is_retained():
+    routes = [
+        '/building/example/media_gallery',
+        '/building/example/4c/media_gallery',
+        '/building/example/rental/123/media_gallery',
+        '/rental/123/media_gallery',
+        '/sale/456/media_gallery',
+    ]
+    for route in routes:
+        url = 'https://streeteasy.com' + route
+        assert is_gallery_url(url)
+        assert kind_for(url) is None
+
+    body = b'''<html><body><script>window.gallery = true</script>
+      <img src="https://images.example.test/photo.jpg">
+    </body></html>'''
+    data = extract(body, 'https://streeteasy.com/building/example/4c/media_gallery')
+    assert data['scripts'][0]['text'].strip() == 'window.gallery = true'
+    assert data['images'][0]['src'].endswith('/photo.jpg')
+
+
+def test_non_gallery_detail_history_and_inventory_routes_remain_classified():
+    assert not is_gallery_url('https://streeteasy.com/building/example/4c')
+    assert not is_gallery_url('https://streeteasy.com/building/example/history')
+    assert not is_gallery_url('https://streeteasy.com/building/example?archive_view=unavailable-rentals')
+    assert kind_for('https://streeteasy.com/building/example/4c') == 'listing'
+    assert kind_for('https://streeteasy.com/building/example/history') == 'building'
+    assert kind_for('https://streeteasy.com/building/example?archive_view=unavailable-rentals') == 'inventory'
 
 
 def test_main_building_presentation_filters_collapse_aliases():
