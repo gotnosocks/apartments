@@ -1,0 +1,447 @@
+{
+  "at": 1789200663.7785563,
+  "generation": 1,
+  "scoped_queue": {
+    "building:done": 1832,
+    "listing:done": 122116,
+    "inventory:done": 1809,
+    "building:superseded": 1488,
+    "listing:excluded": 1,
+    "directory:done": 161,
+    "search:done": 46,
+    "listing:superseded": 2
+  },
+  "building_roots": 1311,
+  "missing_buildings": [],
+  "missing_expected_inventories": [],
+  "expected_summary_totals": {
+    "rentals": 25532,
+    "sales": 8961
+  },
+  "inventory_counts": {
+    "rentals": 1217,
+    "sales": 592
+  },
+  "inventory_rows": {
+    "rentals": 25535,
+    "sales": 9535
+  },
+  "inventory_closings": 1166,
+  "incomplete_inventories": [],
+  "cross_capture_count_discrepancies": [
+    {
+      "url": "https://streeteasy.com/building/21-chelsea?archive_view=unavailable-rentals",
+      "category": "rentals",
+      "complete": true,
+      "rows": 206,
+      "displayed": 206,
+      "expected": 206,
+      "detail_links": 206,
+      "detail_states": {
+        "captured": 206
+      },
+      "closing_records": 0,
+      "building_summary_expected": 207,
+      "capture_times": {
+        "https://streeteasy.com/building/21-chelsea": 1788834150.922936,
+        "https://streeteasy.com/building/21-chelsea?archive_view=unavailable-rentals": 1788885067.5812118
+      }
+    },
+    {
+      "url": "https://streeteasy.com/building/223-west-14-street-new_york?archive_view=unavailable-sales",
+      "category": "sales",
+      "complete": true,
+      "rows": 6,
+      "displayed": 6,
+      "expected": 6,
+      "detail_links": 5,
+      "detail_states": {
+        "captured": 5
+      },
+      "closing_records": 1,
+      "building_summary_expected": 7,
+      "capture_times": {
+        "https://streeteasy.com/building/223-west-14-street-new_york": 1788837743.170246,
+        "https://streeteasy.com/building/223-west-14-street-new_york?archive_view=unavailable-sales": 1788896407.5794153
+      }
+    },
+    {
+      "url": "https://streeteasy.com/building/240-west-16-street-new_york?archive_view=unavailable-rentals",
+      "category": "rentals",
+      "complete": true,
+      "rows": 84,
+      "displayed": 84,
+      "expected": 84,
+      "detail_links": 84,
+      "detail_states": {
+        "captured": 84
+      },
+      "closing_records": 0,
+      "building_summary_expected": 85,
+      "capture_times": {
+        "https://streeteasy.com/building/240-west-16-street-new_york": 1788838366.144463,
+        "https://streeteasy.com/building/240-west-16-street-new_york?archive_view=unavailable-rentals": 1788928416.857292
+      }
+    },
+    {
+      "url": "https://streeteasy.com/building/277-west-22-street-new_york?archive_view=unavailable-rentals",
+      "category": "rentals",
+      "complete": true,
+      "rows": 2,
+      "displayed": 2,
+      "expected": 2,
+      "detail_links": 2,
+      "detail_states": {
+        "captured": 2
+      },
+      "closing_records": 0,
+      "building_summary_expected": 3,
+      "capture_times": {
+        "https://streeteasy.com/building/277-west-22-street-new_york": 1788838601.13577,
+        "https://streeteasy.com/building/277-west-22-street-new_york?archive_view=unavailable-rentals": 1788935735.122664
+      }
+    },
+    {
+      "url": "https://streeteasy.com/building/315-7-avenue-new_york?archive_view=unavailable-rentals",
+      "category": "rentals",
+      "complete": true,
+      "rows": 63,
+      "displayed": 63,
+      "expected": 63,
+      "detail_links": 63,
+      "detail_states": {
+        "captured": 63
+      },
+      "closing_records": 0,
+      "building_summary_expected": 64,
+      "capture_times": {
+        "https://streeteasy.com/building/315-7-avenue-new_york": 1788837885.626146,
+        "https://streeteasy.com/building/315-7-avenue-new_york?archive_view=unavailable-rentals": 1788896922.1944194
+      }
+    },
+    {
+      "url": "https://streeteasy.com/building/336-west-17-street-new_york?archive_view=unavailable-rentals",
+      "category": "rentals",
+      "complete": true,
+      "rows": 10,
+      "displayed": 10,
+      "expected": 10,
+      "detail_links": 10,
+      "detail_states": {
+        "captured": 10
+      },
+      "closing_records": 0,
+      "building_summary_expected": 11,
+      "capture_times": {
+        "https://streeteasy.com/building/336-west-17-street-new_york": 1788838289.537923,
+        "https://streeteasy.com/building/336-west-17-street-new_york?archive_view=unavailable-rentals": 1788927593.2002287
+      }
+    },
+    {
+      "url": "https://streeteasy.com/building/363-west-22-street-new_york?archive_view=unavailable-rentals",
+      "category": "rentals",
+      "complete": true,
+      "rows": 1,
+      "displayed": 1,
+      "expected": 1,
+      "detail_links": 1,
+      "detail_states": {
+        "captured": 1
+      },
+      "closing_records": 0,
+      "building_summary_expected": 2,
+      "capture_times": {
+        "https://streeteasy.com/building/363-west-22-street-new_york": 1788838076.355503,
+        "https://streeteasy.com/building/363-west-22-street-new_york?archive_view=unavailable-rentals": 1788898454.1989133
+      }
+    },
+    {
+      "url": "https://streeteasy.com/building/404-west-22-street-new_york?archive_view=unavailable-rentals",
+      "category": "rentals",
+      "complete": true,
+      "rows": 20,
+      "displayed": 20,
+      "expected": 20,
+      "detail_links": 20,
+      "detail_states": {
+        "captured": 20
+      },
+      "closing_records": 0,
+      "building_summary_expected": 21,
+      "capture_times": {
+        "https://streeteasy.com/building/404-west-22-street-new_york": 1788838050.604141,
+        "https://streeteasy.com/building/404-west-22-street-new_york?archive_view=unavailable-rentals": 1788898215.0028524
+      }
+    },
+    {
+      "url": "https://streeteasy.com/building/410-west-24-street-new_york?archive_view=unavailable-rentals",
+      "category": "rentals",
+      "complete": true,
+      "rows": 65,
+      "displayed": 65,
+      "expected": 65,
+      "detail_links": 65,
+      "detail_states": {
+        "captured": 65
+      },
+      "closing_records": 0,
+      "building_summary_expected": 66,
+      "capture_times": {
+        "https://streeteasy.com/building/410-west-24-street-new_york": 1788834386.918874,
+        "https://streeteasy.com/building/410-west-24-street-new_york?archive_view=unavailable-rentals": 1788894317.9207063
+      }
+    },
+    {
+      "url": "https://streeteasy.com/building/777-6th-avenue?archive_view=unavailable-rentals",
+      "category": "rentals",
+      "complete": true,
+      "rows": 262,
+      "displayed": 262,
+      "expected": 262,
+      "detail_links": 262,
+      "detail_states": {
+        "captured": 262
+      },
+      "closing_records": 0,
+      "building_summary_expected": 263,
+      "capture_times": {
+        "https://streeteasy.com/building/777-6th-avenue": 1788834169.8638332,
+        "https://streeteasy.com/building/777-6th-avenue?archive_view=unavailable-rentals": 1788885155.914817
+      }
+    },
+    {
+      "url": "https://streeteasy.com/building/the-caledonia?archive_view=unavailable-rentals",
+      "category": "rentals",
+      "complete": true,
+      "rows": 645,
+      "displayed": 645,
+      "expected": 645,
+      "detail_links": 645,
+      "detail_states": {
+        "captured": 645
+      },
+      "closing_records": 0,
+      "building_summary_expected": 646,
+      "capture_times": {
+        "https://streeteasy.com/building/the-caledonia": 1788834337.473881,
+        "https://streeteasy.com/building/the-caledonia?archive_view=unavailable-rentals": 1788896234.5088348
+      }
+    }
+  ],
+  "missing_inventory_bodies": [],
+  "inventory_detail_states": {
+    "captured": 33903,
+    "captured_via_alias_or_redirect": 1
+  },
+  "inventory_detail_total": 33904,
+  "unresolved_inventory_details": [],
+  "scoped_listing_states": {
+    "captured": 121109,
+    "HTTP_404": 966,
+    "captured_via_alias_or_redirect": 35
+  },
+  "current_error_counts": {
+    "HTTP 404 coverage gap": 966
+  },
+  "largest_inventories": [
+    {
+      "url": "https://streeteasy.com/building/the-caledonia?archive_view=unavailable-rentals",
+      "category": "rentals",
+      "complete": true,
+      "rows": 645,
+      "displayed": 645,
+      "expected": 645,
+      "detail_links": 645,
+      "detail_states": {
+        "captured": 645
+      },
+      "closing_records": 0
+    },
+    {
+      "url": "https://streeteasy.com/building/abington-house?archive_view=unavailable-rentals",
+      "category": "rentals",
+      "complete": true,
+      "rows": 576,
+      "displayed": 576,
+      "expected": 576,
+      "detail_links": 576,
+      "detail_states": {
+        "captured": 576
+      },
+      "closing_records": 0
+    },
+    {
+      "url": "https://streeteasy.com/building/the-tate?archive_view=unavailable-rentals",
+      "category": "rentals",
+      "complete": true,
+      "rows": 459,
+      "displayed": 459,
+      "expected": 459,
+      "detail_links": 459,
+      "detail_states": {
+        "captured": 459
+      },
+      "closing_records": 0
+    },
+    {
+      "url": "https://streeteasy.com/building/the-westminster?archive_view=unavailable-rentals",
+      "category": "rentals",
+      "complete": true,
+      "rows": 419,
+      "displayed": 419,
+      "expected": 419,
+      "detail_links": 419,
+      "detail_states": {
+        "captured": 419
+      },
+      "closing_records": 0
+    },
+    {
+      "url": "https://streeteasy.com/building/ruby-chelsea?archive_view=unavailable-rentals",
+      "category": "rentals",
+      "complete": true,
+      "rows": 405,
+      "displayed": 405,
+      "expected": 405,
+      "detail_links": 405,
+      "detail_states": {
+        "captured": 405
+      },
+      "closing_records": 0
+    },
+    {
+      "url": "https://streeteasy.com/building/the-sierra-chelsea?archive_view=unavailable-rentals",
+      "category": "rentals",
+      "complete": true,
+      "rows": 393,
+      "displayed": 393,
+      "expected": 0,
+      "detail_links": 393,
+      "detail_states": {
+        "captured": 393
+      },
+      "closing_records": 0
+    },
+    {
+      "url": "https://streeteasy.com/building/3-eleven?archive_view=unavailable-rentals",
+      "category": "rentals",
+      "complete": true,
+      "rows": 381,
+      "displayed": 381,
+      "expected": 381,
+      "detail_links": 381,
+      "detail_states": {
+        "captured": 381
+      },
+      "closing_records": 0
+    },
+    {
+      "url": "https://streeteasy.com/building/507-west-chelsea?archive_view=unavailable-rentals",
+      "category": "rentals",
+      "complete": true,
+      "rows": 326,
+      "displayed": 326,
+      "expected": 326,
+      "detail_links": 326,
+      "detail_states": {
+        "captured": 326
+      },
+      "closing_records": 0
+    },
+    {
+      "url": "https://streeteasy.com/building/beatrice-105-west-29th-street-new_york?archive_view=unavailable-rentals",
+      "category": "rentals",
+      "complete": true,
+      "rows": 326,
+      "displayed": 326,
+      "expected": 326,
+      "detail_links": 326,
+      "detail_states": {
+        "captured": 326
+      },
+      "closing_records": 0
+    },
+    {
+      "url": "https://streeteasy.com/building/555-west-23-street-new_york?archive_view=unavailable-rentals",
+      "category": "rentals",
+      "complete": true,
+      "rows": 306,
+      "displayed": 306,
+      "expected": 306,
+      "detail_links": 306,
+      "detail_states": {
+        "captured": 306
+      },
+      "closing_records": 0
+    },
+    {
+      "url": "https://streeteasy.com/building/chelsea-centro?archive_view=unavailable-rentals",
+      "category": "rentals",
+      "complete": true,
+      "rows": 282,
+      "displayed": 282,
+      "expected": 282,
+      "detail_links": 282,
+      "detail_states": {
+        "captured": 282
+      },
+      "closing_records": 0
+    },
+    {
+      "url": "https://streeteasy.com/building/ohm-312-11th-avenue-new_york?archive_view=unavailable-rentals",
+      "category": "rentals",
+      "complete": true,
+      "rows": 278,
+      "displayed": 278,
+      "expected": 278,
+      "detail_links": 278,
+      "detail_states": {
+        "captured": 278
+      },
+      "closing_records": 0
+    },
+    {
+      "url": "https://streeteasy.com/building/555-west-23-street-new_york?archive_view=unavailable-sales",
+      "category": "sales",
+      "complete": true,
+      "rows": 275,
+      "displayed": 275,
+      "expected": 270,
+      "detail_links": 255,
+      "detail_states": {
+        "captured": 255
+      },
+      "closing_records": 20
+    },
+    {
+      "url": "https://streeteasy.com/building/777-6th-avenue?archive_view=unavailable-rentals",
+      "category": "rentals",
+      "complete": true,
+      "rows": 262,
+      "displayed": 262,
+      "expected": 262,
+      "detail_links": 262,
+      "detail_states": {
+        "captured": 262
+      },
+      "closing_records": 0
+    },
+    {
+      "url": "https://streeteasy.com/building/chelsea-tower?archive_view=unavailable-rentals",
+      "category": "rentals",
+      "complete": true,
+      "rows": 259,
+      "displayed": 259,
+      "expected": 259,
+      "detail_links": 259,
+      "detail_states": {
+        "captured": 259
+      },
+      "closing_records": 0
+    }
+  ],
+  "limitations": [
+    "Queue drainage covers discovered Chelsea scope, not an independent census of every physical unit.",
+    "404/410 outcomes and redirect targets remain explicit; a saved price history does not supply missing episode attributes."
+  ]
+}

@@ -1,0 +1,33 @@
+{
+  "snapshot": "chelsea-backfill-20260912",
+  "source_workspace": "chelsea-resume",
+  "parent_snapshot": "chelsea-20260908",
+  "created_at_epoch": 1789201034.1081417,
+  "source_run": {
+    "workspace": "chelsea-resume",
+    "source_snapshot": "chelsea-20260908",
+    "exit_code": 0,
+    "queue": {
+      "done": 125990,
+      "excluded": 254,
+      "pending": 6979,
+      "superseded": 1490
+    },
+    "scope_queue": {
+      "done": 125964,
+      "excluded": 1,
+      "superseded": 1490
+    },
+    "state": [
+      "active",
+      null
+    ],
+    "made_progress": true,
+    "log": "crawls/chelsea-resume/run-eecd0f1f-440e-4df4-a5f1-9469e132b9c7.log",
+    "max_requests": 750,
+    "concurrency": 10,
+    "api_rps": 2
+  },
+  "seeded_derived_database": false,
+  "body_root": "/bodies"
+}
