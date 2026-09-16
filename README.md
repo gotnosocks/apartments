@@ -3,6 +3,11 @@
 One Python project for the StreetEasy scraper, durable raw archive, local archive browser,
 rental explorer, and pricing model. Git and colocated Jujutsu track this repository.
 
+The primary project and archive now live on **thelio**, with the archive under
+`/data1/apartments/archive`. See the [hosting and migration runbook](docs/operations/thelio.md)
+for the verified cutover record and access to the review and archive browsers.
+Migration completed on September 16 at 21:19 EDT; Modal retains a frozen backup.
+
 Latest results: [September 8 Chelsea analysis](docs/analysis/chelsea-2026-09-08.md).
 Updated coverage: [September 8 cloud preparation](docs/analysis/chelsea-2026-09-08-cloud-preparation.md).
 
@@ -80,9 +85,11 @@ refit after the expanded backfill is imported.
 
 ## Import and analyze
 
-For this laptop, use the [Modal processing workflow](docs/data/modal-processing.md)
-for bulk import, coverage audits, preparation, and fitting. The commands below
-remain available for small local imports and browsing.
+Run archive processing on thelio against `/data1/apartments/archive`, keeping
+intensive work off the laptop. The [Modal processing workflow](docs/data/modal-processing.md)
+is retained for reference; its old volume is now a frozen backup and does not
+receive new thelio reviews or updates. Future cloud runs need an explicit upload
+of their current inputs.
 
 ```sh
 uv run apartments import-archive
@@ -166,4 +173,8 @@ records the generated tables, missingness, source disagreements, and integrity c
 
 ### Manual rental review
 
-The [rental review workbench](docs/data/rental-review.md) runs locally against the granular cloud dataset. Start it with `.venv/bin/python -m apartments.review_web --port 8766` and open `http://127.0.0.1:8766`. Review identity, price history, layout, size and amenities; preview reversible capture-scoped corrections or report a whole parser-error class. Raw data stays unchanged.
+The [rental review workbench](docs/data/rental-review.md) runs there against the local granular dataset and correction ledger. Use the SSH tunnel in the [hosting runbook](docs/operations/thelio.md) and open `http://127.0.0.1:8766`. Review identity, price history, layout, size and amenities; preview reversible capture-scoped corrections or report a whole parser-error class. Raw data stays unchanged. The old Modal review deployment is stopped.
+
+### Thelio hosting
+
+See [Thelio setup and migration](docs/operations/thelio.md) for archive paths, resumable transfer, validation, services, and SSH access. The primary-data cutover passed verification on September 16 at 21:19 EDT.

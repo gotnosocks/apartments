@@ -40,14 +40,22 @@ def plan():
     records = []
     totals = {}
     def add(path):
+        # SQLite rebuilds its process coordination index; it is not durable data.
+        # Keep database and WAL files, which can contain committed records.
+        if path.name.endswith(".sqlite3-shm") and path.with_name(path.name[:-4]).is_file():
+            return
         st = path.lstat()
         rel = path.relative_to(BASE).as_posix()
         rec = {'path':rel, 'size':st.st_size, 'mtime_ns':st.st_mtime_ns, 'mode':stat.S_IMODE(st.st_mode)}
         if path.is_symlink():
             original = os.readlink(path)
             target = (path.parent / original).resolve() if not original.startswith('/') else Path(original).resolve()
-            target.relative_to(BASE)  # Reject links escaping the archive.
-            rec.update(type='symlink',target=os.path.relpath(target,path.parent),original_target=original)
+            try:
+                target_relative = target.relative_to(BASE.resolve())
+            except ValueError:
+                # Older snapshots retained the SDK's internal path for this same volume.
+                target_relative = target.relative_to(Path('/__modal/volumes')/volume.object_id)
+            rec.update(type='symlink',target=os.path.relpath(BASE/target_relative,path.parent),original_target=original)
             rec['size'] = 0
         elif not stat.S_ISREG(st.st_mode):
             raise ValueError('Unsupported source file: '+rel)
@@ -88,9 +96,16 @@ def plan():
 
 
 class HashReader:
-    def __init__(self, stream):self.stream=stream;self.hash=hashlib.sha256()
+    def __init__(self, stream, label=None):
+        self.stream=stream;self.hash=hashlib.sha256();self.label=label
+        self.bytes=0;self.started=self.last_log=time.time()
     def read(self,n=-1):
-        value=self.stream.read(n);self.hash.update(value);return value
+        value=self.stream.read(n);self.hash.update(value);self.bytes+=len(value)
+        now=time.time()
+        if self.label is not None and now-self.last_log>=30:
+            print(json.dumps({'file':self.label,'uncompressed_bytes':self.bytes,'elapsed':round(now-self.started)}),flush=True)
+            self.last_log=now
+        return value
 
 
 @app.function(image=image,cpu=(2,2),memory=(1024,2048),timeout=14400,volumes={'/archive':volume},max_containers=2,retries=0)
@@ -119,7 +134,7 @@ def pack(ident):
                     else:
                         info.size=record['size']
                         with source.open('rb') as raw:
-                            reader=HashReader(raw);archive.addfile(info,reader)
+                            reader=HashReader(raw, record["path"]);archive.addfile(info,reader)
                         after=source.stat()
                         if after.st_size!=before.st_size or after.st_mtime_ns!=before.st_mtime_ns:raise RuntimeError('Source mutated during export: '+record['path'])
                         final={'path':record['path'],'size':record['size'],'sha256':reader.hash.hexdigest()}
@@ -140,8 +155,14 @@ def pack(ident):
 @app.function(image=image,cpu=.25,memory=512,timeout=86400,volumes={'/archive':volume},max_containers=1,retries=0)
 def run():
     planned=plan.remote()
-    for result in pack.map([g['id'] for g in planned['groups']],order_outputs=False):
-        print(json.dumps(result),flush=True)
+    errors=[]
+    for result in pack.map([g['id'] for g in planned['groups']],order_outputs=False,return_exceptions=True):
+        if isinstance(result, Exception):
+            errors.append(str(result));print(json.dumps({'pack_error':str(result)}),flush=True)
+        else:
+            print(json.dumps(result),flush=True)
+    if errors:
+        raise RuntimeError('Export incomplete; successful bundles retained: '+str(errors))
     volume.reload()
     ready=[json.loads((EXPORT/'packs'/f'{g["id"]:05d}.ready.json').read_text()) for g in planned['groups']]
     out={'completed_at':time.time(),'files':sum(r['files'] for r in ready),'bytes':sum(r['bytes'] for r in ready),'uncompressed_bytes':sum(r['uncompressed_bytes'] for r in ready)}

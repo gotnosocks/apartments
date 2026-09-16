@@ -1,0 +1,65 @@
+{
+  "date": "2026-09-16",
+  "source": "chelsea-archive",
+  "inventory": {
+    "bodies": {
+      "files": 125953,
+      "bytes": 11501574344
+    },
+    "crawls": {
+      "files": 178,
+      "bytes": 158948036112
+    },
+    "datasets": {
+      "files": 516,
+      "bytes": 321406802
+    },
+    "fits": {
+      "files": 9,
+      "bytes": 1355622
+    },
+    "reviews": {
+      "files": 2,
+      "bytes": 1261
+    },
+    "snapshots": {
+      "files": 12,
+      "bytes": 166742240794
+    }
+  },
+  "sqlite_headers": [
+    {
+      "path": "crawls/chelsea-resume/archive.sqlite3",
+      "bytes": 158946983936,
+      "allocated_bytes": 158946983936,
+      "inode": 5,
+      "page_size": 4096,
+      "page_count": 38805416,
+      "freelist_count": 0
+    },
+    {
+      "path": "snapshots/chelsea-backfill-20260912/archive.sqlite3",
+      "bytes": 158946983936,
+      "allocated_bytes": 158946983936,
+      "inode": 10,
+      "page_size": 4096,
+      "page_count": 38805416,
+      "freelist_count": 0
+    },
+    {
+      "path": "snapshots/chelsea-20260908/archive.sqlite3",
+      "bytes": 7371026432,
+      "allocated_bytes": 7371026432,
+      "inode": 12,
+      "page_size": 4096,
+      "page_count": 1799567,
+      "freelist_count": 0
+    }
+  ],
+  "notes": [
+    "File-size totals include live databases and historical snapshots.",
+    "Equal byte and page counts do not prove equal content.",
+    "freelist_count=0 does not exclude partly filled pages or repeated JSON payloads.",
+    "Record counting exceeded the initial audit time limit; metadata-only audit completed."
+  ]
+}

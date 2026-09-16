@@ -1,5 +1,11 @@
 # Remote archive processing
 
+**Hosting update (September 16, 2026):** thelio now owns the primary archive and
+review ledger. The former Modal volume is a frozen backup. These legacy cloud
+commands do not automatically see new thelio observations or human corrections;
+use thelio for archive processing, or explicitly upload current inputs for a new
+cloud run. See [the hosting runbook](../operations/thelio.md).
+
 Use Modal for archive import, the building coverage audit, model preparation, and
 posterior fitting. The laptop transfers files and displays downloaded results.
 Do not run a full archive audit or model preparation locally on the M1.

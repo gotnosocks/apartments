@@ -1,0 +1,33 @@
+{
+  "dataset": "chelsea-granular-20260916",
+  "destination": {
+    "bytes": 337514582167,
+    "files": 126669,
+    "review_ledger": null
+  },
+  "migration": {
+    "bytes": 337514582167,
+    "files": 126669,
+    "groups": 36
+  },
+  "parquet_row_counts": {
+    "building_observations": 1832,
+    "event_mentions": 2938566,
+    "fetch_observations": 127184,
+    "frontier": 127455,
+    "inventory_observations": 1809,
+    "inventory_row_links": 35071,
+    "inventory_rows": 35071,
+    "listing_observations": 121118,
+    "snapshots": 124966,
+    "source_changes": 788809,
+    "url_aliases": 2011
+  },
+  "quality_report": "datasets/chelsea-granular-20260916/quality-report.json",
+  "sqlite": {
+    "cache_kib": 8192,
+    "path": "crawls/chelsea-resume/archive.sqlite3",
+    "quick_check": "ok"
+  },
+  "validated_at": 1789607958.9615664
+}

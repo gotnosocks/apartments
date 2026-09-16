@@ -1,0 +1,17 @@
+[Unit]
+Description=Apartments raw archive browser (thelio primary archive)
+ConditionPathIsMountPoint=/data1
+ConditionPathExists=/data1/apartments/migration/cutover-ready.json
+
+[Service]
+Type=simple
+WorkingDirectory=/home/ben/code/apartments
+ExecStart=/home/ben/code/apartments/.venv/bin/streeteasy-archive --data /data1/apartments/archive/crawls/chelsea-resume serve --port 8765
+Restart=on-failure
+RestartSec=5
+Environment=PYTHONUNBUFFERED=1
+MemoryMax=2G
+UMask=0077
+
+[Install]
+WantedBy=default.target

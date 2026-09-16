@@ -9,7 +9,7 @@ data/captures/
 data/streeteasy/
 data/model/
 data/exports/
-data/archive/
+data/archive
 *.duckdb.wal
 
 data/logs/

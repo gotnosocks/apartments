@@ -6,11 +6,13 @@ import argparse
 import hashlib
 import json
 import os
+import threading
 import sys
 import tarfile
 import tempfile
 import time
 from pathlib import Path, PurePosixPath
+from types import SimpleNamespace
 from typing import Any, BinaryIO
 
 CHUNK_SIZE = 1024 * 1024
@@ -23,6 +25,14 @@ class ReceiveError(ValueError):
     """A bundle is malformed, unsafe, or does not match its manifest."""
 
 
+class TransientDownloadError(RuntimeError):
+    """A bounded download retry run ended on a transport/SDK failure."""
+
+
+class _WaitForPublication(Exception):
+    pass
+
+
 def _relative(value: Any, label: str = "path") -> PurePosixPath:
     if not isinstance(value, str) or not value or "\\" in value:
         raise ReceiveError(f"{label} must be a non-empty relative POSIX path")
@@ -32,13 +42,18 @@ def _relative(value: Any, label: str = "path") -> PurePosixPath:
     return path
 
 
-def _hash_file(path: Path) -> tuple[int, str]:
+def _hash_file(path: Path, *, progress_label: str | None = None) -> tuple[int, str]:
     digest = hashlib.sha256()
     size = 0
+    last_log = time.monotonic()
     with path.open("rb") as stream:
         while block := stream.read(CHUNK_SIZE):
             size += len(block)
             digest.update(block)
+            now = time.monotonic()
+            if progress_label and now - last_log >= 30:
+                print(f"migration verify {progress_label}: {size} bytes", flush=True)
+                last_log = now
     return size, digest.hexdigest()
 
 
@@ -106,19 +121,36 @@ def _ensure_no_symlink_parent(root: Path, rel: PurePosixPath) -> Path:
     return target
 
 
-def _matches(path: Path, item: dict[str, Any]) -> bool:
+def _matches(path: Path, item: dict[str, Any], *, progress_label: str | None = None) -> bool:
     if item.get("type", "file") == "symlink":
         return path.is_symlink() and os.readlink(path) == item["target"]
     if not path.is_file() or path.is_symlink():
         return False
-    size, digest = _hash_file(path)
+    size, digest = _hash_file(path, progress_label=progress_label)
     return size == item["size"] and digest == item["sha256"]
 
 
-def verify_part(root: Path, records: list[dict[str, Any]]) -> None:
+class _ProgressReader:
+    def __init__(self, stream: Any, label: str):
+        self.stream = stream
+        self.label = label
+        self.bytes_read = 0
+        self.last_log = time.monotonic()
+
+    def read(self, size: int = -1) -> bytes:
+        data = self.stream.read(size)
+        self.bytes_read += len(data)
+        now = time.monotonic()
+        if now - self.last_log >= 30:
+            print(f"migration unpack {self.label}: {self.bytes_read} bytes", flush=True)
+            self.last_log = now
+        return data
+
+
+def verify_part(root: Path, records: list[dict[str, Any]], *, label: str = "part") -> None:
     for item in records:
         path = _ensure_no_symlink_parent(root, _relative(item["path"]))
-        if not _matches(path, item):
+        if not _matches(path, item, progress_label=f"{label} {item['path']}"):
             raise ReceiveError(f"existing destination does not match manifest: {item['path']}")
 
 
@@ -135,7 +167,8 @@ def extract_bundle(archive_path: Path, manifest_path: Path, root: Path, ready: d
     try:
         with archive_path.open("rb") as compressed:
             reader = zstandard.ZstdDecompressor().stream_reader(compressed)
-            with tarfile.open(fileobj=reader, mode="r|") as tar:
+            progress_reader = _ProgressReader(reader, archive_path.stem)
+            with tarfile.open(fileobj=progress_reader, mode="r|") as tar:
                 for member in tar:
                     if member.name in ("", ".") and member.isdir():
                         continue
@@ -158,6 +191,10 @@ def extract_bundle(archive_path: Path, manifest_path: Path, root: Path, ready: d
                     if item.get("type", "file") == "symlink":
                         if not member.issym() or member.linkname != item["target"]:
                             raise ReceiveError(f"symlink differs from manifest: {name}")
+                        try:
+                            (destination.parent / item["target"]).resolve(strict=False).relative_to(root.resolve())
+                        except ValueError as exc:
+                            raise ReceiveError(f"symlink target escapes archive: {name}") from exc
                         if destination.exists() or destination.is_symlink():
                             if not _matches(destination, item):
                                 raise ReceiveError(f"refusing to overwrite existing path: {name}")
@@ -179,10 +216,13 @@ def extract_bundle(archive_path: Path, manifest_path: Path, root: Path, ready: d
                     if source is None:
                         raise ReceiveError(f"tar entry has no content: {name}")
                     partial = destination.with_name(destination.name + ".partial")
+                    if partial.is_symlink():
+                        raise ReceiveError(f"refusing to write through partial symlink: {partial}")
+                    partial.unlink(missing_ok=True)
                     digest = hashlib.sha256()
                     size = 0
                     try:
-                        with source, partial.open("wb") as output:
+                        with source, partial.open("xb") as output:
                             while block := source.read(CHUNK_SIZE):
                                 size += len(block)
                                 uncompressed += len(block)
@@ -232,27 +272,42 @@ def _read_volume(volume: Any, remote: str) -> bytes:
 
 def _download(volume: Any, remote: str, target: Path, *, expected_sha256: str | None = None, retries: int = 5) -> None:
     target.parent.mkdir(parents=True, exist_ok=True)
-    last_error: Exception | None = None
     for attempt in range(retries):
         partial = target.with_name(target.name + ".partial")
         partial.unlink(missing_ok=True)
         try:
+            started = time.monotonic()
+            last_log = [started]
+            transferred = [0]
+            progress_lock = threading.Lock()
+
+            def progress(*, advance: int = 0, **_: Any) -> None:
+                with progress_lock:
+                    transferred[0] += advance
+                    now = time.monotonic()
+                    if now - last_log[0] >= 30:
+                        print(f"migration download {target.name}: {transferred[0]} bytes", flush=True)
+                        last_log[0] = now
+
             with partial.open("wb") as output:
-                volume.read_file_into_fileobj(remote, output)
+                volume.read_file_into_fileobj(remote, output, progress_cb=progress)
                 output.flush()
                 os.fsync(output.fileno())
             if expected_sha256:
-                _, actual = _hash_file(partial)
+                _, actual = _hash_file(partial, progress_label=target.name)
                 if actual.lower() != expected_sha256.lower():
                     raise ReceiveError(f"download checksum mismatch for {remote}")
             os.replace(partial, target)
+            print(f"migration downloaded {target.name}: {target.stat().st_size} bytes", flush=True)
             return
-        except Exception as exc:
-            last_error = exc
+        except ReceiveError:
+            partial.unlink(missing_ok=True)
+            raise
+        except Exception:
             partial.unlink(missing_ok=True)
             if attempt + 1 < retries:
                 time.sleep(min(2 ** attempt, 30))
-    raise ReceiveError(f"download failed after {retries} attempts: {remote}: {last_error}") from last_error
+    raise TransientDownloadError(f"download failed after {retries} attempts for {target.name}") from None
 
 
 def _validate_ready(ready: Any) -> dict[str, Any]:
@@ -265,11 +320,21 @@ def _validate_ready(ready: Any) -> dict[str, Any]:
     sha = ready.get("sha256")
     if not isinstance(sha, str) or len(sha) != 64 or any(c not in "0123456789abcdefABCDEF" for c in sha):
         raise ReceiveError("ready record has invalid sha256")
+    manifest_sha = ready.get("manifest_sha256")
+    if manifest_sha is not None and (
+        not isinstance(manifest_sha, str)
+        or len(manifest_sha) != 64
+        or any(c not in "0123456789abcdefABCDEF" for c in manifest_sha)
+    ):
+        raise ReceiveError("ready record has invalid manifest_sha256")
     return ready
 
 
 def _load_json(volume: Any, path: str) -> Any:
-    return json.loads(_read_volume(volume, path).decode("utf-8"))
+    try:
+        return json.loads(_read_volume(volume, path).decode("utf-8"))
+    except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+        raise ReceiveError(f"invalid JSON in volume file {path}: {exc}") from exc
 
 
 def process_part(volume: Any, prefix: str, group: dict[str, Any], root: Path, state: Path) -> list[dict[str, Any]]:
@@ -277,17 +342,32 @@ def process_part(volume: Any, prefix: str, group: dict[str, Any], root: Path, st
     stem = f"{part_id:05d}"
     ready_remote = f"{prefix}/packs/{stem}.ready.json"
     ready = _validate_ready(_load_json(volume, ready_remote))
-    if "bytes" in group and group["bytes"] != ready["bytes"]:
-        raise ReceiveError(f"plan byte count disagrees for bundle {stem}")
+    if "bytes" in group and group["bytes"] != ready["uncompressed_bytes"]:
+        raise ReceiveError(f"plan uncompressed byte count disagrees for bundle {stem}")
+    if "files" in group and group["files"] != ready["files"]:
+        raise ReceiveError(f"plan file count disagrees for bundle {stem}")
     local = state / "packs"
     archive_path, manifest_path = local / f"{stem}.tar.zst", local / f"{stem}.manifest.jsonl"
-    _download(volume, f"{prefix}/packs/{stem}.manifest.jsonl", manifest_path)
-    _download(volume, f"{prefix}/packs/{stem}.tar.zst", archive_path, expected_sha256=ready["sha256"])
+    manifest_sha = ready.get("manifest_sha256")
+    if not manifest_sha or not _cached_file_matches(manifest_path, sha256=manifest_sha):
+        _download(volume, f"{prefix}/packs/{stem}.manifest.jsonl", manifest_path, expected_sha256=manifest_sha)
+    if not _cached_file_matches(archive_path, size=ready["bytes"], sha256=ready["sha256"]):
+        archive_path.unlink(missing_ok=True)
+        _download(volume, f"{prefix}/packs/{stem}.tar.zst", archive_path, expected_sha256=ready["sha256"])
+    else:
+        print(f"migration reusing cached {archive_path.name}: {archive_path.stat().st_size} bytes", flush=True)
     if archive_path.stat().st_size != ready["bytes"]:
         archive_path.unlink(missing_ok=True)
         raise ReceiveError(f"download byte count disagrees for bundle {stem}")
-    records = extract_bundle(archive_path, manifest_path, root, ready)
+    try:
+        print(f"migration extracting bundle {stem}", flush=True)
+        records = extract_bundle(archive_path, manifest_path, root, ready)
+    except ReceiveError:
+        raise
+    except Exception as exc:
+        raise ReceiveError(f"cannot extract verified bundle {stem}: {exc}") from exc
     _atomic_json(state / "parts" / f"{stem}.complete.json", {"id": part_id, "records": records})
+    print(f"migration verified bundle {stem}: {len(records)} entries", flush=True)
     return records
 
 
@@ -311,6 +391,29 @@ def _load_plan(volume: Any, prefix: str) -> list[dict[str, Any]]:
     return sorted(groups, key=lambda group: group["id"])
 
 
+def _cached_file_matches(path: Path, *, sha256: str, size: int | None = None) -> bool:
+    if not path.is_file() or path.is_symlink():
+        return False
+    actual_size, digest = _hash_file(path, progress_label=f"cached {path.name}")
+    return digest.lower() == sha256.lower() and (size is None or actual_size == size)
+
+
+def _is_not_found(exc: Exception) -> bool:
+    return isinstance(exc, FileNotFoundError) or type(exc).__name__ == "NotFoundError"
+
+
+def _load_plan_if_available(volume: Any, prefix: str) -> list[dict[str, Any]] | None:
+    try:
+        names = {Path(entry.path).name for entry in volume.listdir(prefix, recursive=False)}
+    except Exception as exc:
+        if _is_not_found(exc):
+            return None
+        raise
+    if "plan.json" not in names:
+        return None
+    return _load_plan(volume, prefix)
+
+
 def _existing_part(root: Path, state: Path, group: dict[str, Any]) -> list[dict[str, Any]] | None:
     marker = state / "parts" / f"{group['id']:05d}.complete.json"
     if not marker.exists():
@@ -320,15 +423,111 @@ def _existing_part(root: Path, state: Path, group: dict[str, Any]) -> list[dict[
         records = data["records"]
         if data["id"] != group["id"]:
             return None
-        verify_part(root, records)
+        verify_part(root, records, label=f"resume group {group['id']:05d}")
+        print(f"migration resumed verified group {group['id']:05d}", flush=True)
         return records
     except (OSError, KeyError, TypeError, json.JSONDecodeError, ReceiveError):
         return None
 
 
 def _ready_ids(volume: Any, prefix: str) -> set[str]:
-    entries = volume.listdir(f"{prefix}/packs", recursive=False)
+    try:
+        entries = volume.listdir(f"{prefix}/packs", recursive=False)
+    except Exception as exc:
+        if _is_not_found(exc):
+            return set()
+        raise
     return {Path(entry.path).name for entry in entries if Path(entry.path).name.endswith(".ready.json")}
+
+
+def _migration_complete(volume: Any, prefix: str) -> dict[str, Any] | None:
+    try:
+        names = {Path(entry.path).name for entry in volume.listdir(prefix, recursive=False)}
+    except Exception as exc:
+        if _is_not_found(exc):
+            return None
+        raise
+    if "complete.json" not in names:
+        return None
+    value = _load_json(volume, f"{prefix}/complete.json")
+    if not isinstance(value, dict):
+        raise ReceiveError("migration complete.json must be an object")
+    return value
+
+
+class LocalVolume:
+    """File-backed adapter for bundles relayed into a local spool directory."""
+
+    def __init__(self, incoming_directory: Path, prefix: str = DEFAULT_PREFIX):
+        self.root = Path(incoming_directory).resolve()
+        self.prefix = "/" + str(_relative(prefix.lstrip("/"), "volume prefix"))
+        self.root.mkdir(parents=True, exist_ok=True)
+
+    def _local_path(self, remote_path: str) -> Path:
+        if not isinstance(remote_path, str) or "\\" in remote_path:
+            raise ReceiveError("invalid incoming volume path")
+        remote = remote_path.lstrip("/")
+        prefix = self.prefix.lstrip("/")
+        if remote == prefix:
+            rel = ""
+        elif remote.startswith(prefix + "/"):
+            rel = remote[len(prefix) + 1 :]
+        else:
+            raise ReceiveError("incoming path is outside the configured migration prefix")
+        if rel:
+            rel_path = _relative(rel, "incoming path")
+            candidate = self.root.joinpath(*rel_path.parts)
+            current = self.root
+            for part in rel_path.parts:
+                current = current / part
+                if current.is_symlink():
+                    raise ReceiveError("incoming spool entries cannot be symlinks")
+        else:
+            candidate = self.root
+        try:
+            candidate.resolve(strict=False).relative_to(self.root)
+        except ValueError as exc:
+            raise ReceiveError("incoming path escapes the spool directory") from exc
+        if candidate.is_symlink():
+            raise ReceiveError("incoming spool entries cannot be symlinks")
+        return candidate
+
+    def listdir(self, path: str, *, recursive: bool = False) -> list[Any]:
+        if recursive:
+            raise ValueError("recursive local spool listings are not supported")
+        directory = self._local_path(path)
+        if not directory.exists():
+            raise FileNotFoundError(path)
+        if not directory.is_dir():
+            raise NotADirectoryError(path)
+        remote_directory = "/" + path.lstrip("/").rstrip("/")
+        entries = sorted(directory.iterdir())
+        if any(item.is_symlink() for item in entries):
+            raise ReceiveError("incoming spool entries cannot be symlinks")
+        return [SimpleNamespace(path=f"{remote_directory}/{item.name}") for item in entries if item.is_file()]
+
+    def read_file(self, path: str):
+        local = self._local_path(path)
+        if not local.is_file():
+            raise FileNotFoundError(path)
+
+        def chunks():
+            with local.open("rb") as stream:
+                while block := stream.read(CHUNK_SIZE):
+                    yield block
+
+        return chunks()
+
+    def read_file_into_fileobj(self, path: str, fileobj: BinaryIO, progress_cb=None) -> int:
+        total = 0
+        for block in self.read_file(path):
+            written = fileobj.write(block)
+            if written != len(block):
+                raise OSError("short write while copying incoming bundle")
+            total += written
+            if progress_cb is not None:
+                progress_cb(advance=written)
+        return total
 
 
 def receive(volume: Any, *, prefix: str = DEFAULT_PREFIX, root: Path = Path(DEFAULT_ROOT), state: Path = Path(DEFAULT_STATE), poll_seconds: int = 10) -> None:
@@ -336,48 +535,74 @@ def receive(volume: Any, *, prefix: str = DEFAULT_PREFIX, root: Path = Path(DEFA
     root.mkdir(parents=True, exist_ok=True)
     state.mkdir(parents=True, exist_ok=True)
     plan: list[dict[str, Any]] | None = None
+    completed_parts: dict[int, list[dict[str, Any]]] = {}
+    resume_checked = False
     last_log = 0.0
+    last_completed = 0
+    failed_iterations = 0
     while True:
         try:
-            volume.reload()
             if plan is None:
-                try:
-                    plan = _load_plan(volume, prefix)
-                except Exception:
-                    plan = None
-                    raise
+                plan = _load_plan_if_available(volume, prefix)
+                if plan is None:
+                    failed_iterations = 0
+                    raise _WaitForPublication("plan.json is not published yet")
+            if not resume_checked:
+                completed_parts = {
+                    group["id"]: records
+                    for group in plan
+                    if (records := _existing_part(root, state, group)) is not None
+                }
+                resume_checked = True
+                last_completed = len(completed_parts)
+
             ready = _ready_ids(volume, prefix)
             done = 0
-            all_records = []
             for group in plan:
-                records = _existing_part(root, state, group)
+                records = completed_parts.get(group["id"])
                 if records is None:
                     stem = f"{group['id']:05d}.ready.json"
                     if stem not in ready:
                         break
                     records = process_part(volume, prefix, group, root, state)
+                    completed_parts[group["id"]] = records
                 done += 1
-                all_records.extend(records)
+                last_completed = done
                 _atomic_json(state / "progress.json", {"completed": done, "count": len(plan), "current_group": group["id"], "updated_at": time.time()})
-            if done == len(plan) and (root / "complete.json").is_file():
-                all_records.sort(key=lambda item: item["path"])
+            complete = _migration_complete(volume, prefix) if done == len(plan) else None
+            if complete is not None:
+                expected_files = sum(group.get("files", 0) for group in plan)
+                expected_bytes = sum(group["bytes"] for group in plan)
+                if complete.get("files") != expected_files or complete.get("uncompressed_bytes") != expected_bytes:
+                    raise ReceiveError("migration complete totals disagree with plan")
                 manifest = state / "all-files.jsonl"
                 temporary = manifest.with_name(manifest.name + ".partial")
                 with temporary.open("w", encoding="utf-8") as stream:
-                    for item in all_records:
-                        stream.write(json.dumps(item, sort_keys=True) + "\n")
+                    for group in plan:
+                        for item in completed_parts[group["id"]]:
+                            stream.write(json.dumps(item, sort_keys=True) + "\n")
                     stream.flush()
                     os.fsync(stream.fileno())
                 os.replace(temporary, manifest)
                 return
+            failed_iterations = 0
+        except _WaitForPublication:
+            failed_iterations = 0
         except Exception as exc:
+            if isinstance(exc, ReceiveError):
+                raise
+            failed_iterations += 1
+            if failed_iterations >= 5:
+                raise ReceiveError(
+                    f"receiver stopped after {failed_iterations} consecutive SDK/network failures ({type(exc).__name__})"
+                ) from None
             now = time.monotonic()
             if now - last_log >= 30:
-                print(f"migration receive waiting after error: {exc}", file=sys.stderr, flush=True)
+                print(f"migration receive waiting after SDK/network error ({type(exc).__name__})", file=sys.stderr, flush=True)
+                last_log = now
         now = time.monotonic()
         if now - last_log >= 30:
-            completed = sum(_existing_part(root, state, group) is not None for group in plan or [])
-            print(f"migration bundles complete: {completed}/{len(plan) if plan is not None else '?'}; waiting", flush=True)
+            print(f"migration bundles complete: {last_completed}/{len(plan) if plan is not None else '?'}; waiting", flush=True)
             last_log = now
         time.sleep(poll_seconds)
 
@@ -387,11 +612,19 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--prefix", default=DEFAULT_PREFIX)
     parser.add_argument("--root", type=Path, default=Path(DEFAULT_ROOT))
     parser.add_argument("--state", type=Path, default=Path(DEFAULT_STATE))
+    parser.add_argument(
+        "--incoming-directory",
+        type=Path,
+        help="read a local SSH-relayed spool instead of connecting to Modal",
+    )
     parser.add_argument("--poll-seconds", type=int, default=10)
     args = parser.parse_args(argv)
-    import modal
+    if args.incoming_directory is not None:
+        volume = LocalVolume(args.incoming_directory, prefix=args.prefix)
+    else:
+        import modal
 
-    volume = modal.Volume.from_name("chelsea-archive")
+        volume = modal.Volume.from_name("chelsea-archive")
     receive(volume, prefix=args.prefix, root=args.root, state=args.state, poll_seconds=args.poll_seconds)
     return 0
 

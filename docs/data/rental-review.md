@@ -1,9 +1,9 @@
 # Rental review workflow
 
-Human review decisions, parser issue tickets, and observed-capture corrections are stored in an append-only JSONL ledger. The deployed dataset uses:
+Human review decisions, parser issue tickets, and observed-capture corrections are stored in an append-only JSONL ledger. The primary dataset on thelio uses:
 
 ```text
-/archive/reviews/chelsea-granular-20260916/review-ledger.jsonl
+/data1/apartments/archive/reviews/chelsea-granular-20260916/review-ledger.jsonl
 ```
 
 This path belongs to that immutable dataset. Create a new dataset and ledger for a new collection; do not repoint an existing ledger at a changed dataset. Every event includes the dataset name and participates in a SHA-256 hash chain. The review ledger is separate from `config/corrections.jsonl`, which has a different schema and is not automatically combined with it.
@@ -18,14 +18,14 @@ Run the review application against a local archive and ledger with:
 
 ```sh
 .venv/bin/python -m apartments.review_web \
-  --dataset-root /archive/datasets/chelsea-granular-20260916 \
-  --review-state /archive/reviews/chelsea-granular-20260916 \
+  --dataset-root /data1/apartments/archive/datasets/chelsea-granular-20260916 \
+  --review-state /data1/apartments/archive/reviews/chelsea-granular-20260916 \
   --port 8766
 ```
 
 The same paths can be supplied with `REVIEW_DATASET_ROOT` and `REVIEW_STATE`. Open `http://127.0.0.1:8766`; the server binds only to loopback, and can be reached from another machine through an SSH tunnel. Local requests use the `ReviewService` directly. Its DuckDB operations and ledger writes are serialized in the Flask process, while the raw dataset remains unchanged. To freeze an older app during a cutover, set `REVIEW_READ_ONLY=1` or pass `--read-only`; it will continue serving GET requests and reject POST requests.
 
-For backwards compatibility, omitting both paths retains the SDK-backed Modal mode. It requires an authenticated Modal session and uses the private cloud review function:
+The Modal deployment uses `/archive` in place of `/data1/apartments/archive`. That deployment is now stopped; the primary app uses the local thelio paths. For backwards compatibility, omitting both paths retains the SDK-backed Modal mode. It requires an authenticated Modal session and uses the private cloud review function:
 
 ```sh
 .venv/bin/python -m apartments.review_web --port 8766
