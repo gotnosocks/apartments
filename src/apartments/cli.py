@@ -156,5 +156,75 @@ def summary(db: Path = typer.Option(DEFAULT_DB)):
     connection.close()
 
 
+corrections_app = typer.Typer(no_args_is_help=True, help="Append-only human correction overlays.")
+app.add_typer(corrections_app, name="corrections")
+
+
+@corrections_app.command("add")
+def correction_add(
+    spec: Path,
+    author: str = typer.Option(...),
+    reason: str = typer.Option(...),
+    ledger: Path = typer.Option(Path("config/corrections.jsonl")),
+    evidence: list[str] = typer.Option(None),
+):
+    """Append an edit or explicit revision from a JSON specification."""
+    import json
+    from .corrections import append
+    record = append(ledger, author=author, reason=reason,
+                    edit=json.loads(spec.read_text()), evidence=evidence)
+    typer.echo(json.dumps(record, indent=2))
+
+
+@corrections_app.command("retract")
+def correction_retract(
+    correction_id: str,
+    author: str = typer.Option(...),
+    reason: str = typer.Option(...),
+    ledger: Path = typer.Option(Path("config/corrections.jsonl")),
+):
+    """Withdraw an active correction without deleting its history."""
+    import json
+    from .corrections import append
+    typer.echo(json.dumps(append(ledger, author=author, reason=reason,
+                                 retracts=correction_id), indent=2))
+
+
+@corrections_app.command("list")
+def correction_list(
+    ledger: Path = typer.Option(Path("config/corrections.jsonl")),
+    as_of: str | None = typer.Option(None),
+):
+    """Inspect the ledger and active edits at a knowledge-time cutoff."""
+    import json
+    from .corrections import Overlay
+    overlay = Overlay(ledger, as_of=as_of)
+    typer.echo(json.dumps({'manifest': overlay.manifest, 'history': overlay.records}, indent=2))
+
+
+@app.command("export-observations")
+def observation_export(
+    output: Path,
+    db: Path = typer.Option(DEFAULT_DB),
+    ledger: Path = typer.Option(Path("config/corrections.jsonl")),
+    corrections_as_of: str | None = typer.Option(None),
+    known_as_of: str | None = typer.Option(None, help="One cutoff for collection, interpretation and human corrections."),
+    collected_as_of: str | None = typer.Option(None),
+    interpreted_as_of: str | None = typer.Option(None),
+    effective_at: str | None = typer.Option(None),
+    version_id: str | None = typer.Option(None),
+    raw_only: bool = typer.Option(False),
+):
+    """Export raw and corrected attribute observations; run large exports on Modal."""
+    import json
+    from .corrections import Overlay
+    from .observation_dataset import export_observations
+    overlay = Overlay(ledger, as_of=corrections_as_of or known_as_of or interpreted_as_of, enabled=not raw_only)
+    manifest = export_observations(db, output, overlay,
+        collected_as_of=collected_as_of, interpreted_as_of=interpreted_as_of,
+        effective_at=effective_at, version_id=version_id, known_as_of=known_as_of)
+    typer.echo(json.dumps(manifest, indent=2))
+
+
 if __name__ == "__main__":
     app()

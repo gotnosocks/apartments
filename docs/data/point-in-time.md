@@ -89,3 +89,12 @@ versions have original response collection timestamps. A repeat migration added
 zero rows. The existing listings, captures, listing events, listing snapshots,
 and furnishing periods were compared against the pre-migration backup and are
 identical. No model fit or new scrape was run as part of this migration.
+
+
+## Separate human corrections
+
+Human attribute corrections now have a separate append-only overlay ledger and a
+streaming raw-plus-corrected observation exporter. Corrections retain both when a
+human entered the assertion and its explicitly chosen effective-time scope.
+See [correction overlays](corrections.md) for targets, revisions, conflicts, strict
+knowledge-time cutoffs, and the boundary with the legacy monthly fitter.

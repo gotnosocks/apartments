@@ -2,10 +2,11 @@
 name = "chelsea-apartments"
 version = "0.1.0"
 description = "Reproducible NYC rental-listing collection and analysis"
-requires-python = ">=3.11"
+requires-python = ">=3.12"
 dependencies = [
   "beautifulsoup4>=4.13",
   "duckdb>=1.2",
+  "jsonpatch>=1.33,<2",
   "httpx>=0.28",
   "python-dotenv>=1.0",
   "typer>=0.15",

@@ -8,8 +8,12 @@ Updated coverage: [September 8 cloud preparation](docs/analysis/chelsea-2026-09-
 
 [Point-in-time retention](docs/data/point-in-time.md) documents collection clocks,
 append-only apartment attributes, and the evidence available at a historical cutoff.
+[Human correction overlays](docs/data/corrections.md) preserve source values alongside
+audited edits, effective dates, and reproducible correction versions.
 
 ## Setup
+
+Python 3.12 or newer is required by the current model dependencies.
 
 ```sh
 cd ~/code/apartments
