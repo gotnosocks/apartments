@@ -14,13 +14,22 @@ Corrections apply only to the explicitly selected observed captures. They do not
 
 Corrections are replayed in append order by `ReviewLedger.apply(raw, snapshot_id)`. The model or export path that wants these corrections must invoke that overlay explicitly; creating review events does not mutate archive documents or automatically change existing model inputs. Retraction appends an event that deactivates a correction batch, so replay then recomputes the result without that batch. The app preflights retractions and refuses an undo that would break a later patch; undo the dependent patch first.
 
-Run the local SDK review application to review and preview changes before submission:
+Run the review application against a local archive and ledger with:
+
+```sh
+.venv/bin/python -m apartments.review_web \
+  --dataset-root /archive/datasets/chelsea-granular-20260916 \
+  --review-state /archive/reviews/chelsea-granular-20260916 \
+  --port 8766
+```
+
+The same paths can be supplied with `REVIEW_DATASET_ROOT` and `REVIEW_STATE`. Open `http://127.0.0.1:8766`; the server binds only to loopback, and can be reached from another machine through an SSH tunnel. Local requests use the `ReviewService` directly. Its DuckDB operations and ledger writes are serialized in the Flask process, while the raw dataset remains unchanged. To freeze an older app during a cutover, set `REVIEW_READ_ONLY=1` or pass `--read-only`; it will continue serving GET requests and reject POST requests.
+
+For backwards compatibility, omitting both paths retains the SDK-backed Modal mode. It requires an authenticated Modal session and uses the private cloud review function:
 
 ```sh
 .venv/bin/python -m apartments.review_web --port 8766
 ```
-
-Open `http://127.0.0.1:8766`. The browser talks to the SDK's cloud review function; credentials stay in the local process and never reach the browser. The app writes review events and correction previews into the dataset’s separate cloud review directory. The raw dataset is never modified. Queries run on one CPU worker that scales to zero after two idle minutes; no GPU or public cloud endpoint is provisioned. The app needs this device’s authenticated Modal SDK session.
 
 Deploy or update the private backend with:
 

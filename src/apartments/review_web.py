@@ -3,12 +3,22 @@
 from __future__ import annotations
 
 import argparse
+import atexit
+import os
 import secrets
+import threading
+from urllib.parse import urlsplit
 
 from flask import Flask, jsonify, render_template, request, session
 
 
-def create_app(backend=None):
+def _enabled(value):
+    if isinstance(value, bool):
+        return value
+    return str(value or "").strip().lower() in {"1", "true", "yes", "on"}
+
+
+def create_app(backend=None, *, dataset_root=None, review_state=None, read_only=None):
     app = Flask(__name__)
     app.secret_key = secrets.token_hex(32)
     app.config.update(
@@ -16,6 +26,32 @@ def create_app(backend=None):
         SESSION_COOKIE_HTTPONLY=True,
         SESSION_COOKIE_SAMESITE="Strict",
     )
+    local_mode = dataset_root is not None or review_state is not None
+    if dataset_root is None:
+        dataset_root = os.environ.get("REVIEW_DATASET_ROOT")
+    if review_state is None:
+        review_state = os.environ.get("REVIEW_STATE")
+    local_mode = local_mode or dataset_root is not None or review_state is not None
+    if local_mode:
+        if not dataset_root or not review_state:
+            raise ValueError("Local mode requires both dataset root and review state")
+        from apartments.review_service import ReviewService
+
+        service_lock = threading.RLock()
+        service = ReviewService(dataset_root, review_state)
+
+        def local_backend(action, args):
+            # ReviewService owns one DuckDB connection and its JSONL ledger.
+            try:
+                with service_lock:
+                    result = service.dispatch(action, args)
+                return {"ok": True, "result": result}
+            except (ValueError, KeyError, TypeError) as e:
+                return {"ok": False, "error": str(e)}
+
+        atexit.register(service.close)
+        if backend is None:
+            backend = local_backend
     if backend is None:
         import modal
 
@@ -24,9 +60,12 @@ def create_app(backend=None):
 
     @app.before_request
     def local_only():
-        if request.host.partition(":")[0] not in ("localhost", "127.0.0.1", "[::1]"):
+        hostname = urlsplit("//" + request.host).hostname
+        if hostname not in ("localhost", "127.0.0.1", "::1"):
             return jsonify(error="Local access only"), 403
         if request.method == "POST":
+            if _enabled(read_only if read_only is not None else os.environ.get("REVIEW_READ_ONLY")):
+                return jsonify(error="Review app is read-only"), 403
             origin = request.headers.get("Origin")
             if origin and origin not in (
                 "http://" + request.host,
@@ -57,9 +96,9 @@ def create_app(backend=None):
                 ), 400
             return jsonify(response.get("result", response))
         except Exception as e:
-            app.logger.exception("Cloud review operation failed")
+            app.logger.exception("Review operation failed")
             return jsonify(
-                error="Cloud operation did not finish. Retry; approved correction requests are idempotent. Detail: "
+                error="Review operation did not finish. Retry; approved correction requests are idempotent. Detail: "
                 + str(e)[:350]
             ), 502
 
@@ -104,10 +143,26 @@ def create_app(backend=None):
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--port", type=int, default=8766)
+    parser.add_argument("--dataset-root", default=os.environ.get("REVIEW_DATASET_ROOT"))
+    parser.add_argument("--review-state", default=os.environ.get("REVIEW_STATE"))
+    parser.add_argument(
+        "--read-only", action="store_true",
+        default=_enabled(os.environ.get("REVIEW_READ_ONLY")),
+        help="Reject all mutating POST requests",
+    )
     args = parser.parse_args()
     from waitress import serve
 
-    serve(create_app(), host="127.0.0.1", port=args.port, threads=4)
+    serve(
+        create_app(
+            dataset_root=args.dataset_root,
+            review_state=args.review_state,
+            read_only=args.read_only,
+        ),
+        host="127.0.0.1",
+        port=args.port,
+        threads=4,
+    )
 
 
 if __name__ == "__main__":

@@ -1,5 +1,6 @@
 """Private SDK-only cloud queries and one writer for the rental review utility."""
 
+import os
 from pathlib import Path
 
 import modal
@@ -12,7 +13,7 @@ image = (
     .pip_install(
         "duckdb==1.5.5", "pyarrow==24.0.0", "jsonpatch==1.33", "parsel==1.10.0"
     )
-    .env({"PYTHONPATH": "/root/src", "OMP_NUM_THREADS": "2"})
+    .env({"PYTHONPATH": "/root/src", "OMP_NUM_THREADS": "2", "REVIEW_READ_ONLY": "1"})
     .add_local_dir(
         ROOT / "src/apartments", "/root/src/apartments", ignore=["__pycache__"]
     )
@@ -38,6 +39,8 @@ _service = None
 )
 def review(action: str, args: dict | None = None):
     global _service
+    if os.environ.get("REVIEW_READ_ONLY") == "1" and action in {"preview", "cohort_preview", "apply", "review", "parser_issue", "retract"}:
+        return {"ok": False, "error": "Review writes on Modal are frozen for migration to thelio. Reload the local app after cutover."}
     from apartments.review_service import ReviewService
 
     if _service is None:
