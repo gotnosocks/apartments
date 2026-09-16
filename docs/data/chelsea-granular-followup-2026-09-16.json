@@ -1,0 +1,124 @@
+{
+  "distinct_building_slugs": 1311,
+  "numeric_flags_by_type": [
+    [
+      "rental",
+      6,
+      305,
+      37
+    ],
+    [
+      "sale",
+      11,
+      187,
+      59
+    ]
+  ],
+  "nonpositive_prices_by_category": [
+    [
+      "rental",
+      1142
+    ],
+    [
+      "sale",
+      132
+    ]
+  ],
+  "attribute_disagreement_fields": [
+    [
+      "rental",
+      2233,
+      837,
+      1830
+    ],
+    [
+      "sale",
+      645,
+      348,
+      843
+    ]
+  ],
+  "inventory_mismatches": [
+    {
+      "snapshot_id": 4772,
+      "url": "https://streeteasy.com/building/the-sierra-chelsea?archive_view=unavailable-sales",
+      "displayed_count": 0,
+      "retained_rows": 1,
+      "rows_without_record": [
+        [
+          0,
+          null,
+          null,
+          "<tr class=\"styled__TableDataRow-sc-8q068m-0 gfdyNR\"><td class=\"styled__TableData-sc-1tnooc7-0 ceeDJX\">No info for unavailable units</td></tr>"
+        ]
+      ]
+    }
+  ],
+  "inventory_link_check": {
+    "checked_rows": 35071,
+    "mismatches": 2574,
+    "examples": [
+      {
+        "snapshot_id": 4770,
+        "row_index": 0,
+        "expected": null,
+        "html_url": "https://streeteasy.com/rental/5139568"
+      },
+      {
+        "snapshot_id": 4770,
+        "row_index": 1,
+        "expected": null,
+        "html_url": "https://streeteasy.com/rental/5063263"
+      },
+      {
+        "snapshot_id": 4770,
+        "row_index": 2,
+        "expected": null,
+        "html_url": "https://streeteasy.com/rental/5119592"
+      },
+      {
+        "snapshot_id": 4770,
+        "row_index": 3,
+        "expected": null,
+        "html_url": "https://streeteasy.com/rental/5126450"
+      },
+      {
+        "snapshot_id": 4770,
+        "row_index": 4,
+        "expected": null,
+        "html_url": "https://streeteasy.com/rental/5099457"
+      },
+      {
+        "snapshot_id": 4770,
+        "row_index": 5,
+        "expected": null,
+        "html_url": "https://streeteasy.com/rental/5103766"
+      },
+      {
+        "snapshot_id": 4770,
+        "row_index": 6,
+        "expected": null,
+        "html_url": "https://streeteasy.com/rental/5081723"
+      },
+      {
+        "snapshot_id": 4770,
+        "row_index": 7,
+        "expected": null,
+        "html_url": "https://streeteasy.com/rental/5080759"
+      },
+      {
+        "snapshot_id": 4770,
+        "row_index": 8,
+        "expected": null,
+        "html_url": "https://streeteasy.com/rental/5050827"
+      },
+      {
+        "snapshot_id": 4770,
+        "row_index": 9,
+        "expected": null,
+        "html_url": "https://streeteasy.com/rental/5071924"
+      }
+    ],
+    "missing_html": 0
+  }
+}

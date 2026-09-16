@@ -146,9 +146,10 @@ new correction when changing a decision.
 
 This is the correction and observation layer for step one of the new modeling
 pipeline. The existing monthly fitter still uses the legacy latest-unit projection;
-it does **not** consume this export yet. The next preparation stage must resolve
-unit/episode identity and attach attributes to their supported episodes before
-creating historical training rows. It must retain applied correction IDs and the
+it does **not** consume this export yet. The preparation stage preserves every capture and price-event occurrence; an
+episode ID is a source link, never a required aggregation level. Physical-unit
+resolution, temporal attribute alignment, and aggregation belong to an explicit
+model-stage projection. See [granular tables](granular-dataset.md). It must retain applied correction IDs and the
 manifest rather than joining the latest corrected attributes onto every past event.
 The fixed `effective_at` export is a selected-time view, not a claim that all source
 attributes were valid then. Per-event preparation can call `Overlay.apply` with

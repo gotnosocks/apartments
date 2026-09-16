@@ -152,3 +152,14 @@ it is not a fully time-causal backtest. Each run saves training data, posterior
 draws, convergence diagnostics, coverage, and output tables in `data/model/monthly`.
 The model page in the analysis app reads these outputs. Sparse early years and
 selective public listing histories limit interpretations as a Chelsea market index.
+
+### Granular data for the next model
+
+The [granular cloud dataset](docs/data/granular-dataset.md) keeps individual fetches,
+page versions, observed attributes, and every source history occurrence. Listing
+episodes are links, not aggregation units. Temporal alignment, physical-unit
+resolution, corrections at a selected effective time, and aggregation are explicit
+model-stage decisions. The legacy monthly fitter remains separate.
+
+The [September 16 full-data quality report](docs/data/chelsea-granular-quality-2026-09-16.md)
+records the generated tables, missingness, source disagreements, and integrity checks.

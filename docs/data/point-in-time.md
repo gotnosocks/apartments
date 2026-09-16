@@ -98,3 +98,11 @@ streaming raw-plus-corrected observation exporter. Corrections retain both when 
 human entered the assertion and its explicitly chosen effective-time scope.
 See [correction overlays](corrections.md) for targets, revisions, conflicts, strict
 knowledge-time cutoffs, and the boundary with the legacy monthly fitter.
+
+## Granularity is a model choice
+
+The new [granular Parquet dataset](granular-dataset.md) preserves every scoped
+fetch, saved page version, and individual source history occurrence. Listing episode
+IDs link observations; they do not aggregate them. Attribute validity intervals and
+physical-unit identity are not inferred during preparation. Calendar aggregation
+and decisions about repeated evidence belong to the model stage.

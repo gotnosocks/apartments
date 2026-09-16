@@ -1,0 +1,2358 @@
+{
+  "root": "/archive/datasets/chelsea-granular-20260916",
+  "tables": {
+    "counts": {
+      "listing_observations": 121118,
+      "event_mentions": 2938566,
+      "snapshots": 124966,
+      "fetch_observations": 127184,
+      "building_observations": 1832,
+      "inventory_rows": 35071,
+      "inventory_observations": 1809,
+      "source_changes": 788809,
+      "frontier": 127455,
+      "url_aliases": 2011,
+      "inventory_row_links": 35071
+    },
+    "present": [
+      "listing_observations",
+      "event_mentions",
+      "snapshots",
+      "fetch_observations",
+      "building_observations",
+      "inventory_rows",
+      "inventory_observations",
+      "source_changes",
+      "frontier",
+      "url_aliases",
+      "inventory_row_links"
+    ]
+  },
+  "numeric": {
+    "listing_observations": {
+      "bedrooms": {
+        "total": 121118,
+        "non_null": 121110,
+        "invalid": 17
+      },
+      "bathrooms": {
+        "total": 121118,
+        "non_null": 121110,
+        "invalid": 492
+      },
+      "square_feet": {
+        "total": 121118,
+        "non_null": 50384,
+        "invalid": 0
+      },
+      "room_count": {
+        "total": 121118,
+        "non_null": 121110,
+        "invalid": 96
+      },
+      "collected_at": {
+        "total": 121118,
+        "non_null": 121118,
+        "invalid": 0
+      },
+      "parsed_at": {
+        "total": 121118,
+        "non_null": 121118,
+        "invalid": 0
+      }
+    },
+    "event_mentions": {
+      "price": {
+        "total": 2938566,
+        "non_null": 2938566,
+        "invalid": 1274
+      },
+      "percent_change": {
+        "total": 2938566,
+        "non_null": 1272257,
+        "invalid": 0
+      }
+    },
+    "snapshots": {
+      "observed_at": {
+        "total": 124966,
+        "non_null": 124966,
+        "invalid": 0
+      }
+    },
+    "fetch_observations": {
+      "fetched_at": {
+        "total": 127184,
+        "non_null": 127184,
+        "invalid": 0
+      },
+      "status": {
+        "total": 127184,
+        "non_null": 125982,
+        "invalid": 0
+      }
+    },
+    "building_observations": {
+      "residential_units": {
+        "total": 1832,
+        "non_null": 1749,
+        "invalid": 0
+      },
+      "latitude": {
+        "total": 1832,
+        "non_null": 1832,
+        "invalid": 0
+      },
+      "longitude": {
+        "total": 1832,
+        "non_null": 1832,
+        "invalid": 0
+      }
+    }
+  },
+  "listing_observations": {
+    "by_listing_type": {
+      "rental": 96785,
+      "sale": 24333
+    },
+    "distinct_listing_identities": 91885,
+    "missingness_by_listing_type": {
+      "rental": {
+        "url": 0,
+        "listing_id": 0,
+        "building_slug": 0,
+        "unit_label": 1282,
+        "bedrooms": 2,
+        "bathrooms": 2,
+        "square_feet": 64122,
+        "room_count": 2,
+        "features_json": 26069,
+        "amenities_json": 6083,
+        "pricing_json": 0,
+        "collected_at": 0,
+        "parsed_at": 0
+      },
+      "sale": {
+        "url": 0,
+        "listing_id": 0,
+        "building_slug": 0,
+        "unit_label": 1287,
+        "bedrooms": 6,
+        "bathrooms": 6,
+        "square_feet": 6612,
+        "room_count": 6,
+        "features_json": 5482,
+        "amenities_json": 678,
+        "pricing_json": 0,
+        "collected_at": 0,
+        "parsed_at": 0
+      },
+      "unknown": {
+        "url": 0,
+        "listing_id": 0,
+        "building_slug": 0,
+        "unit_label": 0,
+        "bedrooms": 0,
+        "bathrooms": 0,
+        "square_feet": 0,
+        "room_count": 0,
+        "features_json": 0,
+        "amenities_json": 0,
+        "pricing_json": 0,
+        "collected_at": 0,
+        "parsed_at": 0
+      }
+    },
+    "json_completeness_by_listing_type": {
+      "rental": {
+        "features_json": {
+          "missing": 26069,
+          "nonempty": 70716
+        },
+        "amenities_json": {
+          "missing": 6083,
+          "nonempty": 90702
+        },
+        "pricing_json": {
+          "empty": 2,
+          "nonempty": 96783
+        }
+      },
+      "sale": {
+        "features_json": {
+          "missing": 5482,
+          "nonempty": 18851
+        },
+        "amenities_json": {
+          "missing": 678,
+          "nonempty": 23655
+        },
+        "pricing_json": {
+          "empty": 6,
+          "nonempty": 24327
+        }
+      },
+      "unknown": {
+        "features_json": {},
+        "amenities_json": {},
+        "pricing_json": {}
+      }
+    },
+    "source_labels": {
+      "building_slug_distinct": 1307,
+      "unit_label_distinct": 7193,
+      "interpretation": "Labels are source strings and do not prove physical-unit identity."
+    },
+    "source_pairs": {
+      "rental": 25570,
+      "sale": 8344,
+      "unknown": 0
+    },
+    "attribute_disagreements": [],
+    "attribute_disagreement_count": 0,
+    "source_pair_attribute_disagreement_count": 5464,
+    "source_pair_attribute_disagreements": [
+      {
+        "listing_type": "rental",
+        "building_slug": "ohm-312-11th-avenue-new_york",
+        "unit_label": "#4G",
+        "observations": 27,
+        "distinct_bedrooms": 1,
+        "distinct_bathrooms": 2,
+        "distinct_square_feet": 4
+      },
+      {
+        "listing_type": "rental",
+        "building_slug": "338-west-19-street-new_york",
+        "unit_label": "#5A",
+        "observations": 25,
+        "distinct_bedrooms": 2,
+        "distinct_bathrooms": 2,
+        "distinct_square_feet": 2
+      },
+      {
+        "listing_type": "rental",
+        "building_slug": "ohm-312-11th-avenue-new_york",
+        "unit_label": "#12M",
+        "observations": 22,
+        "distinct_bedrooms": 2,
+        "distinct_bathrooms": 1,
+        "distinct_square_feet": 1
+      },
+      {
+        "listing_type": "rental",
+        "building_slug": "449-west-22-street-new_york",
+        "unit_label": "#3",
+        "observations": 21,
+        "distinct_bedrooms": 2,
+        "distinct_bathrooms": 3,
+        "distinct_square_feet": 4
+      },
+      {
+        "listing_type": "rental",
+        "building_slug": "330-8-avenue-new_york",
+        "unit_label": "#3E",
+        "observations": 21,
+        "distinct_bedrooms": 2,
+        "distinct_bathrooms": 1,
+        "distinct_square_feet": 0
+      },
+      {
+        "listing_type": "rental",
+        "building_slug": "301-west-19th-street-new_york",
+        "unit_label": "#52",
+        "observations": 20,
+        "distinct_bedrooms": 2,
+        "distinct_bathrooms": 1,
+        "distinct_square_feet": 0
+      },
+      {
+        "listing_type": "rental",
+        "building_slug": "434-west-19-street-new_york",
+        "unit_label": "#1E",
+        "observations": 20,
+        "distinct_bedrooms": 2,
+        "distinct_bathrooms": 2,
+        "distinct_square_feet": 1
+      },
+      {
+        "listing_type": "rental",
+        "building_slug": "449-west-22-street-new_york",
+        "unit_label": "#2",
+        "observations": 20,
+        "distinct_bedrooms": 4,
+        "distinct_bathrooms": 2,
+        "distinct_square_feet": 5
+      },
+      {
+        "listing_type": "rental",
+        "building_slug": "347-west-29-street-new_york",
+        "unit_label": "#1",
+        "observations": 20,
+        "distinct_bedrooms": 2,
+        "distinct_bathrooms": 2,
+        "distinct_square_feet": 0
+      },
+      {
+        "listing_type": "rental",
+        "building_slug": "chelsea-centro",
+        "unit_label": "#16C",
+        "observations": 19,
+        "distinct_bedrooms": 2,
+        "distinct_bathrooms": 1,
+        "distinct_square_feet": 0
+      },
+      {
+        "listing_type": "rental",
+        "building_slug": "338-west-17-street-new_york",
+        "unit_label": "#2A",
+        "observations": 19,
+        "distinct_bedrooms": 2,
+        "distinct_bathrooms": 1,
+        "distinct_square_feet": 0
+      },
+      {
+        "listing_type": "rental",
+        "building_slug": "217-west-14-street-new_york",
+        "unit_label": "#2F",
+        "observations": 19,
+        "distinct_bedrooms": 2,
+        "distinct_bathrooms": 2,
+        "distinct_square_feet": 5
+      },
+      {
+        "listing_type": "rental",
+        "building_slug": "350-west-21-street-new_york",
+        "unit_label": "#1",
+        "observations": 19,
+        "distinct_bedrooms": 2,
+        "distinct_bathrooms": 1,
+        "distinct_square_feet": 1
+      },
+      {
+        "listing_type": "rental",
+        "building_slug": "448-west-19-street-new_york",
+        "unit_label": "#PHA",
+        "observations": 19,
+        "distinct_bedrooms": 2,
+        "distinct_bathrooms": 1,
+        "distinct_square_feet": 1
+      },
+      {
+        "listing_type": "rental",
+        "building_slug": "338-west-19-street-new_york",
+        "unit_label": "#2B",
+        "observations": 19,
+        "distinct_bedrooms": 3,
+        "distinct_bathrooms": 1,
+        "distinct_square_feet": 2
+      },
+      {
+        "listing_type": "rental",
+        "building_slug": "449-west-22-street-new_york",
+        "unit_label": "#5",
+        "observations": 18,
+        "distinct_bedrooms": 1,
+        "distinct_bathrooms": 2,
+        "distinct_square_feet": 0
+      },
+      {
+        "listing_type": "rental",
+        "building_slug": "the-irvin-house",
+        "unit_label": "#10C",
+        "observations": 18,
+        "distinct_bedrooms": 2,
+        "distinct_bathrooms": 2,
+        "distinct_square_feet": 4
+      },
+      {
+        "listing_type": "rental",
+        "building_slug": "254-west-18-street-new_york",
+        "unit_label": "#5",
+        "observations": 17,
+        "distinct_bedrooms": 1,
+        "distinct_bathrooms": 1,
+        "distinct_square_feet": 4
+      },
+      {
+        "listing_type": "rental",
+        "building_slug": "the-grove-250-west-19th-street-new_york",
+        "unit_label": "#3B",
+        "observations": 17,
+        "distinct_bedrooms": 2,
+        "distinct_bathrooms": 1,
+        "distinct_square_feet": 1
+      },
+      {
+        "listing_type": "rental",
+        "building_slug": "338-west-17-street-new_york",
+        "unit_label": "#1E",
+        "observations": 17,
+        "distinct_bedrooms": 2,
+        "distinct_bathrooms": 1,
+        "distinct_square_feet": 1
+      },
+      {
+        "listing_type": "rental",
+        "building_slug": "124-west-25-street-new_york",
+        "unit_label": "#2R",
+        "observations": 17,
+        "distinct_bedrooms": 2,
+        "distinct_bathrooms": 3,
+        "distinct_square_feet": 0
+      },
+      {
+        "listing_type": "sale",
+        "building_slug": "456-west-19th-street-new_york",
+        "unit_label": "#PHH",
+        "observations": 17,
+        "distinct_bedrooms": 1,
+        "distinct_bathrooms": 2,
+        "distinct_square_feet": 3
+      },
+      {
+        "listing_type": "rental",
+        "building_slug": "the-grove-250-west-19th-street-new_york",
+        "unit_label": "#10M",
+        "observations": 17,
+        "distinct_bedrooms": 2,
+        "distinct_bathrooms": 1,
+        "distinct_square_feet": 0
+      },
+      {
+        "listing_type": "rental",
+        "building_slug": "555-west-23-street-new_york",
+        "unit_label": "#N10C",
+        "observations": 17,
+        "distinct_bedrooms": 1,
+        "distinct_bathrooms": 1,
+        "distinct_square_feet": 4
+      },
+      {
+        "listing_type": "rental",
+        "building_slug": "236-west-16-street-new_york",
+        "unit_label": "#4D",
+        "observations": 17,
+        "distinct_bedrooms": 2,
+        "distinct_bathrooms": 1,
+        "distinct_square_feet": 0
+      },
+      {
+        "listing_type": "rental",
+        "building_slug": "151-west-16-street-new_york",
+        "unit_label": "#5B",
+        "observations": 17,
+        "distinct_bedrooms": 2,
+        "distinct_bathrooms": 1,
+        "distinct_square_feet": 3
+      },
+      {
+        "listing_type": "rental",
+        "building_slug": "124-west-25-street-new_york",
+        "unit_label": "#4R",
+        "observations": 17,
+        "distinct_bedrooms": 3,
+        "distinct_bathrooms": 2,
+        "distinct_square_feet": 0
+      },
+      {
+        "listing_type": "rental",
+        "building_slug": "301-west-19th-street-new_york",
+        "unit_label": "#32",
+        "observations": 17,
+        "distinct_bedrooms": 2,
+        "distinct_bathrooms": 1,
+        "distinct_square_feet": 0
+      },
+      {
+        "listing_type": "rental",
+        "building_slug": "197-8-avenue-new_york",
+        "unit_label": "#3A",
+        "observations": 17,
+        "distinct_bedrooms": 4,
+        "distinct_bathrooms": 2,
+        "distinct_square_feet": 3
+      },
+      {
+        "listing_type": "rental",
+        "building_slug": "151-west-16-street-new_york",
+        "unit_label": "#3G",
+        "observations": 17,
+        "distinct_bedrooms": 2,
+        "distinct_bathrooms": 1,
+        "distinct_square_feet": 5
+      },
+      {
+        "listing_type": "rental",
+        "building_slug": "chadwin-house",
+        "unit_label": "#1E",
+        "observations": 16,
+        "distinct_bedrooms": 3,
+        "distinct_bathrooms": 1,
+        "distinct_square_feet": 2
+      },
+      {
+        "listing_type": "rental",
+        "building_slug": "239-9-avenue-new_york",
+        "unit_label": "#2C",
+        "observations": 16,
+        "distinct_bedrooms": 2,
+        "distinct_bathrooms": 2,
+        "distinct_square_feet": 0
+      },
+      {
+        "listing_type": "rental",
+        "building_slug": "stonehenge-18",
+        "unit_label": "#4B",
+        "observations": 16,
+        "distinct_bedrooms": 2,
+        "distinct_bathrooms": 1,
+        "distinct_square_feet": 1
+      },
+      {
+        "listing_type": "rental",
+        "building_slug": "the-sedona-270-west-19-street-new_york",
+        "unit_label": "#6B",
+        "observations": 16,
+        "distinct_bedrooms": 1,
+        "distinct_bathrooms": 1,
+        "distinct_square_feet": 5
+      },
+      {
+        "listing_type": "rental",
+        "building_slug": "the-grove-250-west-19th-street-new_york",
+        "unit_label": "#2A",
+        "observations": 16,
+        "distinct_bedrooms": 2,
+        "distinct_bathrooms": 1,
+        "distinct_square_feet": 0
+      },
+      {
+        "listing_type": "rental",
+        "building_slug": "442-west-20-street-new_york",
+        "unit_label": "#2",
+        "observations": 16,
+        "distinct_bedrooms": 1,
+        "distinct_bathrooms": 2,
+        "distinct_square_feet": 4
+      },
+      {
+        "listing_type": "rental",
+        "building_slug": "205-8-avenue-new_york",
+        "unit_label": "#4N",
+        "observations": 16,
+        "distinct_bedrooms": 2,
+        "distinct_bathrooms": 2,
+        "distinct_square_feet": 3
+      },
+      {
+        "listing_type": "rental",
+        "building_slug": "460-west-20-street-new_york",
+        "unit_label": "#4H",
+        "observations": 16,
+        "distinct_bedrooms": 3,
+        "distinct_bathrooms": 1,
+        "distinct_square_feet": 1
+      },
+      {
+        "listing_type": "rental",
+        "building_slug": "453-west-19-street-new_york",
+        "unit_label": "#4B",
+        "observations": 16,
+        "distinct_bedrooms": 1,
+        "distinct_bathrooms": 1,
+        "distinct_square_feet": 3
+      },
+      {
+        "listing_type": "rental",
+        "building_slug": "440-west-22-street-new_york",
+        "unit_label": "#2R",
+        "observations": 16,
+        "distinct_bedrooms": 1,
+        "distinct_bathrooms": 1,
+        "distinct_square_feet": 5
+      },
+      {
+        "listing_type": "rental",
+        "building_slug": "301-west-19th-street-new_york",
+        "unit_label": "#22",
+        "observations": 16,
+        "distinct_bedrooms": 2,
+        "distinct_bathrooms": 1,
+        "distinct_square_feet": 0
+      },
+      {
+        "listing_type": "rental",
+        "building_slug": "440-west-22-street-new_york",
+        "unit_label": "#GARDEN",
+        "observations": 16,
+        "distinct_bedrooms": 1,
+        "distinct_bathrooms": 2,
+        "distinct_square_feet": 2
+      },
+      {
+        "listing_type": "rental",
+        "building_slug": "350-west-21-street-new_york",
+        "unit_label": "#8",
+        "observations": 16,
+        "distinct_bedrooms": 2,
+        "distinct_bathrooms": 1,
+        "distinct_square_feet": 0
+      },
+      {
+        "listing_type": "rental",
+        "building_slug": "239-9-avenue-new_york",
+        "unit_label": "#1D",
+        "observations": 16,
+        "distinct_bedrooms": 2,
+        "distinct_bathrooms": 1,
+        "distinct_square_feet": 0
+      },
+      {
+        "listing_type": "rental",
+        "building_slug": "447-west-22-street-new_york",
+        "unit_label": "#3",
+        "observations": 16,
+        "distinct_bedrooms": 3,
+        "distinct_bathrooms": 1,
+        "distinct_square_feet": 2
+      },
+      {
+        "listing_type": "rental",
+        "building_slug": "316-west-19-street-new_york",
+        "unit_label": "#3W",
+        "observations": 16,
+        "distinct_bedrooms": 2,
+        "distinct_bathrooms": 2,
+        "distinct_square_feet": 3
+      },
+      {
+        "listing_type": "rental",
+        "building_slug": "chelsea-stratus",
+        "unit_label": "#28E",
+        "observations": 15,
+        "distinct_bedrooms": 1,
+        "distinct_bathrooms": 1,
+        "distinct_square_feet": 3
+      },
+      {
+        "listing_type": "rental",
+        "building_slug": "135-west-24-street-new_york",
+        "unit_label": "#3D",
+        "observations": 15,
+        "distinct_bedrooms": 2,
+        "distinct_bathrooms": 1,
+        "distinct_square_feet": 0
+      },
+      {
+        "listing_type": "rental",
+        "building_slug": "301-west-19th-street-new_york",
+        "unit_label": "#21",
+        "observations": 15,
+        "distinct_bedrooms": 2,
+        "distinct_bathrooms": 1,
+        "distinct_square_feet": 1
+      },
+      {
+        "listing_type": "rental",
+        "building_slug": "447-west-22-street-new_york",
+        "unit_label": "#4R",
+        "observations": 15,
+        "distinct_bedrooms": 1,
+        "distinct_bathrooms": 2,
+        "distinct_square_feet": 0
+      },
+      {
+        "listing_type": "rental",
+        "building_slug": "301-west-19th-street-new_york",
+        "unit_label": "#41",
+        "observations": 15,
+        "distinct_bedrooms": 2,
+        "distinct_bathrooms": 1,
+        "distinct_square_feet": 0
+      },
+      {
+        "listing_type": "rental",
+        "building_slug": "447-west-22-street-new_york",
+        "unit_label": "#1",
+        "observations": 15,
+        "distinct_bedrooms": 2,
+        "distinct_bathrooms": 3,
+        "distinct_square_feet": 0
+      },
+      {
+        "listing_type": "rental",
+        "building_slug": "233-west-14-street-new_york",
+        "unit_label": "#3F",
+        "observations": 15,
+        "distinct_bedrooms": 2,
+        "distinct_bathrooms": 3,
+        "distinct_square_feet": 5
+      },
+      {
+        "listing_type": "rental",
+        "building_slug": "the-grove-250-west-19th-street-new_york",
+        "unit_label": "#10O",
+        "observations": 14,
+        "distinct_bedrooms": 2,
+        "distinct_bathrooms": 1,
+        "distinct_square_feet": 0
+      },
+      {
+        "listing_type": "rental",
+        "building_slug": "429-west-24-street-new_york",
+        "unit_label": "#2A",
+        "observations": 14,
+        "distinct_bedrooms": 1,
+        "distinct_bathrooms": 1,
+        "distinct_square_feet": 2
+      },
+      {
+        "listing_type": "rental",
+        "building_slug": "126-west-25-street-new_york",
+        "unit_label": "#4R",
+        "observations": 14,
+        "distinct_bedrooms": 2,
+        "distinct_bathrooms": 2,
+        "distinct_square_feet": 0
+      },
+      {
+        "listing_type": "rental",
+        "building_slug": "755-6-avenue-new_york",
+        "unit_label": "#2",
+        "observations": 14,
+        "distinct_bedrooms": 2,
+        "distinct_bathrooms": 1,
+        "distinct_square_feet": 3
+      },
+      {
+        "listing_type": "rental",
+        "building_slug": "the-irvin-house",
+        "unit_label": "#2D",
+        "observations": 14,
+        "distinct_bedrooms": 2,
+        "distinct_bathrooms": 1,
+        "distinct_square_feet": 2
+      },
+      {
+        "listing_type": "rental",
+        "building_slug": "436-west-20-street-new_york",
+        "unit_label": "#2",
+        "observations": 14,
+        "distinct_bedrooms": 1,
+        "distinct_bathrooms": 2,
+        "distinct_square_feet": 3
+      },
+      {
+        "listing_type": "rental",
+        "building_slug": "404-west-22-street-new_york",
+        "unit_label": "#2",
+        "observations": 14,
+        "distinct_bedrooms": 2,
+        "distinct_bathrooms": 1,
+        "distinct_square_feet": 1
+      },
+      {
+        "listing_type": "rental",
+        "building_slug": "the-irvin-house",
+        "unit_label": "#9C",
+        "observations": 14,
+        "distinct_bedrooms": 1,
+        "distinct_bathrooms": 1,
+        "distinct_square_feet": 2
+      },
+      {
+        "listing_type": "rental",
+        "building_slug": "the-brooks-van-horne-condominium",
+        "unit_label": "#4C",
+        "observations": 14,
+        "distinct_bedrooms": 2,
+        "distinct_bathrooms": 2,
+        "distinct_square_feet": 3
+      },
+      {
+        "listing_type": "sale",
+        "building_slug": "410-west-24-street-new_york",
+        "unit_label": "#18BCE",
+        "observations": 14,
+        "distinct_bedrooms": 2,
+        "distinct_bathrooms": 1,
+        "distinct_square_feet": 1
+      },
+      {
+        "listing_type": "rental",
+        "building_slug": "the-stanwick",
+        "unit_label": "#10",
+        "observations": 14,
+        "distinct_bedrooms": 1,
+        "distinct_bathrooms": 1,
+        "distinct_square_feet": 2
+      },
+      {
+        "listing_type": "rental",
+        "building_slug": "819-6-avenue-new_york",
+        "unit_label": "#3B",
+        "observations": 14,
+        "distinct_bedrooms": 1,
+        "distinct_bathrooms": 1,
+        "distinct_square_feet": 2
+      },
+      {
+        "listing_type": "rental",
+        "building_slug": "315-west-18-street-new_york",
+        "unit_label": "#2C",
+        "observations": 14,
+        "distinct_bedrooms": 2,
+        "distinct_bathrooms": 1,
+        "distinct_square_feet": 0
+      },
+      {
+        "listing_type": "rental",
+        "building_slug": "180-7-avenue-new_york",
+        "unit_label": "#2A",
+        "observations": 14,
+        "distinct_bedrooms": 2,
+        "distinct_bathrooms": 2,
+        "distinct_square_feet": 0
+      },
+      {
+        "listing_type": "rental",
+        "building_slug": "402-west-22-street-new_york",
+        "unit_label": "#2F",
+        "observations": 14,
+        "distinct_bedrooms": 1,
+        "distinct_bathrooms": 2,
+        "distinct_square_feet": 0
+      },
+      {
+        "listing_type": "rental",
+        "building_slug": "112-west-15-street-new_york",
+        "unit_label": "#CHOUSE",
+        "observations": 14,
+        "distinct_bedrooms": 2,
+        "distinct_bathrooms": 1,
+        "distinct_square_feet": 1
+      },
+      {
+        "listing_type": "rental",
+        "building_slug": "316-west-19-street-new_york",
+        "unit_label": "#E1",
+        "observations": 14,
+        "distinct_bedrooms": 2,
+        "distinct_bathrooms": 1,
+        "distinct_square_feet": 0
+      },
+      {
+        "listing_type": "rental",
+        "building_slug": "457-west-17-street-new_york",
+        "unit_label": "#2",
+        "observations": 14,
+        "distinct_bedrooms": 2,
+        "distinct_bathrooms": 2,
+        "distinct_square_feet": 1
+      },
+      {
+        "listing_type": "sale",
+        "building_slug": "410-west-24-street-new_york",
+        "unit_label": "#8G",
+        "observations": 14,
+        "distinct_bedrooms": 1,
+        "distinct_bathrooms": 1,
+        "distinct_square_feet": 4
+      },
+      {
+        "listing_type": "rental",
+        "building_slug": "120-west-25-street-new_york",
+        "unit_label": "#3E",
+        "observations": 14,
+        "distinct_bedrooms": 2,
+        "distinct_bathrooms": 2,
+        "distinct_square_feet": 1
+      },
+      {
+        "listing_type": "rental",
+        "building_slug": "218-west-22-street-new_york",
+        "unit_label": "#1FW",
+        "observations": 14,
+        "distinct_bedrooms": 4,
+        "distinct_bathrooms": 3,
+        "distinct_square_feet": 0
+      },
+      {
+        "listing_type": "rental",
+        "building_slug": "460-west-20-street-new_york",
+        "unit_label": "#1D",
+        "observations": 14,
+        "distinct_bedrooms": 2,
+        "distinct_bathrooms": 1,
+        "distinct_square_feet": 1
+      },
+      {
+        "listing_type": "rental",
+        "building_slug": "328-8-avenue-new_york",
+        "unit_label": "#2A",
+        "observations": 14,
+        "distinct_bedrooms": 2,
+        "distinct_bathrooms": 1,
+        "distinct_square_feet": 1
+      },
+      {
+        "listing_type": "rental",
+        "building_slug": "257-west-17-street-new_york",
+        "unit_label": "#6C",
+        "observations": 14,
+        "distinct_bedrooms": 1,
+        "distinct_bathrooms": 1,
+        "distinct_square_feet": 3
+      },
+      {
+        "listing_type": "rental",
+        "building_slug": "210-west-17-street-new_york",
+        "unit_label": "#3A",
+        "observations": 13,
+        "distinct_bedrooms": 1,
+        "distinct_bathrooms": 1,
+        "distinct_square_feet": 2
+      },
+      {
+        "listing_type": "rental",
+        "building_slug": "161-west-22-street-new_york",
+        "unit_label": "#4",
+        "observations": 13,
+        "distinct_bedrooms": 1,
+        "distinct_bathrooms": 1,
+        "distinct_square_feet": 5
+      },
+      {
+        "listing_type": "rental",
+        "building_slug": "327-west-21-street-new_york",
+        "unit_label": "#LLA",
+        "observations": 13,
+        "distinct_bedrooms": 2,
+        "distinct_bathrooms": 1,
+        "distinct_square_feet": 0
+      },
+      {
+        "listing_type": "rental",
+        "building_slug": "113-west-15-street-new_york",
+        "unit_label": "#1W",
+        "observations": 13,
+        "distinct_bedrooms": 2,
+        "distinct_bathrooms": 1,
+        "distinct_square_feet": 0
+      },
+      {
+        "listing_type": "rental",
+        "building_slug": "447-west-22-street-new_york",
+        "unit_label": "#2",
+        "observations": 13,
+        "distinct_bedrooms": 2,
+        "distinct_bathrooms": 1,
+        "distinct_square_feet": 2
+      },
+      {
+        "listing_type": "rental",
+        "building_slug": "the-caledonia",
+        "unit_label": "#PH5",
+        "observations": 13,
+        "distinct_bedrooms": 1,
+        "distinct_bathrooms": 1,
+        "distinct_square_feet": 5
+      },
+      {
+        "listing_type": "rental",
+        "building_slug": "151-west-16-street-new_york",
+        "unit_label": "#3D",
+        "observations": 13,
+        "distinct_bedrooms": 1,
+        "distinct_bathrooms": 1,
+        "distinct_square_feet": 3
+      },
+      {
+        "listing_type": "rental",
+        "building_slug": "ten23-500-west-23rd-street-new_york",
+        "unit_label": "#2B",
+        "observations": 13,
+        "distinct_bedrooms": 2,
+        "distinct_bathrooms": 2,
+        "distinct_square_feet": 1
+      },
+      {
+        "listing_type": "rental",
+        "building_slug": "beatrice-105-west-29th-street-new_york",
+        "unit_label": "#PHC",
+        "observations": 13,
+        "distinct_bedrooms": 1,
+        "distinct_bathrooms": 2,
+        "distinct_square_feet": 2
+      },
+      {
+        "listing_type": "sale",
+        "building_slug": "100-west-18-street-new_york",
+        "unit_label": "#5B",
+        "observations": 13,
+        "distinct_bedrooms": 2,
+        "distinct_bathrooms": 1,
+        "distinct_square_feet": 1
+      },
+      {
+        "listing_type": "rental",
+        "building_slug": "the-paradigm",
+        "unit_label": "#8",
+        "observations": 13,
+        "distinct_bedrooms": 1,
+        "distinct_bathrooms": 2,
+        "distinct_square_feet": 2
+      },
+      {
+        "listing_type": "rental",
+        "building_slug": "246-10-avenue-new_york",
+        "unit_label": "#5A",
+        "observations": 13,
+        "distinct_bedrooms": 3,
+        "distinct_bathrooms": 1,
+        "distinct_square_feet": 1
+      },
+      {
+        "listing_type": "rental",
+        "building_slug": "457-west-17-street-new_york",
+        "unit_label": "#11",
+        "observations": 13,
+        "distinct_bedrooms": 2,
+        "distinct_bathrooms": 1,
+        "distinct_square_feet": 0
+      },
+      {
+        "listing_type": "rental",
+        "building_slug": "241-west-15-street-new_york",
+        "unit_label": "#3RE",
+        "observations": 13,
+        "distinct_bedrooms": 2,
+        "distinct_bathrooms": 1,
+        "distinct_square_feet": 1
+      },
+      {
+        "listing_type": "rental",
+        "building_slug": "110-8-avenue-new_york",
+        "unit_label": "#4N",
+        "observations": 13,
+        "distinct_bedrooms": 2,
+        "distinct_bathrooms": 1,
+        "distinct_square_feet": 1
+      },
+      {
+        "listing_type": "rental",
+        "building_slug": "349-west-29-street-new_york",
+        "unit_label": "#3A",
+        "observations": 13,
+        "distinct_bedrooms": 2,
+        "distinct_bathrooms": 1,
+        "distinct_square_feet": 1
+      },
+      {
+        "listing_type": "rental",
+        "building_slug": "260-west-16th-street-new_york",
+        "unit_label": "#4A",
+        "observations": 13,
+        "distinct_bedrooms": 2,
+        "distinct_bathrooms": 1,
+        "distinct_square_feet": 1
+      },
+      {
+        "listing_type": "rental",
+        "building_slug": "237-9-avenue-new_york",
+        "unit_label": "#2D",
+        "observations": 13,
+        "distinct_bedrooms": 2,
+        "distinct_bathrooms": 2,
+        "distinct_square_feet": 0
+      },
+      {
+        "listing_type": "rental",
+        "building_slug": "high-line-537",
+        "unit_label": "#5I",
+        "observations": 13,
+        "distinct_bedrooms": 1,
+        "distinct_bathrooms": 1,
+        "distinct_square_feet": 2
+      },
+      {
+        "listing_type": "rental",
+        "building_slug": "209-west-21-street-new_york",
+        "unit_label": "#1C",
+        "observations": 13,
+        "distinct_bedrooms": 2,
+        "distinct_bathrooms": 1,
+        "distinct_square_feet": 1
+      },
+      {
+        "listing_type": "rental",
+        "building_slug": "410-west-22-street-new_york",
+        "unit_label": "#3R",
+        "observations": 13,
+        "distinct_bedrooms": 2,
+        "distinct_bathrooms": 2,
+        "distinct_square_feet": 1
+      },
+      {
+        "listing_type": "rental",
+        "building_slug": "101w15-101-west-15th-street-new_york",
+        "unit_label": "#214",
+        "observations": 13,
+        "distinct_bedrooms": 1,
+        "distinct_bathrooms": 1,
+        "distinct_square_feet": 2
+      },
+      {
+        "listing_type": "rental",
+        "building_slug": "316-west-19-street-new_york",
+        "unit_label": "#1R",
+        "observations": 13,
+        "distinct_bedrooms": 1,
+        "distinct_bathrooms": 2,
+        "distinct_square_feet": 0
+      }
+    ],
+    "collected_years_by_type": {
+      "rental": {
+        "2026": 96785
+      },
+      "sale": {
+        "2026": 24333
+      }
+    }
+  },
+  "event_mentions": {
+    "by_category": {
+      "rental": 2551136,
+      "sale": 387430
+    },
+    "price": {
+      "positive": 2937292,
+      "non_positive": 1274
+    },
+    "dates": {
+      "parseable": 2938566,
+      "unparseable": 0
+    },
+    "by_year": {
+      "2004": 4,
+      "2005": 1217,
+      "2006": 105078,
+      "2007": 123312,
+      "2008": 120000,
+      "2009": 46043,
+      "2010": 59818,
+      "2011": 56921,
+      "2012": 62595,
+      "2013": 90940,
+      "2014": 111197,
+      "2015": 119514,
+      "2016": 134799,
+      "2017": 197385,
+      "2018": 168281,
+      "2019": 188624,
+      "2020": 229633,
+      "2021": 174239,
+      "2022": 167424,
+      "2023": 211741,
+      "2024": 195027,
+      "2025": 214934,
+      "2026": 159840
+    },
+    "years": {
+      "min": 2004,
+      "max": 2026
+    },
+    "price_change": {
+      "at_most_one_percent": 615597,
+      "with_percent_change": 1272257
+    },
+    "event_key": {
+      "rows": 2938566,
+      "distinct": 457276,
+      "duplicate_rows": 2481290
+    },
+    "density": {
+      "listing_ids": 91885,
+      "captures": 121110,
+      "events_per_capture": {
+        "min": 1,
+        "max": 1546,
+        "p50": 13.0,
+        "p95": 76.0
+      }
+    },
+    "occurrence_uniqueness": {
+      "rows": 2938566,
+      "distinct_occurrences": 2938566
+    }
+  },
+  "parse_failures": {
+    "listing_observations": {
+      "by_status": {
+        "ok": 121110,
+        "partial": 8
+      },
+      "error_rows": 8,
+      "by_error": {
+        "propertyHistory missing or unresolved": 8
+      },
+      "gallery_error_rows": 8
+    },
+    "building_observations": {
+      "by_status": {
+        "ok": 1832
+      },
+      "error_rows": 0
+    }
+  },
+  "suspicious_samples": {
+    "listing_observations": [
+      {
+        "listing_id": "5021142",
+        "listing_type": "rental",
+        "bedrooms": null,
+        "bathrooms": null,
+        "square_feet": null,
+        "error": "propertyHistory missing or unresolved"
+      },
+      {
+        "listing_id": "1837658",
+        "listing_type": "sale",
+        "bedrooms": null,
+        "bathrooms": null,
+        "square_feet": null,
+        "error": "propertyHistory missing or unresolved"
+      },
+      {
+        "listing_id": "1820164",
+        "listing_type": "sale",
+        "bedrooms": null,
+        "bathrooms": null,
+        "square_feet": null,
+        "error": "propertyHistory missing or unresolved"
+      },
+      {
+        "listing_id": "5047355",
+        "listing_type": "rental",
+        "bedrooms": null,
+        "bathrooms": null,
+        "square_feet": null,
+        "error": "propertyHistory missing or unresolved"
+      },
+      {
+        "listing_id": "1801035",
+        "listing_type": "sale",
+        "bedrooms": null,
+        "bathrooms": null,
+        "square_feet": null,
+        "error": "propertyHistory missing or unresolved"
+      },
+      {
+        "listing_id": "1743651",
+        "listing_type": "sale",
+        "bedrooms": null,
+        "bathrooms": null,
+        "square_feet": null,
+        "error": "propertyHistory missing or unresolved"
+      },
+      {
+        "listing_id": "1811384",
+        "listing_type": "sale",
+        "bedrooms": null,
+        "bathrooms": null,
+        "square_feet": null,
+        "error": "propertyHistory missing or unresolved"
+      },
+      {
+        "listing_id": "1833671",
+        "listing_type": "sale",
+        "bedrooms": null,
+        "bathrooms": null,
+        "square_feet": null,
+        "error": "propertyHistory missing or unresolved"
+      },
+      {
+        "listing_id": "1826380",
+        "listing_type": "sale",
+        "bedrooms": 21.0,
+        "bathrooms": 14.0,
+        "square_feet": 6546.0,
+        "error": null
+      },
+      {
+        "listing_id": "1662772",
+        "listing_type": "sale",
+        "bedrooms": 3.0,
+        "bathrooms": 20.5,
+        "square_feet": 2501.0,
+        "error": null
+      },
+      {
+        "listing_id": "1467724",
+        "listing_type": "sale",
+        "bedrooms": 6.0,
+        "bathrooms": 20.5,
+        "square_feet": 1966.0,
+        "error": null
+      },
+      {
+        "listing_id": "819967",
+        "listing_type": "sale",
+        "bedrooms": 22.0,
+        "bathrooms": 20.0,
+        "square_feet": 7980.0,
+        "error": null
+      },
+      {
+        "listing_id": "1451222",
+        "listing_type": "sale",
+        "bedrooms": 21.0,
+        "bathrooms": 20.0,
+        "square_feet": 8892.0,
+        "error": null
+      },
+      {
+        "listing_id": "477628",
+        "listing_type": "rental",
+        "bedrooms": 30.0,
+        "bathrooms": 3.0,
+        "square_feet": 2041.0,
+        "error": null
+      },
+      {
+        "listing_id": "1306473",
+        "listing_type": "sale",
+        "bedrooms": 25.0,
+        "bathrooms": 10.0,
+        "square_feet": null,
+        "error": null
+      },
+      {
+        "listing_id": "677273",
+        "listing_type": "sale",
+        "bedrooms": 24.0,
+        "bathrooms": 0.0,
+        "square_feet": 13920.0,
+        "error": null
+      },
+      {
+        "listing_id": "1186991",
+        "listing_type": "rental",
+        "bedrooms": 21.0,
+        "bathrooms": 6.0,
+        "square_feet": null,
+        "error": null
+      },
+      {
+        "listing_id": "1268757",
+        "listing_type": "rental",
+        "bedrooms": 23.0,
+        "bathrooms": 6.0,
+        "square_feet": null,
+        "error": null
+      },
+      {
+        "listing_id": "2387565",
+        "listing_type": "rental",
+        "bedrooms": 27.0,
+        "bathrooms": 7.0,
+        "square_feet": null,
+        "error": null
+      },
+      {
+        "listing_id": "1314960",
+        "listing_type": "sale",
+        "bedrooms": 27.0,
+        "bathrooms": 6.0,
+        "square_feet": null,
+        "error": null
+      },
+      {
+        "listing_id": "1576868",
+        "listing_type": "sale",
+        "bedrooms": 22.0,
+        "bathrooms": 10.5,
+        "square_feet": 7315.0,
+        "error": null
+      },
+      {
+        "listing_id": "433680",
+        "listing_type": "rental",
+        "bedrooms": 0.0,
+        "bathrooms": 99.0,
+        "square_feet": 1450.0,
+        "error": null
+      },
+      {
+        "listing_id": "771319",
+        "listing_type": "sale",
+        "bedrooms": 34.0,
+        "bathrooms": 0.0,
+        "square_feet": 7900.0,
+        "error": null
+      },
+      {
+        "listing_id": "537182",
+        "listing_type": "sale",
+        "bedrooms": 34.0,
+        "bathrooms": 11.0,
+        "square_feet": 5238.0,
+        "error": null
+      },
+      {
+        "listing_id": "1761463",
+        "listing_type": "sale",
+        "bedrooms": 4.0,
+        "bathrooms": 30.0,
+        "square_feet": 46500.0,
+        "error": null
+      },
+      {
+        "listing_id": "1662772",
+        "listing_type": "sale",
+        "bedrooms": 3.0,
+        "bathrooms": 20.5,
+        "square_feet": 2501.0,
+        "error": null
+      },
+      {
+        "listing_id": "1074574",
+        "listing_type": "rental",
+        "bedrooms": 3.0,
+        "bathrooms": 30.0,
+        "square_feet": 2254.0,
+        "error": null
+      },
+      {
+        "listing_id": "1306473",
+        "listing_type": "sale",
+        "bedrooms": 25.0,
+        "bathrooms": 10.0,
+        "square_feet": null,
+        "error": null
+      },
+      {
+        "listing_id": "1186991",
+        "listing_type": "rental",
+        "bedrooms": 21.0,
+        "bathrooms": 6.0,
+        "square_feet": null,
+        "error": null
+      },
+      {
+        "listing_id": "729637",
+        "listing_type": "rental",
+        "bedrooms": 21.0,
+        "bathrooms": 1.0,
+        "square_feet": null,
+        "error": null
+      },
+      {
+        "listing_id": "496464",
+        "listing_type": "sale",
+        "bedrooms": 34.0,
+        "bathrooms": 34.0,
+        "square_feet": null,
+        "error": null
+      }
+    ],
+    "event_mentions": [
+      {
+        "listing_id": "5152146",
+        "event_date": "2020-06-11",
+        "price": 0.0,
+        "percent_change": null,
+        "event_key": "eb1f3ad3cced7137932c5dc484917b00637b87bb16ba3c406764bc308e6403ae"
+      },
+      {
+        "listing_id": "5152146",
+        "event_date": "2020-05-28",
+        "price": 0.0,
+        "percent_change": null,
+        "event_key": "cb9ce3c1be57fcbd381edc8c56caf5fac55239a1a4794e67ef77be907fecf49b"
+      },
+      {
+        "listing_id": "4496974",
+        "event_date": "2020-06-11",
+        "price": 0.0,
+        "percent_change": null,
+        "event_key": "eb1f3ad3cced7137932c5dc484917b00637b87bb16ba3c406764bc308e6403ae"
+      },
+      {
+        "listing_id": "4496974",
+        "event_date": "2020-05-28",
+        "price": 0.0,
+        "percent_change": null,
+        "event_key": "cb9ce3c1be57fcbd381edc8c56caf5fac55239a1a4794e67ef77be907fecf49b"
+      },
+      {
+        "listing_id": "4179977",
+        "event_date": "2020-06-11",
+        "price": 0.0,
+        "percent_change": null,
+        "event_key": "eb1f3ad3cced7137932c5dc484917b00637b87bb16ba3c406764bc308e6403ae"
+      },
+      {
+        "listing_id": "4179977",
+        "event_date": "2020-05-28",
+        "price": 0.0,
+        "percent_change": null,
+        "event_key": "cb9ce3c1be57fcbd381edc8c56caf5fac55239a1a4794e67ef77be907fecf49b"
+      },
+      {
+        "listing_id": "3183516",
+        "event_date": "2020-06-11",
+        "price": 0.0,
+        "percent_change": null,
+        "event_key": "eb1f3ad3cced7137932c5dc484917b00637b87bb16ba3c406764bc308e6403ae"
+      },
+      {
+        "listing_id": "3183516",
+        "event_date": "2020-05-28",
+        "price": 0.0,
+        "percent_change": null,
+        "event_key": "cb9ce3c1be57fcbd381edc8c56caf5fac55239a1a4794e67ef77be907fecf49b"
+      },
+      {
+        "listing_id": "3057361",
+        "event_date": "2020-06-11",
+        "price": 0.0,
+        "percent_change": null,
+        "event_key": "eb1f3ad3cced7137932c5dc484917b00637b87bb16ba3c406764bc308e6403ae"
+      },
+      {
+        "listing_id": "3057361",
+        "event_date": "2020-05-28",
+        "price": 0.0,
+        "percent_change": null,
+        "event_key": "cb9ce3c1be57fcbd381edc8c56caf5fac55239a1a4794e67ef77be907fecf49b"
+      },
+      {
+        "listing_id": "2333127",
+        "event_date": "2020-06-11",
+        "price": 0.0,
+        "percent_change": null,
+        "event_key": "eb1f3ad3cced7137932c5dc484917b00637b87bb16ba3c406764bc308e6403ae"
+      },
+      {
+        "listing_id": "2333127",
+        "event_date": "2020-05-28",
+        "price": 0.0,
+        "percent_change": null,
+        "event_key": "cb9ce3c1be57fcbd381edc8c56caf5fac55239a1a4794e67ef77be907fecf49b"
+      },
+      {
+        "listing_id": "1721919",
+        "event_date": "2020-06-11",
+        "price": 0.0,
+        "percent_change": null,
+        "event_key": "eb1f3ad3cced7137932c5dc484917b00637b87bb16ba3c406764bc308e6403ae"
+      },
+      {
+        "listing_id": "1721919",
+        "event_date": "2020-05-28",
+        "price": 0.0,
+        "percent_change": null,
+        "event_key": "cb9ce3c1be57fcbd381edc8c56caf5fac55239a1a4794e67ef77be907fecf49b"
+      },
+      {
+        "listing_id": "2747320",
+        "event_date": "2020-06-11",
+        "price": 0.0,
+        "percent_change": null,
+        "event_key": "eb1f3ad3cced7137932c5dc484917b00637b87bb16ba3c406764bc308e6403ae"
+      },
+      {
+        "listing_id": "2747320",
+        "event_date": "2020-05-28",
+        "price": 0.0,
+        "percent_change": null,
+        "event_key": "cb9ce3c1be57fcbd381edc8c56caf5fac55239a1a4794e67ef77be907fecf49b"
+      },
+      {
+        "listing_id": "5152146",
+        "event_date": "2020-06-11",
+        "price": 0.0,
+        "percent_change": null,
+        "event_key": "eb1f3ad3cced7137932c5dc484917b00637b87bb16ba3c406764bc308e6403ae"
+      },
+      {
+        "listing_id": "5152146",
+        "event_date": "2020-05-28",
+        "price": 0.0,
+        "percent_change": null,
+        "event_key": "cb9ce3c1be57fcbd381edc8c56caf5fac55239a1a4794e67ef77be907fecf49b"
+      },
+      {
+        "listing_id": "5147842",
+        "event_date": "2016-10-14",
+        "price": 0.0,
+        "percent_change": null,
+        "event_key": "0626cf909378692d30c8a9fc50ea0875d00dddbf2205b906cb819d4ec5549247"
+      },
+      {
+        "listing_id": "4437725",
+        "event_date": "2016-10-14",
+        "price": 0.0,
+        "percent_change": null,
+        "event_key": "0626cf909378692d30c8a9fc50ea0875d00dddbf2205b906cb819d4ec5549247"
+      },
+      {
+        "listing_id": "3332830",
+        "event_date": "2016-10-14",
+        "price": 0.0,
+        "percent_change": null,
+        "event_key": "0626cf909378692d30c8a9fc50ea0875d00dddbf2205b906cb819d4ec5549247"
+      },
+      {
+        "listing_id": "1909813",
+        "event_date": "2016-10-14",
+        "price": 0.0,
+        "percent_change": null,
+        "event_key": "0626cf909378692d30c8a9fc50ea0875d00dddbf2205b906cb819d4ec5549247"
+      },
+      {
+        "listing_id": "5147842",
+        "event_date": "2016-10-14",
+        "price": 0.0,
+        "percent_change": null,
+        "event_key": "0626cf909378692d30c8a9fc50ea0875d00dddbf2205b906cb819d4ec5549247"
+      },
+      {
+        "listing_id": "1829527",
+        "event_date": "2020-06-19",
+        "price": 0.0,
+        "percent_change": null,
+        "event_key": "6b87b41d28c0de4625ded08ed9ec80d369962ba3ae8a642b4b3f0a4303258be0"
+      },
+      {
+        "listing_id": "1829527",
+        "event_date": "2020-05-22",
+        "price": 0.0,
+        "percent_change": null,
+        "event_key": "2e7e6459137bdefdcb8708ac9b2b7671e0102d0054c7559f71c4493a466121b8"
+      },
+      {
+        "listing_id": "1467260",
+        "event_date": "2020-06-19",
+        "price": 0.0,
+        "percent_change": null,
+        "event_key": "6b87b41d28c0de4625ded08ed9ec80d369962ba3ae8a642b4b3f0a4303258be0"
+      },
+      {
+        "listing_id": "1467260",
+        "event_date": "2020-05-22",
+        "price": 0.0,
+        "percent_change": null,
+        "event_key": "2e7e6459137bdefdcb8708ac9b2b7671e0102d0054c7559f71c4493a466121b8"
+      },
+      {
+        "listing_id": "1343230",
+        "event_date": "2020-06-19",
+        "price": 0.0,
+        "percent_change": null,
+        "event_key": "6b87b41d28c0de4625ded08ed9ec80d369962ba3ae8a642b4b3f0a4303258be0"
+      },
+      {
+        "listing_id": "1343230",
+        "event_date": "2020-05-22",
+        "price": 0.0,
+        "percent_change": null,
+        "event_key": "2e7e6459137bdefdcb8708ac9b2b7671e0102d0054c7559f71c4493a466121b8"
+      },
+      {
+        "listing_id": "1265682",
+        "event_date": "2020-06-19",
+        "price": 0.0,
+        "percent_change": null,
+        "event_key": "6b87b41d28c0de4625ded08ed9ec80d369962ba3ae8a642b4b3f0a4303258be0"
+      },
+      {
+        "listing_id": "1265682",
+        "event_date": "2020-05-22",
+        "price": 0.0,
+        "percent_change": null,
+        "event_key": "2e7e6459137bdefdcb8708ac9b2b7671e0102d0054c7559f71c4493a466121b8"
+      },
+      {
+        "listing_id": "1242725",
+        "event_date": "2020-06-19",
+        "price": 0.0,
+        "percent_change": null,
+        "event_key": "6b87b41d28c0de4625ded08ed9ec80d369962ba3ae8a642b4b3f0a4303258be0"
+      },
+      {
+        "listing_id": "1242725",
+        "event_date": "2020-05-22",
+        "price": 0.0,
+        "percent_change": null,
+        "event_key": "2e7e6459137bdefdcb8708ac9b2b7671e0102d0054c7559f71c4493a466121b8"
+      },
+      {
+        "listing_id": "1829527",
+        "event_date": "2020-06-19",
+        "price": 0.0,
+        "percent_change": null,
+        "event_key": "6b87b41d28c0de4625ded08ed9ec80d369962ba3ae8a642b4b3f0a4303258be0"
+      },
+      {
+        "listing_id": "1829527",
+        "event_date": "2020-05-22",
+        "price": 0.0,
+        "percent_change": null,
+        "event_key": "2e7e6459137bdefdcb8708ac9b2b7671e0102d0054c7559f71c4493a466121b8"
+      },
+      {
+        "listing_id": "4712425",
+        "event_date": "2020-06-27",
+        "price": 0.0,
+        "percent_change": null,
+        "event_key": "1603a398d397c9876ed31906a86b7e03d3dcb21f3970b410cd4d7667225b8f00"
+      },
+      {
+        "listing_id": "4712425",
+        "event_date": "2020-05-29",
+        "price": 0.0,
+        "percent_change": null,
+        "event_key": "82b10cb48ea9fe3f8aef776deffbff8479e1805c3152cc087d60347c4f0e3267"
+      },
+      {
+        "listing_id": "3348596",
+        "event_date": "2020-06-27",
+        "price": 0.0,
+        "percent_change": null,
+        "event_key": "1603a398d397c9876ed31906a86b7e03d3dcb21f3970b410cd4d7667225b8f00"
+      },
+      {
+        "listing_id": "3348596",
+        "event_date": "2020-05-29",
+        "price": 0.0,
+        "percent_change": null,
+        "event_key": "82b10cb48ea9fe3f8aef776deffbff8479e1805c3152cc087d60347c4f0e3267"
+      },
+      {
+        "listing_id": "4712425",
+        "event_date": "2020-06-27",
+        "price": 0.0,
+        "percent_change": null,
+        "event_key": "1603a398d397c9876ed31906a86b7e03d3dcb21f3970b410cd4d7667225b8f00"
+      },
+      {
+        "listing_id": "4712425",
+        "event_date": "2020-05-29",
+        "price": 0.0,
+        "percent_change": null,
+        "event_key": "82b10cb48ea9fe3f8aef776deffbff8479e1805c3152cc087d60347c4f0e3267"
+      },
+      {
+        "listing_id": "3054976",
+        "event_date": "2020-06-27",
+        "price": 0.0,
+        "percent_change": null,
+        "event_key": "1603a398d397c9876ed31906a86b7e03d3dcb21f3970b410cd4d7667225b8f00"
+      },
+      {
+        "listing_id": "3054976",
+        "event_date": "2020-05-29",
+        "price": 0.0,
+        "percent_change": null,
+        "event_key": "82b10cb48ea9fe3f8aef776deffbff8479e1805c3152cc087d60347c4f0e3267"
+      },
+      {
+        "listing_id": "3149284",
+        "event_date": "2020-06-27",
+        "price": 0.0,
+        "percent_change": null,
+        "event_key": "1603a398d397c9876ed31906a86b7e03d3dcb21f3970b410cd4d7667225b8f00"
+      },
+      {
+        "listing_id": "3149284",
+        "event_date": "2020-05-29",
+        "price": 0.0,
+        "percent_change": null,
+        "event_key": "82b10cb48ea9fe3f8aef776deffbff8479e1805c3152cc087d60347c4f0e3267"
+      },
+      {
+        "listing_id": "879794",
+        "event_date": "2020-06-27",
+        "price": 0.0,
+        "percent_change": null,
+        "event_key": "1603a398d397c9876ed31906a86b7e03d3dcb21f3970b410cd4d7667225b8f00"
+      },
+      {
+        "listing_id": "879794",
+        "event_date": "2020-05-29",
+        "price": 0.0,
+        "percent_change": null,
+        "event_key": "82b10cb48ea9fe3f8aef776deffbff8479e1805c3152cc087d60347c4f0e3267"
+      },
+      {
+        "listing_id": "2766456",
+        "event_date": "2020-06-27",
+        "price": 0.0,
+        "percent_change": null,
+        "event_key": "1603a398d397c9876ed31906a86b7e03d3dcb21f3970b410cd4d7667225b8f00"
+      },
+      {
+        "listing_id": "2766456",
+        "event_date": "2020-05-29",
+        "price": 0.0,
+        "percent_change": null,
+        "event_key": "82b10cb48ea9fe3f8aef776deffbff8479e1805c3152cc087d60347c4f0e3267"
+      },
+      {
+        "listing_id": "4479172",
+        "event_date": "2012-12-28",
+        "price": 0.0,
+        "percent_change": null,
+        "event_key": "737355cd158f71920e86cff9b5cdbe0a2618b3dc30c932ee20ff5dd2c7961cba"
+      },
+      {
+        "listing_id": "4479172",
+        "event_date": "2012-12-28",
+        "price": 0.0,
+        "percent_change": null,
+        "event_key": "737355cd158f71920e86cff9b5cdbe0a2618b3dc30c932ee20ff5dd2c7961cba"
+      },
+      {
+        "listing_id": "4059632",
+        "event_date": "2012-12-28",
+        "price": 0.0,
+        "percent_change": null,
+        "event_key": "737355cd158f71920e86cff9b5cdbe0a2618b3dc30c932ee20ff5dd2c7961cba"
+      },
+      {
+        "listing_id": "3044594",
+        "event_date": "2012-12-28",
+        "price": 0.0,
+        "percent_change": null,
+        "event_key": "737355cd158f71920e86cff9b5cdbe0a2618b3dc30c932ee20ff5dd2c7961cba"
+      },
+      {
+        "listing_id": "981262",
+        "event_date": "2012-12-28",
+        "price": 0.0,
+        "percent_change": null,
+        "event_key": "737355cd158f71920e86cff9b5cdbe0a2618b3dc30c932ee20ff5dd2c7961cba"
+      },
+      {
+        "listing_id": "3000678",
+        "event_date": "2020-03-25",
+        "price": 0.0,
+        "percent_change": null,
+        "event_key": "44ef2a5d4abccd051c0683933cb724ff13a7755dda5817ae255ae4d834ebeac5"
+      },
+      {
+        "listing_id": "3000678",
+        "event_date": "2020-03-11",
+        "price": 0.0,
+        "percent_change": null,
+        "event_key": "11f196ab088ad54e3af2ead4b33b3c1b8ad55014843aa0b95cc67a691728b5df"
+      },
+      {
+        "listing_id": "4245368",
+        "event_date": "2020-09-04",
+        "price": 0.0,
+        "percent_change": null,
+        "event_key": "80f2b40fb79c694bd109af646577cd316c6898aac32c84a9da14eaddff34f70f"
+      },
+      {
+        "listing_id": "4245368",
+        "event_date": "2020-07-09",
+        "price": 0.0,
+        "percent_change": null,
+        "event_key": "8b84b81d8efbe028d150beb0d93573915f2e2a2e15f073659f269713e42e76a0"
+      },
+      {
+        "listing_id": "4012124",
+        "event_date": "2013-05-13",
+        "price": 0.0,
+        "percent_change": null,
+        "event_key": "cb0414db755e413b6e921d00de4c4ec65834b7a9562c5d0e3c6a1df2f82b0496"
+      },
+      {
+        "listing_id": "5059961",
+        "event_date": "2016-12-04",
+        "price": 0.0,
+        "percent_change": null,
+        "event_key": "b56fcf2c9af4581b2c7fa6962ef426a1405110459040147bfeb911a3d174eb32"
+      },
+      {
+        "listing_id": "4947201",
+        "event_date": "2015-02-17",
+        "price": 0.0,
+        "percent_change": null,
+        "event_key": "c45c7bb207937b56f9136dc3d483a63ad4563bde52eb761ae16b5aa1cc666f39"
+      },
+      {
+        "listing_id": "2140066",
+        "event_date": "2016-03-07",
+        "price": 0.0,
+        "percent_change": null,
+        "event_key": "5affd8a0789513b6d34f456b1ef53871e33b632105a021c9c646d9c4b1a645ec"
+      },
+      {
+        "listing_id": "3437759",
+        "event_date": "2020-04-22",
+        "price": 0.0,
+        "percent_change": null,
+        "event_key": "364f53b76cc6784e9ac059ed9b221ca5fb497d4dbd78b3761f5733e2ebc63547"
+      },
+      {
+        "listing_id": "3437759",
+        "event_date": "2020-04-08",
+        "price": 0.0,
+        "percent_change": null,
+        "event_key": "ed2407d70522e57a53f02006382b6acced4b925d4233b5547748aedb8d198a91"
+      },
+      {
+        "listing_id": "3116183",
+        "event_date": "2013-11-13",
+        "price": 0.0,
+        "percent_change": null,
+        "event_key": "a0e115c73548a039a76566941dc305a92a1e26bf7c0032bb46cc69b2aed38aab"
+      },
+      {
+        "listing_id": "1309232",
+        "event_date": "2014-05-14",
+        "price": 0.0,
+        "percent_change": null,
+        "event_key": "156cd22cd177f1f02f5f8371ceae0036e4bcbac481759fd1030daf040cb8786b"
+      },
+      {
+        "listing_id": "1197793",
+        "event_date": "2013-11-05",
+        "price": 0.0,
+        "percent_change": null,
+        "event_key": "62bb950cf8c04ec5d1999cac108d7002591ca85cb0abda6bba461dceca975bd2"
+      },
+      {
+        "listing_id": "965264",
+        "event_date": "2012-11-26",
+        "price": 0.0,
+        "percent_change": null,
+        "event_key": "a0e4560b2ed8ab9632eaaeb25ae82c5dd76e28ee45eb0d5ea68ab7074c6ee49d"
+      },
+      {
+        "listing_id": "1334872",
+        "event_date": "2021-04-19",
+        "price": 0.0,
+        "percent_change": null,
+        "event_key": "69a618903ab2d487c2c848a7d9d71810bcb6843a629f1bb52f89978d70fb0014"
+      },
+      {
+        "listing_id": "4543842",
+        "event_date": "2020-05-05",
+        "price": 0.0,
+        "percent_change": null,
+        "event_key": "23c3129621e037931d7f3f703600c9ed8c7a43b1552d792b37f76aef9fe09daf"
+      },
+      {
+        "listing_id": "4543842",
+        "event_date": "2020-04-21",
+        "price": 0.0,
+        "percent_change": null,
+        "event_key": "187f27bd71347e203bd4ae8f75021349eab720f5ecd96890bbb4678584e82111"
+      },
+      {
+        "listing_id": "3091006",
+        "event_date": "2020-07-06",
+        "price": 0.0,
+        "percent_change": null,
+        "event_key": "50dfe7f6029fe3bc4f1921ddfc6d3154a24bd4eb6c798f703e1f66b412872a22"
+      },
+      {
+        "listing_id": "3091006",
+        "event_date": "2020-06-24",
+        "price": 0.0,
+        "percent_change": null,
+        "event_key": "02b0dfbfcb4377898f942a6ae825918f7e46be033e5e1d4546fb216b63c278a6"
+      },
+      {
+        "listing_id": "1616441",
+        "event_date": "2020-09-10",
+        "price": 0.0,
+        "percent_change": null,
+        "event_key": "f60fb5a52f00a819d680b72533e5b1a21c4ba11f66c1b050065d18020ba6a92e"
+      },
+      {
+        "listing_id": "1616441",
+        "event_date": "2020-08-13",
+        "price": 0.0,
+        "percent_change": null,
+        "event_key": "766e1ad5575640cc8b8543c048bce3d98b706590d00068e0c4b23c8e98ca0836"
+      },
+      {
+        "listing_id": "1616441",
+        "event_date": "2020-07-15",
+        "price": 0.0,
+        "percent_change": null,
+        "event_key": "529f719460288fd7cfcc214b448b0893ca1006d9078697add950d0b9da9e7487"
+      },
+      {
+        "listing_id": "1211957",
+        "event_date": "2016-02-22",
+        "price": 0.0,
+        "percent_change": null,
+        "event_key": "0a305021f87c7f8208336f4e7236a531885bf14e46db6761e9d133a73f456783"
+      },
+      {
+        "listing_id": "4735564",
+        "event_date": "2020-06-04",
+        "price": 0.0,
+        "percent_change": null,
+        "event_key": "1cfe3cf94a40e6dce535c650eb01da94eb88fdd5488c1b9c1242a4f85968be4b"
+      },
+      {
+        "listing_id": "4735564",
+        "event_date": "2020-05-23",
+        "price": 0.0,
+        "percent_change": null,
+        "event_key": "6b2f4b476ca521c5ee91294da95caae81ebca04c351b5b1e7bec5a37f250d8e1"
+      },
+      {
+        "listing_id": "4735564",
+        "event_date": "2020-05-21",
+        "price": 0.0,
+        "percent_change": null,
+        "event_key": "f5ace615c1299262fe8649012ccb038d873bf965504d853f17ee14465a86e82b"
+      },
+      {
+        "listing_id": "4628971",
+        "event_date": "2016-03-04",
+        "price": 0.0,
+        "percent_change": null,
+        "event_key": "7a76c1f7f7a0792ce9575ecfab23b939fe4e2328c034c899ff50d1ef3a24b4af"
+      },
+      {
+        "listing_id": "4173650",
+        "event_date": "2012-09-05",
+        "price": 0.0,
+        "percent_change": null,
+        "event_key": "77804e41d6a3de9a630f78dfd386963c4cf15bc8921afdb4536eaac65b70a533"
+      },
+      {
+        "listing_id": "3040515",
+        "event_date": "2020-05-27",
+        "price": 0.0,
+        "percent_change": null,
+        "event_key": "424a6bfa7a375398d4d72837d1bdf2ee5d59df50e73d273dfbaee3227da75930"
+      },
+      {
+        "listing_id": "3040515",
+        "event_date": "2020-05-13",
+        "price": 0.0,
+        "percent_change": null,
+        "event_key": "c20152de9356392a58e62aa5642355649f8ef3e2d899484bd31da34f6a6806c9"
+      },
+      {
+        "listing_id": "4386176",
+        "event_date": "2013-07-08",
+        "price": 0.0,
+        "percent_change": null,
+        "event_key": "9d7414ec31a0cedcd0991ecf8c0c02d4ac42866dc4f9508c5c3cb744203ef864"
+      },
+      {
+        "listing_id": "4577344",
+        "event_date": "2020-10-30",
+        "price": 0.0,
+        "percent_change": null,
+        "event_key": "53bfc0b921051367ce9cd66cd7b2f1e25fa5481cfd9c6101023d39dc34cfd4d8"
+      },
+      {
+        "listing_id": "4577344",
+        "event_date": "2020-07-31",
+        "price": 0.0,
+        "percent_change": null,
+        "event_key": "57e931a765d89e6c0129e76b39d02bc7289957229ba5ccff4b206ca8c69e2b43"
+      },
+      {
+        "listing_id": "4577344",
+        "event_date": "2020-06-09",
+        "price": 0.0,
+        "percent_change": null,
+        "event_key": "7cdc2bcb4a2d47f8fc4f53f5ac0f7f04c82e4fb2a94db1b7fff1649fc38c4925"
+      },
+      {
+        "listing_id": "5096442",
+        "event_date": "2020-07-29",
+        "price": 0.0,
+        "percent_change": null,
+        "event_key": "876543ebbd175bb667fafc2ad6d84c09b354f62499c978f88c9eb44b5d39ce7e"
+      },
+      {
+        "listing_id": "5096442",
+        "event_date": "2020-06-01",
+        "price": 0.0,
+        "percent_change": null,
+        "event_key": "b3d24da960a702200f109c73f86109d8e079058f60b722db5db0f6e818556b04"
+      },
+      {
+        "listing_id": "5096442",
+        "event_date": "2016-10-24",
+        "price": 0.0,
+        "percent_change": null,
+        "event_key": "5c78627b9893f3e683f99393cfdea6d41c9504cb4dcdf5f68c9a3c9f235901db"
+      },
+      {
+        "listing_id": "643778",
+        "event_date": "2013-04-16",
+        "price": 0.0,
+        "percent_change": null,
+        "event_key": "09e669177e5bd45d15db9a8bfd9a95d0ea92aef76e011cf628e931fb18d90ca9"
+      },
+      {
+        "listing_id": "3105459",
+        "event_date": "2020-06-12",
+        "price": 0.0,
+        "percent_change": null,
+        "event_key": "73e394674c824bf9ef4a748dda207e10792dc708797a0c91e444c297d66db806"
+      },
+      {
+        "listing_id": "3105459",
+        "event_date": "2020-05-29",
+        "price": 0.0,
+        "percent_change": null,
+        "event_key": "29d55f952d5cef3e2e759b9766c12d147813310da3f1028d6226bb0491e5a197"
+      },
+      {
+        "listing_id": "4658278",
+        "event_date": "2016-07-19",
+        "price": 0.0,
+        "percent_change": null,
+        "event_key": "955f69b97c0d6fd08d7edafb1509aa2b3e492a1d42060ef43723090c301dd835"
+      },
+      {
+        "listing_id": "4084476",
+        "event_date": "2020-06-01",
+        "price": 0.0,
+        "percent_change": null,
+        "event_key": "da07d4009631f466a1d2bc05de98069e543b30874a9c5cd1dec98c99fa8b72d6"
+      },
+      {
+        "listing_id": "4084476",
+        "event_date": "2020-05-18",
+        "price": 0.0,
+        "percent_change": null,
+        "event_key": "082d78583364c1f88dda5a99eca575c8ab141e1578f892aa5cc9712268abadfe"
+      },
+      {
+        "listing_id": "1380507",
+        "event_date": "2013-01-12",
+        "price": 0.0,
+        "percent_change": null,
+        "event_key": "232a6ca7be7aece60df278d2adf674d13d4ab76b1df0f6744fb375e69e98f280"
+      },
+      {
+        "listing_id": "1196668",
+        "event_date": "2015-10-16",
+        "price": 0.0,
+        "percent_change": null,
+        "event_key": "b65af0ffc889e32b36d551d2483aaba5ec34de5536c60d75f32426110ad14974"
+      },
+      {
+        "listing_id": "1800572",
+        "event_date": "2016-08-08",
+        "price": 0.0,
+        "percent_change": null,
+        "event_key": "5836ab1228a8566c16eaf7be72dbbd2b8678aa76b34f0ea32f60565fc9582f4b"
+      }
+    ]
+  },
+  "limitations": [
+    "This audits capture observations and source event mentions; it is not a lease table.",
+    "Attributes are capture-time observations and are not automatically historical.",
+    "Counts are not aggregated into physical units; source labels can identify listings/buildings only.",
+    "Duplicate event rows are retained as evidence; event_key is used for distinct semantics only."
+  ],
+  "inventory_observations": {
+    "parse_status": {
+      "ok": 1809
+    },
+    "count_vs_row_count": {
+      "observations": 1809,
+      "count_sum": 35070,
+      "row_count_sum": 35071,
+      "mismatch_rows": 1
+    },
+    "row_count_by_snapshot_mismatch": 0
+  },
+  "frontier": {
+    "counts": {
+      "building": 3320,
+      "directory": 161,
+      "inventory": 1809,
+      "listing": 122119,
+      "search": 46
+    }
+  },
+  "url_aliases": {
+    "counts": {
+      "equivalent main building view": 2009,
+      "{\"body_hash\": \"4127c213e0e6fc691ec33d6a3544de6907a500cf8c5c87fed44512a1c1c1904f\", \"history_episodes\": 5, \"history_events\": 16, \"listing_key\": \"sale:1845810:detail\", \"observation_id\": 123113, \"reason\": \"confirmed same-listing full-detail capture\", \"snapshot_id\": 120958, \"validation\": \"inline-identified-listing-history-v1\"}": 1,
+      "{\"body_hash\": \"cbf65cea2880f65448e652ed38c0ccb49261fe526bb4fd91c40886ea7c0c3ba8\", \"history_episodes\": 4, \"history_events\": 12, \"listing_key\": \"rental:5153964:detail\", \"observation_id\": 16937, \"reason\": \"confirmed same-listing full-detail capture\", \"snapshot_id\": 16830, \"validation\": \"inline-identified-listing-history-v1\"}": 1
+    }
+  },
+  "source_changes": {
+    "rows": 788809,
+    "by_source_path": {
+      "pricing.priceChanges": 375738,
+      "statusChanges": 413071
+    },
+    "dates": {
+      "parseable": 788809,
+      "unparseable": 0
+    },
+    "by_snapshot": 121110
+  },
+  "coverage": {
+    "listing": {
+      "expected_snapshots": 121118,
+      "observed_snapshots": 121118,
+      "expected_unobserved": 0
+    },
+    "building": {
+      "expected_snapshots": 1832,
+      "observed_snapshots": 1832,
+      "expected_unobserved": 0
+    },
+    "inventory": {
+      "expected_snapshots": 1809,
+      "observed_snapshots": 1809,
+      "expected_unobserved": 0
+    }
+  },
+  "fetch_observations": {
+    "status_counts": {
+      "200": 124980,
+      "308": 33,
+      "403": 3,
+      "404": 966,
+      "null": 1202
+    },
+    "fetched_at_range": {
+      "min": 1788803600.725,
+      "max": 1789185703.7815936
+    },
+    "fetched_years": {
+      "2026": 127184
+    }
+  },
+  "inventory_row_links": {
+    "by_kind": {
+      "placeholder": 1,
+      "listing": 33904,
+      "closing": 1166
+    },
+    "rows": 35071,
+    "distinct_occurrences": 35071,
+    "missing_source_rows": 0,
+    "unlinked_source_rows": 0,
+    "recovered_legacy_links": 2574
+  },
+  "referential_checks": {
+    "listing_observations_missing_snapshot": 0,
+    "building_observations_missing_snapshot": 0,
+    "inventory_rows_missing_snapshot": 0,
+    "inventory_observations_missing_snapshot": 0,
+    "event_mentions_missing_snapshot": 0,
+    "source_changes_missing_snapshot": 0
+  },
+  "inventory_link_interpretation": {
+    "parsed_at": 1789575091.3152199,
+    "rows": 35071,
+    "rows_by_kind": {
+      "listing": 33904,
+      "closing": 1166,
+      "placeholder": 1,
+      "unclassified": 0,
+      "ambiguous": 0
+    },
+    "basis_counts": {
+      "html": 35067,
+      "placeholder": 1,
+      "record_disambiguation": 3
+    },
+    "recovered_legacy_links": 2574,
+    "mismatched_nonnull_record_url": 0,
+    "unresolved": 0,
+    "ambiguous": 3,
+    "implementation": "inventory-links-v2",
+    "implementation_hash": "59f6009ab5e2da56ed017ed43364882296d7142d754cd83be47c27a9e9a0fb93",
+    "implementation_sha256": "59f6009ab5e2da56ed017ed43364882296d7142d754cd83be47c27a9e9a0fb93",
+    "input_identity_row_html_record_url_sha256": "9dff847a93a5feaa4dc3b358427052a6f1fa80800cd5b70451fe3d73b3edcee7",
+    "output": "/archive/datasets/chelsea-granular-20260916/inventory_row_links/derived.parquet"
+  },
+  "implementation_sha256": "869e6492b41f9d2dcc4bed8873fd8e86bc13dc52ebc882fb1f93f910deb0d678",
+  "provenance": {
+    "version": "granular-v1",
+    "snapshot": "/archive/snapshots/chelsea-backfill-20260912/archive.sqlite3",
+    "snapshot_bytes": 158946983936,
+    "chunk_size": 2000,
+    "corrections": {
+      "schema_version": 1,
+      "enabled": true,
+      "corrections_as_of": "2026-09-16T15:08:01.946162+00:00",
+      "ledger_prefix_sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+      "visible_records": 0,
+      "active_ids": []
+    },
+    "ledger_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "created_at": 1789571392.588967,
+    "shards": 63,
+    "metadata_counts": {
+      "snapshots": 124966,
+      "fetch_observations": 127184,
+      "frontier": 127455,
+      "url_aliases": 2011
+    }
+  },
+  "finished_at": 1789575177.755347,
+  "export_errors": {
+    "count": 8,
+    "examples": [
+      {
+        "snapshot_id": 58,
+        "url": "https://streeteasy.com/building/147-west-22-street-new_york/rental/5021142/media_gallery",
+        "error": "propertyHistory missing or unresolved"
+      },
+      {
+        "snapshot_id": 400,
+        "url": "https://streeteasy.com/building/147-west-22-street-new_york/sale/1837658/media_gallery",
+        "error": "propertyHistory missing or unresolved"
+      },
+      {
+        "snapshot_id": 846,
+        "url": "https://streeteasy.com/building/london-terrace-towers/sale/1820164/media_gallery",
+        "error": "propertyHistory missing or unresolved"
+      },
+      {
+        "snapshot_id": 1001,
+        "url": "https://streeteasy.com/building/520-west-28th-by-zaha-hadid/rental/5047355/media_gallery",
+        "error": "propertyHistory missing or unresolved"
+      },
+      {
+        "snapshot_id": 1125,
+        "url": "https://streeteasy.com/building/the-elisa/sale/1801035/media_gallery",
+        "error": "propertyHistory missing or unresolved"
+      },
+      {
+        "snapshot_id": 1167,
+        "url": "https://streeteasy.com/building/the-elisa/sale/1743651/media_gallery",
+        "error": "propertyHistory missing or unresolved"
+      },
+      {
+        "snapshot_id": 1691,
+        "url": "https://streeteasy.com/building/402-west-20-street-new_york/sale/1811384/media_gallery",
+        "error": "propertyHistory missing or unresolved"
+      },
+      {
+        "snapshot_id": 2636,
+        "url": "https://streeteasy.com/building/362-west-30-street-new_york/sale/1833671/media_gallery",
+        "error": "propertyHistory missing or unresolved"
+      }
+    ]
+  }
+}
