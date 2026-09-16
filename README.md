@@ -163,3 +163,7 @@ model-stage decisions. The legacy monthly fitter remains separate.
 
 The [September 16 full-data quality report](docs/data/chelsea-granular-quality-2026-09-16.md)
 records the generated tables, missingness, source disagreements, and integrity checks.
+
+### Manual rental review
+
+The [rental review workbench](docs/data/rental-review.md) runs locally against the granular cloud dataset. Start it with `.venv/bin/python -m apartments.review_web --port 8766` and open `http://127.0.0.1:8766`. Review identity, price history, layout, size and amenities; preview reversible capture-scoped corrections or report a whole parser-error class. Raw data stays unchanged.
