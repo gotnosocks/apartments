@@ -14,6 +14,19 @@ async function api(path,payload){
   const data=await response.json();if(!response.ok)throw new Error(data.error||'Request failed');return data;
 }
 function captureLink(sid){const a=el('a',`Capture ${sid}`);a.href=`/?snapshot_id=${sid}`;a.target='_blank';a.rel='noopener';return a;}
+function observationLinks(row){
+  const links=el('div',undefined,'capture-links');links.append(captureLink(row.snapshot_id));
+  if(row.url){try{
+    const url=new URL(row.url);
+    if(['https:','http:'].includes(url.protocol)){
+      const source=el('a','StreetEasy ↗');source.href=url.href;source.title=row.url;
+      source.target='_blank';source.rel='noopener noreferrer';
+      source.setAttribute('aria-label',`Open original StreetEasy listing ${row.listing_id}`);
+      links.append(source);
+    }
+  }catch{}}
+  return links;
+}
 function table(headings,rows){const wrap=el('div',undefined,'table-wrap'),t=el('table'),head=el('thead'),tr=el('tr'),body=el('tbody');for(const h of headings)tr.append(el('th',h));head.append(tr);for(const cells of rows){const line=el('tr');for(const content of cells){const td=el('td');if(content instanceof Node)td.append(content);else td.textContent=String(content);line.append(td);}body.append(line);}t.append(head,body);wrap.append(t);return wrap;}
 async function load(){
   const serial=++state.listSerial;$('total').textContent='Loading…';
@@ -74,7 +87,7 @@ function render(data){
     undoForm.addEventListener('submit',async event=>{event.preventDefault();if(state.busy)return;try{if(!undoRequest)undoRequest={merge_id:data.latest_merge.id,identity_revision:data.identity_revision,author:$('author').value.trim(),reason:reason.value.trim(),request_id:requestId()};state.busy=true;button.disabled=true;await api('/api/units/undo',undoRequest);state.busy=false;history.replaceState(null,'','/units');$('notice').textContent='Identity merge undone. Original records and corrections are preserved.';$('notice').hidden=false;await inspect(data.listing_ids);await load();}catch(e){state.busy=false;button.disabled=false;error(e);}});
   }
   const observations=el('section',undefined,'unit-section');observations.append(el('h3','Source observations and attributes'));
-  observations.append(table(['Source','Rental ID','Captured','Building / unit','Beds / baths','Square feet','Advertised rent'],data.observations.map(row=>[captureLink(row.snapshot_id),row.listing_id,date(row.collected_at),`${value(row.attributes.building_slug)} ${value(row.attributes.unit_label)}`,`${value(row.attributes.bedrooms)} / ${value(row.attributes.bathrooms)}`,value(row.attributes.square_feet),money(row.attributes.asking_price)])));root.append(observations);
+  observations.append(table(['Source','Rental ID','Captured','Building / unit','Beds / baths','Square feet','Advertised rent'],data.observations.map(row=>[observationLinks(row),row.listing_id,date(row.collected_at),`${value(row.attributes.building_slug)} ${value(row.attributes.unit_label)}`,`${value(row.attributes.bedrooms)} / ${value(row.attributes.bathrooms)}`,value(row.attributes.square_feet),money(row.attributes.asking_price)])));root.append(observations);
   const timeline=el('section',undefined,'unit-section');timeline.append(el('h3',data.unit_id?'Unit history':'Combined history after merge'),el('p','Exact repeated event evidence is combined. Different listing episodes, statuses, prices, and corrected versions remain distinct. Event dates below are separate from capture dates above.','panel-note'));
   timeline.append(table(['Event date','History listing ID','Status','Price','Source evidence'],data.history.map(event=>{
     const refs=el('details');refs.append(el('summary',`${event.occurrences.length} mentions`));const links=el('div',undefined,'capture-links');for(const occurrence of event.occurrences){const line=el('div');line.append(captureLink(occurrence.snapshot_id),el('span',` · entry ${occurrence.episode_index}/${occurrence.event_index}`));links.append(line);}refs.append(links);
