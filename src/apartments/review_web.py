@@ -110,6 +110,30 @@ def create_app(backend=None, *, dataset_root=None, review_state=None, read_only=
     def overview():
         return call("overview", {})
 
+    @app.get('/units')
+    def unit_merges():
+        session.setdefault('csrf', secrets.token_hex(24))
+        return render_template('unit_merges.html', csrf_token=session['csrf'])
+
+    @app.get('/api/units/candidates')
+    def unit_candidates():
+        return call('unit_candidates', dict(request.args))
+
+    @app.get('/api/units/inspect')
+    def unit_inspect():
+        return call('unit_inspect', dict(request.args))
+
+    @app.get('/api/units/mapping')
+    def unit_mapping():
+        return call('unit_mapping', {})
+
+    @app.get('/api/units/export')
+    def unit_export():
+        response = app.make_response(call('unit_inspect', dict(request.args)))
+        if response.status_code == 200:
+            response.headers['Content-Disposition'] = 'attachment; filename="unit-record.json"'
+        return response
+
     @app.get("/api/observations")
     def observations():
         return call("observations", dict(request.args))
@@ -128,6 +152,8 @@ def create_app(backend=None, *, dataset_root=None, review_state=None, read_only=
 
     for route, action in (
         ("/api/review", "review"),
+        ('/api/units/merge', 'unit_merge'),
+        ('/api/units/undo', 'unit_undo'),
         ("/api/events/price/preview", "event_price_preview"),
         ("/api/identity/confirm", "identity_confirm"),
         ("/api/corrections/preview", "preview"),

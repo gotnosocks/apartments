@@ -296,7 +296,10 @@ class ReviewService:
             )
         )
         latest = self.latest_reviews(ledger_events)
+        from .unit_identity import UnitIdentityLedger, identity_map
+        identities = identity_map(UnitIdentityLedger(self.state / 'unit-identities.jsonl', self.dataset).events())
         for row in data:
+            row['unit_id'] = identities.get(row['listing_id'], f"streeteasy:rental:{row['listing_id']}")
             row["review"] = latest.get(
                 (row["snapshot_id"], args.get("stage", "identity"))
             )
@@ -375,8 +378,12 @@ class ReviewService:
                 )
             )
         history = self.events({"snapshot_id": sid})
+        from .unit_identity import UnitIdentityLedger, resolve_unit
+        unit_id = resolve_unit(row['listing_id'], UnitIdentityLedger(
+            self.state / 'unit-identities.jsonl', self.dataset).events())
         return {
             "dataset": self.dataset,
+            "unit_id": unit_id,
             "row": row,
             "raw": raw,
             "corrected": corrected,
@@ -694,6 +701,11 @@ class ReviewService:
 
     def dispatch(self, action, args=None):
         args = args or {}
+        if action in {'unit_candidates', 'unit_inspect', 'unit_merge', 'unit_undo', 'unit_mapping'}:
+            from .unit_merge_service import UnitMergeService
+            if not hasattr(self, '_unit_service'):
+                self._unit_service = UnitMergeService(self)
+            return getattr(self._unit_service, action.removeprefix('unit_'))(args)
         routes = {
             "overview": self.overview,
             "observations": self.observations,

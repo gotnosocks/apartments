@@ -144,3 +144,25 @@ def test_history_price_preview_route():
     assert client.post(url, json={}).status_code == 403
     assert client.post(url, json={}, headers={'X-Review-CSRF': token}).status_code == 200
     assert calls == [('event_price_preview', {})]
+
+
+def test_unit_merge_pages_routes_and_write_protection():
+    calls = []
+    app = create_app(lambda action, args: calls.append((action, args)) or {'result': {'ok':True}})
+    client = app.test_client()
+    assert b'Merge unit records' in client.get('/units').data
+    with client.session_transaction() as session:
+        token = session['csrf']
+    for route,action in [('candidates','unit_candidates'),('inspect','unit_inspect'),('mapping','unit_mapping'),('export','unit_inspect')]:
+        assert client.get('/api/units/'+route).status_code == 200
+        assert calls[-1][0] == action
+    assert 'attachment' in client.get('/api/units/export').headers['Content-Disposition']
+    for route,action in [('merge','unit_merge'),('undo','unit_undo')]:
+        assert client.post('/api/units/'+route,json={}).status_code == 403
+        assert client.post('/api/units/'+route,json={},headers={'X-Review-CSRF':token}).status_code == 200
+        assert calls[-1][0] == action
+    readonly=create_app(lambda *args:{},read_only=True).test_client()
+    readonly.get('/units')
+    with readonly.session_transaction() as session:
+        token=session['csrf']
+    assert readonly.post('/api/units/merge',json={},headers={'X-Review-CSRF':token}).status_code == 403

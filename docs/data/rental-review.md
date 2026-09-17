@@ -53,3 +53,62 @@ The immutable collection has many observations of the same source unit label. Th
 For reproducible downstream work, freeze `events = ledger.events()` and record the final event hash, then call `ledger.apply(raw, snapshot_id, events=events)`. Rebuild the raw document with the same normalized field names and `archive_listing` payload used by `ReviewService.raw`. No episode aggregation is required.
 
 Issue counts above the list reflect the selected building, search, and review status for the active stage. Each issue button shows how many observations would match that issue; All observations removes only the issue filter. The result total and pagination reflect all active filters. Counts refresh after review decisions. Dataset summary and stage overview totals describe the full dataset.
+
+## Merge housing unit identities
+
+Open **Merge unit records** from the review app, or visit `/units`. This tool saves
+the assertion that selected StreetEasy **rental listing IDs refer to one housing
+unit**. It is independent of per-capture review confirmations and price edits.
+
+**Possible matches** suggests distinct identities sharing an observed building
+and unit label, including normalized-field identity corrections. Missing and
+generic labels are not pooled. Search by building, unit label, or rental ID,
+then choose **Compare**. Alternatively, enter rental IDs directly to compare
+records with different labels. Check the desired listings, compare the revised
+selection if needed, add a reason, and choose **Merge into one unit**.
+
+Each saved merge assigns one durable `unit:<uuid>` to the selected rental IDs.
+All their captures resolve to it, including repeated URLs of the same listing.
+Unmerged rental IDs have the provisional identity `streeteasy:rental:<listing_id>`;
+that default is not verification of a physical apartment. Selecting a member of
+an existing merged unit expands the comparison to its full membership. Combining
+units preserves an existing unit ID; adding a listing never silently removes
+other members. The **Merged units** list reopens saved units and their histories.
+
+The authoritative declarations are stored separately in an append-only,
+hash-chained file alongside the review ledger:
+
+```text
+/data1/apartments/archive/reviews/chelsea-granular-20260916/unit-identities.jsonl
+```
+
+The ledger records exact listing IDs, dataset, reviewer, reason, recording time,
+and the review-ledger revision used for comparison. Writes lock the ledger,
+reject stale identity revisions, and support idempotent retries. **Undo the latest
+identity merge** appends a reversal; dependent later merges must be undone first.
+It restores the preceding identity assignments, without changing source records,
+corrections, or stage decisions. New rental IDs are never added by matching labels
+alone. The ledger belongs to this immutable dataset; carrying decisions into a new
+dataset must be deliberate.
+
+The resulting unit record exposes **one combined history**. Repeated rental
+mentions are combined only when their history listing ID, complete source event
+JSON, and effective corrected price agree. Every combined event retains its
+capture/episode/event occurrence references. Different episodes, statuses, source
+prices, and conflicting correction versions stay distinct; matching dates alone
+are insufficient. Missing history listing identities are not combined across
+captures. Attribute observations remain separately dated, and non-null differences
+are highlighted. A unit merge does not assert unchanged condition over time.
+
+`GET /api/units/inspect?unit_id=...` returns the resolved unit and history;
+`GET /api/units/export?unit_id=...` downloads that record, including membership,
+observation attributes, history provenance, and both ledger revisions.
+`GET /api/units/mapping` exports the declared rental-listing-to-unit mapping.
+Normal observation/list responses also expose the resolved `unit_id`. Downstream
+code can use `identity_map(events)` or `resolve_unit(listing_id, events)` from
+`apartments.unit_identity`, freezing the identity ledger hash with model inputs.
+The legacy rent model is not automatically rerun or rewritten by a merge.
+
+The merge utility resolves identity and builds the unit history; it does not
+propagate per-capture price corrections or review decisions to other captures.
+Original observation and event tables remain immutable evidence.

@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="csrf-token" content="{{ csrf_token }}">
+  <title>Merge unit records · Rental review</title>
+  <link rel="stylesheet" href="/static/rental_review.css"><link rel="stylesheet" href="/static/unit_merges.css">
+  <script defer src="/static/unit_merges.js"></script>
+</head>
+<body>
+<header><a class="brand" href="/"><span class="mark">R</span><span><strong>Rental data review</strong><small>Housing unit identities</small></span></a><a href="/" class="back-link">Back to observations</a></header>
+<main>
+  <div class="heading"><div><p class="eyebrow">Resolve repeated listings</p><h1>Merge unit records</h1><p class="lede">Decide which rental listings refer to the same home. A saved merge gives them one unit identity and one combined history.</p></div><label class="author-label">Reviewer<input id="author" value="Ben" autocomplete="name"></label></div>
+  <div id="error" class="notice error" role="alert" hidden></div><div id="notice" class="notice success" role="status" hidden></div>
+  <section class="records">
+    <div class="section-heading"><h2>Find repeated listings</h2><span id="total" class="count-pill">Loading…</span></div>
+    <form id="filters" class="filters"><label class="search-label"><span class="sr-only">Building, unit, or rental ID</span><input id="search" type="search" placeholder="Building, unit label, or rental ID…"></label><label><span class="sr-only">List</span><select id="mode"><option value="candidates">Possible matches</option><option value="merged">Merged units</option></select></label><button>Search</button></form>
+    <p class="source-note">Matching building and unit labels suggest candidates; only your merge decision establishes a shared unit identity. Unknown and generic labels are excluded from suggestions.</p>
+    <div class="table-wrap"><table><thead><tr><th>Building / unit</th><th>Rental listing IDs</th><th>Captures</th><th></th></tr></thead><tbody id="candidates"></tbody></table></div>
+    <footer class="pagination"><span id="page"></span><div><button id="previous" disabled>Previous</button><button id="next" disabled>Next</button></div></footer>
+  </section>
+  <details class="manual-entry"><summary>Compare specific rental listing IDs</summary><form id="manual"><label>Listing IDs, separated by commas<input id="manual-ids" placeholder="4954379, 3457415, 4245025"></label><button>Compare listings</button></form><p class="panel-note">Use this for matches across different unit labels. Selecting a listing already in a merged unit includes that unit’s other listing IDs.</p></details>
+  <section id="comparison" class="bulk" hidden aria-live="polite"></section>
+</main>
+</body>
+</html>

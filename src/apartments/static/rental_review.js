@@ -150,5 +150,5 @@ $('confirm-selected').addEventListener('click',async()=>{
   }catch(e){error(e.message);}
   finally{state.confirming=false;for(const box of $('rows').querySelectorAll('.row-checkbox'))box.disabled=false;updateRowSelection();}
 });
-refresh();
+refresh().then(()=>{const sid=new URLSearchParams(location.search).get('snapshot_id');if(sid&&/^\d+$/.test(sid)&&state.overview)openObservation(Number(sid));});
 })();

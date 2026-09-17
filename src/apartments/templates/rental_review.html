@@ -8,7 +8,7 @@
   <link rel="stylesheet" href="/static/rental_review.css"><script defer src="/static/rental_review.js"></script>
 </head>
 <body>
-<header><a class="brand" href="#main"><span class="mark" aria-hidden="true">R</span><span><strong>Rental data review</strong><small>Observation quality · manual review</small></span></a><div class="head-actions"><span id="connection" class="pill" role="status">Connecting</span><button id="refresh">Refresh</button></div></header>
+<header><a class="brand" href="#main"><span class="mark" aria-hidden="true">R</span><span><strong>Rental data review</strong><small>Observation quality · manual review</small></span></a><div class="head-actions"><a href="/units" style="color:inherit">Merge unit records</a><span id="connection" class="pill" role="status">Connecting</span><button id="refresh">Refresh</button></div></header>
 <main id="main">
   <div class="heading"><div><p class="eyebrow">Chelsea rental dataset</p><h1>Review observations</h1><p class="lede">Work through identity first, then prices and listing attributes. Every correction stays alongside the captured source.</p></div><label class="author-label">Reviewer <input id="author" value="Ben" autocomplete="name" aria-label="Reviewer name"></label></div>
   <div id="error" class="notice error" role="alert" hidden></div><div id="toast" class="notice success" role="status" hidden></div>
