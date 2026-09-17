@@ -96,11 +96,14 @@ def render_report(report: dict) -> str:
     ]), "", "Attribute disagreements are retained for review and are not automatically corrected or treated as proven temporal changes. Missing amenities do not mean absence, and nonempty JSON can still contain an empty item list.", ""]
 
     coverage = report.get("coverage", {})
+    exclusions = report.get("listing_exclusions")
+    if exclusions is not None:
+        lines += ["## Intentional listing exclusions", "", "Rental captures without a canonical unit page are excluded from listing observations and their associated event/source-change rows. Original snapshots and archived bodies are preserved.", "", _table(["Reason", "Excluded captures"], [[reason, count] for reason, count in exclusions.get("by_reason", {}).items()]), ""]
     if coverage:
-        lines += ["## Coverage and linkage checks", "", _table(["Kind", "Expected snapshots", "Observed snapshots", "Expected without observation"], [[kind, value.get("expected_snapshots"), value.get("observed_snapshots"), value.get("expected_unobserved")] for kind, value in coverage.items()]), ""]
+        lines += ["## Coverage and linkage checks", "", _table(["Kind", "Expected snapshots", "Observed snapshots", "Intentionally excluded", "Unexplained missing"], [[kind, value.get("expected_snapshots"), value.get("observed_snapshots"), value.get("intentionally_excluded", 0), value.get("expected_unobserved")] for kind, value in coverage.items()]), ""]
     refs = report.get("referential_checks", {})
     if refs:
-        lines += [_table(["Referential check", "Rows missing referenced snapshot"], [[name, count] for name, count in refs.items()]), ""]
+        lines += [_table(["Integrity check", "Violations"], [[name, count] for name, count in refs.items()]), ""]
     fetch = report.get("fetch_observations", {})
     if fetch:
         lines += ["Fetch status counts: " + ", ".join(f"{k}={v}" for k, v in fetch.get("status_counts", {}).items()) + ".", ""]

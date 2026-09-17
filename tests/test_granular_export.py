@@ -58,3 +58,82 @@ def test_preserves_fetches_snapshots_and_repeated_events(tmp_path):
  (root/'event_mentions'/'part-00000.parquet').unlink()
  process_shard(db,root,0,tmp_path/'bodies')
  assert pq.read_table(root/'event_mentions').num_rows==4
+
+
+def test_transform_filters_non_unit_rentals_and_reconciles_exclusions(tmp_path):
+ import pytest
+ from apartments.granular_quality import audit_dataset
+ from apartments.granular_report import render_report
+ db=tmp_path/'archive.sqlite3';c=sqlite3.connect(db)
+ c.executescript('''CREATE TABLE snapshots(id INTEGER,generation INTEGER,url TEXT,body_hash TEXT,observed REAL,extraction_version INTEGER,extracted TEXT);
+ CREATE TABLE scope_urls(generation INTEGER,url TEXT);
+ CREATE TABLE frontier(generation INTEGER,url TEXT,kind TEXT,state TEXT,attempts INTEGER);
+ CREATE TABLE observations(id INTEGER,generation INTEGER,url TEXT,fetched REAL,status INTEGER,content_type TEXT,headers TEXT,body_hash TEXT,not_modified INTEGER,error TEXT);
+ CREATE TABLE url_aliases(generation INTEGER,url TEXT,target_url TEXT,reason TEXT,created REAL);''')
+ # A retained old listing; recent unsupported links; missing, conflicting and
+ # incomplete heads; a sale; and a valid canonical page with a parse failure.
+ heads={
+  1:'<link rel="canonical" href="/building/demo/1a">',
+  2:'<link rel="canonical" href="/rental/2">',
+  3:'',
+  4:'<link rel="canonical" href="/building/demo">',
+  5:'<link rel="canonical" href="https://other.example/building/demo/1a">',
+  6:'<link rel="canonical" href="/building/demo/1a"><link rel="canonical" href="/building/demo/2a">',
+  7:'<link rel="canonical" href="/building/demo/1a">',
+  8:'<link rel="canonical" href="/sale/8">',
+  9:'<link rel="canonical" href="/building/demo/9a">',
+  10:'<link rel="canonical" href="/building/demo/10a">',
+ }
+ for sid,head in heads.items():
+  kind='sale' if sid==8 else 'rental';url=f'https://streeteasy.com/{kind}/{sid}';h=f'{sid:064x}'
+  listing={'id':sid,'createdAt':'2006-01-01' if sid==1 else '2026-01-01','propertyDetails':{},
+   'pricing':{'price':3000,'priceChanges':[{'changedAt':'2026-01-01','price':3000}]},
+   'statusChanges':[{'changedAt':'2026-01-02','status':'RENTED'}],
+   'propertyHistory':[{'listingId':sid,'rentalEventsOfInterest':[{'date':'2026-01-01','price':3000}]}]}
+  if sid==1:listing['propertyHistory'].append({'listingId':2,'rentalEventsOfInterest':[{'date':'2026-01-01','price':3000}]})
+  if sid==9:listing={}  # Canonical unit exists even though the listing failed to parse.
+  if sid==10:listing['propertyDetails']=['malformed']  # Unexpected parser exception also retains canonical evidence.
+  body=('<html><head>'+head+('' if sid==7 else '</head><body>')+'<script type="application/json">'+json.dumps({'listing':listing})+'</script>').encode()
+  dest=tmp_path/'bodies'/h[:2];dest.mkdir(parents=True,exist_ok=True);(dest/f'{h}.gz').write_bytes(gzip.compress(body))
+  c.execute('INSERT INTO scope_urls VALUES(1,?)',(url,));c.execute("INSERT INTO frontier VALUES(1,?,'listing','done',1)",(url,))
+  c.execute('INSERT INTO snapshots VALUES(?,1,?,?,?,5,?)',(sid,url,h,1000+sid,'{}'))
+ c.commit();c.close();ledger=tmp_path/'edits.jsonl';ledger.write_text('');root=tmp_path/'out'
+ plan=prepare(db,root,ledger,chunk_size=20)
+ assert plan['listing_filter']=='rental-canonical-unit-v1'
+ result=process_shard(db,root,0,tmp_path/'bodies')
+ assert process_shard(db,root,0,tmp_path/'bodies')==result
+ kept=pq.read_table(root/'listing_observations').to_pylist()
+ assert {r['snapshot_id'] for r in kept}=={1,8,9,10}
+ assert all(r['canonical_unit_url'] for r in kept if r['listing_type']=='rental')
+ exclusions=pq.read_table(root/'listing_exclusions').to_pylist()
+ assert {r['snapshot_id'] for r in exclusions}==set(range(2,8))
+ assert all(r['reason']=='rental_missing_canonical_unit_page' and r['canonical_unit_error'] for r in exclusions)
+ assert result['counts']['listing_exclusions']==6
+ events=pq.read_table(root/'event_mentions').to_pylist()
+ assert {r['snapshot_id'] for r in events}=={1,8}
+ assert any(r['snapshot_id']==1 and r['event_listing_id']=='2' for r in events)
+ assert {r['snapshot_id'] for r in pq.read_table(root/'source_changes').to_pylist()}=={1,8}
+ assert pq.read_table(root/'snapshots').num_rows==10
+ report=audit_dataset(root)
+ assert report['coverage']['listing']=={'expected_snapshots':10,'observed_snapshots':4,'intentionally_excluded':6,'expected_unobserved':0}
+ assert not any(report['referential_checks'].values())
+ assert report['listing_exclusions']['by_reason']=={'rental_missing_canonical_unit_page':6}
+ assert 'Intentional listing exclusions' in render_report(report)
+ assert 'Unexplained missing' in render_report(report)
+ # A missing exclusion part cannot be hidden by the checkpoint.
+ (root/'listing_exclusions'/'part-00000.parquet').unlink()
+ assert process_shard(db,root,0,tmp_path/'bodies')['counts']['listing_exclusions']==6
+ # Existing runs cannot resume under a new filtering rule.
+ old_plan={k:v for k,v in plan.items() if k!='listing_filter'}
+ (root/'plan.json').write_text(json.dumps(old_plan))
+ with pytest.raises(ValueError,match='listing_filter.*new output ID'):
+  prepare(db,root,ledger,chunk_size=20)
+
+ # A shard containing only excluded captures still writes valid empty data tables.
+ excluded_root=tmp_path/'excluded-only'
+ prepare(db,excluded_root,ledger,chunk_size=1)
+ only=process_shard(db,excluded_root,1,tmp_path/'bodies')
+ assert only['counts']['listing_observations']==only['counts']['event_mentions']==only['counts']['source_changes']==0
+ assert pq.read_table(excluded_root/'listing_exclusions').num_rows==1
+ partial_report=audit_dataset(excluded_root)
+ assert partial_report['coverage']['listing']=={'expected_snapshots':10,'observed_snapshots':0,'intentionally_excluded':1,'expected_unobserved':9}

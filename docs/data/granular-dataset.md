@@ -18,7 +18,8 @@ report uses DuckDB with a 1 GB memory limit and two threads.
 | --- | --- |
 | `fetch_observations` | An original request outcome, including errors, repeated bodies, and 304 responses |
 | `snapshots` | An originally saved interpretation of a URL/body in a crawl generation |
-| `listing_observations` | A listing interpretation of one snapshot, including failures |
+| `listing_observations` | A retained listing interpretation of one snapshot, including parse failures on eligible pages |
+| `listing_exclusions` | A rental capture excluded because it has no usable canonical unit page, with its source URL and reason |
 | `event_mentions` | One history entry at its original episode/event position in one snapshot |
 | `building_observations` | A building interpretation of one snapshot, including failures |
 | `inventory_observations` | An expanded inventory capture and its original completeness metadata |
@@ -65,9 +66,10 @@ Use `Overlay.apply` to create a separate corrected projection at that selected
 time, retaining correction IDs and the raw observation. This keeps human assertions
 separate from source evidence and avoids forcing a temporal model at this stage.
 
-The complete source listing and nested feature/amenity/pricing JSON remain in the
-Parquet tables. The normalized numeric columns are conveniences, and parse failures
-remain explicit rows linked to the original body. Missing amenities do not mean
+For retained captures, the complete source listing and nested feature/amenity/pricing
+JSON remain in the Parquet tables. The normalized numeric columns are conveniences.
+Parse failures remain explicit in either the listing observation or its exclusion
+record, linked to the original body. Missing amenities do not mean
 absence. Unknown source fields can be extracted later without re-scraping.
 
 ## Running and resuming
@@ -119,15 +121,16 @@ extra apartments.
 ## Canonical unit-page evidence
 
 The normal `parse_listing` / `process_shard` transform extracts three additional
-columns for every listing capture, including when the listing object fails to
-parse:
+fields for every listing capture, including when the listing object fails to
+parse. Retained observations store all three columns; exclusions retain the declared
+href and diagnostic reason:
 
 - `canonical_href`: the single declared canonical href from the HTML head.
 - `canonical_unit_url`: a normalized StreetEasy building/unit URL, or null when
   the canonical points to a rental listing, building alone, another host, or an
   unsupported path.
 - `canonical_unit_error`: an explicit reason for missing/unsupported/conflicting
-  evidence. Missing evidence does not itself invalidate the listing's other data.
+  evidence. Rental captures with this field set are excluded under the policy below.
 
 Extraction uses the same bounded head parser as the older-dataset evidence
 backfill. The helper is included in the transform implementation hash, so resuming
@@ -139,3 +142,35 @@ The review app reads these fields directly, without an additional backfill step
 on newly transformed datasets. Canonical extraction records source evidence; it
 never silently merges listings or applies human review decisions. Durable unit
 associations remain in the separate reversible identity ledger.
+
+
+## Rental inclusion rule
+
+The normal transform retains a rental capture in `listing_observations` only when
+its HTML declares a usable canonical StreetEasy unit page (`canonical_unit_url`
+is non-null). A rental-listing URL, building-only URL, foreign/unsupported URL,
+missing/conflicting canonical link, incomplete head, or unreadable body is excluded.
+This is a page-identity rule, with no listing-date cutoff. Sale captures retain
+their existing behavior.
+
+Excluded captures contribute no rows to `listing_observations`, `event_mentions`,
+or `source_changes`. History mentioning an excluded listing can still occur on
+another retained page; those occurrences are preserved. Every exclusion gets a
+`listing_exclusions` row with `snapshot_id`, URL, listing ID/type when available,
+collection time, canonical href/error, parse status/error, and the reason
+`rental_missing_canonical_unit_page`. All original snapshot/fetch metadata and
+archived HTML remain intact. This audit table is outside the review/model listing
+inputs and does not create another manual-cleaning queue.
+
+Shard checkpoints and the quality report count exclusions. Coverage reconciles
+retained observations plus intentional exclusions against input snapshots; genuinely
+unprocessed snapshots still fail finalization. Overlaps or event/source-change
+rows from excluded captures also fail integrity checks. Empty filtered shards
+retain valid Parquet schemas and support normal resumption.
+
+The rule is recorded as `listing_filter: rental-canonical-unit-v1` in `plan.json`
+and included in the transform implementation hash. It requires a fresh output run;
+existing completed datasets and review decisions are not rewritten. Applied to the
+current reviewed rental corpus (excluding media-gallery captures), this policy
+would exclude 8,094 of 96,783 captures and retain 88,689. A full transform also
+reports exclusions among galleries and failed rental-page parses.

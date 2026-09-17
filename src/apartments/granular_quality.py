@@ -13,6 +13,7 @@ import duckdb
 
 _TABLES = (
     "listing_observations",
+    "listing_exclusions",
     "event_mentions",
     "snapshots",
     "fetch_observations",
@@ -88,7 +89,7 @@ def audit_dataset(root: Path) -> dict[str, Any]:
         counts = {
             table: int(_fetchone(db, f"SELECT count(*) FROM {table}")) if present else 0
             for table, present in relations.items()
-            if table not in {"inventory_observations", "source_changes", "frontier", "url_aliases", "inventory_row_links"} or present
+            if table not in {"listing_exclusions", "inventory_observations", "source_changes", "frontier", "url_aliases", "inventory_row_links"} or present
         }
         result: dict[str, Any] = {
             "root": str(root),
@@ -251,12 +252,21 @@ def audit_dataset(root: Path) -> dict[str, Any]:
             if "snapshot_id" in cols:
                 changes["by_snapshot"] = int(_fetchone(db, "SELECT count(DISTINCT snapshot_id) FROM source_changes WHERE snapshot_id IS NOT NULL"))
 
+        if relations["listing_exclusions"]:
+            result["listing_exclusions"] = {
+                "rows": counts["listing_exclusions"],
+                "by_reason": {str(r[0]): int(r[1]) for r in db.execute("SELECT reason,count(*) FROM listing_exclusions GROUP BY reason").fetchall()},
+                "by_canonical_error": {str(r[0]): int(r[1]) for r in db.execute("SELECT canonical_unit_error,count(*) FROM listing_exclusions GROUP BY canonical_unit_error").fetchall()},
+            }
         if relations["snapshots"]:
             coverage = result["coverage"] = {}
             for kind, table in (("listing", "listing_observations"), ("building", "building_observations"), ("inventory", "inventory_observations")):
                 if not relations[table]:
                     continue
-                coverage[kind] = {"expected_snapshots": int(_fetchone(db, "SELECT count(DISTINCT snapshot_id) FROM snapshots WHERE kind = ?", [kind])), "observed_snapshots": int(_fetchone(db, f"SELECT count(DISTINCT snapshot_id) FROM {table}")), "expected_unobserved": int(_fetchone(db, f"SELECT count(DISTINCT s.snapshot_id) FROM snapshots s WHERE s.kind = ? AND NOT EXISTS (SELECT 1 FROM {table} t WHERE t.snapshot_id = s.snapshot_id)", [kind]))}
+                excluded = " AND NOT EXISTS (SELECT 1 FROM listing_exclusions x WHERE x.snapshot_id=s.snapshot_id)" if kind == "listing" and relations["listing_exclusions"] else ""
+                coverage[kind] = {"expected_snapshots": int(_fetchone(db, "SELECT count(DISTINCT snapshot_id) FROM snapshots WHERE kind = ?", [kind])), "observed_snapshots": int(_fetchone(db, f"SELECT count(DISTINCT snapshot_id) FROM {table}")), "expected_unobserved": int(_fetchone(db, f"SELECT count(DISTINCT s.snapshot_id) FROM snapshots s WHERE s.kind = ? AND NOT EXISTS (SELECT 1 FROM {table} t WHERE t.snapshot_id = s.snapshot_id){excluded}", [kind]))}
+                if excluded:
+                    coverage[kind]["intentionally_excluded"] = int(_fetchone(db, "SELECT count(DISTINCT x.snapshot_id) FROM listing_exclusions x JOIN snapshots s USING(snapshot_id) WHERE s.kind='listing'"))
         if relations["fetch_observations"]:
             fetch = result["fetch_observations"] = {"status_counts": {str(r[0] if r[0] is not None else "null"): int(r[1]) for r in db.execute("SELECT status, count(*) FROM fetch_observations GROUP BY 1 ORDER BY 1").fetchall()}}
             clocks = db.execute("SELECT min(fetched_at), max(fetched_at) FROM fetch_observations WHERE fetched_at IS NOT NULL").fetchone()
@@ -281,9 +291,16 @@ def audit_dataset(root: Path) -> dict[str, Any]:
             }
         result["referential_checks"] = {}
         if relations["snapshots"]:
-            for table in ("listing_observations", "building_observations", "inventory_rows", "inventory_observations", "event_mentions", "source_changes"):
+            for table in ("listing_observations", "listing_exclusions", "building_observations", "inventory_rows", "inventory_observations", "event_mentions", "source_changes"):
                 if relations[table] and "snapshot_id" in {r[0] for r in db.execute(f"DESCRIBE {table}").fetchall()}:
                     result["referential_checks"][f"{table}_missing_snapshot"] = int(_fetchone(db, f"SELECT count(*) FROM {table} t WHERE t.snapshot_id IS NOT NULL AND NOT EXISTS (SELECT 1 FROM snapshots s WHERE s.snapshot_id = t.snapshot_id)"))
+        if relations["listing_exclusions"]:
+            checks = result["referential_checks"]
+            checks["listing_exclusions_duplicate_snapshots"] = int(_fetchone(db, "SELECT count(*) - count(DISTINCT snapshot_id) FROM listing_exclusions"))
+            checks["listing_exclusions_invalid"] = int(_fetchone(db, "SELECT count(*) FROM listing_exclusions WHERE snapshot_id IS NULL OR coalesce(listing_type,'')<>'rental' OR coalesce(reason,'')<>'rental_missing_canonical_unit_page' OR nullif(canonical_unit_error,'') IS NULL"))
+            for table in ("listing_observations", "event_mentions", "source_changes"):
+                if relations[table]:
+                    checks[f"{table}_from_excluded_snapshot"] = int(_fetchone(db, f"SELECT count(*) FROM {table} t WHERE EXISTS (SELECT 1 FROM listing_exclusions x WHERE x.snapshot_id=t.snapshot_id)"))
         return result
     finally:
         db.close()
