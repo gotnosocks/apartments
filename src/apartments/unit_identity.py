@@ -52,6 +52,29 @@ def active_decisions(events):
     return [e for e in merge_decisions(events) if e['id'] not in undone]
 
 
+def active_separations(events):
+    undone = {e['separation_id'] for e in events if e['action'] == 'undo_separate'}
+    return [e for e in events if e['action'] == 'separate' and e['id'] not in undone]
+
+
+def separation_conflicts(ids, events):
+    members = set(ids)
+    return [e for e in active_separations(events)
+            if sum(bool(members.intersection(group)) for group in e['groups']) > 1]
+
+
+def separated_pairs(events, mapping):
+    """Keep decisions attached to explicit members as unit memberships evolve."""
+    from itertools import combinations
+    pairs = set()
+    for event in active_separations(events):
+        groups = [{mapping.get(lid, f'streeteasy:rental:{lid}') for lid in group}
+                  for group in event['groups']]
+        for left, right in combinations(groups, 2):
+            pairs.update(tuple(sorted((a, b))) for a in left for b in right if a != b)
+    return pairs
+
+
 def identity_map(events):
     result = {}
     for event in active_decisions(events):
@@ -110,6 +133,15 @@ class UnitIdentityLedger:
                 elif event['action'] == 'undo_batch':
                     if not any(e['id']==event['batch_id'] and e['action']=='associate_batch' for e in events):
                         raise ValueError('Unknown association batch')
+                elif event['action'] == 'separate':
+                    ids = listing_ids(event['listing_ids'])
+                    groups = event['groups']
+                    if (not isinstance(groups, list) or len(groups) < 2
+                        or sorted(lid for group in groups for lid in listing_ids(group)) != ids):
+                        raise ValueError('Invalid separate units')
+                elif event['action'] == 'undo_separate':
+                    if not any(e['id'] == event['separation_id'] and e['action'] == 'separate' for e in events):
+                        raise ValueError('Unknown keep-separate decision')
                 else:
                     raise ValueError('Unknown identity action')
                 events.append(event)
@@ -133,7 +165,7 @@ class UnitIdentityLedger:
     def write(self, action, *, author, reason, request_id, expected_revision, **data):
         if not all(isinstance(x, str) and x.strip() for x in (author, reason, request_id)):
             raise ValueError('Reviewer, reason, and request ID are required')
-        if action not in {'merge', 'undo', 'associate_batch', 'undo_batch'}:
+        if action not in {'merge', 'undo', 'associate_batch', 'undo_batch', 'separate', 'undo_separate'}:
             raise ValueError('Unknown identity action')
         self.path.parent.mkdir(parents=True, exist_ok=True)
         with self.path.open('a+', encoding='utf-8') as stream:
@@ -155,6 +187,8 @@ class UnitIdentityLedger:
                 units = {mapping.get(lid, f'streeteasy:rental:{lid}') for lid in ids}
                 if len(units) < 2:
                     raise ValueError('These listings already belong to one unit')
+                if separation_conflicts(ids, events):
+                    raise ValueError('Undo the keep-separate decision before merging these units')
                 # Retain an existing canonical identity when expanding a merged unit.
                 unit_id = next((e['unit_id'] for e in active_decisions(events) if e['action'] == 'merge'
                                 and e['unit_id'] in units), 'unit:' + str(uuid.uuid4()))
@@ -169,9 +203,25 @@ class UnitIdentityLedger:
                     if (len(ids)<2 or members.intersection(ids) or any(lid in mapping for lid in ids)
                         or not isinstance(proposal.get('evidence'), dict)):
                         raise ValueError('Association groups must be distinct and not already merged')
+                    if separation_conflicts(ids, events):
+                        raise ValueError('Undo the keep-separate decision before associating these units')
                     members.update(ids)
                     units.append({'id':str(uuid.uuid4()), 'unit_id':'unit:'+str(uuid.uuid4())})
                 data = {**data, 'units':units}
+            elif action == 'separate':
+                ids = listing_ids(data['listing_ids'])
+                if expand_ids(ids, events) != ids:
+                    raise ValueError('Include every listing of the existing units')
+                mapping = identity_map(events)
+                groups = {}
+                for lid in ids:
+                    groups.setdefault(mapping.get(lid, f'streeteasy:rental:{lid}'), []).append(lid)
+                if len(groups) < 2:
+                    raise ValueError('These listings already belong to one unit; undo its merge first')
+                data = {**data, 'listing_ids':ids, 'groups':list(groups.values())}
+            elif action == 'undo_separate':
+                if not any(e['id'] == data.get('separation_id') for e in active_separations(events)):
+                    raise ValueError('Keep-separate decision is unknown or already undone')
             else:
                 decisions = merge_decisions(events); undone = undone_decisions(events)
                 if action == 'undo':

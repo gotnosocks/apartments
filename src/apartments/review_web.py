@@ -163,6 +163,8 @@ def create_app(backend=None, *, dataset_root=None, review_state=None, read_only=
     for route, action in (
         ("/api/review", "review"),
         ('/api/units/merge', 'unit_merge'),
+        ('/api/units/separate', 'unit_separate'),
+        ('/api/units/separate/undo', 'unit_undo_separate'),
         ('/api/units/undo', 'unit_undo'),
         ('/api/units/associations/preview', 'unit_association_preview'),
         ('/api/units/associations/apply', 'unit_association_apply'),

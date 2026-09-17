@@ -157,7 +157,7 @@ def test_unit_merge_pages_routes_and_write_protection():
         assert client.get('/api/units/'+route).status_code == 200
         assert calls[-1][0] == action
     assert 'attachment' in client.get('/api/units/export').headers['Content-Disposition']
-    for route,action in [('merge','unit_merge'),('undo','unit_undo'),('associations/preview','unit_association_preview'),('associations/apply','unit_association_apply'),('associations/undo','unit_association_undo')]:
+    for route,action in [('merge','unit_merge'),('undo','unit_undo'),('separate','unit_separate'),('separate/undo','unit_undo_separate'),('associations/preview','unit_association_preview'),('associations/apply','unit_association_apply'),('associations/undo','unit_association_undo')]:
         assert client.post('/api/units/'+route,json={}).status_code == 403
         assert client.post('/api/units/'+route,json={},headers={'X-Review-CSRF':token}).status_code == 200
         assert calls[-1][0] == action
@@ -165,7 +165,8 @@ def test_unit_merge_pages_routes_and_write_protection():
     readonly.get('/units')
     with readonly.session_transaction() as session:
         token=session['csrf']
-    assert readonly.post('/api/units/merge',json={},headers={'X-Review-CSRF':token}).status_code == 403
+    for route in ('merge','separate','separate/undo'):
+        assert readonly.post('/api/units/'+route,json={},headers={'X-Review-CSRF':token}).status_code == 403
 
 
 def test_source_association_writes_are_blocked_in_readonly_mode():

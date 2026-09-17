@@ -233,3 +233,62 @@ def test_eligible_latest_subgroup_is_not_blocked_by_other_same_label_listings(se
     u._source.latest[5]='5'
     groups=u.candidates({'queue':'supported'})
     assert groups['total']==1 and groups['rows'][0]['listing_ids']==['1','2']
+
+
+def keep_separate(u, detail, request_id='separate'):
+    return u.separate({'listing_ids':detail['listing_ids'], 'identity_revision':detail['identity_revision'],
+        'review_revision':detail['review_revision'], 'request_id':request_id,
+        'author':'Ben', 'reason':'These are different homes'})
+
+
+def test_keep_separate_removes_suggestions_and_counts_with_persistent_undo(service):
+    u=ready_service(service)
+    preview=u.association_preview({})
+    detail=u.inspect({'listing_ids':['1','2']})
+    before=[service.observation({'snapshot_id':sid}) for sid in [1,2]]
+    event=keep_separate(u,detail)
+    assert keep_separate(u,detail)==event
+    assert u.candidates({})['total']==0
+    assert u.candidates({})['counts']=={'supported':0,'review':0,'label_conflicts':0}
+    assert u.mapping({})['listing_to_unit']=={}
+    assert service.ledger.events()==[]
+    assert [service.observation({'snapshot_id':sid}) for sid in [1,2]]==before
+    with pytest.raises(ReviewConflict):
+        u.association_apply({'token':preview['token'],'author':'Ben'})
+    reopened=UnitMergeService(service)
+    assert reopened.candidates({})['total']==0
+    assert reopened.candidates({'mode':'separated'})['rows'][0]['listing_ids']==['1','2']
+    assert reopened.candidates({'mode':'separated','search':'nonexistent'})['total']==0
+    detail=reopened.inspect({'listing_ids':['1','2']})
+    assert detail['kept_separate'] and detail['separations'][0]['id']==event['id']
+    with pytest.raises(ValueError,match='keep-separate'):
+        save(reopened,detail)
+    reopened.undo_separate({'separation_id':event['id'],'identity_revision':detail['identity_revision'],
+                           'author':'Ben','reason':'New evidence','request_id':'undo'})
+    assert reopened.candidates({})['total']==1
+    assert reopened.candidates({'mode':'separated'})['total']==0
+    assert not reopened.inspect({'listing_ids':['1','2']})['separations']
+
+
+def test_keep_separate_new_members_resurface_without_overriding_decision(service):
+    u=ready_service(service)
+    keep_separate(u,u.inspect({'listing_ids':['1','2']}))
+    service.db.execute("INSERT INTO rental SELECT * REPLACE(5 AS snapshot_id,'5' AS listing_id) FROM rental WHERE snapshot_id=1")
+    reopened=UnitMergeService(service)
+    data=reopened.candidates({})
+    assert data['total']==1 and data['rows'][0]['listing_ids']==['1','2','5']
+    # Matching member can join one home; the resolved separation still dismisses the group.
+    reopened.ledger.write('merge',listing_ids=['1','5'],author='Ben',reason='Same home',request_id='join',
+                         expected_revision=reopened.ledger.revision(reopened.ledger.events()))
+    assert reopened.candidates({})['total']==0
+
+
+def test_keep_separate_requires_current_review_and_known_ids(service):
+    u=ready_service(service)
+    detail=u.inspect({'listing_ids':['1','2']})
+    with pytest.raises(ValueError,match='unknown rental'):
+        keep_separate(u,{**detail,'listing_ids':['1','3']})
+    service.review({'snapshot_id':1,'stage':'identity','decision':'confirmed','author':'Ben'})
+    with pytest.raises(ReviewConflict):
+        keep_separate(u,detail)
+    assert u.ledger.events()==[]

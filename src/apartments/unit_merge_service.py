@@ -7,10 +7,13 @@ import json
 import re
 import uuid
 from collections import defaultdict
+from itertools import combinations
 
 from .corrections import canonical
 from .review_ledger import GENESIS, ReviewConflict
-from .unit_identity import UnitIdentityLedger, expand_ids, identity_map, listing_ids, active_decisions, merge_decisions
+from .unit_identity import (UnitIdentityLedger, expand_ids, identity_map, listing_ids,
+                            active_decisions, merge_decisions, active_separations,
+                            separation_conflicts, separated_pairs)
 
 
 def records(cursor):
@@ -92,6 +95,7 @@ class UnitMergeService:
                              or p['path'].startswith(('/archive_listing/latestListing','/archive_listing/propertyDetails/address'))
                              for p in e['patch']) for sid in e['snapshot_ids']}
         reserved = {lid for e in merge_decisions(identity_events) for lid in e['listing_ids']}
+        reserved.update(lid for e in active_separations(identity_events) for lid in e['listing_ids'])
         units = defaultdict(set)
         for lid, listing in catalog.items():
             units[listing['unit_id']].add(lid)
@@ -148,7 +152,7 @@ class UnitMergeService:
             raise ValueError('Search is too long')
         building = str(args.get('building') or '')
         mode = args.get('mode', 'candidates')
-        if mode not in {'candidates', 'merged'}:
+        if mode not in {'candidates', 'merged', 'separated'}:
             raise ValueError('Unknown unit list')
         sort = args.get('sort', 'listing_count')
         direction = args.get('direction', 'desc')
@@ -157,14 +161,21 @@ class UnitMergeService:
         groups = defaultdict(set)
         if mode == 'candidates':
             groups = self._candidate_groups
+        elif mode == 'separated':
+            groups = {e['id']:set(e['listing_ids']) & set(catalog) for e in active_separations(identity_events)}
         else:
             for lid, unit_id in identity_map(identity_events).items():
                 if lid in catalog:
                     groups[unit_id].add(lid)
         result = []; counts = {"supported":0,"review":0,"label_conflicts":0}
+        separate = separated_pairs(identity_events, identity_map(identity_events))
         for key, ids in groups.items():
+            if not ids:
+                continue
             units = {catalog[lid]['unit_id'] for lid in ids}
             if mode == 'candidates' and len(units) < 2:
+                continue
+            if mode == 'candidates' and all(tuple(sorted(pair)) in separate for pair in combinations(units, 2)):
                 continue
             if args.get('exclude_unit_id') in units:
                 continue
@@ -185,7 +196,7 @@ class UnitMergeService:
                     if not has_label_conflict:continue
                 elif queue != 'all' and queue != category:
                     continue
-            result.append({'assessment':assessment, 'basis':basis.get(key), 'building': labels[0][0],
+            result.append({'assessment':assessment, 'basis':'separate' if mode == 'separated' else basis.get(key), 'building': labels[0][0],
                            'unit_label': labels[0][1],
                            'unit_id': key if mode == 'merged' else None,
                            'listing_ids': sorted(ids), 'listing_count': len(ids),
@@ -270,6 +281,7 @@ class UnitMergeService:
             observation['identity_evidence']={**self._source.pages.get(sid,{}),
                 'latest_listing_id':self._source.latest.get(sid),
                 'history_listing_ids':sorted(x for x in self._source.history.get(sid,set()) if x)}
+        separate = separated_pairs(identity_events, identity_map(identity_events))
         return {'dataset': self.s.dataset, 'listing_ids': ids, 'unit_ids': units,
                 'unit_id': units[0] if len(units) == 1 else None,
                 'listings': [{'listing_id': lid, 'unit_id': catalog[lid]['unit_id'],
@@ -280,9 +292,17 @@ class UnitMergeService:
                 'identity_revision': self.ledger.revision(identity_events),
                 'review_revision': review_events[-1]['hash'] if review_events else GENESIS,
                 'latest_merge': merge, 'association_basis':merge['basis'] if merge else None,
+                'separations':separation_conflicts(ids, identity_events),
+                'kept_separate':len(units) > 1 and all(tuple(sorted(pair)) in separate for pair in combinations(units, 2)),
                 'source_assessment':assessment, 'source_evidence':merge.get('evidence') if merge else None}
 
     def merge(self, args):
+        return self._identity_decision('merge', args)
+
+    def separate(self, args):
+        return self._identity_decision('separate', args)
+
+    def _identity_decision(self, action, args):
         ids = listing_ids(args.get('listing_ids'))
         identity_events = self.ledger.events()
         prior = next((e for e in identity_events if e['request_id'] == args.get('request_id')), None)
@@ -293,7 +313,7 @@ class UnitMergeService:
             catalog = self.catalog(review_events, identity_events)
             if any(lid not in catalog for lid in ids):
                 raise ValueError('Selection contains an unknown rental listing ID')
-        return self.ledger.write('merge', listing_ids=ids, review_revision=args.get('review_revision'),
+        return self.ledger.write(action, listing_ids=ids, review_revision=args.get('review_revision'),
                                  expected_revision=args.get('identity_revision'),
                                  author=args.get('author'), reason=args.get('reason'), request_id=args.get('request_id'))
 
@@ -307,6 +327,11 @@ class UnitMergeService:
 
     def undo(self, args):
         return self.ledger.write('undo', merge_id=args.get('merge_id'),
+                                 expected_revision=args.get('identity_revision'), author=args.get('author'),
+                                 reason=args.get('reason'), request_id=args.get('request_id'))
+
+    def undo_separate(self, args):
+        return self.ledger.write('undo_separate', separation_id=args.get('separation_id'),
                                  expected_revision=args.get('identity_revision'), author=args.get('author'),
                                  reason=args.get('reason'), request_id=args.get('request_id'))
 

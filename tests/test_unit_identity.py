@@ -86,3 +86,45 @@ def test_association_batch_is_atomic_retryable_and_individually_reversible(tmp_p
     with pytest.raises(ValueError,match='distinct'):
         ledger.write('associate_batch',**{**args,'proposals':[args['proposals'][0],args['proposals'][0]],'request_id':'invalid','expected_revision':ledger.revision(ledger.events())})
     assert len(ledger.events())==5
+
+
+def separate(ledger, ids, request_id='separate'):
+    return ledger.write('separate', listing_ids=sorted(ids), review_revision=GENESIS,
+        author='Ben', reason='Different homes', request_id=request_id,
+        expected_revision=ledger.revision(ledger.events()))
+
+
+def test_keep_separate_preserves_units_blocks_crossing_merges_and_is_reversible(tmp_path):
+    ledger = UnitIdentityLedger(tmp_path/'identities.jsonl', 'dataset')
+    merged = merge(ledger, ['1','2'], 'merged')
+    before = identity_map(ledger.events())
+    with pytest.raises(ValueError, match='every listing'):
+        separate(ledger, ['1','3'])
+    with pytest.raises(ValueError, match='already belong'):
+        separate(ledger, ['1','2'])
+    saved = separate(ledger, ['1','2','3'])
+    assert saved['groups'] == [['1','2'],['3']]
+    assert identity_map(ledger.events()) == before
+    assert separate(ledger, ['1','2','3']) == saved
+    with pytest.raises(ValueError, match='keep-separate'):
+        merge(ledger, ['1','2','3'], 'blocked')
+    # A new member of either home cannot be used to bypass the saved decision.
+    merge(ledger, ['1','2','4'], 'expand')
+    with pytest.raises(ValueError, match='keep-separate'):
+        merge(ledger, ['1','2','3','4'], 'indirect')
+    args=dict(separation_id=saved['id'], author='Ben', reason='Reconsidered', request_id='undo-separate',
+              expected_revision=ledger.revision(ledger.events()))
+    undo_event=ledger.write('undo_separate', **args)
+    assert ledger.write('undo_separate', **args)==undo_event
+    assert merge(ledger, ['1','2','3','4'], 'allowed')['unit_id']==merged['unit_id']
+
+
+def test_keep_separate_prevents_batch_association_and_stale_decisions(tmp_path):
+    ledger=UnitIdentityLedger(tmp_path/'identities.jsonl','dataset')
+    saved=separate(ledger,['1','2'])
+    with pytest.raises(ReviewConflict):
+        ledger.write('separate',listing_ids=['3','4'],author='Ben',reason='Different',request_id='stale',expected_revision=GENESIS)
+    with pytest.raises(ValueError,match='keep-separate'):
+        ledger.write('associate_batch',proposals=[{'listing_ids':['1','2'],'evidence':{}}],
+            author='Ben',reason='source',request_id='batch',expected_revision=saved['hash'])
+    assert len(ledger.events())==1

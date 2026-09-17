@@ -213,3 +213,27 @@ The normal HTML-to-Parquet transform continues to extract canonical unit evidenc
 for every new dataset. Shared latest references come from its preserved source
 JSON. This rule is implemented in the reusable review service, not as in-place
 edits to transformed observations.
+
+### Keep units separate
+
+In a comparison, **Keep separate** records that the current units do not need a
+merge and removes the resolved group from the unresolved list and its counts.
+An optional reason shares the identity-decision text field; reviewer name is
+required. To act on a subset, select its rental IDs and use **Compare selected
+listings** first. Merge any matching listings before keeping the remaining units
+separate: existing merged units stay intact.
+
+**Kept separate** in the list selector shows saved decisions. Open a decision
+and expand its details to **Undo keep separate** with a reason. New listing IDs
+can cause a group to reappear because the previous decision only covers the
+explicit members reviewed. Active decisions block manual and bulk merges across
+the separated units; undo the decision first if new evidence changes the conclusion.
+
+The append-only identity ledger stores `separate` events with explicit groups of
+listing IDs (one group per current unit) and `undo_separate` events. These events
+never change the listing-to-unit map, original attributes, prices, or history.
+Candidate suppression requires every pair of current units to have a saved
+separation; unresolved relationships remain reviewable. Decisions continue to
+apply when a unit gains additional members. POST `/api/units/separate` and
+`/api/units/separate/undo` use the existing revision, retry, reviewer, origin,
+CSRF, and read-only safeguards.

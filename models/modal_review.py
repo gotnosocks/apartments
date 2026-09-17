@@ -52,6 +52,8 @@ def review(action: str, args: dict | None = None):
         result = _service.dispatch(action, args)
         if action in (
             "unit_merge",
+            "unit_separate",
+            "unit_undo_separate",
             "unit_undo",
             "unit_association_preview",
             "unit_association_apply",

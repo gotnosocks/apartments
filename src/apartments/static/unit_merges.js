@@ -63,22 +63,22 @@ async function load(){
   const serial=++state.listSerial;$('total').textContent='Loading…';
   const data=await api('/api/units/candidates?'+new URLSearchParams({search:$('search').value.trim(),mode:$('mode').value,queue:$('queue').value,offset:state.offset,limit:state.limit,sort:state.sort,direction:state.direction}));
   if(serial!==state.listSerial)return;
-  $('queue').disabled=$('mode').value==='merged';
+  $('queue').disabled=$('mode').value!=='candidates';
   $('show-supported').textContent=`${num(data.counts.supported)} ready for bulk association`;
   $('show-label-conflicts').textContent=`${num(data.counts.label_conflicts)} shared-latest label conflicts`;
-  $('show-label-conflicts').hidden=$('mode').value==='merged';
+  $('show-label-conflicts').hidden=$('mode').value!=='candidates';
   $('show-review').textContent=`${num(data.counts.review)} need manual review`;
-  $('show-supported').hidden=$('show-review').hidden=$('mode').value==='merged';
-  $('bulk-associations').hidden=$('mode').value==='merged'||$('queue').value!=='supported';
+  $('show-supported').hidden=$('show-review').hidden=$('mode').value!=='candidates';
+  $('bulk-associations').hidden=$('mode').value!=='candidates'||$('queue').value!=='supported';
   $('preview-associations').disabled=state.busy||!data.counts.supported;
   $('preview-associations').textContent=`Preview all ${num(data.counts.supported)} matching associations`;
   const sorted=data.sort==='listing_count';
   $('listing-count-heading').setAttribute('aria-sort',sorted?(data.direction==='desc'?'descending':'ascending'):'none');
   $('sort-listing-count').textContent='Rental listing IDs '+(sorted?(data.direction==='desc'?'↓':'↑'):'↕');
   $('sort-listing-count').setAttribute('aria-label',`Sort by rental listing ID count, ${sorted&&data.direction==='desc'?'lowest':'highest'} first`);
-  state.offset=data.offset;$('total').textContent=`${num(data.total)} ${$('mode').value==='merged'?'saved units':'unresolved groups'}`;
+  state.offset=data.offset;$('total').textContent=`${num(data.total)} ${$('mode').value==='merged'?'saved units':$('mode').value==='separated'?'kept-separate decisions':'unresolved groups'}`;
   $('candidates').replaceChildren();
-  for(const item of data.rows){const row=el('tr'),name=el('td'),button=el('button',`${item.building} ${item.unit_label}`,'record-link');button.type='button';button.addEventListener('click',()=>inspect(item.listing_ids).catch(error));name.append(button);if(item.unit_id)name.append(el('small',item.unit_id));const action=el('td'),compare=el('button',item.unit_id?'Open unit':'Compare');compare.addEventListener('click',()=>inspect(item.listing_ids).catch(error));action.append(compare);const evidence=el('td',item.unit_id?(item.basis==='streeteasy'?'StreetEasy-associated':'Manually confirmed'):(item.assessment?.eligible?'Ready for bulk association':'Needs manual review'));if(item.assessment?.reasons?.length)evidence.append(el('small',item.assessment.reasons.join('; ')));row.append(name,el('td',num(item.listing_count)),el('td',num(item.capture_count)),evidence,action);$('candidates').append(row);}
+  for(const item of data.rows){const row=el('tr'),name=el('td'),button=el('button',`${item.building} ${item.unit_label}`,'record-link');button.type='button';button.addEventListener('click',()=>inspect(item.listing_ids).catch(error));name.append(button);if(item.unit_id)name.append(el('small',item.unit_id));const action=el('td'),compare=el('button',item.unit_id?'Open unit':'Compare');compare.addEventListener('click',()=>inspect(item.listing_ids).catch(error));action.append(compare);const evidence=el('td',item.basis==='separate'?'Kept separate':item.unit_id?(item.basis==='streeteasy'?'StreetEasy-associated':'Manually confirmed'):(item.assessment?.eligible?'Ready for bulk association':'Needs manual review'));if(item.assessment?.reasons?.length)evidence.append(el('small',item.assessment.reasons.join('; ')));row.append(name,el('td',num(item.listing_count)),el('td',num(item.capture_count)),evidence,action);$('candidates').append(row);}
   if(!data.rows.length){const row=el('tr'),cell=el('td','No matching records.');cell.colSpan=5;row.append(cell);$('candidates').append(row);}
   $('page').textContent=`${data.total?state.offset+1:0}–${Math.min(state.offset+state.limit,data.total)} of ${num(data.total)}`;
   $('previous').disabled=state.offset===0;$('next').disabled=state.offset+state.limit>=data.total;
@@ -94,9 +94,9 @@ async function inspect(ids,unitId){
   history.replaceState(null,'','/units?'+new URLSearchParams(data.unit_id?{unit_id:data.unit_id}:{listing_ids:data.listing_ids.join(',')}));
   $('comparison').scrollIntoView({behavior:'smooth',block:'start'});
 }
-function mergeConfirmation(unitId,count,basis='manual'){
+function mergeConfirmation(unitId,count,basis='manual',separated=false){
   const panel=el('div',undefined,'merge-confirmation');panel.setAttribute('role','status');
-  panel.append(el('strong',basis==='streeteasy'?'✓ StreetEasy association saved':'✓ Merge saved'),el('p',`${num(count)} rental listing IDs now share one unit identity and one combined history.`));
+  panel.append(el('strong',separated?'✓ Kept separate':basis==='streeteasy'?'✓ StreetEasy association saved':'✓ Merge saved'),el('p',separated?'Saved your decision. These units stay separate and no longer appear as an unresolved merge group.':`${num(count)} rental listing IDs now share one unit identity and one combined history.`));
   const next=el('button','Next manual review group — most listing IDs','primary');next.type='button';
   const hint=el('p','Opens the largest group needing manual review across all buildings.','panel-note');
   next.addEventListener('click',async()=>{
@@ -114,14 +114,15 @@ function mergeConfirmation(unitId,count,basis='manual'){
 }
 function render(data){
   const root=$('comparison');root.hidden=false;root.replaceChildren();
+  if(data.kept_separate)root.append(mergeConfirmation('',data.listing_ids.length,'manual',true));
   if(data.latest_merge)root.append(mergeConfirmation(data.unit_id,data.listing_ids.length,data.association_basis));
   const first=data.observations[0]?.attributes||{};
-  root.append(el('p',data.latest_merge?(data.association_basis==='streeteasy'?'StreetEasy-associated':'Manually confirmed'):data.unit_id?'Single listing identity':'Compare before merging','eyebrow'),el('h2',`${value(first.building_slug)} ${value(first.unit_label)}`),el('p',`${num(data.listing_ids.length)} rental listing IDs · ${num(data.capture_count)} captures · ${num(data.history_events)} distinct reported history events (${num(data.history_mentions)} source mentions)`));
+  root.append(el('p',data.kept_separate?'Kept separate':data.latest_merge?(data.association_basis==='streeteasy'?'StreetEasy-associated':'Manually confirmed'):data.unit_id?'Single listing identity':'Compare before merging','eyebrow'),el('h2',`${value(first.building_slug)} ${value(first.unit_label)}`),el('p',`${num(data.listing_ids.length)} rental listing IDs · ${num(data.capture_count)} captures · ${num(data.history_events)} distinct reported history events (${num(data.history_mentions)} source mentions)`));
   if(data.unit_id){root.append(el('p',`Unit ID: ${data.unit_id}`,'unit-identity'));const link=el('a','Download unit record and history');link.href='/api/units/export?'+new URLSearchParams({unit_id:data.unit_id});root.append(link);}
   const evidence=data.source_evidence||data.source_assessment;
   if(evidence){
     const section=el('div',undefined,'source-evidence');
-    section.append(el('strong',data.source_evidence?'Saved StreetEasy evidence':evidence.eligible?'Ready for bulk association':'Needs manual review'));
+    section.append(el('strong',data.kept_separate?'Marked to keep separate':data.source_evidence?'Saved StreetEasy evidence':evidence.eligible?'Ready for bulk association':'Needs manual review'));
     if(evidence.canonical_url){const link=el('a','StreetEasy unit page ↗');link.href=evidence.canonical_url;link.target='_blank';link.rel='noopener noreferrer';section.append(link);}
     section.append(el('p',`Latest listing reference: ${(evidence.latest_listing_ids||[]).join(', ')||'Missing'}.`,'panel-note'));
     if(evidence.eligible)section.append(el('p',evidence.rule==='shared-latest-v2'
@@ -166,13 +167,44 @@ function render(data){
   }
   observations.append(options);root.append(observations);
 
-  const form=el('form',undefined,'merge-actions'),noteLabel=el('label','Why do these listings refer to the same unit?'),note=el('input');note.required=true;note.placeholder='Evidence for the shared unit identity';noteLabel.append(note);
-  const actions=el('div',undefined,'inline-actions'),recompare=el('button','Compare selected listings'),merge=el('button',data.latest_merge?(data.association_basis==='streeteasy'?'Associated':'Merged'): 'Merge into one unit','primary');recompare.type='button';merge.type='submit';merge.disabled=!!data.unit_id;actions.append(recompare,merge);form.append(noteLabel,actions);
-  const hint=el('p',data.unit_id?'These listing IDs already resolve to one unit.':'This saves one unit identity for the selected rental IDs and all their captures. Original attributes and review decisions remain attached to their captures.','panel-note');form.append(hint);root.append(form);
+  const form=el('form',undefined,'merge-actions'),noteLabel=el('label','Reason (required for merge; optional to keep separate)'),note=el('input');note.required=true;note.placeholder='Why these units should be merged or kept separate';noteLabel.append(note);
+  const actions=el('div',undefined,'inline-actions'),recompare=el('button','Compare selected listings'),merge=el('button',data.latest_merge?(data.association_basis==='streeteasy'?'Associated':'Merged'): 'Merge into one unit','primary');recompare.type='button';merge.type='submit';merge.disabled=!!data.unit_id||!!data.separations?.length;const separate=el('button',data.kept_separate?'Kept separate':'Keep separate');separate.type='button';separate.disabled=!!data.unit_id||!!data.kept_separate;actions.append(recompare,merge,separate);form.append(noteLabel,actions);
+  const hint=el('p',data.separations?.length?'A saved decision keeps some of these units separate. Undo it before merging across that decision.':data.unit_id?'These listing IDs already resolve to one unit.':'This saves one unit identity for the selected rental IDs and all their captures. Original attributes and review decisions remain attached to their captures.','panel-note');form.append(hint,el('p','Keep separate marks the units in this comparison as not needing a merge. Existing merges within each unit stay in place. Merge any matching listings first.','panel-note'));root.append(form);
   const selected=()=>Array.from(options.querySelectorAll('input:checked'),input=>input.value);
-  options.addEventListener('change',()=>{merge.disabled=true;state.mergeRequest=null;hint.textContent='Click Compare selected listings to review the revised selection.';});
+  options.addEventListener('change',()=>{merge.disabled=separate.disabled=true;state.mergeRequest=null;separateRequest=null;hint.textContent='Click Compare selected listings to review the revised selection.';});
   recompare.addEventListener('click',()=>inspect(selected()).catch(error));
-  note.addEventListener('input',()=>{state.mergeRequest=null;});
+  note.addEventListener('input',()=>{state.mergeRequest=null;separateRequest=null;});
+  let separateRequest=null;
+  separate.addEventListener('click',async()=>{
+    if(state.busy||separate.disabled)return;
+    let saved;
+    try{
+      const author=$('author').value.trim(),reason=note.value.trim()||'Reviewed: these units do not need to be merged';
+      if(!author)throw new Error('Enter your reviewer name.');
+      if(!separateRequest||separateRequest.author!==author)separateRequest={listing_ids:data.listing_ids,author,reason,identity_revision:data.identity_revision,review_revision:data.review_revision,request_id:requestId()};
+      state.busy=true;for(const control of root.querySelectorAll('input,button'))control.disabled=true;
+      separate.textContent='Saving decision…';saved=await api('/api/units/separate',separateRequest);state.busy=false;
+      separate.textContent='Kept separate';root.prepend(mergeConfirmation('',data.listing_ids.length,'manual',true));
+      await inspect(data.listing_ids);await load();
+    }catch(e){state.busy=false;if(saved){error(new Error(`Keep-separate decision saved, but the page could not refresh: ${e.message}`));}else{for(const control of root.querySelectorAll('input,button'))control.disabled=false;merge.disabled=!!data.unit_id||!!data.separations?.length;separate.textContent='Keep separate';error(e);}}
+  });
+  for(const decision of data.separations||[]){
+    const undo=el('details'),undoForm=el('form',undefined,'merge-actions'),label=el('label','Reason for undoing'),reason=el('input'),button=el('button','Undo keep separate');
+    undo.append(el('summary',`Kept separate: ${decision.listing_ids.join(', ')}`),el('p',`${decision.author}: ${decision.reason}`,'panel-note'));
+    reason.required=true;label.append(reason);undoForm.append(label,button);undo.append(undoForm);root.append(undo);
+    let payload=null;
+    reason.addEventListener('input',()=>{payload=null;});
+    undoForm.addEventListener('submit',async event=>{
+      event.preventDefault();if(state.busy)return;let saved;
+      try{
+        const author=$('author').value.trim();if(!author)throw new Error('Enter your reviewer name.');
+        if(!payload||payload.author!==author)payload={separation_id:decision.id,identity_revision:data.identity_revision,author,reason:reason.value.trim(),request_id:requestId()};
+        state.busy=true;button.disabled=true;saved=await api('/api/units/separate/undo',payload);state.busy=false;
+        $('notice').textContent='Keep-separate decision undone. These listings can be considered for merging again.';$('notice').hidden=false;
+        await inspect(data.listing_ids);await load();
+      }catch(e){state.busy=false;button.disabled=!!saved;error(saved?new Error(`Decision undone, but the page could not refresh: ${e.message}`):e);}
+    });
+  }
   form.addEventListener('submit',async event=>{
     event.preventDefault();if(state.busy||merge.disabled)return;
     let saved;
@@ -193,7 +225,7 @@ function render(data){
     let undoRequest=null;reason.addEventListener('input',()=>{undoRequest=null;});
     undoForm.addEventListener('submit',async event=>{event.preventDefault();if(state.busy)return;try{if(!undoRequest)undoRequest={merge_id:data.latest_merge.id,identity_revision:data.identity_revision,author:$('author').value.trim(),reason:reason.value.trim(),request_id:requestId()};state.busy=true;button.disabled=true;await api('/api/units/undo',undoRequest);state.busy=false;history.replaceState(null,'','/units');$('notice').textContent='Identity merge undone. Original records and corrections are preserved.';$('notice').hidden=false;await inspect(data.listing_ids);await load();}catch(e){state.busy=false;button.disabled=false;error(e);}});
   }
-  const timeline=el('section',undefined,'unit-section');timeline.append(el('h3',data.unit_id?'Unit history':'Combined history after merge'),el('p','Exact repeated event evidence is combined. Different listing episodes, statuses, prices, and corrected versions remain distinct. Event dates below are separate from capture dates above.','panel-note'));
+  const timeline=el('section',undefined,'unit-section');timeline.append(el('h3',data.unit_id?'Unit history':data.separations?.length?'Reported history across these listings':'Combined history after merge'),el('p','Exact repeated event evidence is combined. Different listing episodes, statuses, prices, and corrected versions remain distinct. Event dates below are separate from capture dates above.','panel-note'));
   timeline.append(table(['Event date','History listing ID','Status','Price','Source evidence'],data.history.map(event=>{
     const refs=el('details');refs.append(el('summary',`${event.occurrences.length} mentions`));const links=el('div',undefined,'capture-links');for(const occurrence of event.occurrences){const line=el('div');line.append(captureLink(occurrence.snapshot_id),el('span',` · entry ${occurrence.episode_index}/${occurrence.event_index}`));links.append(line);}refs.append(links);
     const price=el('div',money(event.price));if(event.price!==event.raw_price)price.append(el('small',`Source: ${money(event.raw_price)}`));if(event.conflicting_version)price.append(el('small','Multiple reported versions'));if(event.overlay_warning)price.append(el('small',event.overlay_warning));return [value(event.event_date),value(event.event_listing_id),value(event.status),price,refs];
