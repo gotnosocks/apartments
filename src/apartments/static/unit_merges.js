@@ -14,6 +14,14 @@ async function api(path,payload){
   const data=await response.json();if(!response.ok)throw new Error(data.error||'Request failed');return data;
 }
 function captureLink(sid){const a=el('a',`Capture ${sid}`);a.href=`/?snapshot_id=${sid}`;a.target='_blank';a.rel='noopener';return a;}
+function streetEasyUrls(observations){
+  const urls=new Set();
+  for(const row of observations){try{
+    const url=new URL(row.url);
+    if(['https:','http:'].includes(url.protocol)&&(url.hostname==='streeteasy.com'||url.hostname.endsWith('.streeteasy.com')))urls.add(url.href);
+  }catch{}}
+  return [...urls];
+}
 function observationLinks(row){
   const links=el('div',undefined,'capture-links');links.append(captureLink(row.snapshot_id));
   if(row.url){try{
@@ -87,6 +95,16 @@ function render(data){
     undoForm.addEventListener('submit',async event=>{event.preventDefault();if(state.busy)return;try{if(!undoRequest)undoRequest={merge_id:data.latest_merge.id,identity_revision:data.identity_revision,author:$('author').value.trim(),reason:reason.value.trim(),request_id:requestId()};state.busy=true;button.disabled=true;await api('/api/units/undo',undoRequest);state.busy=false;history.replaceState(null,'','/units');$('notice').textContent='Identity merge undone. Original records and corrections are preserved.';$('notice').hidden=false;await inspect(data.listing_ids);await load();}catch(e){state.busy=false;button.disabled=false;error(e);}});
   }
   const observations=el('section',undefined,'unit-section');observations.append(el('h3','Source observations and attributes'));
+  const sourceUrls=streetEasyUrls(data.observations);
+  const openAll=el('button',`Open all StreetEasy listings (${sourceUrls.length})`);openAll.type='button';openAll.disabled=!sourceUrls.length;
+  const tabsNote=el('p',undefined,'panel-note');tabsNote.hidden=true;tabsNote.setAttribute('role','status');
+  openAll.addEventListener('click',()=>{
+    // Keep every open in the direct user click handler to preserve user activation.
+    for(const url of sourceUrls)window.open(url,'_blank','noopener,noreferrer');
+    tabsNote.textContent='If some tabs did not open, allow pop-ups for this review app and try again. Individual StreetEasy links are also available below.';
+    tabsNote.hidden=false;
+  });
+  observations.append(openAll,tabsNote);
   observations.append(table(['Source','Rental ID','Captured','Building / unit','Beds / baths','Square feet','Advertised rent'],data.observations.map(row=>[observationLinks(row),row.listing_id,date(row.collected_at),`${value(row.attributes.building_slug)} ${value(row.attributes.unit_label)}`,`${value(row.attributes.bedrooms)} / ${value(row.attributes.bathrooms)}`,value(row.attributes.square_feet),money(row.attributes.asking_price)])));root.append(observations);
   const timeline=el('section',undefined,'unit-section');timeline.append(el('h3',data.unit_id?'Unit history':'Combined history after merge'),el('p','Exact repeated event evidence is combined. Different listing episodes, statuses, prices, and corrected versions remain distinct. Event dates below are separate from capture dates above.','panel-note'));
   timeline.append(table(['Event date','History listing ID','Status','Price','Source evidence'],data.history.map(event=>{
