@@ -701,7 +701,7 @@ class ReviewService:
 
     def dispatch(self, action, args=None):
         args = args or {}
-        if action in {'unit_candidates', 'unit_inspect', 'unit_merge', 'unit_undo', 'unit_mapping'}:
+        if action in {'unit_candidates', 'unit_inspect', 'unit_merge', 'unit_undo', 'unit_mapping', 'unit_association_preview', 'unit_association_apply', 'unit_association_undo', 'unit_proposal', 'unit_batches'}:
             from .unit_merge_service import UnitMergeService
             if not hasattr(self, '_unit_service'):
                 self._unit_service = UnitMergeService(self)

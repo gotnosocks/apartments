@@ -5,6 +5,7 @@ import hashlib
 import json
 import re
 from urllib.parse import urlsplit
+from .unit_canonical import canonical_fields
 
 from streeteasy_archive.extract import _scripts, _selector, flight_text
 
@@ -123,6 +124,7 @@ def _occurrence_key(event_key, episode_index, event_index):
 
 def parse_listing(body: bytes, url: str) -> tuple[dict, list[dict]]:
     """Parse a listing page, retaining every rental and sale history occurrence."""
+    canonical = canonical_fields(body, url)
     scripts = _scripts(_selector(body))
     candidates = _listing_candidates(scripts)
     path = urlsplit(url).path
@@ -131,7 +133,7 @@ def parse_listing(body: bytes, url: str) -> tuple[dict, list[dict]]:
     requested_id = requested_match.group(1) if requested_match else None
     matching = [x for x in candidates if requested_id is None or str(x.get("id")) == requested_id]
     if requested_id is not None and not matching:
-        return ({"url": url, "listing_id": requested_id, "listing_type": requested_type, "building_slug": None,
+        return ({**canonical, "url": url, "listing_id": requested_id, "listing_type": requested_type, "building_slug": None,
                  "unit_label": None, "bedrooms": None, "bathrooms": None, "square_feet": None,
                  "room_count": None, "source_created_at": None, "features_json": None,
                  "amenities_json": None, "pricing_json": None, "raw_listing_json": None,
@@ -139,7 +141,7 @@ def parse_listing(body: bytes, url: str) -> tuple[dict, list[dict]]:
     candidates = matching or candidates
     listing = max(candidates, key=lambda x: int(isinstance(x.get("propertyHistory"), list) and bool(x.get("propertyHistory")))) if candidates else None
     if listing is None:
-        return ({"url": url, "listing_id": None, "listing_type": requested_type, "building_slug": None,
+        return ({**canonical, "url": url, "listing_id": None, "listing_type": requested_type, "building_slug": None,
                  "unit_label": None, "bedrooms": None, "bathrooms": None, "square_feet": None,
                  "room_count": None, "source_created_at": None, "features_json": None,
                  "amenities_json": None, "pricing_json": None, "raw_listing_json": None,
@@ -178,7 +180,7 @@ def parse_listing(body: bytes, url: str) -> tuple[dict, list[dict]]:
         if not any(isinstance(ep, dict) and ep.get("rentalEventsOfInterest") for ep in history):
             listing_type = "sale"
     row = {
-        "url": url, "listing_id": listing_id, "listing_type": listing_type, "building_slug": building_slug,
+        **canonical, "url": url, "listing_id": listing_id, "listing_type": listing_type, "building_slug": building_slug,
         "unit_label": unit_label, "bedrooms": _number(details.get("bedroomCount")),
         "bathrooms": bathrooms, "square_feet": _number(details.get("livingAreaSize")),
         "room_count": _number(details.get("roomCount")),

@@ -18,7 +18,7 @@ def test_preserves_fetches_snapshots_and_repeated_events(tmp_path):
  listing={'id':123,'propertyDetails':{'address':{'displayUnit':'04C'},'bedroomCount':1},'propertyHistory':[{'listingId':123,'rentalEventsOfInterest':[{'date':'2020-01-01','price':3000},{'date':'2020-01-01','price':3000}]}]}
  listing['pricing']={'priceChanges':[{'changedAt':'2020-01-01T12:34:56Z','price':3000}]}
  listing['statusChanges']=[{'changedAt':'2020-01-02T01:00:00Z','status':'RENTED'}]
- body=('<script type="application/json">'+json.dumps({'listing':listing})+'</script>').encode()
+ body=('<html><head><link rel="canonical" href="https://streeteasy.com/building/demo/04c"></head><body><script type="application/json">'+json.dumps({'listing':listing})+'</script>').encode()
  for i,h in enumerate(['aa111','bb222'],1):
   dest=tmp_path/'bodies'/h[:2];dest.mkdir(parents=True);(dest/f'{h}.gz').write_bytes(gzip.compress(body))
   c.execute('INSERT INTO snapshots VALUES(?,1,?,?,?,5,?)',(i,url,h,1000+i,'{}'))
@@ -30,7 +30,19 @@ def test_preserves_fetches_snapshots_and_repeated_events(tmp_path):
  for part in range(plan['shards']):
   first=process_shard(db,root,part,tmp_path/'bodies')
   assert process_shard(db,root,part,tmp_path/'bodies')==first
- assert pq.read_table(root/'listing_observations').num_rows==2
+ observations=pq.read_table(root/'listing_observations').to_pylist()
+ assert len(observations)==2
+ assert all(r['canonical_unit_url']=='https://streeteasy.com/building/demo/04c' for r in observations)
+ assert all(r['canonical_href']=='https://streeteasy.com/building/demo/04c' and r['canonical_unit_error'] is None for r in observations)
+ from apartments.review_service import ReviewService
+ from apartments.unit_source import SourceEvidence
+ (root/'complete.json').write_text('{}')
+ service=ReviewService(root,tmp_path/'review-state')
+ evidence=SourceEvidence(service)
+ assert len(evidence.pages)==2 and evidence.error is None
+ assert evidence.pages[1]['canonical_url']=='https://streeteasy.com/building/demo/04c'
+ assert not (service.state/'unit-source-pages.parquet').exists()
+ service.close()
  events=pq.read_table(root/'event_mentions').to_pylist()
  assert len(events)==4
  changes=pq.read_table(root/'source_changes').to_pylist()

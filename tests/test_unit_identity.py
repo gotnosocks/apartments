@@ -59,3 +59,30 @@ def test_merge_two_existing_units_and_restore(tmp_path):
     assert set(identity_map(ledger.events()).values()) == {a['unit_id']}
     undo(ledger, both, 'undo')
     assert identity_map(ledger.events()) == {'1':a['unit_id'], '2':a['unit_id'], '3':b['unit_id'], '4':b['unit_id']}
+
+
+def test_association_batch_is_atomic_retryable_and_individually_reversible(tmp_path):
+    from apartments.unit_identity import active_decisions
+    ledger=UnitIdentityLedger(tmp_path/'units.jsonl','dataset')
+    args=dict(proposals=[{'listing_ids':['1','2'],'evidence':{'canonical_url':'/building/a/1'}},
+                         {'listing_ids':['3','4'],'evidence':{'canonical_url':'/building/a/2'}}],
+              review_revision=GENESIS,author='Ben',reason='Source associations',request_id='batch',expected_revision=GENESIS)
+    event=ledger.write('associate_batch',**args)
+    assert ledger.write('associate_batch',**args)==event
+    assert len(ledger.events())==1  # Entire batch is one committed ledger record.
+    assert len(set(identity_map(ledger.events()).values()))==2
+    assert {e['basis'] for e in active_decisions(ledger.events())}=={'streeteasy'}
+    first=active_decisions(ledger.events())[0]
+    manual=merge(ledger,['1','2','5'],'expanded')
+    with pytest.raises(ValueError,match='later merge'):
+        ledger.write('undo_batch',batch_id=event['id'],author='Ben',reason='undo',request_id='undo-batch',expected_revision=ledger.revision(ledger.events()))
+    undo(ledger,manual,'undo-manual')
+    undo(ledger,first,'undo-individual')
+    assert set(identity_map(ledger.events()))=={'3','4'}
+    undo_args=dict(batch_id=event['id'],author='Ben',reason='undo',request_id='undo-batch',expected_revision=ledger.revision(ledger.events()))
+    result=ledger.write('undo_batch',**undo_args)
+    assert ledger.write('undo_batch',**undo_args)==result
+    assert identity_map(ledger.events())=={}
+    with pytest.raises(ValueError,match='distinct'):
+        ledger.write('associate_batch',**{**args,'proposals':[args['proposals'][0],args['proposals'][0]],'request_id':'invalid','expected_revision':ledger.revision(ledger.events())})
+    assert len(ledger.events())==5

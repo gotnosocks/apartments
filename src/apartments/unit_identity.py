@@ -1,6 +1,7 @@
 """Durable, reversible identity declarations for StreetEasy rental listings.
 
-Listing IDs are source identities; unit IDs identify manually resolved homes.
+Listing IDs identify advertisements; unit IDs identify associated homes.
+Associations retain a manual or StreetEasy source basis.
 Archive observations are never rewritten. Consumers can freeze this ledger's hash.
 """
 from __future__ import annotations
@@ -24,13 +25,38 @@ def listing_ids(value):
     return sorted(value)
 
 
+def merge_decisions(events):
+    """Expand a batch into individually reversible associations for all consumers."""
+    result = []
+    for e in events:
+        if e['action'] == 'merge':
+            result.append({**e, 'basis': e.get('basis', 'manual')})
+        elif e['action'] == 'associate_batch':
+            for proposal, unit in zip(e['proposals'], e['units']):
+                result.append({'id':unit['id'], 'unit_id':unit['unit_id'],
+                    'listing_ids':proposal['listing_ids'], 'evidence':proposal['evidence'],
+                    'basis':'streeteasy', 'batch_id':e['id'], 'action':'merge',
+                    'author':e['author'], 'reason':e['reason'], 'recorded_at':e['recorded_at'],
+                    'review_revision':e['review_revision']})
+    return result
+
+
+def undone_decisions(events):
+    batches = {e['batch_id'] for e in events if e['action'] == 'undo_batch'}
+    return ({e['merge_id'] for e in events if e['action'] == 'undo'} |
+            {u['id'] for e in events if e['action'] == 'associate_batch' and e['id'] in batches for u in e['units']})
+
+
+def active_decisions(events):
+    undone = undone_decisions(events)
+    return [e for e in merge_decisions(events) if e['id'] not in undone]
+
+
 def identity_map(events):
-    undone = {e['merge_id'] for e in events if e['action'] == 'undo'}
     result = {}
-    for event in events:
-        if event['action'] == 'merge' and event['id'] not in undone:
-            for lid in event['listing_ids']:
-                result[lid] = event['unit_id']
+    for event in active_decisions(events):
+        for lid in event['listing_ids']:
+            result[lid] = event['unit_id']
     return result
 
 
@@ -67,8 +93,23 @@ class UnitIdentityLedger:
                     if len(listing_ids(event['listing_ids'])) < 2 or not event['unit_id'].startswith('unit:'):
                         raise ValueError('Invalid merged unit')
                 elif event['action'] == 'undo':
-                    if not any(e['id'] == event['merge_id'] and e['action'] == 'merge' for e in events):
+                    if not any(e['id'] == event['merge_id'] for e in merge_decisions(events)):
                         raise ValueError('Unknown merge')
+                elif event['action'] == 'associate_batch':
+                    proposals = event['proposals']; units = event['units']
+                    if not 1 <= len(proposals) <= 20000 or len(proposals) != len(units):
+                        raise ValueError('Invalid association batch')
+                    members = set(); unit_ids = set(); decision_ids = set()
+                    for proposal, unit in zip(proposals, units):
+                        ids = listing_ids(proposal['listing_ids'])
+                        if (len(ids)<2 or members.intersection(ids) or unit['id'] in decision_ids
+                            or unit['unit_id'] in unit_ids or not unit['unit_id'].startswith('unit:')
+                            or not isinstance(proposal['evidence'], dict)):
+                            raise ValueError('Invalid association group')
+                        members.update(ids); unit_ids.add(unit['unit_id']); decision_ids.add(unit['id'])
+                elif event['action'] == 'undo_batch':
+                    if not any(e['id']==event['batch_id'] and e['action']=='associate_batch' for e in events):
+                        raise ValueError('Unknown association batch')
                 else:
                     raise ValueError('Unknown identity action')
                 events.append(event)
@@ -92,7 +133,7 @@ class UnitIdentityLedger:
     def write(self, action, *, author, reason, request_id, expected_revision, **data):
         if not all(isinstance(x, str) and x.strip() for x in (author, reason, request_id)):
             raise ValueError('Reviewer, reason, and request ID are required')
-        if action not in {'merge', 'undo'}:
+        if action not in {'merge', 'undo', 'associate_batch', 'undo_batch'}:
             raise ValueError('Unknown identity action')
         self.path.parent.mkdir(parents=True, exist_ok=True)
         with self.path.open('a+', encoding='utf-8') as stream:
@@ -115,17 +156,39 @@ class UnitIdentityLedger:
                 if len(units) < 2:
                     raise ValueError('These listings already belong to one unit')
                 # Retain an existing canonical identity when expanding a merged unit.
-                unit_id = next((e['unit_id'] for e in events if e['action'] == 'merge'
+                unit_id = next((e['unit_id'] for e in active_decisions(events) if e['action'] == 'merge'
                                 and e['unit_id'] in units), 'unit:' + str(uuid.uuid4()))
                 data = {**data, 'listing_ids': ids, 'unit_id': unit_id}
+            elif action == 'associate_batch':
+                proposals = data.get('proposals')
+                if not isinstance(proposals, list) or not 1 <= len(proposals) <= 20000:
+                    raise ValueError('Select 1–20,000 supported groups')
+                members = set(); mapping = identity_map(events); units = []
+                for proposal in proposals:
+                    ids = listing_ids(proposal['listing_ids'])
+                    if (len(ids)<2 or members.intersection(ids) or any(lid in mapping for lid in ids)
+                        or not isinstance(proposal.get('evidence'), dict)):
+                        raise ValueError('Association groups must be distinct and not already merged')
+                    members.update(ids)
+                    units.append({'id':str(uuid.uuid4()), 'unit_id':'unit:'+str(uuid.uuid4())})
+                data = {**data, 'units':units}
             else:
-                undone = {e['merge_id'] for e in events if e['action'] == 'undo'}
-                merge = next((e for e in events if e['id'] == data['merge_id'] and e['action'] == 'merge'), None)
-                if merge is None or merge['id'] in undone:
+                decisions = merge_decisions(events); undone = undone_decisions(events)
+                if action == 'undo':
+                    targets = [e for e in decisions if e['id'] == data['merge_id'] and e['id'] not in undone]
+                else:
+                    batch = next((e for e in events if e['id']==data['batch_id'] and e['action']=='associate_batch'), None)
+                    if batch is None or any(e['action']=='undo_batch' and e['batch_id']==data['batch_id'] for e in events):
+                        raise ValueError('Batch is unknown or already undone')
+                    targets = [e for e in decisions if e.get('batch_id')==data['batch_id'] and e['id'] not in undone]
+                if not targets:
                     raise ValueError('Merge is unknown or already undone')
-                later = events[events.index(merge) + 1:]
-                if any(e['action'] == 'merge' and e['id'] not in undone
-                       and set(e['listing_ids']) & set(merge['listing_ids']) for e in later):
+                target_ids = {e['id'] for e in targets}
+                positions = {e['id']:i for i,e in enumerate(decisions)}
+                protected = {lid:positions[e['id']] for e in targets for lid in e['listing_ids']}
+                if any(e['id'] not in undone and e['id'] not in target_ids
+                       and any(i > protected[lid] for lid in e['listing_ids'] if lid in protected)
+                       for i,e in enumerate(decisions)):
                     raise ValueError('Undo the later merge involving these listings first')
             event = {'schema_version': 1, 'id': str(uuid.uuid4()), 'dataset': self.dataset,
                      'source': 'streeteasy', 'listing_type': 'rental', 'action': action,

@@ -2,3 +2,5 @@
 
 .sort-column{border:0;background:transparent;padding:0;font:inherit;color:inherit;text-transform:inherit;letter-spacing:inherit}.sort-column:hover{background:transparent;color:var(--green)}
 .merge-confirmation{margin-bottom:20px;padding:16px;border:1px solid var(--green);border-radius:8px;background:#edf7ef}.merge-confirmation strong{display:block;color:var(--green);font-size:1.15rem}.merge-confirmation p{margin:8px 0 12px}.merge-confirmation .panel-note{margin-bottom:0}.merge-confirmation button{white-space:normal}
+
+.source-evidence{margin:16px 0;padding:14px;background:#f1f5f8;border:1px solid var(--line);border-radius:8px}.source-evidence a{display:block;margin-top:8px}.queue-counts{flex-wrap:wrap;margin:12px 0}#association-preview .inline-actions{margin-top:18px;flex-wrap:wrap}#batch-list .merge-actions{padding-bottom:16px;border-bottom:1px solid var(--line)}

@@ -4,11 +4,12 @@ from __future__ import annotations
 import hashlib
 import json
 import re
+import uuid
 from collections import defaultdict
 
 from .corrections import canonical
 from .review_ledger import GENESIS, ReviewConflict
-from .unit_identity import UnitIdentityLedger, expand_ids, identity_map, listing_ids
+from .unit_identity import UnitIdentityLedger, expand_ids, identity_map, listing_ids, active_decisions, merge_decisions
 
 
 def records(cursor):
@@ -26,6 +27,8 @@ class UnitMergeService:
         self.s = service
         self.ledger = UnitIdentityLedger(service.state / 'unit-identities.jsonl', service.dataset)
         self._cache = None
+        self._assessments = None
+        self._source = None
 
     def catalog(self, review_events, identity_events):
         revision = review_events[-1]['hash'] if review_events else GENESIS
@@ -58,9 +61,64 @@ class UnitMergeService:
         self._cache = (key, listings)
         return listings
 
-    def candidates(self, args):
+    def assessments(self, catalog, review_events, identity_events):
+        from .unit_source import SourceEvidence
+        if self._source is None:
+            self._source = SourceEvidence(self.s)
+        key = self._cache[0]
+        if self._assessments and self._assessments[0] == key:
+            return self._assessments[1]
+        labels = defaultdict(set); canonical_members = defaultdict(set); history_members = defaultdict(set)
+        for lid, listing in catalog.items():
+            for c in listing['captures']:
+                sid = c['snapshot_id']; building, label = c['building_slug'],c['unit_label']
+                if building and label and label.strip() and not re.search(r'bedroom|studio|[0-9] *br|layout|floorplan',label,re.I):
+                    labels[(building,label)].add(lid)
+                page = self._source.pages.get(sid, {}).get('canonical_url')
+                if page:
+                    canonical_members[page].add(lid)
+                for target in self._source.history.get(sid, set()):
+                    history_members[target].add(lid)
+        retracted = {e['correction_id'] for e in review_events if e['action']=='retract'}
+        corrected = {sid for e in review_events if e['action']=='correct' and e['id'] not in retracted
+                     and any(p['path'] in {'/building_slug','/unit_label','/archive_listing'}
+                             or p['path'].startswith(('/archive_listing/propertyHistory','/archive_listing/latestListing','/archive_listing/propertyDetails/address'))
+                             for p in e['patch']) for sid in e['snapshot_ids']}
+        reserved = {lid for e in merge_decisions(identity_events) for lid in e['listing_ids']}
+        # Canonical-page groups are primary; label matches surface missing/conflicting
+        # source associations. Join overlapping suggestions so no listing appears in
+        # two independently actionable groups. Existing unit membership stays whole.
+        parent = {lid:lid for lid in catalog}
+        def find(lid):
+            while parent[lid] != lid:
+                parent[lid] = parent[parent[lid]]; lid = parent[lid]
+            return lid
+        units = defaultdict(set)
+        for lid, listing in catalog.items():
+            units[listing['unit_id']].add(lid)
+        for members in [*canonical_members.values(), *labels.values(), *units.values()]:
+            if len(members)>1:
+                first = next(iter(members))
+                for lid in members:
+                    parent[find(lid)] = find(first)
+        components = defaultdict(set)
+        for lid in catalog:
+            components[find(lid)].add(lid)
+        groups = {tuple(sorted(ids)):ids for ids in components.values() if len(ids)>1}
+        self._candidate_groups = groups
+        assessments = {key:self._source.assess(ids,catalog,canonical_members,history_members,corrected,reserved)
+                       for key,ids in groups.items() if len(ids)>1}
+        self._assessments = (key,assessments)
+        return assessments
+
+    def candidates(self, args, *, all_rows=False):
         review_events, identity_events = self.s.ledger.events(), self.ledger.events()
         catalog = self.catalog(review_events, identity_events)
+        assessments = self.assessments(catalog, review_events, identity_events)
+        queue = args.get('queue', 'all')
+        if queue not in {'all','supported','review'}:
+            raise ValueError('Unknown identity queue')
+        basis = {e['unit_id']:e['basis'] for e in active_decisions(identity_events)}
         search = str(args.get('search', '')).strip().casefold()
         if len(search) > 200:
             raise ValueError('Search is too long')
@@ -74,17 +132,12 @@ class UnitMergeService:
             raise ValueError('Unknown sort order')
         groups = defaultdict(set)
         if mode == 'candidates':
-            for lid, listing in catalog.items():
-                for capture in listing['captures']:
-                    b, u = capture['building_slug'], capture['unit_label']
-                    if not b or not u or not u.strip() or re.search(r'bedroom|studio|[0-9] *br|layout|floorplan', u, re.I):
-                        continue
-                    groups[(b, u)].add(lid)
+            groups = self._candidate_groups
         else:
             for lid, unit_id in identity_map(identity_events).items():
                 if lid in catalog:
                     groups[unit_id].add(lid)
-        result = []
+        result = []; counts = {"supported":0,"review":0}
         for key, ids in groups.items():
             units = {catalog[lid]['unit_id'] for lid in ids}
             if mode == 'candidates' and len(units) < 2:
@@ -98,8 +151,14 @@ class UnitMergeService:
                 continue
             if search and not all(word in search_text(text) for word in search_text(search).split()):
                 continue
-            result.append({'building': key[0] if mode == 'candidates' else labels[0][0],
-                           'unit_label': key[1] if mode == 'candidates' else labels[0][1],
+            assessment = assessments.get(key) if mode=='candidates' else None
+            category = 'supported' if assessment and assessment['eligible'] else 'review'
+            if mode=='candidates':
+                counts[category] += 1
+                if queue != 'all' and queue != category:
+                    continue
+            result.append({'assessment':assessment, 'basis':basis.get(key), 'building': labels[0][0],
+                           'unit_label': labels[0][1],
                            'unit_id': key if mode == 'merged' else None,
                            'listing_ids': sorted(ids), 'listing_count': len(ids),
                            'capture_count': len(captures), 'identities': len(units)})
@@ -109,12 +168,14 @@ class UnitMergeService:
             result.sort(key=lambda r: r['listing_count'], reverse=direction == 'desc')
         elif direction == 'desc':
             result.reverse()
-        limit = min(100, max(1, int(args.get('limit', 25))))
+        limit = max(1,len(result)) if all_rows else min(100, max(1, int(args.get('limit', 25))))
         offset = max(0, int(args.get('offset', 0)))
         offset = min(offset, max(0, ((len(result) - 1) // limit) * limit))
         return {'rows': result[offset:offset + limit], 'total': len(result), 'offset': offset,
                 'limit': limit, 'sort': sort, 'direction': direction,
-                'identity_revision': self.ledger.revision(identity_events)}
+                'identity_revision': self.ledger.revision(identity_events),
+                'review_revision':review_events[-1]['hash'] if review_events else GENESIS,
+                'counts':counts, 'source_ready':self._source.error is None}
 
     def inspect(self, args):
         identity_events, review_events = self.ledger.events(), self.s.ledger.events()
@@ -172,9 +233,15 @@ class UnitMergeService:
                                    if o['attributes'][field] is not None}) for field in fields if field != 'asking_price'}
         conflicts = {k: [json.loads(v) for v in values] for k, values in conflicts.items() if len(values) > 1}
         units = sorted({catalog[lid]['unit_id'] for lid in ids})
-        undone = {e['merge_id'] for e in identity_events if e['action'] == 'undo'}
-        merge = next((e for e in reversed(identity_events) if e['action'] == 'merge'
-                      and e['id'] not in undone and len(units) == 1 and e['unit_id'] == units[0]), None)
+        merge = next((e for e in reversed(active_decisions(identity_events))
+                      if len(units)==1 and e['unit_id']==units[0]), None)
+        assessments = self.assessments(catalog, review_events, identity_events)
+        assessment = assessments.get(tuple(sorted(ids)))
+        for observation in observations:
+            sid=observation['snapshot_id']
+            observation['identity_evidence']={**self._source.pages.get(sid,{}),
+                'latest_listing_id':self._source.latest.get(sid),
+                'history_listing_ids':sorted(x for x in self._source.history.get(sid,set()) if x)}
         return {'dataset': self.s.dataset, 'listing_ids': ids, 'unit_ids': units,
                 'unit_id': units[0] if len(units) == 1 else None,
                 'listings': [{'listing_id': lid, 'unit_id': catalog[lid]['unit_id'],
@@ -184,7 +251,8 @@ class UnitMergeService:
                 'history_events': len(combined), 'capture_count': len(capture_ids),
                 'identity_revision': self.ledger.revision(identity_events),
                 'review_revision': review_events[-1]['hash'] if review_events else GENESIS,
-                'latest_merge': merge}
+                'latest_merge': merge, 'association_basis':merge['basis'] if merge else None,
+                'source_assessment':assessment, 'source_evidence':merge.get('evidence') if merge else None}
 
     def merge(self, args):
         ids = listing_ids(args.get('listing_ids'))
@@ -206,9 +274,69 @@ class UnitMergeService:
         return {'dataset': self.s.dataset, 'source': 'streeteasy', 'listing_type': 'rental',
                 'identity_revision': self.ledger.revision(events),
                 'listing_to_unit': identity_map(events),
+                'unit_basis':{e['unit_id']:e['basis'] for e in active_decisions(events)},
                 'unmerged_unit_id_format': 'streeteasy:rental:<listing_id>'}
 
     def undo(self, args):
         return self.ledger.write('undo', merge_id=args.get('merge_id'),
                                  expected_revision=args.get('identity_revision'), author=args.get('author'),
                                  reason=args.get('reason'), request_id=args.get('request_id'))
+
+    def association_preview(self, args):
+        data = self.candidates({'queue':'supported', 'search':args.get('search','')}, all_rows=True)
+        if not data['rows']:
+            raise ValueError('No source-supported groups match this search')
+        proposals = [{'listing_ids':r['listing_ids'], 'evidence':r['assessment']} for r in data['rows']]
+        token = uuid.uuid4().hex
+        record = {'dataset':self.s.dataset, 'identity_revision':data['identity_revision'],
+                  'review_revision':data['review_revision'], 'source_digest':self._source.digest,
+                  'proposals':proposals, 'search':args.get('search','')}
+        directory = self.s.state/'unit-proposals'; directory.mkdir(exist_ok=True)
+        (directory/(token+'.json')).write_text(canonical(record))
+        return {'token':token, 'group_count':len(proposals),
+                'listing_count':sum(len(p['listing_ids']) for p in proposals),
+                'capture_count':sum(len(p['evidence']['snapshot_ids']) for p in proposals),
+                'examples':data['rows'][:10], 'search':record['search']}
+
+    def proposal(self, args):
+        token = str(args.get('token',''))
+        if not re.fullmatch('[a-f0-9]{32}', token):
+            raise ValueError('Invalid proposal token')
+        try:
+            return json.loads((self.s.state/'unit-proposals'/(token+'.json')).read_text())
+        except FileNotFoundError as exc:
+            raise ValueError('Proposal not found; preview again') from exc
+
+    def association_apply(self, args):
+        record = self.proposal(args); token = args['token']
+        events = self.ledger.events()
+        prior = next((e for e in events if e['request_id']==token), None)
+        if prior is None:
+            review = self.s.ledger.events()
+            if (record['dataset'] != self.s.dataset or record['review_revision'] != (review[-1]['hash'] if review else GENESIS)
+                or record['identity_revision'] != self.ledger.revision(events)):
+                raise ReviewConflict('Review data or unit identities changed; preview again')
+            catalog = self.catalog(review,events)
+            assessments = self.assessments(catalog,review,events)
+            allowed = {tuple(v['listing_ids']):v for v in assessments.values() if v['eligible']}
+            if record['source_digest'] != self._source.digest or any(
+                allowed.get(tuple(p['listing_ids'])) != p['evidence'] for p in record['proposals']):
+                raise ReviewConflict('Source evidence changed; preview again')
+        event = self.ledger.write('associate_batch', proposals=record['proposals'],
+            review_revision=record['review_revision'], expected_revision=record['identity_revision'],
+            author=args.get('author'), reason='Accepted consistent StreetEasy unit-page and listing-history associations', request_id=token)
+        return {'batch_id':event['id'], 'group_count':len(event['proposals']),
+                'listing_count':sum(len(p['listing_ids']) for p in event['proposals'])}
+
+    def batches(self, args):
+        events = self.ledger.events(); active = {e['id'] for e in active_decisions(events)}
+        return {'identity_revision':self.ledger.revision(events), 'rows':[
+            {'batch_id':e['id'], 'recorded_at':e['recorded_at'], 'author':e['author'],
+             'group_count':len(e['units']), 'active_groups':sum(u['id'] in active for u in e['units'])}
+            for e in reversed(events) if e['action']=='associate_batch']}
+
+    def association_undo(self, args):
+        event = self.ledger.write('undo_batch', batch_id=args.get('batch_id'),
+            expected_revision=args.get('identity_revision'), author=args.get('author'),
+            reason=args.get('reason'), request_id=args.get('request_id'))
+        return {'id':event['id'], 'batch_id':event['batch_id']}

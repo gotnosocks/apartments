@@ -127,6 +127,16 @@ def create_app(backend=None, *, dataset_root=None, review_state=None, read_only=
     def unit_mapping():
         return call('unit_mapping', {})
 
+    @app.get('/api/units/batches')
+    def unit_batches():
+        return call('unit_batches', {})
+
+    @app.get('/api/units/proposal')
+    def unit_proposal():
+        response = app.make_response(call('unit_proposal', dict(request.args)))
+        response.headers['Content-Disposition'] = 'attachment; filename="unit-association-proposal.json"'
+        return response
+
     @app.get('/api/units/export')
     def unit_export():
         response = app.make_response(call('unit_inspect', dict(request.args)))
@@ -154,6 +164,9 @@ def create_app(backend=None, *, dataset_root=None, review_state=None, read_only=
         ("/api/review", "review"),
         ('/api/units/merge', 'unit_merge'),
         ('/api/units/undo', 'unit_undo'),
+        ('/api/units/associations/preview', 'unit_association_preview'),
+        ('/api/units/associations/apply', 'unit_association_apply'),
+        ('/api/units/associations/undo', 'unit_association_undo'),
         ("/api/events/price/preview", "event_price_preview"),
         ("/api/identity/confirm", "identity_confirm"),
         ("/api/corrections/preview", "preview"),

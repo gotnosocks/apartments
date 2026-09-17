@@ -57,19 +57,19 @@ Issue counts above the list reflect the selected building, search, and review st
 ## Merge housing unit identities
 
 Open **Merge unit records** from the review app, or visit `/units`. This tool saves
-the assertion that selected StreetEasy **rental listing IDs refer to one housing
-unit**. It is independent of per-capture review confirmations and price edits.
+associations between StreetEasy **rental listing IDs and one housing unit**,
+distinguishing source associations from manual physical-identity confirmations. It is independent of per-capture review confirmations and price edits.
 
-**Possible matches** suggests distinct identities sharing an observed building
+**All unresolved groups** includes distinct identities sharing an observed building
 and unit label, including normalized-field identity corrections. Missing and
 generic labels are not pooled. Search by building, unit label, or rental ID,
 then choose **Compare**. Alternatively, enter rental IDs directly to compare
 records with different labels. Check the desired listings, compare the revised
 selection if needed, add a reason, and choose **Merge into one unit**.
 
-The list defaults to rental listing ID count, highest first. After saving, a
-**Merge saved** panel appears at the top of the group detail. **Next duplicate
-group — most listing IDs** opens the largest remaining candidate group across
+The list defaults to **Needs manual review**, sorted by rental listing ID count, highest first. After saving, a
+**Merge saved** panel appears at the top of the group detail. **Next manual review
+group — most listing IDs** opens the largest remaining exception group across
 all buildings, clears the search, and restores the default sort. It skips groups
 containing the unit just merged; any unresolved matches from a partial merge
 remain available in the list.
@@ -119,3 +119,70 @@ The legacy rent model is not automatically rerun or rewritten by a merge.
 The merge utility resolves identity and builds the unit history; it does not
 propagate per-capture price corrections or review decisions to other captures.
 Original observation and event tables remain immutable evidence.
+
+
+### StreetEasy-associated groups and bulk proposals
+
+**Ready for bulk association** contains groups whose source evidence agrees on:
+
+- One canonical StreetEasy building/unit page across every capture, used by no
+  rental IDs outside the group.
+- Matching effective building and unit labels, including agreement with the unit
+  page path. Only casing, URL encoding, and the display `#` are reconciled.
+- One latest-listing ID across every capture, included in the group.
+- Exactly the group's rental listing IDs in every capture's rental history, with
+  no incoming history references from another group.
+- No existing or previously undone identity decisions involving these IDs, and
+  no active corrections to identity/source-history fields.
+
+These fields express one source's grouping, not independent physical verification.
+Attribute disagreements do not establish identity errors and remain in the
+separate attribute review pass. Missing/generic unit labels are never pooled by label alone. A shared canonical
+unit page can surface them as a manual exception. Overlapping canonical-page,
+label, and saved-unit groups are combined for review, preventing independent
+actions on overlapping membership.
+
+Choose **Ready for bulk association**, optionally search, then **Preview all
+matching associations**. The preview freezes every eligible matching group across
+all pages, displays counts and examples, and offers a download of the complete
+proposal/evidence. **Save … StreetEasy associations** writes one durable unit ID
+per group, labeled **StreetEasy-associated**. Individual manual merges remain
+labeled **Manually confirmed**. Original captures, prices, attributes, review
+statuses, and history events are preserved.
+
+A batch is one append-only, hash-chained `associate_batch` event. Each member has
+its own decision ID and unit ID. Retry uses the frozen preview token; changed
+review/identity revisions reject a stale proposal. The proposal and recorded
+member evidence include the canonical URL, latest ID, exact member/capture IDs,
+rule version, and source-evidence digest. Normal unit exports expose that evidence
+and the association basis. `/api/units/mapping` includes `unit_basis` in addition
+to the listing-to-unit map. Consumers must use the updated ledger helpers to
+interpret both historical manual events and new source-association batches.
+
+**Saved association batches** supports whole-batch undo with a reason. A group's
+detail also supports individual undo. Undo is blocked if a later identity merge
+depends on the association; undo the later merge first. Previously undone groups
+return to manual review, so they are not immediately suggested for bulk association
+again. Manual confirmation of a previously source-associated group can be recorded
+by undoing that association and then using the normal manual merge flow.
+
+New datasets automatically receive `canonical_href`, `canonical_unit_url`, and
+`canonical_unit_error` from the normal raw HTML transform. The review app prefers
+these fields. For older immutable datasets, the separate evidence backfill is:
+
+```sh
+PYTHONPATH=src .venv/bin/python -m apartments.unit_source \
+  --dataset /path/to/completed-dataset \
+  --bodies /path/to/archive/bodies \
+  --output /path/to/review-state/unit-source-pages.parquet
+```
+
+It reads only bounded HTML heads from the existing local archive; it makes no
+network requests and does not alter original Parquet tables. The sidecar is bound
+to the dataset's exact snapshot IDs, URLs, and body hashes. Restart the review app
+after installing or rebuilding this file. A missing sidecar on an older dataset
+leaves groups in manual review; a mismatched sidecar is rejected.
+
+Added endpoints: POST `/api/units/associations/preview`, `/apply`, `/undo`; GET
+`/api/units/proposal?token=...` and `/api/units/batches`. Writes retain the existing
+host, origin, CSRF, and read-only protections.

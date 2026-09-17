@@ -114,3 +114,28 @@ The link interpretation has its own input and implementation hashes and processi
 clock; it is a parser interpretation, not a human correction. Multiple candidate
 links are retained explicitly. Empty-inventory message rows are placeholders, not
 extra apartments.
+
+
+## Canonical unit-page evidence
+
+The normal `parse_listing` / `process_shard` transform extracts three additional
+columns for every listing capture, including when the listing object fails to
+parse:
+
+- `canonical_href`: the single declared canonical href from the HTML head.
+- `canonical_unit_url`: a normalized StreetEasy building/unit URL, or null when
+  the canonical points to a rental listing, building alone, another host, or an
+  unsupported path.
+- `canonical_unit_error`: an explicit reason for missing/unsupported/conflicting
+  evidence. Missing evidence does not itself invalidate the listing's other data.
+
+Extraction uses the same bounded head parser as the older-dataset evidence
+backfill. The helper is included in the transform implementation hash, so resuming
+an old run with changed canonical extraction is rejected rather than mixing
+interpretations. Start a new output dataset for the next normal transform; do not
+rewrite an already completed dataset in place.
+
+The review app reads these fields directly, without an additional backfill step
+on newly transformed datasets. Canonical extraction records source evidence; it
+never silently merges listings or applies human review decisions. Durable unit
+associations remain in the separate reversible identity ledger.

@@ -137,3 +137,65 @@ def test_listing_count_sort_across_pages_filters_and_merged_units(service):
     assert u.candidates({'limit':1,'exclude_unit_id':partial['unit_id']})['rows'] == []
     with pytest.raises(ValueError,match='sort order'):
         u.candidates({'sort':'unknown'})
+
+
+def ready_service(s):
+    from .test_unit_source import evidence
+    s.db.execute("UPDATE rental SET unit_label='4C'")
+    u=UnitMergeService(s);u._source=evidence()
+    return u
+
+
+def test_source_association_preview_apply_export_and_undo(service):
+    from apartments.unit_identity import identity_map
+    u=ready_service(service)
+    assert u.candidates({'queue':'supported'})['total']==1
+    assert u.candidates({'queue':'review'})['total']==0
+    preview=u.association_preview({'search':'a 4c'})
+    assert preview['group_count']==1 and preview['listing_count']==2
+    assert u.ledger.events()==[]
+    assert u.proposal({'token':preview['token']})['proposals'][0]['evidence']['canonical_url'].endswith('/a/4c')
+    saved=u.association_apply({'token':preview['token'],'author':'Ben'})
+    assert u.association_apply({'token':preview['token'],'author':'Ben'})==saved
+    detail=u.inspect({'listing_ids':['1']})
+    assert detail['listing_ids']==['1','2'] and detail['association_basis']=='streeteasy'
+    assert detail['source_evidence']['snapshot_ids']==[1,2]
+    assert set(u.mapping({})['unit_basis'].values())=={'streeteasy'}
+    assert u.candidates({'mode':'merged'})['rows'][0]['basis']=='streeteasy'
+    u.undo({'merge_id':detail['latest_merge']['id'],'author':'Ben','reason':'wrong association','request_id':'undo','identity_revision':detail['identity_revision']})
+    assert identity_map(u.ledger.events())=={}
+    assert u.candidates({'queue':'supported'})['total']==0
+    assert u.candidates({'queue':'review'})['total']==1  # Undo is respected, not re-suggested in bulk.
+    assert u.batches({})['rows'][0]['active_groups']==0
+
+
+def test_association_preview_refuses_stale_or_changed_evidence(service):
+    u=ready_service(service)
+    preview=u.association_preview({})
+    service.review({'snapshot_id':1,'stage':'identity','decision':'confirmed','author':'Ben'})
+    with pytest.raises(ReviewConflict,match='changed'):
+        u.association_apply({'token':preview['token'],'author':'Ben'})
+    preview=u.association_preview({})
+    u._source.digest='changed';u._assessments=None
+    with pytest.raises(ReviewConflict,match='Source evidence'):
+        u.association_apply({'token':preview['token'],'author':'Ben'})
+    assert u.ledger.events()==[]
+    with pytest.raises(ValueError,match='token'):
+        u.proposal({'token':'../../some-file'})
+
+
+def test_canonical_groups_surface_different_labels_without_overlapping_actions(service):
+    from .test_unit_source import evidence
+    s=service
+    s.db.execute("UPDATE rental SET unit_label='Different' WHERE snapshot_id=2")
+    u=UnitMergeService(s);u._source=evidence()
+    groups=u.candidates({'queue':'review'})
+    assert groups['total']==1
+    assert groups['rows'][0]['listing_ids']==['1','2']
+    assert 'Building or unit labels differ' in groups['rows'][0]['assessment']['reasons']
+    assert u.candidates({'queue':'supported'})['total']==0
+    # A label match overlapping that canonical group becomes one reviewable group.
+    s.db.execute("INSERT INTO rental SELECT * REPLACE(5 AS snapshot_id,'5' AS listing_id) FROM rental WHERE snapshot_id=2")
+    u=UnitMergeService(s);u._source=evidence()
+    groups=u.candidates({})
+    assert groups['total']==1 and groups['rows'][0]['listing_ids']==['1','2','5']

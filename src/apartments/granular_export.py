@@ -17,7 +17,7 @@ VERSION = 'granular-v1'
 FIELDS = {
  'snapshots': 'snapshot_id:i generation:i url:s body_hash:s kind:s observed_at:f extraction_version:i',
  'fetch_observations': 'observation_id:i generation:i url:s fetched_at:f status:i content_type:s headers:s body_hash:s not_modified:i error:s',
- 'listing_observations': 'snapshot_id:i url:s listing_id:s listing_type:s building_slug:s unit_label:s bedrooms:f bathrooms:f square_feet:f room_count:f collected_at:f parsed_at:f source_created_at:s source_updated_at:s features_json:s amenities_json:s pricing_json:s raw_listing_json:s parse_status:s error:s',
+ 'listing_observations': 'snapshot_id:i url:s listing_id:s listing_type:s building_slug:s unit_label:s bedrooms:f bathrooms:f square_feet:f room_count:f collected_at:f parsed_at:f source_created_at:s source_updated_at:s features_json:s amenities_json:s pricing_json:s raw_listing_json:s canonical_href:s canonical_unit_url:s canonical_unit_error:s parse_status:s error:s',
  'event_mentions': 'snapshot_id:i episode_index:i event_index:i listing_id:s event_listing_id:s event_category:s event_date:s price:f status:s percent_change:f event_json:s event_key:s',
  'building_observations': 'snapshot_id:i building_slug:s building_id:s residential_units:f latitude:f longitude:f raw_building_json:s parse_status:s error:s',
  'inventory_rows': 'snapshot_id:i row_index:i listing_url:s row_kind:s row_html:s record_json:s',
@@ -30,7 +30,7 @@ SCHEMAS = {name: pa.schema([(x.split(':')[0], {'i':pa.int64(),'f':pa.float64(),'
 
 def implementation_hash():
  h=hashlib.sha256()
- for name in ('granular_export.py','granular_parse.py'):
+ for name in ('granular_export.py','granular_parse.py','unit_canonical.py'):
   h.update((Path(__file__).parent/name).read_bytes())
  return h.hexdigest()
 

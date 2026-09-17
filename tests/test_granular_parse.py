@@ -60,3 +60,18 @@ def test_event_key_is_stable_across_capture_listing_and_position():
     _, second = parse_listing(body(11), "https://streeteasy.com/rental/11")
     assert first[0]["event_key"] == second[0]["event_key"]
     assert first[0]["occurrence_key"] == second[0]["occurrence_key"]
+
+
+def test_canonical_fields_survive_normal_transform_and_listing_parse_failure():
+    head='<html><head><link rel="canonical" href="/building/demo/4a"></head><body>'
+    listing={'id':42,'propertyDetails':{},'propertyHistory':[{'listingId':'42','rentalEventsOfInterest':[]}]}
+    body=(head+'<script type="application/json">'+json.dumps({'listing':listing})+'</script>').encode()
+    row,_=parse_listing(body,'https://streeteasy.com/rental/42')
+    assert row['canonical_href']=='/building/demo/4a'
+    assert row['canonical_unit_url']=='https://streeteasy.com/building/demo/4a'
+    assert row['canonical_unit_error'] is None
+    failed,_=parse_listing(body,'https://streeteasy.com/rental/99')
+    assert failed['parse_status']=='failed' and failed['canonical_unit_url']==row['canonical_unit_url']
+    non_unit,_=parse_listing(body.replace(b'/building/demo/4a',b'/rental/42'),'https://streeteasy.com/rental/42')
+    assert non_unit['canonical_href']=='/rental/42' and non_unit['canonical_unit_url'] is None
+    assert non_unit['canonical_unit_error']=='Canonical link is not a unit page'

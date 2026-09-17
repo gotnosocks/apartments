@@ -39,7 +39,7 @@ _service = None
 )
 def review(action: str, args: dict | None = None):
     global _service
-    if os.environ.get("REVIEW_READ_ONLY") == "1" and action not in {"overview", "observations", "observation", "events", "activity", "unit_candidates", "unit_inspect", "unit_mapping"}:
+    if os.environ.get("REVIEW_READ_ONLY") == "1" and action not in {"overview", "observations", "observation", "events", "activity", "unit_candidates", "unit_inspect", "unit_mapping", "unit_batches", "unit_proposal"}:
         return {"ok": False, "error": "Review writes on Modal are frozen for migration to thelio. Reload the local app after cutover."}
     from apartments.review_service import ReviewService
 
@@ -53,6 +53,9 @@ def review(action: str, args: dict | None = None):
         if action in (
             "unit_merge",
             "unit_undo",
+            "unit_association_preview",
+            "unit_association_apply",
+            "unit_association_undo",
             "preview",
             "cohort_preview",
             "apply",
