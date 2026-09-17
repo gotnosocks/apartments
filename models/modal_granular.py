@@ -88,13 +88,17 @@ def status(run='chelsea-granular-20260916'):
 def probe(run='chelsea-granular-20260916'):
  import gzip
  from apartments.granular_parse import parse_listing
+ from apartments.granular_media import page_type, parse_media_gallery
  volume.reload();root=root_for(run);plan=json.loads((root/'plan.json').read_text());samples=[];started=time.time()
  for i in range(0,plan['shards'],max(1,plan['shards']//20)):
   job=json.loads((root/'jobs'/f'{i:05d}.json').read_text())
   item=next((r for r in job if r['kind']=='listing'),None)
   if not item:continue
   read_start=time.time();h=item['body_hash'];body=gzip.decompress((Path('/archive/bodies')/h[:2]/f'{h}.gz').read_bytes())
-  read_seconds=time.time()-read_start;parse_start=time.time();row,events=parse_listing(body,item['url']);parse_seconds=time.time()-parse_start
+  read_seconds=time.time()-read_start;parse_start=time.time()
+  if page_type(item)=='media_gallery':row,events=parse_media_gallery(body,item['url']),[]
+  else:row,events=parse_listing(body,item['url'])
+  parse_seconds=time.time()-parse_start
   samples.append({**{k:v for k,v in row.items() if k!='raw_listing_json'},'events':len(events),'first_event':events[0] if events else None,'bytes':len(body),'read_seconds':read_seconds,'parse_seconds':parse_seconds})
  return {'seconds':time.time()-started,'samples':samples}
 

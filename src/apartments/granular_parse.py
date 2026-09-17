@@ -7,7 +7,7 @@ import re
 from urllib.parse import urlsplit
 from .unit_canonical import canonical_fields
 
-from streeteasy_archive.extract import _scripts, _selector, flight_text
+from streeteasy_archive.extract import _scripts, _selector, flight_text, is_gallery_url
 
 
 def _walk(value):
@@ -124,6 +124,8 @@ def _occurrence_key(event_key, episode_index, event_index):
 
 def parse_listing(body: bytes, url: str) -> tuple[dict, list[dict]]:
     """Parse a listing page, retaining every rental and sale history occurrence."""
+    if is_gallery_url(url):
+        raise ValueError('Media galleries must use parse_media_gallery, not listing-history parsing')
     canonical = canonical_fields(body, url)
     scripts = _scripts(_selector(body))
     candidates = _listing_candidates(scripts)

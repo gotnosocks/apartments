@@ -15,12 +15,14 @@ import pyarrow.parquet as pq
 
 VERSION = 'granular-v1'
 LISTING_FILTER = 'rental-canonical-unit-v1'
+PAGE_CLASSIFICATION = 'media-gallery-v1'
 # Numeric clocks are UTC Unix seconds. Original date strings stay in source JSON.
 FIELDS = {
- 'snapshots': 'snapshot_id:i generation:i url:s body_hash:s kind:s observed_at:f extraction_version:i',
+ 'snapshots': 'snapshot_id:i generation:i url:s body_hash:s kind:s page_type:s observed_at:f extraction_version:i',
  'fetch_observations': 'observation_id:i generation:i url:s fetched_at:f status:i content_type:s headers:s body_hash:s not_modified:i error:s',
  'listing_observations': 'snapshot_id:i url:s listing_id:s listing_type:s building_slug:s unit_label:s bedrooms:f bathrooms:f square_feet:f room_count:f collected_at:f parsed_at:f source_created_at:s source_updated_at:s features_json:s amenities_json:s pricing_json:s raw_listing_json:s canonical_href:s canonical_unit_url:s canonical_unit_error:s parse_status:s error:s',
  'listing_exclusions': 'snapshot_id:i url:s listing_id:s listing_type:s collected_at:f reason:s canonical_href:s canonical_unit_error:s parse_status:s error:s',
+ 'media_gallery_observations': 'snapshot_id:i url:s page_type:s listing_id:s listing_type:s building_id:s collected_at:f parsed_at:f canonical_href:s canonical_unit_url:s canonical_unit_error:s property_details_json:s media_json:s signature_media_gallery_json:s raw_gallery_json:s parse_status:s error:s',
  'event_mentions': 'snapshot_id:i episode_index:i event_index:i listing_id:s event_listing_id:s event_category:s event_date:s price:f status:s percent_change:f event_json:s event_key:s',
  'building_observations': 'snapshot_id:i building_slug:s building_id:s residential_units:f latitude:f longitude:f raw_building_json:s parse_status:s error:s',
  'inventory_rows': 'snapshot_id:i row_index:i listing_url:s row_kind:s row_html:s record_json:s',
@@ -33,7 +35,7 @@ SCHEMAS = {name: pa.schema([(x.split(':')[0], {'i':pa.int64(),'f':pa.float64(),'
 
 def implementation_hash():
  h=hashlib.sha256()
- for name in ('granular_export.py','granular_parse.py','unit_canonical.py'):
+ for name in ('granular_export.py','granular_parse.py','granular_media.py','unit_canonical.py'):
   h.update((Path(__file__).parent/name).read_bytes())
  return h.hexdigest()
 
@@ -63,23 +65,24 @@ def connect(snapshot):
  c.row_factory=sqlite3.Row;c.execute('PRAGMA cache_size=-16384');return c
 
 def prepare(snapshot,root,ledger,chunk_size=2000):
+ from .granular_media import page_type
  root=Path(root);root.mkdir(parents=True,exist_ok=True)
  from apartments.corrections import Overlay
  overlay=Overlay(ledger)
- config={'version':VERSION,'listing_filter':LISTING_FILTER,'snapshot':str(snapshot),'snapshot_bytes':Path(snapshot).stat().st_size,'chunk_size':chunk_size,'corrections':overlay.manifest}
+ config={'version':VERSION,'listing_filter':LISTING_FILTER,'page_classification':PAGE_CLASSIFICATION,'snapshot':str(snapshot),'snapshot_bytes':Path(snapshot).stat().st_size,'chunk_size':chunk_size,'corrections':overlay.manifest}
  # The raw export freezes corrections but deliberately does not guess an attribute
  # effective date. A corrected projection can apply this ledger at model time.
  ledger_bytes=Path(ledger).read_bytes();config['ledger_sha256']=hashlib.sha256(ledger_bytes).hexdigest()
  plan_path=root/'plan.json'
  if plan_path.exists():
   previous=json.loads(plan_path.read_text())
-  for key in ('version','listing_filter','snapshot','snapshot_bytes','chunk_size','ledger_sha256'):
+  for key in ('version','listing_filter','page_classification','snapshot','snapshot_bytes','chunk_size','ledger_sha256'):
    if previous.get(key)!=config[key]:raise ValueError(f'Run identity changed: {key}; choose a new output ID')
   return previous
  (root/'corrections.jsonl').write_bytes(ledger_bytes)
  c=connect(snapshot);tables=Tables(root,'metadata',['snapshots','fetch_observations','frontier','url_aliases']);jobs=[];batch=[]
  for r in c.execute('SELECT p.id snapshot_id,p.generation,p.url,p.body_hash,p.observed observed_at,p.extraction_version,f.kind FROM snapshots p JOIN scope_urls s USING(generation,url) LEFT JOIN frontier f USING(generation,url) ORDER BY p.id'):
-  row=dict(r);tables.add('snapshots',row);batch.append(row)
+  row=dict(r);row['page_type']=page_type(row);tables.add('snapshots',row);batch.append(row)
   if len(batch)>=chunk_size:jobs.append(batch);batch=[]
  if batch:jobs.append(batch)
  print('Snapshot metadata',tables.counts, 'shards',len(jobs),flush=True)
@@ -100,10 +103,11 @@ def shard_files_valid(root, previous):
  return True
 
 def read_bodies(job,body_root):
+ from .granular_media import page_type
  # Bound cold-volume read latency without creating thousands of queued futures
  # or keeping an entire shard of decompressed documents in memory.
  def read(item):
-  if item['kind']!='listing':return item,None
+  if page_type(item) not in {'listing','media_gallery'}:return item,None
   try:
    h=item['body_hash']
    return item,gzip.decompress((Path(body_root)/h[:2]/f'{h}.gz').read_bytes())
@@ -114,9 +118,9 @@ def read_bodies(job,body_root):
 
 def process_shard(snapshot,root,part,body_root):
  from apartments.granular_parse import parse_listing
+ from apartments.granular_media import page_type, parse_media_gallery
  from apartments.unit_canonical import canonical_fields
  from streeteasy_archive.scope import objects
- from streeteasy_archive.extract import kind_for
  root=Path(root);marker=root/'checkpoints'/f'{part:05d}.json'
  if marker.exists():
   previous=json.loads(marker.read_text())
@@ -124,11 +128,21 @@ def process_shard(snapshot,root,part,body_root):
   if shard_files_valid(root,previous):return previous
   marker.unlink()
  job=json.loads((root/'jobs'/f'{part:05d}.json').read_text());c=connect(snapshot)
- tables=Tables(root,f'part-{part:05d}',['listing_observations','listing_exclusions','event_mentions','building_observations','inventory_rows','inventory_observations','source_changes'])
+ tables=Tables(root,f'part-{part:05d}',['listing_observations','listing_exclusions','media_gallery_observations','event_mentions','building_observations','inventory_rows','inventory_observations','source_changes'])
  errors=[];started=time.time()
  for n,(item,body) in enumerate(read_bodies(job,body_root)):
-  sid=item['snapshot_id'];url=item['url'];kind=item['kind'] or kind_for(url)
-  if kind=='listing':
+  sid=item['snapshot_id'];url=item['url'];kind=page_type(item)
+  if kind=='media_gallery':
+   try:
+    if isinstance(body,Exception):raise body
+    if body is None:raise ValueError('Missing gallery body')
+    row=parse_media_gallery(body,url)
+   except Exception as e:
+    row={'page_type':'media_gallery','parse_status':'error','error':f'{type(e).__name__}: {e}'}
+   row.update(snapshot_id=sid,url=url,collected_at=item['observed_at'],parsed_at=time.time())
+   tables.add('media_gallery_observations',row)
+   if row.get('parse_status')!='ok':errors.append({'snapshot_id':sid,'url':url,'page_type':kind,'error':row.get('error')})
+  elif kind=='listing':
    try:
     if isinstance(body,Exception):raise body
     if body is None:raise ValueError('Missing listing body')

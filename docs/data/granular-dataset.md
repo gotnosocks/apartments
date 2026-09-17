@@ -20,6 +20,7 @@ report uses DuckDB with a 1 GB memory limit and two threads.
 | `snapshots` | An originally saved interpretation of a URL/body in a crawl generation |
 | `listing_observations` | A retained listing interpretation of one snapshot, including parse failures on eligible pages |
 | `listing_exclusions` | A rental capture excluded because it has no usable canonical unit page, with its source URL and reason |
+| `media_gallery_observations` | A gallery capture with its media payload and listing metadata, without listing-history interpretation |
 | `event_mentions` | One history entry at its original episode/event position in one snapshot |
 | `building_observations` | A building interpretation of one snapshot, including failures |
 | `inventory_observations` | An expanded inventory capture and its original completeness metadata |
@@ -150,8 +151,8 @@ The normal transform retains a rental capture in `listing_observations` only whe
 its HTML declares a usable canonical StreetEasy unit page (`canonical_unit_url`
 is non-null). A rental-listing URL, building-only URL, foreign/unsupported URL,
 missing/conflicting canonical link, incomplete head, or unreadable body is excluded.
-This is a page-identity rule, with no listing-date cutoff. Sale captures retain
-their existing behavior.
+This is a page-identity rule, with no listing-date cutoff. Sale listing captures retain
+their existing behavior. Media galleries are classified separately before this rule.
 
 Excluded captures contribute no rows to `listing_observations`, `event_mentions`,
 or `source_changes`. History mentioning an excluded listing can still occur on
@@ -172,5 +173,32 @@ The rule is recorded as `listing_filter: rental-canonical-unit-v1` in `plan.json
 and included in the transform implementation hash. It requires a fresh output run;
 existing completed datasets and review decisions are not rewritten. Applied to the
 current reviewed rental corpus (excluding media-gallery captures), this policy
-would exclude 8,094 of 96,783 captures and retain 88,689. A full transform also
-reports exclusions among galleries and failed rental-page parses.
+would exclude 8,094 of 96,783 captures and retain 88,689. Failed rental-page parses
+without usable canonical evidence are also counted as exclusions.
+
+
+## Media-gallery pages
+
+The transform classifies recognized `/media_gallery` endpoints as `media_gallery`
+before dispatching to any listing, building, or inventory parser. This handles
+legacy snapshots whose original archive `kind` was `listing`, `building`, or null.
+`snapshots.kind` remains the original value; the new `snapshots.page_type` records
+the derived classification used for processing and coverage checks.
+
+`media_gallery_observations` retains the snapshot ID, URL, collection/parse times,
+listing ID/type when available, building ID, canonical evidence, property details,
+media and signature-gallery JSON, and the complete selected gallery object. A
+gallery does not need `propertyHistory` or a canonical unit link. It contributes
+no rows to `listing_observations`, `listing_exclusions`, `event_mentions`, or
+`source_changes`, even if its payload includes history or price-change fields.
+No photos are downloaded; the embedded source media payload is preserved.
+
+Missing, ambiguous, unresolved, or unreadable gallery payloads remain explicit
+gallery parse errors. The report separates gallery counts/errors from listing
+errors, reconciles gallery coverage, and rejects leakage into listing/history
+tables. Missing gallery history is never a parsing error.
+
+`plan.json` records `page_classification: media-gallery-v1`; the gallery parser
+is included in the implementation hash. This change requires a new output run,
+so completed datasets remain immutable. All eight gallery pages in the frozen
+Chelsea archive (six sales and two rentals) have been checked against this parser.

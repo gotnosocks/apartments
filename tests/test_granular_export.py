@@ -137,3 +137,57 @@ def test_transform_filters_non_unit_rentals_and_reconciles_exclusions(tmp_path):
  assert pq.read_table(excluded_root/'listing_exclusions').num_rows==1
  partial_report=audit_dataset(excluded_root)
  assert partial_report['coverage']['listing']=={'expected_snapshots':10,'observed_snapshots':0,'intentionally_excluded':1,'expected_unobserved':9}
+
+
+def test_galleries_are_separate_even_with_legacy_kind_and_history_payload(tmp_path,monkeypatch):
+ from apartments import granular_parse
+ from apartments.granular_quality import audit_dataset
+ from apartments.granular_report import render_report
+ from .test_granular_media import gallery,gallery_body
+ db=tmp_path/'archive.sqlite3';c=sqlite3.connect(db)
+ c.executescript('''CREATE TABLE snapshots(id INTEGER,generation INTEGER,url TEXT,body_hash TEXT,observed REAL,extraction_version INTEGER,extracted TEXT);
+ CREATE TABLE scope_urls(generation INTEGER,url TEXT);
+ CREATE TABLE frontier(generation INTEGER,url TEXT,kind TEXT,state TEXT,attempts INTEGER);
+ CREATE TABLE observations(id INTEGER,generation INTEGER,url TEXT,fetched REAL,status INTEGER,content_type TEXT,headers TEXT,body_hash TEXT,not_modified INTEGER,error TEXT);
+ CREATE TABLE url_aliases(generation INTEGER,url TEXT,target_url TEXT,reason TEXT,created REAL);''')
+ originals={1:'listing',2:'building',3:None,4:'media_gallery'}
+ for sid,kind in originals.items():
+  listing=gallery(sid)
+  listing['propertyHistory']=[{'listingId':sid,'saleEventsOfInterest':[{'date':'2026-01-01','price':900000}]}]
+  listing['pricing']={'priceChanges':[{'changedAt':'2026-01-01','price':900000}]}
+  listing['statusChanges']=[{'changedAt':'2026-01-01','status':'ACTIVE'}]
+  url=f'https://streeteasy.com/{"rental" if sid==2 else "sale"}/{sid}'+('/media_gallery' if sid>1 else '')
+  h=f'{sid:064x}'
+  if sid!=4:
+   path=tmp_path/'bodies'/h[:2]/(h+'.gz');path.parent.mkdir(parents=True,exist_ok=True)
+   path.write_bytes(gzip.compress(gallery_body(listing)))
+  c.execute('INSERT INTO scope_urls VALUES(1,?)',(url,));c.execute("INSERT INTO frontier VALUES(1,?,?,'done',1)",(url,kind))
+  c.execute('INSERT INTO snapshots VALUES(?,1,?,?,?,5,?)',(sid,url,h,1000+sid,'{}'))
+ c.commit();c.close();ledger=tmp_path/'edits.jsonl';ledger.write_text('');root=tmp_path/'out'
+ plan=prepare(db,root,ledger)
+ assert plan['page_classification']=='media-gallery-v1'
+ snapshots=pq.read_table(root/'snapshots').to_pylist()
+ assert {r['snapshot_id']:r['kind'] for r in snapshots}==originals
+ assert [r['page_type'] for r in snapshots]==['listing','media_gallery','media_gallery','media_gallery']
+ parsed=[];original=granular_parse.parse_listing
+ def tracking_parser(body,url):
+  parsed.append(url);return original(body,url)
+ monkeypatch.setattr(granular_parse,'parse_listing',tracking_parser)
+ result=process_shard(db,root,0,tmp_path/'bodies')
+ assert parsed==['https://streeteasy.com/sale/1']
+ assert pq.read_table(root/'listing_observations').num_rows==1
+ assert pq.read_table(root/'listing_exclusions').num_rows==0
+ for table in ('event_mentions','source_changes'):
+  assert {r['snapshot_id'] for r in pq.read_table(root/table).to_pylist()}=={1}
+ media=pq.read_table(root/'media_gallery_observations').to_pylist()
+ assert [r['parse_status'] for r in media]==['ok','ok','error']
+ assert all(json.loads(r['media_json'])['photos'] for r in media[:2])
+ assert result['errors'][0]['snapshot_id']==4 and result['errors'][0]['page_type']=='media_gallery'
+ report=audit_dataset(root)
+ assert report['coverage']['listing']['expected_snapshots']==1
+ assert report['coverage']['media_gallery']=={'expected_snapshots':3,'observed_snapshots':3,'expected_unobserved':0}
+ assert report['parse_failures']['listing_observations']['error_rows']==0
+ assert report['media_gallery_observations']['error_rows']==1
+ assert not any(report['referential_checks'].values())
+ assert 'Gallery parse errors | 1' in render_report(report)
+ assert process_shard(db,root,0,tmp_path/'bodies')==result

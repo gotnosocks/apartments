@@ -96,11 +96,14 @@ def render_report(report: dict) -> str:
     ]), "", "Attribute disagreements are retained for review and are not automatically corrected or treated as proven temporal changes. Missing amenities do not mean absence, and nonempty JSON can still contain an empty item list.", ""]
 
     coverage = report.get("coverage", {})
+    galleries = report.get("media_gallery_observations")
+    if galleries is not None:
+        lines += ["## Media galleries", "", "Gallery captures are parsed separately for media and listing metadata. They do not contribute listing-history or price-change rows; property history is not expected on these pages.", "", _table(["Measure", "Count"], [["Gallery captures", galleries.get("rows")], ["Gallery parse errors", galleries.get("error_rows")]]), ""]
     exclusions = report.get("listing_exclusions")
     if exclusions is not None:
         lines += ["## Intentional listing exclusions", "", "Rental captures without a canonical unit page are excluded from listing observations and their associated event/source-change rows. Original snapshots and archived bodies are preserved.", "", _table(["Reason", "Excluded captures"], [[reason, count] for reason, count in exclusions.get("by_reason", {}).items()]), ""]
     if coverage:
-        lines += ["## Coverage and linkage checks", "", _table(["Kind", "Expected snapshots", "Observed snapshots", "Intentionally excluded", "Unexplained missing"], [[kind, value.get("expected_snapshots"), value.get("observed_snapshots"), value.get("intentionally_excluded", 0), value.get("expected_unobserved")] for kind, value in coverage.items()]), ""]
+        lines += ["## Coverage and linkage checks", "", _table(["Page type", "Expected snapshots", "Observed snapshots", "Intentionally excluded", "Unexplained missing"], [[kind, value.get("expected_snapshots"), value.get("observed_snapshots"), value.get("intentionally_excluded", 0), value.get("expected_unobserved")] for kind, value in coverage.items()]), ""]
     refs = report.get("referential_checks", {})
     if refs:
         lines += [_table(["Integrity check", "Violations"], [[name, count] for name, count in refs.items()]), ""]
