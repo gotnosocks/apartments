@@ -22,6 +22,23 @@ function streetEasyUrls(observations){
   }catch{}}
   return [...urls];
 }
+function openUnopenedListings(urls,opened){
+  for(const url of urls){
+    if(opened.has(url))continue;
+    // A blank same-origin tab gives us a reliable handle when the browser permits it.
+    // Detach the opener and suppress the referrer before navigating to StreetEasy.
+    const tab=window.open('about:blank','_blank');
+    if(!tab)continue;
+    try{
+      tab.opener=null;
+      const policy=tab.document.createElement('meta');policy.name='referrer';policy.content='no-referrer';
+      tab.document.head.append(policy);
+      tab.location.replace(url);
+      opened.add(url);
+    }catch{tab.close();}
+  }
+  return urls.filter(url=>!opened.has(url)).length;
+}
 function observationLinks(row){
   const links=el('div',undefined,'capture-links');links.append(captureLink(row.snapshot_id));
   if(row.url){try{
@@ -98,10 +115,14 @@ function render(data){
   const sourceUrls=streetEasyUrls(data.observations);
   const openAll=el('button',`Open all StreetEasy listings (${sourceUrls.length})`);openAll.type='button';openAll.disabled=!sourceUrls.length;
   const tabsNote=el('p',undefined,'panel-note');tabsNote.hidden=true;tabsNote.setAttribute('role','status');
+  const openedUrls=new Set();
   openAll.addEventListener('click',()=>{
-    // Keep every open in the direct user click handler to preserve user activation.
-    for(const url of sourceUrls)window.open(url,'_blank','noopener,noreferrer');
-    tabsNote.textContent='If some tabs did not open, allow pop-ups for this review app and try again. Individual StreetEasy links are also available below.';
+    const remaining=openUnopenedListings(sourceUrls,openedUrls);
+    openAll.textContent=remaining?`Open remaining listings (${remaining})`:'All listings opened';
+    openAll.disabled=!remaining;
+    tabsNote.textContent=remaining
+      ? `${openedUrls.size} of ${sourceUrls.length} listing tabs opened. The browser blocked or could not open the remaining ${remaining}. Allow pop-ups for this review app using the blocked-pop-up icon in the address bar, then click Open remaining listings. You can also click again to open the next permitted tab, or use the individual links below.`
+      : `Opened all ${sourceUrls.length} distinct listing URLs.`;
     tabsNote.hidden=false;
   });
   observations.append(openAll,tabsNote);
