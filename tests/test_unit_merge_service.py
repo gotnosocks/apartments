@@ -103,3 +103,28 @@ def test_repeat_capture_of_same_listing_is_one_source_identity(service):
     detail = u.inspect({'listing_ids':['1']})
     assert detail['listing_ids'] == ['1'] and detail['capture_count'] == 2
     assert detail['history_events'] == 2
+
+
+def test_listing_count_sort_across_pages_filters_and_merged_units(service):
+    s = service
+    s.db.execute("UPDATE rental SET unit_label='4C'")
+    groups = [('a',['1','2']),('b',['10','11','12','13']),('c',['20','21','22']),('d',['30','31'])]
+    for building, ids in groups[1:]:
+        for lid in ids:
+            s.db.execute("INSERT INTO rental SELECT * REPLACE(? AS snapshot_id,? AS listing_id,? AS building_slug) FROM rental WHERE snapshot_id=1",[int(lid),lid,building])
+    u = UnitMergeService(s)
+    desc = {'sort':'listing_count','direction':'desc','limit':2}
+    first = u.candidates(desc)
+    second = u.candidates({**desc,'offset':2})
+    assert [r['listing_count'] for r in first['rows']] == [4,3]
+    assert [r['building'] for r in second['rows']] == ['a','d']
+    assert first['total'] == second['total'] == 4
+    assert [r['listing_count'] for r in u.candidates({**desc,'direction':'asc'})['rows']] == [2,2]
+    assert u.candidates({**desc,'search':'b'})['rows'][0]['listing_count'] == 4
+    for building, ids in groups:
+        u.ledger.write('merge',listing_ids=ids,author='test',reason='fixture',request_id=building,
+                       expected_revision=u.ledger.revision(u.ledger.events()))
+    merged = u.candidates({**desc,'mode':'merged'})
+    assert [r['listing_count'] for r in merged['rows']] == [4,3]
+    with pytest.raises(ValueError,match='sort order'):
+        u.candidates({'sort':'unknown'})

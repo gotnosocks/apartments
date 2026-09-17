@@ -68,6 +68,10 @@ class UnitMergeService:
         mode = args.get('mode', 'candidates')
         if mode not in {'candidates', 'merged'}:
             raise ValueError('Unknown unit list')
+        sort = args.get('sort', 'building')
+        direction = args.get('direction', 'asc')
+        if sort not in {'building', 'listing_count'} or direction not in {'asc', 'desc'}:
+            raise ValueError('Unknown sort order')
         groups = defaultdict(set)
         if mode == 'candidates':
             for lid, listing in catalog.items():
@@ -98,11 +102,17 @@ class UnitMergeService:
                            'listing_ids': sorted(ids), 'listing_count': len(ids),
                            'capture_count': len(captures), 'identities': len(units)})
         result.sort(key=lambda r: (r['building'], r['unit_label'], r['listing_ids']))
+        if sort == 'listing_count':
+            # Stable tie order, applied to all matches before selecting a page.
+            result.sort(key=lambda r: r['listing_count'], reverse=direction == 'desc')
+        elif direction == 'desc':
+            result.reverse()
         limit = min(100, max(1, int(args.get('limit', 25))))
         offset = max(0, int(args.get('offset', 0)))
         offset = min(offset, max(0, ((len(result) - 1) // limit) * limit))
         return {'rows': result[offset:offset + limit], 'total': len(result), 'offset': offset,
-                'limit': limit, 'identity_revision': self.ledger.revision(identity_events)}
+                'limit': limit, 'sort': sort, 'direction': direction,
+                'identity_revision': self.ledger.revision(identity_events)}
 
     def inspect(self, args):
         identity_events, review_events = self.ledger.events(), self.s.ledger.events()

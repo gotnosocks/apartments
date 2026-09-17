@@ -1,7 +1,7 @@
 'use strict';
 (() => {
 const $=id=>document.getElementById(id);
-const state={offset:0,limit:25,listSerial:0,detailSerial:0,data:null,busy:false,mergeRequest:null};
+const state={offset:0,limit:25,sort:'building',direction:'asc',listSerial:0,detailSerial:0,data:null,busy:false,mergeRequest:null};
 const el=(tag,text,cls)=>{const node=document.createElement(tag);if(text!==undefined)node.textContent=text;if(cls)node.className=cls;return node;};
 const num=value=>Number(value||0).toLocaleString();
 const value=x=>x==null?'Unknown':String(x);
@@ -17,8 +17,12 @@ function captureLink(sid){const a=el('a',`Capture ${sid}`);a.href=`/?snapshot_id
 function table(headings,rows){const wrap=el('div',undefined,'table-wrap'),t=el('table'),head=el('thead'),tr=el('tr'),body=el('tbody');for(const h of headings)tr.append(el('th',h));head.append(tr);for(const cells of rows){const line=el('tr');for(const content of cells){const td=el('td');if(content instanceof Node)td.append(content);else td.textContent=String(content);line.append(td);}body.append(line);}t.append(head,body);wrap.append(t);return wrap;}
 async function load(){
   const serial=++state.listSerial;$('total').textContent='Loading…';
-  const data=await api('/api/units/candidates?'+new URLSearchParams({search:$('search').value.trim(),mode:$('mode').value,offset:state.offset,limit:state.limit}));
+  const data=await api('/api/units/candidates?'+new URLSearchParams({search:$('search').value.trim(),mode:$('mode').value,offset:state.offset,limit:state.limit,sort:state.sort,direction:state.direction}));
   if(serial!==state.listSerial)return;
+  const sorted=data.sort==='listing_count';
+  $('listing-count-heading').setAttribute('aria-sort',sorted?(data.direction==='desc'?'descending':'ascending'):'none');
+  $('sort-listing-count').textContent='Rental listing IDs '+(sorted?(data.direction==='desc'?'↓':'↑'):'↕');
+  $('sort-listing-count').setAttribute('aria-label',`Sort by rental listing ID count, ${sorted&&data.direction==='desc'?'lowest':'highest'} first`);
   state.offset=data.offset;$('total').textContent=`${num(data.total)} ${$('mode').value==='merged'?'merged units':'possible matches'}`;
   $('candidates').replaceChildren();
   for(const item of data.rows){const row=el('tr'),name=el('td'),button=el('button',`${item.building} ${item.unit_label}`,'record-link');button.type='button';button.addEventListener('click',()=>inspect(item.listing_ids).catch(error));name.append(button);if(item.unit_id)name.append(el('small',item.unit_id));const action=el('td'),compare=el('button',item.unit_id?'Open unit':'Compare');compare.addEventListener('click',()=>inspect(item.listing_ids).catch(error));action.append(compare);row.append(name,el('td',num(item.listing_count)),el('td',num(item.capture_count)),action);$('candidates').append(row);}
@@ -77,6 +81,7 @@ function render(data){
     const price=el('div',money(event.price));if(event.price!==event.raw_price)price.append(el('small',`Source: ${money(event.raw_price)}`));if(event.conflicting_version)price.append(el('small','Multiple reported versions'));if(event.overlay_warning)price.append(el('small',event.overlay_warning));return [value(event.event_date),value(event.event_listing_id),value(event.status),price,refs];
   })));root.append(timeline);
 }
+$('sort-listing-count').addEventListener('click',()=>{state.direction=state.sort==='listing_count'&&state.direction==='desc'?'asc':'desc';state.sort='listing_count';state.offset=0;load().catch(error);});
 $('filters').addEventListener('submit',event=>{event.preventDefault();state.offset=0;load().catch(error);});
 $('mode').addEventListener('change',()=>{state.offset=0;load().catch(error);});
 $('previous').addEventListener('click',()=>{state.offset=Math.max(0,state.offset-state.limit);load().catch(error);});
