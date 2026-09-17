@@ -86,3 +86,34 @@ def test_local_mode_requires_both_paths():
 
     with pytest.raises(ValueError, match="both dataset root and review state"):
         create_app(dataset_root="/archive/dataset")
+
+
+def test_tailnet_host_keeps_csrf_and_origin_protection(monkeypatch):
+    import re
+
+    hostname = 'thelio.example.ts.net'
+    origin = f'http://{hostname}:8766'
+    monkeypatch.setenv('REVIEW_ALLOWED_HOSTS', hostname)
+    calls = []
+    app = create_app(lambda action, args: calls.append((action, args)) or {'ok': True, 'result': {'saved': True}})
+    client = app.test_client()
+    page = client.get('/', base_url=origin)
+    assert page.status_code == 200
+    token = re.search(r'<meta name="csrf-token" content="([^"]+)"', page.text).group(1)
+    assert client.get('/', base_url='http://other.example.ts.net:8766').status_code == 403
+    assert client.post('/api/review', base_url=origin, json={}).status_code == 403
+    assert client.post('/api/review', base_url=origin, json={}, headers={
+        'X-Review-CSRF': token, 'Origin': 'http://evil.example',
+    }).status_code == 403
+    assert calls == []
+    response = client.post('/api/review', base_url=origin, json={'snapshot_id': 1}, headers={
+        'X-Review-CSRF': token, 'Origin': origin,
+    })
+    assert response.status_code == 200
+    assert calls == [('review', {'snapshot_id': 1})]
+
+
+def test_tailnet_host_is_opt_in(monkeypatch):
+    monkeypatch.delenv('REVIEW_ALLOWED_HOSTS', raising=False)
+    client = create_app(lambda *args: {}).test_client()
+    assert client.get('/', base_url='http://thelio.example.ts.net:8766').status_code == 403

@@ -13,7 +13,9 @@ returned `ok`, and all 11 Parquet table counts matched the saved reports. See
 [the cutover report](thelio-cutover-20260916.json). The authoritative marker is
 `/data1/apartments/migration/cutover-ready.json` on thelio.
 
-The review and raw archive services are active. Both localhost URLs now use an
+The review and raw archive services are active. Direct browser access over Tailscale is available at
+[Review](http://thelio.tail3983e0.ts.net:8766/) and
+[Archive](http://thelio.tail3983e0.ts.net:8765/). Both localhost URLs also use an
 automatically reconnecting SSH tunnel from this Mac. Review submissions are
 enabled; no artificial review or correction records were added during testing.
 The old Modal review and migration deployments are stopped; the archive volume
@@ -137,7 +139,7 @@ contains no saved corrections or review decisions.
 
 User systemd lingering is enabled for `ben`, allowing services to run after logout
 and start at boot. Unit files are in `deploy/thelio/`; review/browser units require
-both the `/data1` mount and the cutover marker. They bind to loopback and have
+both the `/data1` mount and the cutover marker. They bind to loopback and the explicit Tailscale IPv4 address, with
 memory limits of 3 GiB and 2 GiB respectively. They are enabled and were started after validation.
 
 ```sh
@@ -165,3 +167,29 @@ No public web endpoint or new public inbound port is required.
 
 The source snapshot and live SQLite file have different SHA-256 hashes despite
 identical sizes; both have been preserved. Do not deduplicate them by size.
+
+## Direct Tailscale access
+
+The Mac and thelio share `tail3983e0.ts.net`. Open these links from a connected
+Tailscale device, including away from home:
+
+- Review: http://thelio.tail3983e0.ts.net:8766/
+- Raw archive: http://thelio.tail3983e0.ts.net:8765/
+
+The services listen on `100.80.84.126` plus `127.0.0.1`, with no wildcard or LAN
+listener. Network access follows the tailnet's access rules; people/devices with
+access to port 8766 can review and correct the data. Both apps accept only explicit
+configured hostnames. Review POSTs still require a session CSRF token and reject
+cross-origin requests. Transport encryption is supplied by Tailscale; these links
+use HTTP inside that network and do not require HTTPS certificate setup. See
+[Tailscale Serve examples](https://tailscale.com/docs/reference/examples/serve)
+for the optional proxy approach; this installation uses direct app listeners,
+without changing Tailscale operator permissions or enabling Funnel.
+
+`REVIEW_LISTEN` and `ARCHIVE_LISTEN` contain the space-separated Waitress listeners.
+`REVIEW_ALLOWED_HOSTS` and `ARCHIVE_ALLOWED_HOSTS` contain comma-separated exact
+hostnames. The two user systemd units set them. Without those settings, the apps
+still default to loopback only. If the node's Tailscale IP changes on re-enrollment,
+update both units and restart the services. `Restart=on-failure` lets them retry
+if the Tailscale interface is not ready at boot. Localhost SSH access remains
+available as an alternative.

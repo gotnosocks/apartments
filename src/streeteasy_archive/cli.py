@@ -7,6 +7,7 @@ import datetime
 import hashlib
 import json
 import math
+import os
 import sys
 import time
 from pathlib import Path
@@ -68,7 +69,10 @@ def main(argv=None):
         command.add_argument('--max-requests', type=int, default=0, help='request budget; zero is unlimited')
         command.add_argument('--revisit-interval', type=float, default=0, help='update interval in seconds for known buildings/listings')
     sub.add_parser('status').add_argument('--generation', type=int)
-    sub.add_parser('serve').add_argument('--port', type=int, default=8765)
+    serve_parser = sub.add_parser('serve')
+    serve_parser.add_argument('--port', type=int, default=8765)
+    serve_parser.add_argument('--listen', default=os.environ.get('ARCHIVE_LISTEN'),
+                              help='Explicit space-separated host:port listeners; defaults to loopback')
     sub.add_parser('import-har').add_argument('path')
     export_parser = sub.add_parser('export')
     export_parser.add_argument('path')
@@ -82,8 +86,9 @@ def main(argv=None):
             parser.error('port must be between 1 and 65535')
         from .web import create_app
         from waitress import serve
-        print(f'Archive browser: http://127.0.0.1:{args.port}', flush=True)
-        serve(create_app(args.data), host='127.0.0.1', port=args.port, threads=4)
+        print(f'Archive browser listeners: {args.listen or f"127.0.0.1:{args.port}"}', flush=True)
+        options = {'listen': args.listen} if args.listen else {'host': '127.0.0.1', 'port': args.port}
+        serve(create_app(args.data), threads=4, **options)
         return 0
     lock = None
     if args.command not in ('status', 'export'):

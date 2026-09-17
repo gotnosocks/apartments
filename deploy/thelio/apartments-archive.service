@@ -10,6 +10,8 @@ ExecStart=/home/ben/code/apartments/.venv/bin/streeteasy-archive --data /data1/a
 Restart=on-failure
 RestartSec=5
 Environment=PYTHONUNBUFFERED=1
+Environment="ARCHIVE_LISTEN=127.0.0.1:8765 100.80.84.126:8765"
+Environment=ARCHIVE_ALLOWED_HOSTS=thelio,thelio.tail3983e0.ts.net,100.80.84.126
 MemoryMax=2G
 UMask=0077
 

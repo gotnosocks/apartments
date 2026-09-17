@@ -73,3 +73,19 @@ def test_summary_omits_resolved_errors_but_history_preserves_them(tmp_path):
     store.enqueue(gen,[{'url':excluded,'kind':'excluded'}])
     store.record_gap(gen,excluded,404,{},'old split URL artifact',body=b'missing')
     assert client.get('/api/summary').json['errors'] == []
+
+
+def test_explicit_tailnet_hosts_remain_read_only(tmp_path, monkeypatch):
+    import pytest
+
+    hostname = 'thelio.example.ts.net'
+    origin = f'http://{hostname}:8765'
+    monkeypatch.delenv('ARCHIVE_ALLOWED_HOSTS', raising=False)
+    assert create_app(tmp_path).test_client().get('/', base_url=origin).status_code == 400
+    monkeypatch.setenv('ARCHIVE_ALLOWED_HOSTS', hostname)
+    client = create_app(tmp_path).test_client()
+    assert client.get('/', base_url=origin).status_code == 200
+    assert client.get('/', base_url='http://other.example.ts.net:8765').status_code == 400
+    assert client.post('/api/pages', base_url=origin).status_code == 405
+    with pytest.raises(ValueError, match='exact hostnames'):
+        create_app(tmp_path, allowed_hosts=['.ts.net'])

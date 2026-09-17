@@ -7,6 +7,8 @@ The primary project and archive now live on **thelio**, with the archive under
 `/data1/apartments/archive`. See the [hosting and migration runbook](docs/operations/thelio.md)
 for the verified cutover record and access to the review and archive browsers.
 Migration completed on September 16 at 21:19 EDT; Modal retains a frozen backup.
+Direct Tailscale access: [rental review](http://thelio.tail3983e0.ts.net:8766/) ·
+[raw archive](http://thelio.tail3983e0.ts.net:8765/).
 
 Latest results: [September 8 Chelsea analysis](docs/analysis/chelsea-2026-09-08.md).
 Updated coverage: [September 8 cloud preparation](docs/analysis/chelsea-2026-09-08-cloud-preparation.md).

@@ -1,4 +1,4 @@
-"""Local-only Flask frontend; cloud SDK credentials never reach the browser."""
+"""Private review frontend; explicit listeners and hostnames control access."""
 
 from __future__ import annotations
 
@@ -18,8 +18,12 @@ def _enabled(value):
     return str(value or "").strip().lower() in {"1", "true", "yes", "on"}
 
 
-def create_app(backend=None, *, dataset_root=None, review_state=None, read_only=None):
+def create_app(backend=None, *, dataset_root=None, review_state=None, read_only=None, allowed_hosts=None):
     app = Flask(__name__)
+    if allowed_hosts is None:
+        allowed_hosts = os.environ.get("REVIEW_ALLOWED_HOSTS", "").split(",")
+    trusted_hosts = {"localhost", "127.0.0.1", "::1"}
+    trusted_hosts.update(host.strip().lower() for host in allowed_hosts if host.strip())
     app.secret_key = secrets.token_hex(32)
     app.config.update(
         MAX_CONTENT_LENGTH=131072,
@@ -59,10 +63,10 @@ def create_app(backend=None, *, dataset_root=None, review_state=None, read_only=
         backend = lambda action, args: function.remote(action, args)
 
     @app.before_request
-    def local_only():
+    def private_access():
         hostname = urlsplit("//" + request.host).hostname
-        if hostname not in ("localhost", "127.0.0.1", "::1"):
-            return jsonify(error="Local access only"), 403
+        if hostname not in trusted_hosts:
+            return jsonify(error="Host not allowed"), 403
         if request.method == "POST":
             if _enabled(read_only if read_only is not None else os.environ.get("REVIEW_READ_ONLY")):
                 return jsonify(error="Review app is read-only"), 403
@@ -143,6 +147,10 @@ def create_app(backend=None, *, dataset_root=None, review_state=None, read_only=
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--port", type=int, default=8766)
+    parser.add_argument(
+        "--listen", default=os.environ.get("REVIEW_LISTEN"),
+        help="Explicit space-separated host:port listeners; defaults to loopback",
+    )
     parser.add_argument("--dataset-root", default=os.environ.get("REVIEW_DATASET_ROOT"))
     parser.add_argument("--review-state", default=os.environ.get("REVIEW_STATE"))
     parser.add_argument(
@@ -159,9 +167,8 @@ def main():
             review_state=args.review_state,
             read_only=args.read_only,
         ),
-        host="127.0.0.1",
-        port=args.port,
         threads=4,
+        **({"listen": args.listen} if args.listen else {"host": "127.0.0.1", "port": args.port}),
     )
 
 

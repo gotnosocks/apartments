@@ -4,6 +4,7 @@ from __future__ import annotations
 import fcntl
 import gzip
 import json
+import os
 import sqlite3
 from pathlib import Path
 from urllib.parse import quote
@@ -14,10 +15,16 @@ from .extract import extract
 from .store import building_coverage
 
 
-def create_app(data_dir='data'):
+def create_app(data_dir='data', *, allowed_hosts=None):
     root = Path(data_dir).resolve()
     app = Flask(__name__)
     app.config['TRUSTED_HOSTS'] = ['localhost', '127.0.0.1', '[::1]']
+    if allowed_hosts is None:
+        allowed_hosts = os.environ.get('ARCHIVE_ALLOWED_HOSTS', '').split(',')
+    hosts = [host.strip().lower() for host in allowed_hosts if host.strip()]
+    if any(host.startswith('.') or '*' in host for host in hosts):
+        raise ValueError('Archive allowed hosts must be exact hostnames')
+    app.config['TRUSTED_HOSTS'].extend(hosts)
 
     def db():
         if 'db' not in g:

@@ -12,6 +12,8 @@ RestartSec=5
 Environment=OMP_NUM_THREADS=2
 Environment=OPENBLAS_NUM_THREADS=2
 Environment=PYTHONUNBUFFERED=1
+Environment="REVIEW_LISTEN=127.0.0.1:8766 100.80.84.126:8766"
+Environment=REVIEW_ALLOWED_HOSTS=thelio,thelio.tail3983e0.ts.net,100.80.84.126
 MemoryMax=3G
 UMask=0077
 
