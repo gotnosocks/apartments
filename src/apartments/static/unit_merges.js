@@ -134,9 +134,38 @@ function render(data){
   }
   const conflicts=Object.entries(data.attribute_disagreements);
   if(conflicts.length)root.append(el('p','Recorded attributes differ: '+conflicts.map(([field,values])=>`${field.replaceAll('_',' ')}: ${values.join(' / ')}`).join('; ')+'. A shared identity does not assume unchanged condition. Attribute differences belong in the separate attribute review pass.','conflict'));
-  const options=el('div',undefined,'merge-listings merge-controls');
-  for(const listing of data.listings){const label=el('label'),box=el('input');box.type='checkbox';box.value=listing.listing_id;box.checked=true;box.setAttribute('aria-label',`Include rental ${listing.listing_id}`);label.append(box,el('span',`Rental ${listing.listing_id}`),el('small',`${listing.capture_count} captures`));options.append(label);}
-  root.append(options);
+  const observations=el('section',undefined,'unit-section merge-controls');observations.append(el('h3','Source observations and attributes'));
+  const sourceUrls=streetEasyUrls(data.observations);
+  const openAll=el('button',`Open all StreetEasy listings (${sourceUrls.length})`);openAll.type='button';openAll.disabled=!sourceUrls.length;
+  const tabsNote=el('p',undefined,'panel-note');tabsNote.hidden=true;tabsNote.setAttribute('role','status');
+  const openedUrls=new Set();
+  openAll.addEventListener('click',()=>{
+    const remaining=openUnopenedListings(sourceUrls,openedUrls);
+    openAll.textContent=remaining?`Open remaining listings (${remaining})`:'All listings opened';
+    openAll.disabled=!remaining;
+    tabsNote.textContent=remaining
+      ? `${openedUrls.size} of ${sourceUrls.length} listing tabs opened. The browser blocked or could not open the remaining ${remaining}. Allow pop-ups for this review app using the blocked-pop-up icon in the address bar, then click Open remaining listings. You can also click again to open the next permitted tab, or use the individual links below.`
+      : `Opened all ${sourceUrls.length} distinct listing URLs.`;
+    tabsNote.hidden=false;
+  });
+  observations.append(openAll,tabsNote);
+  observations.append(el('p','Select rental listing IDs to include. Each selection includes all captures shown for that listing.','panel-note'));
+  const options=table(['Include rental ID','Source','Source unit reference','Captured','Building / unit','Beds / baths','Square feet','Advertised rent'],[]),body=options.querySelector('tbody');
+  for(const listing of data.listings){
+    const captures=data.observations.filter(row=>String(row.listing_id)===String(listing.listing_id));
+    const label=el('label',undefined,'listing-selection'),box=el('input');box.type='checkbox';box.value=listing.listing_id;box.checked=true;box.setAttribute('aria-label',`Include rental ${listing.listing_id}`);
+    const name=el('span',`Rental ${listing.listing_id}`);name.append(el('small',`${listing.capture_count} captures`));label.append(box,name);
+    captures.forEach((row,index)=>{
+      const line=el('tr');
+      if(index===0){const selection=el('td',undefined,'listing-selection-cell');selection.rowSpan=captures.length;selection.append(label);line.append(selection);}
+      for(const content of [observationLinks(row),sourceUnitLink(row),date(row.collected_at),`${value(row.attributes.building_slug)} ${value(row.attributes.unit_label)}`,`${value(row.attributes.bedrooms)} / ${value(row.attributes.bathrooms)}`,value(row.attributes.square_feet),money(row.attributes.asking_price)]){
+        const cell=el('td');if(content instanceof Node)cell.append(content);else cell.textContent=String(content);line.append(cell);
+      }
+      body.append(line);
+    });
+  }
+  observations.append(options);root.append(observations);
+
   const form=el('form',undefined,'merge-actions'),noteLabel=el('label','Why do these listings refer to the same unit?'),note=el('input');note.required=true;note.placeholder='Evidence for the shared unit identity';noteLabel.append(note);
   const actions=el('div',undefined,'inline-actions'),recompare=el('button','Compare selected listings'),merge=el('button',data.latest_merge?(data.association_basis==='streeteasy'?'Associated':'Merged'): 'Merge into one unit','primary');recompare.type='button';merge.type='submit';merge.disabled=!!data.unit_id;actions.append(recompare,merge);form.append(noteLabel,actions);
   const hint=el('p',data.unit_id?'These listing IDs already resolve to one unit.':'This saves one unit identity for the selected rental IDs and all their captures. Original attributes and review decisions remain attached to their captures.','panel-note');form.append(hint);root.append(form);
@@ -164,22 +193,6 @@ function render(data){
     let undoRequest=null;reason.addEventListener('input',()=>{undoRequest=null;});
     undoForm.addEventListener('submit',async event=>{event.preventDefault();if(state.busy)return;try{if(!undoRequest)undoRequest={merge_id:data.latest_merge.id,identity_revision:data.identity_revision,author:$('author').value.trim(),reason:reason.value.trim(),request_id:requestId()};state.busy=true;button.disabled=true;await api('/api/units/undo',undoRequest);state.busy=false;history.replaceState(null,'','/units');$('notice').textContent='Identity merge undone. Original records and corrections are preserved.';$('notice').hidden=false;await inspect(data.listing_ids);await load();}catch(e){state.busy=false;button.disabled=false;error(e);}});
   }
-  const observations=el('section',undefined,'unit-section');observations.append(el('h3','Source observations and attributes'));
-  const sourceUrls=streetEasyUrls(data.observations);
-  const openAll=el('button',`Open all StreetEasy listings (${sourceUrls.length})`);openAll.type='button';openAll.disabled=!sourceUrls.length;
-  const tabsNote=el('p',undefined,'panel-note');tabsNote.hidden=true;tabsNote.setAttribute('role','status');
-  const openedUrls=new Set();
-  openAll.addEventListener('click',()=>{
-    const remaining=openUnopenedListings(sourceUrls,openedUrls);
-    openAll.textContent=remaining?`Open remaining listings (${remaining})`:'All listings opened';
-    openAll.disabled=!remaining;
-    tabsNote.textContent=remaining
-      ? `${openedUrls.size} of ${sourceUrls.length} listing tabs opened. The browser blocked or could not open the remaining ${remaining}. Allow pop-ups for this review app using the blocked-pop-up icon in the address bar, then click Open remaining listings. You can also click again to open the next permitted tab, or use the individual links below.`
-      : `Opened all ${sourceUrls.length} distinct listing URLs.`;
-    tabsNote.hidden=false;
-  });
-  observations.append(openAll,tabsNote);
-  observations.append(table(['Source','Rental ID','Source unit reference','Captured','Building / unit','Beds / baths','Square feet','Advertised rent'],data.observations.map(row=>[observationLinks(row),row.listing_id,sourceUnitLink(row),date(row.collected_at),`${value(row.attributes.building_slug)} ${value(row.attributes.unit_label)}`,`${value(row.attributes.bedrooms)} / ${value(row.attributes.bathrooms)}`,value(row.attributes.square_feet),money(row.attributes.asking_price)])));root.append(observations);
   const timeline=el('section',undefined,'unit-section');timeline.append(el('h3',data.unit_id?'Unit history':'Combined history after merge'),el('p','Exact repeated event evidence is combined. Different listing episodes, statuses, prices, and corrected versions remain distinct. Event dates below are separate from capture dates above.','panel-note'));
   timeline.append(table(['Event date','History listing ID','Status','Price','Source evidence'],data.history.map(event=>{
     const refs=el('details');refs.append(el('summary',`${event.occurrences.length} mentions`));const links=el('div',undefined,'capture-links');for(const occurrence of event.occurrences){const line=el('div');line.append(captureLink(occurrence.snapshot_id),el('span',` · entry ${occurrence.episode_index}/${occurrence.event_index}`));links.append(line);}refs.append(links);
