@@ -153,7 +153,7 @@ class ReviewService:
     def close(self):
         self.db.close()
 
-    def selection(self, args):
+    def selection(self, args, events=None):
         issue = args.get("issue", "all")
         if issue not in ISSUES:
             raise ValueError("Unknown issue")
@@ -176,7 +176,7 @@ class ReviewService:
         if status not in ("all", "unreviewed", "confirmed", "needs_attention"):
             raise ValueError("Unknown review status")
         if status != "all":
-            latest = self.latest_reviews()
+            latest = self.latest_reviews(events)
             ids = [
                 sid
                 for (sid, st), event in latest.items()
@@ -272,19 +272,29 @@ class ReviewService:
         return result
 
     def observations(self, args):
-        where, params = self.selection(args)
+        ledger_events = self.ledger.events()
+        where, params = self.selection(args, ledger_events)
+        # Each issue chip describes that issue under the other active filters.
+        scope, scope_params = self.selection({**args, "issue": "all"}, ledger_events)
+        stage = next(s for s in STAGES if s["id"] == args.get("stage", "identity"))
+        counts = self.db.execute(
+            "SELECT " + ",".join(
+                f"count(*) FILTER (WHERE {ISSUES[key][1]})" for key in stage["issues"]
+            ) + f" FROM rental r WHERE {scope}", scope_params
+        ).fetchone()
+        issue_counts = dict(zip(stage["issues"], counts))
         limit = max(1, min(100, int(args.get("limit", 25))))
         offset = max(0, int(args.get("offset", 0)))
         total = self.db.execute(
             f"SELECT count(*) FROM rental r WHERE {where}", params
         ).fetchone()[0]
+        offset = min(offset, max(0, ((total - 1) // limit) * limit))
         data = rows(
             self.db.execute(
                 f"SELECT {SUMMARY} FROM rental r WHERE {where} ORDER BY building_slug,unit_label,snapshot_id LIMIT ? OFFSET ?",
                 [*params, limit, offset],
             )
         )
-        ledger_events = self.ledger.events()
         latest = self.latest_reviews(ledger_events)
         for row in data:
             row["review"] = latest.get(
@@ -308,6 +318,7 @@ class ReviewService:
             "offset": offset,
             "limit": limit,
             "source_based": True,
+            "issue_counts": issue_counts,
             "ledger_revision": ledger_events[-1]["hash"] if ledger_events else GENESIS,
         }
 

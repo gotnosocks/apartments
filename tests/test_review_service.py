@@ -197,3 +197,38 @@ def test_selected_identity_rejects_invalid_requests(service, changes):
     with pytest.raises(ValueError):
         service.identity_confirm({**args, **changes})
     assert service.ledger.events() == []
+
+
+def test_list_issue_counts_follow_filters_and_reviews(service):
+    s = service
+    s.db.execute("INSERT INTO rental SELECT * REPLACE(5 AS snapshot_id,'b' AS building_slug) FROM rental WHERE snapshot_id=2")
+    filters = {"stage": "identity", "building": "a", "issue": "unit_missing", "review_status": "unreviewed"}
+    page = s.observations(filters)
+    assert page["total"] == page["issue_counts"]["unit_missing"] == 1
+    assert page["issue_counts"]["all"] == 2
+    assert page["issue_counts"]["unit_generic"] == 0
+    assert s.observations({**filters, "search": "4C"})["issue_counts"] == {
+        "all": 1, "unit_missing": 0, "unit_generic": 0,
+    }
+    s.review({"snapshot_id": 2, "stage": "identity", "decision": "confirmed", "author": "Ben"})
+    page = s.observations(filters)
+    assert page["total"] == page["issue_counts"]["unit_missing"] == 0
+    assert page["issue_counts"]["all"] == 1
+    page = s.observations({**filters, "review_status": "confirmed"})
+    assert page["total"] == page["issue_counts"]["all"] == 1
+    assert s.observations({**filters, "building": "b"})["issue_counts"]["unit_missing"] == 1
+    assert s.observations({"stage": "prices", "building": "a", "review_status": "unreviewed"})["issue_counts"]["all"] == 2
+    assert s.observations({"building": "does-not-exist"})["issue_counts"] == {
+        "all": 0, "unit_missing": 0, "unit_generic": 0,
+    }
+
+
+def test_list_page_clamps_after_last_page_is_reviewed(service):
+    s = service
+    filters = {"stage": "identity", "review_status": "unreviewed", "limit": 1, "offset": 1}
+    assert s.observations(filters)["offset"] == 1
+    s.review({"snapshot_id": 2, "stage": "identity", "decision": "confirmed", "author": "Ben"})
+    page = s.observations(filters)
+    assert page["total"] == 1
+    assert page["offset"] == 0
+    assert len(page["rows"]) == 1

@@ -47,3 +47,5 @@ Use **File grouped parser issue** when the archived payload has a value but extr
 The immutable collection has many observations of the same source unit label. The comparisons preserve that granularity, and do not prove that matching labels refer to one physical apartment. Review decisions belong to a capture and stage, rather than implicitly approving its older history. Price/status rows are source mentions, not signed lease prices.
 
 For reproducible downstream work, freeze `events = ledger.events()` and record the final event hash, then call `ledger.apply(raw, snapshot_id, events=events)`. Rebuild the raw document with the same normalized field names and `archive_listing` payload used by `ReviewService.raw`. No episode aggregation is required.
+
+Issue counts above the list reflect the selected building, search, and review status for the active stage. Each issue button shows how many observations would match that issue; All observations removes only the issue filter. The result total and pagination reflect all active filters. Counts refresh after review decisions. Dataset summary and stage overview totals describe the full dataset.
