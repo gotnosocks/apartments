@@ -68,8 +68,8 @@ class UnitMergeService:
         mode = args.get('mode', 'candidates')
         if mode not in {'candidates', 'merged'}:
             raise ValueError('Unknown unit list')
-        sort = args.get('sort', 'building')
-        direction = args.get('direction', 'asc')
+        sort = args.get('sort', 'listing_count')
+        direction = args.get('direction', 'desc')
         if sort not in {'building', 'listing_count'} or direction not in {'asc', 'desc'}:
             raise ValueError('Unknown sort order')
         groups = defaultdict(set)
@@ -88,6 +88,8 @@ class UnitMergeService:
         for key, ids in groups.items():
             units = {catalog[lid]['unit_id'] for lid in ids}
             if mode == 'candidates' and len(units) < 2:
+                continue
+            if args.get('exclude_unit_id') in units:
                 continue
             captures = [c for lid in ids for c in catalog[lid]['captures']]
             labels = sorted({(c['building_slug'] or '', c['unit_label'] or '') for c in captures})

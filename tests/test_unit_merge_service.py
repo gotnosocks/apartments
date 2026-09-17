@@ -114,6 +114,9 @@ def test_listing_count_sort_across_pages_filters_and_merged_units(service):
             s.db.execute("INSERT INTO rental SELECT * REPLACE(? AS snapshot_id,? AS listing_id,? AS building_slug) FROM rental WHERE snapshot_id=1",[int(lid),lid,building])
     u = UnitMergeService(s)
     desc = {'sort':'listing_count','direction':'desc','limit':2}
+    default = u.candidates({'limit':2})
+    assert (default['sort'], default['direction']) == ('listing_count', 'desc')
+    assert [r['listing_count'] for r in default['rows']] == [4,3]
     first = u.candidates(desc)
     second = u.candidates({**desc,'offset':2})
     assert [r['listing_count'] for r in first['rows']] == [4,3]
@@ -121,10 +124,16 @@ def test_listing_count_sort_across_pages_filters_and_merged_units(service):
     assert first['total'] == second['total'] == 4
     assert [r['listing_count'] for r in u.candidates({**desc,'direction':'asc'})['rows']] == [2,2]
     assert u.candidates({**desc,'search':'b'})['rows'][0]['listing_count'] == 4
+    partial = u.ledger.write('merge',listing_ids=['10','11'],author='test',reason='fixture',request_id='partial',
+                            expected_revision=u.ledger.revision(u.ledger.events()))
+    # A partial merge remains in the list, but Next moves beyond the current unit.
+    assert u.candidates({'limit':1})['rows'][0]['building'] == 'b'
+    assert u.candidates({'limit':1,'exclude_unit_id':partial['unit_id']})['rows'][0]['building'] == 'c'
     for building, ids in groups:
         u.ledger.write('merge',listing_ids=ids,author='test',reason='fixture',request_id=building,
                        expected_revision=u.ledger.revision(u.ledger.events()))
     merged = u.candidates({**desc,'mode':'merged'})
     assert [r['listing_count'] for r in merged['rows']] == [4,3]
+    assert u.candidates({'limit':1,'exclude_unit_id':partial['unit_id']})['rows'] == []
     with pytest.raises(ValueError,match='sort order'):
         u.candidates({'sort':'unknown'})

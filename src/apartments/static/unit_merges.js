@@ -1,7 +1,7 @@
 'use strict';
 (() => {
 const $=id=>document.getElementById(id);
-const state={offset:0,limit:25,sort:'building',direction:'asc',listSerial:0,detailSerial:0,data:null,busy:false,mergeRequest:null};
+const state={offset:0,limit:25,sort:'listing_count',direction:'desc',listSerial:0,detailSerial:0,data:null,busy:false,mergeRequest:null};
 const el=(tag,text,cls)=>{const node=document.createElement(tag);if(text!==undefined)node.textContent=text;if(cls)node.className=cls;return node;};
 const num=value=>Number(value||0).toLocaleString();
 const value=x=>x==null?'Unknown':String(x);
@@ -75,10 +75,30 @@ async function inspect(ids,unitId){
   const data=await api('/api/units/inspect?'+params);
   if(serial!==state.detailSerial)return;
   state.data=data;state.mergeRequest=null;render(data);
+  history.replaceState(null,'','/units?'+new URLSearchParams(data.unit_id?{unit_id:data.unit_id}:{listing_ids:data.listing_ids.join(',')}));
   $('comparison').scrollIntoView({behavior:'smooth',block:'start'});
+}
+function mergeConfirmation(unitId,count){
+  const panel=el('div',undefined,'merge-confirmation');panel.setAttribute('role','status');
+  panel.append(el('strong','✓ Merge saved'),el('p',`${num(count)} rental listing IDs now share one unit identity and one combined history.`));
+  const next=el('button','Next duplicate group — most listing IDs','primary');next.type='button';
+  const hint=el('p','Opens the largest remaining group across all buildings.','panel-note');
+  next.addEventListener('click',async()=>{
+    if(state.busy)return;
+    const serial=++state.detailSerial;next.disabled=true;next.textContent='Finding next group…';
+    try{
+      const matches=await api('/api/units/candidates?'+new URLSearchParams({mode:'candidates',sort:'listing_count',direction:'desc',limit:1,exclude_unit_id:unitId}));
+      if(serial!==state.detailSerial)return;
+      if(!matches.rows.length){next.textContent='No more duplicate groups';hint.textContent='No remaining candidate groups outside this unit.';return;}
+      $('notice').hidden=true;$('search').value='';$('mode').value='candidates';state.offset=0;state.sort='listing_count';state.direction='desc';
+      await inspect(matches.rows[0].listing_ids);await load();
+    }catch(e){error(e);next.disabled=false;next.textContent='Next duplicate group — most listing IDs';}
+  });
+  panel.append(next,hint);return panel;
 }
 function render(data){
   const root=$('comparison');root.hidden=false;root.replaceChildren();
+  if(data.latest_merge)root.append(mergeConfirmation(data.unit_id,data.listing_ids.length));
   const first=data.observations[0]?.attributes||{};
   root.append(el('p',data.latest_merge?'Merged unit':data.unit_id?'Single listing identity':'Compare before merging','eyebrow'),el('h2',`${value(first.building_slug)} ${value(first.unit_label)}`),el('p',`${num(data.listing_ids.length)} rental listing IDs · ${num(data.capture_count)} captures · ${num(data.history_events)} distinct reported history events (${num(data.history_mentions)} source mentions)`));
   if(data.unit_id){root.append(el('p',`Unit ID: ${data.unit_id}`,'unit-identity'));const link=el('a','Download unit record and history');link.href='/api/units/export?'+new URLSearchParams({unit_id:data.unit_id});root.append(link);}
@@ -88,7 +108,7 @@ function render(data){
   for(const listing of data.listings){const label=el('label'),box=el('input');box.type='checkbox';box.value=listing.listing_id;box.checked=true;box.setAttribute('aria-label',`Include rental ${listing.listing_id}`);label.append(box,el('span',`Rental ${listing.listing_id}`),el('small',`${listing.capture_count} captures`));options.append(label);}
   root.append(options);
   const form=el('form',undefined,'merge-actions'),noteLabel=el('label','Why do these listings refer to the same unit?'),note=el('input');note.required=true;note.placeholder='Evidence for the shared unit identity';noteLabel.append(note);
-  const actions=el('div',undefined,'inline-actions'),recompare=el('button','Compare selected listings'),merge=el('button','Merge into one unit','primary');recompare.type='button';merge.type='submit';merge.disabled=!!data.unit_id;actions.append(recompare,merge);form.append(noteLabel,actions);
+  const actions=el('div',undefined,'inline-actions'),recompare=el('button','Compare selected listings'),merge=el('button',data.latest_merge?'Merged': 'Merge into one unit','primary');recompare.type='button';merge.type='submit';merge.disabled=!!data.unit_id;actions.append(recompare,merge);form.append(noteLabel,actions);
   const hint=el('p',data.unit_id?'These listing IDs already resolve to one unit.':'This saves one unit identity for the selected rental IDs and all their captures. Original attributes and review decisions remain attached to their captures.','panel-note');form.append(hint);root.append(form);
   const selected=()=>Array.from(options.querySelectorAll('input:checked'),input=>input.value);
   options.addEventListener('change',()=>{merge.disabled=true;state.mergeRequest=null;hint.textContent='Click Compare selected listings to review the revised selection.';});
@@ -96,15 +116,18 @@ function render(data){
   note.addEventListener('input',()=>{state.mergeRequest=null;});
   form.addEventListener('submit',async event=>{
     event.preventDefault();if(state.busy||merge.disabled)return;
+    let saved;
     try{
       const author=$('author').value.trim(),reason=note.value.trim();if(!author||!reason)throw new Error('Enter your reviewer name and evidence for the merge.');
       if(!state.mergeRequest||state.mergeRequest.author!==author)state.mergeRequest={listing_ids:data.listing_ids,author,reason,identity_revision:data.identity_revision,review_revision:data.review_revision,request_id:requestId()};
       state.busy=true;for(const control of root.querySelectorAll('input,button'))control.disabled=true;
-      const saved=await api('/api/units/merge',state.mergeRequest);
+      merge.textContent='Saving merge…';
+      saved=await api('/api/units/merge',state.mergeRequest);
       state.busy=false;history.replaceState(null,'','/units?'+new URLSearchParams({unit_id:saved.unit_id}));
-      $('notice').textContent=`Saved one unit identity for ${saved.listing_ids.length} rental listings.`;$('notice').hidden=false;
+      merge.textContent='Merged';root.prepend(mergeConfirmation(saved.unit_id,saved.listing_ids.length));
+      root.scrollIntoView({behavior:'smooth',block:'start'});
       await inspect(null,saved.unit_id);await load();
-    }catch(e){error(e);state.busy=false;for(const control of root.querySelectorAll('input,button'))control.disabled=false;}
+    }catch(e){state.busy=false;if(saved){error(new Error(`Merge saved, but the page could not refresh: ${e.message}`));}else{error(e);for(const control of root.querySelectorAll('input,button'))control.disabled=false;merge.textContent='Merge into one unit';}}
   });
   if(data.latest_merge){
     const undo=el('details'),summary=el('summary','Undo the latest identity merge'),undoForm=el('form',undefined,'merge-actions'),label=el('label','Reason for undoing'),reason=el('input'),button=el('button','Undo merge');reason.required=true;label.append(reason);undoForm.append(label,button);undo.append(summary,el('p',`${data.latest_merge.author}: ${data.latest_merge.reason}`,'panel-note'),undoForm);root.append(undo);

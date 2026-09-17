@@ -67,6 +67,13 @@ then choose **Compare**. Alternatively, enter rental IDs directly to compare
 records with different labels. Check the desired listings, compare the revised
 selection if needed, add a reason, and choose **Merge into one unit**.
 
+The list defaults to rental listing ID count, highest first. After saving, a
+**Merge saved** panel appears at the top of the group detail. **Next duplicate
+group — most listing IDs** opens the largest remaining candidate group across
+all buildings, clears the search, and restores the default sort. It skips groups
+containing the unit just merged; any unresolved matches from a partial merge
+remain available in the list.
+
 Each saved merge assigns one durable `unit:<uuid>` to the selected rental IDs.
 All their captures resolve to it, including repeated URLs of the same listing.
 Unmerged rental IDs have the provisional identity `streeteasy:rental:<listing_id>`;
