@@ -12,10 +12,10 @@ from pathlib import Path
 
 import duckdb
 import jsonpatch
-from jsonpointer import JsonPointerException
+from jsonpointer import JsonPointer, JsonPointerException
 
 from .corrections import validate_edit
-from .review_ledger import GENESIS, ReviewLedger, _ids
+from .review_ledger import GENESIS, ReviewConflict, ReviewLedger, _ids
 
 STAGES = [
     {
@@ -408,7 +408,87 @@ class ReviewService:
                 [sid, limit, offset],
             )
         )
-        return {"events": events, "total": total, "offset": offset, "limit": limit}
+        _, raw = self.raw(sid)
+        ledger_events = self.ledger.events()
+        corrected, _ = self.ledger.apply(raw, sid, events=ledger_events)
+        for event in events:
+            self._event_price(event, raw, corrected)
+        return {"events": events, "total": total, "offset": offset, "limit": limit,
+                "ledger_revision": ledger_events[-1]["hash"] if ledger_events else GENESIS}
+
+    @staticmethod
+    def _event_price(event, raw, corrected):
+        """Resolve a price overlay only when the archived occurrence still matches."""
+        path = (f"/archive_listing/propertyHistory/{event['episode_index']}"
+                f"/rentalEventsOfInterest/{event['event_index']}")
+        event["raw_price"] = event["price"]
+        event["price_editable"] = False
+        event["price_corrected"] = False
+        try:
+            original = JsonPointer(path).resolve(raw)
+            current = JsonPointer(path).resolve(corrected)
+            episode_path = f"/archive_listing/propertyHistory/{event['episode_index']}/listingId"
+            if original != decode(event["event_json"]):
+                raise ValueError("Archived occurrence does not match its source history")
+            if (not isinstance(current, dict)
+                or {k: v for k, v in current.items() if k != "price"}
+                   != {k: v for k, v in original.items() if k != "price"}
+                or JsonPointer(episode_path).resolve(raw)
+                   != JsonPointer(episode_path).resolve(corrected)):
+                raise ValueError("History structure changed; inspect the existing corrections")
+            price = current.get("price")
+            if price is not None:
+                if isinstance(price, bool):
+                    raise ValueError("History price is not numeric")
+                price = float(price)
+                if not math.isfinite(price):
+                    raise ValueError("History price is not finite")
+            event["price"] = price
+            event["price_corrected"] = price != event["raw_price"]
+            event["price_editable"] = True
+            event["price_path"] = path + "/price"
+        except (JsonPointerException, ValueError, TypeError) as error:
+            event["price_edit_error"] = str(error)
+
+    def event_price_preview(self, args):
+        sid = args.get("snapshot_id")
+        episode = args.get("episode_index")
+        index = args.get("event_index")
+        if any(type(value) is not int or value < 0 for value in (sid, episode, index)):
+            raise ValueError("Choose a specific history occurrence")
+        price = args.get("price")
+        if "price" not in args or (price is not None and (
+            isinstance(price, bool) or not isinstance(price, (int, float))
+            or not math.isfinite(price) or price <= 0
+        )):
+            raise ValueError("Price must be a positive number, or null for unknown")
+        self._exists(sid)
+        found = rows(self.db.execute(
+            "SELECT episode_index,event_index,event_listing_id,event_date,price,status,event_json "
+            "FROM event_mentions WHERE snapshot_id=? AND event_category='rental' "
+            "AND episode_index=? AND event_index=?", [sid, episode, index]
+        ))
+        if len(found) != 1:
+            raise ValueError("History occurrence not found or ambiguous")
+        _, raw = self.raw(sid)
+        ledger_events = self.ledger.events()
+        revision = ledger_events[-1]["hash"] if ledger_events else GENESIS
+        corrected, _ = self.ledger.apply(raw, sid, events=ledger_events)
+        event = found[0]
+        self._event_price(event, raw, corrected)
+        if not event["price_editable"]:
+            raise ValueError(event["price_edit_error"])
+        if "expected_price" not in args or args["expected_price"] != event["price"]:
+            raise ReviewConflict("History price changed; reopen this observation")
+        if price == event["price"]:
+            raise ValueError("Enter a different price")
+        result = self.preview({"snapshot_id": sid, "ledger_revision": revision,
+                               "patch": [{"op": "add", "path": event["price_path"], "value": price}]})
+        result["event"] = {"snapshot_id": sid, "episode_index": episode, "event_index": index,
+                           "event_date": event["event_date"], "status": event["status"],
+                           "event_listing_id": event["event_listing_id"],
+                           "raw_price": event["raw_price"], "before": event["price"], "after": price}
+        return result
 
     def _exists(self, sid):
         if not self.db.execute(
@@ -437,6 +517,8 @@ class ReviewService:
             raise ValueError("Patch exceeds 64 KiB")
         events = self.ledger.events()
         revision = events[-1]["hash"] if events else GENESIS
+        if args.get("ledger_revision", revision) != revision:
+            raise ReviewConflict("Reviews changed; preview the correction again")
         examples = []
         for row, raw in self.raw_batch(ids):
             sid = row["snapshot_id"]
@@ -617,6 +699,7 @@ class ReviewService:
             "observations": self.observations,
             "observation": self.observation,
             "events": self.events,
+            "event_price_preview": self.event_price_preview,
             "preview": self.preview,
             "cohort_preview": lambda x: self.preview(x, True),
             "apply": self.apply_preview,

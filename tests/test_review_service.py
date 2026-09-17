@@ -1,3 +1,5 @@
+import json
+
 import duckdb
 import pytest
 
@@ -26,8 +28,18 @@ def service(tmp_path):
         "INSERT INTO listing_observations SELECT * REPLACE(4 AS snapshot_id,url||'/media_gallery' AS url) FROM listing_observations WHERE snapshot_id=1"
     )
     db.execute(
-        """CREATE TABLE event_mentions AS SELECT 1::BIGINT snapshot_id,0 episode_index,0 event_index,'1' event_listing_id,'rental' event_category,'2020-01-01' event_date,0.0 price,'Listed' status,'{}' event_json"""
+        """CREATE TABLE event_mentions AS SELECT 1::BIGINT snapshot_id,0 episode_index,0 event_index,'1' event_listing_id,'rental' event_category,'2020-01-01' event_date,0.0::DOUBLE price,'Listed' status,'{}' event_json"""
     )
+    history = [{"listingId": "1", "rentalEventsOfInterest": [
+        {"date": "2020-01-01", "price": 0, "status": "Listed"},
+        {"date": "2020-01-01", "price": 13750, "status": "ACTIVE"},
+    ]}]
+    db.execute("UPDATE listing_observations SET raw_listing_json=?", [
+        json.dumps({"id": 1, "nested": {}, "propertyHistory": history})
+    ])
+    db.execute("UPDATE event_mentions SET event_json=?", [json.dumps(history[0]["rentalEventsOfInterest"][0])])
+    db.execute("INSERT INTO event_mentions SELECT * REPLACE(1 AS event_index,13750 AS price,'ACTIVE' AS status,? AS event_json) FROM event_mentions WHERE event_index=0", [json.dumps(history[0]["rentalEventsOfInterest"][1])])
+    db.execute("INSERT INTO event_mentions SELECT * REPLACE(2 AS snapshot_id) FROM event_mentions")
     for table in ("listing_observations", "event_mentions"):
         db.execute(
             f"COPY {table} TO '{root / table / 'part.parquet'}' (FORMAT PARQUET)"
@@ -232,3 +244,70 @@ def test_list_page_clamps_after_last_page_is_reviewed(service):
     assert page["total"] == 1
     assert page["offset"] == 0
     assert len(page["rows"]) == 1
+
+
+def price_preview(service, **changes):
+    return service.event_price_preview({"snapshot_id": 1, "episode_index": 0,
+        "event_index": 0, "expected_price": 0, "price": 13750, **changes})
+
+
+def test_single_history_price_overlay_scope_retry_and_retraction(service):
+    s = service
+    raw = s.observation({"snapshot_id": 1})["raw"]
+    original_events = s.events({"snapshot_id": 1})["events"]
+    p = price_preview(s)
+    assert p["event"]["before"] == 0
+    assert p["event"]["after"] == 13750
+    assert p["affected_count"] == 1
+    assert s.ledger.events() == []
+    e = apply(s, p)
+    assert apply(s, p)["id"] == e["id"]
+    events = s.events({"snapshot_id": 1})["events"]
+    assert events[0]["price"] == 13750
+    assert events[0]["raw_price"] == 0
+    assert events[0]["price_corrected"] is True
+    assert events[1] == original_events[1]  # Same date, different occurrence.
+    assert s.events({"snapshot_id": 2})["events"][0]["price"] == 0
+    detail = s.observation({"snapshot_id": 1})
+    assert detail["raw"] == raw
+    assert detail["corrected"]["asking_price"] == raw["asking_price"]
+    assert detail["events"][0]["price"] == 13750
+    s.retract({"id": e["id"], "author": "test", "reason": "undo"})
+    assert s.events({"snapshot_id": 1})["events"] == original_events
+
+
+def test_history_price_unknown_pagination_and_stale_preview(service):
+    s = service
+    p = price_preview(s, event_index=1, expected_price=13750, price=None)
+    apply(s, p)
+    event = s.events({"snapshot_id": 1, "offset": 1, "limit": 1})["events"][0]
+    assert event["price"] is None
+    assert event["raw_price"] == 13750
+    with pytest.raises(ReviewConflict):
+        price_preview(s, event_index=1, expected_price=13750, price=14000)
+    p = price_preview(s)
+    s.review({"snapshot_id": 2, "stage": "prices", "decision": "confirmed", "author": "a"})
+    with pytest.raises(ReviewConflict):
+        apply(s, p)
+
+
+@pytest.mark.parametrize("changes", [
+    {"price": 0}, {"price": -1}, {"price": True}, {"price": "13750"},
+    {"price": float("nan")}, {"price": float("inf")},
+    {"snapshot_id": 3}, {"episode_index": 10}, {"event_index": 10},
+    {"event_index": -1}, {"event_index": True},
+])
+def test_invalid_history_price_edits(service, changes):
+    with pytest.raises(ValueError):
+        price_preview(service, **changes)
+    assert service.ledger.events() == []
+
+
+def test_history_structure_correction_blocks_ambiguous_price_edit(service):
+    s = service
+    p = s.preview({"snapshot_id": 1, "patch": [{"op": "remove",
+        "path": "/archive_listing/propertyHistory/0/rentalEventsOfInterest/0"}]})
+    apply(s, p)
+    assert s.events({"snapshot_id": 1})["events"][0]["price_editable"] is False
+    with pytest.raises(ValueError, match="History structure changed"):
+        price_preview(s)

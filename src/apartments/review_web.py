@@ -128,6 +128,7 @@ def create_app(backend=None, *, dataset_root=None, review_state=None, read_only=
 
     for route, action in (
         ("/api/review", "review"),
+        ("/api/events/price/preview", "event_price_preview"),
         ("/api/identity/confirm", "identity_confirm"),
         ("/api/corrections/preview", "preview"),
         ("/api/corrections/apply", "apply"),

@@ -131,3 +131,16 @@ def test_identity_batch_routes_require_csrf():
         assert client.post(url, json={}).status_code == 403
         assert client.post(url, json={}, headers={'X-Review-CSRF': token}).status_code == 200
         assert calls[-1] == (action, {})
+
+
+def test_history_price_preview_route():
+    calls = []
+    app = create_app(lambda action, args: calls.append((action, args)) or {"result": {"token": "preview"}})
+    client = app.test_client()
+    client.get('/')
+    with client.session_transaction() as session:
+        token = session['csrf']
+    url = '/api/events/price/preview'
+    assert client.post(url, json={}).status_code == 403
+    assert client.post(url, json={}, headers={'X-Review-CSRF': token}).status_code == 200
+    assert calls == [('event_price_preview', {})]

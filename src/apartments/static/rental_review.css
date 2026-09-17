@@ -13,3 +13,5 @@ dialog{padding:0;border:1px solid #cad4e0;border-radius:10px;box-shadow:0 22px 9
 .selection-bar{display:flex;align-items:center;gap:12px;padding:0 20px 14px;font-size:.8rem}.row-checkbox,#select-page{width:17px;height:17px;cursor:pointer}
 
 tbody tr.bulk-selected{background:#e4f2ed}tbody tr.bulk-selected:hover{background:#d7ece3}
+
+.history-event{padding:9px 0;border-bottom:1px solid var(--line)}.history-price-form{display:grid;gap:8px;margin:8px 0;padding:12px;background:#f4f7fa;border-radius:6px}.history-price-form label{display:grid;gap:4px;font-size:.75rem}.history-price-form .inline-actions{flex-wrap:wrap}
