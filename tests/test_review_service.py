@@ -153,3 +153,47 @@ def test_invalid_patch_and_parser_issue_do_not_edit_data(service):
         s.observation({"snapshot_id": 2})["raw"]
         == s.observation({"snapshot_id": 2})["corrected"]
     )
+
+
+def test_selected_identity_confirmation_and_retry(service):
+    s = service
+    before = s.observation({"snapshot_id": 2})["raw"]
+    args = {"stage": "identity", "snapshot_ids": [2], "author": "Ben",
+            "ledger_revision": s.observations({})["ledger_revision"], "request_id": "selected-1"}
+    assert s.identity_confirm(args)["count"] == 1
+    assert s.identity_confirm(args)["count"] == 1
+    assert len(s.ledger.events()) == 1
+    assert s.observation({"snapshot_id": 2})["corrected"] == before
+    assert s.observation({"snapshot_id": 2})["raw"] == before
+    assert s.observations({"stage": "identity", "review_status": "unreviewed"})["rows"][0]["snapshot_id"] == 1
+    assert s.observations({"stage": "prices", "review_status": "unreviewed"})["total"] == 2
+    with pytest.raises(ReviewConflict):
+        s.identity_confirm({**args, "snapshot_ids": [1]})
+
+
+def test_selected_identity_batch_previous_decisions_and_stale_list(service):
+    s = service
+    args = {"stage": "identity", "snapshot_ids": [1, 2], "author": "Ben",
+            "ledger_revision": s.ledger.revision(), "request_id": "selected-2"}
+    s.review({"snapshot_id": 1, "stage": "identity", "decision": "needs_attention", "author": "a"})
+    with pytest.raises(ReviewConflict):
+        s.identity_confirm(args)
+    assert len(s.ledger.events()) == 1
+    args["ledger_revision"] = s.ledger.revision()
+    assert s.identity_confirm(args)["count"] == 2
+    assert s.overview()["stages"][0]["progress"]["confirmed"] == 2
+    assert len(s.observation({"snapshot_id": 1})["reviews"]) == 2
+    assert s.ledger.activity()["corrections"] == []
+
+
+@pytest.mark.parametrize("changes", [
+    {"snapshot_ids": []}, {"snapshot_ids": [1, 1]}, {"snapshot_ids": [1, 3]},
+    {"snapshot_ids": [4]}, {"snapshot_ids": [True]}, {"snapshot_ids": "1"},
+    {"stage": "prices"}, {"author": " "}, {"request_id": None},
+])
+def test_selected_identity_rejects_invalid_requests(service, changes):
+    args = {"stage": "identity", "snapshot_ids": [1], "author": "Ben",
+            "ledger_revision": service.ledger.revision(), "request_id": "selected-3"}
+    with pytest.raises(ValueError):
+        service.identity_confirm({**args, **changes})
+    assert service.ledger.events() == []

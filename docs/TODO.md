@@ -1,0 +1,5 @@
+# Project to-do list
+
+- [ ] Explore using posted photos to identify listings that may represent the same physical unit. Treat exact or visually similar photos as supporting evidence, not proof: brokers sometimes reuse photos for different units in the same building column. Combine photo evidence with building, unit label, floor, layout, and dates; retain uncertain matches and source observations rather than automatically merging records. Evaluate false matches on known distinct units in the same column before using photo-based identity links in modeling.
+
+- [ ] Track the brokerage firm and individual broker(s) associated with each listing observation. Preserve the source names and available identifiers/contact or profile references, including multiple brokers where present. Keep collection timestamps and source evidence so changes in representation remain visible; do not backfill current representation onto historical price events. Inspect archived payloads first and extract available information without a new scrape. Support auditable corrections through the separate review overlay.

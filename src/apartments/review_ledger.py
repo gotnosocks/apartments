@@ -189,6 +189,50 @@ class ReviewLedger:
             author=author,
         )
 
+    def confirm_identity_batch(self, snapshot_ids, author, note, selection,
+                               expected_revision, request_id):
+        """Append ordinary per-capture reviews together under one ledger lock."""
+        ids = _ids(snapshot_ids)
+        if not all(isinstance(v, str) and v.strip() for v in (author, request_id)):
+            raise ReviewLedgerError("Reviewer and request ID are required")
+        self.path.parent.mkdir(parents=True, exist_ok=True)
+        with self.path.open("a+", encoding="utf-8") as f:
+            fcntl.flock(f, fcntl.LOCK_EX)
+            f.seek(0)
+            events = _read(f, self.dataset)
+            prior = [e for e in events if e.get("request_id") == request_id]
+            if prior:
+                if sorted(e.get("snapshot_id", -1) for e in prior) != ids or any(
+                    e.get("action") != "review" or e.get("stage") != "identity"
+                    or e.get("decision") != "confirmed" or e.get("author") != author
+                    or e.get("note") != note or e.get("selection") != selection
+                    for e in prior
+                ):
+                    raise ReviewConflict("Request ID already used for a different batch")
+                return {"count": len(prior), "request_id": request_id}
+            rev = events[-1]["hash"] if events else GENESIS
+            if rev != expected_revision:
+                raise ReviewConflict("Reviews changed; refresh the list and select the rows again")
+            lines = []
+            recorded_at = _now()
+            for sid in ids:
+                event = {
+                    "schema_version": 1, "id": str(uuid.uuid4()),
+                    "recorded_at": recorded_at, "dataset": self.dataset,
+                    "action": "review", "snapshot_id": sid, "stage": "identity",
+                    "decision": "confirmed", "author": author, "note": note,
+                    "selection": selection, "request_id": request_id,
+                    "previous_hash": rev,
+                }
+                event["hash"] = hashlib.sha256(canonical(event).encode()).hexdigest()
+                rev = event["hash"]
+                lines.append(canonical(event) + "\n")
+            f.seek(0, os.SEEK_END)
+            f.write("".join(lines))
+            f.flush()
+            os.fsync(f.fileno())
+        return {"count": len(ids), "request_id": request_id}
+
     def record_parser_issue(
         self,
         selection: dict,

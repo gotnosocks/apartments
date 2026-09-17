@@ -15,7 +15,7 @@ import jsonpatch
 from jsonpointer import JsonPointerException
 
 from .corrections import validate_edit
-from .review_ledger import GENESIS, ReviewLedger
+from .review_ledger import GENESIS, ReviewLedger, _ids
 
 STAGES = [
     {
@@ -308,6 +308,7 @@ class ReviewService:
             "offset": offset,
             "limit": limit,
             "source_based": True,
+            "ledger_revision": ledger_events[-1]["hash"] if ledger_events else GENESIS,
         }
 
     def raw_batch(self, ids):
@@ -531,6 +532,20 @@ class ReviewService:
             request_id=token,
         )
 
+    def identity_confirm(self, args):
+        ids = _ids(args.get("snapshot_ids"))
+        if args.get("stage") != "identity":
+            raise ValueError("Bulk confirmation is available in the Identity stage")
+        count = self.db.execute(
+            "SELECT count(*) FROM rental WHERE snapshot_id IN (SELECT unnest(?))", [ids]
+        ).fetchone()[0]
+        if count != len(ids):
+            raise ValueError("Selection contains an unknown rental observation")
+        return self.ledger.confirm_identity_batch(
+            ids, args.get("author", ""), "", {"mode": "selected_rows"},
+            args.get("ledger_revision"), args.get("request_id"),
+        )
+
     def review(self, args):
         sid = int(args["snapshot_id"])
         self._exists(sid)
@@ -595,6 +610,7 @@ class ReviewService:
             "cohort_preview": lambda x: self.preview(x, True),
             "apply": self.apply_preview,
             "review": self.review,
+            "identity_confirm": self.identity_confirm,
             "parser_issue": self.parser_issue,
             "retract": self.retract,
             "activity": lambda x: self.ledger.activity(),

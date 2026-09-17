@@ -117,3 +117,17 @@ def test_tailnet_host_is_opt_in(monkeypatch):
     monkeypatch.delenv('REVIEW_ALLOWED_HOSTS', raising=False)
     client = create_app(lambda *args: {}).test_client()
     assert client.get('/', base_url='http://thelio.example.ts.net:8766').status_code == 403
+
+
+def test_identity_batch_routes_require_csrf():
+    calls = []
+    app = create_app(lambda action, args: calls.append((action, args)) or {"result": {"count": 2}})
+    client = app.test_client()
+    assert b'Confirm selected' in client.get('/').data
+    with client.session_transaction() as session:
+        token = session['csrf']
+    for path, action in [('confirm', 'identity_confirm')]:
+        url = '/api/identity/' + path
+        assert client.post(url, json={}).status_code == 403
+        assert client.post(url, json={}, headers={'X-Review-CSRF': token}).status_code == 200
+        assert calls[-1] == (action, {})
