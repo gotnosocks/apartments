@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import hashlib
+import fcntl
 import json
 import re
 import uuid
@@ -69,11 +70,17 @@ class UnitMergeService:
         if self._assessments and self._assessments[0] == key:
             return self._assessments[1]
         labels = defaultdict(set); canonical_members = defaultdict(set); history_members = defaultdict(set)
+        latest_members = defaultdict(set); latest_labels = defaultdict(set)
         for lid, listing in catalog.items():
             for c in listing['captures']:
                 sid = c['snapshot_id']; building, label = c['building_slug'],c['unit_label']
                 if building and label and label.strip() and not re.search(r'bedroom|studio|[0-9] *br|layout|floorplan',label,re.I):
                     labels[(building,label)].add(lid)
+                target=self._source.latest.get(sid)
+                if target:
+                    latest_members[target].add(lid)
+                    latest_labels[target].add((building,label))
+                    latest_labels[target].add(getattr(self._source,'source_labels',{}).get(sid,(building,label)))
                 page = self._source.pages.get(sid, {}).get('canonical_url')
                 if page:
                     canonical_members[page].add(lid)
@@ -82,32 +89,49 @@ class UnitMergeService:
         retracted = {e['correction_id'] for e in review_events if e['action']=='retract'}
         corrected = {sid for e in review_events if e['action']=='correct' and e['id'] not in retracted
                      and any(p['path'] in {'/building_slug','/unit_label','/archive_listing'}
-                             or p['path'].startswith(('/archive_listing/propertyHistory','/archive_listing/latestListing','/archive_listing/propertyDetails/address'))
+                             or p['path'].startswith(('/archive_listing/latestListing','/archive_listing/propertyDetails/address'))
                              for p in e['patch']) for sid in e['snapshot_ids']}
         reserved = {lid for e in merge_decisions(identity_events) for lid in e['listing_ids']}
-        # Canonical-page groups are primary; label matches surface missing/conflicting
-        # source associations. Join overlapping suggestions so no listing appears in
-        # two independently actionable groups. Existing unit membership stays whole.
-        parent = {lid:lid for lid in catalog}
-        def find(lid):
-            while parent[lid] != lid:
-                parent[lid] = parent[parent[lid]]; lid = parent[lid]
-            return lid
         units = defaultdict(set)
         for lid, listing in catalog.items():
             units[listing['unit_id']].add(lid)
-        for members in [*canonical_members.values(), *labels.values(), *units.values()]:
-            if len(members)>1:
-                first = next(iter(members))
-                for lid in members:
-                    parent[find(lid)] = find(first)
-        components = defaultdict(set)
-        for lid in catalog:
-            components[find(lid)].add(lid)
-        groups = {tuple(sorted(ids)):ids for ids in components.values() if len(ids)>1}
-        self._candidate_groups = groups
-        assessments = {key:self._source.assess(ids,catalog,canonical_members,history_members,corrected,reserved)
-                       for key,ids in groups.items() if len(ids)>1}
+        latest_groups=[]
+        for target,members in latest_members.items():
+            group=set(members)
+            if target in catalog:
+                group.add(target)
+                for c in catalog[target]['captures']:
+                    latest_labels[target].add((c['building_slug'],c['unit_label']))
+                    latest_labels[target].add(getattr(self._source,'source_labels',{}).get(c['snapshot_id'],(c['building_slug'],c['unit_label'])))
+            latest_groups.append(group)
+        def components(available, suggestions):
+            parent={lid:lid for lid in available}
+            def find(lid):
+                while parent[lid]!=lid:
+                    parent[lid]=parent[parent[lid]];lid=parent[lid]
+                return lid
+            for members in suggestions:
+                members=members & available
+                if len(members)>1:
+                    first=next(iter(members))
+                    for lid in members:
+                        parent[find(lid)]=find(first)
+            result=defaultdict(set)
+            for lid in available:
+                result[find(lid)].add(lid)
+            return {tuple(sorted(ids)):ids for ids in result.values() if len(ids)>1}
+        def assess(ids):
+            return self._source.assess(ids,catalog,canonical_members,history_members,corrected,reserved,latest_members,latest_labels)
+        # Qualifying shared-latest groups take precedence over weaker label/URL
+        # suggestions. Exceptions still form disjoint, reviewable groups.
+        primary=components(set(catalog), [*latest_groups,*units.values()])
+        assessments={ids:assess(members) for ids,members in primary.items()}
+        supported={ids:primary[ids] for ids,value in assessments.items() if value['eligible']}
+        assigned={lid for ids in supported for lid in ids}
+        remaining=components(set(catalog)-assigned,[*latest_groups,*units.values(),*labels.values(),*canonical_members.values()])
+        groups={**supported,**remaining}
+        assessments={ids:assess(members) for ids,members in groups.items()}
+        self._candidate_groups=groups
         self._assessments = (key,assessments)
         return assessments
 
@@ -116,7 +140,7 @@ class UnitMergeService:
         catalog = self.catalog(review_events, identity_events)
         assessments = self.assessments(catalog, review_events, identity_events)
         queue = args.get('queue', 'all')
-        if queue not in {'all','supported','review'}:
+        if queue not in {'all','supported','review','label_conflicts'}:
             raise ValueError('Unknown identity queue')
         basis = {e['unit_id']:e['basis'] for e in active_decisions(identity_events)}
         search = str(args.get('search', '')).strip().casefold()
@@ -137,7 +161,7 @@ class UnitMergeService:
             for lid, unit_id in identity_map(identity_events).items():
                 if lid in catalog:
                     groups[unit_id].add(lid)
-        result = []; counts = {"supported":0,"review":0}
+        result = []; counts = {"supported":0,"review":0,"label_conflicts":0}
         for key, ids in groups.items():
             units = {catalog[lid]['unit_id'] for lid in ids}
             if mode == 'candidates' and len(units) < 2:
@@ -155,7 +179,11 @@ class UnitMergeService:
             category = 'supported' if assessment and assessment['eligible'] else 'review'
             if mode=='candidates':
                 counts[category] += 1
-                if queue != 'all' and queue != category:
+                has_label_conflict=bool(assessment and assessment.get('latest_label_conflicts'))
+                if has_label_conflict:counts['label_conflicts']+=1
+                if queue=='label_conflicts':
+                    if not has_label_conflict:continue
+                elif queue != 'all' and queue != category:
                     continue
             result.append({'assessment':assessment, 'basis':basis.get(key), 'building': labels[0][0],
                            'unit_label': labels[0][1],
@@ -290,7 +318,8 @@ class UnitMergeService:
         token = uuid.uuid4().hex
         record = {'dataset':self.s.dataset, 'identity_revision':data['identity_revision'],
                   'review_revision':data['review_revision'], 'source_digest':self._source.digest,
-                  'proposals':proposals, 'search':args.get('search','')}
+                  'proposals':proposals, 'search':args.get('search',''),
+                  'reason':'Accepted shared latest-listing references with matching building/unit labels; durable unit IDs are independent of those references'}
         directory = self.s.state/'unit-proposals'; directory.mkdir(exist_ok=True)
         (directory/(token+'.json')).write_text(canonical(record))
         return {'token':token, 'group_count':len(proposals),
@@ -308,6 +337,12 @@ class UnitMergeService:
             raise ValueError('Proposal not found; preview again') from exc
 
     def association_apply(self, args):
+        # Hold the review revision stable through validation and the identity write.
+        with self.s.ledger.path.open('a+', encoding='utf-8') as stream:
+            fcntl.flock(stream, fcntl.LOCK_SH)
+            return self._association_apply(args)
+
+    def _association_apply(self, args):
         record = self.proposal(args); token = args['token']
         events = self.ledger.events()
         prior = next((e for e in events if e['request_id']==token), None)
@@ -324,7 +359,7 @@ class UnitMergeService:
                 raise ReviewConflict('Source evidence changed; preview again')
         event = self.ledger.write('associate_batch', proposals=record['proposals'],
             review_revision=record['review_revision'], expected_revision=record['identity_revision'],
-            author=args.get('author'), reason='Accepted consistent StreetEasy unit-page and listing-history associations', request_id=token)
+            author=args.get('author'), reason=record.get('reason','Accepted consistent StreetEasy unit-page and listing-history associations'), request_id=token)
         return {'batch_id':event['id'], 'group_count':len(event['proposals']),
                 'listing_count':sum(len(p['listing_ids']) for p in event['proposals'])}
 

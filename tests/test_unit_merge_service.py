@@ -199,3 +199,37 @@ def test_canonical_groups_surface_different_labels_without_overlapping_actions(s
     u=UnitMergeService(s);u._source=evidence()
     groups=u.candidates({})
     assert groups['total']==1 and groups['rows'][0]['listing_ids']==['1','2','5']
+
+
+def test_shared_latest_group_saved_identity_does_not_follow_changing_latest(service):
+    u=ready_service(service)
+    u._source.pages={}
+    u._source.history={1:{'1'},2:{'2'}}
+    preview=u.association_preview({})
+    saved=u.association_apply({'token':preview['token'],'author':'Ben'})
+    before=u.mapping({})['listing_to_unit']
+    assert len(set(before.values()))==1
+    unit_id=before['1'];assert unit_id.startswith('unit:') and unit_id!='2'
+    u._source.latest={1:'99',2:'99'};u._assessments=None
+    assert u.mapping({})['listing_to_unit']==before
+    detail=u.inspect({'unit_id':unit_id})
+    assert detail['unit_id']==unit_id and detail['listing_ids']==['1','2']
+    assert detail['source_evidence']['latest_listing_ids']==['2']  # Frozen evidence.
+    assert detail['source_evidence']['rule']=='shared-latest-v2'
+
+
+def test_shared_latest_differing_labels_have_a_separate_manual_queue(service):
+    u=ready_service(service)
+    service.db.execute("UPDATE rental SET unit_label='4D' WHERE snapshot_id=2")
+    data=u.candidates({'queue':'label_conflicts'})
+    assert data['total']==1 and data['counts']['label_conflicts']==1
+    assert data['rows'][0]['assessment']['latest_label_conflicts']
+    assert u.candidates({'queue':'supported'})['total']==0
+
+
+def test_eligible_latest_subgroup_is_not_blocked_by_other_same_label_listings(service):
+    u=ready_service(service)
+    service.db.execute("INSERT INTO rental SELECT * REPLACE(5 AS snapshot_id,'5' AS listing_id) FROM rental WHERE snapshot_id=1")
+    u._source.latest[5]='5'
+    groups=u.candidates({'queue':'supported'})
+    assert groups['total']==1 and groups['rows'][0]['listing_ids']==['1','2']

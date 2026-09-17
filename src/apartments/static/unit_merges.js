@@ -65,6 +65,8 @@ async function load(){
   if(serial!==state.listSerial)return;
   $('queue').disabled=$('mode').value==='merged';
   $('show-supported').textContent=`${num(data.counts.supported)} ready for bulk association`;
+  $('show-label-conflicts').textContent=`${num(data.counts.label_conflicts)} shared-latest label conflicts`;
+  $('show-label-conflicts').hidden=$('mode').value==='merged';
   $('show-review').textContent=`${num(data.counts.review)} need manual review`;
   $('show-supported').hidden=$('show-review').hidden=$('mode').value==='merged';
   $('bulk-associations').hidden=$('mode').value==='merged'||$('queue').value!=='supported';
@@ -122,7 +124,11 @@ function render(data){
     section.append(el('strong',data.source_evidence?'Saved StreetEasy evidence':evidence.eligible?'Ready for bulk association':'Needs manual review'));
     if(evidence.canonical_url){const link=el('a','StreetEasy unit page ↗');link.href=evidence.canonical_url;link.target='_blank';link.rel='noopener noreferrer';section.append(link);}
     section.append(el('p',`Latest listing reference: ${(evidence.latest_listing_ids||[]).join(', ')||'Missing'}.`,'panel-note'));
-    if(evidence.eligible)section.append(el('p','The unit page, address labels, latest listing and complete rental-history membership agree across all captures. These reflect StreetEasy’s grouping, not independent verification.','panel-note'));
+    if(evidence.eligible)section.append(el('p',evidence.rule==='shared-latest-v2'
+      ? 'Every capture shares one latest-listing reference, with matching building/unit labels across that reference. The saved unit ID does not change when StreetEasy’s latest listing changes.'
+      : 'The unit page, address labels, latest listing and complete rental-history membership agreed when this association was saved.','panel-note'));
+    for(const conflict of evidence.latest_label_conflicts||[])section.append(el('p',`Latest listing ${conflict.latest_listing_id} appears under: ${conflict.labels.map(([b,u])=>`${b||'Unknown building'} ${u||'Unknown unit'}`).join('; ')}.`,'conflict'));
+    for(const note of evidence.notes||[])section.append(el('p',note,'panel-note'));
     for(const reason of evidence.reasons||[])section.append(el('p',reason,'panel-note'));
     root.append(section);
   }
@@ -209,7 +215,7 @@ $('preview-associations').addEventListener('click',async()=>{
     if(serial!==state.previewSerial)return;
     const root=$('association-preview');root.replaceChildren();root.hidden=false;
     root.append(el('h2',`Associate ${num(data.group_count)} unit groups`),el('p',`${num(data.listing_count)} rental listing IDs · ${num(data.capture_count)} captures. Search: ${data.search||'all buildings'}. This includes every matching ready group, across all pages.`));
-    root.append(el('p','Each group will receive its own durable unit ID labeled “StreetEasy-associated.” These are source associations, not manual physical verification. Attributes, prices, and capture dates remain unchanged. You can undo a whole batch or an individual association.'));
+    root.append(el('p','Each group will receive its own durable unit ID labeled “StreetEasy-associated.” The ID and saved membership do not depend on which listing StreetEasy calls latest. These are source associations, not manual physical verification. Attributes, prices, and capture dates remain unchanged. You can undo a whole batch or an individual association.'));
     const download=el('a','Download the complete proposal and evidence');download.href='/api/units/proposal?'+new URLSearchParams({token:data.token});root.append(download);
     root.append(el('h3',`First ${data.examples.length} groups`),table(['Building / unit','Listing IDs'],data.examples.map(x=>[`${x.building} ${x.unit_label}`,x.listing_ids.join(', ')])));
     const save=el('button',`Save ${num(data.group_count)} StreetEasy associations`,'primary'),cancel=el('button','Cancel');save.type=cancel.type='button';const actions=el('div',undefined,'inline-actions');actions.append(save,cancel);root.append(actions);
@@ -228,7 +234,7 @@ $('preview-associations').addEventListener('click',async()=>{
     root.scrollIntoView({behavior:'smooth',block:'start'});
   }catch(e){error(e);}finally{$('preview-associations').disabled=false;}
 });
-for(const [id,queue] of [['show-supported','supported'],['show-review','review']])$(id).addEventListener('click',()=>{if(state.busy)return;clearProposal();$('mode').value='candidates';$('queue').value=queue;state.offset=0;load().catch(error);});
+for(const [id,queue] of [['show-supported','supported'],['show-review','review'],['show-label-conflicts','label_conflicts']])$(id).addEventListener('click',()=>{if(state.busy)return;clearProposal();$('mode').value='candidates';$('queue').value=queue;state.offset=0;load().catch(error);});
 $('queue').addEventListener('change',()=>{if(state.busy)return;clearProposal();state.offset=0;load().catch(error);});
 $('sort-listing-count').addEventListener('click',()=>{if(state.busy)return;state.direction=state.sort==='listing_count'&&state.direction==='desc'?'asc':'desc';state.sort='listing_count';state.offset=0;load().catch(error);});
 $('filters').addEventListener('submit',event=>{event.preventDefault();if(state.busy)return;clearProposal();state.offset=0;load().catch(error);});

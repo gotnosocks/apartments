@@ -123,24 +123,34 @@ Original observation and event tables remain immutable evidence.
 
 ### StreetEasy-associated groups and bulk proposals
 
-**Ready for bulk association** contains groups whose source evidence agrees on:
+**Ready for bulk association** uses the `shared-latest-v2` rule:
 
-- One canonical StreetEasy building/unit page across every capture, used by no
-  rental IDs outside the group.
-- Matching effective building and unit labels, including agreement with the unit
-  page path. Only casing, URL encoding, and the display `#` are reconciled.
-- One latest-listing ID across every capture, included in the group.
-- Exactly the group's rental listing IDs in every capture's rental history, with
-  no incoming history references from another group.
-- No existing or previously undone identity decisions involving these IDs, and
-  no active corrections to identity/source-history fields.
+- Every capture references one common `latestListing.id`, and that referenced
+  rental listing is present in the group.
+- All listings associated with that reference have the same non-generic,
+  non-missing building/unit label. The check covers the entire reference across
+  the dataset, including original and corrected labels and the referenced listing.
+- No existing or previously undone identity decision is replaced, and there are
+  no active identity/latest-reference corrections affecting the group.
 
-These fields express one source's grouping, not independent physical verification.
-Attribute disagreements do not establish identity errors and remain in the
-separate attribute review pass. Missing/generic unit labels are never pooled by label alone. A shared canonical
-unit page can surface them as a manual exception. Overlapping canonical-page,
-label, and saved-unit groups are combined for review, preventing independent
-actions on overlapping membership.
+**Shared latest ID: differing labels** isolates cross-label references for manual
+review, with the exact latest ID and conflicting building/unit labels shown in
+its detail. The filter is a subset of **Needs manual review**.
+
+Canonical unit pages and property histories remain visible supporting evidence.
+Missing canonical unit URLs, differing histories, and other canonical/history
+coverage differences do not by themselves block an otherwise qualifying shared-
+latest group. Attribute shifts remain a separate review concern.
+
+Qualifying shared-latest groups take precedence over weaker address/URL matches.
+Remaining overlapping suggestions form disjoint manual-review groups. A shared
+label alone does not merge different latest-listing groups. After associations
+are saved, the exception list may regroup those units with other same-label
+records still needing review.
+
+These are StreetEasy's associations, not independent physical verification.
+Missing/generic labels and inconsistent or unavailable latest targets remain
+manual exceptions. Prior decisions, including undone associations, are preserved.
 
 Choose **Ready for bulk association**, optionally search, then **Preview all
 matching associations**. The preview freezes every eligible matching group across
@@ -153,7 +163,8 @@ statuses, and history events are preserved.
 A batch is one append-only, hash-chained `associate_batch` event. Each member has
 its own decision ID and unit ID. Retry uses the frozen preview token; changed
 review/identity revisions reject a stale proposal. The proposal and recorded
-member evidence include the canonical URL, latest ID, exact member/capture IDs,
+member evidence includes any canonical URLs, the source latest reference for each
+capture, exact member/capture IDs,
 rule version, and source-evidence digest. Normal unit exports expose that evidence
 and the association basis. `/api/units/mapping` includes `unit_basis` in addition
 to the listing-to-unit map. Consumers must use the updated ledger helpers to
@@ -181,8 +192,24 @@ It reads only bounded HTML heads from the existing local archive; it makes no
 network requests and does not alter original Parquet tables. The sidecar is bound
 to the dataset's exact snapshot IDs, URLs, and body hashes. Restart the review app
 after installing or rebuilding this file. A missing sidecar on an older dataset
-leaves groups in manual review; a mismatched sidecar is rejected.
+leaves canonical evidence unavailable but does not block shared-latest association;
+a mismatched sidecar is rejected.
 
 Added endpoints: POST `/api/units/associations/preview`, `/apply`, `/undo`; GET
 `/api/units/proposal?token=...` and `/api/units/batches`. Writes retain the existing
 host, origin, CSRF, and read-only protections.
+
+
+### Durable binding, independent of the latest listing
+
+Each accepted group receives a newly generated `unit:<uuid>`, with explicit
+`listing_ids` frozen in the identity ledger. Neither the UUID nor lookup of its
+members uses `latestListing.id`. That source ID is retained only as dated decision
+evidence. A change to StreetEasy's latest pointer therefore cannot change or move
+saved memberships. New listing IDs require another explicit identity decision;
+existing unit IDs are preserved when a later manual merge expands a unit.
+
+The normal HTML-to-Parquet transform continues to extract canonical unit evidence
+for every new dataset. Shared latest references come from its preserved source
+JSON. This rule is implemented in the reusable review service, not as in-place
+edits to transformed observations.

@@ -31,7 +31,7 @@ def evidence():
     return source
 
 
-def test_source_assessment_requires_complete_agreement_and_no_cross_group_links():
+def test_shared_latest_allows_missing_canonical_and_incomplete_history():
     source=evidence()
     catalog={lid:{'captures':[{'snapshot_id':int(lid),'building_slug':'a','unit_label':'#4C'}]} for lid in ['1','2']}
     members={'https://streeteasy.com/building/a/4c':{'1','2'}}
@@ -40,18 +40,19 @@ def test_source_assessment_requires_complete_agreement_and_no_cross_group_links(
         return source.assess(['1','2'],catalog,members,kwargs.get('history',history),kwargs.get('corrected',set()),kwargs.get('reserved',set()))
     assert check()['eligible']
     source.history[2]={'2'}
-    assert not check()['eligible']  # Mere connectivity is insufficient.
+    assert check()['eligible']
+    assert any('history' in note.lower() for note in check()['notes'])
     source.history[2]={'1','2'}
-    assert not check(history={**history,'1':{'1','2','9'}})['eligible']
+    assert check(history={**history,'1':{'1','2','9'}})['eligible']
     assert not check(corrected={1})['eligible']
     assert not check(reserved={'1'})['eligible']
     source.latest[1]='3'
     assert not check()['eligible']
     source.latest[1]='2';source.pages[1]['canonical_url']=None
-    assert not check()['eligible']
+    assert check()['eligible']
     source.pages[1]['canonical_url']='https://streeteasy.com/building/a/4c'
     members['https://streeteasy.com/building/a/4c'].add('9')
-    assert not check()['eligible']
+    assert check()['eligible']
 
 
 def test_generic_canonical_page_cannot_automatically_establish_a_home():
@@ -85,3 +86,13 @@ def test_backfill_is_bound_to_the_exact_dataset_snapshots(service):
     pq.write_table(pa.Table.from_pylist(rows).replace_schema_metadata(metadata),path)
     with pytest.raises(ValueError,match='does not match'):
         SourceEvidence(service)
+
+
+def test_shared_latest_label_conflict_is_checked_across_the_entire_reference():
+    source=evidence()
+    source.latest[3]='2'
+    catalog={lid:{'captures':[{'snapshot_id':int(lid),'building_slug':'a','unit_label':'4C' if lid!='3' else '4D'}]} for lid in ['1','2','3']}
+    result=source.assess(['1','2'],catalog,{}, {},set(),set())
+    assert not result['eligible']
+    assert result['latest_label_conflicts'][0]['latest_listing_id']=='2'
+    assert result['latest_label_conflicts'][0]['labels']==[['a','4C'],['a','4D']]

@@ -7,13 +7,13 @@ import json
 import re
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
-from urllib.parse import unquote, urlsplit
 from .unit_canonical import Head, head_fields, unit_page
 import duckdb
 import pyarrow as pa
 import pyarrow.parquet as pq
 
 VERSION = 'canonical-unit-v1'
+ASSOCIATION_RULE = 'shared-latest-v2'
 
 
 def extract(path, url):
@@ -90,46 +90,62 @@ class SourceEvidence:
                 self.pages = {r['snapshot_id']:r for r in rows}
                 self.digest = hashlib.sha256(path.read_bytes()).hexdigest(); self.error = None
         self.latest = dict(service.db.execute("SELECT r.snapshot_id,json_extract_string(l.raw_listing_json,'$.latestListing.id') FROM rental r JOIN listing_observations l USING(snapshot_id)").fetchall())
+        self.source_labels = {sid:(building,label) for sid,building,label in service.db.execute('SELECT snapshot_id,building_slug,unit_label FROM rental').fetchall()}
         self.history = {}
         for sid, lid in service.db.execute("SELECT DISTINCT e.snapshot_id,e.event_listing_id FROM event_mentions e JOIN rental r USING(snapshot_id) WHERE event_category='rental'").fetchall():
             self.history.setdefault(sid, set()).add(lid)
 
-    def assess(self, ids, catalog, canonical_members, history_members, corrected, reserved):
+    def assess(self, ids, catalog, canonical_members, history_members, corrected, reserved,
+               latest_members=None, latest_labels=None):
         ids = set(ids); captures = [c for lid in ids for c in catalog[lid]['captures']]
         sids = sorted(c['snapshot_id'] for c in captures)
-        pages = {self.pages.get(sid, {}).get('canonical_url') for sid in sids}
+        pages = {self.pages.get(sid, {}).get('canonical_url') for sid in sids} - {None}
         latest = {self.latest.get(sid) for sid in sids}
         labels = {(c['building_slug'],c['unit_label']) for c in captures}
+        if latest_members is None or latest_labels is None:
+            latest_members,latest_labels = {},{}
+            for lid,listing in catalog.items():
+                for c in listing['captures']:
+                    target=self.latest.get(c['snapshot_id'])
+                    if target:
+                        latest_members.setdefault(target,set()).add(lid)
+                        latest_labels.setdefault(target,set()).add((c['building_slug'],c['unit_label']))
+        conflicts = [{'latest_listing_id':target,
+                      'labels':sorted([list(pair) for pair in latest_labels.get(target,set())],key=lambda p:(p[0] or '',p[1] or '')),
+                      'listing_ids':sorted(latest_members.get(target,set()))}
+                     for target in sorted(x for x in latest if x) if len(latest_labels.get(target,set()))>1]
         reasons = []
-        if None in pages or len(pages) != 1:
-            reasons.append('Missing or differing canonical unit pages')
-        page = next(iter(pages)) if len(pages)==1 and None not in pages else None
-        if page and canonical_members.get(page, set()) != ids:
-            reasons.append('The canonical unit page also identifies listings outside this group')
-        if any(not building or not label or not label.strip() or re.search(r'bedroom|studio|[0-9] *br|layout|floorplan',label,re.I) for building,label in labels):
-            reasons.append('Unit label is missing or generic; review identity first')
-        if len(labels) != 1:
+        if conflicts:
+            reasons.append('Shared latest listing ID appears under different building or unit labels')
+        if len(labels)!=1:
             reasons.append('Building or unit labels differ')
-        elif page:
-            building, label = next(iter(labels)); parts = urlsplit(page).path.strip('/').split('/')
-            if (unquote(parts[1]).casefold() != (building or '').casefold()
-                or unquote(parts[2]).casefold() != (label or '').strip().lstrip('#').strip().casefold()):
-                reasons.append('Canonical unit page disagrees with the building or unit label')
-        if None in latest or len(latest) != 1 or not latest.issubset(ids):
+        if any(not b or not u or not u.strip() or re.search(r'bedroom|studio|[0-9] *br|layout|floorplan',u,re.I) for b,u in labels):
+            reasons.append('Unit label is missing or generic; review identity first')
+        if None in latest or len(latest)!=1 or not latest.issubset(ids):
             reasons.append('Latest listing references are missing, inconsistent, or outside this group')
-        # Require complete agreement on the set of rental episodes in every capture.
-        histories = [self.history.get(sid,set()) for sid in sids]
-        if any(h != ids for h in histories):
-            reasons.append('Property histories do not all identify exactly these rental listings')
-        if any(not history_members.get(lid,set()).issubset(ids) for lid in ids):
-            reasons.append('Another unit group references these listings in its property history')
-        if set(sids) & corrected:
-            reasons.append('Identity or source history has a review correction')
-        if ids & reserved:
+        elif latest_members.get(next(iter(latest)),set()) != ids:
+            reasons.append('Shared latest listing also identifies listings outside this group')
+        if set(sids)&corrected:
+            reasons.append('Identity or latest-listing reference has a review correction')
+        if ids&reserved:
             reasons.append('Group includes a prior identity decision; review individually')
-        return {'eligible':not reasons and len(ids)>1, 'reasons':reasons,
-                'canonical_url':page, 'latest_listing_ids':sorted(x for x in latest if x),
-                'snapshot_ids':sids, 'listing_ids':sorted(ids), 'rule':VERSION,
+        # Canonical and history coverage are explanatory evidence, not prerequisites
+        # for the user's explicitly authorized shared-latest association rule.
+        notes=[]
+        if any(not self.pages.get(sid,{}).get('canonical_url') for sid in sids):
+            notes.append('Some captures do not declare a canonical unit page')
+        if len(pages)>1:
+            notes.append('Captures declare different canonical unit pages')
+        if any(self.history.get(sid,set()) != ids for sid in sids):
+            notes.append('Property-history membership differs between captures or from this group')
+        if any(not history_members.get(lid,set()).issubset(ids) for lid in ids):
+            notes.append('Other listings include these rental IDs in their property history')
+        return {'eligible':not reasons and len(ids)>1, 'reasons':reasons, 'notes':notes,
+                'latest_label_conflicts':conflicts,
+                'canonical_url':next(iter(pages)) if len(pages)==1 else None,
+                'canonical_urls':sorted(pages), 'latest_listing_ids':sorted(x for x in latest if x),
+                'latest_references':[[sid,self.latest.get(sid)] for sid in sids],
+                'snapshot_ids':sids, 'listing_ids':sorted(ids), 'rule':ASSOCIATION_RULE,
                 'source_evidence_sha256':self.digest}
 
 
