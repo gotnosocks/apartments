@@ -24,11 +24,17 @@ SOURCE_FIELDS = {'source_manifest_sha256','source_observations_sha256','source_v
 VARIABLE = noise.VARIABLE | SOURCE_FIELDS
 
 
-def reconstruction_dependencies():
+def reconstruction_dependencies(protocol=None):
     # Import lazily: verifying source revisions alone needs no numerical runtime.
     from . import bayesian_feature_model as feature
-    return feature, [Path(module.__file__) for module in
+    paths = [Path(module.__file__) for module in
         (feature, feature.base, feature.amenity, feature.amenity.baseline, feature.pricing)]
+    if protocol and protocol.get('version') == 'observable-bayesian-floor-experiment-v4':
+        from . import bayesian_floor_increment_design as floor
+        if protocol.get('feature_design_version') != floor.VERSION:
+            raise ValueError('Unsupported floor reconstruction version')
+        return floor, [*paths,Path(floor.__file__)]
+    return feature, paths
 
 
 def verify_design(experiment, dataset, protocol, provenance):
@@ -37,7 +43,7 @@ def verify_design(experiment, dataset, protocol, provenance):
     import pandas as pd
 
     experiment, dataset = Path(experiment), Path(dataset)
-    feature, paths = reconstruction_dependencies()
+    feature, paths = reconstruction_dependencies(protocol)
     pm, fm = provenance['protocol_manifest'], provenance['fit_manifest']
     ph = hashlib.sha256(canonical(protocol).encode()).hexdigest()
     if (pm.get('protocol_sha256') != ph or fm.get('protocol_sha256') != ph
@@ -68,7 +74,9 @@ def verify_design(experiment, dataset, protocol, provenance):
     arrays = {}
     with tempfile.TemporaryDirectory(prefix='apartments-design-verification-') as temporary:
         fresh = Path(temporary)
-        feature.FeatureDesign(data,protocol['specification']).save(fresh)
+        kwargs = ({'floor_increment_prior_scale':protocol['floor_increment_prior_scale']}
+                  if protocol.get('version') == 'observable-bayesian-floor-experiment-v4' else {})
+        feature.FeatureDesign(data,protocol['specification'],**kwargs).save(fresh)
         for name in ('feature-design.json','time-design.json'):
             if canonical(json.loads(saved[name])) != canonical(json.loads((fresh/name).read_bytes())):
                 raise ValueError('Saved design differs from exact source reconstruction: '+name)

@@ -2,8 +2,46 @@
 
 The accepted Bayesian fit's residuals and extreme group effects led to 12
 advertisement-specific decisions. The new research projection contains 52,704
-observations and retains all 13 refreshed current listings. It has not yet been
-refitted or promoted to the reviewed serving model.
+observations and retains all 13 refreshed current listings. The first matched
+PyMC refit completed but failed the parameter convergence gate; the longer retry was killed by the operating system for memory exhaustion
+after sampling, before writing a posterior checkpoint. Neither has been promoted to the main analysis model.
+
+## Refit status, September 18
+
+`chelsea-bayesian-source-shared-20260918` completed with four chains, 2,000 warmup
+steps and 4,000 retained draws per chain. The maximum parameter R-hat is
+**1.01039094**, on `beta[elevator.unknown]`, above the unchanged threshold of
+1.01. Minimum bulk/tail ESS are 638/1,179; there are no divergences. Derived
+checks pass (maximum R-hat 1.00453), but do not override the parameter failure.
+The verified report correctly refuses this diagnostic-only fit. No coefficient
+or residual comparison from it is treated as an accepted result.
+
+The failed retry is `chelsea-bayesian-source-shared-long-20260918`, with the same cohort,
+feature/noise specification and priors, four chains, **4,000 warmup and 6,000
+retained draws per chain**, seed 20260922. It uses the existing PyMC graph and
+compiled nutpie NUTS. More sampling is a computational change, not a relaxed
+diagnostic gate. The currently selected 52,711-row baseline remains unchanged.
+
+At 23:20:09 UTC, the kernel recorded a global out-of-memory kill of its Python
+process (exit 137; approximately 11 GiB resident memory). The final progress file
+records all four chains at 10,000 total steps with zero divergences. There is no
+`posterior.nc`, posterior checkpoint or completion manifest, so there are no
+usable uncertainty diagnostics from this attempt. The previous failed fit remains
+preserved. Result-storage memory must be addressed before another large run;
+the prepared floor fit is also held for this fix.
+
+Historical invocation (do not blindly repeat the memory failure):
+
+```sh
+OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 uv run --frozen --no-sync python \
+  -m models.bayesian_feature_experiment_v3 \
+  --dataset data/model/chelsea-reviewed-scope-composition-projection-20260918 \
+  --output data/model/chelsea-bayesian-source-shared-long-20260918 \
+  --spec full_half_balance --chains 4 --tune 4000 --draws 6000 \
+  --seed 20260922 --target-accept .93 --adaptation diag \
+  --residual-scale shared --residual-parameterization centered \
+  --graph-validation data/model/chelsea-bayesian-v3-centered-shared-parity-20260918
+```
 
 | Action | Advertisement IDs | Evidence |
 | --- | --- | --- |

@@ -35,7 +35,9 @@ patterns, and whether a simpler representation suffices.
   threshold support and gaps, and compare joint floor contrasts and residuals on
   the same cohort before promoting the fit.
   The [isolated increment design](model/listed-floor-increment-design.md) is
-  implemented and tested; a new posterior and main-model promotion remain pending.
+  implemented with a versioned runner, reports and reconstruction checks; a new
+  posterior and main-model promotion remain pending. The prepared fit is held
+  while result-storage memory is addressed.
 - [ ] Complete a skeptical parameter audit and matched Bayesian simplification
   experiments. Include nuisance reporting indicators, group effects and priors,
   time/season bases and likelihood choices, as well as apartment amenities. A
@@ -78,7 +80,10 @@ patterns, and whether a simpler representation suffices.
   observations and all 13 refreshed listings. Original prices and counts remain.
 - [ ] Refit that source revision and compare contributions. Preserve uncertain
   prices, physical change dates and unit aliases until supported by evidence.
-  The matched 52,704-row shared-scale PyMC refit is running.
+  The first 52,704-row shared-scale refit failed the parameter gate at R-hat
+  1.01039. The 4,000-warmup/6,000-retained retry was killed for memory exhaustion
+  after sampling and has no posterior checkpoint. Validate bounded-memory trace
+  storage before retrying; neither attempt supplies accepted intervals.
 - [x] Expose accepted Bayesian bathroom/category intervals, prior comparisons and
   all 13 current residuals in the separate [research page](model/bayesian-research-page.md).
   The page verifies source/report bindings and withholds failed experiments.
@@ -240,3 +245,12 @@ patterns, and whether a simpler representation suffices.
 - [ ] Explore using posted photos to identify listings that may represent the same physical unit. Treat exact or visually similar photos as supporting evidence, not proof: brokers sometimes reuse photos for different units in the same building column. Combine photo evidence with building, unit label, floor, layout, and dates; retain uncertain matches and source observations rather than automatically merging records. Evaluate false matches on known distinct units in the same column before using photo-based identity links in modeling.
 
 - [ ] Track the brokerage firm and individual broker(s) associated with each listing observation. Preserve the source names and available identifiers/contact or profile references, including multiple brokers where present. Keep collection timestamps and source evidence so changes in representation remain visible; do not backfill current representation onto historical price events. Inspect archived payloads first and extract available information without a new scrape. Support auditable corrections through the separate review overlay.
+
+- [x] Execute and replay a bounded Oxylabs discovery pass: 28 new requests plus
+  four reused captures; 213 in-scope advertisement candidates preserved. The
+  [coverage review](analysis/chelsea-rental-discovery-2026-09-18.md) documents
+  repeated regular cards, incomplete coverage and the detail-review queue.
+- [ ] Validate disk-backed nutpie traces and bounded-memory export/reporting.
+  The longer source refit exceeded memory during result extraction; preserve
+  exact chain/draw coordinates and all retained draws, and test against the
+  current in-memory sampler before using this for source or floor fits.

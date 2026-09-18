@@ -9,7 +9,7 @@ The global ceiling is mandatory for a new run. It counts **verified reused provi
 Prepare a run using the verified four-page artifact, without making requests:
 
 ```sh
-.venv/bin/python -m apartments.rental_discovery \
+uv run --frozen --no-sync python -m apartments.rental_discovery \
   --output data/probes/NEW-UNUSED-RENTAL-PAGINATION-RUN \
   --max-requests 32 \
   --preflight-bundle data/model/chelsea-current-search-four-page-audit-20260918-v2 \
@@ -19,14 +19,14 @@ Prepare a run using the verified four-page artifact, without making requests:
 After reviewing that prepared run, continue its fixed protocol:
 
 ```sh
-.venv/bin/python -m apartments.rental_discovery \
+uv run --frozen --no-sync python -m apartments.rental_discovery \
   --output data/probes/NEW-UNUSED-RENTAL-PAGINATION-RUN --resume
 ```
 
 Replay an existing run without any network calls:
 
 ```sh
-.venv/bin/python -m apartments.rental_discovery \
+uv run --frozen --no-sync python -m apartments.rental_discovery \
   --output data/probes/NEW-UNUSED-RENTAL-PAGINATION-RUN --resume --replay-only
 ```
 
@@ -62,3 +62,17 @@ The original version-1 real four-page preflight bundle was verified and replayed
 It reports `offline_replay_only`; both page-3 URLs remain pending. This is an offline implementation check, not an executed pagination pass.
 
 Version-2 regression checks additionally cover Unicode U+2028/U+2029 inside JSONL literals, exact frozen implementation copies, live/frozen code changes during capture, and tampered protocol seeds/transport/ceiling/timeout. No requests were made by these checks.
+
+## Executed bounded pass on September 18
+
+The version-2 live pass completed 28 new Oxylabs submissions, all accepted, with
+four verified reused captures and a fixed global ceiling of 32. Offline replay
+reproduced its report without requests. Chelsea pages 1–25 closed their observed
+next-link chain, but 265 regular card occurrences contained only 178 unique
+advertisements. West Chelsea pages 1–7 contained 77 regular occurrences and 61
+unique advertisements; its observed page-8 link remains pending at the ceiling.
+
+The cross-seed union contains 199 distinct regular advertisements and 213 when
+in-scope promoted placements are included. Seven Hudson Yards in-feed occurrences
+were excluded. Inventory remains incomplete. See the [pass review](../analysis/chelsea-rental-discovery-2026-09-18.md)
+for source bindings and the preserved detail-review queue.

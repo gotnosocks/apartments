@@ -136,7 +136,13 @@ def run(experiment,dataset,output):
     _,source=_verified_bundle(dataset,retain={'observations.jsonl'})
     data=pd.DataFrame(report.jsonl(source['observations.jsonl']))
     data.period=pd.to_datetime(data.period);data.square_feet=pd.to_numeric(data.square_feet,errors='coerce')
-    design=loader.load_design(experiment/'fit',data)
+    if protocol['version']==checks.V4_EXPERIMENT:
+        from . import bayesian_source_sensitivity as verification
+        from threadpoolctl import threadpool_limits
+        path=Path(verification.__file__);paths.append(path);code[path.name]=digest(path)
+        with threadpool_limits(limits=1,user_api='blas'):
+            verification.verify_design(experiment,dataset,protocol,manifests)
+    design=loader.load_design(experiment/'fit',data,protocol)
     categories,contrasts,omitted=construct_contrasts(design,data)
     with xr.open_dataset(experiment/'fit/posterior.nc',group='posterior',engine='h5netcdf') as p:
         if (p.sizes.get('chain')!=protocol['chains'] or p.sizes.get('draw')!=protocol['draws']

@@ -20,6 +20,7 @@ from . import bayesian_feature_report as report
 VERSION = 'bayesian-feature-posterior-checks-v3'
 V2_EXPERIMENT = 'observable-bayesian-bathroom-experiment-v2'
 V3_EXPERIMENT = 'observable-bayesian-bathroom-experiment-v3'
+V4_EXPERIMENT = 'observable-bayesian-floor-experiment-v4'
 BEDROOM_DIMS = {'residual_bedroom_z': ('residual_bedroom',),
                 'residual_bedroom_scale': (), 'sigma_by_bedroom': ('residual_bedroom',)}
 LIMITATIONS = [*common.LIMITATIONS,
@@ -36,7 +37,7 @@ def verified_configuration(protocol, data, fit_directory):
             raise ValueError('Legacy v2 fit cannot declare v3 noise or prior settings')
         # V2 mean/noise graph is frozen and checked by verify_implementation.
         return graph.graph_configuration(data, protocol['prior_multiplier'])
-    if version != V3_EXPERIMENT:
+    if version not in (V3_EXPERIMENT,V4_EXPERIMENT):
         raise ValueError('Unsupported posterior experiment version')
     try:
         expected = graph.graph_configuration(data, protocol['prior_multiplier'],
@@ -52,10 +53,13 @@ def verified_configuration(protocol, data, fit_directory):
 
 
 def verify_implementation(protocol):
-    if protocol.get('version') == V3_EXPERIMENT:
+    if protocol.get('version') in (V3_EXPERIMENT,V4_EXPERIMENT):
         required = {'bayesian_feature_graph_v3.py', 'bayesian_feature_experiment_v3.py'}
         if not required <= protocol['implementation_sha256'].keys():
             raise ValueError('Missing v3 graph/runner implementation bindings')
+    if protocol.get('version') == V4_EXPERIMENT:
+        if not {'bayesian_floor_increment_design.py','bayesian_feature_experiment_v4.py'} <= protocol['implementation_sha256'].keys():
+            raise ValueError('Missing v4 floor design/runner implementation bindings')
     return common.verify_implementation(protocol)
 
 
@@ -149,13 +153,20 @@ def run(experiment, dataset, output, *, per_chain=50, seed=20260919):
     check_hashes = {path: digest(path) for path in check_paths}
     verified, manifests = report.build_report(experiment, dataset, top=1)
     protocol = json.loads((experiment/'protocol'/'protocol.json').read_text())
+    if protocol['version'] == V4_EXPERIMENT:
+        from . import bayesian_source_sensitivity as verification
+        from threadpoolctl import threadpool_limits
+        path = Path(verification.__file__)
+        check_hashes[path] = digest(path)
+        with threadpool_limits(limits=1,user_api='blas'):
+            verification.verify_design(experiment,dataset,protocol,manifests)
     paths = verify_implementation(protocol)
     _, source = _verified_bundle(dataset, retain={'observations.jsonl'})
     data = pd.DataFrame(report.jsonl(source['observations.jsonl']))
     data['period'] = pd.to_datetime(data.period)
     data['square_feet'] = pd.to_numeric(data.square_feet, errors='coerce')
     configuration = verified_configuration(protocol, data, experiment/'fit')
-    design = ordered_design.load_design(experiment/'fit', data)
+    design = ordered_design.load_design(experiment/'fit', data, protocol)
     samples, selected = load_draws(experiment/'fit'/'posterior.nc', protocol, design, configuration, per_chain)
     mu = common.reconstruct_mu(samples, design, data)
     observed = np.log(data.asking_rent.to_numpy(dtype=float))[None, :]-mu
@@ -165,7 +176,7 @@ def run(experiment, dataset, output, *, per_chain=50, seed=20260919):
               'protocol_sha256': verified['protocol_sha256'], 'seed': seed, 'rng': 'numpy.default_rng/PCG64',
               'graph_configuration': configuration, 'experiment_version': protocol['version'],
               'noise_scale_source': 'sigma_by_bedroom indexed by observed bedrooms' if configuration['residual_scale'] == 'bedroom' else 'shared sigma',
-              'design_loader': ordered_design.VERSION,
+              'design_loader': getattr(design,'version',ordered_design.VERSION),
               'design_loader_sha256': digest(Path(ordered_design.__file__)),
               'requested_draws_per_chain': per_chain, 'selected_draws': selected,
               'selection': 'Equal draw-index-bin midpoints per chain; chain-major order; posterior group only.',
@@ -188,6 +199,8 @@ def run(experiment, dataset, output, *, per_chain=50, seed=20260919):
     snapshots = {Path(module.__file__).name: Path(module.__file__).read_text()
                  for module in (common, ordered_design, graph, report)}
     snapshots[Path(__file__).name] = Path(__file__).read_text()
+    if protocol['version'] == V4_EXPERIMENT:
+        snapshots[Path(verification.__file__).name] = Path(verification.__file__).read_text()
     publish_bundle(output, {'checks.json': canonical(result)+'\n', 'checks.md': markdown, **snapshots},
                    {'version': VERSION, 'protocol_sha256': verified['protocol_sha256']})
     return result

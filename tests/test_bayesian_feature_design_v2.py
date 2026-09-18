@@ -46,3 +46,14 @@ def test_unexpected_saved_column_inventory_refused(data,tmp_path):
     path.write_text(json.dumps(meta))
     with pytest.raises(ValueError,match='training feature order'):
         load_design(tmp_path,data)
+
+
+def test_versioned_floor_loader_preserves_order_and_rejects_wrong_prior(data,tmp_path):
+    from models import bayesian_floor_increment_design as floor
+    design=floor.FeatureDesign(data);design.save(tmp_path)
+    protocol={'version':'observable-bayesian-floor-experiment-v4',
+              'feature_design_version':floor.VERSION,'floor_increment_prior_scale':.15}
+    restored=load_design(tmp_path,data,protocol)
+    np.testing.assert_array_equal(restored.matrix(data),design.matrix(data))
+    protocol['floor_increment_prior_scale']=.05
+    with pytest.raises(ValueError,match='prior'):load_design(tmp_path,data,protocol)

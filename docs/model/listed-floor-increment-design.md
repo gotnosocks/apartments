@@ -18,8 +18,44 @@ The increment prior scale is explicitly configurable and provisionally defaults 
 
 Listed labels remain separate from physical height. No unit-name parsing, skipped-floor correction, or inference of physical floor occurs. Existing physical-floor, elevator interaction, and listed-minus-physical gap columns retain their exact prior encoding; they are all absent or inactive where source values are unavailable. If future data fully populate physical floor and listed-label gap, their algebraic relationship with a saturated listed-floor representation can cause rank deficiency. The existing fail-closed rank gate is retained; that future representation must be reviewed explicitly.
 
-All nonfloor raw columns, centered columns, and prior scales are unchanged from the referenced bathroom design. Save/load persists explicit numeric/category/raw/active feature order, supported levels/thresholds, means, priors, support metadata, and a version tag. Loading validates semantic order independently of JSON key sorting and refuses mismatched feature inventories, thresholds, active masks, or priors. This loader is specific to the new version; existing frozen loaders and experiments are untouched.
+All nonfloor raw columns, centered columns, and prior scales are unchanged from the referenced bathroom design. Save/load persists explicit numeric/category/raw/active feature order, supported levels/thresholds, means, priors, support metadata, and a version tag. Loading validates semantic order independently of JSON key sorting and refuses mismatched feature inventories, thresholds, active masks, or priors. This loader is specific to the new version; existing frozen experiments remain unchanged; current consumers dispatch explicitly by protocol version.
 
 Focused validation is in `tests/test_bayesian_floor_increment_design.py`: exact indicator boundaries, negative/ground handling, gaps, unknowns, unsupported transforms, endpoint support counts, unchanged nonfloor and independently observed physical-floor columns, serialization parity, and malformed/tampered metadata. Commands use `uv run --frozen --no-sync python -m pytest`; no fit or network request is part of this design task.
 
 The immutable full-cohort design audit is `data/model/chelsea-listed-floor-increment-design-20260918/report.md`. It includes the verified cleaned source manifest/observation hash, saved feature and time designs, exact frozen implementation files and runtime versions, all floor support/gap records, and a proof that 42 nonfloor/reporting columns and the time design remain exactly unchanged. The measured extreme prior comparison is 1.503233 versus 0.636396 log SD. Its publisher is `models.publish_floor_increment_audit`; the artifact report records the exact `uv` invocation. There is no posterior in this artifact.
+
+## Versioned fit and analysis integration
+
+`models.bayesian_feature_experiment_v4` now runs this design through the existing
+exact compressed PyMC graph. The protocol binds the floor prior, observed levels,
+complete implementation inventory and source hashes. A graph proof must also
+match every graph setting and the source row count. Posterior checkpoints and
+completed runs retain the existing immutable/idempotent contracts.
+
+`floor-contrasts.json` uses all joint retained coefficient draws for each adjacent
+observed-level contrast and the observed minimum-to-maximum contrast. It preserves
+coefficient covariance, includes endpoint and shared-building/unit support, and
+has its own convergence gate. Failed floor diagnostics prevent an interpretable
+report even if parameter and bathroom diagnostics pass.
+
+The human report, posterior checks, category contrasts and apartment-analysis
+backend recognize the explicit v4 protocol. Reconstruction verifies the source,
+saved design and increment prior. The apartment editor offers observed floor
+levels and rejects unsupported labels. These are recorded-label component
+contrasts conditional on other encoded terms, not physical-height or causal
+premiums. Synthetic tests cover routing and uncertainty behavior; a real v4
+posterior is still required for end-to-end validation and selection.
+
+The fully bound numerical graph proof is
+`data/model/chelsea-bayesian-floor-graph-parity-20260918-v3`. Three identical
+parameter points on all 52,704 rows agree to at most 2.92e-11 in log density and
+1.52e-9 in any of 23,431 gradient coordinates. Warm median gradient evaluation
+was 1.64 ms compressed versus 10.08 ms direct in this run; compilation/JIT times
+are reported separately. This establishes tested numerical parity, not convergence.
+
+`data/model/chelsea-bayesian-floor-readiness-20260918` freezes the proposed
+four-chain, 4,000-warmup/6,000-retained protocol and exact launch command. It was
+**not launched**. The source-reference run subsequently hit an out-of-memory
+kill during result extraction; both future fits now require validated trace
+storage changes. This readiness artifact is a preserved proposal, not an
+instruction to repeat the memory failure or an accepted posterior.

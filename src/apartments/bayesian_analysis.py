@@ -97,7 +97,7 @@ class BayesianAnalysis:
         self._rows = {r['audit_id']: r for r in self._source}
         self._residuals = {r['audit_id']: r for r in self._saved_residuals}
         self._data = _frame(self._source)
-        self.design = load_design(self.experiment/'fit', self._data)
+        self.design = load_design(self.experiment/'fit', self._data, self.protocol)
         self._posterior = xr.open_dataset(self.experiment/'fit'/'posterior.nc', group='posterior',
                                           engine='h5netcdf', chunks=None, cache=False)
         self._groups = OrderedDict()
@@ -172,7 +172,7 @@ class BayesianAnalysis:
         return result.reshape((-1, *result.shape[2:]))
 
     def _implementation_stamps(self):
-        _, paths = reconstruction_dependencies()
+        _, paths = reconstruction_dependencies(self.protocol)
         paths.append(Path(__import__('models.bayesian_feature_design_v2', fromlist=['']).__file__))
         return [(str(p), p.stat().st_size, p.stat().st_mtime_ns, p.stat().st_ctime_ns) for p in paths]
 
@@ -282,12 +282,17 @@ class BayesianAnalysis:
         for name, meta in self.design.categories.items():
             if len(meta['levels']) > 1:
                 fields[name] = {'kind': 'category', 'options': list(meta['levels'])}
+        if getattr(self.design,'floor_thresholds',[]):
+            fields['listed_floor'] = {'kind':'numeric','observed_levels':self.design.floor_levels}
         return fields
 
     def _warnings(self, row):
         warnings = ['Conditional model association, not a causal renovation value or personal willingness to pay.',
-                    'Building and within-building unit effects are held fixed; offsets absorb omitted attributes.',
-                    'This accepted fit uses linear standardized floor terms and configured interactions; encoded log contributions are not per-floor prices.']
+                    'Building and within-building unit effects are held fixed; offsets absorb omitted attributes.']
+        if hasattr(self.design,'floor_thresholds'):
+            warnings.append('Listed-floor increments compare observed labels; gaps and sparse same-building support limit interpretation. They do not measure physical height.')
+        else:
+            warnings.append('This accepted fit uses linear standardized floor terms and configured interactions; encoded log contributions are not per-floor prices.')
         if report.composition(row) is None:
             warnings.append('Full/half bathroom composition is unknown or disputed; missing evidence is not zero.')
         if pricing._numeric_feature('square_feet', row.get('square_feet')) is None:
@@ -301,7 +306,7 @@ class BayesianAnalysis:
         if field in self.design.categories:
             value = pricing._category(row.get(field))
             return value if value in self.design.categories[field]['levels'] else None
-        if field in self.design.numeric:
+        if field in self.design.numeric or field == 'listed_floor':
             from models.amenity_rent_model import feature_record
             value = pricing._raw_features(feature_record(row), '2000-01-01')[field]
             return bool(value) if value is not None and self.fields[field]['kind'] == 'boolean' else value

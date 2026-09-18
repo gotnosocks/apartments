@@ -20,13 +20,16 @@ from apartments.research_pipeline import _verified_bundle, digest, publish_bundl
 VERSION = 'verified-bayesian-feature-report-v2'
 EXPERIMENT_VERSION = 'observable-bayesian-bathroom-experiment-v2'
 EXPERIMENT_V3 = 'observable-bayesian-bathroom-experiment-v3'
-EXPERIMENT_VERSIONS = {EXPERIMENT_VERSION, EXPERIMENT_V3}
+EXPERIMENT_V4 = 'observable-bayesian-floor-experiment-v4'
+EXPERIMENT_VERSIONS = {EXPERIMENT_VERSION, EXPERIMENT_V3, EXPERIMENT_V4}
 DATASET_VERSIONS = {'reported-bathroom-counts-projection-v1', 'reviewed-bathroom-counts-projection-v1',
                     'reviewed-scope-composition-projection-v2'}
 REQUIRED = {'summary.json', 'diagnostics.json', 'derived-diagnostics.json', 'bathroom-contrasts.json',
             'residuals.jsonl', 'coefficients.json', 'group-effects.jsonl', 'feature-design.json',
             'time-design.json', 'time-design.npz', 'posterior.nc'}
 V3_REQUIRED = {'graph-configuration.json', 'residual-scales.json'}
+V4_REQUIRED = {'floor-contrasts.json'}
+FLOOR_INTERPRETATION = 'Joint floor-feature component contrasts, holding other encoded terms fixed. All retained draws; unconstrained signs. Not causal, not physical-height effects, and sparse overlap remains explicit.'
 LIMITATIONS = [
     'Conditional posterior associations depend on the cohort, advertised source measurements, likelihood and priors. They are not causal renovation values or personal willingness to pay.',
     'The target is gross advertised asking rent, not a signed lease. Historical initial asks and current capture asks use different sampling rules. Historical attributes can have been collected after their price dates.',
@@ -312,6 +315,67 @@ def coefficient_tables(coefficients, design):
             'interpretation': 'Raw encoded log coefficients with 95% posterior intervals, not standalone physical premiums. Joint bathroom contrasts above are the interpretable price comparisons. Positive-only exposures have no varying magnitude coefficient; their unknown indicators describe reporting.'}
 
 
+def verify_floor_contrasts(protocol, design, floors, rows, summary):
+    """Bind floor endpoints, gaps, priors and diagnostic gates to source facts."""
+    from apartments import pricing
+    def value(row):
+        normalized = pricing._normalize(row)
+        return pricing._numeric_feature('listed_floor', normalized.get('listed_floor'))
+    cells = defaultdict(list)
+    for row in rows:
+        observed = value(row)
+        if observed is not None: cells[observed].append(row)
+    levels = sorted(cells)
+    scale = protocol.get('floor_increment_prior_scale')
+    if (protocol.get('feature_design_version') != 'observed-listed-floor-increment-design-v1'
+            or design.get('version') != protocol['feature_design_version']
+            or not finite(scale) or scale <= 0 or design.get('floor_increment_prior_scale') != scale
+            or any(obj.get('floor_levels') != levels or obj.get('floor_thresholds') != levels[:-1]
+                   for obj in (protocol, design, floors))
+            or floors.get('version') != 'joint-listed-floor-component-contrasts-v1'
+            or floors.get('interpretation') != FLOOR_INTERPRETATION
+            or floors.get('draws') != protocol['chains']*protocol['draws']
+            or summary.get('floor_diagnostics') != floors.get('diagnostics')
+            or 'listed_floor' in design['features']):
+        raise ValueError('Floor design, source support, priors or diagnostics differ')
+    expected_names = ['listed_floor_gt_'+format(k,'.17g') for k in levels[:-1]]
+    if [n for n in design['features'] if n.startswith('listed_floor_gt_')] != expected_names:
+        raise ValueError('Floor coefficient inventory differs from observed thresholds')
+    pairs = list(zip(levels[:-1],levels[1:]))
+    if len(levels)>2: pairs.append((levels[0],levels[-1]))
+    items = floors.get('contrasts', [])
+    if [(r.get('lower_floor'),r.get('upper_floor')) for r in items] != pairs:
+        raise ValueError('Floor contrast endpoints differ from observed support')
+    if pairs:
+        diag = floors['diagnostics']
+        check_diagnostics({'status':'exploratory_converged','diagnostics':diag,'derived_diagnostics':diag},diag,diag)
+    elif floors['diagnostics'] != {'acceptable':True,'deterministic':True,'reason':'No varying observed floor contrast'}:
+        raise ValueError('Invalid no-contrast floor diagnostics')
+    for item, (low, high) in zip(items,pairs):
+        for label, level in [('lower',low),('upper',high)]:
+            if item.get('support_'+label) != {'level':level, **support(cells[level])}:
+                raise ValueError('Floor endpoint counts differ from source')
+        adjacent = levels.index(high) == levels.index(low)+1
+        if item.get('kind') != ('adjacent_observed_levels' if adjacent else 'observed_range'):
+            raise ValueError('Floor contrast kind differs')
+        overlap = item.get('adjacent_overlap')
+        if adjacent:
+            if (not isinstance(overlap,dict)
+                    or overlap.get('lower_supported_level') != low or overlap.get('upper_supported_level') != high
+                    or overlap.get('shared_buildings') != len({r['building'] for r in cells[low]} & {r['building'] for r in cells[high]})
+                    or overlap.get('shared_units') != len({r['unit_id'] for r in cells[low]} & {r['unit_id'] for r in cells[high]})):
+                raise ValueError('Floor endpoint overlap differs from source')
+        elif overlap is not None:
+            raise ValueError('Unexpected adjacent overlap for range contrast')
+        for kind in ('log_effect','percent_effect'): check_interval(item[kind])
+        if item['log_effect']['probability_positive'] != item['percent_effect']['probability_positive']:
+            raise ValueError('Floor sign probabilities disagree')
+        for bound in ('lower_95','median','upper_95'):
+            if not math.isclose(item['percent_effect'][bound],100*math.expm1(item['log_effect'][bound]),rel_tol=1e-10,abs_tol=1e-10):
+                raise ValueError('Floor log and percentage intervals disagree')
+    return floors
+
+
 def build_report(experiment, dataset, top=5):
     if not isinstance(top, int) or not 1 <= top <= 50:
         raise ValueError('Choose 1–50 cases per tail')
@@ -320,11 +384,12 @@ def build_report(experiment, dataset, top=5):
     protocol = json.loads(pf['protocol.json'])
     experiment_version = protocol.get('version')
     if experiment_version not in EXPERIMENT_VERSIONS or pm.get('version') != experiment_version:
-        raise ValueError('Only v2/v3 Bayesian fits with derived diagnostics can be reported')
+        raise ValueError('Only supported Bayesian fits with derived diagnostics can be reported')
     ph = hashlib.sha256(canonical(protocol).encode()).hexdigest()
     if pm.get('protocol_sha256') != ph or any(pm['files'].get(name) != value for name, value in protocol['implementation_sha256'].items()):
         raise ValueError('Invalid protocol or archived implementation binding')
-    required = REQUIRED | (V3_REQUIRED if experiment_version == EXPERIMENT_V3 else set())
+    required = REQUIRED | (V3_REQUIRED if experiment_version in (EXPERIMENT_V3,EXPERIMENT_V4) else set())
+    if experiment_version == EXPERIMENT_V4: required |= V4_REQUIRED
     fm, ff = _verified_bundle(experiment/'fit', retain=required-{'posterior.nc','time-design.npz'})
     if fm.get('version') != experiment_version or fm.get('protocol_sha256') != ph or not required <= fm['files'].keys():
         raise ValueError('Fit protocol mismatch or missing inference products')
@@ -345,7 +410,7 @@ def build_report(experiment, dataset, top=5):
             or len({(r['unit_id'],r['period']) for r in rows}) != len(rows)):
         raise ValueError('Cohort counts or membership differ from protocol')
     noise = None
-    if experiment_version == EXPERIMENT_V3:
+    if experiment_version in (EXPERIMENT_V3,EXPERIMENT_V4):
         noise = verify_residual_scales(protocol, json.loads(ff['graph-configuration.json']),
                                        json.loads(ff['residual-scales.json']), rows)
     design, time_design = (json.loads(ff[name]) for name in ('feature-design.json','time-design.json'))
@@ -357,6 +422,8 @@ def build_report(experiment, dataset, top=5):
     known = sum(composition(r) is not None for r in rows)
     if design['support']['bathroom_composition_known'] != known:
         raise ValueError('Bathroom knownness differs from saved design')
+    floors = (verify_floor_contrasts(protocol,design,json.loads(ff['floor-contrasts.json']),rows,summary)
+              if experiment_version == EXPERIMENT_V4 else None)
     contrasts = verify_contrasts(json.loads(ff['bathroom-contrasts.json']), rows, summary)
     coefficients = coefficient_tables(json.loads(ff['coefficients.json']), design)
     groups = group_rankings(jsonl(ff['group-effects.jsonl']), rows, top)
@@ -369,6 +436,9 @@ def build_report(experiment, dataset, top=5):
     method.update(residual_scale=protocol['residual_scale'] if noise else 'shared',
                   building_prior_scale=protocol['building_prior_scale'] if noise else .35,
                   unit_prior_scale=protocol['unit_prior_scale'] if noise else .25)
+    if floors is not None:
+        method.update(feature_design_version=protocol['feature_design_version'],
+                      floor_increment_prior_scale=protocol['floor_increment_prior_scale'])
     return {'version': VERSION, 'experiment_version': experiment_version, 'status': summary['status'], 'protocol_sha256': ph,
             'source_manifest_sha256': protocol['source_manifest_sha256'],
             'source_observations_sha256': protocol['source_observations_sha256'],
@@ -377,7 +447,7 @@ def build_report(experiment, dataset, top=5):
                        'current_rows': protocol['current_rows'], 'bathroom_composition_known': known,
                        'bathroom_composition_unknown': len(rows)-known},
             'method': method, 'graph_configuration': noise['graph_configuration'] if noise else None,
-            'residual_scales': noise,
+            'residual_scales': noise, **({'floors':floors} if floors is not None else {}),
             'diagnostics': {'parameters': parameters, 'derived': derived},
             'bathrooms': contrasts, 'coefficients': coefficients, 'group_rankings': groups,
             'residual_cases': cases, 'current_residuals': current,
@@ -424,6 +494,14 @@ def html_report(report):
     body += heading('Does eliminating a full-bath shortage contribute more?', b['balance_scale'])
     body += table(['Bedrooms','Joint log-increment difference, 95% CrI','P(first increment larger)','Net −1 support','Net 0 support','Net +1 support'],
         [[r['bedrooms'],interval(r['difference']),f"{r['probability_first_increment_larger']:.1%}",*[counts(s) for s in r['support']]] for r in b['net_balance']])
+    if report.get('floors') is not None:
+        floors = report['floors']
+        body += heading('Listed-floor increments',floors['interpretation'])
+        body += table(['Listed floor before → after','Component change, 95% CrI','Lower support','Upper support','Shared buildings at adjacent endpoints'],
+            [[f"{r['lower_floor']:g} → {r['upper_floor']:g}",interval(r['percent_effect'],True),
+              counts(r['support_lower']),counts(r['support_upper']),
+              r['adjacent_overlap']['shared_buildings'] if r['adjacent_overlap'] is not None else 'Range contrast']
+             for r in floors['contrasts']])
     body += heading('Encoded coefficients',report['coefficients']['interpretation'])
     for name,title in [('encoded_value_coefficients','Numeric/layout parameter diagnostics'),('reporting_coefficients','Reporting and missingness associations')]:
         body += '<h3>'+e(title)+'</h3>'+table(['Encoded feature','Log coefficient, 95% CrI','Encoded unit and interpretation'],

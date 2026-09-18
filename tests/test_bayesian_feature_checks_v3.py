@@ -54,6 +54,15 @@ def test_verified_configuration_recomputed_against_exact_source_and_saved_graph(
         m.verified_configuration({'version':'future'},data,tmp_path)
 
 
+def test_v4_uses_same_explicit_noise_contract_and_requires_floor_code(bedroom_case,tmp_path):
+    _,_,protocol,config,_,data=bedroom_case
+    protocol={**protocol,'version':m.V4_EXPERIMENT}
+    assert m.verified_configuration(protocol,data,tmp_path)==config
+    protocol['implementation_sha256']={'bayesian_feature_graph_v3.py':'x','bayesian_feature_experiment_v3.py':'y'}
+    with pytest.raises(ValueError,match='Missing v4'):
+        m.verify_implementation(protocol)
+
+
 def test_lazy_joint_noise_selection_and_replication_exactly_follow_bedroom_mapping(bedroom_case):
     path,posterior,protocol,config,design,data=bedroom_case
     samples,selected=m.load_draws(path,protocol,design,config,per_chain=2)

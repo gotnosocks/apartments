@@ -13,7 +13,16 @@ from .bayesian_feature_model import FeatureDesign, amenity
 VERSION = 'ordered-bayesian-feature-design-loader-v2'
 
 
-def load_design(root, data):
+def load_design(root, data, protocol=None):
+    if protocol and protocol.get('version') == 'observable-bayesian-floor-experiment-v4':
+        from . import bayesian_floor_increment_design as floor
+        if protocol.get('feature_design_version') != floor.VERSION:
+            raise ValueError('Unsupported floor feature design version')
+        design = floor.FeatureDesign.load(root)
+        if design.floor_increment_prior_scale != protocol.get('floor_increment_prior_scale'):
+            raise ValueError('Saved floor prior differs from protocol')
+        design.matrix(data.iloc[:1])
+        return design
     design = FeatureDesign.load(root)
     for name, order in [('numeric', amenity.NUMERIC), ('categories', amenity.CATEGORIES)]:
         saved = getattr(design, name)
