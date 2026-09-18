@@ -27,8 +27,8 @@ is retained as a frozen backup.
 | Live crawl | `/data1/apartments/archive/crawls/chelsea-resume` |
 | Frozen source snapshots | `/data1/apartments/archive/snapshots` |
 | Content-addressed page bodies | `/data1/apartments/archive/bodies` |
-| Granular tables | `/data1/apartments/archive/datasets/chelsea-granular-20260916` |
-| Human review/overlay ledger | `/data1/apartments/archive/reviews/chelsea-granular-20260916` |
+| Granular tables | `/data1/apartments/archive/datasets/chelsea-granular-20260917-canonical-units` |
+| Human review/overlay ledger | `/data1/apartments/archive/reviews/chelsea-granular-20260917-canonical-units` |
 | Transfer state and checksums | `/data1/apartments/migration` |
 | Available second-disk backup location | `/data2/apartments-backup` |
 

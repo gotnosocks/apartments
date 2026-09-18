@@ -6,7 +6,7 @@ http://thelio.tail3983e0.ts.net:8766/. The localhost SSH tunnel remains availabl
 Human review decisions, parser issue tickets, and observed-capture corrections are stored in an append-only JSONL ledger. The primary dataset on thelio uses:
 
 ```text
-/data1/apartments/archive/reviews/chelsea-granular-20260916/review-ledger.jsonl
+/data1/apartments/archive/reviews/chelsea-granular-20260917-canonical-units/review-ledger.jsonl
 ```
 
 This path belongs to that immutable dataset. Create a new dataset and ledger for a new collection; do not repoint an existing ledger at a changed dataset. Every event includes the dataset name and participates in a SHA-256 hash chain. The review ledger is separate from `config/corrections.jsonl`, which has a different schema and is not automatically combined with it.
@@ -27,8 +27,8 @@ Run the review application against a local archive and ledger with:
 
 ```sh
 .venv/bin/python -m apartments.review_web \
-  --dataset-root /data1/apartments/archive/datasets/chelsea-granular-20260916 \
-  --review-state /data1/apartments/archive/reviews/chelsea-granular-20260916 \
+  --dataset-root /data1/apartments/archive/datasets/chelsea-granular-20260917-canonical-units \
+  --review-state /data1/apartments/archive/reviews/chelsea-granular-20260917-canonical-units \
   --port 8766
 ```
 
@@ -86,7 +86,7 @@ The authoritative declarations are stored separately in an append-only,
 hash-chained file alongside the review ledger:
 
 ```text
-/data1/apartments/archive/reviews/chelsea-granular-20260916/unit-identities.jsonl
+/data1/apartments/archive/reviews/chelsea-granular-20260917-canonical-units/unit-identities.jsonl
 ```
 
 The ledger records exact listing IDs, dataset, reviewer, reason, recording time,
@@ -275,3 +275,24 @@ These decisions are overlays for this review dataset. They do not rewrite a
 completed transform or rerun the legacy rent model. Consumers of raw Parquet or
 the legacy database must explicitly apply this overlay; migration to a new review
 dataset must carry listing decisions forward deliberately, as with other reviews.
+
+
+## Fresh review start: September 17 transform
+
+The primary review app now uses `chelsea-granular-20260917-canonical-units`
+with a new, initially empty review-state directory of the same name. This is a
+fresh start requested by the reviewer: no earlier stage decisions, corrections,
+manual listing exclusions, unit merges, associations or keep-separate decisions
+were imported. No listing-date cutoff was applied.
+
+The previous `chelsea-granular-20260916` dataset and its review-state directory
+remain intact for reference or deliberate recovery. The new directory contains
+`fresh-start.json` documenting the switch and the old ledger hashes. Old preview
+and proposal tokens cannot be applied to the new state; refresh open browser tabs.
+
+Fresh baseline: 88,689 rental captures / 65,350 rental listing IDs; 192 distinct
+listings with numeric layout outliers; 195 distinct zero-price history events;
+11 missing-unit-label listings and 28 possibly generic-label listings. There are
+13,722 source-supported association groups and 96 groups needing manual review
+(including 31 shared-latest label-conflict groups). These are source-based flags,
+not assertions that every flagged record is wrong.
