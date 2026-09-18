@@ -19,6 +19,7 @@ def test_backfill_defaults_to_historical_profile(tmp_path, monkeypatch):
 
     assert cli.main(['--data', str(tmp_path), 'backfill']) == 0
     assert seen[0].include_unavailable is True
+    assert seen[0].transport == 'oxylabs'
     store = ArchiveStore(tmp_path)
     generation = store.current_generation()
     store.close()
@@ -42,6 +43,7 @@ def test_update_defaults_to_current_and_skips_historical_rows(tmp_path, monkeypa
 
     assert cli.main(['--data', str(tmp_path), 'update']) == 0
     assert seen[0].include_unavailable is False
+    assert seen[0].transport == 'oxylabs'
     store = ArchiveStore(tmp_path)
     generation = store.current_generation()
     kinds = {r['kind'] for r in store.db.execute(
@@ -70,3 +72,5 @@ def test_resume_inherits_profile_and_allows_override(tmp_path, monkeypatch):
 
     assert cli.main(['--data', str(tmp_path), 'resume', '--no-include-unavailable']) == 0
     assert seen[0].include_unavailable is False
+    assert seen[0].transport == 'oxylabs'
+    assert seen[0].delay == 0

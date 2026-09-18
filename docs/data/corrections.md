@@ -101,20 +101,20 @@ An illustrative `edit.json` (values are examples, not assertions about real unit
 ```
 
 ```sh
-.venv/bin/python -m apartments corrections add edit.json \
+uv run --locked python -m apartments corrections add edit.json \
   --author Ben --reason 'Verified against measured floor plan' \
   --evidence 'reference to floor plan'
 
-.venv/bin/python -m apartments corrections list
-.venv/bin/python -m apartments corrections list --as-of 2026-09-15T23:59:59Z
-.venv/bin/python -m apartments corrections retract CORRECTION_ID \
+uv run --locked python -m apartments corrections list
+uv run --locked python -m apartments corrections list --as-of 2026-09-15T23:59:59Z
+uv run --locked python -m apartments corrections retract CORRECTION_ID \
   --author Ben --reason 'Wrong floor plan'
 ```
 
 For a small local fixture or selected version:
 
 ```sh
-.venv/bin/python -m apartments export-observations /tmp/example-corrected \
+uv run --locked python -m apartments export-observations /tmp/example-corrected \
   --db /tmp/example.duckdb --version-id VERSION_ID \
   --known-as-of 2026-09-16T12:00:00Z --effective-at 2018-06-01
 ```

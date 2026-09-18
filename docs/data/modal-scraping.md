@@ -5,7 +5,7 @@
 First create a named Modal secret from the existing local `.env`:
 
 ```sh
-.venv/bin/python models/modal_scrape.py setup-secret
+uv run --locked --extra modal python models/modal_scrape.py setup-secret
 ```
 
 This sends only `OXYLABS_USERNAME` (or its `OXYLABS_USER` alias) and `OXYLABS_PASSWORD` to the named `oxylabs` secret. It does not print values or upload `.env`. Existing secrets are not silently replaced; use the Modal dashboard for deliberate credential changes.
@@ -13,7 +13,7 @@ This sends only `OXYLABS_USERNAME` (or its `OXYLABS_USER` alias) and `OXYLABS_PA
 When ready to spend provider credits on a bounded run:
 
 ```sh
-.venv/bin/modal run models/modal_scrape.py --snapshot chelsea-20260908 --workspace chelsea-resume --max-requests 100 --concurrency 10 --api-rps 2
+uv run --locked --extra modal modal run models/modal_scrape.py --snapshot chelsea-20260908 --workspace chelsea-resume --max-requests 100 --concurrency 10 --api-rps 2
 ```
 
 The default is 100 scheduled requests, five concurrent jobs and one submission per second. Zero/unlimited budgets are rejected. Provider retries and API billing rules mean the request budget is not an exact dollar cap. No JS-rendering flag is added; the existing transport handles historical inventory needs. The crawler retains Chelsea plus West Chelsea scope excluding Hudson Yards, unavailable-unit discovery, existing frontier progress and cooldown handling.
@@ -25,9 +25,9 @@ One CPU-only non-preemptible worker uses one core and 2 GiB, a 90-minute hard ti
 A Modal Dict atomic `put(..., skip_if_exists=True)` enforces one writer across app invocations. There is no automatic expiry or stale-lock takeover. If a worker crashes, times out, or cannot commit, the lock remains:
 
 ```sh
-.venv/bin/python models/modal_scrape.py show-lock
+uv run --locked --extra modal python models/modal_scrape.py show-lock
 # Stop the associated worker and confirm no remote scrape worker is active first.
-.venv/bin/python models/modal_scrape.py clear-lock --owner OWNER_FROM_SHOW_LOCK
+uv run --locked --extra modal python models/modal_scrape.py clear-lock --owner OWNER_FROM_SHOW_LOCK
 ```
 
 Manual clearing while a writer is active is unsafe. Do not run separate tools that write the same remote crawl workspace outside this lock.
@@ -40,9 +40,9 @@ New captures and logs stay in `/crawls/{workspace}/`. **The local archive browse
 After a bounded crawl run has exited and committed, publish a new snapshot entirely within Modal:
 
 ```sh
-.venv/bin/modal run models/modal_scrape.py --action publish-snapshot --workspace chelsea-resume --new-snapshot chelsea-20260908-expanded
-.venv/bin/modal run models/modal_archive.py --action prepare --snapshot chelsea-20260908-expanded
-.venv/bin/modal run models/modal_fit.py --snapshot chelsea-20260908-expanded
+uv run --locked --extra modal modal run models/modal_scrape.py --action publish-snapshot --workspace chelsea-resume --new-snapshot chelsea-20260908-expanded
+uv run --locked --extra modal modal run models/modal_archive.py --action prepare --snapshot chelsea-20260908-expanded
+uv run --locked --extra modal modal run models/modal_fit.py --snapshot chelsea-20260908-expanded
 ```
 
 Publication acquires the same distributed writer lock as scraping. It copies the workspace SQLite database to a **new** `/snapshots/{id}/` directory, records parent snapshot and last-run provenance, and writes `complete.json` last. Existing snapshot IDs are rejected. No data is downloaded to or processed on the laptop. The preparation worker resolves shared body files itself.
@@ -58,7 +58,7 @@ Cloud copies use bounded filesystem copying after a stopped writer’s WAL is ch
 ## Continue a backfill in bounded cloud batches
 
 ```sh
-.venv/bin/modal run --detach models/modal_scrape.py --action finish --workspace chelsea-resume --batch-size 750 --total-budget 30000 --concurrency 10 --api-rps 2
+uv run --locked --extra modal modal run --detach models/modal_scrape.py --action finish --workspace chelsea-resume --batch-size 750 --total-budget 30000 --concurrency 10 --api-rps 2
 ```
 
 A small CPU controller invokes one crawl worker at a time. It stops on provider
@@ -112,8 +112,8 @@ retain the lock for explicit archive validation before recovery.
 For long backfills, deploy the functions, then spawn the deployed controller:
 
 ```sh
-.venv/bin/modal deploy models/modal_scrape.py
-.venv/bin/python models/modal_scrape.py submit --total-budget 23250
+uv run --locked --extra modal modal deploy models/modal_scrape.py
+uv run --locked --extra modal python models/modal_scrape.py submit --total-budget 23250
 ```
 
 Choose the remaining authorized budget explicitly. Do not redeploy while a writer

@@ -11,6 +11,8 @@ from contextlib import contextmanager
 from pathlib import Path
 from typing import Any
 
+from .capture import redact
+
 SENSITIVE = {'cookie', 'set-cookie', 'authorization', 'proxy-authorization',
              'www-authenticate', 'x-api-key'}
 
@@ -59,6 +61,9 @@ class ArchiveStore:
         CREATE TABLE IF NOT EXISTS url_aliases(generation INTEGER NOT NULL, url TEXT NOT NULL, target_url TEXT NOT NULL, reason TEXT NOT NULL, created REAL NOT NULL, PRIMARY KEY(generation,url));
         CREATE TABLE IF NOT EXISTS har_entries(fingerprint TEXT PRIMARY KEY);
         ''')
+        observation_columns = {row[1] for row in self.db.execute('PRAGMA table_info(observations)')}
+        if 'capture_metadata' not in observation_columns:
+            self.db.execute("ALTER TABLE observations ADD COLUMN capture_metadata TEXT NOT NULL DEFAULT '{}'")
         columns = {row[1] for row in self.db.execute('PRAGMA table_xinfo(frontier)')}
         if 'priority' not in columns:
             self.db.execute("ALTER TABLE frontier ADD COLUMN priority INTEGER GENERATED ALWAYS AS (CASE kind WHEN 'listing' THEN 0 WHEN 'sitemap' THEN 1 WHEN 'search' THEN 3 ELSE 2 END) VIRTUAL")
@@ -401,7 +406,8 @@ class ArchiveStore:
         return row['body_hash'] if row else None
 
     def record(self, generation, url, status, headers, body=None, content_type='',
-               extracted=None, error=None, discovered=None, fetched=None, har_fingerprint=None):
+               extracted=None, error=None, discovered=None, fetched=None, har_fingerprint=None,
+               capture=None):
         collected_at = time.time() if fetched is None else fetched
         headers = _headers(headers)
         lower = {k.lower(): v for k, v in headers.items()}
@@ -413,9 +419,10 @@ class ArchiveStore:
         if unchanged:
             content_type = content_type or previous['content_type']
         with self._tx():
-            self.db.execute('''INSERT INTO observations(generation,url,fetched,status,content_type,headers,body_hash,not_modified,error)
-                VALUES(?,?,?,?,?,?,?,?,?)''', (generation, url, collected_at,
-                status, content_type, json.dumps(headers), digest, int(unchanged), error))
+            self.db.execute('''INSERT INTO observations(generation,url,fetched,status,content_type,headers,body_hash,not_modified,error,capture_metadata)
+                VALUES(?,?,?,?,?,?,?,?,?,?)''', (generation, url, collected_at,
+                status, content_type, json.dumps(headers), digest, int(unchanged), error,
+                json.dumps(redact(capture or {}))))
             previous_success = self.latest_response(url)
             update_frontier = fetched is None or previous_success is None or fetched >= previous_success['fetched']
             if update_frontier:
@@ -436,12 +443,12 @@ class ArchiveStore:
 
     def record_gap(self, generation, url, status, headers, reason, discovered=None,
                    body=None, content_type='', complete=True, pause_seconds=None,
-                   retry_seconds=None):
+                   retry_seconds=None, capture=None):
         digest = self.put_body(body) if body is not None else None
         with self._tx():
-            self.db.execute('''INSERT INTO observations(generation,url,fetched,status,content_type,headers,body_hash,error)
-                VALUES(?,?,?,?,?,?,?,?)''', (generation, url, time.time(), status, content_type,
-                json.dumps(_headers(headers)), digest, reason))
+            self.db.execute('''INSERT INTO observations(generation,url,fetched,status,content_type,headers,body_hash,error,capture_metadata)
+                VALUES(?,?,?,?,?,?,?,?,?)''', (generation, url, time.time(), status, content_type,
+                json.dumps(_headers(headers)), digest, reason, json.dumps(redact(capture or {}))))
             self.db.execute('UPDATE frontier SET state=? WHERE generation=? AND url=?',
                             ('done' if complete else 'pending', generation, url))
             if retry_seconds is not None:

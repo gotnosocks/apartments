@@ -75,3 +75,31 @@ def test_canonical_fields_survive_normal_transform_and_listing_parse_failure():
     non_unit,_=parse_listing(body.replace(b'/building/demo/4a',b'/rental/42'),'https://streeteasy.com/rental/42')
     assert non_unit['canonical_href']=='/rental/42' and non_unit['canonical_unit_url'] is None
     assert non_unit['canonical_unit_error']=='Canonical link is not a unit page'
+
+
+def test_flight_text_description_resolves_across_script_chunks():
+    description = 'North-facing café 🏠\nff:{"id":99,"propertyDetails":{}}'
+    listing = {'id': 42, 'description': '$b', 'propertyDetails': {'bedroomCount': 0},
+               'propertyHistory': [{'listingId': 42, 'rentalEventsOfInterest':
+                                    [{'date': '2026-01-01', 'price': 3000, 'status': 'ACTIVE'}]}]}
+    stream = 'a:' + json.dumps(listing) + '\nb:T' + format(len(description.encode()), 'x') + ',' + description
+    # Chunk boundaries split a header, text, and a JS UTF-16 surrogate pair.
+    emoji = stream.index('🏠')
+    chunks = [stream[:3], stream[3:80], stream[80:emoji] + '\ud83c', '\udfe0' + stream[emoji + 1:]]
+    body = ''.join('<script>self.__next_f.push(' + json.dumps([1, part]) + ')</script>' for part in chunks).encode()
+    row, events = parse_listing(body, 'https://streeteasy.com/rental/42')
+    assert row['parse_status'] == 'ok' and row['bedrooms'] == 0
+    assert json.loads(row['raw_listing_json'])['description'] == description
+    assert len(events) == 1 and events[0]['price'] == 3000
+    false_row, _ = parse_listing(body, 'https://streeteasy.com/rental/99')
+    assert false_row['parse_status'] == 'failed'
+
+
+def test_flight_cycles_missing_references_and_text_dollars_stay_literal():
+    from apartments.granular_parse import _flight_candidates
+    listing = {'id': 42, 'description': '$b', 'propertyDetails': {}, 'cycle': '$c', 'missing': '$d'}
+    stream = 'a:' + json.dumps(listing) + '\nb:T2,$cc:{"back":"$c"}\n'
+    result = _flight_candidates([{'flight_chunks': [[1, stream]]}])[0]
+    assert result['description'] == '$c'
+    assert result['missing'] == '$d'
+    assert result['cycle'] == {'back': '$c'}

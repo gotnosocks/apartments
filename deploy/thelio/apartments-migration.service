@@ -9,7 +9,7 @@ Type=simple
 WorkingDirectory=/home/ben/code/apartments
 Environment=MODAL_CONFIG_PATH=/home/ben/.config/apartments/modal-migration.toml
 Environment=PYTHONUNBUFFERED=1
-ExecStart=/home/ben/code/apartments/.venv/bin/python -m apartments.archive_receive
+ExecStart=/home/ben/.local/bin/uv run --no-sync python -m apartments.archive_receive
 Restart=no
 MemoryMax=3G
 UMask=0077

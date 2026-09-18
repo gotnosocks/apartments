@@ -1,7 +1,87 @@
-# Chelsea apartments
+# NYC apartment search and pricing
 
-One Python project for the StreetEasy scraper, durable raw archive, local archive browser,
-rental explorer, and pricing model. Git and colocated Jujutsu track this repository.
+Collect, correct, and analyze NYC rental listings to explain asking rents and
+compare apartments against an individual's willingness to pay for amenities.
+Chelsea is the existing pilot. The [project intent](docs/project-intent.md)
+defines the data contracts, temporal semantics, model scope, and research gates.
+
+The main modeling direction is **scrape → transform → fit → analyze**, emphasizing
+feature contributions and fitted residuals. The [current-analysis workflow](docs/model/current-analysis.md)
+includes fresh observations in the fit and produces a source-linked residual
+review queue. The [interactive review page](docs/model/analysis-review-page.md)
+shows apartment contributions, joint feature comparisons, residual history and
+archived source descriptions. The [first residual audit](docs/analysis/chelsea-residual-review-2026-09-18.md)
+found concrete price-entry, commercial-scope and possible omitted-feature issues
+to guide the next iteration.
+The [Bayesian feature research](docs/model/bayesian-feature-research.md) adds joint
+coefficient uncertainty and separate bathroom increments, supported by source
+audits of [extreme group effects](docs/analysis/chelsea-group-effects-2026-09-18.md)
+and [bathroom composition and access](docs/analysis/chelsea-bathroom-evidence-2026-09-18.md).
+The [identification audit](docs/analysis/chelsea-bayesian-identification-2026-09-18.md)
+documents sparse contrasts and dependence on group pooling. Focused reviews of
+[floor plans](docs/analysis/chelsea-floorplan-visual-review-2026-09-18.md) and
+[lease/product wording](docs/analysis/chelsea-lease-product-scope-2026-09-18.md)
+separate new evidence from proposed model features.
+The [first converged Bayesian results](docs/analysis/chelsea-bayesian-bathrooms-2026-09-18.md)
+report credible intervals and the remaining source-quality and residual-scale issues.
+The [prior-sensitivity comparison](docs/analysis/chelsea-bayesian-prior-sensitivity-2026-09-18.md)
+finds stable common bathroom increments but a strongly prior-dependent second-half-bath term.
+The separate [Bayesian research page](docs/model/bayesian-research-page.md) displays
+both accepted fits, interval/support comparisons and the 13 current residuals.
+The [residual-scale follow-up](docs/analysis/chelsea-bayesian-residual-scale-2026-09-18.md)
+records the failed noise experiment and the computational checks for its retry.
+The [category comparisons](docs/analysis/chelsea-bayesian-category-sensitivity-2026-09-18.md)
+translate joint draws into laundry, doorman, HVAC and pet-rule associations;
+an unexpected doorman result prompted a [source overlap review](docs/analysis/chelsea-doorman-overlap-2026-09-18.md).
+The [first cohort revision](docs/analysis/chelsea-reviewed-cohort-2026-09-18.md)
+applies source-evidenced quarantines and compares residuals and feature contrasts
+after refitting on the retained cohort.
+The [interior-evidence iteration](docs/analysis/chelsea-interior-evidence-2026-09-18.md)
+audits recurring ceiling/layout wording and records the latest reviewed fit.
+The [matched interior experiment](docs/analysis/chelsea-interior-model-2026-09-18.md)
+tests those claims against reporting controls and traces changed residuals to
+private outdoor space and other omitted features.
+The [outdoor comparison](docs/analysis/chelsea-outdoor-model-2026-09-18.md)
+tests structured versus text-corroborated amenity claims across 18 matched fits.
+Changed residuals expose both ambiguous source labels and missed access wording;
+outdoor premiums remain sensitive to the evidence policy.
+The [access-scope follow-up](docs/analysis/chelsea-outdoor-scope-2026-09-18.md)
+separates source claims and tests them on previously unreviewed units. Independent
+review still finds scope and access errors, so those claims remain review evidence.
+
+The repository retains the StreetEasy scraper, durable raw archive, archive and
+review browsers, and prior pricing experiments. New work connects immutable
+captures and dated overlays to reproducible analytical inputs, interpretable
+price contrasts, and preference frontiers. Git and colocated Jujutsu track the code.
+
+Start with the [reproducible research pipeline](docs/data/research-pipeline.md)
+for collection → corrections → dated analytics → model → preference ranking.
+Its CLI commands are `build-analytical`, `fit-pricing`, and `rank-apartments`.
+For the full Chelsea history, `build-historical` uses the completed canonical
+dataset with the [own-advertisement temporal contract](docs/data/historical-own-advertisement.md).
+The older workflows below retain their original assumptions and data contracts.
+The [September 18 baseline verification](docs/analysis/research-baseline-2026-09-18.md)
+records the live Oxylabs check, deterministic rebuild, descriptive fit, and data gaps.
+The [full-history Chelsea amenity pilot](docs/analysis/chelsea-amenities-2026-09-18.md)
+adds audited historical reconstruction, earlier-year and unseen-building tests,
+supported dollar contrasts, and offline description recovery.
+The [recovery and validation follow-up](docs/analysis/chelsea-recovery-ablation-2026-09-18.md)
+records full description recovery, extraction audits and matched missingness controls.
+The [amenity stability report](docs/analysis/chelsea-amenity-stability-2026-09-18.md)
+qualifies marginal estimates with model-setting sensitivity, building resampling
+and numerical checks. The [feature-family comparison](docs/analysis/chelsea-feature-blocks-2026-09-18.md)
+identifies the main sources of prediction improvement. The
+[monthly validation results](docs/analysis/chelsea-monthly-validation-2026-09-18.md)
+show the benefit of frequent updates and the failure of pooled prediction bands
+for unfamiliar buildings.
+The [model-to-search example](docs/analysis/chelsea-serving-example-2026-09-18.md)
+connects the robust September model to capture freshness, advertisement identity,
+and a preference frontier. See the [scoring guide](docs/model/robust-candidate-scoring.md)
+for `build-candidates` and `score-apartments`.
+The [Oxylabs refresh](docs/analysis/chelsea-candidate-refresh-2026-09-18.md)
+rechecked 23 advertisements and rebuilt the example from fresh source captures;
+the [refresh guide](docs/data/candidate-refresh.md) covers bounded collection and
+resume behavior.
 
 The primary project and archive now live on **thelio**, with the archive under
 `/data1/apartments/archive`. See the [hosting and migration runbook](docs/operations/thelio.md)
@@ -10,7 +90,7 @@ Migration completed on September 16 at 21:19 EDT; Modal retains a frozen backup.
 Direct Tailscale access: [rental review](http://thelio.tail3983e0.ts.net:8766/) ·
 [raw archive](http://thelio.tail3983e0.ts.net:8765/).
 
-Latest results: [September 17 minimal canonical-unit model](docs/analysis/chelsea-minimal-2026-09-17.md).
+Earlier baseline: [September 17 minimal canonical-unit model](docs/analysis/chelsea-minimal-2026-09-17.md).
 Earlier results: [September 8 Chelsea analysis](docs/analysis/chelsea-2026-09-08.md).
 Updated coverage: [September 8 cloud preparation](docs/analysis/chelsea-2026-09-08-cloud-preparation.md).
 
@@ -21,16 +101,29 @@ audited edits, effective dates, and reproducible correction versions.
 
 ## Setup
 
-Python 3.12 or newer is required by the current model dependencies.
+Use [uv](https://docs.astral.sh/uv/getting-started/installation/) to manage Python
+and project dependencies. `.python-version` selects Python 3.12; `uv.lock` records
+the dependency versions. Run commands from the repository root.
 
 ```sh
 cd ~/code/apartments
-uv sync --extra dev --extra app --extra model
+uv sync --locked --extra dev --extra app --extra model
 ```
 
-Optional direct Firefox transport: add `--extra browser`. Oxylabs credentials belong
-in the ignored, owner-only project `.env` as `OXYLABS_USERNAME` and `OXYLABS_PASSWORD`.
-The existing local credentials have been moved here; do not put them in Git.
+Run Python and project tools through `uv run --locked`; uv manages the environment
+and installs the project, so activation and `PYTHONPATH` overrides are unnecessary.
+Select extras explicitly when running optional tools: `--extra model` for modeling
+and Parquet processing, `--extra app` for Streamlit, `--extra modal` for Modal,
+and `--extra migration` for archive transfers. Include every extra you need when
+running `uv sync`, which removes packages outside the selected dependency set.
+For dependency changes, use `uv add` (with `--optional EXTRA` when appropriate)
+and commit both `pyproject.toml` and `uv.lock`. Use `uv lock` after manual dependency
+edits; routine `--locked` commands fail if the lockfile needs updating.
+
+All listing scraping uses Oxylabs. Credentials belong in the process environment
+or ignored, owner-only project `.env` as `OXYLABS_USERNAME` and `OXYLABS_PASSWORD`.
+See `.env.example`; never put actual credentials in Git. The optional browser
+package remains for legacy fixtures and debugging.
 
 ## Collect and browse
 
@@ -38,9 +131,9 @@ The browser reads a local archive. Cloud browsing and automatic browser checkpoi
 are not enabled; download a cloud snapshot manually when needed.
 
 ```sh
-uv run streeteasy-archive status
-uv run streeteasy-archive serve --port 8765
-uv run streeteasy-archive resume --transport oxylabs --max-requests 100
+uv run --locked streeteasy-archive status
+uv run --locked streeteasy-archive serve --port 8765
+uv run --locked streeteasy-archive resume --transport oxylabs --max-requests 100
 ```
 
 The default raw archive is `data/archive`. Its SQLite queue, compressed response
@@ -62,13 +155,13 @@ retained, even in current-only mode.
 
 ```sh
 # Repair/extend a building backfill without resetting completed pages:
-uv run streeteasy-archive backfill --building https://streeteasy.com/building/the-sierra-chelsea --transport oxylabs
+uv run --locked streeteasy-archive backfill --building https://streeteasy.com/building/the-sierra-chelsea --transport oxylabs
 # Resume that saved building and mode, optionally with a request budget:
-uv run streeteasy-archive resume --max-requests 100
+uv run --locked streeteasy-archive resume --max-requests 100
 # Use the historical discovery for Chelsea instead:
-uv run streeteasy-archive backfill --neighborhood chelsea --transport oxylabs
+uv run --locked streeteasy-archive backfill --neighborhood chelsea --transport oxylabs
 # Once the prior crawl is complete, start a lean new observation pass:
-uv run streeteasy-archive update --neighborhood chelsea --transport oxylabs
+uv run --locked streeteasy-archive update --neighborhood chelsea --transport oxylabs
 ```
 
 Expanded inventories have separate archive keys such as
@@ -95,9 +188,9 @@ receive new thelio reviews or updates. Future cloud runs need an explicit upload
 of their current inputs.
 
 ```sh
-uv run apartments import-archive
-uv run apartments summary
-uv run streamlit run app.py --server.port 8501
+uv run --locked apartments import-archive
+uv run --locked apartments summary
+uv run --locked --extra app streamlit run app.py --server.port 8501
 ```
 
 The importer reads the raw archive locally and writes `data/apartments.duckdb`.
@@ -130,7 +223,7 @@ can still make constant unit attributes an imperfect description of old listings
 ## Development
 
 ```sh
-uv run --extra dev pytest -q
+uv run --locked --extra dev --extra model --extra migration python -m pytest -q
 jj status
 git log --graph --oneline
 ```
@@ -142,7 +235,7 @@ part of this repository's commit graph. There is no nested scraper project to in
 ## Chelsea pricing model
 
 ```sh
-uv run --extra model python models/rent_model.py --validate-from 2026-01-01 \
+uv run --locked --extra model python models/rent_model.py --validate-from 2026-01-01 \
   --validation-draws 2000 --validation-tune 1500
 ```
 

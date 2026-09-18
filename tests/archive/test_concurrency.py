@@ -5,6 +5,7 @@ from scrapy.settings import Settings
 from streeteasy_archive.crawler import ArchiveSpider
 from streeteasy_archive.oxylabs import RetryableOxylabsError
 from twisted.python.failure import Failure
+import pytest
 
 
 def spider(tmp_path, budget=0, transport='oxylabs'):
@@ -42,10 +43,9 @@ def test_challenge_stops_refills_but_saves_other_inflight_results(tmp_path):
     s.store.close()
 
 
-def test_direct_transport_stays_sequential(tmp_path):
-    s=spider(tmp_path,transport='firefox')
-    assert len(list(s.start_requests()))==1
-    s.store.close()
+def test_direct_transport_is_rejected(tmp_path):
+    with pytest.raises(ValueError, match='must use Oxylabs'):
+        spider(tmp_path, transport='firefox')
 
 
 def test_configured_twenty_slots_respect_budget(tmp_path):

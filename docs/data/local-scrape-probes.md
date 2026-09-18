@@ -5,7 +5,7 @@ Oxylabs credentials. The probe does not open either archive database, launch a
 crawler, discover more pages, or retry a failed API call. It leaves Modal running.
 
 ```sh
-.venv/bin/python -m streeteasy_archive.probe \
+uv run --locked python -m streeteasy_archive.probe \
   https://streeteasy.com/building/one-high-line --mode sales
 ```
 
@@ -24,7 +24,7 @@ authoritative point-in-time archive.
 To iterate on parsing without another request, reuse a saved body:
 
 ```sh
-.venv/bin/python -m streeteasy_archive.probe \
+uv run --locked python -m streeteasy_archive.probe \
   https://streeteasy.com/building/one-high-line --mode sales \
   --replay data/probes/local-one-high-line-sales/body.html
 ```

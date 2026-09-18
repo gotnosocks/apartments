@@ -193,8 +193,8 @@ class Encoder:
                 'features':self.features,'offsets':self.offsets,'n_parameters':self.n_parameters}
 
 
-def fit(train,settings,unit_effect=True,iterations=8):
-    started=time.monotonic();enc=Encoder(train,unit_effect);x=enc.matrix(train);p=enc.penalty(settings)
+def fit(train,settings,unit_effect=True,iterations=8,encoder_class=Encoder):
+    started=time.monotonic();enc=encoder_class(train,unit_effect);x=enc.matrix(train);p=enc.penalty(settings)
     center=float(train.log_rent.median());y=train.log_rent.to_numpy()-center
     weights=np.ones(len(train));beta=np.zeros(x.shape[1]);solves=[];prior_objective=None;relative_change=None
     for iteration in range(iterations):

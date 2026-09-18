@@ -1,4 +1,4 @@
-"""Optional bounded remote crawl. Setup: python models/modal_scrape.py setup-secret."""
+"""Optional bounded remote crawl. Setup: uv run --locked --extra modal python models/modal_scrape.py setup-secret."""
 from __future__ import annotations
 
 import json

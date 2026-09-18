@@ -6,17 +6,17 @@ The default is CPU because the measured T4 smoke test was slower: on the same 2,
 
 ## Run from the prepared cloud snapshot
 
-Install the Modal client using the project's `modal` extra, then authenticate once with `modal setup`. The [remote archive processing workflow](../data/modal-processing.md) writes `training_data.parquet` and `metadata.json` to Volume `chelsea-archive`, under `/snapshots/{snapshot}/prepared/`.
+Install the Modal client using the project's `modal` extra, then authenticate once with `uv run --locked --extra modal modal setup`. The [remote archive processing workflow](../data/modal-processing.md) writes `training_data.parquet` and `metadata.json` to Volume `chelsea-archive`, under `/snapshots/{snapshot}/prepared/`.
 
 ```sh
 # Cloud CPU is the cost-conscious default.
-.venv/bin/modal run models/modal_fit.py --snapshot chelsea-20260908 --draws 1000 --tune 1000 --chains 4
+uv run --locked --extra modal modal run models/modal_fit.py --snapshot chelsea-20260908 --draws 1000 --tune 1000 --chains 4
 
 # Optional CUDA/Nutpie experiment; otherwise identical model.
-.venv/bin/modal run models/modal_fit.py --snapshot chelsea-20260908 --gpu --draws 1000 --tune 1000 --chains 4
+uv run --locked --extra modal modal run models/modal_fit.py --snapshot chelsea-20260908 --gpu --draws 1000 --tune 1000 --chains 4
 
 # Small remote execution test, optionally streaming results for local browsing.
-.venv/bin/modal run models/modal_fit.py --snapshot chelsea-20260908 --draws 20 --tune 20 --chains 2 --output data/model/modal/cloud-smoke
+uv run --locked --extra modal modal run models/modal_fit.py --snapshot chelsea-20260908 --draws 20 --tune 20 --chains 2 --output data/model/modal/cloud-smoke
 ```
 
 Results persist in Volume `/fits/{run_id}/`; each run gets a unique ID unless `--run-id` is supplied. Existing IDs and local output directories are rejected. The worker reads prepared inputs directly from the Volume, validates their digest and retains snapshot provenance. There is no cloud-to-laptop-to-cloud data processing step. The laptop does not import pandas, parse parquet, build models, or load posterior arrays. Optional downloads use bounded chunks.

@@ -51,13 +51,13 @@ def main(argv=None):
     sub = parser.add_subparsers(dest='command', required=True)
     for name in ('backfill', 'update', 'resume'):
         command = sub.add_parser(name)
-        command.add_argument('--transport', choices=('http', 'firefox', 'oxylabs'))
-        command.add_argument('--firefox-binary')
+        command.add_argument('--transport', choices=('oxylabs',), default='oxylabs',
+                             help='all live collection uses Oxylabs (including legacy crawl resumes)')
         command.add_argument('--concurrency', type=int, help='Oxylabs concurrent jobs (1-20)')
         command.add_argument('--api-rps', type=float, help='Oxylabs submissions per second (0-50, exclusive of zero)')
         command.add_argument('--oxylabs-render', action='store_true', help='request rendered HTML instead of server HTML for this run')
         command.add_argument('--neighborhood', choices=('chelsea',), help='persistent Chelsea + West Chelsea scope, excluding Hudson Yards')
-        command.add_argument('--delay', type=float, help='request delay seconds; defaults to 0 for Oxylabs, randomized for direct transports')
+        command.add_argument('--delay', type=float, help='request delay seconds; defaults to 0 (submission pacing uses --api-rps)')
         command.add_argument('--wait-for-cooldown', action='store_true', help='wait for an existing cooldown once; a new challenge still exits')
         command.add_argument('--building', help='restrict this run to a building URL and child detail URLs; repeat on resume')
         unavailable = command.add_mutually_exclusive_group()
@@ -134,7 +134,9 @@ def main(argv=None):
         profile = json.loads(row[0]) if row else json.loads(previous_profile[0]) if previous_profile else {}
         args.neighborhood = args.neighborhood or (None if explicit_building else profile.get('neighborhood'))
         args.building = args.building or (None if explicit_neighborhood else profile.get('building'))
-        args.transport = args.transport or profile.get('transport', 'firefox' if args.neighborhood else 'http')
+        # Do not inherit direct HTTP/Firefox from historical profiles: all live
+        # collection for this project is required to use Oxylabs.
+        args.transport = 'oxylabs'
         args.concurrency = args.concurrency if args.concurrency is not None else profile.get('concurrency', 5)
         args.api_rps = args.api_rps if args.api_rps is not None else profile.get('api_rps', 2)
         if not 1 <= args.concurrency <= 20 or not math.isfinite(args.api_rps) or not 0 < args.api_rps <= 50:
@@ -279,6 +281,7 @@ def export(store, generation, path, offline):
                             data = {'error': str(exc)}
                 item = dict(row)
                 item['headers'] = json.loads(item['headers'])
+                item['capture_metadata'] = json.loads(item['capture_metadata'])
                 item['body_sha256'] = item.pop('body_hash')
                 item['body_path'] = str(store.body_path(item['body_sha256']).relative_to(store.root)) if item['body_sha256'] else None
                 item['extraction'] = data
@@ -287,17 +290,17 @@ def export(store, generation, path, offline):
 
 
 def run_crawler(args, generation, lock=None):
+    if args.transport != 'oxylabs':
+        raise ValueError('All live collection must use Oxylabs')
     from scrapy.crawler import CrawlerProcess
     from .crawler import ArchiveSpider
-    settings = {'LOG_LEVEL': 'INFO'}
-    if args.transport == 'firefox':
-        settings['DOWNLOAD_HANDLERS'] = {'https': 'streeteasy_archive.browser.FirefoxDownloadHandler'}
-        settings['ARCHIVE_FIREFOX_BINARY'] = args.firefox_binary
-    elif args.transport == 'oxylabs':
-        settings['DOWNLOAD_HANDLERS'] = {'https': 'streeteasy_archive.oxylabs.OxylabsDownloadHandler'}
-        settings['DOWNLOAD_TIMEOUT'] = 200
-        settings['ARCHIVE_OXYLABS_RENDER'] = args.oxylabs_render
-        settings['ARCHIVE_API_RPS'] = args.api_rps
+    settings = {
+        'LOG_LEVEL': 'INFO',
+        'DOWNLOAD_HANDLERS': {'https': 'streeteasy_archive.oxylabs.OxylabsDownloadHandler'},
+        'DOWNLOAD_TIMEOUT': 200,
+        'ARCHIVE_OXYLABS_RENDER': args.oxylabs_render,
+        'ARCHIVE_API_RPS': args.api_rps,
+    }
     process = CrawlerProcess(settings=settings)
     errors = []
     crawler = process.create_crawler(ArchiveSpider)

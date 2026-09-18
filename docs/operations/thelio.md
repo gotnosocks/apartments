@@ -1,9 +1,23 @@
 # Thelio hosting and archive migration
 
 The primary home for this project is `/home/ben/code/apartments` on SSH host `thelio`.
-Python 3.12, jj 0.45.1, the archive/review tools and the tested CPU modeling packages
-are installed in a project virtual environment. Use `.venv/bin/python` and
-`.venv/bin/streeteasy-archive`; do not use `uv run` to recreate a tested environment.
+Python 3.12, jj 0.45.1, the archive/review tools and the CPU modeling packages
+are installed on this host. Use uv for Python environment management; the project
+pins Python in `.python-version` and dependencies in `uv.lock`.
+
+Prepare the host environment before starting services or model jobs:
+
+```sh
+cd ~/code/apartments
+uv sync --locked --extra dev --extra app --extra model --extra migration
+```
+
+Use `uv run --locked` for interactive commands, with the required extras as shown
+in the workflow guides. The systemd units use `/home/ben/.local/bin/uv run --no-sync`
+so service startup uses the prepared environment without installing packages.
+Schedule dependency syncs between running jobs and service restarts. See
+[uv's locking and syncing documentation](https://docs.astral.sh/uv/concepts/projects/sync/)
+for the distinction between `--locked` and `--no-sync`.
 
 ## Authority and paths
 
@@ -85,7 +99,7 @@ extracted files, and saves resumable per-bundle checkpoints:
 ```sh
 cd ~/code/apartments
 MODAL_CONFIG_PATH=~/.config/apartments/modal-migration.toml \
-  .venv/bin/python -m apartments.archive_receive
+  uv run --locked --extra migration python -m apartments.archive_receive
 ```
 
 The owner authenticated Modal directly on thelio on September 16; the service uses
@@ -112,7 +126,7 @@ An independent streaming verifier is also available; it reads the full archive a
 should not be run redundantly when all receiver checksum checks already passed:
 
 ```sh
-.venv/bin/python -m apartments.archive_verify \
+uv run --locked python -m apartments.archive_verify \
   --root /data1/apartments/archive \
   --manifest /data1/apartments/migration/all-files.jsonl \
   --summary /data1/apartments/migration/verification.json \

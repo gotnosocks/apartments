@@ -47,7 +47,7 @@ most four sampler cores and one BLAS thread per process.
 
 ```sh
 OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 \
-  .venv/bin/python models/bayesian_rent_model.py \
+  uv run --locked --extra model python models/bayesian_rent_model.py \
   --input /path/to/minimal-fit/model_data.parquet \
   --output /path/to/new-bayesian-fit \
   --train-end 2024-12-01 --predict-end 2025-12-01 \
@@ -69,7 +69,7 @@ from a future-date test. `--max-units` is only a deterministic runtime pilot and
 must not be represented as a full-data fit.
 
 ```sh
-.venv/bin/python models/bayesian_model_analysis.py \
+uv run --locked --extra model python models/bayesian_model_analysis.py \
   --model /path/to/bayesian-fit --output /path/to/new-diagnostics
 ```
 
@@ -104,7 +104,7 @@ freezes its runner, writes per-fit logs and a durable `progress.json`, and stops
 at the first failed diagnostic gate. Supply a deadline with an explicit offset:
 
 ```sh
-.venv/bin/python models/bayesian_experiments.py \
+uv run --locked --extra model python models/bayesian_experiments.py \
   --input /path/to/minimal-fit/model_data.parquet \
   --output /path/to/new-experiment-batch \
   --deadline 2026-09-18T09:00:00+00:00

@@ -7,7 +7,7 @@ ConditionPathExists=!/data1/apartments/migration/cutover-ready.json
 [Service]
 Type=oneshot
 WorkingDirectory=/home/ben/code/apartments
-ExecStart=/home/ben/code/apartments/.venv/bin/python -m apartments.archive_cutover
+ExecStart=/home/ben/.local/bin/uv run --no-sync python -m apartments.archive_cutover
 ExecStartPost=/usr/bin/systemctl --user start apartments-review.service apartments-archive.service
 TimeoutStartSec=7200
 Environment=PYTHONUNBUFFERED=1

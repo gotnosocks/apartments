@@ -39,6 +39,9 @@ def implementation_hash():
  h=hashlib.sha256()
  for name in ('granular_export.py','granular_finalize.py','granular_parse.py','granular_media.py','unit_canonical.py','canonical_units.py'):
   h.update((Path(__file__).parent/name).read_bytes())
+ # Flight text framing changes normalized listing values, so its implementation
+ # must participate even though it lives in the archive package.
+ h.update((Path(__file__).parents[1]/'streeteasy_archive'/'flight.py').read_bytes())
  return h.hexdigest()
 
 def dumps(value):

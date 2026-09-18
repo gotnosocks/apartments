@@ -6,7 +6,7 @@ ConditionPathExists=/data1/apartments/migration/cutover-ready.json
 [Service]
 Type=simple
 WorkingDirectory=/home/ben/code/apartments
-ExecStart=/home/ben/code/apartments/.venv/bin/streeteasy-archive --data /data1/apartments/archive/crawls/chelsea-resume serve --port 8765
+ExecStart=/home/ben/.local/bin/uv run --no-sync streeteasy-archive --data /data1/apartments/archive/crawls/chelsea-resume serve --port 8765
 Restart=on-failure
 RestartSec=5
 Environment=PYTHONUNBUFFERED=1

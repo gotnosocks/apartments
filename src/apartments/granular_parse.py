@@ -8,6 +8,9 @@ from urllib.parse import urlsplit
 from .unit_canonical import canonical_fields
 
 from streeteasy_archive.extract import _scripts, _selector, flight_text, is_gallery_url
+from streeteasy_archive.flight import FlightText, decode_records
+
+VERSION = "granular-parse-flight-text-v2"
 
 
 def _walk(value):
@@ -23,17 +26,13 @@ def _walk(value):
 def _flight_candidates(scripts):
     """Find listing objects while resolving only references on candidate paths."""
     stream = flight_text(scripts)
-    records = {}
-    decoder = json.JSONDecoder()
-    for match in re.finditer(r"(?<![A-Za-z0-9_])([0-9a-f]+):(?=[{\[])", stream):
-        try:
-            records[match.group(1)], _ = decoder.raw_decode(stream[match.end():])
-        except ValueError:
-            continue
+    records = decode_records(stream)
 
     memo = {}
 
     def resolve(value, stack=()):
+        if isinstance(value, FlightText):
+            return str(value)
         if isinstance(value, str) and value.startswith("$") and value[1:] in records:
             key = value[1:]
             if key in stack:
@@ -51,6 +50,8 @@ def _flight_candidates(scripts):
     seen = set()
 
     def find(value, stack=()):
+        if isinstance(value, FlightText):
+            return
         if isinstance(value, str) and value.startswith("$") and value[1:] in records:
             key = value[1:]
             if key not in stack:

@@ -26,7 +26,7 @@ Corrections are replayed in append order by `ReviewLedger.apply(raw, snapshot_id
 Run the review application against a local archive and ledger with:
 
 ```sh
-.venv/bin/python -m apartments.review_web \
+uv run --locked python -m apartments.review_web \
   --dataset-root /data1/apartments/archive/datasets/chelsea-granular-20260917-canonical-units \
   --review-state /data1/apartments/archive/reviews/chelsea-granular-20260917-canonical-units \
   --port 8766
@@ -37,13 +37,13 @@ The same paths can be supplied with `REVIEW_DATASET_ROOT` and `REVIEW_STATE`. Op
 The Modal deployment uses `/archive` in place of `/data1/apartments/archive`. That deployment is now stopped; the primary app uses the local thelio paths. For backwards compatibility, omitting both paths retains the SDK-backed Modal mode. It requires an authenticated Modal session and uses the private cloud review function:
 
 ```sh
-.venv/bin/python -m apartments.review_web --port 8766
+uv run --locked --extra modal python -m apartments.review_web --port 8766
 ```
 
 Deploy or update the private backend with:
 
 ```sh
-.venv/bin/modal deploy models/modal_review.py
+uv run --locked --extra modal modal deploy models/modal_review.py
 ```
 
 Use **File grouped parser issue** when the archived payload has a value but extraction gets it wrong. That records the exact affected captures for a code fix and re-extraction from the archive, without another scrape. Use a bulk correction only when the same human-verified replacement applies to every selected capture. Issue counts and the main table describe source values; open an observation to see its corrected values beside the source.
@@ -182,7 +182,7 @@ New datasets automatically receive `canonical_href`, `canonical_unit_url`, and
 these fields. For older immutable datasets, the separate evidence backfill is:
 
 ```sh
-PYTHONPATH=src .venv/bin/python -m apartments.unit_source \
+uv run --locked --extra model python -m apartments.unit_source \
   --dataset /path/to/completed-dataset \
   --bodies /path/to/archive/bodies \
   --output /path/to/review-state/unit-source-pages.parquet

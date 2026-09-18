@@ -43,7 +43,7 @@ If no directory is selected, the extension falls back to the previous JSON downl
 Import every bundle into the local DuckDB database:
 
 ```bash
-uv run apartments import-captures data/captures
+uv run --locked apartments import-captures data/captures
 ```
 
 A single old-style JSON download can still be imported with

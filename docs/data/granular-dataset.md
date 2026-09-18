@@ -77,12 +77,11 @@ absence. Unknown source fields can be extracted later without re-scraping.
 
 ## Running and resuming
 
-Use the project's existing virtual environment. For a local run, install the
-`model` extra when setting up a new environment, then supply the frozen archive,
-body directory, correction ledger, and a new output directory:
+Run through uv with the `model` extra. Supply the frozen archive, body directory,
+correction ledger, and a new output directory:
 
 ```sh
-PYTHONPATH=src .venv/bin/python models/transform_local.py \
+uv run --locked --extra model python models/transform_local.py \
   --snapshot /path/to/archive.sqlite3 \
   --bodies /path/to/bodies \
   --corrections config/corrections.jsonl \
@@ -103,7 +102,7 @@ changes require a new run ID; existing completed datasets remain immutable.
 For optional cloud execution, install the `modal` extra and deploy with:
 
 ```sh
-.venv/bin/modal deploy models/modal_granular.py
+uv run --locked --extra modal modal deploy models/modal_granular.py
 ```
 
 Start a durable background invocation:
@@ -272,7 +271,7 @@ Both local and cloud runners call `apartments.granular_export.finish`, which bui
 memberships before the quality report and completion marker. For a normal local run:
 
 ```sh
-PYTHONPATH=src .venv/bin/python models/transform_local.py \
+uv run --locked --extra model python models/transform_local.py \
   --snapshot /path/to/archive.sqlite3 \
   --bodies /path/to/bodies \
   --corrections config/corrections.jsonl \

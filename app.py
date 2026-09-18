@@ -71,7 +71,7 @@ with duckdb.connect(str(db_path), read_only=True) as connection:
         GROUP BY building_slug ORDER BY 2
     """).fetchall())
 if not BUILDINGS:
-    st.info("Import the local archive with `uv run apartments import-archive`.")
+    st.info("Import the local archive with `uv run --locked apartments import-archive`.")
     st.stop()
 st.sidebar.caption(f"{len(BUILDINGS)} buildings with imported rental records")
 building_slug = st.sidebar.selectbox(
@@ -80,7 +80,7 @@ building_slug = st.sidebar.selectbox(
 st.header(BUILDINGS[building_slug])
 listings, events = load_data(str(db_path), building_slug, db_path.stat().st_mtime_ns)
 if events.empty:
-    st.warning("No priced history events were found. Run `uv run apartments import-captures data`.")
+    st.warning("No priced history events were found. Run `uv run --locked apartments import-captures data`.")
     st.stop()
 
 listings["bedroom_group"] = listings["bedrooms"].map(bedroom_label)

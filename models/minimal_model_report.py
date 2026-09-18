@@ -155,10 +155,10 @@ New-building performance is not established.
 ## Reproduce and reuse
 
 ```sh
-OPENBLAS_NUM_THREADS=2 OMP_NUM_THREADS=2 PYTHONPATH=src .venv/bin/python models/minimal_rent_model.py \\
+OPENBLAS_NUM_THREADS=2 OMP_NUM_THREADS=2 uv run --locked --extra model python models/minimal_rent_model.py \\
   --dataset {c['dataset']} \\
   --output /path/to/new-model-run
-.venv/bin/python models/minimal_model_report.py --model /path/to/new-model-run --output /path/to/report
+uv run --locked --extra model python models/minimal_model_report.py --model /path/to/new-model-run --output /path/to/report
 ```
 
 Import `load_model(directory)` and `predict(model, dataframe)` from

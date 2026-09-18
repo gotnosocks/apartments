@@ -26,7 +26,7 @@ def load_outputs(directory: str, modified_ns: int):
 required = ["metadata.json", "index.parquet", "building_effects.parquet", "coefficients.parquet", "observation_diagnostics.parquet"]
 missing = [name for name in required if not (MODEL_DIR / name).exists()]
 if missing:
-    st.info("Run the monthly model to create dashboard outputs: `./.venv/bin/python models/rent_model.py --frequency monthly`.")
+    st.info("Run the monthly model to create dashboard outputs: `uv run --locked --extra model python models/rent_model.py --frequency monthly`.")
     st.caption("All available history is used by default; this page does not start sampling.")
     st.stop()
 

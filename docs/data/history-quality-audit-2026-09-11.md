@@ -23,7 +23,7 @@ Pending building pages can discover additional inventories. The archive still ha
 
 ## Reproduction
 
-Run `modal run models/modal_history_audit.py --output /tmp/chelsea-history-audit.json` using the project environment. This launches only a read-only cloud audit. The script includes redirect-destination checking added after the initial run; that one redirect was verified separately against the live archive.
+Run `uv run --locked --extra modal modal run models/modal_history_audit.py --output /tmp/chelsea-history-audit.json` using the project environment. This launches only a read-only cloud audit. The script includes redirect-destination checking added after the initial run; that one redirect was verified separately against the live archive.
 
 Detailed sample evidence (URLs, snapshot IDs, body hashes, raw events) and the chart are saved locally in `data/exports/history-audit-2026-09-11/`. These are small audit exports, not an archive/database download. The chart is a presentation of saved source data and does not interpolate between listing episodes.
 

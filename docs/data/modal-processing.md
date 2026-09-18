@@ -12,10 +12,10 @@ Do not run a full archive audit or model preparation locally on the M1.
 
 ```sh
 cd ~/code/apartments
-uv sync --extra modal
-.venv/bin/modal run models/modal_archive.py --action upload --snapshot chelsea-20260908
-.venv/bin/modal run --detach models/modal_archive.py --action prepare --snapshot chelsea-20260908
-.venv/bin/modal run models/modal_archive.py --action download --snapshot chelsea-20260908
+uv sync --locked --extra modal
+uv run --locked --extra modal modal run models/modal_archive.py --action upload --snapshot chelsea-20260908
+uv run --locked --extra modal modal run --detach models/modal_archive.py --action prepare --snapshot chelsea-20260908
+uv run --locked --extra modal modal run models/modal_archive.py --action download --snapshot chelsea-20260908
 ```
 
 The upload takes a consistent SQLite backup on disk while holding the scraper's

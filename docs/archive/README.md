@@ -17,13 +17,13 @@ validate the archive without resolving that live-access limitation.
 
 ```sh
 cd ~/code/streeteasy-archive
-uv sync --extra dev
+uv sync --locked --extra dev
 ```
 
 ## Local archive browser
 
 ```sh
-uv run streeteasy-archive serve --port 8765
+uv run --locked streeteasy-archive serve --port 8765
 ```
 
 Open <http://127.0.0.1:8765>. The Flask/Waitress app reads the live SQLite archive
@@ -49,11 +49,11 @@ that its full body, pricing JSON, and history table are archived separately.
 ## Crawl and resume
 
 ```sh
-uv run streeteasy-archive backfill --max-requests 100
-uv run streeteasy-archive status
-uv run streeteasy-archive resume --max-requests 100
+uv run --locked streeteasy-archive backfill --max-requests 100
+uv run --locked streeteasy-archive status
+uv run --locked streeteasy-archive resume --max-requests 100
 # After the preceding crawl generation finishes:
-uv run streeteasy-archive update --max-requests 100
+uv run --locked streeteasy-archive update --max-requests 100
 ```
 
 `--max-requests` bounds a single invocation; zero means no request-count limit.
@@ -99,9 +99,9 @@ network transfer. There is no verified public feed of every StreetEasy change.
 ## Import the supplied HAR without network access
 
 ```sh
-uv run streeteasy-archive import-har \
+uv run --locked streeteasy-archive import-har \
   '/Users/ben/Desktop/streeteasy.com_Archive [26-09-07 13-53-49].har'
-uv run streeteasy-archive export data/observations.jsonl --offline-reextract
+uv run --locked streeteasy-archive export data/observations.jsonl --offline-reextract
 ```
 
 Only StreetEasy response content is imported. Request cookies, authorization
@@ -151,7 +151,7 @@ implementation. Scrapy documentation: <https://docs.scrapy.org/en/latest/>.
 ## Development
 
 ```sh
-uv run pytest -q
+uv run --locked --extra dev --extra model --extra migration python -m pytest -q
 jj status
 jj log
 git log --oneline
@@ -168,12 +168,12 @@ stop. `status` reports pending work separately, and works while the crawler runs
 
 ### Firefox and a single-building pilot
 
-Install the optional browser transport with `uv sync --extra dev --extra browser`.
+Install the optional browser transport with `uv sync --locked --extra dev --extra browser`.
 It uses installed Firefox (automatically detected on macOS) and Selenium Manager
 for geckodriver. No StreetEasy account or proxy is needed for the successful pilot.
 
 ```sh
-uv run --extra browser streeteasy-archive resume --transport firefox \
+uv run --locked --extra browser streeteasy-archive resume --transport firefox \
   --building https://streeteasy.com/building/ten23-500-west-23rd-street-new_york \
   --max-requests 4
 ```
@@ -204,7 +204,7 @@ Selenium is pinned because its responseCompleted binding needs a small compatibi
 shim to retain the request ID. Check this shim when upgrading Selenium.
 
 Run browser integration checks against a loopback fixture only:
-`ARCHIVE_TEST_FIREFOX=1 uv run --extra browser --extra dev pytest tests/test_browser.py -q`.
+`ARCHIVE_TEST_FIREFOX=1 uv run --locked --extra browser --extra dev pytest tests/test_browser.py -q`.
 
 Proxy fallback: retain direct Firefox as the baseline. If sustained access fails,
 trial Oxylabs residential proxies against the same small sample; compare Oxylabs
@@ -215,7 +215,7 @@ provider headline success rates. Provider pricing must be checked at trial time.
 ### Running Chelsea, excluding Hudson Yards
 
 ```sh
-uv run --extra browser streeteasy-archive resume --neighborhood chelsea \
+uv run --locked --extra browser streeteasy-archive resume --neighborhood chelsea \
   --transport firefox --delay 60 --wait-for-cooldown
 ```
 

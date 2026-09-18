@@ -1,5 +1,209 @@
 # Project to-do list
 
+The [project intent](project-intent.md) defines the NYC-wide objective. The
+[research pipeline](data/research-pipeline.md) provides the tested baseline path.
+The active goal is to refine **Chelsea first**, before expanding geography.
+Latest evidence and reproducible artifacts are recorded in the
+[September 18 amenity experiment](analysis/chelsea-amenities-2026-09-18.md) and
+[recovery/validation follow-up](analysis/chelsea-recovery-ablation-2026-09-18.md).
+
+Immediate pilot work:
+
+**Priority clarification, September 18:** the product loop is scrape → transform
+→ fit → analyze. Factor contributions, fitted residuals and apartment-specific
+counterfactuals take priority over forecasting or unfamiliar-building performance.
+The model should include the latest accepted listing evidence before analysis.
+
+**Current research round:** Bayesian coefficient uncertainty and flexible bathroom
+construction, alongside source review of large building/unit effects. These are
+research directions rather than a fixed feature checklist.
+
+**Main-model clarification:** use the PyMC Bayesian model for the main analysis.
+Improve fit speed through compiled sampling and exact graph operations; do not
+serve a surrogate regression in its place. Main posterior integration is underway.
+
+- [x] Rank all building/unit effects and review both tails against source text.
+  The [group audit](analysis/chelsea-group-effects-2026-09-18.md) identifies shared
+  bathrooms, basement units, flexible/railroad bedrooms and bundled luxury features.
+- [x] Recover explicit full/half counts without deriving them from the scalar;
+  review unusual counts and en-suite wording, and vary research seed phrases.
+  The [bathroom audit](analysis/chelsea-bathroom-evidence-2026-09-18.md) retains
+  52,712 observations, flags source contradictions, and documents new hypotheses.
+- [x] Complete a Bayesian fit with passing parameter/derived uncertainty diagnostics
+  on the full reviewed current cohort; report joint bathroom increments and
+  bedroom-relative shortfall with source support. See the [first converged results](analysis/chelsea-bayesian-bathrooms-2026-09-18.md).
+- [x] Complete a same-cohort stronger-feature-prior comparison with both diagnostic
+  gates passing. [Common bathroom increments are stable](analysis/chelsea-bayesian-prior-sensitivity-2026-09-18.md),
+  while the second-half-bath estimate depends strongly on the prior (only two ads).
+- [ ] Test group-prior sensitivity and bedroom-dependent residual dispersion;
+  the shared-noise fit misses larger-apartment residual tails. The bedroom-scale
+  [first bedroom-scale experiment](analysis/chelsea-bayesian-residual-scale-2026-09-18.md)
+  finished but failed the parameter convergence gate. An equivalent centered
+  parameterization passed its numerical checks and the 1,316-test suite;
+  its retry is running on the same 52,711-row cohort.
+- [x] Derive interpretable joint category comparisons and compare feature priors.
+  [Laundry and common doorman contrasts are stable](analysis/chelsea-bayesian-category-sensitivity-2026-09-18.md)
+  under this prior change; sparse HVAC categories remain weakly supported.
+- [ ] Separate staffed attendance from remote/intercom access where both may
+  coexist, and adjudicate the named identity conflict before a measurement
+  sensitivity fit. The [doorman overlap review](analysis/chelsea-doorman-overlap-2026-09-18.md)
+  covers eight ads and verifies no physical service transition in the two shared units.
+  The [measurement follow-up](analysis/chelsea-doorman-measurement-policy-2026-09-18.md)
+  reviews all 13 virtual-category ads in the overlap buildings and drafts separate
+  service axes; three identity/location conflicts remain unresolved.
+- [x] Apply separately reviewed nonresidential/location-conflict decisions and
+  count-conflict masks. The [source revision](analysis/chelsea-bayesian-source-revision-2026-09-18.md)
+  quarantines seven advertisements and masks five compositions, retaining 52,704
+  observations and all 13 refreshed listings. Original prices and counts remain.
+- [ ] Refit that source revision and compare contributions. Preserve uncertain
+  prices, physical change dates and unit aliases until supported by evidence.
+- [x] Expose accepted Bayesian bathroom/category intervals, prior comparisons and
+  all 13 current residuals in the separate [research page](model/bayesian-research-page.md).
+  The page verifies source/report bindings and withholds failed experiments.
+- [ ] Fold the ordered saved-design loader into the next model version after
+  same-code prior experiments finish; do not use the original unsafe reload for
+  apartment-level reconstruction. The v2 checker and full-cohort parity proof are complete.
+- [x] Convert reviewed shared-bath access and nonresidential findings into explicit
+  versioned research decisions. The [bathroom research revision](analysis/chelsea-bathroom-research-revision-2026-09-18.md)
+  quarantines one office advertisement, masks composition for 17 shared-access
+  advertisements and accepts two corroborated multiple-half layouts. All surviving
+  reported counts and earlier reviewed fits remain preserved.
+- [ ] Test contribution sensitivity to these source decisions using the revised
+  52,711-row research projection; all 13 refreshed observations remain included.
+- [ ] Validate en-suite access separately from fixture composition. Unmentioned
+  access remains unknown; a phrase-positive sample cannot establish recall.
+  The [four-plan visual pilot](analysis/chelsea-floorplan-visual-review-2026-09-18.md)
+  distinguishes assigned bathrooms from attached access and finds a missing
+  powder room. A [second four-plan review](analysis/chelsea-floorplan-second-review-2026-09-18.md)
+  adds an office/hall access distinction; all four show one suite bathroom.
+  Neither batch yet establishes a matched en-suite count comparison.
+
+- [x] Fit refreshed capture-time evidence before analysis; the pilot now includes
+  13 fresh ACTIVE captures alongside 53,218 historical unit-months, with current
+  in-sample residuals, building/unit contributions and training inclusion visible.
+- [x] Build a residual review queue and inspect the first ten cases against 18
+  verified archived responses. The [source audit](analysis/chelsea-residual-review-2026-09-18.md)
+  found rapid price corrections, commercial spaces, a location/net-effective
+  conflict, unresolved prices and a plausible duplex/ceiling/light feature gap.
+- [x] Apply a first versioned price/scope review across the cohort, refit, and
+  compare residuals and feature contrasts on identical retained rows. The
+  [reviewed-cohort result](analysis/chelsea-reviewed-cohort-2026-09-18.md) quarantines
+  503 unresolved net-effective observations, ten reviewed commercial offers and
+  two transient initial asks, preserving every source price. Typical fitted values
+  change only $2.36; the cohort definition improves without a large accuracy gain.
+- [ ] Continue review of unresolved price histories, mixed-use listings and gross/
+  net terms. The first decision bundle is a bounded policy version, not proof
+  that the remaining cohort has no source or scope problems.
+- [x] Screen the fitted cohort for advertised ceiling measurements, levels,
+  floor-through layouts and skylights, preserving exact text and capture scope.
+  The [interior audit](analysis/chelsea-interior-evidence-2026-09-18.md) finds 7,055
+  candidate observations and supports four further reviewed scope quarantines.
+  The latest fit has 52,712 rows; matched fitted values change a median of $0.32.
+- [x] Adjudicate a development sample of interior evidence and run matched
+  reporting-versus-value fits under three group penalties. The [interior model
+  experiment](analysis/chelsea-interior-model-2026-09-18.md) completed nine fits;
+  magnitudes add little beyond reporting, and level counts have sparse support.
+- [ ] Refine feature-specific interior scope separately from renovation status,
+  validate beyond the development sample, and examine cross-advertisement height
+  changes before interpreting them as physical changes.
+- [x] Audit private/shared outdoor fields and area wording; compare structured
+  versus text-corroborated type contributions across 18 matched fits. The
+  [outdoor experiment](analysis/chelsea-outdoor-model-2026-09-18.md) finds material
+  source-policy sensitivity and records six changed-residual source reviews.
+- [ ] Improve outdoor measurement: distinguish unit access, explicit private
+  claims, shared facilities and views; handle coexisting private/shared types
+  and confidence separately. Validate beyond development samples. Outdoor area
+  remains excluded pending access-scope and measurement rules.
+- [x] Publish occurrence-level outdoor claims and evaluate on 40 development
+  units plus 25 untouched units. The [scope follow-up](analysis/chelsea-outdoor-scope-2026-09-18.md)
+  finds improved development agreement but weak independent access coverage;
+  the measurements remain review evidence, without another model refit.
+- [ ] Resolve outdoor subject, access, exclusivity and temporary availability
+  jointly before model promotion. Distinguish area exclusions from denied access,
+  and future-tenant wording from planned construction. Keep unknown effective
+  dates rather than dating physical changes from archive capture times.
+- [ ] Audit unit-private elevator access and other luxury facilities suggested
+  by changed residuals, preserving planned/completed status and source dates.
+- [x] Expose supported apartment-specific joint contrasts in the
+  [analysis review page](model/analysis-review-page.md), recomputing interactions,
+  showing what is held fixed, and withholding unsupported or reporting-only values.
+- [x] Provide factor support, contributions, residual history and archived source
+  text in the main analysis review. Keep model uncertainty and earlier contrast
+  stability studies explicit rather than presenting a forecast score as the goal.
+- [ ] Integrate source-review decision recording and linked contrast-stability
+  artifacts into the read-only analysis page; current correction workflows remain
+  separate and experimental encodings are not promoted automatically.
+
+- [x] Scale the verified Flight-description recovery from its 10-page audit to
+  the 27,240 affected captures, preserving body hashes, interpretation clocks,
+  original parsed values and a new derived version. Raw source datasets stay immutable.
+- [x] Review stratified source-text samples of existing and recovered descriptions;
+  fix definite scope/negation errors with regression cases. Agent-labeled samples
+  are not human ground truth or population accuracy estimates.
+- [x] Compare the enriched model with missingness-only controls. Known-only centered
+  contrasts prevent categorical ridge penalties from confounding the comparison;
+  actual values improve error beyond reporting patterns on all evaluated folds.
+- [x] Run individual-feature-block ablations to identify which known-value families
+  explain the additional benefit and which rely mostly on reporting patterns.
+  All 36 fits completed; elevator/floor information provides most of the improvement.
+  See the [feature-family results](analysis/chelsea-feature-blocks-2026-09-18.md).
+- [x] Expand the amenity comparison to all five building folds, four earlier-year
+  holdouts, and crossed unseen-building/future-time tests (42 converged fits).
+- [x] Improve the large 2021 errors separately from amenity estimation; evaluate
+  rolling short-horizon updates appropriate for apartment search alongside annual
+  forecasts and report staleness explicitly. All 72 monthly fits completed;
+  pooled median error falls from 9.82% to 7.97%, with 2021 falling from 18.84% to
+  10.44%. See the [monthly results](analysis/chelsea-monthly-validation-2026-09-18.md).
+- [ ] Optional/deferred: validate prediction uncertainty for unfamiliar buildings. Sequential pooled
+  fallback bands fail: adjusted nominal 95% coverage is only 68.39% over 193
+  new-building rows. Do not serve those bands as calibrated; preserve an explicit
+  unsupported-uncertainty state until building-transfer calibration is validated.
+  A 420-fit protocol was prepared but **no fits launched** before the user clarified
+  that this is secondary to factor, residual and counterfactual analysis.
+- [x] Estimate conditional contrast sampling stability and sensitivity to building
+  and unit shrinkage: 20 specification fits, 200 building-resampling refits, and
+  tighter numerical checks completed. Laundry's positive direction survives;
+  doorman remains unstable. These do not establish causal premiums or calibrated
+  population intervals. See [stability results](analysis/chelsea-amenity-stability-2026-09-18.md).
+
+- [ ] Expand the explicit Chelsea/West Chelsea discovery profile to configured NYC
+  neighborhoods, with neighborhood-specific coverage audits and bounded Oxylabs
+  collection budgets **after the pilot approach is satisfactory**. Building-scoped
+  collection already accepts NYC building URLs.
+- [x] Locate the completed `chelsea-granular-20260917-canonical-url-v1` dataset
+  and connect its canonical memberships to corrected historical analytical rows.
+  The older `-canonical-units` directory was not the latest completed artifact.
+- [ ] Audit/migrate any desired legacy review decisions explicitly. The canonical
+  pilot's fresh-start record intentionally did not import the older review state;
+  do not silently apply it to differently identified data.
+- [ ] Gather repeat observations across seasons, validate source-backed floor and
+  amenity extraction, and add dated NYC public-record joins before estimating
+  citywide marginal premiums. Track unknowns and ambiguous matches explicitly.
+- [ ] Add rolling temporal validation, independent unseen-unit/building holdouts,
+  and calibrated uncertainty to the baseline; compare with the retained Bayesian
+  models using the same corrected analytical inputs. Robust temporal and building
+  experiments are complete; new-building calibration and matched Bayesian comparison
+  remain unfinished.
+- [x] Connect the robust model to canonical capture-time candidate selection,
+  freshness checks and the preference frontier. The [serving example](analysis/chelsea-serving-example-2026-09-18.md)
+  refits 53,218 unit-months and scores 14 units under illustrative budget/preferences;
+  stale models, inactive advertisement captures and identity conflicts stay explicit.
+- [x] Refresh candidate evidence through bounded Oxylabs collection. All 23 chosen
+  advertisements refreshed successfully: 13 remain source-reported ACTIVE, ten
+  changed to excluded statuses, and one ACTIVE ask fell by $450. The fresh $6,000
+  example selects seven units. See the [refresh results](analysis/chelsea-candidate-refresh-2026-09-18.md).
+- [ ] Establish current Chelsea discovery coverage and repeat refresh operations.
+  The bounded pass only revisited previously eligible recent advertisements; it
+  did not discover new listings or refresh the 271 older ACTIVE advertisements.
+  The [pagination audit](data/chelsea-current-discovery-audit-2026-09-18.md) finds
+  repeated organic listings in four fresh Oxylabs pages; a validated next-link
+  chain alone cannot establish complete inventory. An offline source-bound parser
+  and bounded collection plan are ready.
+- [ ] Add a renter-facing preference interface on top of the verified scoring API.
+- [ ] Optional sensitivity: compare fitted residuals with leave-advertisement-out
+  results where useful. Same-advertisement inclusion is expected in the main
+  refit-before-analysis workflow, not a reason to suppress its in-sample residual.
+
 - [ ] Review attribute shifts in a separate pass after unit identity merges. Compare bathrooms, bedrooms, square footage, layout, and other attributes across each unit's listings and captures. Distinguish real changes or renovations from source errors, extraction errors, measurement differences, and mistaken identity merges. Keep unresolved differences explicit; preserve observed values and collection dates, and record any supported corrections or effective-time assertions separately. Do not require attribute agreement to complete an otherwise justified identity merge.
 
 - [ ] Detect listing descriptions such as “floor through”, “floor-through”, “floor thru”, and “floor-thru” as an observed unit-layout type. Explore using this as evidence of both street and courtyard/rear exposure, while keeping that inference separate from explicitly stated exposure and allowing unknowns or exceptions. Preserve the exact source wording and capture scope; do not apply a current layout claim to all historical prices.

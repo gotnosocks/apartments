@@ -71,8 +71,8 @@ without modifying the retained earlier interpretations.
 ## Migration and incremental updates
 
 ```sh
-uv run apartments backfill-temporal
-uv run apartments import-archive
+uv run --locked apartments backfill-temporal
+uv run --locked apartments import-archive
 ```
 
 The migration reads existing local captures and fetch records; it does not contact

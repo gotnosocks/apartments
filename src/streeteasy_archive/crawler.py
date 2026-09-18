@@ -11,6 +11,7 @@ import scrapy
 
 from .extract import canonical_url, discover, extract, kind_for
 from .store import ArchiveStore
+from .capture import capture_metadata
 
 CONTENT_RETRY_LIMIT = 3
 CONTENT_RETRY_DELAY = 300
@@ -73,8 +74,10 @@ class ArchiveSpider(scrapy.Spider):
         'USER_AGENT': 'StreetEasyArchive/0.1 (personal archival research)',
     }
 
-    def __init__(self, data_dir='data', generation=None, max_requests=0, building=None, neighborhood=None, delay=None, transport='http', concurrency=5, include_unavailable=False, **kwargs):
+    def __init__(self, data_dir='data', generation=None, max_requests=0, building=None, neighborhood=None, delay=None, transport='oxylabs', concurrency=5, include_unavailable=False, **kwargs):
         super().__init__(**kwargs)
+        if transport != 'oxylabs':
+            raise ValueError('All live collection must use Oxylabs')
         self.store = ArchiveStore(data_dir)
         self.generation = int(generation or self.store.current_generation() or self.store.new_generation())
         self.max_requests = int(max_requests)
@@ -100,6 +103,11 @@ class ArchiveSpider(scrapy.Spider):
     def from_crawler(cls, crawler, *args, **kwargs):
         spider = super().from_crawler(crawler, *args, **kwargs)
         if spider.transport == 'oxylabs':
+            # Also route programmatic/default spider runs through the provider.
+            # Explicit fixture handlers remain usable for offline replay tests.
+            handlers = crawler.settings.getdict('DOWNLOAD_HANDLERS')
+            handlers.setdefault('https', 'streeteasy_archive.oxylabs.OxylabsDownloadHandler')
+            crawler.settings.set('DOWNLOAD_HANDLERS', handlers, priority='cmdline')
             crawler.settings.set('CONCURRENT_REQUESTS', spider.concurrency, priority='cmdline')
             crawler.settings.set('CONCURRENT_REQUESTS_PER_DOMAIN', spider.concurrency, priority='cmdline')
             # API latency includes provider rendering/retries, not origin load.
@@ -159,10 +167,12 @@ class ArchiveSpider(scrapy.Spider):
         content_type = lower.get('content-type', '')
         body = bytes(response.body)
         status = response.status
+        capture = capture_metadata(response.meta, self.transport)
         if status in (401, 403, 408, 429) or status >= 500 or is_challenge(body):
             self.store.record_gap(self.generation, url, status, headers,
                                   f'blocked/challenge or transient HTTP {status}', body=body,
-                                  content_type=content_type, complete=False, pause_seconds=retry_after(headers))
+                                  content_type=content_type, complete=False, pause_seconds=retry_after(headers),
+                                  capture=capture)
             self.stopped = True
             return
         if 300 <= status < 400 and status != 304:
@@ -170,13 +180,14 @@ class ArchiveSpider(scrapy.Spider):
             links = approved_links([{'url': location}], url) if location else []
             self.store.record_gap(self.generation, url, status, headers,
                                   'redirect observed' if links else 'redirect coverage gap',
-                                  discovered=links, body=body if response.meta.get('archive_body_captured', True) else None, content_type=content_type)
+                                  discovered=links, body=body if response.meta.get('archive_body_captured', True) else None, content_type=content_type,
+                                  capture=capture)
             if (self.neighborhood or self.building) and links:
                 from .scope import enroll
                 enroll(self.store, self.generation, {link['url']: 'property history redirect from ' + url for link in links})
         elif status >= 400:
             self.store.record_gap(self.generation, url, status, headers,
-                                  f'HTTP {status} coverage gap', body=body, content_type=content_type)
+                                  f'HTTP {status} coverage gap', body=body, content_type=content_type, capture=capture)
         else:
             try:
                 if status == 304:
@@ -197,10 +208,10 @@ class ArchiveSpider(scrapy.Spider):
                                       f'parser coverage gap: {type(exc).__name__}: {exc}',
                                       body=body, content_type=content_type,
                                       complete=False,
-                                      retry_seconds=self._content_retry_seconds(url))
+                                      retry_seconds=self._content_retry_seconds(url), capture=capture)
             else:
                 self.store.record(self.generation, url, status, headers, body,
-                                  content_type, data, discovered=links)
+                                  content_type, data, discovered=links, capture=capture)
                 if self.neighborhood or self.building:
                     from .scope import expand
                     expand(self.store, self.generation, data, url, self.include_unavailable, building=self.building)

@@ -1,6 +1,6 @@
 """Run the normal granular transform locally, including canonical unit grouping.
 
-PYTHONPATH=src .venv/bin/python models/transform_local.py --help
+uv run --locked --extra model python models/transform_local.py --help
 """
 import argparse
 import concurrent.futures

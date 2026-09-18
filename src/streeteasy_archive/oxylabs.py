@@ -12,9 +12,9 @@ from dotenv import load_dotenv
 from scrapy.http import HtmlResponse
 
 from .extract import canonical_url, is_unavailable_url
+from .capture import redact
 
 API_URL = "https://realtime.oxylabs.io/v1/queries"
-_PRIVATE_KEYS = {"authorization", "proxy-authorization", "cookie", "cookies", "set-cookie", "www-authenticate", "x-api-key", "_request", "session_info"}
 MAX_BODY = 32 * 1024 * 1024
 
 
@@ -55,12 +55,7 @@ def _target_url(url: str) -> str:
 
 def _safe_envelope(value):
     """Keep provider evidence while excluding request credentials/session data."""
-    if isinstance(value, dict):
-        return {key: _safe_envelope(item) for key, item in value.items()
-                if str(key).lower() not in _PRIVATE_KEYS}
-    if isinstance(value, list):
-        return [_safe_envelope(item) for item in value]
-    return value
+    return redact(value)
 
 
 def build_payload(url, render=False):
@@ -134,6 +129,7 @@ class OxylabsDownloadHandler:
         url = _target_url(request.url)
         username, password = _credentials()
         payload = build_payload(url, bool(self.settings and self.settings.getbool("ARCHIVE_OXYLABS_RENDER", False)))
+        started_at = time.time()
         result = None
         for attempt in range(3):
             result = None
@@ -177,6 +173,13 @@ class OxylabsDownloadHandler:
                             if str(key).lower() not in {"content-encoding", "content-length"}}
         response = HtmlResponse(url=url, status=status, headers=response_headers, body=body, request=request, encoding="utf-8")
         response.meta["archive_provider"] = {
+            "provider": "oxylabs",
+            "api_endpoint": API_URL,
+            "api_status": result.status_code,
+            "started_at": started_at,
+            "completed_at": time.time(),
+            "source": payload['source'],
+            "render": payload.get('render'),
             "target_url": payload['url'],
             "browser_instructions": payload.get('browser_instructions', []),
             "results": _safe_envelope(results),

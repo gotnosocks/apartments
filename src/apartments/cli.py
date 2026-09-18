@@ -11,7 +11,7 @@ from .nyc import ingest_pluto
 from .rentcast import collect
 from .streeteasy import infer_furnishing_periods, ingest_export, reparse_capture_histories
 
-app = typer.Typer(no_args_is_help=True, help="Collect and inspect Chelsea rental data.")
+app = typer.Typer(no_args_is_help=True, help="Collect, correct, model, and compare NYC rental data.")
 load_dotenv()
 
 
@@ -224,6 +224,99 @@ def observation_export(
         collected_as_of=collected_as_of, interpreted_as_of=interpreted_as_of,
         effective_at=effective_at, version_id=version_id, known_as_of=known_as_of)
     typer.echo(json.dumps(manifest, indent=2))
+
+
+@app.command("build-analytical")
+def analytical_build(
+    output: Path,
+    as_of: str = typer.Option(..., help="Inclusive knowledge cutoff, ISO date or zoned timestamp."),
+    db: Path = typer.Option(DEFAULT_DB),
+    ledger: Path = typer.Option(Path("config/corrections.jsonl")),
+):
+    """Build dated attributes and contemporary price observations; identical reruns verify and reuse."""
+    import json
+    from .analytical import build_dataset
+    typer.echo(json.dumps(build_dataset(db, output, as_of=as_of, ledger=ledger), indent=2))
+
+
+@app.command("fit-pricing")
+def pricing_fit(
+    dataset: Path,
+    output: Path,
+    holdout_fraction: float = typer.Option(.2, min=0, max=.99, help="Later-month holdout; 0 explicitly fits descriptively without validation."),
+    ridge: float = typer.Option(1.0, min=.000001),
+):
+    """Fit and publish an interpretable model from a verified analytical bundle."""
+    import json
+    from .research_pipeline import fit_dataset
+    typer.echo(json.dumps(fit_dataset(dataset, output, holdout_fraction=holdout_fraction, ridge=ridge), indent=2))
+
+
+@app.command("build-historical")
+def historical_build(
+    dataset: Path,
+    output: Path,
+    as_of: str = typer.Option(..., help="Knowledge cutoff no earlier than the canonical dataset completion."),
+    ledger: Path = typer.Option(Path('config/corrections.jsonl')),
+    start: str = typer.Option('2010-01-01'),
+    end: str | None = typer.Option(None),
+    description_recovery: Path | None = typer.Option(None, help="Verified immutable archive-description recovery bundle."),
+):
+    """Reconstruct historical own-advertisement asking rents with dated corrections."""
+    import json
+    from .historical_dataset import build_historical_dataset
+    typer.echo(json.dumps(build_historical_dataset(dataset, output, as_of=as_of,
+        ledger=ledger, start=start, end=end, description_recovery=description_recovery), indent=2))
+
+
+@app.command("rank-apartments")
+def apartment_rank(
+    candidates: Path,
+    preferences: Path,
+    output: Path,
+    unknown_policy: str = typer.Option('exclude', help="exclude or zero for missing valued attributes."),
+    budget: float | None = typer.Option(None, min=.01, help="Maximum monthly asking rent."),
+    model: Path | None = typer.Option(None, help="Optional verified pricing bundle for a separate market comparison."),
+):
+    """Rank an explicit candidate JSONL snapshot by dollar preferences and Pareto efficiency."""
+    import json
+    from .research_pipeline import rank_candidates
+    typer.echo(json.dumps(rank_candidates(candidates, preferences, output,
+        unknown_policy=unknown_policy, budget=budget, model_bundle=model), indent=2))
+
+
+@app.command("score-apartments")
+def apartment_score(
+    candidates: Path,
+    preferences: Path,
+    model: Path,
+    output: Path,
+    as_of: str = typer.Option(..., help="Explicit collection/knowledge cutoff for this candidate snapshot."),
+    max_age_days: float = typer.Option(7, min=0, help="Maximum age of an ACTIVE capture."),
+    budget: float | None = typer.Option(None, min=.01),
+    unknown_policy: str = typer.Option('exclude', help="exclude or zero for missing valued attributes."),
+):
+    """Select recent source-active units, rank preferences, and score a verified robust model."""
+    import json
+    from .candidate_search import score_candidates
+    typer.echo(json.dumps(score_candidates(candidates, preferences, output, model_bundle=model,
+        as_of=as_of, max_age_days=max_age_days, budget=budget, unknown_policy=unknown_policy), indent=2))
+
+
+@app.command("build-candidates")
+def candidate_build(
+    dataset: Path,
+    historical_reference: Path,
+    output: Path,
+    as_of: str = typer.Option(...),
+    ledger: Path = typer.Option(Path('config/corrections.jsonl')),
+    description_recovery: Path | None = typer.Option(None),
+):
+    """Build canonical capture-time search records, retaining active and inactive ads."""
+    import json
+    from .candidate_snapshot import build_snapshot
+    typer.echo(json.dumps(build_snapshot(dataset,historical_reference,output,as_of=as_of,
+        ledger=ledger,description_recovery=description_recovery),indent=2))
 
 
 if __name__ == "__main__":
