@@ -32,43 +32,8 @@ def shard(run,part):
 
 @app.function(image=image,cpu=2,memory=4096,timeout=3600,volumes={'/archive':volume},max_containers=1)
 def finish(run):
- from apartments.granular_export import write_json, implementation_hash, shard_files_valid, SCHEMAS
- from apartments.granular_quality import audit_dataset
- volume.reload();root=root_for(run);plan=json.loads((root/'plan.json').read_text())
- import pyarrow.parquet as pq
- for table,count in plan['metadata_counts'].items():
-  if pq.read_metadata(root/table/'metadata.parquet').num_rows!=count:raise ValueError(f'Metadata count mismatch: {table}')
- checkpoints=[json.loads((root/'checkpoints'/f'{i:05d}.json').read_text()) for i in range(plan['shards'])]
- if any(c.get('implementation_sha256')!=implementation_hash() for c in checkpoints):raise ValueError('Mixed parser versions; choose a new run ID')
- if not all(shard_files_valid(root,c) for c in checkpoints):raise ValueError('Missing or damaged shard output; resume before finalizing')
- from apartments.inventory_links import build_inventory_links, SCHEMA as LINK_SCHEMA
- import apartments.inventory_links as links_module
- import hashlib
- links_marker=root/'inventory-links.json'
- if links_marker.exists():
-  links=json.loads(links_marker.read_text())
-  if links['implementation_sha256']!=hashlib.sha256(Path(links_module.__file__).read_bytes()).hexdigest():raise ValueError('Inventory link parser changed; choose a new derived interpretation')
-  if pq.read_metadata(root/'inventory_row_links'/'derived.parquet').num_rows!=links['rows']:raise ValueError('Inventory link output changed')
- else:
-  links=build_inventory_links(root);write_json(links_marker,links)
- audit=audit_dataset(root)
- audit['inventory_link_interpretation']=links
- audit['implementation_sha256']=implementation_hash()
- audit['provenance']=plan;audit['finished_at']=time.time()
- audit['export_errors']={'count':sum(len(c['errors']) for c in checkpoints),'examples':[e for c in checkpoints for e in c['errors']][:30]}
- from apartments.granular_report import render_report
- if any(c['expected_unobserved'] for c in audit.get('coverage',{}).values()):raise ValueError('Snapshot coverage reconciliation failed')
- if any(audit['referential_checks'].values()):raise ValueError('Broken snapshot links')
- occurrences=audit['event_mentions']['occurrence_uniqueness']
- if occurrences['rows']!=occurrences['distinct_occurrences']:raise ValueError('Duplicate occurrence primary keys')
- schemas={**SCHEMAS,'inventory_row_links':LINK_SCHEMA}
- link_audit=audit['inventory_row_links']
- if link_audit['missing_source_rows'] or link_audit['unlinked_source_rows'] or link_audit['rows']!=link_audit['distinct_occurrences']:raise ValueError('Inventory link reconciliation failed')
- write_json(root/'schemas.json',{name:{f.name:str(f.type) for f in schema} for name,schema in schemas.items()})
- write_json(root/'quality-report.json',audit)
- (root/'quality-report.md').write_text(render_report(audit))
- write_json(root/'complete.json',{'finished_at':time.time(),'version':plan['version'],'shards':len(checkpoints),'counts':audit['tables']['counts'],'quality_report':'quality-report.json'})
- volume.commit();return audit
+ from apartments.granular_export import finish as work
+ volume.reload();out=work(root_for(run));volume.commit();return out
 
 @app.function(image=image,cpu=.25,memory=512,timeout=86400,volumes={'/archive':volume},max_containers=1)
 def run_all(run='chelsea-granular-20260916'):

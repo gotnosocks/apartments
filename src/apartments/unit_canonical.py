@@ -1,5 +1,8 @@
 """Source-declared unit page extraction shared by transforms and archive backfills."""
 from html.parser import HTMLParser
+import uuid
+
+ASSOCIATION_RULE = "canonical-url-v1"
 from urllib.parse import urljoin, urlsplit
 
 def unit_page(url, base='https://streeteasy.com/'):
@@ -57,3 +60,19 @@ def canonical_fields(body, url):
         if parser.done:
             break
     return head_fields(parser,url)
+
+
+def common_unit_page(urls):
+    """Only a complete, consistent canonical URL establishes automatic identity."""
+    values = set(urls)
+    if len(values) != 1:
+        return None
+    value = next(iter(values))
+    return value if value and unit_page(value) == value else None
+
+
+def canonical_unit_id(url):
+    """Stable across runs and listing turnover; scoped to StreetEasy unit pages."""
+    if not common_unit_page([url]):
+        raise ValueError('Expected a normalized canonical unit URL')
+    return 'unit:' + str(uuid.uuid5(uuid.NAMESPACE_URL, url))

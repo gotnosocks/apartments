@@ -1,8 +1,9 @@
 # Granular archive tables
 
-The data preparation layer does **not** aggregate to a listing episode, physical
-unit, calendar month, or any other modeling interval. An episode/listing ID is a
-source label that links evidence. A model may later select an observation unit,
+The data preparation layer preserves captures and event mentions without
+aggregating prices or attributes over time. It also derives source-declared unit
+memberships from canonical URLs. An episode/listing ID is a source label that
+links evidence. A model may later select an observation unit,
 resolve physical identities, combine repeated evidence, or construct time windows.
 Those choices do not replace these tables.
 
@@ -141,8 +142,9 @@ rewrite an already completed dataset in place.
 
 The review app reads these fields directly, without an additional backfill step
 on newly transformed datasets. Canonical extraction records source evidence; it
-never silently merges listings or applies human review decisions. Durable unit
-associations remain in the separate reversible identity ledger.
+preserves source observations and does not apply human review decisions. The
+canonical-URL association step below derives unit memberships during finalization;
+manually reviewed associations remain in the separate reversible identity ledger.
 
 
 ## Rental inclusion rule
@@ -202,3 +204,57 @@ tables. Missing gallery history is never a parsing error.
 is included in the implementation hash. This change requires a new output run,
 so completed datasets remain immutable. All eight gallery pages in the frozen
 Chelsea archive (six sales and two rentals) have been checked against this parser.
+
+
+## Canonical unit associations
+
+Normal local and Modal finalization now run `canonical-url-v1`. Every retained
+rental listing is assigned by its exact full canonical unit URL (building and
+unit portions). Source display labels, latest-listing pointers, history contents,
+and attributes do not need to agree. A listing with missing or conflicting URLs
+across captures, and other listings sharing those affected URLs, remain unresolved
+rather than bridging distinct unit pages. Singleton listings also receive unit IDs.
+
+Outputs:
+
+- `rental_units`: one row per canonical URL, with stable `unit_id`, URL, listing
+  count, capture count, and rule version.
+- `rental_unit_memberships`: one row per rental listing ID, its unit ID, canonical
+  URL, capture count, and association status/reason.
+- `rental_unit_observations`: one row per retained rental snapshot, linking that
+  capture to its listing and unit. Null unit IDs explicitly mark unresolved rows.
+- `canonical-units.json`: counts and hashes of source evidence and derived tables.
+
+IDs use UUIDv5 of the normalized canonical URL, independent of listing IDs and
+latest-listing pointers. They are stable across reruns and additional captures.
+A changed canonical URL produces a different source identity; these associations
+are not independent verification of a physical home. Review-app decisions are a
+separate overlay and are not imported into the raw transform.
+
+To access one unit's history without losing provenance:
+
+```sql
+SELECT u.unit_id, e.*
+FROM rental_unit_observations u
+JOIN event_mentions e USING (snapshot_id)
+WHERE u.unit_id IS NOT NULL AND e.event_category = 'rental';
+```
+
+This attributes each history mention to the page that reported it. It does not
+claim every historical advertisement has its own captured canonical page. Repeated
+event mentions remain intact, as do changing attributes and prices. Consumers can
+choose an event-deduplication policy separately.
+
+Both local and cloud runners call `apartments.granular_export.finish`, which builds
+memberships before the quality report and completion marker. For a normal local run:
+
+```sh
+PYTHONPATH=src .venv/bin/python models/transform_local.py \
+  --snapshot /path/to/archive.sqlite3 \
+  --bodies /path/to/bodies \
+  --corrections config/corrections.jsonl \
+  --output /path/to/new-dataset
+```
+
+Use a new output directory: completed datasets remain immutable. The rule is
+recorded in `plan.json` and `complete.json` and included in the implementation hash.

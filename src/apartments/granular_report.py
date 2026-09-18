@@ -47,6 +47,19 @@ def render_report(report: dict) -> str:
 
     lines += ["## Captured tables", "", _table(["Table", "Rows"], [[name, count] for name, count in tables.items()]), ""]
 
+    units = report.get("canonical_unit_association")
+    if units:
+        lines += ["## Canonical unit associations", "",
+                  f"Rule: `{units['rule']}`. Exact full canonical unit URLs determine membership; labels, latest-listing references, attributes, and history contents need not agree.", "",
+                  _table(["Measure", "Count"], [
+                      ["Unit identities", units['counts']['rental_units']],
+                      ["Associated rental listing IDs", units['associated_listing_ids']],
+                      ["Units with multiple listing IDs", units['multi_listing_units']],
+                      ["Listing IDs in multi-listing units", units['listing_ids_in_multi_listing_units']],
+                      ["Unresolved listing IDs", units['unresolved_listing_ids']],
+                      ["Unresolved captures", units['unresolved_captures']]]), "",
+                  "Unit IDs are deterministic from the canonical URL. Original captures and event occurrences remain intact; attribute changes and duplicate event mentions are separate modeling concerns.", ""]
+
     by_type = listings.get("by_listing_type", {})
     identity_count = listings.get("distinct_listing_identities")
     lines += ["## Listing observations", "", _table(["Listing type", "Observed captures", "Share of captures"], [[kind, count, _pct(count, sum(by_type.values()))] for kind, count in sorted(by_type.items())]), ""]
@@ -125,5 +138,5 @@ def render_report(report: dict) -> str:
     if changes:
         lines += ["## Source changes", "", _table(["Measure", "Value"], [["Rows", changes.get("rows")], ["By source path", ", ".join(f"{k}={v}" for k, v in changes.get("by_source_path", {}).items())], ["Date parsing", ", ".join(f"{k}={v}" for k, v in changes.get("dates", {}).items())], ["Snapshots represented", changes.get("by_snapshot")]]), ""]
 
-    lines += ["## Interpretation limits and next data-quality actions", "", "- Attributes describe the capture in which they were observed; do not back-join the latest attributes onto historical events.", "- Keep source-label disagreements visible and review them; do not auto-correct or silently merge labels into physical units.", "- Choose listing identity, event deduplication, and model time windows explicitly before training.", "- Quantify missingness by variable and listing type, investigate parse failures, and reconcile snapshot linkage before modeling.", "- Treat any future aggregation as a modeling decision; this report does not assert physical-unit completeness or signed-lease outcomes.", ""]
+    lines += ["## Interpretation limits and next data-quality actions", "", "- Attributes describe the capture in which they were observed; do not back-join the latest attributes onto historical events.", "- Preserve source-label disagreements for attribute review; canonical unit associations do not correct source labels.", "- Use canonical unit memberships where available; choose event deduplication and model time windows explicitly before training.", "- Quantify missingness by variable and listing type, investigate parse failures, and reconcile snapshot linkage before modeling.", "- Treat any future aggregation as a modeling decision; this report does not assert physical-unit completeness or signed-lease outcomes.", ""]
     return "\n".join(lines)

@@ -25,6 +25,9 @@ _TABLES = (
     "frontier",
     "url_aliases",
     "inventory_row_links",
+    "rental_units",
+    "rental_unit_memberships",
+    "rental_unit_observations",
 )
 _NUMERIC = {
     "listing_observations": ("bedrooms", "bathrooms", "square_feet", "room_count", "collected_at", "parsed_at"),
@@ -90,7 +93,7 @@ def audit_dataset(root: Path) -> dict[str, Any]:
         counts = {
             table: int(_fetchone(db, f"SELECT count(*) FROM {table}")) if present else 0
             for table, present in relations.items()
-            if table not in {"listing_exclusions", "media_gallery_observations", "inventory_observations", "source_changes", "frontier", "url_aliases", "inventory_row_links"} or present
+            if table not in {"listing_exclusions", "media_gallery_observations", "inventory_observations", "source_changes", "frontier", "url_aliases", "inventory_row_links", "rental_units", "rental_unit_memberships", "rental_unit_observations"} or present
         }
         result: dict[str, Any] = {
             "root": str(root),
@@ -103,7 +106,7 @@ def audit_dataset(root: Path) -> dict[str, Any]:
             "limitations": [
                 "This audits capture observations and source event mentions; it is not a lease table.",
                 "Attributes are capture-time observations and are not automatically historical.",
-                "Counts are not aggregated into physical units; source labels can identify listings/buildings only.",
+                "Canonical URL associations are source-declared unit identities, not independently verified physical homes.",
                 "Duplicate event rows are retained as evidence; event_key is used for distinct semantics only.",
             ],
         }
