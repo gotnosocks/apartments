@@ -156,12 +156,17 @@ def create_app(backend=None, *, dataset_root=None, review_state=None, read_only=
     def events(sid):
         return call("events", dict(request.args, snapshot_id=sid))
 
+    @app.get("/api/listings/exclusions")
+    def listing_exclusions():
+        return call("exclusions", {})
+
     @app.get("/api/activity")
     def activity():
         return call("activity", {})
 
     for route, action in (
         ("/api/review", "review"),
+        ("/api/listings/inclusion", "listing_inclusion"),
         ('/api/units/merge', 'unit_merge'),
         ('/api/units/separate', 'unit_separate'),
         ('/api/units/separate/undo', 'unit_undo_separate'),

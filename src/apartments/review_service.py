@@ -15,7 +15,7 @@ import jsonpatch
 from jsonpointer import JsonPointer, JsonPointerException
 
 from .corrections import validate_edit
-from .review_ledger import GENESIS, ReviewConflict, ReviewLedger, _ids
+from .review_ledger import GENESIS, ReviewConflict, ReviewLedger, _ids, listing_exclusions
 
 STAGES = [
     {
@@ -189,6 +189,14 @@ class ReviewService:
                 else " AND r.snapshot_id IN (SELECT unnest(?))"
             )
             params.append(ids)
+        inclusion = args.get("inclusion", "included")
+        if inclusion not in {"included", "excluded", "all"}:
+            raise ValueError("Unknown listing inclusion filter")
+        if inclusion != "all":
+            excluded = list(listing_exclusions(self.ledger.events() if events is None else events))
+            operator = "IN" if inclusion == "excluded" else "NOT IN"
+            sql += f" AND coalesce(r.listing_id, '') {operator} (SELECT unnest(?::VARCHAR[]))"
+            params.append(excluded)
         return sql, params
 
     def latest_reviews(self, events=None):
@@ -216,10 +224,15 @@ class ReviewService:
         return result
 
     def overview(self, args=None):
-        if self._overview is None:
+        events = self.ledger.events()
+        excluded = listing_exclusions(events)
+        exclusion_key = tuple(sorted(excluded))
+        if self._overview is None or getattr(self, '_overview_exclusions', None) != exclusion_key:
+            where, params = self.selection({}, events)
+            self._overview_exclusions = exclusion_key
             counts = {
                 key: self.db.execute(
-                    "SELECT count(*) FROM rental r WHERE " + predicate
+                    "SELECT count(*) FROM rental r WHERE (" + predicate + ") AND " + where, params
                 ).fetchone()[0]
                 for key, (_, predicate) in ISSUES.items()
             }
@@ -238,15 +251,19 @@ class ReviewService:
                 "stages": stages,
                 "buildings": rows(
                     self.db.execute(
-                        "SELECT building_slug AS slug,count(*) AS count FROM rental GROUP BY building_slug ORDER BY building_slug"
+                        f"SELECT building_slug AS slug,count(*) FILTER (WHERE {where}) AS count FROM rental r GROUP BY building_slug ORDER BY building_slug", params
                     )
                 ),
                 "rental_observations": counts["all"],
                 "source_based_counts": True,
             }
         result = deepcopy(self._overview)
-        events = self.ledger.events()
-        latest = self.latest_reviews(events)
+        excluded_sids = {r[0] for r in self.db.execute(
+            "SELECT snapshot_id FROM rental WHERE listing_id IN (SELECT unnest(?::VARCHAR[]))", [list(excluded)]
+        ).fetchall()}
+        latest = {k: v for k, v in self.latest_reviews(events).items() if k[0] not in excluded_sids}
+        result["excluded_observations"] = len(excluded_sids)
+        result["excluded_listings"] = len(excluded)
         result["review_counts"] = {
             k: sum(e["action"] == v for e in events)
             for k, v in [
@@ -298,7 +315,9 @@ class ReviewService:
         latest = self.latest_reviews(ledger_events)
         from .unit_identity import UnitIdentityLedger, identity_map
         identities = identity_map(UnitIdentityLedger(self.state / 'unit-identities.jsonl', self.dataset).events())
+        excluded = listing_exclusions(ledger_events)
         for row in data:
+            row['exclusion'] = excluded.get(row['listing_id'])
             row['unit_id'] = identities.get(row['listing_id'], f"streeteasy:rental:{row['listing_id']}")
             row["review"] = latest.get(
                 (row["snapshot_id"], args.get("stage", "identity"))
@@ -368,7 +387,10 @@ class ReviewService:
     def observation(self, args):
         sid = int(args["snapshot_id"])
         row, raw = self.raw(sid)
-        corrected, evidence = self.ledger.apply(raw, sid)
+        ledger_events = self.ledger.events()
+        corrected, evidence = self.ledger.apply(raw, sid, events=ledger_events)
+        exclusion = listing_exclusions(ledger_events).get(row['listing_id'])
+        capture_count = self.db.execute("SELECT count(*) FROM rental WHERE listing_id=?", [row['listing_id']]).fetchone()[0]
         comparisons = []
         if row["unit_label"]:
             comparisons = rows(
@@ -384,6 +406,8 @@ class ReviewService:
         return {
             "dataset": self.dataset,
             "unit_id": unit_id,
+            "exclusion": exclusion,
+            "listing_capture_count": capture_count,
             "row": row,
             "raw": raw,
             "corrected": corrected,
@@ -394,10 +418,10 @@ class ReviewService:
             "comparison_limit": 100,
             "reviews": [
                 e
-                for e in self.ledger.events()
+                for e in ledger_events
                 if e["action"] == "review" and e["snapshot_id"] == sid
             ],
-            "ledger_revision": self.ledger.revision(),
+            "ledger_revision": ledger_events[-1]["hash"] if ledger_events else GENESIS,
         }
 
     def events(self, args):
@@ -415,10 +439,12 @@ class ReviewService:
                 [sid, limit, offset],
             )
         )
-        _, raw = self.raw(sid)
+        row, raw = self.raw(sid)
         ledger_events = self.ledger.events()
+        excluded = listing_exclusions(ledger_events)
         corrected, _ = self.ledger.apply(raw, sid, events=ledger_events)
         for event in events:
+            event['excluded'] = row['listing_id'] in excluded or event['event_listing_id'] in excluded
             self._event_price(event, raw, corrected)
         return {"events": events, "total": total, "offset": offset, "limit": limit,
                 "ledger_revision": ledger_events[-1]["hash"] if ledger_events else GENESIS}
@@ -559,7 +585,7 @@ class ReviewService:
             "created_at": time.time(),
             "selection": {
                 k: args.get(k)
-                for k in ("issue", "building", "search", "stage", "review_status")
+                for k in ("issue", "building", "search", "stage", "review_status", "inclusion")
             },
             "selection_hash": hashlib.sha256(json.dumps(ids).encode()).hexdigest(),
         }
@@ -661,7 +687,7 @@ class ReviewService:
         return self.ledger.record_parser_issue(
             {
                 k: args.get(k)
-                for k in ("issue", "building", "search", "stage", "review_status")
+                for k in ("issue", "building", "search", "stage", "review_status", "inclusion")
             },
             args.get("field", ""),
             args.get("note", ""),
@@ -699,6 +725,24 @@ class ReviewService:
             expected_revision=revision,
         )
 
+    def listing_inclusion(self, args):
+        lid = args.get('listing_id')
+        if not isinstance(lid, str) or not self.db.execute(
+            "SELECT 1 FROM rental WHERE listing_id=?", [lid]
+        ).fetchone():
+            raise ValueError('Rental listing not found')
+        return self.ledger.set_listing_inclusion(
+            listing_id=lid, excluded=args.get('excluded'), author=args.get('author'),
+            reason=args.get('reason'), request_id=args.get('request_id'),
+            expected_revision=args.get('ledger_revision'))
+
+    def exclusions(self, args=None):
+        events = self.ledger.events()
+        return {'dataset': self.dataset, 'source': 'streeteasy', 'listing_type': 'rental',
+                'ledger_revision': events[-1]['hash'] if events else GENESIS,
+                'excluded_listing_ids': sorted(listing_exclusions(events)),
+                'exclusions': list(listing_exclusions(events).values())}
+
     def dispatch(self, action, args=None):
         args = args or {}
         if action in {'unit_candidates', 'unit_inspect', 'unit_merge', 'unit_undo', 'unit_separate', 'unit_undo_separate', 'unit_mapping', 'unit_association_preview', 'unit_association_apply', 'unit_association_undo', 'unit_proposal', 'unit_batches'}:
@@ -707,6 +751,8 @@ class ReviewService:
                 self._unit_service = UnitMergeService(self)
             return getattr(self._unit_service, action.removeprefix('unit_'))(args)
         routes = {
+            "listing_inclusion": self.listing_inclusion,
+            "exclusions": self.exclusions,
             "overview": self.overview,
             "observations": self.observations,
             "observation": self.observation,

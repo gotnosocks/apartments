@@ -10,7 +10,7 @@ from collections import defaultdict
 from itertools import combinations
 
 from .corrections import canonical
-from .review_ledger import GENESIS, ReviewConflict
+from .review_ledger import GENESIS, ReviewConflict, listing_exclusions
 from .unit_identity import (UnitIdentityLedger, expand_ids, identity_map, listing_ids,
                             active_decisions, merge_decisions, active_separations,
                             separation_conflicts, separated_pairs)
@@ -72,6 +72,8 @@ class UnitMergeService:
         key = self._cache[0]
         if self._assessments and self._assessments[0] == key:
             return self._assessments[1]
+        excluded = listing_exclusions(review_events)
+        catalog = {lid: row for lid, row in catalog.items() if lid not in excluded}
         labels = defaultdict(set); canonical_members = defaultdict(set); history_members = defaultdict(set)
         latest_members = defaultdict(set); latest_labels = defaultdict(set)
         for lid, listing in catalog.items():
@@ -234,12 +236,13 @@ class UnitMergeService:
         capture_ids = sorted({c['snapshot_id'] for lid in ids for c in catalog[lid]['captures']})
         if len(capture_ids) > 1000:
             raise ValueError('Selection exceeds 1,000 captures; narrow the comparison')
+        excluded = listing_exclusions(review_events)
         documents, observations = {}, []
         fields = ('building_slug', 'unit_label', 'bedrooms', 'bathrooms', 'square_feet', 'room_count', 'asking_price')
         for row, raw in self.s.raw_batch(capture_ids):
             corrected, evidence = self.s.ledger.apply(raw, row['snapshot_id'], events=review_events)
             documents[row['snapshot_id']] = (raw, corrected)
-            observations.append({**row,
+            observations.append({**row, 'exclusion': excluded.get(row['listing_id']),
                                  'attributes': {k: v for k, v in corrected.items() if k != 'archive_listing'},
                                  'raw_attributes': {k: v for k, v in raw.items() if k != 'archive_listing'},
                                  'correction_ids': [e['id'] for e in evidence]})
@@ -250,9 +253,11 @@ class UnitMergeService:
         if len(history) > 100000:
             raise ValueError('History comparison exceeds 100,000 mentions; narrow the selection')
         combined, versions = {}, defaultdict(set)
+        source_listings = {o['snapshot_id']: o['listing_id'] for o in observations}
         for event in history:
             sid = event['snapshot_id']
             self.s._event_price(event, *documents[sid])
+            event['excluded'] = source_listings[sid] in excluded or event['event_listing_id'] in excluded
             source = json.loads(event['event_json'])
             # Exact source event equality plus effective price; no date-only deduplication.
             key = canonical([event['event_listing_id'] or ['unknown', sid], source, event['price'],
@@ -261,12 +266,13 @@ class UnitMergeService:
                 ('event_listing_id', 'event_date', 'price', 'raw_price', 'status')})
             item['event_id'] = hashlib.sha256(key.encode()).hexdigest()
             item.setdefault('occurrences', []).append({k: event[k] for k in
-                ('snapshot_id', 'episode_index', 'event_index', 'price', 'raw_price')})
+                ('snapshot_id', 'episode_index', 'event_index', 'price', 'raw_price', 'excluded')})
             item['source_event'] = source
             if event.get('price_edit_error'):
                 item['overlay_warning'] = event['price_edit_error']
             versions[(event['event_listing_id'], event['event_date'], event['status'])].add(key)
         for key, item in combined.items():
+            item['excluded'] = all(o['excluded'] for o in item['occurrences'])
             item['conflicting_version'] = len(versions[(item['event_listing_id'], item['event_date'], item['status'])]) > 1
         conflicts = {field: sorted({canonical(o['attributes'][field]) for o in observations
                                    if o['attributes'][field] is not None}) for field in fields if field != 'asking_price'}
@@ -284,7 +290,7 @@ class UnitMergeService:
         separate = separated_pairs(identity_events, identity_map(identity_events))
         return {'dataset': self.s.dataset, 'listing_ids': ids, 'unit_ids': units,
                 'unit_id': units[0] if len(units) == 1 else None,
-                'listings': [{'listing_id': lid, 'unit_id': catalog[lid]['unit_id'],
+                'listings': [{'listing_id': lid, 'exclusion': excluded.get(lid), 'unit_id': catalog[lid]['unit_id'],
                               'capture_count': len(catalog[lid]['captures'])} for lid in ids],
                 'observations': observations, 'attribute_disagreements': conflicts,
                 'history': list(combined.values()), 'history_mentions': len(history),
@@ -311,6 +317,8 @@ class UnitMergeService:
             if (review_events[-1]['hash'] if review_events else GENESIS) != args.get('review_revision'):
                 raise ReviewConflict('Reviewed attributes changed; compare the listings again')
             catalog = self.catalog(review_events, identity_events)
+            if action == 'merge' and set(ids) & set(listing_exclusions(review_events)):
+                raise ValueError('Excluded listings cannot be merged; restore the listing first')
             if any(lid not in catalog for lid in ids):
                 raise ValueError('Selection contains an unknown rental listing ID')
         return self.ledger.write(action, listing_ids=ids, review_revision=args.get('review_revision'),
@@ -322,6 +330,7 @@ class UnitMergeService:
         return {'dataset': self.s.dataset, 'source': 'streeteasy', 'listing_type': 'rental',
                 'identity_revision': self.ledger.revision(events),
                 'listing_to_unit': identity_map(events),
+                **{k: v for k, v in self.s.exclusions().items() if k in {'excluded_listing_ids', 'exclusions', 'ledger_revision'}},
                 'unit_basis':{e['unit_id']:e['basis'] for e in active_decisions(events)},
                 'unmerged_unit_id_format': 'streeteasy:rental:<listing_id>'}
 

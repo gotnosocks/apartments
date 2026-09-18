@@ -311,3 +311,63 @@ def test_history_structure_correction_blocks_ambiguous_price_edit(service):
     assert s.events({"snapshot_id": 1})["events"][0]["price_editable"] is False
     with pytest.raises(ValueError, match="History structure changed"):
         price_preview(s)
+
+
+def test_listing_exclusion_all_captures_counts_history_and_restore(service):
+    from apartments.review_ledger import ReviewLedger, listing_exclusions
+    s = service
+    s.db.execute("INSERT INTO rental SELECT * REPLACE(5 AS snapshot_id) FROM rental WHERE snapshot_id=1")
+    s.review({'snapshot_id': 1, 'stage': 'layout', 'decision': 'confirmed', 'author': 'Ben'})
+    before = s.observation({'snapshot_id': 1})
+    assert s.overview()['rental_observations'] == 3  # populate overview cache
+    args = dict(listing_id='1', excluded=True, author='Ben', reason='Whole building',
+                ledger_revision=s.ledger.revision(), request_id='exclude-one')
+    saved = s.dispatch('listing_inclusion', args)
+    assert s.dispatch('listing_inclusion', args)['id'] == saved['id']
+    assert s.observations({})['total'] == 1
+    assert s.observations({'inclusion': 'excluded'})['total'] == 2
+    assert s.observations({'inclusion': 'all'})['total'] == 3
+    assert s.observations({'inclusion': 'excluded', 'stage': 'layout', 'review_status': 'confirmed'})['total'] == 1
+    assert s.observations({'inclusion': 'excluded', 'issue': 'unit_missing'})['total'] == 0
+    assert s.observations({'stage': 'layout'})['issue_counts']['all'] == 1
+    assert s.ids({}) == [2]
+    overview = s.overview()
+    assert overview['rental_observations'] == 1
+    assert overview['excluded_observations'] == 2
+    assert next(x for x in overview['stages'] if x['id'] == 'layout')['progress'] == {
+        'confirmed': 0, 'needs_attention': 0, 'unreviewed': 1}
+    detail = s.observation({'snapshot_id': 1})
+    assert detail['exclusion']['reason'] == 'Whole building'
+    assert detail['listing_capture_count'] == 2
+    assert detail['raw'] == before['raw'] and detail['reviews'] == before['reviews']
+    assert all(e['excluded'] for e in detail['events'])
+    # History of another listing can refer to the excluded rental episode.
+    assert all(e['excluded'] for e in s.events({'snapshot_id': 2})['events'])
+    assert list(listing_exclusions(ReviewLedger(s.ledger.path, s.dataset).events())) == ['1']
+    assert s.dispatch('exclusions')['excluded_listing_ids'] == ['1']
+    assert s.ledger.activity()['listing_decisions'][-1]['id'] == saved['id']
+    with pytest.raises(ReviewConflict):
+        s.listing_inclusion({**args, 'excluded': False})
+    with pytest.raises(ReviewConflict):
+        s.listing_inclusion({**args, 'request_id': 'stale'})
+    restore = {**args, 'excluded': False, 'reason': 'Verified single apartment',
+               'ledger_revision': s.ledger.revision(), 'request_id': 'restore-one'}
+    s.listing_inclusion(restore)
+    assert s.observations({})['total'] == 3
+    assert s.observations({'inclusion': 'excluded'})['total'] == 0
+    assert s.observation({'snapshot_id': 1})['exclusion'] is None
+    assert s.overview()['rental_observations'] == 3
+    assert s.exclusions()['excluded_listing_ids'] == []
+    assert not any(e['excluded'] for e in s.events({'snapshot_id': 2})['events'])
+
+
+@pytest.mark.parametrize('update', [
+    {'excluded': 'true'}, {'reason': ''}, {'author': ''}, {'request_id': ''},
+    {'listing_id': '999'}, {'listing_id': 1}, {'ledger_revision': None},
+])
+def test_listing_exclusion_invalid_requests_do_not_write(service, update):
+    args = dict(listing_id='1', excluded=True, author='Ben', reason='Whole building',
+                ledger_revision=service.ledger.revision(), request_id='test')
+    with pytest.raises(ValueError):
+        service.listing_inclusion({**args, **update})
+    assert service.ledger.events() == []

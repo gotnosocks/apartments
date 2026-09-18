@@ -292,3 +292,29 @@ def test_keep_separate_requires_current_review_and_known_ids(service):
     with pytest.raises(ReviewConflict):
         keep_separate(u,detail)
     assert u.ledger.events()==[]
+
+
+def test_exclusion_removes_candidates_preserves_membership_and_marks_exports(service):
+    s = service
+    s.db.execute("UPDATE rental SET unit_label='4C' WHERE snapshot_id=2")
+    u = UnitMergeService(s)
+    assert u.candidates({})['total'] == 1
+    args = dict(listing_id='1', excluded=True, author='Ben', reason='Whole building',
+                ledger_revision=s.ledger.revision(), request_id='exclude')
+    s.listing_inclusion(args)
+    assert u.candidates({})['total'] == 0
+    detail = u.inspect({'listing_ids': ['1', '2']})
+    assert detail['observations'][0]['exclusion']['reason'] == 'Whole building'
+    assert all(e['excluded'] for e in detail['history'])
+    with pytest.raises(ValueError, match='Excluded listings'):
+        save(u, detail)
+    s.listing_inclusion({**args, 'excluded': False, 'ledger_revision': s.ledger.revision(), 'request_id': 'restore'})
+    assert u.candidates({})['total'] == 1
+    merged = save(u, u.inspect({'listing_ids': ['1', '2']}))
+    s.listing_inclusion({**args, 'ledger_revision': s.ledger.revision(), 'request_id': 'exclude-again'})
+    mapping = u.mapping({})
+    assert mapping['listing_to_unit'] == {'1': merged['unit_id'], '2': merged['unit_id']}
+    assert mapping['excluded_listing_ids'] == ['1']
+    detail = u.inspect({'unit_id': merged['unit_id']})
+    assert detail['listing_ids'] == ['1', '2']
+    assert detail['listings'][0]['exclusion'] and not detail['listings'][1]['exclusion']

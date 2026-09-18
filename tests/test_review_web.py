@@ -176,3 +176,24 @@ def test_source_association_writes_are_blocked_in_readonly_mode():
         token=session['csrf']
     for action in ('preview','apply','undo'):
         assert client.post('/api/units/associations/'+action,json={},headers={'X-Review-CSRF':token}).status_code==403
+
+
+def test_listing_inclusion_routes_and_protection():
+    calls = []
+    app = create_app(lambda action, args: calls.append((action, args)) or {'result': {}})
+    client = app.test_client()
+    assert b'Excluded listings' in client.get('/').data
+    assert client.get('/api/listings/exclusions').status_code == 200
+    assert calls[-1][0] == 'exclusions'
+    with client.session_transaction() as session:
+        token = session['csrf']
+    url = '/api/listings/inclusion'
+    assert client.post(url, json={}).status_code == 403
+    assert client.post(url, json={}, headers={'X-Review-CSRF': token, 'Origin': 'https://evil.com'}).status_code == 403
+    assert client.post(url, json={}, headers={'X-Review-CSRF': token}).status_code == 200
+    assert calls[-1][0] == 'listing_inclusion'
+    ro = create_app(lambda *args: {}, read_only=True).test_client()
+    ro.get('/')
+    with ro.session_transaction() as session:
+        token = session['csrf']
+    assert ro.post(url, json={}, headers={'X-Review-CSRF': token}).status_code == 403

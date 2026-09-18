@@ -52,7 +52,7 @@ The immutable collection has many observations of the same source unit label. Th
 
 For reproducible downstream work, freeze `events = ledger.events()` and record the final event hash, then call `ledger.apply(raw, snapshot_id, events=events)`. Rebuild the raw document with the same normalized field names and `archive_listing` payload used by `ReviewService.raw`. No episode aggregation is required.
 
-Issue counts above the list reflect the selected building, search, and review status for the active stage. Each issue button shows how many observations would match that issue; All observations removes only the issue filter. The result total and pagination reflect all active filters. Counts refresh after review decisions. Dataset summary and stage overview totals describe the full dataset.
+Issue counts above the list reflect the selected building, search, and review status for the active stage. Each issue button shows how many observations would match that issue; All observations removes only the issue filter. The result total and pagination reflect all active filters. Counts refresh after review decisions. Dataset summary and stage overview totals describe included observations. The inclusion filter also applies to the list and issue counts.
 
 ## Merge housing unit identities
 
@@ -237,3 +237,41 @@ separation; unresolved relationships remain reviewable. Decisions continue to
 apply when a unit gains additional members. POST `/api/units/separate` and
 `/api/units/separate/undo` use the existing revision, retry, reviewer, origin,
 CSRF, and read-only safeguards.
+
+
+## Exclude a rental listing
+
+Open any observation and use **Exclude this listing** at the top of its detail,
+with a reason such as “Whole building, not an individual apartment.” This is a
+global inclusion decision, independent of per-stage reviews. It applies to every
+capture of that StreetEasy rental listing ID, including future captures presented
+with the same review ledger. Other rental IDs, even in the same merged unit, are
+unaffected. Raw data, corrections, stage reviews, and saved unit memberships stay
+intact.
+
+The default **Included listings** filter omits these records from all stage queues,
+issue counts, and cohort selections. Choose **Excluded listings** or **All listings**
+to inspect them. **Restore listing**, with a reason, reverses the exclusion. New
+merge suggestions omit excluded IDs; explicit merge requests containing them are
+rejected. Existing merged histories remain inspectable, with exclusions marked.
+
+Decisions are hash-chained `listing_inclusion` events in `review-ledger.jsonl`.
+They record the listing ID, `excluded` boolean, reviewer, reason, timestamp and
+retry ID. Revision checks prevent stale decisions; repeated identical requests
+are idempotent. Host, origin, CSRF and read-only protections apply to
+`POST /api/listings/inclusion`. `GET /api/listings/exclusions` exports active IDs,
+reasons and the ledger revision; `/api/units/mapping` includes the same exclusion
+information.
+
+For downstream datasets, freeze the ledger and call
+`apartments.review_ledger.listing_exclusions(events)`. Filter observation rows by
+source rental listing ID. Filter history mentions if either their source capture's
+listing ID **or** their `event_listing_id` is excluded. Unit history exports retain
+all audit evidence and expose `excluded` on occurrences and combined events; a
+combined event is excluded only when all of its occurrences are excluded. Never
+exclude the entire merged unit merely because one member listing was excluded.
+
+These decisions are overlays for this review dataset. They do not rewrite a
+completed transform or rerun the legacy rent model. Consumers of raw Parquet or
+the legacy database must explicitly apply this overlay; migration to a new review
+dataset must carry listing decisions forward deliberately, as with other reviews.

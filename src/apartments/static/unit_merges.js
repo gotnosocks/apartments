@@ -155,7 +155,7 @@ function render(data){
   for(const listing of data.listings){
     const captures=data.observations.filter(row=>String(row.listing_id)===String(listing.listing_id));
     const label=el('label',undefined,'listing-selection'),box=el('input');box.type='checkbox';box.value=listing.listing_id;box.checked=true;box.setAttribute('aria-label',`Include rental ${listing.listing_id}`);
-    const name=el('span',`Rental ${listing.listing_id}`);name.append(el('small',`${listing.capture_count} captures`));label.append(box,name);
+    const name=el('span',`Rental ${listing.listing_id}`);name.append(el('small',`${listing.capture_count} captures`));if(listing.exclusion)name.append(el('strong',`Excluded: ${listing.exclusion.reason}`));label.append(box,name);
     captures.forEach((row,index)=>{
       const line=el('tr');
       if(index===0){const selection=el('td',undefined,'listing-selection-cell');selection.rowSpan=captures.length;selection.append(label);line.append(selection);}
@@ -228,7 +228,7 @@ function render(data){
   const timeline=el('section',undefined,'unit-section');timeline.append(el('h3',data.unit_id?'Unit history':data.separations?.length?'Reported history across these listings':'Combined history after merge'),el('p','Exact repeated event evidence is combined. Different listing episodes, statuses, prices, and corrected versions remain distinct. Event dates below are separate from capture dates above.','panel-note'));
   timeline.append(table(['Event date','History listing ID','Status','Price','Source evidence'],data.history.map(event=>{
     const refs=el('details');refs.append(el('summary',`${event.occurrences.length} mentions`));const links=el('div',undefined,'capture-links');for(const occurrence of event.occurrences){const line=el('div');line.append(captureLink(occurrence.snapshot_id),el('span',` · entry ${occurrence.episode_index}/${occurrence.event_index}`));links.append(line);}refs.append(links);
-    const price=el('div',money(event.price));if(event.price!==event.raw_price)price.append(el('small',`Source: ${money(event.raw_price)}`));if(event.conflicting_version)price.append(el('small','Multiple reported versions'));if(event.overlay_warning)price.append(el('small',event.overlay_warning));return [value(event.event_date),value(event.event_listing_id),value(event.status),price,refs];
+    const price=el('div',money(event.price));if(event.excluded)price.append(el('strong','Excluded listing'));if(event.price!==event.raw_price)price.append(el('small',`Source: ${money(event.raw_price)}`));if(event.conflicting_version)price.append(el('small','Multiple reported versions'));if(event.overlay_warning)price.append(el('small',event.overlay_warning));return [value(event.event_date),value(event.event_listing_id),value(event.status),price,refs];
   })));root.append(timeline);
 }
 async function loadBatches(){

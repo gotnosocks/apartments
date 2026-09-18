@@ -31,6 +31,22 @@ class ReviewConflict(ReviewLedgerError):
     pass
 
 
+def listing_exclusions(events):
+    """Active rental exclusions, keyed by stable source listing ID, not capture/unit."""
+    latest = {e['listing_id']: e for e in events if e['action'] == 'listing_inclusion'}
+    return {lid: e for lid, e in latest.items() if e['excluded']}
+
+
+def validate_inclusion(data):
+    lid = data.get('listing_id')
+    if (not isinstance(lid, str) or not lid.isascii() or not lid.isdigit()
+        or str(int(lid)) != lid or int(lid) <= 0
+        or type(data.get('excluded')) is not bool
+        or not all(isinstance(data.get(k), str) and data[k].strip()
+                   for k in ('author', 'reason', 'request_id'))):
+        raise ReviewLedgerError('Listing ID, exclusion choice, reviewer, reason and request ID required')
+
+
 def _now():
     return datetime.now(UTC).isoformat()
 
@@ -73,10 +89,12 @@ def _read(stream, dataset):
                 or event["dataset"] != dataset
             ):
                 raise ReviewLedgerError("Invalid review ledger event identity")
-            if event["action"] not in {"review", "parser_issue", "correct", "retract"}:
+            if event["action"] not in {"review", "parser_issue", "correct", "retract", "listing_inclusion"}:
                 raise ReviewLedgerError("Invalid review ledger action")
             datetime.fromisoformat(event["recorded_at"])
-            if event["action"] == "review":
+            if event["action"] == "listing_inclusion":
+                validate_inclusion(event)
+            elif event["action"] == "review":
                 if (
                     type(event["snapshot_id"]) is not int
                     or event["stage"] not in STAGES
@@ -145,12 +163,20 @@ class ReviewLedger:
         events = self.events()
         return events[-1]["hash"] if events else GENESIS
 
-    def _append(self, action, **data):
+    def _append(self, action, *, expected_revision=None, **data):
         self.path.parent.mkdir(parents=True, exist_ok=True)
         with self.path.open("a+", encoding="utf-8") as f:
             fcntl.flock(f, fcntl.LOCK_EX)
             f.seek(0)
             events = _read(f, self.dataset)
+            if action == 'listing_inclusion':
+                prior = next((e for e in events if e.get('request_id') == data['request_id']), None)
+                if prior:
+                    if prior['action'] != action or any(prior.get(k) != v for k, v in data.items()):
+                        raise ReviewConflict('Request ID already used for a different decision')
+                    return prior
+            if expected_revision is not None and expected_revision != (events[-1]['hash'] if events else GENESIS):
+                raise ReviewConflict('Reviews changed; reopen the observation before saving')
             event = {
                 "schema_version": 1,
                 "id": str(uuid.uuid4()),
@@ -166,6 +192,12 @@ class ReviewLedger:
             f.flush()
             os.fsync(f.fileno())
         return event
+
+    def set_listing_inclusion(self, *, expected_revision, **data):
+        validate_inclusion(data)
+        if not isinstance(expected_revision, str) or not expected_revision:
+            raise ReviewLedgerError('Review revision required')
+        return self._append('listing_inclusion', expected_revision=expected_revision, **data)
 
     def record_review(
         self, snapshot_id: int, stage: str, decision: str, note: str, author: str
@@ -424,6 +456,7 @@ class ReviewLedger:
         events = self.events()
         retracted = {e["correction_id"] for e in events if e["action"] == "retract"}
         return {
+            "listing_decisions": [e for e in events if e['action'] == 'listing_inclusion'][-100:],
             "reviews": [e for e in events if e["action"] == "review"][-100:],
             "parser_issues": [e for e in events if e["action"] == "parser_issue"][
                 -100:
