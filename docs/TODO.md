@@ -36,8 +36,8 @@ patterns, and whether a simpler representation suffices.
   the same cohort before promoting the fit.
   The [isolated increment design](model/listed-floor-increment-design.md) is
   implemented with a versioned runner, reports and reconstruction checks; a new
-  posterior and main-model promotion remain pending. The prepared fit is held
-  while result-storage memory is addressed.
+  posterior and main-model promotion remain pending. Disk storage now has parity
+  and export-memory evidence; the floor fit follows the running source retry.
 - [ ] Complete a skeptical parameter audit and matched Bayesian simplification
   experiments. Include nuisance reporting indicators, group effects and priors,
   time/season bases and likelihood choices, as well as apartment amenities. A
@@ -82,8 +82,8 @@ patterns, and whether a simpler representation suffices.
   prices, physical change dates and unit aliases until supported by evidence.
   The first 52,704-row shared-scale refit failed the parameter gate at R-hat
   1.01039. The 4,000-warmup/6,000-retained retry was killed for memory exhaustion
-  after sampling and has no posterior checkpoint. Validate bounded-memory trace
-  storage before retrying; neither attempt supplies accepted intervals.
+  after sampling and has no posterior checkpoint. Validated disk storage now
+  supports an unchanged retry; neither previous attempt supplies accepted intervals.
 - [x] Expose accepted Bayesian bathroom/category intervals, prior comparisons and
   all 13 current residuals in the separate [research page](model/bayesian-research-page.md).
   The page verifies source/report bindings and withholds failed experiments.
@@ -250,7 +250,8 @@ patterns, and whether a simpler representation suffices.
   four reused captures; 213 in-scope advertisement candidates preserved. The
   [coverage review](analysis/chelsea-rental-discovery-2026-09-18.md) documents
   repeated regular cards, incomplete coverage and the detail-review queue.
-- [ ] Validate disk-backed nutpie traces and bounded-memory export/reporting.
+- [ ] Complete full-model validation of disk-backed nutpie traces and reporting.
   The longer source refit exceeded memory during result extraction; preserve
   exact chain/draw coordinates and all retained draws, and test against the
-  current in-memory sampler before using this for source or floor fits.
+  current in-memory sampler. Actual parity and full-sized synthetic export checks
+  pass; the full source fit is running and will establish reporting memory behavior.

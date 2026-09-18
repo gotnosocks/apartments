@@ -101,6 +101,8 @@ def verify_design(experiment, dataset, protocol, provenance):
 
 
 def check_protocols(reference, candidate):
+    from . import bayesian_disk_protocol as disk
+    disk_reference, disk_candidate = disk.verify_protocol(reference), disk.verify_protocol(candidate)
     if reference.get('version') not in (noise.V2,noise.V3) or candidate.get('version') != noise.V3:
         raise ValueError('Expected v2/v3 reference and v3 reviewed-source fit')
     for p in (reference,candidate):
@@ -111,14 +113,16 @@ def check_protocols(reference, candidate):
         for key,minimum in [('chains',2),('draws',1),('tune',1),('seed',0)]:
             if type(p.get(key)) is not int or p[key] < minimum:
                 raise ValueError('Invalid sampler protocol')
-    if {k:v for k,v in reference.items() if k not in VARIABLE} != {k:v for k,v in candidate.items() if k not in VARIABLE}:
+    ignored = VARIABLE | disk.FIELDS
+    if {k:v for k,v in reference.items() if k not in ignored} != {k:v for k,v in candidate.items() if k not in ignored}:
         raise ValueError('Fixed model, feature prior, sampler or environment changed')
     for key,default in [('building_prior_scale',.35),('unit_prior_scale',.25)]:
         if reference.get(key,default) != candidate.get(key):
             raise ValueError('Group priors changed')
     if reference['version'] == noise.V3 and reference['graph_configuration'] != candidate['graph_configuration']:
         raise ValueError('Shared graph configuration changed')
-    a,b = (p['implementation_sha256'] for p in (reference,candidate))
+    a,b = ({k:v for k,v in p['implementation_sha256'].items() if not (uses_disk and k in disk.CODE)}
+           for p,uses_disk in ((reference,disk_reference),(candidate,disk_candidate)))
     if reference['version'] == noise.V2:
         if not a or set(b)-set(a) != noise.V3_CODE or any(b.get(k) != v for k,v in a.items()):
             raise ValueError('Shared archived implementation changed')
@@ -275,8 +279,9 @@ def markdown_report(report):
 
 
 def run(reference,candidate,reference_dataset,candidate_dataset,audit,output):
+    from . import bayesian_disk_protocol as disk
     report,provenance=build_comparison(reference,candidate,reference_dataset,candidate_dataset,audit)
-    paths=[Path(m.__file__) for m in (verified,comparison,noise,overlay)]+[Path(__file__)]
+    paths=[Path(m.__file__) for m in (verified,comparison,noise,overlay,disk)]+[Path(__file__)]
     return publish_bundle(output,{'comparison.json':canonical(report)+'\n','comparison.md':markdown_report(report),
         **{p.name:p.read_text() for p in paths}},
         {'version':VERSION,'experiments':provenance,'implementation_sha256':{p.name:digest(p) for p in paths}})

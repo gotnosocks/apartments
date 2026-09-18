@@ -59,3 +59,11 @@ four-chain, 4,000-warmup/6,000-retained protocol and exact launch command. It wa
 kill during result extraction; both future fits now require validated trace
 storage changes. This readiness artifact is a preserved proposal, not an
 instruction to repeat the memory failure or an accepted posterior.
+
+
+The disk-backed adapter now has actual posterior parity and a full-sized synthetic
+export-memory check. The unchanged source-reference fit is running through
+`models.bayesian_disk_experiment`; the floor experiment will use that runner with
+`--floor-increments` after the source process exits. Its mathematical design,
+prior and graph proof remain unchanged. The earlier in-memory readiness command
+is preserved for provenance and will not be used to repeat the memory failure.

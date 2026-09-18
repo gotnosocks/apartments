@@ -4,7 +4,8 @@ The accepted Bayesian fit's residuals and extreme group effects led to 12
 advertisement-specific decisions. The new research projection contains 52,704
 observations and retains all 13 refreshed current listings. The first matched
 PyMC refit completed but failed the parameter convergence gate; the longer retry was killed by the operating system for memory exhaustion
-after sampling, before writing a posterior checkpoint. Neither has been promoted to the main analysis model.
+after sampling, before writing a posterior checkpoint. A disk-backed retry is now
+running. None has been promoted to the main analysis model.
 
 ## Refit status, September 18
 
@@ -115,3 +116,18 @@ The source, noise-comparison and overlay suites pass 120 focused tests, includin
 explicit handling of the equivalent residual-hierarchy parameterizations. No
 source-sensitivity result is claimed until the revised fit passes both diagnostic
 gates.
+
+## Disk-backed retry
+
+`chelsea-bayesian-source-shared-disk-long-20260918` was launched after the adapter
+parity, full-sized synthetic export-memory and short full-graph checks passed.
+It preserves the failed long run's cohort, seed, all model/prior settings and
+4-chain, 4,000-warmup/6,000-retained schedule. Only the storage execution changes.
+The immutable readiness bundle `chelsea-source-disk-readiness-20260918` verifies
+those equalities and compatibility with the baseline source-comparison protocol.
+
+The command uses `uv run --frozen --no-sync python -m models.bayesian_disk_experiment`.
+Raw sampling has its own hashed completion marker; export writes bounded blocks,
+and reports recover from the exported posterior checkpoint. No intervals or
+source-effect conclusions are available from this retry until all diagnostic
+gates pass. See the [storage investigation](../operations/2026-09-18-bayesian-storage-investigation.md).

@@ -366,3 +366,23 @@ def test_full_comparison_rejects_independent_design_change_after_report_gate(com
     m.verified.build_report(candidate,revised)
     with pytest.raises(ValueError,match='exact source reconstruction'):
         m.build_comparison(reference,candidate,source,revised,audit)
+
+
+def test_source_comparison_accepts_verified_storage_change_but_not_mean_change():
+    from models import bayesian_disk_protocol as disk
+    a,b=protocols()
+    b.update(execution_version=disk.VERSION,storage_policy=disk.POLICY,
+             storage_versions={name:'test' for name in ('zarr','obstore','xarray','h5py')})
+    b['implementation_sha256'].update({name:'disk' for name in disk.CODE})
+    m.check_protocols(a,b)
+    b['implementation_sha256']['original.py']='changed'
+    with pytest.raises(ValueError,match='implementation changed'):m.check_protocols(a,b)
+
+
+def test_source_comparison_does_not_ignore_unknown_storage_policy():
+    from models import bayesian_disk_protocol as disk
+    a,b=protocols()
+    b.update(execution_version=disk.VERSION,storage_policy={**disk.POLICY,'all_retained_draws':False},
+             storage_versions={name:'test' for name in ('zarr','obstore','xarray','h5py')})
+    b['implementation_sha256'].update({name:'disk' for name in disk.CODE})
+    with pytest.raises(ValueError,match='disk execution'):m.check_protocols(a,b)

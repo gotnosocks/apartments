@@ -390,9 +390,18 @@ def build_report(experiment, dataset, top=5):
         raise ValueError('Invalid protocol or archived implementation binding')
     required = REQUIRED | (V3_REQUIRED if experiment_version in (EXPERIMENT_V3,EXPERIMENT_V4) else set())
     if experiment_version == EXPERIMENT_V4: required |= V4_REQUIRED
+    from . import bayesian_disk_protocol as disk_protocol
+    disk_execution = disk_protocol.verify_protocol(protocol)
+    if disk_execution:
+        if protocol['implementation_sha256'].get('bayesian_disk_protocol.py') != digest(Path(disk_protocol.__file__)):
+            raise ValueError('Disk protocol verifier differs from archived implementation')
+        required |= {'storage.json','trace-manifest.json'}
     fm, ff = _verified_bundle(experiment/'fit', retain=required-{'posterior.nc','time-design.npz'})
     if fm.get('version') != experiment_version or fm.get('protocol_sha256') != ph or not required <= fm['files'].keys():
         raise ValueError('Fit protocol mismatch or missing inference products')
+    if disk_execution:
+        disk_protocol.verify_products(protocol,json.loads(ff['storage.json']),
+            json.loads(ff['trace-manifest.json']),fm['files']['posterior.nc'])
     summary = json.loads(ff['summary.json'])
     if summary.get('protocol_sha256') != ph:
         raise ValueError('Summary protocol mismatch')
@@ -525,9 +534,11 @@ def html_report(report):
 
 
 def run(experiment, dataset, output, top=5):
+    from . import bayesian_disk_protocol as disk_protocol
     report, provenance = build_report(experiment, dataset, top)
     return publish_bundle(output, {'report.json': canonical(report)+'\n', 'report.html': html_report(report),
-        'bayesian_feature_report.py': Path(__file__).read_text()},
+        'bayesian_feature_report.py': Path(__file__).read_text(),
+        'bayesian_disk_protocol.py': Path(disk_protocol.__file__).read_text()},
         {'version': VERSION, **provenance, 'top_per_tail': top, 'implementation_sha256': digest(__file__)})
 
 

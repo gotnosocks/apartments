@@ -38,3 +38,59 @@ chunked export, durable interrupted-state handling and a representative peak-mem
 check. All retained posterior draws must be preserved. Existing accepted fit
 archives and frozen samplers remain unchanged. The source and floor full fits
 have not been restarted.
+
+## Adapter implementation and measured export
+
+`models.bayesian_disk_sampling` now preserves the raw Zarr trace separately,
+checks a model-derived variable/coordinate contract and exports only retained
+posterior draws plus the 16 per-draw statistics used by analysis. Raw warmup,
+transformed variables and event diagnostics remain archived. Export converts
+metadata to JSON text, preserves Boolean diagnostics, validates finite posterior
+values and writes arrays in blocks capped at 8 MiB. It never thins draws.
+
+A completion manifest binds every raw trace file to the experiment protocol.
+Completed raw sampling can resume export without recompilation or resampling.
+Incomplete sampling is preserved and rejected for automatic restart in place.
+The exported posterior checkpoint allows report recovery without another fit.
+
+The actual two-chain PyMC adapter pilot reproduced both posterior variables and
+all 16 statistics exactly, including named coordinates. Recovery was tested with
+both compilation and sampling replaced by functions that fail if called.
+Artifact: `chelsea-disk-adapter-parity-20260918-v2`. This repeats parity and
+recovery after disabling posterior array caching for report reads.
+
+A separate synthetic trace used the long run's **4 × 6,000 × 22,158** unit shape:
+4,254,336,000 logical posterior bytes. Export and exhaustive rereading verified
+every value. Peak process RSS was **249,495,552 bytes (238 MiB)**; the largest
+array block was 5,672,448 bytes. Creation, export and exhaustive check took 94.36
+seconds. This verifies export memory behavior, not full-model sampler or report
+memory. Artifact: `chelsea-disk-export-memory-20260918`.
+
+`models.bayesian_disk_experiment` runs the unchanged v3 or v4 mathematical model
+with a separately versioned execution/storage contract. It archives the original
+model code alongside the disk runner/adapter/verifier and reuses the original
+convergence rules. Report and source-comparison readers explicitly verify the
+storage metadata and posterior/trace bindings. A storage change does not authorize
+a likelihood, prior or feature change.
+
+The actual 52,704-row graph also completed a 2-chain, 20-warmup/20-retained
+integration run (`chelsea-disk-full-graph-smoke-20260918`). Its full checkpoint
+and reports exist; maximum R-hat 3.10 and low BFMI correctly make it diagnostic-only.
+These intentionally short chains supply no price conclusions. The later one-line
+change disables caching when reopening the exported posterior; the v2 adapter
+pilot verifies that final code. Export logic is unchanged from the memory proof.
+
+The unchanged long source fit has now started under
+`chelsea-bayesian-source-shared-disk-long-20260918`. Full-run sampling/export/report
+memory and convergence remain to be assessed. Floor sampling and main-model
+promotion remain pending; neither happens automatically.
+
+Validation at this checkpoint: **1,530 passed, 3 skipped, 9 warnings** in the full
+suite (289.09 seconds). The final cache-setting adjustment separately passed all
+24 storage/runner tests and the actual v2 parity/recovery pilot. The source-only
+comparator accepts the explicitly verified storage change while rejecting changes
+to shared mathematical implementation or unrecognized storage policies.
+
+The floor disk protocol is prepared in
+`data/model/chelsea-floor-disk-readiness-20260918`, including the exact launch
+command and source/model/graph/code bindings. It has not been launched.
