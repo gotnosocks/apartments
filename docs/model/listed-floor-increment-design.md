@@ -67,3 +67,29 @@ export-memory check. The unchanged source-reference fit is running through
 `--floor-increments` after the source process exits. Its mathematical design,
 prior and graph proof remain unchanged. The earlier in-memory readiness command
 is preserved for provenance and will not be used to repeat the memory failure.
+
+Source naming is not a modeling requirement. Use StreetEasy's apartment-floor
+value wherever the source exposes it, retaining its original path and literal;
+normalize that value into the internal listed-floor input. The current encoder
+already aliases `advertised_floor` into `listed_floor`. A null literal key named
+`listed_floor` does not imply that the model discarded another canonical floor
+field. Source coverage must be measured after normalization. Building floor
+counts, floorplan media and unit identifiers have different meanings and require
+separate treatment.
+
+`models.bayesian_floor_sensitivity` now compares verified v3/v4 fits of the same
+cohort, or two v4 fits with different increment priors. It reconstructs each
+source-bound design and verifies nonfloor columns, centering, priors and time
+bases. Adjacent observed-label and whole-range contrasts use every joint beta
+draw and have a separate convergence gate. Each contrast reports its induced
+prior log SD and posterior log SD. The report also tracks known/unknown floor
+residual slices, all current-apartment movements, largest distinct-unit changes
+and bathroom effects. Between-fit interval comparisons are descriptive; draws
+from independently fitted models are not paired.
+
+Thirteen focused tests cover changes to source/noise/nonfloor priors, code
+mismatches, gaps and standardized linear units, preservation of unknown-floor
+coding, covariance cancellation, convergence refusal and residual identity.
+The prepared full-cohort source/floor protocols pass comparison checks, and the
+saved time designs match exactly. A complete posterior comparison still awaits
+both accepted fits.

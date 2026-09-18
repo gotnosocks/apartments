@@ -255,3 +255,11 @@ patterns, and whether a simpler representation suffices.
   exact chain/draw coordinates and all retained draws, and test against the
   current in-memory sampler. Actual parity and full-sized synthetic export checks
   pass; the full source fit is running and will establish reporting memory behavior.
+
+- [x] Audit the actual structured apartment-floor fields, independent of internal
+  naming. The [canonical-field audit](analysis/chelsea-canonical-floor-field-2026-09-18.md)
+  finds no structured floor key in the 71,906 relevant captured own-listing
+  payloads; current known values use the existing alias/description evidence.
+- [ ] Review broader apartment-floor description claims with varied phrase seeds
+  and building-diverse examples. Shared amenities and tower-wide floor ranges
+  must not become unit floors. The broad screen is a review queue, not new data.
