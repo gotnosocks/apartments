@@ -131,12 +131,13 @@ class Encoder:
     """All learned scales and category memberships use training observations only."""
     def __init__(self, train, unit_effect=True):
         self.unit_effect = unit_effect
+        self.bedroom_encoding = 'incremental'
         self.size_medians = {str(int(k)):float(v) for k,v in train.groupby('bedrooms').square_feet.median().dropna().items()}
         self.size_default = float(train.square_feet.median()) if train.square_feet.notna().any() else 700.
         self.buildings = sorted(train.building.unique())
         self.units = sorted(train.unit_id.unique()) if unit_effect else []
         self.periods = pd.date_range(train.period.min(), train.period.max(),freq='MS')
-        self.features = ['intercept',*[f'bedrooms_{n}' for n in range(1,6)],'bathrooms_above_one','log_size_within_bedrooms','size_missing']
+        self.features = ['intercept',*[f'bedrooms_gt_{n}' for n in range(5)],'bathrooms_above_one','log_size_within_bedrooms','size_missing']
         self.offsets = {}
         offset=0
         for name,count in [('features',len(self.features)),('trend',len(self.periods)),('season',12),('building',len(self.buildings)),('unit',len(self.units))]:
@@ -148,7 +149,13 @@ class Encoder:
         size=data.square_feet.to_numpy(dtype=float)
         median=data.bedrooms.map(lambda x:self.size_medians.get(str(int(x)),self.size_default)).to_numpy()
         log_size=np.where(np.isfinite(size), np.log(np.where(np.isfinite(size),size,median)/median), 0)
-        dense=np.column_stack([np.ones(n),*[data.bedrooms.eq(b).to_numpy(dtype=float) for b in range(1,6)],
+        if self.bedroom_encoding == 'incremental':
+            bedroom_columns=[data.bedrooms.gt(b).to_numpy(dtype=float) for b in range(5)]
+        elif self.bedroom_encoding == 'categorical':
+            bedroom_columns=[data.bedrooms.eq(b).to_numpy(dtype=float) for b in range(1,6)]
+        else:
+            raise ValueError('Unknown bedroom encoding')
+        dense=np.column_stack([np.ones(n),*bedroom_columns,
                                data.bathrooms.to_numpy()-1,log_size,np.isnan(size).astype(float)])
         dates=pd.DatetimeIndex(data.period)
         months=(dates.year-self.periods[0].year)*12+dates.month-self.periods[0].month
@@ -181,7 +188,7 @@ class Encoder:
         return sparse.vstack([ridge,smooth],format='csr')
 
     def metadata(self):
-        return {'unit_effect':self.unit_effect,'size_medians':self.size_medians,'size_default':self.size_default,
+        return {'unit_effect':self.unit_effect,'bedroom_encoding':self.bedroom_encoding,'size_medians':self.size_medians,'size_default':self.size_default,
                 'buildings':self.buildings,'units':self.units,'periods':self.periods.strftime('%Y-%m-%d').tolist(),
                 'features':self.features,'offsets':self.offsets,'n_parameters':self.n_parameters}
 
@@ -216,6 +223,8 @@ def load_model(directory):
     directory=Path(directory)
     metadata=json.loads((directory/'encoder.json').read_text())
     enc=Encoder.__new__(Encoder)
+    # Earlier saved models used exact-category indicators; preserve their predictions.
+    enc.bedroom_encoding=metadata.get('bedroom_encoding','categorical')
     for key,value in metadata.items():setattr(enc,key,value)
     enc.periods=pd.DatetimeIndex(pd.to_datetime(metadata['periods']))
     with np.load(directory/'model.npz',allow_pickle=False) as values:
@@ -325,7 +334,7 @@ def run(args):
     buildings=pd.DataFrame({'building':enc.buildings,'log_effect':model['beta'][a:b]})
     buildings=buildings.merge(data.groupby('building').agg(observations=('unit_id','size'),units=('unit_id','nunique')).reset_index(),on='building')
     buildings.to_parquet(output/'building_effects.parquet',index=False)
-    results={'coverage':coverage,'settings':settings,'temporal_validation':temporal,'unseen_unit_validation':cold,
+    results={'coverage':coverage,'settings':settings,'bedroom_encoding':enc.bedroom_encoding,'temporal_validation':temporal,'unseen_unit_validation':cold,
              'in_sample':metrics(data,fitted),'fit':{k:model[k] for k in ['seconds','solves','robust_objective_relative_change']},
              'robustly_downweighted_observations':int((model['weights']<.999).sum()),
              'severely_downweighted_observations':int((model['weights']<.5).sum()),

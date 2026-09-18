@@ -8,13 +8,13 @@ Fit locally on the Thelio using `chelsea-granular-20260917-canonical-url-v1`.
 - Withheld 2026 median absolute error: **7.1%**, versus **17.8%** for the bedroom-only baseline. **90.8%** are within 20%.
 - Entirely withheld units: **8.0%** median error. This tests unseen-unit estimation in observed market periods.
 - Adjusted trend: **+6.4%** August 2026 vs August 2025. 2020–21 trough: **-20.2%** vs February 2020 in November 2020.
-- Full local fitting pipeline: **22 seconds**.
+- Full local fitting pipeline: **23 seconds**.
 
-See [the interactive report](/data1/apartments/archive/fits/chelsea-minimal-canonical-20260917-v2/report/report.html) for charts, exclusions and validation details.
+See [the interactive report](http://thelio.tail3983e0.ts.net:8766/model-report) for charts, exclusions and validation details.
 
 ## Method
 
-Robust penalized regression on log initial asking rent, with bedroom categories,
+Robust penalized regression on log initial asking rent, with incremental bedroom thresholds (>0, >1, >2, >3, >4),
 bathrooms, optional size, building and unit effects, a smooth monthly trend and
 month-of-year seasonality. Six settings combinations were selected using 2025;
 2026 prices stayed withheld until final evaluation. A separate 20% unit holdout
@@ -49,5 +49,5 @@ Import `load_model(directory)` and `predict(model, dataframe)` from
 exponentiate for the predicted median asking rent. Unknown units/buildings receive
 zero group offsets; future months hold the final smooth trend flat plus seasonality.
 
-Artifacts are in `/data1/apartments/archive/fits/chelsea-minimal-canonical-20260917-v2`. Selection audit retains an exclusion reason for every
+Artifacts are in `/data1/apartments/archive/fits/chelsea-minimal-canonical-20260917-incremental`. Selection audit retains an exclusion reason for every
 dropped listing. The final report and parquet tables preserve reproducibility.

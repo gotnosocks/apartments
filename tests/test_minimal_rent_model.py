@@ -71,3 +71,25 @@ def test_model_round_trip_and_contemporaneous_baseline(tmp_path):
     expected=train.groupby(['period','bedrooms']).asking_rent.median()
     assert table.bedroom_baseline.iloc[0]==expected.loc[(train.period.iloc[0],train.bedrooms.iloc[0])]
     assert model['robust_objective_relative_change']<1e-5
+
+
+def test_incremental_bedrooms_sum_adjacent_increments():
+    data=fixture().iloc[:6].copy();data['bedrooms']=np.arange(6,dtype=float)
+    enc=m.Encoder(data);matrix=enc.matrix(data)
+    expected=np.array([[float(b>threshold) for threshold in range(5)] for b in range(6)])
+    assert enc.features[1:6]==[f'bedrooms_gt_{n}' for n in range(5)]
+    assert np.array_equal(matrix[:,1:6].toarray(),expected)
+    beta=np.zeros(enc.n_parameters);increments=np.array([.20,.15,.12,.10,.08]);beta[1:6]=increments
+    assert np.allclose(np.diff(matrix@beta),increments)
+    assert enc.metadata()['bedroom_encoding']=='incremental'
+
+
+def test_legacy_saved_categorical_model_keeps_original_predictions(tmp_path):
+    data=fixture();enc=m.Encoder(data);enc.bedroom_encoding='categorical'
+    enc.features[1:6]=[f'bedrooms_{n}' for n in range(1,6)]
+    beta=np.zeros(enc.n_parameters);beta[1:6]=[.2,.35,.45,.5,.55]
+    original=enc.matrix(data)@beta+8
+    metadata=enc.metadata();metadata.pop('bedroom_encoding')
+    (tmp_path/'encoder.json').write_text(json.dumps(metadata))
+    np.savez_compressed(tmp_path/'model.npz',beta=beta,center=8.)
+    assert np.allclose(m.predict(m.load_model(tmp_path),data),original)

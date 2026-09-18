@@ -87,6 +87,8 @@ def report(root,output):
              'seasonal_low':month_names[season_low], 'temporal_validation_by_bedrooms':error_by,
              'note':'Descriptive model estimates on selected asking listings, not signed rents or a complete market census'}
     (output/'report_summary.json').write_text(json.dumps(summary,indent=2))
+    incremental=encoder.get('bedroom_encoding')=='incremental'
+    bedroom_description=('Bedrooms use cumulative indicators: >0, >1, >2, >3, and >4. A two-bedroom listing activates the first two terms; each coefficient is an additional-bedroom contribution on the log-rent scale. Regularization shrinks those increments separately. Studios activate none of them.' if incremental else 'Bedrooms use exact-category indicators for 1–5 bedrooms, with studios as the reference.')
     body=f'''<header><div class="eyebrow">Chelsea rental archive · Local model pass · September 17, 2026</div>
 <h1>A simple model of asking rents</h1>
 <p class="lede">A broad first pass using canonical unit identities, clean listing-level prices, and a small set of predictors. Fits and validation ran locally on the Thelio.</p></header>
@@ -107,6 +109,7 @@ def report(root,output):
 {table(['Exclusion, applied in this order','Listing IDs'],exclusion_rows)}
 <p class="caption">Counts are mutually exclusive and sum to {c['source_listing_ids']-c['included_listing_ids']:,}. Furnished listings and concession offers are a scope choice for this simple pass, not inherently bad data. All original records remain in the transform.</p></section>
 <section><h2>The model in plain terms</h2><p>Log asking rent = layout + optional size + building effect + unit effect + smooth monthly trend + seasonality. Building and unit effects are pulled toward the overall pattern when evidence is thin. A robust loss reduces the influence of unusual prices rather than allowing a few extremes to drive the fit.</p>
+<p>{bedroom_description}</p>
 <p>This is a penalized point estimate, not a Bayesian posterior. Six small settings combinations were compared on 2025. The final local pipeline took {results['runtime_seconds']:.0f} seconds, including preparation, tuning, validation and the full fit. All linear solves converged; the last robust-fit objective change was {results['fit']['robust_objective_relative_change']:.2g} relative.</p>
 <p>There are no floor guesses, photo features, inferred renovation dates, amenity effects, or manual-review annotations in this pass. Layout changes can enter through each listing’s own attributes, but the model treats the remaining unit effect as stable over time.</p></section>
 <section><h2>How to use this first pass</h2><p>Use it to explore the adjusted asking-rent trend and compare a listing with similar units in the same building and period. Expect weaker estimates for unusual luxury layouts, unseen buildings, or properties whose condition changed. These are nominal initial asking rents, not achieved rents, signed leases, or inflation-adjusted returns.</p>
@@ -130,7 +133,7 @@ See [the interactive report](report.html) for charts, exclusions and validation 
 
 ## Method
 
-Robust penalized regression on log initial asking rent, with bedroom categories,
+Robust penalized regression on log initial asking rent, with {'incremental bedroom thresholds (>0, >1, >2, >3, >4)' if incremental else 'bedroom categories'},
 bathrooms, optional size, building and unit effects, a smooth monthly trend and
 month-of-year seasonality. Six settings combinations were selected using 2025;
 2026 prices stayed withheld until final evaluation. A separate 20% unit holdout
