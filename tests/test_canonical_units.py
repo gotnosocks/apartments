@@ -63,12 +63,9 @@ def test_output_preserves_observations_and_joins_full_history(tmp_path):
 
 
 def test_normal_finalizer_includes_canonical_associations(tmp_path):
-    from .test_granular_export import test_preserves_fetches_snapshots_and_repeated_events
+    from .test_granular_export import create_repeated_listing_export
     from apartments.granular_export import finish
-    test_preserves_fetches_snapshots_and_repeated_events(tmp_path)
-    root = tmp_path / 'out'
-    # The fixture opens a review service by supplying a dummy completion marker.
-    (root / 'complete.json').unlink()
+    _, root, _, _ = create_repeated_listing_export(tmp_path)
     result = finish(root)
     assert result['canonical_unit_association']['counts']['rental_units'] == 1
     assert result['canonical_unit_association']['counts']['rental_unit_observations'] == 2
