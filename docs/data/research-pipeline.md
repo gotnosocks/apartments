@@ -112,7 +112,7 @@ physical-unit identities or contemporaneously known attributes.
 ## Fit and compare
 
 ```sh
-uv run --locked python -m apartments fit-pricing data/exports/example data/model/example
+uv run --locked python -m apartments fit-pricing-legacy data/exports/example data/model/example
 ```
 
 The default reserves later UTC months for validation. Encoding and fitting use
@@ -125,7 +125,7 @@ If all observations are in one month, the default refuses to claim validation.
 For an explicitly **descriptive, unvalidated** fit:
 
 ```sh
-uv run --locked python -m apartments fit-pricing data/exports/example \
+uv run --locked python -m apartments fit-pricing-legacy data/exports/example \
   data/model/example-descriptive --holdout-fraction 0
 ```
 

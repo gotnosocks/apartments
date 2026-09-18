@@ -5,15 +5,16 @@ compare apartments against an individual's willingness to pay for amenities.
 Chelsea is the existing pilot. The [project intent](docs/project-intent.md)
 defines the data contracts, temporal semantics, model scope, and research gates.
 
-The main modeling direction is **scrape → transform → fit → analyze**, emphasizing
-feature contributions and fitted residuals. The [current-analysis workflow](docs/model/current-analysis.md)
+The main model is **hierarchical Bayesian PyMC**, using compiled sampling and
+the saved joint posterior. The workflow is **scrape → transform → fit → analyze**,
+emphasizing feature contributions and fitted residuals. The [current-analysis workflow](docs/model/current-analysis.md)
 includes fresh observations in the fit and produces a source-linked residual
-review queue. The [interactive review page](docs/model/analysis-review-page.md)
+review queue. The [main Bayesian analysis page](docs/model/main-bayesian-analysis.md)
 shows apartment contributions, joint feature comparisons, residual history and
 archived source descriptions. The [first residual audit](docs/analysis/chelsea-residual-review-2026-09-18.md)
 found concrete price-entry, commercial-scope and possible omitted-feature issues
 to guide the next iteration.
-The [Bayesian feature research](docs/model/bayesian-feature-research.md) adds joint
+The [Bayesian feature research](docs/model/bayesian-feature-research.md) examines joint
 coefficient uncertainty and separate bathroom increments, supported by source
 audits of [extreme group effects](docs/analysis/chelsea-group-effects-2026-09-18.md)
 and [bathroom composition and access](docs/analysis/chelsea-bathroom-evidence-2026-09-18.md).
@@ -22,6 +23,9 @@ documents sparse contrasts and dependence on group pooling. Focused reviews of
 [floor plans](docs/analysis/chelsea-floorplan-visual-review-2026-09-18.md) and
 [lease/product wording](docs/analysis/chelsea-lease-product-scope-2026-09-18.md)
 separate new evidence from proposed model features.
+The [parameter audit](docs/analysis/chelsea-bayesian-parameter-audit-2026-09-18.md)
+challenges every representation and prepares listed-floor threshold increments;
+only 364 retained observations currently have known listed floors.
 The [first converged Bayesian results](docs/analysis/chelsea-bayesian-bathrooms-2026-09-18.md)
 report credible intervals and the remaining source-quality and residual-scale issues.
 The [prior-sensitivity comparison](docs/analysis/chelsea-bayesian-prior-sensitivity-2026-09-18.md)
@@ -56,7 +60,9 @@ price contrasts, and preference frontiers. Git and colocated Jujutsu track the c
 
 Start with the [reproducible research pipeline](docs/data/research-pipeline.md)
 for collection → corrections → dated analytics → model → preference ranking.
-Its CLI commands are `build-analytical`, `fit-pricing`, and `rank-apartments`.
+Its original baseline commands include `build-analytical`, `fit-pricing-legacy`,
+and `rank-apartments`. Main `fit-pricing` now uses the verified Bayesian workflow
+and requires a reviewed bathroom/source-composition projection.
 For the full Chelsea history, `build-historical` uses the completed canonical
 dataset with the [own-advertisement temporal contract](docs/data/historical-own-advertisement.md).
 The older workflows below retain their original assumptions and data contracts.

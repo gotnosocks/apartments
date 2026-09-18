@@ -30,7 +30,7 @@ Replay an existing run without any network calls:
   --output data/probes/NEW-UNUSED-RENTAL-PAGINATION-RUN --resume --replay-only
 ```
 
-Resume uses the original ceiling, timeout, implementation hashes, seeds, and copied sources. Supplying a different ceiling or a new preflight bundle fails. Changed implementation hashes require a separately reviewed new run. The ceiling has no default; 32 above is an explicit example based on the displayed 24+8-page hints, not an assumption of inventory completeness. Increasing the ceiling is not a resume operation.
+Resume uses the original ceiling, timeout, implementation hashes, seeds, and copied sources. Version 2 keeps exact implementation copies under `implementation/` and a separate `frozen-protocol.json`. Both live and frozen code hashes, protocol copies, explicit seeds, Oxylabs transport, positive integer ceiling, and bounded integer timeout are checked on resume, before every new submission, and before final publication. Code changes during a long run stop it before another request; saved raw evidence remains on disk. Version-1 offline-check runs cannot resume under version 2. Supplying a different ceiling or a new preflight bundle fails. Changed implementation hashes require a separately reviewed new run. The ceiling has no default; 32 above is an explicit example based on the displayed 24+8-page hints, not an assumption of inventory completeness. Increasing the ceiling is not a resume operation.
 
 Python entry point: `run(output, *, max_requests=None, preflight_bundle=None, resume=False, replay_only=False, timeout=180)`. It returns the immutable report directory, reason for stopping, request accounting, and unresolved next URLs. There is no alternate transport parameter.
 
@@ -53,10 +53,12 @@ Immutable `reports/<state-hash>/` bundles contain `run.json`, `pages.jsonl`, `co
 
 ## Offline verification on 2026-09-18
 
-Tests: `tests/test_rental_discovery.py` plus `tests/test_rental_search.py`: **65 passed**. Coverage includes a durable intent visible before the mocked provider call, budget accounting with reuse, interruption before/after finalized capture, offline checkpoint/resume, immutable replay, hostile and ambiguous next links, source-page gaps, failed/raw outcomes, capture tampering, self-contained copied evidence, and concurrent-run rejection. Tests make no requests.
+Tests: `tests/test_rental_discovery.py` plus `tests/test_rental_search.py`: **76 passed**. Coverage includes a durable intent visible before the mocked provider call, budget accounting with reuse, interruption before/after finalized capture, offline checkpoint/resume, immutable replay, hostile and ambiguous next links, source-page gaps, failed/raw outcomes, capture tampering, self-contained copied evidence, and concurrent-run rejection. Tests make no requests.
 
-The real four-page preflight bundle was verified and replayed under `data/probes/chelsea-rental-discovery-offline-replay-20260918`, with ceiling 32, four reused submissions, and **zero new attempts**. Its first report is:
+The original version-1 real four-page preflight bundle was verified and replayed under `data/probes/chelsea-rental-discovery-offline-replay-20260918`, with ceiling 32, four reused submissions, and **zero new attempts**. Its first report is:
 
 `reports/d8663ec80cb26dfdda7cf1423a5f9d38d1413ce966ffa12845fe5a0119a1c049/`
 
 It reports `offline_replay_only`; both page-3 URLs remain pending. This is an offline implementation check, not an executed pagination pass.
+
+Version-2 regression checks additionally cover Unicode U+2028/U+2029 inside JSONL literals, exact frozen implementation copies, live/frozen code changes during capture, and tampered protocol seeds/transport/ceiling/timeout. No requests were made by these checks.

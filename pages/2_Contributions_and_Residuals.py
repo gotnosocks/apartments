@@ -1,261 +1,258 @@
-"""Read-only review of the verified descriptive asking-rent fit."""
-from __future__ import annotations
-
-import math
+"""Read-only analysis of the explicitly selected, verified joint Bayesian posterior."""
 from pathlib import Path
+import math
 from urllib.parse import urlparse
 
 import pandas as pd
-import plotly.graph_objects as go
 import streamlit as st
 
-from apartments.analysis_review import AnalysisWorkspace, bundle_signature
+from apartments.bayesian_analysis import BayesianAnalysis, bundle_signature
+from apartments.bayesian_evidence import load_evidence
+from apartments.main_analysis import load_selection
 
 ROOT = Path(__file__).resolve().parents[1]
-DEFAULT = ROOT / "data/model/chelsea-reviewed-analysis-20260918-v3"
-DEFAULT_RESIDUALS = ROOT / "data/model/chelsea-interior-reviewed-residuals-20260918"
-DEFAULT_EVIDENCE = ROOT / "data/model/chelsea-analysis-descriptions-20260918"
+DEFAULT_SELECTION = ROOT / 'config/main-analysis.json'
+DEFAULT_EVIDENCE = ROOT / 'data/model/chelsea-analysis-descriptions-20260918'
 
-st.set_page_config(page_title="Contributions and residuals", page_icon="🔎", layout="wide")
-st.title("Chelsea — contributions and residuals")
-st.caption("Review the saved fit, investigate unusual asking prices, and compare apartment features.")
-st.info(
-    "These are in-sample asking-rent diagnostics. A large residual is a reason to inspect "
-    "the listing, its data, and missing features; it is not a bargain score. "
-    "The saved current sample does not establish live availability."
-)
+st.set_page_config(page_title='Contributions and residuals', page_icon='🔎', layout='wide')
+st.title('Chelsea — Bayesian contributions and residuals')
+st.caption('Inspect the accepted saved posterior, investigate asking-price residuals, and compare apartment features jointly.')
+st.info('These are conditional, in-sample asking-rent associations. A large residual suggests a listing or missing-feature review; it is not a bargain score. Saved current listings do not establish live availability.')
 
 
 @st.cache_resource(show_spinner=False)
-def load_workspace(model: str, dataset: str, residuals: str, evidence: str | None, signature: str):
-    del signature  # File metadata invalidates the verified workspace cache.
-    return AnalysisWorkspace.load(model, dataset, residuals, evidence)
+def load_analysis(experiment, dataset, signature):
+    del signature  # Content is independently verified on load; file changes invalidate cache.
+    return BayesianAnalysis.load(experiment, dataset)
 
 
-def display_name(value):
-    return str(value).replace("_", " ")
+@st.cache_resource(show_spinner=False)
+def archived_evidence(dataset, evidence, signature):
+    del signature
+    return load_evidence(dataset, evidence)
+
+
+def label(value):
+    return str(value).replace('_', ' ').replace('.', ' · ')
+
+
+def interval_text(interval, money=False):
+    fmt = '${:,.0f}' if money else '{:+.4f}'
+    return f"95% credible interval: {fmt.format(interval['lower_95'])} to {fmt.format(interval['upper_95'])}"
 
 
 def source_links(record):
-    linked = False
-    for label, key in (("Advertisement on StreetEasy", "advertisement_url"),
-                       ("Unit on StreetEasy", "canonical_unit_url")):
+    for name, key in [('Advertisement on StreetEasy', 'advertisement_url'), ('Unit on StreetEasy', 'canonical_unit_url')]:
         url = record.get(key)
         parsed = urlparse(url) if isinstance(url, str) else None
-        if parsed and parsed.scheme == "https" and parsed.hostname in {"streeteasy.com", "www.streeteasy.com"}:
-            st.link_button(label, url)
-            linked = True
-    if linked:
-        st.caption("External listing pages may differ from the saved capture. See Source evidence for archived descriptions.")
-
-
-def known_value(value):
-    return value is not None and not (isinstance(value, float) and math.isnan(value))
+        if parsed and parsed.scheme == 'https' and parsed.hostname in {'streeteasy.com', 'www.streeteasy.com'}:
+            st.link_button(name, url)
 
 
 with st.sidebar:
-    st.header("Saved analysis")
-    model_path = st.text_input("Model bundle", str(DEFAULT / "model"))
-    dataset_path = st.text_input("Dataset bundle", str(DEFAULT / "dataset"))
-    residual_path = st.text_input("Residual bundle", str(DEFAULT_RESIDUALS))
-    evidence_path = st.text_input("Archived description bundle", str(DEFAULT_EVIDENCE),
-                                  help="Optional verified description archive for this fitted cohort. Leave blank to disable.").strip() or None
-    if st.button("Reload saved analysis"):
-        load_workspace.clear()
+    st.header('Selected Bayesian analysis')
+    selection_path = st.text_input('Analysis selection', str(DEFAULT_SELECTION))
+    evidence_path = st.text_input('Archived description bundle', str(DEFAULT_EVIDENCE),
+                                  help='Optional verified source archive; leave blank to disable.').strip()
+    if st.button('Reload saved analysis'):
+        load_analysis.clear()
+        archived_evidence.clear()
 
 try:
-    signature = bundle_signature(model_path, dataset_path, residual_path, *([evidence_path] if evidence_path else []))
-    with st.spinner("Verifying the saved analysis…"):
-        workspace = load_workspace(model_path, dataset_path, residual_path, evidence_path, signature)
-except (OSError, ValueError, KeyError, TypeError) as exc:
-    st.error(f"The saved analysis could not be loaded: {exc}")
-    st.caption("Choose matching model, dataset, and residual bundles. This page does not fit or scrape data.")
+    selection, experiment, dataset = load_selection(selection_path)
+    signature = bundle_signature(experiment / 'protocol', experiment / 'fit', dataset)
+    with st.spinner('Verifying the saved Bayesian analysis…'):
+        analysis = load_analysis(str(experiment), str(dataset), signature)
+    rows, residual_records = analysis.rows, analysis.residuals
+    evidence = (archived_evidence(str(dataset), evidence_path, bundle_signature(dataset, evidence_path))
+                if evidence_path else {})
+    source = {r['audit_id']: r for r in rows}
+    records = []
+    for residual in residual_records:
+        r = source[residual['audit_id']]
+        records.append({**residual, 'building': residual.get('building', r['building']),
+            'canonical_unit_url': r.get('canonical_unit_url'),
+            'current_capture': r.get('analysis_price_basis') == 'current_capture_gross_ask',
+            'residual_percent': 100 * (residual['asking_rent'] / residual['fitted_rent'] - 1),
+            'absolute_log_residual': abs(residual['residual_log'])})
+    residuals = pd.DataFrame(records)
+except (OSError, ValueError, KeyError, TypeError, RuntimeError) as exc:
+    st.error(f'The selected Bayesian analysis could not be verified: {exc}')
+    st.caption('A completed accepted fit, its exact dataset, and matching saved selection are required. This page does not fit or scrape.')
     st.stop()
 
-residuals = pd.DataFrame(workspace.residuals)
 if residuals.empty:
-    st.info("The saved analysis contains no fitted observations.")
+    st.info('No fitted observations are available.')
     st.stop()
 
-c1, c2, c3, c4 = st.columns(4)
-c1.metric("Fitted observations", f"{len(residuals):,}")
-c2.metric("Units", f"{residuals.unit_id.nunique():,}")
-c3.metric("Buildings", f"{residuals.building_id.nunique():,}")
-c4.metric("Saved current observations", f"{residuals.current_capture.sum():,}")
-with st.expander("Analysis coverage and provenance"):
-    st.json(workspace.summary)
+columns = st.columns(4)
+for col, name, value in zip(columns, ['Fitted observations', 'Units', 'Buildings', 'Saved current observations'],
+                           [len(residuals), residuals.unit_id.nunique(), residuals.building.nunique(), residuals.current_capture.sum()]):
+    col.metric(name, f'{value:,}')
+with st.expander('Analysis identity and verification'):
+    st.write('Experiment:', str(experiment))
+    st.write('Dataset:', str(dataset))
+    st.json(selection)
+    st.json(analysis.summary)
 
-st.subheader("Find a listing to examine")
+st.subheader('Find a listing to examine')
 f1, f2, f3 = st.columns(3)
-with f1:
-    scope = st.selectbox("Observation scope", ["Saved current sample", "All fitted observations"])
-with f2:
-    building = st.selectbox("Building", [None, *sorted(residuals.building_id.unique())],
-                            format_func=lambda value: "All buildings" if value is None else display_name(value))
-with f3:
-    order = st.selectbox("Review order", ["Largest absolute residual", "Ask above fitted rent", "Ask below fitted rent"])
-one_per_unit = st.checkbox("Show one observation per unit", value=True)
-search = st.text_input("Find advertisement ID or unit URL", help="Search within the selected observation scope and building before the row limit is applied.").strip()
+scope = f1.selectbox('Observation scope', ['Saved current sample', 'All fitted observations'])
+building = f2.selectbox('Building', [None, *sorted(residuals.building.unique())],
+                        format_func=lambda value: 'All buildings' if value is None else label(value))
+order = f3.selectbox('Review order', ['Largest absolute residual', 'Ask above fitted rent', 'Ask below fitted rent'])
+one_per_unit = st.checkbox('Show one observation per unit', value=True)
+search = st.text_input('Find advertisement ID or unit URL').strip()
 view = residuals.copy()
-if scope == "Saved current sample":
+if scope == 'Saved current sample':
     view = view[view.current_capture]
 if building is not None:
-    view = view[view.building_id == building]
+    view = view[view.building == building]
 if search:
-    search_columns = [column for column in ("source_listing_id", "canonical_unit_url", "unit_id") if column in view]
     matches = pd.Series(False, index=view.index)
-    for column in search_columns:
-        matches |= view[column].fillna("").astype(str).str.contains(search, case=False, regex=False)
+    for field in ['source_listing_id', 'canonical_unit_url', 'unit_id']:
+        matches |= view[field].fillna('').astype(str).str.contains(search, case=False, regex=False)
     view = view[matches]
-if order == "Ask above fitted rent":
-    view = view[view.asking_minus_fitted > 0].sort_values(["asking_vs_fitted_percent", "audit_id"], ascending=[False, True])
-elif order == "Ask below fitted rent":
-    view = view[view.asking_minus_fitted < 0].sort_values(["asking_vs_fitted_percent", "audit_id"], ascending=[True, True])
+if order == 'Ask above fitted rent':
+    view = view[view.residual_log > 0].sort_values(['residual_log', 'audit_id'], ascending=[False, True])
+elif order == 'Ask below fitted rent':
+    view = view[view.residual_log < 0].sort_values(['residual_log', 'audit_id'])
 else:
-    view = view.sort_values(["absolute_log_residual", "audit_id"], ascending=[False, True])
+    view = view.sort_values(['absolute_log_residual', 'audit_id'], ascending=[False, True])
 if one_per_unit:
-    view = view.drop_duplicates("unit_id")
+    view = view.drop_duplicates('unit_id')
 if view.empty:
-    st.info("No observations match these filters.")
+    st.info('No observations match these filters.')
     st.stop()
-
-limit = st.selectbox("Maximum rows to review", [25, 100, 500], index=1)
+limit = st.selectbox('Maximum rows to review', [25, 100, 500], index=1)
 review = view.head(limit)
-st.caption(f"Showing {len(review):,} of {len(view):,} matching observations. Residual percentages use fitted rent as the denominator.")
-columns = ["building_id", "source_listing_id", "period", "asking_rent", "fitted_rent", "asking_minus_fitted", "asking_vs_fitted_percent"]
-st.dataframe(review[columns].rename(columns={
-    "building_id": "Building", "source_listing_id": "Advertisement", "period": "Month",
-    "asking_rent": "Asking rent ($)", "fitted_rent": "Fitted rent ($)",
-    "asking_minus_fitted": "Ask − fit ($)", "asking_vs_fitted_percent": "Ask vs fit (%)",
-}), hide_index=True, width="stretch")
-labels = {row.audit_id: f"{display_name(row.building_id)} · ad {row.source_listing_id} · {row.period} · {row.asking_vs_fitted_percent:+.1f}%"
-          for row in review.itertuples()}
-audit_id = st.selectbox("Observation to inspect", list(labels), format_func=labels.__getitem__)
+st.caption(f'Showing {len(review):,} of {len(view):,} matching observations. Residual percentages use the fitted median as denominator.')
+st.dataframe(review[['building', 'source_listing_id', 'period', 'asking_rent', 'fitted_rent',
+    'latent_rent_lower_95', 'latent_rent_upper_95', 'residual_dollars', 'residual_percent']].rename(columns={
+    'building': 'Building', 'source_listing_id': 'Advertisement', 'period': 'Month',
+    'asking_rent': 'Ask ($)', 'fitted_rent': 'Fitted median ($)', 'latent_rent_lower_95': 'Lower 95% CrI ($)',
+    'latent_rent_upper_95': 'Upper 95% CrI ($)', 'residual_dollars': 'Ask − median ($)',
+    'residual_percent': 'Ask vs median (%)'}), hide_index=True, width='stretch')
+labels = {r.audit_id: f'{label(r.building)} · ad {r.source_listing_id} · {r.period} · {r.residual_percent:+.1f}%'
+          for r in review.itertuples()}
+audit_id = st.selectbox('Observation to inspect', list(labels), format_func=labels.__getitem__)
 try:
-    detail = workspace.detail(audit_id)
-except (OSError, ValueError, KeyError, TypeError) as exc:
-    st.error(f"The selected observation could not be verified: {exc}")
+    detail = analysis.detail(audit_id)
+except (OSError, ValueError, KeyError, TypeError, RuntimeError) as exc:
+    st.error(f'The selected observation could not be verified: {exc}')
     st.stop()
-record = detail["source_record"]
-residual = detail["residual"]
-st.subheader("Selected apartment")
+record, residual = detail['source_record'], detail['residual']
+interval = detail['fitted_median_rent']
+st.subheader('Selected apartment')
 a, b, c = st.columns(3)
-a.metric("Advertised asking rent", f"${residual['asking_rent']:,.0f}")
-b.metric("Fitted asking rent", f"${residual['fitted_rent']:,.0f}")
-c.metric("Ask − fitted rent", f"${residual['asking_minus_fitted']:+,.0f}", f"{residual['asking_vs_fitted_percent']:+.1f}%", delta_color="off")
-source_links({**record, **residual})
-for warning in detail.get("warnings", []):
+a.metric('Advertised asking rent', f"${residual['asking_rent']:,.0f}")
+b.metric('Posterior median fitted rent', f"${interval['median']:,.0f}")
+b.caption(interval_text(interval, money=True))
+c.metric('Ask − fitted median', f"${residual['residual_dollars']:+,.0f}")
+st.caption(f"{detail['draws']:,} joint retained draws. The interval describes latent conditional-median asking rent, not a new listing's price range or arithmetic mean rent.")
+source_links(record)
+for warning in detail.get('warnings', []):
     st.warning(warning)
 
-contributions_tab, contrast_tab, evidence_tab = st.tabs(["Contributions and history", "Change apartment features", "Source evidence"])
+contributions_tab, contrast_tab, evidence_tab = st.tabs(['Contributions and history', 'Change apartment features', 'Source evidence'])
 with contributions_tab:
-    st.caption("These components sum to log fitted rent in the saved model's parameterization. They are not standalone dollar premiums or causal effects. Use feature changes to compare two specified apartments.")
-    families = detail["log_contributions_by_family"]
-    if "reference" in families:
-        st.metric("Reference component (log rent)", f"{families['reference']:.6f}")
-    family_frame = pd.DataFrame([{"Family": display_name(key), "Log contribution": value} for key, value in families.items() if key != "reference"])
-    if not family_frame.empty:
-        figure = go.Figure(go.Bar(x=family_frame["Log contribution"], y=family_frame.Family, orientation="h"))
-        figure.update_layout(xaxis_title="Adjustment to reference log rent", yaxis_title=None,
-                             height=max(300, 30 * len(family_frame)), margin={"t": 10, "b": 35})
-        st.plotly_chart(figure, width="stretch")
-    st.caption(f"Sum: {math.fsum(families.values()):.6f} log rent. Exponentiating the sum gives the fitted rent.")
-    with st.expander("Exact model components"):
-        st.json(detail["log_components"])
+    st.caption('Posterior MEAN log contributions sum to E[μ]. They are not additive dollar amounts, sums of posterior medians, or causal premiums. Category basis coefficients are not named amenity premiums; use a joint feature comparison below.')
+    groups = detail['grouped_contributions']
+    intervals = {item['group']: item['log_interval'] for item in detail['grouped_contribution_intervals']}
+    contribution_ok = detail['contribution_diagnostics']['acceptable']
+    table = []
+    for group, mean in groups.items():
+        item = {'Component': label(group), 'Posterior mean log contribution': mean}
+        if contribution_ok and group in intervals:
+            item.update({'Lower 95% CrI (log)': intervals[group]['lower_95'], 'Upper 95% CrI (log)': intervals[group]['upper_95']})
+        table.append(item)
+    st.dataframe(pd.DataFrame(table), hide_index=True, width='stretch')
+    st.caption(f"Contribution mean sum: {math.fsum(groups.values()):.6f}; E[μ]: {detail['mean_log_rent']:.6f}. Exponentiating E[μ] need not equal the posterior median fitted rent.")
+    if not contribution_ok:
+        st.warning('Contribution diagnostics failed; contribution intervals are withheld.')
+    with st.expander('Exact encoded contributions and diagnostics'):
+        st.dataframe(pd.DataFrame(detail['contributions']), hide_index=True, width='stretch')
+        st.json(detail['contribution_diagnostics'])
     st.subheader("This unit's fitted history")
-    history = pd.DataFrame(detail["unit_history"])
-    if not history.empty:
-        history = history.sort_values(["period", "audit_id"])
-        fig = go.Figure()
-        for column, label in (("asking_rent", "Advertised ask"), ("fitted_rent", "Fitted rent")):
-            fig.add_trace(go.Scatter(x=history.period, y=history[column], name=label, mode="lines+markers"))
-        fig.update_layout(xaxis_title="Price month", yaxis_title="Monthly asking rent ($)", height=330)
-        st.plotly_chart(fig, width="stretch")
-        st.dataframe(history[["period", "source_listing_id", "asking_rent", "fitted_rent", "asking_vs_fitted_percent"]], hide_index=True, width="stretch")
-    st.caption("History is retrospective: the price date can precede the capture of listing attributes. It does not establish which attributes were known at each historical date.")
+    history = pd.DataFrame(detail['unit_history']).sort_values(['period', 'audit_id'])
+    st.line_chart(history.set_index('period')[['asking_rent', 'fitted_rent']].rename(columns={'asking_rent': 'Advertised ask', 'fitted_rent': 'Fitted median'}))
+    st.dataframe(history[['period', 'source_listing_id', 'asking_rent', 'fitted_rent', 'latent_rent_lower_95', 'latent_rent_upper_95']].rename(columns={
+                     'period': 'Month', 'source_listing_id': 'Advertisement', 'asking_rent': 'Ask ($)',
+                     'fitted_rent': 'Fitted median ($)', 'latent_rent_lower_95': 'Lower 95% CrI ($)',
+                     'latent_rent_upper_95': 'Upper 95% CrI ($)'}),
+                 hide_index=True, width='stretch')
+    st.caption('Historical price dates may precede captures of listing attributes. This is retrospective evidence, not proof of when an attribute changed.')
 
 with contrast_tab:
-    st.caption("Compare conditional asking rents for the same apartment and date, keeping its building and unit effects fixed. Interactions are recomputed. This is an association in the fitted data, not a renovation return or personal willingness to pay.")
-    fields = workspace.fields
-    chosen = st.multiselect("Features to change together", list(fields),
-                            format_func=lambda name: fields[name]["label"], key=f"fields:{audit_id}")
+    st.caption('Change one or more physical source inputs jointly. Date, building and unit offsets remain fixed; bedroom/area and other interactions are recomputed. Unknown reporting and unsupported endpoints do not receive a physical-value estimate.')
+    fields = analysis.fields
+    chosen = st.multiselect('Features to change together', list(fields), format_func=label, key=f'fields:{audit_id}')
     if chosen:
         changes = {}
-        with st.form(f"contrast:{audit_id}:{','.join(chosen)}"):
+        with st.form(f'compare:{audit_id}'):
             for name in chosen:
                 spec = fields[name]
-                original = detail["feature_values"].get(name)
-                label = spec["label"]
-                st.caption(f"{label}: recorded value = {original if known_value(original) else 'unknown'}")
-                key = f"change:{signature}:{audit_id}:{name}"
-                if spec["kind"] == "category":
-                    options = [None, *spec["options"]]
-                    changes[name] = st.selectbox(label, options, index=options.index(original) if original in options else 0,
-                                                format_func=lambda value: "Unknown" if value is None else display_name(value), key=key)
-                elif spec["kind"] == "boolean":
-                    options = [None, False, True]
-                    changes[name] = st.selectbox(label, options, index=options.index(original) if original in options else 0,
-                                                format_func=lambda value: "Unknown" if value is None else ("Yes" if value else "No"), key=key)
+                original = detail['source_values'].get(name)
+                st.caption(f'Recorded {label(name)}: {"Unknown" if original is None else original}')
+                key = f'change:{audit_id}:{name}'
+                if spec['kind'] == 'category':
+                    options = spec['options']
+                    changes[name] = st.selectbox(label(name), options, index=options.index(original) if original in options else 0, key=key)
+                elif spec['kind'] == 'boolean':
+                    changes[name] = st.selectbox(label(name), [False, True], index=1 if original is True else 0,
+                                                 format_func=lambda value: 'Yes' if value else 'No', key=key)
                 else:
-                    minimum, maximum = float(spec["minimum"]), float(spec["maximum"])
-                    default = float(original) if known_value(original) else minimum
-                    value = st.number_input(label, min_value=minimum, max_value=maximum,
-                                            value=min(max(default, minimum), maximum), step=float(spec["step"]), key=key)
-                    unknown = st.checkbox(f"{label} is unknown", value=not known_value(original), key=f"{key}:unknown")
-                    changes[name] = None if unknown else value
-            submitted = st.form_submit_button("Compare with recorded apartment")
+                    low, high, step = {'bedrooms': (0., 5., 1.), 'full_bathrooms': (1., 5., 1.),
+                        'half_bathrooms': (0., 2., 1.), 'square_feet': (1., 100000., 10.)}.get(name, (-10., 200., 1.))
+                    value = float(original) if original is not None else low
+                    changes[name] = st.number_input(label(name), min_value=low, max_value=high,
+                        value=min(high, max(low, value)), step=step, key=key)
+            submitted = st.form_submit_button('Compare with recorded apartment')
         if submitted:
             try:
-                result = workspace.contrast(audit_id, changes)
-            except (ValueError, KeyError, TypeError) as exc:
-                st.error(f"This feature comparison could not be computed: {exc}")
+                result = analysis.counterfactual(audit_id, changes)
+            except (OSError, ValueError, KeyError, TypeError, RuntimeError) as exc:
+                st.error(f'This feature comparison could not be verified: {exc}')
             else:
-                st.caption("Submitted feature changes")
-                st.json(changes)
-                if result["show_estimate"]:
-                    estimate = result["estimate"]
+                st.write('Comparison status:', result['status'])
+                if result['status'] == 'accepted':
                     left, right = st.columns(2)
-                    left.metric("Changed apartment: fitted rent", f"${estimate['changed_rent']:,.0f}")
-                    right.metric("Change from recorded apartment", f"${estimate['dollar_change']:+,.0f}", f"{estimate['percent_change']:+.2f}%", delta_color="off")
+                    left.metric('Changed apartment: fitted median', f"${result['after_rent']['median']:,.0f}")
+                    left.caption(interval_text(result['after_rent'], money=True))
+                    right.metric('Joint rent change', f"${result['delta_dollars']['median']:+,.0f}",
+                                 f"{result['delta_percent']['median']:+.2f}%", delta_color='off')
+                    right.caption(interval_text(result['delta_dollars'], money=True))
+                    st.caption('Percent-change '+interval_text(result['delta_percent'])+'%. Each interval is calculated jointly across posterior draws; medians need not subtract exactly.')
                 else:
-                    st.warning("No supported feature-value estimate is available for this comparison.")
-                    st.caption(display_name(result["status"]))
-                for warning in result.get("warnings", []):
+                    st.warning('Physical feature-value intervals withheld: '+result['status']+'.')
+                for warning in result.get('warnings', []):
                     st.warning(warning)
-                if result.get("support"):
-                    st.write("Evidence supporting the comparison")
-                    st.json(result["support"])
-                with st.expander("Held fixed"):
-                    st.write(result.get("held_fixed", []))
+                st.write('Endpoint support and knownness')
+                st.json(result['support'])
+                with st.expander('Joint comparison inputs and diagnostics'):
+                    st.json(result['changes'])
+                    st.json(result['diagnostics'])
+                    st.write(result['held_fixed'])
+                    st.caption(result['uncertainty'])
     else:
-        st.info("Choose one or more features to compare jointly.")
-    with st.expander("Feature coverage in the fitted dataset"):
-        st.dataframe(pd.DataFrame(workspace.factor_support()), hide_index=True, width="stretch")
+        st.info('Choose one or more features to compare jointly.')
 
 with evidence_tab:
-    st.caption("Use these source records and timestamps to investigate missing features, ambiguous descriptions, and price-basis problems. This page does not modify the underlying evidence.")
-    captures = detail.get("source_captures", [])
+    st.caption('Archived descriptions are literal source text. Review them for missing amenities, ambiguous room labels or price-basis problems; this page does not modify evidence.')
+    captures = evidence.get(audit_id, [])
     if captures:
-        st.subheader("Archived listing description")
-        capture_index = st.selectbox("Saved capture", list(range(len(captures))),
-            format_func=lambda index: f"Capture {captures[index].get('capture_id', index + 1)} · {captures[index].get('source_collected_at', 'collection time unavailable')}",
-            key=f"source-capture:{audit_id}")
-        capture = captures[capture_index]
-        if capture.get("description"):
-            st.text(capture["description"])
+        selected_capture = st.selectbox('Saved capture', list(range(len(captures))),
+            format_func=lambda i: f"Capture {captures[i].get('capture_id')} · {captures[i].get('source_collected_at')}")
+        capture = captures[selected_capture]
+        if capture.get('description'):
+            st.text(capture['description'])
         else:
-            st.info("This capture has no archived description text.")
-        st.caption("Collection time is when the source was captured; interpretation time is when its description was recovered. Neither establishes when an apartment feature physically changed.")
-        st.json({key: capture.get(key) for key in (
-            "capture_id", "source_listing_id", "source_collected_at", "description_interpreted_at",
-            "known_at", "body_sha256", "raw_listing_sha256", "source_path",
-        )})
+            st.info('This capture has no archived description text.')
+        st.json({key: value for key, value in capture.items() if key != 'description'})
     else:
-        st.info("No matching archived description is available for this observation in the selected bundle." if evidence_path
-                else "Archived description review is disabled. Choose a description bundle to inspect saved text.")
-    st.write("Observation provenance")
-    st.json(detail["provenance"])
-    with st.expander("Complete source record"):
+        st.info('No archived description is available for this observation.' if evidence_path else 'Archived description review is disabled.')
+    st.caption('Capture, interpretation and attribute-effective dates are different clocks. Source links can change after collection.')
+    with st.expander('Complete source record'):
         st.json(record)
-    with st.expander("Saved residual record"):
+    with st.expander('Saved residual record'):
         st.json(residual)

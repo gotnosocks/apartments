@@ -1,0 +1,159 @@
+"""Main page respects accepted-posterior boundaries and joint comparison gates."""
+from copy import deepcopy
+import json
+from pathlib import Path
+
+import pytest
+pytest.importorskip('streamlit')
+import streamlit as st
+from streamlit.testing.v1 import AppTest
+from apartments import bayesian_analysis, bayesian_evidence, main_analysis
+
+ROOT = Path(__file__).resolve().parents[1]
+PAGE = ROOT/'pages/2_Contributions_and_Residuals.py'
+
+
+def widget(page, kind, label):
+    return next(item for item in getattr(page, kind) if item.label == label)
+
+
+def interval(median):
+    return {'lower_95': median*.9, 'median': median, 'upper_95': median*1.1}
+
+
+class Workspace:
+    def __init__(self, status='accepted', contribution_ok=True):
+        self.status = status
+        self.called = None
+        self.summary = {'status': 'exploratory_converged', 'experiment_version': 'verified-test'}
+        self.fields = {'bedrooms': {'kind': 'numeric'}, 'full_bathrooms': {'kind': 'numeric'},
+            'half_bathrooms': {'kind': 'numeric'}, 'square_feet': {'kind': 'numeric'},
+            'view_exposures.courtyard': {'kind': 'boolean'},
+            'laundry_type': {'kind': 'category', 'options': ['in_building','in_unit']}}
+        self.rows = [{'audit_id': 'a', 'building': 'one-building', 'unit_id': 'unit-a', 'source_listing_id': '123',
+            'period': '2026-09-01', 'analysis_price_basis': 'current_capture_gross_ask',
+            'bedrooms': 1, 'reported_full_bathrooms': 1, 'reported_half_bathrooms': 0,
+            'square_feet': 777, 'laundry_type': 'in_building', 'view_exposures': {'courtyard': True},
+            'canonical_unit_url': 'https://streeteasy.com/building/example/a'}]
+        self.residuals = [{'audit_id': 'a', 'building': 'one-building', 'unit_id': 'unit-a', 'source_listing_id': '123',
+            'period': '2026-09-01', 'asking_rent': 5000., 'fitted_rent': 4900., 'latent_rent_lower_95': 4500.,
+            'latent_rent_upper_95': 5300., 'residual_dollars': 100., 'residual_log': .02}]
+        self.contribution_ok = contribution_ok
+
+    def detail(self, audit_id):
+        return {'source_record': deepcopy(self.rows[0]), 'residual': deepcopy(self.residuals[0]),
+            'fitted_median_rent': interval(4900), 'mean_log_rent': 8.5, 'draws': 16000,
+            'warnings': [], 'grouped_contributions': {'intercept': 8., 'encoded_feature': .5},
+            'grouped_contribution_intervals': ([{'group': 'encoded_feature', 'log_interval': interval(.5)}]
+                                             if self.contribution_ok else []),
+            'contribution_diagnostics': {'acceptable': self.contribution_ok},
+            'contributions': [{'term': 'feature:bedrooms', 'kind': 'encoded_feature', 'mean_log_contribution': .5}],
+            'feature_values': {'bedrooms': -99., 'square_feet': -55.},
+            'source_values': {'bedrooms': 1., 'full_bathrooms': 1., 'half_bathrooms': 0., 'square_feet': 777.,
+                              'view_exposures.courtyard': True, 'laundry_type': 'in_building'},
+            'unit_history': deepcopy(self.residuals)}
+
+    def counterfactual(self, audit_id, changes):
+        self.called = (audit_id, changes)
+        result = {'status': self.status, 'changes': changes, 'warnings': [],
+            'support': {'before': {'layout': {'rows': 100}}, 'after': {'layout': {'rows': 90}}},
+            'diagnostics': {'acceptable': self.status == 'accepted'}, 'held_fixed': 'Date, building and unit effects.',
+            'uncertainty': 'Joint posterior conditional associations.'}
+        # Deliberately present estimates for failed statuses: UI must obey status gate.
+        result.update(after_rent=interval(5500), delta_dollars=interval(600), delta_percent=interval(12))
+        return result
+
+
+@pytest.fixture
+def mocked(monkeypatch, tmp_path):
+    st.cache_resource.clear()
+    workspace = Workspace()
+    monkeypatch.setattr(main_analysis, 'load_selection', lambda path: ({'fit_manifest_sha256':'fit'},tmp_path/'experiment',tmp_path/'dataset'))
+    monkeypatch.setattr(bayesian_analysis, 'bundle_signature', lambda *args: str(tmp_path))
+    monkeypatch.setattr(bayesian_analysis.BayesianAnalysis, 'load', lambda *args: workspace)
+    monkeypatch.setattr(bayesian_evidence, 'load_evidence', lambda *args: {'a': [{'capture_id': 1,
+        'source_collected_at': '2026-09-01', 'description': '<b>Literal description</b><script>not executable</script>'}]})
+    yield workspace
+    st.cache_resource.clear()
+
+
+def test_raw_source_defaults_joint_changes_and_literal_evidence(mocked):
+    page = AppTest.from_file(str(PAGE)).run()
+    assert not page.exception and not page.error
+    assert len(widget(page,'selectbox','Observation to inspect').options) == 1
+    assert any('<b>Literal description</b>' in item.value for item in page.text)
+    assert any('MEAN log contributions' in item.value for item in page.caption)
+    widget(page,'multiselect','Features to change together').set_value(['bedrooms','square_feet','view_exposures.courtyard']).run()
+    assert widget(page,'number_input','square feet').value == 777.
+    assert widget(page,'number_input','bedrooms').value == 1.
+    assert widget(page,'selectbox','view exposures · courtyard').value is True
+    widget(page,'number_input','bedrooms').set_value(2.)
+    widget(page,'number_input','square feet').set_value(900.)
+    widget(page,'button','Compare with recorded apartment').click().run()
+    assert not page.exception and not page.error
+    assert mocked.called == ('a', {'bedrooms':2.,'square_feet':900.,'view_exposures.courtyard':True})
+    assert any(item.label=='Joint rent change' for item in page.metric)
+
+
+@pytest.mark.parametrize('status',['reporting_change','unsupported_endpoint','diagnostic_only'])
+def test_failed_comparisons_never_display_physical_intervals(mocked, status):
+    mocked.status = status
+    page = AppTest.from_file(str(PAGE)).run()
+    widget(page,'multiselect','Features to change together').set_value(['bedrooms']).run()
+    widget(page,'button','Compare with recorded apartment').click().run()
+    assert not page.exception
+    assert any(status in item.value for item in page.warning)
+    assert not any(item.label in ['Joint rent change','Changed apartment: fitted median'] for item in page.metric)
+
+
+def test_contribution_intervals_withheld_and_search_empty(mocked):
+    mocked.contribution_ok = False
+    page = AppTest.from_file(str(PAGE)).run()
+    assert any('Contribution diagnostics failed' in item.value for item in page.warning)
+    assert 'Lower 95% CrI (log)' not in page.dataframe[1].value.columns
+    widget(page,'text_input','Find advertisement ID or unit URL').set_value('absent').run()
+    assert not page.exception
+    assert any('No observations match' in item.value for item in page.info)
+
+
+def test_invalid_selection_stops_without_fallback(mocked, monkeypatch):
+    def invalid(path): raise ValueError('Selected main model binding differs')
+    monkeypatch.setattr(main_analysis,'load_selection',invalid)
+    page = AppTest.from_file(str(PAGE)).run()
+    assert not page.exception and page.error
+    assert 'could not be verified' in page.error[0].value
+    assert len(page.dataframe) == 0 and len(page.metric) == 0
+
+
+@pytest.mark.skipif(not (ROOT/'config/main-analysis.json').exists(), reason='Accepted local selection unavailable')
+def test_actual_accepted_current_cohort_and_joint_counterfactual():
+    st.cache_resource.clear()
+    selection, experiment, dataset = main_analysis.load_selection()
+    rows = [json.loads(line) for line in (dataset/'observations.jsonl').open()]
+    candidates = [r for r in rows if r.get('analysis_price_basis')=='current_capture_gross_ask'
+                  and r.get('laundry_type') in {'in_building','in_unit'}
+                  and r.get('reported_full_bathrooms') is not None and r.get('reported_half_bathrooms') is not None]
+    assert candidates
+    page = AppTest.from_file(str(PAGE)).run(timeout=120)
+    assert not page.exception and not page.error
+    assert any(item.label=='Saved current observations' and item.value=='13' for item in page.metric)
+    assert len(widget(page,'selectbox','Observation to inspect').options)==13
+    assert len(page.dataframe[0].value)==13
+    target = candidates[0]
+    widget(page,'selectbox','Observation to inspect').set_value(target['audit_id']).run(timeout=90)
+    widget(page,'multiselect','Features to change together').set_value(['laundry_type']).run(timeout=60)
+    new = 'in_unit' if target['laundry_type']=='in_building' else 'in_building'
+    widget(page,'selectbox','laundry type').set_value(new)
+    widget(page,'button','Compare with recorded apartment').click().run(timeout=90)
+    assert not page.exception and not page.error
+    assert any(item.label=='Joint rent change' for item in page.metric)
+    widget(page,'selectbox','Observation scope').set_value('All fitted observations').run(timeout=60)
+    assert not page.exception
+    assert len(page.dataframe[0].value)==100
+    st.cache_resource.clear()
+
+
+def test_entry_page_links_through_application_routing():
+    page = AppTest.from_file(str(ROOT/'app.py')).switch_page('pages/1_Bayesian_Model.py').run()
+    assert not page.exception
+    assert len(page.get('page_link')) == 2

@@ -205,3 +205,71 @@ def test_exclusive_run_lock_prevents_concurrent_submissions(tmp_path,monkeypatch
         fcntl.flock(lock,fcntl.LOCK_EX|fcntl.LOCK_NB)
         with pytest.raises(BlockingIOError):
             discovery.run(root,max_requests=1)
+
+
+def test_preflight_jsonl_preserves_literal_unicode_line_separators(tmp_path,monkeypatch):
+    original=preflight(tmp_path)
+    rows=[json.loads(line) for line in (original/'pages.jsonl').read_text().split('\n') if line.strip()]
+    rows[0]['literal_note']='Source wording\u2028continues\u2029here'
+    unicode_bundle=tmp_path/'unicode-bundle'
+    publish_bundle(unicode_bundle,{'pages.jsonl': '\n'.join(json.dumps(r,ensure_ascii=False) for r in rows)+'\n'}, {'version':'test'})
+    monkeypatch.setattr(discovery.capture_probe,'probe',no_network)
+    result=discovery.run(tmp_path/'run',max_requests=2,preflight_bundle=unicode_bundle,replay_only=True)
+    assert result['reused_provider_submissions']==2
+
+
+def test_implementation_snapshot_is_exact_and_checked_on_resume(tmp_path,monkeypatch):
+    monkeypatch.setattr(discovery.capture_probe,'probe',no_network)
+    root=tmp_path/'run'
+    discovery.run(root,max_requests=2,replay_only=True)
+    protocol=json.loads((root/'protocol.json').read_text())
+    for name,expected in protocol['implementation_sha256'].items():
+        assert digest(root/'implementation'/name)==expected
+    (root/'implementation'/discovery.CODE_FILES[0]).write_text('changed frozen implementation')
+    with pytest.raises(ValueError,match='implementation changed'):
+        discovery.run(root,resume=True,replay_only=True)
+
+
+@pytest.mark.parametrize('where',['live','frozen'])
+def test_code_change_during_capture_stops_before_another_request_or_publication(tmp_path,monkeypatch,where):
+    root=tmp_path/'run'
+    live_paths=discovery._implementation_paths()
+    fake_live=tmp_path/'live-copy.py';fake_live.write_bytes(live_paths[discovery.CODE_FILES[0]].read_bytes())
+    live_paths[discovery.CODE_FILES[0]]=fake_live
+    monkeypatch.setattr(discovery,'_implementation_paths',lambda:live_paths)
+    calls=[]
+    def changed(url,mode,output,**kw):
+        calls.append(url)
+        result=saved_probe(url,mode,output,**kw)
+        changed_path=fake_live if where=='live' else root/'implementation'/discovery.CODE_FILES[0]
+        changed_path.write_text('changed after one capture')
+        return result
+    monkeypatch.setattr(discovery.capture_probe,'probe',changed)
+    with pytest.raises(ValueError,match='implementation changed'):
+        discovery.run(root,max_requests=5)
+    assert len(calls)==1
+    assert (root/'attempts'/'0001'/'capture'/'body.html').is_file()
+    assert not list((root/'reports').glob('*/complete.json'))
+    monkeypatch.setattr(discovery.capture_probe,'probe',no_network)
+    with pytest.raises(ValueError):discovery.run(root,resume=True)
+
+
+@pytest.mark.parametrize('field,value', [('seeds',['https://evil.example']),('transport','direct'),
+    ('max_requests',True),('max_requests',0),('timeout',True),('timeout',181)])
+def test_resume_validates_protocol_fields_even_when_copies_agree(tmp_path,monkeypatch,field,value):
+    monkeypatch.setattr(discovery.capture_probe,'probe',no_network)
+    root=tmp_path/'run';discovery.run(root,max_requests=2,replay_only=True)
+    protocol=json.loads((root/'protocol.json').read_text());protocol[field]=value
+    for name in ('protocol.json','frozen-protocol.json'):
+        (root/name).write_text(discovery._json(protocol))
+    with pytest.raises(ValueError,match='Invalid frozen protocol'):
+        discovery.run(root,resume=True)
+
+
+def test_modified_valid_protocol_value_disagrees_with_frozen_copy(tmp_path,monkeypatch):
+    monkeypatch.setattr(discovery.capture_probe,'probe',no_network)
+    root=tmp_path/'run';discovery.run(root,max_requests=2,replay_only=True)
+    protocol=json.loads((root/'protocol.json').read_text());protocol['max_requests']=3
+    (root/'protocol.json').write_text(discovery._json(protocol))
+    with pytest.raises(ValueError,match='Frozen protocol changed'):
+        discovery.run(root,resume=True)

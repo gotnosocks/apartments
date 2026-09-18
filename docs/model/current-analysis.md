@@ -1,154 +1,90 @@
-# Refit current evidence, then analyze contributions and residuals
+# Refit current evidence, then analyze with PyMC
 
-The main workflow is scrape → transform → fit → analyze. Forecasting and
-unseen-building transfer are secondary diagnostics. The examples below support
-iterative research rather than prescribing a fixed set of renter-facing features.
+The main workflow is scrape → transform → fit → analyze. The main model is the
+hierarchical PyMC posterior selected by `config/main-analysis.json`. Feature
+contributions, fitted residuals and joint apartment-specific contrasts are the
+primary outputs. The [main analysis page](main-bayesian-analysis.md) uses every
+retained joint posterior draw; no surrogate regression supplies its estimates.
 
-The [interactive review page](analysis-review-page.md) reads the latest reviewed
-model, its exact dataset and residuals. It brings source descriptions, grouped
-contributions, apartment history and supported joint feature comparisons into
-one read-only view. Unsupported or reporting-only changes remain explicit.
+## Current selected fit
 
-## Fit the latest supplied observations
+The accepted experiment is `chelsea-bayesian-bathrooms-long-20260918`, bound to
+`chelsea-reviewed-bathroom-projection-20260918`: 52,711 fitted observations,
+22,165 units, 1,134 buildings and 13 refreshed current listings. Both parameter
+and derived convergence checks pass. The source-cleaned 52,704-row refit is in
+progress; it will not replace this selection until its verification and
+comparison are complete. The floor-increment design and skeptical parameter
+audit are separate research work, not silently retrofitted into saved draws.
 
-```sh
-OPENBLAS_NUM_THREADS=2 OMP_NUM_THREADS=2 MKL_NUM_THREADS=2 \
-  .venv/bin/python -m models.fit_robust_analysis \
-  --historical-dataset data/exports/chelsea-serving-history-20260918-asof1600 \
-  --current-snapshot data/probes/chelsea-candidate-refresh-20260918/snapshot \
-  --output data/model/chelsea-current-analysis-20260918 \
-  --as-of 2026-09-18T17:37:26Z --max-age-days 1
-```
+The main page reproduces all 13 current fitted-rent credible intervals within
+$1.4e-11 of the saved fit. Tests also exercise a real joint laundry change,
+all-fitted browsing, source evidence, invalid bundles and withheld comparisons.
+The separate [research page](bayesian-research-page.md) compares accepted runs.
 
-This versioned analysis fit uses historical own-advertisement initial asks for
-months before the analysis month, and the latest eligible ACTIVE captures for the
-current month. Current rows are selected without budget or preference filters.
-They must satisfy the existing rent/layout support and freshness checks. A unit
-contributes at most one observation per month. Inactive captures do not become
-new current-month market asks, and current attributes are not copied backward
-onto historical rows.
+## Fit and select
 
-The two price sampling rules are explicit in every row and the dataset manifest:
-historical initial asks versus current capture-time asks. The latter may reflect
-price reductions or listing survival. That distinction should be examined in
-modeling iterations; combining the rows does not erase it.
-
-The command publishes a verified analytical dataset and refits the existing
-robust log-rent specification, including current buildings and units. It preserves
-the fitted encoding, coefficients, source membership, current capture IDs,
-layout support and convergence checks. Portable fitted values must agree with
-the scientific encoder for every training row at that row's own month. Exact
-replay reuses the completed fit. New evidence or policies need a new output path.
-
-This analysis model permits the current month in fitting. It is separate from
-the earlier next-month serving fit and does not inherit that model's forecast
-age restriction or claim a new holdout score. The supplied fresh snapshot may
-still cover only a small part of Chelsea; refitting cannot repair missing
-collection coverage.
-
-## Generate a source-linked residual queue
+Use a verified reviewed bathroom/source-composition analytical bundle. Current
+accepted capture observations belong in the fit, before preference or budget
+filtering. Historical initial asks and current capture-time asks remain explicit
+sampling rules; current attributes must not be copied backward onto historical
+price events. One observation per unit/month avoids duplicate price evidence.
 
 ```sh
-.venv/bin/python -m models.residual_review \
-  --model data/model/chelsea-current-analysis-20260918/model \
-  --dataset data/model/chelsea-current-analysis-20260918/dataset \
-  --output data/model/chelsea-residual-review-20260918 --top-units 20
+OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 uv run --locked --extra model python \
+  -m apartments fit-pricing \
+  data/model/chelsea-reviewed-scope-composition-projection-20260918 \
+  data/model/chelsea-next-bayesian-fit
 ```
 
-The dataset must match the model's exact verified training manifest. Residuals
-are **in-sample fitted diagnostics**, intentionally including the apartment's own
-price evidence. Positive `asking_minus_fitted` means the ask exceeds the fitted
-value. `asking_vs_fitted_percent` divides that difference by fitted rent;
-`log_residual` is `log(ask/fitted)`.
+The main command uses the versioned PyMC runner with compiled nutpie NUTS,
+lossless repeated-feature compression, four chains, 2,000 tuning steps and
+4,000 retained draws per chain by default. It writes a protocol, source/code
+bindings, posterior, diagnostics, residuals and contrasts. Identical reruns
+verify and reuse completed artifacts. Changed evidence or settings require a
+new output directory. A failed convergence gate does not produce an accepted
+main selection.
 
-The queue contains the 20 largest positive and 20 largest negative log residuals,
-with distinct units within each tail, plus every current capture. This prevents
-repeated advertisements for one apartment from consuming the whole review queue.
-Each entry retains the original model input, source advertisement, canonical unit,
-capture references, fitted value, grouped and detailed log contributions, and
-review status. Full-cohort residuals and factor-support metadata are also saved.
+After diagnostics, source review and matched research comparisons support
+selection, publish the explicit pointer:
 
-Contributions sum to **log fitted rent**. Building/unit offsets, date effects,
-layout, size, amenity terms and missingness are shown separately. Those terms
-describe the fitted parameterization; centering and shrinkage mean a term's
-standalone dollar interpretation is not unique. For a marginal contrast, re-encode
-both the reference and changed apartment with `RobustPricingModel.marginal_contributions`.
-That recomputes interactions and bedroom-dependent size normalization. Keep the
-reference apartment/date, unknown-value warnings and held-fixed assumptions
-visible. Existing contrast sensitivity and building-resampling studies remain
-useful evidence about feature interpretation.
+```sh
+uv run --locked --extra model python -m apartments.main_analysis \
+  --experiment data/model/chelsea-next-bayesian-fit \
+  --dataset data/model/chelsea-reviewed-scope-composition-projection-20260918
+```
 
-## Use residuals to improve the model
+The selection command verifies the source, fit and both convergence gates.
+It does not sample or replace existing source observations. The page independently
+checks these bindings, rebuilds the exact feature design and opens the saved
+posterior. Unsupported or mismatched states raise an explicit error.
 
-Inspect immutable source evidence before deciding what a large residual means.
-Useful distinctions include source price-entry changes, extraction mistakes,
-wrong apartment identity, nonresidential use, unusual lease/price terms, missing
-features and unexplained market variation. Large fitted building/unit offsets
-can also absorb omitted features, so a small residual does not prove complete
-feature coverage.
+## Interpret and iterate
 
-Record findings separately from the automatic queue. Apply supported data edits
-through versioned overlays, or test a conservative extraction/cohort change when
-the mechanism recurs. Preserve raw prices, old interpretations and unresolved
-cases. Refit and inspect changes in both residual structure and feature contrasts,
-including cases beyond those that motivated the change. Never infer a replacement
-price merely because it would reduce model error.
+Residuals deliberately include the apartment's own evidence. They are in-sample
+review signals, not independent prediction scores or automatic bargain labels.
+Latent median rent intervals describe conditional posterior uncertainty, not a
+transaction-price interval. Mean log contributions add to E[μ]; their dollar
+transformations and interval endpoints are not additive.
 
-The [first residual-driven source audit](../analysis/chelsea-residual-review-2026-09-18.md)
-found rapid source price corrections, explicitly commercial listings, a location/
-net-effective conflict, and plausible omitted apartment features. It illustrates
-why residual review should guide the next modeling iteration.
+Counterfactuals change raw source values together and re-encode dependencies,
+including bedroom-dependent area normalization and bathroom shortfall. Building,
+unit and date are held fixed. Unsupported endpoints, reporting-only changes and
+failed derived diagnostics withhold physical-value estimates. Estimated market
+associations do not replace an individual's willingness to pay.
 
-The subsequent [cohort revision and matched refit](../analysis/chelsea-reviewed-cohort-2026-09-18.md)
-quarantines source-evidenced scope/price-basis issues through a separate decision
-bundle. `models.refit_analysis_revision` requires decisions bound to the exact
-parent dataset, retains quarantined rows and reasons, and compares both models
-on the same retained observations. This separates membership changes from fitted
-value and feature-contrast sensitivity.
+Use large residuals and building/unit offsets to inspect immutable source
+captures. Distinguish data errors, identity conflicts, lease/price-basis changes,
+omitted attributes and unexplained variation. Apply supported corrections only
+through separate overlays; never invent a replacement price because it would
+reduce a residual. Compare changes on the same retained cohort and inspect new
+cases beyond those that motivated the iteration.
 
-The [interior-evidence iteration](../analysis/chelsea-interior-evidence-2026-09-18.md)
-screens ceiling measurements, multi-level layouts, floor-through wording and
-skylights across the cohort. Reviewing residual matches uncovered four more
-scope/lease-term problems. The latest analysis fit is
-`data/model/chelsea-reviewed-analysis-20260918-v3`; its residual queue is
-`data/model/chelsea-interior-reviewed-residuals-20260918`. Interior matches remain
-review evidence pending feature-scope and missingness-controlled comparisons.
-
-The subsequent [interior model experiment](../analysis/chelsea-interior-model-2026-09-18.md)
-completed those comparisons under three group penalties. Known ceiling/level
-values add little beyond reporting; the level contrast has sparse within-building
-support and overlaps with private outdoor/luxury features. The nine fits and
-changed-residual review remain separate research artifacts. The main reviewed
-analysis model remains `chelsea-reviewed-analysis-20260918-v3`.
-
-The [outdoor contribution experiment](../analysis/chelsea-outdoor-model-2026-09-18.md)
-adds source-linked private/shared type evidence and compares two acceptance
-policies across 18 matched fits. Private-space contrasts depend materially on
-source policy. Review of the largest fitted changes finds ambiguous structured
-labels and genuine access wording missed by strict text rules. Both experiments
-remain separate from the main reviewed model; outdoor area is not yet modeled.
-
-The [outdoor scope follow-up](../analysis/chelsea-outdoor-scope-2026-09-18.md)
-measures private wording, apartment access, shared facilities and views as separate
-source occurrences. A fresh 25-unit evaluation finds missed access claims and
-ambiguous building-garden entries classified as private. These measurements are
-held for review; they do not become model inputs. Temporary closures and area
-exclusions also need separate interpretation before the next contribution fit.
-
-The next [Bayesian research round](bayesian-feature-research.md) estimates joint
-coefficient and group uncertainty on the current cohort, with separate full/half
-bathroom increments and bedroom-relative bathroom shortfall. The [bathroom audit](../analysis/chelsea-bathroom-evidence-2026-09-18.md)
-recovers explicit counts and reviews en-suite wording; the [group-effect audit](../analysis/chelsea-group-effects-2026-09-18.md)
-finds shared facilities, basement position, flexible/railroad bedrooms and bundled
-luxury features behind several extreme offsets. These are separate research
-artifacts. Sampling diagnostics and source-policy sensitivity must be assessed
-before promoting uncertainty estimates to the analysis page.
-The [first converged fit](../analysis/chelsea-bayesian-bathrooms-2026-09-18.md)
-now passes parameter and derived diagnostics. Its research report remains separate:
-the [stronger-feature-prior comparison](../analysis/chelsea-bayesian-prior-sensitivity-2026-09-18.md)
-is complete, while source sensitivity, group-prior sensitivity and larger-apartment
-residual dispersion still need work.
-The separate [Bayesian research page](bayesian-research-page.md) displays the
-accepted intervals, direct prior comparisons and all 13 current residuals. The
-[bedroom-scale experiment](../analysis/chelsea-bayesian-residual-scale-2026-09-18.md)
-failed its parameter convergence gate; its uncertainty estimates remain withheld.
+The [parameter audit](../analysis/chelsea-bayesian-parameter-audit-2026-09-18.md)
+records the evidence each representation must earn, including floor increments,
+reporting indicators, pooling priors, time terms and residual assumptions.
+Prior robust-model experiments remain documented in the
+[historical workflow](legacy-robust-analysis.md). `fit-pricing-legacy` explicitly
+retains the old baseline fitting command. The existing `score-apartments`
+command is a legacy robust-model search path; the verified main Bayesian page
+is the current contribution/residual interface while search integration is
+updated. Preference ranking remains separate from the inferred market model.

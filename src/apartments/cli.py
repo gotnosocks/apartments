@@ -239,17 +239,110 @@ def analytical_build(
     typer.echo(json.dumps(build_dataset(db, output, as_of=as_of, ledger=ledger), indent=2))
 
 
-@app.command("fit-pricing")
-def pricing_fit(
+@app.command("fit-pricing-legacy")
+def pricing_fit_legacy(
     dataset: Path,
     output: Path,
     holdout_fraction: float = typer.Option(.2, min=0, max=.99, help="Later-month holdout; 0 explicitly fits descriptively without validation."),
     ridge: float = typer.Option(1.0, min=.000001),
 ):
-    """Fit and publish an interpretable model from a verified analytical bundle."""
+    """Fit the archived robust/ridge baseline; not the main Bayesian model."""
     import json
     from .research_pipeline import fit_dataset
     typer.echo(json.dumps(fit_dataset(dataset, output, holdout_fraction=holdout_fraction, ridge=ridge), indent=2))
+
+
+@app.command("fit-pricing")
+def pricing_fit(
+    dataset: Path,
+    output: Path,
+    draws: int = typer.Option(4000, min=1, help="Retained posterior draws per chain."),
+    tune: int = typer.Option(2000, min=1, help="Warmup draws per chain."),
+    chains: int = typer.Option(4, min=2, help="Independent PyMC/NUTS chains."),
+    seed: int = typer.Option(20260918, min=0),
+    spec: str = typer.Option("full_half_balance", help="Bathroom encoding: full_half_balance, full_half, incremental_total or linear_total."),
+    residual_scale: str = typer.Option("shared", help="shared or bedroom; changes the observation-noise model."),
+    target_accept: float = typer.Option(.93, help="NUTS target acceptance, strictly between zero and one."),
+    adaptation: str = typer.Option("diag", help="Exact NUTS adaptation: diag or low_rank."),
+    prior_multiplier: float = typer.Option(1., help="Positive feature prior scale multiplier."),
+    building_prior_scale: float = typer.Option(.35, help="Positive building hierarchy scale prior."),
+    unit_prior_scale: float = typer.Option(.25, help="Positive within-building unit hierarchy scale prior."),
+    residual_parameterization: str = typer.Option("centered", help="centered or noncentered bedroom-noise hierarchy; inert with shared noise."),
+    graph_validation: Path | None = typer.Option(None, help="Optional verified graph parity bundle bound into the protocol."),
+):
+    """Fit the main exact PyMC model from a verified bathroom source projection.
+
+    Publishes immutable protocol/posterior products; never promotes a fit or
+    falls back to another model. Existing matching checkpoints may be resumed.
+    """
+    import json
+    from argparse import Namespace
+    from models import bayesian_feature_experiment_v3 as runner
+    from threadpoolctl import threadpool_limits
+    args = Namespace(dataset=dataset, output=output, draws=draws, tune=tune,
+        chains=chains, seed=seed, spec=spec, residual_scale=residual_scale,
+        target_accept=target_accept, adaptation=adaptation, prior_multiplier=prior_multiplier,
+        building_prior_scale=building_prior_scale, unit_prior_scale=unit_prior_scale,
+        residual_parameterization=residual_parameterization, graph_validation=graph_validation)
+    try:
+        runner.validate_args(args)
+        # Match the arithmetic used by exact design reconstruction in analysis.
+        with threadpool_limits(limits=1, user_api='blas'):
+            result = runner.run(args)
+    except (ValueError, OSError) as error:
+        typer.echo(f"PyMC fit failed: {error}", err=True)
+        raise typer.Exit(1) from error
+    typer.echo(json.dumps(result, indent=2, allow_nan=False))
+
+
+@app.command("analyze-apartment")
+def apartment_analyze(
+    audit_id: str,
+    selection: Path | None = typer.Option(None, help="Main PyMC selection JSON; defaults to config/main-analysis.json."),
+    changes: str | None = typer.Option(None, help='Optional simultaneous source-valued JSON changes, e.g. {"bedrooms":2,"full_bathrooms":2}.'),
+):
+    """Inspect a selected, verified posterior and optional joint counterfactual.
+
+    Uses all retained draws and the same diagnostic/support gates as the main
+    UI. This command never fits, scrapes, edits source data or selects a new fit.
+    """
+    import json
+    from . import main_analysis
+    from .bayesian_analysis import BayesianAnalysis
+    def object_without_duplicates(pairs):
+        result = {}
+        for key, value in pairs:
+            if key in result:
+                raise ValueError('Duplicate JSON change key: '+key)
+            result[key] = value
+        return result
+    def reject_constant(value):
+        raise ValueError('Nonfinite JSON value: '+value)
+    def finite_float(value):
+        import math
+        number = float(value)
+        if not math.isfinite(number):
+            reject_constant(value)
+        return number
+    try:
+        requested = None
+        if changes is not None:
+            requested = json.loads(changes, object_pairs_hook=object_without_duplicates,
+                                   parse_constant=reject_constant, parse_float=finite_float)
+            if not isinstance(requested, dict) or not requested:
+                raise ValueError('Changes must be a nonempty JSON object of source-valued fields')
+        selected, experiment, dataset = main_analysis.load_selection(selection or main_analysis.DEFAULT_SELECTION)
+        workspace = BayesianAnalysis.load(experiment, dataset)
+        try:
+            result = {'selection': selected, 'detail': workspace.detail(audit_id)}
+            if requested is not None:
+                result['counterfactual'] = workspace.counterfactual(audit_id, requested)
+        finally:
+            workspace.close()
+        typer.echo(json.dumps(result, indent=2, allow_nan=False))
+    except (ValueError, OSError, KeyError) as error:
+        typer.echo(f"Bayesian analysis failed: {error}", err=True)
+        raise typer.Exit(1) from error
 
 
 @app.command("build-historical")

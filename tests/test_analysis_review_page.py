@@ -8,7 +8,7 @@ import pytest
 streamlit = pytest.importorskip("streamlit")
 from streamlit.testing.v1 import AppTest
 
-PAGE = Path(__file__).resolve().parents[1] / "pages/2_Contributions_and_Residuals.py"
+PAGE = Path(__file__).resolve().parents[1] / "legacy/2_Contributions_and_Residuals.py"
 
 
 @pytest.fixture

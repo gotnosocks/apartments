@@ -18,7 +18,7 @@ from streeteasy_archive import probe as capture_probe
 from streeteasy_archive.oxylabs import _result_item, build_payload
 from streeteasy_archive.scope import SEEDS as CONFIGURED_SEEDS
 
-VERSION = 'bounded-rental-discovery-v1'
+VERSION = 'bounded-rental-discovery-v2'
 SEEDS = tuple(url for url in CONFIGURED_SEEDS if url in
               {'https://streeteasy.com' + path for path in rental_search.AREAS})
 RAW_FILES = ('request.json', 'response.json', 'body.html', 'extracted.json', 'metadata.json')
@@ -63,6 +63,34 @@ def _once(path, data):
         temp.unlink()
 
 
+def _implementation_paths():
+    return {name: Path(__file__).parents[1] / name for name in CODE_FILES}
+
+
+def _check_run(root, protocol):
+    """Revalidate fixed intent and live/frozen code at each external boundary."""
+    if (protocol.get('version') != VERSION or protocol.get('seeds') != list(SEEDS)
+            or protocol.get('transport') != 'existing_one_request_oxylabs_probe_html'
+            or type(protocol.get('max_requests')) is not int or protocol['max_requests'] < 1
+            or type(protocol.get('timeout')) is not int or not 1 <= protocol['timeout'] <= 180
+            or not isinstance(protocol.get('preflights'), list)
+            or len(protocol['preflights']) > protocol['max_requests']):
+        raise ValueError('Invalid frozen protocol seeds/transport/ceiling/timeout')
+    expected = _json(protocol).encode()
+    for name in ('protocol.json', 'frozen-protocol.json'):
+        path = root / name
+        if path.is_symlink() or not path.is_file() or path.read_bytes() != expected:
+            raise ValueError('Frozen protocol changed')
+    hashes = protocol.get('implementation_sha256')
+    if not isinstance(hashes, dict) or set(hashes) != set(CODE_FILES):
+        raise ValueError('Incomplete frozen implementation hashes')
+    for name, live in _implementation_paths().items():
+        frozen = root / 'implementation' / name
+        if (live.is_symlink() or frozen.is_symlink() or not live.is_file() or not frozen.is_file()
+                or digest(live) != hashes[name] or digest(frozen) != hashes[name]):
+            raise ValueError('Live or frozen implementation changed: ' + name)
+
+
 def _hashes(directory):
     return {name: digest(directory / name) for name in RAW_FILES if (directory / name).is_file()}
 
@@ -103,7 +131,7 @@ def _preflights(bundle):
     if 'pages.jsonl' not in blobs:
         raise ValueError('Preflight bundle lacks verified pages')
     entries = []
-    for row in map(json.loads, blobs['pages.jsonl'].decode().splitlines()):
+    for row in (json.loads(line) for line in blobs['pages.jsonl'].decode().split('\n') if line.strip()):
         evidence = row['probe_evidence']
         directory = Path(evidence['directory']).resolve()
         hashes = evidence['file_sha256']
@@ -225,6 +253,7 @@ def _state(root, protocol):
 
 
 def _publish(root, protocol, pages, attempts, reason):
+    _check_run(root, protocol)
     coverage = rental_search.coverage(pages)
     report = {'version': VERSION, 'protocol_sha256': digest(root / 'protocol.json'),
               'stop_reason': reason, 'market_coverage_status': 'unverified',
@@ -236,6 +265,7 @@ def _publish(root, protocol, pages, attempts, reason):
               'complete_inventory': False}
     key = rental_search.fingerprint({'report': report, 'coverage': coverage})
     target = root / 'reports' / key
+    _check_run(root, protocol)
     publish_bundle(target, {'run.json': _json(report), 'coverage.json': _json(coverage),
         'pages.jsonl': ''.join(json.dumps(p, sort_keys=True) + '\n' for p in pages)},
         {'version': VERSION, 'protocol_sha256': report['protocol_sha256'], 'state_sha256': key})
@@ -253,7 +283,7 @@ def run(output, *, max_requests=None, preflight_bundle=None, resume=False, repla
     with (root / '.run.lock').open('a') as lock:
         fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
         protocol_path = root / 'protocol.json'
-        code = {name: digest(Path(__file__).parents[1] / name) for name in CODE_FILES}
+        code = {name: digest(path) for name, path in _implementation_paths().items()}
         if resume:
             protocol = json.loads(protocol_path.read_text())
             if (protocol['version'] != VERSION or protocol['implementation_sha256'] != code
@@ -274,9 +304,14 @@ def run(output, *, max_requests=None, preflight_bundle=None, resume=False, repla
                         'seeds': list(SEEDS), 'max_requests': max_requests, 'timeout': timeout,
                         'transport': 'existing_one_request_oxylabs_probe_html',
                         'preflights': entries, 'preflight_bundle': bundle, 'implementation_sha256': code}
+            for name, source in _implementation_paths().items():
+                _once(root / 'implementation' / name, source.read_bytes())
+            _once(root / 'frozen-protocol.json', _json(protocol))
             _once(protocol_path, _json(protocol))
+        _check_run(root, protocol)
         try:
             while True:
+                _check_run(root, protocol)
                 pages, attempts = _state(root, protocol)
                 pending = _pending(pages)
                 if attempts and attempts[-1]['outcome']['status'] != 'accepted':
@@ -288,6 +323,7 @@ def run(output, *, max_requests=None, preflight_bundle=None, resume=False, repla
                 elif replay_only:
                     reason = 'offline_replay_only'
                 else:
+                    _check_run(root, protocol)
                     sequence = len(attempts) + 1
                     directory = root / 'attempts' / f'{sequence:04d}'
                     intent = {'sequence': sequence, 'url': pending[0],
@@ -297,6 +333,7 @@ def run(output, *, max_requests=None, preflight_bundle=None, resume=False, repla
                     _once(directory / 'intent.json', _json(intent))
                     _sync_dir(directory.parent)
                     _sync_dir(root)
+                    _check_run(root, protocol)
                     capture_probe.probe(intent['url'], 'html', directory / 'capture', timeout=protocol['timeout'])
                     continue
                 return _publish(root, protocol, pages, attempts, reason)

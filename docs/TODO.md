@@ -20,7 +20,28 @@ research directions rather than a fixed feature checklist.
 
 **Main-model clarification:** use the PyMC Bayesian model for the main analysis.
 Improve fit speed through compiled sampling and exact graph operations; do not
-serve a surrogate regression in its place. Main posterior integration is underway.
+serve a surrogate regression in its place. The main contribution/residual page
+and fitting/analysis CLI now use the verified PyMC posterior.
+
+**Specification review, September 18:** listed floor should use separate threshold
+increments, `sum_k beta_k * 1(listed_floor > k)`, like bedrooms. Every factor and
+representation must justify its role; the earlier feature examples are directions,
+not a checklist to maximize. Audit source meaning, independent unit/building
+support, overlap, confounding with group offsets, prior sensitivity, residual
+patterns, and whether a simpler representation suffices.
+
+- [ ] Replace the linear listed-floor term in a versioned Bayesian specification,
+  preserving unknown floors and the distinction from physical height. Inspect
+  threshold support and gaps, and compare joint floor contrasts and residuals on
+  the same cohort before promoting the fit.
+  The [isolated increment design](model/listed-floor-increment-design.md) is
+  implemented and tested; a new posterior and main-model promotion remain pending.
+- [ ] Complete a skeptical parameter audit and matched Bayesian simplification
+  experiments. Include nuisance reporting indicators, group effects and priors,
+  time/season bases and likelihood choices, as well as apartment amenities. A
+  narrow interval or a nonzero coefficient alone does not justify inclusion.
+  The [initial support audit and decision protocol](analysis/chelsea-bayesian-parameter-audit-2026-09-18.md)
+  are complete; matched simplification fits remain to be done.
 
 - [x] Rank all building/unit effects and review both tails against source text.
   The [group audit](analysis/chelsea-group-effects-2026-09-18.md) identifies shared
@@ -38,9 +59,9 @@ serve a surrogate regression in its place. Main posterior integration is underwa
 - [ ] Test group-prior sensitivity and bedroom-dependent residual dispersion;
   the shared-noise fit misses larger-apartment residual tails. The bedroom-scale
   [first bedroom-scale experiment](analysis/chelsea-bayesian-residual-scale-2026-09-18.md)
-  finished but failed the parameter convergence gate. An equivalent centered
-  parameterization passed its numerical checks and the 1,316-test suite;
-  its retry is running on the same 52,711-row cohort.
+  finished but failed the parameter convergence gate. Its equivalent centered
+  retry passes both gates and improves larger-bedroom dispersion checks, while
+  tail mismatch remains. Group-prior comparisons and selection remain pending.
 - [x] Derive interpretable joint category comparisons and compare feature priors.
   [Laundry and common doorman contrasts are stable](analysis/chelsea-bayesian-category-sensitivity-2026-09-18.md)
   under this prior change; sparse HVAC categories remain weakly supported.
@@ -57,9 +78,17 @@ serve a surrogate regression in its place. Main posterior integration is underwa
   observations and all 13 refreshed listings. Original prices and counts remain.
 - [ ] Refit that source revision and compare contributions. Preserve uncertain
   prices, physical change dates and unit aliases until supported by evidence.
+  The matched 52,704-row shared-scale PyMC refit is running.
 - [x] Expose accepted Bayesian bathroom/category intervals, prior comparisons and
   all 13 current residuals in the separate [research page](model/bayesian-research-page.md).
   The page verifies source/report bindings and withholds failed experiments.
+- [x] Use the accepted PyMC posterior in the main contribution/residual page and
+  `fit-pricing` / `analyze-apartment` CLI. Preserve previous robust workflows
+  with explicit legacy labels; verify all 13 current fitted intervals and joint
+  counterfactuals against saved posterior draws.
+- [ ] Connect selected Bayesian current-fit residuals to preference/frontier
+  scoring. The main page uses PyMC; `score-apartments` still names the documented
+  legacy robust search path and must be migrated explicitly.
 - [ ] Fold the ordered saved-design loader into the next model version after
   same-code prior experiments finish; do not use the original unsafe reload for
   apartment-level reconstruction. The v2 checker and full-cohort parity proof are complete.

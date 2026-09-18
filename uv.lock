@@ -682,6 +682,7 @@ model = [
     { name = "pyarrow" },
     { name = "pymc" },
     { name = "scipy" },
+    { name = "threadpoolctl" },
 ]
 
 [package.metadata]
@@ -712,6 +713,7 @@ requires-dist = [
     { name = "scrapy", specifier = ">=2.18" },
     { name = "selenium", marker = "extra == 'browser'", specifier = "==4.48.0" },
     { name = "streamlit", marker = "extra == 'app'", specifier = ">=1.42" },
+    { name = "threadpoolctl", marker = "extra == 'model'", specifier = ">=3.5" },
     { name = "typer", specifier = ">=0.15" },
     { name = "waitress", specifier = ">=3,<4" },
     { name = "zstandard", marker = "extra == 'migration'", specifier = ">=0.23,<1" },
