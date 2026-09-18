@@ -10,7 +10,8 @@ Migration completed on September 16 at 21:19 EDT; Modal retains a frozen backup.
 Direct Tailscale access: [rental review](http://thelio.tail3983e0.ts.net:8766/) ·
 [raw archive](http://thelio.tail3983e0.ts.net:8765/).
 
-Latest results: [September 8 Chelsea analysis](docs/analysis/chelsea-2026-09-08.md).
+Latest results: [September 17 minimal canonical-unit model](docs/analysis/chelsea-minimal-2026-09-17.md).
+Earlier results: [September 8 Chelsea analysis](docs/analysis/chelsea-2026-09-08.md).
 Updated coverage: [September 8 cloud preparation](docs/analysis/chelsea-2026-09-08-cloud-preparation.md).
 
 [Point-in-time retention](docs/data/point-in-time.md) documents collection clocks,
