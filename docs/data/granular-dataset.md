@@ -7,9 +7,10 @@ links evidence. A model may later select an observation unit,
 resolve physical identities, combine repeated evidence, or construct time windows.
 Those choices do not replace these tables.
 
-`models/modal_granular.py` converts the immutable completed Chelsea snapshot into
-Parquet on the `chelsea-archive` Modal Volume. No StreetEasy requests, GPU, local
-archive download, or legacy latest-unit import are involved. Four CPU workers at
+`models/transform_local.py` converts an immutable completed archive snapshot into
+Parquet locally. `models/modal_granular.py` provides the same transform on the
+`chelsea-archive` Modal Volume when cloud execution is explicitly wanted. Neither
+runner issues StreetEasy requests or uses the legacy latest-unit import. Four CPU workers at
 most process 2,000 snapshots per shard, with bounded Parquet buffers. The quality
 report uses DuckDB with a 1 GB memory limit and two threads.
 
@@ -76,8 +77,30 @@ absence. Unknown source fields can be extracted later without re-scraping.
 
 ## Running and resuming
 
-Use the project's existing virtual environment (install the `model` and `modal`
-extras when setting up a new environment). Deploy with:
+Use the project's existing virtual environment. For a local run, install the
+`model` extra when setting up a new environment, then supply the frozen archive,
+body directory, correction ledger, and a new output directory:
+
+```sh
+PYTHONPATH=src .venv/bin/python models/transform_local.py \
+  --snapshot /path/to/archive.sqlite3 \
+  --bodies /path/to/bodies \
+  --corrections config/corrections.jsonl \
+  --output /path/to/datasets/new-run-id \
+  --workers 4
+```
+
+Progress is recorded in `progress.json`. Repeating the command resumes valid
+shards; a lock prevents two local processes writing the same run concurrently.
+Both local and cloud runners call the shared finalizer in
+`src/apartments/granular_finalize.py`, exposed through `granular_export.finish`.
+It verifies checkpoint identities, exact planned Parquet files (including empty
+parts), row counts, snapshot coverage, references, and derived unit/link tables
+before writing `complete.json`. Unexpected files or incomplete checkpoints fail
+finalization rather than silently entering the published dataset. Implementation
+changes require a new run ID; existing completed datasets remain immutable.
+
+For optional cloud execution, install the `modal` extra and deploy with:
 
 ```sh
 .venv/bin/modal deploy models/modal_granular.py

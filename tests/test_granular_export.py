@@ -6,7 +6,7 @@ import pyarrow.parquet as pq
 from apartments.granular_export import prepare, process_shard
 
 
-def test_preserves_fetches_snapshots_and_repeated_events(tmp_path):
+def create_repeated_listing_export(tmp_path):
  db=tmp_path/'archive.sqlite3';c=sqlite3.connect(db)
  c.executescript('''CREATE TABLE snapshots(id INTEGER,generation INTEGER,url TEXT,body_hash TEXT,observed REAL,extraction_version INTEGER,extracted TEXT);
  CREATE TABLE scope_urls(generation INTEGER,url TEXT);
@@ -30,6 +30,11 @@ def test_preserves_fetches_snapshots_and_repeated_events(tmp_path):
  for part in range(plan['shards']):
   first=process_shard(db,root,part,tmp_path/'bodies')
   assert process_shard(db,root,part,tmp_path/'bodies')==first
+ return db,root,ledger,plan
+
+
+def test_preserves_fetches_snapshots_and_repeated_events(tmp_path):
+ db,root,ledger,plan=create_repeated_listing_export(tmp_path)
  observations=pq.read_table(root/'listing_observations').to_pylist()
  assert len(observations)==2
  assert all(r['canonical_unit_url']=='https://streeteasy.com/building/demo/04c' for r in observations)
