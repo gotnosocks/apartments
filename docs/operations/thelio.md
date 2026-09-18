@@ -193,3 +193,14 @@ still default to loopback only. If the node's Tailscale IP changes on re-enrollm
 update both units and restart the services. `Restart=on-failure` lets them retry
 if the Tailscale interface is not ready at boot. Localhost SSH access remains
 available as an alternative.
+
+
+### Mobile model report
+
+The review service serves the self-contained local model report at
+`http://thelio.tail3983e0.ts.net:8766/model-report`. A phone must be connected to
+the existing Tailscale network. `REVIEW_MODEL_REPORT` selects exactly one HTML
+artifact; it does not expose the model directory or provide a file browser.
+The existing loopback/Tailscale listeners and allowed-host checks apply. This
+route does not change the review dataset or annotations. Change the environment
+path and restart the service when publishing a later report.

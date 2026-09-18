@@ -197,3 +197,24 @@ def test_listing_inclusion_routes_and_protection():
     with ro.session_transaction() as session:
         token = session['csrf']
     assert ro.post(url, json={}, headers={'X-Review-CSRF': token}).status_code == 403
+
+
+def test_model_report_serves_only_configured_artifact_with_private_host_gate(tmp_path, monkeypatch):
+    monkeypatch.delenv('REVIEW_MODEL_REPORT', raising=False)
+    report=tmp_path/'report.html'
+    report.write_text('<!doctype html><html><body>Model results</body></html>')
+    calls=[]
+    client=create_app(lambda *args:calls.append(args), model_report_path=report,
+                      allowed_hosts=['thelio.example.ts.net']).test_client()
+    response=client.get('/model-report',base_url='http://thelio.example.ts.net:8766')
+    assert response.status_code==200 and response.mimetype=='text/html'
+    assert response.data==report.read_bytes()
+    assert response.headers['Cache-Control']=='private, no-cache'
+    assert client.get('/model-report',headers={'Host':'evil.com'}).status_code==403
+    assert client.get('/model-report/../results.json').status_code==404
+    assert client.get('/model-report?path=/etc/passwd').data==report.read_bytes()
+    assert client.post('/model-report',json={}).status_code==403
+    assert not calls
+    assert create_app(lambda *args:{}).test_client().get('/model-report').status_code==404
+    monkeypatch.setenv('REVIEW_MODEL_REPORT',str(report))
+    assert create_app(lambda *args:{}).test_client().get('/model-report').status_code==200

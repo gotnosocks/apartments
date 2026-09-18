@@ -7,9 +7,10 @@ import atexit
 import os
 import secrets
 import threading
+from pathlib import Path
 from urllib.parse import urlsplit
 
-from flask import Flask, jsonify, render_template, request, session
+from flask import Flask, jsonify, render_template, request, session, abort, send_file
 
 
 def _enabled(value):
@@ -18,8 +19,9 @@ def _enabled(value):
     return str(value or "").strip().lower() in {"1", "true", "yes", "on"}
 
 
-def create_app(backend=None, *, dataset_root=None, review_state=None, read_only=None, allowed_hosts=None):
+def create_app(backend=None, *, dataset_root=None, review_state=None, read_only=None, allowed_hosts=None, model_report_path=None):
     app = Flask(__name__)
+    report_path = model_report_path or os.environ.get("REVIEW_MODEL_REPORT")
     if allowed_hosts is None:
         allowed_hosts = os.environ.get("REVIEW_ALLOWED_HOSTS", "").split(",")
     trusted_hosts = {"localhost", "127.0.0.1", "::1"}
@@ -90,6 +92,17 @@ def create_app(backend=None, *, dataset_root=None, review_state=None, read_only=
     def index():
         session.setdefault("csrf", secrets.token_hex(24))
         return render_template("rental_review.html", csrf_token=session["csrf"])
+
+    @app.get("/model-report")
+    def model_report():
+        # Serve one explicitly configured artifact, never an arbitrary file path
+        # or a directory of model inputs. The normal private-host gate applies.
+        if not report_path or not Path(report_path).is_file():
+            abort(404)
+        response = send_file(Path(report_path).resolve(), mimetype="text/html", conditional=True)
+        response.headers["Cache-Control"] = "private, no-cache"
+        response.headers["X-Content-Type-Options"] = "nosniff"
+        return response
 
     def call(action, args):
         try:
