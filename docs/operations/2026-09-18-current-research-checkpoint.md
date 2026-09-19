@@ -1,5 +1,36 @@
 # Current research checkpoint, 22:05 EDT
 
+## September 19: laundry overlap and repeated-unit witnesses reviewed
+
+Previous turn was concrete progress: full-cohort measurement completed and code
+was saved. This turn also confirmed **fit session 23268 live** by polling its
+handle; parameter diagnostics pass, while derived/floor diagnostics and final
+reports remain pending. Do not restart the fit or claim its full convergence yet.
+
+Ran `docs/analysis/scripts/audit_laundry_category_overlap.py`, **session 57551
+exited 0**, artifact `data/model/chelsea-laundry-category-overlap-20260919`.
+All 52,863 source/measurement identities and bindings checked. None vs either
+shared-laundry category has **zero within-building overlap**; none vs in-unit
+has one building but zero stable-unit comparisons. In-building vs on-floor has
+17 shared buildings, 40 repeated units observed in both categories, and eight
+buildings with distinct units consistently on each side.
+
+Inspected all 16 witnesses for eight of those repeated units. Each generic
+in-building record has only a positive structured LAUNDRY claim; the paired
+on-floor record adds location wording. No pair establishes a physical access
+change or its date. On-floor vs generic-building therefore mixes reporting
+specificity with facilities; do not call its coefficient a physical amenity
+premium. Of 149 on-floor units, 99 remain exclusively on-floor and 50 also have
+another recorded category.
+
+The [identification review](../analysis/chelsea-laundry-identification-2026-09-19.md)
+records these findings. A bounded reported-detail experiment can split verified
+shared-laundry observations while preserving other accepted assignments. Full
+encoder replacement is separate: v3 proposes 383 building→unknown and 294
+unit→unknown changes as well as 239 building→on-floor changes. Those require
+source review. Physical-access analysis needs explicit relative facility location
+or appropriately dated building evidence; none-effect support is presently weak.
+
 ## September 19: full-cohort laundry measured; corrected parameter gate passes
 
 **Corrected fit session 23268 is confirmed live.** Its parameter gate now passes:

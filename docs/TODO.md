@@ -120,6 +120,12 @@ patterns, and whether a simpler representation suffices.
   Provisional on-floor support is 149 units in 21 buildings, explicit-none eight
   units in six buildings. Remaining scope/installation reviews and a matched
   Bayesian category experiment are still required; no input projection yet.
+  The [within-building overlap audit](analysis/chelsea-laundry-identification-2026-09-19.md)
+  finds no none/shared-laundry comparison within a building, and 40 units switch
+  between generic-building and on-floor reporting across ads. Eight inspected
+  pairs show added location detail rather than contradictory facility claims.
+  Separate a reported-detail sensitivity test from any physical-access premium;
+  review encoder replacement effects independently.
 - [ ] Create and test address-based spatial features: raw or centered latitude/
   longitude, interpretable relative-location measures and street indicators.
   Validate geocoding/address identity, compare simple representations, and assess
