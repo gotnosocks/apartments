@@ -84,6 +84,12 @@ changes in the original source, including buildings supplying most of the new
 category. A small in-sample residual improvement alone is insufficient to promote
 the factor. The main selection remains unchanged pending this assessment.
 
+The [preselected residual source review](chelsea-laundry-residual-source-review-2026-09-19.md)
+examined eight units / ten original captures. It finds an explicit net/gross
+target-basis issue, a studio/one-bedroom conflict, a short-term offer, and two
+missed same-floor phrases. These require a separate source revision and limit
+what the current reported-detail coefficient can establish.
+
 Artifacts:
 
 - Source: `data/model/chelsea-reported-laundry-floor-analysis-20260919`.

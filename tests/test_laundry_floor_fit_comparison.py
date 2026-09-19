@@ -88,3 +88,35 @@ def test_residual_membership_or_targets_must_not_drift(fault):
     elif fault == 'duplicate': b.append(deepcopy(b[0]))
     elif fault == 'missing': b.pop()
     with pytest.raises(ValueError): m.movement_rows(a, b, rows)
+
+
+@pytest.mark.parametrize('fault', [None, 'posterior', 'source', 'fit_binding', 'draw_count', 'gate', 'interval'])
+def test_category_analysis_must_bind_the_exact_complete_posterior(tmp_path, fault):
+    from types import SimpleNamespace
+    from apartments.research_pipeline import publish_bundle, digest
+    from apartments.corrections import canonical
+
+    experiment, dataset, analysis = [tmp_path/name for name in ('experiment', 'dataset', 'analysis')]
+    for directory in (experiment/'fit', experiment/'protocol', dataset):
+        publish_bundle(directory, {'placeholder.json': '{}\n'}, {'version': 'test'})
+    fit = {'report': {'protocol_sha256': 'protocol'}, 'protocol': {
+        'source_observations_sha256': 'source', 'chains': 4, 'draws': 6000},
+        'provenance': {'fit_manifest': {'files': {'posterior.nc': 'posterior'}}},
+        'design': SimpleNamespace(features=['x'])}
+    value = {'version': m.categories.VERSION,
+        'bindings': {k: digest(p/'complete.json') for k, p in [('fit', experiment/'fit'), ('protocol', experiment/'protocol'), ('source', dataset)]},
+        'protocol_sha256': 'protocol', 'posterior_sha256': 'posterior', 'source_observations_sha256': 'source',
+        'status': 'all_supported_contrasts_converged', 'all_joint_beta_draws': True,
+        'chains': 4, 'draws_per_chain': 6000, 'design_features': ['x'],
+        'contrasts': [{'diagnostics': {'acceptable': True}, 'log_effect': {}, 'percent_effect': {}}]}
+    if fault == 'posterior': value['posterior_sha256'] = 'different'
+    elif fault == 'source': value['source_observations_sha256'] = 'different'
+    elif fault == 'fit_binding': value['bindings']['fit'] = 'different'
+    elif fault == 'draw_count': value['draws_per_chain'] = 50
+    elif fault == 'gate': value['contrasts'][0]['diagnostics']['acceptable'] = False
+    elif fault == 'interval': value['contrasts'][0]['percent_effect'] = None
+    publish_bundle(analysis, {'contrasts.json': canonical(value)+'\n'}, {'version': 'test'})
+    if fault:
+        with pytest.raises(ValueError): m.category_result(analysis, experiment, dataset, fit)
+    else:
+        assert m.category_result(analysis, experiment, dataset, fit) == value

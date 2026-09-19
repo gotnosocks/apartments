@@ -133,6 +133,13 @@ patterns, and whether a simpler representation suffices.
   current row unchanged. Exact source reconstruction and full-data design checks
   pass; only the laundry contrast family changes. A converged posterior and
   contribution/residual comparison are still required before any promotion.
+  The [residual source review](analysis/chelsea-laundry-residual-source-review-2026-09-19.md)
+  examined eight units / ten original captures in the dominant buildings.
+  Ad 2675026's initial ask equals its explicitly described net amount; queue
+  gross-basis quarantine without transplanting a later gross quote. Ad 970866
+  is explicitly short term. Ads 3895033 and 970866 add two same-floor phrase
+  misses; ad 3223153 has an unresolved studio versus one-bedroom conflict.
+  Address these separately before feature promotion.
 - [ ] Create and test address-based spatial features: raw or centered latitude/
   longitude, interpretable relative-location measures and street indicators.
   Validate geocoding/address identity, compare simple representations, and assess
