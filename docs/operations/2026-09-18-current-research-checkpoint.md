@@ -1,5 +1,45 @@
 # Current research checkpoint, 22:05 EDT
 
+## September 19: corrected posterior exported; scoped laundry validation finds gaps
+
+**Corrected fit session 23268 is still live**, confirmed by polling its handle
+and host process PID 518567. All retained draws were exported successfully on
+the host; `posterior.nc`, `posterior-checkpoint.json`, `storage.json` and the
+raw trace manifest are present. Progress moved to **diagnostics_and_reports at
+05:34:55 UTC**. Do not restart it. No final convergence claim or main-selection
+change yet. Run the prepared corrected-fit comparison after it completes.
+
+Added experimental `apartments.laundry_measurement`: separate tri-state private,
+shared-building and shared-same-floor claims, literal spans/source pointers,
+coexistence, scoped denial and installation-conflict review. The main parser and
+analytical data are unchanged. **27 focused tests pass**. The exact v1 code is
+archived with the candidate replay; further changes need a new evaluation output.
+
+Actual replay of all **724** earlier source-audit candidates completed via
+`docs/analysis/scripts/evaluate_scoped_laundry.py`. Artifact:
+`data/model/chelsea-scoped-laundry-evaluation-20260919`. Exact source identities,
+description hashes and structured JSON pointers are verified. It detects 18/20
+development same-floor claims and no false positives in the other 16 development
+cases; this is development agreement, not independent accuracy.
+
+Manually reviewed all **16** frozen cases from **11** buildings absent from the
+development sample. Publisher:
+`docs/analysis/scripts/review_scoped_laundry_validation.py`; artifact:
+`data/model/chelsea-scoped-laundry-validation-20260919`. Finds three misses among
+four same-floor claims, one missed shared-room denial, all four hookup cases
+flagged, and no unsupported same-floor positives in this selected sample.
+Four each-floor lexical hits refer to trash disposal, not laundry. These manual
+labels now become development evidence if used to change v1. No four-level fit
+or model projection is justified yet. The explicit-none candidates cover just
+eight units/six buildings and still need direct scope/overlap review.
+
+The [scoped-laundry validation](../analysis/chelsea-scoped-laundry-validation-2026-09-19.md)
+records the result and limitations. Next measurement work should address the
+missed paraphrases and denial, add relative-floor/exception adversarial cases
+(e.g. laundry on the floor below is not same-floor), and validate over the full
+capture cohort before freezing a revised projection. The existing 724-capture
+inventory is lexical enrichment evidence, not complete support or recall.
+
 ## September 19: corrected-source reader integrated; refit remains live
 
 Merged `codex/corrected-source-fit` (`dd0e8863`) with the root benchmark

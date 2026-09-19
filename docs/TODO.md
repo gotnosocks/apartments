@@ -109,6 +109,11 @@ patterns, and whether a simpler representation suffices.
   the corrected source lineage. The fitting runner and report reader accept
   verified revisions; the combined laundry/floor refit is running. Four-level
   extraction and fitting are still pending.
+  The [first scoped extractor validation](analysis/chelsea-scoped-laundry-validation-2026-09-19.md)
+  replays 724 source-bound captures and passes 27 focused tests. Manual review
+  of 16 cases from 11 different buildings finds three missed same-floor claims
+  and one missed shared-room denial. It remains experimental, with no model
+  projection or four-level fit. Explicit-none candidates cover only eight units.
 - [ ] Create and test address-based spatial features: raw or centered latitude/
   longitude, interpretable relative-location measures and street indicators.
   Validate geocoding/address identity, compare simple representations, and assess
