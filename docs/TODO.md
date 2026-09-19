@@ -46,6 +46,10 @@ patterns, and whether a simpler representation suffices.
   interaction, posterior uncertainty and sensitivity to floor inference. The
   current model has an elevator main effect; its physical-floor interaction is
   inactive because physical height is unobserved.
+  The [interaction support audit](analysis/chelsea-floor-elevator-support-2026-09-18.md)
+  finds two-sided elevator/walk-up support only at explicit-floor thresholds
+  2–5; 13 higher-floor products duplicate main-effect columns. Forty-three
+  buildings have conflicting/changing elevator claims requiring source review.
 - [ ] Extract and compare laundry levels: explicitly no laundry, in building,
   on floor and in unit, with unreported availability kept unknown. Review
   coexisting facilities and restrictions before choosing category rules. The
