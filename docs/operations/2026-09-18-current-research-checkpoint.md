@@ -1,5 +1,54 @@
 # Current research checkpoint, 22:05 EDT
 
+## September 19: current fit complete; current residual source review complete
+
+**CPU continuation session 80187 is terminal, exit 0.** The recovered fit completed
+at 03:53:23 UTC with status `exploratory_converged`; no resampling. All parameter,
+derived-unit/bathroom and joint-floor gates pass. Max R-hat values are 1.00593,
+1.00541 and 1.00211; minimum bulk ESS 905, 1,245 and 1,795; minimum tail ESS
+1,617, 2,132 and 3,506. Zero divergences/depth hits, minimum BFMI 0.4373.
+Full report verification/publication **71317** also exited 0:
+`chelsea-bayesian-current-floor-review-20260918`.
+
+The 172 current rows have median absolute log residual 0.02458 and median
+absolute percent residual 2.48%; four differ by more than 10%. These are fitted
+residuals, with current asks participating in the fit, not predictive accuracy.
+
+Actual joint-posterior/source review **98610** exited 0 and published
+`chelsea-current-residual-source-review-20260918`. All eight leading absolute
+current residuals have literal source evidence and passing contribution
+diagnostics. Biggest case **5155021 / 251 West 26th #2B**: own captured payload
+has bedroomCount=0, roomCount=1, while description explicitly advertises one
+bedroom. Parser agrees with structured source. No floor plan/video; photos are
+said to show the same line. Do not infer the true count from model agreement.
+Its zero-to-one-bedroom conditional scenario passes diagnostics: modeled median
+$2,885 → $3,665, delta $780 [725,847], +27.03% [26.52%,27.54%]. Area unknown;
+bedroom-specific reference-area encoding changes interpretation. Offsets remain
+fixed; no refit or source correction.
+
+A broader literal-count screen across all 172 current descriptions is published
+in `chelsea-current-bedroom-claim-review-20260918`: 20 candidate rows manually
+classified (13 building inventory, two fractional marketing/inventory, two
+denied conversions, one alternative layout, one flex/alcove, one unresolved
+count conflict). It preserves decimal 1.5 wording and is not exhaustive accuracy
+validation. Source-count mismatch at 5155021 is newly identified; price/counts
+remain unchanged. The other leading cases motivate explicit floor/renovation,
+private terrace/elevator, loft and total-recurring-cost research.
+
+Research scripts are saved in `docs/analysis/scripts/` and frozen in their output
+artifacts. Results: `docs/analysis/chelsea-current-fit-and-residual-review-2026-09-19.md`.
+The initial /tmp script launch failed to import `models`; the successful run used
+`PYTHONPATH=/home/ben/code/apartments`. No scraping occurred.
+
+**GPU session 30289 / PID 494915 is still live**, most recently around 1,564 of
+4,000 warmup. Retained-sampling and speed comparison remain pending. Do not
+restart it. Shared sampler/model source files remain bound to its protocol.
+Main selection still points to the older fit. Next integrate/source-surface the
+new current review, especially the ambiguous-bedroom case, before presenting
+the newer fit as the main apartment analysis. The later floor/laundry revision
+also needs loader/evidence integration and fitting. The source correction and
+fit completion are progress, not a status-only goal turn.
+
 ## Follow-up: floor review applied to a new analytical revision
 
 This continuation made concrete progress after revalidating both running jobs.
