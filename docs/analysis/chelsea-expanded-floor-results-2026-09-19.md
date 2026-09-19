@@ -3,7 +3,8 @@
 The floor-only test is complete and diagnostic-accepted. It substantially
 improves measurement and identifies a gradual cumulative floor association,
 while changing typical fitted rents very little. The matched floor/elevator
-interaction is still running. Promotion is deferred after the
+interaction completed at 21:37:44 UTC and passed its diagnostic gates.
+Promotion of these increment specifications is deferred after the
 [model geometry and specification review](chelsea-floor-model-geometry-review-2026-09-19.md):
 passing convergence checks is insufficient to justify this parameterization
 and its floor priors.
@@ -199,7 +200,7 @@ joint contribution diagnostics and the predefined bedroom counterfactual pass.
 Membership remains the same eight advertisement IDs, regardless of new residual
 rank; each case now separately reports its analytical floor and provenance.
 This check does not resolve the known source bedroom conflict or turn the panel
-into a holdout. The matched pooled interaction comparison is still running.
+into a holdout. The matched pooled interaction fit has completed, but its comparison was superseded by the requested spline specification.
 Main selection has not changed.
 
 The separately preselected 26-unit floor-coverage panel also has a completed,
@@ -210,3 +211,19 @@ fitted-rent movement is $13.04 (maximum $184.35); median absolute log residual
 changes from 0.01671 to 0.02151. These descriptive results likewise do not show
 improved typical fit. The panel intentionally covers different floor/access
 conditions and is not a population-weighted accuracy estimate.
+
+## Subsequent specification change
+
+The user requested a different floor specification. The new experiment retains
+this exact expanded source and replaces 51 independent increments with five
+regularized natural-spline coefficients; see
+[the spline protocol](../model/floor-spline-experiment-2026-09-19.md).
+
+The older expanded-floor/elevator variant completed with maximum R-hat 1.0036,
+minimum bulk ESS 2,096, zero divergences and zero depth-limit hits. Its supported
+floor-2-to-5 elevator-minus-no-elevator log-change contrast has a rent-multiplier
+ratio difference of −2.41% (95% interval −3.86% to −1.01%). This is a conditional
+association in that older specification, not evidence for a causal elevator
+penalty or a coefficient to transfer into the spline. It warrants scrutiny of
+comparability and omitted upper-floor attributes before any interaction is
+promoted. The old variant remains a separate research artifact.

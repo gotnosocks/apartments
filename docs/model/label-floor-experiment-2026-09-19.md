@@ -251,3 +251,13 @@ matched interaction at 19:44:04 UTC (uv PID 650240, Python PID 650243); sampling
 began at 19:45:42 UTC. The primary comparison, 33-case manual source review and
 fixed eight-case regression review are complete. See
 [the results and source findings](../analysis/chelsea-expanded-floor-results-2026-09-19.md).
+
+
+### Superseded specification follow-up
+
+The expanded-increment/elevator fit completed on September 19 at 21:37:44 UTC
+with accepted diagnostics. It remains a research result. Following the user's
+request for a different floor specification, the same extracted floor dataset
+has completed a full fit with the [regularized spline](floor-spline-experiment-2026-09-19.md),
+with accepted diagnostics and a completed matched comparison.
+This retains the extraction work rather than returning to sparse explicit floors.

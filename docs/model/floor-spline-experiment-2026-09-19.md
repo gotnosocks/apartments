@@ -18,11 +18,15 @@ In notation, with Q an orthonormal basis perpendicular to the six-vector of
 ones, h = Qθ, θ ~ Normal(0, 0.10² I), and S the natural cubic interpolant of
 knot heights h:
 
-    floor contribution(f) = S(f) − S(2)
+    reference curve C(f) = S(f) − S(2)
 
 Unknown floor has zero raw spline coordinates and the existing separate
 Normal(0, 0.20) missingness coefficient. The complete feature matrix is centered
-as before. Its 47 columns replace 93 columns in the independent-increment fit;
+as before: the fitted floor term subtracts the training mean of these raw
+coordinates. Thus the contribution table is centered on the cohort, while
+reported floor contrasts use floor 2; differences between floors are unchanged.
+The zero coordinates for missing floor are a coding convention, not an imputed
+floor-2 observation. Its 47 columns replace 93 columns in the independent-increment fit;
 all 41 nonfloor columns are byte-for-byte unchanged in the design tests.
 Interpolation inside the observed range is allowed; extrapolation is rejected.
 Floor labels remain advertised-floor proxies, not measured physical height.
@@ -67,6 +71,13 @@ uv run --frozen --no-sync python -m models.bayesian_floor_spline_experiment \
   --target-accept 0.93 --adaptation diag --seed 20260924
 ```
 
-Completion, comparison, source-case review and main-model selection are pending.
+Draw collection completed at 21:42:08 UTC (about 23 minutes of warmup and
+sampling). Export began at 21:42:32 UTC. Export completed and diagnostics began at 21:45:03 UTC. The exported statistics
+contain exactly 24,000 retained transitions, every one with 63 leapfrog steps
+and depth 6; divergences and depth-limit hits are both zero. Diagnostics completed
+at 22:01:33 UTC with accepted parameter, derived-contribution and floor-contrast
+gates. Maximum parameter R-hat is 1.00542 and minimum bulk ESS is 723. The
+matched comparison and prior sensitivity checks are complete; see the
+[results](../analysis/chelsea-spline-floor-results-2026-09-19.md).
 The older expanded-increment/elevator run is retained as a diagnostic artifact;
 it is not the replacement specification requested by the user.
