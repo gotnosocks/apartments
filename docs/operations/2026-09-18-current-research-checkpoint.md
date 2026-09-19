@@ -1,5 +1,76 @@
 # Current research checkpoint, 22:05 EDT
 
+## September 19: residual review completed while laundry fit finishes
+
+**Session 24469 remains live.** Sampling finished and trace export began at
+**06:37:26 UTC**. The last sampled chains reported zero divergences. Keep polling
+the same handle; do not restart. Root mathematical/sampler dependencies remain
+frozen until the whole process exits. Accepted main config remains unchanged.
+Posterior export completed (4.1 GiB); diagnostics/reporting began **06:39:59 UTC**.
+Host PID **533083** was confirmed computing, with about 1.55 GiB resident memory.
+No final convergence result yet; no resampling/recovery needed.
+
+Saved **154f2664**: `models/laundry_floor_fit_comparison.py` and preselected
+review workflow. Saved **0dcba6d3**: original-capture review, eight adjudications,
+posterior scenarios and documentation. Comparison tests now **23 pass**; an
+actual comparison of the two published sampling protocols passes. Only the
+expected loader/lineage implementations differ; sampling/priors/floors match.
+
+Completed actual review jobs:
+
+- **12111**, exit 0: `chelsea-laundry-dominant-building-review-candidates-20260919`.
+  Eight distinct units selected from accepted signed residual extremes, two
+  categories in each of Thomas Eddy / 101 W23, before reading candidate results.
+  Literal description loader verifies the new dataset's full inverse lineage.
+- **9204**, exit 0: `chelsea-laundry-dominant-building-raw-review-20260919`.
+  All ten original captures verified against historical shards/raw payload SHA.
+- Manual adjudication script completed exit 0:
+  `chelsea-laundry-dominant-building-source-review-20260919`.
+- **52074**, exit 0: `chelsea-laundry-reviewed-source-scenarios-baseline-20260919`.
+  All eight contribution gates pass. Ad 3223153 studio scenario gives
+  $3,524 [$3,215,$3,819] → $2,774 [$2,530,$3,005], −21.28% [−21.60,−20.97].
+  Closer to its $2,700 ask does NOT adjudicate source truth or refit unit effects.
+- **58905**, exit 0: `chelsea-laundry-reviewed-unit-context-20260919`.
+  Eleven observations / three units with verified descriptions. Thomas Eddy #2C
+  has studio counts/prose in 2018, 2022 and 2025; only 2020 has a one-bedroom
+  structured count, still studio prose. 101 W23 #5F is a studio with installed
+  divider in 2016 and junior one-bedroom with divider in 2019. Do not infer
+  physical renovation intervals or propagate counts across ads.
+
+Important source findings to act on separately, before laundry promotion:
+
+- **2675026**, 101 W23 #5F: own-ad history $2,878 March 12, 2019 → $3,100
+  March 25. Prose explicitly calls $3,100 gross / $2,878 net with one free month
+  over 14; structured concession fields null. Initial modeled target matches
+  the stated net amount. Queue gross-basis quarantine; do NOT transplant later
+  gross quote to initial event. This says "net rent" without "effective", outside
+  the earlier broad screen. Existing 96 reversed-order candidate review remains
+  pending as well. The separate gross quote is 7.71% higher, .07431 log units.
+- **3223153**, Thomas Eddy #2C: bedroomCount=1 / roomCount=1 versus explicit
+  studio prose. Keep conflicting assertions; source count unresolved.
+- **3895033**, Thomas Eddy #5S: "a washer/dryer on every floor" is missed by v3.
+  Sleeping alcove, balcony and renovation are separate layout/outdoor hypotheses.
+- **970866**, 101 W23 #6Q: explicit short-term offer; duration unknown. Also missed
+  "laundry with new machines on every floor". Lease-product scope needs review.
+- **4764409**: raw address agrees on Thomas Eddy #5K; description contains
+  incompatible Hell’s Kitchen boilerplate/similar-unit-photo disclaimer. No
+  address reassignment. Other cases show initial ask reductions, flexible layouts,
+  a structured balcony not in prose, and ambiguous studio/bedroom wording.
+
+Full interpretation: `docs/analysis/chelsea-laundry-residual-source-review-2026-09-19.md`.
+The reviewed cases are development evidence, not independent validation for a
+future extractor. Source problems were not patched into the live controlled fit.
+
+After fit completion, run `models.bayesian_category_contrasts` against candidate
+fit/source, output `chelsea-laundry-floor-category-contrasts-20260919`. Then run
+`models.laundry_floor_fit_comparison` using corrected reference fit/source and
+`chelsea-corrected-main-category-contrasts-20260919`, candidate fit/source and new
+categories, output `chelsea-laundry-floor-fit-comparison-20260919`. It requires
+accepted fits, exact inverse source, both freshly reconstructed designs, identical
+nonlaundry columns/priors and time design; it publishes category, residual and
+building/unit movements without pairing independent draws. No completed
+candidate comparison or candidate category result exists yet.
+
 ## September 19: controlled same-floor laundry experiment launched
 
 **Live fit session 24469**, host execution, log

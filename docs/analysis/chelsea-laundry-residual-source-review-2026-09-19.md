@@ -51,6 +51,14 @@ the fitted rent from **$3,524 [$3,215, $3,819]** to
 with the $2,700 ask does not resolve the source conflict or substitute for a
 refit with corrected data.
 
+Same-unit context adds evidence without establishing a renovation timeline.
+Thomas Eddy #2C's 2018, 2022 and 2025 ads are recorded as studios and explicitly
+describe a studio; its 2020 ad alone has structured count one despite studio
+prose. For 101 W23 #5F, the 2016 ad calls it a studio with an installed divider;
+the 2019 ad calls it a junior one-bedroom with a divider. These records support
+reviewing bedroom/layout measurement and reporting changes, not automatically
+inferring a physical bedroom was added between advertisements.
+
 The separately quoted $3,100 gross amount is 7.71% above the modeled $2,878
 initial ask. At a fixed fitted value that changes the signed log residual by
 0.07431. This arithmetic comparison is not a replacement target or a refit; the
@@ -80,6 +88,9 @@ Artifacts under `data/model/`:
   findings with literal offsets and capture identities.
 - `chelsea-laundry-reviewed-source-scenarios-baseline-20260919`: joint posterior
   case details, studio scenario, and separate price-basis arithmetic.
+- `chelsea-laundry-reviewed-unit-context-20260919`: eleven observations for the
+  three source-problem units, with their verified attached descriptions and
+  separate reported counts/dates. No values are propagated between ads.
 
 Each bundle archives its generating script, also maintained in
 `docs/analysis/scripts/`. None changes the selected main model.
