@@ -10,9 +10,25 @@ from apartments.laundry_measurement import extract
     ('Additional laundry machines available on the floor.', [], 'on_floor'),
     ('Laundry is right on the floor just steps away from the apartment.', [], 'on_floor'),
     ('The building laundry room is down the hall from 2B.', [], 'on_floor'),
+    ('Complimentary laundry with a brand new washer and dryer on your floor!', [], 'on_floor'),
+    ('Laundry and roof deck right on the floor.', [], 'on_floor'),
+    ('Laundry on the floor below the apartment.', [], None),
+    ('Laundry with a new washer and dryer on the floor above.', [], None),
+    ('Laundry on every floor except this one.', [], None),
+    ('Laundry on every floor excluding the ground floor.', [], None),
+    ('Laundry on the floor of the basement.', [], None),
+    ('Laundry on your floor will be installed next year.', [], None),
+    ('Getting your laundry done will be easy with an in-unit washer and dryer.', ['WASHER_DRYER'], 'in_unit'),
+    ('A separate room could be utilized as a bedroom with a washer/dryer.', ['WASHER_DRYER'], 'in_unit'),
+    ('A washer/dryer and fireplace! What more could you want?', ['WASHER_DRYER'], 'in_unit'),
+    ('Residents will enjoy the convenience of an in-home washer and dryer.', ['WASHER_DRYER'], 'in_unit'),
+    ('The kitchen will include new appliances with a dishwasher and washer dryer in unit.', ['WASHER_DRYER'], None),
+    ('The bathroom will have an elegant shower and in-unit washer/dryer.', ['WASHER_DRYER'], None),
     ('Laundry on every floor.', ['WASHER_DRYER'], 'in_unit'),
     ('No building laundry.', ['WASHER_DRYER'], 'in_unit'),
     ('No building laundry.', ['LAUNDRY'], None),
+    ('No Laundry Room On-Site.', ['WASHER_DRYER'], 'in_unit'),
+    ('No Laundry Room On-Site.', ['LAUNDRY'], None),
     ('No laundry in the unit or the building.', [], 'none'),
     ('No laundry on-site.', [], 'none'),
     ('No laundry.', [], None),
@@ -27,6 +43,7 @@ from apartments.laundry_measurement import extract
     ('Laundry nook across the hall from the bedroom.', [], None),
     ('Laundry on every floor is not available.', ['LAUNDRY'], None),
     ('Laundry coming on every floor.', [], None),
+    ('Laundry on every floor coming next year.', [], None),
     ('', [], None),
     ('$L42', [], None),
 ])
@@ -49,3 +66,9 @@ def test_conflicting_scopes_preserve_all_claims_and_withhold_category():
     assert set(result['conflicts']) == {'shared_building', 'shared_same_floor'}
     assert result['most_convenient_reported_option'] is None
     assert len(result['claims']) == 2
+
+
+def test_shared_room_denial_does_not_establish_private_equipment_absence():
+    result = extract({'description': 'No Laundry Room On-Site.'})
+    assert result['states'] == {'private': None, 'shared_building': False, 'shared_same_floor': False}
+    assert result['most_convenient_reported_option'] is None

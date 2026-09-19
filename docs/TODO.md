@@ -114,6 +114,12 @@ patterns, and whether a simpler representation suffices.
   of 16 cases from 11 different buildings finds three missed same-floor claims
   and one missed shared-room denial. It remains experimental, with no model
   projection or four-level fit. Explicit-none candidates cover only eight units.
+  The [full-cohort follow-up](analysis/chelsea-full-cohort-laundry-2026-09-19.md)
+  now measures all 72,065 captures / 52,863 fitted observations. V3 fixes the
+  reviewed paraphrases and overbroad modal-word filtering; 47 focused tests pass.
+  Provisional on-floor support is 149 units in 21 buildings, explicit-none eight
+  units in six buildings. Remaining scope/installation reviews and a matched
+  Bayesian category experiment are still required; no input projection yet.
 - [ ] Create and test address-based spatial features: raw or centered latitude/
   longitude, interpretable relative-location measures and street indicators.
   Validate geocoding/address identity, compare simple representations, and assess

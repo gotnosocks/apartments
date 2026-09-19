@@ -1,5 +1,40 @@
 # Current research checkpoint, 22:05 EDT
 
+## September 19: full-cohort laundry measured; corrected parameter gate passes
+
+**Corrected fit session 23268 is confirmed live.** Its parameter gate now passes:
+maximum R-hat **1.00316409**, minimum bulk ESS **1,032.79**, minimum tail ESS
+**1,620.61**, minimum BFMI **.428478**, zero divergences/depth saturation and
+finite diagnostics. `fit/diagnostics.json` and parameter CSV are present.
+Derived-contribution/floor gates and final reporting remain pending; main remains
+the prior 172-current fit. No restart or source modification in its isolated
+checkout. The prepared corrected-fit comparison still awaits final completion.
+
+New `models.laundry_cohort_measurement` measured **all 72,065 captures / 52,863
+observations**, with no lexical prefilter and exact raw source identity/hash
+checks. Both actual runs completed: **38146** (v2) and **97233** (v3), exit 0.
+Outputs `chelsea-full-cohort-laundry-v2-20260919` and
+`chelsea-full-cohort-laundry-v3-20260919` under `data/model/` preserve both versions.
+The v2 full pass exposed overbroad modal-word withholding; v3 narrows it to actual
+installation language. Installation-review flags fell 364→51. New source code is
+experimental only; the main parser and analytical observations remain unchanged.
+
+**47 tests pass** across `test_laundry_measurement` and
+`test_laundry_cohort_measurement`. Full-data review script
+`docs/analysis/scripts/review_full_cohort_laundry.py` completed in **21744**, exit 0;
+artifact `chelsea-full-cohort-laundry-v3-review-20260919`. All 52 earlier labels
+are now development evidence. Two same-floor misses remain; all reviewed shared
+denials and hookup-review cases are detected. V2→v3 category changes affect
+434 captures / 243 units / 106 buildings. These are candidate measurement
+changes, not approved source corrections.
+
+The [full-cohort laundry report](../analysis/chelsea-full-cohort-laundry-2026-09-19.md)
+records support and remaining scope issues. Explicit-none support is 12 rows /
+eight units / six buildings; on-floor support 259 rows / 149 units / 21 buildings.
+Neither category has current rows under the most-convenient-option rule. Review
+remaining installation/coexistence cases (notably 1883177), category changes vs
+the accepted encoder, and within-building overlap before projection/fitting.
+
 ## September 19: corrected posterior exported; scoped laundry validation finds gaps
 
 **Corrected fit session 23268 is still live**, confirmed by polling its handle

@@ -6,12 +6,21 @@ explicit clauses and abstains on ambiguous hallway/location descriptions.
 """
 import re
 
-VERSION = 'scoped-laundry-measurement-v1'
+VERSION = 'scoped-laundry-measurement-v3'
 SCOPES = ('private', 'shared_building', 'shared_same_floor')
 _PAIR = r'(?:washer\s*(?:and|&|/)\s*dryer|washer[-/]dryer)'
 _LAUNDRY = r'laundry(?:\s+(?:rooms?|facilities|machines?))?'
-_CLAUSES = re.compile(r'[^.;\n\r<>]+')
-_UNCERTAIN = re.compile(r'\b(?:may|might|could|planned|proposed|coming|future|hook[- ]?ups?|connections?|install|installation|permission|optional)\b', re.I)
+_FLOOR = r'(?:each|every|the same|the|your)\s+(?:residential\s+)?floor\b(?!\s+(?:above|below|beneath|over|under|of)\b)'
+_CLAUSES = re.compile(r'[^.;!?\n\r<>]+')
+_EQUIPMENT = rf'(?:{_PAIR}|washer|dryer|laundry)'
+_UNCERTAIN = re.compile(
+    rf'\b(?:{_EQUIPMENT})\b[^,;.!?]{{0,35}}\b(?:hook[- ]?ups?|connections?)\b'
+    rf'|\b(?:hook[- ]?ups?|connections?)\b[^,;.!?]{{0,35}}\b{_EQUIPMENT}\b'
+    rf'|\b(?:may|might|could|can|will|would)\s+(?:be\s+)?(?:install(?:ed)?|add(?:ed)?|include(?:d)?|provid(?:e|ed)|have)\b[^;.!?]{{0,100}}\b{_EQUIPMENT}\b'
+    rf'|\b{_EQUIPMENT}\b[^,;.!?]{{0,35}}\b(?:may|might|could|can|will|would)\s+be\s+(?:installed|added|provided|available)\b'
+    rf'|\b(?:planned|proposed|coming|future|optional)\s+(?:in[- ]unit\s+)?{_EQUIPMENT}\b'
+    rf'|\b{_EQUIPMENT}\b[^,;.!?]{{0,35}}\b(?:coming|planned|proposed)\b'
+    rf'|\b(?:permission|permitted|allowed)\s+to\s+install\b[^;.!?]{{0,50}}\b{_EQUIPMENT}\b', re.I)
 _INVENTORY = re.compile(r'\b(?:some|select|selected|certain|other|most)\s+(?:of\s+(?:the|our)\s+)?(?:units|apartments|homes|residences)\b', re.I)
 _NEGATION = re.compile(r"\b(?:no|not|without|lack(?:s|ing)?|doesn['’]t|isn['’]t|aren['’]t)\b", re.I)
 
@@ -43,13 +52,16 @@ def extract(raw):
     positive = [
         ('private', rf'\b(?:in[- ]unit\s+{_PAIR}|{_PAIR}\s+in\s+(?:the |this |your )?(?:unit|apartment))\b'),
         ('shared_building', rf'\b(?:{_LAUNDRY}\s+in\s+(?:the\s+)?building|(?:shared|common|building)\s+{_LAUNDRY})\b'),
-        ('shared_same_floor', rf'\b{_LAUNDRY}\s+(?:(?:is|are)\s+)?(?:located\s+|available\s+|right\s+)?on\s+(?:each|every|the same|the|your)\s+(?:residential\s+)?floor\b'),
+        ('shared_same_floor', rf'\b{_LAUNDRY}\s+(?:(?:is|are)\s+)?(?:located\s+|available\s+|right\s+)?on\s+{_FLOOR}'),
+        ('shared_same_floor', rf'\blaundry\s+with\s+(?:a\s+)?(?:brand\s+new\s+|new\s+)?{_PAIR}\s+on\s+{_FLOOR}'),
+        ('shared_same_floor', rf'\blaundry\s+and\s+(?:a\s+)?roof\s+deck\s+(?:right\s+)?on\s+{_FLOOR}'),
         ('shared_same_floor', rf'\b(?:each|every)\s+(?:residential\s+)?floor\s+(?:has|offers|features)\s+(?:a\s+)?{_LAUNDRY}\b'),
         ('shared_same_floor', rf'\b(?:shared|common|building)\s+{_LAUNDRY}\s+(?:is\s+)?(?:just\s+)?(?:down|across)\s+the\s+hall\b'),
     ]
     negative = [
         ('private', rf'\b(?:no|without)\s+(?:an?\s+)?(?:in[- ]unit\s+(?:{_PAIR}|laundry)|{_PAIR}\s+in\s+(?:the\s+)?(?:unit|apartment))\b'),
         ('shared_building', rf'\bno\s+(?:shared|common|building)\s+{_LAUNDRY}\b|\bno\s+{_LAUNDRY}\s+in\s+(?:the\s+)?building\b'),
+        ('shared_building', r'\bno\s+laundry\s+rooms?\s+on[- ]site\b'),
     ]
     for clause in _CLAUSES.finditer(text):
         literal = clause.group()
@@ -61,6 +73,9 @@ def extract(raw):
             continue
         if _UNCERTAIN.search(literal):
             review.append({'kind': 'optional_or_uninstalled', **context})
+            continue
+        if re.search(r'\b(?:except|excluding)\b', literal, re.I):
+            review.append({'kind': 'location_exception', **context})
             continue
         denied = set()
         for scope, pattern in negative:
@@ -87,7 +102,7 @@ def extract(raw):
             review.append({'kind': 'unresolved_equipment_or_location', **context})
 
     values = {scope: {c['present'] for c in claims if c['scope'] == scope} for scope in SCOPES}
-    # Implications preserve the literal claim through its index.
+    # Derive scope implications while retaining the original literal claims.
     if True in values['shared_same_floor']:
         values['shared_building'].add(True)
     if False in values['shared_building']:
