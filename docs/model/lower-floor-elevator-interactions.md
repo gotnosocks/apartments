@@ -120,10 +120,16 @@ completed-fit reuse, required products, and reporting recovery that preserves
 all existing draws without another sampling call. These tests are correctness
 checks, not performance evidence.
 
-Full-source compiled verification was launched as session **84178**, logging to
-`/tmp/chelsea-pooled-floor-elevator-graph.log`, with expected output
-`data/model/chelsea-pooled-floor-elevator-graph-parity-20260919`. It evaluates the
-independent full/reference and compressed graphs at three parameter points and
-separates compilation from warm evaluations. Its result is pending; no full-data
-parity or new posterior is claimed at this checkpoint. The main model and its
-live reporting dependencies remain unchanged.
+Full-source compiled verification completed successfully in session **84178**.
+The pooled candidate uses 52,653 rows, 60 feature columns and 23,426 unconstrained
+gradient parameters. At three checked points, maximum full/reference-versus-
+compressed discrepancies are **1.46e-11 in log density** and **7.57e-10 in any
+gradient component**. Every checked value is finite. Current implementation hashes
+still match the proof.
+
+The artifact is `data/model/chelsea-pooled-floor-elevator-graph-parity-20260919`;
+log `/tmp/chelsea-pooled-floor-elevator-graph.log`. Compilation and first invocation
+are separated from warm evaluations. This proves numerical equivalence at the
+checked points; it is not posterior evidence or a sampling-speed comparison.
+No new sampler has been launched. The main model and its live reporting dependencies
+remain unchanged; complete the source-refit comparison before the next model fit.
