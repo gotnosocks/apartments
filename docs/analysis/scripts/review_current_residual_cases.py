@@ -1,4 +1,10 @@
+"""Regenerate the eight reviewed current cases against a completed joint posterior.
+
+Refuse a changed leading-case set or changed literal source for the count conflict;
+new cases need source review rather than inheriting these existing decisions.
+"""
 from pathlib import Path
+import argparse
 import json
 import gzip
 import hashlib
@@ -8,9 +14,13 @@ from apartments.corrections import canonical
 from apartments.research_pipeline import digest, publish_bundle
 from apartments.granular_parse import parse_listing
 root=Path('/home/ben/code/apartments')
-experiment=root/'data/model/chelsea-bayesian-current-floor-disk-20260918'
-dataset=root/'data/model/chelsea-reviewed-current-analysis-20260918'
-descriptions=root/'data/model/chelsea-refreshed-bayesian-descriptions-20260918'
+parser=argparse.ArgumentParser(description=__doc__)
+parser.add_argument('--experiment',type=Path,default=root/'data/model/chelsea-bayesian-current-floor-disk-20260918')
+parser.add_argument('--dataset',type=Path,default=root/'data/model/chelsea-reviewed-current-analysis-20260918')
+parser.add_argument('--descriptions',type=Path,default=root/'data/model/chelsea-refreshed-bayesian-descriptions-20260918')
+parser.add_argument('--output',type=Path,default=root/'data/model/chelsea-current-residual-source-review-20260918')
+args=parser.parse_args()
+experiment,dataset,descriptions=args.experiment,args.dataset,args.descriptions
 review={
  '5155021':('bedroom_count_conflict','Structured bedroomCount=0 and roomCount=1 conflict with an explicit one-bedroom description. Same-line photos do not resolve the listed apartment layout. Do not choose the count by closeness to fitted rent; withhold bargain/premium interpretation until layout evidence resolves it.'),
  '5116119':('known_bathroom_conflict_and_private_terrace','Previously reviewed two-full/zero-half source counts conflict with two en suites plus a powder room. Composition is already masked. Private terrace and luxury finishes remain candidate omitted features; the description cannot identify their separate prices.'),
@@ -48,7 +58,7 @@ try:
   'all_case_contribution_diagnostics_pass':True,'bedroom_scenario_status':scenario['status'],
   'main_model_changed':False,'source_counts_or_prices_changed':False,
   'interpretation':'Residual-selected development review, not an independent feature validation or market accuracy estimate. Scenario changes reported bedrooms under the fitted joint posterior; it does not resolve source truth or refit building/unit offsets.'}
- publish_bundle(root/'data/model/chelsea-current-residual-source-review-20260918',{
+ publish_bundle(args.output,{
   'cases.jsonl':''.join(canonical(c)+'\n' for c in cases),
   'bedroom-source-scenario.json':canonical(scenario)+'\n','summary.json':canonical(result)+'\n',
   'review_current_residual_cases.py':Path(__file__).read_text()},

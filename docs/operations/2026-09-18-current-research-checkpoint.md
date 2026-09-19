@@ -1,5 +1,57 @@
 # Current research checkpoint, 22:05 EDT
 
+## September 19: corrected fit complete and selected as main
+
+**Fit session 23268 exited 0**, complete at **05:51:35 UTC**. All gates pass:
+parameters max R-hat 1.00316409 / min bulk ESS 1,032.79 / tail 1,620.61;
+derived 1.00172806 / 1,291.71 / 2,160.85; floors 1.00153866 / 2,146.90 /
+3,747.54. Zero divergences/depth saturation, minimum BFMI .428478.
+The isolated corrected-fit workspace no longer has a live-code freeze.
+
+**Main selection updated** to
+`data/model/chelsea-bayesian-reviewed-corrections-floor-disk-20260919` with
+`data/model/chelsea-reviewed-floor-masked-analysis-20260918` and the same literal
+description archive. Fit manifest SHA
+`5b47e3fe6da5dbb0b2fdb6feb31f31f306dcf317e441c92d865745aef8f0bd3d`;
+protocol SHA `9745a93085595322031168ef89023f45bf31298680021309b6afe4af1f1bb29e`.
+Selected config SHA `5935d556088a34ee61e92203bce7f8b03941b6dcc2a5fd48276e422747f2f318`.
+
+Completed actual runs (all terminal exit 0):
+
+- **26285**: `compare_corrected_floor_fit`, artifact
+  `chelsea-reviewed-corrections-fit-comparison-20260919`. Current median absolute
+  fitted change $1.2878, maximum $13.2067. Full-cohort median absolute fitted
+  change $.9893; median absolute log residual .0350948→.0350891. Same eight leading
+  current residuals. Floor 8→10 prior SD .2121→.15 remains explicitly disclosed.
+- **83817**: regenerated eight source-reviewed cases and bedroom scenario,
+  artifact `chelsea-corrected-current-residual-source-review-20260919`. All case
+  diagnostics pass. Scenario $2,884→$3,664, conflict remains unresolved.
+- **36648**: verified candidate selection, file
+  `data/model/chelsea-main-corrected-candidate-20260919.json`.
+- **39483**: actual Streamlit AppTest, artifact
+  `chelsea-corrected-main-page-validation-20260919`. All 172 current rows, eight
+  notes, source-conflict warning, $3,664 scenario and scenario warning pass with
+  zero exceptions. The tested selection bytes were atomically installed as
+  `config/main-analysis.json`; bindings and byte hash were rechecked.
+- **10045**: three historical movement cases under both joint posteriors,
+  artifact `chelsea-corrected-fit-movement-review-20260919`. All six detail gates
+  and contribution additivity pass. Townhouse 4892020 moves $30,097→$30,723 but
+  retains a broad $10,490–$43,615 interval; building contribution and Monte Carlo
+  uncertainty matter. Directly corrected ads 1306285 and 4800947 move about
+  −$176 and −$67, with reporting terms affecting the interpretation.
+
+The [corrected-main report](../analysis/chelsea-corrected-main-fit-2026-09-19.md)
+and analysis-page documentation now describe the selected revision. The two
+existing source-review/page-check scripts accept explicit paths for refits.
+No production sampling/diagnostic job remains live from this round.
+
+Next modeling work: a controlled shared-laundry reported-floor split, keeping
+other accepted assignments fixed; separate physical-access interpretation from
+reporting specificity. Also test a floor construction that preserves aggregate
+prior variance when an intermediate observed level disappears. Both remain
+research tasks, not claimed completed fits. Broader Chelsea and NYC goals remain
+active; expanded laundry v3 is still experimental and outside the main model.
+
 ## September 19: laundry overlap and repeated-unit witnesses reviewed
 
 Previous turn was concrete progress: full-cohort measurement completed and code

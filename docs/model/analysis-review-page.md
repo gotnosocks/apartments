@@ -12,11 +12,11 @@ UV_CACHE_DIR=/tmp/apartments-uv-cache uv run --frozen --no-sync streamlit run ap
 ```
 
 Open **Contributions and Residuals** from the sidebar. The September 19 selection
-uses `chelsea-bayesian-current-floor-disk-20260918` on
-`chelsea-reviewed-current-analysis-20260918`: 52,863 observations, 22,189 units,
+uses `chelsea-bayesian-reviewed-corrections-floor-disk-20260919` on
+`chelsea-reviewed-floor-masked-analysis-20260918`: 52,863 observations, 22,189 units,
 1,131 buildings and 172 current captures. Its descriptions come from
 `chelsea-refreshed-bayesian-descriptions-20260918`; eight individual source reviews
-come from `chelsea-current-residual-source-review-20260918`.
+come from `chelsea-corrected-current-residual-source-review-20260919`.
 
 This is a saved sample, not live availability or complete Chelsea market coverage.
 The default table shows up to 100 current observations; raise the row limit to
@@ -39,8 +39,9 @@ For example, advertisement 5155021 has conflicting studio and one-bedroom claims
 The page preserves its recorded count and supports conditional scenarios while
 warning that a closer fitted price cannot resolve the source contradiction.
 [The current source review](../analysis/chelsea-current-fit-and-residual-review-2026-09-19.md)
-explains the evidence and limitations. Later historical floor and laundry
-corrections are published separately and have not yet been fitted.
+explains the evidence and limitations. The [corrected-source refit](../analysis/chelsea-corrected-main-fit-2026-09-19.md)
+now incorporates the 17 historical floor masks and one laundry mask, with new
+source-note bindings and actual-data page validation.
 
 ## Contributions and joint feature scenarios
 

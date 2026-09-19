@@ -38,7 +38,7 @@ patterns, and whether a simpler representation suffices.
   table and apartment/scenario views. Actual-data AppTest passes. All current-fit parameter, derived and floor gates
   pass. Eight leading current residuals have source-backed contribution reviews.
   Advertisement 5155021 has a verified studio/one-bedroom source contradiction;
-  its scenario changes modeled rent from about $2,885 to $3,665, without resolving
+  its corrected-fit scenario changes modeled rent from about $2,884 to $3,664, without resolving
   the true count. Surface that uncertainty before presenting a bargain/premium
   interpretation. A 172-description screen reviews 20 candidate count mismatches;
   the other 19 concern inventory, flexible/fractional layouts or denied conversions.
@@ -60,9 +60,10 @@ patterns, and whether a simpler representation suffices.
   review history and 172 current observations are preserved. Publication/replay
   and the actual floor encoder are verified. Literal-evidence loader integration
   now verifies the full corrected-source lineage and 72,065 unchanged captures;
-  fitting and report-reader integration are complete, and a four-chain
-  4,000-warmup/6,000-retained refit is running. Diagnostics and comparison
-  remain pending before selection as main. The
+  fitting and report-reader integration are complete. The four-chain
+  4,000-warmup/6,000-retained [corrected refit](analysis/chelsea-corrected-main-fit-2026-09-19.md)
+  passes every diagnostic gate, has a completed contribution/residual comparison,
+  and is selected as main after actual-data page validation. The
   [local numbering review](analysis/chelsea-local-floor-numbering-2026-09-19.md)
   evaluates four building rules with whole-unit checks, adding candidates for
   only 19 units without prior explicit-floor references and no new buildings
@@ -107,7 +108,7 @@ patterns, and whether a simpler representation suffices.
   ledger correction and replays identically: one historical row changes, prices
   and 172 current rows remain unchanged. Literal-evidence attachment now verifies
   the corrected source lineage. The fitting runner and report reader accept
-  verified revisions; the combined laundry/floor refit is running. Four-level
+  verified revisions; the combined laundry/floor refit is now selected as main. Four-level
   extraction and fitting are still pending.
   The [first scoped extractor validation](analysis/chelsea-scoped-laundry-validation-2026-09-19.md)
   replays 724 source-bound captures and passes 27 focused tests. Manual review

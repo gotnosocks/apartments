@@ -1,10 +1,17 @@
 from pathlib import Path
+import argparse
 import json
 import streamlit as st
 from streamlit.testing.v1 import AppTest
 from apartments.research_pipeline import publish_bundle,digest
 from apartments.corrections import canonical
-root=Path('/home/ben/code/apartments'); selection=root/'data/model/chelsea-main-current-candidate-20260919.json'
+root=Path('/home/ben/code/apartments')
+parser=argparse.ArgumentParser(description='Validate the actual selected posterior and source notes through Streamlit.')
+parser.add_argument('--selection',type=Path,default=root/'data/model/chelsea-main-current-candidate-20260919.json')
+parser.add_argument('--output',type=Path,default=root/'data/model/chelsea-current-main-page-validation-20260919')
+parser.add_argument('--expected-scenario-rent',default='$3,665')
+args=parser.parse_args()
+selection=args.selection.resolve()
 def widget(page,kind,label):return next(x for x in getattr(page,kind) if x.label==label)
 st.cache_resource.clear()
 page=AppTest.from_file(str(root/'pages/2_Contributions_and_Residuals.py')).run(timeout=180)
@@ -23,14 +30,14 @@ widget(page,'multiselect','Features to change together').set_value(['bedrooms'])
 widget(page,'number_input','bedrooms').set_value(1.)
 widget(page,'button','Compare with recorded apartment').click().run(timeout=90)
 assert not page.exception and not page.error
-assert any(m.label=='Changed apartment: fitted median' and m.value=='$3,665' for m in page.metric)
+assert any(m.label=='Changed apartment: fitted median' and m.value==args.expected_scenario_rent for m in page.metric)
 assert any('does not resolve the source conflict' in w.value for w in page.warning)
 result={'version':'current-main-page-validation-v1','current_rows':172,'source_review_cases':8,
  'source_count_conflict_warning_visible':True,'source_count_unchanged':True,
- 'one_bedroom_scenario_median_display':'$3,665','scenario_source_uncertainty_warning_visible':True,
+ 'one_bedroom_scenario_median_display':args.expected_scenario_rent,'scenario_source_uncertainty_warning_visible':True,
  'streamlit_exceptions':0,'selection_sha256':digest(selection),
  'verification':'Actual saved PyMC posterior, source archive and review notes through Streamlit AppTest; no model/evidence mocks.'}
-publish_bundle(root/'data/model/chelsea-current-main-page-validation-20260919',{
+publish_bundle(args.output,{
  'validation.json':canonical(result)+'\n','check_current_main_page.py':Path(__file__).read_text()},
  {'version':result['version'],'selection_sha256':digest(selection)})
 print(canonical(result),flush=True)
