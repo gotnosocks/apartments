@@ -33,10 +33,41 @@ can be inferred from these contradictions.
 The source-bound policy is
 `config/reviews/chelsea-floor-label-conflicts-20260918.json`; the full decision
 archive is `data/model/chelsea-floor-label-conflict-review-20260918/decisions.jsonl`.
-These are reviewed recommendations. **They have not yet been projected into
-analytical floors or fitted.** Literal labels and old source claims remain
+The recommendations have now been projected into a separate analytical revision;
+**they have not yet been fitted.** Literal labels and old source claims remain
 preserved. This fixed disagreement review is not an accuracy estimate for all
 11,722 candidate unit-label inferences.
+
+The revision `data/model/chelsea-reviewed-floor-masked-analysis-20260918` follows
+the one-row laundry correction. All 37 reviewed observations still match their
+original source rows exactly. Seventeen exact-version ledger corrections mask
+only `advertised_floor`; the 20 retained claims remain unchanged. Known modeled
+floors decrease from 366 to 349. All 52,863 rows, every price/nonfloor field,
+prior review history and all 172 current observations remain unchanged apart from
+those 17 floor values and their appended review records. Raw current evidence
+is byte-identical. Independent comparison and deterministic replay pass; evidence
+is in `data/model/chelsea-reviewed-floor-mask-verification-20260918`.
+
+`config/reviews/chelsea-floor-masks-20260918.jsonl` targets complete source-row
+hashes. Its final recorded timestamp is 2026-09-19T03:47:57.591531+00:00. Each
+changed row preserves the old floor, review decision, source spans/capture hashes
+and distinct review/correction clocks. This represents corrected knowledge, not
+a physical floor change at that timestamp. Thirteen tests cover exact scope,
+stale versions, capture identity, chronology, canonical floor encoding and replay.
+
+```sh
+UV_CACHE_DIR=/tmp/apartments-uv-cache uv run --frozen --no-sync python -m models.reviewed_floor_revision \
+  --dataset data/model/chelsea-reviewed-laundry-negation-analysis-20260918 \
+  --reviewed-source data/model/chelsea-reviewed-scope-composition-projection-20260918 \
+  --review data/model/chelsea-floor-label-conflict-review-20260918 \
+  --ledger config/reviews/chelsea-floor-masks-20260918.jsonl \
+  --as-of 2026-09-19T03:47:57.591531+00:00 \
+  --output data/model/chelsea-reviewed-floor-masked-analysis-20260918
+```
+
+The current running fits retain their frozen input. Loader/evidence-reader
+integration and a matched refit of this new revision remain pending. No unreviewed
+label prefix or building-wide offset has been added as an analytical floor.
 
 Reproduce with:
 

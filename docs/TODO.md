@@ -42,7 +42,11 @@ patterns, and whether a simpler representation suffices.
   claims have a disagreement. The [manual conflict review](analysis/chelsea-floor-label-conflict-review-2026-09-18.md)
   now covers every one of the 37 disagreeing observations: retain 20 explicit
   claims, withhold two media-reference claims and 15 unresolved contradictions.
-  Versioned analytical integration remains pending; no blanket offset is inferred.
+  The versioned `chelsea-reviewed-floor-masked-analysis-20260918` projection now
+  masks those 17 claims via exact-row ledger patches; all prices, nonfloor data,
+  review history and 172 current observations are preserved. Publication/replay
+  and the actual floor encoder are verified. Loader integration and a matched
+  refit remain pending; no blanket offset or unreviewed prefix is inferred.
 - [ ] Reassess sampler/backend speed using production-length fits of the same
   posterior, separated warmup/retained/storage costs, and bulk/tail ESS/sec.
   The old 50/50 M1/T4 timings cannot rank sampling speed. The [current reassessment](analysis/chelsea-sampler-reassessment-2026-09-18.md)

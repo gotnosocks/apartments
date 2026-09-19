@@ -1,5 +1,33 @@
 # Current research checkpoint, 22:05 EDT
 
+## Follow-up: floor review applied to a new analytical revision
+
+This continuation made concrete progress after revalidating both running jobs.
+`models/reviewed_floor_revision.py` projects all 17 withheld claims through
+`config/reviews/chelsea-floor-masks-20260918.jsonl`, with exact source-row targets
+and separate review/correction clocks. The last ledger record is
+2026-09-19T03:47:57.591531+00:00. All 37 review targets match their original rows
+in the latest parent revision. The 20 retained source claims are unchanged.
+
+Published/replayed: `chelsea-reviewed-floor-masked-analysis-20260918`, version
+`reviewed-floor-conflict-projection-v1`, with parent
+`chelsea-reviewed-laundry-negation-analysis-20260918`. Independent full comparison
+in `chelsea-reviewed-floor-mask-verification-20260918` confirms 52,863 rows,
+17 masked historical floor values, every other data field and prior review
+history preserved, all 172 current rows unchanged, raw current evidence unchanged.
+The actual model encoder reports 366 known floors before / 349 after. Thirteen
+focused tests pass, including real ledger/replay and no propagation across other
+observations of the same unit. Loader/evidence integration and fitting remain
+pending; running model/benchmark inputs and bound source files are unchanged.
+
+CPU **80187 / PID 497474** remains live in diagnostics/reporting. Its parameter
+diagnostics passed at 03:44:48 UTC: max R-hat 1.00593, min bulk ESS 904.92, min
+tail ESS 1617.18, zero divergences/depth hits, min BFMI 0.4373. Derived/floor
+diagnostics and final manifest are still pending; do not promote the fit yet.
+GPU **30289 / PID 494915** remains live; latest log around 752/4,000 warmup.
+No GPU retained speed or backend ranking is available. Logs/commands remain as
+recorded below. Main selection is unchanged.
+
 ## Follow-up: shared efficiency diagnostics prepared
 
 The preceding goal turn made concrete progress (recovery, reviewed data and
