@@ -156,6 +156,11 @@ patterns, and whether a simpler representation suffices.
 - [ ] Continue review of unresolved price histories, mixed-use listings and gross/
   net terms. The first decision bundle is a bounded policy version, not proof
   that the remaining cohort has no source or scope problems.
+  The [net-rent wording follow-up](analysis/chelsea-net-rent-wording-followup-2026-09-18.md)
+  finds 96 retained observations with reversed-order net-price statements absent
+  from the first screen. Adjudicate their event-time price basis before a new
+  source overlay; the broader 2,429-observation keyword queue also includes
+  descriptions that do not claim the advertised price is net.
 - [x] Screen the fitted cohort for advertised ceiling measurements, levels,
   floor-through layouts and skylights, preserving exact text and capture scope.
   The [interior audit](analysis/chelsea-interior-evidence-2026-09-18.md) finds 7,055
