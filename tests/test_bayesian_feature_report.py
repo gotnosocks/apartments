@@ -239,8 +239,9 @@ def rewrite_v3(root, protocol, files):
     publish_binary(root/'fit',files,{'version':protocol['version'],'protocol_sha256':ph})
 
 
-@pytest.mark.parametrize('version', sorted(m.reviewed_source_lineage.VERSIONS))
-@pytest.mark.parametrize('fault', [None, 'missing_lineage', 'unintended_change'])
+@pytest.mark.parametrize('version,fault', [(v, f) for v in sorted(m.reviewed_source_lineage.VERSIONS)
+    for f in [None, 'missing_lineage', 'unintended_change', 'missing_sidecar', 'changed_sidecar']
+    if f not in ('missing_sidecar', 'changed_sidecar') or v == m.reviewed_source_lineage.reviewed_cohort_quarantine.VERSION])
 def test_corrected_source_report_requires_exact_review_lineage(experiment, tmp_path, version, fault):
     from tests.test_reviewed_source_lineage import revise, observations_hash
 
@@ -248,24 +249,36 @@ def test_corrected_source_report_requires_exact_review_lineage(experiment, tmp_p
     rows = m.jsonl((dataset/'observations.jsonl').read_bytes())
     for row in rows:
         row.update(known_at='2026-09-18T00:00:00Z', laundry_type='in_building', advertised_floor=3, capture_ids=[row['audit_id']])
+    sidecar_files = {}
+    if version == m.reviewed_source_lineage.reviewed_cohort_quarantine.VERSION:
+        from tests.test_reviewed_cohort_quarantine import add_excluded_row, quarantine_last
+        rows = add_excluded_row(rows)
     parent = {'version': m.reviewed_source_lineage.REFRESHED,
               'files': {'observations.jsonl': observations_hash(rows)}}
     manifest, rows = revise(parent, rows, m.reviewed_source_lineage.LAUNDRY, 'laundry_type', 'laundry')
-    if version in (m.reviewed_source_lineage.FLOOR, m.reviewed_source_lineage.laundry_floor_split.VERSION):
+    if version in (m.reviewed_source_lineage.FLOOR, m.reviewed_source_lineage.laundry_floor_split.VERSION,
+                   m.reviewed_source_lineage.reviewed_cohort_quarantine.VERSION):
         manifest, rows = revise(manifest, rows, m.reviewed_source_lineage.FLOOR, 'advertised_floor', 'floor', index=1)
     if version == m.reviewed_source_lineage.laundry_floor_split.VERSION:
         from tests.test_laundry_floor_projection import extend
         manifest, rows = extend(manifest, rows)
+    if version == m.reviewed_source_lineage.reviewed_cohort_quarantine.VERSION:
+        manifest, rows, sidecar = quarantine_last(manifest, rows)
+        sidecar_files['quarantined.jsonl'] = ''.join(canonical(r)+'\n' for r in sidecar)
     if fault == 'missing_lineage':
         manifest = {'version': version}
     elif fault == 'unintended_change':
         rows[2]['known_at'] = '2026-09-17T00:00:00Z'
-    source = publish_binary(dataset, {'observations.jsonl': ''.join(canonical(r)+'\n' for r in rows)}, manifest)
+    elif fault == 'missing_sidecar': sidecar_files.clear()
+    elif fault == 'changed_sidecar':
+        sidecar[0]['observation']['asking_rent'] += 1
+        sidecar_files['quarantined.jsonl'] = ''.join(canonical(r)+'\n' for r in sidecar)
+    source = publish_binary(dataset, {'observations.jsonl': ''.join(canonical(r)+'\n' for r in rows), **sidecar_files}, manifest)
     protocol.update(source_manifest_sha256=digest(dataset/'complete.json'),
                     source_observations_sha256=source['files']['observations.jsonl'], source_version=version)
     rewrite_v3(root, protocol, files)
     if fault:
-        with pytest.raises(ValueError, match='lineage|Reconstructed parent|Reconstructed laundry'):
+        with pytest.raises(ValueError, match='lineage|Reconstructed parent|Reconstructed laundry|Reconstructed quarantine|Quarantine'):
             m.build_report(root, dataset)
     else:
         report, _ = m.build_report(root, dataset)

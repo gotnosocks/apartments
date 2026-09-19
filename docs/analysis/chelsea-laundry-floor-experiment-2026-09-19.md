@@ -94,6 +94,32 @@ installed version labels it experimental. This run tests that option rather
 than assuming it improves convergence or speed. The previous fit is preserved.
 Output: `chelsea-bayesian-laundry-floor-lowrank-disk-20260919`.
 
+**Operational outcome:** this low-rank trial was deliberately abandoned during
+warmup on September 19. At the stop request, chains had reached only
+3,106–3,125 of 4,000 warmup iterations after more than two hours. Over the
+preceding 30-minute log window they advanced 140–160 iterations apiece. The
+process used about 12 GiB resident memory on the 15-GiB host, whose 4-GiB swap
+was full. These costs were delaying the prepared source-quarantine refit.
+Bounded research jobs ran during this trial, so its wall time is not an isolated
+sampler benchmark. It nevertheless demonstrated an impractical resource cost
+for this trial on this machine.
+
+SIGINT at 09:10:10 UTC stopped callbacks but did not promptly terminate the
+process; a subsequent SIGTERM ended session 80844 with exit code 143. PID 541438
+was verified absent before any frozen dependencies were changed. Neither the
+trace nor fit has a completion manifest. Partial files and their hash inventory,
+original log, protocol, resource snapshots and stop intent remain preserved in
+`chelsea-laundry-lowrank-operational-stop-20260919`; the run also has an explicit
+`operational-stop.json`. Do not resume it, infer posterior quantities from it,
+or count it as a completed retained-speed/convergence comparison.
+
+The next production priority is the 210-exclusion source revision on diagonal
+nutpie, preserving the selected model's feature/prior settings. The same-floor
+coefficient remains unaccepted. A future laundry retry can consider longer
+diagonal chains or a mathematically equivalent reparameterization with a fresh
+parity proof; this stopped trial establishes neither their outcome nor that
+low-rank adaptation is universally inferior.
+
 The matched laundry comparison now accepts an adaptation difference only with
 the explicit `--allow-adaptation-change` option. Only `diag`/`low_rank` are
 supported by that option; every other sampler setting, environment, mathematical

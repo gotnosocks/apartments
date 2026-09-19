@@ -60,8 +60,11 @@ sampling and was recovered without resampling, as documented below.
 
 This is one run per configuration on this machine. It does not establish the
 fastest possible backend or isolate GPU hardware from sampler/adaptation
-differences. NumPyro CPU and alternative nutpie adaptation settings remain
-untested contenders. For a floor-focused precision target, GPU is a serious
+differences. NumPyro CPU remains an untested contender. A later low-rank nutpie
+trial on the laundry-split model was stopped during warmup for excessive runtime
+and memory use; it provides no retained ESS/sec comparison. Its
+[operational record](chelsea-laundry-floor-experiment-2026-09-19.md) is separate
+from the completed CPU/GPU benchmark. For a floor-focused precision target, GPU is a serious
 option despite its higher startup cost; routine refits remain on CPU.
 
 Verified comparison: `data/model/chelsea-cpu-gpu-sampler-comparison-20260919`.

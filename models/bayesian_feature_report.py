@@ -455,14 +455,15 @@ def build_report(experiment, dataset, top=5):
         raise ValueError('Summary protocol mismatch')
     parameters, derived = (json.loads(ff[name]) for name in ('diagnostics.json','derived-diagnostics.json'))
     check_diagnostics(summary, parameters, derived)
-    sm, sf = _verified_bundle(dataset, retain={'observations.jsonl'})
+    sidecar = reviewed_source_lineage.reviewed_cohort_quarantine.SIDECAR
+    sm, sf = _verified_bundle(dataset, retain={'observations.jsonl', sidecar})
     if (sm.get('version') not in DATASET_VERSIONS or protocol.get('source_version') != sm.get('version')
             or digest(dataset/'complete.json') != protocol['source_manifest_sha256']
             or sm['files'].get('observations.jsonl') != protocol['source_observations_sha256']):
         raise ValueError('Source dataset does not match the fitted protocol')
     rows = jsonl(sf['observations.jsonl'])
     if sm['version'] in reviewed_source_lineage.VERSIONS:
-        reviewed_source_lineage.source_lineage(sm, rows)
+        reviewed_source_lineage.source_lineage(sm, rows, quarantined=jsonl(sf[sidecar]) if sidecar in sf else None)
     if (len(rows) != protocol['rows'] or len({r['unit_id'] for r in rows}) != protocol['units']
             or len({r['building'] for r in rows}) != protocol['buildings']
             or sum(r.get('analysis_price_basis') == 'current_capture_gross_ask' for r in rows) != protocol['current_rows']
@@ -593,6 +594,7 @@ def run(experiment, dataset, output, top=5):
         'bayesian_feature_report.py': Path(__file__).read_text(),
         'reviewed_source_lineage.py': Path(reviewed_source_lineage.__file__).read_text(),
         'laundry_floor_split.py': Path(reviewed_source_lineage.laundry_floor_split.__file__).read_text(),
+        'reviewed_cohort_quarantine.py': Path(reviewed_source_lineage.reviewed_cohort_quarantine.__file__).read_text(),
         'bayesian_disk_protocol.py': Path(disk_protocol.__file__).read_text()},
         {'version': VERSION, **provenance, 'top_per_tail': top, 'implementation_sha256': digest(__file__)})
 

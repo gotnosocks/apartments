@@ -9,12 +9,12 @@ import hashlib
 import math
 
 from .corrections import canonical, instant
-from . import laundry_floor_split
+from . import laundry_floor_split, reviewed_cohort_quarantine
 
 REFRESHED = 'reviewed-capture-refreshed-analysis-v1'
 LAUNDRY = 'reviewed-laundry-negation-projection-v1'
 FLOOR = 'reviewed-floor-conflict-projection-v1'
-VERSIONS = {LAUNDRY, FLOOR, laundry_floor_split.VERSION}
+VERSIONS = {LAUNDRY, FLOOR, laundry_floor_split.VERSION, reviewed_cohort_quarantine.VERSION}
 _PARENTS = {FLOOR: LAUNDRY, LAUNDRY: REFRESHED}
 _FIELDS = {FLOOR: 'advertised_floor', LAUNDRY: 'laundry_type'}
 
@@ -23,7 +23,7 @@ def manifest_hash(value):
     return hashlib.sha256((canonical(value)+'\n').encode()).hexdigest()
 
 
-def source_lineage(manifest, rows):
+def source_lineage(manifest, rows, *, quarantined=None):
     """Return the refreshed ancestor after verifying every bounded inverse patch.
 
     Existing reviewed history is preserved. Only the final appended history
@@ -32,6 +32,10 @@ def source_lineage(manifest, rows):
     if manifest.get('version') not in VERSIONS | {REFRESHED}:
         raise ValueError('Unsupported reviewed source lineage')
     current = deepcopy(rows)
+    if manifest['version'] == reviewed_cohort_quarantine.VERSION:
+        manifest, current = reviewed_cohort_quarantine.parent_rows(manifest, current, quarantined)
+    elif quarantined is not None:
+        raise ValueError('Unexpected quarantine sidecar for this source version')
     if manifest['version'] == laundry_floor_split.VERSION:
         manifest, current = laundry_floor_split.parent_rows(manifest, current)
     while manifest['version'] in _PARENTS:
