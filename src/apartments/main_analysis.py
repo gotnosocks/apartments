@@ -43,10 +43,21 @@ def load_selection(path=DEFAULT_SELECTION, *, root=ROOT):
         manifest = review/'complete.json'
         if not manifest.is_file() or manifest.is_symlink() or digest(manifest) != selection.get('source_review_manifest_sha256'):
             raise ValueError('Selected main model binding differs: source_review_manifest_sha256')
+    issue_fields = {'source_issues','source_issues_manifest_sha256','source_issue_cases'}
+    if issue_fields & selection.keys():
+        if not issue_fields <= selection.keys() or not selection.get('evidence'):
+            raise ValueError('Selected source issues require complete bindings and their matching description archive')
+        count = selection['source_issue_cases']
+        if type(count) is not int or count < 0:
+            raise ValueError('Selected source issue case count is invalid')
+        issues = resolve_path(selection['source_issues'], root)
+        manifest = issues/'complete.json'
+        if not manifest.is_file() or manifest.is_symlink() or digest(manifest) != selection['source_issues_manifest_sha256']:
+            raise ValueError('Selected main model binding differs: source_issues_manifest_sha256')
     return selection,experiment,dataset
 
 
-def select(experiment,dataset,output=DEFAULT_SELECTION, *, evidence=None, source_review=None):
+def select(experiment,dataset,output=DEFAULT_SELECTION, *, evidence=None, source_review=None, source_issues=None):
     # Verify the full source/posterior and both convergence gates, without fitting.
     from models import bayesian_feature_report as report
     experiment,dataset=Path(experiment).resolve(),Path(dataset).resolve()
@@ -77,6 +88,15 @@ def select(experiment,dataset,output=DEFAULT_SELECTION, *, evidence=None, source
         result.update(source_review=portable(source_review),
             source_review_manifest_sha256=digest(source_review/'complete.json'),
             source_review_cases=len(notes))
+    if source_issues is not None:
+        if evidence is None:
+            raise ValueError('Source issues require the matching description archive')
+        from .source_issues import load_source_issues
+        source_issues = Path(source_issues).resolve()
+        notes = load_source_issues(dataset, source_issues, evidence=evidence)
+        result.update(source_issues=portable(source_issues),
+            source_issues_manifest_sha256=digest(source_issues/'complete.json'),
+            source_issue_cases=len(notes))
     output=Path(output);output.parent.mkdir(parents=True,exist_ok=True)
     temporary=output.with_name(output.name+'.tmp')
     temporary.write_text(canonical(result)+'\n');temporary.replace(output)
@@ -91,5 +111,6 @@ if __name__=='__main__':
     parser.add_argument('--output',type=Path,default=DEFAULT_SELECTION)
     parser.add_argument('--evidence',type=Path,help='Verified description archive for the selected source cohort.')
     parser.add_argument('--source-review',type=Path,help='Source-review notes bound to this fit and description archive.')
+    parser.add_argument('--source-issues',type=Path,help='Verified source issue annotations bound to the selected dataset and description archive.')
     args=parser.parse_args()
-    print(canonical(select(args.experiment,args.dataset,args.output,evidence=args.evidence,source_review=args.source_review)))
+    print(canonical(select(args.experiment,args.dataset,args.output,evidence=args.evidence,source_review=args.source_review,source_issues=args.source_issues)))

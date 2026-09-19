@@ -193,3 +193,59 @@ def test_entry_page_links_through_application_routing():
     page = AppTest.from_file(str(ROOT/'app.py')).switch_page('pages/1_Bayesian_Model.py').run()
     assert not page.exception
     assert len(page.get('page_link')) == 2
+
+
+def test_historical_source_issue_merges_with_review_and_warns_in_scenario(mocked,monkeypatch,tmp_path):
+    from apartments import source_issues
+    mocked.rows[0]['analysis_price_basis']='historical_initial_own_advertisement_ask'
+    monkeypatch.setattr(main_analysis,'load_selection',lambda path:(
+        {'source_review':str(tmp_path/'review'),'source_issues':str(tmp_path/'issues'),'evidence':str(tmp_path/'evidence')},
+        tmp_path/'experiment',tmp_path/'dataset'))
+    monkeypatch.setattr(bayesian_source_review,'load_source_review',lambda *a,**k:{'a':{
+        'kind':'bedroom_count_conflict','message':'Bedroom count remains disputed.','interpretation_limited':True}})
+    monkeypatch.setattr(source_issues,'load_source_issues',lambda *a,**k:{'a':{
+        'kind':'advertised_price_basis_conflict','message':'Historical headline price is net.',
+        'interpretation_limited':True,'issues':[{'id':'price-case'}]}})
+    page=AppTest.from_file(str(PAGE)).run()
+    assert not page.exception and not page.error
+    widget(page,'selectbox','Observation scope').set_value('All fitted observations').run()
+    assert not page.exception and not page.error
+    assert page.dataframe[0].value['Source review'].ne('').all()
+    assert any('Historical headline price is net.' in w.value and 'Bedroom count remains disputed.' in w.value for w in page.warning)
+    widget(page,'multiselect','Features to change together').set_value(['bedrooms']).run()
+    widget(page,'number_input','bedrooms').set_value(2.)
+    widget(page,'button','Compare with recorded apartment').click().run()
+    assert not page.exception and not page.error
+    assert any('does not resolve the source conflict' in w.value for w in page.warning)
+    assert any(m.label=='Changed apartment: fitted median' for m in page.metric)
+    assert mocked.rows[0]['bedrooms']==1 and mocked.residuals[0]['asking_rent']==5000.
+
+
+def test_invalid_source_issues_stop_page_instead_of_hiding_annotations(mocked,monkeypatch,tmp_path):
+    from apartments import source_issues
+    monkeypatch.setattr(main_analysis,'load_selection',lambda path:(
+        {'source_issues':str(tmp_path/'issues'),'evidence':str(tmp_path/'evidence')},tmp_path/'experiment',tmp_path/'dataset'))
+    def fail(*a,**k):raise ValueError('Source issues do not match dataset')
+    monkeypatch.setattr(source_issues,'load_source_issues',fail)
+    page=AppTest.from_file(str(PAGE)).run()
+    assert page.error and not page.exception
+    assert 'Source issues do not match dataset' in page.error[0].value
+    assert len(page.metric)==0
+
+
+def test_source_issue_cache_uses_evidence_and_reload_clears_it(mocked,monkeypatch,tmp_path):
+    from apartments import source_issues
+    archive=tmp_path/'evidence';issues=tmp_path/'issues';dataset=tmp_path/'dataset'
+    monkeypatch.setattr(main_analysis,'load_selection',lambda path:(
+        {'source_issues':str(issues),'evidence':str(archive)},tmp_path/'experiment',dataset))
+    calls=[]
+    def load(*args,**kwargs):calls.append((args,kwargs));return {}
+    monkeypatch.setattr(source_issues,'load_source_issues',load)
+    page=AppTest.from_file(str(PAGE)).run()
+    assert not page.exception and not page.error
+    assert calls==[((str(dataset),str(issues)),{'evidence':str(archive)})]
+    widget(page,'selectbox','Maximum rows to review').set_value(500).run()
+    assert len(calls)==1
+    widget(page,'button','Reload saved analysis').click().run()
+    assert not page.exception and not page.error
+    assert len(calls)==2

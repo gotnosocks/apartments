@@ -363,11 +363,31 @@ def apartment_analyze(
             if not isinstance(requested, dict) or not requested:
                 raise ValueError('Changes must be a nonempty JSON object of source-valued fields')
         selected, experiment, dataset = main_analysis.load_selection(selection or main_analysis.DEFAULT_SELECTION)
+        notes = {}
+        if selected.get('source_review') or selected.get('source_issues'):
+            if not selected.get('evidence'):
+                raise ValueError('Selected source annotations require their matching description archive')
+            from .source_issues import load_source_issues, merge_notes
+            from .bayesian_source_review import load_source_review
+            evidence = main_analysis.resolve_path(selected['evidence'])
+            review_notes = (load_source_review(experiment,dataset,
+                main_analysis.resolve_path(selected['source_review']),evidence=evidence)
+                if selected.get('source_review') else {})
+            issue_notes = (load_source_issues(dataset,main_analysis.resolve_path(selected['source_issues']),evidence=evidence)
+                if selected.get('source_issues') else {})
+            notes = merge_notes(review_notes,issue_notes)
         workspace = BayesianAnalysis.load(experiment, dataset)
         try:
             result = {'selection': selected, 'detail': workspace.detail(audit_id)}
+            source_note = notes.get(audit_id)
+            if source_note is not None:
+                result['source_note'] = source_note
             if requested is not None:
-                result['counterfactual'] = workspace.counterfactual(audit_id, requested)
+                scenario = workspace.counterfactual(audit_id, requested)
+                if source_note is not None and source_note['interpretation_limited']:
+                    scenario = {**scenario, 'warnings': [*scenario.get('warnings', []),
+                        'These scenarios condition on disputed source inputs. A closer modeled price does not resolve the source conflict.']}
+                result['counterfactual'] = scenario
         finally:
             workspace.close()
         typer.echo(json.dumps(result, indent=2, allow_nan=False))

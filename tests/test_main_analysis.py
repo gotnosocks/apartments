@@ -97,3 +97,58 @@ def test_missing_review_evidence_preserves_existing_selection(experiment, tmp_pa
     with pytest.raises(ValueError, match='matching description archive'):
         m.select(fit, dataset, target, source_review=tmp_path/'review')
     assert target.read_bytes() == original
+
+
+def test_selection_verifies_source_issues_and_binds_case_count(experiment,tmp_path,monkeypatch):
+    from apartments import source_issues
+    fit,dataset=experiment[:2]
+    archive,issues,target=tmp_path/'evidence',tmp_path/'issues',tmp_path/'main.json'
+    publish_bundle(archive,{'evidence.jsonl':''},{'version':'test'})
+    publish_bundle(issues,{'issues.jsonl':''},{'version':'test'})
+    monkeypatch.setattr(bayesian_evidence,'load_evidence',lambda *a:{})
+    calls=[]
+    def checked(*args,**kwargs):
+        calls.append((args,kwargs));return {'historical-a':{},'current-b':{}}
+    monkeypatch.setattr(source_issues,'load_source_issues',checked)
+    value=m.select(fit,dataset,target,evidence=archive,source_issues=issues)
+    assert value['source_issue_cases']==2
+    assert calls==[((dataset,issues),{'evidence':archive})]
+    assert m.load_selection(target)[0]==value
+    (issues/'complete.json').write_text('{}')
+    with pytest.raises(ValueError,match='source_issues_manifest_sha256'):m.load_selection(target)
+
+
+def test_source_issues_require_evidence_and_failed_verification_preserves_selection(experiment,tmp_path,monkeypatch):
+    from apartments import source_issues
+    fit,dataset=experiment[:2];target=tmp_path/'main.json'
+    m.select(fit,dataset,target);original=target.read_bytes()
+    with pytest.raises(ValueError,match='matching description archive'):
+        m.select(fit,dataset,target,source_issues=tmp_path/'issues')
+    assert target.read_bytes()==original
+    archive=tmp_path/'evidence';publish_bundle(archive,{'evidence.jsonl':''},{'version':'test'})
+    monkeypatch.setattr(bayesian_evidence,'load_evidence',lambda *a:{})
+    def fail(*a,**k):raise ValueError('Source issue evidence binding differs')
+    monkeypatch.setattr(source_issues,'load_source_issues',fail)
+    with pytest.raises(ValueError,match='issue evidence binding'):
+        m.select(fit,dataset,target,evidence=archive,source_issues=tmp_path/'issues')
+    assert target.read_bytes()==original
+
+
+@pytest.mark.parametrize('mutation',['missing_path','missing_hash','missing_count','missing_evidence','boolean_count','negative_count'])
+def test_incomplete_source_issue_selection_rejected(experiment,tmp_path,monkeypatch,mutation):
+    from apartments import source_issues
+    fit,dataset=experiment[:2]
+    archive,issues,target=tmp_path/'evidence',tmp_path/'issues',tmp_path/'main.json'
+    publish_bundle(archive,{'evidence.jsonl':''},{'version':'test'})
+    publish_bundle(issues,{'issues.jsonl':''},{'version':'test'})
+    monkeypatch.setattr(bayesian_evidence,'load_evidence',lambda *a:{})
+    monkeypatch.setattr(source_issues,'load_source_issues',lambda *a,**k:{'a':{}})
+    value=m.select(fit,dataset,target,evidence=archive,source_issues=issues)
+    if mutation=='missing_path':value.pop('source_issues')
+    if mutation=='missing_hash':value.pop('source_issues_manifest_sha256')
+    if mutation=='missing_count':value.pop('source_issue_cases')
+    if mutation=='missing_evidence':value.pop('evidence');value.pop('evidence_manifest_sha256')
+    if mutation=='boolean_count':value['source_issue_cases']=True
+    if mutation=='negative_count':value['source_issue_cases']=-1
+    target.write_text(json.dumps(value))
+    with pytest.raises(ValueError,match='source issue'):m.load_selection(target)

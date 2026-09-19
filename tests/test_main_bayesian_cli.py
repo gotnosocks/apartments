@@ -226,3 +226,44 @@ def test_runner_scope_restores_caller_blas_thread_count(fit_route):
         assert result.exit_code==0,result.output
         assert all(p['num_threads']==2 for p in threadpool_info() if p['user_api']=='blas')
     assert len(fit_route)==1
+
+
+def test_analysis_exposes_merged_review_and_issue_notes_without_losing_detail(analysis_route,monkeypatch):
+    from apartments import main_analysis,source_issues,bayesian_source_review
+    calls,_=analysis_route
+    original=main_analysis.load_selection
+    def selected(path):
+        value,fit,dataset=original(path)
+        return {**value,'source_issues':'issues','source_review':'review','evidence':'evidence'},fit,dataset
+    monkeypatch.setattr(main_analysis,'load_selection',selected)
+    issue={'kind':'advertised_price_basis_conflict','message':'Headline price is net rather than gross.',
+           'interpretation_limited':True,'issues':[{'id':'price-case'}]}
+    review={'kind':'bedroom_count_conflict','message':'Room count remains disputed.','interpretation_limited':True}
+    monkeypatch.setattr(source_issues,'load_source_issues',lambda *a,**k:{'a1':issue})
+    monkeypatch.setattr(bayesian_source_review,'load_source_review',lambda *a,**k:{'a1':review})
+    result=CliRunner().invoke(app,['analyze-apartment','a1','--changes','{"bedrooms":2}'])
+    assert result.exit_code==0,result.output
+    value=json.loads(result.output)
+    assert value['detail']=={'audit_id':'a1','draws':16000}
+    assert 'Headline price' in value['source_note']['message']
+    assert 'Room count' in value['source_note']['message']
+    assert value['source_note']['interpretation_limited'] is True
+    assert value['counterfactual']['status']=='reporting_change'
+    assert any('does not resolve the source conflict' in w for w in value['counterfactual']['warnings'])
+    assert calls[-1]==('close',)
+
+
+def test_invalid_selected_source_issues_fail_before_posterior_load(analysis_route,monkeypatch):
+    from apartments import main_analysis,source_issues
+    calls,_=analysis_route
+    original=main_analysis.load_selection
+    def selected(path):
+        value,fit,dataset=original(path)
+        return {**value,'source_issues':'issues','evidence':'evidence'},fit,dataset
+    monkeypatch.setattr(main_analysis,'load_selection',selected)
+    def fail(*a,**k):raise ValueError('Issues belong to another source')
+    monkeypatch.setattr(source_issues,'load_source_issues',fail)
+    result=CliRunner().invoke(app,['analyze-apartment','a1'])
+    assert result.exit_code==1 and 'Issues belong to another source' in result.output
+    assert not any(c[0]=='load' for c in calls)
+    assert '"detail"' not in result.output

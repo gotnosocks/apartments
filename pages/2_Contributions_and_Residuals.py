@@ -10,6 +10,7 @@ from apartments.bayesian_analysis import BayesianAnalysis, bundle_signature
 from apartments.bayesian_evidence import load_evidence
 from apartments.main_analysis import load_selection
 from apartments.bayesian_source_review import load_source_review
+from apartments.source_issues import load_source_issues, merge_notes
 
 ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_SELECTION = ROOT / 'config/main-analysis.json'
@@ -39,6 +40,12 @@ def source_review_notes(experiment, dataset, review, evidence, signature):
     return load_source_review(experiment, dataset, review, evidence=evidence)
 
 
+@st.cache_resource(show_spinner=False)
+def source_issue_notes(dataset, issues, evidence, signature):
+    del signature
+    return load_source_issues(dataset, issues, evidence=evidence)
+
+
 def label(value):
     return str(value).replace('_', ' ').replace('.', ' · ')
 
@@ -63,6 +70,7 @@ with st.sidebar:
         load_analysis.clear()
         archived_evidence.clear()
         source_review_notes.clear()
+        source_issue_notes.clear()
 
 try:
     selection, experiment, dataset = load_selection(selection_path)
@@ -71,7 +79,7 @@ try:
     with st.sidebar:
         evidence_path = st.text_input('Archived description bundle', default_evidence,
             key='evidence:'+str(dataset)+':'+default_evidence,
-            help=('Required matching archive for the selected source-review notes.' if selection.get('source_review')
+            help=('Required matching archive for the selected source annotations.' if selection.get('source_review') or selection.get('source_issues')
                   else 'Optional verified source archive; leave blank to disable.')).strip()
     signature = bundle_signature(experiment / 'protocol', experiment / 'fit', dataset)
     with st.spinner('Verifying the saved Bayesian analysis…'):
@@ -81,10 +89,15 @@ try:
                 if evidence_path else {})
     selected_review = selection.get('source_review')
     review_path = ROOT / selected_review if selected_review else None
-    if review_path and not evidence_path:
-        raise ValueError('The selected source review requires its matching description archive')
-    notes = (source_review_notes(str(experiment), str(dataset), str(review_path), evidence_path,
+    selected_issues = selection.get('source_issues')
+    issues_path = ROOT / selected_issues if selected_issues else None
+    if (review_path or issues_path) and not evidence_path:
+        raise ValueError('The selected source annotations require their matching description archive')
+    review_notes = (source_review_notes(str(experiment), str(dataset), str(review_path), evidence_path,
              bundle_signature(experiment/'fit', dataset, review_path, evidence_path)) if review_path else {})
+    issue_notes = (source_issue_notes(str(dataset), str(issues_path), evidence_path,
+                   bundle_signature(dataset, issues_path, evidence_path)) if issues_path else {})
+    notes = merge_notes(review_notes, issue_notes)
     source = {r['audit_id']: r for r in rows}
     records = []
     for residual in residual_records:
