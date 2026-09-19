@@ -68,7 +68,8 @@ def implementation_paths():
     """Archive local transitive mean-design, graph, sampler and reporting code."""
     modules = (v2,graph,v2.graph,v2.feature,v2.sampler,v2.reports,v2.base,
                v2.feature.amenity,v2.feature.amenity.baseline,v2.feature.pricing,
-               v2.corrections,v2.research_pipeline,reviewed_source_lineage)
+               v2.corrections,v2.research_pipeline,reviewed_source_lineage,
+               reviewed_source_lineage.laundry_floor_split)
     paths = [Path(m.__file__) for m in modules]+[Path(__file__)]
     if len({p.name for p in paths}) != len(paths):
         raise ValueError('Implementation archive names must be unique')

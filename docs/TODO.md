@@ -120,13 +120,19 @@ patterns, and whether a simpler representation suffices.
   reviewed paraphrases and overbroad modal-word filtering; 47 focused tests pass.
   Provisional on-floor support is 149 units in 21 buildings, explicit-none eight
   units in six buildings. Remaining scope/installation reviews and a matched
-  Bayesian category experiment are still required; no input projection yet.
+  Bayesian category experiment are still required. A bounded input projection
+  now splits only the accepted shared-laundry records; see below.
   The [within-building overlap audit](analysis/chelsea-laundry-identification-2026-09-19.md)
   finds no none/shared-laundry comparison within a building, and 40 units switch
   between generic-building and on-floor reporting across ads. Eight inspected
   pairs show added location detail rather than contradictory facility claims.
   Separate a reported-detail sensitivity test from any physical-access premium;
   review encoder replacement effects independently.
+  The [controlled experiment](analysis/chelsea-laundry-floor-experiment-2026-09-19.md)
+  now changes 239 historical observations / 138 units / 15 buildings, with every
+  current row unchanged. Exact source reconstruction and full-data design checks
+  pass; only the laundry contrast family changes. A converged posterior and
+  contribution/residual comparison are still required before any promotion.
 - [ ] Create and test address-based spatial features: raw or centered latitude/
   longitude, interpretable relative-location measures and street indicators.
   Validate geocoding/address identity, compare simple representations, and assess

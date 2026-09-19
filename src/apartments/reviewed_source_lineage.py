@@ -9,11 +9,12 @@ import hashlib
 import math
 
 from .corrections import canonical, instant
+from . import laundry_floor_split
 
 REFRESHED = 'reviewed-capture-refreshed-analysis-v1'
 LAUNDRY = 'reviewed-laundry-negation-projection-v1'
 FLOOR = 'reviewed-floor-conflict-projection-v1'
-VERSIONS = {LAUNDRY, FLOOR}
+VERSIONS = {LAUNDRY, FLOOR, laundry_floor_split.VERSION}
 _PARENTS = {FLOOR: LAUNDRY, LAUNDRY: REFRESHED}
 _FIELDS = {FLOOR: 'advertised_floor', LAUNDRY: 'laundry_type'}
 
@@ -31,7 +32,9 @@ def source_lineage(manifest, rows):
     if manifest.get('version') not in VERSIONS | {REFRESHED}:
         raise ValueError('Unsupported reviewed source lineage')
     current = deepcopy(rows)
-    while manifest['version'] in VERSIONS:
+    if manifest['version'] == laundry_floor_split.VERSION:
+        manifest, current = laundry_floor_split.parent_rows(manifest, current)
+    while manifest['version'] in _PARENTS:
         version = manifest['version']
         parent = manifest.get('source_manifest')
         if (not isinstance(parent, dict) or parent.get('version') != _PARENTS[version]

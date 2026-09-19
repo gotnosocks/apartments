@@ -592,6 +592,7 @@ def run(experiment, dataset, output, top=5):
     return publish_bundle(output, {'report.json': canonical(report)+'\n', 'report.html': html_report(report),
         'bayesian_feature_report.py': Path(__file__).read_text(),
         'reviewed_source_lineage.py': Path(reviewed_source_lineage.__file__).read_text(),
+        'laundry_floor_split.py': Path(reviewed_source_lineage.laundry_floor_split.__file__).read_text(),
         'bayesian_disk_protocol.py': Path(disk_protocol.__file__).read_text()},
         {'version': VERSION, **provenance, 'top_per_tail': top, 'implementation_sha256': digest(__file__)})
 

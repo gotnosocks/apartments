@@ -247,12 +247,15 @@ def test_corrected_source_report_requires_exact_review_lineage(experiment, tmp_p
     root, dataset, protocol, files, _ = v3_fixture(experiment, mode='shared')
     rows = m.jsonl((dataset/'observations.jsonl').read_bytes())
     for row in rows:
-        row.update(known_at='2026-09-18T00:00:00Z', laundry_type='in_building', advertised_floor=3)
+        row.update(known_at='2026-09-18T00:00:00Z', laundry_type='in_building', advertised_floor=3, capture_ids=[row['audit_id']])
     parent = {'version': m.reviewed_source_lineage.REFRESHED,
               'files': {'observations.jsonl': observations_hash(rows)}}
     manifest, rows = revise(parent, rows, m.reviewed_source_lineage.LAUNDRY, 'laundry_type', 'laundry')
-    if version == m.reviewed_source_lineage.FLOOR:
-        manifest, rows = revise(manifest, rows, version, 'advertised_floor', 'floor', index=1)
+    if version in (m.reviewed_source_lineage.FLOOR, m.reviewed_source_lineage.laundry_floor_split.VERSION):
+        manifest, rows = revise(manifest, rows, m.reviewed_source_lineage.FLOOR, 'advertised_floor', 'floor', index=1)
+    if version == m.reviewed_source_lineage.laundry_floor_split.VERSION:
+        from tests.test_laundry_floor_projection import extend
+        manifest, rows = extend(manifest, rows)
     if fault == 'missing_lineage':
         manifest = {'version': version}
     elif fault == 'unintended_change':
@@ -262,7 +265,7 @@ def test_corrected_source_report_requires_exact_review_lineage(experiment, tmp_p
                     source_observations_sha256=source['files']['observations.jsonl'], source_version=version)
     rewrite_v3(root, protocol, files)
     if fault:
-        with pytest.raises(ValueError, match='lineage|Reconstructed parent'):
+        with pytest.raises(ValueError, match='lineage|Reconstructed parent|Reconstructed laundry'):
             m.build_report(root, dataset)
     else:
         report, _ = m.build_report(root, dataset)
