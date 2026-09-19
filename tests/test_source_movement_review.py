@@ -1,6 +1,23 @@
 from copy import deepcopy
 import pytest
-from models.source_movement_review import compare_details
+from models.source_movement_review import compare_details, select_cases
+
+
+@pytest.mark.parametrize('version,key,scope', [
+    ('verified-bayesian-source-sensitivity-v1', 'largest_distinct_unit_movements', 'largest_common_distinct_unit_movements'),
+    ('reviewed-quarantine-fit-comparison-v1', 'largest_current_movements', 'largest_current_distinct_unit_movements')])
+def test_movement_selection_preserves_verified_order_and_distinct_units(version, key, scope):
+    cases = [{'unit_id': 'a', 'audit_id': '1'}, {'unit_id': 'a', 'audit_id': '2'},
+             {'unit_id': 'b', 'audit_id': '3'}, {'unit_id': 'c', 'audit_id': '4'}]
+    chosen, actual_scope = select_cases({'version': version, 'residuals': {key: cases}}, 2)
+    assert chosen == [cases[0], cases[2]] and actual_scope == scope
+
+
+def test_unknown_or_empty_movement_report_is_refused():
+    with pytest.raises(ValueError): select_cases({'version': 'unknown'}, 3)
+    with pytest.raises(ValueError):
+        select_cases({'version': 'reviewed-quarantine-fit-comparison-v1',
+                      'residuals': {'largest_current_movements': []}}, 3)
 
 
 def detail():

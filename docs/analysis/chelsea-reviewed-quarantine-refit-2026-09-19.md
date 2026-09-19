@@ -90,3 +90,26 @@ case. Twenty-three spatial tests pass, including equal-source acceptance and
 rejection of unrelated or incompletely covered cohorts. After numerical checks,
 create a separate candidate selection file for this diagnostic; leave the main
 selection unchanged until the contribution/residual review is complete.
+
+At 09:39:04 UTC, all four chains' 6,000 retained draws had been exported to
+`fit/posterior.nc`; warmup is excluded. The posterior checkpoint SHA is
+`1f3c38774098488eb3f99526e4ca1a19362cdb204e469c7ba998dabaa117140b`.
+Final diagnostics and reports remain required before interpretation.
+
+Follow-up session **20395** runs `/tmp/chelsea-reviewed-refit-followup.py`, logging
+to `/tmp/chelsea-reviewed-refit-followup.log`. It watches the verified original
+host PID/start time, waits for completed reports, and refuses failed diagnostic
+gates. It does not restart sampling or change `config/main-analysis.json`. On
+success it generates, sequentially:
+
+- `chelsea-reviewed-price-basis-complete-category-contrasts-20260919`
+- `chelsea-reviewed-price-basis-complete-fit-comparison-20260919`
+
+A timeout is only an observation deadline, not a terminal sampling event.
+Inspect the live process and artifacts before deciding whether work stopped.
+The existing movement-review tool now accepts this verified quarantine comparison
+and selects its largest current movements across distinct units. Its output
+records that scope explicitly; independent fits' draws are never paired.
+Forty-six movement/comparison tests pass. Run it after the comparison, inspect
+its contribution changes and source captures, then regenerate the eight existing
+current source-review cases if their identities and literal evidence still match.

@@ -14,6 +14,25 @@ from apartments.research_pipeline import _verified_bundle, digest, publish_bundl
 VERSION = 'bayesian-source-movement-review-v1'
 
 
+def select_cases(report, top):
+    if report.get('version') == 'verified-bayesian-source-sensitivity-v1':
+        candidates = report['residuals']['largest_distinct_unit_movements']
+        scope = 'largest_common_distinct_unit_movements'
+    elif report.get('version') == 'reviewed-quarantine-fit-comparison-v1':
+        candidates = report['residuals']['largest_current_movements']
+        scope = 'largest_current_distinct_unit_movements'
+    else:
+        raise ValueError('Verified source comparison required')
+    selected, seen = [], set()
+    for case in candidates:
+        if case['unit_id'] not in seen:
+            selected.append(case)
+            seen.add(case['unit_id'])
+        if len(selected) == top: break
+    if not selected: raise ValueError('No source movement cases available')
+    return selected, scope
+
+
 def compare_details(before, after):
     if (before['audit_id'] != after['audit_id']
             or before['source_record']['asking_rent'] != after['source_record']['asking_rent']):
@@ -50,9 +69,7 @@ def run(comparison, reference, candidate, reference_dataset, candidate_dataset, 
     if type(top) is not int or not 1 <= top <= 10: raise ValueError('Choose 1–10 movement cases')
     cm, cf = _verified_bundle(comparison, retain={'comparison.json'})
     report = json.loads(cf['comparison.json'])
-    if report.get('version') != 'verified-bayesian-source-sensitivity-v1':
-        raise ValueError('Verified source comparison required')
-    cases = report['residuals']['largest_distinct_unit_movements'][:top]
+    cases, scope = select_cases(report, top)
     details, sources = [], []
     for index, (experiment, dataset) in enumerate(((reference, reference_dataset), (candidate, candidate_dataset))):
         model = bayesian_analysis.BayesianAnalysis.load(experiment, dataset)
@@ -75,7 +92,7 @@ def run(comparison, reference, candidate, reference_dataset, candidate_dataset, 
         Path(__file__).name: Path(__file__).read_text(),
         Path(bayesian_analysis.__file__).name: Path(bayesian_analysis.__file__).read_text()}
     return publish_bundle(output, files, {'version': VERSION, 'comparison_manifest_sha256': digest(Path(comparison)/'complete.json'),
-        'cases': len(changes), 'fits': sources,
+        'cases': len(changes), 'case_selection_scope': scope, 'fits': sources,
         'all_case_contribution_diagnostics_pass': all(d['contribution_diagnostics']['acceptable'] for side in details for d in side),
         'implementation_sha256': {Path(p).name: digest(p) for p in (__file__, bayesian_analysis.__file__)}})
 
