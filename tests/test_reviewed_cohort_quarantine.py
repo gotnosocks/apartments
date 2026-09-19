@@ -13,6 +13,39 @@ from models import reviewed_cohort_projection as projection
 CLOCK = '2026-09-19T06:53:10Z'
 
 
+def add_excluded_row(rows):
+    result = deepcopy(rows)
+    result.append({**deepcopy(rows[-1]), 'audit_id': 'excluded', 'source_listing_id': '99999',
+                   'period': '2018-01-01', 'capture_ids': ['excluded-capture'],
+                   'analysis_price_basis': 'historical_initial_own_advertisement_ask'})
+    return result
+
+
+def quarantine_last(parent, rows):
+    row = rows[-1]
+    text = 'AVAILABLE ON A SHORT-TERM BASIS\u2028Literal evidence preserved.'
+    evidence = [{**{k: row[k] for k in ('audit_id', 'unit_id', 'source_listing_id')},
+        'capture_id': cid, 'body_sha256': 'a'*64, 'raw_listing_sha256': 'b'*64,
+        'description': text, 'description_sha256': hashlib.sha256(text.encode()).hexdigest(),
+        'source_collected_at': row['known_at'], 'known_at': row['known_at'],
+        'spans': [{'start': 0, 'end': 30, 'literal': text[:30]}]} for cid in row['capture_ids']]
+    decision = {**{k: row[k] for k in ('audit_id', 'unit_id', 'source_listing_id')},
+        'source_row_sha256': q.sha(row), 'reviewed_at': CLOCK, 'reviewer': 'reviewer',
+        'reason': 'Explicit short-term offer', 'action': 'quarantine_explicit_short_term_offer', 'evidence': evidence}
+    decision['decision_id'] = q.sha(decision)
+    dm = {'version': q.DECISION_VERSION, 'reviewed_at': CLOCK,
+          'source_manifest_sha256': q.records_hash([parent]),
+          'source_observations_sha256': parent['files']['observations.jsonl'],
+          'files': {'decisions.jsonl': q.records_hash([decision])}}
+    kept, sidecar = projection.project(rows, [decision], CLOCK)
+    manifest = {'version': q.VERSION, 'source_manifest': parent,
+        'source_manifest_sha256': q.records_hash([parent]), 'source_rows': len(rows),
+        'reviewed_at': CLOCK, 'decisions_manifest': dm, 'decisions_manifest_sha256': q.records_hash([dm]),
+        'decision_ids': [decision['decision_id']],
+        'files': {q.SIDECAR: q.records_hash(sidecar), 'observations.jsonl': q.records_hash(kept)}}
+    return manifest, kept, sidecar
+
+
 def fixture():
     source = [{'audit_id': str(i), 'unit_id': 'same-unit', 'building': 'building',
                'source_listing_id': str(100+i), 'capture_ids': [i, str(i)],

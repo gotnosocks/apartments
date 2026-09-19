@@ -153,3 +153,39 @@ def test_refreshed_evidence_rejects_wrong_binding_coverage_or_clock(tmp_path, fa
     archive = tmp_path/'archive'
     publish_bundle(archive, {'evidence.jsonl': ''.join(canonical(c)+'\n' for c in captures)}, em)
     with pytest.raises(ValueError): load_evidence(dataset, archive)
+
+
+@pytest.mark.parametrize('fault', [None, 'missing_sidecar', 'changed_excluded_row', 'changed_retained_row'])
+def test_quarantine_evidence_requires_inverse_lineage_and_returns_survivors_only(tmp_path, fault):
+    from apartments.reviewed_source_lineage import REFRESHED, LAUNDRY, FLOOR
+    from tests.test_reviewed_source_lineage import revise
+    from tests.test_reviewed_cohort_quarantine import quarantine_last
+
+    old, em, captures = refreshed_parts(tmp_path)
+    rows = [json.loads(s) for s in (old/'observations.jsonl').read_text().split('\n') if s]
+    for row in rows:
+        row.update(laundry_type='in_building', advertised_floor=3,
+                   analysis_price_basis='historical_initial_own_advertisement_ask')
+        if 'capture_ids' not in row: row['capture_ids'] = [row['capture_id']]
+    original = tmp_path/'original'
+    parent = publish_bundle(original, {'observations.jsonl': ''.join(canonical(r)+'\n' for r in rows)},
+                            {'version': REFRESHED})
+    em.update(dataset_manifest_sha256=digest(original/'complete.json'),
+              dataset_observations_sha256=parent['files']['observations.jsonl'])
+    archive = tmp_path/'archive'
+    publish_bundle(archive, {'evidence.jsonl': ''.join(canonical(c)+'\n' for c in captures)}, em)
+    manifest, rows = revise(parent, rows, LAUNDRY, 'laundry_type', 'laundry')
+    manifest, rows = revise(manifest, rows, FLOOR, 'advertised_floor', 'floor', index=1)
+    manifest, kept, sidecar = quarantine_last(manifest, rows)
+    if fault == 'changed_excluded_row': sidecar[0]['observation']['advertised_floor'] = 9
+    if fault == 'changed_retained_row': kept[0]['unit_id'] = 'different'
+    files = {'observations.jsonl': ''.join(canonical(r)+'\n' for r in kept)}
+    if fault != 'missing_sidecar': files['quarantined.jsonl'] = ''.join(canonical(r)+'\n' for r in sidecar)
+    dataset = tmp_path/'quarantine'
+    publish_bundle(dataset, files, {k: v for k, v in manifest.items() if k != 'files'})
+    if fault:
+        with pytest.raises(ValueError): load_evidence(dataset, archive)
+    else:
+        result = load_evidence(dataset, archive)
+        assert set(result) == {'kept'} and len(result['kept']) == 2
+        assert result['kept'][0]['description'] == captures[0]['description']
