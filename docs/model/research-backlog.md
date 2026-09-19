@@ -1,0 +1,30 @@
+# Chelsea pricing research backlog
+
+## Floor representation
+
+- [ ] **Gaussian process for the floor increment model** — user research idea,
+  September 19, 2026. Explore correlated increments across listed-floor levels
+  using a Gaussian-process prior in PyMC. Compare against the selected natural
+  cubic spline on the same frozen source cohort. Evaluate joint floor contrasts,
+  coefficient uncertainty, prior sensitivity, residuals and full-length sampling
+  diagnostics/work. Record kernel and length-scale assumptions explicitly;
+  evaluate increments versus a GP on floor-price levels as distinct choices.
+  This is a research candidate, not a change to the selected main model.
+
+- [ ] **Random walk for floor increments** — user research idea, September 19,
+  2026. Let neighboring floor increments vary while encouraging each increment
+  to stay near the previous one (equivalently, a joint neighbor-difference
+  penalty links it to both neighbors in the interior). Explore a learned
+  innovation scale and an explicit starting/anchoring prior in PyMC. Distinguish
+  a random walk on increments from a random walk on the floor-price levels;
+  compare both interpretations with the GP and selected spline using the same
+  frozen cohort, joint contrasts, prior sensitivity and full-length diagnostics.
+
+## Floor measurement
+
+- [ ] Broaden the initial label parser beyond one/two digits plus one letter.
+  Audit numeric labels, wing prefixes, multi-letter suffixes and floor-only
+  labels against own-advertisement evidence and building numbering. Keep
+  advertised labels separate from physical height and preserve source conflicts.
+  The current 56.8% coverage describes the narrow v1 policy, not all recoverable
+  floor information in the captured unit labels.
