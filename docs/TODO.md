@@ -335,6 +335,9 @@ patterns, and whether a simpler representation suffices.
   52,863-row input while rejecting the unreviewed refresh version. The expanded
   cohort's graph verification and fit are next; the matched floor comparison is
   complete.
+  The new full-cohort graph check now passes and the four-chain v4 disk fit
+  `chelsea-bayesian-current-floor-disk-20260918` has started. Main selection remains
+  unchanged until numerical and current-analysis validation is complete.
   The refreshed description archive now covers all 72,065 supporting captures,
   with exact dataset binding and reader-verified coverage. Publication and replay
   pass; the old main selection is unchanged.
