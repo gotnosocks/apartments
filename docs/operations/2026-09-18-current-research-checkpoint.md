@@ -1,5 +1,62 @@
 # Current research checkpoint, 22:05 EDT
 
+## September 19: low-rank trial stopped; revised-source production fit launched
+
+Previous goal turn was progress, saved **3abbfe15**: laundry v4 full replay.
+This turn removes the computational bottleneck and starts the prepared source
+refit. **Use the new live handle below; 80844 is terminal.**
+
+Low-rank laundry host PID **541438** was verified live at ~12 GiB RSS, full
+4-GiB swap, over two hours of warmup. The 08:38–09:08 UTC window advanced only
+140–160 iterations per chain. It was intentionally abandoned for operational
+cost, not because an observation timed out. SIGINT at **09:10:10 UTC** halted
+callbacks but did not promptly end the process; SIGTERM followed. Session
+**80844 exited 143**, PID verified absent, with **no trace/fit completion**.
+No retained-efficiency or convergence inference. All partial artifacts remain.
+Audit: `chelsea-laundry-lowrank-operational-stop-20260919/{intent,termination,terminal}`
+contains resource snapshots, signal/terminal records, full log and raw-trace
+hash inventory. Run-root `operational-stop.json` marks abandonment. Never resume
+or promote the partial run. The laundry coefficient remains unaccepted.
+
+After terminal verification, merged isolated **25e84d67** readers into root;
+no conflicts. Saved integration/operational documentation as **637e91ea**,
+bookmark `codex/chelsea-bayesian-analysis`. **248 tests pass**, session **75000**,
+exit 0. Full-data reader verification **43113**, PID 572904, exit 0, replayed the
+existing `chelsea-reviewed-price-basis-complete-reader-verification-20260919`
+identically. Log `/tmp/chelsea-reviewed-price-basis-complete-reader-root-replay.log`.
+Exact inverse, 71,813 identical retained captures, 252 exclusions, 59 columns/rank
+59, unchanged categorical bases and floor support. Normalization changes remain
+documented. Numerical graph proof matches integrated implementation hashes;
+there was no reason to repeat unchanged numerical calculations.
+
+**NEW LIVE FIT: session 23264, host PID 573616**:
+`data/model/chelsea-bayesian-reviewed-price-basis-complete-disk-20260919`.
+Log `/tmp/chelsea-bayesian-reviewed-price-basis-complete-fit.log`.
+Source `chelsea-reviewed-price-basis-complete-analysis-20260919`:
+**52,653 rows, 22,155 units, 1,129 buildings, all 172 current unchanged**.
+Four chains × 4,000 warmup + 6,000 retained, seed 20260924, target .93,
+**diag**, full_half_balance, shared noise, prior multiplier1, building .35,
+unit .25, floor increments .15, residual parameterization centered (shared).
+Uses exact source-specific graph proof
+`chelsea-reviewed-price-basis-complete-graph-parity-20260919`.
+Sampling callback started **09:16:34 UTC**. Freeze current root mathematical,
+loader, sampler and report-cache dependencies until this process is terminal.
+
+Actual protocol comparison **62896**, exit 0:
+`chelsea-reviewed-price-basis-complete-protocol-comparison-20260919`.
+`quarantine_fit_comparison.check_protocols` passes against the selected main fit.
+Changed shared code only v3 loader and reviewed lineage; expected helpers added.
+No sampler, declared mathematical/prior or floor-support change. Induced priors
+still change slightly through source-dependent normalizations, as documented.
+
+After convergence, generate `models.bayesian_category_contrasts` for candidate,
+then `models.quarantine_fit_comparison` against selected reference/current source
+and `chelsea-corrected-main-category-contrasts-20260919`. Inspect common-row
+residuals, common-reference building effects and matched physical feature
+contrasts before promotion. Repeat spatial diagnostics on the revised posterior.
+Main selection remains unchanged. Full run/decision note:
+`docs/analysis/chelsea-reviewed-quarantine-refit-2026-09-19.md`.
+
 ## September 19: laundry v4 exact full-cohort replay
 
 Previous goal turn was progress, saved **8b617e89**: primary and coordinate-
