@@ -62,7 +62,10 @@ patterns, and whether a simpler representation suffices.
   The [location evidence review](analysis/chelsea-laundry-location-2026-09-18.md)
   finds each/every-floor wording for 140 units in 13 buildings and reviews 36
   cases, including coexisting facilities, hallway scope and hookup-only wording.
-  A revised measurement policy and matched four-level fit remain pending.
+  The [next measurement policy](model/laundry-measurement-policy.md) separates
+  scoped absence, installed equipment, coexisting facilities and the most
+  convenient reported option. Extractor validation and a matched four-level fit
+  remain pending.
 - [ ] Create and test address-based spatial features: raw or centered latitude/
   longitude, interpretable relative-location measures and street indicators.
   Validate geocoding/address identity, compare simple representations, and assess
