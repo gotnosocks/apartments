@@ -3,8 +3,8 @@
 The new analytical candidate excludes two specifically reviewed historical
 advertisements from the accepted corrected source. It contains **52,861 rows,
 22,189 units, 1,131 buildings and 172 current listings**. The selected model and
-its source are unchanged; reader integration and a source-sensitivity refit
-remain pending.
+its source are unchanged. Reader integration is tested in an isolated checkout;
+merging it and a source-sensitivity refit remain pending.
 
 | Advertisement | Finding | Decision |
 | --- | --- | --- |
@@ -41,7 +41,26 @@ Artifacts:
 Implementation: `docs/analysis/scripts/prepare_reviewed_listing_quarantines.py`,
 `models/reviewed_cohort_projection.py`, `src/apartments/reviewed_cohort_quarantine.py`.
 
-Next: add sidecar-aware inverse verification to the fit, report and description
-readers, then verify full source/design compatibility and fit the revised source.
+Sidecar-aware inverse verification is implemented in the fit, report and
+description readers in isolated commit **6e0ab0ff** (`codex/quarantine-readers`),
+with 300 tests passing. Full-data verification preserves all 72,062 retained
+literal captures and removes only the three attached to the excluded ads. Both
+designs have 59 columns and rank 59, with the same listed-floor levels and coefficient
+prior scales. Numerical centering and scaling change with cohort membership;
+equal coefficient scales are not evidence of identical raw-unit or joint priors.
+The completed v2 verification records those changes explicitly: only elevator
+normalization changes its raw-unit log-prior SD, from .5933432 to .5933285
+(**−0.002477%**). Area reference medians/defaults and category contrast bases are
+identical. Category frequencies and mean centering still change, so this is not
+a claim of an identical joint prior over missingness, features and intercept.
+
+The source-specific compressed/reference PyMC graph also passes all three tested
+points across 23,461 gradient parameters: maximum absolute log-density difference
+1.46e-11 and gradient difference 2.50e-9. Artifact:
+`chelsea-reviewed-quarantine-graph-parity-20260919`. These checks establish
+numerical parity at the tested points; no source-candidate posterior is fitted yet.
+
+Next: merge the isolated readers after the running laundry fit finishes and fit
+the revised source using its completed graph proof.
 Keep this change separate from the controlled laundry experiment. The broader
 net-rent phrase audit and bedroom-count conflicts remain unresolved.

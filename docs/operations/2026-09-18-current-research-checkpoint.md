@@ -1,5 +1,54 @@
 # Current research checkpoint, 22:05 EDT
 
+## September 19: isolated quarantine readers and explicit sampler comparison
+
+Previous goal turn was concrete progress: exclusions were published/replayed and
+saved as **5b3f9e55**. This turn adds the following work while session **80844**
+remains live (host PID **541438**, confirmed computing). All four chains still
+in warmup at 07:19:46 UTC, 1,921–2,002 iterations, zero divergences. Low-rank
+adaptation has substantial warmup cost; do not rank retained sampling from it.
+
+- Root `models.laundry_floor_fit_comparison` now requires an explicit
+  `--allow-adaptation-change` option to permit diag/low_rank changes. Other
+  sampling/model/likelihood/prior/environment/code checks remain strict, and
+  output records the computational difference. **34 tests pass**. Actual frozen
+  reference/low-rank protocols reject by default and pass with the explicit
+  option. Incomplete or nonconverged fits still cannot produce this comparison.
+- Created isolated JJ workspace **quarantine-readers** at
+  `/tmp/apartments-quarantine-reader-code`, based on **5b3f9e55**. Reader integration
+  saved as **6e0ab0ff**, verification refinement **25e84d67**, bookmark
+  **codex/quarantine-readers**. Root fit dependencies
+  are untouched. Optional sidecar verification is integrated through inverse
+  lineage into v3/v4 fit loading, verified reporting and literal description
+  attachment. The new transitive helper is archived. **300 tests pass**.
+- Full-data verification **72506**, exit 0: exact ordered inverse, identical
+  retained evidence, 72,062 retained / three excluded description captures;
+  52,861 rows, 22,189 units, 1,131 buildings, 172 unchanged current rows. Design
+  stays 59 columns/rank 59, same floor levels and coefficient prior scales.
+  Artifact `chelsea-reviewed-quarantine-reader-verification-20260919`.
+- That verification found numeric normalization changes. Its v1 field named
+  `feature_inventory_and_priors_equal` means equal coefficient scales only,
+  not identical raw-unit/joint priors. Superseding v2 verification **94863**
+  completed, exit 0; log `/tmp/chelsea-reviewed-quarantine-reader-verification-v2.log`,
+  output `chelsea-reviewed-quarantine-reader-verification-v2-20260919`. It records
+  actual numeric normalizations, raw-unit prior SD changes, category frequency
+  changes and size reference values. Only elevator normalization changes:
+  raw 0→1 log-prior SD .5933432→.5933285, relative change **−0.002477%**.
+  Area medians/defaults and category contrast bases are identical. Preserve v1
+  and use v2 for interpretation; frequency/unknown/intercept coupling still
+  prevents claiming an entirely identical joint prior.
+- Exact reference/compressed graph proof **51575** completed on isolated code,
+  host execution; log `/tmp/chelsea-reviewed-quarantine-graph-parity.log`, output
+  `chelsea-reviewed-quarantine-graph-parity-20260919`. This is numerical parity,
+  not a sampling-speed benchmark or a source-candidate fit. All three points pass
+  across 23,461 gradient parameters: maximum absolute logp difference 1.46e-11,
+  gradient difference 2.50e-9. Source-specific graph proof is ready.
+
+Do not merge **codex/quarantine-readers** into root until the live laundry fit
+is terminal. Then merge the tested isolated code and use the source-specific graph proof for a separate
+quarantine refit. Existing main fit/source remain selected. No source revision
+is bundled into the controlled laundry experiment.
+
 ## September 19: diagonal laundry fit failed one gate; low-rank follow-up live
 
 This section supersedes the live-status instructions below. The diagonal fit

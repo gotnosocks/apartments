@@ -11,6 +11,7 @@ from tests.test_bayesian_category_contrasts import training
 def protocols():
     a = {'version': 'observable-bayesian-floor-experiment-v4', 'source_version': m.split.PARENT,
         'chains': 4, 'draws': 6000, 'tune': 4000, 'seed': 5, 'prior_multiplier': 1,
+        'adaptation': 'diag', 'target_accept': .93, 'backend': 'numba',
         'building_prior_scale': .35, 'floor_levels': [1, 3, 4], 'residual_scale': 'shared',
         'implementation_sha256': {'math.py': 'same', 'bayesian_feature_experiment_v3.py': 'old',
                                   'reviewed_source_lineage.py': 'old'}}
@@ -24,6 +25,24 @@ def protocols():
 def test_only_loader_and_source_changes_allowed():
     a, b = protocols()
     assert m.check_protocols(a, b) == ['bayesian_feature_experiment_v3.py', 'reviewed_source_lineage.py']
+
+
+def test_adaptation_change_requires_explicit_option_and_preserves_other_checks():
+    a, b = protocols()
+    b['adaptation'] = 'low_rank'
+    with pytest.raises(ValueError, match='Sampling'): m.check_protocols(a, b)
+    assert m.check_protocols(a, b, allow_adaptation_change=True) == [
+        'bayesian_feature_experiment_v3.py', 'reviewed_source_lineage.py']
+
+
+@pytest.mark.parametrize('key,value', [('draws', 50), ('tune', 50), ('chains', 2), ('seed', 99),
+    ('target_accept', .8), ('backend', 'jax'), ('adaptation', 'flow'), ('adaptation', None),
+    ('building_prior_scale', .1), ('extra_sampler_setting', True)])
+def test_adaptation_option_is_not_a_general_protocol_bypass(key, value):
+    a, b = protocols()
+    b['adaptation'] = 'low_rank'
+    b[key] = value
+    with pytest.raises(ValueError): m.check_protocols(a, b, allow_adaptation_change=True)
 
 
 @pytest.mark.parametrize('fault', ['prior', 'noise', 'draws', 'floor', 'math', 'inventory'])

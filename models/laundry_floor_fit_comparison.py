@@ -20,15 +20,19 @@ from . import bayesian_feature_sensitivity as common
 from . import bayesian_source_sensitivity as source
 from .bayesian_feature_design_v2 import load_design
 
-VERSION = 'bounded-laundry-floor-fit-comparison-v1'
+VERSION = 'bounded-laundry-floor-fit-comparison-v2'
 
 
-def check_protocols(a, b):
+def check_protocols(a, b, *, allow_adaptation_change=False):
     if (a.get('version') != 'observable-bayesian-floor-experiment-v4'
             or b.get('version') != a['version'] or a.get('source_version') != split.PARENT
             or b.get('source_version') != split.VERSION):
         raise ValueError('Expected accepted floor fit and bounded laundry split')
     variable = source.SOURCE_FIELDS | {'graph_verification', 'implementation_sha256'}
+    if allow_adaptation_change:
+        if a.get('adaptation') not in {'diag', 'low_rank'} or b.get('adaptation') not in {'diag', 'low_rank'}:
+            raise ValueError('Only explicit diag/low_rank computational comparisons are supported')
+        variable = variable | {'adaptation'}
     if {k: v for k, v in a.items() if k not in variable} != {k: v for k, v in b.items() if k not in variable}:
         raise ValueError('Sampling, prior, floor, likelihood or environment settings changed')
     old, new = a['implementation_sha256'], b['implementation_sha256']
@@ -121,7 +125,8 @@ def group_changes(a, b):
         for kind, identity in before], key=lambda r: (-abs(r['log_effect']['median_change']), r['kind'], r['id']))
 
 
-def run(reference, candidate, reference_dataset, candidate_dataset, reference_categories, candidate_categories, output):
+def run(reference, candidate, reference_dataset, candidate_dataset, reference_categories, candidate_categories, output,
+        allow_adaptation_change=False):
     experiments = list(map(Path, (reference, candidate)))
     datasets = list(map(Path, (reference_dataset, candidate_dataset)))
     bundles = [_verified_bundle(p, retain={'observations.jsonl'}) for p in datasets]
@@ -141,7 +146,8 @@ def run(reference, candidate, reference_dataset, candidate_dataset, reference_ca
             **{key: report.jsonl(common.bound_bytes(experiment/'fit', filename, provenance['fit_manifest']))
                for key, filename in [('residuals', 'residuals.jsonl'), ('groups', 'group-effects.jsonl')]}})
     a, b = fits
-    changed_code = check_protocols(a['protocol'], b['protocol'])
+    changed_code = check_protocols(a['protocol'], b['protocol'], allow_adaptation_change=allow_adaptation_change)
+    adaptation_changed = a['protocol'].get('adaptation') != b['protocol'].get('adaptation')
     other_columns = check_designs(a['design'], b['design'], *data)
     for name in ('time-design.json', 'time-design.npz'):
         if a['provenance']['fit_manifest']['files'][name] != b['provenance']['fit_manifest']['files'][name]:
@@ -165,6 +171,13 @@ def run(reference, candidate, reference_dataset, candidate_dataset, reference_ca
                    for building in sorted(affected_buildings)]
     result = {'version': VERSION, 'cohort': b['report']['cohort'], 'changed_source_rows': len(slices['changed']),
         'verified_nonlaundry_columns': other_columns, 'changed_loader_implementations': changed_code,
+        'sampling_comparison': {'adaptation_change_explicitly_allowed': allow_adaptation_change,
+            'reference_adaptation': a['protocol'].get('adaptation'),
+            'candidate_adaptation': b['protocol'].get('adaptation'),
+            'changed_sampling_fields': ['adaptation'] if adaptation_changed else [],
+            'interpretation': 'Both independent fits must pass the existing complete-fit and contrast gates. '
+                'An adaptation change changes the sampling procedure, not the target posterior. '
+                'Between-fit movements include Monte Carlo error; this analysis does not measure sampler speed.'},
         'fits': [{'protocol': f['protocol'], 'diagnostics': f['report']['diagnostics'],
                   'design_reconstruction': f['reconstruction']} for f in fits],
         'residual_slices': {k: summarize_slice(v) for k, v in slices.items()},
@@ -193,4 +206,6 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description=__doc__)
     for name in ('reference', 'candidate', 'reference_dataset', 'candidate_dataset', 'reference_categories', 'candidate_categories', 'output'):
         parser.add_argument('--'+name.replace('_', '-'), type=Path, required=True)
+    parser.add_argument('--allow-adaptation-change', action='store_true',
+        help='Explicitly compare diag and low_rank fits; all other sampler/model/prior and convergence checks remain required.')
     with threadpool_limits(limits=1, user_api='blas'): run(**vars(parser.parse_args()))

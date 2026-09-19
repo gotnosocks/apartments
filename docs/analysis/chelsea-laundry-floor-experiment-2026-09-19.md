@@ -94,11 +94,15 @@ installed version labels it experimental. This run tests that option rather
 than assuming it improves convergence or speed. The previous fit is preserved.
 Output: `chelsea-bayesian-laundry-floor-lowrank-disk-20260919`.
 
-The existing matched laundry comparison insists on identical sampler settings.
-Before using the new computational run for substantive comparison, extend that
-check to explicitly record an adaptation difference while preserving all
-source, model, prior, design and convergence requirements. Do not bypass it or
-accept the failed diagonal fit.
+The matched laundry comparison now accepts an adaptation difference only with
+the explicit `--allow-adaptation-change` option. Only `diag`/`low_rank` are
+supported by that option; every other sampler setting, environment, mathematical
+implementation, prior and design check remains strict. The output records the
+two adaptations and warns that descriptive between-fit movements include Monte
+Carlo error. It is not a sampler-speed analysis. Existing complete-fit and
+category-contrast convergence gates remain mandatory. All 34 focused tests pass;
+the actual reference/low-rank protocols are rejected by default and accepted
+only with the explicit option. No comparison has been run on an incomplete fit.
 
 ## Fit and interpretation plan
 
