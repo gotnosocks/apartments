@@ -38,6 +38,26 @@ def test_negation_conflict_and_literal_offsets():
             assert desc[evidence['start']:evidence['end']] == evidence['literal']
 
 
+@pytest.mark.parametrize('phrase', ['non-elevator', 'non elevator', 'non–elevator', 'non—elevator', 'non- elevator'])
+def test_non_elevator_denial_is_not_a_positive_claim(phrase):
+    text = f'It is one flight up in a {phrase} building.'
+    result = extract({'description': text})
+    assert result['attributes']['elevator'] is False
+    assertions = [e for e in result['evidence'] if e['attribute'] == 'elevator']
+    assert len(assertions) == 1 and assertions[0]['value'] is False
+    assert phrase in assertions[0]['literal']
+    assert text[assertions[0]['start']:assertions[0]['end']] == assertions[0]['literal']
+    conflicting = extract({'description': text, 'propertyDetails': {'amenities': {'list': ['ELEVATOR']}}})
+    assert conflicting['attributes']['elevator'] is None
+    assert conflicting['conflicts']['elevator'] == [True, False]
+
+
+def test_unrelated_non_prefix_does_not_negate_an_elevator():
+    assert extract({'description': 'Non-smoking building with an elevator.'})['attributes']['elevator'] is True
+    assert extract({'description': 'An elevator in a non-doorman building.'})['attributes']['elevator'] is True
+    assert extract({'description': 'This is not a non-elevator building.'})['attributes']['elevator'] is None
+
+
 def test_unit_floor_and_exposure_are_distinct_from_amenity_copy():
     result = extract({'description': 'This apartment is on the 14th floor. The second floor gym has west-facing windows. Rooftop terrace offers city views. Courtyard-facing windows. South-facing windows.'})
     a = result['attributes']

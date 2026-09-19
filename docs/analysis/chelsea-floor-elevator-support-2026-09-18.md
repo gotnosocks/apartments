@@ -1,5 +1,11 @@
 # Floor × elevator: support before fitting
 
+The [elevator negation review](chelsea-elevator-negation-review-2026-09-19.md)
+found 98 retained historical observations incorrectly encoded positive from
+“non-elevator” wording. Exact-row corrections are recorded separately; they
+must enter a verified source projection before a floor-interaction fit. Other
+opposing building-level reports remain unresolved.
+
 Update: the [local numbering review](chelsea-local-floor-numbering-2026-09-19.md)
 applies the 17 reviewed floor masks in its audit baseline and evaluates four
 building-specific label rules. Their extra candidates add no new buildings with

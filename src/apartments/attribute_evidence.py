@@ -10,7 +10,7 @@ from collections import defaultdict
 import math
 import re
 
-VERSION = 'attribute-evidence-v4'
+VERSION = 'attribute-evidence-v5'
 VIEWS = ('street', 'courtyard', 'garden', 'city', 'skyline', 'water', 'park')
 DIRECTIONS = ('north', 'east', 'south', 'west')
 SCALARS = ('bedrooms', 'bathrooms', 'square_feet', 'advertised_floor',
@@ -148,6 +148,14 @@ def extract_attribute_evidence(raw_listing: dict) -> dict:
                 # skipped rather than converted into a positive assertion.
                 negated = bool(re.search(r'\b(?:no|without|not|lacks?)(?:\s+|-)(?:an?\s+|any\s+)?$', before, re.I)
                                or re.match(r'\s+(?:is\s+|are\s+)?(?:not\s+(?:allowed|permitted|available)|prohibited)\b', after, re.I))
+                if attribute == 'elevator':
+                    # Ads 4417318/4931353 say "non-elevator building";
+                    # 5118079 uses "non elevator building". The noun alone
+                    # must not become a positive elevator assertion.
+                    non_prefix = r'non(?:\s+|[-\u2010-\u2014]\s*)$'
+                    if re.search(r'\b(?:not|no|without)\s+(?:an?\s+)?'+non_prefix, before, re.I):
+                        continue  # Do not resolve a double negation into a physical claim.
+                    negated |= bool(re.search(r'\b'+non_prefix, before, re.I))
                 if attribute == 'laundry_type':
                     # Ad 4800947 says the building "doesn't have on-site
                     # laundry". Keep this as a scoped denial, including when
