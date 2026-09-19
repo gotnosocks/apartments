@@ -1,5 +1,11 @@
 # Floor × elevator: support before fitting
 
+Update: the [local numbering review](chelsea-local-floor-numbering-2026-09-19.md)
+applies the 17 reviewed floor masks in its audit baseline and evaluates four
+building-specific label rules. Their extra candidates add no new buildings with
+within-elevator-group floor variation across the supported thresholds. That
+report contains the revised support counts after the masks.
+
 The frozen 52,704-row cohort supports a limited explicit-floor interaction
 experiment, rather than an unrestricted interaction at every floor threshold.
 The audit uses the existing model's normalization and keeps unknown elevator

@@ -1,5 +1,36 @@
 # Current research checkpoint, 22:05 EDT
 
+## September 19: local floor-label calibration does not expand interaction support
+
+Reviewed all 46 capture floor passages for 33 advertisements / 23 units across
+152 W20, 312 W20, 317 W22 and 350 W18. Only 152 W20 supports prefix +1;
+the other three support equal prefix/floor within their observed ranges.
+`models/floor_label_calibration.py` counts distinct units, requires four units
+and two prefix levels, holds out whole units with three remaining references,
+abstains outside the remaining range, and preserves negative evidence from all
+12 buildings with reviewed numbering/scope problems. An unreviewed comparable
+disagreement also vetoes a selected rule.
+
+Artifact **`data/model/chelsea-floor-label-calibration-20260919`**, successful
+script session **90995**, binds source/label/description/review bundles and
+includes exact reference capture passages. **19 whole-unit checks agree and four
+abstain**. This is selected-rule consistency, not independent accuracy.
+100 missing-floor rows / 39 units gain candidates; only **19 units** lack explicit
+reference evidence elsewhere. Most added rows have unknown elevator status.
+No new buildings have within-elevator-group floor variation across the supported
+thresholds. Keep the next floor interaction experiment small and based on reviewed
+explicit floor claims; calibrated labels can be a sensitivity analysis.
+
+This remains the 52,704-row source cohort, not the refreshed current cohort.
+No analytical values, model parameters, source clocks or main selection changed.
+Reproduction script `docs/analysis/scripts/review_floor_label_calibration.py`;
+findings in `docs/analysis/chelsea-local-floor-numbering-2026-09-19.md`.
+**Eight calibration/support tests pass** in session **76904**, exit 0.
+
+GPU session **30289** re-polled live. At **04:33:34 UTC**, batch six was 375/500;
+last durable status was 2,500/6,000 retained draws per chain. Do not restart;
+sampling continues on the original frozen model/source. No backend winner yet.
+
 ## September 19: long-run CPU efficiency bounds ready; GPU retained sampling live
 
 The 50/50 run remains withdrawn as speed evidence. GPU session **30289**, host
