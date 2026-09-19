@@ -40,9 +40,17 @@ Actual jobs:
   165 original observations preserved in a hashed sidecar; exact inverse passed.
 - **84307**, identical combined projection replay, exit 0.
 - **53114**, full combined-source reader/design verification using isolated
-  checkout, currently pending; log
+  checkout, exit 0; log
   `/tmp/chelsea-reviewed-net-and-scope-reader-verification.log`, output
   `chelsea-reviewed-net-and-scope-reader-verification-20260919`.
+  Exact inverse and all 71,866 surviving description captures pass. Design stays
+  59 columns/rank 59 with identical categorical contrast bases and floor levels.
+  Elevator raw-unit prior SD changes .5933432→.5924057 (−.1580%); three-bedroom
+  area reference changes 1,978→1,979 sq ft. Other centering changes are archived.
+- **56507**, fresh combined-source graph parity launched from the isolated checkout; log
+  `/tmp/chelsea-reviewed-net-and-scope-graph-parity.log`, output
+  `chelsea-reviewed-net-and-scope-graph-parity-20260919`. Check the current handle
+  before declaring completion; keep isolated model dependencies unchanged.
 - **67 focused tests pass** across measurement, raw-price packet and quarantine
   validation. Development cases are not an independent extraction accuracy test.
 

@@ -88,6 +88,13 @@ both pass. The earlier two-ad candidate is preserved, but the
 combined source revision should be used for the next source-sensitivity fit.
 The selected model and the live controlled laundry experiment remain unchanged.
 
+The full combined-source reader check passes: all 71,866 surviving description
+captures are identical to the parent evidence, and both designs have 59 columns
+and rank 59. Floor levels and category contrast bases remain unchanged. The
+elevator raw-unit log-prior SD changes .5933432→.5924057 (−.1580%); the three-bedroom
+area reference changes 1,978→1,979 sq ft. These are recorded normalization changes,
+not silently treated as identical joint priors. A fresh graph proof is running.
+
 Important artifacts under `data/model/`:
 
 - `chelsea-literal-rent-basis-audit-v4-20260919`: final complete-cohort screen.
