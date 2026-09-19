@@ -1,5 +1,34 @@
 # Current research checkpoint, 22:05 EDT
 
+## September 19: production-length CPU/GPU comparison complete
+
+**GPU diagnostic session 30424 exited 0; comparison session 23000 exited 0.**
+Both posterior runs pass every parameter, contribution and floor gate. Exact
+data, priors, graph code, four chains, 4,000 warmup, 6,000 retained, seed and
+target acceptance match. Comparison artifact:
+`data/model/chelsea-cpu-gpu-sampler-comparison-20260919`.
+
+The [sampler reassessment](../analysis/chelsea-sampler-reassessment-2026-09-18.md)
+now reports the mixed result. Median paired CPU/GPU bulk ESS/sec ratios are
+0.77–0.91 for feature coefficients, 1.22–1.44 for building effects, 1.82–2.14 for
+unit effects, and 1.07–1.25 for bathroom contrasts. CPU median tail rates exceed
+GPU for all four families. Minimum joint-floor bulk ESS/sec is 2.54–2.99 CPU
+versus 11.44 GPU. Bounds are CPU timestamp uncertainty, not run variability.
+CPU remains the provisional routine-refit default, not a universal speed winner.
+The GPU's successful recovered posterior does not imply a successful original
+end-to-end PyMC call; its postprocessing failure remains recorded.
+
+The root model freeze for GPU diagnostics is **released**. The isolated
+corrected-fit workspace still must remain unchanged while its fit runs.
+Corrected fit session **23268** is live; last log at **05:21:51 UTC** has all
+four chains through warmup, 406–631 retained draws each and zero divergences.
+It is not a speed benchmark because other work ran concurrently.
+
+Next: merge corrected-source runner branch `dd0e8863` into the root research
+branch, make the frozen report reader accept only verified correction lineage,
+then finish corrected-fit diagnostics and compare before selecting it as main.
+The earlier progress sections below are historical snapshots, superseded here.
+
 ## September 19: corrected-data fit launched from isolated tested code
 
 GPU diagnostic **session 30424 remains live**. Parameter diagnostics pass:

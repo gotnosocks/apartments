@@ -1,8 +1,11 @@
 # Current-model sampler reassessment
 
-**The fastest configuration is not established yet.** The previous two-chain
-50-warmup/50-draw M1-versus-T4 comparison is execution evidence only. It is too
-short and mixes hardware; its elapsed-time ratio must not select a backend.
+**The production-length comparison is complete: neither backend wins every
+quantity.** Keep nutpie/Numba CPU as the provisional routine-refit default for
+its shorter adaptation and faster typical building/unit contribution sampling.
+NumPyro GPU improves bulk ESS/sec for many feature coefficients and the
+slowest joint floor contrasts. The previous two-chain 50-warmup/50-draw
+M1-versus-T4 comparison is execution evidence only; it does not rank speed.
 
 The current workload has 52,863 observations, 22,189 units, 1,131 buildings and
 23,462 unconstrained parameters. It uses the exact PyMC floor-increment model,
@@ -14,6 +17,57 @@ Hardware: Ryzen 5 3600X (six physical cores), RTX 2060 SUPER (8 GiB), driver
 595.91.07. The isolated `.venv-sampler-benchmark` retains PyMC 6.2.0, PyTensor
 3.2.3, nutpie 0.16.11 and NumPy 2.4.6, and adds JAX/JAXlib 0.11.1, CUDA 13 wheels,
 NumPyro 0.22.0 and BlackJAX 1.6.2. Production dependencies are unchanged.
+
+## Completed comparison, September 19
+
+Both exact-model runs retained **24,000 draws after 16,000 warmup iterations**
+across four chains. Both pass parameter, derived unit/bathroom contribution and
+joint-floor gates: maximum R-hat below 1.006, no divergences, no tree-depth
+saturation, and minimum BFMI above .42. No surrogate was used.
+
+The following table compares **median paired ESS/sec ratios** across named
+parameters. Values above one favor CPU. Bulk ESS concerns central posterior
+estimates; tail ESS matters for interval endpoints.
+
+| Quantity | CPU/GPU bulk ESS/sec | CPU/GPU tail ESS/sec |
+| --- | ---: | ---: |
+| Feature coefficients (60) | 0.77–0.91 | 1.38–1.62 |
+| Building effects (1,131) | 1.22–1.44 | 1.73–2.03 |
+| Unit effects (22,189) | 1.82–2.14 | 2.66–3.13 |
+| Bathroom contrasts (30) | 1.07–1.25 | 1.45–1.71 |
+
+The bottleneck also matters. **Minimum bulk ESS/sec** over all parameters is
+1.28–1.51 CPU versus 2.09 GPU; over derived unit/bathroom contributions it is
+1.76–2.07 versus 4.34; over joint floor contrasts it is **2.54–2.99 versus
+11.44**. These family minima can refer to different quantities in each run;
+they are not paired per-parameter ratios. GPU's larger ESS per draw offsets
+its lower raw throughput for some scientifically important quantities.
+
+CPU retained wall time is bracketed at **600.08–705.71 seconds**; GPU retained
+compute plus transfers/storage is **1,927.94 seconds**. CPU bounds reflect
+timestamp resolution and include overlapping warmup in slower chains; GPU
+includes first-loop JIT. Both include raw storage and exclude final posterior
+conversion. These ranges are not confidence intervals or repeated-run variation.
+The eight-minute CPU interior window delivers 36.99 raw draws/sec; GPU's full
+retained interval delivers 12.45. Neither raw rate alone selects the sampler.
+
+GPU warmup including initialization/JIT takes **47.33 minutes**, followed by
+32.13 minutes retained sampling/storage. CPU's complete warmup-plus-sampling
+chain runtimes are 19.16–19.74 minutes, excluding initial model compilation.
+These differently scoped timings support the practical latency choice but are
+not a matched end-to-end speed ratio. GPU posterior conversion failed after
+sampling and was recovered without resampling, as documented below.
+
+This is one run per configuration on this machine. It does not establish the
+fastest possible backend or isolate GPU hardware from sampler/adaptation
+differences. NumPyro CPU and alternative nutpie adaptation settings remain
+untested contenders. For a floor-focused precision target, GPU is a serious
+option despite its higher startup cost; routine refits remain on CPU.
+
+Verified comparison: `data/model/chelsea-cpu-gpu-sampler-comparison-20260919`.
+The bundle contains aligned parameter/contribution rate tables, diagnostic
+minima, timing bounds and source/model/posterior bindings. GPU diagnostic bundle:
+`data/model/chelsea-numpyro-gpu-efficiency-20260918/complete`.
 
 ## Compatibility and execution findings
 
@@ -70,8 +124,8 @@ NumPyro 0.22.0 and BlackJAX 1.6.2. Production dependencies are unchanged.
   **1,919.65 seconds** retained compute including first-loop JIT, plus **8.30 seconds**
   transfers/storage, or **1,927.94 seconds** together. This is **12.45 aggregate
   raw draws/sec**. All retained iterations used 127 leapfrog steps; no divergences
-  were recorded. ESS and convergence checks remain necessary before choosing a
-  backend; raw throughput alone is insufficient.
+  were recorded. Completed ESS and convergence checks are summarized above;
+  raw throughput alone is insufficient.
 - PyMC 6.2 then failed during posterior conversion: its scan postprocessor calls
   `jnp.swapaxes` on the default GPU before moving arrays to the requested CPU.
   The attempted 3.97-GiB allocation failed. This occurred **after every retained
@@ -111,10 +165,10 @@ wall time. Avoid treating adaptation recipes from different samplers as identica
 or treating a single run as a precise speed ranking. The CPU raw progress log
 only approximates the warmup boundary; label that uncertainty if using it.
 
-Active revised GPU artifact:
+Completed revised GPU artifact:
 `data/model/chelsea-numpyro-gpu-batched-benchmark-20260918`.
-Raw production GPU timing is now measured as above; convergence and ESS/sec
-diagnostics are running on the recovered complete posterior. No winner yet.
+Convergence and ESS/sec diagnostics pass on the recovered complete posterior.
+The measured tradeoff is summarized above; there is no universal winner.
 
 The follow-up `models.sampler_efficiency` command requires a completed, hash-bound
 benchmark posterior and its original source/design/code. It applies the same
@@ -143,7 +197,7 @@ callbacks straddle the warmup boundary. They are **not** a single wall-clock
 denominator for pooled ESS. Evidence is preserved in
 `data/model/chelsea-nutpie-retained-time-brackets-20260918`.
 
-After diagnostics finish, `models.compare_sampler_efficiency` joins identical
+`models.compare_sampler_efficiency` joined identical
 named parameters and contribution contrasts, verifies matching data, priors,
 graph code and sampling settings, and refuses failed diagnostic gates. It reports
 CPU/GPU bulk and tail rate ratios with the CPU wall-timing bounds, separating

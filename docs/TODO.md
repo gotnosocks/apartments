@@ -65,11 +65,13 @@ patterns, and whether a simpler representation suffices.
   evaluates four building rules with whole-unit checks, adding candidates for
   only 19 units without prior explicit-floor references and no new buildings
   supporting floor/elevator comparisons. No blanket offset is inferred.
-- [ ] Reassess sampler/backend speed using production-length fits of the same
+- [x] Reassess sampler/backend speed using production-length fits of the same
   posterior, separated warmup/retained/storage costs, and bulk/tail ESS/sec.
   The old 50/50 M1/T4 timings cannot rank sampling speed. The [current reassessment](analysis/chelsea-sampler-reassessment-2026-09-18.md)
-  records float64 full-model GPU parity, a GPU memory failure and the verified
-  batching remedy. Four-chain 4,000/6,000 GPU benchmarking is in progress.
+  records completed four-chain 4,000/6,000 CPU/GPU fits, passing diagnostics,
+  and paired ESS/sec. CPU remains the routine default; GPU improves bulk
+  efficiency for many coefficients and the slowest floor contrasts. Neither
+  wins every quantity; this is not an exhaustive backend/configuration search.
 - [ ] Test elevator × the selected floor metric, including threshold interactions
   if floor increments are retained. Report support on both sides of each
   interaction, posterior uncertainty and sensitivity to floor inference. The
