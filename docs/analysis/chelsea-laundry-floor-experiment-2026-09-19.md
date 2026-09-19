@@ -66,6 +66,40 @@ and all 16 category contrasts pass; 18 category-analysis/sensitivity tests pass,
 including rejection of rehashed design, prior, source and mathematical-code
 changes. No baseline resampling was needed.
 
+## Convergence result and computational follow-up
+
+The diagonal-adaptation run completed on September 19 at 06:56:19 UTC and is
+**diagnostic-only**. Alpha is the only parameter above the 1.01 R-hat gate:
+1.0134289, bulk ESS 834.10, tail ESS 1,641.24. There are no divergences or
+tree-depth saturations; minimum BFMI is .4391. Derived contributions and joint
+floor contrasts pass their gates, but this does not accept the whole fit.
+No candidate price-effect intervals or category comparison have been promoted.
+
+All-draw location diagnostics identify an intercept/observation-weighted group
+correlation of about −.988 within each chain. Alpha plus that weighted offset
+mixes well (R-hat 1.000127, bulk ESS 22,280). The unweighted building mean is
+already constrained to zero (maximum absolute value 1.82e-16). Thus an initial
+hypothesis of an unconstrained building-mean/intercept shift was rejected.
+The superseding diagnostic is
+`chelsea-laundry-floor-location-mixing-v2-20260919`; the first diagnostic artifact
+is preserved but its generic compensation wording should not be used here.
+
+A fresh computational experiment uses **low_rank** nutpie adaptation, with
+four chains × 4,000 warmup + 6,000 retained draws and otherwise identical
+protocol, including source, priors, seed, graph and code hashes. An actual
+protocol comparison finds **adaptation is the only differing field**. Nutpie's
+[configuration guide](https://pymc-devs.github.io/nutpie/sampling-options.html)
+describes low-rank adaptation as capturing some posterior correlations. The
+installed version labels it experimental. This run tests that option rather
+than assuming it improves convergence or speed. The previous fit is preserved.
+Output: `chelsea-bayesian-laundry-floor-lowrank-disk-20260919`.
+
+The existing matched laundry comparison insists on identical sampler settings.
+Before using the new computational run for substantive comparison, extend that
+check to explicitly record an adaptation difference while preserving all
+source, model, prior, design and convergence requirements. Do not bypass it or
+accept the failed diagonal fit.
+
 ## Fit and interpretation plan
 
 The launched fit uses the same PyMC Student-t specification and priors as the accepted corrected
@@ -99,7 +133,8 @@ Artifacts:
   (complete).
 - Support concentration: `data/model/chelsea-laundry-floor-split-support-20260919`.
 - Accepted baseline contrasts: `data/model/chelsea-corrected-main-category-contrasts-20260919`.
-- Running fit: `data/model/chelsea-bayesian-laundry-floor-disk-20260919`.
+- Completed diagnostic-only fit: `data/model/chelsea-bayesian-laundry-floor-disk-20260919`.
+- Computational follow-up: `data/model/chelsea-bayesian-laundry-floor-lowrank-disk-20260919`.
 
 Reproduction scripts: `models/laundry_floor_projection.py`,
 `docs/analysis/scripts/verify_laundry_split_design.py`, and

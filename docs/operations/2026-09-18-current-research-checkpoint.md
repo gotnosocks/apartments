@@ -1,5 +1,54 @@
 # Current research checkpoint, 22:05 EDT
 
+## September 19: diagonal laundry fit failed one gate; low-rank follow-up live
+
+This section supersedes the live-status instructions below. The diagonal fit
+published final results at **06:56:19 UTC**, status diagnostic-only: alpha R-hat
+**1.0134289**, bulk ESS 834.10. No divergences/depth saturations; derived and floor
+gates pass. No category comparison or main promotion is permitted from that fit.
+
+`chelsea-laundry-floor-location-mixing-v2-20260919` completed. Unweighted building
+effects already sum to zero, rejecting the initial unconstrained-mean hypothesis.
+Alpha is correlated about −.988 with the observation-weighted group offset;
+their sum mixes well. That does not waive the alpha gate.
+
+**Live session 80844**: low-rank follow-up, four chains × 4,000 warmup / 6,000
+retained, same seed .93 acceptance and all other settings. Full published protocol
+comparison finds **only adaptation differs**. Output
+`data/model/chelsea-bayesian-laundry-floor-lowrank-disk-20260919`; log
+`/tmp/chelsea-bayesian-laundry-floor-lowrank-fit.log`. Sampling began 07:04:45 UTC;
+at 07:06:45 all chains were live in warmup, zero divergences. Poll the same handle
+and preserve its bound mathematical/loader/report-cache dependencies until exit.
+Do not infer completion/failure from sandbox `ps`, which sees its own namespace.
+Do not restart based on an observation timeout.
+
+Standalone source work completed while that fit runs:
+
+- `models/inspect_global_location_mixing.py` records all-draw diagnostics and
+  immutable posterior/source bindings; artifact v2 is authoritative.
+- Reviewed quarantine decisions for ads **2675026** (net-price target) and
+  **970866** (explicit short-term offer) published successfully. The new projection
+  has 52,861 rows, 22,189 units, 1,131 buildings, 172 current, with exact inverse
+  source verification and preserved excluded observations in a hashed sidecar.
+- Thirty focused tests and identical full-cohort publication replay pass.
+  Source-reader integration is not done yet because
+  those dependencies are frozen for the live computational experiment.
+- The date mismatch in the first decision preparation was resolved by verifying
+  the actual own ACTIVE event shard (March 12 date label), separately from the
+  priceChanges timestamp (March 13 UTC). No source clocks were changed.
+
+See `docs/analysis/chelsea-reviewed-listing-quarantines-2026-09-19.md` and updated
+laundry experiment notes. Main selection is still the accepted corrected fit.
+
+Next: inspect the low-rank run when terminal; keep existing convergence gates.
+The laundry comparison currently rejects any sampler-setting difference, so
+explicitly support/record adaptation-only computational changes with tests before
+using a converged follow-up. Separately integrate the quarantine sidecar into
+v3 loader, verified report and description-evidence readers, archive the new
+transitive helper, and verify/re-fit the source revision. Broader net-rent and
+laundry phrase audits remain pending. No scientific conclusions from the failed
+candidate have been promoted.
+
 ## September 19: residual review completed while laundry fit finishes
 
 **Session 24469 remains live.** Sampling finished and trace export began at
