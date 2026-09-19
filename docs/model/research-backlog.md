@@ -22,9 +22,15 @@
 
 ## Floor measurement
 
+- [x] Audit why the selected model has only 56.8% floor coverage. The
+  [complete census](../analysis/chelsea-floor-coverage-reassessment-2026-09-19.md)
+  identifies omitted formats and reviews all six new-rule disagreements.
 - [ ] Broaden the initial label parser beyond one/two digits plus one letter.
   Audit numeric labels, wing prefixes, multi-letter suffixes and floor-only
   labels against own-advertisement evidence and building numbering. Keep
   advertised labels separate from physical height and preserve source conflicts.
   The current 56.8% coverage describes the narrow v1 policy, not all recoverable
   floor information in the captured unit labels.
+- [ ] Project the five confirmed reference-photo floor errors at 160 W22 through
+  source-bound corrections, preserving their raw claims and separate numeric
+  label evidence. Keep the 244 W16 `1RE` label/prose discrepancy explicit.

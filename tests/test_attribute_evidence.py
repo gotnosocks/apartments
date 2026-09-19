@@ -258,3 +258,62 @@ def test_nearby_negation_does_not_reverse_affirmed_laundry():
     # it must not become evidence denying the facility.
     out = extract({'description': 'The building does not only offer on-site laundry, but also a gym.'})
     assert not any(e['value'] == 'not:in_building' for e in out['evidence'])
+
+
+@pytest.mark.parametrize('text', [
+    'Photos are of the same unit on the 3rd floor.',
+    'Photos are of the same unit on the 3rd floor. Unit 801 has much better views and light.',
+    'Photos are of the same unit on the 3rd floor. Unit 902 has much better views and light and an extra window in the kitchen.',
+    'The video is of an apartment on the 3rd floor.',
+    'Pictures show a similar apartment located on the 3rd floor.',
+    'The virtual tour features a model residence on the 3rd floor.',
+    'The reference apartment is on the 3rd floor.',
+    'A comparable unit is on the 3rd floor.',
+    'Photos are not of the unit on the 3rd floor.',
+    'No photos of the apartment on the 3rd floor are available.',
+])
+def test_reference_media_and_example_unit_floors_are_not_target_claims(text):
+    result = extract({'description': text})
+    assert result['attributes']['advertised_floor'] is None
+    assert not any(e['attribute'] == 'advertised_floor' for e in result['evidence'])
+    assert 'reference_unit_floor_claim_withheld' in result['warnings']
+
+
+@pytest.mark.parametrize('text', [
+    # Reviewed ad 3219430: an actual apartment claim despite label #1RE.
+    'This apartment is on the 2nd floor walk-up, very nice and good light.',
+    'Photos are of the same unit on the 3rd floor. This apartment is on the 2nd floor.',
+    'Photos are of the same unit on the 3rd floor, but this apartment is on the 2nd floor.',
+    'Photos show the kitchen, and this apartment is on the 2nd floor.',
+    'This apartment is on the 2nd floor; photos are available on request.',
+    'No photos are available. This apartment is on the 2nd floor.',
+    'A video tour is available, and this apartment is on the 2nd floor.',
+    'Photos show this apartment on the 2nd floor.',
+])
+def test_actual_floor_claim_survives_nearby_unrelated_media(text):
+    result = extract({'description': text})
+    assert result['attributes']['advertised_floor'] == 2
+    claims = [e for e in result['evidence'] if e['attribute'] == 'advertised_floor']
+    assert len(claims) == 1 and claims[0]['value'] == 2
+    assert text[claims[0]['start']:claims[0]['end']] == claims[0]['literal']
+
+
+def test_reference_media_does_not_override_structured_floor_or_other_features():
+    result = extract({'propertyDetails': {'floor': 8, 'physicalFloor': 7},
+        'description': 'Photos are of the same unit on the 3rd floor. In-unit laundry.'})
+    assert result['attributes']['advertised_floor'] == 8
+    assert result['attributes']['physical_floor'] == 7
+    assert result['attributes']['laundry_type'] == 'in_unit'
+    assert 'advertised_floor' not in result['conflicts']
+    claims = [e for e in result['evidence'] if e['attribute'] == 'advertised_floor']
+    assert len(claims) == 1 and claims[0]['source_path'] == '/propertyDetails/floor'
+
+
+@pytest.mark.parametrize('text', [
+    'This apartment is not on the 2nd floor.',
+    'Not the apartment on the 2nd floor.',
+    'This is not the unit on the 2nd floor shown in the photos.',
+])
+def test_negated_floor_claims_are_not_recovered_as_positive(text):
+    result = extract({'description': text})
+    assert result['attributes']['advertised_floor'] is None

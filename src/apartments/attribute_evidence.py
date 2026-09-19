@@ -10,7 +10,7 @@ from collections import defaultdict
 import math
 import re
 
-VERSION = 'attribute-evidence-v5'
+VERSION = 'attribute-evidence-v6'
 VIEWS = ('street', 'courtyard', 'garden', 'city', 'skyline', 'water', 'park')
 DIRECTIONS = ('north', 'east', 'south', 'west')
 SCALARS = ('bedrooms', 'bathrooms', 'square_feet', 'advertised_floor',
@@ -20,6 +20,23 @@ SCALARS = ('bedrooms', 'bathrooms', 'square_feet', 'advertised_floor',
 
 def _number(value):
     return value if isinstance(value, (int, float)) and not isinstance(value, bool) and math.isfinite(value) else None
+
+
+def _reference_floor_claim(prefix: str, claim: str) -> bool:
+    """Recognize reference-unit scope immediately governing a floor match.
+
+    A mention of photography elsewhere in the sentence is insufficient: the
+    media/reference phrase must lead directly into the matched dwelling noun.
+    """
+    if re.match(r'this\b', claim, re.I):
+        return False  # Explicitly identifies the advertised dwelling itself.
+    reference = r'(?:same|similar|comparable|another|different|model|sample|reference|example|illustrative)'
+    if re.search(r'\b'+reference+r'\s+$', prefix, re.I):
+        return True
+    media = r'(?:photos?|photographs?|pictures?|images?|videos?|virtual tours?)'
+    relation = r'(?:of|show(?:s|ing)?|depict(?:s|ing)?|feature(?:s|ing)?|taken (?:in|from))'
+    determiners = r'(?:(?:the|a|an|'+reference+r')\s+)*'
+    return bool(re.search(r'\b'+media+r'\b[^.!?;\n]*?\b'+relation+r'\s+'+determiners+r'$', prefix, re.I))
 
 
 def extract_attribute_evidence(raw_listing: dict) -> dict:
@@ -116,6 +133,12 @@ def extract_attribute_evidence(raw_listing: dict) -> dict:
                 sentence = description[start:end]
                 before = description[max(start, match.start()-65):match.start()]
                 after = description[match.end():min(end, match.end()+45)]
+                if attribute == 'advertised_floor' and _reference_floor_claim(description[start:match.start()], match.group()):
+                    # Reviewed ads 4501831/4592739/4637006/4668696/4758888
+                    # describe photos of a same-layout unit on another floor.
+                    if 'reference_unit_floor_claim_withheld' not in warnings:
+                        warnings.append('reference_unit_floor_claim_withheld')
+                    continue
                 if re.search(r'\b(?:may|might|could|optional|potential|permission|hookups?|connections?|installation|install)\b', sentence, re.I):
                     continue
                 # Permission to install equipment is not installed equipment.

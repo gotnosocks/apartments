@@ -61,6 +61,21 @@ example, 743 N/S-prefixed rows lack a building count even though selected S15K
 and S8P source claims agree. The five numeric disagreements at 160 W22 require
 review before treating the hundreds convention as universal.
 
+## Completed disagreement review
+
+All six disagreements above have now been reviewed against their complete own
+descriptions and all twelve raw captures. The five at 160 W22 are erroneous
+floor extractions from **“Photos are of the same unit on the 3rd floor.”** No
+structured floor field supports floor 3. These are reference-photo descriptions,
+not evidence against the numeric numbering convention. The five claims need
+source-bound corrections in the next analytical projection; repairing the live
+extractor alone does not change a frozen dataset.
+
+244 W16 `1RE` explicitly says **“This apartment is on the 2nd floor walk-up”**.
+That extraction is correctly scoped. Retain the source assertion and the
+conflicting label evidence; neither a generic suffix overwrite nor a building-wide
+offset is justified. See the [complete six-case review](chelsea-expanded-label-rule-conflicts-2026-09-19.md).
+
 ## Next extraction revision
 
 1. Review all new-rule disagreements using the advertisement's own full
@@ -86,3 +101,5 @@ UV_CACHE_DIR=/tmp/apartments-uv-cache uv run --frozen --no-sync python \
 The output retains every missing row with exact labels, every candidate and
 every explicit-floor comparison, bound to the selected source and projection
 hashes. No scrape, source edit, imputation or model fit occurred in this audit.
+An identical full-cohort replay passed, and 23 focused audit tests cover the
+named hypotheses and deliberately unsupported label forms.
