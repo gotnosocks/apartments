@@ -107,7 +107,8 @@ def test_explicit_graph_protocol_archival_residual_scales_and_no_resample(setup,
     assert {'bayesian_feature_experiment_v3.py','bayesian_feature_experiment_v2.py',
             'bayesian_feature_experiment.py','bayesian_feature_graph_v3.py','bayesian_feature_graph.py',
             'bayesian_feature_model.py','bayesian_rent_model.py','bayesian_sampling.py','amenity_rent_model.py',
-            'minimal_rent_model.py','pricing.py','corrections.py','research_pipeline.py'} == set(protocol['implementation_sha256'])
+            'minimal_rent_model.py','pricing.py','corrections.py','research_pipeline.py',
+            'reviewed_source_lineage.py'} == set(protocol['implementation_sha256'])
     for name,sha in protocol['implementation_sha256'].items():
         assert digest(args.output/'protocol'/name) == sha
     summary = json.loads((args.output/'fit'/'residual-scales.json').read_text())
@@ -291,7 +292,17 @@ def test_loader_preserves_review_overlay_without_mutating_v2(setup,tmp_path,vers
     rows[0]['bathroom_count_evidence']['flags'] = ['reviewed_external_shared_bathroom_or_toilet_access']
     rows[0]['scope_composition_review_history'] = [{'decision':'source-bound review','capture_id':'captured'}]
     source = tmp_path/'reviewed'
-    publish_bundle(source,{'observations.jsonl':''.join(canonical(r)+'\n' for r in rows)},{'version':version})
+    manifest = {'version': version}
+    if version in m.reviewed_source_lineage.VERSIONS:
+        from tests.test_reviewed_source_lineage import revise, observations_hash
+        for row in rows:
+            row.update(known_at='2026-09-18T00:00:00Z', laundry_type='in_building', advertised_floor=3)
+        parent = {'version': m.reviewed_source_lineage.REFRESHED,
+                  'files': {'observations.jsonl': observations_hash(rows)}}
+        manifest, rows = revise(parent, rows, m.reviewed_source_lineage.LAUNDRY, 'laundry_type', 'laundry')
+        if version == m.reviewed_source_lineage.FLOOR:
+            manifest, rows = revise(manifest, rows, version, 'advertised_floor', 'floor', index=1)
+    publish_bundle(source,{'observations.jsonl':''.join(canonical(r)+'\n' for r in rows)},manifest)
     data,manifest = m.load_data(source)
     assert manifest['version'] == version and len(data) == 4
     assert data.iloc[0].reported_full_bathrooms == 1
@@ -302,6 +313,18 @@ def test_loader_preserves_review_overlay_without_mutating_v2(setup,tmp_path,vers
     m.run(args)
     protocol = json.loads((args.output/'protocol'/'protocol.json').read_text())
     assert protocol['source_version'] == version
+    if version in m.reviewed_source_lineage.VERSIONS:
+        assert 'reviewed_source_lineage.py' in protocol['implementation_sha256']
+        assert m.v2.pd.isna(data.iloc[0].laundry_type)
+
+
+@pytest.mark.parametrize('version', sorted(m.reviewed_source_lineage.VERSIONS))
+def test_reviewed_revision_name_without_exact_parent_lineage_is_rejected(setup, tmp_path, version):
+    args, _, _ = setup
+    source = tmp_path/'unsupported_revision'
+    publish_bundle(source, {'observations.jsonl': (args.dataset/'observations.jsonl').read_text()}, {'version': version})
+    with pytest.raises(ValueError, match='lineage'):
+        m.load_data(source)
 
 
 @pytest.mark.parametrize('mutation',['duplicate_audit','duplicate_unit_period','zero_rent','bad_version'])
