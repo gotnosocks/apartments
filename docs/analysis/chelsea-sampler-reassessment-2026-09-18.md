@@ -30,7 +30,18 @@ NumPyro 0.22.0 and BlackJAX 1.6.2. Production dependencies are unchanged.
   Its synchronous Zarr reader then stalled in the sandbox. The same archive
   opens immediately on the host and validates four-by-6,000 retained shapes,
   coordinates and warmup exclusion. Recovery preserves existing draws; this
-  reader delay must not be charged to sampling throughput.
+  reader delay must not be charged to sampling throughput. Independent bounded
+  export and unchanged-inventory checks subsequently passed for all 24,000
+  retained draws. The stalled reader was interrupted only after that recovery
+  succeeded; the verified checkpoint was installed under its exclusive lock.
+  The unchanged command now continues diagnostics/reporting on the host.
+- An eight-minute interior retained window (02:44:24–02:52:24 UTC) contains
+  **17,757 draws across four chains in 480.066 seconds: 36.99 aggregate draws/sec,
+  or 9.25 per chain**. Each chain contributes 4,425–4,450 retained draws to this
+  window. Startup, warmup and final export are excluded; ordinary raw trace
+  writes are included. This is a useful long-window raw-throughput baseline,
+  not ESS/sec or evidence that nutpie is fastest. The counters and calculation
+  are archived in `data/model/chelsea-nutpie-steady-throughput-20260918`.
 - The first production NumPyro/GPU attempt exhausted GPU memory before a usable
   warmup completed. NumPyro 0.22 allocates `num_samples` collection slots during
   `warmup(collect_warmup=False)`. The original trace allocation was too large for

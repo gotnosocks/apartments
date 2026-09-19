@@ -1,5 +1,38 @@
 # Current research checkpoint, 22:05 EDT
 
+## Superseding update, 23:37 EDT
+
+Checkpoint **9e30dc36** saved the review, ledger revision, tested recovery and
+production benchmark code. The original CPU process **479023 / session 84907**
+is now terminal (exit 1 after deliberate interrupt of its stalled reader).
+Recovery preparation **74774** and installation **88477** both exited 0.
+All 24,000 retained posterior draws were exported with finite-value validation,
+and the full raw inventory matched before/after export and again at installation.
+The old process was stopped only after preparation passed. No samples were rerun.
+
+**Current CPU continuation:** host PID **497474**, tool session **80187**, log
+`/tmp/chelsea-current-floor-fit-host-report.log`. It uses the unchanged frozen
+launch command and verified posterior checkpoint. At 03:36:41 UTC it had reached
+the design/reload phase. Reports and final diagnostics remain pending. Run it
+on the host; sandbox synchronous Zarr opening is known to stall here.
+
+**GPU continuation:** PID **494915**, session **30289** remains live, full-model
+4,000/6,000 with retained batches of 500. At the last check it was around
+159/4,000 warmup; no retained speed or convergence result is available. Preserve
+this run rather than restarting from elapsed time. Earlier failed GPU log is
+now copied into its own artifact with explicit failure metadata.
+
+The nutpie CPU log supplies a meaningful steady retained baseline:
+17,757 draws across four chains over 480.066 seconds, **36.99 aggregate draws/sec**
+(9.25/chain/sec), excluding startup/warmup/final trace opening. All four chains
+contribute over 4,400 draws in this window. Artifact
+`chelsea-nutpie-steady-throughput-20260918` preserves source counters; this is
+raw throughput, not ESS/sec or a fastest-backend conclusion.
+
+Floor review replay **62943** exited 0 and is identical. All 93 focused
+source/recovery/storage tests and both isolated NumPyro lifecycle tests pass.
+The previous update remains useful for code/artifact paths and GPU environment.
+
 ## Superseding update, 23:33 EDT
 
 Latest user correction: 50 warmup / 50 retained draws cannot rank backend speed.
