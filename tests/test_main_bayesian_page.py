@@ -95,6 +95,15 @@ def test_raw_source_defaults_joint_changes_and_literal_evidence(mocked):
     assert any(item.label=='Joint rent change' for item in page.metric)
 
 
+def test_description_default_follows_selected_cohort_archive(mocked, monkeypatch, tmp_path):
+    archive = tmp_path/'refreshed-descriptions'
+    monkeypatch.setattr(main_analysis, 'load_selection', lambda path: (
+        {'fit_manifest_sha256': 'fit', 'evidence': str(archive)}, tmp_path/'experiment', tmp_path/'dataset'))
+    page = AppTest.from_file(str(PAGE)).run()
+    assert not page.exception and not page.error
+    assert widget(page, 'text_input', 'Archived description bundle').value == str(archive)
+
+
 @pytest.mark.parametrize('status',['reporting_change','unsupported_endpoint','diagnostic_only'])
 def test_failed_comparisons_never_display_physical_intervals(mocked, status):
     mocked.status = status

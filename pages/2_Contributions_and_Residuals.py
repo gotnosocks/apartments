@@ -52,14 +52,18 @@ def source_links(record):
 with st.sidebar:
     st.header('Selected Bayesian analysis')
     selection_path = st.text_input('Analysis selection', str(DEFAULT_SELECTION))
-    evidence_path = st.text_input('Archived description bundle', str(DEFAULT_EVIDENCE),
-                                  help='Optional verified source archive; leave blank to disable.').strip()
     if st.button('Reload saved analysis'):
         load_analysis.clear()
         archived_evidence.clear()
 
 try:
     selection, experiment, dataset = load_selection(selection_path)
+    selected_evidence = selection.get('evidence')
+    default_evidence = str((ROOT / selected_evidence) if selected_evidence else DEFAULT_EVIDENCE)
+    with st.sidebar:
+        evidence_path = st.text_input('Archived description bundle', default_evidence,
+            key='evidence:'+str(dataset)+':'+default_evidence,
+            help='Optional verified source archive; leave blank to disable.').strip()
     signature = bundle_signature(experiment / 'protocol', experiment / 'fit', dataset)
     with st.spinner('Verifying the saved Bayesian analysis…'):
         analysis = load_analysis(str(experiment), str(dataset), signature)

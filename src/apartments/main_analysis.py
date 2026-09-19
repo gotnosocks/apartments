@@ -31,10 +31,15 @@ def load_selection(path=DEFAULT_SELECTION, *, root=ROOT):
                            ('source_manifest_sha256',dataset/'complete.json')]:
         if not manifest.is_file() or manifest.is_symlink() or digest(manifest)!=selection.get(field):
             raise ValueError('Selected main model binding differs: '+field)
+    if 'evidence' in selection or 'evidence_manifest_sha256' in selection:
+        evidence = resolve_path(selection.get('evidence'), root)
+        manifest = evidence/'complete.json'
+        if not manifest.is_file() or manifest.is_symlink() or digest(manifest) != selection.get('evidence_manifest_sha256'):
+            raise ValueError('Selected main model binding differs: evidence_manifest_sha256')
     return selection,experiment,dataset
 
 
-def select(experiment,dataset,output=DEFAULT_SELECTION):
+def select(experiment,dataset,output=DEFAULT_SELECTION, *, evidence=None):
     # Verify the full source/posterior and both convergence gates, without fitting.
     from models import bayesian_feature_report as report
     experiment,dataset=Path(experiment).resolve(),Path(dataset).resolve()
@@ -51,6 +56,11 @@ def select(experiment,dataset,output=DEFAULT_SELECTION):
             'cohort':verified['cohort'],
             'selection_reason':'Main contribution, residual and counterfactual analysis uses the accepted PyMC joint posterior.',
             'uncertainty':'Conditional posterior uncertainty; source errors, omitted features and incomplete market coverage remain separate.'}
+    if evidence is not None:
+        from .bayesian_evidence import load_evidence
+        evidence = Path(evidence).resolve()
+        load_evidence(dataset, evidence)
+        result.update(evidence=portable(evidence), evidence_manifest_sha256=digest(evidence/'complete.json'))
     output=Path(output);output.parent.mkdir(parents=True,exist_ok=True)
     temporary=output.with_name(output.name+'.tmp')
     temporary.write_text(canonical(result)+'\n');temporary.replace(output)
@@ -63,5 +73,6 @@ if __name__=='__main__':
     parser.add_argument('--experiment',type=Path,required=True)
     parser.add_argument('--dataset',type=Path,required=True)
     parser.add_argument('--output',type=Path,default=DEFAULT_SELECTION)
+    parser.add_argument('--evidence',type=Path,help='Verified description archive for the selected source cohort.')
     args=parser.parse_args()
-    print(canonical(select(args.experiment,args.dataset,args.output)))
+    print(canonical(select(args.experiment,args.dataset,args.output,evidence=args.evidence)))

@@ -10,6 +10,15 @@ The feature form uses physical source values, including separately reported full
 
 The optional archived-description bundle is verified against the source lineage and displayed as plain text. Source capture, interpretation and attribute-effective dates remain distinct. Invalid or mismatched selection, source, fit or evidence bundles produce an explicit error rather than a fallback model. The page never starts sampling, scrapes data, edits evidence or promotes an experiment. Resource caching uses bundle file signatures; loading independently verifies hashes. Posterior access and selected unit/building slices are managed by the Bayesian backend.
 
+A saved selection may bind its matching description archive using
+`python -m apartments.main_analysis --experiment ... --dataset ... --evidence ...`.
+Selection verifies the entire evidence mapping before writing and records its
+manifest hash. The page uses that selected archive as its default; changing the
+selected cohort resets the default rather than keeping an unrelated old archive.
+The existing selection remains valid without an explicit evidence field. The
+refreshed 172-current-listing archive is prepared, but has not been selected with
+a new fit yet.
+
 `tests/test_main_bayesian_page.py` checks source-valued form defaults, simultaneous edits, literal description rendering, failed-status withholding, invalid-binding failure and the actual accepted 13-current-listing workflow with a laundry comparison. These UI checks supplement the backend's reconstruction and posterior-diagnostic tests.
 
 ## Command line
