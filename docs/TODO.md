@@ -39,8 +39,15 @@ patterns, and whether a simpler representation suffices.
   labels rather than treating the prefix as physical height.
   The [first source-bound label audit](analysis/chelsea-unit-label-floor-2026-09-18.md)
   proposes candidates for 11,722 units; 29 of 164 units with comparable explicit
-  claims have a disagreement. Building-specific numbering and source-reference
-  errors need review before analytical integration.
+  claims have a disagreement. The [manual conflict review](analysis/chelsea-floor-label-conflict-review-2026-09-18.md)
+  now covers every one of the 37 disagreeing observations: retain 20 explicit
+  claims, withhold two media-reference claims and 15 unresolved contradictions.
+  Versioned analytical integration remains pending; no blanket offset is inferred.
+- [ ] Reassess sampler/backend speed using production-length fits of the same
+  posterior, separated warmup/retained/storage costs, and bulk/tail ESS/sec.
+  The old 50/50 M1/T4 timings cannot rank sampling speed. The [current reassessment](analysis/chelsea-sampler-reassessment-2026-09-18.md)
+  records float64 full-model GPU parity, a GPU memory failure and the verified
+  batching remedy. Four-chain 4,000/6,000 GPU benchmarking is in progress.
 - [ ] Test elevator × the selected floor metric, including threshold interactions
   if floor increments are retained. Report support on both sides of each
   interaction, posterior uncertainty and sensitivity to floor inference. The
@@ -69,9 +76,11 @@ patterns, and whether a simpler representation suffices.
   The [structured-source reconciliation](analysis/chelsea-laundry-source-reconciliation-2026-09-18.md)
   verifies all 724 phrase-candidate captures. All six reviewed hookup cases carry
   a same-capture washer/dryer code. It also finds and fixes a contracted-negation
-  error for advertisement 4800947 (two captures / one observation). Apply that
-  correction through the next versioned transformation; the frozen fitted rows
-  remain unchanged. Four-level extraction and fitting are still pending.
+  error for advertisement 4800947 (two captures / one observation). The versioned
+  `chelsea-reviewed-laundry-negation-analysis-20260918` projection applies its
+  ledger correction and replays identically: one historical row changes, prices
+  and 172 current rows remain unchanged. Loader integration and fitting of this
+  new revision are pending. Four-level extraction and fitting are still pending.
 - [ ] Create and test address-based spatial features: raw or centered latitude/
   longitude, interpretable relative-location measures and street indicators.
   Validate geocoding/address identity, compare simple representations, and assess

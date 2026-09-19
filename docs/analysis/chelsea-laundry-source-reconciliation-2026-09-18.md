@@ -80,3 +80,19 @@ uv run --frozen --no-sync python -m models.laundry_source_audit \
   --refresh data/probes/chelsea-candidate-refresh-20260918 \
   --output data/model/chelsea-laundry-capture-source-audit-v4-20260918
 ```
+# Versioned correction follow-through
+
+The source correction has now been applied to a separate analytical revision,
+`data/model/chelsea-reviewed-laundry-negation-analysis-20260918`, through
+`models/laundry_negation_revision.py`. The ledger is
+`config/reviews/chelsea-laundry-negation-20260918.jsonl`, correction
+`6bbdcd31-2a0f-4b16-989d-3edcba8eeb21`, recorded at
+2026-09-19T02:55:25.929195+00:00. Its target includes the exact complete source-row
+version hash; it does not apply indiscriminately to every history of the unit.
+
+Publication and identical replay pass. Independent full-dataset comparison
+confirms 52,863 observations remain, exactly one historical laundry value becomes
+unknown, and prices, membership, source clocks and all 172 current rows remain
+unchanged. Both supporting captures retain their source hashes and scoped denial.
+The row's review history records before/after values and the separate correction
+clock. This revision has not yet been fitted or selected as the main model.

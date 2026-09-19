@@ -1,5 +1,65 @@
 # Current research checkpoint, 22:05 EDT
 
+## Superseding update, 23:33 EDT
+
+Latest user correction: 50 warmup / 50 retained draws cannot rank backend speed.
+The historical Modal document now explicitly withdraws that inference. The full
+GPU benchmark uses the exact 52,863-row PyMC model, four chains and 4,000/6,000.
+No fastest-backend claim is established. See the sampler reassessment document.
+
+Live jobs (verify actual state before taking action):
+
+- Original CPU fit: session **84907**, host PID **479023**. All four chains
+  finished sampling by 02:54:09 UTC, zero reported divergences. It is stuck in
+  synchronous trace opening, not sampling. A read-only host probe opens the same
+  trace immediately and verifies four-by-6,000 retained dimensions, coordinates
+  and no warmup. Sandbox read probes stall even on opening the root group.
+- Read-only recovery preparation: session **74774**, host PID **494789**,
+  `/tmp/chelsea-current-floor-trace-recovery.log`, artifact
+  `data/model/chelsea-current-floor-trace-recovery-20260918`. It exports every
+  posterior value in bounded slabs and checks the raw inventory before/after.
+  Preparation leaves the original untouched. Only after preparation succeeds,
+  release/stop the original stalled reader, verify terminal state, and install
+  the checkpoint under its exclusive run lock. Then resume the original frozen
+  command **on the host**, without resampling. Its launch script is in the
+  readiness artifact. Main-model selection remains unchanged.
+- GPU batched benchmark: session **30289**, host PID **494915**,
+  `/tmp/chelsea-numpyro-gpu-batched-benchmark.log`, artifact
+  `data/model/chelsea-numpyro-gpu-batched-benchmark-20260918`. Warmup is live; GPU
+  use was 922 MiB and 99%. No sampling-speed or convergence result yet. The first
+  unbatched GPU run (session 75174) exited 1 with a recorded memory failure;
+  preserve its protocol/log. Do not confuse it with the live revised run.
+
+New source work completed:
+
+- All 37 label-floor disagreement observations / 29 units / 57 captures reviewed
+  personally against literal source descriptions. Twenty explicit claims retained,
+  two media-only claims and 15 unresolved contradictions withheld. Named policy,
+  exact capture evidence and reasons are published. Analytical integration remains
+  pending; no blanket building offset or identity merge is justified.
+- One-row laundry correction published/replayed in
+  `chelsea-reviewed-laundry-negation-analysis-20260918`, version
+  `reviewed-laundry-negation-projection-v1`. Exact version-targeted ledger, two
+  capture bindings, correction clock and before/after history; all prices,
+  membership, source clocks and 172 current rows preserved. Not yet fitted or
+  accepted by loaders; do not edit live protocol-bound loaders.
+
+New execution work:
+
+- Isolated `.venv-sampler-benchmark`, with pinned current PyMC/Numba dependencies
+  plus JAX CUDA13, NumPyro and BlackJAX; production environment unchanged.
+- Full-model float64 CPU/GPU logp/gradient parity passed at three points.
+  Kernel medians are 2.15 ms CPU / 21.93 ms GPU under different fused/separate
+  evaluation scopes; these are not sampling-speed/ESS evidence.
+- NumPyro's warmup allocates retained-size buffers even with collection off.
+  Revised wrapper uses one unused warmup slot and 500-draw retained batches,
+  preserving adapted state/RNG and spilling all draws/statistics to host disk.
+  Two lifecycle tests pass, including exact batched/unbatched draw/stat parity
+  and restoration of the library class on interruption.
+- 93 source/recovery/storage tests pass. Floor review replay is in progress
+  (session 62943); verify its completion. Recovery installation and final CPU
+  diagnostics remain pending. Original mathematical/runner files were not edited.
+
 ## Superseding update, 22:49 EDT
 
 This continuation makes progress: the exact-capture laundry audit is complete,
