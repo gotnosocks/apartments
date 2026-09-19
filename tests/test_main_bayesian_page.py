@@ -7,7 +7,7 @@ import pytest
 pytest.importorskip('streamlit')
 import streamlit as st
 from streamlit.testing.v1 import AppTest
-from apartments import bayesian_analysis, bayesian_evidence, main_analysis
+from apartments import bayesian_analysis, bayesian_evidence, main_analysis, bayesian_source_review
 
 ROOT = Path(__file__).resolve().parents[1]
 PAGE = ROOT/'pages/2_Contributions_and_Residuals.py'
@@ -134,6 +134,30 @@ def test_invalid_selection_stops_without_fallback(mocked, monkeypatch):
     assert len(page.dataframe) == 0 and len(page.metric) == 0
 
 
+def test_review_warning_is_visible_in_listing_and_scenario(mocked, monkeypatch, tmp_path):
+    monkeypatch.setattr(main_analysis, 'load_selection', lambda path: (
+        {'source_review': str(tmp_path/'review')}, tmp_path/'experiment', tmp_path/'dataset'))
+    monkeypatch.setattr(bayesian_source_review, 'load_source_review', lambda *a, **k: {
+        'a': {'kind': 'bedroom_count_conflict', 'message': 'Studio and one-bedroom claims disagree.',
+              'interpretation_limited': True}})
+    page = AppTest.from_file(str(PAGE)).run()
+    assert not page.error and not page.exception
+    assert page.dataframe[0].value['Source review'].tolist() == ['bedroom count conflict']
+    assert any('Studio and one-bedroom claims disagree' in x.value for x in page.warning)
+    assert any('does not resolve the source conflict' in x.value for x in page.warning)
+    assert mocked.rows[0]['bedrooms'] == 1
+
+
+def test_invalid_review_stops_the_page_without_silently_dropping_notes(mocked, monkeypatch, tmp_path):
+    monkeypatch.setattr(main_analysis, 'load_selection', lambda path: (
+        {'source_review': str(tmp_path/'review')}, tmp_path/'experiment', tmp_path/'dataset'))
+    def fail(*args, **kwargs): raise ValueError('Review belongs to another fit')
+    monkeypatch.setattr(bayesian_source_review, 'load_source_review', fail)
+    page = AppTest.from_file(str(PAGE)).run()
+    assert page.error and not page.exception
+    assert len(page.metric) == 0
+
+
 @pytest.mark.skipif(not (ROOT/'config/main-analysis.json').exists(), reason='Accepted local selection unavailable')
 def test_actual_accepted_current_cohort_and_joint_counterfactual():
     st.cache_resource.clear()
@@ -145,10 +169,12 @@ def test_actual_accepted_current_cohort_and_joint_counterfactual():
     assert candidates
     page = AppTest.from_file(str(PAGE)).run(timeout=120)
     assert not page.exception and not page.error
-    assert any(item.label=='Saved current observations' and item.value=='13' for item in page.metric)
-    assert len(widget(page,'selectbox','Observation to inspect').options)==13
-    assert len(page.dataframe[0].value)==13
+    count = sum(r.get('analysis_price_basis') == 'current_capture_gross_ask' for r in rows)
+    assert any(item.label=='Saved current observations' and item.value==str(count) for item in page.metric)
+    assert len(widget(page,'selectbox','Observation to inspect').options)==min(count, 100)
+    assert len(page.dataframe[0].value)==min(count, 100)
     target = candidates[0]
+    widget(page,'text_input','Find advertisement ID or unit URL').set_value(target['source_listing_id']).run(timeout=60)
     widget(page,'selectbox','Observation to inspect').set_value(target['audit_id']).run(timeout=90)
     widget(page,'multiselect','Features to change together').set_value(['laundry_type']).run(timeout=60)
     new = 'in_unit' if target['laundry_type']=='in_building' else 'in_building'
@@ -156,6 +182,7 @@ def test_actual_accepted_current_cohort_and_joint_counterfactual():
     widget(page,'button','Compare with recorded apartment').click().run(timeout=90)
     assert not page.exception and not page.error
     assert any(item.label=='Joint rent change' for item in page.metric)
+    widget(page,'text_input','Find advertisement ID or unit URL').set_value('').run(timeout=60)
     widget(page,'selectbox','Observation scope').set_value('All fitted observations').run(timeout=60)
     assert not page.exception
     assert len(page.dataframe[0].value)==100

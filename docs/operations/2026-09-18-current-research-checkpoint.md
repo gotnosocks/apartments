@@ -1,5 +1,39 @@
 # Current research checkpoint, 22:05 EDT
 
+## September 19: main analysis now uses the 172-current fit with source reviews
+
+Concrete progress: `config/main-analysis.json` now selects
+`chelsea-bayesian-current-floor-disk-20260918` / `chelsea-reviewed-current-analysis-20260918`,
+the matching refreshed description archive, and
+`chelsea-current-residual-source-review-20260918`. Fit manifest SHA is
+`60317e391939d509a24776c75b59c957588aed93e5b5d9278cf7e57ff13c6191`.
+Selection equals the staged, tested candidate byte-for-value and input observation
+checksum is unchanged. Selection command **14932** exited 0.
+
+New `apartments.bayesian_source_review.load_source_review` verifies fit/source/
+description manifest hashes, source records, saved residual values and literal
+capture identities. Optional source-review selection requires its matching
+archive. Page displays eight review labels, explanations and persistent conflict
+warnings around bedroom scenarios. Bad review binding stops the page; no silent
+fallback. Source counts, prices and model parameters are unchanged.
+
+29 focused loader/selection/page tests pass. Real-data staged AppTest **8878**
+exited 0, with **no model/evidence mocks**, validating 172 current rows, eight
+notes, conflict warning and the $3,665 one-bedroom scenario. Artifact:
+`chelsea-current-main-page-validation-20260919`. Its script is in
+`docs/analysis/scripts/check_current_main_page.py`. The second actual selected-page
+test **26175** exited 0: **1 passed in 71.30 seconds**, exercising a laundry
+comparison and historical navigation (`/tmp/chelsea-selected-main-actual-test.log`).
+The old hard-coded 13-row test expectation now follows the selected
+cohort and table limit.
+
+`docs/model/analysis-review-page.md` was outdated and described the prior portable
+surrogate; it now documents the actual selected PyMC workflow. The later 17-floor
+and one-laundry corrections remain unfitted and unsupported by frozen loaders.
+GPU **30289 / PID 494915** is still running on its original frozen data/model,
+last seen around 3,895/4,000 warmup. Sampler source/graph files remain unchanged.
+Continue the full benchmark; no fastest-backend conclusion yet.
+
 ## September 19: current fit complete; current residual source review complete
 
 **CPU continuation session 80187 is terminal, exit 0.** The recovered fit completed

@@ -70,3 +70,30 @@ def test_failed_evidence_verification_preserves_existing_selection(experiment,tm
     monkeypatch.setattr(bayesian_evidence,'load_evidence',fail)
     with pytest.raises(ValueError,match='evidence cohort'):m.select(fit,dataset,target,evidence=tmp_path/'wrong')
     assert target.read_bytes()==original
+
+
+def test_selection_binds_source_review_and_rejects_changed_manifest(experiment, tmp_path, monkeypatch):
+    from apartments import bayesian_source_review
+    fit, dataset = experiment[:2]
+    archive, review, target = tmp_path/'evidence', tmp_path/'review', tmp_path/'main.json'
+    publish_bundle(archive, {'evidence.jsonl': ''}, {'version': 'test'})
+    publish_bundle(review, {'cases.jsonl': ''}, {'version': 'test'})
+    monkeypatch.setattr(bayesian_evidence, 'load_evidence', lambda *a: {})
+    calls = []
+    def checked(*args, **kwargs):
+        calls.append((args, kwargs)); return {'a': {'kind': 'conflict'}}
+    monkeypatch.setattr(bayesian_source_review, 'load_source_review', checked)
+    value = m.select(fit, dataset, target, evidence=archive, source_review=review)
+    assert value['source_review_cases'] == 1 and len(calls) == 1
+    assert m.load_selection(target)[0] == value
+    (review/'complete.json').write_text('{}')
+    with pytest.raises(ValueError, match='source_review_manifest'):
+        m.load_selection(target)
+
+
+def test_missing_review_evidence_preserves_existing_selection(experiment, tmp_path):
+    fit, dataset = experiment[:2]; target = tmp_path/'main.json'
+    m.select(fit, dataset, target); original = target.read_bytes()
+    with pytest.raises(ValueError, match='matching description archive'):
+        m.select(fit, dataset, target, source_review=tmp_path/'review')
+    assert target.read_bytes() == original

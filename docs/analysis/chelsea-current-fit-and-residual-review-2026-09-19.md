@@ -89,9 +89,13 @@ motivates tests of alcoves, dens/home offices and convertible layouts separately
 from reported bedroom thresholds, with special care around building templates
 and conversion restrictions.
 
-The main-model selection remains unchanged pending integration of these source
-review findings. The 17 historical floor masks and one laundry correction are
-published as a later source revision and have not yet been fitted. The GPU
+The main analysis now selects this verified current fit, with its exact source
+archive and the eight source reviews bound in `config/main-analysis.json`.
+The table and selected-apartment/scenario views display the review notes and
+count-conflict warnings. Real-data AppTest verified all 172 current listings,
+eight notes and the $3,665 one-bedroom scenario without model/evidence mocks.
+The 17 historical floor masks and one laundry correction are published as a
+later source revision and have not yet been fitted. The GPU
 benchmark continues on the original matched source/model; no backend ranking is
 established.
 

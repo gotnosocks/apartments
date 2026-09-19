@@ -36,10 +36,17 @@ def load_selection(path=DEFAULT_SELECTION, *, root=ROOT):
         manifest = evidence/'complete.json'
         if not manifest.is_file() or manifest.is_symlink() or digest(manifest) != selection.get('evidence_manifest_sha256'):
             raise ValueError('Selected main model binding differs: evidence_manifest_sha256')
+    if 'source_review' in selection or 'source_review_manifest_sha256' in selection:
+        if not selection.get('evidence'):
+            raise ValueError('Selected source review requires its description archive')
+        review = resolve_path(selection.get('source_review'), root)
+        manifest = review/'complete.json'
+        if not manifest.is_file() or manifest.is_symlink() or digest(manifest) != selection.get('source_review_manifest_sha256'):
+            raise ValueError('Selected main model binding differs: source_review_manifest_sha256')
     return selection,experiment,dataset
 
 
-def select(experiment,dataset,output=DEFAULT_SELECTION, *, evidence=None):
+def select(experiment,dataset,output=DEFAULT_SELECTION, *, evidence=None, source_review=None):
     # Verify the full source/posterior and both convergence gates, without fitting.
     from models import bayesian_feature_report as report
     experiment,dataset=Path(experiment).resolve(),Path(dataset).resolve()
@@ -61,6 +68,15 @@ def select(experiment,dataset,output=DEFAULT_SELECTION, *, evidence=None):
         evidence = Path(evidence).resolve()
         load_evidence(dataset, evidence)
         result.update(evidence=portable(evidence), evidence_manifest_sha256=digest(evidence/'complete.json'))
+    if source_review is not None:
+        if evidence is None:
+            raise ValueError('Source review requires the matching description archive')
+        from .bayesian_source_review import load_source_review
+        source_review = Path(source_review).resolve()
+        notes = load_source_review(experiment, dataset, source_review, evidence=evidence)
+        result.update(source_review=portable(source_review),
+            source_review_manifest_sha256=digest(source_review/'complete.json'),
+            source_review_cases=len(notes))
     output=Path(output);output.parent.mkdir(parents=True,exist_ok=True)
     temporary=output.with_name(output.name+'.tmp')
     temporary.write_text(canonical(result)+'\n');temporary.replace(output)
@@ -74,5 +90,6 @@ if __name__=='__main__':
     parser.add_argument('--dataset',type=Path,required=True)
     parser.add_argument('--output',type=Path,default=DEFAULT_SELECTION)
     parser.add_argument('--evidence',type=Path,help='Verified description archive for the selected source cohort.')
+    parser.add_argument('--source-review',type=Path,help='Source-review notes bound to this fit and description archive.')
     args=parser.parse_args()
-    print(canonical(select(args.experiment,args.dataset,args.output,evidence=args.evidence)))
+    print(canonical(select(args.experiment,args.dataset,args.output,evidence=args.evidence,source_review=args.source_review)))

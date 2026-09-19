@@ -9,6 +9,7 @@ import streamlit as st
 from apartments.bayesian_analysis import BayesianAnalysis, bundle_signature
 from apartments.bayesian_evidence import load_evidence
 from apartments.main_analysis import load_selection
+from apartments.bayesian_source_review import load_source_review
 
 ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_SELECTION = ROOT / 'config/main-analysis.json'
@@ -30,6 +31,12 @@ def load_analysis(experiment, dataset, signature):
 def archived_evidence(dataset, evidence, signature):
     del signature
     return load_evidence(dataset, evidence)
+
+
+@st.cache_resource(show_spinner=False)
+def source_review_notes(experiment, dataset, review, evidence, signature):
+    del signature
+    return load_source_review(experiment, dataset, review, evidence=evidence)
 
 
 def label(value):
@@ -55,6 +62,7 @@ with st.sidebar:
     if st.button('Reload saved analysis'):
         load_analysis.clear()
         archived_evidence.clear()
+        source_review_notes.clear()
 
 try:
     selection, experiment, dataset = load_selection(selection_path)
@@ -63,13 +71,20 @@ try:
     with st.sidebar:
         evidence_path = st.text_input('Archived description bundle', default_evidence,
             key='evidence:'+str(dataset)+':'+default_evidence,
-            help='Optional verified source archive; leave blank to disable.').strip()
+            help=('Required matching archive for the selected source-review notes.' if selection.get('source_review')
+                  else 'Optional verified source archive; leave blank to disable.')).strip()
     signature = bundle_signature(experiment / 'protocol', experiment / 'fit', dataset)
     with st.spinner('Verifying the saved Bayesian analysis…'):
         analysis = load_analysis(str(experiment), str(dataset), signature)
     rows, residual_records = analysis.rows, analysis.residuals
     evidence = (archived_evidence(str(dataset), evidence_path, bundle_signature(dataset, evidence_path))
                 if evidence_path else {})
+    selected_review = selection.get('source_review')
+    review_path = ROOT / selected_review if selected_review else None
+    if review_path and not evidence_path:
+        raise ValueError('The selected source review requires its matching description archive')
+    notes = (source_review_notes(str(experiment), str(dataset), str(review_path), evidence_path,
+             bundle_signature(experiment/'fit', dataset, review_path, evidence_path)) if review_path else {})
     source = {r['audit_id']: r for r in rows}
     records = []
     for residual in residual_records:
@@ -79,6 +94,7 @@ try:
             'current_capture': r.get('analysis_price_basis') == 'current_capture_gross_ask',
             'residual_percent': 100 * (residual['asking_rent'] / residual['fitted_rent'] - 1),
             'absolute_log_residual': abs(residual['residual_log'])})
+        records[-1]['source_review'] = label(notes[r['audit_id']]['kind']) if r['audit_id'] in notes else ''
     residuals = pd.DataFrame(records)
 except (OSError, ValueError, KeyError, TypeError, RuntimeError) as exc:
     st.error(f'The selected Bayesian analysis could not be verified: {exc}')
@@ -131,12 +147,14 @@ if view.empty:
 limit = st.selectbox('Maximum rows to review', [25, 100, 500], index=1)
 review = view.head(limit)
 st.caption(f'Showing {len(review):,} of {len(view):,} matching observations. Residual percentages use the fitted median as denominator.')
+if notes:
+    st.caption(f'{len(notes)} observations have individual source-review notes. Blank review cells do not certify source accuracy.')
 st.dataframe(review[['building', 'source_listing_id', 'period', 'asking_rent', 'fitted_rent',
-    'latent_rent_lower_95', 'latent_rent_upper_95', 'residual_dollars', 'residual_percent']].rename(columns={
+    'latent_rent_lower_95', 'latent_rent_upper_95', 'residual_dollars', 'residual_percent', 'source_review']].rename(columns={
     'building': 'Building', 'source_listing_id': 'Advertisement', 'period': 'Month',
     'asking_rent': 'Ask ($)', 'fitted_rent': 'Fitted median ($)', 'latent_rent_lower_95': 'Lower 95% CrI ($)',
     'latent_rent_upper_95': 'Upper 95% CrI ($)', 'residual_dollars': 'Ask − median ($)',
-    'residual_percent': 'Ask vs median (%)'}), hide_index=True, width='stretch')
+    'residual_percent': 'Ask vs median (%)', 'source_review': 'Source review'}), hide_index=True, width='stretch')
 labels = {r.audit_id: f'{label(r.building)} · ad {r.source_listing_id} · {r.period} · {r.residual_percent:+.1f}%'
           for r in review.itertuples()}
 audit_id = st.selectbox('Observation to inspect', list(labels), format_func=labels.__getitem__)
@@ -148,6 +166,9 @@ except (OSError, ValueError, KeyError, TypeError, RuntimeError) as exc:
 record, residual = detail['source_record'], detail['residual']
 interval = detail['fitted_median_rent']
 st.subheader('Selected apartment')
+source_note = notes.get(audit_id)
+if source_note:
+    (st.warning if source_note['interpretation_limited'] else st.info)('Source review: '+source_note['message'])
 a, b, c = st.columns(3)
 a.metric('Advertised asking rent', f"${residual['asking_rent']:,.0f}")
 b.metric('Posterior median fitted rent', f"${interval['median']:,.0f}")
@@ -189,6 +210,8 @@ with contributions_tab:
 
 with contrast_tab:
     st.caption('Change one or more physical source inputs jointly. Date, building and unit offsets remain fixed; bedroom/area and other interactions are recomputed. Unknown reporting and unsupported endpoints do not receive a physical-value estimate.')
+    if source_note and source_note['interpretation_limited']:
+        st.warning('These scenarios condition on disputed source inputs. A closer modeled price does not resolve the source conflict.')
     fields = analysis.fields
     chosen = st.multiselect('Features to change together', list(fields), format_func=label, key=f'fields:{audit_id}')
     if chosen:

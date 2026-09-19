@@ -32,15 +32,17 @@ patterns, and whether a simpler representation suffices.
 
 **Queued research directions, September 18:**
 
-- [ ] Integrate the [completed current-fit residual review](analysis/chelsea-current-fit-and-residual-review-2026-09-19.md)
-  into the analysis workflow. All current-fit parameter, derived and floor gates
+- [x] Integrate the [completed current-fit residual review](analysis/chelsea-current-fit-and-residual-review-2026-09-19.md)
+  into the analysis workflow. The main selection now uses the verified 172-current
+  fit and matching descriptions, with eight source-review notes visible in the
+  table and apartment/scenario views. Actual-data AppTest passes. All current-fit parameter, derived and floor gates
   pass. Eight leading current residuals have source-backed contribution reviews.
   Advertisement 5155021 has a verified studio/one-bedroom source contradiction;
   its scenario changes modeled rent from about $2,885 to $3,665, without resolving
   the true count. Surface that uncertainty before presenting a bargain/premium
   interpretation. A 172-description screen reviews 20 candidate count mismatches;
   the other 19 concern inventory, flexible/fractional layouts or denied conversions.
-  Test alcoves, dens/home offices and convertible layouts as separate hypotheses,
+- [ ] Test alcoves, dens/home offices and convertible layouts as separate hypotheses,
   rather than converting their wording into literal bedroom-count corrections.
 
 - [ ] Infer advertised floor from unit labels, beginning with patterns such as

@@ -1,134 +1,84 @@
-# Review contributions, residuals and source evidence
+# Review Bayesian contributions, residuals and source evidence
 
-The **Contributions and Residuals** page makes the current reviewed Chelsea model
-inspectable without fitting, scraping or modifying data. It opens with the saved
-current sample and can search the entire fitted cohort by advertisement ID or
-unit URL. Positive residuals mean asking rent exceeds fitted rent; percentages
-use fitted rent as the denominator.
+The **Contributions and Residuals** page opens the PyMC posterior selected in
+`config/main-analysis.json`. It verifies the model, analytical dataset, archived
+source descriptions and any attached source-review notes. It does not scrape,
+fit or edit source data.
 
-From the repository root, run:
-
-```sh
-uv run --locked --extra app streamlit run pages/2_Contributions_and_Residuals.py
-```
-
-The page is also available in the sidebar when running the existing `app.py`.
-Its default bundles are:
-
-- Model: `data/model/chelsea-reviewed-analysis-20260918-v3/model`.
-- Training dataset: `data/model/chelsea-reviewed-analysis-20260918-v3/dataset`.
-- Residuals: `data/model/chelsea-interior-reviewed-residuals-20260918`.
-- Archived descriptions: `data/model/chelsea-analysis-descriptions-20260918`.
-
-The supplied model contains 52,712 observations, including 13 current captures
-from September 18. That is a bounded saved sample, not live availability or
-complete Chelsea market coverage. The sidebar accepts another compatible set of
-bundles and provides an explicit reload button. Blank the description path to
-review model diagnostics without a description archive.
-
-## Follow an apartment's residual
-
-Filter the saved current sample or all fitted observations, choose a building,
-and search an advertisement or unit URL. Review order can prioritize absolute
-residuals, asks above fitted rent or asks below it. The optional one-observation-
-per-unit filter prevents repeat advertisements from filling the queue.
-
-For the selected observation, the page shows asking rent, fitted rent, the
-residual and the apartment's fitted history. Grouped log contributions include
-layout, size, building/unit effects, calendar terms, amenities and missingness.
-The reference component is shown separately so it does not flatten the other
-bars; the full sum still reconstructs log fitted rent. Exact components remain
-available for inspection.
-
-These terms describe the saved parameterization. Building/unit effects may
-absorb missing amenities, and a small residual does not establish complete
-measurement. A large residual is a source-review signal, not a correction or a
-bargain score. All displayed observations contributed to the fit.
-
-## Compare explicit feature changes
-
-Select one or more attributes and submit their joint changes. The portable model
-re-encodes the apartment, including bedroom-dependent area normalization and
-interactions. Identity, date, building/unit effects and unedited attributes stay
-fixed. The comparison is a conditional asking-price association, not a feasible
-renovation plan, causal return or personal willingness to pay.
-
-For example, advertisement 5154892 has a $5,895 ask and a fitted rent of about
-$6,422 in this model. Holding its other attributes fixed, changing recorded
-building laundry to in-unit laundry raises fitted rent by about $321, or 5.00%.
-The cohort has 285 buildings with known laundry variation. That support does
-not by itself resolve confounding or convert the estimate into causal value;
-the [earlier stability analysis](../analysis/chelsea-amenity-stability-2026-09-18.md)
-is complementary evidence.
-
-The interface withholds a feature-value estimate when a changed endpoint is
-unknown, the feature has fewer than two known values, the destination lacks
-categorical support, the numeric destination lies outside its observed range,
-or the resulting bedroom/bathroom combination is absent from training. It shows
-the reason and support counts instead. In particular, physical-floor data is
-unobserved in the current fit; a zero encoded effect is not displayed as a zero
-economic value.
-
-Each comparison reports endpoint observation/unit counts, destination-building
-counts, numeric ranges and within-building/unit variation. Those counts are
-descriptive support, not independent sample sizes or confidence intervals.
-Rare-category and group-identification warnings remain visible. The full feature
-coverage table also exposes exposure families that contain only positive claims
-and unknowns. Changing a feature does not edit the original observation.
-
-## Inspect the actual captured text
-
-The Source evidence tab shows the archived description for a selected capture,
-its original body and parsed-record hashes, and collection and interpretation
-clocks. Text is displayed literally, including any markup, rather than executing
-source HTML. StreetEasy links are convenient references but may now show content
-different from the saved capture.
-
-The description archive is bound to this exact fitted dataset and preserves all
-its source captures, including explicit records without usable text. Historical
-description captures can postdate their associated price events. Neither capture
-time nor description recovery time establishes when a physical feature changed.
-Experimental outdoor classifications are not displayed as apartment facts.
-
-The complete archive retains 71,922 captures: 71,386 have usable descriptions
-and 536 explicitly lack text. Descriptions cover 52,297 observations, including
-all 13 current rows; 415 historical observations have no usable description.
-This inventory is independent of whether an advertisement mentions any particular
-amenity. Its exact source-bound rebuild is:
+From the repository root:
 
 ```sh
-.venv/bin/python -m models.analysis_description_archive \
-  --dataset data/model/chelsea-reviewed-analysis-20260918-v3/dataset \
-  --archive /data1/apartments/archive/datasets/chelsea-granular-20260917-canonical-url-v1 \
-  --historical data/exports/chelsea-serving-history-20260918-asof1600 \
-  --recovery data/exports/chelsea-description-recovery-20260918 \
-  --refresh data/probes/chelsea-candidate-refresh-20260918 \
-  --output data/model/chelsea-analysis-descriptions-20260918
+UV_CACHE_DIR=/tmp/apartments-uv-cache uv run --frozen --no-sync streamlit run app.py
 ```
 
-## Verification and implementation
+Open **Contributions and Residuals** from the sidebar. The September 19 selection
+uses `chelsea-bayesian-current-floor-disk-20260918` on
+`chelsea-reviewed-current-analysis-20260918`: 52,863 observations, 22,189 units,
+1,131 buildings and 172 current captures. Its descriptions come from
+`chelsea-refreshed-bayesian-descriptions-20260918`; eight individual source reviews
+come from `chelsea-current-residual-source-review-20260918`.
 
-`apartments.analysis_review.AnalysisWorkspace` verifies immutable bundle hashes,
-model/dataset/residual binding, identity and target membership, residual arithmetic,
-and selected-observation prediction parity. Description identity, capture membership,
-text hashes and knowledge clocks are checked independently. A cache signature
-includes every declared file's metadata, with full verification on reload.
+This is a saved sample, not live availability or complete Chelsea market coverage.
+The default table shows up to 100 current observations; raise the row limit to
+500 to show all 172. Search by advertisement ID or unit URL, filter by building,
+or inspect the entire historical cohort. Residual percentages use fitted median
+rent as the denominator. Current asking prices participated in fitting, so these
+are in-sample residuals, not independent prediction errors or bargain scores.
 
-Tests exercise joint re-encoding, normalized aliases, intentional unknown values,
-unsupported physical-floor changes, unsupported layouts, numeric extrapolation,
-source-text binding, tampering and residual mismatches. Streamlit AppTest exercises
-the actual saved model, search, laundry comparisons, unsupported-value suppression,
-no-op errors, archived descriptions and missing-bundle handling. No browser surface
-was available for a rendered visual check.
+## Source conflicts stay visible
 
-The real-artifact check at
-`data/model/chelsea-analysis-workspace-check-20260918-v2` retains all 13 current
-details, eleven laundry contrasts, the feature-support table and code snapshots.
-All current contribution sums reconstruct fitted rent within $0.000000000017;
-all 13 unsupported physical-floor comparisons suppress feature-value estimates.
-The complete description archive also passed exact replay.
-The final full test suite passed **845 tests, with two skipped**.
+The listing table names individual source reviews. The selected apartment shows
+the review explanation alongside its estimates; count conflicts also receive a
+warning in the feature-comparison tab. Blank review cells do not certify accuracy.
+Review notes cannot attach to a different model or dataset: their fit, source,
+residual values and exact literal captures must match. An invalid review stops the
+page rather than silently disappearing. A selected review requires its matching
+description archive.
 
-The page is a read-only research view. Persisting review decisions still uses the
-existing source-review and correction workflows described in
-[current analysis](current-analysis.md) and [corrections](../data/corrections.md).
+For example, advertisement 5155021 has conflicting studio and one-bedroom claims.
+The page preserves its recorded count and supports conditional scenarios while
+warning that a closer fitted price cannot resolve the source contradiction.
+[The current source review](../analysis/chelsea-current-fit-and-residual-review-2026-09-19.md)
+explains the evidence and limitations. Later historical floor and laundry
+corrections are published separately and have not yet been fitted.
+
+## Contributions and joint feature scenarios
+
+The apartment view shows asking rent, a posterior interval for its conditional
+median rent, residuals and unit history. Posterior **mean log contributions** sum
+to mean log rent. They are not additive dollar allocations or sums of posterior
+medians. Building and unit effects can absorb omitted amenities and data problems.
+
+Change one or more recorded attributes together. The model re-encodes bedroom,
+bathroom, area, amenity and floor terms while holding date, building/unit offsets
+and unspecified inputs fixed. It uses the retained joint posterior for intervals
+and checks endpoint support and contrast diagnostics. Unsupported, reporting-only
+or diagnostically unreliable scenarios do not receive physical-value intervals.
+
+These are conditional associations, not causal renovation returns or personal
+willingness to pay. Missing area uses bedroom-specific reference-area encoding;
+a bedroom scenario with missing area is not a fixed-square-footage comparison.
+The selected floor specification uses threshold increments. Sparse supported
+levels, gaps and limited within-building overlap constrain interpretation;
+listed labels do not establish physical height.
+
+## Captured text and verification
+
+The source tab displays literal archived descriptions, original body/record
+hashes and collection/interpretation clocks. Historical description captures can
+postdate prices; neither capture nor review timestamps establish when a physical
+attribute changed. StreetEasy links may now show different content.
+
+`apartments.bayesian_analysis.BayesianAnalysis` verifies the saved posterior and
+reconstructs its design. `apartments.bayesian_source_review` binds source notes to
+that fit, its unchanged input rows and literal capture archive. Selection and
+Streamlit caches invalidate on changed bundle metadata; loading verifies content
+hashes. Reload the saved analysis explicitly after selecting another fit.
+
+The real-data AppTest in
+`data/model/chelsea-current-main-page-validation-20260919` verifies all 172 current
+rows, eight review notes, the studio/one-bedroom warning and the joint scenario
+showing a $3,665 conditional median. It uses the actual posterior and source
+archives without model/evidence mocks. Focused tests also cover stale reviews,
+changed counts/prices/captures, missing evidence and failure without fallback.
+Persist corrections through the versioned [correction workflow](../data/corrections.md).
