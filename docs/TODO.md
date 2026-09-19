@@ -300,9 +300,12 @@ patterns, and whether a simpler representation suffices.
   replay passed. The [nine-identity review](analysis/chelsea-discovery-detail-identities-2026-09-18.md)
   finds one historical-unit candidate, one conflicting alias case and seven
   unmatched cases; none has been automatically merged.
-- [ ] Build a new analytical cohort from reviewed discovery details and refit.
-  Preserve unresolved identities and earlier current ads absent from this pass;
-  apply versioned corrections and identity policies before analytical inclusion.
+- [x] Build and replay the [current-cohort refresh](data/current-cohort-refresh.md):
+  52,691 historical rows preserved exactly, 172 current rows, four earlier fresh
+  captures retained and nine replaced. Failed refreshes cannot revive older ads.
+- [ ] Review the new current source evidence, apply any source-bound corrections,
+  and fit the refreshed 52,863-row cohort with PyMC. Unresolved unit identities
+  remain separate; no automatic main-model promotion.
 - [ ] Complete full-model validation of disk-backed nutpie traces and reporting.
   The longer source refit exceeded memory during result extraction; preserve
   exact chain/draw coordinates and all retained draws, and test against the
