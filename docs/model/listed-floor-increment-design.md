@@ -1,12 +1,19 @@
 # Research design: observed listed-floor increments
 
+Current status: a later corrected v4 fit is selected in
+[`config/main-analysis.json`](../../config/main-analysis.json). The original
+design and launch history below refer to earlier source cohorts. The
+[current prior-stability audit](../analysis/chelsea-floor-prior-stability-2026-09-19.md)
+finds 349 known-floor observations, only two current known-floor listings, and a
+support-dependent prior. Its alternatives remain unfitted research candidates.
+
 `models.bayesian_floor_increment_design.FeatureDesign` replaces the standardized linear `listed_floor` feature with
 
 `sum(beta_k * 1(known listed_floor > k))`.
 
 This is an isolated, versioned design. Its [first completed fit](../analysis/chelsea-bayesian-floor-increments-2026-09-18.md)
-passes parameter, derived-effect and joint floor-contrast diagnostics. It has not
-been selected as the main model. Sparse floor evidence does not earn automatic
+passes parameter, derived-effect and joint floor-contrast diagnostics. That first
+fit was not selected as the main model. Sparse floor evidence does not earn automatic
 inclusion in the main model.
 
 Thresholds are the sorted, finite floor labels observed in the training cohort, excluding the maximum. They are not a manufactured integer range. The cleaned 52,704-row cohort has only 364 known labels and 52,340 unknowns. The known values enter through the existing `advertised_floor` alias; the `listed_floor` field itself is null. Its 19 supported levels are:

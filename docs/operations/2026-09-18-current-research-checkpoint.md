@@ -1,5 +1,39 @@
 # Current research checkpoint, 22:05 EDT
 
+## September 19: floor-prior stability audit on the selected source
+
+Previous turn was progress, saved **87009913**: the full 259-case price packet
+review, 210-exclusion publication/replay and fresh source-specific graph parity.
+This turn adds an analytical prior audit while the existing sampler runs.
+
+`models.floor_prior_stability`, session **42225**, completed exit 0:
+`chelsea-floor-prior-stability-20260919`. Selected source has **349 known-floor
+rows / 52,863**, **two / 172 current**. Eighteen levels give 17 observed-step
+coefficients; ten adjacent pairs lack shared endpoint buildings. An observed
+interior-level deletion changes the neighboring joint prior SD from .2121 to
+.15, even with unchanged endpoint labels. Integer-step increments aggregate
+exactly into observed-gap SD `.15 * sqrt(label_distance)`; the alternative with
+matched 1→41 range uses fixed per-step SD **.0977880361**. Whole-range SDs are
+**.61846584 current**, **.94868330 integer .15**, **.61846584 matched range**.
+Every interior deletion preserves integer-step retained endpoint covariance;
+a dense 40-threshold expansion independently verifies the aggregation. **14
+tests pass**, session **60912**, exit 0.
+
+No alternative fit, main promotion or change to running dependencies. The audit
+binds selected source/fit/protocol metadata and checks the archived design and
+floor-contrast files; it does not reload or re-diagnose the posterior. Contrast
+prior invariance is not full joint-prior invariance after centering/group changes.
+The next source refit must keep the existing floor prior to isolate source
+revision. Afterward, test floor-reporting-only versus richer floor alternatives;
+do not choose complexity merely from smaller training residuals. Details in
+`docs/analysis/chelsea-floor-prior-stability-2026-09-19.md`.
+
+Session **80844** was polled and remains live. At 08:20:47 UTC, chains were at
+2,826–2,847 / 4,000 warmup, zero divergences. Preserve existing process and frozen
+dependencies; do not merge isolated readers or start a competing production fit
+until it is terminal. The ready next source is the **210-exclusion** candidate
+and its completed proof described below.
+
 ## September 19: complete 259-case price packet review and 210-exclusion source
 
 Previous turn was progress, saved as **463e14ea**: common-source fit comparison
