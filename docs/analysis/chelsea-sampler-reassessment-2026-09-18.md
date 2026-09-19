@@ -34,7 +34,8 @@ NumPyro 0.22.0 and BlackJAX 1.6.2. Production dependencies are unchanged.
   export and unchanged-inventory checks subsequently passed for all 24,000
   retained draws. The stalled reader was interrupted only after that recovery
   succeeded; the verified checkpoint was installed under its exclusive lock.
-  The unchanged command now continues diagnostics/reporting on the host.
+  The unchanged command completed diagnostics/reporting on the host. All
+  parameter, derived-contribution and joint-floor diagnostic gates pass.
 - An eight-minute interior retained window (02:44:24–02:52:24 UTC) contains
   **17,757 draws across four chains in 480.066 seconds: 36.99 aggregate draws/sec,
   or 9.25 per chain**. Each chain contributes 4,425–4,450 retained draws to this
@@ -42,6 +43,18 @@ NumPyro 0.22.0 and BlackJAX 1.6.2. Production dependencies are unchanged.
   writes are included. This is a useful long-window raw-throughput baseline,
   not ESS/sec or evidence that nutpie is fastest. The counters and calculation
   are archived in `data/model/chelsea-nutpie-steady-throughput-20260918`.
+- The timestamped callbacks also bracket the **shared retained wall interval
+  at 600.08–705.71 seconds**: earliest chain warmup completion to last chain
+  sampling completion. This includes overlapping warmup in slower chains and
+  raw trace writes. It excludes initial compilation and final export. Unlike
+  per-chain runtime sums, this is a denominator for pooled four-chain ESS.
+  The minimum bulk ESS/sec across parameters is **1.28–1.51**; across derived
+  unit/bathroom contributions **1.76–2.07**; across joint floor contrasts
+  **2.54–2.99**. These ranges reflect callback timing resolution, not statistical
+  confidence intervals. All parameter rates, bulk/tail diagnostics, callback
+  evidence and fit bindings are archived in
+  `data/model/chelsea-nutpie-wall-efficiency-20260919`. Reproduction script:
+  `docs/analysis/scripts/measure_current_cpu_efficiency.py`.
 - The first production NumPyro/GPU attempt exhausted GPU memory before a usable
   warmup completed. NumPyro 0.22 allocates `num_samples` collection slots during
   `warmup(collect_warmup=False)`. The original trace allocation was too large for
@@ -52,6 +65,9 @@ NumPyro 0.22.0 and BlackJAX 1.6.2. Production dependencies are unchanged.
   new warmup or discarded retained draw. A lifecycle test verifies all draws
   and sampler statistics match the unbatched continuation, including a final
   partial batch. These tiny tests establish correctness, not performance.
+- GPU warmup completed in **2,839.77 seconds including initialization/JIT**.
+  At 04:26:09 UTC on September 19 the run had retained 1,500 of 6,000 draws per
+  chain. Sampling remains in progress; no GPU ESS or backend winner is reported.
 
 ## Timing and decision rules
 

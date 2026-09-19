@@ -3,7 +3,9 @@ import pandas as pd
 import pytest
 import xarray as xr
 
-from models.sampler_efficiency import efficiency, normalized_statistics, warmup_boundary_bounds
+from models.sampler_efficiency import (
+    efficiency, normalized_statistics, retained_wall_bounds, warmup_boundary_bounds,
+)
 
 
 def test_rates_keep_bulk_tail_and_denominators_separate():
@@ -45,3 +47,45 @@ def test_warmup_boundary_is_interval_not_false_precision():
 def test_no_timing_from_unfinished_or_unbracketed_chains(indices):
     with pytest.raises(ValueError):
         warmup_boundary_bounds([events()[i] for i in indices], 4000, 6000, 2)
+
+
+def wall_events():
+    from datetime import datetime, timedelta, timezone
+    start = datetime(2026, 1, 1, tzinfo=timezone.utc)
+    # Chain 0 warms up sooner; chain 1 finishes last. Neither individual
+    # chain's elapsed time, nor their sum, is the shared sampling interval.
+    return [{'updated_at': (start+timedelta(seconds=t)).isoformat(),
+             'chains': [{'chain': i, 'finished_draws': n} for i, n in enumerate(ns)]}
+            for t, ns in [(0, [0, 0]), (100, [3999, 3000]),
+                          (120, [4100, 3999]), (140, [4200, 4100]),
+                          (600, [10000, 9900]), (620, [10000, 10000])]]
+
+
+def test_pooled_ess_uses_shared_wall_bounds_not_chain_runtime_sum():
+    bounds = retained_wall_bounds(wall_events(), 4000, 6000, 2)
+    assert bounds['retained_wall_seconds_lower'] == 480
+    assert bounds['retained_wall_seconds_upper'] == 520
+    rates = efficiency(pd.DataFrame({'ess_bulk': [1040.], 'ess_tail': [520.]}),
+                       {'lower_rate': bounds['retained_wall_seconds_upper'],
+                        'upper_rate': bounds['retained_wall_seconds_lower']})
+    assert rates.loc[0, 'ess_bulk_per_second_lower_rate'] == 2
+    assert rates.loc[0, 'ess_bulk_per_second_upper_rate'] == pytest.approx(1040/480)
+
+
+@pytest.mark.parametrize('change', ['unfinished', 'unbracketed', 'backward', 'duplicate', 'missing_chain', 'naive'])
+def test_wall_bounds_reject_incomplete_or_invalid_callbacks(change):
+    records = wall_events()
+    if change == 'unfinished':
+        records.pop()
+    elif change == 'unbracketed':
+        records = records[3:]
+    elif change == 'backward':
+        records[2]['chains'][0]['finished_draws'] = 10
+    elif change == 'duplicate':
+        records[2]['updated_at'] = records[1]['updated_at']
+    elif change == 'missing_chain':
+        records[2]['chains'].pop()
+    elif change == 'naive':
+        records[2]['updated_at'] = '2026-01-01T00:02:00'
+    with pytest.raises(ValueError):
+        retained_wall_bounds(records, 4000, 6000, 2)

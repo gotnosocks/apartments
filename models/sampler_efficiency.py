@@ -1,5 +1,6 @@
 """Common diagnostics and honest timing denominators for completed NUTS runs."""
 import argparse
+from datetime import datetime
 import json
 from pathlib import Path
 
@@ -55,6 +56,61 @@ def warmup_boundary_bounds(progress, tune, draws, chains):
         result.append({'chain': chain, 'retained_seconds_lower': end-hi,
                        'retained_seconds_upper': end-lo, 'warmup_and_retained_seconds': end})
     return result
+
+
+def retained_wall_bounds(progress, tune, draws, chains):
+    """Bracket the shared retained wall interval using timestamped callbacks.
+
+    The interval starts when the earliest chain finishes warmup and ends when
+    the last chain finishes sampling. It includes any overlapping warmup in
+    slower chains and ordinary trace writes. Never sum per-chain runtimes to
+    form the denominator of a pooled ESS rate.
+    """
+    if min(tune, draws, chains) < 1:
+        raise ValueError('Positive warmup, draws and chains required')
+    points = []
+    previous_counts = [-1]*chains
+    for record in progress:
+        stamp = datetime.fromisoformat(record['updated_at'])
+        if stamp.tzinfo is None:
+            raise ValueError('Timezone-aware callback timestamps required')
+        rows = sorted(record['chains'], key=lambda row: row['chain'])
+        if [row['chain'] for row in rows] != list(range(chains)):
+            raise ValueError('Every callback must contain every chain exactly once')
+        counts = [row['finished_draws'] for row in rows]
+        if (points and stamp <= points[-1][0]) or any(
+                n < old or n > tune+draws or n < 0
+                for n, old in zip(counts, previous_counts, strict=True)):
+            raise ValueError('Callback timestamps and counts must be ordered')
+        points.append((stamp, counts))
+        previous_counts = counts
+    lower_starts, upper_starts = [], []
+    for chain in range(chains):
+        before = [t for t, counts in points if counts[chain] < tune]
+        after = [t for t, counts in points if counts[chain] >= tune]
+        if not before or not after:
+            raise ValueError('Every warmup boundary must be bracketed')
+        lower_starts.append(max(before))
+        upper_starts.append(min(after))
+    unfinished = [t for t, counts in points if min(counts) < tune+draws]
+    finished = [t for t, counts in points if min(counts) == tune+draws]
+    if not unfinished or not finished:
+        raise ValueError('All-chain completion must be bracketed')
+    start_lower, start_upper = min(lower_starts), min(upper_starts)
+    end_lower, end_upper = max(unfinished), min(finished)
+    lower = (end_lower-start_upper).total_seconds()
+    upper = (end_upper-start_lower).total_seconds()
+    if not 0 < lower <= upper:
+        raise ValueError('Positive retained wall interval required')
+    return {
+        'retained_wall_seconds_lower': lower,
+        'retained_wall_seconds_upper': upper,
+        'earliest_warmup_end_lower': start_lower.isoformat(),
+        'earliest_warmup_end_upper': start_upper.isoformat(),
+        'all_chains_finished_lower': end_lower.isoformat(),
+        'all_chains_finished_upper': end_upper.isoformat(),
+        'scope': 'Earliest chain warmup completion through last chain sampling completion; includes overlapping warmup of other chains and raw trace writes. Callback wall-clock bounds, not an exact phase timer.',
+    }
 
 
 def run(benchmark, dataset, output):

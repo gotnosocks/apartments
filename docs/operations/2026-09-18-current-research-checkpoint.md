@@ -1,5 +1,31 @@
 # Current research checkpoint, 22:05 EDT
 
+## September 19: long-run CPU efficiency bounds ready; GPU retained sampling live
+
+The 50/50 run remains withdrawn as speed evidence. GPU session **30289**, host
+PID **494915**, finished 4,000 warmup in 2,839.77 seconds including initialization
+and JIT. Latest durable status at **04:26:09 UTC**: **1,500/6,000 retained draws
+per chain**, 487.255 seconds retained compute and 2.463 seconds transfer/storage.
+Keep the existing run alive; its model/source paths remain frozen.
+
+New `retained_wall_bounds` in `models/sampler_efficiency.py` uses timestamped
+all-chain callbacks, never the sum of chain runtimes. The actual CPU shared
+retained interval is **600.081867–705.714876 seconds**. It spans earliest warmup
+completion to last sampling completion, including overlapping slower-chain
+warmup and raw writes. Minimum bulk ESS/sec: parameters **1.282–1.508**,
+derived unit/bathroom contributions **1.764–2.074**, joint floors **2.543–2.991**.
+Bounds are timing resolution, not uncertainty in ESS estimates. No winner yet.
+
+Artifact `data/model/chelsea-nutpie-wall-efficiency-20260919` binds verified fit,
+protocol, recovery posterior and archived callbacks; it contains all parameter
+and derived bulk/tail rates. Script
+`docs/analysis/scripts/measure_current_cpu_efficiency.py` completed in session
+**13168**, exit 0. Initial invocation hit a CSV bytes/text conversion error before
+publishing anything; fixed using BytesIO. **18 sampler-efficiency tests pass**,
+including asynchronous boundaries, inverse rate bounds and invalid evidence.
+The GPU diagnostics helper still awaits complete `sampled.json` and must run
+after the full retained trace finishes. No model/loader changes were made.
+
 ## September 19: main analysis now uses the 172-current fit with source reviews
 
 Concrete progress: `config/main-analysis.json` now selects
