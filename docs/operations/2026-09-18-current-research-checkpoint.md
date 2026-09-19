@@ -1,5 +1,56 @@
 # Current research checkpoint, 22:05 EDT
 
+## September 19: joint-posterior spatial diagnostics completed
+
+The preceding response reverified the already completed CPU/GPU benchmark and
+passed 31 timing tests; it added no new research state. This continuation makes
+concrete progress on the spatial experiment decision while preserving the live
+laundry sampler and all its mathematical/loader/report dependencies.
+
+`models.spatial_group_diagnostics` uses all **4 × 6,000 joint building draws**
+from the selected 52,863-row posterior with the 1,129-building location overlay.
+Primary results, final session **49629**, exit 0:
+`chelsea-building-spatial-diagnostics-final-20260919`.
+Five-neighbor Moran I **.22680 [.21216, .24111]**, ten-neighbor
+**.19131 [.17896, .20349]**. Fresh maximum R-hat **1.000482**, minimum bulk
+ESS **9,349**, tail **13,234**. All original fit gates verified, no divergences
+or depth saturation. Metadata explicitly records that the posterior still
+contains the 210 rows to be quarantined; this is not the revised-source fit.
+
+Graph review found **67 coincident pairs / 35 buildings / 11 groups**.
+Follow-up sensitivity excludes every member, then rebuilds the graphs on
+**1,094 buildings**. Session **24112**, exit 0:
+`chelsea-building-spatial-distinct-locations-20260919`.
+Moran I **.22216 [.20741, .23669]** and **.19106 [.17866, .20334]**;
+max R-hat **1.000532**, minimum bulk ESS **9,716**, tail **13,276**.
+All four statistics are positive in all retained draws. These are conditional
+posterior summaries, not null-test p-values or causal location premiums.
+Primary k=5/10 graphs were chosen before results; coordinate exclusion is a
+subsequent sensitivity. Graphs have three/one connected components respectively.
+
+**22 focused tests pass**, including actual NetCDF reads and failure gates,
+dense/sparse equality, affine invariance, preserved joint dependence, exhaustive
+permutation expectation, deterministic geometric ties and all-member exclusions.
+The initial production diagnostic **16179** also completed, exit 0; it is
+preserved. Final code reduces cohort memory and binds the small-product helper.
+Final figure **87706**, exit 0, visually inspected:
+`chelsea-building-spatial-figure-final-20260919`. Earlier figure preserved;
+final longitude labels no longer overlap. Reproducible SVG and research note:
+`docs/analysis/chelsea-building-spatial-diagnostics-2026-09-19.md`.
+
+This supports a controlled spatial extension after the source refit; spatial
+features still add no rank beyond building indicators, so contribution separation
+depends on priors. Evaluate contribution/residual stability, not unseen-building
+prediction or training-fit improvement alone. No spatial model has been fitted
+or selected. The next production fit remains the ready **210-exclusion source**.
+
+Low-rank laundry **80844** was polled live again, not restarted. At **08:56:47 UTC**
+it remained in warmup, chains **3,046–3,065 / 4,000**, zero divergences. Host PID
+**541438** was confirmed active around 397% CPU and ~11.4 GiB RSS earlier this
+turn, with very little free memory. Avoid additional production fits and avoid
+whole-posterior allocations. Keep `codex/quarantine-readers` **25e84d67** isolated
+until this process is terminal. Source selection and main model remain unchanged.
+
 ## September 19: complete-cohort spatial evidence verified
 
 Previous turn was progress, saved **e35bb096**, floor-prior stability audit.

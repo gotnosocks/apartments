@@ -6,6 +6,12 @@ current listings. This extends the earlier current-only location inventory.
 No new scraping or geocoding was required, and no model has been refitted with
 these candidates.
 
+The subsequent [joint-posterior spatial diagnostic](chelsea-building-spatial-diagnostics-2026-09-19.md)
+finds positive neighboring-building association under both five- and ten-neighbor
+graphs, including after removing all coincident-coordinate buildings. It supports
+a controlled spatial experiment; it does not establish a location premium or
+replace the pending source refit.
+
 The extraction checks 71,641 historical listing captures against the exact
 historical archive inventory. Every capture must match its own raw listing ID,
 raw building ID, canonical unit URL, analytical building slug and retained source
