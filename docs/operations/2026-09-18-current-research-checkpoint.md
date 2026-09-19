@@ -1,5 +1,46 @@
 # Current research checkpoint, 22:05 EDT
 
+## September 19: production-length timing confirmed; source comparison prepared
+
+This turn made concrete progress. The user reiterated that 50 warmup / 50 draws
+cannot rank sampling speed. The existing completed comparison uses four chains
+with 4,000 warmup and 6,000 retained draws each. Its bundle hashes were checked
+again: CPU retained wall bounds 600.081867–705.714876 seconds; GPU retained
+compute/storage 1,927.942818 seconds, including first-loop JIT. The 50/50 runs
+remain execution-only evidence. CPU wins typical building/unit ESS rates; GPU
+improves some coefficient and worst-floor bulk ESS rates. One run per
+configuration, differently scoped startup costs and GPU conversion recovery
+preclude a universal or matched end-to-end speed claim. Full interpretation is
+in `docs/analysis/chelsea-sampler-reassessment-2026-09-18.md`.
+
+Combined-source graph job **56507 completed, exit 0**. All three points pass
+over 23,434 gradient parameters: maximum absolute logp error 1.4552e-11 and
+gradient error 2.0664e-9. Source-specific proof is complete; no new fit yet.
+
+New `models.quarantine_fit_comparison` prepares the comparison after that fit.
+It verifies the exact ordered source inverse, matched sampler/math/prior settings,
+freshly reconstructed designs, complete-fit gates and bound category artifacts.
+Residuals use common observations; removed units/buildings are explicit.
+Building effects are contrasted against the identical shared building population
+within every posterior draw and gated again, avoiding a reference shift when the
+zero-sum building population changes. Floor/category comparisons align physical
+endpoints; normalization changes are retained. This is preparation, not an
+executed source-sensitivity result.
+
+**38 focused comparison tests pass**, including a real NetCDF draw/diagnostic
+check, rejection of unmixed chains and incomplete dimensions, source publication
+and exact inverse, common-row residual denominators, removed groups, invariant
+building contrasts under draw-specific common shifts, and physical contrast
+alignment. Existing quarantine/laundry integration and sampler-efficiency tests
+also pass. These synthetic checks establish correctness, not speed.
+
+At **08:00:46 UTC**, low-rank laundry session **80844** remains in warmup:
+2,665–2,687 / 4,000, zero divergences. Continue the existing process; no throughput
+or convergence conclusion yet. Isolated reader bookmark **codex/quarantine-readers**
+at **25e84d67** remains unmerged. Root frozen fit dependencies and selected main
+source/model are unchanged. After the live fit is terminal, integrate readers and
+fit the combined 165-exclusion source separately using its completed graph proof.
+
 ## September 19: full-cohort price-basis review and combined source candidate
 
 Previous turn was progress: source readers and graph verification completed and

@@ -93,7 +93,10 @@ captures are identical to the parent evidence, and both designs have 59 columns
 and rank 59. Floor levels and category contrast bases remain unchanged. The
 elevator raw-unit log-prior SD changes .5933432→.5924057 (−.1580%); the three-bedroom
 area reference changes 1,978→1,979 sq ft. These are recorded normalization changes,
-not silently treated as identical joint priors. A fresh graph proof is running.
+not silently treated as identical joint priors. The fresh graph proof completed:
+all three points pass across 23,434 unconstrained parameters, with maximum
+absolute log-density difference 1.46e-11 and gradient difference 2.07e-9.
+This establishes numerical parity for the revised source, not sampling speed.
 
 Important artifacts under `data/model/`:
 
@@ -104,8 +107,24 @@ Important artifacts under `data/model/`:
 - `chelsea-reviewed-net-and-scope-decisions-20260919`: composed 165 decisions.
 - `chelsea-reviewed-net-and-scope-analysis-20260919`: combined candidate source.
 
-Next validate the combined source with the isolated readers and a fresh graph
-proof, then refit. Its unit/building membership differs from the accepted fit;
-comparisons must report removed groups and compare residuals on common rows.
+The revised source is ready for a separate fit once the running laundry experiment
+finishes. Its unit/building membership differs from the accepted fit;
+`models.quarantine_fit_comparison` reports removed groups and compares residuals
+on exactly the common rows. It requires completed, converged fits with matching
+sampling settings, mathematical implementations and coefficient prior scales.
+Normalization changes are reported explicitly, and independent posterior draws
+are never paired to manufacture a credible interval for a between-fit change.
+
+Because building effects have a zero-sum constraint and one building leaves the
+cohort, raw building offsets use different reference populations. The comparison
+subtracts the mean of the identical shared buildings within every draw of each
+fit, preserving posterior covariance. These common-reference contrasts must also
+pass convergence diagnostics. This removes reference-population shifts while
+retaining changes in relative building effects. Unit effects retain their shared
+zero-centered prior reference. Category and floor contrasts align physical
+endpoints rather than comparing raw standardized coefficients.
+
+The comparison code is tested; the candidate posterior and its actual comparison
+remain pending. The main fit stays selected.
 Do not reuse the numerical proof for the earlier two-ad candidate, or claim
 identical priors without checking changed normalization and group constraints.
