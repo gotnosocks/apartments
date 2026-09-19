@@ -242,3 +242,12 @@ Otherwise the queue records why it withheld the interaction run. Queue state is
 `/tmp/chelsea-bayesian-label-floor-elevator-block-depth14-fit.log`.
 These replace the earlier failed-depth/cancelled attempts; none is yet selected
 as the main model. Source data and statistical priors remain unchanged.
+
+The replacement primary subsequently completed sampling at 19:24:46 UTC and
+published its accepted fit at 19:43:54 UTC. Both parameter and joint-floor gates
+pass, including zero divergences and zero depth-limit hits. Maximum parameter
+R-hat is 1.004052 and minimum bulk ESS is 2,075.06. The gated queue launched the
+matched interaction at 19:44:04 UTC (uv PID 650240, Python PID 650243); sampling
+began at 19:45:42 UTC. The primary comparison, 33-case manual source review and
+fixed eight-case regression review are complete. See
+[the results and source findings](../analysis/chelsea-expanded-floor-results-2026-09-19.md).
