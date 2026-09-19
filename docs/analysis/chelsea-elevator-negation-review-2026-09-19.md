@@ -1,5 +1,9 @@
 # Elevator negation source review
 
+The [completed refit comparison](chelsea-elevator-refit-results-2026-09-19.md)
+now reports accepted diagnostics, contribution changes and refreshed source notes.
+The execution checkpoints below preserve their original status dates.
+
 An extraction error converted “non-elevator building” into a positive elevator
 claim. Reviewing the revised Chelsea cohort's 43 buildings with opposing
 elevator reports exposed the error; checking the full description archive found
