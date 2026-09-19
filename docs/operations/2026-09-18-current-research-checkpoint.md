@@ -1,5 +1,54 @@
 # Current research checkpoint, 22:05 EDT
 
+## September 19: complete 259-case price packet review and 210-exclusion source
+
+Previous turn was progress, saved as **463e14ea**: common-source fit comparison
+and sampler timing verification. This turn completed the remaining 94 original
+price-packet reviews and published the enlarged candidate. All 259 packet cases
+now have findings; 43 price bases remain unresolved after review.
+
+- `docs.analysis.scripts.adjudicate_advertised_net_review` binds the exact closed
+  packet SHA and source. All 94 quote contexts/captured prices/event-price
+  histories were inspected; eight full descriptions inspected additionally.
+  **45** additional unresolved-gross-basis quarantines, **six** explicit gross
+  targets retained, **43** changed-price cases deferred unchanged. These 45 join
+  matching captured prices to advertised-net wording, not literal numerical net
+  quotes. Furnished ad **2265090** has conflicting $19,500 advertised/$18,000
+  gross amounts; no inferred repair. Ad **2475341** retains $4,250 gross despite
+  a nearby board-approval phrase triggering the administrative-context hint.
+- Review job **76548**, exit 0; artifact
+  `chelsea-reviewed-advertised-net-recommendations-20260919`, review clock
+  **2026-09-19T08:07:24Z**. **15** new review tests + **30** quarantine tests pass.
+- Composed decisions **94195**, exit 0; artifact
+  `chelsea-reviewed-price-basis-complete-decisions-20260919`, cutoff
+  **2026-09-19T08:08:33Z**. **210 decisions** = 209 price-basis + one short-term.
+  Original review records, artifact hashes and clocks remain preserved. Optional
+  extra review input retains the earlier 165-decision composition behavior.
+  Identical decision replay **41697** also completed, exit 0.
+- Source publication **81187**, exit 0; exact replay **31949**, exit 0:
+  `chelsea-reviewed-price-basis-complete-analysis-20260919`, **52,653 rows,
+  22,155 units, 1,129 buildings, all 172 current rows unchanged**. Exact ordered
+  parent inverse passes; 34 units/two buildings lose all included historical rows.
+- Full reader verification **11584**, host PID 558039, completed exit 0:
+  `chelsea-reviewed-price-basis-complete-reader-verification-20260919`.
+  **71,813 surviving captures identical, 252 excluded captures**. Both designs
+  59 columns/rank 59, unchanged floor levels/category bases. Elevator raw-unit
+  prior SD .5933432→.5921626 (−.1990%); 3BR size reference 1,978→1,979 sq ft.
+- Fresh graph proof **29744**, completed exit 0 from isolated readers; log
+  `/tmp/chelsea-reviewed-price-basis-complete-graph-parity.log`, output
+  `chelsea-reviewed-price-basis-complete-graph-parity-20260919`. All three points
+  pass over **23,425** gradient parameters: max logp error **1.4552e-11**, max
+  gradient error **3.6744e-10**. Older 165-exclusion proof is not reused.
+
+**Use the complete 210-exclusion source for the next source fit**, superseding
+the earlier 165-exclusion plan below. Source/code remain separate from the live
+laundry fit. Root main configuration is unchanged; isolated reader bookmark
+**codex/quarantine-readers** at **25e84d67** remains unmerged until session 80844
+is terminal. The sampler was polled live; at 08:12:46 UTC it was at
+2,766–2,787 / 4,000 warmup, zero divergences. Host PID 541438 was active around
+400% CPU; memory fluctuated around 8–9 GiB during low-rank adaptation. Avoid
+concurrent production fits; the brief numerical proof is not speed evidence.
+
 ## September 19: production-length timing confirmed; source comparison prepared
 
 This turn made concrete progress. The user reiterated that 50 warmup / 50 draws

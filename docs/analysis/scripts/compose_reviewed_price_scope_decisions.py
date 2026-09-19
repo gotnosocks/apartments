@@ -13,7 +13,7 @@ def records(blob):
     return [json.loads(s) for s in blob.decode().split('\n') if s]
 
 
-def run(dataset, recommendations, prior_scope, reviewed_at, output):
+def run(dataset, recommendations, prior_scope, reviewed_at, output, advertised_net_review=None):
     dataset, recommendations, prior_scope = map(Path, (dataset, recommendations, prior_scope))
     sm, sf = _verified_bundle(dataset, retain={'observations.jsonl'})
     rm, rf = _verified_bundle(recommendations, retain={'proposed-quarantines.jsonl', 'findings.jsonl'})
@@ -34,7 +34,23 @@ def run(dataset, recommendations, prior_scope, reviewed_at, output):
         raise ValueError('Closed reviewed batch or retained exception differs')
     inputs = [(d, digest(recommendations/'complete.json')) for d in proposed]
     inputs += [(d, digest(prior_scope/'complete.json')) for d in short_term]
-    if len({d['audit_id'] for d, _ in inputs}) != 165: raise ValueError('Overlapping review identities')
+    extra_hash = None
+    if advertised_net_review is not None:
+        from .adjudicate_advertised_net_review import VERSION, MATCHED_ADS, GROSS_ADS
+        extra = Path(advertised_net_review)
+        em, ef = _verified_bundle(extra, retain={'proposed-quarantines.jsonl', 'findings.jsonl'})
+        more = records(ef['proposed-quarantines.jsonl'])
+        findings = records(ef['findings.jsonl'])
+        if (em['version'] != VERSION or em['source_manifest_sha256'] != parent_hash
+                or em['source_observations_sha256'] != sm['files']['observations.jsonl']
+                or len(more) != 45 or {r['source_listing_id'] for r in more} != MATCHED_ADS
+                or len(findings) != 94 or any(d not in findings for d in more)
+                or {r['source_listing_id'] for r in findings if r['action'] == 'retain_explicit_gross_target'} != GROSS_ADS):
+            raise ValueError('Additional closed review or source binding differs')
+        extra_hash = digest(extra/'complete.json')
+        inputs.extend((d, extra_hash) for d in more)
+    expected = 165 if advertised_net_review is None else 210
+    if len({d['audit_id'] for d, _ in inputs}) != expected: raise ValueError('Overlapping review identities')
     decisions, upstream = [], []
     for original, origin in inputs:
         row = rows[original['audit_id']]
@@ -57,13 +73,17 @@ def run(dataset, recommendations, prior_scope, reviewed_at, output):
          'source_manifest_sha256': parent_hash, 'source_observations_sha256': sm['files']['observations.jsonl'],
          'recommendations_manifest_sha256': digest(recommendations/'complete.json'),
          'prior_scope_manifest_sha256': digest(prior_scope/'complete.json'),
-         'policy': '164 manually reviewed unresolved gross-price-basis exclusions plus one previously reviewed short-term advertisement. '
-                   'The overlapping net-price ad 2675026 appears once. Ad 2532848 is retained. Original review records and clocks are preserved.'})
-    print(canonical({'decisions': len(decisions), 'net_basis': len(proposed), 'short_term': len(short_term)}), flush=True)
+         **({'advertised_net_review_manifest_sha256': extra_hash} if extra_hash else {}),
+         'policy': ('164 manually reviewed unresolved gross-price-basis exclusions plus one previously reviewed short-term advertisement. '
+                   'The overlapping net-price ad 2675026 appears once. Ad 2532848 is retained. Original review records and clocks are preserved.'
+                   + (' Additional closed review contributes 45 captured-price/advertised-net conflicts; six explicit gross targets '
+                      'and 43 cases with differing captured and historical prices remain unchanged.' if extra_hash else ''))})
+    print(canonical({'decisions': len(decisions), 'net_basis': len(decisions)-len(short_term), 'short_term': len(short_term)}), flush=True)
 
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description=__doc__)
     for name in ('dataset', 'recommendations', 'prior_scope', 'output'): parser.add_argument('--'+name.replace('_', '-'), type=Path, required=True)
     parser.add_argument('--reviewed-at', required=True)
+    parser.add_argument('--advertised-net-review', type=Path)
     run(**vars(parser.parse_args()))

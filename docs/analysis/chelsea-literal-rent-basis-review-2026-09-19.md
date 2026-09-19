@@ -1,5 +1,73 @@
 # Literal price-basis review and source revision
 
+## Completed original-price packet review, September 19
+
+All **259 cases** in the closed original-price packet now have recorded review
+findings. The second batch covers the remaining 94 cases, including every
+attached capture's extracted literal context, captured price and own event-price
+history. Eight selected full descriptions were also inspected. Its outcomes are:
+
+- **45 additional quarantine recommendations:** each captured price equals the
+  historical target and the description calls the advertised price net. This is
+  a join between captured pricing and literal wording, not an explicit net quote
+  containing that number. Event-specific gross basis remains unresolved.
+- **Six retained gross targets:** 2079352, 2475341, 2494632, 2530622, 2657527 and
+  3092641. Their historical targets match explicit gross quotes despite later
+  lower displayed prices and net wording. In 2475341, nearby co-op board-approval
+  language causes the broad administrative-context flag to hide an otherwise
+  clear $4,250 gross quote; full-description review resolves that case.
+- **43 deferred price bases:** captured prices differ from the historical
+  targets. They stay unchanged because later net wording does not establish the
+  earlier price basis. Reviewed does not mean verified gross or resolved.
+
+Ad **2265090** is among the 45: it advertises $19,500 for a furnished loft,
+calls its advertised price net, and quotes $18,000 gross with one month free.
+The conflict is retained as evidence; neither number is repaired or treated as
+a verified net amount. Ad **2996392** separately calls $9,200 *legal rent*;
+that label is not equated with gross. No concession arithmetic supplies prices.
+
+The second batch is concentrated at 125 West 16th Street (13) and OHM (eight).
+Together with the first 164 price-basis recommendations and one short-term ad,
+the newly published candidate quarantines **210 observations**. It contains
+**52,653 rows, 22,155 units, 1,129 buildings and all 172 current listings**.
+Relative to the selected source, 34 units and two buildings lose their only
+included historical rows. Retained fields are unchanged, and an exact ordered
+inverse restores the selected source using the hashed quarantine sidecar.
+
+Use `chelsea-reviewed-price-basis-complete-analysis-20260919` for the next source
+fit. Its own reader/design and graph checks passed:
+71,813 surviving captures are unchanged, 252 excluded captures are accounted for,
+and both designs retain 59 columns/rank 59, identical floor levels and category
+contrast bases. Elevator raw-unit log-prior SD changes .5933432→.5921626
+(−.1990%); the three-bedroom area reference changes 1,978→1,979 sq ft. Other
+centering/frequency changes are archived. Exact source replay and decision-bundle
+replay pass. The 165-exclusion candidate
+and its proof remain preserved; that proof does not cover these additional rows.
+The current model and running laundry experiment remain unchanged.
+
+The fresh graph proof passes at three parameter points over 23,425 unconstrained
+parameters: maximum absolute log-density difference 1.46e-11 and gradient
+difference 3.67e-10. Its artifact is
+`chelsea-reviewed-price-basis-complete-graph-parity-20260919`. Numerical parity
+does not establish posterior convergence or sampling speed; a separate refit
+and common-observation comparison are still required.
+
+New artifacts under `data/model/`:
+
+- `chelsea-reviewed-advertised-net-recommendations-20260919`: all 94 findings,
+  45 proposed quarantines and original capture/event evidence.
+- `chelsea-reviewed-price-basis-complete-decisions-20260919`: 210 composed
+  decisions with original review records, clocks and artifact hashes.
+- `chelsea-reviewed-price-basis-complete-analysis-20260919`: revised source.
+
+The review publisher binds the exact manually inspected packet and explicit
+advertisement membership. It checks every typed capture, raw-listing identity,
+own ACTIVE event, target-price relationship, literal span and review clock.
+The new 15 tests and 30 existing quarantine tests pass. Synthetic checks test
+these invariants, not extraction accuracy on unseen descriptions.
+
+## Initial quoted-amount review and audit history
+
 The full accepted Chelsea cohort was screened independently of fitted residuals:
 **52,863 observations, 72,065 attached captures, 71,730 available descriptions**.
 The final experimental parser preserves exact character spans and distinguishes
