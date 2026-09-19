@@ -10,7 +10,7 @@ from collections import defaultdict
 import math
 import re
 
-VERSION = 'attribute-evidence-v3'
+VERSION = 'attribute-evidence-v4'
 VIEWS = ('street', 'courtyard', 'garden', 'city', 'skyline', 'water', 'park')
 DIRECTIONS = ('north', 'east', 'south', 'west')
 SCALARS = ('bedrooms', 'bathrooms', 'square_feet', 'advertised_floor',
@@ -148,6 +148,15 @@ def extract_attribute_evidence(raw_listing: dict) -> dict:
                 # skipped rather than converted into a positive assertion.
                 negated = bool(re.search(r'\b(?:no|without|not|lacks?)(?:\s+|-)(?:an?\s+|any\s+)?$', before, re.I)
                                or re.match(r'\s+(?:is\s+|are\s+)?(?:not\s+(?:allowed|permitted|available)|prohibited)\b', after, re.I))
+                if attribute == 'laundry_type':
+                    # Ad 4800947 says the building "doesn't have on-site
+                    # laundry". Keep this as a scoped denial, including when
+                    # the source separately flags a private washer/dryer.
+                    negated |= bool(re.search(
+                        r"\b(?:does not|doesn['’]t|do not|don['’]t)\s+(?:have|offer|provide)\s+(?:any\s+)?$",
+                        before, re.I) or re.match(
+                        r"\s+(?:is not|isn['’]t|are not|aren['’]t)\s+(?:available|provided|offered)\b",
+                        after, re.I))
                 if not negated and (re.search(r'\b(?:no|not|without|lacks?|except|unless)\b', before, re.I)
                                     or re.match(r'\s+(?:is\s+|are\s+)?not\b', after, re.I)):
                     continue
@@ -169,7 +178,8 @@ def extract_attribute_evidence(raw_listing: dict) -> dict:
         scan(r'\bwalk[- ]up\b', 'elevator', False)
         scan(r'\b(?:in[- ]unit (?:(?:stacked )?washer(?:\s*(?:and|&|/)\s*dryer)?|laundry)|washer\s*(?:and|&|/)\s*dryer in (?:the |this |your )?(?:unit|apartment))\b',
              'laundry_type', 'in_unit', negative='not:in_unit', unit_specific=True)
-        scan(r'\b(?:laundry (?:room |facilities )?in (?:the )?building|on[- ]site laundry)\b', 'laundry_type', 'in_building')
+        scan(r'\b(?:laundry (?:room |facilities )?in (?:the )?building|on[- ]site laundry)\b',
+             'laundry_type', 'in_building', negative='not:in_building')
         scan(r'\b(?:24[- ]hour|full[- ]time) doorman\b', 'doorman_type', 'full_time')
         scan(r'\bpart[- ]time doorman\b', 'doorman_type', 'part_time')
         scan(r'\bvirtual doorman\b', 'doorman_type', 'virtual')

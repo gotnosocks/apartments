@@ -1,4 +1,5 @@
 from apartments.attribute_evidence import extract_attribute_evidence as extract
+import pytest
 
 
 def test_nested_structured_evidence_and_compatibility():
@@ -197,3 +198,43 @@ def test_ambiguous_roof_deck_headline_does_not_supply_unit_views():
         result = extract({'description': text})
         assert result['attributes']['view_exposures']['city'] is True
         assert result['attributes']['window_exposures']['north'] is True
+
+
+@pytest.mark.parametrize('text', [
+    "While the building doesn't have on-site laundry, wash-and-fold services are two blocks away.",
+    'The building doesn’t have on-site laundry.',
+    'We do not provide on-site laundry.',
+    "We don't offer any on-site laundry.",
+    'On-site laundry is not available.',
+    'On-site laundry isn’t provided.',
+    'There is no laundry in the building.',
+])
+def test_building_laundry_denials_remain_scoped_and_preserve_literals(text):
+    out = extract({'description': text})
+    assert out['attributes']['laundry_type'] is None
+    evidence = [e for e in out['evidence'] if e['attribute'] == 'laundry_type']
+    assert evidence and all(e['value'] == 'not:in_building' for e in evidence)
+    for e in evidence:
+        assert text[e['start']:e['end']] == e['literal']
+
+
+def test_no_building_laundry_does_not_deny_private_equipment():
+    text = "The building doesn't have on-site laundry."
+    private = extract({'description': text,
+        'propertyDetails': {'features': {'list': ['WASHER_DRYER']}}})
+    assert private['attributes']['laundry_type'] == 'in_unit'
+    assert not private['conflicts']
+    conflict = extract({'description': text,
+        'propertyDetails': {'amenities': {'list': ['LAUNDRY']}}})
+    assert conflict['attributes']['laundry_type'] is None
+    assert conflict['conflicts']['laundry_type'] == ['in_building', 'not:in_building']
+
+
+def test_nearby_negation_does_not_reverse_affirmed_laundry():
+    for text in ("The building doesn't have a gym. On-site laundry is available.",
+                 'The building offers on-site laundry; pets are not permitted.'):
+        assert extract({'description': text})['attributes']['laundry_type'] == 'in_building'
+    # Complex "not only" syntax remains unresolved under the existing scanner;
+    # it must not become evidence denying the facility.
+    out = extract({'description': 'The building does not only offer on-site laundry, but also a gym.'})
+    assert not any(e['value'] == 'not:in_building' for e in out['evidence'])

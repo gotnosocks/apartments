@@ -1,5 +1,43 @@
 # Current research checkpoint, 22:05 EDT
 
+## Superseding update, 22:49 EDT
+
+This continuation makes progress: the exact-capture laundry audit is complete,
+a definite extraction error is fixed in `attribute-evidence-v4`, and 71 focused
+tests pass. The immediately preceding user-TODO acknowledgment was a status
+restatement; this round revalidated the live fit and took independent action.
+
+The current fit remains live on **tool session 84907** (polled successfully).
+At **02:48:24 UTC**, its four chains had completed 6,777–7,115 of 10,000 total
+iterations apiece, including 4,000 warmup. All chains were collecting retained
+draws, with zero divergences reported. Do not restart; no final diagnostics or
+accepted new fit are claimed. Protocol and mathematical code remain unchanged.
+
+New work:
+
+- `models/laundry_source_audit.py` joins all 724 phrase-candidate captures to
+  their verified literal descriptions and own structured payloads. The original
+  v3 audit and corrected v4 audit both publish and replay identically.
+- Artifacts: `chelsea-laundry-capture-source-audit-20260918` and
+  `chelsea-laundry-capture-source-audit-v4-20260918` under `data/model/`.
+- All six reviewed hookup-only cases carry their own `WASHER_DRYER` code.
+  Preserve this evidence conflict/ambiguity; a regex fix cannot resolve it.
+- Advertisement 4800947 (two captures, one historical observation) incorrectly
+  encoded “doesn't have on-site laundry” as a positive. V4 records scoped denial;
+  private laundry remains independently possible. The two scalar replay changes
+  are verified, with all source/category/provenance fields unchanged across the
+  724-row comparison. This is not a corpus-wide extraction validation.
+- Frozen analytical rows and the running fit remain unchanged. Apply the named
+  correction in the next versioned transformation; four-level laundry work is
+  still pending. Results and reproduction are in
+  [the source reconciliation](../analysis/chelsea-laundry-source-reconciliation-2026-09-18.md).
+- The fitting protocol does not bind/import `attribute_evidence.py`; no live
+  sampler, graph, design, reporting-cache or runner code was edited.
+
+Next: complete/verify the current fit and reports, review 172-current residuals,
+then select a fit only with matching source evidence. Continue reviewed laundry
+measurement and apply the extraction correction as a separate source version.
+
 ## Superseding update, 22:34 EDT
 
 The earlier floor process is terminal. It completed sampling, export, both large
