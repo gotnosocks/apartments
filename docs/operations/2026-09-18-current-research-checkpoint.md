@@ -1,5 +1,49 @@
 # Current research checkpoint, 22:05 EDT
 
+## September 19: complete-cohort spatial evidence verified
+
+Previous turn was progress, saved **e35bb096**, floor-prior stability audit.
+This turn extends location evidence from 85 current buildings to **all 1,129
+buildings / 52,653 rows / 22,155 units** in the ready 210-exclusion source,
+including all 172 current observations. No scraping/geocoding or model fit.
+
+`models.cohort_spatial_features`, successful session **10128**, exit 0:
+`chelsea-cohort-spatial-candidates-20260919`; log
+`/tmp/chelsea-cohort-spatial-candidates-resolved.log`. Verification covers
+**71,641 historical listing captures**, **1,613 archived building-page captures**,
+and **172 current-listing captures**. Listing raw IDs/building IDs/canonical URLs
+and historical targets are checked; building HTML is body-hash verified and
+Flight spatial/address references resolved with original/target paths retained.
+All 1,785 location captures agree. Dataset/manifests/consumed archive shards and
+implementation hashes are rechecked before publication. No retained model fields
+or selected fit change.
+
+The correct immutable archive is
+`/data1/apartments/archive/datasets/chelsea-granular-20260917-canonical-url-v1`.
+Initial session **22739** rejected the similarly named `canonical-units` archive
+on a source hash mismatch, exit 1. Session **73540** verified pages but did not
+resolve old Flight coordinate/address references and refused to publish an empty
+coverage result, exit 1. Both logs are preserved. The corrected reader passed a
+real synthetic HTML/Parquet/body pipeline and actual complete-cohort extraction.
+**26 focused spatial tests pass**, final test session **66061**, exit 0.
+
+There are **25 literal street candidates**, with 27 coordinate/street columns
+of rank 27 on the building table, but **zero additional rank given building
+indicators**. Coordinate offsets in degrees use equal-building center
+**40.7442066811, −73.9996485633**. `avenue of the americas` and `chelsea square`
+have only one building each; aliases remain unresolved. Spatial effects require
+explicit hierarchical/prior assumptions. Next investigate spatial patterns in
+the existing building-effect posterior, then judge a controlled PyMC extension
+by contribution/residual stability rather than unseen-building prediction.
+Full details: `docs/analysis/chelsea-cohort-spatial-features-2026-09-19.md`.
+
+Low-rank laundry **80844** remains the existing live fit; preserve frozen root
+dependencies and keep isolated readers unmerged until it is terminal. At
+08:36:47 UTC, chains were at 2,945–2,947 / 4,000 warmup, zero divergences. The next
+production source fit is still the **210-exclusion** source with its completed
+graph proof, using the original observed-floor prior. Spatial candidates are a
+separate research artifact, not part of that source-change comparison.
+
 ## September 19: floor-prior stability audit on the selected source
 
 Previous turn was progress, saved **87009913**: the full 259-case price packet

@@ -1,5 +1,9 @@
 # Spatial feature candidates from captured building evidence
 
+The [complete-cohort extension](chelsea-cohort-spatial-features-2026-09-19.md)
+now covers all 1,129 buildings in the revised source candidate, including these
+current listings. This earlier artifact remains its verified current-capture input.
+
 All **172 current listings / 85 buildings** have usable coordinates in their
 captured building objects. The unit's own property-details object does not supply
 these coordinates. Each coordinate was accepted only after matching the listing's
