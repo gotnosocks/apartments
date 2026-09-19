@@ -50,3 +50,39 @@ reviews, exact text offsets, own-ad price-event clocks, source-row/body/raw hash
 and frozen audit code. Six new tests cover dated versus future/conflicting price
 events, wrong-advertisement rejection, invalid prices and approval-clause scope;
 14 tests pass together with the cohort transformation checks.
+
+## Applied review and bathroom follow-up
+
+The follow-up checks the captured bathroom-description candidates against reported
+full/half counts. It finds two contradictions that the structural count validator
+cannot detect:
+
+- **5124842**, The Cortland #3AE: structured counts are one full and zero half;
+  the description says 1.5 baths and explicitly describes an additional powder room.
+- **5116119**, The Milan #6A: structured counts are two full and zero half. Its
+  description says two bathrooms, then describes two en-suite bathrooms plus a
+  separate powder room. Another unit has similar wording; that does not establish
+  whether #6A has a missing half-bath count or a copied description.
+
+Both compositions are now masked for modeling, with original reported counts,
+scalar totals, descriptions and asking prices retained. No numeric repair or
+physical-change date was inferred. Advertisement **5156080** also remains an
+explicit wording-review case: it names Chelsea but refers to transit on Second
+Avenue and uses similar-unit photographs. Its identity was not changed based on
+that wording.
+
+The [review policy](../../config/reviews/chelsea-current-source-20260918.json)
+binds 39 named cases to this exact dataset and audit. All price/product/scope
+findings require an explicit disposition. The other current rows retain observed
+values under the limited screen; this does not certify unexamined attributes.
+Seven current rows carry residual-review tags for price, optional furnishings,
+live/work/gallery scope, location wording or bathroom conflicts.
+
+`data/model/chelsea-reviewed-current-analysis-20260918` contains **52,863 rows**:
+52,691 unchanged historical rows and 172 current rows, with two composition masks
+and 170 retain decisions. Membership, prices and reported numeric counts are
+unchanged. Review timestamps are separate from original knowledge clocks and
+physical effective dates. The versioned publisher records every current decision,
+literal supporting spans and source hashes; 29 focused transformation/audit/review
+tests pass. This is the reviewed input for an exploratory refit, not a selected
+model. The expanded cohort has not yet been fitted with PyMC.

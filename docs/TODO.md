@@ -318,6 +318,10 @@ patterns, and whether a simpler representation suffices.
   The [172-row source audit](analysis/chelsea-current-source-review-2026-09-18.md)
   identifies one old description price, 14 approval-scope net-effective mentions,
   optional furnishings and a residentially described art-gallery scope case.
+  The applied current review now preserves all 172 current rows, masks two
+  description/structured bathroom conflicts and records seven residual-review
+  cases. The reviewed 52,863-row input is ready; Bayesian loader integration and
+  the expanded-cohort fit remain pending while the matched floor fit runs.
 - [ ] Complete full-model validation of disk-backed nutpie traces and reporting.
   The longer source refit exceeded memory during result extraction; preserve
   exact chain/draw coordinates and all retained draws, and test against the

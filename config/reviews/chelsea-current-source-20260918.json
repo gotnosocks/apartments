@@ -1,0 +1,388 @@
+{
+  "version": "current-capture-source-review-policy-v1",
+  "interpreted_at": "2026-09-19T01:51:20+00:00",
+  "dataset_manifest_sha256": "e573d0d89934aa2a7e32fb9fdca22498353d9ed34944daffbc0e20931592cac8",
+  "audit_manifest_sha256": "000005bf404cd7d4e0c758c065764d2c9da57ef437ebba99c8db9854c13a3585",
+  "cases": [
+    {
+      "source_listing_id": "4833587",
+      "action": "retain_source",
+      "reason": "Retain this residentially described triplex as an explicit sensitivity case. Current art-gallery use and claimed residential zoning do not independently establish permitted use or current residential condition.",
+      "quotes": [
+        "helsea's vibrant gallery district – a space as unique and inspiring as you are.Currently a thriving live/work (residential  zoning)art gallery, this stunning property offers endless possibilities to craft your dream lifestyle.\nImagine:\n• Transforming this open canvas into a private Pilate"
+      ],
+      "residual_review_tags": [
+        "gallery_residential_scope"
+      ]
+    },
+    {
+      "source_listing_id": "5082877",
+      "action": "retain_source",
+      "reason": "Office wording concerns a dressing room inside a residence, not a commercial-only offer.",
+      "quotes": [
+        "large entry foyer, can accommodate a Queen sized bed. \nDressing room off the bath can be used as an office space. \n\nWindowed bath and  kitchen \n\n\nApartment is not subject to Board Approval . \nOnly need to fill out an application, credit check  and provide proof of income to be approved. \n\nJu"
+      ],
+      "residual_review_tags": []
+    },
+    {
+      "source_listing_id": "5099437",
+      "action": "retain_source",
+      "reason": "Furnished wording concerns shared building facilities, not apartment furnishings.",
+      "quotes": [
+        "riendly condominium offering a full-time doorman/concierge, live-in superintendent, Zen garden, and furnished roof deck. Ideally located on a tree-lined block just off 6th Avenue, you are moments from the High Line, Madison Square Park, Union Square, and multiple subway lines.\n\nFEES:\n1.) "
+      ],
+      "residual_review_tags": []
+    },
+    {
+      "source_listing_id": "5115645",
+      "action": "retain_source",
+      "reason": "Retain current structured ask of $6,950: own dated price history and current deposit agree. Description rent of $7,750 matches its earlier ask. Optional furnishings cost extra. These are same-source claims, not independent corroboration.",
+      "quotes": [
+        "tion near abundant shopping, nightlife, transportation, and world-class dining.\nUnit can be offered furnished for an increased fee. Some images are virtually staged.\n\nTenant Fees & Responsibilities\n* Monthly Rent: $7,750\n* Security Deposit: $7,750\n* Background/Credit Check: $20 per applic",
+        "Monthly Rent: $7,750"
+      ],
+      "residual_review_tags": [
+        "stale_description_price",
+        "optional_furnishings"
+      ]
+    },
+    {
+      "source_listing_id": "5116119",
+      "action": "mask_bathroom_composition",
+      "reason": "Structured two-full/zero-half counts and two-bath wording conflict with two en-suite bathrooms plus a separate powder room. Similar descriptions on another unit do not resolve whether this is template contamination or a missing half bath. Preserve claims and mask composition.",
+      "quotes": [
+        "two-bedroom, two-bathroom residence",
+        "Both bedrooms are generously proportioned, each with en-suite bathrooms, offering privacy and comfort. A separate powder room adds convenience for guests."
+      ],
+      "expected_reported_bathrooms": [
+        2,
+        0
+      ],
+      "residual_review_tags": [
+        "bathroom_composition_conflict"
+      ]
+    },
+    {
+      "source_listing_id": "5120305",
+      "action": "retain_source",
+      "reason": "Furnished wording concerns shared building facilities, not apartment furnishings.",
+      "quotes": [
+        "your pooch with two outdoor dog runs and a professionally staffed full-service pet care facility.\n- Furnished and Landscaped 42nd floor sky deck with our lovely speakeasy room\n- Children's playroom\n- Stunning Doorman attended lobby with 24hr concierge\n- Package Valet with dry cleaning, la"
+      ],
+      "residual_review_tags": []
+    },
+    {
+      "source_listing_id": "5121207",
+      "action": "retain_source",
+      "reason": "The offer describes a one-bedroom residence with live/work permission. Retain the residential source claim without independently verifying permitted use.",
+      "quotes": [
+        "setting for everyday living and entertaining. \nThe one-bedroom, one-bathroom residence also permits live/work use, providing added flexibility for renters seeking space that can adapt to a variety of needs. \nThis distinctive Chelsea loft is good for those seeking substantial square footag"
+      ],
+      "residual_review_tags": [
+        "live_work_source_claim"
+      ]
+    },
+    {
+      "source_listing_id": "5124842",
+      "action": "mask_bathroom_composition",
+      "reason": "Structured one-full/zero-half counts conflict with a 1.5-bath description and an additional powder room. Preserve both claims and mask composition rather than choosing a numeric repair.",
+      "quotes": [
+        "1-bedroom, 1.5-bath residence",
+        "the additional powder room provides added convenience for guests."
+      ],
+      "expected_reported_bathrooms": [
+        1,
+        0
+      ],
+      "residual_review_tags": [
+        "bathroom_composition_conflict"
+      ]
+    },
+    {
+      "source_listing_id": "5129824",
+      "action": "retain_source",
+      "reason": "Net-effective mention is inside the gross-rent approval standard, not a displayed net-price claim.",
+      "quotes": [
+        "ng potential.\n\nApproval Standards: Where applicable, approvals are based on the gross rent, not the net effective rent.\n\nUpfront fees to be paid, not included in the monthly rent, are:\n\nApplication fee: $20 per application\nHolding fee: $500, applied to the first month's rent, refundable withi"
+      ],
+      "residual_review_tags": []
+    },
+    {
+      "source_listing_id": "5133592",
+      "action": "retain_source",
+      "reason": "Furnished wording concerns shared building facilities, not apartment furnishings.",
+      "quotes": [
+        "eautifully designed lobby with 24-hour doorman and concierge service, a library with fireplace, two furnished rooftop sundecks with panoramic city and river views, grills and outdoor showers, a resident lounge, state-of-the-art business center with private conference room, Zen meditation "
+      ],
+      "residual_review_tags": []
+    },
+    {
+      "source_listing_id": "5134015",
+      "action": "retain_source",
+      "reason": "Net-effective mention is inside the gross-rent approval standard, not a displayed net-price claim.",
+      "quotes": [
+        "ng potential.\n\nApproval Standards: Where applicable, approvals are based on the gross rent, not the net effective rent.\n\nUpfront fees to be paid, not included in the monthly rent, are:\n\nApplication fee: $20 per application\nHolding fee: $500, applied to the first month's rent, refundable withi"
+      ],
+      "residual_review_tags": []
+    },
+    {
+      "source_listing_id": "5137941",
+      "action": "retain_source",
+      "reason": "Furnished wording concerns shared building facilities, not apartment furnishings.",
+      "quotes": [
+        "nts will have access to the fitness center, resident-only lounge, and a lush courtyard, including a furnished roof deck lounge with a fully functioning kitchen. A bike room, mail room, and a full-time doorman complete the robust amenity package. Private storage is available for rent.\n\n101",
+        "quare, and Chelsea. Here, residents can enjoy a lovely night in while overlooking the city from the furnished roof deck lounge or go out on the town at Portale, Yakiniku Futago – Japanese Steakhouse, or Quad Cinemas. Take in world-renowned dance at the Joyce Theater, stroll through famous"
+      ],
+      "residual_review_tags": []
+    },
+    {
+      "source_listing_id": "5139508",
+      "action": "retain_source",
+      "reason": "Furnished wording concerns shared building facilities, not apartment furnishings.",
+      "quotes": [
+        "your pooch with two outdoor dog runs and a professionally staffed full-service pet care facility.\n- Furnished and Landscaped 42nd floor sky deck with our lovely speakeasy room\n- Children's playroom\n- Stunning Doorman attended lobby with 24hr concierge\n- Package Valet with dry cleaning, la"
+      ],
+      "residual_review_tags": []
+    },
+    {
+      "source_listing_id": "5142129",
+      "action": "retain_source",
+      "reason": "Net-effective mention is inside the gross-rent approval standard, not a displayed net-price claim.",
+      "quotes": [
+        "ng potential.\n\nApproval Standards: Where applicable, approvals are based on the gross rent, not the net effective rent.\n\nUpfront fees to be paid, not included in the monthly rent, are:\n\nApplication fee: $20 per application\nHolding fee: $500, applied to the first month's rent, refundable withi"
+      ],
+      "residual_review_tags": []
+    },
+    {
+      "source_listing_id": "5142499",
+      "action": "retain_source",
+      "reason": "Net-effective mention is inside the gross-rent approval standard, not a displayed net-price claim.",
+      "quotes": [
+        "ng potential.\n\nApproval Standards: Where applicable, approvals are based on the gross rent, not the net effective rent.\n\nUpfront fees to be paid, not included in the monthly rent, are:\n\nApplication fee: $20 per application\nHolding fee: $500, applied to the first month's rent, refundable withi"
+      ],
+      "residual_review_tags": []
+    },
+    {
+      "source_listing_id": "5145603",
+      "action": "retain_source",
+      "reason": "Net-effective mention is inside the gross-rent approval standard, not a displayed net-price claim.",
+      "quotes": [
+        "ng potential.\n\nApproval Standards: Where applicable, approvals are based on the gross rent, not the net effective rent.\n\nUpfront fees to be paid, not included in the monthly rent, are:\n\nApplication fee: $20 per application\nHolding fee: $500, applied to the first month's rent, refundable withi"
+      ],
+      "residual_review_tags": []
+    },
+    {
+      "source_listing_id": "5146497",
+      "action": "retain_source",
+      "reason": "Net-effective mention is inside the gross-rent approval standard, not a displayed net-price claim.",
+      "quotes": [
+        "ng potential.\n\nApproval Standards: Where applicable, approvals are based on the gross rent, not the net effective rent.\n\nUpfront fees to be paid, not included in the monthly rent, are:\n\nApplication fee: $20 per application\nHolding fee: $500, applied to the first month's rent, refundable withi"
+      ],
+      "residual_review_tags": []
+    },
+    {
+      "source_listing_id": "5147241",
+      "action": "retain_source",
+      "reason": "Retain the advertised ask; furnished and unfurnished options are explicit, but their price relationship is unknown. Review residual sensitivity without inventing an unfurnished price.",
+      "quotes": [
+        "sher and dryer\nTwo decorative fireplaces\nGreat natural light\nClassic brownstone character\nAvailable furnished or unfurnished\n\nAbout the area:\n\nLocated in the heart of West Chelsea, you’ll be surrounded by some of the city’s best galleries, restaurants, shopping, and nightlife. Chelsea Mar"
+      ],
+      "residual_review_tags": [
+        "optional_furnishings_price_scope"
+      ]
+    },
+    {
+      "source_listing_id": "5149366",
+      "action": "retain_source",
+      "reason": "Net-effective mention is inside the gross-rent approval standard, not a displayed net-price claim.",
+      "quotes": [
+        "ng potential.\n\nApproval Standards: Where applicable, approvals are based on the gross rent, not the net effective rent.\n\nUpfront fees to be paid, not included in the monthly rent, are:\n\nApplication fee: $20 per application\nHolding fee: $500, applied to the first month's rent, refundable withi"
+      ],
+      "residual_review_tags": []
+    },
+    {
+      "source_listing_id": "5149375",
+      "action": "retain_source",
+      "reason": "Furnished wording concerns shared building facilities, not apartment furnishings.",
+      "quotes": [
+        "ing and cooling systems\n\nBUILDING AMENITIES:\n\n• 24-hour doorman\n• Elegant, newly reimagined lobby\n• Furnished resident lounge\n• Landscaped rooftop terrace with BBQ stations\n• Elevator building\n• Verizon Fios ready\n• Pet friendly\n\nExperience elevated Chelsea living at The Grove, where refi"
+      ],
+      "residual_review_tags": []
+    },
+    {
+      "source_listing_id": "5149697",
+      "action": "retain_source",
+      "reason": "Furnished wording concerns shared building facilities, not apartment furnishings.",
+      "quotes": [
+        "your pooch with two outdoor dog runs and a professionally staffed full-service pet care facility.\n- Furnished and Landscaped 42nd floor sky deck with our lovely speakeasy room\n- Children's playroom\n- Stunning Doorman attended lobby with 24hr concierge\n- Package Valet with dry cleaning, la"
+      ],
+      "residual_review_tags": []
+    },
+    {
+      "source_listing_id": "5154117",
+      "action": "retain_source",
+      "reason": "Net-effective mention is inside the gross-rent approval standard, not a displayed net-price claim.",
+      "quotes": [
+        "ng potential.\n\nApproval Standards: Where applicable, approvals are based on the gross rent, not the net effective rent.\n\nUpfront fees to be paid, not included in the monthly rent, are:\n\nApplication fee: $20 per application\nHolding fee: $500, applied to the first month's rent, refundable withi"
+      ],
+      "residual_review_tags": []
+    },
+    {
+      "source_listing_id": "5156080",
+      "action": "retain_source",
+      "reason": "Retain structured identity and ask. The description names Chelsea but also refers to second-avenue transit; preserve a location-wording concern without inferring a corrected address. Similar-unit photographs do not verify this unit floor or roof access.",
+      "quotes": [
+        "Only a short walk to the 6 subway line and select bus service on 2nd Ave."
+      ],
+      "residual_review_tags": [
+        "location_wording",
+        "similar_unit_media"
+      ]
+    },
+    {
+      "source_listing_id": "5156102",
+      "action": "retain_source",
+      "reason": "Furnished wording concerns shared building facilities, not apartment furnishings.",
+      "quotes": [
+        "nts will have access to the fitness center, resident-only lounge, and a lush courtyard, including a furnished roof deck lounge with a fully functioning kitchen. A bike room, mail room, and a full-time doorman complete the robust amenity package. Private storage is available for rent.\n\n101",
+        "quare, and Chelsea. Here, residents can enjoy a lovely night in while overlooking the city from the furnished roof deck lounge or go out on the town at Portale, Yakiniku Futago – Japanese Steakhouse, or Quad Cinemas. Take in world-renowned dance at the Joyce Theater, stroll through famous"
+      ],
+      "residual_review_tags": []
+    },
+    {
+      "source_listing_id": "5156387",
+      "action": "retain_source",
+      "reason": "Net-effective mention is inside the gross-rent approval standard, not a displayed net-price claim.",
+      "quotes": [
+        "ng potential.\n\nApproval Standards: Where applicable, approvals are based on the gross rent, not the net effective rent.\n\nUpfront fees to be paid, not included in the monthly rent, are:\n\nApplication fee: $20 per application\nHolding fee: $500, applied to the first month's rent, refundable withi"
+      ],
+      "residual_review_tags": []
+    },
+    {
+      "source_listing_id": "5157053",
+      "action": "retain_source",
+      "reason": "Net-effective mention is inside the gross-rent approval standard, not a displayed net-price claim.",
+      "quotes": [
+        "ng potential.\n\nApproval Standards: Where applicable, approvals are based on the gross rent, not the net effective rent.\n\nUpfront fees to be paid, not included in the monthly rent, are:\n\nApplication fee: $20 per application\nHolding fee: $500, applied to the first month's rent, refundable withi"
+      ],
+      "residual_review_tags": []
+    },
+    {
+      "source_listing_id": "5159288",
+      "action": "retain_source",
+      "reason": "Net-effective mention is inside the gross-rent approval standard, not a displayed net-price claim.",
+      "quotes": [
+        "ng potential.\n\nApproval Standards: Where applicable, approvals are based on the gross rent, not the net effective rent.\n\nUpfront fees to be paid, not included in the monthly rent, are:\n\nApplication fee: $20 per application\nHolding fee: $500, applied to the first month's rent, refundable withi"
+      ],
+      "residual_review_tags": []
+    },
+    {
+      "source_listing_id": "5161356",
+      "action": "retain_source",
+      "reason": "Furnished wording concerns shared building facilities, not apartment furnishings.",
+      "quotes": [
+        "your pooch with two outdoor dog runs and a professionally staffed full-service pet care facility.\n- Furnished and Landscaped 42nd floor sky deck with our lovely speakeasy room\n- Children's playroom\n- Stunning Doorman attended lobby with 24hr concierge\n- Package Valet with dry cleaning, la"
+      ],
+      "residual_review_tags": []
+    },
+    {
+      "source_listing_id": "5161370",
+      "action": "retain_source",
+      "reason": "Net-effective mention is inside the gross-rent approval standard, not a displayed net-price claim.",
+      "quotes": [
+        "ng potential.\n\nApproval Standards: Where applicable, approvals are based on the gross rent, not the net effective rent.\n\nUpfront fees to be paid, not included in the monthly rent, are:\n\nApplication fee: $20 per application\nHolding fee: $500, applied to the first month's rent, refundable withi"
+      ],
+      "residual_review_tags": []
+    },
+    {
+      "source_listing_id": "5161505",
+      "action": "retain_source",
+      "reason": "Furnished wording concerns shared building facilities, not apartment furnishings.",
+      "quotes": [
+        "emporary finishes throughout\nQuiet 4th-floor setting\n\nBUILDING AMENITIES:\n\n24-hour doorman\nElevator\nFurnished rooftop lounge + terrace\nBBQ stations\nLaundry in building\nVerizon Fios ready\nPet-friendly\n\nThe thoughtfully designed layout provides plenty of room to comfortably separate living,"
+      ],
+      "residual_review_tags": []
+    },
+    {
+      "source_listing_id": "5161508",
+      "action": "retain_source",
+      "reason": "Furnished wording concerns shared building facilities, not apartment furnishings.",
+      "quotes": [
+        "ling\nQuiet 4th-floor setting\n\nBUILDING AMENITIES:\n\n24-hour doorman\nElevator\nStylish resident lounge\nFurnished rooftop lounge + landscaped terrace\nBBQ stations\nVerizon Fios ready\nPet-friendly\n\nThe corner layout and oversized windows create a bright, open feel throughout the residence, whil"
+      ],
+      "residual_review_tags": []
+    },
+    {
+      "source_listing_id": "5161515",
+      "action": "retain_source",
+      "reason": "Furnished wording concerns shared building facilities, not apartment furnishings.",
+      "quotes": [
+        "th-floor setting\n\n**BUILDING AMENITIES:**\n\n* 24-hour doorman\n* Elevator\n* Stylish resident lounge\n* Furnished rooftop lounge + landscaped terrace\n* BBQ stations\n* Verizon Fios ready\n* Pet-friendly\n\nThe corner layout and oversized windows create a bright, open feel throughout the residence"
+      ],
+      "residual_review_tags": []
+    },
+    {
+      "source_listing_id": "5161879",
+      "action": "retain_source",
+      "reason": "Furnished wording concerns shared building facilities, not apartment furnishings.",
+      "quotes": [
+        "your pooch with two outdoor dog runs and a professionally staffed full-service pet care facility.\n- Furnished and Landscaped 42nd floor sky deck with our lovely speakeasy room\n- Children's playroom\n- Stunning Doorman attended lobby with 24hr concierge\n- Package Valet with dry cleaning, la"
+      ],
+      "residual_review_tags": []
+    },
+    {
+      "source_listing_id": "5161957",
+      "action": "retain_source",
+      "reason": "Furnished wording concerns shared building facilities, not apartment furnishings.",
+      "quotes": [
+        "your pooch with two outdoor dog runs and a professionally staffed full-service pet care facility.\n- Furnished and Landscaped 42nd floor sky deck with our lovely speakeasy room\n- Children's playroom\n- Stunning Doorman attended lobby with 24hr concierge\n- Package Valet with dry cleaning, la"
+      ],
+      "residual_review_tags": []
+    },
+    {
+      "source_listing_id": "5162079",
+      "action": "retain_source",
+      "reason": "Furnished wording concerns shared building facilities, not apartment furnishings.",
+      "quotes": [
+        "your pooch with two outdoor dog runs and a professionally staffed full-service pet care facility.\n- Furnished and Landscaped 42nd floor sky deck with our lovely speakeasy room\n- Children's playroom\n- Stunning Doorman attended lobby with 24hr concierge\n- Package Valet with dry cleaning, la"
+      ],
+      "residual_review_tags": []
+    },
+    {
+      "source_listing_id": "5162080",
+      "action": "retain_source",
+      "reason": "Furnished wording concerns shared building facilities, not apartment furnishings.",
+      "quotes": [
+        "your pooch with two outdoor dog runs and a professionally staffed full-service pet care facility.\n- Furnished and Landscaped 42nd floor sky deck with our lovely speakeasy room\n- Children's playroom\n- Stunning Doorman attended lobby with 24hr concierge\n- Package Valet with dry cleaning, la"
+      ],
+      "residual_review_tags": []
+    },
+    {
+      "source_listing_id": "5162288",
+      "action": "retain_source",
+      "reason": "Net-effective mention is inside the gross-rent approval standard, not a displayed net-price claim.",
+      "quotes": [
+        "ng potential.\n\nApproval Standards: Where applicable, approvals are based on the gross rent, not the net effective rent.\n\nUpfront fees to be paid, not included in the monthly rent, are:\n\nApplication fee: $20 per application\nHolding fee: $500, applied to the first month's rent, refundable withi"
+      ],
+      "residual_review_tags": []
+    },
+    {
+      "source_listing_id": "5162358",
+      "action": "retain_source",
+      "reason": "Furnished wording concerns shared building facilities, not apartment furnishings.",
+      "quotes": [
+        "your pooch with two outdoor dog runs and a professionally staffed full-service pet care facility.\n- Furnished and Landscaped 42nd floor sky deck with our lovely speakeasy room\n- Children's playroom\n- Stunning Doorman attended lobby with 24hr concierge\n- Package Valet with dry cleaning, la"
+      ],
+      "residual_review_tags": []
+    },
+    {
+      "source_listing_id": "5163436",
+      "action": "retain_source",
+      "reason": "Net-effective mention is inside the gross-rent approval standard, not a displayed net-price claim.",
+      "quotes": [
+        "ng potential.\n\nApproval Standards: Where applicable, approvals are based on the gross rent, not the net effective rent.\n\nUpfront fees to be paid, not included in the monthly rent, are:\n\nApplication fee: $20 per application\nHolding fee: $500, applied to the first month's rent, refundable withi"
+      ],
+      "residual_review_tags": []
+    }
+  ]
+}
