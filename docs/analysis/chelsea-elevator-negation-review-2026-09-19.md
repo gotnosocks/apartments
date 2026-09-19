@@ -188,3 +188,13 @@ Expected outputs are `chelsea-reviewed-elevator-category-contrasts-20260919`,
 `chelsea-reviewed-elevator-fit-comparison-20260919`, and
 `chelsea-elevator-current-contribution-movements-20260919`. They are pending,
 not completed evidence. An observation deadline leaves the original fit untouched.
+
+At 10:29:41 UTC the existing fit entered trace export; by 10:32:21 UTC all retained
+draws were exported and diagnostics/reporting began. The process remains live;
+this is not yet accepted posterior evidence. A second observer, session **21465**
+(`/tmp/chelsea-elevator-source-review-followup.py`, log of the same stem), waits
+for the comparison observer to exit and verifies all three completed artifacts.
+Only then does it regenerate the eight existing current-source cases against
+the new posterior. Changed case membership or failed diagnostics stops that
+review. It does not sample, restart jobs or change the main selection. Expected
+output: `chelsea-elevator-current-residual-source-review-20260919`.
