@@ -201,3 +201,52 @@ its frozen protocol unchanged through completion, including category-contrast
 calculation. Read progress from the existing session/process; do not relaunch
 because a polling window ends. Check completed posterior and derived diagnostics,
 then carry out the matched-source comparison above before changing selection.
+
+## Matched comparison prepared
+
+`models.floor_elevator_fit_comparison` now verifies the v4 baseline versus v5
+candidate on the exact same source. It permits only the declared interaction
+protocol additions and three implementation additions, requires unchanged shared
+code and sampler/environment settings, verifies identical base/time JSON semantics
+and reconstructed time arrays, and checks the complete base feature matrix and
+prior scales. The actual two protocols and saved base/time JSON files already pass
+these checks; this says nothing about posterior convergence.
+
+After both fits pass their report gates, the comparison uses all joint beta draws
+for baseline floor contrasts and the verified candidate floor/access contrasts.
+The baseline interaction is explicitly a point mass at zero, with no invented
+Monte Carlo diagnostics. Candidate coefficient summaries include posterior/prior
+SD ratios, while price interpretation uses full joint scenarios. Building offsets
+are compared relative to the same building population within each posterior.
+Independent posterior draws are never paired across fits.
+
+Residual outputs include all identical observations, current captures, known-floor
+no/yes/unknown access, lower floors 2–5, unknown floors, and opposing-claim versus
+other buildings. The latter uses explicit claims anywhere in the source history;
+it does not adjudicate claims or stand in for a source-exclusion sensitivity refit.
+The largest distinct-unit rent movements and building/unit offset movements are
+saved for literal source review. Main selection is never changed by this command.
+
+Seventy-four tests pass across this comparison and reused group/reader contracts.
+They cover conflated source/prior/sampler changes, altered base columns and time
+arrays, mismatched posterior coordinates/counts, failed convergence, covariance
+cancellation and disjoint unknown-access/conflicting-history slices.
+
+```sh
+UV_CACHE_DIR=/tmp/apartments-uv-cache MPLCONFIGDIR=/tmp/apartments-mpl \
+OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 \
+uv run --frozen --no-sync python -m models.floor_elevator_fit_comparison \
+  --reference data/model/chelsea-bayesian-reviewed-elevator-disk-20260919 \
+  --candidate data/model/chelsea-bayesian-pooled-floor-elevator-disk-20260919 \
+  --dataset data/model/chelsea-reviewed-elevator-analysis-20260919 \
+  --output data/model/chelsea-pooled-floor-elevator-comparison-20260919
+```
+
+A follow-up watcher is live in session **97603**, log
+`/tmp/chelsea-pooled-floor-elevator-followup.log`, script
+`/tmp/chelsea-pooled-floor-elevator-followup.py`. It records the sampler PID's
+process-start identity, waits for that exact process to terminate, and invokes the
+comparison only after accepted fit and interaction diagnostics. It rechecks
+implementation hashes before starting, never restarts sampling, and leaves
+selection unchanged. If diagnostics fail, it records that outcome without producing
+an interpretable comparison. Do not launch a duplicate comparison while it is live.
