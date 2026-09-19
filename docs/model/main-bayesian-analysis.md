@@ -2,7 +2,7 @@
 
 The main Streamlit contribution/residual page reads `config/main-analysis.json`, which explicitly binds an accepted PyMC experiment to its exact source dataset and protocol/fit manifests. `pages/1_Bayesian_Model.py` links to this main analysis and the separate research comparison page. Earlier interfaces are retained under `legacy/`.
 
-Run the application normally, then open **Contributions and Residuals**. The default selection contains 52,711 fitted observations and 13 saved current listings. Search advertisements or unit URLs, filter buildings, and rank signed or absolute asking-price residuals. The selected listing shows its posterior median latent asking rent and 95% credible interval, plus the unit's fitted history. Saved current status does not guarantee present availability.
+Run the application normally, then open **Contributions and Residuals**. Cohort and current-listing counts come from the bound selection. Search advertisements or unit URLs, filter buildings, and rank signed or absolute asking-price residuals. The selected listing shows its posterior median latent asking rent and 95% credible interval, plus the unit's fitted history. Saved current status does not guarantee present availability.
 
 The contribution table reports posterior **mean log terms**, which sum to E[μ]. Their intervals are calculated from joint draws and withheld when the new derived diagnostic checks fail. Components are not additive dollar premiums, and category basis terms are not category-to-category price differences. Exponentiating the contribution sum need not reproduce the posterior median rent.
 
@@ -16,8 +16,8 @@ Selection verifies the entire evidence mapping before writing and records its
 manifest hash. The page uses that selected archive as its default; changing the
 selected cohort resets the default rather than keeping an unrelated old archive.
 The existing selection remains valid without an explicit evidence field. The
-refreshed 172-current-listing archive is prepared, but has not been selected with
-a new fit yet.
+current Chelsea selection binds its matching description archive and source-case
+review notes; research reports record the specific cohort and fit decisions.
 
 `tests/test_main_bayesian_page.py` checks source-valued form defaults, simultaneous edits, literal description rendering, failed-status withholding, invalid-binding failure and the actual accepted 13-current-listing workflow with a laundry comparison. These UI checks supplement the backend's reconstruction and posterior-diagnostic tests.
 
@@ -34,11 +34,14 @@ UV_CACHE_DIR=/tmp/apartments-uv-cache uv run --frozen --no-sync python -m apartm
   data/model/my-bayesian-fit
 ```
 
-Defaults are four chains, 2,000 warmup and 4,000 retained draws per chain, `full_half_balance`, shared observation noise, target acceptance 0.93, diagonal adaptation and seed 20260918. `--draws`, `--tune`, `--chains`, `--seed`, `--target-accept` and `--adaptation` control sampling. `--spec`, `--residual-scale`, `--prior-multiplier`, `--building-prior-scale`, `--unit-prior-scale` and `--residual-parameterization` explicitly change recorded model settings; `--graph-validation` optionally binds a verified graph parity artifact. See `fit-pricing --help` for allowed settings. BLAS calculations run with one thread to preserve exact design reconstruction; the existing runner handles the NUTS chains, immutable protocol, checkpoint validation and diagnostic reports. A diagnostic-only result remains diagnostic-only. Fitting never changes the selected main model or substitutes another estimator. The accepted main fit still uses linear floor terms; floor-threshold research has not been promoted.
+Defaults are four chains, 2,000 warmup and 4,000 retained draws per chain, `full_half_balance`, shared observation noise, listed-floor threshold increments, target acceptance 0.93, diagonal adaptation and seed 20260918. `--draws`, `--tune`, `--chains`, `--seed`, `--target-accept` and `--adaptation` control sampling. `--spec`, `--residual-scale`, `--prior-multiplier`, `--building-prior-scale`, `--unit-prior-scale` and `--residual-parameterization` explicitly change recorded model settings; `--graph-validation` optionally binds a verified graph parity artifact. See `fit-pricing --help` for allowed settings. BLAS calculations run with one thread to preserve exact design reconstruction; the existing runner handles the NUTS chains, immutable protocol, checkpoint validation and diagnostic reports. A diagnostic-only result remains diagnostic-only. Fitting never changes the selected main model or substitutes another estimator.
 
-`--floor-increments` selects the explicit v4 listed-floor threshold design;
+The default `--floor-increments` selects the explicit v4 listed-floor threshold design;
 `--floor-increment-prior-scale` sets its increment prior (default 0.15). Without
-that flag, the model remains the v3 linear-floor specification. Storage does not
+an explicit option, new main fits use this threshold design. `--linear-floor`
+retains the v3 linear-floor specification for explicit research or old-protocol
+replay. This updates the former CLI default, which lagged behind the selected
+threshold model. Storage does not
 change the likelihood, priors, retained draws or diagnostic gates.
 
 `--execution memory` retains the older in-memory execution path for explicit
@@ -58,3 +61,9 @@ UV_CACHE_DIR=/tmp/apartments-uv-cache uv run --frozen --no-sync python -m apartm
 ```
 
 Omit `--changes` for detail only. Selection defaults to the repository's `config/main-analysis.json`; unknown identities, invalid bindings and unsupported changes fail explicitly. The backend withholds counterfactual estimates for unknown starting attributes, unsupported endpoints or failed joint diagnostics, preserving that status in the JSON. This command does not fit, scrape, patch observations or promote a model. The earlier robust/ridge fitting command is available explicitly as `fit-pricing-legacy` with its original `--holdout-fraction` and `--ridge` options.
+
+For a preference frontier over the selected fit's current observations, use
+[`rank-current-apartments`](bayesian-candidate-ranking.md). It keeps user-supplied
+monthly dollar preferences separate from PyMC latent-price intervals and fitted
+residuals. The older `score-apartments` command remains explicitly legacy robust
+scoring; it is not the main Bayesian ranking path.

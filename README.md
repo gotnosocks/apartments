@@ -11,7 +11,12 @@ emphasizing feature contributions and fitted residuals. The [current-analysis wo
 includes fresh observations in the fit and produces a source-linked residual
 review queue. The [main Bayesian analysis page](docs/model/main-bayesian-analysis.md)
 shows apartment contributions, joint feature comparisons, residual history and
-archived source descriptions. The [first residual audit](docs/analysis/chelsea-residual-review-2026-09-18.md)
+archived source descriptions. The [current-listing ranking command](docs/model/bayesian-candidate-ranking.md)
+connects that selected PyMC fit to personal preference frontiers, with separate
+posterior price diagnostics and explicit unknown/source-conflict handling.
+New main fits default to listed-floor threshold increments; `--linear-floor`
+is available for explicit legacy research or replay.
+The [first residual audit](docs/analysis/chelsea-residual-review-2026-09-18.md)
 found concrete price-entry, commercial-scope and possible omitted-feature issues
 to guide the next iteration.
 The [Bayesian feature research](docs/model/bayesian-feature-research.md) examines joint

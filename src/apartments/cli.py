@@ -270,7 +270,8 @@ def pricing_fit(
     residual_parameterization: str = typer.Option("centered", help="centered or noncentered bedroom-noise hierarchy; inert with shared noise."),
     graph_validation: Path | None = typer.Option(None, help="Optional verified graph parity bundle bound into the protocol."),
     execution: str = typer.Option("disk", help="disk for durable traces and bounded reports; memory to replay older execution protocols."),
-    floor_increments: bool = typer.Option(False, help="Use the versioned listed-floor threshold design instead of the linear floor term."),
+    floor_increments: bool = typer.Option(True, '--floor-increments/--linear-floor',
+        help="Use listed-floor threshold increments by default; linear-floor is for explicit legacy research/replay."),
     floor_increment_prior_scale: float = typer.Option(.15, help="Positive prior scale for each floor threshold increment."),
 ):
     """Fit the main exact PyMC model from a verified bathroom source projection.
@@ -397,11 +398,34 @@ def apartment_score(
     budget: float | None = typer.Option(None, min=.01),
     unknown_policy: str = typer.Option('exclude', help="exclude or zero for missing valued attributes."),
 ):
-    """Select recent source-active units, rank preferences, and score a verified robust model."""
+    """Legacy robust scoring; use rank-current-apartments for the selected PyMC fit."""
     import json
     from .candidate_search import score_candidates
     typer.echo(json.dumps(score_candidates(candidates, preferences, output, model_bundle=model,
         as_of=as_of, max_age_days=max_age_days, budget=budget, unknown_policy=unknown_policy), indent=2))
+
+
+@app.command("rank-current-apartments")
+def current_apartment_rank(
+    preferences: Path,
+    output: Path,
+    selection: Path | None = typer.Option(None, help="Selected accepted PyMC fit; defaults to the repository main selection."),
+    as_of: str = typer.Option(..., help="Capture/knowledge cutoff; this is not a historical model backtest."),
+    max_age_days: float = typer.Option(7, min=0),
+    budget: float | None = typer.Option(None, min=.01),
+    unknown_policy: str = typer.Option('exclude', help="exclude or explicit zero for unknown valued attributes."),
+):
+    """Rank fitted current listings by preferences with separate PyMC posterior diagnostics."""
+    import json
+    from .bayesian_candidate_search import run
+    from .main_analysis import DEFAULT_SELECTION
+    try:
+        result = run(preferences, output, selection=selection or DEFAULT_SELECTION, as_of=as_of,
+                     max_age_days=max_age_days, budget=budget, unknown_policy=unknown_policy)
+        typer.echo(json.dumps(result, indent=2, allow_nan=False))
+    except (ValueError, OSError, KeyError) as error:
+        typer.echo(f"Bayesian ranking failed: {error}", err=True)
+        raise typer.Exit(1) from error
 
 
 @app.command("build-candidates")

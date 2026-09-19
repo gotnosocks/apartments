@@ -32,7 +32,7 @@ def test_fit_pricing_defaults_to_exact_disk_runner_without_changing_model(fit_ro
         'chains':4,'seed':20260918,'spec':'full_half_balance','residual_scale':'shared',
         'target_accept':.93,'adaptation':'diag','prior_multiplier':1.,'building_prior_scale':.35,
         'unit_prior_scale':.25,'residual_parameterization':'centered','graph_validation':None,
-        'floor_increments':False,'floor_increment_prior_scale':.15}]
+        'floor_increments':True,'floor_increment_prior_scale':.15}]
 
 
 def test_explicit_sampler_and_model_options_are_preserved(fit_route):
@@ -46,7 +46,7 @@ def test_explicit_sampler_and_model_options_are_preserved(fit_route):
         'chains':3,'seed':12,'spec':'full_half','residual_scale':'bedroom','target_accept':.97,
         'adaptation':'low_rank','prior_multiplier':.5,'building_prior_scale':.7,'unit_prior_scale':.125,
         'residual_parameterization':'noncentered','graph_validation':Path('proof'),
-        'floor_increments':False,'floor_increment_prior_scale':.15}
+        'floor_increments':True,'floor_increment_prior_scale':.15}
 
 
 @pytest.mark.parametrize('args',[
@@ -84,10 +84,16 @@ def test_memory_execution_is_explicit_for_older_protocol_replay(fit_route,monkey
     runner=disk.increments if increments else disk.linear
     monkeypatch.setattr(runner,'run',lambda args:calls.append(vars(args)) or {'status':'replayed'})
     result=CliRunner().invoke(app,['fit-pricing','source','posterior','--execution','memory',
-        *(['--floor-increments'] if increments else [])])
+        *(['--floor-increments'] if increments else ['--linear-floor'])])
     assert result.exit_code==0,result.output
     assert not fit_route and len(calls)==1
     assert calls[0]['floor_increments']==increments
+
+
+def test_linear_floor_requires_explicit_legacy_choice(fit_route):
+    result = CliRunner().invoke(app, ['fit-pricing', 'source', 'posterior', '--linear-floor'])
+    assert result.exit_code == 0, result.output
+    assert fit_route[0]['floor_increments'] is False
 
 
 def test_legacy_fitter_has_explicit_separate_command(monkeypatch):
