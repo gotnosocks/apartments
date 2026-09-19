@@ -37,6 +37,10 @@ patterns, and whether a simpler representation suffices.
   from explicit source-floor claims. Validate building-specific numbering and
   conflicts; investigate ambiguous labels, penthouses, duplexes and skipped
   labels rather than treating the prefix as physical height.
+  The [first source-bound label audit](analysis/chelsea-unit-label-floor-2026-09-18.md)
+  proposes candidates for 11,722 units; 29 of 164 units with comparable explicit
+  claims have a disagreement. Building-specific numbering and source-reference
+  errors need review before analytical integration.
 - [ ] Test elevator × the selected floor metric, including threshold interactions
   if floor increments are retained. Report support on both sides of each
   interaction, posterior uncertainty and sensitivity to floor inference. The
