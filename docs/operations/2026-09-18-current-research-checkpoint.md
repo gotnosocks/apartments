@@ -1,5 +1,56 @@
 # Current research checkpoint, 22:05 EDT
 
+## September 19: laundry v4 exact full-cohort replay
+
+Previous goal turn was progress, saved **8b617e89**: primary and coordinate-
+sensitivity spatial posterior diagnostics. This turn resolves the two laundry
+phrases identified by the residual review without altering running-fit inputs.
+
+`apartments.laundry_measurement` is now **scoped-laundry-measurement-v4**. Added
+narrow rules for laundry with machines on a floor and residents' explicit
+washer/dryer access on every floor. Existing negation, installation, exception,
+relative-floor and private-equipment priority rules remain in force.
+
+New `models.laundry_measurement_revision` uses a disk-backed description index.
+It replays every capture through the **archived v3** extractor from recovered
+prose plus structured code witnesses at exact original indices. Every complete
+v3 measurement must equal its saved value before comparing v4. Typed identities,
+source/knowledge clocks, raw/body/description bindings and exact spans checked;
+all input/code hashes rechecked before publication. This is a verified replay,
+not a new raw-page parse. Outputs are a delta/review artifact, not a replacement
+full-cohort measurement bundle for the existing projection command.
+
+Actual replay **35827**, exit 0; identical real replay **90773**, exit 0:
+`chelsea-laundry-v4-full-replay-20260919`. **72,065 captures / 52,863 observations**
+reproduced exactly under v3. Only **two captures / two observations / two units /
+two buildings** change under v4: ads **3895033** and **970866**, both in-building
+to on-floor. All other measurement content unchanged, apart from version labels.
+On-floor candidate rows 259→261, still 149 units / 21 buildings; in-building
+21,339→21,337. **Zero current changes.** Both changed full descriptions and
+claim spans reviewed. These cases informed development, so no independent
+accuracy claim. The two older development misses, ads 860067/2158973, remain.
+
+The next source retains **3895033** but already quarantines **970866** under its
+explicit short-term decision; membership and exact quarantine decision checked.
+Thus only **one extra same-floor observation** survives the revised source, with
+little additional identifying information. No new laundry fit or source
+projection is warranted solely by this small change. Preserve the next source
+refit as an isolated 210-exclusion comparison first.
+
+**109 focused tests pass**, session **63549**, exit 0, across measurement,
+original capture reading, new replay, projection and source audit. All **20**
+live-fit implementation hashes still match the frozen protocol; the extractor
+is not among those dependencies. Research note:
+`docs/analysis/chelsea-laundry-v4-replay-2026-09-19.md`.
+
+Low-rank laundry **80844** was polled and is still live. At **09:07:47 UTC** all
+chains remained in warmup, **3,105–3,107 / 4,000**, zero divergences, over two
+hours elapsed in sampling/adaptation. Its earlier large memory footprint and
+expensive adaptation remain operational concerns, not retained ESS evidence.
+No restart/cancellation was performed. Isolated readers **25e84d67** remain
+unmerged, and the ready next fit remains the **210-exclusion source**, using the
+unchanged observed-floor prior and the completed source-specific graph proof.
+
 ## September 19: joint-posterior spatial diagnostics completed
 
 The preceding response reverified the already completed CPU/GPU benchmark and

@@ -6,7 +6,7 @@ explicit clauses and abstains on ambiguous hallway/location descriptions.
 """
 import re
 
-VERSION = 'scoped-laundry-measurement-v3'
+VERSION = 'scoped-laundry-measurement-v4'
 SCOPES = ('private', 'shared_building', 'shared_same_floor')
 _PAIR = r'(?:washer\s*(?:and|&|/)\s*dryer|washer[-/]dryer)'
 _LAUNDRY = r'laundry(?:\s+(?:rooms?|facilities|machines?))?'
@@ -53,7 +53,10 @@ def extract(raw):
         ('private', rf'\b(?:in[- ]unit\s+{_PAIR}|{_PAIR}\s+in\s+(?:the |this |your )?(?:unit|apartment))\b'),
         ('shared_building', rf'\b(?:{_LAUNDRY}\s+in\s+(?:the\s+)?building|(?:shared|common|building)\s+{_LAUNDRY})\b'),
         ('shared_same_floor', rf'\b{_LAUNDRY}\s+(?:(?:is|are)\s+)?(?:located\s+|available\s+|right\s+)?on\s+{_FLOOR}'),
-        ('shared_same_floor', rf'\blaundry\s+with\s+(?:a\s+)?(?:brand\s+new\s+|new\s+)?{_PAIR}\s+on\s+{_FLOOR}'),
+        ('shared_same_floor', rf'\blaundry\s+with\s+(?:a\s+)?(?:brand\s+new\s+|new\s+)?(?:{_PAIR}|machines?)\s+on\s+{_FLOOR}'),
+        # Residents' access to equipment on every floor is a shared claim.
+        # Bare equipment "on a floor" could instead be inside a duplex.
+        ('shared_same_floor', rf'\bresidents\s+(?:here\s+)?(?:enjoy|have)\s+(?:the\s+convenience\s+of\s+|access\s+to\s+)?(?:a\s+)?{_PAIR}\s+on\s+(?:each|every)\s+(?:residential\s+)?floor\b(?!\s+(?:above|below|beneath|over|under|of)\b)'),
         ('shared_same_floor', rf'\blaundry\s+and\s+(?:a\s+)?roof\s+deck\s+(?:right\s+)?on\s+{_FLOOR}'),
         ('shared_same_floor', rf'\b(?:each|every)\s+(?:residential\s+)?floor\s+(?:has|offers|features)\s+(?:a\s+)?{_LAUNDRY}\b'),
         ('shared_same_floor', rf'\b(?:shared|common|building)\s+{_LAUNDRY}\s+(?:is\s+)?(?:just\s+)?(?:down|across)\s+the\s+hall\b'),

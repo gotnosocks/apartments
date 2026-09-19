@@ -1,5 +1,11 @@
 # Laundry residual review: what the extreme cases actually say
 
+Follow-up: [extractor v4 and complete-cohort replay](chelsea-laundry-v4-replay-2026-09-19.md)
+now recover both missed every-floor phrases. Exactly two capture measurements
+change; ad 970866 is already excluded from the pending source revision, leaving
+one additional surviving same-floor observation. The frozen laundry fit is
+unchanged.
+
 Before reading the candidate fit, I selected eight distinct units using the
 accepted model's signed residual extremes within each laundry category in The
 Thomas Eddy and 101 West 23rd Street. These two buildings supply 82.4% of the
