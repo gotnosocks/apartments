@@ -66,6 +66,11 @@ class FeatureDesign:
             raise ValueError('Every lower-floor endpoint requires both known elevator states')
         raw = raw_interactions(train, mode)
         self.interaction_means = raw.mean(axis=0)
+        self.support = {**self.base.support, 'features': len(self.features),
+            'matrix_rank': int(np.linalg.matrix_rank(self.matrix(train))),
+            'interaction_mode': mode, 'interaction_endpoint_support': self.endpoint_support}
+        if self.support['matrix_rank'] != len(self.features):
+            raise ValueError('Interaction feature matrix is rank deficient')
         self._validate()
 
     def _validate(self):
@@ -93,6 +98,22 @@ class FeatureDesign:
     def time(self):
         return self.base.time
 
+    @property
+    def spec(self):
+        return self.base.spec
+
+    @property
+    def numeric(self):
+        return self.base.numeric
+
+    @property
+    def categories(self):
+        return self.base.categories
+
+    @property
+    def floor_levels(self):
+        return self.base.floor_levels
+
     def matrix(self, data):
         # The base rejects unsupported known floor labels before extrapolation.
         return np.column_stack([self.base.matrix(data), raw_interactions(data, self.mode)-self.interaction_means])
@@ -100,12 +121,16 @@ class FeatureDesign:
     def save(self, root):
         root = Path(root)
         self._validate()
-        self.base.save(root/'base-design')
+        # Existing immutable fit bundles require flat regular-file payloads.
+        # The protocol must select this wrapper; feature-design.json alone is
+        # explicitly only the base and cannot reconstruct the interaction.
+        self.base.save(root)
         (root/'interaction-design.json').write_text(canonical({
             'version': VERSION, 'mode': self.mode, 'thresholds': list(THRESHOLDS),
             'interaction_prior_scale': self.interaction_prior_scale,
             'interaction_means': self.interaction_means.tolist(),
             'endpoint_support': self.endpoint_support,
+            'support': self.support, 'base_design_layout': 'flat',
             'features': self.features, 'prior_scales': self.prior_scales.tolist(),
             'allocation': 'Known no/yes weights -0.5/+0.5; unknown zero; pooled sum divided by sqrt(3).',
         })+'\n')
@@ -114,14 +139,16 @@ class FeatureDesign:
     def load(cls, root):
         root = Path(root)
         saved = json.loads((root/'interaction-design.json').read_text())
-        if saved.get('version') != VERSION or saved.get('thresholds') != list(THRESHOLDS):
+        if (saved.get('version') != VERSION or saved.get('thresholds') != list(THRESHOLDS)
+                or saved.get('base_design_layout') != 'flat'):
             raise ValueError('Unsupported interaction design version or thresholds')
         result = cls.__new__(cls)
-        result.base = floor.FeatureDesign.load(root/'base-design')
+        result.base = floor.FeatureDesign.load(root)
         result.mode = saved['mode']
         result.interaction_prior_scale = saved['interaction_prior_scale']
         result.interaction_means = np.asarray(saved['interaction_means'], dtype=float)
         result.endpoint_support = saved['endpoint_support']
+        result.support = saved['support']
         result._validate()
         if saved['features'] != result.features or not np.array_equal(saved['prior_scales'], result.prior_scales):
             raise ValueError('Saved interaction feature order or priors differ')

@@ -80,9 +80,50 @@ on a small deterministic fixture for each candidate. These are correctness tests
 not sampling or speed benchmarks. The full-source design audit is
 `data/model/chelsea-lower-floor-elevator-design-audit-20260919`.
 
-The candidates have **not been sampled or integrated into the main experiment,
-reporting or counterfactual loaders**. After completing the elevator source-refit
-comparison, add an explicit experiment/version contract and all-joint-draw
-contrast reporting, verify full-cohort compiled graph parity, and fit the one-term
+The candidates have **not been sampled or integrated into the main reporting or
+counterfactual loaders**. A dedicated versioned disk experiment and joint-contrast
+reporting are now implemented as described below. After completing the elevator
+source-refit comparison and full-cohort compiled graph parity, fit the one-term
 candidate first. Evaluate the three-term alternative only as a declared complexity
 comparison. Keep the accepted main selection until those results earn a change.
+
+
+## Explicit experiment and reporting contract
+
+`models.bayesian_floor_elevator_experiment` uses the existing exact PyMC compressed
+graph, nutpie/Numba sampler, durable raw trace, bounded posterior export and report
+cache under the new family version
+`observable-bayesian-floor-elevator-experiment-v5`. Its defaults are four chains,
+4,000 warmup and 6,000 retained draws. It requires a full-cohort compiled parity
+bundle matching source, mode, priors, thresholds, graph settings and implementation
+hashes before sampling. Sampler execution metadata remains separately versioned.
+No surrogate or variational approximation is introduced.
+
+Saved design files are flat to match the immutable fit-bundle contract:
+`feature-design.json` records the base, while `interaction-design.json` records
+and verifies the additional columns, means, priors and combined support. Consumers
+must explicitly select the v5 wrapper; reading the base alone cannot reconstruct
+this model. The fitted source design is checked for full matrix rank before fitting.
+
+Reporting evaluates all retained joint beta draws for floor changes at each known
+access state, plus the elevator-minus-no-elevator differences for 2→3, 3→4, 4→5
+and 2→5. It preserves covariance between base-floor and interaction terms, records
+actual endpoint support and induced contrast-prior SDs, and marks unsupported
+floor/access endpoint combinations as extrapolations. Failed derived convergence
+withholds that interval and prevents an accepted fit status. Parameter and existing
+unit/bathroom diagnostics must also pass.
+
+Forty-three focused tests pass across the candidate designs, protocol/contrast
+contract and existing disk execution. Coverage includes changed graph proofs,
+unsupported access endpoints, covariance-sensitive intervals, unmixed chains,
+completed-fit reuse, required products, and reporting recovery that preserves
+all existing draws without another sampling call. These tests are correctness
+checks, not performance evidence.
+
+Full-source compiled verification was launched as session **84178**, logging to
+`/tmp/chelsea-pooled-floor-elevator-graph.log`, with expected output
+`data/model/chelsea-pooled-floor-elevator-graph-parity-20260919`. It evaluates the
+independent full/reference and compressed graphs at three parameter points and
+separates compilation from warm evaluations. Its result is pending; no full-data
+parity or new posterior is claimed at this checkpoint. The main model and its
+live reporting dependencies remain unchanged.
