@@ -86,3 +86,30 @@ physical effective dates. The versioned publisher records every current decision
 literal supporting spans and source hashes; 29 focused transformation/audit/review
 tests pass. This is the reviewed input for an exploratory refit, not a selected
 model. The expanded cohort has not yet been fitted with PyMC.
+
+## Refreshed evidence attachment
+
+`data/model/chelsea-refreshed-bayesian-descriptions-20260918` now provides literal
+source text for the reviewed cohort: **72,065 captures / 52,863 observations**,
+including all **172 current captures**. Historical rows must match the earlier
+reviewed dataset exactly; their existing verified descriptions are retained.
+Current descriptions come from each row's own captured listing, with body/raw
+hashes, typed capture identities and collection/knowledge clocks checked.
+
+The analysis evidence reader recognizes this explicit archive version and binds
+it to the exact reviewed dataset manifest and observation hash. It requires full
+capture coverage, preserves missing descriptions as unknown and does not reuse
+the older current advertisement text. Publication and identical replay both pass,
+including verification through the consumer. This prepares source attachment for
+the forthcoming fit; the main selection and page's default dataset remain unchanged.
+
+```bash
+UV_CACHE_DIR=/tmp/apartments-uv-cache MPLCONFIGDIR=/tmp/apartments-mpl \
+OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 uv run --frozen --no-sync python \
+  -m models.refresh_bayesian_evidence \
+  --parent data/model/chelsea-reviewed-scope-composition-projection-20260918 \
+  --historical-evidence data/model/chelsea-analysis-descriptions-20260918 \
+  --refreshed data/model/chelsea-refreshed-analysis-cohort-20260918 \
+  --dataset data/model/chelsea-reviewed-current-analysis-20260918 \
+  --output data/model/chelsea-refreshed-bayesian-descriptions-20260918
+```

@@ -329,6 +329,9 @@ patterns, and whether a simpler representation suffices.
   description/structured bathroom conflicts and records seven residual-review
   cases. The reviewed 52,863-row input is ready; Bayesian loader integration and
   the expanded-cohort fit remain pending while the matched floor fit runs.
+  The refreshed description archive now covers all 72,065 supporting captures,
+  with exact dataset binding and reader-verified coverage. Publication and replay
+  pass; the old main selection is unchanged.
 - [ ] Complete full-model validation of disk-backed nutpie traces and reporting.
   The longer source refit exceeded memory during result extraction; preserve
   exact chain/draw coordinates and all retained draws, and test against the

@@ -9,12 +9,14 @@ import json
 
 from .corrections import canonical
 from .pricing import _timestamp
-from .research_pipeline import _verified_bundle
+from .research_pipeline import _verified_bundle, digest
 
 _REVIEWED = 'reviewed-bathroom-counts-projection-v1'
 _CLEANED = 'reviewed-scope-composition-projection-v2'
 _REPORTED = 'reported-bathroom-counts-projection-v1'
 _ANALYSIS = 'historical-plus-current-capture-analysis-v1'
+_REFRESHED_REVIEW = 'reviewed-capture-refreshed-analysis-v1'
+_REFRESHED_ARCHIVE = 'refreshed-fitted-description-archive-v1'
 
 
 def _records(data):
@@ -57,8 +59,16 @@ def load_evidence(dataset, evidence):
     """
     dataset_manifest, dataset_files = _verified_bundle(dataset, retain={'observations.jsonl'})
     evidence_manifest, evidence_files = _verified_bundle(evidence, retain={'evidence.jsonl'})
-    if (evidence_manifest.get('version') not in {'fitted-description-archive-v1', 'cohort-outdoor-evidence-v1'}
-            or evidence_manifest.get('dataset_manifest') != _original_manifest(dataset_manifest)):
+    refreshed = evidence_manifest.get('version') == _REFRESHED_ARCHIVE
+    if refreshed:
+        from pathlib import Path
+        bound = (dataset_manifest.get('version') == _REFRESHED_REVIEW
+                 and evidence_manifest.get('dataset_manifest_sha256') == digest(Path(dataset)/'complete.json')
+                 and evidence_manifest.get('dataset_observations_sha256') == dataset_manifest['files'].get('observations.jsonl'))
+    else:
+        bound = (evidence_manifest.get('version') in {'fitted-description-archive-v1', 'cohort-outdoor-evidence-v1'}
+                 and evidence_manifest.get('dataset_manifest') == _original_manifest(dataset_manifest))
+    if not bound:
         raise ValueError('Description archive does not bind the dataset lineage')
     if 'observations.jsonl' not in dataset_files or 'evidence.jsonl' not in evidence_files:
         raise ValueError('Missing verified observation or evidence records')
@@ -98,7 +108,7 @@ def load_evidence(dataset, evidence):
                 or capture.get('unit_id') != row['unit_id']
                 or typed_id not in row['capture_membership'] or identity in seen):
             raise ValueError('Description ad/unit/capture identity differs or is duplicated')
-        if evidence_manifest['version'] == 'fitted-description-archive-v1' and capture.get('known_at') is None:
+        if (refreshed or evidence_manifest['version'] == 'fitted-description-archive-v1') and capture.get('known_at') is None:
             raise ValueError('Description archive is missing its knowledge clock')
         source_at = _timestamp(capture['source_collected_at'])
         known_at = _timestamp(capture['known_at']) if capture.get('known_at') is not None else None
@@ -123,6 +133,10 @@ def load_evidence(dataset, evidence):
             'audit_id', 'capture_id', 'source_listing_id', 'unit_id', 'source_collected_at',
             'description_interpreted_at', 'known_at', 'body_sha256', 'raw_listing_sha256',
             'description_sha256', 'description_source')}, 'description': text, 'source_path': source_path})
+    if refreshed:
+        for key, row in rows.items():
+            if {(type(c['capture_id']).__name__, c['capture_id']) for c in result[key]} != row['capture_membership']:
+                raise ValueError('Refreshed description archive has incomplete capture coverage')
     for captures in result.values():
         captures.sort(key=lambda capture: (_timestamp(capture['source_collected_at']), str(capture['capture_id'])))
     return result

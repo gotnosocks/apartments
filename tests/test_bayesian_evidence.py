@@ -6,7 +6,7 @@ import pytest
 
 from apartments.bayesian_evidence import load_evidence
 from apartments.corrections import canonical
-from apartments.research_pipeline import publish_bundle
+from apartments.research_pipeline import digest, publish_bundle
 
 
 def fixtures(*, cleaned=False):
@@ -117,3 +117,39 @@ def test_bundle_tampering_rejected_before_attachment(tmp_path):
 def test_fitted_archive_requires_capture_knowledge_clock(tmp_path):
     parts=fixtures();del parts[3][0]['known_at']
     with pytest.raises(ValueError,match='knowledge clock'):load_evidence(*publish(tmp_path,parts))
+
+
+def refreshed_parts(tmp_path):
+    _, rows, _, captures = fixtures()
+    captures = [captures[0], {**captures[0], 'capture_id': 13},
+        {**captures[0], 'audit_id': 'no-text', 'source_listing_id': '124', 'unit_id': 'u2',
+         'capture_id': 14, 'description': None, 'description_sha256': None}]
+    dataset = tmp_path/'dataset'
+    dm = publish_bundle(dataset, {'observations.jsonl': ''.join(canonical(r)+'\n' for r in rows)},
+                        {'version': 'reviewed-capture-refreshed-analysis-v1'})
+    em = {'version': 'refreshed-fitted-description-archive-v1',
+          'dataset_manifest_sha256': digest(dataset/'complete.json'),
+          'dataset_observations_sha256': dm['files']['observations.jsonl']}
+    return dataset, em, captures
+
+
+def test_refreshed_evidence_exact_binding_full_coverage_and_literal_text(tmp_path):
+    dataset, em, captures = refreshed_parts(tmp_path)
+    archive = tmp_path/'archive'
+    publish_bundle(archive, {'evidence.jsonl': ''.join(canonical(c)+'\n' for c in captures)}, em)
+    result = load_evidence(dataset, archive)
+    assert len(result['kept']) == 2 and result['no-text'][0]['description'] is None
+    assert result['kept'][0]['description'] == captures[0]['description']
+
+
+@pytest.mark.parametrize('fault', ['manifest', 'observations', 'missing_capture', 'capture_type', 'clock'])
+def test_refreshed_evidence_rejects_wrong_binding_coverage_or_clock(tmp_path, fault):
+    dataset, em, captures = refreshed_parts(tmp_path)
+    if fault == 'manifest': em['dataset_manifest_sha256'] = 'bad'
+    if fault == 'observations': em['dataset_observations_sha256'] = 'bad'
+    if fault == 'missing_capture': captures.pop()
+    if fault == 'capture_type': captures[0]['capture_id'] = '12'
+    if fault == 'clock': captures[0]['known_at'] = '2026-09-19'
+    archive = tmp_path/'archive'
+    publish_bundle(archive, {'evidence.jsonl': ''.join(canonical(c)+'\n' for c in captures)}, em)
+    with pytest.raises(ValueError): load_evidence(dataset, archive)
