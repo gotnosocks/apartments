@@ -1,5 +1,10 @@
 # Reviewed historical price/lease-scope exclusions
 
+The later [full-cohort literal price-basis review](chelsea-literal-rent-basis-review-2026-09-19.md)
+supersedes this two-ad candidate for the next source-sensitivity fit. This
+artifact and its checks remain preserved; its graph proof must not be reused
+for the larger combined candidate.
+
 The new analytical candidate excludes two specifically reviewed historical
 advertisements from the accepted corrected source. It contains **52,861 rows,
 22,189 units, 1,131 buildings and 172 current listings**. The selected model and

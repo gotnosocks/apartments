@@ -1,5 +1,66 @@
 # Current research checkpoint, 22:05 EDT
 
+## September 19: full-cohort price-basis review and combined source candidate
+
+Previous turn was progress: source readers and graph verification completed and
+were saved separately from the running sampler. Root parent **0f788aa7**;
+isolated reader bookmark **codex/quarantine-readers** at **25e84d67** remains
+unmerged to preserve live fit dependencies.
+
+The new offline literal-price audit covers all 52,863 rows / 72,065 captures.
+Final parser is `literal-rent-basis-measurement-v4`, artifact
+`chelsea-literal-rent-basis-audit-v4-20260919`: 164 all-capture explicit net-target
+matches, 101 explicit gross-target matches, 89 advertised-net statements without
+a matching target amount, 3,015 total broad candidates. All 14 current candidates
+are negated administrative boilerplate mentions. No current rows removed.
+
+Actual jobs:
+
+- **11900**, v1 full audit, exit 0; **91370**, v2, exit 0; **77534**, v3, exit 0;
+  **98369**, final v4, exit 0. Earlier versions preserve diagnosed quote-association
+  false positives. Regression fixes prevent adjacent/parenthetical quotes from
+  relabelling an earlier amount and recognize “Gross Price per month.”
+- **45743**, v2 original-price review, exit 0; **66115**, v3 packet, exit 0:
+  `chelsea-rent-basis-own-price-review-v3-20260919`, 259 observations / 312 captures.
+  Every original own ACTIVE event matches the analytical target/date label.
+  All original listing/event shards and raw listing hashes checked.
+- **2247**, closed manual review, exit 0:
+  `chelsea-reviewed-net-quote-recommendations-20260919`. Reviewed all 165 v3
+  high-priority quote contexts; full descriptions of ambiguous cases. 164
+  recommendations; **2532848** retained because its $4,500 quote is explicitly
+  gross and $4,250 is net. Other 94 packet cases remain pending. Recovered
+  source fields do not establish concessions at the initial historical date.
+- **44559**, composed decisions, exit 0: 164 price-basis exclusions + previously
+  reviewed short-term ad **970866**; overlapping ad **2675026** counted once.
+  Artifact `chelsea-reviewed-net-and-scope-decisions-20260919`, review cutoff
+  **2026-09-19T07:42:51Z**. Original review IDs, clocks and complete records retained.
+- **90142**, combined projection, exit 0:
+  `chelsea-reviewed-net-and-scope-analysis-20260919`, **52,698 rows, 22,163 units,
+  1,130 buildings, 172 unchanged current rows**. Every retained field unchanged;
+  165 original observations preserved in a hashed sidecar; exact inverse passed.
+- **84307**, identical combined projection replay, exit 0.
+- **53114**, full combined-source reader/design verification using isolated
+  checkout, currently pending; log
+  `/tmp/chelsea-reviewed-net-and-scope-reader-verification.log`, output
+  `chelsea-reviewed-net-and-scope-reader-verification-20260919`.
+- **67 focused tests pass** across measurement, raw-price packet and quarantine
+  validation. Development cases are not an independent extraction accuracy test.
+
+The combined candidate supersedes the earlier two-ad candidate for the next
+source fit. Its lost unit/building groups require a comparison on common rows
+with removed groups reported; do not impose unchanged group identity or reuse
+the two-ad source's graph proof. After reader verification, run a fresh
+`models.verify_reviewed_floor_graph` from the isolated checkout on this candidate.
+Then fit separately after the low-rank computational experiment is terminal.
+
+Laundry sampler **80844**, host PID **541438**, is still live in warmup: at
+07:40:46 UTC, 2,386–2,447 / 4,000 warmup iterations, zero divergences. Preserve
+root model/loader/sampling/report-cache dependencies and poll the same handle.
+Low-rank adaptation is costly; no retained-throughput or convergence conclusion
+yet. Accepted main config/source remain unchanged.
+
+Full interpretation: `docs/analysis/chelsea-literal-rent-basis-review-2026-09-19.md`.
+
 ## September 19: isolated quarantine readers and explicit sampler comparison
 
 Previous goal turn was concrete progress: exclusions were published/replayed and
