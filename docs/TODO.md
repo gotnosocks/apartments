@@ -60,7 +60,9 @@ patterns, and whether a simpler representation suffices.
   review history and 172 current observations are preserved. Publication/replay
   and the actual floor encoder are verified. Literal-evidence loader integration
   now verifies the full corrected-source lineage and 72,065 unchanged captures;
-  fitting-runner integration and a refit remain pending. The
+  fitting and report-reader integration are complete, and a four-chain
+  4,000-warmup/6,000-retained refit is running. Diagnostics and comparison
+  remain pending before selection as main. The
   [local numbering review](analysis/chelsea-local-floor-numbering-2026-09-19.md)
   evaluates four building rules with whole-unit checks, adding candidates for
   only 19 units without prior explicit-floor references and no new buildings
@@ -104,8 +106,9 @@ patterns, and whether a simpler representation suffices.
   `chelsea-reviewed-laundry-negation-analysis-20260918` projection applies its
   ledger correction and replays identically: one historical row changes, prices
   and 172 current rows remain unchanged. Literal-evidence attachment now verifies
-  the corrected source lineage; fitting-runner integration and fitting of this
-  revision are pending. Four-level extraction and fitting are still pending.
+  the corrected source lineage. The fitting runner and report reader accept
+  verified revisions; the combined laundry/floor refit is running. Four-level
+  extraction and fitting are still pending.
 - [ ] Create and test address-based spatial features: raw or centered latitude/
   longitude, interpretable relative-location measures and street indicators.
   Validate geocoding/address identity, compare simple representations, and assess

@@ -239,6 +239,39 @@ def rewrite_v3(root, protocol, files):
     publish_binary(root/'fit',files,{'version':protocol['version'],'protocol_sha256':ph})
 
 
+@pytest.mark.parametrize('version', sorted(m.reviewed_source_lineage.VERSIONS))
+@pytest.mark.parametrize('fault', [None, 'missing_lineage', 'unintended_change'])
+def test_corrected_source_report_requires_exact_review_lineage(experiment, tmp_path, version, fault):
+    from tests.test_reviewed_source_lineage import revise, observations_hash
+
+    root, dataset, protocol, files, _ = v3_fixture(experiment, mode='shared')
+    rows = m.jsonl((dataset/'observations.jsonl').read_bytes())
+    for row in rows:
+        row.update(known_at='2026-09-18T00:00:00Z', laundry_type='in_building', advertised_floor=3)
+    parent = {'version': m.reviewed_source_lineage.REFRESHED,
+              'files': {'observations.jsonl': observations_hash(rows)}}
+    manifest, rows = revise(parent, rows, m.reviewed_source_lineage.LAUNDRY, 'laundry_type', 'laundry')
+    if version == m.reviewed_source_lineage.FLOOR:
+        manifest, rows = revise(manifest, rows, version, 'advertised_floor', 'floor', index=1)
+    if fault == 'missing_lineage':
+        manifest = {'version': version}
+    elif fault == 'unintended_change':
+        rows[2]['known_at'] = '2026-09-17T00:00:00Z'
+    source = publish_binary(dataset, {'observations.jsonl': ''.join(canonical(r)+'\n' for r in rows)}, manifest)
+    protocol.update(source_manifest_sha256=digest(dataset/'complete.json'),
+                    source_observations_sha256=source['files']['observations.jsonl'], source_version=version)
+    rewrite_v3(root, protocol, files)
+    if fault:
+        with pytest.raises(ValueError, match='lineage|Reconstructed parent'):
+            m.build_report(root, dataset)
+    else:
+        report, _ = m.build_report(root, dataset)
+        assert report['source_version'] == version and report['cohort']['rows'] == 4
+        output = tmp_path/'corrected-report'
+        m.run(root, dataset, output)
+        assert (output/'reviewed_source_lineage.py').read_text() == Path(m.reviewed_source_lineage.__file__).read_text()
+
+
 @pytest.mark.parametrize('mode',['shared','bedroom'])
 @pytest.mark.parametrize('source_version',['reviewed-scope-composition-projection-v2','reviewed-capture-refreshed-analysis-v1'])
 def test_v3_source_bound_scale_summary_and_html(experiment,tmp_path,mode,source_version):

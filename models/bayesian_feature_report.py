@@ -16,6 +16,7 @@ import statistics
 
 from apartments.corrections import canonical
 from apartments.research_pipeline import _verified_bundle, digest, publish_bundle
+from apartments import reviewed_source_lineage
 
 VERSION = 'verified-bayesian-feature-report-v2'
 EXPERIMENT_VERSION = 'observable-bayesian-bathroom-experiment-v2'
@@ -23,7 +24,7 @@ EXPERIMENT_V3 = 'observable-bayesian-bathroom-experiment-v3'
 EXPERIMENT_V4 = 'observable-bayesian-floor-experiment-v4'
 EXPERIMENT_VERSIONS = {EXPERIMENT_VERSION, EXPERIMENT_V3, EXPERIMENT_V4}
 DATASET_VERSIONS = {'reported-bathroom-counts-projection-v1', 'reviewed-bathroom-counts-projection-v1',
-                    'reviewed-scope-composition-projection-v2', 'reviewed-capture-refreshed-analysis-v1'}
+                    'reviewed-scope-composition-projection-v2', 'reviewed-capture-refreshed-analysis-v1'} | reviewed_source_lineage.VERSIONS
 REQUIRED = {'summary.json', 'diagnostics.json', 'derived-diagnostics.json', 'bathroom-contrasts.json',
             'residuals.jsonl', 'coefficients.json', 'group-effects.jsonl', 'feature-design.json',
             'time-design.json', 'time-design.npz', 'posterior.nc'}
@@ -460,6 +461,8 @@ def build_report(experiment, dataset, top=5):
             or sm['files'].get('observations.jsonl') != protocol['source_observations_sha256']):
         raise ValueError('Source dataset does not match the fitted protocol')
     rows = jsonl(sf['observations.jsonl'])
+    if sm['version'] in reviewed_source_lineage.VERSIONS:
+        reviewed_source_lineage.source_lineage(sm, rows)
     if (len(rows) != protocol['rows'] or len({r['unit_id'] for r in rows}) != protocol['units']
             or len({r['building'] for r in rows}) != protocol['buildings']
             or sum(r.get('analysis_price_basis') == 'current_capture_gross_ask' for r in rows) != protocol['current_rows']
@@ -588,6 +591,7 @@ def run(experiment, dataset, output, top=5):
     report, provenance = build_report(experiment, dataset, top)
     return publish_bundle(output, {'report.json': canonical(report)+'\n', 'report.html': html_report(report),
         'bayesian_feature_report.py': Path(__file__).read_text(),
+        'reviewed_source_lineage.py': Path(reviewed_source_lineage.__file__).read_text(),
         'bayesian_disk_protocol.py': Path(disk_protocol.__file__).read_text()},
         {'version': VERSION, **provenance, 'top_per_tail': top, 'implementation_sha256': digest(__file__)})
 

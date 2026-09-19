@@ -1,5 +1,37 @@
 # Current research checkpoint, 22:05 EDT
 
+## September 19: corrected-source reader integrated; refit remains live
+
+Merged `codex/corrected-source-fit` (`dd0e8863`) with the root benchmark
+documentation (`37983b12`), preserving the live isolated checkout unchanged.
+The main workspace now contains the tested corrected-source runner and graph
+verification command. The frozen report reader accepts the two new correction
+versions only after exact source-lineage reconstruction; emitted reports archive
+the lineage verifier. Rehashing an unintended source-clock change or claiming a
+revision version without its lineage is rejected.
+
+**146 tests pass, one pre-existing skip** across report reading, floor analysis,
+posterior analysis, source sensitivity and lineage (session **13696**, exit 0).
+Use `uv run --frozen --no-sync python -m pytest`, not the standalone pytest entry
+point: the latter omitted the repository root from imports and failed collection.
+
+Added `docs/analysis/scripts/compare_corrected_floor_fit.py` for the actual
+completed-fit comparison. It reconstructs both saved designs, checks exact
+source corrections and common model settings, compares joint floor effects on
+shared endpoints with their induced prior SDs, and exports movements for all
+current apartments and corrected historical rows plus bathroom contrasts.
+The full comparison **has not run yet**; live protocol inspection confirms no
+unexpected settings changes and only the intended v3 loader implementation
+change. Do not call this a data-only or prior-matched sensitivity experiment.
+
+**Session 23268 is confirmed live** by its process handle. Last inspected log at
+05:26:51 UTC has 3,171–3,377 retained draws per chain, with zero divergences.
+After terminal success, run the comparison using the root Python module path:
+`uv run --frozen --no-sync python -m docs.analysis.scripts.compare_corrected_floor_fit`
+with `UV_CACHE_DIR=/tmp/apartments-uv-cache` and one BLAS/OMP thread. Then review
+movements, attach source-review notes to the new fit, and validate the analysis
+page before any main selection change. The old 172-current fit remains main.
+
 ## September 19: production-length CPU/GPU comparison complete
 
 **GPU diagnostic session 30424 exited 0; comparison session 23000 exited 0.**

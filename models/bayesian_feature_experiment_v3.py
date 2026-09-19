@@ -17,10 +17,11 @@ from . import bayesian_feature_experiment_v2 as v2
 from . import bayesian_feature_graph_v3 as graph
 from apartments.corrections import canonical
 from apartments.research_pipeline import _verified_bundle, digest, publish_bundle
+from apartments import reviewed_source_lineage
 
 VERSION = 'observable-bayesian-bathroom-experiment-v3'
 DATASET_VERSIONS = v2.DATASET_VERSIONS | {'reviewed-scope-composition-projection-v2',
-                                       'reviewed-capture-refreshed-analysis-v1'}
+                                       'reviewed-capture-refreshed-analysis-v1'} | reviewed_source_lineage.VERSIONS
 REQUIRED_FIT = {'summary.json','diagnostics.json','derived-diagnostics.json',
     'parameter-diagnostics.csv','derived-diagnostics.csv','bathroom-contrasts.json',
     'residuals.jsonl','coefficients.json','group-effects.jsonl','feature-design.json',
@@ -33,7 +34,10 @@ def load_data(dataset):
     manifest,files = _verified_bundle(dataset,retain={'observations.jsonl'})
     if manifest.get('version') not in DATASET_VERSIONS:
         raise ValueError('Verified bathroom or reviewed scope/composition projection required')
-    data = v2.pd.DataFrame([json.loads(line) for line in files['observations.jsonl'].decode().split('\n') if line.strip()])
+    rows = [json.loads(line) for line in files['observations.jsonl'].decode().split('\n') if line.strip()]
+    if manifest['version'] in reviewed_source_lineage.VERSIONS:
+        reviewed_source_lineage.source_lineage(manifest, rows)
+    data = v2.pd.DataFrame(rows)
     data.period = v2.pd.to_datetime(data.period)
     data.square_feet = v2.pd.to_numeric(data.square_feet,errors='coerce')
     if (data.audit_id.duplicated().any() or data.duplicated(['unit_id','period']).any()
@@ -64,7 +68,7 @@ def implementation_paths():
     """Archive local transitive mean-design, graph, sampler and reporting code."""
     modules = (v2,graph,v2.graph,v2.feature,v2.sampler,v2.reports,v2.base,
                v2.feature.amenity,v2.feature.amenity.baseline,v2.feature.pricing,
-               v2.corrections,v2.research_pipeline)
+               v2.corrections,v2.research_pipeline,reviewed_source_lineage)
     paths = [Path(m.__file__) for m in modules]+[Path(__file__)]
     if len({p.name for p in paths}) != len(paths):
         raise ValueError('Implementation archive names must be unique')
