@@ -1,5 +1,24 @@
 # Current research checkpoint, 22:05 EDT
 
+## Follow-up: shared efficiency diagnostics prepared
+
+The preceding goal turn made concrete progress (recovery, reviewed data and
+production benchmarking), not a status-only wait. This continuation revalidated
+both live sessions **80187** (CPU reports) and **30289** (GPU benchmark), then added
+`models/sampler_efficiency.py`. It requires a completed hash-bound GPU posterior,
+verifies original source/design/code, and reuses the CPU parameter, derived
+unit/bathroom and joint-floor diagnostic gates. Rate tables distinguish compute,
+storage, warmup and complete PyMC/write timing scopes. The command is documented
+in the sampler reassessment; run it only after `sampled.json` is published.
+
+Eleven focused timing/statistics tests pass. Actual verified CPU counters now
+produce archived retained-time brackets in
+`chelsea-nutpie-retained-time-brackets-20260918`. These are per-chain intervals,
+not a denominator for pooled ESS. No backend ranking is established. At the last
+log check GPU warmup had reached about 330/4,000; the CPU remains in diagnostics
+and reports. Continue independent source/model work while they run; neither run
+has been restarted. Main selection and frozen analytical/model files are unchanged.
+
 ## Superseding update, 23:37 EDT
 
 Checkpoint **9e30dc36** saved the review, ledger revision, tested recovery and

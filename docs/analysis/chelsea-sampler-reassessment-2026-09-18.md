@@ -74,6 +74,31 @@ Active revised GPU artifact:
 `data/model/chelsea-numpyro-gpu-batched-benchmark-20260918`.
 No production GPU speed or convergence result is claimed in this checkpoint.
 
+The follow-up `models.sampler_efficiency` command requires a completed, hash-bound
+benchmark posterior and its original source/design/code. It applies the same
+parameter, unit/bathroom contribution and joint-floor diagnostic gates used by
+the CPU fit. It rejects incomplete inputs, preserves all chains/draws and adds
+NumPyro's tree-depth saturation flag in a read-only view. Rate tables distinguish
+retained compute, retained compute plus storage, warmup plus retained sampling,
+and the PyMC call plus posterior writing. A compute-only GPU rate must not be
+compared without qualification to CPU sampling that includes durable trace writes.
+
+```sh
+UV_CACHE_DIR=/tmp/apartments-uv-cache OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 \
+  uv run --frozen --no-sync python -m models.sampler_efficiency \
+  --benchmark data/model/chelsea-numpyro-gpu-batched-benchmark-20260918 \
+  --dataset data/model/chelsea-reviewed-current-analysis-20260918 \
+  --output data/model/chelsea-numpyro-gpu-efficiency-20260918
+```
+
+Eleven focused tests cover rate denominators, normalization and refusal to infer
+timings from incomplete or unbracketed chains. Applying the timing helper to
+verified CPU counters produces per-chain retained-duration intervals of
+619–679, 645–705, 632–692 and 610–670 seconds. These are intervals because progress
+callbacks straddle the warmup boundary. They are **not** a single wall-clock
+denominator for pooled ESS. Evidence is preserved in
+`data/model/chelsea-nutpie-retained-time-brackets-20260918`.
+
 Official API references: [nutpie PyMC compilation](https://pymc-devs.github.io/nutpie/pymc-usage.html),
 [PyMC NumPyro sampling](https://www.pymc.io/projects/docs/en/stable/api/generated/pymc.sampling.jax.sample_numpyro_nuts.html),
 and [JAX installation](https://docs.jax.dev/en/latest/installation.html).

@@ -1,0 +1,47 @@
+import numpy as np
+import pandas as pd
+import pytest
+import xarray as xr
+
+from models.sampler_efficiency import efficiency, normalized_statistics, warmup_boundary_bounds
+
+
+def test_rates_keep_bulk_tail_and_denominators_separate():
+    table = pd.DataFrame({'ess_bulk': [800., 1200.], 'ess_tail': [400., 700.]}, index=['a', 'b'])
+    result = efficiency(table, {'retained': 200., 'including_warmup': 400.})
+    assert result.loc['a', 'ess_bulk_per_second_retained'] == 4.
+    assert result.loc['a', 'ess_tail_per_second_retained'] == 2.
+    assert result.loc['b', 'ess_bulk_per_second_including_warmup'] == 3.
+    assert len(table.columns) == 2
+
+
+@pytest.mark.parametrize('seconds', [0, -1, np.nan, np.inf, '200'])
+def test_invalid_times_cannot_produce_a_speed_claim(seconds):
+    with pytest.raises(ValueError):
+        efficiency(pd.DataFrame({'ess_bulk': [500], 'ess_tail': [500]}), {'retained': seconds})
+
+
+def test_depth_saturation_is_normalized_without_changing_saved_stats():
+    stats = xr.Dataset({'tree_depth': ('draw', [9, 10, 11])})
+    result = normalized_statistics(stats, 10)
+    assert result.maxdepth_reached.values.tolist() == [False, True, True]
+    assert 'maxdepth_reached' not in stats
+    assert normalized_statistics(result, 10) is result
+
+
+def events():
+    return [{'chains': [{'chain': i, 'finished_draws': n, 'runtime_seconds': t+i,
+                         'tuning': n < 4000} for i in range(2)]}
+            for n, t in [(3900, 500), (4200, 530), (10000, 1200)]]
+
+
+def test_warmup_boundary_is_interval_not_false_precision():
+    rows = warmup_boundary_bounds(events(), 4000, 6000, 2)
+    assert [r['retained_seconds_lower'] for r in rows] == [670, 670]
+    assert [r['retained_seconds_upper'] for r in rows] == [700, 700]
+
+
+@pytest.mark.parametrize('indices', [[0, 1], [1, 2], [0]])
+def test_no_timing_from_unfinished_or_unbracketed_chains(indices):
+    with pytest.raises(ValueError):
+        warmup_boundary_bounds([events()[i] for i in indices], 4000, 6000, 2)
