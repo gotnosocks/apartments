@@ -1,5 +1,9 @@
 # Floor × elevator: support before fitting
 
+The [September 19 corrected-source audit](chelsea-reviewed-floor-elevator-support-2026-09-19.md)
+supersedes the counts below. It also checks dependence on buildings with opposing
+elevator claims and reviews the sparse sixth-floor witnesses.
+
 The [elevator negation review](chelsea-elevator-negation-review-2026-09-19.md)
 found 98 retained historical observations incorrectly encoded positive from
 “non-elevator” wording. Exact-row corrections are recorded separately; they
