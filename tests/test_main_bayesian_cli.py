@@ -11,7 +11,7 @@ from apartments.cli import app
 
 @pytest.fixture
 def fit_route(monkeypatch):
-    from models import bayesian_feature_experiment_v3 as runner
+    from models import bayesian_disk_experiment as runner
     from apartments import research_pipeline
     seen=[]
     def run(args):
@@ -24,14 +24,15 @@ def fit_route(monkeypatch):
     return seen
 
 
-def test_fit_pricing_routes_defaults_to_exact_v3_runner(fit_route):
+def test_fit_pricing_defaults_to_exact_disk_runner_without_changing_model(fit_route):
     result=CliRunner().invoke(app,['fit-pricing','source','posterior'])
     assert result.exit_code==0,result.output
     assert json.loads(result.output)['status']=='diagnostic_only'  # Never silently promotes diagnostics.
     assert fit_route==[{'dataset':Path('source'),'output':Path('posterior'),'draws':4000,'tune':2000,
         'chains':4,'seed':20260918,'spec':'full_half_balance','residual_scale':'shared',
         'target_accept':.93,'adaptation':'diag','prior_multiplier':1.,'building_prior_scale':.35,
-        'unit_prior_scale':.25,'residual_parameterization':'centered','graph_validation':None}]
+        'unit_prior_scale':.25,'residual_parameterization':'centered','graph_validation':None,
+        'floor_increments':False,'floor_increment_prior_scale':.15}]
 
 
 def test_explicit_sampler_and_model_options_are_preserved(fit_route):
@@ -44,13 +45,15 @@ def test_explicit_sampler_and_model_options_are_preserved(fit_route):
     assert fit_route[0]=={'dataset':Path('source'),'output':Path('posterior'),'draws':1200,'tune':1600,
         'chains':3,'seed':12,'spec':'full_half','residual_scale':'bedroom','target_accept':.97,
         'adaptation':'low_rank','prior_multiplier':.5,'building_prior_scale':.7,'unit_prior_scale':.125,
-        'residual_parameterization':'noncentered','graph_validation':Path('proof')}
+        'residual_parameterization':'noncentered','graph_validation':Path('proof'),
+        'floor_increments':False,'floor_increment_prior_scale':.15}
 
 
 @pytest.mark.parametrize('args',[
     ['--chains','1'],['--draws','0'],['--tune','0'],['--target-accept','1'],
     ['--prior-multiplier','nan'],['--spec','surrogate'],['--residual-scale','robust'],
     ['--adaptation','variational'],['--residual-parameterization','other'],
+    ['--execution','surrogate'],['--floor-increments','--floor-increment-prior-scale','0'],
 ])
 def test_invalid_settings_fail_before_runner(fit_route,args):
     result=CliRunner().invoke(app,['fit-pricing','source','posterior',*args])
@@ -59,11 +62,32 @@ def test_invalid_settings_fail_before_runner(fit_route,args):
 
 
 def test_sampler_or_source_failure_never_calls_legacy(fit_route,monkeypatch):
-    from models import bayesian_feature_experiment_v3 as runner
+    from models import bayesian_disk_experiment as runner
     def fail(args):raise ValueError('Source manifest mismatch')
     monkeypatch.setattr(runner,'run',fail)
     result=CliRunner().invoke(app,['fit-pricing','source','posterior'])
     assert result.exit_code==1 and 'Source manifest mismatch' in result.output
+
+
+def test_explicit_floor_design_routes_to_disk_with_its_prior(fit_route):
+    result=CliRunner().invoke(app,['fit-pricing','source','posterior','--floor-increments',
+        '--floor-increment-prior-scale','.08'])
+    assert result.exit_code==0,result.output
+    assert fit_route[0]['floor_increments'] is True
+    assert fit_route[0]['floor_increment_prior_scale']==.08
+
+
+@pytest.mark.parametrize('increments',[False,True])
+def test_memory_execution_is_explicit_for_older_protocol_replay(fit_route,monkeypatch,increments):
+    from models import bayesian_disk_experiment as disk
+    calls=[]
+    runner=disk.increments if increments else disk.linear
+    monkeypatch.setattr(runner,'run',lambda args:calls.append(vars(args)) or {'status':'replayed'})
+    result=CliRunner().invoke(app,['fit-pricing','source','posterior','--execution','memory',
+        *(['--floor-increments'] if increments else [])])
+    assert result.exit_code==0,result.output
+    assert not fit_route and len(calls)==1
+    assert calls[0]['floor_increments']==increments
 
 
 def test_legacy_fitter_has_explicit_separate_command(monkeypatch):

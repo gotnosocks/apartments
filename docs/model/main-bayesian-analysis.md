@@ -23,7 +23,9 @@ a new fit yet.
 
 ## Command line
 
-`fit-pricing` invokes the exact v3 PyMC/NUTS runner. Its inputs are a verified bathroom-count or reviewed scope/composition source projection and an experiment output directory:
+`fit-pricing` invokes the exact PyMC/NUTS model with durable disk-backed traces
+and bounded reporting by default. Its inputs are a verified bathroom-count or
+reviewed scope/composition source projection and an experiment output directory:
 
 ```bash
 UV_CACHE_DIR=/tmp/apartments-uv-cache uv run --frozen --no-sync python -m apartments.cli fit-pricing \
@@ -32,6 +34,18 @@ UV_CACHE_DIR=/tmp/apartments-uv-cache uv run --frozen --no-sync python -m apartm
 ```
 
 Defaults are four chains, 2,000 warmup and 4,000 retained draws per chain, `full_half_balance`, shared observation noise, target acceptance 0.93, diagonal adaptation and seed 20260918. `--draws`, `--tune`, `--chains`, `--seed`, `--target-accept` and `--adaptation` control sampling. `--spec`, `--residual-scale`, `--prior-multiplier`, `--building-prior-scale`, `--unit-prior-scale` and `--residual-parameterization` explicitly change recorded model settings; `--graph-validation` optionally binds a verified graph parity artifact. See `fit-pricing --help` for allowed settings. BLAS calculations run with one thread to preserve exact design reconstruction; the existing runner handles the NUTS chains, immutable protocol, checkpoint validation and diagnostic reports. A diagnostic-only result remains diagnostic-only. Fitting never changes the selected main model or substitutes another estimator. The accepted main fit still uses linear floor terms; floor-threshold research has not been promoted.
+
+`--floor-increments` selects the explicit v4 listed-floor threshold design;
+`--floor-increment-prior-scale` sets its increment prior (default 0.15). Without
+that flag, the model remains the v3 linear-floor specification. Storage does not
+change the likelihood, priors, retained draws or diagnostic gates.
+
+`--execution memory` retains the older in-memory execution path for explicit
+replay of existing protocols. Large runs previously exhausted memory on that
+path. The default `--execution disk` records its storage protocol separately and
+requires its own output directory; it cannot silently resume an in-memory run as
+though the execution protocol were unchanged. Keep traces and reporting caches
+on a sufficiently large workspace disk, not a small `/tmp` tmpfs.
 
 `analyze-apartment` reads the main selection and prints JSON containing the source-bound detail and, optionally, one joint counterfactual. Changes use physical source values; full and half bathrooms are separate, and supported nested amenity flags use dotted keys.
 

@@ -269,6 +269,9 @@ def pricing_fit(
     unit_prior_scale: float = typer.Option(.25, help="Positive within-building unit hierarchy scale prior."),
     residual_parameterization: str = typer.Option("centered", help="centered or noncentered bedroom-noise hierarchy; inert with shared noise."),
     graph_validation: Path | None = typer.Option(None, help="Optional verified graph parity bundle bound into the protocol."),
+    execution: str = typer.Option("disk", help="disk for durable traces and bounded reports; memory to replay older execution protocols."),
+    floor_increments: bool = typer.Option(False, help="Use the versioned listed-floor threshold design instead of the linear floor term."),
+    floor_increment_prior_scale: float = typer.Option(.15, help="Positive prior scale for each floor threshold increment."),
 ):
     """Fit the main exact PyMC model from a verified bathroom source projection.
 
@@ -277,15 +280,20 @@ def pricing_fit(
     """
     import json
     from argparse import Namespace
-    from models import bayesian_feature_experiment_v3 as runner
+    from models import bayesian_disk_experiment as disk_runner
     from threadpoolctl import threadpool_limits
     args = Namespace(dataset=dataset, output=output, draws=draws, tune=tune,
         chains=chains, seed=seed, spec=spec, residual_scale=residual_scale,
         target_accept=target_accept, adaptation=adaptation, prior_multiplier=prior_multiplier,
         building_prior_scale=building_prior_scale, unit_prior_scale=unit_prior_scale,
-        residual_parameterization=residual_parameterization, graph_validation=graph_validation)
+        residual_parameterization=residual_parameterization, graph_validation=graph_validation,
+        floor_increments=floor_increments, floor_increment_prior_scale=floor_increment_prior_scale)
     try:
-        runner.validate_args(args)
+        if execution not in ('disk', 'memory'):
+            raise ValueError('execution must be disk or memory')
+        model_runner = disk_runner.increments if floor_increments else disk_runner.linear
+        model_runner.validate_args(args)
+        runner = disk_runner if execution == 'disk' else model_runner
         # Match the arithmetic used by exact design reconstruction in analysis.
         with threadpool_limits(limits=1, user_api='blas'):
             result = runner.run(args)
