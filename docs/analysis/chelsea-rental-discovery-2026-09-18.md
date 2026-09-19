@@ -59,5 +59,8 @@ are in the [orchestrator documentation](../data/rental-discovery-orchestrator.md
 
 The [bounded detail collector](../data/discovery-detail-refresh.md) now verifies
 this queue against the original page report, handles the nine unresolved unit
-identities, and has passed a live one-target Oxylabs preflight. The full frozen
-213-target plan is running; it has not yet supplied a new analytical cohort.
+identities, and completed all 213 targets with 213 Oxylabs submissions and no
+retries. It produced 204 canonical candidates, including 201 ACTIVE listings;
+168 pass the existing eligibility policy. Nine unit identities remain unresolved.
+The [identity review](chelsea-discovery-detail-identities-2026-09-18.md) preserves
+their history evidence. A new analytical cohort and fit remain pending.

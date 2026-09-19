@@ -295,9 +295,14 @@ patterns, and whether a simpler representation suffices.
   with source-bound queue verification, explicit unresolved unit identities,
   durable Oxylabs capture/replay and no product filtering before collection.
   Ninety-two focused tests pass; the one-target live preflight passed.
-- [ ] Finish and review the 213-target discovery detail run, then build a new
-  analytical cohort and refit. Nine search URLs are advertisement routes rather
-  than established physical-unit links; retain failed identity outcomes explicitly.
+- [x] Finish and review the 213-target discovery detail run: 213 submissions,
+  no retries, 204 canonical candidates and 168 eligible units. Network-disabled
+  replay passed. The [nine-identity review](analysis/chelsea-discovery-detail-identities-2026-09-18.md)
+  finds one historical-unit candidate, one conflicting alias case and seven
+  unmatched cases; none has been automatically merged.
+- [ ] Build a new analytical cohort from reviewed discovery details and refit.
+  Preserve unresolved identities and earlier current ads absent from this pass;
+  apply versioned corrections and identity policies before analytical inclusion.
 - [ ] Complete full-model validation of disk-backed nutpie traces and reporting.
   The longer source refit exceeded memory during result extraction; preserve
   exact chain/draw coordinates and all retained draws, and test against the

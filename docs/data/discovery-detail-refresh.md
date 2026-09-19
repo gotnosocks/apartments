@@ -76,6 +76,22 @@ Plan SHA-256: `733fa30f351c14db0cb74a46cfebfa68416d29f3be6a1526e180bf2ac2790e75`
 The one-target preflight completed successfully at 00:33 UTC on September 19
 (September 18 locally): advertisement 4547048 resolved to Chadwin House #6D,
 ACTIVE, $6,555 gross asking rent, matching the discovered identity and price.
-The remaining plan has started. Its final status and evidence must be checked
-before any analytical use; the currently running Bayesian fit remains frozen to
-its earlier source cohort.
+The complete plan finished at 00:45:56 UTC: **213 provider submissions, all HTTP
+200, with no retries**. Of these, 204 passed canonical-unit projection: 201 ACTIVE,
+one DELISTED, one NO_LONGER_AVAILABLE and one RENTED. The nine advertisement-only
+canonical links remain unresolved; all raw responses are retained. A completed
+replay with network calls disabled reused the checkpoints without requests.
+
+The verified completion review selects **168 units** under the existing
+seven-day, unfurnished, no-concession eligibility policy. It excludes 22 for
+concessions, 11 for furnishings and three for inactive status. Of the selected
+units, 137 occur in the reference cohort; all selected buildings occur there.
+These are candidate-selection results, not a newly transformed or fitted cohort.
+The four earlier current advertisements absent from this discovery pass are not
+declared inactive. The running Bayesian fit remains frozen to its earlier source.
+
+Completion evidence is in
+`data/model/chelsea-discovery-detail-completion-review-20260918`; the publisher
+verifies raw bodies, result/plan bindings, snapshot rows and the read-only
+transport ledger. The [identity review](../analysis/chelsea-discovery-detail-identities-2026-09-18.md)
+records the nine unresolved responses without merging units.

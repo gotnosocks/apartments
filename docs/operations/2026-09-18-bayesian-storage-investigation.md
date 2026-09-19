@@ -121,3 +121,15 @@ implementation used by the running fit was changed. After that process exits,
 separate HDF5 storage chunk dimensions from bounded source-read slab dimensions,
 then verify exact export/recovery parity before the next full run. The model,
 priors, observations and every retained draw must remain unchanged by this fix.
+
+The proposed one-line adapter patch is now preserved and validated separately in
+`data/model/chelsea-parameter-chunk-export-candidate-20260918`. At the actual
+22,158-unit width with four chains and 64 synthetic draws, old/new NetCDF exports
+have identical posterior/statistic values, coordinates, dtypes and metadata.
+The source-read maximum remains 5,672,448 bytes; only unit storage chunks change
+to `(1,32,512)`. Candidate adapter SHA-256 is
+`373ccdd618e5658f6c44bd75db06665ed9118102208231b9c0fe0eca27954505`.
+The artifact includes the original adapter hash, proposed patch, complete
+candidate code and frozen validation script. Live code remains unchanged. Once
+the current source process exits, apply the patch, run the production storage
+suite, and publish a new floor readiness bundle before launching that fit.
