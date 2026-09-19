@@ -92,10 +92,22 @@ def test_location_revision_must_bind_selected_source_and_exact_buildings():
     spatial = {'version': 'cohort-building-spatial-candidates-v1'}
     rows = [{'building': 'a'}, {'building': 'b'}]
     buildings = [{'building': name, 'status': 'source_bound'} for name in ['a', 'b']]
-    check_lineage(selected, candidate, spatial, rows, buildings)
+    assert check_lineage(selected, candidate, spatial, rows, buildings) == 'direct_source_revision'
     with pytest.raises(ValueError): check_lineage(selected, candidate, spatial, rows, buildings[:1])
     candidate['source_manifest_sha256'] = 'different'
     with pytest.raises(ValueError): check_lineage(selected, candidate, spatial, rows, buildings)
+
+
+def test_refitted_posterior_uses_exact_same_location_cohort_without_requiring_another_revision():
+    selected = {'files': {'observations.jsonl': 'refitted-source'}, 'version': 'reviewed-source'}
+    spatial = {'version': 'cohort-building-spatial-candidates-v1'}
+    rows = [{'building': 'a'}, {'building': 'b'}]
+    buildings = [{'building': name, 'status': 'source_bound'} for name in ['a', 'b']]
+    assert check_lineage(selected, dict(selected), spatial, rows, buildings) == 'same_source'
+    with pytest.raises(ValueError):
+        check_lineage(selected, {**selected, 'files': {'observations.jsonl': 'other'}}, spatial, rows, buildings)
+    with pytest.raises(ValueError): check_lineage(selected, selected, spatial, rows, buildings[:1])
+    with pytest.raises(ValueError): check_lineage(selected, selected, {'version': 'unknown'}, rows, buildings)
 
 
 def write_posterior(path, fault=None):

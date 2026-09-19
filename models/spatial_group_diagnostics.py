@@ -18,7 +18,7 @@ from apartments.research_pipeline import digest, publish_bundle
 from . import cohort_spatial_features as locations
 from .bayesian_feature_sensitivity import bound_bytes
 
-VERSION = 'joint-building-spatial-diagnostics-v1'
+VERSION = 'joint-building-spatial-diagnostics-v2'
 NEIGHBORS = (5, 10)
 
 
@@ -86,16 +86,18 @@ def distinct_locations(buildings):
 
 
 def check_lineage(selected_manifest, candidate_manifest, spatial_manifest, rows, buildings):
-    if (candidate_manifest.get('source_manifest') != selected_manifest
+    same_source = candidate_manifest == selected_manifest
+    if not same_source and (candidate_manifest.get('source_manifest') != selected_manifest
             or candidate_manifest.get('source_manifest_sha256') != hashlib.sha256(
                 (canonical(selected_manifest)+'\n').encode()).hexdigest()):
-        raise ValueError('Location cohort is not a direct revision of the selected source')
+        raise ValueError('Location cohort must equal or directly revise the selected source')
     if spatial_manifest.get('version') != locations.VERSION:
         raise ValueError('Unsupported location evidence')
     labels = [r['building'] for r in buildings]
     if (len(set(labels)) != len(labels) or set(labels) != {r['building'] for r in rows}
             or any(r['status'] != 'source_bound' for r in buildings)):
         raise ValueError('Location evidence does not cover the exact candidate building cohort')
+    return 'same_source' if same_source else 'direct_source_revision'
 
 
 def posterior_statistics(path, protocol, source_labels, labels, graphs):
@@ -158,7 +160,7 @@ def run(selection, spatial, dataset, output, exclude_coincident=False):
     # Only cohort membership is needed here; avoid retaining raw evidence blobs.
     rows = [{'building': r['building']} for r in locations.records(dataset/'observations.jsonl')]
     buildings = sorted(locations.records(spatial/'buildings.jsonl'), key=lambda b: b['building'])
-    check_lineage(sm, dm, lm, rows, buildings)
+    lineage = check_lineage(sm, dm, lm, rows, buildings)
     all_location_labels = {r['building'] for r in buildings}
     if exclude_coincident: buildings = distinct_locations(buildings)
     labels = [r['building'] for r in buildings]
@@ -173,13 +175,15 @@ def run(selection, spatial, dataset, output, exclude_coincident=False):
     result = {'version': VERSION, 'graphs': results, 'diagnostics': diag,
         'chains': protocol['chains'], 'draws_per_chain': protocol['draws'], 'all_retained_draws': True,
         'posterior_source_rows': protocol['rows'], 'location_cohort_rows': len(rows),
+        'location_source_relationship': lineage,
         'omitted_posterior_buildings': sorted(set(source_labels)-set(labels)),
         'exclude_coincident_locations': exclude_coincident,
         'coincident_buildings_excluded': sorted(all_location_labels-set(labels)),
         'randomization_expectation': expectation,
         'main_model_changed': False, 'posterior_refitted': False,
         'limitations': ['Conditional posterior descriptive statistic, not a null-test p-value or a causal location premium.',
-            'The posterior retains the original source, including rows quarantined in the location cohort. Repeat after source refitting.',
+            ('The posterior and location evidence use the identical source cohort.' if lineage == 'same_source' else
+             'The posterior retains the original source, including rows quarantined in the location cohort. Repeat after source refitting.'),
             'Spatial clustering may reflect omitted building characteristics, source errors, uneven support or shrinkage.',
             'Neighbor definitions are fixed before observing results; binary union weights are not row standardized.',
             'Moran I is not Pearson correlation and is not generally restricted to [-1, 1].',

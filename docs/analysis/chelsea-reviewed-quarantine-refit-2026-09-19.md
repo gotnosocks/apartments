@@ -74,3 +74,19 @@ Supporting artifacts under `data/model/`:
 - `chelsea-reviewed-price-basis-complete-protocol-comparison-20260919`
 - Reference: `chelsea-bayesian-reviewed-corrections-floor-disk-20260919`
 - Reference categories: `chelsea-corrected-main-category-contrasts-20260919`
+
+## Follow-up tooling checkpoint
+
+Sampling reached trace export at 09:36:38 UTC on September 19. The original
+host process remained live during export; its growing `posterior.nc.partial`
+is not a completed posterior and must not be used for inference.
+
+The spatial diagnostic now accepts either the exact fitted source or its bound
+direct revision, recording which relationship was used. This permits the
+existing location evidence on the revised cohort to be analyzed against its new
+posterior without inventing another source revision. The previous warning about
+excluded targets remaining in the posterior applies only to the direct-revision
+case. Twenty-three spatial tests pass, including equal-source acceptance and
+rejection of unrelated or incompletely covered cohorts. After numerical checks,
+create a separate candidate selection file for this diagnostic; leave the main
+selection unchanged until the contribution/residual review is complete.
