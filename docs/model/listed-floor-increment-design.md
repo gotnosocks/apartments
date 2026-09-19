@@ -4,7 +4,10 @@
 
 `sum(beta_k * 1(known listed_floor > k))`.
 
-This is a new isolated, versioned design. It has **not been fitted**, has no posterior floor increments, and does not change an accepted model or serving behavior. Sparse floor evidence does not earn automatic inclusion in the main model.
+This is an isolated, versioned design. Its [first completed fit](../analysis/chelsea-bayesian-floor-increments-2026-09-18.md)
+passes parameter, derived-effect and joint floor-contrast diagnostics. It has not
+been selected as the main model. Sparse floor evidence does not earn automatic
+inclusion in the main model.
 
 Thresholds are the sorted, finite floor labels observed in the training cohort, excluding the maximum. They are not a manufactured integer range. The cleaned 52,704-row cohort has only 364 known labels and 52,340 unknowns. The known values enter through the existing `advertised_floor` alias; the `listed_floor` field itself is null. Its 19 supported levels are:
 

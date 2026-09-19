@@ -83,8 +83,12 @@ patterns, and whether a simpler representation suffices.
   the same cohort before promoting the fit.
   The [isolated increment design](model/listed-floor-increment-design.md) is
   implemented with a versioned runner, reports and reconstruction checks;
-  main-model promotion remains pending. The full floor fit is running with durable
-  sampling and bounded reporting after successful source-report recovery.
+  main-model promotion remains pending. The [full floor fit](analysis/chelsea-bayesian-floor-increments-2026-09-18.md)
+  now passes all three diagnostic gates after a report-only coordinate-name fix.
+  Most increments are uncertain; both standout intervals have no shared-building
+  endpoint support. The matched comparison is complete: median absolute log
+  residual moves 0.035189→0.035149 overall and 0.032011→0.030265 on known-floor
+  rows. This alone does not justify automatic promotion.
 - [ ] Complete a skeptical parameter audit and matched Bayesian simplification
   experiments. Include nuisance reporting indicators, group effects and priors,
   time/season bases and likelihood choices, as well as apartment amenities. A

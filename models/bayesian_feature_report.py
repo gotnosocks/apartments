@@ -431,7 +431,7 @@ def build_report(experiment, dataset, top=5):
         if protocol['implementation_sha256'].get('bayesian_disk_protocol.py') != digest(Path(disk_protocol.__file__)):
             raise ValueError('Disk protocol verifier differs from archived implementation')
         required |= {'storage.json','trace-manifest.json'}
-    fm, ff = _verified_bundle(experiment/'fit', retain=(required-{'posterior.nc','time-design.npz'})|{'reporting-recovery.json','reporting-cache.json'})
+    fm, ff = _verified_bundle(experiment/'fit', retain=(required-{'posterior.nc','time-design.npz'})|{'reporting-recovery.json','reporting-cache.json','floor-report-recovery.json','pre-floor-summary.json','bayesian_feature_experiment_v4.py'})
     if fm.get('version') != experiment_version or fm.get('protocol_sha256') != ph or not required <= fm['files'].keys():
         raise ValueError('Fit protocol mismatch or missing inference products')
     recovery = (verify_reporting_recovery(ph, fm, json.loads(ff['reporting-recovery.json']))
@@ -444,6 +444,12 @@ def build_report(experiment, dataset, top=5):
         disk_protocol.verify_products(protocol,json.loads(ff['storage.json']),
             json.loads(ff['trace-manifest.json']),fm['files']['posterior.nc'])
     summary = json.loads(ff['summary.json'])
+    floor_recovery = None
+    if 'floor-report-recovery.json' in ff:
+        from .recover_floor_report import verify_recovery
+        floor_recovery = verify_recovery(protocol,ph,fm,json.loads(ff['floor-report-recovery.json']),
+            (experiment/'protocol/bayesian_feature_experiment_v4.py').read_text(),
+            ff['bayesian_feature_experiment_v4.py'].decode(),json.loads(ff['pre-floor-summary.json']),summary)
     if summary.get('protocol_sha256') != ph:
         raise ValueError('Summary protocol mismatch')
     parameters, derived = (json.loads(ff[name]) for name in ('diagnostics.json','derived-diagnostics.json'))
@@ -492,6 +498,7 @@ def build_report(experiment, dataset, top=5):
     return {'version': VERSION, 'experiment_version': experiment_version, 'status': summary['status'], 'protocol_sha256': ph,
             'reporting_recovery': recovery,
             'reporting_cache': report_cache,
+            'floor_reporting_recovery': floor_recovery,
             'source_manifest_sha256': protocol['source_manifest_sha256'],
             'source_observations_sha256': protocol['source_observations_sha256'],
             'source_version': sm['version'], 'experiment': str(experiment.resolve()),

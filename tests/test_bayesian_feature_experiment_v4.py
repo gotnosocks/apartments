@@ -78,8 +78,27 @@ def test_joint_floor_contrasts_preserve_covariance(monkeypatch):
     interval = result['contrasts'][-1]['log_effect']
     assert interval['lower_95'] == pytest.approx(.08)
     assert interval['upper_95'] == pytest.approx(.08)
-    np.testing.assert_allclose(captured['posterior'].floor_contrast.isel(floor_contrast=2), .08)
+    assert 'floor_contrast' in captured['posterior'].data_vars
+    np.testing.assert_allclose(captured['posterior'].floor_contrast.isel(contrast=2), .08)
     assert result['contrasts'][0]['adjacent_overlap']['shared_buildings'] == 0
+
+
+def test_floor_contrasts_pass_through_real_diagnostics_without_coordinate_collision():
+    rng=np.random.default_rng(771)
+    names=['listed_floor_gt_1','listed_floor_gt_3']
+    posterior=xr.Dataset({'beta':(('chain','draw','feature'),rng.normal(0,.1,(4,1000,2)))},
+                         coords={'feature':names})
+    stats=xr.Dataset({'diverging':(('chain','draw'),np.zeros((4,1000),dtype=bool)),
+                      'maxdepth_reached':(('chain','draw'),np.zeros((4,1000),dtype=bool)),
+                      'energy':(('chain','draw'),rng.normal(size=(4,1000)))})
+    inference=xr.DataTree.from_dict({'posterior':posterior,'sample_stats':stats})
+    design=SimpleNamespace(features=names,floor_levels=[1.,3.,8.],floor_thresholds=[1.,3.],
+        floor_support={'levels':[{'level':x,'rows':1,'units':1,'buildings':1} for x in (1.,3.,8.)],
+                       'adjacent_supported_contrasts':[]})
+    result=m.floor_contrasts(inference,design)
+    assert result['diagnostics']['acceptable']
+    assert result['diagnostics']['parameters']==3
+    assert len(result['contrasts'])==3
 
 
 def test_protocol_changes_when_floor_prior_changes(setup):

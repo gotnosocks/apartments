@@ -87,8 +87,8 @@ def floor_contrasts(inference, design):
         directions.append(direction)
     contrasts = []
     if directions:
-        basis = xr.DataArray(np.array(directions), dims=('floor_contrast','feature'),
-            coords={'floor_contrast':np.arange(len(pairs)), 'feature':design.features})
+        basis = xr.DataArray(np.array(directions), dims=('contrast','feature'),
+            coords={'contrast':np.arange(len(pairs)), 'feature':design.features})
         joint = xr.dot(posterior.beta, basis, dim='feature')
         diagnostic, _ = v2.base.diagnostics({'posterior':xr.Dataset({'floor_contrast':joint}),
                                             'sample_stats':inference['sample_stats']})
@@ -96,7 +96,7 @@ def floor_contrasts(inference, design):
         overlap = {(r['lower_supported_level'],r['upper_supported_level']):r
                    for r in design.floor_support['adjacent_supported_contrasts']}
         for i,(low,high) in enumerate(pairs):
-            values = joint.isel(floor_contrast=i).values.ravel()
+            values = joint.isel(contrast=i).values.ravel()
             log_effect = v2.reports.interval(values)
             percent_effect = {**log_effect, **{bound:100*math.expm1(log_effect[bound])
                                for bound in ('lower_95','median','upper_95')}}
