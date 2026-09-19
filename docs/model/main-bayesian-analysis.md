@@ -19,6 +19,14 @@ The existing selection remains valid without an explicit evidence field. The
 current Chelsea selection binds its matching description archive and source-case
 review notes; research reports record the specific cohort and fit decisions.
 
+As of September 19, the selected fit is
+`chelsea-bayesian-spline-floor-disk-20260919` on
+`chelsea-label-floor-analysis-20260919`: 52,653 observations, including 29,907
+with explicit or reviewed label-derived floors. Its five-coefficient floor
+spline replaces the independent increments. The completed fit, comparison,
+source review and real-posterior page validation are documented in the
+[floor results](../analysis/chelsea-spline-floor-results-2026-09-19.md).
+
 `tests/test_main_bayesian_page.py` checks source-valued form defaults, simultaneous edits, literal description rendering, failed-status withholding, invalid-binding failure and the actual accepted 13-current-listing workflow with a laundry comparison. These UI checks supplement the backend's reconstruction and posterior-diagnostic tests.
 
 ## Command line

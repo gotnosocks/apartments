@@ -217,7 +217,8 @@ conditions and is not a population-weighted accuracy estimate.
 The user requested a different floor specification. The new experiment retains
 this exact expanded source and replaces 51 independent increments with five
 regularized natural-spline coefficients; see
-[the spline protocol](../model/floor-spline-experiment-2026-09-19.md).
+[the spline protocol](../model/floor-spline-experiment-2026-09-19.md) and
+[completed comparison and source review](chelsea-spline-floor-results-2026-09-19.md).
 
 The older expanded-floor/elevator variant completed with maximum R-hat 1.0036,
 minimum bulk ESS 2,096, zero divergences and zero depth-limit hits. Its supported

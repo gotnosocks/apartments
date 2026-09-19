@@ -7,6 +7,12 @@ gates pass. Typical fitted rents barely move relative to the expanded increment
 model; the benefit is a more coherent floor curve and much less sampling work,
 not a demonstrated gain in prediction accuracy.
 
+The spline is now selected in `config/main-analysis.json` for the main
+contribution, residual and counterfactual workflow, with the expanded source,
+matching description archive and eight fixed source-review notes. Final
+selection verification confirms it exactly matches the candidate exercised by
+the real-posterior UI check. `fit-pricing` also defaults to this floor design.
+
 ## Source and specification
 
 The frozen Chelsea cohort contains 52,653 observations, 22,155 units and 1,129
@@ -18,8 +24,9 @@ NYC sample or a held-out evaluation.
 
 The source is `data/model/chelsea-label-floor-analysis-20260919`; the fitted
 experiment is `data/model/chelsea-bayesian-spline-floor-disk-20260919`.
-Prices, source membership, nonfloor columns and their priors, time effects,
-building effects and unit effects are unchanged in the matched comparison.
+Prices, source membership, nonfloor columns and their priors are unchanged in
+the matched comparison. Time, building and unit effects retain the same
+specifications and priors; their fitted posterior values can change.
 
 The spline has knots at listed floors 1, 5, 10, 20, 35 and 52. Its six zero-sum
 knot heights use five orthonormal coordinates with independent Normal(0, 0.10)
@@ -126,6 +133,22 @@ are reviewed separately in the [34-case source review](chelsea-spline-floor-move
 The source remains frozen: no correction is justified by a model movement alone.
 
 ## Reproducible artifacts
+
+The actual Streamlit contribution/residual page passed validation against the
+saved candidate posterior, without mocked prices or evidence. It displayed the
+52,653-row fitted cohort count, all 172 capture-time ACTIVE rows and eight review notes. A
+floor-only scenario for ad 5155021 initialized from its label-derived floor 2,
+changed to floor 3, and matched the backend's joint-posterior prices ($2,885 to
+$2,887 at display precision). The source record and bedroom-conflict warnings
+remained intact. The validation bundle is
+`data/model/chelsea-spline-main-page-validation-20260919`.
+
+Focused design/experiment, reconstruction/readers, legacy compatibility,
+comparison, sensitivity and CLI tests passed. An integrated model/reader run
+passed 117 tests; the later CLI/spline run passed 102 tests (overlapping suites,
+not additive counts). The full fit, numerical parity check, immutable matched
+comparison and real-posterior UI check provide the substantive end-to-end
+validation.
 
 All paths below are relative to the repository:
 
