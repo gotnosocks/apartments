@@ -131,3 +131,10 @@ Raw sampling has its own hashed completion marker; export writes bounded blocks,
 and reports recover from the exported posterior checkpoint. No intervals or
 source-effect conclusions are available from this retry until all diagnostic
 gates pass. See the [storage investigation](../operations/2026-09-18-bayesian-storage-investigation.md).
+
+At 01:06:56 UTC on September 19 (September 18 locally), the disk retry completed
+its parameter diagnostics: maximum R-hat **1.004954**, minimum bulk/tail ESS
+**1,002 / 1,903**, no divergences or maximum-depth events, and minimum BFMI
+**0.439**. All 23,415 parameter diagnostics pass. Derived diagnostics and residual
+reports are still processing; this partial result does not yet authorize an
+accepted source-sensitivity interpretation or model promotion.

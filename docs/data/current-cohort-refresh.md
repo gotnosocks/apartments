@@ -51,10 +51,13 @@ same-month scope, retained current reviews, real parser/body integrity and repla
 The combined transformation, current-analysis and bathroom-projection checks have
 14 passing tests.
 
-The bundle is explicitly **pending current-source review**. A preliminary wording
+The bundle is explicitly **pending current-source review**. A subsequent
+[source audit](../analysis/chelsea-current-source-review-2026-09-18.md) verifies all
+172 current prices and finds one description amount matching an earlier own-ad
+ask; the current structured amount remains unchanged. The broader wording
 screen finds both ordinary residential live/work permission and an actively used
 art-gallery triplex advertised as residential. Those are different scope questions;
 neither is automatically excluded by a keyword. Net-effective wording in several
 listings concerns approval standards rather than a claim that the advertised price
-is net. Full source review, a new Bayesian fit and main-model selection remain
+is net. Final source dispositions, a new Bayesian fit and main-model selection remain
 separate steps. The existing source/floor comparison cohort remains frozen.
