@@ -26,16 +26,17 @@ panel=json.loads(panel_path.read_text())
 review={
  '5155021':('bedroom_count_conflict','Structured bedroomCount=0 and roomCount=1 conflict with an explicit one-bedroom description. Same-line photos do not resolve the listed apartment layout. Do not choose the count by closeness to fitted rent; withhold bargain/premium interpretation until layout evidence resolves it.'),
  '5116119':('known_bathroom_conflict_and_private_terrace','Previously reviewed two-full/zero-half source counts conflict with two en suites plus a powder room. Composition is already masked. Private terrace and luxury finishes remain candidate omitted features; the description cannot identify their separate prices.'),
- '5155202':('unmodeled_explicit_floor_and_renovation','Own-apartment first-floor claim and newly updated kitchen/bath/windows are explicit. Floor is unknown in this analytical row; review-based enrichment can add the claim without deriving physical height. Renovation is a candidate feature, not a residual-based price repair.'),
+ '5155202':('explicit_floor_and_renovation','Own-apartment first-floor claim and newly updated kitchen/bath/windows are explicit. Compare this source claim with the separately reported analytical floor. Renovation is a candidate feature, not a residual-based price repair.'),
  '5161975':('no_new_count_error_identified','Structured studio agrees with the description. Building services are present; apartment area is unknown. No new numeric source correction is established from this text.'),
  '5159492':('layout_and_renovation_candidate','One-bedroom count agrees. Description reports renovation, a windowed kitchen/bath and French doors. Area is unknown. These are candidate layout/condition features; a negative residual alone does not identify a missing feature.'),
  '5128483':('building_template_and_monthly_fees','Description mostly describes the building, including its 32 stories; do not treat that as the apartment floor. Recurring amenity and billing fees matter for user total cost, while this fit targets advertised base asking rent. No net/gross correction is established.'),
  '5115645':('private_elevator_loft_and_stale_description_price','Private elevator access to the third floor, high ceilings, long loft layout and south exposure are explicit candidate attributes. Optional furnishings cost extra. Earlier reviewed own price history supports the current $6,950 ask despite stale $7,750 description text.'),
- '5163034':('unmodeled_explicit_floor_and_renovation','Two-bedroom count agrees; first-floor apartment, new kitchen and in-unit laundry are explicit. Laundry is already represented. First-floor and renovation evidence are candidates for reviewed enrichment.'),
+ '5163034':('explicit_floor_and_renovation','Two-bedroom count agrees; first-floor apartment, new kitchen and in-unit laundry are explicit. Laundry is already represented. Compare the first-floor claim with the separately reported analytical floor; renovation remains a candidate feature.'),
 }
 analysis=BayesianAnalysis.load(experiment,dataset)
 try:
  evidence=load_evidence(dataset,descriptions)
+ analytical_rows={r['audit_id']:r for r in map(json.loads,(dataset/'observations.jsonl').read_text().splitlines())}
  current=analysis.summary['current_residuals']
  ranked=sorted(current,key=lambda r:(-abs(r['residual_log']),r['audit_id']))
  panel_ids=panel['source_listing_ids']
@@ -48,8 +49,10 @@ try:
   ad=row['source_listing_id']; kind,reason=review[ad]
   detail=analysis.detail(row['audit_id'])
   assert detail['contribution_diagnostics']['acceptable']
+  source_row=analytical_rows[row['audit_id']]
   cases.append({'rank_by_absolute_current_log_residual':ranks[row['audit_id']],
     'source_listing_id':ad,'review_kind':kind,'review_reason':reason,
+    'analytical_floor':{k:source_row.get(k) for k in ('listed_floor','advertised_floor','floor_label_provenance')},
     'residual':row,'joint_posterior_detail':detail,'source_captures':evidence[row['audit_id']]})
  rawpath=root/'data/probes/chelsea-discovery-details-20260918/archive/bodies/8c/8cfe74da1351f97f571a20ff8331d764b9becca30923ca79c85e35ea1d99d2ec.gz'
  body=gzip.decompress(rawpath.read_bytes()); assert hashlib.sha256(body).hexdigest()==rawpath.stem

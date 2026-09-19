@@ -100,6 +100,22 @@ appear in eight, two, one and one buildings, respectively. This limits how broad
 their conditional floor contributions can be interpreted even with precise
 Monte Carlo diagnostics.
 
+Canonical model-floor coverage spans 10,980 distinct units in 786 buildings,
+compared with 276 units in 141 buildings under explicit floors alone. The
+number of buildings with at least two observed floor levels increases from
+40 to 621. Those 621 buildings contain 10,765 of the 10,980 known-floor units;
+the remaining 215 units are in buildings with only one observed known level.
+These are source-support counts, not effective sample sizes. Repeated listing
+observations do not create independent apartments, and missing floors need not
+be random. Annual row coverage ranges from about 51% to 62% over 2010–2026.
+
+One unit has two different accepted explicit source floors: 115 West 23rd #63
+(advertisements 4582906 and 4930926, source claims 4 and 6). This pre-existing
+contradiction was already recorded in the floor conflict review; its building
+is excluded from new label inference. It is not evidence that a unit physically
+moved floors. The label projection does not silently adjudicate old explicit
+claims, so this remains an unresolved source limitation of both fits.
+
 ## Sampling launches
 
 Both full-cohort compiled graph checks passed at three parameter points:
