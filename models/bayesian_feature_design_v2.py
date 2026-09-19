@@ -16,6 +16,13 @@ VERSION = 'ordered-bayesian-feature-design-loader-v2'
 
 def load_design(root, data, protocol=None):
     from . import bayesian_floor_elevator_contract as interaction_contract
+    from . import bayesian_floor_spline_contract as spline_contract
+    if protocol and protocol.get('version') == spline_contract.EXPERIMENT:
+        from . import bayesian_floor_spline_design as spline
+        design = spline.FeatureDesign.load(root)
+        spline_contract.verify_metadata(protocol, design.__dict__)
+        design.matrix(data.iloc[:1])
+        return design
     if protocol and protocol.get('version') == interaction_contract.EXPERIMENT:
         from . import bayesian_floor_elevator_design as interaction
         design = interaction.FeatureDesign.load(root)
@@ -42,6 +49,10 @@ def load_design(root, data, protocol=None):
             raise ValueError('Saved floor prior differs from protocol')
         design.matrix(data.iloc[:1])
         return design
+    import json
+    metadata = json.loads((Path(root)/'feature-design.json').read_text())
+    if metadata.get('version') == spline_contract.DESIGN:
+        raise ValueError('Spline design requires explicit spline protocol')
     design = FeatureDesign.load(root)
     for name, order in [('numeric', amenity.NUMERIC), ('categories', amenity.CATEGORIES)]:
         saved = getattr(design, name)

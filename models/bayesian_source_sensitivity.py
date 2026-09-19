@@ -29,6 +29,12 @@ def reconstruction_dependencies(protocol=None):
     from . import bayesian_feature_model as feature
     paths = [Path(module.__file__) for module in
         (feature, feature.base, feature.amenity, feature.amenity.baseline, feature.pricing)]
+    if protocol and protocol.get('version') == 'observable-bayesian-floor-spline-experiment-v5':
+        from . import bayesian_floor_spline_design as spline
+        if protocol.get('feature_design_version') != spline.VERSION:
+            raise ValueError('Unsupported spline reconstruction version')
+        from . import bayesian_floor_increment_design as floor_source
+        return spline, [*paths, Path(floor_source.__file__), Path(spline.__file__)]
     if protocol and protocol.get('version') == 'observable-bayesian-floor-elevator-experiment-v5':
         from . import bayesian_floor_elevator_design as interaction
         if (protocol.get('feature_design_version') != interaction.VERSION
@@ -84,6 +90,8 @@ def verify_design(experiment, dataset, protocol, provenance):
         fresh = Path(temporary)
         kwargs = ({'floor_increment_prior_scale':protocol['floor_increment_prior_scale']}
                   if interaction or protocol.get('version') == 'observable-bayesian-floor-experiment-v4' else {})
+        if protocol.get('version') == 'observable-bayesian-floor-spline-experiment-v5':
+            kwargs = {'floor_prior_scale':protocol['floor_prior_scale']}
         if interaction:
             kwargs.update(mode=protocol['interaction_mode'], interaction_prior_scale=protocol['interaction_prior_scale'])
         feature.FeatureDesign(data,protocol['specification'],**kwargs).save(fresh)

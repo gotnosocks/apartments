@@ -131,3 +131,12 @@ def test_v3_implementation_and_report_gates_fail_closed(monkeypatch,tmp_path):
     with pytest.raises(ValueError,match='derived diagnostics'):
         m.run(tmp_path/'fit',tmp_path/'source',tmp_path/'out')
     assert not (tmp_path/'out').exists()
+
+
+def test_spline_uses_explicit_noise_contract_and_requires_its_producer(bedroom_case,tmp_path):
+    _,_,protocol,config,_,data=bedroom_case
+    protocol={**protocol,'version':m.SPLINE_EXPERIMENT}
+    assert m.verified_configuration(protocol,data,tmp_path)==config
+    protocol['implementation_sha256']={'bayesian_feature_graph_v3.py':'x','bayesian_feature_experiment_v3.py':'y'}
+    with pytest.raises(ValueError,match='Missing spline'):
+        m.verify_implementation(protocol)

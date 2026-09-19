@@ -18,13 +18,15 @@ from apartments.corrections import canonical
 from apartments.research_pipeline import _verified_bundle, digest, publish_bundle
 from apartments import reviewed_source_lineage
 from . import bayesian_floor_elevator_contract as interaction_contract
+from . import bayesian_floor_spline_contract as spline_contract
 
 VERSION = 'verified-bayesian-feature-report-v2'
 EXPERIMENT_VERSION = 'observable-bayesian-bathroom-experiment-v2'
 EXPERIMENT_V3 = 'observable-bayesian-bathroom-experiment-v3'
 EXPERIMENT_V4 = 'observable-bayesian-floor-experiment-v4'
 EXPERIMENT_V5 = interaction_contract.EXPERIMENT
-EXPERIMENT_VERSIONS = {EXPERIMENT_VERSION, EXPERIMENT_V3, EXPERIMENT_V4, EXPERIMENT_V5}
+EXPERIMENT_SPLINE = spline_contract.EXPERIMENT
+EXPERIMENT_VERSIONS = {EXPERIMENT_VERSION, EXPERIMENT_V3, EXPERIMENT_V4, EXPERIMENT_V5, EXPERIMENT_SPLINE}
 DATASET_VERSIONS = {'reported-bathroom-counts-projection-v1', 'reviewed-bathroom-counts-projection-v1',
                     'reviewed-scope-composition-projection-v2', 'reviewed-capture-refreshed-analysis-v1'} | reviewed_source_lineage.VERSIONS
 REQUIRED = {'summary.json', 'diagnostics.json', 'derived-diagnostics.json', 'bathroom-contrasts.json',
@@ -341,6 +343,8 @@ def coefficient_tables(coefficients, design):
         scale = 'Encoded threshold or log feature; interpret jointly with related columns.'
         if meta:
             scale = f"One training standard deviation ({meta['scale']:.8g} raw units); centered at {meta['center']:.8g}. This is not a per-floor or per-attribute-unit premium."
+        if name.startswith('listed_floor_spline_'):
+            scale = 'Regularized natural-spline basis coefficient; interpret joint floor contrasts, not individual basis coefficients as floor premiums.'
         if name.startswith('bedrooms_gt_'):
             scale = 'Bedroom threshold coefficient with within-bedroom area normalization held fixed; not a fixed-square-footage bedroom counterfactual.'
         if name == 'log_size_within_bedrooms':
@@ -428,8 +432,8 @@ def build_report(experiment, dataset, top=5):
     ph = hashlib.sha256(canonical(protocol).encode()).hexdigest()
     if pm.get('protocol_sha256') != ph or any(pm['files'].get(name) != value for name, value in protocol['implementation_sha256'].items()):
         raise ValueError('Invalid protocol or archived implementation binding')
-    required = REQUIRED | (V3_REQUIRED if experiment_version in (EXPERIMENT_V3,EXPERIMENT_V4,EXPERIMENT_V5) else set())
-    if experiment_version == EXPERIMENT_V4: required |= V4_REQUIRED
+    required = REQUIRED | (V3_REQUIRED if experiment_version in (EXPERIMENT_V3,EXPERIMENT_V4,EXPERIMENT_V5,EXPERIMENT_SPLINE) else set())
+    if experiment_version in (EXPERIMENT_V4,EXPERIMENT_SPLINE): required |= V4_REQUIRED
     if experiment_version == EXPERIMENT_V5: required |= V5_REQUIRED
     from . import bayesian_disk_protocol as disk_protocol
     disk_execution = disk_protocol.verify_protocol(protocol)
@@ -487,7 +491,7 @@ def build_report(experiment, dataset, top=5):
             or len({(r['unit_id'],r['period']) for r in rows}) != len(rows)):
         raise ValueError('Cohort counts or membership differ from protocol')
     noise = None
-    if experiment_version in (EXPERIMENT_V3,EXPERIMENT_V4,EXPERIMENT_V5):
+    if experiment_version in (EXPERIMENT_V3,EXPERIMENT_V4,EXPERIMENT_V5,EXPERIMENT_SPLINE):
         noise = verify_residual_scales(protocol, json.loads(ff['graph-configuration.json']),
                                        json.loads(ff['residual-scales.json']), rows)
     design, time_design = (json.loads(ff[name]) for name in ('feature-design.json','time-design.json'))
@@ -504,6 +508,8 @@ def build_report(experiment, dataset, top=5):
         raise ValueError('Bathroom knownness differs from saved design')
     floors = (verify_floor_contrasts(protocol,design,json.loads(ff['floor-contrasts.json']),rows,summary)
               if experiment_version == EXPERIMENT_V4 else None)
+    if experiment_version == EXPERIMENT_SPLINE:
+        floors = spline_contract.verify_contrasts(protocol,design,json.loads(ff['floor-contrasts.json']),rows,summary)
     floor_elevator = (interaction_contract.verify_contrasts(protocol, design,
         json.loads(ff['floor-elevator-contrasts.json']), rows, summary, check_interval)
         if experiment_version == EXPERIMENT_V5 else None)
@@ -519,7 +525,9 @@ def build_report(experiment, dataset, top=5):
     method.update(residual_scale=protocol['residual_scale'] if noise else 'shared',
                   building_prior_scale=protocol['building_prior_scale'] if noise else .35,
                   unit_prior_scale=protocol['unit_prior_scale'] if noise else .25)
-    if floors is not None or floor_elevator is not None:
+    if experiment_version == EXPERIMENT_SPLINE:
+        method.update({k:protocol[k] for k in spline_contract.FIELDS})
+    elif floors is not None or floor_elevator is not None:
         method.update(feature_design_version=protocol['feature_design_version'],
                       floor_increment_prior_scale=protocol['floor_increment_prior_scale'])
     if floor_elevator is not None:
@@ -586,7 +594,7 @@ def html_report(report):
         [[r['bedrooms'],interval(r['difference']),f"{r['probability_first_increment_larger']:.1%}",*[counts(s) for s in r['support']]] for r in b['net_balance']])
     if report.get('floors') is not None:
         floors = report['floors']
-        body += heading('Listed-floor increments',floors['interpretation'])
+        body += heading('Listed-floor component contrasts' if floors['version'] == spline_contract.CONTRAST else 'Listed-floor increments',floors['interpretation'])
         body += table(['Listed floor before → after','Component change, 95% CrI','Lower support','Upper support','Shared buildings at adjacent endpoints'],
             [[f"{r['lower_floor']:g} → {r['upper_floor']:g}",interval(r['percent_effect'],True),
               counts(r['support_lower']),counts(r['support_upper']),
@@ -636,6 +644,7 @@ def run(experiment, dataset, output, top=5):
     return publish_bundle(output, {'report.json': canonical(report)+'\n', 'report.html': html_report(report),
         'bayesian_feature_report.py': Path(__file__).read_text(),
         'bayesian_floor_elevator_contract.py': Path(interaction_contract.__file__).read_text(),
+        'bayesian_floor_spline_contract.py': Path(spline_contract.__file__).read_text(),
         'bayesian_floor_execution.py': Path(execution.__file__).read_text(),
         'bayesian_floor_block_graph.py': Path(execution.graph.__file__).read_text(),
         'reviewed_source_lineage.py': Path(reviewed_source_lineage.__file__).read_text(),

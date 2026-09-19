@@ -23,7 +23,7 @@ def run(panel, comparison, output):
     _, cf = _verified_bundle(comparison, retain={'comparison.json', 'residual-movements.jsonl'})
     result = json.loads(cf['comparison.json'])
     if (pm['version'] != 'floor-source-development-panel-v1' or result['version'] not in
-            {'matched-label-floor-fit-comparison-v1', 'matched-floor-elevator-fit-comparison-v1'}):
+            {'matched-label-floor-fit-comparison-v1', 'matched-floor-elevator-fit-comparison-v1', 'matched-floor-spline-fit-comparison-v1'}):
         raise ValueError('Expected frozen coverage panel and accepted matched floor comparison')
     if result['fits'][1]['bindings']['source'] != pm['dataset_manifest_sha256']:
         raise ValueError('Panel source differs from comparison candidate')

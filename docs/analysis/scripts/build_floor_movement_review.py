@@ -17,7 +17,7 @@ def run(comparison, dataset, evidence, output):
     comparison, dataset, evidence = map(Path, (comparison, dataset, evidence))
     _, files = _verified_bundle(comparison, retain={'comparison.json', 'residual-movements.jsonl'})
     result = json.loads(files['comparison.json'])
-    if result['version'] != 'matched-label-floor-fit-comparison-v1':
+    if result['version'] not in {'matched-label-floor-fit-comparison-v1', 'matched-floor-spline-fit-comparison-v1'}:
         raise ValueError('Expected the accepted matched label-floor comparison')
     if result['fits'][1]['bindings']['source'] != digest(dataset/'complete.json'):
         raise ValueError('Movement review source differs from candidate fit')

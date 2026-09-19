@@ -245,6 +245,7 @@ class BayesianAnalysis:
         contributions = [{'term': name, 'mean_log_contribution': float(value.mean()),
             'kind': ('reporting' if 'unknown' in name or 'missing' in name else
                      'floor_elevator' if name.startswith('feature:floor_elevator_') else
+                     'floor_spline' if name.startswith('feature:listed_floor_spline_') else
                      'encoded_feature' if name.startswith('feature:') else name)} for name, value in terms.items()]
         grouped, grouped_draws = {}, {}
         for item in contributions:
@@ -283,14 +284,16 @@ class BayesianAnalysis:
         for name, meta in self.design.categories.items():
             if len(meta['levels']) > 1:
                 fields[name] = {'kind': 'category', 'options': list(meta['levels'])}
-        if getattr(self.design,'floor_thresholds',[]):
+        if len(getattr(self.design,'floor_levels',[])) > 1:
             fields['listed_floor'] = {'kind':'numeric','observed_levels':self.design.floor_levels}
         return fields
 
     def _warnings(self, row):
         warnings = ['Conditional model association, not a causal renovation value or personal willingness to pay.',
                     'Building and within-building unit effects are held fixed; offsets absorb omitted attributes.']
-        if hasattr(self.design,'floor_thresholds'):
+        if getattr(self, 'protocol', {}).get('version') == report.EXPERIMENT_SPLINE:
+            warnings.append('Listed-floor contrasts use a regularized natural cubic spline across observed labels. Smoothness shares information across floors; sparse same-building support and prior sensitivity limit interpretation. This does not measure physical height.')
+        elif hasattr(self.design,'floor_thresholds'):
             warnings.append('Listed-floor increments compare observed labels; gaps and sparse same-building support limit interpretation. They do not measure physical height.')
         else:
             warnings.append('This accepted fit uses linear standardized floor terms and configured interactions; encoded log contributions are not per-floor prices.')
