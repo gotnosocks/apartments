@@ -19,7 +19,8 @@ from apartments.corrections import canonical
 from apartments.research_pipeline import _verified_bundle, digest, publish_bundle
 
 VERSION = 'observable-bayesian-bathroom-experiment-v3'
-DATASET_VERSIONS = v2.DATASET_VERSIONS | {'reviewed-scope-composition-projection-v2'}
+DATASET_VERSIONS = v2.DATASET_VERSIONS | {'reviewed-scope-composition-projection-v2',
+                                       'reviewed-capture-refreshed-analysis-v1'}
 REQUIRED_FIT = {'summary.json','diagnostics.json','derived-diagnostics.json',
     'parameter-diagnostics.csv','derived-diagnostics.csv','bathroom-contrasts.json',
     'residuals.jsonl','coefficients.json','group-effects.jsonl','feature-design.json',
@@ -28,7 +29,7 @@ REQUIRED_FIT = {'summary.json','diagnostics.json','derived-diagnostics.json',
 
 
 def load_data(dataset):
-    """Same v2 cohort checks, additionally accepting the reviewed scope overlay."""
+    """Preserve cohort checks for reviewed scope and reviewed current refreshes."""
     manifest,files = _verified_bundle(dataset,retain={'observations.jsonl'})
     if manifest.get('version') not in DATASET_VERSIONS:
         raise ValueError('Verified bathroom or reviewed scope/composition projection required')

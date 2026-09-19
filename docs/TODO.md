@@ -331,8 +331,10 @@ patterns, and whether a simpler representation suffices.
   optional furnishings and a residentially described art-gallery scope case.
   The applied current review now preserves all 172 current rows, masks two
   description/structured bathroom conflicts and records seven residual-review
-  cases. The reviewed 52,863-row input is ready; Bayesian loader integration and
-  the expanded-cohort fit remain pending while the matched floor fit runs.
+  cases. The Bayesian loader and report reader now accept the reviewed
+  52,863-row input while rejecting the unreviewed refresh version. The expanded
+  cohort's graph verification and fit are next; the matched floor comparison is
+  complete.
   The refreshed description archive now covers all 72,065 supporting captures,
   with exact dataset binding and reader-verified coverage. Publication and replay
   pass; the old main selection is unchanged.

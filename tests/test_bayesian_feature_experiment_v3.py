@@ -315,3 +315,11 @@ def test_loader_retains_exact_cohort_validation(setup,tmp_path,mutation):
     publish_bundle(source,{'observations.jsonl':''.join(canonical(r)+'\n' for r in rows)},
                    {'version':'unknown' if mutation=='bad_version' else 'reviewed-scope-composition-projection-v2'})
     with pytest.raises(ValueError): m.load_data(source)
+
+
+def test_unreviewed_current_refresh_does_not_gain_implicit_acceptance(setup,tmp_path):
+    args,_,_=setup
+    source=tmp_path/'unreviewed'
+    publish_bundle(source,{'observations.jsonl':(args.dataset/'observations.jsonl').read_text()},
+                   {'version':'capture-refreshed-reviewed-analysis-v1'})
+    with pytest.raises(ValueError):m.load_data(source)

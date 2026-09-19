@@ -23,7 +23,7 @@ EXPERIMENT_V3 = 'observable-bayesian-bathroom-experiment-v3'
 EXPERIMENT_V4 = 'observable-bayesian-floor-experiment-v4'
 EXPERIMENT_VERSIONS = {EXPERIMENT_VERSION, EXPERIMENT_V3, EXPERIMENT_V4}
 DATASET_VERSIONS = {'reported-bathroom-counts-projection-v1', 'reviewed-bathroom-counts-projection-v1',
-                    'reviewed-scope-composition-projection-v2'}
+                    'reviewed-scope-composition-projection-v2', 'reviewed-capture-refreshed-analysis-v1'}
 REQUIRED = {'summary.json', 'diagnostics.json', 'derived-diagnostics.json', 'bathroom-contrasts.json',
             'residuals.jsonl', 'coefficients.json', 'group-effects.jsonl', 'feature-design.json',
             'time-design.json', 'time-design.npz', 'posterior.nc'}

@@ -24,8 +24,9 @@ a new fit yet.
 ## Command line
 
 `fit-pricing` invokes the exact PyMC/NUTS model with durable disk-backed traces
-and bounded reporting by default. Its inputs are a verified bathroom-count or
-reviewed scope/composition source projection and an experiment output directory:
+and bounded reporting by default. Its inputs are a verified bathroom-count,
+reviewed scope/composition or reviewed current-refresh source projection and an
+experiment output directory:
 
 ```bash
 UV_CACHE_DIR=/tmp/apartments-uv-cache uv run --frozen --no-sync python -m apartments.cli fit-pricing \

@@ -195,7 +195,7 @@ def test_html_escapes_source_strings_and_does_not_label_basis_as_premium(experim
     HTMLParser().feed(html)
 
 
-def v3_fixture(experiment, mode='bedroom'):
+def v3_fixture(experiment, mode='bedroom', source_version='reviewed-scope-composition-projection-v2'):
     """Upgrade only synthetic saved products; never import the sampling runtime."""
     root,dataset,rows,files,summary,contrasts = experiment
     # Preserve the supported 2BR full-bath balance cells; change only the half-bath case.
@@ -205,7 +205,7 @@ def v3_fixture(experiment, mode='bedroom'):
     half['supported_endpoints'] = False
     files['bathroom-contrasts.json'] = canonical(contrasts)+'\n'
     source = publish_binary(dataset,{'observations.jsonl':''.join(canonical(r)+'\n' for r in rows)},
-                            {'version':'reviewed-scope-composition-projection-v2'})
+                            {'version':source_version})
     config = {'version':'bayesian-feature-residual-graph-v3','residual_scale':mode,'student_t_nu':5.,
               'beta_prior_multiplier':1.,'building_prior_scale':.7,'unit_prior_scale':.125,
               'residual_sigma_prior_scale':.25,'residual_bedroom_levels':[1,2] if mode=='bedroom' else [],
@@ -240,13 +240,14 @@ def rewrite_v3(root, protocol, files):
 
 
 @pytest.mark.parametrize('mode',['shared','bedroom'])
-def test_v3_source_bound_scale_summary_and_html(experiment,tmp_path,mode):
-    root,dataset,protocol,files,scales = v3_fixture(experiment,mode)
+@pytest.mark.parametrize('source_version',['reviewed-scope-composition-projection-v2','reviewed-capture-refreshed-analysis-v1'])
+def test_v3_source_bound_scale_summary_and_html(experiment,tmp_path,mode,source_version):
+    root,dataset,protocol,files,scales = v3_fixture(experiment,mode,source_version)
     report,_ = m.build_report(root,dataset)
     assert m.EXPERIMENT_VERSION == 'observable-bayesian-bathroom-experiment-v2'
     assert report['version'] == 'verified-bayesian-feature-report-v2'
     assert report['experiment_version'] == m.EXPERIMENT_V3
-    assert report['source_version'] == 'reviewed-scope-composition-projection-v2'
+    assert report['source_version'] == source_version
     assert report['residual_scales'] == scales
     assert report['graph_configuration'] == protocol['graph_configuration']
     assert report['method']['residual_scale'] == mode
