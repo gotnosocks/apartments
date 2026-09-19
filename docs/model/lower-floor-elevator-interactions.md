@@ -1,6 +1,7 @@
 # Lower-floor elevator interaction candidates
 
-Two **unfitted research designs** now extend the existing Bayesian floor design.
+Two research designs extend the existing Bayesian floor design. The pooled
+candidate is now fitting; the three-coefficient alternative remains unfitted.
 The [corrected-source support review](../analysis/chelsea-reviewed-floor-elevator-support-2026-09-19.md)
 limits the initial experiment to thresholds 2, 3 and 4. No physical height is
 inferred, and no interaction is added at threshold 5 or above.
@@ -183,3 +184,20 @@ Refreshed proof: `data/model/chelsea-pooled-floor-elevator-reader-parity-2026091
 (session 66667, successful exit). All 52,653 observations and 60 feature columns
 were retained. Maximum tested log-density difference is 1.46e-11; maximum gradient
 difference is 7.57e-10. It binds the integrated design/category implementation.
+
+## First pooled fit launched
+
+The integrated candidate was launched on September 19 at approximately 11:10 UTC:
+`data/model/chelsea-bayesian-pooled-floor-elevator-disk-20260919`, session **72355**,
+Python PID **601375**, log `/tmp/chelsea-bayesian-pooled-floor-elevator-fit.log`.
+The process was verified live during design construction. The protocol matches
+the selected baseline's exact source, specification, sampler settings, prior
+multiplier, base floor prior, residual/group graph configuration and numerical
+versions. It uses four chains, 4,000 warmup and 6,000 retained draws per chain,
+seed 20260924, target acceptance .93, diagonal adaptation and nutpie/Numba CPU.
+
+This launch is not a convergence result. Keep all implementation files listed in
+its frozen protocol unchanged through completion, including category-contrast
+calculation. Read progress from the existing session/process; do not relaunch
+because a polling window ends. Check completed posterior and derived diagnostics,
+then carry out the matched-source comparison above before changing selection.
