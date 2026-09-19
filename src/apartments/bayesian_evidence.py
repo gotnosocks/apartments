@@ -58,13 +58,15 @@ def load_evidence(dataset, evidence):
     Missing descriptions remain None, never inferred absence of an amenity.
     """
     from .reviewed_cohort_quarantine import SIDECAR
-    dataset_manifest, dataset_files = _verified_bundle(dataset, retain={'observations.jsonl', SIDECAR})
+    from .elevator_corrections import SIDECAR as ELEVATOR_SIDECAR
+    dataset_manifest, dataset_files = _verified_bundle(dataset, retain={'observations.jsonl', SIDECAR, ELEVATOR_SIDECAR})
     evidence_manifest, evidence_files = _verified_bundle(evidence, retain={'evidence.jsonl'})
     refreshed = evidence_manifest.get('version') == _REFRESHED_ARCHIVE
     if refreshed:
         from .reviewed_source_lineage import manifest_hash, source_lineage
         original = source_lineage(dataset_manifest, list(_records(dataset_files['observations.jsonl'])),
-            quarantined=list(_records(dataset_files[SIDECAR])) if SIDECAR in dataset_files else None)
+            quarantined=list(_records(dataset_files[SIDECAR])) if SIDECAR in dataset_files else None,
+            elevator_changes=list(_records(dataset_files[ELEVATOR_SIDECAR])) if ELEVATOR_SIDECAR in dataset_files else None)
         bound = (original.get('version') == _REFRESHED_REVIEW
                  and evidence_manifest.get('dataset_manifest_sha256') == manifest_hash(original)
                  and evidence_manifest.get('dataset_observations_sha256') == original['files'].get('observations.jsonl'))

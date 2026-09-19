@@ -1,10 +1,76 @@
 # Controlled refit after the reviewed price-basis quarantine
 
-The production-length refit is running on **52,653 observations, 22,155 units
+The production-length refit completed on **52,653 observations, 22,155 units
 and 1,129 buildings**, preserving all 172 current listings. It removes the 209
 reviewed advertisements with unresolved gross-price basis and the one explicit
-short-term advertisement. The selected main model has not changed; this fit must
-complete numerical checks and contribution/residual comparison before selection.
+short-term advertisement. Numerical checks, category contrasts, matched
+contribution/residual comparison, source-case review and repeated spatial
+diagnostics pass. The result is selected as the main price-basis-reviewed model;
+the separately reviewed elevator corrections still require their own refit.
+
+## Completed results
+
+All four chains retain 6,000 draws after 4,000 warmup iterations. Parameter,
+derived-contribution and floor gates pass: maximum R-hat 1.00842, 1.00764 and
+1.00438 respectively; minimum bulk ESS 1,012, 1,047 and 1,965; minimum tail ESS
+1,738, 2,048 and 3,563. No divergences or depth saturation; minimum BFMI .4343.
+All 16 supported category contrasts also pass their joint-draw diagnostics.
+
+On exactly the 52,653 common observations, median absolute log residual changes
+from .0350673 to .0349924. On the unchanged 172 current listings it changes from
+.0243741 to .0242320. These small in-sample differences are descriptive, not
+evidence of independent predictive improvement. Median absolute fitted-price
+movement is $1.51 across common observations and $1.80 across current listings.
+
+The largest current movement is Chelsea Tower #30A, advertisement 5148675:
+fitted median $8,904.41 → $9,032.49 against an unchanged $8,995 ask. Its 95%
+conditional-median interval changes from [$8,401.50, $9,438.67] to
+[$8,492.26, $9,621.46]. Additive posterior mean-log decomposition assigns +.00953
+to its unit offset and +.00552 to the building offset, with smaller terms
+partially offsetting them. These are differences between independent posterior
+means, not paired-draw or causal effects.
+
+The quarantine removes 66 older Chelsea Tower advertisements, including that
+unit's advertisement 2536754 from October 2018 ($5,903), whose target equals a
+literal net quote but lacks a resolved gross basis for the original event. Four
+observations of this unit remain (2017, 2023, 2025 and the current listing).
+This supports the direction of the group-offset change without inventing a
+replacement gross rent. The next two largest current movements are only $14.76
+and $14.31. All three reviewed contribution decompositions pass diagnostics.
+
+Common-reference building effects move most at 163 Eighth Avenue (+.03466 log
+points); its broad before/after intervals overlap. The largest unit-offset
+movement is +.10111 log points, also with overlapping intervals. All named
+category median changes are under .16 percentage points; in-building→in-unit
+laundry changes by −.00935 points. Sparse floor contrasts move more: 14→15 by
++1.885 points and 15→16 by −1.200 points. Sparse support and prior dependence
+remain relevant; this comparison does not establish that every floor parameter
+has earned inclusion.
+
+The eight leading absolute current residual cases are unchanged. Their complete
+source packets and joint-posterior details were regenerated against this fit;
+all case diagnostics pass. Bedroom and bathroom conflicts remain flagged and
+are not resolved by a smaller residual. The selected source-review bundle is
+`chelsea-quarantine-current-residual-source-review-20260919`.
+
+Spatial structure also persists on the exact refitted cohort. Moran's I at
+5/10 neighbors is .22689 [.21263, .24147] / .19134 [.17917, .20355]. Removing all
+35 coincident-coordinate buildings yields .22226 [.20778, .23698] /
+.19110 [.17884, .20346]. These are conditional posterior descriptive intervals,
+not spatial causal premiums or null-test p-values. Both new spatial diagnostic
+bundles pass and use all 24,000 joint draws.
+
+Completed comparison artifacts:
+
+- `chelsea-reviewed-price-basis-complete-fit-comparison-20260919`
+- `chelsea-reviewed-price-basis-complete-category-contrasts-20260919`
+- `chelsea-quarantine-current-contribution-movements-20260919`
+- `chelsea-quarantine-current-residual-source-review-20260919`
+- `chelsea-quarantine-spatial-diagnostics-20260919`
+- `chelsea-quarantine-spatial-distinct-locations-20260919`
+
+The execution checkpoints below retain the original chronology; their running
+states are superseded by these completed results.
 
 The source is `chelsea-reviewed-price-basis-complete-analysis-20260919`, whose
 hashed sidecar reconstructs the exact ordered 52,863-row parent. The integrated

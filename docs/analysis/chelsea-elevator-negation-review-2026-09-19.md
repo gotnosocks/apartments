@@ -67,13 +67,13 @@ not a physical change in facilities.
 `data/model/chelsea-elevator-reviewed-correction-preview-20260919` records the
 verified dry-run result and ledger. Each edit matches one row and changes only
 the elevator field. Re-running the review script reuses the existing ledger and
-identical preview without appending duplicates. The source datasets and selected
-model remain unchanged. A complete source projection and model refit remain
-necessary before these corrections enter contribution estimates.
+identical preview without appending duplicates. The parent datasets remain
+unchanged. The subsequent projection is now published as described below;
+a model refit is still required before these corrections enter contribution estimates.
 
-The price-basis quarantine fit already running uses the frozen pre-correction
-source. Finish its matched comparison before combining these new feature
-corrections with it. Do not claim the new elevator coefficients are corrected
+The completed price-basis quarantine fit uses the frozen pre-correction source.
+Its matched comparison is separate from these new feature corrections.
+Do not claim the new elevator coefficients are corrected
 until the ledger has been projected, its inverse verified, and the model refitted.
 This review strengthens the case for checking elevator measurement before fitting
 floor interactions; it does not establish any interaction premium.
@@ -89,3 +89,32 @@ Parquet archive. `--previous-extractor` can point to the final bundle's
 `previous-attribute-evidence.py`; use a fresh output directory when code changes.
 Run `python -m docs.analysis.scripts.review_elevator_negation` through `uv` to
 verify or recreate the exact reviewed ledger/preview.
+
+## Completed analytical projection
+
+`data/model/chelsea-reviewed-elevator-analysis-20260919` applies all 98 dated
+edits to the 52,653-row price-basis-reviewed parent. Membership, asking prices,
+22,155 unit identities, 1,129 buildings and all 172 current observations are
+unchanged. Source clocks remain intact; correction knowledge is stored in each
+appended review-history entry. The original raw captures are untouched.
+
+Its hashed `elevator-corrections.jsonl` sidecar reconstructs the exact ordered
+parent, including prior review history. The earlier `quarantined.jsonl` sidecar
+is preserved so readers can reconstruct the whole lineage back to the original
+description-bound cohort. Every correction requires all attached literal captures
+and the original structured/text replay. An opposing assertion cannot be forced
+to false. Repeated execution reuses the identical published projection.
+
+The model, report and description readers now accept this exact revision and
+verify both inverse layers. Full-data verification confirms that all 71,813
+surviving description captures remain identical. The reader verification is
+`chelsea-elevator-reader-verification-20260919`; 248 focused integration tests
+pass, including 21 new correction/inverse cases. The final affected runner/report
+subset was rerun after a diagnostic-message adjustment: 150 tests pass.
+
+The freshly reconstructed full/reference and compressed PyMC graphs agree on
+this corrected source at three parameter points: maximum log-density discrepancy
+1.46e-11 and maximum gradient discrepancy 9.32e-10. See
+`chelsea-reviewed-elevator-graph-parity-20260919`. This is numerical graph
+equivalence evidence; it is not a new posterior or evidence that elevator
+coefficients are already corrected.
