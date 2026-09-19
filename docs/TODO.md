@@ -30,6 +30,34 @@ not a checklist to maximize. Audit source meaning, independent unit/building
 support, overlap, confounding with group offsets, prior sensitivity, residual
 patterns, and whether a simpler representation suffices.
 
+**Queued research directions, September 18:**
+
+- [ ] Infer advertised floor from unit labels, beginning with patterns such as
+  `3D → 3`. Preserve the original label, inference rule and provenance separately
+  from explicit source-floor claims. Validate building-specific numbering and
+  conflicts; investigate ambiguous labels, penthouses, duplexes and skipped
+  labels rather than treating the prefix as physical height.
+- [ ] Test elevator × the selected floor metric, including threshold interactions
+  if floor increments are retained. Report support on both sides of each
+  interaction, posterior uncertainty and sensitivity to floor inference. The
+  current model has an elevator main effect; its physical-floor interaction is
+  inactive because physical height is unobserved.
+- [ ] Extract and compare laundry levels: explicitly no laundry, in building,
+  on floor and in unit, with unreported availability kept unknown. Review
+  coexisting facilities and restrictions before choosing category rules. The
+  accepted Bayesian model currently estimates only in-building versus in-unit
+  laundry plus a separate unknown indicator; neither explicit no-laundry nor
+  on-floor laundry has been separately tested. Its existing in-unit versus
+  in-building association is +2.399% (95% credible interval +2.051% to +2.741%),
+  stable under the tested stronger feature prior; see the
+  [category sensitivity analysis](analysis/chelsea-bayesian-category-sensitivity-2026-09-18.md).
+- [ ] Create and test address-based spatial features: raw or centered latitude/
+  longitude, interpretable relative-location measures and street indicators.
+  Validate geocoding/address identity, compare simple representations, and assess
+  overlap and confounding with building effects. Judge their value for factor
+  contributions and residual structure in the fitted buildings, rather than
+  prioritizing prediction for unseen buildings. Use Oxylabs for any new scraping.
+
 - [ ] Replace the linear listed-floor term in a versioned Bayesian specification,
   preserving unknown floors and the distinction from physical height. Inspect
   threshold support and gaps, and compare joint floor contrasts and residuals on
