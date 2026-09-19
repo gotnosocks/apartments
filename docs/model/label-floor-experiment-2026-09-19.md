@@ -60,3 +60,46 @@ A smaller residual alone does not earn the feature a place in the main model.
 The decision must consider source plausibility, posterior stability, uncertainty
 and whether floor effects are interpretable with the available building overlap.
 Keep the selected main fit explicit until these checks are complete.
+
+## Completed source projection
+
+The final interpretation is dated `2026-09-19T15:55:47.145088+00:00`.
+It covers every one of 71,813 attached captures: 71,645 verified raw-hash label
+reuses and 168 new parses of frozen refreshed bodies. It adds 29,558 inferred
+floor observations (10,791 units / 755 buildings) while retaining all 349
+explicit observations. Model coverage is 29,907/52,653 rows; 95/172 capture-time
+ACTIVE rows have floors. Accepted model labels range from 1 to 52.
+
+The compatibility filter withholds 694 above-count candidates and 217 two-digit
+candidates lacking a building count. The 18 reviewed conflict buildings account
+for another 1,567 withheld rows; 20,268 rows have unresolved or conflicting
+capture labels. These categories explain all 22,746 still-unknown rows.
+
+Source manifest SHA-256:
+`5c307d4c39abef27926a3af146145d040c7d979fddfb111255f03326deacd605`.
+Observation SHA-256:
+`f32280906454687da145f3904aeb7ea70cdbd7b8c44ad32328c1ace404ddb974`.
+Full source-lineage inversion and description binding passed for all observations
+and captures. The integrated regression checks passed 316 tests. Implementation
+checkpoint: `9ab8608a`.
+
+## Sampling launches
+
+Both full-cohort compiled graph checks passed at three parameter points:
+floor-only maximum absolute log-density/gradient differences were
+`4.37e-11` / `2.56e-9`; the interaction maximum gradient difference was `3.78e-9`.
+The designs contain 93 and 94 feature columns, respectively.
+
+Full fits launched September 19 around 15:58–16:01 UTC:
+
+- `chelsea-bayesian-label-floor-disk-20260919`: floor-only v4, terminal session
+  38023, log `/tmp/chelsea-bayesian-label-floor-fit.log`.
+- `chelsea-bayesian-label-floor-elevator-disk-20260919`: pooled v5, terminal
+  session 15813, log `/tmp/chelsea-bayesian-label-floor-elevator-fit.log`.
+
+They use the production-length settings above. The runs overlap on the same
+machine, so elapsed times are not a controlled backend speed comparison.
+Each root contains a frozen protocol, progress record, durable trace and fit
+completion manifest. Do not change their archived implementation dependencies
+while sampling/reporting is active. Compare only completed, diagnostic-checked
+posterior products; a running process is not a model result.

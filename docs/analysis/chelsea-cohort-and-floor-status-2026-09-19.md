@@ -1,5 +1,13 @@
 # Cohort, floor measurement and manual adjudication
 
+Update at 2026-09-19 15:55 UTC: the broad floor projection is now complete and
+verified in `chelsea-label-floor-analysis-20260919`. It adds 29,558 inferred
+floors to 349 explicit floors: **29,907/52,653 observations**, including
+95/172 capture-time ACTIVE listings. The selected posterior still uses the old
+inputs while the [controlled fits](../model/label-floor-experiment-2026-09-19.md)
+are evaluated. The stage description below records the earlier status that
+motivated this work.
+
 ## What “current” means
 
 The selected analytical dataset contains 52,653 observations: 52,481 historical
