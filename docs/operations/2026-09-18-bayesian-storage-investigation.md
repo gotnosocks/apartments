@@ -133,3 +133,32 @@ The artifact includes the original adapter hash, proposed patch, complete
 candidate code and frozen validation script. Live code remains unchanged. Once
 the current source process exits, apply the patch, run the production storage
 suite, and publish a new floor readiness bundle before launching that fit.
+
+## Reporting memory failure and recovery
+
+The disk retry completed both diagnostic gates, then exited 137 at 01:13:18 UTC.
+The kernel confirms a global OOM kill of PID 437977; measured peak RSS was
+12,096,988 KiB. The full posterior and both parameter/derived diagnostic tables
+remain intact. Full unit-array materialization during reporting is a second
+memory problem, distinct from nutpie's earlier in-memory trace extraction.
+
+After the process was confirmed terminal, the validated 512-parameter storage
+chunk patch was applied. A regression test checks the actual HDF5 chunk shape and
+exact values across chunk boundaries. The original posterior is not rewritten.
+
+The new `bayesian_report_cache` copies original unit draws in blocks of at most
+8 MiB into a disk-backed array, preserving chain-major draw order. Storage keeps
+each unit's draws contiguous. Observation indexing materializes only requested
+units; multiplying by the per-draw unit scale remains lazy until indexing, so
+the group table does not allocate a second full unit-effect matrix. Every copied
+block is checked exactly. The cache must live on the workspace disk: `/tmp` is a
+7.6 GiB tmpfs on this machine and is unsuitable for this approximately 4 GiB cache.
+
+The unchanged scientific writer produces byte-identical diagnostics, coefficients,
+contrasts, group effects and residuals in the parity test. Seventy-four focused
+cache/recovery/report/storage checks passed before the real recovery started.
+`recover_bayesian_reports` binds the original checkpoint and completed diagnostics,
+archives the override code, and records it in `reporting-recovery.json`; it never
+samples. The reader verifies the preserved posterior/diagnostic hashes and the
+override's implementation hashes. Real recovery memory and completion still need
+verification before starting the floor fit.

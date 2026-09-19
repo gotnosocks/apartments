@@ -4,8 +4,10 @@ The accepted Bayesian fit's residuals and extreme group effects led to 12
 advertisement-specific decisions. The new research projection contains 52,704
 observations and retains all 13 refreshed current listings. The first matched
 PyMC refit completed but failed the parameter convergence gate; the longer retry was killed by the operating system for memory exhaustion
-after sampling, before writing a posterior checkpoint. A disk-backed retry is now
-running. None has been promoted to the main analysis model.
+after sampling, before writing a posterior checkpoint. The disk-backed retry saved
+its posterior and passed both diagnostic gates, but was killed during residual
+reporting. A report-only recovery is running. None has been promoted to the main
+analysis model.
 
 ## Refit status, September 18
 
@@ -135,6 +137,19 @@ gates pass. See the [storage investigation](../operations/2026-09-18-bayesian-st
 At 01:06:56 UTC on September 19 (September 18 locally), the disk retry completed
 its parameter diagnostics: maximum R-hat **1.004954**, minimum bulk/tail ESS
 **1,002 / 1,903**, no divergences or maximum-depth events, and minimum BFMI
-**0.439**. All 23,415 parameter diagnostics pass. Derived diagnostics and residual
-reports are still processing; this partial result does not yet authorize an
-accepted source-sensitivity interpretation or model promotion.
+**0.439**. All 23,415 parameter diagnostics pass. All 22,188 derived diagnostics
+also pass: maximum R-hat **1.001585**, minimum bulk/tail ESS **1,223 / 2,165**.
+
+At 01:13:18 UTC, the kernel killed process 437977 for global memory exhaustion
+during subsequent reporting (exit 137, maximum measured RSS 12,096,988 KiB).
+The posterior checkpoint, raw trace and both completed diagnostic tables survive.
+There is no completed fit manifest yet. Unlike the earlier extraction failure,
+this does not require another sampling run.
+
+`models.recover_bayesian_reports` verifies the original posterior, dataset, design,
+scientific implementation and completed diagnostic tables, then finishes the
+original report formulas through a disk-backed unit-draw accessor. The recovery
+plan explicitly records reuse of completed diagnostics and the reporting override;
+final readers verify those bindings. A parity test produces byte-identical
+diagnostic, coefficient, group-effect, contrast and residual products. Recovery
+is running with its cache on the workspace disk, not the memory-backed `/tmp`.

@@ -117,7 +117,7 @@ def export_trace(trace, expected, output, *, max_bytes=MAX_BLOCK_BYTES):
                 chunks = block_shape(variable.shape,variable.dtype.itemsize,max_bytes)
                 boolean = variable.dtype.kind == 'b'
                 stored = node.create_variable(name,variable.dims,dtype='i1' if boolean else variable.dtype,
-                    chunks=chunks,compression='gzip',compression_opts=1)
+                    chunks=tuple(min(size,512) if dim not in ('chain','draw') else size for dim,size in zip(variable.dims,chunks)),compression='gzip',compression_opts=1)
                 if boolean: stored.attrs['dtype'] = 'bool'
                 stored.attrs['raw_variable_attrs_json'] = canonical(variable.attrs)
                 for starts in itertools.product(*(range(0,n,c) for n,c in zip(variable.shape,chunks))):

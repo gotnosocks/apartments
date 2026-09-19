@@ -83,6 +83,23 @@ def test_block_budget_bounds_high_dimensional_arrays():
     assert np.prod(m.block_shape((4,6000,22158),8))*8 <= m.MAX_BLOCK_BYTES
 
 
+def test_storage_chunks_match_parameter_slices_without_changing_export_values(trace, tmp_path):
+    import h5netcdf
+    raw, expected = trace
+    units = ['u'+str(i) for i in range(1030)]
+    values = np.arange(2*17*1030, dtype=float).reshape(2, 17, 1030)
+    raw['posterior'] = xr.DataTree(raw.posterior.to_dataset().assign_coords(unit=units).assign(
+        unit_z=(('chain', 'draw', 'unit'), values)))
+    expected['variables']['unit_z'] = ['unit']; expected['coordinates']['unit'] = units
+    path = tmp_path/'posterior.nc'
+    result = m.export_trace(raw, expected, path)
+    assert result['maximum_array_block_bytes'] <= m.MAX_BLOCK_BYTES
+    with h5netcdf.File(path) as file:
+        assert file['posterior']['unit_z'].chunks == (1, 17, 512)
+    with xr.open_datatree(path, engine='h5netcdf') as actual:
+        np.testing.assert_array_equal(actual.posterior.unit_z.values, values)
+
+
 def test_chain_coordinates_are_not_silently_relabelled(trace,tmp_path):
     raw,expected=trace
     raw['posterior']=xr.DataTree(raw.posterior.to_dataset().assign_coords(chain=[1,0]))

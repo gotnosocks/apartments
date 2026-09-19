@@ -65,6 +65,10 @@ patterns, and whether a simpler representation suffices.
   overlap and confounding with building effects. Judge their value for factor
   contributions and residual structure in the fitted buildings, rather than
   prioritizing prediction for unseen buildings. Use Oxylabs for any new scraping.
+  The [current spatial audit](analysis/chelsea-current-spatial-features-2026-09-18.md)
+  binds coordinates for 172 listings / 85 buildings and constructs centered
+  coordinate and 22 street-label candidates; historical coverage and matched
+  Bayesian spatial experiments remain pending.
 
 - [ ] Replace the linear listed-floor term in a versioned Bayesian specification,
   preserving unknown floors and the distinction from physical height. Inspect
