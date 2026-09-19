@@ -118,12 +118,17 @@ patterns, and whether a simpler representation suffices.
   count-conflict masks. The [source revision](analysis/chelsea-bayesian-source-revision-2026-09-18.md)
   quarantines seven advertisements and masks five compositions, retaining 52,704
   observations and all 13 refreshed listings. Original prices and counts remain.
-- [ ] Refit that source revision and compare contributions. Preserve uncertain
+- [x] Refit that source revision and compare contributions. Preserve uncertain
   prices, physical change dates and unit aliases until supported by evidence.
   The first 52,704-row shared-scale refit failed the parameter gate at R-hat
   1.01039. The 4,000-warmup/6,000-retained retry was killed for memory exhaustion
   after sampling and has no posterior checkpoint. Validated disk storage now
   supports an unchanged retry; neither previous attempt supplies accepted intervals.
+  The disk retry and report-only recovery now pass both diagnostic gates. The
+  matched source comparison changes each of the 13 current fitted rents by less
+  than $4. A [joint-posterior movement review](analysis/chelsea-source-movement-review-2026-09-18.md)
+  decomposes the three largest distinct-unit changes, including the weakly
+  supported single-observation townhouse building effect.
 - [x] Expose accepted Bayesian bathroom/category intervals, prior comparisons and
   all 13 current residuals in the separate [research page](model/bayesian-research-page.md).
   The page verifies source/report bindings and withholds failed experiments.
