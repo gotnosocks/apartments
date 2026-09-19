@@ -39,26 +39,46 @@ def run(reference, candidate, evidence, output):
     a, b = designs
     if a.features != b.features or a.floor_levels != b.floor_levels or not np.array_equal(a.prior_scales, b.prior_scales):
         raise ValueError('Exclusions changed supported feature inventory or prior scales; review before fitting')
-    if {k: v['levels'] for k, v in a.categories.items()} != {k: v['levels'] for k, v in b.categories.items()}:
-        raise ValueError('Category support changed')
+    if {k: (v['levels'], v['basis']) for k, v in a.categories.items()} != {
+            k: (v['levels'], v['basis']) for k, v in b.categories.items()}:
+        raise ValueError('Category support or contrast basis changed')
     matrices = [d.matrix(frame) for d, frame in zip(designs, frames, strict=True)]
     ranks = [int(np.linalg.matrix_rank(matrix)) for matrix in matrices]
     if ranks != [len(a.features), len(b.features)]: raise ValueError('Feature design is rank deficient')
     # Source membership changes centering; do not claim identical numerical design.
     mean_changes = [{'feature': name, 'reference': float(x), 'candidate': float(y)}
                     for name, x, y in zip(a.features, a.means, b.means, strict=True) if x != y]
-    result = {'version': 'reviewed-quarantine-reader-verification-v1', 'passed': True,
+    numeric_changes = []
+    for name in a.numeric:
+        if a.numeric[name] == b.numeric[name]: continue
+        item = {'feature': name, 'reference': a.numeric[name], 'candidate': b.numeric[name],
+                'has_active_numeric_coefficient': name in a.features}
+        if name in a.features:
+            old_sd = a.prior_scales[a.features.index(name)]/a.numeric[name]['scale']
+            new_sd = b.prior_scales[b.features.index(name)]/b.numeric[name]['scale']
+            item.update(reference_log_prior_sd_per_raw_unit=float(old_sd),
+                        candidate_log_prior_sd_per_raw_unit=float(new_sd),
+                        raw_unit_prior_sd_relative_change=float(new_sd/old_sd-1))
+        numeric_changes.append(item)
+    result = {'version': 'reviewed-quarantine-reader-verification-v2', 'passed': True,
         'reference_rows': len(original), 'rows': len(kept), 'excluded_rows': len(sidecar),
         'units': frames[1].unit_id.nunique(), 'buildings': frames[1].building.nunique(),
         'unchanged_current_rows': len(new_current), 'literal_captures': sum(map(len, mapping.values())),
         'excluded_literal_captures': sum(len(baseline[k]) for k in excluded),
         'exact_inverse_parent_verified': True, 'retained_evidence_equal': True,
         'feature_counts': [len(d.features) for d in designs], 'design_ranks': ranks,
-        'feature_inventory_and_priors_equal': True, 'floor_levels': b.floor_levels,
+        'feature_inventory_and_coefficient_prior_scales_equal': True, 'floor_levels': b.floor_levels,
         'numeric_normalization_equal': a.numeric == b.numeric, 'centering_changes': mean_changes,
+        'numeric_normalization_changes': numeric_changes,
+        'categorical_contrast_bases_equal': True,
+        'category_frequencies': [{k: v['frequencies'] for k, v in d.categories.items()} for d in designs],
+        'size_reference': [{'medians': d.time.size_medians, 'default': d.time.size_default} for d in designs],
         'main_selection_changed': False, 'fit_performed': False,
         'limitations': ['Reader and design validation only; no posterior or pricing inference.',
-            'Centering/support counts can change when observations are excluded. The model must be refitted.']}
+            'Centering/support counts can change when observations are excluded. The model must be refitted.',
+            'Equal coefficient prior scales do not imply identical raw-unit priors when numeric normalization changes. '
+            'The corresponding raw-unit prior changes are recorded explicitly. Category frequency centering can also '
+            'alter joint priors involving missingness and the intercept even with unchanged pairwise contrast priors.']}
     if code_before != {k: digest(p) for k, p in implementations.items()}:
         raise ValueError('Reader implementations changed during verification')
     publish_bundle(output, {'verification.json': canonical(result)+'\n',
