@@ -144,3 +144,47 @@ category/bathroom contributions, group offsets and current residuals. Review the
 largest changes and preserve source-conflict notes before considering selection.
 The comparison must describe 98 feature corrections and zero exclusions; the
 earlier quarantine comparison's exclusion terminology must not be reused blindly.
+
+## Comparison prepared while sampling
+
+`models.elevator_fit_comparison` now verifies the exact correction inverse and
+matched sampling protocols, then compares the completed fits on all 52,653
+identical observations. It independently reconstructs each design and refuses
+changes to unrelated feature columns. It reuses the established residual,
+common-reference building, category, bathroom and floor comparison calculations.
+The quarantine comparison's fit-loading helper was extracted without changing
+its comparison semantics; sampling and source-reader dependencies remain frozen.
+
+The new elevator contrasts use all joint coefficient draws for known no → yes,
+known no → unknown, and known yes → unknown. Unknown is a reporting state;
+its contrast includes both the numeric and missingness coefficients and their
+posterior covariance. Each derived interval must pass its own convergence gate.
+The comparison reports each fit's raw-contrast prior standard deviation and
+normalization; it never pairs independent fits' draws to create a posterior of
+the change. The source-movement review accepts this comparison and will inspect
+the three largest distinct current-unit movements using additive posterior mean
+log contributions.
+
+`chelsea-elevator-comparison-inputs-20260919` verifies the actual 98 corrections,
+unchanged membership and prices, and unchanged unrelated design columns before
+the posterior is available. The induced prior standard deviation for the
+no-elevator → elevator log-price contrast is **.5921626 → .5821754**, a 1.69%
+reduction from normalization alone. This is input evidence, not a posterior
+result. Reproduction: `uv run --frozen --no-sync python -m
+ docs.analysis.scripts.check_elevator_comparison_inputs` (one command).
+
+Validation: **79 tests pass** across the elevator comparison, existing quarantine
+comparison, joint category contrasts and source-movement review. These include
+full-draw posterior covariance, failed convergence, changed prices, unrelated
+features, protocol changes and posterior-coordinate mismatches.
+
+A follow-up observer (session **10625**, script
+`/tmp/chelsea-elevator-refit-followup.py`, log
+`/tmp/chelsea-elevator-refit-followup.log`) watches the existing fit process. After
+terminal completion and accepted diagnostics it will calculate category
+contrasts, the matched elevator comparison, and the three current contribution
+movement reviews. It never restarts sampling or changes the main selection.
+Expected outputs are `chelsea-reviewed-elevator-category-contrasts-20260919`,
+`chelsea-reviewed-elevator-fit-comparison-20260919`, and
+`chelsea-elevator-current-contribution-movements-20260919`. They are pending,
+not completed evidence. An observation deadline leaves the original fit untouched.

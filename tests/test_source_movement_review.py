@@ -5,6 +5,7 @@ from models.source_movement_review import compare_details, select_cases
 
 @pytest.mark.parametrize('version,key,scope', [
     ('verified-bayesian-source-sensitivity-v1', 'largest_distinct_unit_movements', 'largest_common_distinct_unit_movements'),
+    ('reviewed-elevator-fit-comparison-v1', 'largest_current_movements', 'largest_current_distinct_unit_movements'),
     ('reviewed-quarantine-fit-comparison-v1', 'largest_current_movements', 'largest_current_distinct_unit_movements')])
 def test_movement_selection_preserves_verified_order_and_distinct_units(version, key, scope):
     cases = [{'unit_id': 'a', 'audit_id': '1'}, {'unit_id': 'a', 'audit_id': '2'},

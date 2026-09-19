@@ -156,8 +156,7 @@ def compare_floors(a, b):
         for low, high in sorted(before)]
 
 
-def build_comparison(reference, candidate, reference_dataset, candidate_dataset, reference_categories, candidate_categories):
-    before, after, excluded = verify_revision(reference_dataset, candidate_dataset)
+def load_fits(reference, candidate, reference_dataset, candidate_dataset, before, after):
     fits = []
     for root, dataset, rows in zip(map(Path, (reference, candidate)), map(Path, (reference_dataset, candidate_dataset)),
                                    (before, after), strict=True):
@@ -170,6 +169,12 @@ def build_comparison(reference, candidate, reference_dataset, candidate_dataset,
             'provenance': provenance, 'reconstruction': reconstructed, 'design': load_design(root/'fit', frame, protocol),
             **{key: report.jsonl(common.bound_bytes(root/'fit', filename, provenance['fit_manifest']))
                for key, filename in [('residuals', 'residuals.jsonl'), ('groups', 'group-effects.jsonl')]}})
+    return fits
+
+
+def build_comparison(reference, candidate, reference_dataset, candidate_dataset, reference_categories, candidate_categories):
+    before, after, excluded = verify_revision(reference_dataset, candidate_dataset)
+    fits = load_fits(reference, candidate, reference_dataset, candidate_dataset, before, after)
     a, b = fits
     changed_code = check_protocols(a['protocol'], b['protocol'])
     if a['design'].features != b['design'].features or not np.array_equal(a['design'].prior_scales, b['design'].prior_scales):

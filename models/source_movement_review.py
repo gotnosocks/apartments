@@ -18,7 +18,7 @@ def select_cases(report, top):
     if report.get('version') == 'verified-bayesian-source-sensitivity-v1':
         candidates = report['residuals']['largest_distinct_unit_movements']
         scope = 'largest_common_distinct_unit_movements'
-    elif report.get('version') == 'reviewed-quarantine-fit-comparison-v1':
+    elif report.get('version') in ('reviewed-quarantine-fit-comparison-v1', 'reviewed-elevator-fit-comparison-v1'):
         candidates = report['residuals']['largest_current_movements']
         scope = 'largest_current_distinct_unit_movements'
     else:
