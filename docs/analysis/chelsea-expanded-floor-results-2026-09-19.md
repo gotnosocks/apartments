@@ -164,3 +164,12 @@ rank; each case now separately reports its analytical floor and provenance.
 This check does not resolve the known source bedroom conflict or turn the panel
 into a holdout. The matched pooled interaction comparison is still running.
 Main selection has not changed.
+
+The separately preselected 26-unit floor-coverage panel also has a completed,
+source-bound comparison in
+`data/model/chelsea-label-floor-fixed-coverage-comparison-20260919`. It retains
+the same two units per nonempty floor-band/elevator cell. Median absolute
+fitted-rent movement is $13.04 (maximum $184.35); median absolute log residual
+changes from 0.01671 to 0.02151. These descriptive results likewise do not show
+improved typical fit. The panel intentionally covers different floor/access
+conditions and is not a population-weighted accuracy estimate.
