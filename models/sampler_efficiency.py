@@ -145,9 +145,20 @@ def run(benchmark, dataset, output):
         'warmup_and_retained': seconds['warmup_including_initialization_and_jit_seconds']
             + seconds['retained_sampling_including_loop_jit_seconds']
             + seconds['retained_transfer_and_storage_seconds'],
-        'pymc_call_and_posterior_write': seconds['pymc_call_including_postprocessing_seconds']
-            + seconds['posterior_write_seconds'],
     }
+    recovery = completed.get('postprocessing_recovery')
+    if recovery:
+        directory = Path(recovery['directory'])
+        _, recovered = _verified_bundle(directory/'validation', retain={'recovery.json'})
+        record = json.loads(recovered['recovery.json'])
+        if (digest(directory/'validation/complete.json') != recovery['manifest_sha256']
+                or record['settings'] != settings or record['new_draws_generated'] != 0
+                or record['posterior_sha256'] != completed['posterior_sha256']
+                or completed.get('pymc_call_completed') is not False):
+            raise ValueError('Postprocessing recovery binding differs')
+    else:
+        denominators['pymc_call_and_posterior_write'] = (
+            seconds['pymc_call_including_postprocessing_seconds']+seconds['posterior_write_seconds'])
     with xr.open_datatree(benchmark/'posterior.nc', engine='h5netcdf', cache=False) as trace:
         if (trace['posterior'].sizes['chain'] != settings['chains']
                 or trace['posterior'].sizes['draw'] != settings['draws_per_chain']
@@ -157,8 +168,13 @@ def run(benchmark, dataset, output):
             raise ValueError('Posterior dimensions or coordinate order differ')
         stats = normalized_statistics(trace['sample_stats'].to_dataset(), settings['max_tree_depth'])
         inference = {'posterior': trace['posterior'], 'sample_stats': xr.DataTree(stats)}
+        print(canonical({'phase': 'parameter_diagnostics'}), flush=True)
         parameters, pt = runner.v2.base.diagnostics(inference)
+        print(canonical({'phase': 'derived_contribution_diagnostics',
+            'parameter_diagnostics': {k: parameters[k] for k in ('acceptable', 'max_rhat', 'min_ess_bulk', 'min_ess_tail')}}), flush=True)
         derived, dt = runner.v2.derived_diagnostics(inference, design, data)
+        print(canonical({'phase': 'joint_floor_diagnostics',
+            'derived_diagnostics': {k: derived[k] for k in ('acceptable', 'max_rhat', 'min_ess_bulk', 'min_ess_tail')}}), flush=True)
         floor_contrasts = floor_reports.floor_contrasts(inference, design)
     acceptable = all(d['acceptable'] and d['maxdepth_reached'] == 0
                      for d in (parameters, derived, floor_contrasts['diagnostics']))
@@ -168,6 +184,8 @@ def run(benchmark, dataset, output):
         'acceptable': acceptable, 'backend_ranking_established': False,
         'benchmark_record_sha256': digest(benchmark/'sampled.json'),
         'posterior_sha256': completed['posterior_sha256'],
+        'postprocessing_recovery': recovery,
+        'successful_end_to_end_pymc_call_measured': not bool(recovery),
         'policy': 'All chains and retained draws; same parameter and derived-contribution diagnostics as the CPU model. No backend ranking from raw draw rate. GPU compute excludes transfer while CPU durable sampling includes it: compare storage-inclusive rates too.'}
     publish_bundle(output/'complete', {
         'diagnostics.json': canonical(result)+'\n',

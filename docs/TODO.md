@@ -58,8 +58,13 @@ patterns, and whether a simpler representation suffices.
   The versioned `chelsea-reviewed-floor-masked-analysis-20260918` projection now
   masks those 17 claims via exact-row ledger patches; all prices, nonfloor data,
   review history and 172 current observations are preserved. Publication/replay
-  and the actual floor encoder are verified. Loader integration and a matched
-  refit remain pending; no blanket offset or unreviewed prefix is inferred.
+  and the actual floor encoder are verified. Literal-evidence loader integration
+  now verifies the full corrected-source lineage and 72,065 unchanged captures;
+  fitting-runner integration and a refit remain pending. The
+  [local numbering review](analysis/chelsea-local-floor-numbering-2026-09-19.md)
+  evaluates four building rules with whole-unit checks, adding candidates for
+  only 19 units without prior explicit-floor references and no new buildings
+  supporting floor/elevator comparisons. No blanket offset is inferred.
 - [ ] Reassess sampler/backend speed using production-length fits of the same
   posterior, separated warmup/retained/storage costs, and bulk/tail ESS/sec.
   The old 50/50 M1/T4 timings cannot rank sampling speed. The [current reassessment](analysis/chelsea-sampler-reassessment-2026-09-18.md)
@@ -96,8 +101,9 @@ patterns, and whether a simpler representation suffices.
   error for advertisement 4800947 (two captures / one observation). The versioned
   `chelsea-reviewed-laundry-negation-analysis-20260918` projection applies its
   ledger correction and replays identically: one historical row changes, prices
-  and 172 current rows remain unchanged. Loader integration and fitting of this
-  new revision are pending. Four-level extraction and fitting are still pending.
+  and 172 current rows remain unchanged. Literal-evidence attachment now verifies
+  the corrected source lineage; fitting-runner integration and fitting of this
+  revision are pending. Four-level extraction and fitting are still pending.
 - [ ] Create and test address-based spatial features: raw or centered latitude/
   longitude, interpretable relative-location measures and street indicators.
   Validate geocoding/address identity, compare simple representations, and assess
@@ -109,13 +115,14 @@ patterns, and whether a simpler representation suffices.
   coordinate and 22 street-label candidates; historical coverage and matched
   Bayesian spatial experiments remain pending.
 
-- [ ] Replace the linear listed-floor term in a versioned Bayesian specification,
+- [x] Replace the linear listed-floor term in a versioned Bayesian specification,
   preserving unknown floors and the distinction from physical height. Inspect
   threshold support and gaps, and compare joint floor contrasts and residuals on
   the same cohort before promoting the fit.
   The [isolated increment design](model/listed-floor-increment-design.md) is
-  implemented with a versioned runner, reports and reconstruction checks;
-  main-model promotion remains pending. The [full floor fit](analysis/chelsea-bayesian-floor-increments-2026-09-18.md)
+  implemented with a versioned runner, reports and reconstruction checks.
+  The main analysis now uses the verified floor-increment fit with 172 current
+  listings; its current-data and source-review checks pass. The earlier [full floor fit](analysis/chelsea-bayesian-floor-increments-2026-09-18.md)
   now passes all three diagnostic gates after a report-only coordinate-name fix.
   Most increments are uncertain; both standout intervals have no shared-building
   endpoint support. The matched comparison is complete: median absolute log

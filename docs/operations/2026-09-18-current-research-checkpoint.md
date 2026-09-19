@@ -1,5 +1,53 @@
 # Current research checkpoint, 22:05 EDT
 
+## September 19: complete GPU sampling recovered; full ESS diagnostics running
+
+**Original GPU session 30289 is terminal, exit 1.** All 4×6,000 retained draws
+finished before a PyMC postprocessing GPU allocation failed. Retained compute
+**1,919.646632 s**, transfer/storage **8.296186 s**, total **1,927.942818 s**;
+raw aggregate rate **12.448502 draws/s**. Warmup was **2,839.769692 s**.
+Every retained iteration had 127 steps; zero divergences. No ESS-based winner yet.
+`postprocessing-failure.log` and `.json` preserve the original failure. Do not
+restart or poll the now-terminal original sampler.
+
+`models/recover_numpyro_trace.py` recovered all draws from the 18 saved leaves
+through the exact PyMC constrained graph, using CPU-only JAX and 64-draw batches.
+All original raw hashes are unchanged, every output batch was read back exactly,
+and 12 cross-chain/start/middle/end potential-energy checks differ by at most
+**7.28e-12**. Largest transformed variable batch **45,443,072 bytes**.
+Recovery **session 54795 exited 0**, artifact
+**`data/model/chelsea-numpyro-cpu-conversion-recovery-20260919`**;
+conversion time **133.057761 s**. **2 actual PyMC recovery tests pass** in the
+isolated benchmark environment (session **55296**, exit 0), including transforms,
+coordinates, every draw/statistic, and rejecting unwritten retained tails.
+
+`models/install_numpyro_recovery.py` reverified the recovery and original raw
+inventory, then installed a new posterior/completion record without overwriting
+existing products. Install **session 5923 exited 0**, **13.130347 s**. Posterior
+SHA **bb8bbaa29166d3a0863976c541535c4b7a7e701453dc55407186595d1fc7d16a**.
+`sampled.json` marks the original PyMC call unsuccessful and binds the recovery;
+it does not invent a successful end-to-end call timing. Original progress remains
+at the failed postprocessing stage as historical evidence.
+
+**LIVE: diagnostic session 30424** on the host runs
+`models.sampler_efficiency` against the recovered benchmark posterior and the
+original `chelsea-reviewed-current-analysis-20260918` dataset. Output:
+**`data/model/chelsea-numpyro-gpu-efficiency-20260918`**;
+log **`/tmp/chelsea-numpyro-gpu-efficiency.log`**. Last phase:
+`parameter_diagnostics`. Keep original v3/graph/floor source files unchanged until
+this completes; the helper checks their original hashes. New source-lineage and
+evidence files are outside that set. Follow by running
+`models.compare_sampler_efficiency` with CPU rates
+`chelsea-nutpie-wall-efficiency-20260919`, GPU rates above, CPU experiment
+`chelsea-bayesian-current-floor-disk-20260918`, and GPU benchmark
+`chelsea-numpyro-gpu-batched-benchmark-20260918`. Choose a new comparison output.
+
+The comparison aligns named parameters, preserves CPU wall-time bounds, separates
+parameter families and refuses mismatched data/priors/code or failed gates.
+**35 installer/timing/comparison tests pass**, plus the two recovery tests above.
+The TODO now correctly records that the main 172-current model already uses floor
+increments; corrected-source runner integration/refitting remains pending.
+
 ## September 19: corrected-source evidence lineage verified for fitting
 
 `apartments.reviewed_source_lineage.source_lineage` now verifies the bounded

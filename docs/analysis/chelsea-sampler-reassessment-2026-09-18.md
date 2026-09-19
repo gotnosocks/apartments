@@ -66,8 +66,33 @@ NumPyro 0.22.0 and BlackJAX 1.6.2. Production dependencies are unchanged.
   and sampler statistics match the unbatched continuation, including a final
   partial batch. These tiny tests establish correctness, not performance.
 - GPU warmup completed in **2,839.77 seconds including initialization/JIT**.
-  At 04:26:09 UTC on September 19 the run had retained 1,500 of 6,000 draws per
-  chain. Sampling remains in progress; no GPU ESS or backend winner is reported.
+  All **6,000 retained draws per chain** finished at 04:50:07 UTC on September 19:
+  **1,919.65 seconds** retained compute including first-loop JIT, plus **8.30 seconds**
+  transfers/storage, or **1,927.94 seconds** together. This is **12.45 aggregate
+  raw draws/sec**. All retained iterations used 127 leapfrog steps; no divergences
+  were recorded. ESS and convergence checks remain necessary before choosing a
+  backend; raw throughput alone is insufficient.
+- PyMC 6.2 then failed during posterior conversion: its scan postprocessor calls
+  `jnp.swapaxes` on the default GPU before moving arrays to the requested CPU.
+  The attempted 3.97-GiB allocation failed. This occurred **after every retained
+  sample/statistic leaf was flushed**, so the production chains were not rerun.
+  The original terminal log is preserved as `postprocessing-failure.log` in the
+  benchmark directory.
+- `models/recover_numpyro_trace.py` reconstructs the archived spill pytree using
+  the exact model's value-variable ordering and JAX dictionary ordering. It checks
+  all leaf shapes, positive retained step counts, finite values, and potential
+  energy at the first/middle/final retained positions in all four chains. Maximum
+  potential-energy discrepancy is **7.28e-12**. It applies PyMC's exact constrained
+  transform on CPU in 64-draw batches and verifies every output write by reading
+  it back. All 24,000 draws were recovered; raw file hashes are unchanged.
+  Conversion/transform compilation/write time was **133.06 seconds**, separately
+  from sampling; installation was **13.13 seconds**. Neither includes all recovery
+  preparation or human investigation time. No successful end-to-end PyMC-call
+  timing is claimed for this run.
+  Recovery artifact: `data/model/chelsea-numpyro-cpu-conversion-recovery-20260919`.
+  Its posterior SHA is `bb8bbaa29166d3a0863976c541535c4b7a7e701453dc55407186595d1fc7d16a`.
+  Tiny correctness tests reproduce native PyMC posterior variables, coordinates
+  and every sampler statistic; they are not speed benchmarks.
 
 ## Timing and decision rules
 
@@ -88,7 +113,8 @@ only approximates the warmup boundary; label that uncertainty if using it.
 
 Active revised GPU artifact:
 `data/model/chelsea-numpyro-gpu-batched-benchmark-20260918`.
-No production GPU speed or convergence result is claimed in this checkpoint.
+Raw production GPU timing is now measured as above; convergence and ESS/sec
+diagnostics are running on the recovered complete posterior. No winner yet.
 
 The follow-up `models.sampler_efficiency` command requires a completed, hash-bound
 benchmark posterior and its original source/design/code. It applies the same
@@ -96,7 +122,9 @@ parameter, unit/bathroom contribution and joint-floor diagnostic gates used by
 the CPU fit. It rejects incomplete inputs, preserves all chains/draws and adds
 NumPyro's tree-depth saturation flag in a read-only view. Rate tables distinguish
 retained compute, retained compute plus storage, warmup plus retained sampling,
-and the PyMC call plus posterior writing. A compute-only GPU rate must not be
+and, for successful original calls, the PyMC call plus posterior writing. A
+verified postprocessing recovery omits that unavailable end-to-end denominator.
+A compute-only GPU rate must not be
 compared without qualification to CPU sampling that includes durable trace writes.
 
 ```sh
@@ -114,6 +142,15 @@ verified CPU counters produces per-chain retained-duration intervals of
 callbacks straddle the warmup boundary. They are **not** a single wall-clock
 denominator for pooled ESS. Evidence is preserved in
 `data/model/chelsea-nutpie-retained-time-brackets-20260918`.
+
+After diagnostics finish, `models.compare_sampler_efficiency` joins identical
+named parameters and contribution contrasts, verifies matching data, priors,
+graph code and sampling settings, and refuses failed diagnostic gates. It reports
+CPU/GPU bulk and tail rate ratios with the CPU wall-timing bounds, separating
+coefficient, building and unit parameter families. It also reports the minimum
+ESS/sec in each diagnostic family; the slowest parameter need not be the same
+one across samplers. Its 13 tests cover alignment, timing bounds, artifact
+bindings, posterior modification, mismatched models and failed diagnostics.
 
 Official API references: [nutpie PyMC compilation](https://pymc-devs.github.io/nutpie/pymc-usage.html),
 [PyMC NumPyro sampling](https://www.pymc.io/projects/docs/en/stable/api/generated/pymc.sampling.jax.sample_numpyro_nuts.html),
