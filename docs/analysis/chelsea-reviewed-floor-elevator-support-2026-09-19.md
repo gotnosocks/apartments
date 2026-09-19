@@ -84,3 +84,9 @@ UV_CACHE_DIR=/tmp/apartments-uv-cache uv run --frozen --no-sync python \
 UV_CACHE_DIR=/tmp/apartments-uv-cache uv run --frozen --no-sync python \
   -m docs.analysis.scripts.review_floor_interaction_witnesses
 ```
+
+The [follow-up source review](chelsea-floor-access-conflicts-2026-09-19.md) checks
+all 20 positive ads and seven negative examples in the seven floor-relevant
+conflicting buildings. Original-payload replay preserves their elevator values;
+one newly reviewed price/address conflict yields an unapplied gross-basis
+quarantine recommendation. No running model inputs are changed.
