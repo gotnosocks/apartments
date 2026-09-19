@@ -133,3 +133,46 @@ An identity-checked watcher (`/tmp/chelsea-resume-floor-interaction.py`, termina
 session 21718) resumes the paused process automatically after the exact primary
 process terminates, including its report-writing phase. Its log and the pause
 record retain the actual resumption time. This is runtime scheduling only.
+
+## First full fit: tree-depth rejection
+
+The floor-only run completed all four chains (4,000 warmup and 6,000 retained
+draws each) at 17:39 UTC. Its parameter diagnostics have maximum R-hat
+1.002995, minimum bulk ESS 1,997.70, minimum tail ESS 2,719.07, minimum BFMI
+0.42345, and zero divergences/nonfinite diagnostics. However, **1,392 of 24,000
+retained transitions (5.8%) reached nutpie's default maximum depth of 10**.
+This fails the predeclared zero-depth-saturation gate. Preserve the fit as a
+diagnostic artifact; do not promote it or use the gated comparison to present
+accepted contribution intervals.
+
+The automatic resumer was disabled at 17:52:01 UTC. The still-paused interaction
+run was cancelled at 17:54:35 UTC, with its original protocol, incomplete trace,
+and a `cancelled.json` record preserved. It never produced retained draws.
+The earlier instruction to resume that exact process is superseded.
+
+The replacement experiments will explicitly bind maximum depth **14** in both
+the sampler protocol and trace identity. This raises the ceiling; NUTS still
+stops trajectories on its usual U-turn criterion. All statistical terms, priors,
+source rows, four chains, 4,000 warmup/6,000 retained draws, target acceptance
+0.93 and seed 20260924 remain fixed. An independently compressed floor-block
+graph is being tested for full-cohort density/gradient equality and actual
+nutpie joint-callback cost before adoption. It changes deterministic arithmetic
+sharing only. Keep the existing acceptance rule, including zero depth-limit
+hits; do not relax the gate after seeing the first result.
+
+Both block-graph proofs subsequently passed on the full source and freshly
+reconstructed saved designs. Maximum gradient differences were 2.68e-9 for
+floors and 3.84e-9 for pooled floor/elevator. Each actual nutpie C joint-callback
+timing used 3,600 warmed calls per graph in alternating batches across three
+parameter points. Median costs were 3.075→1.760 ms (floors) and 2.770→1.992 ms
+(pooled interaction). These are callback-cost reductions of 42.8% and 28.1%,
+not measured end-to-end sampling speedups.
+
+Proof bundles are `chelsea-label-floor-block-development-parity-20260919` and
+`chelsea-label-floor-elevator-block-development-parity-20260919`. Despite the
+development names, they contain completed full-cohort numerical checks and
+immutable source, design and mathematical implementation bindings. Each new
+fit archives the proof and its original manifest in its own protocol bundle.
+The legacy disk verifier is unchanged so existing completed fits remain usable.
+Both the reference report's continued acceptance and the failed-depth fit's
+continued rejection were checked against the real saved artifacts.

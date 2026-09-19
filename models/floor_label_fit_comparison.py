@@ -14,26 +14,33 @@ from apartments.corrections import canonical
 from apartments.research_pipeline import _verified_bundle, digest, publish_bundle
 from . import quarantine_fit_comparison as shared
 from . import bayesian_floor_increment_design as floor
+from . import bayesian_floor_execution as execution
 
 VERSION = 'matched-label-floor-fit-comparison-v1'
 SOURCE_FIELDS = shared.source.SOURCE_FIELDS - {'rows', 'units', 'buildings', 'current_rows'}
-VARIABLE = SOURCE_FIELDS | {'graph_verification', 'implementation_sha256', 'floor_levels', 'floor_thresholds'}
+VARIABLE = SOURCE_FIELDS | {'graph_verification', 'implementation_sha256', 'floor_levels', 'floor_thresholds',
+                           'maxdepth', 'execution_graph'}
 LOADER_CODE = {'reviewed_source_lineage.py', 'bayesian_feature_experiment_v3.py', 'bayesian_evidence.py'}
+EXECUTION_CODE = {'bayesian_disk_sampling.py', 'bayesian_disk_experiment.py'}
+EXECUTION_ADDED = {'bayesian_floor_execution.py', 'bayesian_floor_block_graph.py', 'verify_floor_block_graph.py'}
 
 
 def check_protocols(a, b):
     if (a.get('version') != shared.floors.V4 or b.get('version') != shared.floors.V4
             or a.get('source_version') != projection.PARENT or b.get('source_version') != projection.VERSION
             or a.get('residual_scale') != 'shared'
-            or not shared.disk.verify_protocol(a) or not shared.disk.verify_protocol(b)):
+            or not execution.verify_protocol(a) or not execution.verify_protocol(b)):
         raise ValueError('Expected matched durable v4 source-floor and expanded label-floor fits')
     if {k:v for k,v in a.items() if k not in VARIABLE} != {k:v for k,v in b.items() if k not in VARIABLE}:
         raise ValueError('Sampler, nonfloor model, prior or population changed')
     old,new = a['implementation_sha256'],b['implementation_sha256']
-    if set(new)-set(old) != {'floor_label_projection.py'} or not old.keys() <= new.keys():
+    expanded_execution = bool(execution.execution_options(b))
+    expected_added = {'floor_label_projection.py'} | (EXECUTION_ADDED-set(old) if expanded_execution else set())
+    if set(new)-set(old) != expected_added or not old.keys() <= new.keys():
         raise ValueError('Unexpected implementation inventory change')
     changed = {k for k in old if old[k] != new[k]}
-    if changed-LOADER_CODE: raise ValueError('Mathematical or sampling implementation changed')
+    if changed-(LOADER_CODE | (EXECUTION_CODE if expanded_execution else set())):
+        raise ValueError('Mathematical or unrecorded sampling implementation changed')
     for p in (a,b):
         levels = p.get('floor_levels', [])
         if len(levels)<2 or levels != sorted(set(levels)) or p.get('floor_thresholds') != levels[:-1]:
@@ -115,7 +122,14 @@ def build_comparison(reference,reference_dataset,candidate,dataset):
         if r['unit_id'] not in seen: distinct.append(r);seen.add(r['unit_id'])
         if len(distinct)==25: break
     result = {'version':VERSION,'main_selection_changed':False,'rows':len(after),
-        'changed_loader_implementations':changed,'unchanged_nonfloor_features':names,
+        'changed_loader_implementations':sorted(set(changed)&LOADER_CODE),
+        'changed_execution_implementations':sorted(set(changed)&EXECUTION_CODE),
+        'execution_comparison':{'reference_maxdepth':a['protocol'].get('maxdepth',10),
+            'candidate_maxdepth':b['protocol'].get('maxdepth',10),
+            'reference_graph':a['protocol'].get('execution_graph'),
+            'candidate_graph':b['protocol'].get('execution_graph'),
+            'interpretation':'Tree-depth ceiling and proven exact arithmetic sharing may differ; statistical model terms and remaining sampler settings are checked separately. Both completed fits must pass the unchanged diagnostic gates.'},
+        'unchanged_nonfloor_features':names,
         'fits':[{'protocol':f['protocol'],'diagnostics':f['report']['diagnostics'],
             'design_reconstruction':f['reconstruction'],'bindings':{k:digest(path/'complete.json') for k,path in
                 [('fit',f['root']/'fit'),('protocol',f['root']/'protocol'),('source',f['dataset'])]}} for f in (a,b)],
@@ -129,7 +143,7 @@ def build_comparison(reference,reference_dataset,candidate,dataset):
         'limitations':[shared.common.LIMITATION,
             'The inferred feature is an advertised unit-label proxy, not independently verified physical floor or building height.',
             'Residuals are in sample, including refreshed captures. Current is a dated collection cohort, not a representative fixed test panel.',
-            'Floor missingness, centering and threshold support change. Nonfloor columns, time design, group membership, priors and sampler are matched.',
+            'Floor missingness, centering and threshold support change. Nonfloor columns, time design, group membership and priors are matched. Explicit tree-depth and exact graph-execution changes are recorded separately.',
             'Building and unit movements identify cases for source review; residual improvement alone does not justify feature adoption.']}
     for f in (a,b):
         if digest(f['root']/'fit/posterior.nc') != f['provenance']['fit_manifest']['files']['posterior.nc']:
@@ -138,7 +152,7 @@ def build_comparison(reference,reference_dataset,candidate,dataset):
 
 
 def run(output,**kwargs):
-    modules = (shared,shared.report,shared.source,shared.common,shared.laundry,shared.floors,projection,floor)
+    modules = (shared,shared.report,shared.source,shared.common,shared.laundry,shared.floors,projection,floor,execution)
     paths = [Path(__file__),*[Path(m.__file__) for m in modules]]
     hashes = {p.name:digest(p) for p in paths}
     result,movements,groups,buildings = build_comparison(**kwargs)

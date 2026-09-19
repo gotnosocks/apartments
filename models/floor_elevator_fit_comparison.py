@@ -13,11 +13,12 @@ from . import quarantine_fit_comparison as shared
 from . import bayesian_floor_elevator_contract as contract
 from . import bayesian_floor_elevator_design as interaction
 from . import bayesian_category_contrasts as categories
+from . import bayesian_floor_execution as execution
 
 VERSION = 'matched-floor-elevator-fit-comparison-v1'
 VARIABLE = {'version', 'feature_design_version', 'base_feature_design_version', 'graph',
             'graph_verification', 'implementation_sha256', 'interaction_mode',
-            'interaction_prior_scale', 'interaction_thresholds', 'interaction_policy'}
+            'interaction_prior_scale', 'interaction_thresholds', 'interaction_policy', 'execution_graph'}
 ADDED_CODE = {'bayesian_floor_elevator_design.py', 'bayesian_floor_elevator_experiment.py',
               'bayesian_category_contrasts.py'}
 
@@ -33,9 +34,11 @@ def check_protocols(reference, candidate):
             or candidate.get('interaction_mode') not in ('pooled', 'separate')
             or not contract.positive(candidate.get('interaction_prior_scale'))):
         raise ValueError('Expected the baseline and explicit lower-floor interaction model')
-    if (not shared.disk.verify_protocol(reference) or not shared.disk.verify_protocol(candidate)
+    if (not execution.verify_protocol(reference) or not execution.verify_protocol(candidate)
             or reference.get('residual_scale') != 'shared'):
         raise ValueError('Matched durable shared-noise fits required')
+    if (reference.get('execution_graph',{}).get('version') != candidate.get('execution_graph',{}).get('version')):
+        raise ValueError('Exact graph execution strategy differs')
     if ({k:v for k,v in reference.items() if k not in VARIABLE}
             != {k:v for k,v in candidate.items() if k not in VARIABLE}):
         raise ValueError('Source, sampler, environment or unchanged model parameters differ')
@@ -172,7 +175,7 @@ def build_comparison(reference,candidate,dataset):
 
 def run(reference,candidate,dataset,output):
     result,movements,groups,buildings = build_comparison(reference,candidate,dataset)
-    modules=(shared,shared.report,shared.source,shared.common,shared.laundry,contract,interaction,categories)
+    modules=(shared,shared.report,shared.source,shared.common,shared.laundry,contract,interaction,categories,execution)
     publish_bundle(output,{'comparison.json':canonical(result)+'\n',
         'residual-movements.jsonl':''.join(canonical(r)+'\n' for r in movements),
         'raw-group-movements.jsonl':''.join(canonical(r)+'\n' for r in groups),

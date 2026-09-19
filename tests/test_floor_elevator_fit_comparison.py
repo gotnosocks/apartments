@@ -43,6 +43,19 @@ def test_comparison_confines_changes_to_interaction(fault):
     else:m.check_protocols(a,b)
 
 
+@pytest.mark.parametrize('fault',[None,'depth','missing_graph','bad_graph'])
+def test_matched_exact_execution_allows_distinct_feature_parity_proofs(fault):
+    a,b=protocols()
+    for p,sha in ((a,'a'),(b,'b')):
+        p.update(maxdepth=14,execution_graph={'version':m.execution.graph.VERSION,'parity_manifest_sha256':sha*64})
+    if fault=='depth':b['maxdepth']=12
+    elif fault=='missing_graph':del b['execution_graph']
+    elif fault=='bad_graph':b['execution_graph']['version']='surrogate'
+    if fault:
+        with pytest.raises(ValueError):m.check_protocols(a,b)
+    else:m.check_protocols(a,b)
+
+
 @pytest.fixture
 def fits(tmp_path):
     frame=data();base=m.interaction.floor.FeatureDesign(frame);added=m.interaction.FeatureDesign(frame)

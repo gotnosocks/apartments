@@ -419,7 +419,8 @@ def build_report(experiment, dataset, top=5):
     if not isinstance(top, int) or not 1 <= top <= 50:
         raise ValueError('Choose 1–50 cases per tail')
     experiment, dataset = Path(experiment), Path(dataset)
-    pm, pf = _verified_bundle(experiment/'protocol', retain={'protocol.json'})
+    pm, pf = _verified_bundle(experiment/'protocol', retain={'protocol.json',
+        'floor-block-parity.json', 'floor-block-parity-manifest.json'})
     protocol = json.loads(pf['protocol.json'])
     experiment_version = protocol.get('version')
     if experiment_version not in EXPERIMENT_VERSIONS or pm.get('version') != experiment_version:
@@ -432,6 +433,9 @@ def build_report(experiment, dataset, top=5):
     if experiment_version == EXPERIMENT_V5: required |= V5_REQUIRED
     from . import bayesian_disk_protocol as disk_protocol
     disk_execution = disk_protocol.verify_protocol(protocol)
+    from . import bayesian_floor_execution as execution
+    execution.verify_protocol(protocol)
+    block_execution = execution.verify_archived_proof(protocol, pf)
     if disk_execution:
         if protocol['implementation_sha256'].get('bayesian_disk_protocol.py') != digest(Path(disk_protocol.__file__)):
             raise ValueError('Disk protocol verifier differs from archived implementation')
@@ -439,6 +443,11 @@ def build_report(experiment, dataset, top=5):
     fm, ff = _verified_bundle(experiment/'fit', retain=(required-{'posterior.nc','time-design.npz'})|{'reporting-recovery.json','reporting-cache.json','floor-report-recovery.json','pre-floor-summary.json','bayesian_feature_experiment_v4.py'})
     if fm.get('version') != experiment_version or fm.get('protocol_sha256') != ph or not required <= fm['files'].keys():
         raise ValueError('Fit protocol mismatch or missing inference products')
+    if block_execution:
+        expected_design = json.loads(pf['floor-block-parity.json']).get('design_sha256', {})
+        actual_design = {name: sha for name, sha in fm['files'].items() if name.endswith('design.json')}
+        if not expected_design or expected_design != actual_design:
+            raise ValueError('Archived floor block proof differs from fitted design files')
     recovery = (verify_reporting_recovery(ph, fm, json.loads(ff['reporting-recovery.json']))
                 if 'reporting-recovery.json' in ff else None)
     report_cache = (verify_reporting_cache(protocol, ph, fm, json.loads(ff['reporting-cache.json']))
@@ -446,7 +455,7 @@ def build_report(experiment, dataset, top=5):
     if 'bayesian_report_cache.py' in fm['files'] and recovery is None and report_cache is None:
         raise ValueError('Missing reporting execution binding')
     if disk_execution:
-        disk_protocol.verify_products(protocol,json.loads(ff['storage.json']),
+        execution.verify_products(protocol,json.loads(ff['storage.json']),
             json.loads(ff['trace-manifest.json']),fm['files']['posterior.nc'])
     summary = json.loads(ff['summary.json'])
     floor_recovery = None
@@ -622,10 +631,13 @@ def html_report(report):
 
 def run(experiment, dataset, output, top=5):
     from . import bayesian_disk_protocol as disk_protocol
+    from . import bayesian_floor_execution as execution
     report, provenance = build_report(experiment, dataset, top)
     return publish_bundle(output, {'report.json': canonical(report)+'\n', 'report.html': html_report(report),
         'bayesian_feature_report.py': Path(__file__).read_text(),
         'bayesian_floor_elevator_contract.py': Path(interaction_contract.__file__).read_text(),
+        'bayesian_floor_execution.py': Path(execution.__file__).read_text(),
+        'bayesian_floor_block_graph.py': Path(execution.graph.__file__).read_text(),
         'reviewed_source_lineage.py': Path(reviewed_source_lineage.__file__).read_text(),
         'laundry_floor_split.py': Path(reviewed_source_lineage.laundry_floor_split.__file__).read_text(),
         'reviewed_cohort_quarantine.py': Path(reviewed_source_lineage.reviewed_cohort_quarantine.__file__).read_text(),

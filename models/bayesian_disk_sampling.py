@@ -13,6 +13,7 @@ import xarray as xr
 
 from apartments.corrections import canonical
 from apartments.research_pipeline import digest
+from . import bayesian_floor_execution as execution
 from .bayesian_sampling import SamplingProgress, write_status
 
 VERSION = 'bayesian-disk-sampling-v1'
@@ -136,12 +137,14 @@ def export_trace(trace, expected, output, *, max_bytes=MAX_BLOCK_BYTES):
 
 
 def sample_to_netcdf(model, *, output, trace_root, protocol_hash, draws, tune, chains,
-                     seed, adaptation, target_accept, status_path):
+                     seed, adaptation, target_accept, status_path, maxdepth=None, execution_graph=None):
     import nutpie
     output, trace_root = Path(output), Path(trace_root)
+    options=execution.execution_options({k:v for k,v in
+        {'maxdepth':maxdepth,'execution_graph':execution_graph}.items() if v is not None})
     expected = contract(model,chains=chains,draws=draws)
     identity = {'version':VERSION,'protocol_sha256':protocol_hash,'contract':expected,
-        'draws':draws,'tune':tune,'chains':chains,'seed':seed,'adaptation':adaptation,'target_accept':target_accept}
+        'draws':draws,'tune':tune,'chains':chains,'seed':seed,'adaptation':adaptation,'target_accept':target_accept,**options}
     complete = trace_root/'complete.json'; raw = trace_root/'raw.zarr'
     trace_root.mkdir(parents=True,exist_ok=True)
     if complete.exists():
@@ -159,12 +162,13 @@ def sample_to_netcdf(model, *, output, trace_root, protocol_hash, draws, tune, c
         trace = nutpie.sample(compiled,draws=draws,tune=tune,chains=chains,cores=min(chains,4),
             seed=seed,adaptation=adaptation,target_accept=target_accept,save_warmup=False,
             store_unconstrained=False,progress_bar=False,progress_callback=SamplingProgress(status_path),
-            progress_rate=5000,zarr_store=nutpie.zarr_store.LocalStore(str(raw)))
+            progress_rate=5000,**({'maxdepth':maxdepth} if maxdepth is not None else {}),zarr_store=nutpie.zarr_store.LocalStore(str(raw)))
         retained_groups(trace,expected)
         atomic_json(complete,{'identity':identity,'files':trace_files(raw)})
     try:
         write_status(status_path,'exporting_disk_trace')
         result = export_trace(trace,expected,output)
+        result.update(options)
         result['trace_manifest_sha256'] = digest(complete)
         atomic_json(output.with_name('storage.json'),result)
     finally:

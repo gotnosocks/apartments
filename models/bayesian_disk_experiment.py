@@ -5,6 +5,7 @@ trace storage. No mean, prior, likelihood or convergence rule is changed.
 """
 from __future__ import annotations
 
+import copy
 import fcntl
 import hashlib
 import importlib.metadata
@@ -22,21 +23,26 @@ from . import bayesian_disk_sampling as storage
 from . import bayesian_report_cache as report_cache
 
 from . import bayesian_disk_protocol as disk_protocol
+from . import bayesian_floor_execution as execution
 
 VERSION = disk_protocol.VERSION
 STORAGE_POLICY = disk_protocol.POLICY
 
 
 def implementation_paths(base):
-    return [*base.implementation_paths(),Path(storage.__file__),Path(disk_protocol.__file__),Path(__file__)]
+    return [*base.implementation_paths(),Path(storage.__file__),Path(disk_protocol.__file__),Path(__file__),*execution.implementation_paths()]
 
 
 def make_protocol(args,data,source,code,configuration):
     base = increments if args.floor_increments else linear
-    protocol = base.make_protocol(args,data,source,code,configuration)
+    common=copy.copy(args)
+    if getattr(args,'floor_block_graph_validation',None):
+        if not args.floor_increments:raise ValueError('Floor block graph requires floor increments')
+        common.graph_validation=None
+    protocol = base.make_protocol(common,data,source,code,configuration)
     protocol.update(execution_version=VERSION,storage_policy=STORAGE_POLICY,
         storage_versions={p:importlib.metadata.version(p) for p in ('zarr','obstore','xarray','h5py')})
-    return protocol
+    return execution.update_protocol(protocol,args,code)
 
 
 def run(args):
@@ -50,7 +56,7 @@ def run(args):
         configuration=base.graph.graph_configuration(data,args.prior_multiplier,**base.graph_kwargs(args))
         protocol=make_protocol(args,data,source,code,configuration)
         ph=hashlib.sha256(canonical(protocol).encode()).hexdigest()
-        publish_bundle(root/'protocol',{'protocol.json':canonical(protocol)+'\n',
+        publish_bundle(root/'protocol',{'protocol.json':canonical(protocol)+'\n',**execution.protocol_files(args),
             **{p.name:p.read_text() for p in paths}},{'version':base.VERSION,'protocol_sha256':ph})
         # Report execution is a separate immutable stage; its cache changes
         # neither the sampler protocol's mathematical model nor retained draws.
@@ -65,13 +71,14 @@ def run(args):
             if not {'storage.json','trace-manifest.json'}<=manifest['files'].keys():
                 raise ValueError('Disk fit is missing storage evidence')
             result=base.completed_fit(target,ph,configuration)
-            disk_protocol.verify_products(protocol,json.loads((target/'storage.json').read_text()),
+            execution.verify_products(protocol,json.loads((target/'storage.json').read_text()),
                 json.loads((target/'trace-manifest.json').read_text()),manifest['files']['posterior.nc'])
             return result
         base.v2.sampler.write_status(root/'progress.json','design',rows=len(data),execution_version=VERSION)
         design=(increments.floor.FeatureDesign(data,args.spec,floor_increment_prior_scale=args.floor_increment_prior_scale)
                 if args.floor_increments else linear.v2.feature.FeatureDesign(data,args.spec))
         design.save(target)
+        execution.verify_saved_design(args,target)
         (target/'graph-configuration.json').write_text(canonical(configuration)+'\n')
         checkpoint=target/'posterior-checkpoint.json'
         if checkpoint.exists():
@@ -79,7 +86,8 @@ def run(args):
                 raise ValueError('Invalid posterior checkpoint')
             inference=xr.open_datatree(target/'posterior.nc',engine='h5netcdf',cache=False)
         else:
-            model=base.graph.build_model(data,design,args.prior_multiplier,**base.graph_kwargs(args))
+            graph=execution.graph if 'execution_graph' in protocol else base.graph
+            model=graph.build_model(data,design,args.prior_multiplier,**base.graph_kwargs(args))
             if model.graph_configuration != configuration:raise ValueError('Built graph differs from protocol')
             (target/'compression.json').write_text(canonical(model.compression_summary)+'\n')
             names=['alpha','beta','sigma','sigma_building','sigma_unit','annual_drift']
@@ -90,7 +98,7 @@ def run(args):
             prior.to_netcdf(target/'prior.nc',engine='h5netcdf')
             inference=storage.sample_to_netcdf(model,output=target/'posterior.nc',trace_root=root/'trace',
                 protocol_hash=ph,draws=args.draws,tune=args.tune,chains=args.chains,seed=args.seed,
-                adaptation=args.adaptation,target_accept=args.target_accept,status_path=root/'progress.json')
+                adaptation=args.adaptation,target_accept=args.target_accept,status_path=root/'progress.json',**execution.sample_options(protocol))
             base.validate_posterior(inference,args,design,configuration)
             (target/'trace-manifest.json').write_bytes((root/'trace/complete.json').read_bytes())
             storage.atomic_json(checkpoint,{'protocol_sha256':ph,'posterior_sha256':digest(target/'posterior.nc')})
@@ -121,7 +129,7 @@ def run(args):
         if any(digest(p)!=code[p.name] for p in paths):raise ValueError('Implementation changed during disk experiment')
         if not base.REQUIRED_FIT|{'storage.json','trace-manifest.json','reporting-cache.json',cache_code.name} <= {p.name for p in target.iterdir()}:
             raise ValueError('Required disk inference products missing')
-        disk_protocol.verify_products(protocol,json.loads((target/'storage.json').read_text()),
+        execution.verify_products(protocol,json.loads((target/'storage.json').read_text()),
             json.loads((target/'trace-manifest.json').read_text()),digest(target/'posterior.nc'))
         base.v2.sampler.publish_fit(target,version=base.VERSION,protocol_hash=ph)
         base.v2.sampler.write_status(root/'progress.json','complete',status=result['status'])
@@ -132,6 +140,7 @@ def run(args):
 def argument_parser():
     parser=increments.argument_parser();parser.description=__doc__
     parser.add_argument('--floor-increments',action='store_true',help='Use v4 floor thresholds; otherwise preserve v3 mean design')
+    execution.add_arguments(parser)
     return parser
 
 

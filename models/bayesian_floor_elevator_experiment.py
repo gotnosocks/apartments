@@ -58,7 +58,7 @@ def make_protocol(args, data, source, code, configuration):
         graph='Exact repeated-feature compression with explicit lower-floor elevator interactions.',
         execution_version=disk.VERSION, storage_policy=disk.STORAGE_POLICY,
         storage_versions={p: importlib.metadata.version(p) for p in ('zarr', 'obstore', 'xarray', 'h5py')})
-    if args.graph_validation is not None:
+    if args.graph_validation is not None and not getattr(args,'floor_block_graph_validation',None):
         manifest, files = _verified_bundle(args.graph_validation, retain={'parity.json'})
         proof = json.loads(files['parity.json'])
         expected = {k: result[k] for k in ('source_manifest_sha256', 'source_observations_sha256',
@@ -73,7 +73,7 @@ def make_protocol(args, data, source, code, configuration):
             raise ValueError('Interaction graph proof implementation differs')
         result['graph_verification'] = {'manifest_sha256': digest(Path(args.graph_validation)/'complete.json'),
             'version': manifest['version'], 'rows': proof['rows']}
-    return result
+    return disk.execution.update_protocol(result,args,code)
 
 
 def construct_contrasts(design, data):
@@ -142,7 +142,7 @@ def completed_fit(target, protocol_hash, configuration):
 def run(args):
     base = previous
     validate_args(args)
-    if args.graph_validation is None:
+    if args.graph_validation is None and not getattr(args,'floor_block_graph_validation',None):
         raise ValueError('Full-cohort compiled interaction graph parity is required before sampling')
     root = Path(args.output);root.mkdir(exist_ok=True,parents=True)
     with (root/'.run.lock').open('a') as lock:
@@ -152,7 +152,7 @@ def run(args):
         configuration=base.graph.graph_configuration(data,args.prior_multiplier,**base.graph_kwargs(args))
         protocol=make_protocol(args,data,source,code,configuration)
         ph=hashlib.sha256(canonical(protocol).encode()).hexdigest()
-        publish_bundle(root/'protocol',{'protocol.json':canonical(protocol)+'\n',
+        publish_bundle(root/'protocol',{'protocol.json':canonical(protocol)+'\n',**disk.execution.protocol_files(args),
             **{p.name:p.read_text() for p in paths}},{'version':VERSION,'protocol_sha256':ph})
         # Report execution is a separate immutable stage; its cache changes
         # neither the sampler protocol's mathematical model nor retained draws.
@@ -167,13 +167,14 @@ def run(args):
             if not {'storage.json','trace-manifest.json'}<=manifest['files'].keys():
                 raise ValueError('Disk fit is missing storage evidence')
             result=completed_fit(target,ph,configuration)
-            disk_protocol.verify_products(protocol,json.loads((target/'storage.json').read_text()),
+            disk.execution.verify_products(protocol,json.loads((target/'storage.json').read_text()),
                 json.loads((target/'trace-manifest.json').read_text()),manifest['files']['posterior.nc'])
             return result
         base.v2.sampler.write_status(root/'progress.json','design',rows=len(data),execution_version=disk.VERSION)
         design=feature.FeatureDesign(data,args.spec,mode=args.interaction_mode,
             interaction_prior_scale=args.interaction_prior_scale,floor_increment_prior_scale=args.floor_increment_prior_scale)
         design.save(target)
+        disk.execution.verify_saved_design(args,target)
         (target/'graph-configuration.json').write_text(canonical(configuration)+'\n')
         checkpoint=target/'posterior-checkpoint.json'
         if checkpoint.exists():
@@ -181,7 +182,8 @@ def run(args):
                 raise ValueError('Invalid posterior checkpoint')
             inference=xr.open_datatree(target/'posterior.nc',engine='h5netcdf',cache=False)
         else:
-            model=base.graph.build_model(data,design,args.prior_multiplier,**base.graph_kwargs(args))
+            graph=disk.execution.graph if 'execution_graph' in protocol else base.graph
+            model=graph.build_model(data,design,args.prior_multiplier,**base.graph_kwargs(args))
             if model.graph_configuration != configuration:raise ValueError('Built graph differs from protocol')
             (target/'compression.json').write_text(canonical(model.compression_summary)+'\n')
             names=['alpha','beta','sigma','sigma_building','sigma_unit','annual_drift']
@@ -192,7 +194,7 @@ def run(args):
             prior.to_netcdf(target/'prior.nc',engine='h5netcdf')
             inference=storage.sample_to_netcdf(model,output=target/'posterior.nc',trace_root=root/'trace',
                 protocol_hash=ph,draws=args.draws,tune=args.tune,chains=args.chains,seed=args.seed,
-                adaptation=args.adaptation,target_accept=args.target_accept,status_path=root/'progress.json')
+                adaptation=args.adaptation,target_accept=args.target_accept,status_path=root/'progress.json',**disk.execution.sample_options(protocol))
             base.validate_posterior(inference,args,design,configuration)
             (target/'trace-manifest.json').write_bytes((root/'trace/complete.json').read_bytes())
             storage.atomic_json(checkpoint,{'protocol_sha256':ph,'posterior_sha256':digest(target/'posterior.nc')})
@@ -223,7 +225,7 @@ def run(args):
         if any(digest(p)!=code[p.name] for p in paths):raise ValueError('Implementation changed during disk experiment')
         if not REQUIRED_FIT|{'storage.json','trace-manifest.json','reporting-cache.json',cache_code.name} <= {p.name for p in target.iterdir()}:
             raise ValueError('Required disk inference products missing')
-        disk_protocol.verify_products(protocol,json.loads((target/'storage.json').read_text()),
+        disk.execution.verify_products(protocol,json.loads((target/'storage.json').read_text()),
             json.loads((target/'trace-manifest.json').read_text()),digest(target/'posterior.nc'))
         base.v2.sampler.publish_fit(target,version=VERSION,protocol_hash=ph)
         base.v2.sampler.write_status(root/'progress.json','complete',status=result['status'])
@@ -237,6 +239,7 @@ def argument_parser():
     parser.set_defaults(draws=6000, tune=4000, seed=20260924)
     parser.add_argument('--interaction-mode', choices=feature.MODES, default='pooled')
     parser.add_argument('--interaction-prior-scale', type=float, default=.15)
+    disk.execution.add_arguments(parser)
     return parser
 
 

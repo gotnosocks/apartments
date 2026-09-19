@@ -41,6 +41,26 @@ def test_protocol_allows_only_floor_support_and_source_loaders(fault):
     else:assert set(m.check_protocols(a,b))==m.LOADER_CODE & a['implementation_sha256'].keys()
 
 
+@pytest.mark.parametrize('fault',[None,'invalid_depth','bad_graph','math','unrecorded_execution','draw_count'])
+def test_explicit_execution_change_preserves_statistical_comparison(fault):
+    a,b=protocols()
+    b.update(maxdepth=14,execution_graph={'version':m.execution.graph.VERSION,'parity_manifest_sha256':'a'*64})
+    b['implementation_sha256'].update({name:'added' for name in m.EXECUTION_ADDED})
+    for name in m.EXECUTION_CODE & a['implementation_sha256'].keys():
+        b['implementation_sha256'][name]='new_execution'
+    if fault=='invalid_depth':b['maxdepth']=True
+    elif fault=='bad_graph':b['execution_graph']['version']='approximate'
+    elif fault=='math':b['implementation_sha256']['bayesian_floor_increment_design.py']='changed'
+    elif fault=='unrecorded_execution':
+        del b['maxdepth'];del b['execution_graph']
+    elif fault=='draw_count':b['draws']+=1
+    if fault:
+        with pytest.raises(ValueError):m.check_protocols(a,b)
+    else:
+        changed=set(m.check_protocols(a,b))
+        assert changed <= m.LOADER_CODE | m.EXECUTION_CODE
+
+
 @pytest.fixture
 def fits(tmp_path):
     a=data();b=a.copy();b.loc[b.advertised_floor.isna(),'advertised_floor']=7.
