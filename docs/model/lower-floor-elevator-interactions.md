@@ -80,11 +80,10 @@ on a small deterministic fixture for each candidate. These are correctness tests
 not sampling or speed benchmarks. The full-source design audit is
 `data/model/chelsea-lower-floor-elevator-design-audit-20260919`.
 
-The candidates have **not been sampled or integrated into the main reporting or
-counterfactual loaders**. A dedicated versioned disk experiment and joint-contrast
-reporting are now implemented as described below. After completing the elevator
-source-refit comparison and full-cohort compiled graph parity, fit the one-term
-candidate first. Evaluate the three-term alternative only as a declared complexity
+The candidates are integrated into the reporting, source-reconstruction, category,
+posterior-check and counterfactual readers. The elevator source-refit comparison
+is complete and its corrected baseline is selected. Fit the one-term candidate
+first after refreshing the compiled proof for the integrated code. Evaluate the three-term alternative only as a declared complexity
 comparison. Keep the accepted main selection until those results earn a change.
 
 
@@ -124,12 +123,63 @@ Full-source compiled verification completed successfully in session **84178**.
 The pooled candidate uses 52,653 rows, 60 feature columns and 23,426 unconstrained
 gradient parameters. At three checked points, maximum full/reference-versus-
 compressed discrepancies are **1.46e-11 in log density** and **7.57e-10 in any
-gradient component**. Every checked value is finite. Current implementation hashes
-still match the proof.
+gradient component**. Every checked value is finite. That archived proof binds the earlier implementation. Reader integration adds a
+forwarded floor-threshold property and extends the category analysis entry point;
+a refreshed full-cohort proof now passes for the integrated version.
 
 The artifact is `data/model/chelsea-pooled-floor-elevator-graph-parity-20260919`;
 log `/tmp/chelsea-pooled-floor-elevator-graph.log`. Compilation and first invocation
 are separated from warm evaluations. This proves numerical equivalence at the
 checked points; it is not posterior evidence or a sampling-speed comparison.
-No new sampler has been launched. The main model and its live reporting dependencies
-remain unchanged; complete the source-refit comparison before the next model fit.
+No candidate is selected merely because its fit finishes. The accepted elevator-
+corrected baseline remains the main model until the comparison below is reviewed.
+
+## Reader integration and evaluation plan
+
+The versioned loader rejects base-only loading whenever an interaction design is
+present. Source reconstruction independently rebuilds all four saved design files,
+including centered interaction columns, their order and their priors. Read-only
+report validation recomputes endpoint support and each joint contrast vector.
+The displayed interaction-difference percentage is a ratio of floor-change
+multipliers, not subtraction of percentage effects.
+
+Apartment detail groups the interaction contribution explicitly. Counterfactuals
+re-encode both the floor main terms and the interaction using the same joint beta
+draws. Changing either floor or elevator also checks their joint endpoint support;
+separate marginal support is insufficient. Unknown access still follows the
+stated midpoint convention and is not recoded as physical absence. An unsupported
+joint endpoint withholds physical counterfactual intervals. Report tables can
+show such model extrapolations, clearly labeled.
+
+Eight integration tests cover both candidate modes using actual saved designs and
+synthetic joint posterior draws, with deliberately correlated main/interaction
+coefficients. They check additive contributions, covariance cancellation, unknown
+version/base-only rejection, rehashed centering corruption, missing joint support,
+category analysis and posterior predictive readers. These are correctness tests,
+not evidence about an apartment feature. Legacy reader checks also pass, and the
+selected 52,653-row real baseline still passes report validation and exact source
+design reconstruction.
+
+Evaluate the pooled fit against that same-source baseline before considering the
+three-term alternative:
+
+1. Require complete retained chains and parameter, unit/bathroom and new joint
+   floor/access diagnostics. Do not treat successful execution as an accepted fit.
+2. Compare the pooled interaction's posterior with its stated prior, and show joint
+   2→3, 3→4, 4→5 and 2→5 effects at each known access state. Preserve covariance;
+   do not add independently computed credible-interval endpoints.
+3. Compare fitted residuals on identical observations, separating known-floor
+   no/yes/unknown access, current captures and opposing-claim buildings. Review
+   large building/unit contribution movements against source evidence.
+4. Keep in-sample residual improvement descriptive. More parameters can absorb
+   noise, and building/unit shrinkage can allocate weakly identified floor effects.
+   Current captures participate in both fits; this is not a held-out prediction test.
+5. Any apparent meaningful interaction needs prior sensitivity and a review of
+   its dependence on sparse or conflicting source cells before main-model adoption.
+   A near-zero or prior-dominated coefficient argues for retaining the simpler
+   baseline; a credible interval excluding zero alone does not establish causality.
+
+Refreshed proof: `data/model/chelsea-pooled-floor-elevator-reader-parity-20260919`
+(session 66667, successful exit). All 52,653 observations and 60 feature columns
+were retained. Maximum tested log-density difference is 1.46e-11; maximum gradient
+difference is 7.57e-10. It binds the integrated design/category implementation.

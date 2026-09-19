@@ -21,6 +21,7 @@ VERSION = 'bayesian-feature-posterior-checks-v3'
 V2_EXPERIMENT = 'observable-bayesian-bathroom-experiment-v2'
 V3_EXPERIMENT = 'observable-bayesian-bathroom-experiment-v3'
 V4_EXPERIMENT = 'observable-bayesian-floor-experiment-v4'
+V5_EXPERIMENT = 'observable-bayesian-floor-elevator-experiment-v5'
 BEDROOM_DIMS = {'residual_bedroom_z': ('residual_bedroom',),
                 'residual_bedroom_scale': (), 'sigma_by_bedroom': ('residual_bedroom',)}
 LIMITATIONS = [*common.LIMITATIONS,
@@ -37,7 +38,7 @@ def verified_configuration(protocol, data, fit_directory):
             raise ValueError('Legacy v2 fit cannot declare v3 noise or prior settings')
         # V2 mean/noise graph is frozen and checked by verify_implementation.
         return graph.graph_configuration(data, protocol['prior_multiplier'])
-    if version not in (V3_EXPERIMENT,V4_EXPERIMENT):
+    if version not in (V3_EXPERIMENT,V4_EXPERIMENT,V5_EXPERIMENT):
         raise ValueError('Unsupported posterior experiment version')
     try:
         expected = graph.graph_configuration(data, protocol['prior_multiplier'],
@@ -53,13 +54,17 @@ def verified_configuration(protocol, data, fit_directory):
 
 
 def verify_implementation(protocol):
-    if protocol.get('version') in (V3_EXPERIMENT,V4_EXPERIMENT):
+    if protocol.get('version') in (V3_EXPERIMENT,V4_EXPERIMENT,V5_EXPERIMENT):
         required = {'bayesian_feature_graph_v3.py', 'bayesian_feature_experiment_v3.py'}
         if not required <= protocol['implementation_sha256'].keys():
             raise ValueError('Missing v3 graph/runner implementation bindings')
     if protocol.get('version') == V4_EXPERIMENT:
         if not {'bayesian_floor_increment_design.py','bayesian_feature_experiment_v4.py'} <= protocol['implementation_sha256'].keys():
             raise ValueError('Missing v4 floor design/runner implementation bindings')
+    if protocol.get('version') == V5_EXPERIMENT:
+        if not {'bayesian_floor_increment_design.py', 'bayesian_floor_elevator_design.py',
+                'bayesian_floor_elevator_experiment.py'} <= protocol['implementation_sha256'].keys():
+            raise ValueError('Missing v5 interaction implementation bindings')
     return common.verify_implementation(protocol)
 
 
@@ -153,7 +158,7 @@ def run(experiment, dataset, output, *, per_chain=50, seed=20260919):
     check_hashes = {path: digest(path) for path in check_paths}
     verified, manifests = report.build_report(experiment, dataset, top=1)
     protocol = json.loads((experiment/'protocol'/'protocol.json').read_text())
-    if protocol['version'] == V4_EXPERIMENT:
+    if protocol['version'] in (V4_EXPERIMENT,V5_EXPERIMENT):
         from . import bayesian_source_sensitivity as verification
         from threadpoolctl import threadpool_limits
         path = Path(verification.__file__)
@@ -199,7 +204,7 @@ def run(experiment, dataset, output, *, per_chain=50, seed=20260919):
     snapshots = {Path(module.__file__).name: Path(module.__file__).read_text()
                  for module in (common, ordered_design, graph, report)}
     snapshots[Path(__file__).name] = Path(__file__).read_text()
-    if protocol['version'] == V4_EXPERIMENT:
+    if protocol['version'] in (V4_EXPERIMENT,V5_EXPERIMENT):
         snapshots[Path(verification.__file__).name] = Path(verification.__file__).read_text()
     publish_bundle(output, {'checks.json': canonical(result)+'\n', 'checks.md': markdown, **snapshots},
                    {'version': VERSION, 'protocol_sha256': verified['protocol_sha256']})

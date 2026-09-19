@@ -128,12 +128,12 @@ def markdown(result):
 def verify_contrast_dependencies(experiment, dataset, protocol, manifests):
     """Verify the math used here without requiring an unchanged sampling launcher.
 
-    V4 category contrasts only multiply archived beta draws by reconstructed
+    V4/v5 category contrasts only multiply archived beta draws by reconstructed
     design differences. Source, posterior and protocol bundles are already bound
     by build_report; every transitive design dependency and saved design is then
     independently checked by source reconstruction. No sampler is rerun here.
     """
-    if protocol['version'] != checks.V4_EXPERIMENT:
+    if protocol['version'] not in (checks.V4_EXPERIMENT,checks.V5_EXPERIMENT):
         return checks.verify_implementation(protocol), None
     from . import bayesian_source_sensitivity as verification
     from threadpoolctl import threadpool_limits
@@ -153,7 +153,7 @@ def run(experiment,dataset,output):
     _,source=_verified_bundle(dataset,retain={'observations.jsonl'})
     data=pd.DataFrame(report.jsonl(source['observations.jsonl']))
     data.period=pd.to_datetime(data.period);data.square_feet=pd.to_numeric(data.square_feet,errors='coerce')
-    if protocol['version']==checks.V4_EXPERIMENT:
+    if protocol['version'] in (checks.V4_EXPERIMENT,checks.V5_EXPERIMENT):
         from . import bayesian_source_sensitivity as verification
         path=Path(verification.__file__);paths.append(path);code[path.name]=digest(path)
     design=loader.load_design(experiment/'fit',data,protocol)

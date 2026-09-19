@@ -6,6 +6,7 @@ saved active-column positions, means, or posterior beta draws.
 """
 from __future__ import annotations
 
+from pathlib import Path
 import numpy as np
 
 from .bayesian_feature_model import FeatureDesign, amenity
@@ -14,6 +15,24 @@ VERSION = 'ordered-bayesian-feature-design-loader-v2'
 
 
 def load_design(root, data, protocol=None):
+    from . import bayesian_floor_elevator_contract as interaction_contract
+    if protocol and protocol.get('version') == interaction_contract.EXPERIMENT:
+        from . import bayesian_floor_elevator_design as interaction
+        design = interaction.FeatureDesign.load(root)
+        if (protocol.get('feature_design_version') != interaction.VERSION
+                or protocol.get('base_feature_design_version') != interaction.floor.VERSION
+                or protocol.get('interaction_mode') != design.mode
+                or protocol.get('interaction_prior_scale') != design.interaction_prior_scale
+                or protocol.get('interaction_thresholds') != list(interaction.THRESHOLDS)
+                or protocol.get('interaction_policy') != interaction_contract.POLICY
+                or protocol.get('floor_increment_prior_scale') != design.base.floor_increment_prior_scale
+                or protocol.get('floor_levels') != design.floor_levels
+                or protocol.get('floor_thresholds') != design.floor_thresholds):
+            raise ValueError('Saved interaction design differs from protocol')
+        design.matrix(data.iloc[:1])
+        return design
+    if (Path(root)/'interaction-design.json').exists():
+        raise ValueError('Interaction design requires explicit v5 protocol; base-only loading is unsafe')
     if protocol and protocol.get('version') == 'observable-bayesian-floor-experiment-v4':
         from . import bayesian_floor_increment_design as floor
         if protocol.get('feature_design_version') != floor.VERSION:

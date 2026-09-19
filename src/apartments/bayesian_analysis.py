@@ -244,6 +244,7 @@ class BayesianAnalysis:
         saved = self._residuals[audit_id]
         contributions = [{'term': name, 'mean_log_contribution': float(value.mean()),
             'kind': ('reporting' if 'unknown' in name or 'missing' in name else
+                     'floor_elevator' if name.startswith('feature:floor_elevator_') else
                      'encoded_feature' if name.startswith('feature:') else name)} for name, value in terms.items()]
         grouped, grouped_draws = {}, {}
         for item in contributions:
@@ -293,6 +294,8 @@ class BayesianAnalysis:
             warnings.append('Listed-floor increments compare observed labels; gaps and sparse same-building support limit interpretation. They do not measure physical height.')
         else:
             warnings.append('This accepted fit uses linear standardized floor terms and configured interactions; encoded log contributions are not per-floor prices.')
+        if getattr(self, 'protocol', {}).get('version') == report.EXPERIMENT_V5:
+            warnings.append('The floor/elevator interaction varies only across floors 2–5 and then saturates. Unknown access uses the midpoint convention; marginal endpoint support does not establish joint support.')
         if report.composition(row) is None:
             warnings.append('Full/half bathroom composition is unknown or disputed; missing evidence is not zero.')
         if pricing._numeric_feature('square_feet', row.get('square_feet')) is None:
@@ -397,6 +400,18 @@ class BayesianAnalysis:
         unsupported = any(support[endpoint]['layout']['rows'] == 0 for endpoint in ('before', 'after'))
         if unsupported:
             warnings.append('The hypothetical bedroom/full/half endpoint has no observed layout support.')
+        if (getattr(self, 'protocol', {}).get('version') == report.EXPERIMENT_V5
+                and {'listed_floor', 'elevator'} & normalized.keys()):
+            for endpoint, record in (('before', before), ('after', after)):
+                floor, access = self._value(record, 'listed_floor'), self._value(record, 'elevator')
+                matching = [r for r in self._source if floor is not None and access is not None
+                            and self._value(r, 'listed_floor') == floor and self._value(r, 'elevator') == access]
+                support[endpoint]['floor_elevator'] = {'listed_floor': floor, 'elevator': access,
+                                                       **report.support(matching)}
+                if not matching:
+                    unsupported = True
+            if any(not support[e]['floor_elevator']['rows'] for e in ('before', 'after')):
+                warnings.append('A joint listed-floor/elevator endpoint has no observed known-access support.')
         size = pricing._number(after.get('square_feet')); limits = support['after']['area_observed_range']
         if size is not None and limits and not limits[0] <= size <= limits[1]:
             warnings.append('Hypothetical area is outside the observed training range.')

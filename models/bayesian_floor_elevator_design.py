@@ -114,6 +114,10 @@ class FeatureDesign:
     def floor_levels(self):
         return self.base.floor_levels
 
+    @property
+    def floor_thresholds(self):
+        return self.base.floor_thresholds
+
     def matrix(self, data):
         # The base rejects unsupported known floor labels before extrapolation.
         return np.column_stack([self.base.matrix(data), raw_interactions(data, self.mode)-self.interaction_means])

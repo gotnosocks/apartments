@@ -17,12 +17,14 @@ import statistics
 from apartments.corrections import canonical
 from apartments.research_pipeline import _verified_bundle, digest, publish_bundle
 from apartments import reviewed_source_lineage
+from . import bayesian_floor_elevator_contract as interaction_contract
 
 VERSION = 'verified-bayesian-feature-report-v2'
 EXPERIMENT_VERSION = 'observable-bayesian-bathroom-experiment-v2'
 EXPERIMENT_V3 = 'observable-bayesian-bathroom-experiment-v3'
 EXPERIMENT_V4 = 'observable-bayesian-floor-experiment-v4'
-EXPERIMENT_VERSIONS = {EXPERIMENT_VERSION, EXPERIMENT_V3, EXPERIMENT_V4}
+EXPERIMENT_V5 = interaction_contract.EXPERIMENT
+EXPERIMENT_VERSIONS = {EXPERIMENT_VERSION, EXPERIMENT_V3, EXPERIMENT_V4, EXPERIMENT_V5}
 DATASET_VERSIONS = {'reported-bathroom-counts-projection-v1', 'reviewed-bathroom-counts-projection-v1',
                     'reviewed-scope-composition-projection-v2', 'reviewed-capture-refreshed-analysis-v1'} | reviewed_source_lineage.VERSIONS
 REQUIRED = {'summary.json', 'diagnostics.json', 'derived-diagnostics.json', 'bathroom-contrasts.json',
@@ -30,6 +32,7 @@ REQUIRED = {'summary.json', 'diagnostics.json', 'derived-diagnostics.json', 'bat
             'time-design.json', 'time-design.npz', 'posterior.nc'}
 V3_REQUIRED = {'graph-configuration.json', 'residual-scales.json'}
 V4_REQUIRED = {'floor-contrasts.json'}
+V5_REQUIRED = {'interaction-design.json', 'floor-elevator-contrasts.json', 'floor-elevator-diagnostics.csv'}
 FLOOR_INTERPRETATION = 'Joint floor-feature component contrasts, holding other encoded terms fixed. All retained draws; unconstrained signs. Not causal, not physical-height effects, and sparse overlap remains explicit.'
 LIMITATIONS = [
     'Conditional posterior associations depend on the cohort, advertised source measurements, likelihood and priors. They are not causal renovation values or personal willingness to pay.',
@@ -424,8 +427,9 @@ def build_report(experiment, dataset, top=5):
     ph = hashlib.sha256(canonical(protocol).encode()).hexdigest()
     if pm.get('protocol_sha256') != ph or any(pm['files'].get(name) != value for name, value in protocol['implementation_sha256'].items()):
         raise ValueError('Invalid protocol or archived implementation binding')
-    required = REQUIRED | (V3_REQUIRED if experiment_version in (EXPERIMENT_V3,EXPERIMENT_V4) else set())
+    required = REQUIRED | (V3_REQUIRED if experiment_version in (EXPERIMENT_V3,EXPERIMENT_V4,EXPERIMENT_V5) else set())
     if experiment_version == EXPERIMENT_V4: required |= V4_REQUIRED
+    if experiment_version == EXPERIMENT_V5: required |= V5_REQUIRED
     from . import bayesian_disk_protocol as disk_protocol
     disk_execution = disk_protocol.verify_protocol(protocol)
     if disk_execution:
@@ -472,10 +476,13 @@ def build_report(experiment, dataset, top=5):
             or len({(r['unit_id'],r['period']) for r in rows}) != len(rows)):
         raise ValueError('Cohort counts or membership differ from protocol')
     noise = None
-    if experiment_version in (EXPERIMENT_V3,EXPERIMENT_V4):
+    if experiment_version in (EXPERIMENT_V3,EXPERIMENT_V4,EXPERIMENT_V5):
         noise = verify_residual_scales(protocol, json.loads(ff['graph-configuration.json']),
                                        json.loads(ff['residual-scales.json']), rows)
     design, time_design = (json.loads(ff[name]) for name in ('feature-design.json','time-design.json'))
+    if experiment_version == EXPERIMENT_V5:
+        design = interaction_contract.merge_design(protocol, design,
+            json.loads(ff['interaction-design.json']), rows, summary)
     if (design['spec'] != protocol['specification'] or design['support'] != summary['design_support']
             or design['support']['rows'] != len(rows)
             or set(time_design['buildings']) != {r['building'] for r in rows}
@@ -486,6 +493,9 @@ def build_report(experiment, dataset, top=5):
         raise ValueError('Bathroom knownness differs from saved design')
     floors = (verify_floor_contrasts(protocol,design,json.loads(ff['floor-contrasts.json']),rows,summary)
               if experiment_version == EXPERIMENT_V4 else None)
+    floor_elevator = (interaction_contract.verify_contrasts(protocol, design,
+        json.loads(ff['floor-elevator-contrasts.json']), rows, summary, check_interval)
+        if experiment_version == EXPERIMENT_V5 else None)
     contrasts = verify_contrasts(json.loads(ff['bathroom-contrasts.json']), rows, summary)
     coefficients = coefficient_tables(json.loads(ff['coefficients.json']), design)
     groups = group_rankings(jsonl(ff['group-effects.jsonl']), rows, top)
@@ -498,9 +508,12 @@ def build_report(experiment, dataset, top=5):
     method.update(residual_scale=protocol['residual_scale'] if noise else 'shared',
                   building_prior_scale=protocol['building_prior_scale'] if noise else .35,
                   unit_prior_scale=protocol['unit_prior_scale'] if noise else .25)
-    if floors is not None:
+    if floors is not None or floor_elevator is not None:
         method.update(feature_design_version=protocol['feature_design_version'],
                       floor_increment_prior_scale=protocol['floor_increment_prior_scale'])
+    if floor_elevator is not None:
+        method.update({k: protocol[k] for k in ('interaction_mode', 'interaction_prior_scale',
+                                               'interaction_thresholds', 'interaction_policy')})
     return {'version': VERSION, 'experiment_version': experiment_version, 'status': summary['status'], 'protocol_sha256': ph,
             'reporting_recovery': recovery,
             'reporting_cache': report_cache,
@@ -513,6 +526,7 @@ def build_report(experiment, dataset, top=5):
                        'bathroom_composition_unknown': len(rows)-known},
             'method': method, 'graph_configuration': noise['graph_configuration'] if noise else None,
             'residual_scales': noise, **({'floors':floors} if floors is not None else {}),
+            **({'floor_elevator': floor_elevator} if floor_elevator is not None else {}),
             'diagnostics': {'parameters': parameters, 'derived': derived},
             'bathrooms': contrasts, 'coefficients': coefficients, 'group_rankings': groups,
             'residual_cases': cases, 'current_residuals': current,
@@ -540,7 +554,7 @@ def html_report(report):
     body = '<h1>Chelsea rental pricing: Bayesian feature research</h1>'
     body += '<p class="lede">Source-supported bathroom comparisons, group offsets and fitted residuals. All intervals below are 95% posterior credible intervals conditional on this model and its source data.</p>'
     body += '<p>'+e(f"{c['rows']:,} observations · {c['units']:,} units · {c['buildings']:,} buildings · {c['current_rows']} current captures. Bathroom composition known for {c['bathroom_composition_known']:,}; unknown or flagged for {c['bathroom_composition_unknown']:,}.")+'</p>'
-    body += '<p><strong>Both parameter and derived diagnostics passed.</strong> This remains exploratory descriptive research. The main serving model is unchanged.</p>'
+    body += '<p><strong>Both parameter and derived diagnostics passed.</strong> This remains exploratory descriptive research. Report generation does not select the main model.</p>'
     body += heading('Residual variation', 'Residual-scale mode: '+report['method']['residual_scale']+'. Fitted-rent intervals remain uncertainty in the latent conditional median.')
     if report['residual_scales'] is not None:
         noise = report['residual_scales']
@@ -567,6 +581,21 @@ def html_report(report):
               counts(r['support_lower']),counts(r['support_upper']),
               r['adjacent_overlap']['shared_buildings'] if r['adjacent_overlap'] is not None else 'Range contrast']
              for r in floors['contrasts']])
+    if report.get('floor_elevator') is not None:
+        joint = report['floor_elevator']
+        body += heading('Listed floor by elevator access', joint['policy'])
+        body += '<p>These intervals use every joint coefficient draw, including covariance. Endpoint support is not evidence of matched apartments; unknown access follows the midpoint convention.</p>'
+        body += table(['Floor before → after','Elevator','Component change, 95% CrI','Before rows / units / buildings',
+                       'After rows / units / buildings','Endpoint evidence'],
+            [[f"{r['lower_floor']:g} → {r['upper_floor']:g}", 'Yes' if r['elevator'] else 'No',
+              interval(r['percent_effect'],True),counts(r['support_before']),counts(r['support_after']),
+              'Both observed' if r['supported_endpoints'] else 'Unobserved floor/access endpoint; model extrapolation']
+             for r in joint['contrasts'] if r['kind'] == 'floor_change_at_known_access'])
+        body += heading('Does the floor change differ with elevator access?',
+            'Elevator minus no-elevator change in log rent. Percentage values describe the ratio of floor-change multipliers, not subtraction of percentage premiums.')
+        body += table(['Floor before → after','Difference in log changes, 95% CrI','Ratio change, 95% CrI'],
+            [[f"{r['lower_floor']:g} → {r['upper_floor']:g}",interval(r['log_effect']),interval(r['percent_effect'],True)]
+             for r in joint['contrasts'] if r['kind'] == 'elevator_minus_no_elevator_floor_change'])
     body += heading('Encoded coefficients',report['coefficients']['interpretation'])
     for name,title in [('encoded_value_coefficients','Numeric/layout parameter diagnostics'),('reporting_coefficients','Reporting and missingness associations')]:
         body += '<h3>'+e(title)+'</h3>'+table(['Encoded feature','Log coefficient, 95% CrI','Encoded unit and interpretation'],
@@ -594,6 +623,7 @@ def run(experiment, dataset, output, top=5):
     report, provenance = build_report(experiment, dataset, top)
     return publish_bundle(output, {'report.json': canonical(report)+'\n', 'report.html': html_report(report),
         'bayesian_feature_report.py': Path(__file__).read_text(),
+        'bayesian_floor_elevator_contract.py': Path(interaction_contract.__file__).read_text(),
         'reviewed_source_lineage.py': Path(reviewed_source_lineage.__file__).read_text(),
         'laundry_floor_split.py': Path(reviewed_source_lineage.laundry_floor_split.__file__).read_text(),
         'reviewed_cohort_quarantine.py': Path(reviewed_source_lineage.reviewed_cohort_quarantine.__file__).read_text(),

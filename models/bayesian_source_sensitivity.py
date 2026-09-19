@@ -29,6 +29,12 @@ def reconstruction_dependencies(protocol=None):
     from . import bayesian_feature_model as feature
     paths = [Path(module.__file__) for module in
         (feature, feature.base, feature.amenity, feature.amenity.baseline, feature.pricing)]
+    if protocol and protocol.get('version') == 'observable-bayesian-floor-elevator-experiment-v5':
+        from . import bayesian_floor_elevator_design as interaction
+        if (protocol.get('feature_design_version') != interaction.VERSION
+                or protocol.get('base_feature_design_version') != interaction.floor.VERSION):
+            raise ValueError('Unsupported interaction reconstruction version')
+        return interaction, [*paths, Path(interaction.floor.__file__), Path(interaction.__file__)]
     if protocol and protocol.get('version') == 'observable-bayesian-floor-experiment-v4':
         from . import bayesian_floor_increment_design as floor
         if protocol.get('feature_design_version') != floor.VERSION:
@@ -70,14 +76,18 @@ def verify_design(experiment, dataset, protocol, provenance):
             or data.duplicated(['unit_id','period']).any()
             or not np.isfinite(data.asking_rent).all() or not data.asking_rent.gt(0).all()):
         raise ValueError('Invalid design reconstruction source cohort')
-    saved = {name:comparison.bound_bytes(experiment/'fit',name,fm) for name in comparison.DESIGNS}
+    interaction = protocol.get('version') == 'observable-bayesian-floor-elevator-experiment-v5'
+    design_files = set(comparison.DESIGNS) | ({'interaction-design.json'} if interaction else set())
+    saved = {name:comparison.bound_bytes(experiment/'fit',name,fm) for name in design_files}
     arrays = {}
     with tempfile.TemporaryDirectory(prefix='apartments-design-verification-') as temporary:
         fresh = Path(temporary)
         kwargs = ({'floor_increment_prior_scale':protocol['floor_increment_prior_scale']}
-                  if protocol.get('version') == 'observable-bayesian-floor-experiment-v4' else {})
+                  if interaction or protocol.get('version') == 'observable-bayesian-floor-experiment-v4' else {})
+        if interaction:
+            kwargs.update(mode=protocol['interaction_mode'], interaction_prior_scale=protocol['interaction_prior_scale'])
         feature.FeatureDesign(data,protocol['specification'],**kwargs).save(fresh)
-        for name in ('feature-design.json','time-design.json'):
+        for name in sorted(design_files-{'time-design.npz'}):
             if canonical(json.loads(saved[name])) != canonical(json.loads((fresh/name).read_bytes())):
                 raise ValueError('Saved design differs from exact source reconstruction: '+name)
         with np.load(io.BytesIO(saved['time-design.npz']),allow_pickle=False) as actual, \
@@ -96,7 +106,7 @@ def verify_design(experiment, dataset, protocol, provenance):
     return {'verified':True,'source_manifest_sha256':protocol['source_manifest_sha256'],
         'source_observations_sha256':protocol['source_observations_sha256'],'rows':len(data),
         'implementation_sha256':{path.name:code[path.name] for path in paths},'versions':versions,
-        'design_sha256':{name:fm['files'][name] for name in comparison.DESIGNS},
+        'design_sha256':{name:fm['files'][name] for name in sorted(design_files)},
         'time_arrays':arrays,'comparison':'All JSON semantics equal; exact named NPZ array contents, dtypes and shapes.'}
 
 
