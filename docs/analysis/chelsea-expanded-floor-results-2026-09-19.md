@@ -3,7 +3,10 @@
 The floor-only test is complete and diagnostic-accepted. It substantially
 improves measurement and identifies a gradual cumulative floor association,
 while changing typical fitted rents very little. The matched floor/elevator
-interaction is still running; main-model selection is pending that comparison.
+interaction is still running. Promotion is deferred after the
+[model geometry and specification review](chelsea-floor-model-geometry-review-2026-09-19.md):
+passing convergence checks is insufficient to justify this parameterization
+and its floor priors.
 
 This is the captured Chelsea cohort, not a citywide representative sample.
 The source contains 52,653 asking-price observations from 22,155 units and
@@ -128,8 +131,13 @@ floor contradiction. Important findings remain:
 - **A concrete price-basis conflict appears in Chelsea Centro #17I.** Its
   explicit floor 17 is corroborated. Target $4,040 matches the net rent in the
   lease-assignment description, which separately says gross $4,446 and names
-  a tenant incentive (3091654). Review its own dated price event and lease
-  terms before a correction. Its fitted value rises from $4,238 to $4,748;
+  a tenant incentive (3091654). A subsequent own-payload check confirms
+  structured price $4,040 and a June 23, 2020 price-change event at that amount;
+  every own-ad rental-history event, including its first ACTIVE event on
+  June 24, also reports $4,040 in both archived captures. The structured
+  `netEffectiveRent` field is null. The review recommends quarantining this
+  row from the gross-ask cohort in the next projection until explicit dated
+  gross-price and lease-assignment handling is applied. Its fitted value rises from $4,238 to $4,748;
   that estimate is not evidence for the true advertised price.
 - **A concrete bathroom conflict appears in Beatrice PHB.** Ad 1893537 has
   structured 4 full + 1 half bathrooms but describes three and a half bathrooms
@@ -164,6 +172,16 @@ hashes and each own raw-listing hash. Only property-address and property-history
 fields support identity; the broker-license address is not an apartment floor.
 The earlier 33-case review remains immutable, preserving when each conclusion
 was known. No identity or attribute change is applied to either matched fit.
+
+The dated price-basis finding is recorded in
+`data/model/chelsea-centro-own-price-basis-review-20260919`, reviewed at 20:40:22
+UTC. It verifies both own raw-listing hashes, archive shards, the full source
+and description lineage, and the literal recovered-description quote. The raw
+JSON description is a React reference (`$3f`); quote offsets refer to the
+hash-verified resolved description and retain its interpretation timestamp.
+The source supports the net/gross distinction but does not independently verify
+a lease contract or establish the gross quote's validity on every past date.
+No numerical replacement or cohort quarantine is applied to the frozen fits.
 
 ## Artifact bindings
 
