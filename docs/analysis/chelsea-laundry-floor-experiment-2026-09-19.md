@@ -41,12 +41,40 @@ same time verified and reused identical output. Focused integration checks passe
 127 with one skip. Four additional withholding tests passed with the other 19
 projection tests (23 total).
 
+## Evidence concentration and accepted baseline
+
+The exact restricted split has generic-building overlap in **13 buildings** and
+38 units observed in both categories. Only five buildings contain distinct units
+that consistently report each category across their observed histories. The
+Thomas Eddy contributes 103 of 239 same-floor rows and 101 West 23rd Street
+contributes 94: together **82.4%**. Adding 135 West 24th Street brings the share
+to 88.3%. This concentration warrants inspecting these buildings' residual and
+group-effect movements before interpreting the added coefficient broadly.
+
+The accepted corrected main fit's in-unit versus generic building-laundry
+association is **+2.413% [2.068%, 2.761%]** (95% conditional posterior interval).
+Its joint contrast passes diagnostics: R-hat 1.00038, bulk ESS 8,649, tail ESS
+12,068. Endpoint overlap is 284 buildings and 1,412 repeatedly observed units.
+This remains an association conditional on the fitted building/unit/time and
+other features, not the return from installing a washer/dryer.
+
+The category analysis now reconstructs the exact V4 source and design and checks
+all transitive design dependencies, without demanding that an unused sampling
+launcher still match the local checkout. Frozen source/protocol/posterior
+integrity and convergence checks remain enforced. Real baseline reconstruction
+and all 16 category contrasts pass; 18 category-analysis/sensitivity tests pass,
+including rejection of rehashed design, prior, source and mathematical-code
+changes. No baseline resampling was needed.
+
 ## Fit and interpretation plan
 
-Use the same PyMC Student-t specification and priors as the accepted corrected
+The launched fit uses the same PyMC Student-t specification and priors as the accepted corrected
 fit, nutpie/Numba on CPU, four chains, 4,000 warmup and 6,000 retained draws per
-chain, seed 20260924, target acceptance .93, diagonal adaptation. Verify exact
-compressed/reference log-density and gradient parity before sampling. Require
+chain, seed 20260924, target acceptance .93, diagonal adaptation. Exact
+compressed/reference graph parity passed at three points across 23,462 gradient
+parameters (maximum log-density difference 5.82e-11, gradient difference 8.50e-9).
+The first sandbox attempt failed on a read-only compiler cache; the host rerun
+completed successfully, without changing the graph. Require
 the existing parameter, contribution and joint-floor convergence gates before
 interpreting intervals.
 
@@ -62,7 +90,10 @@ Artifacts:
 - Measurement: `data/model/chelsea-full-cohort-laundry-v3-20260919`.
 - Full design check: `data/model/chelsea-laundry-floor-split-design-20260919`.
 - Numerical graph check: `data/model/chelsea-laundry-floor-graph-parity-20260919`
-  (running when this experiment was prepared).
+  (complete).
+- Support concentration: `data/model/chelsea-laundry-floor-split-support-20260919`.
+- Accepted baseline contrasts: `data/model/chelsea-corrected-main-category-contrasts-20260919`.
+- Running fit: `data/model/chelsea-bayesian-laundry-floor-disk-20260919`.
 
 Reproduction scripts: `models/laundry_floor_projection.py`,
 `docs/analysis/scripts/verify_laundry_split_design.py`, and

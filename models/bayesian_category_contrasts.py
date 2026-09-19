@@ -125,6 +125,23 @@ def markdown(result):
     return '\n'.join(lines)+'\n'
 
 
+def verify_contrast_dependencies(experiment, dataset, protocol, manifests):
+    """Verify the math used here without requiring an unchanged sampling launcher.
+
+    V4 category contrasts only multiply archived beta draws by reconstructed
+    design differences. Source, posterior and protocol bundles are already bound
+    by build_report; every transitive design dependency and saved design is then
+    independently checked by source reconstruction. No sampler is rerun here.
+    """
+    if protocol['version'] != checks.V4_EXPERIMENT:
+        return checks.verify_implementation(protocol), None
+    from . import bayesian_source_sensitivity as verification
+    from threadpoolctl import threadpool_limits
+    with threadpool_limits(limits=1, user_api='blas'):
+        reconstructed = verification.verify_design(experiment, dataset, protocol, manifests)
+    return verification.reconstruction_dependencies(protocol)[1], reconstructed
+
+
 def run(experiment,dataset,output):
     experiment,dataset,output=map(Path,(experiment,dataset,output))
     modules=(report,checks,checks.common,loader,feature)
@@ -132,16 +149,13 @@ def run(experiment,dataset,output):
     code={path.name:digest(path) for path in paths}
     verified,manifests=report.build_report(experiment,dataset,top=1)
     protocol=json.loads((experiment/'protocol/protocol.json').read_text())
-    frozen=checks.verify_implementation(protocol)
+    frozen,reconstructed=verify_contrast_dependencies(experiment,dataset,protocol,manifests)
     _,source=_verified_bundle(dataset,retain={'observations.jsonl'})
     data=pd.DataFrame(report.jsonl(source['observations.jsonl']))
     data.period=pd.to_datetime(data.period);data.square_feet=pd.to_numeric(data.square_feet,errors='coerce')
     if protocol['version']==checks.V4_EXPERIMENT:
         from . import bayesian_source_sensitivity as verification
-        from threadpoolctl import threadpool_limits
         path=Path(verification.__file__);paths.append(path);code[path.name]=digest(path)
-        with threadpool_limits(limits=1,user_api='blas'):
-            verification.verify_design(experiment,dataset,protocol,manifests)
     design=loader.load_design(experiment/'fit',data,protocol)
     categories,contrasts,omitted=construct_contrasts(design,data)
     with xr.open_dataset(experiment/'fit/posterior.nc',group='posterior',engine='h5netcdf') as p:
@@ -158,6 +172,7 @@ def run(experiment,dataset,output):
             'posterior_sha256':manifests['fit_manifest']['files']['posterior.nc'],
             'chains':protocol['chains'],'draws_per_chain':protocol['draws'],'all_joint_beta_draws':True,
             'design_features':design.features,'categories':categories,'contrasts':results,'omitted':omitted,
+            'design_reconstruction':reconstructed,
             'highlight_ids':[r['id'] for r in results if r['highlight']],
             'status':'all_supported_contrasts_converged' if all(r['diagnostics']['acceptable'] for r in results) else 'some_intervals_withheld',
             'limitations':LIMITATIONS,'implementation_sha256':code,

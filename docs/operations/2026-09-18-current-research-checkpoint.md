@@ -1,5 +1,59 @@
 # Current research checkpoint, 22:05 EDT
 
+## September 19: controlled same-floor laundry experiment launched
+
+**Live fit session 24469**, host execution, log
+`/tmp/chelsea-bayesian-laundry-floor-fit.log`, output
+`data/model/chelsea-bayesian-laundry-floor-disk-20260919`. Four chains ×
+4,000 warmup + 6,000 retained, seed 20260924, target .93, diagonal nutpie/Numba.
+Confirmed sampling at 06:19:17 UTC (566–601 warmup iterations, zero divergences).
+Poll this session; do not restart based on elapsed time. Root code named by
+its protocol `implementation_sha256` plus `bayesian_report_cache.py` is frozen
+until the process is terminal. Analysis scripts/category tooling are outside
+that inventory and may be developed independently.
+
+Source projection `chelsea-reported-laundry-floor-analysis-20260919` changes only
+239 historical in-building→on-floor rows / 138 units / 15 buildings, with positive
+literal evidence from every attached capture. All 172 current rows unchanged.
+Exact inverse lineage and idempotent publication passed. Manifest SHA
+`334e94d29fa639202f2a8fdca02016ba6dcc58cfe2f6b5a8208256c611634fd7`.
+Code saved in **b18f17be**; subsequent category-analysis/support work follows.
+
+Completed actual jobs:
+
+- **59248**, projection; **66472**, identical rerun: exit 0.
+- **68683**, full design comparison: exit 0, artifact
+  `chelsea-laundry-floor-split-design-20260919`. All non-laundry columns, priors,
+  centering and time design identical. 59→60 full-rank features. Pairwise laundry
+  prior log SD .212132 unchanged, joint category dimension/centering changes.
+- **14220**, sandbox graph proof: exit 1, read-only PyTensor cache, no artifact.
+- **23830**, host proof: exit 0, artifact `chelsea-laundry-floor-graph-parity-20260919`.
+  Three points / 23,462 gradient parameters; max logp 5.82e-11, gradient 8.50e-9.
+- **24089**, old category tool: exit 1 because local launcher differed from frozen
+  baseline; no artifact. **81025**, corrected math/source reconstruction: exit 0,
+  `chelsea-corrected-main-category-contrasts-20260919`, all 16 contrasts converge.
+  In-unit vs building laundry +2.413% [2.068%, 2.761%], R-hat 1.00038,
+  bulk ESS 8,649 / tail 12,068. Main fit draws are unchanged.
+- **97641**, exact restricted support audit: exit 0,
+  `chelsea-laundry-floor-split-support-20260919`. 13 buildings have generic
+  shared-laundry overlap, 38 units both categories, five buildings distinct
+  stable units both categories. Thomas Eddy (103 rows) + 101 W23 (94) account
+  for 82.4% of 239 on-floor rows; top three 88.3%.
+
+Tests: 147 projection/lineage/v3/report pass; 127 downstream pass / 1 skip;
+four extra withholding tests pass (23 projection tests total); 18 category
+contrast/sensitivity tests pass. Category V4 analysis verifies exact archived
+source/design math rather than requiring an unchanged unused launcher; legacy
+paths remain strict. No frozen fit implementation was changed after launch.
+
+Next: wait for session 24469 to complete all gates; compute candidate category
+contrasts with `models.bayesian_category_contrasts`, then compare residuals,
+common laundry contrasts and building/unit movements to corrected main. Review
+the two dominant buildings and largest changes before any promotion. This is a
+reported-detail association, not a physical-access premium. Main selection still
+points to the corrected fit below. See
+`docs/analysis/chelsea-laundry-floor-experiment-2026-09-19.md`.
+
 ## September 19: corrected fit complete and selected as main
 
 **Fit session 23268 exited 0**, complete at **05:51:35 UTC**. All gates pass:

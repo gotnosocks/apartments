@@ -75,3 +75,48 @@ def test_report_gate_refuses_unaccepted_fit_before_posterior_read(monkeypatch,tm
     with pytest.raises(ValueError,match='derived diagnostics'):
         m.run(tmp_path/'fit',tmp_path/'data',tmp_path/'out')
     assert not (tmp_path/'out').exists()
+
+
+@pytest.mark.parametrize('fault', [None, 'math_hash', 'category_basis', 'prior', 'source'])
+def test_floor_contrasts_reconstruct_math_despite_changed_launcher(tmp_path, fault):
+    import hashlib
+    import json
+    from pathlib import Path
+    from apartments.corrections import canonical
+    from apartments.research_pipeline import digest
+    from models import bayesian_floor_increment_design as floor
+    from tests.test_bayesian_source_sensitivity import design_archive, design_source, converted, publish_binary
+
+    rows = design_source(training())
+    root, source, protocol, provenance = design_archive(tmp_path, rows)
+    floor.FeatureDesign(converted(rows)).save(root/'fit')
+    protocol.update(version=m.checks.V4_EXPERIMENT, feature_design_version=floor.VERSION,
+                    floor_increment_prior_scale=.15)
+    code = {p.name: p.read_bytes() for p in (root/'protocol').iterdir()
+            if p.suffix == '.py'}
+    code['bayesian_floor_increment_design.py'] = Path(floor.__file__).read_bytes()
+    # A frozen old launcher is preserved, but never executed by this analysis.
+    code['bayesian_feature_experiment_v3.py'] = b'# historical sampling launcher\n'
+    protocol['implementation_sha256'] = {name: hashlib.sha256(blob).hexdigest() for name, blob in code.items()}
+    if fault == 'math_hash': protocol['implementation_sha256']['bayesian_floor_increment_design.py'] = '0'*64
+    elif fault == 'source': protocol['source_observations_sha256'] = '0'*64
+    elif fault in ('category_basis', 'prior'):
+        p = root/'fit/feature-design.json'
+        value = json.loads(p.read_text())
+        if fault == 'category_basis': value['categories']['laundry_type']['basis'][0][0] += .1
+        else: value['prior_scales'][0] *= 2
+        p.write_text(canonical(value)+'\n')
+    ph = hashlib.sha256(canonical(protocol).encode()).hexdigest()
+    provenance['protocol_manifest'] = publish_binary(root/'protocol',
+        {'protocol.json': canonical(protocol)+'\n', **code}, {'protocol_sha256': ph})
+    provenance['fit_manifest'] = publish_binary(root/'fit',
+        {name: (root/'fit'/name).read_bytes() for name in ('feature-design.json', 'time-design.json', 'time-design.npz')},
+        {'protocol_sha256': ph})
+    if fault:
+        with pytest.raises(ValueError): m.verify_contrast_dependencies(root, source, protocol, provenance)
+    else:
+        paths, reconstructed = m.verify_contrast_dependencies(root, source, protocol, provenance)
+        assert reconstructed['verified']
+        assert 'bayesian_feature_experiment_v3.py' not in {p.name for p in paths}
+        assert 'bayesian_floor_increment_design.py' in {p.name for p in paths}
+        assert all(digest(p) == protocol['implementation_sha256'][p.name] for p in paths)
