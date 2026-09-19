@@ -270,9 +270,13 @@ def pricing_fit(
     residual_parameterization: str = typer.Option("centered", help="centered or noncentered bedroom-noise hierarchy; inert with shared noise."),
     graph_validation: Path | None = typer.Option(None, help="Optional verified graph parity bundle bound into the protocol."),
     execution: str = typer.Option("disk", help="disk for durable traces and bounded reports; memory to replay older execution protocols."),
-    floor_increments: bool = typer.Option(True, '--floor-increments/--linear-floor',
-        help="Use listed-floor threshold increments by default; linear-floor is for explicit legacy research/replay."),
+    floor_model: str | None = typer.Option(None, help="Floor specification: spline (default), increments or linear."),
+    floor_increments: bool | None = typer.Option(None, '--floor-increments/--linear-floor',
+        help="Explicit legacy threshold or linear floor model; cannot combine with --floor-model."),
+    floor_prior_scale: float = typer.Option(.10, help="Positive spline knot-height contrast prior scale."),
     floor_increment_prior_scale: float = typer.Option(.15, help="Positive prior scale for each floor threshold increment."),
+    maxdepth: int | None = typer.Option(None, min=1, max=20,
+        help="NUTS maximum tree depth: spline defaults to 10; legacy disk runs preserve the backend default when omitted."),
 ):
     """Fit the main exact PyMC model from a verified bathroom source projection.
 
@@ -282,19 +286,37 @@ def pricing_fit(
     import json
     from argparse import Namespace
     from models import bayesian_disk_experiment as disk_runner
+    from models import bayesian_floor_spline_experiment as spline_runner
     from threadpoolctl import threadpool_limits
     args = Namespace(dataset=dataset, output=output, draws=draws, tune=tune,
         chains=chains, seed=seed, spec=spec, residual_scale=residual_scale,
         target_accept=target_accept, adaptation=adaptation, prior_multiplier=prior_multiplier,
         building_prior_scale=building_prior_scale, unit_prior_scale=unit_prior_scale,
         residual_parameterization=residual_parameterization, graph_validation=graph_validation,
-        floor_increments=floor_increments, floor_increment_prior_scale=floor_increment_prior_scale)
+        floor_increments=floor_increments, floor_increment_prior_scale=floor_increment_prior_scale,
+        floor_prior_scale=floor_prior_scale, maxdepth=maxdepth)
     try:
         if execution not in ('disk', 'memory'):
             raise ValueError('execution must be disk or memory')
-        model_runner = disk_runner.increments if floor_increments else disk_runner.linear
+        if floor_model is not None and floor_increments is not None:
+            raise ValueError('Use either --floor-model or a legacy --floor-increments/--linear-floor flag, not both')
+        selected_floor = floor_model if floor_model is not None else (
+            'spline' if floor_increments is None else 'increments' if floor_increments else 'linear')
+        if selected_floor not in ('spline', 'increments', 'linear'):
+            raise ValueError('floor-model must be spline, increments or linear')
+        if selected_floor == 'spline':
+            if execution != 'disk':
+                raise ValueError('The spline floor model requires --execution disk')
+            args.maxdepth = 10 if maxdepth is None else maxdepth
+            args.floor_increments = False
+            model_runner = runner = spline_runner
+        else:
+            if execution == 'memory' and maxdepth is not None:
+                raise ValueError('--maxdepth is only supported by disk execution')
+            args.floor_increments = selected_floor == 'increments'
+            model_runner = disk_runner.increments if args.floor_increments else disk_runner.linear
+            runner = disk_runner if execution == 'disk' else model_runner
         model_runner.validate_args(args)
-        runner = disk_runner if execution == 'disk' else model_runner
         # Match the arithmetic used by exact design reconstruction in analysis.
         with threadpool_limits(limits=1, user_api='blas'):
             result = runner.run(args)

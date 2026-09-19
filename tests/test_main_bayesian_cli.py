@@ -12,19 +12,21 @@ from apartments.cli import app
 @pytest.fixture
 def fit_route(monkeypatch):
     from models import bayesian_disk_experiment as runner
+    from models import bayesian_floor_spline_experiment as spline
     from apartments import research_pipeline
     seen=[]
-    def run(args):
+    def run(args, route):
         from threadpoolctl import threadpool_info
         assert all(p['num_threads']==1 for p in threadpool_info() if p['user_api']=='blas')
-        seen.append(vars(args).copy())
+        seen.append({**vars(args), '_runner': route})
         return {'status':'diagnostic_only','protocol_sha256':'synthetic'}
-    monkeypatch.setattr(runner,'run',run)
+    monkeypatch.setattr(runner,'run',lambda args:run(args, 'legacy_disk'))
+    monkeypatch.setattr(spline,'run',lambda args:run(args, 'spline'))
     monkeypatch.setattr(research_pipeline,'fit_dataset',lambda *a,**kw:pytest.fail('No robust fallback'))
     return seen
 
 
-def test_fit_pricing_defaults_to_exact_disk_runner_without_changing_model(fit_route):
+def test_fit_pricing_defaults_to_exact_spline_disk_runner(fit_route):
     result=CliRunner().invoke(app,['fit-pricing','source','posterior'])
     assert result.exit_code==0,result.output
     assert json.loads(result.output)['status']=='diagnostic_only'  # Never silently promotes diagnostics.
@@ -32,7 +34,8 @@ def test_fit_pricing_defaults_to_exact_disk_runner_without_changing_model(fit_ro
         'chains':4,'seed':20260918,'spec':'full_half_balance','residual_scale':'shared',
         'target_accept':.93,'adaptation':'diag','prior_multiplier':1.,'building_prior_scale':.35,
         'unit_prior_scale':.25,'residual_parameterization':'centered','graph_validation':None,
-        'floor_increments':True,'floor_increment_prior_scale':.15}]
+        'floor_increments':False,'floor_increment_prior_scale':.15,
+        'floor_prior_scale':.10,'maxdepth':10,'_runner':'spline'}]
 
 
 def test_explicit_sampler_and_model_options_are_preserved(fit_route):
@@ -40,13 +43,14 @@ def test_explicit_sampler_and_model_options_are_preserved(fit_route):
         '--chains','3','--seed','12','--spec','full_half','--residual-scale','bedroom',
         '--target-accept','.97','--adaptation','low_rank','--prior-multiplier','.5',
         '--building-prior-scale','.7','--unit-prior-scale','.125',
-        '--residual-parameterization','noncentered','--graph-validation','proof'])
+        '--residual-parameterization','noncentered','--graph-validation','proof','--floor-increments'])
     assert result.exit_code==0,result.output
     assert fit_route[0]=={'dataset':Path('source'),'output':Path('posterior'),'draws':1200,'tune':1600,
         'chains':3,'seed':12,'spec':'full_half','residual_scale':'bedroom','target_accept':.97,
         'adaptation':'low_rank','prior_multiplier':.5,'building_prior_scale':.7,'unit_prior_scale':.125,
         'residual_parameterization':'noncentered','graph_validation':Path('proof'),
-        'floor_increments':True,'floor_increment_prior_scale':.15}
+        'floor_increments':True,'floor_increment_prior_scale':.15,
+        'floor_prior_scale':.10,'maxdepth':None,'_runner':'legacy_disk'}
 
 
 @pytest.mark.parametrize('args',[
@@ -54,6 +58,13 @@ def test_explicit_sampler_and_model_options_are_preserved(fit_route):
     ['--prior-multiplier','nan'],['--spec','surrogate'],['--residual-scale','robust'],
     ['--adaptation','variational'],['--residual-parameterization','other'],
     ['--execution','surrogate'],['--floor-increments','--floor-increment-prior-scale','0'],
+    ['--floor-model','unknown'],['--floor-model',''],['--floor-prior-scale','0'],['--floor-prior-scale','nan'],
+    ['--floor-prior-scale','inf'],['--maxdepth','0'],['--maxdepth','21'],
+    ['--execution','memory'],['--graph-validation','legacy-proof'],
+    ['--floor-model','spline','--floor-increments'],
+    ['--floor-model','spline','--linear-floor'],
+    ['--floor-model','increments','--floor-increments'],
+    ['--linear-floor','--execution','memory','--maxdepth','10'],
 ])
 def test_invalid_settings_fail_before_runner(fit_route,args):
     result=CliRunner().invoke(app,['fit-pricing','source','posterior',*args])
@@ -62,11 +73,12 @@ def test_invalid_settings_fail_before_runner(fit_route,args):
 
 
 def test_sampler_or_source_failure_never_calls_legacy(fit_route,monkeypatch):
-    from models import bayesian_disk_experiment as runner
+    from models import bayesian_floor_spline_experiment as runner
     def fail(args):raise ValueError('Source manifest mismatch')
     monkeypatch.setattr(runner,'run',fail)
     result=CliRunner().invoke(app,['fit-pricing','source','posterior'])
     assert result.exit_code==1 and 'Source manifest mismatch' in result.output
+    assert not fit_route
 
 
 def test_explicit_floor_design_routes_to_disk_with_its_prior(fit_route):
@@ -75,6 +87,33 @@ def test_explicit_floor_design_routes_to_disk_with_its_prior(fit_route):
     assert result.exit_code==0,result.output
     assert fit_route[0]['floor_increments'] is True
     assert fit_route[0]['floor_increment_prior_scale']==.08
+    assert fit_route[0]['_runner']=='legacy_disk'
+    assert fit_route[0]['maxdepth'] is None
+
+
+@pytest.mark.parametrize('model', ['spline', 'increments', 'linear'])
+def test_explicit_floor_model_routes_without_legacy_flag(fit_route, model):
+    result = CliRunner().invoke(app, ['fit-pricing', 'source', 'posterior', '--floor-model', model])
+    assert result.exit_code == 0, result.output
+    assert fit_route[0]['_runner'] == ('spline' if model == 'spline' else 'legacy_disk')
+    assert fit_route[0]['floor_increments'] is (model == 'increments')
+    assert fit_route[0]['maxdepth'] == (10 if model == 'spline' else None)
+
+
+def test_explicit_spline_prior_and_depth_are_preserved(fit_route):
+    result = CliRunner().invoke(app, ['fit-pricing', 'source', 'posterior', '--floor-model', 'spline',
+        '--floor-prior-scale', '.05', '--maxdepth', '12', '--tune', '4000', '--draws', '6000', '--seed', '20260924'])
+    assert result.exit_code == 0, result.output
+    assert fit_route[0]['floor_prior_scale'] == .05
+    assert fit_route[0]['maxdepth'] == 12
+    assert (fit_route[0]['tune'], fit_route[0]['draws'], fit_route[0]['seed']) == (4000, 6000, 20260924)
+
+
+def test_legacy_disk_depth_is_explicit(fit_route):
+    result = CliRunner().invoke(app, ['fit-pricing', 'source', 'posterior', '--linear-floor', '--maxdepth', '14'])
+    assert result.exit_code == 0, result.output
+    assert fit_route[0]['_runner'] == 'legacy_disk'
+    assert fit_route[0]['maxdepth'] == 14
 
 
 @pytest.mark.parametrize('increments',[False,True])

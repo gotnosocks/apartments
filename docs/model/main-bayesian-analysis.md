@@ -23,29 +23,66 @@ review notes; research reports record the specific cohort and fit decisions.
 
 ## Command line
 
-`fit-pricing` invokes the exact PyMC/NUTS model with durable disk-backed traces
-and bounded reporting by default. Its inputs are a verified bathroom-count,
-reviewed scope/composition or reviewed current-refresh source projection and an
-experiment output directory:
+`fit-pricing` invokes the exact PyMC/NUTS model with a regularized natural cubic
+floor curve, durable disk-backed traces and bounded reporting by default. Its
+inputs are a verified analytical source projection and a new experiment output
+directory. The expanded Chelsea projection includes the reviewed label-derived
+floor data:
 
 ```bash
 UV_CACHE_DIR=/tmp/apartments-uv-cache uv run --frozen --no-sync python -m apartments.cli fit-pricing \
-  data/model/chelsea-reviewed-scope-composition-projection-20260918 \
+  data/model/chelsea-label-floor-analysis-20260919 \
   data/model/my-bayesian-fit
 ```
 
-Defaults are four chains, 2,000 warmup and 4,000 retained draws per chain, `full_half_balance`, shared observation noise, listed-floor threshold increments, target acceptance 0.93, diagonal adaptation and seed 20260918. `--draws`, `--tune`, `--chains`, `--seed`, `--target-accept` and `--adaptation` control sampling. `--spec`, `--residual-scale`, `--prior-multiplier`, `--building-prior-scale`, `--unit-prior-scale` and `--residual-parameterization` explicitly change recorded model settings; `--graph-validation` optionally binds a verified graph parity artifact. See `fit-pricing --help` for allowed settings. BLAS calculations run with one thread to preserve exact design reconstruction; the existing runner handles the NUTS chains, immutable protocol, checkpoint validation and diagnostic reports. A diagnostic-only result remains diagnostic-only. Fitting never changes the selected main model or substitutes another estimator.
+CLI defaults are four chains, 2,000 warmup and 4,000 retained draws per chain,
+`full_half_balance`, shared observation noise, the spline floor curve, target
+acceptance 0.93, diagonal adaptation and seed 20260918. These sampling defaults
+are **not the settings of the matched production experiment**, which uses 4,000
+warmup and 6,000 retained draws per chain with seed 20260924. The explicit
+production specification is:
 
-The default `--floor-increments` selects the explicit v4 listed-floor threshold design;
-`--floor-increment-prior-scale` sets its increment prior (default 0.15). Without
-an explicit option, new main fits use this threshold design. `--linear-floor`
-retains the v3 linear-floor specification for explicit research or old-protocol
-replay. This updates the former CLI default, which lagged behind the selected
-threshold model. Storage does not
-change the likelihood, priors, retained draws or diagnostic gates.
+```bash
+UV_CACHE_DIR=/tmp/apartments-uv-cache uv run --frozen --no-sync python -m apartments.cli fit-pricing \
+  data/model/chelsea-label-floor-analysis-20260919 \
+  data/model/my-matched-spline-floor-fit \
+  --floor-model spline --floor-prior-scale 0.10 --maxdepth 10 \
+  --chains 4 --tune 4000 --draws 6000 --target-accept 0.93 \
+  --adaptation diag --seed 20260924
+```
 
-`--execution memory` retains the older in-memory execution path for explicit
-replay of existing protocols. Large runs previously exhausted memory on that
+The spline uses observed endpoints and prespecified interior knots at floor
+labels 5, 10, 20 and 35, retaining only knots inside the observed range. It is
+anchored at floor 2 when supported by that range, with a separate unknown-floor
+indicator. `--floor-prior-scale` defaults to 0.10 for orthonormal knot-height
+contrasts; `--maxdepth` defaults to 10 for this model. Floor labels remain
+advertised labels rather than measured height. Interpolation inside the fitted
+range is allowed, while extrapolation is rejected. See the
+[spline experiment specification](floor-spline-experiment-2026-09-19.md) for
+the prior, source support and diagnostic requirements.
+
+`--floor-model increments` or the legacy `--floor-increments` flag selects the
+v4 threshold design; `--floor-increment-prior-scale` sets its prior (default
+0.15). `--floor-model linear` or `--linear-floor` selects the v3 linear design.
+Do not combine `--floor-model` with either legacy flag. Legacy disk fits omit an
+explicit tree-depth setting unless `--maxdepth` is supplied, preserving the
+earlier protocol behavior. `--graph-validation` is available for legacy models;
+the spline rejects these earlier graph proofs instead of treating them as
+validation of a different specification.
+
+`--draws`, `--tune`, `--chains`, `--seed`, `--target-accept` and `--adaptation`
+control sampling. `--spec`, `--residual-scale`, `--prior-multiplier`,
+`--building-prior-scale`, `--unit-prior-scale` and
+`--residual-parameterization` explicitly change recorded model settings. BLAS
+calculations use one thread to preserve exact design reconstruction. The runner
+handles NUTS chains, immutable protocols, checkpoint validation and diagnostic
+reports. A diagnostic-only result remains diagnostic-only. Fitting never changes
+the selected main model or substitutes another estimator. Changing the CLI
+default therefore does not promote an unreviewed spline fit.
+
+`--execution memory` retains the older in-memory execution path only with an
+explicit linear or increment specification. The spline requires disk execution,
+and `--maxdepth` is rejected for memory execution. Large runs previously exhausted memory on that
 path. The default `--execution disk` records its storage protocol separately and
 requires its own output directory; it cannot silently resume an in-memory run as
 though the execution protocol were unchanged. Keep traces and reporting caches

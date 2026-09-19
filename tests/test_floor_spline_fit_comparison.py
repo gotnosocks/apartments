@@ -99,3 +99,30 @@ def test_floor_parameter_uncertainty_and_ess_are_bound(monkeypatch,tmp_path):
     row=m.floor_parameter_diagnostics(fit)[0]
     assert row['diagnostics']['ess_bulk']==800 and row['prior_sd']==.1
     assert row['posterior']['lower_95']==-.02
+
+
+def test_retained_sampler_work_summarizes_long_trajectory_share():
+    steps=np.array([[31,1023,2047],[63,4095,127]])
+    step_size=np.array([[.1,.2,.3],[.2,.4,.6]])
+    div=np.array([[0,0,1],[0,0,0]]);depth=np.array([[0,1,0],[0,1,0]])
+    result=m.summarize_sampler_work(steps,step_size,div,depth)
+    assert result['n_steps']['total']==int(steps.sum())
+    assert result['n_steps']['mean']==pytest.approx(steps.mean())
+    assert result['n_steps']['median']==pytest.approx(np.median(steps))
+    assert result['n_steps']['p90']==pytest.approx(np.quantile(steps,.9))
+    assert result['n_steps']['p99']==pytest.approx(np.quantile(steps,.99))
+    assert result['fraction_draws_above_1023_steps']==pytest.approx(2/6)
+    assert result['fraction_steps_from_draws_above_1023']==pytest.approx((2047+4095)/steps.sum())
+    assert result['per_chain_step_size_median']==[.2,.4]
+    assert result['divergences']==1 and result['maxdepth_hits']==2
+
+
+@pytest.mark.parametrize('fault',['shape','fractional','negative','nonfinite','bad_flag'])
+def test_sampler_work_rejects_invalid_stats(fault):
+    steps=np.ones((2,3));size=np.ones((2,3));flags=np.zeros((2,3))
+    if fault=='shape':size=size[:1]
+    if fault=='fractional':steps[0,0]=1.5
+    if fault=='negative':steps[0,0]=-1
+    if fault=='nonfinite':size[0,0]=np.nan
+    if fault=='bad_flag':flags[0,0]=2
+    with pytest.raises(ValueError):m.summarize_sampler_work(steps,size,flags,flags)

@@ -145,6 +145,41 @@ def floor_parameter_diagnostics(fit):
     return rows
 
 
+def summarize_sampler_work(steps,step_size,diverging,maxdepth_reached):
+    arrays=[np.asarray(v) for v in (steps,step_size,diverging,maxdepth_reached)]
+    steps,step_size,diverging,maxdepth_reached=arrays
+    if (steps.ndim!=2 or not steps.size or any(a.shape!=steps.shape for a in arrays)
+            or any(not np.isfinite(a).all() for a in arrays)
+            or np.any(steps<1) or np.any(steps!=np.floor(steps)) or np.any(step_size<=0)
+            or any(not np.isin(a,[0,1]).all() for a in (diverging,maxdepth_reached))):
+        raise ValueError('Invalid retained sampler-work arrays')
+    total=int(steps.sum());long=steps>1023
+    return {'retained_draws':int(steps.size),'chains':int(steps.shape[0]),
+        'n_steps':{'median':float(np.median(steps)),'mean':float(np.mean(steps)),
+            'p90':float(np.quantile(steps,.90)),'p99':float(np.quantile(steps,.99)),
+            'max':int(steps.max()),'total':total},
+        'fraction_draws_above_1023_steps':float(np.mean(long)),
+        'fraction_steps_from_draws_above_1023':float(steps[long].sum()/total),
+        'divergences':int(diverging.sum()),'maxdepth_hits':int(maxdepth_reached.sum()),
+        'per_chain_step_size_median':[float(v) for v in np.median(step_size,axis=1)],
+        'interpretation':'Retained-draw leapfrog work counts only; warmup excluded. This is not a controlled wall-time benchmark. Graph costs, startup, hardware contention and model geometry may differ.'}
+
+
+def sampler_work(fit):
+    import xarray as xr
+    path=fit['root']/'fit/posterior.nc';p=fit['protocol']
+    with xr.open_dataset(path,group='sample_stats',engine='h5netcdf',cache=False) as stats:
+        names=('n_steps','step_size','diverging','maxdepth_reached')
+        if (stats.sizes.get('chain')!=p['chains'] or stats.sizes.get('draw')!=p['draws']
+                or any(stats[name].dims!=('chain','draw') for name in names)
+                or np.any(stats['tuning'].values)):
+            raise ValueError('Sampler-work dimensions or warmup differ from retained protocol')
+        result=summarize_sampler_work(*(stats[name].values for name in names))
+    floor_diags=floor_parameter_diagnostics(fit)
+    result['minimum_floor_parameter_bulk_ess']=min(r['diagnostics']['ess_bulk'] for r in floor_diags)
+    return result
+
+
 def build_comparison(reference,candidate,reference_dataset,dataset):
     bundles=[_verified_bundle(p,retain={'observations.jsonl'}) for p in (reference_dataset,dataset)]
     if bundles[0][0]!=bundles[1][0] or bundles[0][1]['observations.jsonl']!=bundles[1][1]['observations.jsonl']:
@@ -167,7 +202,7 @@ def build_comparison(reference,candidate,reference_dataset,dataset):
     result={'version':VERSION,'main_selection_changed':False,'rows':len(rows),'unchanged_nonfloor_features':names,
         'changed_execution_implementations':changed,'curves':curves,
         'fits':[{'protocol':f['protocol'],'diagnostics':f['report']['diagnostics'],
-            'design_reconstruction':f['reconstruction'],'floor_parameter_diagnostics':floor_parameter_diagnostics(f),'bindings':{k:digest(path/'complete.json') for k,path in
+            'design_reconstruction':f['reconstruction'],'floor_parameter_diagnostics':floor_parameter_diagnostics(f),'retained_sampler_work':sampler_work(f),'bindings':{k:digest(path/'complete.json') for k,path in
                 [('fit',f['root']/'fit'),('protocol',f['root']/'protocol'),('source',f['dataset'])]}} for f in (a,b)],
         'floor_support':[f['design'].floor_support for f in (a,b)],'residuals':residuals,
         'residual_slices':residual_slices(rows,movements),'largest_distinct_unit_movements':distinct,
