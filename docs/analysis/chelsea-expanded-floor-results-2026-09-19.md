@@ -112,11 +112,19 @@ floor contradiction. Important findings remain:
   advertisement (775133) does market three-bedroom penthouse residences with
   53rd-floor views; that is a focused source-review lead, not a universal
   penthouse-to-floor rule. The shared Cloud Lounge on 54 is not an apartment.
-- **Potential unit identity splits need review.** The same displayed PHB is
+- **Source histories corroborate two unit identity splits.** The same displayed PHB is
   represented by canonical URL suffixes `ph-b` and `phb` (1177674/1893537);
   similarly PHA appears as `ph-a` and `pha` (1177683/2894491). They currently
-  have distinct unit IDs. Do not merge solely from label similarity or copy
-  old room counts across those records without entity evidence.
+  have distinct unit IDs. A subsequent raw-payload review found identical
+  property-history listing sets and identical latest-listing pointers across
+  all seven selected captures, with the same source building ID 13264 and exact
+  property address/label. PHB has a shared nine-ad history and latest listing
+  3724354; PHA has a shared six-ad history and latest listing 2894491. This
+  corroborates StreetEasy's identity linkage beyond label similarity. The
+  source-supported alias groups are recorded for the next identity projection;
+  the frozen floor fits retain their original IDs. Linkage does not validate
+  bathroom counts, establish physical renovation dates, or justify copying
+  attributes across historical advertisements.
 - **A concrete price-basis conflict appears in Chelsea Centro #17I.** Its
   explicit floor 17 is corroborated. Target $4,040 matches the net rent in the
   lease-assignment description, which separately says gross $4,446 and names
@@ -147,6 +155,16 @@ Floor extraction, source/identity review and feature representation should
 continue as separate operations. A residual can nominate a case to inspect;
 it cannot resolve a floor, bathroom count, gross price or unit identity.
 
+The later identity evidence is preserved in
+`data/model/chelsea-beatrice-source-supported-alias-review-20260919`, reviewed
+at 20:31:14 UTC. Its producer verifies the reviewed cases, refreshed description
+archive, original description parent, the exact serving-history export
+`data/exports/chelsea-serving-history-20260918-asof1600`, selected archive-shard
+hashes and each own raw-listing hash. Only property-address and property-history
+fields support identity; the broker-license address is not an apartment floor.
+The earlier 33-case review remains immutable, preserving when each conclusion
+was known. No identity or attribute change is applied to either matched fit.
+
 ## Artifact bindings
 
 - Accepted floor fit manifest: `92287aeec5d753c41c23a67cc3de41ecb935f5fc3d5cd2e2501e159184eec5c1`.
@@ -155,6 +173,7 @@ it cannot resolve a floor, bathroom count, gross price or unit identity.
 - Review inputs manifest: `b1d01feb59d747d6729995788ae51d32fc0ab6f9a0cac682b296de2ea65ef689`.
 - Manual review manifest: `09222013419d68ac27060f4fcfe980fa4dbf4bd8c666b70714b5eab98cc2f05b`.
 - Fixed eight-case review manifest: `6878f65fd7479d1fd9a47a99a216b5aed3283945043c3fdf1ab7dac0c1fb8295`.
+- Subsequent source-supported alias review manifest: `049a21db47802d9d79a0b6b6a967560df6b907d729e86fe06dbc5695781fa2c9`.
 
 The fixed eight-case residual panel has also completed on this accepted fit:
 `data/model/chelsea-label-floor-fixed-residual-review-20260919`. Every case's

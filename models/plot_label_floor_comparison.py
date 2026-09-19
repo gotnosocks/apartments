@@ -121,7 +121,7 @@ def build(reference,reference_dataset,candidate,candidate_dataset,interaction_fi
             'Floor-feature contribution relative to listed floor 2, holding other features and building/unit/time effects fixed. Conditional associations, not causal premiums or measured physical height.',
             'Bands are pointwise 95% posterior credible intervals from joint beta draws within each fit, not simultaneous or predictive intervals. Independent fit draws are never paired.',
             'Every nonzero cumulative contrast is checked for R-hat <1.01 and bulk/tail ESS >=400. Failed points and their intervals are withheld. Floor 2 is a deterministic zero without ESS.',
-            'Baseline is shown only at its observed supported labels. Connecting displayed supported endpoints does not estimate unobserved labels.',
+            'Baseline error bars are shown only at its observed supported labels, without interpolating across unobserved labels.',
             'Known elevator curves include the full floor plus interaction component. Upper-floor interaction saturation is a model restriction, not evidence for access effects at every height.',
             'The interaction panel shows only floor labels observed in both known elevator states, so its axis focuses on their shared source support. Full supported curves remain in this summary.',
             'Displayed curves and intervals omit any endpoint with no observed joint floor/access support. Raw conditional research contrasts remain in the summary with separate source and sampling statuses.',
@@ -139,14 +139,19 @@ def render(result):
     with plt.rc_context({'font.size':10,'axes.spines.top':False,'axes.spines.right':False,'svg.hashsalt':VERSION}):
         fig=plt.figure(figsize=(13,9),layout='constrained');grid=fig.add_gridspec(2,2,height_ratios=[2,1])
         left=fig.add_subplot(grid[0,0]);right=fig.add_subplot(grid[0,1]);counts=fig.add_subplot(grid[1,:])
-        def draw(ax,key,label,color,levels=None):
+        def draw(ax,key,label,color,levels=None,connect=True):
             points=[r for r in result['curves'][key]['points'] if levels is None or r['floor'] in levels]
             x=[r['floor'] for r in points]
             ys=[[r['display_percent_effect'][k] if r['display_percent_effect'] is not None else np.nan for r in points]
                 for k in ('median','lower_95','upper_95')]
-            ax.plot(x,ys[0],'.-',label=label,color=color,linewidth=1.3,markersize=4)
-            ax.fill_between(x,ys[1],ys[2],alpha=.15,color=color)
-        draw(left,'explicit_source_baseline','Explicit-source floor baseline','#6c757d')
+            if connect:
+                ax.plot(x,ys[0],'.-',label=label,color=color,linewidth=1.3,markersize=4)
+                ax.fill_between(x,ys[1],ys[2],alpha=.15,color=color)
+            else:
+                low=np.asarray(ys[0])-np.asarray(ys[1]);high=np.asarray(ys[2])-np.asarray(ys[0])
+                ax.errorbar(x,ys[0],yerr=[low,high],fmt='.',linestyle='none',label=label,
+                    color=color,linewidth=.8,capsize=2,markersize=4,alpha=.8)
+        draw(left,'explicit_source_baseline','Explicit-source floor baseline','#6c757d',connect=False)
         draw(left,'expanded_label_floor','Expanded with unit-label proxies','#1368aa')
         common_levels=set.intersection(*[{r['floor'] for r in result['curves'][key]['points']
             if r['both_endpoints_observed_at_access']} for key in ('expanded_without_elevator','expanded_with_elevator')])
