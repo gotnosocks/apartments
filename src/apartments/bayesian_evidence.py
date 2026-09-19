@@ -61,10 +61,11 @@ def load_evidence(dataset, evidence):
     evidence_manifest, evidence_files = _verified_bundle(evidence, retain={'evidence.jsonl'})
     refreshed = evidence_manifest.get('version') == _REFRESHED_ARCHIVE
     if refreshed:
-        from pathlib import Path
-        bound = (dataset_manifest.get('version') == _REFRESHED_REVIEW
-                 and evidence_manifest.get('dataset_manifest_sha256') == digest(Path(dataset)/'complete.json')
-                 and evidence_manifest.get('dataset_observations_sha256') == dataset_manifest['files'].get('observations.jsonl'))
+        from .reviewed_source_lineage import manifest_hash, source_lineage
+        original = source_lineage(dataset_manifest, list(_records(dataset_files['observations.jsonl'])))
+        bound = (original.get('version') == _REFRESHED_REVIEW
+                 and evidence_manifest.get('dataset_manifest_sha256') == manifest_hash(original)
+                 and evidence_manifest.get('dataset_observations_sha256') == original['files'].get('observations.jsonl'))
     else:
         bound = (evidence_manifest.get('version') in {'fitted-description-archive-v1', 'cohort-outdoor-evidence-v1'}
                  and evidence_manifest.get('dataset_manifest') == _original_manifest(dataset_manifest))

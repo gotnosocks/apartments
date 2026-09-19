@@ -1,5 +1,39 @@
 # Current research checkpoint, 22:05 EDT
 
+## September 19: corrected-source evidence lineage verified for fitting
+
+`apartments.reviewed_source_lineage.source_lineage` now verifies the bounded
+floor-mask → laundry-mask → refreshed-source chain by undoing each exact recorded
+mask, preserving prior review history, checking each reconstructed source-row hash,
+and checking the entire ordered parent observations hash. This detects unintended
+price, identity, clock, membership or non-target feature changes even when the
+derived output manifest is recomputed. Parent versions and manifest hashes,
+active correction coverage, target scope and correction clocks are checked.
+
+`bayesian_evidence.load_evidence` accepts these verified descendants of the exact
+refreshed archive source. Existing literal identity/clock/coverage checks remain.
+**43 lineage/evidence tests** and **36 source-review/floor/laundry tests pass**.
+Actual full-data script **74207 exited 0**:
+`docs/analysis/scripts/check_corrected_source_readiness.py`.
+Artifact **`data/model/chelsea-corrected-source-readiness-20260919`** verifies
+52,863 rows, 172 unchanged current listings and **72,065 identical literal captures**.
+Exactly 17 floor masks and one laundry mask (plus their histories) differ.
+
+Canonical floor support drops **366→349 rows**, retaining 22,189 units and
+1,131 buildings. The only floor-9 observation was masked: the corrected design
+has 59 features, removing `listed_floor_gt_9`. Compare the **joint 8→10 contrast**
+with the old fit, not individual coefficient positions. With the existing common
+observed-step prior, that gap's prior SD also changes from sqrt(2)*0.15 to 0.15;
+do not attribute every posterior difference solely to the source corrections.
+Any matched correction sensitivity should preserve or explicitly vary that gap
+prior. No posterior was refitted or main selection changed this turn.
+
+Production runner version integration is still pending: `bayesian_feature_experiment_v3.py`
+is frozen by the live GPU benchmark and must not be edited until the benchmark
+and its diagnostics have finished. New lineage/evidence files are outside its
+bound implementation set. Latest durable GPU status **3,500/6,000 retained draws
+per chain at 04:36:48 UTC**; host PID **494915** independently verified live.
+
 ## September 19: local floor-label calibration does not expand interaction support
 
 Reviewed all 46 capture floor passages for 33 advertisements / 23 units across
