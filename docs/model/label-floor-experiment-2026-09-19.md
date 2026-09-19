@@ -176,3 +176,22 @@ fit archives the proof and its original manifest in its own protocol bundle.
 The legacy disk verifier is unchanged so existing completed fits remain usable.
 Both the reference report's continued acceptance and the failed-depth fit's
 continued rejection were checked against the real saved artifacts.
+
+## Replacement launches
+
+Checkpoint `04a3b0a6` contains the recovery implementation; 198 focused and
+regression checks passed. The floor-only replacement launched around 18:06 UTC:
+`chelsea-bayesian-label-floor-block-depth14-disk-20260919` (terminal session
+28002, Python PID641012, process start identity25086289). Its log is
+`/tmp/chelsea-bayesian-label-floor-block-depth14-fit.log`.
+
+The matched pooled replacement is
+`chelsea-bayesian-label-floor-elevator-block-depth14-disk-20260919`.
+An identity-checked queue, `/tmp/chelsea-floor-recovery-queue.py` (session34513),
+starts it only after the exact primary process ends, publishes a completed fit
+with `exploratory_converged` status, and retains matching frozen implementations.
+Otherwise the queue records why it withheld the interaction run. Queue state is
+`/tmp/chelsea-floor-recovery-queue-state.json`; the interaction log will be
+`/tmp/chelsea-bayesian-label-floor-elevator-block-depth14-fit.log`.
+These replace the earlier failed-depth/cancelled attempts; none is yet selected
+as the main model. Source data and statistical priors remain unchanged.
