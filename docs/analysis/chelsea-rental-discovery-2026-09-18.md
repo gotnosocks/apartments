@@ -12,7 +12,11 @@ it does not establish a current market census or change analytical eligibility.
 
 The seeds share 40 regular advertisements, giving a union of **199 regular ads**.
 Including in-scope featured/in-feed placements produces **213 distinct ads and
-213 canonical unit URLs**. No advertisement identity conflicts were detected.
+213 distinct canonicalized detail URLs**. Of those URLs, 204 name units and nine
+are advertisement routes whose physical-unit identities require detail-page
+verification. The original review field was misleadingly named
+`canonical_unit_url`; it does not establish 213 distinct physical units.
+No advertisement identity conflicts were detected.
 Seven Hudson Yards in-feed occurrences were retained separately and excluded.
 
 Repeated regular listings prevent equating displayed totals or page counts with
@@ -52,3 +56,8 @@ transformation or fitting. Search cards alone do not establish complete apartmen
 attributes, price basis, current status or historical identity. The existing run
 cannot increase its ceiling on resume. Collection commands and replay safeguards
 are in the [orchestrator documentation](../data/rental-discovery-orchestrator.md).
+
+The [bounded detail collector](../data/discovery-detail-refresh.md) now verifies
+this queue against the original page report, handles the nine unresolved unit
+identities, and has passed a live one-target Oxylabs preflight. The full frozen
+213-target plan is running; it has not yet supplied a new analytical cohort.

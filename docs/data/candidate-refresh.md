@@ -6,6 +6,11 @@ it, preserves both ACTIVE and inactive source statuses, and publishes a new
 capture-time candidate snapshot. It never edits the source archive or discovers
 additional URLs during the run.
 
+For newly discovered advertisements, use the separate
+[discovery detail collector](discovery-detail-refresh.md). It shares the durable
+capture executor but verifies a search-review queue, preserves unfiltered product
+scope, and resolves unknown unit identities from detail pages.
+
 The project `.env` supplies `OXYLABS_USERNAME` (or `OXYLABS_USER`) and
 `OXYLABS_PASSWORD`. It is ignored by Git. Credentials are read locally and
 excluded from saved transport metadata and progress output. All collection uses

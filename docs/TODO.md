@@ -291,6 +291,13 @@ patterns, and whether a simpler representation suffices.
   four reused captures; 213 in-scope advertisement candidates preserved. The
   [coverage review](analysis/chelsea-rental-discovery-2026-09-18.md) documents
   repeated regular cards, incomplete coverage and the detail-review queue.
+- [x] Add a [bounded discovery detail collector](data/discovery-detail-refresh.md)
+  with source-bound queue verification, explicit unresolved unit identities,
+  durable Oxylabs capture/replay and no product filtering before collection.
+  Ninety-two focused tests pass; the one-target live preflight passed.
+- [ ] Finish and review the 213-target discovery detail run, then build a new
+  analytical cohort and refit. Nine search URLs are advertisement routes rather
+  than established physical-unit links; retain failed identity outcomes explicitly.
 - [ ] Complete full-model validation of disk-backed nutpie traces and reporting.
   The longer source refit exceeded memory during result extraction; preserve
   exact chain/draw coordinates and all retained draws, and test against the
