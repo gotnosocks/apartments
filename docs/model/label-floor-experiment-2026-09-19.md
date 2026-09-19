@@ -116,6 +116,37 @@ is excluded from new label inference. It is not evidence that a unit physically
 moved floors. The label projection does not silently adjudicate old explicit
 claims, so this remains an unresolved source limitation of both fits.
 
+## Reproducing the source projection
+
+From the repository root, the completed source can be reproduced into a fresh
+output directory with the frozen input bundles and the same knowledge date:
+
+```sh
+uv run --frozen --no-sync python -m models.project_label_floors \
+  --dataset data/model/chelsea-reviewed-elevator-analysis-20260919 \
+  --evidence data/model/chelsea-refreshed-bayesian-descriptions-20260918 \
+  --audit data/model/chelsea-unit-label-floor-audit-20260918 \
+  --review data/model/chelsea-floor-label-conflict-review-20260918 \
+  --refresh data/probes/chelsea-candidate-refresh-20260918 \
+  --refresh data/probes/chelsea-discovery-details-20260918 \
+  --archive /data1/apartments/archive/datasets/chelsea-granular-20260917-canonical-url-v1 \
+  --as-of 2026-09-19T15:55:47.145088+00:00 \
+  --output data/model/chelsea-label-floor-analysis-replay
+```
+
+The producer verifies the parent source, description archive, historical label
+audit, conflict review, and exact building snapshot inventory. Refreshed captures
+are parsed from their hash-bound archived bodies. A new collection requires
+updated input bundles and an actual interpretation date; an uncached historical
+capture fails explicitly until its label audit is refreshed. This command reads
+local captures only. Subsequent scraping must continue through Oxylabs.
+
+The output includes unchanged raw-source values, the inferred `listed_floor`,
+`floor_label_provenance`, and `floor-label-projection.jsonl`, whose inverse
+restores the exact parent observations. The full producer has already passed a
+byte-identical replay. Fit against the new projection explicitly; producing it
+does not silently change `config/main-analysis.json`.
+
 ## Sampling launches
 
 Both full-cohort compiled graph checks passed at three parameter points:
