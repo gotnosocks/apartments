@@ -55,6 +55,10 @@ patterns, and whether a simpler representation suffices.
   in-building association is +2.399% (95% credible interval +2.051% to +2.741%),
   stable under the tested stronger feature prior; see the
   [category sensitivity analysis](analysis/chelsea-bayesian-category-sensitivity-2026-09-18.md).
+  The [location evidence review](analysis/chelsea-laundry-location-2026-09-18.md)
+  finds each/every-floor wording for 140 units in 13 buildings and reviews 36
+  cases, including coexisting facilities, hallway scope and hookup-only wording.
+  A revised measurement policy and matched four-level fit remain pending.
 - [ ] Create and test address-based spatial features: raw or centered latitude/
   longitude, interpretable relative-location measures and street indicators.
   Validate geocoding/address identity, compare simple representations, and assess

@@ -94,3 +94,30 @@ to shared mathematical implementation or unrecognized storage policies.
 The floor disk protocol is prepared in
 `data/model/chelsea-floor-disk-readiness-20260918`, including the exact launch
 command and source/model/graph/code bindings. It has not been launched.
+
+## Diagnostic read-layout benchmark
+
+The running long fit completed raw sampling and exported a 4.1 GiB posterior with
+a durable checkpoint. Its diagnostics remain live but read inefficiently: the
+NetCDF `unit_z` chunks have shape `(1, 32, 22158)`, while diagnostics select 512
+units at a time. Each such slice decompresses chunks spanning every unit. The
+installed ArviZ summary calculates several diagnostics separately, adding reads.
+At 00:16 UTC the live process had read about 205 GB through its file interfaces
+while resident memory remained under 1 GiB. This is a throughput problem, not
+another observed memory failure; no process was stopped or restarted.
+
+A separate synthetic benchmark uses the actual unit-axis width, four chains and
+64 draws per chain (45,379,584 logical bytes). Keeping the same bounded write
+slabs but storing `(1, 32, 512)` chunks preserves **every value exactly**. Two
+parameter-slice read passes, with layout order reversed, take 7.66/7.65 seconds
+for the current layout versus 0.177/0.177 seconds for the proposed layout:
+**43.2× faster for those reads**. File sizes remain about 43.8 MB; measured write
+times are 1.44 versus 1.15 seconds. Peak process RSS is 97.6 MB.
+
+Artifact: `data/model/chelsea-posterior-chunk-benchmark-20260918`, including the
+frozen script, file hashes, exact shape/seed and repeated timings. This is a
+storage benchmark, not total-fit timing or a posterior convergence result. No
+implementation used by the running fit was changed. After that process exits,
+separate HDF5 storage chunk dimensions from bounded source-read slab dimensions,
+then verify exact export/recovery parity before the next full run. The model,
+priors, observations and every retained draw must remain unchanged by this fix.
