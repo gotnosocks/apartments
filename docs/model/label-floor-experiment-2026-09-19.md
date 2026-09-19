@@ -61,6 +61,14 @@ The decision must consider source plausibility, posterior stability, uncertainty
 and whether floor effects are interpretable with the available building overlap.
 Keep the selected main fit explicit until these checks are complete.
 
+Floor labels are largely constant within a unit. With unit offsets in the model,
+their contribution is therefore identified mainly by comparisons across units
+and the hierarchical prior on those offsets, rather than by observing a unit
+move floors. A narrower interval is conditional on that structure and the
+measured covariates; it does not establish a causal price effect of moving an
+otherwise identical apartment. Review contribution reallocation between floors,
+units and buildings even when total fitted prices change little.
+
 ## Completed source projection
 
 The final interpretation is dated `2026-09-19T15:55:47.145088+00:00`.
@@ -82,6 +90,15 @@ Observation SHA-256:
 Full source-lineage inversion and description binding passed for all observations
 and captures. The integrated regression checks passed 316 tests. Implementation
 checkpoint: `9ab8608a`.
+
+Support inspection of the complete projected cohort found known no-elevator
+observations only on labels 1–6: respectively 132, 289, 321, 315, 272 and 17 rows.
+The floor-6 cell contains nine units in six buildings. There are no observed
+known-no-elevator endpoints above 6, so access-specific plotted curves are
+withheld there. High-floor coverage is concentrated: labels 30, 40, 50 and 52
+appear in eight, two, one and one buildings, respectively. This limits how broadly
+their conditional floor contributions can be interpreted even with precise
+Monte Carlo diagnostics.
 
 ## Sampling launches
 
@@ -111,3 +128,8 @@ process with SIGCONT after the floor-only run (PID 622652) finishes. The exact
 pause record is `/tmp/chelsea-floor-interaction-pause.json`. A stale interaction
 progress timestamp during this intentional pause is not a failure. No model or
 sampler parameters changed.
+
+An identity-checked watcher (`/tmp/chelsea-resume-floor-interaction.py`, terminal
+session 21718) resumes the paused process automatically after the exact primary
+process terminates, including its report-writing phase. Its log and the pause
+record retain the actual resumption time. This is runtime scheduling only.
