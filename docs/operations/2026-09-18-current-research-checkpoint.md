@@ -1,5 +1,59 @@
 # Current research checkpoint, 22:05 EDT
 
+## September 19: corrected-data fit launched from isolated tested code
+
+GPU diagnostic **session 30424 remains live**. Parameter diagnostics pass:
+max R-hat **1.00174238**, minimum bulk ESS **4,037.49**, minimum tail ESS
+**6,252.25**. Last phase is `derived_contribution_diagnostics`; no completed
+efficiency bundle or final backend decision yet. Compared with CPU minimum bulk
+ESS 904.92, this is a real reminder that raw draws/sec does not rank sampler
+efficiency. Await all contribution/floor gates and the per-parameter comparison.
+
+To progress fitting without changing that process's original code, created JJ
+workspace **`corrected-fit`** at **`/tmp/apartments-corrected-fit-code`**, based on
+332ab874. Saved code **`dd0e8863`**, bookmark **`codex/corrected-source-fit`**;
+its working change is empty. Do not alter its model/loader files during the fit.
+Root workspace model files remain unchanged until GPU diagnostics complete.
+Later merge this branch into the main research bookmark; preserve root checkpoint
+documentation when combining the two descendant branches.
+
+The isolated v3 loader now accepts the two correction versions only after
+`reviewed_source_lineage.source_lineage` proves exact reconstruction to the
+refreshed source. Its helper is included in archived implementation hashes.
+V4/disk runners inherit the verified loader. **103 tests pass** across v3, v4,
+disk execution and lineage (session **61626**, exit 0). Initial tests exposed
+an expected archival-file inventory update and Pandas' null-to-NaN representation;
+both assertions now express the intended contracts.
+
+New reusable `models.verify_reviewed_floor_graph` command passes on all 52,863
+corrected observations, comparing compressed/uncompressed log densities and all
+**23,461 gradients** at three parameter points. Largest absolute differences:
+log density **4.37e-11**, gradient **7.57e-10**. Artifact:
+**`data/model/chelsea-corrected-floor-graph-parity-20260919`**.
+Validation session **29821 exited 0**; timings are kernel checks under concurrent
+workload, not a sampling-speed benchmark.
+
+**LIVE corrected fit: session 23268**, host execution from the isolated workspace.
+Output **`data/model/chelsea-bayesian-reviewed-corrections-floor-disk-20260919`**;
+log **`/tmp/chelsea-reviewed-corrections-floor-fit.log`**. Source is
+`chelsea-reviewed-floor-masked-analysis-20260918`. Uses PyMC/nutpie with durable
+storage, four chains, 4,000 warmup, 6,000 retained, seed 20260924, target .93,
+diagonal adaptation, full_half_balance, shared Student-t scale, building/unit
+prior scales .35/.25, floor-increment scale .15, and the new graph proof.
+Launched with `UV_CACHE_DIR=/tmp/apartments-uv-cache`, one BLAS/OMP thread,
+`NUMBA_CACHE_DIR=/tmp/apartments-corrected-numba`,
+`PYTENSOR_FLAGS=cxx=,compiledir=/tmp/apartments-corrected-pytensor,numba__cache=False`,
+`PYTHONPATH=/tmp/apartments-corrected-fit-code/src`, and
+`uv run --no-project --python /home/ben/code/apartments/.venv/bin/python python -m models.bayesian_disk_experiment`.
+All source/output/proof CLI paths are absolute under the root repository.
+
+CPU remains the provisional iteration default because its existing fit converged
+and its warmup is much shorter; the GPU has better ESS per draw in the parameter
+gate. Report this tradeoff, do not call CPU universally fastest. This new fit runs
+alongside diagnostics and is **not** an uncontended benchmark. The lost ninth-floor
+support also changes the joint 8→10 prior as documented below; this is a corrected
+source fit, not a strictly prior-matched estimate of correction effects.
+
 ## September 19: complete GPU sampling recovered; full ESS diagnostics running
 
 **Original GPU session 30289 is terminal, exit 1.** All 4×6,000 retained draws
