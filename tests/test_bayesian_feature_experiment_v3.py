@@ -108,7 +108,7 @@ def test_explicit_graph_protocol_archival_residual_scales_and_no_resample(setup,
             'bayesian_feature_experiment.py','bayesian_feature_graph_v3.py','bayesian_feature_graph.py',
             'bayesian_feature_model.py','bayesian_rent_model.py','bayesian_sampling.py','amenity_rent_model.py',
             'minimal_rent_model.py','pricing.py','corrections.py','research_pipeline.py',
-            'reviewed_source_lineage.py','laundry_floor_split.py','reviewed_cohort_quarantine.py','elevator_corrections.py'} == set(protocol['implementation_sha256'])
+            'reviewed_source_lineage.py','laundry_floor_split.py','reviewed_cohort_quarantine.py','elevator_corrections.py','floor_label_projection.py'} == set(protocol['implementation_sha256'])
     for name,sha in protocol['implementation_sha256'].items():
         assert digest(args.output/'protocol'/name) == sha
     summary = json.loads((args.output/'fit'/'residual-scales.json').read_text())
@@ -298,25 +298,29 @@ def test_loader_preserves_review_overlay_without_mutating_v2(setup,tmp_path,vers
         from tests.test_reviewed_source_lineage import revise, observations_hash
         for row in rows:
             row.update(known_at='2026-09-18T00:00:00Z', laundry_type='in_building', advertised_floor=3, capture_ids=[row['audit_id']], elevator=True)
-        if version in (m.reviewed_source_lineage.reviewed_cohort_quarantine.VERSION, m.reviewed_source_lineage.elevator_corrections.VERSION):
+        if version in (m.reviewed_source_lineage.reviewed_cohort_quarantine.VERSION, m.reviewed_source_lineage.elevator_corrections.VERSION, m.reviewed_source_lineage.floor_label_projection.VERSION):
             from tests.test_reviewed_cohort_quarantine import add_excluded_row, quarantine_last
             rows = add_excluded_row(rows)
         parent = {'version': m.reviewed_source_lineage.REFRESHED,
                   'files': {'observations.jsonl': observations_hash(rows)}}
         manifest, rows = revise(parent, rows, m.reviewed_source_lineage.LAUNDRY, 'laundry_type', 'laundry')
         if version in (m.reviewed_source_lineage.FLOOR, m.reviewed_source_lineage.laundry_floor_split.VERSION,
-                       m.reviewed_source_lineage.reviewed_cohort_quarantine.VERSION, m.reviewed_source_lineage.elevator_corrections.VERSION):
+                       m.reviewed_source_lineage.reviewed_cohort_quarantine.VERSION, m.reviewed_source_lineage.elevator_corrections.VERSION, m.reviewed_source_lineage.floor_label_projection.VERSION):
             manifest, rows = revise(manifest, rows, m.reviewed_source_lineage.FLOOR, 'advertised_floor', 'floor', index=1)
         if version == m.reviewed_source_lineage.laundry_floor_split.VERSION:
             from tests.test_laundry_floor_projection import extend
             manifest, rows = extend(manifest, rows)
-        if version in (m.reviewed_source_lineage.reviewed_cohort_quarantine.VERSION, m.reviewed_source_lineage.elevator_corrections.VERSION):
+        if version in (m.reviewed_source_lineage.reviewed_cohort_quarantine.VERSION, m.reviewed_source_lineage.elevator_corrections.VERSION, m.reviewed_source_lineage.floor_label_projection.VERSION):
             manifest, rows, sidecar = quarantine_last(manifest, rows)
             sidecar_files['quarantined.jsonl'] = ''.join(canonical(r)+'\n' for r in sidecar)
-        if version == m.reviewed_source_lineage.elevator_corrections.VERSION:
+        if version in (m.reviewed_source_lineage.elevator_corrections.VERSION, m.reviewed_source_lineage.floor_label_projection.VERSION):
             from tests.test_elevator_correction_projection import extend
             manifest, rows, elevator_sidecar = extend(manifest, rows)
             sidecar_files['elevator-corrections.jsonl'] = ''.join(canonical(r)+'\n' for r in elevator_sidecar)
+        if version == m.reviewed_source_lineage.floor_label_projection.VERSION:
+            from tests.test_floor_label_projection import extend
+            manifest, rows, label_sidecar = extend(manifest, rows)
+            sidecar_files['floor-label-projection.jsonl'] = ''.join(canonical(r)+'\n' for r in label_sidecar)
     publish_bundle(source,{'observations.jsonl':''.join(canonical(r)+'\n' for r in rows), **sidecar_files},manifest)
     data,manifest = m.load_data(source)
     assert manifest['version'] == version and len(data) == 4
@@ -338,7 +342,7 @@ def test_reviewed_revision_name_without_exact_parent_lineage_is_rejected(setup, 
     args, _, _ = setup
     source = tmp_path/'unsupported_revision'
     publish_bundle(source, {'observations.jsonl': (args.dataset/'observations.jsonl').read_text()}, {'version': version})
-    with pytest.raises(ValueError, match='lineage|Elevator'):
+    with pytest.raises(ValueError, match='lineage|Elevator|Floor projection'):
         m.load_data(source)
 
 

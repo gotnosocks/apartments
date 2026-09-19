@@ -33,7 +33,8 @@ def load_data(dataset):
     """Preserve cohort checks for reviewed scope and reviewed current refreshes."""
     sidecar = reviewed_source_lineage.reviewed_cohort_quarantine.SIDECAR
     elevator_sidecar = reviewed_source_lineage.elevator_corrections.SIDECAR
-    manifest,files = _verified_bundle(dataset,retain={'observations.jsonl', sidecar, elevator_sidecar})
+    floor_label_sidecar = reviewed_source_lineage.floor_label_projection.SIDECAR
+    manifest,files = _verified_bundle(dataset,retain={'observations.jsonl', sidecar, elevator_sidecar, floor_label_sidecar})
     if manifest.get('version') not in DATASET_VERSIONS:
         raise ValueError('Verified bathroom or reviewed scope/composition projection required')
     rows = [json.loads(line) for line in files['observations.jsonl'].decode().split('\n') if line.strip()]
@@ -42,7 +43,9 @@ def load_data(dataset):
             quarantined=[json.loads(s) for s in files[sidecar].decode().split('\n') if s.strip()]
             if sidecar in files else None,
             elevator_changes=[json.loads(s) for s in files[elevator_sidecar].decode().split('\n') if s.strip()]
-            if elevator_sidecar in files else None)
+            if elevator_sidecar in files else None,
+            floor_label_changes=[json.loads(s) for s in files[floor_label_sidecar].decode().split('\n') if s.strip()]
+            if floor_label_sidecar in files else None)
     data = v2.pd.DataFrame(rows)
     data.period = v2.pd.to_datetime(data.period)
     data.square_feet = v2.pd.to_numeric(data.square_feet,errors='coerce')
@@ -76,7 +79,7 @@ def implementation_paths():
                v2.feature.amenity,v2.feature.amenity.baseline,v2.feature.pricing,
                v2.corrections,v2.research_pipeline,reviewed_source_lineage,
                reviewed_source_lineage.laundry_floor_split, reviewed_source_lineage.reviewed_cohort_quarantine,
-               reviewed_source_lineage.elevator_corrections)
+               reviewed_source_lineage.elevator_corrections, reviewed_source_lineage.floor_label_projection)
     paths = [Path(m.__file__) for m in modules]+[Path(__file__)]
     if len({p.name for p in paths}) != len(paths):
         raise ValueError('Implementation archive names must be unique')

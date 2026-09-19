@@ -59,14 +59,16 @@ def load_evidence(dataset, evidence):
     """
     from .reviewed_cohort_quarantine import SIDECAR
     from .elevator_corrections import SIDECAR as ELEVATOR_SIDECAR
-    dataset_manifest, dataset_files = _verified_bundle(dataset, retain={'observations.jsonl', SIDECAR, ELEVATOR_SIDECAR})
+    from .floor_label_projection import SIDECAR as FLOOR_LABEL_SIDECAR
+    dataset_manifest, dataset_files = _verified_bundle(dataset, retain={'observations.jsonl', SIDECAR, ELEVATOR_SIDECAR, FLOOR_LABEL_SIDECAR})
     evidence_manifest, evidence_files = _verified_bundle(evidence, retain={'evidence.jsonl'})
     refreshed = evidence_manifest.get('version') == _REFRESHED_ARCHIVE
     if refreshed:
         from .reviewed_source_lineage import manifest_hash, source_lineage
         original = source_lineage(dataset_manifest, list(_records(dataset_files['observations.jsonl'])),
             quarantined=list(_records(dataset_files[SIDECAR])) if SIDECAR in dataset_files else None,
-            elevator_changes=list(_records(dataset_files[ELEVATOR_SIDECAR])) if ELEVATOR_SIDECAR in dataset_files else None)
+            elevator_changes=list(_records(dataset_files[ELEVATOR_SIDECAR])) if ELEVATOR_SIDECAR in dataset_files else None,
+            floor_label_changes=list(_records(dataset_files[FLOOR_LABEL_SIDECAR])) if FLOOR_LABEL_SIDECAR in dataset_files else None)
         bound = (original.get('version') == _REFRESHED_REVIEW
                  and evidence_manifest.get('dataset_manifest_sha256') == manifest_hash(original)
                  and evidence_manifest.get('dataset_observations_sha256') == original['files'].get('observations.jsonl'))
