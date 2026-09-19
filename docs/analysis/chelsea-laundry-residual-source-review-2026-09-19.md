@@ -100,3 +100,9 @@ Artifacts under `data/model/`:
 
 Each bundle archives its generating script, also maintained in
 `docs/analysis/scripts/`. None changes the selected main model.
+# Manual adjudication update
+
+Ben has confirmed Thomas Eddy 2C is a studio. Advertisement 3223153 now has a
+recorded zero-bedroom correction, pending projection into the next full dataset
+and refit. The unresolved assessment and fitted values below are historical;
+see [correction status](chelsea-cohort-and-floor-status-2026-09-19.md).

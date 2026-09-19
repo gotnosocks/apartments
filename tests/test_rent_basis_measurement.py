@@ -97,3 +97,41 @@ def test_invalid_target_rejected(target):
 def test_all_attached_captures_and_administrative_context_affect_review_priority(texts, expected):
     from models.rent_basis_source_audit import classify
     assert classify([{'measurement': measure(t, 3000)} for t in texts]) == expected
+
+
+@pytest.mark.parametrize('text,value',[
+    ('1999.00 is the NET EFFECTIVE rent. Pay 2152.00 for 13 months.',1999),
+    ('$2,595 monthly rent | Net monthly cost with 1-month free 2,379',2379),
+    ('Net monthly cost with 2 months free: 2,100.50',2100.5),
+    ('Net effective rent: 3,000',3000),
+    ('3,000 net monthly rent',3000),
+])
+def test_explicit_dollarless_net_quotes_keep_literal_amounts_without_arithmetic(text,value):
+    result=measure(text,value)
+    assert result['target_matches']==['net']
+    assert len(result['amounts'])==1
+    claim=result['amounts'][0]
+    assert claim['amount']==value
+    assert claim['measurement_kind']=='explicit_dollarless_net_quote'
+    assert text[claim['start']:claim['end']]==claim['literal']
+    assert not measure(text,2152)['target_matches']
+
+
+@pytest.mark.parametrize('text',[
+    'Internet 3000 included.', 'Net 3000 square feet.',
+    'Lease effective 2020.', 'Net monthly cost with 1 month free.',
+    'Net effective rent 2,99.', 'Net effective rent 3,000,000.',
+    'Net effective rent 3000.123',
+])
+def test_bare_numbers_require_a_complete_explicit_net_quote(text):
+    assert measure(text,3000)['target_matches']==[]
+
+
+def test_bare_quote_retains_negation_and_administrative_context_and_avoids_duplicate_currency():
+    negative=measure('Not net effective rent 3000.',3000)
+    assert negative['target_matches']==[]
+    assert negative['amounts'][0]['preceded_by_negation']
+    administrative=measure('Income approval uses net monthly rent 3000.',3000)
+    assert administrative['amounts'][0]['administrative_context']
+    assert len(measure('Net effective rent $ 3000.',3000)['amounts'])==1
+    assert measure('Gross rent $3000 Net effective rent 2800.',3000)['target_matches']==['gross']

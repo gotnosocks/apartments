@@ -1,0 +1,11 @@
+{
+  "version": "fixed-source-review-panel-v1",
+  "panel_id": "chelsea-eight-reviewed-capture-residual-cases-20260919",
+  "purpose": "Fixed development regression panel of previously reviewed residual outliers. Reuse these advertisement IDs across model iterations regardless of their new rank. Not a representative market sample, held-out test, or accuracy estimate.",
+  "origin": "Eight largest absolute current-capture log residuals in the original case review; explicitly frozen here after user requested deliberate repeated-test selection.",
+  "reference_review": "data/model/chelsea-elevator-current-residual-source-review-20260919",
+  "reference_review_manifest_sha256": "6c44aa81ed1e0f9c6cf311fa9f1c514c6a6baa489585165f486f9d0da49840be",
+  "source_listing_ids": ["5155021", "5116119", "5155202", "5161975", "5159492", "5128483", "5115645", "5163034"],
+  "missing_case_policy": "Fail visibly if a member is absent. Do not replace it with the next residual outlier.",
+  "new_outliers": "Review separately as a changing diagnostic queue; changing the fixed panel requires an explicit versioned revision."
+}

@@ -6,12 +6,20 @@ is recorded as evidence for review, not proof of the target's economic basis.
 from decimal import Decimal
 import re
 
-VERSION = 'literal-rent-basis-measurement-v4'
+VERSION = 'literal-rent-basis-measurement-v5'
 LABEL = r'(?P<label>net(?:[\s-]+effective)?(?:\s+(?:monthly\s+)?(?:rent|price))?|gross(?:\s+(?:monthly\s+)?(?:rent|price))?|legal(?:\s+rent)?)'
 MONEY = r'\$\s*(?P<amount>(?:\d{1,3}(?:,\d{3})+|\d{3,6})(?:\.\d{1,2})?)(?!\d|[,.]\d)'
 CONNECT = r'(?:\s|[:=–—-]|\b(?:is|of|just|only|at|the|a|an|monthly|per[ \t]+month)\b){0,35}'
 AMOUNTS = [re.compile(r'\b'+LABEL+CONNECT+r'(?:\([^()$]{0,100}\)'+CONNECT+r')?'+MONEY, re.I),
            re.compile(MONEY+r'[ \t]*(?:(?:is|per[ \t]+month|a[ \t]+month)[ \t]*)?\(?[ \t]*'+LABEL+r'\b', re.I)]
+# Require an explicit rent/price/cost label for amounts without a dollar sign.
+# These are literal review signals, not concession arithmetic or gross prices.
+BARE_NET_LABEL = r'(?P<label>net(?:[\s-]+effective)?\s+(?:monthly\s+)?(?:rent|price|cost))'
+BARE_NUMBER = r'(?<![\w$.,])(?P<amount>(?:\d{1,3}(?:,\d{3})+|\d{3,6})(?:\.\d{1,2})?)(?!\d|[,.]\d)'
+BARE_NET = [
+    re.compile(r'\b'+BARE_NET_LABEL+CONNECT+r'(?:with\s+\d{1,2}(?:\.\d)?[ -]+months?\s+free'+CONNECT+r')?'+BARE_NUMBER, re.I),
+    re.compile(BARE_NUMBER+r'[ \t]+(?:is[ \t]+(?:the[ \t]+)?)?'+BARE_NET_LABEL+r'\b', re.I),
+]
 MENTION = re.compile(r'\bnet(?:[\s-]+effective)?(?:\s+(?:rent|price))?\b|\beffective\s+(?:rent|price)\b', re.I)
 STATEMENTS = [
     re.compile(r'\bnet[\s-]+effective\s+(?:rent|price)\s+(?:(?:is|as)\s+)?(?:listed|advertised)\b', re.I),
@@ -55,6 +63,19 @@ def measure(description, asking_rent):
         used_labels.add(label_position); used_amounts.add(amount_position)
         amounts.append({**span(description, match), 'basis_label': basis, 'amount': float(amount),
                         'equals_analytical_target': amount == target})
+    for pattern in BARE_NET:
+        for match in pattern.finditer(description):
+            position = match.span('amount')
+            if (position in used_amounts or match.start('label') in used_labels
+                    or re.search(r'\$\s*$', description[:position[0]])):
+                continue
+            # Avoid attaching a trailing label to an amount already consumed by
+            # an explicit leading quote, even when the currency sign was absent.
+            amount = Decimal(match['amount'].replace(',', ''))
+            used_amounts.add(position); used_labels.add(match.start('label'))
+            amounts.append({**span(description, match), 'basis_label': 'net', 'amount': float(amount),
+                            'equals_analytical_target': amount == target,
+                            'measurement_kind': 'explicit_dollarless_net_quote'})
     statements = {m.span(): span(description, m) for pattern in STATEMENTS for m in pattern.finditer(description)}
     matches = sorted({a['basis_label'] for a in amounts if a['equals_analytical_target']
                       and not a['preceded_by_negation']})

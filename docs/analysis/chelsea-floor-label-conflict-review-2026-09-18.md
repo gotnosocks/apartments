@@ -79,3 +79,8 @@ UV_CACHE_DIR=/tmp/apartments-uv-cache uv run --frozen --no-sync python -m models
   --policy config/reviews/chelsea-floor-label-conflicts-20260918.json \
   --output data/model/chelsea-floor-label-conflict-review-20260918
 ```
+# Status update, September 19
+
+The 17 reviewed masks are now in the selected fitted dataset. Broad label-derived
+floor candidates are still outside the model. See the [current stage-by-stage
+status](chelsea-cohort-and-floor-status-2026-09-19.md) for counts and lineage.
