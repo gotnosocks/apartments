@@ -118,3 +118,29 @@ this corrected source at three parameter points: maximum log-density discrepancy
 `chelsea-reviewed-elevator-graph-parity-20260919`. This is numerical graph
 equivalence evidence; it is not a new posterior or evidence that elevator
 coefficients are already corrected.
+
+## Controlled refit launched
+
+Run `chelsea-bayesian-reviewed-elevator-disk-20260919` started at 10:08 UTC,
+September 19. Session **93301**, host PID **587751**; log
+`/tmp/chelsea-bayesian-reviewed-elevator-fit.log`. It uses four chains with
+4,000 warmup and 6,000 retained draws, seed 20260924, target acceptance .93,
+nutpie/Numba diagonal adaptation, shared Student-t scale, the same
+full/half/balance specification, building/unit prior scales .35/.25 and floor
+increment scale .15. The selected main model is the completed price-basis refit.
+
+`chelsea-reviewed-elevator-protocol-comparison-20260919` verifies every declared
+model, sampler and prior setting against that reference. Only source bindings,
+source-reader code and the new inverse verifier differ. All 59 feature names
+and coefficient prior scales match. Elevator's observed-value center changes
+from .9310854 to .9285023 and its normalization scale from .2533088 to .2576543;
+raw-unit prior contrasts therefore change slightly despite equal coefficient
+prior scales. This must be reported in the posterior comparison.
+
+Keep this run's mathematical, source-reader, sampling and report-cache
+dependencies frozen until it is terminal. After completion, compare on exactly
+the same observations: elevator raw contrasts and missingness, floor contrasts,
+category/bathroom contributions, group offsets and current residuals. Review the
+largest changes and preserve source-conflict notes before considering selection.
+The comparison must describe 98 feature corrections and zero exclusions; the
+earlier quarantine comparison's exclusion terminology must not be reused blindly.

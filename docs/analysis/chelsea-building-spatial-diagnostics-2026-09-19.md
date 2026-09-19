@@ -1,5 +1,13 @@
 # Spatial structure in the selected building-effect posterior
 
+Update: the [completed source refit](chelsea-reviewed-quarantine-refit-2026-09-19.md)
+is now selected. Its repeated spatial diagnostics use the exact 52,653-row source
+cohort and confirm essentially unchanged results: five-neighbor Moran's I .22689
+[.21263, .24147], or .22226 [.20778, .23698] after excluding all coincident-coordinate
+buildings. The report below documents the preceding selected posterior and the
+initial investigation; its warning about unreconciled posterior/location cohorts
+has been resolved in the repeated analysis.
+
 Nearby buildings have similar unexplained price effects in the selected Chelsea
 model. This pattern survives excluding every building that shares identical
 coordinates with another building. It motivates a controlled spatial-model
