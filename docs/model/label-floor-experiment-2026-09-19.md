@@ -103,3 +103,11 @@ Each root contains a frozen protocol, progress record, durable trace and fit
 completion manifest. Do not change their archived implementation dependencies
 while sampling/reporting is active. Compare only completed, diagnostic-checked
 posterior products; a running process is not a model result.
+
+At **16:10:09 UTC**, the interaction sampler (PID 623457, process start identity
+24333989) was paused with SIGSTOP to prioritize the primary floor fit and reduce
+CPU/memory contention. Its chain state and trace are retained; resume this same
+process with SIGCONT after the floor-only run (PID 622652) finishes. The exact
+pause record is `/tmp/chelsea-floor-interaction-pause.json`. A stale interaction
+progress timestamp during this intentional pause is not a failure. No model or
+sampler parameters changed.
