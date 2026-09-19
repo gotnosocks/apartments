@@ -6,8 +6,8 @@ observations and retains all 13 refreshed current listings. The first matched
 PyMC refit completed but failed the parameter convergence gate; the longer retry was killed by the operating system for memory exhaustion
 after sampling, before writing a posterior checkpoint. The disk-backed retry saved
 its posterior and passed both diagnostic gates, but was killed during residual
-reporting. A report-only recovery is running. None has been promoted to the main
-analysis model.
+reporting. Report-only recovery has now completed and the verified source
+comparison is available. The main analysis selection remains unchanged.
 
 ## Refit status, September 18
 
@@ -143,8 +143,8 @@ also pass: maximum R-hat **1.001585**, minimum bulk/tail ESS **1,223 / 2,165**.
 At 01:13:18 UTC, the kernel killed process 437977 for global memory exhaustion
 during subsequent reporting (exit 137, maximum measured RSS 12,096,988 KiB).
 The posterior checkpoint, raw trace and both completed diagnostic tables survive.
-There is no completed fit manifest yet. Unlike the earlier extraction failure,
-this does not require another sampling run.
+At that point there was no completed fit manifest. Unlike the earlier extraction
+failure, this did not require another sampling run.
 
 `models.recover_bayesian_reports` verifies the original posterior, dataset, design,
 scientific implementation and completed diagnostic tables, then finishes the
@@ -152,4 +152,32 @@ original report formulas through a disk-backed unit-draw accessor. The recovery
 plan explicitly records reuse of completed diagnostics and the reporting override;
 final readers verify those bindings. A parity test produces byte-identical
 diagnostic, coefficient, group-effect, contrast and residual products. Recovery
-is running with its cache on the workspace disk, not the memory-backed `/tmp`.
+completed at 01:30:51 UTC, in **3:10**, with peak RSS **5,524,376 KiB**. The final
+fit is `exploratory_converged`; its reader verifies the explicit recovery metadata
+and unchanged posterior/diagnostic hashes. The cache is on the workspace disk.
+
+## Completed source comparison
+
+`data/model/chelsea-bayesian-source-sensitivity-20260918` compares both accepted
+fits on the same 52,704 retained observations. Median absolute log residual is
+**0.035191 → 0.035189**; median absolute fitted-rent movement is **$1.08**. Each of
+the 13 current fitted rents changes by less than **$4**. Bathroom contribution
+contrasts are similarly stable: for two bedrooms, the one-to-two-full-bath contrast
+is **+23.74% [22.95%, 24.55%]**, versus **+23.72% [22.91%, 24.54%]** previously.
+These are conditional associations and separate-fit sensitivity summaries.
+
+The largest historical movement is advertisement **4892020**, 344 West 22nd
+Street: fitted rent falls from **$31,136 to $29,239**, against an unchanged $42,500
+ask. It was not one of the seven quarantined rows. This townhouse already appears
+in the [outdoor source review](chelsea-outdoor-model-2026-09-18.md) for garden/luxury
+evidence; its localized sensitivity remains a review case, not an automatic price
+correction or proof of an omitted-feature effect.
+
+Exact design reconstruction requires the fit's single-thread BLAS setting. An
+initial comparison without that setting correctly refused a differing time-design
+reconstruction; rerunning with `OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1` passed
+without relaxing any comparison or diagnostic gate.
+
+The matched floor-increment experiment is now running on this same corrected
+cohort. Its revised readiness bundle is `chelsea-floor-disk-readiness-20260918-v2`;
+both the 512-parameter storage chunks and bounded unit reporting are enabled.

@@ -48,7 +48,10 @@ def test_disk_runner_preserves_specification_and_replays_completed_fit(setup,mon
     assert protocol['graph_configuration']==events['configuration']
     assert m.run(args)==result
     assert events['sample']==events['reports']==1
-    assert {'storage.json','trace-manifest.json'}<=json.loads((args.output/'fit/complete.json').read_text())['files'].keys()
+    assert {'storage.json','trace-manifest.json','reporting-cache.json','bayesian_report_cache.py'}<=json.loads((args.output/'fit/complete.json').read_text())['files'].keys()
+    cache = json.loads((args.output/'fit/reporting-cache.json').read_text())
+    assert cache['all_retained_draws'] is True and cache['draws'] == args.draws
+    assert cache['implementation_sha256'] == digest(args.output/'fit/bayesian_report_cache.py')
 
 
 def test_reports_resume_from_exported_checkpoint_without_sampling(setup,monkeypatch):

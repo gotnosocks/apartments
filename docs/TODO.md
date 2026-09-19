@@ -75,9 +75,9 @@ patterns, and whether a simpler representation suffices.
   threshold support and gaps, and compare joint floor contrasts and residuals on
   the same cohort before promoting the fit.
   The [isolated increment design](model/listed-floor-increment-design.md) is
-  implemented with a versioned runner, reports and reconstruction checks; a new
-  posterior and main-model promotion remain pending. Disk storage now has parity
-  and export-memory evidence; the floor fit follows the running source retry.
+  implemented with a versioned runner, reports and reconstruction checks;
+  main-model promotion remains pending. The full floor fit is running with durable
+  sampling and bounded reporting after successful source-report recovery.
 - [ ] Complete a skeptical parameter audit and matched Bayesian simplification
   experiments. Include nuisance reporting indicators, group effects and priors,
   time/season bases and likelihood choices, as well as apartment amenities. A
@@ -317,7 +317,9 @@ patterns, and whether a simpler representation suffices.
   The longer source refit exceeded memory during result extraction; preserve
   exact chain/draw coordinates and all retained draws, and test against the
   current in-memory sampler. Actual parity and full-sized synthetic export checks
-  pass; the full source fit is running and will establish reporting memory behavior.
+  pass. The source posterior and both diagnostic gates are complete; report-only
+  recovery passed at 5.3 GiB peak RSS after a separate reporting OOM. The integrated
+  bounded reporter is now being exercised by the full floor fit.
 
 - [x] Audit the actual structured apartment-floor fields, independent of internal
   naming. The [canonical-field audit](analysis/chelsea-canonical-floor-field-2026-09-18.md)

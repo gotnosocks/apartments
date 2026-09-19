@@ -19,6 +19,7 @@ from apartments.research_pipeline import digest, publish_bundle
 from . import bayesian_feature_experiment_v3 as linear
 from . import bayesian_feature_experiment_v4 as increments
 from . import bayesian_disk_sampling as storage
+from . import bayesian_report_cache as report_cache
 
 from . import bayesian_disk_protocol as disk_protocol
 
@@ -51,6 +52,13 @@ def run(args):
         ph=hashlib.sha256(canonical(protocol).encode()).hexdigest()
         publish_bundle(root/'protocol',{'protocol.json':canonical(protocol)+'\n',
             **{p.name:p.read_text() for p in paths}},{'version':base.VERSION,'protocol_sha256':ph})
+        # Report execution is a separate immutable stage; its cache changes
+        # neither the sampler protocol's mathematical model nor retained draws.
+        cache_code = Path(report_cache.__file__)
+        reporting = {'version': report_cache.VERSION, 'protocol_sha256': ph,
+                     'implementation_sha256': digest(cache_code)}
+        publish_bundle(root/'reporting-protocol', {'reporting.json': canonical(reporting)+'\n',
+            cache_code.name: cache_code.read_text()}, reporting)
         target=root/'fit';target.mkdir(exist_ok=True)
         if (target/'complete.json').exists():
             manifest=json.loads((target/'complete.json').read_text())
@@ -89,7 +97,19 @@ def run(args):
         try:
             base.validate_posterior(inference,args,design,configuration)
             base.v2.sampler.write_status(root/'progress.json','diagnostics_and_reports')
-            result=base.v2.write_reports(target,inference,design,data,ph)
+            posterior_hash = digest(target/'posterior.nc')
+            with report_cache.bounded_unit_samples(base.v2.base,inference,root/'report-cache',posterior_hash) as cached:
+                result=base.v2.write_reports(target,inference,design,data,ph)
+            if digest(cache_code) != reporting['implementation_sha256']:
+                raise ValueError('Report cache implementation changed')
+            (target/cache_code.name).write_bytes(cache_code.read_bytes())
+            (target/'reporting-cache.json').write_text(canonical({**reporting,
+                'posterior_sha256': posterior_hash,
+                'reporting_manifest_sha256': digest(root/'reporting-protocol/complete.json'),
+                'cache_manifest_sha256': digest(root/'report-cache/complete.json'),
+                'maximum_source_block_bytes': cached['maximum_source_block_bytes'],
+                'chains': args.chains, 'draws': args.draws, 'units': len(design.time.unit_ids),
+                'sample_order': 'chain_major_then_draw', 'all_retained_draws': True})+'\n')
             if args.floor_increments:
                 floors=increments.floor_contrasts(inference,design)
                 (target/'floor-contrasts.json').write_text(canonical(floors)+'\n')
@@ -99,7 +119,7 @@ def run(args):
             (target/'residual-scales.json').write_text(canonical(base.residual_scale_summary(inference,data,configuration))+'\n')
         finally:inference.close()
         if any(digest(p)!=code[p.name] for p in paths):raise ValueError('Implementation changed during disk experiment')
-        if not base.REQUIRED_FIT|{'storage.json','trace-manifest.json'} <= {p.name for p in target.iterdir()}:
+        if not base.REQUIRED_FIT|{'storage.json','trace-manifest.json','reporting-cache.json',cache_code.name} <= {p.name for p in target.iterdir()}:
             raise ValueError('Required disk inference products missing')
         disk_protocol.verify_products(protocol,json.loads((target/'storage.json').read_text()),
             json.loads((target/'trace-manifest.json').read_text()),digest(target/'posterior.nc'))

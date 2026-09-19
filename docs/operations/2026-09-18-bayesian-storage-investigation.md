@@ -160,5 +160,15 @@ cache/recovery/report/storage checks passed before the real recovery started.
 `recover_bayesian_reports` binds the original checkpoint and completed diagnostics,
 archives the override code, and records it in `reporting-recovery.json`; it never
 samples. The reader verifies the preserved posterior/diagnostic hashes and the
-override's implementation hashes. Real recovery memory and completion still need
-verification before starting the floor fit.
+override's implementation hashes. Real recovery completed successfully in 3:10
+with peak RSS 5,524,376 KiB and the original posterior and diagnostic hashes
+preserved. The resulting fit passes the verified report and source comparator.
+
+The disk experiment runner now creates a separate immutable `reporting-protocol`
+before sampling and uses the same bounded accessor during ordinary reporting.
+`reporting-cache.json` binds its code, posterior, chain/draw/unit counts and sample
+ordering. Readers validate that metadata; report memory execution stays separate
+from the scientific model. The integrated sampler/report/comparison suite passes
+132 checks. The floor fit was then launched from readiness v2 with four chains,
+4,000 warmup and 6,000 retained draws each. Its full-run peak memory and diagnostics
+remain to be measured; the original source run and failed attempts stay preserved.

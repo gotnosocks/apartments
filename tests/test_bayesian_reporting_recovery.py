@@ -1,7 +1,7 @@
 from copy import deepcopy
 import pandas as pd
 import pytest
-from models.bayesian_feature_report import verify_reporting_recovery
+from models.bayesian_feature_report import verify_reporting_recovery, verify_reporting_cache
 
 
 def valid():
@@ -37,3 +37,21 @@ def test_completed_diagnostic_table_cannot_be_substituted():
     check_table(diag, table)
     table.loc[0, 'ess_bulk'] = 50
     with pytest.raises(ValueError, match='table differs'): check_table(diag, table)
+
+
+@pytest.mark.parametrize('damage', ['none', 'draws', 'posterior', 'code', 'order', 'block'])
+def test_forward_cache_binds_all_draws_and_implementation(damage):
+    protocol = {'chains': 4, 'draws': 6000, 'units': 100}
+    manifest = {'files': {'posterior.nc': 'posterior', 'bayesian_report_cache.py': 'code'}}
+    cache = {**protocol, 'version': 'bayesian-unit-report-cache-v1', 'protocol_sha256': 'p',
+        'posterior_sha256': 'posterior', 'implementation_sha256': 'code', 'all_retained_draws': True,
+        'sample_order': 'chain_major_then_draw', 'maximum_source_block_bytes': 4096}
+    if damage == 'none':
+        assert verify_reporting_cache(protocol, 'p', manifest, cache) == cache
+        return
+    if damage == 'draws': cache['draws'] = 1000
+    if damage == 'posterior': cache['posterior_sha256'] = 'different'
+    if damage == 'code': cache['implementation_sha256'] = 'different'
+    if damage == 'order': cache['sample_order'] = 'unknown'
+    if damage == 'block': cache['maximum_source_block_bytes'] = 9*1024*1024
+    with pytest.raises(ValueError, match='Reporting cache'): verify_reporting_cache(protocol, 'p', manifest, cache)

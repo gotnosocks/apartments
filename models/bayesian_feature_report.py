@@ -66,6 +66,22 @@ def verify_reporting_recovery(protocol_hash, fit_manifest, recovery):
     return recovery
 
 
+def verify_reporting_cache(protocol, protocol_hash, fit_manifest, cache):
+    files = fit_manifest['files']
+    if (cache.get('version') != 'bayesian-unit-report-cache-v1'
+            or cache.get('protocol_sha256') != protocol_hash
+            or cache.get('posterior_sha256') != files['posterior.nc']
+            or cache.get('implementation_sha256') != files.get('bayesian_report_cache.py')
+            or not isinstance(cache.get('implementation_sha256'), str)
+            or cache.get('all_retained_draws') is not True
+            or cache.get('sample_order') != 'chain_major_then_draw'
+            or any(cache.get(k) != protocol[k] for k in ('chains', 'draws', 'units'))
+            or type(cache.get('maximum_source_block_bytes')) is not int
+            or not 0 < cache['maximum_source_block_bytes'] <= 8*1024*1024):
+        raise ValueError('Reporting cache differs from inference products')
+    return cache
+
+
 def finite(value):
     return isinstance(value, (int, float)) and not isinstance(value, bool) and math.isfinite(value)
 
@@ -415,11 +431,15 @@ def build_report(experiment, dataset, top=5):
         if protocol['implementation_sha256'].get('bayesian_disk_protocol.py') != digest(Path(disk_protocol.__file__)):
             raise ValueError('Disk protocol verifier differs from archived implementation')
         required |= {'storage.json','trace-manifest.json'}
-    fm, ff = _verified_bundle(experiment/'fit', retain=(required-{'posterior.nc','time-design.npz'})|{'reporting-recovery.json'})
+    fm, ff = _verified_bundle(experiment/'fit', retain=(required-{'posterior.nc','time-design.npz'})|{'reporting-recovery.json','reporting-cache.json'})
     if fm.get('version') != experiment_version or fm.get('protocol_sha256') != ph or not required <= fm['files'].keys():
         raise ValueError('Fit protocol mismatch or missing inference products')
     recovery = (verify_reporting_recovery(ph, fm, json.loads(ff['reporting-recovery.json']))
                 if 'reporting-recovery.json' in ff else None)
+    report_cache = (verify_reporting_cache(protocol, ph, fm, json.loads(ff['reporting-cache.json']))
+                    if 'reporting-cache.json' in ff else None)
+    if 'bayesian_report_cache.py' in fm['files'] and recovery is None and report_cache is None:
+        raise ValueError('Missing reporting execution binding')
     if disk_execution:
         disk_protocol.verify_products(protocol,json.loads(ff['storage.json']),
             json.loads(ff['trace-manifest.json']),fm['files']['posterior.nc'])
@@ -471,6 +491,7 @@ def build_report(experiment, dataset, top=5):
                       floor_increment_prior_scale=protocol['floor_increment_prior_scale'])
     return {'version': VERSION, 'experiment_version': experiment_version, 'status': summary['status'], 'protocol_sha256': ph,
             'reporting_recovery': recovery,
+            'reporting_cache': report_cache,
             'source_manifest_sha256': protocol['source_manifest_sha256'],
             'source_observations_sha256': protocol['source_observations_sha256'],
             'source_version': sm['version'], 'experiment': str(experiment.resolve()),
