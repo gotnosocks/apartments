@@ -79,9 +79,16 @@ The largest half-bath movement is the one-bedroom/one-full-bath scenario from
 one to two half baths: candidate +43.17%, interval +11.18% to +68.80%, versus
 reference +43.77%. Its destination has only **one observation/unit/building**.
 The large premium predates this scope revision and must not be advertised as a
-well-supported general valuation. Review the exact source composition and the
-shared increment's broader support before retaining or interpreting that
-representation. Convergence alone does not establish adequate feature support.
+well-supported general valuation. This is an existing identified weakness, not
+a newly unreviewed source anomaly: the current source already accepts
+corroborated multiple-half-bath counts for ads 1945700 and 2762077, the only two
+unflagged supporting advertisements overall. The one-bedroom endpoint is
+1945700. Thirty other records with multiple reported half baths remain flagged
+and do not supply known composition to this term. The
+[earlier prior-sensitivity work](chelsea-bayesian-prior-sensitivity-2026-09-18.md)
+already showed strong dependence on the feature prior. A representation or
+prior ablation remains more informative than repeating the same source review.
+Convergence alone does not establish adequate feature support.
 
 ## Artifacts and remaining review
 
@@ -98,7 +105,10 @@ All paths below are under `data/model/`:
 
 All three comparison/review bundles passed file-hash verification. Candidate
 selection preparation is separate from `config/main-analysis.json`. Remaining
-work includes the largest-movement source review, the new residual-tail review,
+work includes the largest-movement source review,
 source-warning continuity in the actual UI and a recorded promotion decision.
+The [new residual-tail review](chelsea-residual-scope-tail-review-2026-09-19.md)
+is complete: eleven exact prior reviews reused and four new full-description
+reviews, including a concrete retrospective attribute/price-timing concern.
 The separately audited v7 floor extractor has not been projected into these
 frozen observations or fitted values.

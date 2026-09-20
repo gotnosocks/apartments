@@ -104,6 +104,14 @@
   apartment's bathroom count, and test a supported representation or transparent
   scope sensitivity instead of treating the low asking rent as an error.
 
+- [ ] Test the retrospective same-ad attribute assumption against dated price
+  changes, beginning with 1670174: initial ask $2,395, then $3,700 and $5,950,
+  with later-captured luxury-duplex prose and a powder-room/count conflict.
+  Define a temporal sensitivity without silently replacing initial asks with
+  later prices. Also adjudicate 2833618's location/access evidence and 3591788's
+  furnished/limited-term/service package and explicit second-floor claim. See
+  the [candidate tail review](../analysis/chelsea-residual-scope-tail-review-2026-09-19.md).
+
 - [ ] Review income-restricted rental products and dated price basis, starting
   with Port10 4761346 and 4758015, which rank fourth and eighth in the selected
   fit's absolute-log-residual tail. A full own-description language screen found

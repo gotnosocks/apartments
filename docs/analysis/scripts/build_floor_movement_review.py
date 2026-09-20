@@ -4,7 +4,7 @@ from collections import defaultdict
 import json
 from pathlib import Path
 
-from apartments import floor_label_projection, expanded_floor_projection
+from apartments import floor_label_projection, expanded_floor_projection, residual_scope_projection
 from apartments.bayesian_evidence import load_evidence
 from apartments.corrections import canonical
 from apartments.research_pipeline import _verified_bundle, digest, publish_bundle
@@ -16,11 +16,29 @@ def records(value):
 
 
 EXPANDED_COMPARISON = 'matched-expanded-floor-spline-fit-comparison-v1'
+SCOPE_COMPARISON = 'matched-residual-scope-spline-fit-comparison-v1'
 LEGACY_COMPARISONS = {'matched-label-floor-fit-comparison-v1', 'matched-floor-spline-fit-comparison-v1'}
 
 
 def verified_floor_source(manifest, source, comparison_version):
     """Bind both displayed floor stages to the exact ordered source revision."""
+    if comparison_version == SCOPE_COMPARISON:
+        if (manifest.get('version') != residual_scope_projection.VERSION
+                or residual_scope_projection.SIDECAR not in source):
+            raise ValueError('Missing residual-scope source or quarantine sidecar')
+        kept = records(source['observations.jsonl'])
+        parent, restored = residual_scope_projection.parent_rows(manifest, kept,
+            records(source[residual_scope_projection.SIDECAR]))
+        inherited = {**source, 'observations.jsonl': ''.join(canonical(r)+'\n' for r in restored).encode()}
+        inherited.pop(residual_scope_projection.SIDECAR)
+        rows, old_changes, expanded_changes, evidence = verified_floor_source(parent, inherited, EXPANDED_COMPARISON)
+        # Inherited floor sidecars still include the quarantined observations.
+        # Index them by restored identity before selecting retained rows.
+        index = {r['audit_id']: (old, new) for r, old, new in
+                 zip(rows, old_changes, expanded_changes, strict=True)}
+        return kept, [index[r['audit_id']][0] for r in kept], [index[r['audit_id']][1] for r in kept], evidence
+    if residual_scope_projection.SIDECAR in source:
+        raise ValueError('Unexpected residual-scope sidecar for floor comparison')
     expanded = comparison_version == EXPANDED_COMPARISON
     expected = expanded_floor_projection.VERSION if expanded else floor_label_projection.VERSION
     if comparison_version not in LEGACY_COMPARISONS | {EXPANDED_COMPARISON} or manifest.get('version') != expected:
@@ -55,11 +73,12 @@ def run(comparison, dataset, evidence, output):
     comparison, dataset, evidence = map(Path, (comparison, dataset, evidence))
     _, files = _verified_bundle(comparison, retain={'comparison.json', 'residual-movements.jsonl'})
     result = json.loads(files['comparison.json'])
-    if result['version'] not in LEGACY_COMPARISONS | {EXPANDED_COMPARISON}:
+    if result['version'] not in LEGACY_COMPARISONS | {EXPANDED_COMPARISON, SCOPE_COMPARISON}:
         raise ValueError('Expected the accepted matched label-floor comparison')
     if result['fits'][1]['bindings']['source'] != digest(dataset/'complete.json'):
         raise ValueError('Movement review source differs from candidate fit')
-    manifest, source = _verified_bundle(dataset, retain={'observations.jsonl', floor_label_projection.SIDECAR, expanded_floor_projection.SIDECAR})
+    manifest, source = _verified_bundle(dataset, retain={'observations.jsonl', floor_label_projection.SIDECAR,
+        expanded_floor_projection.SIDECAR, residual_scope_projection.SIDECAR})
     rows, changes, expanded_changes, building_evidence = verified_floor_source(manifest, source, result['version'])
     by_id = {r['audit_id']: r for r in rows}
     by_change = {r['audit_id']: c for r, c in zip(rows, changes, strict=True)}
@@ -88,7 +107,8 @@ def run(comparison, dataset, evidence, output):
             group_reviews.append({'kind': kind, 'rank': rank, 'movement': group,
                                   'example_audit_id': chosen['audit_id']})
     captures = load_evidence(dataset, evidence)
-    by_mask = {mask['audit_id']: mask for mask in manifest.get('policy', {}).get('floor_masks', [])}
+    floor_manifest = manifest['source_manifest'] if result['version'] == SCOPE_COMPARISON else manifest
+    by_mask = {mask['audit_id']: mask for mask in floor_manifest.get('policy', {}).get('floor_masks', [])}
     cases = []
     for identity in sorted(selected):
         row = by_id[identity]

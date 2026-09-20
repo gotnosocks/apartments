@@ -94,6 +94,39 @@ def test_records_preserve_literal_unicode_line_separator():
     assert m.records('{"label":"3RW\u2028literal"}\n'.encode()) == [{'label': '3RW\u2028literal'}]
 
 
+def test_scope_sidecars_are_selected_after_exact_outer_reconstruction(monkeypatch):
+    from tests.test_residual_scope_projection import fixture as scope_fixture
+    rows, _, (manifest, kept, changes) = scope_fixture()
+    source = {'observations.jsonl': ''.join(canonical(r)+'\n' for r in kept).encode(),
+        m.residual_scope_projection.SIDECAR: ''.join(canonical(c)+'\n' for c in changes).encode()}
+    implementation = m.verified_floor_source
+    old = [{'original': r['audit_id']} for r in rows]
+    expanded = [{'expanded': r['audit_id']} for r in rows]
+    # Inner floor contracts have real fixtures above; isolate alignment across
+    # the real scope inverse, which removes indices zero and two here.
+    def inner(parent, files, version):
+        assert parent == manifest['source_manifest'] and version == m.EXPANDED_COMPARISON
+        assert m.records(files['observations.jsonl']) == rows
+        assert m.residual_scope_projection.SIDECAR not in files
+        return rows, old, expanded, {'building': ['exact context']}
+    monkeypatch.setattr(m, 'verified_floor_source', inner)
+    got, a, b, context = implementation(manifest, source, m.SCOPE_COMPARISON)
+    assert got == kept and a == [old[1], old[3]] and b == [expanded[1], expanded[3]]
+    assert context == {'building': ['exact context']}
+    damaged = deepcopy(source)
+    damaged[m.residual_scope_projection.SIDECAR] = b'{}\n'
+    with pytest.raises(ValueError): implementation(manifest, damaged, m.SCOPE_COMPARISON)
+
+
+def test_scope_comparison_requires_outer_sidecar_and_rejects_hidden_stage():
+    manifest, files, _ = fixture()
+    with pytest.raises(ValueError, match='Missing residual-scope'):
+        m.verified_floor_source(manifest, files, m.SCOPE_COMPARISON)
+    files[m.residual_scope_projection.SIDECAR] = b'{}\n'
+    with pytest.raises(ValueError, match='Unexpected residual-scope'):
+        m.verified_floor_source(manifest, files, m.EXPANDED_COMPARISON)
+
+
 @pytest.mark.parametrize('expanded', [False, True])
 @pytest.mark.parametrize('fault', [None, 'wrong_source_binding', 'movement_identity', 'ranked_movement'])
 def test_published_cases_include_both_stages_and_keep_existing_identity_guards(tmp_path, monkeypatch, expanded, fault):
