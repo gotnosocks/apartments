@@ -83,6 +83,29 @@
 
 ## Source leads from the expanded-floor residual review
 
+- [ ] Apply evidence-bound residential-scope review to high-residual commercial
+  offers: 1260588 explicitly offers professional/business loft space and 937046
+  a turnkey restaurant with commercial terms. Verify exact own-capture witnesses
+  and historical applicability, preserve quarantined records, and reassess
+  contributions/residuals after a matched PyMC refit. Do not replace their prices.
+- [ ] Resolve location/access conflicts in residual-tail advertisements 4953355,
+  2993341 and 609730 before attributing their gaps to amenities. The first has
+  third-floor-walkup prose but a captured condo/elevator/doorman record; the other
+  two name locations inconsistent with their analytical building identities.
+  Preserve conflicting claims; do not infer replacement addresses from residuals.
+- [ ] Decide and document the analytical treatment of explicit SRO/shared-bath
+  offers such as 2221592. Distinguish offered product scope from a conventional
+  apartment's bathroom count, and test a supported representation or transparent
+  scope sensitivity instead of treating the low asking rent as an error.
+
+- [ ] Review income-restricted rental products and dated price basis, starting
+  with Port10 4761346 and 4758015, which rank fourth and eighth in the selected
+  fit's absolute-log-residual tail. A full own-description language screen found
+  12 candidates across five buildings, including distinct HDFC/AMI wording.
+  Keep unmatched rows unclassified, separate minimum-income administration from
+  eligibility ceilings, and verify historical timing before a coefficient or
+  scope experiment. See the [research note](../analysis/chelsea-income-restriction-research-2026-09-19.md).
+
 - [ ] Resolve Lantern House 1704 / advertisement 4828991 bathroom composition.
   The fitted record has three full and zero half baths; its own description
   explicitly names a powder room and describes en-suite Jack-and-Jill bathrooms.
