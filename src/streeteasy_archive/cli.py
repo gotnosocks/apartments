@@ -56,7 +56,7 @@ def main(argv=None):
         command.add_argument('--concurrency', type=int, help='Oxylabs concurrent jobs (1-20)')
         command.add_argument('--api-rps', type=float, help='Oxylabs submissions per second (0-50, exclusive of zero)')
         command.add_argument('--oxylabs-render', action='store_true', help='request rendered HTML instead of server HTML for this run')
-        command.add_argument('--neighborhood', choices=('chelsea',), help='persistent Chelsea + West Chelsea scope, excluding Hudson Yards')
+        command.add_argument('--neighborhood', choices=('chelsea', 'west-village'), help='persistent neighborhood scope; Chelsea includes West Chelsea, excluding Hudson Yards')
         command.add_argument('--delay', type=float, help='request delay seconds; defaults to 0 (submission pacing uses --api-rps)')
         command.add_argument('--wait-for-cooldown', action='store_true', help='wait for an existing cooldown once; a new challenge still exits')
         command.add_argument('--building', help='restrict this run to a building URL and child detail URLs; repeat on resume')
@@ -66,6 +66,7 @@ def main(argv=None):
         unavailable.add_argument('--no-include-unavailable', dest='include_unavailable', action='store_false',
                                  help='include only currently available units')
         command.set_defaults(include_unavailable=None)
+        command.add_argument('--rental-canonical-only', action='store_true', help='persist rental-only collection with evidenced canonical-unit membership')
         command.add_argument('--max-requests', type=int, default=0, help='request budget; zero is unlimited')
         command.add_argument('--revisit-interval', type=float, default=0, help='update interval in seconds for known buildings/listings')
     sub.add_parser('status').add_argument('--generation', type=int)
@@ -144,9 +145,12 @@ def main(argv=None):
         args.delay = resolve_delay(args.delay, args.transport, args.neighborhood, profile)
         if args.neighborhood and args.building:
             raise ValueError('use either --neighborhood or --building')
+        if args.rental_canonical_only:
+            from .collection_policy import setup
+            setup(store, generation)
         if args.neighborhood:
             from .scope import configure
-            configure(store, generation, args.include_unavailable)
+            configure(store, generation, args.include_unavailable, neighborhood=args.neighborhood)
         if args.building:
             building = canonical_url(args.building)
             if not building or kind_for(building) != 'building':

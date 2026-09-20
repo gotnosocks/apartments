@@ -1,0 +1,15 @@
+[Unit]
+Description=Apartments documentation and analysis reports (read-only)
+
+[Service]
+Type=simple
+WorkingDirectory=/home/ben/code/apartments
+ExecStart=/home/ben/.local/bin/uv run --no-sync python -m apartments serve-docs --listen "127.0.0.1:8768 100.80.84.126:8768"
+Restart=on-failure
+RestartSec=5
+Environment=PYTHONUNBUFFERED=1
+MemoryMax=512M
+UMask=0077
+
+[Install]
+WantedBy=default.target

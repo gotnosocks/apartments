@@ -17,7 +17,7 @@ VERSION = 'reviewed-residual-scope-projection-v1'
 DECISION_VERSION = 'reviewed-residual-scope-decisions-v1'
 PARENT = expanded.VERSION
 SIDECAR = 'residual-scope-quarantine.jsonl'
-ACTIONS = {'quarantine_nonresidential', 'quarantine_location_conflict'}
+ACTIONS = {'quarantine_nonresidential', 'quarantine_location_conflict', 'quarantine_price_anomaly', 'quarantine_product_scope'}
 IDENTITIES = ('audit_id', 'unit_id', 'source_listing_id')
 
 
@@ -82,17 +82,19 @@ def _validate_decision(row, decision, reviewed_at):
     evidence = _capture_map(decision.get('evidence'))
     if set(source) != _capture_ids(row) or set(evidence) != set(source):
         raise ValueError('Scope needs every exact attached capture')
-    for field in ('floor_label_provenance', expanded.FIELD):
-        provenance = row[field]
-        if (provenance.get('source_capture_evidence_sha256') != records_hash(captures)
-                or provenance.get('source_known_at') != row['known_at']
-                or instant(provenance['interpreted_at']) > instant(reviewed_at)):
-            raise ValueError('Scope source capture provenance differs')
+    if decision.get('action') != 'quarantine_price_anomaly':
+        for field in ('floor_label_provenance', expanded.FIELD):
+            provenance = row[field]
+            if (provenance.get('source_capture_evidence_sha256') != records_hash(captures)
+                    or provenance.get('source_known_at') != row['known_at']
+                    or instant(provenance['interpreted_at']) > instant(reviewed_at)):
+                raise ValueError('Scope source capture provenance differs')
+    source_path = '/pricing/price' if decision.get('action') == 'quarantine_price_anomaly' else '/propertyDetails/address/displayUnit'
     for key, capture in evidence.items():
         original = source[key]
         text = capture.get('description')
         if (not _same_ids(original, row) or not _same_ids(capture, row)
-                or original.get('source_path') != '/propertyDetails/address/displayUnit'
+                or original.get('source_path') != source_path
                 or capture.get('source_path') != '/description'
                 or any(sha(capture.get(k)) != sha(original[k]) for k in
                        ('raw_listing_sha256', 'body_sha256', 'source_collected_at', 'known_at'))

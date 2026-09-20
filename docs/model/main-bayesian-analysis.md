@@ -1,5 +1,8 @@
 # Main Bayesian analysis
 
+For the chronological specification, equations, source revisions and promotion
+rationale, see the [main-model evolution report](main-model-evolution.md).
+
 The main Streamlit contribution/residual page reads `config/main-analysis.json`, which explicitly binds an accepted PyMC experiment to its exact source dataset and protocol/fit manifests. `pages/1_Bayesian_Model.py` links to this main analysis and the separate research comparison page. Earlier interfaces are retained under `legacy/`.
 
 Run the application normally, then open **Contributions and Residuals**. Cohort and current-listing counts come from the bound selection. Search advertisements or unit URLs, filter buildings, and rank signed or absolute asking-price residuals. The selected listing shows its posterior median latent asking rent and 95% credible interval, plus the unit's fitted history. Saved current status does not guarantee present availability.

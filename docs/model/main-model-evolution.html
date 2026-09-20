@@ -1,0 +1,351 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Complete model-version history</title>
+<meta name="description" content="Source-linked equations and complete chronological evolution of the NYC apartment pricing models.">
+<style>
+:root { --ink:#172033; --muted:#667085; --line:#dbe2eb; --blue:#2563eb; --paper:#f8fafc; --note:#eff6ff; }
+* { box-sizing:border-box; }
+html { scroll-behavior:smooth; }
+body { margin:0; background:var(--paper); color:var(--ink); font:16px/1.65 system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; }
+.layout { display:grid; grid-template-columns:260px minmax(0,1fr); max-width:1440px; margin:0 auto; }
+aside.toc { position:sticky; top:0; align-self:start; height:100vh; overflow:auto; padding:28px 18px 32px; background:#fff; border-right:1px solid var(--line); }
+aside.toc .brand { font-weight:800; letter-spacing:-.02em; margin-bottom:8px; }
+aside.toc .sub { font-size:12px; color:var(--muted); margin-bottom:20px; }
+aside.toc ul { list-style:none; padding:0; margin:0; }
+aside.toc li { margin:4px 0; font-size:13px; }
+aside.toc li.toc-level-3 { padding-left:14px; font-size:12px; }
+aside.toc a { color:#475467; text-decoration:none; }
+aside.toc a:hover { color:var(--blue); }
+main { min-width:0; padding:38px clamp(22px,5vw,78px) 80px; background:#fff; }
+article { max-width:980px; margin:0 auto; }
+h1 { font-size:clamp(30px,4vw,48px); line-height:1.12; letter-spacing:-.04em; margin:.1rem 0 .65rem; }
+h2 { margin:3rem 0 .8rem; padding-top:.4rem; border-top:1px solid var(--line); font-size:28px; letter-spacing:-.025em; }
+h3 { margin:2rem 0 .5rem; font-size:21px; letter-spacing:-.015em; }
+p { max-width:900px; margin:.8rem 0; }
+strong { color:#111827; }
+a { color:#1d4ed8; }
+code { padding:.12em .32em; border-radius:5px; background:#f1f5f9; color:#334155; font-size:.9em; overflow-wrap:anywhere; }
+pre { padding:16px 18px; overflow:auto; border:1px solid #dbe2eb; border-radius:10px; background:#0f172a; color:#e2e8f0; line-height:1.5; }
+pre code { padding:0; background:transparent; color:inherit; }
+ul,ol { padding-left:1.5rem; }
+li { margin:.22rem 0; }
+.note { margin:1.2rem 0; padding:15px 18px; border-left:4px solid var(--blue); border-radius:8px; background:var(--note); color:#334155; }
+.equation { margin:1rem 0; padding:14px 18px; overflow-x:auto; border:1px solid #e2e8f0; border-radius:10px; background:#fbfdff; text-align:center; }
+.table-wrap { width:100%; overflow-x:auto; margin:1rem 0 1.35rem; }
+table { width:100%; min-width:620px; border-collapse:collapse; font-size:14px; }
+th,td { padding:9px 10px; text-align:left; vertical-align:top; border-bottom:1px solid var(--line); }
+th { background:#eef3f8; font-weight:750; color:#24324a; }
+tr:hover td { background:#fafcff; }
+article > p:first-of-type { color:var(--muted); }
+article > h1:first-child::after { content:"MODEL LINEAGE · SOURCE-LINKED REPORT"; display:block; margin-top:15px; font-size:11px; letter-spacing:.12em; color:#2563eb; }
+.toolbar { display:flex; gap:10px; flex-wrap:wrap; margin:0 auto 24px; max-width:980px; }
+.toolbar button { cursor:pointer; border:1px solid var(--line); border-radius:8px; padding:8px 12px; background:#fff; color:#344054; }
+.toolbar button:hover { border-color:#93c5fd; color:#1d4ed8; }
+@media (max-width:900px) { .layout { display:block; } aside.toc { position:relative; height:auto; max-height:none; border-right:0; border-bottom:1px solid var(--line); } aside.toc ul { columns:2; } main { padding:28px 18px 60px; } table { font-size:13px; } }
+@media print { aside.toc,.toolbar { display:none; } main { padding:0; } h2 { break-before:page; } body { background:#fff; } }
+</style>
+<script>
+window.MathJax = { tex: { inlineMath: [['\\(','\\)']], displayMath: [['\\[','\\]']] }, svg: { fontCache: 'global' } };
+function printReport() { window.print(); }
+function toggleTheme() { document.body.classList.toggle('dark'); }
+</script>
+<script async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+</head>
+<body>
+<div class="layout">
+<aside class="toc">
+  <div class="brand">Complete model history</div>
+  <div class="sub">NYC apartment pricing · Chelsea pilot</div>
+  <ul><li class="toc-level-2"><a href="#executive-summary">Executive summary</a></li><li class="toc-level-2"><a href="#complete-version-inventory">Complete version inventory</a></li><li class="toc-level-2"><a href="#pre-reset-model-line-sierra-to-all-chelsea-bayesian">Pre-reset model line: Sierra to all-Chelsea Bayesian</a></li><li class="toc-level-3"><a href="#1-sierra-monthly-bayesian-index-august-1">1. Sierra monthly Bayesian index — August 1</a></li><li class="toc-level-3"><a href="#2-sierra-weekly-and-multi-building-shared-floor-versions-august-1-2">2. Sierra weekly and multi-building shared-floor versions — August 1–2</a></li><li class="toc-level-3"><a href="#3-all-chelsea-pooled-bayesian-model-september-8">3. All-Chelsea pooled Bayesian model — September 8</a></li><li class="toc-level-2"><a href="#canonical-unit-and-robust-point-model-line">Canonical-unit and robust point-model line</a></li><li class="toc-level-3"><a href="#4-minimal-canonical-unit-robust-model-september-17">4. Minimal canonical-unit robust model — September 17</a></li><li class="toc-level-3"><a href="#5-historical-amenity-robust-model-september-18">5. Historical amenity robust model — September 18</a></li><li class="toc-level-3"><a href="#6-canonical-unit-bayesian-overnight-generation-september-18">6. Canonical-unit Bayesian overnight generation — September 18</a></li><li class="toc-level-2"><a href="#post-reset-bayesian-feature-lineage">Post-reset Bayesian feature lineage</a></li><li class="toc-level-2"><a href="#current-equation">Current equation</a></li><li class="toc-level-3"><a href="#feature-block">Feature block</a></li><li class="toc-level-3"><a href="#current-listed-floor-term">Current listed-floor term</a></li><li class="toc-level-3"><a href="#priors-and-group-structure">Priors and group structure</a></li><li class="toc-level-2"><a href="#post-reset-selected-model-progression">Post-reset selected-model progression</a></li><li class="toc-level-3"><a href="#0-prehistory-within-the-post-reset-branch-robust-and-descriptive-models">0. Prehistory within the post-reset branch: robust and descriptive models</a></li><li class="toc-level-3"><a href="#1-first-bayesian-bathroom-model-september-18">1. First Bayesian bathroom model — September 18</a></li><li class="toc-level-3"><a href="#2-source-review-overlays-september-18">2. Source-review overlays — September 18</a></li><li class="toc-level-3"><a href="#3-refreshed-current-observations-september-18-19">3. Refreshed current observations — September 18–19</a></li><li class="toc-level-3"><a href="#4-listed-floor-threshold-increments-september-18-19-research-branch">4. Listed-floor threshold increments — September 18–19 research branch</a></li><li class="toc-level-3"><a href="#5-reviewed-floor-laundry-source-corrections-september-19-intermediate">5. Reviewed floor/laundry source corrections — September 19 intermediate</a></li><li class="toc-level-3"><a href="#6-natural-cubic-floor-spline-september-19">6. Natural-cubic floor spline — September 19</a></li><li class="toc-level-3"><a href="#7-expanded-label-floor-source-september-19">7. Expanded label-floor source — September 19</a></li><li class="toc-level-3"><a href="#8-post-selection-source-revisions-september-19-20-research-not-main">8. Post-selection source revisions — September 19–20 research, not main</a></li><li class="toc-level-2"><a href="#what-changed-versus-what-did-not">What changed versus what did not</a></li><li class="toc-level-3"><a href="#changed-in-the-selected-lineage">Changed in the selected lineage</a></li><li class="toc-level-3"><a href="#deliberately-not-in-the-current-equation">Deliberately not in the current equation</a></li><li class="toc-level-2"><a href="#research-branches-that-did-not-change-the-main-equation">Research branches that did not change the main equation</a></li><li class="toc-level-2"><a href="#current-interpretation-contract">Current interpretation contract</a></li><li class="toc-level-2"><a href="#reproduction-and-provenance">Reproduction and provenance</a></li></ul>
+</aside>
+<main>
+  <div class="toolbar"><button onclick="printReport()">Print / save PDF</button><button onclick="toggleTheme()">Toggle theme</button></div>
+  <article><h1 id="complete-model-version-history">Complete model-version history</h1>
+<p><strong>Status:</strong> all major model generations through the selected pointer in <code><a href="/config/main-analysis.json">config/main-analysis.json</a></code></p>
+<p>This report covers the full model history, including the pre-reset Sierra and multi-building Bayesian line, the September 8 all-Chelsea model, the canonical-unit robust and Bayesian generations, the source-bound feature posteriors, and the currently selected expanded-floor spline. It distinguishes three things that are easy to conflate:</p>
+<ol><li>a change to the <strong>source cohort</strong>;</li><li>a change to the <strong>mathematical representation</strong>; and</li><li>a change to <strong>execution, diagnostics or reporting</strong>.</li></ol>
+<p>A completed research experiment was not automatically a new main model. Promotion required a verified source, an immutable protocol, a completed posterior, parameter and derived-quantity diagnostics, matched comparisons, source review and a real analysis-page check.</p>
+<aside class="note"><strong>Authority note.</strong> Some earlier documents, especially <code><a href="/docs/model/current-analysis.md">docs/model/current-analysis.md</a></code>, describe an earlier selected fit. For the present state, the authoritative pointer is <code><a href="/config/main-analysis.json">config/main-analysis.json</a></code>, which currently binds <code><a href="/data/model/chelsea-expanded-label-floor-analysis-20260919">data/model/chelsea-expanded-label-floor-analysis-20260919</a></code> to <code><a href="/data/model/chelsea-bayesian-expanded-spline-floor-disk-20260919">data/model/chelsea-bayesian-expanded-spline-floor-disk-20260919</a></code>. Historical documents are retained as contemporaneous records and are not rewritten.</aside>
+<h2 id="executive-summary">Executive summary</h2>
+<p>The project has had several genuine main-model generations, not one continuous posterior. The earliest model was a Sierra-only monthly Bayesian index. It became a weekly Sierra model, then a shared-floor/facing model for three neighboring buildings. On September 8 it was replaced by an all-Chelsea pooled Bayesian model. The canonical-unit reset then introduced a fast robust point model and a separate historical-amenity research line. An overnight Bayesian canonical-unit model was selected for descriptive uncertainty but failed its final-period predictive comparison against the robust point benchmark. The current post-reset main line starts with the full Bayesian bathroom model, then changes source policy and floor representation until reaching the expanded-floor spline fit.</p>
+<p>The current post-reset model began as a hierarchical Bayesian log-rent model with explicit bathroom composition and a shared Student-t residual scale. It then acquired source-bound current observations and reversible source reviews. Listed-floor information was first tested as observed-level increments, but that representation was not promoted because its support was sparse and its independent priors accumulated variance across many increments. The promoted floor representation is now a regularized natural cubic spline. A broader, reviewed unit-label extraction then increased known listed-floor observations from <strong>29,907 / 52,653 (56.80%)</strong> to <strong>35,992 / 52,653 (68.36%)</strong> without changing the model equation or other source fields. That expanded-floor spline fit is the current main posterior.</p>
+<p>The current fit has:</p>
+<ul><li><strong>52,653 observations</strong>, <strong>22,155 units</strong>, <strong>1,129 buildings</strong> and **172</li></ul>
+<p>capture-time current observations**;</p>
+<ul><li><strong>47 active feature columns</strong>, of which five are spline coordinates and one is</li></ul>
+<p>a listed-floor-unknown indicator;</p>
+<ul><li>four chains, 4,000 warmup iterations and 6,000 retained draws per chain;</li><li>24,000 retained draws, zero divergences and zero depth-limit hits;</li><li>maximum parameter R-hat <strong>1.00398</strong>, minimum bulk ESS <strong>820.7</strong>, minimum tail</li></ul>
+<p>ESS <strong>1,513.2</strong>, and minimum BFMI <strong>0.4357</strong>.</p>
+<p>These diagnostics establish numerical adequacy for this specification. They do not establish causal amenity prices, complete market coverage, correct physical floor measurements or calibrated uncertainty for unfamiliar buildings.</p>
+<h2 id="complete-version-inventory">Complete version inventory</h2>
+<div class="table-wrap"><table><thead><tr><th>Date / version</th><th>Main-model role</th><th>Cohort or scope</th><th>Mathematical change</th><th>Disposition</th></tr></thead><tbody><tr><td>2026-08-01 · Sierra monthly</td><td>First Bayesian rent index</td><td>Sierra Chelsea; one median observation per unit-month</td><td>Log rent, unit effects, bedroom/bath/size controls, furnished flag and a monthly random walk</td><td>Historical predecessor</td></tr><tr><td>2026-08-01 · Sierra weekly</td><td>Higher-frequency Sierra index</td><td>Sierra; one median observation per unit-week</td><td>Weekly time grid and evidence-based furnished/Blueground periods; cumulative first/second-bedroom terms</td><td>Historical predecessor</td></tr><tr><td>2026-08-01 · multi-building weekly</td><td>Shared local-market model</td><td>Sierra, Stonehenge Gardens and 101 W 15th, later West 13th buildings</td><td>Shared building/floor effects, physical-floor curve, garden/skyline facing and interactions</td><td>Historical predecessor</td></tr><tr><td>2026-09-08 · all-Chelsea pooled Bayesian</td><td>First broad Chelsea model</td><td>2,386 monthly observations, 287 units, 147 buildings</td><td>Pooled building/unit/floor effects, Student-t log rent and monthly trend</td><td>Superseded by canonical transform</td></tr><tr><td>2026-09-17 · minimal canonical robust</td><td>Canonical-unit point baseline</td><td>53,899 unit-months, 22,424 units, 1,141 buildings</td><td>Robust penalized log-rent regression with incremental bedrooms, size, groups, trend and seasonality</td><td>Retained prediction benchmark</td></tr><tr><td>2026-09-18 · historical amenity robust</td><td>Source-backed amenity research</td><td>Same canonical historical cohort; 42 matched ablation fits</td><td>Laundry, doorman, HVAC, pet, floor/view/exposure blocks and missingness controls</td><td>Research, not main</td></tr><tr><td>2026-09-18 · canonical Bayesian overnight</td><td>Bayesian uncertainty branch on canonical data</td><td>53,899 unit-months</td><td>Bayesian version of the canonical mean model; orthogonal drift, Student-t, unit/building effects</td><td>Descriptive branch; final-period prediction worse than robust baseline</td></tr><tr><td>2026-09-18 · Bayesian bathrooms</td><td>First post-reset selected posterior</td><td>52,711 rows, 22,165 units, 1,134 buildings, 13 current rows</td><td>Explicit full/half baths, bathroom shortfall, joint posterior contributions and residuals</td><td>First Bayesian main selection</td></tr><tr><td>2026-09-18–19 · source/current/floor candidates</td><td>Evidence and current-cohort revisions</td><td>52,704–52,863 rows; current cohort expanded to 172</td><td>Mostly source projections; observed-level floor increments and durable disk execution</td><td>Intermediate candidates and research fits</td></tr><tr><td>2026-09-19 · spline, narrow floor source</td><td>Regularized floor representation</td><td>52,653 rows; 56.80% known floors</td><td>51 independent increments replaced by five natural-spline coordinates</td><td>Selected, then superseded by broader floor source</td></tr><tr><td>2026-09-19 · expanded-floor spline</td><td>Current main posterior</td><td>52,653 rows, 22,155 units, 1,129 buildings, 172 current rows</td><td>Same spline equation; source adds 6,085 reviewed floor proxies</td><td><strong>Current selected model</strong></td></tr><tr><td>2026-09-19–20 · residual/location/direct-floor revisions</td><td>Post-selection research</td><td>Exact-ad source revisions and 24 direct-floor additions</td><td>No promoted equation change; matched refits pending/recoverable</td><td>Not selected</td></tr></tbody></table></div>
+<p>The rest of this report gives the equation and reason for each generation, not just the final specification.</p>
+<h2 id="pre-reset-model-line-sierra-to-all-chelsea-bayesian">Pre-reset model line: Sierra to all-Chelsea Bayesian</h2>
+<h3 id="1-sierra-monthly-bayesian-index-august-1">1. Sierra monthly Bayesian index — August 1</h3>
+<p>The first tracked model was a narrow <strong>Sierra Chelsea</strong> index. It retained one median asking-rent observation per unit-month and modeled:</p>
+<div class="equation">\[
+\begin{aligned}
+y_i ={}&amp; \log r_i \\
+\mu_i ={}&amp; \alpha + \beta_f\,1(\text{furnished}_i)
++ \beta_1\,1(B_i=1) + \beta_2\,1(B_i\ge 2) \\
+&amp;+ \beta_A z(\log A_i) + \beta_{A?}1(A_i\text{ missing})
++ g_{t(i)} + u_{u(i)}, \\
+y_i &amp;\sim t_5(\mu_i,\sigma).
+\end{aligned}
+\]</div>
+<p>The monthly trend \(g_t\) was a Gaussian random walk with a shared innovation scale; unit effects captured persistent unit differences. This model was useful as a first posterior index, but it was not designed for Chelsea-wide feature identification. The furnished coefficient was explicitly a cohort effect until historical furnished periods could be established.</p>
+<p><strong>Why it changed:</strong> the data were too narrow, the frequency choice was arbitrary, and the model hard-coded one building. The next version tested weekly updating and improved furnishing evidence.</p>
+<p>Evidence: historical commits <code>d339727</code> and <code>b4334fd</code>; the original implementation is preserved in Git history as <code>models/rent_model.py</code>.</p>
+<h3 id="2-sierra-weekly-and-multi-building-shared-floor-versions-august-1-2">2. Sierra weekly and multi-building shared-floor versions — August 1–2</h3>
+<p>The weekly version changed the time index and replaced the coarse bedroom terms with cumulative indicators for the first and incremental second bedroom. It also used evidence-based Blueground/furnished periods. Its core remained:</p>
+<div class="equation">\[
+\mu_i = \alpha + \beta_1 1(B_i\ge1) + \beta_2 1(B_i\ge2)
++ \beta_A z(\log A_i) + g_{week(i)} + u_{u(i)}.
+\]</div>
+<p>The next local-market version added Stonehenge Gardens and 101 W 15th, later West 13th buildings. It introduced building offsets, a shared cumulative physical floor curve and source-derived facing terms:</p>
+<div class="equation">\[
+\mu_i = \cdots + b_{j(i)} + C_{floor}(P_i) +
+\beta_{face}F_i + \beta_{both}1(F_i=\text{both}).
+\]</div>
+<p>Adjacent floor changes were shrunk toward zero with a shared innovation scale, while physical floor was kept separate from marketed floor and Sierra's skipped 13th-floor numbering was handled through source/building overrides.</p>
+<p><strong>Why it changed:</strong> model a local market rather than one building, borrow strength across sparse floor levels, and represent known facing/floor evidence. These versions still depended on a small, manually selected building set and were superseded when the project moved to the full archive.</p>
+<p>Evidence: commits <code>faa8a54</code>, <code>7ee71df</code>, <code>c6c7f42</code>, <code>fbc05f2</code>, <code>fe1e5c5</code>, <code>8575fd0</code>, <code>cb6511b</code>, <code>5bfc995</code> and the archived implementation history.</p>
+<h3 id="3-all-chelsea-pooled-bayesian-model-september-8">3. All-Chelsea pooled Bayesian model — September 8</h3>
+<p>The first broad Chelsea model replaced the manually selected building set. It used 2,386 monthly observations from 287 units and 147 buildings, with one median price per unit-month, pooled building/unit effects, categorical floor levels, bedroom/bathroom/size controls, missingness indicators and a Student-t likelihood:</p>
+<div class="equation">\[
+\begin{aligned}
+y_i &amp;\sim t_5(\mu_i,\sigma),\\
+\mu_i &amp;= \alpha + X_i\beta + b_{j(i)} + u_{u(i)} + g_{t(i)}.
+\end{aligned}
+\]</div>
+<p>The floor term was categorical, with an explicit unknown category. Unsupported first-digit guesses were treated as unknown. Furnished/Blueground units were excluded conservatively, including earlier history for an affected unit.</p>
+<p>The full fit reported maximum R-hat 1.0057, minimum bulk ESS 819 and zero divergences. A separate 2026 holdout had 459 observations and 6.51% median absolute percentage error for all held-out rows, versus 11.61% for the last-observed-rent baseline among previously seen units. The validation was retrospective because later-captured attributes and full-data size scaling were available.</p>
+<p><strong>Why it changed:</strong> this was the first model with enough scope to be a Chelsea market analysis rather than a small-building demonstration. It was later superseded by the canonical-unit transformation because source identities, attribute time semantics and review overlays needed a cleaner contract.</p>
+<p>Evidence: <code><a href="/docs/analysis/chelsea-2026-09-08.md">docs/analysis/chelsea-2026-09-08.md</a></code>, <code><a href="/docs/analysis/chelsea-2026-09-08.json">docs/analysis/chelsea-2026-09-08.json</a></code>, commit <code>e844d94</code> and the subsequent convergence checkpoint <code>ac5cc95</code>.</p>
+<h2 id="canonical-unit-and-robust-point-model-line">Canonical-unit and robust point-model line</h2>
+<h3 id="4-minimal-canonical-unit-robust-model-september-17">4. Minimal canonical-unit robust model — September 17</h3>
+<p>The September 17 reset changed the analytical unit of work. It retained advertisement-owned attributes and canonical unit memberships, selected one whole initial-ask row per unit-month, and fit a robust penalized log-rent model:</p>
+<div class="equation">\[
+\hat\theta = \arg\min_\theta
+\sum_i \rho\left(y_i - \mu_i(\theta)\right)
++ \lambda_b\lVert b\rVert^2
++ \lambda_u\lVert u\rVert^2
++ \lambda_t\lVert g\rVert^2,
+\]</div>
+<p>with</p>
+<div class="equation">\[
+\mu_i = \alpha + X_i\beta + b_{j(i)} + u_{u(i)} + g_{t(i)} + s_{m(i)}.
+\]</div>
+<p>The feature block used incremental bedroom thresholds, bathrooms, relative within-bedroom size, size missingness, building/unit effects, a smooth trend and month-of-year seasonality. The model had 53,899 unit-month observations, 22,424 units and 1,141 buildings. Its withheld-2026 median absolute error was 7.1%, versus 17.8% for the bedroom-only baseline; the complete local fit ran in about 23 seconds.</p>
+<p><strong>Why it changed:</strong> canonical-unit membership and own-advertisement provenance made historical reconstruction more explicit, while robust fitting provided a fast stable point baseline for residual and search work. It does not provide posterior coefficient uncertainty and remains a prediction benchmark rather than the current contribution model.</p>
+<p>Evidence: <code><a href="/docs/analysis/chelsea-minimal-2026-09-17.md">docs/analysis/chelsea-minimal-2026-09-17.md</a></code> and <code><a href="/docs/model/robust-candidate-scoring.md">docs/model/robust-candidate-scoring.md</a></code>.</p>
+<h3 id="5-historical-amenity-robust-model-september-18">5. Historical amenity robust model — September 18</h3>
+<p>The amenity model extended the minimal robust design with source-backed laundry, doorman, HVAC, pet, exposure, elevator and floor blocks, while keeping unknown values distinct. It used matched ablations, train-only vocabularies/scales and fixed penalties. Its development equation remained a penalized log-rent model, but with an expanded \(X_i\):</p>
+<div class="equation">\[
+\mu_i = \alpha + X_{layout,i}\beta_{layout}
++ X_{amenity,i}\beta_{amenity} + b_{j(i)} + u_{u(i)} + g_{t(i)} + s_{m(i)}.
+\]</div>
+<p>All 42 reported fits completed. In the recovered-amenity development experiment, unseen-building median error was 18.26% for baseline and 14.04% with reported amenities. This supported continued source measurement but did not establish causal amenity premiums or promote the robust amenity model to the main Bayesian analysis.</p>
+<p><strong>Why it changed:</strong> residual review indicated omitted amenities could matter, but source measurement and missingness controls had to be tested before interpretation.</p>
+<p>Evidence: <code><a href="/docs/analysis/chelsea-amenities-2026-09-18.md">docs/analysis/chelsea-amenities-2026-09-18.md</a></code>, <code><a href="/docs/analysis/chelsea-recovery-ablation-2026-09-18.md">docs/analysis/chelsea-recovery-ablation-2026-09-18.md</a></code>.</p>
+<h3 id="6-canonical-unit-bayesian-overnight-generation-september-18">6. Canonical-unit Bayesian overnight generation — September 18</h3>
+<p>The overnight canonical-unit Bayesian branch converted the minimal mean structure to a joint posterior with cumulative bedroom terms, bathroom/size controls, monthly trend, seasonality and building/unit effects. It added an identified annual drift term after removing linear/seasonal overlap:</p>
+<div class="equation">\[
+\mu_i = \alpha + X_i\beta + q_{t(i)}^\mathsf{T}\gamma
++ \delta d_{t(i)} + s_{m(i)}^\mathsf{T}\eta + b_{j(i)}+u_{u(i)}.
+\]</div>
+<p>The selected validation configuration was units + available size + annual drift + Student-t residuals. On 2025 it reached 6.77% median error and the highest mean log predictive density among the passing variants. On the separate January– August 2026 test it reached 9.41% median error versus 7.10% for the robust point model, with negative bias worsening through the year.</p>
+<p><strong>Disposition:</strong> this model established a usable Bayesian uncertainty workflow and showed why prediction and contribution analysis should be separated. It was not used as the final post-reset main model after the project adopted the richer source-bound bathroom/current-capture workflow.</p>
+<p>Evidence: <code><a href="/docs/analysis/chelsea-bayesian-2026-09-18.md">docs/analysis/chelsea-bayesian-2026-09-18.md</a></code>, <code><a href="/docs/model/bayesian-local.md">docs/model/bayesian-local.md</a></code>, and <code><a href="/docs/operations/overnight-2026-09-18.md">docs/operations/overnight-2026-09-18.md</a></code>.</p>
+<h2 id="post-reset-bayesian-feature-lineage">Post-reset Bayesian feature lineage</h2>
+<p>For the first post-reset Bayesian version and every later source/floor/spline revision, the equation, promotion rationale and non-promoted branches are recorded in the sections below. The initial post-reset version is the first selection in this lineage; it is not the first Bayesian model in the repository.</p>
+<h2 id="current-equation">Current equation</h2>
+<p>For observation \(i\), let:</p>
+<ul><li>\(r_i\) be the gross advertised monthly asking rent;</li><li>\(y_i = \log r_i\);</li><li>\(j(i)\) be its building;</li><li>\(u(i)\) be its canonical unit identity;</li><li>\(t(i)\) be its calendar month and \(m(i)\) its month-of-year;</li><li>\(x_i\) be the centered 47-column feature vector;</li><li>\(q_{t(i)}\) be the season-separated smooth time basis;</li><li>\(d_{t(i)}\) be centered annual elapsed time;</li><li>\(s_{m(i)}\) be the centered month-of-year contrast basis.</li></ul>
+<p>The likelihood is:</p>
+<div class="equation">\[
+y_i \mid \mu_i,\sigma \sim t_{\nu=5}(\mu_i,\sigma).
+\]</div>
+<p>The latent conditional median on the log scale is:</p>
+<div class="equation">\[
+\begin{aligned}
+\mu_i ={}&amp; \alpha + x_i^\mathsf{T}\beta
++ q_{t(i)}^\mathsf{T}\gamma
++ \delta d_{t(i)}
++ s_{m(i)}^\mathsf{T}\eta \\
+&amp;+ b_{j(i)} + \sigma_u z_{u(i)}.
+\end{aligned}
+\]</div>
+<p>The rent-scale interpretation is \(\exp(\mu_i)\), a conditional median rather than an arithmetic mean. Residuals deliberately include the apartment's own asking-price evidence, so they are in-sample review signals.</p>
+<h3 id="feature-block">Feature block</h3>
+<p>The current feature vector is centered using the training cohort. Its important terms are:</p>
+<div class="equation">\[
+\begin{aligned}
+x_i^\mathsf{T}\beta ={}&amp;
+\sum_{k=0}^{4}\beta^{bed}_k\,1(B_i &gt; k) \\
+&amp;+ \sum_{k=1}^{4}\beta^{full}_k\,1(F_i &gt; k)
++ \sum_{k=0}^{1}\beta^{half}_k\,1(H_i &gt; k) \\
+&amp;+ \beta^{short}\max(B_i-F_i,0) \\
+&amp;+ \beta^{area}\log\left(\frac{A_i}{\operatorname{median}(A\mid B_i)}\right)
++ \beta^{area,missing}\,1(A_i\text{ unknown}) \\
+&amp;+ C_i^\mathsf{T}\beta^{amenity}
++ \beta^{floor,missing}\,1(L_i\text{ unknown})
++ C_{floor}(L_i)^\mathsf{T}\beta^{floor}.
+\end{aligned}
+\]</div>
+<p>Here:</p>
+<ul><li>\(B_i\) is bedrooms, with studios represented as zero;</li><li>\(F_i\) and \(H_i\) are explicitly reported full- and half-bath counts;</li><li>the shortfall term is the <code>full_half_balance</code> research construction;</li><li>\(A_i\) is square footage, normalized within bedroom count;</li><li>\(C_i\) contains supported numeric amenity terms, orthonormal category</li></ul>
+<p>contrasts and separate unknown/reporting indicators;</p>
+<ul><li>\(L_i\) is the normalized listed/advertised floor, not physical height;</li><li>\(C_{floor}(L_i)\) is the current natural-cubic spline described below.</li></ul>
+<p>The exact column inventory, centering, active masks and priors are saved in the fit's <code>fit/feature-design.json</code>. The equation above shows the scientific construction; the saved design is authoritative for reproducing a draw.</p>
+<h3 id="current-listed-floor-term">Current listed-floor term</h3>
+<p>The current floor source is <code>listed_floor</code>, falling back to the existing <code>advertised_floor</code> alias. For the selected expanded source, knots are:</p>
+<div class="equation">\[
+\kappa = (1,5,10,20,35,57).
+\]</div>
+<p>Let \(Q\) be an orthonormal basis perpendicular to the all-ones vector, and let \(h = Q\theta\) be the six zero-sum knot heights. The prior is:</p>
+<div class="equation">\[
+\theta \sim \mathcal{N}(0, 0.10^2 I_5).
+\]</div>
+<p>Let \(S(f;h)\) be the natural cubic interpolation of those heights. The reported floor curve is:</p>
+<div class="equation">\[
+C_{floor}(f) = S(f;h) - S(2;h).
+\]</div>
+<p>The fitted feature design centers the raw spline coordinates over the training cohort. That affects the intercept and contribution table but not a difference between two floors. Unknown floor observations receive zero raw spline coordinates and a separate \(\mathcal{N}(0,0.20)\) unknown indicator when that indicator varies. Interpolation inside the observed range is supported; extrapolation is rejected. There is no monotonicity constraint.</p>
+<h3 id="priors-and-group-structure">Priors and group structure</h3>
+<p>The current protocol uses the following principal priors:</p>
+<div class="equation">\[
+\begin{aligned}
+\alpha &amp;\sim \mathcal{N}(\log 4500, 0.8^2), \\
+\beta_k &amp;\sim \mathcal{N}(0,s_k^2), \\
+\gamma\mid\tau_t &amp;\sim \mathcal{N}(0,\tau_t^2 s_{t,k}^2),
+&amp;\tau_t &amp;\sim \operatorname{HalfNormal}(0.15), \\
+\delta &amp;\sim \mathcal{N}(0.03,0.05^2), \\
+\eta\mid\tau_s &amp;\sim \mathcal{N}(0,\tau_s^2 I),
+&amp;\tau_s &amp;\sim \operatorname{HalfNormal}(0.10), \\
+\mathbf b\mid\sigma_b &amp;\sim \operatorname{ZeroSumNormal}(0,\sigma_b),
+&amp;\sigma_b &amp;\sim \operatorname{HalfNormal}(0.35), \\
+z_u &amp;\sim \mathcal{N}(0,1),
+&amp;\sigma_u &amp;\sim \operatorname{HalfNormal}(0.25), \\
+\sigma &amp;\sim \operatorname{HalfNormal}(0.25).
+\end{aligned}
+\]</div>
+<p>Feature prior scales are part of the protocol, not informal defaults. The current family uses approximately 0.25 for bedroom/full-bath increments, 0.20 for half-bath/shortfall/reporting terms, 0.35 for the within-bedroom area term, 0.15 for standardized amenity/category contrasts, 0.10 for spline coordinates, and 0.20 for the floor-unknown indicator. The global feature prior multiplier is 1.0 in the selected fit.</p>
+<p>Building effects are constrained to sum to zero for identifiability. Unit effects are centered through their shared scale but are not a causal apartment-quality measurement. Both group effects can absorb omitted features; this is why their movement is reviewed alongside feature changes.</p>
+<h2 id="post-reset-selected-model-progression">Post-reset selected-model progression</h2>
+<h3 id="0-prehistory-within-the-post-reset-branch-robust-and-descriptive-models">0. Prehistory within the post-reset branch: robust and descriptive models</h3>
+<p><strong>Before September 18.</strong> The project had a robust/ridge log-rent workflow with bedrooms, bathrooms, area, building/unit effects and time terms, plus exploratory amenity blocks. Its rough form was:</p>
+<div class="equation">\[
+\log r_i = x_i^\mathsf{T}\beta + b_{j(i)} + u_{u(i)} + g(t_i) + \epsilon_i,
+\]</div>
+<p>with regularization and robust fitting rather than a joint posterior. It was useful for establishing the scrape → transform → fit → analyze loop and for finding residual cases, but it did not provide the requested posterior uncertainty or joint coefficient/counterfactual draws. It remains available explicitly as a legacy workflow; it is not the main model.</p>
+<p><strong>Why the change:</strong> the project goal shifted toward interpretable feature contributions, source-linked residual review and counterfactuals with explicit uncertainty. A Bayesian model was chosen instead of a surrogate estimator.</p>
+<p>Evidence: <code><a href="/docs/model/legacy-robust-analysis.md">docs/model/legacy-robust-analysis.md</a></code>, <code><a href="/docs/model/pricing.md">docs/model/pricing.md</a></code>, and the project intent in <code><a href="/docs/project-intent.md">docs/project-intent.md</a></code>.</p>
+<h3 id="1-first-bayesian-bathroom-model-september-18">1. First Bayesian bathroom model — September 18</h3>
+<p><strong>Fit:</strong> <code>chelsea-bayesian-bathrooms-long-20260918</code></p>
+<p><strong>Source/cohort:</strong> 52,711 observations, 22,165 units, 1,134 buildings and 13 refreshed current observations. The feature design had 43 active columns under <code>full_half_balance</code>.</p>
+<p><strong>Equation change:</strong> the project moved to the hierarchical Student-t equation above. The key new feature construction was separate composition:</p>
+<div class="equation">\[
+\begin{aligned}
+\text{full terms} &amp;: \sum_k \beta^{full}_k1(F_i&gt;k),\\
+\text{half terms} &amp;: \sum_k \beta^{half}_k1(H_i&gt;k),\\
+\text{shortfall} &amp;: \beta^{short}\max(B_i-F_i,0).
+\end{aligned}
+\]</div>
+<p>Rows with missing, flagged, inconsistent or shared-access bathroom composition kept their source values but contributed an explicit unknown indicator instead of being silently treated as zero.</p>
+<p><strong>Why:</strong> a scalar bathroom count could not distinguish full from half baths or ask whether eliminating a full-bath shortage differed from adding a surplus. The user also asked for explicit coefficient uncertainty and joint bathroom comparisons.</p>
+<p><strong>Result:</strong> four chains, 1,000 warmup and 4,000 retained draws; maximum R-hat 1.00767, minimum bulk/tail ESS 559/966, minimum BFMI 0.412 and zero divergences. Both parameter and derived-quantity gates passed. The second-half-bath term had only two supporting advertisements and remained a sensitivity result, not a stable renter-facing premium.</p>
+<p>Evidence: <code><a href="/docs/analysis/chelsea-bayesian-bathrooms-2026-09-18.md">docs/analysis/chelsea-bayesian-bathrooms-2026-09-18.md</a></code>, <code><a href="/docs/model/bayesian-feature-research.md">docs/model/bayesian-feature-research.md</a></code>.</p>
+<h3 id="2-source-review-overlays-september-18">2. Source-review overlays — September 18</h3>
+<p>Several source revisions were tested without changing the mathematical model:</p>
+<ul><li>a bathroom/source-composition projection masked shared-access and unsupported</li></ul>
+<p>composition claims;</p>
+<ul><li>a residual-driven scope revision quarantined commercial and location-conflict</li></ul>
+<p>advertisements;</p>
+<ul><li>a later combined source revision retained 52,704 observations, 22,158 units</li></ul>
+<p>and 1,131 buildings while preserving raw values and all 13 current captures.</p>
+<p><strong>Equation change:</strong> none. These were changes to \(\mathcal{D}\), the fit's source dataset, not to \(\mu_i\), the likelihood or the priors.</p>
+<p><strong>Why:</strong> large residuals exposed commercial offers, location conflicts and bathroom evidence that should not be interpreted as ordinary residential feature variation. The policy was to preserve source evidence and apply reversible, source-bound overlays rather than invent prices or corrected addresses.</p>
+<p><strong>Disposition:</strong> matched refits were required. A short source refit failed the parameter gate; a longer disk-backed refit passed diagnostics after report recovery. Source sensitivity changed median absolute log residual only 0.035191 → 0.035189 and moved each current fitted rent by less than $4. This supported source-quality review but did not justify calling the change a large model improvement.</p>
+<p>Evidence: <code><a href="/docs/analysis/chelsea-bayesian-source-revision-2026-09-18.md">docs/analysis/chelsea-bayesian-source-revision-2026-09-18.md</a></code> and <code><a href="/docs/model/bayesian-research-page.md">docs/model/bayesian-research-page.md</a></code>.</p>
+<h3 id="3-refreshed-current-observations-september-18-19">3. Refreshed current observations — September 18–19</h3>
+<p><strong>Source change:</strong> a current-cohort refresh preserved 52,691 historical rows and added 172 capture-time current rows, producing 52,863 observations, 22,189 units and 1,131 buildings. The current fit was a temporary selected stage before later source/floor revisions.</p>
+<p><strong>Equation change:</strong> none. The same Bayesian mean and Student-t likelihood were refit on a source that included current observations before search filtering.</p>
+<p><strong>Why:</strong> the operating loop is fit current evidence, then analyze residuals. The previous 13-current-listing fit was insufficient for the refreshed capture set. Current attributes were not copied backward onto historical price events.</p>
+<p><strong>Disposition:</strong> accepted as a verified intermediate fit. Its residuals produced the current source-review queue, including the unresolved studio/one-bedroom case for advertisement 5155021.</p>
+<p>Evidence: <code><a href="/docs/data/current-cohort-refresh.md">docs/data/current-cohort-refresh.md</a></code>, <code><a href="/docs/analysis/chelsea-current-fit-and-residual-review-2026-09-19.md">docs/analysis/chelsea-current-fit-and-residual-review-2026-09-19.md</a></code>.</p>
+<h3 id="4-listed-floor-threshold-increments-september-18-19-research-branch">4. Listed-floor threshold increments — September 18–19 research branch</h3>
+<p>The parameter audit found that the existing linear listed-floor representation had only 364 known rows in the cleaned cohort, and that physical floor, floor gap and floor×elevator interaction had no usable support. The first replacement research design used observed listed-floor levels only:</p>
+<div class="equation">\[
+C_{floor}^{inc}(f) = \sum_{k\in\mathcal{K},\ k&lt;f}\beta_k^{inc},
+\qquad
+\beta_k^{inc}\sim\mathcal{N}(0,0.15^2).
+\]</div>
+<p>Unknown floors activate no increments and retain a separate unknown indicator. The thresholds are observed labels, not every integer floor; an 11→14 contrast is one observed-level contrast, not three unobserved increments.</p>
+<p><strong>Why:</strong> threshold increments avoid imposing a linear price slope and retain the user-requested <code>sum(1(floor &gt; k))</code> construction while preserving unknowns and building-specific label uncertainty.</p>
+<p><strong>Result:</strong> 18 supported observed-level increments, 59 active columns in the corrected-source fit, and passing diagnostics. Most intervals were broad; the apparent floor-14 dip and floor-14/15 jump had no shared-building endpoint support. The full-cohort residual improvement was tiny (0.035189 → 0.035149), and the largest movements were source/group-effect review cases.</p>
+<p><strong>Disposition:</strong> completed research artifact, not automatically promoted as the main model. The representation earned a fit but not a strong physical-floor interpretation.</p>
+<p>Evidence: <code><a href="/docs/model/listed-floor-increment-design.md">docs/model/listed-floor-increment-design.md</a></code>, <code><a href="/docs/analysis/chelsea-bayesian-floor-increments-2026-09-18.md">docs/analysis/chelsea-bayesian-floor-increments-2026-09-18.md</a></code>.</p>
+<h3 id="5-reviewed-floor-laundry-source-corrections-september-19-intermediate">5. Reviewed floor/laundry source corrections — September 19 intermediate</h3>
+<p><strong>Source change:</strong> 17 ambiguous floor claims and one false-positive laundry claim were masked through exact source-bound overlays. Prices, source clocks, unit identities and 172 current observations were unchanged.</p>
+<p><strong>Equation change:</strong> none in the bathroom/amenity mean structure. The floor increment branch used the same threshold equation, but the source's known-floor support and feature centering changed.</p>
+<p><strong>Why:</strong> source review found photo-reference floor wording and a laundry negation/extraction error. The goal was to remove unsupported interpretations, not to reduce residuals.</p>
+<p><strong>Disposition:</strong> the corrected-source posterior was temporarily selected after it passed all parameter, contribution and floor-contrast gates. Its current fitted rents moved a median $1.29 and a maximum $13.21 relative to the immediately prior source. It was later superseded by the broader floor-evidence/spline path.</p>
+<p>Evidence: <code><a href="/docs/analysis/chelsea-corrected-main-fit-2026-09-19.md">docs/analysis/chelsea-corrected-main-fit-2026-09-19.md</a></code> and <code><a href="/config/reviews/">config/reviews/</a></code>.</p>
+<h3 id="6-natural-cubic-floor-spline-september-19">6. Natural-cubic floor spline — September 19</h3>
+<p>The independent increment model used many correlated cumulative terms and accumulated prior variance. The replacement retained the same nonfloor design and replaced the 51 independent floor increments in the broader floor experiment with five spline coordinates:</p>
+<div class="equation">\[
+C_{floor}^{spline}(f)=S(f;Q\theta)-S(2;Q\theta),
+\qquad
+\theta\sim\mathcal{N}(0,0.10^2I_5).
+\]</div>
+<p><strong>Why:</strong> a smooth curve shares information across sparse floor labels, avoids arbitrary independent jumps and substantially reduces sampling work. It was not chosen because it produced a dramatic residual reduction.</p>
+<p>On the 56.8%-coverage source, the design fell from 93 to 47 columns. Retained leapfrog work fell from 6,959,168 to 1,512,000 transitions in the matched comparison. The all-row median absolute log residual changed only 0.035141 → 0.035138; the motivation was coherent floor attribution and computational geometry.</p>
+<p>The spline fit used four chains, 4,000 warmup and 6,000 retained draws, with zero divergences. It passed parameter, derived-contribution and floor-contrast gates.</p>
+<p>Evidence: <code><a href="/docs/model/floor-spline-experiment-2026-09-19.md">docs/model/floor-spline-experiment-2026-09-19.md</a></code> and <code><a href="/docs/analysis/chelsea-spline-floor-results-2026-09-19.md">docs/analysis/chelsea-spline-floor-results-2026-09-19.md</a></code>.</p>
+<h3 id="7-expanded-label-floor-source-september-19">7. Expanded label-floor source — September 19</h3>
+<p>The source projection was broadened before the final spline fit. It added 6,085 inferred-floor rows from numeric-hundreds labels, wing prefixes, front/rear suffixes and one ordinal label, while masking five reviewed photo-reference errors. Known floors increased from 29,907 / 52,653 (56.80%) to 35,992 / 52,653 (68.36%).</p>
+<p><strong>Equation change:</strong> none. The spline knots changed only because the observed source range changed: the upper endpoint moved from 52 to 57; interior knots remained 5, 10, 20 and 35. This changes the induced prior and source support, so it is not a pure data-only comparison.</p>
+<p><strong>Why:</strong> the earlier 56.8% coverage was a narrow extraction policy, not the amount of floor information available in the archive. The broader policy was source-bound, reviewed and reversible. It improved the evidence available for attribution while keeping labels separate from physical height.</p>
+<p><strong>Result and promotion:</strong> the expanded source fit passed all diagnostic gates: 24,000 retained draws, maximum R-hat 1.00398, minimum bulk/tail ESS 821/1,513, minimum BFMI 0.436 and zero divergences. Typical fitted rents moved little; the selected reason was broader reviewed evidence plus a coherent posterior, not a claim of superior prediction.</p>
+<p>This is the current selected main model in <code><a href="/config/main-analysis.json">config/main-analysis.json</a></code>.</p>
+<p>Evidence: <code><a href="/docs/analysis/chelsea-expanded-spline-floor-results-2026-09-19.md">docs/analysis/chelsea-expanded-spline-floor-results-2026-09-19.md</a></code>, <code><a href="/docs/analysis/chelsea-expanded-spline-floor-movement-review-2026-09-19.md">docs/analysis/chelsea-expanded-spline-floor-movement-review-2026-09-19.md</a></code>, and the selected experiment's <code>protocol/protocol.json</code> and <code>fit/diagnostics.json</code>.</p>
+<h3 id="8-post-selection-source-revisions-september-19-20-research-not-main">8. Post-selection source revisions — September 19–20 research, not main</h3>
+<p>Residual review continued after the expanded-floor promotion. A residual-scope projection quarantined additional exact advertisements; a location-scope follow-up added advertisement 2938067; and a direct-description floor projection added 24 previously unknown floors.</p>
+<p><strong>Equation change:</strong> none in the selected main model. These are alternative source cohorts for future matched fits. A direct-floor spline refit was launched with the same mathematical protocol, but its raw trace finished while finalization stalled; the process was stopped and the trace retained for recovery. It was not promoted.</p>
+<p><strong>Why:</strong> source-bound evidence must be validated and compared against the selected source without silently rebinding earlier reviews. The direct-floor additions and location correction are useful candidates, not permission to change the current posterior in place.</p>
+<p>Evidence: <code><a href="/docs/analysis/chelsea-location-scope-followup-2026-09-20.md">docs/analysis/chelsea-location-scope-followup-2026-09-20.md</a></code>, <code><a href="/docs/analysis/chelsea-direct-floor-offers-2026-09-20.md">docs/analysis/chelsea-direct-floor-offers-2026-09-20.md</a></code>, and the corresponding <code><a href="/data/model/">data/model/</a></code> research artifacts.</p>
+<h2 id="what-changed-versus-what-did-not">What changed versus what did not</h2>
+<h3 id="changed-in-the-selected-lineage">Changed in the selected lineage</h3>
+<ul><li>estimator: legacy robust/descriptive workflow → hierarchical PyMC posterior;</li><li>bathroom representation: scalar/earlier constructions → explicit full/half</li></ul>
+<p>counts plus bedroom-relative full-bath shortfall;</p>
+<ul><li>source input: reviewed historical cohort → source-reviewed/current-refreshed</li></ul>
+<p>cohort → broader reviewed floor source;</p>
+<ul><li>floor representation: earlier linear/research increments → regularized natural</li></ul>
+<p>cubic listed-floor spline;</p>
+<ul><li>execution: in-memory/short experiments → durable disk-backed exact NUTS traces,</li></ul>
+<p>bounded report recovery and full posterior retention.</p>
+<h3 id="deliberately-not-in-the-current-equation">Deliberately not in the current equation</h3>
+<ul><li>physical floor and physical-floor×elevator: insufficient observed support;</li><li>a causal amenity premium: the coefficients are conditional associations;</li><li>GP or random-walk floor priors: backlog research, not fitted/promoted;</li><li>four-level laundry measurement experiment: not promoted into the selected fit;</li><li>spatial coordinates or street indicators: audited candidates, not promoted;</li><li>preference/WTP values: supplied by the renter separately from the market model;</li><li>calibrated unfamiliar-building uncertainty: the new-building 95% coverage result</li></ul>
+<p>was 68.39%, so the pooled fallback is not served as calibrated.</p>
+<h2 id="research-branches-that-did-not-change-the-main-equation">Research branches that did not change the main equation</h2>
+<p>The following branches were deliberately kept separate. Their numerical results are useful for deciding what to do next, but they are not hidden versions of the current model:</p>
+<div class="table-wrap"><table><thead><tr><th>Branch</th><th>What changed</th><th>Why it was tested</th><th>Disposition</th></tr></thead><tbody><tr><td>Feature-prior sensitivity</td><td>Multiplied feature coefficient prior scales, same source and design</td><td>Check whether bathroom/category associations were prior-driven</td><td>Common bathroom increments were stable; the sparse second-half-bath term moved substantially. No equation change.</td></tr><tr><td>Bedroom-dependent residual scale</td><td>Replaced shared \(\sigma\) with a bedroom-level hierarchy</td><td>Larger apartments had heavier residual tails under shared noise</td><td>Centered retry passed diagnostics and improved some dispersion checks, but tail mismatch and mean-model interpretation remained unresolved. Shared scale remains selected.</td></tr><tr><td>Floor×elevator interaction</td><td>Added floor/elevator products in research designs</td><td>Test whether floor value differs by building access</td><td>Physical floor had no usable support; several interaction columns duplicated main effects. Not promoted.</td></tr><tr><td>Four-level laundry</td><td>Split generic/in-building/on-floor/in-unit evidence</td><td>Separate facility location from reporting detail</td><td>Source scope and within-building overlap were insufficient for a physical premium. Not promoted.</td></tr><tr><td>Spatial coordinates/street terms</td><td>Candidate latitude/longitude and street indicators</td><td>Investigate residual geography beyond building effects</td><td>Audited as candidates; no spatial term is in the selected fit.</td></tr><tr><td>GP/random-walk floor priors</td><td>Proposed correlated priors for floor increments</td><td>Test alternatives to spline smoothness</td><td>Backlog research only; no promoted posterior.</td></tr><tr><td>Residual-scope/location/direct-floor revisions</td><td>Changed exact source membership or added reviewed floor observations</td><td>Follow residual witnesses and improve source scope</td><td>Reversible research projections; matched fits and rebinding remain required before promotion.</td></tr></tbody></table></div>
+<p>This separation is part of the model contract: a smaller residual or a converged research fit is not sufficient by itself to replace the selected posterior.</p>
+<h2 id="current-interpretation-contract">Current interpretation contract</h2>
+<p>The selected posterior estimates conditional associations in captured gross asking rents. It is appropriate for:</p>
+<ul><li>joint feature contrasts with explicit endpoint support;</li><li>building and unit contribution review;</li><li>in-sample residual triage against immutable source evidence; and</li><li>source-valued apartment counterfactuals when the endpoint is supported.</li></ul>
+<p>It is not, without additional work, a causal renovation model, a signed-lease model, a complete Chelsea/NYC market index, a guaranteed live-availability feed, or a calibrated prediction interval for an unfamiliar building. The selected fit intentionally includes current observations and apartment-specific unit effects, so its residuals are useful review signals but not independent forecast scores.</p>
+<h2 id="reproduction-and-provenance">Reproduction and provenance</h2>
+<p>The current selection is fully bound by <code><a href="/config/main-analysis.json">config/main-analysis.json</a></code>, including:</p>
+<ul><li>source dataset and source manifest;</li><li>matching description-evidence archive;</li><li>source-issue review bundle;</li><li>experiment and fit manifests;</li><li>protocol and implementation hashes.</li></ul>
+<p>For the exact current fit, inspect:</p>
+<pre><code class="language-text">data/model/chelsea-expanded-label-floor-analysis-20260919/\ndata/model/chelsea-bayesian-expanded-spline-floor-disk-20260919/\nconfig/main-analysis.json</code></pre>
+<p>The main analysis page independently verifies those bindings before loading the posterior. Changing a source projection, model equation, prior, sampler settings or evidence archive requires a new versioned artifact and a new matched comparison; it must not overwrite the selected fit in place.</p></article>
+</main>
+</div>
+</body>
+</html>

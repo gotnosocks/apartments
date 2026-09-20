@@ -16,7 +16,7 @@ import statistics
 
 from apartments.corrections import canonical
 from apartments.research_pipeline import _verified_bundle, digest, publish_bundle
-from apartments import reviewed_source_lineage
+from apartments import reviewed_source_lineage, reviewed_lineage_cache
 from . import bayesian_floor_elevator_contract as interaction_contract
 from . import bayesian_floor_spline_contract as spline_contract
 
@@ -485,12 +485,7 @@ def build_report(experiment, dataset, top=5):
         raise ValueError('Source dataset does not match the fitted protocol')
     rows = jsonl(sf['observations.jsonl'])
     if sm['version'] in reviewed_source_lineage.VERSIONS:
-        reviewed_source_lineage.source_lineage(sm, rows, quarantined=jsonl(sf[sidecar]) if sidecar in sf else None,
-            elevator_changes=jsonl(sf[elevator_sidecar]) if elevator_sidecar in sf else None,
-            floor_label_changes=jsonl(sf[floor_label_sidecar]) if floor_label_sidecar in sf else None,
-            expanded_floor_changes=jsonl(sf[expanded_floor_sidecar]) if expanded_floor_sidecar in sf else None,
-            residual_scope_changes=jsonl(sf[residual_scope_sidecar]) if residual_scope_sidecar in sf else None,
-            direct_floor_changes=jsonl(sf[direct_floor_sidecar]) if direct_floor_sidecar in sf else None)
+        reviewed_lineage_cache.verified_bundle_lineage(sm, sf)
     if (len(rows) != protocol['rows'] or len({r['unit_id'] for r in rows}) != protocol['units']
             or len({r['building'] for r in rows}) != protocol['buildings']
             or sum(r.get('analysis_price_basis') == 'current_capture_gross_ask' for r in rows) != protocol['current_rows']

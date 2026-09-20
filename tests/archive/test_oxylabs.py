@@ -98,10 +98,11 @@ def test_handler_rejects_noncanonical_targets(monkeypatch, url):
         run(oxylabs.OxylabsDownloadHandler(), Request(url))
 
 
-def test_provider_http_error_is_secret_safe(monkeypatch):
+@pytest.mark.parametrize("status", [401, 402, 403])
+def test_provider_http_error_is_secret_safe(monkeypatch, status):
     monkeypatch.setenv("OXYLABS_USERNAME", "SECRET_USER")
     monkeypatch.setenv("OXYLABS_PASSWORD", "SECRET_PASSWORD")
-    monkeypatch.setattr(oxylabs.requests, "post", lambda *args, **kwargs: FakeResponse({}, status=401))
+    monkeypatch.setattr(oxylabs.requests, "post", lambda *args, **kwargs: FakeResponse({}, status=status))
     with pytest.raises(RuntimeError, match="Oxylabs request failed") as exc:
         run(oxylabs.OxylabsDownloadHandler(), Request("https://streeteasy.com/building/example"))
     assert "SECRET" not in str(exc.value)

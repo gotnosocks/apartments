@@ -1,5 +1,136 @@
 # Chelsea pricing research backlog
 
+## Pipeline review, September 20
+
+Items from an end-to-end review of collection → transform → fit → analyze,
+ordered by expected leverage. Numbers refer to the selected fit
+(`chelsea-bayesian-expanded-spline-floor-disk-20260919`) and the
+`chelsea-granular-20260917-canonical-url-v1` source unless stated.
+
+### Residual review and model
+
+- [x] **Report unit-level deviation as the primary review signal.** Done:
+  [review queue](review-queue.md) (`apartments build-review-queue`), September 20.
+  Original rationale: The
+  selected fit has `sigma` 0.066, `sigma_unit` 0.086 and 47% single-observation
+  units. For a singleton, the split between unit effect and residual is set by
+  the variance ratio, not by data: for moderate deviations roughly 63% of a
+  unit's departure from building + features + time is absorbed into the unit
+  effect and only ~37% appears as "residual" (Student-t tails reverse this for
+  extreme outliers). The review queue's ranking therefore depends on the
+  `sigma_unit` prior and on how often a unit was listed. Add
+  `unit_effect + residual` (deviation from building/features/time) to
+  `residuals.jsonl` and the main page, show both components, and rank the
+  queue on it. Report-only change on saved draws; no refit.
+
+- [ ] **Use the within-advertisement price path.** 27,473 of 65,350 own
+  advertisements (42%) changed price while listed; median first→last change
+  is −3.5% (p10 −13.2%, p90 +6.2%). Only the initial ask is used. Publish a
+  per-advertisement table (`initial_ask`, `final_ask`, `n_cuts`,
+  `days_listed`, `terminal_status`) from `event_mentions`; refit on final
+  ask and compare coefficients with the initial-ask fit; carry
+  `days_listed`/`n_cuts` as observables for current listings. History-table
+  mentions of *other* advertisements are not a separate source of new data:
+  of 74,674 (unit, listing) pairs, 68,836 are own-captured and the 5,838
+  mention-only listings are almost all 2007–2013 (pre-canonical-page cohort).
+  Extending the trend to 2007–2013 with masked attributes is a low-priority
+  option only.
+
+- [ ] **Align current and historical price basis.** 172 current rows use
+  `current_capture_gross_ask` (possibly after cuts) while 52,481 historical
+  rows use the initial ask, so stale or cut current listings look cheap.
+  Either use the initial ask for current rows or add the price-path
+  covariates above.
+
+- [ ] **Publish the observation funnel as a standing artifact.** Raw
+  own-captured listings 68,313 / 25,119 units (2.72 per unit; 42% singletons;
+  median 1.7 years between repeat listings) → v4 accepted 54,105 → fitted
+  52,481. Exclusions (furnished 4,587; concession 4,509; date window 1,259;
+  no dated ACTIVE event 488; layout 262; extreme ask 243; conflicting
+  same-month layouts 179) are in `coverage.json` but not surfaced. Check
+  whether the 4,509 concession exclusions concentrate in recent luxury
+  buildings and bias the current cohort.
+
+- [ ] **Test coefficient stability over time.** One log premium per feature
+  is shared across 2010–2026 with one Chelsea-wide trend and no bedroom×time
+  interaction. Refit on 2019+ only and compare coefficients; add bedroom-group
+  trend deviations. If premiums move materially, use era-specific
+  coefficients or a restricted serving window.
+
+- [ ] **Building covariates in the building-effect mean.** 25% of buildings
+  have ≤5 observations and are shrunk toward the Chelsea mean, inflating their
+  units' residuals. Join PLUTO (year built, floors, units, building class),
+  DOB elevator devices and coordinates, and place them in the mean of
+  `building_effect`. Motivation is small-building shrinkage for fitted
+  buildings, not unseen-building prediction. This would also replace
+  listing-derived `elevator` (70% known; posterior +0.7%, mostly absorbed by
+  building effects).
+
+- [ ] **Relabel positive-only exposure features.** `window_exposures.*` and
+  `view_exposures.*` are only ever `True` or missing, so the value columns
+  are constant and dropped; the `.unknown` indicators in the design actually
+  mean "mentioned". Rename (`mentioned_south`) or extract negations; stop
+  presenting them as tri-state.
+
+- [ ] **Improve sampling geometry.** Minimum ESS is on `alpha` (821) and
+  bathroom contrasts while median ESS is 33k, indicating a centering problem
+  among the intercept, zero-sum building effects and 22k non-centered unit
+  effects. Test sum-to-zero unit effects within building; target the same ESS
+  with 1,000/2,000 instead of 4,000/6,000 per chain. Also consider estimating
+  `nu` instead of fixing 5.
+
+- [ ] **Fast screening fits from the same graph.** Use `find_MAP`/Laplace or
+  ADVI on the identical PyMC graph to screen feature experiments; reserve
+  full NUTS for candidates that pass. The main model stays exact PyMC; the
+  screen is for triage only.
+
+### Collection and operating loop
+
+- [ ] **Scheduled active-listing refresh.** Collection is backfill-oriented
+  and the current cohort is a one-off 172-row refresh; price cuts and
+  delistings are not being observed. Add a systemd timer on thelio:
+  discover active in-scope listings → re-fetch active detail pages every
+  3–7 days until delisted → incremental transform → fit → publish.
+
+### Transform and extraction
+
+- [ ] **Schema-constrained LLM extraction over the 72k description captures**
+  (floor, exposure, laundry level, outdoor access/type, ceiling height,
+  renovation, commercial/SRO/income-restricted/net-effective/furnished/
+  short-term) returning evidence spans. Keep manual review for calibration on
+  a stratified sample. Use it to finish the 667-row commercial/net-effective
+  screen.
+
+- [ ] **Consolidate scope/quarantine overlays into the corrections ledger**
+  with a `scope` field (commercial, sro, net_effective, short_term,
+  whole_building, income_restricted). Replace the 12 bundles in
+  `config/reviews/` and the per-batch `*_projection.py` / `*_revision.py`
+  modules with one overlay mechanism and one projection step.
+
+### Codebase and artifacts
+
+- [ ] **Collapse the model module chain.** The main fit spans
+  `bayesian_floor_spline_experiment → feature_experiment_v3 → v2 →
+  feature_model → rent_model` plus graph/execution/disk modules; `models/`
+  has 151 scripts including `_v2/_v3/_v4` copies and eight
+  `*_fit_comparison.py` variants. Since the protocol hashes implementation
+  files, git SHA + protocol JSON is sufficient for reproducibility: one
+  `model.py` with an explicit versioned spec, old versions in git history.
+
+- [ ] **Artifact retention.** `data/model/` is 284 GB over 408 directories;
+  the selected fit is 16 GB with unit-effect draws stored three times (zarr
+  trace, `posterior.nc`, report cache). Keep the raw trace only and derive
+  the rest; retain protocol + summary + coefficients + residuals for every
+  run and full posteriors only for selected and last-N.
+
+- [ ] **Documentation shape.** Keep one short README, one
+  `docs/model/current.md` rewritten on promotion, and dated notes under
+  `docs/log/`; `main-model-evolution.md` already notes that
+  `current-analysis.md` is stale.
+
+- [ ] **Concurrent agents.** Use worktrees or branches per agent; the working
+  tree currently carries uncommitted changes from two streams.
+
 ## Remote fit execution
 
 - [ ] **Benchmark PyMC fitting on Modal: large CPU versus GPU** — user research

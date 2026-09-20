@@ -13,6 +13,7 @@ st.set_page_config(page_title="Chelsea rents", page_icon="🏢", layout="wide")
 st.title("Chelsea — rental price history")
 st.caption("StreetEasy asking-rent and status history captured from individual unit pages.")
 st.sidebar.link_button("Live scrape archive", "http://localhost:8765/")
+st.sidebar.page_link("pages/4_Project_Evolution.py", label="Project evolution", icon="🧭")
 
 
 @st.cache_data(show_spinner=False)

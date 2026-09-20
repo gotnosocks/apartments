@@ -24,6 +24,10 @@
 		<string>127.0.0.1:8766:127.0.0.1:8766</string>
 		<string>-L</string>
 		<string>127.0.0.1:8765:127.0.0.1:8765</string>
+		<string>-L</string>
+		<string>127.0.0.1:8767:127.0.0.1:8767</string>
+		<string>-L</string>
+		<string>127.0.0.1:8768:127.0.0.1:8768</string>
 		<string>thelio</string>
 	</array>
 	<key>RunAtLoad</key>
