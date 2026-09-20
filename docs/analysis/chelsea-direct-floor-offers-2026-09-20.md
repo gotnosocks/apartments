@@ -212,3 +212,32 @@ walkup spans and corresponding unit descriptions are saved in
 Publication and identical replay pass. This is a concrete lead for later access
 evidence integration; these 24 low-floor additions alone cannot establish the
 high-floor walkup penalty or justify a floor–elevator interaction.
+
+### Recovery of encoded building fields
+
+All ten reviewed building bodies now have hash-verified recovery of their
+`amenities`, `additionalDetails` and `nyc` fields. The recovery first finds the
+exact original building object in the decoded body, then resolves only these
+fields. Cyclic/missing references and excessive nesting fail closed; raw records
+remain unchanged. Six focused tests and an identical ten-capture replay pass.
+
+The recovered literal class descriptions are:
+
+| Building | Captured class | Captured description |
+| --- | --- | --- |
+| 162 Ninth Avenue | C6 | Walk Up, Cooperative |
+| 322 West 22nd Street | C6 | Walk Up, Cooperative |
+| 326 West 20th Street | C0 | Three Families |
+| 412 West 20th Street | C3 | Four Families |
+| 421 West 22nd Street | R1 | Condominiums – Residential Unit in 2-10 Unit Building |
+| 508 West 29th Street | C4 | Old Law Tenement |
+
+The C6 descriptions corroborate two already reviewed walkup prose claims. The
+other literal labels do not themselves specify elevator access. No elevator
+absence is inferred from the recovered amenity lists or null values, and no
+historical access correction is applied. A broader class interpretation would
+need a separately documented classification rule and temporal qualification.
+
+Recovery artifact: `chelsea-direct-floor-building-field-recovery-20260920`,
+manifest `914cab66f74b9d72453e5cf94653418ea267bdad7d5e2f31a54e190a289ca035`.
+The running fit and its frozen source are unchanged.
