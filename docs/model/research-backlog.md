@@ -72,6 +72,12 @@
   A replay of each full description through `attribute-evidence-v6` still yields
   no advertised-floor claim. Preserve photo-reference and shared-amenity scope
   protections; the current label projection already recovers matching values.
+- [x] Recover initial named-unit introductions with explicit second/third-floor
+  wording at 139 Eighth Avenue. The
+  [v7 replay](../analysis/chelsea-named-unit-floor-extraction-2026-09-19.md)
+  changes only eight captures for four reviewed ads across all 72,065 archived
+  descriptions. These reveal existing label/prose disagreements; applying a
+  source projection and resolving numbering remain pending below.
 
 ## Floor–elevator interaction
 

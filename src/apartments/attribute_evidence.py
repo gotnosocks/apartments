@@ -10,7 +10,16 @@ from collections import defaultdict
 import math
 import re
 
-VERSION = 'attribute-evidence-v6'
+VERSION = 'attribute-evidence-v7'
+NAMED_UNIT_FLOOR_RULE = 'named-unit-initial-offer-floor-v1'
+_ORDINAL_FLOORS = dict(zip((
+    'first', 'second', 'third', 'fourth', 'fifth', 'sixth', 'seventh', 'eighth',
+    'ninth', 'tenth', 'eleventh', 'twelfth', 'thirteenth', 'fourteenth', 'fifteenth',
+    'sixteenth', 'seventeenth', 'eighteenth', 'nineteenth', 'twentieth'), range(1, 21)))
+_NAMED_UNIT_FLOOR = re.compile(
+    r'\A\s*(?:welcome\s+to\s+)?(?P<claim>(?:apartment|unit|residence)\s+'
+    r'#?(?=[a-z0-9]*[0-9])[a-z0-9]{1,8}\s+on\s+(?:the\s+)?'
+    r'(?P<floor>[0-9]{1,3}(?:st|nd|rd|th)?|' + '|'.join(_ORDINAL_FLOORS) + r')\s+floor\b)', re.I)
 VIEWS = ('street', 'courtyard', 'garden', 'city', 'skyline', 'water', 'park')
 DIRECTIONS = ('north', 'east', 'south', 'west')
 SCALARS = ('bedrooms', 'bathrooms', 'square_feet', 'advertised_floor',
@@ -20,6 +29,40 @@ SCALARS = ('bedrooms', 'bathrooms', 'square_feet', 'advertised_floor',
 
 def _number(value):
     return value if isinstance(value, (int, float)) and not isinstance(value, bool) and math.isfinite(value) else None
+
+
+def _named_unit_floor(description):
+    """Return only an explicit location in a named dwelling's initial offer.
+
+    Labels delimit the claim; their digits never supply the floor value. Scope
+    checks cover the introducing sentence across wrapped lines and deliberately
+    have no "this dwelling" exception for reference or shared-space language.
+    """
+    match = _NAMED_UNIT_FLOOR.match(description)
+    if match is None:
+        return None
+    sentence_end = re.search(r'[.!?;]', description[match.end():])
+    if sentence_end and sentence_end.group() == '?':
+        return None
+    end = match.end() + sentence_end.start() if sentence_end else len(description)
+    sentence = description[:end]
+    if re.search(
+        r'\b(?:photos?|photographs?|pictures?|images?|videos?|tours?|model|sample|reference|'
+        r'example|illustrative|similar|comparable|compar(?:ed|ing|es)|another|different|other|unlike|versus|'
+        r'roof\s*deck|rooftop|fitness|gym|lobby|lounge|common|shared|amenit(?:y|ies)|'
+        r'may|might|could|would|should|will|if|unless|whether|optional|potential|'
+        r'possibly|perhaps|probably|apparently|reportedly|supposed(?:ly)?|estimated|assum(?:ed|ing)|'
+        r'no|not|without|never|except)\b|\brather\s+than\b|n[’\']t\b', sentence, re.I):
+        return None
+    token = match['floor'].lower()
+    value = _ORDINAL_FLOORS.get(token)
+    if value is None:
+        numeric = re.fullmatch(r'([0-9]{1,3})(st|nd|rd|th)?', token)
+        value = int(numeric[1])
+        suffix = 'th' if 10 <= value % 100 <= 20 else {1: 'st', 2: 'nd', 3: 'rd'}.get(value % 10, 'th')
+        if value < 1 or (numeric[2] and numeric[2] != suffix):
+            return None
+    return match, value
 
 
 def _reference_floor_claim(prefix: str, claim: str) -> bool:
@@ -228,6 +271,12 @@ def extract_attribute_evidence(raw_listing: dict) -> dict:
         # not the apartment's floor. Do not infer actual elevation from labeling.
         scan(r'\b(?:this (?:apartment|unit|home)|the apartment|apartment|unit|residence) (?:is (?:located |situated )?|located |situated )?on (?:the )?(\d{1,3})(?:st|nd|rd|th)? floor\b',
              'advertised_floor', lambda m: int(m.group(1)), unit_specific=True)
+        named_floor = _named_unit_floor(description)
+        if named_floor is not None:
+            match, value = named_floor
+            start, end = match.span('claim')
+            add('advertised_floor', value, '/description', description[start:end],
+                'description_pattern', start=start, end=end, rule=NAMED_UNIT_FLOOR_RULE)
         cardinal = r'(?:north(?:ern)?|east(?:ern)?|south(?:ern)?|west(?:ern)?)'
         separator = r'\s*(?:,|/|&|\band\b)\s*'
         for direction in DIRECTIONS:
