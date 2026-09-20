@@ -101,8 +101,15 @@ prior scale 0.35 and unit prior scale 0.25. Retain four chains, 4,000 warmup and
 
 The full fit has been launched at
 `data/model/chelsea-bayesian-residual-scope-spline-disk-20260919`, with its process
-log at `/tmp/chelsea-residual-scope-spline-fit.log`. Completion and convergence
-remain to be checked.
+log at `/tmp/chelsea-residual-scope-spline-fit.log`. The process exited 0 and
+completed at `2026-09-20T02:28:54Z`, with all three convergence gates passing.
+Primary maximum R-hat is 1.004895 and minimum bulk ESS 833.09; derived quantities
+have maximum R-hat 1.001870 and minimum bulk ESS 911.84. Joint floor contrasts
+have maximum R-hat 1.001742 and minimum bulk ESS 2,152.89. There are zero
+divergences, zero depth-limit hits and no nonfinite diagnostics. The candidate
+fit manifest SHA-256 is
+`501a513bcaab810f5107f0ec292dacda32a614e4fb7d1fb2d9229f60e89ba96e`.
+These sampling checks do not yet establish that it should replace the main fit.
 Reference fit: `data/model/chelsea-bayesian-expanded-spline-floor-disk-20260919`.
 Producer implementations must remain frozen throughout sampling and publication.
 
@@ -139,7 +146,20 @@ original source binding, the identical intermediate fit/protocol/source hashes,
 all panel identities and asking prices, and exact common-fit residual records.
 It preserves the original cells and membership. Thirteen tests passed, including
 rejection of missing ancestry, changed fit/source, missing members and changed
-residuals. The actual new-posterior panel comparison remains pending.
+residuals. The actual comparison passed with all 26 original observations and
+cells preserved; median absolute log residual changes from 0.02190247 to
+0.02184064. Its manifest is
+`86d3d85e62a00e911f14258cc19f4358d478c97804e386e7d63a7c770ac91799`.
+
+The separate fixed eight-case residual review completed with all contribution
+diagnostics and the bedroom scenario passing. Its manifest is
+`64b6c5b49a7d4a757dc327583d254add46f05dee81596c1ba5f83ae672576421`,
+at `data/model/chelsea-residual-scope-spline-fixed-residual-review-20260919`.
+The full common-observation comparison also passed. It shows a $0.97 median
+absolute fitted-price movement and slightly worse common-row median residuals;
+see the [results](../analysis/chelsea-residual-scope-spline-results-2026-09-19.md).
+Movement/tail source review and actual candidate UI checks remain pending;
+the main selection has not changed.
 
 The selected expanded-floor fit remains in place until these steps are complete.
 This experiment does not resolve the broader eligibility, SRO, terrace/duplex,
