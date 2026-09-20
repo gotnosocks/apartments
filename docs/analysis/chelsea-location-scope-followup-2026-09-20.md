@@ -28,3 +28,21 @@ nine-ad source plus the 24 floor additions, so its eventual matched comparison
 isolates those floor changes. Combining the location correction with the floor
 revision later will require revalidating the exact source and floor-policy
 bindings; a policy bound to the old source must not be reused silently.
+
+## Validated decisions and new source build
+
+Decision preparation completed successfully for all **10 advertisements and 18
+attached captures**. Independent full artifact hash verification passed. Decision
+manifest: `b1a409ba18a700a25bd9b3ac3b2a5b549a3c7aaeb298a1137aba79f5a4651dea`.
+Every decision passed the existing exact-row, typed capture-membership, raw
+payload, literal span, address and chronology checks.
+
+The existing reversible source builder has now been launched with these
+decisions. Pending output: `data/model/chelsea-location-scope-analysis-20260920`.
+It verifies the complete inherited source lineage, exact inverse, unchanged
+retained observations, row order and capture-time active population before
+publication. This build starts from the original expanded-floor source; it does
+not yet include the later 24 direct-description floor additions. Completion,
+replay and safe rebinding of those additions remain to be checked.
+
+The separately running direct-floor fit continues on its unchanged source.
