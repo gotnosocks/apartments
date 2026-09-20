@@ -39,3 +39,11 @@ implementations, full changed captures and analytical rows, and input bindings.
 Manifest: `ad2c18f00501eeb74bb5700d120080e6442473bf400c1cd992f400a41a85752b`.
 Publication and full bundle hash verification passed. The ongoing scope refit's
 frozen dataset and model specification are unaffected.
+
+The same measurement is now being applied through the existing full source
+audit to the cumulative nine-ad source. Output is planned at
+`data/model/chelsea-commercial-scope-rent-basis-audit-20260920`; publication
+remains pending. This produces evidence-review priorities, not automatic
+historical price-basis labels or exclusions. The fixed residual-review wording
+also now describes the target as recorded advertised asks rather than implying
+every target is independently verified base/gross rent.

@@ -61,7 +61,7 @@ def run(dataset, evidence, output):
             'Does a net-rent statement concern the initial price or a later offer?',
             'Is a gross/net mention an approval requirement rather than an advertised quote?'],
         'limitations': ['Experimental bounded English-language patterns, not exhaustive natural-language interpretation.',
-            'Money extraction requires a dollar sign; words, unlabelled numbers and complex sentence structures remain unresolved.',
+            'Money extraction supports dollar-labelled quotes and bounded explicit dollarless net quotes; words, unlabelled numbers and complex sentence structures remain unresolved.',
             'Negation and administrative-context flags are conservative local heuristics, not semantic adjudication.',
             'Development examples include residual-review findings; this is not an independent accuracy evaluation.']}
     paths = [Path(__file__), Path(measurement.__file__), Path(bayesian_evidence.__file__)]
