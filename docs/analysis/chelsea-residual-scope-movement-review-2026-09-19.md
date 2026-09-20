@@ -93,4 +93,7 @@ cases unless their own offered product establishes nonresidential scope.
 UI session 30395 ended with an AppTest 300-second timeout while switching to
 the candidate selection. It did not pass. A diagnostic rerun uses a 600-second
 limit and periodic stack traces; no posterior or expected-value checks were
-relaxed.
+relaxed. That diagnostic run subsequently exited 139 with an incomplete JSON
+encoder stack fragment. It did not pass; isolate loading before another UI run.
+The [complete-cohort lexical screen](chelsea-commercial-offer-screen-2026-09-19.md)
+has now been published, with manual adjudication still incomplete.

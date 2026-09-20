@@ -112,6 +112,10 @@
   exclusions. Also review the composition conflicts on 790520, 1926797,
   4210456 and 916757, and unextracted explicit floors on 3967693 and 776029.
   See the [movement review](../analysis/chelsea-residual-scope-movement-review-2026-09-19.md).
+  The [complete-cohort lexical screen](../analysis/chelsea-commercial-offer-screen-2026-09-19.md)
+  now covers 71,806 captures and flags 667 rows (663 ads); manual adjudication
+  remains incomplete. Initial full-text follow-up identifies explicit retail
+  ad 1466274 and several mixed live/work offers requiring separate treatment.
 
 - [ ] Test the retrospective same-ad attribute assumption against dated price
   changes, beginning with 1670174: initial ask $2,395, then $3,700 and $5,950,

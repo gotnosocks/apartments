@@ -110,7 +110,9 @@ selection preparation is separate from `config/main-analysis.json`. Remaining
 work includes a broader commercial-scope screen and source-warning continuity
 in the actual UI. Promotion is deferred: the 27-case movement review found
 further nonresidential offers, and the first UI check timed out during candidate
-loading. A diagnostic rerun is pending.
+loading. The diagnostic rerun subsequently exited 139 without a usable root-cause
+trace; UI validation remains incomplete. The full-cohort commercial language
+screen is published, with candidate adjudication still underway.
 The [new residual-tail review](chelsea-residual-scope-tail-review-2026-09-19.md)
 is complete: eleven exact prior reviews reused and four new full-description
 reviews, including a concrete retrospective attribute/price-timing concern.
