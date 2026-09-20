@@ -39,3 +39,37 @@ source/evidence cases for price-basis follow-up. Its artifact is
 `data/model/chelsea-commercial-manual-batch-two-20260920`. Publication, identical
 replay and full artifact hash verification passed. These checks reproduce a
 manual review; they do not validate a general commercial-use classifier.
+
+## Own-ad raw history follow-up
+
+All six raw captures for these four price leads have now been hash-verified.
+Each contains exactly one matching own-ad history, and every analytical initial
+ACTIVE price/date is present. Repeated captures agree on those event histories.
+
+- **2967520:** $7,000 on both January 27 and January 31, 2020. The described
+  $7,500 × 14/15 concession arithmetic matches both advertised events.
+- **2560481:** initial $6,857 on October 23, 2018; many changes and a relisting
+  within the same advertisement precede the final $6,938 on June 17, 2019.
+  $7,569 × 11/12 = $6,938.25 closely matches the final advertised price, not
+  the initial one. This explains why blindly applying captured gross/concession
+  terms to the initial event is unsupported.
+- **2834394:** initial $8,375 on August 6, 2019; another event that day is
+  $7,995, followed by $8,376 and finally $7,971. A convention of six weeks as
+  1.5 months gives $9,110 × 10.5/12 = $7,971.25, close to the final price.
+  That convention is an illustrative calculation, not a verified lease rule.
+- **2362330:** initial $4,500 on April 13, 2018; subsequent events rise to
+  $5,237 on May 29. The captured gross quote is $5,225 and the concession
+  lacks a lease term. No supported conversion follows from these facts.
+
+These are advertised history events, including those labeled RENTED; they do
+not establish executed lease rents. The later descriptions do not carry verified
+concession effective dates. No price correction is justified yet. A future
+price-basis projection should represent date-scoped gross/net/concession claims
+and unresolved applicability rather than a single ad-wide conversion.
+
+`docs/analysis/scripts/review_concession_price_histories.py` publishes exact raw
+witnesses and own-ad histories to
+`data/model/chelsea-concession-price-history-review-20260920`, manifest
+`cf9caacbcac191173c4baf58db08268ed8c638bba81c5bac7b4531958926f4e7`.
+Publication and identical replay pass all raw-hash, identity, initial-event and
+cross-capture history checks.
