@@ -145,3 +145,32 @@ completed fit or posterior comparison.
 Full-cohort spline graph parity has been launched at
 `data/model/chelsea-direct-floor-spline-graph-parity-20260920`. Sampling remains
 pending successful reader/design and numerical graph validation.
+
+## Full-data validation and refit launch
+
+Both prefit checks completed successfully. Reader-verification manifest
+`cd83bc53e4d45ad71bfdd1ceee82b7fcdaa0b86b12d6ca16066fc0f3ee6e4139`
+confirms all 71,797 literal captures are identical, both designs have 47 columns
+and rank 47, numeric normalization is identical, and knots remain
+`[1, 5, 10, 20, 35, 57]` with reference floor 2.
+
+Graph-parity manifest
+`4402011b6c3210fc8075a2e62a411fdb458278db524a6c6734d3f1e6c24e99b0`
+verifies three points and 23,403 gradient parameters. Maximum absolute log-density
+difference is `4.37e-11`; maximum absolute gradient difference is `1.17e-9`.
+All evaluated quantities are finite. These are numerical equivalence checks,
+not evidence of posterior convergence or a sampling-speed benchmark.
+
+The full matched PyMC fit is now launched at
+`data/model/chelsea-bayesian-direct-floor-spline-disk-20260920`, using four chains,
+4,000 warmup and 6,000 retained draws per chain, seed 20260924, diagonal adaptation,
+target acceptance .93, maximum depth 10, shared residual scale and the same
+building/unit/floor priors. Sampling and posterior checks remain pending.
+
+`models.direct_floor_fit_comparison` now prepares the subsequent comparison of
+floor curves, induced priors, residuals and unit/building contribution movements.
+It checks exact parent restoration and separates newly known floors, previously
+known floors, remaining unknown floors and capture-time active observations.
+Seventeen comparison/guard tests pass, including canonical floor aliases and
+rejection of rehashed source tampering and incomplete residual membership.
+No fit comparison result or main-model promotion is claimed yet.
