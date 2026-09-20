@@ -105,6 +105,19 @@
   Keep unmatched rows unclassified, separate minimum-income administration from
   eligibility ceilings, and verify historical timing before a coefficient or
   scope experiment. See the [research note](../analysis/chelsea-income-restriction-research-2026-09-19.md).
+  The [full-description follow-up](../analysis/chelsea-income-claim-review-2026-09-19.md)
+  reviews all 23 captures for the 12 candidates: nine explicit upper-bound
+  claims, two AMI statements with unspecified boundary operators, and one
+  restriction with unspecified terms. Preserve those distinctions and the
+  furnished/short-term/utilities package on 4276224.
+
+- [ ] Resolve the four newly reviewed label/prose floor disagreements at
+  139 Eighth Avenue (4810936, 4817705, 4902655, 4968706) and the internally
+  contradictory bedroom descriptions on 4837062 and 4902655. The first three
+  floor differences are plus one, but 4968706 is plus two; do not apply a uniform
+  building offset. Verify exact-unit identity, address association and numbering
+  before a source projection. See the
+  [full-description review](../analysis/chelsea-income-claim-review-2026-09-19.md).
 
 - [ ] Resolve Lantern House 1704 / advertisement 4828991 bathroom composition.
   The fitted record has three full and zero half baths; its own description
