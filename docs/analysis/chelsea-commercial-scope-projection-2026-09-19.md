@@ -112,12 +112,19 @@ settings above, including shared residual scale, building prior 0.35, unit prior
 surrogate model is substituted. Do not launch another fit while this session is
 live; completion and diagnostics remain unverified.
 
-The existing four annotations on three retained advertisements are being
+The existing four annotations on three retained advertisements have been
 carried from the original expanded source to this source with the established
-exact-row/capture and original-review-clock checks (session 2784). Outputs are
+exact-row/capture and original-review-clock checks (session 2784, exit 0). Outputs are
 `chelsea-commercial-scope-source-issues-20260920` and
 `chelsea-commercial-scope-source-issue-linkage-20260920` under `data/model/`.
-Their successful publication has not yet been established.
+Independent public loading passed. The annotation manifest is
+`da2c1e0c4df5ef5a30a8a363c15c59f84cf9ef474fb0dd6b76923b9d7718a751`;
+the linkage manifest is
+`e3139c46065458d00f4271248ee73aac33922c15c7499a1069e196bf91ad2456`.
+The saved fit protocol and archived implementation checks also pass:
+`chelsea-commercial-scope-fit-protocol-check-20260920`, manifest
+`86bf798e812927e4b21b7f3470b7377a56fddf15176820e04ac29c96a9473f74`.
+These checks establish the intended matched experiment, not posterior convergence.
 Compare common retained observations against the original expanded-floor fit,
 with the explicit cumulative policy and archived code checks, rather than
 claiming improvement from dropping observations. Repeat fixed panels and inspect

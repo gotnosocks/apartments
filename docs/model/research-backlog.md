@@ -92,6 +92,13 @@
 
 ## Source leads from the expanded-floor residual review
 
+- [ ] Distinguish base asking rent from mandatory recurring charges in renter
+  cost comparisons. The [active-listing review](../analysis/chelsea-current-commercial-match-review-2026-09-20.md)
+  finds four captured ads advertising a required $90-per-resident monthly fee.
+  Preserve capture timing and explicit resident-count dependence; do not infer
+  household size or apply later fee prose to historical prices. Evaluate a
+  separate fee-inclusive comparison without silently changing the rent target.
+
 - [ ] Apply evidence-bound residential-scope review to high-residual commercial
   offers: 1260588 explicitly offers professional/business loft space and 937046
   a turnkey restaurant with commercial terms. Verify exact own-capture witnesses

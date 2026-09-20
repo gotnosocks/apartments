@@ -127,11 +127,21 @@ commercial leads, Unicode offsets, preserved negation/amenity context and the
 absence of automatic classification. The scan binds the source and evidence
 manifests and rejects mismatched own-ad identity or changed description hashes.
 
-## Separate UI failure
+## Captured-current review
+
+All five capture-time active observations have now received full-description
+review: their matches refer to home-office or shared residential amenities,
+supporting no scope exclusions. Four also advertise a required $90-per-resident
+monthly charge above base rent. See the [review and fee research lead](chelsea-current-commercial-match-review-2026-09-20.md).
+After this and the priority batch, 506 description groups remain unreviewed.
+
+## Separate UI failure and recovery
 
 Diagnostic UI session 96503 terminated with exit 139. Its only stack fragment
 was in Python JSON encoding; that fragment does not establish the cause.
 The earlier session 30395 timed out while selecting the candidate. Neither run
-passed, and no completed candidate page-validation artifact was published.
-Investigate loading/lineage verification in isolation before another UI run;
-do not treat the failure as posterior nonconvergence or relax numerical gates.
+passed at that point. Subsequent isolated profiling and an ownership-preserving
+copying optimization enabled the four-ad candidate UI validation to pass
+(session 28428), with source warnings and scenario checks intact. See the
+[reader study](chelsea-candidate-reader-profile-2026-09-19.md).
+This does not validate the later nine-ad candidate or establish its convergence.
