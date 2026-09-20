@@ -79,3 +79,9 @@ def test_lineage_rejects_unintended_changes_even_with_rehashed_output(fault):
     manifest['files']['observations.jsonl'] = observations_hash(rows)
     with pytest.raises(ValueError):
         source_lineage(manifest, rows)
+
+
+def test_unexpected_expanded_floor_sidecar_is_rejected_for_older_sources():
+    original, manifest, rows = fixture()
+    with pytest.raises(ValueError, match='Unexpected expanded floor sidecar'):
+        source_lineage(manifest, rows, expanded_floor_changes=[])

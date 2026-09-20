@@ -242,7 +242,7 @@ def rewrite_v3(root, protocol, files):
 @pytest.mark.parametrize('version,fault', [(v, f) for v in sorted(m.reviewed_source_lineage.VERSIONS)
     for f in [None, 'missing_lineage', 'unintended_change', 'missing_sidecar', 'changed_sidecar']
     if f not in ('missing_sidecar', 'changed_sidecar') or v in
-        (m.reviewed_source_lineage.reviewed_cohort_quarantine.VERSION, m.reviewed_source_lineage.elevator_corrections.VERSION)])
+        (m.reviewed_source_lineage.reviewed_cohort_quarantine.VERSION, m.reviewed_source_lineage.elevator_corrections.VERSION, m.reviewed_source_lineage.expanded_floor_projection.VERSION)])
 def test_corrected_source_report_requires_exact_review_lineage(experiment, tmp_path, version, fault):
     from tests.test_reviewed_source_lineage import revise, observations_hash
 
@@ -251,29 +251,33 @@ def test_corrected_source_report_requires_exact_review_lineage(experiment, tmp_p
     for row in rows:
         row.update(known_at='2026-09-18T00:00:00Z', laundry_type='in_building', advertised_floor=3, capture_ids=[row['audit_id']], elevator=True)
     sidecar_files = {}
-    if version in (m.reviewed_source_lineage.reviewed_cohort_quarantine.VERSION, m.reviewed_source_lineage.elevator_corrections.VERSION, m.reviewed_source_lineage.floor_label_projection.VERSION):
+    if version in (m.reviewed_source_lineage.reviewed_cohort_quarantine.VERSION, m.reviewed_source_lineage.elevator_corrections.VERSION, m.reviewed_source_lineage.floor_label_projection.VERSION, m.reviewed_source_lineage.expanded_floor_projection.VERSION):
         from tests.test_reviewed_cohort_quarantine import add_excluded_row, quarantine_last
         rows = add_excluded_row(rows)
     parent = {'version': m.reviewed_source_lineage.REFRESHED,
               'files': {'observations.jsonl': observations_hash(rows)}}
     manifest, rows = revise(parent, rows, m.reviewed_source_lineage.LAUNDRY, 'laundry_type', 'laundry')
     if version in (m.reviewed_source_lineage.FLOOR, m.reviewed_source_lineage.laundry_floor_split.VERSION,
-                   m.reviewed_source_lineage.reviewed_cohort_quarantine.VERSION, m.reviewed_source_lineage.elevator_corrections.VERSION, m.reviewed_source_lineage.floor_label_projection.VERSION):
+                   m.reviewed_source_lineage.reviewed_cohort_quarantine.VERSION, m.reviewed_source_lineage.elevator_corrections.VERSION, m.reviewed_source_lineage.floor_label_projection.VERSION, m.reviewed_source_lineage.expanded_floor_projection.VERSION):
         manifest, rows = revise(manifest, rows, m.reviewed_source_lineage.FLOOR, 'advertised_floor', 'floor', index=1)
     if version == m.reviewed_source_lineage.laundry_floor_split.VERSION:
         from tests.test_laundry_floor_projection import extend
         manifest, rows = extend(manifest, rows)
-    if version in (m.reviewed_source_lineage.reviewed_cohort_quarantine.VERSION, m.reviewed_source_lineage.elevator_corrections.VERSION, m.reviewed_source_lineage.floor_label_projection.VERSION):
+    if version in (m.reviewed_source_lineage.reviewed_cohort_quarantine.VERSION, m.reviewed_source_lineage.elevator_corrections.VERSION, m.reviewed_source_lineage.floor_label_projection.VERSION, m.reviewed_source_lineage.expanded_floor_projection.VERSION):
         manifest, rows, sidecar = quarantine_last(manifest, rows)
         sidecar_files['quarantined.jsonl'] = ''.join(canonical(r)+'\n' for r in sidecar)
-    if version in (m.reviewed_source_lineage.elevator_corrections.VERSION, m.reviewed_source_lineage.floor_label_projection.VERSION):
+    if version in (m.reviewed_source_lineage.elevator_corrections.VERSION, m.reviewed_source_lineage.floor_label_projection.VERSION, m.reviewed_source_lineage.expanded_floor_projection.VERSION):
         from tests.test_elevator_correction_projection import extend
         manifest, rows, elevator_sidecar = extend(manifest, rows)
         sidecar_files['elevator-corrections.jsonl'] = ''.join(canonical(r)+'\n' for r in elevator_sidecar)
-    if version == m.reviewed_source_lineage.floor_label_projection.VERSION:
+    if version in (m.reviewed_source_lineage.floor_label_projection.VERSION, m.reviewed_source_lineage.expanded_floor_projection.VERSION):
         from tests.test_floor_label_projection import extend
         manifest, rows, label_sidecar = extend(manifest, rows)
         sidecar_files['floor-label-projection.jsonl'] = ''.join(canonical(r)+'\n' for r in label_sidecar)
+    if version == m.reviewed_source_lineage.expanded_floor_projection.VERSION:
+        from tests.test_expanded_floor_projection import extend
+        manifest, rows, expanded_sidecar = extend(manifest, rows, label_sidecar)
+        sidecar_files['expanded-floor-projection.jsonl'] = ''.join(canonical(r)+'\n' for r in expanded_sidecar)
     if fault == 'missing_lineage':
         manifest = {'version': version}
     elif fault == 'unintended_change':
@@ -287,7 +291,7 @@ def test_corrected_source_report_requires_exact_review_lineage(experiment, tmp_p
                     source_observations_sha256=source['files']['observations.jsonl'], source_version=version)
     rewrite_v3(root, protocol, files)
     if fault:
-        with pytest.raises(ValueError, match='lineage|Reconstructed parent|Reconstructed laundry|Reconstructed quarantine|Quarantine|Elevator|Floor projection'):
+        with pytest.raises(ValueError, match='lineage|Reconstructed parent|Reconstructed laundry|Reconstructed quarantine|Quarantine|Elevator|Floor projection|Expanded floor'):
             m.build_report(root, dataset)
     else:
         report, _ = m.build_report(root, dataset)

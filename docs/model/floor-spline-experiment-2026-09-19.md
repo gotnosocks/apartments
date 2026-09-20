@@ -1,7 +1,9 @@
 # Regularized spline for advertised floor
 
 This replaces the expanded model's 51 independent floor increments while
-retaining its complete, reviewed floor extraction. The cohort is unchanged:
+retaining its reviewed first-pass floor extraction. This pass covers the narrow
+digit-plus-single-letter rule; it does not exhaust recoverable unit-label formats
+(see the [coverage reassessment](../analysis/chelsea-floor-coverage-reassessment-2026-09-19.md)). The cohort is unchanged:
 52,653 observations, 22,155 units, 1,129 buildings, and 29,907 known-floor rows.
 The source remains `chelsea-label-floor-analysis-20260919`; observations,
 prices, missingness, nonfloor features and priors, time effects, and building/unit

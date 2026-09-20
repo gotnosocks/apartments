@@ -189,3 +189,59 @@ def test_quarantine_evidence_requires_inverse_lineage_and_returns_survivors_only
         result = load_evidence(dataset, archive)
         assert set(result) == {'kept'} and len(result['kept']) == 2
         assert result['kept'][0]['description'] == captures[0]['description']
+
+
+@pytest.mark.parametrize('fault', [None, 'missing_expansion', 'missing_parent_sidecar',
+                                  'changed_price', 'changed_expansion'])
+def test_expanded_floor_evidence_verifies_each_inverse_stage(tmp_path, fault):
+    from apartments import reviewed_source_lineage as lineage
+    from tests.test_reviewed_source_lineage import revise
+    from tests.test_reviewed_cohort_quarantine import quarantine_last
+    from tests.test_elevator_correction_projection import extend as elevator_extend
+    from tests.test_floor_label_projection import extend as label_extend
+    from tests.test_expanded_floor_projection import extend as expanded_extend
+
+    old, em, captures = refreshed_parts(tmp_path)
+    rows = [json.loads(s) for s in (old/'observations.jsonl').read_text().split('\n') if s]
+    for row in rows:
+        row.update(laundry_type='in_building', advertised_floor=3, elevator=True,
+                   building='building', asking_rent=3000,
+                   analysis_price_basis='historical_initial_own_advertisement_ask')
+        if 'capture_ids' not in row:
+            row['capture_ids'] = [row['capture_id']]
+    original = tmp_path/'original'
+    parent = publish_bundle(original, {'observations.jsonl': ''.join(canonical(r)+'\n' for r in rows)},
+                            {'version': lineage.REFRESHED})
+    em.update(dataset_manifest_sha256=digest(original/'complete.json'),
+              dataset_observations_sha256=parent['files']['observations.jsonl'])
+    archive = tmp_path/'archive'
+    publish_bundle(archive, {'evidence.jsonl': ''.join(canonical(c)+'\n' for c in captures)}, em)
+    manifest, rows = revise(parent, rows, lineage.LAUNDRY, 'laundry_type', 'laundry')
+    manifest, rows = revise(manifest, rows, lineage.FLOOR, 'advertised_floor', 'floor')
+    manifest, rows, quarantine = quarantine_last(manifest, rows)
+    manifest, rows, elevators = elevator_extend(manifest, rows, index=0)
+    manifest, rows, labels = label_extend(manifest, rows)
+    manifest, rows, expanded = expanded_extend(manifest, rows, labels)
+    if fault == 'changed_price':
+        rows[0]['asking_rent'] += 1
+    if fault == 'changed_expansion':
+        expanded[0]['source_row_sha256'] = 'f'*64
+    files = {'observations.jsonl': ''.join(canonical(r)+'\n' for r in rows),
+             'quarantined.jsonl': ''.join(canonical(r)+'\n' for r in quarantine),
+             'elevator-corrections.jsonl': ''.join(canonical(r)+'\n' for r in elevators),
+             'floor-label-projection.jsonl': ''.join(canonical(r)+'\n' for r in labels),
+             'expanded-floor-projection.jsonl': ''.join(canonical(r)+'\n' for r in expanded)}
+    if fault == 'missing_expansion':
+        del files['expanded-floor-projection.jsonl']
+    if fault == 'missing_parent_sidecar':
+        del files['floor-label-projection.jsonl']
+    dataset = tmp_path/'expanded'
+    publish_bundle(dataset, files, {k:v for k,v in manifest.items() if k != 'files'})
+    if fault:
+        with pytest.raises(ValueError):
+            load_evidence(dataset, archive)
+    else:
+        result = load_evidence(dataset, archive)
+        assert list(result) == ['kept']
+        assert len(result['kept']) == 2
+        assert result['kept'][0]['description'] == captures[0]['description']
