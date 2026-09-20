@@ -52,3 +52,34 @@ category. These are evidence-review priorities, not automatic
 historical price-basis labels or exclusions. The fixed residual-review wording
 also now describes the target as recorded advertised asks rather than implying
 every target is independently verified base/gross rent.
+
+## Exact net-price matches requiring residual context
+
+The refreshed audit retains two observations for which all attached captures
+explicitly quote the analytical amount as net. These are not new consequences
+of v6: the full replay established that amount matches did not change.
+
+- Advertisement **3116129**, 111 West 16th Street #1G: the description says
+  `1999.00 is the NET EFFECTIVE rent` and describes a 14-month lease with
+  13 payments of $2,152. Its single raw capture (74104) has an own-ad ACTIVE
+  event on July 9, 2020 and DELISTED event on July 16, both $1,999. The lease
+  arithmetic is approximately $1,998.29 per month, close but not identical to
+  the literal $1,999 quote. Preserve the explicit quote and payment schedule
+  separately; do not “correct” rounding or invent a signed-lease amount.
+- Advertisement **3193768**: both raw captures (37620, 104243) have matching
+  own-ad ACTIVE and NO_LONGER_AVAILABLE events on August 27, 2020 at $2,379.
+  Both descriptions distinguish $2,595 monthly rent from $2,379 net monthly
+  cost. Its structured 340 West 17th Street #2A address conflicts with the
+  description's 344 West 17th Street, as documented in the
+  [earlier access review](chelsea-floor-access-conflicts-2026-09-19.md).
+
+All three raw payloads were reloaded from the frozen granular archive and
+checked against the audit's raw SHA-256 witnesses before inspecting their own
+advertisement histories. The descriptions were captured in September 2026;
+they do not supply verified historical concession effective dates. Their exact
+source rows, complete descriptions, capture hashes and literal measurements are
+preserved in the published audit (manifest
+`41e15e674d4c8666da5e8e9805618750b8c76dfce89cea272a4cab1877a9f8ec`).
+These findings should accompany interpretation of their residuals and motivate
+a separate price-basis sensitivity; neither numerical replacement nor a new
+source exclusion has been applied.
