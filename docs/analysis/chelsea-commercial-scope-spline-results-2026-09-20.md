@@ -2,7 +2,7 @@
 
 The nine-ad source revision passes a full matched PyMC refit and comparison
 against the originally selected expanded-floor fit. The selected main model
-has not changed; candidate UI and residual movement review remain pending.
+has not changed; candidate UI and absolute-residual tail review remain pending.
 
 All primary, derived-effect and floor diagnostic gates pass with four chains,
 4,000 warmup and 6,000 retained draws per chain, zero divergences and zero
@@ -29,9 +29,36 @@ The largest absolute fitted-price shift is $660.37 for advertisement 4892020
 at $16.60. These larger movements need own-source review before attribution to
 specific features. The deterministic 27-case movement-review input build is
 complete (manifest `cd8d5229dd8dc83ec3058ebe9f7828422caab22b5b913c83a2da70c8ac546031`).
-Eleven cases have exactly matching observation rows and description records in
-the previous movement panel; sixteen require new case review. Review remains
-in progress.
+All 27 cases are now reviewed. Eleven reuse prior adjudications only after
+exact observation-row and description-record equality checks; sixteen have new
+full-description reviews. The verified review manifest is
+`84dcb32bafd0cd94ea796d2a788f98d9c523101099fa4f8e4ebf339aa4293002`
+in `chelsea-commercial-scope-movement-review-20260920`.
+
+The largest price-shift cases include a whole townhouse (4892020), an explicitly
+mixed live/work offer (1540611), and a month-to-month rental (1171083). The latter
+two warrant terms/scope sensitivity, not automatic commercial-only exclusion.
+Private pools, car lifts, terraces, furnished short leases and en-suite bathrooms
+appear elsewhere in the panel. These are research leads rather than explanations
+proven by the fitted residuals.
+
+Two new bathroom composition conflicts need raw-source follow-up:
+
+- **1741581:** analytical four full baths and zero half baths versus explicit
+  prose two baths and two powder rooms in a triplex.
+- **4730943:** analytical two full baths and two half baths versus a layout
+  summary of two full baths and one powder room. A later studio/full-bath phrase
+  makes room enumeration ambiguous, so no automatic count replacement is justified.
+
+The unusual two-bedroom/3.5-bath composition for **4681420** is explicitly
+corroborated by its description. **2851560** supplies 3,840 interior square feet
+despite missing analytical area. Neither claim is yet a time-resolved physical
+measurement. These distinctions matter before attributing unusually large unit
+effects to unmodeled amenities.
+
+A separate deterministic top-15 distinct-unit absolute-residual input build has
+started for this candidate. The movement panel is selected by changes between
+fits and does not substitute for reviewing the largest remaining residuals.
 
 ### Newly verified location conflict
 
