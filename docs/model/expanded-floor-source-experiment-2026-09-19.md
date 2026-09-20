@@ -113,6 +113,12 @@ The prescribed four-chain, 4,000-warmup/6,000-retained fit was launched at about
 Producer dependencies are frozen from launch. No completion or convergence
 claim is made here; the selected main analysis remains the prior accepted fit.
 
+The live run subsequently completed sampling and entered trace export at
+`2026-09-20T00:30:16Z`. Export finished and diagnostic/report generation started
+at `2026-09-20T00:32:40Z`; the 4.1 GB posterior checkpoint and complete bounded
+report cache are present. This records processing progress only. The final fit
+manifest and convergence assessment remain pending at this checkpoint.
+
 Candidate analysis should also retain the separately published unresolved
 source notes in `data/model/chelsea-expanded-floor-source-issues-20260919`.
 These cover four issues on three historical advertisements (furnishing,
