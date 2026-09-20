@@ -117,7 +117,15 @@ The live run subsequently completed sampling and entered trace export at
 `2026-09-20T00:30:16Z`. Export finished and diagnostic/report generation started
 at `2026-09-20T00:32:40Z`; the 4.1 GB posterior checkpoint and complete bounded
 report cache are present. This records processing progress only. The final fit
-manifest and convergence assessment remain pending at this checkpoint.
+manifest and convergence assessment were pending at that checkpoint.
+
+The process subsequently exited successfully and published the completed fit at
+`2026-09-20T00:48:42Z`, with status `exploratory_converged`. All convergence
+gates passed: parameter maximum R-hat 1.003982 / minimum bulk ESS 820.7;
+derived-effect maximum R-hat 1.002146 / minimum bulk ESS 1,129.4; floor-contrast
+maximum R-hat 1.002856 / minimum bulk ESS 1,895.2. There were no divergences or
+tree-depth hits. This establishes a usable completed posterior, not promotion:
+the matched comparison and source/UI reviews are the next assessment steps.
 
 Candidate analysis should also retain the separately published unresolved
 source notes in `data/model/chelsea-expanded-floor-source-issues-20260919`.

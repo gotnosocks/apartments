@@ -19,6 +19,11 @@
   Verify a downloaded fit bundle loads and reproduces the same local analyses
   before recommending an execution setup. Do not judge speed from short
   warmup/draw runs dominated by startup costs.
+  A [local footprint study](../analysis/modal-transfer-footprint-2026-09-19.md)
+  now measures the expanded analytical input at 286.7 MB uncompressed / 45.8 MB
+  with gzip, and the original spline's inferred offline analysis closure at
+  4.586 GB. These are local measurements and code-inspection findings; remote
+  transfers, posterior compression and a clean bundle roundtrip remain untested.
 
 ## Floor representation
 
