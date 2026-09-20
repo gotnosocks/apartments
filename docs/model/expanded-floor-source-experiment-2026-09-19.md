@@ -87,3 +87,20 @@ parameter points. Maximum absolute log-density discrepancy is 2.91e-11 and
 maximum gradient discrepancy is 4.07e-10 over 23,413 unconstrained parameters.
 Artifact: `data/model/chelsea-expanded-spline-floor-graph-parity-20260919`.
 This establishes numerical equivalence, not posterior convergence.
+
+## Full source verification and fit launch
+
+The full source/design/evidence verifier passed and published
+`data/model/chelsea-expanded-floor-source-verification-20260919`. It restores
+the exact parent, verifies all 47 feature columns, checks unchanged nonfloor
+values and encoding, and verifies unchanged literal evidence for 71,813
+linked captures. It records the changed common-floor prior covariance instead
+of claiming identical function priors. The expanded source manifest SHA-256 is
+`d244ca6710e080e18059f1b3279a373e187ea38fb4219c51deff7e49f4604717`.
+
+The prescribed four-chain, 4,000-warmup/6,000-retained fit was launched at about
+00:05 UTC on September 20 (September 19 locally), with output
+`data/model/chelsea-bayesian-expanded-spline-floor-disk-20260919` and log
+`/tmp/chelsea-expanded-spline-floor-fit.log`. Session 1989 owns this run.
+Producer dependencies are frozen from launch. No completion or convergence
+claim is made here; the selected main analysis remains the prior accepted fit.
