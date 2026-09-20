@@ -84,3 +84,24 @@ verifies exact original rows and every attached capture, records literal claims
 and capture clocks, and preserves all 17 other reviewed observations. Publication
 and identical replay passed. The policy is explicitly unapplied; a reversible
 source projection and reader validation are still required before fitting it.
+
+## Reversible projection implementation
+
+`apartments.direct_floor_projection` now limits this revision to additions of
+previously unknown `listed_floor` and `advertised_floor` values. It preserves
+independent label proxies, physical-height fields, existing masks, prices and
+all other attributes. Each change records its complete original row, exact
+reviewed decision, source index and new provenance. Validation replays every
+addition forward and reconstructs the complete parent observations hash,
+including unchanged siblings and row order.
+
+Fifteen focused tests pass, covering the exact round trip, input immutability,
+known-floor/mask rejection, typed and complete capture membership, future-dated
+evidence, contradictory claims, and nonfloor tampering even when outer file
+hashes have been recomputed.
+
+The full 52,644-row projection has been launched with `models.project_direct_floors`
+against the nine-ad scope-reviewed source and the exact prepared policy. Output:
+`data/model/chelsea-direct-floor-analysis-20260920`; review clock:
+`2026-09-20T05:19:23Z`. Completion, identical replay and public reader integration
+remain to be verified before fitting. The selected model is unchanged.
