@@ -92,6 +92,13 @@
 
 ## Source leads from the expanded-floor residual review
 
+- [ ] Audit gross versus net-effective historical asks using explicit gross
+  quotes and concession terms, beginning with 2834394, 2560481, 2362330 and
+  2967520. The [full-description review](../analysis/chelsea-commercial-batch-two-2026-09-20.md)
+  finds one exact net-effective arithmetic match and another mismatch. Align
+  own-ad price events with dated concession evidence before any correction;
+  later descriptions alone do not establish historical applicability.
+
 - [ ] Distinguish base asking rent from mandatory recurring charges in renter
   cost comparisons. The [active-listing review](../analysis/chelsea-current-commercial-match-review-2026-09-20.md)
   finds four captured ads advertising a required $90-per-resident monthly fee.

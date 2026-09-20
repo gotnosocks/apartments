@@ -134,6 +134,9 @@ review: their matches refer to home-office or shared residential amenities,
 supporting no scope exclusions. Four also advertise a required $90-per-resident
 monthly charge above base rent. See the [review and fee research lead](chelsea-current-commercial-match-review-2026-09-20.md).
 After this and the priority batch, 506 description groups remain unreviewed.
+The [next eight full-text reviews](chelsea-commercial-batch-two-2026-09-20.md)
+also support no scope exclusions, leaving 498 groups. They identify four
+historical gross/net rent-basis leads for separate temporal review.
 
 ## Separate UI failure and recovery
 

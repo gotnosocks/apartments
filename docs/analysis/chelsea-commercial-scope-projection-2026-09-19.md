@@ -130,3 +130,22 @@ with the explicit cumulative policy and archived code checks, rather than
 claiming improvement from dropping observations. Repeat fixed panels and inspect
 the new residual tail. A separate later bathroom-prior experiment can address
 the known sparse second-half-bath coefficient without confounding this revision.
+
+Once the fit has completed and its diagnostic gates have been inspected, the
+matched comparison command is:
+
+```bash
+UV_CACHE_DIR=/tmp/apartments-uv-cache MPLCONFIGDIR=/tmp/apartments-mpl \
+OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 \
+uv run --frozen --no-sync python -m models.residual_scope_fit_comparison \
+  --reference data/model/chelsea-bayesian-expanded-spline-floor-disk-20260919 \
+  --reference-dataset data/model/chelsea-expanded-label-floor-analysis-20260919 \
+  --candidate data/model/chelsea-bayesian-commercial-scope-spline-disk-20260920 \
+  --dataset data/model/chelsea-commercial-scope-analysis-20260919 \
+  --policy config/reviews/chelsea-commercial-scope-followup-20260919.json \
+  --output data/model/chelsea-commercial-scope-spline-comparison-20260920
+```
+
+This command has been checked against the current CLI but has not been run
+while sampling remains active. Fixed residual/floor panels and candidate UI
+validation remain separate requirements before any main-selection change.
