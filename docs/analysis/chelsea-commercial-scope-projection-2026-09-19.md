@@ -112,6 +112,15 @@ settings above, including shared residual scale, building prior 0.35, unit prior
 surrogate model is substituted. Do not launch another fit while this session is
 live; completion and diagnostics remain unverified.
 
+All four chains subsequently completed 4,000 warmup and 6,000 retained draws,
+with zero divergences in the sampler progress records. Posterior export finished
+and the process entered diagnostics/reporting at `2026-09-20T04:33:54Z`.
+The posterior contains 4,340,049,047 bytes; its SHA-256
+`514d96a4ba1c000b37d199ec3c1f7b174d2a2314ef58f27ecb273cd1bf14e765`
+was independently recomputed and matches both storage metadata and the posterior
+checkpoint. This establishes a preserved export, not passing posterior gates.
+Full fit publication, diagnostics and matched comparisons remain pending.
+
 The existing four annotations on three retained advertisements have been
 carried from the original expanded source to this source with the established
 exact-row/capture and original-review-clock checks (session 2784, exit 0). Outputs are
