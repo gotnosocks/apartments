@@ -38,3 +38,42 @@ projection. The running PyMC fit's frozen input is unchanged. Additional matches
 and any source conflicts require review before claiming a coverage increase or
 fitting a source revision. Historical effective dates and physical floors remain
 separate questions.
+
+## Full-description and raw-capture adjudication
+
+All 41 distinct changed full descriptions have now been manually reviewed.
+Each identifies the offered dwelling; none substitutes a reference photograph's
+floor or a shared amenity's floor. The review preserves all 60 capture
+associations. All 58 historical raw payloads were reloaded and hash-verified;
+the two refresh bodies were decompressed, body-hash verified, reparsed and
+checked against their exact raw-listing hashes. Complete-payload extraction
+agrees with the description floor in every case.
+
+There are 14 observations corroborating an existing floor, two disagreements,
+and 25 previously unknown floors. Of the latter, 24 have unsupported label
+syntax; the other is 5155202, already masked for a reviewed unit-numbering
+issue. Do not remove that mask merely because the parser now recognizes its
+known first-floor claim. A future projection can consider the 24 unmasked
+observations after preserving the existing source policy and temporal scope.
+
+The two disagreements are 4439603 (344 West 17th #1B) and 3332499 (433 West
+24th #1C): both explicitly describe second-floor apartments while existing
+label proxies give floor 1. The first ad separately says pictures are of a
+similar unit but video is exact; that does not turn its independent explicit
+“This second floor apartment” sentence into a photo-reference floor claim.
+Neither description establishes a building-wide numbering offset or physical
+height. Preserve both claims pending numbering review.
+
+Secondary leads remain distinct: 3203696 describes a duplex, so its advertised
+second floor does not summarize every level; 4165480 places laundry on floor 2
+and the apartment on floor 5; 3809608/4398107 offer paid wash-and-fold service,
+which is not an in-unit washer; 998539 advertises a six-month rental. These
+findings motivate later feature/scope research without changing this floor review.
+
+`docs/analysis/scripts/review_direct_floor_offers.py` publishes the full manual
+review, original rows, extracted claims and all raw witnesses to
+`data/model/chelsea-direct-floor-offer-review-20260920`. Publication, identical
+replay and full artifact verification pass. The first attempt stopped because
+refresh capture IDs are not historical integer IDs; the final helper explicitly
+uses each capture's correct archive and verifies both paths. No source or fit
+values changed.
