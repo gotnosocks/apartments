@@ -40,10 +40,15 @@ Manifest: `ad2c18f00501eeb74bb5700d120080e6442473bf400c1cd992f400a41a85752b`.
 Publication and full bundle hash verification passed. The ongoing scope refit's
 frozen dataset and model specification are unaffected.
 
-The same measurement is now being applied through the existing full source
-audit to the cumulative nine-ad source. Output is planned at
-`data/model/chelsea-commercial-scope-rent-basis-audit-20260920`; publication
-remains pending. This produces evidence-review priorities, not automatic
+The same measurement has passed the existing full source audit on the cumulative
+nine-ad source (session 14173, exit 0). The published output is
+`data/model/chelsea-commercial-scope-rent-basis-audit-20260920`; independent
+bundle hash verification also passed. It covers 71,797 captures on 52,644 rows
+and flags 2,806 observations (2,199 units): 959 advertised-net statements without
+a target-amount match, two exact-net-only matches across all attached captures,
+101 explicit gross matches, 1,649 other net mentions and 95 other labelled
+amounts. All 14 flagged capture-time active rows fall in the other-net-mention
+category. These are evidence-review priorities, not automatic
 historical price-basis labels or exclusions. The fixed residual-review wording
 also now describes the target as recorded advertised asks rather than implying
 every target is independently verified base/gross rent.
