@@ -5,6 +5,7 @@ samples are never paired; normalization is allowed to follow the retained data.
 """
 import argparse
 import ast
+import json
 from collections import Counter
 from io import BytesIO
 from pathlib import Path
@@ -125,21 +126,30 @@ def check_implementation_sources(a, b, changed):
     return {'archived_loader_ast_verified': True, 'scope_and_both_floor_contracts_match_archive': True}
 
 
-def verify_revision(reference, candidate):
+def verify_revision(reference, candidate, *, policy=None):
+    expected_ads = EXCLUDED_ADS
+    policy_bytes = None
+    if policy is not None:
+        policy_bytes = Path(policy).read_bytes()
+        specification = json.loads(policy_bytes)
+        expected_ads = reviewed_ads(specification, digest(Path(reference)/'complete.json'))
     sidecars = {key: module.SIDECAR for key, module in (
         ('quarantined', lineage.reviewed_cohort_quarantine), ('elevator_changes', lineage.elevator_corrections),
         ('floor_label_changes', lineage.floor_label_projection), ('expanded_floor_changes', lineage.expanded_floor_projection))}
-    bundles = [_verified_bundle(path, retain={'observations.jsonl', projection.SIDECAR, *sidecars.values()})
+    bundles = [_verified_bundle(path, retain={'observations.jsonl', projection.SIDECAR,
+                                             'residual-scope-policy.json', *sidecars.values()})
                for path in (reference, candidate)]
     before, after = [shared.report.jsonl(files['observations.jsonl']) for _, files in bundles]
     if projection.SIDECAR not in bundles[1][1]:
         raise ValueError('Missing residual scope quarantine sidecar')
     excluded = shared.report.jsonl(bundles[1][1][projection.SIDECAR])
+    if policy_bytes is not None and bundles[1][1].get('residual-scope-policy.json') != policy_bytes:
+        raise ValueError('Published scope policy differs from explicitly requested review')
     if sha(projection.parent_rows(bundles[1][0], after, excluded)) != sha((bundles[0][0], before)):
         raise ValueError('Residual scope inverse does not restore exact reference source')
-    if after != [r for r in before if r['source_listing_id'] not in EXCLUDED_ADS]:
-        raise ValueError('Retained observations or order changed beyond the four reviewed ads')
-    if {r['observation']['source_listing_id'] for r in excluded} != EXCLUDED_ADS:
+    if after != [r for r in before if r['source_listing_id'] not in expected_ads]:
+        raise ValueError('Retained observations or order changed beyond the explicitly reviewed ads')
+    if {r['observation']['source_listing_id'] for r in excluded} != expected_ads:
         raise ValueError('Excluded ads differ from reviewed scope experiment')
     current = lambda rows: [r for r in rows if r['analysis_price_basis'] == 'current_capture_gross_ask']
     if current(before) != current(after):
@@ -154,6 +164,20 @@ def verify_revision(reference, candidate):
     if sha(ancestors[0]) != sha(ancestors[1]) or any(bundles[0][1][name] != bundles[1][1][name] for name in sidecars.values()):
         raise ValueError('Inherited source or floor layers changed')
     return before, after, excluded
+
+
+def reviewed_ads(specification, reference_hash):
+    if (specification.get('version') != 'chelsea-residual-scope-policy-v1'
+            or specification.get('source_manifest_sha256') != reference_hash):
+        raise ValueError('Reviewed policy binds a different source')
+    cases = specification.get('cases')
+    if not isinstance(cases, list) or not cases:
+        raise ValueError('Reviewed policy must name exact advertisements')
+    ads = [case.get('source_listing_id') for case in cases]
+    if (any(type(ad) is not str or not ad for ad in ads) or len(set(ads)) != len(ads)
+            or any(case.get('action') not in projection.ACTIONS for case in cases)):
+        raise ValueError('Invalid or duplicate reviewed advertisement decisions')
+    return set(ads)
 
 
 def check_designs(a, b):

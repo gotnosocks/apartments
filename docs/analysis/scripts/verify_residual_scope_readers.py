@@ -56,7 +56,7 @@ def compare_designs(designs, frames):
                                  a.time.size_default == b.time.size_default)}
 
 
-def run(reference, candidate, evidence, output):
+def run(reference, candidate, evidence, output, policy=None):
     reference, candidate, evidence = map(Path, (reference, candidate, evidence))
     implementations = {p.name: p for p in runner.implementation_paths()}
     implementations.update({Path(m.__file__).name: Path(m.__file__) for m in
@@ -65,8 +65,9 @@ def run(reference, candidate, evidence, output):
     code_before = {k: digest(p) for k, p in implementations.items()}
     input_before = {name: digest(path/'complete.json') for name, path in
         (('reference', reference), ('candidate', candidate), ('evidence', evidence))}
-    print('Verifying exact four-ad scope inverse and complete inherited source lineage', flush=True)
-    original, kept, sidecar = comparison.verify_revision(reference, candidate)
+    policy_hash = digest(policy) if policy is not None else None
+    print('Verifying exact reviewed-ad scope inverse and complete inherited source lineage', flush=True)
+    original, kept, sidecar = comparison.verify_revision(reference, candidate, policy=policy)
     old_current = [r for r in original if r['analysis_price_basis'] == 'current_capture_gross_ask']
     new_current = [r for r in kept if r['analysis_price_basis'] == 'current_capture_gross_ask']
     if old_current != new_current or len(new_current) != 172:
@@ -91,7 +92,8 @@ def run(reference, candidate, evidence, output):
         'excluded_literal_captures': sum(len(baseline[k]) for k in excluded),
         'exact_inverse_parent_verified': True, 'full_ancestor_lineage_verified': True,
         'inherited_sidecars_byte_equal': True, 'retained_evidence_equal': True,
-        'excluded_ads': sorted(comparison.EXCLUDED_ADS),
+        'excluded_ads': sorted(r['observation']['source_listing_id'] for r in sidecar),
+        'review_policy_sha256': policy_hash,
         **design_result,
         'main_selection_changed': False, 'fit_performed': False,
         'limitations': ['Reader and design validation only; no posterior or pricing inference.',
@@ -104,6 +106,8 @@ def run(reference, candidate, evidence, output):
         raise ValueError('Input manifests changed during verification')
     if code_before != {k: digest(p) for k, p in implementations.items()}:
         raise ValueError('Reader implementations changed during verification')
+    if policy is not None and digest(policy) != policy_hash:
+        raise ValueError('Reviewed policy changed during verification')
     publish_bundle(output, {'verification.json': canonical(result)+'\n',
         Path(__file__).name: Path(__file__).read_text(), **{k: p.read_text() for k, p in implementations.items()}},
         {'version': result['version'], 'reference_manifest_sha256': digest(reference/'complete.json'),
@@ -117,4 +121,5 @@ def run(reference, candidate, evidence, output):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description=__doc__)
     for name in ('reference', 'candidate', 'evidence', 'output'): parser.add_argument('--'+name, type=Path, required=True)
+    parser.add_argument('--policy', type=Path, help='Explicit cumulative policy; omitted preserves the original four-ad experiment')
     run(**vars(parser.parse_args()))

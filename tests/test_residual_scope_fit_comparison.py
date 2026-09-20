@@ -145,7 +145,8 @@ def test_curve_render_is_deterministic_and_labels_scope_review(spline_train):
 
 
 @pytest.mark.parametrize('fault', [None, 'retained_value', 'inherited_layer', 'missing_floor_layer', 'ancestor', 'current_excluded', 'wrong_ads'])
-def test_source_inverse_preserves_exact_retained_rows_and_both_floor_layers(tmp_path, monkeypatch, fault):
+@pytest.mark.parametrize('policy_mode', [None, 'explicit', 'different_bytes', 'alternate_ads'])
+def test_source_inverse_preserves_exact_retained_rows_and_both_floor_layers(tmp_path, monkeypatch, fault, policy_mode):
     import json
     from apartments.corrections import canonical
     from apartments.research_pipeline import publish_bundle
@@ -153,7 +154,11 @@ def test_source_inverse_preserves_exact_retained_rows_and_both_floor_layers(tmp_
     rows, _, _ = fixture()
     rows.append({**deepcopy(rows[-1]), 'audit_id': 'kept', 'source_listing_id': 'kept'})
     decisions = []
-    for i, ad in enumerate(sorted(m.EXCLUDED_ADS)):
+    expected_ads = set(m.EXCLUDED_ADS)
+    if policy_mode == 'alternate_ads':
+        expected_ads.remove('1260588')
+        expected_ads.add('new-reviewed-ad')
+    for i, ad in enumerate(sorted(expected_ads)):
         row = rows[i]
         row['source_listing_id'] = ad if fault != 'wrong_ads' or i else 'unreviewed'
         row['analysis_price_basis'] = ('current_capture_gross_ask' if fault == 'current_excluded' and i == 0
@@ -172,6 +177,15 @@ def test_source_inverse_preserves_exact_retained_rows_and_both_floor_layers(tmp_
     publish_bundle(source, {**sidecars, 'observations.jsonl': ''.join(canonical(r)+'\n' for r in rows)},
                    {'version': m.projection.PARENT, 'interpreted_at': '2026-09-19T23:00:00Z'})
     parent = json.loads((source/'complete.json').read_text())
+    policy_path = None
+    if policy_mode:
+        specification = {'version': 'chelsea-residual-scope-policy-v1',
+            'source_manifest_sha256': m.digest(source/'complete.json'),
+            'cases': [{'source_listing_id': ad, 'action': 'quarantine_nonresidential'} for ad in sorted(expected_ads)]}
+        payload = canonical(specification)+'\n'
+        sidecars['residual-scope-policy.json'] = payload
+        policy_path = tmp_path/'review-policy.json'
+        policy_path.write_text(payload + (' ' if policy_mode == 'different_bytes' else ''))
     manifest, kept, changes = bundle(parent, rows, decisions)
     if fault == 'retained_value': kept[0]['asking_rent'] += 1
     if fault == 'inherited_layer': sidecars[m.lineage.expanded_floor_projection.SIDECAR] = '{}\n'
@@ -186,14 +200,26 @@ def test_source_inverse_preserves_exact_retained_rows_and_both_floor_layers(tmp_
     # The scope inverse itself is real. Ancestor contracts have their own
     # complete integration tests; here verify both calls and inherited bytes.
     monkeypatch.setattr(m.lineage, 'source_lineage', ancestor)
-    if fault:
-        with pytest.raises(ValueError): m.verify_revision(source, candidate)
+    if fault or policy_mode == 'different_bytes':
+        with pytest.raises(ValueError): m.verify_revision(source, candidate, policy=policy_path)
     else:
-        assert m.verify_revision(source, candidate) == (rows, kept, changes)
+        assert m.verify_revision(source, candidate, policy=policy_path) == (rows, kept, changes)
         assert len(calls) == 2
         assert calls[0]['residual_scope_changes'] is None
         assert calls[1]['residual_scope_changes'] == changes
         assert all(call['floor_label_changes'] == call['expanded_floor_changes'] == [] for call in calls)
+
+
+@pytest.mark.parametrize('fault', ['source', 'empty', 'duplicate', 'action', 'identity'])
+def test_explicit_review_policy_rejects_invalid_membership(fault):
+    spec = {'version': 'chelsea-residual-scope-policy-v1', 'source_manifest_sha256': 'a'*64,
+        'cases': [{'source_listing_id': 'new', 'action': 'quarantine_nonresidential'}]}
+    if fault == 'source': spec['source_manifest_sha256'] = 'b'*64
+    if fault == 'empty': spec['cases'] = []
+    if fault == 'duplicate': spec['cases'] *= 2
+    if fault == 'action': spec['cases'][0]['action'] = 'repair_price'
+    if fault == 'identity': spec['cases'][0]['source_listing_id'] = 123
+    with pytest.raises(ValueError): m.reviewed_ads(spec, 'a'*64)
 
 
 def test_floor_matching_uses_common_observed_endpoints_and_withholds_failures():

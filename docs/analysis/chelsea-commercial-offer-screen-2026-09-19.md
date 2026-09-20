@@ -105,12 +105,12 @@ own-ad asks. The cumulative review preserves prior evidence references at
 `data/model/chelsea-commercial-scope-followup-review-20260919`, manifest
 `646e6a3f033765fb6cb5a3be0975747dff98f14fb92f48e0594ec97ed9d880ab`.
 
-This is a prepared policy, **not an applied source projection**. Next run the
-existing exact-capture decision verifier with a new explicit review clock, then
-publish a cumulative source revision against the original expanded-floor source.
-Do not accidentally apply just the five new exclusions to a fresh base and
-reintroduce the earlier four. Ambiguous/mixed offers and remaining unreviewed
-screen matches stay outside this exclusion policy. No refit has been started.
+The policy has now passed the existing exact-capture decision verifier and
+produced a [separate cumulative source revision](chelsea-commercial-scope-projection-2026-09-19.md)
+against the original expanded-floor source. It preserves the earlier four
+exclusions while adding the five confirmed offers. Ambiguous/mixed offers and
+remaining unreviewed screen matches stay outside this exclusion policy. The
+new dataset has not been fitted or selected as the main analysis.
 
 ## Reproduction and validation
 
