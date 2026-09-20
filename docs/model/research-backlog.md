@@ -54,15 +54,18 @@
   Audit numeric labels, wing prefixes, multi-letter suffixes and floor-only
   labels against own-advertisement evidence and building numbering. Keep
   advertised labels separate from physical height and preserve source conflicts.
-  The published expanded source reaches 68.36% observation coverage; the
-  selected fit still uses the narrow v1 policy until the matched refit passes.
+  The published expanded source reaches 68.36% observation coverage and is now
+  used by the selected main fit after the matched refit and source/UI review.
   See the [source experiment](expanded-floor-source-experiment-2026-09-19.md).
 - [x] Project the five confirmed reference-photo floor errors at 160 W22 through
   source-bound corrections, preserving their raw claims and separate numeric
   label evidence. Keep the 244 W16 `1RE` label/prose discrepancy explicit.
-- [ ] Complete and assess the full matched spline refit on the expanded source,
+- [x] Complete and assess the full matched spline refit on the expanded source,
   including residual/source reviews and the support-dependent prior change,
-  before updating the selected main analysis.
+  before updating the selected main analysis. The selected fit passes all full
+  posterior gates and actual UI checks; the fixed 26-row panel gets slightly
+  worse, and this is not claimed as a uniform residual improvement. See the
+  [results](../analysis/chelsea-expanded-spline-floor-results-2026-09-19.md).
 - [ ] Improve explicitly scoped description-floor extraction using the three
   corroborating cases in the [expanded-source panel](../analysis/chelsea-expanded-floor-source-panel-2026-09-19.md):
   a `53RD FLOOR!` headline, `3rd floor of a walkup building`, and `this 11th floor`.

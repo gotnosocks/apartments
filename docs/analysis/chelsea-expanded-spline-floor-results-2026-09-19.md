@@ -4,8 +4,9 @@ The expanded floor source has a completed, converged PyMC fit on the same
 52,653-observation Chelsea cohort. Known floors rise from 56.80% to 68.36%,
 while typical fitted rents move little. This improves the recorded evidence
 available for attribution; it does not establish uniformly better residuals
-or identify a causal floor premium. Promotion remains pending the final source
-movement review and actual analysis-page verification.
+or identify a causal floor premium. The expanded source and fit are now selected
+in `config/main-analysis.json`, after the source movement review and actual
+analysis-page verification passed.
 
 ## What changed
 
@@ -133,7 +134,7 @@ evidence that the property's physical quality changed. These additive log-mean
 decompositions are not causal dollar allocations; independent posterior draws
 are never paired to invent between-fit uncertainty.
 
-## Review and selection status
+## Review and selection
 
 The deterministic source-movement panel contains 32 cases: the 25 largest
 distinct-unit fitted-rent changes plus examples of the five largest unit-offset
@@ -150,8 +151,26 @@ confirmation. See the [source panel](chelsea-expanded-floor-source-panel-2026-09
 The candidate selection retains the eight fixed notes and four unresolved issues
 on three historical advertisements: furnished-only scope, an unextracted washer/
 dryer, a furnished offer, and a bathroom-count conflict. These annotations do not
-alter the fitted data. The actual Streamlit analysis-page check is pending;
-`config/main-analysis.json` still selects the prior accepted source and fit.
+alter the fitted data. The actual Streamlit analysis-page check passed with zero
+errors/exceptions and the full saved joint posterior, without mocked data or
+prices. For advertisement 5155021, floor 2→3 displays $2,889→$2,891; for historical
+advertisement 4141846, floor 6→7 displays $14,599→$14,662. Both comparisons are
+accepted, preserve the source record and retain all applicable source warnings.
+All four historical issue messages on three advertisements remain visible.
+
+The selected config is byte-identical to the tested candidate (SHA-256
+`2fd7aa34bfa7d28897abad8fe5c757b6a6e6056bfb5e1fb84f483926ca73e124`).
+The six page/backend implementation hashes and all selected manifest bindings
+were checked again at promotion. The UI verification bundle is
+`data/model/chelsea-expanded-spline-main-page-validation-20260919` (manifest
+`7b889d06694a45102bb7e2ff1350fa2e0edd2365c1ebedd5f5d22744bf64fbc2`).
+`data/model/chelsea-expanded-spline-main-promotion-20260919` preserves the prior
+selection, selected config, source-review hash and promotion decision.
+
+Selection is justified by broader reviewed floor evidence, a converged posterior
+and a working contribution/residual workflow. The nearly unchanged aggregate
+residual and slightly worse fixed panel are not evidence of a general accuracy
+gain. Remaining high residuals guide the next source and feature investigations.
 
 ## Artifacts
 

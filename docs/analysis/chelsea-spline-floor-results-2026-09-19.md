@@ -1,5 +1,10 @@
 # Expanded floor data with a regularized spline
 
+This report describes the earlier 56.8%-coverage source. The selected main fit
+now uses the broader 68.36%-coverage source; see the
+[expanded-label results](chelsea-expanded-spline-floor-results-2026-09-19.md).
+The results and selection statements below record this earlier experiment.
+
 The replacement PyMC model retains the reviewed floor extraction and replaces
 51 independent floor increments with five natural-cubic-spline coefficients.
 The full fit and all parameter, derived-contribution and joint-floor diagnostic

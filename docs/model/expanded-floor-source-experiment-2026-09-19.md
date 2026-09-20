@@ -1,5 +1,13 @@
 # Broader floor-label source revision
 
+Current assessment: the full fit, matched comparison, fixed development panels,
+importance sensitivity and all 32 movement-source reviews are complete. The
+[results report](../analysis/chelsea-expanded-spline-floor-results-2026-09-19.md)
+records the evidence and limitations. Actual analysis-page verification passed,
+and `config/main-analysis.json` now selects the exact tested expanded-source
+candidate. The dated launch/checkpoint narrative below is retained
+as the experiment record, not as a claim that sampling is still running.
+
 This experiment changes floor measurement on the same 52,653-observation Chelsea
 cohort. It keeps the selected PyMC natural-cubic-spline specification, rather
 than mixing a source expansion with a GP or random-walk model change.
@@ -68,8 +76,10 @@ previously excluded buildings, three unknown-floor rows of the conflicting
 `1RE` unit, and seven missing labels. These are explicit subsequent review
 queues, not claimed absences of recoverable floor information.
 
-The selected main fit still uses the parent source until the new full fit and
-matched analysis pass. Publication alone does not update posterior estimates.
+At source publication the selected main fit still used the parent source.
+The completed fit, matched analysis and source/UI checks subsequently passed;
+the expanded-source posterior is now selected. Publication alone did not update
+posterior estimates.
 
 ## Support-dependent spline boundary
 
