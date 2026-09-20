@@ -60,6 +60,26 @@ verify replay, and handle archived implementation comparisons explicitly: the
 floor verification optimization changed two loader-contract files, so the
 previous narrowly defined loader-only comparison guard cannot simply be assumed
 to accept a new fit. Preserve all mathematical and sampler equivalence checks.
+`models/floor_replay_compatibility.py` now recognizes exactly that reviewed
+copying refactor by constructing the expected syntax tree from each bound
+original implementation. It requires the public deep-copy wrapper, internal
+top-level copy and exact replay-call substitutions; other code differences are
+rejected. Both actual archived floor contracts pass, and adversarial changes to
+floor values, exceptions, copy ownership and unrelated functions are rejected
+(three tests covering both contracts and invalid inputs). It is not yet wired
+into the posterior comparison; existing running preflight dependencies remain
+unchanged until that run finishes.
 Carry source annotations with exact retained-row/capture checks before any
 promotion. The ongoing UI check concerns the earlier four-ad candidate, not
 this newly published source. Other commercial-screen groups remain under review.
+
+The intended source-only refit keeps the established PyMC specification and
+sampling protocol: natural cubic floor spline, full/half/balance bathrooms,
+shared Student-t noise, four chains, 4,000 warmup and 6,000 retained draws per
+chain, nutpie/Numba diagonal NUTS, target acceptance 0.93, max depth 10 and seed
+20260924. No sampler-shortening or simultaneous feature experiment is planned.
+Compare common retained observations against the original expanded-floor fit,
+with the explicit cumulative policy and archived code checks, rather than
+claiming improvement from dropping observations. Repeat fixed panels and inspect
+the new residual tail. A separate later bathroom-prior experiment can address
+the known sparse second-half-bath coefficient without confounding this revision.
