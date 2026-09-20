@@ -22,12 +22,16 @@ captures), including later virtual-staging language on 3967693. Tests also
 cover reference claims, questions, hypothetical offers, shared amenities,
 independent unit labels, exact spans and structured/text disagreement.
 
-The full description-only v7-to-v8 replay has been launched with
+The full description-only v7-to-v8 replay passed with
 `docs/analysis/scripts/audit_direct_floor_offers.py`. It checks every archived
 description, verifies source/capture identities, and requires every nonfloor
 attribute, evidence item, warning and conflict to remain unchanged. It preserves
-all changed captures for manual review. Output is planned at
-`data/model/chelsea-direct-floor-offer-replay-20260920`; results are pending.
+all changed captures for manual review. Output is published at
+`data/model/chelsea-direct-floor-offer-replay-20260920` (session 96520, exit 0).
+It scanned 72,065 captures and 40,531 distinct description inputs. Floor evidence
+changed in 60 captures across 41 advertisements; all nonfloor interpretations
+were unchanged. The two original reviewed ads are included. Other changes need
+full-description adjudication before projection or coverage claims.
 
 This is an extraction improvement under evaluation, not an applied source
 projection. The running PyMC fit's frozen input is unchanged. Additional matches
