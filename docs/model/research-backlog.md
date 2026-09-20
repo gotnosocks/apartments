@@ -104,6 +104,15 @@
   apartment's bathroom count, and test a supported representation or transparent
   scope sensitivity instead of treating the low asking rent as an error.
 
+- [ ] Screen the complete retained cohort for commercial/event-space offers
+  before another scope refit. The completed 27-case movement review found four
+  more explicit cases: 1543471, 2391701, 806884 and 947730. Manually distinguish
+  offered commercial products from residential home offices, live/work options
+  and restaurant amenities. Preserve exact-ad evidence and avoid building-wide
+  exclusions. Also review the composition conflicts on 790520, 1926797,
+  4210456 and 916757, and unextracted explicit floors on 3967693 and 776029.
+  See the [movement review](../analysis/chelsea-residual-scope-movement-review-2026-09-19.md).
+
 - [ ] Test the retrospective same-ad attribute assumption against dated price
   changes, beginning with 1670174: initial ask $2,395, then $3,700 and $5,950,
   with later-captured luxury-duplex prose and a powder-room/count conflict.

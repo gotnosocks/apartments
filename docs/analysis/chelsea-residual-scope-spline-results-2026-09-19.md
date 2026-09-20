@@ -50,8 +50,10 @@ review cases; they do not replace review of the newly exposed residual tail.
 
 Largest distinct-unit movements begin with ad 4892020 at 344 W22 (+$144.33),
 followed by ads 4189081 (+$131.20), 3967693 (+$110.04) and 4811825 (+$90.56) at
-133 W14, then 5083167 at 410 W24 (+$89.63). Detailed source/movement review is
-still pending. Common-reference building-effect medians move by +0.02004 log
+133 W14, then 5083167 at 410 W24 (+$89.63). The
+[completed source/movement review](chelsea-residual-scope-movement-review-2026-09-19.md)
+finds four more explicitly commercial ads and composition/extraction leads.
+Common-reference building-effect medians move by +0.02004 log
 units at 133 W14, −0.01573 at 163 W23, −0.00346 at The Cass Gilbert and
 −0.00292 at 267 W15. These are differences between posterior summaries, not
 paired posterior draws or causal effects.
@@ -105,8 +107,10 @@ All paths below are under `data/model/`:
 
 All three comparison/review bundles passed file-hash verification. Candidate
 selection preparation is separate from `config/main-analysis.json`. Remaining
-work includes the largest-movement source review,
-source-warning continuity in the actual UI and a recorded promotion decision.
+work includes a broader commercial-scope screen and source-warning continuity
+in the actual UI. Promotion is deferred: the 27-case movement review found
+further nonresidential offers, and the first UI check timed out during candidate
+loading. A diagnostic rerun is pending.
 The [new residual-tail review](chelsea-residual-scope-tail-review-2026-09-19.md)
 is complete: eleven exact prior reviews reused and four new full-description
 reviews, including a concrete retrospective attribute/price-timing concern.
