@@ -10,6 +10,9 @@
   reproducible fit and the fit products required for local contribution,
   residual and counterfactual analysis; measure their uncompressed and
   compressed sizes, file counts, upload/download times and transfer costs.
+  Make per-fit transfer burden the primary decision criterion: report bytes
+  uploaded for the analytical dataset and bytes downloaded for the usable fit
+  bundle separately for a cold run, an unchanged-data refit and a data refresh.
   Report total turnaround and cost, separating transfer, environment startup,
   compilation, sampling, diagnostics and export. Compare first runs with
   repeated fits using unchanged or incrementally updated data; evaluate caching
