@@ -39,3 +39,18 @@ Frozen evidence: `data/model/chelsea-candidate-load-profile-20260919`, containin
 the profiling script, stage/RSS events, sorted profile summary and hashes of the
 five relevant implementation files. The candidate selection hash is recorded
 in its manifest. No data, model, selection or validation gates changed.
+
+## First bounded optimization
+
+Internal floor forward replays now use temporary shallow row copies. These
+functions only replace top-level fields and read nested values; they neither
+mutate nor expose borrowed nested data as public results. Public `project_row`
+still returns a deep copy, and both inverse contracts still reconstruct detached
+rows. All hash, identity, literal, chronology, forward-transform and ancestor
+checks remain in place. Duplicate ancestor validation has not been removed.
+
+The floor/lineage suite passes 113 tests, including new nested-mutation isolation
+checks. Another 224 evidence, residual-scope and fit-comparison tests pass. The
+same full candidate loading profile is running against this implementation;
+there is no measured speedup claim yet. Its output is
+`/tmp/chelsea-candidate-load-optimized-profile.log` (session 1528).

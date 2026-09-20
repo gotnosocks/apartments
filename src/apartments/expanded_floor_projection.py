@@ -48,7 +48,9 @@ def _identity(value):
 
 
 def _verified_original(row, change, policy):
-    before = deepcopy(row)
+    # This temporary replay only replaces/removes top-level fields. Borrowed
+    # nested values are read-only and never returned to callers.
+    before = dict(row)
     for key in original.FIELDS:
         if key not in before:
             raise ValueError('Missing original floor projection provenance')
@@ -72,7 +74,7 @@ def _verified_original(row, change, policy):
             raise ValueError('Original floor candidate must be integer or null')
     for ident in row.get('capture_ids', []) + ([row['capture_id']] if row.get('capture_id') is not None else []):
         _identity(ident)
-    replay = original.project_row(before, captures, policy['excluded_buildings'],
+    replay = original._project_row_view(before, captures, policy['excluded_buildings'],
         policy['building_floor_evidence'].get(row['building'], []), policy['parent_interpreted_at'])
     if sha(before) != change['source_row_sha256'] or sha(replay) != sha(row):
         raise ValueError('Original projection is not the exact bound forward transform')
@@ -136,13 +138,18 @@ def _mask(row, captures, policy, as_of):
 
 
 def project_row(row, original_change, policy, as_of):
+    return deepcopy(_project_row_view(row, original_change, policy, as_of))
+
+
+def _project_row_view(row, original_change, policy, as_of):
+    """Borrow nested values only for internal read-only forward verification."""
     if FIELD in row:
         raise ValueError('Expanded floor projection already applied')
     if instant(as_of) < instant(policy['parent_interpreted_at']) or instant(as_of) < instant(row['known_at']):
         raise ValueError('Floor interpretation must follow source and parent knowledge')
     captures = _verified_original(row, original_change, policy)
     mask = _mask(row, captures, policy, as_of)
-    result = deepcopy(row)
+    result = dict(row)
     if mask is not None:
         result['advertised_floor'] = None
     hypotheses = [candidate(c['literal']) for c in captures]
@@ -211,7 +218,7 @@ def parent_rows(manifest, rows, changes):
                     raise ValueError('Absent floor field has a nonnull saved value')
                 before.pop(key, None)
         if (sha(before) != change['source_row_sha256']
-                or sha(row) != sha(project_row(before, change['original_change'], policy, manifest['interpreted_at']))):
+                or sha(row) != sha(_project_row_view(before, change['original_change'], policy, manifest['interpreted_at']))):
             raise ValueError('Expanded floor differs from exact bounded forward transform')
         restored.append(before)
         original_changes.append(change['original_change'])

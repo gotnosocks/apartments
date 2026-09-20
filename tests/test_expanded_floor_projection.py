@@ -68,6 +68,23 @@ def mask_for(row, change):
             'spans': [{'start': start, 'end': start+len(literal), 'literal': literal}]} for cap in change['captures']]}
 
 
+def test_public_projection_and_inverse_remain_detached_with_readonly_replay():
+    parent, row, change, policy = example()
+    saved = deepcopy((parent, row, change, policy))
+    view = f._project_row_view(row, change, policy, AS_OF)
+    result = f.project_row(row, change, policy, AS_OF)
+    assert result == view and (parent, row, change, policy) == saved
+    result['capture_ids'].append(99)
+    result['floor_label_provenance']['status'] = 'changed'
+    assert (parent, row, change, policy) == saved
+    manifest, rows, changes = bundle(parent, [row], [change], policy)
+    frozen = deepcopy((manifest, rows, changes))
+    _, restored = f.parent_rows(manifest, rows, changes)
+    restored[0]['capture_ids'].append(99)
+    restored[0]['floor_label_provenance']['status'] = 'changed'
+    assert (manifest, rows, changes) == frozen
+
+
 @pytest.mark.parametrize('label,rule,want', [
     ('601', 'numeric_hundreds', 6), ('1404', 'numeric_hundreds', 14), ('#906', 'numeric_hundreds', 9),
     ('S15K', 'north_south_wing_prefix', 15), ('N3D', 'north_south_wing_prefix', 3),

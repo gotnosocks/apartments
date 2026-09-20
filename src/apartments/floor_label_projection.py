@@ -21,6 +21,15 @@ def candidate(label):
 
 
 def project_row(row, captures, excluded_buildings, building_evidence=None, as_of=None):
+    return deepcopy(_project_row_view(row, captures, excluded_buildings, building_evidence, as_of))
+
+
+def _project_row_view(row, captures, excluded_buildings, building_evidence=None, as_of=None):
+    """Internal validation replay: replace top-level fields, never mutate children.
+
+    The result borrows unchanged nested values and must not escape as a public
+    projection. Public project_row returns a detached deep copy.
+    """
     if as_of is None or instant(as_of) < instant(row['known_at']):
         raise ValueError('Floor interpretation must follow source knowledge')
     if any(k in row for k in FIELDS): raise ValueError('Floor projection already applied')
@@ -56,7 +65,7 @@ def project_row(row, captures, excluded_buildings, building_evidence=None, as_of
               'unresolved_or_conflicting_capture_labels' if value is None else
               'above_captured_building_floor_count' if limit is not None and value > limit else
               'two_digit_label_without_building_count' if value >= 10 and limit is None else 'label_proxy')
-    result = deepcopy(row)
+    result = dict(row)
     result['source_listed_floor'] = row.get('listed_floor')
     result['label_derived_floor'] = value
     result['floor_label_provenance'] = {'rule': RULE, 'status': status,
@@ -84,7 +93,7 @@ def parent_rows(manifest, rows, changes):
         if change['listed_floor_was_present']: before['listed_floor'] = change['before_listed_floor']
         else: before.pop('listed_floor', None)
         if (sha(before) != change['source_row_sha256']
-                or row != project_row(before, change['captures'], manifest['excluded_buildings'],
+                or row != _project_row_view(before, change['captures'], manifest['excluded_buildings'],
                     manifest.get('building_floor_evidence', {}).get(before['building'], []), manifest.get('interpreted_at'))):
             raise ValueError('Floor projection differs from exact bounded forward transform')
         restored.append(before)

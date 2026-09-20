@@ -24,6 +24,18 @@ def example():
     return row,captures
 
 
+def test_public_projection_detaches_nested_values_after_readonly_replay():
+    row, captures = example()
+    row['nested'] = {'values': [1, {'label': 'original'}]}
+    saved = deepcopy((row, captures))
+    view = f._project_row_view(row, captures, [], as_of='2026-09-19T15:55:00Z')
+    result = project(row, captures, [])
+    assert view == result and (row, captures) == saved
+    result['nested']['values'][1]['label'] = 'changed'
+    result['capture_ids'].append(99)
+    assert (row, captures) == saved
+
+
 @pytest.mark.parametrize('label,want',[('3D',3),('#14b',14),(' 9A ',9),('PH',None),('301',None),('03D',None),('3AB',None),('A3',None),(None,None)])
 def test_conservative_rule(label,want):
     assert f.candidate(label)==want
