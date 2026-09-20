@@ -38,3 +38,17 @@
 - [ ] Complete and assess the full matched spline refit on the expanded source,
   including residual/source reviews and the support-dependent prior change,
   before updating the selected main analysis.
+- [ ] Improve explicitly scoped description-floor extraction using the three
+  corroborating cases in the [expanded-source panel](../analysis/chelsea-expanded-floor-source-panel-2026-09-19.md):
+  a `53RD FLOOR!` headline, `3rd floor of a walkup building`, and `this 11th floor`.
+  A replay of each full description through `attribute-evidence-v6` still yields
+  no advertised-floor claim. Preserve photo-reference and shared-amenity scope
+  protections; the current label projection already recovers matching values.
+
+## Floor–elevator interaction
+
+- [ ] Reassess the interaction on the expanded source after its matched base fit
+  passes. The [support audit](../analysis/chelsea-expanded-floor-elevator-support-2026-09-19.md)
+  has walk-up data only on floors 1–6, with especially thin floor-5-to-6 support.
+  Check lower-floor contrasts, unit-effect pooling and opposing elevator claims;
+  do not treat high-rise walk-up extrapolation as supported by the data.

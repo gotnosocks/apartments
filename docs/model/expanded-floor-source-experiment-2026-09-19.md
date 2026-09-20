@@ -104,3 +104,17 @@ The prescribed four-chain, 4,000-warmup/6,000-retained fit was launched at about
 `/tmp/chelsea-expanded-spline-floor-fit.log`. Session 1989 owns this run.
 Producer dependencies are frozen from launch. No completion or convergence
 claim is made here; the selected main analysis remains the prior accepted fit.
+
+Candidate analysis should also retain the separately published unresolved
+source notes in `data/model/chelsea-expanded-floor-source-issues-20260919`.
+These cover four issues on three historical advertisements (furnishing,
+unextracted laundry and conflicting bathroom counts). They passed publication
+and independent loading against the expanded source and exact description
+archive; they do not alter this fit's inputs. The existing eight-case source
+review still needs regeneration against the completed candidate posterior.
+
+The [floor/elevator support comparison](../analysis/chelsea-expanded-floor-elevator-support-2026-09-19.md)
+also replayed exactly. Expanded floor coverage strengthens lower-floor
+within-building support, while walk-up observations remain limited to floors
+1–6. This informs the next interaction experiment, not the currently running
+source-only comparison.

@@ -93,3 +93,25 @@ All hashes below are SHA256. `row` hashes use canonical JSON for the exact curre
 ```
 
 For the main-analysis review layer, retain these as source-bound unresolved issues with the different furnishing strengths explicitly named. A later numeric correction or cohort exclusion should be a separate versioned action with its own scope and reason. In particular, the bathroom conflict does not justify altering the already-conservative unknown floor for `PH9/10A`.
+
+## Expanded-source annotation bundle
+
+Four issues on these three advertisements are now published against the exact
+expanded source in `data/model/chelsea-expanded-floor-source-issues-20260919`:
+the two distinct furnishing claims, the separate unextracted laundry claim,
+and the bathroom-count conflict. Review time is `2026-09-20T00:08:00Z`.
+The publication process independently loaded the resulting bundle and checked
+all source-row identities, observed fields, literal spans and attached captures.
+Its manifest SHA-256 is
+`23ca6c13d393d5580ccf41084e8061d5a8234ff4dd323431100998736fe528d7`.
+
+The source hashes above describe the original reviewed rows. The annotation
+bundle binds the expanded row versions separately, including their new floor
+provenance. The completed expanded-source verifier establishes unchanged
+nonfloor observations and literal evidence. The annotations do not mutate
+observations or posterior estimates. They are prepared for the candidate's
+main-analysis review layer; the selected main fit has not yet changed.
+
+Reproduce using `docs.analysis.scripts.publish_expanded_source_issues` with
+the expanded dataset, the bound September 18 description archive, the output
+above, and `--reviewed-at 2026-09-20T00:08:00Z`.
