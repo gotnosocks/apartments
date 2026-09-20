@@ -21,7 +21,7 @@ def test_full_reviewed_own_descriptions_with_exact_hashes_and_spans(ad):
     checksum, description, floor = REVIEWED_DESCRIPTIONS[ad]
     assert hashlib.sha256(description.encode()).hexdigest() == checksum
     result = extract({'description': description})
-    assert result['version'] == 'attribute-evidence-v7'
+    assert result['version'] == 'attribute-evidence-v8'
     assert result['attributes']['advertised_floor'] == floor
     assert result['attributes']['physical_floor'] is None
     assert result['attributes']['floors_above_ground'] is None

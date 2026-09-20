@@ -10,8 +10,9 @@ from collections import defaultdict
 import math
 import re
 
-VERSION = 'attribute-evidence-v7'
+VERSION = 'attribute-evidence-v8'
 NAMED_UNIT_FLOOR_RULE = 'named-unit-initial-offer-floor-v1'
+DIRECT_OFFER_FLOOR_RULE = 'explicit-dwelling-floor-offer-v1'
 _ORDINAL_FLOORS = dict(zip((
     'first', 'second', 'third', 'fourth', 'fifth', 'sixth', 'seventh', 'eighth',
     'ninth', 'tenth', 'eleventh', 'twelfth', 'thirteenth', 'fourteenth', 'fifteenth',
@@ -20,6 +21,12 @@ _NAMED_UNIT_FLOOR = re.compile(
     r'\A\s*(?:welcome\s+to\s+)?(?P<claim>(?:apartment|unit|residence)\s+'
     r'#?(?=[a-z0-9]*[0-9])[a-z0-9]{1,8}\s+on\s+(?:the\s+)?'
     r'(?P<floor>[0-9]{1,3}(?:st|nd|rd|th)?|' + '|'.join(_ORDINAL_FLOORS) + r')\s+floor\b)', re.I)
+_CARDINAL_FLOORS = dict(zip(('one two three four five six seven eight nine ten eleven twelve '
+    'thirteen fourteen fifteen sixteen seventeen eighteen nineteen twenty').split(), range(1, 21)))
+_DIRECT_FLOOR = re.compile(r'\bthis\s+(?P<floor>' + '|'.join(_ORDINAL_FLOORS)
+    + r')[-\s]+floor\s+(?:walk[- ]up\s+)?(?:apartment|unit|home|residence)\b', re.I)
+_FLOOR_UNIT_HEADER = re.compile(r'\A\s*(?P<claim>floor\s+(?P<floor>'
+    + '|'.join(_CARDINAL_FLOORS) + r'),\s*unit\s+[a-z0-9]+)\s*(?=\n|\r|$)', re.I)
 VIEWS = ('street', 'courtyard', 'garden', 'city', 'skyline', 'water', 'park')
 DIRECTIONS = ('north', 'east', 'south', 'west')
 SCALARS = ('bedrooms', 'bathrooms', 'square_feet', 'advertised_floor',
@@ -29,6 +36,33 @@ SCALARS = ('bedrooms', 'bathrooms', 'square_feet', 'advertised_floor',
 
 def _number(value):
     return value if isinstance(value, (int, float)) and not isinstance(value, bool) and math.isfinite(value) else None
+
+
+def _direct_offer_floors(description):
+    """Explicit offered-dwelling wording; never infer a floor from unit digits."""
+    matches = [(m, _ORDINAL_FLOORS[m['floor'].lower()], m.span())
+               for m in _DIRECT_FLOOR.finditer(description)]
+    header = _FLOOR_UNIT_HEADER.match(description)
+    if header:
+        matches.append((header, _CARDINAL_FLOORS[header['floor'].lower()], header.span('claim')))
+    for match, value, offsets in matches:
+        # Newlines do not reset scope: reference or hypothetical language may
+        # wrap across lines. Broad withholding is preferable to wrong floors.
+        prefix = description[:match.start()]
+        start = max(prefix.rfind('.'), prefix.rfind('!'), prefix.rfind('?'), prefix.rfind(';')) + 1
+        boundary = re.search(r'[.!?;]', description[match.end():])
+        if boundary and boundary.group() == '?':
+            continue
+        end = match.end()+boundary.start() if boundary else len(description)
+        sentence = description[start:end]
+        if re.search(r'\b(?:photos?|photographs?|pictures?|images?|videos?|tours?|model|sample|reference|'
+            r'example|illustrative|similar|comparable|another|different|other|unlike|versus|'
+            r'roof\s*deck|rooftop|fitness|gym|lobby|lounge|common|shared|amenit(?:y|ies)|'
+            r'may|might|could|would|should|will|if|unless|whether|optional|potential|'
+            r'possibly|perhaps|probably|apparently|reportedly|supposed(?:ly)?|estimated|assum(?:ed|ing)|'
+            r'no|not|without|never|except)\b|\brather\s+than\b|n[’\']t\b', sentence, re.I):
+            continue
+        yield value, offsets
 
 
 def _named_unit_floor(description):
@@ -277,6 +311,9 @@ def extract_attribute_evidence(raw_listing: dict) -> dict:
             start, end = match.span('claim')
             add('advertised_floor', value, '/description', description[start:end],
                 'description_pattern', start=start, end=end, rule=NAMED_UNIT_FLOOR_RULE)
+        for value, (start, end) in _direct_offer_floors(description):
+            add('advertised_floor', value, '/description', description[start:end],
+                'description_pattern', start=start, end=end, rule=DIRECT_OFFER_FLOOR_RULE)
         cardinal = r'(?:north(?:ern)?|east(?:ern)?|south(?:ern)?|west(?:ern)?)'
         separator = r'\s*(?:,|/|&|\band\b)\s*'
         for direction in DIRECTIONS:
