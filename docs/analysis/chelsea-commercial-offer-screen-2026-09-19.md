@@ -63,6 +63,32 @@ commercial and office/event contexts, then batch confirmed exact-ad exclusions
 through the reversible scope projection and refit. Leave ambiguous mixed-use
 offers visible in a separate sensitivity group.
 
+### Completed priority batch
+
+Exact full-text grouping is now published at
+`data/model/chelsea-commercial-review-groups-20260919` (manifest
+`49d393e968f3c0ae81e087b0c5f23c1087296621b65de40c46a2d6fcb324d29f`).
+It retains all 944 capture associations across 546 distinct descriptions.
+The candidate rows comprise 662 historical asks and five capture-time ACTIVE
+observations; ACTIVE does not establish live availability.
+
+All 37 priority descriptions have been read in full, covering 38 ads. The bound
+manual review at `data/model/chelsea-commercial-priority-review-20260919`
+(manifest `55b6cc4cccc474c3d39fc824a30c0cfd9161c4af21d8edddc3d245157b4243dc`)
+records five explicit nonresidential offers, two ambiguous uses, eleven mixed
+live/work offers and twenty incidental commercial references. The five explicit
+cases are the four movement-review cases plus retail ad 1466274. The other
+509 description groups remain unreviewed by this batch.
+
+The mixed-use category preserves home/live-work marketing, including explicit
+prohibitions on solely commercial use. Incidental references include historic
+building uses, another ground-floor commercial unit, loft styling and a
+noncommercial-use data disclaimer. These classifications concern offer language,
+not verified legal occupancy or historical effective dates. No exclusions were
+applied. Fifteen screen/grouping tests pass, including preservation of distinct
+ad/capture associations, nonmatching attached captures, negation and rejection
+of corrupted identity/hash/span evidence.
+
 ## Reproduction and validation
 
 Run `uv run --frozen --no-sync python -m
