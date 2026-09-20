@@ -138,8 +138,12 @@ are never paired to invent between-fit uncertainty.
 The deterministic source-movement panel contains 32 cases: the 25 largest
 distinct-unit fitted-rent changes plus examples of the five largest unit-offset
 and five largest common-reference building-effect movements, deduplicated.
-Review is pending. A single selected example does not adjudicate an entire
-building. The separate 20-advertisement expanded-rule/high-floor source audit
+The [complete movement review](chelsea-expanded-spline-floor-movement-review-2026-09-19.md)
+read all 59 own captures and found no contrary numbered-floor claim; 26 cases
+gain a floor proxy and six remain unknown. It establishes no further floor
+correction. It flags pre-existing bathroom composition, price basis and
+furnishing/lease-scope issues for targeted follow-up. A single selected example
+does not adjudicate an entire building. The separate 20-advertisement expanded-rule/high-floor source audit
 found no contrary numbered-unit floor claim, but silence was not counted as
 confirmation. See the [source panel](chelsea-expanded-floor-source-panel-2026-09-19.md).
 

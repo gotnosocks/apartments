@@ -77,3 +77,29 @@
   has walk-up data only on floors 1–6, with especially thin floor-5-to-6 support.
   Check lower-floor contrasts, unit-effect pooling and opposing elevator claims;
   do not treat high-rise walk-up extrapolation as supported by the data.
+
+## Source leads from the expanded-floor residual review
+
+- [ ] Resolve Lantern House 1704 / advertisement 4828991 bathroom composition.
+  The fitted record has three full and zero half baths; its own description
+  explicitly names a powder room and describes en-suite Jack-and-Jill bathrooms.
+  Preserve the conflict until the number of distinct full bathrooms is supported;
+  do not simply add a half bath to the existing full count. Review the related
+  en-suite and shared-access evidence without counting one bathroom twice.
+- [ ] Review 130 W17 / advertisement 3924616, fitted as three bedrooms and three
+  full baths at a $4,500 historical initial ask. Its own sparse description does
+  not establish those counts or justify a replacement; investigate structured
+  records, exact-advertisement layout evidence and historical price scope.
+  The large negative residual is a review signal, not a correction rule.
+- [ ] Resolve the price basis for 3Eleven / advertisement 4982803. The analytical
+  initial ask is $9,400, while the later captured description says two months
+  free on a 14-month lease and "Net Rent Shown" without an explicit gross quote.
+  Check the historical price event and concession timing before converting or
+  excluding it; do not assume later prose applies to the initial ask.
+  The three cases and their exact capture witnesses are retained in
+  `data/model/chelsea-expanded-spline-floor-movement-review-inputs-20260919`.
+- [ ] Review the dated offer scope for 406 W25 1FE / advertisement 1371705:
+  the description offers furnished/unfurnished and short/long-term options.
+  Establish which package the $2,850 historical initial ask represents before
+  excluding or adjusting it. See the
+  [complete movement review](../analysis/chelsea-expanded-spline-floor-movement-review-2026-09-19.md).
