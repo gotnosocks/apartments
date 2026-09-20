@@ -1,5 +1,25 @@
 # Chelsea pricing research backlog
 
+## Remote fit execution
+
+- [ ] **Benchmark PyMC fitting on Modal: large CPU versus GPU** — user research
+  idea, September 19, 2026. Compare local execution with a large CPU instance
+  and a GPU on Modal using the same analytical dataset, model specification,
+  full-length sampling protocol and convergence requirements. Prioritize the
+  round-trip data burden: inventory the exact analytical inputs required for a
+  reproducible fit and the fit products required for local contribution,
+  residual and counterfactual analysis; measure their uncompressed and
+  compressed sizes, file counts, upload/download times and transfer costs.
+  Report total turnaround and cost, separating transfer, environment startup,
+  compilation, sampling, diagnostics and export. Compare first runs with
+  repeated fits using unchanged or incrementally updated data; evaluate caching
+  immutable inputs and reusing unchanged artifacts by content hash. Identify
+  which raw traces, caches and intermediate products can remain remote without
+  compromising local analysis, complete posterior uncertainty or reproducibility.
+  Verify a downloaded fit bundle loads and reproduces the same local analyses
+  before recommending an execution setup. Do not judge speed from short
+  warmup/draw runs dominated by startup costs.
+
 ## Floor representation
 
 - [ ] **Gaussian process for the floor increment model** — user research idea,
