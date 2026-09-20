@@ -19,6 +19,7 @@ from apartments.corrections import canonical
 from apartments.research_pipeline import _verified_bundle, digest
 from apartments.reviewed_cohort_quarantine import sha
 from . import expanded_floor_fit_comparison as expanded
+from . import floor_replay_compatibility as replay_compatibility
 
 shared = expanded.shared
 smooth = expanded.smooth
@@ -53,7 +54,7 @@ def check_protocols(a, b):
     if not old.keys() <= new.keys() or new.keys()-old.keys() != ADDED_CODE:
         raise ValueError('Unexpected implementation inventory change')
     changed = {k for k in old if old[k] != new[k]}
-    if changed-LOADER_CODE:
+    if changed-LOADER_CODE-replay_compatibility.FILES:
         raise ValueError('Mathematical or sampling implementation changed')
     return sorted(changed)
 
@@ -117,13 +118,17 @@ def check_loader_change(before, after):
 def check_implementation_sources(a, b, changed):
     for name in changed:
         code = [shared.common.bound_bytes(f['root']/'protocol', name, f['provenance']['protocol_manifest']) for f in (a, b)]
-        check_loader_change(*code)
+        if name in replay_compatibility.FILES:
+            replay_compatibility.check_refactor(name, *code)
+        else:
+            check_loader_change(*code)
     for module in (projection, lineage.expanded_floor_projection, lineage.floor_label_projection):
         name = Path(module.__file__).name
         code = shared.common.bound_bytes(b['root']/'protocol', name, b['provenance']['protocol_manifest'])
         if (code.encode() if isinstance(code, str) else code) != Path(module.__file__).read_bytes():
             raise ValueError('Source contract differs from archived fit implementation')
-    return {'archived_loader_ast_verified': True, 'scope_and_both_floor_contracts_match_archive': True}
+    return {'archived_loader_ast_verified': True, 'scope_and_both_floor_contracts_match_archive': True,
+            'copying_only_floor_refactors_verified': sorted(set(changed) & replay_compatibility.FILES)}
 
 
 def verify_revision(reference, candidate, *, policy=None):
@@ -284,8 +289,9 @@ def bedroom_contrasts(fit, beta, definitions):
     return smooth.contrasts.calculate(beta, items)[0] if items else []
 
 
-def build_comparison(reference, candidate, reference_dataset, dataset):
-    before, after, excluded = verify_revision(reference_dataset, dataset)
+def build_comparison(reference, candidate, reference_dataset, dataset, policy=None):
+    policy_hash = digest(policy) if policy is not None else None
+    before, after, excluded = verify_revision(reference_dataset, dataset, policy=policy)
     fits = shared.load_fits(reference, candidate, reference_dataset, dataset, before, after)
     a, b = fits
     changed = check_protocols(a['protocol'], b['protocol'])
@@ -308,6 +314,7 @@ def build_comparison(reference, candidate, reference_dataset, dataset):
         categories.append(smooth.contrasts.calculate(beta, definitions_categories)[0] if definitions_categories else [])
     affected = Counter(row['observation']['building'] for row in excluded)
     result = {'version': VERSION, 'main_selection_changed': False,
+        'review_policy_sha256': policy_hash,
         'source_rows': len(before), 'retained_rows': len(after), 'excluded_rows': len(excluded),
         'affected_buildings': dict(affected), 'changed_loader_implementations': changed,
         'implementation_scope_verification': implementation, 'feature_support': features,
@@ -334,7 +341,7 @@ def build_comparison(reference, candidate, reference_dataset, dataset):
             for name, fields in [('full_bath_increments', ('log_effect', 'percent_effect')),
                 ('half_bath_increments', ('log_effect', 'percent_effect')), ('net_balance', ('difference',))]},
         'limitations': [shared.common.LIMITATION,
-            'Exactly four reviewed ads are excluded for commercial scope or unresolved location conflict; residual magnitude alone is not an exclusion rule.',
+            f'Exactly {len(excluded)} reviewed ads are excluded for commercial scope or unresolved location conflict; residual magnitude alone is not an exclusion rule.',
             'Residual improvement is measured only on identical retained observations. Excluded tail observations have reference-only residuals.',
             'Data-derived normalization, support and group counts are refitted. Equal coefficient scales need not give identical induced function priors.',
             'Physical bedroom contrasts hold observed area and bath composition fixed and include size normalization and bathroom shortfall contributions.',
@@ -344,6 +351,8 @@ def build_comparison(reference, candidate, reference_dataset, dataset):
     for f in fits:
         if digest(f['root']/'fit/posterior.nc') != f['provenance']['fit_manifest']['files']['posterior.nc']:
             raise ValueError('Posterior changed during comparison')
+    if policy is not None and digest(policy) != policy_hash:
+        raise ValueError('Review policy changed during comparison')
     return result, movements, groups, building_changes
 
 
@@ -385,7 +394,7 @@ def render(result):
 
 
 def run(output, **kwargs):
-    modules = (projection, lineage, lineage.expanded_floor_projection, lineage.floor_label_projection,
+    modules = (projection, lineage, lineage.expanded_floor_projection, lineage.floor_label_projection, replay_compatibility,
         expanded, shared, shared.report, shared.source, shared.common, shared.laundry, smooth, smooth.increment,
         smooth.contrasts, smooth.elevator, spline, expanded.experiment, expanded.execution, smooth.publisher)
     paths = [Path(__file__), *[Path(m.__file__) for m in modules]]
@@ -408,5 +417,6 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description=__doc__)
     for name in ('reference', 'reference-dataset', 'candidate', 'dataset', 'output'):
         parser.add_argument('--'+name, type=Path, required=True)
+    parser.add_argument('--policy', type=Path, help='Explicit cumulative policy; omitted enforces the original four exclusions')
     with threadpool_limits(limits=1, user_api='blas'):
         run(**vars(parser.parse_args()))

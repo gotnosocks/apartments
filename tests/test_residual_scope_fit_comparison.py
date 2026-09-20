@@ -59,6 +59,34 @@ def test_floor_support_change_recomputes_boundary_under_same_rule():
     assert set(m.check_protocols(a, b)) == m.LOADER_CODE
 
 
+def test_copying_contract_changes_are_tracked_for_archived_ast_validation():
+    a, b = protocols()
+    for name in m.replay_compatibility.FILES:
+        a['implementation_sha256'][name] = 'original-copying'
+        b['implementation_sha256'][name] = 'optimized-copying'
+    assert set(m.check_protocols(a, b)) == m.LOADER_CODE | m.replay_compatibility.FILES
+
+
+def test_archived_copying_changes_use_strict_guard(monkeypatch):
+    a, b = {'root': Path('old'), 'provenance': {'protocol_manifest': {}}}, {'root': Path('new'), 'provenance': {'protocol_manifest': {}}}
+    def bound(root, name, manifest):
+        if name in m.replay_compatibility.FILES and root.parts[0] == 'old':
+            archive = Path('data/model/chelsea-bayesian-expanded-spline-floor-disk-20260919/protocol')/name
+            if not archive.exists(): pytest.skip('Local archived fit unavailable')
+            return archive.read_bytes()
+        return (Path('src/apartments')/name).read_bytes()
+    monkeypatch.setattr(m.shared.common, 'bound_bytes', bound)
+    result = m.check_implementation_sources(a, b, sorted(m.replay_compatibility.FILES))
+    assert result['copying_only_floor_refactors_verified'] == sorted(m.replay_compatibility.FILES)
+    def altered(root, name, manifest):
+        data = bound(root, name, manifest)
+        if root.parts[0] == 'new' and name == 'floor_label_projection.py':
+            data = data.replace(b"result['listed_floor'] = value", b"result['listed_floor'] = value + 1")
+        return data
+    monkeypatch.setattr(m.shared.common, 'bound_bytes', altered)
+    with pytest.raises(ValueError): m.check_implementation_sources(a, b, sorted(m.replay_compatibility.FILES))
+
+
 @pytest.mark.parametrize('name', ['bayesian_feature_experiment_v3.py', 'reviewed_source_lineage.py'])
 def test_real_archived_loader_changes_are_exact_plumbing_only(name):
     archive = Path('data/model/chelsea-bayesian-expanded-spline-floor-disk-20260919/protocol')/name

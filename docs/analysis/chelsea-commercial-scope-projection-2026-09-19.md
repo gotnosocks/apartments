@@ -38,7 +38,7 @@ Decision preparation and projection exited 0 (sessions 92600 and 45853).
 They use the existing `prepare_residual_scope_decisions` and
 `models.project_residual_scope` interfaces with the cumulative policy at
 `config/reviews/chelsea-commercial-scope-followup-20260919.json`. An identical
-full projection replay has not yet been performed.
+full projection replay passed (session 89838, exit 0), reusing the same artifact.
 
 ## Preflight and remaining work
 
@@ -47,28 +47,40 @@ Without it, they still enforce the original four-ad experiment. With it, they
 verify the policy's original-source binding, unique named ads, allowed actions,
 and exact equality to the published policy bytes, then enforce the same ordered
 retention, inverse, captured-current and inherited-sidecar checks. The full
-posterior-comparison command has not been generalized to arbitrary policies.
+posterior-comparison command now accepts the same optional `--policy`, records
+its hash and verifies it remains unchanged throughout comparison.
 
 All 65 source-comparison/preflight tests pass, including changed policy bytes,
 changed source binding, unreviewed membership, duplicate ads, invalid actions,
 retained-value changes, lost floor sidecars and changed current observations.
-The real source/evidence/design preflight is running with this explicit policy
-(session 31195); its result is not yet established.
+The real source/evidence/design preflight passed with this explicit policy
+(session 31195, exit 0). Its artifact is
+`data/model/chelsea-commercial-scope-reader-verification-20260919`, manifest
+`9c987f2bd95ec47f68cb382f03ba4f23b00c938bdb6388dd638e601da659f264`.
+It verifies all 71,797 retained literal captures, the 16 removed captures, the
+exact parent inverse and inherited sidecars. Both designs have rank 47 and the
+same 47 features, priors, category bases, size reference and floor knots
+`[1, 5, 10, 20, 35, 57]`. Empirical centering changes; the elevator raw-unit prior
+standard deviation changes by approximately −0.00620%, explicitly reported
+rather than described as an identical numerical design.
 
-No refit or main-selection change has occurred. Before fitting, finish preflight,
-verify replay, and handle archived implementation comparisons explicitly: the
-floor verification optimization changed two loader-contract files, so the
-previous narrowly defined loader-only comparison guard cannot simply be assumed
-to accept a new fit. Preserve all mathematical and sampler equivalence checks.
+No refit or main-selection change has occurred. Archived implementation
+comparisons now explicitly handle the floor verification optimization in its
+two loader-contract files, preserving mathematical and sampler equivalence
+checks.
 `models/floor_replay_compatibility.py` now recognizes exactly that reviewed
 copying refactor by constructing the expected syntax tree from each bound
 original implementation. It requires the public deep-copy wrapper, internal
 top-level copy and exact replay-call substitutions; other code differences are
 rejected. Both actual archived floor contracts pass, and adversarial changes to
 floor values, exceptions, copy ownership and unrelated functions are rejected
-(three tests covering both contracts and invalid inputs). It is not yet wired
-into the posterior comparison; existing running preflight dependencies remain
-unchanged until that run finishes.
+(three tests covering both contracts and invalid inputs). After the preflight
+finished, this guard was wired into the posterior comparison. The integration
+tests confirm that changed contract files are tracked and then checked against
+bound archived code; changing a floor value is rejected. Mathematical/sampler
+files outside the existing loader changes and these two exact refactors remain
+disallowed. The combined compatibility, source-comparison and preflight suites
+now pass 70 tests.
 Carry source annotations with exact retained-row/capture checks before any
 promotion. The ongoing UI check concerns the earlier four-ad candidate, not
 this newly published source. Other commercial-screen groups remain under review.
@@ -78,6 +90,10 @@ sampling protocol: natural cubic floor spline, full/half/balance bathrooms,
 shared Student-t noise, four chains, 4,000 warmup and 6,000 retained draws per
 chain, nutpie/Numba diagonal NUTS, target acceptance 0.93, max depth 10 and seed
 20260924. No sampler-shortening or simultaneous feature experiment is planned.
+The new full-cohort graph-parity run initially stopped when the sandbox denied
+writes to the existing PyTensor/Numba cache (session 32521, exit 1). A retry with
+cache access is running (session 82508); no numerical settings changed. This is
+a compilation-environment failure, not a failed graph-equivalence criterion.
 Compare common retained observations against the original expanded-floor fit,
 with the explicit cumulative policy and archived code checks, rather than
 claiming improvement from dropping observations. Repeat fixed panels and inspect
