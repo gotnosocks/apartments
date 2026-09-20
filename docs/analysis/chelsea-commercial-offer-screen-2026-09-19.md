@@ -89,6 +89,29 @@ applied. Fifteen screen/grouping tests pass, including preservation of distinct
 ad/capture associations, nonmatching attached captures, negation and rejection
 of corrupted identity/hash/span evidence.
 
+### Prepared cumulative scope policy
+
+Both exact raw captures of 1466274 (111641 and 40595) identify
+**109 West 28th Street #RETAIL**, with an $8,500 own price event dated February
+8, 2015. Their hashes and complete raw witnesses are saved at
+`data/model/chelsea-retail-1466274-scope-review-20260919`, manifest
+`4f9750a04278d471f29cae4586e8647d3b2fd0457b07035901d83f0fb78a8242`.
+
+`config/reviews/chelsea-commercial-scope-followup-20260919.json` prepares nine
+exact-ad decisions: the prior four scope/location exclusions plus the five
+manually confirmed commercial/event/retail offers. All nine row hashes were
+checked against the original expanded-floor source, and all are historical
+own-ad asks. The cumulative review preserves prior evidence references at
+`data/model/chelsea-commercial-scope-followup-review-20260919`, manifest
+`646e6a3f033765fb6cb5a3be0975747dff98f14fb92f48e0594ec97ed9d880ab`.
+
+This is a prepared policy, **not an applied source projection**. Next run the
+existing exact-capture decision verifier with a new explicit review clock, then
+publish a cumulative source revision against the original expanded-floor source.
+Do not accidentally apply just the five new exclusions to a fresh base and
+reintroduce the earlier four. Ambiguous/mixed offers and remaining unreviewed
+screen matches stay outside this exclusion policy. No refit has been started.
+
 ## Reproduction and validation
 
 Run `uv run --frozen --no-sync python -m

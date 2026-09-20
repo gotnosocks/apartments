@@ -50,7 +50,19 @@ rows. All hash, identity, literal, chronology, forward-transform and ancestor
 checks remain in place. Duplicate ancestor validation has not been removed.
 
 The floor/lineage suite passes 113 tests, including new nested-mutation isolation
-checks. Another 224 evidence, residual-scope and fit-comparison tests pass. The
-same full candidate loading profile is running against this implementation;
-there is no measured speedup claim yet. Its output is
-`/tmp/chelsea-candidate-load-optimized-profile.log` (session 1528).
+checks. Another 224 evidence, residual-scope and fit-comparison tests pass.
+
+The same full candidate profile completed successfully (session 1528, exit 0):
+load 181.77 seconds, all 52,649 rows verified at 195.53 seconds, close at 195.54
+seconds, peak RSS 4,516,620 KiB. Compared with the prior 247.54-second run,
+instrumented elapsed time fell about 21%; peak RSS remained effectively unchanged
+at 4.31 GiB. These are single sequential runs, not a replicated benchmark;
+profiler overhead, cache warmth and host load limit attribution. No normal-run
+speedup or UI success is claimed.
+
+Optimized evidence: `data/model/chelsea-candidate-load-optimized-profile-20260919`,
+manifest `66614e1202bdf82f880448ea1538774763240c5199acc2bfc6515f4f911f9108`.
+It binds the exact candidate, previous profile, unchanged profiling script and
+current implementation hashes. The actual UI validation has been restarted
+without the crashing traceback timer, keeping the 600-second per-rerun limit
+and every existing numerical/source-warning expectation (session 28428).
