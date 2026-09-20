@@ -174,3 +174,41 @@ known floors, remaining unknown floors and capture-time active observations.
 Seventeen comparison/guard tests pass, including canonical floor aliases and
 rejection of rehashed source tampering and incomplete residual membership.
 No fit comparison result or main-model promotion is claimed yet.
+
+The emitted candidate protocol has been checked against the actual archived
+nine-ad reference protocol. Only the two expected loader files changed, and
+their exact syntax-tree changes match the reviewed addition. The new floor
+contract is archived byte-for-byte. Check manifest:
+`829bbfecf212f534020095d64384c8b61464d49fb6f84b12f21866b56fcc22dc`;
+candidate protocol manifest:
+`d5815edac0e47f2bb12d0b460bfccbfd10a35b13640743875966a017feac0252`.
+All four chains have begun warmup; no posterior conclusion follows yet.
+
+## Access support among the additions
+
+The 24 additions are all historical initial-offer observations: five on floor 1,
+nine on floor 2, seven on floor 3 and three on floor 4. Four have elevator=true,
+two elevator=false and **18 unknown**, spread across six buildings. Their own
+descriptions contain no elevator/walkup/flight/stair wording in the targeted
+screen; absence of those terms is not evidence of elevator absence.
+
+Full cached building descriptions were reviewed across ten captures. Three
+buildings explicitly describe themselves as walk-ups:
+
+- 162 Ninth Avenue: affects added-floor advertisement 3460328.
+- 322 West 22nd Street: affects advertisement 3203696.
+- 421 West 22nd Street: affects advertisement 998539.
+
+The other three buildings (326 West 20th, 412 West 20th and 508 West 29th) remain
+unresolved. Low height and family-count categories do not determine access;
+encoded amenity references need separate recovery. These source claims do not
+establish historical installation dates, and no elevator values were changed
+in the running floor-only fit.
+
+The exact raw building records, snapshot URLs/body hashes/capture times, literal
+walkup spans and corresponding unit descriptions are saved in
+`chelsea-direct-floor-access-support-20260920`, manifest
+`34ebbadb89f6ad71251a5049eb893dfc0fbeb72bb0a9e13e8c9d4b9ec7efd963`.
+Publication and identical replay pass. This is a concrete lead for later access
+evidence integration; these 24 low-floor additions alone cannot establish the
+high-floor walkup penalty or justify a floor–elevator interaction.
