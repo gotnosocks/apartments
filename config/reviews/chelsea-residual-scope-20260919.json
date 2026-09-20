@@ -1,0 +1,42 @@
+{
+  "version": "chelsea-residual-scope-policy-v1",
+  "source_manifest_sha256": "d244ca6710e080e18059f1b3279a373e187ea38fb4219c51deff7e49f4604717",
+  "review_manifest_sha256": "d5f588a2ed156683eb669c33e54d6e6e09d14c0633d4807f38dab3a81e7982a6",
+  "cases": [
+    {
+      "source_listing_id": "1260588",
+      "source_row_sha256": "83e889b7e48e1cf1bc6318efa12bca7e82897c028894674937066075cf9fa3f0",
+      "finding_kind": "explicit_nonresidential",
+      "action": "quarantine_nonresidential",
+      "expected_listing_address": "163 West 23rd Street #4",
+      "reason": "The own advertisement explicitly offers professional loft space for business use. Quarantine this offer from the residential apartment analysis despite generic apartment-contact boilerplate; preserve the asking price and all other advertisements for the unit. No zoning classification or physical conversion date is inferred."
+    },
+    {
+      "source_listing_id": "937046",
+      "source_row_sha256": "72728e19210d731652637b9009b75cfba8853fc849ea04de88f10daf087b7398",
+      "finding_kind": "explicit_nonresidential",
+      "action": "quarantine_nonresidential",
+      "expected_listing_address": "102 8th Avenue RETAIL-SPACE",
+      "reason": "The own advertisement offers an equipped restaurant with liquor rights, outdoor seating, key money and a quoted commercial rent plus taxes. Its asking price is not a residential rent error. Quarantine this exact offer while preserving its price and corner-address evidence."
+    },
+    {
+      "source_listing_id": "609730",
+      "source_row_sha256": "b641b36dd5a0448e0ebe237cc7ab325340dcad4f23f4e69e45a020e998b810ab",
+      "finding_kind": "within_source_location_conflict",
+      "action": "quarantine_location_conflict",
+      "expected_listing_address": "130 West 30th Street #4",
+      "reason": "Both own raw captures address the offer to 130 West 30th Street, while the complete description explicitly locates it in Greenwich Village across from the Blue Note. Quarantine this unresolved location association from location-dependent price attribution. Do not invent a replacement address, building, floor or asking price."
+    },
+    {
+      "source_listing_id": "2993341",
+      "source_row_sha256": "e1f15186a647443085cb3af1456ff1cea8fbab0ff3b723df9a2399432047a13b",
+      "finding_kind": "within_source_location_conflict",
+      "action": "quarantine_location_conflict",
+      "expected_listing_address": "133 West 14th Street #65",
+      "reason": "Both own raw captures address the offer to 133 West 14th Street, while the description explicitly names 145th and Malcolm X Boulevard and nearby uptown parks. Quarantine this unresolved location association; preserve all conflicting claims without guessing a corrected address or price."
+    }
+  ],
+  "temporal_scope": "Exact historical initial-own-advertisement observations with retrospective same-advertisement description evidence. The review changes analysis membership as of its review clock; it does not establish an effective physical-use or location-change date at the earlier asking-price event.",
+  "retained_research_cases": ["4953355", "2221592", "4761346", "4758015"],
+  "limits": "Residual size selected the review queue, but only explicit own-source use/location evidence justifies these exclusions. No numeric repairs, automatic residual cutoff, blanket unit/building exclusion, or new availability claim."
+}

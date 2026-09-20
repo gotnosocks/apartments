@@ -191,9 +191,10 @@ def test_quarantine_evidence_requires_inverse_lineage_and_returns_survivors_only
         assert result['kept'][0]['description'] == captures[0]['description']
 
 
-@pytest.mark.parametrize('fault', [None, 'missing_expansion', 'missing_parent_sidecar',
-                                  'changed_price', 'changed_expansion'])
-def test_expanded_floor_evidence_verifies_each_inverse_stage(tmp_path, fault):
+@pytest.mark.parametrize('fault,outer_scope', [(fault,outer) for outer in (False,True)
+    for fault in (None,'missing_expansion','missing_parent_sidecar','changed_price','changed_expansion')]
+    + [('missing_scope_sidecar',True),('changed_scope_observation',True)])
+def test_expanded_floor_evidence_verifies_each_inverse_stage(tmp_path, fault, outer_scope):
     from apartments import reviewed_source_lineage as lineage
     from tests.test_reviewed_source_lineage import revise
     from tests.test_reviewed_cohort_quarantine import quarantine_last
@@ -209,6 +210,11 @@ def test_expanded_floor_evidence_verifies_each_inverse_stage(tmp_path, fault):
                    analysis_price_basis='historical_initial_own_advertisement_ask')
         if 'capture_ids' not in row:
             row['capture_ids'] = [row['capture_id']]
+    if outer_scope:
+        from tests.test_residual_scope_projection import add_scope_row
+        rows = add_scope_row(rows)
+        # Preserve the old fixture's separate final quarantine candidate.
+        rows[-1],rows[-2] = rows[-2],rows[-1]
     original = tmp_path/'original'
     parent = publish_bundle(original, {'observations.jsonl': ''.join(canonical(r)+'\n' for r in rows)},
                             {'version': lineage.REFRESHED})
@@ -222,6 +228,11 @@ def test_expanded_floor_evidence_verifies_each_inverse_stage(tmp_path, fault):
     manifest, rows, elevators = elevator_extend(manifest, rows, index=0)
     manifest, rows, labels = label_extend(manifest, rows)
     manifest, rows, expanded = expanded_extend(manifest, rows, labels)
+    if outer_scope:
+        from tests.test_residual_scope_projection import extend
+        manifest, rows, residual_scope = extend(manifest, rows, expanded)
+    if fault == 'changed_scope_observation':
+        residual_scope[0]['observation']['asking_rent'] += 1
     if fault == 'changed_price':
         rows[0]['asking_rent'] += 1
     if fault == 'changed_expansion':
@@ -231,6 +242,10 @@ def test_expanded_floor_evidence_verifies_each_inverse_stage(tmp_path, fault):
              'elevator-corrections.jsonl': ''.join(canonical(r)+'\n' for r in elevators),
              'floor-label-projection.jsonl': ''.join(canonical(r)+'\n' for r in labels),
              'expanded-floor-projection.jsonl': ''.join(canonical(r)+'\n' for r in expanded)}
+    if outer_scope:
+        files['residual-scope-quarantine.jsonl'] = ''.join(canonical(r)+'\n' for r in residual_scope)
+    if fault == 'missing_scope_sidecar':
+        del files['residual-scope-quarantine.jsonl']
     if fault == 'missing_expansion':
         del files['expanded-floor-projection.jsonl']
     if fault == 'missing_parent_sidecar':

@@ -61,7 +61,8 @@ def load_evidence(dataset, evidence):
     from .elevator_corrections import SIDECAR as ELEVATOR_SIDECAR
     from .floor_label_projection import SIDECAR as FLOOR_LABEL_SIDECAR
     from .expanded_floor_projection import SIDECAR as EXPANDED_FLOOR_SIDECAR
-    dataset_manifest, dataset_files = _verified_bundle(dataset, retain={'observations.jsonl', SIDECAR, ELEVATOR_SIDECAR, FLOOR_LABEL_SIDECAR, EXPANDED_FLOOR_SIDECAR})
+    from .residual_scope_projection import SIDECAR as RESIDUAL_SCOPE_SIDECAR
+    dataset_manifest, dataset_files = _verified_bundle(dataset, retain={'observations.jsonl', SIDECAR, ELEVATOR_SIDECAR, FLOOR_LABEL_SIDECAR, EXPANDED_FLOOR_SIDECAR, RESIDUAL_SCOPE_SIDECAR})
     evidence_manifest, evidence_files = _verified_bundle(evidence, retain={'evidence.jsonl'})
     refreshed = evidence_manifest.get('version') == _REFRESHED_ARCHIVE
     if refreshed:
@@ -70,7 +71,8 @@ def load_evidence(dataset, evidence):
             quarantined=list(_records(dataset_files[SIDECAR])) if SIDECAR in dataset_files else None,
             elevator_changes=list(_records(dataset_files[ELEVATOR_SIDECAR])) if ELEVATOR_SIDECAR in dataset_files else None,
             floor_label_changes=list(_records(dataset_files[FLOOR_LABEL_SIDECAR])) if FLOOR_LABEL_SIDECAR in dataset_files else None,
-            expanded_floor_changes=list(_records(dataset_files[EXPANDED_FLOOR_SIDECAR])) if EXPANDED_FLOOR_SIDECAR in dataset_files else None)
+            expanded_floor_changes=list(_records(dataset_files[EXPANDED_FLOOR_SIDECAR])) if EXPANDED_FLOOR_SIDECAR in dataset_files else None,
+            residual_scope_changes=list(_records(dataset_files[RESIDUAL_SCOPE_SIDECAR])) if RESIDUAL_SCOPE_SIDECAR in dataset_files else None)
         bound = (original.get('version') == _REFRESHED_REVIEW
                  and evidence_manifest.get('dataset_manifest_sha256') == manifest_hash(original)
                  and evidence_manifest.get('dataset_observations_sha256') == original['files'].get('observations.jsonl'))
