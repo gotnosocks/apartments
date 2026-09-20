@@ -108,11 +108,14 @@ All paths below are under `data/model/`:
 All three comparison/review bundles passed file-hash verification. Candidate
 selection preparation is separate from `config/main-analysis.json`. Remaining
 work includes a broader commercial-scope screen and source-warning continuity
-in the actual UI. Promotion is deferred: the 27-case movement review found
-further nonresidential offers, and the first UI check timed out during candidate
-loading. The diagnostic rerun subsequently exited 139 without a usable root-cause
-trace; UI validation remains incomplete. The full-cohort commercial language
-screen is published, with candidate adjudication still underway.
+in the actual UI. The first UI check timed out and a diagnostic rerun exited
+139, but the subsequent run after the copying optimization passed all UI
+expectations (manifest
+`de5b582ee0b25f5e33a63bef2093e1127c405cf4523bc5e3e2ddee1ceb229c94`).
+Promotion remains deferred because the movement review found further
+nonresidential offers; a cumulative nine-ad source revision is now published
+and awaiting its own fit. The full-cohort commercial language screen is
+published, with candidate adjudication still underway.
 The [new residual-tail review](chelsea-residual-scope-tail-review-2026-09-19.md)
 is complete: eleven exact prior reviews reused and four new full-description
 reviews, including a concrete retrospective attribute/price-timing concern.

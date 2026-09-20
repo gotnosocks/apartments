@@ -66,3 +66,11 @@ It binds the exact candidate, previous profile, unchanged profiling script and
 current implementation hashes. The actual UI validation has been restarted
 without the crashing traceback timer, keeping the 600-second per-rerun limit
 and every existing numerical/source-warning expectation (session 28428).
+
+That actual UI run completed successfully (session 28428, exit 0). Its fully
+verified artifact is `data/model/chelsea-residual-scope-main-page-validation-20260919`,
+manifest `de5b582ee0b25f5e33a63bef2093e1127c405cf4523bc5e3e2ddee1ceb229c94`.
+The floor 2→3 scenario rendered $2,888→$2,890, retained source-conflict warnings
+and preserved the source record. All fixed source-review and historical
+annotation expectations passed. The main selection was unchanged. This verifies
+the earlier four-ad candidate, not a fit of the newer nine-ad source.

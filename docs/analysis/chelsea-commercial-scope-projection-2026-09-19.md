@@ -82,8 +82,11 @@ files outside the existing loader changes and these two exact refactors remain
 disallowed. The combined compatibility, source-comparison and preflight suites
 now pass 70 tests.
 Carry source annotations with exact retained-row/capture checks before any
-promotion. The ongoing UI check concerns the earlier four-ad candidate, not
-this newly published source. Other commercial-screen groups remain under review.
+promotion. The UI check for the earlier four-ad candidate has now passed
+(session 28428); it does not validate a fit of this newly published source.
+Its artifact manifest is
+`de5b582ee0b25f5e33a63bef2093e1127c405cf4523bc5e3e2ddee1ceb229c94`.
+Other commercial-screen groups remain under review.
 
 The intended source-only refit keeps the established PyMC specification and
 sampling protocol: natural cubic floor spline, full/half/balance bathrooms,
