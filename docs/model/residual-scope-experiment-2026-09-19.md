@@ -144,3 +144,26 @@ residuals. The actual new-posterior panel comparison remains pending.
 The selected expanded-floor fit remains in place until these steps are complete.
 This experiment does not resolve the broader eligibility, SRO, terrace/duplex,
 bathroom-composition or floor/elevator research questions.
+
+## Existing annotation continuity
+
+The four existing unresolved annotations on advertisements 2021775, 2728974 and
+4141846 have been carried onto this source. Complete annotated observations and
+attached evidence were checked for exact typed equality. The published issue
+records and specifications are byte-identical to the prior review, retaining
+all messages, spans, captures, issue IDs, reviewer and original review clock
+`2026-09-20T00:08:00Z`. Independent public loading passed.
+
+The source-bound output is
+`data/model/chelsea-residual-scope-source-issues-20260919`, manifest SHA-256
+`71c0f2b0108cc19b3b445628633d81ce6705e2af2114a8d11a1bffd0719d65d2`.
+The verified old/new linkage is
+`data/model/chelsea-residual-scope-source-issue-linkage-20260919`, manifest SHA-256
+`099eaa4fa41933e50deb7f6dc75f269ab445669d0f7d5175c0c5dac308ec48bf`.
+The standalone carry helper has nine passing tests, including real publication,
+independent reload, identical replay and Unicode separator preservation. It
+changes neither the fit nor the main selection; actual candidate UI checks are
+still required. The separate
+[income-source review](../analysis/chelsea-income-claim-review-2026-09-19.md)
+contains additional research findings and is not silently merged into this
+four-issue continuity artifact.
