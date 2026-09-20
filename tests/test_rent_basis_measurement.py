@@ -26,6 +26,27 @@ def test_sentence_order_variants_are_review_signals(text):
     assert result['target_matches'] == []  # Never invent a missing amount.
 
 
+@pytest.mark.parametrize('text', [
+    'Net effective price shown including one month free on a 15 month lease. Gross monthly rent is $7,500.',
+    'Net Rent Shown', 'Price shown is net effective.', 'Shown rent is net.',
+    'Net rent listed.',
+])
+def test_shown_net_basis_is_a_literal_signal_without_concession_arithmetic(text):
+    result = measure(text, 7000)
+    assert len(result['advertised_net_statements']) == 1
+    claim = result['advertised_net_statements'][0]
+    assert text[claim['start']:claim['end']] == claim['literal']
+    assert result['target_matches'] == []
+    assert all(a['basis_label'] != 'net' for a in result['amounts'])
+
+
+def test_shown_net_signal_retains_negation_and_ignores_unrelated_shown_text():
+    claim = measure('Not net rent shown.', 3000)['advertised_net_statements'][0]
+    assert claim['preceded_by_negation']
+    for text in ['Net income shown.', 'Internet shown in photos.', 'Price shown is base rent.']:
+        assert measure(text, 3000)['advertised_net_statements'] == []
+
+
 def test_legal_is_not_silently_equated_with_gross():
     result = measure('NET EFFECTIVE RENT ADVERTISED: LEGAL RENT $9,200', 9200)
     assert result['target_matches'] == ['legal']

@@ -6,7 +6,7 @@ is recorded as evidence for review, not proof of the target's economic basis.
 from decimal import Decimal
 import re
 
-VERSION = 'literal-rent-basis-measurement-v5'
+VERSION = 'literal-rent-basis-measurement-v6'
 LABEL = r'(?P<label>net(?:[\s-]+effective)?(?:\s+(?:monthly\s+)?(?:rent|price))?|gross(?:\s+(?:monthly\s+)?(?:rent|price))?|legal(?:\s+rent)?)'
 MONEY = r'\$\s*(?P<amount>(?:\d{1,3}(?:,\d{3})+|\d{3,6})(?:\.\d{1,2})?)(?!\d|[,.]\d)'
 CONNECT = r'(?:\s|[:=–—-]|\b(?:is|of|just|only|at|the|a|an|monthly|per[ \t]+month)\b){0,35}'
@@ -22,9 +22,9 @@ BARE_NET = [
 ]
 MENTION = re.compile(r'\bnet(?:[\s-]+effective)?(?:\s+(?:rent|price))?\b|\beffective\s+(?:rent|price)\b', re.I)
 STATEMENTS = [
-    re.compile(r'\bnet[\s-]+effective\s+(?:rent|price)\s+(?:(?:is|as)\s+)?(?:listed|advertised)\b', re.I),
-    re.compile(r'\b(?:advertised|listed)\s+(?:rent|price)\s+(?:(?:is|as|the)\s+)*net(?:[\s-]+effective)?\b', re.I),
-    re.compile(r'\b(?:rent|price)\s+(?:is\s+)?(?:advertised|listed)\s+(?:as\s+)?net(?:[\s-]+effective)?\b', re.I),
+    re.compile(r'\bnet(?:[\s-]+effective)?\s+(?:rent|price)\s+(?:(?:is|as)\s+)?(?:listed|advertised|shown)\b', re.I),
+    re.compile(r'\b(?:advertised|listed|shown)\s+(?:rent|price)\s+(?:(?:is|as|the)\s+)*net(?:[\s-]+effective)?\b', re.I),
+    re.compile(r'\b(?:rent|price)\s+(?:is\s+)?(?:advertised|listed|shown)\s+(?:(?:as|is)\s+)?net(?:[\s-]+effective)?\b', re.I),
 ]
 NEGATION = re.compile(r'\b(?:not|never|no|isn[’\x27]t|rather than|instead of)\s+(?:(?:a|an|the)\s+)?$', re.I)
 ADMINISTRATIVE = re.compile(r'\b(?:approv\w*|qualif\w*|income|salary|eligib\w*|earn\w*)\b', re.I)
