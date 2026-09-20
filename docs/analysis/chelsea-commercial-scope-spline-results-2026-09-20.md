@@ -27,7 +27,33 @@ The largest absolute fitted-price shift is $660.37 for advertisement 4892020
 (344 West 22nd, historical ask $42,500). Next are 1540611 (520 West 27th,
 −$603.25) and 1171083 (109 West 28th, −$274.91). Capture-time active shifts peak
 at $16.60. These larger movements need own-source review before attribution to
-specific features. A deterministic movement-review input build is running.
+specific features. The deterministic 27-case movement-review input build is
+complete (manifest `cd8d5229dd8dc83ec3058ebe9f7828422caab22b5b913c83a2da70c8ac546031`).
+Eleven cases have exactly matching observation rows and description records in
+the previous movement panel; sixteen require new case review. Review remains
+in progress.
+
+### Newly verified location conflict
+
+The fifth largest building-contribution movement example, advertisement
+2938067, exposes an unresolved location association. Both archived captures
+(45451 and 122998) report **322 7th Avenue #3F, Manhattan ZIP 10001**, while
+their complete descriptions identify **Park Slope**, the G/F station, Prospect
+Park and Brooklyn Public Library. Raw listing IDs, payload hashes, description
+hashes and complete source capture membership all match the review input.
+
+Its historical initial ask is $2,275; the candidate fitted value is $3,634.91
+(latent 95% interval $2,700.05–$4,714.77), up $27.45 from the reference fit.
+The source contradiction, rather than that residual or price movement, supports
+an exact-ad location-conflict quarantine. No replacement address, price or floor
+has been inferred, and no sibling advertisements are implicated by this finding.
+The proposed quarantine is recorded but **not applied** to either model source.
+
+Verified evidence bundle `chelsea-2938067-location-review-20260920` has manifest
+`e69a5bd1af646ff887b564294ed13beaa4a3ff9189a4c34ce498828c1e890042`.
+It includes both raw payload witnesses, the reviewed case, literal spans and
+the reproducible verification script. The nine-ad candidate still contains
+this unresolved case; main-model promotion remains pending the broader review.
 
 ## Contributions and fixed checks
 
