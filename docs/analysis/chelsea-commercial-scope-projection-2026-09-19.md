@@ -133,6 +133,28 @@ The matched comparison is now running (session 84842; log
 development review is also running; neither result is yet established and the
 main selection remains unchanged.
 
+The fixed eight-case review has now passed (session 81962, exit 0), including
+all contribution diagnostics and the joint bedroom counterfactual. Its manifest
+is `016147de4a2c41ca72989467f1e33dc6a1282732f6ab512b9cd452d162f127bf`,
+at `chelsea-commercial-scope-spline-fixed-residual-review-20260920`.
+The panel remains the same eight reviewed observations, not an accuracy holdout.
+Candidate configuration preparation is running separately (session 55124),
+targeting `data/model/chelsea-commercial-scope-main-candidate-20260920.json`;
+it does not change `config/main-analysis.json`.
+
+UI expectations are prepared at
+`data/model/chelsea-commercial-scope-page-expectations-20260920.json`, SHA-256
+`6d0317c0807f71f73c4c2a0afd03626a16ce73d483fcddbab59cac25bb2b89c0`.
+They retain all historical warning identities, messages and exact source-row
+hashes. Expected model floor coverage is **35,989**, down three from the
+four-ad candidate: excluded ads 947730, 1543471 and 2391701 had known floors.
+All 172 capture-time active observations and their 134 known floors remain.
+The initial expectation preparation failed before publication because it counted
+only non-null `listed_floor`. The model also accepts canonical
+`advertised_floor` values for 342 rows. Repeating the check with the model's
+normalization agrees with its saved design and publishes the correct expectation;
+no source values or model rules were changed to make that check pass.
+
 The existing four annotations on three retained advertisements have been
 carried from the original expanded source to this source with the established
 exact-row/capture and original-review-clock checks (session 2784, exit 0). Outputs are
