@@ -64,8 +64,24 @@ The decision manifest is
 Contract tests passed (64), reader integration/regression checks passed (275),
 and publisher preservation/idempotence/failure checks passed (3). The existing
 selected expanded-floor posterior also loaded successfully after the reader
-changes. The actual full-source replay, design/evidence and graph preflights are
-running; these checks do not yet establish a completed new posterior.
+changes. An identical full-source publication replay passed and reused the same
+artifact. The direct/compressed full-cohort PyMC graph check passed at all three
+tested parameter points: maximum absolute log-density difference
+`2.91e-11` and maximum absolute gradient difference `7.92e-9`. Its source,
+implementation and result hashes were rechecked before fitting. The parity
+bundle is `data/model/chelsea-residual-scope-spline-graph-parity-20260919`,
+manifest SHA-256
+`430530ce86016e2a20bf54bbc7a0f9e3f885636fb35deda7aa0ffd38526225fb`.
+The separate design/evidence preflight also passed, preserving all 71,806
+retained literal captures exactly. Both designs have 47 features and rank 47,
+identical coefficient prior scales, category contrast bases and spline knots
+`[1, 5, 10, 20, 35, 57]`. All feature centers change; the only numeric scale
+change is elevator, whose prior standard deviation per raw unit falls by
+0.002480004%. Bedroom size medians and the default size reference are unchanged.
+The verification bundle is
+`data/model/chelsea-residual-scope-reader-verification-20260919`, manifest SHA-256
+`08b2fd6bf7c4a761ca87da8ca025056453872fd16617b1aa74c8e364cf3cd220`.
+These checks establish source/design readiness, not a completed new posterior.
 
 ## Matched full PyMC fit
 
@@ -83,7 +99,10 @@ prior scale 0.35 and unit prior scale 0.25. Retain four chains, 4,000 warmup and
 6,000 retained draws per chain, nutpie/Numba diagonal NUTS, target acceptance
 0.93, maximum depth 10 and seed 20260924. No surrogate or short-fit speed claim.
 
-Planned fit: `data/model/chelsea-bayesian-residual-scope-spline-disk-20260919`.
+The full fit has been launched at
+`data/model/chelsea-bayesian-residual-scope-spline-disk-20260919`, with its process
+log at `/tmp/chelsea-residual-scope-spline-fit.log`. Completion and convergence
+remain to be checked.
 Reference fit: `data/model/chelsea-bayesian-expanded-spline-floor-disk-20260919`.
 Producer implementations must remain frozen throughout sampling and publication.
 
