@@ -64,7 +64,7 @@ same 47 features, priors, category bases, size reference and floor knots
 standard deviation changes by approximately −0.00620%, explicitly reported
 rather than described as an identical numerical design.
 
-No refit or main-selection change has occurred. Archived implementation
+The full refit has now been launched; the main selection is unchanged. Archived implementation
 comparisons now explicitly handle the floor verification optimization in its
 two loader-contract files, preserving mathematical and sampler equivalence
 checks.
@@ -88,15 +88,36 @@ Its artifact manifest is
 `de5b582ee0b25f5e33a63bef2093e1127c405cf4523bc5e3e2ddee1ceb229c94`.
 Other commercial-screen groups remain under review.
 
-The intended source-only refit keeps the established PyMC specification and
+The source-only refit keeps the established PyMC specification and
 sampling protocol: natural cubic floor spline, full/half/balance bathrooms,
 shared Student-t noise, four chains, 4,000 warmup and 6,000 retained draws per
 chain, nutpie/Numba diagonal NUTS, target acceptance 0.93, max depth 10 and seed
 20260924. No sampler-shortening or simultaneous feature experiment is planned.
 The new full-cohort graph-parity run initially stopped when the sandbox denied
 writes to the existing PyTensor/Numba cache (session 32521, exit 1). A retry with
-cache access is running (session 82508); no numerical settings changed. This is
-a compilation-environment failure, not a failed graph-equivalence criterion.
+cache access passed (session 82508, exit 0); no numerical settings changed.
+The graph-parity manifest is
+`7091f3b05845f17b313ea70e4340ba4c38f02e820a2f8139843e50cdbc083058`,
+at `data/model/chelsea-commercial-scope-spline-graph-parity-20260919`.
+All three tested parameter points pass; maximum absolute log-density difference
+is `4.37e-11` and maximum absolute gradient difference `1.40e-9`. The source and
+all recorded implementation hashes were checked again before launching the fit.
+This proves numerical agreement at those points, not sampler convergence.
+
+The full fit is running in
+`data/model/chelsea-bayesian-commercial-scope-spline-disk-20260920` (session
+30312; log `/tmp/chelsea-commercial-scope-spline-fit.log`). It uses the explicit
+settings above, including shared residual scale, building prior 0.35, unit prior
+0.25, feature prior multiplier 1 and floor prior 0.10. No shortened trial or
+surrogate model is substituted. Do not launch another fit while this session is
+live; completion and diagnostics remain unverified.
+
+The existing four annotations on three retained advertisements are being
+carried from the original expanded source to this source with the established
+exact-row/capture and original-review-clock checks (session 2784). Outputs are
+`chelsea-commercial-scope-source-issues-20260920` and
+`chelsea-commercial-scope-source-issue-linkage-20260920` under `data/model/`.
+Their successful publication has not yet been established.
 Compare common retained observations against the original expanded-floor fit,
 with the explicit cumulative policy and archived code checks, rather than
 claiming improvement from dropping observations. Repeat fixed panels and inspect
