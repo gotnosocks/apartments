@@ -2,7 +2,8 @@
 
 The nine-ad source revision passes a full matched PyMC refit and comparison
 against the originally selected expanded-floor fit. The selected main model
-has not changed; candidate UI and absolute-residual tail review remain pending.
+has not changed. Candidate UI validation and the absolute-residual tail review
+are complete; reviewed source issues still require subsequent projection work.
 
 All primary, derived-effect and floor diagnostic gates pass with four chains,
 4,000 warmup and 6,000 retained draws per chain, zero divergences and zero
@@ -42,7 +43,7 @@ Private pools, car lifts, terraces, furnished short leases and en-suite bathroom
 appear elsewhere in the panel. These are research leads rather than explanations
 proven by the fitted residuals.
 
-Two new bathroom composition conflicts need raw-source follow-up:
+Two new bathroom composition conflicts are verified against archived raw data:
 
 - **1741581:** analytical four full baths and zero half baths versus explicit
   prose two baths and two powder rooms in a triplex.
@@ -54,11 +55,34 @@ The unusual two-bedroom/3.5-bath composition for **4681420** is explicitly
 corroborated by its description. **2851560** supplies 3,840 interior square feet
 despite missing analytical area. Neither claim is yet a time-resolved physical
 measurement. These distinctions matter before attributing unusually large unit
-effects to unmodeled amenities.
+effects to unmodeled amenities. Both bathroom cases and the missing-area case
+were verified against all four attached raw captures and their archived HTML.
+The raw descriptions were encoded references; reparsing resolves the exact
+reviewed text while every non-description payload field remains identical.
+Evidence bundle `chelsea-movement-measurement-review-20260920` has manifest
+`31e0312b6b18523d6207ec553b42839e3fc6d76ea8da1d92bf00db2ab5bd6237`.
+Identical replay passes. No count or area correction has been applied.
 
-A separate deterministic top-15 distinct-unit absolute-residual input build has
-started for this candidate. The movement panel is selected by changes between
-fits and does not substitute for reviewing the largest remaining residuals.
+A separate deterministic top-15 distinct-unit absolute-residual input build is
+complete. Every selected source row and capture record exactly matches a case
+in the previously reviewed tail panel; all fifteen adjudications were carried
+forward with the new ranks and residuals. The movement panel is selected by
+changes between fits and does not substitute for this residual-tail check.
+
+Tail input manifest: `d20c4decb25e8f07d92c1aa661c45e547939d3b5fa284a92816df894d44a7265`.
+Tail review manifest: `9781220f989be741e24a893e6bf2220e75fb799760be311f14a6d4aa35d9d6a3`.
+Unresolved price/identity cases, income-restricted offers, an SRO/shared-bathroom
+case and retrospective attribute timing remain unresolved. Reuse verifies
+unchanged evidence, not correctness of these observations.
+
+The candidate page validation also completed successfully: 52,644 rows,
+172 capture-time active rows, 35,989 known-floor rows and eight reviewed cases.
+Its source-conflict warning survives the counterfactual interaction and the
+selected main configuration remains unchanged. Validation manifest:
+`b03cf16a8358418c550c9bf7f125552b3ecacce0567a62fabf76803891662724`.
+The next source revision should incorporate reviewed location exclusions and
+the prepared direct-floor evidence, preserving unresolved measurement conflicts
+explicitly rather than allowing model convergence to stand in for data review.
 
 ### Newly verified location conflict
 
