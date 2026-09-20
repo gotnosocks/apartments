@@ -46,3 +46,20 @@ not yet include the later 24 direct-description floor additions. Completion,
 replay and safe rebinding of those additions remain to be checked.
 
 The separately running direct-floor fit continues on its unchanged source.
+
+The location-scope source build has completed and its full artifact hashes have
+been independently verified. Manifest:
+`9b4e7acf824b5d1c99b5d3386135ec58da0c22ec38a30a9353f3420fbfe83238`.
+It contains **52,643 observations, 22,146 units and 1,127 buildings**, with all
+172 capture-time active observations unchanged. Ten exact advertisements are
+retained in the quarantine sidecar; the full parent inverse passed.
+
+`rebase_direct_floor_policy` now checks that the sole difference from the nine-ad
+source is removal of 2938067, both scope revisions reconstruct the same original
+source, all 24 floor-decision rows remain byte-equivalent under canonical
+serialization, and all 17 preserved floor-review findings remain unchanged.
+Six tests reject price/order/membership changes and verify detached output.
+The full policy rebinding is running at
+`data/model/chelsea-location-direct-floor-prepared-policy-20260920`; it does not
+apply the floor additions. The direct-floor fit has entered retained sampling
+on its original frozen inputs.
