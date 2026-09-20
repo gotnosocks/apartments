@@ -52,7 +52,7 @@ try:
   source_row=analytical_rows[row['audit_id']]
   cases.append({'rank_by_absolute_current_log_residual':ranks[row['audit_id']],
     'source_listing_id':ad,'review_kind':kind,'review_reason':reason,
-    'analytical_floor':{k:source_row.get(k) for k in ('listed_floor','advertised_floor','floor_label_provenance')},
+    'analytical_floor':{k:source_row.get(k) for k in ('listed_floor','advertised_floor','floor_label_provenance','expanded_floor_provenance')},
     'residual':row,'joint_posterior_detail':detail,'source_captures':evidence[row['audit_id']]})
  rawpath=root/'data/probes/chelsea-discovery-details-20260918/archive/bodies/8c/8cfe74da1351f97f571a20ff8331d764b9becca30923ca79c85e35ea1d99d2ec.gz'
  body=gzip.decompress(rawpath.read_bytes()); assert hashlib.sha256(body).hexdigest()==rawpath.stem

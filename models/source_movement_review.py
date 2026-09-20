@@ -15,7 +15,10 @@ VERSION = 'bayesian-source-movement-review-v1'
 
 
 def select_cases(report, top):
-    if report.get('version') == 'verified-bayesian-source-sensitivity-v1':
+    if report.get('version') == 'matched-expanded-floor-spline-fit-comparison-v1':
+        candidates = report['largest_distinct_unit_movements']
+        scope = 'largest_common_distinct_unit_movements'
+    elif report.get('version') == 'verified-bayesian-source-sensitivity-v1':
         candidates = report['residuals']['largest_distinct_unit_movements']
         scope = 'largest_common_distinct_unit_movements'
     elif report.get('version') in ('reviewed-quarantine-fit-comparison-v1', 'reviewed-elevator-fit-comparison-v1'):

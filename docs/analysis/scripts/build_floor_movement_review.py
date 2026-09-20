@@ -4,28 +4,67 @@ from collections import defaultdict
 import json
 from pathlib import Path
 
+from apartments import floor_label_projection, expanded_floor_projection
 from apartments.bayesian_evidence import load_evidence
 from apartments.corrections import canonical
 from apartments.research_pipeline import _verified_bundle, digest, publish_bundle
+from apartments.reviewed_cohort_quarantine import records_hash, sha
 
 
 def records(value):
-    return [json.loads(line) for line in value.decode().splitlines() if line.strip()]
+    return [json.loads(line) for line in value.decode().split('\n') if line.strip()]
+
+
+EXPANDED_COMPARISON = 'matched-expanded-floor-spline-fit-comparison-v1'
+LEGACY_COMPARISONS = {'matched-label-floor-fit-comparison-v1', 'matched-floor-spline-fit-comparison-v1'}
+
+
+def verified_floor_source(manifest, source, comparison_version):
+    """Bind both displayed floor stages to the exact ordered source revision."""
+    expanded = comparison_version == EXPANDED_COMPARISON
+    expected = expanded_floor_projection.VERSION if expanded else floor_label_projection.VERSION
+    if comparison_version not in LEGACY_COMPARISONS | {EXPANDED_COMPARISON} or manifest.get('version') != expected:
+        raise ValueError('Floor comparison and candidate source versions differ')
+    required = {'observations.jsonl', floor_label_projection.SIDECAR}
+    if expanded:
+        required.add(expanded_floor_projection.SIDECAR)
+    if not required <= source.keys():
+        raise ValueError('Missing bound floor projection observations or sidecar')
+    rows = records(source['observations.jsonl'])
+    changes = records(source[floor_label_projection.SIDECAR])
+    if len({row['audit_id'] for row in rows}) != len(rows):
+        raise ValueError('Duplicate source observation identity')
+    expanded_changes = None
+    if expanded:
+        expanded_changes = records(source[expanded_floor_projection.SIDECAR])
+        parent, _ = expanded_floor_projection.parent_rows(manifest, rows, expanded_changes)
+        embedded = [change['original_change'] for change in expanded_changes]
+        if (records_hash(changes) != parent['files'][floor_label_projection.SIDECAR]
+                or sha(changes) != sha(embedded)):
+            raise ValueError('Displayed original floor sidecar differs from expanded source ancestry')
+        building_evidence = manifest['policy']['building_floor_evidence']
+    else:
+        if expanded_floor_projection.SIDECAR in source:
+            raise ValueError('Unexpected expanded floor sidecar for legacy comparison')
+        floor_label_projection.parent_rows(manifest, rows, changes)
+        building_evidence = manifest['building_floor_evidence']
+    return rows, changes, expanded_changes, building_evidence
 
 
 def run(comparison, dataset, evidence, output):
     comparison, dataset, evidence = map(Path, (comparison, dataset, evidence))
     _, files = _verified_bundle(comparison, retain={'comparison.json', 'residual-movements.jsonl'})
     result = json.loads(files['comparison.json'])
-    if result['version'] not in {'matched-label-floor-fit-comparison-v1', 'matched-floor-spline-fit-comparison-v1'}:
+    if result['version'] not in LEGACY_COMPARISONS | {EXPANDED_COMPARISON}:
         raise ValueError('Expected the accepted matched label-floor comparison')
     if result['fits'][1]['bindings']['source'] != digest(dataset/'complete.json'):
         raise ValueError('Movement review source differs from candidate fit')
-    manifest, source = _verified_bundle(dataset, retain={'observations.jsonl', 'floor-label-projection.jsonl'})
-    rows = records(source['observations.jsonl'])
-    changes = records(source['floor-label-projection.jsonl'])
+    manifest, source = _verified_bundle(dataset, retain={'observations.jsonl', floor_label_projection.SIDECAR, expanded_floor_projection.SIDECAR})
+    rows, changes, expanded_changes, building_evidence = verified_floor_source(manifest, source, result['version'])
     by_id = {r['audit_id']: r for r in rows}
     by_change = {r['audit_id']: c for r, c in zip(rows, changes, strict=True)}
+    by_expanded = ({r['audit_id']: c for r, c in zip(rows, expanded_changes, strict=True)}
+                   if expanded_changes is not None else None)
     movements = records(files['residual-movements.jsonl'])
     if len(movements) != len(rows) or {r['audit_id'] for r in movements} != set(by_id):
         raise ValueError('Movement and source membership differ')
@@ -49,13 +88,18 @@ def run(comparison, dataset, evidence, output):
             group_reviews.append({'kind': kind, 'rank': rank, 'movement': group,
                                   'example_audit_id': chosen['audit_id']})
     captures = load_evidence(dataset, evidence)
+    by_mask = {mask['audit_id']: mask for mask in manifest.get('policy', {}).get('floor_masks', [])}
     cases = []
     for identity in sorted(selected):
         row = by_id[identity]
-        cases.append({'selection_reasons': selected[identity], 'observation': row,
+        case = {'selection_reasons': selected[identity], 'observation': row,
             'movement': by_movement[identity], 'floor_projection': by_change[identity],
-            'building_floor_evidence': manifest['building_floor_evidence'].get(row['building'], []),
-            'descriptions': captures[identity]})
+            'building_floor_evidence': building_evidence.get(row['building'], []),
+            'descriptions': captures[identity]}
+        if by_expanded is not None:
+            case['expanded_floor_projection'] = by_expanded[identity]
+            case['expanded_floor_mask'] = by_mask.get(identity)
+        cases.append(case)
     return publish_bundle(output, {
         'cases.jsonl': ''.join(canonical(c)+'\n' for c in cases),
         'group-review-examples.json': canonical(group_reviews)+'\n',
@@ -63,6 +107,7 @@ def run(comparison, dataset, evidence, output):
         'version': 'accepted-floor-fit-movement-source-review-inputs-v1',
         'comparison_manifest_sha256': digest(comparison/'complete.json'),
         'source_manifest_sha256': digest(dataset/'complete.json'),
+        'source_projection_version': manifest['version'],
         'evidence_manifest_sha256': digest(evidence/'complete.json'),
         'cases': len(cases), 'selection_reasons': sum(map(len, selected.values())),
         'policy': 'Review all 25 largest distinct-unit fitted-rent movements, plus the five largest unit-offset and common-reference building-effect movements. Each group example is its largest absolute fitted-rent movement, with audit-ID tie breaking. Selected on in-sample model changes, not a representative panel or holdout. A single building example is not a building-wide adjudication. No corrections applied.'})

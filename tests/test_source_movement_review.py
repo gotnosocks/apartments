@@ -21,6 +21,17 @@ def test_unknown_or_empty_movement_report_is_refused():
                       'residuals': {'largest_current_movements': []}}, 3)
 
 
+def test_expanded_floor_movement_selection_uses_all_cohort_distinct_units():
+    cases = [{'unit_id': 'a', 'audit_id': 'historical:1'},
+             {'unit_id': 'a', 'audit_id': 'current:2'},
+             {'unit_id': 'b', 'audit_id': 'historical:3'}]
+    report = {'version': 'matched-expanded-floor-spline-fit-comparison-v1',
+              'largest_distinct_unit_movements': cases}
+    chosen, scope = select_cases(report, 2)
+    assert chosen == [cases[0], cases[2]]
+    assert scope == 'largest_common_distinct_unit_movements'
+
+
 def detail():
     return {'audit_id': 'a', 'source_record': {'asking_rent': 5000, 'source_listing_id': 'ad', 'unit_id': 'u', 'building': 'b'},
         'mean_log_rent': 8.5,

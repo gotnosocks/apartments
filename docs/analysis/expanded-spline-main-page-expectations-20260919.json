@@ -1,0 +1,57 @@
+{
+  "version": "spline-main-page-expectations-v1",
+  "counts": {
+    "rows": 52653,
+    "current_rows": 172,
+    "known_floor_rows": 35992,
+    "source_review_cases": 8
+  },
+  "known_current_floor_rows": 134,
+  "source_manifest_sha256": "d244ca6710e080e18059f1b3279a373e187ea38fb4219c51deff7e49f4604717",
+  "source_observations_sha256": "5f7adaccfda5abd9855f1f62d4761b8bdfccdbe913add21494b4ab6757db4d92",
+  "source_issues_manifest_sha256": "23ca6c13d393d5580ccf41084e8061d5a8234ff4dd323431100998736fe528d7",
+  "historical_issues": [
+    {
+      "audit_id": "03c8e14364538ae2750529efa9bda9082461d74e0a9725b7ad5a8af72e469180",
+      "source_listing_id": "2728974",
+      "unit_id": "unit:e4118256-e903-5b5b-9b0f-468383e440e8",
+      "source_row_sha256": "d11d947a1b1652f3de9e0ac80ac2771b2c631daa8075c1739ee79c42447bd574",
+      "kinds": [
+        "structured_prose_bathroom_conflict"
+      ],
+      "messages": [
+        "Structured and fitted bathroom counts are five full and zero half, but the description says 5.5 baths. The conflicting claims remain unresolved; the note does not add a half bath or change the unknown penthouse floor."
+      ]
+    },
+    {
+      "audit_id": "15b0a695cf02ea4e2102d83f014a109ef7bdd423d20fdfbd2cedef7593922302",
+      "source_listing_id": "4141846",
+      "unit_id": "unit:7f433d11-8474-56d0-a1ab-e0f0534fdc4b",
+      "source_row_sha256": "db2ce72e0143fb6f50c0c56c1a6688f84614b0bb592cb1bcfee4a28f65dbdbb8",
+      "kinds": [
+        "in_unit_laundry_claim_unextracted",
+        "furnished_only_offer_unmodeled"
+      ],
+      "messages": [
+        "The own-advertisement description names a utility closet with a washer/dryer, while analytical laundry type is unknown. This is an extraction lead; the annotation does not change the fitted feature.",
+        "This advertisement explicitly offers the apartment furnished only for a one- or two-year lease; the analytical furnishing field is unknown. Furnishing may contribute to its residual. No separate furnished premium or signed rent is established."
+      ],
+      "floor_scenario": {
+        "before": 6.0,
+        "after": 7.0
+      }
+    },
+    {
+      "audit_id": "b97bfb2f62f56515737f38c5a8352486864118749a3ef45b81ab0414b42a3aa5",
+      "source_listing_id": "2021775",
+      "unit_id": "unit:7ffce4e2-f07a-50e8-86d5-7b24db111bbc",
+      "source_row_sha256": "525f8a372fc0687557e9ed9b41f18f29f152936d5d9370819440d0209180642d",
+      "kinds": [
+        "furnished_offer_unmodeled"
+      ],
+      "messages": [
+        "This advertisement describes a furnished rental while the analytical furnishing field is unknown. It does not establish furnished-only terms, exclude an unfurnished alternative, or quantify a furnishing premium."
+      ]
+    }
+  ]
+}

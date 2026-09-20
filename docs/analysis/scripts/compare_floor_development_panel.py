@@ -23,10 +23,15 @@ def run(panel, comparison, output):
     _, cf = _verified_bundle(comparison, retain={'comparison.json', 'residual-movements.jsonl'})
     result = json.loads(cf['comparison.json'])
     if (pm['version'] != 'floor-source-development-panel-v1' or result['version'] not in
-            {'matched-label-floor-fit-comparison-v1', 'matched-floor-elevator-fit-comparison-v1', 'matched-floor-spline-fit-comparison-v1'}):
+            {'matched-label-floor-fit-comparison-v1', 'matched-floor-elevator-fit-comparison-v1', 'matched-floor-spline-fit-comparison-v1',
+             'matched-expanded-floor-spline-fit-comparison-v1'}):
         raise ValueError('Expected frozen coverage panel and accepted matched floor comparison')
-    if result['fits'][1]['bindings']['source'] != pm['dataset_manifest_sha256']:
-        raise ValueError('Panel source differs from comparison candidate')
+    # The expanded comparison proves an exact inverse to the reference source.
+    # Retain the original panel's membership and cells, rather than rebuilding
+    # them using post-expansion coverage or residual ranks.
+    panel_source_index = 0 if result['version'] == 'matched-expanded-floor-spline-fit-comparison-v1' else 1
+    if result['fits'][panel_source_index]['bindings']['source'] != pm['dataset_manifest_sha256']:
+        raise ValueError('Panel source differs from the bound comparison source')
     cases = [json.loads(line) for line in pf['cases.jsonl'].decode().splitlines()]
     movements = [json.loads(line) for line in cf['residual-movements.jsonl'].decode().splitlines()]
     index = {r['audit_id']: r for r in movements}
@@ -43,7 +48,7 @@ def run(panel, comparison, output):
         selected.append(item)
         cells[case['panel_cell']].append(item)
     summary = {**summarize(selected), 'cells': {k: summarize(v) for k, v in sorted(cells.items())},
-        'membership_unchanged': True,
+        'membership_unchanged': True, 'panel_source_fit_index': panel_source_index,
         'interpretation': 'The same 26 preselected source observations, with two units per nonempty floor-band/elevator cell. Coverage development panel, not representative market sampling, a holdout, or a validation accuracy estimate. Aggregates are descriptive only.'}
     return publish_bundle(output, {
         'cases.jsonl': ''.join(canonical(r)+'\n' for r in selected),

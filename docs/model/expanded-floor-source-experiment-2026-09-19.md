@@ -82,6 +82,14 @@ the prior over common floor contrasts changes. The source/design verifier now
 records those prior standard deviations and covariances explicitly. No
 high-floor rows are dropped to force an identical design or a passing check.
 
+The analytical prior check quantifies the size of that change. For the
+floor-versus-floor-2 log-price contrast, prior standard deviation changes from
+0.11812 to 0.13347 at floor 45 (+13.00%, the largest proportional change on
+common observed floors), and from 0.12702 to 0.11773 at floor 52 (−7.32%).
+Changes at floors 10 and 20 are below 0.003% in magnitude. Matching the scalar
+coefficient scale therefore does not make this a pure data-only experiment,
+especially in the upper tail. These are prior spreads, not posterior premiums.
+
 The revised full-cohort PyMC direct/compressed graph proof completed at three
 parameter points. Maximum absolute log-density discrepancy is 2.91e-11 and
 maximum gradient discrepancy is 4.07e-10 over 23,413 unconstrained parameters.
@@ -118,3 +126,62 @@ also replayed exactly. Expanded floor coverage strengthens lower-floor
 within-building support, while walk-up observations remain limited to floors
 1–6. This informs the next interaction experiment, not the currently running
 source-only comparison.
+
+## Post-fit assessment sequence
+
+After the sampler, export and diagnostics finish, run
+`models.expanded_floor_fit_comparison` against the selected spline and its
+parent source. The candidate must pass source reconstruction and the same
+sampling/contrast diagnostics before its residuals are used for decisions.
+The comparison explicitly reports both the added floor evidence and the change
+in the induced curve prior from moving the boundary knot.
+
+Reuse the frozen 26-row `chelsea-floor-development-panel-20260919` with
+`docs.analysis.scripts.compare_floor_development_panel`. For this source
+revision the panel remains bound to the comparison's reference source;
+membership, original cells, identities and prices must match. Separately
+regenerate the eight current-source notes with
+`docs.analysis.scripts.review_current_residual_cases` against the candidate,
+retaining both floor-provenance layers. The current source observations are a
+dated capture cohort, not a newly selected representative test set.
+
+Review the largest distinct-unit fitted-price movements and the largest
+unit/building effect movements using their own advertisement evidence.
+`models.source_movement_review` can additionally decompose the leading
+movements into additive posterior mean log contributions. Between-fit draws
+must not be paired; these decompositions are not causal dollar allocations.
+
+Check spline prior sensitivity on the completed posterior, including any
+withheld results requiring a full PyMC refit. Prepare a separate candidate
+selection containing the regenerated eight-case source review and the four
+historical source issues. Exercise that selection in the real Streamlit page,
+including a floor-only counterfactual and preserved historical warnings.
+Only then assess promotion; the existing main selection stays in place until
+these results have been inspected.
+
+The adapted fixed-panel and movement-selection tests pass (15 tests), including
+rejection of a panel bound to the wrong source or a changed target price.
+
+The page verifier accepts explicit expectations in
+`docs/analysis/expanded-spline-main-page-expectations-20260919.json`: 35,992
+known floors, 134 known floors among the 172 current observations, exact source
+and annotation hashes, and all four historical messages on three observations.
+It derives prices from the completed joint posterior and checks actual UI
+floor-only scenarios for advertisements 5155021 (2→3) and 4141846 (6→7), with
+the respective warnings and source records preserved. The 21 verifier tests
+and 13 page regression tests pass. A preexisting actual-selected-fit page test
+timed out in the sandbox and was stopped; it is not claimed as passing. The
+candidate's actual page run remains pending and should use the host runtime.
+
+After creating the verified candidate selection at
+`data/model/chelsea-expanded-spline-main-candidate-20260919.json`, run:
+
+```bash
+UV_CACHE_DIR=/tmp/apartments-uv-cache MPLCONFIGDIR=/tmp/apartments-mpl \
+OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 \
+uv run --frozen --no-sync python -m docs.analysis.scripts.check_spline_main_page \
+  --selection data/model/chelsea-expanded-spline-main-candidate-20260919.json \
+  --expectations docs/analysis/expanded-spline-main-page-expectations-20260919.json \
+  --output data/model/chelsea-expanded-spline-main-page-validation-20260919 \
+  --timeout 300
+```
