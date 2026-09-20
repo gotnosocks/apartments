@@ -106,6 +106,16 @@ remain to be checked.
 Reference fit: `data/model/chelsea-bayesian-expanded-spline-floor-disk-20260919`.
 Producer implementations must remain frozen throughout sampling and publication.
 
+All four chains entered sampling. The published protocol manifest is
+`1c6cb6c53b9aba3de54593726a71bd941835f9ffe6d95f664c402d1955395892`;
+its canonical protocol binding is
+`fb78c0c36a435e23fadebd51a64dc288ca5111d7ccea02596827880810268caf`.
+The comparison tool accepts the actual archived reference/candidate protocols.
+Its AST check confirms that changes to the existing implementations only add
+scope loading/inventory support in `bayesian_feature_experiment_v3.py` and
+`reviewed_source_lineage.py`; the new scope contract is the sole added dependency.
+The fitted design retains 35,992 known-floor rows and 16,657 unknown-floor rows.
+
 ## Assessment and selection
 
 Require the same parameter, derived-contribution and joint-floor convergence
@@ -120,6 +130,16 @@ common reference. Keep source-derived scaling changes visible and never pair
 draws from independent fits. Reuse the fixed development panels, review large
 movements and the newly exposed residual tail, and preserve source annotations
 in the actual contribution/counterfactual UI before considering promotion.
+
+The 26-row floor development panel remains bound to its original label-floor
+source. `compare_floor_development_panel.py` now accepts the residual-scope
+comparison with an explicit `--panel-ancestry` pointing to
+`data/model/chelsea-expanded-spline-floor-comparison-20260919`. It verifies the
+original source binding, the identical intermediate fit/protocol/source hashes,
+all panel identities and asking prices, and exact common-fit residual records.
+It preserves the original cells and membership. Thirteen tests passed, including
+rejection of missing ancestry, changed fit/source, missing members and changed
+residuals. The actual new-posterior panel comparison remains pending.
 
 The selected expanded-floor fit remains in place until these steps are complete.
 This experiment does not resolve the broader eligibility, SRO, terrace/duplex,

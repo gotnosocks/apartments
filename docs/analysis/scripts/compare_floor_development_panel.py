@@ -17,21 +17,44 @@ def summarize(rows):
         'maximum_absolute_fitted_change': max(abs(r['fitted_rent_change']) for r in rows)}
 
 
-def run(panel, comparison, output):
+def run(panel, comparison, output, panel_ancestry=None):
     panel, comparison = Path(panel), Path(comparison)
     pm, pf = _verified_bundle(panel, retain={'cases.jsonl'})
     _, cf = _verified_bundle(comparison, retain={'comparison.json', 'residual-movements.jsonl'})
     result = json.loads(cf['comparison.json'])
     if (pm['version'] != 'floor-source-development-panel-v1' or result['version'] not in
             {'matched-label-floor-fit-comparison-v1', 'matched-floor-elevator-fit-comparison-v1', 'matched-floor-spline-fit-comparison-v1',
-             'matched-expanded-floor-spline-fit-comparison-v1'}):
+             'matched-expanded-floor-spline-fit-comparison-v1',
+             'matched-residual-scope-spline-fit-comparison-v1'}):
         raise ValueError('Expected frozen coverage panel and accepted matched floor comparison')
     # The expanded comparison proves an exact inverse to the reference source.
     # Retain the original panel's membership and cells, rather than rebuilding
     # them using post-expansion coverage or residual ranks.
-    panel_source_index = 0 if result['version'] == 'matched-expanded-floor-spline-fit-comparison-v1' else 1
-    if result['fits'][panel_source_index]['bindings']['source'] != pm['dataset_manifest_sha256']:
-        raise ValueError('Panel source differs from the bound comparison source')
+    ancestry_hash, ancestor_index = None, None
+    if result['version'] == 'matched-residual-scope-spline-fit-comparison-v1':
+        if panel_ancestry is None:
+            raise ValueError('Residual scope comparison requires the expanded-floor panel ancestry')
+        panel_ancestry = Path(panel_ancestry)
+        _, af = _verified_bundle(panel_ancestry, retain={'comparison.json', 'residual-movements.jsonl'})
+        ancestor = json.loads(af['comparison.json'])
+        if (ancestor['version'] != 'matched-expanded-floor-spline-fit-comparison-v1'
+                or ancestor['fits'][0]['bindings']['source'] != pm['dataset_manifest_sha256']
+                or ancestor['fits'][1]['bindings'] != result['fits'][0]['bindings']):
+            raise ValueError('Panel ancestry must bind its original source through the identical reference fit')
+        ancestor_rows = [json.loads(line) for line in af['residual-movements.jsonl'].decode().split('\n') if line.strip()]
+        ancestor_index = {r['audit_id']: r for r in ancestor_rows}
+        if len(ancestor_index) != len(ancestor_rows):
+            raise ValueError('Duplicate panel ancestry observation')
+        ancestry_hash = digest(panel_ancestry/'complete.json')
+        # The original panel belongs to the ancestor comparison, not either
+        # source in this newer comparison. Never relabel its floor-band cells.
+        panel_source_index = None
+    else:
+        if panel_ancestry is not None:
+            raise ValueError('Unexpected panel ancestry for this comparison version')
+        panel_source_index = 0 if result['version'] == 'matched-expanded-floor-spline-fit-comparison-v1' else 1
+        if result['fits'][panel_source_index]['bindings']['source'] != pm['dataset_manifest_sha256']:
+            raise ValueError('Panel source differs from the bound comparison source')
     cases = [json.loads(line) for line in pf['cases.jsonl'].decode().splitlines()]
     movements = [json.loads(line) for line in cf['residual-movements.jsonl'].decode().splitlines()]
     index = {r['audit_id']: r for r in movements}
@@ -44,12 +67,21 @@ def run(panel, comparison, output):
         if movement is None or any(movement[k] != source[k] for k in
                 ('audit_id', 'unit_id', 'building', 'source_listing_id', 'period', 'asking_rent')):
             raise ValueError('Fixed panel member absent or source identity/target changed')
+        if ancestor_index is not None:
+            previous = ancestor_index.get(source['audit_id'])
+            if (previous is None or any(previous[k] != source[k] for k in
+                    ('audit_id', 'unit_id', 'building', 'source_listing_id', 'period', 'asking_rent'))
+                    or canonical(previous['candidate']) != canonical(movement['reference'])):
+                raise ValueError('Panel ancestry member or common-fit residual differs')
         item = {'panel_cell': case['panel_cell'], **movement}
         selected.append(item)
         cells[case['panel_cell']].append(item)
     summary = {**summarize(selected), 'cells': {k: summarize(v) for k, v in sorted(cells.items())},
         'membership_unchanged': True, 'panel_source_fit_index': panel_source_index,
         'interpretation': 'The same 26 preselected source observations, with two units per nonempty floor-band/elevator cell. Coverage development panel, not representative market sampling, a holdout, or a validation accuracy estimate. Aggregates are descriptive only.'}
+    if ancestry_hash is not None:
+        summary.update(panel_ancestry_manifest_sha256=ancestry_hash,
+                       panel_ancestor_source_fit_index=0, unchanged_reference_fit_verified=True)
     return publish_bundle(output, {
         'cases.jsonl': ''.join(canonical(r)+'\n' for r in selected),
         'summary.json': canonical(summary)+'\n',
@@ -57,6 +89,7 @@ def run(panel, comparison, output):
         'version': 'fixed-floor-development-panel-comparison-v1',
         'panel_manifest_sha256': digest(panel/'complete.json'),
         'comparison_manifest_sha256': digest(comparison/'complete.json'),
+        **({'panel_ancestry_manifest_sha256': ancestry_hash} if ancestry_hash else {}),
         'fit_bindings': [f['bindings'] for f in result['fits']], 'rows': len(selected)})
 
 
@@ -64,4 +97,5 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description=__doc__)
     for name in ('panel', 'comparison', 'output'):
         parser.add_argument('--'+name, type=Path, required=True)
+    parser.add_argument('--panel-ancestry', type=Path)
     print(canonical(run(**vars(parser.parse_args()))))

@@ -55,3 +55,63 @@ def test_panel_bound_to_wrong_side_is_rejected(tmp_path, version, index):
 def test_expanded_panel_does_not_accept_changed_targets(tmp_path):
     with pytest.raises(ValueError, match='source identity/target changed'):
         run(*inputs(tmp_path, 'matched-expanded-floor-spline-fit-comparison-v1', damage=True))
+
+
+def scope_inputs(tmp_path, damage=None):
+    panel, ancestor, _ = inputs(tmp_path, 'matched-expanded-floor-spline-fit-comparison-v1')
+    result = json.loads((ancestor/'comparison.json').read_text())
+    common = dict(result['fits'][1]['bindings'])
+    rows = [json.loads(line) for line in (ancestor/'residual-movements.jsonl').read_text().splitlines()]
+    for row in rows:
+        row['reference'] = dict(row['candidate'])
+        row['candidate'] = {'residual_log': .08}
+    if damage == 'source': common['source'] = 'unrelated-source'
+    if damage == 'fit': common['fit'] = 'different-fit-on-same-source'
+    if damage == 'residual': rows[0]['reference']['residual_log'] = .099
+    if damage == 'identity': rows[0]['unit_id'] = 'another-unit'
+    if damage == 'missing': rows.pop()
+    comparison = tmp_path/'scope-comparison'
+    publish_bundle(comparison, {
+        'comparison.json': canonical({'version': 'matched-residual-scope-spline-fit-comparison-v1',
+            'fits': [{'bindings': common}, {'bindings': {'source': 'scope-source'}}]}),
+        'residual-movements.jsonl': ''.join(canonical(r)+'\n' for r in rows)},
+        {'version': 'matched-residual-scope-spline-fit-comparison-v1'})
+    return panel, comparison, tmp_path/'scope-output', ancestor
+
+
+def test_scope_panel_retains_original_cells_and_proves_common_fit(tmp_path):
+    panel, comparison, output, ancestor = scope_inputs(tmp_path)
+    run(panel, comparison, output, panel_ancestry=ancestor)
+    summary = json.loads((output/'summary.json').read_text())
+    rows = [json.loads(line) for line in (output/'cases.jsonl').read_text().splitlines()]
+    assert summary['rows'] == 26 and summary['membership_unchanged']
+    assert summary['panel_source_fit_index'] is None
+    assert summary['panel_ancestor_source_fit_index'] == 0
+    assert summary['unchanged_reference_fit_verified']
+    assert summary['reference_median_absolute_log_residual'] == .09
+    assert summary['candidate_median_absolute_log_residual'] == .08
+    assert [r['panel_cell'] for r in rows] == [f'cell:{i//2}' for i in range(26)]
+    # Identical invocation reuses the same completed output.
+    before = (output/'complete.json').read_bytes()
+    run(panel, comparison, output, panel_ancestry=ancestor)
+    assert (output/'complete.json').read_bytes() == before
+
+
+@pytest.mark.parametrize('damage', ['source', 'fit', 'residual', 'identity', 'missing'])
+def test_scope_panel_rejects_broken_ancestry_or_membership(tmp_path, damage):
+    panel, comparison, output, ancestor = scope_inputs(tmp_path, damage)
+    with pytest.raises(ValueError):
+        run(panel, comparison, output, panel_ancestry=ancestor)
+    assert not (output/'complete.json').exists()
+
+
+def test_scope_panel_requires_explicit_ancestry(tmp_path):
+    panel, comparison, output, _ = scope_inputs(tmp_path)
+    with pytest.raises(ValueError, match='requires.*ancestry'):
+        run(panel, comparison, output)
+
+
+def test_other_comparisons_reject_unexpected_ancestry(tmp_path):
+    panel, comparison, output = inputs(tmp_path, 'matched-expanded-floor-spline-fit-comparison-v1')
+    with pytest.raises(ValueError, match='Unexpected panel ancestry'):
+        run(panel, comparison, output, panel_ancestry=comparison)
