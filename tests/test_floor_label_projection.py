@@ -74,7 +74,7 @@ def test_inverse_exact_and_mutation_rejected():
     with pytest.raises(ValueError):f.parent_rows(m,[after],[bad])
 
 
-def extend(parent, rows):
+def extend(parent, rows, unsupported_index=None):
     """Build a valid bounded projection on a synthetic elevator-parent fixture."""
     changes, projected = [], []
     as_of = '2026-09-19T12:00:00Z'
@@ -84,6 +84,9 @@ def extend(parent, rows):
             'source_collected_at':row['known_at'], 'capture_id': ident, 'literal':'3D','candidate_floor':3,
             'body_sha256':'a'*64,'raw_listing_sha256':'b'*64,
             'source_path':'/propertyDetails/address/displayUnit'} for ident in ids]
+        if index == unsupported_index:
+            for capture in captures:
+                capture.update(literal='PH', candidate_floor=None)
         projected.append(project(row,captures,[],[],as_of))
         changes.append({'source_index':index,'source_row_sha256':sha(row),
             'listed_floor_was_present':'listed_floor' in row,'before_listed_floor':row.get('listed_floor'),

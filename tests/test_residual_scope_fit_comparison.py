@@ -92,7 +92,10 @@ def test_real_archived_loader_changes_are_exact_plumbing_only(name):
     archive = Path('data/model/chelsea-bayesian-expanded-spline-floor-disk-20260919/protocol')/name
     if not archive.exists():
         pytest.skip('Local archived fit unavailable')
-    local = Path('models')/name if name.startswith('bayesian') else Path('src/apartments')/name
+    # This checker is specific to the completed scope experiment, not later floor plumbing.
+    local = Path('data/model/chelsea-bayesian-commercial-scope-spline-disk-20260920/protocol')/name
+    if not local.exists():
+        pytest.skip('Local archived scope fit unavailable')
     before, after = archive.read_text(), local.read_text()
     assert m.check_loader_change(before, after)
     with pytest.raises(ValueError): m.check_loader_change(before, after+'\ndef unreviewed(): return 3\n')

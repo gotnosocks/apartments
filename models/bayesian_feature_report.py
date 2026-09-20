@@ -476,8 +476,9 @@ def build_report(experiment, dataset, top=5):
     elevator_sidecar = reviewed_source_lineage.elevator_corrections.SIDECAR
     floor_label_sidecar = reviewed_source_lineage.floor_label_projection.SIDECAR
     expanded_floor_sidecar = reviewed_source_lineage.expanded_floor_projection.SIDECAR
+    direct_floor_sidecar = reviewed_source_lineage.direct_floor_projection.SIDECAR
     residual_scope_sidecar = reviewed_source_lineage.residual_scope_projection.SIDECAR
-    sm, sf = _verified_bundle(dataset, retain={'observations.jsonl', sidecar, elevator_sidecar, floor_label_sidecar, expanded_floor_sidecar, residual_scope_sidecar})
+    sm, sf = _verified_bundle(dataset, retain={'observations.jsonl', sidecar, elevator_sidecar, floor_label_sidecar, expanded_floor_sidecar, residual_scope_sidecar, direct_floor_sidecar})
     if (sm.get('version') not in DATASET_VERSIONS or protocol.get('source_version') != sm.get('version')
             or digest(dataset/'complete.json') != protocol['source_manifest_sha256']
             or sm['files'].get('observations.jsonl') != protocol['source_observations_sha256']):
@@ -488,7 +489,8 @@ def build_report(experiment, dataset, top=5):
             elevator_changes=jsonl(sf[elevator_sidecar]) if elevator_sidecar in sf else None,
             floor_label_changes=jsonl(sf[floor_label_sidecar]) if floor_label_sidecar in sf else None,
             expanded_floor_changes=jsonl(sf[expanded_floor_sidecar]) if expanded_floor_sidecar in sf else None,
-            residual_scope_changes=jsonl(sf[residual_scope_sidecar]) if residual_scope_sidecar in sf else None)
+            residual_scope_changes=jsonl(sf[residual_scope_sidecar]) if residual_scope_sidecar in sf else None,
+            direct_floor_changes=jsonl(sf[direct_floor_sidecar]) if direct_floor_sidecar in sf else None)
     if (len(rows) != protocol['rows'] or len({r['unit_id'] for r in rows}) != protocol['units']
             or len({r['building'] for r in rows}) != protocol['buildings']
             or sum(r.get('analysis_price_basis') == 'current_capture_gross_ask' for r in rows) != protocol['current_rows']
@@ -657,6 +659,7 @@ def run(experiment, dataset, output, top=5):
         'elevator_corrections.py': Path(reviewed_source_lineage.elevator_corrections.__file__).read_text(),
         'floor_label_projection.py': Path(reviewed_source_lineage.floor_label_projection.__file__).read_text(),
         'expanded_floor_projection.py': Path(reviewed_source_lineage.expanded_floor_projection.__file__).read_text(),
+        'direct_floor_projection.py': Path(reviewed_source_lineage.direct_floor_projection.__file__).read_text(),
         'residual_scope_projection.py': Path(reviewed_source_lineage.residual_scope_projection.__file__).read_text(),
         'bayesian_disk_protocol.py': Path(disk_protocol.__file__).read_text()},
         {'version': VERSION, **provenance, 'top_per_tail': top, 'implementation_sha256': digest(__file__)})

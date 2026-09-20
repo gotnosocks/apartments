@@ -105,3 +105,25 @@ against the nine-ad scope-reviewed source and the exact prepared policy. Output:
 `data/model/chelsea-direct-floor-analysis-20260920`; review clock:
 `2026-09-20T05:19:23Z`. Completion, identical replay and public reader integration
 remain to be verified before fitting. The selected model is unchanged.
+
+The first full projection completed successfully: all 52,644 rows remain, and
+canonical known advertised floors increase from 35,989 to **36,013**. The exact
+parent inverse passed for the complete dataset. Output manifest:
+`2a92f7a593895bcb9389742ef1378ddaf729ef73a9325f96bff4e975d05699fd`.
+The 24 additions are a measured incremental improvement; the other reviewed
+conflicts and masks remain unchanged.
+
+The fit loader, report loader, evidence reader and full lineage verifier now
+recognize this bounded revision and archive its contract with fit implementation
+code. **354 focused tests pass**, including a complete synthetic ancestry with
+the floor addition, rejection of unintended changes, preservation of older
+source readers, and historical scope-comparison checks against their actual
+archived implementations. The original scope comparator remains specific to its
+completed experiment; it has not been broadened to certify the new floor refit.
+
+`verify_direct_floor_readers` is running against the complete new source and
+its parent to check unchanged literal evidence, ordered fit membership, full
+ancestry and matched spline design. Output:
+`data/model/chelsea-direct-floor-reader-verification-20260920`. Full-data reader
+completion, identical projection replay, and a dedicated matched-fit comparison
+remain outstanding. No new sampling has started.

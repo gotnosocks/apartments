@@ -6,6 +6,32 @@ from apartments import direct_floor_projection as projection
 from apartments.reviewed_cohort_quarantine import records_hash, sha
 
 
+def extend(parent, rows):
+    """Append one direct-floor addition to a complete synthetic source lineage."""
+    before = rows[2]
+    floor = 2
+    witnesses = [{'capture_id': cid, 'source_collected_at': before['known_at'],
+        'raw_listing_sha256': 'b'*64, 'description_sha256': 'c'*64,
+        'claims': [{'attribute': 'advertised_floor', 'value': floor,
+            'source_path': '/description', 'rule': 'explicit-dwelling-floor-offer-v1',
+            'start': 0, 'end': 5, 'literal': 'floor'}]} for cid in before['capture_ids']]
+    case = {'audit_id': before['audit_id'], 'source_listing_id': before['source_listing_id'],
+        'source_row_sha256': sha(before), 'action': 'add_explicit_advertised_floor',
+        'advertised_floor': floor, 'proposed_fields': dict.fromkeys(projection.FIELDS, floor),
+        'witnesses': witnesses}
+    policy = {'version': 'prepared-direct-floor-additions-v1', 'applied': False,
+        'source_manifest_sha256': records_hash([parent]), 'cases': [case]}
+    clock = '2026-09-20T00:00:00Z'
+    after = deepcopy(rows)
+    after[2] = projection.apply_case(before, case, clock, records_hash([policy]))
+    changes = [{'source_index': 2, 'before': deepcopy(before), 'case': case}]
+    manifest = {'version': projection.VERSION, 'source_manifest': parent,
+        'source_manifest_sha256': records_hash([parent]), 'policy': policy,
+        'policy_sha256': records_hash([policy]), 'reviewed_at': clock, 'source_rows': len(rows),
+        'files': {'observations.jsonl': records_hash(after), projection.SIDECAR: records_hash(changes)}}
+    return manifest, after, changes
+
+
 @pytest.fixture
 def example():
     row = {'audit_id': 'a', 'source_listing_id': '123', 'unit_id': 'u',

@@ -9,12 +9,12 @@ import hashlib
 import math
 
 from .corrections import canonical, instant
-from . import laundry_floor_split, reviewed_cohort_quarantine, elevator_corrections, floor_label_projection, expanded_floor_projection, residual_scope_projection
+from . import laundry_floor_split, reviewed_cohort_quarantine, elevator_corrections, floor_label_projection, expanded_floor_projection, residual_scope_projection, direct_floor_projection
 
 REFRESHED = 'reviewed-capture-refreshed-analysis-v1'
 LAUNDRY = 'reviewed-laundry-negation-projection-v1'
 FLOOR = 'reviewed-floor-conflict-projection-v1'
-VERSIONS = {LAUNDRY, FLOOR, laundry_floor_split.VERSION, reviewed_cohort_quarantine.VERSION, elevator_corrections.VERSION, floor_label_projection.VERSION, expanded_floor_projection.VERSION, residual_scope_projection.VERSION}
+VERSIONS = {LAUNDRY, FLOOR, laundry_floor_split.VERSION, reviewed_cohort_quarantine.VERSION, elevator_corrections.VERSION, floor_label_projection.VERSION, expanded_floor_projection.VERSION, residual_scope_projection.VERSION, direct_floor_projection.VERSION}
 _PARENTS = {FLOOR: LAUNDRY, LAUNDRY: REFRESHED}
 _FIELDS = {FLOOR: 'advertised_floor', LAUNDRY: 'laundry_type'}
 
@@ -23,7 +23,7 @@ def manifest_hash(value):
     return hashlib.sha256((canonical(value)+'\n').encode()).hexdigest()
 
 
-def source_lineage(manifest, rows, *, quarantined=None, elevator_changes=None, floor_label_changes=None, expanded_floor_changes=None, residual_scope_changes=None):
+def source_lineage(manifest, rows, *, quarantined=None, elevator_changes=None, floor_label_changes=None, expanded_floor_changes=None, residual_scope_changes=None, direct_floor_changes=None):
     """Return the refreshed ancestor after verifying every bounded inverse patch.
 
     Existing reviewed history is preserved. Only the final appended history
@@ -32,6 +32,10 @@ def source_lineage(manifest, rows, *, quarantined=None, elevator_changes=None, f
     if manifest.get('version') not in VERSIONS | {REFRESHED}:
         raise ValueError('Unsupported reviewed source lineage')
     current = deepcopy(rows)
+    if manifest['version'] == direct_floor_projection.VERSION:
+        manifest, current = direct_floor_projection.parent_rows(manifest, current, direct_floor_changes)
+    elif direct_floor_changes is not None:
+        raise ValueError('Unexpected direct floor sidecar for this source version')
     if manifest['version'] == residual_scope_projection.VERSION:
         manifest, current = residual_scope_projection.parent_rows(manifest, current, residual_scope_changes)
     elif residual_scope_changes is not None:

@@ -91,3 +91,9 @@ def test_unexpected_residual_scope_sidecar_is_rejected_for_older_sources():
     _, manifest, rows = fixture()
     with pytest.raises(ValueError, match='Unexpected residual scope sidecar'):
         source_lineage(manifest, rows, residual_scope_changes=[])
+
+
+def test_unexpected_direct_floor_sidecar_is_rejected_for_older_sources():
+    _, manifest, rows = fixture()
+    with pytest.raises(ValueError, match='Unexpected direct floor sidecar'):
+        source_lineage(manifest, rows, direct_floor_changes=[])
