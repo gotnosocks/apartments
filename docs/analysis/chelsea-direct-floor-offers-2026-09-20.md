@@ -127,3 +127,21 @@ ancestry and matched spline design. Output:
 `data/model/chelsea-direct-floor-reader-verification-20260920`. Full-data reader
 completion, identical projection replay, and a dedicated matched-fit comparison
 remain outstanding. No new sampling has started.
+
+The complete projection replay has now finished with the identical manifest
+`2a92f7a593895bcb9389742ef1378ddaf729ef73a9325f96bff4e975d05699fd`,
+confirming idempotent publication. The full reader verification has progressed
+through literal-evidence checks to fit-loader and design checks and remains live.
+
+`models.direct_floor_fit_checks` establishes the new comparison's protocol and
+archived-code boundaries. It requires the same source population, floor support,
+knots, priors and full 4-chain/4,000-warmup/6,000-draw schedule as the nine-ad
+reference fit. Only the source bindings and exact reviewed loader plumbing may
+differ; changed mathematical code is rejected. Fifteen additional tests pass,
+including checks against the actual archived reference loaders and deliberate
+model/population/loader mutations. These are preconditions, not evidence of a
+completed fit or posterior comparison.
+
+Full-cohort spline graph parity has been launched at
+`data/model/chelsea-direct-floor-spline-graph-parity-20260920`. Sampling remains
+pending successful reader/design and numerical graph validation.
