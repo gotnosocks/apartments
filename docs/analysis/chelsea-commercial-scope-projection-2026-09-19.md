@@ -121,6 +121,18 @@ was independently recomputed and matches both storage metadata and the posterior
 checkpoint. This establishes a preserved export, not passing posterior gates.
 Full fit publication, diagnostics and matched comparisons remain pending.
 
+The fit subsequently completed successfully (session 30312, exit 0), and the
+entire published fit bundle passed independent hash verification. Manifest:
+`a66e8d2e0b6f6515ab29dd729263f8c441417338a8bfaf4d871a90601db12776`.
+Primary, derived-effect and floor diagnostics all pass. Maximum R-hat values
+are 1.00737, 1.00177 and 1.00498 respectively; minimum bulk ESS values are
+885.7, 1179.9 and 1800.8. There are zero divergences and zero depth-limit hits.
+The status is `exploratory_converged`, not evidence of causal identification.
+The matched comparison is now running (session 84842; log
+`/tmp/chelsea-commercial-scope-spline-comparison.log`). The unchanged eight-case
+development review is also running; neither result is yet established and the
+main selection remains unchanged.
+
 The existing four annotations on three retained advertisements have been
 carried from the original expanded source to this source with the established
 exact-row/capture and original-review-clock checks (session 2784, exit 0). Outputs are
@@ -155,6 +167,6 @@ uv run --frozen --no-sync python -m models.residual_scope_fit_comparison \
   --output data/model/chelsea-commercial-scope-spline-comparison-20260920
 ```
 
-This command has been checked against the current CLI but has not been run
-while sampling remains active. Fixed residual/floor panels and candidate UI
+This command was launched only after fit publication and verification.
+Fixed residual/floor panels and candidate UI
 validation remain separate requirements before any main-selection change.

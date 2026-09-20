@@ -77,3 +77,10 @@ replay and full artifact verification pass. The first attempt stopped because
 refresh capture IDs are not historical integer IDs; the final helper explicitly
 uses each capture's correct archive and verifies both paths. No source or fit
 values changed.
+
+The 24 unmasked additions are now prepared in
+`data/model/chelsea-direct-floor-prepared-policy-20260920`. The preparation
+verifies exact original rows and every attached capture, records literal claims
+and capture clocks, and preserves all 17 other reviewed observations. Publication
+and identical replay passed. The policy is explicitly unapplied; a reversible
+source projection and reader validation are still required before fitting it.
