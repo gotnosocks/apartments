@@ -56,6 +56,10 @@ ordered by expected leverage. Numbers refer to the selected fit
   interaction. Refit on 2019+ only and compare coefficients; add bedroom-group
   trend deviations. If premiums move materially, use era-specific
   coefficients or a restricted serving window.
+  *September 22:* bedroom-group random-walk trend deviations fitted and
+  converged (held-out ΔELPD +30.0 ± 9.5; group × year bias 0.92% → 0.67%);
+  not yet promoted, see [bedroom-time experiment](bedroom-time-experiment-2026-09-22.md).
+  The 2019+ coefficient refit is still open.
 
 - [ ] **Building covariates in the building-effect mean.** 25% of buildings
   have ≤5 observations and are shrunk toward the Chelsea mean, inflating their
@@ -83,6 +87,10 @@ ordered by expected leverage. Numbers refer to the selected fit
   ADVI on the identical PyMC graph to screen feature experiments; reserve
   full NUTS for candidates that pass. The main model stays exact PyMC; the
   screen is for triage only.
+  *September 22:* tested in [fast screening](fast-screening-2026-09-22.md).
+  Raw joint `find_MAP` is degenerate (`sigma_building` → 0) and unusable.
+  MAP with baseline variance components fixed reproduced a known +30 ΔELPD
+  and a null control in minutes. Data subsets are unbiased but underpowered.
 
 ### Collection and operating loop
 
