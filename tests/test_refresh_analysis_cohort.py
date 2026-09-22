@@ -1,6 +1,5 @@
 import asyncio
 from copy import deepcopy
-import json
 
 import pytest
 from scrapy.http import HtmlResponse

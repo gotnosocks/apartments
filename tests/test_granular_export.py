@@ -1,7 +1,6 @@
 import gzip
 import json
 import sqlite3
-from pathlib import Path
 import pyarrow.parquet as pq
 from apartments.granular_export import prepare, process_shard
 

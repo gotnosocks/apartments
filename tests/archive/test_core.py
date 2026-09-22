@@ -1,4 +1,3 @@
-import time
 
 from streeteasy_archive.store import ArchiveStore
 from streeteasy_archive.crawler import approved_links, retry_after

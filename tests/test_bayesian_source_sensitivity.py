@@ -142,7 +142,6 @@ def test_matched_residuals_exclude_quarantines_from_both_metrics_and_pair_by_id(
 # Actual construction and saved-product integration: no graph compilation or sampling.
 import hashlib
 import importlib.metadata
-import io
 from pathlib import Path
 
 import numpy as np

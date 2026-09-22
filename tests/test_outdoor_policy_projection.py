@@ -4,7 +4,7 @@ import pytest
 
 from apartments.outdoor_evidence import extract
 from apartments.corrections import canonical
-from apartments.research_pipeline import publish_bundle,_verified_bundle
+from apartments.research_pipeline import publish_bundle
 from models.outdoor_policy_projection import run
 
 

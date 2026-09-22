@@ -54,7 +54,6 @@ def test_inconsistent_reference_or_identity_rejected():
 @pytest.fixture
 def source_fixture(tmp_path):
     import hashlib
-    import json
     import pyarrow as pa
     import pyarrow.parquet as pq
     from apartments.corrections import canonical

@@ -1,7 +1,6 @@
 """Residual-scale extensions preserve mean priors and default posterior exactly."""
 import numpy as np
 import pandas as pd
-import pymc as pm
 import pytest
 from scipy.stats import t, halfnorm
 

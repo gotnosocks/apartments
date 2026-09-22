@@ -4,7 +4,6 @@ import hashlib
 import pytest
 
 from apartments import residual_scope_projection as q
-from apartments.corrections import canonical
 
 CLOCK = '2026-09-20T00:00:00Z'
 SENTINEL = 'scope-excluded'

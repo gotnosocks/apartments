@@ -1,6 +1,5 @@
 import gzip
 import hashlib
-import json
 
 import duckdb
 import pandas as pd

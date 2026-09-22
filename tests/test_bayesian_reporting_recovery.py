@@ -1,4 +1,3 @@
-from copy import deepcopy
 import pandas as pd
 import pytest
 from models.bayesian_feature_report import verify_reporting_recovery, verify_reporting_cache

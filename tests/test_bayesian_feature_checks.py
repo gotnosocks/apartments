@@ -1,5 +1,4 @@
 """Joint-draw reconstruction and bounded posterior discrepancy diagnostics."""
-import json
 from pathlib import Path
 from types import SimpleNamespace
 

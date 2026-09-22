@@ -7,7 +7,6 @@ import pytest
 
 from apartments.corrections import canonical
 from apartments.research_pipeline import publish_bundle
-from apartments.reviewed_cohort_quarantine import records_hash
 from models import expanded_floor_fit_comparison as m
 from tests.test_bayesian_floor_increment_design import train
 from tests.test_bayesian_floor_spline_design import spline_train

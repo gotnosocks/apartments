@@ -2,7 +2,6 @@ import json
 import sqlite3
 
 import pytest
-from scrapy import Request
 from scrapy.crawler import Crawler
 from scrapy.http import HtmlResponse
 from scrapy.settings import Settings

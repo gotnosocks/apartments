@@ -1,7 +1,6 @@
 import json
 
 import numpy as np
-import pandas as pd
 import pytest
 
 from models.bayesian_feature_model import FeatureDesign as Previous

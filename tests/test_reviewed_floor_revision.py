@@ -1,6 +1,5 @@
 from copy import deepcopy
 from datetime import datetime, timezone
-import json
 
 import pandas as pd
 import pytest

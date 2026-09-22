@@ -1,4 +1,3 @@
-from scrapy import Request
 from scrapy.http import HtmlResponse
 from scrapy.crawler import Crawler
 from scrapy.settings import Settings

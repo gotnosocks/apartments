@@ -1,6 +1,5 @@
 import base64
 from io import BytesIO
-import json
 
 from PIL import Image
 import pytest
