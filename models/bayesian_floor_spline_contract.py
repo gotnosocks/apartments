@@ -5,6 +5,10 @@ from collections import defaultdict
 import math
 
 EXPERIMENT = 'observable-bayesian-floor-spline-experiment-v5'
+BEDROOM_TIME_EXPERIMENT = 'observable-bayesian-bedroom-time-experiment-v1'
+# Experiments whose feature design is exactly this spline design; they may add
+# location terms (see bayesian_location_terms) but share its floor contract.
+FAMILY = frozenset({EXPERIMENT, BEDROOM_TIME_EXPERIMENT})
 DESIGN = 'regularized-listed-floor-spline-design-v1'
 CONTRAST = 'joint-listed-floor-spline-component-contrasts-v1'
 INTERPRETATION = 'Joint regularized natural-spline floor-component contrasts, holding other encoded terms fixed. Conditional associations, not causal or physical-height effects; shared smoothness and source support remain explicit.'
@@ -17,7 +21,7 @@ def verify_metadata(protocol, design):
     from .bayesian_feature_report import finite
     scale = protocol.get('floor_prior_scale')
     levels = protocol.get('floor_levels')
-    if (protocol.get('version') != EXPERIMENT or protocol.get('feature_design_version') != DESIGN
+    if (protocol.get('version') not in FAMILY or protocol.get('feature_design_version') != DESIGN
             or design.get('version') != DESIGN or not finite(scale) or scale <= 0
             or not isinstance(levels,list) or len(levels) < 2 or any(not finite(v) for v in levels)
             or levels != sorted(set(levels))

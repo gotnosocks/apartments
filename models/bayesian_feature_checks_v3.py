@@ -23,6 +23,11 @@ V3_EXPERIMENT = 'observable-bayesian-bathroom-experiment-v3'
 V4_EXPERIMENT = 'observable-bayesian-floor-experiment-v4'
 V5_EXPERIMENT = 'observable-bayesian-floor-elevator-experiment-v5'
 SPLINE_EXPERIMENT = 'observable-bayesian-floor-spline-experiment-v5'
+
+
+def spline_family():
+    from .bayesian_floor_spline_contract import FAMILY
+    return FAMILY
 BEDROOM_DIMS = {'residual_bedroom_z': ('residual_bedroom',),
                 'residual_bedroom_scale': (), 'sigma_by_bedroom': ('residual_bedroom',)}
 LIMITATIONS = [*common.LIMITATIONS,
@@ -66,7 +71,7 @@ def verify_implementation(protocol):
         if not {'bayesian_floor_increment_design.py', 'bayesian_floor_elevator_design.py',
                 'bayesian_floor_elevator_experiment.py'} <= protocol['implementation_sha256'].keys():
             raise ValueError('Missing v5 interaction implementation bindings')
-    if protocol.get('version') == SPLINE_EXPERIMENT:
+    if protocol.get('version') in spline_family():
         if not {'bayesian_floor_spline_design.py', 'bayesian_floor_spline_experiment.py'} <= protocol['implementation_sha256'].keys():
             raise ValueError('Missing spline design/runner implementation bindings')
     return common.verify_implementation(protocol)

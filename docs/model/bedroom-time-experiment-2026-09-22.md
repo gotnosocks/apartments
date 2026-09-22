@@ -1,8 +1,8 @@
 # Bedroom-group time-trend deviations
 
-Research fit, September 22. **Not selected**: `config/main-analysis.json` is
-unchanged. Promotion needs the reader changes listed at the end, plus Ben's
-decision.
+Research fit, September 22; **promoted on the `bedroom-time-20260922` line**
+(`config/main-analysis.json` there). The live pages still serve the `default`
+checkout until that line is landed.
 
 ## Motivation
 
@@ -109,16 +109,16 @@ January curve medians (%), relative to each group's own average:
 - Seasonality stays shared across groups.
 - These are conditional associations in asking rents, not causal effects.
 
-## Promotion checklist (not done)
+## Promotion (done on this line)
 
-1. `models/bayesian_feature_report.py`: add this experiment version to
-   `EXPERIMENT_VERSIONS` and its contract. apartments-c5 recently changed that
-   file (lineage cache), so coordinate before editing.
-2. `src/apartments/bayesian_analysis.py`: add a `bedroom_time` term to
-   `_terms` (draws `[sample, group(row.bedrooms), period]`) and load it in
-   `_draws`. Bedroom counterfactuals then move the group curve with the
-   bedroom count, which is the intended joint change. Until then, the page's
-   parity check against the saved residuals rejects this fit rather than
-   silently omitting the term.
-3. Run `apartments.main_analysis --experiment ... --dataset ...`, then
-   `build-review-queue`.
+1. Readers accept a spline family (`bayesian_floor_spline_contract.FAMILY`)
+   instead of one version string. `models/bayesian_location_terms.py` names
+   version-specific extra location terms, and the main page adds them to μ,
+   contributions and counterfactuals. Changing bedrooms moves the curve
+   jointly: for a current 1BR → 2BR/2BA it is +54.8%, versus +52.4% from
+   features alone.
+2. The eight source-review cases were regenerated with the bundle's own script
+   (`chelsea-bedroom-time-source-review-20260922`); all contribution diagnostics
+   pass.
+3. `apartments.main_analysis` selection and `build-review-queue` ran. The
+   actual-data page test passes on this selection.

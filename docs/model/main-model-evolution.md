@@ -19,10 +19,11 @@ analysis-page check.
 
 > **Authority note.** Some earlier documents, especially
 > `docs/model/current-analysis.md`, describe an earlier selected fit. For the
-> present state, the authoritative pointer is `config/main-analysis.json`, which
-> currently binds `data/model/chelsea-expanded-label-floor-analysis-20260919` to
-> `data/model/chelsea-bayesian-expanded-spline-floor-disk-20260919`. Historical
-> documents are retained as contemporaneous records and are not rewritten.
+> present state, the authoritative pointer is `config/main-analysis.json`. On the
+> `bedroom-time-20260922` line it binds
+> `data/model/chelsea-product-scope-analysis-20260921` to
+> `data/model/chelsea-bayesian-product-scope-bedroom-time-20260922` (step 9 below).
+> Historical documents are retained as contemporaneous records and are not rewritten.
 
 ## Executive summary
 
@@ -305,9 +306,15 @@ The latent conditional median on the log scale is:
        + q_{t(i)}^\mathsf{T}\gamma
        + \delta d_{t(i)}
        + s_{m(i)}^\mathsf{T}\eta \\
-     &+ b_{j(i)} + \sigma_u z_{u(i)}.
+     &+ b_{j(i)} + \sigma_u z_{u(i)}
+       + f_{g(i)}\bigl(t(i)\bigr).
 \end{aligned}
 \]
+
+Since step 9, \(f_g\) is the bedroom-group time deviation for
+\(g(i)\in\{\text{studio},1,2,3+\}\). It is piecewise-linear between January
+knots, a random walk with yearly step scale \(\tau\sim\operatorname{HalfNormal}(0.05)\),
+zero-sum across groups and centered over each group's own months.
 
 The rent-scale interpretation is \(\exp(\mu_i)\), a conditional median rather
 than an arithmetic mean. Residuals deliberately include the apartment's own
@@ -659,6 +666,31 @@ posterior in place.
 Evidence: `docs/analysis/chelsea-location-scope-followup-2026-09-20.md`,
 `docs/analysis/chelsea-direct-floor-offers-2026-09-20.md`, and the corresponding
 `data/model/` research artifacts.
+
+The product-scope source (`chelsea-product-scope-analysis-20260921`, 52,638 rows)
+was then selected with the unchanged spline equation as
+`chelsea-bayesian-product-scope-spline-disk-20260921`.
+
+### 9. Bedroom-group time deviations — September 22
+
+**Equation change:** add \(f_{g(i)}(t(i))\), a separate smooth deviation from the
+Chelsea trend for studios, one-, two- and three-plus-bedroom units. The source,
+feature design, priors and sampler settings are unchanged.
+
+**Why:** the previous fit's deviations (unit effect + residual) were signed by
+bedroom group and era. In 2010–2013 studios were 2–4% below the fit and two-
+and three-plus-bedroom units 4–10% above; in 2026 studios were 2% below and 3+
+bedrooms 3% above.
+
+**Evidence for promotion:** declared held-out screen ΔELPD +30.0 ± 9.5 (the
+linear-per-group variant was +6.0 ± 5.1; a random-group negative control was
+−0.5 ± 1.5). The full fit converged: max R-hat 1.0074, min ESS 787, 0 divergences,
+with acceptable derived, floor and curve diagnostics. Group × year bias fell from
+0.92% to 0.67%, other coefficients moved ≤ 0.009 log, and the eight source-review
+cases were regenerated with passing contribution diagnostics. The main page
+reconstructs every row, and bedroom counterfactuals move the time term jointly.
+
+Evidence: `docs/model/bedroom-time-experiment-2026-09-22.md`.
 
 ## What changed versus what did not
 
