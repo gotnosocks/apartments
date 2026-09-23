@@ -32,8 +32,12 @@
   rebuilds the dataset at its original absolute path so the remote protocol
   equals a local one, and downloads verified fit/protocol bundles. A 100/100
   smoke fit matched the local protocol except draws/tune/seed, with byte-identical
-  design files, for $0.052 billed. Still open: a full-length fit, a converged
-  bundle loaded by `BayesianAnalysis`, and faster posterior download.
+  design files, for $0.052 billed. September 23: a full-length refit reproduced
+  the local protocol hash, ran in 55.4 min for $0.38, downloaded 4.39 GB in 141 s,
+  and agreed with the local fit within Monte Carlo error. It narrowly missed the
+  R-hat gate (1.0103 on `alpha`), so loading a converged remote bundle in
+  `BayesianAnalysis` is still open. Details:
+  [remote fitting record](../analysis/modal-remote-fitting-2026-09-23.md).
 
 The items below continue the September 22 Modal sampling campaign. Probe data:
 `data/model/modal-runs/probe-*-20260922`.
@@ -89,10 +93,13 @@ September 23 findings (L4, NumPyro, 4 chains, 300 warmup + 100 draws;
   are single-threaded diagnostics and reports after sampling. Profile it and
   parallelize it across chunks or processes, or run it as a separate remote
   job. Faster samplers alone cannot cut a fit below this floor.
-- [ ] **Posterior transfer** — downloads run at about 4.6 MB/s sequentially,
-  so the 4.3 GB `posterior.nc` takes about 15 minutes. Test parallel chunked
-  reads and posterior compression, and whether most analyses can run remotely
-  against a retained posterior.
+- [x] **Posterior transfer** — the complete 4.39 GB bundle downloaded in 141 s
+  (31 MB/s). Experiments now download summaries only by default; `complete`
+  fetches the posterior for promotion candidates.
+- [ ] **Marginal R-hat for `alpha` at 6,000 draws** — the remote refit reached
+  1.0103 against the 1.01 gate, with the same protocol that passed locally at
+  1.0036. Assess whether the intercept's slow mixing warrants more draws,
+  reparameterization, or a gate that accounts for run-to-run variation.
 
 ## Floor representation
 
