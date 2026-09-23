@@ -50,6 +50,12 @@ NUTS with a free scale (4-year knots, 1,000/1,000 × 4) gives **+525.6 ± 35.7**
 against conditional MAP's +524.9 (per-row correlation 0.93). NUTS puts the
 scale at 0.0451, the MAP optimum. Residual σ falls from 0.066 to 0.057.
 
+NUTS on the chosen specification (half-year knots, scale free with a
+HalfNormal(0.1) prior, 1,000/1,000 × 4, same rows): **+825.5 ± 45.0** against
+the promoted model's NUTS screen; conditional MAP predicted +778. Posterior
+means: walk scale 0.054 per √year, residual σ 0.050 (0.066 before),
+σ_unit 0.082, σ_building 0.273. 0 divergences.
+
 Checks against an artifact:
 
 - The gain appears in every era and building-size band; 58.5% of held-out rows
