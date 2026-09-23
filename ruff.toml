@@ -255,4 +255,6 @@ extend-exclude = [
     "models/bayesian_location_terms.py",
     "models/bayesian_structure_experiment.py",
     "models/bayesian_structure_graph.py",
+    "models/bayesian_attribute_design.py",
+    "models/bayesian_attribute_experiment.py",
 ]

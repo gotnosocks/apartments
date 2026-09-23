@@ -136,6 +136,7 @@ def build_model(
     noise="shared",
     noise_scale=None,
     noise_scale_prior=0.3,
+    unit_slope_scale=None,
 ):
     """`group_column` other than bedrooms exists only for screening negative controls."""
     config = configuration(
@@ -277,6 +278,20 @@ def build_model(
             e = pm.Normal("building_shock_z", 0, 1, dims=("building", "shock_bucket"))
             centered = e - (e * shock_weights).sum(1, keepdims=True)
             mu = mu + sscale * centered[a["building"], bucket]
+        if unit_slope_scale:
+            # Per-unit linear drift, centered on each unit's own training years
+            # (fixed scale; screened on a grid). Single-listing units contribute 0.
+            years = (np.arange(n_periods) - d.anchor) / 12.0
+            n_units = len(d.unit_ids)
+            unit_years = np.bincount(
+                a["unit"], weights=years[a["period"]], minlength=n_units
+            )
+            unit_years /= np.maximum(np.bincount(a["unit"], minlength=n_units), 1)
+            model.unit_year_centers = unit_years
+            slope = pm.Normal("unit_slope_z", 0, 1, dims="unit")
+            mu = mu + float(unit_slope_scale) * slope[a["unit"]] * (
+                years[a["period"]] - unit_years[a["unit"]]
+            )
         nu_value = pm.Gamma("nu", 2.0, 0.1) if nu is None else float(nu)
         observation_sigma = sigma
         if noise == "building":
@@ -303,7 +318,10 @@ def build_model(
             observed=np.log(train.asking_rent),
         )
     config["structure"].update(
-        noise=noise, noise_scale=noise_scale, noise_scale_prior=noise_scale_prior
+        noise=noise,
+        noise_scale=noise_scale,
+        noise_scale_prior=noise_scale_prior,
+        unit_slope_scale=unit_slope_scale,
     )
     model.graph_configuration = config
     model.building_weights = building_weights

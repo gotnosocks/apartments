@@ -254,6 +254,15 @@ def predictive(posterior, design, test, options, building_weights, thin, shock=N
             shock_months=shock["months"],
             shock_scale=shock["scale"],
         )
+    if "unit_slope_z" in p:
+        years = (np.arange(len(d.periods)) - d.anchor) / 12.0
+        known = np.maximum(a["unit"], 0)
+        drift = (
+            options["unit_slope_scale"]
+            * p["unit_slope_z"].values[known]
+            * (years[a["period"]] - options["unit_year_centers"][known])[:, None]
+        )
+        mu = mu + np.where(unseen[:, None], 0.0, drift)
     nu = p["nu"].values[None] if "nu" in p else 5.0
     sigma = p.sigma.values[None] * np.ones((len(test), 1))
     if "noise_level_slope" in p:
@@ -313,6 +322,7 @@ def main():
         "--noise", choices=("shared", "building", "level"), default="shared"
     )
     parser.add_argument("--noise-scale", type=float, default=None)
+    parser.add_argument("--unit-slope-scale", type=float, default=None)
     parser.add_argument(
         "--extra-features",
         default="",
@@ -374,6 +384,7 @@ def main():
         shock_scale_prior=args.shock_scale_prior,
         noise=args.noise,
         noise_scale=args.noise_scale,
+        unit_slope_scale=args.unit_slope_scale,
         **options,
     )
     started = time.monotonic()
@@ -415,6 +426,8 @@ def main():
             **options,
             "noise_scale": args.noise_scale,
             "train_rent": train.asking_rent.to_numpy(),
+            "unit_slope_scale": args.unit_slope_scale,
+            "unit_year_centers": getattr(model, "unit_year_centers", None),
         },
         model.building_weights,
         args.thin if args.method == "nuts" else 1,
