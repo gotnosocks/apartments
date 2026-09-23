@@ -110,6 +110,7 @@ class BayesianAnalysis:
                 ('alpha', 'beta', 'trend_coefficients', 'annual_drift', 'season_coefficients', 'sigma_unit')}
             for name in location_terms.variable_dims(self.protocol):
                 self._draws[name] = self._values(self._posterior[name])
+            self._location = location_terms.prepare(self.protocol, self.design, self._data)
             if np.any(self._draws['sigma_unit'] <= 0):
                 raise ValueError('Nonpositive unit scale')
             self._signature = initial
@@ -130,6 +131,7 @@ class BayesianAnalysis:
                   'trend_basis': np.arange(d.time_matrix.shape[1]),
                   'season_basis': np.arange(d.season_matrix.shape[1])}
         dims.update(location_terms.variable_dims(self.protocol))
+        dims.update(location_terms.lazy_variable_dims(self.protocol))
         coords.update(location_terms.expected_coords(self.protocol, self.design))
         mode = self.protocol.get('residual_scale', 'shared')
         residual_names = {'residual_bedroom_z', 'residual_bedroom_scale', 'sigma_by_bedroom', 'residual_bedroom_offset'}
@@ -204,6 +206,20 @@ class BayesianAnalysis:
             self._posterior = None
         self._groups = OrderedDict()
 
+    def _location_terms(self, frame):
+        protocol = getattr(self, 'protocol', {})
+        def select(name, start, stop):
+            key = (name, start, stop)
+            if key not in self._groups:
+                # A bounded slice of one building's walk draws; never the whole array.
+                self._groups[key] = self._values(self._posterior[name].isel({self._posterior[name].dims[-1]: slice(start, stop)}))
+                if len(self._groups) > 32:
+                    self._groups.popitem(last=False)
+            self._groups.move_to_end(key)
+            return self._groups[key]
+        return location_terms.row_terms(protocol, getattr(self, '_draws', {}), frame, self.design,
+                                        select, getattr(self, '_location', {}))
+
     def _group(self, name, axis, value):
         key = (name, value)
         if key not in self._groups:
@@ -224,7 +240,7 @@ class BayesianAnalysis:
             'season': s['season_coefficients'] @ (d.season_matrix-d.season_weights@d.season_matrix)[month],
             'building': self._group('building_effect', 'building', row['building']),
             'unit_within_building': s['sigma_unit']*self._group('unit_z', 'unit', row['unit_id'])}
-        extra = location_terms.row_terms(getattr(self, 'protocol', {}), s, frame, self.design)
+        extra = self._location_terms(frame)
         for i, name in enumerate(self.design.features):
             terms['feature:'+name] = s['beta'][:, i]*x[i]
         # Follow the frozen runner's arithmetic order for fitted quantile parity.
@@ -300,7 +316,9 @@ class BayesianAnalysis:
     def _warnings(self, row):
         warnings = ['Conditional model association, not a causal renovation value or personal willingness to pay.',
                     'Building and within-building unit effects are held fixed; offsets absorb omitted attributes.']
-        if getattr(self, 'protocol', {}).get('version') == report.EXPERIMENT_BEDROOM_TIME:
+        if getattr(self, 'protocol', {}).get('version') == report.EXPERIMENT_STRUCTURE:
+            warnings.append('Each building has its own smooth price drift over time; it is held fixed with the building and date.')
+        if getattr(self, 'protocol', {}).get('version') in (report.EXPERIMENT_BEDROOM_TIME, report.EXPERIMENT_STRUCTURE):
             warnings.append('Each bedroom group (studio, 1, 2, 3+) has its own smooth deviation from the Chelsea trend; changing bedrooms also changes that time term.')
         if getattr(self, 'protocol', {}).get('version') in report.SPLINE_FAMILY:
             warnings.append('Listed-floor contrasts use a regularized natural cubic spline across observed labels. Smoothness shares information across floors; sparse same-building support and prior sensitivity limit interpretation. This does not measure physical height.')
@@ -402,8 +420,8 @@ class BayesianAnalysis:
         delta = self._draws['beta'] @ difference
         # Version-specific location terms (e.g. a bedroom-group time curve)
         # depend on the changed source values too; move them jointly.
-        before_extra = location_terms.row_terms(getattr(self, 'protocol', {}), self._draws, _frame([before]), self.design)
-        after_extra = location_terms.row_terms(getattr(self, 'protocol', {}), self._draws, _frame([after]), self.design)
+        before_extra = self._location_terms(_frame([before]))
+        after_extra = self._location_terms(_frame([after]))
         for name, value in after_extra.items():
             delta = delta + value - before_extra[name]
         after_mu = mu+delta
