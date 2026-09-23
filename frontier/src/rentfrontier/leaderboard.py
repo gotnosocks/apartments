@@ -53,7 +53,11 @@ def load_runs():
     for path in sorted(RUNS.glob("*/result.json")):
         r = json.loads(path.read_text())
         # Smoke tests and canaries check the pipeline; they are not reported runs.
-        if not r.get("reportable") or r["name"].startswith(("dev-", "canary-")):
+        if (
+            not r.get("reportable")
+            or r["name"].startswith(("dev-", "canary-"))
+            or r["split"] not in ("rows", "units")
+        ):
             continue
         r["_dir"] = path.parent
         runs.append(r)

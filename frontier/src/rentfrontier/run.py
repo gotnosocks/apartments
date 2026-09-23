@@ -128,6 +128,8 @@ def score(
 ) -> dict:
     n_chains = lpd_chain.shape[0]
     chain_elpd = lpd_chain.sum(axis=1)
+    if len(lpd) == 0:
+        return {"rows": 0, "note": "analysis fit on all rows; no held-out score"}
     out = {
         "rows": int(len(lpd)),
         "elpd": float(lpd.sum()),

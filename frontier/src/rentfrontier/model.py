@@ -121,46 +121,47 @@ class Prepared:
 
 def prepare(frame: pd.DataFrame, heldout: np.ndarray, features: Features) -> Prepared:
     train = ~heldout
-    periods = pd.date_range(frame.period.min(), frame.period.max(), freq="MS")
-    buildings = np.sort(frame.building[train].unique())
-    units = np.sort(frame.unit_id[train].unique())
-    offset = float(frame.log_rent[train].mean())
-
-    def arrays(mask):
-        sub = frame[mask]
-        month = (
-            (sub.period.dt.year - periods[0].year) * 12
-            + sub.period.dt.month
-            - periods[0].month
-        )
-        building = pd.Index(buildings).get_indexer(sub.building)
-        if (building < 0).any():
-            raise ValueError("Held-out row in a building without training rows")
-        month = month.to_numpy().astype(np.int32)
-        return Arrays(
-            y=(sub.log_rent.to_numpy() - offset),
-            x=features.values[mask],
-            month=month,
-            calendar=(sub.period.dt.month.to_numpy() - 1).astype(np.int32),
-            building=building.astype(np.int32),
-            unit=pd.Index(units).get_indexer(sub.unit_id).astype(np.int32),
-            knot=(month // KNOT_MONTHS).astype(np.int32),
-            knot_frac=(month % KNOT_MONTHS) / KNOT_MONTHS,
-            bed_group=np.minimum(sub.bedrooms.round().clip(0, 3), 3)
-            .to_numpy()
-            .astype(np.int32),
-            beds_centered=sub.bedrooms.round().clip(0, 4).to_numpy() - 1.0,
-        )
-
-    return Prepared(
+    prep = Prepared(
         features=features,
-        offset=offset,
-        periods=periods,
-        buildings=buildings,
-        units=units,
-        train=arrays(train),
-        test=arrays(heldout),
+        offset=float(frame.log_rent[train].mean()),
+        periods=pd.date_range(frame.period.min(), frame.period.max(), freq="MS"),
+        buildings=np.sort(frame.building[train].unique()),
+        units=np.sort(frame.unit_id[train].unique()),
+        train=None,
+        test=None,
         test_audit_id=frame.audit_id[heldout].to_numpy(),
+    )
+    prep.train = row_arrays(prep, frame, train)
+    prep.test = row_arrays(prep, frame, heldout)
+    return prep
+
+
+def row_arrays(prep: Prepared, frame: pd.DataFrame, mask: np.ndarray) -> Arrays:
+    """Model arrays for any rows of `frame`, encoded as in the fit `prep`."""
+    sub = frame[mask]
+    periods = prep.periods
+    month = (
+        (sub.period.dt.year - periods[0].year) * 12
+        + sub.period.dt.month
+        - periods[0].month
+    )
+    building = pd.Index(prep.buildings).get_indexer(sub.building)
+    if (building < 0).any():
+        raise ValueError("Row in a building without training rows")
+    month = month.to_numpy().astype(np.int32)
+    return Arrays(
+        y=(sub.log_rent.to_numpy() - prep.offset),
+        x=prep.features.values[mask],
+        month=month,
+        calendar=(sub.period.dt.month.to_numpy() - 1).astype(np.int32),
+        building=building.astype(np.int32),
+        unit=pd.Index(prep.units).get_indexer(sub.unit_id).astype(np.int32),
+        knot=(month // KNOT_MONTHS).astype(np.int32),
+        knot_frac=(month % KNOT_MONTHS) / KNOT_MONTHS,
+        bed_group=np.minimum(sub.bedrooms.round().clip(0, 3), 3)
+        .to_numpy()
+        .astype(np.int32),
+        beds_centered=sub.bedrooms.round().clip(0, 4).to_numpy() - 1.0,
     )
 
 

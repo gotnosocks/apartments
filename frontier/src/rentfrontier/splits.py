@@ -53,4 +53,9 @@ def unit_split(data: pd.DataFrame, fraction=FRACTION, seed=SEED) -> np.ndarray:
     return data.unit_id.isin(chosen).to_numpy()
 
 
-SPLITS = {"rows": row_split, "units": unit_split}
+def no_split(data: pd.DataFrame, fraction=FRACTION, seed=SEED) -> np.ndarray:
+    """No held-out rows: the analysis fit on all data (residuals, contributions)."""
+    return np.zeros(len(data), dtype=bool)
+
+
+SPLITS = {"rows": row_split, "units": unit_split, "all": no_split}
