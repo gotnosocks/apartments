@@ -81,6 +81,7 @@ def configuration(
     unit_centering="none",
     intercept="global",
     walk_centering="none",
+    feature_basis="identity",
 ):
     if building_time not in BUILDING_TIME:
         raise ValueError("Unknown building-time mode")
@@ -114,6 +115,7 @@ def configuration(
             "unit_centering": unit_centering,
             "intercept": intercept,
             "walk_centering": walk_centering,
+            "feature_basis": feature_basis,
         },
     )
     return config
@@ -144,6 +146,7 @@ def build_model(
     unit_centering="none",
     intercept="global",
     walk_centering="none",
+    feature_basis="identity",
 ):
     """`group_column` other than bedrooms exists only for screening negative controls."""
     config = configuration(
@@ -169,6 +172,7 @@ def build_model(
         unit_centering=unit_centering,
         intercept=intercept,
         walk_centering=walk_centering,
+        feature_basis=feature_basis,
     )
     d = design.time
     a = d.arrays(train)
@@ -195,12 +199,29 @@ def build_model(
     }
     with pm.Model(coords=coords) as model:
         alpha = pm.Normal("alpha", np.log(4500), 0.8)
-        beta = pm.Normal(
-            "beta",
-            0.0,
-            design.prior_scales * config["beta_prior_multiplier"],
-            dims="feature",
-        )
+        beta_scales = design.prior_scales * config["beta_prior_multiplier"]
+        if feature_basis == "qr":
+            # Sample theta = R beta (X = Q R of the centered training design):
+            # the likelihood is near-isotropic in theta, so correlated feature
+            # columns no longer slow a diagonal mass matrix. beta = R^-1 theta is
+            # linear (constant Jacobian) and keeps its exact N(0, scale) prior.
+            matrix = design.matrix(train)
+            if np.linalg.matrix_rank(matrix) < matrix.shape[1]:
+                raise ValueError("QR feature basis needs a full-rank design")
+            r_factor = np.linalg.qr(matrix / np.sqrt(len(matrix)), mode="r")
+            theta = pm.Flat("beta_qr", dims="feature")
+            beta = pm.Deterministic(
+                "beta",
+                pt.dot(np.linalg.inv(r_factor), theta),
+                dims="feature",
+            )
+            pm.Potential(
+                "beta_prior", pm.logp(pm.Normal.dist(0.0, beta_scales), beta).sum()
+            )
+        elif feature_basis == "identity":
+            beta = pm.Normal("beta", 0.0, beta_scales, dims="feature")
+        else:
+            raise ValueError("feature_basis must be identity or qr")
         trend_scale = pm.HalfNormal("trend_scale", 0.15)
         trend_coefficients = pm.Normal(
             "trend_coefficients",
