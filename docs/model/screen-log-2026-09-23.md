@@ -20,5 +20,11 @@ half-year building walk and screens are conditional MAP. See
 | same, per-advertisement text flags | +16.5 ± 16.6 | +105.0 ± 20.8 | replaced by unit-level |
 | convex large-area hinge | +9.8 ± 14.6 | +18.8 ± 13.4 | not credible; revisit later |
 | size × time, in-unit laundry × time | −23.1 ± 8.8 | +12.7 ± 4.2 | rejected (inconsistent) |
+| building covariates (log floors, log units, unknowns) | −17.8 ± 4.7 | +25.0 ± 7.9 | ambiguous: fixed σ_building likely biases cMAP; NUTS screen queued |
 | building-level residual scales | cMAP invalid | — | NUTS screen running |
 | price-level residual scale | cMAP invalid | — | needs a NUTS screen |
+
+Building covariates come from archived StreetEasy building pages
+(`data/model/building-covariates-20260923/buildings.csv`; 1,072 of 1,129
+buildings with floors and units). The archive's `yearBuilt` is a placeholder
+for most buildings (1910: 58%, 1900: 23%), so it is not used.
