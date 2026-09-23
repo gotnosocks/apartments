@@ -71,3 +71,23 @@ estimated at ~39 GB when complete (trace, posterior and report caches, each
 holding ~60k per-draw parameters), and two would not fit in the 75 GB free.
 The drift-only fit finishes first. The partial directory cannot resume (the
 disk sampler refuses); rerun into a new directory, locally or on Modal.
+
+## Withdrawn, September 23: unit-level flags carried later ad text backward
+
+The unit-level text flags ("any of the unit's own ads matches") put later
+advertisements' wording onto the same unit's earlier listings. That breaks the
+project rule that current attributes are not copied backward onto historical
+price events, which the from-scratch model session pointed out. For private
+outdoor space, about 1,090 of 8,650 flagged rows were flagged only from later
+ads. The row-split gain (+60.9) is suspect for the same reason: held-out rows
+could draw on later ads.
+
+- The full fit `chelsea-bayesian-product-scope-attributes-20260923b` is
+  withdrawn and not promotable. Its report stage had also been killed by a 6 GB
+  memory cap; it was not rerun.
+- Replacement: **as-of flags**. A listing is flagged when any of the unit's
+  own ads at or before that listing's period matches, so an attribute persists
+  forward once described but never backward. The penthouse flag stays a unit
+  label, a stable identity like the building. Screening restarted with the
+  as-of flags (`duplex_asof`, `private_outdoor_asof`, `shared_bath_asof` in
+  `models/structure_screen.py`).
