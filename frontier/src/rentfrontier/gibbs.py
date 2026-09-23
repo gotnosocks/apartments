@@ -693,17 +693,55 @@ def run(
             settings.rescale_step_sd,
         )
 
-        def warm2(state, k):
-            state, _ = jax.lax.scan(
-                lambda st, kk: (step(kk, st, cfg, prop_sd, solo_sd)[0], None),
-                state,
-                jax.random.split(k, settings.warmup - n1),
-            )
-            return state
+        # Phase 2 in two halves. After the first, rescale each collapsed step
+        # toward its target acceptance (0.44 for 1-D steps, 0.23 for the
+        # joint step): a scale's conditional spread given the others can be
+        # much tighter than its marginal spread, which sized the steps above.
+        n2 = settings.warmup - n1
+        solo_names = list(solo_sd)
 
-        states = jax.jit(batched(warm2, settings.chains, settings.chain_batch))(
-            states, jax.random.split(k_warm2, settings.chains)
-        )
+        def warm2(state, k, psd, ssd, length):
+            ssd_dict = dict(zip(solo_names, ssd))
+
+            def body(st, kk):
+                st, info = step(kk, st, cfg, psd, ssd_dict)
+                acc = jnp.stack(
+                    [
+                        info["collapsed_accept"],
+                        *[info[f"solo_accept_{n}"] for n in solo_names],
+                    ]
+                )
+                return st, acc
+
+            state, acc = jax.lax.scan(body, state, jax.random.split(k, length))
+            return state, acc.mean(axis=0)
+
+        ssd = jnp.asarray([solo_sd[n] for n in solo_names])
+        rounds = 3
+        lengths = [n2 // rounds] * (rounds - 1) + [n2 - (rounds - 1) * (n2 // rounds)]
+        for r, (phase_key, length) in enumerate(
+            zip(jax.random.split(k_warm2, rounds), lengths)
+        ):
+            run2 = jax.jit(
+                batched(
+                    lambda st, k, _psd=prop_sd, _sd=ssd, _len=length: warm2(
+                        st, k, _psd, _sd, _len
+                    ),
+                    settings.chains,
+                    settings.chain_batch,
+                )
+            )
+            states, acc = run2(states, jax.random.split(phase_key, settings.chains))
+            acc = np.asarray(acc).mean(axis=0)
+            log(
+                f"warmup round {r} acceptance "
+                + ", ".join(f"{n}={a:.2f}" for n, a in zip(["joint", *solo_names], acc))
+            )
+            if r < rounds - 1:
+                # Damped Robbins-Monro step on the log step sizes.
+                prop_sd = prop_sd * float(np.exp(2.0 * (acc[0] - 0.23)))
+                ssd = ssd * jnp.asarray(np.exp(2.0 * (acc[1:] - 0.44)))
+        solo_sd = {n: float(v) for n, v in zip(solo_names, np.asarray(ssd))}
     jax.block_until_ready(states)
     warmup_seconds = time.perf_counter() - t0
     log(
