@@ -8,11 +8,15 @@ dependencies = [
   "scipy>=1.14",
   "pandas>=2.2",
   "pyarrow>=19.0",
-  "jax>=0.7",
+  "jax>=0.11",
+  "numpyro>=0.22",
+  "blackjax>=1.6",
+  "optax>=0.2",
+  "arviz>=0.20",
 ]
 
 [project.optional-dependencies]
-gpu = ["jax[cuda12]>=0.7"]
+gpu = ["jax[cuda13]>=0.11"]
 dev = ["pytest>=8.0"]
 
 [build-system]
