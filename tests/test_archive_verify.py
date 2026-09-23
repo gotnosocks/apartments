@@ -13,7 +13,9 @@ def _record(path: str, data: bytes) -> dict:
 
 
 def _manifest(path: Path, *records: dict) -> None:
-    path.write_text("".join(json.dumps(item) + "\n" for item in records), encoding="utf-8")
+    path.write_text(
+        "".join(json.dumps(item) + "\n" for item in records), encoding="utf-8"
+    )
 
 
 def test_verify_streamed_files_reports_missing_mismatch_and_unexpected(tmp_path: Path):
@@ -23,7 +25,12 @@ def test_verify_streamed_files_reports_missing_mismatch_and_unexpected(tmp_path:
     (root / "changed.bin").write_bytes(b"changed")
     (root / "extra").write_text("extra")
     manifest = tmp_path / "manifest.jsonl"
-    _manifest(manifest, _record("good.bin", b"good"), _record("changed.bin", b"original"), _record("missing.bin", b"absent"))
+    _manifest(
+        manifest,
+        _record("good.bin", b"good"),
+        _record("changed.bin", b"original"),
+        _record("missing.bin", b"absent"),
+    )
 
     result = verify(root, manifest, check_unexpected=True)
 
@@ -39,7 +46,9 @@ def test_verify_symlink_with_explicit_absolute_prefix_map(tmp_path: Path):
     (root / "bodies").mkdir(parents=True)
     os.symlink("bodies", root / "current")
     manifest = tmp_path / "manifest.jsonl"
-    _manifest(manifest, {"path": "current", "type": "symlink", "target": "/archive/bodies"})
+    _manifest(
+        manifest, {"path": "current", "type": "symlink", "target": "/archive/bodies"}
+    )
 
     result = verify(root, manifest, prefix_maps=["/archive=."])
 
@@ -48,7 +57,9 @@ def test_verify_symlink_with_explicit_absolute_prefix_map(tmp_path: Path):
 
 def test_manifest_rejects_traversal_and_missing_checksum(tmp_path: Path):
     manifest = tmp_path / "manifest.jsonl"
-    manifest.write_text(json.dumps({"path": "../outside", "size": 0, "sha256": "0" * 64}) + "\n")
+    manifest.write_text(
+        json.dumps({"path": "../outside", "size": 0, "sha256": "0" * 64}) + "\n"
+    )
     with pytest.raises(ManifestError, match="unsafe path"):
         verify(tmp_path, manifest)
     manifest.write_text(json.dumps({"path": "file", "size": 0}) + "\n")
@@ -56,7 +67,9 @@ def test_manifest_rejects_traversal_and_missing_checksum(tmp_path: Path):
         verify(tmp_path, manifest)
 
 
-def test_cli_writes_atomic_summary_outside_source_and_returns_failure_status(tmp_path: Path):
+def test_cli_writes_atomic_summary_outside_source_and_returns_failure_status(
+    tmp_path: Path,
+):
     root = tmp_path / "archive"
     root.mkdir()
     (root / "file").write_bytes(b"content")
@@ -64,7 +77,9 @@ def test_cli_writes_atomic_summary_outside_source_and_returns_failure_status(tmp
     _manifest(manifest, _record("file", b"content"))
     summary = tmp_path / "reports" / "verify.json"
 
-    status = main(["--root", str(root), "--manifest", str(manifest), "--summary", str(summary)])
+    status = main(
+        ["--root", str(root), "--manifest", str(manifest), "--summary", str(summary)]
+    )
 
     assert status == 0
     assert json.loads(summary.read_text())["ok"] is True
@@ -77,5 +92,16 @@ def test_cli_rejects_summary_inside_destination(tmp_path: Path):
     manifest = tmp_path / "manifest.jsonl"
     manifest.write_text("")
 
-    assert main(["--root", str(root), "--manifest", str(manifest), "--summary", str(root / "summary.json")]) == 2
-
+    assert (
+        main(
+            [
+                "--root",
+                str(root),
+                "--manifest",
+                str(manifest),
+                "--summary",
+                str(root / "summary.json"),
+            ]
+        )
+        == 2
+    )

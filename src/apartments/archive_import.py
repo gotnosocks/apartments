@@ -39,10 +39,15 @@ def _flight_text(soup: BeautifulSoup) -> str:
         text = script.string or script.get_text() or ""
         for match in re.finditer(r"self\.__next_f\.push\(", text):
             try:
-                value, _ = decoder.raw_decode(text[match.end():])
+                value, _ = decoder.raw_decode(text[match.end() :])
             except ValueError:
                 continue
-            if isinstance(value, list) and len(value) > 1 and value[0] == 1 and isinstance(value[1], str):
+            if (
+                isinstance(value, list)
+                and len(value) > 1
+                and value[0] == 1
+                and isinstance(value[1], str)
+            ):
                 chunks.append(value[1])
     return "".join(chunks)
 
@@ -52,7 +57,7 @@ def _embedded_listing(soup: BeautifulSoup) -> dict:
     decoder = json.JSONDecoder()
     for match in re.finditer(r'"listing"\s*:', stream):
         try:
-            value, _ = decoder.raw_decode(stream[match.end():].lstrip())
+            value, _ = decoder.raw_decode(stream[match.end() :].lstrip())
         except ValueError:
             continue
         if isinstance(value, dict) and isinstance(value.get("propertyDetails"), dict):
@@ -107,12 +112,20 @@ def normalize_listing(body: bytes, url: str, observed: float) -> dict | None:
     path = urlparse(url).path
     price_node = soup.select_one('[data-testid="priceInfo"]')
     price_text = _clean(price_node.get_text(" ") if price_node else "")
-    has_rental_history = any("rentalEventsOfInterest" in value for value in property_history)
-    has_sale_history = any("saleEventsOfInterest" in value for value in property_history)
+    has_rental_history = any(
+        "rentalEventsOfInterest" in value for value in property_history
+    )
+    has_sale_history = any(
+        "saleEventsOfInterest" in value for value in property_history
+    )
     if (
         path.startswith("/sale/")
         or (has_sale_history and not has_rental_history)
-        or (not has_rental_history and path.startswith("/building/") and "for rent" not in price_text.lower())
+        or (
+            not has_rental_history
+            and path.startswith("/building/")
+            and "for rent" not in price_text.lower()
+        )
     ):
         return None
 
@@ -121,14 +134,18 @@ def normalize_listing(body: bytes, url: str, observed: float) -> dict | None:
         source = historical_listing.get("sourceGroupLabel")
         listing_id = historical_listing.get("listingId")
         for event in historical_listing.get("rentalEventsOfInterest") or []:
-            history.append({
-                "date": event.get("date"),
-                "base_rent": event.get("price"),
-                "event": _event_label(event, source),
-                "listing_url": f"https://streeteasy.com/rental/{listing_id}" if listing_id else None,
-                "archive_event": event,
-                "source_group": source,
-            })
+            history.append(
+                {
+                    "date": event.get("date"),
+                    "base_rent": event.get("price"),
+                    "event": _event_label(event, source),
+                    "listing_url": f"https://streeteasy.com/rental/{listing_id}"
+                    if listing_id
+                    else None,
+                    "archive_event": event,
+                    "source_group": source,
+                }
+            )
 
     # Older captures may lack embedded history, but their rendered table is still useful.
     if not history:
@@ -136,7 +153,11 @@ def normalize_listing(body: bytes, url: str, observed: float) -> dict | None:
 
         history = parse_price_history_html(str(soup))
 
-    spec_text = _clean(soup.select_one('[data-testid="propertyDetails"]').get_text(" ")) if soup.select_one('[data-testid="propertyDetails"]') else ""
+    spec_text = (
+        _clean(soup.select_one('[data-testid="propertyDetails"]').get_text(" "))
+        if soup.select_one('[data-testid="propertyDetails"]')
+        else ""
+    )
     full_baths = details.get("fullBathroomCount")
     half_baths = details.get("halfBathroomCount")
     bathrooms = None
@@ -154,19 +175,41 @@ def normalize_listing(body: bytes, url: str, observed: float) -> dict | None:
         "captured_at": datetime.fromtimestamp(observed, UTC).isoformat(),
         "canonical_url": canonical_url,
         "source_listing_id": f"{building_slug}/{unit.replace(' ', '').replace('-', '').lower()}",
-        "street_easy_rental_id": rental_match.group(1) if rental_match else listing.get("id"),
+        "street_easy_rental_id": rental_match.group(1)
+        if rental_match
+        else listing.get("id"),
         "building_slug": building_slug,
         "unit": unit,
         "address": address,
-        "building_address": ", ".join(filter(None, [address, str(address_data.get("city") or "").title(), address_data.get("state"), address_data.get("zipCode")])),
+        "building_address": ", ".join(
+            filter(
+                None,
+                [
+                    address,
+                    str(address_data.get("city") or "").title(),
+                    address_data.get("state"),
+                    address_data.get("zipCode"),
+                ],
+            )
+        ),
         "zipcode": address_data.get("zipCode"),
-        "asking_rent": listing.get("price") or _money(price_node.get_text(" ") if price_node else ""),
+        "asking_rent": listing.get("price")
+        or _money(price_node.get_text(" ") if price_node else ""),
         "status": listing.get("status"),
         "days_on_market": listing.get("daysOnMarket"),
         "attributes": {
-            "square_feet": details.get("livingAreaSize") or _number(spec_text, r"([\d,]+)\s*ft²"),
-            "bedrooms": details.get("bedroomCount") if details.get("bedroomCount") is not None else (0 if re.search(r"\bstudio\b", spec_text, re.I) else _number(spec_text, r"([\d.]+)\s*(?:bed|bedroom)")),
-            "bathrooms": bathrooms if bathrooms is not None else _number(spec_text, r"([\d.]+)\s*bath"),
+            "square_feet": details.get("livingAreaSize")
+            or _number(spec_text, r"([\d,]+)\s*ft²"),
+            "bedrooms": details.get("bedroomCount")
+            if details.get("bedroomCount") is not None
+            else (
+                0
+                if re.search(r"\bstudio\b", spec_text, re.I)
+                else _number(spec_text, r"([\d.]+)\s*(?:bed|bedroom)")
+            ),
+            "bathrooms": bathrooms
+            if bathrooms is not None
+            else _number(spec_text, r"([\d.]+)\s*bath"),
             "rooms": details.get("roomCount"),
         },
         "home_features": features,
@@ -189,11 +232,22 @@ def import_archive(
     sqlite_path = archive_root / "archive.sqlite3"
     if not sqlite_path.exists():
         raise FileNotFoundError(f"StreetEasy archive database not found: {sqlite_path}")
-    source = sqlite3.connect(f"file:{quote(str(sqlite_path))}?mode=ro", uri=True, timeout=30)
-    has_observations = source.execute("SELECT 1 FROM sqlite_master WHERE name='observations'").fetchone() is not None
-    collection_time = """coalesce((SELECT min(o.fetched) FROM observations o
+    source = sqlite3.connect(
+        f"file:{quote(str(sqlite_path))}?mode=ro", uri=True, timeout=30
+    )
+    has_observations = (
+        source.execute(
+            "SELECT 1 FROM sqlite_master WHERE name='observations'"
+        ).fetchone()
+        is not None
+    )
+    collection_time = (
+        """coalesce((SELECT min(o.fetched) FROM observations o
         WHERE o.generation=s.generation AND o.url=s.url AND o.body_hash=s.body_hash
-          AND o.error IS NULL AND (o.status BETWEEN 200 AND 299 OR o.status=304)),s.observed)""" if has_observations else 's.observed'
+          AND o.error IS NULL AND (o.status BETWEEN 200 AND 299 OR o.status=304)),s.observed)"""
+        if has_observations
+        else "s.observed"
+    )
     rows = source.execute(
         f"""SELECT s.id,s.url,{collection_time},s.body_hash,b.path
            FROM snapshots s
@@ -203,18 +257,33 @@ def import_archive(
            ORDER BY s.id"""
     )
     target = connect(db_path)
-    known = {row[0] for row in target.execute(
-        "SELECT capture_id FROM captures WHERE json_extract_string(manifest_json, '$.source')='streeteasy-archive'"
-    ).fetchall()}
-    counts = {"examined": 0, "imported": 0, "skipped": 0, "unrecognized": 0, "failed": 0, "events": 0}
+    known = {
+        row[0]
+        for row in target.execute(
+            "SELECT capture_id FROM captures WHERE json_extract_string(manifest_json, '$.source')='streeteasy-archive'"
+        ).fetchall()
+    }
+    counts = {
+        "examined": 0,
+        "imported": 0,
+        "skipped": 0,
+        "unrecognized": 0,
+        "failed": 0,
+        "events": 0,
+    }
     target.execute("""CREATE TABLE IF NOT EXISTS archive_imports (
         capture_id VARCHAR PRIMARY KEY, outcome VARCHAR NOT NULL,
         imported_at TIMESTAMPTZ DEFAULT current_timestamp
     )""")
-    known.update(row[0] for row in target.execute("SELECT capture_id FROM archive_imports").fetchall())
+    known.update(
+        row[0]
+        for row in target.execute("SELECT capture_id FROM archive_imports").fetchall()
+    )
     try:
         for snapshot_id, url, observed, body_hash, relative_path in rows:
-            capture_id = hashlib.sha256(f"streeteasy-archive|{snapshot_id}|{url}|{body_hash}".encode()).hexdigest()
+            capture_id = hashlib.sha256(
+                f"streeteasy-archive|{snapshot_id}|{url}|{body_hash}".encode()
+            ).hexdigest()
             counts["examined"] += 1
             if capture_id in known:
                 counts["skipped"] += 1
@@ -229,15 +298,26 @@ def import_archive(
                 event_count = 0
                 if item is not None:
                     _, event_count = ingest_item(
-                        item, str(db_path), connection=target,
-                        bundle_path=archive_root, page_html_path=body_path,
-                        manifest={"source": "streeteasy-archive", "snapshot_id": snapshot_id,
-                                  "url": url, "body_hash": body_hash,
-                                  "collection_time_basis": "archive_response_fetched" if has_observations else "snapshot_timestamp"},
+                        item,
+                        str(db_path),
+                        connection=target,
+                        bundle_path=archive_root,
+                        page_html_path=body_path,
+                        manifest={
+                            "source": "streeteasy-archive",
+                            "snapshot_id": snapshot_id,
+                            "url": url,
+                            "body_hash": body_hash,
+                            "collection_time_basis": "archive_response_fetched"
+                            if has_observations
+                            else "snapshot_timestamp",
+                        },
                         capture_id=capture_id,
                     )
-                target.execute("INSERT INTO archive_imports(capture_id,outcome) VALUES (?,?)",
-                               [capture_id, "rental" if item is not None else "not_rental"])
+                target.execute(
+                    "INSERT INTO archive_imports(capture_id,outcome) VALUES (?,?)",
+                    [capture_id, "rental" if item is not None else "not_rental"],
+                )
                 target.execute("COMMIT")
                 counts["imported" if item is not None else "unrecognized"] += 1
                 counts["events"] += event_count
@@ -245,16 +325,20 @@ def import_archive(
             except Exception as error:
                 target.execute("ROLLBACK")
                 counts["failed"] += 1
-                print(f"Import failed for snapshot {snapshot_id} ({url}): {error}", file=sys.stderr)
+                print(
+                    f"Import failed for snapshot {snapshot_id} ({url}): {error}",
+                    file=sys.stderr,
+                )
             if limit and counts["imported"] >= limit:
                 break
         from .temporal import sync_observations
-        target.execute('BEGIN TRANSACTION')
+
+        target.execute("BEGIN TRANSACTION")
         try:
-            counts['observations_added'] = sync_observations(source, target)
-            target.execute('COMMIT')
+            counts["observations_added"] = sync_observations(source, target)
+            target.execute("COMMIT")
         except Exception:
-            target.execute('ROLLBACK')
+            target.execute("ROLLBACK")
             raise
     finally:
         source.close()

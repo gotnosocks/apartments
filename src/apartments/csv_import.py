@@ -25,10 +25,15 @@ def ingest_csv(path: Path, scope: str, db_path: str = "data/apartments.duckdb") 
             if not in_scope(address, scope, targets):
                 continue
             source = row.get("source") or "manual"
-            listing_id = row.get("source_listing_id") or hashlib.sha256(
-                f"{source}|{address}|{row.get('unit')}|{row_number}".encode()
-            ).hexdigest()[:20]
-            observed_at = row.get("observed_at") or datetime.now(timezone.utc).isoformat()
+            listing_id = (
+                row.get("source_listing_id")
+                or hashlib.sha256(
+                    f"{source}|{address}|{row.get('unit')}|{row_number}".encode()
+                ).hexdigest()[:20]
+            )
+            observed_at = (
+                row.get("observed_at") or datetime.now(timezone.utc).isoformat()
+            )
             raw = json.dumps(row)
             db.execute(
                 """INSERT INTO listings (
@@ -38,18 +43,37 @@ def ingest_csv(path: Path, scope: str, db_path: str = "data/apartments.duckdb") 
                 ) VALUES (?, ?, ?, ?, ?, 'New York', 'NY', ?, ?, ?, ?, ?, 'Rental', ?)
                 ON CONFLICT (source, source_listing_id) DO UPDATE SET
                     last_seen_at=now(), raw_json=excluded.raw_json""",
-                [source, listing_id, address, normalize_address(address), row.get("unit"),
-                 row.get("zipcode"), row.get("property_type"), _number(row.get("bedrooms")),
-                 _number(row.get("bathrooms")), _number(row.get("square_feet"), int), raw],
+                [
+                    source,
+                    listing_id,
+                    address,
+                    normalize_address(address),
+                    row.get("unit"),
+                    row.get("zipcode"),
+                    row.get("property_type"),
+                    _number(row.get("bedrooms")),
+                    _number(row.get("bathrooms")),
+                    _number(row.get("square_feet"), int),
+                    raw,
+                ],
             )
             db.execute(
                 """INSERT INTO listing_snapshots (
                     source, source_listing_id, observed_at, status, asking_rent,
                     listed_date, removed_date, days_on_market, scope, raw_json
                 ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT DO NOTHING""",
-                [source, listing_id, observed_at, row.get("status"), _number(row.get("asking_rent"), int),
-                 row.get("listed_date") or None, row.get("removed_date") or None,
-                 _number(row.get("days_on_market"), int), scope, raw],
+                [
+                    source,
+                    listing_id,
+                    observed_at,
+                    row.get("status"),
+                    _number(row.get("asking_rent"), int),
+                    row.get("listed_date") or None,
+                    row.get("removed_date") or None,
+                    _number(row.get("days_on_market"), int),
+                    scope,
+                    raw,
+                ],
             )
             count += 1
     db.close()

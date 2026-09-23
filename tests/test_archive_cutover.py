@@ -22,13 +22,20 @@ def _fixture(tmp_path, *, include_ledger=True):
     with sqlite3.connect(root / "crawls/chelsea-resume/archive.sqlite3") as db:
         db.execute("CREATE TABLE sample (id INTEGER PRIMARY KEY)")
         db.executemany("INSERT INTO sample VALUES (?)", [(1,), (2,)])
-    pq.write_table(pa.table({"snapshot_id": [1, 2]}), dataset / "listing_observations/part-00000.parquet")
-    pq.write_table(pa.table({"snapshot_id": [1]}), dataset / "event_mentions/part-00000.parquet")
+    pq.write_table(
+        pa.table({"snapshot_id": [1, 2]}),
+        dataset / "listing_observations/part-00000.parquet",
+    )
+    pq.write_table(
+        pa.table({"snapshot_id": [1]}), dataset / "event_mentions/part-00000.parquet"
+    )
     counts = {"listing_observations": 2, "event_mentions": 1}
     (dataset / "quality-report.json").write_text(
         json.dumps({"tables": {"counts": counts}}), encoding="utf-8"
     )
-    (dataset / "complete.json").write_text(json.dumps({"counts": counts}), encoding="utf-8")
+    (dataset / "complete.json").write_text(
+        json.dumps({"counts": counts}), encoding="utf-8"
+    )
 
     records = []
     for path in sorted(item for item in root.rglob("*") if item.is_file()):
@@ -42,7 +49,11 @@ def _fixture(tmp_path, *, include_ledger=True):
         )
     state.mkdir()
     total_bytes = sum(item["size"] for item in records)
-    plan = {"total_files": len(records), "total_bytes": total_bytes, "groups": [{"id": 0, "files": len(records), "bytes": total_bytes}]}
+    plan = {
+        "total_files": len(records),
+        "total_bytes": total_bytes,
+        "groups": [{"id": 0, "files": len(records), "bytes": total_bytes}],
+    }
     (state / "plan.json").write_text(json.dumps(plan), encoding="utf-8")
     (state / "parts").mkdir()
     part = {"id": 0, "records": records}
@@ -59,7 +70,10 @@ def test_cutover_writes_ready_marker_after_all_checks(tmp_path):
     marker = json.loads((state / "cutover-ready.json").read_text(encoding="utf-8"))
     assert marker["sqlite"]["quick_check"] == "ok"
     assert marker["migration"]["groups"] == 1
-    assert marker["parquet_row_counts"] == {"listing_observations": 2, "event_mentions": 1}
+    assert marker["parquet_row_counts"] == {
+        "listing_observations": 2,
+        "event_mentions": 1,
+    }
     assert marker == result
 
 
