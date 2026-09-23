@@ -138,6 +138,14 @@ conclusions. In priority order:
   It is an exact reparameterization (verified identical log density), and
   the saved `building_effect` = b_j − α − β·m̄_j keeps readers' arithmetic
   unchanged.
+  *Round 4 result:* within-building centering plus QR gives every parameter
+  ESS ≥ 450 per 4,000 draws (slowest coefficient 91 → 454; annual drift
+  1,049; slowest overall the building-walk scale, 546). Either change alone
+  leaves the slowest coefficient near 200. **Adopted combination:** intercept
+  as the building mean, walk centering, within-building features, QR basis.
+  The page's reconstruction on a fit with this parameterization matches the
+  saved residuals to 2e-15. The E3 validation fit (`models/bayesian_efficient_structure_experiment.py`,
+  4 × 1,000/1,500) runs on Modal.
 - [ ] **E2. Cut steps per iteration.** 255 leapfrog steps per draw dominates
   cost. Measure steps/iteration and ESS per gradient for E1's variants;
   low-rank adaptation or better-scaled global parameters should reach tree
