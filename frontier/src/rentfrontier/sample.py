@@ -26,7 +26,6 @@ import jax
 import jax.flatten_util
 import jax.numpy as jnp
 import numpy as np
-import numpyro.optim
 import optax
 from jax.scipy.special import logsumexp
 from numpyro.infer.util import initialize_model
@@ -252,6 +251,7 @@ def _advi(prep, config, settings, info, key):
     """Mean-field ADVI; returns loc and scale in the sampler's flat ordering."""
     import numpyro.infer
     import numpyro.infer.autoguide
+    import numpyro.optim
 
     model = model_module.build_model(prep, config)
     guide = numpyro.infer.autoguide.AutoNormal(model, init_scale=0.05)

@@ -30,6 +30,9 @@ DATASET = Path(
     "/home/ben/code/apartments/data/model/chelsea-product-scope-analysis-20260921"
 )
 REFERENCE_ROOT = Path("/home/ben/code/apartments/data/model/feature-screen-20260923")
+DESCRIPTIONS = Path(
+    "/home/ben/code/apartments/data/model/chelsea-refreshed-bayesian-descriptions-20260918/evidence.jsonl"
+)
 LOCAL_RUNS = Path("/data1/apartments/frontier/runs")
 PACKAGES = [
     "jax[cuda12]==0.11.2",
@@ -68,6 +71,7 @@ def upload_inputs():
             str(DATASET / "observations.jsonl"),
             f"data/{DATASET.name}/observations.jsonl",
         )
+        batch.put_file(str(DESCRIPTIONS), "data/descriptions/evidence.jsonl")
         for split_dir in ("nuts-hwalk", "nuts-hwalk-units"):
             ref = REFERENCE_ROOT / split_dir / "heldout.npz"
             if ref.exists():
@@ -132,6 +136,7 @@ def main():
             "FRONTIER_DATASET": f"/vol/data/{DATASET.name}",
             "FRONTIER_OUTPUT_ROOT": "/vol/out",
             "FRONTIER_REFERENCE_ROOT": "/vol/refs",
+            "FRONTIER_DESCRIPTIONS": "/vol/data/descriptions/evidence.jsonl",
             "XLA_PYTHON_CLIENT_PREALLOCATE": "false",
         }
         t0 = time.time()

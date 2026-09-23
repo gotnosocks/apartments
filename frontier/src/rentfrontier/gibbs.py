@@ -238,7 +238,6 @@ def gaussian_block(d: Design, lam, s, z_g, z_l, z_u):
     n_slots = slots.shape[1]
     w = lam / s["sigma"] ** 2
     seg_u = lambda v: jax.ops.segment_sum(v, d.unit, J)  # noqa: E731
-    seg_ub = lambda v: jax.ops.segment_sum(v, d.unit_building, K)  # noqa: E731
     sw = seg_u(w)
     c = 1.0 / (1.0 / s["unit_scale"] ** 2 + sw)  # unit posterior variance given rest
     h = seg_u(w * y)
@@ -255,19 +254,25 @@ def gaussian_block(d: Design, lam, s, z_g, z_l, z_u):
     rhs_g = wa.T @ y - g.T @ (c * h)
 
     # Building blocks, with units integrated out (units nest in buildings).
-    q_ll = jnp.zeros((K, L, L))
-    q_lg = jnp.zeros((K, L, a.shape[1]))
-    r_l = jnp.zeros((K, L))
-    for m1 in range(n_slots):
-        wv = w * vals[:, m1]
-        for m2 in range(n_slots):
-            q_ll = q_ll.at[bld, slots[:, m1], slots[:, m2]].add(wv * vals[:, m2])
-        q_lg = q_lg.at[bld, slots[:, m1]].add(wv[:, None] * a)
-        r_l = r_l.at[bld, slots[:, m1]].add(wv * y)
-    cgl = c[:, None] * gl
-    q_ll = q_ll - jnp.stack([seg_ub(cgl[:, i : i + 1] * gl) for i in range(L)], axis=1)
-    q_lg = q_lg - jnp.stack([seg_ub(cgl[:, i : i + 1] * g) for i in range(L)], axis=1)
-    r_l = r_l - seg_ub(cgl * h[:, None])
+    # With a~_i = a_L,i - c_j gl_j (row i's local design minus its unit's
+    # correction), sum_i w_i a~_i b_i^T equals
+    # sum_i w_i a_L,i b_i^T - sum_j c_j gl_j (sum_{i in j} w_i b_i)^T,
+    # so each building term is one segment sum over rows. Accumulating one
+    # local index at a time keeps temporaries at (rows x columns).
+    n = a.shape[0]
+    a_l = jnp.zeros((n, L)).at[jnp.arange(n)[:, None], slots].add(vals)
+    wadj = w[:, None] * (a_l - (c[:, None] * gl)[d.unit])
+    seg_b = lambda v: jax.ops.segment_sum(v, bld, K)  # noqa: E731
+
+    def per_local(i):
+        col = jax.lax.dynamic_index_in_dim(wadj, i, axis=1, keepdims=True)
+        return seg_b(col * a_l), seg_b(col * a)
+
+    q_ll, q_lg = jax.lax.map(per_local, jnp.arange(L))
+    q_ll = jnp.swapaxes(q_ll, 0, 1)  # (K, L, L)
+    q_lg = jnp.swapaxes(q_lg, 0, 1)  # (K, L, P)
+    q_ll = 0.5 * (q_ll + jnp.swapaxes(q_ll, 1, 2))
+    r_l = seg_b(wadj * y[:, None])
     prior_l = sum(d.local_structures[n] / s[n] ** 2 for n in d.local_structures)
     q_ll = q_ll + prior_l[None]
 

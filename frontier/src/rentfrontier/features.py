@@ -119,7 +119,59 @@ def base_v1(frame: pd.DataFrame, train: np.ndarray) -> Features:
     return b.build("base-v1")
 
 
-FEATURE_SETS = {"base-v1": base_v1}
+# Description flags: a mention in the listing's own advertisement text. "Not
+# mentioned" is the reference; a missing description has its own indicator,
+# so unknown is never read as "no". Patterns are lower-case regexes.
+DESCRIPTION_FLAGS = {
+    "renovated": r"renovat|brand[- ]new (?:kitchen|bath)",
+    "dishwasher": r"dish ?washer",
+    "washer_dryer_in_unit": r"washer.{0,15}dryer.{0,20}(?:in|inside).{0,10}(?:unit|apartment|residence)|in[- ]unit (?:washer|laundry|w/?d)|\bw/d\b",
+    "no_fee": r"\bno (?:broker )?fee",
+    "furnished": r"(?<!un)furnished",
+    "concession": r"\b(?:one|two|1|2|3|\d\.?\d?) months? free|net effective|free rent|concession",
+    "income_restricted": r"income restrict|affordable housing|housing lottery|\bami\b",
+    "rent_stabilized": r"rent[- ]stabiliz",
+    "private_outdoor": r"private (?:outdoor|terrace|balcony|roof|garden|patio|backyard)|(?:your|its) own (?:terrace|balcony|garden|patio|backyard)",
+    "shared_space": r"shared (?:bath|kitchen)|\bsro\b|roommate",
+    "luxury": r"\bluxury\b",
+    "flex_convertible": r"\bflex\b|convertible",
+    "duplex": r"\bduplex|triplex",
+    "walkup_text": r"walk[- ]?up",
+    "high_ceilings": r"high ceiling|soaring ceiling|(?:1[0-9]|[89])[- ]?(?:ft|foot|feet|') ceiling",
+    "exposed_brick": r"exposed brick",
+    "fireplace": r"fireplace",
+    "outdoor_shared": r"(?:shared|common|communal) (?:roof|garden|terrace|courtyard)|roof ?deck",
+    "gym": r"\bgym\b|fitness (?:center|room)",
+    "short_term": r"short[- ]term|month[- ]to[- ]month|\bsublet",
+}
+
+
+def desc_v1(frame: pd.DataFrame, train: np.ndarray) -> Features:
+    """base-v1 plus flags from the listing's own advertisement description."""
+    from . import descriptions
+
+    base = base_v1(frame, train)
+    text = descriptions.attach(frame)
+    known = text.str.len() > 20
+    b = _Builder(frame)
+    b.add("description", "description_missing", ~known)
+    for name, pattern in DESCRIPTION_FLAGS.items():
+        b.add(
+            "description",
+            f"text:{name}",
+            known & text.str.contains(pattern, regex=True),
+        )
+    extra = b.build("desc-v1")
+    return Features(
+        "desc-v1",
+        base.names + extra.names,
+        base.groups + extra.groups,
+        np.column_stack([base.values, extra.values]),
+        np.concatenate([base.prior_scale, extra.prior_scale]),
+    )
+
+
+FEATURE_SETS = {"base-v1": base_v1, "desc-v1": desc_v1}
 
 
 def build(name: str, frame: pd.DataFrame, train: np.ndarray) -> Features:
