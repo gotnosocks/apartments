@@ -458,6 +458,7 @@ def main():
             "building_shock_scale",
             "nu",
             "noise_level_slope",
+            "unit_slope_scale",
         )
         if n in posterior
     }
