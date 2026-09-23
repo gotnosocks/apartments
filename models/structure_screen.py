@@ -26,7 +26,7 @@ from .bedroom_time_screen import split, map_posterior, summarize
 FIXED = ('sigma', 'sigma_unit', 'sigma_building', 'trend_scale', 'bedroom_walk_scale')
 
 
-def predictive(posterior, design, test, options, building_weights, thin):
+def predictive(posterior, design, test, options, building_weights, thin, shock=None):
     d = design.time
     a = d.arrays(test)
     if (a['building'] < 0).any() or (a['unit'] < 0).any():
@@ -43,6 +43,9 @@ def predictive(posterior, design, test, options, building_weights, thin):
     mu = mu + graph.building_time_numpy(p, design, test, building_weights,
         building_time=options['building_time'], building_scale=options['building_scale'],
         building_knot_years=options['building_knot_years'])
+    if shock and shock['months']:
+        mu = mu + graph.building_shock_numpy(p, design, test, shock['weights'],
+            shock_months=shock['months'], shock_scale=shock['scale'])
     nu = p['nu'].values[None] if 'nu' in p else 5.
     y = np.log(test.asking_rent.to_numpy())[:, None]
     logpdf = stats.t.logpdf(y, nu, loc=mu, scale=p.sigma.values[None])
@@ -63,6 +66,9 @@ def main():
     parser.add_argument('--building-scale-prior', type=float, default=.02,
         help='HalfNormal prior scale for the drift scale when --building-scale is omitted')
     parser.add_argument('--estimate-nu', action='store_true')
+    parser.add_argument('--shock-months', type=int, default=None)
+    parser.add_argument('--shock-scale', type=float, default=None)
+    parser.add_argument('--shock-scale-prior', type=float, default=.05)
     parser.add_argument('--fraction', type=float, default=.10)
     parser.add_argument('--split-seed', type=int, default=20260922)
     parser.add_argument('--seed', type=int, default=20260918)
@@ -83,7 +89,9 @@ def main():
     options = {'bedroom_groups': args.bedroom_groups, 'building_time': args.building_time,
                'building_scale': args.building_scale, 'building_knot_years': args.building_knot_years}
     model = graph.build_model(train, design, nu=None if args.estimate_nu else 5.,
-                              building_scale_prior=args.building_scale_prior, **options)
+                              building_scale_prior=args.building_scale_prior,
+                              shock_months=args.shock_months, shock_scale=args.shock_scale,
+                              shock_scale_prior=args.shock_scale_prior, **options)
     started = time.monotonic()
     diagnostic = None
     if args.method == 'map':
@@ -100,12 +108,16 @@ def main():
         diagnostic, _ = v3.v2.base.diagnostics(inference)
         posterior = inference['posterior'].to_dataset()
     elapsed = time.monotonic()-started
+    shock = {'months': args.shock_months, 'scale': args.shock_scale,
+             'weights': getattr(model, 'shock_weights', None)}
     lpd, error = predictive(posterior, design, test, options, model.building_weights,
-                            args.thin if args.method == 'nuts' else 1)
+                            args.thin if args.method == 'nuts' else 1, shock)
     scalars = {n: {'mean': float(posterior[n].mean()), 'sd': float(posterior[n].std())}
                for n in ('alpha', 'sigma', 'sigma_unit', 'sigma_building', 'annual_drift', 'trend_scale',
-                         'season_scale', 'bedroom_walk_scale', 'building_time_scale', 'nu') if n in posterior}
+                         'season_scale', 'bedroom_walk_scale', 'building_time_scale', 'building_shock_scale', 'nu')
+               if n in posterior}
     result = {'method': args.method, **options, 'estimate_nu': args.estimate_nu, 'seconds': elapsed,
+              'shock_months': args.shock_months, 'shock_scale': args.shock_scale,
               'train_rows': len(train), 'scalars': scalars, 'heldout': summarize(test, lpd, error),
               'diagnostics': diagnostic, 'configuration': model.graph_configuration}
     np.savez_compressed(args.output/'heldout.npz', lpd=lpd, error=error, audit_id=test.audit_id.to_numpy())

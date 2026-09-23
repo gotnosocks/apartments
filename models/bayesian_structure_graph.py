@@ -7,7 +7,9 @@ Adds, each optional:
 * ``building_time='walk'``: per-building random walk on knots every
   ``building_knot_years`` years (piecewise-linear), step sd = scale*sqrt(years);
 * ``bedroom_groups=5``: split 3+ bedrooms into 3 and 4+ for the time curve;
-* ``nu=None``: estimate the Student-t degrees of freedom, nu ~ Gamma(2, 0.1).
+* ``nu=None``: estimate the Student-t degrees of freedom, nu ~ Gamma(2, 0.1);
+* ``shock_months=k``: iid building x k-month-bucket shocks, scale*e, e ~ N(0, 1),
+  on top of any building drift (separates transient pricing waves from drift).
 
 Every building curve is centered over that building's own training months, so
 building effects keep their meaning as period-averaged offsets. ``scale=None``
@@ -24,6 +26,7 @@ import pytensor.tensor as pt
 
 from . import bayesian_feature_graph as reference
 from . import bayesian_bedroom_time_graph as bedroom_time
+from . import bayesian_location_terms as location_terms
 from .bayesian_feature_graph_v3 import graph_configuration as base_configuration
 
 VERSION = 'bayesian-structure-graph-v1'
@@ -43,23 +46,13 @@ def group_labels(count):
 
 
 def building_knots(periods, years):
-    periods = pd.DatetimeIndex(periods)
-    months = np.arange(len(periods), dtype=float)
-    step = 12*years
-    knots = list(np.arange(0., months[-1], step))
-    if knots[-1] != months[-1]:
-        knots.append(months[-1])
-    knots = np.asarray(knots)
-    basis = np.zeros((len(periods), len(knots)))
-    for k in range(len(knots)):
-        e = np.zeros(len(knots)); e[k] = 1.
-        basis[:, k] = np.interp(months, knots, e)
-    return basis, knots
+    return location_terms.building_knots(pd.DatetimeIndex(periods), years)
 
 
 def configuration(train, *, bedroom_groups=4, building_time='none', building_scale=None,
                   building_scale_prior=.02, building_knot_years=4, nu=5., walk_prior_scale=.05,
-                  building_prior_scale=.35, unit_prior_scale=.25, prior_multiplier=1.):
+                  building_prior_scale=.35, unit_prior_scale=.25, prior_multiplier=1., group_column='bedrooms',
+                  shock_months=None, shock_scale=None, shock_scale_prior=.05):
     if building_time not in BUILDING_TIME:
         raise ValueError('Unknown building-time mode')
     config = base_configuration(train, prior_multiplier, building_prior_scale=building_prior_scale,
@@ -70,19 +63,23 @@ def configuration(train, *, bedroom_groups=4, building_time='none', building_sca
         'building_scale': None if building_scale is None else float(building_scale),
         'building_scale_prior': float(building_scale_prior),
         'building_knot_years': building_knot_years if building_time == 'walk' else None,
-        'nu': None if nu is None else float(nu)})
+        'nu': None if nu is None else float(nu), 'group_column': group_column, 'shock_months': shock_months,
+        'shock_scale': None if shock_scale is None else float(shock_scale),
+        'shock_scale_prior': float(shock_scale_prior)})
     return config
 
 
 def build_model(train, design, *, bedroom_groups=4, building_time='none', building_scale=None,
                 building_scale_prior=.02, building_knot_years=4, nu=5., walk_prior_scale=.05,
-                building_prior_scale=.35, unit_prior_scale=.25, prior_multiplier=1., group_column='bedrooms'):
+                building_prior_scale=.35, unit_prior_scale=.25, prior_multiplier=1., group_column='bedrooms',
+                shock_months=None, shock_scale=None, shock_scale_prior=.05):
     """`group_column` other than bedrooms exists only for screening negative controls."""
     config = configuration(train, bedroom_groups=bedroom_groups, building_time=building_time,
         building_scale=building_scale, building_scale_prior=building_scale_prior,
         building_knot_years=building_knot_years, nu=nu, walk_prior_scale=walk_prior_scale,
         building_prior_scale=building_prior_scale, unit_prior_scale=unit_prior_scale,
-        prior_multiplier=prior_multiplier)
+        prior_multiplier=prior_multiplier, group_column=group_column, shock_months=shock_months,
+        shock_scale=shock_scale, shock_scale_prior=shock_scale_prior)
     d = design.time
     a = d.arrays(train)
     unique, inverse = reference.compress(design.matrix(train))
@@ -137,14 +134,28 @@ def build_model(train, design, *, bedroom_groups=4, building_time='none', buildi
                 mu = mu+drift[a['building']]*(years[a['period']]-centers[a['building']])
             else:
                 bbasis, bknots = building_knots(d.periods, building_knot_years)
-                model.add_coord('building_time_basis', np.arange(len(bknots)))
-                z = pm.Normal('building_time_z', 0, 1, dims=('building', 'building_time_basis'))
+                # One flat (building-major) vector: diagnostics and reports can
+                # then read bounded slices instead of a building x knot matrix.
+                model.add_coord('building_knot', np.arange(n_buildings*len(bknots)))
+                z = pm.Normal('building_time_z', 0, 1, dims='building_knot').reshape((n_buildings, len(bknots)))
                 levels = scale*np.sqrt(building_knot_years)*pt.cumsum(z, axis=1)
                 centers = (levels*(building_weights@bbasis)).sum(1)
                 mu = mu+(levels[a['building']]*bbasis[a['period']]).sum(1)-centers[a['building']]
+        if shock_months:
+            bucket = a['period']//int(shock_months)
+            n_buckets = (n_periods-1)//int(shock_months)+1
+            shock_weights = np.zeros((n_buildings, n_buckets))
+            np.add.at(shock_weights, (a['building'], bucket), 1.)
+            shock_weights /= np.maximum(shock_weights.sum(1, keepdims=True), 1.)
+            model.shock_weights = shock_weights
+            model.add_coord('shock_bucket', np.arange(n_buckets))
+            sscale = (pm.HalfNormal('building_shock_scale', shock_scale_prior) if shock_scale is None
+                      else float(shock_scale))
+            e = pm.Normal('building_shock_z', 0, 1, dims=('building', 'shock_bucket'))
+            centered = e-(e*shock_weights).sum(1, keepdims=True)
+            mu = mu+sscale*centered[a['building'], bucket]
         nu_value = pm.Gamma('nu', 2., .1) if nu is None else float(nu)
         pm.StudentT('log_rent', nu=nu_value, mu=mu, sigma=sigma, observed=np.log(train.asking_rent))
-    config['structure']['group_column'] = group_column
     model.graph_configuration = config
     model.building_weights = building_weights
     return model
@@ -165,7 +176,21 @@ def building_time_numpy(posterior, design, frame, building_weights, *, building_
         centers = building_weights@years
         return scale[None]*z[a['building'], 0]*(years[a['period']]-centers[a['building']])[:, None]
     bbasis, _ = building_knots(d.periods, building_knot_years)
+    if z.ndim == 2:  # flat building-major (building_knot, sample)
+        z = z.reshape(len(d.buildings), bbasis.shape[1], z.shape[-1])
     levels = scale[None, None]*np.sqrt(building_knot_years)*np.cumsum(z, axis=1)
     centers = np.einsum('bks,bk->bs', levels, building_weights@bbasis)
     return (np.einsum('rks,rk->rs', levels[a['building']], bbasis[a['period']])
             - centers[a['building']])
+
+
+def building_shock_numpy(posterior, design, frame, shock_weights, *, shock_months, shock_scale):
+    """Per-row building shock for stacked draws (rows x samples)."""
+    if not shock_months:
+        return 0.
+    a = design.time.arrays(frame)
+    e = posterior['building_shock_z'].values  # (building, bucket, sample)
+    scale = (posterior['building_shock_scale'].values if shock_scale is None
+             else np.full(e.shape[-1], float(shock_scale)))
+    centered = e-np.einsum('bks,bk->bs', e, shock_weights)[:, None, :]
+    return scale[None]*centered[a['building'], a['period']//int(shock_months)]
