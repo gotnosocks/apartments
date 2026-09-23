@@ -179,6 +179,31 @@ def build():
         e["frontier"] = not any(
             all(o[i] >= p[i] for i in range(3)) and o != p for o in others
         )
+    # What supersedes each entry: the current best (if it beats it on the
+    # paired row split), otherwise a later run of the same design that passes.
+    for e in entries:
+        note = ""
+        if best is not None and e is not best and "rows" in e["splits"]:
+            d, se = paired(
+                Path(best["splits"]["rows"]["_dir"]), Path(e["splits"]["rows"]["_dir"])
+            )
+            if d > 2 * se:
+                note = f"beaten by {best['id']} ({d:+.1f} ± {se:.1f} rows)"
+            elif not e["passes_checks"]:
+                same = [
+                    o
+                    for o in entries
+                    if o is not e
+                    and o["passes_checks"]
+                    and o["model"]["name"] == e["model"]["name"]
+                    and o["feature_set"] == e["feature_set"]
+                ]
+                note = (
+                    f"superseded by passing rerun {same[0]['id']}"
+                    if same
+                    else "fails the convergence gate"
+                )
+        e["note"] = note
     for e in entries:
         for s in e["splits"].values():
             s.pop("_dir", None)
@@ -205,12 +230,12 @@ def markdown(board) -> str:
         "standard errors on the row split, the unit split decides, because it tests whether named feature terms carry over to",
         "unseen units instead of being absorbed by unit effects. **Frontier** = not beaten on row-split ΔELPD, fit time and cost at once.",
         "",
-        "| Entry | Design | Features | Rows ΔELPD | Units ΔELPD | Units ELPD | R-hat / ESS | Fit time | Cost | Hardware | Checks | Interp. | Best | Frontier |",
-        "|---|---|---|---:|---:|---:|---|---:|---:|---|---|---|---|---|",
+        "| Entry | Design | Features | Rows ΔELPD | Units ΔELPD | Units ELPD | R-hat / ESS | Fit time | Cost | Hardware | Checks | Interp. | Best | Frontier | Note |",
+        "|---|---|---|---:|---:|---:|---|---:|---:|---|---|---|---|---|---|",
     ]
     p = PROMOTED
     lines.append(
-        f"| promoted (reference) | {p['description']} | own | 0 (ELPD {fmt(p['rows']['elpd'])}) | pending | pending | passes | {fmt(p['fit_seconds'] / 60, 0)} min* | ${p['cost_usd']:.2f}* | {p['hardware']} | yes | yes | — | reference |"
+        f"| promoted (reference) | {p['description']} | own | 0 (ELPD {fmt(p['rows']['elpd'])}) | pending | pending | passes | {fmt(p['fit_seconds'] / 60, 0)} min* | ${p['cost_usd']:.2f}* | {p['hardware']} | yes | yes | — | reference | |"
     )
     for e in sorted(
         board["entries"],
@@ -226,7 +251,7 @@ def markdown(board) -> str:
             f"| `{e['id']}` | {e['model']['name']} | {e['feature_set']} | {fmt(r.get('delta'))} ± {fmt(r.get('delta_se'))} | "
             f"{fmt(u.get('delta'))}{' ± ' + fmt(u.get('delta_se')) if u.get('delta') is not None else ''} | {fmt(u.get('elpd'))} | {diag} | "
             f"{fmt(e['fit_seconds'], 0)} s | ${e['cost_usd']:.2f} | {e['hardware']} | {'pass' if e['passes_checks'] else 'fail'} | "
-            f"{'yes' if e['interpretable'] else 'no'} | {'**best**' if e['current_best'] else ''} | {'yes' if e['frontier'] else ''} |"
+            f"{'yes' if e['interpretable'] else 'no'} | {'**best**' if e['current_best'] else ''} | {'yes' if e['frontier'] else ''} | {e['note']} |"
         )
     lines += [
         "",

@@ -85,8 +85,9 @@
       "passes_checks": true,
       "fit_seconds": 82.845289502,
       "cost_usd": 0.1823,
-      "current_best": true,
-      "frontier": true
+      "current_best": false,
+      "frontier": true,
+      "note": "beaten by m5-quarterly/base-v1/gibbs@4226f40 (+1098.6 \u00b1 55.3 rows)"
     },
     {
       "id": "m1-walk/base-v1/gibbs@1b11fac",
@@ -160,7 +161,8 @@
       "fit_seconds": 412.68388330700003,
       "cost_usd": 0.6035,
       "current_best": false,
-      "frontier": false
+      "frontier": false,
+      "note": "beaten by m5-quarterly/base-v1/gibbs@4226f40 (+201.0 \u00b1 30.8 rows)"
     },
     {
       "id": "m1-walk/base-v1/gibbs@942c0f4",
@@ -237,7 +239,8 @@
       "fit_seconds": 757.332050489,
       "cost_usd": 1.0174,
       "current_best": false,
-      "frontier": false
+      "frontier": false,
+      "note": "beaten by m5-quarterly/base-v1/gibbs@4226f40 (+201.3 \u00b1 30.8 rows)"
     },
     {
       "id": "m1-walk/base-v1/gibbs@94a4da4",
@@ -305,7 +308,91 @@
       "fit_seconds": 359.885618108,
       "cost_usd": 0.5136,
       "current_best": false,
-      "frontier": false
+      "frontier": false,
+      "note": "beaten by m5-quarterly/base-v1/gibbs@4226f40 (+201.0 \u00b1 30.8 rows)"
+    },
+    {
+      "id": "m1-walk/base-v1/gibbs@bf01f16",
+      "commit": "bf01f16434307e883aee90454d5f88866eb5dd89",
+      "model": {
+        "name": "m1-walk",
+        "beta_sd": 0.5,
+        "trend_scale_sd": 0.05,
+        "season_scale_sd": 0.05,
+        "building_scale_sd": 0.5,
+        "unit_scale_sd": 0.2,
+        "noise_scale_sd": 0.2,
+        "noncentered": [],
+        "building_walk": true,
+        "walk_scale_sd": 0.1,
+        "bedroom_time": false,
+        "bedroom_time_scale_sd": 0.02,
+        "bedroom_slope": false,
+        "bedroom_slope_scale_sd": 0.1,
+        "trend_knot_months": 1,
+        "bedroom_time_knot_months": 1
+      },
+      "feature_set": "base-v1",
+      "sampler": "gibbs",
+      "sampler_settings": {
+        "chains": 16,
+        "warmup": 600,
+        "draws": 2000,
+        "keep_every": 100,
+        "seed": 20260923,
+        "noise_steps": 10,
+        "sigma_step_sd": 0.004,
+        "nu_step_sd": 0.03,
+        "rescale_steps": 5,
+        "rescale_step_sd": 0.01,
+        "trace_groups": 32,
+        "collapse": true,
+        "collapse_scale": 2.38,
+        "chain_batch": 0,
+        "solo_scales": [
+          "walk_scale"
+        ]
+      },
+      "hardware": "NVIDIA H100 80GB HBM3",
+      "interpretable": true,
+      "splits": {
+        "rows": {
+          "run": "m1-walk-rows-bf01f16",
+          "elpd": 5934.160979150871,
+          "elpd_se": 76.5738350454664,
+          "elpd_mcse": 0.5304094842342423,
+          "delta": 70.46548537196016,
+          "delta_se": 24.703083921725078,
+          "paired_rows": 5264,
+          "max_rhat": 1.0051017187326337,
+          "min_ess": 2897.996924576983,
+          "passes": true,
+          "fit_seconds": 997.2356491639999,
+          "sampling_seconds": 794.2900863120001,
+          "cost_usd": 1.272
+        },
+        "units": {
+          "run": "m1-walk-units-bf01f16",
+          "elpd": 3959.036384852998,
+          "elpd_se": 75.04437028614522,
+          "elpd_mcse": 0.19214111865370215,
+          "delta": null,
+          "delta_se": null,
+          "paired_rows": null,
+          "max_rhat": 1.0067223606352882,
+          "min_ess": 2899.986540009151,
+          "passes": true,
+          "fit_seconds": 996.695902929,
+          "sampling_seconds": 797.061459296,
+          "cost_usd": 1.289
+        }
+      },
+      "passes_checks": true,
+      "fit_seconds": 997.2356491639999,
+      "cost_usd": 1.289,
+      "current_best": false,
+      "frontier": true,
+      "note": "beaten by m5-quarterly/base-v1/gibbs@4226f40 (+201.1 \u00b1 30.8 rows)"
     },
     {
       "id": "m1-walk/base-v1/gibbs@c5a208a",
@@ -369,7 +456,8 @@
       "fit_seconds": 684.158991166,
       "cost_usd": 0.8939,
       "current_best": false,
-      "frontier": false
+      "frontier": false,
+      "note": "beaten by m5-quarterly/base-v1/gibbs@4226f40 (+201.1 \u00b1 30.8 rows)"
     },
     {
       "id": "m4-walk-bedtime-bedslope/base-v1/gibbs@942c0f4",
@@ -446,8 +534,245 @@
       "fit_seconds": 2412.6420545809997,
       "cost_usd": 2.9859,
       "current_best": false,
-      "frontier": false
+      "frontier": false,
+      "note": "fails the convergence gate"
+    },
+    {
+      "id": "m5-quarterly/base-v1/gibbs@4226f40",
+      "commit": "4226f40a9ef92964361fbc8ff9cf941ab0314956",
+      "model": {
+        "name": "m5-quarterly",
+        "beta_sd": 0.5,
+        "trend_scale_sd": 0.05,
+        "season_scale_sd": 0.05,
+        "building_scale_sd": 0.5,
+        "unit_scale_sd": 0.2,
+        "noise_scale_sd": 0.2,
+        "noncentered": [],
+        "building_walk": true,
+        "walk_scale_sd": 0.1,
+        "bedroom_time": true,
+        "bedroom_time_scale_sd": 0.02,
+        "bedroom_slope": true,
+        "bedroom_slope_scale_sd": 0.1,
+        "trend_knot_months": 3,
+        "bedroom_time_knot_months": 3
+      },
+      "feature_set": "base-v1",
+      "sampler": "gibbs",
+      "sampler_settings": {
+        "chains": 16,
+        "warmup": 600,
+        "draws": 2000,
+        "keep_every": 100,
+        "seed": 20260923,
+        "noise_steps": 10,
+        "sigma_step_sd": 0.004,
+        "nu_step_sd": 0.03,
+        "rescale_steps": 5,
+        "rescale_step_sd": 0.01,
+        "trace_groups": 32,
+        "collapse": true,
+        "collapse_scale": 2.38,
+        "chain_batch": 0,
+        "solo_scales": [
+          "walk_scale",
+          "bedroom_time_scale"
+        ]
+      },
+      "hardware": "NVIDIA H200",
+      "interpretable": true,
+      "splits": {
+        "rows": {
+          "run": "m5-quarterly-base-v1-rows-4226f40",
+          "elpd": 6135.218673742791,
+          "elpd_se": 77.25188892070476,
+          "elpd_mcse": 0.6583985231428001,
+          "delta": 271.52317996388075,
+          "delta_se": 36.45194310061805,
+          "paired_rows": 5264,
+          "max_rhat": 1.008098769550964,
+          "min_ess": 2492.715626495464,
+          "passes": true,
+          "fit_seconds": 1184.773789487,
+          "sampling_seconds": 941.645858496,
+          "cost_usd": 1.4995
+        }
+      },
+      "passes_checks": true,
+      "fit_seconds": 1184.773789487,
+      "cost_usd": 1.4995,
+      "current_best": true,
+      "frontier": true,
+      "note": ""
+    },
+    {
+      "id": "m5-quarterly/desc-v1/gibbs@4226f40",
+      "commit": "4226f40a9ef92964361fbc8ff9cf941ab0314956",
+      "model": {
+        "name": "m5-quarterly",
+        "beta_sd": 0.5,
+        "trend_scale_sd": 0.05,
+        "season_scale_sd": 0.05,
+        "building_scale_sd": 0.5,
+        "unit_scale_sd": 0.2,
+        "noise_scale_sd": 0.2,
+        "noncentered": [],
+        "building_walk": true,
+        "walk_scale_sd": 0.1,
+        "bedroom_time": true,
+        "bedroom_time_scale_sd": 0.02,
+        "bedroom_slope": true,
+        "bedroom_slope_scale_sd": 0.1,
+        "trend_knot_months": 3,
+        "bedroom_time_knot_months": 3
+      },
+      "feature_set": "desc-v1",
+      "sampler": "gibbs",
+      "sampler_settings": {
+        "chains": 16,
+        "warmup": 600,
+        "draws": 2000,
+        "keep_every": 100,
+        "seed": 20260923,
+        "noise_steps": 10,
+        "sigma_step_sd": 0.004,
+        "nu_step_sd": 0.03,
+        "rescale_steps": 5,
+        "rescale_step_sd": 0.01,
+        "trace_groups": 32,
+        "collapse": true,
+        "collapse_scale": 2.38,
+        "chain_batch": 0,
+        "solo_scales": [
+          "walk_scale",
+          "bedroom_time_scale"
+        ]
+      },
+      "hardware": "NVIDIA H100 80GB HBM3",
+      "interpretable": true,
+      "splits": {
+        "rows": {
+          "run": "m5-quarterly-desc-v1-rows-4226f40",
+          "elpd": 6123.591141682991,
+          "elpd_se": 76.93070131793253,
+          "elpd_mcse": 0.5448519661821831,
+          "delta": 259.8956479040811,
+          "delta_se": 38.197778169200845,
+          "paired_rows": 5264,
+          "max_rhat": 1.0114836070905298,
+          "min_ess": 1575.3682718364332,
+          "passes": false,
+          "fit_seconds": 1353.7668484520002,
+          "sampling_seconds": 1088.959044206,
+          "cost_usd": 1.738
+        },
+        "units": {
+          "run": "m5-quarterly-desc-v1-units-4226f40",
+          "elpd": 4452.884781286246,
+          "elpd_se": 75.09923648683373,
+          "elpd_mcse": 0.3088192430889499,
+          "delta": null,
+          "delta_se": null,
+          "paired_rows": null,
+          "max_rhat": 1.0070697524989463,
+          "min_ess": 2561.552790188469,
+          "passes": true,
+          "fit_seconds": 1217.082913875,
+          "sampling_seconds": 971.5281520609999,
+          "cost_usd": 1.5463
+        }
+      },
+      "passes_checks": false,
+      "fit_seconds": 1353.7668484520002,
+      "cost_usd": 1.738,
+      "current_best": false,
+      "frontier": false,
+      "note": "fails the convergence gate"
+    },
+    {
+      "id": "m5-quarterly/base-v1/gibbs@bf01f16",
+      "commit": "bf01f16434307e883aee90454d5f88866eb5dd89",
+      "model": {
+        "name": "m5-quarterly",
+        "beta_sd": 0.5,
+        "trend_scale_sd": 0.05,
+        "season_scale_sd": 0.05,
+        "building_scale_sd": 0.5,
+        "unit_scale_sd": 0.2,
+        "noise_scale_sd": 0.2,
+        "noncentered": [],
+        "building_walk": true,
+        "walk_scale_sd": 0.1,
+        "bedroom_time": true,
+        "bedroom_time_scale_sd": 0.02,
+        "bedroom_slope": true,
+        "bedroom_slope_scale_sd": 0.1,
+        "trend_knot_months": 3,
+        "bedroom_time_knot_months": 3
+      },
+      "feature_set": "base-v1",
+      "sampler": "gibbs",
+      "sampler_settings": {
+        "chains": 16,
+        "warmup": 600,
+        "draws": 2000,
+        "keep_every": 100,
+        "seed": 20260923,
+        "noise_steps": 10,
+        "sigma_step_sd": 0.004,
+        "nu_step_sd": 0.03,
+        "rescale_steps": 5,
+        "rescale_step_sd": 0.01,
+        "trace_groups": 32,
+        "collapse": true,
+        "collapse_scale": 2.38,
+        "chain_batch": 0,
+        "solo_scales": [
+          "walk_scale"
+        ]
+      },
+      "hardware": "NVIDIA H100 80GB HBM3",
+      "interpretable": true,
+      "splits": {
+        "rows": {
+          "run": "m5-quarterly-rows-bf01f16",
+          "elpd": 6135.253439201148,
+          "elpd_se": 77.25428246792698,
+          "elpd_mcse": 0.6656932089713566,
+          "delta": 271.5579454222365,
+          "delta_se": 36.4516088955269,
+          "paired_rows": 5264,
+          "max_rhat": 1.010850086911429,
+          "min_ess": 1914.6331476953744,
+          "passes": false,
+          "fit_seconds": 1282.2096327000002,
+          "sampling_seconds": 1029.1051662720001,
+          "cost_usd": 1.6177
+        },
+        "units": {
+          "run": "m5-quarterly-units-bf01f16",
+          "elpd": 4323.910914207039,
+          "elpd_se": 75.80637332295605,
+          "elpd_mcse": 0.3214730490564306,
+          "delta": null,
+          "delta_se": null,
+          "paired_rows": null,
+          "max_rhat": 1.0100363988682655,
+          "min_ess": 2065.735071701776,
+          "passes": false,
+          "fit_seconds": 1306.552801864,
+          "sampling_seconds": 1046.66378566,
+          "cost_usd": 1.6506
+        }
+      },
+      "passes_checks": false,
+      "fit_seconds": 1306.552801864,
+      "cost_usd": 1.6506,
+      "current_best": false,
+      "frontier": false,
+      "note": "superseded by passing rerun m5-quarterly/base-v1/gibbs@4226f40"
     }
   ],
-  "current_best": "m0-base/base-v1/gibbs@5cc0809"
+  "current_best": "m5-quarterly/base-v1/gibbs@4226f40"
 }
