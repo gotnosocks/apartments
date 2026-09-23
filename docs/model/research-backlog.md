@@ -56,20 +56,22 @@ September 23 findings (L4, NumPyro, 4 chains, 300 warmup + 100 draws;
   directive, September 22, 2026. The spline model's logp+gradient takes about
   30 ms for one chain on H100, A100 and L4 (22 ms on the local RTX 2060 SUPER),
   against 2.6 ms for Numba on one CPU core, yet a vmapped batch of 4 chains
-  costs only about 1.3 ms. The suspected cause is XLA's unbatched lowering of
-  the per-unit/per-building index gathers and scatter-adds. Profile the JAX
+  costs only about 1.3 ms. nutpie's JAX backend with PyTensor-built gradients
+  measured about 4 ms per step, so the cost is concentrated in JAX's own
+  autodiff (likely the transposed per-unit/per-building gathers). Profile the JAX
   graph (e.g. `jax.profiler`, HLO dumps), identify the slow ops, and test
   equivalent formulations (segment sums, sorted indices, one-hot or sparse
   matmuls) in a new graph module. Show exact log-density/gradient parity with
   the frozen graph before any sampling. This decides whether nutpie's JAX
   backend, which evaluates chains one at a time, is viable on GPU.
 - [ ] **Measure nutpie JAX on GPU** — the PyMC-developer recommendation as of
-  June 2026. Run nutpie `backend='jax'` with `gradient_backend` pytensor and jax,
+  June 2026. Only a 30-draw canary has run (about 4 ms/step/chain on L4). Run nutpie `backend='jax'` with `gradient_backend` pytensor and jax,
   4 chains and nutpie's shorter default tuning on H100 and L4. Compare wall
   time and ESS per second and per dollar with nutpie/Numba CPU, and with
   NumPyro vectorized chains.
-- [ ] **Many vectorized GPU chains** — NumPyro 16- and 64-chain trials on
-  H100/L4 are running. Next, test adaptation built for many chains
+- [ ] **Many vectorized GPU chains** — NumPyro's window adaptation needed 511
+  steps per draw (see above), so batched chains lose on gradient count. Next,
+  test adaptation built for many chains
   (BlackJAX ChEES/MEADS, or nutpie's normalizing-flow adaptation). Report
   lockstep leapfrog cost, warmup length needed, and ESS per dollar at
   24,000 retained draws.
