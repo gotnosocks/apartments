@@ -23,21 +23,83 @@ from . import bayesian_floor_spline_design as floor
 from . import bayesian_structure_graph as graph
 from .bedroom_time_screen import split, map_posterior, summarize
 
+UNSEEN_UNIT_DRAWS = 200
+
+
+def split_units(data, fraction, seed):
+    """Hold out every row of ~fraction of units whose building keeps other units."""
+    units = data.groupby('unit_id').building.first()
+    per_building = units.value_counts()
+    eligible = units[units.map(per_building).ge(3)].index.to_numpy()
+    chosen = set(np.random.default_rng(seed).choice(np.sort(eligible), size=int(round(fraction*len(units))), replace=False))
+    for _, members in units.reset_index().groupby('building').unit_id:
+        members = sorted(members)
+        if set(members) <= chosen:  # every building keeps at least one training unit
+            chosen.discard(members[0])
+    test = data.unit_id.isin(chosen).to_numpy()
+    return data[~test].reset_index(drop=True), data[test].reset_index(drop=True)
+
 FIXED = ('sigma', 'sigma_unit', 'sigma_building', 'trend_scale', 'bedroom_walk_scale')
+DESCRIPTIONS = Path('/home/ben/code/apartments/data/model/chelsea-refreshed-bayesian-descriptions-20260918/evidence.jsonl')
+EXTRA = {
+    # Unit label (source identity), not description text: "penthouse" in text is
+    # mostly building amenities ("penthouse lounge") and is not used.
+    'penthouse_label': lambda f, d: f.canonical_unit_url.str.rsplit('/', n=1).str[-1].str.lower()
+                                    .str.match(r'^(ph|penthouse)').to_numpy(),
+    'duplex_text': lambda f, d: d.str.contains(r'\b(?:duplex|triplex)\b').to_numpy(),
+    'private_outdoor_text': lambda f, d: d.str.contains(
+        r'\b(?:private|your own|own private|exclusive)\s+(?:outdoor space|terrace|balcony|roof ?deck|rooftop|'
+        r'garden|patio|backyard|yard)').to_numpy(),
+    'shared_bath_text': lambda f, d: d.str.contains(
+        r'\b(?:sro|single room occupancy|shared (?:bath|baths|bathroom|bathrooms|kitchen)|share ?bath)\b').to_numpy(),
+}
+
+
+def descriptions(frame):
+    import json as _json
+    text = {}
+    with DESCRIPTIONS.open() as stream:
+        for line in stream:
+            record = _json.loads(line)
+            if record.get('description'):
+                text[record['audit_id']] = record['description'].lower()
+    return frame.audit_id.map(text).fillna('')
+
+
+class ExtendedDesign:
+    """Screening-only design: the frozen feature design plus centered 0/1 flags."""
+
+    def __init__(self, base, train, names, scale=.2):
+        self.base, self.names, self.time = base, list(names), base.time
+        self.means = self.raw(train).mean(0)
+        self.features = [*base.features, *self.names]
+        self.prior_scales = np.r_[base.prior_scales, np.full(len(self.names), scale)]
+
+    def raw(self, frame):
+        text = descriptions(frame) if any(n.endswith('_text') for n in self.names) else None
+        return np.column_stack([EXTRA[n](frame, text).astype(float) for n in self.names]) if self.names else np.zeros((len(frame), 0))
+
+    def matrix(self, frame):
+        return np.column_stack([self.base.matrix(frame), self.raw(frame)-self.means])
+
+    def __getattr__(self, name):
+        return getattr(self.base, name)
 
 
 def predictive(posterior, design, test, options, building_weights, thin, shock=None):
     d = design.time
     a = d.arrays(test)
-    if (a['building'] < 0).any() or (a['unit'] < 0).any():
-        raise ValueError('Held-out rows must have fitted buildings and units')
+    if (a['building'] < 0).any():
+        raise ValueError('Held-out rows must have fitted buildings')
+    unseen = a['unit'] < 0
     p = posterior.stack(sample=('chain', 'draw')).isel(sample=slice(None, None, thin))
     x = design.matrix(test)
     monthly = ((d.time_matrix-d.time_center) @ p.trend_coefficients.values
                + np.outer(d.linear_time-d.linear_center, p.annual_drift.values))
     seasonal = (d.season_matrix-d.season_weights@d.season_matrix) @ p.season_coefficients.values
     mu = (p.alpha.values[None] + x @ p.beta.values + monthly[a['period']] + seasonal[a['season']]
-          + p.building_effect.values[a['building']] + p.sigma_unit.values[None]*p.unit_z.values[a['unit']])
+          + p.building_effect.values[a['building']]
+          + np.where(unseen[:, None], 0., p.sigma_unit.values[None]*p.unit_z.values[np.maximum(a['unit'], 0)]))
     g = graph.groups(test.bedrooms, options['bedroom_groups'])
     mu = mu + p.bedroom_time.values[g, a['period']]
     mu = mu + graph.building_time_numpy(p, design, test, building_weights,
@@ -48,7 +110,16 @@ def predictive(posterior, design, test, options, building_weights, thin, shock=N
             shock_months=shock['months'], shock_scale=shock['scale'])
     nu = p['nu'].values[None] if 'nu' in p else 5.
     y = np.log(test.asking_rent.to_numpy())[:, None]
-    logpdf = stats.t.logpdf(y, nu, loc=mu, scale=p.sigma.values[None])
+    if unseen.any():
+        # A new unit's effect is unknown: integrate sigma_unit * z, z ~ N(0, 1),
+        # with fixed-seed draws (repeated per posterior draw when there are few).
+        k = max(1, UNSEEN_UNIT_DRAWS//mu.shape[1])
+        z = np.random.default_rng(0).standard_normal((mu.shape[0], mu.shape[1]*k))
+        mu_k = np.repeat(mu, k, axis=1) + np.where(unseen[:, None], np.repeat(p.sigma_unit.values, k)[None]*z, 0.)
+        nu_k = np.repeat(nu, k, axis=1) if np.ndim(nu) else nu
+        logpdf = stats.t.logpdf(y, nu_k, loc=mu_k, scale=np.repeat(p.sigma.values, k)[None])
+    else:
+        logpdf = stats.t.logpdf(y, nu, loc=mu, scale=p.sigma.values[None])
     lpd = special.logsumexp(logpdf, axis=1)-math.log(logpdf.shape[1])
     return lpd, y[:, 0]-np.median(mu, axis=1)
 
@@ -66,10 +137,13 @@ def main():
     parser.add_argument('--building-scale-prior', type=float, default=.02,
         help='HalfNormal prior scale for the drift scale when --building-scale is omitted')
     parser.add_argument('--estimate-nu', action='store_true')
+    parser.add_argument('--extra-features', default='', help='Comma-separated screening flags: '+', '.join(EXTRA))
     parser.add_argument('--shock-months', type=int, default=None)
     parser.add_argument('--shock-scale', type=float, default=None)
     parser.add_argument('--shock-scale-prior', type=float, default=.05)
     parser.add_argument('--fraction', type=float, default=.10)
+    parser.add_argument('--split', choices=('rows', 'units'), default='rows',
+        help='rows: 10%% of rows from repeat units; units: every row of 10%% of units')
     parser.add_argument('--split-seed', type=int, default=20260922)
     parser.add_argument('--seed', type=int, default=20260918)
     parser.add_argument('--tune', type=int, default=1000)
@@ -80,12 +154,15 @@ def main():
     args = parser.parse_args()
     args.output.mkdir(parents=True, exist_ok=True)
     data, _ = v3.load_data(args.dataset)
-    train, test = split(data, args.fraction, args.split_seed)
+    train, test = (split if args.split == 'rows' else split_units)(data, args.fraction, args.split_seed)
     design = floor.FeatureDesign(train, 'full_half_balance', floor_prior_scale=.10)
     values = floor.listed_floor_values(test)
     supported = ~np.isfinite(values) | ((values >= min(design.floor_levels)) & (values <= max(design.floor_levels)))
     test = test[supported & test.period.between(design.time.periods[0], design.time.periods[-1]).to_numpy()]
     test = test.reset_index(drop=True)
+    extra = [n for n in args.extra_features.split(',') if n]
+    if extra:
+        design = ExtendedDesign(design, train, extra)
     options = {'bedroom_groups': args.bedroom_groups, 'building_time': args.building_time,
                'building_scale': args.building_scale, 'building_knot_years': args.building_knot_years}
     model = graph.build_model(train, design, nu=None if args.estimate_nu else 5.,
@@ -116,7 +193,14 @@ def main():
                for n in ('alpha', 'sigma', 'sigma_unit', 'sigma_building', 'annual_drift', 'trend_scale',
                          'season_scale', 'bedroom_walk_scale', 'building_time_scale', 'building_shock_scale', 'nu')
                if n in posterior}
-    result = {'method': args.method, **options, 'estimate_nu': args.estimate_nu, 'seconds': elapsed,
+    coefficients = {}
+    if extra:
+        beta = posterior['beta'].stack(sample=('chain', 'draw')).values
+        for name in extra:
+            i = design.features.index(name)
+            coefficients[name] = {'mean': float(beta[i].mean()), 'sd': float(beta[i].std()),
+                                  'rows': int(design.raw(train)[:, extra.index(name)].sum())}
+    result = {'method': args.method, 'split': args.split, **options, 'extra_features': coefficients, 'estimate_nu': args.estimate_nu, 'seconds': elapsed,
               'shock_months': args.shock_months, 'shock_scale': args.shock_scale,
               'train_rows': len(train), 'scalars': scalars, 'heldout': summarize(test, lpd, error),
               'diagnostics': diagnostic, 'configuration': model.graph_configuration}
