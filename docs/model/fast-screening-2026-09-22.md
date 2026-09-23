@@ -106,7 +106,12 @@ data, which is exactly where most of this improvement lived.
   per-building residual scales. The MAP of a group variance is biased low for
   small groups, so held-out rows look overconfident. Building-level noise
   scales screened at −466 to −1,250 ELPD. That is an artifact of the method;
-  such variants need a NUTS screen.
+  such variants need a NUTS screen. Freeing the global σ does not rescue
+  it: at the joint mode σ collapses from ~0.057 to 0.030 as unit effects and
+  the building walk absorb the noise, and the free-σ baseline itself loses
+  2,191 nats. A price-level noise model (log σᵢ = log σ + γ(μᵢ − μ̄)) screened
+  at −162 with σ fixed and −539 with σ free, for the same reason. Screen any
+  change to the noise model with NUTS.
 - **Which rows are held out.** The declared row split holds out listings of
   units that keep other training listings, so it measures within-unit and
   within-building prediction. Unit attributes (penthouse, duplex, private
