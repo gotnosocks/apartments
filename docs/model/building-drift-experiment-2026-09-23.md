@@ -74,8 +74,37 @@ and a two-component drift-plus-shock model did not beat the single walk.
 
 ## Full protocol fit
 
-Pending.
+`data/model/chelsea-bayesian-product-scope-structure-20260923` (4 × 4,000 tune /
+6,000 draws, target accept 0.93, maxdepth 10; same source as the promoted fit).
+Status `exploratory_converged`: max R-hat 1.0088 (alpha, the weakest parameter,
+matching the remote-refit finding that 6,000 draws is marginal for the
+intercept), min bulk ESS 587, min tail ESS 1,138, 0 divergences, 0 depth hits,
+min BFMI 0.516. Derived, floor, bedroom-time and building-walk diagnostics all
+pass. Walk scale 0.054 [0.052, 0.056] per √year. (The first launch died in a
+machine reboot; the disk sampler cannot resume, so this is a fresh run.)
+
+Matched comparison against the bedroom-time fit (same 52,638 rows):
+
+- residual σ 0.0653 → **0.0496**; σ_unit 0.0854 → 0.0843; σ_building
+  0.273 → 0.278;
+- median |in-sample residual| 0.0347 → 0.0225;
+- coefficients mostly stable; the largest shifts (±0.025 log) are on doorman
+  contrasts, which are building-level and now share variation with the walk,
+  and on sparse 4+ full-bath increments;
+- current listings: group means move by at most 1.4%, but individual listings
+  move −7.5% to +15.3% as each building's recent pricing enters;
+- bedroom-group × year bias 0.67% → 0.77%. The bedroom curve's scale fell
+  (0.014 → 0.010) as the building walk took up time variation; a small
+  regression, noted.
+
+The eight source-review cases were regenerated
+(`chelsea-structure-source-review-20260923`) with passing contribution
+diagnostics. The page reconstruction path (bedroom curve plus lazily read
+building walk) matches saved residuals exactly.
 
 ## Decision
 
-Pending.
+**Promoted** on the `bedroom-time-20260922` line, September 23: held-out
++825.5 ± 45.0 (NUTS, row split) and +379.5 ± 39.3 (whole-unit split), passing
+diagnostics, stable coefficients and verified reconstruction. The selection
+and review queue were rebuilt.

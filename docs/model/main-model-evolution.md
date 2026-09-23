@@ -22,7 +22,7 @@ analysis-page check.
 > present state, the authoritative pointer is `config/main-analysis.json`. On the
 > `bedroom-time-20260922` line it binds
 > `data/model/chelsea-product-scope-analysis-20260921` to
-> `data/model/chelsea-bayesian-product-scope-bedroom-time-20260922` (step 9 below).
+> `data/model/chelsea-bayesian-product-scope-structure-20260923` (step 10 below).
 > Historical documents are retained as contemporaneous records and are not rewritten.
 
 ## Executive summary
@@ -307,7 +307,8 @@ The latent conditional median on the log scale is:
        + \delta d_{t(i)}
        + s_{m(i)}^\mathsf{T}\eta \\
      &+ b_{j(i)} + \sigma_u z_{u(i)}
-       + f_{g(i)}\bigl(t(i)\bigr).
+       + f_{g(i)}\bigl(t(i)\bigr)
+       + w_{j(i)}\bigl(t(i)\bigr).
 \end{aligned}
 \]
 
@@ -315,6 +316,9 @@ Since step 9, \(f_g\) is the bedroom-group time deviation for
 \(g(i)\in\{\text{studio},1,2,3+\}\). It is piecewise-linear between January
 knots, a random walk with yearly step scale \(\tau\sim\operatorname{HalfNormal}(0.05)\),
 zero-sum across groups and centered over each group's own months.
+Since step 10, \(w_j\) is building \(j\)'s own piecewise-linear random walk on
+half-year knots (step sd \(s\sqrt{0.5}\), \(s\sim\operatorname{HalfNormal}(0.1)\)),
+centered over that building's training months.
 
 The rent-scale interpretation is \(\exp(\mu_i)\), a conditional median rather
 than an arithmetic mean. Residuals deliberately include the apartment's own
@@ -691,6 +695,23 @@ cases were regenerated with passing contribution diagnostics. The main page
 reconstructs every row, and bedroom counterfactuals move the time term jointly.
 
 Evidence: `docs/model/bedroom-time-experiment-2026-09-22.md`.
+
+### 10. Building-level price drift — September 23
+
+**Equation change:** add \(w_{j(i)}(t(i))\), a per-building random walk on
+half-year knots, centered over each building's own training months.
+
+**Why:** row-level review of the bedroom-time fit showed era means within a
+building varying with an excess SD of 3.4% beyond noise, and a unit's residual
+drift growing with the time between its listings.
+
+**Evidence for promotion:** held-out +825.5 ± 45.0 (NUTS, declared row split)
+and +379.5 ± 39.3 (whole-unit split); residual σ 0.065 → 0.050. The full fit
+converged (max R-hat 1.0088 on alpha, min ESS 587, 0 divergences). Source
+review was regenerated, and reconstruction verified.
+
+Evidence: `docs/model/building-drift-experiment-2026-09-23.md`,
+`docs/model/screen-log-2026-09-23.md`.
 
 ## What changed versus what did not
 

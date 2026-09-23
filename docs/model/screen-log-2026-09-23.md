@@ -11,7 +11,7 @@ half-year building walk and screens are conditional MAP. See
 |---|---|---|---|
 | bedroom-group time curves (random walk) | +30.0 ± 9.5 (NUTS) | — | **promoted** |
 | bedroom-group linear trends | +6.0 ± 5.1 (NUTS) | — | rejected |
-| building random walk, half-year knots | +825.5 ± 45.0 (NUTS) | +379.5 ± 39.3 | **full fit running** |
+| building random walk, half-year knots | +825.5 ± 45.0 (NUTS) | +379.5 ± 39.3 | **promoted** September 23 |
 | building linear slope | +307 | — | superseded by walk |
 | building drift + iid building shocks | +732 to +756 | — | not better than walk |
 | separate 4+ bedroom time group | −2 | — | rejected |
