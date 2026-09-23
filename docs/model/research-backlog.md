@@ -92,6 +92,51 @@ ordered by expected leverage. Numbers refer to the selected fit
   MAP with baseline variance components fixed reproduced a known +30 ΔELPD
   and a null control in minutes. Data subsets are unbiased but underpowered.
 
+### Iteration speed (Ben, September 23: "I would like to be able to iterate more quickly")
+
+Measured on the promoted building-drift fit (`chelsea-bayesian-product-scope-structure-20260923`):
+4 chains × (4,000 tune + 6,000 draws) took ~6 h of sampling at 255 leapfrog
+steps per iteration (tree depth 8), plus ~1 h of reports. It wrote ~40 GB,
+with unit and building draws stored three times (trace, `posterior.nc`,
+report caches). Convergence is limited by one parameter: `alpha` has bulk ESS
+587 and R-hat 1.0088 (1.0103 on the Modal refit of the previous spec), while
+most parameters have ESS in the tens of thousands. A NUTS screen
+(1,000/1,000) takes ~2.5 h and ~5 GB; a conditional-MAP screen takes
+3–6 min on one core. Targets: **protocol fit under 2 h and 12 GB; NUTS screen
+under 45 min**, with the same convergence gates and the same held-out
+conclusions. In priority order:
+
+- [ ] **E1. Fix the intercept geometry.** `alpha` is the only slow direction.
+  Test on short runs (4 × 500/500) of the promoted spec, measuring ESS/second
+  for `alpha` and the global scales: (a) sum-to-zero unit effects within
+  building; (b) the intercept absorbed into the building-effect mean
+  (non-zero-sum building effects around `alpha`); (c) nutpie low-rank mass
+  matrix adaptation (`--adaptation low_rank`). Keep the variant that removes
+  the bottleneck with identical posteriors, checked by comparing
+  coefficients, scales and residual intervals.
+- [ ] **E2. Cut steps per iteration.** 255 leapfrog steps per draw dominates
+  cost. Measure steps/iteration and ESS per gradient for E1's variants;
+  low-rank adaptation or better-scaled global parameters should reach tree
+  depth 5–6 (4–8× fewer gradients).
+- [ ] **E3. Right-size the run.** Once `alpha` mixes like the rest, target the
+  gate (min ESS ≥ 400, R-hat < 1.01) with margin: e.g. 4 × (1,000 tune +
+  1,500 draws) instead of 4,000/6,000. Validate one protocol fit against the
+  promoted posterior (coefficients, contributions, residual intervals,
+  current-listing fitted rents) before adopting it as the default.
+- [ ] **E4. Warm starts for incremental changes.** Most iterations add a term
+  to an accepted model. Initialize from the previous posterior means and
+  reuse its mass matrix and step size, so warmup falls from 4,000 to a few
+  hundred. Check that the diagnostics gates still pass.
+- [ ] **E5. Faster, smaller reports.** Vectorize `fitted_summary` (it builds
+  52k rows with per-row pandas access). Build the report caches directly from
+  the trace instead of storing draws three times; use float32 caches. With E3
+  this takes a fit from ~40 GB to under ~12 GB.
+- [ ] **E6. One screening command.** Run conditional MAP on both declared
+  splits, then a short NUTS confirmation for survivors, as memory-capped
+  systemd units with a queue, appending results to the screening log. Check
+  whether 500/500 NUTS draws suffice for paired ΔELPD, which is much lower
+  variance than parameter estimates.
+
 ### Collection and operating loop
 
 - [ ] **Scheduled active-listing refresh.** Collection is backfill-oriented
