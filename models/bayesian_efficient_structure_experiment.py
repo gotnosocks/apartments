@@ -79,6 +79,7 @@ def graph_kwargs(args):
         "intercept": args.intercept,
         "walk_centering": args.walk_centering,
         "feature_basis": args.feature_basis,
+        "feature_centering": args.feature_centering,
     }
 
 
@@ -642,8 +643,9 @@ def argument_parser():
         choices=("none", "across_buildings"),
         default="across_buildings",
     )
+    parser.add_argument("--feature-basis", choices=("identity", "qr"), default="qr")
     parser.add_argument(
-        "--feature-basis", choices=("identity", "qr"), default="identity"
+        "--feature-centering", choices=("none", "building"), default="building"
     )
     parser.set_defaults(tune=1000, draws=1500)
     return parser
