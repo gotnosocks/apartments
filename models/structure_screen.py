@@ -21,7 +21,7 @@ from threadpoolctl import threadpool_limits
 
 from . import bayesian_feature_experiment_v3 as v3
 from . import bayesian_floor_spline_design as floor
-from . import bayesian_structure_graph_v2 as graph
+from . import bayesian_structure_graph_v4 as graph
 from .bedroom_time_screen import split, map_posterior, summarize
 
 UNSEEN_UNIT_DRAWS = 200
@@ -274,6 +274,13 @@ def predictive(posterior, design, test, options, building_weights, thin, shock=N
             shock_months=shock["months"],
             shock_scale=shock["scale"],
         )
+    if "building_bedroom_slope_z" in p:
+        step = np.minimum(test.bedrooms.to_numpy(dtype=float), 4.0) - 1.0
+        mu = mu + (
+            p["building_bedroom_slope_scale"].values[None]
+            * p["building_bedroom_slope_z"].values[a["building"]]
+            * step[:, None]
+        )
     if "unit_slope_z" in p:
         years = (np.arange(len(d.periods)) - d.anchor) / 12.0
         known = np.maximum(a["unit"], 0)
@@ -347,6 +354,7 @@ def main():
         "--noise", choices=("shared", "building", "level"), default="shared"
     )
     parser.add_argument("--noise-scale", type=float, default=None)
+    parser.add_argument("--building-bedroom-slope", action="store_true")
     parser.add_argument(
         "--unit-slope-scale",
         type=lambda v: v if v == "free" else float(v),
@@ -415,6 +423,7 @@ def main():
         noise=args.noise,
         noise_scale=args.noise_scale,
         unit_slope_scale=args.unit_slope_scale,
+        building_bedroom_slope=args.building_bedroom_slope,
         **options,
     )
     started = time.monotonic()
@@ -479,6 +488,7 @@ def main():
             "nu",
             "noise_level_slope",
             "unit_slope_scale",
+            "building_bedroom_slope_scale",
         )
         if n in posterior
     }
