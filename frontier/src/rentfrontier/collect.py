@@ -31,6 +31,7 @@ SCALARS = (
     "building_scale",
     "trend_scale",
     "season_scale",
+    "walk_scale",
 )
 
 
@@ -64,13 +65,12 @@ def heldout_logpdf(p, test: model_module.Arrays):
 
 
 def device_arrays(a: model_module.Arrays, dtype) -> model_module.Arrays:
-    return model_module.Arrays(
-        jnp.asarray(a.y, dtype),
-        jnp.asarray(a.x, dtype),
-        jnp.asarray(a.month),
-        jnp.asarray(a.calendar),
-        jnp.asarray(a.building),
-        jnp.asarray(a.unit),
+    return a.map(
+        lambda v: (
+            jnp.asarray(v, dtype)
+            if np.issubdtype(np.asarray(v).dtype, np.floating)
+            else jnp.asarray(v)
+        )
     )
 
 

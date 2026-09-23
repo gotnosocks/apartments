@@ -51,9 +51,6 @@ class Settings:
         return asdict(self)
 
 
-SCALE_NAMES = ("sigma", "unit_scale", "building_scale", "trend_scale", "season_scale")
-
-
 @dataclass
 class Design:
     a: jnp.ndarray  # (N, P) global design
@@ -61,13 +58,29 @@ class Design:
     unit: jnp.ndarray
     building: jnp.ndarray
     unit_building: jnp.ndarray
+    slots: jnp.ndarray  # (N, 3) local slots each row touches in its building
+    slot_values: jnp.ndarray  # (N, 3)
     prior_fixed: jnp.ndarray  # (P,) diagonal of the fixed prior precision
+    local_structures: dict  # scale name -> (L, L) structure within a building block
+    local_ranks: dict  # scale name -> rank per building
     trend: slice
     season: slice
     n_features: int
     n_units: int
     n_buildings: int
+    n_local: int
+    walk: bool
     prior_sd: dict
+
+    @property
+    def scale_names(self):
+        return (
+            "sigma",
+            "unit_scale",
+            "trend_scale",
+            "season_scale",
+            *self.local_structures,
+        )
 
 
 def _rw1_anchored(n):
@@ -97,25 +110,56 @@ def build_design(
     fixed[1 : 1 + f] = 1.0 / (config.beta_sd * prep.features.prior_scale) ** 2
     unit_building = np.zeros(len(prep.units), dtype=np.int32)
     unit_building[tr.unit] = tr.building
+
+    # Local block per building: [level, walk knots 1..n_knots-1] (knot 0 is 0).
+    slots = np.zeros((n, 3), dtype=np.int32)
+    values = np.zeros((n, 3))
+    values[:, 0] = 1.0
+    structures = {"building_scale": np.zeros((1, 1))}
+    structures["building_scale"][0, 0] = 1.0
+    ranks = {"building_scale": 1}
+    n_local = 1
+    if config.building_walk:
+        k = model_module.n_knots(t)
+        n_local = k  # level + (k - 1) free knots
+        lo, frac = tr.knot, tr.knot_frac
+        slots[:, 1] = lo  # knot j -> local index j (index 0 is the level)
+        values[:, 1] = np.where(lo >= 1, 1 - frac, 0.0)
+        slots[:, 2] = lo + 1
+        values[:, 2] = frac
+        level = np.zeros((k, k))
+        level[0, 0] = 1.0
+        walk = np.zeros((k, k))
+        walk[1:, 1:] = _rw1_anchored(k - 1)
+        structures = {"building_scale": level, "walk_scale": walk}
+        ranks = {"building_scale": 1, "walk_scale": k - 1}
+    prior_sd = {
+        "sigma": config.noise_scale_sd,
+        "unit_scale": config.unit_scale_sd,
+        "building_scale": config.building_scale_sd,
+        "trend_scale": config.trend_scale_sd,
+        "season_scale": config.season_scale_sd,
+        "walk_scale": config.walk_scale_sd,
+    }
     return Design(
         a=jnp.asarray(a),
         y=jnp.asarray(tr.y, jnp.float64),
         unit=jnp.asarray(tr.unit),
         building=jnp.asarray(tr.building),
         unit_building=jnp.asarray(unit_building),
+        slots=jnp.asarray(slots),
+        slot_values=jnp.asarray(values),
         prior_fixed=jnp.asarray(fixed),
+        local_structures={k: jnp.asarray(v) for k, v in structures.items()},
+        local_ranks=ranks,
         trend=trend,
         season=season,
         n_features=f,
         n_units=len(prep.units),
         n_buildings=len(prep.buildings),
-        prior_sd={
-            "sigma": config.noise_scale_sd,
-            "unit_scale": config.unit_scale_sd,
-            "building_scale": config.building_scale_sd,
-            "trend_scale": config.trend_scale_sd,
-            "season_scale": config.season_scale_sd,
-        },
+        n_local=n_local,
+        walk=config.building_walk,
+        prior_sd=prior_sd,
     )
 
 
@@ -127,64 +171,92 @@ def _update_scale(key, current, q, rank, prior_sd):
     return jnp.where(jnp.log(jax.random.uniform(k2)) < log_accept, proposal, current)
 
 
-def gaussian_block(d: Design, lam, s, z_g, z_b, z_u):
-    """Joint draw of (global, building, unit) given lam and scales `s`.
+def local_value(d: Design, theta_l, building, slots, values):
+    return jnp.sum(theta_l[building[:, None], slots] * values, axis=1)
+
+
+def gaussian_block(d: Design, lam, s, z_g, z_l, z_u):
+    """Joint draw of (global, building blocks, units) given lam and scales `s`.
 
     With zero noise vectors it returns the conditional posterior mean.
     """
-    J, K = d.n_units, d.n_buildings
+    J, K, L = d.n_units, d.n_buildings, d.n_local
+    y, a, bld, slots, vals = d.y, d.a, d.building, d.slots, d.slot_values
     w = lam / s["sigma"] ** 2
     seg_u = lambda v: jax.ops.segment_sum(v, d.unit, J)  # noqa: E731
+    seg_ub = lambda v: jax.ops.segment_sum(v, d.unit_building, K)  # noqa: E731
     sw = seg_u(w)
     c = 1.0 / (1.0 / s["unit_scale"] ** 2 + sw)  # unit posterior variance given rest
-    h = seg_u(w * d.y)
-    wa = w[:, None] * d.a
-    g = seg_u(wa)  # (J, P)
+    h = seg_u(w * y)
+    wa = w[:, None] * a
+    g = seg_u(wa)  # (J, P) unit sums of weighted global rows
+    gl = jnp.zeros((J, L))  # unit sums of weighted local rows
+    for m in range(3):
+        gl = gl.at[d.unit, slots[:, m]].add(w * vals[:, m])
 
     # Global precision / rhs with units integrated out.
-    q = d.a.T @ wa - g.T @ (c[:, None] * g) + jnp.diag(d.prior_fixed)
+    q = a.T @ wa - g.T @ (c[:, None] * g) + jnp.diag(d.prior_fixed)
     t = d.trend
-    n_t = t.stop - t.start
-    rw = jnp.asarray(_rw1_anchored(n_t))
+    rw = jnp.asarray(_rw1_anchored(t.stop - t.start))
     q = q.at[t, t].add(rw / s["trend_scale"] ** 2)
     q = q.at[d.season, d.season].add(jnp.eye(12) / s["season_scale"] ** 2)
-    r = wa.T @ d.y - g.T @ (c * h)
+    r = wa.T @ y - g.T @ (c * h)
 
-    # Buildings (units nest in buildings): per-building scalars.
-    seg_b = lambda v: jax.ops.segment_sum(v, d.building, K)  # noqa: E731
-    seg_ub = lambda v: jax.ops.segment_sum(v, d.unit_building, K)  # noqa: E731
-    cs = c * sw
-    q_bb = seg_b(w) - seg_ub(cs * sw) + 1.0 / s["building_scale"] ** 2
-    q_bg = seg_b(wa) - seg_ub(cs[:, None] * g)  # (K, P)
-    r_b = seg_b(w * d.y) - seg_ub(cs * h)
+    # Building blocks, with units integrated out (units nest in buildings).
+    q_ll = jnp.zeros((K, L, L))
+    q_lg = jnp.zeros((K, L, a.shape[1]))
+    r_l = jnp.zeros((K, L))
+    for m1 in range(3):
+        wv = w * vals[:, m1]
+        for m2 in range(3):
+            q_ll = q_ll.at[bld, slots[:, m1], slots[:, m2]].add(wv * vals[:, m2])
+        q_lg = q_lg.at[bld, slots[:, m1]].add(wv[:, None] * a)
+        r_l = r_l.at[bld, slots[:, m1]].add(wv * y)
+    cgl = c[:, None] * gl
+    q_ll = q_ll - jnp.stack([seg_ub(cgl[:, i : i + 1] * gl) for i in range(L)], axis=1)
+    q_lg = q_lg - jnp.stack([seg_ub(cgl[:, i : i + 1] * g) for i in range(L)], axis=1)
+    r_l = r_l - seg_ub(cgl * h[:, None])
+    prior_l = sum(d.local_structures[n] / s[n] ** 2 for n in d.local_structures)
+    q_ll = q_ll + prior_l[None]
 
-    schur = q - q_bg.T @ (q_bg / q_bb[:, None])
-    r_s = r - q_bg.T @ (r_b / q_bb)
+    # Eliminate building blocks (batched Cholesky), then the global block.
+    chol_l = jnp.linalg.cholesky(q_ll)
+    v = solve_triangular(chol_l, q_lg, lower=True)  # (K, L, P)
+    vr = solve_triangular(chol_l, r_l[..., None], lower=True)[..., 0]
+    schur = q - jnp.einsum("klp,klq->pq", v, v)
+    r_s = r - jnp.einsum("klp,kl->p", v, vr)
     chol = jnp.linalg.cholesky(schur)
     theta = solve_triangular(
         chol.T, solve_triangular(chol, r_s, lower=True) + z_g, lower=False
     )
-    b = (r_b - q_bg @ theta) / q_bb + z_b / jnp.sqrt(q_bb)
-    fixed = d.a @ theta + b[d.building]
+    rhs = vr - jnp.einsum("klp,p->kl", v, theta) + z_l
+    theta_l = solve_triangular(jnp.swapaxes(chol_l, 1, 2), rhs[..., None], lower=False)[
+        ..., 0
+    ]
+    fixed = a @ theta + local_value(d, theta_l, bld, slots, vals)
     u = c * (h - seg_u(w * fixed)) + jnp.sqrt(c) * z_u
-    return theta, b, u, fixed
+    return theta, theta_l, u, fixed
 
 
 def site_values(d: Design, state):
     """Constrained NumPyro site values (as in model.build_model) from a state."""
-    theta = state["theta"]
+    theta, theta_l = state["theta"], state["local"]
     f = d.n_features
     trend = jnp.concatenate([jnp.zeros(1), theta[d.trend]])
-    return {
+    out = {
         "alpha": theta[0],
         "beta": theta[1 : 1 + f],
         "trend_step": jnp.diff(trend),
         "season_raw": theta[d.season],
-        "building": state["building"],
+        "building": theta_l[:, 0],
         "unit": state["unit"],
         "nu": state["nu"],
-        **{n: state[n] for n in SCALE_NAMES},
+        **{n: state[n] for n in d.scale_names},
     }
+    if d.walk:
+        knots = jnp.concatenate([jnp.zeros((d.n_buildings, 1)), theta_l[:, 1:]], axis=1)
+        out["walk_step"] = jnp.diff(knots, axis=1)
+    return out
 
 
 def make_step(d: Design):
@@ -192,22 +264,22 @@ def make_step(d: Design):
     rank = {
         "sigma": n,
         "unit_scale": d.n_units,
-        "building_scale": d.n_buildings,
         "trend_scale": d.trend.stop - d.trend.start,
         "season_scale": 12,
+        **{k: r * d.n_buildings for k, r in d.local_ranks.items()},
     }
     rw = jnp.asarray(_rw1_anchored(d.trend.stop - d.trend.start))
 
     def step(key, state, noise_steps, sigma_step_sd, nu_step_sd):
         keys = jax.random.split(key, 12)
-        s = {k: state[k] for k in SCALE_NAMES}
+        s = {k: state[k] for k in d.scale_names}
         p = d.a.shape[1]
-        theta, b, u, fixed = gaussian_block(
+        theta, theta_l, u, fixed = gaussian_block(
             d,
             state["lam"],
             s,
             jax.random.normal(keys[0], (p,)),
-            jax.random.normal(keys[1], (d.n_buildings,)),
+            jax.random.normal(keys[1], (d.n_buildings, d.n_local)),
             jax.random.normal(keys[2], (d.n_units,)),
         )
         e = d.y - fixed - u[d.unit]
@@ -255,13 +327,6 @@ def make_step(d: Design):
             rank["unit_scale"],
             d.prior_sd["unit_scale"],
         )
-        new["building_scale"] = _update_scale(
-            keys[7],
-            s["building_scale"],
-            jnp.sum(b * b),
-            rank["building_scale"],
-            d.prior_sd["building_scale"],
-        )
         tr = theta[d.trend]
         new["trend_scale"] = _update_scale(
             keys[8],
@@ -278,7 +343,23 @@ def make_step(d: Design):
             rank["season_scale"],
             d.prior_sd["season_scale"],
         )
-        state = {"theta": theta, "building": b, "unit": u, "lam": lam, "nu": nu, **new}
+        for i, name in enumerate(d.local_structures):
+            quad = jnp.einsum("kl,lm,km->", theta_l, d.local_structures[name], theta_l)
+            new[name] = _update_scale(
+                jax.random.fold_in(keys[7], i),
+                s[name],
+                quad,
+                rank[name],
+                d.prior_sd[name],
+            )
+        state = {
+            "theta": theta,
+            "local": theta_l,
+            "unit": u,
+            "lam": lam,
+            "nu": nu,
+            **new,
+        }
         return state, {"noise_accept": noise_acc / noise_steps}
 
     return step
@@ -292,14 +373,15 @@ def init_states(d: Design, key, chains):
         "building_scale": 0.3,
         "trend_scale": 0.02,
         "season_scale": 0.02,
+        "walk_scale": 0.03,
     }
+    names = d.scale_names
     k1, k2 = jax.random.split(key)
-    jitter = jnp.exp(0.7 * jax.random.normal(k1, (chains, len(SCALE_NAMES) + 1)))
-    state = {n: start[n] * jitter[:, i] for i, n in enumerate(SCALE_NAMES)}
+    jitter = jnp.exp(0.7 * jax.random.normal(k1, (chains, len(names) + 1)))
+    state = {n: start[n] * jitter[:, i] for i, n in enumerate(names)}
     state["nu"] = 5.0 * jitter[:, -1]
-    p = d.a.shape[1]
-    state["theta"] = jnp.zeros((chains, p))
-    state["building"] = jnp.zeros((chains, d.n_buildings))
+    state["theta"] = jnp.zeros((chains, d.a.shape[1]))
+    state["local"] = jnp.zeros((chains, d.n_buildings, d.n_local))
     state["unit"] = jnp.zeros((chains, d.n_units))
     state["lam"] = jnp.ones((chains, d.y.shape[0]))
     return state
@@ -340,7 +422,7 @@ def run(
     log(
         f"warmup {warmup_seconds:.1f}s "
         + " ".join(
-            f"{n}={float(np.median(states[n])):.4f}" for n in (*SCALE_NAMES, "nu")
+            f"{n}={float(np.median(states[n])):.4f}" for n in (*d.scale_names, "nu")
         )
     )
 

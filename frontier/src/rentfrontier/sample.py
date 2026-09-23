@@ -118,20 +118,9 @@ def run(
     def constrained(x):
         return info.postprocess_fn(unravel(x))
 
-    test = model_module.Arrays(
-        *(
-            jnp.asarray(getattr(prep.test, f))
-            for f in ("y", "x", "month", "calendar", "building", "unit")
-        )
-    )
-    test = model_module.Arrays(
-        test.y.astype(dtype),
-        test.x.astype(dtype),
-        test.month,
-        test.calendar,
-        test.building,
-        test.unit,
-    )
+    from .collect import device_arrays
+
+    test = device_arrays(prep.test, dtype)
     rng = np.random.default_rng(settings.seed)
     trace_b = jnp.asarray(
         np.sort(rng.choice(len(prep.buildings), settings.trace_groups, replace=False))

@@ -36,9 +36,16 @@ class ModelConfig:
     # Sites to non-center. With ~2.4 rows per unit, ~42 per building and
     # ~250 per month the data dominate, so centered is the default.
     noncentered: tuple = ()
+    # Per-building random walk over KNOT_MONTHS knots (anchored at 0 in the
+    # first month), interpolated linearly between knots.
+    building_walk: bool = False
+    walk_scale_sd: float = 0.1
 
     def to_dict(self):
         return asdict(self)
+
+
+KNOT_MONTHS = 6
 
 
 @dataclass
@@ -49,6 +56,17 @@ class Arrays:
     calendar: np.ndarray
     building: np.ndarray
     unit: np.ndarray  # -1 for units without training rows
+    knot: np.ndarray  # walk knot at or before the row's month
+    knot_frac: np.ndarray  # linear interpolation weight on the next knot
+
+    FIELDS = ("y", "x", "month", "calendar", "building", "unit", "knot", "knot_frac")
+
+    def map(self, fn):
+        return Arrays(*(fn(getattr(self, f)) for f in self.FIELDS))
+
+
+def n_knots(n_months: int) -> int:
+    return int(np.ceil((n_months - 1) / KNOT_MONTHS)) + 1
 
 
 @dataclass
@@ -91,13 +109,16 @@ def prepare(frame: pd.DataFrame, heldout: np.ndarray, features: Features) -> Pre
         building = pd.Index(buildings).get_indexer(sub.building)
         if (building < 0).any():
             raise ValueError("Held-out row in a building without training rows")
+        month = month.to_numpy().astype(np.int32)
         return Arrays(
             y=(sub.log_rent.to_numpy() - offset),
             x=features.values[mask],
-            month=month.to_numpy().astype(np.int32),
+            month=month,
             calendar=(sub.period.dt.month.to_numpy() - 1).astype(np.int32),
             building=building.astype(np.int32),
             unit=pd.Index(units).get_indexer(sub.unit_id).astype(np.int32),
+            knot=(month // KNOT_MONTHS).astype(np.int32),
+            knot_frac=(month % KNOT_MONTHS) / KNOT_MONTHS,
         )
 
     return Prepared(
@@ -122,6 +143,13 @@ def linear_predictor(p, a: Arrays, include_unit=True):
         + e["season"][a.calendar]
         + e["building"][a.building]
     )
+    if "walk_step" in p:
+        w = e["walk"]
+        mu = (
+            mu
+            + (1 - a.knot_frac) * w[a.building, a.knot]
+            + a.knot_frac * w[a.building, a.knot + 1]
+        )
     if include_unit:
         mu = mu + jnp.where(a.unit >= 0, e["unit"][jnp.maximum(a.unit, 0)], 0.0)
     return mu
@@ -143,6 +171,20 @@ def effects(p):
         "building_scale": p["building_scale"],
         "trend_scale": p["trend_scale"],
         "season_scale": p["season_scale"],
+        # Building walks (knot values; knot 0 is fixed at 0). Placeholders
+        # when the design has no walk keep the effect tree the same shape.
+        "walk": (
+            jnp.concatenate(
+                [
+                    jnp.zeros((p["walk_step"].shape[0], 1)),
+                    jnp.cumsum(p["walk_step"], axis=1),
+                ],
+                axis=1,
+            )
+            if "walk_step" in p
+            else jnp.zeros((1, 1))
+        ),
+        "walk_scale": p.get("walk_scale", jnp.zeros(())),
     }
 
 
@@ -152,12 +194,7 @@ def build_model(prep: Prepared, config: ModelConfig):
     a = prep.train
     n_months = len(prep.periods)
     y = jnp.asarray(a.y)
-    arrays = Arrays(
-        *(
-            jnp.asarray(getattr(a, f))
-            for f in ("y", "x", "month", "calendar", "building", "unit")
-        )
-    )
+    arrays = a.map(jnp.asarray)
     beta_sd = config.beta_sd * jnp.asarray(prep.features.prior_scale)
 
     def model():
@@ -192,6 +229,16 @@ def build_model(prep: Prepared, config: ModelConfig):
         p["unit"] = numpyro.sample(
             "unit", dist.Normal(0.0, p["unit_scale"]).expand([len(prep.units)])
         )
+        if config.building_walk:
+            p["walk_scale"] = numpyro.sample(
+                "walk_scale", dist.HalfNormal(config.walk_scale_sd)
+            )
+            p["walk_step"] = numpyro.sample(
+                "walk_step",
+                dist.Normal(0.0, p["walk_scale"]).expand(
+                    [len(prep.buildings), n_knots(n_months) - 1]
+                ),
+            )
         mu = linear_predictor(p, arrays)
         numpyro.sample("y", dist.StudentT(p["nu"], mu, p["sigma"]), obs=y)
 
@@ -203,4 +250,5 @@ def build_model(prep: Prepared, config: ModelConfig):
 # earlier leaderboard rows stay reproducible from their commits.
 MODELS = {
     "m0-base": ModelConfig(name="m0-base"),
+    "m1-walk": ModelConfig(name="m1-walk", building_walk=True),
 }
