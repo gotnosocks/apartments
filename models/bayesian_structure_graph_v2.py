@@ -84,6 +84,10 @@ def configuration(
     shock_months=None,
     shock_scale=None,
     shock_scale_prior=0.05,
+    noise="shared",
+    noise_scale=None,
+    noise_scale_prior=0.3,
+    unit_slope_scale=None,
 ):
     if building_time not in BUILDING_TIME:
         raise ValueError("Unknown building-time mode")
@@ -110,6 +114,10 @@ def configuration(
             "shock_months": shock_months,
             "shock_scale": None if shock_scale is None else float(shock_scale),
             "shock_scale_prior": float(shock_scale_prior),
+            "noise": noise,
+            "noise_scale": noise_scale,
+            "noise_scale_prior": noise_scale_prior,
+            "unit_slope_scale": unit_slope_scale,
         },
     )
     return config
@@ -155,6 +163,10 @@ def build_model(
         shock_months=shock_months,
         shock_scale=shock_scale,
         shock_scale_prior=shock_scale_prior,
+        noise=noise,
+        noise_scale=noise_scale,
+        noise_scale_prior=noise_scale_prior,
+        unit_slope_scale=unit_slope_scale,
     )
     d = design.time
     a = d.arrays(train)
@@ -322,12 +334,6 @@ def build_model(
             sigma=observation_sigma,
             observed=np.log(train.asking_rent),
         )
-    config["structure"].update(
-        noise=noise,
-        noise_scale=noise_scale,
-        noise_scale_prior=noise_scale_prior,
-        unit_slope_scale=unit_slope_scale,
-    )
     model.graph_configuration = config
     model.building_weights = building_weights
     return model

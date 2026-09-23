@@ -7,9 +7,11 @@ import math
 EXPERIMENT = 'observable-bayesian-floor-spline-experiment-v5'
 BEDROOM_TIME_EXPERIMENT = 'observable-bayesian-bedroom-time-experiment-v1'
 STRUCTURE_EXPERIMENT = 'observable-bayesian-structure-experiment-v1'
+ATTRIBUTE_EXPERIMENT = 'observable-bayesian-attribute-structure-experiment-v1'
+DRIFT_EXPERIMENT = 'observable-bayesian-drift-experiment-v1'
 # Experiments whose feature design is exactly this spline design; they may add
 # location terms (see bayesian_location_terms) but share its floor contract.
-FAMILY = frozenset({EXPERIMENT, BEDROOM_TIME_EXPERIMENT, STRUCTURE_EXPERIMENT})
+FAMILY = frozenset({EXPERIMENT, BEDROOM_TIME_EXPERIMENT, STRUCTURE_EXPERIMENT, ATTRIBUTE_EXPERIMENT, DRIFT_EXPERIMENT})
 DESIGN = 'regularized-listed-floor-spline-design-v1'
 CONTRAST = 'joint-listed-floor-spline-component-contrasts-v1'
 INTERPRETATION = 'Joint regularized natural-spline floor-component contrasts, holding other encoded terms fixed. Conditional associations, not causal or physical-height effects; shared smoothness and source support remain explicit.'
