@@ -9,9 +9,15 @@ from .archive_import import import_archive
 from .db import DEFAULT_DB, connect
 from .nyc import ingest_pluto
 from .rentcast import collect
-from .streeteasy import infer_furnishing_periods, ingest_export, reparse_capture_histories
+from .streeteasy import (
+    infer_furnishing_periods,
+    ingest_export,
+    reparse_capture_histories,
+)
 
-app = typer.Typer(no_args_is_help=True, help="Collect, correct, model, and compare NYC rental data.")
+app = typer.Typer(
+    no_args_is_help=True, help="Collect, correct, model, and compare NYC rental data."
+)
 load_dotenv()
 
 
@@ -35,7 +41,9 @@ def collect_rentcast(
     if scope not in {"building", "street"}:
         raise typer.BadParameter("scope must be building or street")
     requested, accepted, raw_path = collect(scope, str(db))
-    typer.echo(f"Received {requested}; accepted {accepted} for {scope}; raw: {raw_path}")
+    typer.echo(
+        f"Received {requested}; accepted {accepted} for {scope}; raw: {raw_path}"
+    )
 
 
 @app.command("import-csv")
@@ -87,12 +95,16 @@ def import_streeteasy_archive(
         help="Live StreetEasy Archive data directory.",
     ),
     db: Path = typer.Option(DEFAULT_DB),
-    limit: int = typer.Option(0, min=0, help="Stop after this many new captures; zero imports all."),
+    limit: int = typer.Option(
+        0, min=0, help="Stop after this many new captures; zero imports all."
+    ),
 ):
     counts = import_archive(root, db, limit)
     typer.echo(
         "Imported {imported} new captures and {events} history events "
-        "({skipped} already present, {unrecognized} non-detail pages, {failed} failures).".format(**counts)
+        "({skipped} already present, {unrecognized} non-detail pages, {failed} failures).".format(
+            **counts
+        )
     )
     if counts["failed"]:
         raise typer.Exit(1)
@@ -115,21 +127,26 @@ def backfill_temporal(
     """Retain attribute versions and fetch evidence from existing local data."""
     import sqlite3
     from .temporal import backfill_capture_history, sync_observations
-    source = sqlite3.connect((archive.resolve() / 'archive.sqlite3').as_uri() + '?mode=ro', uri=True)
+
+    source = sqlite3.connect(
+        (archive.resolve() / "archive.sqlite3").as_uri() + "?mode=ro", uri=True
+    )
     target = connect(db)
     try:
-        target.execute('BEGIN TRANSACTION')
+        target.execute("BEGIN TRANSACTION")
         try:
             observations = sync_observations(source, target)
-            target.execute('COMMIT')
+            target.execute("COMMIT")
         except Exception:
-            target.execute('ROLLBACK')
+            target.execute("ROLLBACK")
             raise
         versions = backfill_capture_history(target, source)
     finally:
         target.close()
         source.close()
-    typer.echo(f"Added {versions} attribute versions and {observations} collection observations; no pages downloaded.")
+    typer.echo(
+        f"Added {versions} attribute versions and {observations} collection observations; no pages downloaded."
+    )
 
 
 @app.command("infer-furnishing-periods")
@@ -156,7 +173,9 @@ def summary(db: Path = typer.Option(DEFAULT_DB)):
     connection.close()
 
 
-corrections_app = typer.Typer(no_args_is_help=True, help="Append-only human correction overlays.")
+corrections_app = typer.Typer(
+    no_args_is_help=True, help="Append-only human correction overlays."
+)
 app.add_typer(corrections_app, name="corrections")
 
 
@@ -171,8 +190,14 @@ def correction_add(
     """Append an edit or explicit revision from a JSON specification."""
     import json
     from .corrections import append
-    record = append(ledger, author=author, reason=reason,
-                    edit=json.loads(spec.read_text()), evidence=evidence)
+
+    record = append(
+        ledger,
+        author=author,
+        reason=reason,
+        edit=json.loads(spec.read_text()),
+        evidence=evidence,
+    )
     typer.echo(json.dumps(record, indent=2))
 
 
@@ -186,8 +211,13 @@ def correction_retract(
     """Withdraw an active correction without deleting its history."""
     import json
     from .corrections import append
-    typer.echo(json.dumps(append(ledger, author=author, reason=reason,
-                                 retracts=correction_id), indent=2))
+
+    typer.echo(
+        json.dumps(
+            append(ledger, author=author, reason=reason, retracts=correction_id),
+            indent=2,
+        )
+    )
 
 
 @corrections_app.command("list")
@@ -198,8 +228,11 @@ def correction_list(
     """Inspect the ledger and active edits at a knowledge-time cutoff."""
     import json
     from .corrections import Overlay
+
     overlay = Overlay(ledger, as_of=as_of)
-    typer.echo(json.dumps({'manifest': overlay.manifest, 'history': overlay.records}, indent=2))
+    typer.echo(
+        json.dumps({"manifest": overlay.manifest, "history": overlay.records}, indent=2)
+    )
 
 
 @app.command("export-observations")
@@ -208,7 +241,9 @@ def observation_export(
     db: Path = typer.Option(DEFAULT_DB),
     ledger: Path = typer.Option(Path("config/corrections.jsonl")),
     corrections_as_of: str | None = typer.Option(None),
-    known_as_of: str | None = typer.Option(None, help="One cutoff for collection, interpretation and human corrections."),
+    known_as_of: str | None = typer.Option(
+        None, help="One cutoff for collection, interpretation and human corrections."
+    ),
     collected_as_of: str | None = typer.Option(None),
     interpreted_as_of: str | None = typer.Option(None),
     effective_at: str | None = typer.Option(None),
@@ -219,37 +254,67 @@ def observation_export(
     import json
     from .corrections import Overlay
     from .observation_dataset import export_observations
-    overlay = Overlay(ledger, as_of=corrections_as_of or known_as_of or interpreted_as_of, enabled=not raw_only)
-    manifest = export_observations(db, output, overlay,
-        collected_as_of=collected_as_of, interpreted_as_of=interpreted_as_of,
-        effective_at=effective_at, version_id=version_id, known_as_of=known_as_of)
+
+    overlay = Overlay(
+        ledger,
+        as_of=corrections_as_of or known_as_of or interpreted_as_of,
+        enabled=not raw_only,
+    )
+    manifest = export_observations(
+        db,
+        output,
+        overlay,
+        collected_as_of=collected_as_of,
+        interpreted_as_of=interpreted_as_of,
+        effective_at=effective_at,
+        version_id=version_id,
+        known_as_of=known_as_of,
+    )
     typer.echo(json.dumps(manifest, indent=2))
 
 
 @app.command("build-analytical")
 def analytical_build(
     output: Path,
-    as_of: str = typer.Option(..., help="Inclusive knowledge cutoff, ISO date or zoned timestamp."),
+    as_of: str = typer.Option(
+        ..., help="Inclusive knowledge cutoff, ISO date or zoned timestamp."
+    ),
     db: Path = typer.Option(DEFAULT_DB),
     ledger: Path = typer.Option(Path("config/corrections.jsonl")),
 ):
     """Build dated attributes and contemporary price observations; identical reruns verify and reuse."""
     import json
     from .analytical import build_dataset
-    typer.echo(json.dumps(build_dataset(db, output, as_of=as_of, ledger=ledger), indent=2))
+
+    typer.echo(
+        json.dumps(build_dataset(db, output, as_of=as_of, ledger=ledger), indent=2)
+    )
 
 
 @app.command("fit-pricing-legacy")
 def pricing_fit_legacy(
     dataset: Path,
     output: Path,
-    holdout_fraction: float = typer.Option(.2, min=0, max=.99, help="Later-month holdout; 0 explicitly fits descriptively without validation."),
-    ridge: float = typer.Option(1.0, min=.000001),
+    holdout_fraction: float = typer.Option(
+        0.2,
+        min=0,
+        max=0.99,
+        help="Later-month holdout; 0 explicitly fits descriptively without validation.",
+    ),
+    ridge: float = typer.Option(1.0, min=0.000001),
 ):
     """Fit the archived robust/ridge baseline; not the main Bayesian model."""
     import json
     from .research_pipeline import fit_dataset
-    typer.echo(json.dumps(fit_dataset(dataset, output, holdout_fraction=holdout_fraction, ridge=ridge), indent=2))
+
+    typer.echo(
+        json.dumps(
+            fit_dataset(
+                dataset, output, holdout_fraction=holdout_fraction, ridge=ridge
+            ),
+            indent=2,
+        )
+    )
 
 
 @app.command("fit-pricing")
@@ -260,23 +325,59 @@ def pricing_fit(
     tune: int = typer.Option(2000, min=1, help="Warmup draws per chain."),
     chains: int = typer.Option(4, min=2, help="Independent PyMC/NUTS chains."),
     seed: int = typer.Option(20260918, min=0),
-    spec: str = typer.Option("full_half_balance", help="Bathroom encoding: full_half_balance, full_half, incremental_total or linear_total."),
-    residual_scale: str = typer.Option("shared", help="shared or bedroom; changes the observation-noise model."),
-    target_accept: float = typer.Option(.93, help="NUTS target acceptance, strictly between zero and one."),
-    adaptation: str = typer.Option("diag", help="Exact NUTS adaptation: diag or low_rank."),
-    prior_multiplier: float = typer.Option(1., help="Positive feature prior scale multiplier."),
-    building_prior_scale: float = typer.Option(.35, help="Positive building hierarchy scale prior."),
-    unit_prior_scale: float = typer.Option(.25, help="Positive within-building unit hierarchy scale prior."),
-    residual_parameterization: str = typer.Option("centered", help="centered or noncentered bedroom-noise hierarchy; inert with shared noise."),
-    graph_validation: Path | None = typer.Option(None, help="Optional verified graph parity bundle bound into the protocol."),
-    execution: str = typer.Option("disk", help="disk for durable traces and bounded reports; memory to replay older execution protocols."),
-    floor_model: str | None = typer.Option(None, help="Floor specification: spline (default), increments or linear."),
-    floor_increments: bool | None = typer.Option(None, '--floor-increments/--linear-floor',
-        help="Explicit legacy threshold or linear floor model; cannot combine with --floor-model."),
-    floor_prior_scale: float = typer.Option(.10, help="Positive spline knot-height contrast prior scale."),
-    floor_increment_prior_scale: float = typer.Option(.15, help="Positive prior scale for each floor threshold increment."),
-    maxdepth: int | None = typer.Option(None, min=1, max=20,
-        help="NUTS maximum tree depth: spline defaults to 10; legacy disk runs preserve the backend default when omitted."),
+    spec: str = typer.Option(
+        "full_half_balance",
+        help="Bathroom encoding: full_half_balance, full_half, incremental_total or linear_total.",
+    ),
+    residual_scale: str = typer.Option(
+        "shared", help="shared or bedroom; changes the observation-noise model."
+    ),
+    target_accept: float = typer.Option(
+        0.93, help="NUTS target acceptance, strictly between zero and one."
+    ),
+    adaptation: str = typer.Option(
+        "diag", help="Exact NUTS adaptation: diag or low_rank."
+    ),
+    prior_multiplier: float = typer.Option(
+        1.0, help="Positive feature prior scale multiplier."
+    ),
+    building_prior_scale: float = typer.Option(
+        0.35, help="Positive building hierarchy scale prior."
+    ),
+    unit_prior_scale: float = typer.Option(
+        0.25, help="Positive within-building unit hierarchy scale prior."
+    ),
+    residual_parameterization: str = typer.Option(
+        "centered",
+        help="centered or noncentered bedroom-noise hierarchy; inert with shared noise.",
+    ),
+    graph_validation: Path | None = typer.Option(
+        None, help="Optional verified graph parity bundle bound into the protocol."
+    ),
+    execution: str = typer.Option(
+        "disk",
+        help="disk for durable traces and bounded reports; memory to replay older execution protocols.",
+    ),
+    floor_model: str | None = typer.Option(
+        None, help="Floor specification: spline (default), increments or linear."
+    ),
+    floor_increments: bool | None = typer.Option(
+        None,
+        "--floor-increments/--linear-floor",
+        help="Explicit legacy threshold or linear floor model; cannot combine with --floor-model.",
+    ),
+    floor_prior_scale: float = typer.Option(
+        0.10, help="Positive spline knot-height contrast prior scale."
+    ),
+    floor_increment_prior_scale: float = typer.Option(
+        0.15, help="Positive prior scale for each floor threshold increment."
+    ),
+    maxdepth: int | None = typer.Option(
+        None,
+        min=1,
+        max=20,
+        help="NUTS maximum tree depth: spline defaults to 10; legacy disk runs preserve the backend default when omitted.",
+    ),
 ):
     """Fit the main exact PyMC model from a verified bathroom source projection.
 
@@ -288,37 +389,65 @@ def pricing_fit(
     from models import bayesian_disk_experiment as disk_runner
     from models import bayesian_floor_spline_experiment as spline_runner
     from threadpoolctl import threadpool_limits
-    args = Namespace(dataset=dataset, output=output, draws=draws, tune=tune,
-        chains=chains, seed=seed, spec=spec, residual_scale=residual_scale,
-        target_accept=target_accept, adaptation=adaptation, prior_multiplier=prior_multiplier,
-        building_prior_scale=building_prior_scale, unit_prior_scale=unit_prior_scale,
-        residual_parameterization=residual_parameterization, graph_validation=graph_validation,
-        floor_increments=floor_increments, floor_increment_prior_scale=floor_increment_prior_scale,
-        floor_prior_scale=floor_prior_scale, maxdepth=maxdepth)
+
+    args = Namespace(
+        dataset=dataset,
+        output=output,
+        draws=draws,
+        tune=tune,
+        chains=chains,
+        seed=seed,
+        spec=spec,
+        residual_scale=residual_scale,
+        target_accept=target_accept,
+        adaptation=adaptation,
+        prior_multiplier=prior_multiplier,
+        building_prior_scale=building_prior_scale,
+        unit_prior_scale=unit_prior_scale,
+        residual_parameterization=residual_parameterization,
+        graph_validation=graph_validation,
+        floor_increments=floor_increments,
+        floor_increment_prior_scale=floor_increment_prior_scale,
+        floor_prior_scale=floor_prior_scale,
+        maxdepth=maxdepth,
+    )
     try:
-        if execution not in ('disk', 'memory'):
-            raise ValueError('execution must be disk or memory')
+        if execution not in ("disk", "memory"):
+            raise ValueError("execution must be disk or memory")
         if floor_model is not None and floor_increments is not None:
-            raise ValueError('Use either --floor-model or a legacy --floor-increments/--linear-floor flag, not both')
-        selected_floor = floor_model if floor_model is not None else (
-            'spline' if floor_increments is None else 'increments' if floor_increments else 'linear')
-        if selected_floor not in ('spline', 'increments', 'linear'):
-            raise ValueError('floor-model must be spline, increments or linear')
-        if selected_floor == 'spline':
-            if execution != 'disk':
-                raise ValueError('The spline floor model requires --execution disk')
+            raise ValueError(
+                "Use either --floor-model or a legacy --floor-increments/--linear-floor flag, not both"
+            )
+        selected_floor = (
+            floor_model
+            if floor_model is not None
+            else (
+                "spline"
+                if floor_increments is None
+                else "increments"
+                if floor_increments
+                else "linear"
+            )
+        )
+        if selected_floor not in ("spline", "increments", "linear"):
+            raise ValueError("floor-model must be spline, increments or linear")
+        if selected_floor == "spline":
+            if execution != "disk":
+                raise ValueError("The spline floor model requires --execution disk")
             args.maxdepth = 10 if maxdepth is None else maxdepth
             args.floor_increments = False
             model_runner = runner = spline_runner
         else:
-            if execution == 'memory' and maxdepth is not None:
-                raise ValueError('--maxdepth is only supported by disk execution')
-            args.floor_increments = selected_floor == 'increments'
-            model_runner = disk_runner.increments if args.floor_increments else disk_runner.linear
-            runner = disk_runner if execution == 'disk' else model_runner
+            if execution == "memory" and maxdepth is not None:
+                raise ValueError("--maxdepth is only supported by disk execution")
+            args.floor_increments = selected_floor == "increments"
+            model_runner = (
+                disk_runner.increments if args.floor_increments else disk_runner.linear
+            )
+            runner = disk_runner if execution == "disk" else model_runner
         model_runner.validate_args(args)
         # Match the arithmetic used by exact design reconstruction in analysis.
-        with threadpool_limits(limits=1, user_api='blas'):
+        with threadpool_limits(limits=1, user_api="blas"):
             result = runner.run(args)
     except (ValueError, OSError) as error:
         typer.echo(f"PyMC fit failed: {error}", err=True)
@@ -329,8 +458,13 @@ def pricing_fit(
 @app.command("analyze-apartment")
 def apartment_analyze(
     audit_id: str,
-    selection: Path | None = typer.Option(None, help="Main PyMC selection JSON; defaults to config/main-analysis.json."),
-    changes: str | None = typer.Option(None, help='Optional simultaneous source-valued JSON changes, e.g. {"bedrooms":2,"full_bathrooms":2}.'),
+    selection: Path | None = typer.Option(
+        None, help="Main PyMC selection JSON; defaults to config/main-analysis.json."
+    ),
+    changes: str | None = typer.Option(
+        None,
+        help='Optional simultaneous source-valued JSON changes, e.g. {"bedrooms":2,"full_bathrooms":2}.',
+    ),
 ):
     """Inspect a selected, verified posterior and optional joint counterfactual.
 
@@ -340,54 +474,89 @@ def apartment_analyze(
     import json
     from . import main_analysis
     from .bayesian_analysis import BayesianAnalysis
+
     def object_without_duplicates(pairs):
         result = {}
         for key, value in pairs:
             if key in result:
-                raise ValueError('Duplicate JSON change key: '+key)
+                raise ValueError("Duplicate JSON change key: " + key)
             result[key] = value
         return result
+
     def reject_constant(value):
-        raise ValueError('Nonfinite JSON value: '+value)
+        raise ValueError("Nonfinite JSON value: " + value)
+
     def finite_float(value):
         import math
+
         number = float(value)
         if not math.isfinite(number):
             reject_constant(value)
         return number
+
     try:
         requested = None
         if changes is not None:
-            requested = json.loads(changes, object_pairs_hook=object_without_duplicates,
-                                   parse_constant=reject_constant, parse_float=finite_float)
+            requested = json.loads(
+                changes,
+                object_pairs_hook=object_without_duplicates,
+                parse_constant=reject_constant,
+                parse_float=finite_float,
+            )
             if not isinstance(requested, dict) or not requested:
-                raise ValueError('Changes must be a nonempty JSON object of source-valued fields')
-        selected, experiment, dataset = main_analysis.load_selection(selection or main_analysis.DEFAULT_SELECTION)
+                raise ValueError(
+                    "Changes must be a nonempty JSON object of source-valued fields"
+                )
+        selected, experiment, dataset = main_analysis.load_selection(
+            selection or main_analysis.DEFAULT_SELECTION
+        )
         notes = {}
-        if selected.get('source_review') or selected.get('source_issues'):
-            if not selected.get('evidence'):
-                raise ValueError('Selected source annotations require their matching description archive')
+        if selected.get("source_review") or selected.get("source_issues"):
+            if not selected.get("evidence"):
+                raise ValueError(
+                    "Selected source annotations require their matching description archive"
+                )
             from .source_issues import load_source_issues, merge_notes
             from .bayesian_source_review import load_source_review
-            evidence = main_analysis.resolve_path(selected['evidence'])
-            review_notes = (load_source_review(experiment,dataset,
-                main_analysis.resolve_path(selected['source_review']),evidence=evidence)
-                if selected.get('source_review') else {})
-            issue_notes = (load_source_issues(dataset,main_analysis.resolve_path(selected['source_issues']),evidence=evidence)
-                if selected.get('source_issues') else {})
-            notes = merge_notes(review_notes,issue_notes)
+
+            evidence = main_analysis.resolve_path(selected["evidence"])
+            review_notes = (
+                load_source_review(
+                    experiment,
+                    dataset,
+                    main_analysis.resolve_path(selected["source_review"]),
+                    evidence=evidence,
+                )
+                if selected.get("source_review")
+                else {}
+            )
+            issue_notes = (
+                load_source_issues(
+                    dataset,
+                    main_analysis.resolve_path(selected["source_issues"]),
+                    evidence=evidence,
+                )
+                if selected.get("source_issues")
+                else {}
+            )
+            notes = merge_notes(review_notes, issue_notes)
         workspace = BayesianAnalysis.load(experiment, dataset)
         try:
-            result = {'selection': selected, 'detail': workspace.detail(audit_id)}
+            result = {"selection": selected, "detail": workspace.detail(audit_id)}
             source_note = notes.get(audit_id)
             if source_note is not None:
-                result['source_note'] = source_note
+                result["source_note"] = source_note
             if requested is not None:
                 scenario = workspace.counterfactual(audit_id, requested)
-                if source_note is not None and source_note['interpretation_limited']:
-                    scenario = {**scenario, 'warnings': [*scenario.get('warnings', []),
-                        'These scenarios condition on disputed source inputs. A closer modeled price does not resolve the source conflict.']}
-                result['counterfactual'] = scenario
+                if source_note is not None and source_note["interpretation_limited"]:
+                    scenario = {
+                        **scenario,
+                        "warnings": [
+                            *scenario.get("warnings", []),
+                            "These scenarios condition on disputed source inputs. A closer modeled price does not resolve the source conflict.",
+                        ],
+                    }
+                result["counterfactual"] = scenario
         finally:
             workspace.close()
         typer.echo(json.dumps(result, indent=2, allow_nan=False))
@@ -400,17 +569,34 @@ def apartment_analyze(
 def historical_build(
     dataset: Path,
     output: Path,
-    as_of: str = typer.Option(..., help="Knowledge cutoff no earlier than the canonical dataset completion."),
-    ledger: Path = typer.Option(Path('config/corrections.jsonl')),
-    start: str = typer.Option('2010-01-01'),
+    as_of: str = typer.Option(
+        ..., help="Knowledge cutoff no earlier than the canonical dataset completion."
+    ),
+    ledger: Path = typer.Option(Path("config/corrections.jsonl")),
+    start: str = typer.Option("2010-01-01"),
     end: str | None = typer.Option(None),
-    description_recovery: Path | None = typer.Option(None, help="Verified immutable archive-description recovery bundle."),
+    description_recovery: Path | None = typer.Option(
+        None, help="Verified immutable archive-description recovery bundle."
+    ),
 ):
     """Reconstruct historical own-advertisement asking rents with dated corrections."""
     import json
     from .historical_dataset import build_historical_dataset
-    typer.echo(json.dumps(build_historical_dataset(dataset, output, as_of=as_of,
-        ledger=ledger, start=start, end=end, description_recovery=description_recovery), indent=2))
+
+    typer.echo(
+        json.dumps(
+            build_historical_dataset(
+                dataset,
+                output,
+                as_of=as_of,
+                ledger=ledger,
+                start=start,
+                end=end,
+                description_recovery=description_recovery,
+            ),
+            indent=2,
+        )
+    )
 
 
 @app.command("rank-apartments")
@@ -418,15 +604,33 @@ def apartment_rank(
     candidates: Path,
     preferences: Path,
     output: Path,
-    unknown_policy: str = typer.Option('exclude', help="exclude or zero for missing valued attributes."),
-    budget: float | None = typer.Option(None, min=.01, help="Maximum monthly asking rent."),
-    model: Path | None = typer.Option(None, help="Optional verified pricing bundle for a separate market comparison."),
+    unknown_policy: str = typer.Option(
+        "exclude", help="exclude or zero for missing valued attributes."
+    ),
+    budget: float | None = typer.Option(
+        None, min=0.01, help="Maximum monthly asking rent."
+    ),
+    model: Path | None = typer.Option(
+        None, help="Optional verified pricing bundle for a separate market comparison."
+    ),
 ):
     """Rank an explicit candidate JSONL snapshot by dollar preferences and Pareto efficiency."""
     import json
     from .research_pipeline import rank_candidates
-    typer.echo(json.dumps(rank_candidates(candidates, preferences, output,
-        unknown_policy=unknown_policy, budget=budget, model_bundle=model), indent=2))
+
+    typer.echo(
+        json.dumps(
+            rank_candidates(
+                candidates,
+                preferences,
+                output,
+                unknown_policy=unknown_policy,
+                budget=budget,
+                model_bundle=model,
+            ),
+            indent=2,
+        )
+    )
 
 
 @app.command("score-apartments")
@@ -435,35 +639,70 @@ def apartment_score(
     preferences: Path,
     model: Path,
     output: Path,
-    as_of: str = typer.Option(..., help="Explicit collection/knowledge cutoff for this candidate snapshot."),
-    max_age_days: float = typer.Option(7, min=0, help="Maximum age of an ACTIVE capture."),
-    budget: float | None = typer.Option(None, min=.01),
-    unknown_policy: str = typer.Option('exclude', help="exclude or zero for missing valued attributes."),
+    as_of: str = typer.Option(
+        ..., help="Explicit collection/knowledge cutoff for this candidate snapshot."
+    ),
+    max_age_days: float = typer.Option(
+        7, min=0, help="Maximum age of an ACTIVE capture."
+    ),
+    budget: float | None = typer.Option(None, min=0.01),
+    unknown_policy: str = typer.Option(
+        "exclude", help="exclude or zero for missing valued attributes."
+    ),
 ):
     """Legacy robust scoring; use rank-current-apartments for the selected PyMC fit."""
     import json
     from .candidate_search import score_candidates
-    typer.echo(json.dumps(score_candidates(candidates, preferences, output, model_bundle=model,
-        as_of=as_of, max_age_days=max_age_days, budget=budget, unknown_policy=unknown_policy), indent=2))
+
+    typer.echo(
+        json.dumps(
+            score_candidates(
+                candidates,
+                preferences,
+                output,
+                model_bundle=model,
+                as_of=as_of,
+                max_age_days=max_age_days,
+                budget=budget,
+                unknown_policy=unknown_policy,
+            ),
+            indent=2,
+        )
+    )
 
 
 @app.command("rank-current-apartments")
 def current_apartment_rank(
     preferences: Path,
     output: Path,
-    selection: Path | None = typer.Option(None, help="Selected accepted PyMC fit; defaults to the repository main selection."),
-    as_of: str = typer.Option(..., help="Capture/knowledge cutoff; this is not a historical model backtest."),
+    selection: Path | None = typer.Option(
+        None,
+        help="Selected accepted PyMC fit; defaults to the repository main selection.",
+    ),
+    as_of: str = typer.Option(
+        ..., help="Capture/knowledge cutoff; this is not a historical model backtest."
+    ),
     max_age_days: float = typer.Option(7, min=0),
-    budget: float | None = typer.Option(None, min=.01),
-    unknown_policy: str = typer.Option('exclude', help="exclude or explicit zero for unknown valued attributes."),
+    budget: float | None = typer.Option(None, min=0.01),
+    unknown_policy: str = typer.Option(
+        "exclude", help="exclude or explicit zero for unknown valued attributes."
+    ),
 ):
     """Rank fitted current listings by preferences with separate PyMC posterior diagnostics."""
     import json
     from .bayesian_candidate_search import run
     from .main_analysis import DEFAULT_SELECTION
+
     try:
-        result = run(preferences, output, selection=selection or DEFAULT_SELECTION, as_of=as_of,
-                     max_age_days=max_age_days, budget=budget, unknown_policy=unknown_policy)
+        result = run(
+            preferences,
+            output,
+            selection=selection or DEFAULT_SELECTION,
+            as_of=as_of,
+            max_age_days=max_age_days,
+            budget=budget,
+            unknown_policy=unknown_policy,
+        )
         typer.echo(json.dumps(result, indent=2, allow_nan=False))
     except (ValueError, OSError, KeyError) as error:
         typer.echo(f"Bayesian ranking failed: {error}", err=True)
@@ -476,14 +715,26 @@ def candidate_build(
     historical_reference: Path,
     output: Path,
     as_of: str = typer.Option(...),
-    ledger: Path = typer.Option(Path('config/corrections.jsonl')),
+    ledger: Path = typer.Option(Path("config/corrections.jsonl")),
     description_recovery: Path | None = typer.Option(None),
 ):
     """Build canonical capture-time search records, retaining active and inactive ads."""
     import json
     from .candidate_snapshot import build_snapshot
-    typer.echo(json.dumps(build_snapshot(dataset,historical_reference,output,as_of=as_of,
-        ledger=ledger,description_recovery=description_recovery),indent=2))
+
+    typer.echo(
+        json.dumps(
+            build_snapshot(
+                dataset,
+                historical_reference,
+                output,
+                as_of=as_of,
+                ledger=ledger,
+                description_recovery=description_recovery,
+            ),
+            indent=2,
+        )
+    )
 
 
 if __name__ == "__main__":

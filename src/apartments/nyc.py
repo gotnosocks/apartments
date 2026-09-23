@@ -36,7 +36,12 @@ def fetch_pluto() -> list[dict[str, Any]]:
     selected = []
     for row in rows:
         match = re.match(r"^(\d+)", row.get("address", ""))
-        if match and segment["minimum_house_number"] <= int(match.group(1)) <= segment["maximum_house_number"]:
+        if (
+            match
+            and segment["minimum_house_number"]
+            <= int(match.group(1))
+            <= segment["maximum_house_number"]
+        ):
             selected.append(row)
 
     # 130 W 15th is an alternate address on a condo lot whose PLUTO primary
@@ -70,10 +75,19 @@ def ingest_pluto(db_path: str = "data/apartments.duckdb") -> int:
                 building_class=excluded.building_class, raw_json=excluded.raw_json,
                 updated_at=now()""",
             [
-                bbl, bbl, row.get("address"), row.get("borough"), row.get("zipcode"),
-                row.get("latitude"), row.get("longitude"), _integer(row.get("yearbuilt")),
-                _integer(row.get("unitsres")), _integer(row.get("unitstotal")),
-                row.get("numfloors"), row.get("bldgclass"), json.dumps(row),
+                bbl,
+                bbl,
+                row.get("address"),
+                row.get("borough"),
+                row.get("zipcode"),
+                row.get("latitude"),
+                row.get("longitude"),
+                _integer(row.get("yearbuilt")),
+                _integer(row.get("unitsres")),
+                _integer(row.get("unitstotal")),
+                row.get("numfloors"),
+                row.get("bldgclass"),
+                json.dumps(row),
             ],
         )
     db.close()

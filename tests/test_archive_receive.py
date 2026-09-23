@@ -8,7 +8,13 @@ from types import SimpleNamespace
 
 import pytest
 
-from apartments.archive_receive import LocalVolume, ReceiveError, _download, extract_bundle, verify_part
+from apartments.archive_receive import (
+    LocalVolume,
+    ReceiveError,
+    _download,
+    extract_bundle,
+    verify_part,
+)
 
 
 def _bundle(tmp_path, name="nested/file.txt", data=b"archive data"):
@@ -18,7 +24,11 @@ def _bundle(tmp_path, name="nested/file.txt", data=b"archive data"):
         info.size = len(data)
         archive.addfile(info, io.BytesIO(data))
     manifest_path = tmp_path / "pack.manifest.jsonl"
-    record = {"path": name, "size": len(data), "sha256": hashlib.sha256(data).hexdigest()}
+    record = {
+        "path": name,
+        "size": len(data),
+        "sha256": hashlib.sha256(data).hexdigest(),
+    }
     manifest_path.write_text(json.dumps(record) + "\n", encoding="utf-8")
     return tar_path, manifest_path, {"files": 1, "uncompressed_bytes": len(data)}
 
@@ -28,7 +38,9 @@ def _passthrough_zstd(monkeypatch):
         def stream_reader(self, stream):
             return stream
 
-    monkeypatch.setitem(sys.modules, "zstandard", types.SimpleNamespace(ZstdDecompressor=Decompressor))
+    monkeypatch.setitem(
+        sys.modules, "zstandard", types.SimpleNamespace(ZstdDecompressor=Decompressor)
+    )
 
 
 def test_extract_and_resume_verifies_each_file(tmp_path, monkeypatch):
@@ -47,7 +59,14 @@ def test_rejects_tar_path_traversal(tmp_path, monkeypatch):
     _passthrough_zstd(monkeypatch)
     archive, manifest, ready = _bundle(tmp_path, "../escape.txt")
     manifest.write_text(
-        json.dumps({"path": "escape.txt", "size": 12, "sha256": hashlib.sha256(b"archive data").hexdigest()}) + "\n",
+        json.dumps(
+            {
+                "path": "escape.txt",
+                "size": 12,
+                "sha256": hashlib.sha256(b"archive data").hexdigest(),
+            }
+        )
+        + "\n",
         encoding="utf-8",
     )
     with pytest.raises(ReceiveError, match="unsafe tar member path"):
@@ -62,7 +81,13 @@ def test_download_checksum_is_checked_before_atomic_install(tmp_path):
 
     target = tmp_path / "bundle.tar.zst"
     with pytest.raises(ReceiveError, match="download checksum mismatch"):
-        _download(Volume(), "/packs/00000.tar.zst", target, expected_sha256="0" * 64, retries=1)
+        _download(
+            Volume(),
+            "/packs/00000.tar.zst",
+            target,
+            expected_sha256="0" * 64,
+            retries=1,
+        )
     assert not target.exists()
     assert not target.with_name(target.name + ".partial").exists()
 
@@ -71,7 +96,11 @@ def test_receive_caches_resume_verification_across_polls(tmp_path, monkeypatch):
     import apartments.archive_receive as receiver
 
     data = b"already there"
-    record = {"path": "existing.txt", "size": len(data), "sha256": hashlib.sha256(data).hexdigest()}
+    record = {
+        "path": "existing.txt",
+        "size": len(data),
+        "sha256": hashlib.sha256(data).hexdigest(),
+    }
     root, state = tmp_path / "archive", tmp_path / "state"
     root.mkdir()
     state.mkdir()
@@ -81,7 +110,11 @@ def test_receive_caches_resume_verification_across_polls(tmp_path, monkeypatch):
     marker.write_text(json.dumps({"id": 0, "records": [record]}), encoding="utf-8")
     payloads = {
         "/migration/plan.json": {"groups": [{"id": 0, "files": 1, "bytes": len(data)}]},
-        "/migration/complete.json": {"files": 1, "bytes": 1, "uncompressed_bytes": len(data)},
+        "/migration/complete.json": {
+            "files": 1,
+            "bytes": 1,
+            "uncompressed_bytes": len(data),
+        },
     }
 
     class FakeVolume:
@@ -111,9 +144,13 @@ def test_receive_caches_resume_verification_across_polls(tmp_path, monkeypatch):
 
     monkeypatch.setattr(receiver, "_existing_part", count_check)
     monkeypatch.setattr(receiver.time, "sleep", lambda seconds: None)
-    receiver.receive(FakeVolume(), prefix="/migration", root=root, state=state, poll_seconds=0)
+    receiver.receive(
+        FakeVolume(), prefix="/migration", root=root, state=state, poll_seconds=0
+    )
     assert checked == [0]
-    assert (state / "all-files.jsonl").read_text(encoding="utf-8").strip() == json.dumps(record, sort_keys=True)
+    assert (state / "all-files.jsonl").read_text(
+        encoding="utf-8"
+    ).strip() == json.dumps(record, sort_keys=True)
 
 
 def test_local_volume_reads_relayed_spool_without_modal(tmp_path):
@@ -128,7 +165,9 @@ def test_local_volume_reads_relayed_spool_without_modal(tmp_path):
     assert [entry.path for entry in listed] == ["/migration/packs/00000.tar.zst"]
     assert b"".join(volume.read_file("/migration/packs/00000.tar.zst")) == payload
     destination = io.BytesIO()
-    copied = volume.read_file_into_fileobj("/migration/packs/00000.tar.zst", destination)
+    copied = volume.read_file_into_fileobj(
+        "/migration/packs/00000.tar.zst", destination
+    )
     assert copied == len(payload)
     assert destination.getvalue() == payload
     with pytest.raises(ReceiveError, match="unsafe incoming path"):
@@ -154,4 +193,10 @@ def test_receiver_stops_after_five_sdk_failures(tmp_path, monkeypatch):
 
     monkeypatch.setattr(receiver.time, "sleep", lambda seconds: None)
     with pytest.raises(ReceiveError, match="5 consecutive SDK/network failures"):
-        receiver.receive(BrokenVolume(), prefix="/migration", root=tmp_path / "archive", state=tmp_path / "state", poll_seconds=0)
+        receiver.receive(
+            BrokenVolume(),
+            prefix="/migration",
+            root=tmp_path / "archive",
+            state=tmp_path / "state",
+            poll_seconds=0,
+        )

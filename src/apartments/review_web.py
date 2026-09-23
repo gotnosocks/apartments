@@ -19,7 +19,15 @@ def _enabled(value):
     return str(value or "").strip().lower() in {"1", "true", "yes", "on"}
 
 
-def create_app(backend=None, *, dataset_root=None, review_state=None, read_only=None, allowed_hosts=None, model_report_path=None):
+def create_app(
+    backend=None,
+    *,
+    dataset_root=None,
+    review_state=None,
+    read_only=None,
+    allowed_hosts=None,
+    model_report_path=None,
+):
     app = Flask(__name__)
     report_path = model_report_path or os.environ.get("REVIEW_MODEL_REPORT")
     if allowed_hosts is None:
@@ -70,7 +78,11 @@ def create_app(backend=None, *, dataset_root=None, review_state=None, read_only=
         if hostname not in trusted_hosts:
             return jsonify(error="Host not allowed"), 403
         if request.method == "POST":
-            if _enabled(read_only if read_only is not None else os.environ.get("REVIEW_READ_ONLY")):
+            if _enabled(
+                read_only
+                if read_only is not None
+                else os.environ.get("REVIEW_READ_ONLY")
+            ):
                 return jsonify(error="Review app is read-only"), 403
             origin = request.headers.get("Origin")
             if origin and origin not in (
@@ -99,7 +111,9 @@ def create_app(backend=None, *, dataset_root=None, review_state=None, read_only=
         # or a directory of model inputs. The normal private-host gate applies.
         if not report_path or not Path(report_path).is_file():
             abort(404)
-        response = send_file(Path(report_path).resolve(), mimetype="text/html", conditional=True)
+        response = send_file(
+            Path(report_path).resolve(), mimetype="text/html", conditional=True
+        )
         response.headers["Cache-Control"] = "private, no-cache"
         response.headers["X-Content-Type-Options"] = "nosniff"
         return response
@@ -123,38 +137,42 @@ def create_app(backend=None, *, dataset_root=None, review_state=None, read_only=
     def overview():
         return call("overview", {})
 
-    @app.get('/units')
+    @app.get("/units")
     def unit_merges():
-        session.setdefault('csrf', secrets.token_hex(24))
-        return render_template('unit_merges.html', csrf_token=session['csrf'])
+        session.setdefault("csrf", secrets.token_hex(24))
+        return render_template("unit_merges.html", csrf_token=session["csrf"])
 
-    @app.get('/api/units/candidates')
+    @app.get("/api/units/candidates")
     def unit_candidates():
-        return call('unit_candidates', dict(request.args))
+        return call("unit_candidates", dict(request.args))
 
-    @app.get('/api/units/inspect')
+    @app.get("/api/units/inspect")
     def unit_inspect():
-        return call('unit_inspect', dict(request.args))
+        return call("unit_inspect", dict(request.args))
 
-    @app.get('/api/units/mapping')
+    @app.get("/api/units/mapping")
     def unit_mapping():
-        return call('unit_mapping', {})
+        return call("unit_mapping", {})
 
-    @app.get('/api/units/batches')
+    @app.get("/api/units/batches")
     def unit_batches():
-        return call('unit_batches', {})
+        return call("unit_batches", {})
 
-    @app.get('/api/units/proposal')
+    @app.get("/api/units/proposal")
     def unit_proposal():
-        response = app.make_response(call('unit_proposal', dict(request.args)))
-        response.headers['Content-Disposition'] = 'attachment; filename="unit-association-proposal.json"'
+        response = app.make_response(call("unit_proposal", dict(request.args)))
+        response.headers["Content-Disposition"] = (
+            'attachment; filename="unit-association-proposal.json"'
+        )
         return response
 
-    @app.get('/api/units/export')
+    @app.get("/api/units/export")
     def unit_export():
-        response = app.make_response(call('unit_inspect', dict(request.args)))
+        response = app.make_response(call("unit_inspect", dict(request.args)))
         if response.status_code == 200:
-            response.headers['Content-Disposition'] = 'attachment; filename="unit-record.json"'
+            response.headers["Content-Disposition"] = (
+                'attachment; filename="unit-record.json"'
+            )
         return response
 
     @app.get("/api/observations")
@@ -180,13 +198,13 @@ def create_app(backend=None, *, dataset_root=None, review_state=None, read_only=
     for route, action in (
         ("/api/review", "review"),
         ("/api/listings/inclusion", "listing_inclusion"),
-        ('/api/units/merge', 'unit_merge'),
-        ('/api/units/separate', 'unit_separate'),
-        ('/api/units/separate/undo', 'unit_undo_separate'),
-        ('/api/units/undo', 'unit_undo'),
-        ('/api/units/associations/preview', 'unit_association_preview'),
-        ('/api/units/associations/apply', 'unit_association_apply'),
-        ('/api/units/associations/undo', 'unit_association_undo'),
+        ("/api/units/merge", "unit_merge"),
+        ("/api/units/separate", "unit_separate"),
+        ("/api/units/separate/undo", "unit_undo_separate"),
+        ("/api/units/undo", "unit_undo"),
+        ("/api/units/associations/preview", "unit_association_preview"),
+        ("/api/units/associations/apply", "unit_association_apply"),
+        ("/api/units/associations/undo", "unit_association_undo"),
         ("/api/events/price/preview", "event_price_preview"),
         ("/api/identity/confirm", "identity_confirm"),
         ("/api/corrections/preview", "preview"),
@@ -209,13 +227,15 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--port", type=int, default=8766)
     parser.add_argument(
-        "--listen", default=os.environ.get("REVIEW_LISTEN"),
+        "--listen",
+        default=os.environ.get("REVIEW_LISTEN"),
         help="Explicit space-separated host:port listeners; defaults to loopback",
     )
     parser.add_argument("--dataset-root", default=os.environ.get("REVIEW_DATASET_ROOT"))
     parser.add_argument("--review-state", default=os.environ.get("REVIEW_STATE"))
     parser.add_argument(
-        "--read-only", action="store_true",
+        "--read-only",
+        action="store_true",
         default=_enabled(os.environ.get("REVIEW_READ_ONLY")),
         help="Reject all mutating POST requests",
     )
@@ -229,7 +249,11 @@ def main():
             read_only=args.read_only,
         ),
         threads=4,
-        **({"listen": args.listen} if args.listen else {"host": "127.0.0.1", "port": args.port}),
+        **(
+            {"listen": args.listen}
+            if args.listen
+            else {"host": "127.0.0.1", "port": args.port}
+        ),
     )
 
 

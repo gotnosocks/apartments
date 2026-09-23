@@ -23,7 +23,9 @@ def test_build_inventory_links_recovers_html_and_preserves_source(tmp_path: Path
     finally:
         db.close()
     report = build_inventory_links(tmp_path)
-    rows = pq.read_table(tmp_path / "inventory_row_links" / "derived.parquet").to_pylist()
+    rows = pq.read_table(
+        tmp_path / "inventory_row_links" / "derived.parquet"
+    ).to_pylist()
     assert report["rows"] == 5
     assert report["recovered_legacy_links"] == 2
     assert report["ambiguous"] == 1
@@ -31,5 +33,8 @@ def test_build_inventory_links_recovers_html_and_preserves_source(tmp_path: Path
     assert rows[0]["listing_url"].endswith("/rental/12")
     assert rows[1]["row_kind"] == "closing"
     assert rows[2]["row_kind"] == "placeholder"
-    assert json.loads(rows[3]["candidate_urls_json"]) == ["https://streeteasy.com/rental/1", "https://streeteasy.com/rental/2"]
+    assert json.loads(rows[3]["candidate_urls_json"]) == [
+        "https://streeteasy.com/rental/1",
+        "https://streeteasy.com/rental/2",
+    ]
     assert pq.read_table(source / "part.parquet").num_rows == 5
