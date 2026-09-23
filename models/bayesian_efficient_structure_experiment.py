@@ -78,6 +78,7 @@ def graph_kwargs(args):
         "prior_multiplier": args.prior_multiplier,
         "intercept": args.intercept,
         "walk_centering": args.walk_centering,
+        "feature_basis": args.feature_basis,
     }
 
 
@@ -514,7 +515,17 @@ def run(args):
                 "bedroom_time",
                 "building_time_scale",
             ]
-            with model:
+            # A QR feature basis samples an improper flat theta; draw prior
+            # predictive values from the identity-basis model, whose prior is
+            # identical by construction.
+            prior_model = (
+                graph.build_model(
+                    data, design, **{**graph_kwargs(args), "feature_basis": "identity"}
+                )
+                if args.feature_basis == "qr"
+                else model
+            )
+            with prior_model:
                 prior = v2.pm.sample_prior_predictive(
                     draws=80, random_seed=args.seed + 1, var_names=names
                 )
@@ -627,7 +638,12 @@ def argument_parser():
         "--intercept", choices=("global", "building_mean"), default="building_mean"
     )
     parser.add_argument(
-        "--walk-centering", choices=("none", "across_buildings"), default="none"
+        "--walk-centering",
+        choices=("none", "across_buildings"),
+        default="across_buildings",
+    )
+    parser.add_argument(
+        "--feature-basis", choices=("identity", "qr"), default="identity"
     )
     parser.set_defaults(tune=1000, draws=1500)
     return parser
