@@ -190,6 +190,9 @@ def main(argv=None):
     parser.add_argument("--keep-every", type=int)
     parser.add_argument("--seed", type=int)
     parser.add_argument(
+        "--chain-batch", type=int, help="Gibbs: vectorise this many chains at a time"
+    )
+    parser.add_argument(
         "--float32", action="store_true", help="HMC only; Gibbs always runs in float64"
     )
     parser.add_argument("--name", required=True)
@@ -234,6 +237,7 @@ def main(argv=None):
             "draws": args.draws,
             "keep_every": args.keep_every,
             "seed": args.seed,
+            "chain_batch": args.chain_batch,
         }.items()
         if v is not None
     }
