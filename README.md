@@ -243,6 +243,21 @@ The consolidation/model experiment is on `feature/chelsea-analysis`; the precedi
 version is preserved at `archive/pre-chelsea-model-20260908`. The scraper history is
 part of this repository's commit graph. There is no nested scraper project to install.
 
+### Code style
+
+Format all Python files with [ruff](https://docs.astral.sh/ruff/formatter/)
+using its default settings. Format the files you create or change before committing:
+
+```sh
+uvx ruff format path/to/changed_file.py
+uvx ruff format --check path/to/changed_file.py
+```
+
+Do not run `ruff format` over whole directories. Fit protocols record the SHA-256
+of their implementation files, so reformatting a file hashed by a running or
+selected fit aborts that fit or breaks verification of its saved results. Leave
+those files unchanged; reformat them only after the fits that hash them are retired.
+
 ## Chelsea pricing model
 
 ```sh
