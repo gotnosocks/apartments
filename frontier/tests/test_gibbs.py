@@ -117,7 +117,7 @@ def test_joint_gaussian_mean_matches_dense_solve(design):
     prep = synthetic()
     d = gibbs.build_design(prep, DESIGNS[design])
     lam = np.random.default_rng(1).gamma(2.5, 1 / 2.5, d.y.shape[0])
-    theta, theta_l, u, _ = gibbs.gaussian_block(
+    theta, theta_l, u, *_ = gibbs.gaussian_block(
         d,
         jnp.asarray(lam),
         SCALES,
@@ -129,6 +129,50 @@ def test_joint_gaussian_mean_matches_dense_solve(design):
     np.testing.assert_allclose(np.asarray(theta), e_theta, atol=1e-8)
     np.testing.assert_allclose(np.asarray(theta_l), e_l, atol=1e-8)
     np.testing.assert_allclose(np.asarray(u), e_u, atol=1e-8)
+
+
+def dense_logml(d, lam, s):
+    """log N(y; 0, X Q_prior^-1 X' + W^-1), by brute force."""
+    from scipy.stats import multivariate_normal
+
+    n, p = d.a.shape
+    K, L, J = d.n_buildings, d.n_local, d.n_units
+    X = np.zeros((n, p + K * L + J))
+    X[:, :p] = np.asarray(d.a)
+    slots, vals, bld = (np.asarray(v) for v in (d.slots, d.slot_values, d.building))
+    for m in range(slots.shape[1]):
+        np.add.at(X, (np.arange(n), p + bld * L + slots[:, m]), vals[:, m])
+    X[np.arange(n), p + K * L + np.asarray(d.unit)] = 1
+    prior = np.zeros((X.shape[1],) * 2)
+    prior[:p, :p] = np.diag(np.asarray(d.prior_fixed))
+    for name, (sl, r) in d.global_blocks.items():
+        prior[sl, sl] += np.asarray(r) / s[name] ** 2
+    local = sum(
+        np.asarray(d.local_structures[k]) / s[k] ** 2 for k in d.local_structures
+    )
+    for k in range(K):
+        prior[p + k * L : p + (k + 1) * L, p + k * L : p + (k + 1) * L] = local
+    prior[p + K * L :, p + K * L :] += np.eye(J) / s["unit_scale"] ** 2
+    cov = X @ np.linalg.solve(prior, X.T) + np.diag(s["sigma"] ** 2 / lam)
+    return multivariate_normal(np.zeros(n), cov).logpdf(np.asarray(d.y))
+
+
+@pytest.mark.parametrize("design", ["base", "all"])
+def test_collapsed_marginal_likelihood_matches_dense(design):
+    prep = synthetic()
+    d = gibbs.build_design(prep, DESIGNS[design])
+    lam = np.random.default_rng(1).gamma(2.5, 1 / 2.5, d.y.shape[0])
+    other = {k: v * (1.3 if k != "sigma" else 1.0) for k, v in SCALES.items()}
+    zeros = (
+        jnp.zeros(d.a.shape[1]),
+        jnp.zeros((d.n_buildings, d.n_local)),
+        jnp.zeros(d.n_units),
+    )
+    ml1 = float(gibbs.gaussian_block(d, jnp.asarray(lam), SCALES, *zeros)[-1])
+    ml2 = float(gibbs.gaussian_block(d, jnp.asarray(lam), other, *zeros)[-1])
+    np.testing.assert_allclose(
+        ml1 - ml2, dense_logml(d, lam, SCALES) - dense_logml(d, lam, other), atol=1e-6
+    )
 
 
 def test_site_values_reproduce_linear_predictor():

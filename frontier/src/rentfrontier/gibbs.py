@@ -22,6 +22,11 @@ lam_i), lam_i ~ Gamma(nu/2, nu/2). One iteration:
 4. With a building walk, a rescaling move (walk_scale, walk) -> (c *
    walk_scale, c * walk), which moves along the scale/latent ridge that
    plain Gibbs crosses slowly.
+5. Collapsed scale update (after the first half of warmup): a joint
+   random-walk Metropolis step on all group log-scales whose target is the
+   marginal posterior with every Gaussian latent integrated out (computed
+   from the same block factorisation), followed by the latent draw from the
+   kept factorisation. This removes the scale/latent coupling entirely.
 
 Chains run in parallel under vmap, in float64.
 """
@@ -53,6 +58,12 @@ class Settings:
     rescale_steps: int = 5  # (walk_scale, walk) rescaling moves per iteration
     rescale_step_sd: float = 0.01  # on log c
     trace_groups: int = 32
+    # Collapsed Metropolis update of all group scales (latents integrated
+    # out); proposal sd = collapse_scale * sd(log scale) / sqrt(#scales),
+    # sized from the first half of warmup.
+    collapse: bool = True
+    collapse_scale: float = 2.38
+    chain_batch: int = 0  # vectorise this many chains at a time (0 = all)
 
     def to_dict(self):
         return asdict(self)
@@ -283,16 +294,33 @@ def gaussian_block(d: Design, lam, s, z_g, z_l, z_u):
     schur = q - jnp.einsum("klp,klq->pq", v, v)
     r_s = rhs_g - jnp.einsum("klp,kl->p", v, vr)
     chol = jnp.linalg.cholesky(schur)
-    theta = solve_triangular(
-        chol.T, solve_triangular(chol, r_s, lower=True) + z_g, lower=False
-    )
+    white = solve_triangular(chol, r_s, lower=True)
+    theta = solve_triangular(chol.T, white + z_g, lower=False)
     rhs = vr - jnp.einsum("klp,p->kl", v, theta) + z_l
     theta_l = solve_triangular(jnp.swapaxes(chol_l, 1, 2), rhs[..., None], lower=False)[
         ..., 0
     ]
     fixed = a @ theta + local_value(theta_l, bld, slots, vals)
     u = c * (h - seg_u(w * fixed)) + jnp.sqrt(c) * z_u
-    return theta, theta_l, u, fixed
+
+    # Log marginal likelihood of y given lam and the scales, with every
+    # Gaussian latent integrated out, up to terms that do not depend on the
+    # group scales:  1/2 b'Q^-1 b - 1/2 log|Q_post| + 1/2 log|Q_prior|.
+    # The block elimination order (units, buildings, global) splits both the
+    # quadratic form and the determinant into per-level pieces.
+    quad = jnp.sum(c * h * h) + jnp.sum(vr * vr) + jnp.sum(white * white)
+    logdet_post = (
+        -jnp.sum(jnp.log(c))
+        + 2 * jnp.sum(jnp.log(jnp.diagonal(chol_l, axis1=1, axis2=2)))
+        + 2 * jnp.sum(jnp.log(jnp.diagonal(chol)))
+    )
+    logdet_prior = -2 * J * jnp.log(s["unit_scale"])
+    for name, rank in d.global_ranks.items():
+        logdet_prior = logdet_prior - 2 * rank * jnp.log(s[name])
+    for name, rank in d.local_ranks.items():
+        logdet_prior = logdet_prior - 2 * K * rank * jnp.log(s[name])
+    logml = 0.5 * (quad - logdet_post + logdet_prior)
+    return theta, theta_l, u, fixed, logml
 
 
 def site_values(d: Design, state):
@@ -336,25 +364,45 @@ def make_step(d: Design):
         **{k: r * d.n_buildings for k, r in d.local_ranks.items()},
     }
 
-    def step(
-        key,
-        state,
-        noise_steps,
-        sigma_step_sd,
-        nu_step_sd,
-        rescale_steps,
-        rescale_step_sd,
-    ):
+    hier = [k for k in d.scale_names if k != "sigma"]
+
+    def step(key, state, cfg, prop_sd=None):
+        """One iteration. `cfg` holds the step sizes; with `prop_sd` (one
+        proposal sd per hierarchical log-scale) the scales are first updated
+        by a collapsed Metropolis step that integrates out every latent."""
+        noise_steps, sigma_step_sd, nu_step_sd, rescale_steps, rescale_step_sd = cfg
         keys = jax.random.split(key, 12)
         s = {k: state[k] for k in d.scale_names}
-        theta, theta_l, u, fixed = gaussian_block(
-            d,
-            state["lam"],
-            s,
+        z = (
             jax.random.normal(keys[0], (d.a.shape[1],)),
             jax.random.normal(keys[1], (d.n_buildings, d.n_local)),
             jax.random.normal(keys[2], (d.n_units,)),
         )
+        out = gaussian_block(d, state["lam"], s, *z)
+        info = {}
+        if prop_sd is not None:
+            # Collapsed scale update: p(scales | lam, sigma, y) with all
+            # Gaussian latents integrated out, random-walk on log scales. The
+            # latents are then drawn from whichever factorisation is kept.
+            k1, k2 = jax.random.split(keys[11])
+            step_ = prop_sd * jax.random.normal(k1, (len(hier),))
+            s_new = dict(s)
+            for i, name in enumerate(hier):
+                s_new[name] = s[name] * jnp.exp(step_[i])
+            out_new = gaussian_block(d, state["lam"], s_new, *z)
+
+            def log_prior(sc):
+                return sum(
+                    -(sc[k] ** 2) / (2 * d.prior_sd[k] ** 2) + jnp.log(sc[k])
+                    for k in hier
+                )
+
+            log_ratio = out_new[-1] - out[-1] + log_prior(s_new) - log_prior(s)
+            ok = jnp.log(jax.random.uniform(k2)) < log_ratio
+            out = jax.tree.map(lambda a, b: jnp.where(ok, b, a), out, out_new)
+            s = {k: jnp.where(ok, s_new[k], s[k]) for k in s}
+            info["collapsed_accept"] = ok.astype(jnp.float64)
+        theta, theta_l, u, fixed, _ = out
         e = d.y - fixed - u[d.unit]
 
         # (sigma, nu) | e jointly, with lam integrated out (exact Student-t
@@ -421,7 +469,7 @@ def make_step(d: Design):
                 d.prior_sd[name],
             )
 
-        info = {"noise_accept": noise_acc / noise_steps}
+        info["noise_accept"] = noise_acc / noise_steps
         if d.knot_start is not None:
             # Rescaling move on (walk_scale, walk knots): (tau, W) -> (c tau, c W).
             # Given the knots, tau is pinned down tightly, and vice versa, so
@@ -503,6 +551,23 @@ def init_states(d: Design, key, chains):
     return state
 
 
+def batched(fn, chains, batch):
+    """vmap `fn` over chains, `batch` chains at a time (lax.map over groups)."""
+    if not batch or batch >= chains:
+        return jax.vmap(fn)
+    if chains % batch:
+        raise ValueError("chains must be a multiple of chain_batch")
+
+    def run(*args):
+        grouped = jax.tree.map(
+            lambda a: a.reshape(chains // batch, batch, *a.shape[1:]), args
+        )
+        out = jax.lax.map(lambda g: jax.vmap(fn)(*g), grouped)
+        return jax.tree.map(lambda a: a.reshape(chains, *a.shape[2:]), out)
+
+    return run
+
+
 def run(
     prep: model_module.Prepared,
     config: model_module.ModelConfig,
@@ -514,34 +579,51 @@ def run(
     t0 = time.perf_counter()
     d = build_design(prep, config)
     step = make_step(d)
-
-    def step_fn(k, st):
-        return step(
-            k,
-            st,
-            settings.noise_steps,
-            settings.sigma_step_sd,
-            settings.nu_step_sd,
-            settings.rescale_steps,
-            settings.rescale_step_sd,
-        )
-
+    cfg = (
+        settings.noise_steps,
+        settings.sigma_step_sd,
+        settings.nu_step_sd,
+        settings.rescale_steps,
+        settings.rescale_step_sd,
+    )
+    hier = [k for k in d.scale_names if k != "sigma"]
     key = jax.random.PRNGKey(settings.seed)
-    k_init, k_warm, k_draw = jax.random.split(key, 3)
+    k_init, k_warm, k_warm2, k_draw = jax.random.split(key, 4)
     states = init_states(d, k_init, settings.chains)
     setup_seconds = time.perf_counter() - t0
 
+    # Warmup phase 1: plain Gibbs, recording the log-scales to size the
+    # collapsed proposal. Phase 2 (and all draws): collapsed scale update.
     t0 = time.perf_counter()
+    n1 = settings.warmup // 2 if settings.collapse else settings.warmup
 
-    def warm_chain(state, k):
-        state, _ = jax.lax.scan(
-            lambda st, kk: step_fn(kk, st), state, jax.random.split(k, settings.warmup)
-        )
-        return state
+    def warm1(state, k):
+        def body(st, kk):
+            st, _ = step(kk, st, cfg)
+            return st, jnp.log(jnp.stack([st[n] for n in hier]))
 
-    states = jax.jit(jax.vmap(warm_chain))(
+        return jax.lax.scan(body, state, jax.random.split(k, n1))
+
+    states, log_scales = jax.jit(batched(warm1, settings.chains, settings.chain_batch))(
         states, jax.random.split(k_warm, settings.chains)
     )
+    prop_sd = None
+    if settings.collapse:
+        tail = np.asarray(log_scales)[:, n1 // 2 :]  # (chains, draws, scales)
+        sd = tail.reshape(-1, len(hier)).std(axis=0)
+        prop_sd = jnp.asarray(settings.collapse_scale * sd / np.sqrt(len(hier)))
+
+        def warm2(state, k):
+            state, _ = jax.lax.scan(
+                lambda st, kk: (step(kk, st, cfg, prop_sd)[0], None),
+                state,
+                jax.random.split(k, settings.warmup - n1),
+            )
+            return state
+
+        states = jax.jit(batched(warm2, settings.chains, settings.chain_batch))(
+            states, jax.random.split(k_warm2, settings.chains)
+        )
     jax.block_until_ready(states)
     warmup_seconds = time.perf_counter() - t0
     log(
@@ -549,11 +631,16 @@ def run(
         + " ".join(
             f"{n}={float(np.median(states[n])):.4f}" for n in (*d.scale_names, "nu")
         )
+        + (
+            f" collapsed proposal sd {dict(zip(hier, np.round(np.asarray(prop_sd), 4)))}"
+            if prop_sd is not None
+            else ""
+        )
     )
 
     t0 = time.perf_counter()
     out = collect_module.collect(
-        step_fn,
+        lambda k, st: step(k, st, cfg, prop_sd),
         lambda st: site_values(d, st),
         states,
         k_draw,
@@ -563,6 +650,7 @@ def run(
         jnp.float64,
         settings.seed,
         settings.trace_groups,
+        vmap=lambda fn: batched(fn, settings.chains, settings.chain_batch),
     )
     sampling_seconds = time.perf_counter() - t0
     log(f"sampling {sampling_seconds:.1f}s")
@@ -573,4 +661,7 @@ def run(
     }
     out["dtype"] = "float64"
     out["sampler"] = "structured-gibbs"
+    out["collapsed_proposal_sd"] = (
+        None if prop_sd is None else dict(zip(hier, np.asarray(prop_sd).tolist()))
+    )
     return out

@@ -86,7 +86,17 @@ def trace_indices(prep, n, seed):
 
 
 def collect(
-    step, params, states, key, prep, draws, keep_every, dtype, trace_seed, n_trace=32
+    step,
+    params,
+    states,
+    key,
+    prep,
+    draws,
+    keep_every,
+    dtype,
+    trace_seed,
+    n_trace=32,
+    vmap=jax.vmap,
 ):
     """Run `draws` retained transitions per chain and summarise them."""
     test = device_arrays(prep.test, dtype)
@@ -126,7 +136,7 @@ def collect(
         return acc, s1, s2, trace, kept
 
     n_chains = jax.tree.leaves(states)[0].shape[0]
-    acc, s1, s2, trace, kept = jax.jit(jax.vmap(one_chain))(
+    acc, s1, s2, trace, kept = jax.jit(vmap(one_chain))(
         states, jax.random.split(key, n_chains)
     )
     n = n_blocks * keep_every * n_chains
