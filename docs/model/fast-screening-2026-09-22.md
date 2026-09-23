@@ -98,3 +98,25 @@ data, which is exactly where most of this improvement lived.
    split, then a protocol fit. Treat cMAP as triage: it has no posterior
    uncertainty for the new term, and it can mislead where the new term is
    weakly identified (see the linear case above).
+
+## Follow-up, September 23: where conditional MAP and the split mislead
+
+- **Scale and noise models.** Conditional MAP is valid for changes to the
+  *mean* (new terms with fixed or gridded scales). It is not valid for
+  per-building residual scales. The MAP of a group variance is biased low for
+  small groups, so held-out rows look overconfident. Building-level noise
+  scales screened at −466 to −1,250 ELPD. That is an artifact of the method;
+  such variants need a NUTS screen.
+- **Which rows are held out.** The declared row split holds out listings of
+  units that keep other training listings, so it measures within-unit and
+  within-building prediction. Unit attributes (penthouse, duplex, private
+  outdoor, shared bath) matter most for units *without* history, which is 47%
+  of units. They were rejected on the row split (duplex −12.9, private outdoor
+  −23.0) but accepted on a whole-unit split (+34.7, +53.2), where every
+  listing of 10% of units is held out and the new unit's effect is integrated
+  over its prior. Screen unit-level features on both splits. Also make
+  text-derived flags unit-level (any of the unit's own ads): ad wording varies
+  between relistings, and a toggling flag adds noise.
+- **Memory.** Each conditional-MAP job uses about 1.2 GB and a NUTS screen
+  about 1.5–2 GB. Eleven parallel jobs plus a protocol fit exhausted the
+  15 GB machine. Run at most three screens next to a fit.

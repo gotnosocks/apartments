@@ -58,6 +58,11 @@ Checks against an artifact:
   identity duplicates, or genuinely identical line units) contribute 58 of 728
   nats. Excluding them leaves about +670.
 
+On a declared whole-unit split (every listing of ~10% of units held out,
+each held-out unit's effect integrated over its prior), the half-year walk
+gains **+379.5 ± 39.3** over the promoted model. Building drift also improves
+prices for units with no history.
+
 Half-year knots were chosen: quarter-year adds +15 for twice the parameters,
 and a two-component drift-plus-shock model did not beat the single walk.
 
