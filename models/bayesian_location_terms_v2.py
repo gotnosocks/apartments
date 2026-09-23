@@ -15,6 +15,14 @@ import numpy as np
 from . import bayesian_location_terms as v1
 
 DRIFT_EXPERIMENT = "observable-bayesian-drift-experiment-v1"
+# Same location terms as the structure fit, with the attribute feature design.
+ATTRIBUTE_EXPERIMENT = "observable-bayesian-attribute-structure-experiment-v1"
+
+
+def _v1(protocol):
+    if protocol.get("version") == ATTRIBUTE_EXPERIMENT:
+        return {**protocol, "version": v1.STRUCTURE_EXPERIMENT}
+    return protocol
 
 
 def _years(design):
@@ -37,18 +45,18 @@ def variable_dims(protocol):
             "building_time_scale": (),
             "unit_slope_scale": (),
         }
-    return v1.variable_dims(protocol)
+    return v1.variable_dims(_v1(protocol))
 
 
 def lazy_variable_dims(protocol):
     if protocol.get("version") == DRIFT_EXPERIMENT:
         return {"building_time_z": ("building_knot",), "unit_slope_z": ("unit",)}
-    return v1.lazy_variable_dims(protocol)
+    return v1.lazy_variable_dims(_v1(protocol))
 
 
 def prepare(protocol, design, data):
     if protocol.get("version") != DRIFT_EXPERIMENT:
-        return v1.prepare(protocol, design, data)
+        return v1.prepare(_v1(protocol), design, data)
     as_structure = {**protocol, "version": v1.STRUCTURE_EXPERIMENT}
     return {
         **v1.prepare(as_structure, design, data),
@@ -58,7 +66,7 @@ def prepare(protocol, design, data):
 
 def expected_coords(protocol, design):
     if protocol.get("version") != DRIFT_EXPERIMENT:
-        return v1.expected_coords(protocol, design)
+        return v1.expected_coords(_v1(protocol), design)
     as_structure = {**protocol, "version": v1.STRUCTURE_EXPERIMENT}
     return {
         **v1.expected_coords(as_structure, design),
@@ -73,7 +81,7 @@ def unit_drift(z, scale, year, center):
 
 def row_terms(protocol, draws, frame, design, select=None, context=None):
     if protocol.get("version") != DRIFT_EXPERIMENT:
-        return v1.row_terms(protocol, draws, frame, design, select, context)
+        return v1.row_terms(_v1(protocol), draws, frame, design, select, context)
     as_structure = {**protocol, "version": v1.STRUCTURE_EXPERIMENT}
     terms = v1.row_terms(as_structure, draws, frame, design, select, context)
     a = design.time.arrays(frame)

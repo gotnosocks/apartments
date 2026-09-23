@@ -21,7 +21,7 @@ import xarray as xr
 
 from apartments import pricing
 from models import bayesian_feature_report as report
-from models import bayesian_location_terms as location_terms
+from models import bayesian_location_terms_v2 as location_terms
 from models.bayesian_feature_design_v2 import load_design
 from models.bayesian_source_sensitivity import verify_design, reconstruction_dependencies
 
@@ -316,9 +316,9 @@ class BayesianAnalysis:
     def _warnings(self, row):
         warnings = ['Conditional model association, not a causal renovation value or personal willingness to pay.',
                     'Building and within-building unit effects are held fixed; offsets absorb omitted attributes.']
-        if getattr(self, 'protocol', {}).get('version') == report.EXPERIMENT_STRUCTURE:
+        if getattr(self, 'protocol', {}).get('version') in report.BUILDING_WALK_EXPERIMENTS:
             warnings.append('Each building has its own smooth price drift over time; it is held fixed with the building and date.')
-        if getattr(self, 'protocol', {}).get('version') in (report.EXPERIMENT_BEDROOM_TIME, report.EXPERIMENT_STRUCTURE):
+        if getattr(self, 'protocol', {}).get('version') in (report.EXPERIMENT_BEDROOM_TIME, *report.BUILDING_WALK_EXPERIMENTS):
             warnings.append('Each bedroom group (studio, 1, 2, 3+) has its own smooth deviation from the Chelsea trend; changing bedrooms also changes that time term.')
         if getattr(self, 'protocol', {}).get('version') in report.SPLINE_FAMILY:
             warnings.append('Listed-floor contrasts use a regularized natural cubic spline across observed labels. Smoothness shares information across floors; sparse same-building support and prior sensitivity limit interpretation. This does not measure physical height.')
