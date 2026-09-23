@@ -124,6 +124,20 @@ conclusions. In priority order:
   levers. The new slowest directions are `annual_drift` (ESS 130–215) and one
   or more coefficients (min ESS 25–54). Round 2 tests removing the common
   drift from the building walks and identifies the slow coefficients.
+  *Round 2* (4 × 1,000/1,000): removing the common drift from the building
+  walks (walk levels average zero across buildings at every knot, row-weighted)
+  doubles annual-drift ESS (396 → 775) and the slowest coefficient's (91 →
+  196). Adopted. The slowest coefficients were correlated pairs
+  (`elevator`/`elevator.unknown`, `bedrooms_gt_1`/`full_bathroom_shortfall`).
+  *Round 3:* a QR feature basis (sample θ = Rβ with β's exact N(0, s) prior
+  added as a potential; verified identical log density) lifts the bedroom and
+  bathroom block to ESS ≥ 450, but `elevator`/`elevator.unknown` stay at
+  176–200. They are building-level attributes, confounded with building
+  effects rather than with other columns. *Round 4* tests within-building
+  feature centering: b_j ~ N(α + β·m̄_j, σ_b), with the row term on x − m̄_j.
+  It is an exact reparameterization (verified identical log density), and
+  the saved `building_effect` = b_j − α − β·m̄_j keeps readers' arithmetic
+  unchanged.
 - [ ] **E2. Cut steps per iteration.** 255 leapfrog steps per draw dominates
   cost. Measure steps/iteration and ESS per gradient for E1's variants;
   low-rank adaptation or better-scaled global parameters should reach tree
