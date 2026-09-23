@@ -289,7 +289,12 @@ def build_model(
             unit_years /= np.maximum(np.bincount(a["unit"], minlength=n_units), 1)
             model.unit_year_centers = unit_years
             slope = pm.Normal("unit_slope_z", 0, 1, dims="unit")
-            mu = mu + float(unit_slope_scale) * slope[a["unit"]] * (
+            scale = (
+                pm.HalfNormal("unit_slope_scale", 0.01)
+                if unit_slope_scale == "free"
+                else float(unit_slope_scale)
+            )
+            mu = mu + scale * slope[a["unit"]] * (
                 years[a["period"]] - unit_years[a["unit"]]
             )
         nu_value = pm.Gamma("nu", 2.0, 0.1) if nu is None else float(nu)

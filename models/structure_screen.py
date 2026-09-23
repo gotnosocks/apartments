@@ -257,8 +257,13 @@ def predictive(posterior, design, test, options, building_weights, thin, shock=N
     if "unit_slope_z" in p:
         years = (np.arange(len(d.periods)) - d.anchor) / 12.0
         known = np.maximum(a["unit"], 0)
+        scale = (
+            p["unit_slope_scale"].values[None]
+            if "unit_slope_scale" in p
+            else options["unit_slope_scale"]
+        )
         drift = (
-            options["unit_slope_scale"]
+            scale
             * p["unit_slope_z"].values[known]
             * (years[a["period"]] - options["unit_year_centers"][known])[:, None]
         )
@@ -322,7 +327,12 @@ def main():
         "--noise", choices=("shared", "building", "level"), default="shared"
     )
     parser.add_argument("--noise-scale", type=float, default=None)
-    parser.add_argument("--unit-slope-scale", type=float, default=None)
+    parser.add_argument(
+        "--unit-slope-scale",
+        type=lambda v: v if v == "free" else float(v),
+        default=None,
+        help="Fixed per-unit drift scale, or free (NUTS only)",
+    )
     parser.add_argument(
         "--extra-features",
         default="",
