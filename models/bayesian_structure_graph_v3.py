@@ -82,6 +82,7 @@ def configuration(
     intercept="global",
     walk_centering="none",
     feature_basis="identity",
+    feature_centering="none",
 ):
     if building_time not in BUILDING_TIME:
         raise ValueError("Unknown building-time mode")
@@ -116,6 +117,7 @@ def configuration(
             "intercept": intercept,
             "walk_centering": walk_centering,
             "feature_basis": feature_basis,
+            "feature_centering": feature_centering,
         },
     )
     return config
@@ -147,6 +149,7 @@ def build_model(
     intercept="global",
     walk_centering="none",
     feature_basis="identity",
+    feature_centering="none",
 ):
     """`group_column` other than bedrooms exists only for screening negative controls."""
     config = configuration(
@@ -173,10 +176,33 @@ def build_model(
         intercept=intercept,
         walk_centering=walk_centering,
         feature_basis=feature_basis,
+        feature_centering=feature_centering,
     )
     d = design.time
     a = d.arrays(train)
-    unique, inverse = reference.compress(design.matrix(train))
+    full_matrix = design.matrix(train)
+    if feature_centering == "building":
+        if intercept != "building_mean":
+            raise ValueError(
+                "Within-building feature centering needs intercept=building_mean"
+            )
+        # Building means of every feature column (row-weighted); the row term
+        # keeps only within-building deviations and beta . mean enters the
+        # building level's prior mean: an exact reparameterization.
+        rows_per_building = np.bincount(
+            a0 := design.time.arrays(train)["building"],
+            minlength=len(design.time.buildings),
+        )
+        building_means = np.zeros((len(design.time.buildings), full_matrix.shape[1]))
+        np.add.at(building_means, a0, full_matrix)
+        building_means /= np.maximum(rows_per_building, 1)[:, None]
+        row_matrix = full_matrix - building_means[a0]
+    elif feature_centering == "none":
+        building_means = None
+        row_matrix = full_matrix
+    else:
+        raise ValueError("feature_centering must be none or building")
+    unique, inverse = reference.compress(row_matrix)
     group = groups(train[group_column], bedroom_groups)
     labels = group_labels(bedroom_groups)
     n_periods, n_groups, n_buildings = len(d.periods), len(labels), len(d.buildings)
@@ -205,7 +231,7 @@ def build_model(
             # the likelihood is near-isotropic in theta, so correlated feature
             # columns no longer slow a diagonal mass matrix. beta = R^-1 theta is
             # linear (constant Jacobian) and keeps its exact N(0, scale) prior.
-            matrix = design.matrix(train)
+            matrix = row_matrix
             if np.linalg.matrix_rank(matrix) < matrix.shape[1]:
                 raise ValueError("QR feature basis needs a full-rank design")
             r_factor = np.linalg.qr(matrix / np.sqrt(len(matrix)), mode="r")
@@ -236,16 +262,28 @@ def build_model(
         )
         sigma_building = pm.HalfNormal("sigma_building", config["building_prior_scale"])
         if intercept == "building_mean":
+            level_mean = (
+                alpha
+                if building_means is None
+                else alpha + pt.dot(building_means, beta)
+            )
             building_level = pm.Normal(
-                "building_level", alpha, sigma_building, dims="building"
+                "building_level", level_mean, sigma_building, dims="building"
             )
+            # Saved so that alpha + x . beta + building_effect[j] reproduces mu,
+            # the same arithmetic readers use for every other fit.
             building_effect = pm.Deterministic(
-                "building_effect", building_level - alpha, dims="building"
+                "building_effect", building_level - level_mean, dims="building"
             )
+            # The row term uses within-building features, so it adds the whole
+            # building level (not the reader-facing effect, which also removes
+            # beta . building mean because readers apply beta to raw features).
+            building_term = building_level - alpha
         elif intercept == "global":
             building_effect = pm.ZeroSumNormal(
                 "building_effect", sigma=sigma_building, dims="building"
             )
+            building_term = building_effect
         else:
             raise ValueError("intercept must be global or building_mean")
         sigma_unit = pm.HalfNormal("sigma_unit", config["unit_prior_scale"])
@@ -273,7 +311,7 @@ def build_model(
             + pt.dot(unique, beta)[inverse]
             + monthly_mu[a["period"]]
             + seasonal_mu[a["season"]]
-            + building_effect[a["building"]]
+            + building_term[a["building"]]
             + sigma_unit * unit_offsets[a["unit"]]
         )
         walk_scale = pm.HalfNormal("bedroom_walk_scale", walk_prior_scale)

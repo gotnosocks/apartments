@@ -55,6 +55,9 @@ def main():
     parser.add_argument(
         "--feature-basis", choices=("identity", "qr"), default="identity"
     )
+    parser.add_argument(
+        "--feature-centering", choices=("none", "building"), default="none"
+    )
     args = parser.parse_args()
     import arviz as az
     import nutpie
@@ -76,6 +79,7 @@ def main():
         intercept=args.intercept,
         walk_centering=args.walk_centering,
         feature_basis=args.feature_basis,
+        feature_centering=args.feature_centering,
     )
     started = time.monotonic()
     compiled = nutpie.compile_pymc_model(model, backend="numba")
@@ -113,6 +117,7 @@ def main():
         "intercept": args.intercept,
         "walk_centering": args.walk_centering,
         "feature_basis": args.feature_basis,
+        "feature_centering": args.feature_centering,
         "tune": args.tune,
         "draws": args.draws,
         "chains": args.chains,
