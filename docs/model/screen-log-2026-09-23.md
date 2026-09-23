@@ -20,7 +20,7 @@ half-year building walk and screens are conditional MAP. See
 | same, per-advertisement text flags | +16.5 ± 16.6 | +105.0 ± 20.8 | replaced by unit-level |
 | convex large-area hinge | +9.8 ± 14.6 | +18.8 ± 13.4 | not credible; revisit later |
 | size × time, in-unit laundry × time | −23.1 ± 8.8 | +12.7 ± 4.2 | rejected (inconsistent) |
-| building covariates (log floors, log units, unknowns) | −17.8 ± 4.7 | +25.0 ± 7.9 | ambiguous: fixed σ_building likely biases cMAP; NUTS screen queued |
+| building covariates (log floors, log units, unknowns) | cMAP −17.8 ± 4.7; **NUTS +1.5 ± 2.3** | cMAP +25.0 ± 7.9 | neutral on repeat units; σ_building 0.273 → 0.239. R-hat 1.32: row-level covariates nearly collinear with zero-sum building effects; put them in the building-level mean if revisited |
 | building-level residual scales | +45.4 ± 29.0 (NUTS) | — | suggestive (1.6 SE); σ_unit 0.082 → 0.070; compare with price-level noise |
 | price-level residual scale | cMAP invalid | — | needs a NUTS screen |
 
