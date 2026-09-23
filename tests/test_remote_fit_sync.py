@@ -185,13 +185,26 @@ def test_summary_download_leaves_posterior_remote_until_completed(repo, tmp_path
     assert not (local / sync.OMITTED_MARKER).exists()
 
 
-def test_clean_refuses_to_drop_draws_that_exist_only_remotely():
+def test_clean_refuses_to_drop_draws_that_exist_only_remotely(tmp_path):
     result = {
         "succeeded": True,
-        "files": [{"path": "fit/posterior.nc"}, {"path": "fit/summary.json"}],
+        "files": [
+            {"path": "fit/posterior.nc", "size": 3},
+            {"path": "fit/summary.json", "size": 2},
+        ],
     }
+    summary, full, gone = tmp_path / "summary", tmp_path / "full", tmp_path / "gone"
+    summary.mkdir()
+    (full / "fit").mkdir(parents=True)
+    (full / "fit/posterior.nc").write_bytes(b"abc")
+    copy = lambda root, complete: {"destination": str(root), "complete": complete}
     assert "result.json" in sync.clean_refusal(None, [])
-    assert "no local download" in sync.clean_refusal(result, [])
-    assert "complete" in sync.clean_refusal(result, [{"complete": False}])
-    assert sync.clean_refusal(result, [{"complete": False}, {"complete": True}]) is None
+    assert "no recorded local download" in sync.clean_refusal(result, [])
+    assert "no recorded local download" in sync.clean_refusal(
+        result, [copy(gone, True)]
+    )
+    assert "complete" in sync.clean_refusal(result, [copy(summary, False)])
+    assert sync.clean_refusal(result, [copy(summary, False), copy(full, True)]) is None
+    (full / "fit/posterior.nc").write_bytes(b"ab")
+    assert "complete" in sync.clean_refusal(result, [copy(full, True)])
     assert sync.clean_refusal({"succeeded": False, "files": []}, []) is None
