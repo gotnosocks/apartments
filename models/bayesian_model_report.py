@@ -146,7 +146,7 @@ def growth_table(directory):
             lower, median, upper = np.quantile(changes, [0.025, 0.5, 0.975])
             records.append(
                 {
-                    "Period": f"{periods[-1-months]:%b %Y}–{periods[-1]:%b %Y}",
+                    "Period": f"{periods[-1 - months]:%b %Y}–{periods[-1]:%b %Y}",
                     "Adjusted change": percent(median),
                     "95% credible interval": f"{lower:.1f}% to {upper:.1f}%",
                 }
@@ -206,9 +206,9 @@ def build(args):
         )
     sections.append(
         f'<div class="cards"><div><strong>{coverage["model_observations"]:,}</strong>unit-month observations</div>'
-        f'<div><strong>{coverage["units"]:,}</strong>canonical units</div>'
-        f'<div><strong>{coverage["retained_percent"]:.1f}%</strong>of listing IDs retained</div>'
-        f'<div><strong>{coverage["missing_sqft_observations"] / coverage["model_observations"]:.1%}</strong>missing size, kept</div></div>'
+        f"<div><strong>{coverage['units']:,}</strong>canonical units</div>"
+        f"<div><strong>{coverage['retained_percent']:.1f}%</strong>of listing IDs retained</div>"
+        f"<div><strong>{coverage['missing_sqft_observations'] / coverage['model_observations']:.1%}</strong>missing size, kept</div></div>"
     )
     if tested:
         point_error = baseline["temporal_validation"]["scores"]["model"][
@@ -225,8 +225,8 @@ def build(args):
             '<div class="finding"><strong>What the final test tells us</strong><p>'
             + outcome
             + f"Bayesian median error was {bayes_error:.1f}% versus {point_error:.1f}% on 2026 observations. "
-            + f'The nominal 80% and 95% prediction intervals covered {bayes_score["coverage_80"]:.1f}% '
-            + f'and {bayes_score["coverage_95"]:.1f}%. '
+            + f"The nominal 80% and 95% prediction intervals covered {bayes_score['coverage_80']:.1f}% "
+            + f"and {bayes_score['coverage_95']:.1f}%. "
             + "The accepted posterior is useful for studying uncertainty and attribute associations, "
             "but passing sampling checks does not establish forecast accuracy. The model was selected "
             "on 2025 results and was not retuned against this test.</p></div>"
@@ -298,8 +298,8 @@ def build(args):
         if "seen_units" in tested["scores"] and "unseen_units" in tested["scores"]:
             sections.append(
                 "<p>Bayesian median error: "
-                f'{tested["scores"]["seen_units"]["median_absolute_percent_error"]:.1f}% for previously observed homes; '
-                f'{tested["scores"]["unseen_units"]["median_absolute_percent_error"]:.1f}% for new homes.</p>'
+                f"{tested['scores']['seen_units']['median_absolute_percent_error']:.1f}% for previously observed homes; "
+                f"{tested['scores']['unseen_units']['median_absolute_percent_error']:.1f}% for new homes.</p>"
             )
         predictions = pd.read_parquet(args.test_fit / "validation.parquet")
         monthly_bias = predictions.groupby("period").apply(
@@ -364,10 +364,10 @@ def build(args):
         score = holdout["scores"]["all"]
         sections.append(
             "<h2>Exploratory check: entirely unseen homes</h2>"
-            f'<p>Holding out complete histories for 20% of units gives {score["observations"]:,} test observations: '
-            f'median error {score["median_absolute_percent_error"]:.1f}%, '
-            f'80% interval coverage {score["coverage_80"]:.1f}%, and '
-            f'95% coverage {score["coverage_95"]:.1f}%. '
+            f"<p>Holding out complete histories for 20% of units gives {score['observations']:,} test observations: "
+            f"median error {score['median_absolute_percent_error']:.1f}%, "
+            f"80% interval coverage {score['coverage_80']:.1f}%, and "
+            f"95% coverage {score['coverage_95']:.1f}%. "
             "The model learns market periods from other homes. This is an exploratory generalization check: "
             "the earlier 2025 model comparison can include these units, so the 2026 temporal test above "
             "remains the separate final evaluation.</p>"
@@ -458,9 +458,9 @@ def build(args):
         diagnostics = selected["diagnostics"]
         sections.append("<h2>Sampling checks</h2>")
         sections.append(
-            f'<p>Four chains. Maximum R-hat {diagnostics["max_rhat"]:.4f}; minimum bulk ESS '
-            f'{diagnostics["min_ess_bulk"]:.0f}; minimum tail ESS {diagnostics["min_ess_tail"]:.0f}; '
-            f'{diagnostics["divergences"]} divergences. Runtime {selected["runtime_seconds"] / 60:.1f} minutes.</p>'
+            f"<p>Four chains. Maximum R-hat {diagnostics['max_rhat']:.4f}; minimum bulk ESS "
+            f"{diagnostics['min_ess_bulk']:.0f}; minimum tail ESS {diagnostics['min_ess_tail']:.0f}; "
+            f"{diagnostics['divergences']} divergences. Runtime {selected['runtime_seconds'] / 60:.1f} minutes.</p>"
         )
         sections.append(
             "<details><summary>Inspect chain traces</summary>"

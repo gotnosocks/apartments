@@ -15,7 +15,13 @@ import jsonpatch
 from jsonpointer import JsonPointer, JsonPointerException
 
 from .corrections import validate_edit
-from .review_ledger import GENESIS, ReviewConflict, ReviewLedger, _ids, listing_exclusions
+from .review_ledger import (
+    GENESIS,
+    ReviewConflict,
+    ReviewLedger,
+    _ids,
+    listing_exclusions,
+)
 
 STAGES = [
     {
@@ -193,7 +199,9 @@ class ReviewService:
         if inclusion not in {"included", "excluded", "all"}:
             raise ValueError("Unknown listing inclusion filter")
         if inclusion != "all":
-            excluded = list(listing_exclusions(self.ledger.events() if events is None else events))
+            excluded = list(
+                listing_exclusions(self.ledger.events() if events is None else events)
+            )
             operator = "IN" if inclusion == "excluded" else "NOT IN"
             sql += f" AND coalesce(r.listing_id, '') {operator} (SELECT unnest(?::VARCHAR[]))"
             params.append(excluded)
@@ -227,12 +235,19 @@ class ReviewService:
         events = self.ledger.events()
         excluded = listing_exclusions(events)
         exclusion_key = tuple(sorted(excluded))
-        if self._overview is None or getattr(self, '_overview_exclusions', None) != exclusion_key:
+        if (
+            self._overview is None
+            or getattr(self, "_overview_exclusions", None) != exclusion_key
+        ):
             where, params = self.selection({}, events)
             self._overview_exclusions = exclusion_key
             counts = {
                 key: self.db.execute(
-                    "SELECT count(*) FROM rental r WHERE (" + predicate + ") AND " + where, params
+                    "SELECT count(*) FROM rental r WHERE ("
+                    + predicate
+                    + ") AND "
+                    + where,
+                    params,
                 ).fetchone()[0]
                 for key, (_, predicate) in ISSUES.items()
             }
@@ -251,17 +266,26 @@ class ReviewService:
                 "stages": stages,
                 "buildings": rows(
                     self.db.execute(
-                        f"SELECT building_slug AS slug,count(*) FILTER (WHERE {where}) AS count FROM rental r GROUP BY building_slug ORDER BY building_slug", params
+                        f"SELECT building_slug AS slug,count(*) FILTER (WHERE {where}) AS count FROM rental r GROUP BY building_slug ORDER BY building_slug",
+                        params,
                     )
                 ),
                 "rental_observations": counts["all"],
                 "source_based_counts": True,
             }
         result = deepcopy(self._overview)
-        excluded_sids = {r[0] for r in self.db.execute(
-            "SELECT snapshot_id FROM rental WHERE listing_id IN (SELECT unnest(?::VARCHAR[]))", [list(excluded)]
-        ).fetchall()}
-        latest = {k: v for k, v in self.latest_reviews(events).items() if k[0] not in excluded_sids}
+        excluded_sids = {
+            r[0]
+            for r in self.db.execute(
+                "SELECT snapshot_id FROM rental WHERE listing_id IN (SELECT unnest(?::VARCHAR[]))",
+                [list(excluded)],
+            ).fetchall()
+        }
+        latest = {
+            k: v
+            for k, v in self.latest_reviews(events).items()
+            if k[0] not in excluded_sids
+        }
         result["excluded_observations"] = len(excluded_sids)
         result["excluded_listings"] = len(excluded)
         result["review_counts"] = {
@@ -295,9 +319,12 @@ class ReviewService:
         scope, scope_params = self.selection({**args, "issue": "all"}, ledger_events)
         stage = next(s for s in STAGES if s["id"] == args.get("stage", "identity"))
         counts = self.db.execute(
-            "SELECT " + ",".join(
+            "SELECT "
+            + ",".join(
                 f"count(*) FILTER (WHERE {ISSUES[key][1]})" for key in stage["issues"]
-            ) + f" FROM rental r WHERE {scope}", scope_params
+            )
+            + f" FROM rental r WHERE {scope}",
+            scope_params,
         ).fetchone()
         issue_counts = dict(zip(stage["issues"], counts))
         limit = max(1, min(100, int(args.get("limit", 25))))
@@ -314,11 +341,18 @@ class ReviewService:
         )
         latest = self.latest_reviews(ledger_events)
         from .unit_identity import UnitIdentityLedger, identity_map
-        identities = identity_map(UnitIdentityLedger(self.state / 'unit-identities.jsonl', self.dataset).events())
+
+        identities = identity_map(
+            UnitIdentityLedger(
+                self.state / "unit-identities.jsonl", self.dataset
+            ).events()
+        )
         excluded = listing_exclusions(ledger_events)
         for row in data:
-            row['exclusion'] = excluded.get(row['listing_id'])
-            row['unit_id'] = identities.get(row['listing_id'], f"streeteasy:rental:{row['listing_id']}")
+            row["exclusion"] = excluded.get(row["listing_id"])
+            row["unit_id"] = identities.get(
+                row["listing_id"], f"streeteasy:rental:{row['listing_id']}"
+            )
             row["review"] = latest.get(
                 (row["snapshot_id"], args.get("stage", "identity"))
             )
@@ -389,8 +423,10 @@ class ReviewService:
         row, raw = self.raw(sid)
         ledger_events = self.ledger.events()
         corrected, evidence = self.ledger.apply(raw, sid, events=ledger_events)
-        exclusion = listing_exclusions(ledger_events).get(row['listing_id'])
-        capture_count = self.db.execute("SELECT count(*) FROM rental WHERE listing_id=?", [row['listing_id']]).fetchone()[0]
+        exclusion = listing_exclusions(ledger_events).get(row["listing_id"])
+        capture_count = self.db.execute(
+            "SELECT count(*) FROM rental WHERE listing_id=?", [row["listing_id"]]
+        ).fetchone()[0]
         comparisons = []
         if row["unit_label"]:
             comparisons = rows(
@@ -401,8 +437,13 @@ class ReviewService:
             )
         history = self.events({"snapshot_id": sid})
         from .unit_identity import UnitIdentityLedger, resolve_unit
-        unit_id = resolve_unit(row['listing_id'], UnitIdentityLedger(
-            self.state / 'unit-identities.jsonl', self.dataset).events())
+
+        unit_id = resolve_unit(
+            row["listing_id"],
+            UnitIdentityLedger(
+                self.state / "unit-identities.jsonl", self.dataset
+            ).events(),
+        )
         return {
             "dataset": self.dataset,
             "unit_id": unit_id,
@@ -444,31 +485,48 @@ class ReviewService:
         excluded = listing_exclusions(ledger_events)
         corrected, _ = self.ledger.apply(raw, sid, events=ledger_events)
         for event in events:
-            event['excluded'] = row['listing_id'] in excluded or event['event_listing_id'] in excluded
+            event["excluded"] = (
+                row["listing_id"] in excluded or event["event_listing_id"] in excluded
+            )
             self._event_price(event, raw, corrected)
-        return {"events": events, "total": total, "offset": offset, "limit": limit,
-                "ledger_revision": ledger_events[-1]["hash"] if ledger_events else GENESIS}
+        return {
+            "events": events,
+            "total": total,
+            "offset": offset,
+            "limit": limit,
+            "ledger_revision": ledger_events[-1]["hash"] if ledger_events else GENESIS,
+        }
 
     @staticmethod
     def _event_price(event, raw, corrected):
         """Resolve a price overlay only when the archived occurrence still matches."""
-        path = (f"/archive_listing/propertyHistory/{event['episode_index']}"
-                f"/rentalEventsOfInterest/{event['event_index']}")
+        path = (
+            f"/archive_listing/propertyHistory/{event['episode_index']}"
+            f"/rentalEventsOfInterest/{event['event_index']}"
+        )
         event["raw_price"] = event["price"]
         event["price_editable"] = False
         event["price_corrected"] = False
         try:
             original = JsonPointer(path).resolve(raw)
             current = JsonPointer(path).resolve(corrected)
-            episode_path = f"/archive_listing/propertyHistory/{event['episode_index']}/listingId"
+            episode_path = (
+                f"/archive_listing/propertyHistory/{event['episode_index']}/listingId"
+            )
             if original != decode(event["event_json"]):
-                raise ValueError("Archived occurrence does not match its source history")
-            if (not isinstance(current, dict)
+                raise ValueError(
+                    "Archived occurrence does not match its source history"
+                )
+            if (
+                not isinstance(current, dict)
                 or {k: v for k, v in current.items() if k != "price"}
-                   != {k: v for k, v in original.items() if k != "price"}
+                != {k: v for k, v in original.items() if k != "price"}
                 or JsonPointer(episode_path).resolve(raw)
-                   != JsonPointer(episode_path).resolve(corrected)):
-                raise ValueError("History structure changed; inspect the existing corrections")
+                != JsonPointer(episode_path).resolve(corrected)
+            ):
+                raise ValueError(
+                    "History structure changed; inspect the existing corrections"
+                )
             price = current.get("price")
             if price is not None:
                 if isinstance(price, bool):
@@ -490,17 +548,25 @@ class ReviewService:
         if any(type(value) is not int or value < 0 for value in (sid, episode, index)):
             raise ValueError("Choose a specific history occurrence")
         price = args.get("price")
-        if "price" not in args or (price is not None and (
-            isinstance(price, bool) or not isinstance(price, (int, float))
-            or not math.isfinite(price) or price <= 0
-        )):
+        if "price" not in args or (
+            price is not None
+            and (
+                isinstance(price, bool)
+                or not isinstance(price, (int, float))
+                or not math.isfinite(price)
+                or price <= 0
+            )
+        ):
             raise ValueError("Price must be a positive number, or null for unknown")
         self._exists(sid)
-        found = rows(self.db.execute(
-            "SELECT episode_index,event_index,event_listing_id,event_date,price,status,event_json "
-            "FROM event_mentions WHERE snapshot_id=? AND event_category='rental' "
-            "AND episode_index=? AND event_index=?", [sid, episode, index]
-        ))
+        found = rows(
+            self.db.execute(
+                "SELECT episode_index,event_index,event_listing_id,event_date,price,status,event_json "
+                "FROM event_mentions WHERE snapshot_id=? AND event_category='rental' "
+                "AND episode_index=? AND event_index=?",
+                [sid, episode, index],
+            )
+        )
         if len(found) != 1:
             raise ValueError("History occurrence not found or ambiguous")
         _, raw = self.raw(sid)
@@ -515,12 +581,24 @@ class ReviewService:
             raise ReviewConflict("History price changed; reopen this observation")
         if price == event["price"]:
             raise ValueError("Enter a different price")
-        result = self.preview({"snapshot_id": sid, "ledger_revision": revision,
-                               "patch": [{"op": "add", "path": event["price_path"], "value": price}]})
-        result["event"] = {"snapshot_id": sid, "episode_index": episode, "event_index": index,
-                           "event_date": event["event_date"], "status": event["status"],
-                           "event_listing_id": event["event_listing_id"],
-                           "raw_price": event["raw_price"], "before": event["price"], "after": price}
+        result = self.preview(
+            {
+                "snapshot_id": sid,
+                "ledger_revision": revision,
+                "patch": [{"op": "add", "path": event["price_path"], "value": price}],
+            }
+        )
+        result["event"] = {
+            "snapshot_id": sid,
+            "episode_index": episode,
+            "event_index": index,
+            "event_date": event["event_date"],
+            "status": event["status"],
+            "event_listing_id": event["event_listing_id"],
+            "raw_price": event["raw_price"],
+            "before": event["price"],
+            "after": price,
+        }
         return result
 
     def _exists(self, sid):
@@ -585,7 +663,14 @@ class ReviewService:
             "created_at": time.time(),
             "selection": {
                 k: args.get(k)
-                for k in ("issue", "building", "search", "stage", "review_status", "inclusion")
+                for k in (
+                    "issue",
+                    "building",
+                    "search",
+                    "stage",
+                    "review_status",
+                    "inclusion",
+                )
             },
             "selection_hash": hashlib.sha256(json.dumps(ids).encode()).hexdigest(),
         }
@@ -668,8 +753,12 @@ class ReviewService:
         if count != len(ids):
             raise ValueError("Selection contains an unknown rental observation")
         return self.ledger.confirm_identity_batch(
-            ids, args.get("author", ""), "", {"mode": "selected_rows"},
-            args.get("ledger_revision"), args.get("request_id"),
+            ids,
+            args.get("author", ""),
+            "",
+            {"mode": "selected_rows"},
+            args.get("ledger_revision"),
+            args.get("request_id"),
         )
 
     def review(self, args):
@@ -687,7 +776,14 @@ class ReviewService:
         return self.ledger.record_parser_issue(
             {
                 k: args.get(k)
-                for k in ("issue", "building", "search", "stage", "review_status", "inclusion")
+                for k in (
+                    "issue",
+                    "building",
+                    "search",
+                    "stage",
+                    "review_status",
+                    "inclusion",
+                )
             },
             args.get("field", ""),
             args.get("note", ""),
@@ -726,30 +822,55 @@ class ReviewService:
         )
 
     def listing_inclusion(self, args):
-        lid = args.get('listing_id')
-        if not isinstance(lid, str) or not self.db.execute(
-            "SELECT 1 FROM rental WHERE listing_id=?", [lid]
-        ).fetchone():
-            raise ValueError('Rental listing not found')
+        lid = args.get("listing_id")
+        if (
+            not isinstance(lid, str)
+            or not self.db.execute(
+                "SELECT 1 FROM rental WHERE listing_id=?", [lid]
+            ).fetchone()
+        ):
+            raise ValueError("Rental listing not found")
         return self.ledger.set_listing_inclusion(
-            listing_id=lid, excluded=args.get('excluded'), author=args.get('author'),
-            reason=args.get('reason'), request_id=args.get('request_id'),
-            expected_revision=args.get('ledger_revision'))
+            listing_id=lid,
+            excluded=args.get("excluded"),
+            author=args.get("author"),
+            reason=args.get("reason"),
+            request_id=args.get("request_id"),
+            expected_revision=args.get("ledger_revision"),
+        )
 
     def exclusions(self, args=None):
         events = self.ledger.events()
-        return {'dataset': self.dataset, 'source': 'streeteasy', 'listing_type': 'rental',
-                'ledger_revision': events[-1]['hash'] if events else GENESIS,
-                'excluded_listing_ids': sorted(listing_exclusions(events)),
-                'exclusions': list(listing_exclusions(events).values())}
+        return {
+            "dataset": self.dataset,
+            "source": "streeteasy",
+            "listing_type": "rental",
+            "ledger_revision": events[-1]["hash"] if events else GENESIS,
+            "excluded_listing_ids": sorted(listing_exclusions(events)),
+            "exclusions": list(listing_exclusions(events).values()),
+        }
 
     def dispatch(self, action, args=None):
         args = args or {}
-        if action in {'unit_candidates', 'unit_inspect', 'unit_merge', 'unit_undo', 'unit_separate', 'unit_undo_separate', 'unit_mapping', 'unit_association_preview', 'unit_association_apply', 'unit_association_undo', 'unit_proposal', 'unit_batches'}:
+        if action in {
+            "unit_candidates",
+            "unit_inspect",
+            "unit_merge",
+            "unit_undo",
+            "unit_separate",
+            "unit_undo_separate",
+            "unit_mapping",
+            "unit_association_preview",
+            "unit_association_apply",
+            "unit_association_undo",
+            "unit_proposal",
+            "unit_batches",
+        }:
             from .unit_merge_service import UnitMergeService
-            if not hasattr(self, '_unit_service'):
+
+            if not hasattr(self, "_unit_service"):
                 self._unit_service = UnitMergeService(self)
-            return getattr(self._unit_service, action.removeprefix('unit_'))(args)
+            return getattr(self._unit_service, action.removeprefix("unit_"))(args)
         routes = {
             "listing_inclusion": self.listing_inclusion,
             "exclusions": self.exclusions,

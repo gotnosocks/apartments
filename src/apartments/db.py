@@ -160,9 +160,9 @@ def connect(path: Path | str = DEFAULT_DB) -> duckdb.DuckDBPyConnection:
     path = Path(path)
     path.parent.mkdir(parents=True, exist_ok=True)
     config = {}
-    if os.environ.get('APARTMENTS_DB_MEMORY_LIMIT'):
-        config['memory_limit'] = os.environ['APARTMENTS_DB_MEMORY_LIMIT']
-        config['threads'] = '2'
+    if os.environ.get("APARTMENTS_DB_MEMORY_LIMIT"):
+        config["memory_limit"] = os.environ["APARTMENTS_DB_MEMORY_LIMIT"]
+        config["threads"] = "2"
     connection = duckdb.connect(str(path), config=config)
     connection.execute(SCHEMA)
     connection.execute(TEMPORAL_SCHEMA)

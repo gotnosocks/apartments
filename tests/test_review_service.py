@@ -30,16 +30,30 @@ def service(tmp_path):
     db.execute(
         """CREATE TABLE event_mentions AS SELECT 1::BIGINT snapshot_id,0 episode_index,0 event_index,'1' event_listing_id,'rental' event_category,'2020-01-01' event_date,0.0::DOUBLE price,'Listed' status,'{}' event_json"""
     )
-    history = [{"listingId": "1", "rentalEventsOfInterest": [
-        {"date": "2020-01-01", "price": 0, "status": "Listed"},
-        {"date": "2020-01-01", "price": 13750, "status": "ACTIVE"},
-    ]}]
-    db.execute("UPDATE listing_observations SET raw_listing_json=?", [
-        json.dumps({"id": 1, "nested": {}, "propertyHistory": history})
-    ])
-    db.execute("UPDATE event_mentions SET event_json=?", [json.dumps(history[0]["rentalEventsOfInterest"][0])])
-    db.execute("INSERT INTO event_mentions SELECT * REPLACE(1 AS event_index,13750 AS price,'ACTIVE' AS status,? AS event_json) FROM event_mentions WHERE event_index=0", [json.dumps(history[0]["rentalEventsOfInterest"][1])])
-    db.execute("INSERT INTO event_mentions SELECT * REPLACE(2 AS snapshot_id) FROM event_mentions")
+    history = [
+        {
+            "listingId": "1",
+            "rentalEventsOfInterest": [
+                {"date": "2020-01-01", "price": 0, "status": "Listed"},
+                {"date": "2020-01-01", "price": 13750, "status": "ACTIVE"},
+            ],
+        }
+    ]
+    db.execute(
+        "UPDATE listing_observations SET raw_listing_json=?",
+        [json.dumps({"id": 1, "nested": {}, "propertyHistory": history})],
+    )
+    db.execute(
+        "UPDATE event_mentions SET event_json=?",
+        [json.dumps(history[0]["rentalEventsOfInterest"][0])],
+    )
+    db.execute(
+        "INSERT INTO event_mentions SELECT * REPLACE(1 AS event_index,13750 AS price,'ACTIVE' AS status,? AS event_json) FROM event_mentions WHERE event_index=0",
+        [json.dumps(history[0]["rentalEventsOfInterest"][1])],
+    )
+    db.execute(
+        "INSERT INTO event_mentions SELECT * REPLACE(2 AS snapshot_id) FROM event_mentions"
+    )
     for table in ("listing_observations", "event_mentions"):
         db.execute(
             f"COPY {table} TO '{root / table / 'part.parquet'}' (FORMAT PARQUET)"
@@ -170,24 +184,48 @@ def test_invalid_patch_and_parser_issue_do_not_edit_data(service):
 def test_selected_identity_confirmation_and_retry(service):
     s = service
     before = s.observation({"snapshot_id": 2})["raw"]
-    args = {"stage": "identity", "snapshot_ids": [2], "author": "Ben",
-            "ledger_revision": s.observations({})["ledger_revision"], "request_id": "selected-1"}
+    args = {
+        "stage": "identity",
+        "snapshot_ids": [2],
+        "author": "Ben",
+        "ledger_revision": s.observations({})["ledger_revision"],
+        "request_id": "selected-1",
+    }
     assert s.identity_confirm(args)["count"] == 1
     assert s.identity_confirm(args)["count"] == 1
     assert len(s.ledger.events()) == 1
     assert s.observation({"snapshot_id": 2})["corrected"] == before
     assert s.observation({"snapshot_id": 2})["raw"] == before
-    assert s.observations({"stage": "identity", "review_status": "unreviewed"})["rows"][0]["snapshot_id"] == 1
-    assert s.observations({"stage": "prices", "review_status": "unreviewed"})["total"] == 2
+    assert (
+        s.observations({"stage": "identity", "review_status": "unreviewed"})["rows"][0][
+            "snapshot_id"
+        ]
+        == 1
+    )
+    assert (
+        s.observations({"stage": "prices", "review_status": "unreviewed"})["total"] == 2
+    )
     with pytest.raises(ReviewConflict):
         s.identity_confirm({**args, "snapshot_ids": [1]})
 
 
 def test_selected_identity_batch_previous_decisions_and_stale_list(service):
     s = service
-    args = {"stage": "identity", "snapshot_ids": [1, 2], "author": "Ben",
-            "ledger_revision": s.ledger.revision(), "request_id": "selected-2"}
-    s.review({"snapshot_id": 1, "stage": "identity", "decision": "needs_attention", "author": "a"})
+    args = {
+        "stage": "identity",
+        "snapshot_ids": [1, 2],
+        "author": "Ben",
+        "ledger_revision": s.ledger.revision(),
+        "request_id": "selected-2",
+    }
+    s.review(
+        {
+            "snapshot_id": 1,
+            "stage": "identity",
+            "decision": "needs_attention",
+            "author": "a",
+        }
+    )
     with pytest.raises(ReviewConflict):
         s.identity_confirm(args)
     assert len(s.ledger.events()) == 1
@@ -198,14 +236,28 @@ def test_selected_identity_batch_previous_decisions_and_stale_list(service):
     assert s.ledger.activity()["corrections"] == []
 
 
-@pytest.mark.parametrize("changes", [
-    {"snapshot_ids": []}, {"snapshot_ids": [1, 1]}, {"snapshot_ids": [1, 3]},
-    {"snapshot_ids": [4]}, {"snapshot_ids": [True]}, {"snapshot_ids": "1"},
-    {"stage": "prices"}, {"author": " "}, {"request_id": None},
-])
+@pytest.mark.parametrize(
+    "changes",
+    [
+        {"snapshot_ids": []},
+        {"snapshot_ids": [1, 1]},
+        {"snapshot_ids": [1, 3]},
+        {"snapshot_ids": [4]},
+        {"snapshot_ids": [True]},
+        {"snapshot_ids": "1"},
+        {"stage": "prices"},
+        {"author": " "},
+        {"request_id": None},
+    ],
+)
 def test_selected_identity_rejects_invalid_requests(service, changes):
-    args = {"stage": "identity", "snapshot_ids": [1], "author": "Ben",
-            "ledger_revision": service.ledger.revision(), "request_id": "selected-3"}
+    args = {
+        "stage": "identity",
+        "snapshot_ids": [1],
+        "author": "Ben",
+        "ledger_revision": service.ledger.revision(),
+        "request_id": "selected-3",
+    }
     with pytest.raises(ValueError):
         service.identity_confirm({**args, **changes})
     assert service.ledger.events() == []
@@ -213,33 +265,71 @@ def test_selected_identity_rejects_invalid_requests(service, changes):
 
 def test_list_issue_counts_follow_filters_and_reviews(service):
     s = service
-    s.db.execute("INSERT INTO rental SELECT * REPLACE(5 AS snapshot_id,'b' AS building_slug) FROM rental WHERE snapshot_id=2")
-    filters = {"stage": "identity", "building": "a", "issue": "unit_missing", "review_status": "unreviewed"}
+    s.db.execute(
+        "INSERT INTO rental SELECT * REPLACE(5 AS snapshot_id,'b' AS building_slug) FROM rental WHERE snapshot_id=2"
+    )
+    filters = {
+        "stage": "identity",
+        "building": "a",
+        "issue": "unit_missing",
+        "review_status": "unreviewed",
+    }
     page = s.observations(filters)
     assert page["total"] == page["issue_counts"]["unit_missing"] == 1
     assert page["issue_counts"]["all"] == 2
     assert page["issue_counts"]["unit_generic"] == 0
     assert s.observations({**filters, "search": "4C"})["issue_counts"] == {
-        "all": 1, "unit_missing": 0, "unit_generic": 0,
+        "all": 1,
+        "unit_missing": 0,
+        "unit_generic": 0,
     }
-    s.review({"snapshot_id": 2, "stage": "identity", "decision": "confirmed", "author": "Ben"})
+    s.review(
+        {
+            "snapshot_id": 2,
+            "stage": "identity",
+            "decision": "confirmed",
+            "author": "Ben",
+        }
+    )
     page = s.observations(filters)
     assert page["total"] == page["issue_counts"]["unit_missing"] == 0
     assert page["issue_counts"]["all"] == 1
     page = s.observations({**filters, "review_status": "confirmed"})
     assert page["total"] == page["issue_counts"]["all"] == 1
-    assert s.observations({**filters, "building": "b"})["issue_counts"]["unit_missing"] == 1
-    assert s.observations({"stage": "prices", "building": "a", "review_status": "unreviewed"})["issue_counts"]["all"] == 2
+    assert (
+        s.observations({**filters, "building": "b"})["issue_counts"]["unit_missing"]
+        == 1
+    )
+    assert (
+        s.observations(
+            {"stage": "prices", "building": "a", "review_status": "unreviewed"}
+        )["issue_counts"]["all"]
+        == 2
+    )
     assert s.observations({"building": "does-not-exist"})["issue_counts"] == {
-        "all": 0, "unit_missing": 0, "unit_generic": 0,
+        "all": 0,
+        "unit_missing": 0,
+        "unit_generic": 0,
     }
 
 
 def test_list_page_clamps_after_last_page_is_reviewed(service):
     s = service
-    filters = {"stage": "identity", "review_status": "unreviewed", "limit": 1, "offset": 1}
+    filters = {
+        "stage": "identity",
+        "review_status": "unreviewed",
+        "limit": 1,
+        "offset": 1,
+    }
     assert s.observations(filters)["offset"] == 1
-    s.review({"snapshot_id": 2, "stage": "identity", "decision": "confirmed", "author": "Ben"})
+    s.review(
+        {
+            "snapshot_id": 2,
+            "stage": "identity",
+            "decision": "confirmed",
+            "author": "Ben",
+        }
+    )
     page = s.observations(filters)
     assert page["total"] == 1
     assert page["offset"] == 0
@@ -247,8 +337,16 @@ def test_list_page_clamps_after_last_page_is_reviewed(service):
 
 
 def price_preview(service, **changes):
-    return service.event_price_preview({"snapshot_id": 1, "episode_index": 0,
-        "event_index": 0, "expected_price": 0, "price": 13750, **changes})
+    return service.event_price_preview(
+        {
+            "snapshot_id": 1,
+            "episode_index": 0,
+            "event_index": 0,
+            "expected_price": 0,
+            "price": 13750,
+            **changes,
+        }
+    )
 
 
 def test_single_history_price_overlay_scope_retry_and_retraction(service):
@@ -286,17 +384,29 @@ def test_history_price_unknown_pagination_and_stale_preview(service):
     with pytest.raises(ReviewConflict):
         price_preview(s, event_index=1, expected_price=13750, price=14000)
     p = price_preview(s)
-    s.review({"snapshot_id": 2, "stage": "prices", "decision": "confirmed", "author": "a"})
+    s.review(
+        {"snapshot_id": 2, "stage": "prices", "decision": "confirmed", "author": "a"}
+    )
     with pytest.raises(ReviewConflict):
         apply(s, p)
 
 
-@pytest.mark.parametrize("changes", [
-    {"price": 0}, {"price": -1}, {"price": True}, {"price": "13750"},
-    {"price": float("nan")}, {"price": float("inf")},
-    {"snapshot_id": 3}, {"episode_index": 10}, {"event_index": 10},
-    {"event_index": -1}, {"event_index": True},
-])
+@pytest.mark.parametrize(
+    "changes",
+    [
+        {"price": 0},
+        {"price": -1},
+        {"price": True},
+        {"price": "13750"},
+        {"price": float("nan")},
+        {"price": float("inf")},
+        {"snapshot_id": 3},
+        {"episode_index": 10},
+        {"event_index": 10},
+        {"event_index": -1},
+        {"event_index": True},
+    ],
+)
 def test_invalid_history_price_edits(service, changes):
     with pytest.raises(ValueError):
         price_preview(service, **changes)
@@ -305,8 +415,17 @@ def test_invalid_history_price_edits(service, changes):
 
 def test_history_structure_correction_blocks_ambiguous_price_edit(service):
     s = service
-    p = s.preview({"snapshot_id": 1, "patch": [{"op": "remove",
-        "path": "/archive_listing/propertyHistory/0/rentalEventsOfInterest/0"}]})
+    p = s.preview(
+        {
+            "snapshot_id": 1,
+            "patch": [
+                {
+                    "op": "remove",
+                    "path": "/archive_listing/propertyHistory/0/rentalEventsOfInterest/0",
+                }
+            ],
+        }
+    )
     apply(s, p)
     assert s.events({"snapshot_id": 1})["events"][0]["price_editable"] is False
     with pytest.raises(ValueError, match="History structure changed"):
@@ -315,59 +434,101 @@ def test_history_structure_correction_blocks_ambiguous_price_edit(service):
 
 def test_listing_exclusion_all_captures_counts_history_and_restore(service):
     from apartments.review_ledger import ReviewLedger, listing_exclusions
+
     s = service
-    s.db.execute("INSERT INTO rental SELECT * REPLACE(5 AS snapshot_id) FROM rental WHERE snapshot_id=1")
-    s.review({'snapshot_id': 1, 'stage': 'layout', 'decision': 'confirmed', 'author': 'Ben'})
-    before = s.observation({'snapshot_id': 1})
-    assert s.overview()['rental_observations'] == 3  # populate overview cache
-    args = dict(listing_id='1', excluded=True, author='Ben', reason='Whole building',
-                ledger_revision=s.ledger.revision(), request_id='exclude-one')
-    saved = s.dispatch('listing_inclusion', args)
-    assert s.dispatch('listing_inclusion', args)['id'] == saved['id']
-    assert s.observations({})['total'] == 1
-    assert s.observations({'inclusion': 'excluded'})['total'] == 2
-    assert s.observations({'inclusion': 'all'})['total'] == 3
-    assert s.observations({'inclusion': 'excluded', 'stage': 'layout', 'review_status': 'confirmed'})['total'] == 1
-    assert s.observations({'inclusion': 'excluded', 'issue': 'unit_missing'})['total'] == 0
-    assert s.observations({'stage': 'layout'})['issue_counts']['all'] == 1
+    s.db.execute(
+        "INSERT INTO rental SELECT * REPLACE(5 AS snapshot_id) FROM rental WHERE snapshot_id=1"
+    )
+    s.review(
+        {"snapshot_id": 1, "stage": "layout", "decision": "confirmed", "author": "Ben"}
+    )
+    before = s.observation({"snapshot_id": 1})
+    assert s.overview()["rental_observations"] == 3  # populate overview cache
+    args = dict(
+        listing_id="1",
+        excluded=True,
+        author="Ben",
+        reason="Whole building",
+        ledger_revision=s.ledger.revision(),
+        request_id="exclude-one",
+    )
+    saved = s.dispatch("listing_inclusion", args)
+    assert s.dispatch("listing_inclusion", args)["id"] == saved["id"]
+    assert s.observations({})["total"] == 1
+    assert s.observations({"inclusion": "excluded"})["total"] == 2
+    assert s.observations({"inclusion": "all"})["total"] == 3
+    assert (
+        s.observations(
+            {"inclusion": "excluded", "stage": "layout", "review_status": "confirmed"}
+        )["total"]
+        == 1
+    )
+    assert (
+        s.observations({"inclusion": "excluded", "issue": "unit_missing"})["total"] == 0
+    )
+    assert s.observations({"stage": "layout"})["issue_counts"]["all"] == 1
     assert s.ids({}) == [2]
     overview = s.overview()
-    assert overview['rental_observations'] == 1
-    assert overview['excluded_observations'] == 2
-    assert next(x for x in overview['stages'] if x['id'] == 'layout')['progress'] == {
-        'confirmed': 0, 'needs_attention': 0, 'unreviewed': 1}
-    detail = s.observation({'snapshot_id': 1})
-    assert detail['exclusion']['reason'] == 'Whole building'
-    assert detail['listing_capture_count'] == 2
-    assert detail['raw'] == before['raw'] and detail['reviews'] == before['reviews']
-    assert all(e['excluded'] for e in detail['events'])
+    assert overview["rental_observations"] == 1
+    assert overview["excluded_observations"] == 2
+    assert next(x for x in overview["stages"] if x["id"] == "layout")["progress"] == {
+        "confirmed": 0,
+        "needs_attention": 0,
+        "unreviewed": 1,
+    }
+    detail = s.observation({"snapshot_id": 1})
+    assert detail["exclusion"]["reason"] == "Whole building"
+    assert detail["listing_capture_count"] == 2
+    assert detail["raw"] == before["raw"] and detail["reviews"] == before["reviews"]
+    assert all(e["excluded"] for e in detail["events"])
     # History of another listing can refer to the excluded rental episode.
-    assert all(e['excluded'] for e in s.events({'snapshot_id': 2})['events'])
-    assert list(listing_exclusions(ReviewLedger(s.ledger.path, s.dataset).events())) == ['1']
-    assert s.dispatch('exclusions')['excluded_listing_ids'] == ['1']
-    assert s.ledger.activity()['listing_decisions'][-1]['id'] == saved['id']
+    assert all(e["excluded"] for e in s.events({"snapshot_id": 2})["events"])
+    assert list(
+        listing_exclusions(ReviewLedger(s.ledger.path, s.dataset).events())
+    ) == ["1"]
+    assert s.dispatch("exclusions")["excluded_listing_ids"] == ["1"]
+    assert s.ledger.activity()["listing_decisions"][-1]["id"] == saved["id"]
     with pytest.raises(ReviewConflict):
-        s.listing_inclusion({**args, 'excluded': False})
+        s.listing_inclusion({**args, "excluded": False})
     with pytest.raises(ReviewConflict):
-        s.listing_inclusion({**args, 'request_id': 'stale'})
-    restore = {**args, 'excluded': False, 'reason': 'Verified single apartment',
-               'ledger_revision': s.ledger.revision(), 'request_id': 'restore-one'}
+        s.listing_inclusion({**args, "request_id": "stale"})
+    restore = {
+        **args,
+        "excluded": False,
+        "reason": "Verified single apartment",
+        "ledger_revision": s.ledger.revision(),
+        "request_id": "restore-one",
+    }
     s.listing_inclusion(restore)
-    assert s.observations({})['total'] == 3
-    assert s.observations({'inclusion': 'excluded'})['total'] == 0
-    assert s.observation({'snapshot_id': 1})['exclusion'] is None
-    assert s.overview()['rental_observations'] == 3
-    assert s.exclusions()['excluded_listing_ids'] == []
-    assert not any(e['excluded'] for e in s.events({'snapshot_id': 2})['events'])
+    assert s.observations({})["total"] == 3
+    assert s.observations({"inclusion": "excluded"})["total"] == 0
+    assert s.observation({"snapshot_id": 1})["exclusion"] is None
+    assert s.overview()["rental_observations"] == 3
+    assert s.exclusions()["excluded_listing_ids"] == []
+    assert not any(e["excluded"] for e in s.events({"snapshot_id": 2})["events"])
 
 
-@pytest.mark.parametrize('update', [
-    {'excluded': 'true'}, {'reason': ''}, {'author': ''}, {'request_id': ''},
-    {'listing_id': '999'}, {'listing_id': 1}, {'ledger_revision': None},
-])
+@pytest.mark.parametrize(
+    "update",
+    [
+        {"excluded": "true"},
+        {"reason": ""},
+        {"author": ""},
+        {"request_id": ""},
+        {"listing_id": "999"},
+        {"listing_id": 1},
+        {"ledger_revision": None},
+    ],
+)
 def test_listing_exclusion_invalid_requests_do_not_write(service, update):
-    args = dict(listing_id='1', excluded=True, author='Ben', reason='Whole building',
-                ledger_revision=service.ledger.revision(), request_id='test')
+    args = dict(
+        listing_id="1",
+        excluded=True,
+        author="Ben",
+        reason="Whole building",
+        ledger_revision=service.ledger.revision(),
+        request_id="test",
+    )
     with pytest.raises(ValueError):
         service.listing_inclusion({**args, **update})
     assert service.ledger.events() == []

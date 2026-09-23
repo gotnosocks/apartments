@@ -166,6 +166,79 @@ ordered by expected leverage. Numbers refer to the selected fit
   with gzip, and the original spline's inferred offline analysis closure at
   4.586 GB. These are local measurements and code-inspection findings; remote
   transfers, posterior compression and a clean bundle roundtrip remain untested.
+  September 22 progress: `models/modal_remote_fit.py` uploads inputs as SHA-256
+  blobs (cold 291 MB in 12 s; unchanged refit 0 bytes; one-file edit 10.8 KB),
+  rebuilds the dataset at its original absolute path so the remote protocol
+  equals a local one, and downloads verified fit/protocol bundles. A 100/100
+  smoke fit matched the local protocol except draws/tune/seed, with byte-identical
+  design files, for $0.052 billed. September 23: a full-length refit reproduced
+  the local protocol hash, ran in 55.4 min for $0.38, downloaded 4.39 GB in 141 s,
+  and agreed with the local fit within Monte Carlo error. It narrowly missed the
+  R-hat gate (1.0103 on `alpha`), so loading a converged remote bundle in
+  `BayesianAnalysis` is still open. Details:
+  [remote fitting record](../analysis/modal-remote-fitting-2026-09-23.md).
+
+The items below continue the September 22 Modal sampling campaign. Probe data:
+`data/model/modal-runs/probe-*-20260922`.
+
+September 23 findings (L4, NumPyro, 4 chains, 300 warmup + 100 draws;
+`data/model/modal-runs/prec{64,32}-l4-20260923`):
+- float64: 511 leapfrog steps every iteration, 0 divergences, max R-hat 1.11,
+  median/min bulk ESS 922/38. nutpie on CPU needs about 50-90 steps, so a
+  full-length NumPyro fit would take about 4.4 h on the L4, against about
+  22 min of CPU sampling.
+- float32: every iteration hit maximum tree depth (1,023 steps), chains did not
+  move (ESS 4, R-hat infinite). float32 fails for this model as written.
+- nutpie JAX backend with PyTensor gradients (canary, early warmup): about
+  4 ms per step per chain on L4, against 2.3 ms on one CPU core. The ~30 ms
+  single-chain cost below comes from JAX's own autodiff of this graph.
+- Current conclusion: nutpie/Numba CPU remains fastest and cheapest per fit;
+  Modal's benefit is running fits concurrently at about $0.35-0.40 each.
+
+- [ ] **Single-chain JAX gradient is ~12× slower than one CPU core** — user
+  directive, September 22, 2026. The spline model's logp+gradient takes about
+  30 ms for one chain on H100, A100 and L4 (22 ms on the local RTX 2060 SUPER),
+  against 2.6 ms for Numba on one CPU core, yet a vmapped batch of 4 chains
+  costs only about 1.3 ms. nutpie's JAX backend with PyTensor-built gradients
+  measured about 4 ms per step, so the cost is concentrated in JAX's own
+  autodiff (likely the transposed per-unit/per-building gathers). Profile the JAX
+  graph (e.g. `jax.profiler`, HLO dumps), identify the slow ops, and test
+  equivalent formulations (segment sums, sorted indices, one-hot or sparse
+  matmuls) in a new graph module. Show exact log-density/gradient parity with
+  the frozen graph before any sampling. This decides whether nutpie's JAX
+  backend, which evaluates chains one at a time, is viable on GPU.
+- [ ] **Measure nutpie JAX on GPU** — the PyMC-developer recommendation as of
+  June 2026. Only a 30-draw canary has run (about 4 ms/step/chain on L4). Run nutpie `backend='jax'` with `gradient_backend` pytensor and jax,
+  4 chains and nutpie's shorter default tuning on H100 and L4. Compare wall
+  time and ESS per second and per dollar with nutpie/Numba CPU, and with
+  NumPyro vectorized chains.
+- [ ] **Many vectorized GPU chains** — NumPyro's window adaptation needed 511
+  steps per draw (see above), so batched chains lose on gradient count. Next,
+  test adaptation built for many chains
+  (BlackJAX ChEES/MEADS, or nutpie's normalizing-flow adaptation). Report
+  lockstep leapfrog cost, warmup length needed, and ESS per dollar at
+  24,000 retained draws.
+- [ ] **float32 sampling** — log-density error is 5e-7 relative and gradient
+  error 0.07% scaled, but NumPyro float32 sampling failed (see above). Revisit
+  only with a rescaled model or a different sampler, with explicit tolerances.
+- [ ] **CPU multi-chain scaling** — on a 16-core Modal container, aggregate
+  Numba gradient throughput plateaued at about 2 chains' worth (4 processes:
+  2× slowdown each; 16: 12.8×), probably memory bandwidth on a shared host.
+  Repeat on dedicated or other CPU types before ruling out more-chains CPU fits.
+  Any chain-count change needs a new sampling module, since
+  `bayesian_disk_sampling.py` (`cores=min(chains, 4)`) is hashed into fit
+  protocols.
+- [ ] **Post-sampling report stage** — about 30 of the local fit's 56 minutes
+  are single-threaded diagnostics and reports after sampling. Profile it and
+  parallelize it across chunks or processes, or run it as a separate remote
+  job. Faster samplers alone cannot cut a fit below this floor.
+- [x] **Posterior transfer** — the complete 4.39 GB bundle downloaded in 141 s
+  (31 MB/s). Experiments now download summaries only by default; `complete`
+  fetches the posterior for promotion candidates.
+- [ ] **Marginal R-hat for `alpha` at 6,000 draws** — the remote refit reached
+  1.0103 against the 1.01 gate, with the same protocol that passed locally at
+  1.0036. Assess whether the intercept's slow mixing warrants more draws,
+  reparameterization, or a gate that accounts for run-to-run variation.
 
 ## Floor representation
 

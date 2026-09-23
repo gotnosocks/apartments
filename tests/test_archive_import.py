@@ -16,23 +16,35 @@ def listing_html():
         "price": 4909,
         "propertyDetails": {
             "address": {
-                "state": "NY", "street": "500 West 23rd Street",
-                "city": "NEW YORK", "zipCode": "10011", "displayUnit": "#4C",
+                "state": "NY",
+                "street": "500 West 23rd Street",
+                "city": "NEW YORK",
+                "zipCode": "10011",
+                "displayUnit": "#4C",
             },
-            "roomCount": 2, "bedroomCount": 0, "fullBathroomCount": 1,
-            "halfBathroomCount": 0, "livingAreaSize": 475,
+            "roomCount": 2,
+            "bedroomCount": 0,
+            "fullBathroomCount": 1,
+            "halfBathroomCount": 0,
+            "livingAreaSize": 475,
             "amenities": {"list": ["DOORMAN"]},
             "features": {"list": ["DISHWASHER"]},
         },
-        "propertyHistory": [{
-            "listingId": "2300302",
-            "sourceGroupLabel": "Equity Residential",
-            "rentalEventsOfInterest": [
-                {"date": "2015-01-31", "price": 3120, "status": "ACTIVE"},
-                {"date": "2015-02-01", "price": 3315, "pricePercentChange": 6.25},
-                {"date": "2015-02-02", "price": 3315, "status": "NO_LONGER_AVAILABLE"},
-            ],
-        }],
+        "propertyHistory": [
+            {
+                "listingId": "2300302",
+                "sourceGroupLabel": "Equity Residential",
+                "rentalEventsOfInterest": [
+                    {"date": "2015-01-31", "price": 3120, "status": "ACTIVE"},
+                    {"date": "2015-02-01", "price": 3315, "pricePercentChange": 6.25},
+                    {
+                        "date": "2015-02-02",
+                        "price": 3315,
+                        "status": "NO_LONGER_AVAILABLE",
+                    },
+                ],
+            }
+        ],
     }
     flight = '0:{"listing":' + json.dumps(listing, separators=(",", ":")) + "}"
     push = json.dumps([1, flight])
@@ -47,25 +59,37 @@ def listing_html():
 
 
 def test_normalize_listing_reads_complete_embedded_history():
-    item = normalize_listing(listing_html(), "https://streeteasy.com/rental/5116510", 1_700_000_000)
+    item = normalize_listing(
+        listing_html(), "https://streeteasy.com/rental/5116510", 1_700_000_000
+    )
     assert item["source_listing_id"] == "ten23-500-west-23rd-street-new_york/4c"
     assert item["asking_rent"] == 4909
     assert item["attributes"] == {
-        "square_feet": 475, "bedrooms": 0, "bathrooms": 1.0, "rooms": 2,
+        "square_feet": 475,
+        "bedrooms": 0,
+        "bathrooms": 1.0,
+        "rooms": 2,
     }
     assert [event["date"] for event in item["price_history"]] == [
-        "2015-01-31", "2015-02-01", "2015-02-02",
+        "2015-01-31",
+        "2015-02-01",
+        "2015-02-02",
     ]
     assert item["price_history"][1]["event"] == "Price increased by 6%"
 
 
 def test_normalize_listing_rejects_sale_history():
     body = listing_html().replace(b"rentalEventsOfInterest", b"saleEventsOfInterest")
-    assert normalize_listing(body, "https://streeteasy.com/sale/5116510", 1_700_000_000) is None
+    assert (
+        normalize_listing(body, "https://streeteasy.com/sale/5116510", 1_700_000_000)
+        is None
+    )
 
 
 def test_old_listing_scraped_later_does_not_replace_current_attributes(tmp_path):
-    item = normalize_listing(listing_html(), "https://streeteasy.com/rental/5116510", 1_700_000_000)
+    item = normalize_listing(
+        listing_html(), "https://streeteasy.com/rental/5116510", 1_700_000_000
+    )
     item["archive_listing"]["createdAt"] = "2026-01-01T00:00:00Z"
     db = connect(tmp_path / "analysis.duckdb")
     ingest_item(item, connection=db)
@@ -78,7 +102,7 @@ def test_old_listing_scraped_later_does_not_replace_current_attributes(tmp_path)
     db.close()
 
 
-@pytest.mark.parametrize('shared_bodies', [False, True])
+@pytest.mark.parametrize("shared_bodies", [False, True])
 def test_import_archive_is_incremental(tmp_path, monkeypatch, shared_bodies):
     archive = tmp_path / "archive"
     body_dir = archive / "bodies" / "aa"
@@ -93,7 +117,9 @@ def test_import_archive_is_incremental(tmp_path, monkeypatch, shared_bodies):
       CREATE TABLE frontier(generation INTEGER, url TEXT, kind TEXT);
     """)
     url = "https://streeteasy.com/rental/5116510"
-    source.execute("INSERT INTO snapshots VALUES (1,1,?,?,?)", (url, "abc", 1_700_000_000))
+    source.execute(
+        "INSERT INTO snapshots VALUES (1,1,?,?,?)", (url, "abc", 1_700_000_000)
+    )
     source.execute("INSERT INTO bodies VALUES ('abc','bodies/aa/capture.gz',1,0)")
     source.execute("INSERT INTO frontier VALUES (1,?,'listing')", (url,))
     source.commit()
@@ -101,10 +127,11 @@ def test_import_archive_is_incremental(tmp_path, monkeypatch, shared_bodies):
 
     importer = import_archive
     if shared_bodies:
-        shared = tmp_path / 'shared-bodies'
-        (archive / 'bodies').rename(shared)
-        (archive / 'bodies').symlink_to(shared, target_is_directory=True)
+        shared = tmp_path / "shared-bodies"
+        (archive / "bodies").rename(shared)
+        (archive / "bodies").symlink_to(shared, target_is_directory=True)
         from functools import partial
+
         importer = partial(import_archive, body_root=shared)
     db_path = tmp_path / "apartments.duckdb"
     first = importer(archive, db_path)
@@ -121,12 +148,17 @@ def test_import_archive_is_incremental(tmp_path, monkeypatch, shared_bodies):
     # A failed capture must roll back its own writes without losing neighbors,
     # and must remain eligible for a later retry.
     source = sqlite3.connect(archive / "archive.sqlite3")
-    source.executemany("INSERT INTO snapshots VALUES (?,1,?,'abc',?)", [
-        (2, url, 1_700_000_001), (3, url, 1_700_000_002),
-    ])
+    source.executemany(
+        "INSERT INTO snapshots VALUES (?,1,?,'abc',?)",
+        [
+            (2, url, 1_700_000_001),
+            (3, url, 1_700_000_002),
+        ],
+    )
     source.commit()
     source.close()
     from apartments import archive_import
+
     original_ingest = archive_import.ingest_item
 
     def fail_second(*args, **kwargs):

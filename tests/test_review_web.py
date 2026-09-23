@@ -74,9 +74,7 @@ def test_local_service_mode_and_read_only(monkeypatch):
     assert ro.get("/").status_code == 200
     with ro.session_transaction() as session:
         token = session["csrf"]
-    response = ro.post(
-        "/api/review", json={}, headers={"X-Review-CSRF": token}
-    )
+    response = ro.post("/api/review", json={}, headers={"X-Review-CSRF": token})
     assert response.status_code == 403
     assert response.json == {"error": "Review app is read-only"}
 
@@ -91,130 +89,220 @@ def test_local_mode_requires_both_paths():
 def test_tailnet_host_keeps_csrf_and_origin_protection(monkeypatch):
     import re
 
-    hostname = 'thelio.example.ts.net'
-    origin = f'http://{hostname}:8766'
-    monkeypatch.setenv('REVIEW_ALLOWED_HOSTS', hostname)
+    hostname = "thelio.example.ts.net"
+    origin = f"http://{hostname}:8766"
+    monkeypatch.setenv("REVIEW_ALLOWED_HOSTS", hostname)
     calls = []
-    app = create_app(lambda action, args: calls.append((action, args)) or {'ok': True, 'result': {'saved': True}})
+    app = create_app(
+        lambda action, args: (
+            calls.append((action, args)) or {"ok": True, "result": {"saved": True}}
+        )
+    )
     client = app.test_client()
-    page = client.get('/', base_url=origin)
+    page = client.get("/", base_url=origin)
     assert page.status_code == 200
     token = re.search(r'<meta name="csrf-token" content="([^"]+)"', page.text).group(1)
-    assert client.get('/', base_url='http://other.example.ts.net:8766').status_code == 403
-    assert client.post('/api/review', base_url=origin, json={}).status_code == 403
-    assert client.post('/api/review', base_url=origin, json={}, headers={
-        'X-Review-CSRF': token, 'Origin': 'http://evil.example',
-    }).status_code == 403
+    assert (
+        client.get("/", base_url="http://other.example.ts.net:8766").status_code == 403
+    )
+    assert client.post("/api/review", base_url=origin, json={}).status_code == 403
+    assert (
+        client.post(
+            "/api/review",
+            base_url=origin,
+            json={},
+            headers={
+                "X-Review-CSRF": token,
+                "Origin": "http://evil.example",
+            },
+        ).status_code
+        == 403
+    )
     assert calls == []
-    response = client.post('/api/review', base_url=origin, json={'snapshot_id': 1}, headers={
-        'X-Review-CSRF': token, 'Origin': origin,
-    })
+    response = client.post(
+        "/api/review",
+        base_url=origin,
+        json={"snapshot_id": 1},
+        headers={
+            "X-Review-CSRF": token,
+            "Origin": origin,
+        },
+    )
     assert response.status_code == 200
-    assert calls == [('review', {'snapshot_id': 1})]
+    assert calls == [("review", {"snapshot_id": 1})]
 
 
 def test_tailnet_host_is_opt_in(monkeypatch):
-    monkeypatch.delenv('REVIEW_ALLOWED_HOSTS', raising=False)
+    monkeypatch.delenv("REVIEW_ALLOWED_HOSTS", raising=False)
     client = create_app(lambda *args: {}).test_client()
-    assert client.get('/', base_url='http://thelio.example.ts.net:8766').status_code == 403
+    assert (
+        client.get("/", base_url="http://thelio.example.ts.net:8766").status_code == 403
+    )
 
 
 def test_identity_batch_routes_require_csrf():
     calls = []
-    app = create_app(lambda action, args: calls.append((action, args)) or {"result": {"count": 2}})
+    app = create_app(
+        lambda action, args: calls.append((action, args)) or {"result": {"count": 2}}
+    )
     client = app.test_client()
-    assert b'Confirm selected' in client.get('/').data
+    assert b"Confirm selected" in client.get("/").data
     with client.session_transaction() as session:
-        token = session['csrf']
-    for path, action in [('confirm', 'identity_confirm')]:
-        url = '/api/identity/' + path
+        token = session["csrf"]
+    for path, action in [("confirm", "identity_confirm")]:
+        url = "/api/identity/" + path
         assert client.post(url, json={}).status_code == 403
-        assert client.post(url, json={}, headers={'X-Review-CSRF': token}).status_code == 200
+        assert (
+            client.post(url, json={}, headers={"X-Review-CSRF": token}).status_code
+            == 200
+        )
         assert calls[-1] == (action, {})
 
 
 def test_history_price_preview_route():
     calls = []
-    app = create_app(lambda action, args: calls.append((action, args)) or {"result": {"token": "preview"}})
+    app = create_app(
+        lambda action, args: (
+            calls.append((action, args)) or {"result": {"token": "preview"}}
+        )
+    )
     client = app.test_client()
-    client.get('/')
+    client.get("/")
     with client.session_transaction() as session:
-        token = session['csrf']
-    url = '/api/events/price/preview'
+        token = session["csrf"]
+    url = "/api/events/price/preview"
     assert client.post(url, json={}).status_code == 403
-    assert client.post(url, json={}, headers={'X-Review-CSRF': token}).status_code == 200
-    assert calls == [('event_price_preview', {})]
+    assert (
+        client.post(url, json={}, headers={"X-Review-CSRF": token}).status_code == 200
+    )
+    assert calls == [("event_price_preview", {})]
 
 
 def test_unit_merge_pages_routes_and_write_protection():
     calls = []
-    app = create_app(lambda action, args: calls.append((action, args)) or {'result': {'ok':True}})
+    app = create_app(
+        lambda action, args: calls.append((action, args)) or {"result": {"ok": True}}
+    )
     client = app.test_client()
-    assert b'Merge unit records' in client.get('/units').data
+    assert b"Merge unit records" in client.get("/units").data
     with client.session_transaction() as session:
-        token = session['csrf']
-    for route,action in [('candidates','unit_candidates'),('inspect','unit_inspect'),('mapping','unit_mapping'),('export','unit_inspect'),('batches','unit_batches'),('proposal','unit_proposal')]:
-        assert client.get('/api/units/'+route).status_code == 200
+        token = session["csrf"]
+    for route, action in [
+        ("candidates", "unit_candidates"),
+        ("inspect", "unit_inspect"),
+        ("mapping", "unit_mapping"),
+        ("export", "unit_inspect"),
+        ("batches", "unit_batches"),
+        ("proposal", "unit_proposal"),
+    ]:
+        assert client.get("/api/units/" + route).status_code == 200
         assert calls[-1][0] == action
-    assert 'attachment' in client.get('/api/units/export').headers['Content-Disposition']
-    for route,action in [('merge','unit_merge'),('undo','unit_undo'),('separate','unit_separate'),('separate/undo','unit_undo_separate'),('associations/preview','unit_association_preview'),('associations/apply','unit_association_apply'),('associations/undo','unit_association_undo')]:
-        assert client.post('/api/units/'+route,json={}).status_code == 403
-        assert client.post('/api/units/'+route,json={},headers={'X-Review-CSRF':token}).status_code == 200
+    assert (
+        "attachment" in client.get("/api/units/export").headers["Content-Disposition"]
+    )
+    for route, action in [
+        ("merge", "unit_merge"),
+        ("undo", "unit_undo"),
+        ("separate", "unit_separate"),
+        ("separate/undo", "unit_undo_separate"),
+        ("associations/preview", "unit_association_preview"),
+        ("associations/apply", "unit_association_apply"),
+        ("associations/undo", "unit_association_undo"),
+    ]:
+        assert client.post("/api/units/" + route, json={}).status_code == 403
+        assert (
+            client.post(
+                "/api/units/" + route, json={}, headers={"X-Review-CSRF": token}
+            ).status_code
+            == 200
+        )
         assert calls[-1][0] == action
-    readonly=create_app(lambda *args:{},read_only=True).test_client()
-    readonly.get('/units')
+    readonly = create_app(lambda *args: {}, read_only=True).test_client()
+    readonly.get("/units")
     with readonly.session_transaction() as session:
-        token=session['csrf']
-    for route in ('merge','separate','separate/undo'):
-        assert readonly.post('/api/units/'+route,json={},headers={'X-Review-CSRF':token}).status_code == 403
+        token = session["csrf"]
+    for route in ("merge", "separate", "separate/undo"):
+        assert (
+            readonly.post(
+                "/api/units/" + route, json={}, headers={"X-Review-CSRF": token}
+            ).status_code
+            == 403
+        )
 
 
 def test_source_association_writes_are_blocked_in_readonly_mode():
-    client=create_app(lambda *args:{},read_only=True).test_client()
-    client.get('/units')
+    client = create_app(lambda *args: {}, read_only=True).test_client()
+    client.get("/units")
     with client.session_transaction() as session:
-        token=session['csrf']
-    for action in ('preview','apply','undo'):
-        assert client.post('/api/units/associations/'+action,json={},headers={'X-Review-CSRF':token}).status_code==403
+        token = session["csrf"]
+    for action in ("preview", "apply", "undo"):
+        assert (
+            client.post(
+                "/api/units/associations/" + action,
+                json={},
+                headers={"X-Review-CSRF": token},
+            ).status_code
+            == 403
+        )
 
 
 def test_listing_inclusion_routes_and_protection():
     calls = []
-    app = create_app(lambda action, args: calls.append((action, args)) or {'result': {}})
+    app = create_app(
+        lambda action, args: calls.append((action, args)) or {"result": {}}
+    )
     client = app.test_client()
-    assert b'Excluded listings' in client.get('/').data
-    assert client.get('/api/listings/exclusions').status_code == 200
-    assert calls[-1][0] == 'exclusions'
+    assert b"Excluded listings" in client.get("/").data
+    assert client.get("/api/listings/exclusions").status_code == 200
+    assert calls[-1][0] == "exclusions"
     with client.session_transaction() as session:
-        token = session['csrf']
-    url = '/api/listings/inclusion'
+        token = session["csrf"]
+    url = "/api/listings/inclusion"
     assert client.post(url, json={}).status_code == 403
-    assert client.post(url, json={}, headers={'X-Review-CSRF': token, 'Origin': 'https://evil.com'}).status_code == 403
-    assert client.post(url, json={}, headers={'X-Review-CSRF': token}).status_code == 200
-    assert calls[-1][0] == 'listing_inclusion'
+    assert (
+        client.post(
+            url, json={}, headers={"X-Review-CSRF": token, "Origin": "https://evil.com"}
+        ).status_code
+        == 403
+    )
+    assert (
+        client.post(url, json={}, headers={"X-Review-CSRF": token}).status_code == 200
+    )
+    assert calls[-1][0] == "listing_inclusion"
     ro = create_app(lambda *args: {}, read_only=True).test_client()
-    ro.get('/')
+    ro.get("/")
     with ro.session_transaction() as session:
-        token = session['csrf']
-    assert ro.post(url, json={}, headers={'X-Review-CSRF': token}).status_code == 403
+        token = session["csrf"]
+    assert ro.post(url, json={}, headers={"X-Review-CSRF": token}).status_code == 403
 
 
-def test_model_report_serves_only_configured_artifact_with_private_host_gate(tmp_path, monkeypatch):
-    monkeypatch.delenv('REVIEW_MODEL_REPORT', raising=False)
-    report=tmp_path/'report.html'
-    report.write_text('<!doctype html><html><body>Model results</body></html>')
-    calls=[]
-    client=create_app(lambda *args:calls.append(args), model_report_path=report,
-                      allowed_hosts=['thelio.example.ts.net']).test_client()
-    response=client.get('/model-report',base_url='http://thelio.example.ts.net:8766')
-    assert response.status_code==200 and response.mimetype=='text/html'
-    assert response.data==report.read_bytes()
-    assert response.headers['Cache-Control']=='private, no-cache'
-    assert client.get('/model-report',headers={'Host':'evil.com'}).status_code==403
-    assert client.get('/model-report/../results.json').status_code==404
-    assert client.get('/model-report?path=/etc/passwd').data==report.read_bytes()
-    assert client.post('/model-report',json={}).status_code==403
+def test_model_report_serves_only_configured_artifact_with_private_host_gate(
+    tmp_path, monkeypatch
+):
+    monkeypatch.delenv("REVIEW_MODEL_REPORT", raising=False)
+    report = tmp_path / "report.html"
+    report.write_text("<!doctype html><html><body>Model results</body></html>")
+    calls = []
+    client = create_app(
+        lambda *args: calls.append(args),
+        model_report_path=report,
+        allowed_hosts=["thelio.example.ts.net"],
+    ).test_client()
+    response = client.get("/model-report", base_url="http://thelio.example.ts.net:8766")
+    assert response.status_code == 200 and response.mimetype == "text/html"
+    assert response.data == report.read_bytes()
+    assert response.headers["Cache-Control"] == "private, no-cache"
+    assert client.get("/model-report", headers={"Host": "evil.com"}).status_code == 403
+    assert client.get("/model-report/../results.json").status_code == 404
+    assert client.get("/model-report?path=/etc/passwd").data == report.read_bytes()
+    assert client.post("/model-report", json={}).status_code == 403
     assert not calls
-    assert create_app(lambda *args:{}).test_client().get('/model-report').status_code==404
-    monkeypatch.setenv('REVIEW_MODEL_REPORT',str(report))
-    assert create_app(lambda *args:{}).test_client().get('/model-report').status_code==200
+    assert (
+        create_app(lambda *args: {}).test_client().get("/model-report").status_code
+        == 404
+    )
+    monkeypatch.setenv("REVIEW_MODEL_REPORT", str(report))
+    assert (
+        create_app(lambda *args: {}).test_client().get("/model-report").status_code
+        == 200
+    )

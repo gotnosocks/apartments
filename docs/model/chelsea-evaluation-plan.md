@@ -53,6 +53,9 @@ on the same 2025 rows. This is a validation advantage on a reused selection set,
 not evidence that Timeseers beats the robust model on future data. The shorter
 `validation-simple` run and interrupted/default/pilot runs are not the accepted
 Timeseers result.
+The Timeseers code (vendored `models/_vendor/timeseers`, the adapter and its
+tests) and its work log were not merged; they live on the
+`experiment-timeseers-20260918` bookmark.
 
 The robust 2026 test is 99.93% seen-building observations; its whole-unit holdout
 is 99.59% seen-building observations. Neither establishes prediction quality for

@@ -1,5 +1,4 @@
 """Completed-report integrity gates without loading posterior arrays."""
-import copy
 import json
 from pathlib import Path
 import shutil
