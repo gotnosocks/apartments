@@ -62,7 +62,24 @@ EXTRA = {
     # Convex size premium: log area above 20% over the bedroom-count median
     # (0 when area is unknown; the linear term and missing indicator stay).
     'large_area_hinge': lambda f, d: large_area(f),
+    # Era interactions: premium change per decade, centered at 2018.
+    'size_x_time': lambda f, d: relative_size(f)*decades(f),
+    'laundry_in_unit_x_time': lambda f, d: f.laundry_type.eq('in_unit').to_numpy(dtype=float)*decades(f),
 }
+
+
+def decades(frame):
+    import pandas as pd
+    return ((pd.to_datetime(frame.period).dt.year+pd.to_datetime(frame.period).dt.month/12.)-2018.).to_numpy()/10.
+
+
+def relative_size(frame):
+    import pandas as pd
+    if 'medians' not in UNIT_TEXT:
+        rows = pd.read_json(DATASET/'observations.jsonl', lines=True)
+        UNIT_TEXT['medians'] = pd.to_numeric(rows.square_feet, errors='coerce').groupby(rows.bedrooms).median()
+    area = pd.to_numeric(frame.square_feet, errors='coerce')
+    return np.log(area/frame.bedrooms.map(UNIT_TEXT['medians'])).fillna(0.).to_numpy()
 
 
 def large_area(frame):
