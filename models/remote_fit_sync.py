@@ -414,6 +414,29 @@ def download(result, read, destination, include=None, omit=()):
     }
 
 
+LOCAL_COPIES = "local-copies.json"
+
+
+def clean_refusal(result, copies):
+    """Reason deleting a remote run would lose data, or None when it is safe.
+
+    ``copies`` are the downloads recorded on the Volume; ``complete`` means the local
+    directory holds every returned file, including the posterior draws.
+    """
+    if result is None:
+        return "it has no result.json (still running, or the worker died)"
+    if not result["succeeded"]:
+        return None  # only a log remains, and fetch already copied it locally
+    if not copies:
+        return "no local download of it is recorded"
+    remote_only = sorted({i["path"] for i in result["files"]} & set(OMITTED))
+    if remote_only and not any(copy["complete"] for copy in copies):
+        return (
+            f"{', '.join(remote_only)} exist only on the Volume; run `complete` first"
+        )
+    return None
+
+
 def complete(destination, read):
     """Fetch the files a summary-only download left remote, verify them, drop the marker."""
     destination = Path(destination)

@@ -183,3 +183,15 @@ def test_summary_download_leaves_posterior_remote_until_completed(repo, tmp_path
     sync.complete(local, read)
     assert (local / "fit/posterior.nc").read_text() == '{"rent": 1}\n3'
     assert not (local / sync.OMITTED_MARKER).exists()
+
+
+def test_clean_refuses_to_drop_draws_that_exist_only_remotely():
+    result = {
+        "succeeded": True,
+        "files": [{"path": "fit/posterior.nc"}, {"path": "fit/summary.json"}],
+    }
+    assert "result.json" in sync.clean_refusal(None, [])
+    assert "no local download" in sync.clean_refusal(result, [])
+    assert "complete" in sync.clean_refusal(result, [{"complete": False}])
+    assert sync.clean_refusal(result, [{"complete": False}, {"complete": True}]) is None
+    assert sync.clean_refusal({"succeeded": False, "files": []}, []) is None

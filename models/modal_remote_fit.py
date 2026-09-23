@@ -19,6 +19,7 @@ import io
 import json
 import sys
 import time
+from datetime import datetime, timezone
 from pathlib import Path
 
 import modal
@@ -231,6 +232,7 @@ def fetch_run(
         omit=() if full else sync.OMITTED,
     )
     downloaded["download_seconds"] = time.monotonic() - started
+    record_copy(store, run_id, destination, complete=not downloaded["omitted_files"])
     (destination / "remote-runner.log").write_bytes(
         b"".join(store.read_file(f"/runs/{run_id}/runner.log"))
     )
@@ -263,6 +265,24 @@ def fetch_run(
     )
 
 
+def record_copy(store, run_id, destination, complete):
+    """Note a local download on the Volume so `clean` knows whether draws exist locally."""
+    path = f"/runs/{run_id}/{sync.LOCAL_COPIES}"
+    try:
+        copies = read_json(store, path)
+    except (FileNotFoundError, NotFoundError):
+        copies = []
+    copies.append(
+        {
+            "destination": str(destination),
+            "complete": complete,
+            "recorded_at": datetime.now(timezone.utc).isoformat(),
+        }
+    )
+    with store.batch_upload(force=True) as batch:
+        batch.put_file(io.BytesIO(json.dumps(copies, indent=2).encode()), path)
+
+
 def complete_run(store, destination):
     destination = Path(destination).resolve()
     marker = json.loads((destination / sync.OMITTED_MARKER).read_text())
@@ -271,6 +291,7 @@ def complete_run(store, destination):
     stats = sync.complete(
         destination, lambda path: store.read_file(f"/runs/{run_id}/output/{path}")
     )
+    record_copy(store, run_id, destination, complete=True)
     print(
         json.dumps(
             {
@@ -286,7 +307,22 @@ def complete_run(store, destination):
 def clean(args):
     store = volume()
     if args.run_id:
-        store.remove_file(f"/runs/{sync.safe_id(args.run_id)}", recursive=True)
+        run = f"/runs/{sync.safe_id(args.run_id)}"
+        try:
+            result = read_json(store, f"{run}/result.json")
+        except (FileNotFoundError, NotFoundError):
+            result = None
+        try:
+            copies = read_json(store, f"{run}/{sync.LOCAL_COPIES}")
+        except (FileNotFoundError, NotFoundError):
+            copies = []
+        reason = sync.clean_refusal(result, copies)
+        if reason and not args.discard_remote_draws:
+            raise SystemExit(
+                f"Refusing to delete {args.run_id}: {reason}. "
+                "Pass --discard-remote-draws to delete anyway."
+            )
+        store.remove_file(run, recursive=True)
     if args.unreferenced_blobs:
         referenced = set()
         for entry in store.listdir("/runs"):
@@ -416,6 +452,11 @@ def argument_parser():
         "clean", help="Delete remote copies; local results are untouched"
     )
     remove.add_argument("--run-id")
+    remove.add_argument(
+        "--discard-remote-draws",
+        action="store_true",
+        help="Delete even if the run's draws (or all outputs) exist only remotely",
+    )
     remove.add_argument("--unreferenced-blobs", action="store_true")
     commands.add_parser("list", help="Show remote runs and whether they finished")
     return parser
