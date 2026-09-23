@@ -41,18 +41,35 @@ def split_units(data, fraction, seed):
 
 FIXED = ('sigma', 'sigma_unit', 'sigma_building', 'trend_scale', 'bedroom_walk_scale')
 DESCRIPTIONS = Path('/home/ben/code/apartments/data/model/chelsea-refreshed-bayesian-descriptions-20260918/evidence.jsonl')
+DUPLEX = r'\b(?:duplex|triplex)\b'
+PRIVATE_OUTDOOR = (r'\b(?:private|your own|own private|exclusive)\s+(?:outdoor space|terrace|balcony|roof ?deck|rooftop|'
+                   r'garden|patio|backyard|yard)')
+SHARED_BATH = r'\b(?:sro|single room occupancy|shared (?:bath|baths|bathroom|bathrooms|kitchen)|share ?bath)\b'
+DATASET = None
 EXTRA = {
     # Unit label (source identity), not description text: "penthouse" in text is
     # mostly building amenities ("penthouse lounge") and is not used.
     'penthouse_label': lambda f, d: f.canonical_unit_url.str.rsplit('/', n=1).str[-1].str.lower()
                                     .str.match(r'^(ph|penthouse)').to_numpy(),
-    'duplex_text': lambda f, d: d.str.contains(r'\b(?:duplex|triplex)\b').to_numpy(),
-    'private_outdoor_text': lambda f, d: d.str.contains(
-        r'\b(?:private|your own|own private|exclusive)\s+(?:outdoor space|terrace|balcony|roof ?deck|rooftop|'
-        r'garden|patio|backyard|yard)').to_numpy(),
-    'shared_bath_text': lambda f, d: d.str.contains(
-        r'\b(?:sro|single room occupancy|shared (?:bath|baths|bathroom|bathrooms|kitchen)|share ?bath)\b').to_numpy(),
+    'duplex_text': lambda f, d: d.str.contains(DUPLEX).to_numpy(),
+    'private_outdoor_text': lambda f, d: d.str.contains(PRIVATE_OUTDOOR).to_numpy(),
+    'shared_bath_text': lambda f, d: d.str.contains(SHARED_BATH).to_numpy(),
+    # Unit-level versions: a unit is flagged when any of its own advertisements
+    # matches. Ad text varies between relistings; the attribute should not.
+    'duplex_unit': lambda f, d: unit_any(f, DUPLEX),
+    'private_outdoor_unit': lambda f, d: unit_any(f, PRIVATE_OUTDOOR),
+    'shared_bath_unit': lambda f, d: unit_any(f, SHARED_BATH),
 }
+UNIT_TEXT = {}
+
+
+def unit_any(frame, pattern):
+    if pattern not in UNIT_TEXT:
+        import pandas as pd
+        rows = pd.read_json(DATASET/'observations.jsonl', lines=True)[['audit_id', 'unit_id']]
+        hit = descriptions(rows).str.contains(pattern).to_numpy()
+        UNIT_TEXT[pattern] = rows.assign(hit=hit).groupby('unit_id').hit.any()
+    return frame.unit_id.map(UNIT_TEXT[pattern]).fillna(False).to_numpy()
 
 
 def descriptions(frame):
@@ -158,6 +175,8 @@ def main():
     parser.add_argument('--thin', type=int, default=2)
     parser.add_argument('--maxeval', type=int, default=50000)
     args = parser.parse_args()
+    global DATASET
+    DATASET = args.dataset
     args.output.mkdir(parents=True, exist_ok=True)
     data, _ = v3.load_data(args.dataset)
     train, test = (split if args.split == 'rows' else split_units)(data, args.fraction, args.split_seed)
