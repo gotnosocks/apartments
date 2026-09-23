@@ -53,6 +53,10 @@ def main():
     import arviz as az
     import nutpie
 
+    # A directory output (the Modal worker's convention) gets result.json.
+    if args.output.suffix != ".json":
+        args.output.mkdir(parents=True, exist_ok=True)
+        args.output = args.output / "result.json"
     args.output.parent.mkdir(parents=True, exist_ok=True)
     data, _ = v3.load_data(args.dataset)
     design = floor.FeatureDesign(data, "full_half_balance", floor_prior_scale=0.10)
