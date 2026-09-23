@@ -80,6 +80,7 @@ def configuration(
     unit_slope_scale=None,
     unit_centering="none",
     intercept="global",
+    walk_centering="none",
 ):
     if building_time not in BUILDING_TIME:
         raise ValueError("Unknown building-time mode")
@@ -112,6 +113,7 @@ def configuration(
             "unit_slope_scale": unit_slope_scale,
             "unit_centering": unit_centering,
             "intercept": intercept,
+            "walk_centering": walk_centering,
         },
     )
     return config
@@ -141,6 +143,7 @@ def build_model(
     unit_slope_scale=None,
     unit_centering="none",
     intercept="global",
+    walk_centering="none",
 ):
     """`group_column` other than bedrooms exists only for screening negative controls."""
     config = configuration(
@@ -165,6 +168,7 @@ def build_model(
         unit_slope_scale=unit_slope_scale,
         unit_centering=unit_centering,
         intercept=intercept,
+        walk_centering=walk_centering,
     )
     d = design.time
     a = d.arrays(train)
@@ -287,6 +291,15 @@ def build_model(
                     (n_buildings, len(bknots))
                 )
                 levels = scale * np.sqrt(building_knot_years) * pt.cumsum(z, axis=1)
+                if walk_centering == "across_buildings":
+                    # Remove the common drift: at every knot the walk levels
+                    # average zero across buildings (weighted by rows), so the
+                    # citywide trend and annual drift carry shared time movement.
+                    rows = np.bincount(a["building"], minlength=n_buildings)
+                    share = rows / rows.sum()
+                    levels = levels - (levels * share[:, None]).sum(0, keepdims=True)
+                elif walk_centering != "none":
+                    raise ValueError("walk_centering must be none or across_buildings")
                 centers = (levels * (building_weights @ bbasis)).sum(1)
                 mu = (
                     mu

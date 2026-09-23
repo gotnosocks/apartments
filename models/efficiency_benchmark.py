@@ -49,6 +49,9 @@ def main():
     parser.add_argument(
         "--intercept", choices=("global", "building_mean"), default="global"
     )
+    parser.add_argument(
+        "--walk-centering", choices=("none", "across_buildings"), default="none"
+    )
     args = parser.parse_args()
     import arviz as az
     import nutpie
@@ -68,6 +71,7 @@ def main():
         building_scale_prior=0.1,
         unit_centering=args.unit_centering,
         intercept=args.intercept,
+        walk_centering=args.walk_centering,
     )
     started = time.monotonic()
     compiled = nutpie.compile_pymc_model(model, backend="numba")
@@ -103,6 +107,7 @@ def main():
         "adaptation": args.adaptation,
         "unit_centering": args.unit_centering,
         "intercept": args.intercept,
+        "walk_centering": args.walk_centering,
         "tune": args.tune,
         "draws": args.draws,
         "chains": args.chains,
@@ -115,6 +120,10 @@ def main():
         "divergences": int(stats["diverging"].sum()),
         "globals": ess,
         "beta_min_ess_bulk": float(beta.ess_bulk.min()),
+        "beta_slowest": {
+            name: float(value)
+            for name, value in beta.ess_bulk.sort_values().head(6).items()
+        },
         "beta_max_r_hat": float(beta.r_hat.max()),
     }
     args.output.write_text(json.dumps(result, indent=1) + "\n")
