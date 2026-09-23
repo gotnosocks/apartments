@@ -75,6 +75,11 @@ DESIGNS = {
     "walk": model.ModelConfig(building_walk=True),
     "bedtime-slope": model.ModelConfig(bedroom_time=True, bedroom_slope=True),
     "all": model.ModelConfig(building_walk=True, bedroom_time=True, bedroom_slope=True),
+    "fslopes": model.ModelConfig(
+        building_walk=True,
+        bedroom_slope=True,
+        feature_slopes=("x0", "x1"),
+    ),
     "quarterly": model.ModelConfig(
         building_walk=True,
         bedroom_time=True,
@@ -92,6 +97,8 @@ SCALES = {
     "walk_scale": 0.04,
     "bedroom_time_scale": 0.015,
     "bedroom_slope_scale": 0.06,
+    "fslope_scale_0": 0.05,
+    "fslope_scale_1": 0.07,
 }
 
 
@@ -164,7 +171,7 @@ def dense_logml(d, lam, s):
     return multivariate_normal(np.zeros(n), cov).logpdf(np.asarray(d.y))
 
 
-@pytest.mark.parametrize("design", ["base", "all", "quarterly"])
+@pytest.mark.parametrize("design", ["base", "all", "quarterly", "fslopes"])
 def test_collapsed_marginal_likelihood_matches_dense(design):
     prep = synthetic()
     d = gibbs.build_design(prep, DESIGNS[design])
@@ -182,7 +189,7 @@ def test_collapsed_marginal_likelihood_matches_dense(design):
     )
 
 
-@pytest.mark.parametrize("design", ["all", "quarterly"])
+@pytest.mark.parametrize("design", ["all", "quarterly", "fslopes"])
 def test_site_values_reproduce_linear_predictor(design):
     """Gibbs state -> NumPyro sites -> model.linear_predictor equals the Gibbs fit."""
     prep = synthetic()

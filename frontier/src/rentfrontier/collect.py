@@ -118,6 +118,7 @@ def collect(
                 "trend": e["trend"][::12],
                 "building": e["building"][trace_b],
                 "unit": e["unit"][trace_u],
+                "fslope_scales": e["fslope_scales"],
                 **info,
             }
             return (st, acc, s1, s2), trace

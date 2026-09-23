@@ -91,6 +91,8 @@ class Design:
     trend_basis: jnp.ndarray
     bedroom_time_basis: jnp.ndarray
     slope_index: int | None  # local index of the bedroom slope
+    fslope_local: list  # local indices of per-building feature slopes
+    fslope_cols: list  # their feature columns
     knot_start: int | None  # local index of walk knot 1 (knot 0 is fixed at 0)
     n_features: int
     n_months: int
@@ -173,6 +175,13 @@ def build_design(
         )
         structures["bedroom_slope_scale"] = [slope_index]
         n_local += 1
+    fslope_local = []
+    fslope_cols = [prep.features.names.index(nm) for nm in config.feature_slopes]
+    for i, col in enumerate(fslope_cols):
+        fslope_local.append(n_local)
+        columns.append((np.full(n, n_local, np.int32), tr.x[:, col].astype(float)))
+        structures[f"fslope_scale_{i}"] = [n_local]
+        n_local += 1
     if config.building_walk:
         k = model_module.n_knots(t)
         knot_start = n_local
@@ -211,6 +220,10 @@ def build_design(
         "walk_scale": config.walk_scale_sd,
         "bedroom_time_scale": config.bedroom_time_scale_sd,
         "bedroom_slope_scale": config.bedroom_slope_scale_sd,
+        **{
+            f"fslope_scale_{i}": config.feature_slope_scale_sd
+            for i in range(len(fslope_cols))
+        },
     }
     return Design(
         a=jnp.asarray(a),
@@ -231,6 +244,8 @@ def build_design(
         trend_basis=jnp.asarray(trend_basis),
         bedroom_time_basis=jnp.asarray(bed_basis),
         slope_index=slope_index,
+        fslope_local=fslope_local,
+        fslope_cols=fslope_cols,
         knot_start=knot_start,
         n_features=f,
         n_months=t,
@@ -372,6 +387,12 @@ def site_values(d: Design, state):
 
     if d.slope_index is not None:
         out["bedroom_slope"] = theta_l[:, d.slope_index]
+    if d.fslope_local:
+        out["fslope"] = theta_l[:, jnp.asarray(d.fslope_local)]
+        out["fslope_scales"] = jnp.stack(
+            [state[f"fslope_scale_{i}"] for i in range(len(d.fslope_local))]
+        )
+        out["fslope_index"] = jnp.asarray(d.fslope_cols, dtype=jnp.int32)
     if d.knot_start is not None:
         out["walk_step"] = steps(theta_l[:, d.knot_start :])
     return out
@@ -581,9 +602,10 @@ START = {
 def init_states(d: Design, key, chains):
     """Overdispersed starting scales; latents are drawn in the first step."""
     names = d.scale_names
+    start = {**START, **{n: 0.05 for n in names if n.startswith("fslope_scale_")}}
     k1, _ = jax.random.split(key)
     jitter = jnp.exp(0.7 * jax.random.normal(k1, (chains, len(names) + 1)))
-    state = {n: START[n] * jitter[:, i] for i, n in enumerate(names)}
+    state = {n: start[n] * jitter[:, i] for i, n in enumerate(names)}
     state["nu"] = (
         5.0 * jitter[:, -1] if d.nu_fixed is None else jnp.full((chains,), d.nu_fixed)
     )

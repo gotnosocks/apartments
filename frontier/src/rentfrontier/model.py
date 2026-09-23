@@ -48,6 +48,10 @@ class ModelConfig:
     # the global bedroom coefficients.
     bedroom_slope: bool = False
     bedroom_slope_scale_sd: float = 0.1
+    # Per-building random slopes on these feature columns (by name), each
+    # with its own HalfNormal(feature_slope_scale_sd) scale.
+    feature_slopes: tuple = ()
+    feature_slope_scale_sd: float = 0.1
     # Knot spacing (months) of the market trend and bedroom-group curves:
     # random walks over knots, linearly interpolated; 1 = one value per month.
     trend_knot_months: int = 1
@@ -206,6 +210,8 @@ def linear_predictor(p, a: Arrays, include_unit=True):
         mu = mu + e["bedroom_time"][a.bed_group, a.month]
     if "bedroom_slope" in p:
         mu = mu + e["bedroom_slope"][a.building] * a.beds_centered
+    if "fslope" in p:
+        mu = mu + jnp.sum(p["fslope"][a.building] * a.x[:, p["fslope_index"]], axis=1)
     if include_unit:
         mu = mu + jnp.where(a.unit >= 0, e["unit"][jnp.maximum(a.unit, 0)], 0.0)
     return mu
@@ -250,6 +256,8 @@ def effects(p):
         "bedroom_time_scale": p.get("bedroom_time_scale", jnp.zeros(())),
         "bedroom_slope": p.get("bedroom_slope", jnp.zeros(1)),
         "bedroom_slope_scale": p.get("bedroom_slope_scale", jnp.zeros(())),
+        "fslope": p.get("fslope", jnp.zeros((1, 1))),
+        "fslope_scales": p.get("fslope_scales", jnp.zeros(1)),
     }
 
 
@@ -278,6 +286,9 @@ def build_model(prep: Prepared, config: ModelConfig):
     arrays = a.map(jnp.asarray)
     beta_sd = config.beta_sd * jnp.asarray(prep.features.prior_scale)
     trend_basis = jnp.asarray(knot_basis(n_months, config.trend_knot_months))
+    fslope_index = jnp.asarray(
+        [prep.features.names.index(n) for n in config.feature_slopes], dtype=jnp.int32
+    )
     bedroom_basis = jnp.asarray(knot_basis(n_months, config.bedroom_time_knot_months))
 
     def model():
@@ -349,6 +360,20 @@ def build_model(prep: Prepared, config: ModelConfig):
                     [len(prep.buildings)]
                 ),
             )
+        if config.feature_slopes:
+            p["fslope_index"] = fslope_index
+            p["fslope_scales"] = numpyro.sample(
+                "fslope_scales",
+                dist.HalfNormal(config.feature_slope_scale_sd).expand(
+                    [len(fslope_index)]
+                ),
+            )
+            p["fslope"] = numpyro.sample(
+                "fslope",
+                dist.Normal(0.0, p["fslope_scales"]).expand(
+                    [len(prep.buildings), len(fslope_index)]
+                ),
+            )
         mu = linear_predictor(p, arrays)
         numpyro.sample("y", dist.StudentT(p["nu"], mu, p["sigma"]), obs=y)
 
@@ -397,6 +422,16 @@ MODELS = {
         building_walk=True,
         bedroom_slope=True,
         trend_knot_months=3,
+    ),
+    # Per-building slopes on size and bathrooms, on top of m5.
+    "m6-slopes": ModelConfig(
+        name="m6-slopes",
+        building_walk=True,
+        bedroom_time=True,
+        bedroom_slope=True,
+        trend_knot_months=3,
+        bedroom_time_knot_months=3,
+        feature_slopes=("log_sqft_vs_bedroom_median", "bathrooms=2", "bathrooms=3"),
     ),
     "m4-walk-bedtime-bedslope": ModelConfig(
         name="m4-walk-bedtime-bedslope",

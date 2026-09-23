@@ -27,6 +27,7 @@ from pathlib import Path
 import numpy as np
 
 from . import data
+from .run import REFERENCES
 
 RUNS = data.OUTPUT_ROOT / "runs"
 DOCS = Path(__file__).resolve().parents[3] / "docs" / "model" / "gpu-frontier"
@@ -37,7 +38,11 @@ PROMOTED = {
     "fit": "data/model/chelsea-bayesian-product-scope-structure-20260923",
     "feature_set": "promoted model's own design (bayesian_structure_graph_v2 defaults + building walk)",
     "rows": {"elpd": 5863.6954937789105, "elpd_se": 75.62662539814482, "delta": 0.0},
-    "units": {"elpd": None, "status": "NUTS run pending on the Model Improvement side"},
+    "units": {
+        "elpd": 3822.15,
+        "delta": 0.0,
+        "note": "nuts-hwalk-units, unit effect integrated by 200 MC draws",
+    },
     "fit_seconds": 22200.0,
     "fit_seconds_note": "full production fit of the promoted structure model: ~6.2 h local wall time (protocol 22:28 -> posterior 04:38, 4 chains x 4000 tune + 6000 draws, shared machine); its row-split held-out screen took 9,697 s",
     "cost_usd": 1.97,
@@ -113,7 +118,16 @@ def build():
         fit_seconds, cost = [], []
         for split, r in by_split.items():
             s = r["score"]
-            vp = s.get("vs_promoted", {})
+            vp = dict(s.get("vs_promoted", {}))
+            if (
+                vp.get("delta_elpd") is None
+                and REFERENCES.get(split, Path("/nonexistent")).exists()
+            ):
+                # Reference landed after the run was scored: pair it here.
+                d_, se_ = paired(r["_dir"], REFERENCES[split].parent)
+                vp.update(
+                    delta_elpd=d_, delta_elpd_se=se_, reference=str(REFERENCES[split])
+                )
             e["splits"][split] = {
                 "run": r["name"],
                 "elpd": s["elpd"],
@@ -235,7 +249,7 @@ def markdown(board) -> str:
     ]
     p = PROMOTED
     lines.append(
-        f"| promoted (reference) | {p['description']} | own | 0 (ELPD {fmt(p['rows']['elpd'])}) | pending | pending | passes | {fmt(p['fit_seconds'] / 60, 0)} min* | ${p['cost_usd']:.2f}* | {p['hardware']} | yes | yes | — | reference | |"
+        f"| promoted (reference) | {p['description']} | own | 0 (ELPD {fmt(p['rows']['elpd'])}) | 0 | {fmt(p['units']['elpd'])} | passes | {fmt(p['fit_seconds'] / 60, 0)} min* | ${p['cost_usd']:.2f}* | {p['hardware']} | yes | yes | — | reference | |"
     )
     for e in sorted(
         board["entries"],

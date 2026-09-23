@@ -101,6 +101,8 @@ def diagnostics(trace, names_beta) -> dict:
         quantities[f"beta[{n}]"] = trace["beta"][..., i]
     for i in range(trace["trend"].shape[-1]):
         quantities[f"trend[{12 * i}]"] = trace["trend"][..., i]
+    for i in range(trace["fslope_scales"].shape[-1]):
+        quantities[f"fslope_scale[{i}]"] = trace["fslope_scales"][..., i]
     for key in ("building", "unit"):
         for i in range(trace[key].shape[-1]):
             quantities[f"{key}[trace {i}]"] = trace[key][..., i]
