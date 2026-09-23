@@ -40,12 +40,26 @@ class ModelConfig:
     # first month), interpolated linearly between knots.
     building_walk: bool = False
     walk_scale_sd: float = 0.1
+    # Bedroom-group market curves: random-walk deviations of the month trend
+    # for studios, 2- and 3+-bedrooms, relative to 1-bedrooms.
+    bedroom_time: bool = False
+    bedroom_time_scale_sd: float = 0.02
+    # Per-building bedroom slope: each building's premium per bedroom around
+    # the global bedroom coefficients.
+    bedroom_slope: bool = False
+    bedroom_slope_scale_sd: float = 0.1
 
     def to_dict(self):
         return asdict(self)
 
 
 KNOT_MONTHS = 6
+BEDROOM_GROUPS = ("studio", "one_bedroom", "two_bedroom", "three_plus")
+TIME_GROUPS = (
+    0,
+    2,
+    3,
+)  # bedroom groups with their own market curve (1-bedroom is the reference)
 
 
 @dataclass
@@ -58,8 +72,21 @@ class Arrays:
     unit: np.ndarray  # -1 for units without training rows
     knot: np.ndarray  # walk knot at or before the row's month
     knot_frac: np.ndarray  # linear interpolation weight on the next knot
+    bed_group: np.ndarray  # index into BEDROOM_GROUPS
+    beds_centered: np.ndarray  # bedrooms (capped at 4) minus 1
 
-    FIELDS = ("y", "x", "month", "calendar", "building", "unit", "knot", "knot_frac")
+    FIELDS = (
+        "y",
+        "x",
+        "month",
+        "calendar",
+        "building",
+        "unit",
+        "knot",
+        "knot_frac",
+        "bed_group",
+        "beds_centered",
+    )
 
     def map(self, fn):
         return Arrays(*(fn(getattr(self, f)) for f in self.FIELDS))
@@ -119,6 +146,10 @@ def prepare(frame: pd.DataFrame, heldout: np.ndarray, features: Features) -> Pre
             unit=pd.Index(units).get_indexer(sub.unit_id).astype(np.int32),
             knot=(month // KNOT_MONTHS).astype(np.int32),
             knot_frac=(month % KNOT_MONTHS) / KNOT_MONTHS,
+            bed_group=np.minimum(sub.bedrooms.round().clip(0, 3), 3)
+            .to_numpy()
+            .astype(np.int32),
+            beds_centered=sub.bedrooms.round().clip(0, 4).to_numpy() - 1.0,
         )
 
     return Prepared(
@@ -150,6 +181,10 @@ def linear_predictor(p, a: Arrays, include_unit=True):
             + (1 - a.knot_frac) * w[a.building, a.knot]
             + a.knot_frac * w[a.building, a.knot + 1]
         )
+    if "bedroom_time_step" in p:
+        mu = mu + e["bedroom_time"][a.bed_group, a.month]
+    if "bedroom_slope" in p:
+        mu = mu + e["bedroom_slope"][a.building] * a.beds_centered
     if include_unit:
         mu = mu + jnp.where(a.unit >= 0, e["unit"][jnp.maximum(a.unit, 0)], 0.0)
     return mu
@@ -185,7 +220,23 @@ def effects(p):
             else jnp.zeros((1, 1))
         ),
         "walk_scale": p.get("walk_scale", jnp.zeros(())),
+        # Market-curve deviation per bedroom group (row 1 = 1-bedroom = 0).
+        "bedroom_time": _bedroom_time(p),
+        "bedroom_time_scale": p.get("bedroom_time_scale", jnp.zeros(())),
+        "bedroom_slope": p.get("bedroom_slope", jnp.zeros(1)),
+        "bedroom_slope_scale": p.get("bedroom_slope_scale", jnp.zeros(())),
     }
+
+
+def _bedroom_time(p):
+    if "bedroom_time_step" not in p:
+        return jnp.zeros((len(BEDROOM_GROUPS), 1))
+    steps = p["bedroom_time_step"]  # (len(TIME_GROUPS), months - 1)
+    curves = jnp.concatenate(
+        [jnp.zeros((steps.shape[0], 1)), jnp.cumsum(steps, axis=1)], axis=1
+    )
+    out = jnp.zeros((len(BEDROOM_GROUPS), curves.shape[1]))
+    return out.at[jnp.asarray(TIME_GROUPS)].set(curves)
 
 
 def build_model(prep: Prepared, config: ModelConfig):
@@ -239,6 +290,26 @@ def build_model(prep: Prepared, config: ModelConfig):
                     [len(prep.buildings), n_knots(n_months) - 1]
                 ),
             )
+        if config.bedroom_time:
+            p["bedroom_time_scale"] = numpyro.sample(
+                "bedroom_time_scale", dist.HalfNormal(config.bedroom_time_scale_sd)
+            )
+            p["bedroom_time_step"] = numpyro.sample(
+                "bedroom_time_step",
+                dist.Normal(0.0, p["bedroom_time_scale"]).expand(
+                    [len(TIME_GROUPS), n_months - 1]
+                ),
+            )
+        if config.bedroom_slope:
+            p["bedroom_slope_scale"] = numpyro.sample(
+                "bedroom_slope_scale", dist.HalfNormal(config.bedroom_slope_scale_sd)
+            )
+            p["bedroom_slope"] = numpyro.sample(
+                "bedroom_slope",
+                dist.Normal(0.0, p["bedroom_slope_scale"]).expand(
+                    [len(prep.buildings)]
+                ),
+            )
         mu = linear_predictor(p, arrays)
         numpyro.sample("y", dist.StudentT(p["nu"], mu, p["sigma"]), obs=y)
 
@@ -251,4 +322,16 @@ def build_model(prep: Prepared, config: ModelConfig):
 MODELS = {
     "m0-base": ModelConfig(name="m0-base"),
     "m1-walk": ModelConfig(name="m1-walk", building_walk=True),
+    "m2-walk-bedtime": ModelConfig(
+        name="m2-walk-bedtime", building_walk=True, bedroom_time=True
+    ),
+    "m3-walk-bedslope": ModelConfig(
+        name="m3-walk-bedslope", building_walk=True, bedroom_slope=True
+    ),
+    "m4-walk-bedtime-bedslope": ModelConfig(
+        name="m4-walk-bedtime-bedslope",
+        building_walk=True,
+        bedroom_time=True,
+        bedroom_slope=True,
+    ),
 }

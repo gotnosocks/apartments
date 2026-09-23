@@ -38,8 +38,8 @@ PROMOTED = {
     "feature_set": "promoted model's own design (bayesian_structure_graph_v2 defaults + building walk)",
     "rows": {"elpd": 5863.6954937789105, "elpd_se": 75.62662539814482, "delta": 0.0},
     "units": {"elpd": None, "status": "NUTS run pending on the Model Improvement side"},
-    "fit_seconds": 9697.0,
-    "fit_seconds_note": "row-split NUTS screen (4 chains x 1000/1000); the full production fit takes ~55 min on 4 CPU cores",
+    "fit_seconds": 3300.0,
+    "fit_seconds_note": "full production fit, ~55 min on 4 CPU cores (the row-split held-out screen itself took 9,697 s with 4 chains x 1000/1000)",
     "cost_usd": 0.38,
     "cost_note": "production full fit on Modal CPU (docs/analysis/modal-remote-fitting-2026-09-23.md)",
     "hardware": "CPU (nutpie/Numba)",
@@ -52,7 +52,8 @@ def load_runs():
     runs = []
     for path in sorted(RUNS.glob("*/result.json")):
         r = json.loads(path.read_text())
-        if not r.get("reportable"):
+        # Smoke tests and canaries check the pipeline; they are not reported runs.
+        if not r.get("reportable") or r["name"].startswith(("dev-", "canary-")):
             continue
         r["_dir"] = path.parent
         runs.append(r)
@@ -94,7 +95,9 @@ def build():
             "feature_set": any_run["feature_set"],
             "sampler": any_run["sampler"],
             "sampler_settings": any_run["sampler_settings"],
-            "hardware": (any_run.get("remote") or {}).get("gpu_reported")
+            "hardware": ((any_run.get("remote") or {}).get("gpu_reported") or "").split(
+                ","
+            )[0]
             or any_run["hardware"].get("gpu")
             or "local",
             "interpretable": bool(
@@ -224,6 +227,9 @@ def markdown(board) -> str:
     lines += [
         "",
         f"\\* {p['fit_seconds_note']}; cost is {p['cost_note']}.",
+        "",
+        "Fit time is the sampler wall time (warmup + draws, including JIT compilation); cost is the Modal list price over the client-side container lifetime.",
+        "Runs named `dev-*` or `canary-*` are pipeline checks and are not listed.",
         "",
     ]
     return "\n".join(lines)

@@ -1,0 +1,161 @@
+{
+  "promoted": {
+    "id": "promoted",
+    "description": "Promoted PyMC model (bedroom-group time curves + per-building half-year random walk), NUTS 4x1000/1000; screen fits on each split's training rows",
+    "fit": "data/model/chelsea-bayesian-product-scope-structure-20260923",
+    "feature_set": "promoted model's own design (bayesian_structure_graph_v2 defaults + building walk)",
+    "rows": {
+      "elpd": 5863.6954937789105,
+      "elpd_se": 75.62662539814482,
+      "delta": 0.0
+    },
+    "units": {
+      "elpd": null,
+      "status": "NUTS run pending on the Model Improvement side"
+    },
+    "fit_seconds": 3300.0,
+    "fit_seconds_note": "full production fit, ~55 min on 4 CPU cores (the row-split held-out screen itself took 9,697 s with 4 chains x 1000/1000)",
+    "cost_usd": 0.38,
+    "cost_note": "production full fit on Modal CPU (docs/analysis/modal-remote-fitting-2026-09-23.md)",
+    "hardware": "CPU (nutpie/Numba)",
+    "passes_checks": true,
+    "interpretable": true
+  },
+  "entries": [
+    {
+      "id": "m0-base/base-v1/gibbs@5cc0809",
+      "commit": "5cc0809996818cc466f3d778bfd2cb4e2fc7109f",
+      "model": {
+        "name": "m0-base",
+        "beta_sd": 0.5,
+        "trend_scale_sd": 0.05,
+        "season_scale_sd": 0.05,
+        "building_scale_sd": 0.5,
+        "unit_scale_sd": 0.2,
+        "noise_scale_sd": 0.2,
+        "noncentered": []
+      },
+      "feature_set": "base-v1",
+      "sampler": "gibbs",
+      "sampler_settings": {
+        "chains": 32,
+        "warmup": 500,
+        "draws": 1000,
+        "keep_every": 100,
+        "seed": 20260923,
+        "noise_steps": 10,
+        "sigma_step_sd": 0.004,
+        "nu_step_sd": 0.03,
+        "trace_groups": 32
+      },
+      "hardware": "NVIDIA H100 80GB HBM3",
+      "interpretable": true,
+      "splits": {
+        "rows": {
+          "run": "m0-base-rows-5cc0809",
+          "elpd": 5036.622217838926,
+          "elpd_se": 70.8226613010635,
+          "elpd_mcse": 0.3378870363930246,
+          "delta": -827.073275939985,
+          "delta_se": 49.74023919282267,
+          "paired_rows": 5264,
+          "max_rhat": 1.0090018759587638,
+          "min_ess": 2975.7521280816895,
+          "passes": true,
+          "fit_seconds": 82.845289502,
+          "sampling_seconds": 48.00337518199999,
+          "cost_usd": 0.1823
+        },
+        "units": {
+          "run": "m0-base-units-5cc0809",
+          "elpd": 3540.6950264956176,
+          "elpd_se": 70.01836971590326,
+          "elpd_mcse": 0.20985237463610373,
+          "delta": null,
+          "delta_se": null,
+          "paired_rows": null,
+          "max_rhat": 1.0086807494279448,
+          "min_ess": 2942.127885982796,
+          "passes": true,
+          "fit_seconds": 80.845228452,
+          "sampling_seconds": 47.439772672000004,
+          "cost_usd": 0.1725
+        }
+      },
+      "passes_checks": true,
+      "fit_seconds": 82.845289502,
+      "cost_usd": 0.1823,
+      "current_best": true,
+      "frontier": true
+    },
+    {
+      "id": "m1-walk/base-v1/gibbs@94a4da4",
+      "commit": "94a4da443a5267dd58b23fb22053b566fda40842",
+      "model": {
+        "name": "m1-walk",
+        "beta_sd": 0.5,
+        "trend_scale_sd": 0.05,
+        "season_scale_sd": 0.05,
+        "building_scale_sd": 0.5,
+        "unit_scale_sd": 0.2,
+        "noise_scale_sd": 0.2,
+        "noncentered": [],
+        "building_walk": true,
+        "walk_scale_sd": 0.1
+      },
+      "feature_set": "base-v1",
+      "sampler": "gibbs",
+      "sampler_settings": {
+        "chains": 32,
+        "warmup": 500,
+        "draws": 1000,
+        "keep_every": 100,
+        "seed": 20260923,
+        "noise_steps": 10,
+        "sigma_step_sd": 0.004,
+        "nu_step_sd": 0.03,
+        "trace_groups": 32
+      },
+      "hardware": "NVIDIA H200",
+      "interpretable": true,
+      "splits": {
+        "rows": {
+          "run": "m1-walk-rows-94a4da4",
+          "elpd": 5934.19841943589,
+          "elpd_se": 76.58633391272147,
+          "elpd_mcse": 0.5229463126516968,
+          "delta": 70.50292565697958,
+          "delta_se": 24.70023308165282,
+          "paired_rows": 5264,
+          "max_rhat": 1.0543648110762396,
+          "min_ess": 551.9295667895544,
+          "passes": false,
+          "fit_seconds": 359.885618108,
+          "sampling_seconds": 231.48113863100002,
+          "cost_usd": 0.5136
+        },
+        "units": {
+          "run": "m1-walk-units-94a4da4",
+          "elpd": 3958.8694036715433,
+          "elpd_se": 75.04357467274053,
+          "elpd_mcse": 0.33731909055453796,
+          "delta": null,
+          "delta_se": null,
+          "paired_rows": null,
+          "max_rhat": 1.0491174150043678,
+          "min_ess": 598.5229796936455,
+          "passes": false,
+          "fit_seconds": 342.543836689,
+          "sampling_seconds": 219.80912816199998,
+          "cost_usd": 0.4929
+        }
+      },
+      "passes_checks": false,
+      "fit_seconds": 359.885618108,
+      "cost_usd": 0.5136,
+      "current_best": false,
+      "frontier": false
+    }
+  ],
+  "current_best": "m0-base/base-v1/gibbs@5cc0809"
+}

@@ -23,6 +23,7 @@ def synthetic(seed=0, n_buildings=15, units_per_building=8, months=24):
         for j in range(units_per_building):
             u_eff = rng.normal(0, 0.08)
             x = rng.integers(0, 2, 2).astype(float)
+            beds = int(rng.integers(0, 4))
             for _ in range(rng.integers(1, 5)):
                 m = rng.integers(0, months)
                 cal = m % 12
@@ -35,9 +36,12 @@ def synthetic(seed=0, n_buildings=15, units_per_building=8, months=24):
                     + b_eff[b]
                     + u_eff
                 )
-                rows.append((b, b * 100 + j, m, cal, *x, y + 0.05 * rng.standard_t(5)))
+                y = y + 0.1 * (beds - 1)
+                rows.append(
+                    (b, b * 100 + j, m, cal, beds, *x, y + 0.05 * rng.standard_t(5))
+                )
     frame = pd.DataFrame(
-        rows, columns=["b", "u", "m", "cal", "x0", "x1", "y"]
+        rows, columns=["b", "u", "m", "cal", "beds", "x0", "x1", "y"]
     ).drop_duplicates(["u", "m"])
     units, unit_idx = np.unique(frame.u, return_inverse=True)
     x = frame[["x0", "x1"]].to_numpy()
@@ -50,6 +54,8 @@ def synthetic(seed=0, n_buildings=15, units_per_building=8, months=24):
         unit=unit_idx.astype(np.int32),
         knot=(frame.m.to_numpy() // model.KNOT_MONTHS).astype(np.int32),
         knot_frac=(frame.m.to_numpy() % model.KNOT_MONTHS) / model.KNOT_MONTHS,
+        bed_group=frame.beds.to_numpy().astype(np.int32),
+        beds_centered=frame.beds.to_numpy() - 1.0,
     )
     feats = Features("synthetic", ["x0", "x1"], ["x", "x"], x, np.ones(2))
     return model.Prepared(
@@ -64,20 +70,37 @@ def synthetic(seed=0, n_buildings=15, units_per_building=8, months=24):
     )
 
 
+DESIGNS = {
+    "base": model.ModelConfig(),
+    "walk": model.ModelConfig(building_walk=True),
+    "bedtime-slope": model.ModelConfig(bedroom_time=True, bedroom_slope=True),
+    "all": model.ModelConfig(building_walk=True, bedroom_time=True, bedroom_slope=True),
+}
+SCALES = {
+    "sigma": 0.05,
+    "unit_scale": 0.08,
+    "building_scale": 0.3,
+    "trend_scale": 0.02,
+    "season_scale": 0.03,
+    "walk_scale": 0.04,
+    "bedroom_time_scale": 0.015,
+    "bedroom_slope_scale": 0.06,
+}
+
+
 def dense_mean(d, lam, s):
     n, p = d.a.shape
     K, L, J = d.n_buildings, d.n_local, d.n_units
     X = np.zeros((n, p + K * L + J))
     X[:, :p] = np.asarray(d.a)
     slots, vals, bld = (np.asarray(v) for v in (d.slots, d.slot_values, d.building))
-    for m in range(3):
+    for m in range(slots.shape[1]):
         np.add.at(X, (np.arange(n), p + bld * L + slots[:, m]), vals[:, m])
     X[np.arange(n), p + K * L + np.asarray(d.unit)] = 1
     prior = np.zeros((X.shape[1],) * 2)
     prior[:p, :p] = np.diag(np.asarray(d.prior_fixed))
-    t = d.trend
-    prior[t, t] += gibbs._rw1_anchored(t.stop - t.start) / s["trend_scale"] ** 2
-    prior[d.season, d.season] += np.eye(12) / s["season_scale"] ** 2
+    for name, (sl, r) in d.global_blocks.items():
+        prior[sl, sl] += np.asarray(r) / s[name] ** 2
     local = sum(
         np.asarray(d.local_structures[k]) / s[k] ** 2 for k in d.local_structures
     )
@@ -89,41 +112,54 @@ def dense_mean(d, lam, s):
     return mean[:p], mean[p : p + K * L].reshape(K, L), mean[p + K * L :]
 
 
-@pytest.mark.parametrize("walk", [False, True])
-def test_joint_gaussian_mean_matches_dense_solve(walk):
+@pytest.mark.parametrize("design", sorted(DESIGNS))
+def test_joint_gaussian_mean_matches_dense_solve(design):
     prep = synthetic()
-    d = gibbs.build_design(prep, model.ModelConfig(building_walk=walk))
+    d = gibbs.build_design(prep, DESIGNS[design])
     lam = np.random.default_rng(1).gamma(2.5, 1 / 2.5, d.y.shape[0])
-    s = {
-        "sigma": 0.05,
-        "unit_scale": 0.08,
-        "building_scale": 0.3,
-        "trend_scale": 0.02,
-        "season_scale": 0.03,
-        "walk_scale": 0.04,
-    }
     theta, theta_l, u, _ = gibbs.gaussian_block(
         d,
         jnp.asarray(lam),
-        s,
+        SCALES,
         jnp.zeros(d.a.shape[1]),
         jnp.zeros((d.n_buildings, d.n_local)),
         jnp.zeros(d.n_units),
     )
-    e_theta, e_l, e_u = dense_mean(d, lam, s)
+    e_theta, e_l, e_u = dense_mean(d, lam, SCALES)
     np.testing.assert_allclose(np.asarray(theta), e_theta, atol=1e-8)
     np.testing.assert_allclose(np.asarray(theta_l), e_l, atol=1e-8)
     np.testing.assert_allclose(np.asarray(u), e_u, atol=1e-8)
 
 
+def test_site_values_reproduce_linear_predictor():
+    """Gibbs state -> NumPyro sites -> model.linear_predictor equals the Gibbs fit."""
+    prep = synthetic()
+    d = gibbs.build_design(prep, DESIGNS["all"])
+    rng = np.random.default_rng(3)
+    state = {
+        "theta": jnp.asarray(rng.normal(0, 0.1, d.a.shape[1])),
+        "local": jnp.asarray(rng.normal(0, 0.1, (d.n_buildings, d.n_local))),
+        "unit": jnp.asarray(rng.normal(0, 0.1, d.n_units)),
+        "nu": 5.0,
+        **{k: SCALES[k] for k in d.scale_names},
+    }
+    p = gibbs.site_values(d, state)
+    mu_model = model.linear_predictor(p, prep.train.map(jnp.asarray))
+    mu_gibbs = d.a @ state["theta"] + gibbs.local_value(
+        state["local"], d.building, d.slots, d.slot_values
+    )
+    mu_gibbs = mu_gibbs + state["unit"][d.unit]
+    np.testing.assert_allclose(np.asarray(mu_model), np.asarray(mu_gibbs), atol=1e-10)
+
+
 @pytest.mark.slow
-@pytest.mark.parametrize("walk", [False, True])
-def test_gibbs_matches_nuts_on_same_model(walk):
+@pytest.mark.parametrize("design", ["base", "walk", "all"])
+def test_gibbs_matches_nuts_on_same_model(design):
     """Both samplers target the NumPyro model's posterior; compare moments."""
     from numpyro.infer import MCMC, NUTS
 
     prep = synthetic(seed=2)
-    config = model.ModelConfig(building_walk=walk)
+    config = DESIGNS[design]
     mcmc = MCMC(
         NUTS(model.build_model(prep, config), target_accept_prob=0.9),
         num_warmup=1000,
@@ -154,7 +190,7 @@ def test_gibbs_matches_nuts_on_same_model(walk):
         "beta0": (nuts["beta"][:, 0], means["beta"][0], sds["beta"][0]),
         "building0": (nuts["building"][:, 0], means["building"][0], sds["building"][0]),
     }
-    if walk:
+    if config.building_walk:
         knots = np.cumsum(nuts["walk_step"], axis=2)  # knot 1.. of each building
         checks["walk_scale"] = (
             nuts["walk_scale"],
@@ -162,6 +198,26 @@ def test_gibbs_matches_nuts_on_same_model(walk):
             sds["walk_scale"],
         )
         checks["walk[0, 2]"] = (knots[:, 0, 1], means["walk"][0, 2], sds["walk"][0, 2])
+    if config.bedroom_slope:
+        checks["bedroom_slope_scale"] = (
+            nuts["bedroom_slope_scale"],
+            means["bedroom_slope_scale"],
+            sds["bedroom_slope_scale"],
+        )
+        checks["bedroom_slope[0]"] = (
+            nuts["bedroom_slope"][:, 0],
+            means["bedroom_slope"][0],
+            sds["bedroom_slope"][0],
+        )
+    if config.bedroom_time:
+        curve = np.cumsum(
+            nuts["bedroom_time_step"], axis=2
+        )  # (draws, groups, months-1)
+        checks["bedroom_time[studio, 12]"] = (
+            curve[:, 0, 11],
+            means["bedroom_time"][0, 12],
+            sds["bedroom_time"][0, 12],
+        )
     for name, (draws, g_mean, g_sd) in checks.items():
         # Means within 0.15 posterior sd (MC error of both samplers), sds within 15%.
         assert abs(draws.mean() - g_mean) < 0.15 * draws.std(), name

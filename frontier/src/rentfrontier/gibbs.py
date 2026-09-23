@@ -4,19 +4,24 @@ Same posterior as the NumPyro model (same priors, Student-t likelihood).
 The Student-t is written as a scale mixture: eps_i | lam_i ~ N(0, sigma^2 /
 lam_i), lam_i ~ Gamma(nu/2, nu/2). One iteration:
 
-1. All Gaussian latents jointly, given lam and the scales: intercept,
-   feature coefficients, month trend, season, every building effect and
-   every unit effect. Unit effects are integrated out analytically (each
-   row has one unit, so their block is diagonal), buildings are eliminated
-   in closed form (each unit sits in one building), leaving a dense
-   ~260-dimensional global system. The draw is exact; there is no tuning
-   and no funnel.
+1. All Gaussian latents jointly, given lam and the scales:
+   - global block: intercept, feature coefficients, month trend, season and
+     (optionally) bedroom-group market curves;
+   - one local block per building: level, optional bedroom slope and optional
+     walk knots;
+   - one effect per unit.
+   Unit effects are integrated out analytically (each row has one unit, so
+   their block is diagonal). Building blocks are eliminated by batched
+   Cholesky factors (units nest in buildings), leaving a dense global
+   system. The draw is exact: no tuning, no funnel.
 2. (sigma, nu) jointly by random-walk Metropolis with lam integrated out,
-   then lam | sigma, nu (a partially collapsed Gibbs step, valid in this
-   order).
-3. Every group scale: independence Metropolis whose proposal is
-   the exact conditional under a flat prior on the scale, so the accept
-   ratio only carries the half-normal prior (acceptance ~1).
+   then lam | sigma, nu (partially collapsed Gibbs, valid in this order).
+3. Every group scale: independence Metropolis whose proposal is the exact
+   conditional under a flat prior on the scale, so the accept ratio only
+   carries the half-normal prior (acceptance ~1).
+4. With a building walk, a rescaling move (walk_scale, walk) -> (c *
+   walk_scale, c * walk), which moves along the scale/latent ridge that
+   plain Gibbs crosses slowly.
 
 Chains run in parallel under vmap, in float64.
 """
@@ -45,6 +50,8 @@ class Settings:
     noise_steps: int = 10  # joint (sigma, nu) Metropolis steps per iteration
     sigma_step_sd: float = 0.004  # on log sigma
     nu_step_sd: float = 0.03  # on log nu
+    rescale_steps: int = 5  # (walk_scale, walk) rescaling moves per iteration
+    rescale_step_sd: float = 0.01  # on log c
     trace_groups: int = 32
 
     def to_dict(self):
@@ -58,29 +65,28 @@ class Design:
     unit: jnp.ndarray
     building: jnp.ndarray
     unit_building: jnp.ndarray
-    slots: jnp.ndarray  # (N, 3) local slots each row touches in its building
-    slot_values: jnp.ndarray  # (N, 3)
+    slots: jnp.ndarray  # (N, S) local slots each row touches in its building
+    slot_values: jnp.ndarray  # (N, S)
     prior_fixed: jnp.ndarray  # (P,) diagonal of the fixed prior precision
+    global_blocks: dict  # scale name -> (slice, (n, n) structure)
+    global_ranks: dict
     local_structures: dict  # scale name -> (L, L) structure within a building block
     local_ranks: dict  # scale name -> rank per building
     trend: slice
     season: slice
+    bedroom_time: slice | None
+    slope_index: int | None  # local index of the bedroom slope
+    knot_start: int | None  # local index of walk knot 1 (knot 0 is fixed at 0)
     n_features: int
+    n_months: int
     n_units: int
     n_buildings: int
     n_local: int
-    walk: bool
     prior_sd: dict
 
     @property
     def scale_names(self):
-        return (
-            "sigma",
-            "unit_scale",
-            "trend_scale",
-            "season_scale",
-            *self.local_structures,
-        )
+        return ("sigma", "unit_scale", *self.global_blocks, *self.local_structures)
 
 
 def _rw1_anchored(n):
@@ -94,45 +100,85 @@ def build_design(
     tr = prep.train
     n, f = tr.x.shape
     t = len(prep.periods)
-    p = 1 + f + (t - 1) + 12
+    groups = model_module.TIME_GROUPS
+
+    # ----------------------------------------------------------- global block
+    trend = slice(1 + f, 1 + f + t - 1)
+    season = slice(trend.stop, trend.stop + 12)
+    bedroom_time = (
+        slice(season.stop, season.stop + len(groups) * (t - 1))
+        if config.bedroom_time
+        else None
+    )
+    p = (bedroom_time or season).stop
     a = np.zeros((n, p))
     a[:, 0] = 1.0
     a[:, 1 : 1 + f] = tr.x
-    trend = slice(1 + f, 1 + f + t - 1)
-    season = slice(trend.stop, trend.stop + 12)
     rows = np.flatnonzero(tr.month > 0)
     a[rows, trend.start + tr.month[rows] - 1] = 1.0
     # Season enters as season_raw - mean(season_raw), as in the NumPyro model.
     a[:, season] = -1.0 / 12
     a[np.arange(n), season.start + tr.calendar] += 1.0
+    blocks = {
+        "trend_scale": (trend, _rw1_anchored(t - 1)),
+        "season_scale": (season, np.eye(12)),
+    }
+    if bedroom_time is not None:
+        for gi, g in enumerate(groups):
+            rows = np.flatnonzero((tr.month > 0) & (tr.bed_group == g))
+            a[rows, bedroom_time.start + gi * (t - 1) + tr.month[rows] - 1] = 1.0
+        blocks["bedroom_time_scale"] = (
+            bedroom_time,
+            np.kron(np.eye(len(groups)), _rw1_anchored(t - 1)),
+        )
     fixed = np.zeros(p)
     fixed[0] = 1.0
     fixed[1 : 1 + f] = 1.0 / (config.beta_sd * prep.features.prior_scale) ** 2
     unit_building = np.zeros(len(prep.units), dtype=np.int32)
     unit_building[tr.unit] = tr.building
 
-    # Local block per building: [level, walk knots 1..n_knots-1] (knot 0 is 0).
-    slots = np.zeros((n, 3), dtype=np.int32)
-    values = np.zeros((n, 3))
-    values[:, 0] = 1.0
-    structures = {"building_scale": np.zeros((1, 1))}
-    structures["building_scale"][0, 0] = 1.0
-    ranks = {"building_scale": 1}
+    # ------------------------------------------------------------ local block
+    # Per building: [level, (bedroom slope), (walk knots 1..k-1)].
+    columns = [(np.zeros(n, np.int32), np.ones(n))]
+    structures = {"building_scale": [0]}
+    slope_index = knot_start = None
     n_local = 1
+    if config.bedroom_slope:
+        slope_index = n_local
+        columns.append(
+            (np.full(n, slope_index, np.int32), tr.beds_centered.astype(float))
+        )
+        structures["bedroom_slope_scale"] = [slope_index]
+        n_local += 1
     if config.building_walk:
         k = model_module.n_knots(t)
-        n_local = k  # level + (k - 1) free knots
+        knot_start = n_local
         lo, frac = tr.knot, tr.knot_frac
-        slots[:, 1] = lo  # knot j -> local index j (index 0 is the level)
-        values[:, 1] = np.where(lo >= 1, 1 - frac, 0.0)
-        slots[:, 2] = lo + 1
-        values[:, 2] = frac
-        level = np.zeros((k, k))
-        level[0, 0] = 1.0
-        walk = np.zeros((k, k))
-        walk[1:, 1:] = _rw1_anchored(k - 1)
-        structures = {"building_scale": level, "walk_scale": walk}
-        ranks = {"building_scale": 1, "walk_scale": k - 1}
+        # Knot j >= 1 sits at local index knot_start + j - 1; knot 0 is fixed at 0,
+        # so a row before knot 1 puts zero weight on its lower slot.
+        columns.append(
+            (
+                knot_start + np.maximum(lo - 1, 0).astype(np.int32),
+                np.where(lo >= 1, 1 - frac, 0.0),
+            )
+        )
+        columns.append((knot_start + lo.astype(np.int32), frac))
+        n_local += k - 1
+    slots = np.stack([c[0] for c in columns], axis=1).astype(np.int32)
+    values = np.stack([c[1] for c in columns], axis=1)
+
+    local_structures, local_ranks = {}, {}
+    for name, idx in structures.items():
+        m = np.zeros((n_local, n_local))
+        m[idx, idx] = 1.0
+        local_structures[name] = m
+        local_ranks[name] = 1
+    if config.building_walk:
+        m = np.zeros((n_local, n_local))
+        m[knot_start:, knot_start:] = _rw1_anchored(n_local - knot_start)
+        local_structures["walk_scale"] = m
+        local_ranks["walk_scale"] = n_local - knot_start
+
     prior_sd = {
         "sigma": config.noise_scale_sd,
         "unit_scale": config.unit_scale_sd,
@@ -140,6 +186,8 @@ def build_design(
         "trend_scale": config.trend_scale_sd,
         "season_scale": config.season_scale_sd,
         "walk_scale": config.walk_scale_sd,
+        "bedroom_time_scale": config.bedroom_time_scale_sd,
+        "bedroom_slope_scale": config.bedroom_slope_scale_sd,
     }
     return Design(
         a=jnp.asarray(a),
@@ -150,15 +198,20 @@ def build_design(
         slots=jnp.asarray(slots),
         slot_values=jnp.asarray(values),
         prior_fixed=jnp.asarray(fixed),
-        local_structures={k: jnp.asarray(v) for k, v in structures.items()},
-        local_ranks=ranks,
+        global_blocks={k: (sl, jnp.asarray(r)) for k, (sl, r) in blocks.items()},
+        global_ranks={k: r.shape[0] for k, (sl, r) in blocks.items()},
+        local_structures={k: jnp.asarray(v) for k, v in local_structures.items()},
+        local_ranks=local_ranks,
         trend=trend,
         season=season,
+        bedroom_time=bedroom_time,
+        slope_index=slope_index,
+        knot_start=knot_start,
         n_features=f,
+        n_months=t,
         n_units=len(prep.units),
         n_buildings=len(prep.buildings),
         n_local=n_local,
-        walk=config.building_walk,
         prior_sd=prior_sd,
     )
 
@@ -171,7 +224,7 @@ def _update_scale(key, current, q, rank, prior_sd):
     return jnp.where(jnp.log(jax.random.uniform(k2)) < log_accept, proposal, current)
 
 
-def local_value(d: Design, theta_l, building, slots, values):
+def local_value(theta_l, building, slots, values):
     return jnp.sum(theta_l[building[:, None], slots] * values, axis=1)
 
 
@@ -182,6 +235,7 @@ def gaussian_block(d: Design, lam, s, z_g, z_l, z_u):
     """
     J, K, L = d.n_units, d.n_buildings, d.n_local
     y, a, bld, slots, vals = d.y, d.a, d.building, d.slots, d.slot_values
+    n_slots = slots.shape[1]
     w = lam / s["sigma"] ** 2
     seg_u = lambda v: jax.ops.segment_sum(v, d.unit, J)  # noqa: E731
     seg_ub = lambda v: jax.ops.segment_sum(v, d.unit_building, K)  # noqa: E731
@@ -191,24 +245,22 @@ def gaussian_block(d: Design, lam, s, z_g, z_l, z_u):
     wa = w[:, None] * a
     g = seg_u(wa)  # (J, P) unit sums of weighted global rows
     gl = jnp.zeros((J, L))  # unit sums of weighted local rows
-    for m in range(3):
+    for m in range(n_slots):
         gl = gl.at[d.unit, slots[:, m]].add(w * vals[:, m])
 
     # Global precision / rhs with units integrated out.
     q = a.T @ wa - g.T @ (c[:, None] * g) + jnp.diag(d.prior_fixed)
-    t = d.trend
-    rw = jnp.asarray(_rw1_anchored(t.stop - t.start))
-    q = q.at[t, t].add(rw / s["trend_scale"] ** 2)
-    q = q.at[d.season, d.season].add(jnp.eye(12) / s["season_scale"] ** 2)
-    r = wa.T @ y - g.T @ (c * h)
+    for name, (sl, r) in d.global_blocks.items():
+        q = q.at[sl, sl].add(r / s[name] ** 2)
+    rhs_g = wa.T @ y - g.T @ (c * h)
 
     # Building blocks, with units integrated out (units nest in buildings).
     q_ll = jnp.zeros((K, L, L))
     q_lg = jnp.zeros((K, L, a.shape[1]))
     r_l = jnp.zeros((K, L))
-    for m1 in range(3):
+    for m1 in range(n_slots):
         wv = w * vals[:, m1]
-        for m2 in range(3):
+        for m2 in range(n_slots):
             q_ll = q_ll.at[bld, slots[:, m1], slots[:, m2]].add(wv * vals[:, m2])
         q_lg = q_lg.at[bld, slots[:, m1]].add(wv[:, None] * a)
         r_l = r_l.at[bld, slots[:, m1]].add(wv * y)
@@ -224,7 +276,7 @@ def gaussian_block(d: Design, lam, s, z_g, z_l, z_u):
     v = solve_triangular(chol_l, q_lg, lower=True)  # (K, L, P)
     vr = solve_triangular(chol_l, r_l[..., None], lower=True)[..., 0]
     schur = q - jnp.einsum("klp,klq->pq", v, v)
-    r_s = r - jnp.einsum("klp,kl->p", v, vr)
+    r_s = rhs_g - jnp.einsum("klp,kl->p", v, vr)
     chol = jnp.linalg.cholesky(schur)
     theta = solve_triangular(
         chol.T, solve_triangular(chol, r_s, lower=True) + z_g, lower=False
@@ -233,7 +285,7 @@ def gaussian_block(d: Design, lam, s, z_g, z_l, z_u):
     theta_l = solve_triangular(jnp.swapaxes(chol_l, 1, 2), rhs[..., None], lower=False)[
         ..., 0
     ]
-    fixed = a @ theta + local_value(d, theta_l, bld, slots, vals)
+    fixed = a @ theta + local_value(theta_l, bld, slots, vals)
     u = c * (h - seg_u(w * fixed)) + jnp.sqrt(c) * z_u
     return theta, theta_l, u, fixed
 
@@ -242,20 +294,31 @@ def site_values(d: Design, state):
     """Constrained NumPyro site values (as in model.build_model) from a state."""
     theta, theta_l = state["theta"], state["local"]
     f = d.n_features
-    trend = jnp.concatenate([jnp.zeros(1), theta[d.trend]])
+
+    def steps(curve):  # anchored walk values -> steps from 0
+        return jnp.diff(
+            jnp.concatenate([jnp.zeros(curve.shape[:-1] + (1,)), curve], axis=-1),
+            axis=-1,
+        )
+
     out = {
         "alpha": theta[0],
         "beta": theta[1 : 1 + f],
-        "trend_step": jnp.diff(trend),
+        "trend_step": steps(theta[d.trend]),
         "season_raw": theta[d.season],
         "building": theta_l[:, 0],
         "unit": state["unit"],
         "nu": state["nu"],
         **{n: state[n] for n in d.scale_names},
     }
-    if d.walk:
-        knots = jnp.concatenate([jnp.zeros((d.n_buildings, 1)), theta_l[:, 1:]], axis=1)
-        out["walk_step"] = jnp.diff(knots, axis=1)
+    if d.bedroom_time is not None:
+        out["bedroom_time_step"] = steps(
+            theta[d.bedroom_time].reshape(len(model_module.TIME_GROUPS), d.n_months - 1)
+        )
+    if d.slope_index is not None:
+        out["bedroom_slope"] = theta_l[:, d.slope_index]
+    if d.knot_start is not None:
+        out["walk_step"] = steps(theta_l[:, d.knot_start :])
     return out
 
 
@@ -264,21 +327,26 @@ def make_step(d: Design):
     rank = {
         "sigma": n,
         "unit_scale": d.n_units,
-        "trend_scale": d.trend.stop - d.trend.start,
-        "season_scale": 12,
+        **d.global_ranks,
         **{k: r * d.n_buildings for k, r in d.local_ranks.items()},
     }
-    rw = jnp.asarray(_rw1_anchored(d.trend.stop - d.trend.start))
 
-    def step(key, state, noise_steps, sigma_step_sd, nu_step_sd):
+    def step(
+        key,
+        state,
+        noise_steps,
+        sigma_step_sd,
+        nu_step_sd,
+        rescale_steps,
+        rescale_step_sd,
+    ):
         keys = jax.random.split(key, 12)
         s = {k: state[k] for k in d.scale_names}
-        p = d.a.shape[1]
         theta, theta_l, u, fixed = gaussian_block(
             d,
             state["lam"],
             s,
-            jax.random.normal(keys[0], (p,)),
+            jax.random.normal(keys[0], (d.a.shape[1],)),
             jax.random.normal(keys[1], (d.n_buildings, d.n_local)),
             jax.random.normal(keys[2], (d.n_units,)),
         )
@@ -312,7 +380,9 @@ def make_step(d: Design):
 
         z0 = jnp.log(jnp.stack([s["sigma"], state["nu"]]))
         (z, _, noise_acc), _ = jax.lax.scan(
-            noise_mh, (z0, log_target(z0), 0.0), jax.random.split(keys[3], noise_steps)
+            noise_mh,
+            (z0, log_target(z0), jnp.zeros(())),
+            jax.random.split(keys[3], noise_steps),
         )
         sigma, nu = jnp.exp(z[0]), jnp.exp(z[1])
         lam = jax.random.gamma(keys[4], (nu + 1) / 2, (n,)) / (
@@ -321,28 +391,21 @@ def make_step(d: Design):
 
         new = {"sigma": sigma}
         new["unit_scale"] = _update_scale(
-            keys[6],
+            keys[5],
             s["unit_scale"],
             jnp.sum(u * u),
             rank["unit_scale"],
             d.prior_sd["unit_scale"],
         )
-        tr = theta[d.trend]
-        new["trend_scale"] = _update_scale(
-            keys[8],
-            s["trend_scale"],
-            tr @ rw @ tr,
-            rank["trend_scale"],
-            d.prior_sd["trend_scale"],
-        )
-        se = theta[d.season]
-        new["season_scale"] = _update_scale(
-            keys[9],
-            s["season_scale"],
-            se @ se,
-            rank["season_scale"],
-            d.prior_sd["season_scale"],
-        )
+        for i, (name, (sl, r)) in enumerate(d.global_blocks.items()):
+            x = theta[sl]
+            new[name] = _update_scale(
+                jax.random.fold_in(keys[6], i),
+                s[name],
+                x @ r @ x,
+                rank[name],
+                d.prior_sd[name],
+            )
         for i, name in enumerate(d.local_structures):
             quad = jnp.einsum("kl,lm,km->", theta_l, d.local_structures[name], theta_l)
             new[name] = _update_scale(
@@ -352,6 +415,50 @@ def make_step(d: Design):
                 rank[name],
                 d.prior_sd[name],
             )
+
+        info = {"noise_accept": noise_acc / noise_steps}
+        if d.knot_start is not None:
+            # Rescaling move on (walk_scale, walk knots): (tau, W) -> (c tau, c W).
+            # Given the knots, tau is pinned down tightly, and vice versa, so
+            # plain Gibbs moves along this ridge slowly. For a symmetric step
+            # on log c the acceptance ratio is
+            #   lik(cW) / lik(W) * prior(c tau) / prior(tau) * c,
+            # with the Gaussian likelihood given lam, sigma and all other latents.
+            wts = lam / sigma**2
+            walk_only = (
+                jnp.zeros_like(theta_l)
+                .at[:, d.knot_start :]
+                .set(theta_l[:, d.knot_start :])
+            )
+            contrib = local_value(walk_only, d.building, d.slots, d.slot_values)
+
+            def rescale(carry, k):
+                c_tot, tau, acc = carry
+                k1, k2 = jax.random.split(k)
+                log_c = rescale_step_sd * jax.random.normal(k1)
+                c = jnp.exp(log_c)
+                r_now = e - (c_tot - 1.0) * contrib
+                r_new = e - (c_tot * c - 1.0) * contrib
+                log_ratio = (
+                    -0.5 * jnp.sum(wts * (r_new**2 - r_now**2))
+                    - ((c * tau) ** 2 - tau**2) / (2 * d.prior_sd["walk_scale"] ** 2)
+                    + log_c
+                )
+                ok = jnp.log(jax.random.uniform(k2)) < log_ratio
+                return (
+                    jnp.where(ok, c_tot * c, c_tot),
+                    jnp.where(ok, c * tau, tau),
+                    acc + ok,
+                ), None
+
+            (c_tot, tau, acc), _ = jax.lax.scan(
+                rescale,
+                (jnp.ones(()), new["walk_scale"], jnp.zeros(())),
+                jax.random.split(keys[10], rescale_steps),
+            )
+            new["walk_scale"] = tau
+            theta_l = theta_l.at[:, d.knot_start :].multiply(c_tot)
+            info["rescale_accept"] = acc / rescale_steps
         state = {
             "theta": theta,
             "local": theta_l,
@@ -360,25 +467,29 @@ def make_step(d: Design):
             "nu": nu,
             **new,
         }
-        return state, {"noise_accept": noise_acc / noise_steps}
+        return state, info
 
     return step
 
 
+START = {
+    "sigma": 0.08,
+    "unit_scale": 0.1,
+    "building_scale": 0.3,
+    "trend_scale": 0.02,
+    "season_scale": 0.02,
+    "walk_scale": 0.03,
+    "bedroom_time_scale": 0.01,
+    "bedroom_slope_scale": 0.05,
+}
+
+
 def init_states(d: Design, key, chains):
     """Overdispersed starting scales; latents are drawn in the first step."""
-    start = {
-        "sigma": 0.08,
-        "unit_scale": 0.1,
-        "building_scale": 0.3,
-        "trend_scale": 0.02,
-        "season_scale": 0.02,
-        "walk_scale": 0.03,
-    }
     names = d.scale_names
-    k1, k2 = jax.random.split(key)
+    k1, _ = jax.random.split(key)
     jitter = jnp.exp(0.7 * jax.random.normal(k1, (chains, len(names) + 1)))
-    state = {n: start[n] * jitter[:, i] for i, n in enumerate(names)}
+    state = {n: START[n] * jitter[:, i] for i, n in enumerate(names)}
     state["nu"] = 5.0 * jitter[:, -1]
     state["theta"] = jnp.zeros((chains, d.a.shape[1]))
     state["local"] = jnp.zeros((chains, d.n_buildings, d.n_local))
@@ -398,9 +509,18 @@ def run(
     t0 = time.perf_counter()
     d = build_design(prep, config)
     step = make_step(d)
-    step_fn = lambda k, st: step(
-        k, st, settings.noise_steps, settings.sigma_step_sd, settings.nu_step_sd
-    )  # noqa: E731
+
+    def step_fn(k, st):
+        return step(
+            k,
+            st,
+            settings.noise_steps,
+            settings.sigma_step_sd,
+            settings.nu_step_sd,
+            settings.rescale_steps,
+            settings.rescale_step_sd,
+        )
+
     key = jax.random.PRNGKey(settings.seed)
     k_init, k_warm, k_draw = jax.random.split(key, 3)
     states = init_states(d, k_init, settings.chains)
