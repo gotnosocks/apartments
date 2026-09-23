@@ -114,6 +114,16 @@ conclusions. In priority order:
   matrix adaptation (`--adaptation low_rank`). Keep the variant that removes
   the bottleneck with identical posteriors, checked by comparing
   coefficients, scales and residual intervals.
+  *September 23, round 1* (Modal, 8 runs × 4 cores, 4 × 500/500, full data;
+  `models/efficiency_benchmark.py`, `models/bayesian_structure_graph_v3.py`;
+  results in `data/model/modal-runs/efficiency-20260923/`): **the intercept as
+  the building-effect mean (b_j ~ N(α, σ_b)) fixes the bottleneck.** `alpha`
+  bulk ESS rises from 30 to 2,803 (R-hat 1.107 → 1.000), about 90×. Low-rank
+  adaptation did not help; unit centering within building added nothing.
+  Steps per draw were 127 (depth 7) in every variant, so E2 needs other
+  levers. The new slowest directions are `annual_drift` (ESS 130–215) and one
+  or more coefficients (min ESS 25–54). Round 2 tests removing the common
+  drift from the building walks and identifies the slow coefficients.
 - [ ] **E2. Cut steps per iteration.** 255 leapfrog steps per draw dominates
   cost. Measure steps/iteration and ESS per gradient for E1's variants;
   low-rank adaptation or better-scaled global parameters should reach tree
