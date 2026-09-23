@@ -74,6 +74,11 @@ EXTRA = {
     "duplex_unit": lambda f, d: unit_any(f, DUPLEX),
     "private_outdoor_unit": lambda f, d: unit_any(f, PRIVATE_OUTDOOR),
     "shared_bath_unit": lambda f, d: unit_any(f, SHARED_BATH),
+    # As-of flags: only the unit's own ads at or before this listing count, so
+    # later ad text is never carried back onto earlier listings.
+    "duplex_asof": lambda f, d: unit_asof(f, DUPLEX),
+    "private_outdoor_asof": lambda f, d: unit_asof(f, PRIVATE_OUTDOOR),
+    "shared_bath_asof": lambda f, d: unit_asof(f, SHARED_BATH),
     # Convex size premium: log area above 20% over the bedroom-count median
     # (0 when area is unknown; the linear term and missing indicator stay).
     "large_area_hinge": lambda f, d: large_area(f),
@@ -154,6 +159,21 @@ def large_area(frame):
 
 
 UNIT_TEXT = {}
+
+
+def unit_asof(frame, pattern):
+    key = ("asof", pattern)
+    if key not in UNIT_TEXT:
+        import pandas as pd
+
+        rows = pd.read_json(DATASET / "observations.jsonl", lines=True)[
+            ["audit_id", "unit_id", "period"]
+        ]
+        rows["hit"] = descriptions(rows).str.contains(pattern).to_numpy()
+        rows = rows.sort_values(["unit_id", "period", "audit_id"])
+        rows["asof"] = rows.groupby("unit_id")["hit"].cummax()
+        UNIT_TEXT[key] = rows.set_index("audit_id")["asof"]
+    return frame.audit_id.map(UNIT_TEXT[key]).fillna(False).to_numpy()
 
 
 def unit_any(frame, pattern):
