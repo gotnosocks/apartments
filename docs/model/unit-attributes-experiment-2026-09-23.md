@@ -91,3 +91,10 @@ could draw on later ads.
   label, a stable identity like the building. Screening restarted with the
   as-of flags (`duplex_asof`, `private_outdoor_asof`, `shared_bath_asof` in
   `models/structure_screen.py`).
+
+As-of screen (conditional MAP, scales fixed at the half-year-walk NUTS
+screen): row split **+9.0 ± 19.5**, whole-unit split **+121.2 ± 22.4**.
+Coefficients: penthouse +0.15, duplex +0.03, private outdoor +0.04, shared
+bath −0.29. The earlier row-split gain was mostly the leak. The attributes
+help price units without history and are neutral where a unit's own history
+exists. Accepted, with as-of flags, for the next combined full fit.

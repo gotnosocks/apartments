@@ -16,7 +16,8 @@ half-year building walk and screens are conditional MAP. See
 | building drift + iid building shocks | +732 to +756 | — | not better than walk |
 | separate 4+ bedroom time group | −2 | — | rejected |
 | estimated Student-t ν | −12.5 ± 14.8 | — | rejected (ν ≈ 4.2–4.5) |
-| four unit attributes, unit-level flags | +60.9 ± 15.6 | +142.9 ± 23.2 | **accepted; full fit queued** |
+| four unit attributes, unit-level flags | +60.9 ± 15.6 | +142.9 ± 23.2 | **withdrawn**: later ads' text carried backward |
+| **four unit attributes, as-of flags** (own ads at or before each listing) | +9.0 ± 19.5 | **+121.2 ± 22.4** | **accepted**: helps new units, neutral for repeat units |
 | same, per-advertisement text flags | +16.5 ± 16.6 | +105.0 ± 20.8 | replaced by unit-level |
 | convex large-area hinge | +9.8 ± 14.6 | +18.8 ± 13.4 | not credible; revisit later |
 | size × time, in-unit laundry × time | −23.1 ± 8.8 | +12.7 ± 4.2 | rejected (inconsistent) |
