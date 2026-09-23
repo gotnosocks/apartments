@@ -11,7 +11,11 @@ unseen units instead of being absorbed by unit effects. **Frontier** = not beate
 | Entry | Design | Features | Rows ΔELPD | Units ΔELPD | Units ELPD | R-hat / ESS | Fit time | Cost | Hardware | Checks | Interp. | Best | Frontier |
 |---|---|---|---:|---:|---:|---|---:|---:|---|---|---|---|---|
 | promoted (reference) | Promoted PyMC model (bedroom-group time curves + per-building half-year random walk), NUTS 4x1000/1000; screen fits on each split's training rows | own | 0 (ELPD 5,863.7) | pending | pending | passes | 55 min* | $0.38* | CPU (nutpie/Numba) | yes | yes | — | reference |
+| `m4-walk-bedtime-bedslope/base-v1/gibbs@942c0f4` | m4-walk-bedtime-bedslope | base-v1 | 271.5 ± 36.5 | — | 4,328.7 | rows: 1.023 / 1380; units: 1.019 / 1434 | 2,413 s | $2.99 | NVIDIA H100 80GB HBM3 | fail | yes |  |  |
 | `m1-walk/base-v1/gibbs@94a4da4` | m1-walk | base-v1 | 70.5 ± 24.7 | — | 3,958.9 | rows: 1.054 / 552; units: 1.049 / 599 | 360 s | $0.51 | NVIDIA H200 | fail | yes |  |  |
+| `m1-walk/base-v1/gibbs@1b11fac` | m1-walk | base-v1 | 70.5 ± 24.7 | — | 3,958.8 | rows: 1.044 / 648; units: 1.045 / 657 | 413 s | $0.60 | NVIDIA H100 80GB HBM3 | fail | yes |  |  |
+| `m1-walk/base-v1/gibbs@c5a208a` | m1-walk | base-v1 | 70.4 ± 24.7 | — | — | rows: 1.020 / 1114 | 684 s | $0.89 | NVIDIA H100 80GB HBM3 | fail | yes |  |  |
+| `m1-walk/base-v1/gibbs@942c0f4` | m1-walk | base-v1 | 70.2 ± 24.7 | — | 3,959.5 | rows: 1.024 / 1548; units: 1.017 / 1872 | 757 s | $1.02 | NVIDIA H100 80GB HBM3 | fail | yes |  |  |
 | `m0-base/base-v1/gibbs@5cc0809` | m0-base | base-v1 | -827.1 ± 49.7 | — | 3,540.7 | rows: 1.009 / 2976; units: 1.009 / 2942 | 83 s | $0.18 | NVIDIA H100 80GB HBM3 | pass | yes | **best** | yes |
 
 \* full production fit, ~55 min on 4 CPU cores (the row-split held-out screen itself took 9,697 s with 4 chains x 1000/1000); cost is production full fit on Modal CPU (docs/analysis/modal-remote-fitting-2026-09-23.md).
