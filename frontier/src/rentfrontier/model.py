@@ -48,6 +48,10 @@ class ModelConfig:
     # the global bedroom coefficients.
     bedroom_slope: bool = False
     bedroom_slope_scale_sd: float = 0.1
+    # Knot spacing (months) of the market trend and bedroom-group curves:
+    # random walks over knots, linearly interpolated; 1 = one value per month.
+    trend_knot_months: int = 1
+    bedroom_time_knot_months: int = 1
 
     def to_dict(self):
         return asdict(self)
@@ -92,8 +96,21 @@ class Arrays:
         return Arrays(*(fn(getattr(self, f)) for f in self.FIELDS))
 
 
-def n_knots(n_months: int) -> int:
-    return int(np.ceil((n_months - 1) / KNOT_MONTHS)) + 1
+def n_knots(n_months: int, spacing: int = KNOT_MONTHS) -> int:
+    return int(np.ceil((n_months - 1) / spacing)) + 1
+
+
+def knot_basis(n_months: int, spacing: int) -> np.ndarray:
+    """(months, knots - 1) linear interpolation onto knots 1.. (knot 0 = 0)."""
+    k = n_knots(n_months, spacing)
+    pos = np.arange(n_months) / spacing
+    lo = np.floor(pos).astype(int)
+    frac = pos - lo
+    basis = np.zeros((n_months, k))
+    basis[np.arange(n_months), lo] = 1 - frac
+    hi = np.minimum(lo + 1, k - 1)
+    basis[np.arange(n_months), hi] += np.where(hi > lo, frac, 0.0)
+    return basis[:, 1:]
 
 
 @dataclass
@@ -197,7 +214,11 @@ def effects(p):
     return {
         "alpha": p["alpha"],
         "beta": p["beta"],
-        "trend": jnp.concatenate([jnp.zeros(1), jnp.cumsum(p["trend_step"])]),
+        "trend": (
+            p["trend_basis"] @ jnp.cumsum(p["trend_step"])
+            if "trend_basis" in p
+            else jnp.concatenate([jnp.zeros(1), jnp.cumsum(p["trend_step"])])
+        ),
         "season": season,
         "building": p["building"],
         "unit": p["unit"],
@@ -232,10 +253,15 @@ def effects(p):
 def _bedroom_time(p):
     if "bedroom_time_step" not in p:
         return jnp.zeros((len(BEDROOM_GROUPS), 1))
-    steps = p["bedroom_time_step"]  # (len(TIME_GROUPS), months - 1)
-    curves = jnp.concatenate(
-        [jnp.zeros((steps.shape[0], 1)), jnp.cumsum(steps, axis=1)], axis=1
-    )
+    steps = p["bedroom_time_step"]  # (len(TIME_GROUPS), knots - 1)
+    if "bedroom_time_basis" in p:
+        curves = (
+            jnp.cumsum(steps, axis=1) @ p["bedroom_time_basis"].T
+        )  # (groups, months)
+    else:
+        curves = jnp.concatenate(
+            [jnp.zeros((steps.shape[0], 1)), jnp.cumsum(steps, axis=1)], axis=1
+        )
     out = jnp.zeros((len(BEDROOM_GROUPS), curves.shape[1]))
     return out.at[jnp.asarray(TIME_GROUPS)].set(curves)
 
@@ -248,6 +274,8 @@ def build_model(prep: Prepared, config: ModelConfig):
     y = jnp.asarray(a.y)
     arrays = a.map(jnp.asarray)
     beta_sd = config.beta_sd * jnp.asarray(prep.features.prior_scale)
+    trend_basis = jnp.asarray(knot_basis(n_months, config.trend_knot_months))
+    bedroom_basis = jnp.asarray(knot_basis(n_months, config.bedroom_time_knot_months))
 
     def model():
         p = {
@@ -268,8 +296,10 @@ def build_model(prep: Prepared, config: ModelConfig):
             "sigma": numpyro.sample("sigma", dist.HalfNormal(config.noise_scale_sd)),
             "nu": numpyro.sample("nu", dist.Gamma(2.0, 0.1)),  # Juarez & Steel (2010)
         }
+        p["trend_basis"] = trend_basis
         p["trend_step"] = numpyro.sample(
-            "trend_step", dist.Normal(0.0, p["trend_scale"]).expand([n_months - 1])
+            "trend_step",
+            dist.Normal(0.0, p["trend_scale"]).expand([trend_basis.shape[1]]),
         )
         p["season_raw"] = numpyro.sample(
             "season_raw", dist.Normal(0.0, p["season_scale"]).expand([12])
@@ -295,10 +325,11 @@ def build_model(prep: Prepared, config: ModelConfig):
             p["bedroom_time_scale"] = numpyro.sample(
                 "bedroom_time_scale", dist.HalfNormal(config.bedroom_time_scale_sd)
             )
+            p["bedroom_time_basis"] = bedroom_basis
             p["bedroom_time_step"] = numpyro.sample(
                 "bedroom_time_step",
                 dist.Normal(0.0, p["bedroom_time_scale"]).expand(
-                    [len(TIME_GROUPS), n_months - 1]
+                    [len(TIME_GROUPS), bedroom_basis.shape[1]]
                 ),
             )
         if config.bedroom_slope:
@@ -328,6 +359,14 @@ MODELS = {
     ),
     "m3-walk-bedslope": ModelConfig(
         name="m3-walk-bedslope", building_walk=True, bedroom_slope=True
+    ),
+    "m5-quarterly": ModelConfig(
+        name="m5-quarterly",
+        building_walk=True,
+        bedroom_time=True,
+        bedroom_slope=True,
+        trend_knot_months=3,
+        bedroom_time_knot_months=3,
     ),
     "m4-walk-bedtime-bedslope": ModelConfig(
         name="m4-walk-bedtime-bedslope",

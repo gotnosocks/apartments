@@ -7,7 +7,7 @@ import numpy as np  # noqa: E402
 import pandas as pd  # noqa: E402
 import pytest  # noqa: E402
 
-from rentfrontier import gibbs, model  # noqa: E402
+from rentfrontier import collect, gibbs, model  # noqa: E402
 from rentfrontier.features import Features  # noqa: E402
 
 
@@ -75,6 +75,13 @@ DESIGNS = {
     "walk": model.ModelConfig(building_walk=True),
     "bedtime-slope": model.ModelConfig(bedroom_time=True, bedroom_slope=True),
     "all": model.ModelConfig(building_walk=True, bedroom_time=True, bedroom_slope=True),
+    "quarterly": model.ModelConfig(
+        building_walk=True,
+        bedroom_time=True,
+        bedroom_slope=True,
+        trend_knot_months=3,
+        bedroom_time_knot_months=3,
+    ),
 }
 SCALES = {
     "sigma": 0.05,
@@ -157,12 +164,12 @@ def dense_logml(d, lam, s):
     return multivariate_normal(np.zeros(n), cov).logpdf(np.asarray(d.y))
 
 
-@pytest.mark.parametrize("design", ["base", "all"])
+@pytest.mark.parametrize("design", ["base", "all", "quarterly"])
 def test_collapsed_marginal_likelihood_matches_dense(design):
     prep = synthetic()
     d = gibbs.build_design(prep, DESIGNS[design])
     lam = np.random.default_rng(1).gamma(2.5, 1 / 2.5, d.y.shape[0])
-    other = {k: v * (1.3 if k != "sigma" else 1.0) for k, v in SCALES.items()}
+    other = {k: v * 1.3 for k, v in SCALES.items()}
     zeros = (
         jnp.zeros(d.a.shape[1]),
         jnp.zeros((d.n_buildings, d.n_local)),
@@ -175,10 +182,11 @@ def test_collapsed_marginal_likelihood_matches_dense(design):
     )
 
 
-def test_site_values_reproduce_linear_predictor():
+@pytest.mark.parametrize("design", ["all", "quarterly"])
+def test_site_values_reproduce_linear_predictor(design):
     """Gibbs state -> NumPyro sites -> model.linear_predictor equals the Gibbs fit."""
     prep = synthetic()
-    d = gibbs.build_design(prep, DESIGNS["all"])
+    d = gibbs.build_design(prep, DESIGNS[design])
     rng = np.random.default_rng(3)
     state = {
         "theta": jnp.asarray(rng.normal(0, 0.1, d.a.shape[1])),
@@ -262,7 +270,21 @@ def test_gibbs_matches_nuts_on_same_model(design):
             means["bedroom_time"][0, 12],
             sds["bedroom_time"][0, 12],
         )
+    from numpyro.diagnostics import effective_sample_size
+
+    scalar_trace = dict(
+        zip(collect.SCALARS, np.moveaxis(out["trace"]["scalars"], -1, 0))
+    )
+    n_gibbs = out["trace"]["scalars"].shape[0] * out["trace"]["scalars"].shape[1]
     for name, (draws, g_mean, g_sd) in checks.items():
-        # Means within 0.15 posterior sd (MC error of both samplers), sds within 15%.
-        assert abs(draws.mean() - g_mean) < 0.15 * draws.std(), name
-        assert abs(draws.std() - g_sd) < 0.15 * draws.std(), name
+        # Monte Carlo standard errors from each sampler's effective sample size.
+        chains = draws.reshape(2, -1)
+        ess_nuts = float(effective_sample_size(chains[..., None])[0])
+        ess_gibbs = (
+            float(effective_sample_size(scalar_trace[name]))
+            if name in scalar_trace
+            else 0.05 * n_gibbs
+        )
+        mcse = np.sqrt(draws.var() / ess_nuts + g_sd**2 / ess_gibbs)
+        assert abs(draws.mean() - g_mean) < 4 * mcse, (name, draws.mean(), g_mean, mcse)
+        assert abs(draws.std() - g_sd) < 0.15 * draws.std(), (name, draws.std(), g_sd)

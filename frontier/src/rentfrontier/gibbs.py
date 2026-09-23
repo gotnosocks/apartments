@@ -86,6 +86,8 @@ class Design:
     trend: slice
     season: slice
     bedroom_time: slice | None
+    trend_basis: jnp.ndarray
+    bedroom_time_basis: jnp.ndarray
     slope_index: int | None  # local index of the bedroom slope
     knot_start: int | None  # local index of walk knot 1 (knot 0 is fixed at 0)
     n_features: int
@@ -114,10 +116,15 @@ def build_design(
     groups = model_module.TIME_GROUPS
 
     # ----------------------------------------------------------- global block
-    trend = slice(1 + f, 1 + f + t - 1)
+    # Market trend and bedroom-group curves: random walks over knots every
+    # trend_knot_months / bedroom_time_knot_months, linearly interpolated.
+    trend_basis = model_module.knot_basis(t, config.trend_knot_months)
+    bed_basis = model_module.knot_basis(t, config.bedroom_time_knot_months)
+    nt, nb = trend_basis.shape[1], bed_basis.shape[1]
+    trend = slice(1 + f, 1 + f + nt)
     season = slice(trend.stop, trend.stop + 12)
     bedroom_time = (
-        slice(season.stop, season.stop + len(groups) * (t - 1))
+        slice(season.stop, season.stop + len(groups) * nb)
         if config.bedroom_time
         else None
     )
@@ -125,22 +132,24 @@ def build_design(
     a = np.zeros((n, p))
     a[:, 0] = 1.0
     a[:, 1 : 1 + f] = tr.x
-    rows = np.flatnonzero(tr.month > 0)
-    a[rows, trend.start + tr.month[rows] - 1] = 1.0
+    a[:, trend] = trend_basis[tr.month]
     # Season enters as season_raw - mean(season_raw), as in the NumPyro model.
     a[:, season] = -1.0 / 12
     a[np.arange(n), season.start + tr.calendar] += 1.0
     blocks = {
-        "trend_scale": (trend, _rw1_anchored(t - 1)),
+        "trend_scale": (trend, _rw1_anchored(nt)),
         "season_scale": (season, np.eye(12)),
     }
     if bedroom_time is not None:
         for gi, g in enumerate(groups):
-            rows = np.flatnonzero((tr.month > 0) & (tr.bed_group == g))
-            a[rows, bedroom_time.start + gi * (t - 1) + tr.month[rows] - 1] = 1.0
+            rows = np.flatnonzero(tr.bed_group == g)
+            cols = slice(
+                bedroom_time.start + gi * nb, bedroom_time.start + (gi + 1) * nb
+            )
+            a[rows, cols] = bed_basis[tr.month[rows]]
         blocks["bedroom_time_scale"] = (
             bedroom_time,
-            np.kron(np.eye(len(groups)), _rw1_anchored(t - 1)),
+            np.kron(np.eye(len(groups)), _rw1_anchored(nb)),
         )
     fixed = np.zeros(p)
     fixed[0] = 1.0
@@ -216,6 +225,8 @@ def build_design(
         trend=trend,
         season=season,
         bedroom_time=bedroom_time,
+        trend_basis=jnp.asarray(trend_basis),
+        bedroom_time_basis=jnp.asarray(bed_basis),
         slope_index=slope_index,
         knot_start=knot_start,
         n_features=f,
@@ -319,7 +330,9 @@ def gaussian_block(d: Design, lam, s, z_g, z_l, z_u):
         logdet_prior = logdet_prior - 2 * rank * jnp.log(s[name])
     for name, rank in d.local_ranks.items():
         logdet_prior = logdet_prior - 2 * K * rank * jnp.log(s[name])
-    logml = 0.5 * (quad - logdet_post + logdet_prior)
+    # Terms that depend on sigma through W = lam / sigma^2.
+    logdet_w = jnp.sum(jnp.log(w))
+    logml = 0.5 * (quad - logdet_post + logdet_prior + logdet_w - jnp.sum(w * y * y))
     return theta, theta_l, u, fixed, logml
 
 
@@ -338,6 +351,7 @@ def site_values(d: Design, state):
         "alpha": theta[0],
         "beta": theta[1 : 1 + f],
         "trend_step": steps(theta[d.trend]),
+        "trend_basis": d.trend_basis,
         "season_raw": theta[d.season],
         "building": theta_l[:, 0],
         "unit": state["unit"],
@@ -346,8 +360,12 @@ def site_values(d: Design, state):
     }
     if d.bedroom_time is not None:
         out["bedroom_time_step"] = steps(
-            theta[d.bedroom_time].reshape(len(model_module.TIME_GROUPS), d.n_months - 1)
+            theta[d.bedroom_time].reshape(
+                len(model_module.TIME_GROUPS), d.bedroom_time_basis.shape[1]
+            )
         )
+        out["bedroom_time_basis"] = d.bedroom_time_basis
+
     if d.slope_index is not None:
         out["bedroom_slope"] = theta_l[:, d.slope_index]
     if d.knot_start is not None:
@@ -364,7 +382,7 @@ def make_step(d: Design):
         **{k: r * d.n_buildings for k, r in d.local_ranks.items()},
     }
 
-    hier = [k for k in d.scale_names if k != "sigma"]
+    hier = list(d.scale_names)  # collapsed update covers sigma and every group scale
 
     def step(key, state, cfg, prop_sd=None):
         """One iteration. `cfg` holds the step sizes; with `prop_sd` (one
@@ -586,7 +604,7 @@ def run(
         settings.rescale_steps,
         settings.rescale_step_sd,
     )
-    hier = [k for k in d.scale_names if k != "sigma"]
+    hier = list(d.scale_names)
     key = jax.random.PRNGKey(settings.seed)
     k_init, k_warm, k_warm2, k_draw = jax.random.split(key, 4)
     states = init_states(d, k_init, settings.chains)
@@ -600,7 +618,7 @@ def run(
     def warm1(state, k):
         def body(st, kk):
             st, _ = step(kk, st, cfg)
-            return st, jnp.log(jnp.stack([st[n] for n in hier]))
+            return st, jnp.log(jnp.stack([st[n] for n in (*hier, "nu")]))
 
         return jax.lax.scan(body, state, jax.random.split(k, n1))
 
@@ -609,9 +627,17 @@ def run(
     )
     prop_sd = None
     if settings.collapse:
-        tail = np.asarray(log_scales)[:, n1 // 2 :]  # (chains, draws, scales)
-        sd = tail.reshape(-1, len(hier)).std(axis=0)
-        prop_sd = jnp.asarray(settings.collapse_scale * sd / np.sqrt(len(hier)))
+        tail = np.asarray(log_scales)[:, n1 // 2 :]  # (chains, draws, scales + nu)
+        sd = tail.reshape(-1, len(hier) + 1).std(axis=0)
+        prop_sd = jnp.asarray(settings.collapse_scale * sd[:-1] / np.sqrt(len(hier)))
+        # Size the (log sigma, log nu) random-walk steps from warmup too.
+        cfg = (
+            settings.noise_steps,
+            float(2.38 / np.sqrt(2) * sd[hier.index("sigma")]),
+            float(2.38 / np.sqrt(2) * sd[-1]),
+            settings.rescale_steps,
+            settings.rescale_step_sd,
+        )
 
         def warm2(state, k):
             state, _ = jax.lax.scan(
