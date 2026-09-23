@@ -177,7 +177,7 @@ def main():
         "remote_seconds": out["seconds"],
         "client_wall_seconds": wall,
         "cost_usd_estimate": round(cost, 4),
-        "cost_basis": "list price x client wall time (upper bound; Modal bills container lifetime)",
+        "cost_basis": "list price x client wall time; an estimate (actual Modal billing ran ~6% higher over 2026-09-23 runs)",
         "commit": commit,
         "returncode": out["returncode"],
     }

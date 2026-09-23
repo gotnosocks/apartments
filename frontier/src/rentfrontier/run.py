@@ -298,6 +298,10 @@ def main(argv=None):
         "sampler": args.sampler,
         "sampler_settings": settings.to_dict(),
         "dtype": out.get("dtype"),
+        "adapted": {
+            k: out.get(k)
+            for k in ("collapsed_proposal_sd", "noise_step_sd", "solo_proposal_sd")
+        },
         "sizes": prep.sizes,
         "hardware": hardware(),
         "seconds": {

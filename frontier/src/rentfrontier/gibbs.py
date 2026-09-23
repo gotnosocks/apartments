@@ -64,6 +64,8 @@ class Settings:
     collapse: bool = True
     collapse_scale: float = 2.38
     chain_batch: int = 0  # vectorise this many chains at a time (0 = all)
+    # Extra one-dimensional collapsed updates for these scales (if present).
+    solo_scales: tuple = ("walk_scale",)
 
     def to_dict(self):
         return asdict(self)
@@ -384,7 +386,7 @@ def make_step(d: Design):
 
     hier = list(d.scale_names)  # collapsed update covers sigma and every group scale
 
-    def step(key, state, cfg, prop_sd=None):
+    def step(key, state, cfg, prop_sd=None, solo_sd=None):
         """One iteration. `cfg` holds the step sizes; with `prop_sd` (one
         proposal sd per hierarchical log-scale) the scales are first updated
         by a collapsed Metropolis step that integrates out every latent."""
@@ -420,6 +422,23 @@ def make_step(d: Design):
             out = jax.tree.map(lambda a, b: jnp.where(ok, b, a), out, out_new)
             s = {k: jnp.where(ok, s_new[k], s[k]) for k in s}
             info["collapsed_accept"] = ok.astype(jnp.float64)
+            # One-dimensional collapsed updates for the slowest scales, each
+            # with its own proposal size (a joint step must use the smallest).
+            for i, (name, sd_i) in enumerate((solo_sd or {}).items()):
+                k1, k2 = jax.random.split(jax.random.fold_in(keys[11], 100 + i))
+                s_new = dict(s)
+                s_new[name] = s[name] * jnp.exp(sd_i * jax.random.normal(k1))
+                out_new = gaussian_block(d, state["lam"], s_new, *z)
+                log_ratio = (
+                    out_new[-1]
+                    - out[-1]
+                    - (s_new[name] ** 2 - s[name] ** 2) / (2 * d.prior_sd[name] ** 2)
+                    + jnp.log(s_new[name] / s[name])
+                )
+                ok = jnp.log(jax.random.uniform(k2)) < log_ratio
+                out = jax.tree.map(lambda a, b: jnp.where(ok, b, a), out, out_new)
+                s = {k: jnp.where(ok, s_new[k], s[k]) for k in s}
+                info[f"solo_accept_{name}"] = ok.astype(jnp.float64)
         theta, theta_l, u, fixed, _ = out
         e = d.y - fixed - u[d.unit]
 
@@ -625,11 +644,18 @@ def run(
     states, log_scales = jax.jit(batched(warm1, settings.chains, settings.chain_batch))(
         states, jax.random.split(k_warm, settings.chains)
     )
-    prop_sd = None
+    prop_sd = solo_sd = None
     if settings.collapse:
         tail = np.asarray(log_scales)[:, n1 // 2 :]  # (chains, draws, scales + nu)
-        sd = tail.reshape(-1, len(hier) + 1).std(axis=0)
+        # Within-chain spread: robust to chains that have not met yet, which
+        # would inflate a pooled estimate during warmup.
+        sd = np.sqrt(tail.var(axis=1).mean(axis=0))
         prop_sd = jnp.asarray(settings.collapse_scale * sd[:-1] / np.sqrt(len(hier)))
+        solo_sd = {
+            n: float(2.38 * sd[hier.index(n)])
+            for n in settings.solo_scales
+            if n in hier
+        }
         # Size the (log sigma, log nu) random-walk steps from warmup too.
         cfg = (
             settings.noise_steps,
@@ -641,7 +667,7 @@ def run(
 
         def warm2(state, k):
             state, _ = jax.lax.scan(
-                lambda st, kk: (step(kk, st, cfg, prop_sd)[0], None),
+                lambda st, kk: (step(kk, st, cfg, prop_sd, solo_sd)[0], None),
                 state,
                 jax.random.split(k, settings.warmup - n1),
             )
@@ -666,7 +692,7 @@ def run(
 
     t0 = time.perf_counter()
     out = collect_module.collect(
-        lambda k, st: step(k, st, cfg, prop_sd),
+        lambda k, st: step(k, st, cfg, prop_sd, solo_sd),
         lambda st: site_values(d, st),
         states,
         k_draw,
@@ -690,4 +716,6 @@ def run(
     out["collapsed_proposal_sd"] = (
         None if prop_sd is None else dict(zip(hier, np.asarray(prop_sd).tolist()))
     )
+    out["noise_step_sd"] = {"sigma": cfg[1], "nu": cfg[2]}
+    out["solo_proposal_sd"] = solo_sd
     return out
