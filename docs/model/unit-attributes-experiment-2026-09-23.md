@@ -65,4 +65,9 @@ them from distorting their buildings until a scope review decides.
 ## Full fit and decision
 
 Protocol fit `data/model/chelsea-bayesian-product-scope-attributes-20260923`
-(building drift + all four unit-level attributes) launched September 23, ~00:05.
+(building drift + all four unit-level attributes) was launched September 23 at
+~00:05 and **stopped at ~450 warmup iterations**. Disk: a building-walk fit is
+estimated at ~39 GB when complete (trace, posterior and report caches, each
+holding ~60k per-draw parameters), and two would not fit in the 75 GB free.
+The drift-only fit finishes first. The partial directory cannot resume (the
+disk sampler refuses); rerun into a new directory, locally or on Modal.
