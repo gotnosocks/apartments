@@ -12,15 +12,19 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 from pathlib import Path
 
 import numpy as np
 import pandas as pd
 
 DATASET = Path(
-    "/home/ben/code/apartments/data/model/chelsea-product-scope-analysis-20260921"
+    os.environ.get(
+        "FRONTIER_DATASET",
+        "/home/ben/code/apartments/data/model/chelsea-product-scope-analysis-20260921",
+    )
 )
-OUTPUT_ROOT = Path("/data1/apartments/frontier")
+OUTPUT_ROOT = Path(os.environ.get("FRONTIER_OUTPUT_ROOT", "/data1/apartments/frontier"))
 
 VIEWS = ("city", "courtyard", "garden", "park", "skyline", "street", "water")
 WINDOWS = ("east", "north", "south", "west")

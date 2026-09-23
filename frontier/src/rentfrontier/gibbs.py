@@ -11,9 +11,10 @@ lam_i), lam_i ~ Gamma(nu/2, nu/2). One iteration:
    in closed form (each unit sits in one building), leaving a dense
    ~260-dimensional global system. The draw is exact; there is no tuning
    and no funnel.
-2. nu by random-walk Metropolis on log nu with lam integrated out, then
-   lam | nu (a partially collapsed Gibbs step, valid in this order).
-3. sigma and every group scale: independence Metropolis whose proposal is
+2. (sigma, nu) jointly by random-walk Metropolis with lam integrated out,
+   then lam | sigma, nu (a partially collapsed Gibbs step, valid in this
+   order).
+3. Every group scale: independence Metropolis whose proposal is
    the exact conditional under a flat prior on the scale, so the accept
    ratio only carries the half-normal prior (acceptance ~1).
 
@@ -41,8 +42,9 @@ class Settings:
     draws: int = 1000
     keep_every: int = 50
     seed: int = 20260923
-    nu_steps: int = 5
-    nu_step_sd: float = 0.05
+    noise_steps: int = 10  # joint (sigma, nu) Metropolis steps per iteration
+    sigma_step_sd: float = 0.004  # on log sigma
+    nu_step_sd: float = 0.03  # on log nu
     trace_groups: int = 32
 
     def to_dict(self):
@@ -196,7 +198,7 @@ def make_step(d: Design):
     }
     rw = jnp.asarray(_rw1_anchored(d.trend.stop - d.trend.start))
 
-    def step(key, state, nu_steps, nu_step_sd):
+    def step(key, state, noise_steps, sigma_step_sd, nu_step_sd):
         keys = jax.random.split(key, 12)
         s = {k: state[k] for k in SCALE_NAMES}
         p = d.a.shape[1]
@@ -210,42 +212,42 @@ def make_step(d: Design):
         )
         e = d.y - fixed - u[d.unit]
 
-        # nu | e, sigma with lam integrated out; Gamma(2, 0.1) prior on nu.
-        def log_target(log_nu):
-            nu = jnp.exp(log_nu)
+        # (sigma, nu) | e jointly, with lam integrated out (exact Student-t
+        # likelihood), by random-walk Metropolis on (log sigma, log nu); then
+        # lam | sigma, nu, e. Updating sigma given lam instead mixes slowly,
+        # because sigma and all lam can scale up together.
+        sigma_prior = d.prior_sd["sigma"]
+
+        def log_target(z):
+            sigma, nu = jnp.exp(z[0]), jnp.exp(z[1])
             return (
-                jnp.sum(collect_module.student_t_logpdf(e, nu, s["sigma"]))
+                jnp.sum(collect_module.student_t_logpdf(e, nu, sigma))
+                - sigma**2 / (2 * sigma_prior**2)
                 + jax.scipy.stats.gamma.logpdf(nu, 2.0, scale=10.0)
-                + log_nu
+                + z[0]
+                + z[1]
             )
 
-        def nu_mh(carry, k):
-            log_nu, lt, acc = carry
+        step_sd = jnp.asarray([sigma_step_sd, nu_step_sd])
+
+        def noise_mh(carry, k):
+            z, lt, acc = carry
             k1, k2 = jax.random.split(k)
-            prop = log_nu + nu_step_sd * jax.random.normal(k1)
+            prop = z + step_sd * jax.random.normal(k1, (2,))
             lp = log_target(prop)
             ok = jnp.log(jax.random.uniform(k2)) < lp - lt
-            return (jnp.where(ok, prop, log_nu), jnp.where(ok, lp, lt), acc + ok), None
+            return (jnp.where(ok, prop, z), jnp.where(ok, lp, lt), acc + ok), None
 
-        log_nu = jnp.log(state["nu"])
-        (log_nu, _, nu_acc), _ = jax.lax.scan(
-            nu_mh,
-            (log_nu, log_target(log_nu), 0.0),
-            jax.random.split(keys[3], nu_steps),
+        z0 = jnp.log(jnp.stack([s["sigma"], state["nu"]]))
+        (z, _, noise_acc), _ = jax.lax.scan(
+            noise_mh, (z0, log_target(z0), 0.0), jax.random.split(keys[3], noise_steps)
         )
-        nu = jnp.exp(log_nu)
+        sigma, nu = jnp.exp(z[0]), jnp.exp(z[1])
         lam = jax.random.gamma(keys[4], (nu + 1) / 2, (n,)) / (
-            (nu + (e / s["sigma"]) ** 2) / 2
+            (nu + (e / sigma) ** 2) / 2
         )
 
-        new = {}
-        new["sigma"] = _update_scale(
-            keys[5],
-            s["sigma"],
-            jnp.sum(lam * e * e),
-            rank["sigma"],
-            d.prior_sd["sigma"],
-        )
+        new = {"sigma": sigma}
         new["unit_scale"] = _update_scale(
             keys[6],
             s["unit_scale"],
@@ -277,7 +279,7 @@ def make_step(d: Design):
             d.prior_sd["season_scale"],
         )
         state = {"theta": theta, "building": b, "unit": u, "lam": lam, "nu": nu, **new}
-        return state, {"nu_accept": nu_acc / nu_steps}
+        return state, {"noise_accept": noise_acc / noise_steps}
 
     return step
 
@@ -314,7 +316,9 @@ def run(
     t0 = time.perf_counter()
     d = build_design(prep, config)
     step = make_step(d)
-    step_fn = lambda k, st: step(k, st, settings.nu_steps, settings.nu_step_sd)  # noqa: E731
+    step_fn = lambda k, st: step(
+        k, st, settings.noise_steps, settings.sigma_step_sd, settings.nu_step_sd
+    )  # noqa: E731
     key = jax.random.PRNGKey(settings.seed)
     k_init, k_warm, k_draw = jax.random.split(key, 3)
     states = init_states(d, k_init, settings.chains)

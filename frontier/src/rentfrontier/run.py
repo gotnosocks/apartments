@@ -16,6 +16,7 @@ from __future__ import annotations
 import argparse
 import json
 import math
+import os
 import platform
 import subprocess
 import time
@@ -26,15 +27,16 @@ import numpy as np
 from . import data, features, splits
 
 RUNS = data.OUTPUT_ROOT / "runs"
+REFERENCE_ROOT = Path(
+    os.environ.get(
+        "FRONTIER_REFERENCE_ROOT",
+        "/home/ben/code/apartments/data/model/feature-screen-20260923",
+    )
+)
 REFERENCES = {
-    "rows": Path(
-        "/home/ben/code/apartments/data/model/feature-screen-20260923/nuts-hwalk/heldout.npz"
-    ),
-    "units": Path(
-        "/home/ben/code/apartments/data/model/feature-screen-20260923/nuts-hwalk-units/heldout.npz"
-    ),
+    "rows": REFERENCE_ROOT / "nuts-hwalk/heldout.npz",
+    "units": REFERENCE_ROOT / "nuts-hwalk-units/heldout.npz",
 }
-MODELS = {}  # filled below; name -> ModelConfig
 
 
 def git(*args) -> str:
@@ -181,7 +183,11 @@ def main(argv=None):
     )
     args = parser.parse_args(argv)
 
-    dirty = git("status", "--porcelain")
+    # Remote workers get a clean export of a commit and no .git; the local
+    # submitter checks the tree and passes the commit in FRONTIER_COMMIT.
+    commit = os.environ.get("FRONTIER_COMMIT")
+    dirty = "" if commit else git("status", "--porcelain")
+    commit = commit or git("rev-parse", "HEAD")
     if dirty and not args.dev:
         raise SystemExit(
             f"Refusing to run on a dirty working tree (use --dev for unreportable runs):\n{dirty}"
@@ -260,7 +266,7 @@ def main(argv=None):
     result = {
         "name": args.name,
         "reportable": not dirty,
-        "commit": git("rev-parse", "HEAD"),
+        "commit": commit,
         "dirty": bool(dirty),
         "started_at": time.strftime("%Y-%m-%dT%H:%M:%S%z", time.localtime(started)),
         "dataset": frame.attrs["dataset"],
@@ -279,7 +285,7 @@ def main(argv=None):
             "fit_total": fit_seconds,
             **out["seconds"],
         },
-        "cost_usd": 0.0,  # local hardware
+        "cost_usd": None,  # filled in by the Modal submitter; local runs cost nothing
         "diagnostics": diag,
         "score": scores,
         "interpretability": {
