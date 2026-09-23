@@ -60,18 +60,17 @@ def knot_matrix(periods):
 
 
 def graph_configuration(train, prior_multiplier=1., *, mode='walk', walk_prior_scale=.05,
-                        linear_prior_scale=.02, building_prior_scale=.35, unit_prior_scale=.25,
-                        group_column='bedrooms'):
+                        linear_prior_scale=.02, building_prior_scale=.35, unit_prior_scale=.25):
     if mode not in MODES:
         raise ValueError('Unknown bedroom-time mode')
     config = base_configuration(train, prior_multiplier, building_prior_scale=building_prior_scale,
                                 unit_prior_scale=unit_prior_scale)
-    groups, counts = np.unique(bedroom_groups(train[group_column]), return_counts=True)
+    groups, counts = np.unique(bedroom_groups(train.bedrooms), return_counts=True)
     if mode != 'none' and len(groups) != len(GROUP_LABELS):
         raise ValueError('Every bedroom-time group must be observed')
     config.update(bedroom_time={
         'version': VERSION, 'mode': mode, 'groups': list(GROUP_LABELS),
-        'group_counts': counts.tolist(), 'group_column': group_column,
+        'group_counts': counts.tolist(),
         'walk_prior_scale': float(walk_prior_scale) if mode == 'walk' else None,
         'linear_prior_scale': float(linear_prior_scale) if mode == 'linear' else None,
         'identification': 'zero-sum across groups; each group curve centered over its own training periods'})
@@ -79,16 +78,14 @@ def graph_configuration(train, prior_multiplier=1., *, mode='walk', walk_prior_s
 
 
 def build_model(train, design, prior_multiplier=1., *, mode='walk', walk_prior_scale=.05,
-                linear_prior_scale=.02, building_prior_scale=.35, unit_prior_scale=.25, group_column='bedrooms'):
-    """`group_column` other than bedrooms exists only for screening negative controls."""
+                linear_prior_scale=.02, building_prior_scale=.35, unit_prior_scale=.25):
     config = graph_configuration(train, prior_multiplier, mode=mode, walk_prior_scale=walk_prior_scale,
                                  linear_prior_scale=linear_prior_scale,
-                                 building_prior_scale=building_prior_scale, unit_prior_scale=unit_prior_scale,
-                                 group_column=group_column)
+                                 building_prior_scale=building_prior_scale, unit_prior_scale=unit_prior_scale)
     d = design.time
     a = d.arrays(train)
     unique, inverse = reference.compress(design.matrix(train))
-    group = bedroom_groups(train[group_column])
+    group = bedroom_groups(train.bedrooms)
     n_periods, n_groups = len(d.periods), len(GROUP_LABELS)
     weights = np.zeros((n_groups, n_periods))
     np.add.at(weights, (group, a['period']), 1.)

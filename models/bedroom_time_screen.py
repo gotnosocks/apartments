@@ -168,8 +168,17 @@ def main():
         supported = ~np.isfinite(values) | ((values >= min(design.floor_levels)) & (values <= max(design.floor_levels)))
         in_horizon = test.period.between(design.time.periods[0], design.time.periods[-1])
         test = test[supported & in_horizon.to_numpy()].reset_index(drop=True)
-    model = graph.build_model(train, design, mode=args.mode, walk_prior_scale=args.walk_prior_scale,
-                              linear_prior_scale=args.linear_prior_scale, group_column=group_column)
+    if group_column == 'bedrooms':
+        model = graph.build_model(train, design, mode=args.mode, walk_prior_scale=args.walk_prior_scale,
+                                  linear_prior_scale=args.linear_prior_scale)
+    else:
+        # The promoted graph file is frozen by its fit's protocol hash; the
+        # equivalent structure graph carries the control's group override.
+        from . import bayesian_structure_graph as structure
+        if args.mode != 'walk':
+            raise ValueError('The negative control is defined for walk mode only')
+        model = structure.build_model(train, design, walk_prior_scale=args.walk_prior_scale,
+                                      group_column=group_column)
     names = ['alpha', 'sigma', 'sigma_unit', 'sigma_building', 'annual_drift', 'trend_scale']
     if args.mode == 'walk':
         names.append('bedroom_walk_scale')
