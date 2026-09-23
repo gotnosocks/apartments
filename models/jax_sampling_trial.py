@@ -5,6 +5,7 @@ diagnostics (R-hat, bulk/tail ESS, divergences, BFMI) for one sampler, chain cou
 precision. A short trial measures cost per effective draw; it is not an inference run and
 writes no posterior. Compare against nutpie CPU runs at the same retained draw count.
 """
+
 from __future__ import annotations
 
 import argparse
@@ -23,90 +24,148 @@ def run(args):
     output = Path(args.output)
     output.mkdir(parents=True, exist_ok=False)
     import jax
-    from pymc.sampling.jax import sample_jax_nuts  # enables x64; precision is set afterwards
-    jax.config.update('jax_enable_x64', args.precision == 64)
+    from pymc.sampling.jax import (
+        sample_jax_nuts,
+    )  # enables x64; precision is set afterwards
 
-    record = {'version': 'jax-spline-sampling-trial-v1', 'hardware': probe.hardware(),
-              'devices': [str(d) for d in jax.devices()], 'settings': vars(args) | {'output': None}}
+    jax.config.update("jax_enable_x64", args.precision == 64)
+
+    record = {
+        "version": "jax-spline-sampling-trial-v1",
+        "hardware": probe.hardware(),
+        "devices": [str(d) for d in jax.devices()],
+        "settings": vars(args) | {"output": None},
+    }
     started = time.perf_counter()
     model = probe.build(args.dataset)
-    record['build_seconds'] = time.perf_counter() - started
+    record["build_seconds"] = time.perf_counter() - started
     started = time.perf_counter()
     try:
-        if args.sampler.startswith('nutpie'):
+        if args.sampler.startswith("nutpie"):
             # PyMC developers' June 2026 GPU recommendation; chains run as separate threads.
             import nutpie
-            compiled = nutpie.compile_pymc_model(model, backend='jax',
-                                                 gradient_backend=args.sampler.split('-')[-1])
-            record['compile_seconds'] = time.perf_counter() - started
-            inference = nutpie.sample(compiled, draws=args.draws, tune=args.tune, chains=args.chains,
-                cores=args.chains, seed=args.seed, target_accept=args.target_accept,
-                progress_bar=False, store_unconstrained=False)
-            inference.attrs['sampling_time'] = time.perf_counter() - started - record['compile_seconds']
+
+            compiled = nutpie.compile_pymc_model(
+                model, backend="jax", gradient_backend=args.sampler.split("-")[-1]
+            )
+            record["compile_seconds"] = time.perf_counter() - started
+            inference = nutpie.sample(
+                compiled,
+                draws=args.draws,
+                tune=args.tune,
+                chains=args.chains,
+                cores=args.chains,
+                seed=args.seed,
+                target_accept=args.target_accept,
+                progress_bar=False,
+                store_unconstrained=False,
+            )
+            inference.attrs["sampling_time"] = (
+                time.perf_counter() - started - record["compile_seconds"]
+            )
         else:
-            inference = sample_jax_nuts(draws=args.draws, tune=args.tune, chains=args.chains,
-                target_accept=args.target_accept, random_seed=args.seed, model=model,
-                nuts_sampler=args.sampler, progressbar=False, compute_convergence_checks=False,
-                chain_method='vectorized', postprocessing_backend='cpu')
+            inference = sample_jax_nuts(
+                draws=args.draws,
+                tune=args.tune,
+                chains=args.chains,
+                target_accept=args.target_accept,
+                random_seed=args.seed,
+                model=model,
+                nuts_sampler=args.sampler,
+                progressbar=False,
+                compute_convergence_checks=False,
+                chain_method="vectorized",
+                postprocessing_backend="cpu",
+            )
     except Exception as error:
-        record['error'] = f'{type(error).__name__}: {error}'[:4000]
-        (output/'trial.json').write_text(json.dumps(record, indent=2) + '\n')
+        record["error"] = f"{type(error).__name__}: {error}"[:4000]
+        (output / "trial.json").write_text(json.dumps(record, indent=2) + "\n")
         raise
-    record['pymc_call_seconds'] = time.perf_counter() - started
+    record["pymc_call_seconds"] = time.perf_counter() - started
     # nutpie's time excludes compilation; PyMC's JAX path does not expose one, so use the call.
-    record['sampling_seconds'] = float(inference.attrs.get('sampling_time', record['pymc_call_seconds']))
+    record["sampling_seconds"] = float(
+        inference.attrs.get("sampling_time", record["pymc_call_seconds"])
+    )
     save(output, record)
     summarize(record, inference, args, output)
-    print(json.dumps({k: v for k, v in record.items() if k != 'diagnostics'}
-                     | {'diagnostics': {k: v for k, v in record['diagnostics'].items() if k != 'worst_rhat'}},
-                     indent=2, default=str))
+    print(
+        json.dumps(
+            {k: v for k, v in record.items() if k != "diagnostics"}
+            | {
+                "diagnostics": {
+                    k: v for k, v in record["diagnostics"].items() if k != "worst_rhat"
+                }
+            },
+            indent=2,
+            default=str,
+        )
+    )
 
 
 def save(output, record):
     """Rewrite trial.json after each stage so a late failure keeps earlier measurements."""
-    (Path(output)/'trial.json').write_text(json.dumps(record, indent=2, default=str) + '\n')
+    (Path(output) / "trial.json").write_text(
+        json.dumps(record, indent=2, default=str) + "\n"
+    )
 
 
 def summarize(record, inference, args, output):
     from models.bayesian_rent_model import diagnostics
-    stats = inference['sample_stats'].to_dataset()
-    steps = stats['n_steps'].values
-    record['leapfrog_steps'] = {'mean': float(steps.mean()), 'median': float(np.median(steps)),
-                                'max': int(steps.max()), 'per_chain_mean': steps.mean(axis=1).tolist()}
+
+    stats = inference["sample_stats"].to_dataset()
+    steps = stats["n_steps"].values
+    record["leapfrog_steps"] = {
+        "mean": float(steps.mean()),
+        "median": float(np.median(steps)),
+        "max": int(steps.max()),
+        "per_chain_mean": steps.mean(axis=1).tolist(),
+    }
     # Vectorized chains advance in lockstep, so each iteration costs the slowest chain's tree.
-    record['lockstep_steps_per_iteration'] = float(steps.max(axis=0).mean())
+    record["lockstep_steps_per_iteration"] = float(steps.max(axis=0).mean())
     save(output, record)
-    if 'maxdepth_reached' not in stats:
-        inference['sample_stats']['maxdepth_reached'] = stats['n_steps'] >= 2**MAX_TREE_DEPTH - 1
+    if "maxdepth_reached" not in stats:
+        inference["sample_stats"]["maxdepth_reached"] = (
+            stats["n_steps"] >= 2**MAX_TREE_DEPTH - 1
+        )
     started = time.perf_counter()
     try:
-        record['diagnostics'], _ = diagnostics(inference)
+        record["diagnostics"], _ = diagnostics(inference)
     except Exception as error:
-        record['diagnostics_error'] = f'{type(error).__name__}: {error}'[:4000]
+        record["diagnostics_error"] = f"{type(error).__name__}: {error}"[:4000]
         save(output, record)
         raise
-    record['diagnostics_seconds'] = time.perf_counter() - started
-    record['min_ess_bulk_per_sampling_second'] = record['diagnostics']['min_ess_bulk']/record['sampling_seconds']
-    record['min_ess_tail_per_sampling_second'] = record['diagnostics']['min_ess_tail']/record['sampling_seconds']
-    record['note'] = ('sampling_seconds covers warmup, retained draws and JIT (nutpie: excludes compilation); '
-                      'ESS rates use it as the denominator.')
+    record["diagnostics_seconds"] = time.perf_counter() - started
+    record["min_ess_bulk_per_sampling_second"] = (
+        record["diagnostics"]["min_ess_bulk"] / record["sampling_seconds"]
+    )
+    record["min_ess_tail_per_sampling_second"] = (
+        record["diagnostics"]["min_ess_tail"] / record["sampling_seconds"]
+    )
+    record["note"] = (
+        "sampling_seconds covers warmup, retained draws and JIT (nutpie: excludes compilation); "
+        "ESS rates use it as the denominator."
+    )
     save(output, record)
 
 
 def argument_parser():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--dataset', required=True)
-    parser.add_argument('--output', required=True)
-    parser.add_argument('--sampler', choices=('numpyro', 'blackjax', 'nutpie-pytensor', 'nutpie-jax'),
-                        default='numpyro', help='nutpie-* use the JAX backend with that gradient backend')
-    parser.add_argument('--chains', type=int, default=16)
-    parser.add_argument('--tune', type=int, default=1000)
-    parser.add_argument('--draws', type=int, default=1000)
-    parser.add_argument('--target-accept', type=float, default=.93)
-    parser.add_argument('--precision', type=int, choices=(32, 64), default=64)
-    parser.add_argument('--seed', type=int, default=20260924)
+    parser.add_argument("--dataset", required=True)
+    parser.add_argument("--output", required=True)
+    parser.add_argument(
+        "--sampler",
+        choices=("numpyro", "blackjax", "nutpie-pytensor", "nutpie-jax"),
+        default="numpyro",
+        help="nutpie-* use the JAX backend with that gradient backend",
+    )
+    parser.add_argument("--chains", type=int, default=16)
+    parser.add_argument("--tune", type=int, default=1000)
+    parser.add_argument("--draws", type=int, default=1000)
+    parser.add_argument("--target-accept", type=float, default=0.93)
+    parser.add_argument("--precision", type=int, choices=(32, 64), default=64)
+    parser.add_argument("--seed", type=int, default=20260924)
     return parser
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     run(argument_parser().parse_args())
