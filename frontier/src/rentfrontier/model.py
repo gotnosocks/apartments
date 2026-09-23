@@ -52,6 +52,9 @@ class ModelConfig:
     # random walks over knots, linearly interpolated; 1 = one value per month.
     trend_knot_months: int = 1
     bedroom_time_knot_months: int = 1
+    # Student-t degrees of freedom: None = estimated (Gamma(2, 0.1) prior),
+    # a number = fixed (the promoted model fixes 5).
+    nu_fixed: float | None = None
 
     def to_dict(self):
         return asdict(self)
@@ -294,7 +297,11 @@ def build_model(prep: Prepared, config: ModelConfig):
                 "unit_scale", dist.HalfNormal(config.unit_scale_sd)
             ),
             "sigma": numpyro.sample("sigma", dist.HalfNormal(config.noise_scale_sd)),
-            "nu": numpyro.sample("nu", dist.Gamma(2.0, 0.1)),  # Juarez & Steel (2010)
+            "nu": (
+                jnp.asarray(config.nu_fixed)
+                if config.nu_fixed is not None
+                else numpyro.sample("nu", dist.Gamma(2.0, 0.1))  # Juarez & Steel (2010)
+            ),
         }
         p["trend_basis"] = trend_basis
         p["trend_step"] = numpyro.sample(
@@ -367,6 +374,29 @@ MODELS = {
         bedroom_slope=True,
         trend_knot_months=3,
         bedroom_time_knot_months=3,
+    ),
+    # Ablations of m5: which piece earns the gain over the promoted model?
+    "m5-nu5": ModelConfig(
+        name="m5-nu5",
+        building_walk=True,
+        bedroom_time=True,
+        bedroom_slope=True,
+        trend_knot_months=3,
+        bedroom_time_knot_months=3,
+        nu_fixed=5.0,
+    ),
+    "m5-noslope": ModelConfig(
+        name="m5-noslope",
+        building_walk=True,
+        bedroom_time=True,
+        trend_knot_months=3,
+        bedroom_time_knot_months=3,
+    ),
+    "m5-nocurves": ModelConfig(
+        name="m5-nocurves",
+        building_walk=True,
+        bedroom_slope=True,
+        trend_knot_months=3,
     ),
     "m4-walk-bedtime-bedslope": ModelConfig(
         name="m4-walk-bedtime-bedslope",

@@ -98,6 +98,7 @@ class Design:
     n_buildings: int
     n_local: int
     prior_sd: dict
+    nu_fixed: float | None = None
 
     @property
     def scale_names(self):
@@ -237,6 +238,7 @@ def build_design(
         n_buildings=len(prep.buildings),
         n_local=n_local,
         prior_sd=prior_sd,
+        nu_fixed=config.nu_fixed,
     )
 
 
@@ -458,7 +460,9 @@ def make_step(d: Design):
                 + z[1]
             )
 
-        step_sd = jnp.asarray([sigma_step_sd, nu_step_sd])
+        step_sd = jnp.asarray(
+            [sigma_step_sd, 0.0 if d.nu_fixed is not None else nu_step_sd]
+        )
 
         def noise_mh(carry, k):
             z, lt, acc = carry
@@ -580,7 +584,9 @@ def init_states(d: Design, key, chains):
     k1, _ = jax.random.split(key)
     jitter = jnp.exp(0.7 * jax.random.normal(k1, (chains, len(names) + 1)))
     state = {n: START[n] * jitter[:, i] for i, n in enumerate(names)}
-    state["nu"] = 5.0 * jitter[:, -1]
+    state["nu"] = (
+        5.0 * jitter[:, -1] if d.nu_fixed is None else jnp.full((chains,), d.nu_fixed)
+    )
     state["theta"] = jnp.zeros((chains, d.a.shape[1]))
     state["local"] = jnp.zeros((chains, d.n_buildings, d.n_local))
     state["unit"] = jnp.zeros((chains, d.n_units))
