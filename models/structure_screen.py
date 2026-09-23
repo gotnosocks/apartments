@@ -59,7 +59,20 @@ EXTRA = {
     'duplex_unit': lambda f, d: unit_any(f, DUPLEX),
     'private_outdoor_unit': lambda f, d: unit_any(f, PRIVATE_OUTDOOR),
     'shared_bath_unit': lambda f, d: unit_any(f, SHARED_BATH),
+    # Convex size premium: log area above 20% over the bedroom-count median
+    # (0 when area is unknown; the linear term and missing indicator stay).
+    'large_area_hinge': lambda f, d: large_area(f),
 }
+
+
+def large_area(frame):
+    import pandas as pd
+    if 'medians' not in UNIT_TEXT:
+        rows = pd.read_json(DATASET/'observations.jsonl', lines=True)
+        UNIT_TEXT['medians'] = pd.to_numeric(rows.square_feet, errors='coerce').groupby(rows.bedrooms).median()
+    area = pd.to_numeric(frame.square_feet, errors='coerce')
+    relative = np.log(area/frame.bedrooms.map(UNIT_TEXT['medians']))
+    return np.maximum(relative.fillna(-np.inf).to_numpy()-.2, 0.)
 UNIT_TEXT = {}
 
 
