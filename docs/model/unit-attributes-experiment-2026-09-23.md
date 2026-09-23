@@ -98,3 +98,12 @@ Coefficients: penthouse +0.15, duplex +0.03, private outdoor +0.04, shared
 bath −0.29. The earlier row-split gain was mostly the leak. The attributes
 help price units without history and are neutral where a unit's own history
 exists. Accepted, with as-of flags, for the next combined full fit.
+
+Residual caveat (from the from-scratch session): an archived ad's text is
+what the page showed when it was captured. If a broker edited a description
+during that listing's lifetime, the flag reflects the final text of that ad,
+not necessarily the text at its first ask. This is within one ad, not carried
+across ads, and cannot be fixed from the archive. The from-scratch session's
+own-ad-only flags (each row reads only its own ad) add +129 on the unit split,
+consistent with the as-of flags' +121, so carrying a flag forward to later
+listings adds little beyond each ad's own text.
