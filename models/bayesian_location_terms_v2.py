@@ -17,10 +17,12 @@ from . import bayesian_location_terms as v1
 DRIFT_EXPERIMENT = "observable-bayesian-drift-experiment-v1"
 # Same location terms as the structure fit, with the attribute feature design.
 ATTRIBUTE_EXPERIMENT = "observable-bayesian-attribute-structure-experiment-v1"
+# The same terms again, with the intercept as the building-level mean.
+EFFICIENT_STRUCTURE_EXPERIMENT = "observable-bayesian-efficient-structure-experiment-v1"
 
 
 def _v1(protocol):
-    if protocol.get("version") == ATTRIBUTE_EXPERIMENT:
+    if protocol.get("version") in (ATTRIBUTE_EXPERIMENT, EFFICIENT_STRUCTURE_EXPERIMENT):
         return {**protocol, "version": v1.STRUCTURE_EXPERIMENT}
     return protocol
 
