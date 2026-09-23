@@ -21,7 +21,7 @@ from threadpoolctl import threadpool_limits
 
 from . import bayesian_feature_experiment_v3 as v3
 from . import bayesian_floor_spline_design as floor
-from . import bayesian_structure_graph_v4 as graph
+from . import bayesian_structure_graph_v5 as graph
 from .bedroom_time_screen import split, map_posterior, summarize
 
 UNSEEN_UNIT_DRAWS = 200
@@ -281,6 +281,15 @@ def predictive(posterior, design, test, options, building_weights, thin, shock=N
             * p["building_bedroom_slope_z"].values[a["building"]]
             * step[:, None]
         )
+    if "building_feature_slope_z" in p:
+        raw, raw_names, _ = design.raw_features(test)
+        names = [str(n) for n in p["slope_feature"].values]
+        columns = raw[:, [raw_names.index(n) for n in names]].astype(float)
+        slopes = (
+            p["building_feature_slope_scale"].values[None]
+            * p["building_feature_slope_z"].values[a["building"]]
+        )  # rows x features x samples
+        mu = mu + np.einsum("rf,rfs->rs", columns, slopes)
     if "unit_slope_z" in p:
         years = (np.arange(len(d.periods)) - d.anchor) / 12.0
         known = np.maximum(a["unit"], 0)
@@ -356,6 +365,11 @@ def main():
     parser.add_argument("--noise-scale", type=float, default=None)
     parser.add_argument("--building-bedroom-slope", action="store_true")
     parser.add_argument(
+        "--building-feature-slopes",
+        default="",
+        help="Comma-separated raw design columns with per-building slopes",
+    )
+    parser.add_argument(
         "--unit-slope-scale",
         type=lambda v: v if v == "free" else float(v),
         default=None,
@@ -424,6 +438,9 @@ def main():
         noise_scale=args.noise_scale,
         unit_slope_scale=args.unit_slope_scale,
         building_bedroom_slope=args.building_bedroom_slope,
+        building_feature_slopes=tuple(
+            n for n in args.building_feature_slopes.split(",") if n
+        ),
         **options,
     )
     started = time.monotonic()
@@ -492,6 +509,13 @@ def main():
         )
         if n in posterior
     }
+    if "building_feature_slope_scale" in posterior:
+        for name in posterior["slope_feature"].values:
+            draws = posterior["building_feature_slope_scale"].sel(slope_feature=name)
+            scalars[f"building_feature_slope_scale[{name}]"] = {
+                "mean": float(draws.mean()),
+                "sd": float(draws.std()),
+            }
     coefficients = {}
     if extra:
         beta = posterior["beta"].stack(sample=("chain", "draw")).values
