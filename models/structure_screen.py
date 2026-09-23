@@ -65,7 +65,25 @@ EXTRA = {
     # Era interactions: premium change per decade, centered at 2018.
     'size_x_time': lambda f, d: relative_size(f)*decades(f),
     'laundry_in_unit_x_time': lambda f, d: f.laundry_type.eq('in_unit').to_numpy(dtype=float)*decades(f),
+    # Building covariates from archived building pages (year built is a
+    # placeholder for most buildings and is not used).
+    'log_stories': lambda f, d: building_covariate(f, 'stories', log=True),
+    'stories_unknown': lambda f, d: building_covariate(f, 'stories', unknown=True),
+    'log_units': lambda f, d: building_covariate(f, 'residential_units', log=True),
+    'units_unknown': lambda f, d: building_covariate(f, 'residential_units', unknown=True),
 }
+BUILDINGS = Path('/home/ben/code/apartments/data/model/building-covariates-20260923/buildings.csv')
+
+
+def building_covariate(frame, column, log=False, unknown=False):
+    import pandas as pd
+    if 'buildings' not in UNIT_TEXT:
+        UNIT_TEXT['buildings'] = pd.read_csv(BUILDINGS).set_index('building')
+    values = frame.building.map(UNIT_TEXT['buildings'][column]).astype(float)
+    values = values.where(values > 0)
+    if unknown:
+        return values.isna().to_numpy(dtype=float)
+    return np.log(values).fillna(0.).to_numpy() if log else values.fillna(0.).to_numpy()
 
 
 def decades(frame):
