@@ -43,6 +43,8 @@ building-walk NUTS screen), paired ΔELPD on the declared splits:
 | private outdoor, per-ad text | −23.0 ± 11.5 | +53.2 ± 8.6 |
 | shared bath, per-ad text | −12.9 | +10.4 ± 5.9 |
 | all four, per-ad text | +16.5 ± 16.6* | +105.0 ± 20.8 |
+| duplex, unit-level | −3.2 ± 8.5 | — |
+| private outdoor, unit-level | +10.0 ± 9.8 | — |
 | **all four, unit-level** | **+60.9 ± 15.6** | **+142.9 ± 23.2** |
 
 \*Three features, without shared bath.
@@ -62,4 +64,5 @@ them from distorting their buildings until a scope review decides.
 
 ## Full fit and decision
 
-Pending the protocol fit.
+Protocol fit `data/model/chelsea-bayesian-product-scope-attributes-20260923`
+(building drift + all four unit-level attributes) launched September 23, ~00:05.

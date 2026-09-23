@@ -3,7 +3,7 @@
 Both fits must use the same source observations. Reports: mean deviation
 (unit effect + residual) by bedroom group x year, scale parameters, feature
 coefficient shifts, and current-cohort fitted-rent changes by bedroom group.
-Report-only; reads saved fit products plus scalar posterior draws.
+Report-only; reads saved fit products plus, when present locally, scalar posterior draws.
 """
 from __future__ import annotations
 
@@ -29,8 +29,12 @@ def load(fit):
 
 
 def scalars(fit, names):
+    """Posterior means of scalar parameters; empty when only summary files are local."""
     import xarray as xr
-    tree = xr.open_datatree(Path(fit)/'fit/posterior.nc', engine='h5netcdf', cache=False)
+    path = Path(fit)/'fit/posterior.nc'
+    if not path.exists():
+        return {}
+    tree = xr.open_datatree(path, engine='h5netcdf', cache=False)
     try:
         posterior = tree['posterior']
         return {n: {'mean': float(posterior[n].mean()), 'sd': float(posterior[n].std())}
