@@ -6,7 +6,9 @@
 
 Inputs go to Volume ``apartments-fit-work`` as SHA-256 blobs (only missing blobs are
 uploaded), the worker runs in scratch space, and fit/protocol products come back to a
-new local directory after verification. The Volume is a cache: ``clean`` removes a run
+new local directory after verification. posterior.nc and prior.nc stay on the Volume
+unless --full is given; ``complete --output DIR`` fetches them later (required before a
+fit is promoted or opened by the main page). The Volume is a cache: ``clean`` removes a run
 and ``clean --unreferenced-blobs`` prunes blobs no remaining run needs.
 """
 from __future__ import annotations
@@ -127,10 +129,11 @@ def submit(args):
             return
         worker.remote(run_id, VOLUME_NAME)
     remote_seconds = time.monotonic() - started
-    fetch_run(store, run_id, destination, remote_seconds=remote_seconds, include_auxiliary=args.keep_auxiliary)
+    fetch_run(store, run_id, destination, remote_seconds=remote_seconds,
+              include_auxiliary=args.keep_auxiliary, full=args.full)
 
 
-def fetch_run(store, run_id, destination, remote_seconds=None, include_auxiliary=False):
+def fetch_run(store, run_id, destination, remote_seconds=None, include_auxiliary=False, full=False):
     destination = Path(destination).resolve()
     partial = destination.with_name(destination.name + '.partial')
     result = read_json(store, f'/runs/{sync.safe_id(run_id)}/result.json')
@@ -142,7 +145,7 @@ def fetch_run(store, run_id, destination, remote_seconds=None, include_auxiliary
     include = [*request['returned'], *(sync.AUXILIARY if include_auxiliary else ())]
     started = time.monotonic()
     downloaded = sync.download(result, lambda path: store.read_file(f'/runs/{run_id}/output/{path}'),
-                               destination, include=include)
+                               destination, include=include, omit=() if full else sync.OMITTED)
     downloaded['download_seconds'] = time.monotonic() - started
     (destination/'remote-runner.log').write_bytes(b''.join(store.read_file(f'/runs/{run_id}/runner.log')))
     submitted = destination/'remote-submit.json'
@@ -154,6 +157,15 @@ def fetch_run(store, run_id, destination, remote_seconds=None, include_auxiliary
     (destination/'remote-run.json').write_text(json.dumps(record, indent=2) + '\n')
     print(json.dumps({k: record[k] for k in ('run_id', 'download', 'remote_call_seconds', 'estimated_worker_usd')}
                      | {'timings': result['timings'], 'output': str(destination)}, indent=2))
+
+
+def complete_run(store, destination):
+    destination = Path(destination).resolve()
+    marker = json.loads((destination/sync.OMITTED_MARKER).read_text())
+    run_id = sync.safe_id(marker['run_id'])
+    started = time.monotonic()
+    stats = sync.complete(destination, lambda path: store.read_file(f'/runs/{run_id}/output/{path}'))
+    print(json.dumps({**stats, 'seconds': time.monotonic() - started, 'output': str(destination)}, indent=2))
 
 
 def clean(args):
@@ -215,11 +227,16 @@ def argument_parser():
     run.add_argument('--keep-auxiliary', action='store_true',
                      help='Also persist and download raw trace and report cache')
     run.add_argument('--detach', action='store_true', help='Submit and return; fetch later')
+    run.add_argument('--full', action='store_true',
+                     help='Also download posterior.nc/prior.nc (default leaves them on the Volume)')
     run.add_argument('runner_args', nargs=argparse.REMAINDER, help='Arguments after -- go to the runner')
     fetch = commands.add_parser('fetch', help='Download a finished run (resumes partial downloads)')
     fetch.add_argument('--run-id', required=True)
     fetch.add_argument('--output', type=Path, required=True)
     fetch.add_argument('--include-auxiliary', action='store_true')
+    fetch.add_argument('--full', action='store_true', help='Also download posterior.nc/prior.nc')
+    finish = commands.add_parser('complete', help='Download the posterior files a summary fetch left remote')
+    finish.add_argument('--output', type=Path, required=True)
     remove = commands.add_parser('clean', help='Delete remote copies; local results are untouched')
     remove.add_argument('--run-id')
     remove.add_argument('--unreferenced-blobs', action='store_true')
@@ -232,7 +249,9 @@ def main(argv=None):
     if args.command == 'run':
         submit(args)
     elif args.command == 'fetch':
-        fetch_run(volume(), args.run_id, args.output, include_auxiliary=args.include_auxiliary)
+        fetch_run(volume(), args.run_id, args.output, include_auxiliary=args.include_auxiliary, full=args.full)
+    elif args.command == 'complete':
+        complete_run(volume(), args.output)
     elif args.command == 'clean':
         clean(args)
     else:

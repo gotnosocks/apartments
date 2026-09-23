@@ -274,40 +274,73 @@ def execute(request, *, blob_root, run_root, scratch, filesystem_root='/', pytho
     return result
 
 
-def download(result, read, destination, include=None):
+# Posterior draws stay remote by default; summaries answer screening and convergence
+# questions. Promotion, the main page and source review need `complete` first.
+OMITTED = ('fit/posterior.nc', 'fit/prior.nc')
+OMITTED_MARKER = 'remote-omitted.json'
+
+
+def download(result, read, destination, include=None, omit=()):
     """Fetch inventory files into ``destination`` via ``<destination>.partial``; resumable.
 
     ``read(relative_path)`` yields the bytes of ``output/<relative_path>`` on the store.
-    ``include`` restricts to top-level names (default: everything returned).
+    ``include`` restricts to top-level names (default: everything returned). Files in
+    ``omit`` stay remote and are listed in ``remote-omitted.json`` so bundle readers
+    refuse the directory until ``complete`` fetches them.
     """
     destination = Path(destination)
     if destination.exists():
         raise ValueError(f'Destination exists; downloads never overwrite: {destination}')
     partial = destination.with_name(destination.name + '.partial')
     partial.mkdir(parents=True, exist_ok=True)
-    fetched = reused = 0
-    selected = [item for item in result['files']
+    returned = [item for item in result['files']
                 if include is None or PurePosixPath(item['path']).parts[0] in include]
-    for item in selected:
-        target = partial/relative_posix(item['path'])
+    selected = [item for item in returned if item['path'] not in omit]
+    omitted = [item for item in returned if item['path'] in omit]
+    stats = fetch_items(selected, read, partial)
+    verify_bundles(partial, selected, returned)
+    if omitted:
+        (partial/OMITTED_MARKER).write_text(json.dumps(
+            {'run_id': result['run_id'], 'files': omitted}, indent=2) + '\n')
+    partial.rename(destination)
+    return {**stats, 'files': len(selected), 'omitted_files': len(omitted),
+            'omitted_bytes': sum(item['size'] for item in omitted)}
+
+
+def complete(destination, read):
+    """Fetch the files a summary-only download left remote, verify them, drop the marker."""
+    destination = Path(destination)
+    marker = destination/OMITTED_MARKER
+    omitted = json.loads(marker.read_text())['files']
+    stats = fetch_items(omitted, read, destination, suffix='.partial')
+    marker.unlink()
+    return {**stats, 'files': len(omitted)}
+
+
+def fetch_items(items, read, root, suffix=''):
+    """Download and hash-check each item; with a suffix, write aside and rename into place."""
+    fetched = reused = 0
+    for item in items:
+        target = root/relative_posix(item['path'])
         if target.is_file() and target.stat().st_size == item['size'] and digest(target) == item['sha256']:
             reused += item['size']
             continue
         target.parent.mkdir(parents=True, exist_ok=True)
-        sha, size = copy_hashed(read(item['path']), target)
+        staging = target.with_name(target.name + suffix)
+        sha, size = copy_hashed(read(item['path']), staging)
         if sha != item['sha256'] or size != item['size']:
-            target.unlink()
+            staging.unlink()
             raise ValueError(f'Downloaded bytes differ from worker inventory: {item["path"]}')
+        if suffix:
+            staging.rename(target)
         fetched += size
-    verify_bundles(partial, selected)
-    partial.rename(destination)
-    return {'downloaded_bytes': fetched, 'reused_partial_bytes': reused, 'files': len(selected)}
+    return {'downloaded_bytes': fetched, 'reused_partial_bytes': reused}
 
 
-def verify_bundles(root, inventory):
-    """Every downloaded ``complete.json`` must list files that are present with matching hashes."""
-    hashes = {item['path']: item['sha256'] for item in inventory}
-    for marker in sorted(p for p in hashes if PurePosixPath(p).name == 'complete.json'):
+def verify_bundles(root, downloaded, inventory=None):
+    """Each downloaded ``complete.json`` must list only returned files with matching hashes."""
+    hashes = {item['path']: item['sha256'] for item in inventory or downloaded}
+    for marker in sorted(item['path'] for item in downloaded if PurePosixPath(item['path']).name == 'complete.json'):
         folder = PurePosixPath(marker).parent
         manifest = json.loads((Path(root)/marker).read_text())
         for name, expected in manifest.get('files', {}).items():

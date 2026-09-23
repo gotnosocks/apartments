@@ -99,3 +99,23 @@ def test_materialize_refuses_corrupt_blob_and_rejects_wrapper_arguments(repo, tm
     with pytest.raises(ValueError, match='supplies --dataset'):
         sync.build_request(repo=root, dataset=dataset, runner='models.fake_runner',
                            runner_args=['--output', 'x'], run_id='r')
+
+
+def test_summary_download_leaves_posterior_remote_until_completed(repo, tmp_path):
+    root, dataset = repo
+    blobs = tmp_path/'blobs'
+    request, sources = sync.build_request(repo=root, dataset=dataset, runner='models.fake_runner',
+                                          runner_args=['--draws', '3'], run_id='r')
+    upload(request, sources, blobs)
+    run_root, scratch = tmp_path/'runs/r', tmp_path/'scratch'
+    scratch.mkdir()
+    result = sync.execute(request, blob_root=blobs, run_root=run_root, scratch=scratch,
+                          filesystem_root=tmp_path/'fs')
+    read = lambda p: sync.file_chunks(run_root/'output'/p)
+    local = tmp_path/'summary'
+    stats = sync.download(result, read, local, omit=('fit/posterior.nc',))
+    assert stats['omitted_files'] == 1 and not (local/'fit/posterior.nc').exists()
+    assert json.loads((local/sync.OMITTED_MARKER).read_text())['files'][0]['path'] == 'fit/posterior.nc'
+    sync.complete(local, read)
+    assert (local/'fit/posterior.nc').read_text() == '{"rent": 1}\n3'
+    assert not (local/sync.OMITTED_MARKER).exists()
