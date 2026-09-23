@@ -6,7 +6,12 @@ columns (e.g. ``log_size_within_bedrooms``, ``full_bathrooms_gt_1``,
 tau_j ~ HalfNormal(``feature_slope_prior``), added as s_bj * x_j on the raw
 (uncentered) column: how much each building's size and bathroom premiums
 differ from the Chelsea-wide ones. Following the from-scratch model session's
-m6 ablation. With default arguments v5 builds exactly the v4 graph.
+m6 ablation. ``citywide_walk_months`` adds a citywide random walk on knots
+every that many months (scale ~ HalfNormal(``citywide_walk_prior``)), after
+the from-scratch session's quarterly citywide walk; it carries sharp shared
+moves such as the 2021 rebound, so building walks can be centered across
+buildings without leaving that to the smooth trend basis. With default
+arguments v5 builds exactly the v4 graph.
 """
 
 from __future__ import annotations
@@ -84,6 +89,8 @@ def configuration(
     bedroom_slope_prior=0.1,
     building_feature_slopes=(),
     feature_slope_prior=0.1,
+    citywide_walk_months=None,
+    citywide_walk_prior=0.05,
 ):
     if building_time not in BUILDING_TIME:
         raise ValueError("Unknown building-time mode")
@@ -123,6 +130,8 @@ def configuration(
             "bedroom_slope_prior": bedroom_slope_prior,
             "building_feature_slopes": list(building_feature_slopes),
             "feature_slope_prior": feature_slope_prior,
+            "citywide_walk_months": citywide_walk_months,
+            "citywide_walk_prior": citywide_walk_prior,
         },
     )
     return config
@@ -159,6 +168,8 @@ def build_model(
     bedroom_slope_prior=0.1,
     building_feature_slopes=(),
     feature_slope_prior=0.1,
+    citywide_walk_months=None,
+    citywide_walk_prior=0.05,
 ):
     """`group_column` other than bedrooms exists only for screening negative controls."""
     config = configuration(
@@ -190,6 +201,8 @@ def build_model(
         bedroom_slope_prior=bedroom_slope_prior,
         building_feature_slopes=building_feature_slopes,
         feature_slope_prior=feature_slope_prior,
+        citywide_walk_months=citywide_walk_months,
+        citywide_walk_prior=citywide_walk_prior,
     )
     d = design.time
     a = d.arrays(train)
@@ -405,6 +418,24 @@ def build_model(
                 "building_feature_slope_z", 0, 1, dims=("building", "slope_feature")
             )
             mu = mu + ((feature_scale * feature_z)[a["building"]] * columns).sum(1)
+        if citywide_walk_months:
+            # Citywide random walk on knots every `citywide_walk_months`,
+            # linearly interpolated, centered on the training rows so it does
+            # not duplicate alpha. It carries sharp shared moves (the 2021
+            # rebound) that the smooth trend basis cannot follow, which lets
+            # the building walks be centered across buildings.
+            cbasis, cknots = building_knots(d.periods, citywide_walk_months / 12.0)
+            model.add_coord("citywide_knot", np.arange(len(cknots)))
+            cscale = pm.HalfNormal("citywide_walk_scale", citywide_walk_prior)
+            cz = pm.Normal("citywide_walk_z", 0, 1, dims="citywide_knot")
+            clevels = cscale * np.sqrt(citywide_walk_months / 12.0) * pt.cumsum(cz)
+            ccurve = pt.dot(cbasis, clevels)
+            row_share = np.bincount(a["period"], minlength=len(d.periods))
+            row_share = row_share / row_share.sum()
+            citywide = pm.Deterministic(
+                "citywide_walk", ccurve - pt.dot(row_share, ccurve), dims="period"
+            )
+            mu = mu + citywide[a["period"]]
         if shock_months:
             bucket = a["period"] // int(shock_months)
             n_buckets = (n_periods - 1) // int(shock_months) + 1
@@ -479,8 +510,13 @@ def building_time_numpy(
     building_time,
     building_scale,
     building_knot_years,
+    centering_rows=None,
 ):
-    """Per-row building-time contribution for stacked draws (rows x samples)."""
+    """Per-row building-time contribution for stacked draws (rows x samples).
+
+    ``centering_rows`` (training rows per building) reproduces
+    ``walk_centering="across_buildings"``.
+    """
     if building_time == "none":
         return 0.0
     d = design.time
@@ -503,6 +539,9 @@ def building_time_numpy(
     if z.ndim == 2:  # flat building-major (building_knot, sample)
         z = z.reshape(len(d.buildings), bbasis.shape[1], z.shape[-1])
     levels = scale[None, None] * np.sqrt(building_knot_years) * np.cumsum(z, axis=1)
+    if centering_rows is not None:
+        share = np.asarray(centering_rows, dtype=float) / np.sum(centering_rows)
+        levels = levels - np.einsum("bks,b->ks", levels, share)[None]
     centers = np.einsum("bks,bk->bs", levels, building_weights @ bbasis)
     return (
         np.einsum("rks,rk->rs", levels[a["building"]], bbasis[a["period"]])

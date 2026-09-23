@@ -264,7 +264,10 @@ def predictive(posterior, design, test, options, building_weights, thin, shock=N
         building_time=options["building_time"],
         building_scale=options["building_scale"],
         building_knot_years=options["building_knot_years"],
+        centering_rows=options.get("centering_rows"),
     )
+    if "citywide_walk" in p:
+        mu = mu + p["citywide_walk"].values[a["period"]]
     if shock and shock["months"]:
         mu = mu + graph.building_shock_numpy(
             p,
@@ -364,6 +367,10 @@ def main():
     )
     parser.add_argument("--noise-scale", type=float, default=None)
     parser.add_argument("--building-bedroom-slope", action="store_true")
+    parser.add_argument("--citywide-walk-months", type=int, default=None)
+    parser.add_argument(
+        "--walk-centering", choices=("none", "across_buildings"), default="none"
+    )
     parser.add_argument(
         "--building-feature-slopes",
         default="",
@@ -438,6 +445,8 @@ def main():
         noise_scale=args.noise_scale,
         unit_slope_scale=args.unit_slope_scale,
         building_bedroom_slope=args.building_bedroom_slope,
+        citywide_walk_months=args.citywide_walk_months,
+        walk_centering=args.walk_centering,
         building_feature_slopes=tuple(
             n for n in args.building_feature_slopes.split(",") if n
         ),
@@ -484,6 +493,12 @@ def main():
             "train_rent": train.asking_rent.to_numpy(),
             "unit_slope_scale": args.unit_slope_scale,
             "unit_year_centers": getattr(model, "unit_year_centers", None),
+            "centering_rows": np.bincount(
+                design.time.arrays(train)["building"],
+                minlength=len(design.time.buildings),
+            )
+            if args.walk_centering == "across_buildings"
+            else None,
         },
         model.building_weights,
         args.thin if args.method == "nuts" else 1,
@@ -506,6 +521,7 @@ def main():
             "noise_level_slope",
             "unit_slope_scale",
             "building_bedroom_slope_scale",
+            "citywide_walk_scale",
         )
         if n in posterior
     }
