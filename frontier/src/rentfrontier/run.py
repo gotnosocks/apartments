@@ -161,6 +161,19 @@ def score(
     return out
 
 
+def feature_sources(feature_set: str) -> dict:
+    """Input files behind a feature set, beyond the analytical dataset."""
+    out = {}
+    if feature_set.startswith("desc"):
+        from . import descriptions
+
+        out["descriptions"] = {
+            "path": str(descriptions.SOURCE),
+            "sha256": data.sha256(descriptions.SOURCE),
+        }
+    return out
+
+
 def main(argv=None):
     parser = argparse.ArgumentParser(
         description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
@@ -276,6 +289,7 @@ def main(argv=None):
         "split": args.split,
         "split_seed": splits.SEED,
         "feature_set": args.features,
+        "feature_sources": feature_sources(args.features),
         "model": config.to_dict(),
         "sampler": args.sampler,
         "sampler_settings": settings.to_dict(),
