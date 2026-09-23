@@ -20,7 +20,7 @@ from threadpoolctl import threadpool_limits
 
 from . import bayesian_feature_experiment_v3 as v3
 from . import bayesian_floor_spline_design as floor
-from . import bayesian_structure_graph as graph
+from . import bayesian_structure_graph_v2 as graph
 from .bedroom_time_screen import split, map_posterior, summarize
 
 UNSEEN_UNIT_DRAWS = 200
@@ -109,6 +109,10 @@ def predictive(posterior, design, test, options, building_weights, thin, shock=N
         mu = mu + graph.building_shock_numpy(p, design, test, shock['weights'],
             shock_months=shock['months'], shock_scale=shock['scale'])
     nu = p['nu'].values[None] if 'nu' in p else 5.
+    sigma = p.sigma.values[None]*np.ones((len(test), 1))
+    if 'noise_building_z' in p:
+        tau = p['noise_building_scale'].values if 'noise_building_scale' in p else np.full(p.sigma.shape, options['noise_scale'])
+        sigma = p.sigma.values[None]*np.exp(tau[None]*p['noise_building_z'].values[a['building']])
     y = np.log(test.asking_rent.to_numpy())[:, None]
     if unseen.any():
         # A new unit's effect is unknown: integrate sigma_unit * z, z ~ N(0, 1),
@@ -117,9 +121,9 @@ def predictive(posterior, design, test, options, building_weights, thin, shock=N
         z = np.random.default_rng(0).standard_normal((mu.shape[0], mu.shape[1]*k))
         mu_k = np.repeat(mu, k, axis=1) + np.where(unseen[:, None], np.repeat(p.sigma_unit.values, k)[None]*z, 0.)
         nu_k = np.repeat(nu, k, axis=1) if np.ndim(nu) else nu
-        logpdf = stats.t.logpdf(y, nu_k, loc=mu_k, scale=np.repeat(p.sigma.values, k)[None])
+        logpdf = stats.t.logpdf(y, nu_k, loc=mu_k, scale=np.repeat(sigma, k, axis=1))
     else:
-        logpdf = stats.t.logpdf(y, nu, loc=mu, scale=p.sigma.values[None])
+        logpdf = stats.t.logpdf(y, nu, loc=mu, scale=sigma)
     lpd = special.logsumexp(logpdf, axis=1)-math.log(logpdf.shape[1])
     return lpd, y[:, 0]-np.median(mu, axis=1)
 
@@ -137,6 +141,8 @@ def main():
     parser.add_argument('--building-scale-prior', type=float, default=.02,
         help='HalfNormal prior scale for the drift scale when --building-scale is omitted')
     parser.add_argument('--estimate-nu', action='store_true')
+    parser.add_argument('--noise', choices=('shared', 'building'), default='shared')
+    parser.add_argument('--noise-scale', type=float, default=None)
     parser.add_argument('--extra-features', default='', help='Comma-separated screening flags: '+', '.join(EXTRA))
     parser.add_argument('--shock-months', type=int, default=None)
     parser.add_argument('--shock-scale', type=float, default=None)
@@ -168,7 +174,8 @@ def main():
     model = graph.build_model(train, design, nu=None if args.estimate_nu else 5.,
                               building_scale_prior=args.building_scale_prior,
                               shock_months=args.shock_months, shock_scale=args.shock_scale,
-                              shock_scale_prior=args.shock_scale_prior, **options)
+                              shock_scale_prior=args.shock_scale_prior, noise=args.noise,
+                              noise_scale=args.noise_scale, **options)
     started = time.monotonic()
     diagnostic = None
     if args.method == 'map':
@@ -187,7 +194,7 @@ def main():
     elapsed = time.monotonic()-started
     shock = {'months': args.shock_months, 'scale': args.shock_scale,
              'weights': getattr(model, 'shock_weights', None)}
-    lpd, error = predictive(posterior, design, test, options, model.building_weights,
+    lpd, error = predictive(posterior, design, test, {**options, 'noise_scale': args.noise_scale}, model.building_weights,
                             args.thin if args.method == 'nuts' else 1, shock)
     scalars = {n: {'mean': float(posterior[n].mean()), 'sd': float(posterior[n].std())}
                for n in ('alpha', 'sigma', 'sigma_unit', 'sigma_building', 'annual_drift', 'trend_scale',
