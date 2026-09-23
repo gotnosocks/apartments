@@ -25,8 +25,16 @@ half-year building walk and screens are conditional MAP. See
 | building-level residual scales | +45.4 ± 29.0 (NUTS) | — | suggestive (1.6 SE); σ_unit 0.082 → 0.070; compare with price-level noise |
 | per-unit linear drift (free scale, HalfNormal(0.01)) | cMAP erratic (−16.7 to +52.2); **NUTS +50.6 ± 7.5** | — | **accepted** for the next combined fit; σ 0.050 → 0.049 |
 | price-level residual scale | -17.7 ± 13.4 (NUTS) | — | rejected |
+| per-building bedroom slope s_b·(min(beds,4)−1), τ ~ HalfNormal(0.1) (from-scratch session's ablation) | **+196.7 ± 29.1** (NUTS) | — | **accepted**; τ ≈ 0.11 |
+| estimated ν, on the building-walk model | **+56.4 ± 22.2** (NUTS) | — | **accepted**; ν ≈ 1.9 (the earlier rejection, ν ≈ 4.3, predates the building walk) |
+| bedroom slope + estimated ν | **+249.9 ± 35.6** (NUTS; +53.3 ± 22.3 over slope alone) | **+505.5 ± 40.5** | **accepted** for the next candidate; matches the from-scratch m5 (+501.9 ± 40.9 on units) |
 
 Building covariates come from archived StreetEasy building pages
 (`data/model/building-covariates-20260923/buildings.csv`; 1,072 of 1,129
 buildings with floors and units). The archive's `yearBuilt` is a placeholder
 for most buildings (1910: 58%, 1900: 23%), so it is not used.
+
+NUTS screens (Modal, 4 × 1,000/1,000) mix only loosely: R-hat 1.02–1.05 and
+minimum ESS 56–153 on the slowest global scale. Paired ΔELPD is much less
+sensitive than individual parameters, and these results reproduce the
+from-scratch session's independent fits within one SE.
