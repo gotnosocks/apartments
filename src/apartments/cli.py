@@ -378,11 +378,42 @@ def pricing_fit(
         max=20,
         help="NUTS maximum tree depth: spline defaults to 10; legacy disk runs preserve the backend default when omitted.",
     ),
+    executor: str = typer.Option(
+        "local",
+        help="local (default) runs here; modal runs the same runner and protocol on Modal and downloads verified results into OUTPUT.",
+    ),
+    modal_cpu: float | None = typer.Option(
+        None,
+        help="Modal physical cores (default 4).",
+        rich_help_panel="Modal (--executor modal only)",
+    ),
+    modal_memory: int | None = typer.Option(
+        None,
+        help="Modal memory in MiB (default 16384).",
+        rich_help_panel="Modal (--executor modal only)",
+    ),
+    modal_timeout: int | None = typer.Option(
+        None,
+        help="Modal timeout in seconds (default 21600).",
+        rich_help_panel="Modal (--executor modal only)",
+    ),
+    modal_full: bool = typer.Option(
+        False,
+        help="Also download posterior.nc/prior.nc; default leaves them on the Volume until `modal_remote_fit complete`.",
+        rich_help_panel="Modal (--executor modal only)",
+    ),
+    modal_detach: bool = typer.Option(
+        False,
+        help="Submit and return; fetch later with `python -m models.modal_remote_fit fetch`.",
+        rich_help_panel="Modal (--executor modal only)",
+    ),
 ):
     """Fit the main exact PyMC model from a verified bathroom source projection.
 
     Publishes immutable protocol/posterior products; never promotes a fit or
     falls back to another model. Existing matching checkpoints may be resumed.
+    Runs locally by default; --executor modal is opt-in (it matched local speed,
+    55.4 vs about 56 minutes, at about $0.38 per full-length spline fit).
     """
     import json
     from argparse import Namespace
@@ -411,7 +442,18 @@ def pricing_fit(
         floor_prior_scale=floor_prior_scale,
         maxdepth=maxdepth,
     )
+    modal_options = dict(cpu=modal_cpu, memory=modal_memory, timeout=modal_timeout)
     try:
+        if executor not in ("local", "modal"):
+            raise ValueError("executor must be local or modal")
+        if executor == "local" and (
+            any(v is not None for v in modal_options.values())
+            or modal_full
+            or modal_detach
+        ):
+            raise ValueError("--modal-* options require --executor modal")
+        if executor == "modal" and execution != "disk":
+            raise ValueError("--executor modal supports only --execution disk")
         if execution not in ("disk", "memory"):
             raise ValueError("execution must be disk or memory")
         if floor_model is not None and floor_increments is not None:
@@ -446,6 +488,21 @@ def pricing_fit(
             )
             runner = disk_runner if execution == "disk" else model_runner
         model_runner.validate_args(args)
+        if executor == "modal":
+            # Lazy: local fits never import Modal or need `--extra modal`.
+            from models import modal_remote_fit
+            from .remote_fit_pricing import submit_argv
+
+            modal_remote_fit.main(
+                submit_argv(
+                    args,
+                    selected_floor,
+                    **modal_options,
+                    full=modal_full,
+                    detach=modal_detach,
+                )
+            )
+            return
         # Match the arithmetic used by exact design reconstruction in analysis.
         with threadpool_limits(limits=1, user_api="blas"):
             result = runner.run(args)
@@ -739,11 +796,24 @@ def candidate_build(
 
 @app.command("build-review-queue")
 def review_queue_build(
-    output: Path | None = typer.Argument(None, help="Bundle directory; defaults to data/model/review-queue/<experiment>-<fit hash>-<version>, which the app resolves automatically."),
-    selection: Path | None = typer.Option(None, help="Main PyMC selection JSON; defaults to config/main-analysis.json."),
-    no_descriptions: bool = typer.Option(False, help="Skip archived description snippets."),
-    top: int = typer.Option(100, min=1, help="Top-N size used in the ranking comparison summary."),
-    page_limit: int = typer.Option(2500, min=1, help="Rows embedded in the HTML page per ranking; current captures are always included."),
+    output: Path | None = typer.Argument(
+        None,
+        help="Bundle directory; defaults to data/model/review-queue/<experiment>-<fit hash>-<version>, which the app resolves automatically.",
+    ),
+    selection: Path | None = typer.Option(
+        None, help="Main PyMC selection JSON; defaults to config/main-analysis.json."
+    ),
+    no_descriptions: bool = typer.Option(
+        False, help="Skip archived description snippets."
+    ),
+    top: int = typer.Option(
+        100, min=1, help="Top-N size used in the ranking comparison summary."
+    ),
+    page_limit: int = typer.Option(
+        2500,
+        min=1,
+        help="Rows embedded in the HTML page per ranking; current captures are always included.",
+    ),
 ):
     """Publish the residual review queue ranked on unit effect + residual, with a standalone HTML page.
 
@@ -753,10 +823,16 @@ def review_queue_build(
     import json
     from . import main_analysis
     from .review_queue import build_review_queue
+
     chosen = selection or main_analysis.DEFAULT_SELECTION
     try:
-        result = build_review_queue(output, selection=chosen, include_descriptions=not no_descriptions, top=top,
-                                    page_limit=page_limit)
+        result = build_review_queue(
+            output,
+            selection=chosen,
+            include_descriptions=not no_descriptions,
+            top=top,
+            page_limit=page_limit,
+        )
     except (OSError, ValueError, KeyError) as error:
         typer.echo(f"Review queue failed: {error}", err=True)
         raise typer.Exit(1) from error
@@ -766,10 +842,13 @@ def review_queue_build(
 @app.command("serve-docs")
 def docs_serve(
     port: int = typer.Option(8768),
-    listen: str | None = typer.Option(None, help="Explicit host:port listeners; defaults to loopback."),
+    listen: str | None = typer.Option(
+        None, help="Explicit host:port listeners; defaults to loopback."
+    ),
 ):
     """Serve docs, analysis and model reports as read-only browser pages."""
     from .docs_server import serve
+
     try:
         serve(port=port, listen=listen)
     except (OSError, ValueError) as error:
@@ -779,18 +858,32 @@ def docs_serve(
 
 @app.command("serve-review-queue")
 def review_queue_serve(
-    directory: Path | None = typer.Argument(None, help="Fixed bundle directory; omit to follow the selection file."),
-    selection: Path | None = typer.Option(None, help="Main PyMC selection JSON to follow; defaults to config/main-analysis.json when no directory is given."),
+    directory: Path | None = typer.Argument(
+        None, help="Fixed bundle directory; omit to follow the selection file."
+    ),
+    selection: Path | None = typer.Option(
+        None,
+        help="Main PyMC selection JSON to follow; defaults to config/main-analysis.json when no directory is given.",
+    ),
     port: int = typer.Option(8767),
-    listen: str | None = typer.Option(None, help="Explicit host:port listeners; defaults to loopback."),
+    listen: str | None = typer.Option(
+        None, help="Explicit host:port listeners; defaults to loopback."
+    ),
 ):
     """Serve the review-queue page read-only; following the selection picks up rebuilt queues without a restart."""
     from . import main_analysis
     from .review_queue import serve
+
     try:
         if directory is not None and selection is not None:
-            raise ValueError('Give either a bundle directory or a selection file, not both')
-        chosen = None if directory is not None else (selection or main_analysis.DEFAULT_SELECTION)
+            raise ValueError(
+                "Give either a bundle directory or a selection file, not both"
+            )
+        chosen = (
+            None
+            if directory is not None
+            else (selection or main_analysis.DEFAULT_SELECTION)
+        )
         serve(directory, selection=chosen, port=port, listen=listen)
     except (OSError, ValueError) as error:
         typer.echo(f"Review queue server failed: {error}", err=True)
