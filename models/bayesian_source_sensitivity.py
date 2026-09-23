@@ -42,10 +42,17 @@ def _attribute_inputs(dataset, data, protocol):
                if (c/'complete.json').is_file() and digest(c/'complete.json') == expected]
     if len(matches) != 1:
         raise ValueError('Bound description archive not found beside the dataset')
-    units = attribute.attribute_units(data, load_evidence(dataset, matches[0]))
-    if hashlib.sha256(canonical(units).encode()).hexdigest() != protocol['attribute_units_sha256']:
-        raise ValueError('Recomputed unit attributes differ from protocol')
-    return {'attribute_units': units, 'evidence_manifest_sha256': expected}
+    captures = load_evidence(dataset, matches[0])
+    if protocol.get('feature_design_version') == attribute.VERSION:
+        units = attribute.attribute_units(data, captures)
+        if hashlib.sha256(canonical(units).encode()).hexdigest() != protocol['attribute_units_sha256']:
+            raise ValueError('Recomputed unit attributes differ from protocol')
+        return {'attribute_units': units, 'evidence_manifest_sha256': expected}
+    from . import bayesian_attribute_design_v2 as asof
+    audits = asof.attribute_audits(data, captures)
+    if hashlib.sha256(canonical(audits).encode()).hexdigest() != protocol['attribute_audits_sha256']:
+        raise ValueError('Recomputed as-of attributes differ from protocol')
+    return {'attribute_audits': audits, 'evidence_manifest_sha256': expected}
 
 
 def reconstruction_dependencies(protocol=None):
@@ -57,8 +64,11 @@ def reconstruction_dependencies(protocol=None):
         from . import bayesian_floor_spline_design as spline
         from . import bayesian_floor_increment_design as floor_source
         from . import bayesian_attribute_design as attribute
+        from . import bayesian_attribute_design_v2 as asof
         if protocol.get('feature_design_version') == attribute.VERSION:
             return attribute, [*paths, Path(floor_source.__file__), Path(spline.__file__), Path(attribute.__file__)]
+        if protocol.get('feature_design_version') == asof.VERSION:
+            return asof, [*paths, Path(floor_source.__file__), Path(spline.__file__), Path(attribute.__file__), Path(asof.__file__)]
         if protocol.get('feature_design_version') != spline.VERSION:
             raise ValueError('Unsupported spline reconstruction version')
         return spline, [*paths, Path(floor_source.__file__), Path(spline.__file__)]
