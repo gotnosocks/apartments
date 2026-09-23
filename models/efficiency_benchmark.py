@@ -18,7 +18,7 @@ from threadpoolctl import threadpool_limits
 
 from . import bayesian_feature_experiment_v3 as v3
 from . import bayesian_floor_spline_design as floor
-from . import bayesian_structure_graph_v2 as graph
+from . import bayesian_structure_graph_v3 as graph
 
 GLOBALS = (
     "alpha",
@@ -43,6 +43,12 @@ def main():
     parser.add_argument("--chains", type=int, default=4)
     parser.add_argument("--seed", type=int, default=20260918)
     parser.add_argument("--target-accept", type=float, default=0.93)
+    parser.add_argument(
+        "--unit-centering", choices=("none", "building"), default="none"
+    )
+    parser.add_argument(
+        "--intercept", choices=("global", "building_mean"), default="global"
+    )
     args = parser.parse_args()
     import arviz as az
     import nutpie
@@ -56,6 +62,8 @@ def main():
         building_time="walk",
         building_knot_years=0.5,
         building_scale_prior=0.1,
+        unit_centering=args.unit_centering,
+        intercept=args.intercept,
     )
     started = time.monotonic()
     compiled = nutpie.compile_pymc_model(model, backend="numba")
@@ -89,6 +97,8 @@ def main():
     beta = az.summary(posterior[["beta"]], kind="diagnostics", round_to="none")
     result = {
         "adaptation": args.adaptation,
+        "unit_centering": args.unit_centering,
+        "intercept": args.intercept,
         "tune": args.tune,
         "draws": args.draws,
         "chains": args.chains,
