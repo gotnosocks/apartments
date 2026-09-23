@@ -25,7 +25,6 @@ def run(args):
     import jax
     from pymc.sampling.jax import sample_jax_nuts  # enables x64; precision is set afterwards
     jax.config.update('jax_enable_x64', args.precision == 64)
-    from models.bayesian_rent_model import diagnostics
 
     record = {'version': 'jax-spline-sampling-trial-v1', 'hardware': probe.hardware(),
               'devices': [str(d) for d in jax.devices()], 'settings': vars(args) | {'output': None}}
@@ -54,27 +53,44 @@ def run(args):
         (output/'trial.json').write_text(json.dumps(record, indent=2) + '\n')
         raise
     record['pymc_call_seconds'] = time.perf_counter() - started
-    record['sampling_seconds'] = float(inference.attrs.get('sampling_time', np.nan))
+    # nutpie's time excludes compilation; PyMC's JAX path does not expose one, so use the call.
+    record['sampling_seconds'] = float(inference.attrs.get('sampling_time', record['pymc_call_seconds']))
+    save(output, record)
+    summarize(record, inference, args, output)
+    print(json.dumps({k: v for k, v in record.items() if k != 'diagnostics'}
+                     | {'diagnostics': {k: v for k, v in record['diagnostics'].items() if k != 'worst_rhat'}},
+                     indent=2, default=str))
+
+
+def save(output, record):
+    """Rewrite trial.json after each stage so a late failure keeps earlier measurements."""
+    (Path(output)/'trial.json').write_text(json.dumps(record, indent=2, default=str) + '\n')
+
+
+def summarize(record, inference, args, output):
+    from models.bayesian_rent_model import diagnostics
     stats = inference['sample_stats'].to_dataset()
     steps = stats['n_steps'].values
     record['leapfrog_steps'] = {'mean': float(steps.mean()), 'median': float(np.median(steps)),
                                 'max': int(steps.max()), 'per_chain_mean': steps.mean(axis=1).tolist()}
     # Vectorized chains advance in lockstep, so each iteration costs the slowest chain's tree.
     record['lockstep_steps_per_iteration'] = float(steps.max(axis=0).mean())
+    save(output, record)
     if 'maxdepth_reached' not in stats:
         inference['sample_stats']['maxdepth_reached'] = stats['n_steps'] >= 2**MAX_TREE_DEPTH - 1
     started = time.perf_counter()
-    record['diagnostics'] = diagnostics(inference)
+    try:
+        record['diagnostics'], _ = diagnostics(inference)
+    except Exception as error:
+        record['diagnostics_error'] = f'{type(error).__name__}: {error}'[:4000]
+        save(output, record)
+        raise
     record['diagnostics_seconds'] = time.perf_counter() - started
-    retained = record['sampling_seconds']*args.draws/(args.draws + args.tune)
-    record['min_ess_bulk_per_total_sampling_second'] = record['diagnostics']['min_ess_bulk']/record['sampling_seconds']
-    record['note'] = ('sampling_seconds covers warmup, retained draws and JIT; per-second ESS rates use it as '
-                      'the denominator. retained_share_seconds is a proportional split, not a measurement.')
-    record['retained_share_seconds'] = retained
-    (output/'trial.json').write_text(json.dumps(record, indent=2, default=str) + '\n')
-    print(json.dumps({k: v for k, v in record.items() if k != 'diagnostics'}
-                     | {'diagnostics': {k: v for k, v in record['diagnostics'].items() if k != 'worst_rhat'}},
-                     indent=2, default=str))
+    record['min_ess_bulk_per_sampling_second'] = record['diagnostics']['min_ess_bulk']/record['sampling_seconds']
+    record['min_ess_tail_per_sampling_second'] = record['diagnostics']['min_ess_tail']/record['sampling_seconds']
+    record['note'] = ('sampling_seconds covers warmup, retained draws and JIT (nutpie: excludes compilation); '
+                      'ESS rates use it as the denominator.')
+    save(output, record)
 
 
 def argument_parser():

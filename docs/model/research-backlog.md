@@ -38,6 +38,20 @@
 The items below continue the September 22 Modal sampling campaign. Probe data:
 `data/model/modal-runs/probe-*-20260922`.
 
+September 23 findings (L4, NumPyro, 4 chains, 300 warmup + 100 draws;
+`data/model/modal-runs/prec{64,32}-l4-20260923`):
+- float64: 511 leapfrog steps every iteration, 0 divergences, max R-hat 1.11,
+  median/min bulk ESS 922/38. nutpie on CPU needs about 50-90 steps, so a
+  full-length NumPyro fit would take about 4.4 h on the L4, against about
+  22 min of CPU sampling.
+- float32: every iteration hit maximum tree depth (1,023 steps), chains did not
+  move (ESS 4, R-hat infinite). float32 fails for this model as written.
+- nutpie JAX backend with PyTensor gradients (canary, early warmup): about
+  4 ms per step per chain on L4, against 2.3 ms on one CPU core. The ~30 ms
+  single-chain cost below comes from JAX's own autodiff of this graph.
+- Current conclusion: nutpie/Numba CPU remains fastest and cheapest per fit;
+  Modal's benefit is running fits concurrently at about $0.35-0.40 each.
+
 - [ ] **Single-chain JAX gradient is ~12× slower than one CPU core** — user
   directive, September 22, 2026. The spline model's logp+gradient takes about
   30 ms for one chain on H100, A100 and L4 (22 ms on the local RTX 2060 SUPER),
@@ -59,9 +73,9 @@ The items below continue the September 22 Modal sampling campaign. Probe data:
   (BlackJAX ChEES/MEADS, or nutpie's normalizing-flow adaptation). Report
   lockstep leapfrog cost, warmup length needed, and ESS per dollar at
   24,000 retained draws.
-- [ ] **float32 sampling** — measure float32 log-density/gradient error against
-  float64, then sampling ESS and bias on key contrasts. Adopt it only with
-  explicit tolerances.
+- [ ] **float32 sampling** — log-density error is 5e-7 relative and gradient
+  error 0.07% scaled, but NumPyro float32 sampling failed (see above). Revisit
+  only with a rescaled model or a different sampler, with explicit tolerances.
 - [ ] **CPU multi-chain scaling** — on a 16-core Modal container, aggregate
   Numba gradient throughput plateaued at about 2 chains' worth (4 processes:
   2× slowdown each; 16: 12.8×), probably memory bandwidth on a shared host.
