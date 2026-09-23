@@ -140,6 +140,9 @@ def predictive(posterior, design, test, options, building_weights, thin, shock=N
             shock_months=shock['months'], shock_scale=shock['scale'])
     nu = p['nu'].values[None] if 'nu' in p else 5.
     sigma = p.sigma.values[None]*np.ones((len(test), 1))
+    if 'noise_level_slope' in p:
+        center = float(np.mean(np.log(options['train_rent'])))
+        sigma = p.sigma.values[None]*np.exp(p['noise_level_slope'].values[None]*(mu-center))
     if 'noise_building_z' in p:
         tau = p['noise_building_scale'].values if 'noise_building_scale' in p else np.full(p.sigma.shape, options['noise_scale'])
         sigma = p.sigma.values[None]*np.exp(tau[None]*p['noise_building_z'].values[a['building']])
@@ -164,6 +167,7 @@ def main():
     parser.add_argument('--output', type=Path, required=True)
     parser.add_argument('--method', choices=('nuts', 'map'), default='map')
     parser.add_argument('--fix-scales-from', type=Path)
+    parser.add_argument('--free-scales', default='', help='Comma-separated FIXED names to leave free (global scalars only)')
     parser.add_argument('--bedroom-groups', type=int, choices=(4, 5), default=4)
     parser.add_argument('--building-time', choices=graph.BUILDING_TIME, default='none')
     parser.add_argument('--building-scale', type=float, default=None)
@@ -171,7 +175,7 @@ def main():
     parser.add_argument('--building-scale-prior', type=float, default=.02,
         help='HalfNormal prior scale for the drift scale when --building-scale is omitted')
     parser.add_argument('--estimate-nu', action='store_true')
-    parser.add_argument('--noise', choices=('shared', 'building'), default='shared')
+    parser.add_argument('--noise', choices=('shared', 'building', 'level'), default='shared')
     parser.add_argument('--noise-scale', type=float, default=None)
     parser.add_argument('--extra-features', default='', help='Comma-separated screening flags: '+', '.join(EXTRA))
     parser.add_argument('--shock-months', type=int, default=None)
@@ -214,7 +218,8 @@ def main():
         fixed = None
         if args.fix_scales_from:
             saved = json.loads(args.fix_scales_from.read_text())['scalars']
-            fixed = {n: saved[n]['mean'] for n in FIXED if n in saved}
+            free = set(filter(None, args.free_scales.split(',')))
+            fixed = {n: saved[n]['mean'] for n in FIXED if n in saved and n not in free}
         posterior = map_posterior(model, args.seed, args.maxeval, fixed)
     else:
         import nutpie
@@ -226,11 +231,12 @@ def main():
     elapsed = time.monotonic()-started
     shock = {'months': args.shock_months, 'scale': args.shock_scale,
              'weights': getattr(model, 'shock_weights', None)}
-    lpd, error = predictive(posterior, design, test, {**options, 'noise_scale': args.noise_scale}, model.building_weights,
+    lpd, error = predictive(posterior, design, test, {**options, 'noise_scale': args.noise_scale, 'train_rent': train.asking_rent.to_numpy()}, model.building_weights,
                             args.thin if args.method == 'nuts' else 1, shock)
     scalars = {n: {'mean': float(posterior[n].mean()), 'sd': float(posterior[n].std())}
                for n in ('alpha', 'sigma', 'sigma_unit', 'sigma_building', 'annual_drift', 'trend_scale',
-                         'season_scale', 'bedroom_walk_scale', 'building_time_scale', 'building_shock_scale', 'nu')
+                         'season_scale', 'bedroom_walk_scale', 'building_time_scale', 'building_shock_scale', 'nu',
+                         'noise_level_slope')
                if n in posterior}
     coefficients = {}
     if extra:

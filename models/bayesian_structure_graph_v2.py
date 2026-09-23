@@ -166,8 +166,14 @@ def build_model(train, design, *, bedroom_groups=4, building_time='none', buildi
                    else float(noise_scale))
             noise_z = pm.ZeroSumNormal('noise_building_z', sigma=1., dims='building')
             observation_sigma = sigma*pt.exp(tau*noise_z)[a['building']]
+        elif noise == 'level':
+            # One global elasticity of the residual scale in the latent level:
+            # sigma_i = sigma * exp(gamma * (mu_i - mean training log rent)).
+            gamma = pm.Normal('noise_level_slope', 0., .5)
+            center = float(np.mean(np.log(train.asking_rent)))
+            observation_sigma = sigma*pt.exp(gamma*(mu-center))
         elif noise != 'shared':
-            raise ValueError('noise must be shared or building')
+            raise ValueError('noise must be shared, building or level')
         pm.StudentT('log_rent', nu=nu_value, mu=mu, sigma=observation_sigma, observed=np.log(train.asking_rent))
     config['structure'].update(noise=noise, noise_scale=noise_scale, noise_scale_prior=noise_scale_prior)
     model.graph_configuration = config
