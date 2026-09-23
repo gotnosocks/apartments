@@ -7,10 +7,13 @@ building/unit caches). Differences:
 * feature design `bayesian_attribute_design_v2`: attribute flags as of each
   listing (the unit's own ads at or before it; never carried backward);
 * graph `bayesian_structure_graph_v3` with the iteration-speed
-  reparameterizations: intercept as the building-level mean, building-walk
-  common drift removed, within-building feature centering, QR feature basis;
-* right-sized defaults of 1,000 warmup + 1,500 draws per chain, with unchanged
-  convergence gates.
+  reparameterizations that leave the model unchanged: intercept as the
+  building-level mean, within-building feature centering, QR feature basis.
+  Removing the building walks' common drift is NOT used: it is a model change
+  (the citywide trend basis cannot absorb the sharp 2021 rebound; the E3 fit
+  over-predicted 2021-22 by about 1.7%);
+* right-sized defaults of 1,000 warmup + 3,000 draws per chain (1,500 left 13
+  of 65k parameters at R-hat 1.010-1.016 in E3), with unchanged gates.
 
 Research fit: publishing it never changes the main selection.
 """
@@ -71,7 +74,7 @@ def graph_kwargs(args):
         "prior_multiplier": args.prior_multiplier,
         "unit_slope_scale": "free",
         "intercept": "building_mean",
-        "walk_centering": "across_buildings",
+        "walk_centering": "none",
         "feature_basis": args.feature_basis,
         "feature_centering": "building",
     }
@@ -107,8 +110,8 @@ def make_protocol(args, data, source, code, configuration, units, evidence_sha):
         attribute_policy=asof.policy(),
         attribute_audits_sha256=hashlib.sha256(canonical(units).encode()).hexdigest(),
         attribute_counts={k: len(v) for k, v in units.items()},
-        reparameterization="intercept as building-level mean; building-walk common drift removed; "
-        "within-building feature centering; QR feature basis",
+        reparameterization="intercept as building-level mean; within-building feature centering; "
+        "QR feature basis",
         version=VERSION,
         unit_drift="linear per unit, centered on its training years; scale ~ HalfNormal(0.01)",
         graph="Attribute spline design, bedroom-group time deviations, per-building half-year random "
@@ -652,7 +655,7 @@ def argument_parser():
     parser = previous.argument_parser()
     parser.description = __doc__
     parser.add_argument("--feature-basis", choices=("identity", "qr"), default="qr")
-    parser.set_defaults(tune=1000, draws=1500)
+    parser.set_defaults(tune=1000, draws=3000)
     return parser
 
 
