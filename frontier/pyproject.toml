@@ -28,3 +28,4 @@ packages = ["src/rentfrontier"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+markers = ["slow: long sampler comparisons"]

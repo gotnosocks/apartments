@@ -197,3 +197,10 @@ def build_model(prep: Prepared, config: ModelConfig):
 
     reparam = {site: LocScaleReparam(centered=0) for site in config.noncentered}
     return numpyro.handlers.reparam(model, config=reparam) if reparam else model
+
+
+# Named model designs. Add new entries rather than changing existing ones, so
+# earlier leaderboard rows stay reproducible from their commits.
+MODELS = {
+    "m0-base": ModelConfig(name="m0-base"),
+}
