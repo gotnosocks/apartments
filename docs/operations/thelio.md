@@ -9,7 +9,7 @@ Prepare the host environment before starting services or model jobs:
 
 ```sh
 cd ~/code/apartments
-uv sync --locked --extra dev --extra app --extra model --extra migration
+uv sync --locked --extra dev --extra model --extra migration
 ```
 
 Use `uv run --locked` for interactive commands, with the required extras as shown
@@ -27,11 +27,9 @@ returned `ok`, and all 11 Parquet table counts matched the saved reports. See
 [the cutover report](thelio-cutover-20260916.json). The authoritative marker is
 `/data1/apartments/migration/cutover-ready.json` on thelio.
 
-The review and raw archive services are active. Direct browser access over Tailscale is available at
-[Review](http://thelio.tail3983e0.ts.net:8766/) and
-[Archive](http://thelio.tail3983e0.ts.net:8765/). Both localhost URLs also use an
-automatically reconnecting SSH tunnel from this Mac. Review submissions are
-enabled; no artificial review or correction records were added during testing.
+The [research dashboard](../dashboard.md) is at http://thelio.tail3983e0.ts.net:8500 and
+the raw [Archive](http://thelio.tail3983e0.ts.net:8765/) browser at port 8765, also
+reachable through an automatically reconnecting SSH tunnel from this Mac.
 The old Modal review and migration deployments are stopped; the archive volume
 is retained as a frozen backup.
 
@@ -157,15 +155,15 @@ both the `/data1` mount and the cutover marker. They bind to loopback and the ex
 memory limits of 3 GiB and 2 GiB respectively. They are enabled and were started after validation.
 
 ```sh
-systemctl --user status apartments-review apartments-archive apartments-review-queue apartments-docs
-journalctl --user -u apartments-review -n 30 --no-pager
+systemctl --user status apartments-archive apartments-dashboard apartments-dashboard-build.timer
+journalctl --user -u apartments-dashboard-build -n 30 --no-pager
 ```
 
-The read-only residual queue is served on port 8767. The documentation server
-is served on port 8768 and renders Markdown reports as browser HTML.
+The research dashboard is served on port 8500 (tailnet only); its units are in
+`ops/systemd/` and described in [the dashboard doc](../dashboard.md).
 
-The installed Mac LaunchAgent `com.ben.apartments-tunnel` forwards ports 8766
-and 8765 and reconnects when the network returns. Its definition is in
+The installed Mac LaunchAgent `com.ben.apartments-tunnel` forwards port 8765
+and reconnects when the network returns. Its definition is in
 `deploy/thelio/com.ben.apartments-tunnel.plist`, installed at
 `~/Library/LaunchAgents/com.ben.apartments-tunnel.plist`. Logs are in
 `data/logs/thelio-tunnel.log`. The old local Modal-backed frontend was stopped.
@@ -174,14 +172,10 @@ For a different client, or if the LaunchAgent is not loaded, open a tunnel:
 
 ```sh
 ssh -N -o ExitOnForwardFailure=yes -o ServerAliveInterval=30 \
-  -L 127.0.0.1:8766:127.0.0.1:8766 \
-  -L 127.0.0.1:8765:127.0.0.1:8765 \
-  -L 127.0.0.1:8767:127.0.0.1:8767 \\
-  -L 127.0.0.1:8768:127.0.0.1:8768 thelio
+  -L 127.0.0.1:8765:127.0.0.1:8765 thelio
 ```
 
-The review app remains at `http://localhost:8766/`; raw archive browsing uses
-`http://localhost:8765/`. Closing the tunnel disconnects browsing, not server work.
+Raw archive browsing uses `http://localhost:8765/`. Closing the tunnel disconnects browsing, not server work.
 No public web endpoint or new public inbound port is required.
 
 The source snapshot and live SQLite file have different SHA-256 hashes despite
@@ -192,35 +186,22 @@ identical sizes; both have been preserved. Do not deduplicate them by size.
 The Mac and thelio share `tail3983e0.ts.net`. Open these links from a connected
 Tailscale device, including away from home:
 
-- Review: http://thelio.tail3983e0.ts.net:8766/
+- Research dashboard: http://thelio.tail3983e0.ts.net:8500/
 - Raw archive: http://thelio.tail3983e0.ts.net:8765/
-- Documentation and analysis reports: http://thelio.tail3983e0.ts.net:8768/docs/
 
 The services listen on `100.80.84.126` plus `127.0.0.1`, with no wildcard or LAN
-listener. Network access follows the tailnet's access rules; people/devices with
-access to port 8766 can review and correct the data. Both apps accept only explicit
-configured hostnames. Review POSTs still require a session CSRF token and reject
-cross-origin requests. Transport encryption is supplied by Tailscale; these links
+listener. Network access follows the tailnet's access rules. The archive app accepts
+only explicit configured hostnames; the dashboard is a read-only static server. Transport encryption is supplied by Tailscale; these links
 use HTTP inside that network and do not require HTTPS certificate setup. See
 [Tailscale Serve examples](https://tailscale.com/docs/reference/examples/serve)
 for the optional proxy approach; this installation uses direct app listeners,
 without changing Tailscale operator permissions or enabling Funnel.
 
-`REVIEW_LISTEN` and `ARCHIVE_LISTEN` contain the space-separated Waitress listeners.
-`REVIEW_ALLOWED_HOSTS` and `ARCHIVE_ALLOWED_HOSTS` contain comma-separated exact
-hostnames. The two user systemd units set them. Without those settings, the apps
-still default to loopback only. If the node's Tailscale IP changes on re-enrollment,
-update both units and restart the services. `Restart=on-failure` lets them retry
-if the Tailscale interface is not ready at boot. Localhost SSH access remains
-available as an alternative.
+`ARCHIVE_LISTEN` contains the space-separated Waitress listeners and
+`ARCHIVE_ALLOWED_HOSTS` the comma-separated exact hostnames; the archive unit sets
+them. Without those settings, the app still defaults to loopback only. If the node's
+Tailscale IP changes on re-enrollment, update the archive and dashboard units and
+restart them. `Restart=on-failure` lets them retry if the Tailscale interface is not
+ready at boot. Localhost SSH access remains available as an alternative.
 
 
-### Mobile model report
-
-The review service serves the self-contained local model report at
-`http://thelio.tail3983e0.ts.net:8766/model-report`. A phone must be connected to
-the existing Tailscale network. `REVIEW_MODEL_REPORT` selects exactly one HTML
-artifact; it does not expose the model directory or provide a file browser.
-The existing loopback/Tailscale listeners and allowed-host checks apply. This
-route does not change the review dataset or annotations. Change the environment
-path and restart the service when publishing a later report.

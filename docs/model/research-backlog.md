@@ -10,7 +10,7 @@ ordered by expected leverage. Numbers refer to the selected fit
 ### Residual review and model
 
 - [x] **Report unit-level deviation as the primary review signal.** Done:
-  [review queue](review-queue.md) (`apartments build-review-queue`), September 20.
+  review queue (`apartments build-review-queue`), September 20.
   Original rationale: The
   selected fit has `sigma` 0.066, `sigma_unit` 0.086 and 47% single-observation
   units. For a singleton, the split between unit effect and residual is set by

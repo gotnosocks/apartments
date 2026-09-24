@@ -3,7 +3,6 @@ from __future__ import annotations
 
 import argparse
 import json
-import sys
 from pathlib import Path
 
 from .corrections import canonical
@@ -115,5 +114,3 @@ if __name__=='__main__':
     parser.add_argument('--source-issues',type=Path,help='Verified source issue annotations bound to the selected dataset and description archive.')
     args=parser.parse_args()
     print(canonical(select(args.experiment,args.dataset,args.output,evidence=args.evidence,source_review=args.source_review,source_issues=args.source_issues)))
-    print('Selection published. Rebuild the residual review queue so the page at port 8767 reflects it:\n'
-          '  uv run --locked --extra model python -m apartments build-review-queue', file=sys.stderr)

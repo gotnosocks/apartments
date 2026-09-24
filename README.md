@@ -8,20 +8,13 @@ defines the data contracts, temporal semantics, model scope, and research gates.
 The main model is **hierarchical Bayesian PyMC**, using compiled sampling and
 the saved joint posterior. The workflow is **scrape → transform → fit → analyze**,
 emphasizing feature contributions and fitted residuals. The [current-analysis workflow](docs/model/current-analysis.md)
-includes fresh observations in the fit and produces a source-linked residual
-review queue. The [main Bayesian analysis page](docs/model/main-bayesian-analysis.md)
-shows apartment contributions, joint feature comparisons, residual history and
-archived source descriptions. The [complete model-version report](docs/model/main-model-evolution.md)
+includes fresh observations in the fit. The [complete model-version report](docs/model/main-model-evolution.md)
 records every major model generation, its equations, source revisions, model
 changes and promotion rationale over time. A standalone [HTML version](docs/model/main-model-evolution.html)
-is also included for browser reading. The [residual review queue](docs/model/review-queue.md) ranks every fitted
-observation on unit effect + residual and serves a standalone table with
-StreetEasy links at http://thelio.tail3983e0.ts.net:8767/. It is not rebuilt
-automatically: after selecting a new main fit, run
-`uv run --locked --extra model python -m apartments build-review-queue`.
-The read-only [documentation server](docs/operations/thelio.md) serves
-`docs/`, `docs/analysis/` and `docs/model/` as browser pages at
-http://thelio.tail3983e0.ts.net:8768/docs/.
+is also included for browser reading. Research progress (the Pareto frontier
+of held-out ΔELPD × fit time, and how it moved over time) is on the
+[research dashboard](docs/dashboard.md) at http://thelio.tail3983e0.ts.net:8500,
+rebuilt every 10 minutes from the run records.
 The [current-listing ranking command](docs/model/bayesian-candidate-ranking.md)
 connects that selected PyMC fit to personal preference frontiers, with separate
 posterior price diagnostics and explicit unknown/source-conflict handling.
@@ -46,8 +39,6 @@ The [first converged Bayesian results](docs/analysis/chelsea-bayesian-bathrooms-
 report credible intervals and the remaining source-quality and residual-scale issues.
 The [prior-sensitivity comparison](docs/analysis/chelsea-bayesian-prior-sensitivity-2026-09-18.md)
 finds stable common bathroom increments but a strongly prior-dependent second-half-bath term.
-The separate [Bayesian research page](docs/model/bayesian-research-page.md) displays
-both accepted fits, interval/support comparisons and the 13 current residuals.
 The [residual-scale follow-up](docs/analysis/chelsea-bayesian-residual-scale-2026-09-18.md)
 records the failed noise experiment and the computational checks for its retry.
 The [category comparisons](docs/analysis/chelsea-bayesian-category-sensitivity-2026-09-18.md)
@@ -109,7 +100,7 @@ The primary project and archive now live on **thelio**, with the archive under
 `/data1/apartments/archive`. See the [hosting and migration runbook](docs/operations/thelio.md)
 for the verified cutover record and access to the review and archive browsers.
 Migration completed on September 16 at 21:19 EDT; Modal retains a frozen backup.
-Direct Tailscale access: [rental review](http://thelio.tail3983e0.ts.net:8766/) ·
+Direct Tailscale access: [research dashboard](http://thelio.tail3983e0.ts.net:8500/) ·
 [raw archive](http://thelio.tail3983e0.ts.net:8765/).
 
 Earlier baseline: [September 17 minimal canonical-unit model](docs/analysis/chelsea-minimal-2026-09-17.md).
@@ -129,13 +120,13 @@ the dependency versions. Run commands from the repository root.
 
 ```sh
 cd ~/code/apartments
-uv sync --locked --extra dev --extra app --extra model
+uv sync --locked --extra dev --extra model
 ```
 
 Run Python and project tools through `uv run --locked`; uv manages the environment
 and installs the project, so activation and `PYTHONPATH` overrides are unnecessary.
 Select extras explicitly when running optional tools: `--extra model` for modeling
-and Parquet processing, `--extra app` for Streamlit, `--extra modal` for Modal,
+and Parquet processing, `--extra modal` for Modal,
 and `--extra migration` for archive transfers. Include every extra you need when
 running `uv sync`, which removes packages outside the selected dependency set.
 For dependency changes, use `uv add` (with `--optional EXTRA` when appropriate)
@@ -212,18 +203,6 @@ of their current inputs.
 ```sh
 uv run --locked apartments import-archive
 uv run --locked apartments summary
-uv run --locked --extra app streamlit run app.py --server.port 8501
-```
-
-The Streamlit app includes a **Project evolution** page. It presents a dated,
-source-linked metric ledger for collection, transformation, and Bayesian
-modeling, including scale, missingness, conflicts, failures, uncertainty and
-compute cost; research-only revisions are visually separated from the selected
-main fit. To open
-just this read-only dashboard without loading DuckDB, run:
-
-```sh
-uv run --locked --extra app streamlit run pages/4_Project_Evolution.py --server.port 8501
 ```
 
 The importer reads the raw archive locally and writes `data/apartments.duckdb`.
@@ -314,10 +293,6 @@ model-stage decisions. The legacy monthly fitter remains separate.
 
 The [September 16 full-data quality report](docs/data/chelsea-granular-quality-2026-09-16.md)
 records the generated tables, missingness, source disagreements, and integrity checks.
-
-### Manual rental review
-
-The [rental review workbench](docs/data/rental-review.md) runs there against the local granular dataset and correction ledger. Use the SSH tunnel in the [hosting runbook](docs/operations/thelio.md) and open `http://127.0.0.1:8766`. Review identity, price history, layout, size and amenities; preview reversible capture-scoped corrections or report a whole parser-error class. Raw data stays unchanged. The old Modal review deployment is stopped.
 
 ### Thelio hosting
 

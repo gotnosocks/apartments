@@ -16,7 +16,7 @@ access.
 review-loop and codebase items is in the
 [research backlog](model/research-backlog.md#pipeline-review-september-20).
 Suggested order: (1) ~~rank the residual review queue on `unit_effect + residual`~~
-done, see [review queue](model/review-queue.md);
+done, see review queue;
 (2) publish and model the within-ad price path (42% of ads change price,
 median −3.5%) and align current/historical price basis; (3) scheduled
 active-listing refresh; (4) observation-funnel artifact; (5) LLM description
@@ -238,7 +238,7 @@ patterns, and whether a simpler representation suffices.
   decomposes the three largest distinct-unit changes, including the weakly
   supported single-observation townhouse building effect.
 - [x] Expose accepted Bayesian bathroom/category intervals, prior comparisons and
-  all 13 current residuals in the separate [research page](model/bayesian-research-page.md).
+  all 13 current residuals in the separate research page.
   The page verifies source/report bindings and withholds failed experiments.
 - [x] Use the accepted PyMC posterior in the main contribution/residual page and
   `fit-pricing` / `analyze-apartment` CLI. Preserve previous robust workflows
@@ -317,7 +317,7 @@ patterns, and whether a simpler representation suffices.
 - [ ] Audit unit-private elevator access and other luxury facilities suggested
   by changed residuals, preserving planned/completed status and source dates.
 - [x] Expose supported apartment-specific joint contrasts in the
-  [analysis review page](model/analysis-review-page.md), recomputing interactions,
+  analysis review page, recomputing interactions,
   showing what is held fixed, and withholding unsupported or reporting-only values.
 - [x] Provide factor support, contributions, residual history and archived source
   text in the main analysis review. Keep model uncertainty and earlier contrast
