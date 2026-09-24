@@ -2707,12 +2707,19 @@
       "id": "pymc/nuts-bcov",
       "line": "pymc",
       "commit": null,
+      "commits_differ": false,
       "model": {
         "name": "nuts-bcov"
       },
       "feature_set": "pymc design",
       "sampler": "nuts",
-      "sampler_settings": {},
+      "sampler_settings": {
+        "draws": "structure_screen defaults (4 chains x 1,000 tune / 1,000 draws)",
+        "train_rows": {
+          "rows": 47374
+        },
+        "runner_args": {}
+      },
       "hardware": "thelio CPU",
       "interpretable": true,
       "splits": {
@@ -2742,12 +2749,31 @@
       "id": "pymc/nuts-bslope@91cbecf",
       "line": "pymc",
       "commit": "91cbecffcc9e9ffb783971c7059ee98cc0cdb96d",
+      "commits_differ": false,
       "model": {
         "name": "nuts-bslope"
       },
       "feature_set": "pymc design",
       "sampler": "nuts",
-      "sampler_settings": {},
+      "sampler_settings": {
+        "draws": "structure_screen defaults (4 chains x 1,000 tune / 1,000 draws)",
+        "train_rows": {
+          "rows": 47374
+        },
+        "runner_args": {
+          "rows": [
+            "--method",
+            "nuts",
+            "--building-time",
+            "walk",
+            "--building-knot-years",
+            "0.5",
+            "--building-scale-prior",
+            "0.1",
+            "--building-bedroom-slope"
+          ]
+        }
+      },
       "hardware": "Modal CPU (4 cores)",
       "interpretable": true,
       "splits": {
@@ -2777,12 +2803,47 @@
       "id": "pymc/nuts-bslope-nu@91cbecf",
       "line": "pymc",
       "commit": "91cbecffcc9e9ffb783971c7059ee98cc0cdb96d",
+      "commits_differ": false,
       "model": {
         "name": "nuts-bslope-nu"
       },
       "feature_set": "pymc design",
       "sampler": "nuts",
-      "sampler_settings": {},
+      "sampler_settings": {
+        "draws": "structure_screen defaults (4 chains x 1,000 tune / 1,000 draws)",
+        "train_rows": {
+          "rows": 47374,
+          "units": 47412
+        },
+        "runner_args": {
+          "rows": [
+            "--method",
+            "nuts",
+            "--building-time",
+            "walk",
+            "--building-knot-years",
+            "0.5",
+            "--building-scale-prior",
+            "0.1",
+            "--building-bedroom-slope",
+            "--estimate-nu"
+          ],
+          "units": [
+            "--method",
+            "nuts",
+            "--building-time",
+            "walk",
+            "--building-knot-years",
+            "0.5",
+            "--building-scale-prior",
+            "0.1",
+            "--split",
+            "units",
+            "--building-bedroom-slope",
+            "--estimate-nu"
+          ]
+        }
+      },
       "hardware": "Modal CPU (4 cores)",
       "interpretable": true,
       "splits": {
@@ -2825,12 +2886,69 @@
       "id": "pymc/nuts-cand2@8cff75f",
       "line": "pymc",
       "commit": "8cff75f812f0e957b4f62e8569cff20b2ad5f339",
+      "commits_differ": false,
       "model": {
         "name": "nuts-cand2"
       },
       "feature_set": "pymc design",
       "sampler": "nuts",
-      "sampler_settings": {},
+      "sampler_settings": {
+        "draws": "structure_screen defaults (4 chains x 1,000 tune / 1,000 draws)",
+        "train_rows": {
+          "rows": 47374,
+          "units": 47412
+        },
+        "runner_args": {
+          "rows": [
+            "--method",
+            "nuts",
+            "--building-time",
+            "walk",
+            "--building-knot-years",
+            "0.5",
+            "--building-scale-prior",
+            "0.1",
+            "--building-bedroom-slope",
+            "--estimate-nu",
+            "--building-feature-slopes",
+            "log_size_within_bedrooms,full_bathrooms_gt_1,full_bathrooms_gt_2",
+            "--citywide-walk-months",
+            "3",
+            "--walk-centering",
+            "across_buildings",
+            "--unit-slope-scale",
+            "free",
+            "--extra-features",
+            "penthouse_label,duplex_asof,private_outdoor_asof,shared_bath_asof",
+            "--split",
+            "rows"
+          ],
+          "units": [
+            "--method",
+            "nuts",
+            "--building-time",
+            "walk",
+            "--building-knot-years",
+            "0.5",
+            "--building-scale-prior",
+            "0.1",
+            "--building-bedroom-slope",
+            "--estimate-nu",
+            "--building-feature-slopes",
+            "log_size_within_bedrooms,full_bathrooms_gt_1,full_bathrooms_gt_2",
+            "--citywide-walk-months",
+            "3",
+            "--walk-centering",
+            "across_buildings",
+            "--unit-slope-scale",
+            "free",
+            "--extra-features",
+            "penthouse_label,duplex_asof,private_outdoor_asof,shared_bath_asof",
+            "--split",
+            "units"
+          ]
+        }
+      },
       "hardware": "Modal CPU (4 cores)",
       "interpretable": true,
       "splits": {
@@ -2873,12 +2991,69 @@
       "id": "pymc/nuts-cand3@75db87c",
       "line": "pymc",
       "commit": "75db87c38365e2b3b308ddd400e75f438b4495e4",
+      "commits_differ": false,
       "model": {
         "name": "nuts-cand3"
       },
       "feature_set": "pymc design",
       "sampler": "nuts",
-      "sampler_settings": {},
+      "sampler_settings": {
+        "draws": "structure_screen defaults (4 chains x 1,000 tune / 1,000 draws)",
+        "train_rows": {
+          "rows": 47374,
+          "units": 47412
+        },
+        "runner_args": {
+          "rows": [
+            "--method",
+            "nuts",
+            "--building-time",
+            "walk",
+            "--building-knot-years",
+            "0.5",
+            "--building-scale-prior",
+            "0.1",
+            "--building-bedroom-slope",
+            "--estimate-nu",
+            "--citywide-walk-months",
+            "3",
+            "--walk-centering",
+            "across_buildings",
+            "--unit-slope-scale",
+            "free",
+            "--extra-features",
+            "penthouse_label,duplex_asof,private_outdoor_asof,shared_bath_asof",
+            "--building-feature-slopes",
+            "log_size_within_bedrooms,size_missing,full_bathrooms_gt_1,full_bathrooms_gt_2",
+            "--split",
+            "rows"
+          ],
+          "units": [
+            "--method",
+            "nuts",
+            "--building-time",
+            "walk",
+            "--building-knot-years",
+            "0.5",
+            "--building-scale-prior",
+            "0.1",
+            "--building-bedroom-slope",
+            "--estimate-nu",
+            "--citywide-walk-months",
+            "3",
+            "--walk-centering",
+            "across_buildings",
+            "--unit-slope-scale",
+            "free",
+            "--extra-features",
+            "penthouse_label,duplex_asof,private_outdoor_asof,shared_bath_asof",
+            "--building-feature-slopes",
+            "log_size_within_bedrooms,size_missing,full_bathrooms_gt_1,full_bathrooms_gt_2",
+            "--split",
+            "units"
+          ]
+        }
+      },
       "hardware": "Modal CPU (4 cores)",
       "interpretable": true,
       "splits": {
@@ -2912,7 +3087,7 @@
       "passes_checks": false,
       "grade": "screen",
       "fit_seconds": 11577.004934344,
-      "cost_usd": 0.6751209832265685,
+      "cost_usd": 1.0344727326515075,
       "current_best": false,
       "frontier": false,
       "note": "screen-grade (max R-hat 1.073); not eligible for best or frontier"
@@ -2921,12 +3096,19 @@
       "id": "pymc/nuts-hwalk-noise",
       "line": "pymc",
       "commit": null,
+      "commits_differ": false,
       "model": {
         "name": "nuts-hwalk-noise"
       },
       "feature_set": "pymc design",
       "sampler": "nuts",
-      "sampler_settings": {},
+      "sampler_settings": {
+        "draws": "structure_screen defaults (4 chains x 1,000 tune / 1,000 draws)",
+        "train_rows": {
+          "rows": 47374
+        },
+        "runner_args": {}
+      },
       "hardware": "thelio CPU",
       "interpretable": true,
       "splits": {
@@ -2956,12 +3138,19 @@
       "id": "pymc/nuts-level",
       "line": "pymc",
       "commit": null,
+      "commits_differ": false,
       "model": {
         "name": "nuts-level"
       },
       "feature_set": "pymc design",
       "sampler": "nuts",
-      "sampler_settings": {},
+      "sampler_settings": {
+        "draws": "structure_screen defaults (4 chains x 1,000 tune / 1,000 draws)",
+        "train_rows": {
+          "rows": 47374
+        },
+        "runner_args": {}
+      },
       "hardware": "thelio CPU",
       "interpretable": true,
       "splits": {
@@ -2991,12 +3180,31 @@
       "id": "pymc/nuts-nu@91cbecf",
       "line": "pymc",
       "commit": "91cbecffcc9e9ffb783971c7059ee98cc0cdb96d",
+      "commits_differ": false,
       "model": {
         "name": "nuts-nu"
       },
       "feature_set": "pymc design",
       "sampler": "nuts",
-      "sampler_settings": {},
+      "sampler_settings": {
+        "draws": "structure_screen defaults (4 chains x 1,000 tune / 1,000 draws)",
+        "train_rows": {
+          "rows": 47374
+        },
+        "runner_args": {
+          "rows": [
+            "--method",
+            "nuts",
+            "--building-time",
+            "walk",
+            "--building-knot-years",
+            "0.5",
+            "--building-scale-prior",
+            "0.1",
+            "--estimate-nu"
+          ]
+        }
+      },
       "hardware": "Modal CPU (4 cores)",
       "interpretable": true,
       "splits": {
@@ -3026,12 +3234,19 @@
       "id": "pymc/nuts-uslope",
       "line": "pymc",
       "commit": null,
+      "commits_differ": false,
       "model": {
         "name": "nuts-uslope"
       },
       "feature_set": "pymc design",
       "sampler": "nuts",
-      "sampler_settings": {},
+      "sampler_settings": {
+        "draws": "structure_screen defaults (4 chains x 1,000 tune / 1,000 draws)",
+        "train_rows": {
+          "rows": 47374
+        },
+        "runner_args": {}
+      },
       "hardware": "thelio CPU",
       "interpretable": true,
       "splits": {

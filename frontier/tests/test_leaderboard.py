@@ -17,6 +17,13 @@ def test_paired_refuses_differing_row_sets(tmp_path):
         leaderboard.paired(tmp_path / "a", tmp_path / "b")
 
 
+def test_paired_refuses_duplicate_audit_ids(tmp_path):
+    heldout(tmp_path / "a", ["r1", "r1", "r2"], np.array([1.0, 2.0, 3.0]))
+    heldout(tmp_path / "b", ["r1", "r2"], np.array([0.5, 1.0]))
+    with pytest.raises(ValueError, match="Duplicate"):
+        leaderboard.paired(tmp_path / "a", tmp_path / "b")
+
+
 def test_paired_sums_differences_on_identical_rows(tmp_path):
     heldout(tmp_path / "a", ["r1", "r2", "r3"], np.array([1.0, 2.0, 4.0]))
     heldout(tmp_path / "b", ["r3", "r1", "r2"], np.array([3.0, 0.0, 1.0]))
@@ -59,3 +66,4 @@ def test_screens_group_by_split_and_grade_by_gate(tmp_path, monkeypatch):
     assert good["grade"] == "full" and good["passes_checks"]
     assert rough["grade"] == "screen" and not rough["passes_checks"]
     assert good["hardware"] == "thelio CPU" and good["commit"] is None
+    assert not good["commits_differ"]

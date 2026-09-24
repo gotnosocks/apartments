@@ -128,6 +128,9 @@ def paired(a_dir: Path, b_dir: Path):
     not the same test."""
     a = np.load(a_dir / "heldout.npz", allow_pickle=True)
     b = np.load(b_dir / "heldout.npz", allow_pickle=True)
+    for x, folder in ((a, a_dir), (b, b_dir)):
+        if len(set(x["audit_id"].tolist())) != len(x["audit_id"]):
+            raise ValueError(f"Duplicate held-out audit IDs in {folder.name}")
     al = dict(zip(a["audit_id"].tolist(), a["lpd"]))
     bl = dict(zip(b["audit_id"].tolist(), b["lpd"]))
     if al.keys() != bl.keys():
@@ -159,25 +162,43 @@ def screen_entries():
         groups.setdefault(stem, {})[split] = (path.parent, r)
     entries = []
     for stem, by_split in sorted(groups.items()):
-        remote = {}
-        for folder, _ in by_split.values():
-            if (folder / "remote-run.json").exists():
-                remote = json.loads((folder / "remote-run.json").read_text())
-                break
-        git = remote.get("request_git") or {}
-        commit = git.get("head") if git and not git.get("dirty_paths") else None
-        resources = remote.get("resources") or {}
+        # Each split is its own run: read its own remote record.
+        remotes = {
+            split: (
+                json.loads((folder / "remote-run.json").read_text())
+                if (folder / "remote-run.json").exists()
+                else {}
+            )
+            for split, (folder, _) in by_split.items()
+        }
+        commits = set()
+        for remote in remotes.values():
+            git = remote.get("request_git") or {}
+            commits.add(git.get("head") if git and not git.get("dirty_paths") else None)
+        commits_differ = len(commits) > 1
+        commit = None if commits_differ else commits.pop()
+        cpus = {(rem.get("resources") or {}).get("cpu") for rem in remotes.values()}
+        cpus.discard(None)
         e = {
             "id": f"pymc/{stem}" + (f"@{commit[:7]}" if commit else ""),
             "line": "pymc",
             "commit": commit,
+            "commits_differ": commits_differ,
             "model": {"name": stem},
             "feature_set": "pymc design",
             "sampler": "nuts",
-            "sampler_settings": {},
+            "sampler_settings": {
+                "draws": "structure_screen defaults (4 chains x 1,000 tune / 1,000 draws)",
+                "train_rows": {
+                    s: r.get("train_rows") for s, (_, r) in by_split.items()
+                },
+                "runner_args": {
+                    s: rem.get("runner_args") for s, rem in remotes.items() if rem
+                },
+            },
             "hardware": (
-                f"Modal CPU ({resources['cpu']:g} cores)"
-                if resources.get("cpu")
+                "Modal CPU (" + "/".join(f"{c:g}" for c in sorted(cpus)) + " cores)"
+                if cpus
                 else "thelio CPU"
             ),
             "interpretable": True,
@@ -185,6 +206,7 @@ def screen_entries():
         }
         passes, seconds, cost = True, [], []
         for split, (folder, r) in by_split.items():
+            remote = remotes[split]
             diag, held = r["diagnostics"], r["heldout"]
             try:
                 delta, delta_se = paired(folder, REFERENCES[split].parent)
@@ -419,6 +441,9 @@ def markdown(board) -> str:
         f"\\* {p['fit_seconds_note']}; cost is {p['cost_note']}.",
         "",
         "Fit time is the sampler wall time (frontier: warmup + draws, including JIT compilation; PyMC screens: the screen's recorded seconds).",
+        "Fit times compare well within a line but only roughly across lines: PyMC screens are 4 chains x 1,000/1,000 on 90% of rows,",
+        "while frontier runs are production-length (e.g. 16 chains x 2,000). Cost is per fit (the larger of a design's two split runs).",
+        "The current best can sit off the frontier: the unit split breaks row-split ties for best, but the frontier uses row ΔELPD and time only.",
         "Cost is the Modal list-price estimate for runs made there (Modal use stopped on 2026-09-24; local runs record $0).",
         "Runs named `dev-*` or `canary-*` are pipeline checks and are not listed.",
         "",
