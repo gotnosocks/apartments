@@ -92,7 +92,7 @@
       "cost_usd": 0.1823,
       "current_best": false,
       "frontier": true,
-      "note": "beaten by m5-quarterly/base-v1/gibbs@4226f40 (+1098.6 \u00b1 55.3 rows)"
+      "note": "beaten by m7-tunits/desc-v1/gibbs@d62fc51 (+1376.2 \u00b1 60.7 rows)"
     },
     {
       "id": "m1-walk/base-v1/gibbs@1b11fac",
@@ -171,7 +171,7 @@
       "cost_usd": 0.6035,
       "current_best": false,
       "frontier": false,
-      "note": "beaten by m5-quarterly/base-v1/gibbs@4226f40 (+201.0 \u00b1 30.8 rows)"
+      "note": "beaten by m7-tunits/desc-v1/gibbs@d62fc51 (+478.6 \u00b1 43.2 rows)"
     },
     {
       "id": "m1-walk/base-v1/gibbs@942c0f4",
@@ -253,7 +253,7 @@
       "cost_usd": 1.0174,
       "current_best": false,
       "frontier": false,
-      "note": "beaten by m5-quarterly/base-v1/gibbs@4226f40 (+201.3 \u00b1 30.8 rows)"
+      "note": "beaten by m7-tunits/desc-v1/gibbs@d62fc51 (+478.9 \u00b1 43.2 rows)"
     },
     {
       "id": "m1-walk/base-v1/gibbs@94a4da4",
@@ -326,7 +326,7 @@
       "cost_usd": 0.5136,
       "current_best": false,
       "frontier": false,
-      "note": "beaten by m5-quarterly/base-v1/gibbs@4226f40 (+201.0 \u00b1 30.8 rows)"
+      "note": "beaten by m7-tunits/desc-v1/gibbs@d62fc51 (+478.6 \u00b1 43.2 rows)"
     },
     {
       "id": "m1-walk/base-v1/gibbs@bf01f16",
@@ -413,7 +413,7 @@
       "cost_usd": 1.289,
       "current_best": false,
       "frontier": false,
-      "note": "beaten by m5-quarterly/base-v1/gibbs@4226f40 (+201.1 \u00b1 30.8 rows)"
+      "note": "beaten by m7-tunits/desc-v1/gibbs@d62fc51 (+478.6 \u00b1 43.2 rows)"
     },
     {
       "id": "m1-walk/base-v1/gibbs@c5a208a",
@@ -480,7 +480,7 @@
       "cost_usd": 0.8939,
       "current_best": false,
       "frontier": false,
-      "note": "beaten by m5-quarterly/base-v1/gibbs@4226f40 (+201.1 \u00b1 30.8 rows)"
+      "note": "beaten by m7-tunits/desc-v1/gibbs@d62fc51 (+478.7 \u00b1 43.2 rows)"
     },
     {
       "id": "m4-walk-bedtime-bedslope/base-v1/gibbs@942c0f4",
@@ -562,7 +562,7 @@
       "cost_usd": 2.9859,
       "current_best": false,
       "frontier": false,
-      "note": "fails the convergence gate"
+      "note": "beaten by m7-tunits/desc-v1/gibbs@d62fc51 (+277.6 \u00b1 33.9 rows)"
     },
     {
       "id": "m5-nocurves/base-v1/gibbs@33e8bad",
@@ -652,7 +652,7 @@
       "cost_usd": 1.0067,
       "current_best": false,
       "frontier": true,
-      "note": ""
+      "note": "beaten by m7-tunits/desc-v1/gibbs@d62fc51 (+293.4 \u00b1 34.4 rows)"
     },
     {
       "id": "m5-noslope/base-v1/gibbs@33e8bad",
@@ -742,7 +742,7 @@
       "cost_usd": 2.0664,
       "current_best": false,
       "frontier": false,
-      "note": "beaten by m5-quarterly/base-v1/gibbs@4226f40 (+191.4 \u00b1 29.3 rows)"
+      "note": "beaten by m7-tunits/desc-v1/gibbs@d62fc51 (+468.9 \u00b1 42.5 rows)"
     },
     {
       "id": "m5-nu5/base-v1/gibbs@33e8bad",
@@ -832,7 +832,7 @@
       "cost_usd": 2.1213,
       "current_best": false,
       "frontier": false,
-      "note": "beaten by m5-quarterly/base-v1/gibbs@4226f40 (+46.8 \u00b1 22.2 rows)"
+      "note": "beaten by m7-tunits/desc-v1/gibbs@d62fc51 (+324.4 \u00b1 35.2 rows)"
     },
     {
       "id": "m5-quarterly/base-v1/gibbs@4226f40",
@@ -901,9 +901,9 @@
       "passes_checks": true,
       "fit_seconds": 1184.773789487,
       "cost_usd": 1.4995,
-      "current_best": true,
+      "current_best": false,
       "frontier": true,
-      "note": ""
+      "note": "beaten by m7-tunits/desc-v1/gibbs@d62fc51 (+277.6 \u00b1 33.7 rows)"
     },
     {
       "id": "m5-quarterly/desc-v1/gibbs@4226f40",
@@ -991,7 +991,7 @@
       "cost_usd": 1.738,
       "current_best": false,
       "frontier": false,
-      "note": "fails the convergence gate"
+      "note": "beaten by m7-tunits/desc-v1/gibbs@d62fc51 (+289.2 \u00b1 32.0 rows)"
     },
     {
       "id": "m5-quarterly/desc-v1/gibbs@8d52ddb",
@@ -1083,7 +1083,7 @@
       "cost_usd": 2.1876,
       "current_best": false,
       "frontier": false,
-      "note": "fails the convergence gate"
+      "note": "beaten by m7-tunits/desc-v1/gibbs@d62fc51 (+289.2 \u00b1 32.0 rows)"
     },
     {
       "id": "m5-quarterly/base-v1/gibbs@bf01f16",
@@ -1170,7 +1170,7 @@
       "cost_usd": 1.6506,
       "current_best": false,
       "frontier": false,
-      "note": "superseded by passing rerun m5-quarterly/base-v1/gibbs@4226f40"
+      "note": "beaten by m7-tunits/desc-v1/gibbs@d62fc51 (+277.5 \u00b1 33.7 rows)"
     },
     {
       "id": "m5-quarterly/base-v1/gibbs@33e8bad",
@@ -1342,7 +1342,7 @@
       "cost_usd": 3.2425,
       "current_best": false,
       "frontier": false,
-      "note": "fails the convergence gate"
+      "note": "beaten by m7-tunits/desc-v1/gibbs@d62fc51 (+149.0 \u00b1 25.4 rows)"
     },
     {
       "id": "m6-slopes/base-v1/gibbs@8d52ddb",
@@ -1438,7 +1438,7 @@
       "cost_usd": 2.3076,
       "current_best": false,
       "frontier": false,
-      "note": "fails the convergence gate"
+      "note": "beaten by m7-tunits/desc-v1/gibbs@d62fc51 (+148.9 \u00b1 25.4 rows)"
     },
     {
       "id": "m6-slopes/base-v1/gibbs@8d52ddb",
@@ -1537,7 +1537,7 @@
       "cost_usd": 2.8768,
       "current_best": false,
       "frontier": false,
-      "note": "fails the convergence gate"
+      "note": "beaten by m7-tunits/desc-v1/gibbs@d62fc51 (+148.9 \u00b1 25.4 rows)"
     },
     {
       "id": "m6-slopes/desc-v1/gibbs@69cb324",
@@ -1636,7 +1636,7 @@
       "cost_usd": 4.4697,
       "current_best": false,
       "frontier": false,
-      "note": "fails the convergence gate"
+      "note": "beaten by m7-tunits/desc-v1/gibbs@d62fc51 (+158.4 \u00b1 22.8 rows)"
     },
     {
       "id": "m6-slopes/desc-v1/gibbs@6a14509",
@@ -1735,7 +1735,7 @@
       "cost_usd": 3.3022,
       "current_best": false,
       "frontier": false,
-      "note": "fails the convergence gate"
+      "note": "beaten by m7-tunits/desc-v1/gibbs@d62fc51 (+158.5 \u00b1 22.8 rows)"
     },
     {
       "id": "m6-slopes/desc-v1/gibbs@8d52ddb",
@@ -1831,7 +1831,7 @@
       "cost_usd": 2.3638,
       "current_best": false,
       "frontier": false,
-      "note": "fails the convergence gate"
+      "note": "beaten by m7-tunits/desc-v1/gibbs@d62fc51 (+158.5 \u00b1 22.8 rows)"
     },
     {
       "id": "m6-slopes/desc-v1/gibbs@8d52ddb",
@@ -1930,8 +1930,513 @@
       "cost_usd": 2.9694,
       "current_best": false,
       "frontier": false,
-      "note": "fails the convergence gate"
+      "note": "beaten by m7-tunits/desc-v1/gibbs@d62fc51 (+158.5 \u00b1 22.8 rows)"
+    },
+    {
+      "id": "m7-tunits/base-v1/gibbs@78fbc79",
+      "commit": "78fbc79180ec751bea617156cef087a7f2fae2fb",
+      "model": {
+        "name": "m7-tunits",
+        "beta_sd": 0.5,
+        "trend_scale_sd": 0.05,
+        "season_scale_sd": 0.05,
+        "building_scale_sd": 0.5,
+        "unit_scale_sd": 0.2,
+        "noise_scale_sd": 0.2,
+        "noncentered": [],
+        "building_walk": true,
+        "walk_scale_sd": 0.1,
+        "bedroom_time": true,
+        "bedroom_time_scale_sd": 0.02,
+        "bedroom_slope": true,
+        "bedroom_slope_scale_sd": 0.1,
+        "feature_slopes": [
+          "log_sqft_vs_bedroom_median",
+          "bathrooms=2",
+          "bathrooms=3"
+        ],
+        "feature_slope_scale_sd": 0.1,
+        "trend_knot_months": 3,
+        "bedroom_time_knot_months": 3,
+        "nu_fixed": null,
+        "unit_t": true,
+        "unit_nu_fixed": null
+      },
+      "feature_set": "base-v1",
+      "sampler": "gibbs",
+      "sampler_settings": {
+        "chains": 16,
+        "warmup": 900,
+        "draws": 2000,
+        "keep_every": 100,
+        "seed": 20260923,
+        "noise_steps": 10,
+        "sigma_step_sd": 0.004,
+        "nu_step_sd": 0.03,
+        "rescale_steps": 5,
+        "rescale_step_sd": 0.01,
+        "trace_groups": 32,
+        "collapse": true,
+        "collapse_scale": 2.38,
+        "chain_batch": 0,
+        "solo_scales": [
+          "walk_scale",
+          "bedroom_time_scale",
+          "unit_scale",
+          "fslope_scale_0",
+          "fslope_scale_1",
+          "fslope_scale_2"
+        ]
+      },
+      "hardware": "NVIDIA H100 80GB HBM3",
+      "interpretable": true,
+      "splits": {
+        "rows": {
+          "run": "m7-tunits-base-v1-rows-78fbc79",
+          "elpd": 6433.21888358527,
+          "elpd_se": 77.37626842727745,
+          "elpd_mcse": 0.8486151783688604,
+          "delta": 569.5233898063591,
+          "delta_se": 43.940085813874674,
+          "paired_rows": 5264,
+          "max_rhat": 1.0242417801622183,
+          "min_ess": 583.1113475769496,
+          "passes": false,
+          "fit_seconds": 2657.183135847,
+          "sampling_seconds": 1951.0232115530002,
+          "cost_usd": 3.2673,
+          "group_rhat_max": 1.1174443322810017,
+          "group_rhat_method": "per-chain moments, all effects"
+        },
+        "units": {
+          "run": "m7-tunits-base-v1-units-78fbc79",
+          "elpd": 4649.425645710007,
+          "elpd_se": 80.05531434480847,
+          "elpd_mcse": 0.8033458825827521,
+          "delta": 827.2780622711736,
+          "delta_se": 58.387559299327705,
+          "paired_rows": 5226,
+          "max_rhat": 1.01472847821056,
+          "min_ess": 1102.0031410854403,
+          "passes": false,
+          "fit_seconds": 2705.068237439,
+          "sampling_seconds": 1982.931571964,
+          "cost_usd": 3.3148,
+          "group_rhat_max": 1.1889898846585025,
+          "group_rhat_method": "per-chain moments, all effects"
+        }
+      },
+      "passes_checks": false,
+      "fit_seconds": 2705.068237439,
+      "cost_usd": 3.3148,
+      "current_best": false,
+      "frontier": false,
+      "note": "superseded by passing rerun m7-tunits/base-v1/gibbs@d62fc51"
+    },
+    {
+      "id": "m7-tunits/base-v1/gibbs@92c14b5",
+      "commit": "92c14b5ec59b3ba2dab8fffadcdda0a119bc0dc8",
+      "model": {
+        "name": "m7-tunits",
+        "beta_sd": 0.5,
+        "trend_scale_sd": 0.05,
+        "season_scale_sd": 0.05,
+        "building_scale_sd": 0.5,
+        "unit_scale_sd": 0.2,
+        "noise_scale_sd": 0.2,
+        "noncentered": [],
+        "building_walk": true,
+        "walk_scale_sd": 0.1,
+        "bedroom_time": true,
+        "bedroom_time_scale_sd": 0.02,
+        "bedroom_slope": true,
+        "bedroom_slope_scale_sd": 0.1,
+        "feature_slopes": [
+          "log_sqft_vs_bedroom_median",
+          "bathrooms=2",
+          "bathrooms=3"
+        ],
+        "feature_slope_scale_sd": 0.1,
+        "trend_knot_months": 3,
+        "bedroom_time_knot_months": 3,
+        "nu_fixed": null,
+        "unit_t": true,
+        "unit_nu_fixed": null
+      },
+      "feature_set": "base-v1",
+      "sampler": "gibbs",
+      "sampler_settings": {
+        "chains": 16,
+        "warmup": 900,
+        "draws": 2000,
+        "keep_every": 100,
+        "seed": 20260923,
+        "noise_steps": 10,
+        "sigma_step_sd": 0.004,
+        "nu_step_sd": 0.03,
+        "rescale_steps": 5,
+        "rescale_step_sd": 0.01,
+        "trace_groups": 32,
+        "collapse": true,
+        "collapse_scale": 2.38,
+        "chain_batch": 0,
+        "solo_scales": [
+          "walk_scale",
+          "bedroom_time_scale",
+          "unit_scale",
+          "fslope_scale_0",
+          "fslope_scale_1",
+          "fslope_scale_2"
+        ]
+      },
+      "hardware": "NVIDIA H100 80GB HBM3",
+      "interpretable": true,
+      "splits": {
+        "rows": {
+          "run": "m7-tunits-base-v1-rows-92c14b5",
+          "elpd": 6433.763664654485,
+          "elpd_se": 77.36062369635825,
+          "elpd_mcse": 0.6305620363835432,
+          "delta": 570.0681708755743,
+          "delta_se": 43.92359658428211,
+          "paired_rows": 5264,
+          "max_rhat": 1.017306499760006,
+          "min_ess": 897.2288886128441,
+          "passes": false,
+          "fit_seconds": 2662.650318471,
+          "sampling_seconds": 1957.735388782,
+          "cost_usd": 3.2577,
+          "group_rhat_max": 1.0852065970615177,
+          "group_rhat_method": "per-chain moments, all effects"
+        },
+        "units": {
+          "run": "m7-tunits-base-v1-units-92c14b5",
+          "elpd": 4648.507320798852,
+          "elpd_se": 80.08809968753845,
+          "elpd_mcse": 0.9715443149425395,
+          "delta": 826.359737360018,
+          "delta_se": 58.42043891923227,
+          "paired_rows": 5226,
+          "max_rhat": 1.0116142581688472,
+          "min_ess": 1238.5433771035862,
+          "passes": false,
+          "fit_seconds": 2660.904292526,
+          "sampling_seconds": 1973.591578524,
+          "cost_usd": 3.2417,
+          "group_rhat_max": 1.0859636576369118,
+          "group_rhat_method": "per-chain moments, all effects"
+        }
+      },
+      "passes_checks": false,
+      "fit_seconds": 2662.650318471,
+      "cost_usd": 3.2577,
+      "current_best": false,
+      "frontier": false,
+      "note": "superseded by passing rerun m7-tunits/base-v1/gibbs@d62fc51"
+    },
+    {
+      "id": "m7-tunits/base-v1/gibbs@d62fc51",
+      "commit": "d62fc51f2723f9fab14d4b911f5c7636531d1892",
+      "model": {
+        "name": "m7-tunits",
+        "beta_sd": 0.5,
+        "trend_scale_sd": 0.05,
+        "season_scale_sd": 0.05,
+        "building_scale_sd": 0.5,
+        "unit_scale_sd": 0.2,
+        "noise_scale_sd": 0.2,
+        "noncentered": [],
+        "building_walk": true,
+        "walk_scale_sd": 0.1,
+        "bedroom_time": true,
+        "bedroom_time_scale_sd": 0.02,
+        "bedroom_slope": true,
+        "bedroom_slope_scale_sd": 0.1,
+        "feature_slopes": [
+          "log_sqft_vs_bedroom_median",
+          "bathrooms=2",
+          "bathrooms=3"
+        ],
+        "feature_slope_scale_sd": 0.1,
+        "trend_knot_months": 3,
+        "bedroom_time_knot_months": 3,
+        "nu_fixed": null,
+        "unit_t": true,
+        "unit_nu_fixed": null
+      },
+      "feature_set": "base-v1",
+      "sampler": "gibbs",
+      "sampler_settings": {
+        "chains": 16,
+        "warmup": 900,
+        "draws": 2000,
+        "keep_every": 100,
+        "seed": 20260923,
+        "noise_steps": 10,
+        "sigma_step_sd": 0.004,
+        "nu_step_sd": 0.03,
+        "rescale_steps": 5,
+        "rescale_step_sd": 0.01,
+        "trace_groups": 32,
+        "collapse": true,
+        "collapse_scale": 2.38,
+        "chain_batch": 0,
+        "solo_scales": [
+          "walk_scale",
+          "bedroom_time_scale",
+          "unit_scale",
+          "fslope_scale_0",
+          "fslope_scale_1",
+          "fslope_scale_2"
+        ]
+      },
+      "hardware": "NVIDIA H100 80GB HBM3",
+      "interpretable": true,
+      "splits": {
+        "rows": {
+          "run": "m7-tunits-base-v1-rows-d62fc51",
+          "elpd": 6433.199526450471,
+          "elpd_se": 77.39382314234436,
+          "elpd_mcse": 0.675934182830876,
+          "delta": 569.5040326715607,
+          "delta_se": 43.95903136272702,
+          "paired_rows": 5264,
+          "max_rhat": 1.0079702552448384,
+          "min_ess": 2497.3181025028944,
+          "passes": true,
+          "fit_seconds": 2637.091330365,
+          "sampling_seconds": 1955.248873479,
+          "cost_usd": 3.2057,
+          "group_rhat_max": 1.017411701497348,
+          "group_rhat_method": "per-chain moments, all effects"
+        },
+        "units": {
+          "run": "m7-tunits-base-v1-units-d62fc51",
+          "elpd": 4648.849266404006,
+          "elpd_se": 80.08221786632716,
+          "elpd_mcse": 0.9714496791791565,
+          "delta": 826.7016829651718,
+          "delta_se": 58.400947594548235,
+          "paired_rows": 5226,
+          "max_rhat": 1.0054319780064884,
+          "min_ess": 3033.327070375073,
+          "passes": true,
+          "fit_seconds": 2695.135605619,
+          "sampling_seconds": 1988.454277336,
+          "cost_usd": 3.2773,
+          "group_rhat_max": 1.015419235103628,
+          "group_rhat_method": "per-chain moments, all effects"
+        }
+      },
+      "passes_checks": true,
+      "fit_seconds": 2695.135605619,
+      "cost_usd": 3.2773,
+      "current_best": false,
+      "frontier": true,
+      "note": ""
+    },
+    {
+      "id": "m7-tunits/desc-v1/gibbs@92c14b5",
+      "commit": "92c14b5ec59b3ba2dab8fffadcdda0a119bc0dc8",
+      "model": {
+        "name": "m7-tunits",
+        "beta_sd": 0.5,
+        "trend_scale_sd": 0.05,
+        "season_scale_sd": 0.05,
+        "building_scale_sd": 0.5,
+        "unit_scale_sd": 0.2,
+        "noise_scale_sd": 0.2,
+        "noncentered": [],
+        "building_walk": true,
+        "walk_scale_sd": 0.1,
+        "bedroom_time": true,
+        "bedroom_time_scale_sd": 0.02,
+        "bedroom_slope": true,
+        "bedroom_slope_scale_sd": 0.1,
+        "feature_slopes": [
+          "log_sqft_vs_bedroom_median",
+          "bathrooms=2",
+          "bathrooms=3"
+        ],
+        "feature_slope_scale_sd": 0.1,
+        "trend_knot_months": 3,
+        "bedroom_time_knot_months": 3,
+        "nu_fixed": null,
+        "unit_t": true,
+        "unit_nu_fixed": null
+      },
+      "feature_set": "desc-v1",
+      "sampler": "gibbs",
+      "sampler_settings": {
+        "chains": 16,
+        "warmup": 900,
+        "draws": 2000,
+        "keep_every": 100,
+        "seed": 20260923,
+        "noise_steps": 10,
+        "sigma_step_sd": 0.004,
+        "nu_step_sd": 0.03,
+        "rescale_steps": 5,
+        "rescale_step_sd": 0.01,
+        "trace_groups": 32,
+        "collapse": true,
+        "collapse_scale": 2.38,
+        "chain_batch": 0,
+        "solo_scales": [
+          "walk_scale",
+          "bedroom_time_scale",
+          "unit_scale",
+          "fslope_scale_0",
+          "fslope_scale_1",
+          "fslope_scale_2"
+        ]
+      },
+      "hardware": "NVIDIA H100 80GB HBM3",
+      "interpretable": true,
+      "splits": {
+        "rows": {
+          "run": "m7-tunits-desc-v1-rows-92c14b5",
+          "elpd": 6413.076905996659,
+          "elpd_se": 77.24820490296938,
+          "elpd_mcse": 0.7399858332621904,
+          "delta": 549.3814122177475,
+          "delta_se": 44.337508154703244,
+          "paired_rows": 5264,
+          "max_rhat": 1.0164146321881609,
+          "min_ess": 893.852369973014,
+          "passes": false,
+          "fit_seconds": 2700.6400846879997,
+          "sampling_seconds": 1994.3889837830002,
+          "cost_usd": 3.3065,
+          "group_rhat_max": 1.0617234388961416,
+          "group_rhat_method": "per-chain moments, all effects"
+        },
+        "units": {
+          "run": "m7-tunits-desc-v1-units-92c14b5",
+          "elpd": 4767.726091017663,
+          "elpd_se": 79.02108565901595,
+          "elpd_mcse": 1.0219417677514697,
+          "delta": 945.5785075788289,
+          "delta_se": 58.548565366001085,
+          "paired_rows": 5226,
+          "max_rhat": 1.0135157948628297,
+          "min_ess": 1219.6188752067444,
+          "passes": false,
+          "fit_seconds": 2731.515668213,
+          "sampling_seconds": 2032.4618696000002,
+          "cost_usd": 3.3389,
+          "group_rhat_max": 1.0912464659302794,
+          "group_rhat_method": "per-chain moments, all effects"
+        }
+      },
+      "passes_checks": false,
+      "fit_seconds": 2731.515668213,
+      "cost_usd": 3.3389,
+      "current_best": false,
+      "frontier": false,
+      "note": "superseded by passing rerun m7-tunits/desc-v1/gibbs@d62fc51"
+    },
+    {
+      "id": "m7-tunits/desc-v1/gibbs@d62fc51",
+      "commit": "d62fc51f2723f9fab14d4b911f5c7636531d1892",
+      "model": {
+        "name": "m7-tunits",
+        "beta_sd": 0.5,
+        "trend_scale_sd": 0.05,
+        "season_scale_sd": 0.05,
+        "building_scale_sd": 0.5,
+        "unit_scale_sd": 0.2,
+        "noise_scale_sd": 0.2,
+        "noncentered": [],
+        "building_walk": true,
+        "walk_scale_sd": 0.1,
+        "bedroom_time": true,
+        "bedroom_time_scale_sd": 0.02,
+        "bedroom_slope": true,
+        "bedroom_slope_scale_sd": 0.1,
+        "feature_slopes": [
+          "log_sqft_vs_bedroom_median",
+          "bathrooms=2",
+          "bathrooms=3"
+        ],
+        "feature_slope_scale_sd": 0.1,
+        "trend_knot_months": 3,
+        "bedroom_time_knot_months": 3,
+        "nu_fixed": null,
+        "unit_t": true,
+        "unit_nu_fixed": null
+      },
+      "feature_set": "desc-v1",
+      "sampler": "gibbs",
+      "sampler_settings": {
+        "chains": 16,
+        "warmup": 900,
+        "draws": 2000,
+        "keep_every": 100,
+        "seed": 20260923,
+        "noise_steps": 10,
+        "sigma_step_sd": 0.004,
+        "nu_step_sd": 0.03,
+        "rescale_steps": 5,
+        "rescale_step_sd": 0.01,
+        "trace_groups": 32,
+        "collapse": true,
+        "collapse_scale": 2.38,
+        "chain_batch": 0,
+        "solo_scales": [
+          "walk_scale",
+          "bedroom_time_scale",
+          "unit_scale",
+          "fslope_scale_0",
+          "fslope_scale_1",
+          "fslope_scale_2"
+        ]
+      },
+      "hardware": "NVIDIA H100 80GB HBM3",
+      "interpretable": true,
+      "splits": {
+        "rows": {
+          "run": "m7-tunits-desc-v1-rows-d62fc51",
+          "elpd": 6412.781107102401,
+          "elpd_se": 77.27295630718358,
+          "elpd_mcse": 0.6678079765795514,
+          "delta": 549.0856133234896,
+          "delta_se": 44.36922532087965,
+          "paired_rows": 5264,
+          "max_rhat": 1.007360638423497,
+          "min_ess": 2513.6790265461573,
+          "passes": true,
+          "fit_seconds": 2758.021029919,
+          "sampling_seconds": 2013.284614114,
+          "cost_usd": 3.3795,
+          "group_rhat_max": 1.0170705287922,
+          "group_rhat_method": "per-chain moments, all effects"
+        },
+        "units": {
+          "run": "m7-tunits-desc-v1-units-d62fc51",
+          "elpd": 4767.926491907411,
+          "elpd_se": 79.01481942578312,
+          "elpd_mcse": 0.8814882279564984,
+          "delta": 945.7789084685771,
+          "delta_se": 58.52373753812229,
+          "paired_rows": 5226,
+          "max_rhat": 1.0057951984179139,
+          "min_ess": 2937.280882933327,
+          "passes": true,
+          "fit_seconds": 2769.63444277,
+          "sampling_seconds": 2040.7129959570002,
+          "cost_usd": 3.387,
+          "group_rhat_max": 1.0190110593324686,
+          "group_rhat_method": "per-chain moments, all effects"
+        }
+      },
+      "passes_checks": true,
+      "fit_seconds": 2769.63444277,
+      "cost_usd": 3.387,
+      "current_best": true,
+      "frontier": true,
+      "note": ""
     }
   ],
-  "current_best": "m5-quarterly/base-v1/gibbs@4226f40"
+  "current_best": "m7-tunits/desc-v1/gibbs@d62fc51"
 }
