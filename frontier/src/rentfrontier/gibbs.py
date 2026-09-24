@@ -515,37 +515,42 @@ def make_step(d: Design):
         )
 
         new = {"sigma": sigma}
-        # Student-t units: unit_nu | u, unit_scale with kappa integrated out
-        # (random-walk Metropolis on log nu), then kappa | nu, u.
+        # Student-t units: (unit_scale, unit_nu) | u jointly with kappa
+        # integrated out (random-walk Metropolis on the logs; the scale and
+        # tail weight trade off, so they are moved together), then kappa.
         kappa, unit_nu = state["kappa"], state["unit_nu"]
         if d.unit_t:
-            tau = s["unit_scale"]
+            nu_step = 0.0 if d.unit_nu_fixed is not None else 0.05
 
-            def unit_target(log_nu):
-                nu_u = jnp.exp(log_nu)
+            def unit_target(z_):
+                tau_, nu_u = jnp.exp(z_[0]), jnp.exp(z_[1])
                 return (
-                    jnp.sum(collect_module.student_t_logpdf(u, nu_u, tau))
+                    jnp.sum(collect_module.student_t_logpdf(u, nu_u, tau_))
+                    - tau_**2 / (2 * d.prior_sd["unit_scale"] ** 2)
                     + jax.scipy.stats.gamma.logpdf(nu_u, 2.0, scale=10.0)
-                    + log_nu
+                    + z_[0]
+                    + z_[1]
                 )
+
+            unit_sd = jnp.asarray([0.01, nu_step])
 
             def unit_mh(carry, k):
                 z_, lt, acc = carry
                 k1, k2 = jax.random.split(k)
-                prop = z_ + 0.05 * jax.random.normal(k1)
+                prop = z_ + unit_sd * jax.random.normal(k1, (2,))
                 lp = unit_target(prop)
                 ok = jnp.log(jax.random.uniform(k2)) < lp - lt
                 return (jnp.where(ok, prop, z_), jnp.where(ok, lp, lt), acc + ok), None
 
-            if d.unit_nu_fixed is None:
-                z0 = jnp.log(unit_nu)
-                (z_u_nu, _, u_acc), _ = jax.lax.scan(
-                    unit_mh,
-                    (z0, unit_target(z0), jnp.zeros(())),
-                    jax.random.split(keys[12], 10),
-                )
-                unit_nu = jnp.exp(z_u_nu)
-                info["unit_nu_accept"] = u_acc / 10
+            z0 = jnp.log(jnp.stack([s["unit_scale"], unit_nu]))
+            (z_un, _, u_acc), _ = jax.lax.scan(
+                unit_mh,
+                (z0, unit_target(z0), jnp.zeros(())),
+                jax.random.split(keys[12], 10),
+            )
+            s["unit_scale"], unit_nu = jnp.exp(z_un[0]), jnp.exp(z_un[1])
+            info["unit_nu_accept"] = u_acc / 10
+            tau = s["unit_scale"]
             kappa = jax.random.gamma(keys[13], (unit_nu + 1) / 2, (d.n_units,)) / (
                 (unit_nu + (u / tau) ** 2) / 2
             )
@@ -591,8 +596,50 @@ def make_step(d: Design):
             u = c_u * h_u + jnp.sqrt(c_u) * jax.random.normal(
                 jax.random.fold_in(keys[13], 2), (d.n_units,)
             )
-            e = d.y - fixed - u[d.unit]
             info["kappa_accept"] = k_acc.mean()
+
+            # Mode hop for each unit: is an unusual price an unusual unit or
+            # unusual listings? Target u_j with every row weight and kappa_j
+            # integrated out: prod_i t(r_i - u_j; nu, sigma) * t(u_j; nu_u, tau).
+            # Independence proposal from a two-part mixture (near 0, near the
+            # unit's mean residual); then lam and kappa are redrawn exactly.
+            count = jax.ops.segment_sum(jnp.ones_like(resid), d.unit, d.n_units)
+            rbar = jax.ops.segment_sum(resid, d.unit, d.n_units) / count
+
+            def log_f(uu):
+                rows = collect_module.student_t_logpdf(resid - uu[d.unit], nu, sigma)
+                return jax.ops.segment_sum(
+                    rows, d.unit, d.n_units
+                ) + collect_module.student_t_logpdf(uu, unit_nu, tau)
+
+            def log_q(uu):
+                a_ = jax.scipy.stats.norm.logpdf(uu, 0.0, 2 * tau)
+                b_ = jax.scipy.stats.norm.logpdf(uu, rbar, 2 * sigma)
+                return jnp.logaddexp(a_, b_) - jnp.log(2.0)
+
+            kh = jax.random.split(jax.random.fold_in(keys[13], 3), 3)
+            pick = jax.random.bernoulli(kh[0], 0.5, (d.n_units,))
+            prop = jnp.where(
+                pick,
+                2 * tau * jax.random.normal(kh[1], (d.n_units,)),
+                rbar + 2 * sigma * jax.random.normal(kh[2], (d.n_units,)),
+            )
+            log_ratio = log_f(prop) - log_f(u) + log_q(u) - log_q(prop)
+            hop = (
+                jnp.log(
+                    jax.random.uniform(jax.random.fold_in(keys[13], 4), (d.n_units,))
+                )
+                < log_ratio
+            )
+            u = jnp.where(hop, prop, u)
+            info["hop_accept"] = hop.mean()
+            e = d.y - fixed - u[d.unit]
+            lam = jax.random.gamma(
+                jax.random.fold_in(keys[4], 1), (nu + 1) / 2, (n,)
+            ) / ((nu + (e / sigma) ** 2) / 2)
+            kappa = jax.random.gamma(
+                jax.random.fold_in(keys[13], 5), (unit_nu + 1) / 2, (d.n_units,)
+            ) / ((unit_nu + (u / tau) ** 2) / 2)
         new["unit_scale"] = _update_scale(
             keys[5],
             s["unit_scale"],
