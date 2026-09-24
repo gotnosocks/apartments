@@ -1,0 +1,129 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>NYC rent model · research progress</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="viz-root">
+  <header class="page-head">
+    <div>
+      <h1>NYC rent model · research progress</h1>
+      <p class="subtitle">Accuracy is row-split held-out ΔELPD against the promoted PyMC model (log-rent density, paired on identical rows).
+        Fit time is sampler wall time on the hardware each run used.</p>
+    </div>
+    <div class="head-meta">
+      <p id="build-meta" class="muted"></p>
+      <button id="theme" class="ghost" type="button" aria-label="Toggle dark mode">Dark mode</button>
+    </div>
+  </header>
+
+  <section class="filters" aria-label="Filters">
+    <div class="asof">
+      <label for="asof-range">As of</label>
+      <button id="asof-prev" class="ghost icon" type="button" aria-label="Previous result">‹</button>
+      <input id="asof-range" type="range" min="0" max="0" step="1" value="0">
+      <button id="asof-next" class="ghost icon" type="button" aria-label="Next result">›</button>
+      <output id="asof-label" for="asof-range"></output>
+      <button id="asof-play" class="ghost" type="button">Play</button>
+      <button id="asof-now" class="ghost" type="button">Latest</button>
+    </div>
+    <label class="check"><input id="show-failed" type="checkbox" checked> Gate-failing and screen-grade runs</label>
+    <label class="check"><input id="show-se" type="checkbox" checked> ±1 paired SE</label>
+    <label class="check"><input id="full-range" type="checkbox"> Full ΔELPD range</label>
+  </section>
+
+  <section class="kpis" id="kpis" aria-label="Headline numbers"></section>
+
+  <section class="card" id="frontier-card">
+    <div class="card-head">
+      <div>
+        <h2>Pareto frontier: row-split ΔELPD × fit time</h2>
+        <p class="caption">Up is more accurate, left is faster. The staircase is the frontier: entries that no other gate-passing entry
+          (or the reference) beats on both axes at once. The gray staircase is the latest frontier, for context when scrubbing back in time.</p>
+      </div>
+      <button class="ghost table-toggle" type="button" data-target="frontier">Table view</button>
+    </div>
+    <div class="legend" id="legend-frontier"></div>
+    <div class="chart" id="chart-frontier"></div>
+    <div class="table-view" id="table-frontier" hidden></div>
+  </section>
+
+  <div class="grid-2">
+    <section class="card">
+      <div class="card-head">
+        <div>
+          <h2>Unit split (secondary)</h2>
+          <p class="caption">All listings of about 10% of units held out. It breaks row-split ties within two paired SE; it does not define the frontier.</p>
+        </div>
+        <button class="ghost table-toggle" type="button" data-target="units">Table view</button>
+      </div>
+      <div class="chart" id="chart-units"></div>
+      <div class="table-view" id="table-units" hidden></div>
+    </section>
+    <section class="card">
+      <div class="card-head">
+        <div>
+          <h2>Compute spent over time</h2>
+          <p class="caption">Cumulative fit hours of scored entries, by model line (each entry's longest split; superseded reruns included).</p>
+        </div>
+        <button class="ghost table-toggle" type="button" data-target="compute">Table view</button>
+      </div>
+      <div class="chart" id="chart-compute"></div>
+      <div class="table-view" id="table-compute" hidden></div>
+    </section>
+  </div>
+
+  <section class="card">
+    <div class="card-head">
+      <div>
+        <h2>Best row-split ΔELPD over time</h2>
+        <p class="caption">The staircase is the board's current best (gate-passing; ties within two paired SE go to the unit split, then the faster fit).
+          Dots are every scored entry when its row-split result landed. Ticks along the top mark merged PRs and app-model selections. Click the chart to move "As of".</p>
+      </div>
+      <button class="ghost table-toggle" type="button" data-target="progress">Table view</button>
+    </div>
+    <div class="chart" id="chart-progress"></div>
+    <div class="table-view" id="table-progress" hidden></div>
+  </section>
+
+  <section class="card">
+    <div class="card-head">
+      <div>
+        <h2>Fit time over time</h2>
+        <p class="caption">Each entry's fit time when it landed (log scale); the line is the fit time of the board's best. The promoted reference's full fit took about 6.2 h on CPU.</p>
+      </div>
+      <button class="ghost table-toggle" type="button" data-target="time">Table view</button>
+    </div>
+    <div class="chart" id="chart-time"></div>
+    <div class="table-view" id="table-time" hidden></div>
+  </section>
+
+  <section class="card">
+    <div class="card-head">
+      <div>
+        <h2>All entries</h2>
+        <p class="caption" id="entries-caption"></p>
+      </div>
+    </div>
+    <div class="table-wrap" id="entries-table"></div>
+  </section>
+
+  <section class="card">
+    <div class="card-head">
+      <div>
+        <h2>Milestones</h2>
+        <p class="caption">App-model selections and merged pull requests, from git history.</p>
+      </div>
+    </div>
+    <ol class="milestones" id="milestones"></ol>
+  </section>
+
+  <footer class="page-foot" id="footer"></footer>
+  <div class="tooltip" id="tooltip" role="status" hidden></div>
+</div>
+<script type="module" src="app.js"></script>
+</body>
+</html>

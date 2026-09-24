@@ -1,0 +1,15 @@
+[Unit]
+Description=Rebuild the apartments research-progress dashboard from run records and master
+
+[Service]
+Type=oneshot
+WorkingDirectory=/data1/apartments/serve/master/frontier
+Environment=UV_PROJECT_ENVIRONMENT=/data1/apartments/venvs/serve-frontier
+Environment=TMPDIR=/data1/apartments/tmp/dashboard
+# Follow master; if the fetch fails, rebuild from the current checkout.
+ExecStartPre=-/usr/bin/git -C /data1/apartments/serve/master fetch -q origin master
+ExecStartPre=-/usr/bin/git -C /data1/apartments/serve/master checkout -q --detach origin/master
+ExecStartPre=/usr/bin/mkdir -p /data1/apartments/tmp/dashboard
+ExecStart=/home/ben/.local/bin/uv run -q python -m rentfrontier.dashboard --out /data1/apartments/dashboard
+MemoryMax=1G
+Nice=10

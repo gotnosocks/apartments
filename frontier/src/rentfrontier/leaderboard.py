@@ -283,7 +283,62 @@ def screen_entries():
     return entries
 
 
-def build():
+def choose_best(entries):
+    """The ranking rule: highest row-split dELPD among eligible entries; within
+    two paired SE the unit split decides, then the faster fit. Entries need
+    their splits' ``_dir``."""
+    eligible = [
+        e
+        for e in entries
+        if e["passes_checks"] and e["interpretable"] and "rows" in e["splits"]
+    ]
+    eligible.sort(key=lambda e: -e["splits"]["rows"]["delta"])
+    best = None
+    for e in eligible:
+        if best is None:
+            best = e
+            continue
+        d, se = paired(
+            Path(e["splits"]["rows"]["_dir"]), Path(best["splits"]["rows"]["_dir"])
+        )
+        if d > 2 * se:
+            best = e
+        elif abs(d) <= 2 * se and "units" in e["splits"] and "units" in best["splits"]:
+            du, seu = paired(
+                Path(e["splits"]["units"]["_dir"]),
+                Path(best["splits"]["units"]["_dir"]),
+            )
+            if du > 2 * seu or (
+                abs(du) <= 2 * seu and e["fit_seconds"] < best["fit_seconds"]
+            ):
+                best = e
+    return best
+
+
+def on_frontier(entries):
+    """Per entry: not dominated on (row-split dELPD, fit time) by another
+    gate-passing entry or the promoted reference."""
+
+    def point(e):
+        # Ben's axes: accuracy (row-split dELPD) against fit time.
+        return (e["splits"]["rows"]["delta"], -e["fit_seconds"])
+
+    candidates = [e for e in entries if e["passes_checks"] and "rows" in e["splits"]]
+    ref_point = (0.0, -PROMOTED["fit_seconds"])
+    flags = []
+    for e in entries:
+        if not any(e is c for c in candidates):
+            flags.append(False)
+            continue
+        p = point(e)
+        others = [point(o) for o in candidates if o is not e] + [ref_point]
+        flags.append(
+            not any(all(o[i] >= p[i] for i in range(len(p))) and o != p for o in others)
+        )
+    return flags
+
+
+def build(keep_dirs=False):
     rescores = load_rescores()
     annotations = load_annotations()
     groups = {}
@@ -365,48 +420,10 @@ def build():
         entries.append(e)
     entries += screen_entries()
 
-    eligible = [
-        e
-        for e in entries
-        if e["passes_checks"] and e["interpretable"] and "rows" in e["splits"]
-    ]
-    eligible.sort(key=lambda e: -e["splits"]["rows"]["delta"])
-    best = None
-    for e in eligible:
-        if best is None:
-            best = e
-            continue
-        d, se = paired(
-            Path(e["splits"]["rows"]["_dir"]), Path(best["splits"]["rows"]["_dir"])
-        )
-        if d > 2 * se:
-            best = e
-        elif abs(d) <= 2 * se and "units" in e["splits"] and "units" in best["splits"]:
-            du, seu = paired(
-                Path(e["splits"]["units"]["_dir"]),
-                Path(best["splits"]["units"]["_dir"]),
-            )
-            if du > 2 * seu or (
-                abs(du) <= 2 * seu and e["fit_seconds"] < best["fit_seconds"]
-            ):
-                best = e
-
-    def point(e):
-        # Ben's axes: accuracy (row-split dELPD) against fit time.
-        return (e["splits"]["rows"]["delta"], -e["fit_seconds"])
-
-    candidates = [e for e in entries if e["passes_checks"] and "rows" in e["splits"]]
-    ref_point = (0.0, -PROMOTED["fit_seconds"])
-    for e in entries:
+    best = choose_best(entries)
+    for e, on in zip(entries, on_frontier(entries)):
         e["current_best"] = e is best
-        if e not in candidates:
-            e["frontier"] = False
-            continue
-        p = point(e)
-        others = [point(o) for o in candidates if o is not e] + [ref_point]
-        e["frontier"] = not any(
-            all(o[i] >= p[i] for i in range(len(p))) and o != p for o in others
-        )
+        e["frontier"] = on
     # What supersedes each entry: the current best (if it beats it on the
     # paired row split), otherwise a later run of the same design that passes.
     for e in entries:
@@ -444,7 +461,8 @@ def build():
                 e["annotations"].append(rescore_text(split, rs))
     for e in entries:
         for s in e["splits"].values():
-            s.pop("_dir", None)
+            if not keep_dirs:
+                s.pop("_dir", None)
     return {
         "promoted": PROMOTED,
         "footer": annotations["footer"],
