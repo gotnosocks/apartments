@@ -96,7 +96,7 @@ def build():
     for r in load_runs():
         groups.setdefault(design_key(r), {})[r["split"]] = r
     entries = []
-    for key, by_split in groups.items():
+    for by_split in groups.values():
         any_run = next(iter(by_split.values()))
         e = {
             "id": f"{any_run['model']['name']}/{any_run['feature_set']}/{any_run['sampler']}@{any_run['commit'][:7]}",

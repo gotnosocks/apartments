@@ -278,7 +278,7 @@ def gaussian_block(d: Design, lam, s, z_g, z_l, z_u):
     y, a, bld, slots, vals = d.y, d.a, d.building, d.slots, d.slot_values
     n_slots = slots.shape[1]
     w = lam / s["sigma"] ** 2
-    seg_u = lambda v: jax.ops.segment_sum(v, d.unit, J)  # noqa: E731
+    seg_u = lambda v: jax.ops.segment_sum(v, d.unit, J)
     sw = seg_u(w)
     c = 1.0 / (1.0 / s["unit_scale"] ** 2 + sw)  # unit posterior variance given rest
     h = seg_u(w * y)
@@ -303,7 +303,7 @@ def gaussian_block(d: Design, lam, s, z_g, z_l, z_u):
     n = a.shape[0]
     a_l = jnp.zeros((n, L)).at[jnp.arange(n)[:, None], slots].add(vals)
     wadj = w[:, None] * (a_l - (c[:, None] * gl)[d.unit])
-    seg_b = lambda v: jax.ops.segment_sum(v, bld, K)  # noqa: E731
+    seg_b = lambda v: jax.ops.segment_sum(v, bld, K)
 
     def per_local(i):
         col = jax.lax.dynamic_index_in_dim(wadj, i, axis=1, keepdims=True)
@@ -442,7 +442,7 @@ def make_step(d: Design):
 
             log_ratio = out_new[-1] - out[-1] + log_prior(s_new) - log_prior(s)
             ok = jnp.log(jax.random.uniform(k2)) < log_ratio
-            out = jax.tree.map(lambda a, b: jnp.where(ok, b, a), out, out_new)
+            out = jax.tree.map(lambda a, b, ok=ok: jnp.where(ok, b, a), out, out_new)
             s = {k: jnp.where(ok, s_new[k], s[k]) for k in s}
             info["collapsed_accept"] = ok.astype(jnp.float64)
             # One-dimensional collapsed updates for the slowest scales, each
@@ -459,7 +459,9 @@ def make_step(d: Design):
                     + jnp.log(s_new[name] / s[name])
                 )
                 ok = jnp.log(jax.random.uniform(k2)) < log_ratio
-                out = jax.tree.map(lambda a, b: jnp.where(ok, b, a), out, out_new)
+                out = jax.tree.map(
+                    lambda a, b, ok=ok: jnp.where(ok, b, a), out, out_new
+                )
                 s = {k: jnp.where(ok, s_new[k], s[k]) for k in s}
                 info[f"solo_accept_{name}"] = ok.astype(jnp.float64)
         theta, theta_l, u, fixed, _ = out

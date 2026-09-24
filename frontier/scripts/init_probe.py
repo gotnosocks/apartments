@@ -1,5 +1,10 @@
-import sys, time
-import jax, jax.numpy as jnp, numpy as np, jax.flatten_util
+import sys
+import time
+
+import jax
+import jax.flatten_util
+import jax.numpy as jnp
+import numpy as np
 from numpyro.infer.util import initialize_model
 from rentfrontier import data, features, model, sample, splits
 

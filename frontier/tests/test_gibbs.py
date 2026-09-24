@@ -2,13 +2,12 @@ import jax
 
 jax.config.update("jax_enable_x64", True)
 
-import jax.numpy as jnp  # noqa: E402
-import numpy as np  # noqa: E402
-import pandas as pd  # noqa: E402
-import pytest  # noqa: E402
-
-from rentfrontier import collect, gibbs, model  # noqa: E402
-from rentfrontier.features import Features  # noqa: E402
+import jax.numpy as jnp
+import numpy as np
+import pandas as pd
+import pytest
+from rentfrontier import collect, gibbs, model
+from rentfrontier.features import Features
 
 
 def synthetic(seed=0, n_buildings=15, units_per_building=8, months=24):

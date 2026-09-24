@@ -30,9 +30,7 @@ def row_split(data: pd.DataFrame, fraction=FRACTION, seed=SEED) -> np.ndarray:
     kept = data[counts.ge(2)].groupby("unit_id").sample(1, random_state=seed).index
     keep[kept] = True
     candidates = data.index[counts.ge(2) & ~keep]
-    chosen = rng.choice(
-        candidates, size=int(round(fraction * len(data))), replace=False
-    )
+    chosen = rng.choice(candidates, size=round(fraction * len(data)), replace=False)
     return data.index.isin(chosen)
 
 
@@ -43,7 +41,7 @@ def unit_split(data: pd.DataFrame, fraction=FRACTION, seed=SEED) -> np.ndarray:
     eligible = units[units.map(per_building).ge(3)].index.to_numpy()
     chosen = set(
         np.random.default_rng(seed).choice(
-            np.sort(eligible), size=int(round(fraction * len(units))), replace=False
+            np.sort(eligible), size=round(fraction * len(units)), replace=False
         )
     )
     for _, members in units.reset_index().groupby("building").unit_id:

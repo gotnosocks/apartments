@@ -53,11 +53,12 @@ def hardware() -> dict:
         "jax_devices": [str(d) for d in jax.devices()],
     }
     try:
-        info["cpu"] = next(
-            line.split(":", 1)[1].strip()
-            for line in open("/proc/cpuinfo")
-            if line.startswith("model name")
-        )
+        with open("/proc/cpuinfo") as f:
+            info["cpu"] = next(
+                line.split(":", 1)[1].strip()
+                for line in f
+                if line.startswith("model name")
+            )
     except (OSError, StopIteration):
         pass
     try:
@@ -65,6 +66,7 @@ def hardware() -> dict:
             ["nvidia-smi", "--query-gpu=name", "--format=csv,noheader"],
             capture_output=True,
             text=True,
+            check=False,
         ).stdout.strip()
     except OSError:
         pass
@@ -73,10 +75,10 @@ def hardware() -> dict:
 
 def split_rhat(x):
     """Split R-hat over axis 1 (draws) for x of shape (chains, draws)."""
-    c, n = x.shape
+    _, n = x.shape
     half = n // 2
     x = np.concatenate([x[:, :half], x[:, half : 2 * half]], axis=0)
-    m, n = x.shape
+    _, n = x.shape
     means = x.mean(axis=1)
     within = x.var(axis=1, ddof=1).mean()
     between = n * means.var(ddof=1)
@@ -133,7 +135,7 @@ def score(
     if len(lpd) == 0:
         return {"rows": 0, "note": "analysis fit on all rows; no held-out score"}
     out = {
-        "rows": int(len(lpd)),
+        "rows": len(lpd),
         "elpd": float(lpd.sum()),
         "elpd_se": float(lpd.std(ddof=1) * math.sqrt(len(lpd))),
         # Monte Carlo error of the pooled ELPD from the spread of per-chain estimates.

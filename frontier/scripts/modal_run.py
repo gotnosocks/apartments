@@ -145,12 +145,14 @@ def main():
             env=env,
             capture_output=True,
             text=True,
+            check=False,  # the return code is reported to the caller
         )
         vol.commit()
         gpu = subprocess.run(
             ["nvidia-smi", "--query-gpu=name,driver_version", "--format=csv,noheader"],
             capture_output=True,
             text=True,
+            check=False,
         ).stdout.strip()
         return {
             "returncode": proc.returncode,

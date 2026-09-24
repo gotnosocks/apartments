@@ -6,7 +6,6 @@ import jax
 if "f64" in sys.argv:
     jax.config.update("jax_enable_x64", True)
 import numpy as np
-
 from rentfrontier import data, features, model, sample, splits
 
 chains, warmup, draws = (int(v) for v in sys.argv[1:4])

@@ -9,7 +9,6 @@ if sys.argv[1] == "f64":
     jax.config.update("jax_enable_x64", True)
 import jax.flatten_util
 from numpyro.infer.util import initialize_model
-
 from rentfrontier import data, features, model, splits
 
 frame = data.load()

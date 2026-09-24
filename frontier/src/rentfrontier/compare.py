@@ -46,7 +46,7 @@ def main():
     print(f"{'model':48s} " + " ".join(f"{'vs ' + k:>24s}" for k in refs))
     for name, lpd in everything.items():
         cells = []
-        for rname, ref in refs.items():
+        for ref in refs.values():
             d, se, n = paired(lpd, ref)
             cells.append(f"{d:+9.1f} ± {se:5.1f} ({n})")
         print(f"{name:48s} " + " ".join(f"{c:>24s}" for c in cells))
