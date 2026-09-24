@@ -40,7 +40,7 @@ from dataclasses import asdict, dataclass
 
 import numpy as np
 import scipy.sparse as sp
-from scipy.sparse.linalg import spsolve
+from scipy.sparse.linalg import cg
 
 from . import data, explain, features, model, splits
 from .run import git, hardware
@@ -316,7 +316,13 @@ def project(reference: str, candidates=CANDIDATES):
         )
         # Posterior mode of the structure fit to mu_ref with the reference's
         # noise scale: (z'z + sigma^2 P) b = z' mu_ref.
-        b = spsolve((z.T @ z + sigma**2 * pen).tocsc(), z.T @ mu_ref)
+        # Conjugate gradients with a Jacobi preconditioner: only sparse
+        # products, no factorization fill (building walks couple to units).
+        system = (z.T @ z + sigma**2 * pen).tocsr()
+        precond = sp.diags(1.0 / system.diagonal())
+        b, info = cg(system, z.T @ mu_ref, M=precond, rtol=1e-10, maxiter=20000)
+        if info != 0:
+            raise RuntimeError(f"CG did not converge for {s.name} (info {info})")
         m = z @ b
         loss = elpd_ref - float(t_logpdf(y - m, nu, sigma).sum())
         out.append(
