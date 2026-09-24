@@ -60,8 +60,8 @@ The [access-scope follow-up](docs/analysis/chelsea-outdoor-scope-2026-09-18.md)
 separates source claims and tests them on previously unreviewed units. Independent
 review still finds scope and access errors, so those claims remain review evidence.
 
-The repository retains the StreetEasy scraper, durable raw archive, archive and
-review browsers, and prior pricing experiments. New work connects immutable
+The repository retains the StreetEasy scraper, durable raw archive, the raw
+archive browser, and prior pricing experiments. New work connects immutable
 captures and dated overlays to reproducible analytical inputs, interpretable
 price contrasts, and preference frontiers. Git and colocated Jujutsu track the code.
 
@@ -98,7 +98,7 @@ resume behavior.
 
 The primary project and archive now live on **thelio**, with the archive under
 `/data1/apartments/archive`. See the [hosting and migration runbook](docs/operations/thelio.md)
-for the verified cutover record and access to the review and archive browsers.
+for the verified cutover record, the archive browser and the research dashboard.
 Migration completed on September 16 at 21:19 EDT; Modal retains a frozen backup.
 Direct Tailscale access: [research dashboard](http://thelio.tail3983e0.ts.net:8500/) ·
 [raw archive](http://thelio.tail3983e0.ts.net:8765/).

@@ -139,7 +139,7 @@ Successful completion of `apartments-migration.service` triggers
 `apartments-migration-finalize.service`. It reconciles manifest/file/byte counts,
 checks the canonical SQLite database read-only, and compares Parquet row counts
 with the saved dataset completion report. It publishes the cutover marker only
-after validation, then starts the review and archive services. A failure leaves
+after validation, then starts the archive service. A failure leaves
 the services gated and is visible in the finalize service journal. No GPU is used.
 
 A pre-cutover read-only review smoke test on the transferred tables returned HTTP
@@ -150,9 +150,9 @@ contains no saved corrections or review decisions.
 ## Persistent services and access
 
 User systemd lingering is enabled for `ben`, allowing services to run after logout
-and start at boot. Unit files are in `deploy/thelio/`; review/browser units require
-both the `/data1` mount and the cutover marker. They bind to loopback and the explicit Tailscale IPv4 address, with
-memory limits of 3 GiB and 2 GiB respectively. They are enabled and were started after validation.
+and start at boot. Unit files are in `deploy/thelio/`; the archive browser unit requires
+both the `/data1` mount and the cutover marker. It binds to loopback and the explicit Tailscale IPv4 address, with
+a 2 GiB memory limit.
 
 ```sh
 systemctl --user status apartments-archive apartments-dashboard apartments-dashboard-build.timer

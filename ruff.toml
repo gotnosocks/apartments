@@ -241,8 +241,6 @@ extend-exclude = [
     "src/streeteasy_archive/store.py",
     "tests/test_bayesian_analysis.py",
     "tests/test_bayesian_feature_graph_centered.py",
-    "tests/test_bayesian_research_page.py",
-    "tests/test_main_bayesian_page.py",
     "tests/test_rental_search.py",
     "models/bayesian_bedroom_time_experiment.py",
     "models/bayesian_bedroom_time_graph.py",
