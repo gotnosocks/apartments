@@ -15,8 +15,9 @@ worker's `finished_at`, else the result file's modification time. For every
 moment a result landed, the board's own rules (`leaderboard.choose_best`,
 `leaderboard.on_frontier`) are re-applied to the results available by then,
 so the dashboard's frontier and best at any date agree with what the board
-would have said at that date. An entry counts from its row-split result; its
-gate status and fit time use only the splits available at that moment.
+would have said at that date. An entry counts from its row-split result (its
+PSIS-LOO score is a function of that fit's saved draws, so it counts from
+then too); its gate status uses only the splits available at that moment.
 
 Keys. Board ids name a design, feature set, sampler and commit, so reruns of
 one commit with other sampler settings (e.g. `-solo` timing runs) share an
@@ -133,7 +134,7 @@ def as_of(entries, t):
         v = copy.copy(e)
         v["splits"] = splits
         v["passes_checks"] = all(s["passes"] for s in splits.values())
-        v["fit_seconds"] = max(s["fit_seconds"] for s in splits.values())
+        v["fit_seconds"] = splits["rows"]["fit_seconds"]
         v["_entry"] = e
         out.append(v)
     return out
@@ -141,7 +142,7 @@ def as_of(entries, t):
 
 def snapshots(entries):
     """Board best and frontier (entry keys) after each result landed."""
-    paired = functools.lru_cache(maxsize=None)(leaderboard.paired)
+    paired = functools.lru_cache(maxsize=None)(leaderboard.paired_loo)
     times = sorted({s["_at"] for e in entries for s in e["splits"].values()})
     snaps = []
     for t in times:
@@ -152,7 +153,7 @@ def snapshots(entries):
             {
                 "at": iso(t),
                 "best": best["_key"] if best else None,
-                "best_rows_delta": best["splits"]["rows"]["delta"] if best else None,
+                "best_delta": best["psis"]["delta"] if best else None,
                 "frontier": [v["_key"] for v, on in zip(view, flags) if on],
                 "entries": len(view),
             }
@@ -217,6 +218,24 @@ def reference_entry():
     }
 
 
+def psis_fields(ps):
+    if not ps or ps.get("delta") is None:
+        return None
+    return {
+        "delta": ps["delta"],
+        "delta_se": ps["delta_se"],
+        "delta_mcse": ps["delta_mcse"],
+        "elpd": ps["elpd"],
+        "elpd_se": ps["elpd_se"],
+        "mcse": ps["mcse"],
+        "draws": ps["draws"],
+        "k_share": ps["pareto_k"]["share_over_threshold"],
+        "k_threshold": ps["pareto_k"]["threshold"],
+        "k_over": ps["pareto_k"]["over_threshold"],
+        "validation": ps["validation"],
+    }
+
+
 def data():
     board = leaderboard.build(keep_dirs=True)
     entries = assign_keys(board["entries"])
@@ -249,6 +268,7 @@ def data():
                 "passes_checks": e["passes_checks"],
                 "frontier": e["frontier"],
                 "current_best": e["current_best"],
+                "psis": psis_fields(e.get("psis")),
                 "note": e["note"],
                 "annotations": e.get("annotations", []),
                 "available_at": iso(e["splits"]["rows"]["_at"])
@@ -284,6 +304,10 @@ def data():
             "all_effects_rhat": 1.05,
         },
         "current_best": next((e["_key"] for e in entries if e["current_best"]), None),
+        "baseline": leaderboard.BASELINE,
+        "baseline_key": next(
+            (e["_key"] for e in entries if e["id"] == leaderboard.BASELINE), None
+        ),
         "reference": reference_entry(),
         "entries": out,
         "snapshots": snaps,

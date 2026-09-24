@@ -20,18 +20,25 @@ rescores under /data1/apartments/frontier/rescores (`rentfrontier.rescore`)
 are attached to the split they rescore and summarised as annotations. Neither
 changes a score, the ranking or the frontier: those use the recorded runs.
 
-Ranking rule. Entries must pass the convergence gate and the
-interpretability requirement. They are ranked by row-split dELPD against the
-promoted model: Ben's use fits data that includes the listing's own unit, and
-a held-out row of an in-fit unit is the matching test. When two entries'
-paired row-split difference is within two standard errors, the unit split
-decides; if neither split separates them, the faster entry ranks first.
-PyMC screens that fail the gate are listed as screen-grade: shown, but never
-current best or on the frontier.
+Primary score (since 2026-09-24): integrated PSIS-LOO over the row split's
+47,374 training rows (`rentfrontier.loo`), paired row by row against the
+baseline entry (BASELINE). Its uncertainty combines the paired standard error
+with both runs' Monte Carlo errors. Held-out dELPD against the promoted PyMC
+model (5,264 row-split held-out rows) and the unit split are validation and
+secondary columns.
 
-Frontier. An entry is on the frontier if no other entry is at least as good
-on row-split dELPD and fit time (Ben's accuracy-vs-complexity axes) and
-strictly better on one. Unit-split dELPD, cost and hardware are columns.
+Ranking rule. Eligible entries pass the convergence gate, are
+interpretable and have a PSIS-LOO score. The top entry has the highest
+PSIS-LOO dELPD; every eligible entry within two combined standard errors of
+it ties, and the fastest tied entry is the current best (Ben's axes are
+accuracy and fit time). PyMC screens that fail the gate are screen-grade:
+shown, never best or on the frontier; screens without saved draws have no
+PSIS-LOO score.
+
+Frontier. An entry is on the frontier if no other eligible entry is at
+least as good on PSIS-LOO dELPD and fit time and strictly better on one.
+Fit time is the scored (row-split) fit's wall time; unit-split fits are
+optional and not counted.
 """
 
 from __future__ import annotations
@@ -47,6 +54,9 @@ from .run import REFERENCES
 
 RUNS = data.OUTPUT_ROOT / "runs"
 RESCORES = data.OUTPUT_ROOT / "rescores"
+LOO_ROOT = data.OUTPUT_ROOT / "loo"
+# PSIS-LOO dELPD is paired against this entry (the plainest gate-passing design).
+BASELINE = "m0-base/base-v1/gibbs@5cc0809"
 DOCS = Path(__file__).resolve().parents[3] / "docs" / "model" / "leaderboard"
 ANNOTATIONS = DOCS / "annotations.json"
 # PyMC screens live beside the pinned references (feature-screen-20260923).
@@ -99,6 +109,43 @@ def load_rescores():
         if not r.get("dirty"):
             out[r["source_run"]] = r
     return out
+
+
+def load_loo():
+    """Latest reportable PSIS-LOO record per source run name."""
+    out = {}
+    for path in sorted(LOO_ROOT.glob("*/result.json"), key=lambda p: p.stat().st_mtime):
+        r = json.loads(path.read_text())
+        if not r.get("dirty"):
+            r["_dir"] = str(path.parent)
+            out[r["source_run"]] = r
+    return out
+
+
+def paired_loo(a_dir, b_dir):
+    """Paired PSIS-LOO difference a - b on identical training rows:
+    (sum, SE, combined Monte Carlo error)."""
+    a = np.load(Path(a_dir) / "pointwise.npz", allow_pickle=True)
+    b = np.load(Path(b_dir) / "pointwise.npz", allow_pickle=True)
+    for x, folder in ((a, a_dir), (b, b_dir)):
+        if len(set(x["audit_id"].tolist())) != len(x["audit_id"]):
+            raise ValueError(f"Duplicate training audit IDs in {Path(folder).name}")
+    ai = dict(zip(a["audit_id"].tolist(), range(len(a["audit_id"]))))
+    bi = dict(zip(b["audit_id"].tolist(), range(len(b["audit_id"]))))
+    if ai.keys() != bi.keys():
+        raise ValueError(
+            f"Training rows differ: {Path(a_dir).name} ({len(ai)}) vs {Path(b_dir).name} ({len(bi)})"
+        )
+    keys = list(ai)
+    ia = np.array([ai[k] for k in keys])
+    ib = np.array([bi[k] for k in keys])
+    d = a["elpd_loo"][ia] - b["elpd_loo"][ib]
+    mc = math.sqrt(float(np.sum(a["mcse"] ** 2) + np.sum(b["mcse"] ** 2)))
+    return float(d.sum()), float(d.std(ddof=1) * math.sqrt(len(d))), mc
+
+
+def tie_tolerance(se, mcse):
+    return 2.0 * math.hypot(se, mcse)
 
 
 def load_annotations():
@@ -277,61 +324,58 @@ def screen_entries():
             cost.append(remote.get("estimated_worker_usd") or 0.0)
         e["passes_checks"] = passes
         e["grade"] = "full" if passes else "screen"
-        e["fit_seconds"] = max(seconds)
+        rows_split = by_split.get("rows")
+        e["fit_seconds"] = rows_split[1]["seconds"] if rows_split else max(seconds)
+        e["fit_seconds_all_splits"] = sum(seconds)
         e["cost_usd"] = max(cost)
         entries.append(e)
     return entries
 
 
-def choose_best(entries, paired=paired):
-    """The ranking rule: highest row-split dELPD among eligible entries; within
-    two paired SE the unit split decides, then the faster fit. Entries need
-    their splits' ``_dir``. ``paired`` can be a cached equivalent."""
+def scored_raw(e):
+    return bool(e.get("psis"))
+
+
+def scored(e):
+    return (e.get("psis") or {}).get("delta") is not None
+
+
+def choose_best(entries, paired=paired_loo):
+    """The fastest eligible entry tied (within two combined SE) with the top
+    PSIS-LOO dELPD. Entries need ``psis["_dir"]``; ``paired`` can be a cached
+    equivalent of `paired_loo`."""
     eligible = [
-        e
-        for e in entries
-        if e["passes_checks"] and e["interpretable"] and "rows" in e["splits"]
+        e for e in entries if e["passes_checks"] and e["interpretable"] and scored(e)
     ]
-    eligible.sort(key=lambda e: -e["splits"]["rows"]["delta"])
-    best = None
+    if not eligible:
+        return None
+    top = max(eligible, key=lambda e: e["psis"]["delta"])
+    tied = []
     for e in eligible:
-        if best is None:
-            best = e
+        if e is top:
+            tied.append(e)
             continue
-        d, se = paired(
-            Path(e["splits"]["rows"]["_dir"]), Path(best["splits"]["rows"]["_dir"])
-        )
-        if d > 2 * se:
-            best = e
-        elif abs(d) <= 2 * se and "units" in e["splits"] and "units" in best["splits"]:
-            du, seu = paired(
-                Path(e["splits"]["units"]["_dir"]),
-                Path(best["splits"]["units"]["_dir"]),
-            )
-            if du > 2 * seu or (
-                abs(du) <= 2 * seu and e["fit_seconds"] < best["fit_seconds"]
-            ):
-                best = e
-    return best
+        d, se, mc = paired(e["psis"]["_dir"], top["psis"]["_dir"])
+        if abs(d) <= tie_tolerance(se, mc):
+            tied.append(e)
+    return min(tied, key=lambda e: (e["fit_seconds"], -e["psis"]["delta"]))
 
 
 def on_frontier(entries):
-    """Per entry: not dominated on (row-split dELPD, fit time) by another
-    gate-passing entry or the promoted reference."""
+    """Per entry: not dominated on (PSIS-LOO dELPD, fit time) by another
+    eligible entry."""
 
     def point(e):
-        # Ben's axes: accuracy (row-split dELPD) against fit time.
-        return (e["splits"]["rows"]["delta"], -e["fit_seconds"])
+        return (e["psis"]["delta"], -e["fit_seconds"])
 
-    candidates = [e for e in entries if e["passes_checks"] and "rows" in e["splits"]]
-    ref_point = (0.0, -PROMOTED["fit_seconds"])
+    candidates = [e for e in entries if e["passes_checks"] and scored(e)]
     flags = []
     for e in entries:
         if not any(e is c for c in candidates):
             flags.append(False)
             continue
         p = point(e)
-        others = [point(o) for o in candidates if o is not e] + [ref_point]
+        others = [point(o) for o in candidates if o is not e]
         flags.append(
             not any(all(o[i] >= p[i] for i in range(len(p))) and o != p for o in others)
         )
@@ -340,6 +384,7 @@ def on_frontier(entries):
 
 def build(keep_dirs=False):
     rescores = load_rescores()
+    loos = load_loo()
     annotations = load_annotations()
     groups = {}
     for r in load_runs():
@@ -415,10 +460,38 @@ def build(keep_dirs=False):
         e["passes_checks"] = passes
         e["line"] = "frontier"
         e["grade"] = "full" if passes else "failed"
-        e["fit_seconds"] = max(fit_seconds)
+        # Fit time is the scored (row-split) fit's; unit-split fits are optional.
+        rows_run = by_split.get("rows")
+        e["fit_seconds"] = (
+            rows_run["seconds"]["fit_total"] if rows_run else max(fit_seconds)
+        )
+        e["fit_seconds_all_splits"] = sum(fit_seconds)
         e["cost_usd"] = max(cost)
+        if rows_run and rows_run["name"] in loos:
+            lr = loos[rows_run["name"]]
+            e["psis"] = {
+                "run": rows_run["name"],
+                "commit": lr["commit"],
+                "rows": lr["rows"],
+                "draws": lr["draws"],
+                "elpd": lr["elpd_loo"],
+                "elpd_se": lr["elpd_loo_se"],
+                "mcse": lr["elpd_loo_mcse"],
+                "pareto_k": lr["pareto_k"],
+                "validation": lr["validation"],
+                "integrated": lr["integrated"],
+                "_dir": lr["_dir"],
+            }
         entries.append(e)
     entries += screen_entries()
+    base = next((e for e in entries if e["id"] == BASELINE and scored_raw(e)), None)
+    for e in entries:
+        if e.get("psis") and base is not None:
+            if e is base:
+                d, se, mc = 0.0, 0.0, 0.0
+            else:
+                d, se, mc = paired_loo(e["psis"]["_dir"], base["psis"]["_dir"])
+            e["psis"].update(delta=d, delta_se=se, delta_mcse=mc, baseline=BASELINE)
 
     best = choose_best(entries)
     for e, on in zip(entries, on_frontier(entries)):
@@ -433,12 +506,12 @@ def build(keep_dirs=False):
             note = f"screen-grade (max R-hat {worst:.3f}); not eligible for best or frontier"
             if any(s["delta"] is None for s in e["splits"].values()):
                 note += "; held-out rows differ from the reference, so not paired"
-        elif best is not None and e is not best and "rows" in e["splits"]:
-            d, se = paired(
-                Path(best["splits"]["rows"]["_dir"]), Path(e["splits"]["rows"]["_dir"])
-            )
-            if d > 2 * se:
-                note = f"beaten by {best['id']} ({d:+.1f} ± {se:.1f} rows)"
+        elif not scored(e) and e["line"] == "frontier" and "rows" in e["splits"]:
+            note = "no PSIS-LOO score yet"
+        elif best is not None and e is not best and scored(e):
+            d, se, mc = paired_loo(best["psis"]["_dir"], e["psis"]["_dir"])
+            if d > tie_tolerance(se, mc):
+                note = f"beaten by {best['id']} ({d:+.1f} ± {math.hypot(se, mc):.1f} PSIS-LOO)"
             elif not e["passes_checks"]:
                 same = [
                     o
@@ -460,11 +533,18 @@ def build(keep_dirs=False):
                 rs = rescores[sp["run"]]
                 e["annotations"].append(rescore_text(split, rs))
     for e in entries:
+        if e.get("grade") == "screen" or (e["line"] == "pymc" and not scored(e)):
+            e["note"] = "; ".join(
+                x for x in (e["note"], "no saved draws, so no PSIS-LOO score") if x
+            )
         for s in e["splits"].values():
             if not keep_dirs:
                 s.pop("_dir", None)
+        if e.get("psis") and not keep_dirs:
+            e["psis"].pop("_dir", None)
     return {
         "promoted": PROMOTED,
+        "baseline": BASELINE,
         "footer": annotations["footer"],
         "entries": entries,
         "current_best": best["id"] if best else None,
@@ -476,30 +556,34 @@ def fmt(x, digits=1):
 
 
 def markdown(board) -> str:
+    base = board.get("baseline", BASELINE)
     lines = [
         "# Model leaderboard (both lines)",
         "",
         "Generated by `python -m rentfrontier.leaderboard` from recorded frontier runs and PyMC NUTS screens; machine-readable copy in `leaderboard.json`.",
-        "ΔELPD is paired against the promoted model on identical held-out rows (log-rent density), with its standard error; differing row sets are refused.",
+        "The plan behind it is [docs/research-plan.md](../../research-plan.md).",
         "",
-        "**Ranking.** Only entries that pass the convergence gate (max split R-hat < 1.01 and min bulk ESS > 400; frontier runs also need",
-        "max R-hat < 1.05 over every building, walk, slope and unit effect, or 1.1 when recomputed from older runs' kept draws; PyMC screens",
-        "report R-hat over every parameter) and the interpretability requirement are eligible. Rank by row-split ΔELPD. When two entries",
-        "differ by less than two paired standard errors on the row split, the unit split decides. **Frontier** = not beaten on row-split",
-        "ΔELPD and fit time at once (accuracy against complexity). PyMC screens that fail the gate are **screen-grade**: shown for",
-        "comparison, never best or on the frontier.",
+        f"**Primary score: PSIS-LOO ΔELPD** over the row split's 47,374 training rows (log-rent density, unit effects integrated exactly per row; `rentfrontier.loo`), paired row by row against `{base}`.",
+        "± is the paired standard error combined with both runs' Monte Carlo errors. *k* is the share of rows whose Pareto k exceeds the draw-count threshold (reliability).",
+        "**Held-out** ΔELPD (5,264 row-split held-out rows, vs the promoted PyMC model) is the independent validation; the unit split is secondary.",
         "",
-        "| Entry | Line | Design | Features | Rows ΔELPD | Units ΔELPD | Units ELPD | R-hat / ESS | Fit time | Cost | Hardware | Grade | Interp. | Best | Frontier | Note |",
-        "|---|---|---|---|---:|---:|---:|---|---:|---:|---|---|---|---|---|---|",
+        "**Ranking.** Eligible entries pass the convergence gate (max split R-hat < 1.01 and min bulk ESS > 400; frontier runs also need",
+        "R-hat < 1.05 over every group effect, 1.1 when recomputed from older runs' kept draws), are interpretable and have a PSIS-LOO score.",
+        "Every eligible entry within two combined SE of the top PSIS-LOO ΔELPD ties with it; the **best** is the fastest tied entry.",
+        "**Frontier** = not beaten on PSIS-LOO ΔELPD and fit time at once. Fit time is the scored (row-split) fit's sampler wall time.",
+        "",
+        "| Entry | Line | Design | Features | PSIS-LOO ΔELPD | k | Held-out ΔELPD | Units ΔELPD | R-hat / ESS | Fit time | Hardware | Grade | Best | Frontier | Note |",
+        "|---|---|---|---|---:|---:|---:|---:|---|---:|---|---|---|---|---|",
     ]
     p = PROMOTED
-    lines.append(
-        f"| promoted (reference) | pymc | {p['description']} | own | 0 (ELPD {fmt(p['rows']['elpd'])}) | 0 | {fmt(p['units']['elpd'])} | passes | {fmt(p['fit_seconds'] / 60, 0)} min* | ${p['cost_usd']:.2f}* | {p['hardware']} | reference | yes | — | reference | |"
-    )
-    ordered = sorted(
-        board["entries"],
-        key=lambda e: -(e["splits"].get("rows", {}).get("delta") or -1e9),
-    )
+
+    def key(e):
+        ps = e.get("psis") or {}
+        if ps.get("delta") is not None:
+            return (0, -ps["delta"])
+        return (1, -(e["splits"].get("rows", {}).get("delta") or -1e9))
+
+    ordered = sorted(board["entries"], key=key)
     marks = {}
     for e in ordered:
         if e.get("annotations"):
@@ -507,16 +591,32 @@ def markdown(board) -> str:
     for e in ordered:
         r = e["splits"].get("rows", {})
         u = e["splits"].get("units", {})
+        ps = e.get("psis") or {}
+        if ps.get("delta") is not None:
+            unc = math.hypot(ps["delta_se"], ps["delta_mcse"])
+            psis = f"{fmt(ps['delta'])} ± {fmt(unc)}"
+            kshare = f"{100 * ps['pareto_k']['share_over_threshold']:.1f}%"
+        else:
+            psis, kshare = "—", "—"
         diag = "; ".join(
             f"{k}: {v['max_rhat']:.3f} / {v['min_ess']:.0f} / all-effects {v['group_rhat_max']:.2f}"
             for k, v in e["splits"].items()
         )
-        lines.append(
-            f"| `{e['id']}` | {e['line']} | {e['model']['name']} | {e['feature_set']} | {fmt(r.get('delta'))} ± {fmt(r.get('delta_se'))} | "
-            f"{fmt(u.get('delta'))}{' ± ' + fmt(u.get('delta_se')) if u.get('delta') is not None else ''} | {fmt(u.get('elpd'))} | {diag} | "
-            f"{fmt(e['fit_seconds'], 0)} s | ${e['cost_usd']:.2f} | {e['hardware']} | {e['grade']} | "
-            f"{'yes' if e['interpretable'] else 'no'} | {'**best**' if e['current_best'] else ''} | {'yes' if e['frontier'] else ''} | {'; '.join(x for x in (e['note'], ('see ' + marks[e['id']]) if e['id'] in marks else '') if x)} |"
+        note = "; ".join(
+            x
+            for x in (e["note"], ("see " + marks[e["id"]]) if e["id"] in marks else "")
+            if x
         )
+        lines.append(
+            f"| `{e['id']}` | {e['line']} | {e['model']['name']} | {e['feature_set']} | {psis} | {kshare} | "
+            f"{fmt(r.get('delta'))}{' ± ' + fmt(r.get('delta_se')) if r.get('delta') is not None else ''} | "
+            f"{fmt(u.get('delta'))}{' ± ' + fmt(u.get('delta_se')) if u.get('delta') is not None else ''} | {diag} | "
+            f"{fmt(e['fit_seconds'], 0)} s | {e['hardware']} | {e['grade']} | "
+            f"{'**best**' if e['current_best'] else ''} | {'yes' if e['frontier'] else ''} | {note} |"
+        )
+    lines.append(
+        f"| promoted (validation reference) | pymc | {p['description']} | own | — | — | 0 | 0 | passes | {fmt(p['fit_seconds'] / 60, 0)} min* | {p['hardware']} | reference | | | no saved row-split draws, so no PSIS-LOO score yet |"
+    )
     if marks:
         lines += [
             "",
@@ -531,11 +631,8 @@ def markdown(board) -> str:
         "",
         f"\\* {p['fit_seconds_note']}; cost is {p['cost_note']}.",
         "",
-        "Fit time is the sampler wall time (frontier: warmup + draws, including JIT compilation; PyMC screens: the screen's recorded seconds).",
-        "Fit times compare well within a line but only roughly across lines: PyMC screens are 4 chains x 1,000/1,000 on 90% of rows,",
-        "while frontier runs are production-length (e.g. 16 chains x 2,000). Cost is per fit (the larger of a design's two split runs).",
-        "The current best can sit off the frontier: the unit split breaks row-split ties for best, but the frontier uses row ΔELPD and time only.",
-        "Cost is the Modal list-price estimate for runs made there (Modal use stopped on 2026-09-24; local runs record $0).",
+        "Fit time is the sampler wall time of the scored fit (frontier: warmup + draws, including JIT compilation; PyMC screens: the screen's recorded seconds)",
+        "on the hardware in its column; times compare well within a line and hardware, only roughly across them.",
         "Runs named `dev-*` or `canary-*` are pipeline checks and are not listed.",
         *board.get("footer", []),
         "",

@@ -192,3 +192,4 @@ details ul { margin: 4px 0 0; padding-left: 18px; color: var(--text-secondary); 
 .milestones .what small { color: var(--text-secondary); display: block; }
 .page-foot { color: var(--text-secondary); font-size: 12px; max-width: 100ch; }
 .page-foot p { margin-bottom: 6px; }
+.subtitle a, .caption a { color: var(--text-primary); }

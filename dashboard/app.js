@@ -9,10 +9,14 @@ const LINES = {
   pymc: { label: 'PyMC line (NUTS screens)', short: 'PyMC', color: 'var(--series-2)' },
 };
 const HIT = 24; // minimum hover target, px
+// Primary score: PSIS-LOO dELPD vs the baseline, with its combined error.
+const score = (e) => (e.psis ? e.psis.delta : null);
+const scoreErr = (e) => (e.psis ? Math.hypot(e.psis.delta_se, e.psis.delta_mcse) : null);
+const heldout = (e) => e.splits.rows?.delta ?? null;
 
 const state = {
   data: null, idx: 0, showFailed: true, showSE: true, fullRange: false,
-  lines: { frontier: true, pymc: true }, sort: { key: 'rows', dir: -1 }, playing: null,
+  lines: { frontier: true, pymc: true }, sort: { key: 'psis', dir: -1 }, playing: null,
 };
 
 // ---------- DOM helpers ----------
@@ -114,7 +118,7 @@ function asOf(idx) {
     for (const [k, s] of Object.entries(e.splits)) if (Date.parse(s.completed_at) <= T) splits[k] = s;
     if (!splits.rows) continue;
     const passes = Object.values(splits).every((s) => s.passes);
-    const fit = Math.max(...Object.values(splits).map((s) => s.fit_seconds));
+    const fit = splits.rows.fit_seconds; // the scored fit's time
     entries.push({ ...e, splits, passes, fit, onFrontier: frontier.has(e.key), isBest: snap.best === e.key });
   }
   return { T, snap, entries, frontier, best: entries.find((e) => e.isBest) || null };
@@ -122,10 +126,9 @@ function asOf(idx) {
 function visibleEntries(v) {
   return v.entries.filter((e) => state.lines[e.line] && (state.showFailed || e.passes));
 }
-// An entry's fit time counting only the splits landed by T (the board takes the larger split).
-function fitAsOf(e, T) {
-  const landed = Object.values(e.splits).filter((sp) => Date.parse(sp.completed_at) <= T);
-  return Math.max(...(landed.length ? landed : Object.values(e.splits)).map((sp) => sp.fit_seconds));
+// An entry's fit time on the frontier: its scored (row-split) fit's.
+function fitAsOf(e) {
+  return e.splits.rows ? e.splits.rows.fit_seconds : e.fit_seconds;
 }
 function allSplitsCompleted(T) {
   const out = [];
@@ -158,13 +161,15 @@ function tipRow(t, name, value) {
 }
 function entryTip(t, e) {
   const s = e.splits.rows;
-  html('div', { class: 't-value' }, t, `${fmtDelta(s.delta)} ${fmtSE(s.delta_se)} rows ΔELPD`);
+  html('div', { class: 't-value' }, t, e.psis ? `${fmtDelta(score(e))} ${fmtSE(scoreErr(e))} PSIS-LOO ΔELPD` : 'no PSIS-LOO score');
   const name = html('div', { class: 't-name' }, t);
   const key = html('span', { class: 'key', style: `background:${LINES[e.line].color}` }, name);
   key.setAttribute('aria-hidden', 'true');
   name.appendChild(document.createTextNode(e.key));
   if (e.design_text) html('div', { class: 't-name' }, t, e.design_text);
   const u = e.splits.units;
+  if (e.psis) tipRow(t, 'Pareto k over threshold', `${(100 * e.psis.k_share).toFixed(1)}% of rows`);
+  tipRow(t, 'Held-out ΔELPD (vs promoted)', `${fmtDelta(s.delta)} ${fmtSE(s.delta_se)}`);
   tipRow(t, 'Units ΔELPD', u ? `${fmtDelta(u.delta)} ${fmtSE(u.delta_se)}` : 'not run');
   tipRow(t, 'Fit time', fmtDur(e.fit));
   tipRow(t, 'Hardware', e.hardware);
@@ -239,7 +244,7 @@ function overlaps(a, b) { return a.x < b.x + b.w && b.x < a.x + a.w && a.y < b.y
 // Place selective direct labels without collisions; leader line when moved away.
 function placeLabels(f, items, obstacles) {
   const placed = [];
-  const within = (b) => b.x >= f.inner.x0 && b.x + b.w <= f.width - 4 && b.y >= 2 && b.y + b.h <= f.inner.y1 - 2;
+  const within = (b) => b.x >= f.inner.x0 && b.x + b.w <= f.width - 4 && b.y >= (f.minLabelY ?? 2) && b.y + b.h <= f.inner.y1 - 2;
   for (const it of items) {
     const t = svg('text', { class: it.cls || 'label', x: 0, y: 0, text: it.text }, f.root);
     const bb = t.getBBox();
@@ -270,18 +275,29 @@ function placeLabels(f, items, obstacles) {
 function domains() {
   const d = state.data;
   const fits = d.entries.map((e) => e.fit_seconds).concat([d.reference.fit_seconds]);
-  const rows = d.entries.map((e) => e.splits.rows?.delta).filter((v) => v !== null && v !== undefined);
+  const rows = d.entries.map(score).filter((v) => v !== null && v !== undefined);
+  const held = d.entries.map(heldout).filter((v) => v !== null && v !== undefined);
+  // Default zoom: the baseline sits far below every other entry, so the axis
+  // starts just under the lowest non-baseline entry (the baseline is drawn at
+  // the floor); "Full range" shows everything.
+  const others = d.entries.filter((e) => e.key !== d.baseline_key);
+  const rowsNB = others.map(score).filter((v) => v !== null && v !== undefined);
+  const heldNB = others.map(heldout).filter((v) => v !== null && v !== undefined);
   const units = d.entries.map((e) => e.splits.units?.delta).filter((v) => v !== null && v !== undefined);
   const maxRows = Math.max(0, ...rows), minRows = Math.min(0, ...rows);
   const maxUnits = Math.max(0, ...units), minUnits = Math.min(0, ...units);
   const times = d.snapshots.map((s) => Date.parse(s.at)).concat([Date.parse(d.reference.available_at)]);
   const t0 = Math.min(...times) - 2 * 3.6e6;
   const t1 = Math.max(...times, ...d.milestones.map((m) => Date.parse(m.at))) + 2 * 3.6e6;
-  const floor = state.fullRange ? minRows - 60 : Math.max(minRows - 60, -150);
+  const zoomFloor = (vals, top) => { const lo = Math.min(...vals); return lo - 0.06 * (top - lo); };
+  const floor = state.fullRange || !rowsNB.length ? minRows - 0.04 * (maxRows - minRows) : zoomFloor(rowsNB, maxRows);
   const ufloor = state.fullRange ? minUnits - 60 : Math.max(minUnits - 60, -150);
   return {
     fit: [Math.min(...fits) / 1.6, Math.max(...fits) * 1.6],
-    rows: [floor, maxRows + 70],
+    rows: [floor, maxRows + 0.04 * (maxRows - floor)],
+    held: state.fullRange || !heldNB.length
+      ? [Math.min(0, ...held) - 60, Math.max(0, ...held) + 70]
+      : [zoomFloor(heldNB, Math.max(...held)), Math.max(0, ...held) + 70],
     units: [ufloor, maxUnits + 80],
     time: [t0, t1],
   };
@@ -291,9 +307,9 @@ function domains() {
 function staircase(points, x, y, xEnd) {
   const pts = [...points].sort((a, b) => a.fit - b.fit);
   if (!pts.length) return null;
-  let path = `M${x(pts[0].fit)},${y(pts[0].splits.rows.delta)}`;
+  let path = `M${x(pts[0].fit)},${y(score(pts[0]))}`;
   for (let i = 1; i < pts.length; i++) {
-    path += ` H${x(pts[i].fit)} V${y(pts[i].splits.rows.delta)}`;
+    path += ` H${x(pts[i].fit)} V${y(score(pts[i]))}`;
   }
   path += ` H${xEnd}`;
   return { path, first: pts[0] };
@@ -301,13 +317,13 @@ function staircase(points, x, y, xEnd) {
 
 function drawFrontier(v, dom) {
   const container = $('chart-frontier');
-  const f = frame(container, 440, { top: 18, right: 24, bottom: 46, left: 62 });
+  const f = frame(container, 440, { top: 18, right: 24, bottom: 46, left: 76 });
   const x = logScale(dom.fit, [f.inner.x0, f.inner.x1]);
   const y = linear(dom.rows, [f.inner.y1, f.inner.y0]);
-  f.root.setAttribute('aria-label', 'Scatter of row-split ΔELPD against fit time with the Pareto frontier');
+  f.root.setAttribute('aria-label', 'Scatter of PSIS-LOO ΔELPD against fit time with the Pareto frontier');
   yGrid(f, y, niceTicks(...dom.rows, 7), (t) => fmtDelta(t, 0));
   xAxis(f, x, durationTicks(dom.fit), fmtDurTick);
-  axisTitles(f, 'Fit time (log scale)', 'Row-split ΔELPD vs promoted');
+  axisTitles(f, 'Fit time of the scored fit (log scale)', 'PSIS-LOO ΔELPD vs baseline');
   const clampY = (val) => Math.max(val, dom.rows[0]);
 
   // Latest frontier as a ghost when scrubbed back in time.
@@ -323,21 +339,18 @@ function drawFrontier(v, dom) {
     svg('path', { class: 'frontier-wash', d: `${st.path} V${f.inner.y1} H${x(st.first.fit)} Z` }, f.root);
     svg('path', { class: 'frontier-line', d: st.path }, f.root);
   }
-  // Reference: y = 0 hairline and its own marker.
-  const ref = state.data.reference;
-  svg('line', { class: 'ref-line', x1: f.inner.x0, x2: f.inner.x1, y1: y(0), y2: y(0) }, f.root);
-  const rx = x(ref.fit_seconds), ry = y(0);
-  svg('polygon', { points: `${rx},${ry - 7} ${rx + 7},${ry} ${rx},${ry + 7} ${rx - 7},${ry}`,
-    style: 'fill:var(--text-primary);stroke:var(--surface-1);stroke-width:2' }, f.root);
+  // Baseline (dELPD 0) hairline, when 0 is on the axis (not in the default zoom).
+  const zeroOnAxis = dom.rows[0] <= 0;
+  if (zeroOnAxis) svg('line', { class: 'ref-line', x1: f.inner.x0, x2: f.inner.x1, y1: y(0), y2: y(0) }, f.root);
 
   const pts = [];
   const shown = visibleEntries(v);
   for (const e of shown) {
-    const s = e.splits.rows;
-    if (s.delta === null) continue;
-    const cx = x(e.fit), clamped = s.delta < dom.rows[0], cy = y(clampY(s.delta));
-    if (state.showSE && s.delta_se && !clamped) {
-      svg('line', { class: 'se', x1: cx, x2: cx, y1: y(clampY(s.delta - s.delta_se)), y2: y(Math.min(s.delta + s.delta_se, dom.rows[1])),
+    const val = score(e), err = scoreErr(e);
+    if (val === null) continue;
+    const cx = x(e.fit), clamped = val < dom.rows[0], cy = y(clampY(val));
+    if (state.showSE && err && !clamped) {
+      svg('line', { class: 'se', x1: cx, x2: cx, y1: y(clampY(val - err)), y2: y(Math.min(val + err, dom.rows[1])),
         style: `stroke:${LINES[e.line].color}` }, f.root);
     }
     pts.push({ x: cx, y: cy, e, clamped });
@@ -347,7 +360,7 @@ function drawFrontier(v, dom) {
   for (const p of pts) {
     const node = dot(f.root, p.x, p.y, p.e, { clamped: p.clamped, r: p.e.isBest ? 6 : 5 });
     node.setAttribute('tabindex', '0');
-    node.setAttribute('aria-label', `${p.e.key}: ${fmtDelta(p.e.splits.rows.delta)} rows ΔELPD, ${fmtDur(p.e.fit)}`);
+    node.setAttribute('aria-label', `${p.e.key}: ${fmtDelta(score(p.e))} PSIS-LOO ΔELPD, ${fmtDur(p.e.fit)}`);
     node.addEventListener('focus', () => {
       const r = node.getBoundingClientRect();
       showTip({ clientX: r.right, clientY: r.bottom }, (t) => entryTip(t, p.e));
@@ -355,59 +368,45 @@ function drawFrontier(v, dom) {
     node.addEventListener('blur', hideTip);
     p.node = node;
   }
-  // Selective direct labels: frontier members, the best, the reference.
+  // Selective direct labels: frontier members and the best.
   const obstacles = pts.map((p) => ({ x: p.x - 6, y: p.y - 6, w: 12, h: 12 }));
-  obstacles.push({ x: rx - 8, y: ry - 8, w: 16, h: 16 });
-  obstacles.push({ x: f.inner.x0, y: ry - 2, w: f.inner.x1 - f.inner.x0, h: 4 });
+  if (zeroOnAxis) obstacles.push({ x: f.inner.x0, y: y(0) - 2, w: f.inner.x1 - f.inner.x0, h: 4 });
   const steps = [...front].sort((a, b) => a.fit - b.fit);
   steps.forEach((e, i) => {
     const sx = x(e.fit), ex = i + 1 < steps.length ? x(steps[i + 1].fit) : f.inner.x1;
-    const sy = y(clampY(e.splits.rows.delta));
+    const sy = y(clampY(score(e)));
     obstacles.push({ x: sx, y: sy - 3, w: ex - sx, h: 6 });
     if (i + 1 < steps.length) {
-      const ny = y(clampY(steps[i + 1].splits.rows.delta));
+      const ny = y(clampY(score(steps[i + 1])));
       obstacles.push({ x: ex - 3, y: Math.min(sy, ny), w: 6, h: Math.abs(sy - ny) });
     }
   });
   const items = [];
   const best = pts.find((p) => p.e.isBest);
   if (best) items.push({ x: best.x, y: best.y, text: `Best: ${entryLabel(best.e)}` });
-  for (const p of pts.filter((q) => q.e.onFrontier && !q.e.isBest).sort((a, b) => b.e.splits.rows.delta - a.e.splits.rows.delta)) {
-    items.push({ x: p.x, y: p.y, text: entryLabel(p.e) + (p.clamped ? ` (${fmtDelta(p.e.splits.rows.delta, 0)})` : '') });
+  for (const p of pts.filter((q) => q.e.onFrontier && !q.e.isBest).sort((a, b) => score(b.e) - score(a.e))) {
+    items.push({ x: p.x, y: p.y, text: entryLabel(p.e) + (p.clamped ? ` (${fmtDelta(score(p.e), 0)})` : '') });
   }
-  items.push({ x: rx, y: ry, text: `Promoted reference (${fmtDur(ref.fit_seconds)}, CPU)`, cls: 'label-muted' });
   placeLabels(f, items, obstacles);
 
-  // Hover: nearest point (or the reference) within the hit radius.
-  const refPoint = { x: rx, y: ry, ref: true };
+  // Hover: nearest point within the hit radius.
   let lifted = null;
   f.root.addEventListener('pointermove', (evt) => {
     const [px, py] = pointerPos(f.root, evt);
-    const hit = nearest(pts.concat([refPoint]), px, py);
+    const hit = nearest(pts, px, py);
     if (lifted) lifted.classList.remove('lift');
     lifted = null;
     if (!hit) return hideTip();
-    if (hit.ref) {
-      showTip(evt, (t) => {
-        html('div', { class: 't-value' }, t, '0 (reference)');
-        html('div', { class: 't-name' }, t, ref.label);
-        tipRow(t, 'Rows ELPD', ref.rows_elpd.toFixed(1));
-        tipRow(t, 'Fit time', fmtDur(ref.fit_seconds));
-        tipRow(t, 'Hardware', ref.hardware);
-        html('div', { class: 't-note' }, t, ref.fit_note);
-      });
-      return;
-    }
     hit.node.classList.add('lift');
     lifted = hit.node;
     showTip(evt, (t) => entryTip(t, hit.e));
   });
   f.root.addEventListener('pointerleave', () => { hideTip(); if (lifted) lifted.classList.remove('lift'); });
 
-  renderTable($('table-frontier'), ['Entry', 'Rows ΔELPD', 'SE', 'Fit time', 'Hardware', 'Gate', 'Frontier'],
-    pts.map((p) => [p.e.key, fmtDelta(p.e.splits.rows.delta), p.e.splits.rows.delta_se?.toFixed(1) ?? '', fmtDur(p.e.fit), p.e.hardware,
-      gateText(p.e), p.e.onFrontier ? 'yes' : '']).sort((a, b) => parseFloat(b[1].replace('−', '-')) - parseFloat(a[1].replace('−', '-'))),
-    [1, 2, 3]);
+  renderTable($('table-frontier'), ['Entry', 'PSIS-LOO ΔELPD', '± (SE + MC)', 'k over threshold', 'Fit time', 'Hardware', 'Gate', 'Frontier'],
+    [...pts].sort((a, b) => score(b.e) - score(a.e)).map((p) => [p.e.key, fmtDelta(score(p.e)), scoreErr(p.e).toFixed(1),
+      `${(100 * p.e.psis.k_share).toFixed(1)}%`, fmtDur(p.e.fit), p.e.hardware, gateText(p.e), p.e.onFrontier ? 'yes' : '']),
+    [1, 2, 3, 4]);
 }
 
 function drawUnits(v, dom) {
@@ -441,13 +440,52 @@ function drawUnits(v, dom) {
     const s = p.e.splits.units;
     html('div', { class: 't-value' }, t, `${fmtDelta(s.delta)} ${fmtSE(s.delta_se)} units ΔELPD`);
     html('div', { class: 't-name' }, t, p.e.key);
-    tipRow(t, 'Rows ΔELPD', fmtDelta(p.e.splits.rows.delta));
+    tipRow(t, 'PSIS-LOO ΔELPD', fmtDelta(score(p.e)));
     tipRow(t, 'Fit time', fmtDur(p.e.fit));
     if (s.rescore) tipRow(t, 'Exact rescore', `≈ ${fmtDelta(s.rescore.exact_recorded_equivalent)}`);
   });
   renderTable($('table-units'), ['Entry', 'Units ΔELPD', 'SE', 'Exact rescore', 'Fit time'],
     pts.map((p) => [p.e.key, fmtDelta(p.e.splits.units.delta), p.e.splits.units.delta_se?.toFixed(1) ?? '',
       p.e.splits.units.rescore ? fmtDelta(p.e.splits.units.rescore.exact_recorded_equivalent) : '', fmtDur(p.e.fit)]), [1, 2, 3, 4]);
+}
+
+function drawValidation(v, dom) {
+  const container = $('chart-validation');
+  const f = frame(container, 300, { top: 14, right: 20, bottom: 44, left: 62 });
+  const x = linear(dom.rows, [f.inner.x0, f.inner.x1]);
+  const y = linear(dom.held, [f.inner.y1, f.inner.y0]);
+  f.root.setAttribute('aria-label', 'PSIS-LOO ΔELPD against held-out ΔELPD per entry');
+  yGrid(f, y, niceTicks(...dom.held, 5), (t) => fmtDelta(t, 0));
+  xAxis(f, x, niceTicks(...dom.rows, 6), (t) => fmtDelta(t, 0));
+  axisTitles(f, 'PSIS-LOO ΔELPD vs baseline (training rows)', 'Held-out ΔELPD vs promoted');
+  const pts = [];
+  for (const e of visibleEntries(v)) {
+    const a = score(e), b = heldout(e);
+    if (a === null || b === null) continue;
+    const clamped = a < dom.rows[0] || b < dom.held[0];
+    pts.push({ x: x(Math.max(a, dom.rows[0])), y: y(Math.max(b, dom.held[0])), e, a, b, clamped });
+  }
+  pts.sort((p, q) => Number(p.e.passes) - Number(q.e.passes));
+  for (const p of pts) p.node = dot(f.root, p.x, p.y, p.e, { clamped: p.clamped });
+  // Spearman rank correlation, as a one-number summary of agreement.
+  const rank = (arr) => { const o = arr.map((v2, i) => [v2, i]).sort((m, n) => m[0] - n[0]); const r = []; o.forEach(([, i], k) => { r[i] = k; }); return r; };
+  const both = v.entries.filter((e) => score(e) !== null && heldout(e) !== null);
+  let rho = null;
+  if (both.length > 2) {
+    const ra = rank(both.map(score)), rb = rank(both.map(heldout)), n = both.length;
+    rho = 1 - (6 * ra.reduce((acc, r, i) => acc + (r - rb[i]) ** 2, 0)) / (n * (n * n - 1));
+  }
+  $('validation-caption').textContent = rho === null ? '' :
+    `Spearman rank correlation across the ${both.length} entries scored both ways: ${rho.toFixed(2)}.`;
+  hoverPoints(f, pts, (t, p) => {
+    html('div', { class: 't-value' }, t, `${fmtDelta(p.a)} PSIS-LOO · ${fmtDelta(p.b)} held-out`);
+    html('div', { class: 't-name' }, t, p.e.key);
+    tipRow(t, 'Held-out mean lpd', p.e.psis.validation.heldout_mean_lpd.toFixed(4));
+    tipRow(t, 'PSIS mean lpd (multi-row units)', p.e.psis.validation.psis_mean_lpd_multi_row_units.toFixed(4));
+  });
+  renderTable($('table-validation'), ['Entry', 'PSIS-LOO ΔELPD', 'Held-out ΔELPD', 'Held-out mean lpd', 'PSIS mean lpd (multi-row units)'],
+    pts.map((p) => [p.e.key, fmtDelta(p.a), fmtDelta(p.b), p.e.psis.validation.heldout_mean_lpd.toFixed(4),
+      p.e.psis.validation.psis_mean_lpd_multi_row_units.toFixed(4)]), [1, 2, 3, 4]);
 }
 
 function hoverPoints(f, pts, build) {
@@ -465,7 +503,8 @@ function hoverPoints(f, pts, build) {
 }
 
 function timeFrame(container, height, dom, yScaleFn, yTicks, yFmt, yTitle, label) {
-  const f = frame(container, height, { top: 30, right: 28, bottom: 44, left: 62 });
+  const f = frame(container, height, { top: 30, right: 28, bottom: 44, left: 76 });
+  f.minLabelY = 26; // keep direct labels clear of the milestone ticks
   f.root.setAttribute('aria-label', label);
   const x = linear(dom.time, [f.inner.x0, f.inner.x1]);
   const y = yScaleFn([f.inner.y1, f.inner.y0]);
@@ -552,15 +591,16 @@ function timeDots(tf, v, yOf, dom) {
 
 function drawProgress(v, dom) {
   const tf = timeFrame($('chart-progress'), 360, dom, (r) => linear(dom.rows, r), niceTicks(...dom.rows, 6), (t) => fmtDelta(t, 0),
-    'Row-split ΔELPD', 'Best row-split ΔELPD over time with every scored entry');
-  svg('line', { class: 'ref-line', x1: tf.f.inner.x0, x2: tf.f.inner.x1, y1: tf.y(0), y2: tf.y(0) }, tf.f.root);
+    'PSIS-LOO ΔELPD', 'Best PSIS-LOO ΔELPD over time with every scored entry');
+  const zeroOnAxis = dom.rows[0] <= 0;
+  if (zeroOnAxis) svg('line', { class: 'ref-line', x1: tf.f.inner.x0, x2: tf.f.inner.x1, y1: tf.y(0), y2: tf.y(0) }, tf.f.root);
   // Best staircase up to the as-of time.
   const snaps = state.data.snapshots.slice(0, state.idx + 1);
   let d = '';
   let prev = null;
   for (const s of snaps) {
-    if (s.best_rows_delta === null) continue;
-    const sx = tf.x(Date.parse(s.at)), sy = tf.y(Math.max(s.best_rows_delta, dom.rows[0]));
+    if (s.best_delta === null) continue;
+    const sx = tf.x(Date.parse(s.at)), sy = tf.y(Math.max(s.best_delta, dom.rows[0]));
     d += prev ? ` H${sx} V${sy}` : `M${sx},${sy}`;
     prev = s;
   }
@@ -568,17 +608,17 @@ function drawProgress(v, dom) {
     d += ` H${tf.x(v.T)}`;
     svg('path', { class: 'best-line', d }, tf.f.root);
   }
-  const pts = timeDots(tf, v, (e) => e.splits.rows?.delta, dom.rows);
+  const pts = timeDots(tf, v, score, dom.rows);
   cursorAt(tf, v.T);
   if (v.best) {
     const p = pts.find((q) => q.e.key === v.best.key);
     const obstacles = pts.map((q) => ({ x: q.x - 6, y: q.y - 6, w: 12, h: 12 }));
-    if (p) placeLabels(tf.f, [{ x: p.x, y: p.y, text: `${entryLabel(p.e)} ${fmtDelta(p.e.splits.rows.delta)}` }], obstacles);
+    if (p) placeLabels(tf.f, [{ x: p.x, y: p.y, text: `${entryLabel(p.e)} ${fmtDelta(score(p.e))}` }], obstacles);
   }
-  svg('text', { class: 'label-muted', x: tf.f.inner.x1 - 4, y: tf.y(0) - 6, 'text-anchor': 'end', text: 'promoted reference = 0' }, tf.f.root);
+  if (zeroOnAxis) svg('text', { class: 'label-muted', x: tf.f.inner.x1 - 4, y: tf.y(0) - 6, 'text-anchor': 'end', text: 'baseline (m0-base) = 0' }, tf.f.root);
   timeHover(tf, pts, (t, T) => {
     const i = bestAtTime(T);
-    html('div', { class: 't-value' }, t, i >= 0 && state.data.snapshots[i].best ? fmtDelta(state.data.snapshots[i].best_rows_delta) : 'no gate-passing entry');
+    html('div', { class: 't-value' }, t, i >= 0 && state.data.snapshots[i].best ? fmtDelta(state.data.snapshots[i].best_delta) : 'no gate-passing entry');
     html('div', { class: 't-name' }, t, `Board best at ${fmtWhen.format(T)}`);
     if (i >= 0 && state.data.snapshots[i].best) tipRow(t, 'Entry', state.data.snapshots[i].best);
     if (i >= 0) tipRow(t, 'Frontier entries', String(state.data.snapshots[i].frontier.length));
@@ -586,8 +626,8 @@ function drawProgress(v, dom) {
   const changes = [];
   let last = null;
   for (const s of snaps) if (s.best !== last) { changes.push(s); last = s.best; }
-  renderTable($('table-progress'), ['Became best', 'Entry', 'Rows ΔELPD', 'Frontier size'],
-    changes.filter((s) => s.best).map((s) => [fmtWhen.format(Date.parse(s.at)), s.best, fmtDelta(s.best_rows_delta), String(s.frontier.length)]), [2, 3]);
+  renderTable($('table-progress'), ['Became best', 'Entry', 'PSIS-LOO ΔELPD', 'Frontier size'],
+    changes.filter((s) => s.best).map((s) => [fmtWhen.format(Date.parse(s.at)), s.best, fmtDelta(s.best_delta), String(s.frontier.length)]), [2, 3]);
 }
 
 function drawFitTime(v, dom) {
@@ -673,7 +713,8 @@ function drawLegend() {
     const b = html('button', { class: 'item', type: 'button', 'aria-pressed': String(state.lines[key]), title: 'Show or hide this line' }, box);
     const s = svg('svg', { width: 12, height: 12, viewBox: '0 0 12 12' }, b);
     svg('circle', { cx: 6, cy: 6, r: 5, style: `fill:${line.color}` }, s);
-    b.appendChild(document.createTextNode(line.label));
+    const unscored = !state.data.entries.some((e) => e.line === key && score(e) !== null);
+    b.appendChild(document.createTextNode(line.label + (unscored ? ' — no PSIS-LOO scores yet (table only)' : '')));
     b.addEventListener('click', () => { state.lines[key] = !state.lines[key]; render(); });
   }
   const mk = (drawFn, text) => {
@@ -684,7 +725,6 @@ function drawLegend() {
   };
   mk((s) => svg('circle', { cx: 6, cy: 6, r: 4.5, style: 'fill:var(--surface-1);stroke:var(--text-secondary);stroke-width:2' }, s), 'hollow = fails the gate or screen-grade');
   mk((s) => svg('path', { d: 'M1,10 H7 V3 H17', class: 'frontier-line', style: 'fill:none;stroke:var(--text-primary);stroke-width:2' }, s), 'frontier');
-  mk((s) => svg('polygon', { points: '6,1 11,6 6,11 1,6', style: 'fill:var(--text-primary)' }, s), 'promoted reference (ΔELPD 0)');
   mk((s) => svg('polygon', { points: '1,2 11,2 6,11', style: 'fill:var(--text-secondary)' }, s), 'below the axis floor');
 }
 
@@ -704,23 +744,24 @@ function drawKpis(v) {
   if (v.best) {
     let prevBest = null;
     for (let i = state.idx; i >= 0; i--) if (snaps[i].best && snaps[i].best !== v.best.key) { prevBest = snaps[i]; break; }
-    const s = v.best.splits.rows;
-    tile(box, 'Best row-split ΔELPD (board rule)', fmtDelta(s.delta), fmtSE(s.delta_se),
+    tile(box, 'Best PSIS-LOO ΔELPD vs baseline (board rule)', fmtDelta(score(v.best)), fmtSE(scoreErr(v.best)),
       [entryLabel(v.best) + (v.best.design_text ? ` — ${v.best.design_text}` : ''),
-        prevBest ? `Previous best: ${prevBest.best} (${fmtDelta(prevBest.best_rows_delta)})` : 'First gate-passing entry'], true);
+        prevBest ? `Previous best: ${prevBest.best} (${fmtDelta(prevBest.best_delta)})` : 'First gate-passing entry'], true);
   } else {
-    tile(box, 'Best row-split ΔELPD (board rule)', '—', null, 'No gate-passing entry yet', true);
+    tile(box, 'Best PSIS-LOO ΔELPD vs baseline (board rule)', '—', null, 'No gate-passing PSIS-scored entry yet', true);
   }
   const front = v.entries.filter((e) => e.onFrontier).sort((a, b) => a.fit - b.fit);
   tile(box, 'On the frontier', String(front.length), front.length === 1 ? 'entry' : 'entries',
     front.length ? [`fastest ${entryLabel(front[0])} (${fmtDur(front[0].fit)})`, `most accurate ${entryLabel(front[front.length - 1])}`] : []);
-  const beat = v.entries.filter((e) => e.passes && e.splits.rows.delta > 0).sort((a, b) => a.fit - b.fit)[0];
-  tile(box, 'Fastest fit that beats the reference', beat ? fmtDur(beat.fit) : '—', null,
-    beat ? [`${entryLabel(beat)} (${fmtDelta(beat.splits.rows.delta)}), ${beat.hardware}`, `reference: ${fmtDur(state.data.reference.fit_seconds)} on CPU`] : 'none yet');
+  const top = v.entries.filter((e) => e.passes && score(e) !== null).sort((a, b) => score(b) - score(a))[0];
+  tile(box, 'Fit time of the best', v.best ? fmtDur(v.best.fit) : '—', null,
+    v.best ? [`${v.best.hardware}; the fastest entry within 2 SE of the top score`,
+      top && top.key !== v.best.key ? `top score: ${entryLabel(top)} (${fmtDelta(score(top))}, ${fmtDur(top.fit)})` : 'it is also the top score'] : 'none yet');
   const passing = v.entries.filter((e) => e.passes).length;
   const byLine = (l) => v.entries.filter((e) => e.line === l).length;
-  tile(box, 'Scored entries', String(v.entries.length), null,
-    [`${passing} pass the gate`, `${byLine('frontier')} GPU Gibbs · ${byLine('pymc')} PyMC`]);
+  const psisScored = v.entries.filter((e) => score(e) !== null).length;
+  tile(box, 'Entries', String(v.entries.length), null,
+    [`${psisScored} PSIS-scored · ${passing} pass the gate`, `${byLine('frontier')} GPU Gibbs · ${byLine('pymc')} PyMC`]);
   const splits = allSplitsCompleted(v.T);
   const hours = splits.reduce((a, { s }) => a + s.fit_seconds, 0) / 3600;
   const cost = v.entries.reduce((a, e) => a + (e.cost_usd || 0), 0);
@@ -743,7 +784,9 @@ function renderTable(container, headers, rows, numeric = []) {
 const COLUMNS = [
   { key: 'entry', label: 'Entry', get: (e) => e.key },
   { key: 'design', label: 'Design', get: (e) => e.design_text || e.design },
-  { key: 'rows', label: 'Rows ΔELPD', num: true, get: (e) => e.splits.rows?.delta ?? -Infinity, fmt: (e) => `${fmtDelta(e.splits.rows?.delta)} ${fmtSE(e.splits.rows?.delta_se)}` },
+  { key: 'psis', label: 'PSIS-LOO ΔELPD', num: true, get: (e) => score(e) ?? -Infinity, fmt: (e) => (e.psis ? `${fmtDelta(score(e))} ${fmtSE(scoreErr(e))}` : '—') },
+  { key: 'k', label: 'k over threshold', num: true, get: (e) => (e.psis ? e.psis.k_share : Infinity), fmt: (e) => (e.psis ? `${(100 * e.psis.k_share).toFixed(1)}%` : '—') },
+  { key: 'rows', label: 'Held-out ΔELPD', num: true, get: (e) => e.splits.rows?.delta ?? -Infinity, fmt: (e) => `${fmtDelta(e.splits.rows?.delta)} ${fmtSE(e.splits.rows?.delta_se)}` },
   { key: 'units', label: 'Units ΔELPD', num: true, get: (e) => e.splits.units?.delta ?? -Infinity,
     fmt: (e) => (e.splits.units ? `${fmtDelta(e.splits.units.delta)} ${fmtSE(e.splits.units.delta_se)}` : '—') },
   { key: 'fit', label: 'Fit time', num: true, get: (e) => e.fit, fmt: (e) => fmtDur(e.fit) },
@@ -831,6 +874,7 @@ function render() {
   drawKpis(v);
   drawFrontier(v, dom);
   drawUnits(v, dom);
+  drawValidation(v, dom);
   drawCompute(v, dom);
   drawProgress(v, dom);
   drawFitTime(v, dom);

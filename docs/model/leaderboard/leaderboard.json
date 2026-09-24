@@ -22,6 +22,7 @@
     "passes_checks": true,
     "interpretable": true
   },
+  "baseline": "m0-base/base-v1/gibbs@5cc0809",
   "footer": [
     "Frontier fit times are on the hardware in the Hardware column (Modal H100/H200 for every frontier run so far); no frontier design has a measured thelio fit time yet."
   ],
@@ -94,10 +95,38 @@
       "line": "frontier",
       "grade": "full",
       "fit_seconds": 82.845289502,
+      "fit_seconds_all_splits": 163.690517954,
       "cost_usd": 0.1823,
+      "psis": {
+        "run": "m0-base-rows-5cc0809",
+        "commit": "6c485fc837dd014892d65adc6d0e5e4545c49f85",
+        "rows": 47374,
+        "draws": 320,
+        "elpd": 40593.87061032324,
+        "elpd_se": 225.44669392862224,
+        "mcse": 3.4643140218097064,
+        "pareto_k": {
+          "threshold": 0.6008223025949704,
+          "over_threshold": 201,
+          "over_0_7": 147,
+          "max": 2.107672380757291,
+          "share_over_threshold": 0.004242833621817875
+        },
+        "validation": {
+          "note": "mean held-out lpd (repeat-listed units, genuinely left out) vs mean PSIS-LOO over training rows of units with 2+ training rows",
+          "heldout_rows": 5264,
+          "heldout_mean_lpd": 0.9568051325681851,
+          "psis_mean_lpd_multi_row_units": 0.9458708326086354
+        },
+        "integrated": "unit level",
+        "delta": 0.0,
+        "delta_se": 0.0,
+        "delta_mcse": 0.0,
+        "baseline": "m0-base/base-v1/gibbs@5cc0809"
+      },
       "current_best": false,
       "frontier": true,
-      "note": "beaten by m8-drift/desc-v1/gibbs@b7c196f (+1428.8 \u00b1 60.8 rows)",
+      "note": "beaten by m8-drift/desc-v1/gibbs@b7c196f (+13279.3 \u00b1 184.1 PSIS-LOO)",
       "annotations": []
     },
     {
@@ -176,10 +205,38 @@
       "line": "frontier",
       "grade": "failed",
       "fit_seconds": 412.68388330700003,
+      "fit_seconds_all_splits": 807.638859203,
       "cost_usd": 0.6035,
+      "psis": {
+        "run": "m1-walk-rows-1b11fac",
+        "commit": "6c485fc837dd014892d65adc6d0e5e4545c49f85",
+        "rows": 47374,
+        "draws": 320,
+        "elpd": 48124.34572383115,
+        "elpd_se": 242.52999680041273,
+        "mcse": 7.711930581873504,
+        "pareto_k": {
+          "threshold": 0.6008223025949704,
+          "over_threshold": 1070,
+          "over_0_7": 517,
+          "max": 2.2785734934842203,
+          "share_over_threshold": 0.022586228733060328
+        },
+        "validation": {
+          "note": "mean held-out lpd (repeat-listed units, genuinely left out) vs mean PSIS-LOO over training rows of units with 2+ training rows",
+          "heldout_rows": 5264,
+          "heldout_mean_lpd": 1.127314324530827,
+          "psis_mean_lpd_multi_row_units": 1.1272503893174797
+        },
+        "integrated": "unit level",
+        "delta": 7530.475113507905,
+        "delta_se": 136.22410538468347,
+        "delta_mcse": 8.454309252762354,
+        "baseline": "m0-base/base-v1/gibbs@5cc0809"
+      },
       "current_best": false,
       "frontier": false,
-      "note": "beaten by m8-drift/desc-v1/gibbs@b7c196f (+531.2 \u00b1 43.9 rows)",
+      "note": "beaten by m8-drift/desc-v1/gibbs@b7c196f (+5748.8 \u00b1 146.0 PSIS-LOO)",
       "annotations": []
     },
     {
@@ -261,10 +318,38 @@
       "line": "frontier",
       "grade": "failed",
       "fit_seconds": 757.332050489,
+      "fit_seconds_all_splits": 1488.459305809,
       "cost_usd": 1.0174,
+      "psis": {
+        "run": "m1-walk-rows-942c0f4",
+        "commit": "6c485fc837dd014892d65adc6d0e5e4545c49f85",
+        "rows": 47374,
+        "draws": 320,
+        "elpd": 48128.04198158114,
+        "elpd_se": 242.5751830756659,
+        "mcse": 7.706530005324873,
+        "pareto_k": {
+          "threshold": 0.6008223025949704,
+          "over_threshold": 1055,
+          "over_0_7": 510,
+          "max": 2.334879020551212,
+          "share_over_threshold": 0.022269599358297802
+        },
+        "validation": {
+          "note": "mean held-out lpd (repeat-listed units, genuinely left out) vs mean PSIS-LOO over training rows of units with 2+ training rows",
+          "heldout_rows": 5264,
+          "heldout_mean_lpd": 1.1272590084195617,
+          "psis_mean_lpd_multi_row_units": 1.1271599528114753
+        },
+        "integrated": "unit level",
+        "delta": 7534.1713712578985,
+        "delta_se": 136.3683748118879,
+        "delta_mcse": 8.449383194333176,
+        "baseline": "m0-base/base-v1/gibbs@5cc0809"
+      },
       "current_best": false,
       "frontier": false,
-      "note": "beaten by m8-drift/desc-v1/gibbs@b7c196f (+531.5 \u00b1 43.9 rows)",
+      "note": "beaten by m8-drift/desc-v1/gibbs@b7c196f (+5745.1 \u00b1 145.9 PSIS-LOO)",
       "annotations": []
     },
     {
@@ -337,10 +422,38 @@
       "line": "frontier",
       "grade": "failed",
       "fit_seconds": 359.885618108,
+      "fit_seconds_all_splits": 702.4294547970001,
       "cost_usd": 0.5136,
+      "psis": {
+        "run": "m1-walk-rows-94a4da4",
+        "commit": "6c485fc837dd014892d65adc6d0e5e4545c49f85",
+        "rows": 47374,
+        "draws": 320,
+        "elpd": 48124.40089138902,
+        "elpd_se": 242.58178722326298,
+        "mcse": 7.7102856241626565,
+        "pareto_k": {
+          "threshold": 0.6008223025949704,
+          "over_threshold": 1087,
+          "over_0_7": 499,
+          "max": 2.2222582853088677,
+          "share_over_threshold": 0.022945075357791195
+        },
+        "validation": {
+          "note": "mean held-out lpd (repeat-listed units, genuinely left out) vs mean PSIS-LOO over training rows of units with 2+ training rows",
+          "heldout_rows": 5264,
+          "heldout_mean_lpd": 1.1273173289201919,
+          "psis_mean_lpd_multi_row_units": 1.1272376177592884
+        },
+        "integrated": "unit level",
+        "delta": 7530.530281065774,
+        "delta_se": 136.24462610796283,
+        "delta_mcse": 8.452808766787326,
+        "baseline": "m0-base/base-v1/gibbs@5cc0809"
+      },
       "current_best": false,
       "frontier": false,
-      "note": "beaten by m8-drift/desc-v1/gibbs@b7c196f (+531.2 \u00b1 43.9 rows)",
+      "note": "beaten by m8-drift/desc-v1/gibbs@b7c196f (+5748.8 \u00b1 146.0 PSIS-LOO)",
       "annotations": []
     },
     {
@@ -427,10 +540,38 @@
       "line": "frontier",
       "grade": "full",
       "fit_seconds": 997.2356491639999,
+      "fit_seconds_all_splits": 1993.931552093,
       "cost_usd": 1.289,
+      "psis": {
+        "run": "m1-walk-rows-bf01f16",
+        "commit": "6c485fc837dd014892d65adc6d0e5e4545c49f85",
+        "rows": 47374,
+        "draws": 320,
+        "elpd": 48139.323594284,
+        "elpd_se": 242.64886139750598,
+        "mcse": 7.6575785758736705,
+        "pareto_k": {
+          "threshold": 0.6008223025949704,
+          "over_threshold": 1082,
+          "over_0_7": 525,
+          "max": 2.5751549840310988,
+          "share_over_threshold": 0.02283953223287035
+        },
+        "validation": {
+          "note": "mean held-out lpd (repeat-listed units, genuinely left out) vs mean PSIS-LOO over training rows of units with 2+ training rows",
+          "heldout_rows": 5264,
+          "heldout_mean_lpd": 1.1273102164040407,
+          "psis_mean_lpd_multi_row_units": 1.1275125235716525
+        },
+        "integrated": "unit level",
+        "delta": 7545.452983960761,
+        "delta_se": 136.28689844518462,
+        "delta_mcse": 8.404759442565075,
+        "baseline": "m0-base/base-v1/gibbs@5cc0809"
+      },
       "current_best": false,
       "frontier": false,
-      "note": "beaten by m8-drift/desc-v1/gibbs@b7c196f (+531.2 \u00b1 43.9 rows)",
+      "note": "beaten by m8-drift/desc-v1/gibbs@b7c196f (+5733.8 \u00b1 145.9 PSIS-LOO)",
       "annotations": []
     },
     {
@@ -497,10 +638,38 @@
       "line": "frontier",
       "grade": "failed",
       "fit_seconds": 684.158991166,
+      "fit_seconds_all_splits": 684.158991166,
       "cost_usd": 0.8939,
+      "psis": {
+        "run": "m1-walk-rows-c5a208a",
+        "commit": "6c485fc837dd014892d65adc6d0e5e4545c49f85",
+        "rows": 47374,
+        "draws": 320,
+        "elpd": 48136.655909828456,
+        "elpd_se": 242.750447842555,
+        "mcse": 7.667237377788153,
+        "pareto_k": {
+          "threshold": 0.6008223025949704,
+          "over_threshold": 1093,
+          "over_0_7": 507,
+          "max": 2.5983922544473876,
+          "share_over_threshold": 0.023071727107696206
+        },
+        "validation": {
+          "note": "mean held-out lpd (repeat-listed units, genuinely left out) vs mean PSIS-LOO over training rows of units with 2+ training rows",
+          "heldout_rows": 5264,
+          "heldout_mean_lpd": 1.1272972306321107,
+          "psis_mean_lpd_multi_row_units": 1.1274704539485898
+        },
+        "integrated": "unit level",
+        "delta": 7542.785299505216,
+        "delta_se": 136.34034870493943,
+        "delta_mcse": 8.413560521506877,
+        "baseline": "m0-base/base-v1/gibbs@5cc0809"
+      },
       "current_best": false,
       "frontier": false,
-      "note": "beaten by m8-drift/desc-v1/gibbs@b7c196f (+531.3 \u00b1 43.9 rows)",
+      "note": "beaten by m8-drift/desc-v1/gibbs@b7c196f (+5736.5 \u00b1 145.9 PSIS-LOO)",
       "annotations": []
     },
     {
@@ -581,11 +750,39 @@
       "passes_checks": false,
       "line": "frontier",
       "grade": "failed",
-      "fit_seconds": 2412.6420545809997,
+      "fit_seconds": 2403.481135825,
+      "fit_seconds_all_splits": 4816.123190406,
       "cost_usd": 2.9859,
+      "psis": {
+        "run": "m4-walk-bedtime-bedslope-rows-942c0f4",
+        "commit": "6c485fc837dd014892d65adc6d0e5e4545c49f85",
+        "rows": 47374,
+        "draws": 320,
+        "elpd": 50491.70871999255,
+        "elpd_se": 242.34229403197952,
+        "mcse": 8.480610811020664,
+        "pareto_k": {
+          "threshold": 0.6008223025949704,
+          "over_threshold": 1401,
+          "over_0_7": 723,
+          "max": 2.2377623866528253,
+          "share_over_threshold": 0.029573183602820113
+        },
+        "validation": {
+          "note": "mean held-out lpd (repeat-listed units, genuinely left out) vs mean PSIS-LOO over training rows of units with 2+ training rows",
+          "heldout_rows": 5264,
+          "heldout_mean_lpd": 1.1655030280445415,
+          "psis_mean_lpd_multi_row_units": 1.171076489436839
+        },
+        "integrated": "unit level",
+        "delta": 9897.83810966931,
+        "delta_se": 160.5976221265087,
+        "delta_mcse": 9.160907780875643,
+        "baseline": "m0-base/base-v1/gibbs@5cc0809"
+      },
       "current_best": false,
       "frontier": false,
-      "note": "beaten by m8-drift/desc-v1/gibbs@b7c196f (+330.2 \u00b1 35.0 rows)",
+      "note": "beaten by m8-drift/desc-v1/gibbs@b7c196f (+3381.5 \u00b1 116.7 PSIS-LOO)",
       "annotations": []
     },
     {
@@ -675,10 +872,38 @@
       "line": "frontier",
       "grade": "full",
       "fit_seconds": 763.6031838849999,
+      "fit_seconds_all_splits": 1524.8202389889998,
       "cost_usd": 1.0067,
+      "psis": {
+        "run": "m5-nocurves-rows-33e8bad",
+        "commit": "6c485fc837dd014892d65adc6d0e5e4545c49f85",
+        "rows": 47374,
+        "draws": 320,
+        "elpd": 50360.412523339735,
+        "elpd_se": 242.3646945110207,
+        "mcse": 8.49428641088247,
+        "pareto_k": {
+          "threshold": 0.6008223025949704,
+          "over_threshold": 1421,
+          "over_0_7": 730,
+          "max": 2.283760751158131,
+          "share_over_threshold": 0.029995356102503482
+        },
+        "validation": {
+          "note": "mean held-out lpd (repeat-listed units, genuinely left out) vs mean PSIS-LOO over training rows of units with 2+ training rows",
+          "heldout_rows": 5264,
+          "heldout_mean_lpd": 1.1624992862580705,
+          "psis_mean_lpd_multi_row_units": 1.1681413832931333
+        },
+        "integrated": "unit level",
+        "delta": 9766.541913016497,
+        "delta_se": 159.74173001256884,
+        "delta_mcse": 9.173569276558059,
+        "baseline": "m0-base/base-v1/gibbs@5cc0809"
+      },
       "current_best": false,
       "frontier": true,
-      "note": "beaten by m8-drift/desc-v1/gibbs@b7c196f (+346.0 \u00b1 35.6 rows)",
+      "note": "beaten by m8-drift/desc-v1/gibbs@b7c196f (+3512.7 \u00b1 117.7 PSIS-LOO)",
       "annotations": []
     },
     {
@@ -768,10 +993,38 @@
       "line": "frontier",
       "grade": "full",
       "fit_seconds": 1662.271154553,
+      "fit_seconds_all_splits": 3317.431514635,
       "cost_usd": 2.0664,
+      "psis": {
+        "run": "m5-noslope-rows-33e8bad",
+        "commit": "6c485fc837dd014892d65adc6d0e5e4545c49f85",
+        "rows": 47374,
+        "draws": 320,
+        "elpd": 48221.022082408876,
+        "elpd_se": 242.7457402174354,
+        "mcse": 7.608845529345311,
+        "pareto_k": {
+          "threshold": 0.6008223025949704,
+          "over_threshold": 1040,
+          "over_0_7": 474,
+          "max": 2.965294159966479,
+          "share_over_threshold": 0.021952969983535273
+        },
+        "validation": {
+          "note": "mean held-out lpd (repeat-listed units, genuinely left out) vs mean PSIS-LOO over training rows of units with 2+ training rows",
+          "heldout_rows": 5264,
+          "heldout_mean_lpd": 1.1291484588073384,
+          "psis_mean_lpd_multi_row_units": 1.1294413341258995
+        },
+        "integrated": "unit level",
+        "delta": 7627.151472085632,
+        "delta_se": 137.0382890980966,
+        "delta_mcse": 8.360382881850894,
+        "baseline": "m0-base/base-v1/gibbs@5cc0809"
+      },
       "current_best": false,
       "frontier": false,
-      "note": "beaten by m8-drift/desc-v1/gibbs@b7c196f (+521.5 \u00b1 43.2 rows)",
+      "note": "beaten by m8-drift/desc-v1/gibbs@b7c196f (+5652.1 \u00b1 143.9 PSIS-LOO)",
       "annotations": []
     },
     {
@@ -860,11 +1113,39 @@
       "passes_checks": true,
       "line": "frontier",
       "grade": "full",
-      "fit_seconds": 1708.661813108,
+      "fit_seconds": 1688.661478496,
+      "fit_seconds_all_splits": 3397.3232916039997,
       "cost_usd": 2.1213,
+      "psis": {
+        "run": "m5-nu5-rows-33e8bad",
+        "commit": "6c485fc837dd014892d65adc6d0e5e4545c49f85",
+        "rows": 47374,
+        "draws": 320,
+        "elpd": 49677.93654945859,
+        "elpd_se": 251.03098867052788,
+        "mcse": 8.694890517971382,
+        "pareto_k": {
+          "threshold": 0.6008223025949704,
+          "over_threshold": 1712,
+          "over_0_7": 915,
+          "max": 2.5529795248285883,
+          "share_over_threshold": 0.03613796597289653
+        },
+        "validation": {
+          "note": "mean held-out lpd (repeat-listed units, genuinely left out) vs mean PSIS-LOO over training rows of units with 2+ training rows",
+          "heldout_rows": 5264,
+          "heldout_mean_lpd": 1.1566115036032079,
+          "psis_mean_lpd_multi_row_units": 1.159661241953656
+        },
+        "integrated": "unit level",
+        "delta": 9084.065939135347,
+        "delta_se": 163.68081836681617,
+        "delta_mcse": 9.359625674203857,
+        "baseline": "m0-base/base-v1/gibbs@5cc0809"
+      },
       "current_best": false,
       "frontier": false,
-      "note": "beaten by m8-drift/desc-v1/gibbs@b7c196f (+377.0 \u00b1 35.8 rows)",
+      "note": "beaten by m8-drift/desc-v1/gibbs@b7c196f (+4195.2 \u00b1 128.0 PSIS-LOO)",
       "annotations": []
     },
     {
@@ -935,10 +1216,38 @@
       "line": "frontier",
       "grade": "full",
       "fit_seconds": 1184.773789487,
+      "fit_seconds_all_splits": 1184.773789487,
       "cost_usd": 1.4995,
+      "psis": {
+        "run": "m5-quarterly-base-v1-rows-4226f40",
+        "commit": "6c485fc837dd014892d65adc6d0e5e4545c49f85",
+        "rows": 47374,
+        "draws": 320,
+        "elpd": 50464.49936576828,
+        "elpd_se": 242.47515759692146,
+        "mcse": 8.521679981113737,
+        "pareto_k": {
+          "threshold": 0.6008223025949704,
+          "over_threshold": 1390,
+          "over_0_7": 705,
+          "max": 2.2834706598829526,
+          "share_over_threshold": 0.029340988727994257
+        },
+        "validation": {
+          "note": "mean held-out lpd (repeat-listed units, genuinely left out) vs mean PSIS-LOO over training rows of units with 2+ training rows",
+          "heldout_rows": 5264,
+          "heldout_mean_lpd": 1.1655050672003782,
+          "psis_mean_lpd_multi_row_units": 1.1706787260664113
+        },
+        "integrated": "unit level",
+        "delta": 9870.628755445043,
+        "delta_se": 160.49862386399778,
+        "delta_mcse": 9.198940229299348,
+        "baseline": "m0-base/base-v1/gibbs@5cc0809"
+      },
       "current_best": false,
       "frontier": true,
-      "note": "beaten by m8-drift/desc-v1/gibbs@b7c196f (+330.2 \u00b1 34.9 rows)",
+      "note": "beaten by m8-drift/desc-v1/gibbs@b7c196f (+3408.7 \u00b1 115.8 PSIS-LOO)",
       "annotations": []
     },
     {
@@ -1026,10 +1335,38 @@
       "line": "frontier",
       "grade": "failed",
       "fit_seconds": 1353.7668484520002,
+      "fit_seconds_all_splits": 2570.8497623270005,
       "cost_usd": 1.738,
+      "psis": {
+        "run": "m5-quarterly-desc-v1-rows-4226f40",
+        "commit": "6c485fc837dd014892d65adc6d0e5e4545c49f85",
+        "rows": 47374,
+        "draws": 320,
+        "elpd": 50698.20630601501,
+        "elpd_se": 241.2664697732672,
+        "mcse": 8.53559805306593,
+        "pareto_k": {
+          "threshold": 0.6008223025949704,
+          "over_threshold": 1453,
+          "over_0_7": 750,
+          "max": 2.464863586560063,
+          "share_over_threshold": 0.030670832101996875
+        },
+        "validation": {
+          "note": "mean held-out lpd (repeat-listed units, genuinely left out) vs mean PSIS-LOO over training rows of units with 2+ training rows",
+          "heldout_rows": 5264,
+          "heldout_mean_lpd": 1.1632961895294436,
+          "psis_mean_lpd_multi_row_units": 1.1710254421690556
+        },
+        "integrated": "unit level",
+        "delta": 10104.335695691765,
+        "delta_se": 163.2340722518604,
+        "delta_mcse": 9.211835092163247,
+        "baseline": "m0-base/base-v1/gibbs@5cc0809"
+      },
       "current_best": false,
       "frontier": false,
-      "note": "beaten by m8-drift/desc-v1/gibbs@b7c196f (+341.8 \u00b1 33.3 rows)",
+      "note": "beaten by m8-drift/desc-v1/gibbs@b7c196f (+3175.0 \u00b1 111.1 PSIS-LOO)",
       "annotations": []
     },
     {
@@ -1120,11 +1457,39 @@
       "passes_checks": false,
       "line": "frontier",
       "grade": "failed",
-      "fit_seconds": 1754.2466476000002,
+      "fit_seconds": 1714.709224109,
+      "fit_seconds_all_splits": 3468.9558717090003,
       "cost_usd": 2.1876,
+      "psis": {
+        "run": "m5-quarterly-desc-v1-rows-8d52ddb",
+        "commit": "6c485fc837dd014892d65adc6d0e5e4545c49f85",
+        "rows": 47374,
+        "draws": 320,
+        "elpd": 50700.701643308625,
+        "elpd_se": 241.27643667098246,
+        "mcse": 8.53540788943806,
+        "pareto_k": {
+          "threshold": 0.6008223025949704,
+          "over_threshold": 1459,
+          "over_0_7": 749,
+          "max": 2.3205113765636676,
+          "share_over_threshold": 0.030797483851901886
+        },
+        "validation": {
+          "note": "mean held-out lpd (repeat-listed units, genuinely left out) vs mean PSIS-LOO over training rows of units with 2+ training rows",
+          "heldout_rows": 5264,
+          "heldout_mean_lpd": 1.163288003261771,
+          "psis_mean_lpd_multi_row_units": 1.1710523786256009
+        },
+        "integrated": "unit level",
+        "delta": 10106.83103298538,
+        "delta_se": 163.27401442354002,
+        "delta_mcse": 9.211658888646975,
+        "baseline": "m0-base/base-v1/gibbs@5cc0809"
+      },
       "current_best": false,
       "frontier": false,
-      "note": "beaten by m8-drift/desc-v1/gibbs@b7c196f (+341.8 \u00b1 33.3 rows)",
+      "note": "beaten by m8-drift/desc-v1/gibbs@b7c196f (+3172.5 \u00b1 111.1 PSIS-LOO)",
       "annotations": []
     },
     {
@@ -1210,11 +1575,39 @@
       "passes_checks": false,
       "line": "frontier",
       "grade": "failed",
-      "fit_seconds": 1306.552801864,
+      "fit_seconds": 1282.2096327000002,
+      "fit_seconds_all_splits": 2588.762434564,
       "cost_usd": 1.6506,
+      "psis": {
+        "run": "m5-quarterly-rows-bf01f16",
+        "commit": "6c485fc837dd014892d65adc6d0e5e4545c49f85",
+        "rows": 47374,
+        "draws": 320,
+        "elpd": 50464.75339990646,
+        "elpd_se": 242.53471396652327,
+        "mcse": 8.522560926467708,
+        "pareto_k": {
+          "threshold": 0.6008223025949704,
+          "over_threshold": 1409,
+          "over_0_7": 702,
+          "max": 2.2781159301890677,
+          "share_over_threshold": 0.02974205260269346
+        },
+        "validation": {
+          "note": "mean held-out lpd (repeat-listed units, genuinely left out) vs mean PSIS-LOO over training rows of units with 2+ training rows",
+          "heldout_rows": 5264,
+          "heldout_mean_lpd": 1.1655116715807652,
+          "psis_mean_lpd_multi_row_units": 1.170712822452676
+        },
+        "integrated": "unit level",
+        "delta": 9870.882789583226,
+        "delta_se": 160.50715340919186,
+        "delta_mcse": 9.199756322156661,
+        "baseline": "m0-base/base-v1/gibbs@5cc0809"
+      },
       "current_best": false,
       "frontier": false,
-      "note": "beaten by m8-drift/desc-v1/gibbs@b7c196f (+330.1 \u00b1 34.9 rows)",
+      "note": "beaten by m8-drift/desc-v1/gibbs@b7c196f (+3408.4 \u00b1 115.8 PSIS-LOO)",
       "annotations": []
     },
     {
@@ -1287,6 +1680,7 @@
       "line": "frontier",
       "grade": "full",
       "fit_seconds": 1712.126112483,
+      "fit_seconds_all_splits": 1712.126112483,
       "cost_usd": 2.1206,
       "current_best": false,
       "frontier": false,
@@ -1389,10 +1783,38 @@
       "line": "frontier",
       "grade": "failed",
       "fit_seconds": 2651.1951100879996,
+      "fit_seconds_all_splits": 5277.981631183,
       "cost_usd": 3.2425,
+      "psis": {
+        "run": "m6-slopes-base-v1-rows-6a14509",
+        "commit": "6c485fc837dd014892d65adc6d0e5e4545c49f85",
+        "rows": 47374,
+        "draws": 320,
+        "elpd": 52125.225503784925,
+        "elpd_se": 240.6754396139619,
+        "mcse": 9.817525071257696,
+        "pareto_k": {
+          "threshold": 0.6008223025949704,
+          "over_threshold": 1896,
+          "over_0_7": 1063,
+          "max": 2.866099956866956,
+          "share_over_threshold": 0.04002195296998354
+        },
+        "validation": {
+          "note": "mean held-out lpd (repeat-listed units, genuinely left out) vs mean PSIS-LOO over training rows of units with 2+ training rows",
+          "heldout_rows": 5264,
+          "heldout_mean_lpd": 1.1899342248407456,
+          "psis_mean_lpd_multi_row_units": 1.1952178174676702
+        },
+        "integrated": "unit level",
+        "delta": 11531.354893461677,
+        "delta_se": 175.12754445916244,
+        "delta_mcse": 10.410824663132157,
+        "baseline": "m0-base/base-v1/gibbs@5cc0809"
+      },
       "current_best": false,
       "frontier": false,
-      "note": "beaten by m8-drift/desc-v1/gibbs@b7c196f (+201.6 \u00b1 27.3 rows)",
+      "note": "beaten by m8-drift/desc-v1/gibbs@b7c196f (+1747.9 \u00b1 83.6 PSIS-LOO)",
       "annotations": []
     },
     {
@@ -1487,11 +1909,39 @@
       "passes_checks": false,
       "line": "frontier",
       "grade": "failed",
-      "fit_seconds": 1864.355481573,
+      "fit_seconds": 1835.312138203,
+      "fit_seconds_all_splits": 3699.667619776,
       "cost_usd": 2.3076,
+      "psis": {
+        "run": "m6-slopes-base-v1-rows-8d52ddb",
+        "commit": "6c485fc837dd014892d65adc6d0e5e4545c49f85",
+        "rows": 47374,
+        "draws": 320,
+        "elpd": 52124.18568871624,
+        "elpd_se": 240.6509556786684,
+        "mcse": 9.821202566724214,
+        "pareto_k": {
+          "threshold": 0.6008223025949704,
+          "over_threshold": 1897,
+          "over_0_7": 1066,
+          "max": 2.9048469464114612,
+          "share_over_threshold": 0.040043061594967705
+        },
+        "validation": {
+          "note": "mean held-out lpd (repeat-listed units, genuinely left out) vs mean PSIS-LOO over training rows of units with 2+ training rows",
+          "heldout_rows": 5264,
+          "heldout_mean_lpd": 1.189945191083177,
+          "psis_mean_lpd_multi_row_units": 1.1951660194714482
+        },
+        "integrated": "unit level",
+        "delta": 11530.315078393003,
+        "delta_se": 175.13843261663854,
+        "delta_mcse": 10.41429265472877,
+        "baseline": "m0-base/base-v1/gibbs@5cc0809"
+      },
       "current_best": false,
       "frontier": false,
-      "note": "beaten by m8-drift/desc-v1/gibbs@b7c196f (+201.5 \u00b1 27.3 rows)",
+      "note": "beaten by m8-drift/desc-v1/gibbs@b7c196f (+1749.0 \u00b1 83.6 PSIS-LOO)",
       "annotations": []
     },
     {
@@ -1590,10 +2040,38 @@
       "line": "frontier",
       "grade": "failed",
       "fit_seconds": 2361.239207655,
+      "fit_seconds_all_splits": 4716.811063348,
       "cost_usd": 2.8768,
+      "psis": {
+        "run": "m6-slopes-base-v1-rows-8d52ddb-solo",
+        "commit": "6c485fc837dd014892d65adc6d0e5e4545c49f85",
+        "rows": 47374,
+        "draws": 320,
+        "elpd": 52124.4013150562,
+        "elpd_se": 240.63054035466138,
+        "mcse": 9.815819287059544,
+        "pareto_k": {
+          "threshold": 0.6008223025949704,
+          "over_threshold": 1885,
+          "over_0_7": 1066,
+          "max": 2.7167070389288144,
+          "share_over_threshold": 0.03978975809515768
+        },
+        "validation": {
+          "note": "mean held-out lpd (repeat-listed units, genuinely left out) vs mean PSIS-LOO over training rows of units with 2+ training rows",
+          "heldout_rows": 5264,
+          "heldout_mean_lpd": 1.1899513281385068,
+          "psis_mean_lpd_multi_row_units": 1.1951706329266432
+        },
+        "integrated": "unit level",
+        "delta": 11530.530704732957,
+        "delta_se": 175.11389584490487,
+        "delta_mcse": 10.409216104871561,
+        "baseline": "m0-base/base-v1/gibbs@5cc0809"
+      },
       "current_best": false,
       "frontier": false,
-      "note": "beaten by m8-drift/desc-v1/gibbs@b7c196f (+201.5 \u00b1 27.3 rows)",
+      "note": "beaten by m8-drift/desc-v1/gibbs@b7c196f (+1748.8 \u00b1 83.6 PSIS-LOO)",
       "annotations": []
     },
     {
@@ -1691,11 +2169,39 @@
       "passes_checks": false,
       "line": "frontier",
       "grade": "failed",
-      "fit_seconds": 3688.611824098,
+      "fit_seconds": 3673.428859392,
+      "fit_seconds_all_splits": 7362.04068349,
       "cost_usd": 4.4697,
+      "psis": {
+        "run": "m6-slopes-desc-v1-rows-69cb324-long",
+        "commit": "6c485fc837dd014892d65adc6d0e5e4545c49f85",
+        "rows": 47374,
+        "draws": 480,
+        "elpd": 52284.10374523559,
+        "elpd_se": 239.6399492402713,
+        "mcse": 8.393637477467765,
+        "pareto_k": {
+          "threshold": 0.6270384081594966,
+          "over_threshold": 1296,
+          "over_0_7": 913,
+          "max": 2.8219796802325527,
+          "share_over_threshold": 0.027356777979482418
+        },
+        "validation": {
+          "note": "mean held-out lpd (repeat-listed units, genuinely left out) vs mean PSIS-LOO over training rows of units with 2+ training rows",
+          "heldout_rows": 5264,
+          "heldout_mean_lpd": 1.1881427284431751,
+          "psis_mean_lpd_multi_row_units": 1.1955641392455003
+        },
+        "integrated": "unit level",
+        "delta": 11690.233134912347,
+        "delta_se": 176.95628971139186,
+        "delta_mcse": 9.080452727967849,
+        "baseline": "m0-base/base-v1/gibbs@5cc0809"
+      },
       "current_best": false,
       "frontier": false,
-      "note": "beaten by m8-drift/desc-v1/gibbs@b7c196f (+211.0 \u00b1 25.1 rows)",
+      "note": "beaten by m8-drift/desc-v1/gibbs@b7c196f (+1589.1 \u00b1 75.9 PSIS-LOO)",
       "annotations": []
     },
     {
@@ -1793,11 +2299,39 @@
       "passes_checks": false,
       "line": "frontier",
       "grade": "failed",
-      "fit_seconds": 2707.7628796500003,
+      "fit_seconds": 2680.99888286,
+      "fit_seconds_all_splits": 5388.76176251,
       "cost_usd": 3.3022,
+      "psis": {
+        "run": "m6-slopes-desc-v1-rows-6a14509",
+        "commit": "6c485fc837dd014892d65adc6d0e5e4545c49f85",
+        "rows": 47374,
+        "draws": 320,
+        "elpd": 52348.07014187645,
+        "elpd_se": 239.50569053914612,
+        "mcse": 9.837466949892319,
+        "pareto_k": {
+          "threshold": 0.6008223025949704,
+          "over_threshold": 1892,
+          "over_0_7": 1044,
+          "max": 3.2883125013882246,
+          "share_over_threshold": 0.03993751847004686
+        },
+        "validation": {
+          "note": "mean held-out lpd (repeat-listed units, genuinely left out) vs mean PSIS-LOO over training rows of units with 2+ training rows",
+          "heldout_rows": 5264,
+          "heldout_mean_lpd": 1.1881183885999207,
+          "psis_mean_lpd_multi_row_units": 1.196415801995307
+        },
+        "integrated": "unit level",
+        "delta": 11754.19953155321,
+        "delta_se": 177.15970042927728,
+        "delta_mcse": 10.429632190635056,
+        "baseline": "m0-base/base-v1/gibbs@5cc0809"
+      },
       "current_best": false,
       "frontier": false,
-      "note": "beaten by m8-drift/desc-v1/gibbs@b7c196f (+211.1 \u00b1 25.1 rows)",
+      "note": "beaten by m8-drift/desc-v1/gibbs@b7c196f (+1525.1 \u00b1 76.2 PSIS-LOO)",
       "annotations": []
     },
     {
@@ -1892,11 +2426,39 @@
       "passes_checks": false,
       "line": "frontier",
       "grade": "failed",
-      "fit_seconds": 1906.481780041,
+      "fit_seconds": 1904.250115275,
+      "fit_seconds_all_splits": 3810.731895316,
       "cost_usd": 2.3638,
+      "psis": {
+        "run": "m6-slopes-desc-v1-rows-8d52ddb",
+        "commit": "6c485fc837dd014892d65adc6d0e5e4545c49f85",
+        "rows": 47374,
+        "draws": 320,
+        "elpd": 52343.038418328404,
+        "elpd_se": 239.5261108980152,
+        "mcse": 9.833334820825288,
+        "pareto_k": {
+          "threshold": 0.6008223025949704,
+          "over_threshold": 1896,
+          "over_0_7": 1050,
+          "max": 3.3647732595685254,
+          "share_over_threshold": 0.04002195296998354
+        },
+        "validation": {
+          "note": "mean held-out lpd (repeat-listed units, genuinely left out) vs mean PSIS-LOO over training rows of units with 2+ training rows",
+          "heldout_rows": 5264,
+          "heldout_mean_lpd": 1.1881219148069364,
+          "psis_mean_lpd_multi_row_units": 1.1962754219476692
+        },
+        "integrated": "unit level",
+        "delta": 11749.167808005159,
+        "delta_se": 177.19074573159006,
+        "delta_mcse": 10.425734762603662,
+        "baseline": "m0-base/base-v1/gibbs@5cc0809"
+      },
       "current_best": false,
       "frontier": false,
-      "note": "beaten by m8-drift/desc-v1/gibbs@b7c196f (+211.1 \u00b1 25.1 rows)",
+      "note": "beaten by m8-drift/desc-v1/gibbs@b7c196f (+1530.1 \u00b1 76.2 PSIS-LOO)",
       "annotations": []
     },
     {
@@ -1995,10 +2557,38 @@
       "line": "frontier",
       "grade": "failed",
       "fit_seconds": 2433.470817045,
+      "fit_seconds_all_splits": 4864.068931192,
       "cost_usd": 2.9694,
+      "psis": {
+        "run": "m6-slopes-desc-v1-rows-8d52ddb-solo",
+        "commit": "6c485fc837dd014892d65adc6d0e5e4545c49f85",
+        "rows": 47374,
+        "draws": 320,
+        "elpd": 52341.7796879525,
+        "elpd_se": 239.48212375865188,
+        "mcse": 9.826144602696216,
+        "pareto_k": {
+          "threshold": 0.6008223025949704,
+          "over_threshold": 1882,
+          "over_0_7": 1067,
+          "max": 3.3503328029339174,
+          "share_over_threshold": 0.03972643222020517
+        },
+        "validation": {
+          "note": "mean held-out lpd (repeat-listed units, genuinely left out) vs mean PSIS-LOO over training rows of units with 2+ training rows",
+          "heldout_rows": 5264,
+          "heldout_mean_lpd": 1.188127202649686,
+          "psis_mean_lpd_multi_row_units": 1.1962251427613226
+        },
+        "integrated": "unit level",
+        "delta": 11747.909077629258,
+        "delta_se": 177.1663664982153,
+        "delta_mcse": 10.418953373290588,
+        "baseline": "m0-base/base-v1/gibbs@5cc0809"
+      },
       "current_best": false,
       "frontier": false,
-      "note": "beaten by m8-drift/desc-v1/gibbs@b7c196f (+211.1 \u00b1 25.1 rows)",
+      "note": "beaten by m8-drift/desc-v1/gibbs@b7c196f (+1531.4 \u00b1 76.2 PSIS-LOO)",
       "annotations": []
     },
     {
@@ -2098,11 +2688,39 @@
       "passes_checks": false,
       "line": "frontier",
       "grade": "failed",
-      "fit_seconds": 2705.068237439,
+      "fit_seconds": 2657.183135847,
+      "fit_seconds_all_splits": 5362.251373286,
       "cost_usd": 3.3148,
+      "psis": {
+        "run": "m7-tunits-base-v1-rows-78fbc79",
+        "commit": "6c485fc837dd014892d65adc6d0e5e4545c49f85",
+        "rows": 47374,
+        "draws": 320,
+        "elpd": 53362.364191548884,
+        "elpd_se": 239.44238421089415,
+        "mcse": 9.527115766126482,
+        "pareto_k": {
+          "threshold": 0.6008223025949704,
+          "over_threshold": 1690,
+          "over_0_7": 884,
+          "max": 1.9532959515058206,
+          "share_over_threshold": 0.03567357622324482
+        },
+        "validation": {
+          "note": "mean held-out lpd (repeat-listed units, genuinely left out) vs mean PSIS-LOO over training rows of units with 2+ training rows",
+          "heldout_rows": 5264,
+          "heldout_mean_lpd": 1.2221160493133112,
+          "psis_mean_lpd_multi_row_units": 1.2260745224953489
+        },
+        "integrated": "unit level",
+        "delta": 12768.493581225635,
+        "delta_se": 182.35051629877108,
+        "delta_mcse": 10.137426027492536,
+        "baseline": "m0-base/base-v1/gibbs@5cc0809"
+      },
       "current_best": false,
       "frontier": false,
-      "note": "superseded by passing rerun m7-tunits/base-v1/gibbs@d62fc51",
+      "note": "beaten by m8-drift/desc-v1/gibbs@b7c196f (+510.8 \u00b1 47.9 PSIS-LOO)",
       "annotations": []
     },
     {
@@ -2203,10 +2821,38 @@
       "line": "frontier",
       "grade": "failed",
       "fit_seconds": 2662.650318471,
+      "fit_seconds_all_splits": 5323.554610997,
       "cost_usd": 3.2577,
+      "psis": {
+        "run": "m7-tunits-base-v1-rows-92c14b5",
+        "commit": "6c485fc837dd014892d65adc6d0e5e4545c49f85",
+        "rows": 47374,
+        "draws": 320,
+        "elpd": 53375.867494476544,
+        "elpd_se": 239.25984826293097,
+        "mcse": 9.528319179943407,
+        "pareto_k": {
+          "threshold": 0.6008223025949704,
+          "over_threshold": 1719,
+          "over_0_7": 854,
+          "max": 1.9320320372933597,
+          "share_over_threshold": 0.03628572634778571
+        },
+        "validation": {
+          "note": "mean held-out lpd (repeat-listed units, genuinely left out) vs mean PSIS-LOO over training rows of units with 2+ training rows",
+          "heldout_rows": 5264,
+          "heldout_mean_lpd": 1.222219541157767,
+          "psis_mean_lpd_multi_row_units": 1.226195208550046
+        },
+        "integrated": "unit level",
+        "delta": 12781.9968841533,
+        "delta_se": 182.390392483892,
+        "delta_mcse": 10.138556999720658,
+        "baseline": "m0-base/base-v1/gibbs@5cc0809"
+      },
       "current_best": false,
       "frontier": false,
-      "note": "superseded by passing rerun m7-tunits/base-v1/gibbs@d62fc51",
+      "note": "beaten by m8-drift/desc-v1/gibbs@b7c196f (+497.3 \u00b1 47.8 PSIS-LOO)",
       "annotations": []
     },
     {
@@ -2306,11 +2952,39 @@
       "passes_checks": true,
       "line": "frontier",
       "grade": "full",
-      "fit_seconds": 2695.135605619,
+      "fit_seconds": 2637.091330365,
+      "fit_seconds_all_splits": 5332.226935984,
       "cost_usd": 3.2773,
+      "psis": {
+        "run": "m7-tunits-base-v1-rows-d62fc51",
+        "commit": "6c485fc837dd014892d65adc6d0e5e4545c49f85",
+        "rows": 47374,
+        "draws": 320,
+        "elpd": 53364.77457335633,
+        "elpd_se": 239.33901173638773,
+        "mcse": 9.495857688740529,
+        "pareto_k": {
+          "threshold": 0.6008223025949704,
+          "over_threshold": 1783,
+          "over_0_7": 955,
+          "max": 1.8122174244138867,
+          "share_over_threshold": 0.03763667834677249
+        },
+        "validation": {
+          "note": "mean held-out lpd (repeat-listed units, genuinely left out) vs mean PSIS-LOO over training rows of units with 2+ training rows",
+          "heldout_rows": 5264,
+          "heldout_mean_lpd": 1.2221123720460623,
+          "psis_mean_lpd_multi_row_units": 1.2258977976002052
+        },
+        "integrated": "unit level",
+        "delta": 12770.90396303309,
+        "delta_se": 182.38803372477813,
+        "delta_mcse": 10.108055445362375,
+        "baseline": "m0-base/base-v1/gibbs@5cc0809"
+      },
       "current_best": false,
       "frontier": true,
-      "note": "",
+      "note": "beaten by m8-drift/desc-v1/gibbs@b7c196f (+508.4 \u00b1 46.8 PSIS-LOO)",
       "annotations": []
     },
     {
@@ -2410,11 +3084,39 @@
       "passes_checks": false,
       "line": "frontier",
       "grade": "failed",
-      "fit_seconds": 2731.515668213,
+      "fit_seconds": 2700.6400846879997,
+      "fit_seconds_all_splits": 5432.155752901,
       "cost_usd": 3.3389,
+      "psis": {
+        "run": "m7-tunits-desc-v1-rows-92c14b5",
+        "commit": "6c485fc837dd014892d65adc6d0e5e4545c49f85",
+        "rows": 47374,
+        "draws": 320,
+        "elpd": 53547.31574307344,
+        "elpd_se": 238.0865696678507,
+        "mcse": 9.505317679274178,
+        "pareto_k": {
+          "threshold": 0.6008223025949704,
+          "over_threshold": 1706,
+          "over_0_7": 895,
+          "max": 1.8384456398836733,
+          "share_over_threshold": 0.03601131422299152
+        },
+        "validation": {
+          "note": "mean held-out lpd (repeat-listed units, genuinely left out) vs mean PSIS-LOO over training rows of units with 2+ training rows",
+          "heldout_rows": 5264,
+          "heldout_mean_lpd": 1.2182896857896388,
+          "psis_mean_lpd_multi_row_units": 1.2267283233569108
+        },
+        "integrated": "unit level",
+        "delta": 12953.445132750203,
+        "delta_se": 183.1564435315372,
+        "delta_mcse": 10.116943007926336,
+        "baseline": "m0-base/base-v1/gibbs@5cc0809"
+      },
       "current_best": false,
       "frontier": false,
-      "note": "beaten by m8-drift/desc-v1/gibbs@b7c196f (+52.3 \u00b1 11.0 rows)",
+      "note": "beaten by m8-drift/desc-v1/gibbs@b7c196f (+325.8 \u00b1 30.7 PSIS-LOO)",
       "annotations": []
     },
     {
@@ -2514,11 +3216,39 @@
       "passes_checks": true,
       "line": "frontier",
       "grade": "full",
-      "fit_seconds": 2769.63444277,
+      "fit_seconds": 2758.021029919,
+      "fit_seconds_all_splits": 5527.655472689,
       "cost_usd": 3.387,
+      "psis": {
+        "run": "m7-tunits-desc-v1-rows-d62fc51",
+        "commit": "6c485fc837dd014892d65adc6d0e5e4545c49f85",
+        "rows": 47374,
+        "draws": 320,
+        "elpd": 53534.933915953574,
+        "elpd_se": 238.15082076278804,
+        "mcse": 9.49392438999575,
+        "pareto_k": {
+          "threshold": 0.6008223025949704,
+          "over_threshold": 1802,
+          "over_0_7": 961,
+          "max": 1.6823006950326833,
+          "share_over_threshold": 0.038037742221471695
+        },
+        "validation": {
+          "note": "mean held-out lpd (repeat-listed units, genuinely left out) vs mean PSIS-LOO over training rows of units with 2+ training rows",
+          "heldout_rows": 5264,
+          "heldout_mean_lpd": 1.2182334929905776,
+          "psis_mean_lpd_multi_row_units": 1.2263496559648184
+        },
+        "integrated": "unit level",
+        "delta": 12941.06330563033,
+        "delta_se": 183.21536650126276,
+        "delta_mcse": 10.10623925922316,
+        "baseline": "m0-base/base-v1/gibbs@5cc0809"
+      },
       "current_best": false,
-      "frontier": false,
-      "note": "beaten by m8-drift/desc-v1/gibbs@b7c196f (+52.6 \u00b1 10.9 rows)",
+      "frontier": true,
+      "note": "beaten by m8-drift/desc-v1/gibbs@b7c196f (+338.2 \u00b1 28.9 PSIS-LOO)",
       "annotations": []
     },
     {
@@ -2644,10 +3374,38 @@
       "line": "frontier",
       "grade": "full",
       "fit_seconds": 3269.142412766,
+      "fit_seconds_all_splits": 6532.007616571,
       "cost_usd": 3.9903,
+      "psis": {
+        "run": "m8-drift-base-v1-rows-b7c196f",
+        "commit": "6c485fc837dd014892d65adc6d0e5e4545c49f85",
+        "rows": 47374,
+        "draws": 320,
+        "elpd": 53719.40536129112,
+        "elpd_se": 240.11806693338391,
+        "mcse": 9.50770809352926,
+        "pareto_k": {
+          "threshold": 0.6008223025949704,
+          "over_threshold": 1943,
+          "over_0_7": 1013,
+          "max": 1.998059342660402,
+          "share_over_threshold": 0.041014058344239455
+        },
+        "validation": {
+          "note": "mean held-out lpd (repeat-listed units, genuinely left out) vs mean PSIS-LOO over training rows of units with 2+ training rows",
+          "heldout_rows": 5264,
+          "heldout_mean_lpd": 1.232373942893093,
+          "psis_mean_lpd_multi_row_units": 1.2358579696116656
+        },
+        "integrated": "unit level and drift",
+        "delta": 13125.534750967872,
+        "delta_se": 183.06166606820912,
+        "delta_mcse": 10.119188941484843,
+        "baseline": "m0-base/base-v1/gibbs@5cc0809"
+      },
       "current_best": false,
       "frontier": true,
-      "note": "",
+      "note": "beaten by m8-drift/desc-v1/gibbs@b7c196f (+153.8 \u00b1 38.9 PSIS-LOO)",
       "annotations": [
         "Fit on a Modal H100: 16 chains x (900 + 2,000), 3,269 s including JIT, about $3.99. Not refit locally (Ben, 2026-09-24); the thelio fit time is unmeasured.",
         "units split rescored from 320 kept draws with the exact unseen-unit quadrature (rentfrontier.rescore @ce6db1c): exact - recorded approximation = +3.5 \u00b1 1.6 on the same draws (5,226 unseen-unit rows), so the recorded +814.7 is about +818.2 under exact scoring."
@@ -2776,9 +3534,37 @@
       "line": "frontier",
       "grade": "full",
       "fit_seconds": 3368.1207148460003,
+      "fit_seconds_all_splits": 6714.240087208,
       "cost_usd": 4.1075,
+      "psis": {
+        "run": "m8-drift-desc-v1-rows-b7c196f",
+        "commit": "6c485fc837dd014892d65adc6d0e5e4545c49f85",
+        "rows": 47374,
+        "draws": 320,
+        "elpd": 53873.16038684701,
+        "elpd_se": 238.9574273416241,
+        "mcse": 9.518119045645772,
+        "pareto_k": {
+          "threshold": 0.6008223025949704,
+          "over_threshold": 1881,
+          "over_0_7": 1007,
+          "max": 1.8239161940165143,
+          "share_over_threshold": 0.039705323595221005
+        },
+        "validation": {
+          "note": "mean held-out lpd (repeat-listed units, genuinely left out) vs mean PSIS-LOO over training rows of units with 2+ training rows",
+          "heldout_rows": 5264,
+          "heldout_mean_lpd": 1.2282263312076558,
+          "psis_mean_lpd_multi_row_units": 1.2358508999503812
+        },
+        "integrated": "unit level and drift",
+        "delta": 13279.28977652377,
+        "delta_se": 183.781302075304,
+        "delta_mcse": 10.1289714092198,
+        "baseline": "m0-base/base-v1/gibbs@5cc0809"
+      },
       "current_best": true,
-      "frontier": false,
+      "frontier": true,
       "note": "",
       "annotations": [
         "Fit on a Modal H100 (NVIDIA H100 80GB HBM3): 16 chains x (900 warmup + 2,000 draws), 3,368 s including JIT (warmup 851 s, sampling 2,515 s), about $4.11. Gate: max split R-hat 1.006, min bulk ESS 2,573, all-effects R-hat 1.02 from exact per-chain moments.",
@@ -2825,10 +3611,11 @@
       "passes_checks": false,
       "grade": "screen",
       "fit_seconds": 4157.316480422,
+      "fit_seconds_all_splits": 4157.316480422,
       "cost_usd": 0.0,
       "current_best": false,
       "frontier": false,
-      "note": "screen-grade (max R-hat 1.318); not eligible for best or frontier",
+      "note": "screen-grade (max R-hat 1.318); not eligible for best or frontier; no saved draws, so no PSIS-LOO score",
       "annotations": []
     },
     {
@@ -2880,10 +3667,11 @@
       "passes_checks": false,
       "grade": "screen",
       "fit_seconds": 1418.848104165,
+      "fit_seconds_all_splits": 1418.848104165,
       "cost_usd": 0.13452832981544266,
       "current_best": false,
       "frontier": false,
-      "note": "screen-grade (max R-hat 1.050); not eligible for best or frontier",
+      "note": "screen-grade (max R-hat 1.050); not eligible for best or frontier; no saved draws, so no PSIS-LOO score",
       "annotations": []
     },
     {
@@ -2964,10 +3752,11 @@
       "passes_checks": false,
       "grade": "screen",
       "fit_seconds": 5094.571447609,
+      "fit_seconds_all_splits": 8626.12456821,
       "cost_usd": 0.4654918846431213,
       "current_best": false,
       "frontier": false,
-      "note": "screen-grade (max R-hat 1.032); not eligible for best or frontier",
+      "note": "screen-grade (max R-hat 1.032); not eligible for best or frontier; no saved draws, so no PSIS-LOO score",
       "annotations": []
     },
     {
@@ -3070,10 +3859,11 @@
       "passes_checks": false,
       "grade": "screen",
       "fit_seconds": 5037.988475176,
+      "fit_seconds_all_splits": 9170.673201913,
       "cost_usd": 0.4623569464628889,
       "current_best": false,
       "frontier": false,
-      "note": "screen-grade (max R-hat 1.532); not eligible for best or frontier",
+      "note": "screen-grade (max R-hat 1.532); not eligible for best or frontier; no saved draws, so no PSIS-LOO score",
       "annotations": []
     },
     {
@@ -3175,11 +3965,12 @@
       },
       "passes_checks": false,
       "grade": "screen",
-      "fit_seconds": 11577.004934344,
+      "fit_seconds": 7510.774045370001,
+      "fit_seconds_all_splits": 19087.778979714,
       "cost_usd": 1.0344727326515075,
       "current_best": false,
       "frontier": false,
-      "note": "screen-grade (max R-hat 1.073); not eligible for best or frontier",
+      "note": "screen-grade (max R-hat 1.073); not eligible for best or frontier; no saved draws, so no PSIS-LOO score",
       "annotations": []
     },
     {
@@ -3219,10 +4010,11 @@
       "passes_checks": false,
       "grade": "screen",
       "fit_seconds": 5196.186790694001,
+      "fit_seconds_all_splits": 5196.186790694001,
       "cost_usd": 0.0,
       "current_best": false,
       "frontier": false,
-      "note": "screen-grade (max R-hat 1.033); not eligible for best or frontier",
+      "note": "screen-grade (max R-hat 1.033); not eligible for best or frontier; no saved draws, so no PSIS-LOO score",
       "annotations": []
     },
     {
@@ -3262,10 +4054,11 @@
       "passes_checks": false,
       "grade": "screen",
       "fit_seconds": 3039.314004650998,
+      "fit_seconds_all_splits": 3039.314004650998,
       "cost_usd": 0.0,
       "current_best": false,
       "frontier": false,
-      "note": "screen-grade (max R-hat 1.062); not eligible for best or frontier",
+      "note": "screen-grade (max R-hat 1.062); not eligible for best or frontier; no saved draws, so no PSIS-LOO score",
       "annotations": []
     },
     {
@@ -3317,10 +4110,11 @@
       "passes_checks": false,
       "grade": "screen",
       "fit_seconds": 2510.622297035,
+      "fit_seconds_all_splits": 2510.622297035,
       "cost_usd": 0.23425688291639424,
       "current_best": false,
       "frontier": false,
-      "note": "screen-grade (max R-hat 1.027); not eligible for best or frontier",
+      "note": "screen-grade (max R-hat 1.027); not eligible for best or frontier; no saved draws, so no PSIS-LOO score",
       "annotations": []
     },
     {
@@ -3360,10 +4154,11 @@
       "passes_checks": false,
       "grade": "screen",
       "fit_seconds": 4921.81387591,
+      "fit_seconds_all_splits": 4921.81387591,
       "cost_usd": 0.0,
       "current_best": false,
       "frontier": false,
-      "note": "screen-grade (max R-hat 1.028); not eligible for best or frontier",
+      "note": "screen-grade (max R-hat 1.028); not eligible for best or frontier; no saved draws, so no PSIS-LOO score",
       "annotations": []
     }
   ],
