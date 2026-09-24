@@ -15,6 +15,9 @@ import numpy as np
 from . import bayesian_location_terms as v1
 
 DRIFT_EXPERIMENT = "observable-bayesian-drift-experiment-v1"
+COMBINED_EXPERIMENT = "observable-bayesian-combined-experiment-v1"
+# Versions carrying per-unit drift on top of the structure terms.
+DRIFT_VERSIONS = (DRIFT_EXPERIMENT, COMBINED_EXPERIMENT)
 # Same location terms as the structure fit, with the attribute feature design.
 ATTRIBUTE_EXPERIMENT = "observable-bayesian-attribute-structure-experiment-v1"
 # The same terms again, with the intercept as the building-level mean.
@@ -41,7 +44,7 @@ def unit_year_centers(design, data):
 
 
 def variable_dims(protocol):
-    if protocol.get("version") == DRIFT_EXPERIMENT:
+    if protocol.get("version") in DRIFT_VERSIONS:
         return {
             "bedroom_time": ("bedroom_group", "period"),
             "building_time_scale": (),
@@ -51,13 +54,13 @@ def variable_dims(protocol):
 
 
 def lazy_variable_dims(protocol):
-    if protocol.get("version") == DRIFT_EXPERIMENT:
+    if protocol.get("version") in DRIFT_VERSIONS:
         return {"building_time_z": ("building_knot",), "unit_slope_z": ("unit",)}
     return v1.lazy_variable_dims(_v1(protocol))
 
 
 def prepare(protocol, design, data):
-    if protocol.get("version") != DRIFT_EXPERIMENT:
+    if protocol.get("version") not in DRIFT_VERSIONS:
         return v1.prepare(_v1(protocol), design, data)
     as_structure = {**protocol, "version": v1.STRUCTURE_EXPERIMENT}
     return {
@@ -67,7 +70,7 @@ def prepare(protocol, design, data):
 
 
 def expected_coords(protocol, design):
-    if protocol.get("version") != DRIFT_EXPERIMENT:
+    if protocol.get("version") not in DRIFT_VERSIONS:
         return v1.expected_coords(_v1(protocol), design)
     as_structure = {**protocol, "version": v1.STRUCTURE_EXPERIMENT}
     return {
@@ -82,7 +85,7 @@ def unit_drift(z, scale, year, center):
 
 
 def row_terms(protocol, draws, frame, design, select=None, context=None):
-    if protocol.get("version") != DRIFT_EXPERIMENT:
+    if protocol.get("version") not in DRIFT_VERSIONS:
         return v1.row_terms(_v1(protocol), draws, frame, design, select, context)
     as_structure = {**protocol, "version": v1.STRUCTURE_EXPERIMENT}
     terms = v1.row_terms(as_structure, draws, frame, design, select, context)

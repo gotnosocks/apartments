@@ -32,7 +32,10 @@ EXPERIMENT_ATTRIBUTE = spline_contract.ATTRIBUTE_EXPERIMENT
 EXPERIMENT_DRIFT = spline_contract.DRIFT_EXPERIMENT
 # Fits carrying the building walk (structure-family location terms).
 EXPERIMENT_EFFICIENT_STRUCTURE = spline_contract.EFFICIENT_STRUCTURE_EXPERIMENT
-BUILDING_WALK_EXPERIMENTS = (EXPERIMENT_STRUCTURE, EXPERIMENT_ATTRIBUTE, EXPERIMENT_DRIFT, EXPERIMENT_EFFICIENT_STRUCTURE)
+EXPERIMENT_COMBINED = spline_contract.COMBINED_EXPERIMENT
+# Fits with per-unit drift (unit-drift.json and its diagnostics).
+DRIFT_EXPERIMENTS = (EXPERIMENT_DRIFT, EXPERIMENT_COMBINED)
+BUILDING_WALK_EXPERIMENTS = (EXPERIMENT_STRUCTURE, EXPERIMENT_ATTRIBUTE, EXPERIMENT_DRIFT, EXPERIMENT_EFFICIENT_STRUCTURE, EXPERIMENT_COMBINED)
 SPLINE_FAMILY = spline_contract.FAMILY
 EXPERIMENT_VERSIONS = {EXPERIMENT_VERSION, EXPERIMENT_V3, EXPERIMENT_V4, EXPERIMENT_V5, *SPLINE_FAMILY}
 DATASET_VERSIONS = {'reported-bathroom-counts-projection-v1', 'reviewed-bathroom-counts-projection-v1',
@@ -447,7 +450,7 @@ def build_report(experiment, dataset, top=5):
     if experiment_version in (EXPERIMENT_V4,*SPLINE_FAMILY): required |= V4_REQUIRED
     if experiment_version == EXPERIMENT_BEDROOM_TIME: required |= BEDROOM_TIME_REQUIRED
     if experiment_version in BUILDING_WALK_EXPERIMENTS: required |= STRUCTURE_REQUIRED
-    if experiment_version == EXPERIMENT_DRIFT: required |= DRIFT_REQUIRED
+    if experiment_version in DRIFT_EXPERIMENTS: required |= DRIFT_REQUIRED
     if experiment_version == EXPERIMENT_V5: required |= V5_REQUIRED
     from . import bayesian_disk_protocol as disk_protocol
     disk_execution = disk_protocol.verify_protocol(protocol)
@@ -561,12 +564,12 @@ def build_report(experiment, dataset, top=5):
                 or summary.get('building_time_diagnostics') != building_time['diagnostics']
                 or building_time.get('knot_years') != protocol['building_knot_years']):
             raise ValueError('Building-walk diagnostics are missing, failed or differ from the summary')
-    if experiment_version == EXPERIMENT_DRIFT:
+    if experiment_version in DRIFT_EXPERIMENTS:
         unit_drift = json.loads(ff['unit-drift.json'])
         if (unit_drift.get('diagnostics',{}).get('acceptable') is not True
                 or summary.get('unit_drift_diagnostics') != unit_drift['diagnostics']):
             raise ValueError('Unit-drift diagnostics are missing, failed or differ from the summary')
-    if experiment_version in (EXPERIMENT_ATTRIBUTE, EXPERIMENT_DRIFT):
+    if experiment_version in (EXPERIMENT_ATTRIBUTE, EXPERIMENT_DRIFT, EXPERIMENT_COMBINED):
         method.update({k: protocol[k] for k in ('feature_design_version', 'attribute_policy',
                                                 'attribute_counts', 'evidence_manifest_sha256')})
     return {'version': VERSION, 'experiment_version': experiment_version, 'status': summary['status'], 'protocol_sha256': ph,
