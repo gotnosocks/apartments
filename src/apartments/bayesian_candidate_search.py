@@ -103,6 +103,8 @@ def run(preferences, output, *, selection=main_analysis.DEFAULT_SELECTION, as_of
     code = {p.name: p.read_text() for p in paths}
     selection_hash, preference_hash = digest(selection), digest(preferences)
     chosen, experiment, dataset = main_analysis.load_selection(selection)
+    if main_analysis.is_summary(chosen):
+        raise ValueError('Candidate search needs feature comparisons, which summary selections do not provide yet')
     weights = json.loads(preferences.read_text())
     with threadpool_limits(limits=1, user_api='blas'):
         analysis = bayesian_analysis.BayesianAnalysis.load(experiment, dataset)

@@ -530,7 +530,6 @@ def apartment_analyze(
     """
     import json
     from . import main_analysis
-    from .bayesian_analysis import BayesianAnalysis
 
     def object_without_duplicates(pairs):
         result = {}
@@ -597,7 +596,7 @@ def apartment_analyze(
                 else {}
             )
             notes = merge_notes(review_notes, issue_notes)
-        workspace = BayesianAnalysis.load(experiment, dataset)
+        workspace = main_analysis.load_analysis(selected, experiment, dataset)
         try:
             result = {"selection": selected, "detail": workspace.detail(audit_id)}
             source_note = notes.get(audit_id)

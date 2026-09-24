@@ -1,14 +1,15 @@
 """Read-only analysis of the explicitly selected, verified joint Bayesian posterior."""
 from pathlib import Path
+import json
 import math
 from urllib.parse import urlparse
 
 import pandas as pd
 import streamlit as st
 
-from apartments.bayesian_analysis import BayesianAnalysis, bundle_signature
+from apartments.bayesian_analysis import bundle_signature
 from apartments.bayesian_evidence import load_evidence
-from apartments.main_analysis import load_selection
+from apartments.main_analysis import is_summary, load_analysis as load_selected_analysis, load_selection
 from apartments.bayesian_source_review import load_source_review
 from apartments.source_issues import load_source_issues, merge_notes
 
@@ -19,13 +20,12 @@ DEFAULT_EVIDENCE = ROOT / 'data/model/chelsea-analysis-descriptions-20260918'
 st.set_page_config(page_title='Contributions and residuals', page_icon='🔎', layout='wide')
 st.title('Chelsea — Bayesian contributions and residuals')
 st.caption('Inspect the accepted saved posterior, investigate asking-price residuals, and compare apartment features jointly.')
-st.info('These are conditional, in-sample asking-rent associations. A large residual suggests a listing or missing-feature review; it is not a bargain score. Saved current listings do not establish live availability.')
 
 
 @st.cache_resource(show_spinner=False)
-def load_analysis(experiment, dataset, signature):
+def load_analysis(selection_json, experiment, dataset, signature):
     del signature  # Content is independently verified on load; file changes invalidate cache.
-    return BayesianAnalysis.load(experiment, dataset)
+    return load_selected_analysis(json.loads(selection_json), experiment, dataset)
 
 
 @st.cache_resource(show_spinner=False)
@@ -81,9 +81,11 @@ try:
             key='evidence:'+str(dataset)+':'+default_evidence,
             help=('Required matching archive for the selected source annotations.' if selection.get('source_review') or selection.get('source_issues')
                   else 'Optional verified source archive; leave blank to disable.')).strip()
-    signature = bundle_signature(experiment / 'protocol', experiment / 'fit', dataset)
+    summary_family = is_summary(selection)
+    signature = (bundle_signature(experiment, dataset) if summary_family
+                 else bundle_signature(experiment / 'protocol', experiment / 'fit', dataset))
     with st.spinner('Verifying the saved Bayesian analysis…'):
-        analysis = load_analysis(str(experiment), str(dataset), signature)
+        analysis = load_analysis(json.dumps(selection, sort_keys=True), str(experiment), str(dataset), signature)
     rows, residual_records = analysis.rows, analysis.residuals
     evidence = (archived_evidence(str(dataset), evidence_path, bundle_signature(dataset, evidence_path))
                 if evidence_path else {})
@@ -106,6 +108,8 @@ try:
             'canonical_unit_url': r.get('canonical_unit_url'),
             'current_capture': r.get('analysis_price_basis') == 'current_capture_gross_ask',
             'residual_percent': 100 * (residual['asking_rent'] / residual['fitted_rent'] - 1),
+            'estimate': ('leave own row out' + ('' if residual.get('loo_reliable', True) else ' (unreliable)')
+                         if summary_family else 'in sample'),
             'absolute_log_residual': abs(residual['residual_log'])})
         records[-1]['source_review'] = label(notes[r['audit_id']]['kind']) if r['audit_id'] in notes else ''
     residuals = pd.DataFrame(records)
@@ -113,6 +117,13 @@ except (OSError, ValueError, KeyError, TypeError, RuntimeError) as exc:
     st.error(f'The selected Bayesian analysis could not be verified: {exc}')
     st.caption('A completed accepted fit, its exact dataset, and matching saved selection are required. This page does not fit or scrape.')
     st.stop()
+
+if summary_family:
+    st.info("Residuals compare each ask with a fitted rent that does not use that listing's own ask (leave-own-row-out); "
+            'the in-sample fitted rent, which is pulled toward the ask, is shown alongside. A large residual suggests a listing '
+            'or missing-feature review; it is not a bargain score. Saved current listings do not establish live availability.')
+else:
+    st.info('These are conditional, in-sample asking-rent associations. A large residual suggests a listing or missing-feature review; it is not a bargain score. Saved current listings do not establish live availability.')
 
 if residuals.empty:
     st.info('No fitted observations are available.')
@@ -163,7 +174,9 @@ st.caption(f'Showing {len(review):,} of {len(view):,} matching observations. Res
 if notes:
     st.caption(f'{len(notes)} observations have individual source-review notes. Blank review cells do not certify source accuracy.')
 st.dataframe(review[['building', 'source_listing_id', 'period', 'asking_rent', 'fitted_rent',
-    'latent_rent_lower_95', 'latent_rent_upper_95', 'residual_dollars', 'residual_percent', 'source_review']].rename(columns={
+    'latent_rent_lower_95', 'latent_rent_upper_95', 'residual_dollars', 'residual_percent',
+    *(['in_sample_fitted_rent', 'estimate'] if summary_family else []), 'source_review']].rename(columns={
+    'in_sample_fitted_rent': 'In-sample fitted ($)', 'estimate': 'Estimate',
     'building': 'Building', 'source_listing_id': 'Advertisement', 'period': 'Month',
     'asking_rent': 'Ask ($)', 'fitted_rent': 'Fitted median ($)', 'latent_rent_lower_95': 'Lower 95% CrI ($)',
     'latent_rent_upper_95': 'Upper 95% CrI ($)', 'residual_dollars': 'Ask − median ($)',
@@ -187,6 +200,8 @@ a.metric('Advertised asking rent', f"${residual['asking_rent']:,.0f}")
 b.metric('Posterior median fitted rent', f"${interval['median']:,.0f}")
 b.caption(interval_text(interval, money=True))
 c.metric('Ask − fitted median', f"${residual['residual_dollars']:+,.0f}")
+if 'in_sample_fitted_median_rent' in detail:
+    b.caption(f"Leave-own-row-out. In-sample fitted median: ${detail['in_sample_fitted_median_rent']['median']:,.0f}")
 st.caption(f"{detail['draws']:,} joint retained draws. The interval describes latent conditional-median asking rent, not a new listing's price range or arithmetic mean rent.")
 source_links(record)
 for warning in detail.get('warnings', []):
@@ -208,6 +223,12 @@ with contributions_tab:
     st.caption(f"Contribution mean sum: {math.fsum(groups.values()):.6f}; E[μ]: {detail['mean_log_rent']:.6f}. Exponentiating E[μ] need not equal the posterior median fitted rent.")
     if not contribution_ok:
         st.warning('Contribution diagnostics failed; contribution intervals are withheld.')
+    if detail['contributions'] and 'mean_dollar_contribution' in detail['contributions'][0]:
+        st.caption('Dollar contributions (in-sample fit; logarithmic-mean split, adding up exactly to fitted minus the reference rent in every draw). '
+                   'Reference: ' + detail.get('dollar_reference', ''))
+        st.dataframe(pd.DataFrame([{'Component': label(c['term']), 'Posterior mean ($)': c['mean_dollar_contribution'],
+                                    'Lower 95% CrI ($)': c['dollar_lower_95'], 'Upper 95% CrI ($)': c['dollar_upper_95']}
+                                   for c in detail['contributions']]), hide_index=True, width='stretch')
     with st.expander('Exact encoded contributions and diagnostics'):
         st.dataframe(pd.DataFrame(detail['contributions']), hide_index=True, width='stretch')
         st.json(detail['contribution_diagnostics'])
@@ -226,6 +247,8 @@ with contrast_tab:
     if source_note and source_note['interpretation_limited']:
         st.warning('These scenarios condition on disputed source inputs. A closer modeled price does not resolve the source conflict.')
     fields = analysis.fields
+    if not fields:
+        st.info('Feature comparisons are not available for the selected model yet.')
     chosen = st.multiselect('Features to change together', list(fields), format_func=label, key=f'fields:{audit_id}')
     if chosen:
         changes = {}

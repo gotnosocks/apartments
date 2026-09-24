@@ -1,7 +1,7 @@
 """Residual review queue ranked on unit-level deviation from the selected fit.
 
 Report-only: reads saved residuals, group effects and source rows from the
-explicitly selected PyMC fit and publishes a small immutable bundle plus a
+explicitly selected PyMC fit (or model summary) and publishes a small immutable bundle plus a
 self-contained HTML page. It never opens the posterior draws, fits, scrapes or
 changes the selection.
 
@@ -21,7 +21,7 @@ from pathlib import Path
 from urllib.parse import urlparse
 
 from .corrections import canonical
-from .main_analysis import DEFAULT_SELECTION, ROOT, load_selection, resolve_path
+from .main_analysis import DEFAULT_SELECTION, ROOT, is_summary, load_selection, resolve_path
 from .research_pipeline import _verified_bundle, digest, publish_bundle
 
 VERSION = 'bayesian-unit-deviation-review-queue-v1'
@@ -224,6 +224,29 @@ def render_page(rows, summary, bindings, *, total=None):
 QUEUE_ROOT = Path('data/model/review-queue')
 
 
+def _fit_manifest_sha256(selected):
+    """The selected model's manifest: a PyMC fit, or a summary directory."""
+    return selected['summary_manifest_sha256'] if is_summary(selected) else selected['fit_manifest_sha256']
+
+
+def _summary_inputs(summary, dataset):
+    """In-sample residual records and group effects from verified summary outputs.
+
+    The queue keeps its in-sample semantics (the unit effect is removed from the
+    in-sample fitted rent), so it reads the summary's in-sample fields."""
+    from .summary_analysis import SummaryAnalysis
+    analysis = SummaryAnalysis.load(summary, dataset)
+    manifest, files = _verified_bundle(summary, retain={'group-effects.jsonl'})
+    residuals = [{'audit_id': r['audit_id'], 'unit_id': r['unit_id'], 'building': r['building'],
+                  'source_listing_id': r['source_listing_id'], 'period': r['period'],
+                  'asking_rent': r['asking_rent'], 'fitted_rent': r['in_sample_fitted_rent'],
+                  'latent_rent_lower_95': r['in_sample_latent_rent_lower_95'],
+                  'latent_rent_upper_95': r['in_sample_latent_rent_upper_95'],
+                  'residual_dollars': r['in_sample_residual_dollars'],
+                  'residual_log': r['in_sample_residual_log']} for r in analysis.residuals]
+    return manifest, residuals, _records(files['group-effects.jsonl'])
+
+
 def default_output(selection=DEFAULT_SELECTION, *, root=ROOT):
     """Deterministic bundle location for the current selection and queue version.
 
@@ -233,7 +256,7 @@ def default_output(selection=DEFAULT_SELECTION, *, root=ROOT):
     """
     selected, experiment, _ = load_selection(selection, root=root)
     tag = VERSION.rsplit('-', 1)[-1]
-    return Path(root) / QUEUE_ROOT / f"{experiment.name}-{selected['fit_manifest_sha256'][:12]}-{tag}"
+    return Path(root) / QUEUE_ROOT / f"{experiment.name}-{_fit_manifest_sha256(selected)[:12]}-{tag}"
 
 
 def locate(selection=DEFAULT_SELECTION, *, root=ROOT):
@@ -244,7 +267,7 @@ def locate(selection=DEFAULT_SELECTION, *, root=ROOT):
     if not marker.is_file() or marker.is_symlink():
         return None
     manifest = json.loads(marker.read_text())
-    expected = {'version': VERSION, 'fit_manifest_sha256': selected['fit_manifest_sha256'],
+    expected = {'version': VERSION, 'fit_manifest_sha256': _fit_manifest_sha256(selected),
                 'source_manifest_sha256': selected['source_manifest_sha256']}
     if any(manifest.get(k) != v for k, v in expected.items()) or not {QUEUE_FILE, PAGE_FILE, 'summary.json'} <= set(manifest.get('files', {})):
         raise ValueError('Review queue bundle does not match the selected fit: ' + str(directory))
@@ -261,10 +284,15 @@ def build_review_queue(output=None, *, selection=DEFAULT_SELECTION, root=ROOT, i
                        page_limit=2500):
     selected, experiment, dataset = load_selection(selection, root=root)
     output = default_output(selection, root=root) if output is None else Path(output)
-    fit_manifest, fit_files = _verified_bundle(experiment / 'fit', retain={'residuals.jsonl', 'group-effects.jsonl'})
+    if is_summary(selected):
+        fit_manifest, residuals, effects = _summary_inputs(experiment, dataset)
+        fit_manifest_path, residual_file = experiment / 'complete.json', 'rows.parquet'
+    else:
+        fit_manifest, fit_files = _verified_bundle(experiment / 'fit', retain={'residuals.jsonl', 'group-effects.jsonl'})
+        residuals = _records(fit_files['residuals.jsonl'])
+        effects = _records(fit_files['group-effects.jsonl'])
+        fit_manifest_path, residual_file = experiment / 'fit/complete.json', 'residuals.jsonl'
     source_manifest, source_files = _verified_bundle(dataset, retain={'observations.jsonl'})
-    residuals = _records(fit_files['residuals.jsonl'])
-    effects = _records(fit_files['group-effects.jsonl'])
     source = _records(source_files['observations.jsonl'])
     descriptions, evidence_manifest, warnings = {}, None, []
     if include_descriptions and selected.get('evidence'):
@@ -280,9 +308,9 @@ def build_review_queue(output=None, *, selection=DEFAULT_SELECTION, root=ROOT, i
                'source_notes': len(notes), 'descriptions': sum(r['description'] is not None for r in rows),
                'page_rows': len(embedded), 'page_limit': page_limit, 'warnings': warnings}
     bindings = {'version': VERSION, 'selection': str(Path(selection)), 'experiment': str(experiment), 'dataset': str(dataset),
-        'fit_manifest_sha256': digest(experiment / 'fit/complete.json'),
+        'fit_manifest_sha256': digest(fit_manifest_path),
         'source_manifest_sha256': digest(dataset / 'complete.json'),
-        'residuals_sha256': fit_manifest['files']['residuals.jsonl'],
+        'residuals_sha256': fit_manifest['files'][residual_file],
         'group_effects_sha256': fit_manifest['files']['group-effects.jsonl'],
         'source_observations_sha256': source_manifest['files']['observations.jsonl'],
         'evidence_manifest_sha256': digest(resolve_path(selected['evidence'], root) / 'complete.json')
