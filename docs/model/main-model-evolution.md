@@ -510,8 +510,7 @@ recovery. Source sensitivity changed median absolute log residual only
 supported source-quality review but did not justify calling the change a large
 model improvement.
 
-Evidence: `docs/analysis/chelsea-bayesian-source-revision-2026-09-18.md` and
-`docs/model/bayesian-research-page.md`.
+Evidence: `docs/analysis/chelsea-bayesian-source-revision-2026-09-18.md`.
 
 ### 3. Refreshed current observations — September 18–19
 

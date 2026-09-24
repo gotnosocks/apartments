@@ -1,7 +1,6 @@
 # Research-progress dashboard
 
-http://thelio.tail3983e0.ts.net:8500 (tailnet only). It replaces the Streamlit app, the review
-queue, the docs server and the canonical-unit review page, which were stopped on 2026-09-24.
+http://thelio.tail3983e0.ts.net:8500 (tailnet only).
 
 ## What it shows
 

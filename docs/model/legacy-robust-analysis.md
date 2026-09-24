@@ -10,7 +10,7 @@ The main workflow is scrape → transform → fit → analyze. Forecasting and
 unseen-building transfer are secondary diagnostics. The examples below support
 iterative research rather than prescribing a fixed set of renter-facing features.
 
-The [interactive review page](analysis-review-page.md) reads the latest reviewed
+The interactive review page reads the latest reviewed
 model, its exact dataset and residuals. It brings source descriptions, grouped
 contributions, apartment history and supported joint feature comparisons into
 one read-only view. Unsupported or reporting-only changes remain explicit.
@@ -154,7 +154,7 @@ now passes parameter and derived diagnostics. Its research report remains separa
 the [stronger-feature-prior comparison](../analysis/chelsea-bayesian-prior-sensitivity-2026-09-18.md)
 is complete, while source sensitivity, group-prior sensitivity and larger-apartment
 residual dispersion still need work.
-The separate [Bayesian research page](bayesian-research-page.md) displays the
+The separate Bayesian research page displays the
 accepted intervals, direct prior comparisons and all 13 current residuals. The
 [bedroom-scale experiment](../analysis/chelsea-bayesian-residual-scale-2026-09-18.md)
 failed its parameter convergence gate; its uncertainty estimates remain withheld.

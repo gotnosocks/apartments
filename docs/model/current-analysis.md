@@ -8,8 +8,7 @@ pointer is authoritative when this page's historical cohort description differs.
 The main workflow is scrape → transform → fit → analyze. The main model is the
 hierarchical PyMC posterior selected by `config/main-analysis.json`. Feature
 contributions, fitted residuals and joint apartment-specific contrasts are the
-primary outputs. The [main analysis page](main-bayesian-analysis.md) uses every
-retained joint posterior draw; no surrogate regression supplies its estimates.
+primary outputs.
 
 ## Current selected fit
 
@@ -20,11 +19,6 @@ and derived convergence checks pass. The source-cleaned 52,704-row refit is in
 progress; it will not replace this selection until its verification and
 comparison are complete. The floor-increment design and skeptical parameter
 audit are separate research work, not silently retrofitted into saved draws.
-
-The main page reproduces all 13 current fitted-rent credible intervals within
-$1.4e-11 of the saved fit. Tests also exercise a real joint laundry change,
-all-fitted browsing, source evidence, invalid bundles and withheld comparisons.
-The separate [research page](bayesian-research-page.md) compares accepted runs.
 
 ## Fit and select
 
@@ -60,21 +54,6 @@ uv run --locked --extra model python -m apartments.main_analysis \
 
 The selection command verifies the source, fit and both convergence gates.
 It does not sample or replace existing source observations.
-
-**After every new selection, rebuild the residual review queue** (about two
-minutes, report-only; it reads saved residuals and group effects, never the
-posterior draws):
-
-```sh
-uv run --locked --extra model python -m apartments build-review-queue
-```
-
-The queue page at http://thelio.tail3983e0.ts.net:8767/ follows
-`config/main-analysis.json` and picks up the rebuilt bundle with no restart.
-Until it is rebuilt the page reports that no queue exists for the selected fit.
-See the [review queue](review-queue.md) for the ranking and contents. The page independently
-checks these bindings, rebuilds the exact feature design and opens the saved
-posterior. Unsupported or mismatched states raise an explicit error.
 
 ## Interpret and iterate
 
