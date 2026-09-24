@@ -97,7 +97,9 @@ def main():
     commit = git("rev-parse", "HEAD")
     root = git("rev-parse", "--show-toplevel")
 
-    export = Path(tempfile.mkdtemp(prefix=f"frontier-{commit[:12]}-"))
+    tmp_root = Path("/data1/apartments/frontier/tmp")
+    tmp_root.mkdir(parents=True, exist_ok=True)
+    export = Path(tempfile.mkdtemp(prefix=f"frontier-{commit[:12]}-", dir=tmp_root))
     archive = export / "src.tar"
     subprocess.run(
         ["git", "-C", root, "archive", "-o", str(archive), commit, "frontier/src"],
