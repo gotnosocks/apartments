@@ -59,6 +59,10 @@ class ModelConfig:
     # Student-t degrees of freedom: None = estimated (Gamma(2, 0.1) prior),
     # a number = fixed (the promoted model fixes 5).
     nu_fixed: float | None = None
+    # Student-t unit effects (heavy tails let a few units sit far from their
+    # building without bending its slopes). unit_nu_fixed None = estimated.
+    unit_t: bool = False
+    unit_nu_fixed: float | None = None
 
     def to_dict(self):
         return asdict(self)
@@ -234,6 +238,7 @@ def effects(p):
         "sigma": p["sigma"],
         "nu": p["nu"],
         "unit_scale": p["unit_scale"],
+        "unit_nu": p.get("unit_nu", jnp.zeros(())),  # 0 = Gaussian unit effects
         "building_scale": p["building_scale"],
         "trend_scale": p["trend_scale"],
         "season_scale": p["season_scale"],
@@ -326,9 +331,22 @@ def build_model(prep: Prepared, config: ModelConfig):
             "building",
             dist.Normal(0.0, p["building_scale"]).expand([len(prep.buildings)]),
         )
-        p["unit"] = numpyro.sample(
-            "unit", dist.Normal(0.0, p["unit_scale"]).expand([len(prep.units)])
-        )
+        if config.unit_t:
+            p["unit_nu"] = (
+                jnp.asarray(config.unit_nu_fixed)
+                if config.unit_nu_fixed is not None
+                else numpyro.sample("unit_nu", dist.Gamma(2.0, 0.1))
+            )
+            p["unit"] = numpyro.sample(
+                "unit",
+                dist.StudentT(p["unit_nu"], 0.0, p["unit_scale"]).expand(
+                    [len(prep.units)]
+                ),
+            )
+        else:
+            p["unit"] = numpyro.sample(
+                "unit", dist.Normal(0.0, p["unit_scale"]).expand([len(prep.units)])
+            )
         if config.building_walk:
             p["walk_scale"] = numpyro.sample(
                 "walk_scale", dist.HalfNormal(config.walk_scale_sd)
@@ -432,6 +450,17 @@ MODELS = {
         trend_knot_months=3,
         bedroom_time_knot_months=3,
         feature_slopes=("log_sqft_vs_bedroom_median", "bathrooms=2", "bathrooms=3"),
+    ),
+    # m6 with Student-t unit effects (unit-level degrees of freedom estimated).
+    "m7-tunits": ModelConfig(
+        name="m7-tunits",
+        building_walk=True,
+        bedroom_time=True,
+        bedroom_slope=True,
+        trend_knot_months=3,
+        bedroom_time_knot_months=3,
+        feature_slopes=("log_sqft_vs_bedroom_median", "bathrooms=2", "bathrooms=3"),
+        unit_t=True,
     ),
     "m4-walk-bedtime-bedslope": ModelConfig(
         name="m4-walk-bedtime-bedslope",

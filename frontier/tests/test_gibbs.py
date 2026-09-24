@@ -79,6 +79,12 @@ DESIGNS = {
         bedroom_slope=True,
         feature_slopes=("x0", "x1"),
     ),
+    "tunits": model.ModelConfig(
+        building_walk=True,
+        bedroom_slope=True,
+        feature_slopes=("x0",),
+        unit_t=True,
+    ),
     "quarterly": model.ModelConfig(
         building_walk=True,
         bedroom_time=True,
@@ -101,7 +107,7 @@ SCALES = {
 }
 
 
-def dense_mean(d, lam, s):
+def dense_mean(d, lam, s, kappa=None):
     n, p = d.a.shape
     K, L, J = d.n_buildings, d.n_local, d.n_units
     X = np.zeros((n, p + K * L + J))
@@ -119,7 +125,8 @@ def dense_mean(d, lam, s):
     )
     for k in range(K):
         prior[p + k * L : p + (k + 1) * L, p + k * L : p + (k + 1) * L] = local
-    prior[p + K * L :, p + K * L :] += np.eye(J) / s["unit_scale"] ** 2
+    kap = np.ones(J) if kappa is None else np.asarray(kappa)
+    prior[p + K * L :, p + K * L :] += np.diag(kap) / s["unit_scale"] ** 2
     w = lam / s["sigma"] ** 2
     mean = np.linalg.solve(X.T @ (w[:, None] * X) + prior, X.T @ (w * np.asarray(d.y)))
     return mean[:p], mean[p : p + K * L].reshape(K, L), mean[p + K * L :]
@@ -144,7 +151,7 @@ def test_joint_gaussian_mean_matches_dense_solve(design):
     np.testing.assert_allclose(np.asarray(u), e_u, atol=1e-8)
 
 
-def dense_logml(d, lam, s):
+def dense_logml(d, lam, s, kappa=None):
     """log N(y; 0, X Q_prior^-1 X' + W^-1), by brute force."""
     from scipy.stats import multivariate_normal
 
@@ -165,7 +172,8 @@ def dense_logml(d, lam, s):
     )
     for k in range(K):
         prior[p + k * L : p + (k + 1) * L, p + k * L : p + (k + 1) * L] = local
-    prior[p + K * L :, p + K * L :] += np.eye(J) / s["unit_scale"] ** 2
+    kap = np.ones(J) if kappa is None else np.asarray(kappa)
+    prior[p + K * L :, p + K * L :] += np.diag(kap) / s["unit_scale"] ** 2
     cov = X @ np.linalg.solve(prior, X.T) + np.diag(s["sigma"] ** 2 / lam)
     return multivariate_normal(np.zeros(n), cov).logpdf(np.asarray(d.y))
 
@@ -188,7 +196,37 @@ def test_collapsed_marginal_likelihood_matches_dense(design):
     )
 
 
-@pytest.mark.parametrize("design", ["all", "quarterly", "fslopes"])
+def test_student_t_units_block_matches_dense():
+    """Per-unit prior precisions kappa_j / tau^2 (Student-t units as a scale mixture)."""
+    prep = synthetic()
+    d = gibbs.build_design(prep, DESIGNS["tunits"])
+    rng = np.random.default_rng(5)
+    lam = rng.gamma(2.5, 1 / 2.5, d.y.shape[0])
+    kappa = rng.gamma(1.5, 1 / 1.5, d.n_units)
+    zeros = (
+        jnp.zeros(d.a.shape[1]),
+        jnp.zeros((d.n_buildings, d.n_local)),
+        jnp.zeros(d.n_units),
+    )
+    theta, theta_l, u, _, ml1 = gibbs.gaussian_block(
+        d, jnp.asarray(lam), SCALES, *zeros, jnp.asarray(kappa)
+    )
+    e_theta, e_l, e_u = dense_mean(d, lam, SCALES, kappa)
+    np.testing.assert_allclose(np.asarray(theta), e_theta, atol=1e-8)
+    np.testing.assert_allclose(np.asarray(theta_l), e_l, atol=1e-8)
+    np.testing.assert_allclose(np.asarray(u), e_u, atol=1e-8)
+    other = {k: v * 1.3 for k, v in SCALES.items()}
+    ml2 = float(
+        gibbs.gaussian_block(d, jnp.asarray(lam), other, *zeros, jnp.asarray(kappa))[-1]
+    )
+    np.testing.assert_allclose(
+        float(ml1) - ml2,
+        dense_logml(d, lam, SCALES, kappa) - dense_logml(d, lam, other, kappa),
+        atol=1e-6,
+    )
+
+
+@pytest.mark.parametrize("design", ["all", "quarterly", "fslopes", "tunits"])
 def test_site_values_reproduce_linear_predictor(design):
     """Gibbs state -> NumPyro sites -> model.linear_predictor equals the Gibbs fit."""
     prep = synthetic()
@@ -199,6 +237,8 @@ def test_site_values_reproduce_linear_predictor(design):
         "local": jnp.asarray(rng.normal(0, 0.1, (d.n_buildings, d.n_local))),
         "unit": jnp.asarray(rng.normal(0, 0.1, d.n_units)),
         "nu": 5.0,
+        "unit_nu": 4.0,
+        "kappa": jnp.ones(d.n_units),
         **{k: SCALES[k] for k in d.scale_names},
     }
     p = gibbs.site_values(d, state)
@@ -211,7 +251,7 @@ def test_site_values_reproduce_linear_predictor(design):
 
 
 @pytest.mark.slow
-@pytest.mark.parametrize("design", ["base", "walk", "all"])
+@pytest.mark.parametrize("design", ["base", "walk", "all", "tunits"])
 def test_gibbs_matches_nuts_on_same_model(design):
     """Both samplers target the NumPyro model's posterior; compare moments."""
     from numpyro.infer import MCMC, NUTS
@@ -267,6 +307,9 @@ def test_gibbs_matches_nuts_on_same_model(design):
             means["bedroom_slope"][0],
             sds["bedroom_slope"][0],
         )
+    if config.unit_t:
+        checks["unit_nu"] = (nuts["unit_nu"], means["unit_nu"], sds["unit_nu"])
+        checks["unit0"] = (nuts["unit"][:, 0], means["unit"][0], sds["unit"][0])
     if config.bedroom_time:
         curve = np.cumsum(
             nuts["bedroom_time_step"], axis=2

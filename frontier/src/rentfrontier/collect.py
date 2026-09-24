@@ -34,6 +34,7 @@ SCALARS = (
     "walk_scale",
     "bedroom_time_scale",
     "bedroom_slope_scale",
+    "unit_nu",
 )
 
 
@@ -63,6 +64,16 @@ def heldout_logpdf(p, test: model_module.Arrays):
     lp_new = logsumexp(
         student_t_logpdf(shifted, p["nu"], p["sigma"]) + jnp.log(w)[None], axis=1
     ) - 0.5 * math.log(math.pi)
+    # Student-t unit prior (unit_nu > 0): integrate on a fixed grid in units
+    # of unit_scale; the grid spacing (0.1 scale) is well below sigma.
+    nu_u = p.get("unit_nu", jnp.zeros(()))
+    z = jnp.linspace(-40.0, 40.0, 801, dtype=mu.dtype)
+    log_wz = student_t_logpdf(z, jnp.maximum(nu_u, 1e-3), 1.0) + math.log(0.1)
+    shifted_t = test.y[:, None] - mu[:, None] - p["unit_scale"] * z[None]
+    lp_new_t = logsumexp(
+        student_t_logpdf(shifted_t, p["nu"], p["sigma"]) + log_wz[None], axis=1
+    )
+    lp_new = jnp.where(nu_u > 0, lp_new_t, lp_new)
     return jnp.where(seen, lp_seen, lp_new)
 
 

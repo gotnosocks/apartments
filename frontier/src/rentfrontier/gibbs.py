@@ -101,6 +101,8 @@ class Design:
     n_local: int
     prior_sd: dict
     nu_fixed: float | None = None
+    unit_t: bool = False
+    unit_nu_fixed: float | None = None
 
     @property
     def scale_names(self):
@@ -254,6 +256,8 @@ def build_design(
         n_local=n_local,
         prior_sd=prior_sd,
         nu_fixed=config.nu_fixed,
+        unit_t=config.unit_t,
+        unit_nu_fixed=config.unit_nu_fixed,
     )
 
 
@@ -269,7 +273,7 @@ def local_value(theta_l, building, slots, values):
     return jnp.sum(theta_l[building[:, None], slots] * values, axis=1)
 
 
-def gaussian_block(d: Design, lam, s, z_g, z_l, z_u):
+def gaussian_block(d: Design, lam, s, z_g, z_l, z_u, kappa=None):
     """Joint draw of (global, building blocks, units) given lam and scales `s`.
 
     With zero noise vectors it returns the conditional posterior mean.
@@ -280,7 +284,10 @@ def gaussian_block(d: Design, lam, s, z_g, z_l, z_u):
     w = lam / s["sigma"] ** 2
     seg_u = lambda v: jax.ops.segment_sum(v, d.unit, J)
     sw = seg_u(w)
-    c = 1.0 / (1.0 / s["unit_scale"] ** 2 + sw)  # unit posterior variance given rest
+    # Unit prior precision kappa_j / unit_scale^2 (kappa = 1: Gaussian units;
+    # Student-t units are a Gamma scale mixture over kappa).
+    kappa = jnp.ones(J) if kappa is None else kappa
+    c = 1.0 / (kappa / s["unit_scale"] ** 2 + sw)  # unit posterior variance given rest
     h = seg_u(w * y)
     wa = w[:, None] * a
     g = seg_u(wa)  # (J, P) unit sums of weighted global rows
@@ -344,7 +351,7 @@ def gaussian_block(d: Design, lam, s, z_g, z_l, z_u):
         + 2 * jnp.sum(jnp.log(jnp.diagonal(chol_l, axis1=1, axis2=2)))
         + 2 * jnp.sum(jnp.log(jnp.diagonal(chol)))
     )
-    logdet_prior = -2 * J * jnp.log(s["unit_scale"])
+    logdet_prior = jnp.sum(jnp.log(kappa)) - 2 * J * jnp.log(s["unit_scale"])
     for name, rank in d.global_ranks.items():
         logdet_prior = logdet_prior - 2 * rank * jnp.log(s[name])
     for name, rank in d.local_ranks.items():
@@ -375,6 +382,7 @@ def site_values(d: Design, state):
         "building": theta_l[:, 0],
         "unit": state["unit"],
         "nu": state["nu"],
+        **({"unit_nu": state["unit_nu"]} if d.unit_t else {}),
         **{n: state[n] for n in d.scale_names},
     }
     if d.bedroom_time is not None:
@@ -414,14 +422,14 @@ def make_step(d: Design):
         proposal sd per hierarchical log-scale) the scales are first updated
         by a collapsed Metropolis step that integrates out every latent."""
         noise_steps, sigma_step_sd, nu_step_sd, rescale_steps, rescale_step_sd = cfg
-        keys = jax.random.split(key, 12)
+        keys = jax.random.split(key, 14)
         s = {k: state[k] for k in d.scale_names}
         z = (
             jax.random.normal(keys[0], (d.a.shape[1],)),
             jax.random.normal(keys[1], (d.n_buildings, d.n_local)),
             jax.random.normal(keys[2], (d.n_units,)),
         )
-        out = gaussian_block(d, state["lam"], s, *z)
+        out = gaussian_block(d, state["lam"], s, *z, state["kappa"])
         info = {}
         if prop_sd is not None:
             # Collapsed scale update: p(scales | lam, sigma, y) with all
@@ -432,7 +440,7 @@ def make_step(d: Design):
             s_new = dict(s)
             for i, name in enumerate(hier):
                 s_new[name] = s[name] * jnp.exp(step_[i])
-            out_new = gaussian_block(d, state["lam"], s_new, *z)
+            out_new = gaussian_block(d, state["lam"], s_new, *z, state["kappa"])
 
             def log_prior(sc):
                 return sum(
@@ -451,7 +459,7 @@ def make_step(d: Design):
                 k1, k2 = jax.random.split(jax.random.fold_in(keys[11], 100 + i))
                 s_new = dict(s)
                 s_new[name] = s[name] * jnp.exp(sd_i * jax.random.normal(k1))
-                out_new = gaussian_block(d, state["lam"], s_new, *z)
+                out_new = gaussian_block(d, state["lam"], s_new, *z, state["kappa"])
                 log_ratio = (
                     out_new[-1]
                     - out[-1]
@@ -507,10 +515,44 @@ def make_step(d: Design):
         )
 
         new = {"sigma": sigma}
+        # Student-t units: unit_nu | u, unit_scale with kappa integrated out
+        # (random-walk Metropolis on log nu), then kappa | nu, u.
+        kappa, unit_nu = state["kappa"], state["unit_nu"]
+        if d.unit_t:
+            tau = s["unit_scale"]
+
+            def unit_target(log_nu):
+                nu_u = jnp.exp(log_nu)
+                return (
+                    jnp.sum(collect_module.student_t_logpdf(u, nu_u, tau))
+                    + jax.scipy.stats.gamma.logpdf(nu_u, 2.0, scale=10.0)
+                    + log_nu
+                )
+
+            def unit_mh(carry, k):
+                z_, lt, acc = carry
+                k1, k2 = jax.random.split(k)
+                prop = z_ + 0.05 * jax.random.normal(k1)
+                lp = unit_target(prop)
+                ok = jnp.log(jax.random.uniform(k2)) < lp - lt
+                return (jnp.where(ok, prop, z_), jnp.where(ok, lp, lt), acc + ok), None
+
+            if d.unit_nu_fixed is None:
+                z0 = jnp.log(unit_nu)
+                (z_u_nu, _, u_acc), _ = jax.lax.scan(
+                    unit_mh,
+                    (z0, unit_target(z0), jnp.zeros(())),
+                    jax.random.split(keys[12], 10),
+                )
+                unit_nu = jnp.exp(z_u_nu)
+                info["unit_nu_accept"] = u_acc / 10
+            kappa = jax.random.gamma(keys[13], (unit_nu + 1) / 2, (d.n_units,)) / (
+                (unit_nu + (u / tau) ** 2) / 2
+            )
         new["unit_scale"] = _update_scale(
             keys[5],
             s["unit_scale"],
-            jnp.sum(u * u),
+            jnp.sum(kappa * u * u),
             rank["unit_scale"],
             d.prior_sd["unit_scale"],
         )
@@ -582,6 +624,8 @@ def make_step(d: Design):
             "unit": u,
             "lam": lam,
             "nu": nu,
+            "kappa": kappa,
+            "unit_nu": unit_nu,
             **new,
         }
         return state, info
@@ -615,6 +659,12 @@ def init_states(d: Design, key, chains):
     state["local"] = jnp.zeros((chains, d.n_buildings, d.n_local))
     state["unit"] = jnp.zeros((chains, d.n_units))
     state["lam"] = jnp.ones((chains, d.y.shape[0]))
+    state["kappa"] = jnp.ones((chains, d.n_units))
+    state["unit_nu"] = (
+        jnp.full((chains,), d.unit_nu_fixed if d.unit_nu_fixed is not None else 5.0)
+        if d.unit_t
+        else jnp.zeros((chains,))
+    )
     return state
 
 
