@@ -8,14 +8,20 @@ writes a self-contained static site: the page sources in `dashboard/` at the
 repo root and one generated `data.json`. Nothing is fitted or scored here
 beyond the board's own paired comparisons.
 
-Time. Every board entry gets the time each split's result became available:
-frontier runs `started_at` + prepare + fit seconds; PyMC screens the remote
+Time. Every board entry gets the time each split's result landed: frontier
+runs `started_at` + prepare + fit seconds (the end of sampling; scoring and
+writing the record take about another minute); PyMC screens the remote
 worker's `finished_at`, else the result file's modification time. For every
 moment a result landed, the board's own rules (`leaderboard.choose_best`,
 `leaderboard.on_frontier`) are re-applied to the results available by then,
 so the dashboard's frontier and best at any date agree with what the board
 would have said at that date. An entry counts from its row-split result; its
 gate status and fit time use only the splits available at that moment.
+
+Keys. Board ids name a design, feature set, sampler and commit, so reruns of
+one commit with other sampler settings (e.g. `-solo` timing runs) share an
+id. Each entry gets a unique `key`: its id, plus its row-split run name when
+the id is shared. The board's own ids are unchanged.
 
 Publishing. Each build goes to <out>/builds/<stamp>/ and the `site` symlink
 is swapped atomically, so a server of <out>/site never sees a partial build.
@@ -26,8 +32,10 @@ from __future__ import annotations
 import argparse
 import copy
 import datetime as dt
+import functools
 import json
 import os
+import re
 import shutil
 import subprocess
 from pathlib import Path
@@ -70,7 +78,30 @@ def git(*args, cwd=REPO) -> str:
 
 
 def iso(t: dt.datetime) -> str:
-    return t.astimezone(dt.UTC).isoformat(timespec="seconds")
+    return t.astimezone(dt.UTC).isoformat(timespec="milliseconds")
+
+
+def assign_keys(entries):
+    """A unique ``_key`` per entry (see the module docstring)."""
+    counts = {}
+    for e in entries:
+        counts[e["id"]] = counts.get(e["id"], 0) + 1
+    for e in entries:
+        if counts[e["id"]] == 1:
+            e["_key"] = e["id"]
+        else:
+            split = e["splits"].get("rows") or next(iter(e["splits"].values()))
+            e["_key"] = f"{e['id']} [{split['run']}]"
+    keys = [e["_key"] for e in entries]
+    if len(set(keys)) != len(keys):
+        raise ValueError("Board entries could not be given unique keys")
+    return entries
+
+
+def parse_pr(subject):
+    """(title, number) for a squash-merge subject ending in "(#N)", else None."""
+    m = re.fullmatch(r"(.*) \(#(\d+)\)", subject)
+    return (m.group(1), int(m.group(2))) if m else None
 
 
 def completed_at(split: dict) -> dt.datetime:
@@ -109,18 +140,20 @@ def as_of(entries, t):
 
 
 def snapshots(entries):
+    """Board best and frontier (entry keys) after each result landed."""
+    paired = functools.lru_cache(maxsize=None)(leaderboard.paired)
     times = sorted({s["_at"] for e in entries for s in e["splits"].values()})
     snaps = []
     for t in times:
         view = as_of(entries, t)
-        best = leaderboard.choose_best(view)
+        best = leaderboard.choose_best(view, paired=paired)
         flags = leaderboard.on_frontier(view)
         snaps.append(
             {
                 "at": iso(t),
-                "best": best["id"] if best else None,
+                "best": best["_key"] if best else None,
                 "best_rows_delta": best["splits"]["rows"]["delta"] if best else None,
-                "frontier": [v["id"] for v, on in zip(view, flags) if on],
+                "frontier": [v["_key"] for v, on in zip(view, flags) if on],
                 "entries": len(view),
             }
         )
@@ -133,15 +166,15 @@ def milestones():
     log = git("log", "--first-parent", "HEAD", "--format=%H%x1f%aI%x1f%s")
     for line in log.splitlines():
         sha, at, subject = line.split("\x1f")
-        if subject.endswith(")") and "(#" in subject:
-            title, _, number = subject.rpartition(" (#")
+        pr = parse_pr(subject)
+        if pr:
             out.append(
                 {
                     "kind": "pr",
                     "at": iso(dt.datetime.fromisoformat(at)),
                     "sha": sha[:7],
-                    "pr": int(number.rstrip(")")),
-                    "title": title,
+                    "pr": pr[1],
+                    "title": pr[0],
                 }
             )
     log = git(
@@ -186,7 +219,7 @@ def reference_entry():
 
 def data():
     board = leaderboard.build(keep_dirs=True)
-    entries = board["entries"]
+    entries = assign_keys(board["entries"])
     for e in entries:
         for s in e["splits"].values():
             s["_at"] = completed_at(s)
@@ -198,6 +231,7 @@ def data():
         out.append(
             {
                 "id": e["id"],
+                "key": e["_key"],
                 "line": e["line"],
                 "design": design,
                 "design_text": DESIGNS.get(design, ""),
@@ -249,7 +283,7 @@ def data():
             "ess": leaderboard.GATE_ESS,
             "all_effects_rhat": 1.05,
         },
-        "current_best": board["current_best"],
+        "current_best": next((e["_key"] for e in entries if e["current_best"]), None),
         "reference": reference_entry(),
         "entries": out,
         "snapshots": snaps,

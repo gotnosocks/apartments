@@ -21,6 +21,7 @@ def heldout(folder, lpd):
 def entry(tmp_path, name, delta, fit, landed, passes=True, units=None):
     splits = {
         "rows": {
+            "run": f"{name}-rows",
             "delta": delta,
             "fit_seconds": fit,
             "passes": passes,
@@ -66,10 +67,65 @@ def test_snapshots_replay_the_board_rules_over_time(tmp_path):
     fast_ok = entry(tmp_path, "fast", 100.0, 100.0, at(2))
     better = entry(tmp_path, "better", 600.0, 2000.0, at(3))
     failing = entry(tmp_path, "failing", 900.0, 50.0, at(4), passes=False)
-    snaps = dashboard.snapshots([slow_good, fast_ok, better, failing])
+    entries = dashboard.assign_keys([slow_good, fast_ok, better, failing])
+    snaps = dashboard.snapshots(entries)
     assert [s["best"] for s in snaps] == ["slow", "slow", "better", "better"]
     assert sorted(snaps[1]["frontier"]) == ["fast", "slow"]
     # "better" is faster and more accurate than "slow": slow leaves the frontier.
     assert sorted(snaps[2]["frontier"]) == ["better", "fast"]
     # A gate-failing entry never joins the frontier or becomes best.
     assert "failing" not in snaps[3]["frontier"] and snaps[3]["entries"] == 4
+
+
+def test_shared_ids_get_unique_keys_and_snapshots_use_them(tmp_path):
+    first = entry(tmp_path, "m6", 400.0, 1800.0, at(1), passes=False)
+    solo = entry(tmp_path, "m6-solo-dir", 400.0, 2400.0, at(2), passes=True)
+    solo["id"] = first["id"] = "m6/base@abc"
+    first["splits"]["rows"]["run"] = "m6-rows-abc"
+    solo["splits"]["rows"]["run"] = "m6-rows-abc-solo"
+    dashboard.assign_keys([first, solo])
+    assert first["_key"] == "m6/base@abc [m6-rows-abc]"
+    assert solo["_key"] == "m6/base@abc [m6-rows-abc-solo]"
+    snaps = dashboard.snapshots([first, solo])
+    # Only the passing rerun is best and on the frontier, never its twin.
+    assert snaps[-1]["best"] == solo["_key"]
+    assert snaps[-1]["frontier"] == [solo["_key"]]
+
+
+def test_parse_pr_only_takes_a_trailing_pr_number():
+    assert dashboard.parse_pr("Land the board (#8)") == ("Land the board", 8)
+    assert dashboard.parse_pr("x (#12) (follow-up)") is None
+    assert dashboard.parse_pr("Plain commit") is None
+
+
+def test_completed_at_rules(tmp_path):
+    import json
+    import os
+
+    run = tmp_path / "run"
+    run.mkdir()
+    (run / "result.json").write_text(
+        json.dumps(
+            {
+                "started_at": "2026-09-23T15:00:00+0000",
+                "seconds": {"prepare": 10.0, "fit_total": 50.0},
+            }
+        )
+    )
+    assert dashboard.completed_at({"_dir": run}) == dt.datetime(
+        2026, 9, 23, 15, 1, tzinfo=dt.UTC
+    )
+    screen = tmp_path / "screen"
+    screen.mkdir()
+    (screen / "result.json").write_text("{}")
+    (screen / "remote-run.json").write_text(
+        json.dumps({"result": {"finished_at": "2026-09-24T07:00:00Z"}})
+    )
+    assert dashboard.completed_at({"_dir": screen}) == dt.datetime(
+        2026, 9, 24, 7, tzinfo=dt.UTC
+    )
+    local = tmp_path / "local"
+    local.mkdir()
+    (local / "result.json").write_text("{}")
+    os.utime(local / "result.json", (1_790_000_000, 1_790_000_000))
+    assert dashboard.completed_at({"_dir": local}).timestamp() == 1_790_000_000

@@ -283,10 +283,10 @@ def screen_entries():
     return entries
 
 
-def choose_best(entries):
+def choose_best(entries, paired=paired):
     """The ranking rule: highest row-split dELPD among eligible entries; within
     two paired SE the unit split decides, then the faster fit. Entries need
-    their splits' ``_dir``."""
+    their splits' ``_dir``. ``paired`` can be a cached equivalent."""
     eligible = [
         e
         for e in entries

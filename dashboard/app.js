@@ -115,12 +115,17 @@ function asOf(idx) {
     if (!splits.rows) continue;
     const passes = Object.values(splits).every((s) => s.passes);
     const fit = Math.max(...Object.values(splits).map((s) => s.fit_seconds));
-    entries.push({ ...e, splits, passes, fit, onFrontier: frontier.has(e.id), isBest: snap.best === e.id });
+    entries.push({ ...e, splits, passes, fit, onFrontier: frontier.has(e.key), isBest: snap.best === e.key });
   }
   return { T, snap, entries, frontier, best: entries.find((e) => e.isBest) || null };
 }
 function visibleEntries(v) {
   return v.entries.filter((e) => state.lines[e.line] && (state.showFailed || e.passes));
+}
+// An entry's fit time counting only the splits landed by T (the board takes the larger split).
+function fitAsOf(e, T) {
+  const landed = Object.values(e.splits).filter((sp) => Date.parse(sp.completed_at) <= T);
+  return Math.max(...(landed.length ? landed : Object.values(e.splits)).map((sp) => sp.fit_seconds));
 }
 function allSplitsCompleted(T) {
   const out = [];
@@ -157,7 +162,7 @@ function entryTip(t, e) {
   const name = html('div', { class: 't-name' }, t);
   const key = html('span', { class: 'key', style: `background:${LINES[e.line].color}` }, name);
   key.setAttribute('aria-hidden', 'true');
-  name.appendChild(document.createTextNode(e.id));
+  name.appendChild(document.createTextNode(e.key));
   if (e.design_text) html('div', { class: 't-name' }, t, e.design_text);
   const u = e.splits.units;
   tipRow(t, 'Units ΔELPD', u ? `${fmtDelta(u.delta)} ${fmtSE(u.delta_se)}` : 'not run');
@@ -342,7 +347,7 @@ function drawFrontier(v, dom) {
   for (const p of pts) {
     const node = dot(f.root, p.x, p.y, p.e, { clamped: p.clamped, r: p.e.isBest ? 6 : 5 });
     node.setAttribute('tabindex', '0');
-    node.setAttribute('aria-label', `${p.e.id}: ${fmtDelta(p.e.splits.rows.delta)} rows ΔELPD, ${fmtDur(p.e.fit)}`);
+    node.setAttribute('aria-label', `${p.e.key}: ${fmtDelta(p.e.splits.rows.delta)} rows ΔELPD, ${fmtDur(p.e.fit)}`);
     node.addEventListener('focus', () => {
       const r = node.getBoundingClientRect();
       showTip({ clientX: r.right, clientY: r.bottom }, (t) => entryTip(t, p.e));
@@ -400,7 +405,7 @@ function drawFrontier(v, dom) {
   f.root.addEventListener('pointerleave', () => { hideTip(); if (lifted) lifted.classList.remove('lift'); });
 
   renderTable($('table-frontier'), ['Entry', 'Rows ΔELPD', 'SE', 'Fit time', 'Hardware', 'Gate', 'Frontier'],
-    pts.map((p) => [p.e.id, fmtDelta(p.e.splits.rows.delta), p.e.splits.rows.delta_se?.toFixed(1) ?? '', fmtDur(p.e.fit), p.e.hardware,
+    pts.map((p) => [p.e.key, fmtDelta(p.e.splits.rows.delta), p.e.splits.rows.delta_se?.toFixed(1) ?? '', fmtDur(p.e.fit), p.e.hardware,
       gateText(p.e), p.e.onFrontier ? 'yes' : '']).sort((a, b) => parseFloat(b[1].replace('−', '-')) - parseFloat(a[1].replace('−', '-'))),
     [1, 2, 3]);
 }
@@ -435,13 +440,13 @@ function drawUnits(v, dom) {
   hoverPoints(f, pts, (t, p) => {
     const s = p.e.splits.units;
     html('div', { class: 't-value' }, t, `${fmtDelta(s.delta)} ${fmtSE(s.delta_se)} units ΔELPD`);
-    html('div', { class: 't-name' }, t, p.e.id);
+    html('div', { class: 't-name' }, t, p.e.key);
     tipRow(t, 'Rows ΔELPD', fmtDelta(p.e.splits.rows.delta));
     tipRow(t, 'Fit time', fmtDur(p.e.fit));
     if (s.rescore) tipRow(t, 'Exact rescore', `≈ ${fmtDelta(s.rescore.exact_recorded_equivalent)}`);
   });
   renderTable($('table-units'), ['Entry', 'Units ΔELPD', 'SE', 'Exact rescore', 'Fit time'],
-    pts.map((p) => [p.e.id, fmtDelta(p.e.splits.units.delta), p.e.splits.units.delta_se?.toFixed(1) ?? '',
+    pts.map((p) => [p.e.key, fmtDelta(p.e.splits.units.delta), p.e.splits.units.delta_se?.toFixed(1) ?? '',
       p.e.splits.units.rescore ? fmtDelta(p.e.splits.units.rescore.exact_recorded_equivalent) : '', fmtDur(p.e.fit)]), [1, 2, 3, 4]);
 }
 
@@ -532,7 +537,7 @@ function timeDots(tf, v, yOf, dom) {
   const all = state.data.entries.filter((e) => e.available_at && state.lines[e.line]);
   for (const e0 of all) {
     const t = Date.parse(e0.available_at);
-    const cur = v.entries.find((e) => e.id === e0.id);
+    const cur = v.entries.find((e) => e.key === e0.key);
     const e = cur || { ...e0, passes: e0.passes_checks, fit: e0.fit_seconds, splits: e0.splits };
     if (!state.showFailed && !e.passes) continue;
     const val = yOf(e);
@@ -566,7 +571,7 @@ function drawProgress(v, dom) {
   const pts = timeDots(tf, v, (e) => e.splits.rows?.delta, dom.rows);
   cursorAt(tf, v.T);
   if (v.best) {
-    const p = pts.find((q) => q.e.id === v.best.id);
+    const p = pts.find((q) => q.e.key === v.best.key);
     const obstacles = pts.map((q) => ({ x: q.x - 6, y: q.y - 6, w: 12, h: 12 }));
     if (p) placeLabels(tf.f, [{ x: p.x, y: p.y, text: `${entryLabel(p.e)} ${fmtDelta(p.e.splits.rows.delta)}` }], obstacles);
   }
@@ -593,13 +598,12 @@ function drawFitTime(v, dom) {
   svg('text', { class: 'label-muted', x: tf.f.inner.x1 - 4, y: tf.y(ref.fit_seconds) - 6, 'text-anchor': 'end',
     text: `promoted reference full fit ≈ ${fmtDur(ref.fit_seconds)} (CPU)` }, tf.f.root);
   // Fit time of the board's best, as a staircase.
-  const byId = Object.fromEntries(state.data.entries.map((e) => [e.id, e]));
+  const byKey = Object.fromEntries(state.data.entries.map((e) => [e.key, e]));
   let d = '', prev = null;
   for (const s of state.data.snapshots.slice(0, state.idx + 1)) {
     if (!s.best) continue;
     const T = Date.parse(s.at);
-    const e = byId[s.best];
-    const fit = Math.max(...Object.values(e.splits).filter((sp) => Date.parse(sp.completed_at) <= T).map((sp) => sp.fit_seconds));
+    const fit = fitAsOf(byKey[s.best], T);
     const sx = tf.x(T), sy = tf.y(fit);
     d += prev ? ` H${sx} V${sy}` : `M${sx},${sy}`;
     prev = s;
@@ -610,12 +614,12 @@ function drawFitTime(v, dom) {
   timeHover(tf, pts, (t, T) => {
     const i = bestAtTime(T);
     const s = i >= 0 ? state.data.snapshots[i] : null;
-    html('div', { class: 't-value' }, t, s && s.best ? fmtDur(byId[s.best].fit_seconds) : '—');
+    html('div', { class: 't-value' }, t, s && s.best ? fmtDur(fitAsOf(byKey[s.best], Math.max(T, Date.parse(s.at)))) : '—');
     html('div', { class: 't-name' }, t, `Fit time of the board best at ${fmtWhen.format(T)}`);
     if (s && s.best) tipRow(t, 'Entry', s.best);
   });
   renderTable($('table-time'), ['Landed', 'Entry', 'Fit time', 'Hardware'],
-    pts.sort((a, b) => a.x - b.x).map((p) => [fmtWhen.format(Date.parse(p.e.available_at)), p.e.id, fmtDur(p.e.fit), p.e.hardware]), [2]);
+    pts.sort((a, b) => a.x - b.x).map((p) => [fmtWhen.format(Date.parse(p.e.available_at)), p.e.key, fmtDur(p.e.fit), p.e.hardware]), [2]);
 }
 
 function drawCompute(v, dom) {
@@ -699,7 +703,7 @@ function drawKpis(v) {
   const snaps = state.data.snapshots;
   if (v.best) {
     let prevBest = null;
-    for (let i = state.idx; i >= 0; i--) if (snaps[i].best && snaps[i].best !== v.best.id) { prevBest = snaps[i]; break; }
+    for (let i = state.idx; i >= 0; i--) if (snaps[i].best && snaps[i].best !== v.best.key) { prevBest = snaps[i]; break; }
     const s = v.best.splits.rows;
     tile(box, 'Best row-split ΔELPD (board rule)', fmtDelta(s.delta), fmtSE(s.delta_se),
       [entryLabel(v.best) + (v.best.design_text ? ` — ${v.best.design_text}` : ''),
@@ -737,7 +741,7 @@ function renderTable(container, headers, rows, numeric = []) {
   }
 }
 const COLUMNS = [
-  { key: 'entry', label: 'Entry', get: (e) => e.id },
+  { key: 'entry', label: 'Entry', get: (e) => e.key },
   { key: 'design', label: 'Design', get: (e) => e.design_text || e.design },
   { key: 'rows', label: 'Rows ΔELPD', num: true, get: (e) => e.splits.rows?.delta ?? -Infinity, fmt: (e) => `${fmtDelta(e.splits.rows?.delta)} ${fmtSE(e.splits.rows?.delta_se)}` },
   { key: 'units', label: 'Units ΔELPD', num: true, get: (e) => e.splits.units?.delta ?? -Infinity,
@@ -776,7 +780,7 @@ function drawEntries(v) {
       const td = html('td', { class: c.num ? 'num' : null }, tr);
       if (c.key === 'entry') {
         html('span', { class: 'swatch' + (e.passes ? '' : ' hollow'), style: e.passes ? `background:${LINES[e.line].color}` : `color:${LINES[e.line].color}`, 'aria-hidden': 'true' }, td);
-        td.appendChild(document.createTextNode(e.id));
+        td.appendChild(document.createTextNode(e.key));
       } else if (c.key === 'gate') {
         const kind = e.passes ? 'good' : e.grade === 'screen' ? 'screen' : 'bad';
         const span = html('span', { class: `status ${kind}` }, td);
