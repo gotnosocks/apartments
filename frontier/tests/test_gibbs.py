@@ -1,3 +1,5 @@
+import dataclasses
+
 import jax
 
 jax.config.update("jax_enable_x64", True)
@@ -292,8 +294,24 @@ def test_gibbs_matches_nuts_on_same_model(design):
 
     prep = synthetic(seed=2)
     config = DESIGNS[design]
+    # Reference: NUTS with the walk and drift sites non-centred. On this small
+    # synthetic dataset their scales sit near zero, where centred NUTS mixes
+    # badly (walk scale: ESS 129 centred vs 5,175 non-centred) and understates
+    # the posterior sd; Gibbs matched the non-centred reference (sd 0.00851
+    # vs 0.00854). The reparameterisation leaves the posterior unchanged.
+    ref_config = dataclasses.replace(
+        config,
+        noncentered=tuple(
+            site
+            for site, on in (
+                ("walk_step", config.building_walk),
+                ("unit_drift", config.unit_drift),
+            )
+            if on
+        ),
+    )
     mcmc = MCMC(
-        NUTS(model.build_model(prep, config), target_accept_prob=0.9),
+        NUTS(model.build_model(prep, ref_config), target_accept_prob=0.9),
         num_warmup=1000,
         num_samples=2000,
         num_chains=2,
