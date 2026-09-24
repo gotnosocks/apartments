@@ -50,40 +50,54 @@ def student_t_logpdf(x, nu, scale):
     )
 
 
-def heldout_logpdf(p, test: model_module.Arrays):
+def heldout_logpdf(p, test: model_module.Arrays, unseen: bool = True):
     """Log predictive density of each held-out row under one draw.
 
-    Rows whose unit has no training rows integrate the unit effect over its
-    prior N(0, unit_scale^2) by Gauss-Hermite quadrature.
+    Rows whose unit has no training rows (only when `unseen`) integrate the
+    unit effect over its prior:
+    - Gaussian units: level + drift is N(0, tau^2 + tau_d^2 t^2), by
+      Gauss-Hermite quadrature;
+    - Student-t units: the level on a fixed grid over its t prior and, with a
+      unit drift, the drift s ~ N(0, tau_d^2) by 8-node Gauss-Hermite, i.e.
+      an exact 2-D quadrature of the t-level plus normal-drift convolution.
     """
     mu = model_module.linear_predictor(p, test, include_unit=False)
     seen = test.unit >= 0
     u = p["unit"][jnp.maximum(test.unit, 0)]
-    drift_scale = p.get("unit_drift_scale", jnp.zeros(()))
     if "unit_drift" in p:
         u = u + p["unit_drift"][jnp.maximum(test.unit, 0)] * test.unit_time
-    # Unseen unit: level and drift are both unknown. For Gaussian units their
-    # sum is exactly N(0, tau^2 + tau_d^2 t^2); for Student-t units the scale
-    # is widened the same way (an approximation to the t-normal convolution).
-    unit_scale = jnp.sqrt(p["unit_scale"] ** 2 + (drift_scale * test.unit_time) ** 2)
     lp_seen = student_t_logpdf(test.y - mu - u, p["nu"], p["sigma"])
+    if not unseen:
+        return lp_seen
+
+    drift_scale = p.get("unit_drift_scale", jnp.zeros(()))
+    xt = test.unit_time
+    # Gaussian units: level + drift together.
+    gauss_scale = jnp.sqrt(p["unit_scale"] ** 2 + (drift_scale * xt) ** 2)
     x, w = (jnp.asarray(a, mu.dtype) for a in np.polynomial.hermite.hermgauss(GH_NODES))
     shifted = (
-        test.y[:, None] - mu[:, None] - math.sqrt(2.0) * unit_scale[:, None] * x[None]
+        test.y[:, None] - mu[:, None] - math.sqrt(2.0) * gauss_scale[:, None] * x[None]
     )
-    lp_new = logsumexp(
+    lp_gauss = logsumexp(
         student_t_logpdf(shifted, p["nu"], p["sigma"]) + jnp.log(w)[None], axis=1
     ) - 0.5 * math.log(math.pi)
-    # Student-t unit prior (unit_nu > 0): integrate on a fixed grid in units
-    # of unit_scale; the grid spacing (0.1 scale) is well below sigma.
+    # Student-t units: level on a grid (spacing 0.2 unit scale), drift by GH.
     nu_u = p.get("unit_nu", jnp.zeros(()))
-    z = jnp.linspace(-40.0, 40.0, 801, dtype=mu.dtype)
-    log_wz = student_t_logpdf(z, jnp.maximum(nu_u, 1e-3), 1.0) + math.log(0.1)
-    shifted_t = test.y[:, None] - mu[:, None] - unit_scale[:, None] * z[None]
-    lp_new_t = logsumexp(
-        student_t_logpdf(shifted_t, p["nu"], p["sigma"]) + log_wz[None], axis=1
+    z = jnp.linspace(-40.0, 40.0, 401, dtype=mu.dtype)
+    log_wz = student_t_logpdf(z, jnp.maximum(nu_u, 1e-3), 1.0) + math.log(0.2)
+    xd, wd = (jnp.asarray(a, mu.dtype) for a in np.polynomial.hermite.hermgauss(8))
+    drift_nodes = math.sqrt(2.0) * drift_scale * xt[:, None] * xd[None]  # (rows, 8)
+    shifted_t = (
+        test.y[:, None, None]
+        - mu[:, None, None]
+        - p["unit_scale"] * z[None, None, :]
+        - drift_nodes[:, :, None]
+    )  # (rows, 8, grid)
+    inner = logsumexp(
+        student_t_logpdf(shifted_t, p["nu"], p["sigma"]) + log_wz[None, None], axis=2
     )
-    lp_new = jnp.where(nu_u > 0, lp_new_t, lp_new)
+    lp_t = logsumexp(inner + jnp.log(wd)[None], axis=1) - 0.5 * math.log(math.pi)
+    lp_new = jnp.where(nu_u > 0, lp_t, lp_gauss)
     return jnp.where(seen, lp_seen, lp_new)
 
 
@@ -121,6 +135,7 @@ def collect(
 ):
     """Run `draws` retained transitions per chain and summarise them."""
     test = device_arrays(prep.test, dtype)
+    has_unseen = bool((np.asarray(prep.test.unit) < 0).any())
     trace_b, trace_u = trace_indices(prep, n_trace, trace_seed)
     n_blocks = draws // keep_every
 
@@ -130,7 +145,7 @@ def collect(
             st, info = step(k, st)
             p = params(st)
             e = model_module.effects(p)
-            acc = jnp.logaddexp(acc, heldout_logpdf(p, test))
+            acc = jnp.logaddexp(acc, heldout_logpdf(p, test, has_unseen))
             s1 = jax.tree.map(lambda a, v: a + v, s1, e)
             s2 = jax.tree.map(lambda a, v: a + v * v, s2, e)
             trace = {

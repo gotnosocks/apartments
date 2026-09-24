@@ -382,3 +382,48 @@ def test_gibbs_matches_nuts_on_same_model(design):
         mcse = np.sqrt(draws.var() / ess_nuts + g_sd**2 / ess_gibbs)
         assert abs(draws.mean() - g_mean) < 4 * mcse, (name, draws.mean(), g_mean, mcse)
         assert abs(draws.std() - g_sd) < 0.15 * draws.std(), (name, draws.std(), g_sd)
+
+
+def test_unseen_unit_quadrature_matches_adaptive_integration():
+    """Unseen-unit density (t-level + normal drift + t-noise) vs SciPy adaptive quadrature."""
+    from scipy import integrate, stats
+
+    prep = synthetic()
+    d = gibbs.build_design(prep, DESIGNS["tdrift"])
+    rng = np.random.default_rng(7)
+    state = {
+        "theta": jnp.asarray(rng.normal(0, 0.1, d.a.shape[1])),
+        "local": jnp.asarray(rng.normal(0, 0.1, (d.n_buildings, d.n_local))),
+        "unit": jnp.asarray(rng.normal(0, 0.1, d.n_units)),
+        "drift": jnp.asarray(rng.normal(0, 0.05, d.n_units)),
+        "kappa": jnp.ones(d.n_units),
+        "nu": 3.0,
+        "unit_nu": 2.5,
+        **{k: SCALES[k] for k in d.scale_names},
+    }
+    p = gibbs.site_values(d, state)
+    base = prep.test.map(jnp.asarray)
+    values = {f: getattr(base, f) for f in model.Arrays.FIELDS}
+    values["unit"] = jnp.full_like(base.unit, -1)
+    values["unit_time"] = jnp.linspace(-1.5, 2.0, len(base.y))
+    test = model.Arrays(**values)
+    lp = np.asarray(collect.heldout_logpdf(p, test, True))
+    mu = np.asarray(model.linear_predictor(p, test, include_unit=False))
+    tau, tau_d, sig = SCALES["unit_scale"], SCALES["unit_drift_scale"], SCALES["sigma"]
+    for i in range(len(lp)):
+        r, xt = float(test.y[i]) - mu[i], float(test.unit_time[i])
+
+        def over_level(lev, r=r, xt=xt):
+            def inner(dr):
+                return stats.t.pdf(r - lev - dr * xt, 3.0, scale=sig) * stats.norm.pdf(
+                    dr, 0, tau_d
+                )
+
+            return integrate.quad(inner, -8 * tau_d, 8 * tau_d, epsabs=1e-12)[
+                0
+            ] * stats.t.pdf(lev, 2.5, scale=tau)
+
+        ref = integrate.quad(
+            over_level, -np.inf, np.inf, points=None, limit=400, epsabs=1e-12
+        )[0]
+        assert abs(lp[i] - np.log(ref)) < 5e-3, (i, lp[i], np.log(ref))
