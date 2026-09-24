@@ -113,3 +113,37 @@ def test_unit_chunks_keep_units_whole():
 def test_k_threshold():
     assert loo.k_threshold(320) == pytest.approx(1 - 1 / math.log10(320))
     assert loo.k_threshold(100_000) == 0.7
+
+
+def test_single_listing_unit_with_heavy_tailed_prior_matches_full_integral():
+    """unit_nu = 2 puts ~6e-4 of the prior beyond the grid; it must not be
+    redistributed onto the grid (it was, before the fix: ~+6e-4 per row)."""
+    p = {"nu": 2.5, "sigma": 0.05, "unit_scale": 0.1, "unit_nu": 2.0}
+    y = np.array([0.07])
+
+    def f(a):
+        return (
+            stats.t.pdf((y[0] - a) / p["sigma"], p["nu"])
+            / p["sigma"]
+            * stats.t.pdf(a / p["unit_scale"], p["unit_nu"])
+            / p["unit_scale"]
+        )
+
+    mass = (
+        integrate.quad(f, -np.inf, -1.0, limit=500)[0]
+        + integrate.quad(f, -1.0, 1.0, points=[0.0, 0.07], limit=500)[0]
+        + integrate.quad(f, 1.0, np.inf, limit=500)[0]
+    )
+    expected = math.log(mass)
+    params = {k: np.array([v]) for k, v in p.items()}
+    got = loo.integrated_loglik(
+        y,
+        np.zeros((1, 1)),
+        np.zeros(1, int),
+        1,
+        np.zeros(1),
+        params,
+        t_units=True,
+        drift=False,
+    )
+    assert abs(float(np.asarray(got)[0, 0]) - expected) < 1e-4
