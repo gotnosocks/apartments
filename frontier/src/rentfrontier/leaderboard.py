@@ -410,7 +410,9 @@ def on_frontier(entries):
     def point(e):
         return (e["psis"]["delta"], -e["fit_seconds"])
 
-    candidates = [e for e in entries if e["passes_checks"] and scored(e)]
+    candidates = [
+        e for e in entries if e["passes_checks"] and e["interpretable"] and scored(e)
+    ]
     flags = []
     for e in entries:
         if not any(e is c for c in candidates):
