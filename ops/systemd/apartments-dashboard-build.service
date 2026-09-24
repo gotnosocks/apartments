@@ -1,0 +1,17 @@
+[Unit]
+Description=Rebuild the apartments research-progress dashboard from run records and master
+
+[Service]
+Type=oneshot
+WorkingDirectory=/data1/apartments/serve/master/frontier
+Environment=UV_PROJECT_ENVIRONMENT=/data1/apartments/venvs/serve-frontier
+Environment=TMPDIR=/data1/apartments/tmp/dashboard
+# Follow master; if the fetch fails, rebuild from the current checkout. The
+# checkout is dedicated to serving, so --force discards any stray local change.
+ExecStartPre=-/usr/bin/git -C /data1/apartments/serve/master fetch -q origin master
+ExecStartPre=-/usr/bin/git -C /data1/apartments/serve/master checkout -q --force --detach origin/master
+ExecStartPre=/usr/bin/mkdir -p /data1/apartments/tmp/dashboard
+# --locked: never rewrite uv.lock (a git-tracked file) in the serving checkout.
+ExecStart=/home/ben/.local/bin/uv run --locked -q python -m rentfrontier.dashboard --out /data1/apartments/dashboard
+MemoryMax=1G
+Nice=10

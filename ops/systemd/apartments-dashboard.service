@@ -1,0 +1,15 @@
+[Unit]
+Description=Apartments research-progress dashboard (static, read-only, tailnet)
+Documentation=file:///data1/apartments/serve/master/docs/dashboard.md
+
+[Service]
+Type=simple
+# The build timer swaps the `site` symlink atomically; each request follows it.
+ExecStart=/usr/bin/python3 -m http.server 8500 --bind 100.80.84.126 --directory /data1/apartments/dashboard/site
+Restart=on-failure
+RestartSec=10
+MemoryMax=128M
+UMask=0077
+
+[Install]
+WantedBy=default.target
