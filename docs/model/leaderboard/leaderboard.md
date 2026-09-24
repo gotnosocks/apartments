@@ -13,8 +13,8 @@ comparison, never best or on the frontier.
 | Entry | Line | Design | Features | Rows ΔELPD | Units ΔELPD | Units ELPD | R-hat / ESS | Fit time | Cost | Hardware | Grade | Interp. | Best | Frontier | Note |
 |---|---|---|---|---:|---:|---:|---|---:|---:|---|---|---|---|---|---|
 | promoted (reference) | pymc | Promoted PyMC model (bedroom-group time curves + per-building half-year random walk), NUTS 4x1000/1000; screen fits on each split's training rows | own | 0 (ELPD 5,863.7) | 0 | 3,822.2 | passes | 370 min* | $1.97* | CPU (nutpie/Numba) | reference | yes | — | reference | |
-| `m8-drift/base-v1/gibbs@b7c196f` | frontier | m8-drift | base-v1 | 623.5 ± 44.4 | 814.7 ± 58.1 | 4,636.9 | rows: 1.006 / 2619 / all-effects 1.02; units: 1.005 / 2595 / all-effects 1.02 | 3,269 s | $3.99 | NVIDIA H100 80GB HBM3 | full | yes |  | yes |  |
-| `m8-drift/desc-v1/gibbs@b7c196f` | frontier | m8-drift | desc-v1 | 601.7 ± 44.9 | 932.7 ± 58.3 | 4,754.9 | rows: 1.006 / 2686 / all-effects 1.02; units: 1.006 / 2573 / all-effects 1.02 | 3,368 s | $4.11 | NVIDIA H100 80GB HBM3 | full | yes | **best** |  |  |
+| `m8-drift/base-v1/gibbs@b7c196f` | frontier | m8-drift | base-v1 | 623.5 ± 44.4 | 814.7 ± 58.1 | 4,636.9 | rows: 1.006 / 2619 / all-effects 1.02; units: 1.005 / 2595 / all-effects 1.02 | 3,269 s | $3.99 | NVIDIA H100 80GB HBM3 | full | yes |  | yes | see [1] |
+| `m8-drift/desc-v1/gibbs@b7c196f` | frontier | m8-drift | desc-v1 | 601.7 ± 44.9 | 932.7 ± 58.3 | 4,754.9 | rows: 1.006 / 2686 / all-effects 1.02; units: 1.006 / 2573 / all-effects 1.02 | 3,368 s | $4.11 | NVIDIA H100 80GB HBM3 | full | yes | **best** |  | see [2] |
 | `m7-tunits/base-v1/gibbs@92c14b5` | frontier | m7-tunits | base-v1 | 570.1 ± 43.9 | 826.4 ± 58.4 | 4,648.5 | rows: 1.017 / 897 / all-effects 1.09; units: 1.012 / 1239 / all-effects 1.09 | 2,663 s | $3.26 | NVIDIA H100 80GB HBM3 | failed | yes |  |  | superseded by passing rerun m7-tunits/base-v1/gibbs@d62fc51 |
 | `m7-tunits/base-v1/gibbs@78fbc79` | frontier | m7-tunits | base-v1 | 569.5 ± 43.9 | 827.3 ± 58.4 | 4,649.4 | rows: 1.024 / 583 / all-effects 1.12; units: 1.015 / 1102 / all-effects 1.19 | 2,705 s | $3.31 | NVIDIA H100 80GB HBM3 | failed | yes |  |  | superseded by passing rerun m7-tunits/base-v1/gibbs@d62fc51 |
 | `m7-tunits/base-v1/gibbs@d62fc51` | frontier | m7-tunits | base-v1 | 569.5 ± 44.0 | 826.7 ± 58.4 | 4,648.8 | rows: 1.008 / 2497 / all-effects 1.02; units: 1.005 / 3033 / all-effects 1.02 | 2,695 s | $3.28 | NVIDIA H100 80GB HBM3 | full | yes |  | yes |  |
@@ -52,6 +52,18 @@ comparison, never best or on the frontier.
 | `m0-base/base-v1/gibbs@5cc0809` | frontier | m0-base | base-v1 | -827.1 ± 49.7 | -281.5 ± 38.1 | 3,540.7 | rows: 1.009 / 2976 / all-effects 1.09; units: 1.009 / 2942 / all-effects 1.07 | 83 s | $0.18 | NVIDIA H100 80GB HBM3 | full | yes |  | yes | beaten by m8-drift/desc-v1/gibbs@b7c196f (+1428.8 ± 60.8 rows) |
 | `m5-quarterly/base-v1/gibbs@33e8bad` | frontier | m5-quarterly | base-v1 | — ± — | 501.9 ± 40.9 | 4,324.0 | units: 1.005 / 3554 / all-effects 1.07 | 1,712 s | $2.12 | NVIDIA H100 80GB HBM3 | full | yes |  |  |  |
 
+**Annotations** (context only; scores, ranking and frontier use the recorded runs):
+
+- [1] `m8-drift/base-v1/gibbs@b7c196f`:
+  - Fit on a Modal H100: 16 chains x (900 + 2,000), 3,269 s including JIT, about $3.99. Not refit locally (Ben, 2026-09-24); the thelio fit time is unmeasured.
+  - units split rescored from 320 kept draws with the exact unseen-unit quadrature (rentfrontier.rescore @ce6db1c): exact - recorded approximation = +3.5 ± 1.6 on the same draws (5,226 unseen-unit rows), so the recorded +814.7 is about +818.2 under exact scoring.
+- [2] `m8-drift/desc-v1/gibbs@b7c196f`:
+  - Fit on a Modal H100 (NVIDIA H100 80GB HBM3): 16 chains x (900 warmup + 2,000 draws), 3,368 s including JIT (warmup 851 s, sampling 2,515 s), about $4.11. Gate: max split R-hat 1.006, min bulk ESS 2,573, all-effects R-hat 1.02 from exact per-chain moments.
+  - Not refit locally (Ben, 2026-09-24): the design and its settings were tuned for an H100, and thelio's RTX 2060 runs float64 at about 1/32 rate. Its fit time on this board is H100 time; the thelio fit time is unmeasured, so it is not the local baseline for fit-time work.
+  - Chosen to serve the app (Ben, 2026-09-24): the rows-split fit m8-drift-desc-v1-rows-b7c196f, through the summary-output reader. Its posterior uses 47,374 of 52,638 rows (the 5,264 row-split held-out rows are predicted, not fit). No all-rows m8 fit exists.
+  - Open sampler item: the Gibbs-vs-NUTS agreement test for the drift design (tdrift) is xfail (unit_drift_scale posterior sd 0.0099 Gibbs vs 0.0083 centred NUTS; the walk case of the same symptom was the centred reference under-mixing). Treat the drift-scale uncertainty as provisional until a non-centred reference confirms it.
+  - units split rescored from 320 kept draws with the exact unseen-unit quadrature (rentfrontier.rescore @ce6db1c): exact - recorded approximation = +4.2 ± 1.5 on the same draws (5,226 unseen-unit rows), so the recorded +932.7 is about +936.9 under exact scoring.
+
 \* full production fit of the promoted structure model: ~6.2 h local wall time (protocol 22:28 -> posterior 04:38, 4 chains x 4000 tune + 6000 draws, shared machine); its row-split held-out screen took 9,697 s; cost is estimate: 6.2 h at the Modal 4-core CPU rate ($0.32/h); the older spline model's measured Modal fit was 55 min, $0.38.
 
 Fit time is the sampler wall time (frontier: warmup + draws, including JIT compilation; PyMC screens: the screen's recorded seconds).
@@ -60,3 +72,4 @@ while frontier runs are production-length (e.g. 16 chains x 2,000). Cost is per 
 The current best can sit off the frontier: the unit split breaks row-split ties for best, but the frontier uses row ΔELPD and time only.
 Cost is the Modal list-price estimate for runs made there (Modal use stopped on 2026-09-24; local runs record $0).
 Runs named `dev-*` or `canary-*` are pipeline checks and are not listed.
+Frontier fit times are on the hardware in the Hardware column (Modal H100/H200 for every frontier run so far); no frontier design has a measured thelio fit time yet.

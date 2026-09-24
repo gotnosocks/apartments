@@ -13,6 +13,13 @@ Two sources, scored against the same pinned per-row references:
 
 Writes docs/model/leaderboard/leaderboard.{json,md}.
 
+Annotations. docs/model/leaderboard/annotations.json holds hand-written
+context for entries (hardware, what a record does and does not show, which
+fit the app serves), keyed by entry id, plus footer lines. Kept-draw
+rescores under /data1/apartments/frontier/rescores (`rentfrontier.rescore`)
+are attached to the split they rescore and summarised as annotations. Neither
+changes a score, the ranking or the frontier: those use the recorded runs.
+
 Ranking rule. Entries must pass the convergence gate and the
 interpretability requirement. They are ranked by row-split dELPD against the
 promoted model: Ben's use fits data that includes the listing's own unit, and
@@ -39,7 +46,9 @@ from . import data
 from .run import REFERENCES
 
 RUNS = data.OUTPUT_ROOT / "runs"
+RESCORES = data.OUTPUT_ROOT / "rescores"
 DOCS = Path(__file__).resolve().parents[3] / "docs" / "model" / "leaderboard"
+ANNOTATIONS = DOCS / "annotations.json"
 # PyMC screens live beside the pinned references (feature-screen-20260923).
 SCREENS = REFERENCES["rows"].parent.parent.parent
 REFERENCE_SCREENS = {"nuts-hwalk", "nuts-hwalk-units"}
@@ -80,6 +89,36 @@ def load_runs():
         r["_dir"] = path.parent
         runs.append(r)
     return runs
+
+
+def load_rescores():
+    """Latest reportable kept-draw rescore per source run name."""
+    out = {}
+    for path in sorted(RESCORES.glob("*/result.json"), key=lambda p: p.stat().st_mtime):
+        r = json.loads(path.read_text())
+        if not r.get("dirty"):
+            out[r["source_run"]] = r
+    return out
+
+
+def load_annotations():
+    if not ANNOTATIONS.exists():
+        return {"entries": {}, "footer": []}
+    a = json.loads(ANNOTATIONS.read_text())
+    return {"entries": a.get("entries", {}), "footer": a.get("footer", [])}
+
+
+def rescore_text(split, rs):
+    d = rs["exact_minus_approximate"]
+    draws = rs["draws"]["chains"] * rs["draws"]["per_chain"]
+    return (
+        f"{split} split rescored from {draws} kept draws with the exact unseen-unit "
+        f"quadrature (rentfrontier.rescore @{rs['commit'][:7]}): exact - recorded "
+        f"approximation = {d['elpd']:+.1f} ± {d['se']:.1f} on the same draws "
+        f"({rs['unseen_unit_rows']:,} unseen-unit rows), so the recorded "
+        f"{rs['recorded']['delta_elpd']:+.1f} is about "
+        f"{rs['exact_recorded_equivalent']['delta_elpd']:+.1f} under exact scoring."
+    )
 
 
 def group_gate(r) -> tuple[float | None, bool, str]:
@@ -245,6 +284,8 @@ def screen_entries():
 
 
 def build():
+    rescores = load_rescores()
+    annotations = load_annotations()
     groups = {}
     for r in load_runs():
         groups.setdefault(design_key(r), {})[r["split"]] = r
@@ -298,6 +339,17 @@ def build():
                 "cost_usd": r.get("cost_usd"),
                 "_dir": str(r["_dir"]),
             }
+            if r["name"] in rescores:
+                rs = rescores[r["name"]]
+                e["splits"][split]["rescore"] = {
+                    "commit": rs["commit"],
+                    "draws": rs["draws"],
+                    "exact_minus_approximate": rs["exact_minus_approximate"],
+                    "exact_recorded_equivalent": rs["exact_recorded_equivalent"][
+                        "delta_elpd"
+                    ],
+                    "exact_kept_draws": rs["exact"].get("vs_promoted", {}),
+                }
             g_max, g_pass, g_method = group_gate(r)
             e["splits"][split]["group_rhat_max"] = g_max
             e["splits"][split]["group_rhat_method"] = g_method
@@ -385,11 +437,17 @@ def build():
                     else "fails the convergence gate"
                 )
         e["note"] = note
+        e["annotations"] = list(annotations["entries"].get(e["id"], []))
+        for split, sp in e["splits"].items():
+            if "rescore" in sp:
+                rs = rescores[sp["run"]]
+                e["annotations"].append(rescore_text(split, rs))
     for e in entries:
         for s in e["splits"].values():
             s.pop("_dir", None)
     return {
         "promoted": PROMOTED,
+        "footer": annotations["footer"],
         "entries": entries,
         "current_best": best["id"] if best else None,
     }
@@ -420,10 +478,15 @@ def markdown(board) -> str:
     lines.append(
         f"| promoted (reference) | pymc | {p['description']} | own | 0 (ELPD {fmt(p['rows']['elpd'])}) | 0 | {fmt(p['units']['elpd'])} | passes | {fmt(p['fit_seconds'] / 60, 0)} min* | ${p['cost_usd']:.2f}* | {p['hardware']} | reference | yes | — | reference | |"
     )
-    for e in sorted(
+    ordered = sorted(
         board["entries"],
         key=lambda e: -(e["splits"].get("rows", {}).get("delta") or -1e9),
-    ):
+    )
+    marks = {}
+    for e in ordered:
+        if e.get("annotations"):
+            marks[e["id"]] = f"[{len(marks) + 1}]"
+    for e in ordered:
         r = e["splits"].get("rows", {})
         u = e["splits"].get("units", {})
         diag = "; ".join(
@@ -434,8 +497,18 @@ def markdown(board) -> str:
             f"| `{e['id']}` | {e['line']} | {e['model']['name']} | {e['feature_set']} | {fmt(r.get('delta'))} ± {fmt(r.get('delta_se'))} | "
             f"{fmt(u.get('delta'))}{' ± ' + fmt(u.get('delta_se')) if u.get('delta') is not None else ''} | {fmt(u.get('elpd'))} | {diag} | "
             f"{fmt(e['fit_seconds'], 0)} s | ${e['cost_usd']:.2f} | {e['hardware']} | {e['grade']} | "
-            f"{'yes' if e['interpretable'] else 'no'} | {'**best**' if e['current_best'] else ''} | {'yes' if e['frontier'] else ''} | {e['note']} |"
+            f"{'yes' if e['interpretable'] else 'no'} | {'**best**' if e['current_best'] else ''} | {'yes' if e['frontier'] else ''} | {'; '.join(x for x in (e['note'], ('see ' + marks[e['id']]) if e['id'] in marks else '') if x)} |"
         )
+    if marks:
+        lines += [
+            "",
+            "**Annotations** (context only; scores, ranking and frontier use the recorded runs):",
+            "",
+        ]
+        for e in ordered:
+            if e["id"] in marks:
+                lines.append(f"- {marks[e['id']]} `{e['id']}`:")
+                lines += [f"  - {t}" for t in e["annotations"]]
     lines += [
         "",
         f"\\* {p['fit_seconds_note']}; cost is {p['cost_note']}.",
@@ -446,6 +519,7 @@ def markdown(board) -> str:
         "The current best can sit off the frontier: the unit split breaks row-split ties for best, but the frontier uses row ΔELPD and time only.",
         "Cost is the Modal list-price estimate for runs made there (Modal use stopped on 2026-09-24; local runs record $0).",
         "Runs named `dev-*` or `canary-*` are pipeline checks and are not listed.",
+        *board.get("footer", []),
         "",
     ]
     return "\n".join(lines)

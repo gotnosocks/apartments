@@ -22,6 +22,9 @@
     "passes_checks": true,
     "interpretable": true
   },
+  "footer": [
+    "Frontier fit times are on the hardware in the Hardware column (Modal H100/H200 for every frontier run so far); no frontier design has a measured thelio fit time yet."
+  ],
   "entries": [
     {
       "id": "m0-base/base-v1/gibbs@5cc0809",
@@ -94,7 +97,8 @@
       "cost_usd": 0.1823,
       "current_best": false,
       "frontier": true,
-      "note": "beaten by m8-drift/desc-v1/gibbs@b7c196f (+1428.8 \u00b1 60.8 rows)"
+      "note": "beaten by m8-drift/desc-v1/gibbs@b7c196f (+1428.8 \u00b1 60.8 rows)",
+      "annotations": []
     },
     {
       "id": "m1-walk/base-v1/gibbs@1b11fac",
@@ -175,7 +179,8 @@
       "cost_usd": 0.6035,
       "current_best": false,
       "frontier": false,
-      "note": "beaten by m8-drift/desc-v1/gibbs@b7c196f (+531.2 \u00b1 43.9 rows)"
+      "note": "beaten by m8-drift/desc-v1/gibbs@b7c196f (+531.2 \u00b1 43.9 rows)",
+      "annotations": []
     },
     {
       "id": "m1-walk/base-v1/gibbs@942c0f4",
@@ -259,7 +264,8 @@
       "cost_usd": 1.0174,
       "current_best": false,
       "frontier": false,
-      "note": "beaten by m8-drift/desc-v1/gibbs@b7c196f (+531.5 \u00b1 43.9 rows)"
+      "note": "beaten by m8-drift/desc-v1/gibbs@b7c196f (+531.5 \u00b1 43.9 rows)",
+      "annotations": []
     },
     {
       "id": "m1-walk/base-v1/gibbs@94a4da4",
@@ -334,7 +340,8 @@
       "cost_usd": 0.5136,
       "current_best": false,
       "frontier": false,
-      "note": "beaten by m8-drift/desc-v1/gibbs@b7c196f (+531.2 \u00b1 43.9 rows)"
+      "note": "beaten by m8-drift/desc-v1/gibbs@b7c196f (+531.2 \u00b1 43.9 rows)",
+      "annotations": []
     },
     {
       "id": "m1-walk/base-v1/gibbs@bf01f16",
@@ -423,7 +430,8 @@
       "cost_usd": 1.289,
       "current_best": false,
       "frontier": false,
-      "note": "beaten by m8-drift/desc-v1/gibbs@b7c196f (+531.2 \u00b1 43.9 rows)"
+      "note": "beaten by m8-drift/desc-v1/gibbs@b7c196f (+531.2 \u00b1 43.9 rows)",
+      "annotations": []
     },
     {
       "id": "m1-walk/base-v1/gibbs@c5a208a",
@@ -492,7 +500,8 @@
       "cost_usd": 0.8939,
       "current_best": false,
       "frontier": false,
-      "note": "beaten by m8-drift/desc-v1/gibbs@b7c196f (+531.3 \u00b1 43.9 rows)"
+      "note": "beaten by m8-drift/desc-v1/gibbs@b7c196f (+531.3 \u00b1 43.9 rows)",
+      "annotations": []
     },
     {
       "id": "m4-walk-bedtime-bedslope/base-v1/gibbs@942c0f4",
@@ -576,7 +585,8 @@
       "cost_usd": 2.9859,
       "current_best": false,
       "frontier": false,
-      "note": "beaten by m8-drift/desc-v1/gibbs@b7c196f (+330.2 \u00b1 35.0 rows)"
+      "note": "beaten by m8-drift/desc-v1/gibbs@b7c196f (+330.2 \u00b1 35.0 rows)",
+      "annotations": []
     },
     {
       "id": "m5-nocurves/base-v1/gibbs@33e8bad",
@@ -668,7 +678,8 @@
       "cost_usd": 1.0067,
       "current_best": false,
       "frontier": true,
-      "note": "beaten by m8-drift/desc-v1/gibbs@b7c196f (+346.0 \u00b1 35.6 rows)"
+      "note": "beaten by m8-drift/desc-v1/gibbs@b7c196f (+346.0 \u00b1 35.6 rows)",
+      "annotations": []
     },
     {
       "id": "m5-noslope/base-v1/gibbs@33e8bad",
@@ -760,7 +771,8 @@
       "cost_usd": 2.0664,
       "current_best": false,
       "frontier": false,
-      "note": "beaten by m8-drift/desc-v1/gibbs@b7c196f (+521.5 \u00b1 43.2 rows)"
+      "note": "beaten by m8-drift/desc-v1/gibbs@b7c196f (+521.5 \u00b1 43.2 rows)",
+      "annotations": []
     },
     {
       "id": "m5-nu5/base-v1/gibbs@33e8bad",
@@ -852,7 +864,8 @@
       "cost_usd": 2.1213,
       "current_best": false,
       "frontier": false,
-      "note": "beaten by m8-drift/desc-v1/gibbs@b7c196f (+377.0 \u00b1 35.8 rows)"
+      "note": "beaten by m8-drift/desc-v1/gibbs@b7c196f (+377.0 \u00b1 35.8 rows)",
+      "annotations": []
     },
     {
       "id": "m5-quarterly/base-v1/gibbs@4226f40",
@@ -925,7 +938,8 @@
       "cost_usd": 1.4995,
       "current_best": false,
       "frontier": true,
-      "note": "beaten by m8-drift/desc-v1/gibbs@b7c196f (+330.2 \u00b1 34.9 rows)"
+      "note": "beaten by m8-drift/desc-v1/gibbs@b7c196f (+330.2 \u00b1 34.9 rows)",
+      "annotations": []
     },
     {
       "id": "m5-quarterly/desc-v1/gibbs@4226f40",
@@ -1015,7 +1029,8 @@
       "cost_usd": 1.738,
       "current_best": false,
       "frontier": false,
-      "note": "beaten by m8-drift/desc-v1/gibbs@b7c196f (+341.8 \u00b1 33.3 rows)"
+      "note": "beaten by m8-drift/desc-v1/gibbs@b7c196f (+341.8 \u00b1 33.3 rows)",
+      "annotations": []
     },
     {
       "id": "m5-quarterly/desc-v1/gibbs@8d52ddb",
@@ -1109,7 +1124,8 @@
       "cost_usd": 2.1876,
       "current_best": false,
       "frontier": false,
-      "note": "beaten by m8-drift/desc-v1/gibbs@b7c196f (+341.8 \u00b1 33.3 rows)"
+      "note": "beaten by m8-drift/desc-v1/gibbs@b7c196f (+341.8 \u00b1 33.3 rows)",
+      "annotations": []
     },
     {
       "id": "m5-quarterly/base-v1/gibbs@bf01f16",
@@ -1198,7 +1214,8 @@
       "cost_usd": 1.6506,
       "current_best": false,
       "frontier": false,
-      "note": "beaten by m8-drift/desc-v1/gibbs@b7c196f (+330.1 \u00b1 34.9 rows)"
+      "note": "beaten by m8-drift/desc-v1/gibbs@b7c196f (+330.1 \u00b1 34.9 rows)",
+      "annotations": []
     },
     {
       "id": "m5-quarterly/base-v1/gibbs@33e8bad",
@@ -1273,7 +1290,8 @@
       "cost_usd": 2.1206,
       "current_best": false,
       "frontier": false,
-      "note": ""
+      "note": "",
+      "annotations": []
     },
     {
       "id": "m6-slopes/base-v1/gibbs@6a14509",
@@ -1374,7 +1392,8 @@
       "cost_usd": 3.2425,
       "current_best": false,
       "frontier": false,
-      "note": "beaten by m8-drift/desc-v1/gibbs@b7c196f (+201.6 \u00b1 27.3 rows)"
+      "note": "beaten by m8-drift/desc-v1/gibbs@b7c196f (+201.6 \u00b1 27.3 rows)",
+      "annotations": []
     },
     {
       "id": "m6-slopes/base-v1/gibbs@8d52ddb",
@@ -1472,7 +1491,8 @@
       "cost_usd": 2.3076,
       "current_best": false,
       "frontier": false,
-      "note": "beaten by m8-drift/desc-v1/gibbs@b7c196f (+201.5 \u00b1 27.3 rows)"
+      "note": "beaten by m8-drift/desc-v1/gibbs@b7c196f (+201.5 \u00b1 27.3 rows)",
+      "annotations": []
     },
     {
       "id": "m6-slopes/base-v1/gibbs@8d52ddb",
@@ -1573,7 +1593,8 @@
       "cost_usd": 2.8768,
       "current_best": false,
       "frontier": false,
-      "note": "beaten by m8-drift/desc-v1/gibbs@b7c196f (+201.5 \u00b1 27.3 rows)"
+      "note": "beaten by m8-drift/desc-v1/gibbs@b7c196f (+201.5 \u00b1 27.3 rows)",
+      "annotations": []
     },
     {
       "id": "m6-slopes/desc-v1/gibbs@69cb324",
@@ -1674,7 +1695,8 @@
       "cost_usd": 4.4697,
       "current_best": false,
       "frontier": false,
-      "note": "beaten by m8-drift/desc-v1/gibbs@b7c196f (+211.0 \u00b1 25.1 rows)"
+      "note": "beaten by m8-drift/desc-v1/gibbs@b7c196f (+211.0 \u00b1 25.1 rows)",
+      "annotations": []
     },
     {
       "id": "m6-slopes/desc-v1/gibbs@6a14509",
@@ -1775,7 +1797,8 @@
       "cost_usd": 3.3022,
       "current_best": false,
       "frontier": false,
-      "note": "beaten by m8-drift/desc-v1/gibbs@b7c196f (+211.1 \u00b1 25.1 rows)"
+      "note": "beaten by m8-drift/desc-v1/gibbs@b7c196f (+211.1 \u00b1 25.1 rows)",
+      "annotations": []
     },
     {
       "id": "m6-slopes/desc-v1/gibbs@8d52ddb",
@@ -1873,7 +1896,8 @@
       "cost_usd": 2.3638,
       "current_best": false,
       "frontier": false,
-      "note": "beaten by m8-drift/desc-v1/gibbs@b7c196f (+211.1 \u00b1 25.1 rows)"
+      "note": "beaten by m8-drift/desc-v1/gibbs@b7c196f (+211.1 \u00b1 25.1 rows)",
+      "annotations": []
     },
     {
       "id": "m6-slopes/desc-v1/gibbs@8d52ddb",
@@ -1974,7 +1998,8 @@
       "cost_usd": 2.9694,
       "current_best": false,
       "frontier": false,
-      "note": "beaten by m8-drift/desc-v1/gibbs@b7c196f (+211.1 \u00b1 25.1 rows)"
+      "note": "beaten by m8-drift/desc-v1/gibbs@b7c196f (+211.1 \u00b1 25.1 rows)",
+      "annotations": []
     },
     {
       "id": "m7-tunits/base-v1/gibbs@78fbc79",
@@ -2077,7 +2102,8 @@
       "cost_usd": 3.3148,
       "current_best": false,
       "frontier": false,
-      "note": "superseded by passing rerun m7-tunits/base-v1/gibbs@d62fc51"
+      "note": "superseded by passing rerun m7-tunits/base-v1/gibbs@d62fc51",
+      "annotations": []
     },
     {
       "id": "m7-tunits/base-v1/gibbs@92c14b5",
@@ -2180,7 +2206,8 @@
       "cost_usd": 3.2577,
       "current_best": false,
       "frontier": false,
-      "note": "superseded by passing rerun m7-tunits/base-v1/gibbs@d62fc51"
+      "note": "superseded by passing rerun m7-tunits/base-v1/gibbs@d62fc51",
+      "annotations": []
     },
     {
       "id": "m7-tunits/base-v1/gibbs@d62fc51",
@@ -2283,7 +2310,8 @@
       "cost_usd": 3.2773,
       "current_best": false,
       "frontier": true,
-      "note": ""
+      "note": "",
+      "annotations": []
     },
     {
       "id": "m7-tunits/desc-v1/gibbs@92c14b5",
@@ -2386,7 +2414,8 @@
       "cost_usd": 3.3389,
       "current_best": false,
       "frontier": false,
-      "note": "beaten by m8-drift/desc-v1/gibbs@b7c196f (+52.3 \u00b1 11.0 rows)"
+      "note": "beaten by m8-drift/desc-v1/gibbs@b7c196f (+52.3 \u00b1 11.0 rows)",
+      "annotations": []
     },
     {
       "id": "m7-tunits/desc-v1/gibbs@d62fc51",
@@ -2489,7 +2518,8 @@
       "cost_usd": 3.387,
       "current_best": false,
       "frontier": false,
-      "note": "beaten by m8-drift/desc-v1/gibbs@b7c196f (+52.6 \u00b1 10.9 rows)"
+      "note": "beaten by m8-drift/desc-v1/gibbs@b7c196f (+52.6 \u00b1 10.9 rows)",
+      "annotations": []
     },
     {
       "id": "m8-drift/base-v1/gibbs@b7c196f",
@@ -2584,6 +2614,28 @@
           "fit_seconds": 3262.865203805,
           "sampling_seconds": 2407.3445888200004,
           "cost_usd": 3.9722,
+          "rescore": {
+            "commit": "ce6db1c38a7645468548b149aacb31b209e0bd9d",
+            "draws": {
+              "chains": 16,
+              "per_chain": 20
+            },
+            "exact_minus_approximate": {
+              "elpd": 3.5287172643217732,
+              "se": 1.610800951700457,
+              "unseen_rows_only": 3.5287172643217732
+            },
+            "exact_recorded_equivalent": 818.2439909970494,
+            "exact_kept_draws": {
+              "reference": "/home/ben/code/apartments/data/model/feature-screen-20260923/nuts-hwalk-units/heldout.npz",
+              "paired_rows": 5226,
+              "rows_only_here": 0,
+              "rows_only_reference": 0,
+              "delta_elpd": 820.2149396446168,
+              "delta_elpd_se": 58.18417638883754,
+              "reference_elpd_on_paired_rows": 3822.1475834388357
+            }
+          },
           "group_rhat_max": 1.0180609430346674,
           "group_rhat_method": "per-chain moments, all effects"
         }
@@ -2595,7 +2647,11 @@
       "cost_usd": 3.9903,
       "current_best": false,
       "frontier": true,
-      "note": ""
+      "note": "",
+      "annotations": [
+        "Fit on a Modal H100: 16 chains x (900 + 2,000), 3,269 s including JIT, about $3.99. Not refit locally (Ben, 2026-09-24); the thelio fit time is unmeasured.",
+        "units split rescored from 320 kept draws with the exact unseen-unit quadrature (rentfrontier.rescore @ce6db1c): exact - recorded approximation = +3.5 \u00b1 1.6 on the same draws (5,226 unseen-unit rows), so the recorded +814.7 is about +818.2 under exact scoring."
+      ]
     },
     {
       "id": "m8-drift/desc-v1/gibbs@b7c196f",
@@ -2690,6 +2746,28 @@
           "fit_seconds": 3346.119372362,
           "sampling_seconds": 2478.95625303,
           "cost_usd": 4.0723,
+          "rescore": {
+            "commit": "ce6db1c38a7645468548b149aacb31b209e0bd9d",
+            "draws": {
+              "chains": 16,
+              "per_chain": 20
+            },
+            "exact_minus_approximate": {
+              "elpd": 4.20716991928597,
+              "se": 1.533121712852651,
+              "unseen_rows_only": 4.20716991928597
+            },
+            "exact_recorded_equivalent": 936.9388954470943,
+            "exact_kept_draws": {
+              "reference": "/home/ben/code/apartments/data/model/feature-screen-20260923/nuts-hwalk-units/heldout.npz",
+              "paired_rows": 5226,
+              "rows_only_here": 0,
+              "rows_only_reference": 0,
+              "delta_elpd": 938.5873521830981,
+              "delta_elpd_se": 58.35953025163561,
+              "reference_elpd_on_paired_rows": 3822.1475834388357
+            }
+          },
           "group_rhat_max": 1.0154877483349334,
           "group_rhat_method": "per-chain moments, all effects"
         }
@@ -2701,7 +2779,14 @@
       "cost_usd": 4.1075,
       "current_best": true,
       "frontier": false,
-      "note": ""
+      "note": "",
+      "annotations": [
+        "Fit on a Modal H100 (NVIDIA H100 80GB HBM3): 16 chains x (900 warmup + 2,000 draws), 3,368 s including JIT (warmup 851 s, sampling 2,515 s), about $4.11. Gate: max split R-hat 1.006, min bulk ESS 2,573, all-effects R-hat 1.02 from exact per-chain moments.",
+        "Not refit locally (Ben, 2026-09-24): the design and its settings were tuned for an H100, and thelio's RTX 2060 runs float64 at about 1/32 rate. Its fit time on this board is H100 time; the thelio fit time is unmeasured, so it is not the local baseline for fit-time work.",
+        "Chosen to serve the app (Ben, 2026-09-24): the rows-split fit m8-drift-desc-v1-rows-b7c196f, through the summary-output reader. Its posterior uses 47,374 of 52,638 rows (the 5,264 row-split held-out rows are predicted, not fit). No all-rows m8 fit exists.",
+        "Open sampler item: the Gibbs-vs-NUTS agreement test for the drift design (tdrift) is xfail (unit_drift_scale posterior sd 0.0099 Gibbs vs 0.0083 centred NUTS; the walk case of the same symptom was the centred reference under-mixing). Treat the drift-scale uncertainty as provisional until a non-centred reference confirms it.",
+        "units split rescored from 320 kept draws with the exact unseen-unit quadrature (rentfrontier.rescore @ce6db1c): exact - recorded approximation = +4.2 \u00b1 1.5 on the same draws (5,226 unseen-unit rows), so the recorded +932.7 is about +936.9 under exact scoring."
+      ]
     },
     {
       "id": "pymc/nuts-bcov",
@@ -2743,7 +2828,8 @@
       "cost_usd": 0.0,
       "current_best": false,
       "frontier": false,
-      "note": "screen-grade (max R-hat 1.318); not eligible for best or frontier"
+      "note": "screen-grade (max R-hat 1.318); not eligible for best or frontier",
+      "annotations": []
     },
     {
       "id": "pymc/nuts-bslope@91cbecf",
@@ -2797,7 +2883,8 @@
       "cost_usd": 0.13452832981544266,
       "current_best": false,
       "frontier": false,
-      "note": "screen-grade (max R-hat 1.050); not eligible for best or frontier"
+      "note": "screen-grade (max R-hat 1.050); not eligible for best or frontier",
+      "annotations": []
     },
     {
       "id": "pymc/nuts-bslope-nu@91cbecf",
@@ -2880,7 +2967,8 @@
       "cost_usd": 0.4654918846431213,
       "current_best": false,
       "frontier": false,
-      "note": "screen-grade (max R-hat 1.032); not eligible for best or frontier"
+      "note": "screen-grade (max R-hat 1.032); not eligible for best or frontier",
+      "annotations": []
     },
     {
       "id": "pymc/nuts-cand2@8cff75f",
@@ -2985,7 +3073,8 @@
       "cost_usd": 0.4623569464628889,
       "current_best": false,
       "frontier": false,
-      "note": "screen-grade (max R-hat 1.532); not eligible for best or frontier"
+      "note": "screen-grade (max R-hat 1.532); not eligible for best or frontier",
+      "annotations": []
     },
     {
       "id": "pymc/nuts-cand3@75db87c",
@@ -3090,7 +3179,8 @@
       "cost_usd": 1.0344727326515075,
       "current_best": false,
       "frontier": false,
-      "note": "screen-grade (max R-hat 1.073); not eligible for best or frontier"
+      "note": "screen-grade (max R-hat 1.073); not eligible for best or frontier",
+      "annotations": []
     },
     {
       "id": "pymc/nuts-hwalk-noise",
@@ -3132,7 +3222,8 @@
       "cost_usd": 0.0,
       "current_best": false,
       "frontier": false,
-      "note": "screen-grade (max R-hat 1.033); not eligible for best or frontier"
+      "note": "screen-grade (max R-hat 1.033); not eligible for best or frontier",
+      "annotations": []
     },
     {
       "id": "pymc/nuts-level",
@@ -3174,7 +3265,8 @@
       "cost_usd": 0.0,
       "current_best": false,
       "frontier": false,
-      "note": "screen-grade (max R-hat 1.062); not eligible for best or frontier"
+      "note": "screen-grade (max R-hat 1.062); not eligible for best or frontier",
+      "annotations": []
     },
     {
       "id": "pymc/nuts-nu@91cbecf",
@@ -3228,7 +3320,8 @@
       "cost_usd": 0.23425688291639424,
       "current_best": false,
       "frontier": false,
-      "note": "screen-grade (max R-hat 1.027); not eligible for best or frontier"
+      "note": "screen-grade (max R-hat 1.027); not eligible for best or frontier",
+      "annotations": []
     },
     {
       "id": "pymc/nuts-uslope",
@@ -3270,7 +3363,8 @@
       "cost_usd": 0.0,
       "current_best": false,
       "frontier": false,
-      "note": "screen-grade (max R-hat 1.028); not eligible for best or frontier"
+      "note": "screen-grade (max R-hat 1.028); not eligible for best or frontier",
+      "annotations": []
     }
   ],
   "current_best": "m8-drift/desc-v1/gibbs@b7c196f"
