@@ -59,8 +59,8 @@ Offline replay verified six pending duplicate requests could be skipped; all six
 were marked superseded in the live queue under its writer lock before restart. Eight
 already completed advertisement routes also had reusable unit captures, indicating
 prior duplication; those captures remain intact. Forty targeted tests passed.
-The evidence copy and candidate lists are in
-`data/probes/west-village-20260920-review/`. The live deployment uses runtime-v5,
+The candidate lists are in `data/probes/west-village-20260920-review/`; its
+database copy was deleted on September 22. The live deployment uses runtime-v5,
 with unchanged two-per-minute pacing, one worker, no request cap and no deadline.
 
 ## September 20 01:09 EDT offline coverage audit
@@ -92,9 +92,9 @@ uv run --locked --no-sync python -m streeteasy_archive.collection_audit \
   --output data/probes/west-village-audit-UNIQUE-TIMESTAMP.json
 ```
 
-An existing output file is never overwritten. This review's database snapshot,
-report, and identity evidence are saved under
-`data/probes/west-village-20260920-0109/`. The new command does not change the
+An existing output file is never overwritten. This review's report and identity
+evidence are saved under `data/probes/west-village-20260920-0109/`; its database
+snapshot was deleted on September 22. The new command does not change the
 running frozen scraper and makes no provider requests.
 
 ## September 21 completion and September 22 yield review
@@ -162,3 +162,98 @@ extraction, which is 4.8 GB on this archive. Setup now lists IDs first and loads
 extraction at a time. Measured on a scratch copy, the full startup peaks at 130 MB and
 enrolls 17,229 probes in about 6.5 minutes. The service was relaunched with the
 same controls.
+
+First v6 results: the first 10 probes, all in 51 Leroy Street, returned HTTP 200. Each
+was an eligible unit page whose declared canonical URL equals the probe URL.
+
+## Handoff status (September 23, 07:55 EDT)
+
+**The crawl is running at four submissions per minute.** On September 23 at 07:51
+EDT the user doubled the rate. `apartments-west-village-low-rate-20260919-v6` was
+stopped cleanly and relaunched with `resume-v6-4pm.py`, which differs from
+`resume-v6.py` only in `--api-rps 1/15` (was `1/30`); the runtime source is
+unchanged. Earlier, on September 22, it had been stopped twice by machine-wide
+memory exhaustion (an OOM kill at 20:00 EDT and a reboot around 22:20 during
+concurrent model fits in other sessions), not by provider or account errors. The
+service is a transient `systemd-run` unit, so a reboot removes it and it must be
+relaunched by hand after checking for account errors.
+
+Progress since the v6 launch (observations after ID 4179), as of 07:51: 1,457
+requests, 1,023 HTTP 200 unit pages, 433 HTTP 404 label misses and one transient
+provider failure. Units with canonical membership grew from 223 to 1,139. Queue:
+1,456 probes done, 15,772 pending and one in flight. The cascade has also re-queued
+1,284 historical advertisement routes; unit routes are claimed first.
+
+The 404 rate rose overnight (about 38% of requests after 22:29) because the misses
+are concentrated in two large buildings whose inventory labels often do not match a
+unit page: `the-archive` (297 of 590 probes) and `110-horatio-street-new_york` (114
+of 256). Other buildings stayed near 3%. This is a coverage gap, not a block.
+
+### Restart
+
+Use this if the service is stopped (check the journal for HTTP 401/402/403 first).
+The runtime is fixed and unchanged. Resume replays 2.5 to 6.5 minutes of offline setup
+(peak about 130 MB), then continues at four submissions per minute:
+
+```sh
+systemctl --user reset-failed apartments-west-village-low-rate-20260919-v6
+systemd-run --user --unit=apartments-west-village-low-rate-20260919-v6 \
+  --description='West Village canonical rentals with inventory-label unit probes' \
+  --property=WorkingDirectory=/home/ben/code/apartments --property=RuntimeMaxSec=infinity \
+  --property=TimeoutStopSec=30 --property=Restart=no --property=MemoryMax=2G \
+  /home/ben/code/apartments/.venv/bin/python -u \
+  /home/ben/code/apartments/data/probes/west-village-20260919/resume-v6-4pm.py
+```
+
+Check the service, then the progress counts with a read-only SQLite
+connection (`?mode=ro`):
+
+```sh
+systemctl --user is-active apartments-west-village-low-rate-20260919-v6
+journalctl --user -u apartments-west-village-low-rate-20260919-v6 -n 30 --no-pager
+```
+
+Useful queries: `observations WHERE id>4179` grouped by status;
+`count(DISTINCT unit_url) FROM collection_memberships`; and the frontier state of
+URLs whose `scope_urls.reason` starts with `inventory-label`.
+
+### Standing controls and cautions
+
+- The user approved unit pages first, then historical advertisements, until Oxylabs
+  credits run out. Keep one worker and at most four submissions per minute (raised
+  from two on September 23 at the user's request), with no
+  automatic restart. Do not restart after account, payment or credit rejection
+  (HTTP 401/402/403), and do not buy credits. 404s are coverage gaps, not blocks.
+- The runtime, `.venv` and `.env` live under the default checkout and are gitignored.
+  Do not delete, rebuild or `uv sync` that `.venv`, and do not edit
+  `data/probes/west-village-20260919/` while the crawl runs. Change code through a
+  new fixed runtime directory (`runtime-v7`) and a controlled stop and resume.
+- Memory: the service's cgroup sits at its 2 GB `MemoryMax` within minutes, but
+  that is reclaimable file cache from reading the archive; the process itself uses
+  under 100 MB (September 23: 61 MB anonymous, no cgroup OOM kills). An unprivileged user service cannot
+  lower its own OOM priority. Before
+  large fits run alongside the crawl, check free memory or coordinate with the
+  fitting session.
+- The Codex heartbeat `improve-west-village-scrape-efficiency` is paused.
+- Scale: about 15.8k unit probes remain (about 2.7 days at four per minute), then
+  historical advertisements (possibly about 55k).
+
+### Code and version control
+
+- jj bookmark `west-village-unit-probes` (on master): the scraper, tests and this
+  document. `lineage-cache-page-speedup` is stacked on it. Workspace:
+  `/home/ben/code/apartments-c5-wv`.
+- The shared default working-copy commit (`a21d6e74`) still holds earlier
+  uncommitted Codex modeling work plus copies of these files. Rebasing it onto
+  `lineage-cache-page-speedup` is awaiting the user's decision.
+- Open report from the Model Improvement session:
+  `test_actual_accepted_current_cohort_and_joint_counterfactual` fails only after
+  `tests/test_bayesian_floor_spline_readers.py` runs in the same process. The
+  per-process lineage cache (`reviewed_lineage_cache._VERIFIED`) is the suspected
+  state leak. This has not been investigated.
+
+### After collection
+
+Freeze a new read-only snapshot, run `models/transform_local.py` with a new run ID,
+and run the collection audit. The September 22 frozen snapshot, dataset and audit are
+listed above and must stay unchanged.
