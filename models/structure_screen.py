@@ -21,7 +21,7 @@ from threadpoolctl import threadpool_limits
 
 from . import bayesian_feature_experiment_v3 as v3
 from . import bayesian_floor_spline_design as floor
-from . import bayesian_structure_graph_v2 as graph
+from . import bayesian_structure_graph_v5 as graph
 from .bedroom_time_screen import split, map_posterior, summarize
 
 UNSEEN_UNIT_DRAWS = 200
@@ -264,7 +264,10 @@ def predictive(posterior, design, test, options, building_weights, thin, shock=N
         building_time=options["building_time"],
         building_scale=options["building_scale"],
         building_knot_years=options["building_knot_years"],
+        centering_rows=options.get("centering_rows"),
     )
+    if "citywide_walk" in p:
+        mu = mu + p["citywide_walk"].values[a["period"]]
     if shock and shock["months"]:
         mu = mu + graph.building_shock_numpy(
             p,
@@ -274,6 +277,22 @@ def predictive(posterior, design, test, options, building_weights, thin, shock=N
             shock_months=shock["months"],
             shock_scale=shock["scale"],
         )
+    if "building_bedroom_slope_z" in p:
+        step = np.minimum(test.bedrooms.to_numpy(dtype=float), 4.0) - 1.0
+        mu = mu + (
+            p["building_bedroom_slope_scale"].values[None]
+            * p["building_bedroom_slope_z"].values[a["building"]]
+            * step[:, None]
+        )
+    if "building_feature_slope_z" in p:
+        raw, raw_names, _ = design.raw_features(test)
+        names = [str(n) for n in p["slope_feature"].values]
+        columns = raw[:, [raw_names.index(n) for n in names]].astype(float)
+        slopes = (
+            p["building_feature_slope_scale"].values[None]
+            * p["building_feature_slope_z"].values[a["building"]]
+        )  # rows x features x samples
+        mu = mu + np.einsum("rf,rfs->rs", columns, slopes)
     if "unit_slope_z" in p:
         years = (np.arange(len(d.periods)) - d.anchor) / 12.0
         known = np.maximum(a["unit"], 0)
@@ -347,6 +366,16 @@ def main():
         "--noise", choices=("shared", "building", "level"), default="shared"
     )
     parser.add_argument("--noise-scale", type=float, default=None)
+    parser.add_argument("--building-bedroom-slope", action="store_true")
+    parser.add_argument("--citywide-walk-months", type=int, default=None)
+    parser.add_argument(
+        "--walk-centering", choices=("none", "across_buildings"), default="none"
+    )
+    parser.add_argument(
+        "--building-feature-slopes",
+        default="",
+        help="Comma-separated raw design columns with per-building slopes",
+    )
     parser.add_argument(
         "--unit-slope-scale",
         type=lambda v: v if v == "free" else float(v),
@@ -415,6 +444,12 @@ def main():
         noise=args.noise,
         noise_scale=args.noise_scale,
         unit_slope_scale=args.unit_slope_scale,
+        building_bedroom_slope=args.building_bedroom_slope,
+        citywide_walk_months=args.citywide_walk_months,
+        walk_centering=args.walk_centering,
+        building_feature_slopes=tuple(
+            n for n in args.building_feature_slopes.split(",") if n
+        ),
         **options,
     )
     started = time.monotonic()
@@ -458,6 +493,12 @@ def main():
             "train_rent": train.asking_rent.to_numpy(),
             "unit_slope_scale": args.unit_slope_scale,
             "unit_year_centers": getattr(model, "unit_year_centers", None),
+            "centering_rows": np.bincount(
+                design.time.arrays(train)["building"],
+                minlength=len(design.time.buildings),
+            )
+            if args.walk_centering == "across_buildings"
+            else None,
         },
         model.building_weights,
         args.thin if args.method == "nuts" else 1,
@@ -479,9 +520,18 @@ def main():
             "nu",
             "noise_level_slope",
             "unit_slope_scale",
+            "building_bedroom_slope_scale",
+            "citywide_walk_scale",
         )
         if n in posterior
     }
+    if "building_feature_slope_scale" in posterior:
+        for name in posterior["slope_feature"].values:
+            draws = posterior["building_feature_slope_scale"].sel(slope_feature=name)
+            scalars[f"building_feature_slope_scale[{name}]"] = {
+                "mean": float(draws.mean()),
+                "sd": float(draws.std()),
+            }
     coefficients = {}
     if extra:
         beta = posterior["beta"].stack(sample=("chain", "draw")).values

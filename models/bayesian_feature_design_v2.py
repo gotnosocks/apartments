@@ -22,6 +22,9 @@ def load_design(root, data, protocol=None):
         if protocol.get('feature_design_version') == spline_contract.ATTRIBUTE_DESIGN:
             from . import bayesian_attribute_design as attribute
             design = attribute.FeatureDesign.load(root)
+        elif protocol.get('feature_design_version') == spline_contract.ASOF_ATTRIBUTE_DESIGN:
+            from . import bayesian_attribute_design_v2 as asof
+            design = asof.FeatureDesign.load(root)
         else:
             design = spline.FeatureDesign.load(root)
         spline_contract.verify_metadata(protocol, design.__dict__)
