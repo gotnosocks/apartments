@@ -1,22 +1,30 @@
-"""Build the leaderboard from recorded runs.
+"""Build the single leaderboard for both model lines from recorded runs.
 
     python -m rentfrontier.leaderboard
 
-Reads every reportable run under /data1/apartments/frontier/runs, groups the
-row-split and unit-split runs of the same design (commit, model, feature set,
-sampler), and writes docs/model/gpu-frontier/leaderboard.{json,md}.
+Two sources, scored against the same pinned per-row references:
+
+* frontier runs: every reportable run under /data1/apartments/frontier/runs,
+  grouping the row-split and unit-split runs of the same design (commit,
+  model, feature set, sampler);
+* PyMC screens: every NUTS screen under data/model/feature-screen-*/<name>/
+  (``result.json`` plus per-row ``heldout.npz``), grouping ``<stem>-rows`` and
+  ``<stem>-units``.
+
+Writes docs/model/leaderboard/leaderboard.{json,md}.
 
 Ranking rule. Entries must pass the convergence gate and the
 interpretability requirement. They are ranked by row-split dELPD against the
-promoted model. When two entries' paired row-split difference is within two
-standard errors, the unit split decides: it scores every listing of unseen
-units, so it tests whether the named feature terms carry over rather than
-being absorbed by unit effects, which is what an interpretable coefficient
-claims. If neither split separates them, the faster entry ranks first.
+promoted model: Ben's use fits data that includes the listing's own unit, and
+a held-out row of an in-fit unit is the matching test. When two entries'
+paired row-split difference is within two standard errors, the unit split
+decides; if neither split separates them, the faster entry ranks first.
+PyMC screens that fail the gate are listed as screen-grade: shown, but never
+current best or on the frontier.
 
 Frontier. An entry is on the frontier if no other entry is at least as good
-on row-split dELPD, unit-split dELPD, fit time and cost, and strictly better
-on one.
+on row-split dELPD and fit time (Ben's accuracy-vs-complexity axes) and
+strictly better on one. Unit-split dELPD, cost and hardware are columns.
 """
 
 from __future__ import annotations
@@ -31,7 +39,11 @@ from . import data
 from .run import REFERENCES
 
 RUNS = data.OUTPUT_ROOT / "runs"
-DOCS = Path(__file__).resolve().parents[3] / "docs" / "model" / "gpu-frontier"
+DOCS = Path(__file__).resolve().parents[3] / "docs" / "model" / "leaderboard"
+# PyMC screens live beside the pinned references (feature-screen-20260923).
+SCREENS = REFERENCES["rows"].parent.parent.parent
+REFERENCE_SCREENS = {"nuts-hwalk", "nuts-hwalk-units"}
+GATE_RHAT, GATE_ESS = 1.01, 400
 
 PROMOTED = {
     "id": "promoted",
@@ -110,14 +122,104 @@ def design_key(r):
 
 
 def paired(a_dir: Path, b_dir: Path):
-    """Paired sum and SE of lpd differences a - b on shared held-out rows."""
+    """Paired sum and SE of lpd differences a - b on identical held-out rows.
+
+    Refuses differing row sets: a comparison on a silently shrunken subset is
+    not the same test."""
     a = np.load(a_dir / "heldout.npz", allow_pickle=True)
     b = np.load(b_dir / "heldout.npz", allow_pickle=True)
+    al = dict(zip(a["audit_id"].tolist(), a["lpd"]))
     bl = dict(zip(b["audit_id"].tolist(), b["lpd"]))
-    d = np.array(
-        [x - bl[k] for k, x in zip(a["audit_id"].tolist(), a["lpd"]) if k in bl]
-    )
+    if al.keys() != bl.keys():
+        raise ValueError(
+            f"Held-out rows differ: {a_dir.name} ({len(al)}) vs {b_dir.name} ({len(bl)})"
+        )
+    d = np.array([al[k] - bl[k] for k in al])
     return float(d.sum()), float(d.std(ddof=1) * math.sqrt(len(d)))
+
+
+def screen_entries():
+    """PyMC NUTS screens as board entries, grouped by ``<stem>-rows/-units``.
+
+    Commit, cost and hardware come from the remote-run record when the screen
+    ran through models.modal_remote_fit; local screens record neither."""
+    groups = {}
+    for path in sorted(SCREENS.glob("feature-screen-*/*/result.json")):
+        name = path.parent.name
+        r = json.loads(path.read_text())
+        if (
+            name in REFERENCE_SCREENS
+            or r.get("method") != "nuts"
+            or r.get("split", "rows") not in ("rows", "units")
+            or not (path.parent / "heldout.npz").exists()
+        ):
+            continue
+        split = r.get("split", "rows")
+        stem = name.removesuffix(f"-{split}")
+        groups.setdefault(stem, {})[split] = (path.parent, r)
+    entries = []
+    for stem, by_split in sorted(groups.items()):
+        remote = {}
+        for folder, _ in by_split.values():
+            if (folder / "remote-run.json").exists():
+                remote = json.loads((folder / "remote-run.json").read_text())
+                break
+        git = remote.get("request_git") or {}
+        commit = git.get("head") if git and not git.get("dirty_paths") else None
+        resources = remote.get("resources") or {}
+        e = {
+            "id": f"pymc/{stem}" + (f"@{commit[:7]}" if commit else ""),
+            "line": "pymc",
+            "commit": commit,
+            "model": {"name": stem},
+            "feature_set": "pymc design",
+            "sampler": "nuts",
+            "sampler_settings": {},
+            "hardware": (
+                f"Modal CPU ({resources['cpu']:g} cores)"
+                if resources.get("cpu")
+                else "thelio CPU"
+            ),
+            "interpretable": True,
+            "splits": {},
+        }
+        passes, seconds, cost = True, [], []
+        for split, (folder, r) in by_split.items():
+            diag, held = r["diagnostics"], r["heldout"]
+            try:
+                delta, delta_se = paired(folder, REFERENCES[split].parent)
+            except ValueError:
+                delta = delta_se = None
+            ok = (
+                diag["max_rhat"] < GATE_RHAT
+                and diag["min_ess_bulk"] > GATE_ESS
+                and not diag.get("divergences")
+                and delta is not None
+            )
+            e["splits"][split] = {
+                "run": folder.name,
+                "elpd": held["elpd"],
+                "elpd_se": held.get("elpd_se"),
+                "delta": delta,
+                "delta_se": delta_se,
+                "max_rhat": diag["max_rhat"],
+                "min_ess": diag["min_ess_bulk"],
+                # Screens report R-hat over every parameter, group effects included.
+                "group_rhat_max": diag["max_rhat"],
+                "passes": bool(ok),
+                "fit_seconds": r["seconds"],
+                "coverage_95": held.get("coverage_95"),
+                "_dir": str(folder),
+            }
+            passes &= bool(ok)
+            seconds.append(r["seconds"])
+            cost.append(remote.get("estimated_worker_usd") or 0.0)
+        e["passes_checks"] = passes
+        e["grade"] = "full" if passes else "screen"
+        e["fit_seconds"] = max(seconds)
+        e["cost_usd"] = max(cost)
+        entries.append(e)
+    return entries
 
 
 def build():
@@ -182,9 +284,12 @@ def build():
             fit_seconds.append(r["seconds"]["fit_total"])
             cost.append(r.get("cost_usd") or 0.0)
         e["passes_checks"] = passes
+        e["line"] = "frontier"
+        e["grade"] = "full" if passes else "failed"
         e["fit_seconds"] = max(fit_seconds)
         e["cost_usd"] = max(cost)
         entries.append(e)
+    entries += screen_entries()
 
     eligible = [
         e
@@ -213,17 +318,11 @@ def build():
                 best = e
 
     def point(e):
-        # Quality on both splits (a missing split counts as worst), speed, cost.
-        unit = e["splits"].get("units", {}).get("delta")
-        return (
-            e["splits"]["rows"]["delta"],
-            unit if unit is not None else -np.inf,
-            -e["fit_seconds"],
-            -e["cost_usd"],
-        )
+        # Ben's axes: accuracy (row-split dELPD) against fit time.
+        return (e["splits"]["rows"]["delta"], -e["fit_seconds"])
 
     candidates = [e for e in entries if e["passes_checks"] and "rows" in e["splits"]]
-    ref_point = (0.0, 0.0, -PROMOTED["fit_seconds"], -PROMOTED["cost_usd"])
+    ref_point = (0.0, -PROMOTED["fit_seconds"])
     for e in entries:
         e["current_best"] = e is best
         if e not in candidates:
@@ -238,7 +337,12 @@ def build():
     # paired row split), otherwise a later run of the same design that passes.
     for e in entries:
         note = ""
-        if best is not None and e is not best and "rows" in e["splits"]:
+        if e.get("grade") == "screen":
+            worst = max(s["max_rhat"] for s in e["splits"].values())
+            note = f"screen-grade (max R-hat {worst:.3f}); not eligible for best or frontier"
+            if any(s["delta"] is None for s in e["splits"].values()):
+                note += "; held-out rows differ from the reference, so not paired"
+        elif best is not None and e is not best and "rows" in e["splits"]:
             d, se = paired(
                 Path(best["splits"]["rows"]["_dir"]), Path(e["splits"]["rows"]["_dir"])
             )
@@ -275,23 +379,24 @@ def fmt(x, digits=1):
 
 def markdown(board) -> str:
     lines = [
-        "# GPU-frontier leaderboard",
+        "# Model leaderboard (both lines)",
         "",
-        "Generated by `python -m rentfrontier.leaderboard` from recorded runs; machine-readable copy in `leaderboard.json`.",
-        "ΔELPD is paired against the promoted model on identical held-out rows (log-rent density), with its standard error.",
+        "Generated by `python -m rentfrontier.leaderboard` from recorded frontier runs and PyMC NUTS screens; machine-readable copy in `leaderboard.json`.",
+        "ΔELPD is paired against the promoted model on identical held-out rows (log-rent density), with its standard error; differing row sets are refused.",
         "",
-        "**Ranking.** Only entries that pass the convergence gate (max split R-hat < 1.01 and min bulk ESS > 400 over scalars and traced effects,",
-        "plus max R-hat < 1.05 over every building, walk, slope and unit effect: 1.1 when recomputed from older runs' kept draws) and the",
-        "interpretability requirement are eligible. Rank by row-split ΔELPD. When two entries differ by less than two paired",
-        "standard errors on the row split, the unit split decides, because it tests whether named feature terms carry over to",
-        "unseen units instead of being absorbed by unit effects. **Frontier** = not beaten on row-split ΔELPD, unit-split ΔELPD, fit time and cost at once.",
+        "**Ranking.** Only entries that pass the convergence gate (max split R-hat < 1.01 and min bulk ESS > 400; frontier runs also need",
+        "max R-hat < 1.05 over every building, walk, slope and unit effect, or 1.1 when recomputed from older runs' kept draws; PyMC screens",
+        "report R-hat over every parameter) and the interpretability requirement are eligible. Rank by row-split ΔELPD. When two entries",
+        "differ by less than two paired standard errors on the row split, the unit split decides. **Frontier** = not beaten on row-split",
+        "ΔELPD and fit time at once (accuracy against complexity). PyMC screens that fail the gate are **screen-grade**: shown for",
+        "comparison, never best or on the frontier.",
         "",
-        "| Entry | Design | Features | Rows ΔELPD | Units ΔELPD | Units ELPD | R-hat / ESS | Fit time | Cost | Hardware | Checks | Interp. | Best | Frontier | Note |",
-        "|---|---|---|---:|---:|---:|---|---:|---:|---|---|---|---|---|---|",
+        "| Entry | Line | Design | Features | Rows ΔELPD | Units ΔELPD | Units ELPD | R-hat / ESS | Fit time | Cost | Hardware | Grade | Interp. | Best | Frontier | Note |",
+        "|---|---|---|---|---:|---:|---:|---|---:|---:|---|---|---|---|---|---|",
     ]
     p = PROMOTED
     lines.append(
-        f"| promoted (reference) | {p['description']} | own | 0 (ELPD {fmt(p['rows']['elpd'])}) | 0 | {fmt(p['units']['elpd'])} | passes | {fmt(p['fit_seconds'] / 60, 0)} min* | ${p['cost_usd']:.2f}* | {p['hardware']} | yes | yes | — | reference | |"
+        f"| promoted (reference) | pymc | {p['description']} | own | 0 (ELPD {fmt(p['rows']['elpd'])}) | 0 | {fmt(p['units']['elpd'])} | passes | {fmt(p['fit_seconds'] / 60, 0)} min* | ${p['cost_usd']:.2f}* | {p['hardware']} | reference | yes | — | reference | |"
     )
     for e in sorted(
         board["entries"],
@@ -304,16 +409,17 @@ def markdown(board) -> str:
             for k, v in e["splits"].items()
         )
         lines.append(
-            f"| `{e['id']}` | {e['model']['name']} | {e['feature_set']} | {fmt(r.get('delta'))} ± {fmt(r.get('delta_se'))} | "
+            f"| `{e['id']}` | {e['line']} | {e['model']['name']} | {e['feature_set']} | {fmt(r.get('delta'))} ± {fmt(r.get('delta_se'))} | "
             f"{fmt(u.get('delta'))}{' ± ' + fmt(u.get('delta_se')) if u.get('delta') is not None else ''} | {fmt(u.get('elpd'))} | {diag} | "
-            f"{fmt(e['fit_seconds'], 0)} s | ${e['cost_usd']:.2f} | {e['hardware']} | {'pass' if e['passes_checks'] else 'fail'} | "
+            f"{fmt(e['fit_seconds'], 0)} s | ${e['cost_usd']:.2f} | {e['hardware']} | {e['grade']} | "
             f"{'yes' if e['interpretable'] else 'no'} | {'**best**' if e['current_best'] else ''} | {'yes' if e['frontier'] else ''} | {e['note']} |"
         )
     lines += [
         "",
         f"\\* {p['fit_seconds_note']}; cost is {p['cost_note']}.",
         "",
-        "Fit time is the sampler wall time (warmup + draws, including JIT compilation); cost is the Modal list price over the client-side container lifetime.",
+        "Fit time is the sampler wall time (frontier: warmup + draws, including JIT compilation; PyMC screens: the screen's recorded seconds).",
+        "Cost is the Modal list-price estimate for runs made there (Modal use stopped on 2026-09-24; local runs record $0).",
         "Runs named `dev-*` or `canary-*` are pipeline checks and are not listed.",
         "",
     ]
