@@ -3,9 +3,18 @@
 import numpy as np
 import pandas as pd
 import pytest
+from threadpoolctl import threadpool_limits
 
 from models import bayesian_category_contrasts as m
 from models.bayesian_feature_model import FeatureDesign
+
+
+@pytest.fixture(autouse=True)
+def single_thread_blas():
+    """Design reconstruction is exact only under single-threaded BLAS, as in the
+    readers and fit runners; don't depend on an earlier test having set it."""
+    with threadpool_limits(limits=1, user_api="blas"):
+        yield
 
 
 def training():
