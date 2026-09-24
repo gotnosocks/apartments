@@ -57,6 +57,10 @@ UNIT_DRIFT_VERSION = "unit-drift-summary-v1"
 EXTENSIONS_VERSION = "structure-extensions-summary-v1"
 FEATURE_SLOPES = (
     "log_size_within_bedrooms",
+    # Per-building offset for unsized listings: removes the size-slope
+    # bimodality at buildings mixing sized lofts with unsized small units
+    # (110 W 26th; screen +41.1 +/- 9.6 on units, neutral on rows).
+    "size_missing",
     "full_bathrooms_gt_1",
     "full_bathrooms_gt_2",
 )
@@ -145,7 +149,7 @@ def make_protocol(args, data, source, code, configuration, units, evidence_sha):
         citywide_walk_months=CITYWIDE_WALK_MONTHS,
         likelihood="Student-t(log gross asking rent) with estimated nu ~ Gamma(2, 0.1)",
         structure_extensions="per-building bedroom slope tau*z_b*(min(beds,4)-1), tau~HalfNormal(0.1); "
-        "per-building slopes on raw log_size_within_bedrooms, full_bathrooms_gt_1, "
+        "per-building slopes on raw log_size_within_bedrooms, size_missing, full_bathrooms_gt_1, "
         "full_bathrooms_gt_2 (tau_j~HalfNormal(0.1)); quarterly citywide random walk "
         "(scale~HalfNormal(0.05)), centered on training rows",
         version=VERSION,
@@ -901,7 +905,7 @@ def argument_parser():
     parser = previous.argument_parser()
     parser.description = __doc__
     parser.add_argument("--feature-basis", choices=("identity", "qr"), default="qr")
-    parser.set_defaults(tune=1000, draws=3000)
+    parser.set_defaults(tune=1000, draws=4000, chains=8)
     return parser
 
 
