@@ -12,6 +12,8 @@ into named additive terms:
     building     the building's level
     building_drift   the building's time walk at this month
     building_bedroom_premium   the building's bedroom slope x (bedrooms - 1)
+    building_feature_slopes    the building's own slopes on size and baths
+                 (designs with per-building feature slopes)
     unit         the unit's own effect (0 for a unit with no training rows)
     unit_drift   the unit's own linear drift at this date (designs with drift)
 
@@ -67,8 +69,13 @@ def log_terms(
     bedroom_time: bool,
     slope: bool,
     offset,
+    fslope_index=(),
 ):
-    """Named log-scale terms, each (draws, rows)."""
+    """Named log-scale terms, each (draws, rows).
+
+    `fslope_index`: feature columns with per-building slopes (kept["fslope"]
+    is (draws, buildings, len(fslope_index))).
+    """
     d = kept["alpha"].shape[0]
     n = len(a.y)
     terms = {
@@ -96,6 +103,12 @@ def log_terms(
     terms["building_bedroom_premium"] = (
         kept["bedroom_slope"][:, a.building] * a.beds_centered if slope else zeros
     )
+    if len(fslope_index):
+        terms["building_feature_slopes"] = np.einsum(
+            "dnk,nk->dn",
+            kept["fslope"][:, a.building],
+            a.x[:, np.asarray(fslope_index)],
+        )
     seen = a.unit >= 0
     terms["unit"] = np.where(seen[None], kept["unit"][:, np.maximum(a.unit, 0)], 0.0)
     drift = kept.get("unit_drift")
@@ -153,6 +166,7 @@ def explain(name, rows="current"):
             config.bedroom_time,
             config.bedroom_slope,
             prep.offset,
+            [feats.names.index(n) for n in config.feature_slopes],
         )
         dollars, fitted = decompose(terms)
         sub = frame.loc[

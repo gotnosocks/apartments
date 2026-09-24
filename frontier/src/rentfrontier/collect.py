@@ -54,18 +54,28 @@ def heldout_logpdf(p, test: model_module.Arrays, unseen: bool = True):
     """Log predictive density of each held-out row under one draw.
 
     Rows whose unit has no training rows (only when `unseen`) integrate the
-    unit effect over its prior:
+    unit effect over its prior; see `heldout_logpdf_given_mu`.
+    """
+    mu = model_module.linear_predictor(p, test, include_unit=False)
+    u = p["unit"][jnp.maximum(test.unit, 0)]
+    if "unit_drift" in p:
+        u = u + p["unit_drift"][jnp.maximum(test.unit, 0)] * test.unit_time
+    return heldout_logpdf_given_mu(p, test, mu, u, unseen)
+
+
+def heldout_logpdf_given_mu(p, test: model_module.Arrays, mu, u, unseen: bool = True):
+    """Held-out log density from the predictor without unit terms (`mu`) and
+    the unit level plus drift of seen units (`u`, ignored for unseen units).
+
+    `p` needs nu, sigma, unit_scale and optionally unit_drift_scale, unit_nu.
+    Unseen units integrate the unit effect over its prior:
     - Gaussian units: level + drift is N(0, tau^2 + tau_d^2 t^2), by
       Gauss-Hermite quadrature;
     - Student-t units: the level on a fixed grid over its t prior and, with a
       unit drift, the drift s ~ N(0, tau_d^2) by 8-node Gauss-Hermite, i.e.
       an exact 2-D quadrature of the t-level plus normal-drift convolution.
     """
-    mu = model_module.linear_predictor(p, test, include_unit=False)
     seen = test.unit >= 0
-    u = p["unit"][jnp.maximum(test.unit, 0)]
-    if "unit_drift" in p:
-        u = u + p["unit_drift"][jnp.maximum(test.unit, 0)] * test.unit_time
     lp_seen = student_t_logpdf(test.y - mu - u, p["nu"], p["sigma"])
     if not unseen:
         return lp_seen

@@ -67,3 +67,50 @@ def test_screens_group_by_split_and_grade_by_gate(tmp_path, monkeypatch):
     assert rough["grade"] == "screen" and not rough["passes_checks"]
     assert good["hardware"] == "thelio CPU" and good["commit"] is None
     assert not good["commits_differ"]
+
+
+def test_annotations_are_listed_without_changing_scores(tmp_path, monkeypatch):
+    path = tmp_path / "annotations.json"
+    path.write_text(
+        json.dumps({"entries": {"m/x@abc": ["fit on an H100"]}, "footer": ["foot"]})
+    )
+    monkeypatch.setattr(leaderboard, "ANNOTATIONS", path)
+    a = leaderboard.load_annotations()
+    split = {
+        "delta": 5.0,
+        "delta_se": 1.0,
+        "elpd": 10.0,
+        "max_rhat": 1.001,
+        "min_ess": 1000,
+        "group_rhat_max": 1.01,
+    }
+    entry = {
+        "id": "m/x@abc",
+        "line": "frontier",
+        "model": {"name": "m"},
+        "feature_set": "x",
+        "splits": {"rows": split},
+        "fit_seconds": 10.0,
+        "cost_usd": 0.0,
+        "hardware": "local",
+        "grade": "full",
+        "interpretable": True,
+        "current_best": True,
+        "frontier": True,
+        "note": "",
+        "annotations": a["entries"]["m/x@abc"],
+    }
+    other = {**entry, "id": "m/y@abc", "annotations": [], "current_best": False}
+    md = leaderboard.markdown(
+        {
+            "entries": [entry, other],
+            "footer": a["footer"],
+            "promoted": leaderboard.PROMOTED,
+        }
+    )
+    assert "| see [1] |" in md
+    assert "- [1] `m/x@abc`:\n  - fit on an H100" in md
+    assert "[2]" not in md
+    assert md.rstrip().endswith("foot")
+    monkeypatch.setattr(leaderboard, "ANNOTATIONS", tmp_path / "missing.json")
+    assert leaderboard.load_annotations() == {"entries": {}, "footer": []}
