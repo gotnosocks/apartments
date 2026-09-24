@@ -288,9 +288,10 @@ def predictive(posterior, design, test, options, building_weights, thin, shock=N
         raw, raw_names, _ = design.raw_features(test)
         names = [str(n) for n in p["slope_feature"].values]
         columns = raw[:, [raw_names.index(n) for n in names]].astype(float)
+        flat = p["building_feature_slope_z"].values  # (building*feature, sample)
+        z = flat.reshape(len(d.buildings), len(names), flat.shape[-1])
         slopes = (
-            p["building_feature_slope_scale"].values[None]
-            * p["building_feature_slope_z"].values[a["building"]]
+            p["building_feature_slope_scale"].values[None] * z[a["building"]]
         )  # rows x features x samples
         mu = mu + np.einsum("rf,rfs->rs", columns, slopes)
     if "unit_slope_z" in p:
