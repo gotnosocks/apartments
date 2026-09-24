@@ -87,10 +87,13 @@ floor × elevator interactions; calendar seasonality; and long-run price trend.
 Feature extraction must retain its evidence and avoid interpreting a unit number
 as a reliable floor. A skipped floor label needs a building-specific mapping.
 
-The main model is hierarchical Bayesian, implemented in PyMC. Use PyMC-compatible
-compiled NUTS sampling, efficient tensor operations and exact reuse of identical
-feature rows to reduce fit time. Preserve the actual likelihood and joint posterior;
-do not substitute a robust regression or another surrogate for the main model.
+The main model is hierarchical Bayesian with an exact joint posterior. The
+implementation is free (PyMC NUTS, a custom JAX sampler, or another exact method),
+but convergence must be checked independently, e.g. against a well-mixed reference
+sampler on the same model, plus R-hat and ESS over every group effect. Use efficient
+tensor operations and exact reuse of identical feature rows to reduce fit time.
+Preserve the actual likelihood and joint posterior; do not substitute a robust
+regression or another surrogate for the main model.
 Retained non-Bayesian fits are historical comparisons. Report posterior feature
 and group uncertainty and joint contrasts in dollars and percentages with their
 reference apartment and date.
