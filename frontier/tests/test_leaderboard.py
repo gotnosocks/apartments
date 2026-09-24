@@ -65,7 +65,7 @@ def test_screens_group_by_split_and_grade_by_gate(tmp_path, monkeypatch):
     assert good["splits"]["units"]["delta"] == pytest.approx(6.0)
     assert good["grade"] == "full" and good["passes_checks"]
     assert rough["grade"] == "screen" and not rough["passes_checks"]
-    assert good["hardware"] == "thelio CPU" and good["commit"] is None
+    assert good["hardware"] == leaderboard.THELIO_CPU and good["commit"] is None
     assert not good["commits_differ"]
 
 
@@ -114,3 +114,30 @@ def test_annotations_are_listed_without_changing_scores(tmp_path, monkeypatch):
     assert md.rstrip().endswith("foot")
     monkeypatch.setattr(leaderboard, "ANNOTATIONS", tmp_path / "missing.json")
     assert leaderboard.load_annotations() == {"entries": {}, "footer": []}
+
+
+def test_hardware_class_uses_the_device_the_fit_ran_on():
+    host = {
+        "cpu": "AMD Ryzen 5 3600X 6-Core Processor",
+        "gpu": "NVIDIA GeForce RTX 2060 SUPER",
+    }
+    cpu_run = {"hardware": {**host, "jax_devices": ["cpu:0"]}}
+    gpu_run = {"hardware": {**host, "jax_devices": ["cuda:0"]}}
+    modal = {
+        "hardware": {"gpu": "NVIDIA H100 80GB HBM3", "jax_devices": ["cuda:0"]},
+        "remote": {"gpu_reported": "NVIDIA H100 80GB HBM3, 580.95.05"},
+    }
+    assert leaderboard.hardware_class(cpu_run) == leaderboard.THELIO_CPU
+    assert leaderboard.hardware_class(gpu_run) == "thelio RTX 2060 SUPER"
+    assert leaderboard.hardware_class(modal) == "Modal H100"
+    # The same design on two machines is two entries.
+    base = {
+        "commit": "abc",
+        "model": {"name": "m0"},
+        "feature_set": "x",
+        "sampler": "gibbs",
+        "sampler_settings": {},
+    }
+    assert leaderboard.design_key({**base, **cpu_run}) != leaderboard.design_key(
+        {**base, **gpu_run}
+    )

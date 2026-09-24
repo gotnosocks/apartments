@@ -55,6 +55,7 @@ from .run import REFERENCES
 RUNS = data.OUTPUT_ROOT / "runs"
 RESCORES = data.OUTPUT_ROOT / "rescores"
 LOO_ROOT = data.OUTPUT_ROOT / "loo"
+VARIANCE_ROOT = data.OUTPUT_ROOT / "variance"
 # PSIS-LOO dELPD is paired against this entry (the plainest gate-passing design).
 BASELINE = "m0-base/base-v1/gibbs@5cc0809"
 DOCS = Path(__file__).resolve().parents[3] / "docs" / "model" / "leaderboard"
@@ -118,6 +119,18 @@ def load_loo():
         r = json.loads(path.read_text())
         if not r.get("dirty"):
             r["_dir"] = str(path.parent)
+            out[r["source_run"]] = r
+    return out
+
+
+def load_variance():
+    """Latest reportable variance decomposition per source run name."""
+    out = {}
+    for path in sorted(
+        VARIANCE_ROOT.glob("*/result.json"), key=lambda p: p.stat().st_mtime
+    ):
+        r = json.loads(path.read_text())
+        if not r.get("dirty"):
             out[r["source_run"]] = r
     return out
 
@@ -197,8 +210,37 @@ def group_gate(r) -> tuple[float | None, bool, str]:
     return worst, worst < 1.1, "kept joint draws, all group effects"
 
 
+def hardware_class(r) -> str:
+    """Where a frontier run's fit actually ran: the JAX device, not just the host's GPU."""
+    remote = r.get("remote") or {}
+    hw = r.get("hardware") or {}
+    on_gpu = any("cuda" in d or "gpu" in d for d in hw.get("jax_devices", []))
+    if remote:
+        gpu = (remote.get("gpu_reported") or hw.get("gpu") or "").split(",")[0]
+        return "Modal " + short_gpu(gpu) if on_gpu else "Modal CPU"
+    if on_gpu:
+        return "thelio " + short_gpu(hw.get("gpu") or "GPU")
+    return "thelio CPU (" + short_cpu(hw.get("cpu") or "CPU") + ")"
+
+
+def short_gpu(name: str) -> str:
+    for token in ("H100", "H200", "A100", "L4", "T4", "RTX 2060 SUPER"):
+        if token in name:
+            return token
+    return name.replace("NVIDIA ", "").replace("GeForce ", "")
+
+
+def short_cpu(name: str) -> str:
+    return name.replace("AMD ", "").replace(" 6-Core Processor", "").strip()
+
+
+# Local PyMC screens record no hardware; they ran on thelio's CPU.
+THELIO_CPU = "thelio CPU (Ryzen 5 3600X)"
+
+
 def design_key(r):
     return (
+        hardware_class(r),
         r["commit"],
         r["model"]["name"],
         r["feature_set"],
@@ -285,7 +327,7 @@ def screen_entries():
             "hardware": (
                 "Modal CPU (" + "/".join(f"{c:g}" for c in sorted(cpus)) + " cores)"
                 if cpus
-                else "thelio CPU"
+                else THELIO_CPU
             ),
             "interpretable": True,
             "splits": {},
@@ -385,6 +427,7 @@ def on_frontier(entries):
 def build(keep_dirs=False):
     rescores = load_rescores()
     loos = load_loo()
+    variances = load_variance()
     annotations = load_annotations()
     groups = {}
     for r in load_runs():
@@ -399,11 +442,7 @@ def build(keep_dirs=False):
             "feature_set": any_run["feature_set"],
             "sampler": any_run["sampler"],
             "sampler_settings": any_run["sampler_settings"],
-            "hardware": ((any_run.get("remote") or {}).get("gpu_reported") or "").split(
-                ","
-            )[0]
-            or any_run["hardware"].get("gpu")
-            or "local",
+            "hardware": hardware_class(any_run),
             "interpretable": bool(
                 any_run["interpretability"]["named_additive_contributions"]
             ),
@@ -467,6 +506,13 @@ def build(keep_dirs=False):
         )
         e["fit_seconds_all_splits"] = sum(fit_seconds)
         e["cost_usd"] = max(cost)
+        if rows_run and rows_run["name"] in variances:
+            vr = variances[rows_run["name"]]
+            e["variance"] = {
+                "commit": vr["commit"],
+                "shares": {k: v["mean"] for k, v in vr["shares"].items()},
+                "intervals": vr["shares"],
+            }
         if rows_run and rows_run["name"] in loos:
             lr = loos[rows_run["name"]]
             e["psis"] = {
@@ -493,13 +539,22 @@ def build(keep_dirs=False):
                 d, se, mc = paired_loo(e["psis"]["_dir"], base["psis"]["_dir"])
             e["psis"].update(delta=d, delta_se=se, delta_mcse=mc, baseline=BASELINE)
 
-    best = choose_best(entries)
-    for e, on in zip(entries, on_frontier(entries)):
-        e["current_best"] = e is best
-        e["frontier"] = on
+    # The frontier and the best are per hardware class: a fit time only
+    # competes with fit times on the same hardware.
+    for e in entries:
+        e.setdefault("hardware_class", e["hardware"])
+    best_by_class = {}
+    for cls in sorted({e["hardware_class"] for e in entries}):
+        group = [e for e in entries if e["hardware_class"] == cls]
+        best_by_class[cls] = choose_best(group)
+        for e, on in zip(group, on_frontier(group)):
+            e["frontier"] = on
+    for e in entries:
+        e["current_best"] = e is best_by_class[e["hardware_class"]]
     # What supersedes each entry: the current best (if it beats it on the
     # paired row split), otherwise a later run of the same design that passes.
     for e in entries:
+        best = best_by_class[e["hardware_class"]]
         note = ""
         if e.get("grade") == "screen":
             worst = max(s["max_rhat"] for s in e["splits"].values())
@@ -511,7 +566,7 @@ def build(keep_dirs=False):
         elif best is not None and e is not best and scored(e):
             d, se, mc = paired_loo(best["psis"]["_dir"], e["psis"]["_dir"])
             if d > tie_tolerance(se, mc):
-                note = f"beaten by {best['id']} ({d:+.1f} ± {math.hypot(se, mc):.1f} PSIS-LOO)"
+                note = f"beaten on {e['hardware_class']} by {best['id']} ({d:+.1f} ± {math.hypot(se, mc):.1f} PSIS-LOO)"
             elif not e["passes_checks"]:
                 same = [
                     o
@@ -547,12 +602,50 @@ def build(keep_dirs=False):
         "baseline": BASELINE,
         "footer": annotations["footer"],
         "entries": entries,
-        "current_best": best["id"] if best else None,
+        "current_best": {c: (b["id"] if b else None) for c, b in best_by_class.items()},
     }
 
 
 def fmt(x, digits=1):
     return "—" if x is None else f"{x:,.{digits}f}"
+
+
+def row(e, marks) -> str:
+    r = e["splits"].get("rows", {})
+    u = e["splits"].get("units", {})
+    ps = e.get("psis") or {}
+    if ps.get("delta") is not None:
+        psis = (
+            f"{fmt(ps['delta'])} ± {fmt(math.hypot(ps['delta_se'], ps['delta_mcse']))}"
+        )
+        kshare = f"{100 * ps['pareto_k']['share_over_threshold']:.1f}%"
+    else:
+        psis, kshare = "—", "—"
+    var = e.get("variance")
+    shares = (
+        " / ".join(
+            f"{100 * var['shares'][g]:.0f}%"
+            for g in ("features", "building", "unit", "residual")
+        )
+        if var
+        else "—"
+    )
+    diag = "; ".join(
+        f"{k}: {v['max_rhat']:.3f} / {v['min_ess']:.0f} / all-effects {v['group_rhat_max']:.2f}"
+        for k, v in e["splits"].items()
+    )
+    note = "; ".join(
+        x
+        for x in (e["note"], ("see " + marks[e["id"]]) if e["id"] in marks else "")
+        if x
+    )
+    return (
+        f"| `{e['id']}` | {e['line']} | {e['model']['name']} | {e['feature_set']} | {psis} | {kshare} | "
+        f"{fmt(r.get('delta'))}{' ± ' + fmt(r.get('delta_se')) if r.get('delta') is not None else ''} | "
+        f"{fmt(u.get('delta'))}{' ± ' + fmt(u.get('delta_se')) if u.get('delta') is not None else ''} | {shares} | {diag} | "
+        f"{fmt(e['fit_seconds'], 0)} s | {e['grade']} | "
+        f"{'**best**' if e['current_best'] else ''} | {'yes' if e['frontier'] else ''} | {note} |"
+    )
 
 
 def markdown(board) -> str:
@@ -571,9 +664,11 @@ def markdown(board) -> str:
         "R-hat < 1.05 over every group effect, 1.1 when recomputed from older runs' kept draws), are interpretable and have a PSIS-LOO score.",
         "Every eligible entry within two combined SE of the top PSIS-LOO ΔELPD ties with it; the **best** is the fastest tied entry.",
         "**Frontier** = not beaten on PSIS-LOO ΔELPD and fit time at once. Fit time is the scored (row-split) fit's sampler wall time.",
+        "**Per hardware.** The frontier and the best are computed separately for each hardware class (where the fit actually ran):",
+        "a fit time only competes with fit times on the same hardware.",
+        "**Variance** = share of the variation in log rent over the training rows attributed to features / building level / unit effects / residual",
+        "(covariance attribution per draw, `rentfrontier.variance`; market and time, building-over-time and building-slope shares are in `leaderboard.json`).",
         "",
-        "| Entry | Line | Design | Features | PSIS-LOO ΔELPD | k | Held-out ΔELPD | Units ΔELPD | R-hat / ESS | Fit time | Hardware | Grade | Best | Frontier | Note |",
-        "|---|---|---|---|---:|---:|---:|---:|---|---:|---|---|---|---|---|",
     ]
     p = PROMOTED
 
@@ -583,40 +678,34 @@ def markdown(board) -> str:
             return (0, -ps["delta"])
         return (1, -(e["splits"].get("rows", {}).get("delta") or -1e9))
 
-    ordered = sorted(board["entries"], key=key)
     marks = {}
-    for e in ordered:
+    for e in sorted(board["entries"], key=key):
         if e.get("annotations"):
             marks[e["id"]] = f"[{len(marks) + 1}]"
-    for e in ordered:
-        r = e["splits"].get("rows", {})
-        u = e["splits"].get("units", {})
-        ps = e.get("psis") or {}
-        if ps.get("delta") is not None:
-            unc = math.hypot(ps["delta_se"], ps["delta_mcse"])
-            psis = f"{fmt(ps['delta'])} ± {fmt(unc)}"
-            kshare = f"{100 * ps['pareto_k']['share_over_threshold']:.1f}%"
-        else:
-            psis, kshare = "—", "—"
-        diag = "; ".join(
-            f"{k}: {v['max_rhat']:.3f} / {v['min_ess']:.0f} / all-effects {v['group_rhat_max']:.2f}"
-            for k, v in e["splits"].items()
-        )
-        note = "; ".join(
-            x
-            for x in (e["note"], ("see " + marks[e["id"]]) if e["id"] in marks else "")
-            if x
-        )
-        lines.append(
-            f"| `{e['id']}` | {e['line']} | {e['model']['name']} | {e['feature_set']} | {psis} | {kshare} | "
-            f"{fmt(r.get('delta'))}{' ± ' + fmt(r.get('delta_se')) if r.get('delta') is not None else ''} | "
-            f"{fmt(u.get('delta'))}{' ± ' + fmt(u.get('delta_se')) if u.get('delta') is not None else ''} | {diag} | "
-            f"{fmt(e['fit_seconds'], 0)} s | {e['hardware']} | {e['grade']} | "
-            f"{'**best**' if e['current_best'] else ''} | {'yes' if e['frontier'] else ''} | {note} |"
-        )
-    lines.append(
-        f"| promoted (validation reference) | pymc | {p['description']} | own | — | — | 0 | 0 | passes | {fmt(p['fit_seconds'] / 60, 0)} min* | {p['hardware']} | reference | | | no saved row-split draws, so no PSIS-LOO score yet |"
-    )
+    ordered = []
+
+    def cls_of(e):
+        return e.get("hardware_class", e["hardware"])
+
+    classes = sorted({cls_of(e) for e in board["entries"]})
+    for cls in classes:
+        group = sorted([e for e in board["entries"] if cls_of(e) == cls], key=key)
+        ordered += group
+        lines += [
+            "",
+            f"### {cls}",
+            "",
+            "| Entry | Line | Design | Features | PSIS-LOO ΔELPD | k | Held-out ΔELPD | Units ΔELPD | Variance: features / building / unit / residual | R-hat / ESS | Fit time | Grade | Best | Frontier | Note |",
+            "|---|---|---|---|---:|---:|---:|---:|---:|---|---:|---|---|---|---|",
+        ]
+        for e in group:
+            lines.append(row(e, marks))
+    lines += [
+        "",
+        "### Validation reference",
+        "",
+        f"`promoted`: {p['description']}. Held-out ΔELPD 0 by definition (rows ELPD {fmt(p['rows']['elpd'])}); full production fit {fmt(p['fit_seconds'] / 60, 0)} min* on {p['hardware']}. No saved row-split draws, so no PSIS-LOO score yet.",
+    ]
     if marks:
         lines += [
             "",

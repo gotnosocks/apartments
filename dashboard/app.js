@@ -13,10 +13,13 @@ const HIT = 24; // minimum hover target, px
 const score = (e) => (e.psis ? e.psis.delta : null);
 const scoreErr = (e) => (e.psis ? Math.hypot(e.psis.delta_se, e.psis.delta_mcse) : null);
 const heldout = (e) => e.splits.rows?.delta ?? null;
+// The frontier is per hardware class; snapshots carry one record per class.
+const EMPTY = { best: null, best_delta: null, frontier: [], entries: 0 };
+const hw = (snap) => (snap.by_class && snap.by_class[state.hw]) || EMPTY;
 
 const state = {
   data: null, idx: 0, showFailed: true, showSE: true, fullRange: false,
-  lines: { frontier: true, pymc: true }, sort: { key: 'psis', dir: -1 }, playing: null,
+  lines: { frontier: true, pymc: true }, sort: { key: 'psis', dir: -1 }, playing: null, hw: null,
 };
 
 // ---------- DOM helpers ----------
@@ -110,16 +113,16 @@ function asOf(idx) {
   const snap = d.snapshots[idx];
   // The latest position means "now" (the build time), so later milestones count.
   const T = idx === d.snapshots.length - 1 ? Math.max(Date.parse(snap.at), Date.parse(d.generated_at)) : Date.parse(snap.at);
-  const frontier = new Set(snap.frontier);
+  const frontier = new Set(hw(snap).frontier);
   const entries = [];
   for (const e of d.entries) {
-    if (!e.available_at || Date.parse(e.available_at) > T) continue;
+    if (!e.available_at || Date.parse(e.available_at) > T || e.hardware_class !== state.hw) continue;
     const splits = {};
     for (const [k, s] of Object.entries(e.splits)) if (Date.parse(s.completed_at) <= T) splits[k] = s;
     if (!splits.rows) continue;
     const passes = Object.values(splits).every((s) => s.passes);
     const fit = splits.rows.fit_seconds; // the scored fit's time
-    entries.push({ ...e, splits, passes, fit, onFrontier: frontier.has(e.key), isBest: snap.best === e.key });
+    entries.push({ ...e, splits, passes, fit, onFrontier: frontier.has(e.key), isBest: hw(snap).best === e.key });
   }
   return { T, snap, entries, frontier, best: entries.find((e) => e.isBest) || null };
 }
@@ -273,7 +276,9 @@ function placeLabels(f, items, obstacles) {
 
 // ---------- domains that stay fixed while scrubbing ----------
 function domains() {
-  const d = state.data;
+  const d0 = state.data;
+  // Axes follow the selected hardware (fit times differ by orders of magnitude between machines).
+  const d = { ...d0, entries: d0.entries.filter((e) => e.hardware_class === state.hw) };
   const fits = d.entries.map((e) => e.fit_seconds).concat([d.reference.fit_seconds]);
   const rows = d.entries.map(score).filter((v) => v !== null && v !== undefined);
   const held = d.entries.map(heldout).filter((v) => v !== null && v !== undefined);
@@ -290,11 +295,12 @@ function domains() {
   const t0 = Math.min(...times) - 2 * 3.6e6;
   const t1 = Math.max(...times, ...d.milestones.map((m) => Date.parse(m.at))) + 2 * 3.6e6;
   const zoomFloor = (vals, top) => { const lo = Math.min(...vals); return lo - 0.06 * (top - lo); };
-  const floor = state.fullRange || !rowsNB.length ? minRows - 0.04 * (maxRows - minRows) : zoomFloor(rowsNB, maxRows);
+  const floor = state.fullRange || !rowsNB.length || rowsNB.length === rows.length
+    ? minRows - 0.04 * Math.max(maxRows - minRows, 1) : zoomFloor(rowsNB, maxRows);
   const ufloor = state.fullRange ? minUnits - 60 : Math.max(minUnits - 60, -150);
   return {
     fit: [Math.min(...fits) / 1.6, Math.max(...fits) * 1.6],
-    rows: [floor, maxRows + 0.04 * (maxRows - floor)],
+    rows: [floor, maxRows + 0.04 * Math.max(maxRows - floor, 1)],
     held: state.fullRange || !heldNB.length
       ? [Math.min(0, ...held) - 60, Math.max(0, ...held) + 70]
       : [zoomFloor(heldNB, Math.max(...held)), Math.max(0, ...held) + 70],
@@ -488,6 +494,72 @@ function drawValidation(v, dom) {
       p.e.psis.validation.psis_mean_lpd_multi_row_units.toFixed(4)]), [1, 2, 3, 4]);
 }
 
+const VAR_LABEL = {
+  'market and time': 'Market and time', features: 'Features', building: 'Building level',
+  'building over time': 'Building over time', 'building slopes': 'Building slopes', unit: 'Unit effects', residual: 'Residual',
+};
+const VAR_INK = ['#ffffff', '#ffffff', '#0b0b0b', '#0b0b0b', '#0b0b0b', '#ffffff', '#ffffff']; // text on each fill
+
+function drawVariance(v) {
+  const groups = state.data.variance_groups;
+  const legend = $('legend-variance');
+  legend.replaceChildren();
+  groups.forEach((g, i) => {
+    const it = html('span', { class: 'item' }, legend);
+    html('span', { class: 'rect', style: `background:var(--cat-${i + 1})`, 'aria-hidden': 'true' }, it);
+    it.appendChild(document.createTextNode(VAR_LABEL[g]));
+  });
+  const rowsE = v.entries.filter((e) => e.variance && (e.onFrontier || e.isBest)).sort((a, b) => a.fit - b.fit);
+  const container = $('chart-variance');
+  if (!rowsE.length) {
+    container.replaceChildren();
+    html('p', { class: 'caption' }, container, 'No frontier entry with a variance decomposition on this hardware yet.');
+    $('table-variance').replaceChildren();
+    return;
+  }
+  const barH = 20, gap = 12, labelW = 230;
+  const f = frame(container, 16 + rowsE.length * (barH + gap) + 30, { top: 8, right: 16, bottom: 30, left: labelW });
+  f.root.setAttribute('aria-label', 'Stacked bars of variance shares per frontier entry');
+  const x = linear([0, 1], [f.inner.x0, f.inner.x1]);
+  for (const t of [0, 0.25, 0.5, 0.75, 1]) {
+    svg('line', { class: 'grid-line', x1: x(t), x2: x(t), y1: f.inner.y0, y2: f.inner.y1, style: 'stroke:var(--grid)' }, f.root);
+    svg('text', { x: x(t), y: f.inner.y1 + 16, 'text-anchor': 'middle', text: `${t * 100}%` }, f.root);
+  }
+  const segs = [];
+  rowsE.forEach((e, r) => {
+    const y0 = f.inner.y0 + 8 + r * (barH + gap);
+    svg('text', { class: 'label', x: labelW - 10, y: y0 + barH / 2 + 4, 'text-anchor': 'end',
+      text: entryLabel(e) + (e.isBest ? ' (best)' : '') }, f.root);
+    let acc = 0;
+    groups.forEach((g, i) => {
+      const share = Math.max(0, e.variance[g].mean);
+      const x0 = x(acc), x1 = x(Math.min(1, acc + share));
+      acc += share;
+      const w = Math.max(0, x1 - x0 - 2); // 2px surface gap between segments
+      if (w <= 0) return;
+      const node = svg('rect', { x: x0, y: y0, width: w, height: barH, rx: i === groups.length - 1 ? 4 : 0,
+        style: `fill:var(--cat-${i + 1})` }, f.root);
+      const text = `${(100 * e.variance[g].mean).toFixed(0)}%`;
+      if (w > 30) svg('text', { x: x0 + w / 2, y: y0 + barH / 2 + 4, 'text-anchor': 'middle', text, style: `fill:${VAR_INK[i]};font-size:11px` }, f.root);
+      segs.push({ x0, x1: x0 + w, y0, y1: y0 + barH, e, g, node });
+    });
+  });
+  f.root.addEventListener('pointermove', (evt) => {
+    const [px, py] = pointerPos(f.root, evt);
+    const hit = segs.find((sgm) => px >= sgm.x0 - 1 && px <= sgm.x1 + 1 && py >= sgm.y0 - gap / 2 && py <= sgm.y1 + gap / 2);
+    if (!hit) return hideTip();
+    const iv = hit.e.variance[hit.g];
+    showTip(evt, (t) => {
+      html('div', { class: 't-value' }, t, `${(100 * iv.mean).toFixed(1)}% of the variation`);
+      html('div', { class: 't-name' }, t, `${VAR_LABEL[hit.g]} · ${hit.e.key}`);
+      tipRow(t, '90% interval', `${(100 * iv.lower_90).toFixed(1)}–${(100 * iv.upper_90).toFixed(1)}%`);
+    });
+  });
+  f.root.addEventListener('pointerleave', hideTip);
+  renderTable($('table-variance'), ['Entry', ...groups.map((g) => VAR_LABEL[g])],
+    rowsE.map((e) => [e.key, ...groups.map((g) => `${(100 * e.variance[g].mean).toFixed(1)}%`)]), groups.map((_, i) => i + 1));
+}
+
 function hoverPoints(f, pts, build) {
   let lifted = null;
   f.root.addEventListener('pointermove', (evt) => {
@@ -599,8 +671,8 @@ function drawProgress(v, dom) {
   let d = '';
   let prev = null;
   for (const s of snaps) {
-    if (s.best_delta === null) continue;
-    const sx = tf.x(Date.parse(s.at)), sy = tf.y(Math.max(s.best_delta, dom.rows[0]));
+    if (hw(s).best_delta === null) continue;
+    const sx = tf.x(Date.parse(s.at)), sy = tf.y(Math.max(hw(s).best_delta, dom.rows[0]));
     d += prev ? ` H${sx} V${sy}` : `M${sx},${sy}`;
     prev = s;
   }
@@ -618,16 +690,17 @@ function drawProgress(v, dom) {
   if (zeroOnAxis) svg('text', { class: 'label-muted', x: tf.f.inner.x1 - 4, y: tf.y(0) - 6, 'text-anchor': 'end', text: 'baseline (m0-base) = 0' }, tf.f.root);
   timeHover(tf, pts, (t, T) => {
     const i = bestAtTime(T);
-    html('div', { class: 't-value' }, t, i >= 0 && state.data.snapshots[i].best ? fmtDelta(state.data.snapshots[i].best_delta) : 'no gate-passing entry');
+    const h = i >= 0 ? hw(state.data.snapshots[i]) : EMPTY;
+    html('div', { class: 't-value' }, t, h.best ? fmtDelta(h.best_delta) : 'no gate-passing entry');
     html('div', { class: 't-name' }, t, `Board best at ${fmtWhen.format(T)}`);
-    if (i >= 0 && state.data.snapshots[i].best) tipRow(t, 'Entry', state.data.snapshots[i].best);
-    if (i >= 0) tipRow(t, 'Frontier entries', String(state.data.snapshots[i].frontier.length));
+    if (h.best) tipRow(t, 'Entry', h.best);
+    if (i >= 0) tipRow(t, 'Frontier entries', String(h.frontier.length));
   });
   const changes = [];
   let last = null;
-  for (const s of snaps) if (s.best !== last) { changes.push(s); last = s.best; }
+  for (const s of snaps) if (hw(s).best !== last) { changes.push(s); last = hw(s).best; }
   renderTable($('table-progress'), ['Became best', 'Entry', 'PSIS-LOO ΔELPD', 'Frontier size'],
-    changes.filter((s) => s.best).map((s) => [fmtWhen.format(Date.parse(s.at)), s.best, fmtDelta(s.best_delta), String(s.frontier.length)]), [2, 3]);
+    changes.filter((s) => hw(s).best).map((s) => [fmtWhen.format(Date.parse(s.at)), hw(s).best, fmtDelta(hw(s).best_delta), String(hw(s).frontier.length)]), [2, 3]);
 }
 
 function drawFitTime(v, dom) {
@@ -641,9 +714,9 @@ function drawFitTime(v, dom) {
   const byKey = Object.fromEntries(state.data.entries.map((e) => [e.key, e]));
   let d = '', prev = null;
   for (const s of state.data.snapshots.slice(0, state.idx + 1)) {
-    if (!s.best) continue;
+    if (!hw(s).best) continue;
     const T = Date.parse(s.at);
-    const fit = fitAsOf(byKey[s.best], T);
+    const fit = fitAsOf(byKey[hw(s).best], T);
     const sx = tf.x(T), sy = tf.y(fit);
     d += prev ? ` H${sx} V${sy}` : `M${sx},${sy}`;
     prev = s;
@@ -653,10 +726,10 @@ function drawFitTime(v, dom) {
   cursorAt(tf, v.T);
   timeHover(tf, pts, (t, T) => {
     const i = bestAtTime(T);
-    const s = i >= 0 ? state.data.snapshots[i] : null;
-    html('div', { class: 't-value' }, t, s && s.best ? fmtDur(fitAsOf(byKey[s.best], Math.max(T, Date.parse(s.at)))) : '—');
+    const s = i >= 0 ? hw(state.data.snapshots[i]) : EMPTY;
+    html('div', { class: 't-value' }, t, s.best ? fmtDur(fitAsOf(byKey[s.best])) : '—');
     html('div', { class: 't-name' }, t, `Fit time of the board best at ${fmtWhen.format(T)}`);
-    if (s && s.best) tipRow(t, 'Entry', s.best);
+    if (s.best) tipRow(t, 'Entry', s.best);
   });
   renderTable($('table-time'), ['Landed', 'Entry', 'Fit time', 'Hardware'],
     pts.sort((a, b) => a.x - b.x).map((p) => [fmtWhen.format(Date.parse(p.e.available_at)), p.e.key, fmtDur(p.e.fit), p.e.hardware]), [2]);
@@ -743,7 +816,7 @@ function drawKpis(v) {
   const snaps = state.data.snapshots;
   if (v.best) {
     let prevBest = null;
-    for (let i = state.idx; i >= 0; i--) if (snaps[i].best && snaps[i].best !== v.best.key) { prevBest = snaps[i]; break; }
+    for (let i = state.idx; i >= 0; i--) if (hw(snaps[i]).best && hw(snaps[i]).best !== v.best.key) { prevBest = hw(snaps[i]); break; }
     tile(box, 'Best PSIS-LOO ΔELPD vs baseline (board rule)', fmtDelta(score(v.best)), fmtSE(scoreErr(v.best)),
       [entryLabel(v.best) + (v.best.design_text ? ` — ${v.best.design_text}` : ''),
         prevBest ? `Previous best: ${prevBest.best} (${fmtDelta(prevBest.best_delta)})` : 'First gate-passing entry'], true);
@@ -875,6 +948,7 @@ function render() {
   drawFrontier(v, dom);
   drawUnits(v, dom);
   drawValidation(v, dom);
+  drawVariance(v);
   drawCompute(v, dom);
   drawProgress(v, dom);
   drawFitTime(v, dom);
@@ -917,6 +991,20 @@ async function main() {
     'Fit times compare well within a line but only roughly across lines: PyMC screens are 4 chains × 1,000/1,000 on CPU; frontier-line runs are production-length on Modal GPUs. The board is docs/model/leaderboard/leaderboard.md; this page applies the same rules at every date.',
   ]) html('p', {}, foot, text);
 
+  const classes = {};
+  for (const e of d.entries) {
+    classes[e.hardware_class] = classes[e.hardware_class] || { n: 0, scored: 0 };
+    classes[e.hardware_class].n += 1;
+    if (e.psis) classes[e.hardware_class].scored += 1;
+  }
+  const order = Object.keys(classes).sort((a, b) => classes[b].scored - classes[a].scored || a.localeCompare(b));
+  state.hw = order[0];
+  const sel = $('hw-select');
+  for (const c of order) {
+    const o = html('option', { value: c }, sel, `${c} (${classes[c].scored} PSIS-scored of ${classes[c].n})`);
+    if (c === state.hw) o.selected = true;
+  }
+  sel.addEventListener('change', () => { state.hw = sel.value; render(); });
   const range = $('asof-range');
   range.max = String(d.snapshots.length - 1);
   state.idx = d.snapshots.length - 1;

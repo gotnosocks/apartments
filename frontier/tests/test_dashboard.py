@@ -54,6 +54,7 @@ def entry(tmp_path, name, delta, fit, landed, passes=True, units=None, noise=Non
         }
     return {
         "id": name,
+        "hardware_class": "gpu",
         "line": "frontier",
         "interpretable": True,
         "passes_checks": passes,
@@ -83,12 +84,20 @@ def test_snapshots_replay_the_board_rules_over_time(tmp_path):
     failing = entry(tmp_path, "failing", 900.0, 50.0, at(4), passes=False)
     entries = dashboard.assign_keys([slow_good, fast_ok, better, failing])
     snaps = dashboard.snapshots(entries)
-    assert [s["best"] for s in snaps] == ["slow", "slow", "better", "better"]
-    assert sorted(snaps[1]["frontier"]) == ["fast", "slow"]
+    assert [s["by_class"]["gpu"]["best"] for s in snaps] == [
+        "slow",
+        "slow",
+        "better",
+        "better",
+    ]
+    assert sorted(snaps[1]["by_class"]["gpu"]["frontier"]) == ["fast", "slow"]
     # "better" is faster and more accurate than "slow": slow leaves the frontier.
-    assert sorted(snaps[2]["frontier"]) == ["better", "fast"]
+    assert sorted(snaps[2]["by_class"]["gpu"]["frontier"]) == ["better", "fast"]
     # A gate-failing entry never joins the frontier or becomes best.
-    assert "failing" not in snaps[3]["frontier"] and snaps[3]["entries"] == 4
+    assert (
+        "failing" not in snaps[3]["by_class"]["gpu"]["frontier"]
+        and snaps[3]["by_class"]["gpu"]["entries"] == 4
+    )
 
 
 def test_shared_ids_get_unique_keys_and_snapshots_use_them(tmp_path):
@@ -102,8 +111,8 @@ def test_shared_ids_get_unique_keys_and_snapshots_use_them(tmp_path):
     assert solo["_key"] == "m6/base@abc [m6-rows-abc-solo]"
     snaps = dashboard.snapshots([first, solo])
     # Only the passing rerun is best and on the frontier, never its twin.
-    assert snaps[-1]["best"] == solo["_key"]
-    assert snaps[-1]["frontier"] == [solo["_key"]]
+    assert snaps[-1]["by_class"]["gpu"]["best"] == solo["_key"]
+    assert snaps[-1]["by_class"]["gpu"]["frontier"] == [solo["_key"]]
 
 
 def test_parse_pr_only_takes_a_trailing_pr_number():
@@ -155,5 +164,20 @@ def test_best_is_the_fastest_entry_tied_with_the_top_score(tmp_path):
     snaps = dashboard.snapshots(entries)
     # 590 is within two combined SE of 600 (noise makes the paired SE ~7), so
     # the faster one is best; 100 is far outside and never ties.
-    assert snaps[1]["best"] == "tied" and snaps[2]["best"] == "tied"
-    assert sorted(snaps[2]["frontier"]) == ["far", "tied", "top"]
+    assert (
+        snaps[1]["by_class"]["gpu"]["best"] == "tied"
+        and snaps[2]["by_class"]["gpu"]["best"] == "tied"
+    )
+    assert sorted(snaps[2]["by_class"]["gpu"]["frontier"]) == ["far", "tied", "top"]
+
+
+def test_frontier_and_best_are_per_hardware_class(tmp_path):
+    gpu = entry(tmp_path, "gpu-slow", 600.0, 3000.0, at(1))
+    cpu = entry(tmp_path, "cpu-fast", 100.0, 60.0, at(2))
+    cpu["hardware_class"] = "cpu"
+    snaps = dashboard.snapshots(dashboard.assign_keys([gpu, cpu]))
+    last = snaps[-1]["by_class"]
+    # Each class has its own frontier: the fast CPU entry does not knock the
+    # slow GPU entry off the GPU frontier, and vice versa.
+    assert last["gpu"]["frontier"] == ["gpu-slow"] and last["gpu"]["best"] == "gpu-slow"
+    assert last["cpu"]["frontier"] == ["cpu-fast"] and last["cpu"]["best"] == "cpu-fast"

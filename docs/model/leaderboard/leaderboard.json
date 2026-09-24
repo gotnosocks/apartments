@@ -53,7 +53,7 @@
         "nu_step_sd": 0.03,
         "trace_groups": 32
       },
-      "hardware": "NVIDIA H100 80GB HBM3",
+      "hardware": "Modal H100",
       "interpretable": true,
       "splits": {
         "rows": {
@@ -97,6 +97,61 @@
       "fit_seconds": 82.845289502,
       "fit_seconds_all_splits": 163.690517954,
       "cost_usd": 0.1823,
+      "variance": {
+        "commit": "d3a7744a0d0765eb02ceffc4248a1836fc9fb9ea",
+        "shares": {
+          "market and time": 0.08611409138427689,
+          "features": 0.5217714155596456,
+          "building": 0.3161147549201361,
+          "building over time": 0.0,
+          "building slopes": 0.0,
+          "unit": 0.034522917351632564,
+          "residual": 0.04147682078430901,
+          "r2": 0.958523179215691
+        },
+        "intervals": {
+          "market and time": {
+            "mean": 0.08611409138427689,
+            "lower_90": 0.08529613276105885,
+            "upper_90": 0.08694028291972206
+          },
+          "features": {
+            "mean": 0.5217714155596456,
+            "lower_90": 0.5170777831295973,
+            "upper_90": 0.5263793636962545
+          },
+          "building": {
+            "mean": 0.3161147549201361,
+            "lower_90": 0.31177041361150526,
+            "upper_90": 0.3207285915627249
+          },
+          "building over time": {
+            "mean": 0.0,
+            "lower_90": 0.0,
+            "upper_90": 0.0
+          },
+          "building slopes": {
+            "mean": 0.0,
+            "lower_90": 0.0,
+            "upper_90": 0.0
+          },
+          "unit": {
+            "mean": 0.034522917351632564,
+            "lower_90": 0.03254900843154588,
+            "upper_90": 0.03680314286265235
+          },
+          "residual": {
+            "mean": 0.04147682078430901,
+            "lower_90": 0.04085413083908678,
+            "upper_90": 0.04206407082616124
+          },
+          "r2": {
+            "mean": 0.958523179215691,
+            "lower_90": 0.9579359291738387,
+            "upper_90": 0.9591458691609132
+          }
+        }
+      },
       "psis": {
         "run": "m0-base-rows-5cc0809",
         "commit": "6c485fc837dd014892d65adc6d0e5e4545c49f85",
@@ -124,9 +179,10 @@
         "delta_mcse": 0.0,
         "baseline": "m0-base/base-v1/gibbs@5cc0809"
       },
-      "current_best": false,
+      "hardware_class": "Modal H100",
       "frontier": true,
-      "note": "beaten by m8-drift/desc-v1/gibbs@b7c196f (+13279.3 \u00b1 184.1 PSIS-LOO)",
+      "current_best": false,
+      "note": "beaten on Modal H100 by m8-drift/desc-v1/gibbs@b7c196f (+13279.3 \u00b1 184.1 PSIS-LOO)",
       "annotations": []
     },
     {
@@ -163,7 +219,7 @@
         "rescale_step_sd": 0.01,
         "trace_groups": 32
       },
-      "hardware": "NVIDIA H100 80GB HBM3",
+      "hardware": "Modal H100",
       "interpretable": true,
       "splits": {
         "rows": {
@@ -207,6 +263,61 @@
       "fit_seconds": 412.68388330700003,
       "fit_seconds_all_splits": 807.638859203,
       "cost_usd": 0.6035,
+      "variance": {
+        "commit": "d3a7744a0d0765eb02ceffc4248a1836fc9fb9ea",
+        "shares": {
+          "market and time": 0.08320615629774936,
+          "features": 0.5140470466060618,
+          "building": 0.3117751916825785,
+          "building over time": 0.027909064138059436,
+          "building slopes": 0.0,
+          "unit": 0.03239637004063263,
+          "residual": 0.030666171234918292,
+          "r2": 0.9693338287650818
+        },
+        "intervals": {
+          "market and time": {
+            "mean": 0.08320615629774936,
+            "lower_90": 0.0812586536499514,
+            "upper_90": 0.08507636121438984
+          },
+          "features": {
+            "mean": 0.5140470466060618,
+            "lower_90": 0.5092969398073979,
+            "upper_90": 0.519150487947352
+          },
+          "building": {
+            "mean": 0.3117751916825785,
+            "lower_90": 0.29940825077539707,
+            "upper_90": 0.32339382582472226
+          },
+          "building over time": {
+            "mean": 0.027909064138059436,
+            "lower_90": 0.01750013362413686,
+            "upper_90": 0.03910389819788505
+          },
+          "building slopes": {
+            "mean": 0.0,
+            "lower_90": 0.0,
+            "upper_90": 0.0
+          },
+          "unit": {
+            "mean": 0.03239637004063263,
+            "lower_90": 0.030516128810303928,
+            "upper_90": 0.03425660404172988
+          },
+          "residual": {
+            "mean": 0.030666171234918292,
+            "lower_90": 0.030061542832300208,
+            "upper_90": 0.03129948664339945
+          },
+          "r2": {
+            "mean": 0.9693338287650818,
+            "lower_90": 0.9687005133566006,
+            "upper_90": 0.9699384571676998
+          }
+        }
+      },
       "psis": {
         "run": "m1-walk-rows-1b11fac",
         "commit": "6c485fc837dd014892d65adc6d0e5e4545c49f85",
@@ -234,9 +345,10 @@
         "delta_mcse": 8.454309252762354,
         "baseline": "m0-base/base-v1/gibbs@5cc0809"
       },
-      "current_best": false,
+      "hardware_class": "Modal H100",
       "frontier": false,
-      "note": "beaten by m8-drift/desc-v1/gibbs@b7c196f (+5748.8 \u00b1 146.0 PSIS-LOO)",
+      "current_best": false,
+      "note": "beaten on Modal H100 by m8-drift/desc-v1/gibbs@b7c196f (+5748.8 \u00b1 146.0 PSIS-LOO)",
       "annotations": []
     },
     {
@@ -276,7 +388,7 @@
         "collapse_scale": 2.38,
         "chain_batch": 0
       },
-      "hardware": "NVIDIA H100 80GB HBM3",
+      "hardware": "Modal H100",
       "interpretable": true,
       "splits": {
         "rows": {
@@ -320,6 +432,61 @@
       "fit_seconds": 757.332050489,
       "fit_seconds_all_splits": 1488.459305809,
       "cost_usd": 1.0174,
+      "variance": {
+        "commit": "d3a7744a0d0765eb02ceffc4248a1836fc9fb9ea",
+        "shares": {
+          "market and time": 0.08323923697934163,
+          "features": 0.5137948665553951,
+          "building": 0.31181391366408484,
+          "building over time": 0.028129099973775096,
+          "building slopes": 0.0,
+          "unit": 0.03238650676653697,
+          "residual": 0.03063637606086626,
+          "r2": 0.9693636239391337
+        },
+        "intervals": {
+          "market and time": {
+            "mean": 0.08323923697934163,
+            "lower_90": 0.08136562371011345,
+            "upper_90": 0.08553761485461271
+          },
+          "features": {
+            "mean": 0.5137948665553951,
+            "lower_90": 0.5089312123446975,
+            "upper_90": 0.5182078071469369
+          },
+          "building": {
+            "mean": 0.31181391366408484,
+            "lower_90": 0.2989853314454373,
+            "upper_90": 0.32426226470783515
+          },
+          "building over time": {
+            "mean": 0.028129099973775096,
+            "lower_90": 0.015404331779275133,
+            "upper_90": 0.040265791892561915
+          },
+          "building slopes": {
+            "mean": 0.0,
+            "lower_90": 0.0,
+            "upper_90": 0.0
+          },
+          "unit": {
+            "mean": 0.03238650676653697,
+            "lower_90": 0.03041737360213574,
+            "upper_90": 0.03424511796382357
+          },
+          "residual": {
+            "mean": 0.03063637606086626,
+            "lower_90": 0.03001121642389994,
+            "upper_90": 0.03130461653829657
+          },
+          "r2": {
+            "mean": 0.9693636239391337,
+            "lower_90": 0.9686953834617035,
+            "upper_90": 0.9699887835761001
+          }
+        }
+      },
       "psis": {
         "run": "m1-walk-rows-942c0f4",
         "commit": "6c485fc837dd014892d65adc6d0e5e4545c49f85",
@@ -347,9 +514,10 @@
         "delta_mcse": 8.449383194333176,
         "baseline": "m0-base/base-v1/gibbs@5cc0809"
       },
-      "current_best": false,
+      "hardware_class": "Modal H100",
       "frontier": false,
-      "note": "beaten by m8-drift/desc-v1/gibbs@b7c196f (+5745.1 \u00b1 145.9 PSIS-LOO)",
+      "current_best": false,
+      "note": "beaten on Modal H100 by m8-drift/desc-v1/gibbs@b7c196f (+5745.1 \u00b1 145.9 PSIS-LOO)",
       "annotations": []
     },
     {
@@ -380,7 +548,7 @@
         "nu_step_sd": 0.03,
         "trace_groups": 32
       },
-      "hardware": "NVIDIA H200",
+      "hardware": "Modal H200",
       "interpretable": true,
       "splits": {
         "rows": {
@@ -424,6 +592,61 @@
       "fit_seconds": 359.885618108,
       "fit_seconds_all_splits": 702.4294547970001,
       "cost_usd": 0.5136,
+      "variance": {
+        "commit": "d3a7744a0d0765eb02ceffc4248a1836fc9fb9ea",
+        "shares": {
+          "market and time": 0.083204941194336,
+          "features": 0.51406186251469,
+          "building": 0.31178109929142905,
+          "building over time": 0.027902183931128276,
+          "building slopes": 0.0,
+          "unit": 0.03238187712613712,
+          "residual": 0.03066803594227959,
+          "r2": 0.9693319640577205
+        },
+        "intervals": {
+          "market and time": {
+            "mean": 0.083204941194336,
+            "lower_90": 0.08130284376295116,
+            "upper_90": 0.08503806452353647
+          },
+          "features": {
+            "mean": 0.51406186251469,
+            "lower_90": 0.5092714289121141,
+            "upper_90": 0.5190408039304161
+          },
+          "building": {
+            "mean": 0.31178109929142905,
+            "lower_90": 0.29923279644986106,
+            "upper_90": 0.32347266990865303
+          },
+          "building over time": {
+            "mean": 0.027902183931128276,
+            "lower_90": 0.01750152870461062,
+            "upper_90": 0.03949634846898919
+          },
+          "building slopes": {
+            "mean": 0.0,
+            "lower_90": 0.0,
+            "upper_90": 0.0
+          },
+          "unit": {
+            "mean": 0.03238187712613712,
+            "lower_90": 0.030468107851923963,
+            "upper_90": 0.034155294874749734
+          },
+          "residual": {
+            "mean": 0.03066803594227959,
+            "lower_90": 0.030018114895196665,
+            "upper_90": 0.031328381117293615
+          },
+          "r2": {
+            "mean": 0.9693319640577205,
+            "lower_90": 0.9686716188827065,
+            "upper_90": 0.9699818851048033
+          }
+        }
+      },
       "psis": {
         "run": "m1-walk-rows-94a4da4",
         "commit": "6c485fc837dd014892d65adc6d0e5e4545c49f85",
@@ -451,9 +674,10 @@
         "delta_mcse": 8.452808766787326,
         "baseline": "m0-base/base-v1/gibbs@5cc0809"
       },
-      "current_best": false,
+      "hardware_class": "Modal H200",
       "frontier": false,
-      "note": "beaten by m8-drift/desc-v1/gibbs@b7c196f (+5748.8 \u00b1 146.0 PSIS-LOO)",
+      "current_best": false,
+      "note": "beaten on Modal H200 by m5-quarterly/base-v1/gibbs@4226f40 (+2340.1 \u00b1 101.9 PSIS-LOO)",
       "annotations": []
     },
     {
@@ -498,7 +722,7 @@
           "walk_scale"
         ]
       },
-      "hardware": "NVIDIA H100 80GB HBM3",
+      "hardware": "Modal H100",
       "interpretable": true,
       "splits": {
         "rows": {
@@ -542,6 +766,61 @@
       "fit_seconds": 997.2356491639999,
       "fit_seconds_all_splits": 1993.931552093,
       "cost_usd": 1.289,
+      "variance": {
+        "commit": "d3a7744a0d0765eb02ceffc4248a1836fc9fb9ea",
+        "shares": {
+          "market and time": 0.08317796085718865,
+          "features": 0.5138083791719128,
+          "building": 0.31155701033877864,
+          "building over time": 0.028388163576931497,
+          "building slopes": 0.0,
+          "unit": 0.032435488448662654,
+          "residual": 0.03063299760652576,
+          "r2": 0.9693670023934743
+        },
+        "intervals": {
+          "market and time": {
+            "mean": 0.08317796085718865,
+            "lower_90": 0.08108007108542885,
+            "upper_90": 0.08522605245254997
+          },
+          "features": {
+            "mean": 0.5138083791719128,
+            "lower_90": 0.5088431383728192,
+            "upper_90": 0.5187648435556391
+          },
+          "building": {
+            "mean": 0.31155701033877864,
+            "lower_90": 0.29940614548836697,
+            "upper_90": 0.3238210466153377
+          },
+          "building over time": {
+            "mean": 0.028388163576931497,
+            "lower_90": 0.017711579755043002,
+            "upper_90": 0.03970974129845648
+          },
+          "building slopes": {
+            "mean": 0.0,
+            "lower_90": 0.0,
+            "upper_90": 0.0
+          },
+          "unit": {
+            "mean": 0.032435488448662654,
+            "lower_90": 0.03059404611652623,
+            "upper_90": 0.03433754257027376
+          },
+          "residual": {
+            "mean": 0.03063299760652576,
+            "lower_90": 0.030059870982643785,
+            "upper_90": 0.03125968784493347
+          },
+          "r2": {
+            "mean": 0.9693670023934743,
+            "lower_90": 0.9687403121550666,
+            "upper_90": 0.9699401290173562
+          }
+        }
+      },
       "psis": {
         "run": "m1-walk-rows-bf01f16",
         "commit": "6c485fc837dd014892d65adc6d0e5e4545c49f85",
@@ -569,9 +848,10 @@
         "delta_mcse": 8.404759442565075,
         "baseline": "m0-base/base-v1/gibbs@5cc0809"
       },
-      "current_best": false,
+      "hardware_class": "Modal H100",
       "frontier": false,
-      "note": "beaten by m8-drift/desc-v1/gibbs@b7c196f (+5733.8 \u00b1 145.9 PSIS-LOO)",
+      "current_best": false,
+      "note": "beaten on Modal H100 by m8-drift/desc-v1/gibbs@b7c196f (+5733.8 \u00b1 145.9 PSIS-LOO)",
       "annotations": []
     },
     {
@@ -613,7 +893,7 @@
         "collapse_scale": 2.38,
         "chain_batch": 0
       },
-      "hardware": "NVIDIA H100 80GB HBM3",
+      "hardware": "Modal H100",
       "interpretable": true,
       "splits": {
         "rows": {
@@ -640,6 +920,61 @@
       "fit_seconds": 684.158991166,
       "fit_seconds_all_splits": 684.158991166,
       "cost_usd": 0.8939,
+      "variance": {
+        "commit": "d3a7744a0d0765eb02ceffc4248a1836fc9fb9ea",
+        "shares": {
+          "market and time": 0.08317695116042544,
+          "features": 0.5138008079465943,
+          "building": 0.3115339035258019,
+          "building over time": 0.028427232731394025,
+          "building slopes": 0.0,
+          "unit": 0.03243146732302051,
+          "residual": 0.030629637312763792,
+          "r2": 0.9693703626872363
+        },
+        "intervals": {
+          "market and time": {
+            "mean": 0.08317695116042544,
+            "lower_90": 0.08110700274353425,
+            "upper_90": 0.0852018061796643
+          },
+          "features": {
+            "mean": 0.5138008079465943,
+            "lower_90": 0.5087994313394395,
+            "upper_90": 0.5186257904085206
+          },
+          "building": {
+            "mean": 0.3115339035258019,
+            "lower_90": 0.2990053049156057,
+            "upper_90": 0.323397007975665
+          },
+          "building over time": {
+            "mean": 0.028427232731394025,
+            "lower_90": 0.0178527132975044,
+            "upper_90": 0.04009419482403407
+          },
+          "building slopes": {
+            "mean": 0.0,
+            "lower_90": 0.0,
+            "upper_90": 0.0
+          },
+          "unit": {
+            "mean": 0.03243146732302051,
+            "lower_90": 0.030576927540551448,
+            "upper_90": 0.034331679971171966
+          },
+          "residual": {
+            "mean": 0.030629637312763792,
+            "lower_90": 0.030058119032893044,
+            "upper_90": 0.03128394850816231
+          },
+          "r2": {
+            "mean": 0.9693703626872363,
+            "lower_90": 0.9687160514918377,
+            "upper_90": 0.9699418809671069
+          }
+        }
+      },
       "psis": {
         "run": "m1-walk-rows-c5a208a",
         "commit": "6c485fc837dd014892d65adc6d0e5e4545c49f85",
@@ -667,9 +1002,10 @@
         "delta_mcse": 8.413560521506877,
         "baseline": "m0-base/base-v1/gibbs@5cc0809"
       },
-      "current_best": false,
+      "hardware_class": "Modal H100",
       "frontier": false,
-      "note": "beaten by m8-drift/desc-v1/gibbs@b7c196f (+5736.5 \u00b1 145.9 PSIS-LOO)",
+      "current_best": false,
+      "note": "beaten on Modal H100 by m8-drift/desc-v1/gibbs@b7c196f (+5736.5 \u00b1 145.9 PSIS-LOO)",
       "annotations": []
     },
     {
@@ -709,7 +1045,7 @@
         "collapse_scale": 2.38,
         "chain_batch": 8
       },
-      "hardware": "NVIDIA H100 80GB HBM3",
+      "hardware": "Modal H100",
       "interpretable": true,
       "splits": {
         "rows": {
@@ -753,6 +1089,61 @@
       "fit_seconds": 2403.481135825,
       "fit_seconds_all_splits": 4816.123190406,
       "cost_usd": 2.9859,
+      "variance": {
+        "commit": "d3a7744a0d0765eb02ceffc4248a1836fc9fb9ea",
+        "shares": {
+          "market and time": 0.053121178868322794,
+          "features": 0.5342312974080441,
+          "building": 0.31057662955076665,
+          "building over time": 0.031323059376593756,
+          "building slopes": 0.018316777005876028,
+          "unit": 0.02423804553140699,
+          "residual": 0.02819301225898969,
+          "r2": 0.9718069877410104
+        },
+        "intervals": {
+          "market and time": {
+            "mean": 0.053121178868322794,
+            "lower_90": 0.0392543800052242,
+            "upper_90": 0.0669682837353209
+          },
+          "features": {
+            "mean": 0.5342312974080441,
+            "lower_90": 0.5171009644053394,
+            "upper_90": 0.551115309596134
+          },
+          "building": {
+            "mean": 0.31057662955076665,
+            "lower_90": 0.29801078066447795,
+            "upper_90": 0.3244733532019593
+          },
+          "building over time": {
+            "mean": 0.031323059376593756,
+            "lower_90": 0.02027507845460752,
+            "upper_90": 0.042754001016999145
+          },
+          "building slopes": {
+            "mean": 0.018316777005876028,
+            "lower_90": 0.009755174174195526,
+            "upper_90": 0.027712521708047184
+          },
+          "unit": {
+            "mean": 0.02423804553140699,
+            "lower_90": 0.022800845078930515,
+            "upper_90": 0.025884132240087114
+          },
+          "residual": {
+            "mean": 0.02819301225898969,
+            "lower_90": 0.027616076378188283,
+            "upper_90": 0.02878217994562554
+          },
+          "r2": {
+            "mean": 0.9718069877410104,
+            "lower_90": 0.9712178200543745,
+            "upper_90": 0.9723839236218117
+          }
+        }
+      },
       "psis": {
         "run": "m4-walk-bedtime-bedslope-rows-942c0f4",
         "commit": "6c485fc837dd014892d65adc6d0e5e4545c49f85",
@@ -780,9 +1171,10 @@
         "delta_mcse": 9.160907780875643,
         "baseline": "m0-base/base-v1/gibbs@5cc0809"
       },
-      "current_best": false,
+      "hardware_class": "Modal H100",
       "frontier": false,
-      "note": "beaten by m8-drift/desc-v1/gibbs@b7c196f (+3381.5 \u00b1 116.7 PSIS-LOO)",
+      "current_best": false,
+      "note": "beaten on Modal H100 by m8-drift/desc-v1/gibbs@b7c196f (+3381.5 \u00b1 116.7 PSIS-LOO)",
       "annotations": []
     },
     {
@@ -830,7 +1222,7 @@
           "unit_scale"
         ]
       },
-      "hardware": "NVIDIA H100 80GB HBM3",
+      "hardware": "Modal H100",
       "interpretable": true,
       "splits": {
         "rows": {
@@ -874,6 +1266,61 @@
       "fit_seconds": 763.6031838849999,
       "fit_seconds_all_splits": 1524.8202389889998,
       "cost_usd": 1.0067,
+      "variance": {
+        "commit": "d3a7744a0d0765eb02ceffc4248a1836fc9fb9ea",
+        "shares": {
+          "market and time": 0.08338040609396766,
+          "features": 0.5022587689848953,
+          "building": 0.3203497152815537,
+          "building over time": 0.023192758875425823,
+          "building slopes": 0.018124223163524418,
+          "unit": 0.024372483988168346,
+          "residual": 0.028321643612464736,
+          "r2": 0.9716783563875353
+        },
+        "intervals": {
+          "market and time": {
+            "mean": 0.08338040609396766,
+            "lower_90": 0.08101224369659059,
+            "upper_90": 0.08567572766014209
+          },
+          "features": {
+            "mean": 0.5022587689848953,
+            "lower_90": 0.49075513450344965,
+            "upper_90": 0.5125381408398305
+          },
+          "building": {
+            "mean": 0.3203497152815537,
+            "lower_90": 0.3071396824747619,
+            "upper_90": 0.3323250283473233
+          },
+          "building over time": {
+            "mean": 0.023192758875425823,
+            "lower_90": 0.011318595298667628,
+            "upper_90": 0.035081847410909625
+          },
+          "building slopes": {
+            "mean": 0.018124223163524418,
+            "lower_90": 0.009464179527947404,
+            "upper_90": 0.027637228876020443
+          },
+          "unit": {
+            "mean": 0.024372483988168346,
+            "lower_90": 0.022708839794813664,
+            "upper_90": 0.026045433953883937
+          },
+          "residual": {
+            "mean": 0.028321643612464736,
+            "lower_90": 0.02766980902730424,
+            "upper_90": 0.028915325059212765
+          },
+          "r2": {
+            "mean": 0.9716783563875353,
+            "lower_90": 0.9710846749407872,
+            "upper_90": 0.9723301909726957
+          }
+        }
+      },
       "psis": {
         "run": "m5-nocurves-rows-33e8bad",
         "commit": "6c485fc837dd014892d65adc6d0e5e4545c49f85",
@@ -901,9 +1348,10 @@
         "delta_mcse": 9.173569276558059,
         "baseline": "m0-base/base-v1/gibbs@5cc0809"
       },
-      "current_best": false,
+      "hardware_class": "Modal H100",
       "frontier": true,
-      "note": "beaten by m8-drift/desc-v1/gibbs@b7c196f (+3512.7 \u00b1 117.7 PSIS-LOO)",
+      "current_best": false,
+      "note": "beaten on Modal H100 by m8-drift/desc-v1/gibbs@b7c196f (+3512.7 \u00b1 117.7 PSIS-LOO)",
       "annotations": []
     },
     {
@@ -951,7 +1399,7 @@
           "unit_scale"
         ]
       },
-      "hardware": "NVIDIA H100 80GB HBM3",
+      "hardware": "Modal H100",
       "interpretable": true,
       "splits": {
         "rows": {
@@ -995,6 +1443,61 @@
       "fit_seconds": 1662.271154553,
       "fit_seconds_all_splits": 3317.431514635,
       "cost_usd": 2.0664,
+      "variance": {
+        "commit": "d3a7744a0d0765eb02ceffc4248a1836fc9fb9ea",
+        "shares": {
+          "market and time": 0.051798994825944966,
+          "features": 0.5466892094956769,
+          "building": 0.30305883471728257,
+          "building over time": 0.035504450639384746,
+          "building slopes": 0.0,
+          "unit": 0.03240307127202282,
+          "residual": 0.030545439049687977,
+          "r2": 0.969454560950312
+        },
+        "intervals": {
+          "market and time": {
+            "mean": 0.051798994825944966,
+            "lower_90": 0.03749932459738646,
+            "upper_90": 0.06615508445739454
+          },
+          "features": {
+            "mean": 0.5466892094956769,
+            "lower_90": 0.5307427309759244,
+            "upper_90": 0.5613285198897621
+          },
+          "building": {
+            "mean": 0.30305883471728257,
+            "lower_90": 0.29019438464185743,
+            "upper_90": 0.3154992438929952
+          },
+          "building over time": {
+            "mean": 0.035504450639384746,
+            "lower_90": 0.02495331718016337,
+            "upper_90": 0.04729683366074825
+          },
+          "building slopes": {
+            "mean": 0.0,
+            "lower_90": 0.0,
+            "upper_90": 0.0
+          },
+          "unit": {
+            "mean": 0.03240307127202282,
+            "lower_90": 0.030646067131112512,
+            "upper_90": 0.03430822552095814
+          },
+          "residual": {
+            "mean": 0.030545439049687977,
+            "lower_90": 0.029967848125420932,
+            "upper_90": 0.031162103647508044
+          },
+          "r2": {
+            "mean": 0.969454560950312,
+            "lower_90": 0.968837896352492,
+            "upper_90": 0.9700321518745791
+          }
+        }
+      },
       "psis": {
         "run": "m5-noslope-rows-33e8bad",
         "commit": "6c485fc837dd014892d65adc6d0e5e4545c49f85",
@@ -1022,9 +1525,10 @@
         "delta_mcse": 8.360382881850894,
         "baseline": "m0-base/base-v1/gibbs@5cc0809"
       },
-      "current_best": false,
+      "hardware_class": "Modal H100",
       "frontier": false,
-      "note": "beaten by m8-drift/desc-v1/gibbs@b7c196f (+5652.1 \u00b1 143.9 PSIS-LOO)",
+      "current_best": false,
+      "note": "beaten on Modal H100 by m8-drift/desc-v1/gibbs@b7c196f (+5652.1 \u00b1 143.9 PSIS-LOO)",
       "annotations": []
     },
     {
@@ -1072,7 +1576,7 @@
           "unit_scale"
         ]
       },
-      "hardware": "NVIDIA H100 80GB HBM3",
+      "hardware": "Modal H100",
       "interpretable": true,
       "splits": {
         "rows": {
@@ -1116,6 +1620,61 @@
       "fit_seconds": 1688.661478496,
       "fit_seconds_all_splits": 3397.3232916039997,
       "cost_usd": 2.1213,
+      "variance": {
+        "commit": "d3a7744a0d0765eb02ceffc4248a1836fc9fb9ea",
+        "shares": {
+          "market and time": 0.04949805559946843,
+          "features": 0.5443133282789809,
+          "building": 0.3060979018758398,
+          "building over time": 0.030986714179384665,
+          "building slopes": 0.018631485526235246,
+          "unit": 0.027393855734683947,
+          "residual": 0.023078658805407052,
+          "r2": 0.9769213411945931
+        },
+        "intervals": {
+          "market and time": {
+            "mean": 0.04949805559946843,
+            "lower_90": 0.03619126563093179,
+            "upper_90": 0.06282900880827084
+          },
+          "features": {
+            "mean": 0.5443133282789809,
+            "lower_90": 0.5289206539970557,
+            "upper_90": 0.5594613716274147
+          },
+          "building": {
+            "mean": 0.3060979018758398,
+            "lower_90": 0.2924608978841719,
+            "upper_90": 0.3198663434345315
+          },
+          "building over time": {
+            "mean": 0.030986714179384665,
+            "lower_90": 0.018564785887113713,
+            "upper_90": 0.042602742602105656
+          },
+          "building slopes": {
+            "mean": 0.018631485526235246,
+            "lower_90": 0.00974214758949634,
+            "upper_90": 0.027629536640915532
+          },
+          "unit": {
+            "mean": 0.027393855734683947,
+            "lower_90": 0.02565602599335086,
+            "upper_90": 0.02927391611790373
+          },
+          "residual": {
+            "mean": 0.023078658805407052,
+            "lower_90": 0.02261789701867652,
+            "upper_90": 0.023533492767958655
+          },
+          "r2": {
+            "mean": 0.9769213411945931,
+            "lower_90": 0.9764665072320414,
+            "upper_90": 0.9773821029813234
+          }
+        }
+      },
       "psis": {
         "run": "m5-nu5-rows-33e8bad",
         "commit": "6c485fc837dd014892d65adc6d0e5e4545c49f85",
@@ -1143,9 +1702,10 @@
         "delta_mcse": 9.359625674203857,
         "baseline": "m0-base/base-v1/gibbs@5cc0809"
       },
-      "current_best": false,
+      "hardware_class": "Modal H100",
       "frontier": false,
-      "note": "beaten by m8-drift/desc-v1/gibbs@b7c196f (+4195.2 \u00b1 128.0 PSIS-LOO)",
+      "current_best": false,
+      "note": "beaten on Modal H100 by m8-drift/desc-v1/gibbs@b7c196f (+4195.2 \u00b1 128.0 PSIS-LOO)",
       "annotations": []
     },
     {
@@ -1191,7 +1751,7 @@
           "bedroom_time_scale"
         ]
       },
-      "hardware": "NVIDIA H200",
+      "hardware": "Modal H200",
       "interpretable": true,
       "splits": {
         "rows": {
@@ -1218,6 +1778,61 @@
       "fit_seconds": 1184.773789487,
       "fit_seconds_all_splits": 1184.773789487,
       "cost_usd": 1.4995,
+      "variance": {
+        "commit": "d3a7744a0d0765eb02ceffc4248a1836fc9fb9ea",
+        "shares": {
+          "market and time": 0.05286122984945392,
+          "features": 0.533890040459187,
+          "building": 0.31164080929360144,
+          "building over time": 0.030719534214887732,
+          "building slopes": 0.018307081158793446,
+          "unit": 0.02434205465287092,
+          "residual": 0.028239250371205525,
+          "r2": 0.9717607496287946
+        },
+        "intervals": {
+          "market and time": {
+            "mean": 0.05286122984945392,
+            "lower_90": 0.03844929910319878,
+            "upper_90": 0.0673352533604657
+          },
+          "features": {
+            "mean": 0.533890040459187,
+            "lower_90": 0.5175895449472668,
+            "upper_90": 0.5522229284353939
+          },
+          "building": {
+            "mean": 0.31164080929360144,
+            "lower_90": 0.2986039147150827,
+            "upper_90": 0.32394771519569493
+          },
+          "building over time": {
+            "mean": 0.030719534214887732,
+            "lower_90": 0.018558770976003825,
+            "upper_90": 0.042608592296891526
+          },
+          "building slopes": {
+            "mean": 0.018307081158793446,
+            "lower_90": 0.009345516056524146,
+            "upper_90": 0.027787771408114538
+          },
+          "unit": {
+            "mean": 0.02434205465287092,
+            "lower_90": 0.02276142477323642,
+            "upper_90": 0.025956133059800338
+          },
+          "residual": {
+            "mean": 0.028239250371205525,
+            "lower_90": 0.02762331239457996,
+            "upper_90": 0.02884409382992985
+          },
+          "r2": {
+            "mean": 0.9717607496287946,
+            "lower_90": 0.9711559061700702,
+            "upper_90": 0.9723766876054201
+          }
+        }
+      },
       "psis": {
         "run": "m5-quarterly-base-v1-rows-4226f40",
         "commit": "6c485fc837dd014892d65adc6d0e5e4545c49f85",
@@ -1245,9 +1860,10 @@
         "delta_mcse": 9.198940229299348,
         "baseline": "m0-base/base-v1/gibbs@5cc0809"
       },
-      "current_best": false,
+      "hardware_class": "Modal H200",
       "frontier": true,
-      "note": "beaten by m8-drift/desc-v1/gibbs@b7c196f (+3408.7 \u00b1 115.8 PSIS-LOO)",
+      "current_best": true,
+      "note": "",
       "annotations": []
     },
     {
@@ -1293,7 +1909,7 @@
           "bedroom_time_scale"
         ]
       },
-      "hardware": "NVIDIA H100 80GB HBM3",
+      "hardware": "Modal H100",
       "interpretable": true,
       "splits": {
         "rows": {
@@ -1312,31 +1928,69 @@
           "cost_usd": 1.738,
           "group_rhat_max": 1.06553177942907,
           "group_rhat_method": "kept joint draws, all group effects"
-        },
-        "units": {
-          "run": "m5-quarterly-desc-v1-units-4226f40",
-          "elpd": 4452.884781286246,
-          "elpd_se": 75.09923648683373,
-          "elpd_mcse": 0.3088192430889499,
-          "delta": 630.7371978474114,
-          "delta_se": 42.61567468393089,
-          "paired_rows": null,
-          "max_rhat": 1.0070697524989463,
-          "min_ess": 2561.552790188469,
-          "passes": true,
-          "fit_seconds": 1217.082913875,
-          "sampling_seconds": 971.5281520609999,
-          "cost_usd": 1.5463,
-          "group_rhat_max": 1.058987692414787,
-          "group_rhat_method": "kept joint draws, all group effects"
         }
       },
       "passes_checks": false,
       "line": "frontier",
       "grade": "failed",
       "fit_seconds": 1353.7668484520002,
-      "fit_seconds_all_splits": 2570.8497623270005,
+      "fit_seconds_all_splits": 1353.7668484520002,
       "cost_usd": 1.738,
+      "variance": {
+        "commit": "d3a7744a0d0765eb02ceffc4248a1836fc9fb9ea",
+        "shares": {
+          "market and time": 0.05014246235817834,
+          "features": 0.5360999907334996,
+          "building": 0.31125097881892555,
+          "building over time": 0.03135015251962719,
+          "building slopes": 0.020519408165576646,
+          "unit": 0.022652310980142233,
+          "residual": 0.027984696424050364,
+          "r2": 0.9720153035759497
+        },
+        "intervals": {
+          "market and time": {
+            "mean": 0.05014246235817834,
+            "lower_90": 0.035712747697557855,
+            "upper_90": 0.06532697535614199
+          },
+          "features": {
+            "mean": 0.5360999907334996,
+            "lower_90": 0.517691125427324,
+            "upper_90": 0.555591506061992
+          },
+          "building": {
+            "mean": 0.31125097881892555,
+            "lower_90": 0.29711036860648843,
+            "upper_90": 0.32378728604054074
+          },
+          "building over time": {
+            "mean": 0.03135015251962719,
+            "lower_90": 0.01881618642144622,
+            "upper_90": 0.04431530450870205
+          },
+          "building slopes": {
+            "mean": 0.020519408165576646,
+            "lower_90": 0.011830122771773081,
+            "upper_90": 0.02996268191176931
+          },
+          "unit": {
+            "mean": 0.022652310980142233,
+            "lower_90": 0.021119087000840257,
+            "upper_90": 0.02414998148494033
+          },
+          "residual": {
+            "mean": 0.027984696424050364,
+            "lower_90": 0.027443357883473234,
+            "upper_90": 0.028573225685785617
+          },
+          "r2": {
+            "mean": 0.9720153035759497,
+            "lower_90": 0.9714267743142144,
+            "upper_90": 0.9725566421165268
+          }
+        }
+      },
       "psis": {
         "run": "m5-quarterly-desc-v1-rows-4226f40",
         "commit": "6c485fc837dd014892d65adc6d0e5e4545c49f85",
@@ -1364,9 +2018,10 @@
         "delta_mcse": 9.211835092163247,
         "baseline": "m0-base/base-v1/gibbs@5cc0809"
       },
-      "current_best": false,
+      "hardware_class": "Modal H100",
       "frontier": false,
-      "note": "beaten by m8-drift/desc-v1/gibbs@b7c196f (+3175.0 \u00b1 111.1 PSIS-LOO)",
+      "current_best": false,
+      "note": "beaten on Modal H100 by m8-drift/desc-v1/gibbs@b7c196f (+3175.0 \u00b1 111.1 PSIS-LOO)",
       "annotations": []
     },
     {
@@ -1416,7 +2071,7 @@
           "unit_scale"
         ]
       },
-      "hardware": "NVIDIA H100 80GB HBM3",
+      "hardware": "Modal H100",
       "interpretable": true,
       "splits": {
         "rows": {
@@ -1460,6 +2115,61 @@
       "fit_seconds": 1714.709224109,
       "fit_seconds_all_splits": 3468.9558717090003,
       "cost_usd": 2.1876,
+      "variance": {
+        "commit": "d3a7744a0d0765eb02ceffc4248a1836fc9fb9ea",
+        "shares": {
+          "market and time": 0.05014811811860298,
+          "features": 0.5360741486203038,
+          "building": 0.311286812518867,
+          "building over time": 0.03134543949284863,
+          "building slopes": 0.020514903579366712,
+          "unit": 0.02264052385405581,
+          "residual": 0.027990053815955034,
+          "r2": 0.9720099461840448
+        },
+        "intervals": {
+          "market and time": {
+            "mean": 0.05014811811860298,
+            "lower_90": 0.03535015136189873,
+            "upper_90": 0.06535424349050659
+          },
+          "features": {
+            "mean": 0.5360741486203038,
+            "lower_90": 0.5178007821046338,
+            "upper_90": 0.5559735716821053
+          },
+          "building": {
+            "mean": 0.311286812518867,
+            "lower_90": 0.29760934256878235,
+            "upper_90": 0.3248826337221483
+          },
+          "building over time": {
+            "mean": 0.03134543949284863,
+            "lower_90": 0.019516789703969445,
+            "upper_90": 0.04473047564154905
+          },
+          "building slopes": {
+            "mean": 0.020514903579366712,
+            "lower_90": 0.011905726957635551,
+            "upper_90": 0.02997084321845698
+          },
+          "unit": {
+            "mean": 0.02264052385405581,
+            "lower_90": 0.02103533542536475,
+            "upper_90": 0.02415116869559429
+          },
+          "residual": {
+            "mean": 0.027990053815955034,
+            "lower_90": 0.02745751203779416,
+            "upper_90": 0.02858594416950674
+          },
+          "r2": {
+            "mean": 0.9720099461840448,
+            "lower_90": 0.9714140558304932,
+            "upper_90": 0.9725424879622059
+          }
+        }
+      },
       "psis": {
         "run": "m5-quarterly-desc-v1-rows-8d52ddb",
         "commit": "6c485fc837dd014892d65adc6d0e5e4545c49f85",
@@ -1487,9 +2197,86 @@
         "delta_mcse": 9.211658888646975,
         "baseline": "m0-base/base-v1/gibbs@5cc0809"
       },
-      "current_best": false,
+      "hardware_class": "Modal H100",
       "frontier": false,
-      "note": "beaten by m8-drift/desc-v1/gibbs@b7c196f (+3172.5 \u00b1 111.1 PSIS-LOO)",
+      "current_best": false,
+      "note": "beaten on Modal H100 by m8-drift/desc-v1/gibbs@b7c196f (+3172.5 \u00b1 111.1 PSIS-LOO)",
+      "annotations": []
+    },
+    {
+      "id": "m5-quarterly/desc-v1/gibbs@4226f40",
+      "commit": "4226f40a9ef92964361fbc8ff9cf941ab0314956",
+      "model": {
+        "name": "m5-quarterly",
+        "beta_sd": 0.5,
+        "trend_scale_sd": 0.05,
+        "season_scale_sd": 0.05,
+        "building_scale_sd": 0.5,
+        "unit_scale_sd": 0.2,
+        "noise_scale_sd": 0.2,
+        "noncentered": [],
+        "building_walk": true,
+        "walk_scale_sd": 0.1,
+        "bedroom_time": true,
+        "bedroom_time_scale_sd": 0.02,
+        "bedroom_slope": true,
+        "bedroom_slope_scale_sd": 0.1,
+        "trend_knot_months": 3,
+        "bedroom_time_knot_months": 3
+      },
+      "feature_set": "desc-v1",
+      "sampler": "gibbs",
+      "sampler_settings": {
+        "chains": 16,
+        "warmup": 600,
+        "draws": 2000,
+        "keep_every": 100,
+        "seed": 20260923,
+        "noise_steps": 10,
+        "sigma_step_sd": 0.004,
+        "nu_step_sd": 0.03,
+        "rescale_steps": 5,
+        "rescale_step_sd": 0.01,
+        "trace_groups": 32,
+        "collapse": true,
+        "collapse_scale": 2.38,
+        "chain_batch": 0,
+        "solo_scales": [
+          "walk_scale",
+          "bedroom_time_scale"
+        ]
+      },
+      "hardware": "Modal H200",
+      "interpretable": true,
+      "splits": {
+        "units": {
+          "run": "m5-quarterly-desc-v1-units-4226f40",
+          "elpd": 4452.884781286246,
+          "elpd_se": 75.09923648683373,
+          "elpd_mcse": 0.3088192430889499,
+          "delta": 630.7371978474114,
+          "delta_se": 42.61567468393089,
+          "paired_rows": null,
+          "max_rhat": 1.0070697524989463,
+          "min_ess": 2561.552790188469,
+          "passes": true,
+          "fit_seconds": 1217.082913875,
+          "sampling_seconds": 971.5281520609999,
+          "cost_usd": 1.5463,
+          "group_rhat_max": 1.058987692414787,
+          "group_rhat_method": "kept joint draws, all group effects"
+        }
+      },
+      "passes_checks": true,
+      "line": "frontier",
+      "grade": "full",
+      "fit_seconds": 1217.082913875,
+      "fit_seconds_all_splits": 1217.082913875,
+      "cost_usd": 1.5463,
+      "hardware_class": "Modal H200",
+      "frontier": false,
+      "current_best": false,
+      "note": "",
       "annotations": []
     },
     {
@@ -1534,7 +2321,7 @@
           "walk_scale"
         ]
       },
-      "hardware": "NVIDIA H100 80GB HBM3",
+      "hardware": "Modal H100",
       "interpretable": true,
       "splits": {
         "rows": {
@@ -1578,6 +2365,61 @@
       "fit_seconds": 1282.2096327000002,
       "fit_seconds_all_splits": 2588.762434564,
       "cost_usd": 1.6506,
+      "variance": {
+        "commit": "d3a7744a0d0765eb02ceffc4248a1836fc9fb9ea",
+        "shares": {
+          "market and time": 0.052837045410437544,
+          "features": 0.5338928141446055,
+          "building": 0.3117242861849891,
+          "building over time": 0.03065323127764389,
+          "building slopes": 0.01830544306690913,
+          "unit": 0.02434820769763369,
+          "residual": 0.02823897221778111,
+          "r2": 0.9717610277822188
+        },
+        "intervals": {
+          "market and time": {
+            "mean": 0.052837045410437544,
+            "lower_90": 0.037653965861662336,
+            "upper_90": 0.06704774856322819
+          },
+          "features": {
+            "mean": 0.5338928141446055,
+            "lower_90": 0.5180180160124879,
+            "upper_90": 0.5524378732711422
+          },
+          "building": {
+            "mean": 0.3117242861849891,
+            "lower_90": 0.29890438163294053,
+            "upper_90": 0.323787259281171
+          },
+          "building over time": {
+            "mean": 0.03065323127764389,
+            "lower_90": 0.018323831739408408,
+            "upper_90": 0.042675319401486
+          },
+          "building slopes": {
+            "mean": 0.01830544306690913,
+            "lower_90": 0.00928911354541247,
+            "upper_90": 0.027733478357835368
+          },
+          "unit": {
+            "mean": 0.02434820769763369,
+            "lower_90": 0.02278027760900079,
+            "upper_90": 0.02596471419547494
+          },
+          "residual": {
+            "mean": 0.02823897221778111,
+            "lower_90": 0.02762831879208186,
+            "upper_90": 0.028827107872737248
+          },
+          "r2": {
+            "mean": 0.9717610277822188,
+            "lower_90": 0.9711728921272627,
+            "upper_90": 0.9723716812079182
+          }
+        }
+      },
       "psis": {
         "run": "m5-quarterly-rows-bf01f16",
         "commit": "6c485fc837dd014892d65adc6d0e5e4545c49f85",
@@ -1605,9 +2447,10 @@
         "delta_mcse": 9.199756322156661,
         "baseline": "m0-base/base-v1/gibbs@5cc0809"
       },
-      "current_best": false,
+      "hardware_class": "Modal H100",
       "frontier": false,
-      "note": "beaten by m8-drift/desc-v1/gibbs@b7c196f (+3408.4 \u00b1 115.8 PSIS-LOO)",
+      "current_best": false,
+      "note": "beaten on Modal H100 by m8-drift/desc-v1/gibbs@b7c196f (+3408.4 \u00b1 115.8 PSIS-LOO)",
       "annotations": []
     },
     {
@@ -1655,7 +2498,7 @@
           "unit_scale"
         ]
       },
-      "hardware": "NVIDIA H100 80GB HBM3",
+      "hardware": "Modal H100",
       "interpretable": true,
       "splits": {
         "units": {
@@ -1682,8 +2525,9 @@
       "fit_seconds": 1712.126112483,
       "fit_seconds_all_splits": 1712.126112483,
       "cost_usd": 2.1206,
-      "current_best": false,
+      "hardware_class": "Modal H100",
       "frontier": false,
+      "current_best": false,
       "note": "",
       "annotations": []
     },
@@ -1741,7 +2585,7 @@
           "fslope_scale_2"
         ]
       },
-      "hardware": "NVIDIA H100 80GB HBM3",
+      "hardware": "Modal H100",
       "interpretable": true,
       "splits": {
         "rows": {
@@ -1785,6 +2629,61 @@
       "fit_seconds": 2651.1951100879996,
       "fit_seconds_all_splits": 5277.981631183,
       "cost_usd": 3.2425,
+      "variance": {
+        "commit": "d3a7744a0d0765eb02ceffc4248a1836fc9fb9ea",
+        "shares": {
+          "market and time": 0.04879731580260812,
+          "features": 0.5727523786842884,
+          "building": 0.2719291889367589,
+          "building over time": 0.03440726832188101,
+          "building slopes": 0.027936965047627733,
+          "unit": 0.018660634977950053,
+          "residual": 0.02551624822888583,
+          "r2": 0.974483751771114
+        },
+        "intervals": {
+          "market and time": {
+            "mean": 0.04879731580260812,
+            "lower_90": 0.03547051406353008,
+            "upper_90": 0.062035545540961516
+          },
+          "features": {
+            "mean": 0.5727523786842884,
+            "lower_90": 0.5549495429904484,
+            "upper_90": 0.5913631994034129
+          },
+          "building": {
+            "mean": 0.2719291889367589,
+            "lower_90": 0.25915973566591266,
+            "upper_90": 0.28635508690681793
+          },
+          "building over time": {
+            "mean": 0.03440726832188101,
+            "lower_90": 0.02288912309837871,
+            "upper_90": 0.046563582656378597
+          },
+          "building slopes": {
+            "mean": 0.027936965047627733,
+            "lower_90": 0.01641895314610371,
+            "upper_90": 0.03978156510161878
+          },
+          "unit": {
+            "mean": 0.018660634977950053,
+            "lower_90": 0.01716728991391103,
+            "upper_90": 0.020048692418016885
+          },
+          "residual": {
+            "mean": 0.02551624822888583,
+            "lower_90": 0.025049123771370422,
+            "upper_90": 0.026119897470788984
+          },
+          "r2": {
+            "mean": 0.974483751771114,
+            "lower_90": 0.9738801025292111,
+            "upper_90": 0.9749508762286296
+          }
+        }
+      },
       "psis": {
         "run": "m6-slopes-base-v1-rows-6a14509",
         "commit": "6c485fc837dd014892d65adc6d0e5e4545c49f85",
@@ -1812,9 +2711,10 @@
         "delta_mcse": 10.410824663132157,
         "baseline": "m0-base/base-v1/gibbs@5cc0809"
       },
-      "current_best": false,
+      "hardware_class": "Modal H100",
       "frontier": false,
-      "note": "beaten by m8-drift/desc-v1/gibbs@b7c196f (+1747.9 \u00b1 83.6 PSIS-LOO)",
+      "current_best": false,
+      "note": "beaten on Modal H100 by m8-drift/desc-v1/gibbs@b7c196f (+1747.9 \u00b1 83.6 PSIS-LOO)",
       "annotations": []
     },
     {
@@ -1868,7 +2768,7 @@
           "unit_scale"
         ]
       },
-      "hardware": "NVIDIA H100 80GB HBM3",
+      "hardware": "Modal H100",
       "interpretable": true,
       "splits": {
         "rows": {
@@ -1912,6 +2812,61 @@
       "fit_seconds": 1835.312138203,
       "fit_seconds_all_splits": 3699.667619776,
       "cost_usd": 2.3076,
+      "variance": {
+        "commit": "d3a7744a0d0765eb02ceffc4248a1836fc9fb9ea",
+        "shares": {
+          "market and time": 0.0487901098892175,
+          "features": 0.5728541868176821,
+          "building": 0.2717608285303725,
+          "building over time": 0.03453898515865407,
+          "building slopes": 0.027884883354983035,
+          "unit": 0.018646380886336272,
+          "residual": 0.025524625362754537,
+          "r2": 0.9744753746372453
+        },
+        "intervals": {
+          "market and time": {
+            "mean": 0.0487901098892175,
+            "lower_90": 0.03540583322830483,
+            "upper_90": 0.06212697920492471
+          },
+          "features": {
+            "mean": 0.5728541868176821,
+            "lower_90": 0.5549121647914625,
+            "upper_90": 0.5912760462539054
+          },
+          "building": {
+            "mean": 0.2717608285303725,
+            "lower_90": 0.2585831244699576,
+            "upper_90": 0.2859702541799156
+          },
+          "building over time": {
+            "mean": 0.03453898515865407,
+            "lower_90": 0.02197057053182753,
+            "upper_90": 0.04651669168680776
+          },
+          "building slopes": {
+            "mean": 0.027884883354983035,
+            "lower_90": 0.016504464220349426,
+            "upper_90": 0.040046254088320944
+          },
+          "unit": {
+            "mean": 0.018646380886336272,
+            "lower_90": 0.01720294942555733,
+            "upper_90": 0.020042977608880873
+          },
+          "residual": {
+            "mean": 0.025524625362754537,
+            "lower_90": 0.025011397715651782,
+            "upper_90": 0.026086130770234278
+          },
+          "r2": {
+            "mean": 0.9744753746372453,
+            "lower_90": 0.9739138692297656,
+            "upper_90": 0.9749886022843482
+          }
+        }
+      },
       "psis": {
         "run": "m6-slopes-base-v1-rows-8d52ddb",
         "commit": "6c485fc837dd014892d65adc6d0e5e4545c49f85",
@@ -1939,9 +2894,10 @@
         "delta_mcse": 10.41429265472877,
         "baseline": "m0-base/base-v1/gibbs@5cc0809"
       },
-      "current_best": false,
+      "hardware_class": "Modal H100",
       "frontier": false,
-      "note": "beaten by m8-drift/desc-v1/gibbs@b7c196f (+1749.0 \u00b1 83.6 PSIS-LOO)",
+      "current_best": false,
+      "note": "beaten on Modal H100 by m8-drift/desc-v1/gibbs@b7c196f (+1749.0 \u00b1 83.6 PSIS-LOO)",
       "annotations": []
     },
     {
@@ -1998,7 +2954,7 @@
           "fslope_scale_2"
         ]
       },
-      "hardware": "NVIDIA H100 80GB HBM3",
+      "hardware": "Modal H100",
       "interpretable": true,
       "splits": {
         "rows": {
@@ -2042,6 +2998,61 @@
       "fit_seconds": 2361.239207655,
       "fit_seconds_all_splits": 4716.811063348,
       "cost_usd": 2.8768,
+      "variance": {
+        "commit": "d3a7744a0d0765eb02ceffc4248a1836fc9fb9ea",
+        "shares": {
+          "market and time": 0.04875902886624945,
+          "features": 0.5728945617596292,
+          "building": 0.27178424147599867,
+          "building over time": 0.03449559975139129,
+          "building slopes": 0.027892661817833987,
+          "unit": 0.018647155428617782,
+          "residual": 0.025526750900279706,
+          "r2": 0.9744732490997203
+        },
+        "intervals": {
+          "market and time": {
+            "mean": 0.04875902886624945,
+            "lower_90": 0.03532024867838299,
+            "upper_90": 0.06214033521590166
+          },
+          "features": {
+            "mean": 0.5728945617596292,
+            "lower_90": 0.5545404966097454,
+            "upper_90": 0.5917775204820842
+          },
+          "building": {
+            "mean": 0.27178424147599867,
+            "lower_90": 0.2592363017072016,
+            "upper_90": 0.2862390706917378
+          },
+          "building over time": {
+            "mean": 0.03449559975139129,
+            "lower_90": 0.021970288435477298,
+            "upper_90": 0.0465271011605788
+          },
+          "building slopes": {
+            "mean": 0.027892661817833987,
+            "lower_90": 0.016387826579026002,
+            "upper_90": 0.039975879050587936
+          },
+          "unit": {
+            "mean": 0.018647155428617782,
+            "lower_90": 0.017164458301421177,
+            "upper_90": 0.020015163776228473
+          },
+          "residual": {
+            "mean": 0.025526750900279706,
+            "lower_90": 0.025017548520716804,
+            "upper_90": 0.02609367754901556
+          },
+          "r2": {
+            "mean": 0.9744732490997203,
+            "lower_90": 0.9739063224509844,
+            "upper_90": 0.9749824514792831
+          }
+        }
+      },
       "psis": {
         "run": "m6-slopes-base-v1-rows-8d52ddb-solo",
         "commit": "6c485fc837dd014892d65adc6d0e5e4545c49f85",
@@ -2069,9 +3080,10 @@
         "delta_mcse": 10.409216104871561,
         "baseline": "m0-base/base-v1/gibbs@5cc0809"
       },
-      "current_best": false,
+      "hardware_class": "Modal H100",
       "frontier": false,
-      "note": "beaten by m8-drift/desc-v1/gibbs@b7c196f (+1748.8 \u00b1 83.6 PSIS-LOO)",
+      "current_best": false,
+      "note": "beaten on Modal H100 by m8-drift/desc-v1/gibbs@b7c196f (+1748.8 \u00b1 83.6 PSIS-LOO)",
       "annotations": []
     },
     {
@@ -2128,7 +3140,7 @@
           "fslope_scale_2"
         ]
       },
-      "hardware": "NVIDIA H100 80GB HBM3",
+      "hardware": "Modal H100",
       "interpretable": true,
       "splits": {
         "rows": {
@@ -2172,6 +3184,61 @@
       "fit_seconds": 3673.428859392,
       "fit_seconds_all_splits": 7362.04068349,
       "cost_usd": 4.4697,
+      "variance": {
+        "commit": "d3a7744a0d0765eb02ceffc4248a1836fc9fb9ea",
+        "shares": {
+          "market and time": 0.04515912011004861,
+          "features": 0.5728416456628798,
+          "building": 0.2725641359405116,
+          "building over time": 0.03562509676949231,
+          "building slopes": 0.031174827988675477,
+          "unit": 0.017427085817984116,
+          "residual": 0.025208087710408174,
+          "r2": 0.9747919122895918
+        },
+        "intervals": {
+          "market and time": {
+            "mean": 0.04515912011004861,
+            "lower_90": 0.03059552236554093,
+            "upper_90": 0.05860243435222392
+          },
+          "features": {
+            "mean": 0.5728416456628798,
+            "lower_90": 0.5552575564354459,
+            "upper_90": 0.5923972704179228
+          },
+          "building": {
+            "mean": 0.2725641359405116,
+            "lower_90": 0.25932874439169323,
+            "upper_90": 0.2870706974770623
+          },
+          "building over time": {
+            "mean": 0.03562509676949231,
+            "lower_90": 0.02409455085844131,
+            "upper_90": 0.046860070068048446
+          },
+          "building slopes": {
+            "mean": 0.031174827988675477,
+            "lower_90": 0.019674504062625726,
+            "upper_90": 0.04234575610111824
+          },
+          "unit": {
+            "mean": 0.017427085817984116,
+            "lower_90": 0.015998545723650642,
+            "upper_90": 0.01876339796930514
+          },
+          "residual": {
+            "mean": 0.025208087710408174,
+            "lower_90": 0.024696015757514695,
+            "upper_90": 0.02579910002941432
+          },
+          "r2": {
+            "mean": 0.9747919122895918,
+            "lower_90": 0.9742008999705857,
+            "upper_90": 0.9753039842424853
+          }
+        }
+      },
       "psis": {
         "run": "m6-slopes-desc-v1-rows-69cb324-long",
         "commit": "6c485fc837dd014892d65adc6d0e5e4545c49f85",
@@ -2199,9 +3266,10 @@
         "delta_mcse": 9.080452727967849,
         "baseline": "m0-base/base-v1/gibbs@5cc0809"
       },
-      "current_best": false,
+      "hardware_class": "Modal H100",
       "frontier": false,
-      "note": "beaten by m8-drift/desc-v1/gibbs@b7c196f (+1589.1 \u00b1 75.9 PSIS-LOO)",
+      "current_best": false,
+      "note": "beaten on Modal H100 by m8-drift/desc-v1/gibbs@b7c196f (+1589.1 \u00b1 75.9 PSIS-LOO)",
       "annotations": []
     },
     {
@@ -2258,7 +3326,7 @@
           "fslope_scale_2"
         ]
       },
-      "hardware": "NVIDIA H100 80GB HBM3",
+      "hardware": "Modal H100",
       "interpretable": true,
       "splits": {
         "rows": {
@@ -2302,6 +3370,61 @@
       "fit_seconds": 2680.99888286,
       "fit_seconds_all_splits": 5388.76176251,
       "cost_usd": 3.3022,
+      "variance": {
+        "commit": "d3a7744a0d0765eb02ceffc4248a1836fc9fb9ea",
+        "shares": {
+          "market and time": 0.04511637084630271,
+          "features": 0.5726360049518362,
+          "building": 0.27303351782374563,
+          "building over time": 0.0353941913965108,
+          "building slopes": 0.031224264661054407,
+          "unit": 0.017396869160121776,
+          "residual": 0.025198781160428545,
+          "r2": 0.9748012188395714
+        },
+        "intervals": {
+          "market and time": {
+            "mean": 0.04511637084630271,
+            "lower_90": 0.03064357137343174,
+            "upper_90": 0.05859543855644931
+          },
+          "features": {
+            "mean": 0.5726360049518362,
+            "lower_90": 0.5542645537447894,
+            "upper_90": 0.5923972704176494
+          },
+          "building": {
+            "mean": 0.27303351782374563,
+            "lower_90": 0.26039292319301977,
+            "upper_90": 0.28751386547615243
+          },
+          "building over time": {
+            "mean": 0.0353941913965108,
+            "lower_90": 0.02322353589562734,
+            "upper_90": 0.04615319146476857
+          },
+          "building slopes": {
+            "mean": 0.031224264661054407,
+            "lower_90": 0.0198520886567211,
+            "upper_90": 0.043138468841711596
+          },
+          "unit": {
+            "mean": 0.017396869160121776,
+            "lower_90": 0.015986774515119803,
+            "upper_90": 0.018698976180462262
+          },
+          "residual": {
+            "mean": 0.025198781160428545,
+            "lower_90": 0.024686249198469103,
+            "upper_90": 0.025783596299082733
+          },
+          "r2": {
+            "mean": 0.9748012188395714,
+            "lower_90": 0.9742164037009173,
+            "upper_90": 0.9753137508015309
+          }
+        }
+      },
       "psis": {
         "run": "m6-slopes-desc-v1-rows-6a14509",
         "commit": "6c485fc837dd014892d65adc6d0e5e4545c49f85",
@@ -2329,9 +3452,10 @@
         "delta_mcse": 10.429632190635056,
         "baseline": "m0-base/base-v1/gibbs@5cc0809"
       },
-      "current_best": false,
+      "hardware_class": "Modal H100",
       "frontier": false,
-      "note": "beaten by m8-drift/desc-v1/gibbs@b7c196f (+1525.1 \u00b1 76.2 PSIS-LOO)",
+      "current_best": false,
+      "note": "beaten on Modal H100 by m8-drift/desc-v1/gibbs@b7c196f (+1525.1 \u00b1 76.2 PSIS-LOO)",
       "annotations": []
     },
     {
@@ -2385,7 +3509,7 @@
           "unit_scale"
         ]
       },
-      "hardware": "NVIDIA H100 80GB HBM3",
+      "hardware": "Modal H100",
       "interpretable": true,
       "splits": {
         "rows": {
@@ -2429,6 +3553,61 @@
       "fit_seconds": 1904.250115275,
       "fit_seconds_all_splits": 3810.731895316,
       "cost_usd": 2.3638,
+      "variance": {
+        "commit": "d3a7744a0d0765eb02ceffc4248a1836fc9fb9ea",
+        "shares": {
+          "market and time": 0.04516526381482611,
+          "features": 0.5726370812256801,
+          "building": 0.2729332416514477,
+          "building over time": 0.035451545964687206,
+          "building slopes": 0.031216961096002426,
+          "unit": 0.017391686115042028,
+          "residual": 0.02520422013231427,
+          "r2": 0.9747957798676857
+        },
+        "intervals": {
+          "market and time": {
+            "mean": 0.04516526381482611,
+            "lower_90": 0.03113941720484507,
+            "upper_90": 0.05840459564852194
+          },
+          "features": {
+            "mean": 0.5726370812256801,
+            "lower_90": 0.5548737164957617,
+            "upper_90": 0.5923110929188021
+          },
+          "building": {
+            "mean": 0.2729332416514477,
+            "lower_90": 0.2592316381815872,
+            "upper_90": 0.2871428354815042
+          },
+          "building over time": {
+            "mean": 0.035451545964687206,
+            "lower_90": 0.023686558785519018,
+            "upper_90": 0.04700450483581919
+          },
+          "building slopes": {
+            "mean": 0.031216961096002426,
+            "lower_90": 0.020088084731074013,
+            "upper_90": 0.042877234520333145
+          },
+          "unit": {
+            "mean": 0.017391686115042028,
+            "lower_90": 0.015995696057539307,
+            "upper_90": 0.01871399680942904
+          },
+          "residual": {
+            "mean": 0.02520422013231427,
+            "lower_90": 0.02468321167064911,
+            "upper_90": 0.025782061370249267
+          },
+          "r2": {
+            "mean": 0.9747957798676857,
+            "lower_90": 0.9742179386297507,
+            "upper_90": 0.9753167883293509
+          }
+        }
+      },
       "psis": {
         "run": "m6-slopes-desc-v1-rows-8d52ddb",
         "commit": "6c485fc837dd014892d65adc6d0e5e4545c49f85",
@@ -2456,9 +3635,10 @@
         "delta_mcse": 10.425734762603662,
         "baseline": "m0-base/base-v1/gibbs@5cc0809"
       },
-      "current_best": false,
+      "hardware_class": "Modal H100",
       "frontier": false,
-      "note": "beaten by m8-drift/desc-v1/gibbs@b7c196f (+1530.1 \u00b1 76.2 PSIS-LOO)",
+      "current_best": false,
+      "note": "beaten on Modal H100 by m8-drift/desc-v1/gibbs@b7c196f (+1530.1 \u00b1 76.2 PSIS-LOO)",
       "annotations": []
     },
     {
@@ -2515,7 +3695,7 @@
           "fslope_scale_2"
         ]
       },
-      "hardware": "NVIDIA H100 80GB HBM3",
+      "hardware": "Modal H100",
       "interpretable": true,
       "splits": {
         "rows": {
@@ -2559,6 +3739,61 @@
       "fit_seconds": 2433.470817045,
       "fit_seconds_all_splits": 4864.068931192,
       "cost_usd": 2.9694,
+      "variance": {
+        "commit": "d3a7744a0d0765eb02ceffc4248a1836fc9fb9ea",
+        "shares": {
+          "market and time": 0.04512954713529076,
+          "features": 0.5726531533985673,
+          "building": 0.27292298443284396,
+          "building over time": 0.035459538361583366,
+          "building slopes": 0.031236762480561654,
+          "unit": 0.01738858720489593,
+          "residual": 0.02520942698625709,
+          "r2": 0.974790573013743
+        },
+        "intervals": {
+          "market and time": {
+            "mean": 0.04512954713529076,
+            "lower_90": 0.03148434397305241,
+            "upper_90": 0.058351160767965995
+          },
+          "features": {
+            "mean": 0.5726531533985673,
+            "lower_90": 0.554516087293129,
+            "upper_90": 0.592953105033365
+          },
+          "building": {
+            "mean": 0.27292298443284396,
+            "lower_90": 0.2588271562173851,
+            "upper_90": 0.2869095384732417
+          },
+          "building over time": {
+            "mean": 0.035459538361583366,
+            "lower_90": 0.023886487632636184,
+            "upper_90": 0.04662179980635772
+          },
+          "building slopes": {
+            "mean": 0.031236762480561654,
+            "lower_90": 0.019926663936884186,
+            "upper_90": 0.043484238849886524
+          },
+          "unit": {
+            "mean": 0.01738858720489593,
+            "lower_90": 0.016010865711689068,
+            "upper_90": 0.018724065891854748
+          },
+          "residual": {
+            "mean": 0.02520942698625709,
+            "lower_90": 0.024691501787694126,
+            "upper_90": 0.025770573702062052
+          },
+          "r2": {
+            "mean": 0.974790573013743,
+            "lower_90": 0.974229426297938,
+            "upper_90": 0.9753084982123058
+          }
+        }
+      },
       "psis": {
         "run": "m6-slopes-desc-v1-rows-8d52ddb-solo",
         "commit": "6c485fc837dd014892d65adc6d0e5e4545c49f85",
@@ -2586,9 +3821,10 @@
         "delta_mcse": 10.418953373290588,
         "baseline": "m0-base/base-v1/gibbs@5cc0809"
       },
-      "current_best": false,
+      "hardware_class": "Modal H100",
       "frontier": false,
-      "note": "beaten by m8-drift/desc-v1/gibbs@b7c196f (+1531.4 \u00b1 76.2 PSIS-LOO)",
+      "current_best": false,
+      "note": "beaten on Modal H100 by m8-drift/desc-v1/gibbs@b7c196f (+1531.4 \u00b1 76.2 PSIS-LOO)",
       "annotations": []
     },
     {
@@ -2647,7 +3883,7 @@
           "fslope_scale_2"
         ]
       },
-      "hardware": "NVIDIA H100 80GB HBM3",
+      "hardware": "Modal H100",
       "interpretable": true,
       "splits": {
         "rows": {
@@ -2691,6 +3927,61 @@
       "fit_seconds": 2657.183135847,
       "fit_seconds_all_splits": 5362.251373286,
       "cost_usd": 3.3148,
+      "variance": {
+        "commit": "d3a7744a0d0765eb02ceffc4248a1836fc9fb9ea",
+        "shares": {
+          "market and time": 0.04832694881926779,
+          "features": 0.5655228113933968,
+          "building": 0.2792135284259221,
+          "building over time": 0.03353021655364389,
+          "building slopes": 0.023192153328410837,
+          "unit": 0.030562195507957735,
+          "residual": 0.019652145971400865,
+          "r2": 0.9803478540285993
+        },
+        "intervals": {
+          "market and time": {
+            "mean": 0.04832694881926779,
+            "lower_90": 0.035782325368012166,
+            "upper_90": 0.06140269319900709
+          },
+          "features": {
+            "mean": 0.5655228113933968,
+            "lower_90": 0.5472972608870136,
+            "upper_90": 0.5829210385586613
+          },
+          "building": {
+            "mean": 0.2792135284259221,
+            "lower_90": 0.2653368082323996,
+            "upper_90": 0.29355968185383446
+          },
+          "building over time": {
+            "mean": 0.03353021655364389,
+            "lower_90": 0.02202712578565913,
+            "upper_90": 0.045821659772656245
+          },
+          "building slopes": {
+            "mean": 0.023192153328410837,
+            "lower_90": 0.011742165875589074,
+            "upper_90": 0.03414703888824627
+          },
+          "unit": {
+            "mean": 0.030562195507957735,
+            "lower_90": 0.028654051311068553,
+            "upper_90": 0.03232798319445003
+          },
+          "residual": {
+            "mean": 0.019652145971400865,
+            "lower_90": 0.01914727117833525,
+            "upper_90": 0.020238514779670647
+          },
+          "r2": {
+            "mean": 0.9803478540285993,
+            "lower_90": 0.9797614852203294,
+            "upper_90": 0.9808527288216647
+          }
+        }
+      },
       "psis": {
         "run": "m7-tunits-base-v1-rows-78fbc79",
         "commit": "6c485fc837dd014892d65adc6d0e5e4545c49f85",
@@ -2718,9 +4009,10 @@
         "delta_mcse": 10.137426027492536,
         "baseline": "m0-base/base-v1/gibbs@5cc0809"
       },
-      "current_best": false,
+      "hardware_class": "Modal H100",
       "frontier": false,
-      "note": "beaten by m8-drift/desc-v1/gibbs@b7c196f (+510.8 \u00b1 47.9 PSIS-LOO)",
+      "current_best": false,
+      "note": "beaten on Modal H100 by m8-drift/desc-v1/gibbs@b7c196f (+510.8 \u00b1 47.9 PSIS-LOO)",
       "annotations": []
     },
     {
@@ -2779,7 +4071,7 @@
           "fslope_scale_2"
         ]
       },
-      "hardware": "NVIDIA H100 80GB HBM3",
+      "hardware": "Modal H100",
       "interpretable": true,
       "splits": {
         "rows": {
@@ -2823,6 +4115,61 @@
       "fit_seconds": 2662.650318471,
       "fit_seconds_all_splits": 5323.554610997,
       "cost_usd": 3.2577,
+      "variance": {
+        "commit": "d3a7744a0d0765eb02ceffc4248a1836fc9fb9ea",
+        "shares": {
+          "market and time": 0.04832405393609834,
+          "features": 0.5655231705363063,
+          "building": 0.279276274652843,
+          "building over time": 0.033415567848478975,
+          "building slopes": 0.02322415719230996,
+          "unit": 0.030592411848048395,
+          "residual": 0.019644363985915025,
+          "r2": 0.9803556360140849
+        },
+        "intervals": {
+          "market and time": {
+            "mean": 0.04832405393609834,
+            "lower_90": 0.03605859649127774,
+            "upper_90": 0.0611307557066754
+          },
+          "features": {
+            "mean": 0.5655231705363063,
+            "lower_90": 0.548024663201123,
+            "upper_90": 0.5823966197036557
+          },
+          "building": {
+            "mean": 0.279276274652843,
+            "lower_90": 0.26481367995039795,
+            "upper_90": 0.2939110852310723
+          },
+          "building over time": {
+            "mean": 0.033415567848478975,
+            "lower_90": 0.021678648115950903,
+            "upper_90": 0.045096125943809164
+          },
+          "building slopes": {
+            "mean": 0.02322415719230996,
+            "lower_90": 0.012078744380442794,
+            "upper_90": 0.03550921818636054
+          },
+          "unit": {
+            "mean": 0.030592411848048395,
+            "lower_90": 0.028656067988325873,
+            "upper_90": 0.032588856588289965
+          },
+          "residual": {
+            "mean": 0.019644363985915025,
+            "lower_90": 0.019091560053698834,
+            "upper_90": 0.020171055084461178
+          },
+          "r2": {
+            "mean": 0.9803556360140849,
+            "lower_90": 0.9798289449155388,
+            "upper_90": 0.9809084399463011
+          }
+        }
+      },
       "psis": {
         "run": "m7-tunits-base-v1-rows-92c14b5",
         "commit": "6c485fc837dd014892d65adc6d0e5e4545c49f85",
@@ -2850,9 +4197,10 @@
         "delta_mcse": 10.138556999720658,
         "baseline": "m0-base/base-v1/gibbs@5cc0809"
       },
-      "current_best": false,
+      "hardware_class": "Modal H100",
       "frontier": false,
-      "note": "beaten by m8-drift/desc-v1/gibbs@b7c196f (+497.3 \u00b1 47.8 PSIS-LOO)",
+      "current_best": false,
+      "note": "beaten on Modal H100 by m8-drift/desc-v1/gibbs@b7c196f (+497.3 \u00b1 47.8 PSIS-LOO)",
       "annotations": []
     },
     {
@@ -2911,7 +4259,7 @@
           "fslope_scale_2"
         ]
       },
-      "hardware": "NVIDIA H100 80GB HBM3",
+      "hardware": "Modal H100",
       "interpretable": true,
       "splits": {
         "rows": {
@@ -2955,6 +4303,61 @@
       "fit_seconds": 2637.091330365,
       "fit_seconds_all_splits": 5332.226935984,
       "cost_usd": 3.2773,
+      "variance": {
+        "commit": "d3a7744a0d0765eb02ceffc4248a1836fc9fb9ea",
+        "shares": {
+          "market and time": 0.04864953563160388,
+          "features": 0.5648769205848376,
+          "building": 0.2791818497388118,
+          "building over time": 0.03369088668285419,
+          "building slopes": 0.023303068821939815,
+          "unit": 0.030647888218587094,
+          "residual": 0.01964985032136561,
+          "r2": 0.9803501496786342
+        },
+        "intervals": {
+          "market and time": {
+            "mean": 0.04864953563160388,
+            "lower_90": 0.03637364380142768,
+            "upper_90": 0.06055397393660505
+          },
+          "features": {
+            "mean": 0.5648769205848376,
+            "lower_90": 0.5474926182176102,
+            "upper_90": 0.5821982412198896
+          },
+          "building": {
+            "mean": 0.2791818497388118,
+            "lower_90": 0.2662455603503915,
+            "upper_90": 0.2935940319844512
+          },
+          "building over time": {
+            "mean": 0.03369088668285419,
+            "lower_90": 0.021759472406871334,
+            "upper_90": 0.04510823255052662
+          },
+          "building slopes": {
+            "mean": 0.023303068821939815,
+            "lower_90": 0.012629147403619742,
+            "upper_90": 0.035009635052382145
+          },
+          "unit": {
+            "mean": 0.030647888218587094,
+            "lower_90": 0.02852542657557592,
+            "upper_90": 0.03234276973312803
+          },
+          "residual": {
+            "mean": 0.01964985032136561,
+            "lower_90": 0.019116466622647023,
+            "upper_90": 0.02018723894162251
+          },
+          "r2": {
+            "mean": 0.9803501496786342,
+            "lower_90": 0.9798127610583774,
+            "upper_90": 0.980883533377353
+          }
+        }
+      },
       "psis": {
         "run": "m7-tunits-base-v1-rows-d62fc51",
         "commit": "6c485fc837dd014892d65adc6d0e5e4545c49f85",
@@ -2982,9 +4385,10 @@
         "delta_mcse": 10.108055445362375,
         "baseline": "m0-base/base-v1/gibbs@5cc0809"
       },
-      "current_best": false,
+      "hardware_class": "Modal H100",
       "frontier": true,
-      "note": "beaten by m8-drift/desc-v1/gibbs@b7c196f (+508.4 \u00b1 46.8 PSIS-LOO)",
+      "current_best": false,
+      "note": "beaten on Modal H100 by m8-drift/desc-v1/gibbs@b7c196f (+508.4 \u00b1 46.8 PSIS-LOO)",
       "annotations": []
     },
     {
@@ -3043,7 +4447,7 @@
           "fslope_scale_2"
         ]
       },
-      "hardware": "NVIDIA H100 80GB HBM3",
+      "hardware": "Modal H100",
       "interpretable": true,
       "splits": {
         "rows": {
@@ -3087,6 +4491,61 @@
       "fit_seconds": 2700.6400846879997,
       "fit_seconds_all_splits": 5432.155752901,
       "cost_usd": 3.3389,
+      "variance": {
+        "commit": "d3a7744a0d0765eb02ceffc4248a1836fc9fb9ea",
+        "shares": {
+          "market and time": 0.04505146285933248,
+          "features": 0.5656182756202448,
+          "building": 0.28054684116574685,
+          "building over time": 0.03377266955238343,
+          "building slopes": 0.026740179952100186,
+          "unit": 0.028618259224980958,
+          "residual": 0.019652311625211406,
+          "r2": 0.9803476883747887
+        },
+        "intervals": {
+          "market and time": {
+            "mean": 0.04505146285933248,
+            "lower_90": 0.031212692850140878,
+            "upper_90": 0.05789403453674719
+          },
+          "features": {
+            "mean": 0.5656182756202448,
+            "lower_90": 0.5485419981590197,
+            "upper_90": 0.5843561345742342
+          },
+          "building": {
+            "mean": 0.28054684116574685,
+            "lower_90": 0.26548128206771865,
+            "upper_90": 0.2941722468917506
+          },
+          "building over time": {
+            "mean": 0.03377266955238343,
+            "lower_90": 0.02224951662155855,
+            "upper_90": 0.04581096930180569
+          },
+          "building slopes": {
+            "mean": 0.026740179952100186,
+            "lower_90": 0.015354274077486444,
+            "upper_90": 0.03920521314020164
+          },
+          "unit": {
+            "mean": 0.028618259224980958,
+            "lower_90": 0.0267024356414372,
+            "upper_90": 0.03060736765416905
+          },
+          "residual": {
+            "mean": 0.019652311625211406,
+            "lower_90": 0.019094676945847083,
+            "upper_90": 0.02020109847196189
+          },
+          "r2": {
+            "mean": 0.9803476883747887,
+            "lower_90": 0.9797989015280382,
+            "upper_90": 0.9809053230541529
+          }
+        }
+      },
       "psis": {
         "run": "m7-tunits-desc-v1-rows-92c14b5",
         "commit": "6c485fc837dd014892d65adc6d0e5e4545c49f85",
@@ -3114,9 +4573,10 @@
         "delta_mcse": 10.116943007926336,
         "baseline": "m0-base/base-v1/gibbs@5cc0809"
       },
-      "current_best": false,
+      "hardware_class": "Modal H100",
       "frontier": false,
-      "note": "beaten by m8-drift/desc-v1/gibbs@b7c196f (+325.8 \u00b1 30.7 PSIS-LOO)",
+      "current_best": false,
+      "note": "beaten on Modal H100 by m8-drift/desc-v1/gibbs@b7c196f (+325.8 \u00b1 30.7 PSIS-LOO)",
       "annotations": []
     },
     {
@@ -3175,7 +4635,7 @@
           "fslope_scale_2"
         ]
       },
-      "hardware": "NVIDIA H100 80GB HBM3",
+      "hardware": "Modal H100",
       "interpretable": true,
       "splits": {
         "rows": {
@@ -3219,6 +4679,61 @@
       "fit_seconds": 2758.021029919,
       "fit_seconds_all_splits": 5527.655472689,
       "cost_usd": 3.387,
+      "variance": {
+        "commit": "d3a7744a0d0765eb02ceffc4248a1836fc9fb9ea",
+        "shares": {
+          "market and time": 0.0452436300689789,
+          "features": 0.5651284777450944,
+          "building": 0.2803176184654553,
+          "building over time": 0.034112541222246016,
+          "building slopes": 0.02681982427297162,
+          "unit": 0.028724261170281845,
+          "residual": 0.01965364705497192,
+          "r2": 0.9803463529450281
+        },
+        "intervals": {
+          "market and time": {
+            "mean": 0.0452436300689789,
+            "lower_90": 0.03175648817063807,
+            "upper_90": 0.05755196110707672
+          },
+          "features": {
+            "mean": 0.5651284777450944,
+            "lower_90": 0.547740117492769,
+            "upper_90": 0.5828386686264511
+          },
+          "building": {
+            "mean": 0.2803176184654553,
+            "lower_90": 0.26743068900811695,
+            "upper_90": 0.294675833184585
+          },
+          "building over time": {
+            "mean": 0.034112541222246016,
+            "lower_90": 0.022171115754226894,
+            "upper_90": 0.04513480625562613
+          },
+          "building slopes": {
+            "mean": 0.02681982427297162,
+            "lower_90": 0.015841179946883804,
+            "upper_90": 0.038437822604941475
+          },
+          "unit": {
+            "mean": 0.028724261170281845,
+            "lower_90": 0.02662205094318484,
+            "upper_90": 0.030438894583472185
+          },
+          "residual": {
+            "mean": 0.01965364705497192,
+            "lower_90": 0.01907634398380154,
+            "upper_90": 0.020279380341431813
+          },
+          "r2": {
+            "mean": 0.9803463529450281,
+            "lower_90": 0.979720619658568,
+            "upper_90": 0.9809236560161985
+          }
+        }
+      },
       "psis": {
         "run": "m7-tunits-desc-v1-rows-d62fc51",
         "commit": "6c485fc837dd014892d65adc6d0e5e4545c49f85",
@@ -3246,9 +4761,10 @@
         "delta_mcse": 10.10623925922316,
         "baseline": "m0-base/base-v1/gibbs@5cc0809"
       },
-      "current_best": false,
+      "hardware_class": "Modal H100",
       "frontier": true,
-      "note": "beaten by m8-drift/desc-v1/gibbs@b7c196f (+338.2 \u00b1 28.9 PSIS-LOO)",
+      "current_best": false,
+      "note": "beaten on Modal H100 by m8-drift/desc-v1/gibbs@b7c196f (+338.2 \u00b1 28.9 PSIS-LOO)",
       "annotations": []
     },
     {
@@ -3310,7 +4826,7 @@
           "fslope_scale_2"
         ]
       },
-      "hardware": "NVIDIA H100 80GB HBM3",
+      "hardware": "Modal H100",
       "interpretable": true,
       "splits": {
         "rows": {
@@ -3376,6 +4892,61 @@
       "fit_seconds": 3269.142412766,
       "fit_seconds_all_splits": 6532.007616571,
       "cost_usd": 3.9903,
+      "variance": {
+        "commit": "d3a7744a0d0765eb02ceffc4248a1836fc9fb9ea",
+        "shares": {
+          "market and time": 0.047519663637145,
+          "features": 0.56585345760236,
+          "building": 0.27828352224513947,
+          "building over time": 0.03495194676436995,
+          "building slopes": 0.02306225303678889,
+          "unit": 0.03167193995119703,
+          "residual": 0.01865721676299965,
+          "r2": 0.9813427832370003
+        },
+        "intervals": {
+          "market and time": {
+            "mean": 0.047519663637145,
+            "lower_90": 0.03522657608098085,
+            "upper_90": 0.05933047353815473
+          },
+          "features": {
+            "mean": 0.56585345760236,
+            "lower_90": 0.5486882842594716,
+            "upper_90": 0.5823736855876264
+          },
+          "building": {
+            "mean": 0.27828352224513947,
+            "lower_90": 0.2642752968607609,
+            "upper_90": 0.2919205450946629
+          },
+          "building over time": {
+            "mean": 0.03495194676436995,
+            "lower_90": 0.022968573098833493,
+            "upper_90": 0.04641840257474864
+          },
+          "building slopes": {
+            "mean": 0.02306225303678889,
+            "lower_90": 0.01186203863027499,
+            "upper_90": 0.034823973223577706
+          },
+          "unit": {
+            "mean": 0.03167193995119703,
+            "lower_90": 0.02955396487920115,
+            "upper_90": 0.03370070959390083
+          },
+          "residual": {
+            "mean": 0.01865721676299965,
+            "lower_90": 0.01805970816355158,
+            "upper_90": 0.01926590948502764
+          },
+          "r2": {
+            "mean": 0.9813427832370003,
+            "lower_90": 0.9807340905149724,
+            "upper_90": 0.9819402918364484
+          }
+        }
+      },
       "psis": {
         "run": "m8-drift-base-v1-rows-b7c196f",
         "commit": "6c485fc837dd014892d65adc6d0e5e4545c49f85",
@@ -3403,9 +4974,10 @@
         "delta_mcse": 10.119188941484843,
         "baseline": "m0-base/base-v1/gibbs@5cc0809"
       },
-      "current_best": false,
+      "hardware_class": "Modal H100",
       "frontier": true,
-      "note": "beaten by m8-drift/desc-v1/gibbs@b7c196f (+153.8 \u00b1 38.9 PSIS-LOO)",
+      "current_best": false,
+      "note": "beaten on Modal H100 by m8-drift/desc-v1/gibbs@b7c196f (+153.8 \u00b1 38.9 PSIS-LOO)",
       "annotations": [
         "Fit on a Modal H100: 16 chains x (900 + 2,000), 3,269 s including JIT, about $3.99. Not refit locally (Ben, 2026-09-24); the thelio fit time is unmeasured.",
         "units split rescored from 320 kept draws with the exact unseen-unit quadrature (rentfrontier.rescore @ce6db1c): exact - recorded approximation = +3.5 \u00b1 1.6 on the same draws (5,226 unseen-unit rows), so the recorded +814.7 is about +818.2 under exact scoring."
@@ -3470,7 +5042,7 @@
           "fslope_scale_2"
         ]
       },
-      "hardware": "NVIDIA H100 80GB HBM3",
+      "hardware": "Modal H100",
       "interpretable": true,
       "splits": {
         "rows": {
@@ -3536,6 +5108,61 @@
       "fit_seconds": 3368.1207148460003,
       "fit_seconds_all_splits": 6714.240087208,
       "cost_usd": 4.1075,
+      "variance": {
+        "commit": "d3a7744a0d0765eb02ceffc4248a1836fc9fb9ea",
+        "shares": {
+          "market and time": 0.04440893637827372,
+          "features": 0.565919842648315,
+          "building": 0.2794625143959873,
+          "building over time": 0.035165955347944686,
+          "building slopes": 0.026608611898043578,
+          "unit": 0.029740993333677163,
+          "residual": 0.01869314599775851,
+          "r2": 0.9813068540022414
+        },
+        "intervals": {
+          "market and time": {
+            "mean": 0.04440893637827372,
+            "lower_90": 0.030907515275036268,
+            "upper_90": 0.05732794892030333
+          },
+          "features": {
+            "mean": 0.565919842648315,
+            "lower_90": 0.5488808587620455,
+            "upper_90": 0.5839498737707831
+          },
+          "building": {
+            "mean": 0.2794625143959873,
+            "lower_90": 0.2662996615526296,
+            "upper_90": 0.2934340602928373
+          },
+          "building over time": {
+            "mean": 0.035165955347944686,
+            "lower_90": 0.023105507221812566,
+            "upper_90": 0.04667044734891383
+          },
+          "building slopes": {
+            "mean": 0.026608611898043578,
+            "lower_90": 0.015670889311467495,
+            "upper_90": 0.03830626165415794
+          },
+          "unit": {
+            "mean": 0.029740993333677163,
+            "lower_90": 0.027743964345667352,
+            "upper_90": 0.03159189156799788
+          },
+          "residual": {
+            "mean": 0.01869314599775851,
+            "lower_90": 0.018131057329153284,
+            "upper_90": 0.019279067222895255
+          },
+          "r2": {
+            "mean": 0.9813068540022414,
+            "lower_90": 0.9807209327771048,
+            "upper_90": 0.9818689426708467
+          }
+        }
+      },
       "psis": {
         "run": "m8-drift-desc-v1-rows-b7c196f",
         "commit": "6c485fc837dd014892d65adc6d0e5e4545c49f85",
@@ -3563,8 +5190,9 @@
         "delta_mcse": 10.1289714092198,
         "baseline": "m0-base/base-v1/gibbs@5cc0809"
       },
-      "current_best": true,
+      "hardware_class": "Modal H100",
       "frontier": true,
+      "current_best": true,
       "note": "",
       "annotations": [
         "Fit on a Modal H100 (NVIDIA H100 80GB HBM3): 16 chains x (900 warmup + 2,000 draws), 3,368 s including JIT (warmup 851 s, sampling 2,515 s), about $4.11. Gate: max split R-hat 1.006, min bulk ESS 2,573, all-effects R-hat 1.02 from exact per-chain moments.",
@@ -3591,7 +5219,7 @@
         },
         "runner_args": {}
       },
-      "hardware": "thelio CPU",
+      "hardware": "thelio CPU (Ryzen 5 3600X)",
       "interpretable": true,
       "splits": {
         "rows": {
@@ -3613,8 +5241,9 @@
       "fit_seconds": 4157.316480422,
       "fit_seconds_all_splits": 4157.316480422,
       "cost_usd": 0.0,
-      "current_best": false,
+      "hardware_class": "thelio CPU (Ryzen 5 3600X)",
       "frontier": false,
+      "current_best": false,
       "note": "screen-grade (max R-hat 1.318); not eligible for best or frontier; no saved draws, so no PSIS-LOO score",
       "annotations": []
     },
@@ -3669,8 +5298,9 @@
       "fit_seconds": 1418.848104165,
       "fit_seconds_all_splits": 1418.848104165,
       "cost_usd": 0.13452832981544266,
-      "current_best": false,
+      "hardware_class": "Modal CPU (4 cores)",
       "frontier": false,
+      "current_best": false,
       "note": "screen-grade (max R-hat 1.050); not eligible for best or frontier; no saved draws, so no PSIS-LOO score",
       "annotations": []
     },
@@ -3754,8 +5384,9 @@
       "fit_seconds": 5094.571447609,
       "fit_seconds_all_splits": 8626.12456821,
       "cost_usd": 0.4654918846431213,
-      "current_best": false,
+      "hardware_class": "Modal CPU (4 cores)",
       "frontier": false,
+      "current_best": false,
       "note": "screen-grade (max R-hat 1.032); not eligible for best or frontier; no saved draws, so no PSIS-LOO score",
       "annotations": []
     },
@@ -3861,8 +5492,9 @@
       "fit_seconds": 5037.988475176,
       "fit_seconds_all_splits": 9170.673201913,
       "cost_usd": 0.4623569464628889,
-      "current_best": false,
+      "hardware_class": "Modal CPU (4 cores)",
       "frontier": false,
+      "current_best": false,
       "note": "screen-grade (max R-hat 1.532); not eligible for best or frontier; no saved draws, so no PSIS-LOO score",
       "annotations": []
     },
@@ -3968,8 +5600,9 @@
       "fit_seconds": 7510.774045370001,
       "fit_seconds_all_splits": 19087.778979714,
       "cost_usd": 1.0344727326515075,
-      "current_best": false,
+      "hardware_class": "Modal CPU (4 cores)",
       "frontier": false,
+      "current_best": false,
       "note": "screen-grade (max R-hat 1.073); not eligible for best or frontier; no saved draws, so no PSIS-LOO score",
       "annotations": []
     },
@@ -3990,7 +5623,7 @@
         },
         "runner_args": {}
       },
-      "hardware": "thelio CPU",
+      "hardware": "thelio CPU (Ryzen 5 3600X)",
       "interpretable": true,
       "splits": {
         "rows": {
@@ -4012,8 +5645,9 @@
       "fit_seconds": 5196.186790694001,
       "fit_seconds_all_splits": 5196.186790694001,
       "cost_usd": 0.0,
-      "current_best": false,
+      "hardware_class": "thelio CPU (Ryzen 5 3600X)",
       "frontier": false,
+      "current_best": false,
       "note": "screen-grade (max R-hat 1.033); not eligible for best or frontier; no saved draws, so no PSIS-LOO score",
       "annotations": []
     },
@@ -4034,7 +5668,7 @@
         },
         "runner_args": {}
       },
-      "hardware": "thelio CPU",
+      "hardware": "thelio CPU (Ryzen 5 3600X)",
       "interpretable": true,
       "splits": {
         "rows": {
@@ -4056,8 +5690,9 @@
       "fit_seconds": 3039.314004650998,
       "fit_seconds_all_splits": 3039.314004650998,
       "cost_usd": 0.0,
-      "current_best": false,
+      "hardware_class": "thelio CPU (Ryzen 5 3600X)",
       "frontier": false,
+      "current_best": false,
       "note": "screen-grade (max R-hat 1.062); not eligible for best or frontier; no saved draws, so no PSIS-LOO score",
       "annotations": []
     },
@@ -4112,8 +5747,9 @@
       "fit_seconds": 2510.622297035,
       "fit_seconds_all_splits": 2510.622297035,
       "cost_usd": 0.23425688291639424,
-      "current_best": false,
+      "hardware_class": "Modal CPU (4 cores)",
       "frontier": false,
+      "current_best": false,
       "note": "screen-grade (max R-hat 1.027); not eligible for best or frontier; no saved draws, so no PSIS-LOO score",
       "annotations": []
     },
@@ -4134,7 +5770,7 @@
         },
         "runner_args": {}
       },
-      "hardware": "thelio CPU",
+      "hardware": "thelio CPU (Ryzen 5 3600X)",
       "interpretable": true,
       "splits": {
         "rows": {
@@ -4156,11 +5792,17 @@
       "fit_seconds": 4921.81387591,
       "fit_seconds_all_splits": 4921.81387591,
       "cost_usd": 0.0,
-      "current_best": false,
+      "hardware_class": "thelio CPU (Ryzen 5 3600X)",
       "frontier": false,
+      "current_best": false,
       "note": "screen-grade (max R-hat 1.028); not eligible for best or frontier; no saved draws, so no PSIS-LOO score",
       "annotations": []
     }
   ],
-  "current_best": "m8-drift/desc-v1/gibbs@b7c196f"
+  "current_best": {
+    "Modal CPU (4 cores)": null,
+    "Modal H100": "m8-drift/desc-v1/gibbs@b7c196f",
+    "Modal H200": "m5-quarterly/base-v1/gibbs@4226f40",
+    "thelio CPU (Ryzen 5 3600X)": null
+  }
 }

@@ -41,7 +41,7 @@ import shutil
 import subprocess
 from pathlib import Path
 
-from . import leaderboard
+from . import leaderboard, variance
 
 REPO = Path(__file__).resolve().parents[3]
 SITE_SOURCE = REPO / "dashboard"
@@ -141,23 +141,26 @@ def as_of(entries, t):
 
 
 def snapshots(entries):
-    """Board best and frontier (entry keys) after each result landed."""
+    """Board best and frontier (entry keys) per hardware class after each
+    result landed. The frontier is per hardware: a fit time only competes with
+    fit times on the same hardware."""
     paired = functools.lru_cache(maxsize=None)(leaderboard.paired_loo)
     times = sorted({s["_at"] for e in entries for s in e["splits"].values()})
     snaps = []
     for t in times:
         view = as_of(entries, t)
-        best = leaderboard.choose_best(view, paired=paired)
-        flags = leaderboard.on_frontier(view)
-        snaps.append(
-            {
-                "at": iso(t),
+        by_class = {}
+        for cls in sorted({v["hardware_class"] for v in view}):
+            group = [v for v in view if v["hardware_class"] == cls]
+            best = leaderboard.choose_best(group, paired=paired)
+            flags = leaderboard.on_frontier(group)
+            by_class[cls] = {
                 "best": best["_key"] if best else None,
                 "best_delta": best["psis"]["delta"] if best else None,
-                "frontier": [v["_key"] for v, on in zip(view, flags) if on],
-                "entries": len(view),
+                "frontier": [v["_key"] for v, on in zip(group, flags) if on],
+                "entries": len(group),
             }
-        )
+        snaps.append({"at": iso(t), "entries": len(view), "by_class": by_class})
     return snaps
 
 
@@ -262,6 +265,8 @@ def data():
                 if isinstance(settings.get("draws"), int)
                 else None,
                 "hardware": e["hardware"],
+                "hardware_class": e["hardware_class"],
+                "variance": (e.get("variance") or {}).get("intervals"),
                 "fit_seconds": e["fit_seconds"],
                 "cost_usd": e["cost_usd"],
                 "grade": e["grade"],
@@ -303,7 +308,10 @@ def data():
             "ess": leaderboard.GATE_ESS,
             "all_effects_rhat": 1.05,
         },
-        "current_best": next((e["_key"] for e in entries if e["current_best"]), None),
+        "current_best": {
+            e["hardware_class"]: e["_key"] for e in entries if e["current_best"]
+        },
+        "variance_groups": [*variance.GROUPS, "residual"],
         "baseline": leaderboard.BASELINE,
         "baseline_key": next(
             (e["_key"] for e in entries if e["id"] == leaderboard.BASELINE), None
