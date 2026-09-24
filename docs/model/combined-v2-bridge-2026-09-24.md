@@ -85,3 +85,30 @@ In the smoke fit (2 × 40/40 draws, unconverged), 10,431 rows used
 `unit_prior`. Among PSIS rows, the median k was 0.48 for units with two
 listings and 0.38 for units with six or more; 8–20% were above 0.7. k is
 biased upward at 80 draws, so recheck these counts on the full fit.
+
+## Why walk centering is safe here (review note on PR #4)
+
+Centering the building walks was withdrawn on September 23. The E3 fit
+over-predicted 2021–22 by about 1.7%: the smooth citywide trend basis could
+not absorb the 2021 rebound once the walks' common mode was removed. In v2,
+the quarterly citywide random walk (with its own scale) carries that shared
+movement. Centering only moves the movement between two terms; it no longer
+deletes it.
+
+Direct check: held-out mean log error (%) by half-year, for the reference
+(`nuts-hwalk`, no centering, no citywide walk) and the full v2 candidate
+spec (`nuts-cand2`):
+
+| half-year | rows: reference | rows: v2 spec | units: reference | units: v2 spec | rows held out |
+|---|---|---|---|---|---|
+| 2020a | −0.84 | −0.40 | −1.71 | −1.44 | 207 |
+| 2020b | +0.46 | +0.05 | −0.85 | −1.17 | 261 |
+| 2021a | −0.46 | −0.56 | +0.57 | −0.26 | 183 |
+| 2021b | +0.68 | +0.76 | −2.05 | −2.34 | 156 |
+| 2022a | −0.45 | −0.37 | +0.10 | +0.29 | 219 |
+| 2022b | +0.13 | −0.03 | +0.45 | +0.03 | 178 |
+
+The differences are within noise (roughly ±0.4 SE per half-year). There
+is no systematic 2021–22 shift like E3's (median residual −1.6 to −2.0% in
+every 2021–22 half-year). The fitted 2021–22 levels will also be compared
+with the selected fit once the protocol fit lands.

@@ -30,6 +30,7 @@ half-year building walk and screens are conditional MAP. See
 | bedroom slope + estimated ν | **+249.9 ± 35.6** (NUTS; +53.3 ± 22.3 over slope alone) | **+505.5 ± 40.5** | **accepted** for the next candidate; matches the from-scratch m5 (+501.9 ± 40.9 on units) |
 | per-building size and 2+/3+ full-bath slopes + bedroom slope + estimated ν (from-scratch m6) | **+388.0** (Σ 6,251.7; unpaired) | **+756.3** (Σ 4,578.4; unpaired) | **accepted**; reproduces the from-scratch m6 (+400.1 ± 42.5 / +765.9 ± 55.5); ν ≈ 2.05–2.10 |
 | quarterly citywide random walk | −0.3 (unpaired) | — | neutral |
+| **full combined v2 spec** (m6 + ν + citywide walk with centered building walks + per-unit drift + as-of flags) | **+474.7 ± 43.5** (paired) | **+918.7 ± 58.6** (paired) | **candidate** for the combined v2 protocol fit; ν ≈ 2.0. Rows run: one building (110 W 26th) bimodal, R-hat 1.53; see note |
 | quarterly citywide walk + building walks centered across buildings | +2.5 (unpaired) | +3.1 (unpaired) | **accepted as an efficiency change**: with the citywide walk, centering no longer biases 2021–22; sampling 1,403 s vs 1,846 s |
 
 Building covariates come from archived StreetEasy building pages
@@ -49,3 +50,15 @@ submitted without `--returned heldout.npz result.json`, so only the summed
 ELPD survived, in the runner log. Their differences above are unpaired
 (against the references' sums). The full next-candidate spec is being
 rescreened with per-row scores (`nuts-cand2-{rows,units}`).
+
+**110 West 26th Street (data finding, September 24).** In the full-spec rows
+screen, this building's level, bedroom slope and size slope did not mix
+(R-hat 1.53, ESS 7). The building mixes full-floor lofts of about 1,600 sq
+ft, listed as studio through 3BR at $5,000–8,400, with small front/rear
+units (5F, 5R, 3R, 3) listed as "1 bedroom" with no size at $2,395–2,595.
+With size missing, the small units look like median-size one-bedrooms. With
+ν ≈ 2, either group can be treated as outliers, which gives two posterior
+modes. The unit-split screen mixed (R-hat 1.017). Remedies, if the protocol
+fit shows it: size evidence for the split units (the descriptions say
+"one bedroom" but give no area), or a unit-type flag for partial-floor
+units in loft buildings.
