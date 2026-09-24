@@ -65,7 +65,9 @@
           "passes": true,
           "fit_seconds": 82.845289502,
           "sampling_seconds": 48.00337518199999,
-          "cost_usd": 0.1823
+          "cost_usd": 0.1823,
+          "group_rhat_max": 1.090536234176356,
+          "group_rhat_method": "kept joint draws, all group effects"
         },
         "units": {
           "run": "m0-base-units-5cc0809",
@@ -80,7 +82,9 @@
           "passes": true,
           "fit_seconds": 80.845228452,
           "sampling_seconds": 47.439772672000004,
-          "cost_usd": 0.1725
+          "cost_usd": 0.1725,
+          "group_rhat_max": 1.0694241826808737,
+          "group_rhat_method": "kept joint draws, all group effects"
         }
       },
       "passes_checks": true,
@@ -88,7 +92,7 @@
       "cost_usd": 0.1823,
       "current_best": false,
       "frontier": true,
-      "note": "beaten by m6-slopes/desc-v1/gibbs@69cb324 (+1217.8 \u00b1 59.4 rows)"
+      "note": "beaten by m5-quarterly/base-v1/gibbs@4226f40 (+1098.6 \u00b1 55.3 rows)"
     },
     {
       "id": "m1-walk/base-v1/gibbs@1b11fac",
@@ -140,7 +144,9 @@
           "passes": false,
           "fit_seconds": 412.68388330700003,
           "sampling_seconds": 265.62419678599997,
-          "cost_usd": 0.6035
+          "cost_usd": 0.6035,
+          "group_rhat_max": 1.0895564893341831,
+          "group_rhat_method": "kept joint draws, all group effects"
         },
         "units": {
           "run": "m1-walk-units-1b11fac",
@@ -155,7 +161,9 @@
           "passes": false,
           "fit_seconds": 394.954975896,
           "sampling_seconds": 255.44835491600003,
-          "cost_usd": 0.5472
+          "cost_usd": 0.5472,
+          "group_rhat_max": 1.089969897239405,
+          "group_rhat_method": "kept joint draws, all group effects"
         }
       },
       "passes_checks": false,
@@ -163,7 +171,7 @@
       "cost_usd": 0.6035,
       "current_best": false,
       "frontier": false,
-      "note": "beaten by m6-slopes/desc-v1/gibbs@69cb324 (+320.2 \u00b1 40.7 rows)"
+      "note": "beaten by m5-quarterly/base-v1/gibbs@4226f40 (+201.0 \u00b1 30.8 rows)"
     },
     {
       "id": "m1-walk/base-v1/gibbs@942c0f4",
@@ -218,7 +226,9 @@
           "passes": false,
           "fit_seconds": 757.332050489,
           "sampling_seconds": 516.959529365,
-          "cost_usd": 1.0174
+          "cost_usd": 1.0174,
+          "group_rhat_max": 1.079683007264786,
+          "group_rhat_method": "kept joint draws, all group effects"
         },
         "units": {
           "run": "m1-walk-units-942c0f4",
@@ -233,7 +243,9 @@
           "passes": false,
           "fit_seconds": 731.12725532,
           "sampling_seconds": 508.74221661,
-          "cost_usd": 0.9426
+          "cost_usd": 0.9426,
+          "group_rhat_max": 1.0814238902770343,
+          "group_rhat_method": "kept joint draws, all group effects"
         }
       },
       "passes_checks": false,
@@ -241,7 +253,7 @@
       "cost_usd": 1.0174,
       "current_best": false,
       "frontier": false,
-      "note": "beaten by m6-slopes/desc-v1/gibbs@69cb324 (+320.5 \u00b1 40.7 rows)"
+      "note": "beaten by m5-quarterly/base-v1/gibbs@4226f40 (+201.3 \u00b1 30.8 rows)"
     },
     {
       "id": "m1-walk/base-v1/gibbs@94a4da4",
@@ -287,7 +299,9 @@
           "passes": false,
           "fit_seconds": 359.885618108,
           "sampling_seconds": 231.48113863100002,
-          "cost_usd": 0.5136
+          "cost_usd": 0.5136,
+          "group_rhat_max": 1.0895369219596351,
+          "group_rhat_method": "kept joint draws, all group effects"
         },
         "units": {
           "run": "m1-walk-units-94a4da4",
@@ -302,7 +316,9 @@
           "passes": false,
           "fit_seconds": 342.543836689,
           "sampling_seconds": 219.80912816199998,
-          "cost_usd": 0.4929
+          "cost_usd": 0.4929,
+          "group_rhat_max": 1.089991050752236,
+          "group_rhat_method": "kept joint draws, all group effects"
         }
       },
       "passes_checks": false,
@@ -310,7 +326,7 @@
       "cost_usd": 0.5136,
       "current_best": false,
       "frontier": false,
-      "note": "beaten by m6-slopes/desc-v1/gibbs@69cb324 (+320.2 \u00b1 40.7 rows)"
+      "note": "beaten by m5-quarterly/base-v1/gibbs@4226f40 (+201.0 \u00b1 30.8 rows)"
     },
     {
       "id": "m1-walk/base-v1/gibbs@bf01f16",
@@ -370,7 +386,9 @@
           "passes": true,
           "fit_seconds": 997.2356491639999,
           "sampling_seconds": 794.2900863120001,
-          "cost_usd": 1.272
+          "cost_usd": 1.272,
+          "group_rhat_max": 1.0509799371293083,
+          "group_rhat_method": "kept joint draws, all group effects"
         },
         "units": {
           "run": "m1-walk-units-bf01f16",
@@ -385,7 +403,9 @@
           "passes": true,
           "fit_seconds": 996.695902929,
           "sampling_seconds": 797.061459296,
-          "cost_usd": 1.289
+          "cost_usd": 1.289,
+          "group_rhat_max": 1.0580757115823132,
+          "group_rhat_method": "kept joint draws, all group effects"
         }
       },
       "passes_checks": true,
@@ -393,7 +413,7 @@
       "cost_usd": 1.289,
       "current_best": false,
       "frontier": false,
-      "note": "beaten by m6-slopes/desc-v1/gibbs@69cb324 (+320.2 \u00b1 40.7 rows)"
+      "note": "beaten by m5-quarterly/base-v1/gibbs@4226f40 (+201.1 \u00b1 30.8 rows)"
     },
     {
       "id": "m1-walk/base-v1/gibbs@c5a208a",
@@ -450,7 +470,9 @@
           "passes": false,
           "fit_seconds": 684.158991166,
           "sampling_seconds": 530.15145344,
-          "cost_usd": 0.8939
+          "cost_usd": 0.8939,
+          "group_rhat_max": 1.0508500108468974,
+          "group_rhat_method": "kept joint draws, all group effects"
         }
       },
       "passes_checks": false,
@@ -458,7 +480,7 @@
       "cost_usd": 0.8939,
       "current_best": false,
       "frontier": false,
-      "note": "beaten by m6-slopes/desc-v1/gibbs@69cb324 (+320.3 \u00b1 40.7 rows)"
+      "note": "beaten by m5-quarterly/base-v1/gibbs@4226f40 (+201.1 \u00b1 30.8 rows)"
     },
     {
       "id": "m4-walk-bedtime-bedslope/base-v1/gibbs@942c0f4",
@@ -513,7 +535,9 @@
           "passes": false,
           "fit_seconds": 2403.481135825,
           "sampling_seconds": 1693.9160194150002,
-          "cost_usd": 2.9859
+          "cost_usd": 2.9859,
+          "group_rhat_max": 1.0751661695926702,
+          "group_rhat_method": "kept joint draws, all group effects"
         },
         "units": {
           "run": "m4-walk-bedtime-bedslope-units-942c0f4",
@@ -528,7 +552,9 @@
           "passes": false,
           "fit_seconds": 2412.6420545809997,
           "sampling_seconds": 1705.9554904280003,
-          "cost_usd": 2.956
+          "cost_usd": 2.956,
+          "group_rhat_max": 1.0734672114725785,
+          "group_rhat_method": "kept joint draws, all group effects"
         }
       },
       "passes_checks": false,
@@ -536,7 +562,7 @@
       "cost_usd": 2.9859,
       "current_best": false,
       "frontier": false,
-      "note": "beaten by m6-slopes/desc-v1/gibbs@69cb324 (+119.2 \u00b1 29.8 rows)"
+      "note": "fails the convergence gate"
     },
     {
       "id": "m5-nocurves/base-v1/gibbs@33e8bad",
@@ -599,7 +625,9 @@
           "passes": true,
           "fit_seconds": 763.6031838849999,
           "sampling_seconds": 607.675119494,
-          "cost_usd": 1.0006
+          "cost_usd": 1.0006,
+          "group_rhat_max": 1.0637584647705614,
+          "group_rhat_method": "kept joint draws, all group effects"
         },
         "units": {
           "run": "m5-nocurves-units-33e8bad",
@@ -614,7 +642,9 @@
           "passes": true,
           "fit_seconds": 761.217055104,
           "sampling_seconds": 606.929007471,
-          "cost_usd": 1.0067
+          "cost_usd": 1.0067,
+          "group_rhat_max": 1.0717086805669442,
+          "group_rhat_method": "kept joint draws, all group effects"
         }
       },
       "passes_checks": true,
@@ -622,7 +652,7 @@
       "cost_usd": 1.0067,
       "current_best": false,
       "frontier": true,
-      "note": "beaten by m6-slopes/desc-v1/gibbs@69cb324 (+135.0 \u00b1 30.5 rows)"
+      "note": ""
     },
     {
       "id": "m5-noslope/base-v1/gibbs@33e8bad",
@@ -685,7 +715,9 @@
           "passes": true,
           "fit_seconds": 1662.271154553,
           "sampling_seconds": 1356.884923048,
-          "cost_usd": 2.0664
+          "cost_usd": 2.0664,
+          "group_rhat_max": 1.0543170800527997,
+          "group_rhat_method": "kept joint draws, all group effects"
         },
         "units": {
           "run": "m5-noslope-units-33e8bad",
@@ -700,7 +732,9 @@
           "passes": true,
           "fit_seconds": 1655.1603600820001,
           "sampling_seconds": 1358.389293276,
-          "cost_usd": 2.0419
+          "cost_usd": 2.0419,
+          "group_rhat_max": 1.0588348581974207,
+          "group_rhat_method": "kept joint draws, all group effects"
         }
       },
       "passes_checks": true,
@@ -708,7 +742,7 @@
       "cost_usd": 2.0664,
       "current_best": false,
       "frontier": false,
-      "note": "beaten by m6-slopes/desc-v1/gibbs@69cb324 (+310.5 \u00b1 39.8 rows)"
+      "note": "beaten by m5-quarterly/base-v1/gibbs@4226f40 (+191.4 \u00b1 29.3 rows)"
     },
     {
       "id": "m5-nu5/base-v1/gibbs@33e8bad",
@@ -771,7 +805,9 @@
           "passes": true,
           "fit_seconds": 1688.661478496,
           "sampling_seconds": 1377.2086011770002,
-          "cost_usd": 2.0934
+          "cost_usd": 2.0934,
+          "group_rhat_max": 1.0550124782277095,
+          "group_rhat_method": "kept joint draws, all group effects"
         },
         "units": {
           "run": "m5-nu5-units-33e8bad",
@@ -786,7 +822,9 @@
           "passes": true,
           "fit_seconds": 1708.661813108,
           "sampling_seconds": 1394.456417766,
-          "cost_usd": 2.1213
+          "cost_usd": 2.1213,
+          "group_rhat_max": 1.0598505395484592,
+          "group_rhat_method": "kept joint draws, all group effects"
         }
       },
       "passes_checks": true,
@@ -794,7 +832,7 @@
       "cost_usd": 2.1213,
       "current_best": false,
       "frontier": false,
-      "note": "beaten by m6-slopes/desc-v1/gibbs@69cb324 (+166.0 \u00b1 34.0 rows)"
+      "note": "beaten by m5-quarterly/base-v1/gibbs@4226f40 (+46.8 \u00b1 22.2 rows)"
     },
     {
       "id": "m5-quarterly/base-v1/gibbs@4226f40",
@@ -855,15 +893,17 @@
           "passes": true,
           "fit_seconds": 1184.773789487,
           "sampling_seconds": 941.645858496,
-          "cost_usd": 1.4995
+          "cost_usd": 1.4995,
+          "group_rhat_max": 1.0625128011480465,
+          "group_rhat_method": "kept joint draws, all group effects"
         }
       },
       "passes_checks": true,
       "fit_seconds": 1184.773789487,
       "cost_usd": 1.4995,
-      "current_best": false,
+      "current_best": true,
       "frontier": true,
-      "note": "beaten by m6-slopes/desc-v1/gibbs@69cb324 (+119.2 \u00b1 29.5 rows)"
+      "note": ""
     },
     {
       "id": "m5-quarterly/desc-v1/gibbs@4226f40",
@@ -924,7 +964,9 @@
           "passes": false,
           "fit_seconds": 1353.7668484520002,
           "sampling_seconds": 1088.959044206,
-          "cost_usd": 1.738
+          "cost_usd": 1.738,
+          "group_rhat_max": 1.06553177942907,
+          "group_rhat_method": "kept joint draws, all group effects"
         },
         "units": {
           "run": "m5-quarterly-desc-v1-units-4226f40",
@@ -939,7 +981,9 @@
           "passes": true,
           "fit_seconds": 1217.082913875,
           "sampling_seconds": 971.5281520609999,
-          "cost_usd": 1.5463
+          "cost_usd": 1.5463,
+          "group_rhat_max": 1.058987692414787,
+          "group_rhat_method": "kept joint draws, all group effects"
         }
       },
       "passes_checks": false,
@@ -947,7 +991,7 @@
       "cost_usd": 1.738,
       "current_best": false,
       "frontier": false,
-      "note": "beaten by m6-slopes/desc-v1/gibbs@69cb324 (+130.8 \u00b1 26.2 rows)"
+      "note": "fails the convergence gate"
     },
     {
       "id": "m5-quarterly/desc-v1/gibbs@8d52ddb",
@@ -1012,7 +1056,9 @@
           "passes": false,
           "fit_seconds": 1714.709224109,
           "sampling_seconds": 1404.000968941,
-          "cost_usd": 2.1187
+          "cost_usd": 2.1187,
+          "group_rhat_max": 1.065086415771318,
+          "group_rhat_method": "kept joint draws, all group effects"
         },
         "units": {
           "run": "m5-quarterly-desc-v1-units-8d52ddb",
@@ -1027,7 +1073,9 @@
           "passes": true,
           "fit_seconds": 1754.2466476000002,
           "sampling_seconds": 1430.674337488,
-          "cost_usd": 2.1876
+          "cost_usd": 2.1876,
+          "group_rhat_max": 1.0591330914985246,
+          "group_rhat_method": "kept joint draws, all group effects"
         }
       },
       "passes_checks": false,
@@ -1035,7 +1083,7 @@
       "cost_usd": 2.1876,
       "current_best": false,
       "frontier": false,
-      "note": "beaten by m6-slopes/desc-v1/gibbs@69cb324 (+130.8 \u00b1 26.2 rows)"
+      "note": "fails the convergence gate"
     },
     {
       "id": "m5-quarterly/base-v1/gibbs@bf01f16",
@@ -1095,7 +1143,9 @@
           "passes": false,
           "fit_seconds": 1282.2096327000002,
           "sampling_seconds": 1029.1051662720001,
-          "cost_usd": 1.6177
+          "cost_usd": 1.6177,
+          "group_rhat_max": 1.0628384465274316,
+          "group_rhat_method": "kept joint draws, all group effects"
         },
         "units": {
           "run": "m5-quarterly-units-bf01f16",
@@ -1110,7 +1160,9 @@
           "passes": false,
           "fit_seconds": 1306.552801864,
           "sampling_seconds": 1046.66378566,
-          "cost_usd": 1.6506
+          "cost_usd": 1.6506,
+          "group_rhat_max": 1.066339808051613,
+          "group_rhat_method": "kept joint draws, all group effects"
         }
       },
       "passes_checks": false,
@@ -1118,7 +1170,7 @@
       "cost_usd": 1.6506,
       "current_best": false,
       "frontier": false,
-      "note": "beaten by m6-slopes/desc-v1/gibbs@69cb324 (+119.1 \u00b1 29.5 rows)"
+      "note": "superseded by passing rerun m5-quarterly/base-v1/gibbs@4226f40"
     },
     {
       "id": "m5-quarterly/base-v1/gibbs@33e8bad",
@@ -1181,7 +1233,9 @@
           "passes": true,
           "fit_seconds": 1712.126112483,
           "sampling_seconds": 1401.483242594,
-          "cost_usd": 2.1206
+          "cost_usd": 2.1206,
+          "group_rhat_max": 1.0671077390125574,
+          "group_rhat_method": "kept joint draws, all group effects"
         }
       },
       "passes_checks": true,
@@ -1258,10 +1312,12 @@
           "paired_rows": 5264,
           "max_rhat": 1.0088392397545534,
           "min_ess": 3267.4452844533994,
-          "passes": true,
+          "passes": false,
           "fit_seconds": 2651.1951100879996,
           "sampling_seconds": 1953.5170693219998,
-          "cost_usd": 3.2425
+          "cost_usd": 3.2425,
+          "group_rhat_max": 6.377629288090508,
+          "group_rhat_method": "kept joint draws, all group effects"
         },
         "units": {
           "run": "m6-slopes-base-v1-units-6a14509",
@@ -1273,18 +1329,20 @@
           "paired_rows": 5226,
           "max_rhat": 1.00627376012054,
           "min_ess": 3264.74405259382,
-          "passes": true,
+          "passes": false,
           "fit_seconds": 2626.786521095,
           "sampling_seconds": 1950.789621023,
-          "cost_usd": 3.2087
+          "cost_usd": 3.2087,
+          "group_rhat_max": 1.8821496090331133,
+          "group_rhat_method": "kept joint draws, all group effects"
         }
       },
-      "passes_checks": true,
+      "passes_checks": false,
       "fit_seconds": 2651.1951100879996,
       "cost_usd": 3.2425,
       "current_best": false,
-      "frontier": true,
-      "note": ""
+      "frontier": false,
+      "note": "fails the convergence gate"
     },
     {
       "id": "m6-slopes/base-v1/gibbs@8d52ddb",
@@ -1353,7 +1411,9 @@
           "passes": false,
           "fit_seconds": 1835.312138203,
           "sampling_seconds": 1506.024794576,
-          "cost_usd": 2.2573
+          "cost_usd": 2.2573,
+          "group_rhat_max": 6.4050764309989425,
+          "group_rhat_method": "kept joint draws, all group effects"
         },
         "units": {
           "run": "m6-slopes-base-v1-units-8d52ddb",
@@ -1368,7 +1428,9 @@
           "passes": false,
           "fit_seconds": 1864.355481573,
           "sampling_seconds": 1514.372695847,
-          "cost_usd": 2.3076
+          "cost_usd": 2.3076,
+          "group_rhat_max": 1.8780201190041015,
+          "group_rhat_method": "kept joint draws, all group effects"
         }
       },
       "passes_checks": false,
@@ -1376,7 +1438,7 @@
       "cost_usd": 2.3076,
       "current_best": false,
       "frontier": false,
-      "note": "superseded by passing rerun m6-slopes/base-v1/gibbs@6a14509"
+      "note": "fails the convergence gate"
     },
     {
       "id": "m6-slopes/base-v1/gibbs@8d52ddb",
@@ -1448,7 +1510,9 @@
           "passes": false,
           "fit_seconds": 2361.239207655,
           "sampling_seconds": 1950.7948088019998,
-          "cost_usd": 2.8768
+          "cost_usd": 2.8768,
+          "group_rhat_max": 6.3950765332415305,
+          "group_rhat_method": "kept joint draws, all group effects"
         },
         "units": {
           "run": "m6-slopes-base-v1-units-8d52ddb-solo",
@@ -1460,10 +1524,12 @@
           "paired_rows": 5226,
           "max_rhat": 1.0076382046701926,
           "min_ess": 3273.7223352806186,
-          "passes": true,
+          "passes": false,
           "fit_seconds": 2355.571855693,
           "sampling_seconds": 1952.3458157080001,
-          "cost_usd": 2.8677
+          "cost_usd": 2.8677,
+          "group_rhat_max": 1.859335103418796,
+          "group_rhat_method": "kept joint draws, all group effects"
         }
       },
       "passes_checks": false,
@@ -1471,7 +1537,7 @@
       "cost_usd": 2.8768,
       "current_best": false,
       "frontier": false,
-      "note": "superseded by passing rerun m6-slopes/base-v1/gibbs@6a14509"
+      "note": "fails the convergence gate"
     },
     {
       "id": "m6-slopes/desc-v1/gibbs@69cb324",
@@ -1540,10 +1606,12 @@
           "paired_rows": 5264,
           "max_rhat": 1.0085870017762195,
           "min_ess": 4473.183739818976,
-          "passes": true,
+          "passes": false,
           "fit_seconds": 3673.428859392,
           "sampling_seconds": 3008.9397700339996,
-          "cost_usd": 4.4547
+          "cost_usd": 4.4547,
+          "group_rhat_max": 6.423455627315047,
+          "group_rhat_method": "kept joint draws, all group effects"
         },
         "units": {
           "run": "m6-slopes-desc-v1-units-69cb324-long",
@@ -1555,18 +1623,20 @@
           "paired_rows": 5226,
           "max_rhat": 1.0073846178189623,
           "min_ess": 5043.136262162493,
-          "passes": true,
+          "passes": false,
           "fit_seconds": 3688.611824098,
           "sampling_seconds": 2983.976862882,
-          "cost_usd": 4.4697
+          "cost_usd": 4.4697,
+          "group_rhat_max": 3.1455835240471455,
+          "group_rhat_method": "kept joint draws, all group effects"
         }
       },
-      "passes_checks": true,
+      "passes_checks": false,
       "fit_seconds": 3688.611824098,
       "cost_usd": 4.4697,
-      "current_best": true,
-      "frontier": true,
-      "note": ""
+      "current_best": false,
+      "frontier": false,
+      "note": "fails the convergence gate"
     },
     {
       "id": "m6-slopes/desc-v1/gibbs@6a14509",
@@ -1638,7 +1708,9 @@
           "passes": false,
           "fit_seconds": 2680.99888286,
           "sampling_seconds": 2012.3832474480002,
-          "cost_usd": 3.2713
+          "cost_usd": 3.2713,
+          "group_rhat_max": 6.405064937979328,
+          "group_rhat_method": "kept joint draws, all group effects"
         },
         "units": {
           "run": "m6-slopes-desc-v1-units-6a14509",
@@ -1650,10 +1722,12 @@
           "paired_rows": 5226,
           "max_rhat": 1.0064600911723753,
           "min_ess": 3306.5821051637645,
-          "passes": true,
+          "passes": false,
           "fit_seconds": 2707.7628796500003,
           "sampling_seconds": 2006.969662986,
-          "cost_usd": 3.3022
+          "cost_usd": 3.3022,
+          "group_rhat_max": 3.2492523793670722,
+          "group_rhat_method": "kept joint draws, all group effects"
         }
       },
       "passes_checks": false,
@@ -1661,7 +1735,7 @@
       "cost_usd": 3.3022,
       "current_best": false,
       "frontier": false,
-      "note": "superseded by passing rerun m6-slopes/desc-v1/gibbs@69cb324"
+      "note": "fails the convergence gate"
     },
     {
       "id": "m6-slopes/desc-v1/gibbs@8d52ddb",
@@ -1730,7 +1804,9 @@
           "passes": false,
           "fit_seconds": 1904.250115275,
           "sampling_seconds": 1561.140794101,
-          "cost_usd": 2.3531
+          "cost_usd": 2.3531,
+          "group_rhat_max": 6.436237045180333,
+          "group_rhat_method": "kept joint draws, all group effects"
         },
         "units": {
           "run": "m6-slopes-desc-v1-units-8d52ddb",
@@ -1745,7 +1821,9 @@
           "passes": false,
           "fit_seconds": 1906.481780041,
           "sampling_seconds": 1553.831273158,
-          "cost_usd": 2.3638
+          "cost_usd": 2.3638,
+          "group_rhat_max": 3.234926332917731,
+          "group_rhat_method": "kept joint draws, all group effects"
         }
       },
       "passes_checks": false,
@@ -1753,7 +1831,7 @@
       "cost_usd": 2.3638,
       "current_best": false,
       "frontier": false,
-      "note": "superseded by passing rerun m6-slopes/desc-v1/gibbs@69cb324"
+      "note": "fails the convergence gate"
     },
     {
       "id": "m6-slopes/desc-v1/gibbs@8d52ddb",
@@ -1825,7 +1903,9 @@
           "passes": false,
           "fit_seconds": 2433.470817045,
           "sampling_seconds": 2016.2862508830003,
-          "cost_usd": 2.9694
+          "cost_usd": 2.9694,
+          "group_rhat_max": 6.431504602872794,
+          "group_rhat_method": "kept joint draws, all group effects"
         },
         "units": {
           "run": "m6-slopes-desc-v1-units-8d52ddb-solo",
@@ -1837,10 +1917,12 @@
           "paired_rows": 5226,
           "max_rhat": 1.0076463919179839,
           "min_ess": 3334.4786963992187,
-          "passes": true,
+          "passes": false,
           "fit_seconds": 2430.598114147,
           "sampling_seconds": 2006.0398762539999,
-          "cost_usd": 2.9657
+          "cost_usd": 2.9657,
+          "group_rhat_max": 3.218997400307654,
+          "group_rhat_method": "kept joint draws, all group effects"
         }
       },
       "passes_checks": false,
@@ -1848,8 +1930,8 @@
       "cost_usd": 2.9694,
       "current_best": false,
       "frontier": false,
-      "note": "superseded by passing rerun m6-slopes/desc-v1/gibbs@69cb324"
+      "note": "fails the convergence gate"
     }
   ],
-  "current_best": "m6-slopes/desc-v1/gibbs@69cb324"
+  "current_best": "m5-quarterly/base-v1/gibbs@4226f40"
 }

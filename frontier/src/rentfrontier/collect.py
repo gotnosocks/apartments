@@ -149,6 +149,7 @@ def collect(
         lambda a, mu: np.asarray(a, np.float64).sum(0) / n - mu * mu, s2, mean
     )
     return {
+        "rhat_all": all_effects_rhat(s1, s2, n // n_chains),
         "lpd": lpd,
         "lpd_chain": acc - math.log(n // n_chains),
         "mean": mean,
@@ -158,3 +159,35 @@ def collect(
         "trace_buildings": np.asarray(trace_b),
         "trace_units": np.asarray(trace_u),
     }
+
+
+def all_effects_rhat(s1, s2, n):
+    """R-hat for every element of every named effect, from per-chain moments.
+
+    s1, s2: per-chain running sums and sums of squares, leading axis = chain;
+    n: draws per chain. Catches chains stuck in different modes for any single
+    building, unit or coefficient, which a sample of traced effects can miss.
+    """
+    out = {}
+    for key in s1:
+        a1 = np.asarray(s1[key], np.float64)
+        a2 = np.asarray(s2[key], np.float64)
+        if a1.ndim < 1 or a1.shape[0] < 2:
+            continue
+        m = a1 / n
+        v = np.maximum(a2 / n - m * m, 0.0) * n / (n - 1)
+        w = v.mean(axis=0)
+        b = n * m.var(axis=0, ddof=1)
+        with np.errstate(invalid="ignore", divide="ignore"):
+            r = np.sqrt(((n - 1) / n * w + b / n) / w)
+        r = np.where(w > 0, r, 1.0).ravel()
+        if r.size == 0:
+            continue
+        i = int(np.nanargmax(r))
+        out[key] = {
+            "max": float(np.nanmax(r)),
+            "argmax": i,
+            "over_1_05": int((r > 1.05).sum()),
+            "size": int(r.size),
+        }
+    return out

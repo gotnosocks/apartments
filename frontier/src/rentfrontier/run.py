@@ -93,7 +93,10 @@ def ess(x):
     return float(blackjax.ess(np.asarray(x), chain_axis=0, sample_axis=1))
 
 
-def diagnostics(trace, names_beta) -> dict:
+GROUP_RHAT_GATE = 1.05  # max over every element of every effect (tens of thousands)
+
+
+def diagnostics(trace, names_beta, rhat_all=None) -> dict:
     from .collect import SCALARS
 
     quantities = {}
@@ -122,8 +125,16 @@ def diagnostics(trace, names_beta) -> dict:
         "min_ess": worst_ess[1]["ess"],
         "min_ess_name": worst_ess[0],
         "scalars": {n: rows[n] for n in SCALARS if n in rows},
-        "passes": bool(worst_rhat[1]["rhat"] < 1.01 and worst_ess[1]["ess"] > 400),
-        "gate": "max split R-hat < 1.01 and min bulk ESS > 400 over scalars, coefficients, sampled trend points and 32+32 traced group effects",
+        "group_rhat": rhat_all,
+        "group_rhat_max": max(
+            (v["max"] for v in (rhat_all or {}).values()), default=None
+        ),
+        "passes": bool(
+            worst_rhat[1]["rhat"] < 1.01
+            and worst_ess[1]["ess"] > 400
+            and all(v["max"] < GROUP_RHAT_GATE for v in (rhat_all or {}).values())
+        ),
+        "gate": "max split R-hat < 1.01 and min bulk ESS > 400 over scalars, coefficients, sampled trend points and 32+32 traced group effects; and max R-hat < 1.05 over every element of every effect (all buildings, walks, slopes, units)",
     }
 
 
@@ -265,7 +276,7 @@ def main(argv=None):
     out = module.run(prep, config, settings, log=log)
     fit_seconds = time.perf_counter() - t0
 
-    diag = diagnostics(out["trace"], feats.names)
+    diag = diagnostics(out["trace"], feats.names, out.get("rhat_all"))
     scores = score(args.split, prep.test_audit_id, out["lpd"], out["lpd_chain"])
     log(
         f"diagnostics: max R-hat {diag['max_rhat']:.4f} ({diag['max_rhat_name']}), min ESS {diag['min_ess']:.0f} ({diag['min_ess_name']})"
