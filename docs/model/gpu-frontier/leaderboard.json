@@ -88,7 +88,7 @@
       "cost_usd": 0.1823,
       "current_best": false,
       "frontier": true,
-      "note": "beaten by m6-slopes/base-v1/gibbs@6a14509 (+1227.2 \u00b1 58.3 rows)"
+      "note": "beaten by m6-slopes/desc-v1/gibbs@69cb324 (+1217.8 \u00b1 59.4 rows)"
     },
     {
       "id": "m1-walk/base-v1/gibbs@1b11fac",
@@ -163,7 +163,7 @@
       "cost_usd": 0.6035,
       "current_best": false,
       "frontier": false,
-      "note": "beaten by m6-slopes/base-v1/gibbs@6a14509 (+329.6 \u00b1 38.9 rows)"
+      "note": "beaten by m6-slopes/desc-v1/gibbs@69cb324 (+320.2 \u00b1 40.7 rows)"
     },
     {
       "id": "m1-walk/base-v1/gibbs@942c0f4",
@@ -241,7 +241,7 @@
       "cost_usd": 1.0174,
       "current_best": false,
       "frontier": false,
-      "note": "beaten by m6-slopes/base-v1/gibbs@6a14509 (+329.9 \u00b1 39.0 rows)"
+      "note": "beaten by m6-slopes/desc-v1/gibbs@69cb324 (+320.5 \u00b1 40.7 rows)"
     },
     {
       "id": "m1-walk/base-v1/gibbs@94a4da4",
@@ -310,7 +310,7 @@
       "cost_usd": 0.5136,
       "current_best": false,
       "frontier": false,
-      "note": "beaten by m6-slopes/base-v1/gibbs@6a14509 (+329.6 \u00b1 39.0 rows)"
+      "note": "beaten by m6-slopes/desc-v1/gibbs@69cb324 (+320.2 \u00b1 40.7 rows)"
     },
     {
       "id": "m1-walk/base-v1/gibbs@bf01f16",
@@ -393,7 +393,7 @@
       "cost_usd": 1.289,
       "current_best": false,
       "frontier": false,
-      "note": "beaten by m6-slopes/base-v1/gibbs@6a14509 (+329.7 \u00b1 39.0 rows)"
+      "note": "beaten by m6-slopes/desc-v1/gibbs@69cb324 (+320.2 \u00b1 40.7 rows)"
     },
     {
       "id": "m1-walk/base-v1/gibbs@c5a208a",
@@ -458,7 +458,7 @@
       "cost_usd": 0.8939,
       "current_best": false,
       "frontier": false,
-      "note": "beaten by m6-slopes/base-v1/gibbs@6a14509 (+329.7 \u00b1 39.0 rows)"
+      "note": "beaten by m6-slopes/desc-v1/gibbs@69cb324 (+320.3 \u00b1 40.7 rows)"
     },
     {
       "id": "m4-walk-bedtime-bedslope/base-v1/gibbs@942c0f4",
@@ -536,7 +536,7 @@
       "cost_usd": 2.9859,
       "current_best": false,
       "frontier": false,
-      "note": "beaten by m6-slopes/base-v1/gibbs@6a14509 (+128.6 \u00b1 26.9 rows)"
+      "note": "beaten by m6-slopes/desc-v1/gibbs@69cb324 (+119.2 \u00b1 29.8 rows)"
     },
     {
       "id": "m5-nocurves/base-v1/gibbs@33e8bad",
@@ -622,7 +622,7 @@
       "cost_usd": 1.0067,
       "current_best": false,
       "frontier": true,
-      "note": "beaten by m6-slopes/base-v1/gibbs@6a14509 (+144.4 \u00b1 27.4 rows)"
+      "note": "beaten by m6-slopes/desc-v1/gibbs@69cb324 (+135.0 \u00b1 30.5 rows)"
     },
     {
       "id": "m5-noslope/base-v1/gibbs@33e8bad",
@@ -708,7 +708,7 @@
       "cost_usd": 2.0664,
       "current_best": false,
       "frontier": false,
-      "note": "beaten by m6-slopes/base-v1/gibbs@6a14509 (+320.0 \u00b1 38.0 rows)"
+      "note": "beaten by m6-slopes/desc-v1/gibbs@69cb324 (+310.5 \u00b1 39.8 rows)"
     },
     {
       "id": "m5-nu5/base-v1/gibbs@33e8bad",
@@ -794,7 +794,7 @@
       "cost_usd": 2.1213,
       "current_best": false,
       "frontier": false,
-      "note": "beaten by m6-slopes/base-v1/gibbs@6a14509 (+175.4 \u00b1 32.2 rows)"
+      "note": "beaten by m6-slopes/desc-v1/gibbs@69cb324 (+166.0 \u00b1 34.0 rows)"
     },
     {
       "id": "m5-quarterly/base-v1/gibbs@4226f40",
@@ -863,7 +863,7 @@
       "cost_usd": 1.4995,
       "current_best": false,
       "frontier": true,
-      "note": "beaten by m6-slopes/base-v1/gibbs@6a14509 (+128.6 \u00b1 26.5 rows)"
+      "note": "beaten by m6-slopes/desc-v1/gibbs@69cb324 (+119.2 \u00b1 29.5 rows)"
     },
     {
       "id": "m5-quarterly/desc-v1/gibbs@4226f40",
@@ -947,7 +947,7 @@
       "cost_usd": 1.738,
       "current_best": false,
       "frontier": false,
-      "note": "beaten by m6-slopes/base-v1/gibbs@6a14509 (+140.2 \u00b1 29.7 rows)"
+      "note": "beaten by m6-slopes/desc-v1/gibbs@69cb324 (+130.8 \u00b1 26.2 rows)"
     },
     {
       "id": "m5-quarterly/desc-v1/gibbs@8d52ddb",
@@ -1035,7 +1035,7 @@
       "cost_usd": 2.1876,
       "current_best": false,
       "frontier": false,
-      "note": "beaten by m6-slopes/base-v1/gibbs@6a14509 (+140.3 \u00b1 29.7 rows)"
+      "note": "beaten by m6-slopes/desc-v1/gibbs@69cb324 (+130.8 \u00b1 26.2 rows)"
     },
     {
       "id": "m5-quarterly/base-v1/gibbs@bf01f16",
@@ -1118,7 +1118,7 @@
       "cost_usd": 1.6506,
       "current_best": false,
       "frontier": false,
-      "note": "beaten by m6-slopes/base-v1/gibbs@6a14509 (+128.6 \u00b1 26.5 rows)"
+      "note": "beaten by m6-slopes/desc-v1/gibbs@69cb324 (+119.1 \u00b1 29.5 rows)"
     },
     {
       "id": "m5-quarterly/base-v1/gibbs@33e8bad",
@@ -1282,7 +1282,7 @@
       "passes_checks": true,
       "fit_seconds": 2651.1951100879996,
       "cost_usd": 3.2425,
-      "current_best": true,
+      "current_best": false,
       "frontier": true,
       "note": ""
     },
@@ -1474,6 +1474,101 @@
       "note": "superseded by passing rerun m6-slopes/base-v1/gibbs@6a14509"
     },
     {
+      "id": "m6-slopes/desc-v1/gibbs@69cb324",
+      "commit": "69cb324e45f4918a456fc2c7d31665f22c4dc065",
+      "model": {
+        "name": "m6-slopes",
+        "beta_sd": 0.5,
+        "trend_scale_sd": 0.05,
+        "season_scale_sd": 0.05,
+        "building_scale_sd": 0.5,
+        "unit_scale_sd": 0.2,
+        "noise_scale_sd": 0.2,
+        "noncentered": [],
+        "building_walk": true,
+        "walk_scale_sd": 0.1,
+        "bedroom_time": true,
+        "bedroom_time_scale_sd": 0.02,
+        "bedroom_slope": true,
+        "bedroom_slope_scale_sd": 0.1,
+        "feature_slopes": [
+          "log_sqft_vs_bedroom_median",
+          "bathrooms=2",
+          "bathrooms=3"
+        ],
+        "feature_slope_scale_sd": 0.1,
+        "trend_knot_months": 3,
+        "bedroom_time_knot_months": 3,
+        "nu_fixed": null
+      },
+      "feature_set": "desc-v1",
+      "sampler": "gibbs",
+      "sampler_settings": {
+        "chains": 16,
+        "warmup": 900,
+        "draws": 3000,
+        "keep_every": 100,
+        "seed": 20260923,
+        "noise_steps": 10,
+        "sigma_step_sd": 0.004,
+        "nu_step_sd": 0.03,
+        "rescale_steps": 5,
+        "rescale_step_sd": 0.01,
+        "trace_groups": 32,
+        "collapse": true,
+        "collapse_scale": 2.38,
+        "chain_batch": 0,
+        "solo_scales": [
+          "walk_scale",
+          "bedroom_time_scale",
+          "unit_scale",
+          "fslope_scale_0",
+          "fslope_scale_1",
+          "fslope_scale_2"
+        ]
+      },
+      "hardware": "NVIDIA H100 80GB HBM3",
+      "interpretable": true,
+      "splits": {
+        "rows": {
+          "run": "m6-slopes-desc-v1-rows-69cb324-long",
+          "elpd": 6254.3833225248745,
+          "elpd_se": 77.16723908314654,
+          "elpd_mcse": 1.0859669483172638,
+          "delta": 390.6878287459632,
+          "delta_se": 43.4225451582388,
+          "paired_rows": 5264,
+          "max_rhat": 1.0085870017762195,
+          "min_ess": 4473.183739818976,
+          "passes": true,
+          "fit_seconds": 3673.428859392,
+          "sampling_seconds": 3008.9397700339996,
+          "cost_usd": 4.4547
+        },
+        "units": {
+          "run": "m6-slopes-desc-v1-units-69cb324-long",
+          "elpd": 4718.027776651332,
+          "elpd_se": 76.38166318907214,
+          "elpd_mcse": 0.5250079479047464,
+          "delta": 895.8801932124982,
+          "delta_se": 56.452278775991466,
+          "paired_rows": 5226,
+          "max_rhat": 1.0073846178189623,
+          "min_ess": 5043.136262162493,
+          "passes": true,
+          "fit_seconds": 3688.611824098,
+          "sampling_seconds": 2983.976862882,
+          "cost_usd": 4.4697
+        }
+      },
+      "passes_checks": true,
+      "fit_seconds": 3688.611824098,
+      "cost_usd": 4.4697,
+      "current_best": true,
+      "frontier": true,
+      "note": ""
+    },
+    {
       "id": "m6-slopes/desc-v1/gibbs@6a14509",
       "commit": "6a14509cff2d3465fb51255ad5138b91bef3d225",
       "model": {
@@ -1566,7 +1661,7 @@
       "cost_usd": 3.3022,
       "current_best": false,
       "frontier": false,
-      "note": "fails the convergence gate"
+      "note": "superseded by passing rerun m6-slopes/desc-v1/gibbs@69cb324"
     },
     {
       "id": "m6-slopes/desc-v1/gibbs@8d52ddb",
@@ -1658,7 +1753,7 @@
       "cost_usd": 2.3638,
       "current_best": false,
       "frontier": false,
-      "note": "fails the convergence gate"
+      "note": "superseded by passing rerun m6-slopes/desc-v1/gibbs@69cb324"
     },
     {
       "id": "m6-slopes/desc-v1/gibbs@8d52ddb",
@@ -1753,8 +1848,8 @@
       "cost_usd": 2.9694,
       "current_best": false,
       "frontier": false,
-      "note": "fails the convergence gate"
+      "note": "superseded by passing rerun m6-slopes/desc-v1/gibbs@69cb324"
     }
   ],
-  "current_best": "m6-slopes/base-v1/gibbs@6a14509"
+  "current_best": "m6-slopes/desc-v1/gibbs@69cb324"
 }

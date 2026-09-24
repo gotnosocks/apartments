@@ -15,7 +15,8 @@ being absorbed by unit effects, which is what an interpretable coefficient
 claims. If neither split separates them, the faster entry ranks first.
 
 Frontier. An entry is on the frontier if no other entry is at least as good
-on row-split dELPD, fit time and cost, and strictly better on one.
+on row-split dELPD, unit-split dELPD, fit time and cost, and strictly better
+on one.
 """
 
 from __future__ import annotations
@@ -179,10 +180,17 @@ def build():
                 best = e
 
     def point(e):
-        return (e["splits"]["rows"]["delta"], -e["fit_seconds"], -e["cost_usd"])
+        # Quality on both splits (a missing split counts as worst), speed, cost.
+        unit = e["splits"].get("units", {}).get("delta")
+        return (
+            e["splits"]["rows"]["delta"],
+            unit if unit is not None else -np.inf,
+            -e["fit_seconds"],
+            -e["cost_usd"],
+        )
 
     candidates = [e for e in entries if e["passes_checks"] and "rows" in e["splits"]]
-    ref_point = (0.0, -PROMOTED["fit_seconds"], -PROMOTED["cost_usd"])
+    ref_point = (0.0, 0.0, -PROMOTED["fit_seconds"], -PROMOTED["cost_usd"])
     for e in entries:
         e["current_best"] = e is best
         if e not in candidates:
@@ -191,7 +199,7 @@ def build():
         p = point(e)
         others = [point(o) for o in candidates if o is not e] + [ref_point]
         e["frontier"] = not any(
-            all(o[i] >= p[i] for i in range(3)) and o != p for o in others
+            all(o[i] >= p[i] for i in range(len(p))) and o != p for o in others
         )
     # What supersedes each entry: the current best (if it beats it on the
     # paired row split), otherwise a later run of the same design that passes.
@@ -242,7 +250,7 @@ def markdown(board) -> str:
         "**Ranking.** Only entries that pass the convergence gate (max split R-hat < 1.01, min bulk ESS > 400) and the",
         "interpretability requirement are eligible. Rank by row-split ΔELPD. When two entries differ by less than two paired",
         "standard errors on the row split, the unit split decides, because it tests whether named feature terms carry over to",
-        "unseen units instead of being absorbed by unit effects. **Frontier** = not beaten on row-split ΔELPD, fit time and cost at once.",
+        "unseen units instead of being absorbed by unit effects. **Frontier** = not beaten on row-split ΔELPD, unit-split ΔELPD, fit time and cost at once.",
         "",
         "| Entry | Design | Features | Rows ΔELPD | Units ΔELPD | Units ELPD | R-hat / ESS | Fit time | Cost | Hardware | Checks | Interp. | Best | Frontier | Note |",
         "|---|---|---|---:|---:|---:|---|---:|---:|---|---|---|---|---|---|",
