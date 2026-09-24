@@ -146,6 +146,24 @@ conclusions. In priority order:
   The page's reconstruction on a fit with this parameterization matches the
   saved residuals to 2e-15. The E3 validation fit (`models/bayesian_efficient_structure_experiment.py`,
   4 × 1,000/1,500) runs on Modal.
+  *E3 result (September 23):* 2,500 iterations took 33 min on Modal (4
+  cores), with depth 7 and no divergences. Per draw, minimum ESS is 3× the
+  promoted fit's (434 from 6,000 draws vs 587 from 24,000). Coefficients
+  match within 0.07 posterior SD; bedroom curves and interval widths are
+  identical. Two problems:
+  (1) 13 of 65k parameters sit at R-hat 1.010–1.016, the chance tail at this
+  ESS, so the gate needs ~3,000 draws.
+  (2) **Walk centering is a model change, not a reparameterization.** E3's
+  fitted rents over-predict every half-year of 2021–22 by ~1.7% (median
+  residual −0.016 to −0.020 vs ~0 in the promoted fit), with smaller
+  shifts in 2016–17. The row-weighted common mode of the building walks,
+  dominated by the largest buildings, was carrying the sharp 2021 rebound;
+  removing it leaves that to the smoother citywide trend basis, which cannot
+  follow it. **Walk centering is withdrawn.** The combined candidate uses
+  only the three exact reparameterizations, at 4 × 1,000/3,000. An explicit
+  citywide half-year walk alongside centered building walks would restore
+  the common mode with its own scale; that is a candidate model change and
+  needs a screen before adoption.
 - [ ] **E2. Cut steps per iteration.** 255 leapfrog steps per draw dominates
   cost. Measure steps/iteration and ESS per gradient for E1's variants;
   low-rank adaptation or better-scaled global parameters should reach tree
@@ -171,6 +189,18 @@ conclusions. In priority order:
 
 ### Collection and operating loop
 
+- [ ] **E7. Sampler comparison with the from-scratch Gibbs sampler.** For the
+  same m6 spec: PyMC/nutpie NUTS took 3.2 h on 4 CPUs (4 × 1,000/1,000, R-hat
+  up to 1.05) on the row split. The from-scratch session's blocked Gibbs
+  sampler took 44 min on one H100 ($3.24; 16 × 900/2,000; min ESS 3,267,
+  R-hat ≤ 1.009). Its Student-t is a scale mixture: per-row weights λ are
+  drawn exactly, then all latents jointly from one Gaussian (batched
+  per-building Cholesky blocks plus a ~325-column global Schur system), so
+  ν ≈ 2 changes weights, not geometry. Group scales use collapsed Metropolis
+  steps tuned in warmup. NUTS instead pays for heavy tails in step size and
+  tree depth. For the Pareto board, the PyMC line's value is as an
+  independent check of model structure, not as the production sampler for
+  heavy-tailed variants.
 - [ ] **Scheduled active-listing refresh.** Collection is backfill-oriented
   and the current cohort is a one-off 172-row refresh; price cuts and
   delistings are not being observed. Add a systemd timer on thelio:

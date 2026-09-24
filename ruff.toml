@@ -260,4 +260,7 @@ extend-exclude = [
     "models/bayesian_drift_experiment.py",
     "models/bayesian_location_terms_v2.py",
     "models/bayesian_structure_graph_v2.py",
+    "models/bayesian_attribute_design_v2.py",
+    "models/bayesian_combined_experiment.py",
+    "models/bayesian_structure_graph_v3.py",
 ]
