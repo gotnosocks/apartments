@@ -132,3 +132,32 @@ review). 110 W 26th is no longer among the worst-mixing parameters. The
 slowest parameter is now the citywide walk scale (R-hat 1.073, ESS 48 in
 the rows screen). The protocol fit therefore uses **8 chains × (1,000 +
 4,000)** draws.
+
+## Status: protocol fit on hold (September 24)
+
+Ben stopped Modal use, then paused new experiments. The combined v2
+protocol fit has **not been run**. The code on master (e198d74) is ready to
+launch locally:
+
+```
+systemd-run --user --unit=apartments-fit-<name> -p MemoryMax=8G --nice=10 \
+  --setenv=TMPDIR=/data1/... --setenv=OPENBLAS_NUM_THREADS=1 ... \
+  .venv/bin/python -m models.bayesian_combined_experiment \
+  --dataset data/model/chelsea-product-scope-analysis-20260921 \
+  --evidence data/model/chelsea-refreshed-bayesian-descriptions-20260918 \
+  --output data/model/<name>   # on /data1; defaults 8 x (1,000 + 4,000)
+```
+
+Local memory: a stopped measurement run (8 chains × 400 draws) held about
+2.7 GB of RSS while sampling with 8 chains. Unit-level draws in the report
+stage are already streamed from a memmap (`bayesian_report_cache`). The
+remaining report arrays grow with the number of draws: per-building slopes,
+the unit-drift cache and `mu` blocks. Measure the report peak before the
+full run, with MemoryMax around 8–9 GB. The from-scratch session agreed to
+keep its GPU fits under 2.5 GB and about 2 cores while this runs.
+
+Since this bridge was designed, the from-scratch session's m8 (Student-t
+unit effects plus per-unit drift, own-ad flags) passed its full gate at
++601.7 rows / +932.7 units. Paired against this spec's screen (cand3):
+rows +131.5 ± 28.2, units −27.1 ± 28.4. Whether to run this fit, or to
+select m8 once the shared summary reader exists, is Ben's call.

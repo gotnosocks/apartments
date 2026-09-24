@@ -63,3 +63,11 @@ modes. The unit-split screen mixed (R-hat 1.017). Remedies, if the protocol
 fit shows it: size evidence for the split units (the descriptions say
 "one bedroom" but give no area), or a unit-type flag for partial-floor
 units in loft buildings.
+
+**Unseen-unit drift in screens.** `structure_screen` sets per-unit drift to 0
+for held-out (unseen) units. That is exact for single-listing units, but it
+omits drift uncertainty for held-out units with several listings, so their
+predictive intervals are slightly too narrow. The from-scratch session
+integrates s·(t − t̄_u) over s ~ N(0, τ_d) with t̄_u from the held-out unit's
+own listings. The effect on unit-split ΔELPD is small (it measured −13 ± 4
+from its own approximation of this term).
