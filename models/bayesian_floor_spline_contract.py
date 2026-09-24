@@ -11,9 +11,11 @@ ATTRIBUTE_EXPERIMENT = 'observable-bayesian-attribute-structure-experiment-v1'
 DRIFT_EXPERIMENT = 'observable-bayesian-drift-experiment-v1'
 EFFICIENT_STRUCTURE_EXPERIMENT = 'observable-bayesian-efficient-structure-experiment-v1'
 COMBINED_EXPERIMENT = 'observable-bayesian-combined-experiment-v1'
+# The last code-hash protocol version (September 24); later fits use experiment scripts.
+COMBINED_V2_EXPERIMENT = 'observable-bayesian-combined-experiment-v2'
 # Experiments whose feature design is exactly this spline design; they may add
 # location terms (see bayesian_location_terms) but share its floor contract.
-FAMILY = frozenset({EXPERIMENT, BEDROOM_TIME_EXPERIMENT, STRUCTURE_EXPERIMENT, ATTRIBUTE_EXPERIMENT, DRIFT_EXPERIMENT, EFFICIENT_STRUCTURE_EXPERIMENT, COMBINED_EXPERIMENT})
+FAMILY = frozenset({EXPERIMENT, BEDROOM_TIME_EXPERIMENT, STRUCTURE_EXPERIMENT, ATTRIBUTE_EXPERIMENT, DRIFT_EXPERIMENT, EFFICIENT_STRUCTURE_EXPERIMENT, COMBINED_EXPERIMENT, COMBINED_V2_EXPERIMENT})
 DESIGN = 'regularized-listed-floor-spline-design-v1'
 # The attribute design is the spline design plus unit attribute columns.
 ATTRIBUTE_DESIGN = 'unit-attribute-spline-design-v1'
