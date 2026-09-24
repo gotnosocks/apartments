@@ -166,6 +166,20 @@ same controls.
 First v6 results: the first 10 probes, all in 51 Leroy Street, returned HTTP 200. Each
 was an eligible unit page whose declared canonical URL equals the probe URL.
 
+### September 24 label-miss review
+
+As of 13:30 EDT, the v6 run has attempted about 8,500 unit probes across 309
+buildings. About 1.5% of probes on listings from 2015 or later return 404, against
+55-82% for 2010-2013 listings (24% for 2014). The age of the inventory row predicts misses; label shape does
+not add much once age is known. Pre-2014 rows with four- or five-digit labels
+(for example `#1007` at 110 Horatio, listed 2011) missed 99% of 504 probes: those
+units no longer have their own pages. Most of that waste is already spent: of
+8,698 pending probes, 914 are pre-2014 rows (about 45% expected misses) and ten
+are other four- or five-digit labels. Expected remaining misses are about 570 requests.
+Skipping pre-2014 probes would save about 410 requests but lose about 500 units,
+so the probe rule is unchanged. No listing-page requests had run yet; 24,172 wait
+behind the unit probes.
+
 ## Handoff status (September 23, 07:55 EDT)
 
 **The crawl is running at four submissions per minute.** On September 23 at 07:51
