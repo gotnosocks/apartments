@@ -18,7 +18,19 @@ def heldout(folder, lpd):
     return str(folder)
 
 
-def entry(tmp_path, name, delta, fit, landed, passes=True, units=None):
+def pointwise(folder, elpd, mcse=0.01):
+    folder.mkdir(parents=True)
+    np.savez(
+        folder / "pointwise.npz",
+        audit_id=np.array([f"t{i}" for i in range(len(elpd))], dtype=object),
+        elpd_loo=np.asarray(elpd, float),
+        mcse=np.full(len(elpd), mcse),
+    )
+    return str(folder)
+
+
+def entry(tmp_path, name, delta, fit, landed, passes=True, units=None, noise=None):
+    per_row = np.full(50, delta / 50) + (noise if noise is not None else 0.0)
     splits = {
         "rows": {
             "run": f"{name}-rows",
@@ -47,6 +59,7 @@ def entry(tmp_path, name, delta, fit, landed, passes=True, units=None):
         "passes_checks": passes,
         "fit_seconds": fit,
         "splits": splits,
+        "psis": {"delta": delta, "_dir": pointwise(tmp_path / name / "loo", per_row)},
     }
 
 
@@ -59,7 +72,8 @@ def test_as_of_counts_entries_from_their_row_result_and_only_landed_splits(tmp_p
     assert set(early["splits"]) == {"rows"} and early["passes_checks"]
     assert early["fit_seconds"] == 60.0
     (late,) = dashboard.as_of([e], at(4))
-    assert not late["passes_checks"] and late["fit_seconds"] == 900.0
+    # A failing unit-split fit fails the entry; fit time stays the scored fit's.
+    assert not late["passes_checks"] and late["fit_seconds"] == 60.0
 
 
 def test_snapshots_replay_the_board_rules_over_time(tmp_path):
@@ -129,3 +143,17 @@ def test_completed_at_rules(tmp_path):
     (local / "result.json").write_text("{}")
     os.utime(local / "result.json", (1_790_000_000, 1_790_000_000))
     assert dashboard.completed_at({"_dir": local}).timestamp() == 1_790_000_000
+
+
+def test_best_is_the_fastest_entry_tied_with_the_top_score(tmp_path):
+    rng = np.random.default_rng(1)
+    noise = rng.normal(0, 0.5, 50)
+    top = entry(tmp_path, "top", 600.0, 3000.0, at(1), noise=noise)
+    tied_fast = entry(tmp_path, "tied", 590.0, 1000.0, at(2), noise=-noise)
+    far = entry(tmp_path, "far", 100.0, 10.0, at(3))
+    entries = dashboard.assign_keys([top, tied_fast, far])
+    snaps = dashboard.snapshots(entries)
+    # 590 is within two combined SE of 600 (noise makes the paired SE ~7), so
+    # the faster one is best; 100 is far outside and never ties.
+    assert snaps[1]["best"] == "tied" and snaps[2]["best"] == "tied"
+    assert sorted(snaps[2]["frontier"]) == ["far", "tied", "top"]

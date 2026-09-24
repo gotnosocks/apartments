@@ -4,16 +4,20 @@ http://thelio.tail3983e0.ts.net:8500 (tailnet only).
 
 ## What it shows
 
-- **Pareto frontier** of row-split held-out ΔELPD (vs the promoted PyMC model) against fit time,
-  with the board's frontier staircase, ±1 paired SE, gate status (hollow = fails the gate or
-  screen-grade) and the promoted reference.
+- **Pareto frontier** of PSIS-LOO ΔELPD over the row split's training rows (vs the m0-base
+  baseline) against the scored fit's time, with the board's frontier staircase, ±1 combined SE
+  (paired SE and Monte Carlo error) and gate status (hollow = fails the gate or screen-grade). The
+  metric and rules are in the [research plan](research-plan.md).
 - **As of** scrubber: every chart, headline number and table re-renders with the results that
   had landed by then; the board's own rules (`leaderboard.choose_best`, `leaderboard.on_frontier`)
   are replayed at each moment, so the frontier and best at any date are what the board would have
   said then.
-- Unit split (secondary), best ΔELPD over time, fit time over time, cumulative compute by model
-  line, all entries (sortable, with notes and annotations) and milestones (merged PRs and
-  app-model selections from git history). Every chart has a table view.
+- Validation (PSIS-LOO against genuine held-out ΔELPD per entry, with their rank correlation),
+  unit split (secondary), best PSIS-LOO ΔELPD over time, fit time over time, cumulative compute by
+  model line, all entries (sortable, with Pareto-k reliability, notes and annotations) and
+  milestones (merged PRs and app-model selections from git history). Every chart has a table view.
+- The ΔELPD axis zooms past the baseline by default (it sits far below every other entry and is
+  drawn at the floor); "Full ΔELPD range" shows everything.
 
 ## How it is built and served
 

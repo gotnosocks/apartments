@@ -12,8 +12,9 @@
   <header class="page-head">
     <div>
       <h1>NYC rent model · research progress</h1>
-      <p class="subtitle">Accuracy is row-split held-out ΔELPD against the promoted PyMC model (log-rent density, paired on identical rows).
-        Fit time is sampler wall time on the hardware each run used.</p>
+      <p class="subtitle">Accuracy is PSIS-LOO ΔELPD: each training listing's log-rent density given all the others, summed over the row split's
+        47,374 training rows and paired against the m0-base baseline. Fit time is the scored fit's sampler wall time on the hardware it used.
+        See the <a href="https://github.com/gotnosocks/apartments/blob/master/docs/research-plan.md">research plan</a>.</p>
     </div>
     <div class="head-meta">
       <p id="build-meta" class="muted"></p>
@@ -41,9 +42,10 @@
   <section class="card" id="frontier-card">
     <div class="card-head">
       <div>
-        <h2>Pareto frontier: row-split ΔELPD × fit time</h2>
+        <h2>Pareto frontier: PSIS-LOO ΔELPD × fit time</h2>
         <p class="caption">Up is more accurate, left is faster. The staircase is the frontier: entries that no other gate-passing entry
-          (or the reference) beats on both axes at once. The gray staircase is the latest frontier, for context when scrubbing back in time.</p>
+          beats on both axes at once. Whiskers are ±1 combined SE (paired SE and Monte Carlo error). The gray staircase is the latest
+          frontier, for context when scrubbing back in time. PyMC screens saved no posterior draws, so they have no PSIS-LOO score and appear only in the table.</p>
       </div>
       <button class="ghost table-toggle" type="button" data-target="frontier">Table view</button>
     </div>
@@ -56,32 +58,34 @@
     <section class="card">
       <div class="card-head">
         <div>
+          <h2>Validation: PSIS-LOO vs held-out rows</h2>
+          <p class="caption">Each entry's PSIS-LOO score against its genuine held-out score (5,264 rows its fit never saw, vs the promoted model).
+            If PSIS-LOO measures the same thing, points rise from left to right. <span id="validation-caption"></span></p>
+        </div>
+        <button class="ghost table-toggle" type="button" data-target="validation">Table view</button>
+      </div>
+      <div class="chart" id="chart-validation"></div>
+      <div class="table-view" id="table-validation" hidden></div>
+    </section>
+    <section class="card">
+      <div class="card-head">
+        <div>
           <h2>Unit split (secondary)</h2>
-          <p class="caption">All listings of about 10% of units held out. It breaks row-split ties within two paired SE; it does not define the frontier.</p>
+          <p class="caption">All listings of about 10% of units held out: prediction for units the fit never saw. Secondary evidence; not part of the ranking or the frontier.</p>
         </div>
         <button class="ghost table-toggle" type="button" data-target="units">Table view</button>
       </div>
       <div class="chart" id="chart-units"></div>
       <div class="table-view" id="table-units" hidden></div>
     </section>
-    <section class="card">
-      <div class="card-head">
-        <div>
-          <h2>Compute spent over time</h2>
-          <p class="caption">Cumulative fit hours of scored entries, by model line (each entry's longest split; superseded reruns included).</p>
-        </div>
-        <button class="ghost table-toggle" type="button" data-target="compute">Table view</button>
-      </div>
-      <div class="chart" id="chart-compute"></div>
-      <div class="table-view" id="table-compute" hidden></div>
-    </section>
+
   </div>
 
   <section class="card">
     <div class="card-head">
       <div>
-        <h2>Best row-split ΔELPD over time</h2>
-        <p class="caption">The staircase is the board's current best (gate-passing; ties within two paired SE go to the unit split, then the faster fit).
+        <h2>Best PSIS-LOO ΔELPD over time</h2>
+        <p class="caption">The staircase is the board's current best: the fastest gate-passing entry within two combined SE of the top PSIS-LOO score.
           Dots are every scored entry when its row-split result landed. Ticks along the top mark merged PRs and app-model selections. Click the chart to move "As of".</p>
       </div>
       <button class="ghost table-toggle" type="button" data-target="progress">Table view</button>
@@ -94,13 +98,25 @@
     <div class="card-head">
       <div>
         <h2>Fit time over time</h2>
-        <p class="caption">Each entry's fit time when it landed (log scale); the line is the fit time of the board's best. The promoted reference's full fit took about 6.2 h on CPU.</p>
+        <p class="caption">Each entry's scored-fit time when it landed (log scale); the line is the fit time of the board's best. The promoted PyMC model's full production fit took about 6.2 h on CPU.</p>
       </div>
       <button class="ghost table-toggle" type="button" data-target="time">Table view</button>
     </div>
     <div class="chart" id="chart-time"></div>
     <div class="table-view" id="table-time" hidden></div>
   </section>
+
+  <section class="card">
+      <div class="card-head">
+        <div>
+          <h2>Compute spent over time</h2>
+          <p class="caption">Cumulative fit hours of every scored split run (row and unit splits, superseded reruns included), by model line.</p>
+        </div>
+        <button class="ghost table-toggle" type="button" data-target="compute">Table view</button>
+      </div>
+      <div class="chart" id="chart-compute"></div>
+      <div class="table-view" id="table-compute" hidden></div>
+    </section>
 
   <section class="card">
     <div class="card-head">
