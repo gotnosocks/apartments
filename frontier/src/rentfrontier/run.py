@@ -209,7 +209,7 @@ def main(argv=None):
     )
     parser.add_argument(
         "--solo-scales",
-        help="Gibbs: comma-separated scales given 1-D collapsed updates",
+        help="Gibbs: comma-separated scales given 1-D collapsed updates ('none' for no solo updates)",
     )
     parser.add_argument(
         "--float32", action="store_true", help="HMC only; Gibbs always runs in float64"
@@ -257,7 +257,9 @@ def main(argv=None):
             "keep_every": args.keep_every,
             "seed": args.seed,
             "chain_batch": args.chain_batch,
-            "solo_scales": tuple(args.solo_scales.split(","))
+            "solo_scales": (
+                () if args.solo_scales == "none" else tuple(args.solo_scales.split(","))
+            )
             if args.solo_scales
             else None,
         }.items()
