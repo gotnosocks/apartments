@@ -20,6 +20,7 @@ per-building half-year random walk) plus every term accepted in screening
 | per-building bedroom slope | τ·z_b·(min(beds, 4) − 1), τ ~ HalfNormal(0.1) | together with ν: +249.9 ± 35.6 / +505.5 ± 40.5 |
 | estimated Student-t ν | ν ~ Gamma(2, 0.1); posterior ≈ 2 | (in the row above) |
 | per-building size and bath slopes | τ_j·z_bj·x_j on `log_size_within_bedrooms`, `full_bathrooms_gt_1`, `full_bathrooms_gt_2`; τ_j ~ HalfNormal(0.1) | with the two above: +388 / +756 (unpaired) |
+| per-building offset for unsized listings | the same form on `size_missing` | +(−4.5 ± 12.0) / +41.1 ± 9.6 over the rest (paired); removes the 110 W 26th bimodality |
 | quarterly citywide random walk, building walks centered across buildings | scale ~ HalfNormal(0.05); walk levels minus their row-weighted mean at each knot | +2.5 / +3.1 (unpaired); 24% faster sampling |
 
 It also keeps the exact reparameterizations: the intercept as the
@@ -112,3 +113,22 @@ The differences are within noise (roughly ±0.4 SE per half-year). There
 is no systematic 2021–22 shift like E3's (median residual −1.6 to −2.0% in
 every 2021–22 half-year). The fitted 2021–22 levels will also be compared
 with the selected fit once the protocol fit lands.
+
+## Full-spec screen with the size-missing slope (September 24)
+
+`nuts-cand3-{rows,units}` (runs `20260924T074726Z`, `…074740Z`; commit
+75db87c; screen-grade 4 × 1,000/1,000) vs the canonical references:
+
+| | rows | units |
+|---|---|---|
+| ΔELPD (paired) | **+470.2 ± 44.3** | **+959.8 ± 59.3** |
+| vs `nuts-cand2` (without the size-missing slope) | −4.5 ± 12.0 | +41.1 ± 9.6 |
+| 95% predictive coverage (held out) | 94.6% | 93.3% |
+| 80% predictive coverage (held out) | 79.0% | 80.0% |
+| held-out rows off by more than 25% | 2.6% | 5.3% |
+
+Intervals stay calibrated at ν ≈ 2 (the tail check asked for in the PR #5
+review). 110 W 26th is no longer among the worst-mixing parameters. The
+slowest parameter is now the citywide walk scale (R-hat 1.073, ESS 48 in
+the rows screen). The protocol fit therefore uses **8 chains × (1,000 +
+4,000)** draws.

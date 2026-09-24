@@ -31,6 +31,7 @@ half-year building walk and screens are conditional MAP. See
 | per-building size and 2+/3+ full-bath slopes + bedroom slope + estimated ν (from-scratch m6) | **+388.0** (Σ 6,251.7; unpaired) | **+756.3** (Σ 4,578.4; unpaired) | **accepted**; reproduces the from-scratch m6 (+400.1 ± 42.5 / +765.9 ± 55.5); ν ≈ 2.05–2.10 |
 | quarterly citywide random walk | −0.3 (unpaired) | — | neutral |
 | **full combined v2 spec** (m6 + ν + citywide walk with centered building walks + per-unit drift + as-of flags) | **+474.7 ± 43.5** (paired) | **+918.7 ± 58.6** (paired) | **candidate** for the combined v2 protocol fit; ν ≈ 2.0. Rows run: one building (110 W 26th) bimodal, R-hat 1.53; see note |
+| full v2 spec + per-building `size_missing` slope | **+470.2 ± 44.3** (−4.5 ± 12.0 vs above) | **+959.8 ± 59.3** (+41.1 ± 9.6 vs above) | **accepted** into combined v2; removes the 110 W 26th bimodality; 95% coverage 94.6% / 93.3% |
 | quarterly citywide walk + building walks centered across buildings | +2.5 (unpaired) | +3.1 (unpaired) | **accepted as an efficiency change**: with the citywide walk, centering no longer biases 2021–22; sampling 1,403 s vs 1,846 s |
 
 Building covariates come from archived StreetEasy building pages
