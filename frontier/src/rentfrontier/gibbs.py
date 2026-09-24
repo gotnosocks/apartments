@@ -549,6 +549,50 @@ def make_step(d: Design):
             kappa = jax.random.gamma(keys[13], (unit_nu + 1) / 2, (d.n_units,)) / (
                 (unit_nu + (u / tau) ** 2) / 2
             )
+            # Collapsed per-unit update of kappa_j with u_j integrated out:
+            # the unit's residuals r (excluding u_j) have covariance
+            # D + (tau^2 / kappa_j) 11', so by Sherman-Morrison
+            #   log p(r | kappa_j) = -1/2 log(1 + tau^2 s_j / kappa_j)
+            #                        + 1/2 c_j h_j^2 + const,
+            # c_j = 1 / (kappa_j / tau^2 + s_j). Random-walk Metropolis on
+            # log kappa_j (all units at once), then u_j | kappa_j. This breaks
+            # the u_j <-> kappa_j coupling for units with one or two rows.
+            w_now = lam / sigma**2
+            resid = d.y - fixed
+            s_u = jax.ops.segment_sum(w_now, d.unit, d.n_units)
+            h_u = jax.ops.segment_sum(w_now * resid, d.unit, d.n_units)
+
+            def kappa_target(log_k):
+                k_ = jnp.exp(log_k)
+                c_ = 1.0 / (k_ / tau**2 + s_u)
+                return (
+                    -0.5 * jnp.log1p(tau**2 * s_u / k_)
+                    + 0.5 * c_ * h_u**2
+                    + (unit_nu / 2) * log_k
+                    - (unit_nu / 2) * k_
+                )
+
+            def kappa_mh(carry, k):
+                lk, lt = carry
+                k1, k2 = jax.random.split(k)
+                prop = lk + jax.random.normal(k1, lk.shape)
+                lp = kappa_target(prop)
+                ok = jnp.log(jax.random.uniform(k2, lk.shape)) < lp - lt
+                return (jnp.where(ok, prop, lk), jnp.where(ok, lp, lt)), ok.mean()
+
+            lk0 = jnp.log(kappa)
+            (lk, _), k_acc = jax.lax.scan(
+                kappa_mh,
+                (lk0, kappa_target(lk0)),
+                jax.random.split(jax.random.fold_in(keys[13], 1), 4),
+            )
+            kappa = jnp.exp(lk)
+            c_u = 1.0 / (kappa / tau**2 + s_u)
+            u = c_u * h_u + jnp.sqrt(c_u) * jax.random.normal(
+                jax.random.fold_in(keys[13], 2), (d.n_units,)
+            )
+            e = d.y - fixed - u[d.unit]
+            info["kappa_accept"] = k_acc.mean()
         new["unit_scale"] = _update_scale(
             keys[5],
             s["unit_scale"],
