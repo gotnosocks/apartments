@@ -154,17 +154,17 @@
       },
       "psis": {
         "run": "m0-base-rows-5cc0809",
-        "commit": "6c485fc837dd014892d65adc6d0e5e4545c49f85",
+        "commit": "ad9ab68083530245ae577cd1fa77744448fa62b6",
         "rows": 47374,
         "draws": 320,
         "elpd": 40593.87061032324,
-        "elpd_se": 225.44669392862224,
-        "mcse": 3.4643140218097064,
+        "elpd_se": 225.44669392862227,
+        "mcse": 3.464314021809706,
         "pareto_k": {
           "threshold": 0.6008223025949704,
           "over_threshold": 201,
           "over_0_7": 147,
-          "max": 2.107672380757291,
+          "max": 2.107672380757292,
           "share_over_threshold": 0.004242833621817875
         },
         "validation": {
@@ -182,7 +182,7 @@
       "hardware_class": "Modal H100",
       "frontier": true,
       "current_best": false,
-      "note": "beaten on Modal H100 by m8-drift/desc-v1/gibbs@b7c196f (+13279.3 \u00b1 184.1 PSIS-LOO)",
+      "note": "beaten on Modal H100 by m8-drift/desc-v1/gibbs@b7c196f (+13272.7 \u00b1 184.1 PSIS-LOO)",
       "annotations": []
     },
     {
@@ -320,17 +320,17 @@
       },
       "psis": {
         "run": "m1-walk-rows-1b11fac",
-        "commit": "6c485fc837dd014892d65adc6d0e5e4545c49f85",
+        "commit": "ad9ab68083530245ae577cd1fa77744448fa62b6",
         "rows": 47374,
         "draws": 320,
-        "elpd": 48124.34572383115,
-        "elpd_se": 242.52999680041273,
-        "mcse": 7.711930581873504,
+        "elpd": 48124.34572383114,
+        "elpd_se": 242.5299968004128,
+        "mcse": 7.7119305818735056,
         "pareto_k": {
           "threshold": 0.6008223025949704,
           "over_threshold": 1070,
           "over_0_7": 517,
-          "max": 2.2785734934842203,
+          "max": 2.2785734934842172,
           "share_over_threshold": 0.022586228733060328
         },
         "validation": {
@@ -340,15 +340,15 @@
           "psis_mean_lpd_multi_row_units": 1.1272503893174797
         },
         "integrated": "unit level",
-        "delta": 7530.475113507905,
+        "delta": 7530.475113507904,
         "delta_se": 136.22410538468347,
-        "delta_mcse": 8.454309252762354,
+        "delta_mcse": 8.454309252762355,
         "baseline": "m0-base/base-v1/gibbs@5cc0809"
       },
       "hardware_class": "Modal H100",
       "frontier": false,
       "current_best": false,
-      "note": "beaten on Modal H100 by m8-drift/desc-v1/gibbs@b7c196f (+5748.8 \u00b1 146.0 PSIS-LOO)",
+      "note": "beaten on Modal H100 by m8-drift/desc-v1/gibbs@b7c196f (+5742.3 \u00b1 146.0 PSIS-LOO)",
       "annotations": []
     },
     {
@@ -489,10 +489,10 @@
       },
       "psis": {
         "run": "m1-walk-rows-942c0f4",
-        "commit": "6c485fc837dd014892d65adc6d0e5e4545c49f85",
+        "commit": "ad9ab68083530245ae577cd1fa77744448fa62b6",
         "rows": 47374,
         "draws": 320,
-        "elpd": 48128.04198158114,
+        "elpd": 48128.04198158113,
         "elpd_se": 242.5751830756659,
         "mcse": 7.706530005324873,
         "pareto_k": {
@@ -509,7 +509,7 @@
           "psis_mean_lpd_multi_row_units": 1.1271599528114753
         },
         "integrated": "unit level",
-        "delta": 7534.1713712578985,
+        "delta": 7534.171371257898,
         "delta_se": 136.3683748118879,
         "delta_mcse": 8.449383194333176,
         "baseline": "m0-base/base-v1/gibbs@5cc0809"
@@ -517,7 +517,7 @@
       "hardware_class": "Modal H100",
       "frontier": false,
       "current_best": false,
-      "note": "beaten on Modal H100 by m8-drift/desc-v1/gibbs@b7c196f (+5745.1 \u00b1 145.9 PSIS-LOO)",
+      "note": "beaten on Modal H100 by m8-drift/desc-v1/gibbs@b7c196f (+5738.6 \u00b1 145.9 PSIS-LOO)",
       "annotations": []
     },
     {
@@ -649,17 +649,17 @@
       },
       "psis": {
         "run": "m1-walk-rows-94a4da4",
-        "commit": "6c485fc837dd014892d65adc6d0e5e4545c49f85",
+        "commit": "ad9ab68083530245ae577cd1fa77744448fa62b6",
         "rows": 47374,
         "draws": 320,
-        "elpd": 48124.40089138902,
+        "elpd": 48124.400891389014,
         "elpd_se": 242.58178722326298,
         "mcse": 7.7102856241626565,
         "pareto_k": {
           "threshold": 0.6008223025949704,
           "over_threshold": 1087,
           "over_0_7": 499,
-          "max": 2.2222582853088677,
+          "max": 2.222258285308865,
           "share_over_threshold": 0.022945075357791195
         },
         "validation": {
@@ -671,7 +671,7 @@
         "integrated": "unit level",
         "delta": 7530.530281065774,
         "delta_se": 136.24462610796283,
-        "delta_mcse": 8.452808766787326,
+        "delta_mcse": 8.452808766787324,
         "baseline": "m0-base/base-v1/gibbs@5cc0809"
       },
       "hardware_class": "Modal H200",
@@ -823,7 +823,7 @@
       },
       "psis": {
         "run": "m1-walk-rows-bf01f16",
-        "commit": "6c485fc837dd014892d65adc6d0e5e4545c49f85",
+        "commit": "ad9ab68083530245ae577cd1fa77744448fa62b6",
         "rows": 47374,
         "draws": 320,
         "elpd": 48139.323594284,
@@ -833,7 +833,7 @@
           "threshold": 0.6008223025949704,
           "over_threshold": 1082,
           "over_0_7": 525,
-          "max": 2.5751549840310988,
+          "max": 2.5751549840311028,
           "share_over_threshold": 0.02283953223287035
         },
         "validation": {
@@ -851,7 +851,7 @@
       "hardware_class": "Modal H100",
       "frontier": false,
       "current_best": false,
-      "note": "beaten on Modal H100 by m8-drift/desc-v1/gibbs@b7c196f (+5733.8 \u00b1 145.9 PSIS-LOO)",
+      "note": "beaten on Modal H100 by m8-drift/desc-v1/gibbs@b7c196f (+5727.3 \u00b1 145.9 PSIS-LOO)",
       "annotations": []
     },
     {
@@ -977,17 +977,17 @@
       },
       "psis": {
         "run": "m1-walk-rows-c5a208a",
-        "commit": "6c485fc837dd014892d65adc6d0e5e4545c49f85",
+        "commit": "ad9ab68083530245ae577cd1fa77744448fa62b6",
         "rows": 47374,
         "draws": 320,
         "elpd": 48136.655909828456,
         "elpd_se": 242.750447842555,
-        "mcse": 7.667237377788153,
+        "mcse": 7.667237377788152,
         "pareto_k": {
           "threshold": 0.6008223025949704,
           "over_threshold": 1093,
           "over_0_7": 507,
-          "max": 2.5983922544473876,
+          "max": 2.5983922544473885,
           "share_over_threshold": 0.023071727107696206
         },
         "validation": {
@@ -998,14 +998,14 @@
         },
         "integrated": "unit level",
         "delta": 7542.785299505216,
-        "delta_se": 136.34034870493943,
+        "delta_se": 136.3403487049394,
         "delta_mcse": 8.413560521506877,
         "baseline": "m0-base/base-v1/gibbs@5cc0809"
       },
       "hardware_class": "Modal H100",
       "frontier": false,
       "current_best": false,
-      "note": "beaten on Modal H100 by m8-drift/desc-v1/gibbs@b7c196f (+5736.5 \u00b1 145.9 PSIS-LOO)",
+      "note": "beaten on Modal H100 by m8-drift/desc-v1/gibbs@b7c196f (+5729.9 \u00b1 145.9 PSIS-LOO)",
       "annotations": []
     },
     {
@@ -1146,17 +1146,17 @@
       },
       "psis": {
         "run": "m4-walk-bedtime-bedslope-rows-942c0f4",
-        "commit": "6c485fc837dd014892d65adc6d0e5e4545c49f85",
+        "commit": "ad9ab68083530245ae577cd1fa77744448fa62b6",
         "rows": 47374,
         "draws": 320,
-        "elpd": 50491.70871999255,
+        "elpd": 50491.708719992545,
         "elpd_se": 242.34229403197952,
         "mcse": 8.480610811020664,
         "pareto_k": {
           "threshold": 0.6008223025949704,
           "over_threshold": 1401,
           "over_0_7": 723,
-          "max": 2.2377623866528253,
+          "max": 2.2377623866528236,
           "share_over_threshold": 0.029573183602820113
         },
         "validation": {
@@ -1167,14 +1167,14 @@
         },
         "integrated": "unit level",
         "delta": 9897.83810966931,
-        "delta_se": 160.5976221265087,
+        "delta_se": 160.59762212650872,
         "delta_mcse": 9.160907780875643,
         "baseline": "m0-base/base-v1/gibbs@5cc0809"
       },
       "hardware_class": "Modal H100",
       "frontier": false,
       "current_best": false,
-      "note": "beaten on Modal H100 by m8-drift/desc-v1/gibbs@b7c196f (+3381.5 \u00b1 116.7 PSIS-LOO)",
+      "note": "beaten on Modal H100 by m8-drift/desc-v1/gibbs@b7c196f (+3374.9 \u00b1 116.7 PSIS-LOO)",
       "annotations": []
     },
     {
@@ -1323,17 +1323,17 @@
       },
       "psis": {
         "run": "m5-nocurves-rows-33e8bad",
-        "commit": "6c485fc837dd014892d65adc6d0e5e4545c49f85",
+        "commit": "ad9ab68083530245ae577cd1fa77744448fa62b6",
         "rows": 47374,
         "draws": 320,
         "elpd": 50360.412523339735,
         "elpd_se": 242.3646945110207,
-        "mcse": 8.49428641088247,
+        "mcse": 8.494286410882472,
         "pareto_k": {
           "threshold": 0.6008223025949704,
           "over_threshold": 1421,
           "over_0_7": 730,
-          "max": 2.283760751158131,
+          "max": 2.2837607511581357,
           "share_over_threshold": 0.029995356102503482
         },
         "validation": {
@@ -1343,7 +1343,7 @@
           "psis_mean_lpd_multi_row_units": 1.1681413832931333
         },
         "integrated": "unit level",
-        "delta": 9766.541913016497,
+        "delta": 9766.541913016496,
         "delta_se": 159.74173001256884,
         "delta_mcse": 9.173569276558059,
         "baseline": "m0-base/base-v1/gibbs@5cc0809"
@@ -1351,7 +1351,7 @@
       "hardware_class": "Modal H100",
       "frontier": true,
       "current_best": false,
-      "note": "beaten on Modal H100 by m8-drift/desc-v1/gibbs@b7c196f (+3512.7 \u00b1 117.7 PSIS-LOO)",
+      "note": "beaten on Modal H100 by m8-drift/desc-v1/gibbs@b7c196f (+3506.2 \u00b1 117.7 PSIS-LOO)",
       "annotations": []
     },
     {
@@ -1500,7 +1500,7 @@
       },
       "psis": {
         "run": "m5-noslope-rows-33e8bad",
-        "commit": "6c485fc837dd014892d65adc6d0e5e4545c49f85",
+        "commit": "ad9ab68083530245ae577cd1fa77744448fa62b6",
         "rows": 47374,
         "draws": 320,
         "elpd": 48221.022082408876,
@@ -1510,7 +1510,7 @@
           "threshold": 0.6008223025949704,
           "over_threshold": 1040,
           "over_0_7": 474,
-          "max": 2.965294159966479,
+          "max": 2.965294159966481,
           "share_over_threshold": 0.021952969983535273
         },
         "validation": {
@@ -1521,14 +1521,14 @@
         },
         "integrated": "unit level",
         "delta": 7627.151472085632,
-        "delta_se": 137.0382890980966,
+        "delta_se": 137.03828909809658,
         "delta_mcse": 8.360382881850894,
         "baseline": "m0-base/base-v1/gibbs@5cc0809"
       },
       "hardware_class": "Modal H100",
       "frontier": false,
       "current_best": false,
-      "note": "beaten on Modal H100 by m8-drift/desc-v1/gibbs@b7c196f (+5652.1 \u00b1 143.9 PSIS-LOO)",
+      "note": "beaten on Modal H100 by m8-drift/desc-v1/gibbs@b7c196f (+5645.6 \u00b1 143.9 PSIS-LOO)",
       "annotations": []
     },
     {
@@ -1677,7 +1677,7 @@
       },
       "psis": {
         "run": "m5-nu5-rows-33e8bad",
-        "commit": "6c485fc837dd014892d65adc6d0e5e4545c49f85",
+        "commit": "ad9ab68083530245ae577cd1fa77744448fa62b6",
         "rows": 47374,
         "draws": 320,
         "elpd": 49677.93654945859,
@@ -1687,7 +1687,7 @@
           "threshold": 0.6008223025949704,
           "over_threshold": 1712,
           "over_0_7": 915,
-          "max": 2.5529795248285883,
+          "max": 2.5529795248285803,
           "share_over_threshold": 0.03613796597289653
         },
         "validation": {
@@ -1697,7 +1697,7 @@
           "psis_mean_lpd_multi_row_units": 1.159661241953656
         },
         "integrated": "unit level",
-        "delta": 9084.065939135347,
+        "delta": 9084.065939135346,
         "delta_se": 163.68081836681617,
         "delta_mcse": 9.359625674203857,
         "baseline": "m0-base/base-v1/gibbs@5cc0809"
@@ -1705,7 +1705,7 @@
       "hardware_class": "Modal H100",
       "frontier": false,
       "current_best": false,
-      "note": "beaten on Modal H100 by m8-drift/desc-v1/gibbs@b7c196f (+4195.2 \u00b1 128.0 PSIS-LOO)",
+      "note": "beaten on Modal H100 by m8-drift/desc-v1/gibbs@b7c196f (+4188.7 \u00b1 128.0 PSIS-LOO)",
       "annotations": []
     },
     {
@@ -1835,7 +1835,7 @@
       },
       "psis": {
         "run": "m5-quarterly-base-v1-rows-4226f40",
-        "commit": "6c485fc837dd014892d65adc6d0e5e4545c49f85",
+        "commit": "ad9ab68083530245ae577cd1fa77744448fa62b6",
         "rows": 47374,
         "draws": 320,
         "elpd": 50464.49936576828,
@@ -1845,7 +1845,7 @@
           "threshold": 0.6008223025949704,
           "over_threshold": 1390,
           "over_0_7": 705,
-          "max": 2.2834706598829526,
+          "max": 2.2834706598829557,
           "share_over_threshold": 0.029340988727994257
         },
         "validation": {
@@ -1993,7 +1993,7 @@
       },
       "psis": {
         "run": "m5-quarterly-desc-v1-rows-4226f40",
-        "commit": "6c485fc837dd014892d65adc6d0e5e4545c49f85",
+        "commit": "ad9ab68083530245ae577cd1fa77744448fa62b6",
         "rows": 47374,
         "draws": 320,
         "elpd": 50698.20630601501,
@@ -2003,7 +2003,7 @@
           "threshold": 0.6008223025949704,
           "over_threshold": 1453,
           "over_0_7": 750,
-          "max": 2.464863586560063,
+          "max": 2.464863586560061,
           "share_over_threshold": 0.030670832101996875
         },
         "validation": {
@@ -2013,15 +2013,15 @@
           "psis_mean_lpd_multi_row_units": 1.1710254421690556
         },
         "integrated": "unit level",
-        "delta": 10104.335695691765,
-        "delta_se": 163.2340722518604,
+        "delta": 10104.335695691763,
+        "delta_se": 163.23407225186043,
         "delta_mcse": 9.211835092163247,
         "baseline": "m0-base/base-v1/gibbs@5cc0809"
       },
       "hardware_class": "Modal H100",
       "frontier": false,
       "current_best": false,
-      "note": "beaten on Modal H100 by m8-drift/desc-v1/gibbs@b7c196f (+3175.0 \u00b1 111.1 PSIS-LOO)",
+      "note": "beaten on Modal H100 by m8-drift/desc-v1/gibbs@b7c196f (+3168.4 \u00b1 111.1 PSIS-LOO)",
       "annotations": []
     },
     {
@@ -2172,7 +2172,7 @@
       },
       "psis": {
         "run": "m5-quarterly-desc-v1-rows-8d52ddb",
-        "commit": "6c485fc837dd014892d65adc6d0e5e4545c49f85",
+        "commit": "ad9ab68083530245ae577cd1fa77744448fa62b6",
         "rows": 47374,
         "draws": 320,
         "elpd": 50700.701643308625,
@@ -2182,14 +2182,14 @@
           "threshold": 0.6008223025949704,
           "over_threshold": 1459,
           "over_0_7": 749,
-          "max": 2.3205113765636676,
+          "max": 2.32051137656366,
           "share_over_threshold": 0.030797483851901886
         },
         "validation": {
           "note": "mean held-out lpd (repeat-listed units, genuinely left out) vs mean PSIS-LOO over training rows of units with 2+ training rows",
           "heldout_rows": 5264,
           "heldout_mean_lpd": 1.163288003261771,
-          "psis_mean_lpd_multi_row_units": 1.1710523786256009
+          "psis_mean_lpd_multi_row_units": 1.171052378625601
         },
         "integrated": "unit level",
         "delta": 10106.83103298538,
@@ -2200,7 +2200,7 @@
       "hardware_class": "Modal H100",
       "frontier": false,
       "current_best": false,
-      "note": "beaten on Modal H100 by m8-drift/desc-v1/gibbs@b7c196f (+3172.5 \u00b1 111.1 PSIS-LOO)",
+      "note": "beaten on Modal H100 by m8-drift/desc-v1/gibbs@b7c196f (+3165.9 \u00b1 111.1 PSIS-LOO)",
       "annotations": []
     },
     {
@@ -2422,7 +2422,7 @@
       },
       "psis": {
         "run": "m5-quarterly-rows-bf01f16",
-        "commit": "6c485fc837dd014892d65adc6d0e5e4545c49f85",
+        "commit": "ad9ab68083530245ae577cd1fa77744448fa62b6",
         "rows": 47374,
         "draws": 320,
         "elpd": 50464.75339990646,
@@ -2432,7 +2432,7 @@
           "threshold": 0.6008223025949704,
           "over_threshold": 1409,
           "over_0_7": 702,
-          "max": 2.2781159301890677,
+          "max": 2.2781159301890694,
           "share_over_threshold": 0.02974205260269346
         },
         "validation": {
@@ -2450,7 +2450,7 @@
       "hardware_class": "Modal H100",
       "frontier": false,
       "current_best": false,
-      "note": "beaten on Modal H100 by m8-drift/desc-v1/gibbs@b7c196f (+3408.4 \u00b1 115.8 PSIS-LOO)",
+      "note": "beaten on Modal H100 by m8-drift/desc-v1/gibbs@b7c196f (+3401.9 \u00b1 115.8 PSIS-LOO)",
       "annotations": []
     },
     {
@@ -2686,35 +2686,35 @@
       },
       "psis": {
         "run": "m6-slopes-base-v1-rows-6a14509",
-        "commit": "6c485fc837dd014892d65adc6d0e5e4545c49f85",
+        "commit": "ad9ab68083530245ae577cd1fa77744448fa62b6",
         "rows": 47374,
         "draws": 320,
-        "elpd": 52125.225503784925,
+        "elpd": 52125.22550378492,
         "elpd_se": 240.6754396139619,
         "mcse": 9.817525071257696,
         "pareto_k": {
           "threshold": 0.6008223025949704,
           "over_threshold": 1896,
           "over_0_7": 1063,
-          "max": 2.866099956866956,
+          "max": 2.866099956866949,
           "share_over_threshold": 0.04002195296998354
         },
         "validation": {
           "note": "mean held-out lpd (repeat-listed units, genuinely left out) vs mean PSIS-LOO over training rows of units with 2+ training rows",
           "heldout_rows": 5264,
           "heldout_mean_lpd": 1.1899342248407456,
-          "psis_mean_lpd_multi_row_units": 1.1952178174676702
+          "psis_mean_lpd_multi_row_units": 1.1952178174676704
         },
         "integrated": "unit level",
         "delta": 11531.354893461677,
-        "delta_se": 175.12754445916244,
+        "delta_se": 175.12754445916246,
         "delta_mcse": 10.410824663132157,
         "baseline": "m0-base/base-v1/gibbs@5cc0809"
       },
       "hardware_class": "Modal H100",
       "frontier": false,
       "current_best": false,
-      "note": "beaten on Modal H100 by m8-drift/desc-v1/gibbs@b7c196f (+1747.9 \u00b1 83.6 PSIS-LOO)",
+      "note": "beaten on Modal H100 by m8-drift/desc-v1/gibbs@b7c196f (+1741.4 \u00b1 83.6 PSIS-LOO)",
       "annotations": []
     },
     {
@@ -2869,7 +2869,7 @@
       },
       "psis": {
         "run": "m6-slopes-base-v1-rows-8d52ddb",
-        "commit": "6c485fc837dd014892d65adc6d0e5e4545c49f85",
+        "commit": "ad9ab68083530245ae577cd1fa77744448fa62b6",
         "rows": 47374,
         "draws": 320,
         "elpd": 52124.18568871624,
@@ -2879,7 +2879,7 @@
           "threshold": 0.6008223025949704,
           "over_threshold": 1897,
           "over_0_7": 1066,
-          "max": 2.9048469464114612,
+          "max": 2.9048469464114604,
           "share_over_threshold": 0.040043061594967705
         },
         "validation": {
@@ -2890,14 +2890,14 @@
         },
         "integrated": "unit level",
         "delta": 11530.315078393003,
-        "delta_se": 175.13843261663854,
+        "delta_se": 175.13843261663857,
         "delta_mcse": 10.41429265472877,
         "baseline": "m0-base/base-v1/gibbs@5cc0809"
       },
       "hardware_class": "Modal H100",
       "frontier": false,
       "current_best": false,
-      "note": "beaten on Modal H100 by m8-drift/desc-v1/gibbs@b7c196f (+1749.0 \u00b1 83.6 PSIS-LOO)",
+      "note": "beaten on Modal H100 by m8-drift/desc-v1/gibbs@b7c196f (+1742.4 \u00b1 83.6 PSIS-LOO)",
       "annotations": []
     },
     {
@@ -3055,24 +3055,24 @@
       },
       "psis": {
         "run": "m6-slopes-base-v1-rows-8d52ddb-solo",
-        "commit": "6c485fc837dd014892d65adc6d0e5e4545c49f85",
+        "commit": "ad9ab68083530245ae577cd1fa77744448fa62b6",
         "rows": 47374,
         "draws": 320,
-        "elpd": 52124.4013150562,
-        "elpd_se": 240.63054035466138,
+        "elpd": 52124.401315056195,
+        "elpd_se": 240.63054035466143,
         "mcse": 9.815819287059544,
         "pareto_k": {
           "threshold": 0.6008223025949704,
           "over_threshold": 1885,
           "over_0_7": 1066,
-          "max": 2.7167070389288144,
+          "max": 2.716707038928815,
           "share_over_threshold": 0.03978975809515768
         },
         "validation": {
           "note": "mean held-out lpd (repeat-listed units, genuinely left out) vs mean PSIS-LOO over training rows of units with 2+ training rows",
           "heldout_rows": 5264,
           "heldout_mean_lpd": 1.1899513281385068,
-          "psis_mean_lpd_multi_row_units": 1.1951706329266432
+          "psis_mean_lpd_multi_row_units": 1.195170632926643
         },
         "integrated": "unit level",
         "delta": 11530.530704732957,
@@ -3083,7 +3083,7 @@
       "hardware_class": "Modal H100",
       "frontier": false,
       "current_best": false,
-      "note": "beaten on Modal H100 by m8-drift/desc-v1/gibbs@b7c196f (+1748.8 \u00b1 83.6 PSIS-LOO)",
+      "note": "beaten on Modal H100 by m8-drift/desc-v1/gibbs@b7c196f (+1742.2 \u00b1 83.6 PSIS-LOO)",
       "annotations": []
     },
     {
@@ -3241,17 +3241,17 @@
       },
       "psis": {
         "run": "m6-slopes-desc-v1-rows-69cb324-long",
-        "commit": "6c485fc837dd014892d65adc6d0e5e4545c49f85",
+        "commit": "ad9ab68083530245ae577cd1fa77744448fa62b6",
         "rows": 47374,
         "draws": 480,
         "elpd": 52284.10374523559,
-        "elpd_se": 239.6399492402713,
+        "elpd_se": 239.63994924027133,
         "mcse": 8.393637477467765,
         "pareto_k": {
           "threshold": 0.6270384081594966,
           "over_threshold": 1296,
           "over_0_7": 913,
-          "max": 2.8219796802325527,
+          "max": 2.821979680232545,
           "share_over_threshold": 0.027356777979482418
         },
         "validation": {
@@ -3263,13 +3263,13 @@
         "integrated": "unit level",
         "delta": 11690.233134912347,
         "delta_se": 176.95628971139186,
-        "delta_mcse": 9.080452727967849,
+        "delta_mcse": 9.08045272796785,
         "baseline": "m0-base/base-v1/gibbs@5cc0809"
       },
       "hardware_class": "Modal H100",
       "frontier": false,
       "current_best": false,
-      "note": "beaten on Modal H100 by m8-drift/desc-v1/gibbs@b7c196f (+1589.1 \u00b1 75.9 PSIS-LOO)",
+      "note": "beaten on Modal H100 by m8-drift/desc-v1/gibbs@b7c196f (+1582.5 \u00b1 76.0 PSIS-LOO)",
       "annotations": []
     },
     {
@@ -3427,7 +3427,7 @@
       },
       "psis": {
         "run": "m6-slopes-desc-v1-rows-6a14509",
-        "commit": "6c485fc837dd014892d65adc6d0e5e4545c49f85",
+        "commit": "ad9ab68083530245ae577cd1fa77744448fa62b6",
         "rows": 47374,
         "draws": 320,
         "elpd": 52348.07014187645,
@@ -3437,7 +3437,7 @@
           "threshold": 0.6008223025949704,
           "over_threshold": 1892,
           "over_0_7": 1044,
-          "max": 3.2883125013882246,
+          "max": 3.288312501388229,
           "share_over_threshold": 0.03993751847004686
         },
         "validation": {
@@ -3455,7 +3455,7 @@
       "hardware_class": "Modal H100",
       "frontier": false,
       "current_best": false,
-      "note": "beaten on Modal H100 by m8-drift/desc-v1/gibbs@b7c196f (+1525.1 \u00b1 76.2 PSIS-LOO)",
+      "note": "beaten on Modal H100 by m8-drift/desc-v1/gibbs@b7c196f (+1518.5 \u00b1 76.2 PSIS-LOO)",
       "annotations": []
     },
     {
@@ -3610,24 +3610,24 @@
       },
       "psis": {
         "run": "m6-slopes-desc-v1-rows-8d52ddb",
-        "commit": "6c485fc837dd014892d65adc6d0e5e4545c49f85",
+        "commit": "ad9ab68083530245ae577cd1fa77744448fa62b6",
         "rows": 47374,
         "draws": 320,
-        "elpd": 52343.038418328404,
+        "elpd": 52343.0384183284,
         "elpd_se": 239.5261108980152,
         "mcse": 9.833334820825288,
         "pareto_k": {
           "threshold": 0.6008223025949704,
           "over_threshold": 1896,
           "over_0_7": 1050,
-          "max": 3.3647732595685254,
+          "max": 3.364773259568526,
           "share_over_threshold": 0.04002195296998354
         },
         "validation": {
           "note": "mean held-out lpd (repeat-listed units, genuinely left out) vs mean PSIS-LOO over training rows of units with 2+ training rows",
           "heldout_rows": 5264,
           "heldout_mean_lpd": 1.1881219148069364,
-          "psis_mean_lpd_multi_row_units": 1.1962754219476692
+          "psis_mean_lpd_multi_row_units": 1.196275421947669
         },
         "integrated": "unit level",
         "delta": 11749.167808005159,
@@ -3638,7 +3638,7 @@
       "hardware_class": "Modal H100",
       "frontier": false,
       "current_best": false,
-      "note": "beaten on Modal H100 by m8-drift/desc-v1/gibbs@b7c196f (+1530.1 \u00b1 76.2 PSIS-LOO)",
+      "note": "beaten on Modal H100 by m8-drift/desc-v1/gibbs@b7c196f (+1523.6 \u00b1 76.2 PSIS-LOO)",
       "annotations": []
     },
     {
@@ -3796,7 +3796,7 @@
       },
       "psis": {
         "run": "m6-slopes-desc-v1-rows-8d52ddb-solo",
-        "commit": "6c485fc837dd014892d65adc6d0e5e4545c49f85",
+        "commit": "ad9ab68083530245ae577cd1fa77744448fa62b6",
         "rows": 47374,
         "draws": 320,
         "elpd": 52341.7796879525,
@@ -3806,7 +3806,7 @@
           "threshold": 0.6008223025949704,
           "over_threshold": 1882,
           "over_0_7": 1067,
-          "max": 3.3503328029339174,
+          "max": 3.350332802933924,
           "share_over_threshold": 0.03972643222020517
         },
         "validation": {
@@ -3816,7 +3816,7 @@
           "psis_mean_lpd_multi_row_units": 1.1962251427613226
         },
         "integrated": "unit level",
-        "delta": 11747.909077629258,
+        "delta": 11747.90907762926,
         "delta_se": 177.1663664982153,
         "delta_mcse": 10.418953373290588,
         "baseline": "m0-base/base-v1/gibbs@5cc0809"
@@ -3824,7 +3824,7 @@
       "hardware_class": "Modal H100",
       "frontier": false,
       "current_best": false,
-      "note": "beaten on Modal H100 by m8-drift/desc-v1/gibbs@b7c196f (+1531.4 \u00b1 76.2 PSIS-LOO)",
+      "note": "beaten on Modal H100 by m8-drift/desc-v1/gibbs@b7c196f (+1524.8 \u00b1 76.2 PSIS-LOO)",
       "annotations": []
     },
     {
@@ -3984,17 +3984,17 @@
       },
       "psis": {
         "run": "m7-tunits-base-v1-rows-78fbc79",
-        "commit": "6c485fc837dd014892d65adc6d0e5e4545c49f85",
+        "commit": "ad9ab68083530245ae577cd1fa77744448fa62b6",
         "rows": 47374,
         "draws": 320,
-        "elpd": 53362.364191548884,
-        "elpd_se": 239.44238421089415,
-        "mcse": 9.527115766126482,
+        "elpd": 53353.90515849583,
+        "elpd_se": 239.45365813398436,
+        "mcse": 9.527091072672842,
         "pareto_k": {
           "threshold": 0.6008223025949704,
           "over_threshold": 1690,
           "over_0_7": 884,
-          "max": 1.9532959515058206,
+          "max": 1.9532959515058288,
           "share_over_threshold": 0.03567357622324482
         },
         "validation": {
@@ -4004,15 +4004,15 @@
           "psis_mean_lpd_multi_row_units": 1.2260745224953489
         },
         "integrated": "unit level",
-        "delta": 12768.493581225635,
-        "delta_se": 182.35051629877108,
-        "delta_mcse": 10.137426027492536,
+        "delta": 12760.034548172589,
+        "delta_se": 182.35211788010824,
+        "delta_mcse": 10.137402820678968,
         "baseline": "m0-base/base-v1/gibbs@5cc0809"
       },
       "hardware_class": "Modal H100",
       "frontier": false,
       "current_best": false,
-      "note": "beaten on Modal H100 by m8-drift/desc-v1/gibbs@b7c196f (+510.8 \u00b1 47.9 PSIS-LOO)",
+      "note": "beaten on Modal H100 by m8-drift/desc-v1/gibbs@b7c196f (+512.7 \u00b1 47.9 PSIS-LOO)",
       "annotations": []
     },
     {
@@ -4172,35 +4172,35 @@
       },
       "psis": {
         "run": "m7-tunits-base-v1-rows-92c14b5",
-        "commit": "6c485fc837dd014892d65adc6d0e5e4545c49f85",
+        "commit": "ad9ab68083530245ae577cd1fa77744448fa62b6",
         "rows": 47374,
         "draws": 320,
-        "elpd": 53375.867494476544,
-        "elpd_se": 239.25984826293097,
-        "mcse": 9.528319179943407,
+        "elpd": 53367.29470765759,
+        "elpd_se": 239.27127627288706,
+        "mcse": 9.528298297381545,
         "pareto_k": {
           "threshold": 0.6008223025949704,
           "over_threshold": 1719,
-          "over_0_7": 854,
-          "max": 1.9320320372933597,
+          "over_0_7": 853,
+          "max": 1.9320320372933582,
           "share_over_threshold": 0.03628572634778571
         },
         "validation": {
           "note": "mean held-out lpd (repeat-listed units, genuinely left out) vs mean PSIS-LOO over training rows of units with 2+ training rows",
           "heldout_rows": 5264,
           "heldout_mean_lpd": 1.222219541157767,
-          "psis_mean_lpd_multi_row_units": 1.226195208550046
+          "psis_mean_lpd_multi_row_units": 1.2261952085500463
         },
         "integrated": "unit level",
-        "delta": 12781.9968841533,
-        "delta_se": 182.390392483892,
-        "delta_mcse": 10.138556999720658,
+        "delta": 12773.424097334346,
+        "delta_se": 182.39200987514926,
+        "delta_mcse": 10.138537374078739,
         "baseline": "m0-base/base-v1/gibbs@5cc0809"
       },
       "hardware_class": "Modal H100",
       "frontier": false,
       "current_best": false,
-      "note": "beaten on Modal H100 by m8-drift/desc-v1/gibbs@b7c196f (+497.3 \u00b1 47.8 PSIS-LOO)",
+      "note": "beaten on Modal H100 by m8-drift/desc-v1/gibbs@b7c196f (+499.3 \u00b1 47.8 PSIS-LOO)",
       "annotations": []
     },
     {
@@ -4360,35 +4360,35 @@
       },
       "psis": {
         "run": "m7-tunits-base-v1-rows-d62fc51",
-        "commit": "6c485fc837dd014892d65adc6d0e5e4545c49f85",
+        "commit": "ad9ab68083530245ae577cd1fa77744448fa62b6",
         "rows": 47374,
         "draws": 320,
-        "elpd": 53364.77457335633,
-        "elpd_se": 239.33901173638773,
-        "mcse": 9.495857688740529,
+        "elpd": 53356.28063670695,
+        "elpd_se": 239.35032640116472,
+        "mcse": 9.495838805723354,
         "pareto_k": {
           "threshold": 0.6008223025949704,
-          "over_threshold": 1783,
+          "over_threshold": 1784,
           "over_0_7": 955,
           "max": 1.8122174244138867,
-          "share_over_threshold": 0.03763667834677249
+          "share_over_threshold": 0.03765778697175666
         },
         "validation": {
           "note": "mean held-out lpd (repeat-listed units, genuinely left out) vs mean PSIS-LOO over training rows of units with 2+ training rows",
           "heldout_rows": 5264,
           "heldout_mean_lpd": 1.2221123720460623,
-          "psis_mean_lpd_multi_row_units": 1.2258977976002052
+          "psis_mean_lpd_multi_row_units": 1.225897797600205
         },
         "integrated": "unit level",
-        "delta": 12770.90396303309,
-        "delta_se": 182.38803372477813,
-        "delta_mcse": 10.108055445362375,
+        "delta": 12762.410026383708,
+        "delta_se": 182.3896207752466,
+        "delta_mcse": 10.108037706003518,
         "baseline": "m0-base/base-v1/gibbs@5cc0809"
       },
       "hardware_class": "Modal H100",
       "frontier": true,
       "current_best": false,
-      "note": "beaten on Modal H100 by m8-drift/desc-v1/gibbs@b7c196f (+508.4 \u00b1 46.8 PSIS-LOO)",
+      "note": "beaten on Modal H100 by m8-drift/desc-v1/gibbs@b7c196f (+510.3 \u00b1 46.8 PSIS-LOO)",
       "annotations": []
     },
     {
@@ -4548,17 +4548,17 @@
       },
       "psis": {
         "run": "m7-tunits-desc-v1-rows-92c14b5",
-        "commit": "6c485fc837dd014892d65adc6d0e5e4545c49f85",
+        "commit": "ad9ab68083530245ae577cd1fa77744448fa62b6",
         "rows": 47374,
         "draws": 320,
-        "elpd": 53547.31574307344,
-        "elpd_se": 238.0865696678507,
-        "mcse": 9.505317679274178,
+        "elpd": 53539.83708611048,
+        "elpd_se": 238.09627228479795,
+        "mcse": 9.505314199841765,
         "pareto_k": {
           "threshold": 0.6008223025949704,
           "over_threshold": 1706,
           "over_0_7": 895,
-          "max": 1.8384456398836733,
+          "max": 1.8383787615186855,
           "share_over_threshold": 0.03601131422299152
         },
         "validation": {
@@ -4568,15 +4568,15 @@
           "psis_mean_lpd_multi_row_units": 1.2267283233569108
         },
         "integrated": "unit level",
-        "delta": 12953.445132750203,
-        "delta_se": 183.1564435315372,
-        "delta_mcse": 10.116943007926336,
+        "delta": 12945.966475787234,
+        "delta_se": 183.15740017570786,
+        "delta_mcse": 10.116939738844986,
         "baseline": "m0-base/base-v1/gibbs@5cc0809"
       },
       "hardware_class": "Modal H100",
       "frontier": false,
       "current_best": false,
-      "note": "beaten on Modal H100 by m8-drift/desc-v1/gibbs@b7c196f (+325.8 \u00b1 30.7 PSIS-LOO)",
+      "note": "beaten on Modal H100 by m8-drift/desc-v1/gibbs@b7c196f (+326.8 \u00b1 30.7 PSIS-LOO)",
       "annotations": []
     },
     {
@@ -4736,17 +4736,17 @@
       },
       "psis": {
         "run": "m7-tunits-desc-v1-rows-d62fc51",
-        "commit": "6c485fc837dd014892d65adc6d0e5e4545c49f85",
+        "commit": "ad9ab68083530245ae577cd1fa77744448fa62b6",
         "rows": 47374,
         "draws": 320,
-        "elpd": 53534.933915953574,
-        "elpd_se": 238.15082076278804,
-        "mcse": 9.49392438999575,
+        "elpd": 53527.45083870574,
+        "elpd_se": 238.16052740437755,
+        "mcse": 9.493922025982316,
         "pareto_k": {
           "threshold": 0.6008223025949704,
           "over_threshold": 1802,
           "over_0_7": 961,
-          "max": 1.6823006950326833,
+          "max": 1.6825758612738992,
           "share_over_threshold": 0.038037742221471695
         },
         "validation": {
@@ -4756,15 +4756,15 @@
           "psis_mean_lpd_multi_row_units": 1.2263496559648184
         },
         "integrated": "unit level",
-        "delta": 12941.06330563033,
-        "delta_se": 183.21536650126276,
-        "delta_mcse": 10.10623925922316,
+        "delta": 12933.580228382507,
+        "delta_se": 183.2163298727245,
+        "delta_mcse": 10.106237038440149,
         "baseline": "m0-base/base-v1/gibbs@5cc0809"
       },
       "hardware_class": "Modal H100",
       "frontier": true,
       "current_best": false,
-      "note": "beaten on Modal H100 by m8-drift/desc-v1/gibbs@b7c196f (+338.2 \u00b1 28.9 PSIS-LOO)",
+      "note": "beaten on Modal H100 by m8-drift/desc-v1/gibbs@b7c196f (+339.2 \u00b1 28.9 PSIS-LOO)",
       "annotations": []
     },
     {
@@ -4949,17 +4949,17 @@
       },
       "psis": {
         "run": "m8-drift-base-v1-rows-b7c196f",
-        "commit": "6c485fc837dd014892d65adc6d0e5e4545c49f85",
+        "commit": "ad9ab68083530245ae577cd1fa77744448fa62b6",
         "rows": 47374,
         "draws": 320,
-        "elpd": 53719.40536129112,
-        "elpd_se": 240.11806693338391,
-        "mcse": 9.50770809352926,
+        "elpd": 53711.992421847084,
+        "elpd_se": 240.12814881307605,
+        "mcse": 9.507713917452577,
         "pareto_k": {
           "threshold": 0.6008223025949704,
           "over_threshold": 1943,
-          "over_0_7": 1013,
-          "max": 1.998059342660402,
+          "over_0_7": 1014,
+          "max": 1.9980593426604043,
           "share_over_threshold": 0.041014058344239455
         },
         "validation": {
@@ -4969,15 +4969,15 @@
           "psis_mean_lpd_multi_row_units": 1.2358579696116656
         },
         "integrated": "unit level and drift",
-        "delta": 13125.534750967872,
-        "delta_se": 183.06166606820912,
-        "delta_mcse": 10.119188941484843,
+        "delta": 13118.12181152384,
+        "delta_se": 183.06335616417402,
+        "delta_mcse": 10.119194413481182,
         "baseline": "m0-base/base-v1/gibbs@5cc0809"
       },
       "hardware_class": "Modal H100",
       "frontier": true,
       "current_best": false,
-      "note": "beaten on Modal H100 by m8-drift/desc-v1/gibbs@b7c196f (+153.8 \u00b1 38.9 PSIS-LOO)",
+      "note": "beaten on Modal H100 by m8-drift/desc-v1/gibbs@b7c196f (+154.6 \u00b1 38.9 PSIS-LOO)",
       "annotations": [
         "Fit on a Modal H100: 16 chains x (900 + 2,000), 3,269 s including JIT, about $3.99. Not refit locally (Ben, 2026-09-24); the thelio fit time is unmeasured.",
         "units split rescored from 320 kept draws with the exact unseen-unit quadrature (rentfrontier.rescore @ce6db1c): exact - recorded approximation = +3.5 \u00b1 1.6 on the same draws (5,226 unseen-unit rows), so the recorded +814.7 is about +818.2 under exact scoring."
@@ -5165,17 +5165,17 @@
       },
       "psis": {
         "run": "m8-drift-desc-v1-rows-b7c196f",
-        "commit": "6c485fc837dd014892d65adc6d0e5e4545c49f85",
+        "commit": "ad9ab68083530245ae577cd1fa77744448fa62b6",
         "rows": 47374,
         "draws": 320,
-        "elpd": 53873.16038684701,
-        "elpd_se": 238.9574273416241,
-        "mcse": 9.518119045645772,
+        "elpd": 53866.60358324938,
+        "elpd_se": 238.96610356697244,
+        "mcse": 9.518094539949566,
         "pareto_k": {
           "threshold": 0.6008223025949704,
           "over_threshold": 1881,
           "over_0_7": 1007,
-          "max": 1.8239161940165143,
+          "max": 1.8239161940165205,
           "share_over_threshold": 0.039705323595221005
         },
         "validation": {
@@ -5185,9 +5185,9 @@
           "psis_mean_lpd_multi_row_units": 1.2358508999503812
         },
         "integrated": "unit level and drift",
-        "delta": 13279.28977652377,
-        "delta_se": 183.781302075304,
-        "delta_mcse": 10.1289714092198,
+        "delta": 13272.732972926144,
+        "delta_se": 183.78242392577002,
+        "delta_mcse": 10.128948381402932,
         "baseline": "m0-base/base-v1/gibbs@5cc0809"
       },
       "hardware_class": "Modal H100",

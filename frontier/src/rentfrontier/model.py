@@ -526,4 +526,9 @@ MODELS = {
         bedroom_time=True,
         bedroom_slope=True,
     ),
+    # Quarterly market trend (68 knots instead of 201): the global block is
+    # about half the size, and its solve dominates an iteration on the
+    # RTX 2060; projection loses ~0.1% more than the monthly trend.
+    "m0q": ModelConfig(name="m0q", trend_knot_months=3),
+    "m1q": ModelConfig(name="m1q", building_walk=True, trend_knot_months=3),
 }
