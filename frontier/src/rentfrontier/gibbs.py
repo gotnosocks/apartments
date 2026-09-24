@@ -103,10 +103,19 @@ class Design:
     nu_fixed: float | None = None
     unit_t: bool = False
     unit_nu_fixed: float | None = None
+    unit_drift: bool = False
+    unit_time: jnp.ndarray | None = None
 
     @property
     def scale_names(self):
-        return ("sigma", "unit_scale", *self.global_blocks, *self.local_structures)
+        drift = ("unit_drift_scale",) if self.unit_drift else ()
+        return (
+            "sigma",
+            "unit_scale",
+            *drift,
+            *self.global_blocks,
+            *self.local_structures,
+        )
 
 
 def _rw1_anchored(n):
@@ -222,6 +231,7 @@ def build_design(
         "walk_scale": config.walk_scale_sd,
         "bedroom_time_scale": config.bedroom_time_scale_sd,
         "bedroom_slope_scale": config.bedroom_slope_scale_sd,
+        "unit_drift_scale": config.unit_drift_scale_sd,
         **{
             f"fslope_scale_{i}": config.feature_slope_scale_sd
             for i in range(len(fslope_cols))
@@ -258,6 +268,8 @@ def build_design(
         nu_fixed=config.nu_fixed,
         unit_t=config.unit_t,
         unit_nu_fixed=config.unit_nu_fixed,
+        unit_drift=config.unit_drift,
+        unit_time=jnp.asarray(tr.unit_time, jnp.float64),
     )
 
 
@@ -287,19 +299,57 @@ def gaussian_block(d: Design, lam, s, z_g, z_l, z_u, kappa=None):
     # Unit prior precision kappa_j / unit_scale^2 (kappa = 1: Gaussian units;
     # Student-t units are a Gamma scale mixture over kappa).
     kappa = jnp.ones(J) if kappa is None else kappa
-    c = 1.0 / (kappa / s["unit_scale"] ** 2 + sw)  # unit posterior variance given rest
-    h = seg_u(w * y)
     wa = w[:, None] * a
-    g = seg_u(wa)  # (J, P) unit sums of weighted global rows
-    gl = jnp.zeros((J, L))  # unit sums of weighted local rows
-    for m in range(n_slots):
-        gl = gl.at[d.unit, slots[:, m]].add(w * vals[:, m])
+    n = a.shape[0]
+    a_l = jnp.zeros((n, L)).at[jnp.arange(n)[:, None], slots].add(vals)
+    if d.unit_drift:
+        # Unit block [level, drift]: z_i = (1, t_i), t_i in years from the
+        # unit's mean training date. Per-unit 2x2 precision
+        # M_j = sum_i w_i z_i z_i' + diag(kappa_j / tau^2, 1 / tau_d^2).
+        zr = jnp.stack([jnp.ones(n), d.unit_time], axis=1)
+        wz = w[:, None] * zr
+        m2 = seg_u(wz[:, :, None] * zr[:, None, :])
+        m2 = m2.at[:, 0, 0].add(kappa / s["unit_scale"] ** 2)
+        m2 = m2.at[:, 1, 1].add(1.0 / s["unit_drift_scale"] ** 2)
+        det = m2[:, 0, 0] * m2[:, 1, 1] - m2[:, 0, 1] * m2[:, 1, 0]
+        cu = (
+            jnp.stack(
+                [
+                    jnp.stack([m2[:, 1, 1], -m2[:, 0, 1]], axis=1),
+                    jnp.stack([-m2[:, 1, 0], m2[:, 0, 0]], axis=1),
+                ],
+                axis=1,
+            )
+            / det[:, None, None]
+        )  # (J, 2, 2) unit posterior covariance given the rest
+        hu = seg_u(wz * y[:, None])  # (J, 2)
+        gu = seg_u(wz[:, :, None] * a[:, None, :])  # (J, 2, P)
+        glu = jnp.zeros((J, 2, L))
+        for k_ in range(2):
+            for m in range(n_slots):
+                glu = glu.at[d.unit, k_, slots[:, m]].add(wz[:, k_] * vals[:, m])
+        cg = jnp.einsum("jkl,jlp->jkp", cu, gu)
+        ch = jnp.einsum("jkl,jl->jk", cu, hu)
+        q = a.T @ wa - jnp.einsum("jkp,jkq->pq", gu, cg) + jnp.diag(d.prior_fixed)
+        rhs_g = wa.T @ y - jnp.einsum("jkp,jk->p", gu, ch)
+        cgl = jnp.einsum("jkl,jlm->jkm", cu, glu)
+        adj = a_l - jnp.einsum("ik,ikm->im", zr, cgl[d.unit])
+    else:
+        c = 1.0 / (
+            kappa / s["unit_scale"] ** 2 + sw
+        )  # unit posterior variance given rest
+        h = seg_u(w * y)
+        g = seg_u(wa)  # (J, P) unit sums of weighted global rows
+        gl = jnp.zeros((J, L))  # unit sums of weighted local rows
+        for m in range(n_slots):
+            gl = gl.at[d.unit, slots[:, m]].add(w * vals[:, m])
+        q = a.T @ wa - g.T @ (c[:, None] * g) + jnp.diag(d.prior_fixed)
+        rhs_g = wa.T @ y - g.T @ (c * h)
+        adj = a_l - (c[:, None] * gl)[d.unit]
 
-    # Global precision / rhs with units integrated out.
-    q = a.T @ wa - g.T @ (c[:, None] * g) + jnp.diag(d.prior_fixed)
+    # Global prior blocks.
     for name, (sl, r) in d.global_blocks.items():
         q = q.at[sl, sl].add(r / s[name] ** 2)
-    rhs_g = wa.T @ y - g.T @ (c * h)
 
     # Building blocks, with units integrated out (units nest in buildings).
     # With a~_i = a_L,i - c_j gl_j (row i's local design minus its unit's
@@ -307,9 +357,7 @@ def gaussian_block(d: Design, lam, s, z_g, z_l, z_u, kappa=None):
     # sum_i w_i a_L,i b_i^T - sum_j c_j gl_j (sum_{i in j} w_i b_i)^T,
     # so each building term is one segment sum over rows. Accumulating one
     # local index at a time keeps temporaries at (rows x columns).
-    n = a.shape[0]
-    a_l = jnp.zeros((n, L)).at[jnp.arange(n)[:, None], slots].add(vals)
-    wadj = w[:, None] * (a_l - (c[:, None] * gl)[d.unit])
+    wadj = w[:, None] * adj
     seg_b = lambda v: jax.ops.segment_sum(v, bld, K)
 
     def per_local(i):
@@ -338,20 +386,36 @@ def gaussian_block(d: Design, lam, s, z_g, z_l, z_u, kappa=None):
         ..., 0
     ]
     fixed = a @ theta + local_value(theta_l, bld, slots, vals)
-    u = c * (h - seg_u(w * fixed)) + jnp.sqrt(c) * z_u
+    if d.unit_drift:
+        mean_u = jnp.einsum("jkl,jl->jk", cu, hu - seg_u(wz * fixed[:, None]))
+        l11 = jnp.sqrt(cu[:, 0, 0])
+        l21 = cu[:, 1, 0] / l11
+        l22 = jnp.sqrt(jnp.maximum(cu[:, 1, 1] - l21**2, 0.0))
+        u = mean_u[:, 0] + l11 * z_u[:, 0]
+        drift = mean_u[:, 1] + l21 * z_u[:, 0] + l22 * z_u[:, 1]
+        fixed = fixed + drift[d.unit] * d.unit_time  # drift joins the non-level part
+        quad_u = jnp.sum(hu * ch)
+        logdet_u = jnp.sum(jnp.log(det))
+    else:
+        u = c * (h - seg_u(w * fixed)) + jnp.sqrt(c) * z_u
+        drift = jnp.zeros(J)
+        quad_u = jnp.sum(c * h * h)
+        logdet_u = -jnp.sum(jnp.log(c))
 
     # Log marginal likelihood of y given lam and the scales, with every
     # Gaussian latent integrated out, up to terms that do not depend on the
     # group scales:  1/2 b'Q^-1 b - 1/2 log|Q_post| + 1/2 log|Q_prior|.
     # The block elimination order (units, buildings, global) splits both the
     # quadratic form and the determinant into per-level pieces.
-    quad = jnp.sum(c * h * h) + jnp.sum(vr * vr) + jnp.sum(white * white)
+    quad = quad_u + jnp.sum(vr * vr) + jnp.sum(white * white)
     logdet_post = (
-        -jnp.sum(jnp.log(c))
+        logdet_u
         + 2 * jnp.sum(jnp.log(jnp.diagonal(chol_l, axis1=1, axis2=2)))
         + 2 * jnp.sum(jnp.log(jnp.diagonal(chol)))
     )
     logdet_prior = jnp.sum(jnp.log(kappa)) - 2 * J * jnp.log(s["unit_scale"])
+    if d.unit_drift:
+        logdet_prior = logdet_prior - 2 * J * jnp.log(s["unit_drift_scale"])
     for name, rank in d.global_ranks.items():
         logdet_prior = logdet_prior - 2 * rank * jnp.log(s[name])
     for name, rank in d.local_ranks.items():
@@ -359,7 +423,7 @@ def gaussian_block(d: Design, lam, s, z_g, z_l, z_u, kappa=None):
     # Terms that depend on sigma through W = lam / sigma^2.
     logdet_w = jnp.sum(jnp.log(w))
     logml = 0.5 * (quad - logdet_post + logdet_prior + logdet_w - jnp.sum(w * y * y))
-    return theta, theta_l, u, fixed, logml
+    return theta, theta_l, u, fixed, drift, logml
 
 
 def site_values(d: Design, state):
@@ -383,6 +447,7 @@ def site_values(d: Design, state):
         "unit": state["unit"],
         "nu": state["nu"],
         **({"unit_nu": state["unit_nu"]} if d.unit_t else {}),
+        **({"unit_drift": state["drift"]} if d.unit_drift else {}),
         **{n: state[n] for n in d.scale_names},
     }
     if d.bedroom_time is not None:
@@ -411,6 +476,7 @@ def make_step(d: Design):
     rank = {
         "sigma": n,
         "unit_scale": d.n_units,
+        "unit_drift_scale": d.n_units,
         **d.global_ranks,
         **{k: r * d.n_buildings for k, r in d.local_ranks.items()},
     }
@@ -427,7 +493,9 @@ def make_step(d: Design):
         z = (
             jax.random.normal(keys[0], (d.a.shape[1],)),
             jax.random.normal(keys[1], (d.n_buildings, d.n_local)),
-            jax.random.normal(keys[2], (d.n_units,)),
+            jax.random.normal(
+                keys[2], (d.n_units, 2) if d.unit_drift else (d.n_units,)
+            ),
         )
         out = gaussian_block(d, state["lam"], s, *z, state["kappa"])
         info = {}
@@ -472,7 +540,7 @@ def make_step(d: Design):
                 )
                 s = {k: jnp.where(ok, s_new[k], s[k]) for k in s}
                 info[f"solo_accept_{name}"] = ok.astype(jnp.float64)
-        theta, theta_l, u, fixed, _ = out
+        theta, theta_l, u, fixed, drift, _ = out
         e = d.y - fixed - u[d.unit]
 
         # (sigma, nu) | e jointly, with lam integrated out (exact Student-t
@@ -647,6 +715,14 @@ def make_step(d: Design):
             rank["unit_scale"],
             d.prior_sd["unit_scale"],
         )
+        if d.unit_drift:
+            new["unit_drift_scale"] = _update_scale(
+                jax.random.fold_in(keys[5], 1),
+                s["unit_drift_scale"],
+                jnp.sum(drift * drift),
+                rank["unit_drift_scale"],
+                d.prior_sd["unit_drift_scale"],
+            )
         for i, (name, (sl, r)) in enumerate(d.global_blocks.items()):
             x = theta[sl]
             new[name] = _update_scale(
@@ -716,6 +792,7 @@ def make_step(d: Design):
             "lam": lam,
             "nu": nu,
             "kappa": kappa,
+            "drift": drift,
             "unit_nu": unit_nu,
             **new,
         }
@@ -733,6 +810,7 @@ START = {
     "walk_scale": 0.03,
     "bedroom_time_scale": 0.01,
     "bedroom_slope_scale": 0.05,
+    "unit_drift_scale": 0.02,
 }
 
 
@@ -751,6 +829,7 @@ def init_states(d: Design, key, chains):
     state["unit"] = jnp.zeros((chains, d.n_units))
     state["lam"] = jnp.ones((chains, d.y.shape[0]))
     state["kappa"] = jnp.ones((chains, d.n_units))
+    state["drift"] = jnp.zeros((chains, d.n_units))
     state["unit_nu"] = (
         jnp.full((chains,), d.unit_nu_fixed if d.unit_nu_fixed is not None else 5.0)
         if d.unit_t

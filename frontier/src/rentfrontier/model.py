@@ -63,6 +63,10 @@ class ModelConfig:
     # building without bending its slopes). unit_nu_fixed None = estimated.
     unit_t: bool = False
     unit_nu_fixed: float | None = None
+    # Per-unit linear drift in log rent per year, centred on the unit's mean
+    # training date: drift_j ~ N(0, unit_drift_scale^2).
+    unit_drift: bool = False
+    unit_drift_scale_sd: float = 0.05
 
     def to_dict(self):
         return asdict(self)
@@ -89,6 +93,7 @@ class Arrays:
     knot_frac: np.ndarray  # linear interpolation weight on the next knot
     bed_group: np.ndarray  # index into BEDROOM_GROUPS
     beds_centered: np.ndarray  # bedrooms (capped at 4) minus 1
+    unit_time: np.ndarray  # years from the unit's mean training date (unit drift)
 
     FIELDS = (
         "y",
@@ -101,6 +106,7 @@ class Arrays:
         "knot_frac",
         "bed_group",
         "beds_centered",
+        "unit_time",
     )
 
     def map(self, fn):
@@ -134,6 +140,7 @@ class Prepared:
     train: Arrays
     test: Arrays
     test_audit_id: np.ndarray
+    unit_mean_month: np.ndarray | None = None  # (units,) mean training month
 
     @property
     def sizes(self):
@@ -158,6 +165,15 @@ def prepare(frame: pd.DataFrame, heldout: np.ndarray, features: Features) -> Pre
         train=None,
         test=None,
         test_audit_id=frame.audit_id[heldout].to_numpy(),
+    )
+    tr = frame[train]
+    months = (
+        (tr.period.dt.year - prep.periods[0].year) * 12
+        + tr.period.dt.month
+        - prep.periods[0].month
+    )
+    prep.unit_mean_month = (
+        months.groupby(tr.unit_id).mean().reindex(prep.units).to_numpy().astype(float)
     )
     prep.train = row_arrays(prep, frame, train)
     prep.test = row_arrays(prep, frame, heldout)
@@ -190,7 +206,23 @@ def row_arrays(prep: Prepared, frame: pd.DataFrame, mask: np.ndarray) -> Arrays:
         .to_numpy()
         .astype(np.int32),
         beds_centered=sub.bedrooms.round().clip(0, 4).to_numpy() - 1.0,
+        unit_time=_unit_time(prep, sub, month),
     )
+
+
+def _unit_time(prep: Prepared, sub: pd.DataFrame, month: np.ndarray) -> np.ndarray:
+    """Years from the unit's mean training month; for a unit with no training
+    rows, from the mean month of its own rows here (dates only, no prices)."""
+    unit = pd.Index(prep.units).get_indexer(sub.unit_id)
+    center = np.where(unit >= 0, prep.unit_mean_month[np.maximum(unit, 0)], np.nan)
+    own = (
+        pd.Series(month, index=sub.index)
+        .groupby(sub.unit_id.to_numpy())
+        .transform("mean")
+        .to_numpy()
+    )
+    center = np.where(np.isnan(center), own, center)
+    return (month - center) / 12.0
 
 
 def linear_predictor(p, a: Arrays, include_unit=True):
@@ -218,6 +250,10 @@ def linear_predictor(p, a: Arrays, include_unit=True):
         mu = mu + jnp.sum(p["fslope"][a.building] * a.x[:, p["fslope_index"]], axis=1)
     if include_unit:
         mu = mu + jnp.where(a.unit >= 0, e["unit"][jnp.maximum(a.unit, 0)], 0.0)
+        if "unit_drift" in p:
+            mu = mu + jnp.where(
+                a.unit >= 0, p["unit_drift"][jnp.maximum(a.unit, 0)] * a.unit_time, 0.0
+            )
     return mu
 
 
@@ -239,6 +275,8 @@ def effects(p):
         "nu": p["nu"],
         "unit_scale": p["unit_scale"],
         "unit_nu": p.get("unit_nu", jnp.zeros(())),  # 0 = Gaussian unit effects
+        "unit_drift": p.get("unit_drift", jnp.zeros(1)),
+        "unit_drift_scale": p.get("unit_drift_scale", jnp.zeros(())),
         "building_scale": p["building_scale"],
         "trend_scale": p["trend_scale"],
         "season_scale": p["season_scale"],
@@ -346,6 +384,14 @@ def build_model(prep: Prepared, config: ModelConfig):
         else:
             p["unit"] = numpyro.sample(
                 "unit", dist.Normal(0.0, p["unit_scale"]).expand([len(prep.units)])
+            )
+        if config.unit_drift:
+            p["unit_drift_scale"] = numpyro.sample(
+                "unit_drift_scale", dist.HalfNormal(config.unit_drift_scale_sd)
+            )
+            p["unit_drift"] = numpyro.sample(
+                "unit_drift",
+                dist.Normal(0.0, p["unit_drift_scale"]).expand([len(prep.units)]),
             )
         if config.building_walk:
             p["walk_scale"] = numpyro.sample(
@@ -461,6 +507,18 @@ MODELS = {
         bedroom_time_knot_months=3,
         feature_slopes=("log_sqft_vs_bedroom_median", "bathrooms=2", "bathrooms=3"),
         unit_t=True,
+    ),
+    # m7 plus a per-unit linear drift.
+    "m8-drift": ModelConfig(
+        name="m8-drift",
+        building_walk=True,
+        bedroom_time=True,
+        bedroom_slope=True,
+        trend_knot_months=3,
+        bedroom_time_knot_months=3,
+        feature_slopes=("log_sqft_vs_bedroom_median", "bathrooms=2", "bathrooms=3"),
+        unit_t=True,
+        unit_drift=True,
     ),
     "m4-walk-bedtime-bedslope": ModelConfig(
         name="m4-walk-bedtime-bedslope",

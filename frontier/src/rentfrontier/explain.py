@@ -13,6 +13,7 @@ into named additive terms:
     building_drift   the building's time walk at this month
     building_bedroom_premium   the building's bedroom slope x (bedrooms - 1)
     unit         the unit's own effect (0 for a unit with no training rows)
+    unit_drift   the unit's own linear drift at this date (designs with drift)
 
 The fitted rent is exp(total), the posterior median of asking rent under
 the Student-t log-scale noise. Dollar contributions use the logarithmic-
@@ -97,6 +98,11 @@ def log_terms(
     )
     seen = a.unit >= 0
     terms["unit"] = np.where(seen[None], kept["unit"][:, np.maximum(a.unit, 0)], 0.0)
+    drift = kept.get("unit_drift")
+    if drift is not None and drift.shape[1] > 1:
+        terms["unit_drift"] = np.where(
+            seen[None], drift[:, np.maximum(a.unit, 0)] * a.unit_time, 0.0
+        )
     return terms
 
 

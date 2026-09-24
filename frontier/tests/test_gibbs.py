@@ -55,6 +55,9 @@ def synthetic(seed=0, n_buildings=15, units_per_building=8, months=24):
         knot_frac=(frame.m.to_numpy() % model.KNOT_MONTHS) / model.KNOT_MONTHS,
         bed_group=frame.beds.to_numpy().astype(np.int32),
         beds_centered=frame.beds.to_numpy() - 1.0,
+        unit_time=(
+            (frame.m - frame.groupby("u").m.transform("mean")) / 12.0
+        ).to_numpy(),
     )
     feats = Features("synthetic", ["x0", "x1"], ["x", "x"], x, np.ones(2))
     return model.Prepared(
@@ -85,6 +88,13 @@ DESIGNS = {
         feature_slopes=("x0",),
         unit_t=True,
     ),
+    "drift": model.ModelConfig(building_walk=True, unit_drift=True),
+    "tdrift": model.ModelConfig(
+        building_walk=True,
+        bedroom_slope=True,
+        unit_t=True,
+        unit_drift=True,
+    ),
     "quarterly": model.ModelConfig(
         building_walk=True,
         bedroom_time=True,
@@ -102,6 +112,7 @@ SCALES = {
     "walk_scale": 0.04,
     "bedroom_time_scale": 0.015,
     "bedroom_slope_scale": 0.06,
+    "unit_drift_scale": 0.03,
     "fslope_scale_0": 0.05,
     "fslope_scale_1": 0.07,
 }
@@ -110,8 +121,11 @@ SCALES = {
 def dense_mean(d, lam, s, kappa=None):
     n, p = d.a.shape
     K, L, J = d.n_buildings, d.n_local, d.n_units
-    X = np.zeros((n, p + K * L + J))
+    D = J if d.unit_drift else 0
+    X = np.zeros((n, p + K * L + J + D))
     X[:, :p] = np.asarray(d.a)
+    if D:
+        X[np.arange(n), p + K * L + J + np.asarray(d.unit)] = np.asarray(d.unit_time)
     slots, vals, bld = (np.asarray(v) for v in (d.slots, d.slot_values, d.building))
     for m in range(slots.shape[1]):
         np.add.at(X, (np.arange(n), p + bld * L + slots[:, m]), vals[:, m])
@@ -126,10 +140,16 @@ def dense_mean(d, lam, s, kappa=None):
     for k in range(K):
         prior[p + k * L : p + (k + 1) * L, p + k * L : p + (k + 1) * L] = local
     kap = np.ones(J) if kappa is None else np.asarray(kappa)
-    prior[p + K * L :, p + K * L :] += np.diag(kap) / s["unit_scale"] ** 2
+    prior[p + K * L : p + K * L + J, p + K * L : p + K * L + J] += (
+        np.diag(kap) / s["unit_scale"] ** 2
+    )
+    if D:
+        prior[p + K * L + J :, p + K * L + J :] += (
+            np.eye(D) / s["unit_drift_scale"] ** 2
+        )
     w = lam / s["sigma"] ** 2
     mean = np.linalg.solve(X.T @ (w[:, None] * X) + prior, X.T @ (w * np.asarray(d.y)))
-    return mean[:p], mean[p : p + K * L].reshape(K, L), mean[p + K * L :]
+    return mean[:p], mean[p : p + K * L].reshape(K, L), mean[p + K * L : p + K * L + J]
 
 
 @pytest.mark.parametrize("design", sorted(DESIGNS))
@@ -143,7 +163,7 @@ def test_joint_gaussian_mean_matches_dense_solve(design):
         SCALES,
         jnp.zeros(d.a.shape[1]),
         jnp.zeros((d.n_buildings, d.n_local)),
-        jnp.zeros(d.n_units),
+        jnp.zeros((d.n_units, 2) if d.unit_drift else d.n_units),
     )
     e_theta, e_l, e_u = dense_mean(d, lam, SCALES)
     np.testing.assert_allclose(np.asarray(theta), e_theta, atol=1e-8)
@@ -157,8 +177,11 @@ def dense_logml(d, lam, s, kappa=None):
 
     n, p = d.a.shape
     K, L, J = d.n_buildings, d.n_local, d.n_units
-    X = np.zeros((n, p + K * L + J))
+    D = J if d.unit_drift else 0
+    X = np.zeros((n, p + K * L + J + D))
     X[:, :p] = np.asarray(d.a)
+    if D:
+        X[np.arange(n), p + K * L + J + np.asarray(d.unit)] = np.asarray(d.unit_time)
     slots, vals, bld = (np.asarray(v) for v in (d.slots, d.slot_values, d.building))
     for m in range(slots.shape[1]):
         np.add.at(X, (np.arange(n), p + bld * L + slots[:, m]), vals[:, m])
@@ -173,12 +196,20 @@ def dense_logml(d, lam, s, kappa=None):
     for k in range(K):
         prior[p + k * L : p + (k + 1) * L, p + k * L : p + (k + 1) * L] = local
     kap = np.ones(J) if kappa is None else np.asarray(kappa)
-    prior[p + K * L :, p + K * L :] += np.diag(kap) / s["unit_scale"] ** 2
+    prior[p + K * L : p + K * L + J, p + K * L : p + K * L + J] += (
+        np.diag(kap) / s["unit_scale"] ** 2
+    )
+    if D:
+        prior[p + K * L + J :, p + K * L + J :] += (
+            np.eye(D) / s["unit_drift_scale"] ** 2
+        )
     cov = X @ np.linalg.solve(prior, X.T) + np.diag(s["sigma"] ** 2 / lam)
     return multivariate_normal(np.zeros(n), cov).logpdf(np.asarray(d.y))
 
 
-@pytest.mark.parametrize("design", ["base", "all", "quarterly", "fslopes"])
+@pytest.mark.parametrize(
+    "design", ["base", "all", "quarterly", "fslopes", "drift", "tdrift"]
+)
 def test_collapsed_marginal_likelihood_matches_dense(design):
     prep = synthetic()
     d = gibbs.build_design(prep, DESIGNS[design])
@@ -187,7 +218,7 @@ def test_collapsed_marginal_likelihood_matches_dense(design):
     zeros = (
         jnp.zeros(d.a.shape[1]),
         jnp.zeros((d.n_buildings, d.n_local)),
-        jnp.zeros(d.n_units),
+        jnp.zeros((d.n_units, 2) if d.unit_drift else d.n_units),
     )
     ml1 = float(gibbs.gaussian_block(d, jnp.asarray(lam), SCALES, *zeros)[-1])
     ml2 = float(gibbs.gaussian_block(d, jnp.asarray(lam), other, *zeros)[-1])
@@ -206,9 +237,9 @@ def test_student_t_units_block_matches_dense():
     zeros = (
         jnp.zeros(d.a.shape[1]),
         jnp.zeros((d.n_buildings, d.n_local)),
-        jnp.zeros(d.n_units),
+        jnp.zeros((d.n_units, 2) if d.unit_drift else d.n_units),
     )
-    theta, theta_l, u, _, ml1 = gibbs.gaussian_block(
+    theta, theta_l, u, _, _, ml1 = gibbs.gaussian_block(
         d, jnp.asarray(lam), SCALES, *zeros, jnp.asarray(kappa)
     )
     e_theta, e_l, e_u = dense_mean(d, lam, SCALES, kappa)
@@ -226,7 +257,7 @@ def test_student_t_units_block_matches_dense():
     )
 
 
-@pytest.mark.parametrize("design", ["all", "quarterly", "fslopes", "tunits"])
+@pytest.mark.parametrize("design", ["all", "quarterly", "fslopes", "tunits", "tdrift"])
 def test_site_values_reproduce_linear_predictor(design):
     """Gibbs state -> NumPyro sites -> model.linear_predictor equals the Gibbs fit."""
     prep = synthetic()
@@ -239,6 +270,7 @@ def test_site_values_reproduce_linear_predictor(design):
         "nu": 5.0,
         "unit_nu": 4.0,
         "kappa": jnp.ones(d.n_units),
+        "drift": jnp.asarray(rng.normal(0, 0.05, d.n_units)),
         **{k: SCALES[k] for k in d.scale_names},
     }
     p = gibbs.site_values(d, state)
@@ -247,11 +279,13 @@ def test_site_values_reproduce_linear_predictor(design):
         state["local"], d.building, d.slots, d.slot_values
     )
     mu_gibbs = mu_gibbs + state["unit"][d.unit]
+    if d.unit_drift:
+        mu_gibbs = mu_gibbs + state["drift"][d.unit] * d.unit_time
     np.testing.assert_allclose(np.asarray(mu_model), np.asarray(mu_gibbs), atol=1e-10)
 
 
 @pytest.mark.slow
-@pytest.mark.parametrize("design", ["base", "walk", "all", "tunits"])
+@pytest.mark.parametrize("design", ["base", "walk", "all", "tunits", "tdrift"])
 def test_gibbs_matches_nuts_on_same_model(design):
     """Both samplers target the NumPyro model's posterior; compare moments."""
     from numpyro.infer import MCMC, NUTS
@@ -306,6 +340,17 @@ def test_gibbs_matches_nuts_on_same_model(design):
             nuts["bedroom_slope"][:, 0],
             means["bedroom_slope"][0],
             sds["bedroom_slope"][0],
+        )
+    if config.unit_drift:
+        checks["unit_drift_scale"] = (
+            nuts["unit_drift_scale"],
+            means["unit_drift_scale"],
+            sds["unit_drift_scale"],
+        )
+        checks["unit_drift[0]"] = (
+            nuts["unit_drift"][:, 0],
+            means["unit_drift"][0],
+            sds["unit_drift"][0],
         )
     if config.unit_t:
         checks["unit_nu"] = (nuts["unit_nu"], means["unit_nu"], sds["unit_nu"])

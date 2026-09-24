@@ -35,6 +35,7 @@ SCALARS = (
     "bedroom_time_scale",
     "bedroom_slope_scale",
     "unit_nu",
+    "unit_drift_scale",
 )
 
 
@@ -58,9 +59,18 @@ def heldout_logpdf(p, test: model_module.Arrays):
     mu = model_module.linear_predictor(p, test, include_unit=False)
     seen = test.unit >= 0
     u = p["unit"][jnp.maximum(test.unit, 0)]
+    drift_scale = p.get("unit_drift_scale", jnp.zeros(()))
+    if "unit_drift" in p:
+        u = u + p["unit_drift"][jnp.maximum(test.unit, 0)] * test.unit_time
+    # Unseen unit: level and drift are both unknown. For Gaussian units their
+    # sum is exactly N(0, tau^2 + tau_d^2 t^2); for Student-t units the scale
+    # is widened the same way (an approximation to the t-normal convolution).
+    unit_scale = jnp.sqrt(p["unit_scale"] ** 2 + (drift_scale * test.unit_time) ** 2)
     lp_seen = student_t_logpdf(test.y - mu - u, p["nu"], p["sigma"])
     x, w = (jnp.asarray(a, mu.dtype) for a in np.polynomial.hermite.hermgauss(GH_NODES))
-    shifted = test.y[:, None] - mu[:, None] - math.sqrt(2.0) * p["unit_scale"] * x[None]
+    shifted = (
+        test.y[:, None] - mu[:, None] - math.sqrt(2.0) * unit_scale[:, None] * x[None]
+    )
     lp_new = logsumexp(
         student_t_logpdf(shifted, p["nu"], p["sigma"]) + jnp.log(w)[None], axis=1
     ) - 0.5 * math.log(math.pi)
@@ -69,7 +79,7 @@ def heldout_logpdf(p, test: model_module.Arrays):
     nu_u = p.get("unit_nu", jnp.zeros(()))
     z = jnp.linspace(-40.0, 40.0, 801, dtype=mu.dtype)
     log_wz = student_t_logpdf(z, jnp.maximum(nu_u, 1e-3), 1.0) + math.log(0.1)
-    shifted_t = test.y[:, None] - mu[:, None] - p["unit_scale"] * z[None]
+    shifted_t = test.y[:, None] - mu[:, None] - unit_scale[:, None] * z[None]
     lp_new_t = logsumexp(
         student_t_logpdf(shifted_t, p["nu"], p["sigma"]) + log_wz[None], axis=1
     )
