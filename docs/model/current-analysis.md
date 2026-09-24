@@ -1,5 +1,10 @@
 # Refit current evidence, then analyze with PyMC
 
+The chronological model lineage, equations and promotion decisions are recorded
+in the [main-model evolution report](main-model-evolution.md). This page describes
+the workflow and retains contemporaneous fit instructions; the current selected
+pointer is authoritative when this page's historical cohort description differs.
+
 The main workflow is scrape → transform → fit → analyze. The main model is the
 hierarchical PyMC posterior selected by `config/main-analysis.json`. Feature
 contributions, fitted residuals and joint apartment-specific contrasts are the
@@ -54,7 +59,20 @@ uv run --locked --extra model python -m apartments.main_analysis \
 ```
 
 The selection command verifies the source, fit and both convergence gates.
-It does not sample or replace existing source observations. The page independently
+It does not sample or replace existing source observations.
+
+**After every new selection, rebuild the residual review queue** (about two
+minutes, report-only; it reads saved residuals and group effects, never the
+posterior draws):
+
+```sh
+uv run --locked --extra model python -m apartments build-review-queue
+```
+
+The queue page at http://thelio.tail3983e0.ts.net:8767/ follows
+`config/main-analysis.json` and picks up the rebuilt bundle with no restart.
+Until it is rebuilt the page reports that no queue exists for the selected fit.
+See the [review queue](review-queue.md) for the ranking and contents. The page independently
 checks these bindings, rebuilds the exact feature design and opens the saved
 posterior. Unsupported or mismatched states raise an explicit error.
 

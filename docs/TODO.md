@@ -7,6 +7,28 @@ Latest evidence and reproducible artifacts are recorded in the
 [September 18 amenity experiment](analysis/chelsea-amenities-2026-09-18.md) and
 [recovery/validation follow-up](analysis/chelsea-recovery-ablation-2026-09-18.md).
 
+**Reporting preference:** analytical and review reports should be published as
+HTML whenever practical, with Markdown retained as the source/editable record.
+The read-only documentation server renders Markdown reports as HTML for browser
+access.
+
+**Pipeline review, September 20:** a full list of collection, transform, model,
+review-loop and codebase items is in the
+[research backlog](model/research-backlog.md#pipeline-review-september-20).
+Suggested order: (1) ~~rank the residual review queue on `unit_effect + residual`~~
+done, see [review queue](model/review-queue.md);
+(2) publish and model the within-ad price path (42% of ads change price,
+median −3.5%) and align current/historical price basis; (3) scheduled
+active-listing refresh; (4) observation-funnel artifact; (5) LLM description
+extraction with evidence spans and one consolidated scope overlay; (6) building
+covariates in the building-effect mean; (7) era-stability check on coefficients;
+(8) collapse `models/`, artifact retention, doc shape.
+
+**West Village collection, September 22:** the first crawl completed but
+yielded only 231 canonical units out of ~17,800 inventory-listed units. Inventory-label unit
+probes are implemented and dry-run tested (17,229 queued). The next paid run
+awaits approval of its scope; see [West Village collection](data/west-village-collection.md#september-21-completion-and-september-22-yield-review).
+
 Immediate pilot work:
 
 **Priority clarification, September 18:** the product loop is scrape → transform

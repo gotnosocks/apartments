@@ -17,9 +17,13 @@ VERSION = 'ordered-bayesian-feature-design-loader-v2'
 def load_design(root, data, protocol=None):
     from . import bayesian_floor_elevator_contract as interaction_contract
     from . import bayesian_floor_spline_contract as spline_contract
-    if protocol and protocol.get('version') == spline_contract.EXPERIMENT:
+    if protocol and protocol.get('version') in spline_contract.FAMILY:
         from . import bayesian_floor_spline_design as spline
-        design = spline.FeatureDesign.load(root)
+        if protocol.get('feature_design_version') == spline_contract.ATTRIBUTE_DESIGN:
+            from . import bayesian_attribute_design as attribute
+            design = attribute.FeatureDesign.load(root)
+        else:
+            design = spline.FeatureDesign.load(root)
         spline_contract.verify_metadata(protocol, design.__dict__)
         design.matrix(data.iloc[:1])
         return design

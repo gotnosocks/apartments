@@ -11,7 +11,18 @@ emphasizing feature contributions and fitted residuals. The [current-analysis wo
 includes fresh observations in the fit and produces a source-linked residual
 review queue. The [main Bayesian analysis page](docs/model/main-bayesian-analysis.md)
 shows apartment contributions, joint feature comparisons, residual history and
-archived source descriptions. The [current-listing ranking command](docs/model/bayesian-candidate-ranking.md)
+archived source descriptions. The [complete model-version report](docs/model/main-model-evolution.md)
+records every major model generation, its equations, source revisions, model
+changes and promotion rationale over time. A standalone [HTML version](docs/model/main-model-evolution.html)
+is also included for browser reading. The [residual review queue](docs/model/review-queue.md) ranks every fitted
+observation on unit effect + residual and serves a standalone table with
+StreetEasy links at http://thelio.tail3983e0.ts.net:8767/. It is not rebuilt
+automatically: after selecting a new main fit, run
+`uv run --locked --extra model python -m apartments build-review-queue`.
+The read-only [documentation server](docs/operations/thelio.md) serves
+`docs/`, `docs/analysis/` and `docs/model/` as browser pages at
+http://thelio.tail3983e0.ts.net:8768/docs/.
+The [current-listing ranking command](docs/model/bayesian-candidate-ranking.md)
 connects that selected PyMC fit to personal preference frontiers, with separate
 posterior price diagnostics and explicit unknown/source-conflict handling.
 New main fits default to listed-floor threshold increments; `--linear-floor`
@@ -204,6 +215,17 @@ uv run --locked apartments summary
 uv run --locked --extra app streamlit run app.py --server.port 8501
 ```
 
+The Streamlit app includes a **Project evolution** page. It presents a dated,
+source-linked metric ledger for collection, transformation, and Bayesian
+modeling, including scale, missingness, conflicts, failures, uncertainty and
+compute cost; research-only revisions are visually separated from the selected
+main fit. To open
+just this read-only dashboard without loading DuckDB, run:
+
+```sh
+uv run --locked --extra app streamlit run pages/4_Project_Evolution.py --server.port 8501
+```
+
 The importer reads the raw archive locally and writes `data/apartments.duckdb`.
 It imports full embedded rental history, including rows hidden behind Show more,
 and preserves raw event objects and links to original response bodies. Sale data
@@ -242,6 +264,21 @@ git log --graph --oneline
 The consolidation/model experiment is on `feature/chelsea-analysis`; the preceding
 version is preserved at `archive/pre-chelsea-model-20260908`. The scraper history is
 part of this repository's commit graph. There is no nested scraper project to install.
+
+### Code style
+
+Format all Python files with [ruff](https://docs.astral.sh/ruff/formatter/)
+using its default settings. Format the files you create or change before committing:
+
+```sh
+uvx ruff format path/to/changed_file.py
+uvx ruff format --check path/to/changed_file.py
+```
+
+Do not run `ruff format` over whole directories. Fit protocols record the SHA-256
+of their implementation files, so reformatting a file hashed by a running or
+selected fit aborts that fit or breaks verification of its saved results. Leave
+those files unchanged; reformat them only after the fits that hash them are retired.
 
 ## Chelsea pricing model
 

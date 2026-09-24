@@ -33,12 +33,30 @@ def test_audit_reconciles_inventory_and_missing_building(tmp_path):
     db.execute("INSERT INTO scope_buildings VALUES (1,?)", (root,))
     db.execute("INSERT INTO scope_buildings VALUES (1,?)", (missing,))
     db.execute("INSERT INTO frontier VALUES (1,?,?,?)", (inv, "inventory", "done"))
-    db.execute("INSERT INTO frontier VALUES (1,?,?,?)", ("https://streeteasy.com/rental/7", "listing", "pending"))
-    building = {"scripts": [{"json": {"rentalSummary": [{"unavailableCount": 3}],
-                                           "slug": "one-chelsea", "residentialUnitCount": 4}}],
-                "links": [{"url": "/rental/7", "kind": "listing"}]}
-    inventory = {"inventory": {"count": 1, "links": [{"url": "https://streeteasy.com/rental/7"}],
-                                "expected_counts": [3]}, "links": []}
+    db.execute(
+        "INSERT INTO frontier VALUES (1,?,?,?)",
+        ("https://streeteasy.com/rental/7", "listing", "pending"),
+    )
+    building = {
+        "scripts": [
+            {
+                "json": {
+                    "rentalSummary": [{"unavailableCount": 3}],
+                    "slug": "one-chelsea",
+                    "residentialUnitCount": 4,
+                }
+            }
+        ],
+        "links": [{"url": "/rental/7", "kind": "listing"}],
+    }
+    inventory = {
+        "inventory": {
+            "count": 1,
+            "links": [{"url": "https://streeteasy.com/rental/7"}],
+            "expected_counts": [3],
+        },
+        "links": [],
+    }
     db.execute("INSERT INTO snapshots VALUES (?,?,?)", (1, root, json.dumps(building)))
     db.execute("INSERT INTO snapshots VALUES (?,?,?)", (2, inv, json.dumps(inventory)))
     db.execute("INSERT INTO observations VALUES (1,?,NULL,200,1,NULL)", (root,))
@@ -49,7 +67,10 @@ def test_audit_reconciles_inventory_and_missing_building(tmp_path):
     assert result["source_inventory_counts"] == {"rentals": 3, "sales": 0}
     assert result["inventory_captures"]["complete"] == 0
     assert result["inventory_captures"]["incomplete_or_failed"] == 1
-    assert result["discovered_listing_detail_urls"]["from_unavailable_inventory_unique"] == 1
+    assert (
+        result["discovered_listing_detail_urls"]["from_unavailable_inventory_unique"]
+        == 1
+    )
     assert result["building_pages"]["missing_scoped_buildings"] == 1
     assert result["scoped_frontier"]["listing:pending"] == 1
     db.close()

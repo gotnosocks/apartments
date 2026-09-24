@@ -11,8 +11,11 @@ KNOWN_INVALID_UNITS = {"the-sierra-chelsea": {"7", "8"}}
 
 st.set_page_config(page_title="Chelsea rents", page_icon="🏢", layout="wide")
 st.title("Chelsea — rental price history")
-st.caption("StreetEasy asking-rent and status history captured from individual unit pages.")
+st.caption(
+    "StreetEasy asking-rent and status history captured from individual unit pages."
+)
 st.sidebar.link_button("Live scrape archive", "http://localhost:8765/")
+st.sidebar.page_link("pages/4_Project_Evolution.py", label="Project evolution", icon="🧭")
 
 
 @st.cache_data(show_spinner=False)
@@ -65,13 +68,17 @@ if not db_path.exists():
     st.stop()
 
 with duckdb.connect(str(db_path), read_only=True) as connection:
-    BUILDINGS = dict(connection.execute("""
+    BUILDINGS = dict(
+        connection.execute("""
         SELECT building_slug, coalesce(max(canonical_address), building_slug)
         FROM listings WHERE source='streeteasy' AND building_slug IS NOT NULL
         GROUP BY building_slug ORDER BY 2
-    """).fetchall())
+    """).fetchall()
+    )
 if not BUILDINGS:
-    st.info("Import the local archive with `uv run --locked apartments import-archive`.")
+    st.info(
+        "Import the local archive with `uv run --locked apartments import-archive`."
+    )
     st.stop()
 st.sidebar.caption(f"{len(BUILDINGS)} buildings with imported rental records")
 building_slug = st.sidebar.selectbox(
@@ -80,14 +87,21 @@ building_slug = st.sidebar.selectbox(
 st.header(BUILDINGS[building_slug])
 listings, events = load_data(str(db_path), building_slug, db_path.stat().st_mtime_ns)
 if events.empty:
-    st.warning("No priced history events were found. Run `uv run --locked apartments import-captures data`.")
+    st.warning(
+        "No priced history events were found. Run `uv run --locked apartments import-captures data`."
+    )
     st.stop()
 
 listings["bedroom_group"] = listings["bedrooms"].map(bedroom_label)
 events["bedroom_group"] = events["bedrooms"].map(bedroom_label)
 
-all_units = sorted(listings["unit"].dropna().astype(str).unique(), key=lambda value: (len(value), value))
-default_invalid = sorted(KNOWN_INVALID_UNITS.get(building_slug, set()).intersection(all_units))
+all_units = sorted(
+    listings["unit"].dropna().astype(str).unique(),
+    key=lambda value: (len(value), value),
+)
+default_invalid = sorted(
+    KNOWN_INVALID_UNITS.get(building_slug, set()).intersection(all_units)
+)
 invalid_units = st.sidebar.multiselect(
     "Exclude invalid/non-unit identifiers",
     all_units,
@@ -96,9 +110,13 @@ invalid_units = st.sidebar.multiselect(
 )
 
 bedroom_options = sorted(events["bedroom_group"].unique())
-selected_bedrooms = st.sidebar.multiselect("Bedrooms", bedroom_options, default=bedroom_options)
+selected_bedrooms = st.sidebar.multiselect(
+    "Bedrooms", bedroom_options, default=bedroom_options
+)
 format_options = sorted(events["unit_format"].fillna("unknown").unique())
-selected_formats = st.sidebar.multiselect("Unit format", format_options, default=format_options)
+selected_formats = st.sidebar.multiselect(
+    "Unit format", format_options, default=format_options
+)
 furnishing = st.sidebar.selectbox("Furnishing", ["All", "Furnished", "Unfurnished"])
 
 minimum_date = events["event_date"].min().date()
@@ -109,7 +127,9 @@ date_range = st.sidebar.date_input(
     min_value=minimum_date,
     max_value=maximum_date,
 )
-selected_units = st.sidebar.multiselect("Show only selected units (optional)", all_units)
+selected_units = st.sidebar.multiselect(
+    "Show only selected units (optional)", all_units
+)
 
 filtered = events[
     ~events["unit"].astype(str).isin(invalid_units)
@@ -156,15 +176,25 @@ with history_tab:
         x="event_date",
         y="asking_rent",
         color="unit",
-        hover_data=["bedroom_group", "floor", "square_feet", "is_furnished", "event_type"],
+        hover_data=[
+            "bedroom_group",
+            "floor",
+            "square_feet",
+            "is_furnished",
+            "event_type",
+        ],
         labels={"event_date": "Date", "asking_rent": "Asking rent", "unit": "Unit"},
         render_mode="webgl",
     )
     fig.update_traces(mode="lines+markers", marker={"size": 5})
-    fig.update_layout(yaxis_tickprefix="$", yaxis_tickformat=",", legend_title="Unit", height=700)
+    fig.update_layout(
+        yaxis_tickprefix="$", yaxis_tickformat=",", legend_title="Unit", height=700
+    )
     if filtered["unit"].nunique() > 30:
         fig.update_layout(showlegend=False)
-        st.caption("The legend is hidden when more than 30 units are selected; hover to identify a unit.")
+        st.caption(
+            "The legend is hidden when more than 30 units are selected; hover to identify a unit."
+        )
     st.plotly_chart(fig, width="stretch")
 
 with trend_tab:
@@ -173,7 +203,9 @@ with trend_tab:
         "Each unit contributes at most its last observed price in a month. This is a descriptive "
         "summary of StreetEasy history events, not a vacancy-weighted market index."
     )
-    monthly_unit = filtered.assign(month=filtered["event_date"].dt.to_period("M").dt.to_timestamp())
+    monthly_unit = filtered.assign(
+        month=filtered["event_date"].dt.to_period("M").dt.to_timestamp()
+    )
     monthly_unit = (
         monthly_unit.sort_values("event_date")
         .groupby(["month", "unit", "bedroom_group"], as_index=False)
@@ -190,7 +222,11 @@ with trend_tab:
         color="bedroom_group",
         markers=True,
         hover_data=["units"],
-        labels={"month": "Month", "median_rent": "Median asking rent", "bedroom_group": "Bedrooms"},
+        labels={
+            "month": "Month",
+            "median_rent": "Median asking rent",
+            "bedroom_group": "Bedrooms",
+        },
     )
     fig.update_layout(yaxis_tickprefix="$", yaxis_tickformat=",", height=550)
     st.plotly_chart(fig, width="stretch")
@@ -209,12 +245,24 @@ with latest_tab:
         y="asking_rent",
         color="bedroom_group",
         hover_name="unit",
-        hover_data=["event_date", "event_type", "square_feet", "rent_per_sqft", "is_furnished"],
-        labels={"floor": "Inferred floor", "asking_rent": "Latest observed rent", "bedroom_group": "Bedrooms"},
+        hover_data=[
+            "event_date",
+            "event_type",
+            "square_feet",
+            "rent_per_sqft",
+            "is_furnished",
+        ],
+        labels={
+            "floor": "Inferred floor",
+            "asking_rent": "Latest observed rent",
+            "bedroom_group": "Bedrooms",
+        },
     )
     fig.update_layout(yaxis_tickprefix="$", yaxis_tickformat=",", height=550)
     st.plotly_chart(fig, width="stretch")
-    st.caption("Penthouse units have no inferred numbered floor and therefore do not appear in the floor-axis plot.")
+    st.caption(
+        "Penthouse units have no inferred numbered floor and therefore do not appear in the floor-axis plot."
+    )
 
     sqft = latest.dropna(subset=["square_feet", "rent_per_sqft"])
     if not sqft.empty:
@@ -225,14 +273,19 @@ with latest_tab:
             color="bedroom_group",
             hover_name="unit",
             trendline=None,
-            labels={"square_feet": "Square feet", "asking_rent": "Latest observed rent"},
+            labels={
+                "square_feet": "Square feet",
+                "asking_rent": "Latest observed rent",
+            },
         )
         fig.update_layout(yaxis_tickprefix="$", yaxis_tickformat=",", height=500)
         st.plotly_chart(fig, width="stretch")
 
 with unit_tab:
     unit_choice = st.selectbox("Unit", sorted(filtered["unit"].astype(str).unique()))
-    unit_events = filtered[filtered["unit"].astype(str) == unit_choice].sort_values("event_date")
+    unit_events = filtered[filtered["unit"].astype(str) == unit_choice].sort_values(
+        "event_date"
+    )
     fig = px.scatter(
         unit_events,
         x="event_date",
@@ -244,26 +297,52 @@ with unit_tab:
     fig.update_layout(yaxis_tickprefix="$", yaxis_tickformat=",", height=450)
     st.plotly_chart(fig, width="stretch")
     st.dataframe(
-        unit_events[["event_date", "asking_rent", "event_type"]].sort_values("event_date", ascending=False),
+        unit_events[["event_date", "asking_rent", "event_type"]].sort_values(
+            "event_date", ascending=False
+        ),
         width="stretch",
         hide_index=True,
     )
 
 with data_tab:
     st.subheader("Coverage")
-    coverage = listings.assign(has_sqft=listings["square_feet"].notna()).groupby(
-        ["bedroom_group", "unit_format", "is_furnished"], dropna=False, as_index=False
-    ).agg(units=("unit", "nunique"), units_with_sqft=("has_sqft", "sum"))
+    coverage = (
+        listings.assign(has_sqft=listings["square_feet"].notna())
+        .groupby(
+            ["bedroom_group", "unit_format", "is_furnished"],
+            dropna=False,
+            as_index=False,
+        )
+        .agg(units=("unit", "nunique"), units_with_sqft=("has_sqft", "sum"))
+    )
     st.dataframe(coverage, width="stretch", hide_index=True)
 
     st.subheader("Event types")
-    event_counts = filtered.groupby("event_type", dropna=False).size().reset_index(name="observations")
-    st.dataframe(event_counts.sort_values("observations", ascending=False), width="stretch", hide_index=True)
+    event_counts = (
+        filtered.groupby("event_type", dropna=False)
+        .size()
+        .reset_index(name="observations")
+    )
+    st.dataframe(
+        event_counts.sort_values("observations", ascending=False),
+        width="stretch",
+        hide_index=True,
+    )
 
     st.subheader("Filtered observations")
     st.dataframe(
-        filtered[["unit", "floor", "bedroom_group", "is_furnished", "square_feet", "event_date", "asking_rent", "event_type"]]
-        .sort_values("event_date", ascending=False),
+        filtered[
+            [
+                "unit",
+                "floor",
+                "bedroom_group",
+                "is_furnished",
+                "square_feet",
+                "event_date",
+                "asking_rent",
+                "event_type",
+            ]
+        ].sort_values("event_date", ascending=False),
         width="stretch",
         hide_index=True,
     )

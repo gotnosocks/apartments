@@ -1,0 +1,189 @@
+{
+  "cases": [
+    {
+      "advertisement_url": "https://streeteasy.com/rental/2327644",
+      "audit_id": "399ae188f8da6298765f42bc74a5dbac67dee4bcf507669e91ed8905deddca06",
+      "building": "459-west-18-street-new_york",
+      "canonical_unit_url": "https://streeteasy.com/building/459-west-18-street-new_york/ph1",
+      "evidence": {
+        "body_sha256": "2ef1ff1fc23885a648336e7e33f7e35f619720bce37af6f54693acfa15d9cae5",
+        "capture_id": 88080,
+        "description_sha256": "a9fc90a07bb8aae3136095ee22d01a994d0d32dd282f6a52b5a0063d247d0d24",
+        "literal": "2 bedroom, 2 bathroom Penthouse",
+        "raw_listing_sha256": "7ec3a75f288c0818890dac04c93700a3e0ba14a8b377173d5ea9cd91a873d459",
+        "source_path": "/description"
+      },
+      "feature_family": "penthouse_private_outdoor_keyed_elevator",
+      "model_policy": "flag_only_not_quarantined",
+      "reason": "Penthouse with private outdoor space and keyed elevator.",
+      "source_listing_id": "2327644",
+      "status": "feature_candidate",
+      "unit_id": "unit:461b3145-c6d7-5dbb-940e-a2ce400ec05b"
+    },
+    {
+      "advertisement_url": "https://streeteasy.com/rental/610152",
+      "audit_id": "5fa2fb6bf81b90422c92bf34053243e1394125db9cc96813a6a2864c2644e5ac",
+      "building": "100-11-avenue-new_york",
+      "canonical_unit_url": "https://streeteasy.com/building/100-11-avenue-new_york/phb",
+      "evidence": {
+        "body_sha256": "089dfe14a1efe834b79f58f1e6a69857fb8e5a711a271cb5e34a14b6ee431c2f",
+        "capture_id": 60194,
+        "description_sha256": "b88a3992f49f2386c35723dd7bf708ede275d7ab1a0d13b5ba0678a219818ccf",
+        "literal": "Spectacular, private floor penthouse",
+        "raw_listing_sha256": "ab90dc87a65470f14a55a4fbe224421d11297b884eafff8be9d1a8174bc85c9b",
+        "source_path": "/description"
+      },
+      "feature_family": "private_floor_penthouse_private_terraces",
+      "model_policy": "flag_only_not_quarantined",
+      "reason": "Private-floor penthouse with two private terraces.",
+      "source_listing_id": "610152",
+      "status": "feature_candidate",
+      "unit_id": "unit:43fd5a2b-52d4-5bbe-be00-68cbbb92f2b9"
+    },
+    {
+      "advertisement_url": "https://streeteasy.com/rental/661080",
+      "audit_id": "c6b1298104f2a6247d6b4791539c54743ad2a60a23f4854e9490277d50924c2b",
+      "building": "151-west-17-street-new_york",
+      "canonical_unit_url": "https://streeteasy.com/building/151-west-17-street-new_york/phe",
+      "evidence": {
+        "body_sha256": "6e098d25ebd412cd9a100d59b98a8ab97aa1ea510ae05f05f9edf1a17867fe49",
+        "capture_id": 39068,
+        "description_sha256": "9f5812b2678a62e868c140947a020736b2fd8edc5828b17ff5ad46ed8a1c030b",
+        "literal": "Exquisite duplex Penthouse with Private Outdoor Space",
+        "raw_listing_sha256": "1fe0a7efbf7fcb5a15520c5698392b5b29ff97a6e29c1ca616d9ad288b43bed5",
+        "source_path": "/description"
+      },
+      "feature_family": "duplex_penthouse_private_outdoor_keyed_elevator",
+      "model_policy": "flag_only_not_quarantined",
+      "reason": "Duplex penthouse with planted terraces and keyed elevator.",
+      "source_listing_id": "661080",
+      "status": "feature_candidate",
+      "unit_id": "unit:fc05af77-0885-518f-b86b-d213773e278d"
+    },
+    {
+      "advertisement_url": "https://streeteasy.com/rental/2299495",
+      "audit_id": "90432c342fd20795fdcf1daf41c6464075e9abded4acef20f727c2dad3656b3b",
+      "building": "citizen-condominium",
+      "canonical_unit_url": "https://streeteasy.com/building/citizen-condominium/ph",
+      "evidence": {
+        "body_sha256": "e26f835847496b7c9afc4735a0a4afac3ddc928730667779e92bc0199312a530",
+        "capture_id": 96955,
+        "description_sha256": "99b0bcd2964e1d26c0f9eb55cd54dc43dcf42ca3a2b2b55b6bd36dc0e77bcdbd",
+        "literal": "The stunning penthouse comprises the top two floors",
+        "raw_listing_sha256": "d37960148186ecd9de3d21f34163d4af0b3dc5fc59f2596b4cb06fe0509b2fa0",
+        "source_path": "/description"
+      },
+      "feature_family": "penthouse_top_two_floors_private_roof",
+      "model_policy": "flag_only_not_quarantined",
+      "reason": "Penthouse occupying the top two floors with private roof terrace and keyed elevators.",
+      "source_listing_id": "2299495",
+      "status": "feature_candidate",
+      "unit_id": "unit:d0b02eeb-9cc3-5e82-97af-8c199a1f523a"
+    },
+    {
+      "advertisement_url": "https://streeteasy.com/rental/4015568",
+      "audit_id": "5197c04592bf92994a06db5130f4e7c3efacdb980679283e05376923b0e092c9",
+      "building": "439-west-21-street-new_york",
+      "canonical_unit_url": "https://streeteasy.com/building/439-west-21-street-new_york/1",
+      "evidence": {
+        "body_sha256": "e3d3cd20c3f337a8c8b9c85739ed8bfb7a3b81df32e8eb00f6cfb1eebe48554f",
+        "capture_id": 25090,
+        "description_sha256": "e8372da9985e639126d007de7f158854b99b6f78e33502f1ef2f109a0329144a",
+        "literal": "A very charming and renovated duplex",
+        "raw_listing_sha256": "c44faf8de67879e41be882ca20e2143a5d8c15bb4c6d3ed8cb37af53599b4e1a",
+        "source_path": "/description"
+      },
+      "feature_family": "duplex_private_terrace",
+      "model_policy": "flag_only_not_quarantined",
+      "reason": "Duplex townhouse product with private terrace and basement media room.",
+      "source_listing_id": "4015568",
+      "status": "feature_candidate",
+      "unit_id": "unit:6a2809ec-7d8a-5f39-a3ce-4d6b302563d0"
+    },
+    {
+      "advertisement_url": "https://streeteasy.com/rental/1670174",
+      "audit_id": "727099b5f831d4dd9798f9c53e11628fa58da488c9afe62c610bb73ad784847c",
+      "building": "357-west-20-street-new_york",
+      "canonical_unit_url": "https://streeteasy.com/building/357-west-20-street-new_york/c",
+      "evidence": {
+        "body_sha256": "c8967370efcb495c745f69a4421fecd9466b322babfbae7756fcd6bc129161cc",
+        "capture_id": 119549,
+        "description_sha256": "3039a2bcd5475ab1985da73513f4d23e2a0f4be71559e0dcd5fe03fd44a5aa4d",
+        "literal": "CHELSEA DUPLEXOVER SIZED 1BR TOWN HOME IN THE SKY",
+        "raw_listing_sha256": "3f1a8fc845417b3914ef972fabd3006f7c0935ade3b98401cb928d295315c776",
+        "source_path": "/description"
+      },
+      "feature_family": "duplex_townhome",
+      "model_policy": "flag_only_not_quarantined",
+      "reason": "Duplex/townhome product with unusually large layout.",
+      "source_listing_id": "1670174",
+      "status": "feature_candidate",
+      "unit_id": "unit:942fcaec-f571-5363-89fc-bd9e9cb221ea"
+    },
+    {
+      "advertisement_url": "https://streeteasy.com/rental/902353",
+      "audit_id": "800ae3315dcaa8c034f7ba6697d25db29a151e80b8b90f7bfd2a965c9d736ecd",
+      "building": "334-west-20-street-new_york",
+      "canonical_unit_url": "https://streeteasy.com/building/334-west-20-street-new_york/1",
+      "evidence": {
+        "body_sha256": "a4a247898a9dc7fb7aba06e1afa15251ec3e81f09515517d41b57db4f500b0bb",
+        "capture_id": 86146,
+        "description_sha256": "68bdb12815ff5b41ac20fcb06afeaef0727004868fb4282e8a2ff94a5c3c445a",
+        "literal": "Rare Rental Duplex in Central Chelsea",
+        "raw_listing_sha256": "1ae667453450ef9306bacf838b59434e7a8bbfd798d5697cb73f8ac0f4cb02b8",
+        "source_path": "/description"
+      },
+      "feature_family": "duplex_loft_top_two_floors",
+      "model_policy": "flag_only_not_quarantined",
+      "reason": "Duplex loft occupying the top two floors of a former mansion.",
+      "source_listing_id": "902353",
+      "status": "feature_candidate",
+      "unit_id": "unit:a82b762d-6c12-5520-b20a-09298d8b8dd5"
+    },
+    {
+      "advertisement_url": "https://streeteasy.com/rental/640477",
+      "audit_id": "90716d2af6ba68fc77ea895abc69bd88bbea133b31f4032c5cd19b949c106651",
+      "building": "the-broadmoor-315-west-23-street-new_york",
+      "canonical_unit_url": "https://streeteasy.com/building/the-broadmoor-315-west-23-street-new_york/12a",
+      "evidence": {
+        "body_sha256": "fb4a115669dbc5eaab75d1716c9259c8a81c68d34925e45c5dc33d42adb20969",
+        "capture_id": 115891,
+        "description_sha256": "88f263d825c4f9d97d5509c1f9a774459d499f94edb117b7ba21aeb4863c29f2",
+        "literal": "double-height ceilings",
+        "raw_listing_sha256": "7405917093bae4576066c91be393d0a00583491bef303b9c41c47d0feb7a7194",
+        "source_path": "/description"
+      },
+      "feature_family": "loft_double_height_sleeping_loft",
+      "model_policy": "flag_only_not_quarantined",
+      "reason": "Loft-home with double-height ceilings and an additional sleeping loft.",
+      "source_listing_id": "640477",
+      "status": "feature_candidate",
+      "unit_id": "unit:87ae321a-319c-5107-bbc0-195ca98a3bf1"
+    },
+    {
+      "advertisement_url": "https://streeteasy.com/rental/3591788",
+      "audit_id": "913cda6dc37bf1c35f0b032314eb9e0eccc360625f94682aa8b03303c79744f8",
+      "building": "463-west-24-street-new_york",
+      "canonical_unit_url": "https://streeteasy.com/building/463-west-24-street-new_york/2",
+      "evidence": {
+        "body_sha256": "e99c37e3b53e2cc4714b1fafe9addd726a9443514ec973c77fb6f78948dc91b4",
+        "capture_id": 89963,
+        "description_sha256": "fa9a7a963fb595d4d40de4021f3ba2f8a13bc63f6f73d9566ae91d680fb69262",
+        "literal": "minimum 2-12 month stays",
+        "raw_listing_sha256": "b5f11f02f8cea9013a2869adcb430913362cf66cba64a9f2df24eab807dfcfe8",
+        "source_path": "/description"
+      },
+      "feature_family": "furnished_short_term_service_product",
+      "model_policy": "flag_only_not_quarantined",
+      "reason": "Furnished short-term/live-work suite with hotel/restaurant services; flag for product-scope sensitivity, do not auto-remove in this panel.",
+      "source_listing_id": "3591788",
+      "status": "product_scope_sensitivity",
+      "unit_id": "unit:bf13db35-70fb-51e8-8edf-6cd139178259"
+    }
+  ],
+  "created_at": "2026-09-21T21:45:00Z",
+  "dataset_manifest_sha256": "a328ff0c0d9506b51995f6cf7970cb5c633db2bea32c67846b5ee62c592eca1a",
+  "evidence_manifest_sha256": "79308dfdbefd7fe8a03630bdd048fa742d0f7cd3335b82f25da0575a9d9b7e08",
+  "purpose": "Flag legitimate or potentially legitimate nonstandard residential products for feature measurement. These rows remain in the fitted cohort; this panel does not change model membership.",
+  "version": "chelsea-nonstandard-feature-panel-v1"
+}

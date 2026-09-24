@@ -85,11 +85,22 @@ def ingest_payload(
                 year_built=excluded.year_built, listing_type=excluded.listing_type,
                 last_seen_at=now(), raw_json=excluded.raw_json""",
             [
-                listing_id, address, normalize_address(address), item.get("addressLine2"),
-                item.get("city"), item.get("state"), item.get("zipCode"),
-                item.get("latitude"), item.get("longitude"), item.get("propertyType"),
-                item.get("bedrooms"), item.get("bathrooms"), _integer(item.get("squareFootage")),
-                _integer(item.get("yearBuilt")), item.get("listingType"), raw,
+                listing_id,
+                address,
+                normalize_address(address),
+                item.get("addressLine2"),
+                item.get("city"),
+                item.get("state"),
+                item.get("zipCode"),
+                item.get("latitude"),
+                item.get("longitude"),
+                item.get("propertyType"),
+                item.get("bedrooms"),
+                item.get("bathrooms"),
+                _integer(item.get("squareFootage")),
+                _integer(item.get("yearBuilt")),
+                item.get("listingType"),
+                raw,
             ],
         )
         db.execute(
@@ -97,14 +108,22 @@ def ingest_payload(
                 ('rentcast', ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 ON CONFLICT DO NOTHING""",
             [
-                listing_id, observed_at, item.get("status"), _integer(item.get("price")),
-                item.get("listedDate"), item.get("removedDate"), _integer(item.get("daysOnMarket")),
-                scope, raw,
+                listing_id,
+                observed_at,
+                item.get("status"),
+                _integer(item.get("price")),
+                item.get("listedDate"),
+                item.get("removedDate"),
+                _integer(item.get("daysOnMarket")),
+                scope,
+                raw,
             ],
         )
         for event_at, event in _history_items(item.get("history")):
             event_raw = json.dumps(event, separators=(",", ":"), sort_keys=True)
-            event_type = event.get("event") or event.get("eventType") or event.get("status")
+            event_type = (
+                event.get("event") or event.get("eventType") or event.get("status")
+            )
             event_price = _integer(event.get("price"))
             key_text = f"rentcast|{listing_id}|{event_at}|{event_type}|{event_price}"
             event_key = hashlib.sha256(key_text.encode()).hexdigest()
@@ -117,7 +136,9 @@ def ingest_payload(
     return accepted
 
 
-def collect(scope: str, db_path: str = "data/apartments.duckdb") -> tuple[int, int, Path]:
+def collect(
+    scope: str, db_path: str = "data/apartments.duckdb"
+) -> tuple[int, int, Path]:
     api_key = os.getenv("RENTCAST_API_KEY")
     if not api_key:
         raise RuntimeError("RENTCAST_API_KEY is missing; copy .env.example to .env")
@@ -131,7 +152,15 @@ def collect(scope: str, db_path: str = "data/apartments.duckdb") -> tuple[int, i
     db = connect(db_path)
     db.execute(
         "INSERT INTO collection_runs VALUES (?, 'rentcast', ?, ?, ?, ?, ?, ?, NULL)",
-        [run_id, scope, started, datetime.now(timezone.utc), len(payload), accepted, str(raw_path)],
+        [
+            run_id,
+            scope,
+            started,
+            datetime.now(timezone.utc),
+            len(payload),
+            accepted,
+            str(raw_path),
+        ],
     )
     db.close()
     return len(payload), accepted, raw_path

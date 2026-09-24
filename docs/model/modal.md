@@ -1,5 +1,19 @@
 # Modal posterior fitting
 
+**Fits run locally by default; Modal is opt-in.** A full-length remote refit of the product-scope spline model ran in 55.4 minutes against about 56 locally, reproduced the local protocol hash, and was billed $0.38 ([September 23 record](../analysis/modal-remote-fitting-2026-09-23.md)). One Modal core samples at local speed and the disk sampler uses at most four, so Modal helps only to run several fits at once or to keep load off the local machine.
+
+```sh
+# Main model through the CLI: same runner, same options, same protocol hash as a local run.
+uv run --locked --extra model --extra modal apartments fit-pricing DATASET OUTPUT --executor modal [--modal-detach]
+# Other protocol runners (e.g. structure or bedroom-time experiments):
+uv run --locked --extra model --extra modal python -m models.modal_remote_fit run --detach \
+  --runner models.<runner> --dataset DATASET --output OUTPUT -- <runner options>
+```
+
+`--executor modal` passes every `fit-pricing` option explicitly to the runner, because `fit-pricing` defaults differ from the runners' own; it supports only `--execution disk`. `--modal-cpu`, `--modal-memory`, `--modal-timeout`, `--modal-full` and `--modal-detach` are refused for local runs. Downloads leave `posterior.nc`/`prior.nc` on the Modal Volume unless `--modal-full` is given; run `python -m models.modal_remote_fit complete --output OUTPUT` before promoting a fit or opening it on the main page. Local runs never import Modal or need `--extra modal`. Code is sent with `git ls-files`, so run from a git checkout (jj-only workspaces are not supported yet).
+
+The rest of this page describes the earlier `models/modal_fit.py` workflow for the legacy monthly model.
+
 This document describes the earlier optional Modal workflow. Current Chelsea research also runs locally; the September 18 backend reassessment uses the full current model on the Ryzen CPU and RTX 2060 SUPER. The Modal worker defaults to **Nutpie/Numba on four cloud CPU cores**. `--gpu` selects **Nutpie/JAX on one T4** through a separately registered ephemeral app. Default CPU runs never build the CUDA image; GPU registration and image building happen only when requested. The rent model's priors, likelihoods, exclusions and historical attribute assumptions are unchanged.
 
 The old 2,386-observation execution checks recorded about 110 seconds on T4 versus 12.5 seconds for an earlier local M1/Numba run, with two chains of only 50 warmup and 50 retained draws. **These timings do not establish relative sampling speed or justify a CPU/GPU choice.** Startup and compilation can dominate, and the hardware differs. A meaningful comparison requires the same current posterior, production-length chains, separate warmup/retained/postprocessing costs, convergence checks and bulk/tail effective samples per second. See the [current reassessment](../analysis/chelsea-sampler-reassessment-2026-09-18.md).

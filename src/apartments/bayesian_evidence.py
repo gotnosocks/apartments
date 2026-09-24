@@ -67,14 +67,9 @@ def load_evidence(dataset, evidence):
     evidence_manifest, evidence_files = _verified_bundle(evidence, retain={'evidence.jsonl'})
     refreshed = evidence_manifest.get('version') == _REFRESHED_ARCHIVE
     if refreshed:
-        from .reviewed_source_lineage import manifest_hash, source_lineage
-        original = source_lineage(dataset_manifest, list(_records(dataset_files['observations.jsonl'])),
-            quarantined=list(_records(dataset_files[SIDECAR])) if SIDECAR in dataset_files else None,
-            elevator_changes=list(_records(dataset_files[ELEVATOR_SIDECAR])) if ELEVATOR_SIDECAR in dataset_files else None,
-            floor_label_changes=list(_records(dataset_files[FLOOR_LABEL_SIDECAR])) if FLOOR_LABEL_SIDECAR in dataset_files else None,
-            expanded_floor_changes=list(_records(dataset_files[EXPANDED_FLOOR_SIDECAR])) if EXPANDED_FLOOR_SIDECAR in dataset_files else None,
-            residual_scope_changes=list(_records(dataset_files[RESIDUAL_SCOPE_SIDECAR])) if RESIDUAL_SCOPE_SIDECAR in dataset_files else None,
-            direct_floor_changes=list(_records(dataset_files[DIRECT_FLOOR_SIDECAR])) if DIRECT_FLOOR_SIDECAR in dataset_files else None)
+        from .reviewed_source_lineage import manifest_hash
+        from .reviewed_lineage_cache import verified_bundle_lineage
+        original = verified_bundle_lineage(dataset_manifest, dataset_files)
         bound = (original.get('version') == _REFRESHED_REVIEW
                  and evidence_manifest.get('dataset_manifest_sha256') == manifest_hash(original)
                  and evidence_manifest.get('dataset_observations_sha256') == original['files'].get('observations.jsonl'))

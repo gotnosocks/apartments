@@ -192,7 +192,7 @@ def test_actual_accepted_current_cohort_and_joint_counterfactual():
 def test_entry_page_links_through_application_routing():
     page = AppTest.from_file(str(ROOT/'app.py')).switch_page('pages/1_Bayesian_Model.py').run()
     assert not page.exception
-    assert len(page.get('page_link')) == 2
+    assert len(page.get('page_link')) == 3
 
 
 def test_historical_source_issue_merges_with_review_and_warns_in_scenario(mocked,monkeypatch,tmp_path):

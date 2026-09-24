@@ -22,8 +22,10 @@ def test_two_and_three_column_history_tables():
     """
     events = parse_price_history_html(html)
     assert events[0] == {
-        "date": "12/18/2023", "base_rent": 8100,
-        "event": "Listed by The Blueground", "listing_url": None,
+        "date": "12/18/2023",
+        "base_rent": 8100,
+        "event": "Listed by The Blueground",
+        "listing_url": None,
     }
     assert events[1]["event"] == "Rented by Cushman & Wakefield (Management)"
     assert events[1]["listing_url"] == "/rental/123"
@@ -79,7 +81,9 @@ def test_building_floor_override():
 
 def test_furnished_detection():
     assert listing_is_furnished({"home_features": ["Dishwasher", "Furnished"]})
-    assert not listing_is_furnished({"description": "A furnished apartment", "home_features": []})
+    assert not listing_is_furnished(
+        {"description": "A furnished apartment", "home_features": []}
+    )
 
 
 def test_excluded_units():

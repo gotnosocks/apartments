@@ -224,7 +224,7 @@ class ArchiveStore:
         row = self.db.execute("SELECT value FROM metadata WHERE key='next_request'").fetchone()
         return max(0, float(row[0]) - time.time()) if row else 0
 
-    def claim(self, generation, now=None, url_prefix=None, scoped=False, prefer_inventory=False):
+    def claim(self, generation, now=None, url_prefix=None, scoped=False, prefer_inventory=False, prefer_units=False):
         now = time.time() if now is None else now
         with self._tx():
             while True:
@@ -238,10 +238,22 @@ class ArchiveStore:
                     -- Unavailable inventories are the source of historical unit
                     -- discovery. Give them a durable turn before the growing
                     -- listing queue; listings still precede buildings/searches.
+                    -- Under the canonical rental policy, a unit page carries the
+                    -- whole unit's price history, so it precedes single ads.
                     ORDER BY CASE WHEN ? THEN CASE WHEN f.kind='inventory' THEN 0 ELSE f.priority + 1 END
-                               ELSE f.priority END, f.rowid LIMIT 1''',
+                               ELSE f.priority END,
+                             CASE WHEN ? AND f.kind='listing' AND f.listing_key IS NULL THEN 0 ELSE 1 END,
+                             f.rowid LIMIT 1''',
                     (generation, now, now, int(scoped), url_prefix, url_prefix, url_prefix, url_prefix, url_prefix, url_prefix,
-                     int(prefer_inventory))).fetchone()
+                     int(prefer_inventory), int(prefer_units))).fetchone()
+                if row:
+                    from .collection_policy import exclusion_reason, exclude, reuse_unit_capture
+                    reason = exclusion_reason(self, generation, row['url'])
+                    if reason:
+                        exclude(self, generation, row['url'], reason)
+                        continue
+                    if reuse_unit_capture(self, generation, row):
+                        continue
                 if row and self._reuse_listing_capture(generation, row):
                     continue
                 if row:

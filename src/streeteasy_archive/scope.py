@@ -11,6 +11,18 @@ SEEDS = [f'https://streeteasy.com/{kind}/{area}'
 AREAS = {'chelsea', 'west-chelsea'}
 
 
+NEIGHBORHOODS = {
+    'chelsea': ({'chelsea', 'west-chelsea'}, {'Chelsea', 'West Chelsea'}),
+    'west-village': ({'west-village'}, {'West Village'}),
+}
+
+
+def neighborhood_seeds(neighborhood):
+    areas, _ = NEIGHBORHOODS[neighborhood]
+    return [f'https://streeteasy.com/{kind}/{area}'
+            for kind in ('for-rent', 'for-sale', 'buildings') for area in sorted(areas)]
+
+
 def summary_counts(data, key):
     """Read both inline summaries and Flight reference-backed summary arrays."""
     stream = flight_text(data.get('scripts', []))
@@ -63,10 +75,10 @@ def building_root(url):
     return 'https://streeteasy.com/building/' + match[1] if match else None
 
 
-def directory_page(url):
+def directory_page(url, neighborhood="chelsea"):
     p = urlsplit(url)
     root = f'https://streeteasy.com{p.path}'
-    return root in SEEDS and all(k == 'page' and v.isdigit() for k, v in parse_qsl(p.query))
+    return root in neighborhood_seeds(neighborhood) and all(k == 'page' and v.isdigit() for k, v in parse_qsl(p.query))
 
 
 def _enroll(store, generation, urls, roots=()):
@@ -114,14 +126,16 @@ def discovery_links(data, source_url, include_unavailable=True):
 
 
 def expand(store, generation, data, source_url, include_unavailable=True, building=None,
-           processed_snapshot_id=None, atomic=True):
+           processed_snapshot_id=None, atomic=True, neighborhood="chelsea"):
+    areas, area_names = NEIGHBORHOODS[neighborhood or "chelsea"]
+    neighborhood = neighborhood or "chelsea"
     candidates = {}
     roots = {r[0] for r in store.db.execute('SELECT url FROM scope_buildings WHERE generation=?', (generation,))}
     records = list(objects(data))
     # Search result cards carry explicit neighborhood names. The citywide area
     # dictionary and suggested neighborhood links cannot grant membership.
     for obj in records:
-        if obj.get('areaName') in ('Chelsea', 'West Chelsea') and isinstance(obj.get('urlPath'), str):
+        if obj.get('areaName') in area_names and isinstance(obj.get('urlPath'), str):
             url = canonical_url(obj['urlPath'])
             if url and kind_for(url) == 'listing':
                 candidates[url] = 'listing card areaName=' + obj['areaName']
@@ -129,13 +143,13 @@ def expand(store, generation, data, source_url, include_unavailable=True, buildi
                 if root:
                     roots.add(root)
         area = obj.get('area')
-        if (isinstance(area, dict) and area.get('id') in AREAS
+        if (isinstance(area, dict) and area.get('id') in areas
                 and isinstance(obj.get('slug'), str) and (obj.get('address') or obj.get('name'))):
             root = canonical_url('/building/' + obj['slug'])
             if root and kind_for(root) == 'building' and (root == building_root(source_url) or root in roots):
                 roots.add(root)
     for root in roots:
-        candidates[root] = 'building associated with Chelsea/West Chelsea property'
+        candidates[root] = 'building associated with ' + neighborhood + ' property'
     source_root = building_root(source_url)
     trusted_property = source_root in roots or bool(store.db.execute(
         'SELECT 1 FROM scope_urls WHERE generation=? AND url=? AND reason LIKE ?',
@@ -151,12 +165,12 @@ def expand(store, generation, data, source_url, include_unavailable=True, buildi
                         candidates[url] = 'property history of ' + source_url
     # A directory's result ItemList can contain buildings with no active listing.
     # Keep the source filter as evidence; missing result lists are not guessed.
-    if directory_page(source_url) and '/buildings/' in source_url:
+    if directory_page(source_url, neighborhood) and '/buildings/' in source_url:
         for item in data.get('directory_buildings', []):
             url = canonical_url(item.get('url') or '')
-            if url and kind_for(url) == 'building' and re.search(r'\bin (?:West )?Chelsea$', item.get('area_label', '').strip()):
+            if url and kind_for(url) == 'building' and any(item.get('area_label', '').strip().endswith(' in ' + name) for name in area_names):
                 roots.add(building_root(url))
-                candidates[url] = 'directory result card with explicit Chelsea neighborhood'
+                candidates[url] = 'directory result card with explicit ' + neighborhood + ' neighborhood'
         for obj in records:
             if obj.get('@type') == 'ItemList':
                 for item in obj.get('itemListElement', []):
@@ -174,10 +188,18 @@ def expand(store, generation, data, source_url, include_unavailable=True, buildi
         url = canonical_url(link.get('url', ''))
         if not url or not kind_for(url):
             continue
-        if directory_page(url):
-            candidates[url] = 'Chelsea search/directory pagination'
+        if directory_page(url, neighborhood):
+            candidates[url] = neighborhood + ' search/directory pagination'
         elif building_root(url) in roots:
-            candidates[url] = 'child of verified Chelsea building'
+            candidates[url] = 'child of verified ' + neighborhood + ' building'
+    from .collection_policy import enabled, inventory_unit_probes, PROBE_RULE
+    if enabled(store, generation) and kind_for(source_url) == 'listing':
+        evidence = data.get('collection_policy', {})
+        if not evidence.get('eligible'):
+            candidates = {}
+    if enabled(store, generation) and include_unavailable and building_root(source_url) in roots:
+        for unit, ad in inventory_unit_probes(data, source_url).items():
+            candidates.setdefault(unit, f'{PROBE_RULE} from {ad}')
     if building:
         roots = {building}
         candidates = {u: reason for u, reason in candidates.items()
@@ -257,10 +279,10 @@ def _batches(rows, size=20):
         yield batch
 
 
-def configure(store, generation, include_unavailable=True):
+def configure(store, generation, include_unavailable=True, neighborhood="chelsea"):
     marker_key = _marker_key(generation, None, include_unavailable)
-    _prepare(store, generation, f'neighborhood:{int(include_unavailable)}', marker_key)
-    enroll(store, generation, {u: 'Chelsea excluding Hudson Yards seed' for u in SEEDS})
+    _prepare(store, generation, (f'neighborhood:{int(include_unavailable)}' if neighborhood == 'chelsea' else f'neighborhood:{neighborhood}:{int(include_unavailable)}'), marker_key)
+    enroll(store, generation, {u: neighborhood + ' neighborhood seed' for u in neighborhood_seeds(neighborhood)})
     # Reuse successful archived content without downloading it again. The
     # marker is advanced in the same transaction as each expansion, so a crash
     # after recording a response but before expansion is recovered safely.
@@ -271,7 +293,7 @@ def configure(store, generation, include_unavailable=True):
             for row in batch:
                 if include_unavailable or kind_for(row['url']) in ('building', 'directory', 'search'):
                     expand(store, generation, json.loads(row['extracted']), row['url'], include_unavailable,
-                           processed_snapshot_id=row['id'], atomic=False)
+                           processed_snapshot_id=row['id'], atomic=False, neighborhood=neighborhood)
                 else:
                     store.db.execute('INSERT INTO metadata(key,value) VALUES(?,?) '
                                      'ON CONFLICT(key) DO UPDATE SET value=excluded.value',

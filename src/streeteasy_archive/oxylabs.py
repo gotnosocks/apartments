@@ -138,7 +138,7 @@ class OxylabsDownloadHandler:
                 result = await asyncio.to_thread(requests.post, API_URL, json=payload,
                                                   auth=(username, password), timeout=180,
                                                   allow_redirects=False)
-                if result.status_code == 401 or result.status_code == 403:
+                if result.status_code in (401, 402, 403):
                     result.raise_for_status()
                 if result.status_code == 429 or result.status_code >= 500:
                     result.raise_for_status()
@@ -147,7 +147,7 @@ class OxylabsDownloadHandler:
                 break
             except requests.RequestException as exc:
                 api_status = exc.response.status_code if exc.response is not None else None
-                if api_status in (401, 403):
+                if api_status in (401, 402, 403):
                     raise RuntimeError(f"Oxylabs request failed (HTTP {api_status})") from None
                 detail = f"HTTP {api_status}" if api_status is not None else type(exc).__name__
                 failure = f"Oxylabs request failed ({detail})"

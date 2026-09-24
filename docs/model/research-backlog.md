@@ -1,5 +1,221 @@
 # Chelsea pricing research backlog
 
+## Pipeline review, September 20
+
+Items from an end-to-end review of collection → transform → fit → analyze,
+ordered by expected leverage. Numbers refer to the selected fit
+(`chelsea-bayesian-expanded-spline-floor-disk-20260919`) and the
+`chelsea-granular-20260917-canonical-url-v1` source unless stated.
+
+### Residual review and model
+
+- [x] **Report unit-level deviation as the primary review signal.** Done:
+  [review queue](review-queue.md) (`apartments build-review-queue`), September 20.
+  Original rationale: The
+  selected fit has `sigma` 0.066, `sigma_unit` 0.086 and 47% single-observation
+  units. For a singleton, the split between unit effect and residual is set by
+  the variance ratio, not by data: for moderate deviations roughly 63% of a
+  unit's departure from building + features + time is absorbed into the unit
+  effect and only ~37% appears as "residual" (Student-t tails reverse this for
+  extreme outliers). The review queue's ranking therefore depends on the
+  `sigma_unit` prior and on how often a unit was listed. Add
+  `unit_effect + residual` (deviation from building/features/time) to
+  `residuals.jsonl` and the main page, show both components, and rank the
+  queue on it. Report-only change on saved draws; no refit.
+
+- [ ] **Use the within-advertisement price path.** 27,473 of 65,350 own
+  advertisements (42%) changed price while listed; median first→last change
+  is −3.5% (p10 −13.2%, p90 +6.2%). Only the initial ask is used. Publish a
+  per-advertisement table (`initial_ask`, `final_ask`, `n_cuts`,
+  `days_listed`, `terminal_status`) from `event_mentions`; refit on final
+  ask and compare coefficients with the initial-ask fit; carry
+  `days_listed`/`n_cuts` as observables for current listings. History-table
+  mentions of *other* advertisements are not a separate source of new data:
+  of 74,674 (unit, listing) pairs, 68,836 are own-captured and the 5,838
+  mention-only listings are almost all 2007–2013 (pre-canonical-page cohort).
+  Extending the trend to 2007–2013 with masked attributes is a low-priority
+  option only.
+
+- [ ] **Align current and historical price basis.** 172 current rows use
+  `current_capture_gross_ask` (possibly after cuts) while 52,481 historical
+  rows use the initial ask, so stale or cut current listings look cheap.
+  Either use the initial ask for current rows or add the price-path
+  covariates above.
+
+- [ ] **Publish the observation funnel as a standing artifact.** Raw
+  own-captured listings 68,313 / 25,119 units (2.72 per unit; 42% singletons;
+  median 1.7 years between repeat listings) → v4 accepted 54,105 → fitted
+  52,481. Exclusions (furnished 4,587; concession 4,509; date window 1,259;
+  no dated ACTIVE event 488; layout 262; extreme ask 243; conflicting
+  same-month layouts 179) are in `coverage.json` but not surfaced. Check
+  whether the 4,509 concession exclusions concentrate in recent luxury
+  buildings and bias the current cohort.
+
+- [ ] **Test coefficient stability over time.** One log premium per feature
+  is shared across 2010–2026 with one Chelsea-wide trend and no bedroom×time
+  interaction. Refit on 2019+ only and compare coefficients; add bedroom-group
+  trend deviations. If premiums move materially, use era-specific
+  coefficients or a restricted serving window.
+  *September 22:* bedroom-group random-walk trend deviations fitted and
+  converged (held-out ΔELPD +30.0 ± 9.5; group × year bias 0.92% → 0.67%);
+  not yet promoted, see [bedroom-time experiment](bedroom-time-experiment-2026-09-22.md).
+  The 2019+ coefficient refit is still open.
+
+- [ ] **Building covariates in the building-effect mean.** 25% of buildings
+  have ≤5 observations and are shrunk toward the Chelsea mean, inflating their
+  units' residuals. Join PLUTO (year built, floors, units, building class),
+  DOB elevator devices and coordinates, and place them in the mean of
+  `building_effect`. Motivation is small-building shrinkage for fitted
+  buildings, not unseen-building prediction. This would also replace
+  listing-derived `elevator` (70% known; posterior +0.7%, mostly absorbed by
+  building effects).
+
+- [ ] **Relabel positive-only exposure features.** `window_exposures.*` and
+  `view_exposures.*` are only ever `True` or missing, so the value columns
+  are constant and dropped; the `.unknown` indicators in the design actually
+  mean "mentioned". Rename (`mentioned_south`) or extract negations; stop
+  presenting them as tri-state.
+
+- [ ] **Improve sampling geometry.** Minimum ESS is on `alpha` (821) and
+  bathroom contrasts while median ESS is 33k, indicating a centering problem
+  among the intercept, zero-sum building effects and 22k non-centered unit
+  effects. Test sum-to-zero unit effects within building; target the same ESS
+  with 1,000/2,000 instead of 4,000/6,000 per chain. Also consider estimating
+  `nu` instead of fixing 5.
+
+- [ ] **Fast screening fits from the same graph.** Use `find_MAP`/Laplace or
+  ADVI on the identical PyMC graph to screen feature experiments; reserve
+  full NUTS for candidates that pass. The main model stays exact PyMC; the
+  screen is for triage only.
+  *September 22:* tested in [fast screening](fast-screening-2026-09-22.md).
+  Raw joint `find_MAP` is degenerate (`sigma_building` → 0) and unusable.
+  MAP with baseline variance components fixed reproduced a known +30 ΔELPD
+  and a null control in minutes. Data subsets are unbiased but underpowered.
+
+### Iteration speed (Ben, September 23: "I would like to be able to iterate more quickly")
+
+Measured on the promoted building-drift fit (`chelsea-bayesian-product-scope-structure-20260923`):
+4 chains × (4,000 tune + 6,000 draws) took ~6 h of sampling at 255 leapfrog
+steps per iteration (tree depth 8), plus ~1 h of reports. It wrote ~40 GB,
+with unit and building draws stored three times (trace, `posterior.nc`,
+report caches). Convergence is limited by one parameter: `alpha` has bulk ESS
+587 and R-hat 1.0088 (1.0103 on the Modal refit of the previous spec), while
+most parameters have ESS in the tens of thousands. A NUTS screen
+(1,000/1,000) takes ~2.5 h and ~5 GB; a conditional-MAP screen takes
+3–6 min on one core. Targets: **protocol fit under 2 h and 12 GB; NUTS screen
+under 45 min**, with the same convergence gates and the same held-out
+conclusions. In priority order:
+
+- [ ] **E1. Fix the intercept geometry.** `alpha` is the only slow direction.
+  Test on short runs (4 × 500/500) of the promoted spec, measuring ESS/second
+  for `alpha` and the global scales: (a) sum-to-zero unit effects within
+  building; (b) the intercept absorbed into the building-effect mean
+  (non-zero-sum building effects around `alpha`); (c) nutpie low-rank mass
+  matrix adaptation (`--adaptation low_rank`). Keep the variant that removes
+  the bottleneck with identical posteriors, checked by comparing
+  coefficients, scales and residual intervals.
+  *September 23, round 1* (Modal, 8 runs × 4 cores, 4 × 500/500, full data;
+  `models/efficiency_benchmark.py`, `models/bayesian_structure_graph_v3.py`;
+  results in `data/model/modal-runs/efficiency-20260923/`): **the intercept as
+  the building-effect mean (b_j ~ N(α, σ_b)) fixes the bottleneck.** `alpha`
+  bulk ESS rises from 30 to 2,803 (R-hat 1.107 → 1.000), about 90×. Low-rank
+  adaptation did not help; unit centering within building added nothing.
+  Steps per draw were 127 (depth 7) in every variant, so E2 needs other
+  levers. The new slowest directions are `annual_drift` (ESS 130–215) and one
+  or more coefficients (min ESS 25–54). Round 2 tests removing the common
+  drift from the building walks and identifies the slow coefficients.
+  *Round 2* (4 × 1,000/1,000): removing the common drift from the building
+  walks (walk levels average zero across buildings at every knot, row-weighted)
+  doubles annual-drift ESS (396 → 775) and the slowest coefficient's (91 →
+  196). Adopted. The slowest coefficients were correlated pairs
+  (`elevator`/`elevator.unknown`, `bedrooms_gt_1`/`full_bathroom_shortfall`).
+  *Round 3:* a QR feature basis (sample θ = Rβ with β's exact N(0, s) prior
+  added as a potential; verified identical log density) lifts the bedroom and
+  bathroom block to ESS ≥ 450, but `elevator`/`elevator.unknown` stay at
+  176–200. They are building-level attributes, confounded with building
+  effects rather than with other columns. *Round 4* tests within-building
+  feature centering: b_j ~ N(α + β·m̄_j, σ_b), with the row term on x − m̄_j.
+  It is an exact reparameterization (verified identical log density), and
+  the saved `building_effect` = b_j − α − β·m̄_j keeps readers' arithmetic
+  unchanged.
+  *Round 4 result:* within-building centering plus QR gives every parameter
+  ESS ≥ 450 per 4,000 draws (slowest coefficient 91 → 454; annual drift
+  1,049; slowest overall the building-walk scale, 546). Either change alone
+  leaves the slowest coefficient near 200. **Adopted combination:** intercept
+  as the building mean, walk centering, within-building features, QR basis.
+  The page's reconstruction on a fit with this parameterization matches the
+  saved residuals to 2e-15. The E3 validation fit (`models/bayesian_efficient_structure_experiment.py`,
+  4 × 1,000/1,500) runs on Modal.
+- [ ] **E2. Cut steps per iteration.** 255 leapfrog steps per draw dominates
+  cost. Measure steps/iteration and ESS per gradient for E1's variants;
+  low-rank adaptation or better-scaled global parameters should reach tree
+  depth 5–6 (4–8× fewer gradients).
+- [ ] **E3. Right-size the run.** Once `alpha` mixes like the rest, target the
+  gate (min ESS ≥ 400, R-hat < 1.01) with margin: e.g. 4 × (1,000 tune +
+  1,500 draws) instead of 4,000/6,000. Validate one protocol fit against the
+  promoted posterior (coefficients, contributions, residual intervals,
+  current-listing fitted rents) before adopting it as the default.
+- [ ] **E4. Warm starts for incremental changes.** Most iterations add a term
+  to an accepted model. Initialize from the previous posterior means and
+  reuse its mass matrix and step size, so warmup falls from 4,000 to a few
+  hundred. Check that the diagnostics gates still pass.
+- [ ] **E5. Faster, smaller reports.** Vectorize `fitted_summary` (it builds
+  52k rows with per-row pandas access). Build the report caches directly from
+  the trace instead of storing draws three times; use float32 caches. With E3
+  this takes a fit from ~40 GB to under ~12 GB.
+- [ ] **E6. One screening command.** Run conditional MAP on both declared
+  splits, then a short NUTS confirmation for survivors, as memory-capped
+  systemd units with a queue, appending results to the screening log. Check
+  whether 500/500 NUTS draws suffice for paired ΔELPD, which is much lower
+  variance than parameter estimates.
+
+### Collection and operating loop
+
+- [ ] **Scheduled active-listing refresh.** Collection is backfill-oriented
+  and the current cohort is a one-off 172-row refresh; price cuts and
+  delistings are not being observed. Add a systemd timer on thelio:
+  discover active in-scope listings → re-fetch active detail pages every
+  3–7 days until delisted → incremental transform → fit → publish.
+
+### Transform and extraction
+
+- [ ] **Schema-constrained LLM extraction over the 72k description captures**
+  (floor, exposure, laundry level, outdoor access/type, ceiling height,
+  renovation, commercial/SRO/income-restricted/net-effective/furnished/
+  short-term) returning evidence spans. Keep manual review for calibration on
+  a stratified sample. Use it to finish the 667-row commercial/net-effective
+  screen.
+
+- [ ] **Consolidate scope/quarantine overlays into the corrections ledger**
+  with a `scope` field (commercial, sro, net_effective, short_term,
+  whole_building, income_restricted). Replace the 12 bundles in
+  `config/reviews/` and the per-batch `*_projection.py` / `*_revision.py`
+  modules with one overlay mechanism and one projection step.
+
+### Codebase and artifacts
+
+- [ ] **Collapse the model module chain.** The main fit spans
+  `bayesian_floor_spline_experiment → feature_experiment_v3 → v2 →
+  feature_model → rent_model` plus graph/execution/disk modules; `models/`
+  has 151 scripts including `_v2/_v3/_v4` copies and eight
+  `*_fit_comparison.py` variants. Since the protocol hashes implementation
+  files, git SHA + protocol JSON is sufficient for reproducibility: one
+  `model.py` with an explicit versioned spec, old versions in git history.
+
+- [ ] **Artifact retention.** `data/model/` is 284 GB over 408 directories;
+  the selected fit is 16 GB with unit-effect draws stored three times (zarr
+  trace, `posterior.nc`, report cache). Keep the raw trace only and derive
+  the rest; retain protocol + summary + coefficients + residuals for every
+  run and full posteriors only for selected and last-N.
+
+- [ ] **Documentation shape.** Keep one short README, one
+  `docs/model/current.md` rewritten on promotion, and dated notes under
+  `docs/log/`; `main-model-evolution.md` already notes that
+  `current-analysis.md` is stale.
+
+- [ ] **Concurrent agents.** Use worktrees or branches per agent; the working
+  tree currently carries uncommitted changes from two streams.
+
 ## Remote fit execution
 
 - [ ] **Benchmark PyMC fitting on Modal: large CPU versus GPU** — user research
@@ -27,6 +243,79 @@
   with gzip, and the original spline's inferred offline analysis closure at
   4.586 GB. These are local measurements and code-inspection findings; remote
   transfers, posterior compression and a clean bundle roundtrip remain untested.
+  September 22 progress: `models/modal_remote_fit.py` uploads inputs as SHA-256
+  blobs (cold 291 MB in 12 s; unchanged refit 0 bytes; one-file edit 10.8 KB),
+  rebuilds the dataset at its original absolute path so the remote protocol
+  equals a local one, and downloads verified fit/protocol bundles. A 100/100
+  smoke fit matched the local protocol except draws/tune/seed, with byte-identical
+  design files, for $0.052 billed. September 23: a full-length refit reproduced
+  the local protocol hash, ran in 55.4 min for $0.38, downloaded 4.39 GB in 141 s,
+  and agreed with the local fit within Monte Carlo error. It narrowly missed the
+  R-hat gate (1.0103 on `alpha`), so loading a converged remote bundle in
+  `BayesianAnalysis` is still open. Details:
+  [remote fitting record](../analysis/modal-remote-fitting-2026-09-23.md).
+
+The items below continue the September 22 Modal sampling campaign. Probe data:
+`data/model/modal-runs/probe-*-20260922`.
+
+September 23 findings (L4, NumPyro, 4 chains, 300 warmup + 100 draws;
+`data/model/modal-runs/prec{64,32}-l4-20260923`):
+- float64: 511 leapfrog steps every iteration, 0 divergences, max R-hat 1.11,
+  median/min bulk ESS 922/38. nutpie on CPU needs about 50-90 steps, so a
+  full-length NumPyro fit would take about 4.4 h on the L4, against about
+  22 min of CPU sampling.
+- float32: every iteration hit maximum tree depth (1,023 steps), chains did not
+  move (ESS 4, R-hat infinite). float32 fails for this model as written.
+- nutpie JAX backend with PyTensor gradients (canary, early warmup): about
+  4 ms per step per chain on L4, against 2.3 ms on one CPU core. The ~30 ms
+  single-chain cost below comes from JAX's own autodiff of this graph.
+- Current conclusion: nutpie/Numba CPU remains fastest and cheapest per fit;
+  Modal's benefit is running fits concurrently at about $0.35-0.40 each.
+
+- [ ] **Single-chain JAX gradient is ~12× slower than one CPU core** — user
+  directive, September 22, 2026. The spline model's logp+gradient takes about
+  30 ms for one chain on H100, A100 and L4 (22 ms on the local RTX 2060 SUPER),
+  against 2.6 ms for Numba on one CPU core, yet a vmapped batch of 4 chains
+  costs only about 1.3 ms. nutpie's JAX backend with PyTensor-built gradients
+  measured about 4 ms per step, so the cost is concentrated in JAX's own
+  autodiff (likely the transposed per-unit/per-building gathers). Profile the JAX
+  graph (e.g. `jax.profiler`, HLO dumps), identify the slow ops, and test
+  equivalent formulations (segment sums, sorted indices, one-hot or sparse
+  matmuls) in a new graph module. Show exact log-density/gradient parity with
+  the frozen graph before any sampling. This decides whether nutpie's JAX
+  backend, which evaluates chains one at a time, is viable on GPU.
+- [ ] **Measure nutpie JAX on GPU** — the PyMC-developer recommendation as of
+  June 2026. Only a 30-draw canary has run (about 4 ms/step/chain on L4). Run nutpie `backend='jax'` with `gradient_backend` pytensor and jax,
+  4 chains and nutpie's shorter default tuning on H100 and L4. Compare wall
+  time and ESS per second and per dollar with nutpie/Numba CPU, and with
+  NumPyro vectorized chains.
+- [ ] **Many vectorized GPU chains** — NumPyro's window adaptation needed 511
+  steps per draw (see above), so batched chains lose on gradient count. Next,
+  test adaptation built for many chains
+  (BlackJAX ChEES/MEADS, or nutpie's normalizing-flow adaptation). Report
+  lockstep leapfrog cost, warmup length needed, and ESS per dollar at
+  24,000 retained draws.
+- [ ] **float32 sampling** — log-density error is 5e-7 relative and gradient
+  error 0.07% scaled, but NumPyro float32 sampling failed (see above). Revisit
+  only with a rescaled model or a different sampler, with explicit tolerances.
+- [ ] **CPU multi-chain scaling** — on a 16-core Modal container, aggregate
+  Numba gradient throughput plateaued at about 2 chains' worth (4 processes:
+  2× slowdown each; 16: 12.8×), probably memory bandwidth on a shared host.
+  Repeat on dedicated or other CPU types before ruling out more-chains CPU fits.
+  Any chain-count change needs a new sampling module, since
+  `bayesian_disk_sampling.py` (`cores=min(chains, 4)`) is hashed into fit
+  protocols.
+- [ ] **Post-sampling report stage** — about 30 of the local fit's 56 minutes
+  are single-threaded diagnostics and reports after sampling. Profile it and
+  parallelize it across chunks or processes, or run it as a separate remote
+  job. Faster samplers alone cannot cut a fit below this floor.
+- [x] **Posterior transfer** — the complete 4.39 GB bundle downloaded in 141 s
+  (31 MB/s). Experiments now download summaries only by default; `complete`
+  fetches the posterior for promotion candidates.
+- [ ] **Marginal R-hat for `alpha` at 6,000 draws** — the remote refit reached
+  1.0103 against the 1.01 gate, with the same protocol that passed locally at
+  1.0036. Assess whether the intercept's slow mixing warrants more draws,
+  reparameterization, or a gate that accounts for run-to-run variation.
 
 ## Floor representation
 

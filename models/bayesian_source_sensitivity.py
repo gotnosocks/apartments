@@ -24,16 +24,43 @@ SOURCE_FIELDS = {'source_manifest_sha256','source_observations_sha256','source_v
 VARIABLE = noise.VARIABLE | SOURCE_FIELDS
 
 
+def _spline_family():
+    from .bayesian_floor_spline_contract import FAMILY
+    return FAMILY
+
+
+def _attribute_inputs(dataset, data, protocol):
+    """Recompute unit attribute flags from the bound description archive.
+
+    The archive is located beside the dataset by its manifest hash, which the
+    protocol records; the flags are rebuilt from its verified captures.
+    """
+    from apartments.bayesian_evidence import load_evidence
+    from . import bayesian_attribute_design as attribute
+    expected = protocol['evidence_manifest_sha256']
+    matches = [c for c in Path(dataset).parent.iterdir()
+               if (c/'complete.json').is_file() and digest(c/'complete.json') == expected]
+    if len(matches) != 1:
+        raise ValueError('Bound description archive not found beside the dataset')
+    units = attribute.attribute_units(data, load_evidence(dataset, matches[0]))
+    if hashlib.sha256(canonical(units).encode()).hexdigest() != protocol['attribute_units_sha256']:
+        raise ValueError('Recomputed unit attributes differ from protocol')
+    return {'attribute_units': units, 'evidence_manifest_sha256': expected}
+
+
 def reconstruction_dependencies(protocol=None):
     # Import lazily: verifying source revisions alone needs no numerical runtime.
     from . import bayesian_feature_model as feature
     paths = [Path(module.__file__) for module in
         (feature, feature.base, feature.amenity, feature.amenity.baseline, feature.pricing)]
-    if protocol and protocol.get('version') == 'observable-bayesian-floor-spline-experiment-v5':
+    if protocol and protocol.get('version') in _spline_family():
         from . import bayesian_floor_spline_design as spline
+        from . import bayesian_floor_increment_design as floor_source
+        from . import bayesian_attribute_design as attribute
+        if protocol.get('feature_design_version') == attribute.VERSION:
+            return attribute, [*paths, Path(floor_source.__file__), Path(spline.__file__), Path(attribute.__file__)]
         if protocol.get('feature_design_version') != spline.VERSION:
             raise ValueError('Unsupported spline reconstruction version')
-        from . import bayesian_floor_increment_design as floor_source
         return spline, [*paths, Path(floor_source.__file__), Path(spline.__file__)]
     if protocol and protocol.get('version') == 'observable-bayesian-floor-elevator-experiment-v5':
         from . import bayesian_floor_elevator_design as interaction
@@ -90,8 +117,10 @@ def verify_design(experiment, dataset, protocol, provenance):
         fresh = Path(temporary)
         kwargs = ({'floor_increment_prior_scale':protocol['floor_increment_prior_scale']}
                   if interaction or protocol.get('version') == 'observable-bayesian-floor-experiment-v4' else {})
-        if protocol.get('version') == 'observable-bayesian-floor-spline-experiment-v5':
+        if protocol.get('version') in _spline_family():
             kwargs = {'floor_prior_scale':protocol['floor_prior_scale']}
+        if 'attribute_policy' in protocol:
+            kwargs.update(_attribute_inputs(dataset, data, protocol))
         if interaction:
             kwargs.update(mode=protocol['interaction_mode'], interaction_prior_scale=protocol['interaction_prior_scale'])
         feature.FeatureDesign(data,protocol['specification'],**kwargs).save(fresh)

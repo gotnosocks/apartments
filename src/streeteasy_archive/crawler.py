@@ -12,6 +12,7 @@ import scrapy
 from .extract import canonical_url, discover, extract, kind_for
 from .store import ArchiveStore
 from .capture import capture_metadata
+from .collection_policy import enabled as policy_enabled
 
 CONTENT_RETRY_LIMIT = 3
 CONTENT_RETRY_DELAY = 300
@@ -128,7 +129,8 @@ class ArchiveSpider(scrapy.Spider):
             row = self.store.claim(self.generation,
                                    url_prefix=self.building if self.neighborhood else None,
                                    scoped=bool(self.neighborhood or self.building),
-                                   prefer_inventory=self.include_unavailable)
+                                   prefer_inventory=self.include_unavailable,
+                                   prefer_units=policy_enabled(self.store, self.generation))
             if not row:
                 return None
             canonical = canonical_url(row['url'])
@@ -197,6 +199,8 @@ class ArchiveSpider(scrapy.Spider):
                     body = self.store.get_body(previous['body_hash'])
                     content_type = content_type or previous['content_type'] or ''
                 data = extract(body, url, content_type)
+                from .collection_policy import annotate
+                annotate(self.store, self.generation, data, body, url, persist=False)
                 if response.meta.get('archive_browser'):
                     data['browser_capture'] = response.meta['archive_browser']
                 if response.meta.get('archive_provider'):
@@ -212,9 +216,10 @@ class ArchiveSpider(scrapy.Spider):
             else:
                 self.store.record(self.generation, url, status, headers, body,
                                   content_type, data, discovered=links, capture=capture)
+                annotate(self.store, self.generation, data, body, url)
                 if self.neighborhood or self.building:
                     from .scope import expand
-                    expand(self.store, self.generation, data, url, self.include_unavailable, building=self.building)
+                    expand(self.store, self.generation, data, url, self.include_unavailable, building=self.building, neighborhood=self.neighborhood)
         transport_errors = response.meta.get('archive_browser', {}).get('interception', {}).get('errors', [])
         if transport_errors:
             # The main response above remains archived. Halt further traffic when

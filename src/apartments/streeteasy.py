@@ -29,7 +29,9 @@ def floor_override(
 ) -> int | None:
     """Return a building-specific marketed floor without altering raw captures."""
     overrides = building_override(building_slug)
-    by_unit = {key.upper(): value for key, value in overrides.get("floor_by_unit", {}).items()}
+    by_unit = {
+        key.upper(): value for key, value in overrides.get("floor_by_unit", {}).items()
+    }
     if str(unit).upper() in by_unit:
         return int(by_unit[str(unit).upper()])
     if overrides.get("floor_from_unit_leading_digit"):
@@ -73,7 +75,9 @@ def unit_is_excluded(building_slug: str | None, unit: str | None) -> bool:
     if not EXCLUDED_UNITS_PATH.exists():
         return False
     exclusions = json.loads(EXCLUDED_UNITS_PATH.read_text(encoding="utf-8"))
-    return str(unit).upper() in {key.upper() for key in exclusions.get(building_slug or "", {})}
+    return str(unit).upper() in {
+        key.upper() for key in exclusions.get(building_slug or "", {})
+    }
 
 
 def parse_price_history_html(html: str) -> list[dict]:
@@ -88,19 +92,31 @@ def parse_price_history_html(html: str) -> list[dict]:
         cells = row.select("td")
         if len(cells) < 2:
             continue
-        date_match = re.search(r"\d{1,2}/\d{1,2}/\d{4}", cells[0].get_text(" ", strip=True))
+        date_match = re.search(
+            r"\d{1,2}/\d{1,2}/\d{4}", cells[0].get_text(" ", strip=True)
+        )
         price_match = re.search(r"\$([\d,]+)", cells[1].get_text(" ", strip=True))
         if not date_match:
             continue
         if len(cells) >= 3:
             event = cells[2].get_text(" ", strip=True)
         else:
-            paragraphs = [p.get_text(" ", strip=True) for p in cells[1].select("p") if not p.select_one("b")]
-            event = " ".join(value for value in paragraphs if value and not re.fullmatch(r"\$[\d,]+", value))
+            paragraphs = [
+                p.get_text(" ", strip=True)
+                for p in cells[1].select("p")
+                if not p.select_one("b")
+            ]
+            event = " ".join(
+                value
+                for value in paragraphs
+                if value and not re.fullmatch(r"\$[\d,]+", value)
+            )
         link = row.select_one('[data-testid="priceHistoryLink"], a[href]')
         parsed = {
             "date": date_match.group(0),
-            "base_rent": int(price_match.group(1).replace(",", "")) if price_match else None,
+            "base_rent": int(price_match.group(1).replace(",", ""))
+            if price_match
+            else None,
             "event": event,
             "listing_url": link.get("href") if link else None,
         }
@@ -178,8 +194,7 @@ def unit_kind(unit: str | None) -> str:
 
 def listing_is_furnished(item: dict) -> bool:
     return any(
-        "furnished" in str(feature).lower()
-        for feature in item.get("home_features", [])
+        "furnished" in str(feature).lower() for feature in item.get("home_features", [])
     )
 
 
@@ -191,8 +206,16 @@ def ingest_export(
     item = json.loads(path.read_text(encoding="utf-8"))
     manifest_path = path.parent / "manifest.json"
     assets_path = path.parent / "assets.json"
-    manifest = json.loads(manifest_path.read_text(encoding="utf-8")) if manifest_path.exists() else {}
-    assets = json.loads(assets_path.read_text(encoding="utf-8")) if assets_path.exists() else []
+    manifest = (
+        json.loads(manifest_path.read_text(encoding="utf-8"))
+        if manifest_path.exists()
+        else {}
+    )
+    assets = (
+        json.loads(assets_path.read_text(encoding="utf-8"))
+        if assets_path.exists()
+        else []
+    )
     return ingest_item(
         item,
         db_path,
@@ -216,19 +239,25 @@ def ingest_item(
     capture_id: str | None = None,
 ) -> tuple[str, int]:
     """Ingest one normalized StreetEasy capture from any durable source."""
-    if item.get("source") != "streeteasy" or not isinstance(item.get("price_history"), list):
+    if item.get("source") != "streeteasy" or not isinstance(
+        item.get("price_history"), list
+    ):
         raise ValueError("This does not look like a StreetEasy exporter JSON file")
 
     source_id = item.get("source_listing_id")
     if not source_id:
-        source_id = urlparse(item["canonical_url"]).path.strip("/").removeprefix("building/")
+        source_id = (
+            urlparse(item["canonical_url"]).path.strip("/").removeprefix("building/")
+        )
     if unit_is_excluded(item.get("building_slug"), item.get("unit")):
         return source_id, 0
     attributes = item.get("attributes", {})
     inferred_floor, inferred_letter = split_unit(item.get("unit"))
     format_name = item.get("unit_format") or unit_format(item.get("unit"))
     floor = item.get("floor") if item.get("floor") is not None else inferred_floor
-    configured_floor = floor_override(item.get("building_slug"), item.get("unit"), format_name)
+    configured_floor = floor_override(
+        item.get("building_slug"), item.get("unit"), format_name
+    )
     if configured_floor is not None:
         floor = configured_floor
     override = building_override(item.get("building_slug"))
@@ -242,21 +271,30 @@ def ingest_item(
         if configured_floor is not None
         else item.get("floor_inference")
         or (
-            "heuristic-first-digit" if format_name == "numeric" else
-            "parsed-floor-letter" if format_name == "floor-letter" else None
+            "heuristic-first-digit"
+            if format_name == "numeric"
+            else "parsed-floor-letter"
+            if format_name == "floor-letter"
+            else None
         )
     )
     kind = item.get("unit_kind") or unit_kind(item.get("unit"))
-    is_specific = item.get("unit_is_specific") if item.get("unit_is_specific") is not None else kind == "physical-unit"
+    is_specific = (
+        item.get("unit_is_specific")
+        if item.get("unit_is_specific") is not None
+        else kind == "physical-unit"
+    )
     is_furnished = listing_is_furnished(item)
     raw = json.dumps(item, separators=(",", ":"), sort_keys=True)
     owns_connection = connection is None
     db = connection or connect(db_path)
-    building_raw = json.dumps({
-        "building_slug": item.get("building_slug"),
-        "building_address": item.get("building_address"),
-        "building_amenities": item.get("building_amenities", []),
-    })
+    building_raw = json.dumps(
+        {
+            "building_slug": item.get("building_slug"),
+            "building_address": item.get("building_address"),
+            "building_amenities": item.get("building_amenities", []),
+        }
+    )
     db.execute(
         """INSERT INTO buildings (
             source, source_id, canonical_address, borough, zipcode,
@@ -266,8 +304,13 @@ def ingest_item(
             canonical_address=excluded.canonical_address, zipcode=excluded.zipcode,
             has_floor_13=excluded.has_floor_13,
             raw_json=excluded.raw_json, updated_at=now()""",
-        [item.get("building_slug"), item.get("building_address"), item.get("zipcode"),
-         has_floor_13, building_raw],
+        [
+            item.get("building_slug"),
+            item.get("building_address"),
+            item.get("zipcode"),
+            has_floor_13,
+            building_raw,
+        ],
     )
     db.execute(
         """INSERT INTO listings (
@@ -295,11 +338,29 @@ def ingest_item(
                        json_extract_string(excluded.raw_json, '$.captured_at'), '')
            >= coalesce(json_extract_string(listings.raw_json, '$.archive_listing.createdAt'),
                        json_extract_string(listings.raw_json, '$.captured_at'), '')""",
-        [source_id, item.get("building_slug"), item.get("address"), normalize_address(item.get("address")),
-         item.get("unit"), floor, physical_floor_value, unit_letter, suffix, format_name, floor_inference,
-         kind, is_specific, is_furnished, is_garden_facing, is_street_facing,
-         item.get("zipcode"), attributes.get("bedrooms"),
-         attributes.get("bathrooms"), attributes.get("square_feet"), raw],
+        [
+            source_id,
+            item.get("building_slug"),
+            item.get("address"),
+            normalize_address(item.get("address")),
+            item.get("unit"),
+            floor,
+            physical_floor_value,
+            unit_letter,
+            suffix,
+            format_name,
+            floor_inference,
+            kind,
+            is_specific,
+            is_furnished,
+            is_garden_facing,
+            is_street_facing,
+            item.get("zipcode"),
+            attributes.get("bedrooms"),
+            attributes.get("bathrooms"),
+            attributes.get("square_feet"),
+            raw,
+        ],
     )
     captured_at = item.get("captured_at")
     db.execute(
@@ -308,8 +369,14 @@ def ingest_item(
             days_on_market, scope, raw_json
         ) VALUES ('streeteasy', ?, ?, ?, ?, ?, 'building', ?)
         ON CONFLICT DO NOTHING""",
-        [source_id, captured_at, item.get("status"), item.get("asking_rent"),
-         item.get("days_on_market"), raw],
+        [
+            source_id,
+            captured_at,
+            item.get("status"),
+            item.get("asking_rent"),
+            item.get("days_on_market"),
+            raw,
+        ],
     )
     event_count = 0
     for event in item["price_history"]:
@@ -319,16 +386,31 @@ def ingest_item(
         db.execute(
             """INSERT INTO listing_events VALUES (?, 'streeteasy', ?, ?, ?, ?, ?)
                ON CONFLICT DO NOTHING""",
-            [event_key, source_id, event_at, event.get("event"),
-             event.get("base_rent"), json.dumps(event)],
+            [
+                event_key,
+                source_id,
+                event_at,
+                event.get("event"),
+                event.get("base_rent"),
+                json.dumps(event),
+            ],
         )
         event_count += 1
-    capture_id = capture_id or hashlib.sha256(
-        f"streeteasy|{source_id}|{item.get('captured_at')}".encode()
-    ).hexdigest()
+    capture_id = (
+        capture_id
+        or hashlib.sha256(
+            f"streeteasy|{source_id}|{item.get('captured_at')}".encode()
+        ).hexdigest()
+    )
     from .temporal import retain_capture
-    retain_capture(db, capture_id, item, manifest,
-                   time_basis=(manifest or {}).get('collection_time_basis'))
+
+    retain_capture(
+        db,
+        capture_id,
+        item,
+        manifest,
+        time_basis=(manifest or {}).get("collection_time_basis"),
+    )
     bundle_path = Path(bundle_path) if bundle_path is not None else None
     page_html_path = Path(page_html_path) if page_html_path is not None else None
     db.execute(
@@ -336,23 +418,43 @@ def ingest_item(
            ON CONFLICT (capture_id) DO UPDATE SET
              bundle_path=excluded.bundle_path, page_html_path=excluded.page_html_path,
              manifest_json=excluded.manifest_json, structured_json=excluded.structured_json""",
-        [capture_id, source_id, item.get("captured_at"),
-         str(bundle_path) if bundle_path is not None else None,
-         str(page_html_path) if page_html_path is not None and page_html_path.exists() else None,
-         json.dumps(manifest or {}), raw],
+        [
+            capture_id,
+            source_id,
+            item.get("captured_at"),
+            str(bundle_path) if bundle_path is not None else None,
+            str(page_html_path)
+            if page_html_path is not None and page_html_path.exists()
+            else None,
+            json.dumps(manifest or {}),
+            raw,
+        ],
     )
     if assets:
         for asset in assets:
-            asset_key = asset.get("sha256") or hashlib.sha256(asset["url"].encode()).hexdigest()
-            local_path = str(bundle_path / asset["local_file"]) if bundle_path and asset.get("local_file") else None
+            asset_key = (
+                asset.get("sha256") or hashlib.sha256(asset["url"].encode()).hexdigest()
+            )
+            local_path = (
+                str(bundle_path / asset["local_file"])
+                if bundle_path and asset.get("local_file")
+                else None
+            )
             db.execute(
                 """INSERT INTO assets VALUES (?, ?, ?, ?, ?, ?, ?)
                    ON CONFLICT (asset_key) DO UPDATE SET
                      source_url=excluded.source_url, category=excluded.category,
                      local_path=excluded.local_path, sha256=excluded.sha256,
                      bytes=excluded.bytes, metadata_json=excluded.metadata_json""",
-                [asset_key, asset["url"], asset.get("category"), local_path,
-                 asset.get("sha256"), asset.get("bytes"), json.dumps(asset)],
+                [
+                    asset_key,
+                    asset["url"],
+                    asset.get("category"),
+                    local_path,
+                    asset.get("sha256"),
+                    asset.get("bytes"),
+                    json.dumps(asset),
+                ],
             )
             db.execute(
                 "INSERT INTO capture_assets VALUES (?, ?) ON CONFLICT DO NOTHING",
@@ -375,7 +477,11 @@ def reparse_capture_histories(
         item = json.loads(structured_path.read_text(encoding="utf-8"))
         source_id = item.get("source_listing_id")
         html_path = structured_path.parent / "page.html"
-        if not source_id or not html_path.exists() or unit_is_excluded(item.get("building_slug"), item.get("unit")):
+        if (
+            not source_id
+            or not html_path.exists()
+            or unit_is_excluded(item.get("building_slug"), item.get("unit"))
+        ):
             continue
         captured_at = item.get("captured_at") or ""
         if source_id not in latest or captured_at > latest[source_id][0]:
@@ -385,7 +491,9 @@ def reparse_capture_histories(
     units_reparsed = 0
     events_written = 0
     for source_id, (_, html_path, _) in sorted(latest.items()):
-        events = parse_price_history_html(html_path.read_text(encoding="utf-8", errors="replace"))
+        events = parse_price_history_html(
+            html_path.read_text(encoding="utf-8", errors="replace")
+        )
         if not events:
             continue
         db.execute(
@@ -401,7 +509,14 @@ def reparse_capture_histories(
             db.execute(
                 """INSERT INTO listing_events VALUES (?, 'streeteasy', ?, ?, ?, ?, ?)
                    ON CONFLICT DO NOTHING""",
-                [event_key, source_id, event_at, event_type, event_price, json.dumps(event)],
+                [
+                    event_key,
+                    source_id,
+                    event_at,
+                    event_type,
+                    event_price,
+                    json.dumps(event),
+                ],
             )
         units_reparsed += 1
         events_written += len(events)
@@ -436,9 +551,13 @@ def infer_furnishing_periods(
         if not start or (end and end < start):
             return
         record = {
-            "unit": unit, "starts_on": start, "ends_on": end,
-            "furnishing_status": status, "operator": operator,
-            "confidence": confidence, "evidence": evidence,
+            "unit": unit,
+            "starts_on": start,
+            "ends_on": end,
+            "furnishing_status": status,
+            "operator": operator,
+            "confidence": confidence,
+            "evidence": evidence,
         }
         periods.append(record)
         db.execute(
@@ -462,17 +581,28 @@ def infer_furnishing_periods(
         if first_event < first_blueground:
             likely_end = prior_rented or (first_blueground - timedelta(days=1))
             add(
-                unit, first_event, likely_end, "likely-unfurnished", 0.8,
+                unit,
+                first_event,
+                likely_end,
+                "likely-unfurnished",
+                0.8,
                 "Pre-Blueground history is attributed to conventional building managers or brokers.",
             )
             if prior_rented and prior_rented + timedelta(days=1) < first_blueground:
                 add(
-                    unit, prior_rented + timedelta(days=1), first_blueground - timedelta(days=1),
-                    "unknown-transition", 0.4,
+                    unit,
+                    prior_rented + timedelta(days=1),
+                    first_blueground - timedelta(days=1),
+                    "unknown-transition",
+                    0.4,
                     "After a non-Blueground rented event but before the first explicit Blueground listing.",
                 )
         add(
-            unit, first_blueground, None, "confirmed-furnished", 0.95,
+            unit,
+            first_blueground,
+            None,
+            "confirmed-furnished",
+            0.95,
             "First explicit 'Listed by The Blueground' event in captured StreetEasy history.",
             "The Blueground",
         )

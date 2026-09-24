@@ -1,0 +1,17 @@
+[Unit]
+Description=Apartments residual review queue (standalone read-only page following config/main-analysis.json)
+
+[Service]
+Type=simple
+WorkingDirectory=/home/ben/code/apartments
+# Resolves the bundle from the selection on every request: a new selection or a
+# rebuilt queue (`apartments build-review-queue`) is served without a restart.
+ExecStart=/home/ben/.local/bin/uv run --no-sync python -m apartments serve-review-queue --listen "127.0.0.1:8767 100.80.84.126:8767"
+Restart=on-failure
+RestartSec=5
+Environment=PYTHONUNBUFFERED=1
+MemoryMax=512M
+UMask=0077
+
+[Install]
+WantedBy=default.target

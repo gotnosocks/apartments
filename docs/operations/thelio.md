@@ -157,9 +157,12 @@ both the `/data1` mount and the cutover marker. They bind to loopback and the ex
 memory limits of 3 GiB and 2 GiB respectively. They are enabled and were started after validation.
 
 ```sh
-systemctl --user status apartments-review apartments-archive
+systemctl --user status apartments-review apartments-archive apartments-review-queue apartments-docs
 journalctl --user -u apartments-review -n 30 --no-pager
 ```
+
+The read-only residual queue is served on port 8767. The documentation server
+is served on port 8768 and renders Markdown reports as browser HTML.
 
 The installed Mac LaunchAgent `com.ben.apartments-tunnel` forwards ports 8766
 and 8765 and reconnects when the network returns. Its definition is in
@@ -172,7 +175,9 @@ For a different client, or if the LaunchAgent is not loaded, open a tunnel:
 ```sh
 ssh -N -o ExitOnForwardFailure=yes -o ServerAliveInterval=30 \
   -L 127.0.0.1:8766:127.0.0.1:8766 \
-  -L 127.0.0.1:8765:127.0.0.1:8765 thelio
+  -L 127.0.0.1:8765:127.0.0.1:8765 \
+  -L 127.0.0.1:8767:127.0.0.1:8767 \\
+  -L 127.0.0.1:8768:127.0.0.1:8768 thelio
 ```
 
 The review app remains at `http://localhost:8766/`; raw archive browsing uses
@@ -189,6 +194,7 @@ Tailscale device, including away from home:
 
 - Review: http://thelio.tail3983e0.ts.net:8766/
 - Raw archive: http://thelio.tail3983e0.ts.net:8765/
+- Documentation and analysis reports: http://thelio.tail3983e0.ts.net:8768/docs/
 
 The services listen on `100.80.84.126` plus `127.0.0.1`, with no wildcard or LAN
 listener. Network access follows the tailnet's access rules; people/devices with
