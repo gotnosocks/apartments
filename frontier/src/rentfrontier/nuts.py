@@ -78,8 +78,8 @@ def run(
     settings: Settings,
     log=print,
 ):
-    from numpyro import handlers
     from numpyro.infer import NUTS
+    from numpyro.infer.util import initialize_model
 
     from .gibbs import batched
 
@@ -98,12 +98,10 @@ def run(
     model_fn = model_module.build_model(prep, config)
     dense = []
     if settings.dense_globals:
-        tr = handlers.trace(handlers.seed(model_fn, 0)).get_trace()
-        dense = sorted(
-            k
-            for k, v in tr.items()
-            if v["type"] == "sample" and not v["is_observed"] and k not in LOCAL_SITES
-        )
+        # The latent sites from NumPyro's own initialization: tracing a prior
+        # draw would fail on the flat-prior `trend_absolute` site.
+        z = initialize_model(jax.random.PRNGKey(0), model_fn).param_info.z
+        dense = sorted(k for k in z if k not in LOCAL_SITES)
     kernel = NUTS(
         model_fn,
         target_accept_prob=settings.target_accept,

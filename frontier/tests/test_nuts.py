@@ -62,15 +62,27 @@ def test_gibbs_needs_every_base_term(name):
         gibbs.build_design(synthetic(), model.MODELS[name])
 
 
-def test_dense_globals_covers_the_small_sites_only():
+@pytest.mark.parametrize(
+    "coordinates", [(), ("trend_levels", "season_zerosum", "unit_totals")]
+)
+def test_dense_globals_covers_the_global_sites_only(coordinates):
     out = nuts.run(
         synthetic(),
         model.MODELS["m1q"],
-        nuts.Settings(chains=2, warmup=50, draws=20, keep_every=10, dense_globals=True),
+        nuts.Settings(
+            chains=2,
+            warmup=50,
+            draws=20,
+            keep_every=10,
+            dense_globals=True,
+            coordinates=coordinates,
+        ),
         log=lambda *_: None,
     )
-    assert "beta" in out["dense_sites"] and "trend_step" in out["dense_sites"]
-    assert "unit" not in out["dense_sites"] and "building" not in out["dense_sites"]
+    trend = "trend_absolute" if coordinates else "trend_step"
+    assert "beta" in out["dense_sites"] and trend in out["dense_sites"]
+    for local in ("unit", "unit_total", "building"):
+        assert local not in out["dense_sites"]
     assert np.isfinite(out["lpd"]).all()
 
 
@@ -172,3 +184,21 @@ def test_nuts_with_coordinates_returns_the_original_effects():
     assert np.isfinite(out["lpd"]).all()
     assert out["kept"]["unit"].shape[-1] == len(synthetic().units)
     assert np.isfinite(out["mean"]["trend"]).all()
+
+
+def test_zero_sum_season_integrates_out_only_the_unseen_mean():
+    """The raw-season density factors as ZeroSumNormal(centred season) x the
+    unseen mean's own prior N(0, scale / sqrt(12)), up to a constant."""
+    import numpyro.distributions as dist
+
+    rng = np.random.default_rng(0)
+    gaps = []
+    for _ in range(4):
+        scale = rng.uniform(0.01, 0.2)
+        raw = rng.normal(0, scale, 12) + rng.normal()
+        centred = raw - raw.mean()
+        orig = dist.Normal(0.0, scale).log_prob(raw).sum()
+        zsn = dist.ZeroSumNormal(scale, (12,)).log_prob(centred)
+        mean = dist.Normal(0.0, scale / np.sqrt(12)).log_prob(raw.mean())
+        gaps.append(float(orig - zsn - mean))
+    np.testing.assert_allclose(gaps, gaps[0], atol=1e-8)

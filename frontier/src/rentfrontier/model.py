@@ -62,6 +62,11 @@ class ModelConfig:
     #   correlated. Sampling the trend's levels relative to the intercept
     #   instead leaves a ridge (intercept up, every level down) that NUTS
     #   cannot cross (c1ad7d0: L2 intercept R-hat 1.83).
+    # - "season_zerosum": sample the centred season (ZeroSumNormal) instead of
+    #   12 raw values whose mean the data never see; that mean's prior depends
+    #   on the season scale and makes a funnel (bfcf2cb: L3 season_scale ESS
+    #   263). Integrating the unseen mean out leaves every other posterior
+    #   exactly unchanged.
     # - "unit_totals": sample each unit's building level plus its own effect
     #   (hierarchical centering), so a building and its units are not
     #   strongly correlated in the sampler's coordinates.
@@ -461,7 +466,12 @@ def build_model(prep: Prepared, config: ModelConfig):
                 "trend_step",
                 dist.Normal(0.0, p["trend_scale"]).expand([trend_basis.shape[1]]),
             )
-        if config.season:
+        if config.season and "season_zerosum" in config.coordinates:
+            p["season_raw"] = numpyro.deterministic(
+                "season_raw",
+                numpyro.sample("season", dist.ZeroSumNormal(p["season_scale"], (12,))),
+            )
+        elif config.season:
             p["season_raw"] = numpyro.sample(
                 "season_raw", dist.Normal(0.0, p["season_scale"]).expand([12])
             )
