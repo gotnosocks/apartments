@@ -1,0 +1,11 @@
+[Unit]
+Description=Rebuild the apartments research-progress dashboard every 10 minutes
+
+[Timer]
+# Wall-clock schedule: OnUnitActiveSec does not re-arm reliably for a oneshot
+# service, which never stays "active".
+OnCalendar=*:0/10
+AccuracySec=30s
+
+[Install]
+WantedBy=timers.target

@@ -382,7 +382,15 @@ def build_model(
                     # citywide trend and annual drift carry shared time movement.
                     rows = np.bincount(a["building"], minlength=n_buildings)
                     share = rows / rows.sum()
-                    levels = levels - (levels * share[:, None]).sum(0, keepdims=True)
+                    # Saved so readers can center one building's walk without
+                    # loading every building: level_b - common at each knot.
+                    model.add_coord("building_walk_knot", np.arange(len(bknots)))
+                    common = pm.Deterministic(
+                        "building_walk_common",
+                        (levels * share[:, None]).sum(0),
+                        dims="building_walk_knot",
+                    )
+                    levels = levels - common[None, :]
                 elif walk_centering != "none":
                     raise ValueError("walk_centering must be none or across_buildings")
                 centers = (levels * (building_weights @ bbasis)).sum(1)
@@ -414,9 +422,15 @@ def build_model(
                 feature_slope_prior,
                 dims="slope_feature",
             )
-            feature_z = pm.Normal(
-                "building_feature_slope_z", 0, 1, dims=("building", "slope_feature")
+            # One flat building-major vector (building x slope_feature), so
+            # readers can read one building's slopes as a bounded slice.
+            model.add_coord(
+                "building_slope",
+                np.arange(n_buildings * len(building_feature_slopes)),
             )
+            feature_z = pm.Normal(
+                "building_feature_slope_z", 0, 1, dims="building_slope"
+            ).reshape((n_buildings, len(building_feature_slopes)))
             mu = mu + ((feature_scale * feature_z)[a["building"]] * columns).sum(1)
         if citywide_walk_months:
             # Citywide random walk on knots every `citywide_walk_months`,

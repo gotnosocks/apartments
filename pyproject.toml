@@ -21,11 +21,6 @@ dependencies = [
 modal = ["modal==1.5.5"]
 migration = ["modal==1.5.5", "zstandard>=0.23,<1"]
 browser = ["selenium==4.48.0"]
-app = [
-  "pandas>=2.2",
-  "plotly>=6.0",
-  "streamlit>=1.42",
-]
 dev = ["pytest>=8.0"]
 model = [
     "arviz>=1.2",

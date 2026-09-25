@@ -288,9 +288,10 @@ def predictive(posterior, design, test, options, building_weights, thin, shock=N
         raw, raw_names, _ = design.raw_features(test)
         names = [str(n) for n in p["slope_feature"].values]
         columns = raw[:, [raw_names.index(n) for n in names]].astype(float)
+        flat = p["building_feature_slope_z"].values  # (building*feature, sample)
+        z = flat.reshape(len(d.buildings), len(names), flat.shape[-1])
         slopes = (
-            p["building_feature_slope_scale"].values[None]
-            * p["building_feature_slope_z"].values[a["building"]]
+            p["building_feature_slope_scale"].values[None] * z[a["building"]]
         )  # rows x features x samples
         mu = mu + np.einsum("rf,rfs->rs", columns, slopes)
     if "unit_slope_z" in p:
@@ -334,10 +335,15 @@ def predictive(posterior, design, test, options, building_weights, thin, shock=N
         )
         nu_k = np.repeat(nu, k, axis=1) if np.ndim(nu) else nu
         logpdf = stats.t.logpdf(y, nu_k, loc=mu_k, scale=np.repeat(sigma, k, axis=1))
+        cdf = stats.t.cdf(y, nu_k, loc=mu_k, scale=np.repeat(sigma, k, axis=1))
     else:
         logpdf = stats.t.logpdf(y, nu, loc=mu, scale=sigma)
+        cdf = stats.t.cdf(y, nu, loc=mu, scale=sigma)
     lpd = special.logsumexp(logpdf, axis=1) - math.log(logpdf.shape[1])
-    return lpd, y[:, 0] - np.median(mu, axis=1)
+    # Probability integral transform of each held-out ask under the posterior
+    # predictive: uniform if calibrated; 95% coverage = share in [0.025, 0.975].
+    pit = cdf.mean(axis=1)
+    return lpd, y[:, 0] - np.median(mu, axis=1), pit
 
 
 def main():
@@ -483,7 +489,7 @@ def main():
         "scale": args.shock_scale,
         "weights": getattr(model, "shock_weights", None),
     }
-    lpd, error = predictive(
+    lpd, error, pit = predictive(
         posterior,
         design,
         test,
@@ -553,7 +559,12 @@ def main():
         "shock_scale": args.shock_scale,
         "train_rows": len(train),
         "scalars": scalars,
-        "heldout": summarize(test, lpd, error),
+        "heldout": {
+            **summarize(test, lpd, error),
+            "coverage_95": float(((pit >= 0.025) & (pit <= 0.975)).mean()),
+            "coverage_80": float(((pit >= 0.1) & (pit <= 0.9)).mean()),
+            "abs_error_over_25pct": float((np.abs(error) > np.log(1.25)).mean()),
+        },
         "diagnostics": diagnostic,
         "configuration": model.graph_configuration,
     }
@@ -561,6 +572,7 @@ def main():
         args.output / "heldout.npz",
         lpd=lpd,
         error=error,
+        pit=pit,
         audit_id=test.audit_id.to_numpy(),
     )
     (args.output / "result.json").write_text(

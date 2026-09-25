@@ -10,7 +10,7 @@ ordered by expected leverage. Numbers refer to the selected fit
 ### Residual review and model
 
 - [x] **Report unit-level deviation as the primary review signal.** Done:
-  [review queue](review-queue.md) (`apartments build-review-queue`), September 20.
+  review queue (`apartments build-review-queue`), September 20.
   Original rationale: The
   selected fit has `sigma` 0.066, `sigma_unit` 0.086 and 47% single-observation
   units. For a singleton, the split between unit effect and residual is set by
@@ -189,6 +189,18 @@ conclusions. In priority order:
 
 ### Collection and operating loop
 
+- [ ] **E7. Sampler comparison with the from-scratch Gibbs sampler.** For the
+  same m6 spec: PyMC/nutpie NUTS took 3.2 h on 4 CPUs (4 × 1,000/1,000, R-hat
+  up to 1.05) on the row split. The from-scratch session's blocked Gibbs
+  sampler took 44 min on one H100 ($3.24; 16 × 900/2,000; min ESS 3,267,
+  R-hat ≤ 1.009). Its Student-t is a scale mixture: per-row weights λ are
+  drawn exactly, then all latents jointly from one Gaussian (batched
+  per-building Cholesky blocks plus a ~325-column global Schur system), so
+  ν ≈ 2 changes weights, not geometry. Group scales use collapsed Metropolis
+  steps tuned in warmup. NUTS instead pays for heavy tails in step size and
+  tree depth. For the Pareto board, the PyMC line's value is as an
+  independent check of model structure, not as the production sampler for
+  heavy-tailed variants.
 - [ ] **Scheduled active-listing refresh.** Collection is backfill-oriented
   and the current cohort is a one-off 172-row refresh; price cuts and
   delistings are not being observed. Add a systemd timer on thelio:
