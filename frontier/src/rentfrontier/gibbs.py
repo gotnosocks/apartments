@@ -1,4 +1,11 @@
-"""Structured blocked Gibbs sampler for the model in `model.build_model`.
+"""DEPRECATED (Ben, 2026-09-25): do not use this sampler for new work.
+
+It is kept only to reproduce the existing run records that cite it; new fits
+use library samplers on `model.build_model` (`run.py --sampler nuts`), and
+`run.py` refuses `--sampler gibbs` without `--reproduce-deprecated`. Do not
+extend it.
+
+Structured blocked Gibbs sampler for the model in `model.build_model`.
 
 Same posterior as the NumPyro model (same priors, Student-t likelihood).
 The Student-t is written as a scale mixture: eps_i | lam_i ~ N(0, sigma^2 /
@@ -916,21 +923,7 @@ def init_states(d: Design, key, chains):
     return state
 
 
-def batched(fn, chains, batch):
-    """vmap `fn` over chains, `batch` chains at a time (lax.map over groups)."""
-    if not batch or batch >= chains:
-        return jax.vmap(fn)
-    if chains % batch:
-        raise ValueError("chains must be a multiple of chain_batch")
-
-    def run(*args):
-        grouped = jax.tree.map(
-            lambda a: a.reshape(chains // batch, batch, *a.shape[1:]), args
-        )
-        out = jax.lax.map(lambda g: jax.vmap(fn)(*g), grouped)
-        return jax.tree.map(lambda a: a.reshape(chains, *a.shape[2:]), out)
-
-    return run
+batched = collect_module.batched  # shared with NUTS; kept here for old callers
 
 
 def _rescale(key, e, wts, contrib, tau, prior_sd, step_sd, steps):

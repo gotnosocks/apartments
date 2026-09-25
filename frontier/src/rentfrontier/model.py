@@ -10,9 +10,10 @@ can be non-centered through `ModelConfig.noncentered` (NumPyro
 LocScaleReparam). The design is set by `ModelConfig`; the feature set is
 chosen separately (features.py).
 
-This is the one definition of every design. The Gibbs sampler (gibbs.py)
-works on it through `gibbs.site_values`, NUTS (nuts.py) samples it directly,
-and both are scored by the same code (collect.py, loo.py, variance.py).
+This is the one definition of every design. NUTS (nuts.py) samples it
+directly; the deprecated Gibbs sampler (gibbs.py, kept only to reproduce old
+run records) works on it through `gibbs.site_values`. Both are scored by the
+same code (collect.py, loo.py, variance.py).
 """
 
 from __future__ import annotations
@@ -67,6 +68,12 @@ class ModelConfig:
     #   on the season scale and makes a funnel (bfcf2cb: L3 season_scale ESS
     #   263). Integrating the unseen mean out leaves every other posterior
     #   exactly unchanged.
+    # - "building_zerosum": sample the building levels (and per-building
+    #   bedroom slopes) as their mean plus zero-sum deviations. i.i.d. normal
+    #   values split exactly into those two independent parts. The mean is a
+    #   single global number, so a dense mass matrix can follow the ridge
+    #   "market up, every building down" that the prior alone pins
+    #   (1b0dca6: L5 Chelsea Tower level R-hat 1.04, ESS 42).
     # - "unit_totals": sample each unit's building level plus its own effect
     #   (hierarchical centering), so a building and its units are not
     #   strongly correlated in the sampler's coordinates.
@@ -407,6 +414,16 @@ def constants(prep: Prepared, config: ModelConfig) -> dict:
     return out
 
 
+def _mean_plus_zero_sum(site: str, scale, n: int):
+    """n i.i.d. N(0, scale) values sampled as their mean (N(0, scale / sqrt(n)))
+    plus zero-sum deviations (ZeroSumNormal(scale)): the same distribution,
+    split into its two independent parts. Returns the values as a
+    deterministic site named `site`."""
+    mean = numpyro.sample(f"{site}_mean", dist.Normal(0.0, scale / jnp.sqrt(n)))
+    dev = numpyro.sample(f"{site}_dev", dist.ZeroSumNormal(scale, (n,)))
+    return numpyro.deterministic(site, mean + dev)
+
+
 def build_model(prep: Prepared, config: ModelConfig):
     from numpyro.infer.reparam import LocScaleReparam
 
@@ -475,7 +492,11 @@ def build_model(prep: Prepared, config: ModelConfig):
             p["season_raw"] = numpyro.sample(
                 "season_raw", dist.Normal(0.0, p["season_scale"]).expand([12])
             )
-        if config.buildings:
+        if config.buildings and "building_zerosum" in config.coordinates:
+            p["building"] = _mean_plus_zero_sum(
+                "building", p["building_scale"], len(prep.buildings)
+            )
+        elif config.buildings:
             p["building"] = numpyro.sample(
                 "building",
                 dist.Normal(0.0, p["building_scale"]).expand([len(prep.buildings)]),
@@ -532,12 +553,17 @@ def build_model(prep: Prepared, config: ModelConfig):
             p["bedroom_slope_scale"] = numpyro.sample(
                 "bedroom_slope_scale", dist.HalfNormal(config.bedroom_slope_scale_sd)
             )
-            p["bedroom_slope"] = numpyro.sample(
-                "bedroom_slope",
-                dist.Normal(0.0, p["bedroom_slope_scale"]).expand(
-                    [len(prep.buildings)]
-                ),
-            )
+            if "building_zerosum" in config.coordinates:
+                p["bedroom_slope"] = _mean_plus_zero_sum(
+                    "bedroom_slope", p["bedroom_slope_scale"], len(prep.buildings)
+                )
+            else:
+                p["bedroom_slope"] = numpyro.sample(
+                    "bedroom_slope",
+                    dist.Normal(0.0, p["bedroom_slope_scale"]).expand(
+                        [len(prep.buildings)]
+                    ),
+                )
         if config.feature_slopes:
             p["fslope_scales"] = numpyro.sample(
                 "fslope_scales",
@@ -675,9 +701,8 @@ MODELS = {
 }
 
 # The model ladder: the simplest design first, one term more per step, up to
-# the sub-10-minute Gibbs candidates. L0-L5 drop base terms (NUTS only; the
-# Gibbs sampler needs every base term); from m0q on, every design is fit by
-# both samplers.
+# the sub-15-minute candidates. Fit by NUTS (the deprecated Gibbs sampler
+# needs every base term and is not used for new work).
 _BARE = {
     "trend": False,
     "season": False,

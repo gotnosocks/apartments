@@ -202,3 +202,35 @@ def test_zero_sum_season_integrates_out_only_the_unseen_mean():
         mean = dist.Normal(0.0, scale / np.sqrt(12)).log_prob(raw.mean())
         gaps.append(float(orig - zsn - mean))
     np.testing.assert_allclose(gaps, gaps[0], atol=1e-8)
+
+
+def test_building_mean_plus_zero_sum_is_the_same_model():
+    """building_zerosum splits the building levels and bedroom slopes into
+    mean + zero-sum deviations: the joint density matches the default one up
+    to a constant (the split's Jacobian), at any point."""
+    from numpyro.infer.util import log_density
+
+    prep = synthetic()
+    config = model.ModelConfig(
+        name="s", building_walk=True, bedroom_slope=True, trend_knot_months=3
+    )
+    moved = replace(config, coordinates=("building_zerosum",))
+    gaps = []
+    for seed in range(3):
+        tr = handlers.trace(
+            handlers.seed(model.build_model(prep, config), seed)
+        ).get_trace()
+        p = {
+            k: v["value"]
+            for k, v in tr.items()
+            if v["type"] == "sample" and not v["is_observed"]
+        }
+        q = dict(p)
+        for site in ("building", "bedroom_slope"):
+            values = q.pop(site)
+            q[f"{site}_mean"] = values.mean()
+            q[f"{site}_dev"] = values - values.mean()
+        base = float(log_density(model.build_model(prep, config), (), {}, p)[0])
+        new = float(log_density(model.build_model(prep, moved), (), {}, q)[0])
+        gaps.append(new - base)
+    np.testing.assert_allclose(gaps, gaps[0], atol=1e-8)
