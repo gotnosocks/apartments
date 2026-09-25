@@ -334,6 +334,7 @@ def gaussian_block(d: Design, lam, s, z_g, z_l, z_u, kappa=None):
         rhs_g = wa.T @ y - jnp.einsum("jkp,jk->p", gu, ch)
         cgl = jnp.einsum("jkl,jlm->jkm", cu, glu)
         adj = a_l - jnp.einsum("ik,ikm->im", zr, cgl[d.unit])
+        a_t = a - jnp.einsum("ik,ikp->ip", zr, cg[d.unit])
     else:
         c = 1.0 / (
             kappa / s["unit_scale"] ** 2 + sw
@@ -346,27 +347,33 @@ def gaussian_block(d: Design, lam, s, z_g, z_l, z_u, kappa=None):
         q = a.T @ wa - g.T @ (c[:, None] * g) + jnp.diag(d.prior_fixed)
         rhs_g = wa.T @ y - g.T @ (c * h)
         adj = a_l - (c[:, None] * gl)[d.unit]
+        a_t = a - (c[:, None] * g)[d.unit]
 
     # Global prior blocks.
     for name, (sl, r) in d.global_blocks.items():
         q = q.at[sl, sl].add(r / s[name] ** 2)
 
     # Building blocks, with units integrated out (units nest in buildings).
-    # With a~_i = a_L,i - c_j gl_j (row i's local design minus its unit's
-    # correction), sum_i w_i a~_i b_i^T equals
-    # sum_i w_i a_L,i b_i^T - sum_j c_j gl_j (sum_{i in j} w_i b_i)^T,
-    # so each building term is one segment sum over rows. Accumulating one
-    # local index at a time keeps temporaries at (rows x columns).
+    # With adj_i = a_L,i - (unit correction) and a~_i = a_i - (unit
+    # correction) the rows' local and global designs with their unit
+    # integrated out,
+    #   Q_ll[b] = sum_{i in b} w_i adj_i a_L,i^T = sum_{i in b} w_i a_L,i adj_i^T,
+    #   Q_lg[b] = sum_{i in b} w_i adj_i a_i^T   = sum_{i in b} w_i a_L,i a~_i^T,
+    # (the unit terms cancel the same way in both forms). a_L,i has only
+    # n_slots non-zeros (building level, two walk knots, slopes), so each sum
+    # is one segment sum per slot into (building, local index) cells instead
+    # of one per local column.
     wadj = w[:, None] * adj
     seg_b = lambda v: jax.ops.segment_sum(v, bld, K)
-
-    def per_local(i):
-        col = jax.lax.dynamic_index_in_dim(wadj, i, axis=1, keepdims=True)
-        return seg_b(col * a_l), seg_b(col * a)
-
-    q_ll, q_lg = jax.lax.map(per_local, jnp.arange(L))
-    q_ll = jnp.swapaxes(q_ll, 0, 1)  # (K, L, L)
-    q_lg = jnp.swapaxes(q_lg, 0, 1)  # (K, L, P)
+    q_ll = jnp.zeros((K * L, L))
+    q_lg = jnp.zeros((K * L, a.shape[1]))
+    for m in range(n_slots):
+        cell = bld * L + slots[:, m]
+        wv = (w * vals[:, m])[:, None]
+        q_ll = q_ll + jax.ops.segment_sum(wv * adj, cell, K * L)
+        q_lg = q_lg + jax.ops.segment_sum(wv * a_t, cell, K * L)
+    q_ll = q_ll.reshape(K, L, L)
+    q_lg = q_lg.reshape(K, L, a.shape[1])
     q_ll = 0.5 * (q_ll + jnp.swapaxes(q_ll, 1, 2))
     r_l = seg_b(wadj * y[:, None])
     prior_l = sum(d.local_structures[n] / s[n] ** 2 for n in d.local_structures)
