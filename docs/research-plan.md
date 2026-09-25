@@ -44,6 +44,10 @@ for this phase.
 
 - Fit time is the scored (row-split) fit's sampler wall time, including JIT compilation, on the
   hardware recorded with the run. Unit-split fits are optional and are not counted.
+- **One frontier per hardware class** (Ben, 2026-09-24: the frontier on different hardware is
+  expected to differ a lot). A fit time only competes with fit times on the same hardware. The
+  class is where the fit actually ran (the JAX device, not just the host's GPU): Modal H100,
+  Modal H200, thelio RTX 2060 SUPER, thelio CPU (Ryzen 5 3600X), Modal CPU for PyMC screens.
 - The target hardware is **thelio**: the RTX 2060 SUPER (8 GB, slow float64) or the CPU. Every
   recorded frontier run so far used a Modal H100 or H200. Those points stay on the board as
   context, labeled by hardware, but their thelio times are unmeasured. m8 is not refit locally
@@ -78,6 +82,33 @@ for this phase.
 
 Compared with the previous protocol (a row-split and a unit-split fit for every design), this
 halves the compute per candidate.
+
+## Current effort: the sub-10-minute frontier on thelio (from 2026-09-24)
+
+Ben asked for a research effort on the part of the frontier that fits in under 10 minutes, with
+variance decomposition as a measure of modeling quality and projection to search for more
+efficient models. It runs separately on each local hardware class (RTX 2060 SUPER and the CPU).
+
+- **Starting point.** On the H100, only m0 (83 s) is under 10 minutes; m1-walk (6–12 min) failed
+  the gate and m5-nocurves took 13 min. On thelio, m0 with 8 chains × (100 + 100) took 241 s on
+  the 2060 (2 chains at a time; 8 at once ran out of GPU memory) and 410 s on the CPU, without
+  converging (R-hat 1.54 on sigma; the joint collapsed update's acceptance fell to 3% in
+  the short warmup). The 2060 runs float64 at about 1/32 rate.
+- **Quality measures.** PSIS-LOO ΔELPD (primary); the variance decomposition
+  (`rentfrontier.variance`: shares of features, market and time, building level, building over
+  time, building slopes, unit effects and residual); the held-out check.
+- **Step 1. Sampler cost per hardware.** Profile m0 and m1 on each local class (JIT, warmup,
+  per-iteration cost by Gibbs block) and search chains, chain batching, warmup length and draws
+  for the cheapest setting that passes the gate. The target is effective draws per second, not
+  iterations.
+- **Step 2. Projection search.** Use m8 + desc as the reference (its saved draws). Project its
+  predictions onto cheaper design families (the structure of m0, m1, m5 without curves, with or
+  without the description flags, per-building slopes, Student-t units) and measure the PSIS-LOO
+  each projection loses. The terms that keep the most accuracy per second of expected fit time
+  define the candidates.
+- **Step 3. Native fits.** Fit the best candidates on each local class within 10 minutes with the
+  step 1 settings, then score PSIS-LOO and the variance decomposition. These points form that
+  class's sub-10-minute frontier.
 
 ## Work tracks, in order
 

@@ -17,6 +17,8 @@
   --good-text: #006300;
   --critical: #d03b3b;
   --warning: #fab219;
+  --cat-1: #2a78d6; --cat-2: #eb6834; --cat-3: #1baf7a; --cat-4: #eda100;
+  --cat-5: #e87ba4; --cat-6: #008300; --cat-7: #4a3aa7;
 }
 @media (prefers-color-scheme: dark) {
   :root:where(:not([data-theme="light"])) .viz-root {
@@ -34,6 +36,8 @@
     --series-2: #d95926;
     --ghost-line: #4a4a47;
     --good-text: #0ca30c;
+    --cat-1: #3987e5; --cat-2: #d95926; --cat-3: #199e70; --cat-4: #c98500;
+    --cat-5: #d55181; --cat-6: #008300; --cat-7: #9085e9;
   }
 }
 :root[data-theme="dark"] .viz-root {
@@ -51,6 +55,8 @@
   --series-2: #d95926;
   --ghost-line: #4a4a47;
   --good-text: #0ca30c;
+  --cat-1: #3987e5; --cat-2: #d95926; --cat-3: #199e70; --cat-4: #c98500;
+  --cat-5: #d55181; --cat-6: #008300; --cat-7: #9085e9;
 }
 
 * { box-sizing: border-box; }
@@ -193,3 +199,5 @@ details ul { margin: 4px 0 0; padding-left: 18px; color: var(--text-secondary); 
 .page-foot { color: var(--text-secondary); font-size: 12px; max-width: 100ch; }
 .page-foot p { margin-bottom: 6px; }
 .subtitle a, .caption a { color: var(--text-primary); }
+select { font: inherit; font-size: 13px; color: var(--text-primary); background: var(--surface-1); border: 1px solid var(--border); border-radius: 6px; padding: 3px 6px; }
+.legend .rect { display: inline-block; width: 10px; height: 10px; border-radius: 2px; }

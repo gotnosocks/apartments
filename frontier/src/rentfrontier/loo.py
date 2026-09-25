@@ -22,7 +22,10 @@ with the unit level on a fixed grid over its prior (Gaussian or Student-t)
 and, in designs with unit drift, the drift by 8-node Gauss-Hermite: the same
 quadrature as the unseen-unit scoring in `collect` (tested against SciPy).
 PSIS then reweights draws of theta by 1 / p(y_i | theta, y_{u,-i}). A unit
-listed once gets its exact prior-predictive density. Building-level terms
+listed once gets its prior-predictive density; the level grid carries the
+prior density times the spacing without renormalization, so Student-t prior
+mass beyond +/-40 unit scales (about 6e-4 at unit_nu = 2) is dropped rather
+than redistributed onto the grid, where the likelihood is negligible anyway. Building-level terms
 are not integrated; rows of small buildings can still have high k, which is
 reported.
 
@@ -79,19 +82,24 @@ def integrated_loglik(y, mu, seg, n_seg, unit_time, params, *, t_units, drift):
     z = jnp.linspace(*GRID[:2], GRID[2], dtype=jnp.float64)
     xd, wd = np.polynomial.hermite.hermgauss(DRIFT_NODES if drift else 1)
     xd = jnp.asarray(xd if drift else [0.0])
-    log_wd = jnp.log(jnp.asarray(wd)) if drift else jnp.zeros(1)
+    # Drift: Gauss-Hermite weights normalized to 1 (exact for the normal drift).
+    log_wd = jnp.log(jnp.asarray(wd) / math.sqrt(math.pi)) if drift else jnp.zeros(1)
+    log_dz = math.log((GRID[1] - GRID[0]) / (GRID[2] - 1))
+    ones = jnp.ones(y.shape[0])
     y = jnp.asarray(y)
     seg = jnp.asarray(seg)
     unit_time = jnp.asarray(unit_time)
 
     def one(args):
         mu_s, p = args
+        # Level: prior density x grid spacing, not renormalized over the grid,
+        # so prior mass beyond the grid's range (heavy Student-t tails) is not
+        # redistributed onto it.
         if t_units:
             log_wz = student_t_logpdf(z, jnp.maximum(p["unit_nu"], 1e-3), 1.0)
         else:
-            log_wz = -0.5 * z * z
-        w = log_wd[:, None] + log_wz[None, :]
-        w = w - logsumexp(w)  # normalized prior weights on the (drift, level) grid
+            log_wz = -0.5 * z * z - 0.5 * math.log(2 * math.pi)
+        w = log_wd[:, None] + log_wz[None, :] + log_dz
         drift_off = (
             math.sqrt(2.0) * p["unit_drift_scale"] * unit_time[:, None] * xd[None]
             if drift
@@ -106,8 +114,11 @@ def integrated_loglik(y, mu, seg, n_seg, unit_time, params, *, t_units, drift):
             p["sigma"],
         )  # (rows, D, G)
         total = jax.ops.segment_sum(ll, seg, num_segments=n_seg)  # (units, D, G)
+        count = jax.ops.segment_sum(ones, seg, num_segments=n_seg)
         log_unit = logsumexp(total + w[None], axis=(1, 2))
         log_rest = logsumexp(total[seg] - ll + w[None], axis=(1, 2))
+        # A unit's only row: p(y_{u,-i}) is the empty product, exactly 1.
+        log_rest = jnp.where(count[seg] == 1, 0.0, log_rest)
         return log_unit[seg] - log_rest
 
     names = ["nu", "sigma", "unit_scale"] + (["unit_nu"] if t_units else [])

@@ -23,6 +23,7 @@
   </header>
 
   <section class="filters" aria-label="Filters">
+    <label class="check" for="hw-select"><strong>Hardware</strong> <select id="hw-select"></select></label>
     <div class="asof">
       <label for="asof-range">As of</label>
       <button id="asof-prev" class="ghost icon" type="button" aria-label="Previous result">‹</button>
@@ -43,7 +44,7 @@
     <div class="card-head">
       <div>
         <h2>Pareto frontier: PSIS-LOO ΔELPD × fit time</h2>
-        <p class="caption">Up is more accurate, left is faster. The staircase is the frontier: entries that no other gate-passing entry
+        <p class="caption">For the selected hardware: up is more accurate, left is faster. The staircase is the frontier: entries on this hardware that no other gate-passing entry
           beats on both axes at once. Whiskers are ±1 combined SE (paired SE and Monte Carlo error). The gray staircase is the latest
           frontier, for context when scrubbing back in time. PyMC screens saved no posterior draws, so they have no PSIS-LOO score and appear only in the table.</p>
       </div>
@@ -52,6 +53,21 @@
     <div class="legend" id="legend-frontier"></div>
     <div class="chart" id="chart-frontier"></div>
     <div class="table-view" id="table-frontier" hidden></div>
+  </section>
+
+  <section class="card">
+    <div class="card-head">
+      <div>
+        <h2>Where the variation goes</h2>
+        <p class="caption">For each frontier entry on this hardware: the share of the variation in log rent over the training rows that the fit attributes to
+          each part of the model, and what is left over (covariance attribution; shares sum to 100%). A gain in accuracy that comes with a larger
+          unit share explains less: it credits the apartment's identity, not named features.</p>
+      </div>
+      <button class="ghost table-toggle" type="button" data-target="variance">Table view</button>
+    </div>
+    <div class="legend" id="legend-variance"></div>
+    <div class="chart" id="chart-variance"></div>
+    <div class="table-view" id="table-variance" hidden></div>
   </section>
 
   <div class="grid-2">
