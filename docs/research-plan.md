@@ -178,6 +178,32 @@ implementation over implementing our own").
 - **Right-size the NUTS draw budget.** 1,000 + 1,000 draws per chain (PyMC's default) gave ESS
   4,767 on L2 against a gate of 400. The next pass uses 500 warmup + 250 draws per chain, all
   kept for PSIS (1,000 draws), with the dense mass matrix from L4 on.
+- **NUTS-friendly coordinates** (`--coordinates`; Ben, 2026-09-25: "change the model to perform
+  better with one of the libraries"). Each is an exact reparameterization of the same model, and
+  each fixed the failure the one before it exposed:
+
+  | Coordinate | What it samples | Failure it fixed |
+  |---|---|---|
+  | `trend_levels` | absolute quarterly market levels (intercept plus trend) | 500-step trees from the random-walk steps; levels relative to the intercept left an intercept ridge |
+  | `season_zerosum` | the centred season (ZeroSumNormal) | season-scale funnel from the unseen raw mean |
+  | `building_totals` | building effect plus mean features times beta, as a flat mean plus zero-sum deviations | market vs building ridge (Chelsea Tower), and building attributes (doorman, elevator) trading against building levels |
+  | `unit_totals` | unit effect plus its within-building feature deviations times beta | apartment attributes (half baths, floor) trading against unit effects. Centring units on the building effect instead put the market ridge through all 22,000 units |
+  | `unit_partial` | unit effects partially non-centred by row count, n / (n + 0.6) | unit-scale funnel from units listed once |
+
+  - NumPyro NUTS on the CPU now passes L0–L5: 40 s, 128 s, 43 s, 68 s, 636 s and 909 s.
+    Before the coordinates, L2 took 1,987 s and L3–L5 failed.
+  - For designs with units the RTX 2060 wins: m0q took 752–947 s in float64 on the 2060, against
+    2,300–2,600 s on the CPU.
+  - With 500 draws per chain or fewer, m0q misses the traced-effect gate narrowly: R-hat
+    1.013–1.027 on a few buildings, some with a single unit.
+  - **At 4 × (300 + 1,000) it passes:** 1,137 s, R-hat 1.002, ESS 1,517, PSIS-LOO 40,606 (Gibbs:
+    40,604). That is the first library-sampler fit of a design with unit effects that passes the
+    gate. It is outside 15 minutes, but its ESS is almost four times the gate, so draws can be
+    trimmed.
+  - Float32 does not work: a chain's step size collapsed.
+  - Across samplers and devices, m0q's PSIS-LOO agrees: NUTS minus Gibbs is +5.4 ± 4.2 on
+    identical rows.
+  - m1q (the building walk) did not finish within 60 minutes on the 2060.
 - New sampler work uses library samplers on `model.build_model`, with library options only:
   - NumPyro NUTS (`--sampler nuts`), with a diagonal or a structured dense mass matrix;
   - BlackJAX's NUTS and many-chain adaptation;
@@ -267,6 +293,15 @@ They enter the design matrix, so NUTS fits them like any other design.
      centering as `unit_totals`. That avoids the collinearity with the building levels that the
      earlier PyMC screen hit.
    - Expect the gain on buildings with few rows, which carry most of the high-k PSIS rows.
+   - **First result: MapPLUTO on m0q** (`pluto-v1`: era, floors, units, area per unit, building
+     class, landmark, historic district, floor-area ratio, flood zone, recent alteration). NUTS on
+     the 2060, the same coordinates and budget with and without it.
+     - PSIS-LOO: −7.5 ± 17.0 (no measurable change).
+     - Variance decomposition: features 52% → 74%, anonymous building effect 32% → 10%. Unit
+       (3.4%) and residual (4.2%) are unchanged.
+     - The building attributes explain about two thirds of the building-level variation, which the
+       building effects were already capturing. So accuracy is equal and the description is much
+       more interpretable.
 2. **Location.** Buildings have latitude and longitude. Try a low-rank spatial basis over building
    locations, as building-level columns, so neighbouring buildings share information (west vs
    east Chelsea, the avenues, the High Line).
