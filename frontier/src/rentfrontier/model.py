@@ -9,6 +9,10 @@ Group effects and the monthly random walk are written centered; any of them
 can be non-centered through `ModelConfig.noncentered` (NumPyro
 LocScaleReparam). The design is set by `ModelConfig`; the feature set is
 chosen separately (features.py).
+
+This is the one definition of every design. The Gibbs sampler (gibbs.py)
+works on it through `gibbs.site_values`, NUTS (nuts.py) samples it directly,
+and both are scored by the same code (collect.py, loo.py, variance.py).
 """
 
 from __future__ import annotations
@@ -27,6 +31,18 @@ from .features import Features
 @dataclass(frozen=True)
 class ModelConfig:
     name: str = "m0-base"
+    # The base terms. The model ladder's simplest designs drop some; a dropped
+    # term is a zero effect with scale 0 (see `constants`), so every consumer
+    # sees the same effect tree. Gibbs designs have all five.
+    trend: bool = True
+    season: bool = True
+    features: bool = True
+    buildings: bool = True
+    units: bool = True
+    # One shared linear drift of log rent per year, centred on the mean
+    # training month and folded into the trend effect (the ladder's L1).
+    market_drift: bool = False
+    market_drift_sd: float = 0.1
     beta_sd: float = 0.5
     trend_scale_sd: float = 0.05
     season_scale_sd: float = 0.05
@@ -260,14 +276,19 @@ def linear_predictor(p, a: Arrays, include_unit=True):
 def effects(p):
     """Named effect vectors (log scale) from constrained site values."""
     season = p["season_raw"] - p["season_raw"].mean()
+    trend = (
+        p["trend_basis"] @ jnp.cumsum(p["trend_step"])
+        if "trend_basis" in p
+        else jnp.concatenate([jnp.zeros(1), jnp.cumsum(p["trend_step"])])
+    )
+    if "market_drift" in p:
+        months = jnp.arange(trend.shape[0])
+        trend = trend + p["market_drift"] * (months - p["month_center"]) / 12.0
     return {
         "alpha": p["alpha"],
         "beta": p["beta"],
-        "trend": (
-            p["trend_basis"] @ jnp.cumsum(p["trend_step"])
-            if "trend_basis" in p
-            else jnp.concatenate([jnp.zeros(1), jnp.cumsum(p["trend_step"])])
-        ),
+        "trend": trend,
+        "market_drift": p.get("market_drift", jnp.zeros(())),
         "season": season,
         "building": p["building"],
         "unit": p["unit"],
@@ -320,6 +341,47 @@ def _bedroom_time(p):
     return out.at[jnp.asarray(TIME_GROUPS)].set(curves)
 
 
+def constants(prep: Prepared, config: ModelConfig) -> dict:
+    """Site values that are not sampled: bases, indices, and zero effects
+    (scale 0) for the base terms the design drops."""
+    n_months = len(prep.periods)
+    if not config.buildings and (
+        config.building_walk or config.bedroom_slope or config.feature_slopes
+    ):
+        raise ValueError(f"{config.name}: building terms need building levels")
+    if not config.units and (config.unit_t or config.unit_drift):
+        raise ValueError(f"{config.name}: unit terms need unit levels")
+    trend_basis = jnp.asarray(knot_basis(n_months, config.trend_knot_months))
+    out = {"trend_basis": trend_basis}
+    if config.market_drift:
+        out["month_center"] = jnp.asarray(float(np.mean(prep.train.month)))
+    if config.bedroom_time:
+        out["bedroom_time_basis"] = jnp.asarray(
+            knot_basis(n_months, config.bedroom_time_knot_months)
+        )
+    if config.feature_slopes:
+        out["fslope_index"] = jnp.asarray(
+            [prep.features.names.index(n) for n in config.feature_slopes],
+            dtype=jnp.int32,
+        )
+    if config.nu_fixed is not None:
+        out["nu"] = jnp.asarray(config.nu_fixed)
+    if config.unit_t and config.unit_nu_fixed is not None:
+        out["unit_nu"] = jnp.asarray(config.unit_nu_fixed)
+    zero = jnp.zeros(())
+    if not config.features:
+        out["beta"] = jnp.zeros(len(prep.features.names))
+    if not config.trend:
+        out |= {"trend_scale": zero, "trend_step": jnp.zeros(trend_basis.shape[1])}
+    if not config.season:
+        out |= {"season_scale": zero, "season_raw": jnp.zeros(12)}
+    if not config.buildings:
+        out |= {"building_scale": zero, "building": jnp.zeros(len(prep.buildings))}
+    if not config.units:
+        out |= {"unit_scale": zero, "unit": jnp.zeros(len(prep.units))}
+    return out
+
+
 def build_model(prep: Prepared, config: ModelConfig):
     from numpyro.infer.reparam import LocScaleReparam
 
@@ -328,48 +390,55 @@ def build_model(prep: Prepared, config: ModelConfig):
     y = jnp.asarray(a.y)
     arrays = a.map(jnp.asarray)
     beta_sd = config.beta_sd * jnp.asarray(prep.features.prior_scale)
-    trend_basis = jnp.asarray(knot_basis(n_months, config.trend_knot_months))
-    fslope_index = jnp.asarray(
-        [prep.features.names.index(n) for n in config.feature_slopes], dtype=jnp.int32
-    )
-    bedroom_basis = jnp.asarray(knot_basis(n_months, config.bedroom_time_knot_months))
+    fixed = constants(prep, config)
+    trend_basis = fixed["trend_basis"]
 
     def model():
-        p = {
-            "alpha": numpyro.sample("alpha", dist.Normal(0.0, 1.0)),
-            "beta": numpyro.sample("beta", dist.Normal(0.0, beta_sd)),
-            "trend_scale": numpyro.sample(
+        p = dict(fixed)
+        p["alpha"] = numpyro.sample("alpha", dist.Normal(0.0, 1.0))
+        if config.features:
+            p["beta"] = numpyro.sample("beta", dist.Normal(0.0, beta_sd))
+        if config.trend:
+            p["trend_scale"] = numpyro.sample(
                 "trend_scale", dist.HalfNormal(config.trend_scale_sd)
-            ),
-            "season_scale": numpyro.sample(
+            )
+        if config.season:
+            p["season_scale"] = numpyro.sample(
                 "season_scale", dist.HalfNormal(config.season_scale_sd)
-            ),
-            "building_scale": numpyro.sample(
+            )
+        if config.buildings:
+            p["building_scale"] = numpyro.sample(
                 "building_scale", dist.HalfNormal(config.building_scale_sd)
-            ),
-            "unit_scale": numpyro.sample(
+            )
+        if config.units:
+            p["unit_scale"] = numpyro.sample(
                 "unit_scale", dist.HalfNormal(config.unit_scale_sd)
-            ),
-            "sigma": numpyro.sample("sigma", dist.HalfNormal(config.noise_scale_sd)),
-            "nu": (
-                jnp.asarray(config.nu_fixed)
-                if config.nu_fixed is not None
-                else numpyro.sample("nu", dist.Gamma(2.0, 0.1))  # Juarez & Steel (2010)
-            ),
-        }
-        p["trend_basis"] = trend_basis
-        p["trend_step"] = numpyro.sample(
-            "trend_step",
-            dist.Normal(0.0, p["trend_scale"]).expand([trend_basis.shape[1]]),
+            )
+        p["sigma"] = numpyro.sample("sigma", dist.HalfNormal(config.noise_scale_sd))
+        p["nu"] = (
+            jnp.asarray(config.nu_fixed)
+            if config.nu_fixed is not None
+            else numpyro.sample("nu", dist.Gamma(2.0, 0.1))  # Juarez & Steel (2010)
         )
-        p["season_raw"] = numpyro.sample(
-            "season_raw", dist.Normal(0.0, p["season_scale"]).expand([12])
-        )
-        p["building"] = numpyro.sample(
-            "building",
-            dist.Normal(0.0, p["building_scale"]).expand([len(prep.buildings)]),
-        )
-        if config.unit_t:
+        if config.market_drift:
+            p["market_drift"] = numpyro.sample(
+                "market_drift", dist.Normal(0.0, config.market_drift_sd)
+            )
+        if config.trend:
+            p["trend_step"] = numpyro.sample(
+                "trend_step",
+                dist.Normal(0.0, p["trend_scale"]).expand([trend_basis.shape[1]]),
+            )
+        if config.season:
+            p["season_raw"] = numpyro.sample(
+                "season_raw", dist.Normal(0.0, p["season_scale"]).expand([12])
+            )
+        if config.buildings:
+            p["building"] = numpyro.sample(
+                "building",
+                dist.Normal(0.0, p["building_scale"]).expand([len(prep.buildings)]),
+            )
+        if config.units and config.unit_t:
             p["unit_nu"] = (
                 jnp.asarray(config.unit_nu_fixed)
                 if config.unit_nu_fixed is not None
@@ -381,7 +450,7 @@ def build_model(prep: Prepared, config: ModelConfig):
                     [len(prep.units)]
                 ),
             )
-        else:
+        elif config.units:
             p["unit"] = numpyro.sample(
                 "unit", dist.Normal(0.0, p["unit_scale"]).expand([len(prep.units)])
             )
@@ -407,11 +476,10 @@ def build_model(prep: Prepared, config: ModelConfig):
             p["bedroom_time_scale"] = numpyro.sample(
                 "bedroom_time_scale", dist.HalfNormal(config.bedroom_time_scale_sd)
             )
-            p["bedroom_time_basis"] = bedroom_basis
             p["bedroom_time_step"] = numpyro.sample(
                 "bedroom_time_step",
                 dist.Normal(0.0, p["bedroom_time_scale"]).expand(
-                    [len(TIME_GROUPS), bedroom_basis.shape[1]]
+                    [len(TIME_GROUPS), p["bedroom_time_basis"].shape[1]]
                 ),
             )
         if config.bedroom_slope:
@@ -425,17 +493,16 @@ def build_model(prep: Prepared, config: ModelConfig):
                 ),
             )
         if config.feature_slopes:
-            p["fslope_index"] = fslope_index
             p["fslope_scales"] = numpyro.sample(
                 "fslope_scales",
                 dist.HalfNormal(config.feature_slope_scale_sd).expand(
-                    [len(fslope_index)]
+                    [len(config.feature_slopes)]
                 ),
             )
             p["fslope"] = numpyro.sample(
                 "fslope",
                 dist.Normal(0.0, p["fslope_scales"]).expand(
-                    [len(prep.buildings), len(fslope_index)]
+                    [len(prep.buildings), len(config.feature_slopes)]
                 ),
             )
         mu = linear_predictor(p, arrays)
@@ -560,3 +627,46 @@ MODELS = {
         unit_drift=True,
     ),
 }
+
+# The model ladder: the simplest design first, one term more per step, up to
+# the sub-10-minute Gibbs candidates. L0-L5 drop base terms (NUTS only; the
+# Gibbs sampler needs every base term); from m0q on, every design is fit by
+# both samplers.
+_BARE = {
+    "trend": False,
+    "season": False,
+    "features": False,
+    "buildings": False,
+    "units": False,
+    "trend_knot_months": 3,
+}
+MODELS |= {
+    "L0-mean": ModelConfig(name="L0-mean", **_BARE),
+    "L1-drift": ModelConfig(name="L1-drift", **_BARE | {"market_drift": True}),
+    "L2-trend": ModelConfig(name="L2-trend", **_BARE | {"trend": True}),
+    "L3-season": ModelConfig(
+        name="L3-season", **_BARE | {"trend": True, "season": True}
+    ),
+    "L4-features": ModelConfig(
+        name="L4-features",
+        **_BARE | {"trend": True, "season": True, "features": True},
+    ),
+    "L5-building": ModelConfig(
+        name="L5-building",
+        **_BARE | {"trend": True, "season": True, "features": True, "buildings": True},
+    ),
+}
+LADDER = (
+    "L0-mean",  # intercept only, Student-t noise
+    "L1-drift",  # + one shared linear drift per year
+    "L2-trend",  # a quarterly market trend instead (it contains the drift)
+    "L3-season",  # + calendar season
+    "L4-features",  # + the listing features
+    "L5-building",  # + building levels
+    "m0q",  # + unit levels
+    "m1q",  # + each building's half-year random walk
+    "m5-nocurves",  # + each building's bedroom slope
+    "m6-nocurves",  # + each building's size and bathroom slopes
+    "m7-nocurves",  # Student-t unit levels
+    "m8-nocurves",  # + each unit's linear drift
+)

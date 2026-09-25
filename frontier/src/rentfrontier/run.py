@@ -45,6 +45,49 @@ def git(*args) -> str:
     ).stdout.strip()
 
 
+def cpu_clock():
+    """(machine busy CPU seconds, this process's CPU seconds, wall seconds) now."""
+    with open("/proc/stat") as f:
+        user, nice, system, _idle, _iowait, irq, softirq, steal = (
+            int(x) for x in f.readline().split()[1:9]
+        )
+    busy = (user + nice + system + irq + softirq + steal) / os.sysconf("SC_CLK_TCK")
+    t = os.times()
+    own = t.user + t.system + t.children_user + t.children_system
+    return busy, own, time.perf_counter()
+
+
+def contention(start) -> dict:
+    """What else used the machine while a fit ran, since `start = cpu_clock()`.
+
+    other_cores is the mean number of cores busy with other processes over the
+    fit's wall time; a timing is clean when it is near zero. GPU compute
+    processes other than this one are listed as seen at the end.
+    """
+    busy0, own0, wall0 = start
+    busy1, own1, wall1 = cpu_clock()
+    wall = wall1 - wall0
+    other = max(0.0, (busy1 - busy0) - (own1 - own0))
+    out = {
+        "wall_seconds": wall,
+        "own_cpu_seconds": own1 - own0,
+        "other_cpu_seconds": other,
+        "other_cores": other / wall if wall > 0 else 0.0,
+        "cpus": os.cpu_count(),
+    }
+    try:
+        pids = subprocess.run(
+            ["nvidia-smi", "--query-compute-apps=pid", "--format=csv,noheader"],
+            capture_output=True,
+            text=True,
+            check=False,
+        ).stdout.split()
+        out["gpu_other_pids"] = [int(p) for p in pids if int(p) != os.getpid()]
+    except (OSError, ValueError):
+        pass
+    return out
+
+
 def hardware() -> dict:
     import jax
 
@@ -198,21 +241,28 @@ def main(argv=None):
         "--features", default="base-v1", choices=sorted(features.FEATURE_SETS)
     )
     parser.add_argument("--model", default="m0-base")
-    parser.add_argument("--sampler", choices=("gibbs", "chees"), default="gibbs")
+    parser.add_argument(
+        "--sampler",
+        choices=("gibbs", "nuts"),
+        default="gibbs",
+        help="gibbs: the custom blocked Gibbs sampler; nuts: NumPyro NUTS",
+    )
     parser.add_argument("--chains", type=int)
     parser.add_argument("--warmup", type=int)
     parser.add_argument("--draws", type=int)
     parser.add_argument("--keep-every", type=int)
     parser.add_argument("--seed", type=int)
     parser.add_argument(
-        "--chain-batch", type=int, help="Gibbs: vectorise this many chains at a time"
+        "--chain-batch", type=int, help="vectorise this many chains at a time"
     )
     parser.add_argument(
         "--solo-scales",
         help="Gibbs: comma-separated scales given 1-D collapsed updates ('none' for no solo updates)",
     )
     parser.add_argument(
-        "--float32", action="store_true", help="HMC only; Gibbs always runs in float64"
+        "--dense-globals",
+        action="store_true",
+        help="nuts: dense mass matrix over the global sites (NumPyro structured mass)",
     )
     parser.add_argument("--name", required=True)
     parser.add_argument(
@@ -235,9 +285,8 @@ def main(argv=None):
 
     import jax
 
-    if args.sampler == "gibbs" or not args.float32:
-        jax.config.update("jax_enable_x64", True)
-    from . import gibbs, model, sample
+    jax.config.update("jax_enable_x64", True)
+    from . import gibbs, model, nuts
 
     config = model.MODELS[args.model]
     started = time.time()
@@ -257,6 +306,7 @@ def main(argv=None):
             "keep_every": args.keep_every,
             "seed": args.seed,
             "chain_batch": args.chain_batch,
+            "dense_globals": True if args.dense_globals else None,
             "solo_scales": (
                 () if args.solo_scales == "none" else tuple(args.solo_scales.split(","))
             )
@@ -265,7 +315,7 @@ def main(argv=None):
         }.items()
         if v is not None
     }
-    module = gibbs if args.sampler == "gibbs" else sample
+    module = gibbs if args.sampler == "gibbs" else nuts
     settings = module.Settings(**overrides)
     log_lines = []
 
@@ -275,10 +325,15 @@ def main(argv=None):
 
     log(f"{args.name}: {args.split} split, {prep.sizes}")
     t0 = time.perf_counter()
+    clock = cpu_clock()
     out = module.run(prep, config, settings, log=log)
     fit_seconds = time.perf_counter() - t0
+    load = contention(clock)
 
     diag = diagnostics(out["trace"], feats.names, out.get("rhat_all"))
+    if "divergent" in out["trace"]:  # NUTS: the gate also needs no divergences
+        diag["divergences"] = int(np.asarray(out["trace"]["divergent"]).sum())
+        diag["passes"] = diag["passes"] and diag["divergences"] == 0
     scores = score(args.split, prep.test_audit_id, out["lpd"], out["lpd_chain"])
     log(
         f"diagnostics: max R-hat {diag['max_rhat']:.4f} ({diag['max_rhat_name']}), min ESS {diag['min_ess']:.0f} ({diag['min_ess_name']})"
@@ -320,11 +375,21 @@ def main(argv=None):
         "feature_sources": feature_sources(args.features),
         "model": config.to_dict(),
         "sampler": args.sampler,
+        "line": "frontier" if args.sampler == "gibbs" else "numpyro",
         "sampler_settings": settings.to_dict(),
         "dtype": out.get("dtype"),
         "adapted": {
             k: out.get(k)
-            for k in ("collapsed_proposal_sd", "noise_step_sd", "solo_proposal_sd")
+            for k in (
+                "collapsed_proposal_sd",
+                "noise_step_sd",
+                "solo_proposal_sd",
+                "noncentered",
+                "step_size",
+                "mean_tree_steps",
+                "dense_sites",
+            )
+            if k in out
         },
         "sizes": prep.sizes,
         "hardware": hardware(),
@@ -333,6 +398,7 @@ def main(argv=None):
             "fit_total": fit_seconds,
             **out["seconds"],
         },
+        "contention": load,
         "cost_usd": None,  # filled in by the Modal submitter; local runs cost nothing
         "diagnostics": diag,
         "score": scores,

@@ -43,14 +43,16 @@ optional and not counted.
 
 from __future__ import annotations
 
+import functools
 import json
 import math
+import subprocess
 from pathlib import Path
 
 import numpy as np
 
 from . import data
-from .run import REFERENCES
+from .run import REFERENCES, git
 
 RUNS = data.OUTPUT_ROOT / "runs"
 RESCORES = data.OUTPUT_ROOT / "rescores"
@@ -112,27 +114,41 @@ def load_rescores():
     return out
 
 
-def load_loo():
-    """Latest reportable PSIS-LOO record per source run name."""
-    out = {}
-    for path in sorted(LOO_ROOT.glob("*/result.json"), key=lambda p: p.stat().st_mtime):
+@functools.cache
+def commit_time(commit: str) -> int:
+    """Committer time of a scoring commit; 0 when this repository lacks it."""
+    if not commit:
+        return 0
+    try:
+        return int(git("show", "-s", "--format=%ct", commit))
+    except (subprocess.CalledProcessError, ValueError):
+        return 0
+
+
+def latest_records(root: Path) -> dict:
+    """The newest reportable record per source run under root/*/result.json.
+
+    Newest means scored by the most recent commit (committer time), then the
+    newest file. A re-score with older code, or a copy that loses file times,
+    does not displace a record from newer code.
+    """
+    rows = []
+    for path in root.glob("*/result.json"):
         r = json.loads(path.read_text())
         if not r.get("dirty"):
             r["_dir"] = str(path.parent)
-            out[r["source_run"]] = r
-    return out
+            rows.append((commit_time(r.get("commit", "")), path.stat().st_mtime, r))
+    return {r["source_run"]: r for *_, r in sorted(rows, key=lambda t: t[:2])}
+
+
+def load_loo():
+    """Latest reportable PSIS-LOO record per source run name."""
+    return latest_records(LOO_ROOT)
 
 
 def load_variance():
     """Latest reportable variance decomposition per source run name."""
-    out = {}
-    for path in sorted(
-        VARIANCE_ROOT.glob("*/result.json"), key=lambda p: p.stat().st_mtime
-    ):
-        r = json.loads(path.read_text())
-        if not r.get("dirty"):
-            out[r["source_run"]] = r
-    return out
+    return latest_records(VARIANCE_ROOT)
 
 
 def paired_loo(a_dir, b_dir):
@@ -493,6 +509,8 @@ def build(keep_dirs=False):
                 "paired_rows": vp.get("paired_rows"),
                 "max_rhat": r["diagnostics"]["max_rhat"],
                 "min_ess": r["diagnostics"]["min_ess"],
+                # NUTS runs count divergences; Gibbs has none.
+                "divergences": r["diagnostics"].get("divergences"),
                 "passes": r["diagnostics"]["passes"],
                 "fit_seconds": r["seconds"]["fit_total"],
                 "sampling_seconds": r["seconds"].get("sampling"),
@@ -519,7 +537,9 @@ def build(keep_dirs=False):
             cost.append(r.get("cost_usd") or 0.0)
         e["passes_checks"] = passes
         e["split_hardware"] = {k: hardware_class(r) for k, r in by_split.items()}
-        e["line"] = "frontier"
+        # Run records carry their sampler's line (numpyro for NUTS, and the
+        # removed PyMC ladder's pymc); older Gibbs records have none.
+        e["line"] = any_run.get("line", "frontier")
         e["grade"] = "full" if passes else "failed"
         # Fit time is the scored (row-split) fit's; unit-split fits are optional.
         rows_run = by_split.get("rows")
@@ -528,6 +548,9 @@ def build(keep_dirs=False):
         )
         e["fit_seconds_all_splits"] = sum(fit_seconds)
         e["cost_usd"] = max(cost)
+        # Other processes' mean busy cores during the scored fit (recorded
+        # from 3c26c4a on); None when not measured.
+        e["contention"] = (rows_run or {}).get("contention")
         if rows_run and rows_run["name"] in variances:
             vr = variances[rows_run["name"]]
             e["variance"] = {
@@ -583,7 +606,7 @@ def build(keep_dirs=False):
             note = f"screen-grade (max R-hat {worst:.3f}); not eligible for best or frontier"
             if any(s["delta"] is None for s in e["splits"].values()):
                 note += "; held-out rows differ from the reference, so not paired"
-        elif not scored(e) and e["line"] == "frontier" and "rows" in e["splits"]:
+        elif not scored(e) and e["line"] != "pymc" and "rows" in e["splits"]:
             note = "no PSIS-LOO score yet"
         elif best is not None and e is not best and scored(e):
             d, se, mc = paired_loo(best["psis"]["_dir"], e["psis"]["_dir"])
@@ -597,6 +620,7 @@ def build(keep_dirs=False):
                     and o["passes_checks"]
                     and o["model"]["name"] == e["model"]["name"]
                     and o["feature_set"] == e["feature_set"]
+                    and o["sampler"] == e["sampler"]
                 ]
                 note = (
                     f"superseded by passing rerun {same[0]['id']}"
@@ -654,6 +678,11 @@ def row(e, marks) -> str:
     )
     diag = "; ".join(
         f"{k}: {v['max_rhat']:.3f} / {v['min_ess']:.0f} / all-effects {v['group_rhat_max']:.2f}"
+        + (
+            f" / {v['divergences']} divergence{'s' if v['divergences'] > 1 else ''}"
+            if v.get("divergences")
+            else ""
+        )
         for k, v in e["splits"].items()
     )
     note = "; ".join(
@@ -683,7 +712,7 @@ def markdown(board) -> str:
         "**Held-out** ΔELPD (5,264 row-split held-out rows, vs the promoted PyMC model) is the independent validation; the unit split is secondary.",
         "",
         "**Ranking.** Eligible entries pass the convergence gate (max split R-hat < 1.01 and min bulk ESS > 400; frontier runs also need",
-        "R-hat < 1.05 over every group effect, 1.1 when recomputed from older runs' kept draws), are interpretable and have a PSIS-LOO score.",
+        "R-hat < 1.05 over every group effect, 1.1 when recomputed from older runs' kept draws; NUTS runs also need no divergences), are interpretable and have a PSIS-LOO score.",
         "Every eligible entry within two combined SE of the top PSIS-LOO ΔELPD ties with it; the **best** is the fastest tied entry.",
         "**Frontier** = not beaten on PSIS-LOO ΔELPD and fit time at once. Fit time is the scored (row-split) fit's sampler wall time.",
         "**Per hardware.** The frontier and the best are computed separately for each hardware class (where the fit actually ran):",

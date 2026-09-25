@@ -36,6 +36,7 @@ SCALARS = (
     "bedroom_slope_scale",
     "unit_nu",
     "unit_drift_scale",
+    "market_drift",
 )
 
 

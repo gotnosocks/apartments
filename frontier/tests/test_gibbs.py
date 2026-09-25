@@ -294,18 +294,11 @@ def test_site_values_reproduce_linear_predictor(design):
         "walk",
         "all",
         "tunits",
-        pytest.param(
-            "tdrift",
-            marks=pytest.mark.xfail(
-                strict=False,
-                reason=(
-                    "unit_drift_scale posterior sd: Gibbs 0.00991 vs centred NUTS 0.00829. "
-                    "The walk case of the same symptom was the centred reference under-mixing "
-                    "(fixed in 1beabab by a non-centred reference); the tdrift confirmation "
-                    "run was cut off on 2026-09-24. Open item in docs/brief-2026-09-24.md."
-                ),
-            ),
-        ),
+        # Passes against the non-centred reference (unit_drift_scale sd ratio
+        # 0.98-1.05 over two seeds, PR #17 review); the old xfail's numbers were
+        # from the centred reference. Gibbs ESS on unit_drift_scale is ~80-200
+        # here, so the 15% sd tolerance is about 2 sigma.
+        "tdrift",
     ],
 )
 def test_gibbs_matches_nuts_on_same_model(design):

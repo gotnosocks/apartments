@@ -181,3 +181,20 @@ def test_frontier_and_best_are_per_hardware_class(tmp_path):
     # slow GPU entry off the GPU frontier, and vice versa.
     assert last["gpu"]["frontier"] == ["gpu-slow"] and last["gpu"]["best"] == "gpu-slow"
     assert last["cpu"]["frontier"] == ["cpu-fast"] and last["cpu"]["best"] == "cpu-fast"
+
+
+def test_samplers_of_one_design_share_its_structure():
+    def e(design, line, features="base-v1"):
+        return {"model": {"name": design}, "line": line, "feature_set": features}
+
+    assert dashboard.structure(e("m0q", "numpyro")) == "m0q/base-v1"
+    assert dashboard.structure(e("m0q", "frontier")) == "m0q/base-v1"
+    assert dashboard.structure(e("m1q", "frontier", "desc-v1")) == "m1q/desc-v1"
+    # Designs without listing features share one key across samplers.
+    nuts_l0 = {
+        "model": {"name": "L0-mean", "features": False},
+        "line": "numpyro",
+        "feature_set": "base-v1",
+    }
+    assert dashboard.structure(nuts_l0) == "L0-mean/none"
+    assert dashboard.structure(e("L0-mean", "pymc", "none")) == "L0-mean/none"

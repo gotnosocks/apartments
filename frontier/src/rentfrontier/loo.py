@@ -194,7 +194,8 @@ def score_run(name: str):
     fslope_index = [names.index(n) for n in config.feature_slopes]
     draws = kept["alpha"].shape[0]
     t_units = "unit_nu" in kept and bool((kept["unit_nu"] > 0).all())
-    drift = "unit_drift" in kept and kept["unit_drift"].ndim == 2
+    # Designs without unit drift keep a (draws, 1) placeholder.
+    drift = "unit_drift" in kept and kept["unit_drift"].shape[1] > 1
     params = {
         k: kept[k]
         for k in ("nu", "sigma", "unit_scale", "unit_nu", "unit_drift_scale")

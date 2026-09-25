@@ -52,6 +52,14 @@ for this phase.
   recorded frontier run so far used a Modal H100 or H200. Those points stay on the board as
   context, labeled by hardware, but their thelio times are unmeasured. m8 is not refit locally
   (Ben, 2026-09-24).
+- **One timed job at a time** (Ben, 2026-09-24: "I'm okay with waiting longer to do these things
+  serially in favor of getting good data"). Every heavy job on thelio holds
+  `/data1/apartments/tmp/heavy.lock`: fits, LOO and variance scoring, and reviewers' tests. The
+  fit queue runs from a fixed-commit worktree. From commit 3c26c4a, each run record carries a
+  `contention` block: the mean number of cores other processes kept busy during the fit, and any
+  other GPU compute processes. A timing is clean below 0.5 other cores, and the dashboard's Timing
+  column shows it. Thelio fits from before this rule whose times may include contention were
+  moved to `/data1/apartments/frontier/runs-archive/contended-2026-09-24/` and are being re-timed.
 
 ## Rules
 
@@ -83,11 +91,94 @@ for this phase.
 Compared with the previous protocol (a row-split and a unit-split fit for every design), this
 halves the compute per candidate.
 
-## Current effort: the sub-10-minute frontier on thelio (from 2026-09-24)
+## Two axes: structure and implementation (Ben, 2026-09-24)
+
+The goal is the best model structure *and* implementation. There is **one model definition**,
+`model.build_model` (NumPyro) over the designs in `model.MODELS` (Ben, 2026-09-25: no duplicate
+PyMC or NumPyro implementations). Samplers are the implementations. Each fit gets its own run
+record, timed on its own hardware, and every sampler goes through the same runner and scorers:
+
+    python -m rentfrontier.run --sampler gibbs|nuts --model <design> --split rows ...
+    python -m rentfrontier.loo <run>; python -m rentfrontier.variance <run>
+
+- **Custom Gibbs** (`gibbs.py`): the blocked Gibbs sampler with units integrated out. It needs
+  every base term: trend, season, features, buildings and units.
+- **NumPyro NUTS** (`nuts.py`): NumPyro's warmup, then the Gibbs sampler's bookkeeping
+  (`collect.py`), on the GPU or the CPU. The building walk and unit drift are non-centred, and
+  every other effect is centred (the data-rich levels diverged under NUTS when non-centred).
+
+Where samplers overlap, their posteriors must agree. That is the independent convergence check
+the project intent asks for. The dashboard's "Same model, different implementations" chart
+shows it, and the frontier on each hardware class shows the best (design, sampler) pair at each
+fit time.
+
+**The ladder: start as simple as possible and build up** (`model.LADDER`). Each design adds one
+term to the one below, except L2, which replaces L1's linear drift with a quarterly trend that
+contains it. L0–L5 drop base terms, so only NUTS fits them. From m0q on, both samplers
+fit every design.
+
+| Design | Adds |
+|---|---|
+| L0-mean | intercept only (Student-t noise) |
+| L1-drift | one shared linear drift per year |
+| L2-trend | a shared market trend: random walk over quarterly knots (contains the drift) |
+| L3-season | calendar season |
+| L4-features | the listing features |
+| L5-building | building levels |
+| m0q | unit levels |
+| m1q | each building's random walk over half-year knots |
+| m5-nocurves | each building's premium per bedroom |
+| m6-nocurves | each building's slopes on size and bathrooms |
+| m7-nocurves | Student-t unit levels instead of normal |
+| m8-nocurves | each unit's linear drift per year |
+
+History, from the removed PyMC/NumPyro ladder (ladder.py, 3c26c4a–ac9e02b):
+- Non-centring the data-rich effects made PyMC diverge at L2 and L3.
+- nutpie needs one BLAS/numba thread per chain: about 1.8× faster per leapfrog step on L4.
+- From L4 on, NUTS takes about 245 leapfrog steps per iteration with a diagonal mass matrix. The
+  44 feature coefficients are correlated with each other and with the trend, so a dense or
+  low-rank mass matrix is the NUTS variant to time next.
+- Its records (lines `pymc` and `numpyro`, feature set `none` below L4) stay on the board as
+  data.
+
+## Current effort: the sub-15-minute frontier on thelio (from 2026-09-24)
 
 Ben asked for a research effort on the part of the frontier that fits in under 10 minutes, with
 variance decomposition as a measure of modeling quality and projection to search for more
-efficient models. It runs separately on each local hardware class (RTX 2060 SUPER and the CPU).
+efficient models. On 2026-09-25 he widened the window to **15 minutes per fit**. It runs
+separately on each local hardware class (RTX 2060 SUPER and the CPU).
+
+**Samplers: library over custom** (Ben, 2026-09-25: "I would prefer to use a library sampler
+implementation over implementing our own").
+- The custom Gibbs sampler (`gibbs.py`) is ours end to end: exact Gaussian block draws with units
+  integrated out, its own Student-t augmentation, collapsed Metropolis scale updates and warmup
+  adaptation. No library offers that combination in this stack:
+  - NumPyro's `HMCGibbs` needs the conditional draws written by hand;
+  - BlackJAX offers kernels (NUTS, elliptical slice, latent-Gaussian samplers), not a blocked
+    Gibbs sampler;
+  - PyMC has no conjugate Gaussian step;
+  - NIMBLE and JAGS assign conjugate and block samplers automatically, but on the CPU outside this
+    stack.
+- The custom Gibbs sampler is therefore **frozen**: no new sampler code. It stays as the benchmark
+  on the thelio frontier and retires once a library sampler matches it there.
+- **NUTS belongs on the CPU here.** On the RTX 2060, NumPyro NUTS took 23 s for L0-mean, 110 s for
+  L1-drift and over 20 minutes for L2-trend (stopped), against 8 s, 9 s and 322 s for PyMC NUTS
+  on the CPU. Every leapfrog step is many small float64 kernels, and the card runs float64 at
+  about 1/32 rate. The NUTS ladder runs on the CPU, with and without the dense mass matrix.
+- **NumPyro's CPU gradient is the cost, not the tree.** NumPyro NUTS on the CPU (4 × (1000 + 1000)):
+  - L0-mean: 40 s, 6 leapfrog steps per draw;
+  - L1-drift: 128 s, 15 steps;
+  - L2-trend: 1,987 s, gate passed.
+
+  Its trees are normal, but one chain-gradient over the 47,374 rows costs about 0.7 ms in JAX on
+  the CPU, against about 0.08 ms in nutpie's numba-compiled gradient. PyMC/nutpie did L2 in 322 s.
+- **Right-size the NUTS draw budget.** 1,000 + 1,000 draws per chain (PyMC's default) gave ESS
+  4,767 on L2 against a gate of 400. The next pass uses 500 warmup + 250 draws per chain, all
+  kept for PSIS (1,000 draws), with the dense mass matrix from L4 on.
+- New sampler work uses library samplers on `model.build_model`, with library options only:
+  - NumPyro NUTS (`--sampler nuts`), with a diagonal or a structured dense mass matrix;
+  - BlackJAX's NUTS and many-chain adaptation;
+  - nutpie's Rust NUTS on the JAX log density.
 
 - **Starting point.** On the H100, only m0 (83 s) is under 10 minutes; m1-walk (6–12 min) failed
   the gate and m5-nocurves took 13 min. On thelio, m0 with 8 chains × (100 + 100) took 241 s on
@@ -103,12 +194,32 @@ efficient models. It runs separately on each local hardware class (RTX 2060 SUPE
   iterations.
 - **Step 2. Projection search.** Use m8 + desc as the reference (its saved draws). Project its
   predictions onto cheaper design families (the structure of m0, m1, m5 without curves, with or
-  without the description flags, per-building slopes, Student-t units) and measure the PSIS-LOO
-  each projection loses. The terms that keep the most accuracy per second of expected fit time
-  define the candidates.
-- **Step 3. Native fits.** Fit the best candidates on each local class within 10 minutes with the
+  without the description flags, per-building slopes; Student-t units are not in the prototype)
+  and measure the in-sample log density each projection loses. That is a proxy: it ranks
+  structures as their native PSIS-LOO does but inflates the losses. The terms that keep the
+  most accuracy per second of expected fit time define the candidates.
+- **Findings so far (RTX 2060).**
+  - Clean serial re-times at ac9e02b, all on the 2060:
+    - m0q, 4 × (500 + 2000): 253 s, passes (350 s when measured alongside other jobs).
+    - m1q with the solo walk-scale update, 4 × (300 + 1500): 702 s, passes (709 s before). Its
+      cost is the solo update's extra block solves, not contention.
+    - m0q gains nothing measurable over m0: PSIS-LOO +10.3 ± 11.1.
+  - Round 2, description flags, 2 × (300 + 3000):
+    - m0q + desc: 309 s, passes; PSIS-LOO about +174 over m0q.
+    - m6-nocurves + desc: 1,245 s, **fails** (fslope_scale[0] R-hat 1.020, ESS 52 on the size
+      coefficient). The per-building size slopes and the global size coefficient move together,
+      and that slope scale mixes slowly. The candidate fix is a solo collapsed update for the
+      feature-slope scales, as walk_scale has.
+  - Exact block speedups: per-slot accumulation (−34–37% for walk designs) and a structured
+    `a′Wa` with inverted building factors (a further −22–38%).
+  - Walk designs need the solo collapsed walk_scale update. Without it walk_scale mixes 3.5×
+    slower per draw, and cheap scaling moves or a covariance-shaped joint proposal don't close
+    the gap. With it, an iteration costs about 3 block solves (~145 ms per chain), and four chains
+    don't batch on this card. So a walk design that passes the gate needs about 15–17 min.
+  - A short-warmup adaptation bug (steps sized from drift, ν frozen) is fixed.
+- **Step 3. Native fits.** Fit the best candidates on each local class within 15 minutes with the
   step 1 settings, then score PSIS-LOO and the variance decomposition. These points form that
-  class's sub-10-minute frontier.
+  class's sub-15-minute frontier.
 
 ## Work tracks, in order
 
@@ -123,7 +234,9 @@ efficient models. It runs separately on each local hardware class (RTX 2060 SUPE
 3. **Score the promoted PyMC model.** Rerun its row-split screen locally with draws saved (about 3 h
    of CPU NUTS) and add the PyMC-side integrated LOO. It then returns as a comparison point with its
    6.2 h production fit.
-4. **Close the tdrift sampler-agreement xfail** before relying on m8's drift-scale uncertainty.
+4. ~~Close the tdrift sampler-agreement xfail.~~ Done (PR #17 review). It passes against the
+   non-centred reference, and the xfail is removed. The margin is thin: Gibbs ESS on
+   unit_drift_scale is about 80–200 in the test.
 
 ### T2. The fit-time axis on thelio
 

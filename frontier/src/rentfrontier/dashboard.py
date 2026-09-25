@@ -69,6 +69,18 @@ DESIGNS = {
     "nuts-hwalk-noise": "PyMC: walk with a noise-scale variant",
     "nuts-bcov": "PyMC: building covariance variant",
     "nuts-level": "PyMC: level variant",
+    # The model ladder's simplest designs (model.LADDER; NUTS only).
+    "L0-mean": "ladder: intercept only, Student-t noise",
+    "L1-drift": "ladder: + one shared linear drift per year",
+    "L2-trend": "ladder: shared quarterly market trend (replaces the drift)",
+    "L3-season": "ladder: + calendar season",
+    "L4-features": "ladder: + the listing features",
+    "L5-building": "ladder: + building levels",
+    "m0q": "m0 with a quarterly market trend",
+    "m1q": "m1 with a quarterly market trend",
+    "m6-nocurves": "m6 without bedroom curves",
+    "m7-nocurves": "m7 without bedroom curves",
+    "m8-nocurves": "m8 without bedroom curves",
 }
 
 
@@ -239,6 +251,16 @@ def psis_fields(ps):
     }
 
 
+def structure(e) -> str:
+    """The model an entry fits, whichever sampler fit it: design and features
+    (every sampler fits the designs in `model.MODELS`). A design without the
+    listing features is keyed `<design>/none` whatever its run's feature-set
+    label (NUTS records base-v1; the removed PyMC ladder recorded none)."""
+    m = e["model"]
+    uses_features = m.get("features", True) and e["feature_set"] != "none"
+    return f"{m['name']}/{e['feature_set'] if uses_features else 'none'}"
+
+
 def data():
     board = leaderboard.build(keep_dirs=True)
     entries = assign_keys(board["entries"])
@@ -255,6 +277,7 @@ def data():
                 "id": e["id"],
                 "key": e["_key"],
                 "line": e["line"],
+                "structure": structure(e),
                 "design": design,
                 "design_text": DESIGNS.get(design, ""),
                 "feature_set": e["feature_set"],
@@ -268,6 +291,7 @@ def data():
                 "hardware_class": e["hardware_class"],
                 "variance": (e.get("variance") or {}).get("intervals"),
                 "fit_seconds": e["fit_seconds"],
+                "other_cores": (e.get("contention") or {}).get("other_cores"),
                 "cost_usd": e["cost_usd"],
                 "grade": e["grade"],
                 "passes_checks": e["passes_checks"],
@@ -288,6 +312,7 @@ def data():
                         "max_rhat": s["max_rhat"],
                         "min_ess": s["min_ess"],
                         "group_rhat_max": s.get("group_rhat_max"),
+                        "divergences": s.get("divergences"),
                         "passes": s["passes"],
                         "fit_seconds": s["fit_seconds"],
                         "completed_at": iso(s["_at"]),

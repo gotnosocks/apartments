@@ -168,3 +168,14 @@ def test_secondary_split_on_other_hardware_joins_the_row_split_entry():
     # Row splits on two hardware classes stay two entries.
     rows2 = {**base, **h200, "split": "rows", "name": "r2"}
     assert len(leaderboard.group_runs([rows, rows2, units])) == 2
+
+
+def test_latest_record_is_the_newest_scoring_commit_not_the_newest_file(tmp_path):
+    old, new = "5cc0809", leaderboard.git("rev-parse", "HEAD")
+    for folder, commit in (("a-new", new), ("b-old", old), ("c-unknown", "0" * 40)):
+        (tmp_path / folder).mkdir()
+        (tmp_path / folder / "result.json").write_text(
+            json.dumps({"source_run": "r", "commit": commit, "tag": folder})
+        )
+    # b-old and c-unknown were written last (newest files); a-new still wins.
+    assert leaderboard.latest_records(tmp_path)["r"]["tag"] == "a-new"
