@@ -16,7 +16,12 @@ http://thelio.tail3983e0.ts.net:8500 (tailnet only).
   unit split (secondary), best PSIS-LOO ΔELPD over time, fit time over time, cumulative compute by
   model line, all entries (sortable, with Pareto-k reliability, notes and annotations) and
   milestones (merged PRs and app-model selections from git history). Every chart has a table view.
-- A **hardware** selector: each hardware class (where the fit ran) has its own frontier and best.
+- A **hardware** multi-select: check any set of hardware classes (default: every thelio class,
+  remembered per browser; quick picks "All thelio" and "All"). Each class keeps its own frontier
+  and best, since a fit time only competes with fit times on the same hardware. With several
+  classes checked, their entries share the charts. Shape marks the hardware (circle RTX 2060,
+  square CPU, diamond Modal), and each class's frontier and best-over-time lines get their own
+  dash.
   The entries table's **Timing** column shows how many cores other processes kept busy during the
   fit (recorded from commit 3c26c4a; clean below 0.5), because thelio fits run one at a time for
   clean timings.

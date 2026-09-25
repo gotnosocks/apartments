@@ -16,7 +16,13 @@ const scoreErr = (e) => (e.psis ? Math.hypot(e.psis.delta_se, e.psis.delta_mcse)
 const heldout = (e) => e.splits.rows?.delta ?? null;
 // The frontier is per hardware class; snapshots carry one record per class.
 const EMPTY = { best: null, best_delta: null, frontier: [], entries: 0 };
-const hw = (snap) => (snap.by_class && snap.by_class[state.hw]) || EMPTY;
+// Per-class board state in a snapshot (frontier and best are per hardware class).
+const cls = (snap, c) => (snap.by_class && snap.by_class[c]) || EMPTY;
+// Short hardware names for labels: "RTX 2060 SUPER", "CPU", "Modal H100".
+const hwShort = (c) => c.replace(/^thelio /, '').replace(/ \(.*\)$/, '');
+// One dash pattern per selected class, for its frontier and best lines.
+const DASHES = ['', '7 4', '2 3', '10 3 2 3', '1 5'];
+const dashOf = (c) => DASHES[Math.max(0, state.hws.indexOf(c)) % DASHES.length];
 
 const state = {
   data: null, idx: 0, showFailed: true, showSE: true, fullRange: false,
@@ -115,18 +121,22 @@ function asOf(idx) {
   const snap = d.snapshots[idx];
   // The latest position means "now" (the build time), so later milestones count.
   const T = idx === d.snapshots.length - 1 ? Math.max(Date.parse(snap.at), Date.parse(d.generated_at)) : Date.parse(snap.at);
-  const frontier = new Set(hw(snap).frontier);
+  const selected = new Set(state.hws);
+  const fronts = Object.fromEntries(state.hws.map((c) => [c, new Set(cls(snap, c).frontier)]));
   const entries = [];
   for (const e of d.entries) {
-    if (!e.available_at || Date.parse(e.available_at) > T || e.hardware_class !== state.hw) continue;
+    if (!e.available_at || Date.parse(e.available_at) > T || !selected.has(e.hardware_class)) continue;
     const splits = {};
     for (const [k, s] of Object.entries(e.splits)) if (Date.parse(s.completed_at) <= T) splits[k] = s;
     if (!splits.rows) continue;
     const passes = Object.values(splits).every((s) => s.passes);
     const fit = splits.rows.fit_seconds; // the scored fit's time
-    entries.push({ ...e, splits, passes, fit, onFrontier: frontier.has(e.key), isBest: hw(snap).best === e.key });
+    entries.push({ ...e, splits, passes, fit, onFrontier: fronts[e.hardware_class].has(e.key),
+      isBest: cls(snap, e.hardware_class).best === e.key });
   }
-  return { T, snap, entries, frontier, best: entries.find((e) => e.isBest) || null };
+  // Each selected class's best entry (or null), in selection order.
+  const bests = Object.fromEntries(state.hws.map((c) => [c, entries.find((e) => e.isBest && e.hardware_class === c) || null]));
+  return { T, snap, entries, bests };
 }
 function visibleEntries(v) {
   return v.entries.filter((e) => state.lines[e.line] && (state.showFailed || e.passes));
@@ -229,17 +239,21 @@ function axisTitles(f, xt, yt) {
   if (yt) svg('text', { class: 'axis-title', x: 14, y: (f.inner.y0 + f.inner.y1) / 2, 'text-anchor': 'middle',
     transform: `rotate(-90 14 ${(f.inner.y0 + f.inner.y1) / 2})`, text: yt }, f.root);
 }
+// A mark per entry: colour = implementation line, shape = hardware class
+// (triangle when clamped below the axis floor), hollow = fails the gate.
 function dot(parent, cx, cy, e, opts = {}) {
   const r = opts.r || 5;
   const passes = opts.passes ?? e.passes;
-  const attrs = { class: 'dot' + (passes ? '' : ' hollow'), cx, cy, r,
-    style: passes ? `fill:${LINES[e.line].color}` : `stroke:${LINES[e.line].color}` };
-  if (opts.opacity) attrs.opacity = opts.opacity;
+  const color = LINES[e.line].color;
+  let node;
   if (opts.clamped) {
-    const pts = `${cx - r},${cy - r} ${cx + r},${cy - r} ${cx},${cy + r}`;
-    return svg('polygon', { ...attrs, points: pts, class: attrs.class }, parent);
+    node = svg('polygon', { class: 'dot' + (passes ? '' : ' hollow'), style: passes ? `fill:${color}` : `stroke:${color}`,
+      points: `${cx - r},${cy - r} ${cx + r},${cy - r} ${cx},${cy + r}` }, parent);
+  } else {
+    node = mark(parent, hwShape(e.hardware_class), cx, cy, r, color, passes);
   }
-  return svg('circle', attrs, parent);
+  if (opts.opacity) node.setAttribute('opacity', opts.opacity);
+  return node;
 }
 function nearest(points, px, py, max = HIT) {
   let best = null, bd = Infinity;
@@ -289,7 +303,7 @@ function placeLabels(f, items, obstacles) {
 function domains() {
   const d0 = state.data;
   // Axes follow the selected hardware (fit times differ by orders of magnitude between machines).
-  const d = { ...d0, entries: d0.entries.filter((e) => e.hardware_class === state.hw) };
+  const d = { ...d0, entries: d0.entries.filter((e) => state.hws.includes(e.hardware_class)) };
   const fits = d.entries.map((e) => e.fit_seconds).concat([d.reference.fit_seconds]);
   const rows = d.entries.map(score).filter((v) => v !== null && v !== undefined);
   const held = d.entries.map(heldout).filter((v) => v !== null && v !== undefined);
@@ -343,18 +357,28 @@ function drawFrontier(v, dom) {
   axisTitles(f, 'Fit time of the scored fit (log scale)', 'PSIS-LOO ΔELPD vs baseline');
   const clampY = (val) => Math.max(val, dom.rows[0]);
 
-  // Latest frontier as a ghost when scrubbed back in time.
+  // Latest frontiers as ghosts when scrubbed back in time.
   const last = state.data.snapshots.length - 1;
+  const multi = state.hws.length > 1;
   if (state.idx < last) {
     const latest = asOf(last).entries.filter((e) => e.onFrontier);
-    const g = staircase(latest, x, (val) => y(clampY(val)), f.inner.x1);
-    if (g) svg('path', { class: 'ghost-line', d: g.path }, f.root);
+    for (const c of state.hws) {
+      const g = staircase(latest.filter((e) => e.hardware_class === c), x, (val) => y(clampY(val)), f.inner.x1);
+      if (g) svg('path', { class: 'ghost-line', d: g.path, 'stroke-dasharray': dashOf(c) }, f.root);
+    }
   }
+  // One frontier per selected hardware class: a fit time only competes with
+  // fit times on the same hardware.
   const front = v.entries.filter((e) => e.onFrontier);
-  const st = staircase(front, x, (val) => y(clampY(val)), f.inner.x1);
-  if (st) {
-    svg('path', { class: 'frontier-wash', d: `${st.path} V${f.inner.y1} H${x(st.first.fit)} Z` }, f.root);
-    svg('path', { class: 'frontier-line', d: st.path }, f.root);
+  const ends = [];
+  for (const c of state.hws) {
+    const fc = front.filter((e) => e.hardware_class === c);
+    const st = staircase(fc, x, (val) => y(clampY(val)), f.inner.x1);
+    if (!st) continue;
+    if (!multi) svg('path', { class: 'frontier-wash', d: `${st.path} V${f.inner.y1} H${x(st.first.fit)} Z` }, f.root);
+    svg('path', { class: 'frontier-line', d: st.path, 'stroke-dasharray': dashOf(c) }, f.root);
+    const top = [...fc].sort((a, b) => b.fit - a.fit)[0];
+    ends.push({ c, y: y(clampY(score(top))) });
   }
   // Baseline (dELPD 0) hairline, when 0 is on the axis (not in the default zoom).
   const zeroOnAxis = dom.rows[0] <= 0;
@@ -388,19 +412,24 @@ function drawFrontier(v, dom) {
   // Selective direct labels: frontier members and the best.
   const obstacles = pts.map((p) => ({ x: p.x - 6, y: p.y - 6, w: 12, h: 12 }));
   if (zeroOnAxis) obstacles.push({ x: f.inner.x0, y: y(0) - 2, w: f.inner.x1 - f.inner.x0, h: 4 });
-  const steps = [...front].sort((a, b) => a.fit - b.fit);
-  steps.forEach((e, i) => {
-    const sx = x(e.fit), ex = i + 1 < steps.length ? x(steps[i + 1].fit) : f.inner.x1;
-    const sy = y(clampY(score(e)));
-    obstacles.push({ x: sx, y: sy - 3, w: ex - sx, h: 6 });
-    if (i + 1 < steps.length) {
-      const ny = y(clampY(score(steps[i + 1])));
-      obstacles.push({ x: ex - 3, y: Math.min(sy, ny), w: 6, h: Math.abs(sy - ny) });
-    }
-  });
+  for (const c of state.hws) {
+    const steps = front.filter((e) => e.hardware_class === c).sort((a, b) => a.fit - b.fit);
+    steps.forEach((e, i) => {
+      const sx = x(e.fit), ex = i + 1 < steps.length ? x(steps[i + 1].fit) : f.inner.x1;
+      const sy = y(clampY(score(e)));
+      obstacles.push({ x: sx, y: sy - 3, w: ex - sx, h: 6 });
+      if (i + 1 < steps.length) {
+        const ny = y(clampY(score(steps[i + 1])));
+        obstacles.push({ x: ex - 3, y: Math.min(sy, ny), w: 6, h: Math.abs(sy - ny) });
+      }
+    });
+  }
   const items = [];
-  const best = pts.find((p) => p.e.isBest);
-  if (best) items.push({ x: best.x, y: best.y, text: `Best: ${entryLabel(best.e)}` });
+  // Name each staircase at its right end when several classes are shown.
+  if (multi) for (const end of ends) items.push({ x: f.inner.x1 - 2, y: end.y, text: `${hwShort(end.c)} frontier` });
+  for (const best of pts.filter((p) => p.e.isBest)) {
+    items.push({ x: best.x, y: best.y, text: `Best${multi ? ` (${hwShort(best.e.hardware_class)})` : ''}: ${entryLabel(best.e)}` });
+  }
   for (const p of pts.filter((q) => q.e.onFrontier && !q.e.isBest).sort((a, b) => score(b.e) - score(a.e))) {
     items.push({ x: p.x, y: p.y, text: entryLabel(p.e) + (p.clamped ? ` (${fmtDelta(score(p.e), 0)})` : '') });
   }
@@ -450,9 +479,9 @@ function drawUnits(v, dom) {
   }
   pts.sort((a, b) => Number(a.e.passes) - Number(b.e.passes));
   for (const p of pts) p.node = dot(f.root, p.x, p.y, p.e, { clamped: p.clamped });
-  const best = pts.find((p) => p.e.isBest);
   const obstacles = pts.map((p) => ({ x: p.x - 6, y: p.y - 6, w: 12, h: 12 }));
-  if (best) placeLabels(f, [{ x: best.x, y: best.y, text: `Best: ${entryLabel(best.e)}` }], obstacles);
+  placeLabels(f, pts.filter((p) => p.e.isBest).map((p) => ({ x: p.x, y: p.y,
+    text: `Best${state.hws.length > 1 ? ` (${hwShort(p.e.hardware_class)})` : ''}: ${entryLabel(p.e)}` })), obstacles);
   hoverPoints(f, pts, (t, p) => {
     const s = p.e.splits.units;
     html('div', { class: 't-value' }, t, `${fmtDelta(s.delta)} ${fmtSE(s.delta_se)} units ΔELPD`);
@@ -540,7 +569,7 @@ function drawVariance(v) {
   rowsE.forEach((e, r) => {
     const y0 = f.inner.y0 + 8 + r * (barH + gap);
     svg('text', { class: 'label', x: labelW - 10, y: y0 + barH / 2 + 4, 'text-anchor': 'end',
-      text: entryLabel(e) + (e.isBest ? ' (best)' : '') }, f.root);
+      text: entryLabel(e) + (state.hws.length > 1 ? ` · ${hwShort(e.hardware_class)}` : '') + (e.isBest ? ' (best)' : '') }, f.root);
     let acc = 0;
     groups.forEach((g, i) => {
       const share = Math.max(0, e.variance[g].mean);
@@ -772,41 +801,50 @@ function drawProgress(v, dom) {
     'PSIS-LOO ΔELPD', 'Best PSIS-LOO ΔELPD over time with every scored entry');
   const zeroOnAxis = dom.rows[0] <= 0;
   if (zeroOnAxis) svg('line', { class: 'ref-line', x1: tf.f.inner.x0, x2: tf.f.inner.x1, y1: tf.y(0), y2: tf.y(0) }, tf.f.root);
-  // Best staircase up to the as-of time.
+  // Each selected class's best, as a staircase up to the as-of time.
   const snaps = state.data.snapshots.slice(0, state.idx + 1);
-  let d = '';
-  let prev = null;
-  for (const s of snaps) {
-    if (hw(s).best_delta === null) continue;
-    const sx = tf.x(Date.parse(s.at)), sy = tf.y(Math.max(hw(s).best_delta, dom.rows[0]));
-    d += prev ? ` H${sx} V${sy}` : `M${sx},${sy}`;
-    prev = s;
-  }
-  if (prev) {
-    d += ` H${tf.x(v.T)}`;
-    svg('path', { class: 'best-line', d }, tf.f.root);
+  const multi = state.hws.length > 1;
+  for (const c of state.hws) {
+    let d = '';
+    let prev = null;
+    for (const s of snaps) {
+      if (cls(s, c).best_delta === null) continue;
+      const sx = tf.x(Date.parse(s.at)), sy = tf.y(Math.max(cls(s, c).best_delta, dom.rows[0]));
+      d += prev ? ` H${sx} V${sy}` : `M${sx},${sy}`;
+      prev = s;
+    }
+    if (prev) svg('path', { class: 'best-line', d: d + ` H${tf.x(v.T)}`, 'stroke-dasharray': dashOf(c) }, tf.f.root);
   }
   const pts = timeDots(tf, v, score, dom.rows);
   cursorAt(tf, v.T);
-  if (v.best) {
-    const p = pts.find((q) => q.e.key === v.best.key);
-    const obstacles = pts.map((q) => ({ x: q.x - 6, y: q.y - 6, w: 12, h: 12 }));
-    if (p) placeLabels(tf.f, [{ x: p.x, y: p.y, text: `${entryLabel(p.e)} ${fmtDelta(score(p.e))}` }], obstacles);
+  const obstacles = pts.map((q) => ({ x: q.x - 6, y: q.y - 6, w: 12, h: 12 }));
+  const labels = [];
+  for (const b of Object.values(v.bests)) {
+    const p = b && pts.find((q) => q.e.key === b.key);
+    if (p) labels.push({ x: p.x, y: p.y, text: `${multi ? `${hwShort(b.hardware_class)}: ` : ''}${entryLabel(p.e)} ${fmtDelta(score(p.e))}` });
   }
+  placeLabels(tf.f, labels, obstacles);
   if (zeroOnAxis) svg('text', { class: 'label-muted', x: tf.f.inner.x1 - 4, y: tf.y(0) - 6, 'text-anchor': 'end', text: 'baseline (m0-base) = 0' }, tf.f.root);
   timeHover(tf, pts, (t, T) => {
     const i = bestAtTime(T);
-    const h = i >= 0 ? hw(state.data.snapshots[i]) : EMPTY;
-    html('div', { class: 't-value' }, t, h.best ? fmtDelta(h.best_delta) : 'no gate-passing entry');
     html('div', { class: 't-name' }, t, `Board best at ${fmtWhen.format(T)}`);
-    if (h.best) tipRow(t, 'Entry', h.best);
-    if (i >= 0) tipRow(t, 'Frontier entries', String(h.frontier.length));
+    for (const c of state.hws) {
+      const h = i >= 0 ? cls(state.data.snapshots[i], c) : EMPTY;
+      tipRow(t, hwShort(c), h.best ? `${fmtDelta(h.best_delta)} · ${h.best} (${h.frontier.length} on the frontier)` : 'no gate-passing entry');
+    }
   });
-  const changes = [];
-  let last = null;
-  for (const s of snaps) if (hw(s).best !== last) { changes.push(s); last = hw(s).best; }
-  renderTable($('table-progress'), ['Became best', 'Entry', 'PSIS-LOO ΔELPD', 'Frontier size'],
-    changes.filter((s) => hw(s).best).map((s) => [fmtWhen.format(Date.parse(s.at)), hw(s).best, fmtDelta(hw(s).best_delta), String(hw(s).frontier.length)]), [2, 3]);
+  const rows = [];
+  for (const c of state.hws) {
+    let last = null;
+    for (const s of snaps) {
+      const h = cls(s, c);
+      if (h.best === last) continue;
+      last = h.best;
+      if (h.best) rows.push([fmtWhen.format(Date.parse(s.at)), hwShort(c), h.best, fmtDelta(h.best_delta), String(h.frontier.length), Date.parse(s.at)]);
+    }
+  }
+  rows.sort((a, b) => a[5] - b[5]);
+  renderTable($('table-progress'), ['Became best', 'Hardware', 'Entry', 'PSIS-LOO ΔELPD', 'Frontier size'], rows.map((r) => r.slice(0, 5)), [3, 4]);
 }
 
 function drawFitTime(v, dom) {
@@ -816,26 +854,28 @@ function drawFitTime(v, dom) {
   svg('line', { class: 'ref-line', x1: tf.f.inner.x0, x2: tf.f.inner.x1, y1: tf.y(ref.fit_seconds), y2: tf.y(ref.fit_seconds) }, tf.f.root);
   svg('text', { class: 'label-muted', x: tf.f.inner.x1 - 4, y: tf.y(ref.fit_seconds) - 6, 'text-anchor': 'end',
     text: `promoted reference full fit ≈ ${fmtDur(ref.fit_seconds)} (CPU)` }, tf.f.root);
-  // Fit time of the board's best, as a staircase.
+  // Fit time of each selected class's best, as a staircase.
   const byKey = Object.fromEntries(state.data.entries.map((e) => [e.key, e]));
-  let d = '', prev = null;
-  for (const s of state.data.snapshots.slice(0, state.idx + 1)) {
-    if (!hw(s).best) continue;
-    const T = Date.parse(s.at);
-    const fit = fitAsOf(byKey[hw(s).best], T);
-    const sx = tf.x(T), sy = tf.y(fit);
-    d += prev ? ` H${sx} V${sy}` : `M${sx},${sy}`;
-    prev = s;
+  for (const c of state.hws) {
+    let d = '', prev = null;
+    for (const s of state.data.snapshots.slice(0, state.idx + 1)) {
+      if (!cls(s, c).best) continue;
+      const T = Date.parse(s.at);
+      const sx = tf.x(T), sy = tf.y(fitAsOf(byKey[cls(s, c).best], T));
+      d += prev ? ` H${sx} V${sy}` : `M${sx},${sy}`;
+      prev = s;
+    }
+    if (prev) svg('path', { class: 'best-line', d: d + ` H${tf.x(v.T)}`, 'stroke-dasharray': dashOf(c) }, tf.f.root);
   }
-  if (prev) svg('path', { class: 'best-line', d: d + ` H${tf.x(v.T)}` }, tf.f.root);
   const pts = timeDots(tf, v, (e) => e.fit, [dom.fit[0]]);
   cursorAt(tf, v.T);
   timeHover(tf, pts, (t, T) => {
     const i = bestAtTime(T);
-    const s = i >= 0 ? hw(state.data.snapshots[i]) : EMPTY;
-    html('div', { class: 't-value' }, t, s.best ? fmtDur(fitAsOf(byKey[s.best])) : '—');
     html('div', { class: 't-name' }, t, `Fit time of the board best at ${fmtWhen.format(T)}`);
-    if (s.best) tipRow(t, 'Entry', s.best);
+    for (const c of state.hws) {
+      const s = i >= 0 ? cls(state.data.snapshots[i], c) : EMPTY;
+      tipRow(t, hwShort(c), s.best ? `${fmtDur(fitAsOf(byKey[s.best]))} · ${s.best}` : '—');
+    }
   });
   renderTable($('table-time'), ['Landed', 'Entry', 'Fit time', 'Hardware'],
     pts.sort((a, b) => a.x - b.x).map((p) => [fmtWhen.format(Date.parse(p.e.available_at)), p.e.key, fmtDur(p.e.fit), p.e.hardware]), [2]);
@@ -903,7 +943,13 @@ function drawLegend() {
     it.appendChild(document.createTextNode(text));
   };
   mk((s) => svg('circle', { cx: 6, cy: 6, r: 4.5, style: 'fill:var(--surface-1);stroke:var(--text-secondary);stroke-width:2' }, s), 'hollow = fails the gate or screen-grade');
-  mk((s) => svg('path', { d: 'M1,10 H7 V3 H17', class: 'frontier-line', style: 'fill:none;stroke:var(--text-primary);stroke-width:2' }, s), 'frontier');
+  for (const c of state.hws) {
+    mk((s) => mark(s, hwShape(c), 6, 6, 4.5, 'var(--text-secondary)', true), hwShort(c));
+  }
+  for (const c of state.hws) {
+    mk((s) => svg('path', { d: 'M1,10 H7 V3 H17', class: 'frontier-line', 'stroke-dasharray': dashOf(c),
+      style: 'fill:none;stroke:var(--text-primary);stroke-width:2' }, s), state.hws.length > 1 ? `frontier · ${hwShort(c)}` : 'frontier');
+  }
   mk((s) => svg('polygon', { points: '1,2 11,2 6,11', style: 'fill:var(--text-secondary)' }, s), 'below the axis floor');
 }
 
@@ -920,22 +966,32 @@ function drawKpis(v) {
   const box = $('kpis');
   box.replaceChildren();
   const snaps = state.data.snapshots;
-  if (v.best) {
+  const multi = state.hws.length > 1;
+  // One best per selected hardware class (the board rule, per class).
+  for (const c of state.hws) {
+    const b = v.bests[c];
+    const label = multi ? `Best on ${hwShort(c)} (board rule)` : 'Best PSIS-LOO ΔELPD vs baseline (board rule)';
+    if (!b) { tile(box, label, '—', null, 'No gate-passing PSIS-scored entry yet', !multi); continue; }
     let prevBest = null;
-    for (let i = state.idx; i >= 0; i--) if (hw(snaps[i]).best && hw(snaps[i]).best !== v.best.key) { prevBest = hw(snaps[i]); break; }
-    tile(box, 'Best PSIS-LOO ΔELPD vs baseline (board rule)', fmtDelta(score(v.best)), fmtSE(scoreErr(v.best)),
-      [entryLabel(v.best) + (v.best.design_text ? ` — ${v.best.design_text}` : ''),
-        prevBest ? `Previous best: ${prevBest.best} (${fmtDelta(prevBest.best_delta)})` : 'First gate-passing entry'], true);
-  } else {
-    tile(box, 'Best PSIS-LOO ΔELPD vs baseline (board rule)', '—', null, 'No gate-passing PSIS-scored entry yet', true);
+    for (let i = state.idx; i >= 0; i--) {
+      const h = cls(snaps[i], c);
+      if (h.best && h.best !== b.key) { prevBest = h; break; }
+    }
+    const top = v.entries.filter((e) => e.hardware_class === c && e.passes && score(e) !== null).sort((p, q) => score(q) - score(p))[0];
+    tile(box, label, fmtDelta(score(b)), fmtSE(scoreErr(b)), [
+      entryLabel(b) + (b.design_text ? ` — ${b.design_text}` : ''),
+      `${fmtDur(b.fit)}: the fastest entry within 2 SE of the top score` +
+        (top && top.key !== b.key ? ` (top: ${entryLabel(top)}, ${fmtDelta(score(top))}, ${fmtDur(top.fit)})` : ''),
+      prevBest ? `Previous best: ${prevBest.best} (${fmtDelta(prevBest.best_delta)})` : 'First gate-passing entry',
+    ], !multi);
   }
   const front = v.entries.filter((e) => e.onFrontier).sort((a, b) => a.fit - b.fit);
   tile(box, 'On the frontier', String(front.length), front.length === 1 ? 'entry' : 'entries',
-    front.length ? [`fastest ${entryLabel(front[0])} (${fmtDur(front[0].fit)})`, `most accurate ${entryLabel(front[front.length - 1])}`] : []);
-  const top = v.entries.filter((e) => e.passes && score(e) !== null).sort((a, b) => score(b) - score(a))[0];
-  tile(box, 'Fit time of the best', v.best ? fmtDur(v.best.fit) : '—', null,
-    v.best ? [`${v.best.hardware}; the fastest entry within 2 SE of the top score`,
-      top && top.key !== v.best.key ? `top score: ${entryLabel(top)} (${fmtDelta(score(top))}, ${fmtDur(top.fit)})` : 'it is also the top score'] : 'none yet');
+    state.hws.map((c) => {
+      const fc = front.filter((e) => e.hardware_class === c);
+      const head = multi ? `${hwShort(c)}: ${fc.length}` : '';
+      return fc.length ? `${head}${multi ? ', ' : ''}fastest ${entryLabel(fc[0])} (${fmtDur(fc[0].fit)}), most accurate ${entryLabel(fc[fc.length - 1])}` : `${head}${multi ? ', ' : ''}none`;
+    }));
   const passing = v.entries.filter((e) => e.passes).length;
   const byLine = (l) => v.entries.filter((e) => e.line === l).length;
   const psisScored = v.entries.filter((e) => score(e) !== null).length;
@@ -1106,13 +1162,39 @@ async function main() {
     if (e.psis) classes[e.hardware_class].scored += 1;
   }
   const order = Object.keys(classes).sort((a, b) => classes[b].scored - classes[a].scored || a.localeCompare(b));
-  state.hw = order[0];
-  const sel = $('hw-select');
+  // Default: every thelio class (the target hardware); the choice is remembered.
+  const thelio = order.filter((c) => c.startsWith('thelio'));
+  let saved = [];
+  try { saved = JSON.parse(localStorage.getItem('dashboard-hw') || '[]'); } catch { saved = []; }
+  saved = saved.filter((c) => classes[c]);
+  state.hws = saved.length ? saved : thelio.length ? thelio : order.slice(0, 1);
+  const box = $('hw-select');
+  const boxes = {};
+  const apply = (list) => {
+    state.hws = order.filter((c) => list.includes(c));
+    for (const c of order) boxes[c].checked = state.hws.includes(c);
+    localStorage.setItem('dashboard-hw', JSON.stringify(state.hws));
+    render();
+  };
   for (const c of order) {
-    const o = html('option', { value: c }, sel, `${c} (${classes[c].scored} PSIS-scored of ${classes[c].n})`);
-    if (c === state.hw) o.selected = true;
+    const lab = html('label', { class: 'check chip' }, box);
+    boxes[c] = html('input', { type: 'checkbox' }, lab);
+    boxes[c].checked = state.hws.includes(c);
+    const s = svg('svg', { width: 14, height: 14, viewBox: '0 0 14 14', 'aria-hidden': 'true' }, lab);
+    mark(s, hwShape(c), 7, 7, 4.5, 'var(--text-secondary)', true);
+    lab.appendChild(document.createTextNode(`${c} (${classes[c].scored} PSIS-scored of ${classes[c].n})`));
+    boxes[c].addEventListener('change', () => {
+      const next = order.filter((k) => boxes[k].checked);
+      apply(next.length ? next : [c]); // keep at least one class selected
+    });
   }
-  sel.addEventListener('change', () => { state.hw = sel.value; render(); });
+  const quick = (text, list) => {
+    const b = html('button', { class: 'ghost', type: 'button' }, box, text);
+    b.addEventListener('click', () => apply(list));
+  };
+  if (thelio.length > 1) quick('All thelio', thelio);
+  quick('All', order);
+  state.hws = order.filter((c) => state.hws.includes(c));
   const range = $('asof-range');
   range.max = String(d.snapshots.length - 1);
   state.idx = d.snapshots.length - 1;
