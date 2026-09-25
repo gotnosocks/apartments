@@ -141,3 +141,30 @@ def test_hardware_class_uses_the_device_the_fit_ran_on():
     assert leaderboard.design_key({**base, **cpu_run}) != leaderboard.design_key(
         {**base, **gpu_run}
     )
+
+
+def test_secondary_split_on_other_hardware_joins_the_row_split_entry():
+    base = {
+        "commit": "abc",
+        "model": {"name": "m5"},
+        "feature_set": "x",
+        "sampler": "gibbs",
+        "sampler_settings": {},
+    }
+    h100 = {
+        "hardware": {"gpu": "NVIDIA H100", "jax_devices": ["cuda:0"]},
+        "remote": {"gpu_reported": "NVIDIA H100"},
+    }
+    h200 = {
+        "hardware": {"gpu": "NVIDIA H200", "jax_devices": ["cuda:0"]},
+        "remote": {"gpu_reported": "NVIDIA H200"},
+    }
+    rows = {**base, **h100, "split": "rows", "name": "r"}
+    units = {**base, **h200, "split": "units", "name": "u"}
+    groups = leaderboard.group_runs([units, rows])
+    assert len(groups) == 1
+    (by_split,) = groups.values()
+    assert set(by_split) == {"rows", "units"}
+    # Row splits on two hardware classes stay two entries.
+    rows2 = {**base, **h200, "split": "rows", "name": "r2"}
+    assert len(leaderboard.group_runs([rows, rows2, units])) == 2

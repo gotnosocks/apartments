@@ -426,14 +426,33 @@ def on_frontier(entries):
     return flags
 
 
+def group_runs(runs):
+    """A design's split runs as one entry, keyed by design_key.
+
+    The row split (the scored fit) sets the entry's hardware; a secondary
+    split that ran on other hardware joins the same design's row-split entry
+    instead of forming an entry of its own."""
+    groups = {}
+    for r in runs:
+        if r["split"] == "rows":
+            groups.setdefault(design_key(r), {})["rows"] = r
+    for r in runs:
+        if r["split"] == "rows":
+            continue
+        key = design_key(r)
+        if key not in groups:
+            same = [k for k in groups if k[1:] == key[1:]]
+            key = same[0] if same else key
+        groups.setdefault(key, {})[r["split"]] = r
+    return groups
+
+
 def build(keep_dirs=False):
     rescores = load_rescores()
     loos = load_loo()
     variances = load_variance()
     annotations = load_annotations()
-    groups = {}
-    for r in load_runs():
-        groups.setdefault(design_key(r), {})[r["split"]] = r
+    groups = group_runs(load_runs())
     entries = []
     for by_split in groups.values():
         any_run = next(iter(by_split.values()))
@@ -499,6 +518,7 @@ def build(keep_dirs=False):
             fit_seconds.append(r["seconds"]["fit_total"])
             cost.append(r.get("cost_usd") or 0.0)
         e["passes_checks"] = passes
+        e["split_hardware"] = {k: hardware_class(r) for k, r in by_split.items()}
         e["line"] = "frontier"
         e["grade"] = "full" if passes else "failed"
         # Fit time is the scored (row-split) fit's; unit-split fits are optional.

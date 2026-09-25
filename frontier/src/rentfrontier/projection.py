@@ -188,7 +188,9 @@ def design(s: Structure, a, x, names, n_months, n_build, n_units, scales):
         (a.month % k) / k,
         n_knots,
         rows,
-        scales["trend_scale"],
+        # The reference's walk scale is per step of its own knot spacing; a
+        # random walk's variance per step grows with the step length.
+        scales["trend_scale"] * math.sqrt(k / scales["trend_knot_months"]),
     )
     add(zt, pen=pt)
     add(indicator(a.calendar, 12, rows), scales["season_scale"])
@@ -293,6 +295,7 @@ def project(reference: str, candidates=CANDIDATES):
         if k in kept
     }
     scales["fslope_scales"] = kept["fslope_scales"].mean(0).tolist()
+    scales["trend_knot_months"] = config.trend_knot_months
     elpd_ref = float(t_logpdf(y - mu_ref, nu, sigma).sum())
     base_x = features.build("base-v1", frame, ~heldout)
     xs = {
