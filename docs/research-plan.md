@@ -370,6 +370,10 @@ comes from other sources, most of them public NYC and NYS data.
    - Fixed ν, as a speed option.
 7. **Pooling structure.** A neighbourhood or spatial level between market and building, which
    pairs with A.1–A.2.
+8. **Column ("line") effects** (Ben, 2026-09-25). A level between building and unit for units that
+   stack vertically ("4C", "7C", "12C"), so a unit listed once borrows from its line's history. It
+   also carries the unit-orientation features (A′). The plan is in the
+   [research backlog](model/research-backlog.md), under "Column ("line") effects".
 
 **C. Implementations within 15 minutes.**
 1. **NUTS in NUTS-friendly coordinates on the CPU.**

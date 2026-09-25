@@ -50,6 +50,48 @@
 - Then test lighter tails on the cleaned data: a larger fixed ν, and Gaussian noise. If they win,
   fit time and NUTS geometry improve too.
 
+## Column ("line") effects within buildings (Ben, September 25)
+
+**Idea.** In most buildings, units with the same letter or line on different floors ("4C", "7C",
+"12C") stack vertically. They usually share a floor plan, exposure, views, window orientation and
+position (corner or interior, street- or courtyard-facing). A per-building column effect could
+capture this, pooling information across floors where today each unit stands alone.
+
+**Why it should help.**
+- About 47% of units are listed only once. Their unit effect is essentially the prior, so PSIS-LOO
+  leans on building and features alone.
+- A column effect would let a single-listing 12C borrow strength from 4C and 7C's history.
+- It's also more interpretable than an anonymous unit effect: "the C line in this building rents
+  6% above its features".
+
+**Steps.**
+1. **Extract the line.**
+   - Parse unit designations into floor plus line: "12C" → floor 12, line C; also "PH-A", "4R"/"4F"
+     (rear/front), and numeric lines like "1204" → floor 12, line 04.
+   - Record the parse rule and its coverage. Unparseable designations get no column, so the
+     effect is 0 there.
+   - Check against the advertised floor where both exist.
+2. **Model shape.**
+   - Add a column level between building and unit: rows ⊂ units ⊂ columns ⊂ buildings, with its
+     own scale. Unit effects then become deviations from their column.
+   - Keep the one-model-definition rule: a `ModelConfig` switch (`columns=True`) in
+     `build_model`, fit with NUTS.
+   - Use the same level-by-level centring: column totals centred on their mean features.
+3. **Screen first.**
+   - Project the m8 + desc reference onto m0q/m5-nocurves + columns to see whether columns take
+     variance from the unit and building shares in the variance decomposition.
+   - Then run a native NUTS fit within 15 minutes.
+4. **Combine with orientation.** Columns are the natural carrier for the unit-orientation features
+   in the external-data track (research plan, A′): street vs courtyard, the width of the facing
+   street, window direction. A line faces one side of the building on every floor.
+
+**Watch for.**
+- Inconsistent designation schemes across buildings and over time.
+- Renumbered or combined units.
+- Lines that switch layout above a setback.
+- Columns with a single unit add nothing and should fold into the unit effect.
+- Compare PSIS-LOO on the same rows: the gain should show up mainly on units listed once.
+
 ## Pipeline review, September 20
 
 Items from an end-to-end review of collection → transform → fit → analyze,
