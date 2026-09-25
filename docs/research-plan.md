@@ -117,6 +117,16 @@ because most building half-years have no rows. The first ladder (3c26c4a) had ev
 non-centred, and PyMC diverged at the scales: 1 divergence on L2 (344 s) and 6 on L3 (525 s). Those
 records stay on the board as the evidence.
 
+Implementation findings, PyMC (nutpie, CPU):
+- **One thread per chain.** nutpie runs each chain on its own thread. By default the BLAS and numba
+  thread pools inside every chain competed for the 12 logical cores: about 55 threads at ~1,190% CPU.
+  Limiting each chain to one thread cut the cost per leapfrog step on L4 from 7.0 to 3.9 ms
+  (1.8× faster; same trees, 4 × (150 + 150)). The ladder does this from ac9e02b; earlier PyMC
+  times from L2 up are inflated.
+- **Deep trees from L4 on.** L4 takes about 245 leapfrog steps per iteration, because the 44
+  feature coefficients are correlated with each other and with the trend. A low-rank or dense
+  mass matrix (nutpie supports both) is the next PyMC variant to time against the diagonal one.
+
 | Rung | Adds |
 |---|---|
 | L0-mean | intercept only (Student-t noise) |
