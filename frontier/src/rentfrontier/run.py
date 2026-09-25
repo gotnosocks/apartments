@@ -229,6 +229,13 @@ def feature_sources(feature_set: str) -> dict:
             "path": str(descriptions.SOURCE),
             "sha256": data.sha256(descriptions.SOURCE),
         }
+    if feature_set.startswith("pluto"):
+        for name, snap in (
+            ("registry", features.REGISTRY_SNAPSHOT),
+            ("pluto", features.PLUTO_SNAPSHOT),
+        ):
+            prov = json.loads((Path(snap) / "provenance.json").read_text())
+            out[name] = {"snapshot": snap, "sha256": prov["sha256"]}
     return out
 
 
@@ -274,7 +281,7 @@ def main(argv=None):
     )
     parser.add_argument(
         "--coordinates",
-        help="nuts: comma-separated sampling coordinates (trend_levels, season_zerosum, building_zerosum, unit_totals)",
+        help="nuts: comma-separated sampling coordinates (trend_levels, season_zerosum, building_zerosum, building_totals, unit_totals)",
     )
     parser.add_argument("--name", required=True)
     parser.add_argument(

@@ -35,6 +35,7 @@ NONCENTERED = ("walk_step", "unit_drift")
 LOCAL_SITES = {
     "building",
     "building_dev",
+    "building_total_dev",
     "bedroom_slope_dev",
     "unit",
     "unit_total",
@@ -63,8 +64,8 @@ class Settings:
     # per-building and per-unit arrays.
     dense_globals: bool = False
     # Sampling coordinates (model.ModelConfig.coordinates): "trend_levels",
-    # "season_zerosum", "building_zerosum", "unit_totals". They change how
-    # NUTS moves, not the model.
+    # "season_zerosum", "building_zerosum", "building_totals", "unit_totals".
+    # They change how NUTS moves, not the model.
     coordinates: tuple = ()
     # float32 arithmetic (run.py leaves jax_enable_x64 off). The RTX 2060 runs
     # float32 at full rate but float64 at about 1/32; scoring (loo, variance)

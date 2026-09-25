@@ -335,8 +335,16 @@ comes from other sources, most of them public NYC and NYS data.
 - The gain should show up mainly on buildings with few rows and on units listed once.
 - Also watch the variance decomposition. Named neighbourhood features that take over building-level
   variance make the description more interpretable, even at equal PSIS-LOO.
-- Census demographics (ACS) are left out unless Ben decides otherwise: they describe residents, not
-  the apartment, and raise fair-housing concerns.
+- Census demographics (ACS) are deprioritized.
+  - Ben's concern is the lag. Tracts only have 5-year estimates, published about a year after
+    their window closes, so an as-of value is centred 3–4 years before the listing.
+  - A period-matched window (centred on the listing year) exists only through about 2021.
+  - With about 20 tracts under our 1,129 buildings, a static tract value adds little beyond the
+    building levels. The within-tract change over time that could add something is blurred by the
+    averaging and by tract-level sampling error.
+  - Resident demographics also raise fair-housing concerns in a rent model.
+  - If tried at all: period-matched windows, screened by projection, after the sources dated to the
+    day (311, permits, violations, crime, transit).
 
 **B. Model shapes.** Parameterization and shape switches in `model.ModelConfig`.
 
@@ -344,7 +352,7 @@ comes from other sources, most of them public NYC and NYS data.
    (about 38,000 steps), the largest array in walk designs. Measure the PSIS-LOO cost against the time saved;
    the saved time can go into slopes or features.
 2. **Bedroom curves.** These are the market curve per bedroom group, dropped in the nocurves
-   designs to save about 200 global columns. Yearly knots would cost about 45 columns instead,
+   designs to save about 200 global columns. Yearly knots would cost 51 columns instead,
    and could win back part of the curves' gain at a fraction of the cost.
 3. **Trend knot spacing.** Quarterly costs nothing measurable against monthly; test half-year.
 4. **Per-building slopes.**

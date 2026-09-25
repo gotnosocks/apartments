@@ -74,9 +74,15 @@ class ModelConfig:
     #   single global number, so a dense mass matrix can follow the ridge
     #   "market up, every building down" that the prior alone pins
     #   (1b0dca6: L5 Chelsea Tower level R-hat 1.04, ESS 42).
-    # - "unit_totals": sample each unit's building level plus its own effect
-    #   (hierarchical centering), so a building and its units are not
-    #   strongly correlated in the sampler's coordinates.
+    # - "unit_totals": sample each unit's total, its building effect plus its
+    #   own mean features times beta plus its own effect (hierarchical
+    #   centering), so beta reaches the rows only through within-unit
+    #   variation and units are not traded against their building or beta.
+    # - "building_totals": the same one level up. Sample each building's
+    #   total (its effect plus its mean features times beta), split into a
+    #   global mean plus zero-sum deviations; the building prior is imposed on
+    #   total - features. Building attributes (doorman, elevator) then do not
+    #   trade off against the building levels (f4ffd1a: L5 doorman R-hat 1.026).
     coordinates: tuple = ()
     # Per-building random walk over KNOT_MONTHS knots (anchored at 0 in the
     # first month), interpolated linearly between knots.
@@ -400,6 +406,13 @@ def constants(prep: Prepared, config: ModelConfig) -> dict:
         if (ub < 0).any() or (ub[prep.train.unit] != prep.train.building).any():
             raise ValueError("unit_totals needs every unit in exactly one building")
         out["unit_building"] = jnp.asarray(ub, dtype=jnp.int32)
+        out["unit_xbar"] = jnp.asarray(
+            _group_means(prep.train.x, prep.train.unit, len(prep.units))
+        )
+    if "building_totals" in config.coordinates:
+        out["building_xbar"] = jnp.asarray(
+            _group_means(prep.train.x, prep.train.building, len(prep.buildings))
+        )
     zero = jnp.zeros(())
     if not config.features:
         out["beta"] = jnp.zeros(len(prep.features.names))
@@ -412,6 +425,30 @@ def constants(prep: Prepared, config: ModelConfig) -> dict:
     if not config.units:
         out |= {"unit_scale": zero, "unit": jnp.zeros(len(prep.units))}
     return out
+
+
+def _group_means(x, group, n):
+    """Mean of the rows of x in each of n groups (training rows)."""
+    x = np.asarray(x, dtype=float)
+    sums = np.zeros((n, x.shape[1]))
+    np.add.at(sums, np.asarray(group), x)
+    counts = np.bincount(np.asarray(group), minlength=n)
+    return sums / np.maximum(counts, 1)[:, None]
+
+
+def _centred_totals(site: str, loc, scale, n: int):
+    """Effects e ~ i.i.d. N(0, scale) sampled through their totals t = loc + e,
+    written as a global mean plus zero-sum deviations (flat coordinates) with
+    the prior imposed on t - loc. Returns e as a deterministic site `site`."""
+    mean = numpyro.sample(
+        f"{site}_total_mean", dist.ImproperUniform(constraints.real, (), ())
+    )
+    dev = numpyro.sample(
+        f"{site}_total_dev", dist.ImproperUniform(constraints.zero_sum(1), (), (n,))
+    )
+    effect = mean + dev - loc
+    numpyro.factor(f"{site}_prior", dist.Normal(0.0, scale).log_prob(effect).sum())
+    return numpyro.deterministic(site, effect)
 
 
 def _mean_plus_zero_sum(site: str, scale, n: int):
@@ -492,7 +529,14 @@ def build_model(prep: Prepared, config: ModelConfig):
             p["season_raw"] = numpyro.sample(
                 "season_raw", dist.Normal(0.0, p["season_scale"]).expand([12])
             )
-        if config.buildings and "building_zerosum" in config.coordinates:
+        if config.buildings and "building_totals" in config.coordinates:
+            p["building"] = _centred_totals(
+                "building",
+                fixed["building_xbar"] @ p["beta"],
+                p["building_scale"],
+                len(prep.buildings),
+            )
+        elif config.buildings and "building_zerosum" in config.coordinates:
             p["building"] = _mean_plus_zero_sum(
                 "building", p["building_scale"], len(prep.buildings)
             )
@@ -510,7 +554,11 @@ def build_model(prep: Prepared, config: ModelConfig):
         if config.units:
             n_units = len(prep.units)
             centred = "unit_totals" in config.coordinates and config.buildings
-            loc = p["building"][fixed["unit_building"]] if centred else 0.0
+            loc = (
+                p["building"][fixed["unit_building"]] + fixed["unit_xbar"] @ p["beta"]
+                if centred
+                else 0.0
+            )
             prior = (
                 dist.StudentT(p["unit_nu"], loc, p["unit_scale"])
                 if config.unit_t

@@ -171,7 +171,90 @@ def desc_v1(frame: pd.DataFrame, train: np.ndarray) -> Features:
     )
 
 
-FEATURE_SETS = {"base-v1": base_v1, "desc-v1": desc_v1}
+# External snapshots read by feature sets (rentfrontier.registry, .external).
+REGISTRY_SNAPSHOT = "/data1/apartments/external/registry/20260925-6b67137"
+PLUTO_SNAPSHOT = "/data1/apartments/external/pluto/20260925-3096a62"
+ERAS = (
+    (0, 1900, "pre-1900"),
+    (1900, 1930, "1900-1929"),
+    (1930, 1960, "1930-1959"),
+    (1960, 1990, "1960-1989"),
+    (1990, 2010, "1990-2009"),
+    (2010, 3000, "2010+"),
+)
+
+
+def building_lots(frame: pd.DataFrame) -> pd.DataFrame:
+    """MapPLUTO attributes of each row's building (one row per listing row)."""
+    registry = pd.read_parquet(f"{REGISTRY_SNAPSHOT}/buildings.parquet")
+    pluto = pd.read_parquet(f"{PLUTO_SNAPSHOT}/pluto.parquet").set_index("bbl")
+    lot = registry.set_index("building").bbl.reindex(frame.building.to_numpy())
+    return pluto.reindex(lot.to_numpy()).reset_index(drop=True)
+
+
+def pluto_v1(frame: pd.DataFrame, train: np.ndarray) -> Features:
+    """base-v1 plus the building's MapPLUTO attributes (building-level)."""
+    base = base_v1(frame, train)
+    lot = building_lots(frame)
+    num = {
+        c: pd.to_numeric(lot[c], errors="coerce")
+        for c in (
+            "yearbuilt",
+            "yearalter1",
+            "numfloors",
+            "unitsres",
+            "resarea",
+            "builtfar",
+            "lotfront",
+        )
+    }
+    b = _Builder(frame)
+    year = num["yearbuilt"]
+    era = pd.Series("unknown", index=lot.index)
+    for lo, hi, name in ERAS:
+        era[(year >= lo) & (year < hi) & (year > 0)] = name
+    b.categorical("building era", era, reference="1900-1929")
+
+    def centred_log(v, known):
+        """log of the known values minus their training mean; 0 when unknown."""
+        logs = np.log(v.where(known))
+        return (logs - float(np.nanmean(logs[train]))).fillna(0.0)
+
+    for col in ("numfloors", "unitsres"):
+        v = num[col]
+        known = v > 0
+        b.add("building size", f"log_{col}", centred_log(v, known))
+        b.add("building size", f"{col}_unknown", ~known)
+    per_unit = num["resarea"] / num["unitsres"]
+    known = (per_unit > 100) & (per_unit < 10000)
+    log_per_unit = np.log(per_unit.where(known))
+    centre = float(np.nanmedian(log_per_unit[train]))
+    b.add("building size", "log_res_area_per_unit", (log_per_unit - centre).fillna(0.0))
+    b.add("building size", "res_area_per_unit_unknown", ~known)
+    far = num["builtfar"]
+    b.add("building size", "log_built_far", centred_log(far, far > 0))
+    b.add("building size", "built_far_unknown", ~(far > 0))
+    family = (
+        lot.bldgclass.fillna("?")
+        .str[0]
+        .map(lambda c: c if c in ("C", "D", "R", "S") else "other")
+    )
+    b.categorical("building class", family, reference="D")
+    b.add("building status", "landmark", lot.landmark.notna())
+    b.add("building status", "historic_district", lot.histdist.notna())
+    b.add("building status", "flood_zone_2015", lot.pfirm15_flag.notna())
+    b.add("building status", "altered_since_2000", num["yearalter1"] >= 2000)
+    extra = b.build("pluto-v1")
+    return Features(
+        "pluto-v1",
+        base.names + extra.names,
+        base.groups + extra.groups,
+        np.column_stack([base.values, extra.values]),
+        np.concatenate([base.prior_scale, extra.prior_scale]),
+    )
+
+
+FEATURE_SETS = {"base-v1": base_v1, "desc-v1": desc_v1, "pluto-v1": pluto_v1}
 
 
 def build(name: str, frame: pd.DataFrame, train: np.ndarray) -> Features:

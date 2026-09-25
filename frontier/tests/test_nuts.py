@@ -159,10 +159,11 @@ def test_sampling_coordinates_are_exact_reparameterizations(config):
         if v["type"] == "sample" and not v["is_observed"]
     }
     moved = replace(config, coordinates=("trend_levels", "unit_totals"))
-    ub = model.constants(prep, moved)["unit_building"]
+    fixed = model.constants(prep, moved)
+    ub, xbar_u = fixed["unit_building"], fixed["unit_xbar"]
     q = {k: v for k, v in p.items() if k not in ("trend_step", "unit")}
     q["trend_absolute"] = p["alpha"] + jnp.cumsum(p["trend_step"])
-    q["unit_total"] = p["unit"] + p["building"][ub]
+    q["unit_total"] = p["unit"] + p["building"][ub] + xbar_u @ p["beta"]
     base = float(log_density(model.build_model(prep, config), (), {}, p)[0])
     new = float(log_density(model.build_model(prep, moved), (), {}, q)[0])
     assert new == pytest.approx(base, rel=1e-12, abs=1e-9)
@@ -234,3 +235,35 @@ def test_building_mean_plus_zero_sum_is_the_same_model():
         new = float(log_density(model.build_model(prep, moved), (), {}, q)[0])
         gaps.append(new - base)
     np.testing.assert_allclose(gaps, gaps[0], atol=1e-8)
+
+
+def test_building_totals_are_the_same_model():
+    """building_totals samples each building's effect plus its mean features
+    times beta, as a flat global mean plus zero-sum deviations: the joint
+    density matches the default one up to a constant, at any point."""
+    from numpyro.infer.util import log_density
+
+    prep = synthetic()
+    config = model.MODELS["m0q"]
+    moved = replace(config, coordinates=("building_totals", "unit_totals"))
+    fixed = model.constants(prep, moved)
+    gaps = []
+    for seed in range(3):
+        tr = handlers.trace(
+            handlers.seed(model.build_model(prep, config), seed)
+        ).get_trace()
+        p = {
+            k: v["value"]
+            for k, v in tr.items()
+            if v["type"] == "sample" and not v["is_observed"]
+        }
+        q = {k: v for k, v in p.items() if k not in ("building", "unit")}
+        total = p["building"] + fixed["building_xbar"] @ p["beta"]
+        q["building_total_mean"] = total.mean()
+        q["building_total_dev"] = total - total.mean()
+        ub = fixed["unit_building"]
+        q["unit_total"] = p["unit"] + p["building"][ub] + fixed["unit_xbar"] @ p["beta"]
+        base = float(log_density(model.build_model(prep, config), (), {}, p)[0])
+        new = float(log_density(model.build_model(prep, moved), (), {}, q)[0])
+        gaps.append(new - base)
+    np.testing.assert_allclose(gaps, gaps[0], atol=1e-7)
