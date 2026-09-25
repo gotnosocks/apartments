@@ -295,3 +295,97 @@ def test_unit_routes_are_claimed_before_associated_ads(tmp_path):
     assert s.claim(g, prefer_units=True)["url"] == other
     assert s.claim(g, prefer_units=True)["url"] == EPISODE
     s.close()
+
+
+def unit_body(unit, current, history):
+    listing = {
+        "id": current,
+        "propertyDetails": {"address": {"street": "123 Test Street"}},
+        "propertyHistory": [
+            {
+                "listingId": ad,
+                "rentalEventsOfInterest": [{"date": "2020-01-01", "price": 3000}],
+            }
+            for ad in history
+        ],
+    }
+    return (
+        '<html><head><link rel="canonical" href="'
+        + unit
+        + '"></head><body><script type="application/json">'
+        + json.dumps({"listing": listing})
+        + "</script></body></html>"
+    ).encode()
+
+
+def claim_all(s, g):
+    claimed = []
+    while row := s.claim(g, prefer_units=True):
+        claimed.append(row["url"])
+    return claimed
+
+
+def test_ads_are_claimed_round_robin_by_unit_newest_first(tmp_path):
+    s = ArchiveStore(tmp_path)
+    g = s.new_generation()
+    setup(s, g)
+    a, b = (
+        "https://streeteasy.com/building/example/1a",
+        "https://streeteasy.com/building/example/2b",
+    )
+    ads = [f"https://streeteasy.com/rental/{n}" for n in (100, 150, 200, 250, 300)]
+    # The crawler records a unit page's links before annotating it.
+    s.enqueue(g, [{"url": u, "kind": "listing"} for u in ads])
+    annotate(s, g, {}, unit_body(a, "300", ["100", "200", "300"]), a)
+    annotate(s, g, {}, unit_body(b, "250", ["150", "250"]), b)
+    # Round 0: each unit's newest, newest first; then round 1; then round 2.
+    assert claim_all(s, g) == [ads[4], ads[3], ads[2], ads[1], ads[0]]
+    s.close()
+
+
+def test_claim_rounds_follow_later_unit_evidence_and_rebuild_on_setup(tmp_path):
+    s = ArchiveStore(tmp_path)
+    g = s.new_generation()
+    setup(s, g)
+    a, b = (
+        "https://streeteasy.com/building/example/1a",
+        "https://streeteasy.com/building/example/2b",
+    )
+    ads = {n: f"https://streeteasy.com/rental/{n}" for n in (200, 250, 300, 400)}
+    s.enqueue(g, [{"url": ads[n], "kind": "listing"} for n in (200, 250, 300)])
+    annotate(s, g, {}, unit_body(a, "300", ["200", "300"]), a)
+    annotate(s, g, {}, unit_body(b, "250", ["250"]), b)
+    # A later capture of unit a reveals a newer ad; a's older ads move back a round.
+    s.enqueue(g, [{"url": ads[400], "kind": "listing"}])
+    annotate(s, g, {}, unit_body(a, "400", ["200", "300", "400"]), a)
+    expected = [ads[400], ads[250], ads[300], ads[200]]
+    order = lambda: [
+        u
+        for (u,) in s.db.execute(
+            "SELECT url FROM frontier WHERE state='pending' ORDER BY rowid"
+        )
+    ]
+    assert order() == expected
+    # An ad queued outside annotate sorts last until setup (run on every resume) places it.
+    late = "https://streeteasy.com/rental/500"
+    s.db.execute(
+        "INSERT INTO collection_memberships VALUES(?,?,?,?,?,?)",
+        (g, "rental:500:detail", b, b, "x", 0),
+    )
+    s.db.commit()
+    s.enqueue(g, [{"url": late, "kind": "listing"}])
+    assert order() == expected + [late]
+    setup(s, g)
+    placed = [late, ads[400], ads[300], ads[250], ads[200]]
+    assert order() == placed
+    assert claim_all(s, g) == placed
+    s.close()
+
+
+def test_ads_without_policy_keep_queue_order(tmp_path):
+    s = ArchiveStore(tmp_path)
+    g = s.new_generation()
+    ads = [f"https://streeteasy.com/rental/{n}" for n in (100, 300, 200)]
+    s.enqueue(g, [{"url": u, "kind": "listing"} for u in ads])
+    assert [s.claim(g)["url"] for _ in ads] == ads
+    s.close()

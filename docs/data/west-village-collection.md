@@ -180,6 +180,21 @@ Skipping pre-2014 probes would save about 410 requests but lose about 500 units,
 so the probe rule is unchanged. No listing-page requests had run yet; 24,172 wait
 behind the unit probes.
 
+### September 25 advertisement claim order
+
+At the user's request, advertisement pages are claimed round-robin by unit and
+newest first: every unit's newest associated advertisement, then every unit's
+second-newest, and so on, with higher (newer) StreetEasy advertisement IDs first
+within a round. If credits run out mid-queue, coverage stays as wide and recent
+as possible. Unit routes still come first. The order is set by
+`collection_policy.refresh_claim_rounds`, which places advertisement queue rows
+in a negative rowid band that `ArchiveStore.claim` already uses as its final
+tiebreak; `store.py` is unchanged because saved Chelsea datasets hash it. It runs
+when a unit page adds membership and again at every policy setup. On a copy of
+the live queue (September 25), round 0 held 11,302 pending advertisements,
+followed by 7,051, 5,532 and 4,269; placing them took 1.3 s and claim time was
+unchanged (about 70 ms). Requests, rate and eligibility are unchanged.
+
 ## Handoff status (September 23, 07:55 EDT)
 
 **The crawl is running at four submissions per minute.** On September 23 at 07:51

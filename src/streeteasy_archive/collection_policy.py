@@ -29,6 +29,7 @@ def setup(store, generation):
             generation INTEGER, listing_key TEXT, unit_url TEXT, source_url TEXT,
             body_hash TEXT, created REAL,
             PRIMARY KEY(generation,listing_key,unit_url,body_hash));
+        CREATE INDEX IF NOT EXISTS collection_membership_units ON collection_memberships(generation,unit_url);
         CREATE TABLE IF NOT EXISTS collection_exclusions(
             generation INTEGER, url TEXT, reason TEXT, created REAL,
             PRIMARY KEY(generation,url,reason));
@@ -60,6 +61,66 @@ def setup(store, generation):
                 row["body_hash"],
             )
     enroll_inventory_probes(store, generation)
+    with store._tx():
+        refresh_claim_rounds(store, generation)
+
+
+def _ad_number(key):
+    match = re.match(r"rental:(\d+):", key or "")
+    return int(match[1]) if match else 0
+
+
+# ArchiveStore.claim breaks ties by frontier rowid, and SQLite gives new rows the
+# largest rowid plus one. Negative rowids therefore form a band that ordinary
+# inserts never reach, which lets the policy set advertisement claim order
+# without changing store.py (hashed by saved datasets).
+_ROWID_BASE = -(2**62)
+
+
+def _claim_rowid(generation, rank, ad, duplicate):
+    return (
+        _ROWID_BASE
+        + ((generation * 1000 + min(rank, 999)) * 10**8 + (10**8 - ad)) * 16
+        + duplicate
+    )
+
+
+def refresh_claim_rounds(store, generation, unit=None):
+    """Queue each unit's advertisements newest first; round 0 is every unit's newest.
+
+    Claiming by (round, newest advertisement) gives every unit one advertisement
+    before any unit gets a second, and prefers recent advertisements within a
+    round, so stopping early (for example when credits run out) keeps the widest
+    and most recent coverage. StreetEasy advertisement IDs increase over time.
+    Rounds count every associated advertisement, including ones already fetched.
+    Only the order among advertisements changes: unit routes still come first.
+    Caller owns the transaction.
+    """
+    sql = "SELECT unit_url, listing_key FROM collection_memberships WHERE generation=?"
+    args = (generation,)
+    if unit:
+        sql += " AND unit_url=?"
+        args += (unit,)
+    ads = {}
+    for unit_url, key in store.db.execute(sql, args):
+        ads.setdefault(unit_url, set()).add(key)
+    for keys in ads.values():
+        for rank, key in enumerate(sorted(keys, key=_ad_number, reverse=True)):
+            ad = _ad_number(key)
+            if not 0 < ad < 10**8:
+                continue
+            # Already-positioned rows sort first, so their duplicate slots are stable.
+            rows = store.db.execute(
+                "SELECT rowid, url FROM frontier WHERE generation=? AND listing_key=? ORDER BY rowid",
+                (generation, key),
+            ).fetchall()
+            for duplicate, (rowid, url) in enumerate(rows[:16]):
+                target = _claim_rowid(generation, rank, ad, duplicate)
+                if rowid != target:
+                    store.db.execute(
+                        "UPDATE frontier SET rowid=? WHERE generation=? AND url=?",
+                        (target, generation, url),
+                    )
 
 
 def exclusion_reason(store, generation, url):
@@ -170,6 +231,7 @@ def annotate(store, generation, data, body, url, body_hash=None, persist=True):
                     "UPDATE frontier SET state='pending' WHERE generation=? AND listing_key=? AND state='excluded' AND url IN (SELECT url FROM collection_exclusions WHERE generation=? AND reason='missing_canonical_unit_association')",
                     (generation, member, generation),
                 )
+            refresh_claim_rounds(store, generation, unit)
 
 
 PROBE_RULE = "inventory-label-unit-probe-v1"
