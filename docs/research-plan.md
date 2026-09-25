@@ -140,11 +140,30 @@ History, from the removed PyMC/NumPyro ladder (ladder.py, 3c26c4a–ac9e02b):
 - Its records (lines `pymc` and `numpyro`, feature set `none` below L4) stay on the board as
   data.
 
-## Current effort: the sub-10-minute frontier on thelio (from 2026-09-24)
+## Current effort: the sub-15-minute frontier on thelio (from 2026-09-24)
 
 Ben asked for a research effort on the part of the frontier that fits in under 10 minutes, with
 variance decomposition as a measure of modeling quality and projection to search for more
-efficient models. It runs separately on each local hardware class (RTX 2060 SUPER and the CPU).
+efficient models. On 2026-09-25 he widened the window to **15 minutes per fit**. It runs
+separately on each local hardware class (RTX 2060 SUPER and the CPU).
+
+**Samplers: library over custom** (Ben, 2026-09-25: "I would prefer to use a library sampler
+implementation over implementing our own").
+- The custom Gibbs sampler (`gibbs.py`) is ours end to end: exact Gaussian block draws with units
+  integrated out, its own Student-t augmentation, collapsed Metropolis scale updates and warmup
+  adaptation. No library offers that combination in this stack:
+  - NumPyro's `HMCGibbs` needs the conditional draws written by hand;
+  - BlackJAX offers kernels (NUTS, elliptical slice, latent-Gaussian samplers), not a blocked
+    Gibbs sampler;
+  - PyMC has no conjugate Gaussian step;
+  - NIMBLE and JAGS assign conjugate and block samplers automatically, but on the CPU outside this
+    stack.
+- The custom Gibbs sampler is therefore **frozen**: no new sampler code. It stays as the benchmark
+  on the thelio frontier and retires once a library sampler matches it there.
+- New sampler work uses library samplers on `model.build_model`, with library options only:
+  - NumPyro NUTS (`--sampler nuts`), with a diagonal or a structured dense mass matrix;
+  - BlackJAX's NUTS and many-chain adaptation;
+  - nutpie's Rust NUTS on the JAX log density.
 
 - **Starting point.** On the H100, only m0 (83 s) is under 10 minutes; m1-walk (6–12 min) failed
   the gate and m5-nocurves took 13 min. On thelio, m0 with 8 chains × (100 + 100) took 241 s on
@@ -183,9 +202,9 @@ efficient models. It runs separately on each local hardware class (RTX 2060 SUPE
     the gap. With it, an iteration costs about 3 block solves (~145 ms per chain), and four chains
     don't batch on this card. So a walk design that passes the gate needs about 15–17 min.
   - A short-warmup adaptation bug (steps sized from drift, ν frozen) is fixed.
-- **Step 3. Native fits.** Fit the best candidates on each local class within 10 minutes with the
+- **Step 3. Native fits.** Fit the best candidates on each local class within 15 minutes with the
   step 1 settings, then score PSIS-LOO and the variance decomposition. These points form that
-  class's sub-10-minute frontier.
+  class's sub-15-minute frontier.
 
 ## Work tracks, in order
 
