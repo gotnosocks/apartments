@@ -14,10 +14,12 @@ Rungs (log rent minus the training mean; Student-t noise throughout):
     L4-features  + the base-v1 listing features
     L5-building  + building levels
     L6-units     + unit effects: the same model as the Gibbs line's m0q
+    L7-walk      + each building's random walk over half-year knots (m1q)
 
-Priors mirror `model.build_model` (m0q): alpha ~ N(0, 1); trend and season
+Priors mirror `model.build_model` (m0q, m1q): alpha ~ N(0, 1); trend and season
 scales ~ HalfNormal(0.05); building scale ~ HalfNormal(0.5); unit scale ~
-HalfNormal(0.2); beta ~ N(0, 0.5 x feature prior scale); sigma ~
+HalfNormal(0.2); walk scale ~ HalfNormal(0.1) per half-year step, the walk
+anchored at 0 at the first knot; beta ~ N(0, 0.5 x feature prior scale); sigma ~
 HalfNormal(0.2); nu ~ Gamma(2, rate 0.1). The linear drift (new, L1 only) ~
 N(0, 0.1) per year. Group effects are non-centred for NUTS; that changes the
 parameterization, not the model.
@@ -62,8 +64,12 @@ RUNGS = {
     "L4-features": ("trend", "season", "features"),
     "L5-building": ("trend", "season", "features", "building"),
     "L6-units": ("trend", "season", "features", "building", "units"),
+    "L7-walk": ("trend", "season", "features", "building", "units", "walk"),
 }
 TREND_KNOT_MONTHS = 3
+WALK_SCALE_SD = 0.1  # model.ModelConfig.walk_scale_sd
+# Per-draw arrays too large to keep in posterior.npz (means and sds are kept).
+LARGE = ("unit_z", "walk_z")
 CHAINS, TUNE, DRAWS = 4, 1000, 1000
 SEED = 20260925
 
@@ -104,6 +110,8 @@ def numpyro_model(terms, a, inp):
     month, cal = jnp.asarray(a.month), jnp.asarray(a.calendar)
     bld, unit = jnp.asarray(a.building), jnp.asarray(a.unit)
     y = jnp.asarray(a.y)
+    knot, frac = jnp.asarray(a.knot), jnp.asarray(a.knot_frac)
+    n_walk = model.n_knots(len(prep.periods)) - 1
 
     def f():
         mu = numpyro.sample("alpha", dist.Normal(0.0, 1.0)) * jnp.ones_like(y)
@@ -131,6 +139,13 @@ def numpyro_model(terms, a, inp):
             us = numpyro.sample("unit_scale", dist.HalfNormal(0.2))
             z = numpyro.sample("unit_z", dist.Normal(0, 1).expand([len(prep.units)]))
             mu = mu + (us * z)[unit]
+        if "walk" in terms:
+            ws = numpyro.sample("walk_scale", dist.HalfNormal(WALK_SCALE_SD))
+            z = numpyro.sample(
+                "walk_z", dist.Normal(0, 1).expand([len(prep.buildings), n_walk])
+            )
+            w = jnp.pad(jnp.cumsum(ws * z, axis=1), ((0, 0), (1, 0)))
+            mu = mu + (1 - frac) * w[bld, knot] + frac * w[bld, knot + 1]
         sigma = numpyro.sample("sigma", dist.HalfNormal(0.2))
         nu = numpyro.sample("nu", dist.Gamma(2.0, 0.1))
         numpyro.sample("y", dist.StudentT(nu, mu, sigma), obs=y)
@@ -169,6 +184,18 @@ def pymc_model(terms, a, inp):
             us = pm.HalfNormal("unit_scale", 0.2)
             z = pm.Normal("unit_z", 0, 1, shape=len(prep.units))
             mu = mu + (us * z)[a.unit]
+        if "walk" in terms:
+            ws = pm.HalfNormal("walk_scale", WALK_SCALE_SD)
+            n_walk = model.n_knots(len(prep.periods)) - 1
+            z = pm.Normal("walk_z", 0, 1, shape=(len(prep.buildings), n_walk))
+            w = pt.concatenate(
+                [pt.zeros((len(prep.buildings), 1)), pt.cumsum(ws * z, axis=1)], axis=1
+            )
+            mu = (
+                mu
+                + (1 - a.knot_frac) * w[a.building, a.knot]
+                + a.knot_frac * w[a.building, a.knot + 1]
+            )
         sigma = pm.HalfNormal("sigma", 0.2)
         nu = pm.Gamma("nu", alpha=2.0, beta=0.1)
         pm.StudentT("y", nu=nu, mu=mu, sigma=sigma, observed=a.y)
@@ -234,6 +261,10 @@ def effects(draws, terms, inp):
     if "units" in terms:
         e["unit"] = flat["unit_scale"][:, None] * flat["unit_z"]
         e["unit_scale"] = flat["unit_scale"]
+    if "walk" in terms:
+        steps = flat["walk_scale"][:, None, None] * flat["walk_z"]
+        e["walk"] = np.pad(np.cumsum(steps, axis=2), ((0, 0), (0, 0), (1, 0)))
+        e["walk_scale"] = flat["walk_scale"]
     return e
 
 
@@ -253,6 +284,11 @@ def terms_for(e, a, inp):
         out["features"] = e["beta"] @ np.asarray(a.x).T
     if "building" in e:
         out["building"] = e["building"][:, a.building]
+    if "walk" in e:
+        w = e["walk"]
+        out["building over time"] = (1 - a.knot_frac)[None] * w[
+            :, a.building, a.knot
+        ] + a.knot_frac[None] * w[:, a.building, a.knot + 1]
     if "unit" in e:
         out["unit"] = np.where(
             a.unit[None] >= 0, e["unit"][:, np.maximum(a.unit, 0)], 0.0
@@ -302,8 +338,8 @@ def diagnose(draws, divergences):
             }
     group = {}
     for k, v in draws.items():
-        if v.ndim == 3:
-            r = split_rhat_vec(v)
+        if v.ndim >= 3:
+            r = split_rhat_vec(v.reshape(*v.shape[:2], -1))
             group[k] = {
                 "max": float(r.max()),
                 "argmax": int(r.argmax()),
@@ -507,13 +543,14 @@ def fit(rung, backend, commit, name, log=print):
         **{
             f"draws/{k}": v.astype(np.float32)
             for k, v in draws.items()
-            if k not in ("unit_z",)
+            if k not in LARGE
         },
-        **(
-            {"unit/mean": e["unit"].mean(0), "unit/sd": e["unit"].std(0)}
-            if "unit" in e
-            else {}
-        ),
+        **{
+            f"{k}/{stat}": f(e[k], axis=0)
+            for k in ("unit", "walk")
+            if k in e
+            for stat, f in (("mean", np.mean), ("sd", np.std))
+        },
     )
     (out_dir / "result.json").write_text(json.dumps(result, indent=2, default=float))
 

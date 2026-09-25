@@ -106,7 +106,9 @@ check the project intent asks for, and it runs again whenever a sampler changes.
 each hardware class then shows the best (structure, implementation) pair at each fit time.
 
 **The ladder: start as simple as possible and build up.** Each rung adds one term to the one
-below. Priors mirror `model.build_model` (m0q), so L6 is m0q.
+below. Priors mirror `model.build_model`, so L6 is m0q and L7 is m1q. A test checks, for every
+rung, that the PyMC and NumPyro models give the same joint log density and that the scoring
+terms are the model's mean.
 
 | Rung | Adds |
 |---|---|
@@ -117,6 +119,7 @@ below. Priors mirror `model.build_model` (m0q), so L6 is m0q.
 | L4-features | the base-v1 listing features |
 | L5-building | building levels |
 | L6-units | unit effects (= m0q) |
+| L7-walk | each building's random walk over half-year knots (= m1q) |
 
 Each rung gets PSIS-LOO (L6 with the unit effect integrated, as in the Gibbs line), a held-out
 score, a variance decomposition and a fit time. The first rung agrees across backends: PyMC and

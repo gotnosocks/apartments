@@ -16,6 +16,10 @@ http://thelio.tail3983e0.ts.net:8500 (tailnet only).
   unit split (secondary), best PSIS-LOO ΔELPD over time, fit time over time, cumulative compute by
   model line, all entries (sortable, with Pareto-k reliability, notes and annotations) and
   milestones (merged PRs and app-model selections from git history). Every chart has a table view.
+- A **hardware** selector: each hardware class (where the fit ran) has its own frontier and best.
+  The entries table's **Timing** column shows how many cores other processes kept busy during the
+  fit (recorded from commit 3c26c4a; clean below 0.5), because thelio fits run one at a time for
+  clean timings.
 - The ΔELPD axis zooms past the baseline by default (it sits far below every other entry and is
   drawn at the floor); "Full ΔELPD range" shows everything.
 
