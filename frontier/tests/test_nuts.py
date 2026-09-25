@@ -160,10 +160,10 @@ def test_sampling_coordinates_are_exact_reparameterizations(config):
     }
     moved = replace(config, coordinates=("trend_levels", "unit_totals"))
     fixed = model.constants(prep, moved)
-    ub, xbar_u = fixed["unit_building"], fixed["unit_xbar"]
+    xbar_u = fixed["unit_xbar"]
     q = {k: v for k, v in p.items() if k not in ("trend_step", "unit")}
     q["trend_absolute"] = p["alpha"] + jnp.cumsum(p["trend_step"])
-    q["unit_total"] = p["unit"] + p["building"][ub] + xbar_u @ p["beta"]
+    q["unit_total"] = p["unit"] + xbar_u @ p["beta"]
     base = float(log_density(model.build_model(prep, config), (), {}, p)[0])
     new = float(log_density(model.build_model(prep, moved), (), {}, q)[0])
     assert new == pytest.approx(base, rel=1e-12, abs=1e-9)
@@ -262,7 +262,8 @@ def test_building_totals_are_the_same_model():
         q["building_total_mean"] = total.mean()
         q["building_total_dev"] = total - total.mean()
         ub = fixed["unit_building"]
-        q["unit_total"] = p["unit"] + p["building"][ub] + fixed["unit_xbar"] @ p["beta"]
+        within = fixed["unit_xbar"] - fixed["building_xbar"][ub]
+        q["unit_total"] = p["unit"] + within @ p["beta"]
         base = float(log_density(model.build_model(prep, config), (), {}, p)[0])
         new = float(log_density(model.build_model(prep, moved), (), {}, q)[0])
         gaps.append(new - base)

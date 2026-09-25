@@ -74,10 +74,13 @@ class ModelConfig:
     #   single global number, so a dense mass matrix can follow the ridge
     #   "market up, every building down" that the prior alone pins
     #   (1b0dca6: L5 Chelsea Tower level R-hat 1.04, ESS 42).
-    # - "unit_totals": sample each unit's total, its building effect plus its
-    #   own mean features times beta plus its own effect (hierarchical
-    #   centering), so beta reaches the rows only through within-unit
-    #   variation and units are not traded against their building or beta.
+    # - "unit_totals": sample each unit's own effect plus its mean features
+    #   times beta, less its building's mean features times beta when the
+    #   building is centred too (hierarchical centering, level by level), so
+    #   apartment attributes (size, baths, floor) do not trade off against the
+    #   unit effects (41e8fe0: m0q half-baths R-hat 1.017). Including the
+    #   building effect in the unit total instead puts the market-level ridge
+    #   through every unit (41e8fe0: m0q Chelsea Tower R-hat 1.13).
     # - "building_totals": the same one level up. Sample each building's
     #   total (its effect plus its mean features times beta), split into a
     #   global mean plus zero-sum deviations; the building prior is imposed on
@@ -401,6 +404,7 @@ def constants(prep: Prepared, config: ModelConfig) -> dict:
     if config.unit_t and config.unit_nu_fixed is not None:
         out["unit_nu"] = jnp.asarray(config.unit_nu_fixed)
     if "unit_totals" in config.coordinates:
+        # A unit's building, for centring units within buildings.
         ub = np.full(len(prep.units), -1)
         ub[prep.train.unit] = prep.train.building
         if (ub < 0).any() or (ub[prep.train.unit] != prep.train.building).any():
@@ -553,18 +557,20 @@ def build_model(prep: Prepared, config: ModelConfig):
             )
         if config.units:
             n_units = len(prep.units)
-            centred = "unit_totals" in config.coordinates and config.buildings
-            loc = (
-                p["building"][fixed["unit_building"]] + fixed["unit_xbar"] @ p["beta"]
-                if centred
-                else 0.0
-            )
+            loc = 0.0
+            if "unit_totals" in config.coordinates:
+                # Centre each unit on its own mean features, less its building's
+                # when the building is centred on those (building_totals).
+                xbar = fixed["unit_xbar"]
+                if "building_totals" in config.coordinates and config.buildings:
+                    xbar = xbar - fixed["building_xbar"][fixed["unit_building"]]
+                loc = xbar @ p["beta"]
             prior = (
                 dist.StudentT(p["unit_nu"], loc, p["unit_scale"])
                 if config.unit_t
                 else dist.Normal(loc, p["unit_scale"])
             )
-            if centred:
+            if "unit_totals" in config.coordinates:
                 total = numpyro.sample("unit_total", prior.expand([n_units]))
                 p["unit"] = numpyro.deterministic("unit", total - loc)
             else:
