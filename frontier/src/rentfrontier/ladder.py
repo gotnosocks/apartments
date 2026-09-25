@@ -29,7 +29,7 @@ Backends:
   present (the RTX 2060 or the CPU).
 
 Each fit writes a run record in the Gibbs line's format under
-/data1/apartments/frontier/runs/<rung>-<backend>-rows-<commit>/ (line =
+/data1/apartments/frontier/runs/<rung>-<backend>-rows-<commit>[-<label>]/ (line =
 "pymc" or "numpyro", so the board and dashboard list it), plus
 - PSIS-LOO over the row split's 47,374 training rows (for L6 with the unit
   effect integrated exactly per row, as `rentfrontier.loo`);
@@ -423,7 +423,7 @@ def variance_shares(e, inp):
 
 
 # ----------------------------------------------------------------- main
-def fit(rung, backend, commit, log=print):
+def fit(rung, backend, commit, name, log=print):
     terms = RUNGS[rung]
     t0 = time.perf_counter()
     started = time.time()
@@ -443,7 +443,6 @@ def fit(rung, backend, commit, log=print):
     lpd, lpd_chain = heldout_lpd(e, inp, CHAINS)
     prep = inp["prep"]
     scores = score("rows", prep.test_audit_id, lpd, lpd_chain)
-    name = f"{rung}-{backend}-rows-{commit[:7]}"
     hw = hardware()
     if backend == "pymc":
         hw["jax_devices"] = ["cpu:0"]  # nutpie samples on the CPU
@@ -597,6 +596,10 @@ def main(argv=None):
     )
     parser.add_argument("--backend", choices=("pymc", "numpyro"), required=True)
     parser.add_argument("rungs", nargs="+", choices=sorted(RUNGS))
+    parser.add_argument(
+        "--label",
+        help="run-name suffix, e.g. the device when one backend runs on several",
+    )
     args = parser.parse_args(argv)
     dirty = git("status", "--porcelain")
     if dirty:
@@ -604,10 +607,12 @@ def main(argv=None):
     commit = git("rev-parse", "HEAD")
     for rung in args.rungs:
         name = f"{rung}-{args.backend}-rows-{commit[:7]}"
+        if args.label:
+            name += f"-{args.label}"
         if (RUNS / name / "result.json").exists():
             print(f"skip {name}: exists", flush=True)
             continue
-        fit(rung, args.backend, commit, log=lambda m: print(m, flush=True))
+        fit(rung, args.backend, commit, name, log=lambda m: print(m, flush=True))
     print(f"done {dt.datetime.now(dt.UTC):%H:%M:%S} UTC", flush=True)
 
 
