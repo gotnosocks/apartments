@@ -11,15 +11,12 @@ dependencies = [
   "jax>=0.11",
   "numpyro>=0.22",
   "blackjax>=1.6",
-  "optax>=0.2",
   "arviz>=0.20",
 ]
 
 [project.optional-dependencies]
 gpu = ["jax[cuda13]>=0.11"]
 dev = ["pytest>=8.0"]
-# PyMC backend for the model ladder (NUTS via nutpie, CPU).
-pymc = ["pymc>=6.2", "nutpie>=0.16"]
 
 [build-system]
 requires = ["hatchling"]

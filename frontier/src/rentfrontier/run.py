@@ -241,21 +241,23 @@ def main(argv=None):
         "--features", default="base-v1", choices=sorted(features.FEATURE_SETS)
     )
     parser.add_argument("--model", default="m0-base")
-    parser.add_argument("--sampler", choices=("gibbs", "chees"), default="gibbs")
+    parser.add_argument(
+        "--sampler",
+        choices=("gibbs", "nuts"),
+        default="gibbs",
+        help="gibbs: the custom blocked Gibbs sampler; nuts: NumPyro NUTS",
+    )
     parser.add_argument("--chains", type=int)
     parser.add_argument("--warmup", type=int)
     parser.add_argument("--draws", type=int)
     parser.add_argument("--keep-every", type=int)
     parser.add_argument("--seed", type=int)
     parser.add_argument(
-        "--chain-batch", type=int, help="Gibbs: vectorise this many chains at a time"
+        "--chain-batch", type=int, help="vectorise this many chains at a time"
     )
     parser.add_argument(
         "--solo-scales",
         help="Gibbs: comma-separated scales given 1-D collapsed updates ('none' for no solo updates)",
-    )
-    parser.add_argument(
-        "--float32", action="store_true", help="HMC only; Gibbs always runs in float64"
     )
     parser.add_argument("--name", required=True)
     parser.add_argument(
@@ -278,9 +280,8 @@ def main(argv=None):
 
     import jax
 
-    if args.sampler == "gibbs" or not args.float32:
-        jax.config.update("jax_enable_x64", True)
-    from . import gibbs, model, sample
+    jax.config.update("jax_enable_x64", True)
+    from . import gibbs, model, nuts
 
     config = model.MODELS[args.model]
     started = time.time()
@@ -308,7 +309,7 @@ def main(argv=None):
         }.items()
         if v is not None
     }
-    module = gibbs if args.sampler == "gibbs" else sample
+    module = gibbs if args.sampler == "gibbs" else nuts
     settings = module.Settings(**overrides)
     log_lines = []
 
@@ -324,6 +325,9 @@ def main(argv=None):
     load = contention(clock)
 
     diag = diagnostics(out["trace"], feats.names, out.get("rhat_all"))
+    if "divergent" in out["trace"]:  # NUTS: the gate also needs no divergences
+        diag["divergences"] = int(np.asarray(out["trace"]["divergent"]).sum())
+        diag["passes"] = diag["passes"] and diag["divergences"] == 0
     scores = score(args.split, prep.test_audit_id, out["lpd"], out["lpd_chain"])
     log(
         f"diagnostics: max R-hat {diag['max_rhat']:.4f} ({diag['max_rhat_name']}), min ESS {diag['min_ess']:.0f} ({diag['min_ess_name']})"
@@ -365,11 +369,20 @@ def main(argv=None):
         "feature_sources": feature_sources(args.features),
         "model": config.to_dict(),
         "sampler": args.sampler,
+        "line": "frontier" if args.sampler == "gibbs" else "numpyro",
         "sampler_settings": settings.to_dict(),
         "dtype": out.get("dtype"),
         "adapted": {
             k: out.get(k)
-            for k in ("collapsed_proposal_sd", "noise_step_sd", "solo_proposal_sd")
+            for k in (
+                "collapsed_proposal_sd",
+                "noise_step_sd",
+                "solo_proposal_sd",
+                "noncentered",
+                "step_size",
+                "mean_tree_steps",
+            )
+            if k in out
         },
         "sizes": prep.sizes,
         "hardware": hardware(),

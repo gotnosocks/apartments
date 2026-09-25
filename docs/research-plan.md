@@ -93,58 +93,52 @@ halves the compute per candidate.
 
 ## Two axes: structure and implementation (Ben, 2026-09-24)
 
-The goal is the best model structure *and* implementation. Every structure can be fit by more
-than one exact sampler, and each gets its own run record, timed on its own hardware:
+The goal is the best model structure *and* implementation. There is **one model definition**,
+`model.build_model` (NumPyro) over the designs in `model.MODELS` (Ben, 2026-09-25: no duplicate
+PyMC or NumPyro implementations). Samplers are the implementations. Each fit gets its own run
+record, timed on its own hardware, and every sampler goes through the same runner and scorers:
 
-- **Custom Gibbs** (`rentfrontier.run`, JAX): the blocked Gibbs sampler with units integrated out.
-- **PyMC** (NUTS via nutpie, CPU) and **NumPyro** (NUTS, JAX on the GPU or the CPU), through the
-  model ladder (`rentfrontier.ladder`) and, for the Gibbs designs, `model.build_model`, which is a
-  NumPyro model of every design.
+    python -m rentfrontier.run --sampler gibbs|nuts --model <design> --split rows ...
+    python -m rentfrontier.loo <run>; python -m rentfrontier.variance <run>
 
-Where implementations overlap, their posteriors must agree. That is the independent convergence
-check the project intent asks for, and it runs again whenever a sampler changes. The frontier on
-each hardware class then shows the best (structure, implementation) pair at each fit time.
+- **Custom Gibbs** (`gibbs.py`): the blocked Gibbs sampler with units integrated out. It needs
+  every base term: trend, season, features, buildings and units.
+- **NumPyro NUTS** (`nuts.py`): NumPyro's warmup, then the Gibbs sampler's bookkeeping
+  (`collect.py`), on the GPU or the CPU. The building walk and unit drift are non-centred, and
+  every other effect is centred (the data-rich levels diverged under NUTS when non-centred).
 
-**The ladder: start as simple as possible and build up.** Each rung adds one term to the one
-below. Priors mirror `model.build_model`, so L6 is m0q, L7 is m1q and L8–L11 are the Gibbs
-round-2 designs (m5–m8 without the bedroom curves). A test checks, for every
-rung, that the PyMC and NumPyro models give the same joint log density and that the scoring
-terms are the model's mean.
+Where samplers overlap, their posteriors must agree. That is the independent convergence check
+the project intent asks for. The dashboard's "Same model, different implementations" chart
+shows it, and the frontier on each hardware class shows the best (design, sampler) pair at each
+fit time.
 
-Parameterization follows the Gibbs line's NUTS reference. Trend steps, season, building and unit
-effects are centred, since each is informed by many rows. Only the building walk is non-centred,
-because most building half-years have no rows. The first ladder (3c26c4a) had every group effect
-non-centred, and PyMC diverged at the scales: 1 divergence on L2 (344 s) and 6 on L3 (525 s). Those
-records stay on the board as the evidence.
+**The ladder: start as simple as possible and build up** (`model.LADDER`). Each design adds one
+term to the one below. L0–L5 drop base terms, so only NUTS fits them. From m0q on, both samplers
+fit every design.
 
-Implementation findings, PyMC (nutpie, CPU):
-- **One thread per chain.** nutpie runs each chain on its own thread. By default the BLAS and numba
-  thread pools inside every chain competed for the 12 logical cores: about 55 threads at ~1,190% CPU.
-  Limiting each chain to one thread cut the cost per leapfrog step on L4 from 7.0 to 3.9 ms
-  (1.8× faster; same trees, 4 × (150 + 150)). The ladder does this from ac9e02b; earlier PyMC
-  times from L2 up are inflated.
-- **Deep trees from L4 on.** L4 takes about 245 leapfrog steps per iteration, because the 44
-  feature coefficients are correlated with each other and with the trend. A low-rank or dense
-  mass matrix (nutpie supports both) is the next PyMC variant to time against the diagonal one.
-
-| Rung | Adds |
+| Design | Adds |
 |---|---|
 | L0-mean | intercept only (Student-t noise) |
 | L1-drift | one shared linear drift per year |
 | L2-trend | a shared market trend: random walk over quarterly knots (contains the drift) |
 | L3-season | calendar season |
-| L4-features | the base-v1 listing features |
+| L4-features | the listing features |
 | L5-building | building levels |
-| L6-units | unit effects (= m0q) |
-| L7-walk | each building's random walk over half-year knots (= m1q) |
-| L8-bedslope | each building's premium per bedroom (= m5-nocurves) |
-| L9-fslopes | each building's slopes on size and bathrooms (= m6-nocurves) |
-| L10-tunits | Student-t unit effects instead of normal (= m7-nocurves) |
-| L11-udrift | each unit's linear drift per year (= m8-nocurves) |
+| m0q | unit levels |
+| m1q | each building's random walk over half-year knots |
+| m5-nocurves | each building's premium per bedroom |
+| m6-nocurves | each building's slopes on size and bathrooms |
+| m7-nocurves | Student-t unit levels instead of normal |
+| m8-nocurves | each unit's linear drift per year |
 
-Each rung gets PSIS-LOO (L6 with the unit effect integrated, as in the Gibbs line), a held-out
-score, a variance decomposition and a fit time. The first rung agrees across backends: PyMC and
-NumPyro give the same PSIS-LOO (−31,786.1) at L0.
+History, from the removed PyMC/NumPyro ladder (ladder.py, 3c26c4a–ac9e02b):
+- Non-centring the data-rich effects made PyMC diverge at L2 and L3.
+- nutpie needs one BLAS/numba thread per chain: about 1.8× faster per leapfrog step on L4.
+- From L4 on, NUTS takes about 245 leapfrog steps per iteration with a diagonal mass matrix. The
+  44 feature coefficients are correlated with each other and with the trend, so a dense or
+  low-rank mass matrix is the NUTS variant to time next.
+- Its records (lines `pymc` and `numpyro`, feature set `none` below L4) stay on the board as
+  data.
 
 ## Current effort: the sub-10-minute frontier on thelio (from 2026-09-24)
 
@@ -171,8 +165,17 @@ efficient models. It runs separately on each local hardware class (RTX 2060 SUPE
   structures as their native PSIS-LOO does but inflates the losses. The terms that keep the
   most accuracy per second of expected fit time define the candidates.
 - **Findings so far (RTX 2060).**
-  - m0q passes the gate (PSIS-LOO +10.3 vs m0; the quarterly trend costs nothing). Its 350 s and
-    m1q's times were measured alongside other jobs and are being re-timed serially.
+  - Clean serial re-times at ac9e02b, all on the 2060:
+    - m0q, 4 × (500 + 2000): 253 s, passes (350 s when measured alongside other jobs).
+    - m1q with the solo walk-scale update, 4 × (300 + 1500): 702 s, passes (709 s before). Its
+      cost is the solo update's extra block solves, not contention.
+    - m0q gains nothing measurable over m0: PSIS-LOO +10.3 ± 11.1.
+  - Round 2, description flags, 2 × (300 + 3000):
+    - m0q + desc: 309 s, passes; PSIS-LOO about +174 over m0q.
+    - m6-nocurves + desc: 1,245 s, **fails** (fslope_scale[0] R-hat 1.020, ESS 52 on the size
+      coefficient). The per-building size slopes and the global size coefficient move together,
+      and that slope scale mixes slowly. The candidate fix is a solo collapsed update for the
+      feature-slope scales, as walk_scale has.
   - Exact block speedups: per-slot accumulation (−34–37% for walk designs) and a structured
     `a′Wa` with inverted building factors (a further −22–38%).
   - Walk designs need the solo collapsed walk_scale update. Without it walk_scale mixes 3.5×

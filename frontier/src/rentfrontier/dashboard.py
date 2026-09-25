@@ -41,7 +41,7 @@ import shutil
 import subprocess
 from pathlib import Path
 
-from . import ladder, leaderboard, variance
+from . import leaderboard, variance
 
 REPO = Path(__file__).resolve().parents[3]
 SITE_SOURCE = REPO / "dashboard"
@@ -69,19 +69,18 @@ DESIGNS = {
     "nuts-hwalk-noise": "PyMC: walk with a noise-scale variant",
     "nuts-bcov": "PyMC: building covariance variant",
     "nuts-level": "PyMC: level variant",
-    # The model ladder (rentfrontier.ladder), fit by PyMC and NumPyro NUTS.
+    # The model ladder's simplest designs (model.LADDER; NUTS only).
     "L0-mean": "ladder: intercept only, Student-t noise",
     "L1-drift": "ladder: + one shared linear drift per year",
     "L2-trend": "ladder: shared quarterly market trend (replaces the drift)",
     "L3-season": "ladder: + calendar season",
-    "L4-features": "ladder: + the 44 base-v1 listing features",
+    "L4-features": "ladder: + the listing features",
     "L5-building": "ladder: + building levels",
-    "L6-units": "ladder: + unit effects (= m0q)",
-    "L7-walk": "ladder: + per-building half-year random walk (= m1q)",
-    "L8-bedslope": "ladder: + per-building bedroom slope (= m5-nocurves)",
-    "L9-fslopes": "ladder: + per-building size and bath slopes (= m6-nocurves)",
-    "L10-tunits": "ladder: Student-t unit effects (= m7-nocurves)",
-    "L11-udrift": "ladder: + per-unit linear drift (= m8-nocurves)",
+    "m0q": "m0 with a quarterly market trend",
+    "m1q": "m1 with a quarterly market trend",
+    "m6-nocurves": "m6 without bedroom curves",
+    "m7-nocurves": "m7 without bedroom curves",
+    "m8-nocurves": "m8 without bedroom curves",
 }
 
 
@@ -253,12 +252,9 @@ def psis_fields(ps):
 
 
 def structure(e) -> str:
-    """The model an entry fits, whichever sampler fit it: ladder rungs that are
-    a Gibbs design share that design's key (L6-units -> m0q/base-v1)."""
-    design = e["model"]["name"]
-    if e["line"] in ("pymc", "numpyro"):
-        design = ladder.SAME_AS.get(design, design)
-    return f"{design}/{e['feature_set']}"
+    """The model an entry fits, whichever sampler fit it: design and features
+    (every sampler fits the designs in `model.MODELS`)."""
+    return f"{e['model']['name']}/{e['feature_set']}"
 
 
 def data():

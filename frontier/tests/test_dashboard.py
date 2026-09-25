@@ -183,13 +183,10 @@ def test_frontier_and_best_are_per_hardware_class(tmp_path):
     assert last["cpu"]["frontier"] == ["cpu-fast"] and last["cpu"]["best"] == "cpu-fast"
 
 
-def test_ladder_rungs_share_the_structure_of_their_gibbs_design():
+def test_samplers_of_one_design_share_its_structure():
     def e(design, line, features="base-v1"):
         return {"model": {"name": design}, "line": line, "feature_set": features}
 
-    assert dashboard.structure(e("L6-units", "pymc")) == "m0q/base-v1"
-    assert dashboard.structure(e("L6-units", "numpyro")) == "m0q/base-v1"
+    assert dashboard.structure(e("m0q", "numpyro")) == "m0q/base-v1"
     assert dashboard.structure(e("m0q", "frontier")) == "m0q/base-v1"
-    assert dashboard.structure(e("L2-trend", "pymc", "none")) == "L2-trend/none"
-    # A Gibbs design named like a rung is not remapped.
     assert dashboard.structure(e("m1q", "frontier", "desc-v1")) == "m1q/desc-v1"

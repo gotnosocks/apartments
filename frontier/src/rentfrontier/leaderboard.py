@@ -509,7 +509,7 @@ def build(keep_dirs=False):
                 "paired_rows": vp.get("paired_rows"),
                 "max_rhat": r["diagnostics"]["max_rhat"],
                 "min_ess": r["diagnostics"]["min_ess"],
-                # NUTS runs (the ladder) count divergences; Gibbs has none.
+                # NUTS runs count divergences; Gibbs has none.
                 "divergences": r["diagnostics"].get("divergences"),
                 "passes": r["diagnostics"]["passes"],
                 "fit_seconds": r["seconds"]["fit_total"],
@@ -537,8 +537,8 @@ def build(keep_dirs=False):
             cost.append(r.get("cost_usd") or 0.0)
         e["passes_checks"] = passes
         e["split_hardware"] = {k: hardware_class(r) for k, r in by_split.items()}
-        # Run records from other implementations (the PyMC and NumPyro
-        # ladder) carry their own line; Gibbs runs are the frontier line.
+        # Run records carry their sampler's line (numpyro for NUTS, and the
+        # removed PyMC ladder's pymc); older Gibbs records have none.
         e["line"] = any_run.get("line", "frontier")
         e["grade"] = "full" if passes else "failed"
         # Fit time is the scored (row-split) fit's; unit-split fits are optional.
