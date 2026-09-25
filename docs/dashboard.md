@@ -40,6 +40,7 @@ http://thelio.tail3983e0.ts.net:8500 (tailnet only).
     MemoryMax 128M;
   - `apartments-dashboard-build.timer` → `apartments-dashboard-build.service`: every 10 minutes,
     follows `origin/master` in `/data1/apartments/serve/master` and rebuilds (about 20 s,
-    ~450 MB peak, MemoryMax 1G).
+    ~450 MB peak, MemoryMax 1G). The build waits for `/data1/apartments/tmp/heavy.lock`, so it never
+    runs during a timed fit. A fit can hold the lock for up to an hour, hence `TimeoutStartSec=2h`.
 - Build by hand: `cd frontier && uv run python -m rentfrontier.dashboard --out <dir>`.
 - Stop: `systemctl --user disable --now apartments-dashboard.service apartments-dashboard-build.timer`.
