@@ -55,8 +55,10 @@ class Settings:
     noise_steps: int = 10  # joint (sigma, nu) Metropolis steps per iteration
     sigma_step_sd: float = 0.004  # on log sigma
     nu_step_sd: float = 0.03  # on log nu
-    rescale_steps: int = 5  # (walk_scale, walk) rescaling moves per iteration
-    rescale_step_sd: float = 0.01  # on log c
+    # (walk_scale, walk) rescaling moves per iteration: no block solve, so
+    # cheap; their step size adapts during warmup (target acceptance 0.44).
+    rescale_steps: int = 20
+    rescale_step_sd: float = 0.01  # on log c (initial)
     trace_groups: int = 32
     # Collapsed Metropolis update of all group scales (latents integrated
     # out); proposal sd = collapse_scale * sd(log scale) / sqrt(#scales),
@@ -494,7 +496,14 @@ def make_step(d: Design):
         """One iteration. `cfg` holds the step sizes; with `prop_sd` (one
         proposal sd per hierarchical log-scale) the scales are first updated
         by a collapsed Metropolis step that integrates out every latent."""
-        noise_steps, sigma_step_sd, nu_step_sd, rescale_steps, rescale_step_sd = cfg
+        (
+            noise_steps,
+            sigma_step_sd,
+            nu_step_sd,
+            rescale_steps,
+            rescale_step_sd,
+            unit_rescale_step_sd,
+        ) = cfg
         keys = jax.random.split(key, 14)
         s = {k: state[k] for k in d.scale_names}
         z = (
@@ -750,48 +759,49 @@ def make_step(d: Design):
             )
 
         info["noise_accept"] = noise_acc / noise_steps
+        # Rescaling moves on (scale, effects) ridges: (tau, v) -> (c tau, c v).
+        # Given the effects, tau is pinned down tightly, and vice versa, so
+        # plain Gibbs moves along the ridge slowly. For a symmetric step on
+        # log c the acceptance ratio is
+        #   lik(c v) / lik(v) * prior(c tau) / prior(tau) * c
+        # (the location-scale prior of v and the Jacobian cancel all but one
+        # c), with the Gaussian likelihood given lam, sigma and all other
+        # latents. No block solve: each step is one weighted residual sum.
+        wts = lam / sigma**2
         if d.knot_start is not None:
-            # Rescaling move on (walk_scale, walk knots): (tau, W) -> (c tau, c W).
-            # Given the knots, tau is pinned down tightly, and vice versa, so
-            # plain Gibbs moves along this ridge slowly. For a symmetric step
-            # on log c the acceptance ratio is
-            #   lik(cW) / lik(W) * prior(c tau) / prior(tau) * c,
-            # with the Gaussian likelihood given lam, sigma and all other latents.
-            wts = lam / sigma**2
             walk_only = (
                 jnp.zeros_like(theta_l)
                 .at[:, d.knot_start :]
                 .set(theta_l[:, d.knot_start :])
             )
             contrib = local_value(walk_only, d.building, d.slots, d.slot_values)
-
-            def rescale(carry, k):
-                c_tot, tau, acc = carry
-                k1, k2 = jax.random.split(k)
-                log_c = rescale_step_sd * jax.random.normal(k1)
-                c = jnp.exp(log_c)
-                r_now = e - (c_tot - 1.0) * contrib
-                r_new = e - (c_tot * c - 1.0) * contrib
-                log_ratio = (
-                    -0.5 * jnp.sum(wts * (r_new**2 - r_now**2))
-                    - ((c * tau) ** 2 - tau**2) / (2 * d.prior_sd["walk_scale"] ** 2)
-                    + log_c
-                )
-                ok = jnp.log(jax.random.uniform(k2)) < log_ratio
-                return (
-                    jnp.where(ok, c_tot * c, c_tot),
-                    jnp.where(ok, c * tau, tau),
-                    acc + ok,
-                ), None
-
-            (c_tot, tau, acc), _ = jax.lax.scan(
-                rescale,
-                (jnp.ones(()), new["walk_scale"], jnp.zeros(())),
-                jax.random.split(keys[10], rescale_steps),
+            c_tot, tau, acc = _rescale(
+                keys[10],
+                e,
+                wts,
+                contrib,
+                new["walk_scale"],
+                d.prior_sd["walk_scale"],
+                rescale_step_sd,
+                rescale_steps,
             )
             new["walk_scale"] = tau
             theta_l = theta_l.at[:, d.knot_start :].multiply(c_tot)
+            e = e - (c_tot - 1.0) * contrib
             info["rescale_accept"] = acc / rescale_steps
+        c_u, tau_u, acc_u = _rescale(
+            jax.random.fold_in(keys[10], 1),
+            e,
+            wts,
+            u[d.unit],
+            new["unit_scale"],
+            d.prior_sd["unit_scale"],
+            unit_rescale_step_sd,
+            rescale_steps,
+        )
+        new["unit_scale"] = tau_u
+        u = u * c_u
+        info["unit_rescale_accept"] = acc_u / rescale_steps
         state = {
             "theta": theta,
             "local": theta_l,
@@ -862,6 +872,35 @@ def batched(fn, chains, batch):
     return run
 
 
+def _rescale(key, e, wts, contrib, tau, prior_sd, step_sd, steps):
+    """Random-walk Metropolis on log c for (tau, v) -> (c tau, c v); `contrib`
+    is v's contribution to the fit and `e` the residual with it included."""
+
+    def body(carry, k):
+        c_tot, tau_, acc = carry
+        k1, k2 = jax.random.split(k)
+        log_c = step_sd * jax.random.normal(k1)
+        c = jnp.exp(log_c)
+        r_now = e - (c_tot - 1.0) * contrib
+        r_new = e - (c_tot * c - 1.0) * contrib
+        log_ratio = (
+            -0.5 * jnp.sum(wts * (r_new**2 - r_now**2))
+            - ((c * tau_) ** 2 - tau_**2) / (2 * prior_sd**2)
+            + log_c
+        )
+        ok = jnp.log(jax.random.uniform(k2)) < log_ratio
+        return (
+            jnp.where(ok, c_tot * c, c_tot),
+            jnp.where(ok, c * tau_, tau_),
+            acc + ok,
+        ), None
+
+    (c_tot, tau, acc), _ = jax.lax.scan(
+        body, (jnp.ones(()), tau, jnp.zeros(())), jax.random.split(key, steps)
+    )
+    return c_tot, tau, acc
+
+
 def _detrended_var(x):
     """Per-chain variance of (chains, draws, k) around each chain's linear trend."""
     t = np.arange(x.shape[1], dtype=float)
@@ -892,6 +931,7 @@ def run(
         settings.sigma_step_sd,
         settings.nu_step_sd,
         settings.rescale_steps,
+        settings.rescale_step_sd,
         settings.rescale_step_sd,
     )
     hier = list(d.scale_names)
@@ -936,6 +976,7 @@ def run(
             float(2.38 / np.sqrt(2) * sd[-1]),
             settings.rescale_steps,
             settings.rescale_step_sd,
+            settings.rescale_step_sd,
         )
 
         # Phase 2 in two halves. After the first, rescale each collapsed step
@@ -955,6 +996,8 @@ def run(
                         info["collapsed_accept"],
                         *[info[f"solo_accept_{n}"] for n in solo_names],
                         info["noise_accept"],
+                        info.get("rescale_accept", jnp.zeros(())),
+                        info["unit_rescale_accept"],
                     ]
                 )
                 return st, acc
@@ -982,7 +1025,10 @@ def run(
             log(
                 f"warmup round {r} acceptance "
                 + ", ".join(
-                    f"{n}={a:.2f}" for n, a in zip(["joint", *solo_names, "noise"], acc)
+                    f"{n}={a:.2f}"
+                    for n, a in zip(
+                        ["joint", *solo_names, "noise", "rescale", "unit_rescale"], acc
+                    )
                 )
             )
             if r < rounds - 1:
@@ -990,9 +1036,17 @@ def run(
                 # (joint), 0.44 (1-D) and 0.3 (2-D noise); a step that is
                 # almost never accepted is cut hard instead.
                 prop_sd = prop_sd * _adapt(acc[0], 0.23)
-                ssd = ssd * jnp.asarray([_adapt(a, 0.44) for a in acc[1:-1]])
-                noise = _adapt(acc[-1], 0.3)
-                cfg = (cfg[0], cfg[1] * noise, cfg[2] * noise, *cfg[3:])
+                ssd = ssd * jnp.asarray([_adapt(a, 0.44) for a in acc[1:-3]])
+                noise = _adapt(acc[-3], 0.3)
+                rescale = _adapt(acc[-2], 0.44) if d.knot_start is not None else 1.0
+                cfg = (
+                    cfg[0],
+                    cfg[1] * noise,
+                    cfg[2] * noise,
+                    cfg[3],
+                    cfg[4] * rescale,
+                    cfg[5] * _adapt(acc[-1], 0.44),
+                )
         solo_sd = {n: float(v) for n, v in zip(solo_names, np.asarray(ssd))}
     jax.block_until_ready(states)
     warmup_seconds = time.perf_counter() - t0
@@ -1034,6 +1088,11 @@ def run(
     out["collapsed_proposal_sd"] = (
         None if prop_sd is None else dict(zip(hier, np.asarray(prop_sd).tolist()))
     )
-    out["noise_step_sd"] = {"sigma": cfg[1], "nu": cfg[2]}
+    out["noise_step_sd"] = {
+        "sigma": cfg[1],
+        "nu": cfg[2],
+        "rescale": cfg[4],
+        "unit_rescale": cfg[5],
+    }
     out["solo_proposal_sd"] = solo_sd
     return out
