@@ -203,7 +203,7 @@ implementation over implementing our own").
     - m0q, 4 × (500 + 2000): 253 s, passes (350 s when measured alongside other jobs).
     - m1q with the solo walk-scale update, 4 × (300 + 1500): 702 s, passes (709 s before). Its
       cost is the solo update's extra block solves, not contention.
-    - m0q gains nothing measurable over m0: PSIS-LOO +10.3 ± 11.1.
+    - m0q gains nothing measurable over m0: PSIS-LOO +10.5 ± 11.1.
   - Round 2, description flags, 2 × (300 + 3000):
     - m0q + desc: 309 s, passes; PSIS-LOO about +174 over m0q.
     - m5-nocurves + desc: 1,125 s, passes.
@@ -214,7 +214,7 @@ implementation over implementing our own").
     - m8-nocurves + desc: 1,573 s, **fails** (unit_drift_scale R-hat 1.085, ESS 52).
   - Fitting the 15-minute window by trimming draws (the sampler is frozen, so only settings change):
     - m5-nocurves at 2 × (300 + 2300) passes: 823 s with base features, 895 s with desc.
-    - m1q + desc at 4 × (300 + 1100): 883 s, fails (R-hat 1.015).
+    - m1q + desc at 4 × (300 + 1100): 883 s, fails (R-hat 1.015, ESS 379).
   - Exact block speedups: per-slot accumulation (−34–37% for walk designs) and a structured
     `a′Wa` with inverted building factors (a further −22–38%).
   - Walk designs need the solo collapsed walk_scale update. Without it walk_scale mixes 3.5×
