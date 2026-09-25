@@ -83,6 +83,37 @@ for this phase.
 Compared with the previous protocol (a row-split and a unit-split fit for every design), this
 halves the compute per candidate.
 
+## Two axes: structure and implementation (Ben, 2026-09-24)
+
+The goal is the best model structure *and* implementation. Every structure can be fit by more
+than one exact sampler, and each gets its own run record, timed on its own hardware:
+
+- **Custom Gibbs** (`rentfrontier.run`, JAX): the blocked Gibbs sampler with units integrated out.
+- **PyMC** (NUTS via nutpie, CPU) and **NumPyro** (NUTS, JAX on the GPU or the CPU), through the
+  model ladder (`rentfrontier.ladder`) and, for the Gibbs designs, `model.build_model`, which is a
+  NumPyro model of every design.
+
+Where implementations overlap, their posteriors must agree. That is the independent convergence
+check the project intent asks for, and it runs again whenever a sampler changes. The frontier on
+each hardware class then shows the best (structure, implementation) pair at each fit time.
+
+**The ladder: start as simple as possible and build up.** Each rung adds one term to the one
+below. Priors mirror `model.build_model` (m0q), so L6 is m0q.
+
+| Rung | Adds |
+|---|---|
+| L0-mean | intercept only (Student-t noise) |
+| L1-drift | one shared linear drift per year |
+| L2-trend | a shared market trend: random walk over quarterly knots (contains the drift) |
+| L3-season | calendar season |
+| L4-features | the base-v1 listing features |
+| L5-building | building levels |
+| L6-units | unit effects (= m0q) |
+
+Each rung gets PSIS-LOO (L6 with the unit effect integrated, as in the Gibbs line), a held-out
+score, a variance decomposition and a fit time. The first rung agrees across backends: PyMC and
+NumPyro give the same PSIS-LOO (−31,786.1) at L0.
+
 ## Current effort: the sub-10-minute frontier on thelio (from 2026-09-24)
 
 Ben asked for a research effort on the part of the frontier that fits in under 10 minutes, with
@@ -106,6 +137,15 @@ efficient models. It runs separately on each local hardware class (RTX 2060 SUPE
   without the description flags, per-building slopes, Student-t units) and measure the PSIS-LOO
   each projection loses. The terms that keep the most accuracy per second of expected fit time
   define the candidates.
+- **Findings so far (RTX 2060).**
+  - m0q passes the gate in 350 s (PSIS-LOO +10.3 vs m0; the quarterly trend costs nothing).
+  - Exact block speedups: per-slot accumulation (−34–37% for walk designs) and a structured
+    `a′Wa` with inverted building factors (a further −22–38%).
+  - Walk designs need the solo collapsed walk_scale update. Without it walk_scale mixes 3.5×
+    slower per draw, and cheap scaling moves or a covariance-shaped joint proposal don't close
+    the gap. With it, an iteration costs about 3 block solves (~145 ms per chain), and four chains
+    don't batch on this card. So a walk design that passes the gate needs about 15–17 min.
+  - A short-warmup adaptation bug (steps sized from drift, ν frozen) is fixed.
 - **Step 3. Native fits.** Fit the best candidates on each local class within 10 minutes with the
   step 1 settings, then score PSIS-LOO and the variance decomposition. These points form that
   class's sub-10-minute frontier.
