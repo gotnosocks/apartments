@@ -62,6 +62,18 @@ def test_gibbs_needs_every_base_term(name):
         gibbs.build_design(synthetic(), model.MODELS[name])
 
 
+def test_dense_globals_covers_the_small_sites_only():
+    out = nuts.run(
+        synthetic(),
+        model.MODELS["m1q"],
+        nuts.Settings(chains=2, warmup=50, draws=20, keep_every=10, dense_globals=True),
+        log=lambda *_: None,
+    )
+    assert "beta" in out["dense_sites"] and "trend_step" in out["dense_sites"]
+    assert "unit" not in out["dense_sites"] and "building" not in out["dense_sites"]
+    assert np.isfinite(out["lpd"]).all()
+
+
 @pytest.mark.parametrize("name", ["L1-drift", "m1q"])
 def test_nuts_run_matches_plain_numpyro_mcmc(name):
     """nuts.run's bookkeeping (constants, non-centred walk, collect) gives the

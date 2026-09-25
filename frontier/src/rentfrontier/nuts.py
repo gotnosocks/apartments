@@ -30,6 +30,18 @@ from . import collect as collect_module
 from . import model as model_module
 
 NONCENTERED = ("walk_step", "unit_drift")
+# Per-building and per-unit sites; every other site is global (the intercept,
+# coefficients, trend and season steps and every scale: about 130 numbers).
+LOCAL_SITES = {
+    "building",
+    "unit",
+    "walk_step",
+    "walk_step_decentered",
+    "bedroom_slope",
+    "fslope",
+    "unit_drift",
+    "unit_drift_decentered",
+}
 
 
 @dataclass(frozen=True)
@@ -43,6 +55,10 @@ class Settings:
     max_tree_depth: int = 10
     trace_groups: int = 32
     chain_batch: int | None = None  # vectorise this many chains at a time
+    # NumPyro's structured mass matrix: dense over the global sites (their
+    # posterior correlations make diagonal-mass trees deep), diagonal over the
+    # per-building and per-unit arrays.
+    dense_globals: bool = False
 
     def to_dict(self):
         return asdict(self)
@@ -54,6 +70,7 @@ def run(
     settings: Settings,
     log=print,
 ):
+    from numpyro import handlers
     from numpyro.infer import NUTS
 
     from .gibbs import batched
@@ -63,10 +80,20 @@ def run(
     t0 = time.perf_counter()
     present = {"walk_step": config.building_walk, "unit_drift": config.unit_drift}
     config = replace(config, noncentered=tuple(s for s in NONCENTERED if present[s]))
+    model_fn = model_module.build_model(prep, config)
+    dense = []
+    if settings.dense_globals:
+        tr = handlers.trace(handlers.seed(model_fn, 0)).get_trace()
+        dense = sorted(
+            k
+            for k, v in tr.items()
+            if v["type"] == "sample" and not v["is_observed"] and k not in LOCAL_SITES
+        )
     kernel = NUTS(
-        model_module.build_model(prep, config),
+        model_fn,
         target_accept_prob=settings.target_accept,
         max_tree_depth=settings.max_tree_depth,
+        dense_mass=[tuple(dense)] if dense else False,
     )
     k_init, k_warm, k_draw = jax.random.split(jax.random.PRNGKey(settings.seed), 3)
     vmap = (
@@ -142,4 +169,5 @@ def run(
     out["noncentered"] = list(config.noncentered)
     out["step_size"] = step_size.tolist()
     out["mean_tree_steps"] = float(steps.mean())
+    out["dense_sites"] = dense
     return out

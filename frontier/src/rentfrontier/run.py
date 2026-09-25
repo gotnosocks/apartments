@@ -259,6 +259,11 @@ def main(argv=None):
         "--solo-scales",
         help="Gibbs: comma-separated scales given 1-D collapsed updates ('none' for no solo updates)",
     )
+    parser.add_argument(
+        "--dense-globals",
+        action="store_true",
+        help="nuts: dense mass matrix over the global sites (NumPyro structured mass)",
+    )
     parser.add_argument("--name", required=True)
     parser.add_argument(
         "--dev", action="store_true", help="allow a dirty tree; run is not reportable"
@@ -301,6 +306,7 @@ def main(argv=None):
             "keep_every": args.keep_every,
             "seed": args.seed,
             "chain_batch": args.chain_batch,
+            "dense_globals": True if args.dense_globals else None,
             "solo_scales": (
                 () if args.solo_scales == "none" else tuple(args.solo_scales.split(","))
             )
@@ -381,6 +387,7 @@ def main(argv=None):
                 "noncentered",
                 "step_size",
                 "mean_tree_steps",
+                "dense_sites",
             )
             if k in out
         },
