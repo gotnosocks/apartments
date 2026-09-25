@@ -65,6 +65,10 @@ class Settings:
     # sized from the first half of warmup.
     collapse: bool = True
     collapse_scale: float = 2.38
+    # Joint collapsed proposal along the log-scales' warmup covariance
+    # (Cholesky factor) instead of independent per-scale steps: correlated
+    # scales (walk, unit, noise) then move together.
+    collapse_cov: bool = True
     chain_batch: int = 0  # vectorise this many chains at a time (0 = all)
     # Extra one-dimensional collapsed updates for these scales (if present).
     solo_scales: tuple = ("walk_scale",)
@@ -520,7 +524,10 @@ def make_step(d: Design):
             # Gaussian latents integrated out, random-walk on log scales. The
             # latents are then drawn from whichever factorisation is kept.
             k1, k2 = jax.random.split(keys[11])
-            step_ = prop_sd * jax.random.normal(k1, (len(hier),))
+            normal = jax.random.normal(k1, (len(hier),))
+            # prop_sd: per-scale sds, or a lower-triangular factor (full
+            # covariance proposal).
+            step_ = prop_sd @ normal if prop_sd.ndim == 2 else prop_sd * normal
             s_new = dict(s)
             for i, name in enumerate(hier):
                 s_new[name] = s[name] * jnp.exp(step_[i])
@@ -901,6 +908,23 @@ def _rescale(key, e, wts, contrib, tau, prior_sd, step_sd, steps):
     return c_tot, tau, acc
 
 
+def _detrended_cov(x):
+    """Covariance of (chains, draws, k) around each chain's linear trend,
+    averaged over chains: (k, k)."""
+    t = np.arange(x.shape[1], dtype=float)
+    t = (t - t.mean())[None, :, None]
+    xc = x - x.mean(axis=1, keepdims=True)
+    slope = (t * xc).sum(axis=1, keepdims=True) / (t * t).sum()
+    r = xc - slope * t
+    return np.einsum("cdi,cdj->ij", r, r) / (x.shape[0] * x.shape[1])
+
+
+def _step_sds(prop_sd):
+    """Marginal step sd per scale of a diagonal or full-covariance proposal."""
+    p = np.asarray(prop_sd)
+    return np.sqrt((p * p).sum(axis=1)) if p.ndim == 2 else p
+
+
 def _detrended_var(x):
     """Per-chain variance of (chains, draws, k) around each chain's linear trend."""
     t = np.arange(x.shape[1], dtype=float)
@@ -963,7 +987,15 @@ def run(
         # chains still drifting from their start (which would inflate a plain
         # within-chain variance in short warmups).
         sd = np.sqrt(_detrended_var(tail).mean(axis=0))
-        prop_sd = jnp.asarray(settings.collapse_scale * sd[:-1] / np.sqrt(len(hier)))
+        if settings.collapse_cov:
+            cov = _detrended_cov(tail[..., :-1]) + 1e-10 * np.eye(len(hier))
+            prop_sd = jnp.asarray(
+                settings.collapse_scale / np.sqrt(len(hier)) * np.linalg.cholesky(cov)
+            )
+        else:
+            prop_sd = jnp.asarray(
+                settings.collapse_scale * sd[:-1] / np.sqrt(len(hier))
+            )
         solo_sd = {
             n: float(2.38 * sd[hier.index(n)])
             for n in settings.solo_scales
@@ -1056,7 +1088,7 @@ def run(
             f"{n}={float(np.median(states[n])):.4f}" for n in (*d.scale_names, "nu")
         )
         + (
-            f" collapsed proposal sd {dict(zip(hier, np.round(np.asarray(prop_sd), 4)))}"
+            f" collapsed proposal sd {dict(zip(hier, np.round(_step_sds(prop_sd), 4)))}"
             if prop_sd is not None
             else ""
         )
@@ -1086,7 +1118,7 @@ def run(
     out["dtype"] = "float64"
     out["sampler"] = "structured-gibbs"
     out["collapsed_proposal_sd"] = (
-        None if prop_sd is None else dict(zip(hier, np.asarray(prop_sd).tolist()))
+        None if prop_sd is None else dict(zip(hier, _step_sds(prop_sd).tolist()))
     )
     out["noise_step_sd"] = {
         "sigma": cfg[1],

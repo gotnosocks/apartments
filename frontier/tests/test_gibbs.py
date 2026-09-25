@@ -477,3 +477,13 @@ def test_warmup_spread_ignores_drift_and_adaptation_cuts_dead_steps():
     assert gibbs._adapt(0.0, 0.3) == 0.3
     assert gibbs._adapt(0.3, 0.3) == pytest.approx(1.0)
     assert gibbs._adapt(0.6, 0.3) > 1.0
+
+
+def test_detrended_cov_recovers_correlation_despite_drift():
+    rng = np.random.default_rng(1)
+    c = np.array([[1.0, 0.8], [0.8, 1.0]]) * 1e-4
+    z = rng.multivariate_normal([0, 0], c, (4, 2000))
+    x = z + 0.001 * np.arange(2000)[None, :, None]
+    np.testing.assert_allclose(gibbs._detrended_cov(x), c, rtol=0.1, atol=1e-6)
+    f = np.linalg.cholesky(c)
+    np.testing.assert_allclose(gibbs._step_sds(f), [0.01, 0.01])
