@@ -166,56 +166,89 @@ same controls.
 First v6 results: the first 10 probes, all in 51 Leroy Street, returned HTTP 200. Each
 was an eligible unit page whose declared canonical URL equals the probe URL.
 
-## Handoff status (September 23, 07:55 EDT)
+### September 24 label-miss review
 
-**The crawl is running at four submissions per minute.** On September 23 at 07:51
-EDT the user doubled the rate. `apartments-west-village-low-rate-20260919-v6` was
-stopped cleanly and relaunched with `resume-v6-4pm.py`, which differs from
-`resume-v6.py` only in `--api-rps 1/15` (was `1/30`); the runtime source is
-unchanged. Earlier, on September 22, it had been stopped twice by machine-wide
-memory exhaustion (an OOM kill at 20:00 EDT and a reboot around 22:20 during
-concurrent model fits in other sessions), not by provider or account errors. The
-service is a transient `systemd-run` unit, so a reboot removes it and it must be
-relaunched by hand after checking for account errors.
+As of 13:30 EDT, the v6 run has attempted about 8,500 unit probes across 309
+buildings. About 1.5% of probes on listings from 2015 or later return 404, against
+55-82% for 2010-2013 listings (24% for 2014). The age of the inventory row predicts misses; label shape does
+not add much once age is known. Pre-2014 rows with four- or five-digit labels
+(for example `#1007` at 110 Horatio, listed 2011) missed 99% of 504 probes: those
+units no longer have their own pages. Most of that waste is already spent: of
+8,698 pending probes, 914 are pre-2014 rows (about 45% expected misses) and ten
+are other four- or five-digit labels. Expected remaining misses are about 570 requests.
+Skipping pre-2014 probes would save about 410 requests but lose about 500 units,
+so the probe rule is unchanged. No listing-page requests had run yet; 24,172 wait
+behind the unit probes.
 
-Progress since the v6 launch (observations after ID 4179), as of 07:51: 1,457
-requests, 1,023 HTTP 200 unit pages, 433 HTTP 404 label misses and one transient
-provider failure. Units with canonical membership grew from 223 to 1,139. Queue:
-1,456 probes done, 15,772 pending and one in flight. The cascade has also re-queued
-1,284 historical advertisement routes; unit routes are claimed first.
+### September 25 advertisement claim order
 
-The 404 rate rose overnight (about 38% of requests after 22:29) because the misses
-are concentrated in two large buildings whose inventory labels often do not match a
-unit page: `the-archive` (297 of 590 probes) and `110-horatio-street-new_york` (114
-of 256). Other buildings stayed near 3%. This is a coverage gap, not a block.
+At the user's request, advertisement pages are claimed round-robin by unit and
+newest first: every unit's newest associated advertisement, then every unit's
+second-newest, and so on, with higher (newer) StreetEasy advertisement IDs first
+within a round. If credits run out mid-queue, coverage stays as wide and recent
+as possible. Unit routes still come first. The order is set by
+`collection_policy.refresh_claim_rounds`, which places advertisement queue rows
+in a negative rowid band that `ArchiveStore.claim` already uses as its final
+tiebreak; `store.py` is unchanged because saved Chelsea datasets hash it. It runs
+when a unit page adds membership and again at every policy setup. On a copy of
+the live queue (September 25), round 0 held 11,302 pending advertisements,
+followed by 7,051, 5,532 and 4,269; placing them took 1.3 s and claim time was
+unchanged (about 70 ms). Requests, rate and eligibility are unchanged.
+
+## Handoff status (September 25, 11:15 EDT)
+
+**The crawl is running as `apartments-west-village-low-rate-20260919-v7`** at four
+submissions per minute. On September 25 at 11:13 EDT the v6 service was stopped
+cleanly and v7 was launched (first request 11:38, after setup) with `resume-v7-4pm.py` on the fixed `runtime-v7/src`.
+That runtime is `runtime-v6` with only `collection_policy.py` replaced by the merged
+PR #20 version, which adds round-robin, newest-first advertisement claims (see the
+September 25 section above). Rate, concurrency and eligibility are unchanged. The
+rate was doubled from two to four per minute on September 23 at the user's request.
+Earlier, on September 22, the crawl was stopped twice by machine-wide memory
+exhaustion, not by provider or account errors. The service is a transient
+`systemd-run` unit, so a reboot removes it and it must be relaunched by hand after
+checking for account errors.
+
+Progress as of September 25, 10:27 EDT: 13,530 unit probes done and 3,698 pending
+(about 15 hours at four per minute); 11,455 units with canonical membership; about
+37,900 advertisement pages queued behind the probes, still growing as units are
+found. From September 23 to 25, 404 misses ran at 4-10% per two-hour window, with
+no account, credit or block errors.
 
 ### Restart
 
 Use this if the service is stopped (check the journal for HTTP 401/402/403 first).
-The runtime is fixed and unchanged. Resume replays 2.5 to 6.5 minutes of offline setup
-(peak about 130 MB), then continues at four submissions per minute:
+The runtime is fixed. Resume replays offline setup before any request: 2.5 to 6.5
+minutes under v6, but about 26 minutes for the first v7 start (September 25), because
+replaying about 13.5k unit pages also placed each unit's advertisements one small
+transaction at a time. Later starts should move few rows (not yet measured); skipping the
+per-unit placement
+during replay (the full placement at the end of setup covers it) is a known
+follow-up. Peak memory is about 130 MB; the crawl then continues at four
+submissions per minute:
 
 ```sh
-systemctl --user reset-failed apartments-west-village-low-rate-20260919-v6
-systemd-run --user --unit=apartments-west-village-low-rate-20260919-v6 \
-  --description='West Village canonical rentals with inventory-label unit probes' \
+systemctl --user reset-failed apartments-west-village-low-rate-20260919-v7
+systemd-run --user --unit=apartments-west-village-low-rate-20260919-v7 \
+  --description='West Village canonical rentals: unit probes, then round-robin newest-first ads' \
   --property=WorkingDirectory=/home/ben/code/apartments --property=RuntimeMaxSec=infinity \
   --property=TimeoutStopSec=30 --property=Restart=no --property=MemoryMax=2G \
   /home/ben/code/apartments/.venv/bin/python -u \
-  /home/ben/code/apartments/data/probes/west-village-20260919/resume-v6-4pm.py
+  /home/ben/code/apartments/data/probes/west-village-20260919/resume-v7-4pm.py
 ```
 
 Check the service, then the progress counts with a read-only SQLite
 connection (`?mode=ro`):
 
 ```sh
-systemctl --user is-active apartments-west-village-low-rate-20260919-v6
-journalctl --user -u apartments-west-village-low-rate-20260919-v6 -n 30 --no-pager
+systemctl --user is-active apartments-west-village-low-rate-20260919-v7
+journalctl --user -u apartments-west-village-low-rate-20260919-v7 -n 30 --no-pager
 ```
 
 Useful queries: `observations WHERE id>4179` grouped by status;
 `count(DISTINCT unit_url) FROM collection_memberships`; and the frontier state of
-URLs whose `scope_urls.reason` starts with `inventory-label`.
+URLs whose `scope_urls.reason` starts with `inventory-label`. Queued advertisements
+placed in claim order have negative `frontier.rowid`.
 
 ### Standing controls and cautions
 
@@ -226,8 +259,10 @@ URLs whose `scope_urls.reason` starts with `inventory-label`.
   (HTTP 401/402/403), and do not buy credits. 404s are coverage gaps, not blocks.
 - The runtime, `.venv` and `.env` live under the default checkout and are gitignored.
   Do not delete, rebuild or `uv sync` that `.venv`, and do not edit
-  `data/probes/west-village-20260919/` while the crawl runs. Change code through a
-  new fixed runtime directory (`runtime-v7`) and a controlled stop and resume.
+  existing `data/probes/west-village-20260919/runtime-v*` directories. Change code
+  through a reviewed PR, a new fixed runtime directory (`runtime-v8`) and a
+  controlled stop and resume. Never edit files listed in `ruff.toml`'s
+  `extend-exclude` (including `store.py` and `crawler.py`): saved datasets hash them.
 - Memory: the service's cgroup sits at its 2 GB `MemoryMax` within minutes, but
   that is reclaimable file cache from reading the archive; the process itself uses
   under 100 MB (September 23: 61 MB anonymous, no cgroup OOM kills). An unprivileged user service cannot
@@ -235,17 +270,16 @@ URLs whose `scope_urls.reason` starts with `inventory-label`.
   large fits run alongside the crawl, check free memory or coordinate with the
   fitting session.
 - The Codex heartbeat `improve-west-village-scrape-efficiency` is paused.
-- Scale: about 15.8k unit probes remain (about 2.7 days at four per minute), then
-  historical advertisements (possibly about 55k).
+- Scale: about 3.7k unit probes remain (September 25), then about 50k historical
+  advertisements (about 8-9 days at four per minute) unless credits run out first.
 
 ### Code and version control
 
-- jj bookmark `west-village-unit-probes` (on master): the scraper, tests and this
-  document. `lineage-cache-page-speedup` is stacked on it. Workspace:
-  `/home/ben/code/apartments-c5-wv`.
-- The shared default working-copy commit (`a21d6e74`) still holds earlier
-  uncommitted Codex modeling work plus copies of these files. Rebasing it onto
-  `lineage-cache-page-speedup` is awaiting the user's decision.
+- The scraper code, tests and this document are on master. West Village work
+  collects on jj bookmark `west-village-unit-probes` (workspace
+  `/home/ben/code/apartments-c5-wv`) and lands through reviewed, squash-merged PRs:
+  #3 (this document) and #20 (advertisement claim order). After each merge the
+  bookmark restarts from master.
 - Open report from the Model Improvement session:
   `test_actual_accepted_current_cohort_and_joint_counterfactual` fails only after
   `tests/test_bayesian_floor_spline_readers.py` runs in the same process. The
