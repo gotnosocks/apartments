@@ -268,3 +268,29 @@ def test_building_totals_are_the_same_model():
         new = float(log_density(model.build_model(prep, moved), (), {}, q)[0])
         gaps.append(new - base)
     np.testing.assert_allclose(gaps, gaps[0], atol=1e-7)
+
+
+@pytest.mark.parametrize("unit_t", [False, True], ids=["normal", "t"])
+def test_partially_centred_units_run_and_return_unit_effects(unit_t):
+    """unit_partial (NumPyro LocScaleReparam with per-unit weights) samples
+    and gives back the original unit effects."""
+    prep = synthetic()
+    config = model.ModelConfig(name="p", unit_t=unit_t, trend_knot_months=3)
+    c = model.constants(prep, replace(config, coordinates=("unit_partial",)))[
+        "unit_centering"
+    ]
+    assert float(c.min()) > 0.5 and float(c.max()) < 1.0
+    out = nuts.run(
+        prep,
+        config,
+        nuts.Settings(
+            chains=2,
+            warmup=60,
+            draws=20,
+            keep_every=10,
+            coordinates=("building_totals", "unit_totals", "unit_partial"),
+        ),
+        log=lambda *_: None,
+    )
+    assert np.isfinite(out["lpd"]).all()
+    assert out["kept"]["unit"].shape[-1] == len(prep.units)

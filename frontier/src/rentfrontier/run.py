@@ -281,7 +281,7 @@ def main(argv=None):
     )
     parser.add_argument(
         "--coordinates",
-        help="nuts: comma-separated sampling coordinates (trend_levels, season_zerosum, building_zerosum, building_totals, unit_totals)",
+        help="nuts: comma-separated sampling coordinates (trend_levels, season_zerosum, building_zerosum, building_totals, unit_totals, unit_partial)",
     )
     parser.add_argument("--name", required=True)
     parser.add_argument(

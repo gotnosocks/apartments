@@ -81,6 +81,11 @@ class ModelConfig:
     #   unit effects (41e8fe0: m0q half-baths R-hat 1.017). Including the
     #   building effect in the unit total instead puts the market-level ridge
     #   through every unit (41e8fe0: m0q Chelsea Tower R-hat 1.13).
+    # - "unit_partial": partially non-centre each unit effect by its number of
+    #   rows, n / (n + UNIT_KAPPA) (LocScaleReparam with per-unit weights).
+    #   Units listed once are half prior, half data; fully centred, their
+    #   effects and the unit scale make a funnel (ed9a8a3: m0q unit_scale
+    #   R-hat 1.017, ESS 240).
     # - "building_totals": the same one level up. Sample each building's
     #   total (its effect plus its mean features times beta), split into a
     #   global mean plus zero-sum deviations; the building prior is imposed on
@@ -413,6 +418,9 @@ def constants(prep: Prepared, config: ModelConfig) -> dict:
         out["unit_xbar"] = jnp.asarray(
             _group_means(prep.train.x, prep.train.unit, len(prep.units))
         )
+    if "unit_partial" in config.coordinates:
+        rows = np.bincount(np.asarray(prep.train.unit), minlength=len(prep.units))
+        out["unit_centering"] = jnp.asarray(rows / (rows + UNIT_KAPPA))
     if "building_totals" in config.coordinates:
         out["building_xbar"] = jnp.asarray(
             _group_means(prep.train.x, prep.train.building, len(prep.buildings))
@@ -429,6 +437,12 @@ def constants(prep: Prepared, config: ModelConfig) -> dict:
     if not config.units:
         out |= {"unit_scale": zero, "unit": jnp.zeros(len(prep.units))}
     return out
+
+
+# (noise sd / unit sd)^2 from the fitted m0q (0.066 / 0.086)^2: a unit with n
+# rows is centred by n / (n + UNIT_KAPPA) under "unit_partial". Any fixed
+# value gives the same model; it only sets NUTS's coordinates.
+UNIT_KAPPA = 0.6
 
 
 def _group_means(x, group, n):
@@ -635,6 +649,12 @@ def build_model(prep: Prepared, config: ModelConfig):
         numpyro.sample("y", dist.StudentT(p["nu"], mu, p["sigma"]), obs=y)
 
     reparam = {site: LocScaleReparam(centered=0) for site in config.noncentered}
+    if config.units and "unit_partial" in config.coordinates:
+        site = "unit_total" if "unit_totals" in config.coordinates else "unit"
+        reparam[site] = LocScaleReparam(
+            centered=fixed["unit_centering"],
+            shape_params=("df",) if config.unit_t else (),
+        )
     return numpyro.handlers.reparam(model, config=reparam) if reparam else model
 
 
