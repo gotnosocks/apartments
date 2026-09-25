@@ -195,11 +195,49 @@ the live queue (September 25), round 0 held 11,302 pending advertisements,
 followed by 7,051, 5,532 and 4,269; placing them took 1.3 s and claim time was
 unchanged (about 70 ms). Requests, rate and eligibility are unchanged.
 
-## Handoff status (September 25, 11:15 EDT)
+### September 26 advertisement phase start
+
+Unit probes finished at about 02:28 EDT on September 26 (17,229 probes; 14,798
+units with canonical membership). The first 36 advertisement requests were all
+round 0 (each unit's newest), in descending ID order, as intended: 31 returned
+200 and 5 returned 404.
+
+14 of those 31 captures were marked `captured_listing_not_eligible` because the
+advertisement declares a zero-padded unit URL (`/005v`, `/009j`, `/02`) while the
+unit page that listed it in its history is unpadded (`/5v`, `/9j`, `/2`). Across
+the whole crawl, zero padding explains 29 of 34 such exclusions, in five buildings:
+`10-downing-street-new_york` (14), `564-hudson-street-new_york` (9),
+`the-west-coast` (3), `119-christopher-street-new_york` (2) and
+`234-west-14-street-new_york` (1). Those buildings hold 1,320 of 46,443 pending
+advertisements (2.8%). Under current policy these identities stay distinct (see
+the 564 Hudson decision above), so their captures are archived but not accepted.
+Treating a leading-zero difference as the same unit would be a policy change for
+the user to decide; it could be applied offline to archived captures without new
+requests.
+
+By 04:37 (two hours in), 467 advertisement requests had returned 462 HTTP 200 and 5
+HTTP 404. About 13,000 queued advertisements were superseded at no cost, because the
+unit page already carried the same advertisement in full ("same advertisement
+already captured on canonical unit page"), so round 0 finished early and round 1
+began. Of the 462 captures, 177 (38%) were excluded as `captured_listing_not_eligible`.
+The causes were zero padding in the declared unit (76), a declared canonical link that
+is not a unit page (67), and other label spellings of the same unit, for example
+`the-flat`/`theflat`, `4-b`/`4b`, `2nd-floor`/`2`, `3fl`/`3` (34). In the zero-padding
+case checked (10 Downing `5V`/`005V`), StreetEasy's own unit page lists the
+advertisement in its history, while the advertisement's own address label and
+canonical URL use the padded form; neither page exposes a numeric unit ID. The
+probe rule strips hyphens and spaces, which produces several of these
+self-canonical alternate spellings. Accepting such matches changes the eligibility
+policy, so it is left to the user. The captures are archived and could be
+re-evaluated offline. The rate was front-loaded: from 04:37 to 06:37, 480
+advertisement captures returned 200, 1 returned 404, and only 5 (1.0%) were
+excluded as not eligible.
+
+## Handoff status (September 25, 11:40 EDT)
 
 **The crawl is running as `apartments-west-village-low-rate-20260919-v7`** at four
 submissions per minute. On September 25 at 11:13 EDT the v6 service was stopped
-cleanly and v7 was launched (first request 11:38, after setup) with `resume-v7-4pm.py` on the fixed `runtime-v7/src`.
+cleanly and v7 was launched (first request 11:39, after setup) with `resume-v7-4pm.py` on the fixed `runtime-v7/src`.
 That runtime is `runtime-v6` with only `collection_policy.py` replaced by the merged
 PR #20 version, which adds round-robin, newest-first advertisement claims (see the
 September 25 section above). Rate, concurrency and eligibility are unchanged. The
@@ -221,10 +259,10 @@ Use this if the service is stopped (check the journal for HTTP 401/402/403 first
 The runtime is fixed. Resume replays offline setup before any request: 2.5 to 6.5
 minutes under v6, but about 26 minutes for the first v7 start (September 25), because
 replaying about 13.5k unit pages also placed each unit's advertisements one small
-transaction at a time. Later starts should move few rows (not yet measured); skipping the
-per-unit placement
-during replay (the full placement at the end of setup covers it) is a known
-follow-up. Peak memory is about 130 MB; the crawl then continues at four
+transaction at a time. That was a one-time move of about 39k rows: with rows
+already placed, the per-unit step only reads, and a read-only timing on the live
+archive (September 25) put that at about 50 s for 11.8k units, so later starts
+should take roughly the v6 time plus a minute. No code change is planned. Peak memory is about 130 MB; the crawl then continues at four
 submissions per minute:
 
 ```sh
