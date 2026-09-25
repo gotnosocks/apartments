@@ -264,6 +264,10 @@ def main(argv=None):
         action="store_true",
         help="nuts: dense mass matrix over the global sites (NumPyro structured mass)",
     )
+    parser.add_argument(
+        "--coordinates",
+        help="nuts: comma-separated sampling coordinates (trend_levels, unit_totals)",
+    )
     parser.add_argument("--name", required=True)
     parser.add_argument(
         "--dev", action="store_true", help="allow a dirty tree; run is not reportable"
@@ -307,6 +311,9 @@ def main(argv=None):
             "seed": args.seed,
             "chain_batch": args.chain_batch,
             "dense_globals": True if args.dense_globals else None,
+            "coordinates": tuple(args.coordinates.split(","))
+            if args.coordinates
+            else None,
             "solo_scales": (
                 () if args.solo_scales == "none" else tuple(args.solo_scales.split(","))
             )

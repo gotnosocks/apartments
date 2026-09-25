@@ -35,6 +35,7 @@ NONCENTERED = ("walk_step", "unit_drift")
 LOCAL_SITES = {
     "building",
     "unit",
+    "unit_total",
     "walk_step",
     "walk_step_decentered",
     "bedroom_slope",
@@ -59,6 +60,9 @@ class Settings:
     # posterior correlations make diagonal-mass trees deep), diagonal over the
     # per-building and per-unit arrays.
     dense_globals: bool = False
+    # Sampling coordinates (model.ModelConfig.coordinates): "trend_levels",
+    # "unit_totals". They change how NUTS moves, not the model.
+    coordinates: tuple = ()
 
     def to_dict(self):
         return asdict(self)
@@ -79,7 +83,11 @@ def run(
         raise RuntimeError("NUTS runs in float64 (jax_enable_x64)")
     t0 = time.perf_counter()
     present = {"walk_step": config.building_walk, "unit_drift": config.unit_drift}
-    config = replace(config, noncentered=tuple(s for s in NONCENTERED if present[s]))
+    config = replace(
+        config,
+        noncentered=tuple(s for s in NONCENTERED if present[s]),
+        coordinates=tuple(settings.coordinates),
+    )
     model_fn = model_module.build_model(prep, config)
     dense = []
     if settings.dense_globals:

@@ -124,3 +124,51 @@ def test_fixed_degrees_of_freedom_are_constants():
     config = model.MODELS["m5-nu5"]
     assert float(model.constants(prep, config)["nu"]) == 5.0
     assert "nu" not in sites(config, prep)
+
+
+@pytest.mark.parametrize(
+    "config",
+    [
+        model.MODELS["m0q"],
+        model.ModelConfig(name="t", unit_t=True, trend_knot_months=3),
+    ],
+    ids=["normal-units", "t-units"],
+)
+def test_sampling_coordinates_are_exact_reparameterizations(config):
+    """trend_levels and unit_totals are unit-Jacobian maps of the same model:
+    the joint density agrees at corresponding points."""
+    from numpyro.infer.util import log_density
+
+    prep = synthetic()
+    tr = handlers.trace(handlers.seed(model.build_model(prep, config), 3)).get_trace()
+    p = {
+        k: v["value"]
+        for k, v in tr.items()
+        if v["type"] == "sample" and not v["is_observed"]
+    }
+    moved = replace(config, coordinates=("trend_levels", "unit_totals"))
+    ub = model.constants(prep, moved)["unit_building"]
+    q = {k: v for k, v in p.items() if k not in ("trend_step", "unit")}
+    q["trend_level"] = jnp.cumsum(p["trend_step"])
+    q["unit_total"] = p["unit"] + p["building"][ub]
+    base = float(log_density(model.build_model(prep, config), (), {}, p)[0])
+    new = float(log_density(model.build_model(prep, moved), (), {}, q)[0])
+    assert new == pytest.approx(base, rel=1e-12, abs=1e-9)
+
+
+def test_nuts_with_coordinates_returns_the_original_effects():
+    out = nuts.run(
+        synthetic(),
+        model.MODELS["m0q"],
+        nuts.Settings(
+            chains=2,
+            warmup=60,
+            draws=20,
+            keep_every=10,
+            coordinates=("trend_levels", "unit_totals"),
+        ),
+        log=lambda *_: None,
+    )
+    assert np.isfinite(out["lpd"]).all()
+    assert out["kept"]["unit"].shape[-1] == len(synthetic().units)
+    assert np.isfinite(out["mean"]["trend"]).all()

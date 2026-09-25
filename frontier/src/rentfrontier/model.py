@@ -52,6 +52,15 @@ class ModelConfig:
     # Sites to non-center. With ~2.4 rows per unit, ~42 per building and
     # ~250 per month the data dominate, so centered is the default.
     noncentered: tuple = ()
+    # Sampling coordinates for gradient samplers. Like `noncentered` they change
+    # how a sampler moves, not the model (each is a unit-Jacobian linear map,
+    # and the original sites stay as deterministic sites):
+    # - "trend_levels": sample the market trend's knot values (a Gaussian
+    #   random walk) instead of its steps; the data inform levels, not steps.
+    # - "unit_totals": sample each unit's building level plus its own effect
+    #   (hierarchical centering), so a building and its units are not
+    #   strongly correlated in the sampler's coordinates.
+    coordinates: tuple = ()
     # Per-building random walk over KNOT_MONTHS knots (anchored at 0 in the
     # first month), interpolated linearly between knots.
     building_walk: bool = False
@@ -368,6 +377,12 @@ def constants(prep: Prepared, config: ModelConfig) -> dict:
         out["nu"] = jnp.asarray(config.nu_fixed)
     if config.unit_t and config.unit_nu_fixed is not None:
         out["unit_nu"] = jnp.asarray(config.unit_nu_fixed)
+    if "unit_totals" in config.coordinates:
+        ub = np.full(len(prep.units), -1)
+        ub[prep.train.unit] = prep.train.building
+        if (ub < 0).any() or (ub[prep.train.unit] != prep.train.building).any():
+            raise ValueError("unit_totals needs every unit in exactly one building")
+        out["unit_building"] = jnp.asarray(ub, dtype=jnp.int32)
     zero = jnp.zeros(())
     if not config.features:
         out["beta"] = jnp.zeros(len(prep.features.names))
@@ -424,7 +439,15 @@ def build_model(prep: Prepared, config: ModelConfig):
             p["market_drift"] = numpyro.sample(
                 "market_drift", dist.Normal(0.0, config.market_drift_sd)
             )
-        if config.trend:
+        if config.trend and "trend_levels" in config.coordinates:
+            level = numpyro.sample(
+                "trend_level",
+                dist.GaussianRandomWalk(p["trend_scale"], trend_basis.shape[1]),
+            )
+            p["trend_step"] = numpyro.deterministic(
+                "trend_step", jnp.diff(level, prepend=jnp.zeros(1))
+            )
+        elif config.trend:
             p["trend_step"] = numpyro.sample(
                 "trend_step",
                 dist.Normal(0.0, p["trend_scale"]).expand([trend_basis.shape[1]]),
@@ -444,16 +467,20 @@ def build_model(prep: Prepared, config: ModelConfig):
                 if config.unit_nu_fixed is not None
                 else numpyro.sample("unit_nu", dist.Gamma(2.0, 0.1))
             )
-            p["unit"] = numpyro.sample(
-                "unit",
-                dist.StudentT(p["unit_nu"], 0.0, p["unit_scale"]).expand(
-                    [len(prep.units)]
-                ),
+        if config.units:
+            n_units = len(prep.units)
+            centred = "unit_totals" in config.coordinates and config.buildings
+            loc = p["building"][fixed["unit_building"]] if centred else 0.0
+            prior = (
+                dist.StudentT(p["unit_nu"], loc, p["unit_scale"])
+                if config.unit_t
+                else dist.Normal(loc, p["unit_scale"])
             )
-        elif config.units:
-            p["unit"] = numpyro.sample(
-                "unit", dist.Normal(0.0, p["unit_scale"]).expand([len(prep.units)])
-            )
+            if centred:
+                total = numpyro.sample("unit_total", prior.expand([n_units]))
+                p["unit"] = numpyro.deterministic("unit", total - loc)
+            else:
+                p["unit"] = numpyro.sample("unit", prior.expand([n_units]))
         if config.unit_drift:
             p["unit_drift_scale"] = numpyro.sample(
                 "unit_drift_scale", dist.HalfNormal(config.unit_drift_scale_sd)
