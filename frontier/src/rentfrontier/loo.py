@@ -127,12 +127,23 @@ def integrated_loglik(y, mu, seg, n_seg, unit_time, params, *, t_units, drift):
     return jax.lax.map(one, (jnp.asarray(mu), p))
 
 
-def psis_loo(loglik):
-    """PSIS-LOO from (draws, rows) log densities: pointwise elpd, k, MCSE."""
+def psis_loo(loglik, block=4000):
+    """PSIS-LOO from (draws, rows) log densities: pointwise elpd, k, MCSE.
+
+    Rows are processed in blocks so memory stays bounded at large draw counts."""
+    loglik = np.asarray(loglik, float)
+    parts = [
+        _psis_block(loglik[:, lo : lo + block])
+        for lo in range(0, loglik.shape[1], block)
+    ]
+    return tuple(np.concatenate(p) for p in zip(*parts))
+
+
+def _psis_block(loglik):
     from arviz_stats.base import array_stats
     from scipy.special import logsumexp
 
-    ll = np.asarray(loglik, float).T  # (rows, draws)
+    ll = loglik.T  # (rows, draws)
     # arviz_stats' psislw takes the log-likelihood and negates it internally.
     lw, k = array_stats.psislw(ll, axis=-1)
     lw = np.asarray(lw) - logsumexp(lw, axis=1, keepdims=True)
@@ -143,6 +154,11 @@ def psis_loo(loglik):
     ratio = np.exp(ll - elpd[:, None])
     mcse = np.sqrt(np.sum(w * w * (ratio - 1.0) ** 2, axis=1))
     return elpd, np.asarray(k, float), mcse
+
+
+def chunk_rows(draws: int) -> int:
+    """Rows per device batch: bounded so draws x rows x terms stays ~1 GB."""
+    return int(min(CHUNK, max(1024, 6_000_000 // draws)))
 
 
 def unit_chunks(unit_sorted: np.ndarray, size: int = CHUNK):
@@ -191,7 +207,8 @@ def score_run(name: str):
     rows_sorted = train_idx[order]
     units_sorted = unit_of[order]
     loglik = np.empty((draws, len(rows_sorted)))
-    for lo, hi in unit_chunks(units_sorted):
+    size = chunk_rows(draws)
+    for lo, hi in unit_chunks(units_sorted, size):
         mask = np.zeros(len(frame), dtype=bool)
         mask[rows_sorted[lo:hi]] = True
         a = model.row_arrays(prep, frame, mask)
@@ -211,14 +228,14 @@ def score_run(name: str):
         mu, y, ut, unit = mu[:, pos], a.y[pos], a.unit_time[pos], a.unit[pos]
         _, seg = np.unique(unit, return_inverse=True)
         n = hi - lo
-        pad = CHUNK - n
+        pad = size - n
         # Pad to a fixed shape (one compile); padded rows are their own units.
         y_p = np.r_[y, np.zeros(pad)]
         mu_p = np.concatenate([mu, np.zeros((draws, pad))], axis=1)
         seg_p = np.r_[seg, seg.max() + 1 + np.arange(pad)]
         ut_p = np.r_[ut, np.zeros(pad)]
         ll = integrated_loglik(
-            y_p, mu_p, seg_p, CHUNK, ut_p, params, t_units=t_units, drift=drift
+            y_p, mu_p, seg_p, size, ut_p, params, t_units=t_units, drift=drift
         )
         loglik[:, lo:hi] = np.asarray(ll)[:, :n]
 
