@@ -43,14 +43,16 @@ optional and not counted.
 
 from __future__ import annotations
 
+import functools
 import json
 import math
+import subprocess
 from pathlib import Path
 
 import numpy as np
 
 from . import data
-from .run import REFERENCES
+from .run import REFERENCES, git
 
 RUNS = data.OUTPUT_ROOT / "runs"
 RESCORES = data.OUTPUT_ROOT / "rescores"
@@ -112,27 +114,41 @@ def load_rescores():
     return out
 
 
-def load_loo():
-    """Latest reportable PSIS-LOO record per source run name."""
-    out = {}
-    for path in sorted(LOO_ROOT.glob("*/result.json"), key=lambda p: p.stat().st_mtime):
+@functools.cache
+def commit_time(commit: str) -> int:
+    """Committer time of a scoring commit; 0 when this repository lacks it."""
+    if not commit:
+        return 0
+    try:
+        return int(git("show", "-s", "--format=%ct", commit))
+    except (subprocess.CalledProcessError, ValueError):
+        return 0
+
+
+def latest_records(root: Path) -> dict:
+    """The newest reportable record per source run under root/*/result.json.
+
+    Newest means scored by the most recent commit (committer time), then the
+    newest file. A re-score with older code, or a copy that loses file times,
+    does not displace a record from newer code.
+    """
+    rows = []
+    for path in root.glob("*/result.json"):
         r = json.loads(path.read_text())
         if not r.get("dirty"):
             r["_dir"] = str(path.parent)
-            out[r["source_run"]] = r
-    return out
+            rows.append((commit_time(r.get("commit", "")), path.stat().st_mtime, r))
+    return {r["source_run"]: r for *_, r in sorted(rows, key=lambda t: t[:2])}
+
+
+def load_loo():
+    """Latest reportable PSIS-LOO record per source run name."""
+    return latest_records(LOO_ROOT)
 
 
 def load_variance():
     """Latest reportable variance decomposition per source run name."""
-    out = {}
-    for path in sorted(
-        VARIANCE_ROOT.glob("*/result.json"), key=lambda p: p.stat().st_mtime
-    ):
-        r = json.loads(path.read_text())
-        if not r.get("dirty"):
-            out[r["source_run"]] = r
-    return out
+    return latest_records(VARIANCE_ROOT)
 
 
 def paired_loo(a_dir, b_dir):

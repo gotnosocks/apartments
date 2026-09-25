@@ -145,9 +145,10 @@ efficient models. It runs separately on each local hardware class (RTX 2060 SUPE
   iterations.
 - **Step 2. Projection search.** Use m8 + desc as the reference (its saved draws). Project its
   predictions onto cheaper design families (the structure of m0, m1, m5 without curves, with or
-  without the description flags, per-building slopes, Student-t units) and measure the PSIS-LOO
-  each projection loses. The terms that keep the most accuracy per second of expected fit time
-  define the candidates.
+  without the description flags, per-building slopes; Student-t units are not in the prototype)
+  and measure the in-sample log density each projection loses. That is a proxy: it ranks
+  structures as their native PSIS-LOO does but inflates the losses. The terms that keep the
+  most accuracy per second of expected fit time define the candidates.
 - **Findings so far (RTX 2060).**
   - m0q passes the gate (PSIS-LOO +10.3 vs m0; the quarterly trend costs nothing). Its 350 s and
     m1q's times were measured alongside other jobs and are being re-timed serially.
@@ -175,7 +176,9 @@ efficient models. It runs separately on each local hardware class (RTX 2060 SUPE
 3. **Score the promoted PyMC model.** Rerun its row-split screen locally with draws saved (about 3 h
    of CPU NUTS) and add the PyMC-side integrated LOO. It then returns as a comparison point with its
    6.2 h production fit.
-4. **Close the tdrift sampler-agreement xfail** before relying on m8's drift-scale uncertainty.
+4. ~~Close the tdrift sampler-agreement xfail.~~ Done (PR #17 review). It passes against the
+   non-centred reference, and the xfail is removed. The margin is thin: Gibbs ESS on
+   unit_drift_scale is about 80–200 in the test.
 
 ### T2. The fit-time axis on thelio
 

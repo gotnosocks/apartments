@@ -5,7 +5,7 @@
       "Fit on a Modal H100 (NVIDIA H100 80GB HBM3): 16 chains x (900 warmup + 2,000 draws), 3,368 s including JIT (warmup 851 s, sampling 2,515 s), about $4.11. Gate: max split R-hat 1.006, min bulk ESS 2,573, all-effects R-hat 1.02 from exact per-chain moments.",
       "Not refit locally (Ben, 2026-09-24): the design and its settings were tuned for an H100, and thelio's RTX 2060 runs float64 at about 1/32 rate. Its fit time on this board is H100 time; the thelio fit time is unmeasured, so it is not the local baseline for fit-time work.",
       "Chosen to serve the app (Ben, 2026-09-24): the rows-split fit m8-drift-desc-v1-rows-b7c196f, through the summary-output reader. Its posterior uses 47,374 of 52,638 rows (the 5,264 row-split held-out rows are predicted, not fit). No all-rows m8 fit exists.",
-      "Open sampler item: the Gibbs-vs-NUTS agreement test for the drift design (tdrift) is xfail (unit_drift_scale posterior sd 0.0099 Gibbs vs 0.0083 centred NUTS; the walk case of the same symptom was the centred reference under-mixing). Treat the drift-scale uncertainty as provisional until a non-centred reference confirms it."
+      "Sampler check: the Gibbs-vs-NUTS agreement test for the drift design (tdrift) passes against the non-centred reference (unit_drift_scale sd ratio 0.98-1.05 over two seeds; PR #17 review). The old xfail came from a centred reference. The margin is thin (Gibbs ESS on unit_drift_scale about 80-200 in the test)."
     ],
     "m8-drift/base-v1/gibbs@b7c196f": [
       "Fit on a Modal H100: 16 chains x (900 + 2,000), 3,269 s including JIT, about $3.99. Not refit locally (Ben, 2026-09-24); the thelio fit time is unmeasured."
