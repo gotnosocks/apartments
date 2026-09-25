@@ -12,6 +12,7 @@
     ]
   },
   "footer": [
-    "Each hardware class has its own table, frontier and best: a fit time only competes with fit times on the same hardware (where the fit ran). Modal H100/H200 times are not comparable with thelio's."
+    "Each hardware class has its own table, frontier and best: a fit time only competes with fit times on the same hardware (where the fit ran). Modal H100/H200 times are not comparable with thelio's.",
+    "The custom Gibbs sampler (line `frontier`, sampler `gibbs`) is deprecated since 2026-09-25 (Ben): its entries stay as history and are not used for new work; new fits use library samplers (NumPyro NUTS, line `numpyro`)."
   ]
 }

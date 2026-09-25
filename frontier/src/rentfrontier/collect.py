@@ -208,6 +208,23 @@ def collect(
     }
 
 
+def batched(fn, chains, batch):
+    """vmap `fn` over chains, `batch` chains at a time (lax.map over groups)."""
+    if not batch or batch >= chains:
+        return jax.vmap(fn)
+    if chains % batch:
+        raise ValueError("chains must be a multiple of chain_batch")
+
+    def run(*args):
+        grouped = jax.tree.map(
+            lambda a: a.reshape(chains // batch, batch, *a.shape[1:]), args
+        )
+        out = jax.lax.map(lambda g: jax.vmap(fn)(*g), grouped)
+        return jax.tree.map(lambda a: a.reshape(chains, *a.shape[2:]), out)
+
+    return run
+
+
 def all_effects_rhat(s1, s2, n):
     """R-hat for every element of every named effect, from per-chain moments.
 

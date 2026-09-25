@@ -243,9 +243,14 @@ def main(argv=None):
     parser.add_argument("--model", default="m0-base")
     parser.add_argument(
         "--sampler",
-        choices=("gibbs", "nuts"),
-        default="gibbs",
-        help="gibbs: the custom blocked Gibbs sampler; nuts: NumPyro NUTS",
+        choices=("nuts", "gibbs"),
+        default="nuts",
+        help="nuts: NumPyro NUTS; gibbs: the custom Gibbs sampler (deprecated)",
+    )
+    parser.add_argument(
+        "--reproduce-deprecated",
+        action="store_true",
+        help="allow --sampler gibbs, only to reproduce an existing run record",
     )
     parser.add_argument("--chains", type=int)
     parser.add_argument("--warmup", type=int)
@@ -264,11 +269,23 @@ def main(argv=None):
         action="store_true",
         help="nuts: dense mass matrix over the global sites (NumPyro structured mass)",
     )
+    parser.add_argument(
+        "--float32", action="store_true", help="nuts: float32 arithmetic (GPU)"
+    )
+    parser.add_argument(
+        "--coordinates",
+        help="nuts: comma-separated sampling coordinates (trend_levels, season_zerosum, building_zerosum, unit_totals)",
+    )
     parser.add_argument("--name", required=True)
     parser.add_argument(
         "--dev", action="store_true", help="allow a dirty tree; run is not reportable"
     )
     args = parser.parse_args(argv)
+    if args.sampler == "gibbs" and not args.reproduce_deprecated:
+        raise SystemExit(
+            "The custom Gibbs sampler is deprecated (2026-09-25) and not for new work; "
+            "use --sampler nuts (--reproduce-deprecated only to reproduce an old run)."
+        )
 
     # Remote workers get a clean export of a commit and no .git; the local
     # submitter checks the tree and passes the commit in FRONTIER_COMMIT.
@@ -285,7 +302,8 @@ def main(argv=None):
 
     import jax
 
-    jax.config.update("jax_enable_x64", True)
+    # Gibbs always runs in float64; NUTS too unless --float32.
+    jax.config.update("jax_enable_x64", not (args.sampler == "nuts" and args.float32))
     from . import gibbs, model, nuts
 
     config = model.MODELS[args.model]
@@ -307,6 +325,10 @@ def main(argv=None):
             "seed": args.seed,
             "chain_batch": args.chain_batch,
             "dense_globals": True if args.dense_globals else None,
+            "coordinates": tuple(args.coordinates.split(","))
+            if args.coordinates
+            else None,
+            "float32": True if args.float32 else None,
             "solo_scales": (
                 () if args.solo_scales == "none" else tuple(args.solo_scales.split(","))
             )
@@ -376,6 +398,7 @@ def main(argv=None):
         "model": config.to_dict(),
         "sampler": args.sampler,
         "line": "frontier" if args.sampler == "gibbs" else "numpyro",
+        "deprecated_sampler": args.sampler == "gibbs",
         "sampler_settings": settings.to_dict(),
         "dtype": out.get("dtype"),
         "adapted": {

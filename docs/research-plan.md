@@ -159,8 +159,11 @@ implementation over implementing our own").
   - PyMC has no conjugate Gaussian step;
   - NIMBLE and JAGS assign conjugate and block samplers automatically, but on the CPU outside this
     stack.
-- The custom Gibbs sampler is therefore **frozen**: no new sampler code. It stays as the benchmark
-  on the thelio frontier and retires once a library sampler matches it there.
+- The custom Gibbs sampler is **deprecated** (Ben, 2026-09-25: not to be used for any new work).
+  - `run.py` defaults to `--sampler nuts` and refuses `--sampler gibbs` without
+    `--reproduce-deprecated`, which exists only to reproduce a run record that cites it.
+  - Its entries stay on the board and dashboard as history, labelled deprecated. They show the
+    marks library samplers have to reach.
 - **NUTS belongs on the CPU here.** On the RTX 2060, NumPyro NUTS took 23 s for L0-mean, 110 s for
   L1-drift and over 20 minutes for L2-trend (stopped), against 8 s, 9 s and 322 s for PyMC NUTS
   on the CPU. Every leapfrog step is many small float64 kernels, and the card runs float64 at
@@ -203,7 +206,7 @@ implementation over implementing our own").
     - m0q, 4 × (500 + 2000): 253 s, passes (350 s when measured alongside other jobs).
     - m1q with the solo walk-scale update, 4 × (300 + 1500): 702 s, passes (709 s before). Its
       cost is the solo update's extra block solves, not contention.
-    - m0q gains nothing measurable over m0: PSIS-LOO +10.3 ± 11.1.
+    - m0q gains nothing measurable over m0: PSIS-LOO +10.5 ± 11.1.
   - Round 2, description flags, 2 × (300 + 3000):
     - m0q + desc: 309 s, passes; PSIS-LOO about +174 over m0q.
     - m5-nocurves + desc: 1,125 s, passes.
@@ -212,9 +215,9 @@ implementation over implementing our own").
       coefficient move together, and the slope scales mix slowly.
     - m7-nocurves + desc: 1,298 s, **fails** (fslope_scale[2] ESS 194).
     - m8-nocurves + desc: 1,573 s, **fails** (unit_drift_scale R-hat 1.085, ESS 52).
-  - Fitting the 15-minute window by trimming draws (the sampler is frozen, so only settings change):
+  - Fitting the 15-minute window by trimming draws (settings only):
     - m5-nocurves at 2 × (300 + 2300) passes: 823 s with base features, 895 s with desc.
-    - m1q + desc at 4 × (300 + 1100): 883 s, fails (R-hat 1.015).
+    - m1q + desc at 4 × (300 + 1100): 883 s, fails (R-hat 1.015, ESS 379).
   - Exact block speedups: per-slot accumulation (−34–37% for walk designs) and a structured
     `a′Wa` with inverted building factors (a further −22–38%).
   - Walk designs need the solo collapsed walk_scale update. Without it walk_scale mixes 3.5×
@@ -225,6 +228,160 @@ implementation over implementing our own").
 - **Step 3. Native fits.** Fit the best candidates on each local class within 15 minutes with the
   step 1 settings, then score PSIS-LOO and the variance decomposition. These points form that
   class's sub-15-minute frontier.
+- **Step 4. Structure search within 15 minutes** (Ben, 2026-09-25: explore feature space and model
+  shapes to keep improving the frontier under the 15-minute limit). See the next section.
+
+## Structure search under 15 minutes (from 2026-09-25)
+
+**Goal.** Raise the most accurate gate-passing fit within 15 minutes on each thelio hardware class,
+with library samplers only.
+- The deprecated Gibbs sampler left a mark on the RTX 2060: m5-nocurves + desc, +9,922 PSIS-LOO
+  over m0 in 895 s.
+- The library path first has to reach comparable designs within the window (C.1). Then every
+  candidate either buys time back or spends it better.
+
+**Method.**
+1. Screen cheaply before fitting.
+   - Projection (`rentfrontier.projection`, seconds per structure) of the m8 + desc reference onto
+     each candidate ranks structures the way their native PSIS-LOO does.
+   - The variance decomposition shows where unexplained variation sits: features about 50%,
+     building about 30%, unit 2–3%, residual 2–4%.
+   - A candidate goes to a native fit only if projection says it beats the current mark.
+2. Estimate its fit time before fitting.
+   - NUTS cost is tree depth × gradient cost. The depth depends on the coordinates (see the NUTS
+     findings above).
+   - The gradient cost grows with rows × terms, plus the per-building and per-unit arrays.
+3. Fit the shortlist natively, one at a time, within 15 minutes on each class. Right-size the draw
+   budget to the gate (ESS > 400) and score PSIS-LOO and the variance decomposition.
+4. Keep what moves the frontier; record what doesn't, in this plan and on the board.
+
+**A. Feature space.** New features are new feature-set ids (`features.py`; `base-v2`, and so on).
+They enter the design matrix, so NUTS fits them like any other design.
+
+1. **Building covariates in the building mean.**
+   - The data: stories, residential units and zip from archived building pages
+     (`data/model/building-covariates-20260923`, 1,072 of 1,129 buildings); the archive's year
+     built is a placeholder, so skip it.
+   - A building-level column in the row predictor is exactly a regression in the building mean.
+   - For NUTS, write it in the building mean: building ~ N(γ·z, τ), the same hierarchical
+     centering as `unit_totals`. That avoids the collinearity with the building levels that the
+     earlier PyMC screen hit.
+   - Expect the gain on buildings with few rows, which carry most of the high-k PSIS rows.
+2. **Location.** Buildings have latitude and longitude. Try a low-rank spatial basis over building
+   locations, as building-level columns, so neighbouring buildings share information (west vs
+   east Chelsea, the avenues, the High Line).
+3. **Floor.** The label-derived floor and the expanded-floor sidecar (T3.2) next to the advertised
+   floor label.
+4. **Size and layout.**
+   - A nonlinear size deviation: splines on log square feet relative to the bedroom median.
+   - Bedrooms × size.
+   - Bathrooms per bedroom.
+5. **Description flags.**
+   - desc-v1 adds about +200 but 21 columns, and on m1q it cost 1.6× the fit time.
+   - Ablate the flags to find a short set that keeps most of the gain for fewer columns.
+   - Later, richer text features (embeddings or topics), which need new tooling.
+6. **Pruning.** Drop base-v1 columns that carry nothing (some view and window flags), to buy time
+   for columns that do.
+7. **External and neighbourhood data, widely** (Ben, 2026-09-25: explore and test widely from all
+   sources, not just StreetEasy). Details in the next section.
+
+**A′. External and neighbourhood data.** The listings describe the apartment. What surrounds it
+comes from other sources, most of them public NYC and NYS data.
+
+*Join and provenance.*
+- **Building registry first.** Map every building to its BBL (tax lot) and BIN (building) with the
+  NYC Planning GeoSearch geocoder: the address from the building slug, checked against the archived
+  coordinates. Keep the registry versioned. Every external feature joins through BBL, BIN or
+  coordinates.
+- **Snapshots with provenance.** Each source is a dated snapshot under
+  `/data1/apartments/external/<source>/<date>/`, recording the URL, query, retrieval time and
+  sha256. A feature set records the snapshots it uses; run records already carry the feature
+  sources.
+- **As-of values.** Time-varying sources give each listing the values known by its listing date.
+  That covers 311, crime, violations, permits and new stations; the 7-train extension to Hudson
+  Yards opened in 2015. No future information.
+
+*Sources and candidate features.* Building-level unless noted.
+
+| Area | Source | Features |
+|---|---|---|
+| Building | MapPLUTO (DCP) | year built (replaces StreetEasy's placeholder), floors, units, lot and building area, building class, landmark or historic district, zoning |
+| Condition | HPD violations and complaints; DOB permits | open violations per unit, as-of; recent alteration permits (renovation proxy) |
+| Regulation | DOF rent-stabilization counts | share of stabilized units in the building |
+| Energy | Local Law 84 benchmarking | Energy Star score |
+| Street | LION street centerline (DCP); DOT traffic counts; street tree census | frontage street width and lanes, avenue vs side street, one-way, traffic volume, tree density on the block |
+| Noise | 311 service requests | noise complaints near the building per year, by type (traffic, construction, nightlife), as-of |
+| Transit | MTA subway entrances (GTFS); Citi Bike; PATH | distance to the nearest entrance, lines within 400/800 m, the 2015 Hudson Yards 7 extension |
+| Schools | DOE school locations, zones and School Quality Reports | zoned elementary school and its ratings, schools nearby |
+| Everyday | NYS Ag & Markets retail food stores; DOHMH restaurant inspections; OpenStreetMap | grocery and pharmacy distance, restaurant density |
+| Health | NYS DOH facility locations | distance to the nearest hospital |
+| Open space | NYC Parks properties | distance to a park, the High Line, Hudson River Park, the waterfront |
+| Safety | NYPD complaint data | incidents near the building per year, as-of |
+| Risk | FEMA and NYC flood hazard maps | flood zone |
+
+*Unit orientation* (street vs courtyard, and the street's size).
+- StreetEasy's view and exposure fields are sparse (base-v1 has `view_street`, `view_courtyard`
+  and window directions).
+- Add description flags ("courtyard-facing", "quiet rear", "faces the street").
+- Infer orientation geometrically: the unit's window directions against the bearing of the
+  building's frontage street (LION and building footprints). A street-facing unit then gets that
+  street's width and traffic.
+- Height against the neighbours (MapPLUTO heights) as a light and view proxy.
+
+*Testing.*
+- Add each source group as its own feature set, alone and then combined.
+- Put building-level features in the building mean (the NUTS-friendly form).
+- Screen by projection, then fit the best combinations natively within 15 minutes.
+- The gain should show up mainly on buildings with few rows and on units listed once.
+- Also watch the variance decomposition. Named neighbourhood features that take over building-level
+  variance make the description more interpretable, even at equal PSIS-LOO.
+- Census demographics (ACS) are left out unless Ben decides otherwise: they describe residents, not
+  the apartment, and raise fair-housing concerns.
+
+**B. Model shapes.** Parameterization and shape switches in `model.ModelConfig`.
+
+1. **Walk knot spacing.** Half-year to yearly knots halve the per-building walk parameters
+   (about 38,000 steps), the largest array in walk designs. Measure the PSIS-LOO cost against the time saved;
+   the saved time can go into slopes or features.
+2. **Bedroom curves.** These are the market curve per bedroom group, dropped in the nocurves
+   designs to save about 200 global columns. Yearly knots would cost about 45 columns instead,
+   and could win back part of the curves' gain at a fraction of the cost.
+3. **Trend knot spacing.** Quarterly costs nothing measurable against monthly; test half-year.
+4. **Per-building slopes.**
+   - The bedroom slope pays (+2,200 over m1q).
+   - The size and bath slopes (m6) did not mix under the deprecated Gibbs sampler.
+   - Try them under NUTS, or a single size slope.
+5. **Unit effects.**
+   - Student-t units (+1,200) and unit drift (+360) did not mix under the deprecated Gibbs sampler
+     (21–26 minutes).
+   - Candidates under NUTS: as they are, with a fixed unit ν, or drift only for units with a long
+     history.
+6. **Noise.**
+   - Heteroskedastic noise by bedroom group or by price basis. The earlier building-level residual
+     scale was suggestive at +45 ± 29.
+   - Fixed ν, as a speed option.
+7. **Pooling structure.** A neighbourhood or spatial level between market and building, which
+   pairs with A.1–A.2.
+
+**C. Implementations within 15 minutes.**
+1. **NUTS in NUTS-friendly coordinates on the CPU.**
+   - Exact reparameterizations: trend levels, zero-sum season, units centred within buildings.
+   - If NUTS reaches m0q/m1q/m5 within 15 minutes, it can fit any shape `build_model` expresses
+     without sampler code. That includes the t-unit, drift and slope shapes the deprecated Gibbs
+     sampler could not mix.
+2. **Per-design draw budgets and chain counts** sized to the gate on each hardware class.
+3. **Library samplers only** (Ben, 2026-09-25): the custom Gibbs sampler is deprecated. Other
+   libraries (BlackJAX NUTS, nutpie) run on the same model if NumPyro's NUTS falls short.
+
+**Order.** By expected PSIS-LOO gain per second of fit time:
+1. C.1: NUTS on m0q, m1q and m5 in the new coordinates. Every later step needs a library fit that
+   reaches these designs within 15 minutes.
+2. A.1 and A.2 (building covariates and location) on the best NUTS design. In parallel, since it
+   needs no fits: the building registry (A′) and the first sources: MapPLUTO, subway entrances,
+   LION street width and 311 noise;
+3. B.1 (yearly walk knots), reinvesting the saved time in B.2 (yearly bedroom curves) or A.5;
+4. the t-unit and drift shapes under NUTS (B.5);
+5. A.5 (flag ablation), A.6 (pruning), B.6 (noise) and A.3–A.4.
 
 ## Work tracks, in order
 

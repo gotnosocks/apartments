@@ -34,7 +34,10 @@ NONCENTERED = ("walk_step", "unit_drift")
 # coefficients, trend and season steps and every scale: about 130 numbers).
 LOCAL_SITES = {
     "building",
+    "building_dev",
+    "bedroom_slope_dev",
     "unit",
+    "unit_total",
     "walk_step",
     "walk_step_decentered",
     "bedroom_slope",
@@ -59,6 +62,14 @@ class Settings:
     # posterior correlations make diagonal-mass trees deep), diagonal over the
     # per-building and per-unit arrays.
     dense_globals: bool = False
+    # Sampling coordinates (model.ModelConfig.coordinates): "trend_levels",
+    # "season_zerosum", "building_zerosum", "unit_totals". They change how
+    # NUTS moves, not the model.
+    coordinates: tuple = ()
+    # float32 arithmetic (run.py leaves jax_enable_x64 off). The RTX 2060 runs
+    # float32 at full rate but float64 at about 1/32; scoring (loo, variance)
+    # still runs in float64 from the kept draws.
+    float32: bool = False
 
     def to_dict(self):
         return asdict(self)
@@ -70,25 +81,30 @@ def run(
     settings: Settings,
     log=print,
 ):
-    from numpyro import handlers
     from numpyro.infer import NUTS
+    from numpyro.infer.util import initialize_model
 
-    from .gibbs import batched
+    from .collect import batched
 
-    if not jax.config.jax_enable_x64:
-        raise RuntimeError("NUTS runs in float64 (jax_enable_x64)")
+    if jax.config.jax_enable_x64 == settings.float32:
+        raise RuntimeError(
+            "jax_enable_x64 must be off for float32 NUTS and on otherwise (run.py sets it)"
+        )
+    dtype = jnp.float32 if settings.float32 else jnp.float64
     t0 = time.perf_counter()
     present = {"walk_step": config.building_walk, "unit_drift": config.unit_drift}
-    config = replace(config, noncentered=tuple(s for s in NONCENTERED if present[s]))
+    config = replace(
+        config,
+        noncentered=tuple(s for s in NONCENTERED if present[s]),
+        coordinates=tuple(settings.coordinates),
+    )
     model_fn = model_module.build_model(prep, config)
     dense = []
     if settings.dense_globals:
-        tr = handlers.trace(handlers.seed(model_fn, 0)).get_trace()
-        dense = sorted(
-            k
-            for k, v in tr.items()
-            if v["type"] == "sample" and not v["is_observed"] and k not in LOCAL_SITES
-        )
+        # The latent sites from NumPyro's own initialization: tracing a prior
+        # draw would fail on the flat-prior `trend_absolute` site.
+        z = initialize_model(jax.random.PRNGKey(0), model_fn).param_info.z
+        dense = sorted(k for k in z if k not in LOCAL_SITES)
     kernel = NUTS(
         model_fn,
         target_accept_prob=settings.target_accept,
@@ -147,7 +163,7 @@ def run(
         prep,
         settings.draws,
         settings.keep_every,
-        jnp.float64,
+        dtype,
         settings.seed,
         settings.trace_groups,
         vmap=vmap,
@@ -164,7 +180,7 @@ def run(
         "warmup": warmup_seconds,
         "sampling": sampling_seconds,
     }
-    out["dtype"] = "float64"
+    out["dtype"] = str(np.dtype(dtype))
     out["sampler"] = "numpyro-nuts"
     out["noncentered"] = list(config.noncentered)
     out["step_size"] = step_size.tolist()

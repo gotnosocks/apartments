@@ -10,9 +10,10 @@ can be non-centered through `ModelConfig.noncentered` (NumPyro
 LocScaleReparam). The design is set by `ModelConfig`; the feature set is
 chosen separately (features.py).
 
-This is the one definition of every design. The Gibbs sampler (gibbs.py)
-works on it through `gibbs.site_values`, NUTS (nuts.py) samples it directly,
-and both are scored by the same code (collect.py, loo.py, variance.py).
+This is the one definition of every design. NUTS (nuts.py) samples it
+directly; the deprecated Gibbs sampler (gibbs.py, kept only to reproduce old
+run records) works on it through `gibbs.site_values`. Both are scored by the
+same code (collect.py, loo.py, variance.py).
 """
 
 from __future__ import annotations
@@ -24,6 +25,7 @@ import numpy as np
 import numpyro
 import numpyro.distributions as dist
 import pandas as pd
+from numpyro.distributions import constraints
 
 from .features import Features
 
@@ -52,6 +54,30 @@ class ModelConfig:
     # Sites to non-center. With ~2.4 rows per unit, ~42 per building and
     # ~250 per month the data dominate, so centered is the default.
     noncentered: tuple = ()
+    # Sampling coordinates for gradient samplers. Like `noncentered` they change
+    # how a sampler moves, not the model (each is a unit-Jacobian linear map,
+    # and the original sites stay as deterministic sites):
+    # - "trend_levels": sample the market's absolute knot levels (intercept
+    #   plus trend) instead of the trend's steps: each quarter's rows inform
+    #   that quarter's level directly, where the steps are strongly
+    #   correlated. Sampling the trend's levels relative to the intercept
+    #   instead leaves a ridge (intercept up, every level down) that NUTS
+    #   cannot cross (c1ad7d0: L2 intercept R-hat 1.83).
+    # - "season_zerosum": sample the centred season (ZeroSumNormal) instead of
+    #   12 raw values whose mean the data never see; that mean's prior depends
+    #   on the season scale and makes a funnel (bfcf2cb: L3 season_scale ESS
+    #   263). Integrating the unseen mean out leaves every other posterior
+    #   exactly unchanged.
+    # - "building_zerosum": sample the building levels (and per-building
+    #   bedroom slopes) as their mean plus zero-sum deviations. i.i.d. normal
+    #   values split exactly into those two independent parts. The mean is a
+    #   single global number, so a dense mass matrix can follow the ridge
+    #   "market up, every building down" that the prior alone pins
+    #   (1b0dca6: L5 Chelsea Tower level R-hat 1.04, ESS 42).
+    # - "unit_totals": sample each unit's building level plus its own effect
+    #   (hierarchical centering), so a building and its units are not
+    #   strongly correlated in the sampler's coordinates.
+    coordinates: tuple = ()
     # Per-building random walk over KNOT_MONTHS knots (anchored at 0 in the
     # first month), interpolated linearly between knots.
     building_walk: bool = False
@@ -368,6 +394,12 @@ def constants(prep: Prepared, config: ModelConfig) -> dict:
         out["nu"] = jnp.asarray(config.nu_fixed)
     if config.unit_t and config.unit_nu_fixed is not None:
         out["unit_nu"] = jnp.asarray(config.unit_nu_fixed)
+    if "unit_totals" in config.coordinates:
+        ub = np.full(len(prep.units), -1)
+        ub[prep.train.unit] = prep.train.building
+        if (ub < 0).any() or (ub[prep.train.unit] != prep.train.building).any():
+            raise ValueError("unit_totals needs every unit in exactly one building")
+        out["unit_building"] = jnp.asarray(ub, dtype=jnp.int32)
     zero = jnp.zeros(())
     if not config.features:
         out["beta"] = jnp.zeros(len(prep.features.names))
@@ -380,6 +412,16 @@ def constants(prep: Prepared, config: ModelConfig) -> dict:
     if not config.units:
         out |= {"unit_scale": zero, "unit": jnp.zeros(len(prep.units))}
     return out
+
+
+def _mean_plus_zero_sum(site: str, scale, n: int):
+    """n i.i.d. N(0, scale) values sampled as their mean (N(0, scale / sqrt(n)))
+    plus zero-sum deviations (ZeroSumNormal(scale)): the same distribution,
+    split into its two independent parts. Returns the values as a
+    deterministic site named `site`."""
+    mean = numpyro.sample(f"{site}_mean", dist.Normal(0.0, scale / jnp.sqrt(n)))
+    dev = numpyro.sample(f"{site}_dev", dist.ZeroSumNormal(scale, (n,)))
+    return numpyro.deterministic(site, mean + dev)
 
 
 def build_model(prep: Prepared, config: ModelConfig):
@@ -424,16 +466,37 @@ def build_model(prep: Prepared, config: ModelConfig):
             p["market_drift"] = numpyro.sample(
                 "market_drift", dist.Normal(0.0, config.market_drift_sd)
             )
-        if config.trend:
+        if config.trend and "trend_levels" in config.coordinates:
+            # alpha is the anchor knot's level; the walk prior is on the steps
+            # between absolute levels (a unit-Jacobian shift of the steps).
+            absolute = numpyro.sample(
+                "trend_absolute",
+                dist.ImproperUniform(constraints.real, (), (trend_basis.shape[1],)),
+            )
+            steps = jnp.diff(absolute, prepend=jnp.reshape(p["alpha"], (1,)))
+            numpyro.factor(
+                "trend_walk", dist.Normal(0.0, p["trend_scale"]).log_prob(steps).sum()
+            )
+            p["trend_step"] = numpyro.deterministic("trend_step", steps)
+        elif config.trend:
             p["trend_step"] = numpyro.sample(
                 "trend_step",
                 dist.Normal(0.0, p["trend_scale"]).expand([trend_basis.shape[1]]),
             )
-        if config.season:
+        if config.season and "season_zerosum" in config.coordinates:
+            p["season_raw"] = numpyro.deterministic(
+                "season_raw",
+                numpyro.sample("season", dist.ZeroSumNormal(p["season_scale"], (12,))),
+            )
+        elif config.season:
             p["season_raw"] = numpyro.sample(
                 "season_raw", dist.Normal(0.0, p["season_scale"]).expand([12])
             )
-        if config.buildings:
+        if config.buildings and "building_zerosum" in config.coordinates:
+            p["building"] = _mean_plus_zero_sum(
+                "building", p["building_scale"], len(prep.buildings)
+            )
+        elif config.buildings:
             p["building"] = numpyro.sample(
                 "building",
                 dist.Normal(0.0, p["building_scale"]).expand([len(prep.buildings)]),
@@ -444,16 +507,20 @@ def build_model(prep: Prepared, config: ModelConfig):
                 if config.unit_nu_fixed is not None
                 else numpyro.sample("unit_nu", dist.Gamma(2.0, 0.1))
             )
-            p["unit"] = numpyro.sample(
-                "unit",
-                dist.StudentT(p["unit_nu"], 0.0, p["unit_scale"]).expand(
-                    [len(prep.units)]
-                ),
+        if config.units:
+            n_units = len(prep.units)
+            centred = "unit_totals" in config.coordinates and config.buildings
+            loc = p["building"][fixed["unit_building"]] if centred else 0.0
+            prior = (
+                dist.StudentT(p["unit_nu"], loc, p["unit_scale"])
+                if config.unit_t
+                else dist.Normal(loc, p["unit_scale"])
             )
-        elif config.units:
-            p["unit"] = numpyro.sample(
-                "unit", dist.Normal(0.0, p["unit_scale"]).expand([len(prep.units)])
-            )
+            if centred:
+                total = numpyro.sample("unit_total", prior.expand([n_units]))
+                p["unit"] = numpyro.deterministic("unit", total - loc)
+            else:
+                p["unit"] = numpyro.sample("unit", prior.expand([n_units]))
         if config.unit_drift:
             p["unit_drift_scale"] = numpyro.sample(
                 "unit_drift_scale", dist.HalfNormal(config.unit_drift_scale_sd)
@@ -486,12 +553,17 @@ def build_model(prep: Prepared, config: ModelConfig):
             p["bedroom_slope_scale"] = numpyro.sample(
                 "bedroom_slope_scale", dist.HalfNormal(config.bedroom_slope_scale_sd)
             )
-            p["bedroom_slope"] = numpyro.sample(
-                "bedroom_slope",
-                dist.Normal(0.0, p["bedroom_slope_scale"]).expand(
-                    [len(prep.buildings)]
-                ),
-            )
+            if "building_zerosum" in config.coordinates:
+                p["bedroom_slope"] = _mean_plus_zero_sum(
+                    "bedroom_slope", p["bedroom_slope_scale"], len(prep.buildings)
+                )
+            else:
+                p["bedroom_slope"] = numpyro.sample(
+                    "bedroom_slope",
+                    dist.Normal(0.0, p["bedroom_slope_scale"]).expand(
+                        [len(prep.buildings)]
+                    ),
+                )
         if config.feature_slopes:
             p["fslope_scales"] = numpyro.sample(
                 "fslope_scales",
@@ -629,9 +701,8 @@ MODELS = {
 }
 
 # The model ladder: the simplest design first, one term more per step, up to
-# the sub-10-minute Gibbs candidates. L0-L5 drop base terms (NUTS only; the
-# Gibbs sampler needs every base term); from m0q on, every design is fit by
-# both samplers.
+# the sub-15-minute candidates. Fit by NUTS (the deprecated Gibbs sampler
+# needs every base term and is not used for new work).
 _BARE = {
     "trend": False,
     "season": False,
