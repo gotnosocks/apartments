@@ -203,6 +203,182 @@
       "annotations": []
     },
     {
+      "id": "L0-mean/base-v1/nuts@e343847",
+      "commit": "e343847b64770268915e77fc224d5c97d5145336",
+      "model": {
+        "name": "L0-mean",
+        "trend": false,
+        "season": false,
+        "features": false,
+        "buildings": false,
+        "units": false,
+        "market_drift": false,
+        "market_drift_sd": 0.1,
+        "beta_sd": 0.5,
+        "trend_scale_sd": 0.05,
+        "season_scale_sd": 0.05,
+        "building_scale_sd": 0.5,
+        "unit_scale_sd": 0.2,
+        "noise_scale_sd": 0.2,
+        "noncentered": [],
+        "building_walk": false,
+        "walk_scale_sd": 0.1,
+        "bedroom_time": false,
+        "bedroom_time_scale_sd": 0.02,
+        "bedroom_slope": false,
+        "bedroom_slope_scale_sd": 0.1,
+        "feature_slopes": [],
+        "feature_slope_scale_sd": 0.1,
+        "trend_knot_months": 3,
+        "bedroom_time_knot_months": 1,
+        "nu_fixed": null,
+        "unit_t": false,
+        "unit_nu_fixed": null,
+        "unit_drift": false,
+        "unit_drift_scale_sd": 0.05
+      },
+      "feature_set": "base-v1",
+      "sampler": "nuts",
+      "sampler_settings": {
+        "chains": 4,
+        "warmup": 1000,
+        "draws": 1000,
+        "keep_every": 4,
+        "seed": 20260925,
+        "target_accept": 0.8,
+        "max_tree_depth": 10,
+        "trace_groups": 32,
+        "chain_batch": 4,
+        "dense_globals": false
+      },
+      "hardware": "thelio CPU (Ryzen 5 3600X)",
+      "interpretable": true,
+      "splits": {
+        "rows": {
+          "run": "L0-mean-base-v1-rows-e343847-nuts-cpu",
+          "elpd": -3381.283071048204,
+          "elpd_se": 59.51678806776492,
+          "elpd_mcse": 0.016212546060032206,
+          "delta": -9244.978564827115,
+          "delta_se": 89.1371799784899,
+          "paired_rows": 5264,
+          "max_rhat": 1.0018713477603993,
+          "min_ess": 1392.9567168152553,
+          "divergences": 0,
+          "passes": true,
+          "fit_seconds": 39.548581612994894,
+          "sampling_seconds": 14.944848505023401,
+          "cost_usd": null,
+          "group_rhat_max": 1.000835970120946,
+          "group_rhat_method": "per-chain moments, all effects"
+        }
+      },
+      "passes_checks": true,
+      "split_hardware": {
+        "rows": "thelio CPU (Ryzen 5 3600X)"
+      },
+      "line": "numpyro",
+      "grade": "full",
+      "fit_seconds": 39.548581612994894,
+      "fit_seconds_all_splits": 39.548581612994894,
+      "cost_usd": 0.0,
+      "contention": {
+        "wall_seconds": 39.54864938100218,
+        "own_cpu_seconds": 154.78,
+        "other_cpu_seconds": 2.1100000000139687,
+        "other_cores": 0.053352011586710234,
+        "cpus": 12,
+        "gpu_other_pids": []
+      },
+      "variance": {
+        "commit": "e343847b64770268915e77fc224d5c97d5145336",
+        "shares": {
+          "market and time": -5.429057344478828e-20,
+          "features": 0.0,
+          "building": 0.0,
+          "building over time": 0.0,
+          "building slopes": 0.0,
+          "unit": 0.0,
+          "residual": 1.0,
+          "r2": -5.429057344478828e-20
+        },
+        "intervals": {
+          "market and time": {
+            "mean": -5.429057344478828e-20,
+            "lower_90": -4.680221848688644e-19,
+            "upper_90": 4.680221848688644e-19
+          },
+          "features": {
+            "mean": 0.0,
+            "lower_90": 0.0,
+            "upper_90": 0.0
+          },
+          "building": {
+            "mean": 0.0,
+            "lower_90": 0.0,
+            "upper_90": 0.0
+          },
+          "building over time": {
+            "mean": 0.0,
+            "lower_90": 0.0,
+            "upper_90": 0.0
+          },
+          "building slopes": {
+            "mean": 0.0,
+            "lower_90": 0.0,
+            "upper_90": 0.0
+          },
+          "unit": {
+            "mean": 0.0,
+            "lower_90": 0.0,
+            "upper_90": 0.0
+          },
+          "residual": {
+            "mean": 1.0,
+            "lower_90": 1.0,
+            "upper_90": 1.0
+          },
+          "r2": {
+            "mean": -5.429057344478828e-20,
+            "lower_90": -4.680221848688644e-19,
+            "upper_90": 4.680221848688644e-19
+          }
+        }
+      },
+      "psis": {
+        "run": "L0-mean-base-v1-rows-e343847-nuts-cpu",
+        "commit": "e343847b64770268915e77fc224d5c97d5145336",
+        "rows": 47374,
+        "draws": 1000,
+        "elpd": -31786.198381738694,
+        "elpd_se": 185.72318301491038,
+        "mcse": 0.05541064906971983,
+        "pareto_k": {
+          "threshold": 0.6666666666666667,
+          "over_threshold": 0,
+          "over_0_7": 0,
+          "max": 0.1387909145261164,
+          "share_over_threshold": 0.0
+        },
+        "validation": {
+          "note": "mean held-out lpd (repeat-listed units, genuinely left out) vs mean PSIS-LOO over training rows of units with 2+ training rows",
+          "heldout_rows": 5264,
+          "heldout_mean_lpd": -0.6423410089377287,
+          "psis_mean_lpd_multi_row_units": -0.6454244564293694
+        },
+        "integrated": "unit level and drift",
+        "delta": -72380.06899206193,
+        "delta_se": 253.69962158790156,
+        "delta_mcse": 3.464757131710341,
+        "baseline": "m0-base/base-v1/gibbs@5cc0809"
+      },
+      "hardware_class": "thelio CPU (Ryzen 5 3600X)",
+      "frontier": false,
+      "current_best": false,
+      "note": "beaten on thelio CPU (Ryzen 5 3600X) by L4-features/base-v1/nuts@e343847 (+46232.3 \u00b1 216.4 PSIS-LOO)",
+      "annotations": []
+    },
+    {
       "id": "L0-mean/none/nuts-pymc@3c26c4a",
       "commit": "3c26c4a2e5ec51d4eedde6b206f7ca95072b4f72",
       "model": {
@@ -344,7 +520,7 @@
       "hardware_class": "thelio CPU (Ryzen 5 3600X)",
       "frontier": false,
       "current_best": false,
-      "note": "beaten on thelio CPU (Ryzen 5 3600X) by L2-trend/none/nuts-pymc@6de4789 (+2874.1 \u00b1 73.8 PSIS-LOO)",
+      "note": "beaten on thelio CPU (Ryzen 5 3600X) by L4-features/base-v1/nuts@e343847 (+46232.2 \u00b1 216.3 PSIS-LOO)",
       "annotations": []
     },
     {
@@ -489,7 +665,7 @@
       "hardware_class": "thelio CPU (Ryzen 5 3600X)",
       "frontier": true,
       "current_best": false,
-      "note": "beaten on thelio CPU (Ryzen 5 3600X) by L2-trend/none/nuts-pymc@6de4789 (+2874.1 \u00b1 73.8 PSIS-LOO)",
+      "note": "beaten on thelio CPU (Ryzen 5 3600X) by L4-features/base-v1/nuts@e343847 (+46232.2 \u00b1 216.3 PSIS-LOO)",
       "annotations": []
     },
     {
@@ -635,7 +811,358 @@
       "hardware_class": "thelio CPU (Ryzen 5 3600X)",
       "frontier": false,
       "current_best": false,
-      "note": "beaten on thelio CPU (Ryzen 5 3600X) by L2-trend/none/nuts-pymc@6de4789 (+2874.1 \u00b1 73.8 PSIS-LOO)",
+      "note": "beaten on thelio CPU (Ryzen 5 3600X) by L4-features/base-v1/nuts@e343847 (+46232.2 \u00b1 216.3 PSIS-LOO)",
+      "annotations": []
+    },
+    {
+      "id": "L1-drift/base-v1/nuts@6a1bb9d",
+      "commit": "6a1bb9de1124e41d7be1f9747c5d1eae8062db72",
+      "model": {
+        "name": "L1-drift",
+        "trend": false,
+        "season": false,
+        "features": false,
+        "buildings": false,
+        "units": false,
+        "market_drift": true,
+        "market_drift_sd": 0.1,
+        "beta_sd": 0.5,
+        "trend_scale_sd": 0.05,
+        "season_scale_sd": 0.05,
+        "building_scale_sd": 0.5,
+        "unit_scale_sd": 0.2,
+        "noise_scale_sd": 0.2,
+        "noncentered": [],
+        "building_walk": false,
+        "walk_scale_sd": 0.1,
+        "bedroom_time": false,
+        "bedroom_time_scale_sd": 0.02,
+        "bedroom_slope": false,
+        "bedroom_slope_scale_sd": 0.1,
+        "feature_slopes": [],
+        "feature_slope_scale_sd": 0.1,
+        "trend_knot_months": 3,
+        "bedroom_time_knot_months": 1,
+        "nu_fixed": null,
+        "unit_t": false,
+        "unit_nu_fixed": null,
+        "unit_drift": false,
+        "unit_drift_scale_sd": 0.05
+      },
+      "feature_set": "base-v1",
+      "sampler": "nuts",
+      "sampler_settings": {
+        "chains": 4,
+        "warmup": 1000,
+        "draws": 1000,
+        "keep_every": 4,
+        "seed": 20260925,
+        "target_accept": 0.8,
+        "max_tree_depth": 10,
+        "trace_groups": 32,
+        "chain_batch": 4
+      },
+      "hardware": "thelio RTX 2060 SUPER",
+      "interpretable": true,
+      "splits": {
+        "rows": {
+          "run": "L1-drift-base-v1-rows-6a1bb9d-nuts-2060",
+          "elpd": -3149.8901367966178,
+          "elpd_se": 61.70243997772459,
+          "elpd_mcse": 0.019943275781421525,
+          "delta": -9013.585630575528,
+          "delta_se": 89.43485405771659,
+          "paired_rows": 5264,
+          "max_rhat": 1.0027316393231327,
+          "min_ess": 1190.9628988371596,
+          "divergences": 0,
+          "passes": true,
+          "fit_seconds": 109.81796610201127,
+          "sampling_seconds": 35.83230039800401,
+          "cost_usd": null,
+          "group_rhat_max": 1.000303831532584,
+          "group_rhat_method": "per-chain moments, all effects"
+        }
+      },
+      "passes_checks": true,
+      "split_hardware": {
+        "rows": "thelio RTX 2060 SUPER"
+      },
+      "line": "numpyro",
+      "grade": "full",
+      "fit_seconds": 109.81796610201127,
+      "fit_seconds_all_splits": 109.81796610201127,
+      "cost_usd": 0.0,
+      "contention": {
+        "wall_seconds": 109.81801280999207,
+        "own_cpu_seconds": 120.42,
+        "other_cpu_seconds": 7.990000000032595,
+        "other_cores": 0.07275673448814769,
+        "cpus": 12,
+        "gpu_other_pids": []
+      },
+      "variance": {
+        "commit": "6a1bb9de1124e41d7be1f9747c5d1eae8062db72",
+        "shares": {
+          "market and time": 0.06313608978639744,
+          "features": 0.0,
+          "building": 0.0,
+          "building over time": 0.0,
+          "building slopes": 0.0,
+          "unit": 0.0,
+          "residual": 0.9368639102136026,
+          "r2": 0.06313608978639744
+        },
+        "intervals": {
+          "market and time": {
+            "mean": 0.06313608978639744,
+            "lower_90": 0.05992595734954769,
+            "upper_90": 0.06636965593246352
+          },
+          "features": {
+            "mean": 0.0,
+            "lower_90": 0.0,
+            "upper_90": 0.0
+          },
+          "building": {
+            "mean": 0.0,
+            "lower_90": 0.0,
+            "upper_90": 0.0
+          },
+          "building over time": {
+            "mean": 0.0,
+            "lower_90": 0.0,
+            "upper_90": 0.0
+          },
+          "building slopes": {
+            "mean": 0.0,
+            "lower_90": 0.0,
+            "upper_90": 0.0
+          },
+          "unit": {
+            "mean": 0.0,
+            "lower_90": 0.0,
+            "upper_90": 0.0
+          },
+          "residual": {
+            "mean": 0.9368639102136026,
+            "lower_90": 0.9336303440675364,
+            "upper_90": 0.9400740426504524
+          },
+          "r2": {
+            "mean": 0.06313608978639744,
+            "lower_90": 0.05992595734954769,
+            "upper_90": 0.06636965593246352
+          }
+        }
+      },
+      "psis": {
+        "run": "L1-drift-base-v1-rows-6a1bb9d-nuts-2060",
+        "commit": "6a1bb9de1124e41d7be1f9747c5d1eae8062db72",
+        "rows": 47374,
+        "draws": 1000,
+        "elpd": -30050.68157597442,
+        "elpd_se": 193.83209156040357,
+        "mcse": 0.06363981740472803,
+        "pareto_k": {
+          "threshold": 0.6666666666666667,
+          "over_threshold": 0,
+          "over_0_7": 0,
+          "max": 0.2726275859653717,
+          "share_over_threshold": 0.0
+        },
+        "validation": {
+          "note": "mean held-out lpd (repeat-listed units, genuinely left out) vs mean PSIS-LOO over training rows of units with 2+ training rows",
+          "heldout_rows": 5264,
+          "heldout_mean_lpd": -0.5983833846498134,
+          "psis_mean_lpd_multi_row_units": -0.6080653928109282
+        },
+        "integrated": "unit level and drift",
+        "delta": -70644.55218629766,
+        "delta_se": 255.24701323098375,
+        "delta_mcse": 3.464898507614133,
+        "baseline": "m0-base/base-v1/gibbs@5cc0809"
+      },
+      "hardware_class": "thelio RTX 2060 SUPER",
+      "frontier": true,
+      "current_best": false,
+      "note": "beaten on thelio RTX 2060 SUPER by m5-nocurves/desc-v1/gibbs@ac9e02b (+80552.3 \u00b1 268.1 PSIS-LOO)",
+      "annotations": []
+    },
+    {
+      "id": "L1-drift/base-v1/nuts@e343847",
+      "commit": "e343847b64770268915e77fc224d5c97d5145336",
+      "model": {
+        "name": "L1-drift",
+        "trend": false,
+        "season": false,
+        "features": false,
+        "buildings": false,
+        "units": false,
+        "market_drift": true,
+        "market_drift_sd": 0.1,
+        "beta_sd": 0.5,
+        "trend_scale_sd": 0.05,
+        "season_scale_sd": 0.05,
+        "building_scale_sd": 0.5,
+        "unit_scale_sd": 0.2,
+        "noise_scale_sd": 0.2,
+        "noncentered": [],
+        "building_walk": false,
+        "walk_scale_sd": 0.1,
+        "bedroom_time": false,
+        "bedroom_time_scale_sd": 0.02,
+        "bedroom_slope": false,
+        "bedroom_slope_scale_sd": 0.1,
+        "feature_slopes": [],
+        "feature_slope_scale_sd": 0.1,
+        "trend_knot_months": 3,
+        "bedroom_time_knot_months": 1,
+        "nu_fixed": null,
+        "unit_t": false,
+        "unit_nu_fixed": null,
+        "unit_drift": false,
+        "unit_drift_scale_sd": 0.05
+      },
+      "feature_set": "base-v1",
+      "sampler": "nuts",
+      "sampler_settings": {
+        "chains": 4,
+        "warmup": 1000,
+        "draws": 1000,
+        "keep_every": 4,
+        "seed": 20260925,
+        "target_accept": 0.8,
+        "max_tree_depth": 10,
+        "trace_groups": 32,
+        "chain_batch": 4,
+        "dense_globals": false
+      },
+      "hardware": "thelio CPU (Ryzen 5 3600X)",
+      "interpretable": true,
+      "splits": {
+        "rows": {
+          "run": "L1-drift-base-v1-rows-e343847-nuts-cpu",
+          "elpd": -3149.878193128074,
+          "elpd_se": 61.70750278597788,
+          "elpd_mcse": 0.021825984779667722,
+          "delta": -9013.573686906984,
+          "delta_se": 89.43757868489864,
+          "paired_rows": 5264,
+          "max_rhat": 1.0011445944658113,
+          "min_ess": 1139.8027947920941,
+          "divergences": 0,
+          "passes": true,
+          "fit_seconds": 128.3415083940199,
+          "sampling_seconds": 44.14117126798374,
+          "cost_usd": null,
+          "group_rhat_max": 1.0005903981461346,
+          "group_rhat_method": "per-chain moments, all effects"
+        }
+      },
+      "passes_checks": true,
+      "split_hardware": {
+        "rows": "thelio CPU (Ryzen 5 3600X)"
+      },
+      "line": "numpyro",
+      "grade": "full",
+      "fit_seconds": 128.3415083940199,
+      "fit_seconds_all_splits": 128.3415083940199,
+      "cost_usd": 0.0,
+      "contention": {
+        "wall_seconds": 128.34157834600774,
+        "own_cpu_seconds": 531.68,
+        "other_cpu_seconds": 0.6799999999860802,
+        "other_cores": 0.005298360895584487,
+        "cpus": 12,
+        "gpu_other_pids": []
+      },
+      "variance": {
+        "commit": "e343847b64770268915e77fc224d5c97d5145336",
+        "shares": {
+          "market and time": 0.06310981166592794,
+          "features": 0.0,
+          "building": 0.0,
+          "building over time": 0.0,
+          "building slopes": 0.0,
+          "unit": 0.0,
+          "residual": 0.9368901883340721,
+          "r2": 0.06310981166592794
+        },
+        "intervals": {
+          "market and time": {
+            "mean": 0.06310981166592794,
+            "lower_90": 0.05992527297082036,
+            "upper_90": 0.06622388890123335
+          },
+          "features": {
+            "mean": 0.0,
+            "lower_90": 0.0,
+            "upper_90": 0.0
+          },
+          "building": {
+            "mean": 0.0,
+            "lower_90": 0.0,
+            "upper_90": 0.0
+          },
+          "building over time": {
+            "mean": 0.0,
+            "lower_90": 0.0,
+            "upper_90": 0.0
+          },
+          "building slopes": {
+            "mean": 0.0,
+            "lower_90": 0.0,
+            "upper_90": 0.0
+          },
+          "unit": {
+            "mean": 0.0,
+            "lower_90": 0.0,
+            "upper_90": 0.0
+          },
+          "residual": {
+            "mean": 0.9368901883340721,
+            "lower_90": 0.9337761110987666,
+            "upper_90": 0.9400747270291797
+          },
+          "r2": {
+            "mean": 0.06310981166592794,
+            "lower_90": 0.05992527297082036,
+            "upper_90": 0.06622388890123335
+          }
+        }
+      },
+      "psis": {
+        "run": "L1-drift-base-v1-rows-e343847-nuts-cpu",
+        "commit": "e343847b64770268915e77fc224d5c97d5145336",
+        "rows": 47374,
+        "draws": 1000,
+        "elpd": -30050.546431480878,
+        "elpd_se": 193.821397739057,
+        "mcse": 0.06260070972014599,
+        "pareto_k": {
+          "threshold": 0.6666666666666667,
+          "over_threshold": 0,
+          "over_0_7": 0,
+          "max": 0.22034661106059136,
+          "share_over_threshold": 0.0
+        },
+        "validation": {
+          "note": "mean held-out lpd (repeat-listed units, genuinely left out) vs mean PSIS-LOO over training rows of units with 2+ training rows",
+          "heldout_rows": 5264,
+          "heldout_mean_lpd": -0.5983811157158195,
+          "psis_mean_lpd_multi_row_units": -0.6080635072754923
+        },
+        "integrated": "unit level and drift",
+        "delta": -70644.41704180412,
+        "delta_se": 255.24133013793954,
+        "delta_mcse": 3.464879578075522,
+        "baseline": "m0-base/base-v1/gibbs@5cc0809"
+      },
+      "hardware_class": "thelio CPU (Ryzen 5 3600X)",
+      "frontier": true,
+      "current_best": false,
+      "note": "beaten on thelio CPU (Ryzen 5 3600X) by L4-features/base-v1/nuts@e343847 (+44496.6 \u00b1 217.5 PSIS-LOO)",
       "annotations": []
     },
     {
@@ -782,7 +1309,7 @@
       "hardware_class": "thelio CPU (Ryzen 5 3600X)",
       "frontier": false,
       "current_best": false,
-      "note": "beaten on thelio CPU (Ryzen 5 3600X) by L2-trend/none/nuts-pymc@6de4789 (+1138.6 \u00b1 50.6 PSIS-LOO)",
+      "note": "beaten on thelio CPU (Ryzen 5 3600X) by L4-features/base-v1/nuts@e343847 (+44496.6 \u00b1 217.4 PSIS-LOO)",
       "annotations": []
     },
     {
@@ -929,7 +1456,183 @@
       "hardware_class": "thelio CPU (Ryzen 5 3600X)",
       "frontier": true,
       "current_best": false,
-      "note": "beaten on thelio CPU (Ryzen 5 3600X) by L2-trend/none/nuts-pymc@6de4789 (+1138.6 \u00b1 50.6 PSIS-LOO)",
+      "note": "beaten on thelio CPU (Ryzen 5 3600X) by L4-features/base-v1/nuts@e343847 (+44496.6 \u00b1 217.4 PSIS-LOO)",
+      "annotations": []
+    },
+    {
+      "id": "L2-trend/base-v1/nuts@e343847",
+      "commit": "e343847b64770268915e77fc224d5c97d5145336",
+      "model": {
+        "name": "L2-trend",
+        "trend": true,
+        "season": false,
+        "features": false,
+        "buildings": false,
+        "units": false,
+        "market_drift": false,
+        "market_drift_sd": 0.1,
+        "beta_sd": 0.5,
+        "trend_scale_sd": 0.05,
+        "season_scale_sd": 0.05,
+        "building_scale_sd": 0.5,
+        "unit_scale_sd": 0.2,
+        "noise_scale_sd": 0.2,
+        "noncentered": [],
+        "building_walk": false,
+        "walk_scale_sd": 0.1,
+        "bedroom_time": false,
+        "bedroom_time_scale_sd": 0.02,
+        "bedroom_slope": false,
+        "bedroom_slope_scale_sd": 0.1,
+        "feature_slopes": [],
+        "feature_slope_scale_sd": 0.1,
+        "trend_knot_months": 3,
+        "bedroom_time_knot_months": 1,
+        "nu_fixed": null,
+        "unit_t": false,
+        "unit_nu_fixed": null,
+        "unit_drift": false,
+        "unit_drift_scale_sd": 0.05
+      },
+      "feature_set": "base-v1",
+      "sampler": "nuts",
+      "sampler_settings": {
+        "chains": 4,
+        "warmup": 1000,
+        "draws": 1000,
+        "keep_every": 4,
+        "seed": 20260925,
+        "target_accept": 0.8,
+        "max_tree_depth": 10,
+        "trace_groups": 32,
+        "chain_batch": 4,
+        "dense_globals": false
+      },
+      "hardware": "thelio CPU (Ryzen 5 3600X)",
+      "interpretable": true,
+      "splits": {
+        "rows": {
+          "run": "L2-trend-base-v1-rows-e343847-nuts-cpu",
+          "elpd": -3058.123345741755,
+          "elpd_se": 62.14370722733639,
+          "elpd_mcse": 0.08428524949136099,
+          "delta": -8921.818839520665,
+          "delta_se": 90.37720811392785,
+          "paired_rows": 5264,
+          "max_rhat": 0.9999590492019849,
+          "min_ess": 4766.885418672811,
+          "divergences": 0,
+          "passes": true,
+          "fit_seconds": 1986.994374603004,
+          "sampling_seconds": 912.1583026190056,
+          "cost_usd": null,
+          "group_rhat_max": 1.0004259967915474,
+          "group_rhat_method": "per-chain moments, all effects"
+        }
+      },
+      "passes_checks": true,
+      "split_hardware": {
+        "rows": "thelio CPU (Ryzen 5 3600X)"
+      },
+      "line": "numpyro",
+      "grade": "full",
+      "fit_seconds": 1986.994374603004,
+      "fit_seconds_all_splits": 1986.994374603004,
+      "cost_usd": 0.0,
+      "contention": {
+        "wall_seconds": 1986.9944479620026,
+        "own_cpu_seconds": 7226.84,
+        "other_cpu_seconds": 0.0,
+        "other_cores": 0.0,
+        "cpus": 12,
+        "gpu_other_pids": []
+      },
+      "variance": {
+        "commit": "e343847b64770268915e77fc224d5c97d5145336",
+        "shares": {
+          "market and time": 0.1015372866012475,
+          "features": 0.0,
+          "building": 0.0,
+          "building over time": 0.0,
+          "building slopes": 0.0,
+          "unit": 0.0,
+          "residual": 0.8984627133987526,
+          "r2": 0.1015372866012475
+        },
+        "intervals": {
+          "market and time": {
+            "mean": 0.1015372866012475,
+            "lower_90": 0.0977479490120001,
+            "upper_90": 0.10548073099184964
+          },
+          "features": {
+            "mean": 0.0,
+            "lower_90": 0.0,
+            "upper_90": 0.0
+          },
+          "building": {
+            "mean": 0.0,
+            "lower_90": 0.0,
+            "upper_90": 0.0
+          },
+          "building over time": {
+            "mean": 0.0,
+            "lower_90": 0.0,
+            "upper_90": 0.0
+          },
+          "building slopes": {
+            "mean": 0.0,
+            "lower_90": 0.0,
+            "upper_90": 0.0
+          },
+          "unit": {
+            "mean": 0.0,
+            "lower_90": 0.0,
+            "upper_90": 0.0
+          },
+          "residual": {
+            "mean": 0.8984627133987526,
+            "lower_90": 0.8945192690081504,
+            "upper_90": 0.9022520509879999
+          },
+          "r2": {
+            "mean": 0.1015372866012475,
+            "lower_90": 0.0977479490120001,
+            "upper_90": 0.10548073099184964
+          }
+        }
+      },
+      "psis": {
+        "run": "L2-trend-base-v1-rows-e343847-nuts-cpu",
+        "commit": "e343847b64770268915e77fc224d5c97d5145336",
+        "rows": 47374,
+        "draws": 1000,
+        "elpd": -28911.634094021974,
+        "elpd_se": 195.4610892001856,
+        "mcse": 0.23570003948812682,
+        "pareto_k": {
+          "threshold": 0.6666666666666667,
+          "over_threshold": 0,
+          "over_0_7": 0,
+          "max": 0.3751565828131189,
+          "share_over_threshold": 0.0
+        },
+        "validation": {
+          "note": "mean held-out lpd (repeat-listed units, genuinely left out) vs mean PSIS-LOO over training rows of units with 2+ training rows",
+          "heldout_rows": 5264,
+          "heldout_mean_lpd": -0.5809504836135553,
+          "psis_mean_lpd_multi_row_units": -0.5890160777608783
+        },
+        "integrated": "unit level and drift",
+        "delta": -69505.5047043452,
+        "delta_se": 257.0650983954453,
+        "delta_mcse": 3.4723228752986155,
+        "baseline": "m0-base/base-v1/gibbs@5cc0809"
+      },
+      "hardware_class": "thelio CPU (Ryzen 5 3600X)",
+      "frontier": false,
+      "current_best": false,
+      "note": "beaten on thelio CPU (Ryzen 5 3600X) by L4-features/base-v1/nuts@e343847 (+43357.7 \u00b1 218.0 PSIS-LOO)",
       "annotations": []
     },
     {
@@ -1076,7 +1779,7 @@
       "hardware_class": "thelio CPU (Ryzen 5 3600X)",
       "frontier": false,
       "current_best": false,
-      "note": "superseded by passing rerun L2-trend/none/nuts-pymc@6de4789",
+      "note": "beaten on thelio CPU (Ryzen 5 3600X) by L4-features/base-v1/nuts@e343847 (+43357.7 \u00b1 218.0 PSIS-LOO)",
       "annotations": []
     },
     {
@@ -1222,8 +1925,184 @@
       },
       "hardware_class": "thelio CPU (Ryzen 5 3600X)",
       "frontier": true,
-      "current_best": true,
-      "note": "",
+      "current_best": false,
+      "note": "beaten on thelio CPU (Ryzen 5 3600X) by L4-features/base-v1/nuts@e343847 (+43358.0 \u00b1 218.0 PSIS-LOO)",
+      "annotations": []
+    },
+    {
+      "id": "L3-season/base-v1/nuts@e343847",
+      "commit": "e343847b64770268915e77fc224d5c97d5145336",
+      "model": {
+        "name": "L3-season",
+        "trend": true,
+        "season": true,
+        "features": false,
+        "buildings": false,
+        "units": false,
+        "market_drift": false,
+        "market_drift_sd": 0.1,
+        "beta_sd": 0.5,
+        "trend_scale_sd": 0.05,
+        "season_scale_sd": 0.05,
+        "building_scale_sd": 0.5,
+        "unit_scale_sd": 0.2,
+        "noise_scale_sd": 0.2,
+        "noncentered": [],
+        "building_walk": false,
+        "walk_scale_sd": 0.1,
+        "bedroom_time": false,
+        "bedroom_time_scale_sd": 0.02,
+        "bedroom_slope": false,
+        "bedroom_slope_scale_sd": 0.1,
+        "feature_slopes": [],
+        "feature_slope_scale_sd": 0.1,
+        "trend_knot_months": 3,
+        "bedroom_time_knot_months": 1,
+        "nu_fixed": null,
+        "unit_t": false,
+        "unit_nu_fixed": null,
+        "unit_drift": false,
+        "unit_drift_scale_sd": 0.05
+      },
+      "feature_set": "base-v1",
+      "sampler": "nuts",
+      "sampler_settings": {
+        "chains": 4,
+        "warmup": 500,
+        "draws": 250,
+        "keep_every": 1,
+        "seed": 20260925,
+        "target_accept": 0.8,
+        "max_tree_depth": 10,
+        "trace_groups": 32,
+        "chain_batch": 4,
+        "dense_globals": false
+      },
+      "hardware": "thelio CPU (Ryzen 5 3600X)",
+      "interpretable": true,
+      "splits": {
+        "rows": {
+          "run": "L3-season-base-v1-rows-e343847-nuts-short-cpu",
+          "elpd": -3058.636147763425,
+          "elpd_se": 62.12962040459821,
+          "elpd_mcse": 0.07275228156261097,
+          "delta": -8922.331641542336,
+          "delta_se": 90.38603153700105,
+          "paired_rows": 5264,
+          "max_rhat": 1.004818432060037,
+          "min_ess": 349.40317123999824,
+          "divergences": 0,
+          "passes": false,
+          "fit_seconds": 1052.7293594780203,
+          "sampling_seconds": 296.76580947401817,
+          "cost_usd": null,
+          "group_rhat_max": 1.0131714597820842,
+          "group_rhat_method": "per-chain moments, all effects"
+        }
+      },
+      "passes_checks": false,
+      "split_hardware": {
+        "rows": "thelio CPU (Ryzen 5 3600X)"
+      },
+      "line": "numpyro",
+      "grade": "failed",
+      "fit_seconds": 1052.7293594780203,
+      "fit_seconds_all_splits": 1052.7293594780203,
+      "cost_usd": 0.0,
+      "contention": {
+        "wall_seconds": 1052.7294534959947,
+        "own_cpu_seconds": 3758.1200000000003,
+        "other_cpu_seconds": 30.76000000000431,
+        "other_cores": 0.029219283167060496,
+        "cpus": 12,
+        "gpu_other_pids": []
+      },
+      "variance": {
+        "commit": "e343847b64770268915e77fc224d5c97d5145336",
+        "shares": {
+          "market and time": 0.10182102460341642,
+          "features": 0.0,
+          "building": 0.0,
+          "building over time": 0.0,
+          "building slopes": 0.0,
+          "unit": 0.0,
+          "residual": 0.8981789753965836,
+          "r2": 0.10182102460341642
+        },
+        "intervals": {
+          "market and time": {
+            "mean": 0.10182102460341642,
+            "lower_90": 0.09808322096935049,
+            "upper_90": 0.10548320201165315
+          },
+          "features": {
+            "mean": 0.0,
+            "lower_90": 0.0,
+            "upper_90": 0.0
+          },
+          "building": {
+            "mean": 0.0,
+            "lower_90": 0.0,
+            "upper_90": 0.0
+          },
+          "building over time": {
+            "mean": 0.0,
+            "lower_90": 0.0,
+            "upper_90": 0.0
+          },
+          "building slopes": {
+            "mean": 0.0,
+            "lower_90": 0.0,
+            "upper_90": 0.0
+          },
+          "unit": {
+            "mean": 0.0,
+            "lower_90": 0.0,
+            "upper_90": 0.0
+          },
+          "residual": {
+            "mean": 0.8981789753965836,
+            "lower_90": 0.8945167979883468,
+            "upper_90": 0.9019167790306495
+          },
+          "r2": {
+            "mean": 0.10182102460341642,
+            "lower_90": 0.09808322096935049,
+            "upper_90": 0.10548320201165315
+          }
+        }
+      },
+      "psis": {
+        "run": "L3-season-base-v1-rows-e343847-nuts-short-cpu",
+        "commit": "e343847b64770268915e77fc224d5c97d5145336",
+        "rows": 47374,
+        "draws": 1000,
+        "elpd": -28907.09353020173,
+        "elpd_se": 195.4830700373588,
+        "mcse": 0.24620920014537057,
+        "pareto_k": {
+          "threshold": 0.6666666666666667,
+          "over_threshold": 0,
+          "over_0_7": 0,
+          "max": 0.3230998783327091,
+          "share_over_threshold": 0.0
+        },
+        "validation": {
+          "note": "mean held-out lpd (repeat-listed units, genuinely left out) vs mean PSIS-LOO over training rows of units with 2+ training rows",
+          "heldout_rows": 5264,
+          "heldout_mean_lpd": -0.581047900410985,
+          "psis_mean_lpd_multi_row_units": -0.5888647267731401
+        },
+        "integrated": "unit level and drift",
+        "delta": -69500.96414052497,
+        "delta_se": 257.0542100551201,
+        "delta_mcse": 3.473052060068142,
+        "baseline": "m0-base/base-v1/gibbs@5cc0809"
+      },
+      "hardware_class": "thelio CPU (Ryzen 5 3600X)",
+      "frontier": false,
+      "current_best": false,
+      "note": "beaten on thelio CPU (Ryzen 5 3600X) by L4-features/base-v1/nuts@e343847 (+43353.2 \u00b1 218.0 PSIS-LOO)",
       "annotations": []
     },
     {
@@ -1371,7 +2250,7 @@
       "hardware_class": "thelio CPU (Ryzen 5 3600X)",
       "frontier": false,
       "current_best": false,
-      "note": "superseded by passing rerun L3-season/none/nuts-pymc@6de4789",
+      "note": "beaten on thelio CPU (Ryzen 5 3600X) by L4-features/base-v1/nuts@e343847 (+43352.5 \u00b1 218.0 PSIS-LOO)",
       "annotations": []
     },
     {
@@ -1519,7 +2398,359 @@
       "hardware_class": "thelio CPU (Ryzen 5 3600X)",
       "frontier": true,
       "current_best": false,
+      "note": "beaten on thelio CPU (Ryzen 5 3600X) by L4-features/base-v1/nuts@e343847 (+43352.5 \u00b1 218.0 PSIS-LOO)",
+      "annotations": []
+    },
+    {
+      "id": "L4-features/base-v1/nuts@e343847",
+      "commit": "e343847b64770268915e77fc224d5c97d5145336",
+      "model": {
+        "name": "L4-features",
+        "trend": true,
+        "season": true,
+        "features": true,
+        "buildings": false,
+        "units": false,
+        "market_drift": false,
+        "market_drift_sd": 0.1,
+        "beta_sd": 0.5,
+        "trend_scale_sd": 0.05,
+        "season_scale_sd": 0.05,
+        "building_scale_sd": 0.5,
+        "unit_scale_sd": 0.2,
+        "noise_scale_sd": 0.2,
+        "noncentered": [],
+        "building_walk": false,
+        "walk_scale_sd": 0.1,
+        "bedroom_time": false,
+        "bedroom_time_scale_sd": 0.02,
+        "bedroom_slope": false,
+        "bedroom_slope_scale_sd": 0.1,
+        "feature_slopes": [],
+        "feature_slope_scale_sd": 0.1,
+        "trend_knot_months": 3,
+        "bedroom_time_knot_months": 1,
+        "nu_fixed": null,
+        "unit_t": false,
+        "unit_nu_fixed": null,
+        "unit_drift": false,
+        "unit_drift_scale_sd": 0.05
+      },
+      "feature_set": "base-v1",
+      "sampler": "nuts",
+      "sampler_settings": {
+        "chains": 4,
+        "warmup": 500,
+        "draws": 250,
+        "keep_every": 1,
+        "seed": 20260925,
+        "target_accept": 0.8,
+        "max_tree_depth": 10,
+        "trace_groups": 32,
+        "chain_batch": 4,
+        "dense_globals": true
+      },
+      "hardware": "thelio CPU (Ryzen 5 3600X)",
+      "interpretable": true,
+      "splits": {
+        "rows": {
+          "run": "L4-features-base-v1-rows-e343847-nuts-short-dense-cpu",
+          "elpd": 1826.6009538802807,
+          "elpd_se": 57.56580187561905,
+          "elpd_mcse": 0.13355447122950623,
+          "delta": -4037.0945398986305,
+          "delta_se": 74.40927224988243,
+          "paired_rows": 5264,
+          "max_rhat": 1.005630807799568,
+          "min_ess": 420.0535153006171,
+          "divergences": 0,
+          "passes": true,
+          "fit_seconds": 1643.5256282750051,
+          "sampling_seconds": 325.8101910870173,
+          "cost_usd": null,
+          "group_rhat_max": 1.010800170464819,
+          "group_rhat_method": "per-chain moments, all effects"
+        }
+      },
+      "passes_checks": true,
+      "split_hardware": {
+        "rows": "thelio CPU (Ryzen 5 3600X)"
+      },
+      "line": "numpyro",
+      "grade": "full",
+      "fit_seconds": 1643.5256282750051,
+      "fit_seconds_all_splits": 1643.5256282750051,
+      "cost_usd": 0.0,
+      "contention": {
+        "wall_seconds": 1643.5257284950058,
+        "own_cpu_seconds": 7758.12,
+        "other_cpu_seconds": 72.27000000001408,
+        "other_cores": 0.04397253949056976,
+        "cpus": 12,
+        "gpu_other_pids": []
+      },
+      "variance": {
+        "commit": "e343847b64770268915e77fc224d5c97d5145336",
+        "shares": {
+          "market and time": 0.08483847029346689,
+          "features": 0.7697113693870256,
+          "building": 0.0,
+          "building over time": 0.0,
+          "building slopes": 0.0,
+          "unit": 0.0,
+          "residual": 0.14545016031950753,
+          "r2": 0.8545498396804925
+        },
+        "intervals": {
+          "market and time": {
+            "mean": 0.08483847029346689,
+            "lower_90": 0.0832980598581975,
+            "upper_90": 0.08645847119777188
+          },
+          "features": {
+            "mean": 0.7697113693870256,
+            "lower_90": 0.7678761188861114,
+            "upper_90": 0.7715815286864248
+          },
+          "building": {
+            "mean": 0.0,
+            "lower_90": 0.0,
+            "upper_90": 0.0
+          },
+          "building over time": {
+            "mean": 0.0,
+            "lower_90": 0.0,
+            "upper_90": 0.0
+          },
+          "building slopes": {
+            "mean": 0.0,
+            "lower_90": 0.0,
+            "upper_90": 0.0
+          },
+          "unit": {
+            "mean": 0.0,
+            "lower_90": 0.0,
+            "upper_90": 0.0
+          },
+          "residual": {
+            "mean": 0.14545016031950753,
+            "lower_90": 0.1446286463385289,
+            "upper_90": 0.1463056111102039
+          },
+          "r2": {
+            "mean": 0.8545498396804925,
+            "lower_90": 0.8536943888897961,
+            "upper_90": 0.855371353661471
+          }
+        }
+      },
+      "psis": {
+        "run": "L4-features-base-v1-rows-e343847-nuts-short-dense-cpu",
+        "commit": "e343847b64770268915e77fc224d5c97d5145336",
+        "rows": 47374,
+        "draws": 1000,
+        "elpd": 14446.060283761955,
+        "elpd_se": 188.25445099556327,
+        "mcse": 0.3585375302969182,
+        "pareto_k": {
+          "threshold": 0.6666666666666667,
+          "over_threshold": 0,
+          "over_0_7": 0,
+          "max": 0.4025611951920722,
+          "share_over_threshold": 0.0
+        },
+        "validation": {
+          "note": "mean held-out lpd (repeat-listed units, genuinely left out) vs mean PSIS-LOO over training rows of units with 2+ training rows",
+          "heldout_rows": 5264,
+          "heldout_mean_lpd": 0.3469986614514211,
+          "psis_mean_lpd_multi_row_units": 0.34439282734977805
+        },
+        "integrated": "unit level and drift",
+        "delta": -26147.810326561288,
+        "delta_se": 211.14742827642544,
+        "delta_mcse": 3.48281793987839,
+        "baseline": "m0-base/base-v1/gibbs@5cc0809"
+      },
+      "hardware_class": "thelio CPU (Ryzen 5 3600X)",
+      "frontier": true,
+      "current_best": true,
       "note": "",
+      "annotations": []
+    },
+    {
+      "id": "L5-building/base-v1/nuts@e343847",
+      "commit": "e343847b64770268915e77fc224d5c97d5145336",
+      "model": {
+        "name": "L5-building",
+        "trend": true,
+        "season": true,
+        "features": true,
+        "buildings": true,
+        "units": false,
+        "market_drift": false,
+        "market_drift_sd": 0.1,
+        "beta_sd": 0.5,
+        "trend_scale_sd": 0.05,
+        "season_scale_sd": 0.05,
+        "building_scale_sd": 0.5,
+        "unit_scale_sd": 0.2,
+        "noise_scale_sd": 0.2,
+        "noncentered": [],
+        "building_walk": false,
+        "walk_scale_sd": 0.1,
+        "bedroom_time": false,
+        "bedroom_time_scale_sd": 0.02,
+        "bedroom_slope": false,
+        "bedroom_slope_scale_sd": 0.1,
+        "feature_slopes": [],
+        "feature_slope_scale_sd": 0.1,
+        "trend_knot_months": 3,
+        "bedroom_time_knot_months": 1,
+        "nu_fixed": null,
+        "unit_t": false,
+        "unit_nu_fixed": null,
+        "unit_drift": false,
+        "unit_drift_scale_sd": 0.05
+      },
+      "feature_set": "base-v1",
+      "sampler": "nuts",
+      "sampler_settings": {
+        "chains": 4,
+        "warmup": 500,
+        "draws": 250,
+        "keep_every": 1,
+        "seed": 20260925,
+        "target_accept": 0.8,
+        "max_tree_depth": 10,
+        "trace_groups": 32,
+        "chain_batch": 4,
+        "dense_globals": true
+      },
+      "hardware": "thelio CPU (Ryzen 5 3600X)",
+      "interpretable": true,
+      "splits": {
+        "rows": {
+          "run": "L5-building-base-v1-rows-e343847-nuts-short-dense-cpu",
+          "elpd": 3973.946101584268,
+          "elpd_se": 68.2777289374567,
+          "elpd_mcse": 0.33364547151509705,
+          "delta": -1889.7493921946434,
+          "delta_se": 63.62436711112238,
+          "paired_rows": 5264,
+          "max_rhat": 1.1975428996230677,
+          "min_ess": 21.6362603633902,
+          "divergences": 0,
+          "passes": false,
+          "fit_seconds": 2289.693986514001,
+          "sampling_seconds": 354.8542969900009,
+          "cost_usd": null,
+          "group_rhat_max": 1.0758356392058326,
+          "group_rhat_method": "per-chain moments, all effects"
+        }
+      },
+      "passes_checks": false,
+      "split_hardware": {
+        "rows": "thelio CPU (Ryzen 5 3600X)"
+      },
+      "line": "numpyro",
+      "grade": "failed",
+      "fit_seconds": 2289.693986514001,
+      "fit_seconds_all_splits": 2289.693986514001,
+      "cost_usd": 0.0,
+      "contention": {
+        "wall_seconds": 2289.694095561019,
+        "own_cpu_seconds": 11099.16,
+        "other_cpu_seconds": 91.37000000002809,
+        "other_cores": 0.039904893923238545,
+        "cpus": 12,
+        "gpu_other_pids": []
+      },
+      "variance": {
+        "commit": "e343847b64770268915e77fc224d5c97d5145336",
+        "shares": {
+          "market and time": 0.08898962424950456,
+          "features": 0.5404160754015348,
+          "building": 0.3002368876900226,
+          "building over time": 0.0,
+          "building slopes": 0.0,
+          "unit": 0.0,
+          "residual": 0.07035741265893795,
+          "r2": 0.9296425873410621
+        },
+        "intervals": {
+          "market and time": {
+            "mean": 0.08898962424950456,
+            "lower_90": 0.08801921059868704,
+            "upper_90": 0.09001362479655536
+          },
+          "features": {
+            "mean": 0.5404160754015348,
+            "lower_90": 0.5359070541265604,
+            "upper_90": 0.5450312039311972
+          },
+          "building": {
+            "mean": 0.3002368876900226,
+            "lower_90": 0.2957447574122195,
+            "upper_90": 0.3045817491212126
+          },
+          "building over time": {
+            "mean": 0.0,
+            "lower_90": 0.0,
+            "upper_90": 0.0
+          },
+          "building slopes": {
+            "mean": 0.0,
+            "lower_90": 0.0,
+            "upper_90": 0.0
+          },
+          "unit": {
+            "mean": 0.0,
+            "lower_90": 0.0,
+            "upper_90": 0.0
+          },
+          "residual": {
+            "mean": 0.07035741265893795,
+            "lower_90": 0.06992572709989303,
+            "upper_90": 0.07079839293960116
+          },
+          "r2": {
+            "mean": 0.9296425873410621,
+            "lower_90": 0.9292016070603989,
+            "upper_90": 0.930074272900107
+          }
+        }
+      },
+      "psis": {
+        "run": "L5-building-base-v1-rows-e343847-nuts-short-dense-cpu",
+        "commit": "e343847b64770268915e77fc224d5c97d5145336",
+        "rows": 47374,
+        "draws": 1000,
+        "elpd": 33882.36425117427,
+        "elpd_se": 219.65667030740389,
+        "mcse": 2.0349837600102583,
+        "pareto_k": {
+          "threshold": 0.6666666666666667,
+          "over_threshold": 89,
+          "over_0_7": 76,
+          "max": 1.337345147267147,
+          "share_over_threshold": 0.0018786676235909992
+        },
+        "validation": {
+          "note": "mean held-out lpd (repeat-listed units, genuinely left out) vs mean PSIS-LOO over training rows of units with 2+ training rows",
+          "heldout_rows": 5264,
+          "heldout_mean_lpd": 0.7549289706657044,
+          "psis_mean_lpd_multi_row_units": 0.7590732637901073
+        },
+        "integrated": "unit level and drift",
+        "delta": -6711.506359148964,
+        "delta_se": 134.59461385389747,
+        "delta_mcse": 4.017789260926066,
+        "baseline": "m0-base/base-v1/gibbs@5cc0809"
+      },
+      "hardware_class": "thelio CPU (Ryzen 5 3600X)",
+      "frontier": false,
+      "current_best": false,
+      "note": "fails the convergence gate",
       "annotations": []
     },
     {
@@ -8864,7 +10095,7 @@
     "Modal CPU (4 cores)": null,
     "Modal H100": "m8-drift/desc-v1/gibbs@b7c196f",
     "Modal H200": "m5-quarterly/base-v1/gibbs@4226f40",
-    "thelio CPU (Ryzen 5 3600X)": "L2-trend/none/nuts-pymc@6de4789",
+    "thelio CPU (Ryzen 5 3600X)": "L4-features/base-v1/nuts@e343847",
     "thelio RTX 2060 SUPER": "m5-nocurves/desc-v1/gibbs@ac9e02b"
   }
 }
