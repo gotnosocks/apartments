@@ -206,10 +206,15 @@ implementation over implementing our own").
     - m0q gains nothing measurable over m0: PSIS-LOO +10.3 ± 11.1.
   - Round 2, description flags, 2 × (300 + 3000):
     - m0q + desc: 309 s, passes; PSIS-LOO about +174 over m0q.
-    - m6-nocurves + desc: 1,245 s, **fails** (fslope_scale[0] R-hat 1.020, ESS 52 on the size
-      coefficient). The per-building size slopes and the global size coefficient move together,
-      and that slope scale mixes slowly. The candidate fix is a solo collapsed update for the
-      feature-slope scales, as walk_scale has.
+    - m5-nocurves + desc: 1,125 s, passes.
+    - m6-nocurves + desc: 1,245 s, **fails** (all-effects R-hat 9.76 on fslope, bedroom_slope and
+      building; ESS 52 on the size coefficient). The per-building size slopes and the global size
+      coefficient move together, and the slope scales mix slowly.
+    - m7-nocurves + desc: 1,298 s, **fails** (fslope_scale[2] ESS 194).
+    - m8-nocurves + desc: 1,573 s, **fails** (unit_drift_scale R-hat 1.085, ESS 52).
+  - Fitting the 15-minute window by trimming draws (the sampler is frozen, so only settings change):
+    - m5-nocurves at 2 × (300 + 2300) passes: 823 s with base features, 895 s with desc.
+    - m1q + desc at 4 × (300 + 1100): 883 s, fails (R-hat 1.015).
   - Exact block speedups: per-slot accumulation (−34–37% for walk designs) and a structured
     `a′Wa` with inverted building factors (a further −22–38%).
   - Walk designs need the solo collapsed walk_scale update. Without it walk_scale mixes 3.5×
@@ -266,8 +271,24 @@ West Village once its crawl completes.
 
 ## Current state
 
-The dashboard and board are generated from the run records; see them for the live frontier. The
-table below was recorded when this plan was written.
+The dashboard and board are generated from the run records; see them for the live frontier.
+
+**Within 15 minutes on thelio (2026-09-25).** Gate-passing fits only, custom Gibbs on the RTX 2060:
+
+| Design | Settings | Fit time | PSIS-LOO ΔELPD vs m0 |
+|---|---|---:|---:|
+| m0q | 4 × (500 + 2000) | 253 s | +10 |
+| m0q + desc | 2 × (300 + 3000) | 309 s | +184 |
+| m1q | 4 × (300 + 1500) | 702 s | +7,489 |
+| m5-nocurves | 2 × (300 + 2300) | 823 s | +9,708 |
+| m5-nocurves + desc | 2 × (300 + 2300) | 895 s | +9,922 |
+
+- m5-nocurves + desc is the most accurate fit inside the window. Its ESS of 406 barely clears
+  the gate of 400, and at 895 s it is just under the 15-minute limit.
+- Library NUTS (NumPyro, CPU) passes only on the ladder's simplest designs within the window:
+  L0 (40 s) and L1 (128 s). m0q did not finish in 52 min.
+
+The table below is the Modal H100/H200 frontier, recorded when this plan was written.
 
 | Frontier entry | PSIS-LOO ΔELPD vs m0 | k over threshold | Held-out ΔELPD vs promoted | Fit time | Hardware |
 |---|---:|---:|---:|---:|---|
