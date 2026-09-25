@@ -166,6 +166,35 @@ same controls.
 First v6 results: the first 10 probes, all in 51 Leroy Street, returned HTTP 200. Each
 was an eligible unit page whose declared canonical URL equals the probe URL.
 
+### September 24 label-miss review
+
+As of 13:30 EDT, the v6 run has attempted about 8,500 unit probes across 309
+buildings. About 1.5% of probes on listings from 2015 or later return 404, against
+55-82% for 2010-2013 listings (24% for 2014). The age of the inventory row predicts misses; label shape does
+not add much once age is known. Pre-2014 rows with four- or five-digit labels
+(for example `#1007` at 110 Horatio, listed 2011) missed 99% of 504 probes: those
+units no longer have their own pages. Most of that waste is already spent: of
+8,698 pending probes, 914 are pre-2014 rows (about 45% expected misses) and ten
+are other four- or five-digit labels. Expected remaining misses are about 570 requests.
+Skipping pre-2014 probes would save about 410 requests but lose about 500 units,
+so the probe rule is unchanged. No listing-page requests had run yet; 24,172 wait
+behind the unit probes.
+
+### September 25 advertisement claim order
+
+At the user's request, advertisement pages are claimed round-robin by unit and
+newest first: every unit's newest associated advertisement, then every unit's
+second-newest, and so on, with higher (newer) StreetEasy advertisement IDs first
+within a round. If credits run out mid-queue, coverage stays as wide and recent
+as possible. Unit routes still come first. The order is set by
+`collection_policy.refresh_claim_rounds`, which places advertisement queue rows
+in a negative rowid band that `ArchiveStore.claim` already uses as its final
+tiebreak; `store.py` is unchanged because saved Chelsea datasets hash it. It runs
+when a unit page adds membership and again at every policy setup. On a copy of
+the live queue (September 25), round 0 held 11,302 pending advertisements,
+followed by 7,051, 5,532 and 4,269; placing them took 1.3 s and claim time was
+unchanged (about 70 ms). Requests, rate and eligibility are unchanged.
+
 ## Handoff status (September 23, 07:55 EDT)
 
 **The crawl is running at four submissions per minute.** On September 23 at 07:51
