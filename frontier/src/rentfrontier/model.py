@@ -364,6 +364,10 @@ def constants(prep: Prepared, config: ModelConfig) -> dict:
             [prep.features.names.index(n) for n in config.feature_slopes],
             dtype=jnp.int32,
         )
+    if config.nu_fixed is not None:
+        out["nu"] = jnp.asarray(config.nu_fixed)
+    if config.unit_t and config.unit_nu_fixed is not None:
+        out["unit_nu"] = jnp.asarray(config.unit_nu_fixed)
     zero = jnp.zeros(())
     if not config.features:
         out["beta"] = jnp.zeros(len(prep.features.names))

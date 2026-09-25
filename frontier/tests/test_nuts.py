@@ -31,7 +31,7 @@ def sites(config, prep):
     return {k for k, v in tr.items() if v["type"] == "sample" and not v["is_observed"]}
 
 
-def test_each_ladder_step_adds_to_the_one_below():
+def test_ladder_designs_sample_exactly_their_terms():
     prep = synthetic()
     for name, expected in SITES.items():
         assert sites(model.MODELS[name], prep) == expected, name
@@ -116,3 +116,11 @@ def test_nuts_run_matches_plain_numpyro_mcmc(name):
         mcse = draws.std() * np.sqrt(2 / (0.25 * draws.size))
         assert abs(out["mean"][k] - draws.mean()) < 5 * mcse, (k, out["mean"][k])
         assert abs(out["sd"][k] - draws.std()) < 0.25 * draws.std(), (k, out["sd"][k])
+
+
+def test_fixed_degrees_of_freedom_are_constants():
+    """Designs that fix nu (m5-nu5) sample no nu site; NUTS gets it from constants."""
+    prep = synthetic()
+    config = model.MODELS["m5-nu5"]
+    assert float(model.constants(prep, config)["nu"]) == 5.0
+    assert "nu" not in sites(config, prep)

@@ -253,8 +253,12 @@ def psis_fields(ps):
 
 def structure(e) -> str:
     """The model an entry fits, whichever sampler fit it: design and features
-    (every sampler fits the designs in `model.MODELS`)."""
-    return f"{e['model']['name']}/{e['feature_set']}"
+    (every sampler fits the designs in `model.MODELS`). A design without the
+    listing features is keyed `<design>/none` whatever its run's feature-set
+    label (NUTS records base-v1; the removed PyMC ladder recorded none)."""
+    m = e["model"]
+    uses_features = m.get("features", True) and e["feature_set"] != "none"
+    return f"{m['name']}/{e['feature_set'] if uses_features else 'none'}"
 
 
 def data():

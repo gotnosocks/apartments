@@ -606,7 +606,7 @@ def build(keep_dirs=False):
             note = f"screen-grade (max R-hat {worst:.3f}); not eligible for best or frontier"
             if any(s["delta"] is None for s in e["splits"].values()):
                 note += "; held-out rows differ from the reference, so not paired"
-        elif not scored(e) and e["line"] == "frontier" and "rows" in e["splits"]:
+        elif not scored(e) and e["line"] != "pymc" and "rows" in e["splits"]:
             note = "no PSIS-LOO score yet"
         elif best is not None and e is not best and scored(e):
             d, se, mc = paired_loo(best["psis"]["_dir"], e["psis"]["_dir"])
@@ -678,7 +678,11 @@ def row(e, marks) -> str:
     )
     diag = "; ".join(
         f"{k}: {v['max_rhat']:.3f} / {v['min_ess']:.0f} / all-effects {v['group_rhat_max']:.2f}"
-        + (f" / {v['divergences']} divergences" if v.get("divergences") else "")
+        + (
+            f" / {v['divergences']} divergence{'s' if v['divergences'] > 1 else ''}"
+            if v.get("divergences")
+            else ""
+        )
         for k, v in e["splits"].items()
     )
     note = "; ".join(
@@ -708,7 +712,7 @@ def markdown(board) -> str:
         "**Held-out** ΔELPD (5,264 row-split held-out rows, vs the promoted PyMC model) is the independent validation; the unit split is secondary.",
         "",
         "**Ranking.** Eligible entries pass the convergence gate (max split R-hat < 1.01 and min bulk ESS > 400; frontier runs also need",
-        "R-hat < 1.05 over every group effect, 1.1 when recomputed from older runs' kept draws), are interpretable and have a PSIS-LOO score.",
+        "R-hat < 1.05 over every group effect, 1.1 when recomputed from older runs' kept draws; NUTS runs also need no divergences), are interpretable and have a PSIS-LOO score.",
         "Every eligible entry within two combined SE of the top PSIS-LOO ΔELPD ties with it; the **best** is the fastest tied entry.",
         "**Frontier** = not beaten on PSIS-LOO ΔELPD and fit time at once. Fit time is the scored (row-split) fit's sampler wall time.",
         "**Per hardware.** The frontier and the best are computed separately for each hardware class (where the fit actually ran):",

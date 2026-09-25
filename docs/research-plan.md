@@ -113,7 +113,8 @@ shows it, and the frontier on each hardware class shows the best (design, sample
 fit time.
 
 **The ladder: start as simple as possible and build up** (`model.LADDER`). Each design adds one
-term to the one below. L0–L5 drop base terms, so only NUTS fits them. From m0q on, both samplers
+term to the one below, except L2, which replaces L1's linear drift with a quarterly trend that
+contains it. L0–L5 drop base terms, so only NUTS fits them. From m0q on, both samplers
 fit every design.
 
 | Design | Adds |
@@ -160,6 +161,20 @@ implementation over implementing our own").
     stack.
 - The custom Gibbs sampler is therefore **frozen**: no new sampler code. It stays as the benchmark
   on the thelio frontier and retires once a library sampler matches it there.
+- **NUTS belongs on the CPU here.** On the RTX 2060, NumPyro NUTS took 23 s for L0-mean, 110 s for
+  L1-drift and over 20 minutes for L2-trend (stopped), against 8 s, 9 s and 322 s for PyMC NUTS
+  on the CPU. Every leapfrog step is many small float64 kernels, and the card runs float64 at
+  about 1/32 rate. The NUTS ladder runs on the CPU, with and without the dense mass matrix.
+- **NumPyro's CPU gradient is the cost, not the tree.** NumPyro NUTS on the CPU (4 × (1000 + 1000)):
+  - L0-mean: 40 s, 6 leapfrog steps per draw;
+  - L1-drift: 128 s, 15 steps;
+  - L2-trend: 1,987 s, gate passed.
+
+  Its trees are normal, but one chain-gradient over the 47,374 rows costs about 0.7 ms in JAX on
+  the CPU, against about 0.08 ms in nutpie's numba-compiled gradient. PyMC/nutpie did L2 in 322 s.
+- **Right-size the NUTS draw budget.** 1,000 + 1,000 draws per chain (PyMC's default) gave ESS
+  4,767 on L2 against a gate of 400. The next pass uses 500 warmup + 250 draws per chain, all
+  kept for PSIS (1,000 draws), with the dense mass matrix from L4 on.
 - New sampler work uses library samplers on `model.build_model`, with library options only:
   - NumPyro NUTS (`--sampler nuts`), with a diagonal or a structured dense mass matrix;
   - BlackJAX's NUTS and many-chain adaptation;

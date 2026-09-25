@@ -1163,7 +1163,7 @@ async function main() {
   const foot = $('footer');
   for (const text of [
     ...d.footer,
-    'Gate: split R-hat < 1.01 and bulk ESS > 400; frontier-line runs also need R-hat < 1.05 over every group effect (1.1 when recomputed from older runs\' kept draws). PyMC screens that fail it are screen-grade: shown, never best or on the frontier.',
+    'Gate: split R-hat < 1.01 and bulk ESS > 400; frontier-line runs also need R-hat < 1.05 over every group effect (1.1 when recomputed from older runs\' kept draws), and NUTS runs need no divergences. PyMC screens that fail it are screen-grade: shown, never best or on the frontier.',
     'Fit times compare well within a line but only roughly across lines: PyMC screens are 4 chains × 1,000/1,000 on CPU; frontier-line runs are production-length on Modal GPUs. The board is docs/model/leaderboard/leaderboard.md; this page applies the same rules at every date.',
   ]) html('p', {}, foot, text);
 
