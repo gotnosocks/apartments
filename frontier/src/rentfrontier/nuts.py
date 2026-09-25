@@ -63,6 +63,10 @@ class Settings:
     # Sampling coordinates (model.ModelConfig.coordinates): "trend_levels",
     # "unit_totals". They change how NUTS moves, not the model.
     coordinates: tuple = ()
+    # float32 arithmetic (run.py leaves jax_enable_x64 off). The RTX 2060 runs
+    # float32 at full rate but float64 at about 1/32; scoring (loo, variance)
+    # still runs in float64 from the kept draws.
+    float32: bool = False
 
     def to_dict(self):
         return asdict(self)
@@ -79,8 +83,11 @@ def run(
 
     from .gibbs import batched
 
-    if not jax.config.jax_enable_x64:
-        raise RuntimeError("NUTS runs in float64 (jax_enable_x64)")
+    if jax.config.jax_enable_x64 == settings.float32:
+        raise RuntimeError(
+            "jax_enable_x64 must be off for float32 NUTS and on otherwise (run.py sets it)"
+        )
+    dtype = jnp.float32 if settings.float32 else jnp.float64
     t0 = time.perf_counter()
     present = {"walk_step": config.building_walk, "unit_drift": config.unit_drift}
     config = replace(
@@ -155,7 +162,7 @@ def run(
         prep,
         settings.draws,
         settings.keep_every,
-        jnp.float64,
+        dtype,
         settings.seed,
         settings.trace_groups,
         vmap=vmap,
@@ -172,7 +179,7 @@ def run(
         "warmup": warmup_seconds,
         "sampling": sampling_seconds,
     }
-    out["dtype"] = "float64"
+    out["dtype"] = str(np.dtype(dtype))
     out["sampler"] = "numpyro-nuts"
     out["noncentered"] = list(config.noncentered)
     out["step_size"] = step_size.tolist()

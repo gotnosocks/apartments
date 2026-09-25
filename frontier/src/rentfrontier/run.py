@@ -265,6 +265,9 @@ def main(argv=None):
         help="nuts: dense mass matrix over the global sites (NumPyro structured mass)",
     )
     parser.add_argument(
+        "--float32", action="store_true", help="nuts: float32 arithmetic (GPU)"
+    )
+    parser.add_argument(
         "--coordinates",
         help="nuts: comma-separated sampling coordinates (trend_levels, unit_totals)",
     )
@@ -289,7 +292,8 @@ def main(argv=None):
 
     import jax
 
-    jax.config.update("jax_enable_x64", True)
+    # Gibbs always runs in float64; NUTS too unless --float32.
+    jax.config.update("jax_enable_x64", not (args.sampler == "nuts" and args.float32))
     from . import gibbs, model, nuts
 
     config = model.MODELS[args.model]
@@ -314,6 +318,7 @@ def main(argv=None):
             "coordinates": tuple(args.coordinates.split(","))
             if args.coordinates
             else None,
+            "float32": True if args.float32 else None,
             "solo_scales": (
                 () if args.solo_scales == "none" else tuple(args.solo_scales.split(","))
             )
