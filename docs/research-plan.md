@@ -422,6 +422,11 @@ comes from other sources, most of them public NYC and NYS data.
 
 ### T3. The accuracy axis
 
+0. **Clean the data so the model can be less defensive** (Ben, 2026-09-25). Find and fix, or
+   document and exclude, the rows the heavy tails protect against. Then test whether lighter tails
+   (larger ν, Gaussian noise) win on the cleaned data, which would also speed up the samplers. The
+   plan is in the [research backlog](model/research-backlog.md), under "Data quality".
+
 1. **Walk regularization for sparse building periods.** The high-k finding says lone rows pin walk
    knots. Try knot pooling or a stronger walk prior where a building-period has few rows.
 2. **m9 candidates** from the frontier hand-off: floor features (the expanded-floor sidecar) and a
