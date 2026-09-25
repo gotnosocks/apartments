@@ -55,6 +55,22 @@
     <div class="table-view" id="table-frontier" hidden></div>
   </section>
 
+  <section class="card" id="impl-card">
+    <div class="card-head">
+      <div>
+        <h2>Same model, different implementations</h2>
+        <p class="caption">Each row is one model structure fit by more than one implementation (custom Gibbs, PyMC, NumPyro) or on more than one kind of
+          hardware, across all hardware classes, not just the one selected above. Implementations that agree on PSIS-LOO confirm each other's
+          convergence; the right-hand column is the spread of PSIS-LOO across the passing fits. The fastest passing mark is the structure's best
+          implementation on that hardware. Latest fit per implementation and hardware.</p>
+      </div>
+      <button class="ghost table-toggle" type="button" data-target="impl">Table view</button>
+    </div>
+    <div class="legend" id="legend-impl"></div>
+    <div class="chart" id="chart-impl"></div>
+    <div class="table-view" id="table-impl" hidden></div>
+  </section>
+
   <section class="card">
     <div class="card-head">
       <div>

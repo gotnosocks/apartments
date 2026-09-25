@@ -509,6 +509,8 @@ def build(keep_dirs=False):
                 "paired_rows": vp.get("paired_rows"),
                 "max_rhat": r["diagnostics"]["max_rhat"],
                 "min_ess": r["diagnostics"]["min_ess"],
+                # NUTS runs (the ladder) count divergences; Gibbs has none.
+                "divergences": r["diagnostics"].get("divergences"),
                 "passes": r["diagnostics"]["passes"],
                 "fit_seconds": r["seconds"]["fit_total"],
                 "sampling_seconds": r["seconds"].get("sampling"),
@@ -618,6 +620,7 @@ def build(keep_dirs=False):
                     and o["passes_checks"]
                     and o["model"]["name"] == e["model"]["name"]
                     and o["feature_set"] == e["feature_set"]
+                    and o["sampler"] == e["sampler"]
                 ]
                 note = (
                     f"superseded by passing rerun {same[0]['id']}"
@@ -675,6 +678,7 @@ def row(e, marks) -> str:
     )
     diag = "; ".join(
         f"{k}: {v['max_rhat']:.3f} / {v['min_ess']:.0f} / all-effects {v['group_rhat_max']:.2f}"
+        + (f" / {v['divergences']} divergences" if v.get("divergences") else "")
         for k, v in e["splits"].items()
     )
     note = "; ".join(

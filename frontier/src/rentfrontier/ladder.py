@@ -39,7 +39,8 @@ effects are prior-dominated.
 
 Backends:
 - pymc: PyMC model sampled by nutpie (4 chains x 1,000 tune + 1,000 draws,
-  CPU). Its fit time counts on the thelio CPU class.
+  CPU, one BLAS/numba thread per chain). Its fit time counts on the thelio CPU
+  class.
 - numpyro: NumPyro NUTS (vectorized chains) on whatever JAX device is
   present (the RTX 2060 or the CPU).
 
@@ -85,11 +86,27 @@ RUNGS["L10-tunits"] = (*RUNGS["L9-fslopes"], "tunits")
 RUNGS["L11-udrift"] = (*RUNGS["L10-tunits"], "udrift")
 # The size and bathroom columns with per-building slopes (m6-m8).
 FSLOPE_FEATURES = model.MODELS["m6-nocurves"].feature_slopes
+# Rungs that are exactly a Gibbs-line design (with base-v1 features); the
+# tests check the joint density matches `model.build_model` for each.
+SAME_AS = {
+    "L6-units": "m0q",
+    "L7-walk": "m1q",
+    "L8-bedslope": "m5-nocurves",
+    "L9-fslopes": "m6-nocurves",
+    "L10-tunits": "m7-nocurves",
+    "L11-udrift": "m8-nocurves",
+}
+# Non-centred sites: ladder name -> (build_model name, scale site).
+NONCENTRED = {
+    "walk_z": ("walk_step", "walk_scale"),
+    "unit_drift_z": ("unit_drift", "unit_drift_scale"),
+}
 TREND_KNOT_MONTHS = 3
 WALK_SCALE_SD = 0.1  # model.ModelConfig.walk_scale_sd
 # Per-draw arrays too large to keep in posterior.npz (means and sds are kept).
 LARGE = ("unit", "walk_z", "unit_drift_z")
 CHAINS, TUNE, DRAWS = 4, 1000, 1000
+BLAS_THREADS = 1  # per nutpie chain (PyMC backend)
 SEED = 20260925
 
 
@@ -288,12 +305,26 @@ def sample(backend, terms, inp):
             np.asarray(mcmc.get_extra_fields(group_by_chain=True)["diverging"]).sum()
         )
         return draws, div
-    import nutpie
+    import os
 
-    compiled = nutpie.compile_pymc_model(pymc_model(terms, a, inp))
-    trace = nutpie.sample(
-        compiled, chains=CHAINS, tune=TUNE, draws=DRAWS, seed=SEED, progress_bar=False
-    )
+    # nutpie runs one chain per thread. BLAS and numba thread pools inside each
+    # chain oversubscribe the 12 logical cores (6de4789, L4: ~55 threads at
+    # ~1,190% CPU), so each chain gets one thread. threadpoolctl is a PyMC
+    # dependency; numba reads its thread count when first imported (by nutpie).
+    os.environ["NUMBA_NUM_THREADS"] = str(BLAS_THREADS)
+    import nutpie
+    from threadpoolctl import threadpool_limits
+
+    with threadpool_limits(limits=BLAS_THREADS):
+        compiled = nutpie.compile_pymc_model(pymc_model(terms, a, inp))
+        trace = nutpie.sample(
+            compiled,
+            chains=CHAINS,
+            tune=TUNE,
+            draws=DRAWS,
+            seed=SEED,
+            progress_bar=False,
+        )
     post = trace.posterior
     draws = {k: np.asarray(post[k].values) for k in post.data_vars}
     div = int(np.asarray(trace.sample_stats["diverging"].values).sum())
@@ -600,6 +631,7 @@ def fit(rung, backend, commit, name, log=print):
             "backend": "nutpie"
             if backend == "pymc"
             else "numpyro NUTS (vectorized chains)",
+            **({"blas_threads_per_chain": BLAS_THREADS} if backend == "pymc" else {}),
         },
         "dtype": "float64",
         "sizes": prep.sizes,

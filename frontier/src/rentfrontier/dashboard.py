@@ -41,7 +41,7 @@ import shutil
 import subprocess
 from pathlib import Path
 
-from . import leaderboard, variance
+from . import ladder, leaderboard, variance
 
 REPO = Path(__file__).resolve().parents[3]
 SITE_SOURCE = REPO / "dashboard"
@@ -69,6 +69,19 @@ DESIGNS = {
     "nuts-hwalk-noise": "PyMC: walk with a noise-scale variant",
     "nuts-bcov": "PyMC: building covariance variant",
     "nuts-level": "PyMC: level variant",
+    # The model ladder (rentfrontier.ladder), fit by PyMC and NumPyro NUTS.
+    "L0-mean": "ladder: intercept only, Student-t noise",
+    "L1-drift": "ladder: + one shared linear drift per year",
+    "L2-trend": "ladder: shared quarterly market trend (replaces the drift)",
+    "L3-season": "ladder: + calendar season",
+    "L4-features": "ladder: + the 44 base-v1 listing features",
+    "L5-building": "ladder: + building levels",
+    "L6-units": "ladder: + unit effects (= m0q)",
+    "L7-walk": "ladder: + per-building half-year random walk (= m1q)",
+    "L8-bedslope": "ladder: + per-building bedroom slope (= m5-nocurves)",
+    "L9-fslopes": "ladder: + per-building size and bath slopes (= m6-nocurves)",
+    "L10-tunits": "ladder: Student-t unit effects (= m7-nocurves)",
+    "L11-udrift": "ladder: + per-unit linear drift (= m8-nocurves)",
 }
 
 
@@ -239,6 +252,15 @@ def psis_fields(ps):
     }
 
 
+def structure(e) -> str:
+    """The model an entry fits, whichever sampler fit it: ladder rungs that are
+    a Gibbs design share that design's key (L6-units -> m0q/base-v1)."""
+    design = e["model"]["name"]
+    if e["line"] in ("pymc", "numpyro"):
+        design = ladder.SAME_AS.get(design, design)
+    return f"{design}/{e['feature_set']}"
+
+
 def data():
     board = leaderboard.build(keep_dirs=True)
     entries = assign_keys(board["entries"])
@@ -255,6 +277,7 @@ def data():
                 "id": e["id"],
                 "key": e["_key"],
                 "line": e["line"],
+                "structure": structure(e),
                 "design": design,
                 "design_text": DESIGNS.get(design, ""),
                 "feature_set": e["feature_set"],
@@ -289,6 +312,7 @@ def data():
                         "max_rhat": s["max_rhat"],
                         "min_ess": s["min_ess"],
                         "group_rhat_max": s.get("group_rhat_max"),
+                        "divergences": s.get("divergences"),
                         "passes": s["passes"],
                         "fit_seconds": s["fit_seconds"],
                         "completed_at": iso(s["_at"]),

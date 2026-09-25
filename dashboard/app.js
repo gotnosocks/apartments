@@ -198,7 +198,8 @@ function gateText(e) {
   if (e.grade === 'screen') return 'screen-grade (fails gate)';
   const worst = Math.max(...Object.values(e.splits).map((s) => s.max_rhat));
   const grp = Math.max(...Object.values(e.splits).map((s) => s.group_rhat_max || 0));
-  return `fails (R-hat ${worst.toFixed(3)}, all-effects ${grp.toFixed(2)})`;
+  const div = Object.values(e.splits).reduce((a, s) => a + (s.divergences || 0), 0);
+  return `fails (${div ? `${div} divergence${div > 1 ? 's' : ''}, ` : ''}R-hat ${worst.toFixed(3)}, all-effects ${grp.toFixed(2)})`;
 }
 
 // ---------- chart frame ----------
@@ -568,6 +569,101 @@ function drawVariance(v) {
   f.root.addEventListener('pointerleave', hideTip);
   renderTable($('table-variance'), ['Entry', ...groups.map((g) => VAR_LABEL[g])],
     rowsE.map((e) => [e.key, ...groups.map((g) => `${(100 * e.variance[g].mean).toFixed(1)}%`)]), groups.map((_, i) => i + 1));
+}
+
+// ---------- same structure, different implementations ----------
+const HW_MARKS = [
+  { test: (c) => c.includes('2060'), shape: 'circle', label: 'thelio RTX 2060 SUPER' },
+  { test: (c) => c.startsWith('thelio CPU'), shape: 'square', label: 'thelio CPU' },
+  { test: () => true, shape: 'diamond', label: 'Modal (H100 / H200 / CPU)' },
+];
+const hwShape = (cls) => HW_MARKS.find((m) => m.test(cls)).shape;
+const LINE_ORDER = ['frontier', 'pymc', 'numpyro'];
+function mark(parent, shape, cx, cy, r, color, passes) {
+  const attrs = { class: 'dot' + (passes ? '' : ' hollow'), style: passes ? `fill:${color}` : `stroke:${color}` };
+  if (shape === 'circle') return svg('circle', { ...attrs, cx, cy, r }, parent);
+  if (shape === 'square') return svg('rect', { ...attrs, x: cx - r * 0.9, y: cy - r * 0.9, width: 1.8 * r, height: 1.8 * r, rx: 1.5 }, parent);
+  const d = r * 1.25;
+  return svg('polygon', { ...attrs, points: `${cx},${cy - d} ${cx + d},${cy} ${cx},${cy + d} ${cx - d},${cy}` }, parent);
+}
+// Every landed entry at time T on every hardware class (the chart spans classes).
+function entriesAllHardware(T) {
+  const out = [];
+  for (const e of state.data.entries) {
+    if (!e.available_at || Date.parse(e.available_at) > T) continue;
+    const splits = {};
+    for (const [k, s] of Object.entries(e.splits)) if (Date.parse(s.completed_at) <= T) splits[k] = s;
+    if (!splits.rows) continue;
+    out.push({ ...e, splits, passes: Object.values(splits).every((s) => s.passes), fit: splits.rows.fit_seconds });
+  }
+  return out;
+}
+function drawImplementations(v) {
+  const byStruct = new Map();
+  for (const e of entriesAllHardware(v.T)) {
+    if (!state.lines[e.line] || !e.structure) continue;
+    const g = byStruct.get(e.structure) || new Map();
+    const k = `${e.line}|${e.hardware_class}`;
+    const prev = g.get(k);
+    if (!prev || Date.parse(e.available_at) > Date.parse(prev.available_at)) g.set(k, e);
+    byStruct.set(e.structure, g);
+  }
+  const rows = [...byStruct.entries()].filter(([, g]) => g.size > 1).map(([s, g]) => {
+    const marks = [...g.values()];
+    const scored = marks.filter((e) => e.passes && score(e) !== null).map(score);
+    const alias = [...new Set(marks.filter((e) => e.line !== 'frontier' && !s.startsWith(e.design + '/')).map((e) => e.design))];
+    return { s, marks, alias, spread: scored.length > 1 ? Math.max(...scored) - Math.min(...scored) : null,
+      order: Math.max(...marks.map((e) => score(e) ?? -Infinity)) };
+  }).sort((a, b) => a.order - b.order);
+  const legend = $('legend-impl');
+  legend.replaceChildren();
+  for (const key of LINE_ORDER) {
+    const it = html('span', { class: 'item' }, legend);
+    html('span', { class: 'rect', style: `background:${LINES[key].color}`, 'aria-hidden': 'true' }, it);
+    it.appendChild(document.createTextNode(LINES[key].label));
+  }
+  for (const m of HW_MARKS) {
+    const it = html('span', { class: 'item' }, legend);
+    const s = svg('svg', { width: 14, height: 14, viewBox: '0 0 14 14' }, it);
+    mark(s, m.shape, 7, 7, 4.5, 'var(--text-secondary)', true);
+    it.appendChild(document.createTextNode(m.label));
+  }
+  const container = $('chart-impl');
+  if (!rows.length) {
+    container.replaceChildren();
+    html('p', { class: 'caption' }, container, 'No structure has been fit by more than one implementation or on more than one kind of hardware yet.');
+    $('table-impl').replaceChildren();
+    return;
+  }
+  const rowH = 34, labelW = 250, rightW = 150;
+  const f = frame(container, 20 + rows.length * rowH + 40, { top: 12, right: rightW, bottom: 40, left: labelW });
+  f.root.setAttribute('aria-label', 'Fit time of each implementation of each model structure');
+  const fits = rows.flatMap((r) => r.marks.map((e) => e.fit));
+  const x = logScale([Math.min(...fits) / 1.6, Math.max(...fits) * 1.6], [f.inner.x0, f.inner.x1]);
+  const ticks = durationTicks([Math.min(...fits) / 1.6, Math.max(...fits) * 1.6]);
+  for (const t of ticks) svg('line', { x1: x(t), x2: x(t), y1: f.inner.y0, y2: f.inner.y1, style: 'stroke:var(--grid)' }, f.root);
+  xAxis(f, x, ticks, fmtDurTick);
+  axisTitles(f, 'Fit time (log scale)', null);
+  svg('text', { class: 'label-muted', x: f.inner.x1 + 12, y: f.inner.y0 + 2, text: 'PSIS-LOO spread' }, f.root);
+  const pts = [];
+  rows.forEach((r, i) => {
+    const cy = f.inner.y0 + 14 + i * rowH;
+    svg('line', { x1: f.inner.x0, x2: f.inner.x1, y1: cy, y2: cy, style: 'stroke:var(--grid);stroke-dasharray:2 3' }, f.root);
+    const [design, feats] = r.s.split('/');
+    svg('text', { class: 'label', x: labelW - 10, y: cy + 4, 'text-anchor': 'end',
+      text: `${design}${r.alias.length ? ` (= ${r.alias.join(', ')})` : ''} · ${feats}` }, f.root);
+    svg('text', { class: 'label-muted', x: f.inner.x1 + 12, y: cy + 4,
+      text: r.spread === null ? '—' : `${r.spread.toFixed(1)} nats` }, f.root);
+    for (const e of r.marks.sort((a, b) => LINE_ORDER.indexOf(a.line) - LINE_ORDER.indexOf(b.line))) {
+      const cy2 = cy + (LINE_ORDER.indexOf(e.line) - 1) * 7;
+      const node = mark(f.root, hwShape(e.hardware_class), x(e.fit), cy2, 5.5, LINES[e.line].color, e.passes);
+      pts.push({ x: x(e.fit), y: cy2, e, node });
+    }
+  });
+  hoverPoints(f, pts, (t, p) => entryTip(t, p.e));
+  renderTable($('table-impl'), ['Structure', 'Implementation', 'Hardware', 'Fit time', 'PSIS-LOO ΔELPD', 'Gate', 'Timing'],
+    rows.flatMap((r) => r.marks.map((e) => [r.s, LINES[e.line].label, e.hardware_class, fmtDur(e.fit),
+      e.psis ? `${fmtDelta(score(e))} ${fmtSE(scoreErr(e))}` : '—', gateText(e), timingText(e)])), [3, 4]);
 }
 
 function hoverPoints(f, pts, build) {
@@ -957,6 +1053,7 @@ function render() {
   drawLegend();
   drawKpis(v);
   drawFrontier(v, dom);
+  drawImplementations(v);
   drawUnits(v, dom);
   drawValidation(v, dom);
   drawVariance(v);
