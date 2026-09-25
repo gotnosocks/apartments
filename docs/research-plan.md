@@ -225,6 +225,99 @@ implementation over implementing our own").
 - **Step 3. Native fits.** Fit the best candidates on each local class within 15 minutes with the
   step 1 settings, then score PSIS-LOO and the variance decomposition. These points form that
   class's sub-15-minute frontier.
+- **Step 4. Structure search within 15 minutes** (Ben, 2026-09-25: explore feature space and model
+  shapes to keep improving the frontier under the 15-minute limit). See the next section.
+
+## Structure search under 15 minutes (from 2026-09-25)
+
+**Goal.** Raise the most accurate gate-passing fit within 15 minutes on each thelio hardware class.
+The mark to beat on the RTX 2060 is m5-nocurves + desc: +9,922 PSIS-LOO over m0 in 895 s (custom
+Gibbs). It has no slack: ESS 406 and 5 s under the limit. So every candidate either buys time back
+or spends it better.
+
+**Method.**
+1. Screen cheaply before fitting.
+   - Projection (`rentfrontier.projection`, seconds per structure) of the m8 + desc reference onto
+     each candidate ranks structures the way their native PSIS-LOO does.
+   - The variance decomposition shows where unexplained variation sits: features about 50%,
+     building about 30%, unit 2–3%, residual 2–4%.
+   - A candidate goes to a native fit only if projection says it beats the current mark.
+2. Estimate its fit time before fitting.
+   - Gibbs cost grows with the global columns (features, trend knots, curves) and with the local
+     columns per building (walk knots, slopes), and each solo scale update costs a block solve.
+   - NUTS cost is tree depth × gradient cost. The depth depends on the coordinates (see the NUTS
+     findings above).
+3. Fit the shortlist natively, one at a time, within 15 minutes on each class. Right-size the draw
+   budget to the gate (ESS > 400) and score PSIS-LOO and the variance decomposition.
+4. Keep what moves the frontier; record what doesn't, in this plan and on the board.
+
+**A. Feature space.** New features are new feature-set ids (`features.py`; `base-v2`, and so on).
+Features enter the design matrix, so the frozen Gibbs sampler fits them without new code.
+
+1. **Building covariates in the building mean.**
+   - The data: stories, residential units and zip from archived building pages
+     (`data/model/building-covariates-20260923`, 1,072 of 1,129 buildings); the archive's year
+     built is a placeholder, so skip it.
+   - A building-level column in the row predictor is exactly a regression in the building mean, and
+     the Gibbs block draws those coefficients jointly with the building levels.
+   - The earlier PyMC screen's collinearity came from zero-sum building effects plus NUTS; it does
+     not apply here.
+   - Expect the gain on buildings with few rows, which carry most of the high-k PSIS rows.
+2. **Location.** Buildings have latitude and longitude. Try a low-rank spatial basis over building
+   locations, as building-level columns, so neighbouring buildings share information (west vs
+   east Chelsea, the avenues, the High Line).
+3. **Floor.** The label-derived floor and the expanded-floor sidecar (T3.2) next to the advertised
+   floor label.
+4. **Size and layout.**
+   - A nonlinear size deviation: splines on log square feet relative to the bedroom median.
+   - Bedrooms × size.
+   - Bathrooms per bedroom.
+5. **Description flags.**
+   - desc-v1 adds about +200 but 21 columns, and on m1q it cost 1.6× the fit time.
+   - Ablate the flags to find a short set that keeps most of the gain for fewer columns.
+   - Later, richer text features (embeddings or topics), which need new tooling.
+6. **Pruning.** Drop base-v1 columns that carry nothing (some view and window flags), to buy time
+   for columns that do.
+
+**B. Model shapes.** Parameterization and shape switches in `model.ModelConfig`.
+
+1. **Walk knot spacing.** Half-year to yearly knots halve the per-building walk columns, which
+   dominate the Gibbs block for walk designs. Measure the PSIS-LOO cost against the time saved;
+   the saved time can go into slopes or features.
+2. **Bedroom curves.** These are the market curve per bedroom group, dropped in the nocurves
+   designs to save about 200 global columns. Yearly knots would cost about 45 columns instead,
+   and could win back part of the curves' gain at a fraction of the cost.
+3. **Trend knot spacing.** Quarterly costs nothing measurable against monthly; test half-year.
+4. **Per-building slopes.**
+   - The bedroom slope pays (+2,200 over m1q).
+   - The size and bath slopes (m6) do not mix under Gibbs.
+   - Try a single size slope, or slopes through NUTS in its coordinates.
+5. **Unit effects.**
+   - Student-t units (+1,200) and unit drift (+360) fail to mix under Gibbs at 21–26 minutes.
+   - Candidates: NUTS (below), a fixed unit ν, or drift only for units with a long history.
+6. **Noise.**
+   - Heteroskedastic noise by bedroom group or by price basis. The earlier building-level residual
+     scale was suggestive at +45 ± 29.
+   - Fixed ν, as a speed option.
+7. **Pooling structure.** A neighbourhood or spatial level between market and building, which
+   pairs with A.1–A.2.
+
+**C. Implementations within 15 minutes.**
+1. **NUTS in NUTS-friendly coordinates on the CPU.**
+   - Exact reparameterizations: trend levels, zero-sum season, units centred within buildings.
+   - If NUTS reaches m0q/m1q/m5 within 15 minutes, it can fit any shape `build_model` expresses
+     without sampler code. That includes the t-unit, drift and slope shapes the frozen Gibbs
+     sampler cannot mix.
+2. **Per-design draw budgets and chain counts** sized to the gate on each hardware class.
+3. **The Gibbs sampler stays frozen** (Ben, 2026-09-25): settings and existing flags only. A shape
+   it cannot express goes to NUTS.
+
+**Order.** By expected PSIS-LOO gain per second of fit time:
+1. A.1 and A.2 (building covariates and location) on m5-nocurves + desc;
+2. B.1 (yearly walk knots), reinvesting the saved time in B.2 (yearly bedroom curves) or A.5;
+3. C.1 on m0q, m1q and m5, then on the t-unit and drift shapes;
+4. A.5 (flag ablation) and A.6 (pruning);
+5. B.6 (noise) and A.3–A.4.
 
 ## Work tracks, in order
 
