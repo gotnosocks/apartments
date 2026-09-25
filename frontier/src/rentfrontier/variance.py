@@ -147,7 +147,8 @@ def score_run(name: str):
     draws = kept["alpha"].shape[0]
     moments = Moments(draws)
     train_idx = np.flatnonzero(~heldout)
-    for chunk in np.array_split(train_idx, max(1, len(train_idx) // CHUNK)):
+    rows_per_chunk = min(CHUNK, max(500, 6_000_000 // draws))
+    for chunk in np.array_split(train_idx, max(1, len(train_idx) // rows_per_chunk)):
         mask = np.zeros(len(frame), dtype=bool)
         mask[chunk] = True
         a = model.row_arrays(prep, frame, mask)

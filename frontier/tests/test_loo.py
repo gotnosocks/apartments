@@ -147,3 +147,13 @@ def test_single_listing_unit_with_heavy_tailed_prior_matches_full_integral():
         drift=False,
     )
     assert abs(float(np.asarray(got)[0, 0]) - expected) < 1e-4
+
+
+def test_psis_blocks_match_one_block():
+    rng = np.random.default_rng(3)
+    ll = rng.normal(-1.0, 0.3, (400, 1000))
+    one = loo.psis_loo(ll, block=10_000)
+    many = loo.psis_loo(ll, block=137)
+    for a, b in zip(one, many):
+        np.testing.assert_allclose(a, b)
+    assert loo.chunk_rows(320) == loo.CHUNK and loo.chunk_rows(2000) == 3000

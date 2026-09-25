@@ -55,14 +55,20 @@ class Settings:
     noise_steps: int = 10  # joint (sigma, nu) Metropolis steps per iteration
     sigma_step_sd: float = 0.004  # on log sigma
     nu_step_sd: float = 0.03  # on log nu
-    rescale_steps: int = 5  # (walk_scale, walk) rescaling moves per iteration
-    rescale_step_sd: float = 0.01  # on log c
+    # (walk_scale, walk) rescaling moves per iteration: no block solve, so
+    # cheap; their step size adapts during warmup (target acceptance 0.44).
+    rescale_steps: int = 20
+    rescale_step_sd: float = 0.01  # on log c (initial)
     trace_groups: int = 32
     # Collapsed Metropolis update of all group scales (latents integrated
     # out); proposal sd = collapse_scale * sd(log scale) / sqrt(#scales),
     # sized from the first half of warmup.
     collapse: bool = True
     collapse_scale: float = 2.38
+    # Joint collapsed proposal along the log-scales' warmup covariance
+    # (Cholesky factor) instead of independent per-scale steps: correlated
+    # scales (walk, unit, noise) then move together.
+    collapse_cov: bool = True
     chain_batch: int = 0  # vectorise this many chains at a time (0 = all)
     # Extra one-dimensional collapsed updates for these scales (if present).
     solo_scales: tuple = ("walk_scale",)
@@ -105,6 +111,15 @@ class Design:
     unit_nu_fixed: float | None = None
     unit_drift: bool = False
     unit_time: jnp.ndarray | None = None
+    # a'Wa by structure: every global column except the features is a
+    # function of the row's (bedroom group, month) key, so the Gram matrix is
+    # a dense feature block plus per-key sums through a small basis.
+    gram_key: jnp.ndarray | None = None  # (N,) key per row
+    gram_n_keys: int = 0
+    gram_basis: jnp.ndarray | None = None  # (keys, keyed columns)
+    gram_feat: jnp.ndarray | None = None  # (N, F) feature columns of a
+    gram_fcols: np.ndarray | None = None
+    gram_kcols: np.ndarray | None = None
 
     @property
     def scale_names(self):
@@ -167,6 +182,15 @@ def build_design(
             bedroom_time,
             np.kron(np.eye(len(groups)), _rw1_anchored(nb)),
         )
+    # Keyed columns (all but the features) as a function of (bed group, month).
+    gram_n_keys = 4 * t
+    gram_key = np.minimum(tr.bed_group, 3) * t + tr.month
+    fcols = np.arange(1, 1 + f)
+    kcols = np.setdiff1d(np.arange(p), fcols)
+    gram_basis = np.zeros((gram_n_keys, len(kcols)))
+    gram_basis[gram_key] = a[:, kcols]
+    if not np.array_equal(gram_basis[gram_key], a[:, kcols]):
+        raise AssertionError("keyed global columns are not a function of the key")
     fixed = np.zeros(p)
     fixed[0] = 1.0
     fixed[1 : 1 + f] = 1.0 / (config.beta_sd * prep.features.prior_scale) ** 2
@@ -270,7 +294,32 @@ def build_design(
         unit_nu_fixed=config.unit_nu_fixed,
         unit_drift=config.unit_drift,
         unit_time=jnp.asarray(tr.unit_time, jnp.float64),
+        gram_key=jnp.asarray(gram_key, jnp.int32),
+        gram_n_keys=gram_n_keys,
+        gram_basis=jnp.asarray(gram_basis),
+        gram_feat=jnp.asarray(a[:, fcols]),
+        gram_fcols=fcols,
+        gram_kcols=kcols,
     )
+
+
+def gram(d: Design, w):
+    """a' diag(w) a, from the feature block and per-key sums (exact)."""
+    feat, e = d.gram_feat, d.gram_basis
+    wf = w[:, None] * feat
+    m = jax.ops.segment_sum(wf, d.gram_key, d.gram_n_keys)  # (keys, F)
+    wk = jax.ops.segment_sum(w, d.gram_key, d.gram_n_keys)
+    ff = feat.T @ wf
+    fk = m.T @ e
+    kk = e.T @ (wk[:, None] * e)
+    p = d.a.shape[1]
+    q = jnp.zeros((p, p))
+    fc, kc = jnp.asarray(d.gram_fcols), jnp.asarray(d.gram_kcols)
+    q = q.at[fc[:, None], fc[None, :]].set(ff)
+    q = q.at[fc[:, None], kc[None, :]].set(fk)
+    q = q.at[kc[:, None], fc[None, :]].set(fk.T)
+    q = q.at[kc[:, None], kc[None, :]].set(kk)
+    return q
 
 
 def _update_scale(key, current, q, rank, prior_sd):
@@ -330,10 +379,11 @@ def gaussian_block(d: Design, lam, s, z_g, z_l, z_u, kappa=None):
                 glu = glu.at[d.unit, k_, slots[:, m]].add(wz[:, k_] * vals[:, m])
         cg = jnp.einsum("jkl,jlp->jkp", cu, gu)
         ch = jnp.einsum("jkl,jl->jk", cu, hu)
-        q = a.T @ wa - jnp.einsum("jkp,jkq->pq", gu, cg) + jnp.diag(d.prior_fixed)
+        q = gram(d, w) - jnp.einsum("jkp,jkq->pq", gu, cg) + jnp.diag(d.prior_fixed)
         rhs_g = wa.T @ y - jnp.einsum("jkp,jk->p", gu, ch)
         cgl = jnp.einsum("jkl,jlm->jkm", cu, glu)
         adj = a_l - jnp.einsum("ik,ikm->im", zr, cgl[d.unit])
+        a_t = a - jnp.einsum("ik,ikp->ip", zr, cg[d.unit])
     else:
         c = 1.0 / (
             kappa / s["unit_scale"] ** 2 + sw
@@ -343,30 +393,36 @@ def gaussian_block(d: Design, lam, s, z_g, z_l, z_u, kappa=None):
         gl = jnp.zeros((J, L))  # unit sums of weighted local rows
         for m in range(n_slots):
             gl = gl.at[d.unit, slots[:, m]].add(w * vals[:, m])
-        q = a.T @ wa - g.T @ (c[:, None] * g) + jnp.diag(d.prior_fixed)
+        q = gram(d, w) - g.T @ (c[:, None] * g) + jnp.diag(d.prior_fixed)
         rhs_g = wa.T @ y - g.T @ (c * h)
         adj = a_l - (c[:, None] * gl)[d.unit]
+        a_t = a - (c[:, None] * g)[d.unit]
 
     # Global prior blocks.
     for name, (sl, r) in d.global_blocks.items():
         q = q.at[sl, sl].add(r / s[name] ** 2)
 
     # Building blocks, with units integrated out (units nest in buildings).
-    # With a~_i = a_L,i - c_j gl_j (row i's local design minus its unit's
-    # correction), sum_i w_i a~_i b_i^T equals
-    # sum_i w_i a_L,i b_i^T - sum_j c_j gl_j (sum_{i in j} w_i b_i)^T,
-    # so each building term is one segment sum over rows. Accumulating one
-    # local index at a time keeps temporaries at (rows x columns).
+    # With adj_i = a_L,i - (unit correction) and a~_i = a_i - (unit
+    # correction) the rows' local and global designs with their unit
+    # integrated out,
+    #   Q_ll[b] = sum_{i in b} w_i adj_i a_L,i^T = sum_{i in b} w_i a_L,i adj_i^T,
+    #   Q_lg[b] = sum_{i in b} w_i adj_i a_i^T   = sum_{i in b} w_i a_L,i a~_i^T,
+    # (the unit terms cancel the same way in both forms). a_L,i has only
+    # n_slots non-zeros (building level, two walk knots, slopes), so each sum
+    # is one segment sum per slot into (building, local index) cells instead
+    # of one per local column.
     wadj = w[:, None] * adj
     seg_b = lambda v: jax.ops.segment_sum(v, bld, K)
-
-    def per_local(i):
-        col = jax.lax.dynamic_index_in_dim(wadj, i, axis=1, keepdims=True)
-        return seg_b(col * a_l), seg_b(col * a)
-
-    q_ll, q_lg = jax.lax.map(per_local, jnp.arange(L))
-    q_ll = jnp.swapaxes(q_ll, 0, 1)  # (K, L, L)
-    q_lg = jnp.swapaxes(q_lg, 0, 1)  # (K, L, P)
+    q_ll = jnp.zeros((K * L, L))
+    q_lg = jnp.zeros((K * L, a.shape[1]))
+    for m in range(n_slots):
+        cell = bld * L + slots[:, m]
+        wv = (w * vals[:, m])[:, None]
+        q_ll = q_ll + jax.ops.segment_sum(wv * adj, cell, K * L)
+        q_lg = q_lg + jax.ops.segment_sum(wv * a_t, cell, K * L)
+    q_ll = q_ll.reshape(K, L, L)
+    q_lg = q_lg.reshape(K, L, a.shape[1])
     q_ll = 0.5 * (q_ll + jnp.swapaxes(q_ll, 1, 2))
     r_l = seg_b(wadj * y[:, None])
     prior_l = sum(d.local_structures[n] / s[n] ** 2 for n in d.local_structures)
@@ -374,7 +430,12 @@ def gaussian_block(d: Design, lam, s, z_g, z_l, z_u, kappa=None):
 
     # Eliminate building blocks (batched Cholesky), then the global block.
     chol_l = jnp.linalg.cholesky(q_ll)
-    v = solve_triangular(chol_l, q_lg, lower=True)  # (K, L, P)
+    # L_k^-1 once per building (L columns), then one batched product: cheaper
+    # than a triangular solve against all P global columns.
+    inv_l = solve_triangular(
+        chol_l, jnp.broadcast_to(jnp.eye(L), (K, L, L)), lower=True
+    )
+    v = inv_l @ q_lg  # (K, L, P)
     vr = solve_triangular(chol_l, r_l[..., None], lower=True)[..., 0]
     schur = q - jnp.einsum("klp,klq->pq", v, v)
     r_s = rhs_g - jnp.einsum("klp,kl->p", v, vr)
@@ -487,7 +548,14 @@ def make_step(d: Design):
         """One iteration. `cfg` holds the step sizes; with `prop_sd` (one
         proposal sd per hierarchical log-scale) the scales are first updated
         by a collapsed Metropolis step that integrates out every latent."""
-        noise_steps, sigma_step_sd, nu_step_sd, rescale_steps, rescale_step_sd = cfg
+        (
+            noise_steps,
+            sigma_step_sd,
+            nu_step_sd,
+            rescale_steps,
+            rescale_step_sd,
+            unit_rescale_step_sd,
+        ) = cfg
         keys = jax.random.split(key, 14)
         s = {k: state[k] for k in d.scale_names}
         z = (
@@ -504,7 +572,10 @@ def make_step(d: Design):
             # Gaussian latents integrated out, random-walk on log scales. The
             # latents are then drawn from whichever factorisation is kept.
             k1, k2 = jax.random.split(keys[11])
-            step_ = prop_sd * jax.random.normal(k1, (len(hier),))
+            normal = jax.random.normal(k1, (len(hier),))
+            # prop_sd: per-scale sds, or a lower-triangular factor (full
+            # covariance proposal).
+            step_ = prop_sd @ normal if prop_sd.ndim == 2 else prop_sd * normal
             s_new = dict(s)
             for i, name in enumerate(hier):
                 s_new[name] = s[name] * jnp.exp(step_[i])
@@ -743,48 +814,49 @@ def make_step(d: Design):
             )
 
         info["noise_accept"] = noise_acc / noise_steps
+        # Rescaling moves on (scale, effects) ridges: (tau, v) -> (c tau, c v).
+        # Given the effects, tau is pinned down tightly, and vice versa, so
+        # plain Gibbs moves along the ridge slowly. For a symmetric step on
+        # log c the acceptance ratio is
+        #   lik(c v) / lik(v) * prior(c tau) / prior(tau) * c
+        # (the location-scale prior of v and the Jacobian cancel all but one
+        # c), with the Gaussian likelihood given lam, sigma and all other
+        # latents. No block solve: each step is one weighted residual sum.
+        wts = lam / sigma**2
         if d.knot_start is not None:
-            # Rescaling move on (walk_scale, walk knots): (tau, W) -> (c tau, c W).
-            # Given the knots, tau is pinned down tightly, and vice versa, so
-            # plain Gibbs moves along this ridge slowly. For a symmetric step
-            # on log c the acceptance ratio is
-            #   lik(cW) / lik(W) * prior(c tau) / prior(tau) * c,
-            # with the Gaussian likelihood given lam, sigma and all other latents.
-            wts = lam / sigma**2
             walk_only = (
                 jnp.zeros_like(theta_l)
                 .at[:, d.knot_start :]
                 .set(theta_l[:, d.knot_start :])
             )
             contrib = local_value(walk_only, d.building, d.slots, d.slot_values)
-
-            def rescale(carry, k):
-                c_tot, tau, acc = carry
-                k1, k2 = jax.random.split(k)
-                log_c = rescale_step_sd * jax.random.normal(k1)
-                c = jnp.exp(log_c)
-                r_now = e - (c_tot - 1.0) * contrib
-                r_new = e - (c_tot * c - 1.0) * contrib
-                log_ratio = (
-                    -0.5 * jnp.sum(wts * (r_new**2 - r_now**2))
-                    - ((c * tau) ** 2 - tau**2) / (2 * d.prior_sd["walk_scale"] ** 2)
-                    + log_c
-                )
-                ok = jnp.log(jax.random.uniform(k2)) < log_ratio
-                return (
-                    jnp.where(ok, c_tot * c, c_tot),
-                    jnp.where(ok, c * tau, tau),
-                    acc + ok,
-                ), None
-
-            (c_tot, tau, acc), _ = jax.lax.scan(
-                rescale,
-                (jnp.ones(()), new["walk_scale"], jnp.zeros(())),
-                jax.random.split(keys[10], rescale_steps),
+            c_tot, tau, acc = _rescale(
+                keys[10],
+                e,
+                wts,
+                contrib,
+                new["walk_scale"],
+                d.prior_sd["walk_scale"],
+                rescale_step_sd,
+                rescale_steps,
             )
             new["walk_scale"] = tau
             theta_l = theta_l.at[:, d.knot_start :].multiply(c_tot)
+            e = e - (c_tot - 1.0) * contrib
             info["rescale_accept"] = acc / rescale_steps
+        c_u, tau_u, acc_u = _rescale(
+            jax.random.fold_in(keys[10], 1),
+            e,
+            wts,
+            u[d.unit],
+            new["unit_scale"],
+            d.prior_sd["unit_scale"],
+            unit_rescale_step_sd,
+            rescale_steps,
+        )
+        new["unit_scale"] = tau_u
+        u = u * c_u
+        info["unit_rescale_accept"] = acc_u / rescale_steps
         state = {
             "theta": theta,
             "local": theta_l,
@@ -855,6 +927,66 @@ def batched(fn, chains, batch):
     return run
 
 
+def _rescale(key, e, wts, contrib, tau, prior_sd, step_sd, steps):
+    """Random-walk Metropolis on log c for (tau, v) -> (c tau, c v); `contrib`
+    is v's contribution to the fit and `e` the residual with it included."""
+
+    def body(carry, k):
+        c_tot, tau_, acc = carry
+        k1, k2 = jax.random.split(k)
+        log_c = step_sd * jax.random.normal(k1)
+        c = jnp.exp(log_c)
+        r_now = e - (c_tot - 1.0) * contrib
+        r_new = e - (c_tot * c - 1.0) * contrib
+        log_ratio = (
+            -0.5 * jnp.sum(wts * (r_new**2 - r_now**2))
+            - ((c * tau_) ** 2 - tau_**2) / (2 * prior_sd**2)
+            + log_c
+        )
+        ok = jnp.log(jax.random.uniform(k2)) < log_ratio
+        return (
+            jnp.where(ok, c_tot * c, c_tot),
+            jnp.where(ok, c * tau_, tau_),
+            acc + ok,
+        ), None
+
+    (c_tot, tau, acc), _ = jax.lax.scan(
+        body, (jnp.ones(()), tau, jnp.zeros(())), jax.random.split(key, steps)
+    )
+    return c_tot, tau, acc
+
+
+def _detrended_cov(x):
+    """Covariance of (chains, draws, k) around each chain's linear trend,
+    averaged over chains: (k, k)."""
+    t = np.arange(x.shape[1], dtype=float)
+    t = (t - t.mean())[None, :, None]
+    xc = x - x.mean(axis=1, keepdims=True)
+    slope = (t * xc).sum(axis=1, keepdims=True) / (t * t).sum()
+    r = xc - slope * t
+    return np.einsum("cdi,cdj->ij", r, r) / (x.shape[0] * x.shape[1])
+
+
+def _step_sds(prop_sd):
+    """Marginal step sd per scale of a diagonal or full-covariance proposal."""
+    p = np.asarray(prop_sd)
+    return np.sqrt((p * p).sum(axis=1)) if p.ndim == 2 else p
+
+
+def _detrended_var(x):
+    """Per-chain variance of (chains, draws, k) around each chain's linear trend."""
+    t = np.arange(x.shape[1], dtype=float)
+    t = (t - t.mean())[None, :, None]
+    xc = x - x.mean(axis=1, keepdims=True)
+    slope = (t * xc).sum(axis=1, keepdims=True) / (t * t).sum()
+    return (xc - slope * t).var(axis=1)
+
+
+def _adapt(acc, target):
+    """Multiplicative step-size update for one warmup round."""
+    return 0.3 if acc < 0.05 else float(np.exp(2.0 * (acc - target)))
+
+
 def run(
     prep: model_module.Prepared,
     config: model_module.ModelConfig,
@@ -871,6 +1003,7 @@ def run(
         settings.sigma_step_sd,
         settings.nu_step_sd,
         settings.rescale_steps,
+        settings.rescale_step_sd,
         settings.rescale_step_sd,
     )
     hier = list(d.scale_names)
@@ -897,10 +1030,20 @@ def run(
     prop_sd = solo_sd = None
     if settings.collapse:
         tail = np.asarray(log_scales)[:, n1 // 2 :]  # (chains, draws, scales + nu)
-        # Within-chain spread: robust to chains that have not met yet, which
-        # would inflate a pooled estimate during warmup.
-        sd = np.sqrt(tail.var(axis=1).mean(axis=0))
-        prop_sd = jnp.asarray(settings.collapse_scale * sd[:-1] / np.sqrt(len(hier)))
+        # Within-chain spread around a linear trend: robust to chains that
+        # have not met yet (which would inflate a pooled estimate) and to
+        # chains still drifting from their start (which would inflate a plain
+        # within-chain variance in short warmups).
+        sd = np.sqrt(_detrended_var(tail).mean(axis=0))
+        if settings.collapse_cov:
+            cov = _detrended_cov(tail[..., :-1]) + 1e-10 * np.eye(len(hier))
+            prop_sd = jnp.asarray(
+                settings.collapse_scale / np.sqrt(len(hier)) * np.linalg.cholesky(cov)
+            )
+        else:
+            prop_sd = jnp.asarray(
+                settings.collapse_scale * sd[:-1] / np.sqrt(len(hier))
+            )
         solo_sd = {
             n: float(2.38 * sd[hier.index(n)])
             for n in settings.solo_scales
@@ -912,6 +1055,7 @@ def run(
             float(2.38 / np.sqrt(2) * sd[hier.index("sigma")]),
             float(2.38 / np.sqrt(2) * sd[-1]),
             settings.rescale_steps,
+            settings.rescale_step_sd,
             settings.rescale_step_sd,
         )
 
@@ -931,6 +1075,9 @@ def run(
                     [
                         info["collapsed_accept"],
                         *[info[f"solo_accept_{n}"] for n in solo_names],
+                        info["noise_accept"],
+                        info.get("rescale_accept", jnp.zeros(())),
+                        info["unit_rescale_accept"],
                     ]
                 )
                 return st, acc
@@ -957,12 +1104,29 @@ def run(
             acc = np.asarray(acc).mean(axis=0)
             log(
                 f"warmup round {r} acceptance "
-                + ", ".join(f"{n}={a:.2f}" for n, a in zip(["joint", *solo_names], acc))
+                + ", ".join(
+                    f"{n}={a:.2f}"
+                    for n, a in zip(
+                        ["joint", *solo_names, "noise", "rescale", "unit_rescale"], acc
+                    )
+                )
             )
             if r < rounds - 1:
-                # Damped Robbins-Monro step on the log step sizes.
-                prop_sd = prop_sd * float(np.exp(2.0 * (acc[0] - 0.23)))
-                ssd = ssd * jnp.asarray(np.exp(2.0 * (acc[1:] - 0.44)))
+                # Damped Robbins-Monro step on the log step sizes, toward 0.23
+                # (joint), 0.44 (1-D) and 0.3 (2-D noise); a step that is
+                # almost never accepted is cut hard instead.
+                prop_sd = prop_sd * _adapt(acc[0], 0.23)
+                ssd = ssd * jnp.asarray([_adapt(a, 0.44) for a in acc[1:-3]])
+                noise = _adapt(acc[-3], 0.3)
+                rescale = _adapt(acc[-2], 0.44) if d.knot_start is not None else 1.0
+                cfg = (
+                    cfg[0],
+                    cfg[1] * noise,
+                    cfg[2] * noise,
+                    cfg[3],
+                    cfg[4] * rescale,
+                    cfg[5] * _adapt(acc[-1], 0.44),
+                )
         solo_sd = {n: float(v) for n, v in zip(solo_names, np.asarray(ssd))}
     jax.block_until_ready(states)
     warmup_seconds = time.perf_counter() - t0
@@ -972,7 +1136,7 @@ def run(
             f"{n}={float(np.median(states[n])):.4f}" for n in (*d.scale_names, "nu")
         )
         + (
-            f" collapsed proposal sd {dict(zip(hier, np.round(np.asarray(prop_sd), 4)))}"
+            f" collapsed proposal sd {dict(zip(hier, np.round(_step_sds(prop_sd), 4)))}"
             if prop_sd is not None
             else ""
         )
@@ -1002,8 +1166,13 @@ def run(
     out["dtype"] = "float64"
     out["sampler"] = "structured-gibbs"
     out["collapsed_proposal_sd"] = (
-        None if prop_sd is None else dict(zip(hier, np.asarray(prop_sd).tolist()))
+        None if prop_sd is None else dict(zip(hier, _step_sds(prop_sd).tolist()))
     )
-    out["noise_step_sd"] = {"sigma": cfg[1], "nu": cfg[2]}
+    out["noise_step_sd"] = {
+        "sigma": cfg[1],
+        "nu": cfg[2],
+        "rescale": cfg[4],
+        "unit_rescale": cfg[5],
+    }
     out["solo_proposal_sd"] = solo_sd
     return out

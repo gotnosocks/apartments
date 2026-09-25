@@ -12,6 +12,6 @@
     ]
   },
   "footer": [
-    "Frontier fit times are on the hardware in the Hardware column (Modal H100/H200 for every frontier run so far); no frontier design has a measured thelio fit time yet."
+    "Each hardware class has its own table, frontier and best: a fit time only competes with fit times on the same hardware (where the fit ran). Modal H100/H200 times are not comparable with thelio's."
   ]
 }
