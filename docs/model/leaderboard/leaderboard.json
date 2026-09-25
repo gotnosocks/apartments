@@ -24,9 +24,421 @@
   },
   "baseline": "m0-base/base-v1/gibbs@5cc0809",
   "footer": [
-    "Frontier fit times are on the hardware in the Hardware column (Modal H100/H200 for every frontier run so far); no frontier design has a measured thelio fit time yet."
+    "Each hardware class has its own table, frontier and best: a fit time only competes with fit times on the same hardware (where the fit ran). Modal H100/H200 times are not comparable with thelio's."
   ],
   "entries": [
+    {
+      "id": "L0-mean/none/nuts-pymc@3c26c4a",
+      "commit": "3c26c4a2e5ec51d4eedde6b206f7ca95072b4f72",
+      "model": {
+        "name": "L0-mean",
+        "terms": [],
+        "trend_knot_months": 3,
+        "backend": "pymc"
+      },
+      "feature_set": "none",
+      "sampler": "nuts-pymc",
+      "sampler_settings": {
+        "chains": 4,
+        "warmup": 1000,
+        "draws": 1000,
+        "seed": 20260925,
+        "backend": "nutpie"
+      },
+      "hardware": "thelio CPU (Ryzen 5 3600X)",
+      "interpretable": true,
+      "splits": {
+        "rows": {
+          "run": "L0-mean-pymc-rows-3c26c4a-cpu",
+          "elpd": -3381.295400798766,
+          "elpd_se": 59.50990793482894,
+          "elpd_mcse": 0.013361642293832063,
+          "delta": -9244.990894577677,
+          "delta_se": 89.13307956309396,
+          "paired_rows": 5264,
+          "max_rhat": 1.000659526876389,
+          "min_ess": 1857.3531494140625,
+          "passes": true,
+          "fit_seconds": 10.920150902995374,
+          "sampling_seconds": 10.920150902995374,
+          "cost_usd": null,
+          "group_rhat_max": 1.0,
+          "group_rhat_method": "per-chain moments, all effects"
+        }
+      },
+      "passes_checks": true,
+      "split_hardware": {
+        "rows": "thelio CPU (Ryzen 5 3600X)"
+      },
+      "line": "frontier",
+      "grade": "full",
+      "fit_seconds": 10.920150902995374,
+      "fit_seconds_all_splits": 10.920150902995374,
+      "cost_usd": 0.0,
+      "variance": {
+        "commit": "3c26c4a2e5ec51d4eedde6b206f7ca95072b4f72",
+        "shares": {
+          "market and time": -7.254343865467399e-20,
+          "features": 0.0,
+          "building": 0.0,
+          "building over time": 0.0,
+          "building slopes": 0.0,
+          "unit": 0.0,
+          "residual": 1.0,
+          "r2": -7.254343865467399e-20
+        },
+        "intervals": {
+          "market and time": {
+            "mean": -7.254343865467399e-20,
+            "lower_90": -6.0842884032952375e-18,
+            "upper_90": 6.084288403295237e-18
+          },
+          "features": {
+            "mean": 0.0,
+            "lower_90": 0.0,
+            "upper_90": 0.0
+          },
+          "building": {
+            "mean": 0.0,
+            "lower_90": 0.0,
+            "upper_90": 0.0
+          },
+          "building over time": {
+            "mean": 0.0,
+            "lower_90": 0.0,
+            "upper_90": 0.0
+          },
+          "building slopes": {
+            "mean": 0.0,
+            "lower_90": 0.0,
+            "upper_90": 0.0
+          },
+          "unit": {
+            "mean": 0.0,
+            "lower_90": 0.0,
+            "upper_90": 0.0
+          },
+          "residual": {
+            "mean": 1.0,
+            "lower_90": 1.0,
+            "upper_90": 1.0
+          },
+          "r2": {
+            "mean": -7.254343865467399e-20,
+            "lower_90": -6.0842884032952375e-18,
+            "upper_90": 6.084288403295237e-18
+          }
+        }
+      },
+      "psis": {
+        "run": "L0-mean-pymc-rows-3c26c4a-cpu",
+        "commit": "3c26c4a2e5ec51d4eedde6b206f7ca95072b4f72",
+        "rows": 47374,
+        "draws": 4000,
+        "elpd": -31786.09731295643,
+        "elpd_se": 185.62003808584328,
+        "mcse": 0.027287548577471624,
+        "pareto_k": {
+          "threshold": 0.7,
+          "over_threshold": 0,
+          "over_0_7": 0,
+          "max": 0.045744638501628326,
+          "share_over_threshold": 0.0
+        },
+        "validation": {
+          "note": "mean held-out lpd vs mean PSIS-LOO over all training rows",
+          "heldout_rows": 5264,
+          "heldout_mean_lpd": -0.6423433512155711,
+          "psis_mean_lpd_multi_row_units": -0.6709608078894843
+        },
+        "integrated": "none",
+        "delta": -72379.96792327966,
+        "delta_se": 253.6454811012198,
+        "delta_mcse": 3.4644214887935774,
+        "baseline": "m0-base/base-v1/gibbs@5cc0809"
+      },
+      "hardware_class": "thelio CPU (Ryzen 5 3600X)",
+      "frontier": false,
+      "current_best": false,
+      "note": "beaten on thelio CPU (Ryzen 5 3600X) by L1-drift/none/nuts-pymc@3c26c4a (+1735.5 \u00b1 58.7 PSIS-LOO)",
+      "annotations": []
+    },
+    {
+      "id": "L1-drift/none/nuts-pymc@3c26c4a",
+      "commit": "3c26c4a2e5ec51d4eedde6b206f7ca95072b4f72",
+      "model": {
+        "name": "L1-drift",
+        "terms": [
+          "drift"
+        ],
+        "trend_knot_months": 3,
+        "backend": "pymc"
+      },
+      "feature_set": "none",
+      "sampler": "nuts-pymc",
+      "sampler_settings": {
+        "chains": 4,
+        "warmup": 1000,
+        "draws": 1000,
+        "seed": 20260925,
+        "backend": "nutpie"
+      },
+      "hardware": "thelio CPU (Ryzen 5 3600X)",
+      "interpretable": true,
+      "splits": {
+        "rows": {
+          "run": "L1-drift-pymc-rows-3c26c4a-cpu",
+          "elpd": -3149.891892532237,
+          "elpd_se": 61.70061531811523,
+          "elpd_mcse": 0.011878192045053526,
+          "delta": -9013.587386311148,
+          "delta_se": 89.4338472552048,
+          "paired_rows": 5264,
+          "max_rhat": 1.0015359812059155,
+          "min_ess": 1972.371826171875,
+          "passes": true,
+          "fit_seconds": 9.350068319006823,
+          "sampling_seconds": 9.350068319006823,
+          "cost_usd": null,
+          "group_rhat_max": 1.0,
+          "group_rhat_method": "per-chain moments, all effects"
+        }
+      },
+      "passes_checks": true,
+      "split_hardware": {
+        "rows": "thelio CPU (Ryzen 5 3600X)"
+      },
+      "line": "frontier",
+      "grade": "full",
+      "fit_seconds": 9.350068319006823,
+      "fit_seconds_all_splits": 9.350068319006823,
+      "cost_usd": 0.0,
+      "variance": {
+        "commit": "3c26c4a2e5ec51d4eedde6b206f7ca95072b4f72",
+        "shares": {
+          "market and time": 0.06312162488100494,
+          "features": 0.0,
+          "building": 0.0,
+          "building over time": 0.0,
+          "building slopes": 0.0,
+          "unit": 0.0,
+          "residual": 0.936878375118995,
+          "r2": 0.06312162488100494
+        },
+        "intervals": {
+          "market and time": {
+            "mean": 0.06312162488100494,
+            "lower_90": 0.05994790354844012,
+            "upper_90": 0.06644392506091325
+          },
+          "features": {
+            "mean": 0.0,
+            "lower_90": 0.0,
+            "upper_90": 0.0
+          },
+          "building": {
+            "mean": 0.0,
+            "lower_90": 0.0,
+            "upper_90": 0.0
+          },
+          "building over time": {
+            "mean": 0.0,
+            "lower_90": 0.0,
+            "upper_90": 0.0
+          },
+          "building slopes": {
+            "mean": 0.0,
+            "lower_90": 0.0,
+            "upper_90": 0.0
+          },
+          "unit": {
+            "mean": 0.0,
+            "lower_90": 0.0,
+            "upper_90": 0.0
+          },
+          "residual": {
+            "mean": 0.936878375118995,
+            "lower_90": 0.9335560749390867,
+            "upper_90": 0.94005209645156
+          },
+          "r2": {
+            "mean": 0.06312162488100494,
+            "lower_90": 0.05994790354844012,
+            "upper_90": 0.06644392506091325
+          }
+        }
+      },
+      "psis": {
+        "run": "L1-drift-pymc-rows-3c26c4a-cpu",
+        "commit": "3c26c4a2e5ec51d4eedde6b206f7ca95072b4f72",
+        "rows": 47374,
+        "draws": 4000,
+        "elpd": -30050.571576895705,
+        "elpd_se": 193.7878279405883,
+        "mcse": 0.03144882693768753,
+        "pareto_k": {
+          "threshold": 0.7,
+          "over_threshold": 0,
+          "over_0_7": 0,
+          "max": 0.12058216051317122,
+          "share_over_threshold": 0.0
+        },
+        "validation": {
+          "note": "mean held-out lpd vs mean PSIS-LOO over all training rows",
+          "heldout_rows": 5264,
+          "heldout_mean_lpd": -0.5983837181862152,
+          "psis_mean_lpd_multi_row_units": -0.6343262459766055
+        },
+        "integrated": "none",
+        "delta": -70644.44218721896,
+        "delta_se": 255.22515270164484,
+        "delta_mcse": 3.4644567641151327,
+        "baseline": "m0-base/base-v1/gibbs@5cc0809"
+      },
+      "hardware_class": "thelio CPU (Ryzen 5 3600X)",
+      "frontier": true,
+      "current_best": true,
+      "note": "",
+      "annotations": []
+    },
+    {
+      "id": "L2-trend/none/nuts-pymc@3c26c4a",
+      "commit": "3c26c4a2e5ec51d4eedde6b206f7ca95072b4f72",
+      "model": {
+        "name": "L2-trend",
+        "terms": [
+          "trend"
+        ],
+        "trend_knot_months": 3,
+        "backend": "pymc"
+      },
+      "feature_set": "none",
+      "sampler": "nuts-pymc",
+      "sampler_settings": {
+        "chains": 4,
+        "warmup": 1000,
+        "draws": 1000,
+        "seed": 20260925,
+        "backend": "nutpie"
+      },
+      "hardware": "thelio CPU (Ryzen 5 3600X)",
+      "interpretable": true,
+      "splits": {
+        "rows": {
+          "run": "L2-trend-pymc-rows-3c26c4a-cpu",
+          "elpd": -3058.1526108787907,
+          "elpd_se": 62.14774705272966,
+          "elpd_mcse": 0.047264462028854676,
+          "delta": -8921.848104657704,
+          "delta_se": 90.38072268700414,
+          "paired_rows": 5264,
+          "max_rhat": 1.0046818827983015,
+          "min_ess": 1258.2794189453125,
+          "passes": false,
+          "fit_seconds": 343.8088646050019,
+          "sampling_seconds": 343.8088646050019,
+          "cost_usd": null,
+          "group_rhat_max": 1.0018049933242144,
+          "group_rhat_method": "per-chain moments, all effects"
+        }
+      },
+      "passes_checks": false,
+      "split_hardware": {
+        "rows": "thelio CPU (Ryzen 5 3600X)"
+      },
+      "line": "frontier",
+      "grade": "failed",
+      "fit_seconds": 343.8088646050019,
+      "fit_seconds_all_splits": 343.8088646050019,
+      "cost_usd": 0.0,
+      "variance": {
+        "commit": "3c26c4a2e5ec51d4eedde6b206f7ca95072b4f72",
+        "shares": {
+          "market and time": 0.10163879395434512,
+          "features": 0.0,
+          "building": 0.0,
+          "building over time": 0.0,
+          "building slopes": 0.0,
+          "unit": 0.0,
+          "residual": 0.8983612060456548,
+          "r2": 0.10163879395434512
+        },
+        "intervals": {
+          "market and time": {
+            "mean": 0.10163879395434512,
+            "lower_90": 0.09788974027761842,
+            "upper_90": 0.10550887235944771
+          },
+          "features": {
+            "mean": 0.0,
+            "lower_90": 0.0,
+            "upper_90": 0.0
+          },
+          "building": {
+            "mean": 0.0,
+            "lower_90": 0.0,
+            "upper_90": 0.0
+          },
+          "building over time": {
+            "mean": 0.0,
+            "lower_90": 0.0,
+            "upper_90": 0.0
+          },
+          "building slopes": {
+            "mean": 0.0,
+            "lower_90": 0.0,
+            "upper_90": 0.0
+          },
+          "unit": {
+            "mean": 0.0,
+            "lower_90": 0.0,
+            "upper_90": 0.0
+          },
+          "residual": {
+            "mean": 0.8983612060456548,
+            "lower_90": 0.8944911276405523,
+            "upper_90": 0.9021102597223817
+          },
+          "r2": {
+            "mean": 0.10163879395434512,
+            "lower_90": 0.09788974027761842,
+            "upper_90": 0.10550887235944771
+          }
+        }
+      },
+      "psis": {
+        "run": "L2-trend-pymc-rows-3c26c4a-cpu",
+        "commit": "3c26c4a2e5ec51d4eedde6b206f7ca95072b4f72",
+        "rows": 47374,
+        "draws": 4000,
+        "elpd": -28911.66273727631,
+        "elpd_se": 195.48310593391227,
+        "mcse": 0.1181551101823658,
+        "pareto_k": {
+          "threshold": 0.7,
+          "over_threshold": 0,
+          "over_0_7": 0,
+          "max": 0.24605638841975924,
+          "share_over_threshold": 0.0
+        },
+        "validation": {
+          "note": "mean held-out lpd vs mean PSIS-LOO over all training rows",
+          "heldout_rows": 5264,
+          "heldout_mean_lpd": -0.5809560431000742,
+          "psis_mean_lpd_multi_row_units": -0.6102854463899251
+        },
+        "integrated": "none",
+        "delta": -69505.53334759956,
+        "delta_se": 257.0751812677447,
+        "delta_mcse": 3.4663283560230624,
+        "baseline": "m0-base/base-v1/gibbs@5cc0809"
+      },
+      "hardware_class": "thelio CPU (Ryzen 5 3600X)",
+      "frontier": false,
+      "current_best": false,
+      "note": "fails the convergence gate",
+      "annotations": []
+    },
     {
       "id": "m0-base/base-v1/gibbs@5cc0809",
       "commit": "5cc0809996818cc466f3d778bfd2cb4e2fc7109f",
@@ -92,6 +504,10 @@
         }
       },
       "passes_checks": true,
+      "split_hardware": {
+        "rows": "Modal H100",
+        "units": "Modal H100"
+      },
       "line": "frontier",
       "grade": "full",
       "fit_seconds": 82.845289502,
@@ -258,6 +674,10 @@
         }
       },
       "passes_checks": false,
+      "split_hardware": {
+        "rows": "Modal H100",
+        "units": "Modal H100"
+      },
       "line": "frontier",
       "grade": "failed",
       "fit_seconds": 412.68388330700003,
@@ -427,6 +847,10 @@
         }
       },
       "passes_checks": false,
+      "split_hardware": {
+        "rows": "Modal H100",
+        "units": "Modal H100"
+      },
       "line": "frontier",
       "grade": "failed",
       "fit_seconds": 757.332050489,
@@ -587,6 +1011,10 @@
         }
       },
       "passes_checks": false,
+      "split_hardware": {
+        "rows": "Modal H200",
+        "units": "Modal H200"
+      },
       "line": "frontier",
       "grade": "failed",
       "fit_seconds": 359.885618108,
@@ -761,6 +1189,10 @@
         }
       },
       "passes_checks": true,
+      "split_hardware": {
+        "rows": "Modal H100",
+        "units": "Modal H100"
+      },
       "line": "frontier",
       "grade": "full",
       "fit_seconds": 997.2356491639999,
@@ -915,6 +1347,9 @@
         }
       },
       "passes_checks": false,
+      "split_hardware": {
+        "rows": "Modal H100"
+      },
       "line": "frontier",
       "grade": "failed",
       "fit_seconds": 684.158991166,
@@ -1084,6 +1519,10 @@
         }
       },
       "passes_checks": false,
+      "split_hardware": {
+        "rows": "Modal H100",
+        "units": "Modal H100"
+      },
       "line": "frontier",
       "grade": "failed",
       "fit_seconds": 2403.481135825,
@@ -1261,6 +1700,10 @@
         }
       },
       "passes_checks": true,
+      "split_hardware": {
+        "rows": "Modal H100",
+        "units": "Modal H100"
+      },
       "line": "frontier",
       "grade": "full",
       "fit_seconds": 763.6031838849999,
@@ -1438,6 +1881,10 @@
         }
       },
       "passes_checks": true,
+      "split_hardware": {
+        "rows": "Modal H100",
+        "units": "Modal H100"
+      },
       "line": "frontier",
       "grade": "full",
       "fit_seconds": 1662.271154553,
@@ -1615,6 +2062,10 @@
         }
       },
       "passes_checks": true,
+      "split_hardware": {
+        "rows": "Modal H100",
+        "units": "Modal H100"
+      },
       "line": "frontier",
       "grade": "full",
       "fit_seconds": 1688.661478496,
@@ -1773,6 +2224,9 @@
         }
       },
       "passes_checks": true,
+      "split_hardware": {
+        "rows": "Modal H200"
+      },
       "line": "frontier",
       "grade": "full",
       "fit_seconds": 1184.773789487,
@@ -1928,13 +2382,34 @@
           "cost_usd": 1.738,
           "group_rhat_max": 1.06553177942907,
           "group_rhat_method": "kept joint draws, all group effects"
+        },
+        "units": {
+          "run": "m5-quarterly-desc-v1-units-4226f40",
+          "elpd": 4452.884781286246,
+          "elpd_se": 75.09923648683373,
+          "elpd_mcse": 0.3088192430889499,
+          "delta": 630.7371978474114,
+          "delta_se": 42.61567468393089,
+          "paired_rows": null,
+          "max_rhat": 1.0070697524989463,
+          "min_ess": 2561.552790188469,
+          "passes": true,
+          "fit_seconds": 1217.082913875,
+          "sampling_seconds": 971.5281520609999,
+          "cost_usd": 1.5463,
+          "group_rhat_max": 1.058987692414787,
+          "group_rhat_method": "kept joint draws, all group effects"
         }
       },
       "passes_checks": false,
+      "split_hardware": {
+        "rows": "Modal H100",
+        "units": "Modal H200"
+      },
       "line": "frontier",
       "grade": "failed",
       "fit_seconds": 1353.7668484520002,
-      "fit_seconds_all_splits": 1353.7668484520002,
+      "fit_seconds_all_splits": 2570.8497623270005,
       "cost_usd": 1.738,
       "variance": {
         "commit": "d3a7744a0d0765eb02ceffc4248a1836fc9fb9ea",
@@ -2110,6 +2585,10 @@
         }
       },
       "passes_checks": false,
+      "split_hardware": {
+        "rows": "Modal H100",
+        "units": "Modal H100"
+      },
       "line": "frontier",
       "grade": "failed",
       "fit_seconds": 1714.709224109,
@@ -2204,82 +2683,6 @@
       "annotations": []
     },
     {
-      "id": "m5-quarterly/desc-v1/gibbs@4226f40",
-      "commit": "4226f40a9ef92964361fbc8ff9cf941ab0314956",
-      "model": {
-        "name": "m5-quarterly",
-        "beta_sd": 0.5,
-        "trend_scale_sd": 0.05,
-        "season_scale_sd": 0.05,
-        "building_scale_sd": 0.5,
-        "unit_scale_sd": 0.2,
-        "noise_scale_sd": 0.2,
-        "noncentered": [],
-        "building_walk": true,
-        "walk_scale_sd": 0.1,
-        "bedroom_time": true,
-        "bedroom_time_scale_sd": 0.02,
-        "bedroom_slope": true,
-        "bedroom_slope_scale_sd": 0.1,
-        "trend_knot_months": 3,
-        "bedroom_time_knot_months": 3
-      },
-      "feature_set": "desc-v1",
-      "sampler": "gibbs",
-      "sampler_settings": {
-        "chains": 16,
-        "warmup": 600,
-        "draws": 2000,
-        "keep_every": 100,
-        "seed": 20260923,
-        "noise_steps": 10,
-        "sigma_step_sd": 0.004,
-        "nu_step_sd": 0.03,
-        "rescale_steps": 5,
-        "rescale_step_sd": 0.01,
-        "trace_groups": 32,
-        "collapse": true,
-        "collapse_scale": 2.38,
-        "chain_batch": 0,
-        "solo_scales": [
-          "walk_scale",
-          "bedroom_time_scale"
-        ]
-      },
-      "hardware": "Modal H200",
-      "interpretable": true,
-      "splits": {
-        "units": {
-          "run": "m5-quarterly-desc-v1-units-4226f40",
-          "elpd": 4452.884781286246,
-          "elpd_se": 75.09923648683373,
-          "elpd_mcse": 0.3088192430889499,
-          "delta": 630.7371978474114,
-          "delta_se": 42.61567468393089,
-          "paired_rows": null,
-          "max_rhat": 1.0070697524989463,
-          "min_ess": 2561.552790188469,
-          "passes": true,
-          "fit_seconds": 1217.082913875,
-          "sampling_seconds": 971.5281520609999,
-          "cost_usd": 1.5463,
-          "group_rhat_max": 1.058987692414787,
-          "group_rhat_method": "kept joint draws, all group effects"
-        }
-      },
-      "passes_checks": true,
-      "line": "frontier",
-      "grade": "full",
-      "fit_seconds": 1217.082913875,
-      "fit_seconds_all_splits": 1217.082913875,
-      "cost_usd": 1.5463,
-      "hardware_class": "Modal H200",
-      "frontier": false,
-      "current_best": false,
-      "note": "",
-      "annotations": []
-    },
-    {
       "id": "m5-quarterly/base-v1/gibbs@bf01f16",
       "commit": "bf01f16434307e883aee90454d5f88866eb5dd89",
       "model": {
@@ -2360,6 +2763,10 @@
         }
       },
       "passes_checks": false,
+      "split_hardware": {
+        "rows": "Modal H100",
+        "units": "Modal H100"
+      },
       "line": "frontier",
       "grade": "failed",
       "fit_seconds": 1282.2096327000002,
@@ -2451,84 +2858,6 @@
       "frontier": false,
       "current_best": false,
       "note": "beaten on Modal H100 by m8-drift/desc-v1/gibbs@b7c196f (+3401.9 \u00b1 115.8 PSIS-LOO)",
-      "annotations": []
-    },
-    {
-      "id": "m5-quarterly/base-v1/gibbs@33e8bad",
-      "commit": "33e8bad08c237b60387d95b09c13d252eb75da22",
-      "model": {
-        "name": "m5-quarterly",
-        "beta_sd": 0.5,
-        "trend_scale_sd": 0.05,
-        "season_scale_sd": 0.05,
-        "building_scale_sd": 0.5,
-        "unit_scale_sd": 0.2,
-        "noise_scale_sd": 0.2,
-        "noncentered": [],
-        "building_walk": true,
-        "walk_scale_sd": 0.1,
-        "bedroom_time": true,
-        "bedroom_time_scale_sd": 0.02,
-        "bedroom_slope": true,
-        "bedroom_slope_scale_sd": 0.1,
-        "trend_knot_months": 3,
-        "bedroom_time_knot_months": 3,
-        "nu_fixed": null
-      },
-      "feature_set": "base-v1",
-      "sampler": "gibbs",
-      "sampler_settings": {
-        "chains": 16,
-        "warmup": 600,
-        "draws": 2000,
-        "keep_every": 100,
-        "seed": 20260923,
-        "noise_steps": 10,
-        "sigma_step_sd": 0.004,
-        "nu_step_sd": 0.03,
-        "rescale_steps": 5,
-        "rescale_step_sd": 0.01,
-        "trace_groups": 32,
-        "collapse": true,
-        "collapse_scale": 2.38,
-        "chain_batch": 0,
-        "solo_scales": [
-          "walk_scale",
-          "bedroom_time_scale",
-          "unit_scale"
-        ]
-      },
-      "hardware": "Modal H100",
-      "interpretable": true,
-      "splits": {
-        "units": {
-          "run": "m5-quarterly-units-33e8bad",
-          "elpd": 4323.9996553532865,
-          "elpd_se": 75.8067319572465,
-          "elpd_mcse": 0.33924634317517555,
-          "delta": 501.85207191445284,
-          "delta_se": 40.89494657102744,
-          "paired_rows": null,
-          "max_rhat": 1.0050346492564433,
-          "min_ess": 3554.121749317254,
-          "passes": true,
-          "fit_seconds": 1712.126112483,
-          "sampling_seconds": 1401.483242594,
-          "cost_usd": 2.1206,
-          "group_rhat_max": 1.0671077390125574,
-          "group_rhat_method": "kept joint draws, all group effects"
-        }
-      },
-      "passes_checks": true,
-      "line": "frontier",
-      "grade": "full",
-      "fit_seconds": 1712.126112483,
-      "fit_seconds_all_splits": 1712.126112483,
-      "cost_usd": 2.1206,
-      "hardware_class": "Modal H100",
-      "frontier": false,
-      "current_best": false,
-      "note": "",
       "annotations": []
     },
     {
@@ -2624,6 +2953,10 @@
         }
       },
       "passes_checks": false,
+      "split_hardware": {
+        "rows": "Modal H100",
+        "units": "Modal H100"
+      },
       "line": "frontier",
       "grade": "failed",
       "fit_seconds": 2651.1951100879996,
@@ -2807,6 +3140,10 @@
         }
       },
       "passes_checks": false,
+      "split_hardware": {
+        "rows": "Modal H100",
+        "units": "Modal H100"
+      },
       "line": "frontier",
       "grade": "failed",
       "fit_seconds": 1835.312138203,
@@ -2993,6 +3330,10 @@
         }
       },
       "passes_checks": false,
+      "split_hardware": {
+        "rows": "Modal H100",
+        "units": "Modal H100"
+      },
       "line": "frontier",
       "grade": "failed",
       "fit_seconds": 2361.239207655,
@@ -3179,6 +3520,10 @@
         }
       },
       "passes_checks": false,
+      "split_hardware": {
+        "rows": "Modal H100",
+        "units": "Modal H100"
+      },
       "line": "frontier",
       "grade": "failed",
       "fit_seconds": 3673.428859392,
@@ -3365,6 +3710,10 @@
         }
       },
       "passes_checks": false,
+      "split_hardware": {
+        "rows": "Modal H100",
+        "units": "Modal H100"
+      },
       "line": "frontier",
       "grade": "failed",
       "fit_seconds": 2680.99888286,
@@ -3548,6 +3897,10 @@
         }
       },
       "passes_checks": false,
+      "split_hardware": {
+        "rows": "Modal H100",
+        "units": "Modal H100"
+      },
       "line": "frontier",
       "grade": "failed",
       "fit_seconds": 1904.250115275,
@@ -3734,6 +4087,10 @@
         }
       },
       "passes_checks": false,
+      "split_hardware": {
+        "rows": "Modal H100",
+        "units": "Modal H100"
+      },
       "line": "frontier",
       "grade": "failed",
       "fit_seconds": 2433.470817045,
@@ -3922,6 +4279,10 @@
         }
       },
       "passes_checks": false,
+      "split_hardware": {
+        "rows": "Modal H100",
+        "units": "Modal H100"
+      },
       "line": "frontier",
       "grade": "failed",
       "fit_seconds": 2657.183135847,
@@ -4110,6 +4471,10 @@
         }
       },
       "passes_checks": false,
+      "split_hardware": {
+        "rows": "Modal H100",
+        "units": "Modal H100"
+      },
       "line": "frontier",
       "grade": "failed",
       "fit_seconds": 2662.650318471,
@@ -4298,6 +4663,10 @@
         }
       },
       "passes_checks": true,
+      "split_hardware": {
+        "rows": "Modal H100",
+        "units": "Modal H100"
+      },
       "line": "frontier",
       "grade": "full",
       "fit_seconds": 2637.091330365,
@@ -4486,6 +4855,10 @@
         }
       },
       "passes_checks": false,
+      "split_hardware": {
+        "rows": "Modal H100",
+        "units": "Modal H100"
+      },
       "line": "frontier",
       "grade": "failed",
       "fit_seconds": 2700.6400846879997,
@@ -4674,6 +5047,10 @@
         }
       },
       "passes_checks": true,
+      "split_hardware": {
+        "rows": "Modal H100",
+        "units": "Modal H100"
+      },
       "line": "frontier",
       "grade": "full",
       "fit_seconds": 2758.021029919,
@@ -4887,6 +5264,10 @@
         }
       },
       "passes_checks": true,
+      "split_hardware": {
+        "rows": "Modal H100",
+        "units": "Modal H100"
+      },
       "line": "frontier",
       "grade": "full",
       "fit_seconds": 3269.142412766,
@@ -5103,6 +5484,10 @@
         }
       },
       "passes_checks": true,
+      "split_hardware": {
+        "rows": "Modal H100",
+        "units": "Modal H100"
+      },
       "line": "frontier",
       "grade": "full",
       "fit_seconds": 3368.1207148460003,
@@ -5201,6 +5586,87 @@
         "Open sampler item: the Gibbs-vs-NUTS agreement test for the drift design (tdrift) is xfail (unit_drift_scale posterior sd 0.0099 Gibbs vs 0.0083 centred NUTS; the walk case of the same symptom was the centred reference under-mixing). Treat the drift-scale uncertainty as provisional until a non-centred reference confirms it.",
         "units split rescored from 320 kept draws with the exact unseen-unit quadrature (rentfrontier.rescore @ce6db1c): exact - recorded approximation = +4.2 \u00b1 1.5 on the same draws (5,226 unseen-unit rows), so the recorded +932.7 is about +936.9 under exact scoring."
       ]
+    },
+    {
+      "id": "m5-quarterly/base-v1/gibbs@33e8bad",
+      "commit": "33e8bad08c237b60387d95b09c13d252eb75da22",
+      "model": {
+        "name": "m5-quarterly",
+        "beta_sd": 0.5,
+        "trend_scale_sd": 0.05,
+        "season_scale_sd": 0.05,
+        "building_scale_sd": 0.5,
+        "unit_scale_sd": 0.2,
+        "noise_scale_sd": 0.2,
+        "noncentered": [],
+        "building_walk": true,
+        "walk_scale_sd": 0.1,
+        "bedroom_time": true,
+        "bedroom_time_scale_sd": 0.02,
+        "bedroom_slope": true,
+        "bedroom_slope_scale_sd": 0.1,
+        "trend_knot_months": 3,
+        "bedroom_time_knot_months": 3,
+        "nu_fixed": null
+      },
+      "feature_set": "base-v1",
+      "sampler": "gibbs",
+      "sampler_settings": {
+        "chains": 16,
+        "warmup": 600,
+        "draws": 2000,
+        "keep_every": 100,
+        "seed": 20260923,
+        "noise_steps": 10,
+        "sigma_step_sd": 0.004,
+        "nu_step_sd": 0.03,
+        "rescale_steps": 5,
+        "rescale_step_sd": 0.01,
+        "trace_groups": 32,
+        "collapse": true,
+        "collapse_scale": 2.38,
+        "chain_batch": 0,
+        "solo_scales": [
+          "walk_scale",
+          "bedroom_time_scale",
+          "unit_scale"
+        ]
+      },
+      "hardware": "Modal H100",
+      "interpretable": true,
+      "splits": {
+        "units": {
+          "run": "m5-quarterly-units-33e8bad",
+          "elpd": 4323.9996553532865,
+          "elpd_se": 75.8067319572465,
+          "elpd_mcse": 0.33924634317517555,
+          "delta": 501.85207191445284,
+          "delta_se": 40.89494657102744,
+          "paired_rows": null,
+          "max_rhat": 1.0050346492564433,
+          "min_ess": 3554.121749317254,
+          "passes": true,
+          "fit_seconds": 1712.126112483,
+          "sampling_seconds": 1401.483242594,
+          "cost_usd": 2.1206,
+          "group_rhat_max": 1.0671077390125574,
+          "group_rhat_method": "kept joint draws, all group effects"
+        }
+      },
+      "passes_checks": true,
+      "split_hardware": {
+        "units": "Modal H100"
+      },
+      "line": "frontier",
+      "grade": "full",
+      "fit_seconds": 1712.126112483,
+      "fit_seconds_all_splits": 1712.126112483,
+      "cost_usd": 2.1206,
+      "hardware_class": "Modal H100",
+      "frontier": false,
+      "current_best": false,
+      "note": "",
+      "annotations": []
     },
     {
       "id": "pymc/nuts-bcov",
@@ -5803,6 +6269,6 @@
     "Modal CPU (4 cores)": null,
     "Modal H100": "m8-drift/desc-v1/gibbs@b7c196f",
     "Modal H200": "m5-quarterly/base-v1/gibbs@4226f40",
-    "thelio CPU (Ryzen 5 3600X)": null
+    "thelio CPU (Ryzen 5 3600X)": "L1-drift/none/nuts-pymc@3c26c4a"
   }
 }
