@@ -465,3 +465,15 @@ def test_unseen_unit_quadrature_matches_adaptive_integration():
             over_level, -np.inf, np.inf, points=None, limit=400, epsabs=1e-12
         )[0]
         assert abs(lp[i] - np.log(ref)) < 5e-3, (i, lp[i], np.log(ref))
+
+
+def test_warmup_spread_ignores_drift_and_adaptation_cuts_dead_steps():
+    rng = np.random.default_rng(0)
+    t = np.arange(400)
+    drift = 0.01 * t[None, :, None]  # a chain still sliding from its start
+    x = drift + rng.normal(0, 0.02, (4, 400, 1))
+    assert np.sqrt(gibbs._detrended_var(x).mean()) == pytest.approx(0.02, rel=0.1)
+    assert np.sqrt(x.var(axis=1).mean()) > 0.5  # a plain variance sees the drift
+    assert gibbs._adapt(0.0, 0.3) == 0.3
+    assert gibbs._adapt(0.3, 0.3) == pytest.approx(1.0)
+    assert gibbs._adapt(0.6, 0.3) > 1.0

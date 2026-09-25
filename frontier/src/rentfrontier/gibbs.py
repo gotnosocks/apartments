@@ -862,6 +862,20 @@ def batched(fn, chains, batch):
     return run
 
 
+def _detrended_var(x):
+    """Per-chain variance of (chains, draws, k) around each chain's linear trend."""
+    t = np.arange(x.shape[1], dtype=float)
+    t = (t - t.mean())[None, :, None]
+    xc = x - x.mean(axis=1, keepdims=True)
+    slope = (t * xc).sum(axis=1, keepdims=True) / (t * t).sum()
+    return (xc - slope * t).var(axis=1)
+
+
+def _adapt(acc, target):
+    """Multiplicative step-size update for one warmup round."""
+    return 0.3 if acc < 0.05 else float(np.exp(2.0 * (acc - target)))
+
+
 def run(
     prep: model_module.Prepared,
     config: model_module.ModelConfig,
@@ -904,9 +918,11 @@ def run(
     prop_sd = solo_sd = None
     if settings.collapse:
         tail = np.asarray(log_scales)[:, n1 // 2 :]  # (chains, draws, scales + nu)
-        # Within-chain spread: robust to chains that have not met yet, which
-        # would inflate a pooled estimate during warmup.
-        sd = np.sqrt(tail.var(axis=1).mean(axis=0))
+        # Within-chain spread around a linear trend: robust to chains that
+        # have not met yet (which would inflate a pooled estimate) and to
+        # chains still drifting from their start (which would inflate a plain
+        # within-chain variance in short warmups).
+        sd = np.sqrt(_detrended_var(tail).mean(axis=0))
         prop_sd = jnp.asarray(settings.collapse_scale * sd[:-1] / np.sqrt(len(hier)))
         solo_sd = {
             n: float(2.38 * sd[hier.index(n)])
@@ -938,6 +954,7 @@ def run(
                     [
                         info["collapsed_accept"],
                         *[info[f"solo_accept_{n}"] for n in solo_names],
+                        info["noise_accept"],
                     ]
                 )
                 return st, acc
@@ -964,12 +981,18 @@ def run(
             acc = np.asarray(acc).mean(axis=0)
             log(
                 f"warmup round {r} acceptance "
-                + ", ".join(f"{n}={a:.2f}" for n, a in zip(["joint", *solo_names], acc))
+                + ", ".join(
+                    f"{n}={a:.2f}" for n, a in zip(["joint", *solo_names, "noise"], acc)
+                )
             )
             if r < rounds - 1:
-                # Damped Robbins-Monro step on the log step sizes.
-                prop_sd = prop_sd * float(np.exp(2.0 * (acc[0] - 0.23)))
-                ssd = ssd * jnp.asarray(np.exp(2.0 * (acc[1:] - 0.44)))
+                # Damped Robbins-Monro step on the log step sizes, toward 0.23
+                # (joint), 0.44 (1-D) and 0.3 (2-D noise); a step that is
+                # almost never accepted is cut hard instead.
+                prop_sd = prop_sd * _adapt(acc[0], 0.23)
+                ssd = ssd * jnp.asarray([_adapt(a, 0.44) for a in acc[1:-1]])
+                noise = _adapt(acc[-1], 0.3)
+                cfg = (cfg[0], cfg[1] * noise, cfg[2] * noise, *cfg[3:])
         solo_sd = {n: float(v) for n, v in zip(solo_names, np.asarray(ssd))}
     jax.block_until_ready(states)
     warmup_seconds = time.perf_counter() - t0
