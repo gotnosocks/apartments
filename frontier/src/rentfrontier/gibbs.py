@@ -111,6 +111,15 @@ class Design:
     unit_nu_fixed: float | None = None
     unit_drift: bool = False
     unit_time: jnp.ndarray | None = None
+    # a'Wa by structure: every global column except the features is a
+    # function of the row's (bedroom group, month) key, so the Gram matrix is
+    # a dense feature block plus per-key sums through a small basis.
+    gram_key: jnp.ndarray | None = None  # (N,) key per row
+    gram_n_keys: int = 0
+    gram_basis: jnp.ndarray | None = None  # (keys, keyed columns)
+    gram_feat: jnp.ndarray | None = None  # (N, F) feature columns of a
+    gram_fcols: np.ndarray | None = None
+    gram_kcols: np.ndarray | None = None
 
     @property
     def scale_names(self):
@@ -173,6 +182,15 @@ def build_design(
             bedroom_time,
             np.kron(np.eye(len(groups)), _rw1_anchored(nb)),
         )
+    # Keyed columns (all but the features) as a function of (bed group, month).
+    gram_n_keys = 4 * t
+    gram_key = np.minimum(tr.bed_group, 3) * t + tr.month
+    fcols = np.arange(1, 1 + f)
+    kcols = np.setdiff1d(np.arange(p), fcols)
+    gram_basis = np.zeros((gram_n_keys, len(kcols)))
+    gram_basis[gram_key] = a[:, kcols]
+    if not np.array_equal(gram_basis[gram_key], a[:, kcols]):
+        raise AssertionError("keyed global columns are not a function of the key")
     fixed = np.zeros(p)
     fixed[0] = 1.0
     fixed[1 : 1 + f] = 1.0 / (config.beta_sd * prep.features.prior_scale) ** 2
@@ -276,7 +294,32 @@ def build_design(
         unit_nu_fixed=config.unit_nu_fixed,
         unit_drift=config.unit_drift,
         unit_time=jnp.asarray(tr.unit_time, jnp.float64),
+        gram_key=jnp.asarray(gram_key, jnp.int32),
+        gram_n_keys=gram_n_keys,
+        gram_basis=jnp.asarray(gram_basis),
+        gram_feat=jnp.asarray(a[:, fcols]),
+        gram_fcols=fcols,
+        gram_kcols=kcols,
     )
+
+
+def gram(d: Design, w):
+    """a' diag(w) a, from the feature block and per-key sums (exact)."""
+    feat, e = d.gram_feat, d.gram_basis
+    wf = w[:, None] * feat
+    m = jax.ops.segment_sum(wf, d.gram_key, d.gram_n_keys)  # (keys, F)
+    wk = jax.ops.segment_sum(w, d.gram_key, d.gram_n_keys)
+    ff = feat.T @ wf
+    fk = m.T @ e
+    kk = e.T @ (wk[:, None] * e)
+    p = d.a.shape[1]
+    q = jnp.zeros((p, p))
+    fc, kc = jnp.asarray(d.gram_fcols), jnp.asarray(d.gram_kcols)
+    q = q.at[fc[:, None], fc[None, :]].set(ff)
+    q = q.at[fc[:, None], kc[None, :]].set(fk)
+    q = q.at[kc[:, None], fc[None, :]].set(fk.T)
+    q = q.at[kc[:, None], kc[None, :]].set(kk)
+    return q
 
 
 def _update_scale(key, current, q, rank, prior_sd):
@@ -336,7 +379,7 @@ def gaussian_block(d: Design, lam, s, z_g, z_l, z_u, kappa=None):
                 glu = glu.at[d.unit, k_, slots[:, m]].add(wz[:, k_] * vals[:, m])
         cg = jnp.einsum("jkl,jlp->jkp", cu, gu)
         ch = jnp.einsum("jkl,jl->jk", cu, hu)
-        q = a.T @ wa - jnp.einsum("jkp,jkq->pq", gu, cg) + jnp.diag(d.prior_fixed)
+        q = gram(d, w) - jnp.einsum("jkp,jkq->pq", gu, cg) + jnp.diag(d.prior_fixed)
         rhs_g = wa.T @ y - jnp.einsum("jkp,jk->p", gu, ch)
         cgl = jnp.einsum("jkl,jlm->jkm", cu, glu)
         adj = a_l - jnp.einsum("ik,ikm->im", zr, cgl[d.unit])
@@ -350,7 +393,7 @@ def gaussian_block(d: Design, lam, s, z_g, z_l, z_u, kappa=None):
         gl = jnp.zeros((J, L))  # unit sums of weighted local rows
         for m in range(n_slots):
             gl = gl.at[d.unit, slots[:, m]].add(w * vals[:, m])
-        q = a.T @ wa - g.T @ (c[:, None] * g) + jnp.diag(d.prior_fixed)
+        q = gram(d, w) - g.T @ (c[:, None] * g) + jnp.diag(d.prior_fixed)
         rhs_g = wa.T @ y - g.T @ (c * h)
         adj = a_l - (c[:, None] * gl)[d.unit]
         a_t = a - (c[:, None] * g)[d.unit]
@@ -387,7 +430,12 @@ def gaussian_block(d: Design, lam, s, z_g, z_l, z_u, kappa=None):
 
     # Eliminate building blocks (batched Cholesky), then the global block.
     chol_l = jnp.linalg.cholesky(q_ll)
-    v = solve_triangular(chol_l, q_lg, lower=True)  # (K, L, P)
+    # L_k^-1 once per building (L columns), then one batched product: cheaper
+    # than a triangular solve against all P global columns.
+    inv_l = solve_triangular(
+        chol_l, jnp.broadcast_to(jnp.eye(L), (K, L, L)), lower=True
+    )
+    v = inv_l @ q_lg  # (K, L, P)
     vr = solve_triangular(chol_l, r_l[..., None], lower=True)[..., 0]
     schur = q - jnp.einsum("klp,klq->pq", v, v)
     r_s = rhs_g - jnp.einsum("klp,kl->p", v, vr)
