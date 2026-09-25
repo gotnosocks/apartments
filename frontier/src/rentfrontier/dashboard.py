@@ -268,6 +268,7 @@ def data():
                 "hardware_class": e["hardware_class"],
                 "variance": (e.get("variance") or {}).get("intervals"),
                 "fit_seconds": e["fit_seconds"],
+                "other_cores": (e.get("contention") or {}).get("other_cores"),
                 "cost_usd": e["cost_usd"],
                 "grade": e["grade"],
                 "passes_checks": e["passes_checks"],

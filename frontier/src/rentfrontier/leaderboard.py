@@ -530,6 +530,9 @@ def build(keep_dirs=False):
         )
         e["fit_seconds_all_splits"] = sum(fit_seconds)
         e["cost_usd"] = max(cost)
+        # Other processes' mean busy cores during the scored fit (recorded
+        # from 3c26c4a on); None when not measured.
+        e["contention"] = (rows_run or {}).get("contention")
         if rows_run and rows_run["name"] in variances:
             vr = variances[rows_run["name"]]
             e["variance"] = {

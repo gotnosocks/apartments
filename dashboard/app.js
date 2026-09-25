@@ -164,6 +164,13 @@ function tipRow(t, name, value) {
   html('span', {}, row, name);
   html('span', {}, row, value);
 }
+// Other processes' mean busy cores during the fit (run records from 3c26c4a on).
+const CLEAN_CORES = 0.5;
+function timingText(e) {
+  if (e.other_cores == null) return 'not recorded';
+  const x = e.other_cores;
+  return x < CLEAN_CORES ? `clean (${x.toFixed(2)} other cores)` : `contended (${x.toFixed(1)} other cores)`;
+}
 function entryTip(t, e) {
   const s = e.splits.rows;
   html('div', { class: 't-value' }, t, e.psis ? `${fmtDelta(score(e))} ${fmtSE(scoreErr(e))} PSIS-LOO ΔELPD` : 'no PSIS-LOO score');
@@ -177,6 +184,7 @@ function entryTip(t, e) {
   tipRow(t, 'Held-out ΔELPD (vs promoted)', `${fmtDelta(s.delta)} ${fmtSE(s.delta_se)}`);
   tipRow(t, 'Units ΔELPD', u ? `${fmtDelta(u.delta)} ${fmtSE(u.delta_se)}` : 'not run');
   tipRow(t, 'Fit time', fmtDur(e.fit));
+  tipRow(t, 'Timing', timingText(e));
   tipRow(t, 'Hardware', e.hardware);
   tipRow(t, 'Chains × draws', drawsText(e));
   tipRow(t, 'Gate', gateText(e));
@@ -865,6 +873,7 @@ const COLUMNS = [
   { key: 'units', label: 'Units ΔELPD', num: true, get: (e) => e.splits.units?.delta ?? -Infinity,
     fmt: (e) => (e.splits.units ? `${fmtDelta(e.splits.units.delta)} ${fmtSE(e.splits.units.delta_se)}` : '—') },
   { key: 'fit', label: 'Fit time', num: true, get: (e) => e.fit, fmt: (e) => fmtDur(e.fit) },
+  { key: 'timing', label: 'Timing', num: true, get: (e) => e.other_cores ?? Infinity, fmt: timingText },
   { key: 'hardware', label: 'Hardware', get: (e) => e.hardware },
   { key: 'draws', label: 'Chains × draws', num: true, get: (e) => (e.chains || 0) * (e.draws || 0), fmt: drawsText },
   { key: 'gate', label: 'Gate', get: (e) => (e.passes ? 2 : e.grade === 'screen' ? 1 : 0) },

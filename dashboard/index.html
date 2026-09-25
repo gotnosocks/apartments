@@ -13,7 +13,7 @@
     <div>
       <h1>NYC rent model · research progress</h1>
       <p class="subtitle">Accuracy is PSIS-LOO ΔELPD: each training listing's log-rent density given all the others, summed over the row split's
-        47,374 training rows and paired against the m0-base baseline. Fit time is the scored fit's sampler wall time on the hardware it used.
+        47,374 training rows and paired against the m0-base baseline. Fit time is the scored fit's sampler wall time on the hardware it used. Thelio fits run one at a time; from commit 3c26c4a each records how many cores other processes used meanwhile (Timing: clean below 0.5).
         See the <a href="https://github.com/gotnosocks/apartments/blob/master/docs/research-plan.md">research plan</a>.</p>
     </div>
     <div class="head-meta">
