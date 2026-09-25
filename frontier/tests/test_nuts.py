@@ -149,7 +149,7 @@ def test_sampling_coordinates_are_exact_reparameterizations(config):
     moved = replace(config, coordinates=("trend_levels", "unit_totals"))
     ub = model.constants(prep, moved)["unit_building"]
     q = {k: v for k, v in p.items() if k not in ("trend_step", "unit")}
-    q["trend_level"] = jnp.cumsum(p["trend_step"])
+    q["trend_absolute"] = p["alpha"] + jnp.cumsum(p["trend_step"])
     q["unit_total"] = p["unit"] + p["building"][ub]
     base = float(log_density(model.build_model(prep, config), (), {}, p)[0])
     new = float(log_density(model.build_model(prep, moved), (), {}, q)[0])

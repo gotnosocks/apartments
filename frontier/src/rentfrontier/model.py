@@ -24,6 +24,7 @@ import numpy as np
 import numpyro
 import numpyro.distributions as dist
 import pandas as pd
+from numpyro.distributions import constraints
 
 from .features import Features
 
@@ -55,8 +56,12 @@ class ModelConfig:
     # Sampling coordinates for gradient samplers. Like `noncentered` they change
     # how a sampler moves, not the model (each is a unit-Jacobian linear map,
     # and the original sites stay as deterministic sites):
-    # - "trend_levels": sample the market trend's knot values (a Gaussian
-    #   random walk) instead of its steps; the data inform levels, not steps.
+    # - "trend_levels": sample the market's absolute knot levels (intercept
+    #   plus trend) instead of the trend's steps: each quarter's rows inform
+    #   that quarter's level directly, where the steps are strongly
+    #   correlated. Sampling the trend's levels relative to the intercept
+    #   instead leaves a ridge (intercept up, every level down) that NUTS
+    #   cannot cross (c1ad7d0: L2 intercept R-hat 1.83).
     # - "unit_totals": sample each unit's building level plus its own effect
     #   (hierarchical centering), so a building and its units are not
     #   strongly correlated in the sampler's coordinates.
@@ -440,13 +445,17 @@ def build_model(prep: Prepared, config: ModelConfig):
                 "market_drift", dist.Normal(0.0, config.market_drift_sd)
             )
         if config.trend and "trend_levels" in config.coordinates:
-            level = numpyro.sample(
-                "trend_level",
-                dist.GaussianRandomWalk(p["trend_scale"], trend_basis.shape[1]),
+            # alpha is the anchor knot's level; the walk prior is on the steps
+            # between absolute levels (a unit-Jacobian shift of the steps).
+            absolute = numpyro.sample(
+                "trend_absolute",
+                dist.ImproperUniform(constraints.real, (), (trend_basis.shape[1],)),
             )
-            p["trend_step"] = numpyro.deterministic(
-                "trend_step", jnp.diff(level, prepend=jnp.zeros(1))
+            steps = jnp.diff(absolute, prepend=jnp.reshape(p["alpha"], (1,)))
+            numpyro.factor(
+                "trend_walk", dist.Normal(0.0, p["trend_scale"]).log_prob(steps).sum()
             )
+            p["trend_step"] = numpyro.deterministic("trend_step", steps)
         elif config.trend:
             p["trend_step"] = numpyro.sample(
                 "trend_step",
