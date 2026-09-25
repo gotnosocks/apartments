@@ -21,8 +21,14 @@ scales ~ HalfNormal(0.05); building scale ~ HalfNormal(0.5); unit scale ~
 HalfNormal(0.2); walk scale ~ HalfNormal(0.1) per half-year step, the walk
 anchored at 0 at the first knot; beta ~ N(0, 0.5 x feature prior scale); sigma ~
 HalfNormal(0.2); nu ~ Gamma(2, rate 0.1). The linear drift (new, L1 only) ~
-N(0, 0.1) per year. Group effects are non-centred for NUTS; that changes the
-parameterization, not the model.
+N(0, 0.1) per year.
+
+Parameterization (it changes how NUTS moves, not the model) follows the Gibbs
+line's NUTS reference: trend steps, season, building and unit effects are
+centred, because each is informed by many rows (12 seasons of ~4,000 rows,
+quarterly knots of ~700), where non-centring makes NUTS diverge at the scales
+(3c26c4a: 1 and 6 divergences on L2 and L3). The building walk is non-centred:
+most building half-years have no rows, so its steps are prior-dominated.
 
 Backends:
 - pymc: PyMC model sampled by nutpie (4 chains x 1,000 tune + 1,000 draws,
@@ -69,7 +75,7 @@ RUNGS = {
 TREND_KNOT_MONTHS = 3
 WALK_SCALE_SD = 0.1  # model.ModelConfig.walk_scale_sd
 # Per-draw arrays too large to keep in posterior.npz (means and sds are kept).
-LARGE = ("unit_z", "walk_z")
+LARGE = ("unit", "walk_z")
 CHAINS, TUNE, DRAWS = 4, 1000, 1000
 SEED = 20260925
 
@@ -119,26 +125,27 @@ def numpyro_model(terms, a, inp):
             mu = mu + numpyro.sample("drift", dist.Normal(0.0, 0.1)) * t
         if "trend" in terms:
             ts = numpyro.sample("trend_scale", dist.HalfNormal(0.05))
-            z = numpyro.sample("trend_z", dist.Normal(0, 1).expand([basis.shape[1]]))
-            mu = mu + (basis @ jnp.cumsum(ts * z))[month]
+            step = numpyro.sample(
+                "trend_step", dist.Normal(0, ts).expand([basis.shape[1]])
+            )
+            mu = mu + (basis @ jnp.cumsum(step))[month]
         if "season" in terms:
             ss = numpyro.sample("season_scale", dist.HalfNormal(0.05))
-            z = numpyro.sample("season_z", dist.Normal(0, 1).expand([12]))
-            s = ss * z
+            s = numpyro.sample("season_raw", dist.Normal(0, ss).expand([12]))
             mu = mu + (s - s.mean())[cal]
         if "features" in terms:
             beta = numpyro.sample("beta", dist.Normal(0.0, jnp.asarray(inp["beta_sd"])))
             mu = mu + x @ beta
         if "building" in terms:
             bs = numpyro.sample("building_scale", dist.HalfNormal(0.5))
-            z = numpyro.sample(
-                "building_z", dist.Normal(0, 1).expand([len(prep.buildings)])
+            b = numpyro.sample(
+                "building", dist.Normal(0, bs).expand([len(prep.buildings)])
             )
-            mu = mu + (bs * z)[bld]
+            mu = mu + b[bld]
         if "units" in terms:
             us = numpyro.sample("unit_scale", dist.HalfNormal(0.2))
-            z = numpyro.sample("unit_z", dist.Normal(0, 1).expand([len(prep.units)]))
-            mu = mu + (us * z)[unit]
+            u = numpyro.sample("unit", dist.Normal(0, us).expand([len(prep.units)]))
+            mu = mu + u[unit]
         if "walk" in terms:
             ws = numpyro.sample("walk_scale", dist.HalfNormal(WALK_SCALE_SD))
             z = numpyro.sample(
@@ -166,24 +173,23 @@ def pymc_model(terms, a, inp):
             mu = mu + pm.Normal("drift", 0.0, 0.1) * t
         if "trend" in terms:
             ts = pm.HalfNormal("trend_scale", 0.05)
-            z = pm.Normal("trend_z", 0, 1, shape=basis.shape[1])
-            mu = mu + pt.dot(basis, pt.cumsum(ts * z))[a.month]
+            step = pm.Normal("trend_step", 0, ts, shape=basis.shape[1])
+            mu = mu + pt.dot(basis, pt.cumsum(step))[a.month]
         if "season" in terms:
             ss = pm.HalfNormal("season_scale", 0.05)
-            z = pm.Normal("season_z", 0, 1, shape=12)
-            s = ss * z
+            s = pm.Normal("season_raw", 0, ss, shape=12)
             mu = mu + (s - s.mean())[a.calendar]
         if "features" in terms:
             beta = pm.Normal("beta", 0.0, inp["beta_sd"], shape=a.x.shape[1])
             mu = mu + pt.dot(a.x, beta)
         if "building" in terms:
             bs = pm.HalfNormal("building_scale", 0.5)
-            z = pm.Normal("building_z", 0, 1, shape=len(prep.buildings))
-            mu = mu + (bs * z)[a.building]
+            b = pm.Normal("building", 0, bs, shape=len(prep.buildings))
+            mu = mu + b[a.building]
         if "units" in terms:
             us = pm.HalfNormal("unit_scale", 0.2)
-            z = pm.Normal("unit_z", 0, 1, shape=len(prep.units))
-            mu = mu + (us * z)[a.unit]
+            u = pm.Normal("unit", 0, us, shape=len(prep.units))
+            mu = mu + u[a.unit]
         if "walk" in terms:
             ws = pm.HalfNormal("walk_scale", WALK_SCALE_SD)
             n_walk = model.n_knots(len(prep.periods)) - 1
@@ -246,20 +252,21 @@ def effects(draws, terms, inp):
     if "drift" in terms:
         e["drift"] = flat["drift"]
     if "trend" in terms:
-        steps = flat["trend_scale"][:, None] * flat["trend_z"]
-        e["trend"] = np.cumsum(steps, axis=1) @ inp["basis"].T  # (S, months)
+        e["trend"] = (
+            np.cumsum(flat["trend_step"], axis=1) @ inp["basis"].T
+        )  # (S, months)
         e["trend_scale"] = flat["trend_scale"]
     if "season" in terms:
-        s = flat["season_scale"][:, None] * flat["season_z"]
+        s = flat["season_raw"]
         e["season"] = s - s.mean(axis=1, keepdims=True)
         e["season_scale"] = flat["season_scale"]
     if "features" in terms:
         e["beta"] = flat["beta"]
     if "building" in terms:
-        e["building"] = flat["building_scale"][:, None] * flat["building_z"]
+        e["building"] = flat["building"]
         e["building_scale"] = flat["building_scale"]
     if "units" in terms:
-        e["unit"] = flat["unit_scale"][:, None] * flat["unit_z"]
+        e["unit"] = flat["unit"]
         e["unit_scale"] = flat["unit_scale"]
     if "walk" in terms:
         steps = flat["walk_scale"][:, None, None] * flat["walk_z"]

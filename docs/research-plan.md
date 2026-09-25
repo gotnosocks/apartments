@@ -110,6 +110,12 @@ below. Priors mirror `model.build_model`, so L6 is m0q and L7 is m1q. A test che
 rung, that the PyMC and NumPyro models give the same joint log density and that the scoring
 terms are the model's mean.
 
+Parameterization follows the Gibbs line's NUTS reference. Trend steps, season, building and unit
+effects are centred, since each is informed by many rows. Only the building walk is non-centred,
+because most building half-years have no rows. The first ladder (3c26c4a) had every group effect
+non-centred, and PyMC diverged at the scales: 1 divergence on L2 (344 s) and 6 on L3 (525 s). Those
+records stay on the board as the evidence.
+
 | Rung | Adds |
 |---|---|
 | L0-mean | intercept only (Student-t noise) |
