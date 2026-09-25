@@ -106,7 +106,8 @@ check the project intent asks for, and it runs again whenever a sampler changes.
 each hardware class then shows the best (structure, implementation) pair at each fit time.
 
 **The ladder: start as simple as possible and build up.** Each rung adds one term to the one
-below. Priors mirror `model.build_model`, so L6 is m0q and L7 is m1q. A test checks, for every
+below. Priors mirror `model.build_model`, so L6 is m0q, L7 is m1q and L8–L11 are the Gibbs
+round-2 designs (m5–m8 without the bedroom curves). A test checks, for every
 rung, that the PyMC and NumPyro models give the same joint log density and that the scoring
 terms are the model's mean.
 
@@ -126,6 +127,10 @@ records stay on the board as the evidence.
 | L5-building | building levels |
 | L6-units | unit effects (= m0q) |
 | L7-walk | each building's random walk over half-year knots (= m1q) |
+| L8-bedslope | each building's premium per bedroom (= m5-nocurves) |
+| L9-fslopes | each building's slopes on size and bathrooms (= m6-nocurves) |
+| L10-tunits | Student-t unit effects instead of normal (= m7-nocurves) |
+| L11-udrift | each unit's linear drift per year (= m8-nocurves) |
 
 Each rung gets PSIS-LOO (L6 with the unit effect integrated, as in the Gibbs line), a held-out
 score, a variance decomposition and a fit time. The first rung agrees across backends: PyMC and

@@ -27,6 +27,8 @@ def synthetic(seed=0, n=40):
         unit=rng.integers(0, N_UNITS, n),
         knot=month // model.KNOT_MONTHS,
         knot_frac=(month % model.KNOT_MONTHS) / model.KNOT_MONTHS,
+        beds_centered=rng.integers(0, 4, n) - 1.0,
+        unit_time=rng.normal(scale=0.5, size=n),
     )
     prep = SimpleNamespace(
         buildings=np.arange(N_BUILDINGS),
@@ -38,6 +40,7 @@ def synthetic(seed=0, n=40):
         "basis": model.knot_basis(N_MONTHS, ladder.TREND_KNOT_MONTHS),
         "beta_sd": np.array([0.5, 0.25]),
         "mean_month": float(month.mean()),
+        "fslope_index": np.array([0, 1]),
     }
     return a, inp
 

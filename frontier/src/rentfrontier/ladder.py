@@ -15,20 +15,27 @@ Rungs (log rent minus the training mean; Student-t noise throughout):
     L5-building  + building levels
     L6-units     + unit effects: the same model as the Gibbs line's m0q
     L7-walk      + each building's random walk over half-year knots (m1q)
+    L8-bedslope  + each building's premium per bedroom (m5-nocurves)
+    L9-fslopes   + each building's slopes on size and bathrooms (m6-nocurves)
+    L10-tunits   unit effects Student-t instead of normal (m7-nocurves)
+    L11-udrift   + each unit's linear drift per year (m8-nocurves)
 
 Priors mirror `model.build_model` (m0q, m1q): alpha ~ N(0, 1); trend and season
 scales ~ HalfNormal(0.05); building scale ~ HalfNormal(0.5); unit scale ~
 HalfNormal(0.2); walk scale ~ HalfNormal(0.1) per half-year step, the walk
 anchored at 0 at the first knot; beta ~ N(0, 0.5 x feature prior scale); sigma ~
-HalfNormal(0.2); nu ~ Gamma(2, rate 0.1). The linear drift (new, L1 only) ~
-N(0, 0.1) per year.
+HalfNormal(0.2); nu ~ Gamma(2, rate 0.1). Bedroom-slope, feature-slope scales
+~ HalfNormal(0.1); unit nu ~ Gamma(2, rate 0.1); unit drift scale ~
+HalfNormal(0.05). The linear drift (new, L1 only) ~ N(0, 0.1) per year.
 
 Parameterization (it changes how NUTS moves, not the model) follows the Gibbs
 line's NUTS reference: trend steps, season, building and unit effects are
 centred, because each is informed by many rows (12 seasons of ~4,000 rows,
 quarterly knots of ~700), where non-centring makes NUTS diverge at the scales
-(3c26c4a: 1 and 6 divergences on L2 and L3). The building walk is non-centred:
-most building half-years have no rows, so its steps are prior-dominated.
+(3c26c4a: 1 and 6 divergences on L2 and L3). So are the building slopes. The
+building walk and the unit drift are non-centred: most building half-years have
+no rows and most units span too little time to inform a drift, so those
+effects are prior-dominated.
 
 Backends:
 - pymc: PyMC model sampled by nutpie (4 chains x 1,000 tune + 1,000 draws,
@@ -72,10 +79,16 @@ RUNGS = {
     "L6-units": ("trend", "season", "features", "building", "units"),
     "L7-walk": ("trend", "season", "features", "building", "units", "walk"),
 }
+RUNGS["L8-bedslope"] = (*RUNGS["L7-walk"], "bedslope")
+RUNGS["L9-fslopes"] = (*RUNGS["L8-bedslope"], "fslopes")
+RUNGS["L10-tunits"] = (*RUNGS["L9-fslopes"], "tunits")
+RUNGS["L11-udrift"] = (*RUNGS["L10-tunits"], "udrift")
+# The size and bathroom columns with per-building slopes (m6-m8).
+FSLOPE_FEATURES = model.MODELS["m6-nocurves"].feature_slopes
 TREND_KNOT_MONTHS = 3
 WALK_SCALE_SD = 0.1  # model.ModelConfig.walk_scale_sd
 # Per-draw arrays too large to keep in posterior.npz (means and sds are kept).
-LARGE = ("unit", "walk_z")
+LARGE = ("unit", "walk_z", "unit_drift_z")
 CHAINS, TUNE, DRAWS = 4, 1000, 1000
 SEED = 20260925
 
@@ -96,6 +109,9 @@ def inputs():
         "basis": model.knot_basis(n_months, TREND_KNOT_MONTHS),
         "beta_sd": 0.5 * np.asarray(feats.prior_scale),
         "mean_month": mean_month,
+        "fslope_index": np.array(
+            [list(feats.names).index(n) for n in FSLOPE_FEATURES], dtype=np.int32
+        ),
     }
 
 
@@ -118,6 +134,7 @@ def numpyro_model(terms, a, inp):
     y = jnp.asarray(a.y)
     knot, frac = jnp.asarray(a.knot), jnp.asarray(a.knot_frac)
     n_walk = model.n_knots(len(prep.periods)) - 1
+    n_b, n_u = len(prep.buildings), len(prep.units)
 
     def f():
         mu = numpyro.sample("alpha", dist.Normal(0.0, 1.0)) * jnp.ones_like(y)
@@ -144,8 +161,30 @@ def numpyro_model(terms, a, inp):
             mu = mu + b[bld]
         if "units" in terms:
             us = numpyro.sample("unit_scale", dist.HalfNormal(0.2))
-            u = numpyro.sample("unit", dist.Normal(0, us).expand([len(prep.units)]))
+            if "tunits" in terms:
+                unu = numpyro.sample("unit_nu", dist.Gamma(2.0, 0.1))
+                prior = dist.StudentT(unu, 0, us)
+            else:
+                prior = dist.Normal(0, us)
+            u = numpyro.sample("unit", prior.expand([n_u]))
             mu = mu + u[unit]
+        if "udrift" in terms:
+            ds = numpyro.sample("unit_drift_scale", dist.HalfNormal(0.05))
+            z = numpyro.sample("unit_drift_z", dist.Normal(0, 1).expand([n_u]))
+            mu = mu + (ds * z)[unit] * jnp.asarray(a.unit_time)
+        if "bedslope" in terms:
+            bss = numpyro.sample("bedroom_slope_scale", dist.HalfNormal(0.1))
+            slope = numpyro.sample("bedroom_slope", dist.Normal(0, bss).expand([n_b]))
+            mu = mu + slope[bld] * jnp.asarray(a.beds_centered)
+        if "fslopes" in terms:
+            idx = jnp.asarray(inp["fslope_index"])
+            fs = numpyro.sample(
+                "fslope_scales", dist.HalfNormal(0.1).expand([len(inp["fslope_index"])])
+            )
+            fsl = numpyro.sample(
+                "fslope", dist.Normal(0, fs).expand([n_b, len(inp["fslope_index"])])
+            )
+            mu = mu + jnp.sum(fsl[bld] * x[:, idx], axis=1)
         if "walk" in terms:
             ws = numpyro.sample("walk_scale", dist.HalfNormal(WALK_SCALE_SD))
             z = numpyro.sample(
@@ -188,8 +227,25 @@ def pymc_model(terms, a, inp):
             mu = mu + b[a.building]
         if "units" in terms:
             us = pm.HalfNormal("unit_scale", 0.2)
-            u = pm.Normal("unit", 0, us, shape=len(prep.units))
+            if "tunits" in terms:
+                unu = pm.Gamma("unit_nu", alpha=2.0, beta=0.1)
+                u = pm.StudentT("unit", nu=unu, mu=0, sigma=us, shape=len(prep.units))
+            else:
+                u = pm.Normal("unit", 0, us, shape=len(prep.units))
             mu = mu + u[a.unit]
+        if "udrift" in terms:
+            ds = pm.HalfNormal("unit_drift_scale", 0.05)
+            z = pm.Normal("unit_drift_z", 0, 1, shape=len(prep.units))
+            mu = mu + (ds * z)[a.unit] * a.unit_time
+        if "bedslope" in terms:
+            bss = pm.HalfNormal("bedroom_slope_scale", 0.1)
+            slope = pm.Normal("bedroom_slope", 0, bss, shape=len(prep.buildings))
+            mu = mu + slope[a.building] * a.beds_centered
+        if "fslopes" in terms:
+            idx = inp["fslope_index"]
+            fs = pm.HalfNormal("fslope_scales", 0.1, shape=len(idx))
+            fsl = pm.Normal("fslope", 0, fs, shape=(len(prep.buildings), len(idx)))
+            mu = mu + pt.sum(fsl[a.building] * a.x[:, idx], axis=1)
         if "walk" in terms:
             ws = pm.HalfNormal("walk_scale", WALK_SCALE_SD)
             n_walk = model.n_knots(len(prep.periods)) - 1
@@ -268,6 +324,15 @@ def effects(draws, terms, inp):
     if "units" in terms:
         e["unit"] = flat["unit"]
         e["unit_scale"] = flat["unit_scale"]
+    if "tunits" in terms:
+        e["unit_nu"] = flat["unit_nu"]
+    if "udrift" in terms:
+        e["unit_drift"] = flat["unit_drift_scale"][:, None] * flat["unit_drift_z"]
+        e["unit_drift_scale"] = flat["unit_drift_scale"]
+    if "bedslope" in terms:
+        e["bedroom_slope"] = flat["bedroom_slope"]
+    if "fslopes" in terms:
+        e["fslope"] = flat["fslope"]
     if "walk" in terms:
         steps = flat["walk_scale"][:, None, None] * flat["walk_z"]
         e["walk"] = np.pad(np.cumsum(steps, axis=2), ((0, 0), (0, 0), (1, 0)))
@@ -296,10 +361,21 @@ def terms_for(e, a, inp):
         out["building over time"] = (1 - a.knot_frac)[None] * w[
             :, a.building, a.knot
         ] + a.knot_frac[None] * w[:, a.building, a.knot + 1]
+    slopes = []
+    if "bedroom_slope" in e:
+        slopes.append(e["bedroom_slope"][:, a.building] * a.beds_centered[None])
+    if "fslope" in e:
+        cols = np.asarray(a.x)[:, inp["fslope_index"]]  # (rows, k)
+        slopes.append(np.einsum("srk,rk->sr", e["fslope"][:, a.building], cols))
+    if slopes:
+        out["building slopes"] = sum(slopes)
     if "unit" in e:
-        out["unit"] = np.where(
-            a.unit[None] >= 0, e["unit"][:, np.maximum(a.unit, 0)], 0.0
-        )
+        known = a.unit[None] >= 0
+        u = np.maximum(a.unit, 0)
+        unit = e["unit"][:, u]
+        if "unit_drift" in e:
+            unit = unit + e["unit_drift"][:, u] * a.unit_time[None]
+        out["unit"] = np.where(known, unit, 0.0)
     return out
 
 
@@ -336,10 +412,11 @@ def diagnose(draws, divergences):
         k: {"rhat": float(split_rhat_vec(v[..., None])[0]), "ess": ess(v)}
         for k, v in scalars.items()
     }
-    if "beta" in draws:
-        for j in range(draws["beta"].shape[2]):
-            v = draws["beta"][:, :, j]
-            table[f"beta[{j}]"] = {
+    # Coefficients and the per-feature slope scales are gated like scalars.
+    for vec in ("beta", "fslope_scales"):
+        for j in range(draws[vec].shape[2] if vec in draws else 0):
+            v = draws[vec][:, :, j]
+            table[f"{vec}[{j}]"] = {
                 "rhat": float(split_rhat_vec(v[..., None])[0]),
                 "ess": ess(v),
             }
@@ -418,6 +495,11 @@ def psis_training(e, terms, inp):
     units_sorted = unit_of[order]
     size = loo.chunk_rows(s)
     params = {"nu": e["nu"], "sigma": e["sigma"], "unit_scale": e["unit_scale"]}
+    t_units, drift = "unit_nu" in e, "unit_drift" in e
+    if t_units:
+        params["unit_nu"] = e["unit_nu"]
+    if drift:
+        params["unit_drift_scale"] = e["unit_drift_scale"]
     audit_parts, parts = [], []
     for lo, hi in loo.unit_chunks(units_sorted, size):
         mask = np.zeros(len(frame), dtype=bool)
@@ -434,16 +516,16 @@ def psis_training(e, terms, inp):
             np.concatenate([mu, np.zeros((s, pad))], axis=1),
             np.r_[seg, seg.max() + 1 + np.arange(pad)],
             size,
-            np.zeros(size),
+            np.r_[a.unit_time[pos], np.zeros(pad)],
             params,
-            t_units=False,
-            drift=False,
+            t_units=t_units,
+            drift=drift,
         )
         parts.append(loo.psis_loo(np.asarray(ll)[:, :n]))
         audit_parts.append(frame.audit_id.to_numpy()[rows_sorted[lo:hi]])
     audit = np.concatenate(audit_parts)
     out = [np.concatenate([p[i] for p in parts]) for i in range(3)]
-    return audit, *out, "unit level"
+    return audit, *out, "unit level and drift" if drift else "unit level"
 
 
 def variance_shares(e, inp):
@@ -573,7 +655,7 @@ def fit(rung, backend, commit, name, log=print):
         "rows": len(elpd),
         "draws": s,
         "integrated": integrated,
-        "unit_prior": "normal",
+        "unit_prior": "student-t" if "tunits" in terms else "normal",
         "elpd_loo": float(elpd.sum()),
         "elpd_loo_se": float(elpd.std(ddof=1) * math.sqrt(len(elpd))),
         "elpd_loo_mcse": float(math.sqrt(np.sum(mcse**2))),
