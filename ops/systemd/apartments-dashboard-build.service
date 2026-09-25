@@ -12,6 +12,10 @@ ExecStartPre=-/usr/bin/git -C /data1/apartments/serve/master fetch -q origin mas
 ExecStartPre=-/usr/bin/git -C /data1/apartments/serve/master checkout -q --force --detach origin/master
 ExecStartPre=/usr/bin/mkdir -p /data1/apartments/tmp/dashboard
 # --locked: never rewrite uv.lock (a git-tracked file) in the serving checkout.
-ExecStart=/home/ben/.local/bin/uv run --locked -q python -m rentfrontier.dashboard --out /data1/apartments/dashboard
+# The build is a heavy job (~20 s, ~450 MB): it waits for the shared lock so it
+# never runs during a timed fit (docs/research-plan.md, "One timed job at a time").
+ExecStart=/usr/bin/flock /data1/apartments/tmp/heavy.lock /home/ben/.local/bin/uv run --locked -q python -m rentfrontier.dashboard --out /data1/apartments/dashboard
+# A fit can hold the lock for up to an hour.
+TimeoutStartSec=2h
 MemoryMax=1G
 Nice=10
