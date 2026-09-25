@@ -519,7 +519,9 @@ def build(keep_dirs=False):
             cost.append(r.get("cost_usd") or 0.0)
         e["passes_checks"] = passes
         e["split_hardware"] = {k: hardware_class(r) for k, r in by_split.items()}
-        e["line"] = "frontier"
+        # Run records from other implementations (the PyMC and NumPyro
+        # ladder) carry their own line; Gibbs runs are the frontier line.
+        e["line"] = any_run.get("line", "frontier")
         e["grade"] = "full" if passes else "failed"
         # Fit time is the scored (row-split) fit's; unit-split fits are optional.
         rows_run = by_split.get("rows")

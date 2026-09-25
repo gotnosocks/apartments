@@ -5,8 +5,9 @@
 const SVGNS = 'http://www.w3.org/2000/svg';
 const $ = (id) => document.getElementById(id);
 const LINES = {
-  frontier: { label: 'GPU-frontier line (JAX Gibbs)', short: 'GPU Gibbs', color: 'var(--series-1)' },
-  pymc: { label: 'PyMC line (NUTS screens)', short: 'PyMC', color: 'var(--series-2)' },
+  frontier: { label: 'Custom Gibbs (JAX)', short: 'Gibbs', color: 'var(--series-1)' },
+  pymc: { label: 'PyMC (NUTS)', short: 'PyMC', color: 'var(--series-2)' },
+  numpyro: { label: 'NumPyro (NUTS)', short: 'NumPyro', color: 'var(--series-3)' },
 };
 const HIT = 24; // minimum hover target, px
 // Primary score: PSIS-LOO dELPD vs the baseline, with its combined error.
@@ -19,7 +20,7 @@ const hw = (snap) => (snap.by_class && snap.by_class[state.hw]) || EMPTY;
 
 const state = {
   data: null, idx: 0, showFailed: true, showSE: true, fullRange: false,
-  lines: { frontier: true, pymc: true }, sort: { key: 'psis', dir: -1 }, playing: null, hw: null,
+  lines: { frontier: true, pymc: true, numpyro: true }, sort: { key: 'psis', dir: -1 }, playing: null, hw: null,
 };
 
 // ---------- DOM helpers ----------
@@ -62,6 +63,7 @@ function fmtDur(s) {
   return `${(s / 3600).toFixed(1)} h`;
 }
 function entryLabel(e) {
+  if (/^L\d/.test(e.design)) return `${e.design} · ${LINES[e.line]?.short || e.line}`; // ladder rungs
   return e.line === 'pymc' ? e.design.replace(/^nuts-/, 'PyMC ') : `${e.design} · ${e.feature_set}`;
 }
 function drawsText(e) {
@@ -737,17 +739,17 @@ function drawFitTime(v, dom) {
 
 function drawCompute(v, dom) {
   const runs = allSplitsCompleted(Infinity).sort((a, b) => Date.parse(a.s.completed_at) - Date.parse(b.s.completed_at));
-  const totals = { frontier: 0, pymc: 0 };
-  const series = { frontier: [], pymc: [] };
+  const totals = { frontier: 0, pymc: 0, numpyro: 0 };
+  const series = { frontier: [], pymc: [], numpyro: [] };
   for (const { e, s } of runs) {
     totals[e.line] += s.fit_seconds / 3600;
     series[e.line].push({ t: Date.parse(s.completed_at), h: totals[e.line], e, s });
   }
-  const maxH = Math.max(totals.frontier, totals.pymc, 1);
+  const maxH = Math.max(totals.frontier, totals.pymc, totals.numpyro, 1);
   const tf = timeFrame($('chart-compute'), 300, dom, (r) => linear([0, maxH * 1.12], r), niceTicks(0, maxH * 1.12, 5), (t) => `${t} h`,
     'Cumulative fit hours', 'Cumulative fit hours by model line');
   const endLabels = [];
-  for (const line of ['frontier', 'pymc']) {
+  for (const line of Object.keys(LINES)) {
     if (!state.lines[line]) continue;
     const pts = series[line].filter((p) => p.t <= v.T);
     if (!pts.length) continue;
@@ -763,7 +765,7 @@ function drawCompute(v, dom) {
   placeLabels(tf.f, endLabels, []);
   timeHover(tf, [], (t, T) => {
     html('div', { class: 't-value' }, t, fmtWhen.format(T));
-    for (const line of ['frontier', 'pymc']) {
+    for (const line of Object.keys(LINES)) {
       const pts = series[line].filter((p) => p.t <= T);
       const row = html('div', { class: 't-row' }, t);
       const name = html('span', {}, row);
@@ -773,7 +775,7 @@ function drawCompute(v, dom) {
     }
   });
   const rows = [];
-  for (const line of ['frontier', 'pymc']) for (const p of series[line].filter((q) => q.t <= v.T)) rows.push([fmtWhen.format(p.t), LINES[line].short, p.s.run, fmtDur(p.s.fit_seconds), `${p.h.toFixed(2)} h`, p.t]);
+  for (const line of Object.keys(LINES)) for (const p of series[line].filter((q) => q.t <= v.T)) rows.push([fmtWhen.format(p.t), LINES[line].short, p.s.run, fmtDur(p.s.fit_seconds), `${p.h.toFixed(2)} h`, p.t]);
   rows.sort((a, b) => a[5] - b[5]);
   renderTable($('table-compute'), ['Completed', 'Line', 'Run', 'Fit time', 'Cumulative'], rows.map((r) => r.slice(0, 5)), [3, 4]);
 }
@@ -834,7 +836,7 @@ function drawKpis(v) {
   const byLine = (l) => v.entries.filter((e) => e.line === l).length;
   const psisScored = v.entries.filter((e) => score(e) !== null).length;
   tile(box, 'Entries', String(v.entries.length), null,
-    [`${psisScored} PSIS-scored · ${passing} pass the gate`, `${byLine('frontier')} GPU Gibbs · ${byLine('pymc')} PyMC`]);
+    [`${psisScored} PSIS-scored · ${passing} pass the gate`, `${byLine('frontier')} Gibbs · ${byLine('pymc')} PyMC · ${byLine('numpyro')} NumPyro`]);
   const splits = allSplitsCompleted(v.T);
   const hours = splits.reduce((a, { s }) => a + s.fit_seconds, 0) / 3600;
   const cost = v.entries.reduce((a, e) => a + (e.cost_usd || 0), 0);
