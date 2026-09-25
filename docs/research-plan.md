@@ -196,10 +196,19 @@ implementation over implementing our own").
     2,300–2,600 s on the CPU.
   - With 500 draws per chain or fewer, m0q misses the traced-effect gate narrowly: R-hat
     1.013–1.027 on a few buildings, some with a single unit.
-  - **At 4 × (300 + 1,000) it passes:** 1,137 s, R-hat 1.002, ESS 1,517, PSIS-LOO 40,606 (Gibbs:
-    40,604). That is the first library-sampler fit of a design with unit effects that passes the
-    gate. It is outside 15 minutes, but its ESS is almost four times the gate, so draws can be
-    trimmed.
+  - **With more draws it passes.** At 4 × (300 + 1,000): 1,137 s, R-hat 1.002, ESS 1,517,
+    PSIS-LOO 40,606 (Gibbs: 40,604). That is the first library-sampler fit of a design with unit
+    effects that passes the gate. Trimmed to fit the window:
+
+    | Budget | Fit time | Max R-hat | Min ESS | PSIS-LOO |
+    |---|---:|---:|---:|---:|
+    | 4 × (300 + 1,000) | 1,137 s | 1.002 | 1,517 | 40,606.0 |
+    | 4 × (300 + 600) | 952 s | 1.005 | 898 | 40,608.2 |
+    | 4 × (300 + 450) | 885 s | 1.009 | 677 | 40,603.8 |
+    | **4 × (250 + 550)** | **888 s** | **1.005** | **894** | **40,607.5** |
+
+    About 600–640 s of each fit is warmup, so trimming draws saves little. 4 × (250 + 550) fits
+    inside 15 minutes with a comfortable gate margin.
   - Float32 does not work: a chain's step size collapsed.
   - Across samplers and devices, m0q's PSIS-LOO agrees: NUTS minus Gibbs is +5.4 ± 4.2 on
     identical rows.
@@ -422,7 +431,8 @@ comes from other sources, most of them public NYC and NYS data.
 
 **Order.** By expected PSIS-LOO gain per second of fit time:
 1. C.1: NUTS on m0q, m1q and m5 in the new coordinates. Every later step needs a library fit that
-   reaches these designs within 15 minutes.
+   reaches these designs within 15 minutes. m0q passes in 888 s on the 2060. m1q's building walk
+   is next, with yearly knots (B.1) if quarterly knots stay too slow.
 2. A.1 and A.2 (building covariates and location) on the best NUTS design. In parallel, since it
    needs no fits: the building registry (A′) and the first sources: MapPLUTO, subway entrances,
    LION street width and 311 noise;
@@ -494,8 +504,9 @@ The dashboard and board are generated from the run records; see them for the liv
 
 - m5-nocurves + desc is the most accurate fit inside the window. Its ESS of 406 barely clears
   the gate of 400, and at 895 s it is just under the 15-minute limit.
-- Library NUTS (NumPyro, CPU) passes only on the ladder's simplest designs within the window:
-  L0 (40 s) and L1 (128 s). m0q did not finish in 52 min.
+- Library NUTS (NumPyro) in the NUTS-friendly coordinates passes L0–L5 on the CPU (40–909 s) and
+  m0q on the RTX 2060 in 888 s (PSIS-LOO 40,607.5, equal to the deprecated Gibbs m0q). m1q
+  and m5 do not yet fit within the window on NUTS.
 
 The table below is the Modal H100/H200 frontier, recorded when this plan was written.
 
