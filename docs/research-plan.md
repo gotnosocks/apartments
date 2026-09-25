@@ -52,6 +52,14 @@ for this phase.
   recorded frontier run so far used a Modal H100 or H200. Those points stay on the board as
   context, labeled by hardware, but their thelio times are unmeasured. m8 is not refit locally
   (Ben, 2026-09-24).
+- **One timed job at a time** (Ben, 2026-09-24: "I'm okay with waiting longer to do these things
+  serially in favor of getting good data"). Every heavy job on thelio holds
+  `/data1/apartments/tmp/heavy.lock`: fits, LOO and variance scoring, and reviewers' tests. The
+  fit queue runs from a fixed-commit worktree. From commit 3c26c4a, each run record carries a
+  `contention` block: the mean number of cores other processes kept busy during the fit, and any
+  other GPU compute processes. A timing is clean below 0.5 other cores, and the dashboard's Timing
+  column shows it. Thelio fits from before this rule whose times may include contention were
+  moved to `/data1/apartments/frontier/runs-archive/contended-2026-09-24/` and are being re-timed.
 
 ## Rules
 
@@ -138,7 +146,8 @@ efficient models. It runs separately on each local hardware class (RTX 2060 SUPE
   each projection loses. The terms that keep the most accuracy per second of expected fit time
   define the candidates.
 - **Findings so far (RTX 2060).**
-  - m0q passes the gate in 350 s (PSIS-LOO +10.3 vs m0; the quarterly trend costs nothing).
+  - m0q passes the gate (PSIS-LOO +10.3 vs m0; the quarterly trend costs nothing). Its 350 s and
+    m1q's times were measured alongside other jobs and are being re-timed serially.
   - Exact block speedups: per-slot accumulation (−34–37% for walk designs) and a structured
     `a′Wa` with inverted building factors (a further −22–38%).
   - Walk designs need the solo collapsed walk_scale update. Without it walk_scale mixes 3.5×
