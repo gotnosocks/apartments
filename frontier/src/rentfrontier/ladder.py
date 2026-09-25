@@ -52,7 +52,7 @@ import time
 import numpy as np
 
 from . import data, features, loo, model, splits, variance
-from .run import RUNS, ess, feature_sources, git, hardware, score
+from .run import RUNS, contention, cpu_clock, ess, feature_sources, git, hardware, score
 
 RUNGS = {
     "L0-mean": (),
@@ -430,8 +430,10 @@ def fit(rung, backend, commit, log=print):
     inp = inputs()
     prep_seconds = time.perf_counter() - t0
     t0 = time.perf_counter()
+    clock = cpu_clock()
     draws, div = sample(backend, terms, inp)
     fit_seconds = time.perf_counter() - t0
+    load = contention(clock)
     diag = diagnose(draws, div)
     log(
         f"{rung}/{backend}: fit {fit_seconds:.0f} s; max R-hat {diag['max_rhat']:.4f} ({diag['max_rhat_name']}), "
@@ -483,6 +485,7 @@ def fit(rung, backend, commit, log=print):
             "fit_total": fit_seconds,
             "sampling": fit_seconds,
         },
+        "contention": load,
         "cost_usd": None,
         "diagnostics": diag,
         "score": scores,

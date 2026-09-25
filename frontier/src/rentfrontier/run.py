@@ -45,6 +45,49 @@ def git(*args) -> str:
     ).stdout.strip()
 
 
+def cpu_clock():
+    """(machine busy CPU seconds, this process's CPU seconds, wall seconds) now."""
+    with open("/proc/stat") as f:
+        user, nice, system, _idle, _iowait, irq, softirq, steal = (
+            int(x) for x in f.readline().split()[1:9]
+        )
+    busy = (user + nice + system + irq + softirq + steal) / os.sysconf("SC_CLK_TCK")
+    t = os.times()
+    own = t.user + t.system + t.children_user + t.children_system
+    return busy, own, time.perf_counter()
+
+
+def contention(start) -> dict:
+    """What else used the machine while a fit ran, since `start = cpu_clock()`.
+
+    other_cores is the mean number of cores busy with other processes over the
+    fit's wall time; a timing is clean when it is near zero. GPU compute
+    processes other than this one are listed as seen at the end.
+    """
+    busy0, own0, wall0 = start
+    busy1, own1, wall1 = cpu_clock()
+    wall = wall1 - wall0
+    other = max(0.0, (busy1 - busy0) - (own1 - own0))
+    out = {
+        "wall_seconds": wall,
+        "own_cpu_seconds": own1 - own0,
+        "other_cpu_seconds": other,
+        "other_cores": other / wall if wall > 0 else 0.0,
+        "cpus": os.cpu_count(),
+    }
+    try:
+        pids = subprocess.run(
+            ["nvidia-smi", "--query-compute-apps=pid", "--format=csv,noheader"],
+            capture_output=True,
+            text=True,
+            check=False,
+        ).stdout.split()
+        out["gpu_other_pids"] = [int(p) for p in pids if int(p) != os.getpid()]
+    except (OSError, ValueError):
+        pass
+    return out
+
+
 def hardware() -> dict:
     import jax
 
@@ -275,8 +318,10 @@ def main(argv=None):
 
     log(f"{args.name}: {args.split} split, {prep.sizes}")
     t0 = time.perf_counter()
+    clock = cpu_clock()
     out = module.run(prep, config, settings, log=log)
     fit_seconds = time.perf_counter() - t0
+    load = contention(clock)
 
     diag = diagnostics(out["trace"], feats.names, out.get("rhat_all"))
     scores = score(args.split, prep.test_audit_id, out["lpd"], out["lpd_chain"])
@@ -333,6 +378,7 @@ def main(argv=None):
             "fit_total": fit_seconds,
             **out["seconds"],
         },
+        "contention": load,
         "cost_usd": None,  # filled in by the Modal submitter; local runs cost nothing
         "diagnostics": diag,
         "score": scores,
