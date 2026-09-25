@@ -531,4 +531,32 @@ MODELS = {
     # RTX 2060; projection loses ~0.1% more than the monthly trend.
     "m0q": ModelConfig(name="m0q", trend_knot_months=3),
     "m1q": ModelConfig(name="m1q", building_walk=True, trend_knot_months=3),
+    # m6-m8 without the bedroom-group market curves: the curves add ~200
+    # global columns (3 groups x 68 quarterly knots) and the global solve
+    # grows with the square of its size; projection loses only ~120-170
+    # nats without them. Candidates for the sub-10-minute frontier on thelio.
+    "m6-nocurves": ModelConfig(
+        name="m6-nocurves",
+        building_walk=True,
+        bedroom_slope=True,
+        trend_knot_months=3,
+        feature_slopes=("log_sqft_vs_bedroom_median", "bathrooms=2", "bathrooms=3"),
+    ),
+    "m7-nocurves": ModelConfig(
+        name="m7-nocurves",
+        building_walk=True,
+        bedroom_slope=True,
+        trend_knot_months=3,
+        feature_slopes=("log_sqft_vs_bedroom_median", "bathrooms=2", "bathrooms=3"),
+        unit_t=True,
+    ),
+    "m8-nocurves": ModelConfig(
+        name="m8-nocurves",
+        building_walk=True,
+        bedroom_slope=True,
+        trend_knot_months=3,
+        feature_slopes=("log_sqft_vs_bedroom_median", "bathrooms=2", "bathrooms=3"),
+        unit_t=True,
+        unit_drift=True,
+    ),
 }
