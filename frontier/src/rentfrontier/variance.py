@@ -61,6 +61,7 @@ FIXED = {
     "building_feature_slopes": "building slopes",
     "unit": "unit",
     "unit_drift": "unit",
+    "line": "unit",
 }
 
 
@@ -140,6 +141,7 @@ def score_run(name: str):
     if frame.attrs["source_sha256"] != result["dataset_observations_sha256"]:
         raise SystemExit("dataset differs from the run's recorded dataset")
     heldout = splits.SPLITS[result["split"]](frame)
+    frame = data.apply_rules(frame, result.get("data_rules", ()))
     feats = features.build(result["feature_set"], frame, ~heldout)
     prep = model.prepare(frame, heldout, feats)
     names = [str(n) for n in feats.names]
@@ -156,11 +158,12 @@ def score_run(name: str):
             kept,
             a,
             feats.groups,
-            config.building_walk,
+            model.walk_spacing(config),
             config.bedroom_time,
             config.bedroom_slope,
             prep.offset,
             fslope_index,
+            unit_line=prep.unit_line,
         )
         # Constants do not change variances; drop the offset for stability.
         terms["market"] = terms["market"] - prep.offset

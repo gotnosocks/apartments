@@ -1,4 +1,11 @@
-"""Structured blocked Gibbs sampler for the model in `model.build_model`.
+"""DEPRECATED (Ben, 2026-09-25): do not use this sampler for new work.
+
+It is kept only to reproduce the existing run records that cite it; new fits
+use library samplers on `model.build_model` (`run.py --sampler nuts`), and
+`run.py` refuses `--sampler gibbs` without `--reproduce-deprecated`. Do not
+extend it.
+
+Structured blocked Gibbs sampler for the model in `model.build_model`.
 
 Same posterior as the NumPyro model (same priors, Student-t likelihood).
 The Student-t is written as a scale mixture: eps_i | lam_i ~ N(0, sigma^2 /
@@ -142,10 +149,20 @@ def build_design(
     prep: model_module.Prepared, config: model_module.ModelConfig
 ) -> Design:
     base = ("trend", "season", "features", "buildings", "units")
-    if not all(getattr(config, t) for t in base) or config.market_drift:
+    if (
+        not all(getattr(config, t) for t in base)
+        or config.market_drift
+        or config.building_trend
+        or config.walk_knot_months != model_module.KNOT_MONTHS
+        or config.walk_t
+        or config.walk_min_rows_per_knot
+        or config.walk_anchor_data
+        or config.line_effects
+    ):
         raise ValueError(
             f"{config.name}: the Gibbs sampler needs every base term and no market "
-            "drift; fit the model ladder's simplest designs with --sampler nuts"
+            "drift, building trend or walk options (spacing, t steps, mask, anchor); "
+            "fit these designs with --sampler nuts"
         )
     tr = prep.train
     n, f = tr.x.shape
@@ -916,21 +933,7 @@ def init_states(d: Design, key, chains):
     return state
 
 
-def batched(fn, chains, batch):
-    """vmap `fn` over chains, `batch` chains at a time (lax.map over groups)."""
-    if not batch or batch >= chains:
-        return jax.vmap(fn)
-    if chains % batch:
-        raise ValueError("chains must be a multiple of chain_batch")
-
-    def run(*args):
-        grouped = jax.tree.map(
-            lambda a: a.reshape(chains // batch, batch, *a.shape[1:]), args
-        )
-        out = jax.lax.map(lambda g: jax.vmap(fn)(*g), grouped)
-        return jax.tree.map(lambda a: a.reshape(chains, *a.shape[2:]), out)
-
-    return run
+batched = collect_module.batched  # shared with NUTS; kept here for old callers
 
 
 def _rescale(key, e, wts, contrib, tau, prior_sd, step_sd, steps):

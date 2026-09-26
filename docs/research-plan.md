@@ -159,8 +159,11 @@ implementation over implementing our own").
   - PyMC has no conjugate Gaussian step;
   - NIMBLE and JAGS assign conjugate and block samplers automatically, but on the CPU outside this
     stack.
-- The custom Gibbs sampler is therefore **frozen**: no new sampler code. It stays as the benchmark
-  on the thelio frontier and retires once a library sampler matches it there.
+- The custom Gibbs sampler is **deprecated** (Ben, 2026-09-25: not to be used for any new work).
+  - `run.py` defaults to `--sampler nuts` and refuses `--sampler gibbs` without
+    `--reproduce-deprecated`, which exists only to reproduce a run record that cites it.
+  - Its entries stay on the board and dashboard as history, labelled deprecated. They show the
+    marks library samplers have to reach.
 - **NUTS belongs on the CPU here.** On the RTX 2060, NumPyro NUTS took 23 s for L0-mean, 110 s for
   L1-drift and over 20 minutes for L2-trend (stopped), against 8 s, 9 s and 322 s for PyMC NUTS
   on the CPU. Every leapfrog step is many small float64 kernels, and the card runs float64 at
@@ -175,6 +178,78 @@ implementation over implementing our own").
 - **Right-size the NUTS draw budget.** 1,000 + 1,000 draws per chain (PyMC's default) gave ESS
   4,767 on L2 against a gate of 400. The next pass uses 500 warmup + 250 draws per chain, all
   kept for PSIS (1,000 draws), with the dense mass matrix from L4 on.
+- **NUTS-friendly coordinates** (`--coordinates`; Ben, 2026-09-25: "change the model to perform
+  better with one of the libraries"). Each is an exact reparameterization of the same model, and
+  each fixed the failure the one before it exposed:
+
+  | Coordinate | What it samples | Failure it fixed |
+  |---|---|---|
+  | `trend_levels` | absolute quarterly market levels (intercept plus trend) | 500-step trees from the random-walk steps; levels relative to the intercept left an intercept ridge |
+  | `season_zerosum` | the centred season (ZeroSumNormal) | season-scale funnel from the unseen raw mean |
+  | `building_totals` | building effect plus mean features times beta, as a flat mean plus zero-sum deviations | market vs building ridge (Chelsea Tower), and building attributes (doorman, elevator) trading against building levels |
+  | `unit_totals` | unit effect plus its within-building feature deviations times beta | apartment attributes (half baths, floor) trading against unit effects. Centring units on the building effect instead put the market ridge through all 22,000 units |
+  | `unit_partial` | unit effects partially non-centred by row count, n / (n + 0.6) | unit-scale funnel from units listed once |
+  | `walk_levels` | each building walk as levels inside the building's data range (relative to its anchor knot, the one with most rows), non-centred steps outside it | m1q step size 0.007–0.014: each level was a sum of half-year steps from 2009, tied to the building effect |
+  | `slope_totals` | building and unit totals at their mean bedrooms, for per-building bedroom slopes (m5) | not yet run |
+
+  - NumPyro NUTS on the CPU now passes L0–L5: 40 s, 128 s, 43 s, 68 s, 636 s and 909 s.
+    Before the coordinates, L2 took 1,987 s and L3–L5 failed.
+  - For designs with units the RTX 2060 wins: m0q took 752–947 s in float64 on the 2060, against
+    2,300–2,600 s on the CPU.
+  - With 500 draws per chain or fewer, m0q misses the traced-effect gate narrowly: R-hat
+    1.013–1.027 on a few buildings, some with a single unit.
+  - **With more draws it passes.** At 4 × (300 + 1,000): 1,137 s, R-hat 1.002, ESS 1,517,
+    PSIS-LOO 40,606 (Gibbs: 40,604). That is the first library-sampler fit of a design with unit
+    effects that passes the gate. Trimmed to fit the window:
+
+    | Budget | Fit time | Max R-hat | Min ESS | PSIS-LOO |
+    |---|---:|---:|---:|---:|
+    | 4 × (300 + 1,000) | 1,137 s | 1.002 | 1,517 | 40,606.0 |
+    | 4 × (300 + 600) | 952 s | 1.005 | 898 | 40,608.2 |
+    | 4 × (300 + 450) | 885 s | 1.009 | 677 | 40,603.8 |
+    | **4 × (250 + 550)** | **888 s** | **1.005** | **894** | **40,607.5** |
+
+    With 250–300 warmup iterations, warmup takes 598–642 s of each fit (673–787 s with 400–500),
+    so trimming draws saves little. 4 × (250 + 550) fits inside 15 minutes with a comfortable
+    gate margin.
+  - Float32 does not work: a chain's step size collapsed.
+  - Across samplers and devices, m0q's PSIS-LOO agrees. Against the deprecated Gibbs m0q
+    (ac9e02b, RTX 2060) on identical rows, NUTS minus Gibbs is +3.1 ± 4.0 for 4 × (250 + 550) and
+    +1.6 ± 3.7 for 4 × (300 + 1,000).
+  - m1q (the building walk) did not finish within 60 minutes on the 2060. With `walk_levels`
+    (fad9e4f, 4 × (250 + 550)) its step sizes grew to 0.029, 0.029, 0.030 and 0.016, but the
+    250 warmup iterations still took 1,243 s (5 s each, as before). The fit was stopped at
+    33 minutes under the 30-minute cap, so it has no record.
+  - Warmup, not the starting point, is the cost. Starting chains within ±0.5 instead of
+    NumPyro's ±2 left m0q unchanged (3e80efb: 874 s, warmup 585 s against 598 s, PSIS-LOO
+    40,606.8). Each warmup iteration costs about 5 times a sampling iteration (m0q: 2.4 s
+    against 0.5 s). NumPyro's first 75 warmup iterations adapt only the step size, with an
+    identity mass matrix. Warmup is now logged in five segments (`warmup_segments`).
+  - **The SVI warm start cuts m0q to 592 s** (7229ef0, 4 × (250 + 550), `--svi-steps 2000`),
+    and it still passes (R-hat 1.006, ESS 817). Before sampling, 2,000 steps of NumPyro SVI
+    fit a mean-field normal guide (46 s). Each chain starts at a draw from it, with its
+    variances as the initial mass matrix. Warmup drops from 598 s to 252 s. PSIS-LOO is
+    40,602.1, −5.3 ± 3.5 against the 888 s fit on identical rows (Monte Carlo noise: it is
+    the same model).
+  - A shorter warmup does not pay: 4 × (150 + 550) with the warm start took 746 s. Warmup was
+    142 s, but its one mass-matrix window left step sizes of 0.022–0.027, and sampling took
+    541 s against 277 s (it passes: R-hat 1.006, ESS 596; PSIS-LOO 40,607.0).
+  - The first two warmup segments ran at 58–67 leapfrog steps per iteration with step sizes
+    0.07–0.13. The third, after NumPyro's first mass-matrix window, ran at 258 with 0.014–0.045.
+    NumPyro regularizes windowed estimates as Stan does, adding 1e-3 × 5 / (n + 5) to every
+    variance. After a 25-draw window no coordinate's metric sd is below 0.013, while the
+    tightest posterior sds are a few thousandths.
+  - Keeping the SVI metric fixed (adapting only the step size; 15db8f8) is fast but fails the
+    gate. m0q took 452 s: warmup 115 s at 50–71 leapfrog steps per iteration, final step sizes
+    0.084–0.095. But R-hat was 1.039 on season_scale and the minimum ESS 75 on a building,
+    along directions a mean-field guide misses: the season-scale funnel, and building totals
+    against their units' totals. A low-rank guide (rank 20, 2,000 steps) did not converge: its
+    loss ended about 1,100 above the mean-field guide's, and its metric ran at 472 leapfrog
+    steps per iteration. Both options were removed.
+  - The sampler line stops here (Ben, 2026-09-25; see "Misspecification first" below). The
+    NUTS coordinates and the SVI warm start stay; no further sampler work.
+  - Every timed fit is capped at 30 minutes (Ben, 2026-09-25). Past the 15-minute window a fit
+    has already shown it is outside, and its warmup log gives the diagnostics.
 - New sampler work uses library samplers on `model.build_model`, with library options only:
   - NumPyro NUTS (`--sampler nuts`), with a diagonal or a structured dense mass matrix;
   - BlackJAX's NUTS and many-chain adaptation;
@@ -203,7 +278,7 @@ implementation over implementing our own").
     - m0q, 4 × (500 + 2000): 253 s, passes (350 s when measured alongside other jobs).
     - m1q with the solo walk-scale update, 4 × (300 + 1500): 702 s, passes (709 s before). Its
       cost is the solo update's extra block solves, not contention.
-    - m0q gains nothing measurable over m0: PSIS-LOO +10.3 ± 11.1.
+    - m0q gains nothing measurable over m0: PSIS-LOO +10.5 ± 11.1.
   - Round 2, description flags, 2 × (300 + 3000):
     - m0q + desc: 309 s, passes; PSIS-LOO about +174 over m0q.
     - m5-nocurves + desc: 1,125 s, passes.
@@ -212,9 +287,9 @@ implementation over implementing our own").
       coefficient move together, and the slope scales mix slowly.
     - m7-nocurves + desc: 1,298 s, **fails** (fslope_scale[2] ESS 194).
     - m8-nocurves + desc: 1,573 s, **fails** (unit_drift_scale R-hat 1.085, ESS 52).
-  - Fitting the 15-minute window by trimming draws (the sampler is frozen, so only settings change):
+  - Fitting the 15-minute window by trimming draws (settings only):
     - m5-nocurves at 2 × (300 + 2300) passes: 823 s with base features, 895 s with desc.
-    - m1q + desc at 4 × (300 + 1100): 883 s, fails (R-hat 1.015).
+    - m1q + desc at 4 × (300 + 1100): 883 s, fails (R-hat 1.015, ESS 379).
   - Exact block speedups: per-slot accumulation (−34–37% for walk designs) and a structured
     `a′Wa` with inverted building factors (a further −22–38%).
   - Walk designs need the solo collapsed walk_scale update. Without it walk_scale mixes 3.5×
@@ -225,6 +300,399 @@ implementation over implementing our own").
 - **Step 3. Native fits.** Fit the best candidates on each local class within 15 minutes with the
   step 1 settings, then score PSIS-LOO and the variance decomposition. These points form that
   class's sub-15-minute frontier.
+- **Step 4. Structure search within 15 minutes** (Ben, 2026-09-25: explore feature space and model
+  shapes to keep improving the frontier under the 15-minute limit). See the next section.
+
+## Misspecification first (Ben, 2026-09-25)
+
+Ben: "I believe the heuristic guidance that if a model is hard to sample then it is probably
+misspecified. Can we direct our efforts toward feature engineering modeling decisions rather than
+computational tweaks?" So a sampling problem is read as a diagnostic of the model or the data, and
+the fix goes into the model, the features or the data, not the sampler.
+
+**What the sampling problems point at.**
+- **Heavy tails everywhere.** The residual Student-t has ν ≈ 1.9–2.6 in every design (m0q 2.6, m1q
+  1.9, m8 2.2), and m8's unit effects are t with ν ≈ 2. At ν = 2 the variance is infinite: the
+  model is defending against gross outliers at the row and unit level. Most of the worst rows are
+  not keyword-flaggable product types: desc-v1 already flags furnished, income-restricted,
+  rent-stabilized, shared, short-term, outdoor and duplex listings. In m5-nocurves + desc
+  (e343847), the worst 1% of rows (473) carry 11% of the LOO deficit. They include:
+  - implausible attributes, such as a "Full Floor" labelled as a studio at $28,681;
+  - asks far from the same unit's other listings, such as a 1-bedroom at $2,395 against a unit
+    median of $5,824, which suggests one unit ID covering different apartments. 715 rows are more
+    than 1.5 times off their unit's median, with mean LOO 0.15 against 1.07;
+  - other units: SRO-like rooms at 225 W 23rd St (the Chelsea Hotel, $999–1,610) and
+    luxury extremes.
+  Half of the worst rows are units listed once, against 24% of all rows.
+- **Weakly identified terms.** The building walk has about one row per occupied half-year knot
+  (median 1.2) and a median of 7 empty knots before a building's first listing. The unit scale
+  makes a funnel from the units listed once (47% of all units; 51% of the units in the training rows). These are candidates for simpler,
+  better-identified shapes: building drift, neighbourhood-level time terms, yearly knots, and
+  column (line) effects that let a unit listed once borrow from its line.
+
+**Results.**
+- **Bedroom labels change within units.** 12.3% of the 11,713 units listed more than once
+  change bedroom count between listings. 86% of those change by one, and 87% keep one square
+  footage: the same apartment advertised as a studio or a junior one-bedroom, a one-bedroom or
+  a flex two.
+- **Unit-consistent bedrooms: +791 ± 73 PSIS-LOO on m0q** (`unitbeds-v1`, d80a714, the 592 s
+  NUTS configuration; 631 s, passes). The bedroom levels use the unit's own count, the lower
+  median of its listings. `bedrooms_vs_unit` carries a listing's relabel, fitted at
+  +0.099 ± 0.003 per bedroom, against 0.23–0.26 for a real bedroom between units. The gain is
+  on identical rows against m0q base-v1 (7229ef0), and +615 ± 79 against m0q with the
+  description flags (desc-v1). Held-out ΔELPD improves by about 150. ν barely moves
+  (2.59 → 2.62), so relabels were not what made the tails heavy.
+- **Unit square feet: +653 ± 53 more** (`unitattrs-v1`, 403d94c; 626 s, passes). Each unit's
+  size is the median of the sizes its listings state, used for every listing, so size is unknown
+  on 52% of rows instead of 65%. Together with unit bedrooms: **+1,445 ± 91 over m0q base-v1**.
+  ν stays at 2.6.
+- **Unit label flags: +234 ± 29 more** (`unitlabels-v1`, 8914d43; 609 s, passes). Penthouse,
+  garden and lower-level units, from the unit's StreetEasy label. Penthouses ask 12% more than
+  other units of the same building, year and bedrooms. Total: **+1,679 ± 95 over m0q base-v1**.
+- Floors from unit labels, unchecked (`unitfloor-v1`, abca5b7), gave 16 divergences and only
+  +18 PSIS-LOO. In 121 buildings the label's number is not a floor ("24A" in a 4-storey
+  building): 421 of the 3,445 filled floors exceed MapPLUTO's floor count + 1. `unitfloor-v2`
+  fills a floor only where the building is tall enough (3,065 rows). Listed floors have the
+  same problem on 474 rows, and one registry match looks wrong ("The Cortland", a new tower,
+  has a 3-storey lot). Both go to the data audit.
+- **Checked label floors: +28.7 ± 7.3** over `unitlabels-v1` (`unitfloor-v2`, 55f745f; 605 s,
+  passes, no divergences). That is +1,708 ± 95 over m0q base-v1, the best feature set so far.
+  Features now carry 55.9% of the variance (from 52%), buildings 28.9% (from 31.6%), units
+  2.7% (from 3.5%).
+- **One linear trend per building: +3,165 ± 93** (`m0q-btrend`, 55f745f, with `unitlabels-v1`;
+  634 s, passes). That is 1,129 numbers, each centred on its building's mean month, against the
+  walk's 34 steps per building. Trends are ±1.5% a year between the 5th and 95th percentiles
+  (scale 0.012). Against m0q base-v1 the gain is +4,844 ± 130 PSIS-LOO within 11 minutes.
+  The walk still does better: the deprecated Gibbs m1q (base-v1) is 2,636 ± 152 ahead, so part
+  of each building's path is not linear. The next shape between the two is a coarse, smooth
+  building-time term.
+- With `unitfloor-v2` the trend gives 45,484.9 (0962ea7; 646 s, passes): +4,891 over the m0
+  baseline, the best gate-passing library fit so far.
+- **A walk with knots every 2 years, around the trend** (`m1-btrend-walk24`, 0962ea7, walk
+  levels): 1,150 s, **fails**. building_trend_scale has R-hat 1.077 and ESS 35 because a walk
+  already holds a trend: the two trade off, and the fitted trend scale fell to 0.005. PSIS-LOO
+  is 48,748.2, which is +3,263 ± 88 over the trend alone and +666 ± 128 over the deprecated Gibbs
+  half-year walk (m1q, base-v1). Held-out ΔELPD is +237.6, against −185.4. Next: the coarse
+  walk alone, at 2- and 3-year knots.
+- **The walk alone, knots every 3 years** (`m1-walk36`, 937c466): **771 s**, within the window.
+  It narrowly misses the gate: walk_scale ESS is 368 against 400 (max R-hat 1.008), and there is 1 divergence.
+  PSIS-LOO is 48,096.7: +2,612 over the linear trend, and level with the deprecated Gibbs
+  half-year walk (m1q, 48,082.6) at a fifth of the knots. Building over time takes 1.1% of the
+  variance, and the residual falls to 3.1%.
+- **The walk alone, knots every 2 years** (`m1-walk24`, 937c466): **812 s**, fails on walk_scale
+  (R-hat 1.019, ESS 200). PSIS-LOO is 48,742.7, the same as with the trend (48,748.2), so the
+  trend added nothing. It is +646 over the 3-year walk and +660 over the Gibbs m1q.
+- **Both Normal coarse walks fail on walk_scale;** their every-element R-hat is fine (1.012 and 1.018). The fitted 2-year steps have kurtosis 7.3:
+  most buildings move little and a few jump, so one Normal scale compromises. Next: Student-t
+  walk steps (`walk_t`, df estimated), `m1-twalk36` and `m1-twalk24`.
+- **Student-t steps, df estimated** (`m1-twalk36`, e6718f5): 845 s, fails. The df is poorly
+  identified by latent steps (walk_nu 2.64 ± 0.19, R-hat 1.06, ESS 80). PSIS-LOO is 48,211.5,
+  +115 over the Normal 3-year walk, so heavy-tailed steps fit better. Next: df fixed at 3
+  (`walk_nu_fixed`; `m1-t3walk36`, `m1-t3walk24`).
+- **df fixed at 3** (9fa29ee). Both walks fit within 15 minutes, and both fail on walk_scale and on the every-element R-hat (see the correction below):
+  - 3-year (`m1-t3walk36`): 817 s, walk_scale ESS 292, PSIS-LOO 48,201.5;
+  - 2-year (`m1-t3walk24`): 859 s, walk_scale ESS 297 (and a traced building at R-hat 1.012),
+    **PSIS-LOO 48,944.1**, the best yet: +201 over the Normal 2-year walk and about +8,350
+    over the m0 baseline.
+- **Why walk_scale mixes slowly:** at 2-year knots, 529 of 1,128 buildings have fewer than 2
+  training rows per knot of their data range, a third of the walk levels (2,269 of 6,551).
+  Those levels are mostly prior, and they make the scale's funnel: the walk is more flexible
+  than the data support. Next: walks only where the data can carry one
+  (`walk_min_rows_per_knot`; `m1-t3walk24-min2`, `m1-walk24-min2`). The other buildings follow
+  the market trend at their building level.
+- **Masking data-poor buildings did not fix it** (`m1-t3walk24-min2`, 345628a): 865 s,
+  walk_scale ESS 346, and a building at R-hat 1.018. **The specification problem is where the
+  walk is anchored.** Every building's walk is 0 at the panel's first month, so its building
+  level, and the building prior, refer to its level in early 2010. A building first listed in
+  2020 reaches that level through ten years of prior-only walk steps, and the building prior
+  ties the walk scale to them. Next: each walk is anchored at 0 at its building's own anchor
+  knot (`walk_anchor_data`; `m1-t3walk24-anchored`). The building level is then its level
+  where it is observed.
+- **Anchoring did not fix it either** (d1867e8): 934 s, walk_scale ESS 195, held-out ΔELPD
+  +268.4, PSIS-LOO 48,992.6 (the best yet).
+- **Correction (PR #25 review).** An earlier version of this entry blamed the coarse walks'
+  failures on walk_scale ESS alone and called them slow mixing, not misspecification. The
+  records say otherwise. Every Student-t walk run also fails the every-element check (R-hat <
+  1.05 over every walk and building value):
+
+  | Run | Every-element R-hat | Elements > 1.05 |
+  |---|---:|---:|
+  | m1-t3walk24-anchored (d1867e8) | 1.318 | 22 |
+  | m1-t3walk24 (9fa29ee) | 1.615 | 12 |
+  | m1-t3walk36 (9fa29ee) | 1.616 | 10 |
+  | m1-twalk36 (e6718f5) | 2.133 | 8 |
+  | m1-t3walk24-min2 (345628a) | 1.058 | 1 |
+
+  m1-walk36 (937c466) also had 1 divergence. About half of the flagged elements are prior-only
+  knots outside a building's data range, which is heavy-tail noise. The worst are chains that
+  sit in different modes inside the data range, each traced to one or two odd rows:
+  - 299 10th Ave: a lone 2011 row labelled `spac1`, a $5,300 "studio", where the other 29 rows
+    ask $2,000–3,300;
+  - 181 9th Ave: a 2022 `1h` at $1,650, against six others at $2,900–5,500;
+  - 227 W 17th: five $30,000–35,000 lofts, with the 7th floor under three unit IDs (`7thfl`,
+    `7th-fl`, `7th-floor`).
+
+  The Normal walks do not split this way (every-element R-hat 1.012 and 1.018). With
+  heavy-tailed steps, a walk can take up a single outlier as a building jump or leave it alone,
+  and the chains find both. More draws will not fix that. It is a data and specification
+  signal, which is Ben's principle. Next: unit identity (the same physical unit under several
+  labels) and non-residential or implausible rows, as data-audit rules scored on shared rows.
+- **Data rule `unit-labels-v1`: one unit id per physical unit.** 521 groups of units in one
+  building have the same label written differently: "4-FLR" and "4FLR", "02" and "2",
+  "UNIT4J" and "4J", and the three spellings of 227 W 17th's 7th floor. Merging them removes
+  534 unit ids (22,144 → 21,610), and 641 fewer training units are listed once. Rows are
+  unchanged, and the rule applies after the held-out split is drawn (the row split depends on
+  unit ids), so it scores on identical rows. `run.py --data-rules` applies it, and the run
+  record lists it for the scorers.
+- **With the rule, the best passing library (NUTS) fit is 45,815.1** (`m0q-btrend`, `unitdesc-v1`,
+  `--data-rules unit-labels-v1`, df5dacb; 745 s, passes). That is +188.6 ± 25.9 over the same
+  design without the rule on identical rows, and **+5,221 over the m0 baseline**. (The
+  deprecated Gibbs m5-nocurves + desc still passes at +9,921.7 on the same hardware.)
+- With the rule, the anchored 2-year t walk (`m1-t3walk24-anchored`, `unitdesc-v1`) scores
+  49,394.5, the best overall (+8,801 over the m0 baseline). It still fails, in 1,031 s, and
+  the rule does not fix the split chains (PR #26 review).
+  - The every-element maximum falls from 1.318 to 1.209, but the elements above 1.05 rise from
+    22 to 36.
+  - The worst is still 299 10th Ave's `spac1` row, which the rule does not touch. The feature
+    set also changed (`unitfloor-v2` to `unitdesc-v1`).
+  - 19 gate quantities fail: two traced buildings (R-hat 1.032; ESS 150), walk_scale (R-hat
+    1.015, ESS 182) and sigma (R-hat 1.011), among others.
+- **The Normal 3-year walk with the rule nearly passes** (`m1-walk36`, `unitdesc-v1`,
+  `unit-labels-v1`, 4 × (250 + 650), df5dacb): **880 s**. walk_scale ESS is 401,
+  every-element R-hat 1.014, no divergences. It fails only on the market trend point
+  trend[144] (R-hat 1.0106 against 1.01). Held-out ΔELPD is +137.4. The Normal steps give no
+  split chains. The trend point mixes slowly because a common shift of every building's walk
+  at a time trades off against the market trend there: only the priors separate "market up"
+  from "every building up". Two ways out: sum-to-zero walks across buildings (a model change:
+  the market trend carries all common time variation), or a per-knot mean plus zero-sum split
+  of the walks (an exact coordinate, as for the building totals). Ben's call.
+- **Line ("column") effects within buildings** (`m0q-btrend-lines`, `unitdesc-v1`,
+  `unit-labels-v1`, 4224e62; Ben's backlog). Units stacked vertically share an effect, taken
+  from the unit label (23C and 4C are line C; 1204 and 304 are line 04; 2ND, 4TH and 4THFL
+  are the floor-through line), for lines with at least 2 training units: 2,871 lines holding
+  12,996 units, including 4,987 of the 10,628 training units listed once. The fit took 810 s.
+  - **PSIS-LOO +175.6 ± 23.9** over the same design without lines, on identical rows
+    (45,990.7). Held-out ΔELPD is about unchanged (−170.6 against −173.4).
+  - line_scale is 0.039, and unit_scale falls from 0.078 to 0.072.
+  - It fails only on line_scale (R-hat 1.028, ESS 200). The every-element R-hat is 1.026 and
+    there are no divergences. A line's effect trades off against its 2–4 units' effects, the
+    same pattern as the walk scale. The fixes are the same two kinds: a model choice (lines
+    with at least 3 units), or centring units on their line (as `unit_totals` centres them on
+    their building). Ben's call.
+- **Listed floors above a building's MapPLUTO height** (407 rows in 11 buildings) are mostly in
+  new towers: 507 West Chelsea (listed up to 33, MapPLUTO 13), One Hudson Yards, Avalon West
+  Chelsea, The Cortland and One High Line. The listings are right; the lot's floor count is
+  stale or the registry matched the wrong lot. Using the listings' highest floor as the height
+  in the label-floor check would add a floor to only 17 rows, so it was not pursued. The
+  registry matches for new towers go to the data audit.
+- For the data audit, from the PR #28 review:
+  - some numbered "lines" merge different stacks: 270 units in about 135 numbered lines have
+    a label floor more than 2 above their building's highest listed floor (The Caledonia's
+    4907, 5007 and 5110 in a 24-floor building; The Tate; The Sierra; The Westminster), so
+    their labels are probably unit numbers, not floor plus line;
+  - 13 floor-through units appear under two spellings that `unit-labels-v1` does not merge
+    ("5TH" and "5THFL", "4FL" and "4THFL", "2ND" and "2NDFL").
+- For the data audit, from the PR #26 review:
+  - `unit-labels-v1` may join renumbered units ("09" and "9", "08" and "8" at 228 8th Ave);
+  - with the units split, the rule would join 77 held-out units (142 rows) to training units,
+    so `run.py` refuses data rules on the units split.
+- **Description flags on the unit features, with the building trend** (`m0q-btrend`,
+  `unitdesc-v1`, acab950): 697 s, passes (R-hat 1.006, ESS 634). PSIS-LOO is 45,626.5:
+  +141.6 ± 28.1 over `unitfloor-v2`, and **+5,033 over the m0 baseline**. It was the best
+  gate-passing library fit until the unit-labels-v1 rule (below).
+- Within-unit price jumps (240 rows more than 2× off the unit's other listings, trend-adjusted)
+  are mostly real changes: renovations, combined apartments, market moves. Almost none are
+  furnished or short-term. A renovation mention appearing within a unit comes with only about
+  +3% on the ask, which desc-v1's `renovated` flag already prices.
+- Other attributes also vary within units: square feet (9% of multi-row units; stated on 35% of
+  rows, 48% if filled from the unit's other listings), laundry (12%, in-building against
+  in-unit) and doorman (7%; it varies across listings in 116 of 1,129 buildings).
+
+**Order.**
+1. **Data quality** (backlog "Data quality"). Audit rows by rules that do not use a model's
+   residuals: within-unit consistency, attribute plausibility (price per square foot, bedrooms
+   against square feet and text), unit and building identity (104 slugs on 41 lots). Decide per
+   finding: correct, exclude, or add a feature. **Scoring (Ben, 2026-09-25): shared rows.** Every
+   model compared, the baseline included, is refit and scored on the rows both versions keep,
+   and the excluded count is reported next to the score.
+2. **Features for distinct products.** SRO or hotel rooms, full floors and lofts, townhouse
+   floors, penthouses, and the attributes the text states but the listing fields miss.
+3. **Model shape.** Simpler time and unit terms (above), judged by PSIS-LOO and by whether the
+   tails lighten (ν rising) and the geometry eases.
+
+## Structure search under 15 minutes (from 2026-09-25)
+
+**Goal.** Raise the most accurate gate-passing fit within 15 minutes on each thelio hardware class,
+with library samplers only.
+- The deprecated Gibbs sampler left a mark on the RTX 2060: m5-nocurves + desc, +9,922 PSIS-LOO
+  over m0 in 895 s.
+- The library path first has to reach comparable designs within the window (C.1). Then every
+  candidate either buys time back or spends it better.
+
+**Method.**
+1. Screen cheaply before fitting.
+   - Projection (`rentfrontier.projection`, seconds per structure) of the m8 + desc reference onto
+     each candidate ranks structures the way their native PSIS-LOO does.
+   - The variance decomposition shows where unexplained variation sits: features about 50%,
+     building about 30%, unit 2–3%, residual 2–4%.
+   - A candidate goes to a native fit only if projection says it beats the current mark.
+2. Estimate its fit time before fitting.
+   - NUTS cost is tree depth × gradient cost. The depth depends on the coordinates (see the NUTS
+     findings above).
+   - The gradient cost grows with rows × terms, plus the per-building and per-unit arrays.
+3. Fit the shortlist natively, one at a time, within 15 minutes on each class. Right-size the draw
+   budget to the gate (ESS > 400) and score PSIS-LOO and the variance decomposition.
+4. Keep what moves the frontier; record what doesn't, in this plan and on the board.
+
+**A. Feature space.** New features are new feature-set ids (`features.py`; `base-v2`, and so on).
+They enter the design matrix, so NUTS fits them like any other design.
+
+1. **Building covariates in the building mean.**
+   - The data: stories, residential units and zip from archived building pages
+     (`data/model/building-covariates-20260923`, 1,072 of 1,129 buildings); the archive's year
+     built is a placeholder, so skip it.
+   - A building-level column in the row predictor is exactly a regression in the building mean.
+   - For NUTS, write it in the building mean: building ~ N(γ·z, τ), the same hierarchical
+     centering as `unit_totals`. That avoids the collinearity with the building levels that the
+     earlier PyMC screen hit.
+   - Expect the gain on buildings with few rows, which carry most of the high-k PSIS rows.
+   - **First result: MapPLUTO on m0q** (`pluto-v1`: era, floors, units, area per unit, building
+     class, landmark, historic district, floor-area ratio, flood zone, recent alteration). NUTS on
+     the 2060, the same coordinates and budget with and without it.
+     - PSIS-LOO: −7.5 ± 17.0 (no measurable change).
+     - Variance decomposition: features 52% → 74%, anonymous building effect 32% → 10%. Unit
+       (3.4%) and residual (4.2%) are unchanged.
+     - The building attributes explain about two thirds of the building-level variation, which the
+       building effects were already capturing. So accuracy is equal and the description is much
+       more interpretable.
+2. **Location.** Buildings have latitude and longitude. Try a low-rank spatial basis over building
+   locations, as building-level columns, so neighbouring buildings share information (west vs
+   east Chelsea, the avenues, the High Line).
+3. **Floor.** The label-derived floor and the expanded-floor sidecar (T3.2) next to the advertised
+   floor label.
+4. **Size and layout.**
+   - A nonlinear size deviation: splines on log square feet relative to the bedroom median.
+   - Bedrooms × size.
+   - Bathrooms per bedroom.
+5. **Description flags.**
+   - desc-v1 adds about +200 but 21 columns, and on m1q it cost 1.6× the fit time.
+   - Ablate the flags to find a short set that keeps most of the gain for fewer columns.
+   - Later, richer text features (embeddings or topics), which need new tooling.
+6. **Pruning.** Drop base-v1 columns that carry nothing (some view and window flags), to buy time
+   for columns that do.
+7. **External and neighbourhood data, widely** (Ben, 2026-09-25: explore and test widely from all
+   sources, not just StreetEasy). Details in the next section.
+
+**A′. External and neighbourhood data.** The listings describe the apartment. What surrounds it
+comes from other sources, most of them public NYC and NYS data.
+
+*Join and provenance.*
+- **Building registry first.** Map every building to its BBL (tax lot) and BIN (building) with the
+  NYC Planning GeoSearch geocoder: the address from the building slug, checked against the archived
+  coordinates. Keep the registry versioned. Every external feature joins through BBL, BIN or
+  coordinates.
+- **Snapshots with provenance.** Each source is a dated snapshot under
+  `/data1/apartments/external/<source>/<date>/`, recording the URL, query, retrieval time and
+  sha256. A feature set records the snapshots it uses; run records already carry the feature
+  sources.
+- **As-of values.** Time-varying sources give each listing the values known by its listing date.
+  That covers 311, crime, violations, permits and new stations; the 7-train extension to Hudson
+  Yards opened in 2015. No future information.
+
+*Sources and candidate features.* Building-level unless noted.
+
+| Area | Source | Features |
+|---|---|---|
+| Building | MapPLUTO (DCP) | year built (replaces StreetEasy's placeholder), floors, units, lot and building area, building class, landmark or historic district, zoning |
+| Condition | HPD violations and complaints; DOB permits | open violations per unit, as-of; recent alteration permits (renovation proxy) |
+| Regulation | DOF rent-stabilization counts | share of stabilized units in the building |
+| Energy | Local Law 84 benchmarking | Energy Star score |
+| Street | LION street centerline (DCP); DOT traffic counts; street tree census | frontage street width and lanes, avenue vs side street, one-way, traffic volume, tree density on the block |
+| Noise | 311 service requests | noise complaints near the building per year, by type (traffic, construction, nightlife), as-of |
+| Transit | MTA subway entrances (GTFS); Citi Bike; PATH | distance to the nearest entrance, lines within 400/800 m, the 2015 Hudson Yards 7 extension |
+| Schools | DOE school locations, zones and School Quality Reports | zoned elementary school and its ratings, schools nearby |
+| Everyday | NYS Ag & Markets retail food stores; DOHMH restaurant inspections; OpenStreetMap | grocery and pharmacy distance, restaurant density |
+| Health | NYS DOH facility locations | distance to the nearest hospital |
+| Open space | NYC Parks properties | distance to a park, the High Line, Hudson River Park, the waterfront |
+| Safety | NYPD complaint data | incidents near the building per year, as-of |
+| Risk | FEMA and NYC flood hazard maps | flood zone |
+
+*Unit orientation* (street vs courtyard, and the street's size).
+- StreetEasy's view and exposure fields are sparse (base-v1 has `view_street`, `view_courtyard`
+  and window directions).
+- Add description flags ("courtyard-facing", "quiet rear", "faces the street").
+- Infer orientation geometrically: the unit's window directions against the bearing of the
+  building's frontage street (LION and building footprints). A street-facing unit then gets that
+  street's width and traffic.
+- Height against the neighbours (MapPLUTO heights) as a light and view proxy.
+
+*Testing.*
+- Add each source group as its own feature set, alone and then combined.
+- Put building-level features in the building mean (the NUTS-friendly form).
+- Screen by projection, then fit the best combinations natively within 15 minutes.
+- The gain should show up mainly on buildings with few rows and on units listed once.
+- Also watch the variance decomposition. Named neighbourhood features that take over building-level
+  variance make the description more interpretable, even at equal PSIS-LOO.
+- Census demographics (ACS) are deprioritized.
+  - Ben's concern is the lag. Tracts only have 5-year estimates, published about a year after
+    their window closes, so an as-of value is centred 3–4 years before the listing.
+  - A period-matched window (centred on the listing year) exists only through about 2021.
+  - With about 20 tracts under our 1,129 buildings, a static tract value adds little beyond the
+    building levels. The within-tract change over time that could add something is blurred by the
+    averaging and by tract-level sampling error.
+  - Resident demographics also raise fair-housing concerns in a rent model.
+  - If tried at all: period-matched windows, screened by projection, after the sources dated to the
+    day (311, permits, violations, crime, transit).
+
+**B. Model shapes.** Parameterization and shape switches in `model.ModelConfig`.
+
+1. **Walk knot spacing.** Half-year to yearly knots halve the per-building walk parameters
+   (about 38,000 steps), the largest array in walk designs. Measure the PSIS-LOO cost against the time saved;
+   the saved time can go into slopes or features.
+2. **Bedroom curves.** These are the market curve per bedroom group, dropped in the nocurves
+   designs to save about 200 global columns. Yearly knots would cost 51 columns instead,
+   and could win back part of the curves' gain at a fraction of the cost.
+3. **Trend knot spacing.** Quarterly costs nothing measurable against monthly; test half-year.
+4. **Per-building slopes.**
+   - The bedroom slope pays (+2,200 over m1q).
+   - The size and bath slopes (m6) did not mix under the deprecated Gibbs sampler.
+   - Try them under NUTS, or a single size slope.
+5. **Unit effects.**
+   - Student-t units (+1,200) and unit drift (+360) did not mix under the deprecated Gibbs sampler
+     (21–26 minutes).
+   - Candidates under NUTS: as they are, with a fixed unit ν, or drift only for units with a long
+     history.
+6. **Noise.**
+   - Heteroskedastic noise by bedroom group or by price basis. The earlier building-level residual
+     scale was suggestive at +45 ± 29.
+   - Fixed ν, as a speed option.
+7. **Pooling structure.** A neighbourhood or spatial level between market and building, which
+   pairs with A.1–A.2.
+8. **Column ("line") effects** (Ben, 2026-09-25). A level between building and unit for units that
+   stack vertically ("4C", "7C", "12C"), so a unit listed once borrows from its line's history. It
+   also carries the unit-orientation features (A′). The plan is in the
+   [research backlog](model/research-backlog.md), under "Column ("line") effects".
+
+**C. Implementations within 15 minutes.**
+1. **NUTS in NUTS-friendly coordinates on the CPU.**
+   - Exact reparameterizations: trend levels, zero-sum season, units centred within buildings.
+   - If NUTS reaches m0q/m1q/m5 within 15 minutes, it can fit any shape `build_model` expresses
+     without sampler code. That includes the t-unit, drift and slope shapes the deprecated Gibbs
+     sampler could not mix.
+2. **Per-design draw budgets and chain counts** sized to the gate on each hardware class.
+3. **Library samplers only** (Ben, 2026-09-25): the custom Gibbs sampler is deprecated. Other
+   libraries (BlackJAX NUTS, nutpie) run on the same model if NumPyro's NUTS falls short.
+
+**Order.** By expected PSIS-LOO gain per second of fit time:
+1. C.1: NUTS on m0q, m1q and m5 in the new coordinates. Every later step needs a library fit that
+   reaches these designs within 15 minutes. m0q passes in 888 s on the 2060. m1q's building walk
+   is next, with yearly knots (B.1) if quarterly knots stay too slow.
+2. A.1 and A.2 (building covariates and location) on the best NUTS design. In parallel, since it
+   needs no fits: the building registry (A′) and the first sources: MapPLUTO, subway entrances,
+   LION street width and 311 noise;
+3. B.1 (yearly walk knots), reinvesting the saved time in B.2 (yearly bedroom curves) or A.5;
+4. the t-unit and drift shapes under NUTS (B.5);
+5. A.5 (flag ablation), A.6 (pruning), B.6 (noise) and A.3–A.4.
 
 ## Work tracks, in order
 
@@ -257,6 +725,11 @@ implementation over implementing our own").
 
 ### T3. The accuracy axis
 
+0. **Clean the data so the model can be less defensive** (Ben, 2026-09-25). Find and fix, or
+   document and exclude, the rows the heavy tails protect against. Then test whether lighter tails
+   (larger ν, Gaussian noise) win on the cleaned data, which would also speed up the samplers. The
+   plan is in the [research backlog](model/research-backlog.md), under "Data quality".
+
 1. **Walk regularization for sparse building periods.** The high-k finding says lone rows pin walk
    knots. Try knot pooling or a stronger walk prior where a building-period has few rows.
 2. **m9 candidates** from the frontier hand-off: floor features (the expanded-floor sidecar) and a
@@ -285,8 +758,9 @@ The dashboard and board are generated from the run records; see them for the liv
 
 - m5-nocurves + desc is the most accurate fit inside the window. Its ESS of 406 barely clears
   the gate of 400, and at 895 s it is just under the 15-minute limit.
-- Library NUTS (NumPyro, CPU) passes only on the ladder's simplest designs within the window:
-  L0 (40 s) and L1 (128 s). m0q did not finish in 52 min.
+- Library NUTS (NumPyro) in the NUTS-friendly coordinates passes L0–L5 on the CPU (40–909 s) and
+  m0q on the RTX 2060 in 888 s (PSIS-LOO 40,607.5, equal to the deprecated Gibbs m0q). m1q
+  and m5 do not yet fit within the window on NUTS.
 
 The table below is the Modal H100/H200 frontier, recorded when this plan was written.
 

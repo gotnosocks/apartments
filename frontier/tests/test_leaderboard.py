@@ -179,3 +179,19 @@ def test_latest_record_is_the_newest_scoring_commit_not_the_newest_file(tmp_path
         )
     # b-old and c-unknown were written last (newest files); a-new still wins.
     assert leaderboard.latest_records(tmp_path)["r"]["tag"] == "a-new"
+
+
+def test_runs_that_differ_only_in_data_rules_do_not_collide():
+    from rentfrontier.leaderboard import design_key
+
+    run = {
+        "hardware": {"jax_devices": ["cuda:0"], "gpu": "NVIDIA GeForce RTX 2060 SUPER"},
+        "commit": "abc1234",
+        "model": {"name": "m0q"},
+        "feature_set": "base-v1",
+        "sampler": "nuts",
+        "sampler_settings": {"chains": 4},
+    }
+    ruled = run | {"data_rules": ["unit-labels-v1"]}
+    assert design_key(run) != design_key(ruled)
+    assert design_key(run) == design_key(run | {"data_rules": []})

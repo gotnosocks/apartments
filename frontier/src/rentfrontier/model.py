@@ -10,9 +10,10 @@ can be non-centered through `ModelConfig.noncentered` (NumPyro
 LocScaleReparam). The design is set by `ModelConfig`; the feature set is
 chosen separately (features.py).
 
-This is the one definition of every design. The Gibbs sampler (gibbs.py)
-works on it through `gibbs.site_values`, NUTS (nuts.py) samples it directly,
-and both are scored by the same code (collect.py, loo.py, variance.py).
+This is the one definition of every design. NUTS (nuts.py) samples it
+directly; the deprecated Gibbs sampler (gibbs.py, kept only to reproduce old
+run records) works on it through `gibbs.site_values`. Both are scored by the
+same code (collect.py, loo.py, variance.py).
 """
 
 from __future__ import annotations
@@ -24,7 +25,9 @@ import numpy as np
 import numpyro
 import numpyro.distributions as dist
 import pandas as pd
+from numpyro.distributions import constraints
 
+from . import data as data_module
 from .features import Features
 
 
@@ -52,10 +55,98 @@ class ModelConfig:
     # Sites to non-center. With ~2.4 rows per unit, ~42 per building and
     # ~250 per month the data dominate, so centered is the default.
     noncentered: tuple = ()
+    # Sampling coordinates for gradient samplers. Like `noncentered` they change
+    # how a sampler moves, not the model (each is a unit-Jacobian linear map,
+    # and the original sites stay as deterministic sites):
+    # - "trend_levels": sample the market's absolute knot levels (intercept
+    #   plus trend) instead of the trend's steps: each quarter's rows inform
+    #   that quarter's level directly, where the steps are strongly
+    #   correlated. Sampling the trend's levels relative to the intercept
+    #   instead leaves a ridge (intercept up, every level down) that NUTS
+    #   cannot cross (c1ad7d0: L2 intercept R-hat 1.83).
+    # - "season_zerosum": sample the centred season (ZeroSumNormal) instead of
+    #   12 raw values whose mean the data never see; that mean's prior depends
+    #   on the season scale and makes a funnel (bfcf2cb: L3 season_scale ESS
+    #   263). Integrating the unseen mean out leaves every other posterior
+    #   exactly unchanged.
+    # - "building_zerosum": sample the building levels (and per-building
+    #   bedroom slopes) as their mean plus zero-sum deviations. i.i.d. normal
+    #   values split exactly into those two independent parts. The mean is a
+    #   single global number, so a dense mass matrix can follow the ridge
+    #   "market up, every building down" that the prior alone pins
+    #   (1b0dca6: L5 Chelsea Tower level R-hat 1.04, ESS 42).
+    # - "unit_totals": sample each unit's own effect plus its mean features
+    #   times beta, less its building's mean features times beta when the
+    #   building is centred too (hierarchical centering, level by level), so
+    #   apartment attributes (size, baths, floor) do not trade off against the
+    #   unit effects (41e8fe0: m0q half-baths R-hat 1.017). Including the
+    #   building effect in the unit total instead puts the market-level ridge
+    #   through every unit (41e8fe0: m0q Chelsea Tower R-hat 1.13).
+    # - "unit_partial": partially non-centre each unit effect by its number of
+    #   rows, n / (n + UNIT_KAPPA) (LocScaleReparam with per-unit weights).
+    #   Units listed once are half prior, half data; fully centred, their
+    #   effects and the unit scale make a funnel (ed9a8a3: m0q unit_scale
+    #   R-hat 1.017, ESS 240).
+    # - "building_totals": the same one level up. Sample each building's
+    #   total (its effect plus its mean features times beta), split into a
+    #   global mean plus zero-sum deviations; the building prior is imposed on
+    #   total - features. Building attributes (doorman, elevator) then do not
+    #   trade off against the building levels (f4ffd1a: L5 doorman R-hat 1.026).
+    # - "walk_levels" (with building_walk and building_totals): sample each
+    #   building's walk as levels inside its data range (the knots its rows
+    #   touch, first to last), relative to its anchor knot (the one with most
+    #   rows), and as non-centred steps outward from that range. The building
+    #   total is the building's level at its anchor. The data inform levels;
+    #   in step coordinates each level is a sum of many steps from the first
+    #   month, all tied to the building effect. There, m1q's NUTS step size was
+    #   0.007-0.014 against m0q's 0.04-0.06, and its warmup took over 2,500 s
+    #   (f20e38d).
+    # - "slope_totals" (with bedroom_slope and building_totals): the building
+    #   total is at the building's mean bedrooms rather than at one bedroom,
+    #   and with unit_totals each unit's total adds its building's slope times
+    #   its bedrooms less the building's mean. A building of studios or
+    #   2-bedrooms otherwise trades its total against its bedroom slope.
+    coordinates: tuple = ()
     # Per-building random walk over KNOT_MONTHS knots (anchored at 0 in the
     # first month), interpolated linearly between knots.
     building_walk: bool = False
     walk_scale_sd: float = 0.1
+    # Months between walk knots (KNOT_MONTHS = 6 for the designs up to m8).
+    walk_knot_months: int = 6
+    # Student-t walk steps (df estimated, Gamma(2, 0.1)): most buildings move
+    # little and a few jump (conversions, lease-ups); the fitted 2-year steps
+    # of a Normal walk have kurtosis 7.3 (937c466), and its one scale mixed
+    # slowly (walk_scale R-hat 1.019, ESS 200).
+    walk_t: bool = False
+    # A fixed df for Student-t walk steps (None = estimated). The latent steps
+    # identify the df poorly (e6718f5: walk_nu 2.64 +- 0.19, R-hat 1.06).
+    walk_nu_fixed: float | None = None
+    # Buildings with fewer training rows per knot of their data range than
+    # this have no walk: they follow the market trend at their building level.
+    # At 2-year knots 529 of 1,128 buildings have under 2, and their walk
+    # levels are mostly prior; with them the walk scale mixed slowly
+    # (9fa29ee: walk_scale ESS 292).
+    walk_min_rows_per_knot: float = 0.0
+    # Anchor each building's walk at 0 at its own anchor knot (the knot its
+    # training rows weigh most) instead of the panel's first month. The
+    # building level, and its prior, are then the building's level where it is
+    # observed. At the first month, a building first listed in 2020 has a
+    # level reached through ten years of prior-only walk steps, and its prior
+    # ties the walk scale to them (345628a: walk_scale ESS 346, a building
+    # R-hat 1.018).
+    walk_anchor_data: bool = False
+    # Line ("column") effects within buildings: units stacked vertically ("4C",
+    # "7C", "12C") share an effect, so a unit listed once borrows from its
+    # line (Ben, 2026-09-25 backlog). Only lines with at least 2 training
+    # units: 2,871 lines hold 12,996 units, and 4,987 of the 10,628 training
+    # units listed once are in one.
+    line_effects: bool = False
+    line_scale_sd: float = 0.1
+    # Per-building linear trend in log rent per year, centred on the building's
+    # mean training month: trend_b ~ N(0, building_trend_scale^2). One number
+    # per building, against the walk's 34 steps at about one row per step.
+    building_trend: bool = False
+    building_trend_scale_sd: float = 0.05
     # Bedroom-group market curves: random-walk deviations of the month trend
     # for studios, 2- and 3+-bedrooms, relative to 1-bedrooms.
     bedroom_time: bool = False
@@ -157,6 +248,9 @@ class Prepared:
     test: Arrays
     test_audit_id: np.ndarray
     unit_mean_month: np.ndarray | None = None  # (units,) mean training month
+    # (units,) index of the unit's line among lines with at least 2 training
+    # units, -1 otherwise (line_effects).
+    unit_line: np.ndarray | None = None
 
     @property
     def sizes(self):
@@ -191,6 +285,12 @@ def prepare(frame: pd.DataFrame, heldout: np.ndarray, features: Features) -> Pre
     prep.unit_mean_month = (
         months.groupby(tr.unit_id).mean().reindex(prep.units).to_numpy().astype(float)
     )
+    lines = (
+        data_module.unit_line_key(tr).groupby(tr.unit_id).first().reindex(prep.units)
+    )
+    shared = lines.map(lines.value_counts()).ge(2)
+    codes = pd.Categorical(lines.where(shared)).codes  # -1 for NaN
+    prep.unit_line = np.asarray(codes, dtype=np.int32)
     prep.train = row_arrays(prep, frame, train)
     prep.test = row_arrays(prep, frame, heldout)
     return prep
@@ -253,11 +353,11 @@ def linear_predictor(p, a: Arrays, include_unit=True):
     )
     if "walk_step" in p:
         w = e["walk"]
-        mu = (
-            mu
-            + (1 - a.knot_frac) * w[a.building, a.knot]
-            + a.knot_frac * w[a.building, a.knot + 1]
-        )
+        mu = mu + walk_term(w, a, p.get("walk_knot_months", KNOT_MONTHS))
+    if "building_trend" in p:
+        mu = mu + building_trend_term(e, a)
+    if "line" in p:
+        mu = mu + line_term(e["line"], p["unit_line"], a)
     if "bedroom_time_step" in p:
         mu = mu + e["bedroom_time"][a.bed_group, a.month]
     if "bedroom_slope" in p:
@@ -271,6 +371,58 @@ def linear_predictor(p, a: Arrays, include_unit=True):
                 a.unit >= 0, p["unit_drift"][jnp.maximum(a.unit, 0)] * a.unit_time, 0.0
             )
     return mu
+
+
+def walk_spacing(config: ModelConfig) -> int:
+    """The walk's knot spacing in months, or 0 for designs without a walk."""
+    return config.walk_knot_months if config.building_walk else 0
+
+
+def walk_position(a: Arrays, spacing: int):
+    """Each row's walk knot (at or before its month) and interpolation weight
+    on the next knot, for knots every `spacing` months. For KNOT_MONTHS these
+    are Arrays.knot and Arrays.knot_frac."""
+    if spacing == KNOT_MONTHS:
+        return a.knot, a.knot_frac
+    return a.month // spacing, (a.month % spacing) / spacing
+
+
+def walk_term(w, a: Arrays, spacing: int):
+    """Each row's building walk, linearly interpolated between knots (w: knot
+    values, (buildings, knots), or draws with a leading axis)."""
+    knot, frac = walk_position(a, spacing)
+    return (1 - frac) * w[..., a.building, knot] + frac * w[..., a.building, knot + 1]
+
+
+def line_term(line, unit_line, a):
+    """Each row's line effect (0 for rows of units without a shared line, or
+    without training rows); line may have a leading draws axis."""
+    xp = jnp if isinstance(line, jnp.ndarray) else np
+    ul = xp.asarray(unit_line).astype(int)[xp.maximum(a.unit, 0)]
+    has = (a.unit >= 0) & (ul >= 0)
+    return xp.where(has, line[..., xp.maximum(ul, 0)], 0.0)
+
+
+def building_trend_term(e, a):
+    """Each row's building trend: rate per year times years from the
+    building's mean training month (e: effects, or draws with a leading axis)."""
+    rate, center = e["building_trend"], e["building_mean_month"]
+    return rate[..., a.building] * (a.month - center[..., a.building]) / 12.0
+
+
+def _walk(p):
+    """Building walks at the knots, 0 at the first knot (or, with
+    "walk_anchor", at each building's anchor knot), and 0 for buildings
+    without a walk ("walk_mask")."""
+    steps = p["walk_step"]
+    walk = jnp.concatenate(
+        [jnp.zeros((steps.shape[0], 1)), jnp.cumsum(steps, axis=1)], axis=1
+    )
+    if "walk_anchor" in p:
+        walk = walk - walk[jnp.arange(walk.shape[0]), p["walk_anchor"]][:, None]
+    if "walk_mask" in p:
+        walk = walk * p["walk_mask"][:, None]
+    return walk
 
 
 def effects(p):
@@ -303,18 +455,14 @@ def effects(p):
         "season_scale": p["season_scale"],
         # Building walks (knot values; knot 0 is fixed at 0). Placeholders
         # when the design has no walk keep the effect tree the same shape.
-        "walk": (
-            jnp.concatenate(
-                [
-                    jnp.zeros((p["walk_step"].shape[0], 1)),
-                    jnp.cumsum(p["walk_step"], axis=1),
-                ],
-                axis=1,
-            )
-            if "walk_step" in p
-            else jnp.zeros((1, 1))
-        ),
+        "walk": _walk(p) if "walk_step" in p else jnp.zeros((1, 1)),
         "walk_scale": p.get("walk_scale", jnp.zeros(())),
+        "walk_nu": p.get("walk_nu", jnp.zeros(())),  # 0 = Normal walk steps
+        "line": p.get("line", jnp.zeros(1)),
+        "line_scale": p.get("line_scale", jnp.zeros(())),
+        "building_trend": p.get("building_trend", jnp.zeros(1)),
+        "building_trend_scale": p.get("building_trend_scale", jnp.zeros(())),
+        "building_mean_month": p.get("building_mean_month", jnp.zeros(1)),
         # Market-curve deviation per bedroom group (row 1 = 1-bedroom = 0).
         "bedroom_time": _bedroom_time(p),
         "bedroom_time_scale": p.get("bedroom_time_scale", jnp.zeros(())),
@@ -346,7 +494,10 @@ def constants(prep: Prepared, config: ModelConfig) -> dict:
     (scale 0) for the base terms the design drops."""
     n_months = len(prep.periods)
     if not config.buildings and (
-        config.building_walk or config.bedroom_slope or config.feature_slopes
+        config.building_walk
+        or config.building_trend
+        or config.bedroom_slope
+        or config.feature_slopes
     ):
         raise ValueError(f"{config.name}: building terms need building levels")
     if not config.units and (config.unit_t or config.unit_drift):
@@ -364,10 +515,63 @@ def constants(prep: Prepared, config: ModelConfig) -> dict:
             [prep.features.names.index(n) for n in config.feature_slopes],
             dtype=jnp.int32,
         )
+    if config.building_walk:
+        out["walk_knot_months"] = config.walk_knot_months
+        if config.walk_min_rows_per_knot > 0:
+            out["walk_mask"] = jnp.asarray(walk_mask(prep, config))
+        if config.walk_anchor_data:
+            weight, _, _ = walk_data_range(prep, config.walk_knot_months)
+            out["walk_anchor"] = jnp.asarray(weight.argmax(axis=1), dtype=jnp.int32)
+    if config.line_effects:
+        if prep.unit_line is None or not (prep.unit_line >= 0).any():
+            raise ValueError("line_effects needs units in shared lines")
+        out["unit_line"] = jnp.asarray(prep.unit_line, dtype=jnp.int32)
+    if config.building_trend:
+        out["building_mean_month"] = jnp.asarray(
+            _group_means(
+                np.asarray(prep.train.month, dtype=float)[:, None],
+                prep.train.building,
+                len(prep.buildings),
+            )[:, 0]
+        )
     if config.nu_fixed is not None:
         out["nu"] = jnp.asarray(config.nu_fixed)
+    if config.walk_t and config.walk_nu_fixed is not None:
+        out["walk_nu"] = jnp.asarray(config.walk_nu_fixed)
     if config.unit_t and config.unit_nu_fixed is not None:
         out["unit_nu"] = jnp.asarray(config.unit_nu_fixed)
+    if "unit_totals" in config.coordinates:
+        # A unit's building, for centring units within buildings.
+        ub = np.full(len(prep.units), -1)
+        ub[prep.train.unit] = prep.train.building
+        if (ub < 0).any() or (ub[prep.train.unit] != prep.train.building).any():
+            raise ValueError("unit_totals needs every unit in exactly one building")
+        out["unit_building"] = jnp.asarray(ub, dtype=jnp.int32)
+        out["unit_xbar"] = jnp.asarray(
+            _group_means(prep.train.x, prep.train.unit, len(prep.units))
+        )
+    if "unit_partial" in config.coordinates:
+        rows = np.bincount(np.asarray(prep.train.unit), minlength=len(prep.units))
+        out["unit_centering"] = jnp.asarray(rows / (rows + UNIT_KAPPA))
+    if "building_totals" in config.coordinates:
+        out["building_xbar"] = jnp.asarray(
+            _group_means(prep.train.x, prep.train.building, len(prep.buildings))
+        )
+    if config.building_walk and "walk_levels" in config.coordinates:
+        if "building_totals" not in config.coordinates:
+            raise ValueError("walk_levels needs building_totals")
+        out |= _walk_ranges(prep, config.walk_knot_months, out.get("walk_mask"))
+    if config.bedroom_slope and "slope_totals" in config.coordinates:
+        if "building_totals" not in config.coordinates:
+            raise ValueError("slope_totals needs building_totals")
+        beds = prep.train.beds_centered[:, None]
+        out["building_beds"] = jnp.asarray(
+            _group_means(beds, prep.train.building, len(prep.buildings))[:, 0]
+        )
+        if "unit_totals" in config.coordinates:
+            out["unit_beds"] = jnp.asarray(
+                _group_means(beds, prep.train.unit, len(prep.units))[:, 0]
+            )
     zero = jnp.zeros(())
     if not config.features:
         out["beta"] = jnp.zeros(len(prep.features.names))
@@ -382,6 +586,139 @@ def constants(prep: Prepared, config: ModelConfig) -> dict:
     return out
 
 
+# (noise sd / unit sd)^2 from the fitted m0q (0.066 / 0.086)^2: a unit with n
+# rows is centred by n / (n + UNIT_KAPPA) under "unit_partial". Any fixed
+# value gives the same model; it only sets NUTS's coordinates.
+UNIT_KAPPA = 0.6
+
+
+def _group_means(x, group, n):
+    """Mean of the rows of x in each of n groups (training rows)."""
+    x = np.asarray(x, dtype=float)
+    sums = np.zeros((n, x.shape[1]))
+    np.add.at(sums, np.asarray(group), x)
+    counts = np.bincount(np.asarray(group), minlength=n)
+    return sums / np.maximum(counts, 1)[:, None]
+
+
+def _centred_totals(site: str, loc, scale, n: int):
+    """Effects e ~ i.i.d. N(0, scale) sampled through their totals t = loc + e,
+    written as a global mean plus zero-sum deviations (flat coordinates) with
+    the prior imposed on t - loc. Returns e as a deterministic site `site`."""
+    mean = numpyro.sample(
+        f"{site}_total_mean", dist.ImproperUniform(constraints.real, (), ())
+    )
+    dev = numpyro.sample(
+        f"{site}_total_dev", dist.ImproperUniform(constraints.zero_sum(1), (), (n,))
+    )
+    effect = mean + dev - loc
+    numpyro.factor(f"{site}_prior", dist.Normal(0.0, scale).log_prob(effect).sum())
+    return numpyro.deterministic(site, effect)
+
+
+def _mean_plus_zero_sum(site: str, scale, n: int):
+    """n i.i.d. N(0, scale) values sampled as their mean (N(0, scale / sqrt(n)))
+    plus zero-sum deviations (ZeroSumNormal(scale)): the same distribution,
+    split into its two independent parts. Returns the values as a
+    deterministic site named `site`."""
+    mean = numpyro.sample(f"{site}_mean", dist.Normal(0.0, scale / jnp.sqrt(n)))
+    dev = numpyro.sample(f"{site}_dev", dist.ZeroSumNormal(scale, (n,)))
+    return numpyro.deterministic(site, mean + dev)
+
+
+def walk_data_range(prep: Prepared, spacing: int):
+    """Each building's walk knot weights (training rows' interpolation weight
+    on each knot) and its data range: the first and last knot with weight."""
+    a = prep.train
+    n_knot = n_knots(len(prep.periods), spacing)
+    knot, frac = walk_position(a, spacing)
+    weight = np.zeros((len(prep.buildings), n_knot))
+    np.add.at(weight, (a.building, knot), 1 - frac)
+    np.add.at(weight, (a.building, np.minimum(knot + 1, n_knot - 1)), frac)
+    has = weight > 0
+    if not has.any(axis=1).all():
+        raise ValueError("the walk needs training rows in every building")
+    first = has.argmax(axis=1)
+    last = n_knot - 1 - has[:, ::-1].argmax(axis=1)
+    return weight, first, last
+
+
+def walk_mask(prep: Prepared, config: ModelConfig) -> np.ndarray:
+    """1 for buildings with a walk, 0 for those with fewer training rows per
+    knot of their data range than config.walk_min_rows_per_knot."""
+    _, first, last = walk_data_range(prep, config.walk_knot_months)
+    rows = np.bincount(prep.train.building, minlength=len(prep.buildings))
+    return (rows / (last - first + 1) >= config.walk_min_rows_per_knot).astype(float)
+
+
+def _walk_ranges(prep: Prepared, spacing: int, mask=None) -> dict:
+    """Each building's walk data range for "walk_levels": the knots its
+    training rows put interpolation weight on, first to last, and its anchor,
+    the knot with the most weight. A building without a walk (mask 0) gets
+    the anchor alone, so all its walk coordinates are non-centred prior."""
+    weight, first, last = walk_data_range(prep, spacing)
+    n_knot = weight.shape[1]
+    anchor = weight.argmax(axis=1)
+    if mask is not None:
+        first = np.where(mask > 0, first, anchor)
+        last = np.where(mask > 0, last, anchor)
+    k = np.arange(n_knot)
+    return {
+        # the knots other than the anchor, in order: one free coordinate each
+        "walk_free_index": jnp.asarray(
+            [np.delete(k, j) for j in anchor], dtype=jnp.int32
+        ),
+        "walk_first": jnp.asarray(first, dtype=jnp.int32),
+        "walk_last": jnp.asarray(last, dtype=jnp.int32),
+        "walk_before": jnp.asarray(k < first[:, None]),
+        "walk_after": jnp.asarray(k > last[:, None]),
+        # steps between two knots of the range
+        "walk_inside_step": jnp.asarray(
+            (k[:-1] >= first[:, None]) & (k[1:] <= last[:, None])
+        ),
+    }
+
+
+def _walk_levels(scale, fixed, nu=None):
+    """Building walks for "walk_levels" (a unit-Jacobian map of the steps,
+    apart from the non-centred steps' scale). Inside a building's range the
+    coordinates are its levels less its anchor's level, flat, with the random
+    walk's prior on their differences. Outside it they are standard normal
+    steps outward: back from the first knot, on from the last. Returns the
+    steps (deterministic site walk_step) and each building's walk at its
+    anchor knot."""
+    index = fixed["walk_free_index"]
+    before, after = fixed["walk_before"], fixed["walk_after"]
+    free = numpyro.sample(
+        "walk_free", dist.ImproperUniform(constraints.real, (), index.shape)
+    )
+    rows = jnp.arange(index.shape[0])
+    full = jnp.zeros(before.shape).at[rows[:, None], index].set(free)  # anchor: 0
+    outside = before | after
+    level = jnp.where(outside, 0.0, full)
+    back = jnp.where(before, scale * full, 0.0)
+    back = jnp.flip(jnp.cumsum(jnp.flip(back, axis=1), axis=1), axis=1)
+    on = jnp.cumsum(jnp.where(after, scale * full, 0.0), axis=1)
+    level = jnp.where(
+        before,
+        level[rows, fixed["walk_first"]][:, None] - back,
+        jnp.where(after, level[rows, fixed["walk_last"]][:, None] + on, level),
+    )
+    steps = jnp.diff(level, axis=1)
+    step_prior = (
+        dist.Normal(0.0, scale) if nu is None else dist.StudentT(nu, 0.0, scale)
+    )
+    inside = step_prior.log_prob(steps)
+    standard = dist.Normal(0.0, 1.0) if nu is None else dist.StudentT(nu, 0.0, 1.0)
+    numpyro.factor(
+        "walk_prior",
+        jnp.where(fixed["walk_inside_step"], inside, 0.0).sum()
+        + jnp.where(outside, standard.log_prob(full), 0.0).sum(),
+    )
+    # The model's walk is 0 at the first knot: walk(k) = level(k) - level(0).
+    return numpyro.deterministic("walk_step", steps), -level[:, 0]
+
+
 def build_model(prep: Prepared, config: ModelConfig):
     from numpyro.infer.reparam import LocScaleReparam
 
@@ -392,6 +729,7 @@ def build_model(prep: Prepared, config: ModelConfig):
     beta_sd = config.beta_sd * jnp.asarray(prep.features.prior_scale)
     fixed = constants(prep, config)
     trend_basis = fixed["trend_basis"]
+    n_lines = int(np.max(prep.unit_line)) + 1 if config.line_effects else 0
 
     def model():
         p = dict(fixed)
@@ -424,16 +762,87 @@ def build_model(prep: Prepared, config: ModelConfig):
             p["market_drift"] = numpyro.sample(
                 "market_drift", dist.Normal(0.0, config.market_drift_sd)
             )
-        if config.trend:
+        if config.trend and "trend_levels" in config.coordinates:
+            # alpha is the anchor knot's level; the walk prior is on the steps
+            # between absolute levels (a unit-Jacobian shift of the steps).
+            absolute = numpyro.sample(
+                "trend_absolute",
+                dist.ImproperUniform(constraints.real, (), (trend_basis.shape[1],)),
+            )
+            steps = jnp.diff(absolute, prepend=jnp.reshape(p["alpha"], (1,)))
+            numpyro.factor(
+                "trend_walk", dist.Normal(0.0, p["trend_scale"]).log_prob(steps).sum()
+            )
+            p["trend_step"] = numpyro.deterministic("trend_step", steps)
+        elif config.trend:
             p["trend_step"] = numpyro.sample(
                 "trend_step",
                 dist.Normal(0.0, p["trend_scale"]).expand([trend_basis.shape[1]]),
             )
-        if config.season:
+        if config.season and "season_zerosum" in config.coordinates:
+            p["season_raw"] = numpyro.deterministic(
+                "season_raw",
+                numpyro.sample("season", dist.ZeroSumNormal(p["season_scale"], (12,))),
+            )
+        elif config.season:
             p["season_raw"] = numpyro.sample(
                 "season_raw", dist.Normal(0.0, p["season_scale"]).expand([12])
             )
-        if config.buildings:
+
+        def bedroom_slope():
+            p["bedroom_slope_scale"] = numpyro.sample(
+                "bedroom_slope_scale", dist.HalfNormal(config.bedroom_slope_scale_sd)
+            )
+            if "building_zerosum" in config.coordinates:
+                p["bedroom_slope"] = _mean_plus_zero_sum(
+                    "bedroom_slope", p["bedroom_slope_scale"], len(prep.buildings)
+                )
+            else:
+                p["bedroom_slope"] = numpyro.sample(
+                    "bedroom_slope",
+                    dist.Normal(0.0, p["bedroom_slope_scale"]).expand(
+                        [len(prep.buildings)]
+                    ),
+                )
+
+        def walk_nu():
+            if config.walk_nu_fixed is not None:
+                return jnp.asarray(config.walk_nu_fixed)
+            return numpyro.sample("walk_nu", dist.Gamma(2.0, 0.1))
+
+        walk_levels = config.building_walk and "walk_levels" in config.coordinates
+        slope_totals = config.bedroom_slope and "slope_totals" in config.coordinates
+        if walk_levels:
+            # Before the buildings: a building's total is its level at its
+            # anchor knot, which includes its walk there.
+            p["walk_scale"] = numpyro.sample(
+                "walk_scale", dist.HalfNormal(config.walk_scale_sd)
+            )
+            if config.walk_t:
+                p["walk_nu"] = walk_nu()
+            p["walk_step"], walk_at_anchor = _walk_levels(
+                p["walk_scale"], fixed, p.get("walk_nu")
+            )
+            if "walk_mask" in fixed:
+                walk_at_anchor = walk_at_anchor * fixed["walk_mask"]
+            if config.walk_anchor_data:  # the walk is 0 at the anchor itself
+                walk_at_anchor = jnp.zeros_like(walk_at_anchor)
+        if slope_totals:  # before the buildings, whose totals include it
+            bedroom_slope()
+        if config.buildings and "building_totals" in config.coordinates:
+            loc = fixed["building_xbar"] @ p["beta"]
+            if walk_levels:
+                loc = loc + walk_at_anchor
+            if slope_totals:
+                loc = loc + p["bedroom_slope"] * fixed["building_beds"]
+            p["building"] = _centred_totals(
+                "building", loc, p["building_scale"], len(prep.buildings)
+            )
+        elif config.buildings and "building_zerosum" in config.coordinates:
+            p["building"] = _mean_plus_zero_sum(
+                "building", p["building_scale"], len(prep.buildings)
+            )
+        elif config.buildings:
             p["building"] = numpyro.sample(
                 "building",
                 dist.Normal(0.0, p["building_scale"]).expand([len(prep.buildings)]),
@@ -444,16 +853,30 @@ def build_model(prep: Prepared, config: ModelConfig):
                 if config.unit_nu_fixed is not None
                 else numpyro.sample("unit_nu", dist.Gamma(2.0, 0.1))
             )
-            p["unit"] = numpyro.sample(
-                "unit",
-                dist.StudentT(p["unit_nu"], 0.0, p["unit_scale"]).expand(
-                    [len(prep.units)]
-                ),
+        if config.units:
+            n_units = len(prep.units)
+            loc = 0.0
+            if "unit_totals" in config.coordinates:
+                # Centre each unit on its own mean features, less its building's
+                # when the building is centred on those (building_totals).
+                xbar = fixed["unit_xbar"]
+                if "building_totals" in config.coordinates and config.buildings:
+                    xbar = xbar - fixed["building_xbar"][fixed["unit_building"]]
+                loc = xbar @ p["beta"]
+                if slope_totals:
+                    ub = fixed["unit_building"]
+                    within = fixed["unit_beds"] - fixed["building_beds"][ub]
+                    loc = loc + p["bedroom_slope"][ub] * within
+            prior = (
+                dist.StudentT(p["unit_nu"], loc, p["unit_scale"])
+                if config.unit_t
+                else dist.Normal(loc, p["unit_scale"])
             )
-        elif config.units:
-            p["unit"] = numpyro.sample(
-                "unit", dist.Normal(0.0, p["unit_scale"]).expand([len(prep.units)])
-            )
+            if "unit_totals" in config.coordinates:
+                total = numpyro.sample("unit_total", prior.expand([n_units]))
+                p["unit"] = numpyro.deterministic("unit", total - loc)
+            else:
+                p["unit"] = numpyro.sample("unit", prior.expand([n_units]))
         if config.unit_drift:
             p["unit_drift_scale"] = numpyro.sample(
                 "unit_drift_scale", dist.HalfNormal(config.unit_drift_scale_sd)
@@ -462,14 +885,41 @@ def build_model(prep: Prepared, config: ModelConfig):
                 "unit_drift",
                 dist.Normal(0.0, p["unit_drift_scale"]).expand([len(prep.units)]),
             )
-        if config.building_walk:
+        if config.line_effects:
+            p["line_scale"] = numpyro.sample(
+                "line_scale", dist.HalfNormal(config.line_scale_sd)
+            )
+            p["line"] = numpyro.sample(
+                "line",
+                dist.Normal(0.0, p["line_scale"]).expand([n_lines]),
+            )
+        if config.building_trend:
+            p["building_trend_scale"] = numpyro.sample(
+                "building_trend_scale", dist.HalfNormal(config.building_trend_scale_sd)
+            )
+            p["building_trend"] = numpyro.sample(
+                "building_trend",
+                dist.Normal(0.0, p["building_trend_scale"]).expand(
+                    [len(prep.buildings)]
+                ),
+            )
+        if config.building_walk and not walk_levels:
             p["walk_scale"] = numpyro.sample(
                 "walk_scale", dist.HalfNormal(config.walk_scale_sd)
             )
+            if config.walk_t:
+                p["walk_nu"] = walk_nu()
             p["walk_step"] = numpyro.sample(
                 "walk_step",
-                dist.Normal(0.0, p["walk_scale"]).expand(
-                    [len(prep.buildings), n_knots(n_months) - 1]
+                (
+                    dist.StudentT(p["walk_nu"], 0.0, p["walk_scale"])
+                    if config.walk_t
+                    else dist.Normal(0.0, p["walk_scale"])
+                ).expand(
+                    [
+                        len(prep.buildings),
+                        n_knots(n_months, config.walk_knot_months) - 1,
+                    ]
                 ),
             )
         if config.bedroom_time:
@@ -482,16 +932,8 @@ def build_model(prep: Prepared, config: ModelConfig):
                     [len(TIME_GROUPS), p["bedroom_time_basis"].shape[1]]
                 ),
             )
-        if config.bedroom_slope:
-            p["bedroom_slope_scale"] = numpyro.sample(
-                "bedroom_slope_scale", dist.HalfNormal(config.bedroom_slope_scale_sd)
-            )
-            p["bedroom_slope"] = numpyro.sample(
-                "bedroom_slope",
-                dist.Normal(0.0, p["bedroom_slope_scale"]).expand(
-                    [len(prep.buildings)]
-                ),
-            )
+        if config.bedroom_slope and not slope_totals:
+            bedroom_slope()
         if config.feature_slopes:
             p["fslope_scales"] = numpyro.sample(
                 "fslope_scales",
@@ -508,7 +950,19 @@ def build_model(prep: Prepared, config: ModelConfig):
         mu = linear_predictor(p, arrays)
         numpyro.sample("y", dist.StudentT(p["nu"], mu, p["sigma"]), obs=y)
 
-    reparam = {site: LocScaleReparam(centered=0) for site in config.noncentered}
+    reparam = {
+        site: LocScaleReparam(
+            centered=0,
+            shape_params=("df",) if site == "walk_step" and config.walk_t else (),
+        )
+        for site in config.noncentered
+    }
+    if config.units and "unit_partial" in config.coordinates:
+        site = "unit_total" if "unit_totals" in config.coordinates else "unit"
+        reparam[site] = LocScaleReparam(
+            centered=fixed["unit_centering"],
+            shape_params=("df",) if config.unit_t else (),
+        )
     return numpyro.handlers.reparam(model, config=reparam) if reparam else model
 
 
@@ -598,6 +1052,93 @@ MODELS = {
     # RTX 2060; projection loses ~0.1% more than the monthly trend.
     "m0q": ModelConfig(name="m0q", trend_knot_months=3),
     "m1q": ModelConfig(name="m1q", building_walk=True, trend_knot_months=3),
+    # m0q with a linear trend per building instead of m1q's walk.
+    "m0q-btrend": ModelConfig(
+        name="m0q-btrend", building_trend=True, trend_knot_months=3
+    ),
+    # m0q-btrend with line ("column") effects within buildings.
+    "m0q-btrend-lines": ModelConfig(
+        name="m0q-btrend-lines",
+        building_trend=True,
+        line_effects=True,
+        trend_knot_months=3,
+    ),
+    # The linear trend plus a walk around it with knots every 2 years (10 knots
+    # per building, against the half-year walk's 35). The two trade off: a
+    # walk already holds a trend (0962ea7: building_trend_scale R-hat 1.077).
+    "m1-btrend-walk24": ModelConfig(
+        name="m1-btrend-walk24",
+        building_trend=True,
+        building_walk=True,
+        walk_knot_months=24,
+        trend_knot_months=3,
+    ),
+    # The coarse walk alone, knots every 2 or 3 years (10 or 7 per building).
+    "m1-walk24": ModelConfig(
+        name="m1-walk24", building_walk=True, walk_knot_months=24, trend_knot_months=3
+    ),
+    "m1-walk36": ModelConfig(
+        name="m1-walk36", building_walk=True, walk_knot_months=36, trend_knot_months=3
+    ),
+    # The coarse walks with Student-t steps, df estimated or fixed at 3.
+    "m1-twalk24": ModelConfig(
+        name="m1-twalk24",
+        building_walk=True,
+        walk_knot_months=24,
+        walk_t=True,
+        trend_knot_months=3,
+    ),
+    "m1-twalk36": ModelConfig(
+        name="m1-twalk36",
+        building_walk=True,
+        walk_knot_months=36,
+        walk_t=True,
+        trend_knot_months=3,
+    ),
+    "m1-t3walk24": ModelConfig(
+        name="m1-t3walk24",
+        building_walk=True,
+        walk_knot_months=24,
+        walk_t=True,
+        walk_nu_fixed=3.0,
+        trend_knot_months=3,
+    ),
+    "m1-t3walk36": ModelConfig(
+        name="m1-t3walk36",
+        building_walk=True,
+        walk_knot_months=36,
+        walk_t=True,
+        walk_nu_fixed=3.0,
+        trend_knot_months=3,
+    ),
+    # Walks only for buildings with at least 2 training rows per knot of their
+    # data range; the rest follow the market trend at their building level.
+    "m1-t3walk24-min2": ModelConfig(
+        name="m1-t3walk24-min2",
+        building_walk=True,
+        walk_knot_months=24,
+        walk_t=True,
+        walk_nu_fixed=3.0,
+        walk_min_rows_per_knot=2.0,
+        trend_knot_months=3,
+    ),
+    # The 2-year t walk anchored at each building's own data.
+    "m1-t3walk24-anchored": ModelConfig(
+        name="m1-t3walk24-anchored",
+        building_walk=True,
+        walk_knot_months=24,
+        walk_t=True,
+        walk_nu_fixed=3.0,
+        walk_anchor_data=True,
+        trend_knot_months=3,
+    ),
+    "m1-walk24-min2": ModelConfig(
+        name="m1-walk24-min2",
+        building_walk=True,
+        walk_knot_months=24,
+        walk_min_rows_per_knot=2.0,
+        trend_knot_months=3,
+    ),
     # m6-m8 without the bedroom-group market curves: the curves add ~200
     # global columns (3 groups x 68 quarterly knots) and the global solve
     # grows with the square of its size; projection loses only ~120-170
@@ -629,9 +1170,8 @@ MODELS = {
 }
 
 # The model ladder: the simplest design first, one term more per step, up to
-# the sub-10-minute Gibbs candidates. L0-L5 drop base terms (NUTS only; the
-# Gibbs sampler needs every base term); from m0q on, every design is fit by
-# both samplers.
+# the sub-15-minute candidates. Fit by NUTS (the deprecated Gibbs sampler
+# needs every base term and is not used for new work).
 _BARE = {
     "trend": False,
     "season": False,

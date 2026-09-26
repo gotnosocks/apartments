@@ -229,7 +229,24 @@ def feature_sources(feature_set: str) -> dict:
             "path": str(descriptions.SOURCE),
             "sha256": data.sha256(descriptions.SOURCE),
         }
+    if feature_set in features.EXTERNAL:
+        # Hash the files the features read, not the provenance's record of them.
+        for name, path in (
+            ("registry", features.REGISTRY_FILE),
+            ("pluto", features.PLUTO_FILE),
+        ):
+            out[name] = {"path": path, "sha256": data.sha256(Path(path))}
     return out
+
+
+def _data_rules(value: str) -> tuple:
+    rules = tuple(r for r in value.split(",") if r)
+    unknown = [r for r in rules if r not in data.DATA_RULES]
+    if unknown:
+        raise argparse.ArgumentTypeError(
+            f"unknown data rules {unknown}; known: {sorted(data.DATA_RULES)}"
+        )
+    return rules
 
 
 def main(argv=None):
@@ -240,12 +257,23 @@ def main(argv=None):
     parser.add_argument(
         "--features", default="base-v1", choices=sorted(features.FEATURE_SETS)
     )
+    parser.add_argument(
+        "--data-rules",
+        type=_data_rules,
+        default=(),
+        help="comma-separated data rules (data.DATA_RULES), applied after the split",
+    )
     parser.add_argument("--model", default="m0-base")
     parser.add_argument(
         "--sampler",
-        choices=("gibbs", "nuts"),
-        default="gibbs",
-        help="gibbs: the custom blocked Gibbs sampler; nuts: NumPyro NUTS",
+        choices=("nuts", "gibbs"),
+        default="nuts",
+        help="nuts: NumPyro NUTS; gibbs: the custom Gibbs sampler (deprecated)",
+    )
+    parser.add_argument(
+        "--reproduce-deprecated",
+        action="store_true",
+        help="allow --sampler gibbs, only to reproduce an existing run record",
     )
     parser.add_argument("--chains", type=int)
     parser.add_argument("--warmup", type=int)
@@ -264,11 +292,37 @@ def main(argv=None):
         action="store_true",
         help="nuts: dense mass matrix over the global sites (NumPyro structured mass)",
     )
+    parser.add_argument(
+        "--float32", action="store_true", help="nuts: float32 arithmetic (GPU)"
+    )
+    parser.add_argument(
+        "--init-radius",
+        type=float,
+        help="nuts: chains start uniformly within this radius (unconstrained; default 2)",
+    )
+    parser.add_argument(
+        "--svi-steps",
+        type=int,
+        help="nuts: warm start (starting points and initial metric) from this many "
+        "steps of NumPyro SVI with a mean-field normal guide",
+    )
+    parser.add_argument(
+        "--svi-lr", type=float, help="nuts: Adam step size for --svi-steps"
+    )
+    parser.add_argument(
+        "--coordinates",
+        help="nuts: comma-separated sampling coordinates (trend_levels, season_zerosum, building_zerosum, building_totals, unit_totals, unit_partial, walk_levels, slope_totals)",
+    )
     parser.add_argument("--name", required=True)
     parser.add_argument(
         "--dev", action="store_true", help="allow a dirty tree; run is not reportable"
     )
     args = parser.parse_args(argv)
+    if args.sampler == "gibbs" and not args.reproduce_deprecated:
+        raise SystemExit(
+            "The custom Gibbs sampler is deprecated (2026-09-25) and not for new work; "
+            "use --sampler nuts (--reproduce-deprecated only to reproduce an old run)."
+        )
 
     # Remote workers get a clean export of a commit and no .git; the local
     # submitter checks the tree and passes the commit in FRONTIER_COMMIT.
@@ -285,7 +339,8 @@ def main(argv=None):
 
     import jax
 
-    jax.config.update("jax_enable_x64", True)
+    # Gibbs always runs in float64; NUTS too unless --float32.
+    jax.config.update("jax_enable_x64", not (args.sampler == "nuts" and args.float32))
     from . import gibbs, model, nuts
 
     config = model.MODELS[args.model]
@@ -293,6 +348,12 @@ def main(argv=None):
     t0 = time.perf_counter()
     frame = data.load()
     heldout = splits.SPLITS[args.split](frame)
+    rules = args.data_rules
+    if rules and args.split == "units":
+        # unit-labels-v1 merges units after the split, which would join held-out
+        # units to training units (77 units, 142 held-out rows).
+        raise SystemExit("data rules merge units: not with the units split")
+    frame = data.apply_rules(frame, rules)  # after the split: scored rows are fixed
     feats = features.build(args.features, frame, ~heldout)
     prep = model.prepare(frame, heldout, feats)
     prep_seconds = time.perf_counter() - t0
@@ -307,6 +368,13 @@ def main(argv=None):
             "seed": args.seed,
             "chain_batch": args.chain_batch,
             "dense_globals": True if args.dense_globals else None,
+            "coordinates": tuple(args.coordinates.split(","))
+            if args.coordinates
+            else None,
+            "float32": True if args.float32 else None,
+            "init_radius": args.init_radius,
+            "svi_steps": args.svi_steps,
+            "svi_lr": args.svi_lr,
             "solo_scales": (
                 () if args.solo_scales == "none" else tuple(args.solo_scales.split(","))
             )
@@ -372,10 +440,12 @@ def main(argv=None):
         "split": args.split,
         "split_seed": splits.SEED,
         "feature_set": args.features,
+        "data_rules": list(rules),
         "feature_sources": feature_sources(args.features),
         "model": config.to_dict(),
         "sampler": args.sampler,
         "line": "frontier" if args.sampler == "gibbs" else "numpyro",
+        "deprecated_sampler": args.sampler == "gibbs",
         "sampler_settings": settings.to_dict(),
         "dtype": out.get("dtype"),
         "adapted": {
@@ -388,6 +458,7 @@ def main(argv=None):
                 "step_size",
                 "mean_tree_steps",
                 "dense_sites",
+                "svi",
             )
             if k in out
         },

@@ -1,5 +1,97 @@
 # Chelsea pricing research backlog
 
+## Data quality: clean the data so the model can be less defensive (Ben, September 25)
+
+"If the data is cleaner, then the model doesn't have to be as defensive against outliers."
+
+**Why it matters.**
+- The frontier designs defend heavily against bad rows. The noise is Student-t with an estimated
+  ν of about 2, and m7/m8 give the unit effects Student-t tails too.
+- Heavy tails have three costs:
+  - they down-weight informative rows along with the bad ones;
+  - they slow the samplers (the ν and noise-scale geometry);
+  - they make PSIS-LOO fragile, since high-k rows are often the outliers.
+- If gross errors are fixed, or excluded by documented rules, a lighter-tailed model may fit as well
+  or better: a larger fixed ν, or Gaussian noise.
+- Gaussian noise would also allow exact analytic integration of all the Gaussian terms (trend,
+  features, buildings, units): the largest sampler speed-up available to any library sampler.
+
+**1. Find the rows the tails are protecting against.**
+- Rank training rows by the fitted model's standardized residual (|y − μ| / σ), its PSIS-LOO
+  pointwise density and Pareto k, and its Student-t weight, i.e. how strongly the fit discounts
+  the row.
+- Review the top few hundred and tally them by cause.
+
+**2. Likely causes to check.**
+- **Price basis:** net-effective vs gross rent, concessions (months free), furnished or short-term
+  rentals, commercial units or parking in the residential feed.
+- **Identity:** a listing linked to the wrong unit or building. One building can appear under two
+  slugs: the building registry maps 104 slugs to 41 tax lots. Many are condominiums sharing a
+  billing lot, but some look like one building listed twice (606 W 30th and "3 Eleven"), which
+  splits its building effect.
+- **Attributes:** bedrooms, bathrooms or square feet entered wrongly (a studio listed as a 3BR,
+  square feet out of range), floor labels.
+- **Price entry:** a missing or extra digit, weekly or annual amounts.
+- **Time:** stale asks, relists, backdated price changes.
+
+**3. Fix what can be verified, and document what can't.**
+- Verify against the listing text, the listing's own history page, the building page or the
+  external data (MapPLUTO units and floors, the registry).
+- The source bundle stays read-only. Cleaning produces a new, versioned analysis dataset with a
+  change log (row, change, reason, evidence), and every fit records its dataset version.
+- Rules target errors, not unusual but real listings: a penthouse, or a rent-stabilized unit far
+  below market, stays in.
+
+**4. Measure.**
+- Refit the same design on the cleaned data. Compare on a fixed evaluation set: PSIS-LOO over the
+  rows present and unchanged in both versions, plus the held-out rows. Changing the row set changes
+  the PSIS-LOO population, so whole-dataset totals are not comparable.
+- Watch the posterior of ν: does it rise once the errors are gone?
+- Then test lighter tails on the cleaned data: a larger fixed ν, and Gaussian noise. If they win,
+  fit time and NUTS geometry improve too.
+
+## Column ("line") effects within buildings (Ben, September 25)
+
+**Idea.** In most buildings, units with the same letter or line on different floors ("4C", "7C",
+"12C") stack vertically. They usually share a floor plan, exposure, views, window orientation and
+position (corner or interior, street- or courtyard-facing). A per-building column effect could
+capture this, pooling information across floors where today each unit stands alone.
+
+**Why it should help.**
+- About 47% of units are listed only once. Their unit effect is essentially the prior, so PSIS-LOO
+  leans on building and features alone.
+- A column effect would let a single-listing 12C borrow strength from 4C and 7C's history.
+- It's also more interpretable than an anonymous unit effect: "the C line in this building rents
+  6% above its features".
+
+**Steps.**
+1. **Extract the line.**
+   - Parse unit designations into floor plus line: "12C" → floor 12, line C; also "PH-A", "4R"/"4F"
+     (rear/front), and numeric lines like "1204" → floor 12, line 04.
+   - Record the parse rule and its coverage. Unparseable designations get no column, so the
+     effect is 0 there.
+   - Check against the advertised floor where both exist.
+2. **Model shape.**
+   - Add a column level between building and unit: rows ⊂ units ⊂ columns ⊂ buildings, with its
+     own scale. Unit effects then become deviations from their column.
+   - Keep the one-model-definition rule: a `ModelConfig` switch (`columns=True`) in
+     `build_model`, fit with NUTS.
+   - Use the same level-by-level centring: column totals centred on their mean features.
+3. **Screen first.**
+   - Project the m8 + desc reference onto m0q/m5-nocurves + columns to see whether columns take
+     variance from the unit and building shares in the variance decomposition.
+   - Then run a native NUTS fit within 15 minutes.
+4. **Combine with orientation.** Columns are the natural carrier for the unit-orientation features
+   in the external-data track (research plan, A′): street vs courtyard, the width of the facing
+   street, window direction. A line faces one side of the building on every floor.
+
+**Watch for.**
+- Inconsistent designation schemes across buildings and over time.
+- Renumbered or combined units.
+- Lines that switch layout above a setback.
+- Columns with a single unit add nothing and should fold into the unit effect.
+- Compare PSIS-LOO on the same rows: the gain should show up mainly on units listed once.
+
 ## Pipeline review, September 20
 
 Items from an end-to-end review of collection → transform → fit → analyze,

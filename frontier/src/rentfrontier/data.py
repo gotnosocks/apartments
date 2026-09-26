@@ -13,6 +13,7 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import re
 from pathlib import Path
 
 import numpy as np
@@ -101,4 +102,51 @@ def load(dataset: Path = DATASET, cache_root: Path = OUTPUT_ROOT) -> pd.DataFram
     frame.attrs["source_sha256"] = digest
     frame.attrs["dataset"] = str(dataset)
     frame["log_rent"] = np.log(frame.asking_rent)
+    return frame
+
+
+def unit_label_key(label: str) -> str:
+    """A unit label written one way: "APT-4B", "UNIT4B", "4-B", "04B" -> "4B";
+    "7TH-FLOOR", "7THFL" -> "7THFL"."""
+    label = re.sub(r"^(?:APT|UNIT)\.?-?|^NO\.?-?(?=\d)", "", label.upper())
+    label = re.sub(r"[-_#. ]", "", label)
+    label = re.sub(r"(?:FLOOR|FLR)$", "FL", label)
+    return re.sub(r"^0+(?=\d)", "", label)
+
+
+def merge_unit_labels(frame: pd.DataFrame) -> pd.DataFrame:
+    """One unit id for the units of a building whose labels are the same label
+    written differently (521 groups, 1,055 unit ids, 2,023 rows: "4-FLR" and
+    "4FLR", "02" and "2", "UNIT4J" and "4J"). The canonical id is the group's
+    lexicographically smallest unit id. Rows are unchanged."""
+    label = frame.canonical_unit_url.str.extract(r"/([^/]+)$")[0].map(unit_label_key)
+    key = frame.building + "/" + label
+    canonical = frame.groupby(key).unit_id.transform("min")
+    out = frame.copy()
+    out["unit_id"] = canonical.where(label.notna(), frame.unit_id)
+    return out
+
+
+def unit_line_key(frame: pd.DataFrame) -> pd.Series:
+    """Each row's line ("column") within its building, from the unit label:
+    "23C" and "4C" are line C, "1204" and "304" are line 04, "2ND", "4TH" and
+    "4THFL" are the floor-through line FL; "building/line", or NaN for labels
+    without a line (PH, GARDEN, 12)."""
+    label = frame.canonical_unit_url.str.extract(r"/([^/]+)$")[0].map(unit_label_key)
+    lettered = label.str.extract(r"^\d{1,2}([A-Z]{1,2})$")[0]
+    numbered = label.str.extract(r"^\d{1,2}(\d\d)$")[0]
+    # "2ND", "3RD", "4TH", "4THFL": floor-through units, stacked as one line.
+    through = label.str.match(r"^\d{1,2}(?:ST|ND|RD|TH)(?:FL)?$", na=False)
+    line = lettered.fillna(numbered).where(~through, "FL")
+    return (frame.building + "/" + line).where(line.notna())
+
+
+# Named data rules, applied after the held-out split is drawn (the row split
+# depends on unit ids, and scored rows must not change). Run records list them.
+DATA_RULES = {"unit-labels-v1": merge_unit_labels}
+
+
+def apply_rules(frame: pd.DataFrame, rules) -> pd.DataFrame:
+    for rule in rules:
+        frame = DATA_RULES[rule](frame)
     return frame

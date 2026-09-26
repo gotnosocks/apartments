@@ -5,7 +5,7 @@
 const SVGNS = 'http://www.w3.org/2000/svg';
 const $ = (id) => document.getElementById(id);
 const LINES = {
-  frontier: { label: 'Custom Gibbs (JAX)', short: 'Gibbs', color: 'var(--series-1)' },
+  frontier: { label: 'Custom Gibbs (JAX, deprecated)', short: 'Gibbs (deprecated)', color: 'var(--series-1)' },
   pymc: { label: 'PyMC (NUTS)', short: 'PyMC', color: 'var(--series-2)' },
   numpyro: { label: 'NumPyro (NUTS)', short: 'NumPyro', color: 'var(--series-3)' },
 };

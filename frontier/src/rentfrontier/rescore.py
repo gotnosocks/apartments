@@ -93,6 +93,7 @@ def rescore(name: str):
     if frame.attrs["source_sha256"] != result["dataset_observations_sha256"]:
         raise SystemExit("dataset differs from the run's recorded dataset")
     heldout = splits.SPLITS[result["split"]](frame)
+    frame = data.apply_rules(frame, result.get("data_rules", ()))
     feats = features.build(result["feature_set"], frame, ~heldout)
     prep = model.prepare(frame, heldout, feats)
     if not np.array_equal(
@@ -105,11 +106,12 @@ def rescore(name: str):
         kept,
         test,
         feats.groups,
-        config.building_walk,
+        model.walk_spacing(config),
         config.bedroom_time,
         config.bedroom_slope,
         prep.offset,
         [feats.names.index(n) for n in config.feature_slopes],
+        unit_line=prep.unit_line,
     )
     # y in Arrays is log rent minus the offset; `market` includes the offset.
     mu = sum(v for k, v in terms.items() if k not in UNIT_TERMS) - prep.offset
