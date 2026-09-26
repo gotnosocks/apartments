@@ -385,6 +385,10 @@ the fix goes into the model, the features or the data, not the sampler.
 - **Both coarse walks fail only on walk_scale.** The fitted 2-year steps have kurtosis 7.3:
   most buildings move little and a few jump, so one Normal scale compromises. Next: Student-t
   walk steps (`walk_t`, df estimated), `m1-twalk36` and `m1-twalk24`.
+- **Student-t steps, df estimated** (`m1-twalk36`, e6718f5): 845 s, fails. The df is poorly
+  identified by latent steps (walk_nu 2.64 ± 0.19, R-hat 1.06, ESS 80). PSIS-LOO is 48,211.5,
+  +115 over the Normal 3-year walk, so heavy-tailed steps fit better. Next: df fixed at 3
+  (`walk_nu_fixed`; `m1-t3walk36`, `m1-t3walk24`).
 - Within-unit price jumps (240 rows more than 2× off the unit's other listings, trend-adjusted)
   are mostly real changes: renovations, combined apartments, market moves. Almost none are
   furnished or short-term. A renovation mention appearing within a unit comes with only about

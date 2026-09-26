@@ -596,6 +596,13 @@ def test_partially_centred_units_are_the_same_model(unit_t, totals):
     np.testing.assert_allclose(gaps, 0.0, atol=1e-7)
 
 
+def test_fixed_walk_df_is_a_constant():
+    config = model.MODELS["m1-t3walk24"]
+    prep = windowed()
+    assert float(model.constants(prep, config)["walk_nu"]) == 3.0
+    assert "walk_nu" not in sites(config, prep)
+
+
 def test_student_t_walk_steps_run_non_centred():
     """Without walk_levels, Student-t walk steps are non-centred with their df
     as a shape parameter (LocScaleReparam)."""

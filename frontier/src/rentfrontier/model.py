@@ -117,6 +117,9 @@ class ModelConfig:
     # of a Normal walk have kurtosis 7.3 (937c466), and its one scale mixed
     # slowly (walk_scale R-hat 1.019, ESS 200).
     walk_t: bool = False
+    # A fixed df for Student-t walk steps (None = estimated). The latent steps
+    # identify the df poorly (e6718f5: walk_nu 2.64 +- 0.19, R-hat 1.06).
+    walk_nu_fixed: float | None = None
     # Per-building linear trend in log rent per year, centred on the building's
     # mean training month: trend_b ~ N(0, building_trend_scale^2). One number
     # per building, against the walk's 34 steps at about one row per step.
@@ -475,6 +478,8 @@ def constants(prep: Prepared, config: ModelConfig) -> dict:
         )
     if config.nu_fixed is not None:
         out["nu"] = jnp.asarray(config.nu_fixed)
+    if config.walk_t and config.walk_nu_fixed is not None:
+        out["walk_nu"] = jnp.asarray(config.walk_nu_fixed)
     if config.unit_t and config.unit_nu_fixed is not None:
         out["unit_nu"] = jnp.asarray(config.unit_nu_fixed)
     if "unit_totals" in config.coordinates:
@@ -720,6 +725,11 @@ def build_model(prep: Prepared, config: ModelConfig):
                     ),
                 )
 
+        def walk_nu():
+            if config.walk_nu_fixed is not None:
+                return jnp.asarray(config.walk_nu_fixed)
+            return numpyro.sample("walk_nu", dist.Gamma(2.0, 0.1))
+
         walk_levels = config.building_walk and "walk_levels" in config.coordinates
         slope_totals = config.bedroom_slope and "slope_totals" in config.coordinates
         if walk_levels:
@@ -729,7 +739,7 @@ def build_model(prep: Prepared, config: ModelConfig):
                 "walk_scale", dist.HalfNormal(config.walk_scale_sd)
             )
             if config.walk_t:
-                p["walk_nu"] = numpyro.sample("walk_nu", dist.Gamma(2.0, 0.1))
+                p["walk_nu"] = walk_nu()
             p["walk_step"], walk_at_anchor = _walk_levels(
                 p["walk_scale"], fixed, p.get("walk_nu")
             )
@@ -806,7 +816,7 @@ def build_model(prep: Prepared, config: ModelConfig):
                 "walk_scale", dist.HalfNormal(config.walk_scale_sd)
             )
             if config.walk_t:
-                p["walk_nu"] = numpyro.sample("walk_nu", dist.Gamma(2.0, 0.1))
+                p["walk_nu"] = walk_nu()
             p["walk_step"] = numpyro.sample(
                 "walk_step",
                 (
@@ -971,7 +981,7 @@ MODELS = {
     "m1-walk36": ModelConfig(
         name="m1-walk36", building_walk=True, walk_knot_months=36, trend_knot_months=3
     ),
-    # The coarse walks with Student-t steps.
+    # The coarse walks with Student-t steps, df estimated or fixed at 3.
     "m1-twalk24": ModelConfig(
         name="m1-twalk24",
         building_walk=True,
@@ -984,6 +994,22 @@ MODELS = {
         building_walk=True,
         walk_knot_months=36,
         walk_t=True,
+        trend_knot_months=3,
+    ),
+    "m1-t3walk24": ModelConfig(
+        name="m1-t3walk24",
+        building_walk=True,
+        walk_knot_months=24,
+        walk_t=True,
+        walk_nu_fixed=3.0,
+        trend_knot_months=3,
+    ),
+    "m1-t3walk36": ModelConfig(
+        name="m1-t3walk36",
+        building_walk=True,
+        walk_knot_months=36,
+        walk_t=True,
+        walk_nu_fixed=3.0,
         trend_knot_months=3,
     ),
     # m6-m8 without the bedroom-group market curves: the curves add ~200
