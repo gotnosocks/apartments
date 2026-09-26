@@ -71,6 +71,7 @@ def log_terms(
     slope: bool,
     offset,
     fslope_index=(),
+    unit_line=None,
 ):
     """Named log-scale terms, each (draws, rows).
 
@@ -100,7 +101,9 @@ def log_terms(
     else:
         terms["building_drift"] = zeros
     if np.any(kept.get("line_scale", 0) > 0):
-        terms["line"] = model.line_term(kept["line"], kept["unit_line"][0], a)
+        if unit_line is None:
+            raise ValueError("a line-effects run needs prep.unit_line")
+        terms["line"] = model.line_term(kept["line"], unit_line, a)
     # Trend designs have a positive trend scale; others carry a 0 placeholder
     # (and runs from before the term have no key at all).
     if np.any(kept.get("building_trend_scale", 0) > 0):
@@ -175,6 +178,7 @@ def explain(name, rows="current"):
             config.bedroom_slope,
             prep.offset,
             [feats.names.index(n) for n in config.feature_slopes],
+            unit_line=prep.unit_line,
         )
         dollars, fitted = decompose(terms)
         sub = frame.loc[
