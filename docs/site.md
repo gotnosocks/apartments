@@ -97,7 +97,7 @@ mv -T current.new current` in `/data1/apartments/site`.
   UV_PROJECT_ENVIRONMENT=/data1/apartments/venvs/serve-site uv sync --locked
   flock /data1/apartments/tmp/heavy.lock systemd-run --user --scope -p MemoryMax=2G \
     --setenv=TMPDIR=/data1/apartments/tmp/site-serve \
-    /data1/apartments/venvs/serve-site/bin/python -m apartments.site build --summary <bundle>
+    /data1/apartments/venvs/serve-site/bin/python -m apartments.site build
   cp ops/systemd/apartments-site.service ~/.config/systemd/user/
   systemctl --user daemon-reload && systemctl --user enable --now apartments-site
   curl -fsS http://127.0.0.1:8600/healthz
