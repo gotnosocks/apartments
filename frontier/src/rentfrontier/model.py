@@ -110,6 +110,8 @@ class ModelConfig:
     # first month), interpolated linearly between knots.
     building_walk: bool = False
     walk_scale_sd: float = 0.1
+    # Months between walk knots (KNOT_MONTHS = 6 for the designs up to m8).
+    walk_knot_months: int = 6
     # Per-building linear trend in log rent per year, centred on the building's
     # mean training month: trend_b ~ N(0, building_trend_scale^2). One number
     # per building, against the walk's 34 steps at about one row per step.
@@ -312,11 +314,7 @@ def linear_predictor(p, a: Arrays, include_unit=True):
     )
     if "walk_step" in p:
         w = e["walk"]
-        mu = (
-            mu
-            + (1 - a.knot_frac) * w[a.building, a.knot]
-            + a.knot_frac * w[a.building, a.knot + 1]
-        )
+        mu = mu + walk_term(w, a, p.get("walk_knot_months", KNOT_MONTHS))
     if "building_trend" in p:
         mu = mu + building_trend_term(e, a)
     if "bedroom_time_step" in p:
@@ -332,6 +330,27 @@ def linear_predictor(p, a: Arrays, include_unit=True):
                 a.unit >= 0, p["unit_drift"][jnp.maximum(a.unit, 0)] * a.unit_time, 0.0
             )
     return mu
+
+
+def walk_spacing(config: ModelConfig) -> int:
+    """The walk's knot spacing in months, or 0 for designs without a walk."""
+    return config.walk_knot_months if config.building_walk else 0
+
+
+def walk_position(a: Arrays, spacing: int):
+    """Each row's walk knot (at or before its month) and interpolation weight
+    on the next knot, for knots every `spacing` months. For KNOT_MONTHS these
+    are Arrays.knot and Arrays.knot_frac."""
+    if spacing == KNOT_MONTHS:
+        return a.knot, a.knot_frac
+    return a.month // spacing, (a.month % spacing) / spacing
+
+
+def walk_term(w, a: Arrays, spacing: int):
+    """Each row's building walk, linearly interpolated between knots (w: knot
+    values, (buildings, knots), or draws with a leading axis)."""
+    knot, frac = walk_position(a, spacing)
+    return (1 - frac) * w[..., a.building, knot] + frac * w[..., a.building, knot + 1]
 
 
 def building_trend_term(e, a):
@@ -438,6 +457,8 @@ def constants(prep: Prepared, config: ModelConfig) -> dict:
             [prep.features.names.index(n) for n in config.feature_slopes],
             dtype=jnp.int32,
         )
+    if config.building_walk:
+        out["walk_knot_months"] = config.walk_knot_months
     if config.building_trend:
         out["building_mean_month"] = jnp.asarray(
             _group_means(
@@ -470,7 +491,7 @@ def constants(prep: Prepared, config: ModelConfig) -> dict:
     if config.building_walk and "walk_levels" in config.coordinates:
         if "building_totals" not in config.coordinates:
             raise ValueError("walk_levels needs building_totals")
-        out |= _walk_ranges(prep)
+        out |= _walk_ranges(prep, config.walk_knot_months)
     if config.bedroom_slope and "slope_totals" in config.coordinates:
         if "building_totals" not in config.coordinates:
             raise ValueError("slope_totals needs building_totals")
@@ -536,15 +557,16 @@ def _mean_plus_zero_sum(site: str, scale, n: int):
     return numpyro.deterministic(site, mean + dev)
 
 
-def _walk_ranges(prep: Prepared) -> dict:
+def _walk_ranges(prep: Prepared, spacing: int) -> dict:
     """Each building's walk data range for "walk_levels": the knots its
     training rows put interpolation weight on, first to last, and its anchor,
     the knot with the most weight."""
     a = prep.train
-    n_knot = n_knots(len(prep.periods))
+    n_knot = n_knots(len(prep.periods), spacing)
+    knot, frac = walk_position(a, spacing)
     weight = np.zeros((len(prep.buildings), n_knot))
-    np.add.at(weight, (a.building, a.knot), 1 - a.knot_frac)
-    np.add.at(weight, (a.building, np.minimum(a.knot + 1, n_knot - 1)), a.knot_frac)
+    np.add.at(weight, (a.building, knot), 1 - frac)
+    np.add.at(weight, (a.building, np.minimum(knot + 1, n_knot - 1)), frac)
     has = weight > 0
     if not has.any(axis=1).all():
         raise ValueError("walk_levels needs training rows in every building")
@@ -772,7 +794,10 @@ def build_model(prep: Prepared, config: ModelConfig):
             p["walk_step"] = numpyro.sample(
                 "walk_step",
                 dist.Normal(0.0, p["walk_scale"]).expand(
-                    [len(prep.buildings), n_knots(n_months) - 1]
+                    [
+                        len(prep.buildings),
+                        n_knots(n_months, config.walk_knot_months) - 1,
+                    ]
                 ),
             )
         if config.bedroom_time:
@@ -902,6 +927,22 @@ MODELS = {
     # m0q with a linear trend per building instead of m1q's walk.
     "m0q-btrend": ModelConfig(
         name="m0q-btrend", building_trend=True, trend_knot_months=3
+    ),
+    # The linear trend plus a coarse walk around it: knots every 2 or 3 years
+    # (10 or 7 knots per building, against the half-year walk's 35).
+    "m1-btrend-walk24": ModelConfig(
+        name="m1-btrend-walk24",
+        building_trend=True,
+        building_walk=True,
+        walk_knot_months=24,
+        trend_knot_months=3,
+    ),
+    "m1-btrend-walk36": ModelConfig(
+        name="m1-btrend-walk36",
+        building_trend=True,
+        building_walk=True,
+        walk_knot_months=36,
+        trend_knot_months=3,
     ),
     # m6-m8 without the bedroom-group market curves: the curves add ~200
     # global columns (3 groups x 68 quarterly knots) and the global solve

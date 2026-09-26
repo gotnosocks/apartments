@@ -294,7 +294,7 @@ def project(reference: str, candidates=CANDIDATES):
             kept,
             a,
             feats.groups,
-            config.building_walk,
+            model.walk_spacing(config),
             config.bedroom_time,
             config.bedroom_slope,
             prep.offset,

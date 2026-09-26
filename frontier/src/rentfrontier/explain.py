@@ -66,7 +66,7 @@ def log_terms(
     kept,
     a: model.Arrays,
     feature_groups,
-    walk: bool,
+    walk: int,
     bedroom_time: bool,
     slope: bool,
     offset,
@@ -96,9 +96,7 @@ def log_terms(
     terms["building"] = kept["building"][:, a.building]
     if walk:
         w = kept["walk"]
-        terms["building_drift"] = (1 - a.knot_frac) * w[
-            :, a.building, a.knot
-        ] + a.knot_frac * w[:, a.building, a.knot + 1]
+        terms["building_drift"] = model.walk_term(w, a, walk)
     else:
         terms["building_drift"] = zeros
     if "building_trend" in kept and kept["building_trend"].shape[-1] > 1:
@@ -167,7 +165,7 @@ def explain(name, rows="current"):
             kept,
             a,
             feats.groups,
-            config.building_walk,
+            model.walk_spacing(config),
             config.bedroom_time,
             config.bedroom_slope,
             prep.offset,

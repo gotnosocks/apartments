@@ -219,7 +219,7 @@ def score_run(name: str):
             kept,
             a,
             feats.groups,
-            config.building_walk,
+            model.walk_spacing(config),
             config.bedroom_time,
             config.bedroom_slope,
             prep.offset,

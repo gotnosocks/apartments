@@ -153,10 +153,12 @@ def build_design(
         not all(getattr(config, t) for t in base)
         or config.market_drift
         or config.building_trend
+        or config.walk_knot_months != model_module.KNOT_MONTHS
     ):
         raise ValueError(
             f"{config.name}: the Gibbs sampler needs every base term and no market "
-            "drift or building trend; fit these designs with --sampler nuts"
+            "drift, building trend or other walk spacing; fit these designs with "
+            "--sampler nuts"
         )
     tr = prep.train
     n, f = tr.x.shape

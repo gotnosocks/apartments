@@ -56,7 +56,9 @@ def test_market_drift_is_a_linear_trend_about_the_mean_month():
     np.testing.assert_allclose(mu, 0.3 + 0.05 * (month - month.mean()) / 12, atol=1e-12)
 
 
-@pytest.mark.parametrize("name", ["L0-mean", "L5-building", "m0q-btrend"])
+@pytest.mark.parametrize(
+    "name", ["L0-mean", "L5-building", "m0q-btrend", "m1-btrend-walk24"]
+)
 def test_gibbs_needs_every_base_term(name):
     with pytest.raises(ValueError, match="--sampler nuts"):
         gibbs.build_design(synthetic(), model.MODELS[name])
@@ -422,6 +424,23 @@ def windowed(width=18):
 
 WALK = model.ModelConfig(name="w", building_walk=True, trend_knot_months=3)
 M5 = replace(WALK, name="m5", bedroom_slope=True)
+WALK12 = replace(WALK, name="w12", walk_knot_months=12, building_trend=True)
+
+
+def test_walk_position_matches_the_stored_half_year_knots():
+    a = synthetic(months=60).train
+    knot, frac = model.walk_position(a, model.KNOT_MONTHS)
+    assert knot is a.knot and frac is a.knot_frac
+    k12, f12 = model.walk_position(a, 12)
+    np.testing.assert_array_equal(k12, a.month // 12)
+    np.testing.assert_allclose(k12 + f12, a.month / 12)
+    # Knots every 12 months are every other half-year knot.
+    w6 = np.random.default_rng(0).normal(size=(15, model.n_knots(60)))
+    w12 = w6[:, ::2]
+    np.testing.assert_allclose(
+        model.walk_term(w12, a, 12)[a.month % 12 == 0],
+        model.walk_term(w6, a, 6)[a.month % 12 == 0],
+    )
 
 
 @pytest.mark.parametrize(
@@ -429,8 +448,9 @@ M5 = replace(WALK, name="m5", bedroom_slope=True)
     [
         (WALK, ("building_totals", "walk_levels")),
         (M5, ("building_totals", "unit_totals", "walk_levels", "slope_totals")),
+        (WALK12, ("building_totals", "walk_levels")),
     ],
-    ids=["walk", "walk-slopes"],
+    ids=["walk", "walk-slopes", "walk12-trend"],
 )
 def test_walk_and_slope_totals_are_the_same_model(config, coordinates):
     """walk_levels samples each walk as levels inside the building's data
@@ -495,8 +515,9 @@ def test_walk_and_slope_totals_need_building_totals(coordinate):
     [
         (WALK, ("building_totals", "walk_levels")),
         (M5, ("building_totals", "unit_totals", "walk_levels", "slope_totals")),
+        (WALK12, ("building_totals", "walk_levels")),
     ],
-    ids=["walk", "walk-slopes"],
+    ids=["walk", "walk-slopes", "walk12-trend"],
 )
 def test_nuts_with_walk_and_slope_totals_returns_the_effects(config, coordinates):
     prep = windowed()
@@ -511,8 +532,29 @@ def test_nuts_with_walk_and_slope_totals_returns_the_effects(config, coordinates
     assert out["noncentered"] == []
     assert np.isfinite(out["lpd"]).all()
     walk = out["mean"]["walk"]
-    assert walk.shape == (len(prep.buildings), model.n_knots(60))
+    assert walk.shape == (
+        len(prep.buildings),
+        model.n_knots(60, config.walk_knot_months),
+    )
     np.testing.assert_allclose(walk[:, 0], 0.0)
+    if config.building_trend:
+        from rentfrontier import explain
+
+        kept = {k: v.reshape(-1, *v.shape[2:]) for k, v in out["kept"].items()}
+        terms = explain.log_terms(
+            kept,
+            prep.train,
+            prep.features.groups,
+            model.walk_spacing(config),
+            False,
+            False,
+            0.0,
+        )
+        np.testing.assert_allclose(
+            terms["building_drift"],
+            model.walk_term(kept["walk"], prep.train, 12)
+            + model.building_trend_term(kept, prep.train),
+        )
     if config.bedroom_slope:
         assert np.isfinite(out["mean"]["bedroom_slope"]).all()
 
