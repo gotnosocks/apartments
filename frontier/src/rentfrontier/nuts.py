@@ -91,16 +91,6 @@ class Settings:
     # the deepest trees. Counted in the fit time.
     svi_steps: int = 0
     svi_lr: float = 0.01
-    svi_guide: str = "normal"  # or "lowrank"
-    svi_rank: int = 20
-    # False: keep the initial (SVI) metric through warmup and adapt only the
-    # step size. NumPyro's windowed estimates are regularized as in Stan,
-    # adding 1e-3 * 5 / (n + 5) to every variance: after the first 25-draw
-    # window no coordinate's metric sd is below 0.013, where the tightest
-    # posterior sds (data-rich building totals, market levels) are a few
-    # thousandths, so the step size falls (7229ef0: m0q from 0.07-0.13 to
-    # 0.014-0.045).
-    adapt_mass: bool = True
 
     def to_dict(self):
         return asdict(self)
@@ -139,19 +129,31 @@ def run(
         # draw would fail on the flat-prior `trend_absolute` site.
         z = initialize_model(jax.random.PRNGKey(0), model_fn).param_info.z
         dense = sorted(k for k in z if k not in LOCAL_SITES)
-    init = [None] * settings.chains
-    metric, svi_info = None, None
+    init, metric, svi_info = [None] * settings.chains, None, None
     if settings.svi_steps:
-        init, metric, svi_info = svi_start(model_fn, dense, settings, log)
-    elif not settings.adapt_mass:
-        raise ValueError("a fixed metric (adapt_mass=False) needs the SVI warm start")
+        loc, scale, svi_info = svi_fit(model_fn, settings, log)
+        draws = jax.random.split(
+            jax.random.fold_in(jax.random.PRNGKey(settings.seed), 2), settings.chains
+        )
+        init = [
+            {
+                k: v + scale[k] * jax.random.normal(jax.random.fold_in(kc, i), v.shape)
+                for i, (k, v) in enumerate(sorted(loc.items()))
+            }
+            for kc in draws
+        ]
+        # One diagonal block per site, and the dense globals' block.
+        metric = {(k,): jnp.ravel(scale[k] ** 2) for k in scale if k not in dense}
+        if dense:
+            metric[tuple(dense)] = jnp.diag(
+                jnp.concatenate([jnp.ravel(scale[k] ** 2) for k in dense])
+            )
     kernel = NUTS(
         model_fn,
         target_accept_prob=settings.target_accept,
         max_tree_depth=settings.max_tree_depth,
         dense_mass=[tuple(dense)] if dense else (False if metric is None else []),
         inverse_mass_matrix=metric,
-        adapt_mass_matrix=settings.adapt_mass,
         init_strategy=init_to_uniform(radius=settings.init_radius),
     )
     k_init, k_warm, k_draw = jax.random.split(jax.random.PRNGKey(settings.seed), 3)
@@ -208,6 +210,7 @@ def run(
     log(f"warmup {warmup_seconds:.1f}s step size {np.round(step_size, 4).tolist()}")
 
     fixed = model_module.constants(prep, config)
+
     constrain = kernel.postprocess_fn((), {})
 
     def params(st):
@@ -249,69 +252,35 @@ def run(
     return out
 
 
-def svi_start(model_fn, dense, settings: Settings, log):
-    """Starting points (unconstrained, one per chain) and an initial inverse
-    mass matrix from NumPyro SVI: a mean-field normal guide ("normal") or a
-    low-rank multivariate normal ("lowrank", whose covariance gives the dense
-    globals' block its correlations)."""
-    from jax.flatten_util import ravel_pytree
+def svi_fit(model_fn, settings: Settings, log):
+    """Per-site locations and scales (unconstrained) of a mean-field normal
+    guide fitted by NumPyro SVI."""
     from numpyro.infer import SVI, Trace_ELBO, init_to_uniform
-    from numpyro.infer.autoguide import AutoLowRankMultivariateNormal, AutoNormal
-    from numpyro.infer.util import initialize_model
+    from numpyro.infer.autoguide import AutoNormal
     from numpyro.optim import Adam
 
     t0 = time.perf_counter()
-    key = jax.random.fold_in(jax.random.PRNGKey(settings.seed), 1)
-    k_fit, k_draw = jax.random.split(key)
-    init_loc = init_to_uniform(radius=settings.init_radius)
-    if settings.svi_guide == "lowrank":
-        guide = AutoLowRankMultivariateNormal(
-            model_fn, rank=settings.svi_rank, init_loc_fn=init_loc
-        )
-    elif settings.svi_guide == "normal":
-        guide = AutoNormal(model_fn, init_loc_fn=init_loc)
-    else:
-        raise ValueError(f"unknown svi_guide {settings.svi_guide!r}")
+    guide = AutoNormal(
+        model_fn, init_loc_fn=init_to_uniform(radius=settings.init_radius)
+    )
     svi = SVI(model_fn, guide, Adam(settings.svi_lr), Trace_ELBO())
-    fit = svi.run(k_fit, settings.svi_steps, progress_bar=False)
+    fit = svi.run(
+        jax.random.fold_in(jax.random.PRNGKey(settings.seed), 1),
+        settings.svi_steps,
+        progress_bar=False,
+    )
     params = jax.device_get(fit.params)
-    # The unconstrained latent vector, in the sorted-site order both the guide
-    # and NumPyro's mass-matrix blocks flatten it in: covariance F F' + diag(d).
-    z = initialize_model(jax.random.PRNGKey(0), model_fn).param_info.z
-    _, unravel = ravel_pytree(z)
-    if settings.svi_guide == "lowrank":
-        loc = params["auto_loc"]
-        factor = params["auto_cov_factor"] * params["auto_scale"][:, None]
-        diag = params["auto_scale"] ** 2
-    else:
-        loc = ravel_pytree({k: params[f"{k}_auto_loc"] for k in z})[0]
-        diag = ravel_pytree({k: params[f"{k}_auto_scale"] for k in z})[0] ** 2
-        factor = jnp.zeros((loc.size, 0))
-    init = []
-    for kc in jax.random.split(k_draw, settings.chains):
-        k1, k2 = jax.random.split(kc)
-        e1 = jax.random.normal(k1, (factor.shape[1],))
-        e2 = jax.random.normal(k2, loc.shape)
-        init.append(unravel(loc + factor @ e1 + jnp.sqrt(diag) * e2))
-    index = {
-        k: np.asarray(v).astype(int).ravel()
-        for k, v in unravel(jnp.arange(loc.size, dtype=loc.dtype)).items()
+    loc = {
+        k.removesuffix("_auto_loc"): v
+        for k, v in params.items()
+        if k.endswith("_auto_loc")
     }
-    variance = (factor**2).sum(axis=1) + diag
-    metric = {(k,): variance[index[k]] for k in z if k not in dense}
-    if dense:
-        i = np.concatenate([index[k] for k in dense])
-        metric[tuple(dense)] = factor[i] @ factor[i].T + jnp.diag(diag[i])
+    scale = {k: params[f"{k}_auto_scale"] for k in loc}
     losses = np.asarray(fit.losses)
     seconds = time.perf_counter() - t0
     log(
-        f"svi ({settings.svi_guide}) {settings.svi_steps} steps {seconds:.1f}s, loss "
-        f"{losses[0]:.4g} -> {losses[-1]:.4g} (mean of the last 10%: "
-        f"{losses[-len(losses) // 10 :].mean():.4g})"
+        f"svi {settings.svi_steps} steps {seconds:.1f}s, loss {losses[0]:.4g} -> "
+        f"{losses[-1]:.4g} (mean of the last 10%: {losses[-len(losses) // 10 :].mean():.4g})"
     )
-    info = {
-        "guide": settings.svi_guide,
-        "seconds": seconds,
-        "final_loss": float(losses[-1]),
-    }
-    return init, metric, info
+    info = {"seconds": seconds, "final_loss": float(losses[-1])}
+    return loc, scale, info

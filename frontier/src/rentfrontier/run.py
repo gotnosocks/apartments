@@ -294,15 +294,6 @@ def main(argv=None):
         "--svi-lr", type=float, help="nuts: Adam step size for --svi-steps"
     )
     parser.add_argument(
-        "--svi-guide", choices=("normal", "lowrank"), help="nuts: guide for --svi-steps"
-    )
-    parser.add_argument("--svi-rank", type=int, help="nuts: rank of the lowrank guide")
-    parser.add_argument(
-        "--fixed-metric",
-        action="store_true",
-        help="nuts: keep the SVI metric through warmup (adapt only the step size)",
-    )
-    parser.add_argument(
         "--coordinates",
         help="nuts: comma-separated sampling coordinates (trend_levels, season_zerosum, building_zerosum, building_totals, unit_totals, unit_partial, walk_levels, slope_totals)",
     )
@@ -362,9 +353,6 @@ def main(argv=None):
             "init_radius": args.init_radius,
             "svi_steps": args.svi_steps,
             "svi_lr": args.svi_lr,
-            "svi_guide": args.svi_guide,
-            "svi_rank": args.svi_rank,
-            "adapt_mass": False if args.fixed_metric else None,
             "solo_scales": (
                 () if args.solo_scales == "none" else tuple(args.solo_scales.split(","))
             )

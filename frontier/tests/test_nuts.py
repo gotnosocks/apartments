@@ -171,15 +171,11 @@ def test_warmup_runs_in_logged_segments(warmup, segments):
     assert len(logged) == segments and logged[-1].startswith(f"segment {segments}/")
 
 
-@pytest.mark.parametrize(
-    "dense, guide, adapt",
-    [(False, "normal", True), (True, "normal", True), (True, "lowrank", False)],
-    ids=["normal", "normal-dense", "lowrank-dense-fixed"],
-)
-def test_svi_warm_start_runs(dense, guide, adapt):
-    """--svi-steps: chains start at draws from a fitted guide, with its
-    covariance as the initial metric (one block per site, and the dense
-    globals' block); --fixed-metric keeps it through warmup."""
+@pytest.mark.parametrize("dense", [False, True], ids=["diagonal", "dense-globals"])
+def test_svi_warm_start_runs(dense):
+    """--svi-steps: chains start at draws from a fitted mean-field guide, with
+    its variances as the initial metric (one block per site, and the dense
+    globals' block)."""
     lines = []
     out = nuts.run(
         synthetic(),
@@ -197,25 +193,12 @@ def test_svi_warm_start_runs(dense, guide, adapt):
                 "unit_partial",
             ),
             svi_steps=200,
-            svi_guide=guide,
-            svi_rank=3,
-            adapt_mass=adapt,
         ),
         log=lines.append,
     )
-    assert out["svi"]["guide"] == guide and np.isfinite(out["svi"]["final_loss"])
-    assert any(x.startswith(f"svi ({guide}) 200 steps") for x in lines)
+    assert out["svi"]["seconds"] > 0 and np.isfinite(out["svi"]["final_loss"])
+    assert any(x.startswith("svi 200 steps") for x in lines)
     assert np.isfinite(out["lpd"]).all()
-
-
-def test_fixed_metric_needs_the_svi_warm_start():
-    with pytest.raises(ValueError, match="SVI"):
-        nuts.run(
-            synthetic(),
-            model.MODELS["L0-mean"],
-            nuts.Settings(chains=2, warmup=10, draws=10, adapt_mass=False),
-            log=lambda *_: None,
-        )
 
 
 def test_fixed_degrees_of_freedom_are_constants():

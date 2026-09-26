@@ -238,9 +238,16 @@ implementation over implementing our own").
     0.07–0.13. The third, after NumPyro's first mass-matrix window, ran at 258 with 0.014–0.045.
     NumPyro regularizes windowed estimates as Stan does, adding 1e-3 × 5 / (n + 5) to every
     variance. After a 25-draw window no coordinate's metric sd is below 0.013, while the
-    tightest posterior sds are a few thousandths. Next: keep the SVI metric through warmup
-    (`--fixed-metric`), from a low-rank guide whose covariance fills the dense globals'
-    block (`--svi-guide lowrank`).
+    tightest posterior sds are a few thousandths.
+  - Keeping the SVI metric fixed (adapting only the step size; 15db8f8) is fast but fails the
+    gate. m0q took 452 s: warmup 115 s at 50–71 leapfrog steps per iteration, final step sizes
+    0.084–0.095. But R-hat was 1.039 on season_scale and the minimum ESS 75 on a building,
+    along directions a mean-field guide misses: the season-scale funnel, and building totals
+    against their units' totals. A low-rank guide (rank 20, 2,000 steps) did not converge: its
+    loss ended about 1,100 above the mean-field guide's, and its metric ran at 472 leapfrog
+    steps per iteration. Both options were removed.
+  - The sampler line stops here (Ben, 2026-09-25; see "Misspecification first" below). The
+    NUTS coordinates and the SVI warm start stay; no further sampler work.
   - Every timed fit is capped at 30 minutes (Ben, 2026-09-25). Past the 15-minute window a fit
     has already shown it is outside, and its warmup log gives the diagnostics.
 - New sampler work uses library samplers on `model.build_model`, with library options only:
@@ -295,6 +302,45 @@ implementation over implementing our own").
   class's sub-15-minute frontier.
 - **Step 4. Structure search within 15 minutes** (Ben, 2026-09-25: explore feature space and model
   shapes to keep improving the frontier under the 15-minute limit). See the next section.
+
+## Misspecification first (Ben, 2026-09-25)
+
+Ben: "I believe the heuristic guidance that if a model is hard to sample then it is probably
+misspecified. Can we direct our efforts toward feature engineering modeling decisions rather than
+computational tweaks?" So a sampling problem is read as a diagnostic of the model or the data, and
+the fix goes into the model, the features or the data, not the sampler.
+
+**What the sampling problems point at.**
+- **Heavy tails everywhere.** The residual Student-t has ν ≈ 1.9–2.6 in every design (m0q 2.6, m1q
+  1.9, m8 2.2), and m8's unit effects are t with ν ≈ 2. At ν = 2 the variance is infinite: the
+  model is defending against gross outliers at the row and unit level. Most of the worst rows are
+  not keyword-flaggable product types: desc-v1 already flags furnished, income-restricted,
+  rent-stabilized, shared, short-term, outdoor and duplex listings. In m5-nocurves + desc
+  (e343847), the worst 1% of rows (473) carry 11% of the LOO deficit. They include:
+  - implausible attributes, such as a "Full Floor" labelled as a studio at $28,681;
+  - asks far from the same unit's other listings, such as a 1-bedroom at $2,395 against a unit
+    median of $5,824, which suggests one unit ID covering different apartments. 715 rows are more
+    than 1.5 times off their unit's median, with mean LOO 0.15 against 1.07;
+  - other units: SRO-like rooms at 225 W 23rd St (the Chelsea Hotel, $999–1,610) and
+    luxury extremes.
+  Half of the worst rows are units listed once, against 24% of all rows.
+- **Weakly identified terms.** The building walk has about one row per occupied half-year knot
+  (median 1.2) and a median of 7 empty knots before a building's first listing. The unit scale
+  makes a funnel from the 47% of units listed once. These are candidates for simpler,
+  better-identified shapes: building drift, neighbourhood-level time terms, yearly knots, and
+  column (line) effects that let a unit listed once borrow from its line.
+
+**Order.**
+1. **Data quality** (backlog "Data quality"). Audit rows by rules that do not use a model's
+   residuals: within-unit consistency, attribute plausibility (price per square foot, bedrooms
+   against square feet and text), unit and building identity (104 slugs on 41 lots). Decide per
+   finding: correct, exclude, or add a feature. **Scoring (Ben, 2026-09-25): shared rows.** Every
+   model compared, the baseline included, is refit and scored on the rows both versions keep,
+   and the excluded count is reported next to the score.
+2. **Features for distinct products.** SRO or hotel rooms, full floors and lofts, townhouse
+   floors, penthouses, and the attributes the text states but the listing fields miss.
+3. **Model shape.** Simpler time and unit terms (above), judged by PSIS-LOO and by whether the
+   tails lighten (ν rising) and the geometry eases.
 
 ## Structure search under 15 minutes (from 2026-09-25)
 
