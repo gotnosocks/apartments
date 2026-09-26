@@ -1,6 +1,11 @@
 import json
 
-from streeteasy_archive.collection_policy import annotate, exclusion_reason, setup
+from streeteasy_archive.collection_policy import (
+    annotate,
+    exclusion_reason,
+    min_listing_id,
+    setup,
+)
 from streeteasy_archive.scope import expand
 from streeteasy_archive.store import ArchiveStore
 
@@ -388,4 +393,39 @@ def test_ads_without_policy_keep_queue_order(tmp_path):
     ads = [f"https://streeteasy.com/rental/{n}" for n in (100, 300, 200)]
     s.enqueue(g, [{"url": u, "kind": "listing"} for u in ads])
     assert [s.claim(g)["url"] for _ in ads] == ads
+    s.close()
+
+
+def test_ads_below_min_listing_id_are_skipped_before_any_request(tmp_path):
+    s = ArchiveStore(tmp_path)
+    g = s.new_generation()
+    setup(s, g, min_listing_id=200)
+    a = "https://streeteasy.com/building/example/1a"
+    ads = [f"https://streeteasy.com/rental/{n}" for n in (100, 199, 200, 300)]
+    s.enqueue(g, [{"url": u, "kind": "listing"} for u in ads])
+    annotate(s, g, {}, unit_body(a, "300", ["100", "199", "200", "300"]), a)
+    assert claim_all(s, g) == [ads[3], ads[2]]
+    skipped = dict(
+        s.db.execute(
+            "SELECT url, reason FROM collection_exclusions WHERE reason='before_min_listing_id'"
+        )
+    )
+    assert skipped == {ads[0]: "before_min_listing_id", ads[1]: "before_min_listing_id"}
+    attempts = dict(s.db.execute("SELECT url, attempts FROM frontier"))
+    assert attempts[ads[0]] == attempts[ads[1]] == 0
+    # Unit routes are never subject to the cutoff.
+    assert exclusion_reason(s, g, a) is None
+    s.close()
+
+
+def test_min_listing_id_persists_across_resume_and_can_be_cleared(tmp_path):
+    s = ArchiveStore(tmp_path)
+    g = s.new_generation()
+    setup(s, g)
+    assert min_listing_id(s, g) == 0
+    setup(s, g, min_listing_id=1210000)
+    setup(s, g)  # A resume without the option keeps the cutoff.
+    assert min_listing_id(s, g) == 1210000
+    setup(s, g, min_listing_id=0)
+    assert min_listing_id(s, g) == 0
     s.close()

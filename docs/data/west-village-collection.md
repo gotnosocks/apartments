@@ -195,54 +195,103 @@ the live queue (September 25), round 0 held 11,302 pending advertisements,
 followed by 7,051, 5,532 and 4,269; placing them took 1.3 s and claim time was
 unchanged (about 70 ms). Requests, rate and eligibility are unchanged.
 
-## Handoff status (September 25, 11:15 EDT)
+### September 26 advertisement phase start
 
-**The crawl is running as `apartments-west-village-low-rate-20260919-v7`** at four
-submissions per minute. On September 25 at 11:13 EDT the v6 service was stopped
-cleanly and v7 was launched (first request 11:38, after setup) with `resume-v7-4pm.py` on the fixed `runtime-v7/src`.
-That runtime is `runtime-v6` with only `collection_policy.py` replaced by the merged
-PR #20 version, which adds round-robin, newest-first advertisement claims (see the
-September 25 section above). Rate, concurrency and eligibility are unchanged. The
-rate was doubled from two to four per minute on September 23 at the user's request.
-Earlier, on September 22, the crawl was stopped twice by machine-wide memory
-exhaustion, not by provider or account errors. The service is a transient
-`systemd-run` unit, so a reboot removes it and it must be relaunched by hand after
-checking for account errors.
+Unit probes finished at about 02:28 EDT on September 26 (17,229 probes; 14,798
+units with canonical membership). The first 36 advertisement requests were all
+round 0 (each unit's newest), in descending ID order, as intended: 31 returned
+200 and 5 returned 404.
 
-Progress as of September 25, 10:27 EDT: 13,530 unit probes done and 3,698 pending
-(about 15 hours at four per minute); 11,455 units with canonical membership; about
-37,900 advertisement pages queued behind the probes, still growing as units are
-found. From September 23 to 25, 404 misses ran at 4-10% per two-hour window, with
-no account, credit or block errors.
+14 of those 31 captures were marked `captured_listing_not_eligible` because the
+advertisement declares a zero-padded unit URL (`/005v`, `/009j`, `/02`) while the
+unit page that listed it in its history is unpadded (`/5v`, `/9j`, `/2`). Across
+the whole crawl, zero padding explains 29 of 34 such exclusions, in five buildings:
+`10-downing-street-new_york` (14), `564-hudson-street-new_york` (9),
+`the-west-coast` (3), `119-christopher-street-new_york` (2) and
+`234-west-14-street-new_york` (1). Those buildings hold 1,320 of 46,443 pending
+advertisements (2.8%). Under current policy these identities stay distinct (see
+the 564 Hudson decision above), so their captures are archived but not accepted.
+Treating a leading-zero difference as the same unit would be a policy change for
+the user to decide; it could be applied offline to archived captures without new
+requests.
+
+By 04:37 (two hours in), 467 advertisement requests had returned 462 HTTP 200 and 5
+HTTP 404. About 13,000 queued advertisements were superseded at no cost, because the
+unit page already carried the same advertisement in full ("same advertisement
+already captured on canonical unit page"), so round 0 finished early and round 1
+began. Of the 462 captures, 177 (38%) were excluded as `captured_listing_not_eligible`.
+The causes were zero padding in the declared unit (76), a declared canonical link that
+is not a unit page (67), and other label spellings of the same unit, for example
+`the-flat`/`theflat`, `4-b`/`4b`, `2nd-floor`/`2`, `3fl`/`3` (34). In the zero-padding
+case checked (10 Downing `5V`/`005V`), StreetEasy's own unit page lists the
+advertisement in its history, while the advertisement's own address label and
+canonical URL use the padded form; neither page exposes a numeric unit ID. The
+probe rule strips hyphens and spaces, which produces several of these
+self-canonical alternate spellings. Accepting such matches changes the eligibility
+policy, so it is left to the user. The captures are archived and could be
+re-evaluated offline. The rate was front-loaded: from 04:37 to 06:37, 480
+advertisement captures returned 200, 1 returned 404, and only 5 (1.0%) were
+excluded as not eligible.
+
+### September 26 pre-2014 advertisement cutoff
+
+Listing pages below advertisement ID 1.2M (about 2006-2013) lacked a canonical unit
+link 55-60% of the time in the 3,147 archived West Village listing pages, against
+one page from ID 1.3M up. Such pages are excluded after capture, and the modeling
+code drops listings for units without a canonical unit URL. The user chose to skip
+listings from before 2014. Inventory list dates put the boundary between IDs
+1,204,442 (December 2013) and 1,211,211 (January 2014), so the cutoff is 1,210,000
+(PR #30, deployed in v8). It is stored in archive metadata and persists across
+resumes. About 3,600 of the skipped advertisements would have carried a unit link.
+Exclusions are not re-queued if the cutoff is later lowered.
+
+## Handoff status (September 26, 12:30 EDT)
+
+**The crawl is running as `apartments-west-village-low-rate-20260919-v8`** at four
+submissions per minute. On September 26 at 12:30 EDT v7 was stopped cleanly and v8
+was launched with `resume-v8-4pm.py` on the fixed `runtime-v8/src`. That runtime is
+`runtime-v7` with `collection_policy.py` and `cli.py` replaced by the merged PR #30
+versions. The resume passes `--rental-min-listing-id 1210000`, so rental
+advertisements listed before 2014 are excluded before any request
+(`before_min_listing_id`), at the user's request. That removed 8,539 of 31,474
+queued advertisements, about 36 hours of requests. Advertisements are still claimed
+round-robin by unit, newest first (PR #20, since v7). Rate, concurrency and the
+eligibility rules are unchanged. The service is a transient `systemd-run` unit, so
+a reboot removes it and it must be relaunched by hand after checking for account
+errors.
+
+Progress as of September 26, 12:30 EDT: unit probes are finished (17,229;
+14,798 units with canonical membership). The advertisement phase began at 02:28:
+about 3,200 advertisement requests so far, with 14,265 more satisfied free from
+unit-page captures, and no account, credit or block errors.
 
 ### Restart
 
 Use this if the service is stopped (check the journal for HTTP 401/402/403 first).
-The runtime is fixed. Resume replays offline setup before any request: 2.5 to 6.5
-minutes under v6, but about 26 minutes for the first v7 start (September 25), because
-replaying about 13.5k unit pages also placed each unit's advertisements one small
-transaction at a time. Later starts should move few rows (not yet measured); skipping the
-per-unit placement
-during replay (the full placement at the end of setup covers it) is a known
-follow-up. Peak memory is about 130 MB; the crawl then continues at four
+The runtime is fixed. Resume replays offline setup before any request; it spends
+no credits. Setup re-reads every archived unit and listing capture, so its length
+grows with the archive: 2.5 to 6.5 minutes under v6 (September 22-23), about 26
+minutes for the first v7 start (September 25, which also placed about 39k queued
+advertisements in claim order), and 19.5 minutes for v8 (September 26, about 18k
+captures). Peak memory is about 130 MB. The crawl then continues at four
 submissions per minute:
 
 ```sh
-systemctl --user reset-failed apartments-west-village-low-rate-20260919-v7
-systemd-run --user --unit=apartments-west-village-low-rate-20260919-v7 \
-  --description='West Village canonical rentals: unit probes, then round-robin newest-first ads' \
+systemctl --user reset-failed apartments-west-village-low-rate-20260919-v8
+systemd-run --user --unit=apartments-west-village-low-rate-20260919-v8 \
+  --description='West Village canonical rentals: round-robin newest-first ads from 2014 on' \
   --property=WorkingDirectory=/home/ben/code/apartments --property=RuntimeMaxSec=infinity \
   --property=TimeoutStopSec=30 --property=Restart=no --property=MemoryMax=2G \
   /home/ben/code/apartments/.venv/bin/python -u \
-  /home/ben/code/apartments/data/probes/west-village-20260919/resume-v7-4pm.py
+  /home/ben/code/apartments/data/probes/west-village-20260919/resume-v8-4pm.py
 ```
 
 Check the service, then the progress counts with a read-only SQLite
 connection (`?mode=ro`):
 
 ```sh
-systemctl --user is-active apartments-west-village-low-rate-20260919-v7
-journalctl --user -u apartments-west-village-low-rate-20260919-v7 -n 30 --no-pager
+systemctl --user is-active apartments-west-village-low-rate-20260919-v8
+journalctl --user -u apartments-west-village-low-rate-20260919-v8 -n 30 --no-pager
 ```
 
 Useful queries: `observations WHERE id>4179` grouped by status;
@@ -260,8 +309,8 @@ placed in claim order have negative `frontier.rowid`.
 - The runtime, `.venv` and `.env` live under the default checkout and are gitignored.
   Do not delete, rebuild or `uv sync` that `.venv`, and do not edit
   existing `data/probes/west-village-20260919/runtime-v*` directories. Change code
-  through a reviewed PR, a new fixed runtime directory (`runtime-v8`) and a
-  controlled stop and resume. Never edit files listed in `ruff.toml`'s
+  through a reviewed PR, a new fixed runtime directory and a
+  controlled stop and resume (next: `runtime-v9`). Never edit files listed in `ruff.toml`'s
   `extend-exclude` (including `store.py` and `crawler.py`): saved datasets hash them.
 - Memory: the service's cgroup sits at its 2 GB `MemoryMax` within minutes, but
   that is reclaimable file cache from reading the archive; the process itself uses
@@ -270,15 +319,16 @@ placed in claim order have negative `frontier.rowid`.
   large fits run alongside the crawl, check free memory or coordinate with the
   fitting session.
 - The Codex heartbeat `improve-west-village-scrape-efficiency` is paused.
-- Scale: about 3.7k unit probes remain (September 25), then about 50k historical
-  advertisements (about 8-9 days at four per minute) unless credits run out first.
+- Scale: about 23k advertisements from 2014 on remain queued (September 26), about
+  4 days at four per minute, unless credits run out first.
 
 ### Code and version control
 
 - The scraper code, tests and this document are on master. West Village work
   collects on jj bookmark `west-village-unit-probes` (workspace
   `/home/ben/code/apartments-c5-wv`) and lands through reviewed, squash-merged PRs:
-  #3 (this document) and #20 (advertisement claim order). After each merge the
+  #3 (this document), #20 (advertisement claim order), #21 (v7 handoff) and #30
+  (pre-2014 listing-ID cutoff). After each merge the
   bookmark restarts from master.
 - Open report from the Model Improvement session:
   `test_actual_accepted_current_cohort_and_joint_counterfactual` fails only after
