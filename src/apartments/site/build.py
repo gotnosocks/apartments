@@ -80,12 +80,16 @@ CREATE TABLE listings(
   pareto_k REAL, reliable INTEGER NOT NULL,
   fitted REAL, fitted_lower REAL, fitted_upper REAL,
   contributions TEXT NOT NULL, inputs TEXT NOT NULL);
-CREATE INDEX listings_period ON listings(period DESC, id);
-CREATE INDEX listings_ask ON listings(ask);
-CREATE INDEX listings_residual_pct ON listings(residual_pct);
-CREATE INDEX listings_building ON listings(building_id, period DESC);
+-- Every sort key has an index ending in id, in the same direction as the key,
+-- so ORDER BY <key> <dir>, id <dir> scans it either way (no temp sort).
+CREATE INDEX listings_period ON listings(period, id);
+CREATE INDEX listings_ask ON listings(ask, id);
+CREATE INDEX listings_estimate ON listings(estimate, id);
+CREATE INDEX listings_residual_usd ON listings(residual_usd, id);
+CREATE INDEX listings_residual_pct ON listings(residual_pct, id);
+CREATE INDEX listings_building ON listings(building_id, period, id);
 CREATE INDEX listings_unit ON listings(unit_id, period);
-CREATE INDEX listings_current ON listings(is_current, period DESC);
+CREATE INDEX listings_current ON listings(is_current, period, id);
 CREATE INDEX listings_bedrooms ON listings(bedrooms);
 CREATE INDEX units_building ON units(building_id);
 """
@@ -554,7 +558,11 @@ def publish(build_dir: Path, root: Path, keep: int = KEEP) -> None:
         tmp.unlink()
     tmp.symlink_to(build_dir.relative_to(root))
     os.replace(tmp, link)
-    builds = sorted(p for p in (root / "builds").iterdir() if p.is_dir())
+    builds = sorted(
+        p
+        for p in (root / "builds").iterdir()
+        if p.is_dir() and not p.name.endswith(".tmp")
+    )
     live = build_dir.resolve()
     for old in builds[:-keep]:
         if old.resolve() != live:

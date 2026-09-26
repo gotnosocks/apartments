@@ -161,3 +161,16 @@ def test_publish_swaps_current_and_keeps_the_newest_builds(
     remaining = sorted(p.name for p in (root / "builds").iterdir())
     assert remaining == [p.name for p in built[-build.KEEP :]]
     assert (root / "current").resolve() == built[-1].resolve()
+
+
+def test_publish_never_prunes_staging(bundle, tmp_path):
+    root = tmp_path / "site"
+    staging = root / "builds" / "00000000T000000Z-other.tmp"
+    staging.mkdir(parents=True)
+    for _ in range(build.KEEP + 1):
+        build.build(bundle, root)
+    assert staging.is_dir()
+    assert (
+        len([p for p in (root / "builds").iterdir() if not p.name.endswith(".tmp")])
+        == build.KEEP
+    )

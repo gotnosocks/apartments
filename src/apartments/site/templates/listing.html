@@ -44,8 +44,9 @@
   <p>The estimate uses the unit's {{ row.unit_fit_rows - 1 }} other listing{{ "" if row.unit_fit_rows == 2 else "s" }}, the building, the apartment's
   features and the market that month, and leaves this listing's own ask out.</p>
   {% else %}
-  <p>This is the unit's only listing, so the estimate rests on the building, the apartment's features and the market alone.
-  {% set c = meta.stats.calibration.single if meta.stats.calibration else none %}
+  <p>This is the unit's only listing in the model fit, so the estimate rests on the building, the apartment's features and
+  the market alone.
+  {% set c = meta.stats.calibration.get("single") %}
   {% if c %}Such estimates are less certain than their range suggests: {{ pct(100 * c.cover95, signed=False, digits=1) }} of these asks fall
   within the model's 95% predictive range.{% endif %}</p>
   {% endif %}

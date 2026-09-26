@@ -2,10 +2,12 @@ import csv
 import gzip
 import io
 import itertools
+import json
+import sqlite3
 
 import pytest
 
-from apartments.site import charts
+from apartments.site import charts, web
 from apartments.site.web import create_app
 
 GROVE = "the-grove-250-west-19th-street-new_york"
@@ -95,7 +97,7 @@ def test_listing_page_explains_the_estimate(client):
     assert "renovated" in html and "penthouse" in html
     assert "At their reference level, adding nothing: Bedrooms" in html
     single = client.get("/listings/a4").get_data(as_text=True)
-    assert "only listing" in single and "Above typical" in single
+    assert "only listing in the model fit" in single and "Above typical" in single
     held = client.get("/listings/a2").get_data(as_text=True)
     assert "held out of the model fit" in held
 
@@ -201,3 +203,47 @@ def test_money_and_percent_formatting():
     assert charts.usd(1200) == "$1,200"
     assert charts.pct(-19.1, digits=1) == "−19.1%"
     assert charts.pct(0.0) == "0%"
+
+
+@pytest.mark.parametrize("sort", sorted(web.SORTS))
+@pytest.mark.parametrize("order", ["asc", "desc"])
+@pytest.mark.parametrize("extra", [{}, {"page": "3"}])
+def test_every_sort_pages_through_an_index(site_root, sort, order, extra):
+    """No whole-table sort: unfiltered, the page's ids come off an index in
+    either order (a filtered page sorts only its matching ids)."""
+    from werkzeug.datastructures import MultiDict
+
+    filters = web.Filters(MultiDict({"sort": sort, "order": order, **extra}))
+    sql, params = web.page_query(filters)
+    db = sqlite3.connect(site_root / "current" / "site.sqlite")
+    plan = " | ".join(r[3] for r in db.execute("EXPLAIN QUERY PLAN " + sql, params))
+    db.close()
+    ids_part = plan.split("SCAN page")[0]
+    assert "TEMP B-TREE" not in ids_part, plan
+
+
+def test_model_page_without_a_calibration_group(client, site_root):
+    """An all-rows fit has no held-out rows; /model must still render."""
+    path = (site_root / "current" / "site.sqlite").resolve()
+    db = sqlite3.connect(path)
+    stats = json.loads(
+        db.execute("SELECT value FROM meta WHERE key='stats'").fetchone()[0]
+    )
+    del stats["calibration"]["heldout"]
+    db.execute("UPDATE meta SET value=? WHERE key='stats'", (json.dumps(stats),))
+    db.commit()
+    db.close()
+    html = client.get("/model").get_data(as_text=True)
+    assert "only listing in the fit" in html and "Held out of the fit" not in html
+    assert client.get("/listings/a4").status_code == 200
+
+
+def test_chart_data_block_has_no_angle_brackets():
+    figure = str(
+        charts.residual_scatter(
+            [{"period": "2020-01-01", "residual_pct": 0.1, "title": "<!-- </script>"}],
+            label="t",
+        )
+    )
+    block = figure.split('class="chart-data">')[1].split("</script>")[0]
+    assert "<" not in block and "\\u003c!--" in block

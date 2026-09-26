@@ -203,6 +203,31 @@ class Filters:
         )
 
 
+LISTING_JOIN = " JOIN buildings b ON b.id = l.building_id"
+
+
+def count_query(filters: Filters):
+    where, params = filters.where()
+    join = LISTING_JOIN if "b." in where else ""
+    return f"SELECT COUNT(*) FROM listings l{join}{where}", params
+
+
+def page_query(filters: Filters):
+    """One page of listings: the page's ids first (the sort holds only keys
+    and walks an index), then their full rows."""
+    where, params = filters.where()
+    join = LISTING_JOIN if "b." in where else ""
+    ids = (
+        f"SELECT l.id FROM listings l{join}{where}{filters.order_by()} LIMIT ? OFFSET ?"
+    )
+    sql = (
+        "SELECT l.*, b.name AS building_name, b.address AS building_address "
+        f"FROM ({ids}) page JOIN listings l ON l.id = page.id{LISTING_JOIN}"
+        f"{filters.order_by()}"
+    )
+    return sql, [*params, filters.per, (filters.page - 1) * filters.per]
+
+
 def _default_order(sort):
     return "desc" if sort == "date" else "asc"
 
@@ -319,7 +344,7 @@ def create_app(root: Path | str | None = None, *, allowed_hosts=None) -> Flask:
         elapsed = (time.perf_counter() - g.get("started", time.perf_counter())) * 1e3
         log.info(
             "%s %s %s %d %.1fms",
-            request.headers.get("X-Forwarded-For", request.remote_addr),
+            request.remote_addr,
             request.method,
             request.full_path.rstrip("?"),
             response.status_code,
@@ -406,25 +431,10 @@ def create_app(root: Path | str | None = None, *, allowed_hosts=None) -> Flask:
         }
 
     def listings_query(filters: Filters):
-        where, params = filters.where()
-        joined = " FROM listings l JOIN buildings b ON b.id = l.building_id"
-        needs_join = "b." in where
-        count_sql = "SELECT COUNT(*)" + (joined if needs_join else " FROM listings l")
-        total = db().execute(count_sql + where, params).fetchone()[0]
+        total = db().execute(*count_query(filters)).fetchone()[0]
         pages = max(1, math.ceil(total / filters.per))
         filters.page = min(filters.page, pages)
-        rows = (
-            db()
-            .execute(
-                "SELECT l.*, b.name AS building_name, b.address AS building_address"
-                + joined
-                + where
-                + filters.order_by()
-                + " LIMIT ? OFFSET ?",
-                [*params, filters.per, (filters.page - 1) * filters.per],
-            )
-            .fetchall()
-        )
+        rows = db().execute(*page_query(filters)).fetchall()
         return rows, total, pages
 
     @app.get("/")
@@ -507,11 +517,13 @@ def create_app(root: Path | str | None = None, *, allowed_hosts=None) -> Flask:
             finally:
                 connection.close()
 
-        return Response(
+        response = Response(
             stream_with_context(generate()),
             mimetype="text/csv",
             headers={"Content-Disposition": "attachment; filename=listings.csv"},
         )
+        response.call_on_close(connection.close)
+        return response
 
     @app.get("/listings/<path:audit_id>")
     def listing(audit_id):

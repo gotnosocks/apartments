@@ -35,7 +35,7 @@
   <table class="data">
     <thead><tr><th scope="col">Listings</th><th scope="col" class="num">Count</th><th scope="col" class="num">In 95% range</th><th scope="col" class="num">In 80% range</th><th scope="col" class="num">Median |ask − estimate|</th></tr></thead>
     <tbody>
-    {% for key, label in [("heldout", "Held out of the fit entirely"), ("multi", "Unit has other listings"), ("single", "Unit's only listing")] %}
+    {% for key, label in [("heldout", "Held out of the fit entirely"), ("multi", "Unit has other listings in the fit"), ("single", "Unit's only listing in the fit")] if key in s.calibration %}
     {% set c = s.calibration[key] %}
     <tr><th scope="row">{{ label }}</th><td class="num">{{ "{:,}".format(c.n) }}</td><td class="num">{{ pct(100 * c.cover95, signed=False, digits=1) }}</td>
       <td class="num">{{ pct(100 * c.cover80, signed=False, digits=1) }}</td><td class="num">{{ pct(100 * c.median_abs_pct, signed=False, digits=1) }}</td></tr>
@@ -43,7 +43,7 @@
     </tbody>
   </table>
   </div>
-  <p class="note">Estimates for a unit's only listing rest on the building and features alone, and their ranges are somewhat too
+  <p class="note">Estimates for a unit's only listing in the fit rest on the building and features alone, and their ranges are somewhat too
   narrow. {{ "{:,}".format(s.unreliable_estimates) }} listings (marked <span class="warn-mark">*</span>) have an unstable
   leave-own-row-out correction (Pareto k above {{ p.estimate_pareto_k.threshold }}).</p>
 </section>
