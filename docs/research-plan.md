@@ -366,6 +366,14 @@ the fix goes into the model, the features or the data, not the sampler.
   The walk still does better: the deprecated Gibbs m1q (base-v1) is 2,636 ± 152 ahead, so part
   of each building's path is not linear. The next shape between the two is a coarse, smooth
   building-time term.
+- With `unitfloor-v2` the trend gives 45,484.9 (0962ea7; 646 s, passes): +4,891 over the m0
+  baseline, the best gate-passing library fit so far.
+- **A walk with knots every 2 years, around the trend** (`m1-btrend-walk24`, 0962ea7, walk
+  levels): 1,150 s, **fails**. building_trend_scale has R-hat 1.077 and ESS 35 because a walk
+  already holds a trend: the two trade off, and the fitted trend scale fell to 0.005. PSIS-LOO
+  is 48,748.2, which is +3,263 ± 88 over the trend alone and +666 ± 128 over the deprecated Gibbs
+  half-year walk (m1q, base-v1). Held-out ΔELPD is +237.6, against −185.4. Next: the coarse
+  walk alone, at 2- and 3-year knots.
 - Within-unit price jumps (240 rows more than 2× off the unit's other listings, trend-adjusted)
   are mostly real changes: renovations, combined apartments, market moves. Almost none are
   furnished or short-term. A renovation mention appearing within a unit comes with only about

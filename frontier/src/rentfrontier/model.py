@@ -928,8 +928,9 @@ MODELS = {
     "m0q-btrend": ModelConfig(
         name="m0q-btrend", building_trend=True, trend_knot_months=3
     ),
-    # The linear trend plus a coarse walk around it: knots every 2 or 3 years
-    # (10 or 7 knots per building, against the half-year walk's 35).
+    # The linear trend plus a walk around it with knots every 2 years (10 knots
+    # per building, against the half-year walk's 35). The two trade off: a
+    # walk already holds a trend (0962ea7: building_trend_scale R-hat 1.077).
     "m1-btrend-walk24": ModelConfig(
         name="m1-btrend-walk24",
         building_trend=True,
@@ -937,12 +938,12 @@ MODELS = {
         walk_knot_months=24,
         trend_knot_months=3,
     ),
-    "m1-btrend-walk36": ModelConfig(
-        name="m1-btrend-walk36",
-        building_trend=True,
-        building_walk=True,
-        walk_knot_months=36,
-        trend_knot_months=3,
+    # The coarse walk alone, knots every 2 or 3 years (10 or 7 per building).
+    "m1-walk24": ModelConfig(
+        name="m1-walk24", building_walk=True, walk_knot_months=24, trend_knot_months=3
+    ),
+    "m1-walk36": ModelConfig(
+        name="m1-walk36", building_walk=True, walk_knot_months=36, trend_knot_months=3
     ),
     # m6-m8 without the bedroom-group market curves: the curves add ~200
     # global columns (3 groups x 68 quarterly knots) and the global solve
