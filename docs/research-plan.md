@@ -479,6 +479,18 @@ the fix goes into the model, the features or the data, not the sampler.
     same pattern as the walk scale. The fixes are the same two kinds: a model choice (lines
     with at least 3 units), or centring units on their line (as `unit_totals` centres them on
     their building). Ben's call.
+  - **Ben (2026-09-26) chose the model change; it does not help** (`line_min_units=3`,
+    `m0q-btrend-lines3`, 9486254; the code was reverted). In 791 s, line_scale still fails
+    (R-hat 1.018, ESS 172), and PSIS-LOO is −24.2 ± 8.0 against lines of 2 or more units
+    (+151.4 over no lines).
+  - The chains show why: they agree on line_scale (means 0.0367–0.0375, within-chain sd
+    0.0015), its autocorrelation is 0.70 at lag 1 and gone by lag 50, and its correlation with
+    unit_scale is only −0.21 (−0.15 for 2-unit lines).
+  - So a line does not trade off against its units, as this entry first said. line_scale is a
+    hierarchical scale over about 2,000 centred line effects and mixes slowly, like
+    walk_scale. That is the cost of centred effects, not a misspecification, and it is fixed
+    by more draws or by a sampling coordinate (partial non-centring, as `unit_partial` does
+    for units). Back to Ben.
 - **Listed floors above a building's MapPLUTO height** (407 rows in 11 buildings) are mostly in
   new towers: 507 West Chelsea (listed up to 33, MapPLUTO 13), One Hudson Yards, Avalon West
   Chelsea, The Cortland and One High Line. The listings are right; the lot's floor count is
