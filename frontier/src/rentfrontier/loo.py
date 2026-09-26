@@ -188,6 +188,7 @@ def score_run(name: str):
     if frame.attrs["source_sha256"] != result["dataset_observations_sha256"]:
         raise SystemExit("dataset differs from the run's recorded dataset")
     heldout = splits.SPLITS[result["split"]](frame)
+    frame = data.apply_rules(frame, result.get("data_rules", ()))
     feats = features.build(result["feature_set"], frame, ~heldout)
     prep = model.prepare(frame, heldout, feats)
     names = [str(n) for n in feats.names]

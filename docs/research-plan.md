@@ -375,21 +375,21 @@ the fix goes into the model, the features or the data, not the sampler.
   half-year walk (m1q, base-v1). Held-out ΔELPD is +237.6, against −185.4. Next: the coarse
   walk alone, at 2- and 3-year knots.
 - **The walk alone, knots every 3 years** (`m1-walk36`, 937c466): **771 s**, within the window.
-  It narrowly misses the gate on ESS: walk_scale has 368 against 400, with max R-hat 1.008.
+  It narrowly misses the gate: walk_scale ESS is 368 against 400 (max R-hat 1.008), and there is 1 divergence.
   PSIS-LOO is 48,096.7: +2,612 over the linear trend, and level with the deprecated Gibbs
   half-year walk (m1q, 48,082.6) at a fifth of the knots. Building over time takes 1.1% of the
   variance, and the residual falls to 3.1%.
 - **The walk alone, knots every 2 years** (`m1-walk24`, 937c466): **812 s**, fails on walk_scale
   (R-hat 1.019, ESS 200). PSIS-LOO is 48,742.7, the same as with the trend (48,748.2), so the
   trend added nothing. It is +646 over the 3-year walk and +660 over the Gibbs m1q.
-- **Both coarse walks fail only on walk_scale.** The fitted 2-year steps have kurtosis 7.3:
+- **Both Normal coarse walks fail on walk_scale;** their every-element R-hat is fine (1.012 and 1.018). The fitted 2-year steps have kurtosis 7.3:
   most buildings move little and a few jump, so one Normal scale compromises. Next: Student-t
   walk steps (`walk_t`, df estimated), `m1-twalk36` and `m1-twalk24`.
 - **Student-t steps, df estimated** (`m1-twalk36`, e6718f5): 845 s, fails. The df is poorly
   identified by latent steps (walk_nu 2.64 ± 0.19, R-hat 1.06, ESS 80). PSIS-LOO is 48,211.5,
   +115 over the Normal 3-year walk, so heavy-tailed steps fit better. Next: df fixed at 3
   (`walk_nu_fixed`; `m1-t3walk36`, `m1-t3walk24`).
-- **df fixed at 3** (9fa29ee). Both walks fit within 15 minutes and both fail on walk_scale:
+- **df fixed at 3** (9fa29ee). Both walks fit within 15 minutes, and both fail on walk_scale and on the every-element R-hat (see the correction below):
   - 3-year (`m1-t3walk36`): 817 s, walk_scale ESS 292, PSIS-LOO 48,201.5;
   - 2-year (`m1-t3walk24`): 859 s, walk_scale ESS 297 (and a traced building at R-hat 1.012),
     **PSIS-LOO 48,944.1**, the best yet: +201 over the Normal 2-year walk and about +8,350
@@ -408,19 +408,46 @@ the fix goes into the model, the features or the data, not the sampler.
   ties the walk scale to them. Next: each walk is anchored at 0 at its building's own anchor
   knot (`walk_anchor_data`; `m1-t3walk24-anchored`). The building level is then its level
   where it is observed.
-- **Anchoring did not fix it either** (d1867e8): 934 s, walk_scale ESS 195, a building at
-  R-hat 1.018, held-out ΔELPD +268.4 (the best yet). The draws say this is not a
-  misspecification signal:
-  - the four chains agree on walk_scale (means 0.0431–0.0433, within-chain sd 0.0011);
-  - its autocorrelation is 0.55 at lag 1, 0.19 at lag 10 and about 0 by lag 50, so about 50
-    effective draws per chain;
-  - its correlation with every other scalar and traced effect is below 0.12.
+- **Anchoring did not fix it either** (d1867e8): 934 s, walk_scale ESS 195, held-out ΔELPD
+  +268.4, PSIS-LOO 48,992.6 (the best yet).
+- **Correction (PR #25 review).** An earlier version of this entry blamed the coarse walks'
+  failures on walk_scale ESS alone and called them slow mixing, not misspecification. The
+  records say otherwise. Every walk run also fails the every-element check (R-hat < 1.05 over
+  every walk and building value):
 
-  Its PSIS-LOO is 48,992.6, the best yet (+48 over the unanchored 2-year t walk).
-  It is a hierarchical scale over about 6,500 centred walk levels, which mixes slowly. The
-  remaining options are more draws (about 1,100 per chain, roughly 21 minutes) or a sampler
-  coordinate for the walk (partial non-centring, like `unit_partial`), which is Ben's call
-  after 2026-09-25.
+  | Run | Every-element R-hat | Elements > 1.05 |
+  |---|---:|---:|
+  | m1-t3walk24-anchored (d1867e8) | 1.318 | 22 |
+  | m1-t3walk24 (9fa29ee) | 1.615 | 12 |
+  | m1-t3walk36 (9fa29ee) | 1.616 | 10 |
+  | m1-twalk36 (e6718f5) | 2.133 | 8 |
+  | m1-t3walk24-min2 (345628a) | 1.058 | 1 |
+
+  m1-walk36 (937c466) also had 1 divergence. About half of the flagged elements are prior-only
+  knots outside a building's data range, which is heavy-tail noise. The worst are chains that
+  sit in different modes inside the data range, each traced to one or two odd rows:
+  - 299 10th Ave: a lone 2011 row labelled `spac1`, a $5,300 "studio", where the other 29 rows
+    ask $2,000–3,300;
+  - 181 9th Ave: a 2022 `1h` at $1,650, against six others at $2,900–5,500;
+  - 227 W 17th: five $30,000–35,000 lofts, with the 7th floor under three unit IDs (`7thfl`,
+    `7th-fl`, `7th-floor`).
+
+  The Normal walks do not split this way (every-element R-hat 1.012 and 1.018). With
+  heavy-tailed steps, a walk can take up a single outlier as a building jump or leave it alone,
+  and the chains find both. More draws will not fix that. It is a data and specification
+  signal, which is Ben's principle. Next: unit identity (the same physical unit under several
+  labels) and non-residential or implausible rows, as data-audit rules scored on shared rows.
+- **Data rule `unit-labels-v1`: one unit id per physical unit.** 521 groups of units in one
+  building have the same label written differently: "4-FLR" and "4FLR", "02" and "2",
+  "UNIT4J" and "4J", and the three spellings of 227 W 17th's 7th floor. Merging them removes
+  534 unit ids (22,144 → 21,610), and 641 fewer training units are listed once. Rows are
+  unchanged, and the rule applies after the held-out split is drawn (the row split depends on
+  unit ids), so it scores on identical rows. `run.py --data-rules` applies it, and the run
+  record lists it for the scorers.
+- **Description flags on the unit features, with the building trend** (`m0q-btrend`,
+  `unitdesc-v1`, acab950): 697 s, passes (R-hat 1.006, ESS 634). PSIS-LOO is 45,626.5:
+  +141.6 ± 28.1 over `unitfloor-v2`, and **+5,033 over the m0 baseline, the best gate-passing
+  fit**.
 - Within-unit price jumps (240 rows more than 2× off the unit's other listings, trend-adjusted)
   are mostly real changes: renovations, combined apartments, market moves. Almost none are
   furnished or short-term. A renovation mention appearing within a unit comes with only about

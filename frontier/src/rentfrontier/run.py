@@ -247,6 +247,10 @@ def main(argv=None):
     parser.add_argument(
         "--features", default="base-v1", choices=sorted(features.FEATURE_SETS)
     )
+    parser.add_argument(
+        "--data-rules",
+        help="comma-separated data rules (data.DATA_RULES), applied after the split",
+    )
     parser.add_argument("--model", default="m0-base")
     parser.add_argument(
         "--sampler",
@@ -332,6 +336,8 @@ def main(argv=None):
     t0 = time.perf_counter()
     frame = data.load()
     heldout = splits.SPLITS[args.split](frame)
+    rules = tuple(args.data_rules.split(",")) if args.data_rules else ()
+    frame = data.apply_rules(frame, rules)  # after the split: scored rows are fixed
     feats = features.build(args.features, frame, ~heldout)
     prep = model.prepare(frame, heldout, feats)
     prep_seconds = time.perf_counter() - t0
@@ -418,6 +424,7 @@ def main(argv=None):
         "split": args.split,
         "split_seed": splits.SEED,
         "feature_set": args.features,
+        "data_rules": list(rules),
         "feature_sources": feature_sources(args.features),
         "model": config.to_dict(),
         "sampler": args.sampler,
