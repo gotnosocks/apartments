@@ -43,6 +43,7 @@ LOCAL_SITES = {
     "unit_total_decentered",
     "walk_step",
     "walk_step_decentered",
+    "walk_free",
     "bedroom_slope",
     "fslope",
     "unit_drift",
@@ -67,13 +68,29 @@ class Settings:
     dense_globals: bool = False
     # Sampling coordinates (model.ModelConfig.coordinates): "trend_levels",
     # "season_zerosum", "building_zerosum", "building_totals", "unit_totals",
-    # "unit_partial".
+    # "unit_partial", "walk_levels", "slope_totals".
     # They change how NUTS moves, not the model.
     coordinates: tuple = ()
     # float32 arithmetic (run.py leaves jax_enable_x64 off). The RTX 2060 runs
     # float32 at full rate but float64 at about 1/32; scoring (loo, variance)
     # still runs in float64 from the kept draws.
     float32: bool = False
+    # Chains start at unconstrained values drawn uniformly in (-r, r) (NumPyro's
+    # init_to_uniform; its default r = 2). The flat totals and levels are on
+    # the log-rent scale, where 2 is a factor of 7.
+    init_radius: float = 2.0
+    # Warmup runs in this many equal segments (when they divide it; one
+    # compilation either way), logging each segment's time (the first
+    # includes compilation), leapfrog steps and step sizes.
+    warmup_segments: int = 5
+    # Warm start from NumPyro SVI with a mean-field normal guide (AutoNormal,
+    # Adam) run for this many steps first (0 = off): each chain starts at a
+    # draw from the fitted guide, and its variances are the initial inverse
+    # mass matrix, which NumPyro's windowed adaptation then refines. With
+    # the identity as the initial metric, the first warmup iterations run
+    # the deepest trees. Counted in the fit time.
+    svi_steps: int = 0
+    svi_lr: float = 0.01
 
     def to_dict(self):
         return asdict(self)
@@ -85,7 +102,7 @@ def run(
     settings: Settings,
     log=print,
 ):
-    from numpyro.infer import NUTS
+    from numpyro.infer import NUTS, init_to_uniform
     from numpyro.infer.util import initialize_model
 
     from .collect import batched
@@ -96,7 +113,10 @@ def run(
         )
     dtype = jnp.float32 if settings.float32 else jnp.float64
     t0 = time.perf_counter()
-    present = {"walk_step": config.building_walk, "unit_drift": config.unit_drift}
+    present = {
+        "walk_step": config.building_walk and "walk_levels" not in settings.coordinates,
+        "unit_drift": config.unit_drift,
+    }
     config = replace(
         config,
         noncentered=tuple(s for s in NONCENTERED if present[s]),
@@ -109,11 +129,32 @@ def run(
         # draw would fail on the flat-prior `trend_absolute` site.
         z = initialize_model(jax.random.PRNGKey(0), model_fn).param_info.z
         dense = sorted(k for k in z if k not in LOCAL_SITES)
+    init, metric, svi_info = [None] * settings.chains, None, None
+    if settings.svi_steps:
+        loc, scale, svi_info = svi_fit(model_fn, settings, log)
+        draws = jax.random.split(
+            jax.random.fold_in(jax.random.PRNGKey(settings.seed), 2), settings.chains
+        )
+        init = [
+            {
+                k: v + scale[k] * jax.random.normal(jax.random.fold_in(kc, i), v.shape)
+                for i, (k, v) in enumerate(sorted(loc.items()))
+            }
+            for kc in draws
+        ]
+        # One diagonal block per site, and the dense globals' block.
+        metric = {(k,): jnp.ravel(scale[k] ** 2) for k in scale if k not in dense}
+        if dense:
+            metric[tuple(dense)] = jnp.diag(
+                jnp.concatenate([jnp.ravel(scale[k] ** 2) for k in dense])
+            )
     kernel = NUTS(
         model_fn,
         target_accept_prob=settings.target_accept,
         max_tree_depth=settings.max_tree_depth,
-        dense_mass=[tuple(dense)] if dense else False,
+        dense_mass=[tuple(dense)] if dense else (False if metric is None else []),
+        inverse_mass_matrix=metric,
+        init_strategy=init_to_uniform(radius=settings.init_radius),
     )
     k_init, k_warm, k_draw = jax.random.split(jax.random.PRNGKey(settings.seed), 3)
     vmap = (
@@ -125,8 +166,8 @@ def run(
     # unbatched (NumPyro's vectorized init wraps it in vmap), so the chains
     # are vectorised here and in collect alike.
     inits = [
-        kernel.init(k, settings.warmup, model_args=(), model_kwargs={})
-        for k in jax.random.split(k_init, settings.chains)
+        kernel.init(k, settings.warmup, init_params=z, model_args=(), model_kwargs={})
+        for k, z in zip(jax.random.split(k_init, settings.chains), init)
     ]
     states = jax.tree.map(lambda *xs: jnp.stack(xs), *inits)
 
@@ -135,24 +176,41 @@ def run(
         info = {"divergent": st.diverging, "steps": st.num_steps}
         return st, info | {"accept": st.accept_prob}
 
-    def warm(state, key):
-        state, _ = jax.lax.scan(
-            lambda st, k: (step(k, st)[0], None),
-            state,
-            jax.random.split(key, settings.warmup),
-        )
-        return state
+    def warm(state, keys):
+        def body(st, k):
+            st, info = step(k, st)
+            return st, info["steps"]
+
+        return jax.lax.scan(body, state, keys)
 
     setup_seconds = time.perf_counter() - t0
 
     t0 = time.perf_counter()
-    states = jax.jit(vmap(warm))(states, jax.random.split(k_warm, settings.chains))
+    keys = jax.vmap(lambda k: jax.random.split(k, settings.warmup))(
+        jax.random.split(k_warm, settings.chains)
+    )
+    segments = settings.warmup_segments
+    if not segments or settings.warmup % segments:
+        segments = 1
+    length = settings.warmup // segments
+    warm_segment = jax.jit(vmap(warm))
+    for i in range(segments):
+        t1 = time.perf_counter()
+        states, steps = warm_segment(states, keys[:, i * length : (i + 1) * length])
+        steps = np.asarray(steps)
+        log(
+            f"segment {i + 1}/{segments} of warmup: {time.perf_counter() - t1:.0f}s, "
+            f"{steps.mean():.0f} leapfrog steps per iteration (by chain "
+            f"{np.round(steps.mean(axis=1)).astype(int).tolist()}), step size "
+            f"{np.round(np.asarray(states.adapt_state.step_size), 4).tolist()}"
+        )
     jax.block_until_ready(states)
     warmup_seconds = time.perf_counter() - t0
     step_size = np.asarray(states.adapt_state.step_size)
     log(f"warmup {warmup_seconds:.1f}s step size {np.round(step_size, 4).tolist()}")
 
     fixed = model_module.constants(prep, config)
+
     constrain = kernel.postprocess_fn((), {})
 
     def params(st):
@@ -190,4 +248,39 @@ def run(
     out["step_size"] = step_size.tolist()
     out["mean_tree_steps"] = float(steps.mean())
     out["dense_sites"] = dense
+    out["svi"] = svi_info
     return out
+
+
+def svi_fit(model_fn, settings: Settings, log):
+    """Per-site locations and scales (unconstrained) of a mean-field normal
+    guide fitted by NumPyro SVI."""
+    from numpyro.infer import SVI, Trace_ELBO, init_to_uniform
+    from numpyro.infer.autoguide import AutoNormal
+    from numpyro.optim import Adam
+
+    t0 = time.perf_counter()
+    guide = AutoNormal(
+        model_fn, init_loc_fn=init_to_uniform(radius=settings.init_radius)
+    )
+    svi = SVI(model_fn, guide, Adam(settings.svi_lr), Trace_ELBO())
+    fit = svi.run(
+        jax.random.fold_in(jax.random.PRNGKey(settings.seed), 1),
+        settings.svi_steps,
+        progress_bar=False,
+    )
+    params = jax.device_get(fit.params)
+    loc = {
+        k.removesuffix("_auto_loc"): v
+        for k, v in params.items()
+        if k.endswith("_auto_loc")
+    }
+    scale = {k: params[f"{k}_auto_scale"] for k in loc}
+    losses = np.asarray(fit.losses)
+    seconds = time.perf_counter() - t0
+    log(
+        f"svi {settings.svi_steps} steps {seconds:.1f}s, loss {losses[0]:.4g} -> "
+        f"{losses[-1]:.4g} (mean of the last 10%: {losses[-len(losses) // 10 :].mean():.4g})"
+    )
+    info = {"seconds": seconds, "final_loss": float(losses[-1])}
+    return loc, scale, info

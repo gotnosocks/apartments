@@ -189,6 +189,8 @@ implementation over implementing our own").
   | `building_totals` | building effect plus mean features times beta, as a flat mean plus zero-sum deviations | market vs building ridge (Chelsea Tower), and building attributes (doorman, elevator) trading against building levels |
   | `unit_totals` | unit effect plus its within-building feature deviations times beta | apartment attributes (half baths, floor) trading against unit effects. Centring units on the building effect instead put the market ridge through all 22,000 units |
   | `unit_partial` | unit effects partially non-centred by row count, n / (n + 0.6) | unit-scale funnel from units listed once |
+  | `walk_levels` | each building walk as levels inside the building's data range (relative to its anchor knot, the one with most rows), non-centred steps outside it | m1q step size 0.007–0.014: each level was a sum of half-year steps from 2009, tied to the building effect |
+  | `slope_totals` | building and unit totals at their mean bedrooms, for per-building bedroom slopes (m5) | not yet run |
 
   - NumPyro NUTS on the CPU now passes L0–L5: 40 s, 128 s, 43 s, 68 s, 636 s and 909 s.
     Before the coordinates, L2 took 1,987 s and L3–L5 failed.
@@ -207,12 +209,47 @@ implementation over implementing our own").
     | 4 × (300 + 450) | 885 s | 1.009 | 677 | 40,603.8 |
     | **4 × (250 + 550)** | **888 s** | **1.005** | **894** | **40,607.5** |
 
-    About 600–640 s of each fit is warmup, so trimming draws saves little. 4 × (250 + 550) fits
-    inside 15 minutes with a comfortable gate margin.
+    With 250–300 warmup iterations, warmup takes 598–642 s of each fit (673–801 s with 400–500),
+    so trimming draws saves little. 4 × (250 + 550) fits inside 15 minutes with a comfortable
+    gate margin.
   - Float32 does not work: a chain's step size collapsed.
-  - Across samplers and devices, m0q's PSIS-LOO agrees: NUTS minus Gibbs is +5.4 ± 4.2 on
-    identical rows.
-  - m1q (the building walk) did not finish within 60 minutes on the 2060.
+  - Across samplers and devices, m0q's PSIS-LOO agrees. Against the deprecated Gibbs m0q
+    (ac9e02b, RTX 2060) on identical rows, NUTS minus Gibbs is +3.1 ± 4.0 for 4 × (250 + 550) and
+    +1.6 ± 3.7 for 4 × (300 + 1,000).
+  - m1q (the building walk) did not finish within 60 minutes on the 2060. With `walk_levels`
+    (fad9e4f, 4 × (250 + 550)) its step sizes grew to 0.029, 0.029, 0.030 and 0.016, but the
+    250 warmup iterations still took 1,243 s (5 s each, as before). The fit was stopped at
+    33 minutes under the 30-minute cap, so it has no record.
+  - Warmup, not the starting point, is the cost. Starting chains within ±0.5 instead of
+    NumPyro's ±2 left m0q unchanged (3e80efb: 874 s, warmup 585 s against 598 s, PSIS-LOO
+    40,606.8). Each warmup iteration costs about 5 times a sampling iteration (m0q: 2.4 s
+    against 0.5 s). NumPyro's first 75 warmup iterations adapt only the step size, with an
+    identity mass matrix. Warmup is now logged in five segments (`warmup_segments`).
+  - **The SVI warm start cuts m0q to 592 s** (7229ef0, 4 × (250 + 550), `--svi-steps 2000`),
+    and it still passes (R-hat 1.006, ESS 817). Before sampling, 2,000 steps of NumPyro SVI
+    fit a mean-field normal guide (46 s). Each chain starts at a draw from it, with its
+    variances as the initial mass matrix. Warmup drops from 585 s to 252 s. PSIS-LOO is
+    40,602.1, −5.3 ± 3.5 against the 888 s fit on identical rows (Monte Carlo noise: it is
+    the same model).
+  - A shorter warmup does not pay: 4 × (150 + 550) with the warm start took 746 s. Warmup was
+    142 s, but its one mass-matrix window left step sizes of 0.022–0.027, and sampling took
+    541 s against 277 s (it passes: R-hat 1.006, ESS 596; PSIS-LOO 40,607.0).
+  - The first two warmup segments ran at 58–67 leapfrog steps per iteration with step sizes
+    0.07–0.13. The third, after NumPyro's first mass-matrix window, ran at 258 with 0.014–0.045.
+    NumPyro regularizes windowed estimates as Stan does, adding 1e-3 × 5 / (n + 5) to every
+    variance. After a 25-draw window no coordinate's metric sd is below 0.013, while the
+    tightest posterior sds are a few thousandths.
+  - Keeping the SVI metric fixed (adapting only the step size; 15db8f8) is fast but fails the
+    gate. m0q took 452 s: warmup 115 s at 50–71 leapfrog steps per iteration, final step sizes
+    0.084–0.095. But R-hat was 1.039 on season_scale and the minimum ESS 75 on a building,
+    along directions a mean-field guide misses: the season-scale funnel, and building totals
+    against their units' totals. A low-rank guide (rank 20, 2,000 steps) did not converge: its
+    loss ended about 1,100 above the mean-field guide's, and its metric ran at 472 leapfrog
+    steps per iteration. Both options were removed.
+  - The sampler line stops here (Ben, 2026-09-25; see "Misspecification first" below). The
+    NUTS coordinates and the SVI warm start stay; no further sampler work.
+  - Every timed fit is capped at 30 minutes (Ben, 2026-09-25). Past the 15-minute window a fit
+    has already shown it is outside, and its warmup log gives the diagnostics.
 - New sampler work uses library samplers on `model.build_model`, with library options only:
   - NumPyro NUTS (`--sampler nuts`), with a diagonal or a structured dense mass matrix;
   - BlackJAX's NUTS and many-chain adaptation;
@@ -265,6 +302,45 @@ implementation over implementing our own").
   class's sub-15-minute frontier.
 - **Step 4. Structure search within 15 minutes** (Ben, 2026-09-25: explore feature space and model
   shapes to keep improving the frontier under the 15-minute limit). See the next section.
+
+## Misspecification first (Ben, 2026-09-25)
+
+Ben: "I believe the heuristic guidance that if a model is hard to sample then it is probably
+misspecified. Can we direct our efforts toward feature engineering modeling decisions rather than
+computational tweaks?" So a sampling problem is read as a diagnostic of the model or the data, and
+the fix goes into the model, the features or the data, not the sampler.
+
+**What the sampling problems point at.**
+- **Heavy tails everywhere.** The residual Student-t has ν ≈ 1.9–2.6 in every design (m0q 2.6, m1q
+  1.9, m8 2.2), and m8's unit effects are t with ν ≈ 2. At ν = 2 the variance is infinite: the
+  model is defending against gross outliers at the row and unit level. Most of the worst rows are
+  not keyword-flaggable product types: desc-v1 already flags furnished, income-restricted,
+  rent-stabilized, shared, short-term, outdoor and duplex listings. In m5-nocurves + desc
+  (e343847), the worst 1% of rows (473) carry 11% of the LOO deficit. They include:
+  - implausible attributes, such as a "Full Floor" labelled as a studio at $28,681;
+  - asks far from the same unit's other listings, such as a 1-bedroom at $2,395 against a unit
+    median of $5,824, which suggests one unit ID covering different apartments. 715 rows are more
+    than 1.5 times off their unit's median, with mean LOO 0.15 against 1.07;
+  - other units: SRO-like rooms at 225 W 23rd St (the Chelsea Hotel, $999–1,610) and
+    luxury extremes.
+  Half of the worst rows are units listed once, against 24% of all rows.
+- **Weakly identified terms.** The building walk has about one row per occupied half-year knot
+  (median 1.2) and a median of 7 empty knots before a building's first listing. The unit scale
+  makes a funnel from the 47% of units listed once. These are candidates for simpler,
+  better-identified shapes: building drift, neighbourhood-level time terms, yearly knots, and
+  column (line) effects that let a unit listed once borrow from its line.
+
+**Order.**
+1. **Data quality** (backlog "Data quality"). Audit rows by rules that do not use a model's
+   residuals: within-unit consistency, attribute plausibility (price per square foot, bedrooms
+   against square feet and text), unit and building identity (104 slugs on 41 lots). Decide per
+   finding: correct, exclude, or add a feature. **Scoring (Ben, 2026-09-25): shared rows.** Every
+   model compared, the baseline included, is refit and scored on the rows both versions keep,
+   and the excluded count is reported next to the score.
+2. **Features for distinct products.** SRO or hotel rooms, full floors and lofts, townhouse
+   floors, penthouses, and the attributes the text states but the listing fields miss.
+3. **Model shape.** Simpler time and unit terms (above), judged by PSIS-LOO and by whether the
+   tails lighten (ν rising) and the geometry eases.
 
 ## Structure search under 15 minutes (from 2026-09-25)
 

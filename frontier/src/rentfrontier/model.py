@@ -91,6 +91,20 @@ class ModelConfig:
     #   global mean plus zero-sum deviations; the building prior is imposed on
     #   total - features. Building attributes (doorman, elevator) then do not
     #   trade off against the building levels (f4ffd1a: L5 doorman R-hat 1.026).
+    # - "walk_levels" (with building_walk and building_totals): sample each
+    #   building's walk as levels inside its data range (the knots its rows
+    #   touch, first to last), relative to its anchor knot (the one with most
+    #   rows), and as non-centred steps outward from that range. The building
+    #   total is the building's level at its anchor. The data inform levels;
+    #   in step coordinates each level is a sum of many steps from the first
+    #   month, all tied to the building effect. There, m1q's NUTS step size was
+    #   0.007-0.014 against m0q's 0.04-0.06, and its warmup took over 2,500 s
+    #   (f20e38d).
+    # - "slope_totals" (with bedroom_slope and building_totals): the building
+    #   total is at the building's mean bedrooms rather than at one bedroom,
+    #   and with unit_totals each unit's total adds its building's slope times
+    #   its bedrooms less the building's mean. A building of studios or
+    #   2-bedrooms otherwise trades its total against its bedroom slope.
     coordinates: tuple = ()
     # Per-building random walk over KNOT_MONTHS knots (anchored at 0 in the
     # first month), interpolated linearly between knots.
@@ -425,6 +439,21 @@ def constants(prep: Prepared, config: ModelConfig) -> dict:
         out["building_xbar"] = jnp.asarray(
             _group_means(prep.train.x, prep.train.building, len(prep.buildings))
         )
+    if config.building_walk and "walk_levels" in config.coordinates:
+        if "building_totals" not in config.coordinates:
+            raise ValueError("walk_levels needs building_totals")
+        out |= _walk_ranges(prep)
+    if config.bedroom_slope and "slope_totals" in config.coordinates:
+        if "building_totals" not in config.coordinates:
+            raise ValueError("slope_totals needs building_totals")
+        beds = prep.train.beds_centered[:, None]
+        out["building_beds"] = jnp.asarray(
+            _group_means(beds, prep.train.building, len(prep.buildings))[:, 0]
+        )
+        if "unit_totals" in config.coordinates:
+            out["unit_beds"] = jnp.asarray(
+                _group_means(beds, prep.train.unit, len(prep.units))[:, 0]
+            )
     zero = jnp.zeros(())
     if not config.features:
         out["beta"] = jnp.zeros(len(prep.features.names))
@@ -477,6 +506,73 @@ def _mean_plus_zero_sum(site: str, scale, n: int):
     mean = numpyro.sample(f"{site}_mean", dist.Normal(0.0, scale / jnp.sqrt(n)))
     dev = numpyro.sample(f"{site}_dev", dist.ZeroSumNormal(scale, (n,)))
     return numpyro.deterministic(site, mean + dev)
+
+
+def _walk_ranges(prep: Prepared) -> dict:
+    """Each building's walk data range for "walk_levels": the knots its
+    training rows put interpolation weight on, first to last, and its anchor,
+    the knot with the most weight."""
+    a = prep.train
+    n_knot = n_knots(len(prep.periods))
+    weight = np.zeros((len(prep.buildings), n_knot))
+    np.add.at(weight, (a.building, a.knot), 1 - a.knot_frac)
+    np.add.at(weight, (a.building, np.minimum(a.knot + 1, n_knot - 1)), a.knot_frac)
+    has = weight > 0
+    if not has.any(axis=1).all():
+        raise ValueError("walk_levels needs training rows in every building")
+    first = has.argmax(axis=1)
+    last = n_knot - 1 - has[:, ::-1].argmax(axis=1)
+    k = np.arange(n_knot)
+    return {
+        # the knots other than the anchor, in order: one free coordinate each
+        "walk_free_index": jnp.asarray(
+            [np.delete(k, j) for j in weight.argmax(axis=1)], dtype=jnp.int32
+        ),
+        "walk_first": jnp.asarray(first, dtype=jnp.int32),
+        "walk_last": jnp.asarray(last, dtype=jnp.int32),
+        "walk_before": jnp.asarray(k < first[:, None]),
+        "walk_after": jnp.asarray(k > last[:, None]),
+        # steps between two knots of the range
+        "walk_inside_step": jnp.asarray(
+            (k[:-1] >= first[:, None]) & (k[1:] <= last[:, None])
+        ),
+    }
+
+
+def _walk_levels(scale, fixed):
+    """Building walks for "walk_levels" (a unit-Jacobian map of the steps,
+    apart from the non-centred steps' scale). Inside a building's range the
+    coordinates are its levels less its anchor's level, flat, with the random
+    walk's prior on their differences. Outside it they are standard normal
+    steps outward: back from the first knot, on from the last. Returns the
+    steps (deterministic site walk_step) and each building's walk at its
+    anchor knot."""
+    index = fixed["walk_free_index"]
+    before, after = fixed["walk_before"], fixed["walk_after"]
+    free = numpyro.sample(
+        "walk_free", dist.ImproperUniform(constraints.real, (), index.shape)
+    )
+    rows = jnp.arange(index.shape[0])
+    full = jnp.zeros(before.shape).at[rows[:, None], index].set(free)  # anchor: 0
+    outside = before | after
+    level = jnp.where(outside, 0.0, full)
+    back = jnp.where(before, scale * full, 0.0)
+    back = jnp.flip(jnp.cumsum(jnp.flip(back, axis=1), axis=1), axis=1)
+    on = jnp.cumsum(jnp.where(after, scale * full, 0.0), axis=1)
+    level = jnp.where(
+        before,
+        level[rows, fixed["walk_first"]][:, None] - back,
+        jnp.where(after, level[rows, fixed["walk_last"]][:, None] + on, level),
+    )
+    steps = jnp.diff(level, axis=1)
+    inside = dist.Normal(0.0, scale).log_prob(steps)
+    numpyro.factor(
+        "walk_prior",
+        jnp.where(fixed["walk_inside_step"], inside, 0.0).sum()
+        + jnp.where(outside, dist.Normal(0.0, 1.0).log_prob(full), 0.0).sum(),
+    )
+    # The model's walk is 0 at the first knot: walk(k) = level(k) - level(0).
+    return numpyro.deterministic("walk_step", steps), -level[:, 0]
 
 
 def build_model(prep: Prepared, config: ModelConfig):
@@ -547,12 +643,42 @@ def build_model(prep: Prepared, config: ModelConfig):
             p["season_raw"] = numpyro.sample(
                 "season_raw", dist.Normal(0.0, p["season_scale"]).expand([12])
             )
+
+        def bedroom_slope():
+            p["bedroom_slope_scale"] = numpyro.sample(
+                "bedroom_slope_scale", dist.HalfNormal(config.bedroom_slope_scale_sd)
+            )
+            if "building_zerosum" in config.coordinates:
+                p["bedroom_slope"] = _mean_plus_zero_sum(
+                    "bedroom_slope", p["bedroom_slope_scale"], len(prep.buildings)
+                )
+            else:
+                p["bedroom_slope"] = numpyro.sample(
+                    "bedroom_slope",
+                    dist.Normal(0.0, p["bedroom_slope_scale"]).expand(
+                        [len(prep.buildings)]
+                    ),
+                )
+
+        walk_levels = config.building_walk and "walk_levels" in config.coordinates
+        slope_totals = config.bedroom_slope and "slope_totals" in config.coordinates
+        if walk_levels:
+            # Before the buildings: a building's total is its level at its
+            # anchor knot, which includes its walk there.
+            p["walk_scale"] = numpyro.sample(
+                "walk_scale", dist.HalfNormal(config.walk_scale_sd)
+            )
+            p["walk_step"], walk_at_anchor = _walk_levels(p["walk_scale"], fixed)
+        if slope_totals:  # before the buildings, whose totals include it
+            bedroom_slope()
         if config.buildings and "building_totals" in config.coordinates:
+            loc = fixed["building_xbar"] @ p["beta"]
+            if walk_levels:
+                loc = loc + walk_at_anchor
+            if slope_totals:
+                loc = loc + p["bedroom_slope"] * fixed["building_beds"]
             p["building"] = _centred_totals(
-                "building",
-                fixed["building_xbar"] @ p["beta"],
-                p["building_scale"],
-                len(prep.buildings),
+                "building", loc, p["building_scale"], len(prep.buildings)
             )
         elif config.buildings and "building_zerosum" in config.coordinates:
             p["building"] = _mean_plus_zero_sum(
@@ -579,6 +705,10 @@ def build_model(prep: Prepared, config: ModelConfig):
                 if "building_totals" in config.coordinates and config.buildings:
                     xbar = xbar - fixed["building_xbar"][fixed["unit_building"]]
                 loc = xbar @ p["beta"]
+                if slope_totals:
+                    ub = fixed["unit_building"]
+                    within = fixed["unit_beds"] - fixed["building_beds"][ub]
+                    loc = loc + p["bedroom_slope"][ub] * within
             prior = (
                 dist.StudentT(p["unit_nu"], loc, p["unit_scale"])
                 if config.unit_t
@@ -597,7 +727,7 @@ def build_model(prep: Prepared, config: ModelConfig):
                 "unit_drift",
                 dist.Normal(0.0, p["unit_drift_scale"]).expand([len(prep.units)]),
             )
-        if config.building_walk:
+        if config.building_walk and not walk_levels:
             p["walk_scale"] = numpyro.sample(
                 "walk_scale", dist.HalfNormal(config.walk_scale_sd)
             )
@@ -617,21 +747,8 @@ def build_model(prep: Prepared, config: ModelConfig):
                     [len(TIME_GROUPS), p["bedroom_time_basis"].shape[1]]
                 ),
             )
-        if config.bedroom_slope:
-            p["bedroom_slope_scale"] = numpyro.sample(
-                "bedroom_slope_scale", dist.HalfNormal(config.bedroom_slope_scale_sd)
-            )
-            if "building_zerosum" in config.coordinates:
-                p["bedroom_slope"] = _mean_plus_zero_sum(
-                    "bedroom_slope", p["bedroom_slope_scale"], len(prep.buildings)
-                )
-            else:
-                p["bedroom_slope"] = numpyro.sample(
-                    "bedroom_slope",
-                    dist.Normal(0.0, p["bedroom_slope_scale"]).expand(
-                        [len(prep.buildings)]
-                    ),
-                )
+        if config.bedroom_slope and not slope_totals:
+            bedroom_slope()
         if config.feature_slopes:
             p["fslope_scales"] = numpyro.sample(
                 "fslope_scales",

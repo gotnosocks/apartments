@@ -230,12 +230,12 @@ def feature_sources(feature_set: str) -> dict:
             "sha256": data.sha256(descriptions.SOURCE),
         }
     if feature_set.startswith("pluto"):
-        for name, snap in (
-            ("registry", features.REGISTRY_SNAPSHOT),
-            ("pluto", features.PLUTO_SNAPSHOT),
+        # Hash the files the features read, not the provenance's record of them.
+        for name, path in (
+            ("registry", features.REGISTRY_FILE),
+            ("pluto", features.PLUTO_FILE),
         ):
-            prov = json.loads((Path(snap) / "provenance.json").read_text())
-            out[name] = {"snapshot": snap, "sha256": prov["sha256"]}
+            out[name] = {"path": path, "sha256": data.sha256(Path(path))}
     return out
 
 
@@ -280,8 +280,22 @@ def main(argv=None):
         "--float32", action="store_true", help="nuts: float32 arithmetic (GPU)"
     )
     parser.add_argument(
+        "--init-radius",
+        type=float,
+        help="nuts: chains start uniformly within this radius (unconstrained; default 2)",
+    )
+    parser.add_argument(
+        "--svi-steps",
+        type=int,
+        help="nuts: warm start (starting points and initial metric) from this many "
+        "steps of NumPyro SVI with a mean-field normal guide",
+    )
+    parser.add_argument(
+        "--svi-lr", type=float, help="nuts: Adam step size for --svi-steps"
+    )
+    parser.add_argument(
         "--coordinates",
-        help="nuts: comma-separated sampling coordinates (trend_levels, season_zerosum, building_zerosum, building_totals, unit_totals, unit_partial)",
+        help="nuts: comma-separated sampling coordinates (trend_levels, season_zerosum, building_zerosum, building_totals, unit_totals, unit_partial, walk_levels, slope_totals)",
     )
     parser.add_argument("--name", required=True)
     parser.add_argument(
@@ -336,6 +350,9 @@ def main(argv=None):
             if args.coordinates
             else None,
             "float32": True if args.float32 else None,
+            "init_radius": args.init_radius,
+            "svi_steps": args.svi_steps,
+            "svi_lr": args.svi_lr,
             "solo_scales": (
                 () if args.solo_scales == "none" else tuple(args.solo_scales.split(","))
             )
@@ -418,6 +435,7 @@ def main(argv=None):
                 "step_size",
                 "mean_tree_steps",
                 "dense_sites",
+                "svi",
             )
             if k in out
         },

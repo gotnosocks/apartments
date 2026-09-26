@@ -39,7 +39,10 @@ EXTERNAL_ROOT = Path(
     os.environ.get("FRONTIER_EXTERNAL_ROOT", "/data1/apartments/external")
 )
 COVARIATES = Path(
-    "/home/ben/code/apartments/data/model/building-covariates-20260923/buildings.csv"
+    os.environ.get(
+        "FRONTIER_BUILDING_COVARIATES",
+        "/home/ben/code/apartments/data/model/building-covariates-20260923/buildings.csv",
+    )
 )
 GEOSEARCH = "https://geosearch.planninglabs.nyc/v2"
 MAX_DISTANCE_M = 150.0
