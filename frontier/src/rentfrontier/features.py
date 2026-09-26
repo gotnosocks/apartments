@@ -64,6 +64,15 @@ class _Builder:
         )
 
 
+# The unit's label is the last path element of its StreetEasy URL
+# (".../building/chelsea-stratus/23c"); upper-case regexes.
+UNIT_LABEL_FLAGS = {
+    "penthouse": r"^PH|PENTHOUSE",
+    "garden": r"GARDEN|GDN|^GF$|^GRDN|^GARD",
+    "lower_level": r"BSMT|BASEMENT|^LL|LOWER|^CELLAR",
+}
+
+
 def _bedroom_label(count):
     return count.astype(int).map(lambda b: "5+" if b >= 5 else str(b))
 
@@ -88,6 +97,7 @@ def base_v1(
     id: str = "base-v1",
     by_unit: bool = False,
     unit_size: bool = False,
+    unit_labels: bool = False,
 ) -> Features:
     """Listing attributes as advertised, with explicit unknown levels.
 
@@ -97,6 +107,9 @@ def base_v1(
     unit_size ("unitattrs-v1"): square feet are the unit's, the median of the
     sizes its listings state. Only 35% of rows state a size; filling from the
     unit's other listings covers 48%.
+    unit_labels ("unitlabels-v1"): flags from the unit's StreetEasy label
+    (UNIT_LABEL_FLAGS): penthouse, garden and lower-level units. Penthouses ask
+    12% more than other units of the same building, year and bedrooms.
     """
     b = _Builder(frame)
     advertised = frame.bedrooms.round().clip(0, 5)
@@ -149,6 +162,12 @@ def base_v1(
         b.add("views", f"view_{name}", frame[f"view_{name}"].eq("yes"))
     for name in data_module.WINDOWS:
         b.add("windows", f"window_{name}", frame[f"window_{name}"].eq("yes"))
+    if unit_labels:
+        label = frame.canonical_unit_url.str.extract(r"/([^/]+)$")[0].str.upper()
+        for name, pattern in UNIT_LABEL_FLAGS.items():
+            b.add(
+                "unit label", f"label:{name}", label.str.contains(pattern, regex=True)
+            )
     b.add(
         "price_basis",
         "current_capture_ask",
@@ -298,6 +317,9 @@ FEATURE_SETS = {
     "base-v1": base_v1,
     "unitbeds-v1": partial(base_v1, id="unitbeds-v1", by_unit=True),
     "unitattrs-v1": partial(base_v1, id="unitattrs-v1", by_unit=True, unit_size=True),
+    "unitlabels-v1": partial(
+        base_v1, id="unitlabels-v1", by_unit=True, unit_size=True, unit_labels=True
+    ),
     "desc-v1": desc_v1,
     "pluto-v1": pluto_v1,
 }

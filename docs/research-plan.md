@@ -338,6 +338,10 @@ the fix goes into the model, the features or the data, not the sampler.
   on identical rows against m0q base-v1 (7229ef0), and +615 ± 79 against m0q with the
   description flags (desc-v1). Held-out ΔELPD improves by about 150. ν barely moves
   (2.59 → 2.62), so relabels were not what made the tails heavy.
+- **Unit square feet: +653 ± 53 more** (`unitattrs-v1`, 403d94c; 626 s, passes). Each unit's
+  size is the median of the sizes its listings state, used for every listing, so size is unknown
+  on 52% of rows instead of 65%. Together with unit bedrooms: **+1,445 ± 91 over m0q base-v1**.
+  ν stays at 2.6.
 - Within-unit price jumps (240 rows more than 2× off the unit's other listings, trend-adjusted)
   are mostly real changes: renovations, combined apartments, market moves. Almost none are
   furnished or short-term. A renovation mention appearing within a unit comes with only about
