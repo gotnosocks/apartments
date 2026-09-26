@@ -120,6 +120,12 @@ class ModelConfig:
     # A fixed df for Student-t walk steps (None = estimated). The latent steps
     # identify the df poorly (e6718f5: walk_nu 2.64 +- 0.19, R-hat 1.06).
     walk_nu_fixed: float | None = None
+    # Buildings with fewer training rows per knot of their data range than
+    # this have no walk: they follow the market trend at their building level.
+    # At 2-year knots 529 of 1,128 buildings have under 2, and their walk
+    # levels are mostly prior; with them the walk scale mixed slowly
+    # (9fa29ee: walk_scale ESS 292).
+    walk_min_rows_per_knot: float = 0.0
     # Per-building linear trend in log rent per year, centred on the building's
     # mean training month: trend_b ~ N(0, building_trend_scale^2). One number
     # per building, against the walk's 34 steps at about one row per step.
@@ -406,6 +412,7 @@ def effects(p):
                 ],
                 axis=1,
             )
+            * p.get("walk_mask", jnp.ones(()))[..., None]
             if "walk_step" in p
             else jnp.zeros((1, 1))
         ),
@@ -468,6 +475,8 @@ def constants(prep: Prepared, config: ModelConfig) -> dict:
         )
     if config.building_walk:
         out["walk_knot_months"] = config.walk_knot_months
+        if config.walk_min_rows_per_knot > 0:
+            out["walk_mask"] = jnp.asarray(walk_mask(prep, config))
     if config.building_trend:
         out["building_mean_month"] = jnp.asarray(
             _group_means(
@@ -502,7 +511,7 @@ def constants(prep: Prepared, config: ModelConfig) -> dict:
     if config.building_walk and "walk_levels" in config.coordinates:
         if "building_totals" not in config.coordinates:
             raise ValueError("walk_levels needs building_totals")
-        out |= _walk_ranges(prep, config.walk_knot_months)
+        out |= _walk_ranges(prep, config.walk_knot_months, out.get("walk_mask"))
     if config.bedroom_slope and "slope_totals" in config.coordinates:
         if "building_totals" not in config.coordinates:
             raise ValueError("slope_totals needs building_totals")
@@ -568,10 +577,9 @@ def _mean_plus_zero_sum(site: str, scale, n: int):
     return numpyro.deterministic(site, mean + dev)
 
 
-def _walk_ranges(prep: Prepared, spacing: int) -> dict:
-    """Each building's walk data range for "walk_levels": the knots its
-    training rows put interpolation weight on, first to last, and its anchor,
-    the knot with the most weight."""
+def walk_data_range(prep: Prepared, spacing: int):
+    """Each building's walk knot weights (training rows' interpolation weight
+    on each knot) and its data range: the first and last knot with weight."""
     a = prep.train
     n_knot = n_knots(len(prep.periods), spacing)
     knot, frac = walk_position(a, spacing)
@@ -580,14 +588,36 @@ def _walk_ranges(prep: Prepared, spacing: int) -> dict:
     np.add.at(weight, (a.building, np.minimum(knot + 1, n_knot - 1)), frac)
     has = weight > 0
     if not has.any(axis=1).all():
-        raise ValueError("walk_levels needs training rows in every building")
+        raise ValueError("the walk needs training rows in every building")
     first = has.argmax(axis=1)
     last = n_knot - 1 - has[:, ::-1].argmax(axis=1)
+    return weight, first, last
+
+
+def walk_mask(prep: Prepared, config: ModelConfig) -> np.ndarray:
+    """1 for buildings with a walk, 0 for those with fewer training rows per
+    knot of their data range than config.walk_min_rows_per_knot."""
+    _, first, last = walk_data_range(prep, config.walk_knot_months)
+    rows = np.bincount(prep.train.building, minlength=len(prep.buildings))
+    return (rows / (last - first + 1) >= config.walk_min_rows_per_knot).astype(float)
+
+
+def _walk_ranges(prep: Prepared, spacing: int, mask=None) -> dict:
+    """Each building's walk data range for "walk_levels": the knots its
+    training rows put interpolation weight on, first to last, and its anchor,
+    the knot with the most weight. A building without a walk (mask 0) gets
+    the anchor alone, so all its walk coordinates are non-centred prior."""
+    weight, first, last = walk_data_range(prep, spacing)
+    n_knot = weight.shape[1]
+    anchor = weight.argmax(axis=1)
+    if mask is not None:
+        first = np.where(mask > 0, first, anchor)
+        last = np.where(mask > 0, last, anchor)
     k = np.arange(n_knot)
     return {
         # the knots other than the anchor, in order: one free coordinate each
         "walk_free_index": jnp.asarray(
-            [np.delete(k, j) for j in weight.argmax(axis=1)], dtype=jnp.int32
+            [np.delete(k, j) for j in anchor], dtype=jnp.int32
         ),
         "walk_first": jnp.asarray(first, dtype=jnp.int32),
         "walk_last": jnp.asarray(last, dtype=jnp.int32),
@@ -743,6 +773,8 @@ def build_model(prep: Prepared, config: ModelConfig):
             p["walk_step"], walk_at_anchor = _walk_levels(
                 p["walk_scale"], fixed, p.get("walk_nu")
             )
+            if "walk_mask" in fixed:
+                walk_at_anchor = walk_at_anchor * fixed["walk_mask"]
         if slope_totals:  # before the buildings, whose totals include it
             bedroom_slope()
         if config.buildings and "building_totals" in config.coordinates:
@@ -1010,6 +1042,24 @@ MODELS = {
         walk_knot_months=36,
         walk_t=True,
         walk_nu_fixed=3.0,
+        trend_knot_months=3,
+    ),
+    # Walks only for buildings with at least 2 training rows per knot of their
+    # data range; the rest follow the market trend at their building level.
+    "m1-t3walk24-min2": ModelConfig(
+        name="m1-t3walk24-min2",
+        building_walk=True,
+        walk_knot_months=24,
+        walk_t=True,
+        walk_nu_fixed=3.0,
+        walk_min_rows_per_knot=2.0,
+        trend_knot_months=3,
+    ),
+    "m1-walk24-min2": ModelConfig(
+        name="m1-walk24-min2",
+        building_walk=True,
+        walk_knot_months=24,
+        walk_min_rows_per_knot=2.0,
         trend_knot_months=3,
     ),
     # m6-m8 without the bedroom-group market curves: the curves add ~200

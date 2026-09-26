@@ -389,6 +389,17 @@ the fix goes into the model, the features or the data, not the sampler.
   identified by latent steps (walk_nu 2.64 ± 0.19, R-hat 1.06, ESS 80). PSIS-LOO is 48,211.5,
   +115 over the Normal 3-year walk, so heavy-tailed steps fit better. Next: df fixed at 3
   (`walk_nu_fixed`; `m1-t3walk36`, `m1-t3walk24`).
+- **df fixed at 3** (9fa29ee). Both walks fit within 15 minutes and both fail on walk_scale:
+  - 3-year (`m1-t3walk36`): 817 s, walk_scale ESS 292, PSIS-LOO 48,201.5;
+  - 2-year (`m1-t3walk24`): 859 s, walk_scale ESS 297 (and a traced building at R-hat 1.012),
+    **PSIS-LOO 48,944.1**, the best yet: +201 over the Normal 2-year walk and about +8,350
+    over the m0 baseline.
+- **Why walk_scale mixes slowly:** at 2-year knots, 529 of 1,128 buildings have fewer than 2
+  training rows per knot of their data range, a third of the walk levels (2,269 of 6,551).
+  Those levels are mostly prior, and they make the scale's funnel: the walk is more flexible
+  than the data support. Next: walks only where the data can carry one
+  (`walk_min_rows_per_knot`; `m1-t3walk24-min2`, `m1-walk24-min2`). The other buildings follow
+  the market trend at their building level.
 - Within-unit price jumps (240 rows more than 2× off the unit's other listings, trend-adjusted)
   are mostly real changes: renovations, combined apartments, market moves. Almost none are
   furnished or short-term. A renovation mention appearing within a unit comes with only about
