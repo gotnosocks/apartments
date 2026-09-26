@@ -23,7 +23,7 @@ analysis-page check.
 > selects the summary of the frontier line's NumPyro fit `m0q-btrend` + `unitdesc-v1` (Ben's
 > choice), described in [listing estimates](listing-estimates.md); this report ends at the last
 > PyMC selection. Before that, on the
-> `bedroom-time-20260922` line it binds
+> `bedroom-time-20260922` line it bound
 > `data/model/chelsea-product-scope-analysis-20260921` to
 > `data/model/chelsea-bayesian-product-scope-structure-20260923` (step 10 below).
 > Historical documents are retained as contemporaneous records and are not rewritten.

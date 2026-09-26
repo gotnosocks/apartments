@@ -114,7 +114,10 @@ def sha256(path: Path) -> str:
 
 def selected_summary(selection: Path = SELECTION) -> Path:
     """The summary bundle the app's model selection names, verified."""
-    record = json.loads(selection.read_text())
+    try:
+        record = json.loads(selection.read_text())
+    except (OSError, ValueError) as error:
+        raise BuildError(f"cannot read the selection {selection}: {error}") from None
     if (
         record.get("version") != SELECTION_VERSION
         or record.get("model_family") != "frontier_summary"
@@ -122,6 +125,8 @@ def selected_summary(selection: Path = SELECTION) -> Path:
         raise BuildError(
             f"{selection} does not select a summary bundle; pass --summary"
         )
+    if not {"summary", "summary_manifest_sha256"} <= record.keys():
+        raise BuildError(f"{selection} names no summary bundle and sha256")
     summary = Path(record["summary"])
     complete = summary / "complete.json"
     if not complete.is_file() or sha256(complete) != record["summary_manifest_sha256"]:

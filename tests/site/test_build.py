@@ -195,6 +195,18 @@ def test_selection_must_name_an_unchanged_summary(bundle, tmp_path):
         )
     with pytest.raises(SystemExit, match="build failed"):
         build.main(["--selection", str(_selection(tmp_path, bundle, version="v1"))])
+    with pytest.raises(build.BuildError, match="cannot read the selection"):
+        build.selected_summary(tmp_path / "missing.json")
+    broken = tmp_path / "broken.json"
+    broken.write_text("{not json")
+    with pytest.raises(build.BuildError, match="cannot read the selection"):
+        build.selected_summary(broken)
+    keyless = _selection(tmp_path, bundle)
+    record = json.loads(keyless.read_text())
+    del record["summary"]
+    keyless.write_text(json.dumps(record))
+    with pytest.raises(build.BuildError, match="names no summary bundle"):
+        build.selected_summary(keyless)
 
 
 def test_the_repository_selects_a_summary_bundle():
