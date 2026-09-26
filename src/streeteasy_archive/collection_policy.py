@@ -23,7 +23,19 @@ def enabled(store, generation):
     return bool(row and row[0] == POLICY)
 
 
-def setup(store, generation):
+def _min_listing_id_key(generation):
+    return f"collection_policy_min_listing_id:{generation}"
+
+
+def min_listing_id(store, generation):
+    row = store.db.execute(
+        "SELECT value FROM metadata WHERE key=?", (_min_listing_id_key(generation),)
+    ).fetchone()
+    return int(row[0]) if row else 0
+
+
+def setup(store, generation, min_listing_id=None):
+    """Enable the policy; ``min_listing_id`` (0 clears) persists for later resumes."""
     store.db.executescript("""
         CREATE TABLE IF NOT EXISTS collection_memberships(
             generation INTEGER, listing_key TEXT, unit_url TEXT, source_url TEXT,
@@ -39,6 +51,11 @@ def setup(store, generation):
             "INSERT OR REPLACE INTO metadata VALUES(?,?)",
             (f"collection_policy:{generation}", POLICY),
         )
+        if min_listing_id is not None:
+            store.db.execute(
+                "INSERT OR REPLACE INTO metadata VALUES(?,?)",
+                (_min_listing_id_key(generation), str(int(min_listing_id))),
+            )
     # Reuse archived bytes to establish membership, with no provider calls.
     # Extractions are large; list identities first and load one at a time.
     for row in store.db.execute(
@@ -136,6 +153,12 @@ def exclusion_reason(store, generation, url):
     key = listing_key(url)
     if not key and re.search(r"/(?:rental|sale)/", path):
         return "unsupported_advertisement_route"
+    # Advertisements older than the cutoff are skipped before any request. Their
+    # pages mostly lack a canonical unit link (West Village: about 57% below ID
+    # 1.2M, none from 1.3M), so most would be excluded after capture anyway.
+    cutoff = min_listing_id(store, generation)
+    if key and cutoff and 0 < _ad_number(key) < cutoff:
+        return "before_min_listing_id"
     if key:
         rows = store.db.execute(
             "SELECT DISTINCT unit_url FROM collection_memberships WHERE generation=? AND listing_key=?",
