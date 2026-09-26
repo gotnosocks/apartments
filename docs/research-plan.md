@@ -355,6 +355,17 @@ the fix goes into the model, the features or the data, not the sampler.
   fills a floor only where the building is tall enough (3,065 rows). Listed floors have the
   same problem on 474 rows, and one registry match looks wrong ("The Cortland", a new tower,
   has a 3-storey lot). Both go to the data audit.
+- **Checked label floors: +28.7 ± 7.3** over `unitlabels-v1` (`unitfloor-v2`, 55f745f; 605 s,
+  passes, no divergences). That is +1,708 ± 95 over m0q base-v1, the best feature set so far.
+  Features now carry 55.9% of the variance (from 52%), buildings 28.9% (from 31.6%), units
+  2.7% (from 3.5%).
+- **One linear trend per building: +3,165 ± 93** (`m0q-btrend`, 55f745f, with `unitlabels-v1`;
+  634 s, passes). That is 1,129 numbers, each centred on its building's mean month, against the
+  walk's 34 steps per building. Trends are ±1.5% a year between the 5th and 95th percentiles
+  (scale 0.012). Against m0q base-v1 the gain is +4,844 ± 130 PSIS-LOO within 11 minutes.
+  The walk still does better: the deprecated Gibbs m1q (base-v1) is 2,636 ± 152 ahead, so part
+  of each building's path is not linear. The next shape between the two is a coarse, smooth
+  building-time term.
 - Within-unit price jumps (240 rows more than 2× off the unit's other listings, trend-adjusted)
   are mostly real changes: renovations, combined apartments, market moves. Almost none are
   furnished or short-term. A renovation mention appearing within a unit comes with only about
