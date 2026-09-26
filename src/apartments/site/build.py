@@ -1,6 +1,9 @@
 """Build the listings site's database from a summary bundle.
 
-    uv run python -m apartments.site build --summary <bundle> [--root <site root>]
+    uv run python -m apartments.site build [--summary <bundle>] [--root <site root>]
+
+Without --summary it publishes the app's selected model: the summary that
+config/main-analysis.json selects (checked against the selection's sha256).
 
 Inputs, each checked against the bundle's provenance (complete.json):
 - the summary bundle of `rentfrontier.summary`: per-listing estimates, the
@@ -35,6 +38,8 @@ import duckdb
 VERSION = "listings-site-v1"
 SCHEMA_VERSION = 1
 DEFAULT_ROOT = Path(os.environ.get("SITE_ROOT", "/data1/apartments/site"))
+SELECTION = Path(__file__).resolve().parents[3] / "config" / "main-analysis.json"
+SELECTION_VERSION = "main-analysis-selection-v2"
 KEEP = 3
 # Where the ask falls in its leave-own-row-out predictive distribution.
 PRICE_BANDS = (0.10, 0.90)
@@ -105,6 +110,28 @@ def sha256(path: Path) -> str:
         for block in iter(lambda: f.read(1 << 20), b""):
             digest.update(block)
     return digest.hexdigest()
+
+
+def selected_summary(selection: Path = SELECTION) -> Path:
+    """The summary bundle the app's model selection names, verified."""
+    try:
+        record = json.loads(selection.read_text())
+    except (OSError, ValueError) as error:
+        raise BuildError(f"cannot read the selection {selection}: {error}") from None
+    if (
+        record.get("version") != SELECTION_VERSION
+        or record.get("model_family") != "frontier_summary"
+    ):
+        raise BuildError(
+            f"{selection} does not select a summary bundle; pass --summary"
+        )
+    if not {"summary", "summary_manifest_sha256"} <= record.keys():
+        raise BuildError(f"{selection} names no summary bundle and sha256")
+    summary = Path(record["summary"])
+    complete = summary / "complete.json"
+    if not complete.is_file() or sha256(complete) != record["summary_manifest_sha256"]:
+        raise BuildError("the selected summary differs from the selection's record")
+    return summary
 
 
 def load_bundle(summary: Path) -> dict:
@@ -604,12 +631,16 @@ def main(argv=None):
         description=__doc__,
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
-    parser.add_argument("--summary", type=Path, required=True)
+    parser.add_argument(
+        "--summary", type=Path, help="bundle to publish (default: the selected model's)"
+    )
+    parser.add_argument("--selection", type=Path, default=SELECTION)
     parser.add_argument("--root", type=Path, default=DEFAULT_ROOT)
     parser.add_argument("--scope", default="Chelsea", help="neighborhoods covered")
     args = parser.parse_args(argv)
     try:
-        path = build(args.summary, args.root, args.scope)
+        summary = args.summary or selected_summary(args.selection)
+        path = build(summary, args.root, args.scope)
     except BuildError as error:
         raise SystemExit(f"build failed: {error}") from None
     print(f"published {path}")

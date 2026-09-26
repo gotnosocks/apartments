@@ -10,9 +10,9 @@ contract and pitfalls in [the 2026-09-24 brief](brief-2026-09-24.md) and the
 ## Objective
 
 Push the frontier of **PSIS-LOO ΔELPD** against **fit time on thelio**. That means more accurate
-descriptions of every listing for the same fit time, or the same accuracy sooner. Product decisions,
-such as the app's selected model, the summary reader and West Village, stay Ben's and are on hold
-for this phase.
+descriptions of every listing for the same fit time, or the same accuracy sooner. Product decisions stay
+Ben's. On 2026-09-26 he chose the best gate-passing NumPyro fit as the app's model; it ships through
+the summary output to the [listings site](site.md). West Village is on hold.
 
 ## The score
 
@@ -759,10 +759,13 @@ comes from other sources, most of them public NYC and NYS data.
 3. **Features** from the PyMC line, re-evaluated under PSIS-LOO: description flags (≈0 on held-out
    rows before), as-of attribute flags, and the `size_missing` slope.
 
-### T4. Product (on hold, Ben's decisions)
+### T4. Product (Ben's decisions)
 
-The summary reader (branch `app/summary-reader`), any change to `config/main-analysis.json`, and
-West Village once its crawl completes.
+- Shipped on 2026-09-26: `rentfrontier.summary` (per-listing leave-own-row-out estimates, PR #34), the
+  [listings site](site.md) (PR #35), and `config/main-analysis.json` selecting the summary of
+  `m0q-btrend` + `unitdesc-v1` + `unit-labels-v1`. A new selection needs Ben's OK. It takes a summary,
+  a publish, and an edit of the selection.
+- On hold: West Village, once its crawl completes.
 
 ## Current state
 

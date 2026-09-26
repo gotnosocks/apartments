@@ -45,7 +45,8 @@ listings fall in each band, as calibration predicts.
 1. **Estimates.** `python -m rentfrontier.summary <run>` (frontier package; see
    [listing estimates](model/listing-estimates.md)) writes a summary bundle under
    `/data1/apartments/frontier/summaries/`. Only runs that pass the convergence gate are accepted.
-2. **Publish.** `python -m apartments.site build --summary <bundle>` writes one SQLite snapshot and
+2. **Publish.** `python -m apartments.site build` publishes the summary that `config/main-analysis.json`
+   selects (checked against the selection's sha256); `--summary <bundle>` publishes another one. It writes one SQLite snapshot and
    checks every input against the bundle's provenance:
    - the bundle's files (sha256);
    - the analytical dataset it was made from (observations.jsonl sha256);
@@ -63,8 +64,7 @@ Publishing on thelio takes the shared heavy-job lock like other heavy jobs:
 cd /data1/apartments/serve/site
 flock /data1/apartments/tmp/heavy.lock systemd-run --user --scope -p MemoryMax=2G \
   --setenv=TMPDIR=/data1/apartments/tmp/site-serve \
-  /data1/apartments/venvs/serve-site/bin/python -m apartments.site build \
-  --summary /data1/apartments/frontier/summaries/<run>-<commit>
+  /data1/apartments/venvs/serve-site/bin/python -m apartments.site build
 ```
 
 To roll back data, point `current` at an earlier build: `ln -sfn builds/<stamp> current.new &&
@@ -97,7 +97,7 @@ mv -T current.new current` in `/data1/apartments/site`.
   UV_PROJECT_ENVIRONMENT=/data1/apartments/venvs/serve-site uv sync --locked
   flock /data1/apartments/tmp/heavy.lock systemd-run --user --scope -p MemoryMax=2G \
     --setenv=TMPDIR=/data1/apartments/tmp/site-serve \
-    /data1/apartments/venvs/serve-site/bin/python -m apartments.site build --summary <bundle>
+    /data1/apartments/venvs/serve-site/bin/python -m apartments.site build
   cp ops/systemd/apartments-site.service ~/.config/systemd/user/
   systemctl --user daemon-reload && systemctl --user enable --now apartments-site
   curl -fsS http://127.0.0.1:8600/healthz
