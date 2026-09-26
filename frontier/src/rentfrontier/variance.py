@@ -163,6 +163,7 @@ def score_run(name: str):
             config.bedroom_slope,
             prep.offset,
             fslope_index,
+            unit_line=prep.unit_line,
         )
         # Constants do not change variances; drop the offset for stability.
         terms["market"] = terms["market"] - prep.offset

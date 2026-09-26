@@ -319,11 +319,18 @@ def test_nuts_line_effects_reach_the_scored_terms():
     assert np.isfinite(out["lpd"]).all()
     kept = {k: v.reshape(-1, *v.shape[2:]) for k, v in out["kept"].items()}
     terms = explain.log_terms(
-        kept, prep.train, prep.features.groups, 0, False, False, 0.0
+        kept,
+        prep.train,
+        prep.features.groups,
+        0,
+        False,
+        False,
+        0.0,
+        unit_line=prep.unit_line,
     )
-    np.testing.assert_allclose(
-        terms["line"], model.line_term(kept["line"], kept["unit_line"][0], prep.train)
-    )
+    line = np.asarray(prep.unit_line)[prep.train.unit]  # every unit is in a line
+    np.testing.assert_allclose(terms["line"], kept["line"][:, line])
+    assert "unit_line" not in kept  # constants are not saved per draw
     assert set(terms) - set(prep.features.groups) <= set(variance.FIXED)
 
 

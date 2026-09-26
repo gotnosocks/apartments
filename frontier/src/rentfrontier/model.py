@@ -138,7 +138,7 @@ class ModelConfig:
     # Line ("column") effects within buildings: units stacked vertically ("4C",
     # "7C", "12C") share an effect, so a unit listed once borrows from its
     # line (Ben, 2026-09-25 backlog). Only lines with at least 2 training
-    # units: 2,851 lines hold 12,946 units, and 4,942 of the 10,628 training
+    # units: 2,871 lines hold 12,996 units, and 4,987 of the 10,628 training
     # units listed once are in one.
     line_effects: bool = False
     line_scale_sd: float = 0.1
@@ -357,7 +357,7 @@ def linear_predictor(p, a: Arrays, include_unit=True):
     if "building_trend" in p:
         mu = mu + building_trend_term(e, a)
     if "line" in p:
-        mu = mu + line_term(e["line"], e["unit_line"], a)
+        mu = mu + line_term(e["line"], p["unit_line"], a)
     if "bedroom_time_step" in p:
         mu = mu + e["bedroom_time"][a.bed_group, a.month]
     if "bedroom_slope" in p:
@@ -460,7 +460,6 @@ def effects(p):
         "walk_nu": p.get("walk_nu", jnp.zeros(())),  # 0 = Normal walk steps
         "line": p.get("line", jnp.zeros(1)),
         "line_scale": p.get("line_scale", jnp.zeros(())),
-        "unit_line": p.get("unit_line", -jnp.ones(1, dtype=jnp.int32)),
         "building_trend": p.get("building_trend", jnp.zeros(1)),
         "building_trend_scale": p.get("building_trend_scale", jnp.zeros(())),
         "building_mean_month": p.get("building_mean_month", jnp.zeros(1)),
