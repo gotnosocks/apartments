@@ -5,9 +5,11 @@ in the [main-model evolution report](main-model-evolution.md). This page describ
 the workflow and retains contemporaneous fit instructions; the current selected
 pointer is authoritative when this page's historical cohort description differs.
 
-The main workflow is scrape → transform → fit → analyze. The main model is the
-hierarchical PyMC posterior selected by `config/main-analysis.json`. Feature
-contributions, fitted residuals and joint apartment-specific contrasts are the
+The main workflow is scrape → transform → fit → analyze. Since 2026-09-26,
+`config/main-analysis.json` selects a frontier summary bundle
+([listing estimates](listing-estimates.md)), not a PyMC posterior. The PyMC commands on this
+page now need an explicit `--selection` naming a PyMC selection, and they refuse the default.
+Feature contributions, fitted residuals and joint apartment-specific contrasts are the
 primary outputs.
 
 ## Current selected fit

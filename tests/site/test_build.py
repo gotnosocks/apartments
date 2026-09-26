@@ -161,3 +161,45 @@ def test_publish_swaps_current_and_keeps_the_newest_builds(
     remaining = sorted(p.name for p in (root / "builds").iterdir())
     assert remaining == [p.name for p in built[-build.KEEP :]]
     assert (root / "current").resolve() == built[-1].resolve()
+
+
+def _selection(tmp_path, bundle, **changes):
+    record = {
+        "version": "main-analysis-selection-v2",
+        "model_family": "frontier_summary",
+        "summary": str(bundle),
+        "summary_manifest_sha256": build.sha256(bundle / "complete.json"),
+    }
+    record.update(changes)
+    path = tmp_path / "main-analysis.json"
+    path.write_text(json.dumps(record))
+    return path
+
+
+def test_build_publishes_the_selected_summary_by_default(bundle, tmp_path):
+    selection = _selection(tmp_path, bundle)
+    assert build.selected_summary(selection) == bundle
+    build.main(["--selection", str(selection), "--root", str(tmp_path / "site")])
+    info = json.loads((tmp_path / "site" / "current" / "build.json").read_text())
+    assert info["summary"] == str(bundle.resolve())
+
+
+def test_selection_must_name_an_unchanged_summary(bundle, tmp_path):
+    with pytest.raises(build.BuildError, match="does not select a summary"):
+        build.selected_summary(
+            _selection(tmp_path, bundle, model_family="pymc_bayesian")
+        )
+    with pytest.raises(build.BuildError, match="differs from the selection"):
+        build.selected_summary(
+            _selection(tmp_path, bundle, summary_manifest_sha256="0")
+        )
+    with pytest.raises(SystemExit, match="build failed"):
+        build.main(["--selection", str(_selection(tmp_path, bundle, version="v1"))])
+
+
+def test_the_repository_selects_a_summary_bundle():
+    record = json.loads(build.SELECTION.read_text())
+    assert record["version"] == build.SELECTION_VERSION
+    assert record["model_family"] == "frontier_summary"
+    assert record["gate"]["passes"] is True
+    assert len(record["summary_manifest_sha256"]) == 64

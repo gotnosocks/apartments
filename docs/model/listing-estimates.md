@@ -49,8 +49,11 @@ Each row also gets:
 ## Checks on the published run
 
 Run: `m0q-btrend-unitdesc-v1-rows-df5dacb-nuts-c8-w250d550-svi2k-ul1-2060`, the best gate-passing
-library fit (PSIS-LOO 45,815.1, 745 s on the RTX 2060). The summary is at commit 30c1ee0: 2,200
-draws, 425 s on the RTX 2060.
+library fit (PSIS-LOO 45,815.1, 745 s on the RTX 2060). Ben chose it as the app's model on
+2026-09-26. `config/main-analysis.json` selects its summary at commit ff7ee0a (2,200 draws, 359 s on
+the RTX 2060), and the listings site publishes that summary. The first summary, at 30c1ee0, used the
+same estimator before review. Between the two, 64 rows in the fit moved by more than 1% (the Monte
+Carlo noise of the level draws), 33 of them with k > 0.7.
 
 - Contributions add up to the estimate within 1.2e-10 dollars on every row.
 - Pareto k per row equals `rentfrontier.loo`'s pointwise k for this run within 1e-12. The weights
@@ -61,8 +64,8 @@ draws, 425 s on the RTX 2060.
 | Rows | n | In 95% range | In 80% range | Median \|ask − estimate\| | In-sample median |
 |---|---:|---:|---:|---:|---:|
 | Held out (not in the fit) | 5,264 | 95.6% | 79.4% | 4.7% | 4.7% |
-| In the fit, unit has other rows | 36,746 | 95.1% | 80.1% | 4.7% | 3.0% |
-| In the fit, unit listed once | 10,628 | 91.5% | 77.0% | 7.1% | 2.3% |
+| In the fit, unit has other rows | 36,746 | 95.2% | 80.1% | 4.7% | 3.0% |
+| In the fit, unit listed once | 10,628 | 91.5% | 76.9% | 7.1% | 2.3% |
 
 Rows in the fit whose unit has other rows behave like genuinely held-out rows. The in-sample
 residuals are a third smaller, which is the pull toward the ask that leave-own-row-out removes.
