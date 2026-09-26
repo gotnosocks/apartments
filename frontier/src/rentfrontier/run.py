@@ -285,6 +285,15 @@ def main(argv=None):
         help="nuts: chains start uniformly within this radius (unconstrained; default 2)",
     )
     parser.add_argument(
+        "--svi-steps",
+        type=int,
+        help="nuts: warm start (starting points and initial metric) from this many "
+        "steps of NumPyro SVI with a mean-field normal guide",
+    )
+    parser.add_argument(
+        "--svi-lr", type=float, help="nuts: Adam step size for --svi-steps"
+    )
+    parser.add_argument(
         "--coordinates",
         help="nuts: comma-separated sampling coordinates (trend_levels, season_zerosum, building_zerosum, building_totals, unit_totals, unit_partial, walk_levels, slope_totals)",
     )
@@ -342,6 +351,8 @@ def main(argv=None):
             else None,
             "float32": True if args.float32 else None,
             "init_radius": args.init_radius,
+            "svi_steps": args.svi_steps,
+            "svi_lr": args.svi_lr,
             "solo_scales": (
                 () if args.solo_scales == "none" else tuple(args.solo_scales.split(","))
             )
@@ -424,6 +435,7 @@ def main(argv=None):
                 "step_size",
                 "mean_tree_steps",
                 "dense_sites",
+                "svi",
             )
             if k in out
         },

@@ -220,6 +220,13 @@ implementation over implementing our own").
     (fad9e4f, 4 × (250 + 550)) its step sizes grew to 0.029, 0.029, 0.030 and 0.016, but the
     250 warmup iterations still took 1,243 s (5 s each, as before). The fit was stopped at
     33 minutes under the 30-minute cap, so it has no record.
+  - Warmup, not the starting point, is the cost. Starting chains within ±0.5 instead of
+    NumPyro's ±2 left m0q unchanged (3e80efb: 874 s, warmup 585 s against 598 s, PSIS-LOO
+    40,606.8). Each warmup iteration costs about 5 times a sampling iteration (m0q: 2.4 s
+    against 0.5 s). NumPyro's first 75 warmup iterations adapt only the step size, with an
+    identity mass matrix. Two things are in hand: warmup logged in five segments
+    (`warmup_segments`), and a warm start from NumPyro SVI (`--svi-steps`) that supplies the
+    starting points and the initial mass matrix.
   - Every timed fit is capped at 30 minutes (Ben, 2026-09-25). Past the 15-minute window a fit
     has already shown it is outside, and its warmup log gives the diagnostics.
 - New sampler work uses library samplers on `model.build_model`, with library options only:

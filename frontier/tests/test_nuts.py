@@ -158,6 +158,49 @@ def test_nuts_run_matches_plain_numpyro_mcmc(name):
         assert abs(out["sd"][k] - draws.std()) < 0.25 * draws.std(), (k, out["sd"][k])
 
 
+@pytest.mark.parametrize("warmup, segments", [(60, 5), (61, 1)])
+def test_warmup_runs_in_logged_segments(warmup, segments):
+    lines = []
+    nuts.run(
+        synthetic(),
+        model.MODELS["L0-mean"],
+        nuts.Settings(chains=2, warmup=warmup, draws=10, keep_every=5),
+        log=lines.append,
+    )
+    logged = [x for x in lines if " of warmup: " in x]
+    assert len(logged) == segments and logged[-1].startswith(f"segment {segments}/")
+
+
+@pytest.mark.parametrize("dense", [False, True], ids=["diagonal", "dense-globals"])
+def test_svi_warm_start_runs(dense):
+    """--svi-steps: chains start at draws from a fitted mean-field guide, with
+    its variances as the initial metric (one block per site, or the dense
+    globals' block)."""
+    lines = []
+    out = nuts.run(
+        synthetic(),
+        model.MODELS["m0q"],
+        nuts.Settings(
+            chains=2,
+            warmup=50,
+            draws=20,
+            keep_every=10,
+            dense_globals=dense,
+            coordinates=(
+                "trend_levels",
+                "building_totals",
+                "unit_totals",
+                "unit_partial",
+            ),
+            svi_steps=200,
+        ),
+        log=lines.append,
+    )
+    assert out["svi"]["seconds"] > 0 and np.isfinite(out["svi"]["final_loss"])
+    assert any(x.startswith("svi 200 steps") for x in lines)
+    assert np.isfinite(out["lpd"]).all()
+
+
 def test_fixed_degrees_of_freedom_are_constants():
     """Designs that fix nu (m5-nu5) sample no nu site; NUTS gets it from constants."""
     prep = synthetic()
