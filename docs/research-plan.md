@@ -444,6 +444,28 @@ the fix goes into the model, the features or the data, not the sampler.
   unchanged, and the rule applies after the held-out split is drawn (the row split depends on
   unit ids), so it scores on identical rows. `run.py --data-rules` applies it, and the run
   record lists it for the scorers.
+- **With the rule, the best passing fit is 45,815.1** (`m0q-btrend`, `unitdesc-v1`,
+  `--data-rules unit-labels-v1`, df5dacb; 745 s, passes). That is +188.6 ± 25.9 over the same
+  design without the rule on identical rows, and **+5,221 over the m0 baseline**.
+- With the rule, the anchored 2-year t walk (`m1-t3walk24-anchored`, `unitdesc-v1`) scores
+  49,394.5, the best overall (+8,801 over the m0 baseline). It still fails, in 1,031 s: the
+  every-element R-hat falls from 1.318 to 1.209, and a traced building has R-hat 1.032 and ESS
+  150. One id per unit removes some of the split chains, not all.
+- **The Normal 3-year walk with the rule nearly passes** (`m1-walk36`, `unitdesc-v1`,
+  `unit-labels-v1`, 4 × (250 + 650), df5dacb): **880 s**. walk_scale ESS is 401,
+  every-element R-hat 1.014, no divergences. It fails only on the market trend point
+  trend[144] (R-hat 1.0106 against 1.01). Held-out ΔELPD is +137.4. The Normal steps give no
+  split chains. The trend point mixes slowly because a common shift of every building's walk
+  at a time trades off against the market trend there: only the priors separate "market up"
+  from "every building up". Two ways out: sum-to-zero walks across buildings (a model change:
+  the market trend carries all common time variation), or a per-knot mean plus zero-sum split
+  of the walks (an exact coordinate, as for the building totals). Ben's call.
+- **Listed floors above a building's MapPLUTO height** (407 rows in 11 buildings) are mostly in
+  new towers: 507 West Chelsea (listed up to 33, MapPLUTO 13), One Hudson Yards, Avalon West
+  Chelsea, The Cortland and One High Line. The listings are right; the lot's floor count is
+  stale or the registry matched the wrong lot. Using the listings' highest floor as the height
+  in the label-floor check would add a floor to only 17 rows, so it was not pursued. The
+  registry matches for new towers go to the data audit.
 - **Description flags on the unit features, with the building trend** (`m0q-btrend`,
   `unitdesc-v1`, acab950): 697 s, passes (R-hat 1.006, ESS 634). PSIS-LOO is 45,626.5:
   +141.6 ± 28.1 over `unitfloor-v2`, and **+5,033 over the m0 baseline, the best gate-passing
