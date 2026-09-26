@@ -189,6 +189,8 @@ implementation over implementing our own").
   | `building_totals` | building effect plus mean features times beta, as a flat mean plus zero-sum deviations | market vs building ridge (Chelsea Tower), and building attributes (doorman, elevator) trading against building levels |
   | `unit_totals` | unit effect plus its within-building feature deviations times beta | apartment attributes (half baths, floor) trading against unit effects. Centring units on the building effect instead put the market ridge through all 22,000 units |
   | `unit_partial` | unit effects partially non-centred by row count, n / (n + 0.6) | unit-scale funnel from units listed once |
+  | `walk_levels` | each building walk as levels inside the building's data range (relative to its anchor knot, the one with most rows), non-centred steps outside it | m1q step size 0.007–0.014: each level was a sum of half-year steps from 2009, tied to the building effect |
+  | `slope_totals` | building and unit totals at their mean bedrooms, for per-building bedroom slopes (m5) | not yet run |
 
   - NumPyro NUTS on the CPU now passes L0–L5: 40 s, 128 s, 43 s, 68 s, 636 s and 909 s.
     Before the coordinates, L2 took 1,987 s and L3–L5 failed.
@@ -207,12 +209,19 @@ implementation over implementing our own").
     | 4 × (300 + 450) | 885 s | 1.009 | 677 | 40,603.8 |
     | **4 × (250 + 550)** | **888 s** | **1.005** | **894** | **40,607.5** |
 
-    About 600–640 s of each fit is warmup, so trimming draws saves little. 4 × (250 + 550) fits
-    inside 15 minutes with a comfortable gate margin.
+    With 250–300 warmup iterations, warmup takes 598–642 s of each fit (673–801 s with 400–500),
+    so trimming draws saves little. 4 × (250 + 550) fits inside 15 minutes with a comfortable
+    gate margin.
   - Float32 does not work: a chain's step size collapsed.
-  - Across samplers and devices, m0q's PSIS-LOO agrees: NUTS minus Gibbs is +5.4 ± 4.2 on
-    identical rows.
-  - m1q (the building walk) did not finish within 60 minutes on the 2060.
+  - Across samplers and devices, m0q's PSIS-LOO agrees. Against the deprecated Gibbs m0q
+    (ac9e02b, RTX 2060) on identical rows, NUTS minus Gibbs is +3.1 ± 4.0 for 4 × (250 + 550) and
+    +1.6 ± 3.7 for 4 × (300 + 1,000).
+  - m1q (the building walk) did not finish within 60 minutes on the 2060. With `walk_levels`
+    (fad9e4f, 4 × (250 + 550)) its step sizes grew to 0.029, 0.029, 0.030 and 0.016, but the
+    250 warmup iterations still took 1,243 s (5 s each, as before). The fit was stopped at
+    33 minutes under the 30-minute cap, so it has no record.
+  - Every timed fit is capped at 30 minutes (Ben, 2026-09-25). Past the 15-minute window a fit
+    has already shown it is outside, and its warmup log gives the diagnostics.
 - New sampler work uses library samplers on `model.build_model`, with library options only:
   - NumPyro NUTS (`--sampler nuts`), with a diagonal or a structured dense mass matrix;
   - BlackJAX's NUTS and many-chain adaptation;

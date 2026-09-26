@@ -63,11 +63,26 @@ def test_gibbs_needs_every_base_term(name):
 
 
 @pytest.mark.parametrize(
-    "coordinates", [(), ("trend_levels", "season_zerosum", "unit_totals")]
+    "coordinates",
+    [
+        (),
+        ("trend_levels", "season_zerosum", "unit_totals"),
+        (
+            "trend_levels",
+            "building_totals",
+            "unit_totals",
+            "unit_partial",
+            "walk_levels",
+        ),
+    ],
+    ids=["default", "levels", "totals"],
 )
 def test_dense_globals_covers_the_global_sites_only(coordinates):
+    from numpyro.infer.util import initialize_model
+
+    prep = synthetic()
     out = nuts.run(
-        synthetic(),
+        prep,
         model.MODELS["m1q"],
         nuts.Settings(
             chains=2,
@@ -81,8 +96,21 @@ def test_dense_globals_covers_the_global_sites_only(coordinates):
     )
     trend = "trend_absolute" if coordinates else "trend_step"
     assert "beta" in out["dense_sites"] and trend in out["dense_sites"]
-    for local in ("unit", "unit_total", "building"):
-        assert local not in out["dense_sites"]
+    if "building_totals" in coordinates:
+        assert "building_total_mean" in out["dense_sites"]
+    # Every latent site as nuts.run samples it (unconstrained sizes: a zero-sum
+    # site over the buildings has one fewer): the dense block holds the small
+    # global ones, and every per-building or per-unit array is left out.
+    config = replace(
+        model.MODELS["m1q"],
+        coordinates=coordinates,
+        noncentered=() if "walk_levels" in coordinates else ("walk_step",),
+    )
+    z = initialize_model(
+        jax.random.PRNGKey(0), model.build_model(prep, config)
+    ).param_info.z
+    for k, v in z.items():
+        assert (k in out["dense_sites"]) == (v.size < len(prep.buildings) - 1), k
     assert np.isfinite(out["lpd"]).all()
 
 
@@ -288,17 +316,27 @@ def windowed(width=18):
 
 
 WALK = model.ModelConfig(name="w", building_walk=True, trend_knot_months=3)
+M5 = replace(WALK, name="m5", bedroom_slope=True)
 
 
-def test_walk_levels_are_the_same_model():
+@pytest.mark.parametrize(
+    "config, coordinates",
+    [
+        (WALK, ("building_totals", "walk_levels")),
+        (M5, ("building_totals", "unit_totals", "walk_levels", "slope_totals")),
+    ],
+    ids=["walk", "walk-slopes"],
+)
+def test_walk_and_slope_totals_are_the_same_model(config, coordinates):
     """walk_levels samples each walk as levels inside the building's data
-    range (less its anchor's) and standard normal steps outside it: the joint
-    density matches the default one at corresponding points, up to a
-    constant and the non-centred steps' Jacobian (walk_scale per step)."""
+    range (less its anchor's) and standard normal steps outside it;
+    slope_totals centres building and unit totals on their mean bedrooms.
+    The joint density matches the default one at corresponding points, up to
+    a constant and the non-centred steps' Jacobian (walk_scale per step)."""
     from numpyro.infer.util import log_density
 
     prep = windowed()
-    moved = replace(WALK, coordinates=("building_totals", "walk_levels"))
+    moved = replace(config, coordinates=coordinates)
     fixed = model.constants(prep, moved)
     before, after = np.asarray(fixed["walk_before"]), np.asarray(fixed["walk_after"])
     assert before.any() and after.any() and (~(before | after)).sum(1).min() >= 2
@@ -309,7 +347,7 @@ def test_walk_levels_are_the_same_model():
     gaps = []
     for seed in range(3):
         tr = handlers.trace(
-            handlers.seed(model.build_model(prep, WALK), seed)
+            handlers.seed(model.build_model(prep, config), seed)
         ).get_trace()
         p = {
             k: v["value"]
@@ -321,33 +359,47 @@ def test_walk_levels_are_the_same_model():
         full = walk - walk[rows, anchor][:, None]
         full[:, :-1] = np.where(before[:, :-1], steps / s, full[:, :-1])
         full[:, 1:] = np.where(after[:, 1:], steps / s, full[:, 1:])
-        q = {k: v for k, v in p.items() if k not in ("building", "walk_step")}
+        q = {k: v for k, v in p.items() if k not in ("building", "walk_step", "unit")}
         q["walk_free"] = full[rows[:, None], index]
         total = p["building"] + fixed["building_xbar"] @ p["beta"] + walk[rows, anchor]
+        unit = p["unit"]
+        if "slope_totals" in coordinates:
+            ub = fixed["unit_building"]
+            total = total + p["bedroom_slope"] * fixed["building_beds"]
+            within = fixed["unit_xbar"] - fixed["building_xbar"][ub]
+            beds = fixed["unit_beds"] - fixed["building_beds"][ub]
+            q["unit_total"] = unit + within @ p["beta"] + p["bedroom_slope"][ub] * beds
+        else:
+            q["unit"] = unit
         q["building_total_mean"] = total.mean()
         q["building_total_dev"] = total - total.mean()
-        base = float(log_density(model.build_model(prep, WALK), (), {}, p)[0])
+        base = float(log_density(model.build_model(prep, config), (), {}, p)[0])
         new = float(log_density(model.build_model(prep, moved), (), {}, q)[0])
         gaps.append(new - base - (before | after).sum() * float(np.log(s)))
     np.testing.assert_allclose(gaps, gaps[0], atol=1e-7)
 
 
-def test_walk_levels_need_building_totals():
+@pytest.mark.parametrize("coordinate", ["walk_levels", "slope_totals"])
+def test_walk_and_slope_totals_need_building_totals(coordinate):
     with pytest.raises(ValueError, match="building_totals"):
-        model.constants(windowed(), replace(WALK, coordinates=("walk_levels",)))
+        model.constants(windowed(), replace(M5, coordinates=(coordinate,)))
 
 
-def test_nuts_with_walk_levels_returns_the_walks():
+@pytest.mark.parametrize(
+    "config, coordinates",
+    [
+        (WALK, ("building_totals", "walk_levels")),
+        (M5, ("building_totals", "unit_totals", "walk_levels", "slope_totals")),
+    ],
+    ids=["walk", "walk-slopes"],
+)
+def test_nuts_with_walk_and_slope_totals_returns_the_effects(config, coordinates):
     prep = windowed()
     out = nuts.run(
         prep,
-        WALK,
+        config,
         nuts.Settings(
-            chains=2,
-            warmup=60,
-            draws=20,
-            keep_every=10,
-            coordinates=("building_totals", "walk_levels"),
+            chains=2, warmup=60, draws=20, keep_every=10, coordinates=coordinates
         ),
         log=lambda *_: None,
     )
@@ -356,6 +408,42 @@ def test_nuts_with_walk_levels_returns_the_walks():
     walk = out["mean"]["walk"]
     assert walk.shape == (len(prep.buildings), model.n_knots(60))
     np.testing.assert_allclose(walk[:, 0], 0.0)
+    if config.bedroom_slope:
+        assert np.isfinite(out["mean"]["bedroom_slope"]).all()
+
+
+@pytest.mark.parametrize("unit_t", [False, True], ids=["normal", "t"])
+@pytest.mark.parametrize("totals", [False, True], ids=["units", "unit-totals"])
+def test_partially_centred_units_are_the_same_model(unit_t, totals):
+    """unit_partial (LocScaleReparam, centring c per unit) is a change of
+    variables: the density gains its Jacobian, sum (1 - c) log unit_scale."""
+    from numpyro.infer.util import log_density
+
+    prep = synthetic()
+    config = model.ModelConfig(name="p", unit_t=unit_t, trend_knot_months=3)
+    plain = replace(config, coordinates=("unit_totals",) if totals else ())
+    moved = replace(config, coordinates=plain.coordinates + ("unit_partial",))
+    fixed = model.constants(prep, moved)
+    c = np.asarray(fixed["unit_centering"])
+    site = "unit_total" if totals else "unit"
+    gaps = []
+    for seed in range(3):
+        tr = handlers.trace(
+            handlers.seed(model.build_model(prep, plain), seed)
+        ).get_trace()
+        p = {
+            k: v["value"]
+            for k, v in tr.items()
+            if v["type"] == "sample" and not v["is_observed"]
+        }
+        loc = (fixed["unit_xbar"] @ p["beta"]) if totals else 0.0
+        scale = p["unit_scale"]
+        q = {k: v for k, v in p.items() if k != site}
+        q[f"{site}_decentered"] = c * loc + (p[site] - loc) / scale ** (1 - c)
+        base = float(log_density(model.build_model(prep, plain), (), {}, p)[0])
+        new = float(log_density(model.build_model(prep, moved), (), {}, q)[0])
+        gaps.append(new - base - float(np.sum(1 - c) * np.log(scale)))
+    np.testing.assert_allclose(gaps, 0.0, atol=1e-7)
 
 
 @pytest.mark.parametrize("unit_t", [False, True], ids=["normal", "t"])

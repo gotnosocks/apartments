@@ -174,6 +174,8 @@ def desc_v1(frame: pd.DataFrame, train: np.ndarray) -> Features:
 # External snapshots read by feature sets (rentfrontier.registry, .external).
 REGISTRY_SNAPSHOT = "/data1/apartments/external/registry/20260925-6b67137"
 PLUTO_SNAPSHOT = "/data1/apartments/external/pluto/20260925-3096a62"
+REGISTRY_FILE = f"{REGISTRY_SNAPSHOT}/buildings.parquet"
+PLUTO_FILE = f"{PLUTO_SNAPSHOT}/pluto.parquet"
 ERAS = (
     (0, 1900, "pre-1900"),
     (1900, 1930, "1900-1929"),
@@ -186,8 +188,8 @@ ERAS = (
 
 def building_lots(frame: pd.DataFrame) -> pd.DataFrame:
     """MapPLUTO attributes of each row's building (one row per listing row)."""
-    registry = pd.read_parquet(f"{REGISTRY_SNAPSHOT}/buildings.parquet")
-    pluto = pd.read_parquet(f"{PLUTO_SNAPSHOT}/pluto.parquet").set_index("bbl")
+    registry = pd.read_parquet(REGISTRY_FILE)
+    pluto = pd.read_parquet(PLUTO_FILE).set_index("bbl")
     lot = registry.set_index("building").bbl.reindex(frame.building.to_numpy())
     return pluto.reindex(lot.to_numpy()).reset_index(drop=True)
 

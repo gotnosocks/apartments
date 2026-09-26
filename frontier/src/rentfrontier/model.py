@@ -100,6 +100,11 @@ class ModelConfig:
     #   month, all tied to the building effect. There, m1q's NUTS step size was
     #   0.007-0.014 against m0q's 0.04-0.06, and its warmup took over 2,500 s
     #   (f20e38d).
+    # - "slope_totals" (with bedroom_slope and building_totals): the building
+    #   total is at the building's mean bedrooms rather than at one bedroom,
+    #   and with unit_totals each unit's total adds its building's slope times
+    #   its bedrooms less the building's mean. A building of studios or
+    #   2-bedrooms otherwise trades its total against its bedroom slope.
     coordinates: tuple = ()
     # Per-building random walk over KNOT_MONTHS knots (anchored at 0 in the
     # first month), interpolated linearly between knots.
@@ -438,6 +443,17 @@ def constants(prep: Prepared, config: ModelConfig) -> dict:
         if "building_totals" not in config.coordinates:
             raise ValueError("walk_levels needs building_totals")
         out |= _walk_ranges(prep)
+    if config.bedroom_slope and "slope_totals" in config.coordinates:
+        if "building_totals" not in config.coordinates:
+            raise ValueError("slope_totals needs building_totals")
+        beds = prep.train.beds_centered[:, None]
+        out["building_beds"] = jnp.asarray(
+            _group_means(beds, prep.train.building, len(prep.buildings))[:, 0]
+        )
+        if "unit_totals" in config.coordinates:
+            out["unit_beds"] = jnp.asarray(
+                _group_means(beds, prep.train.unit, len(prep.units))[:, 0]
+            )
     zero = jnp.zeros(())
     if not config.features:
         out["beta"] = jnp.zeros(len(prep.features.names))
@@ -627,7 +643,25 @@ def build_model(prep: Prepared, config: ModelConfig):
             p["season_raw"] = numpyro.sample(
                 "season_raw", dist.Normal(0.0, p["season_scale"]).expand([12])
             )
+
+        def bedroom_slope():
+            p["bedroom_slope_scale"] = numpyro.sample(
+                "bedroom_slope_scale", dist.HalfNormal(config.bedroom_slope_scale_sd)
+            )
+            if "building_zerosum" in config.coordinates:
+                p["bedroom_slope"] = _mean_plus_zero_sum(
+                    "bedroom_slope", p["bedroom_slope_scale"], len(prep.buildings)
+                )
+            else:
+                p["bedroom_slope"] = numpyro.sample(
+                    "bedroom_slope",
+                    dist.Normal(0.0, p["bedroom_slope_scale"]).expand(
+                        [len(prep.buildings)]
+                    ),
+                )
+
         walk_levels = config.building_walk and "walk_levels" in config.coordinates
+        slope_totals = config.bedroom_slope and "slope_totals" in config.coordinates
         if walk_levels:
             # Before the buildings: a building's total is its level at its
             # anchor knot, which includes its walk there.
@@ -635,13 +669,16 @@ def build_model(prep: Prepared, config: ModelConfig):
                 "walk_scale", dist.HalfNormal(config.walk_scale_sd)
             )
             p["walk_step"], walk_at_anchor = _walk_levels(p["walk_scale"], fixed)
+        if slope_totals:  # before the buildings, whose totals include it
+            bedroom_slope()
         if config.buildings and "building_totals" in config.coordinates:
             loc = fixed["building_xbar"] @ p["beta"]
+            if walk_levels:
+                loc = loc + walk_at_anchor
+            if slope_totals:
+                loc = loc + p["bedroom_slope"] * fixed["building_beds"]
             p["building"] = _centred_totals(
-                "building",
-                loc + walk_at_anchor if walk_levels else loc,
-                p["building_scale"],
-                len(prep.buildings),
+                "building", loc, p["building_scale"], len(prep.buildings)
             )
         elif config.buildings and "building_zerosum" in config.coordinates:
             p["building"] = _mean_plus_zero_sum(
@@ -668,6 +705,10 @@ def build_model(prep: Prepared, config: ModelConfig):
                 if "building_totals" in config.coordinates and config.buildings:
                     xbar = xbar - fixed["building_xbar"][fixed["unit_building"]]
                 loc = xbar @ p["beta"]
+                if slope_totals:
+                    ub = fixed["unit_building"]
+                    within = fixed["unit_beds"] - fixed["building_beds"][ub]
+                    loc = loc + p["bedroom_slope"][ub] * within
             prior = (
                 dist.StudentT(p["unit_nu"], loc, p["unit_scale"])
                 if config.unit_t
@@ -706,21 +747,8 @@ def build_model(prep: Prepared, config: ModelConfig):
                     [len(TIME_GROUPS), p["bedroom_time_basis"].shape[1]]
                 ),
             )
-        if config.bedroom_slope:
-            p["bedroom_slope_scale"] = numpyro.sample(
-                "bedroom_slope_scale", dist.HalfNormal(config.bedroom_slope_scale_sd)
-            )
-            if "building_zerosum" in config.coordinates:
-                p["bedroom_slope"] = _mean_plus_zero_sum(
-                    "bedroom_slope", p["bedroom_slope_scale"], len(prep.buildings)
-                )
-            else:
-                p["bedroom_slope"] = numpyro.sample(
-                    "bedroom_slope",
-                    dist.Normal(0.0, p["bedroom_slope_scale"]).expand(
-                        [len(prep.buildings)]
-                    ),
-                )
+        if config.bedroom_slope and not slope_totals:
+            bedroom_slope()
         if config.feature_slopes:
             p["fslope_scales"] = numpyro.sample(
                 "fslope_scales",

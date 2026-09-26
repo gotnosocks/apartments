@@ -68,13 +68,17 @@ class Settings:
     dense_globals: bool = False
     # Sampling coordinates (model.ModelConfig.coordinates): "trend_levels",
     # "season_zerosum", "building_zerosum", "building_totals", "unit_totals",
-    # "unit_partial", "walk_levels".
+    # "unit_partial", "walk_levels", "slope_totals".
     # They change how NUTS moves, not the model.
     coordinates: tuple = ()
     # float32 arithmetic (run.py leaves jax_enable_x64 off). The RTX 2060 runs
     # float32 at full rate but float64 at about 1/32; scoring (loo, variance)
     # still runs in float64 from the kept draws.
     float32: bool = False
+    # Chains start at unconstrained values drawn uniformly in (-r, r) (NumPyro's
+    # init_to_uniform; its default r = 2). The flat totals and levels are on
+    # the log-rent scale, where 2 is a factor of 7.
+    init_radius: float = 2.0
 
     def to_dict(self):
         return asdict(self)
@@ -86,7 +90,7 @@ def run(
     settings: Settings,
     log=print,
 ):
-    from numpyro.infer import NUTS
+    from numpyro.infer import NUTS, init_to_uniform
     from numpyro.infer.util import initialize_model
 
     from .collect import batched
@@ -118,6 +122,7 @@ def run(
         target_accept_prob=settings.target_accept,
         max_tree_depth=settings.max_tree_depth,
         dense_mass=[tuple(dense)] if dense else False,
+        init_strategy=init_to_uniform(radius=settings.init_radius),
     )
     k_init, k_warm, k_draw = jax.random.split(jax.random.PRNGKey(settings.seed), 3)
     vmap = (
