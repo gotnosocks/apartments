@@ -203,3 +203,16 @@ def test_the_repository_selects_a_summary_bundle():
     assert record["model_family"] == "frontier_summary"
     assert record["gate"]["passes"] is True
     assert len(record["summary_manifest_sha256"]) == 64
+
+
+def test_publish_never_prunes_staging(bundle, tmp_path):
+    root = tmp_path / "site"
+    staging = root / "builds" / "00000000T000000Z-other.tmp"
+    staging.mkdir(parents=True)
+    for _ in range(build.KEEP + 1):
+        build.build(bundle, root)
+    assert staging.is_dir()
+    assert (
+        len([p for p in (root / "builds").iterdir() if not p.name.endswith(".tmp")])
+        == build.KEEP
+    )

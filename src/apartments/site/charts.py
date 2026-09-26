@@ -134,7 +134,8 @@ def _svg(parts, label: str, frame: Frame) -> str:
 
 
 def _figure(kind: str, svg: str, points: list[dict], legend: str = "") -> Markup:
-    data = json.dumps(points, separators=(",", ":")).replace("</", "<\\/")
+    # No "<" at all inside the script data block ("</script>", "<!--").
+    data = json.dumps(points, separators=(",", ":")).replace("<", "\\u003c")
     return Markup(
         f'<figure class="chart" data-chart="{kind}" tabindex="0">'
         f"{legend}{svg}"

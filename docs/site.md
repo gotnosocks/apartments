@@ -74,8 +74,8 @@ mv -T current.new current` in `/data1/apartments/site`.
 
 - **Unit:** `ops/systemd/apartments-site.service`, installed to `~/.config/systemd/user/`.
   - Waitress (8 threads) on `100.80.84.126:8600` and `127.0.0.1:8600`, MemoryMax 512M.
-  - It accepts only the Host names localhost, `thelio`, `thelio.tail3983e0.ts.net` and the tailnet
-    IP. Any other Host gets a 400.
+  - It accepts only the Host names `localhost`, `127.0.0.1`, `[::1]`, `thelio`,
+    `thelio.tail3983e0.ts.net` and the tailnet IP. Any other Host gets a 400.
   - It retries until the Tailscale address is up after a boot.
 - **Code** runs from the serving worktree `/data1/apartments/serve/site`, with the venv
   `/data1/apartments/venvs/serve-site` (base dependencies only). Only the deploy script moves it:
@@ -85,8 +85,23 @@ mv -T current.new current` in `/data1/apartments/site`.
   ops/site-deploy.sh <commit>   # a specific commit
   ```
 
-  It checks out the commit, runs `uv sync --locked` and restarts the unit. If `/healthz` does not
-  answer within 30 s, it rolls back to the previous commit.
+  It checks out the commit, runs `uv sync --locked`, restarts the unit and waits up to 30 s for
+  `/healthz`. If any of these steps fails, it rolls back to the previous commit the same way.
+- **First deploy (bootstrap).** The script needs the worktree, the unit and a published build, so the
+  first time runs these steps by hand:
+
+  ```sh
+  git -C /home/ben/code/apartments fetch origin master
+  git -C /home/ben/code/apartments worktree add --detach /data1/apartments/serve/site origin/master
+  cd /data1/apartments/serve/site
+  UV_PROJECT_ENVIRONMENT=/data1/apartments/venvs/serve-site uv sync --locked
+  flock /data1/apartments/tmp/heavy.lock systemd-run --user --scope -p MemoryMax=2G \
+    --setenv=TMPDIR=/data1/apartments/tmp/site-serve \
+    /data1/apartments/venvs/serve-site/bin/python -m apartments.site build --summary <bundle>
+  cp ops/systemd/apartments-site.service ~/.config/systemd/user/
+  systemctl --user daemon-reload && systemctl --user enable --now apartments-site
+  curl -fsS http://127.0.0.1:8600/healthz
+  ```
 - **Logs:** one access line per request (client, method, path, status, milliseconds) in the journal:
   `journalctl --user -u apartments-site -f`.
 - **Stop:** `systemctl --user disable --now apartments-site`.
@@ -105,6 +120,9 @@ mv -T current.new current` in `/data1/apartments/site`.
 - **Charts** are server-rendered SVG with a table or table view beside each. A small script
   (`static/site.js`) adds hover and keyboard readouts, and the pages work without it. Light and
   dark themes follow the system setting.
+- **Paging.** Every sort key has an index ending in the row id, and a page selects its ids first,
+  then fetches the full rows. Any page of any sort takes tens of milliseconds, not a whole-table sort.
 - **Tests:** `tests/site/`. A small bundle, dataset and registry go through the real builder, then
   every route is checked: filters, sorting, CSV, escaping of source text, headers, Host checks,
-  gzip, ETag, 404 and 503, and a publish being picked up without a restart.
+  gzip, ETag, 404 and 503, and a publish being picked up without a restart. A query-plan test
+  keeps every sort on an index.
