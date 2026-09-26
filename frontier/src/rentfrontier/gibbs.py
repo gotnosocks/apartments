@@ -158,6 +158,7 @@ def build_design(
         or config.walk_min_rows_per_knot
         or config.walk_anchor_data
         or config.line_effects
+        or config.walk_zero_sum
     ):
         raise ValueError(
             f"{config.name}: the Gibbs sampler needs every base term and no market "
