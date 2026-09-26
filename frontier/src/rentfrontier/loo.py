@@ -225,7 +225,7 @@ def score_run(name: str):
             config.bedroom_slope,
             prep.offset,
             fslope_index,
-            unit_line=prep.unit_line,
+            unit_line=model.line_index(prep, config),
         )
         mu = sum(v for k, v in terms.items() if k not in UNIT_TERMS) - prep.offset
         mu, y, ut, unit = mu[:, pos], a.y[pos], a.unit_time[pos], a.unit[pos]

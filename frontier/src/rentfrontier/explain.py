@@ -178,7 +178,7 @@ def explain(name, rows="current"):
             config.bedroom_slope,
             prep.offset,
             [feats.names.index(n) for n in config.feature_slopes],
-            unit_line=prep.unit_line,
+            unit_line=model.line_index(prep, config),
         )
         dollars, fitted = decompose(terms)
         sub = frame.loc[
