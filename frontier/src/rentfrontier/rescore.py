@@ -111,7 +111,7 @@ def rescore(name: str):
         config.bedroom_slope,
         prep.offset,
         [feats.names.index(n) for n in config.feature_slopes],
-        unit_line=model.line_index(prep, config),
+        unit_line=prep.unit_line,
     )
     # y in Arrays is log rent minus the offset; `market` includes the offset.
     mu = sum(v for k, v in terms.items() if k not in UNIT_TERMS) - prep.offset

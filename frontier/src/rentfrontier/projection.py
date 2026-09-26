@@ -300,7 +300,7 @@ def project(reference: str, candidates=CANDIDATES):
             config.bedroom_slope,
             prep.offset,
             [names.index(n) for n in config.feature_slopes],
-            unit_line=model.line_index(prep, config),
+            unit_line=prep.unit_line,
         )
         parts.append(sum(terms.values()).mean(0) - prep.offset)
     mu_ref = np.concatenate(parts)

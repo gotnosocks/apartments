@@ -280,55 +280,6 @@ def test_gibbs_refuses_the_walk_mask_and_anchor():
             gibbs.build_design(synthetic(), config)
 
 
-def test_line_minimum_drops_small_lines_and_keeps_indices_contiguous():
-    prep = lined()
-    two = model.line_index(prep, model.MODELS["m0q-btrend-lines"])
-    three = model.line_index(prep, model.MODELS["m0q-btrend-lines3"])
-    sizes = np.bincount(two[two >= 0])
-    assert (sizes == 2).any() and (sizes >= 3).any()
-    kept = three >= 0
-    np.testing.assert_array_equal(kept, (two >= 0) & (sizes[np.maximum(two, 0)] >= 3))
-    assert set(three[kept]) == set(range(int(three.max()) + 1))
-
-
-def test_nuts_with_a_line_minimum_scores_the_same_lines():
-    """The scorers rebuild the fit's line index (model.line_index), so a run
-    with line_min_units=3 is scored on its own lines."""
-    from rentfrontier import explain
-
-    prep = lined()
-    config = model.MODELS["m0q-btrend-lines3"]
-    out = nuts.run(
-        prep,
-        config,
-        nuts.Settings(
-            chains=2,
-            warmup=60,
-            draws=20,
-            keep_every=10,
-            coordinates=("trend_levels", "building_totals", "unit_totals"),
-        ),
-        log=lambda *_: None,
-    )
-    assert np.isfinite(out["lpd"]).all()
-    kept = {k: v.reshape(-1, *v.shape[2:]) for k, v in out["kept"].items()}
-    unit_line = model.line_index(prep, config)
-    assert kept["line"].shape[-1] == int(unit_line.max()) + 1
-    terms = explain.log_terms(
-        kept,
-        prep.train,
-        prep.features.groups,
-        0,
-        False,
-        False,
-        0.0,
-        unit_line=unit_line,
-    )
-    line = unit_line[prep.train.unit]
-    expected = np.where(line >= 0, kept["line"][:, np.maximum(line, 0)], 0.0)
-    np.testing.assert_allclose(terms["line"], expected)
-
-
 def lined():
     """synthetic() with each building's units in three lines (2-3 units each)."""
     prep = synthetic()

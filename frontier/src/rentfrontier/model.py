@@ -142,10 +142,6 @@ class ModelConfig:
     # units listed once are in one.
     line_effects: bool = False
     line_scale_sd: float = 0.1
-    # Lines need at least this many training units. With 2, a line's effect
-    # traded off against its 2-4 units' effects (4224e62: line_scale R-hat
-    # 1.028, ESS 200); Ben (2026-09-26) chose the model change, 3.
-    line_min_units: int = 2
     # Per-building linear trend in log rent per year, centred on the building's
     # mean training month: trend_b ~ N(0, building_trend_scale^2). One number
     # per building, against the walk's 34 steps at about one row per step.
@@ -398,19 +394,6 @@ def walk_term(w, a: Arrays, spacing: int):
     return (1 - frac) * w[..., a.building, knot] + frac * w[..., a.building, knot + 1]
 
 
-def line_index(prep: Prepared, config: ModelConfig) -> np.ndarray | None:
-    """Each unit's line among lines with at least config.line_min_units
-    training units (-1 otherwise); prep.unit_line has lines of 2 or more."""
-    if prep.unit_line is None:
-        return None
-    base = np.asarray(prep.unit_line)
-    counts = np.bincount(base[base >= 0], minlength=int(base.max()) + 1)
-    keep = counts >= config.line_min_units
-    code = np.full(len(counts), -1)
-    code[keep] = np.arange(int(keep.sum()))
-    return np.where(base >= 0, code[np.maximum(base, 0)], -1).astype(np.int32)
-
-
 def line_term(line, unit_line, a):
     """Each row's line effect (0 for rows of units without a shared line, or
     without training rows); line may have a leading draws axis."""
@@ -540,10 +523,9 @@ def constants(prep: Prepared, config: ModelConfig) -> dict:
             weight, _, _ = walk_data_range(prep, config.walk_knot_months)
             out["walk_anchor"] = jnp.asarray(weight.argmax(axis=1), dtype=jnp.int32)
     if config.line_effects:
-        unit_line = line_index(prep, config)
-        if unit_line is None or not (unit_line >= 0).any():
+        if prep.unit_line is None or not (prep.unit_line >= 0).any():
             raise ValueError("line_effects needs units in shared lines")
-        out["unit_line"] = jnp.asarray(unit_line, dtype=jnp.int32)
+        out["unit_line"] = jnp.asarray(prep.unit_line, dtype=jnp.int32)
     if config.building_trend:
         out["building_mean_month"] = jnp.asarray(
             _group_means(
@@ -747,7 +729,7 @@ def build_model(prep: Prepared, config: ModelConfig):
     beta_sd = config.beta_sd * jnp.asarray(prep.features.prior_scale)
     fixed = constants(prep, config)
     trend_basis = fixed["trend_basis"]
-    n_lines = int(np.max(fixed["unit_line"])) + 1 if config.line_effects else 0
+    n_lines = int(np.max(prep.unit_line)) + 1 if config.line_effects else 0
 
     def model():
         p = dict(fixed)
@@ -1079,14 +1061,6 @@ MODELS = {
         name="m0q-btrend-lines",
         building_trend=True,
         line_effects=True,
-        trend_knot_months=3,
-    ),
-    # Lines with at least 3 training units (Ben, 2026-09-26).
-    "m0q-btrend-lines3": ModelConfig(
-        name="m0q-btrend-lines3",
-        building_trend=True,
-        line_effects=True,
-        line_min_units=3,
         trend_knot_months=3,
     ),
     # The linear trend plus a walk around it with knots every 2 years (10 knots
