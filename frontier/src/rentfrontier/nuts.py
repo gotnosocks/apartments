@@ -45,6 +45,7 @@ LOCAL_SITES = {
     "walk_step_decentered",
     "walk_free",
     "bedroom_slope",
+    "building_trend",
     "fslope",
     "unit_drift",
     "unit_drift_decentered",

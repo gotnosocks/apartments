@@ -149,10 +149,14 @@ def build_design(
     prep: model_module.Prepared, config: model_module.ModelConfig
 ) -> Design:
     base = ("trend", "season", "features", "buildings", "units")
-    if not all(getattr(config, t) for t in base) or config.market_drift:
+    if (
+        not all(getattr(config, t) for t in base)
+        or config.market_drift
+        or config.building_trend
+    ):
         raise ValueError(
             f"{config.name}: the Gibbs sampler needs every base term and no market "
-            "drift; fit the model ladder's simplest designs with --sampler nuts"
+            "drift or building trend; fit these designs with --sampler nuts"
         )
     tr = prep.train
     n, f = tr.x.shape

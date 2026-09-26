@@ -110,6 +110,11 @@ class ModelConfig:
     # first month), interpolated linearly between knots.
     building_walk: bool = False
     walk_scale_sd: float = 0.1
+    # Per-building linear trend in log rent per year, centred on the building's
+    # mean training month: trend_b ~ N(0, building_trend_scale^2). One number
+    # per building, against the walk's 34 steps at about one row per step.
+    building_trend: bool = False
+    building_trend_scale_sd: float = 0.05
     # Bedroom-group market curves: random-walk deviations of the month trend
     # for studios, 2- and 3+-bedrooms, relative to 1-bedrooms.
     bedroom_time: bool = False
@@ -312,6 +317,8 @@ def linear_predictor(p, a: Arrays, include_unit=True):
             + (1 - a.knot_frac) * w[a.building, a.knot]
             + a.knot_frac * w[a.building, a.knot + 1]
         )
+    if "building_trend" in p:
+        mu = mu + building_trend_term(e, a)
     if "bedroom_time_step" in p:
         mu = mu + e["bedroom_time"][a.bed_group, a.month]
     if "bedroom_slope" in p:
@@ -325,6 +332,13 @@ def linear_predictor(p, a: Arrays, include_unit=True):
                 a.unit >= 0, p["unit_drift"][jnp.maximum(a.unit, 0)] * a.unit_time, 0.0
             )
     return mu
+
+
+def building_trend_term(e, a):
+    """Each row's building trend: rate per year times years from the
+    building's mean training month (e: effects, or draws with a leading axis)."""
+    rate, center = e["building_trend"], e["building_mean_month"]
+    return rate[..., a.building] * (a.month - center[..., a.building]) / 12.0
 
 
 def effects(p):
@@ -369,6 +383,9 @@ def effects(p):
             else jnp.zeros((1, 1))
         ),
         "walk_scale": p.get("walk_scale", jnp.zeros(())),
+        "building_trend": p.get("building_trend", jnp.zeros(1)),
+        "building_trend_scale": p.get("building_trend_scale", jnp.zeros(())),
+        "building_mean_month": p.get("building_mean_month", jnp.zeros(1)),
         # Market-curve deviation per bedroom group (row 1 = 1-bedroom = 0).
         "bedroom_time": _bedroom_time(p),
         "bedroom_time_scale": p.get("bedroom_time_scale", jnp.zeros(())),
@@ -400,7 +417,10 @@ def constants(prep: Prepared, config: ModelConfig) -> dict:
     (scale 0) for the base terms the design drops."""
     n_months = len(prep.periods)
     if not config.buildings and (
-        config.building_walk or config.bedroom_slope or config.feature_slopes
+        config.building_walk
+        or config.building_trend
+        or config.bedroom_slope
+        or config.feature_slopes
     ):
         raise ValueError(f"{config.name}: building terms need building levels")
     if not config.units and (config.unit_t or config.unit_drift):
@@ -417,6 +437,14 @@ def constants(prep: Prepared, config: ModelConfig) -> dict:
         out["fslope_index"] = jnp.asarray(
             [prep.features.names.index(n) for n in config.feature_slopes],
             dtype=jnp.int32,
+        )
+    if config.building_trend:
+        out["building_mean_month"] = jnp.asarray(
+            _group_means(
+                np.asarray(prep.train.month, dtype=float)[:, None],
+                prep.train.building,
+                len(prep.buildings),
+            )[:, 0]
         )
     if config.nu_fixed is not None:
         out["nu"] = jnp.asarray(config.nu_fixed)
@@ -727,6 +755,16 @@ def build_model(prep: Prepared, config: ModelConfig):
                 "unit_drift",
                 dist.Normal(0.0, p["unit_drift_scale"]).expand([len(prep.units)]),
             )
+        if config.building_trend:
+            p["building_trend_scale"] = numpyro.sample(
+                "building_trend_scale", dist.HalfNormal(config.building_trend_scale_sd)
+            )
+            p["building_trend"] = numpyro.sample(
+                "building_trend",
+                dist.Normal(0.0, p["building_trend_scale"]).expand(
+                    [len(prep.buildings)]
+                ),
+            )
         if config.building_walk and not walk_levels:
             p["walk_scale"] = numpyro.sample(
                 "walk_scale", dist.HalfNormal(config.walk_scale_sd)
@@ -861,6 +899,10 @@ MODELS = {
     # RTX 2060; projection loses ~0.1% more than the monthly trend.
     "m0q": ModelConfig(name="m0q", trend_knot_months=3),
     "m1q": ModelConfig(name="m1q", building_walk=True, trend_knot_months=3),
+    # m0q with a linear trend per building instead of m1q's walk.
+    "m0q-btrend": ModelConfig(
+        name="m0q-btrend", building_trend=True, trend_knot_months=3
+    ),
     # m6-m8 without the bedroom-group market curves: the curves add ~200
     # global columns (3 groups x 68 quarterly knots) and the global solve
     # grows with the square of its size; projection loses only ~120-170

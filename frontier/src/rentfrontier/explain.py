@@ -10,7 +10,8 @@ into named additive terms:
                  bathrooms, size, floor, elevator, doorman, laundry, ...)
     bedroom_market_curve   the bedroom group's own market-curve deviation
     building     the building's level
-    building_drift   the building's time walk at this month
+    building_drift   the building's time walk at this month, plus its linear
+                     trend (building_trend designs)
     building_bedroom_premium   the building's bedroom slope x (bedrooms - 1)
     building_feature_slopes    the building's own slopes on size and baths
                  (designs with per-building feature slopes)
@@ -100,6 +101,10 @@ def log_terms(
         ] + a.knot_frac * w[:, a.building, a.knot + 1]
     else:
         terms["building_drift"] = zeros
+    if "building_trend" in kept and kept["building_trend"].shape[-1] > 1:
+        terms["building_drift"] = terms["building_drift"] + model.building_trend_term(
+            kept, a
+        )
     terms["building_bedroom_premium"] = (
         kept["bedroom_slope"][:, a.building] * a.beds_centered if slope else zeros
     )

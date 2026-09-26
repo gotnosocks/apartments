@@ -32,6 +32,7 @@ SCALARS = (
     "trend_scale",
     "season_scale",
     "walk_scale",
+    "building_trend_scale",
     "bedroom_time_scale",
     "bedroom_slope_scale",
     "unit_nu",

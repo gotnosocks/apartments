@@ -349,6 +349,12 @@ the fix goes into the model, the features or the data, not the sampler.
 - **Unit label flags: +234 ± 29 more** (`unitlabels-v1`, 8914d43; 609 s, passes). Penthouse,
   garden and lower-level units, from the unit's StreetEasy label. Penthouses ask 12% more than
   other units of the same building, year and bedrooms. Total: **+1,679 ± 95 over m0q base-v1**.
+- Floors from unit labels, unchecked (`unitfloor-v1`, abca5b7), gave 16 divergences and only
+  +18 PSIS-LOO. In 121 buildings the label's number is not a floor ("24A" in a 4-storey
+  building): 421 of the 3,445 filled floors exceed MapPLUTO's floor count + 1. `unitfloor-v2`
+  fills a floor only where the building is tall enough (3,065 rows). Listed floors have the
+  same problem on 474 rows, and one registry match looks wrong ("The Cortland", a new tower,
+  has a 3-storey lot). Both go to the data audit.
 - Within-unit price jumps (240 rows more than 2× off the unit's other listings, trend-adjusted)
   are mostly real changes: renovations, combined apartments, market moves. Almost none are
   furnished or short-term. A renovation mention appearing within a unit comes with only about

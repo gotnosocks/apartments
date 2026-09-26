@@ -56,7 +56,7 @@ def test_market_drift_is_a_linear_trend_about_the_mean_month():
     np.testing.assert_allclose(mu, 0.3 + 0.05 * (month - month.mean()) / 12, atol=1e-12)
 
 
-@pytest.mark.parametrize("name", ["L0-mean", "L5-building"])
+@pytest.mark.parametrize("name", ["L0-mean", "L5-building", "m0q-btrend"])
 def test_gibbs_needs_every_base_term(name):
     with pytest.raises(ValueError, match="--sampler nuts"):
         gibbs.build_design(synthetic(), model.MODELS[name])
@@ -199,6 +199,68 @@ def test_svi_warm_start_runs(dense):
     assert out["svi"]["seconds"] > 0 and np.isfinite(out["svi"]["final_loss"])
     assert any(x.startswith("svi 200 steps") for x in lines)
     assert np.isfinite(out["lpd"]).all()
+
+
+def test_building_trend_is_linear_about_the_buildings_mean_month():
+    prep = synthetic()
+    config = model.MODELS["m0q-btrend"]
+    fixed = model.constants(prep, config)
+    a = prep.train
+    center = fixed["building_mean_month"]
+    for b in range(3):
+        rows = a.building == b
+        assert float(center[b]) == pytest.approx(a.month[rows].mean())
+    rate = jnp.linspace(-0.1, 0.1, len(prep.buildings))
+    p = model.constants(prep, model.MODELS["m0q"]) | {
+        "alpha": 0.0,
+        "beta": jnp.zeros(2),
+        "trend_step": jnp.zeros(fixed["trend_basis"].shape[1]),
+        "season_raw": jnp.zeros(12),
+        "building": jnp.zeros(len(prep.buildings)),
+        "unit": jnp.zeros(len(prep.units)),
+        "sigma": 0.1,
+        "nu": 5.0,
+        **{
+            k: 0.1
+            for k in ("unit_scale", "building_scale", "trend_scale", "season_scale")
+        },
+    }
+    base = model.linear_predictor(p, a.map(jnp.asarray))
+    with_trend = model.linear_predictor(
+        p | {"building_trend": rate, "building_mean_month": center},
+        a.map(jnp.asarray),
+    )
+    expected = rate[a.building] * (a.month - center[a.building]) / 12
+    np.testing.assert_allclose(with_trend - base, expected, atol=1e-12)
+
+
+def test_nuts_building_trend_reaches_the_scored_terms():
+    """The trend is sampled, gated (its scale is a traced scalar) and part of
+    the terms LOO and the variance decomposition score."""
+    from rentfrontier import explain
+
+    prep = synthetic()
+    out = nuts.run(
+        prep,
+        model.MODELS["m0q-btrend"],
+        nuts.Settings(
+            chains=2,
+            warmup=60,
+            draws=20,
+            keep_every=10,
+            coordinates=("trend_levels", "building_totals", "unit_totals"),
+        ),
+        log=lambda *_: None,
+    )
+    assert np.isfinite(out["lpd"]).all()
+    kept = {k: v.reshape(-1, *v.shape[2:]) for k, v in out["kept"].items()}
+    assert kept["building_trend"].shape[-1] == len(prep.buildings)
+    terms = explain.log_terms(
+        kept, prep.train, prep.features.groups, False, False, False, 0.0
+    )
+    np.testing.assert_allclose(
+        terms["building_drift"], model.building_trend_term(kept, prep.train)
+    )
 
 
 def test_fixed_degrees_of_freedom_are_constants():

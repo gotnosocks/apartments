@@ -119,9 +119,12 @@ def base_v1(
     unit_labels ("unitlabels-v1"): flags from the unit's StreetEasy label
     (UNIT_LABEL_FLAGS): penthouse, garden and lower-level units. Penthouses ask
     12% more than other units of the same building, year and bedrooms.
-    label_floor ("unitfloor-v1"): the floor, when the listing states none, from
-    the unit's label ("23C" -> 23, "307" -> 3; 3,445 more rows). Where both
-    exist they agree on all 33,270 rows.
+    label_floor ("unitfloor-v2"): the floor, when the listing states none, from
+    the unit's label ("23C" -> 23, "307" -> 3). Where both exist they agree on
+    all 33,270 rows. A label floor is used only if the building (MapPLUTO) has
+    that many floors, give or take 2: in 121 buildings the label's number is
+    not a floor ("24A" in a 4-storey building), and filling those
+    (abca5b7, unchecked) gave 16 divergences.
     """
     b = _Builder(frame)
     advertised = frame.bedrooms.round().clip(0, 5)
@@ -157,7 +160,10 @@ def base_v1(
     # Advertised floor label (a proxy, not a verified physical floor).
     floor = frame.listed_floor.astype("float")
     if label_floor:
-        floor = floor.where(floor.ge(1), label_floor_number(frame))
+        label = label_floor_number(frame)
+        height = pd.to_numeric(building_lots(frame).numfloors, errors="coerce")
+        label = label.where(label.le(height.to_numpy() + 2))
+        floor = floor.where(floor.ge(1), label)
     floor_known = floor.ge(1)
     log_floor = np.log(floor.where(floor_known, 1.0))
     b.add("floor", "log_floor", log_floor)
@@ -327,6 +333,9 @@ def pluto_v1(frame: pd.DataFrame, train: np.ndarray) -> Features:
     )
 
 
+# Feature sets that read the external snapshots (run records list them).
+EXTERNAL = {"pluto-v1", "unitfloor-v2"}
+
 FEATURE_SETS = {
     "base-v1": base_v1,
     "unitbeds-v1": partial(base_v1, id="unitbeds-v1", by_unit=True),
@@ -334,9 +343,9 @@ FEATURE_SETS = {
     "unitlabels-v1": partial(
         base_v1, id="unitlabels-v1", by_unit=True, unit_size=True, unit_labels=True
     ),
-    "unitfloor-v1": partial(
+    "unitfloor-v2": partial(
         base_v1,
-        id="unitfloor-v1",
+        id="unitfloor-v2",
         by_unit=True,
         unit_size=True,
         unit_labels=True,
