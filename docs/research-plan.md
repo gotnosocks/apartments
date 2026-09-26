@@ -224,9 +224,23 @@ implementation over implementing our own").
     NumPyro's ±2 left m0q unchanged (3e80efb: 874 s, warmup 585 s against 598 s, PSIS-LOO
     40,606.8). Each warmup iteration costs about 5 times a sampling iteration (m0q: 2.4 s
     against 0.5 s). NumPyro's first 75 warmup iterations adapt only the step size, with an
-    identity mass matrix. Two things are in hand: warmup logged in five segments
-    (`warmup_segments`), and a warm start from NumPyro SVI (`--svi-steps`) that supplies the
-    starting points and the initial mass matrix.
+    identity mass matrix. Warmup is now logged in five segments (`warmup_segments`).
+  - **The SVI warm start cuts m0q to 592 s** (7229ef0, 4 × (250 + 550), `--svi-steps 2000`),
+    and it still passes (R-hat 1.006, ESS 817). Before sampling, 2,000 steps of NumPyro SVI
+    fit a mean-field normal guide (46 s). Each chain starts at a draw from it, with its
+    variances as the initial mass matrix. Warmup drops from 585 s to 252 s. PSIS-LOO is
+    40,602.1, −5.3 ± 3.5 against the 888 s fit on identical rows (Monte Carlo noise: it is
+    the same model).
+  - A shorter warmup does not pay: 4 × (150 + 550) with the warm start took 746 s. Warmup was
+    142 s, but its one mass-matrix window left step sizes of 0.022–0.027, and sampling took
+    541 s against 277 s (it passes: R-hat 1.006, ESS 596; PSIS-LOO 40,607.0).
+  - The first two warmup segments ran at 58–67 leapfrog steps per iteration with step sizes
+    0.07–0.13. The third, after NumPyro's first mass-matrix window, ran at 258 with 0.014–0.045.
+    NumPyro regularizes windowed estimates as Stan does, adding 1e-3 × 5 / (n + 5) to every
+    variance. After a 25-draw window no coordinate's metric sd is below 0.013, while the
+    tightest posterior sds are a few thousandths. Next: keep the SVI metric through warmup
+    (`--fixed-metric`), from a low-rank guide whose covariance fills the dense globals'
+    block (`--svi-guide lowrank`).
   - Every timed fit is capped at 30 minutes (Ben, 2026-09-25). Past the 15-minute window a fit
     has already shown it is outside, and its warmup log gives the diagnostics.
 - New sampler work uses library samplers on `model.build_model`, with library options only:
