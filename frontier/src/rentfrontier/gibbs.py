@@ -155,11 +155,13 @@ def build_design(
         or config.building_trend
         or config.walk_knot_months != model_module.KNOT_MONTHS
         or config.walk_t
+        or config.walk_min_rows_per_knot
+        or config.walk_anchor_data
     ):
         raise ValueError(
             f"{config.name}: the Gibbs sampler needs every base term and no market "
-            "drift, building trend or other walk spacing; fit these designs with "
-            "--sampler nuts"
+            "drift, building trend or walk options (spacing, t steps, mask, anchor); "
+            "fit these designs with --sampler nuts"
         )
     tr = prep.train
     n, f = tr.x.shape

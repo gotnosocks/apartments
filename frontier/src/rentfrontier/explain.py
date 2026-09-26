@@ -99,7 +99,9 @@ def log_terms(
         terms["building_drift"] = model.walk_term(w, a, walk)
     else:
         terms["building_drift"] = zeros
-    if "building_trend" in kept and kept["building_trend"].shape[-1] > 1:
+    # Trend designs have a positive trend scale; others carry a 0 placeholder
+    # (and runs from before the term have no key at all).
+    if np.any(kept.get("building_trend_scale", 0) > 0):
         terms["building_drift"] = terms["building_drift"] + model.building_trend_term(
             kept, a
         )
@@ -146,6 +148,7 @@ def explain(name, rows="current"):
     config = model.MODELS[result["model"]["name"]]
     frame = data.load()
     heldout = splits.SPLITS[result["split"]](frame)
+    frame = data.apply_rules(frame, result.get("data_rules", ()))
     feats = features.build(result["feature_set"], frame, ~heldout)
     prep = model.prepare(frame, heldout, feats)
     select = {

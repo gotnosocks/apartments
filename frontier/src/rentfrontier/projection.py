@@ -280,6 +280,7 @@ def project(reference: str, candidates=CANDIDATES):
     config = model.MODELS[result["model"]["name"]]
     frame = data.load()
     heldout = splits.SPLITS[result["split"]](frame)
+    frame = data.apply_rules(frame, result.get("data_rules", ()))
     feats = features.build(result["feature_set"], frame, ~heldout)
     prep = model.prepare(frame, heldout, feats)
     names = [str(n) for n in feats.names]

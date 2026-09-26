@@ -265,6 +265,13 @@ def test_nuts_building_trend_reaches_the_scored_terms():
     )
 
 
+def test_gibbs_refuses_the_walk_mask_and_anchor():
+    for option in ({"walk_min_rows_per_knot": 2.0}, {"walk_anchor_data": True}):
+        config = replace(model.MODELS["m1-walk"], **option)
+        with pytest.raises(ValueError, match="--sampler nuts"):
+            gibbs.build_design(synthetic(), config)
+
+
 def test_fixed_degrees_of_freedom_are_constants():
     """Designs that fix nu (m5-nu5) sample no nu site; NUTS gets it from constants."""
     prep = synthetic()
