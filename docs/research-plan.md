@@ -466,6 +466,19 @@ the fix goes into the model, the features or the data, not the sampler.
   from "every building up". Two ways out: sum-to-zero walks across buildings (a model change:
   the market trend carries all common time variation), or a per-knot mean plus zero-sum split
   of the walks (an exact coordinate, as for the building totals). Ben's call.
+- **Line ("column") effects within buildings** (`m0q-btrend-lines`, `unitdesc-v1`,
+  `unit-labels-v1`, 4224e62; Ben's backlog). Units stacked vertically share an effect, taken
+  from the unit label (23C and 4C are line C; 1204 and 304 are line 04; 2ND, 4TH and 4THFL
+  are the floor-through line), for lines with at least 2 training units: 2,851 lines holding
+  12,946 units. The fit took 810 s.
+  - **PSIS-LOO +175.6 ± 23.9** over the same design without lines, on identical rows
+    (45,990.7). Held-out ΔELPD is about unchanged (−170.6 against −173.4).
+  - line_scale is 0.039, and unit_scale falls from 0.082 to 0.072.
+  - It fails only on line_scale (R-hat 1.028, ESS 200). The every-element R-hat is 1.026 and
+    there are no divergences. A line's effect trades off against its 2–4 units' effects, the
+    same pattern as the walk scale. The fixes are the same two kinds: a model choice (lines
+    with at least 3 units), or centring units on their line (as `unit_totals` centres them on
+    their building). Ben's call.
 - **Listed floors above a building's MapPLUTO height** (407 rows in 11 buildings) are mostly in
   new towers: 507 West Chelsea (listed up to 33, MapPLUTO 13), One Hudson Yards, Avalon West
   Chelsea, The Cortland and One High Line. The listings are right; the lot's floor count is
