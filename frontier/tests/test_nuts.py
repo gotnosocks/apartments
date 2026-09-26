@@ -57,7 +57,15 @@ def test_market_drift_is_a_linear_trend_about_the_mean_month():
 
 
 @pytest.mark.parametrize(
-    "name", ["L0-mean", "L5-building", "m0q-btrend", "m1-btrend-walk24", "m1-twalk24"]
+    "name",
+    [
+        "L0-mean",
+        "L5-building",
+        "m0q-btrend",
+        "m1-btrend-walk24",
+        "m1-twalk24",
+        "m0q-btrend-lines",
+    ],
 )
 def test_gibbs_needs_every_base_term(name):
     with pytest.raises(ValueError, match="--sampler nuts"):
@@ -270,6 +278,53 @@ def test_gibbs_refuses_the_walk_mask_and_anchor():
         config = replace(model.MODELS["m1-walk"], **option)
         with pytest.raises(ValueError, match="--sampler nuts"):
             gibbs.build_design(synthetic(), config)
+
+
+def lined():
+    """synthetic() with each building's units in three lines (2-3 units each)."""
+    prep = synthetic()
+    prep.unit_line = np.asarray(
+        (prep.units // 100) * 3 + (prep.units % 100) % 3, dtype=np.int32
+    )
+    return prep
+
+
+def test_line_effects_enter_through_the_rows_unit():
+    prep = lined()
+    config = model.MODELS["m0q-btrend-lines"]
+    fixed = model.constants(prep, config)
+    line = jnp.linspace(-0.2, 0.2, int(fixed["unit_line"].max()) + 1)
+    a = prep.train.map(jnp.asarray)
+    got = model.line_term(line, fixed["unit_line"], a)
+    expected = np.asarray(line)[np.asarray(prep.unit_line)[prep.train.unit]]
+    np.testing.assert_allclose(got, expected)
+
+
+def test_nuts_line_effects_reach_the_scored_terms():
+    from rentfrontier import explain, variance
+
+    prep = lined()
+    out = nuts.run(
+        prep,
+        model.MODELS["m0q-btrend-lines"],
+        nuts.Settings(
+            chains=2,
+            warmup=60,
+            draws=20,
+            keep_every=10,
+            coordinates=("trend_levels", "building_totals", "unit_totals"),
+        ),
+        log=lambda *_: None,
+    )
+    assert np.isfinite(out["lpd"]).all()
+    kept = {k: v.reshape(-1, *v.shape[2:]) for k, v in out["kept"].items()}
+    terms = explain.log_terms(
+        kept, prep.train, prep.features.groups, 0, False, False, 0.0
+    )
+    np.testing.assert_allclose(
+        terms["line"], model.line_term(kept["line"], kept["unit_line"][0], prep.train)
+    )
+    assert set(terms) - set(prep.features.groups) <= set(variance.FIXED)
 
 
 def test_fixed_degrees_of_freedom_are_constants():

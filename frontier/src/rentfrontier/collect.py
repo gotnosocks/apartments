@@ -34,6 +34,7 @@ SCALARS = (
     "walk_scale",
     "walk_nu",
     "building_trend_scale",
+    "line_scale",
     "bedroom_time_scale",
     "bedroom_slope_scale",
     "unit_nu",

@@ -39,3 +39,25 @@ def test_merge_unit_labels_joins_units_of_one_building_only():
         data.apply_rules(frame, ["unit-labels-v1"]).unit_id.tolist()
         == out.unit_id.tolist()
     )
+
+
+def test_unit_line_key():
+    url = "https://streeteasy.com/building/{}/{}".format
+    labels = [
+        "23c",
+        "4-c",
+        "1204",
+        "304",
+        "4th",
+        "2nd",
+        "ph",
+        "garden-a",
+        "12",
+        "4thfl",
+    ]
+    frame = pd.DataFrame(
+        {"building": "b", "canonical_unit_url": [url("b", x) for x in labels]}
+    )
+    got = data.unit_line_key(frame).tolist()
+    assert got[:6] == ["b/C", "b/C", "b/04", "b/04", "b/FL", "b/FL"]
+    assert all(pd.isna(x) for x in got[6:9]) and got[9] == "b/FL"

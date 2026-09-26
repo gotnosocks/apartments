@@ -99,6 +99,8 @@ def log_terms(
         terms["building_drift"] = model.walk_term(w, a, walk)
     else:
         terms["building_drift"] = zeros
+    if np.any(kept.get("line_scale", 0) > 0):
+        terms["line"] = model.line_term(kept["line"], kept["unit_line"][0], a)
     # Trend designs have a positive trend scale; others carry a 0 placeholder
     # (and runs from before the term have no key at all).
     if np.any(kept.get("building_trend_scale", 0) > 0):
