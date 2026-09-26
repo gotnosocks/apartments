@@ -57,7 +57,7 @@ def test_market_drift_is_a_linear_trend_about_the_mean_month():
 
 
 @pytest.mark.parametrize(
-    "name", ["L0-mean", "L5-building", "m0q-btrend", "m1-btrend-walk24"]
+    "name", ["L0-mean", "L5-building", "m0q-btrend", "m1-btrend-walk24", "m1-twalk24"]
 )
 def test_gibbs_needs_every_base_term(name):
     with pytest.raises(ValueError, match="--sampler nuts"):
@@ -425,6 +425,7 @@ def windowed(width=18):
 WALK = model.ModelConfig(name="w", building_walk=True, trend_knot_months=3)
 M5 = replace(WALK, name="m5", bedroom_slope=True)
 WALK12 = replace(WALK, name="w12", walk_knot_months=12, building_trend=True)
+TWALK12 = replace(WALK, name="tw12", walk_knot_months=12, walk_t=True)
 
 
 def test_walk_position_matches_the_stored_half_year_knots():
@@ -449,8 +450,9 @@ def test_walk_position_matches_the_stored_half_year_knots():
         (WALK, ("building_totals", "walk_levels")),
         (M5, ("building_totals", "unit_totals", "walk_levels", "slope_totals")),
         (WALK12, ("building_totals", "walk_levels")),
+        (TWALK12, ("building_totals", "walk_levels")),
     ],
-    ids=["walk", "walk-slopes", "walk12-trend"],
+    ids=["walk", "walk-slopes", "walk12-trend", "twalk12"],
 )
 def test_walk_and_slope_totals_are_the_same_model(config, coordinates):
     """walk_levels samples each walk as levels inside the building's data
@@ -516,8 +518,9 @@ def test_walk_and_slope_totals_need_building_totals(coordinate):
         (WALK, ("building_totals", "walk_levels")),
         (M5, ("building_totals", "unit_totals", "walk_levels", "slope_totals")),
         (WALK12, ("building_totals", "walk_levels")),
+        (TWALK12, ("building_totals", "walk_levels")),
     ],
-    ids=["walk", "walk-slopes", "walk12-trend"],
+    ids=["walk", "walk-slopes", "walk12-trend", "twalk12"],
 )
 def test_nuts_with_walk_and_slope_totals_returns_the_effects(config, coordinates):
     prep = windowed()
@@ -591,6 +594,19 @@ def test_partially_centred_units_are_the_same_model(unit_t, totals):
         new = float(log_density(model.build_model(prep, moved), (), {}, q)[0])
         gaps.append(new - base - float(np.sum(1 - c) * np.log(scale)))
     np.testing.assert_allclose(gaps, 0.0, atol=1e-7)
+
+
+def test_student_t_walk_steps_run_non_centred():
+    """Without walk_levels, Student-t walk steps are non-centred with their df
+    as a shape parameter (LocScaleReparam)."""
+    out = nuts.run(
+        windowed(),
+        TWALK12,
+        nuts.Settings(chains=2, warmup=40, draws=10, keep_every=5),
+        log=lambda *_: None,
+    )
+    assert out["noncentered"] == ["walk_step"]
+    assert np.isfinite(out["lpd"]).all() and out["mean"]["walk_nu"] > 0
 
 
 @pytest.mark.parametrize("unit_t", [False, True], ids=["normal", "t"])

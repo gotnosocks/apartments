@@ -374,6 +374,17 @@ the fix goes into the model, the features or the data, not the sampler.
   is 48,748.2, which is +3,263 ± 88 over the trend alone and +666 ± 128 over the deprecated Gibbs
   half-year walk (m1q, base-v1). Held-out ΔELPD is +237.6, against −185.4. Next: the coarse
   walk alone, at 2- and 3-year knots.
+- **The walk alone, knots every 3 years** (`m1-walk36`, 937c466): **771 s**, within the window.
+  It narrowly misses the gate on ESS: walk_scale has 368 against 400, with max R-hat 1.008.
+  PSIS-LOO is 48,096.7: +2,612 over the linear trend, and level with the deprecated Gibbs
+  half-year walk (m1q, 48,082.6) at a fifth of the knots. Building over time takes 1.1% of the
+  variance, and the residual falls to 3.1%.
+- **The walk alone, knots every 2 years** (`m1-walk24`, 937c466): **812 s**, fails on walk_scale
+  (R-hat 1.019, ESS 200). PSIS-LOO is 48,742.7, the same as with the trend (48,748.2), so the
+  trend added nothing. It is +646 over the 3-year walk and +660 over the Gibbs m1q.
+- **Both coarse walks fail only on walk_scale.** The fitted 2-year steps have kurtosis 7.3:
+  most buildings move little and a few jump, so one Normal scale compromises. Next: Student-t
+  walk steps (`walk_t`, df estimated), `m1-twalk36` and `m1-twalk24`.
 - Within-unit price jumps (240 rows more than 2× off the unit's other listings, trend-adjusted)
   are mostly real changes: renovations, combined apartments, market moves. Almost none are
   furnished or short-term. A renovation mention appearing within a unit comes with only about

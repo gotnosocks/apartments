@@ -112,6 +112,11 @@ class ModelConfig:
     walk_scale_sd: float = 0.1
     # Months between walk knots (KNOT_MONTHS = 6 for the designs up to m8).
     walk_knot_months: int = 6
+    # Student-t walk steps (df estimated, Gamma(2, 0.1)): most buildings move
+    # little and a few jump (conversions, lease-ups); the fitted 2-year steps
+    # of a Normal walk have kurtosis 7.3 (937c466), and its one scale mixed
+    # slowly (walk_scale R-hat 1.019, ESS 200).
+    walk_t: bool = False
     # Per-building linear trend in log rent per year, centred on the building's
     # mean training month: trend_b ~ N(0, building_trend_scale^2). One number
     # per building, against the walk's 34 steps at about one row per step.
@@ -402,6 +407,7 @@ def effects(p):
             else jnp.zeros((1, 1))
         ),
         "walk_scale": p.get("walk_scale", jnp.zeros(())),
+        "walk_nu": p.get("walk_nu", jnp.zeros(())),  # 0 = Normal walk steps
         "building_trend": p.get("building_trend", jnp.zeros(1)),
         "building_trend_scale": p.get("building_trend_scale", jnp.zeros(())),
         "building_mean_month": p.get("building_mean_month", jnp.zeros(1)),
@@ -589,7 +595,7 @@ def _walk_ranges(prep: Prepared, spacing: int) -> dict:
     }
 
 
-def _walk_levels(scale, fixed):
+def _walk_levels(scale, fixed, nu=None):
     """Building walks for "walk_levels" (a unit-Jacobian map of the steps,
     apart from the non-centred steps' scale). Inside a building's range the
     coordinates are its levels less its anchor's level, flat, with the random
@@ -615,11 +621,15 @@ def _walk_levels(scale, fixed):
         jnp.where(after, level[rows, fixed["walk_last"]][:, None] + on, level),
     )
     steps = jnp.diff(level, axis=1)
-    inside = dist.Normal(0.0, scale).log_prob(steps)
+    step_prior = (
+        dist.Normal(0.0, scale) if nu is None else dist.StudentT(nu, 0.0, scale)
+    )
+    inside = step_prior.log_prob(steps)
+    standard = dist.Normal(0.0, 1.0) if nu is None else dist.StudentT(nu, 0.0, 1.0)
     numpyro.factor(
         "walk_prior",
         jnp.where(fixed["walk_inside_step"], inside, 0.0).sum()
-        + jnp.where(outside, dist.Normal(0.0, 1.0).log_prob(full), 0.0).sum(),
+        + jnp.where(outside, standard.log_prob(full), 0.0).sum(),
     )
     # The model's walk is 0 at the first knot: walk(k) = level(k) - level(0).
     return numpyro.deterministic("walk_step", steps), -level[:, 0]
@@ -718,7 +728,11 @@ def build_model(prep: Prepared, config: ModelConfig):
             p["walk_scale"] = numpyro.sample(
                 "walk_scale", dist.HalfNormal(config.walk_scale_sd)
             )
-            p["walk_step"], walk_at_anchor = _walk_levels(p["walk_scale"], fixed)
+            if config.walk_t:
+                p["walk_nu"] = numpyro.sample("walk_nu", dist.Gamma(2.0, 0.1))
+            p["walk_step"], walk_at_anchor = _walk_levels(
+                p["walk_scale"], fixed, p.get("walk_nu")
+            )
         if slope_totals:  # before the buildings, whose totals include it
             bedroom_slope()
         if config.buildings and "building_totals" in config.coordinates:
@@ -791,9 +805,15 @@ def build_model(prep: Prepared, config: ModelConfig):
             p["walk_scale"] = numpyro.sample(
                 "walk_scale", dist.HalfNormal(config.walk_scale_sd)
             )
+            if config.walk_t:
+                p["walk_nu"] = numpyro.sample("walk_nu", dist.Gamma(2.0, 0.1))
             p["walk_step"] = numpyro.sample(
                 "walk_step",
-                dist.Normal(0.0, p["walk_scale"]).expand(
+                (
+                    dist.StudentT(p["walk_nu"], 0.0, p["walk_scale"])
+                    if config.walk_t
+                    else dist.Normal(0.0, p["walk_scale"])
+                ).expand(
                     [
                         len(prep.buildings),
                         n_knots(n_months, config.walk_knot_months) - 1,
@@ -828,7 +848,13 @@ def build_model(prep: Prepared, config: ModelConfig):
         mu = linear_predictor(p, arrays)
         numpyro.sample("y", dist.StudentT(p["nu"], mu, p["sigma"]), obs=y)
 
-    reparam = {site: LocScaleReparam(centered=0) for site in config.noncentered}
+    reparam = {
+        site: LocScaleReparam(
+            centered=0,
+            shape_params=("df",) if site == "walk_step" and config.walk_t else (),
+        )
+        for site in config.noncentered
+    }
     if config.units and "unit_partial" in config.coordinates:
         site = "unit_total" if "unit_totals" in config.coordinates else "unit"
         reparam[site] = LocScaleReparam(
@@ -944,6 +970,21 @@ MODELS = {
     ),
     "m1-walk36": ModelConfig(
         name="m1-walk36", building_walk=True, walk_knot_months=36, trend_knot_months=3
+    ),
+    # The coarse walks with Student-t steps.
+    "m1-twalk24": ModelConfig(
+        name="m1-twalk24",
+        building_walk=True,
+        walk_knot_months=24,
+        walk_t=True,
+        trend_knot_months=3,
+    ),
+    "m1-twalk36": ModelConfig(
+        name="m1-twalk36",
+        building_walk=True,
+        walk_knot_months=36,
+        walk_t=True,
+        trend_knot_months=3,
     ),
     # m6-m8 without the bedroom-group market curves: the curves add ~200
     # global columns (3 groups x 68 quarterly knots) and the global solve

@@ -223,11 +223,14 @@ DESCRIPTION_FLAGS = {
 }
 
 
-def desc_v1(frame: pd.DataFrame, train: np.ndarray) -> Features:
-    """base-v1 plus flags from the listing's own advertisement description."""
+def desc_v1(
+    frame: pd.DataFrame, train: np.ndarray, id: str = "desc-v1", base: str = "base-v1"
+) -> Features:
+    """A base set (base-v1) plus flags from the listing's own advertisement
+    description."""
     from . import descriptions
 
-    base = base_v1(frame, train)
+    base = FEATURE_SETS[base](frame, train)
     text = descriptions.attach(frame)
     known = text.str.len() > 20
     b = _Builder(frame)
@@ -238,9 +241,9 @@ def desc_v1(frame: pd.DataFrame, train: np.ndarray) -> Features:
             f"text:{name}",
             known & text.str.contains(pattern, regex=True),
         )
-    extra = b.build("desc-v1")
+    extra = b.build(id)
     return Features(
-        "desc-v1",
+        id,
         base.names + extra.names,
         base.groups + extra.groups,
         np.column_stack([base.values, extra.values]),
@@ -334,7 +337,7 @@ def pluto_v1(frame: pd.DataFrame, train: np.ndarray) -> Features:
 
 
 # Feature sets that read the external snapshots (run records list them).
-EXTERNAL = {"pluto-v1", "unitfloor-v2"}
+EXTERNAL = {"pluto-v1", "unitfloor-v2", "unitdesc-v1"}
 
 FEATURE_SETS = {
     "base-v1": base_v1,
@@ -352,6 +355,8 @@ FEATURE_SETS = {
         label_floor=True,
     ),
     "desc-v1": desc_v1,
+    # The description flags on the unit-consistent features.
+    "unitdesc-v1": partial(desc_v1, id="unitdesc-v1", base="unitfloor-v2"),
     "pluto-v1": pluto_v1,
 }
 

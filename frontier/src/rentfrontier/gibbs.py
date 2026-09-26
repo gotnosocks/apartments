@@ -154,6 +154,7 @@ def build_design(
         or config.market_drift
         or config.building_trend
         or config.walk_knot_months != model_module.KNOT_MONTHS
+        or config.walk_t
     ):
         raise ValueError(
             f"{config.name}: the Gibbs sampler needs every base term and no market "

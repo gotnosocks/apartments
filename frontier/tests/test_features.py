@@ -54,3 +54,10 @@ def test_label_floor_number():
     ]
     got = features.label_floor_number(pd.DataFrame({"canonical_unit_url": urls}))
     np.testing.assert_array_equal(got, [23, 4, 3, np.nan, 4, np.nan, 3])
+
+
+def test_unitdesc_is_the_description_flags_on_unitfloor():
+    fn = features.FEATURE_SETS["unitdesc-v1"]
+    assert fn.func is features.desc_v1
+    assert fn.keywords == {"id": "unitdesc-v1", "base": "unitfloor-v2"}
+    assert "unitdesc-v1" in features.EXTERNAL
