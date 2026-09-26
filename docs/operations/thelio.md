@@ -27,7 +27,8 @@ returned `ok`, and all 11 Parquet table counts matched the saved reports. See
 [the cutover report](thelio-cutover-20260916.json). The authoritative marker is
 `/data1/apartments/migration/cutover-ready.json` on thelio.
 
-The [research dashboard](../dashboard.md) is at http://thelio.tail3983e0.ts.net:8500 and
+The [listings site](../site.md) is at http://thelio.tail3983e0.ts.net:8600, the
+[research dashboard](../dashboard.md) at http://thelio.tail3983e0.ts.net:8500 and
 the raw [Archive](http://thelio.tail3983e0.ts.net:8765/) browser at port 8765, also
 reachable through an automatically reconnecting SSH tunnel from this Mac.
 The old Modal review and migration deployments are stopped; the archive volume
@@ -155,12 +156,14 @@ both the `/data1` mount and the cutover marker. It binds to loopback and the exp
 a 2 GiB memory limit.
 
 ```sh
-systemctl --user status apartments-archive apartments-dashboard apartments-dashboard-build.timer
+systemctl --user status apartments-archive apartments-site apartments-dashboard apartments-dashboard-build.timer
 journalctl --user -u apartments-dashboard-build -n 30 --no-pager
 ```
 
 The research dashboard is served on port 8500 (tailnet only); its units are in
-`ops/systemd/` and described in [the dashboard doc](../dashboard.md).
+`ops/systemd/` and described in [the dashboard doc](../dashboard.md). The listings site
+is served on port 8600 (tailnet and loopback) by `ops/systemd/apartments-site.service`,
+deployed with `ops/site-deploy.sh`; see [the site doc](../site.md).
 
 The installed Mac LaunchAgent `com.ben.apartments-tunnel` forwards port 8765
 and reconnects when the network returns. Its definition is in
@@ -186,12 +189,13 @@ identical sizes; both have been preserved. Do not deduplicate them by size.
 The Mac and thelio share `tail3983e0.ts.net`. Open these links from a connected
 Tailscale device, including away from home:
 
+- Listings site: http://thelio.tail3983e0.ts.net:8600/
 - Research dashboard: http://thelio.tail3983e0.ts.net:8500/
 - Raw archive: http://thelio.tail3983e0.ts.net:8765/
 
 The services listen on `100.80.84.126` plus `127.0.0.1`, with no wildcard or LAN
 listener. Network access follows the tailnet's access rules. The archive app accepts
-only explicit configured hostnames; the dashboard is a read-only static server. Transport encryption is supplied by Tailscale; these links
+only explicit configured hostnames, as does the listings site; the dashboard is a read-only static server. Transport encryption is supplied by Tailscale; these links
 use HTTP inside that network and do not require HTTPS certificate setup. See
 [Tailscale Serve examples](https://tailscale.com/docs/reference/examples/serve)
 for the optional proxy approach; this installation uses direct app listeners,
@@ -200,7 +204,7 @@ without changing Tailscale operator permissions or enabling Funnel.
 `ARCHIVE_LISTEN` contains the space-separated Waitress listeners and
 `ARCHIVE_ALLOWED_HOSTS` the comma-separated exact hostnames; the archive unit sets
 them. Without those settings, the app still defaults to loopback only. If the node's
-Tailscale IP changes on re-enrollment, update the archive and dashboard units and
+Tailscale IP changes on re-enrollment, update the archive, site and dashboard units and
 restart them. `Restart=on-failure` lets them retry if the Tailscale interface is not
 ready at boot. Localhost SSH access remains available as an alternative.
 

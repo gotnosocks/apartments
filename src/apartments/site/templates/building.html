@@ -1,0 +1,80 @@
+{% extends "base.html" %}
+{% import "_macros.html" as m with context %}
+{% block title %}{{ b.name or b.address }}{% endblock %}
+{% block content %}
+<nav class="crumbs" aria-label="Breadcrumb">
+  <a href="{{ url_for('buildings') }}">Buildings</a> › <span aria-current="page">{{ b.name or b.address }}</span>
+</nav>
+<h1>{{ b.name or b.address }}</h1>
+<p class="subline">{% if b.name %}{{ b.address }} · {% endif %}{{ "{:,}".format(b.listings) }} listings of {{ "{:,}".format(b.units) }} units,
+{{ month(b.first_period) }} to {{ month(b.last_period) }}{% if b.current_listings %} · <a href="{{ url_for('building', building_id=b.id, status='current') }}">{{ b.current_listings }} available now</a>{% endif %}</p>
+
+<section class="figures" aria-label="Building effects">
+  <div class="figure">
+    <span class="figure-label">Building level</span>
+    <span class="figure-value">{{ pct(b.level_pct) }}</span>
+    <span class="figure-note">95% {{ pct(b.level_pct_lower) }} to {{ pct(b.level_pct_upper) }}, the same apartment against an average building</span>
+  </div>
+  {% if b.trend_pct is not none %}
+  <div class="figure">
+    <span class="figure-label">Building trend</span>
+    <span class="figure-value">{{ pct(b.trend_pct, digits=1) }}/yr</span>
+    <span class="figure-note">95% {{ pct(b.trend_pct_lower, digits=1) }} to {{ pct(b.trend_pct_upper, digits=1) }} a year, relative to the market</span>
+  </div>
+  {% endif %}
+  <div class="figure">
+    <span class="figure-label">Median ask vs estimate</span>
+    <span class="figure-value">{{ pct(100 * b.median_residual_pct, digits=1) }}</span>
+    <span class="figure-note">over the building's {{ "{:,}".format(b.listings) }} listings</span>
+  </div>
+</section>
+
+<section class="card">
+  <h2>Ask against estimate over time</h2>
+  <p class="note">One dot per listing: its ask against its leave-own-row-out estimate. Above zero asked more than the model
+  expected. Select a dot to open its listing.</p>
+  {{ chart }}
+</section>
+
+<section class="card">
+  <h2>Building</h2>
+  <dl class="facts">
+    {% if b.year_built %}<dt>Built</dt><dd>{{ b.year_built }}</dd>{% endif %}
+    {% if b.floors %}<dt>Floors</dt><dd>{{ b.floors }}</dd>{% endif %}
+    {% if b.residential_units %}<dt>Apartments</dt><dd>{{ "{:,}".format(b.residential_units) }}</dd>{% endif %}
+    {% if b.building_class %}<dt>Building class</dt><dd>{{ b.building_class }}</dd>{% endif %}
+    {% if b.landmark %}<dt>Landmark</dt><dd>{{ b.landmark | title }}</dd>{% endif %}
+    {% if b.historic_district %}<dt>Historic district</dt><dd>{{ b.historic_district }}</dd>{% endif %}
+    {% if b.bbl %}<dt>Tax lot (BBL)</dt><dd>{{ b.bbl }}</dd>{% endif %}
+  </dl>
+  <p class="note">From NYC Planning's MapPLUTO and address registry.</p>
+</section>
+
+<section class="card">
+  <h2>Units</h2>
+  <div class="table-wrap tall">
+  <table class="data">
+    <thead><tr><th scope="col">Unit</th><th scope="col">Layout</th><th scope="col" class="num">Floor</th><th scope="col" class="num">Listings</th><th scope="col">Last listed</th><th scope="col" class="num">Last ask</th><th scope="col" class="num">Estimate</th><th scope="col" class="num">Ask vs estimate</th></tr></thead>
+    <tbody>
+    {% for u in units %}
+      <tr><td><a href="{{ url_for('unit', unit_id=u.id) }}">{{ u.label or "Unit" }}</a></td>
+        <td class="nowrap">{{ m.layout(u) }}</td>
+        <td class="num">{{ u.floor if u.floor is not none else "" }}</td>
+        <td class="num">{{ u.listings }}</td>
+        <td class="nowrap">{{ month(u.last_period) }}</td>
+        <td class="num">{{ usd(u.last_ask) }}</td>
+        <td class="num">{{ usd(u.last_estimate) }}</td>
+        <td class="num">{{ pct(100 * u.last_residual_pct) }}</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  </div>
+</section>
+
+<section class="card" id="listings">
+  <h2>Listings{% if filters.status == "current" %} available now{% endif %}</h2>
+  <p class="results-links">{{ "{:,}".format(total) }} listing{{ "" if total == 1 else "s" }}{% if filters.status == "current" %} · <a href="{{ url_for('building', building_id=b.id) }}">all listings</a>{% endif %}</p>
+  {{ m.listing_table(rows, filters, 'building', show_building=False) }}
+  {{ m.pager(filters, pages, 'building') }}
+</section>
+{% endblock %}

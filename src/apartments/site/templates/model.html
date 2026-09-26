@@ -1,0 +1,89 @@
+{% extends "base.html" %}
+{% block title %}About the estimates{% endblock %}
+{% block content %}
+{% set p = meta.provenance %}
+{% set s = meta.stats %}
+<h1>About the estimates</h1>
+
+<section class="card prose">
+  <h2>What an estimate is</h2>
+  <p>A listing's <strong>estimate</strong> is the model's typical asking rent for that apartment, in that building, in that
+  month: the median of the asks it expects, in dollars a month. It combines four things, each learned from all
+  {{ "{:,}".format(s.listings) }} listings:</p>
+  <ul>
+    <li>the <strong>market</strong> that month (a trend and a calendar season);</li>
+    <li>the apartment's <strong>features</strong>: bedrooms, baths, size, floor, building amenities, views, and flags from the ad text;</li>
+    <li>the <strong>building</strong>: its level against an average building, and its own trend;</li>
+    <li>the <strong>unit</strong> itself, learned from its other listings.</li>
+  </ul>
+  <p>Each estimate leaves out the listing's <strong>own ask</strong> (leave-own-row-out). A model that had seen the ask would be
+  pulled toward it, and every listing would look fairly priced. Leaving the ask out makes the gap between ask and
+  estimate an honest signal. The page shows the in-sample fit separately.</p>
+  <p><strong>Below typical</strong> and <strong>Above typical</strong> mean that the ask is in the lowest or highest
+  {{ (100 * meta.price_bands[0]) | round | int }}% of the asks the model expects for that apartment, noise included. The
+  <strong>95% range</strong> is the uncertainty of the typical ask itself, not the spread of individual asks.</p>
+  <p>Estimates describe <strong>asking</strong> rents on StreetEasy, not leases, net effective rents or appraisals. Listings
+  from before {{ month(s.last_period) }} show the first ask of each advertisement. The model cannot see anything
+  missing from the listing data, such as renovations the ad does not mention, light or noise.</p>
+</section>
+
+<section class="card">
+  <h2>How well the estimates are calibrated</h2>
+  <p class="note">Share of asks inside the model's predictive ranges. A well-calibrated model puts 95% of asks in its 95% range
+  and 80% in its 80% range.</p>
+  <div class="table-wrap">
+  <table class="data">
+    <thead><tr><th scope="col">Listings</th><th scope="col" class="num">Count</th><th scope="col" class="num">In 95% range</th><th scope="col" class="num">In 80% range</th><th scope="col" class="num">Median |ask − estimate|</th></tr></thead>
+    <tbody>
+    {% for key, label in [("heldout", "Held out of the fit entirely"), ("multi", "Unit has other listings"), ("single", "Unit's only listing")] %}
+    {% set c = s.calibration[key] %}
+    <tr><th scope="row">{{ label }}</th><td class="num">{{ "{:,}".format(c.n) }}</td><td class="num">{{ pct(100 * c.cover95, signed=False, digits=1) }}</td>
+      <td class="num">{{ pct(100 * c.cover80, signed=False, digits=1) }}</td><td class="num">{{ pct(100 * c.median_abs_pct, signed=False, digits=1) }}</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  </div>
+  <p class="note">Estimates for a unit's only listing rest on the building and features alone, and their ranges are somewhat too
+  narrow. {{ "{:,}".format(s.unreliable_estimates) }} listings (marked <span class="warn-mark">*</span>) have an unstable
+  leave-own-row-out correction (Pareto k above {{ p.estimate_pareto_k.threshold }}).</p>
+</section>
+
+<section class="card">
+  <h2>The model</h2>
+  <dl class="facts wide">
+    <dt>Design</dt><dd><code>{{ p.model.name }}</code> with features <code>{{ p.feature_set }}</code>{% if p.data_rules %} and data rules <code>{{ p.data_rules | join(", ") }}</code>{% endif %}</dd>
+    <dt>Fit</dt><dd>{{ p.sampler | upper if p.sampler else "" }} on {{ p.fit_hardware }}, {{ (p.fit_seconds / 60) | round(1) }} minutes, started {{ p.fit_started_at[:16] | replace("T", " ") if p.fit_started_at else "" }}; {{ "{:,}".format(p.draws) }} posterior draws</dd>
+    <dt>Convergence gate</dt><dd>{{ "passes" if p.gate.passes else "fails" }}: max R-hat {{ "%.3f" | format(p.gate.max_rhat) }}, min bulk ESS {{ p.gate.min_ess | round | int }},
+      every group effect R-hat &lt; 1.05 (worst {{ "%.3f" | format(p.gate.group_rhat_max) }}){% if p.gate.divergences is not none %}, {{ p.gate.divergences }} divergences{% endif %}</dd>
+    {% if p.psis_loo %}<dt>Accuracy (PSIS-LOO)</dt><dd>{{ "{:,.1f}".format(p.psis_loo.elpd_loo) }} ± {{ "{:,.1f}".format(p.psis_loo.elpd_loo_se) }} over {{ "{:,}".format(p.rows_in_fit) }} listings in the fit</dd>{% endif %}
+    <dt>Run</dt><dd><code>{{ p.run }}</code> at commit <code>{{ p.run_commit[:7] }}</code></dd>
+    <dt>Estimates</dt><dd>summary <code>{{ p.version }}</code> at commit <code>{{ p.commit[:7] }}</code>, {{ p.created_at[:10] }}</dd>
+    <dt>Data</dt><dd><code>{{ p.dataset.rsplit("/", 1)[-1] }}</code> (sha256 {{ p.dataset_observations_sha256[:12] }}…)</dd>
+  </dl>
+</section>
+
+<section class="card">
+  <h2>Parts of an estimate</h2>
+  <dl class="facts wide">
+  {% for t in terms %}<dt>{{ t.label }}</dt><dd>{{ t.description }}</dd>{% endfor %}
+  </dl>
+</section>
+
+<section class="card">
+  <h2>Feature effects</h2>
+  <p class="note">Each feature's effect on the typical ask, holding everything else fixed, in percent (95% interval). An
+  indicator's effect is against the feature's reference level. Continuous features (log size, log floor) are per unit
+  of the input.</p>
+  <div class="table-wrap tall">
+  <table class="data">
+    <thead><tr><th scope="col">Group</th><th scope="col">Feature</th><th scope="col" class="num">Effect</th><th scope="col" class="num">95% interval</th><th scope="col" class="num">P(positive)</th></tr></thead>
+    <tbody>
+    {% for c in coefficients %}
+      <tr><td>{{ labels.get(c.feature_group, c.feature_group) }}</td><td><code>{{ c.feature }}</code></td><td class="num">{{ pct(c.pct, digits=1) }}</td>
+        <td class="num muted nowrap">{{ pct(c.pct_lower, digits=1) }} to {{ pct(c.pct_upper, digits=1) }}</td><td class="num">{{ "%.2f" | format(c.probability_positive) }}</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  </div>
+</section>
+{% endblock %}

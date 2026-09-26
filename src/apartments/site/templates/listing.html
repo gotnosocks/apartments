@@ -1,0 +1,126 @@
+{% extends "base.html" %}
+{% import "_macros.html" as m with context %}
+{% set bname = row.building_name or row.building_address %}
+{% block title %}{{ row.unit_label or "Unit" }} at {{ bname }}, {{ month(row.period) }}{% endblock %}
+{% block content %}
+<nav class="crumbs" aria-label="Breadcrumb">
+  <a href="{{ url_for('buildings') }}">Buildings</a> ›
+  <a href="{{ url_for('building', building_id=row.building_id) }}">{{ bname }}</a> ›
+  <a href="{{ url_for('unit', unit_id=row.unit_id) }}">{{ row.unit_label or "Unit" }}</a> ›
+  <span aria-current="page">{{ month(row.period) }}</span>
+</nav>
+<h1>{{ row.unit_label or "Unit" }} at {{ bname }}</h1>
+<p class="subline">
+  {% if row.building_name %}{{ row.building_address }} · {% endif %}
+  {% if row.is_current %}Available now, captured {{ row.collected_at[:10] if row.collected_at else month(row.period) }}{% else %}Listed {{ month(row.period) }}{% endif %}
+  · {{ m.layout(row) }}{% if row.floor is not none %} · floor {{ row.floor }}{% endif %}
+</p>
+
+<section class="figures" aria-label="Ask and estimate">
+  <div class="figure">
+    <span class="figure-label">Ask</span>
+    <span class="figure-value">{{ usd(row.ask) }}</span>
+    <span class="figure-note">{{ "gross ask as captured" if row.is_current else "first ask of the advertisement" }}</span>
+  </div>
+  <div class="figure">
+    <span class="figure-label">Model estimate</span>
+    <span class="figure-value">{{ usd(row.estimate) }}</span>
+    <span class="figure-note">95% range {{ usd(row.estimate_lower) }}–{{ usd(row.estimate_upper) }}</span>
+  </div>
+  <div class="figure">
+    <span class="figure-label">Ask vs estimate</span>
+    <span class="figure-value">{{ usd(row.residual_usd, signed=True) }}</span>
+    <span class="figure-note">{{ pct(100 * row.residual_pct, digits=1) }} · {{ m.band_chip(row) }}</span>
+  </div>
+</section>
+
+<section class="card explain">
+  <p>The ask sits at the <strong>{{ ordinal((row.pit * 100) | round | int) }} percentile</strong> of what the model expects
+  asks for this apartment to be, in this building, in {{ month(row.period) }}{% if row.price_band == "typical" %}, within the usual range{% elif row.price_band == "below" %}, lower than 90% of comparable asks{% else %}, higher than 90% of comparable asks{% endif %}.</p>
+  {% if row.method == "heldout" %}
+  <p>This listing was held out of the model fit as a validation row, so the estimate never saw its ask. It uses the unit's
+  {{ row.unit_fit_rows }} other listing{{ "" if row.unit_fit_rows == 1 else "s" }}.</p>
+  {% elif row.unit_fit_rows > 1 %}
+  <p>The estimate uses the unit's {{ row.unit_fit_rows - 1 }} other listing{{ "" if row.unit_fit_rows == 2 else "s" }}, the building, the apartment's
+  features and the market that month, and leaves this listing's own ask out.</p>
+  {% else %}
+  <p>This is the unit's only listing, so the estimate rests on the building, the apartment's features and the market alone.
+  {% set c = meta.stats.calibration.single if meta.stats.calibration else none %}
+  {% if c %}Such estimates are less certain than their range suggests: {{ pct(100 * c.cover95, signed=False, digits=1) }} of these asks fall
+  within the model's 95% predictive range.{% endif %}</p>
+  {% endif %}
+  {% if not row.reliable %}
+  <p class="warn"><strong>Less reliable estimate.</strong> The leave-own-row-out correction for this listing is unstable
+  (Pareto k {{ "%.2f" | format(row.pareto_k) }}), so treat the estimate as approximate. Unusual asks and data errors often cause this.</p>
+  {% endif %}
+</section>
+
+<section class="card">
+  <h2>What makes up the estimate</h2>
+  <p class="note">Dollar contributions, starting from the market reference: a one-bedroom, one-bath apartment with every attribute
+  at its reference level, in an average building that month. They add up to the estimate. Bars show the mean; whiskers show the 95% interval.</p>
+  <div class="table-wrap">
+  <table class="data contributions">
+    <thead><tr><th scope="col">Part</th><th scope="col" class="bar-col"><span class="visually-hidden">Bar</span></th><th scope="col" class="num">Dollars</th><th scope="col" class="num">95% interval</th></tr></thead>
+    <tbody>
+      <tr class="base"><th scope="row">{{ terms.market.label }}</th><td class="bar-col"></td><td class="num">{{ usd(market.usd) }}</td><td class="num muted nowrap">{{ usd(market.lower) }}–{{ usd(market.upper) }}</td></tr>
+      {% for c in parts %}
+      <tr><th scope="row" title="{{ terms[c.term].description if c.term in terms }}">{{ terms[c.term].label if c.term in terms else c.term }}</th>
+        <td class="bar-col">{{ c.bar }}</td>
+        <td class="num">{{ usd(c.usd, signed=True) }}</td>
+        <td class="num muted nowrap">{{ usd(c.lower, signed=True) }} to {{ usd(c.upper, signed=True) }}</td></tr>
+      {% endfor %}
+      <tr class="total"><th scope="row">Estimate</th><td class="bar-col"></td><td class="num">{{ usd(row.estimate) }}</td><td class="num muted nowrap">{{ usd(row.estimate_lower) }}–{{ usd(row.estimate_upper) }}</td></tr>
+    </tbody>
+  </table>
+  </div>
+  {% if reference %}<p class="note">At their reference level, adding nothing: {{ reference | join(", ") }}.</p>{% endif %}
+</section>
+
+<div class="columns">
+<section class="card">
+  <h2>Listing details</h2>
+  <dl class="facts">
+    <dt>Bedrooms</dt><dd>{{ beds_label(row.bedrooms) }}</dd>
+    <dt>Bathrooms</dt><dd>{{ row.bathrooms | trim_float }}{% if row.half_baths %} ({{ row.full_baths }} full, {{ row.half_baths }} half){% endif %}</dd>
+    <dt>Size</dt><dd>{{ "{:,.0f} ft²".format(row.square_feet) if row.square_feet else "not stated" }}</dd>
+    <dt>Floor</dt><dd>{{ row.floor if row.floor is not none else "not stated" }}</dd>
+    {% for kind, value in [("elevator", row.elevator), ("doorman", row.doorman), ("laundry", row.laundry), ("hvac", row.hvac), ("pets", row.pets)] %}
+    {% set text = attr_label(kind, value) %}
+    <dt>{{ kind | capitalize if kind != "hvac" else "Heating and cooling" }}</dt><dd>{{ text or "not stated" }}</dd>
+    {% endfor %}
+    {% if views %}<dt>Views</dt><dd>{{ views | join(", ") }}</dd>{% endif %}
+    {% if windows %}<dt>Exposures</dt><dd>{{ windows | join(", ") }}</dd>{% endif %}
+    {% if row.concession %}<dt>Concession</dt><dd>{{ row.concession }}</dd>{% endif %}
+    {% if flags %}<dt>In the ad text</dt><dd>{{ flags | join(", ") }}</dd>{% endif %}
+    {% if label_flags %}<dt>Unit label</dt><dd>{{ label_flags | join(", ") }}</dd>{% endif %}
+  </dl>
+  <p class="links">
+    {% if row.listing_url %}<a href="{{ row.listing_url }}" rel="noopener noreferrer" target="_blank">Listing on StreetEasy ↗</a>{% endif %}
+    {% if row.unit_url %}<a href="{{ row.unit_url }}" rel="noopener noreferrer" target="_blank">Unit on StreetEasy ↗</a>{% endif %}
+  </p>
+</section>
+
+<section class="card">
+  <h2>Model details</h2>
+  <dl class="facts">
+    <dt>Estimate median</dt><dd>{{ usd(row.estimate_median) }}</dd>
+    <dt>Ask percentile</dt><dd>{{ "%.1f" | format(100 * row.pit) }}</dd>
+    <dt>Method</dt><dd>{{ "held out of the fit" if row.method == "heldout" else "leave-own-row-out (PSIS)" }}</dd>
+    {% if row.pareto_k is not none %}<dt>Pareto k</dt><dd>{{ "%.2f" | format(row.pareto_k) }}{% if not row.reliable %} (above {{ meta.provenance.estimate_pareto_k.threshold }}){% endif %}</dd>{% endif %}
+    <dt>Unit's listings in the fit</dt><dd>{{ row.unit_fit_rows }}</dd>
+    <dt>In-sample fit</dt><dd>{{ usd(row.fitted) }} <span class="muted">({{ usd(row.fitted_lower) }}–{{ usd(row.fitted_upper) }})</span></dd>
+  </dl>
+  <p class="note">The in-sample fit saw this ask, so it is pulled toward it; the estimate above does not.</p>
+</section>
+</div>
+
+<section class="card">
+  <div class="card-head">
+    <h2>This unit's listings</h2>
+    <a href="{{ url_for('unit', unit_id=row.unit_id) }}">Unit page →</a>
+  </div>
+  {% if chart %}{{ chart }}{% endif %}
+  {{ m.listing_table(others, show_building=False) }}
+</section>
+{% endblock %}
