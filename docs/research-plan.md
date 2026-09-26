@@ -408,6 +408,19 @@ the fix goes into the model, the features or the data, not the sampler.
   ties the walk scale to them. Next: each walk is anchored at 0 at its building's own anchor
   knot (`walk_anchor_data`; `m1-t3walk24-anchored`). The building level is then its level
   where it is observed.
+- **Anchoring did not fix it either** (d1867e8): 934 s, walk_scale ESS 195, a building at
+  R-hat 1.018, held-out ΔELPD +268.4 (the best yet). The draws say this is not a
+  misspecification signal:
+  - the four chains agree on walk_scale (means 0.0431–0.0433, within-chain sd 0.0011);
+  - its autocorrelation is 0.55 at lag 1, 0.19 at lag 10 and about 0 by lag 50, so about 50
+    effective draws per chain;
+  - its correlation with every other scalar and traced effect is below 0.12.
+
+  Its PSIS-LOO is 48,992.6, the best yet (+48 over the unanchored 2-year t walk).
+  It is a hierarchical scale over about 6,500 centred walk levels, which mixes slowly. The
+  remaining options are more draws (about 1,100 per chain, roughly 21 minutes) or a sampler
+  coordinate for the walk (partial non-centring, like `unit_partial`), which is Ben's call
+  after 2026-09-25.
 - Within-unit price jumps (240 rows more than 2× off the unit's other listings, trend-adjusted)
   are mostly real changes: renovations, combined apartments, market moves. Almost none are
   furnished or short-term. A renovation mention appearing within a unit comes with only about
