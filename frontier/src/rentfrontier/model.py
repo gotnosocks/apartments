@@ -110,6 +110,35 @@ class ModelConfig:
     # first month), interpolated linearly between knots.
     building_walk: bool = False
     walk_scale_sd: float = 0.1
+    # Months between walk knots (KNOT_MONTHS = 6 for the designs up to m8).
+    walk_knot_months: int = 6
+    # Student-t walk steps (df estimated, Gamma(2, 0.1)): most buildings move
+    # little and a few jump (conversions, lease-ups); the fitted 2-year steps
+    # of a Normal walk have kurtosis 7.3 (937c466), and its one scale mixed
+    # slowly (walk_scale R-hat 1.019, ESS 200).
+    walk_t: bool = False
+    # A fixed df for Student-t walk steps (None = estimated). The latent steps
+    # identify the df poorly (e6718f5: walk_nu 2.64 +- 0.19, R-hat 1.06).
+    walk_nu_fixed: float | None = None
+    # Buildings with fewer training rows per knot of their data range than
+    # this have no walk: they follow the market trend at their building level.
+    # At 2-year knots 529 of 1,128 buildings have under 2, and their walk
+    # levels are mostly prior; with them the walk scale mixed slowly
+    # (9fa29ee: walk_scale ESS 292).
+    walk_min_rows_per_knot: float = 0.0
+    # Anchor each building's walk at 0 at its own anchor knot (the knot its
+    # training rows weigh most) instead of the panel's first month. The
+    # building level, and its prior, are then the building's level where it is
+    # observed. At the first month, a building first listed in 2020 has a
+    # level reached through ten years of prior-only walk steps, and its prior
+    # ties the walk scale to them (345628a: walk_scale ESS 346, a building
+    # R-hat 1.018).
+    walk_anchor_data: bool = False
+    # Per-building linear trend in log rent per year, centred on the building's
+    # mean training month: trend_b ~ N(0, building_trend_scale^2). One number
+    # per building, against the walk's 34 steps at about one row per step.
+    building_trend: bool = False
+    building_trend_scale_sd: float = 0.05
     # Bedroom-group market curves: random-walk deviations of the month trend
     # for studios, 2- and 3+-bedrooms, relative to 1-bedrooms.
     bedroom_time: bool = False
@@ -307,11 +336,9 @@ def linear_predictor(p, a: Arrays, include_unit=True):
     )
     if "walk_step" in p:
         w = e["walk"]
-        mu = (
-            mu
-            + (1 - a.knot_frac) * w[a.building, a.knot]
-            + a.knot_frac * w[a.building, a.knot + 1]
-        )
+        mu = mu + walk_term(w, a, p.get("walk_knot_months", KNOT_MONTHS))
+    if "building_trend" in p:
+        mu = mu + building_trend_term(e, a)
     if "bedroom_time_step" in p:
         mu = mu + e["bedroom_time"][a.bed_group, a.month]
     if "bedroom_slope" in p:
@@ -325,6 +352,49 @@ def linear_predictor(p, a: Arrays, include_unit=True):
                 a.unit >= 0, p["unit_drift"][jnp.maximum(a.unit, 0)] * a.unit_time, 0.0
             )
     return mu
+
+
+def walk_spacing(config: ModelConfig) -> int:
+    """The walk's knot spacing in months, or 0 for designs without a walk."""
+    return config.walk_knot_months if config.building_walk else 0
+
+
+def walk_position(a: Arrays, spacing: int):
+    """Each row's walk knot (at or before its month) and interpolation weight
+    on the next knot, for knots every `spacing` months. For KNOT_MONTHS these
+    are Arrays.knot and Arrays.knot_frac."""
+    if spacing == KNOT_MONTHS:
+        return a.knot, a.knot_frac
+    return a.month // spacing, (a.month % spacing) / spacing
+
+
+def walk_term(w, a: Arrays, spacing: int):
+    """Each row's building walk, linearly interpolated between knots (w: knot
+    values, (buildings, knots), or draws with a leading axis)."""
+    knot, frac = walk_position(a, spacing)
+    return (1 - frac) * w[..., a.building, knot] + frac * w[..., a.building, knot + 1]
+
+
+def building_trend_term(e, a):
+    """Each row's building trend: rate per year times years from the
+    building's mean training month (e: effects, or draws with a leading axis)."""
+    rate, center = e["building_trend"], e["building_mean_month"]
+    return rate[..., a.building] * (a.month - center[..., a.building]) / 12.0
+
+
+def _walk(p):
+    """Building walks at the knots, 0 at the first knot (or, with
+    "walk_anchor", at each building's anchor knot), and 0 for buildings
+    without a walk ("walk_mask")."""
+    steps = p["walk_step"]
+    walk = jnp.concatenate(
+        [jnp.zeros((steps.shape[0], 1)), jnp.cumsum(steps, axis=1)], axis=1
+    )
+    if "walk_anchor" in p:
+        walk = walk - walk[jnp.arange(walk.shape[0]), p["walk_anchor"]][:, None]
+    if "walk_mask" in p:
+        walk = walk * p["walk_mask"][:, None]
+    return walk
 
 
 def effects(p):
@@ -357,18 +427,12 @@ def effects(p):
         "season_scale": p["season_scale"],
         # Building walks (knot values; knot 0 is fixed at 0). Placeholders
         # when the design has no walk keep the effect tree the same shape.
-        "walk": (
-            jnp.concatenate(
-                [
-                    jnp.zeros((p["walk_step"].shape[0], 1)),
-                    jnp.cumsum(p["walk_step"], axis=1),
-                ],
-                axis=1,
-            )
-            if "walk_step" in p
-            else jnp.zeros((1, 1))
-        ),
+        "walk": _walk(p) if "walk_step" in p else jnp.zeros((1, 1)),
         "walk_scale": p.get("walk_scale", jnp.zeros(())),
+        "walk_nu": p.get("walk_nu", jnp.zeros(())),  # 0 = Normal walk steps
+        "building_trend": p.get("building_trend", jnp.zeros(1)),
+        "building_trend_scale": p.get("building_trend_scale", jnp.zeros(())),
+        "building_mean_month": p.get("building_mean_month", jnp.zeros(1)),
         # Market-curve deviation per bedroom group (row 1 = 1-bedroom = 0).
         "bedroom_time": _bedroom_time(p),
         "bedroom_time_scale": p.get("bedroom_time_scale", jnp.zeros(())),
@@ -400,7 +464,10 @@ def constants(prep: Prepared, config: ModelConfig) -> dict:
     (scale 0) for the base terms the design drops."""
     n_months = len(prep.periods)
     if not config.buildings and (
-        config.building_walk or config.bedroom_slope or config.feature_slopes
+        config.building_walk
+        or config.building_trend
+        or config.bedroom_slope
+        or config.feature_slopes
     ):
         raise ValueError(f"{config.name}: building terms need building levels")
     if not config.units and (config.unit_t or config.unit_drift):
@@ -418,8 +485,25 @@ def constants(prep: Prepared, config: ModelConfig) -> dict:
             [prep.features.names.index(n) for n in config.feature_slopes],
             dtype=jnp.int32,
         )
+    if config.building_walk:
+        out["walk_knot_months"] = config.walk_knot_months
+        if config.walk_min_rows_per_knot > 0:
+            out["walk_mask"] = jnp.asarray(walk_mask(prep, config))
+        if config.walk_anchor_data:
+            weight, _, _ = walk_data_range(prep, config.walk_knot_months)
+            out["walk_anchor"] = jnp.asarray(weight.argmax(axis=1), dtype=jnp.int32)
+    if config.building_trend:
+        out["building_mean_month"] = jnp.asarray(
+            _group_means(
+                np.asarray(prep.train.month, dtype=float)[:, None],
+                prep.train.building,
+                len(prep.buildings),
+            )[:, 0]
+        )
     if config.nu_fixed is not None:
         out["nu"] = jnp.asarray(config.nu_fixed)
+    if config.walk_t and config.walk_nu_fixed is not None:
+        out["walk_nu"] = jnp.asarray(config.walk_nu_fixed)
     if config.unit_t and config.unit_nu_fixed is not None:
         out["unit_nu"] = jnp.asarray(config.unit_nu_fixed)
     if "unit_totals" in config.coordinates:
@@ -442,7 +526,7 @@ def constants(prep: Prepared, config: ModelConfig) -> dict:
     if config.building_walk and "walk_levels" in config.coordinates:
         if "building_totals" not in config.coordinates:
             raise ValueError("walk_levels needs building_totals")
-        out |= _walk_ranges(prep)
+        out |= _walk_ranges(prep, config.walk_knot_months, out.get("walk_mask"))
     if config.bedroom_slope and "slope_totals" in config.coordinates:
         if "building_totals" not in config.coordinates:
             raise ValueError("slope_totals needs building_totals")
@@ -508,25 +592,47 @@ def _mean_plus_zero_sum(site: str, scale, n: int):
     return numpyro.deterministic(site, mean + dev)
 
 
-def _walk_ranges(prep: Prepared) -> dict:
-    """Each building's walk data range for "walk_levels": the knots its
-    training rows put interpolation weight on, first to last, and its anchor,
-    the knot with the most weight."""
+def walk_data_range(prep: Prepared, spacing: int):
+    """Each building's walk knot weights (training rows' interpolation weight
+    on each knot) and its data range: the first and last knot with weight."""
     a = prep.train
-    n_knot = n_knots(len(prep.periods))
+    n_knot = n_knots(len(prep.periods), spacing)
+    knot, frac = walk_position(a, spacing)
     weight = np.zeros((len(prep.buildings), n_knot))
-    np.add.at(weight, (a.building, a.knot), 1 - a.knot_frac)
-    np.add.at(weight, (a.building, np.minimum(a.knot + 1, n_knot - 1)), a.knot_frac)
+    np.add.at(weight, (a.building, knot), 1 - frac)
+    np.add.at(weight, (a.building, np.minimum(knot + 1, n_knot - 1)), frac)
     has = weight > 0
     if not has.any(axis=1).all():
-        raise ValueError("walk_levels needs training rows in every building")
+        raise ValueError("the walk needs training rows in every building")
     first = has.argmax(axis=1)
     last = n_knot - 1 - has[:, ::-1].argmax(axis=1)
+    return weight, first, last
+
+
+def walk_mask(prep: Prepared, config: ModelConfig) -> np.ndarray:
+    """1 for buildings with a walk, 0 for those with fewer training rows per
+    knot of their data range than config.walk_min_rows_per_knot."""
+    _, first, last = walk_data_range(prep, config.walk_knot_months)
+    rows = np.bincount(prep.train.building, minlength=len(prep.buildings))
+    return (rows / (last - first + 1) >= config.walk_min_rows_per_knot).astype(float)
+
+
+def _walk_ranges(prep: Prepared, spacing: int, mask=None) -> dict:
+    """Each building's walk data range for "walk_levels": the knots its
+    training rows put interpolation weight on, first to last, and its anchor,
+    the knot with the most weight. A building without a walk (mask 0) gets
+    the anchor alone, so all its walk coordinates are non-centred prior."""
+    weight, first, last = walk_data_range(prep, spacing)
+    n_knot = weight.shape[1]
+    anchor = weight.argmax(axis=1)
+    if mask is not None:
+        first = np.where(mask > 0, first, anchor)
+        last = np.where(mask > 0, last, anchor)
     k = np.arange(n_knot)
     return {
         # the knots other than the anchor, in order: one free coordinate each
         "walk_free_index": jnp.asarray(
-            [np.delete(k, j) for j in weight.argmax(axis=1)], dtype=jnp.int32
+            [np.delete(k, j) for j in anchor], dtype=jnp.int32
         ),
         "walk_first": jnp.asarray(first, dtype=jnp.int32),
         "walk_last": jnp.asarray(last, dtype=jnp.int32),
@@ -539,7 +645,7 @@ def _walk_ranges(prep: Prepared) -> dict:
     }
 
 
-def _walk_levels(scale, fixed):
+def _walk_levels(scale, fixed, nu=None):
     """Building walks for "walk_levels" (a unit-Jacobian map of the steps,
     apart from the non-centred steps' scale). Inside a building's range the
     coordinates are its levels less its anchor's level, flat, with the random
@@ -565,11 +671,15 @@ def _walk_levels(scale, fixed):
         jnp.where(after, level[rows, fixed["walk_last"]][:, None] + on, level),
     )
     steps = jnp.diff(level, axis=1)
-    inside = dist.Normal(0.0, scale).log_prob(steps)
+    step_prior = (
+        dist.Normal(0.0, scale) if nu is None else dist.StudentT(nu, 0.0, scale)
+    )
+    inside = step_prior.log_prob(steps)
+    standard = dist.Normal(0.0, 1.0) if nu is None else dist.StudentT(nu, 0.0, 1.0)
     numpyro.factor(
         "walk_prior",
         jnp.where(fixed["walk_inside_step"], inside, 0.0).sum()
-        + jnp.where(outside, dist.Normal(0.0, 1.0).log_prob(full), 0.0).sum(),
+        + jnp.where(outside, standard.log_prob(full), 0.0).sum(),
     )
     # The model's walk is 0 at the first knot: walk(k) = level(k) - level(0).
     return numpyro.deterministic("walk_step", steps), -level[:, 0]
@@ -660,6 +770,11 @@ def build_model(prep: Prepared, config: ModelConfig):
                     ),
                 )
 
+        def walk_nu():
+            if config.walk_nu_fixed is not None:
+                return jnp.asarray(config.walk_nu_fixed)
+            return numpyro.sample("walk_nu", dist.Gamma(2.0, 0.1))
+
         walk_levels = config.building_walk and "walk_levels" in config.coordinates
         slope_totals = config.bedroom_slope and "slope_totals" in config.coordinates
         if walk_levels:
@@ -668,7 +783,15 @@ def build_model(prep: Prepared, config: ModelConfig):
             p["walk_scale"] = numpyro.sample(
                 "walk_scale", dist.HalfNormal(config.walk_scale_sd)
             )
-            p["walk_step"], walk_at_anchor = _walk_levels(p["walk_scale"], fixed)
+            if config.walk_t:
+                p["walk_nu"] = walk_nu()
+            p["walk_step"], walk_at_anchor = _walk_levels(
+                p["walk_scale"], fixed, p.get("walk_nu")
+            )
+            if "walk_mask" in fixed:
+                walk_at_anchor = walk_at_anchor * fixed["walk_mask"]
+            if config.walk_anchor_data:  # the walk is 0 at the anchor itself
+                walk_at_anchor = jnp.zeros_like(walk_at_anchor)
         if slope_totals:  # before the buildings, whose totals include it
             bedroom_slope()
         if config.buildings and "building_totals" in config.coordinates:
@@ -727,14 +850,33 @@ def build_model(prep: Prepared, config: ModelConfig):
                 "unit_drift",
                 dist.Normal(0.0, p["unit_drift_scale"]).expand([len(prep.units)]),
             )
+        if config.building_trend:
+            p["building_trend_scale"] = numpyro.sample(
+                "building_trend_scale", dist.HalfNormal(config.building_trend_scale_sd)
+            )
+            p["building_trend"] = numpyro.sample(
+                "building_trend",
+                dist.Normal(0.0, p["building_trend_scale"]).expand(
+                    [len(prep.buildings)]
+                ),
+            )
         if config.building_walk and not walk_levels:
             p["walk_scale"] = numpyro.sample(
                 "walk_scale", dist.HalfNormal(config.walk_scale_sd)
             )
+            if config.walk_t:
+                p["walk_nu"] = walk_nu()
             p["walk_step"] = numpyro.sample(
                 "walk_step",
-                dist.Normal(0.0, p["walk_scale"]).expand(
-                    [len(prep.buildings), n_knots(n_months) - 1]
+                (
+                    dist.StudentT(p["walk_nu"], 0.0, p["walk_scale"])
+                    if config.walk_t
+                    else dist.Normal(0.0, p["walk_scale"])
+                ).expand(
+                    [
+                        len(prep.buildings),
+                        n_knots(n_months, config.walk_knot_months) - 1,
+                    ]
                 ),
             )
         if config.bedroom_time:
@@ -765,7 +907,13 @@ def build_model(prep: Prepared, config: ModelConfig):
         mu = linear_predictor(p, arrays)
         numpyro.sample("y", dist.StudentT(p["nu"], mu, p["sigma"]), obs=y)
 
-    reparam = {site: LocScaleReparam(centered=0) for site in config.noncentered}
+    reparam = {
+        site: LocScaleReparam(
+            centered=0,
+            shape_params=("df",) if site == "walk_step" and config.walk_t else (),
+        )
+        for site in config.noncentered
+    }
     if config.units and "unit_partial" in config.coordinates:
         site = "unit_total" if "unit_totals" in config.coordinates else "unit"
         reparam[site] = LocScaleReparam(
@@ -861,6 +1009,86 @@ MODELS = {
     # RTX 2060; projection loses ~0.1% more than the monthly trend.
     "m0q": ModelConfig(name="m0q", trend_knot_months=3),
     "m1q": ModelConfig(name="m1q", building_walk=True, trend_knot_months=3),
+    # m0q with a linear trend per building instead of m1q's walk.
+    "m0q-btrend": ModelConfig(
+        name="m0q-btrend", building_trend=True, trend_knot_months=3
+    ),
+    # The linear trend plus a walk around it with knots every 2 years (10 knots
+    # per building, against the half-year walk's 35). The two trade off: a
+    # walk already holds a trend (0962ea7: building_trend_scale R-hat 1.077).
+    "m1-btrend-walk24": ModelConfig(
+        name="m1-btrend-walk24",
+        building_trend=True,
+        building_walk=True,
+        walk_knot_months=24,
+        trend_knot_months=3,
+    ),
+    # The coarse walk alone, knots every 2 or 3 years (10 or 7 per building).
+    "m1-walk24": ModelConfig(
+        name="m1-walk24", building_walk=True, walk_knot_months=24, trend_knot_months=3
+    ),
+    "m1-walk36": ModelConfig(
+        name="m1-walk36", building_walk=True, walk_knot_months=36, trend_knot_months=3
+    ),
+    # The coarse walks with Student-t steps, df estimated or fixed at 3.
+    "m1-twalk24": ModelConfig(
+        name="m1-twalk24",
+        building_walk=True,
+        walk_knot_months=24,
+        walk_t=True,
+        trend_knot_months=3,
+    ),
+    "m1-twalk36": ModelConfig(
+        name="m1-twalk36",
+        building_walk=True,
+        walk_knot_months=36,
+        walk_t=True,
+        trend_knot_months=3,
+    ),
+    "m1-t3walk24": ModelConfig(
+        name="m1-t3walk24",
+        building_walk=True,
+        walk_knot_months=24,
+        walk_t=True,
+        walk_nu_fixed=3.0,
+        trend_knot_months=3,
+    ),
+    "m1-t3walk36": ModelConfig(
+        name="m1-t3walk36",
+        building_walk=True,
+        walk_knot_months=36,
+        walk_t=True,
+        walk_nu_fixed=3.0,
+        trend_knot_months=3,
+    ),
+    # Walks only for buildings with at least 2 training rows per knot of their
+    # data range; the rest follow the market trend at their building level.
+    "m1-t3walk24-min2": ModelConfig(
+        name="m1-t3walk24-min2",
+        building_walk=True,
+        walk_knot_months=24,
+        walk_t=True,
+        walk_nu_fixed=3.0,
+        walk_min_rows_per_knot=2.0,
+        trend_knot_months=3,
+    ),
+    # The 2-year t walk anchored at each building's own data.
+    "m1-t3walk24-anchored": ModelConfig(
+        name="m1-t3walk24-anchored",
+        building_walk=True,
+        walk_knot_months=24,
+        walk_t=True,
+        walk_nu_fixed=3.0,
+        walk_anchor_data=True,
+        trend_knot_months=3,
+    ),
+    "m1-walk24-min2": ModelConfig(
+        name="m1-walk24-min2",
+        building_walk=True,
+        walk_knot_months=24,
+        walk_min_rows_per_knot=2.0,
+        trend_knot_months=3,
+    ),
     # m6-m8 without the bedroom-group market curves: the curves add ~200
     # global columns (3 groups x 68 quarterly knots) and the global solve
     # grows with the square of its size; projection loses only ~120-170

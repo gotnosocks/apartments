@@ -229,7 +229,7 @@ def feature_sources(feature_set: str) -> dict:
             "path": str(descriptions.SOURCE),
             "sha256": data.sha256(descriptions.SOURCE),
         }
-    if feature_set.startswith("pluto"):
+    if feature_set in features.EXTERNAL:
         # Hash the files the features read, not the provenance's record of them.
         for name, path in (
             ("registry", features.REGISTRY_FILE),

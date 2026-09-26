@@ -209,7 +209,7 @@ implementation over implementing our own").
     | 4 × (300 + 450) | 885 s | 1.009 | 677 | 40,603.8 |
     | **4 × (250 + 550)** | **888 s** | **1.005** | **894** | **40,607.5** |
 
-    With 250–300 warmup iterations, warmup takes 598–642 s of each fit (673–801 s with 400–500),
+    With 250–300 warmup iterations, warmup takes 598–642 s of each fit (673–787 s with 400–500),
     so trimming draws saves little. 4 × (250 + 550) fits inside 15 minutes with a comfortable
     gate margin.
   - Float32 does not work: a chain's step size collapsed.
@@ -228,7 +228,7 @@ implementation over implementing our own").
   - **The SVI warm start cuts m0q to 592 s** (7229ef0, 4 × (250 + 550), `--svi-steps 2000`),
     and it still passes (R-hat 1.006, ESS 817). Before sampling, 2,000 steps of NumPyro SVI
     fit a mean-field normal guide (46 s). Each chain starts at a draw from it, with its
-    variances as the initial mass matrix. Warmup drops from 585 s to 252 s. PSIS-LOO is
+    variances as the initial mass matrix. Warmup drops from 598 s to 252 s. PSIS-LOO is
     40,602.1, −5.3 ± 3.5 against the 888 s fit on identical rows (Monte Carlo noise: it is
     the same model).
   - A shorter warmup does not pay: 4 × (150 + 550) with the warm start took 746 s. Warmup was
@@ -326,9 +326,108 @@ the fix goes into the model, the features or the data, not the sampler.
   Half of the worst rows are units listed once, against 24% of all rows.
 - **Weakly identified terms.** The building walk has about one row per occupied half-year knot
   (median 1.2) and a median of 7 empty knots before a building's first listing. The unit scale
-  makes a funnel from the 47% of units listed once. These are candidates for simpler,
+  makes a funnel from the units listed once (47% of all units; 51% of the units in the training rows). These are candidates for simpler,
   better-identified shapes: building drift, neighbourhood-level time terms, yearly knots, and
   column (line) effects that let a unit listed once borrow from its line.
+
+**Results.**
+- **Bedroom labels change within units.** 12.3% of the 11,713 units listed more than once
+  change bedroom count between listings. 86% of those change by one, and 87% keep one square
+  footage: the same apartment advertised as a studio or a junior one-bedroom, a one-bedroom or
+  a flex two.
+- **Unit-consistent bedrooms: +791 ± 73 PSIS-LOO on m0q** (`unitbeds-v1`, d80a714, the 592 s
+  NUTS configuration; 631 s, passes). The bedroom levels use the unit's own count, the lower
+  median of its listings. `bedrooms_vs_unit` carries a listing's relabel, fitted at
+  +0.099 ± 0.003 per bedroom, against 0.23–0.26 for a real bedroom between units. The gain is
+  on identical rows against m0q base-v1 (7229ef0), and +615 ± 79 against m0q with the
+  description flags (desc-v1). Held-out ΔELPD improves by about 150. ν barely moves
+  (2.59 → 2.62), so relabels were not what made the tails heavy.
+- **Unit square feet: +653 ± 53 more** (`unitattrs-v1`, 403d94c; 626 s, passes). Each unit's
+  size is the median of the sizes its listings state, used for every listing, so size is unknown
+  on 52% of rows instead of 65%. Together with unit bedrooms: **+1,445 ± 91 over m0q base-v1**.
+  ν stays at 2.6.
+- **Unit label flags: +234 ± 29 more** (`unitlabels-v1`, 8914d43; 609 s, passes). Penthouse,
+  garden and lower-level units, from the unit's StreetEasy label. Penthouses ask 12% more than
+  other units of the same building, year and bedrooms. Total: **+1,679 ± 95 over m0q base-v1**.
+- Floors from unit labels, unchecked (`unitfloor-v1`, abca5b7), gave 16 divergences and only
+  +18 PSIS-LOO. In 121 buildings the label's number is not a floor ("24A" in a 4-storey
+  building): 421 of the 3,445 filled floors exceed MapPLUTO's floor count + 1. `unitfloor-v2`
+  fills a floor only where the building is tall enough (3,065 rows). Listed floors have the
+  same problem on 474 rows, and one registry match looks wrong ("The Cortland", a new tower,
+  has a 3-storey lot). Both go to the data audit.
+- **Checked label floors: +28.7 ± 7.3** over `unitlabels-v1` (`unitfloor-v2`, 55f745f; 605 s,
+  passes, no divergences). That is +1,708 ± 95 over m0q base-v1, the best feature set so far.
+  Features now carry 55.9% of the variance (from 52%), buildings 28.9% (from 31.6%), units
+  2.7% (from 3.5%).
+- **One linear trend per building: +3,165 ± 93** (`m0q-btrend`, 55f745f, with `unitlabels-v1`;
+  634 s, passes). That is 1,129 numbers, each centred on its building's mean month, against the
+  walk's 34 steps per building. Trends are ±1.5% a year between the 5th and 95th percentiles
+  (scale 0.012). Against m0q base-v1 the gain is +4,844 ± 130 PSIS-LOO within 11 minutes.
+  The walk still does better: the deprecated Gibbs m1q (base-v1) is 2,636 ± 152 ahead, so part
+  of each building's path is not linear. The next shape between the two is a coarse, smooth
+  building-time term.
+- With `unitfloor-v2` the trend gives 45,484.9 (0962ea7; 646 s, passes): +4,891 over the m0
+  baseline, the best gate-passing library fit so far.
+- **A walk with knots every 2 years, around the trend** (`m1-btrend-walk24`, 0962ea7, walk
+  levels): 1,150 s, **fails**. building_trend_scale has R-hat 1.077 and ESS 35 because a walk
+  already holds a trend: the two trade off, and the fitted trend scale fell to 0.005. PSIS-LOO
+  is 48,748.2, which is +3,263 ± 88 over the trend alone and +666 ± 128 over the deprecated Gibbs
+  half-year walk (m1q, base-v1). Held-out ΔELPD is +237.6, against −185.4. Next: the coarse
+  walk alone, at 2- and 3-year knots.
+- **The walk alone, knots every 3 years** (`m1-walk36`, 937c466): **771 s**, within the window.
+  It narrowly misses the gate on ESS: walk_scale has 368 against 400, with max R-hat 1.008.
+  PSIS-LOO is 48,096.7: +2,612 over the linear trend, and level with the deprecated Gibbs
+  half-year walk (m1q, 48,082.6) at a fifth of the knots. Building over time takes 1.1% of the
+  variance, and the residual falls to 3.1%.
+- **The walk alone, knots every 2 years** (`m1-walk24`, 937c466): **812 s**, fails on walk_scale
+  (R-hat 1.019, ESS 200). PSIS-LOO is 48,742.7, the same as with the trend (48,748.2), so the
+  trend added nothing. It is +646 over the 3-year walk and +660 over the Gibbs m1q.
+- **Both coarse walks fail only on walk_scale.** The fitted 2-year steps have kurtosis 7.3:
+  most buildings move little and a few jump, so one Normal scale compromises. Next: Student-t
+  walk steps (`walk_t`, df estimated), `m1-twalk36` and `m1-twalk24`.
+- **Student-t steps, df estimated** (`m1-twalk36`, e6718f5): 845 s, fails. The df is poorly
+  identified by latent steps (walk_nu 2.64 ± 0.19, R-hat 1.06, ESS 80). PSIS-LOO is 48,211.5,
+  +115 over the Normal 3-year walk, so heavy-tailed steps fit better. Next: df fixed at 3
+  (`walk_nu_fixed`; `m1-t3walk36`, `m1-t3walk24`).
+- **df fixed at 3** (9fa29ee). Both walks fit within 15 minutes and both fail on walk_scale:
+  - 3-year (`m1-t3walk36`): 817 s, walk_scale ESS 292, PSIS-LOO 48,201.5;
+  - 2-year (`m1-t3walk24`): 859 s, walk_scale ESS 297 (and a traced building at R-hat 1.012),
+    **PSIS-LOO 48,944.1**, the best yet: +201 over the Normal 2-year walk and about +8,350
+    over the m0 baseline.
+- **Why walk_scale mixes slowly:** at 2-year knots, 529 of 1,128 buildings have fewer than 2
+  training rows per knot of their data range, a third of the walk levels (2,269 of 6,551).
+  Those levels are mostly prior, and they make the scale's funnel: the walk is more flexible
+  than the data support. Next: walks only where the data can carry one
+  (`walk_min_rows_per_knot`; `m1-t3walk24-min2`, `m1-walk24-min2`). The other buildings follow
+  the market trend at their building level.
+- **Masking data-poor buildings did not fix it** (`m1-t3walk24-min2`, 345628a): 865 s,
+  walk_scale ESS 346, and a building at R-hat 1.018. **The specification problem is where the
+  walk is anchored.** Every building's walk is 0 at the panel's first month, so its building
+  level, and the building prior, refer to its level in early 2010. A building first listed in
+  2020 reaches that level through ten years of prior-only walk steps, and the building prior
+  ties the walk scale to them. Next: each walk is anchored at 0 at its building's own anchor
+  knot (`walk_anchor_data`; `m1-t3walk24-anchored`). The building level is then its level
+  where it is observed.
+- **Anchoring did not fix it either** (d1867e8): 934 s, walk_scale ESS 195, a building at
+  R-hat 1.018, held-out ΔELPD +268.4 (the best yet). The draws say this is not a
+  misspecification signal:
+  - the four chains agree on walk_scale (means 0.0431–0.0433, within-chain sd 0.0011);
+  - its autocorrelation is 0.55 at lag 1, 0.19 at lag 10 and about 0 by lag 50, so about 50
+    effective draws per chain;
+  - its correlation with every other scalar and traced effect is below 0.12.
+
+  Its PSIS-LOO is 48,992.6, the best yet (+48 over the unanchored 2-year t walk).
+  It is a hierarchical scale over about 6,500 centred walk levels, which mixes slowly. The
+  remaining options are more draws (about 1,100 per chain, roughly 21 minutes) or a sampler
+  coordinate for the walk (partial non-centring, like `unit_partial`), which is Ben's call
+  after 2026-09-25.
+- Within-unit price jumps (240 rows more than 2× off the unit's other listings, trend-adjusted)
+  are mostly real changes: renovations, combined apartments, market moves. Almost none are
+  furnished or short-term. A renovation mention appearing within a unit comes with only about
+  +3% on the ask, which desc-v1's `renovated` flag already prices.
+- Other attributes also vary within units: square feet (9% of multi-row units; stated on 35% of
+  rows, 48% if filled from the unit's other listings), laundry (12%, in-building against
+  in-unit) and doorman (7%; it varies across listings in 116 of 1,129 buildings).
 
 **Order.**
 1. **Data quality** (backlog "Data quality"). Audit rows by rules that do not use a model's

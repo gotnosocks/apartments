@@ -105,7 +105,7 @@ def rescore(name: str):
         kept,
         test,
         feats.groups,
-        config.building_walk,
+        model.walk_spacing(config),
         config.bedroom_time,
         config.bedroom_slope,
         prep.offset,

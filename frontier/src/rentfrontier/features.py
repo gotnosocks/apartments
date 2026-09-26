@@ -12,6 +12,7 @@ id, so older leaderboard entries stay reproducible from their commit anyway.
 from __future__ import annotations
 
 from dataclasses import dataclass
+from functools import partial
 
 import numpy as np
 import pandas as pd
@@ -63,16 +64,75 @@ class _Builder:
         )
 
 
-def _bedrooms(frame):
-    beds = frame.bedrooms.round().clip(0, 5).astype(int)
-    return beds.map(lambda b: "5+" if b >= 5 else str(b))
+# The unit's label is the last path element of its StreetEasy URL
+# (".../building/chelsea-stratus/23c"); upper-case regexes.
+UNIT_LABEL_FLAGS = {
+    "penthouse": r"^PH|PENTHOUSE",
+    "garden": r"GARDEN|GDN|^GF$|^GRDN|^GARD",
+    "lower_level": r"BSMT|BASEMENT|^LL|LOWER|^CELLAR",
+}
 
 
-def base_v1(frame: pd.DataFrame, train: np.ndarray) -> Features:
-    """Listing attributes as advertised, with explicit unknown levels."""
+def label_floor_number(frame: pd.DataFrame) -> pd.Series:
+    """The floor a unit label states: "23C", "APT-4B", "4TH" -> 23, 4, 4; "307" -> 3."""
+    label = frame.canonical_unit_url.str.extract(r"/([^/]+)$")[0].str.upper()
+    lettered = label.str.extract(r"^(?:APT-?)?(\d{1,2})[A-Z]{1,2}$")[0]
+    numbered = label.str.extract(r"^(\d)\d\d$")[0]
+    return lettered.fillna(numbered).astype(float)
+
+
+def _bedroom_label(count):
+    return count.astype(int).map(lambda b: "5+" if b >= 5 else str(b))
+
+
+def unit_bedrooms(frame: pd.DataFrame) -> pd.Series:
+    """Each unit's bedroom count: the lower median of its listings' counts.
+
+    12% of units listed more than once change bedroom count between listings,
+    mostly by one with the same square footage: the same apartment advertised
+    as a studio or a junior one-bedroom, a one-bedroom or a flex two. Within
+    those units the ask moves about 0.14 in log rent per relabelled bedroom,
+    against 0.26 between a studio and a one-bedroom in the same building and
+    year. Bedrooms are a feature, so the unit's other listings leak no outcome.
+    """
+    beds = frame.bedrooms.round().clip(0, 5)
+    return np.floor(beds.groupby(frame.unit_id).transform("median"))
+
+
+def base_v1(
+    frame: pd.DataFrame,
+    train: np.ndarray,
+    id: str = "base-v1",
+    by_unit: bool = False,
+    unit_size: bool = False,
+    unit_labels: bool = False,
+    label_floor: bool = False,
+) -> Features:
+    """Listing attributes as advertised, with explicit unknown levels.
+
+    by_unit ("unitbeds-v1"): the bedroom levels (and the size baseline) use the
+    unit's bedroom count, and `bedrooms_vs_unit` carries the listing's own
+    count less the unit's.
+    unit_size ("unitattrs-v1"): square feet are the unit's, the median of the
+    sizes its listings state. Only 35% of rows state a size; filling from the
+    unit's other listings covers 48%.
+    unit_labels ("unitlabels-v1"): flags from the unit's StreetEasy label
+    (UNIT_LABEL_FLAGS): penthouse, garden and lower-level units. Penthouses ask
+    12% more than other units of the same building, year and bedrooms.
+    label_floor ("unitfloor-v2"): the floor, when the listing states none, from
+    the unit's label ("23C" -> 23, "307" -> 3). Where both exist they agree on
+    all 33,270 rows. A label floor is used only if the building (MapPLUTO) has
+    that many floors, give or take 2: in 121 buildings the label's number is
+    not a floor ("24A" in a 4-storey building), and filling those
+    (abca5b7, unchecked) gave 16 divergences.
+    """
     b = _Builder(frame)
-    beds = _bedrooms(frame)
+    advertised = frame.bedrooms.round().clip(0, 5)
+    count = unit_bedrooms(frame) if by_unit else advertised
+    beds = _bedroom_label(count)
     b.categorical("bedrooms", beds, reference="1")
+    if by_unit:
+        b.add("bedrooms", "bedrooms_vs_unit", advertised - count)
 
     full = frame.full_baths.clip(1, 4).map(lambda n: "4+" if n >= 4 else str(n))
     b.categorical("bathrooms", full.rename("full"), reference="1")
@@ -84,6 +144,12 @@ def base_v1(frame: pd.DataFrame, train: np.ndarray) -> Features:
     # Size: log square feet relative to the training median for the same
     # bedroom count. Unknown size gets its own indicator and zero deviation.
     sqft = frame.square_feet
+    if unit_size:
+        sqft = (
+            sqft.where(sqft.between(150, 8000))
+            .groupby(frame.unit_id)
+            .transform("median")
+        )
     known = sqft.between(150, 8000)
     log_sqft = np.log(sqft.where(known))
     median = log_sqft[train & known.to_numpy()].groupby(beds[train]).median()
@@ -93,6 +159,11 @@ def base_v1(frame: pd.DataFrame, train: np.ndarray) -> Features:
 
     # Advertised floor label (a proxy, not a verified physical floor).
     floor = frame.listed_floor.astype("float")
+    if label_floor:
+        label = label_floor_number(frame)
+        height = pd.to_numeric(building_lots(frame).numfloors, errors="coerce")
+        label = label.where(label.le(height.to_numpy() + 2))
+        floor = floor.where(floor.ge(1), label)
     floor_known = floor.ge(1)
     log_floor = np.log(floor.where(floor_known, 1.0))
     b.add("floor", "log_floor", log_floor)
@@ -111,12 +182,18 @@ def base_v1(frame: pd.DataFrame, train: np.ndarray) -> Features:
         b.add("views", f"view_{name}", frame[f"view_{name}"].eq("yes"))
     for name in data_module.WINDOWS:
         b.add("windows", f"window_{name}", frame[f"window_{name}"].eq("yes"))
+    if unit_labels:
+        label = frame.canonical_unit_url.str.extract(r"/([^/]+)$")[0].str.upper()
+        for name, pattern in UNIT_LABEL_FLAGS.items():
+            b.add(
+                "unit label", f"label:{name}", label.str.contains(pattern, regex=True)
+            )
     b.add(
         "price_basis",
         "current_capture_ask",
         frame.price_basis.ne("historical_initial_own_advertisement_ask"),
     )
-    return b.build("base-v1")
+    return b.build(id)
 
 
 # Description flags: a mention in the listing's own advertisement text. "Not
@@ -146,11 +223,14 @@ DESCRIPTION_FLAGS = {
 }
 
 
-def desc_v1(frame: pd.DataFrame, train: np.ndarray) -> Features:
-    """base-v1 plus flags from the listing's own advertisement description."""
+def desc_v1(
+    frame: pd.DataFrame, train: np.ndarray, id: str = "desc-v1", base: str = "base-v1"
+) -> Features:
+    """A base set (base-v1) plus flags from the listing's own advertisement
+    description."""
     from . import descriptions
 
-    base = base_v1(frame, train)
+    base = FEATURE_SETS[base](frame, train)
     text = descriptions.attach(frame)
     known = text.str.len() > 20
     b = _Builder(frame)
@@ -161,9 +241,9 @@ def desc_v1(frame: pd.DataFrame, train: np.ndarray) -> Features:
             f"text:{name}",
             known & text.str.contains(pattern, regex=True),
         )
-    extra = b.build("desc-v1")
+    extra = b.build(id)
     return Features(
-        "desc-v1",
+        id,
         base.names + extra.names,
         base.groups + extra.groups,
         np.column_stack([base.values, extra.values]),
@@ -256,7 +336,29 @@ def pluto_v1(frame: pd.DataFrame, train: np.ndarray) -> Features:
     )
 
 
-FEATURE_SETS = {"base-v1": base_v1, "desc-v1": desc_v1, "pluto-v1": pluto_v1}
+# Feature sets that read the external snapshots (run records list them).
+EXTERNAL = {"pluto-v1", "unitfloor-v2", "unitdesc-v1"}
+
+FEATURE_SETS = {
+    "base-v1": base_v1,
+    "unitbeds-v1": partial(base_v1, id="unitbeds-v1", by_unit=True),
+    "unitattrs-v1": partial(base_v1, id="unitattrs-v1", by_unit=True, unit_size=True),
+    "unitlabels-v1": partial(
+        base_v1, id="unitlabels-v1", by_unit=True, unit_size=True, unit_labels=True
+    ),
+    "unitfloor-v2": partial(
+        base_v1,
+        id="unitfloor-v2",
+        by_unit=True,
+        unit_size=True,
+        unit_labels=True,
+        label_floor=True,
+    ),
+    "desc-v1": desc_v1,
+    # The description flags on the unit-consistent features.
+    "unitdesc-v1": partial(desc_v1, id="unitdesc-v1", base="unitfloor-v2"),
+    "pluto-v1": pluto_v1,
+}
 
 
 def build(name: str, frame: pd.DataFrame, train: np.ndarray) -> Features:

@@ -56,7 +56,9 @@ def test_market_drift_is_a_linear_trend_about_the_mean_month():
     np.testing.assert_allclose(mu, 0.3 + 0.05 * (month - month.mean()) / 12, atol=1e-12)
 
 
-@pytest.mark.parametrize("name", ["L0-mean", "L5-building"])
+@pytest.mark.parametrize(
+    "name", ["L0-mean", "L5-building", "m0q-btrend", "m1-btrend-walk24", "m1-twalk24"]
+)
 def test_gibbs_needs_every_base_term(name):
     with pytest.raises(ValueError, match="--sampler nuts"):
         gibbs.build_design(synthetic(), model.MODELS[name])
@@ -199,6 +201,68 @@ def test_svi_warm_start_runs(dense):
     assert out["svi"]["seconds"] > 0 and np.isfinite(out["svi"]["final_loss"])
     assert any(x.startswith("svi 200 steps") for x in lines)
     assert np.isfinite(out["lpd"]).all()
+
+
+def test_building_trend_is_linear_about_the_buildings_mean_month():
+    prep = synthetic()
+    config = model.MODELS["m0q-btrend"]
+    fixed = model.constants(prep, config)
+    a = prep.train
+    center = fixed["building_mean_month"]
+    for b in range(3):
+        rows = a.building == b
+        assert float(center[b]) == pytest.approx(a.month[rows].mean())
+    rate = jnp.linspace(-0.1, 0.1, len(prep.buildings))
+    p = model.constants(prep, model.MODELS["m0q"]) | {
+        "alpha": 0.0,
+        "beta": jnp.zeros(2),
+        "trend_step": jnp.zeros(fixed["trend_basis"].shape[1]),
+        "season_raw": jnp.zeros(12),
+        "building": jnp.zeros(len(prep.buildings)),
+        "unit": jnp.zeros(len(prep.units)),
+        "sigma": 0.1,
+        "nu": 5.0,
+        **{
+            k: 0.1
+            for k in ("unit_scale", "building_scale", "trend_scale", "season_scale")
+        },
+    }
+    base = model.linear_predictor(p, a.map(jnp.asarray))
+    with_trend = model.linear_predictor(
+        p | {"building_trend": rate, "building_mean_month": center},
+        a.map(jnp.asarray),
+    )
+    expected = rate[a.building] * (a.month - center[a.building]) / 12
+    np.testing.assert_allclose(with_trend - base, expected, atol=1e-12)
+
+
+def test_nuts_building_trend_reaches_the_scored_terms():
+    """The trend is sampled, gated (its scale is a traced scalar) and part of
+    the terms LOO and the variance decomposition score."""
+    from rentfrontier import explain
+
+    prep = synthetic()
+    out = nuts.run(
+        prep,
+        model.MODELS["m0q-btrend"],
+        nuts.Settings(
+            chains=2,
+            warmup=60,
+            draws=20,
+            keep_every=10,
+            coordinates=("trend_levels", "building_totals", "unit_totals"),
+        ),
+        log=lambda *_: None,
+    )
+    assert np.isfinite(out["lpd"]).all()
+    kept = {k: v.reshape(-1, *v.shape[2:]) for k, v in out["kept"].items()}
+    assert kept["building_trend"].shape[-1] == len(prep.buildings)
+    terms = explain.log_terms(
+        kept, prep.train, prep.features.groups, False, False, False, 0.0
+    )
+    np.testing.assert_allclose(
+        terms["building_drift"], model.building_trend_term(kept, prep.train)
+    )
 
 
 def test_fixed_degrees_of_freedom_are_constants():
@@ -360,6 +424,28 @@ def windowed(width=18):
 
 WALK = model.ModelConfig(name="w", building_walk=True, trend_knot_months=3)
 M5 = replace(WALK, name="m5", bedroom_slope=True)
+WALK12 = replace(WALK, name="w12", walk_knot_months=12, building_trend=True)
+TWALK12 = replace(WALK, name="tw12", walk_knot_months=12, walk_t=True)
+# Walks only for buildings with at least 6 training rows per knot in range
+# (5 of the 15 windowed buildings have fewer).
+MASKED12 = replace(TWALK12, name="tw12min", walk_min_rows_per_knot=6.0)
+ANCHORED12 = replace(TWALK12, name="tw12anchored", walk_anchor_data=True)
+
+
+def test_walk_position_matches_the_stored_half_year_knots():
+    a = synthetic(months=60).train
+    knot, frac = model.walk_position(a, model.KNOT_MONTHS)
+    assert knot is a.knot and frac is a.knot_frac
+    k12, f12 = model.walk_position(a, 12)
+    np.testing.assert_array_equal(k12, a.month // 12)
+    np.testing.assert_allclose(k12 + f12, a.month / 12)
+    # Knots every 12 months are every other half-year knot.
+    w6 = np.random.default_rng(0).normal(size=(15, model.n_knots(60)))
+    w12 = w6[:, ::2]
+    np.testing.assert_allclose(
+        model.walk_term(w12, a, 12)[a.month % 12 == 0],
+        model.walk_term(w6, a, 6)[a.month % 12 == 0],
+    )
 
 
 @pytest.mark.parametrize(
@@ -367,8 +453,12 @@ M5 = replace(WALK, name="m5", bedroom_slope=True)
     [
         (WALK, ("building_totals", "walk_levels")),
         (M5, ("building_totals", "unit_totals", "walk_levels", "slope_totals")),
+        (WALK12, ("building_totals", "walk_levels")),
+        (TWALK12, ("building_totals", "walk_levels")),
+        (MASKED12, ("building_totals", "walk_levels")),
+        (ANCHORED12, ("building_totals", "walk_levels")),
     ],
-    ids=["walk", "walk-slopes"],
+    ids=["walk", "walk-slopes", "walk12-trend", "twalk12", "masked12", "anchored12"],
 )
 def test_walk_and_slope_totals_are_the_same_model(config, coordinates):
     """walk_levels samples each walk as levels inside the building's data
@@ -382,7 +472,10 @@ def test_walk_and_slope_totals_are_the_same_model(config, coordinates):
     moved = replace(config, coordinates=coordinates)
     fixed = model.constants(prep, moved)
     before, after = np.asarray(fixed["walk_before"]), np.asarray(fixed["walk_after"])
-    assert before.any() and after.any() and (~(before | after)).sum(1).min() >= 2
+    inside = (~(before | after)).sum(1)
+    walks = np.asarray(fixed.get("walk_mask", np.ones(len(inside)))) > 0
+    assert before.any() and after.any() and inside[walks].min() >= 2
+    assert (inside[~walks] == 1).all()  # a building without a walk: its anchor
     index = np.asarray(fixed["walk_free_index"])
     n_knot = before.shape[1]
     anchor = np.array([np.setdiff1d(np.arange(n_knot), i)[0] for i in index])
@@ -404,7 +497,13 @@ def test_walk_and_slope_totals_are_the_same_model(config, coordinates):
         full[:, 1:] = np.where(after[:, 1:], steps / s, full[:, 1:])
         q = {k: v for k, v in p.items() if k not in ("building", "walk_step", "unit")}
         q["walk_free"] = full[rows[:, None], index]
-        total = p["building"] + fixed["building_xbar"] @ p["beta"] + walk[rows, anchor]
+        mask = np.asarray(fixed.get("walk_mask", np.ones(len(anchor))))
+        if config.walk_min_rows_per_knot:
+            assert 0 < mask.sum() < len(mask)
+        # The building total is its level at its anchor knot, where an anchored
+        # walk is 0 by definition.
+        at_anchor = 0.0 if config.walk_anchor_data else mask * walk[rows, anchor]
+        total = p["building"] + fixed["building_xbar"] @ p["beta"] + at_anchor
         unit = p["unit"]
         if "slope_totals" in coordinates:
             ub = fixed["unit_building"]
@@ -433,8 +532,12 @@ def test_walk_and_slope_totals_need_building_totals(coordinate):
     [
         (WALK, ("building_totals", "walk_levels")),
         (M5, ("building_totals", "unit_totals", "walk_levels", "slope_totals")),
+        (WALK12, ("building_totals", "walk_levels")),
+        (TWALK12, ("building_totals", "walk_levels")),
+        (MASKED12, ("building_totals", "walk_levels")),
+        (ANCHORED12, ("building_totals", "walk_levels")),
     ],
-    ids=["walk", "walk-slopes"],
+    ids=["walk", "walk-slopes", "walk12-trend", "twalk12", "masked12", "anchored12"],
 )
 def test_nuts_with_walk_and_slope_totals_returns_the_effects(config, coordinates):
     prep = windowed()
@@ -449,8 +552,42 @@ def test_nuts_with_walk_and_slope_totals_returns_the_effects(config, coordinates
     assert out["noncentered"] == []
     assert np.isfinite(out["lpd"]).all()
     walk = out["mean"]["walk"]
-    assert walk.shape == (len(prep.buildings), model.n_knots(60))
-    np.testing.assert_allclose(walk[:, 0], 0.0)
+    assert walk.shape == (
+        len(prep.buildings),
+        model.n_knots(60, config.walk_knot_months),
+    )
+    zero_at = (
+        np.asarray(
+            model.constants(prep, replace(config, coordinates=coordinates))[
+                "walk_anchor"
+            ]
+        )
+        if config.walk_anchor_data
+        else np.zeros(len(prep.buildings), dtype=int)
+    )
+    np.testing.assert_allclose(walk[np.arange(len(zero_at)), zero_at], 0.0)
+    if config.walk_min_rows_per_knot:
+        mask = model.walk_mask(prep, config)
+        assert 0 < mask.sum() < len(mask)
+        np.testing.assert_array_equal(walk[mask == 0], 0.0)
+    if config.building_trend:
+        from rentfrontier import explain
+
+        kept = {k: v.reshape(-1, *v.shape[2:]) for k, v in out["kept"].items()}
+        terms = explain.log_terms(
+            kept,
+            prep.train,
+            prep.features.groups,
+            model.walk_spacing(config),
+            False,
+            False,
+            0.0,
+        )
+        np.testing.assert_allclose(
+            terms["building_drift"],
+            model.walk_term(kept["walk"], prep.train, 12)
+            + model.building_trend_term(kept, prep.train),
+        )
     if config.bedroom_slope:
         assert np.isfinite(out["mean"]["bedroom_slope"]).all()
 
@@ -487,6 +624,26 @@ def test_partially_centred_units_are_the_same_model(unit_t, totals):
         new = float(log_density(model.build_model(prep, moved), (), {}, q)[0])
         gaps.append(new - base - float(np.sum(1 - c) * np.log(scale)))
     np.testing.assert_allclose(gaps, 0.0, atol=1e-7)
+
+
+def test_fixed_walk_df_is_a_constant():
+    config = model.MODELS["m1-t3walk24"]
+    prep = windowed()
+    assert float(model.constants(prep, config)["walk_nu"]) == 3.0
+    assert "walk_nu" not in sites(config, prep)
+
+
+def test_student_t_walk_steps_run_non_centred():
+    """Without walk_levels, Student-t walk steps are non-centred with their df
+    as a shape parameter (LocScaleReparam)."""
+    out = nuts.run(
+        windowed(),
+        TWALK12,
+        nuts.Settings(chains=2, warmup=40, draws=10, keep_every=5),
+        log=lambda *_: None,
+    )
+    assert out["noncentered"] == ["walk_step"]
+    assert np.isfinite(out["lpd"]).all() and out["mean"]["walk_nu"] > 0
 
 
 @pytest.mark.parametrize("unit_t", [False, True], ids=["normal", "t"])
