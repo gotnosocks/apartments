@@ -262,6 +262,7 @@ def design_key(r):
         r["feature_set"],
         r["sampler"],
         json.dumps(r["sampler_settings"], sort_keys=True),
+        tuple(r.get("data_rules", ())),
     )
 
 
@@ -473,7 +474,8 @@ def build(keep_dirs=False):
     for by_split in groups.values():
         any_run = next(iter(by_split.values()))
         e = {
-            "id": f"{any_run['model']['name']}/{any_run['feature_set']}/{any_run['sampler']}@{any_run['commit'][:7]}",
+            "id": f"{any_run['model']['name']}/{any_run['feature_set']}/{any_run['sampler']}@{any_run['commit'][:7]}"
+            + "".join(f"+{rule}" for rule in any_run.get("data_rules", ())),
             "commit": any_run["commit"],
             "model": any_run["model"],
             "feature_set": any_run["feature_set"],
