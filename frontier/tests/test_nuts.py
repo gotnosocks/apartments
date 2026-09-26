@@ -270,6 +270,94 @@ def test_building_totals_are_the_same_model():
     np.testing.assert_allclose(gaps, gaps[0], atol=1e-7)
 
 
+def windowed(width=18):
+    """synthetic() over 60 months with each building's rows moved into its own
+    window of `width` months, so walks have knots before and after the data."""
+    prep = synthetic(months=60)
+    a = prep.train
+    start = (np.arange(len(prep.buildings)) * 7) % (len(prep.periods) - width)
+    m = start[a.building] + a.month % width
+    train = replace(
+        a,
+        month=m.astype(np.int32),
+        calendar=(m % 12).astype(np.int32),
+        knot=(m // model.KNOT_MONTHS).astype(np.int32),
+        knot_frac=(m % model.KNOT_MONTHS) / model.KNOT_MONTHS,
+    )
+    return replace(prep, train=train)
+
+
+WALK = model.ModelConfig(name="w", building_walk=True, trend_knot_months=3)
+
+
+def test_walk_levels_are_the_same_model():
+    """walk_levels samples each walk as levels inside the building's data
+    range (less its anchor's) and standard normal steps outside it: the joint
+    density matches the default one at corresponding points, up to a
+    constant and the non-centred steps' Jacobian (walk_scale per step)."""
+    from numpyro.infer.util import log_density
+
+    prep = windowed()
+    moved = replace(WALK, coordinates=("building_totals", "walk_levels"))
+    fixed = model.constants(prep, moved)
+    before, after = np.asarray(fixed["walk_before"]), np.asarray(fixed["walk_after"])
+    assert before.any() and after.any() and (~(before | after)).sum(1).min() >= 2
+    index = np.asarray(fixed["walk_free_index"])
+    n_knot = before.shape[1]
+    anchor = np.array([np.setdiff1d(np.arange(n_knot), i)[0] for i in index])
+    rows = np.arange(len(anchor))
+    gaps = []
+    for seed in range(3):
+        tr = handlers.trace(
+            handlers.seed(model.build_model(prep, WALK), seed)
+        ).get_trace()
+        p = {
+            k: v["value"]
+            for k, v in tr.items()
+            if v["type"] == "sample" and not v["is_observed"]
+        }
+        s, steps = p["walk_scale"], np.asarray(p["walk_step"])
+        walk = np.concatenate([np.zeros((len(anchor), 1)), steps.cumsum(1)], axis=1)
+        full = walk - walk[rows, anchor][:, None]
+        full[:, :-1] = np.where(before[:, :-1], steps / s, full[:, :-1])
+        full[:, 1:] = np.where(after[:, 1:], steps / s, full[:, 1:])
+        q = {k: v for k, v in p.items() if k not in ("building", "walk_step")}
+        q["walk_free"] = full[rows[:, None], index]
+        total = p["building"] + fixed["building_xbar"] @ p["beta"] + walk[rows, anchor]
+        q["building_total_mean"] = total.mean()
+        q["building_total_dev"] = total - total.mean()
+        base = float(log_density(model.build_model(prep, WALK), (), {}, p)[0])
+        new = float(log_density(model.build_model(prep, moved), (), {}, q)[0])
+        gaps.append(new - base - (before | after).sum() * float(np.log(s)))
+    np.testing.assert_allclose(gaps, gaps[0], atol=1e-7)
+
+
+def test_walk_levels_need_building_totals():
+    with pytest.raises(ValueError, match="building_totals"):
+        model.constants(windowed(), replace(WALK, coordinates=("walk_levels",)))
+
+
+def test_nuts_with_walk_levels_returns_the_walks():
+    prep = windowed()
+    out = nuts.run(
+        prep,
+        WALK,
+        nuts.Settings(
+            chains=2,
+            warmup=60,
+            draws=20,
+            keep_every=10,
+            coordinates=("building_totals", "walk_levels"),
+        ),
+        log=lambda *_: None,
+    )
+    assert out["noncentered"] == []
+    assert np.isfinite(out["lpd"]).all()
+    walk = out["mean"]["walk"]
+    assert walk.shape == (len(prep.buildings), model.n_knots(60))
+    np.testing.assert_allclose(walk[:, 0], 0.0)
+
+
 @pytest.mark.parametrize("unit_t", [False, True], ids=["normal", "t"])
 def test_partially_centred_units_run_and_return_unit_effects(unit_t):
     """unit_partial (NumPyro LocScaleReparam with per-unit weights) samples

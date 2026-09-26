@@ -43,6 +43,7 @@ LOCAL_SITES = {
     "unit_total_decentered",
     "walk_step",
     "walk_step_decentered",
+    "walk_free",
     "bedroom_slope",
     "fslope",
     "unit_drift",
@@ -67,7 +68,7 @@ class Settings:
     dense_globals: bool = False
     # Sampling coordinates (model.ModelConfig.coordinates): "trend_levels",
     # "season_zerosum", "building_zerosum", "building_totals", "unit_totals",
-    # "unit_partial".
+    # "unit_partial", "walk_levels".
     # They change how NUTS moves, not the model.
     coordinates: tuple = ()
     # float32 arithmetic (run.py leaves jax_enable_x64 off). The RTX 2060 runs
@@ -96,7 +97,10 @@ def run(
         )
     dtype = jnp.float32 if settings.float32 else jnp.float64
     t0 = time.perf_counter()
-    present = {"walk_step": config.building_walk, "unit_drift": config.unit_drift}
+    present = {
+        "walk_step": config.building_walk and "walk_levels" not in settings.coordinates,
+        "unit_drift": config.unit_drift,
+    }
     config = replace(
         config,
         noncentered=tuple(s for s in NONCENTERED if present[s]),
