@@ -61,6 +61,7 @@ FIXED = {
     "building_feature_slopes": "building slopes",
     "unit": "unit",
     "unit_drift": "unit",
+    "line": "unit",
 }
 
 

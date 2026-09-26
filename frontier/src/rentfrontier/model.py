@@ -27,6 +27,7 @@ import numpyro.distributions as dist
 import pandas as pd
 from numpyro.distributions import constraints
 
+from . import data as data_module
 from .features import Features
 
 
@@ -134,6 +135,13 @@ class ModelConfig:
     # ties the walk scale to them (345628a: walk_scale ESS 346, a building
     # R-hat 1.018).
     walk_anchor_data: bool = False
+    # Line ("column") effects within buildings: units stacked vertically ("4C",
+    # "7C", "12C") share an effect, so a unit listed once borrows from its
+    # line (Ben, 2026-09-25 backlog). Only lines with at least 2 training
+    # units: 2,851 lines hold 12,946 units, and 4,942 of the 10,628 training
+    # units listed once are in one.
+    line_effects: bool = False
+    line_scale_sd: float = 0.1
     # Per-building linear trend in log rent per year, centred on the building's
     # mean training month: trend_b ~ N(0, building_trend_scale^2). One number
     # per building, against the walk's 34 steps at about one row per step.
@@ -240,6 +248,9 @@ class Prepared:
     test: Arrays
     test_audit_id: np.ndarray
     unit_mean_month: np.ndarray | None = None  # (units,) mean training month
+    # (units,) index of the unit's line among lines with at least 2 training
+    # units, -1 otherwise (line_effects).
+    unit_line: np.ndarray | None = None
 
     @property
     def sizes(self):
@@ -274,6 +285,12 @@ def prepare(frame: pd.DataFrame, heldout: np.ndarray, features: Features) -> Pre
     prep.unit_mean_month = (
         months.groupby(tr.unit_id).mean().reindex(prep.units).to_numpy().astype(float)
     )
+    lines = (
+        data_module.unit_line_key(tr).groupby(tr.unit_id).first().reindex(prep.units)
+    )
+    shared = lines.map(lines.value_counts()).ge(2)
+    codes = pd.Categorical(lines.where(shared)).codes  # -1 for NaN
+    prep.unit_line = np.asarray(codes, dtype=np.int32)
     prep.train = row_arrays(prep, frame, train)
     prep.test = row_arrays(prep, frame, heldout)
     return prep
@@ -339,6 +356,8 @@ def linear_predictor(p, a: Arrays, include_unit=True):
         mu = mu + walk_term(w, a, p.get("walk_knot_months", KNOT_MONTHS))
     if "building_trend" in p:
         mu = mu + building_trend_term(e, a)
+    if "line" in p:
+        mu = mu + line_term(e["line"], e["unit_line"], a)
     if "bedroom_time_step" in p:
         mu = mu + e["bedroom_time"][a.bed_group, a.month]
     if "bedroom_slope" in p:
@@ -373,6 +392,15 @@ def walk_term(w, a: Arrays, spacing: int):
     values, (buildings, knots), or draws with a leading axis)."""
     knot, frac = walk_position(a, spacing)
     return (1 - frac) * w[..., a.building, knot] + frac * w[..., a.building, knot + 1]
+
+
+def line_term(line, unit_line, a):
+    """Each row's line effect (0 for rows of units without a shared line, or
+    without training rows); line may have a leading draws axis."""
+    xp = jnp if isinstance(line, jnp.ndarray) else np
+    ul = xp.asarray(unit_line).astype(int)[xp.maximum(a.unit, 0)]
+    has = (a.unit >= 0) & (ul >= 0)
+    return xp.where(has, line[..., xp.maximum(ul, 0)], 0.0)
 
 
 def building_trend_term(e, a):
@@ -430,6 +458,9 @@ def effects(p):
         "walk": _walk(p) if "walk_step" in p else jnp.zeros((1, 1)),
         "walk_scale": p.get("walk_scale", jnp.zeros(())),
         "walk_nu": p.get("walk_nu", jnp.zeros(())),  # 0 = Normal walk steps
+        "line": p.get("line", jnp.zeros(1)),
+        "line_scale": p.get("line_scale", jnp.zeros(())),
+        "unit_line": p.get("unit_line", -jnp.ones(1, dtype=jnp.int32)),
         "building_trend": p.get("building_trend", jnp.zeros(1)),
         "building_trend_scale": p.get("building_trend_scale", jnp.zeros(())),
         "building_mean_month": p.get("building_mean_month", jnp.zeros(1)),
@@ -492,6 +523,10 @@ def constants(prep: Prepared, config: ModelConfig) -> dict:
         if config.walk_anchor_data:
             weight, _, _ = walk_data_range(prep, config.walk_knot_months)
             out["walk_anchor"] = jnp.asarray(weight.argmax(axis=1), dtype=jnp.int32)
+    if config.line_effects:
+        if prep.unit_line is None or not (prep.unit_line >= 0).any():
+            raise ValueError("line_effects needs units in shared lines")
+        out["unit_line"] = jnp.asarray(prep.unit_line, dtype=jnp.int32)
     if config.building_trend:
         out["building_mean_month"] = jnp.asarray(
             _group_means(
@@ -695,6 +730,7 @@ def build_model(prep: Prepared, config: ModelConfig):
     beta_sd = config.beta_sd * jnp.asarray(prep.features.prior_scale)
     fixed = constants(prep, config)
     trend_basis = fixed["trend_basis"]
+    n_lines = int(np.max(prep.unit_line)) + 1 if config.line_effects else 0
 
     def model():
         p = dict(fixed)
@@ -849,6 +885,14 @@ def build_model(prep: Prepared, config: ModelConfig):
             p["unit_drift"] = numpyro.sample(
                 "unit_drift",
                 dist.Normal(0.0, p["unit_drift_scale"]).expand([len(prep.units)]),
+            )
+        if config.line_effects:
+            p["line_scale"] = numpyro.sample(
+                "line_scale", dist.HalfNormal(config.line_scale_sd)
+            )
+            p["line"] = numpyro.sample(
+                "line",
+                dist.Normal(0.0, p["line_scale"]).expand([n_lines]),
             )
         if config.building_trend:
             p["building_trend_scale"] = numpyro.sample(
@@ -1012,6 +1056,13 @@ MODELS = {
     # m0q with a linear trend per building instead of m1q's walk.
     "m0q-btrend": ModelConfig(
         name="m0q-btrend", building_trend=True, trend_knot_months=3
+    ),
+    # m0q-btrend with line ("column") effects within buildings.
+    "m0q-btrend-lines": ModelConfig(
+        name="m0q-btrend-lines",
+        building_trend=True,
+        line_effects=True,
+        trend_knot_months=3,
     ),
     # The linear trend plus a walk around it with knots every 2 years (10 knots
     # per building, against the half-year walk's 35). The two trade off: a

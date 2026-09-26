@@ -127,6 +127,20 @@ def merge_unit_labels(frame: pd.DataFrame) -> pd.DataFrame:
     return out
 
 
+def unit_line_key(frame: pd.DataFrame) -> pd.Series:
+    """Each row's line ("column") within its building, from the unit label:
+    "23C" and "4C" are line C, "1204" and "304" are line 04, "2ND", "4TH" and
+    "4THFL" are the floor-through line FL; "building/line", or NaN for labels
+    without a line (PH, GARDEN, 12)."""
+    label = frame.canonical_unit_url.str.extract(r"/([^/]+)$")[0].map(unit_label_key)
+    lettered = label.str.extract(r"^\d{1,2}([A-Z]{1,2})$")[0]
+    numbered = label.str.extract(r"^\d{1,2}(\d\d)$")[0]
+    # "2ND", "3RD", "4TH", "4THFL": floor-through units, stacked as one line.
+    through = label.str.match(r"^\d{1,2}(?:ST|ND|RD|TH)(?:FL)?$", na=False)
+    line = lettered.fillna(numbered).where(~through, "FL")
+    return (frame.building + "/" + line).where(line.notna())
+
+
 # Named data rules, applied after the held-out split is drawn (the row split
 # depends on unit ids, and scored rows must not change). Run records list them.
 DATA_RULES = {"unit-labels-v1": merge_unit_labels}
