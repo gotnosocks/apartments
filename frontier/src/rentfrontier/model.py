@@ -126,6 +126,14 @@ class ModelConfig:
     # levels are mostly prior; with them the walk scale mixed slowly
     # (9fa29ee: walk_scale ESS 292).
     walk_min_rows_per_knot: float = 0.0
+    # Anchor each building's walk at 0 at its own anchor knot (the knot its
+    # training rows weigh most) instead of the panel's first month. The
+    # building level, and its prior, are then the building's level where it is
+    # observed. At the first month, a building first listed in 2020 has a
+    # level reached through ten years of prior-only walk steps, and its prior
+    # ties the walk scale to them (345628a: walk_scale ESS 346, a building
+    # R-hat 1.018).
+    walk_anchor_data: bool = False
     # Per-building linear trend in log rent per year, centred on the building's
     # mean training month: trend_b ~ N(0, building_trend_scale^2). One number
     # per building, against the walk's 34 steps at about one row per step.
@@ -374,6 +382,21 @@ def building_trend_term(e, a):
     return rate[..., a.building] * (a.month - center[..., a.building]) / 12.0
 
 
+def _walk(p):
+    """Building walks at the knots, 0 at the first knot (or, with
+    "walk_anchor", at each building's anchor knot), and 0 for buildings
+    without a walk ("walk_mask")."""
+    steps = p["walk_step"]
+    walk = jnp.concatenate(
+        [jnp.zeros((steps.shape[0], 1)), jnp.cumsum(steps, axis=1)], axis=1
+    )
+    if "walk_anchor" in p:
+        walk = walk - walk[jnp.arange(walk.shape[0]), p["walk_anchor"]][:, None]
+    if "walk_mask" in p:
+        walk = walk * p["walk_mask"][:, None]
+    return walk
+
+
 def effects(p):
     """Named effect vectors (log scale) from constrained site values."""
     season = p["season_raw"] - p["season_raw"].mean()
@@ -404,18 +427,7 @@ def effects(p):
         "season_scale": p["season_scale"],
         # Building walks (knot values; knot 0 is fixed at 0). Placeholders
         # when the design has no walk keep the effect tree the same shape.
-        "walk": (
-            jnp.concatenate(
-                [
-                    jnp.zeros((p["walk_step"].shape[0], 1)),
-                    jnp.cumsum(p["walk_step"], axis=1),
-                ],
-                axis=1,
-            )
-            * p.get("walk_mask", jnp.ones(()))[..., None]
-            if "walk_step" in p
-            else jnp.zeros((1, 1))
-        ),
+        "walk": _walk(p) if "walk_step" in p else jnp.zeros((1, 1)),
         "walk_scale": p.get("walk_scale", jnp.zeros(())),
         "walk_nu": p.get("walk_nu", jnp.zeros(())),  # 0 = Normal walk steps
         "building_trend": p.get("building_trend", jnp.zeros(1)),
@@ -477,6 +489,9 @@ def constants(prep: Prepared, config: ModelConfig) -> dict:
         out["walk_knot_months"] = config.walk_knot_months
         if config.walk_min_rows_per_knot > 0:
             out["walk_mask"] = jnp.asarray(walk_mask(prep, config))
+        if config.walk_anchor_data:
+            weight, _, _ = walk_data_range(prep, config.walk_knot_months)
+            out["walk_anchor"] = jnp.asarray(weight.argmax(axis=1), dtype=jnp.int32)
     if config.building_trend:
         out["building_mean_month"] = jnp.asarray(
             _group_means(
@@ -775,6 +790,8 @@ def build_model(prep: Prepared, config: ModelConfig):
             )
             if "walk_mask" in fixed:
                 walk_at_anchor = walk_at_anchor * fixed["walk_mask"]
+            if config.walk_anchor_data:  # the walk is 0 at the anchor itself
+                walk_at_anchor = jnp.zeros_like(walk_at_anchor)
         if slope_totals:  # before the buildings, whose totals include it
             bedroom_slope()
         if config.buildings and "building_totals" in config.coordinates:
@@ -1053,6 +1070,16 @@ MODELS = {
         walk_t=True,
         walk_nu_fixed=3.0,
         walk_min_rows_per_knot=2.0,
+        trend_knot_months=3,
+    ),
+    # The 2-year t walk anchored at each building's own data.
+    "m1-t3walk24-anchored": ModelConfig(
+        name="m1-t3walk24-anchored",
+        building_walk=True,
+        walk_knot_months=24,
+        walk_t=True,
+        walk_nu_fixed=3.0,
+        walk_anchor_data=True,
         trend_knot_months=3,
     ),
     "m1-walk24-min2": ModelConfig(

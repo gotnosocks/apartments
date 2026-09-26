@@ -429,6 +429,7 @@ TWALK12 = replace(WALK, name="tw12", walk_knot_months=12, walk_t=True)
 # Walks only for buildings with at least 6 training rows per knot in range
 # (5 of the 15 windowed buildings have fewer).
 MASKED12 = replace(TWALK12, name="tw12min", walk_min_rows_per_knot=6.0)
+ANCHORED12 = replace(TWALK12, name="tw12anchored", walk_anchor_data=True)
 
 
 def test_walk_position_matches_the_stored_half_year_knots():
@@ -455,8 +456,9 @@ def test_walk_position_matches_the_stored_half_year_knots():
         (WALK12, ("building_totals", "walk_levels")),
         (TWALK12, ("building_totals", "walk_levels")),
         (MASKED12, ("building_totals", "walk_levels")),
+        (ANCHORED12, ("building_totals", "walk_levels")),
     ],
-    ids=["walk", "walk-slopes", "walk12-trend", "twalk12", "masked12"],
+    ids=["walk", "walk-slopes", "walk12-trend", "twalk12", "masked12", "anchored12"],
 )
 def test_walk_and_slope_totals_are_the_same_model(config, coordinates):
     """walk_levels samples each walk as levels inside the building's data
@@ -498,11 +500,10 @@ def test_walk_and_slope_totals_are_the_same_model(config, coordinates):
         mask = np.asarray(fixed.get("walk_mask", np.ones(len(anchor))))
         if config.walk_min_rows_per_knot:
             assert 0 < mask.sum() < len(mask)
-        total = (
-            p["building"]
-            + fixed["building_xbar"] @ p["beta"]
-            + mask * walk[rows, anchor]
-        )
+        # The building total is its level at its anchor knot, where an anchored
+        # walk is 0 by definition.
+        at_anchor = 0.0 if config.walk_anchor_data else mask * walk[rows, anchor]
+        total = p["building"] + fixed["building_xbar"] @ p["beta"] + at_anchor
         unit = p["unit"]
         if "slope_totals" in coordinates:
             ub = fixed["unit_building"]
@@ -534,8 +535,9 @@ def test_walk_and_slope_totals_need_building_totals(coordinate):
         (WALK12, ("building_totals", "walk_levels")),
         (TWALK12, ("building_totals", "walk_levels")),
         (MASKED12, ("building_totals", "walk_levels")),
+        (ANCHORED12, ("building_totals", "walk_levels")),
     ],
-    ids=["walk", "walk-slopes", "walk12-trend", "twalk12", "masked12"],
+    ids=["walk", "walk-slopes", "walk12-trend", "twalk12", "masked12", "anchored12"],
 )
 def test_nuts_with_walk_and_slope_totals_returns_the_effects(config, coordinates):
     prep = windowed()
@@ -554,7 +556,16 @@ def test_nuts_with_walk_and_slope_totals_returns_the_effects(config, coordinates
         len(prep.buildings),
         model.n_knots(60, config.walk_knot_months),
     )
-    np.testing.assert_allclose(walk[:, 0], 0.0)
+    zero_at = (
+        np.asarray(
+            model.constants(prep, replace(config, coordinates=coordinates))[
+                "walk_anchor"
+            ]
+        )
+        if config.walk_anchor_data
+        else np.zeros(len(prep.buildings), dtype=int)
+    )
+    np.testing.assert_allclose(walk[np.arange(len(zero_at)), zero_at], 0.0)
     if config.walk_min_rows_per_knot:
         mask = model.walk_mask(prep, config)
         assert 0 < mask.sum() < len(mask)

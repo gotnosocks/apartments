@@ -400,6 +400,14 @@ the fix goes into the model, the features or the data, not the sampler.
   than the data support. Next: walks only where the data can carry one
   (`walk_min_rows_per_knot`; `m1-t3walk24-min2`, `m1-walk24-min2`). The other buildings follow
   the market trend at their building level.
+- **Masking data-poor buildings did not fix it** (`m1-t3walk24-min2`, 345628a): 865 s,
+  walk_scale ESS 346, and a building at R-hat 1.018. **The specification problem is where the
+  walk is anchored.** Every building's walk is 0 at the panel's first month, so its building
+  level, and the building prior, refer to its level in early 2010. A building first listed in
+  2020 reaches that level through ten years of prior-only walk steps, and the building prior
+  ties the walk scale to them. Next: each walk is anchored at 0 at its building's own anchor
+  knot (`walk_anchor_data`; `m1-t3walk24-anchored`). The building level is then its level
+  where it is observed.
 - Within-unit price jumps (240 rows more than 2× off the unit's other listings, trend-adjusted)
   are mostly real changes: renovations, combined apartments, market moves. Almost none are
   furnished or short-term. A renovation mention appearing within a unit comes with only about
