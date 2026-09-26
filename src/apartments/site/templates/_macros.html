@@ -1,0 +1,72 @@
+{% macro band_chip(row) -%}
+{%- set p = (row.pit * 100) | round | int -%}
+{%- if row.price_band == "below" -%}
+<span class="chip good" title="The ask is at the {{ ordinal(p) }} percentile of the model's range for this apartment."><span aria-hidden="true">▼</span> Below typical</span>
+{%- elif row.price_band == "above" -%}
+<span class="chip serious" title="The ask is at the {{ ordinal(p) }} percentile of the model's range for this apartment."><span aria-hidden="true">▲</span> Above typical</span>
+{%- else -%}
+<span class="chip neutral" title="The ask is at the {{ ordinal(p) }} percentile of the model's range for this apartment."><span aria-hidden="true">●</span> Typical</span>
+{%- endif -%}
+{%- endmacro %}
+
+{% macro place(row) -%}
+{{ row.building_name or row.building_address }}{% if row.unit_label %} · {{ row.unit_label }}{% endif %}
+{%- endmacro %}
+
+{% macro layout(row) -%}
+{{ beds_label(row.bedrooms) }}{% if row.bathrooms is not none %} · {{ row.bathrooms | trim_float }} ba{% endif %}{% if row.square_feet %} · {{ "{:,.0f}".format(row.square_feet) }} ft²{% endif %}
+{%- endmacro %}
+
+{% macro listing_table(rows, filters=None, endpoint=None, show_building=True) %}
+<div class="table-wrap">
+<table class="data">
+  <thead>
+    <tr>
+      {{ sort_th("Listed", "date", filters, endpoint) }}
+      <th scope="col">{% if show_building %}Building · unit{% else %}Unit{% endif %}</th>
+      <th scope="col">Layout</th>
+      {{ sort_th("Ask", "ask", filters, endpoint, num=True) }}
+      {{ sort_th("Estimate", "estimate", filters, endpoint, num=True) }}
+      <th scope="col" class="num">95% range</th>
+      {{ sort_th("Ask vs estimate", "diff_pct", filters, endpoint, num=True) }}
+      <th scope="col">Price</th>
+    </tr>
+  </thead>
+  <tbody>
+  {% for row in rows %}
+    <tr>
+      <td class="nowrap">{{ month(row.period) }}{% if row.is_current %} <span class="tag">now</span>{% endif %}</td>
+      <td><a href="{{ url_for('listing', audit_id=row.audit_id) }}">{% if show_building %}{{ place(row) }}{% else %}{{ row.unit_label or "Unit" }}{% endif %}</a></td>
+      <td class="nowrap">{{ layout(row) }}</td>
+      <td class="num">{{ usd(row.ask) }}</td>
+      <td class="num">{{ usd(row.estimate) }}{% if not row.reliable %} <span class="warn-mark" title="Less reliable estimate (Pareto k {{ '%.2f' | format(row.pareto_k) }})">*</span>{% endif %}</td>
+      <td class="num muted nowrap">{{ usd(row.estimate_lower) }}–{{ usd(row.estimate_upper) }}</td>
+      <td class="num nowrap">{{ usd(row.residual_usd, signed=True) }} <span class="muted">({{ pct(100 * row.residual_pct) }})</span></td>
+      <td>{{ band_chip(row) }}</td>
+    </tr>
+  {% else %}
+    <tr><td colspan="8" class="empty">No listings match these filters.</td></tr>
+  {% endfor %}
+  </tbody>
+</table>
+</div>
+{% endmacro %}
+
+{% macro sort_th(label, key, filters, endpoint, num=False) -%}
+{%- if filters and endpoint -%}
+{%- set active = filters.sort == key -%}
+<th scope="col" class="{{ 'num' if num }}"{% if active %} aria-sort="{{ 'descending' if filters.order == 'desc' else 'ascending' }}"{% endif %}><a href="{{ sort_url(endpoint, filters, key) }}">{{ label }}{% if active %} <span aria-hidden="true">{{ "↓" if filters.order == "desc" else "↑" }}</span>{% endif %}</a></th>
+{%- else -%}
+<th scope="col" class="{{ 'num' if num }}">{{ label }}</th>
+{%- endif -%}
+{%- endmacro %}
+
+{% macro pager(filters, pages, endpoint) %}
+{% if pages > 1 %}
+<nav class="pager" aria-label="Pages">
+  {% if filters.page > 1 %}<a href="{{ page_url(endpoint, filters, page=filters.page - 1) }}" rel="prev">← Previous</a>{% else %}<span class="disabled">← Previous</span>{% endif %}
+  <span>Page {{ filters.page }} of {{ "{:,}".format(pages) }}</span>
+  {% if filters.page < pages %}<a href="{{ page_url(endpoint, filters, page=filters.page + 1) }}" rel="next">Next →</a>{% else %}<span class="disabled">Next →</span>{% endif %}
+</nav>
+{% endif %}
+{% endmacro %}

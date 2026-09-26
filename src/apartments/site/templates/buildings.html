@@ -1,0 +1,62 @@
+{% extends "base.html" %}
+{% block title %}Buildings{% endblock %}
+{% block content %}
+<h1>Buildings</h1>
+<form class="filters" action="{{ url_for('buildings') }}" method="get" role="search">
+  <div class="field grow">
+    <label for="b-q">Name or address</label>
+    <input id="b-q" name="q" type="search" value="{{ q }}" autocomplete="off">
+  </div>
+  <div class="field">
+    <label for="b-sort">Sort</label>
+    <select id="b-sort" name="sort">
+    {% for key, spec in sorts.items() %}<option value="{{ key }}"{% if sort == key %} selected{% endif %}>{{ spec[1] }}</option>{% endfor %}
+    </select>
+  </div>
+  <div class="field">
+    <label for="b-order">Order</label>
+    <select id="b-order" name="order">
+      <option value="asc"{% if order == "asc" %} selected{% endif %}>Ascending</option>
+      <option value="desc"{% if order == "desc" %} selected{% endif %}>Descending</option>
+    </select>
+  </div>
+  <div class="field actions"><button type="submit">Apply</button>{% if q %}<a href="{{ url_for('buildings') }}">Reset</a>{% endif %}</div>
+</form>
+<div class="results-head"><p><strong>{{ "{:,}".format(total) }}</strong> building{{ "" if total == 1 else "s" }}</p></div>
+<div class="table-wrap">
+<table class="data">
+  <thead><tr>
+    <th scope="col">Building</th>
+    <th scope="col" class="num">Listings</th>
+    <th scope="col" class="num">Units</th>
+    <th scope="col" class="num">Available now</th>
+    <th scope="col" class="num" title="The building's level against an average building, with the same apartment">Building level</th>
+    <th scope="col" class="num" title="Median over the building's listings of ask against estimate">Median ask vs estimate</th>
+    <th scope="col">Last listed</th>
+  </tr></thead>
+  <tbody>
+  {% for b in rows %}
+    <tr>
+      <td><a href="{{ url_for('building', building_id=b.id) }}">{{ b.name or b.address }}</a>{% if b.name %}<br><span class="muted">{{ b.address }}</span>{% endif %}</td>
+      <td class="num">{{ "{:,}".format(b.listings) }}</td>
+      <td class="num">{{ "{:,}".format(b.units) }}</td>
+      <td class="num">{{ b.current_listings or "" }}</td>
+      <td class="num">{{ pct(b.level_pct) }} <span class="muted nowrap">({{ pct(b.level_pct_lower) }} to {{ pct(b.level_pct_upper) }})</span></td>
+      <td class="num">{{ pct(100 * b.median_residual_pct, digits=1) }}</td>
+      <td class="nowrap">{{ month(b.last_period) }}</td>
+    </tr>
+  {% else %}
+    <tr><td colspan="7" class="empty">No buildings match.</td></tr>
+  {% endfor %}
+  </tbody>
+</table>
+</div>
+{% if pages > 1 %}
+<nav class="pager" aria-label="Pages">
+  {% if page > 1 %}<a href="{{ link(page=page - 1 if page > 2 else None) }}" rel="prev">← Previous</a>{% else %}<span class="disabled">← Previous</span>{% endif %}
+  <span>Page {{ page }} of {{ pages }}</span>
+  {% if page < pages %}<a href="{{ link(page=page + 1) }}" rel="next">Next →</a>{% else %}<span class="disabled">Next →</span>{% endif %}
+</nav>
+{% endif %}
+<p class="note">Building level: how much more (or less) the same apartment asks in this building than in an average building, with its 95% interval.</p>
+{% endblock %}

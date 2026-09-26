@@ -1,0 +1,79 @@
+{% extends "base.html" %}
+{% import "_macros.html" as m with context %}
+{% block title %}{{ "Available now" if filters.status == "current" else "Listings" }}{% endblock %}
+{% block content %}
+<h1>{{ "Available now" if filters.status == "current" else "Listings" }}</h1>
+
+<form class="filters" action="{{ url_for('listings') }}" method="get" aria-label="Filter listings">
+  <div class="field grow">
+    <label for="f-q">Building, address or unit</label>
+    <input id="f-q" name="q" type="search" value="{{ filters.q }}" autocomplete="off">
+  </div>
+  <fieldset class="field">
+    <legend>Bedrooms</legend>
+    <div class="checks">
+    {% for key, label in BEDROOMS.items() %}
+      <label class="check"><input type="checkbox" name="beds" value="{{ key }}"{% if key in filters.beds %} checked{% endif %}> {{ label }}</label>
+    {% endfor %}
+    </div>
+  </fieldset>
+  <div class="field">
+    <label for="f-min">Ask from</label>
+    <input id="f-min" name="min_ask" inputmode="numeric" size="7" value="{{ '{:g}'.format(filters.min_ask) if filters.min_ask is not none }}" placeholder="$">
+  </div>
+  <div class="field">
+    <label for="f-max">to</label>
+    <input id="f-max" name="max_ask" inputmode="numeric" size="7" value="{{ '{:g}'.format(filters.max_ask) if filters.max_ask is not none }}" placeholder="$">
+  </div>
+  <div class="field">
+    <label for="f-from">Years</label>
+    <input id="f-from" name="from" inputmode="numeric" size="4" maxlength="4" value="{{ filters.year_from or '' }}" placeholder="from">
+  </div>
+  <div class="field">
+    <label for="f-to" class="visually-hidden">to year</label>
+    <input id="f-to" name="to" inputmode="numeric" size="4" maxlength="4" value="{{ filters.year_to or '' }}" placeholder="to">
+  </div>
+  <div class="field">
+    <label for="f-status">Status</label>
+    <select id="f-status" name="status">
+    {% for key, label in STATUS.items() %}<option value="{{ key }}"{% if filters.status == key %} selected{% endif %}>{{ label }}</option>{% endfor %}
+    </select>
+  </div>
+  <div class="field">
+    <label for="f-price">Ask vs model</label>
+    <select id="f-price" name="price">
+    {% for key, label in BANDS.items() %}<option value="{{ key }}"{% if filters.band == key %} selected{% endif %}>{{ label }}</option>{% endfor %}
+    </select>
+  </div>
+  <div class="field">
+    <label for="f-sort">Sort</label>
+    <select id="f-sort" name="sort">
+    {% for key, spec in SORTS.items() %}<option value="{{ key }}"{% if filters.sort == key %} selected{% endif %}>{{ spec[1] }}</option>{% endfor %}
+    </select>
+  </div>
+  <div class="field">
+    <label for="f-order">Order</label>
+    <select id="f-order" name="order">
+      <option value="asc"{% if filters.order == "asc" %} selected{% endif %}>Ascending</option>
+      <option value="desc"{% if filters.order == "desc" %} selected{% endif %}>Descending</option>
+    </select>
+  </div>
+  <div class="field actions">
+    <button type="submit">Apply</button>
+    {% if filters.active() %}<a href="{{ url_for('listings') }}">Reset</a>{% endif %}
+  </div>
+</form>
+
+<div class="results-head">
+  <p><strong>{{ "{:,}".format(total) }}</strong> listing{{ "" if total == 1 else "s" }}{% if total > filters.per %}, {{ "{:,}".format((filters.page - 1) * filters.per + 1) }}–{{ "{:,}".format([filters.page * filters.per, total] | min) }} shown{% endif %}</p>
+  <p class="results-links">
+    Per page:
+    {% for n in PER_PAGE %}{% if n == filters.per %}<strong>{{ n }}</strong>{% else %}<a href="{{ page_url('listings', filters, per=(None if n == 50 else n), page=None) }}">{{ n }}</a>{% endif %}{% if not loop.last %} · {% endif %}{% endfor %}
+    <a class="download" href="{{ csv_url }}" download>Download CSV</a>
+  </p>
+</div>
+{{ m.listing_table(rows, filters, 'listings') }}
+{{ m.pager(filters, pages, 'listings') }}
+<p class="note">“Below typical” and “Above typical” mean the ask is in the lowest or highest 10% of what the model expects for
+that apartment, in that building, that month. <span class="warn-mark">*</span> marks a less reliable estimate.</p>
+{% endblock %}

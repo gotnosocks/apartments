@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+{% set scope = meta.scope if meta else "NYC" %}
+<title>{% block title %}{% endblock %} · {{ scope }} rents</title>
+<link rel="icon" href="data:,">
+<link rel="stylesheet" href="{{ static_url('site.css') }}">
+<script src="{{ static_url('site.js') }}" defer></script>
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+<header class="top">
+  <div class="wrap top-inner">
+    <a class="brand" href="{{ url_for('index') }}">{{ scope }} rents</a>
+    <nav aria-label="Main">
+      {% set here = request.endpoint %}
+      <a href="{{ url_for('listings') }}"{% if here in ('listings', 'listing', 'unit') and request.args.get('status') != 'current' %} aria-current="page"{% endif %}>Listings</a>
+      <a href="{{ url_for('listings', status='current', sort='diff_pct') }}"{% if here == 'listings' and request.args.get('status') == 'current' %} aria-current="page"{% endif %}>Available now</a>
+      <a href="{{ url_for('buildings') }}"{% if here in ('buildings', 'building') %} aria-current="page"{% endif %}>Buildings</a>
+      <a href="{{ url_for('model_page') }}"{% if here == 'model_page' %} aria-current="page"{% endif %}>About the estimates</a>
+    </nav>
+  </div>
+</header>
+<main id="main" class="wrap">
+{% block content %}{% endblock %}
+</main>
+<footer class="wrap foot">
+  {% if meta %}
+  {% set p = meta.provenance %}
+  <p>{{ "{:,}".format(meta.stats.listings) }} listings, {{ month(meta.stats.first_period) }} to {{ month(meta.stats.last_period) }}.
+  Estimates from <a href="{{ url_for('model_page') }}">{{ p.model.name }} + {{ p.feature_set }}</a>, fit {{ p.fit_started_at[:10] if p.fit_started_at else "" }}.
+  Model outputs, not appraisals: they describe asking rents, not what a unit would lease for.</p>
+  {% endif %}
+</footer>
+</body>
+</html>

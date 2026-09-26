@@ -1,0 +1,57 @@
+{% extends "base.html" %}
+{% import "_macros.html" as m with context %}
+{% block title %}Listings and estimates{% endblock %}
+{% block content %}
+{% set s = meta.stats %}
+<section class="intro">
+  <h1>{{ meta.scope }} rental listings, with what the model expects each to ask</h1>
+  <p class="lede">Every listing's estimate uses the building, the apartment's features, the market that month and the unit's
+  <em>other</em> listings, never the listing's own ask. That makes the gap between ask and estimate a fair signal of
+  over- or under-pricing. <a href="{{ url_for('model_page') }}">How the estimates work</a></p>
+  <form class="search" action="{{ url_for('listings') }}" method="get" role="search">
+    <label for="q" class="visually-hidden">Building, address or unit</label>
+    <input id="q" name="q" type="search" placeholder="Building, address or unit (e.g. 23C)" autocomplete="off">
+    <button type="submit">Search listings</button>
+  </form>
+</section>
+
+<section class="tiles" aria-label="Coverage">
+  <div class="tile"><span class="tile-label">Listings</span><span class="tile-value">{{ "{:,}".format(s.listings) }}</span></div>
+  <div class="tile"><span class="tile-label">Available now</span><span class="tile-value">{{ "{:,}".format(s.current_listings) }}</span></div>
+  <div class="tile"><span class="tile-label">Buildings</span><span class="tile-value">{{ "{:,}".format(s.buildings) }}</span></div>
+  <div class="tile"><span class="tile-label">Units</span><span class="tile-value">{{ "{:,}".format(s.units) }}</span></div>
+  <div class="tile"><span class="tile-label">Period</span><span class="tile-value tile-small">{{ month(s.first_period) }} – {{ month(s.last_period) }}</span></div>
+</section>
+
+<section class="card">
+  <div class="card-head">
+    <h2>Available now, lowest ask against estimate first</h2>
+    <a href="{{ url_for('listings', status='current', sort='diff_pct') }}">All {{ s.current_listings }} available listings →</a>
+  </div>
+  {{ m.listing_table(current) }}
+  <p class="note">Asks as captured on {{ month(s.last_period) }}. <span class="warn-mark">*</span> marks a less reliable estimate.</p>
+</section>
+
+<section class="card">
+  <div class="card-head">
+    <h2>Market reference rent</h2>
+  </div>
+  <p class="note">A reference apartment (one bedroom, one bath, every attribute at its reference level) in an average {{ meta.scope }}
+  building, seasonally adjusted, with its 95% interval. Every estimate starts from this and adds the listing's features,
+  building and unit.</p>
+  {{ market_chart }}
+  <details class="table-view">
+    <summary>Table view</summary>
+    <div class="table-wrap tall">
+    <table class="data">
+      <thead><tr><th scope="col">Month</th><th scope="col" class="num">Seasonally adjusted</th><th scope="col" class="num">95% interval</th><th scope="col" class="num">With season</th></tr></thead>
+      <tbody>
+      {% for r in market | reverse %}
+        <tr><td>{{ month(r.period) }}</td><td class="num">{{ usd(r.deseasoned) }}</td><td class="num muted">{{ usd(r.deseasoned_lower) }}–{{ usd(r.deseasoned_upper) }}</td><td class="num">{{ usd(r.rent) }}</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+    </div>
+  </details>
+</section>
+{% endblock %}

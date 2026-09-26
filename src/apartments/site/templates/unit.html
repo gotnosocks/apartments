@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+{% import "_macros.html" as m with context %}
+{% set bname = unit.building_name or unit.building_address %}
+{% block title %}{{ unit.label or "Unit" }} at {{ bname }}{% endblock %}
+{% block content %}
+<nav class="crumbs" aria-label="Breadcrumb">
+  <a href="{{ url_for('buildings') }}">Buildings</a> ›
+  <a href="{{ url_for('building', building_id=unit.building_id) }}">{{ bname }}</a> ›
+  <span aria-current="page">{{ unit.label or "Unit" }}</span>
+</nav>
+<h1>{{ unit.label or "Unit" }} at {{ bname }}</h1>
+<p class="subline">
+  {% if unit.building_name %}{{ unit.building_address }} · {% endif %}
+  {{ m.layout(unit) }}{% if unit.floor is not none %} · floor {{ unit.floor }}{% endif %}
+  · {{ unit.listings }} listing{{ "" if unit.listings == 1 else "s" }}, {{ month(unit.first_period) }}{% if unit.last_period != unit.first_period %} to {{ month(unit.last_period) }}{% endif %}
+  {% if unit.url %}· <a href="{{ unit.url }}" rel="noopener noreferrer" target="_blank">StreetEasy ↗</a>{% endif %}
+</p>
+<section class="card">
+  <h2>Asks and estimates over time</h2>
+  <p class="note">Each estimate uses the unit's other listings but not its own ask. Latest listing:
+  ask {{ usd(unit.last_ask) }}, estimate {{ usd(unit.last_estimate) }} ({{ pct(100 * unit.last_residual_pct) }}).</p>
+  {{ chart }}
+  {{ m.listing_table(rows, show_building=False) }}
+</section>
+{% endblock %}
