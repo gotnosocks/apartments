@@ -466,6 +466,16 @@ the fix goes into the model, the features or the data, not the sampler.
   from "every building up". Two ways out: sum-to-zero walks across buildings (a model change:
   the market trend carries all common time variation), or a per-knot mean plus zero-sum split
   of the walks (an exact coordinate, as for the building totals). Ben's call.
+  - **Ben (2026-09-26) chose the model change: sum-to-zero walks** (`walk_zero_sum`,
+    `m1-walk36-zs`, 06580e6). The likelihood uses each knot's walk less its mean across
+    buildings, i.e. zero-sum walk steps across buildings, so the market trend carries all
+    common time variation. **It fixes the trend:** the worst market-trend R-hat drops from
+    1.0106 to 1.0039, and no trend point is above 1.01. PSIS-LOO is unchanged (48,507.7,
+    −2.8 ± 4.2 against the walk without the constraint).
+  - The fit (902 s) still fails on walk_scale (R-hat 1.013, ESS 205; 401 and 368 in the
+    earlier Normal 3-year walks, so near the gate anyway). Like line_scale, walk_scale is a
+    centred scale over thousands of weakly informed effects and mixes slowly, which no model
+    change is expected to fix. More draws or a sampling coordinate are back with Ben.
 - **Line ("column") effects within buildings** (`m0q-btrend-lines`, `unitdesc-v1`,
   `unit-labels-v1`, 4224e62; Ben's backlog). Units stacked vertically share an effect, taken
   from the unit label (23C and 4C are line C; 1204 and 304 are line 04; 2ND, 4TH and 4THFL
