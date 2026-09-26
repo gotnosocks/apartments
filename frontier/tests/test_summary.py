@@ -207,3 +207,60 @@ def test_write_records_every_file_and_renames_last(tmp_path, monkeypatch):
     }
     assert record["rows"] == 2 and record["rows_in_fit"] == 1
     assert not (tmp_path / "s.tmp").exists()
+
+
+def _result(**changes):
+    result = {
+        "split": "rows",
+        "feature_set": "unitdesc-v1",
+        "feature_sources": {"registry": {"path": "/old/path", "sha256": "abc"}},
+    }
+    result.update(changes)
+    return result
+
+
+def test_check_run_hashes_the_files_the_feature_set_reads_now(monkeypatch):
+    now = {"registry": {"path": "/new/path", "sha256": "abc"}}
+    monkeypatch.setattr(summary.run_module, "feature_sources", lambda fs: now)
+    summary.check_run(_result())  # same content at a new path is fine
+    now["registry"]["sha256"] = "changed"
+    with pytest.raises(SystemExit, match="feature source registry differs"):
+        summary.check_run(_result())
+    monkeypatch.setattr(summary.run_module, "feature_sources", lambda fs: {})
+    with pytest.raises(SystemExit, match="feature source registry differs"):
+        summary.check_run(_result())
+
+
+def test_check_run_refuses_the_unit_split(monkeypatch):
+    monkeypatch.setattr(summary.run_module, "feature_sources", lambda fs: {})
+    summary.check_run(_result(split="all", feature_sources={}))
+    with pytest.raises(SystemExit, match="units-split runs are not summarized"):
+        summary.check_run(_result(split="units", feature_sources={}))
+
+
+def test_verify_run_refuses_differing_rows_and_indexes(tmp_path):
+    from types import SimpleNamespace
+
+    frame = pd.DataFrame({"audit_id": ["a", "b", "c"]})
+    frame.attrs["source_sha256"] = "d"
+    heldout = np.array([False, True, False])
+    np.savez(tmp_path / "heldout.npz", audit_id=np.array(["b"], dtype=object))
+    prep = SimpleNamespace(units=np.array(["u1", "u2"]), buildings=np.array(["b1"]))
+    result = {"dataset_observations_sha256": "d"}
+    args = (result, frame, heldout, prep, tmp_path)
+    summary.verify_run(*args, prep.units, prep.buildings)
+    with pytest.raises(SystemExit, match="dataset differs"):
+        summary.verify_run(
+            {"dataset_observations_sha256": "x"}, *args[1:], prep.units, prep.buildings
+        )
+    with pytest.raises(SystemExit, match="held-out rows differ"):
+        summary.verify_run(
+            result, frame, ~heldout, prep, tmp_path, prep.units, prep.buildings
+        )
+    with pytest.raises(SystemExit, match="units or buildings differ"):
+        summary.verify_run(*args, np.array(["u1"]), prep.buildings)
+
+
+def test_chunk_rows_bounds_the_batch():
+    assert summary.chunk_rows(2200) == 1022
+    assert summary.chunk_rows(100) == 1024 and summary.chunk_rows(100_000) == 256

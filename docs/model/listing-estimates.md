@@ -15,14 +15,17 @@ It writes `/data1/apartments/frontier/summaries/<run>-<commit>/`. The module doc
 column list. The summary refuses:
 - a dirty tree;
 - a run that fails the convergence gate (`--allow-failing` for experiments);
-- a dataset, feature source, held-out row set, or unit and building index that differs from the
-  run's record;
+- a dataset, held-out row set, or unit and building index that differs from the run's record;
+- a feature source whose file, as the feature set reads it now (`run.feature_sources`), differs from
+  the run's record;
+- unit-split runs, whose unseen units would lose their unit prior (row-split and `all` runs are
+  accepted);
 - unit-drift designs, whose drift the leave-own-row-out step does not integrate.
 
 ## What an estimate is
 
 The **estimate** is the row's latent rent exp(μ): the median ask of this apartment, in this
-building, that month. It is conditioned on every other row but **not the row's own ask**
+building, that month. It is conditioned on every other row in the fit but **not the row's own ask**
 (leave-own-row-out), as the brief requires for the app's residuals. The in-sample fit is pulled
 toward the ask.
 - **Held-out rows** (the run's row split, 5,264 rows) were not in the fit, so their posterior is

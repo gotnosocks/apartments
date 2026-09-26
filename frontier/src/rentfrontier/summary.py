@@ -3,15 +3,18 @@
     uv run --extra gpu python -m rentfrontier.summary <run-name>
 
 Reads the run's kept joint draws and the dataset it was fit on; never fits.
-Refuses a dirty tree, a changed dataset or feature source, and a run that
-fails the convergence gate (`--allow-failing` for experiments; the gate
-status is recorded either way).
+Refuses a dirty tree, a changed dataset or feature source (the files the
+feature set reads now, against the run's record), a unit-split run (rows of
+unseen units would lose their unit prior), and a run that fails the
+convergence gate (`--allow-failing` for experiments; the gate status is
+recorded either way).
 
 For every row of the dataset, in the fit or held out:
 
 estimate      leave-own-row-out estimate of the row's latent rent exp(mu):
               the median ask of this apartment, in this building, that
-              month, given every other row but not the row's own ask.
+              month, given every other row in the fit but not the row's
+              own ask.
               - held-out rows (not in the fit): the posterior as is;
               - rows in the fit: the unit level is integrated given the
                 unit's other rows, as in `loo`; per draw, a level is drawn
@@ -65,12 +68,13 @@ import numpy as np
 import pandas as pd
 
 from . import data, explain, features, leaderboard, loo, model, splits
+from . import run as run_module
 from .run import git, hardware
 
 SUMMARIES = data.OUTPUT_ROOT / "summaries"
 VERSION = "frontier-summary-v1"
 SEED = 20260926
-CHUNK = 1024  # rows per batch (whole units): draws x rows x terms stays < 1 GB
+SPLITS = ("rows", "all")  # every held-out row's unit has rows in the fit
 PROBABILITIES = (0.025, 0.5, 0.975)
 
 # Display labels of the non-feature terms (feature groups are labelled by name).
@@ -91,6 +95,25 @@ TERM_TEXT = {
     "market": "A reference apartment (one bedroom, one bath, every attribute at "
     "its reference level) in an average building that month: offset, "
     "intercept, market trend and calendar season.",
+    "bedrooms": "Bedroom count, against a one-bedroom.",
+    "bathrooms": "Full and half bathrooms, against one full bath.",
+    "size": "Square feet against the typical size for the bedroom count, or "
+    "size not stated.",
+    "floor": "The floor, with steps above the 6th and 15th floors, and walk-up "
+    "floors in buildings without an elevator.",
+    "elevator": "Elevator in the building (or not stated).",
+    "doorman": "Doorman: full-time, part-time, virtual, none or not stated.",
+    "laundry": "Laundry in the unit (or not stated), against laundry in the "
+    "building or none.",
+    "hvac": "Central air or other heating and cooling, against not stated.",
+    "pets": "The pet policy.",
+    "views": "Views the listing states (city, park, water, skyline, ...).",
+    "windows": "Window exposures the listing states.",
+    "unit label": "Penthouse, garden and lower-level units, from the unit label.",
+    "price_basis": "A current capture's gross ask, against the first ask of a "
+    "past advertisement.",
+    "description": "Flags from the advertisement's own text (renovated, "
+    "dishwasher, no fee, rent stabilized, ...), or no text.",
     "bedroom_market_curve": "The bedroom group's own market-curve deviation.",
     "building": "The building's level against an average building.",
     "building_drift": "The building's own movement over time (walk or trend).",
@@ -253,12 +276,29 @@ def row_inputs(feats: features.Features, rows: np.ndarray) -> list[str]:
     ]
 
 
+def chunk_rows(draws: int) -> int:
+    """Rows per batch of whole units, so draws x rows x terms stays near 1 GB."""
+    return int(min(1024, max(256, 2_250_000 // draws)))
+
+
+def check_run(result):
+    """Refuse runs whose held-out rows could belong to units with no rows in
+    the fit, and feature sources that differ now from the run's record: the
+    files the feature set reads today (`run.feature_sources`), not the paths
+    recorded then."""
+    if result["split"] not in SPLITS:
+        raise SystemExit(
+            f"{result['split']}-split runs are not summarized (splits: {SPLITS})"
+        )
+    now = run_module.feature_sources(result["feature_set"])
+    for key, src in result.get("feature_sources", {}).items():
+        if key not in now or now[key]["sha256"] != src["sha256"]:
+            raise SystemExit(f"feature source {key} differs from the run's record")
+
+
 def verify_run(result, frame, heldout, prep, run_dir, post_units, post_buildings):
     if frame.attrs["source_sha256"] != result["dataset_observations_sha256"]:
         raise SystemExit("dataset differs from the run's recorded dataset")
-    for key, src in result.get("feature_sources", {}).items():
-        if data.sha256(Path(src["path"])) != src["sha256"]:
-            raise SystemExit(f"feature source {key} differs from the run's record")
     recorded = np.load(run_dir / "heldout.npz", allow_pickle=True)["audit_id"]
     if not np.array_equal(frame.audit_id.to_numpy()[heldout], recorded):
         raise SystemExit("held-out rows differ from the run's recorded rows")
@@ -292,6 +332,7 @@ def summarize(name: str, allow_failing: bool = False):
         raise SystemExit(f"{name} fails the convergence gate: {gate_status}")
     if "unit_drift" in kept and kept["unit_drift"].shape[1] > 1:
         raise SystemExit("unit-drift designs are not supported (drift not integrated)")
+    check_run(result)
     config = model.MODELS[result["model"]["name"]]
     frame = data.load(Path(result["dataset"]))
     heldout = splits.SPLITS[result["split"]](frame)
@@ -330,7 +371,8 @@ def summarize(name: str, allow_failing: bool = False):
     unit_of = pd.Index(prep.units).get_indexer(frame.unit_id.to_numpy()[train_idx])
     order = np.argsort(unit_of, kind="stable")
     rows_sorted, units_sorted = train_idx[order], unit_of[order]
-    for lo, hi in loo.unit_chunks(units_sorted, CHUNK):
+    chunk = chunk_rows(draws)
+    for lo, hi in loo.unit_chunks(units_sorted, chunk):
         rows = np.sort(rows_sorted[lo:hi])  # frame order, as row_arrays returns
         mask = np.zeros(len(frame), dtype=bool)
         mask[rows] = True
@@ -338,14 +380,14 @@ def summarize(name: str, allow_failing: bool = False):
         fitted = np.exp(sum(terms.values()))
         rest = sum(v for k, v in terms.items() if k not in loo.UNIT_TERMS)
         _, seg = np.unique(a.unit, return_inverse=True)
-        pad = CHUNK - len(rows)
+        pad = chunk - len(rows)
         # Pad to a fixed shape (one compile); padded rows are their own units.
         key, sub_key = jax.random.split(key)
         loglik, level = loo_unit_levels(
             np.r_[a.y, np.zeros(pad)],
             np.concatenate([rest - prep.offset, np.zeros((draws, pad))], axis=1),
             np.r_[seg, seg.max() + 1 + np.arange(pad)],
-            CHUNK,
+            chunk,
             params,
             sub_key,
             t_units=t_units,
@@ -368,7 +410,7 @@ def summarize(name: str, allow_failing: bool = False):
         )
     # Held-out rows: the fit never saw them; the posterior is the estimate.
     held_idx = np.flatnonzero(heldout)
-    for rows in np.array_split(held_idx, max(1, math.ceil(len(held_idx) / CHUNK))):
+    for rows in np.array_split(held_idx, max(1, math.ceil(len(held_idx) / chunk))):
         if not len(rows):
             continue
         mask = np.zeros(len(frame), dtype=bool)
@@ -472,7 +514,7 @@ def terms_record(names) -> list[dict]:
         {
             "name": n,
             "label": TERM_LABELS.get(n, n.replace("_", " ").capitalize()),
-            "description": TERM_TEXT.get(n, f"Listing attributes: {n}."),
+            "description": TERM_TEXT.get(n, f"Listing attributes ({n})."),
         }
         for n in names
     ]
