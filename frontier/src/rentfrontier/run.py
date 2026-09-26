@@ -239,6 +239,16 @@ def feature_sources(feature_set: str) -> dict:
     return out
 
 
+def _data_rules(value: str) -> tuple:
+    rules = tuple(r for r in value.split(",") if r)
+    unknown = [r for r in rules if r not in data.DATA_RULES]
+    if unknown:
+        raise argparse.ArgumentTypeError(
+            f"unknown data rules {unknown}; known: {sorted(data.DATA_RULES)}"
+        )
+    return rules
+
+
 def main(argv=None):
     parser = argparse.ArgumentParser(
         description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
@@ -249,6 +259,8 @@ def main(argv=None):
     )
     parser.add_argument(
         "--data-rules",
+        type=_data_rules,
+        default=(),
         help="comma-separated data rules (data.DATA_RULES), applied after the split",
     )
     parser.add_argument("--model", default="m0-base")
@@ -336,7 +348,11 @@ def main(argv=None):
     t0 = time.perf_counter()
     frame = data.load()
     heldout = splits.SPLITS[args.split](frame)
-    rules = tuple(args.data_rules.split(",")) if args.data_rules else ()
+    rules = args.data_rules
+    if rules and args.split == "units":
+        # unit-labels-v1 merges units after the split, which would join held-out
+        # units to training units (77 units, 142 held-out rows).
+        raise SystemExit("data rules merge units: not with the units split")
     frame = data.apply_rules(frame, rules)  # after the split: scored rows are fixed
     feats = features.build(args.features, frame, ~heldout)
     prep = model.prepare(frame, heldout, feats)

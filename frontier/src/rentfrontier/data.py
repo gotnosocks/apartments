@@ -118,7 +118,7 @@ def merge_unit_labels(frame: pd.DataFrame) -> pd.DataFrame:
     """One unit id for the units of a building whose labels are the same label
     written differently (521 groups, 1,055 unit ids, 2,023 rows: "4-FLR" and
     "4FLR", "02" and "2", "UNIT4J" and "4J"). The canonical id is the group's
-    first unit id. Rows are unchanged."""
+    lexicographically smallest unit id. Rows are unchanged."""
     label = frame.canonical_unit_url.str.extract(r"/([^/]+)$")[0].map(unit_label_key)
     key = frame.building + "/" + label
     canonical = frame.groupby(key).unit_id.transform("min")
