@@ -45,3 +45,12 @@ def test_unit_label_flags():
         assert hits == [flag], (label, hits)
     for label in ("23C", "4B", "307", "G", "B", "PARK"):
         assert not any(re.search(p, label) for p in features.UNIT_LABEL_FLAGS.values())
+
+
+def test_label_floor_number():
+    urls = [
+        "https://streeteasy.com/building/x/" + u
+        for u in ("23c", "apt-4b", "307", "ph", "4th", "12", "3rd")
+    ]
+    got = features.label_floor_number(pd.DataFrame({"canonical_unit_url": urls}))
+    np.testing.assert_array_equal(got, [23, 4, 3, np.nan, 4, np.nan, 3])

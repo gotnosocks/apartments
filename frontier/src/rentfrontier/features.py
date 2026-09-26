@@ -73,6 +73,14 @@ UNIT_LABEL_FLAGS = {
 }
 
 
+def label_floor_number(frame: pd.DataFrame) -> pd.Series:
+    """The floor a unit label states: "23C", "APT-4B", "4TH" -> 23, 4, 4; "307" -> 3."""
+    label = frame.canonical_unit_url.str.extract(r"/([^/]+)$")[0].str.upper()
+    lettered = label.str.extract(r"^(?:APT-?)?(\d{1,2})[A-Z]{1,2}$")[0]
+    numbered = label.str.extract(r"^(\d)\d\d$")[0]
+    return lettered.fillna(numbered).astype(float)
+
+
 def _bedroom_label(count):
     return count.astype(int).map(lambda b: "5+" if b >= 5 else str(b))
 
@@ -98,6 +106,7 @@ def base_v1(
     by_unit: bool = False,
     unit_size: bool = False,
     unit_labels: bool = False,
+    label_floor: bool = False,
 ) -> Features:
     """Listing attributes as advertised, with explicit unknown levels.
 
@@ -110,6 +119,9 @@ def base_v1(
     unit_labels ("unitlabels-v1"): flags from the unit's StreetEasy label
     (UNIT_LABEL_FLAGS): penthouse, garden and lower-level units. Penthouses ask
     12% more than other units of the same building, year and bedrooms.
+    label_floor ("unitfloor-v1"): the floor, when the listing states none, from
+    the unit's label ("23C" -> 23, "307" -> 3; 3,445 more rows). Where both
+    exist they agree on all 33,270 rows.
     """
     b = _Builder(frame)
     advertised = frame.bedrooms.round().clip(0, 5)
@@ -144,6 +156,8 @@ def base_v1(
 
     # Advertised floor label (a proxy, not a verified physical floor).
     floor = frame.listed_floor.astype("float")
+    if label_floor:
+        floor = floor.where(floor.ge(1), label_floor_number(frame))
     floor_known = floor.ge(1)
     log_floor = np.log(floor.where(floor_known, 1.0))
     b.add("floor", "log_floor", log_floor)
@@ -319,6 +333,14 @@ FEATURE_SETS = {
     "unitattrs-v1": partial(base_v1, id="unitattrs-v1", by_unit=True, unit_size=True),
     "unitlabels-v1": partial(
         base_v1, id="unitlabels-v1", by_unit=True, unit_size=True, unit_labels=True
+    ),
+    "unitfloor-v1": partial(
+        base_v1,
+        id="unitfloor-v1",
+        by_unit=True,
+        unit_size=True,
+        unit_labels=True,
+        label_floor=True,
     ),
     "desc-v1": desc_v1,
     "pluto-v1": pluto_v1,

@@ -209,7 +209,7 @@ implementation over implementing our own").
     | 4 × (300 + 450) | 885 s | 1.009 | 677 | 40,603.8 |
     | **4 × (250 + 550)** | **888 s** | **1.005** | **894** | **40,607.5** |
 
-    With 250–300 warmup iterations, warmup takes 598–642 s of each fit (673–801 s with 400–500),
+    With 250–300 warmup iterations, warmup takes 598–642 s of each fit (673–787 s with 400–500),
     so trimming draws saves little. 4 × (250 + 550) fits inside 15 minutes with a comfortable
     gate margin.
   - Float32 does not work: a chain's step size collapsed.
@@ -228,7 +228,7 @@ implementation over implementing our own").
   - **The SVI warm start cuts m0q to 592 s** (7229ef0, 4 × (250 + 550), `--svi-steps 2000`),
     and it still passes (R-hat 1.006, ESS 817). Before sampling, 2,000 steps of NumPyro SVI
     fit a mean-field normal guide (46 s). Each chain starts at a draw from it, with its
-    variances as the initial mass matrix. Warmup drops from 585 s to 252 s. PSIS-LOO is
+    variances as the initial mass matrix. Warmup drops from 598 s to 252 s. PSIS-LOO is
     40,602.1, −5.3 ± 3.5 against the 888 s fit on identical rows (Monte Carlo noise: it is
     the same model).
   - A shorter warmup does not pay: 4 × (150 + 550) with the warm start took 746 s. Warmup was
@@ -326,11 +326,15 @@ the fix goes into the model, the features or the data, not the sampler.
   Half of the worst rows are units listed once, against 24% of all rows.
 - **Weakly identified terms.** The building walk has about one row per occupied half-year knot
   (median 1.2) and a median of 7 empty knots before a building's first listing. The unit scale
-  makes a funnel from the 47% of units listed once. These are candidates for simpler,
+  makes a funnel from the units listed once (47% of all units; 51% of the units in the training rows). These are candidates for simpler,
   better-identified shapes: building drift, neighbourhood-level time terms, yearly knots, and
   column (line) effects that let a unit listed once borrow from its line.
 
 **Results.**
+- **Bedroom labels change within units.** 12.3% of the 11,713 units listed more than once
+  change bedroom count between listings. 86% of those change by one, and 87% keep one square
+  footage: the same apartment advertised as a studio or a junior one-bedroom, a one-bedroom or
+  a flex two.
 - **Unit-consistent bedrooms: +791 ± 73 PSIS-LOO on m0q** (`unitbeds-v1`, d80a714, the 592 s
   NUTS configuration; 631 s, passes). The bedroom levels use the unit's own count, the lower
   median of its listings. `bedrooms_vs_unit` carries a listing's relabel, fitted at
@@ -342,6 +346,9 @@ the fix goes into the model, the features or the data, not the sampler.
   size is the median of the sizes its listings state, used for every listing, so size is unknown
   on 52% of rows instead of 65%. Together with unit bedrooms: **+1,445 ± 91 over m0q base-v1**.
   ν stays at 2.6.
+- **Unit label flags: +234 ± 29 more** (`unitlabels-v1`, 8914d43; 609 s, passes). Penthouse,
+  garden and lower-level units, from the unit's StreetEasy label. Penthouses ask 12% more than
+  other units of the same building, year and bedrooms. Total: **+1,679 ± 95 over m0q base-v1**.
 - Within-unit price jumps (240 rows more than 2× off the unit's other listings, trend-adjusted)
   are mostly real changes: renovations, combined apartments, market moves. Almost none are
   furnished or short-term. A renovation mention appearing within a unit comes with only about
