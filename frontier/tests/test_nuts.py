@@ -159,10 +159,11 @@ def test_sampling_coordinates_are_exact_reparameterizations(config):
         if v["type"] == "sample" and not v["is_observed"]
     }
     moved = replace(config, coordinates=("trend_levels", "unit_totals"))
-    ub = model.constants(prep, moved)["unit_building"]
+    fixed = model.constants(prep, moved)
+    xbar_u = fixed["unit_xbar"]
     q = {k: v for k, v in p.items() if k not in ("trend_step", "unit")}
     q["trend_absolute"] = p["alpha"] + jnp.cumsum(p["trend_step"])
-    q["unit_total"] = p["unit"] + p["building"][ub]
+    q["unit_total"] = p["unit"] + xbar_u @ p["beta"]
     base = float(log_density(model.build_model(prep, config), (), {}, p)[0])
     new = float(log_density(model.build_model(prep, moved), (), {}, q)[0])
     assert new == pytest.approx(base, rel=1e-12, abs=1e-9)
@@ -234,3 +235,62 @@ def test_building_mean_plus_zero_sum_is_the_same_model():
         new = float(log_density(model.build_model(prep, moved), (), {}, q)[0])
         gaps.append(new - base)
     np.testing.assert_allclose(gaps, gaps[0], atol=1e-8)
+
+
+def test_building_totals_are_the_same_model():
+    """building_totals samples each building's effect plus its mean features
+    times beta, as a flat global mean plus zero-sum deviations: the joint
+    density matches the default one up to a constant, at any point."""
+    from numpyro.infer.util import log_density
+
+    prep = synthetic()
+    config = model.MODELS["m0q"]
+    moved = replace(config, coordinates=("building_totals", "unit_totals"))
+    fixed = model.constants(prep, moved)
+    gaps = []
+    for seed in range(3):
+        tr = handlers.trace(
+            handlers.seed(model.build_model(prep, config), seed)
+        ).get_trace()
+        p = {
+            k: v["value"]
+            for k, v in tr.items()
+            if v["type"] == "sample" and not v["is_observed"]
+        }
+        q = {k: v for k, v in p.items() if k not in ("building", "unit")}
+        total = p["building"] + fixed["building_xbar"] @ p["beta"]
+        q["building_total_mean"] = total.mean()
+        q["building_total_dev"] = total - total.mean()
+        ub = fixed["unit_building"]
+        within = fixed["unit_xbar"] - fixed["building_xbar"][ub]
+        q["unit_total"] = p["unit"] + within @ p["beta"]
+        base = float(log_density(model.build_model(prep, config), (), {}, p)[0])
+        new = float(log_density(model.build_model(prep, moved), (), {}, q)[0])
+        gaps.append(new - base)
+    np.testing.assert_allclose(gaps, gaps[0], atol=1e-7)
+
+
+@pytest.mark.parametrize("unit_t", [False, True], ids=["normal", "t"])
+def test_partially_centred_units_run_and_return_unit_effects(unit_t):
+    """unit_partial (NumPyro LocScaleReparam with per-unit weights) samples
+    and gives back the original unit effects."""
+    prep = synthetic()
+    config = model.ModelConfig(name="p", unit_t=unit_t, trend_knot_months=3)
+    c = model.constants(prep, replace(config, coordinates=("unit_partial",)))[
+        "unit_centering"
+    ]
+    assert float(c.min()) > 0.5 and float(c.max()) < 1.0
+    out = nuts.run(
+        prep,
+        config,
+        nuts.Settings(
+            chains=2,
+            warmup=60,
+            draws=20,
+            keep_every=10,
+            coordinates=("building_totals", "unit_totals", "unit_partial"),
+        ),
+        log=lambda *_: None,
+    )
+    assert np.isfinite(out["lpd"]).all()
+    assert out["kept"]["unit"].shape[-1] == len(prep.units)
