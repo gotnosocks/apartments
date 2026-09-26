@@ -142,6 +142,13 @@ class ModelConfig:
     # units listed once are in one.
     line_effects: bool = False
     line_scale_sd: float = 0.1
+    # Sum-to-zero walks: the likelihood uses each knot's walk less its mean
+    # across buildings, which is the model with zero-sum walk steps across
+    # buildings at every knot. The market trend then carries all common time
+    # variation. Without it a common shift of every walk at a time traded off
+    # against the market trend there (df5dacb: trend[144] R-hat 1.0106); Ben
+    # (2026-09-26) chose this model change.
+    walk_zero_sum: bool = False
     # Per-building linear trend in log rent per year, centred on the building's
     # mean training month: trend_b ~ N(0, building_trend_scale^2). One number
     # per building, against the walk's 34 steps at about one row per step.
@@ -418,6 +425,8 @@ def _walk(p):
     walk = jnp.concatenate(
         [jnp.zeros((steps.shape[0], 1)), jnp.cumsum(steps, axis=1)], axis=1
     )
+    if "walk_zero_sum" in p:
+        walk = walk - walk.mean(axis=0, keepdims=True)
     if "walk_anchor" in p:
         walk = walk - walk[jnp.arange(walk.shape[0]), p["walk_anchor"]][:, None]
     if "walk_mask" in p:
@@ -517,6 +526,12 @@ def constants(prep: Prepared, config: ModelConfig) -> dict:
         )
     if config.building_walk:
         out["walk_knot_months"] = config.walk_knot_months
+        if config.walk_zero_sum:
+            if config.walk_min_rows_per_knot or config.walk_anchor_data:
+                raise ValueError(
+                    "walk_zero_sum is for walks anchored at the first knot"
+                )
+            out["walk_zero_sum"] = jnp.asarray(1.0)
         if config.walk_min_rows_per_knot > 0:
             out["walk_mask"] = jnp.asarray(walk_mask(prep, config))
         if config.walk_anchor_data:
@@ -668,6 +683,7 @@ def _walk_ranges(prep: Prepared, spacing: int, mask=None) -> dict:
         "walk_free_index": jnp.asarray(
             [np.delete(k, j) for j in anchor], dtype=jnp.int32
         ),
+        "walk_anchor_knot": jnp.asarray(anchor, dtype=jnp.int32),
         "walk_first": jnp.asarray(first, dtype=jnp.int32),
         "walk_last": jnp.asarray(last, dtype=jnp.int32),
         "walk_before": jnp.asarray(k < first[:, None]),
@@ -827,6 +843,11 @@ def build_model(prep: Prepared, config: ModelConfig):
                 walk_at_anchor = walk_at_anchor * fixed["walk_mask"]
             if config.walk_anchor_data:  # the walk is 0 at the anchor itself
                 walk_at_anchor = jnp.zeros_like(walk_at_anchor)
+            if config.walk_zero_sum:  # the likelihood's (centred) walk there
+                centred = _walk({"walk_step": p["walk_step"], "walk_zero_sum": 1.0})
+                walk_at_anchor = centred[
+                    jnp.arange(centred.shape[0]), fixed["walk_anchor_knot"]
+                ]
         if slope_totals:  # before the buildings, whose totals include it
             bedroom_slope()
         if config.buildings and "building_totals" in config.coordinates:
@@ -1055,6 +1076,21 @@ MODELS = {
     # m0q with a linear trend per building instead of m1q's walk.
     "m0q-btrend": ModelConfig(
         name="m0q-btrend", building_trend=True, trend_knot_months=3
+    ),
+    # Sum-to-zero coarse walks (Ben, 2026-09-26): knots every 3 or 2 years.
+    "m1-walk36-zs": ModelConfig(
+        name="m1-walk36-zs",
+        building_walk=True,
+        walk_knot_months=36,
+        walk_zero_sum=True,
+        trend_knot_months=3,
+    ),
+    "m1-walk24-zs": ModelConfig(
+        name="m1-walk24-zs",
+        building_walk=True,
+        walk_knot_months=24,
+        walk_zero_sum=True,
+        trend_knot_months=3,
     ),
     # m0q-btrend with line ("column") effects within buildings.
     "m0q-btrend-lines": ModelConfig(
