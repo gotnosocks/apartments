@@ -126,6 +126,12 @@ def main(argv=None):
             help="persist rental-only collection with evidenced canonical-unit membership",
         )
         command.add_argument(
+            "--rental-min-listing-id",
+            type=int,
+            help="with --rental-canonical-only, skip rental advertisements with a lower ID "
+            "before any request; persists across resumes (0 clears)",
+        )
+        command.add_argument(
             "--max-requests",
             type=int,
             default=0,
@@ -160,8 +166,9 @@ def main(argv=None):
     if args.command == "serve":
         if not 1 <= args.port <= 65535:
             parser.error("port must be between 1 and 65535")
-        from .web import create_app
         from waitress import serve
+
+        from .web import create_app
 
         print(
             f"Archive browser listeners: {args.listen or f'127.0.0.1:{args.port}'}",
@@ -262,7 +269,7 @@ def main(argv=None):
         if args.rental_canonical_only:
             from .collection_policy import setup
 
-            setup(store, generation)
+            setup(store, generation, getattr(args, "rental_min_listing_id", None))
         if args.neighborhood:
             from .scope import configure
 
@@ -489,6 +496,7 @@ def run_crawler(args, generation, lock=None):
     if args.transport != "oxylabs":
         raise ValueError("All live collection must use Oxylabs")
     from scrapy.crawler import CrawlerProcess
+
     from .crawler import ArchiveSpider
 
     settings = {
