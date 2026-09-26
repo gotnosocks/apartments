@@ -330,6 +330,22 @@ the fix goes into the model, the features or the data, not the sampler.
   better-identified shapes: building drift, neighbourhood-level time terms, yearly knots, and
   column (line) effects that let a unit listed once borrow from its line.
 
+**Results.**
+- **Unit-consistent bedrooms: +791 ± 73 PSIS-LOO on m0q** (`unitbeds-v1`, d80a714, the 592 s
+  NUTS configuration; 631 s, passes). The bedroom levels use the unit's own count, the lower
+  median of its listings. `bedrooms_vs_unit` carries a listing's relabel, fitted at
+  +0.099 ± 0.003 per bedroom, against 0.23–0.26 for a real bedroom between units. The gain is
+  on identical rows against m0q base-v1 (7229ef0), and +615 ± 79 against m0q with the
+  description flags (desc-v1). Held-out ΔELPD improves by about 150. ν barely moves
+  (2.59 → 2.62), so relabels were not what made the tails heavy.
+- Within-unit price jumps (240 rows more than 2× off the unit's other listings, trend-adjusted)
+  are mostly real changes: renovations, combined apartments, market moves. Almost none are
+  furnished or short-term. A renovation mention appearing within a unit comes with only about
+  +3% on the ask, which desc-v1's `renovated` flag already prices.
+- Other attributes also vary within units: square feet (9% of multi-row units; stated on 35% of
+  rows, 48% if filled from the unit's other listings), laundry (12%, in-building against
+  in-unit) and doorman (7%; it varies across listings in 116 of 1,129 buildings).
+
 **Order.**
 1. **Data quality** (backlog "Data quality"). Audit rows by rules that do not use a model's
    residuals: within-unit consistency, attribute plausibility (price per square foot, bedrooms

@@ -87,12 +87,16 @@ def base_v1(
     train: np.ndarray,
     id: str = "base-v1",
     by_unit: bool = False,
+    unit_size: bool = False,
 ) -> Features:
     """Listing attributes as advertised, with explicit unknown levels.
 
     by_unit ("unitbeds-v1"): the bedroom levels (and the size baseline) use the
     unit's bedroom count, and `bedrooms_vs_unit` carries the listing's own
     count less the unit's.
+    unit_size ("unitattrs-v1"): square feet are the unit's, the median of the
+    sizes its listings state. Only 35% of rows state a size; filling from the
+    unit's other listings covers 48%.
     """
     b = _Builder(frame)
     advertised = frame.bedrooms.round().clip(0, 5)
@@ -112,6 +116,12 @@ def base_v1(
     # Size: log square feet relative to the training median for the same
     # bedroom count. Unknown size gets its own indicator and zero deviation.
     sqft = frame.square_feet
+    if unit_size:
+        sqft = (
+            sqft.where(sqft.between(150, 8000))
+            .groupby(frame.unit_id)
+            .transform("median")
+        )
     known = sqft.between(150, 8000)
     log_sqft = np.log(sqft.where(known))
     median = log_sqft[train & known.to_numpy()].groupby(beds[train]).median()
@@ -287,6 +297,7 @@ def pluto_v1(frame: pd.DataFrame, train: np.ndarray) -> Features:
 FEATURE_SETS = {
     "base-v1": base_v1,
     "unitbeds-v1": partial(base_v1, id="unitbeds-v1", by_unit=True),
+    "unitattrs-v1": partial(base_v1, id="unitattrs-v1", by_unit=True, unit_size=True),
     "desc-v1": desc_v1,
     "pluto-v1": pluto_v1,
 }

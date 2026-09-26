@@ -21,3 +21,9 @@ def test_unitbeds_is_registered_as_base_v1_by_unit():
     fn = features.FEATURE_SETS["unitbeds-v1"]
     assert fn.func is features.base_v1
     assert fn.keywords == {"id": "unitbeds-v1", "by_unit": True}
+
+
+def test_unitattrs_adds_the_units_size_to_unitbeds():
+    fn = features.FEATURE_SETS["unitattrs-v1"]
+    assert fn.func is features.base_v1
+    assert fn.keywords == {"id": "unitattrs-v1", "by_unit": True, "unit_size": True}
