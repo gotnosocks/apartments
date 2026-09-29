@@ -161,11 +161,14 @@ implementation over implementing our own").
   - PyMC has no conjugate Gaussian step;
   - NIMBLE and JAGS assign conjugate and block samplers automatically, but on the CPU outside this
     stack.
-- The custom Gibbs sampler is **deprecated** (Ben, 2026-09-25: not to be used for any new work).
-  - `run.py` defaults to `--sampler nuts` and refuses `--sampler gibbs` without
-    `--reproduce-deprecated`, which exists only to reproduce a run record that cites it.
-  - Its entries stay on the board and dashboard as history, labelled deprecated. They show the
-    marks library samplers have to reach.
+- The custom Gibbs sampler was **deprecated** on 2026-09-25 (Ben: not for new work) and
+  **reinstated on 2026-09-29**, together with the other options based on exact mathematical
+  simplifications (Ben: "the custom sampler and other options based on mathematical
+  simplifications are no longer deprecated").
+  - `run.py --sampler gibbs` fits any design that `gibbs.build_design` has exact updates for.
+    Designs with terms it lacks (market drift, building trends, coarse or Student-t walks,
+    walk masks and anchors, line effects) are refused there.
+  - Exact coordinates and collapsed updates are back in use next to library NUTS.
 - **NUTS belongs on the CPU here.** On the RTX 2060, NumPyro NUTS took 23 s for L0-mean, 110 s for
   L1-drift and over 20 minutes for L2-trend (stopped), against 8 s, 9 s and 322 s for PyMC NUTS
   on the CPU. Every leapfrog step is many small float64 kernels, and the card runs float64 at
@@ -215,7 +218,7 @@ implementation over implementing our own").
     so trimming draws saves little. 4 × (250 + 550) fits inside 15 minutes with a comfortable
     gate margin.
   - Float32 does not work: a chain's step size collapsed.
-  - Across samplers and devices, m0q's PSIS-LOO agrees. Against the deprecated Gibbs m0q
+  - Across samplers and devices, m0q's PSIS-LOO agrees. Against the Gibbs m0q
     (ac9e02b, RTX 2060) on identical rows, NUTS minus Gibbs is +3.1 ± 4.0 for 4 × (250 + 550) and
     +1.6 ± 3.7 for 4 × (300 + 1,000).
   - m1q (the building walk) did not finish within 60 minutes on the 2060. With `walk_levels`
@@ -367,7 +370,7 @@ the fix goes into the model, the features or the data, not the sampler.
   634 s, passes). That is 1,129 numbers, each centred on its building's mean month, against the
   walk's 34 steps per building. Trends are ±1.5% a year between the 5th and 95th percentiles
   (scale 0.012). Against m0q base-v1 the gain is +4,844 ± 130 PSIS-LOO within 11 minutes.
-  The walk still does better: the deprecated Gibbs m1q (base-v1) is 2,636 ± 152 ahead, so part
+  The walk still does better: the Gibbs m1q (base-v1) is 2,636 ± 152 ahead, so part
   of each building's path is not linear. The next shape between the two is a coarse, smooth
   building-time term.
 - With `unitfloor-v2` the trend gives 45,484.9 (0962ea7; 646 s, passes): +4,891 over the m0
@@ -375,12 +378,12 @@ the fix goes into the model, the features or the data, not the sampler.
 - **A walk with knots every 2 years, around the trend** (`m1-btrend-walk24`, 0962ea7, walk
   levels): 1,150 s, **fails**. building_trend_scale has R-hat 1.077 and ESS 35 because a walk
   already holds a trend: the two trade off, and the fitted trend scale fell to 0.005. PSIS-LOO
-  is 48,748.2, which is +3,263 ± 88 over the trend alone and +666 ± 128 over the deprecated Gibbs
+  is 48,748.2, which is +3,263 ± 88 over the trend alone and +666 ± 128 over the Gibbs
   half-year walk (m1q, base-v1). Held-out ΔELPD is +237.6, against −185.4. Next: the coarse
   walk alone, at 2- and 3-year knots.
 - **The walk alone, knots every 3 years** (`m1-walk36`, 937c466): **771 s**, within the window.
   It narrowly misses the gate: walk_scale ESS is 368 against 400 (max R-hat 1.008), and there is 1 divergence.
-  PSIS-LOO is 48,096.7: +2,612 over the linear trend, and level with the deprecated Gibbs
+  PSIS-LOO is 48,096.7: +2,612 over the linear trend, and level with the Gibbs
   half-year walk (m1q, 48,082.6) at a fifth of the knots. Building over time takes 1.1% of the
   variance, and the residual falls to 3.1%.
 - **The walk alone, knots every 2 years** (`m1-walk24`, 937c466): **812 s**, fails on walk_scale
@@ -451,7 +454,7 @@ the fix goes into the model, the features or the data, not the sampler.
 - **With the rule, the best passing library (NUTS) fit is 45,815.1** (`m0q-btrend`, `unitdesc-v1`,
   `--data-rules unit-labels-v1`, df5dacb; 745 s, passes). That is +188.6 ± 25.9 over the same
   design without the rule on identical rows, and **+5,221 over the m0 baseline**. (The
-  deprecated Gibbs m5-nocurves + desc still passes at +9,921.7 on the same hardware.)
+  Gibbs m5-nocurves + desc still passes at +9,921.7 on the same hardware.)
 - With the rule, the anchored 2-year t walk (`m1-t3walk24-anchored`, `unitdesc-v1`) scores
   49,394.5, the best overall (+8,801 over the m0 baseline). It still fails, in 1,031 s, and
   the rule does not fix the split chains (PR #26 review).
@@ -551,7 +554,7 @@ the fix goes into the model, the features or the data, not the sampler.
 **Goal.** Raise the most accurate gate-passing fit within the window (30 minutes from 2026-09-29)
 on each thelio hardware class,
 with library samplers only.
-- The deprecated Gibbs sampler left a mark on the RTX 2060: m5-nocurves + desc, +9,922 PSIS-LOO
+- The Gibbs sampler left a mark on the RTX 2060: m5-nocurves + desc, +9,922 PSIS-LOO
   over m0 in 895 s.
 - The library path first has to reach comparable designs within the window (C.1). Then every
   candidate either buys time back or spends it better.
@@ -682,10 +685,10 @@ comes from other sources, most of them public NYC and NYS data.
 3. **Trend knot spacing.** Quarterly costs nothing measurable against monthly; test half-year.
 4. **Per-building slopes.**
    - The bedroom slope pays (+2,200 over m1q).
-   - The size and bath slopes (m6) did not mix under the deprecated Gibbs sampler.
+   - The size and bath slopes (m6) did not mix under the Gibbs sampler.
    - Try them under NUTS, or a single size slope.
 5. **Unit effects.**
-   - Student-t units (+1,200) and unit drift (+360) did not mix under the deprecated Gibbs sampler
+   - Student-t units (+1,200) and unit drift (+360) did not mix under the Gibbs sampler
      (21–26 minutes).
    - Candidates under NUTS: as they are, with a fixed unit ν, or drift only for units with a long
      history.
@@ -703,12 +706,13 @@ comes from other sources, most of them public NYC and NYS data.
 **C. Implementations within the window.**
 1. **NUTS in NUTS-friendly coordinates on the CPU.**
    - Exact reparameterizations: trend levels, zero-sum season, units centred within buildings.
-   - If NUTS reaches m0q/m1q/m5 within 15 minutes, it can fit any shape `build_model` expresses
-     without sampler code. That includes the t-unit, drift and slope shapes the deprecated Gibbs
+   - If NUTS reaches m0q/m1q/m5 within the window, it can fit any shape `build_model` expresses
+     without sampler code. That includes the t-unit, drift and slope shapes the Gibbs
      sampler could not mix.
 2. **Per-design draw budgets and chain counts** sized to the gate on each hardware class.
-3. **Library samplers only** (Ben, 2026-09-25): the custom Gibbs sampler is deprecated. Other
-   libraries (BlackJAX NUTS, nutpie) run on the same model if NumPyro's NUTS falls short.
+3. **Samplers** (Ben, 2026-09-29): the custom Gibbs sampler and exact simplifications
+   (coordinates, collapsed updates) are in use again next to NumPyro NUTS. Other libraries
+   (BlackJAX NUTS, nutpie) can run on the same model too.
 
 **Order.** By expected PSIS-LOO gain per second of fit time:
 1. C.1: NUTS on m0q, m1q and m5 in the new coordinates. Every later step needs a library fit that
@@ -789,7 +793,7 @@ The dashboard and board are generated from the run records; see them for the liv
 - m5-nocurves + desc is the most accurate fit inside the window. Its ESS of 406 barely clears
   the gate of 400, and at 895 s it is just under the 15-minute limit.
 - Library NUTS (NumPyro) in the NUTS-friendly coordinates passes L0–L5 on the CPU (40–909 s) and
-  m0q on the RTX 2060 in 888 s (PSIS-LOO 40,607.5, equal to the deprecated Gibbs m0q). m1q
+  m0q on the RTX 2060 in 888 s (PSIS-LOO 40,607.5, equal to the Gibbs m0q). m1q
   and m5 did not fit within the 15-minute window on NUTS (as of 2026-09-26; to recheck at 30).
 
 The table below is the Modal H100/H200 frontier, recorded when this plan was written.
