@@ -222,7 +222,7 @@ def score(
 def feature_sources(feature_set: str) -> dict:
     """Input files behind a feature set, beyond the analytical dataset."""
     out = {}
-    if feature_set.startswith("desc"):
+    if feature_set in features.DESCRIPTIONS:
         from . import descriptions
 
         out["descriptions"] = {

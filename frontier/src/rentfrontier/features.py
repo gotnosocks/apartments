@@ -341,6 +341,9 @@ def pluto_v1(
 
 # Feature sets that read the external snapshots (run records list them).
 EXTERNAL = {"pluto-v1", "unitfloor-v2", "unitdesc-v1", "unitdescpluto-v1"}
+# Feature sets that read the advertisement descriptions (`descriptions.SOURCE`),
+# directly or through their base set.
+DESCRIPTIONS = {"desc-v1", "unitdesc-v1", "unitdescpluto-v1"}
 
 FEATURE_SETS = {
     "base-v1": base_v1,

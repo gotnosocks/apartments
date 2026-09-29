@@ -61,3 +61,36 @@ def test_unitdesc_is_the_description_flags_on_unitfloor():
     assert fn.func is features.desc_v1
     assert fn.keywords == {"id": "unitdesc-v1", "base": "unitfloor-v2"}
     assert "unitdesc-v1" in features.EXTERNAL
+
+
+def test_description_sets_record_their_source(monkeypatch):
+    """Every feature set built on desc_v1, directly or through its base set, is
+    listed, so run records hash the descriptions file (unitdesc-v1 did not
+    match the old "desc" prefix test)."""
+    from rentfrontier import run
+
+    def reads_descriptions(fn):
+        while True:
+            if getattr(fn, "func", fn) is features.desc_v1:
+                return True
+            base = getattr(fn, "keywords", {}).get("base")
+            if base is None:
+                return False
+            fn = features.FEATURE_SETS[base]
+
+    built_on_desc = {
+        name for name, fn in features.FEATURE_SETS.items() if reads_descriptions(fn)
+    }
+    assert "unitdescpluto-v1" in built_on_desc
+    assert built_on_desc == features.DESCRIPTIONS
+    monkeypatch.setattr(run.data, "sha256", lambda path: "sha")
+    for name in built_on_desc:
+        assert run.feature_sources(name)["descriptions"]["sha256"] == "sha"
+    assert "descriptions" not in run.feature_sources("unitfloor-v2")
+
+
+def test_unitdescpluto_is_the_building_columns_on_unitdesc():
+    fn = features.FEATURE_SETS["unitdescpluto-v1"]
+    assert fn.func is features.pluto_v1
+    assert fn.keywords == {"id": "unitdescpluto-v1", "base": "unitdesc-v1"}
+    assert "unitdescpluto-v1" in features.EXTERNAL
