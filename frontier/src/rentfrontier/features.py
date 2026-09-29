@@ -288,7 +288,8 @@ def pluto_v1(
     (building-level). `flood_zone=False` leaves out the 2015 flood-zone flag,
     which in Chelsea marks the western blocks (location), not flood risk.
     `latest_alteration=True` dates "altered since 2000" by the later of the
-    lot's two recorded alterations (yearalter1 is the first one)."""
+    lot's two recorded alterations; yearalter1 alone misses an alteration in
+    2000 or later recorded only in yearalter2."""
     base = FEATURE_SETS[base](frame, train)
     lot = building_lots(frame)
     num = {

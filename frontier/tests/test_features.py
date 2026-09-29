@@ -184,3 +184,38 @@ def test_unitdescpluto_v3_dates_alterations_by_the_latest():
         "latest_alteration": True,
     }
     assert {"unitdescpluto-v3"} <= features.EXTERNAL & features.DESCRIPTIONS
+
+
+def test_latest_alteration_takes_the_later_recorded_year(monkeypatch):
+    """altered_since_2000 per lot: yearalter1 alone, or the later of the two
+    recorded alterations (0 = none recorded)."""
+    pairs = [(1987, 2001), (0, 2014), (2008, 2001), (1999, 0), (0, 0), (np.nan, np.nan)]
+    n = len(pairs)
+    lots = pd.DataFrame(
+        {
+            "yearbuilt": [1920] * n,
+            "yearalter1": [a for a, _ in pairs],
+            "yearalter2": [b for _, b in pairs],
+            "numfloors": [6] * n,
+            "unitsres": [20] * n,
+            "resarea": [20_000] * n,
+            "builtfar": [4.0] * n,
+            "lotfront": [50] * n,
+            "bldgclass": ["D1"] * n,
+            "landmark": [None] * n,
+            "histdist": [None] * n,
+            "pfirm15_flag": [None] * n,
+        }
+    )
+    frame = pd.DataFrame({"building": [f"b{i}" for i in range(n)]})
+    empty = features.Features("empty", [], [], np.zeros((n, 0)), np.zeros(0))
+    monkeypatch.setitem(features.FEATURE_SETS, "empty", lambda frame, train: empty)
+    monkeypatch.setattr(features, "building_lots", lambda frame: lots)
+    train = np.ones(n, dtype=bool)
+
+    def altered(**kw):
+        f = features.pluto_v1(frame, train, base="empty", **kw)
+        return f.values[:, f.names.index("altered_since_2000")].tolist()
+
+    assert altered(latest_alteration=True) == [1, 1, 1, 0, 0, 0]
+    assert altered() == [0, 0, 1, 0, 0, 0]

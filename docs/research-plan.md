@@ -715,9 +715,10 @@ They enter the design matrix, so NUTS fits them like any other design.
      one point. The other facts barely move (under 0.5 posterior sd), and the building level
      stays at 7.9% of the variance.
    - **With alterations dated by the latest** (`unitdescpluto-v3`, faa8c78, 2026-09-29; the app
-     candidate). `altered_since_2000` used the lot's first recorded alteration (`yearalter1`),
-     so 44 buildings (950 rows) altered before 2000 and again after got 0 (PR #52 review). v3
-     takes the later of the two recorded alterations, on v2 (no flood-zone flag). It passes in
+     candidate). `altered_since_2000` used `yearalter1` alone, so 44 buildings (950 rows) whose
+     alteration in 2000 or later is recorded only in `yearalter2` got 0 (PR #52 review): 39
+     altered before 2000 and again after, 5 with no `yearalter1` at all. v3 takes the later of
+     the two recorded alterations, on v2 (no flood-zone flag). It passes in
      1,376 s: R-hat 1.006, ESS 585, every-element R-hat 1.009. PSIS-LOO is 52,439.6: +1.4 ± 6.8
      against v2 and +8.2 ± 18.3 against the app's fit. An alteration since 2000 is now +6.8%
      (+3 to +10, +6.4% in v2); no coefficient moves more than 0.2 posterior sd.
