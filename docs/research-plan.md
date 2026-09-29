@@ -670,6 +670,30 @@ They enter the design matrix, so NUTS fits them like any other design.
      - The building attributes explain about two thirds of the building-level variation, which the
        building effects were already capturing. So accuracy is equal and the description is much
        more interpretable.
+   - **On the app's design** (`unitdescpluto-v1` = `unitdesc-v1` plus the 22 building columns;
+     Gibbs m5-nocurves, `unit-labels-v1`, 2 × (300 + 3600), c84f228, RTX 2060, 2026-09-29).
+     - It passes in 1,369 s (43 s more than without the building facts): R-hat 1.006, ESS 665
+       (sigma), every-element R-hat 1.010.
+     - PSIS-LOO is 52,438.3, **+6.9 ± 18.5 against the same design without them** on identical
+       rows (no measurable change) and +11,844 over m0. Held-out ΔELPD is +525.1 (+520.1 without).
+     - The variance decomposition moves from anonymous to named terms: features 54.0% → 76.8%,
+       building level 29.3% → 7.8%, building over time 2.4% → 1.0%. Market (8.4%), slopes (1.6%),
+       unit (1.9%) and residual (2.5%) are unchanged. building_scale falls from 0.257 to 0.159;
+       walk_scale, unit_scale, sigma and ν do not move.
+     - Effects (posterior mean, 95% interval):
+       - space per apartment: +27% per log unit (+23 to +31);
+       - condominium buildings (class R): +17% (+12 to +22) against elevator apartment buildings
+         (D);
+       - walk-ups (C): −7% (−11 to −3);
+       - buildings with stores (S): −11% (−16 to −5);
+       - built 1990–2009 or 2010 on: +9% (+2 to +16, +2 to +18) against 1900–1929;
+       - built 1960–1989: −9% (−15 to −3);
+       - altered since 2000: +7% (+3 to +11);
+       - historic district: +6% (−1 to +12);
+       - landmark: +0% (−14 to +17).
+     - The 2015 flood-zone flag gets +8% (+3 to +12). That is location (the lots by the Hudson in
+       west Chelsea), not flooding, so it is a poor renter-facing term. A location term (below)
+       should take it over.
 2. **Location.** Buildings have latitude and longitude. Try a low-rank spatial basis over building
    locations, as building-level columns, so neighbouring buildings share information (west vs
    east Chelsea, the avenues, the High Line).
