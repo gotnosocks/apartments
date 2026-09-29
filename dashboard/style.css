@@ -227,6 +227,7 @@ details ul { margin: 4px 0 0; padding-left: 18px; color: var(--text-secondary); 
 .map-notes .caption { margin-top: 8px; }
 .map-tools { display: flex; gap: 6px; align-items: center; }
 .map-chart { touch-action: none; }
+.map-chart svg { overflow: hidden; }
 .map-chart.dragging { cursor: grabbing; }
 .map-chart .water { fill: var(--map-water); }
 .map-chart .land { fill: var(--map-land); }
