@@ -256,6 +256,8 @@ REGISTRY_SNAPSHOT = "/data1/apartments/external/registry/20260925-6b67137"
 PLUTO_SNAPSHOT = "/data1/apartments/external/pluto/20260925-3096a62"
 REGISTRY_FILE = f"{REGISTRY_SNAPSHOT}/buildings.parquet"
 PLUTO_FILE = f"{PLUTO_SNAPSHOT}/pluto.parquet"
+SUBWAY_SNAPSHOT = "/data1/apartments/external/subway/20260929-8e7c364"
+SUBWAY_FILE = f"{SUBWAY_SNAPSHOT}/subway.parquet"
 ERAS = (
     (0, 1900, "pre-1900"),
     (1900, 1930, "1900-1929"),
@@ -339,11 +341,76 @@ def pluto_v1(
     )
 
 
+WALK_M_PER_MIN = 80.0
+TRANSIT_WALK_M = 800.0  # a 10-minute walk
+
+
+def building_transit(buildings) -> pd.DataFrame:
+    """Per building (registry coordinates): metres to the nearest subway
+    station stop and the distinct daytime routes stopping within
+    TRANSIT_WALK_M (straight-line distances)."""
+    registry = pd.read_parquet(REGISTRY_FILE).set_index("building")
+    stops = pd.read_parquet(SUBWAY_FILE)
+    lat0 = registry.latitude.mean()
+    metres, cos = 111_320.0, np.cos(np.radians(lat0))
+
+    def xy(lat, lon):
+        return np.column_stack(
+            [np.asarray(lon) * metres * cos, np.asarray(lat) * metres]
+        )
+
+    b = xy(registry.latitude, registry.longitude)
+    s = xy(stops.gtfs_latitude, stops.gtfs_longitude)
+    d = np.sqrt(((b[:, None, :] - s[None]) ** 2).sum(-1))
+    routes = stops.daytime_routes.fillna("").str.split()
+    n_routes = [len(set().union(*routes[row <= TRANSIT_WALK_M])) for row in d]
+    table = pd.DataFrame(
+        {"subway_m": d.min(1), "routes_10min": n_routes}, index=registry.index
+    )
+    return table.reindex(buildings).reset_index(drop=True)
+
+
+def transit_v1(
+    frame: pd.DataFrame,
+    train: np.ndarray,
+    id: str = "transit-v1",
+    base: str = "base-v1",
+) -> Features:
+    """A base set plus transit access (building-level): the walk to the
+    nearest subway station and the subway routes within a 10-minute walk."""
+    base = FEATURE_SETS[base](frame, train)
+    t = building_transit(frame.building.to_numpy())
+    known = t.subway_m.notna().to_numpy()
+    walk = np.log(np.maximum(t.subway_m.to_numpy() / WALK_M_PER_MIN, 1.0))
+    routes = np.log1p(t.routes_10min.to_numpy(dtype=float))
+    b = _Builder(frame)
+    for name, v in (("log_walk_min_to_subway", walk), ("log1p_routes_10min", routes)):
+        centre = float(np.mean(v[train & known]))
+        # A building without coordinates (none in the registry today) sits at the mean.
+        b.add("transit", name, np.where(known, v - centre, 0.0))
+    extra = b.build(id)
+    return Features(
+        id,
+        base.names + extra.names,
+        base.groups + extra.groups,
+        np.column_stack([base.values, extra.values]),
+        np.concatenate([base.prior_scale, extra.prior_scale]),
+    )
+
+
 # Feature sets that read the external snapshots (run records list them).
-EXTERNAL = {"pluto-v1", "unitfloor-v2", "unitdesc-v1", "unitdescpluto-v1"}
+EXTERNAL = {
+    "pluto-v1",
+    "unitfloor-v2",
+    "unitdesc-v1",
+    "unitdescpluto-v1",
+    "unitdescplutotransit-v1",
+}
+# Feature sets that read the subway stations snapshot.
+SUBWAY = {"unitdescplutotransit-v1"}
 # Feature sets that read the advertisement descriptions (`descriptions.SOURCE`),
 # directly or through their base set.
-DESCRIPTIONS = {"desc-v1", "unitdesc-v1", "unitdescpluto-v1"}
+DESCRIPTIONS = {"desc-v1", "unitdesc-v1", "unitdescpluto-v1", "unitdescplutotransit-v1"}
 
 FEATURE_SETS = {
     "base-v1": base_v1,
@@ -365,6 +432,10 @@ FEATURE_SETS = {
     "unitdesc-v1": partial(desc_v1, id="unitdesc-v1", base="unitfloor-v2"),
     "pluto-v1": pluto_v1,
     "unitdescpluto-v1": partial(pluto_v1, id="unitdescpluto-v1", base="unitdesc-v1"),
+    # Transit access on the building facts.
+    "unitdescplutotransit-v1": partial(
+        transit_v1, id="unitdescplutotransit-v1", base="unitdescpluto-v1"
+    ),
 }
 
 

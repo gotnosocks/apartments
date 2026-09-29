@@ -45,6 +45,7 @@ that a typical apartment renter thinks about when choosing a place to rent."
 | Unit size, floor and label flags (`unitattrs`, `unitfloor`, `unitlabels`) | The same apartment keeps its size across listings; when a listing states no floor, the unit label's floor is used (if the building is that tall); penthouses, garden and lower-level units are priced as such. |
 | Description flags (`desc-v1`) | What the ad says: renovated, washer-dryer, outdoor space, no fee, furnished, and so on. |
 | Building facts (`pluto-v1`, `unitdescpluto-v1`) | What the city records about the building: when it was built, its height and number of apartments, the space per apartment, how densely the lot is built, its type (walk-up, elevator, condo, with stores), landmark or historic-district status, flood zone and a recent alteration. |
+| Transit (`unitdescplutotransit-v1`) | The walk to the nearest subway station, and how many subway lines stop within a 10-minute walk. |
 | Building level | This building's premium beyond its apartments' features: its location, quality and management. |
 | Building trend or walk | How that premium has moved over time, for example a renovation or a changing block: steadily (the trend) or along a path that can change direction at each knot, joined by straight lines (the walk). Sum-to-zero walks make it relative to the market, so "the market" and "this building" never overlap. |
 | Bedroom slope (m5) | In some buildings the larger apartments carry an extra premium or discount. |

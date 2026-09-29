@@ -94,3 +94,23 @@ def test_unitdescpluto_is_the_building_columns_on_unitdesc():
     assert fn.func is features.pluto_v1
     assert fn.keywords == {"id": "unitdescpluto-v1", "base": "unitdesc-v1"}
     assert "unitdescpluto-v1" in features.EXTERNAL
+
+
+def test_unitdescplutotransit_is_transit_on_unitdescpluto(monkeypatch):
+    from rentfrontier import run
+
+    fn = features.FEATURE_SETS["unitdescplutotransit-v1"]
+    assert fn.func is features.transit_v1
+    assert fn.keywords == {"id": "unitdescplutotransit-v1", "base": "unitdescpluto-v1"}
+    assert "unitdescplutotransit-v1" in features.EXTERNAL
+    # Every set built on transit_v1 records the stations snapshot.
+    on_transit = {
+        name
+        for name, f in features.FEATURE_SETS.items()
+        if getattr(f, "func", f) is features.transit_v1
+    }
+    assert on_transit == features.SUBWAY
+    monkeypatch.setattr(run.data, "sha256", lambda path: "sha")
+    sources = run.feature_sources("unitdescplutotransit-v1")
+    assert {"registry", "pluto", "subway", "descriptions"} <= sources.keys()
+    assert "subway" not in run.feature_sources("unitdescpluto-v1")
