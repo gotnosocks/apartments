@@ -528,6 +528,34 @@ the fix goes into the model, the features or the data, not the sampler.
     earlier Normal 3-year walks, so near the gate anyway). Like line_scale, walk_scale is a
     centred scale over thousands of weakly informed effects and mixes slowly, which no model
     change is expected to fix. More draws or a sampling coordinate are back with Ben.
+  - **In the 30-minute window it passes on more draws** (4 × (250 + 1300), ab2a7df,
+    2026-09-29): 1,300 s, R-hat 1.0036 (trend[132]), walk_scale ESS 773, every-element R-hat
+    1.007, no divergences. walk_scale needed draws, not a new coordinate. PSIS-LOO is 48,501.6
+    (−6.1 ± 5.0 against the 650-draw fit, i.e. Monte Carlo noise): **+2,686.5 ± 79.4 over
+    `m0q-btrend`** on identical rows and +7,908 over m0. Held-out ΔELPD is +138.7. It is the
+    best passing library (NUTS) fit.
+- **The reinstated Gibbs sampler: m5-nocurves with `unitdesc-v1` and `unit-labels-v1`**
+  (ab2a7df, 2026-09-29, RTX 2060). The design has building walks and a bedroom premium per
+  building, and the sampler integrates the units out.
+  - At 2 × (300 + 3000) it failed only on sigma (R-hat 1.011, ESS 388) in 1,128 s. At
+    2 × (300 + 3600) it **passes in 1,326 s**: R-hat 1.006, ESS 580 (sigma), every-element
+    R-hat 1.010.
+  - **PSIS-LOO 52,431.4, +11,837.5 ± 174.8 over m0**, the most accurate passing fit within 30
+    minutes. On identical rows that is +6,616.3 ± 136.7 over `m0q-btrend`, +3,929.8 ± 111.1
+    over the NUTS sum-to-zero walk, and +1,915.8 ± 93.4 over the Gibbs m5-nocurves + desc
+    (desc-v1, no rule). Held-out ΔELPD is +520.1. 0.8% of rows have k > 0.7 (0.24% for
+    `m0q-btrend`); 0.9% are over the threshold for its 1,200 draws (0.675).
+  - Variance: market and time 8.4%, features 54.0%, building 29.3%, building over time 2.4%,
+    building slopes 1.7%, unit 1.9%, residual 2.5%.
+  - Its walks are not sum-to-zero; the Gibbs sampler refuses `walk_zero_sum`. So some common
+    time variation can sit in "building over time" instead of the market, and only the priors
+    separate the two, as in `m1-walk36` above. Its market-trend points pass the gate here.
+  - The common part is negligible in this fit. Over the kept draws, the walks' mean across
+    buildings has a posterior mean of at most 0.05% at any knot (log scale), and 95% of draws stay
+    within 1.3% at every knot. That compares with a market trend spanning 59% and a spread of 18%
+    across buildings at the last knot. The prior already puts it there: the mean of 1,129
+    independent walks moves about √1,129 ≈ 34 times less than one walk, so the market trend
+    takes nearly all common movement.
 - **Line ("column") effects within buildings** (`m0q-btrend-lines`, `unitdesc-v1`,
   `unit-labels-v1`, 4224e62; Ben's backlog). Units stacked vertically share an effect, taken
   from the unit label (23C and 4C are line C; 1204 and 304 are line 04; 2ND, 4TH and 4THFL
@@ -599,8 +627,9 @@ the fix goes into the model, the features or the data, not the sampler.
 **Goal.** Raise the most accurate gate-passing fit within the window (30 minutes from 2026-09-29)
 on each thelio hardware class, with the Gibbs sampler or NUTS (library samplers only from
 2026-09-25 until 2026-09-29).
-- The Gibbs sampler left a mark on the RTX 2060: m5-nocurves + desc, +9,922 PSIS-LOO
-  over m0 in 895 s.
+- The mark on the RTX 2060 (2026-09-29) is the Gibbs m5-nocurves with `unitdesc-v1` and
+  `unit-labels-v1`: +11,838 PSIS-LOO over m0 in 1,326 s. The best NUTS fit is the sum-to-zero
+  walk, +7,908 in 1,300 s.
 - The library path first has to reach comparable designs within the window (C.1). Then every
   candidate either buys time back or spends it better.
 
@@ -827,21 +856,32 @@ comes from other sources, most of them public NYC and NYS data.
 
 The dashboard and board are generated from the run records; see them for the live frontier.
 
-**Within 15 minutes on thelio (2026-09-25).** Gate-passing fits only, custom Gibbs on the RTX 2060:
+**Within 30 minutes on thelio (2026-09-29).** Gate-passing fits on the RTX 2060, by fit time,
+PSIS-LOO on identical rows. "Rule" is the `unit-labels-v1` data rule. The Frontier column is the
+board's, for this hardware. The board lists every run, including four more NUTS frontier fits (m0q
+and m0q-btrend with unit features, 605–697 s, +1,716 to +5,033).
 
-| Design | Settings | Fit time | PSIS-LOO ΔELPD vs m0 |
-|---|---|---:|---:|
-| m0q | 4 × (500 + 2000) | 253 s | +10 |
-| m0q + desc | 2 × (300 + 3000) | 309 s | +184 |
-| m1q | 4 × (300 + 1500) | 702 s | +7,489 |
-| m5-nocurves | 2 × (300 + 2300) | 823 s | +9,708 |
-| m5-nocurves + desc | 2 × (300 + 2300) | 895 s | +9,922 |
+| Design | Sampler | Features | Settings | Fit time | PSIS-LOO ΔELPD vs m0 | Frontier |
+|---|---|---|---|---:|---:|---|
+| m0q | Gibbs | base-v1 | 4 × (500 + 2000) | 253 s | +10 | yes |
+| m0q | Gibbs | desc-v1 | 2 × (300 + 3000) | 309 s | +184 | yes |
+| m1q | Gibbs | base-v1 | 4 × (300 + 1500) | 702 s | +7,489 | yes |
+| m0q-btrend | NUTS | unitdesc-v1 + rule | 4 × (250 + 550) | 745 s | +5,221 | beaten by Gibbs m1q |
+| m5-nocurves | Gibbs | base-v1 | 2 × (300 + 2300) | 823 s | +9,708 | yes |
+| m5-nocurves | Gibbs | desc-v1 | 2 × (300 + 2300) | 895 s | +9,922 | yes |
+| m1-walk36-zs | NUTS | unitdesc-v1 + rule | 4 × (250 + 1300) | 1,300 s | +7,908 | beaten by Gibbs m5-nocurves |
+| m5-nocurves | Gibbs | unitdesc-v1 + rule | 2 × (300 + 3600) | 1,326 s | +11,838 | yes (best) |
 
-- m5-nocurves + desc is the most accurate fit inside the window. Its ESS of 406 barely clears
-  the gate of 400, and at 895 s it is just under the 15-minute limit.
+- m5-nocurves with `unitdesc-v1` and the rule is the most accurate passing fit within the window
+  (details under "Misspecification first").
+- From 702 s on, the Gibbs fits are ahead of NUTS. `m0q-btrend` at df5dacb and the sum-to-zero
+  walk are beaten on both accuracy and time by Gibbs fits without the unit features. Below 702 s,
+  NUTS `m0q-btrend` fits fill the gap between Gibbs m0q + desc and Gibbs m1q.
+- NUTS m1q in `walk_levels` was stopped at 33 minutes (see the NUTS findings).
+- Within the earlier 15-minute window (2026-09-25) the best was m5-nocurves + desc on Gibbs at
+  895 s. The NUTS sum-to-zero walk needs the 30-minute window.
 - Library NUTS (NumPyro) in the NUTS-friendly coordinates passes L0–L5 on the CPU (40–909 s) and
-  m0q on the RTX 2060 in 888 s (PSIS-LOO 40,607.5, equal to the Gibbs m0q). m1q
-  and m5 did not fit within the 15-minute window on NUTS (as of 2026-09-26; to recheck at 30).
+  m0q on the RTX 2060 in 888 s (PSIS-LOO 40,607.5, equal to the Gibbs m0q).
 
 The table below is the Modal H100/H200 frontier, recorded when this plan was written.
 
