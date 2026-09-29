@@ -19,10 +19,10 @@ analysis-page check.
 
 > **Authority note.** Some earlier documents, especially
 > `docs/model/current-analysis.md`, describe an earlier selected fit. For the
-> present state, the authoritative pointer is `config/main-analysis.json`. Since 2026-09-26 it
-> selects the summary of the frontier line's NumPyro fit `m0q-btrend` + `unitdesc-v1` (Ben's
-> choice), described in [listing estimates](listing-estimates.md); this report ends at the last
-> PyMC selection. Before that, on the
+> present state, the authoritative pointer is `config/main-analysis.json`. Since 2026-09-29 it
+> selects the summary of the frontier line's Gibbs fit `m5-nocurves` + `unitdesc-v1` (Ben's
+> choice; from 2026-09-26 it was the NumPyro fit `m0q-btrend` + `unitdesc-v1`), described in
+> [listing estimates](listing-estimates.md); this report ends at the last PyMC selection. Before that, on the
 > `bedroom-time-20260922` line it bound
 > `data/model/chelsea-product-scope-analysis-20260921` to
 > `data/model/chelsea-bayesian-product-scope-structure-20260923` (step 10 below).

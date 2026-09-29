@@ -818,6 +818,8 @@ comes from other sources, most of them public NYC and NYS data.
   [listings site](site.md) (PR #35), and `config/main-analysis.json` selecting the summary of
   `m0q-btrend` + `unitdesc-v1` + `unit-labels-v1`. A new selection needs Ben's OK. It takes a summary,
   a publish, and an edit of the selection.
+- Switched on 2026-09-29 (Ben): the selection names the summary of the Gibbs `m5-nocurves` +
+  `unitdesc-v1` + `unit-labels-v1` fit (PSIS-LOO 52,431.4, 1,326 s on the RTX 2060).
 - On hold: West Village, once its crawl completes.
 
 ## Current state

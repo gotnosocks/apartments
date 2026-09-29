@@ -1,12 +1,12 @@
 {
   "version": "main-analysis-selection-v2",
   "model_family": "frontier_summary",
-  "summary": "/data1/apartments/frontier/summaries/m0q-btrend-unitdesc-v1-rows-df5dacb-nuts-c8-w250d550-svi2k-ul1-2060-ff7ee0a",
-  "summary_manifest_sha256": "fd90cdb074639044df9a5c4b45e2c5bd7f496572200a1136eff989aceb7bb407",
-  "summary_commit": "ff7ee0a3445fb1299fe6622733f6d29aa175c689",
-  "run": "m0q-btrend-unitdesc-v1-rows-df5dacb-nuts-c8-w250d550-svi2k-ul1-2060",
-  "run_commit": "df5dacba437e0bb4890259865de18541c67356c8",
-  "model": "m0q-btrend",
+  "summary": "/data1/apartments/frontier/summaries/m5-nocurves-unitdesc-v1-rows-ab2a7df-gibbs-2060-3600-ul1-efdfc7c",
+  "summary_manifest_sha256": "2152a7afc045017a5b189f7da32d53476f672b0a485a6284ea688a028d7bb6ea",
+  "summary_commit": "efdfc7c5025fbe7ba0849829e50c29a0e894d78a",
+  "run": "m5-nocurves-unitdesc-v1-rows-ab2a7df-gibbs-2060-3600-ul1",
+  "run_commit": "ab2a7dfb55c99072fa89052c87c4b7dcc0fee19c",
+  "model": "m5-nocurves",
   "feature_set": "unitdesc-v1",
   "data_rules": [
     "unit-labels-v1"
@@ -15,17 +15,17 @@
   "source_observations_sha256": "8e29179bac059bf04b86c7b57acc65324e80fc209fb14793fbb1b9be47b2816f",
   "gate": {
     "passes": true,
-    "max_rhat": 1.0062252144032349,
-    "min_ess": 669.3106390127261,
-    "divergences": 0,
-    "group_rhat_max": 1.0105195720420097
+    "max_rhat": 1.006057534178545,
+    "min_ess": 579.7780627998121,
+    "divergences": null,
+    "group_rhat_max": 1.0101966535219444
   },
   "psis_loo": {
-    "elpd_loo": 45815.1027660485,
-    "elpd_loo_se": 228.78312182014614,
-    "loo_commit": "df5dacba437e0bb4890259865de18541c67356c8"
+    "elpd_loo": 52431.382546302244,
+    "elpd_loo_se": 239.0359230615728,
+    "loo_commit": "ab2a7dfb55c99072fa89052c87c4b7dcc0fee19c"
   },
-  "selected_by": "Ben, 2026-09-26",
-  "selection_reason": "Ben chose the best gate-passing NumPyro fit as the app's model, served through the summary output (rentfrontier.summary) with leave-own-row-out estimates on the listings site.",
+  "selected_by": "Ben, 2026-09-29",
+  "selection_reason": "Ben chose the most accurate gate-passing fit within the 30-minute window on thelio (custom Gibbs sampler, RTX 2060, 1,326 s): PSIS-LOO +6,616.3 ± 136.7 over the previous selection (m0q-btrend) on identical rows. Every term has a renter-facing explanation (docs/research-plan.md, glossary). Its building walks are not sum-to-zero, so a little common time variation can sit in 'building over time' instead of the market.",
   "uncertainty": "Conditional posterior uncertainty; source errors, omitted features and incomplete market coverage remain separate. Estimates for a unit's only listing are under-covered (91.5% in the 95% predictive range)."
 }
