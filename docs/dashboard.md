@@ -28,6 +28,33 @@ http://thelio.tail3983e0.ts.net:8500 (tailnet only).
 - The ΔELPD axis zooms past the baseline by default (it sits far below every other entry and is
   drawn at the floor); "Full ΔELPD range" shows everything.
 
+## Rent map (`map.html`)
+
+A prototype of Ben's visualization goal (2026-09-29: "a visualization geo-spatial-temporal model of
+rents stratified by number of bedrooms"), for the app's selected model.
+
+- **What a value is.** What a typical apartment with that many bedrooms rents for in a building in
+  a year (`rentfrontier.rentmap`):
+  - bathrooms, size, views and ad-text features at Chelsea's average for the bedroom count;
+  - floor and building amenities (elevator, doorman, pets, building facts) at the building's own
+    average;
+  - plus the building's level, its path over time and its own bedroom premium, and the market that
+    year (trend averaged over the year's months, no season).
+
+  The value is the posterior median of the typical asking rent, with a 90% interval.
+- **Map.** One dot per building on Manhattan's street grid (rotated 29°, avenues up the page), with
+  guide lines for the avenues and a few streets placed from the buildings' own addresses. Colour is
+  one of five fixed rent bands per bedroom count (quintiles over all building-years), so a band
+  means the same in every year. Years before a building's first listing in the fit are the model's
+  extrapolation; they are hidden by default and hollow when shown.
+- **Controls.** Bedrooms (studio, 1, 2, 3+), a year slider with play, hover for a building's value
+  and interval, and a table view.
+- **Chelsea average by bedrooms over time.** The typical rent averaged over buildings, per year and
+  bedroom count, with the chosen count's 90% interval.
+- **Data.** `python -m rentfrontier.rentmap <run>` (a heavy job: take the lock) writes
+  `/data1/apartments/frontier/maps/<run>-<commit>/map.json`. The dashboard build copies the newest
+  map of the run that `config/main-analysis.json` selects, and the page says so when there is none.
+
 ## How it is built and served
 
 - `frontier/src/rentfrontier/dashboard.py` reads the leaderboard's records (frontier runs under

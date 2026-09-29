@@ -34,6 +34,7 @@ import argparse
 import copy
 import datetime as dt
 import functools
+import glob
 import json
 import os
 import re
@@ -41,7 +42,7 @@ import shutil
 import subprocess
 from pathlib import Path
 
-from . import leaderboard, variance
+from . import leaderboard, rentmap, variance
 
 REPO = Path(__file__).resolve().parents[3]
 SITE_SOURCE = REPO / "dashboard"
@@ -349,12 +350,28 @@ def data():
     }
 
 
+def rent_map() -> Path | None:
+    """The newest rent-map bundle (`rentfrontier.rentmap`) of the app's selected
+    run (config/main-analysis.json), if one has been made."""
+    try:
+        run = json.loads((REPO / "config" / "main-analysis.json").read_text())["run"]
+    except (OSError, ValueError, KeyError):
+        return None
+    maps = sorted(
+        rentmap.MAPS.glob(f"{glob.escape(run)}-*/map.json"),
+        key=lambda p: p.stat().st_mtime,
+    )
+    return maps[-1] if maps else None
+
+
 def publish(out: Path):
     stamp = dt.datetime.now(dt.UTC).strftime("%Y%m%dT%H%M%S%fZ")
     builds = out / "builds"
     target = builds / stamp
     shutil.copytree(SITE_SOURCE, target)
     (target / "data.json").write_text(json.dumps(data(), indent=1))
+    if (bundle := rent_map()) is not None:
+        shutil.copyfile(bundle, target / "map.json")
     link = out / "site"
     tmp = out / f".site-{stamp}"
     os.symlink(target, tmp)
