@@ -268,12 +268,8 @@ def main(argv=None):
         "--sampler",
         choices=("nuts", "gibbs"),
         default="nuts",
-        help="nuts: NumPyro NUTS; gibbs: the custom Gibbs sampler (deprecated)",
-    )
-    parser.add_argument(
-        "--reproduce-deprecated",
-        action="store_true",
-        help="allow --sampler gibbs, only to reproduce an existing run record",
+        help="nuts: NumPyro NUTS; gibbs: the custom blocked Gibbs sampler (units "
+        "integrated out)",
     )
     parser.add_argument("--chains", type=int)
     parser.add_argument("--warmup", type=int)
@@ -318,12 +314,6 @@ def main(argv=None):
         "--dev", action="store_true", help="allow a dirty tree; run is not reportable"
     )
     args = parser.parse_args(argv)
-    if args.sampler == "gibbs" and not args.reproduce_deprecated:
-        raise SystemExit(
-            "The custom Gibbs sampler is deprecated (2026-09-25) and not for new work; "
-            "use --sampler nuts (--reproduce-deprecated only to reproduce an old run)."
-        )
-
     # Remote workers get a clean export of a commit and no .git; the local
     # submitter checks the tree and passes the commit in FRONTIER_COMMIT.
     commit = os.environ.get("FRONTIER_COMMIT")
@@ -445,7 +435,6 @@ def main(argv=None):
         "model": config.to_dict(),
         "sampler": args.sampler,
         "line": "frontier" if args.sampler == "gibbs" else "numpyro",
-        "deprecated_sampler": args.sampler == "gibbs",
         "sampler_settings": settings.to_dict(),
         "dtype": out.get("dtype"),
         "adapted": {
