@@ -48,27 +48,34 @@ Each row also gets:
 
 ## Checks on the published run
 
-Run: `m0q-btrend-unitdesc-v1-rows-df5dacb-nuts-c8-w250d550-svi2k-ul1-2060`, the best gate-passing
-library fit (PSIS-LOO 45,815.1, 745 s on the RTX 2060). Ben chose it as the app's model on
-2026-09-26. `config/main-analysis.json` selects its summary at commit ff7ee0a (2,200 draws, 359 s on
-the RTX 2060), and the listings site publishes that summary. The first summary, at 30c1ee0, used the
-same estimator before review. Between the two, 64 rows in the fit moved by more than 1% (the Monte
-Carlo noise of the level draws), 33 of them with k > 0.7.
+Run: `m5-nocurves-unitdesc-v1-rows-ab2a7df-gibbs-2060-3600-ul1`, the most accurate gate-passing fit
+within the 30-minute window (custom Gibbs sampler, PSIS-LOO 52,431.4, 1,326 s on the RTX 2060). Ben
+chose it as the app's model on 2026-09-29. `config/main-analysis.json` selects its summary at commit
+efdfc7c (1,200 draws, 214 s on the RTX 2060, 2.8 GB peak), and the listings site publishes that
+summary. From 2026-09-26 the app served the NumPyro fit
+`m0q-btrend-unitdesc-v1-rows-df5dacb-nuts-c8-w250d550-svi2k-ul1-2060` (PSIS-LOO 45,815.1); the new
+fit is +6,616.3 ± 136.7 over it on identical rows.
 
-- Contributions add up to the estimate within 1.2e-10 dollars on every row.
-- Pareto k per row equals `rentfrontier.loo`'s pointwise k for this run within 1e-12. The weights
-  are the board's PSIS-LOO weights. 112 rows (0.24%) have k > 0.7, and the site flags them as less
-  reliable.
+- Contributions add up to the estimate within 6.6e-11 dollars on every row.
+- Pareto k per row equals `rentfrontier.loo`'s pointwise k for this run within 2e-13. The weights
+  are the board's PSIS-LOO weights. With 1,200 draws the reliability threshold is 0.675
+  (`loo.k_threshold`); 421 rows (0.89%) are above it, and the site flags them as less reliable
+  (374 are above 0.7, against 112 for the previous selection).
 - Calibration, from the ask's position in its leave-own-row-out predictive distribution:
 
 | Rows | n | In 95% range | In 80% range | Median \|ask − estimate\| | In-sample median |
 |---|---:|---:|---:|---:|---:|
-| Held out (not in the fit) | 5,264 | 95.6% | 79.4% | 4.7% | 4.7% |
-| In the fit, unit has other rows | 36,746 | 95.2% | 80.1% | 4.7% | 3.0% |
-| In the fit, unit listed once | 10,628 | 91.5% | 76.9% | 7.1% | 2.3% |
+| Held out (not in the fit) | 5,264 | 94.7% | 79.3% | 4.0% | 4.0% |
+| In the fit, unit has other rows | 36,746 | 95.1% | 79.7% | 4.0% | 2.0% |
+| In the fit, unit listed once | 10,628 | 91.5% | 76.9% | 6.0% | 1.5% |
 
-Rows in the fit whose unit has other rows behave like genuinely held-out rows. The in-sample
-residuals are a third smaller, which is the pull toward the ask that leave-own-row-out removes.
-Units listed once are less well calibrated: their PIT is U-shaped (15% more mass than uniform in each
-outer decile), so the Normal unit prior is too light-tailed for them. The site reports this rather
-than widening their intervals.
+The median gap between ask and estimate is smaller than under the previous selection (4.7% on held-out
+rows and 7.1% for units listed once). Rows in the fit whose unit has other rows behave like genuinely
+held-out rows. The in-sample residuals are half as large, which is the pull toward the ask that
+leave-own-row-out removes. Units listed once are less well calibrated: their PIT is U-shaped (13–18% more
+mass than uniform in the outer deciles), so the Normal unit prior is too light-tailed for
+them. The site reports this rather than widening their intervals.
+
+The design's building walks give each building its own path over time, which the listing pages
+show as "Building over time". The buildings table has no yearly trend for a walk design, so building
+pages show the level only.

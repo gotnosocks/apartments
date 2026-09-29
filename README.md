@@ -5,9 +5,10 @@ compare apartments against an individual's willingness to pay for amenities.
 Chelsea is the existing pilot. The [project intent](docs/project-intent.md)
 defines the data contracts, temporal semantics, model scope, and research gates.
 
-The app's selected model (`config/main-analysis.json`, Ben's choice on 2026-09-26) is
-the best gate-passing NumPyro fit of the frontier line, `m0q-btrend` with `unitdesc-v1`
-features, served through its [per-listing estimates](docs/model/listing-estimates.md).
+The app's selected model (`config/main-analysis.json`, Ben's choice on 2026-09-29) is
+the most accurate gate-passing fit within 30 minutes on thelio: `m5-nocurves` with
+`unitdesc-v1` features on the custom Gibbs sampler, served through its
+[per-listing estimates](docs/model/listing-estimates.md).
 The earlier main models were **hierarchical Bayesian PyMC**, using compiled sampling and
 the saved joint posterior. The workflow is **scrape → transform → fit → analyze**,
 emphasizing feature contributions and fitted residuals. The [current-analysis workflow](docs/model/current-analysis.md)

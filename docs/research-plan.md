@@ -11,8 +11,9 @@ contract and pitfalls in [the 2026-09-24 brief](brief-2026-09-24.md) and the
 
 Push the frontier of **PSIS-LOO ΔELPD** against **fit time on thelio**. That means more accurate
 descriptions of every listing for the same fit time, or the same accuracy sooner. Product decisions stay
-Ben's. On 2026-09-26 he chose the best gate-passing NumPyro fit as the app's model; it ships through
-the summary output to the [listings site](site.md). West Village is on hold.
+Ben's. On 2026-09-29 he chose the most accurate gate-passing fit within the 30-minute window, the
+Gibbs `m5-nocurves` + `unitdesc-v1` fit, as the app's model (from 2026-09-26 it was the best NumPyro
+fit); it ships through the summary output to the [listings site](site.md). West Village is on hold.
 
 ## Interpretability and elegance (Ben, 2026-09-29)
 
@@ -818,6 +819,8 @@ comes from other sources, most of them public NYC and NYS data.
   [listings site](site.md) (PR #35), and `config/main-analysis.json` selecting the summary of
   `m0q-btrend` + `unitdesc-v1` + `unit-labels-v1`. A new selection needs Ben's OK. It takes a summary,
   a publish, and an edit of the selection.
+- Switched on 2026-09-29 (Ben): the selection names the summary of the Gibbs `m5-nocurves` +
+  `unitdesc-v1` + `unit-labels-v1` fit (PSIS-LOO 52,431.4, 1,326 s on the RTX 2060).
 - On hold: West Village, once its crawl completes.
 
 ## Current state
