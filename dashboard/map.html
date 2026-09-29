@@ -47,11 +47,14 @@
         <button class="ghost table-toggle" type="button" data-target="map">Table view</button>
       </div>
     </div>
-    <div class="legend" id="legend-map"></div>
     <div class="chart map-chart" id="chart-map"></div>
     <div class="table-view" id="table-map" hidden></div>
   </section>
-  <aside class="map-side" aria-label="Headline numbers and notes">
+  <aside class="map-side" aria-label="Legend, headline numbers and notes">
+    <section class="card map-legend">
+      <h2>Against the median building</h2>
+      <div class="legend stacked" id="legend-map"></div>
+    </section>
     <section class="kpis stacked" id="map-kpis"></section>
     <details class="card map-notes">
       <summary>About this map</summary>
@@ -80,8 +83,8 @@
   </section>
 
   <footer class="page-foot" id="map-foot"></footer>
+  <div class="tooltip" id="tooltip" role="status" hidden></div>
 </div>
-<div class="tooltip" id="tooltip" hidden></div>
 <script src="map.js"></script>
 </body>
 </html>

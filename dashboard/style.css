@@ -219,15 +219,19 @@ details ul { margin: 4px 0 0; padding-left: 18px; color: var(--text-secondary); 
 
 /* Rent map: the map fits the window beside a side panel; basemap colours stay recessive. */
 .map-layout { display: grid; grid-template-columns: minmax(0, 1fr) 300px; gap: 16px; align-items: start; }
-.map-side { display: flex; flex-direction: column; gap: 12px; position: sticky; top: 64px; }
+.map-side { display: flex; flex-direction: column; gap: 12px; }
 .kpis.stacked { grid-template-columns: 1fr; margin-bottom: 0; }
 .kpis.stacked .tile.hero { grid-column: auto; }
 .kpis.stacked .tile.hero .value { font-size: 36px; }
 .map-notes summary { font-weight: 600; color: var(--text-primary); }
+.map-legend { padding: 12px 16px; margin-bottom: 0; }
+.legend.stacked { flex-direction: column; gap: 4px; margin: 6px 0 0; }
+#map-card .card-head { margin-bottom: 4px; }
 .map-notes .caption { margin-top: 8px; }
 .map-tools { display: flex; gap: 6px; align-items: center; }
-.map-chart { touch-action: none; }
-.map-chart svg { overflow: hidden; }
+.map-chart { touch-action: none; user-select: none; }
+/* The map's SVG keeps its own size (the frame has the mapped area's proportions). */
+.map-chart svg { overflow: hidden; margin: 0 auto; width: auto; max-width: 100%; height: auto; }
 .map-chart.dragging { cursor: grabbing; }
 .map-chart .water { fill: var(--map-water); }
 .map-chart .land { fill: var(--map-land); }

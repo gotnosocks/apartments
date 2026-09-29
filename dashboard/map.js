@@ -165,22 +165,34 @@ function renderKpis() {
 // The view: world centre (grid metres) and zoom over the fit-to-window scale.
 const view = { cx: null, cy: null, zoom: 1 };
 const FT = 0.3048; // metres per foot
+// The mapped area: the basemap's extent, or the buildings' own (older bundles).
+function mapExtent() {
+  const d = state.data;
+  if (d.basemap) return d.basemap.extent;
+  const xs = d.buildings.filter((b) => b.x !== null).map((b) => b.x), ys = d.buildings.filter((b) => b.y !== null).map((b) => b.y);
+  return [Math.min(...xs) - 120, Math.max(...xs) + 120, Math.min(...ys) - 120, Math.max(...ys) + 120];
+}
 function mapFrame(container) {
-  const d = state.data, [ex0, ex1, ey0, ey1] = d.basemap.extent;
-  const width = Math.max(320, container.clientWidth);
-  // Fit the whole map in the window below where it starts on screen (never
-  // above the sticky filter row), less the card's bottom padding.
-  const top = Math.max(container.getBoundingClientRect().top, $('filters').getBoundingClientRect().bottom);
-  const height = Math.max(360, Math.min(window.innerHeight - top - 24, Math.round(width * (ey1 - ey0) / (ex1 - ex0))));
-  const fit = Math.min(width / (ex1 - ex0), height / (ey1 - ey0));
-  if (view.cx === null) { view.cx = (ex0 + ex1) / 2; view.cy = (ey0 + ey1) / 2; }
-  const k = fit * view.zoom;
+  const [ex0, ex1, ey0, ey1] = mapExtent(), aspect = (ex1 - ex0) / (ey1 - ey0);
+  // The frame has the mapped area's proportions (no water painted over land), as
+  // large as fits the card's width and the window below where the map starts in
+  // the page (its document position, so it does not depend on the scroll).
+  const top = container.getBoundingClientRect().top + window.scrollY;
+  const tall = Math.max(280, window.innerHeight - top - 24);
+  const width = Math.round(Math.min(Math.max(320, container.clientWidth), tall * aspect));
+  const height = Math.round(width / aspect);
+  const k = (width / (ex1 - ex0)) * view.zoom;
+  // Keep the view inside the mapped area.
+  const hw = width / 2 / k, hh = height / 2 / k;
+  view.cx = Math.min(ex1 - hw, Math.max(ex0 + hw, view.cx ?? (ex0 + ex1) / 2));
+  view.cy = Math.min(ey1 - hh, Math.max(ey0 + hh, view.cy ?? (ey0 + ey1) / 2));
   const X = (x) => width / 2 + (x - view.cx) * k, Y = (y) => height / 2 - (y - view.cy) * k;
   return { width, height, k, X, Y };
 }
 const pathOf = (pts, X, Y, close) => pts.map((p, i) => `${i ? 'L' : 'M'}${X(p[0]).toFixed(1)},${Y(p[1]).toFixed(1)}`).join('') + (close ? 'Z' : '');
 function drawBasemap(root, f) {
   const b = state.data.basemap, { X, Y, k } = f;
+  if (!b) return;
   svg('rect', { class: 'water', x: 0, y: 0, width: f.width, height: f.height }, root);
   for (const land of b.land) svg('path', { class: 'land', 'fill-rule': 'evenodd', d: land.rings.map((r) => pathOf(r, X, Y, true)).join('') }, root);
   for (const park of b.parks) {
@@ -190,7 +202,7 @@ function drawBasemap(root, f) {
   for (const p of b.paths) svg('path', { class: 'path', d: pathOf(p.points, X, Y, false) }, root);
   // Streets at their recorded width (feet), never thinner than a hairline.
   for (const s of b.streets) {
-    const w = Math.min(18, Math.max(0.8, (s.width_ft || 30) * FT * k));
+    const w = Math.min(60, Math.max(0.8, (s.width_ft || 30) * FT * k));
     svg('path', { class: 'street', 'stroke-width': w.toFixed(1), d: pathOf(s.points, X, Y, false) }, root);
   }
   const g = state.data.grid;
@@ -207,6 +219,18 @@ function drawBasemap(root, f) {
 function renderMap() {
   const d = state.data, yi = yearIndex(), bed = state.bed;
   const ramp = RAMP[isDark() ? 'dark' : 'light'];
+  // Legend: the seven classes, cheapest to dearest.
+  const lg = $('legend-map');
+  lg.replaceChildren();
+  CLASS_LABELS.forEach((label, k) => {
+    const it = html('span', { class: 'item' }, lg);
+    const sw = html('span', { class: 'swatch' }, it);
+    sw.style.background = ramp[k];
+    it.appendChild(document.createTextNode(label));
+  });
+  const ex = html('span', { class: 'item' }, lg);
+  html('span', { class: 'swatch hollow' }, ex);
+  ex.appendChild(document.createTextNode('outside the years of the building\'s listings (extrapolated)'));
   const container = $('chart-map');
   container.replaceChildren();
   const f = mapFrame(container), { X, Y } = f;
@@ -234,18 +258,6 @@ function renderMap() {
     marks.push({ x: cx, y: cy, i, node });
   }
   mapState.f = f; mapState.marks = marks; mapState.yi = yi;
-  // Legend: the seven classes, cheapest to dearest.
-  const lg = $('legend-map');
-  lg.replaceChildren();
-  CLASS_LABELS.forEach((label, k) => {
-    const it = html('span', { class: 'item' }, lg);
-    const sw = html('span', { class: 'swatch' }, it);
-    sw.style.background = ramp[k];
-    it.appendChild(document.createTextNode(label));
-  });
-  const ex = html('span', { class: 'item' }, lg);
-  html('span', { class: 'swatch hollow' }, ex);
-  ex.appendChild(document.createTextNode('outside the years of the building\'s listings (extrapolated)'));
   renderMapTable(order, yi);
 }
 // Pointer handling lives on the container, which survives re-renders (a drag

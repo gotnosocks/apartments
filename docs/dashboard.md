@@ -47,8 +47,10 @@ rents stratified by number of bedrooms"), for the app's selected model.
   - The map comes from NYC Open Data (`rentfrontier.external basemap`): street centerlines drawn at
     their recorded width, paths, parks (the High Line, Chelsea Park, ...) and the Hudson shoreline.
     Avenue and street labels are placed from the buildings' own addresses.
-  - The map fits the window beside a side panel with the headline numbers. Zoom with the buttons or
-    a double click, and drag to pan; "Whole map" resets.
+  - The map keeps the mapped area's proportions and is as large as fits the card and the window
+    below where it starts in the page, beside a side panel with the legend and headline numbers.
+    Zoom with the buttons or a double click, and drag to pan (within the mapped area); "Whole map"
+    resets.
   - Colour is the building's premium over Chelsea's median building that year and bedroom count,
     in seven diverging classes (blue cheaper, red dearer, gray within 5%; breaks at 5, 15 and 30%).
     Rents rose about 70% since 2010, so fixed dollar bands would only show time. The level over
