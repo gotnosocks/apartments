@@ -17,7 +17,7 @@
 {{ beds_label(row.bedrooms) }}{% if row.bathrooms is not none %} · {{ row.bathrooms | trim_float }} ba{% endif %}{% if row.square_feet %} · {{ "{:,.0f}".format(row.square_feet) }} ft²{% endif %}
 {%- endmacro %}
 
-{% macro listing_table(rows, filters=None, endpoint=None, show_building=True) %}
+{% macro listing_table(rows, filters=None, endpoint=None, show_building=True, show_source=False) %}
 <div class="table-wrap">
 <table class="data">
   <thead>
@@ -30,6 +30,7 @@
       <th scope="col" class="num">95% range</th>
       {{ sort_th("Ask vs estimate", "diff_pct", filters, endpoint, num=True) }}
       <th scope="col">Price</th>
+      {% if show_source %}<th scope="col">StreetEasy</th>{% endif %}
     </tr>
   </thead>
   <tbody>
@@ -43,9 +44,10 @@
       <td class="num muted nowrap">{{ usd(row.estimate_lower) }}–{{ usd(row.estimate_upper) }}</td>
       <td class="num nowrap">{{ usd(row.residual_usd, signed=True) }} <span class="muted">({{ pct(100 * row.residual_pct) }})</span></td>
       <td>{{ band_chip(row) }}</td>
+      {% if show_source %}<td class="nowrap">{% if row.listing_url %}<a href="{{ row.listing_url }}" rel="noopener noreferrer" target="_blank">Ad ↗<span class="visually-hidden"> for {{ month(row.period) }} on StreetEasy</span></a>{% endif %}</td>{% endif %}
     </tr>
   {% else %}
-    <tr><td colspan="8" class="empty">No listings match these filters.</td></tr>
+    <tr><td colspan="{{ 9 if show_source else 8 }}" class="empty">No listings match these filters.</td></tr>
   {% endfor %}
   </tbody>
 </table>

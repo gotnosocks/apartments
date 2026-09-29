@@ -173,6 +173,7 @@ dl.facts.wide { grid-template-columns: minmax(9rem, max-content) 1fr; }
 dl.facts dt { color: var(--ink-2); }
 dl.facts dd { margin: 0; }
 .links { display: flex; flex-wrap: wrap; gap: 1rem; margin: 0.8rem 0 0; }
+.links .source { font-weight: 600; }
 
 details.table-view { margin-top: 0.4rem; }
 details.table-view summary { cursor: pointer; color: var(--link); font-size: 0.9rem; }
