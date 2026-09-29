@@ -154,7 +154,7 @@ function renderKpis() {
   tile(`Chelsea's median building, ${bedLabel.toLowerCase()}, ${yearOf(yi)}${partial}`, usd(mid), `90% interval ${range(lo, hi)} a month`, true);
   const ch = mid / first - 1;
   tile(`Since ${d.years[0]}`, `${ch >= 0 ? '+' : '−'}${Math.abs(100 * ch).toFixed(0)}%`, `from ${usd(first)} a month`);
-  tile('Buildings on the map', shown.toLocaleString('en-US'), `of ${d.buildings.length.toLocaleString('en-US')} with listings in the fit${state.showBefore ? '' : `, listed around ${yearOf(yi)}`}`);
+  tile('Buildings on the map', shown.toLocaleString('en-US'), `of ${d.buildings.length.toLocaleString('en-US')} with listings in the fit${state.showBefore ? '' : `; shown where their listings span ${yearOf(yi)}`}`);
 }
 
 // ---------- map ----------
