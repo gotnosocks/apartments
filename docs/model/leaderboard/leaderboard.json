@@ -15158,9 +15158,7 @@
       "frontier": false,
       "current_best": false,
       "note": "superseded by passing rerun m5-nocurves/unitdesc-v1/gibbs@ab2a7df+unit-labels-v1",
-      "annotations": [
-        "Serves the app (Ben, 2026-09-29): the 2 x (300 + 3600) fit m5-nocurves-unitdesc-v1-rows-ab2a7df-gibbs-2060-3600-ul1, through its summary (rentfrontier.summary at efdfc7c) on the listings site. The 2 x (300 + 3000) fit of the same design failed on sigma and does not serve. From 2026-09-26 the app served m0q-btrend/unitdesc-v1/nuts@df5dacb+unit-labels-v1."
-      ]
+      "annotations": []
     },
     {
       "id": "m5-nocurves/unitdesc-v1/gibbs@ab2a7df+unit-labels-v1",
@@ -15355,9 +15353,7 @@
       "frontier": true,
       "current_best": true,
       "note": "",
-      "annotations": [
-        "Serves the app (Ben, 2026-09-29): the 2 x (300 + 3600) fit m5-nocurves-unitdesc-v1-rows-ab2a7df-gibbs-2060-3600-ul1, through its summary (rentfrontier.summary at efdfc7c) on the listings site. The 2 x (300 + 3000) fit of the same design failed on sigma and does not serve. From 2026-09-26 the app served m0q-btrend/unitdesc-v1/nuts@df5dacb+unit-labels-v1."
-      ]
+      "annotations": []
     },
     {
       "id": "m5-nocurves/unitdescpluto-v1/gibbs@c84f228+unit-labels-v1",
@@ -15942,7 +15938,9 @@
       "frontier": true,
       "current_best": false,
       "note": "",
-      "annotations": []
+      "annotations": [
+        "Serves the app (Ben, 2026-09-29): m5-nocurves-unitdescpluto-v3-rows-faa8c78-gibbs-2060-3600-ul1, through its summary (rentfrontier.summary at 90aa695) on the listings site. Earlier on 2026-09-29 the app served m5-nocurves/unitdesc-v1/gibbs@ab2a7df+unit-labels-v1, and from 2026-09-26 m0q-btrend/unitdesc-v1/nuts@df5dacb+unit-labels-v1."
+      ]
     },
     {
       "id": "m5-nocurves/unitdescplutoloc-v1/gibbs@10f6c70+unit-labels-v1",

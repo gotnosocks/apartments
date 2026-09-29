@@ -48,33 +48,46 @@ Each row also gets:
 
 ## Checks on the published run
 
-Run: `m5-nocurves-unitdesc-v1-rows-ab2a7df-gibbs-2060-3600-ul1`, the most accurate gate-passing fit
-within the 30-minute window (custom Gibbs sampler, PSIS-LOO 52,431.4, 1,326 s on the RTX 2060). Ben
-chose it as the app's model on 2026-09-29. `config/main-analysis.json` selects its summary at commit
-efdfc7c (1,200 draws, 214 s on the RTX 2060, 2.8 GB peak), and the listings site publishes that
-summary. From 2026-09-26 the app served the NumPyro fit
-`m0q-btrend-unitdesc-v1-rows-df5dacb-nuts-c8-w250d550-svi2k-ul1-2060` (PSIS-LOO 45,815.1); the new
-fit is +6,616.3 ± 136.7 over it on identical rows.
+Run: `m5-nocurves-unitdescpluto-v3-rows-faa8c78-gibbs-2060-3600-ul1`.
+- It is the app's design with the building facts from NYC MapPLUTO: era, size, class, landmark and
+  historic district, and an alteration since 2000. The 2015 flood-zone flag is left out.
+- It was fit with the custom Gibbs sampler: PSIS-LOO 52,439.6, 1,376 s on the RTX 2060.
+- Ben chose it as the app's model on 2026-09-29, for interpretability at equal accuracy. It scores
+  +8.2 ± 18.3 against the previous selection on identical rows.
+- The anonymous building level falls from 29% to 8% of the variance. On a listing page most of a
+  building's premium now shows as named rows: building era, size, class and status.
+- `config/main-analysis.json` selects its summary at commit 90aa695: 1,200 draws, 226 s on the RTX
+  2060, 2.9 GB peak. The listings site publishes that summary.
 
-- Contributions add up to the estimate within 6.6e-11 dollars on every row.
+Earlier selections:
+- 2026-09-26: the NumPyro fit `m0q-btrend-unitdesc-v1-rows-df5dacb-nuts-c8-w250d550-svi2k-ul1-2060`.
+- Earlier on 2026-09-29: the Gibbs fit `m5-nocurves-unitdesc-v1-rows-ab2a7df-gibbs-2060-3600-ul1`.
+
+Checks:
+- Contributions add up to the estimate within 7.3e-11 dollars on every row.
 - Pareto k per row equals `rentfrontier.loo`'s pointwise k for this run within 2e-13. The weights
-  are the board's PSIS-LOO weights. With 1,200 draws the reliability threshold is 0.675
-  (`loo.k_threshold`); 421 rows (0.89%) are above it, and the site flags them as less reliable
-  (374 are above 0.7, against 112 for the previous selection).
+  are the board's PSIS-LOO weights.
+- With 1,200 draws the reliability threshold is 0.675 (`loo.k_threshold`). 396 rows (0.84%) are
+  above it, and the site flags them as less reliable. 344 rows are above 0.7, against 374 for the
+  previous selection.
 - Calibration, from the ask's position in its leave-own-row-out predictive distribution:
 
 | Rows | n | In 95% range | In 80% range | Median \|ask − estimate\| | In-sample median |
 |---|---:|---:|---:|---:|---:|
-| Held out (not in the fit) | 5,264 | 94.7% | 79.3% | 4.0% | 4.0% |
+| Held out (not in the fit) | 5,264 | 94.7% | 79.2% | 4.0% | 4.0% |
 | In the fit, unit has other rows | 36,746 | 95.1% | 79.7% | 4.0% | 2.0% |
-| In the fit, unit listed once | 10,628 | 91.5% | 76.9% | 6.0% | 1.5% |
+| In the fit, unit listed once | 10,628 | 91.4% | 76.9% | 6.0% | 1.5% |
 
-The median gap between ask and estimate is smaller than under the previous selection (4.7% on held-out
-rows and 7.1% for units listed once). Rows in the fit whose unit has other rows behave like genuinely
-held-out rows. The in-sample residuals are half as large, which is the pull toward the ask that
-leave-own-row-out removes. Units listed once are less well calibrated: their PIT is U-shaped (13–18% more
-mass than uniform in the outer deciles), so the Normal unit prior is too light-tailed for
-them. The site reports this rather than widening their intervals.
+The calibration and the median gaps are the same as for the previous selection. They are smaller
+than for the NumPyro fit of 2026-09-26, which had 4.7% on held-out rows and 7.1% for units listed
+once.
+
+Rows in the fit whose unit has other rows behave like genuinely held-out rows. The in-sample
+residuals are half as large, which is the pull toward the ask that leave-own-row-out removes.
+
+Units listed once are less well calibrated. Their PIT is U-shaped, with 12–19% more mass than
+uniform in the outer deciles, so the Normal unit prior is too light-tailed for them. The site
+reports this rather than widening their intervals.
 
 The design's building walks give each building its own path over time, which the listing pages
 show as "Building over time". The buildings table has no yearly trend for a walk design, so building
