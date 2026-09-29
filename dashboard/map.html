@@ -21,7 +21,7 @@
     </div>
   </header>
 
-  <section class="filters" aria-label="Filters">
+  <section class="filters" id="filters" aria-label="Filters">
     <fieldset class="seg" id="beds-select"><legend>Bedrooms</legend></fieldset>
     <div class="asof">
       <label for="year-range">Year</label>
@@ -34,23 +34,35 @@
     <label class="check"><input id="show-before" type="checkbox"> Buildings outside the years of their listings</label>
   </section>
 
-  <section class="kpis" id="map-kpis" aria-label="Headline numbers"></section>
-
+  <div class="map-layout">
   <section class="card" id="map-card">
     <div class="card-head">
       <div>
         <h2 id="map-title">Typical rent by building</h2>
-        <p class="caption">One dot per building, drawn on Manhattan's street grid (avenues run up the page, the Hudson is to the left). Colour is how the building's typical
-          asking rent (posterior median) compares with Chelsea's median building that year, for the chosen bedroom count: blue cheaper, red dearer, gray within 5%.
-          The chart below shows how the level itself moved. Buildings are shown in the years from their first to their last listing in the fit; outside those years
-          their rent is the model's extrapolation (tick the box above to show them, hollow). Hover for the rent in dollars.</p>
       </div>
-      <button class="ghost table-toggle" type="button" data-target="map">Table view</button>
+      <div class="map-tools">
+        <button id="zoom-in" class="ghost icon" type="button" aria-label="Zoom in">+</button>
+        <button id="zoom-out" class="ghost icon" type="button" aria-label="Zoom out">−</button>
+        <button id="zoom-reset" class="ghost" type="button">Whole map</button>
+        <button class="ghost table-toggle" type="button" data-target="map">Table view</button>
+      </div>
     </div>
     <div class="legend" id="legend-map"></div>
-    <div class="chart" id="chart-map"></div>
+    <div class="chart map-chart" id="chart-map"></div>
     <div class="table-view" id="table-map" hidden></div>
   </section>
+  <aside class="map-side" aria-label="Headline numbers and notes">
+    <section class="kpis stacked" id="map-kpis"></section>
+    <details class="card map-notes">
+      <summary>About this map</summary>
+      <p class="caption">One dot per building on a map of Chelsea turned to Manhattan's street grid (avenues run up the page, the Hudson is to the left). Streets are drawn
+        at their recorded width; parks and the shoreline are from NYC Open Data. Colour is how the building's typical asking rent (posterior median) compares with Chelsea's
+        median building that year, for the chosen bedroom count: blue cheaper, red dearer, gray within 5%. The chart below shows how the level itself moved.</p>
+      <p class="caption">Buildings are shown in the years from their first to their last listing in the fit; outside those years their rent is the model's extrapolation
+        (tick the box above to show them, hollow). Hover for the rent in dollars; zoom with the buttons or a double click, and drag to pan.</p>
+    </details>
+  </aside>
+  </div>
 
   <section class="card" id="trend-card">
     <div class="card-head">

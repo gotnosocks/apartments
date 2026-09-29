@@ -75,6 +75,13 @@ GUIDE_STREETS = (14, 18, 23, 28, 34)
 SIDE_STREET = re.compile(r"^\d+\s+WEST\s+(\d+)\s+STREET")
 AVENUE = re.compile(r"^\d+\s+(\d+)\s+AVENUE")
 AMERICAS = re.compile(r"AVENUE OF (THE )?AMERICAS|AMERICAS AVENUE")
+# The map under the dots (`rentfrontier.external basemap`), clipped to the
+# buildings' extent plus BASEMAP_PAD_M; street widths in feet, as recorded.
+BASEMAP_SNAPSHOT = "/data1/apartments/external/basemap/20260929-da7e40d"
+BASEMAP_FILE = f"{BASEMAP_SNAPSHOT}/basemap.parquet"
+BASEMAP_PAD_M = 120.0
+# Centerline roadway types drawn: street, highway, bridge, ramp; paths apart.
+ROADS, PATHS = {"1", "2", "3", "9"}, {"6"}
 DEFINITION = (
     "A typical apartment with that many bedrooms: bathrooms, size, laundry, views "
     "and ad-text features at Chelsea's average for its bedroom count; floor, "
@@ -152,24 +159,38 @@ def building_table(prep: model.Prepared, years) -> list[dict]:
     return out
 
 
-def grid_layout(buildings: list[dict]) -> dict:
-    """Adds each building's grid coordinates (x across the avenues, y up the
-    streets, metres from the buildings' centre) and returns guide positions
-    for a few streets and the avenues, from the buildings' own addresses
-    (median over the buildings on each, at least two)."""
+def grid_projection(buildings: list[dict]):
+    """(lon, lat) -> grid (x across the avenues, y up the streets), metres from
+    the buildings' centre, for the Manhattan grid's bearing."""
     known = [b for b in buildings if b["lat"] is not None]
     lat0 = sum(b["lat"] for b in known) / len(known)
     lon0 = sum(b["lon"] for b in known) / len(known)
     phi, metres = math.radians(GRID_BEARING_DEG), 111_320.0
+    cos0 = math.cos(math.radians(lat0))
+
+    def to_grid(lon, lat):
+        east = (lon - lon0) * metres * cos0
+        north = (lat - lat0) * metres
+        return (
+            east * math.cos(phi) - north * math.sin(phi),
+            east * math.sin(phi) + north * math.cos(phi),
+        )
+
+    return to_grid
+
+
+def grid_layout(buildings: list[dict]) -> dict:
+    """Adds each building's grid coordinates (`grid_projection`) and returns
+    guide positions for a few streets and the avenues, from the buildings' own
+    addresses (median over the buildings on each, at least two)."""
+    to_grid = grid_projection(buildings)
     streets, avenues = {}, {}
     for b in buildings:
         if b["lat"] is None:
             b["x"] = b["y"] = None
             continue
-        east = (b["lon"] - lon0) * metres * math.cos(math.radians(lat0))
-        north = (b["lat"] - lat0) * metres
-        b["x"] = round(east * math.cos(phi) - north * math.sin(phi), 1)
-        b["y"] = round(east * math.sin(phi) + north * math.cos(phi), 1)
+        x, y = to_grid(b["lon"], b["lat"])
+        b["x"], b["y"] = round(x, 1), round(y, 1)
         address = b["label"].upper()
         if m := SIDE_STREET.match(address):
             streets.setdefault(int(m.group(1)), []).append(b["y"])
@@ -191,6 +212,109 @@ def grid_layout(buildings: list[dict]) -> dict:
             if len(v) >= 2
         ],
     }
+
+
+def _clip_ring(ring, x0, x1, y0, y1):
+    """Sutherland-Hodgman clip of a polygon ring to a rectangle."""
+    edges = (
+        (lambda p: p[0] >= x0, lambda a, b: _at_x(a, b, x0)),
+        (lambda p: p[0] <= x1, lambda a, b: _at_x(a, b, x1)),
+        (lambda p: p[1] >= y0, lambda a, b: _at_y(a, b, y0)),
+        (lambda p: p[1] <= y1, lambda a, b: _at_y(a, b, y1)),
+    )
+    out = list(ring)
+    for inside, cross in edges:
+        points, out = out, []
+        for i, cur in enumerate(points):
+            prev = points[i - 1]
+            if inside(cur):
+                if not inside(prev):
+                    out.append(cross(prev, cur))
+                out.append(cur)
+            elif inside(prev):
+                out.append(cross(prev, cur))
+        if not out:
+            break
+    return out
+
+
+def _at_x(a, b, x):
+    t = (x - a[0]) / (b[0] - a[0])
+    return (x, a[1] + t * (b[1] - a[1]))
+
+
+def _at_y(a, b, y):
+    t = (y - a[1]) / (b[1] - a[1])
+    return (a[0] + t * (b[0] - a[0]), y)
+
+
+def _thin(points, step=1.5):
+    """Round to 0.1 m and drop points closer than `step` metres to the last kept."""
+    out = []
+    for x, y in points:
+        if not out or math.hypot(x - out[-1][0], y - out[-1][1]) >= step:
+            out.append((round(x, 1), round(y, 1)))
+    if len(points) > 1 and out[-1] != (
+        round(points[-1][0], 1),
+        round(points[-1][1], 1),
+    ):
+        out.append((round(points[-1][0], 1), round(points[-1][1], 1)))
+    return out
+
+
+def basemap_layers(buildings: list[dict]) -> dict:
+    """Streets, paths, parks and land from the basemap snapshot, in the map's
+    grid coordinates, clipped to the buildings' extent plus BASEMAP_PAD_M."""
+    to_grid = grid_projection(buildings)
+    xs = [b["x"] for b in buildings if b["x"] is not None]
+    ys = [b["y"] for b in buildings if b["y"] is not None]
+    x0, x1 = min(xs) - BASEMAP_PAD_M, max(xs) + BASEMAP_PAD_M
+    y0, y1 = min(ys) - BASEMAP_PAD_M, max(ys) + BASEMAP_PAD_M
+    inside = lambda p: x0 <= p[0] <= x1 and y0 <= p[1] <= y1
+    table = pd.read_parquet(BASEMAP_FILE)
+    out = {
+        "extent": [x0, x1, y0, y1],
+        "land": [],
+        "parks": [],
+        "streets": [],
+        "paths": [],
+    }
+    for row in table.itertuples():
+        geometry = json.loads(row.geometry)
+        attrs = json.loads(row.attributes)
+        if geometry is None:
+            continue
+        coords = geometry["coordinates"]
+        if row.layer in ("land", "park"):
+            polygons = coords if geometry["type"] == "MultiPolygon" else [coords]
+            rings = []
+            for polygon in polygons:
+                for ring in polygon:
+                    clipped = _clip_ring([to_grid(*p) for p in ring], x0, x1, y0, y1)
+                    if len(clipped) >= 3:
+                        rings.append(_thin(clipped))
+            if rings:
+                key = "land" if row.layer == "land" else "parks"
+                out[key].append({"name": row.name, "rings": rings})
+            continue
+        kind = attrs.get("rw_type")
+        if kind not in ROADS | PATHS:
+            continue
+        lines = coords if geometry["type"] == "MultiLineString" else [coords]
+        for line in lines:
+            points = [to_grid(*p) for p in line]
+            if not any(inside(p) for p in points):
+                continue
+            width = attrs.get("streetwidth")
+            out["paths" if kind in PATHS else "streets"].append(
+                {
+                    "name": attrs.get("stname_label") or row.name,
+                    "width_ft": float(width) if width else None,
+                    "points": _thin(points),
+                }
+            )
+    out["extent"] = [round(v, 1) for v in out["extent"]]
+    return out
 
 
 def unsupported_terms(config: model.ModelConfig) -> list[str]:
@@ -254,6 +378,7 @@ def compute(name: str) -> dict:
     months = (by_year > 0).sum(1)
     buildings = building_table(prep, years)
     grid = grid_layout(buildings)
+    basemap = basemap_layers(buildings)
     return {
         "version": VERSION,
         "run": name,
@@ -269,6 +394,11 @@ def compute(name: str) -> dict:
         "bedrooms": [{"key": k, "label": label} for k, label, _ in BEDROOMS],
         "buildings": buildings,
         "grid": grid,
+        "basemap": basemap,
+        "basemap_source": {
+            "path": BASEMAP_FILE,
+            "sha256": data.sha256(Path(BASEMAP_FILE)),
+        },
         "rent": out_rent,
         "chelsea_median": chelsea,
     }
