@@ -1,13 +1,13 @@
 {
   "version": "main-analysis-selection-v2",
   "model_family": "frontier_summary",
-  "summary": "/data1/apartments/frontier/summaries/m5-nocurves-unitdesc-v1-rows-ab2a7df-gibbs-2060-3600-ul1-efdfc7c",
-  "summary_manifest_sha256": "2152a7afc045017a5b189f7da32d53476f672b0a485a6284ea688a028d7bb6ea",
-  "summary_commit": "efdfc7c5025fbe7ba0849829e50c29a0e894d78a",
-  "run": "m5-nocurves-unitdesc-v1-rows-ab2a7df-gibbs-2060-3600-ul1",
-  "run_commit": "ab2a7dfb55c99072fa89052c87c4b7dcc0fee19c",
+  "summary": "/data1/apartments/frontier/summaries/m5-nocurves-unitdescpluto-v3-rows-faa8c78-gibbs-2060-3600-ul1-90aa695",
+  "summary_manifest_sha256": "32f353b7e74e68eb89157e53b71515614ab9fbc52c1619e5a6e63abffb133c89",
+  "summary_commit": "90aa6950a44af1f8cc87a3df83c830e9e8814b3b",
+  "run": "m5-nocurves-unitdescpluto-v3-rows-faa8c78-gibbs-2060-3600-ul1",
+  "run_commit": "faa8c78fb978a3b87a446b83a9dabefaea15a471",
   "model": "m5-nocurves",
-  "feature_set": "unitdesc-v1",
+  "feature_set": "unitdescpluto-v3",
   "data_rules": [
     "unit-labels-v1"
   ],
@@ -15,17 +15,17 @@
   "source_observations_sha256": "8e29179bac059bf04b86c7b57acc65324e80fc209fb14793fbb1b9be47b2816f",
   "gate": {
     "passes": true,
-    "max_rhat": 1.006057534178545,
-    "min_ess": 579.7780627998121,
+    "max_rhat": 1.0059402577195036,
+    "min_ess": 585.2078715310015,
     "divergences": null,
-    "group_rhat_max": 1.0101966535219444
+    "group_rhat_max": 1.008767126366731
   },
   "psis_loo": {
-    "elpd_loo": 52431.382546302244,
-    "elpd_loo_se": 239.0359230615728,
-    "loo_commit": "ab2a7dfb55c99072fa89052c87c4b7dcc0fee19c"
+    "elpd_loo": 52439.62424279524,
+    "elpd_loo_se": 239.35530062654178,
+    "loo_commit": "faa8c78fb978a3b87a446b83a9dabefaea15a471"
   },
   "selected_by": "Ben, 2026-09-29",
-  "selection_reason": "Ben chose the most accurate gate-passing fit within the 30-minute window on thelio (custom Gibbs sampler, RTX 2060, 1,326 s): PSIS-LOO +6,616.3 ± 136.7 over the previous selection (m0q-btrend) on identical rows. Every term has a renter-facing explanation (docs/research-plan.md, glossary). Its building walks are not sum-to-zero, so a little common time variation can sit in 'building over time' instead of the market.",
-  "uncertainty": "Conditional posterior uncertainty; source errors, omitted features and incomplete market coverage remain separate. Estimates for a unit's only listing are under-covered (91.5% in the 95% predictive range)."
+  "selection_reason": "Ben chose the building-facts version of the app's design for interpretability at equal accuracy: the Gibbs m5-nocurves fit with unitdescpluto-v3 (the listing features plus NYC MapPLUTO building facts: era, size, class, landmark and historic-district status, alteration since 2000; the 2015 flood-zone flag left out because in Chelsea it marks the western blocks). PSIS-LOO +8.2 ± 18.3 against the previous selection (m5-nocurves + unitdesc-v1) on identical rows, 1,376 s on the RTX 2060; the anonymous building level falls from 29% to 8% of the variance. Every term has a renter-facing explanation (docs/research-plan.md, glossary).",
+  "uncertainty": "Conditional posterior uncertainty; source errors, omitted features and incomplete market coverage remain separate. Estimates for a unit's only listing are under-covered (91.4% in the 95% predictive range)."
 }

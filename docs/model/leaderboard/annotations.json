@@ -9,8 +9,8 @@
     "m8-drift/base-v1/gibbs@b7c196f": [
       "Fit on a Modal H100: 16 chains x (900 + 2,000), 3,269 s including JIT, about $3.99. Not refit locally (Ben, 2026-09-24); the thelio fit time is unmeasured."
     ],
-    "m5-nocurves/unitdesc-v1/gibbs@ab2a7df+unit-labels-v1": [
-      "Serves the app (Ben, 2026-09-29): the 2 x (300 + 3600) fit m5-nocurves-unitdesc-v1-rows-ab2a7df-gibbs-2060-3600-ul1, through its summary (rentfrontier.summary at efdfc7c) on the listings site. The 2 x (300 + 3000) fit of the same design failed on sigma and does not serve. From 2026-09-26 the app served m0q-btrend/unitdesc-v1/nuts@df5dacb+unit-labels-v1."
+    "m5-nocurves/unitdescpluto-v3/gibbs@faa8c78+unit-labels-v1": [
+      "Serves the app (Ben, 2026-09-29): m5-nocurves-unitdescpluto-v3-rows-faa8c78-gibbs-2060-3600-ul1, through its summary (rentfrontier.summary at 90aa695) on the listings site. Earlier on 2026-09-29 the app served m5-nocurves/unitdesc-v1/gibbs@ab2a7df+unit-labels-v1, and from 2026-09-26 m0q-btrend/unitdesc-v1/nuts@df5dacb+unit-labels-v1."
     ]
   },
   "footer": [
