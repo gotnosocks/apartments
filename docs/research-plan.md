@@ -707,6 +707,13 @@ They enter the design matrix, so NUTS fits them like any other design.
        flag most likely stands in for location there rather than flood risk (this fit cannot
        separate the two), which makes it a poor renter-facing term. A location term (below)
        should take it over.
+   - **Without the flood-zone flag** (`unitdescpluto-v2`, 134737e, 2026-09-29; the candidate for
+     the app, Ben 2026-09-29). It passes in 1,374 s: R-hat 1.006, ESS 602, every-element R-hat
+     1.009. PSIS-LOO is 52,438.2: **−0.1 ± 7.2 against the building facts with the flag** and
+     +6.8 ± 18.1 against the app's fit, on identical rows. Historic district takes up part of the
+     western blocks' premium (+5.6% → +7.5%, +1 to +14), and built 1990 or later rises by about
+     one point. The other facts barely move (under 0.5 posterior sd), and the building level
+     stays at 7.9% of the variance.
 2. **Location.** Buildings have latitude and longitude. Try a low-rank spatial basis over building
    locations, as building-level columns, so neighbouring buildings share information (west vs
    east Chelsea, the avenues, the High Line).
