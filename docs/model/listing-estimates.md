@@ -54,8 +54,9 @@ Run: `m5-nocurves-unitdescpluto-v3-rows-faa8c78-gibbs-2060-3600-ul1`.
 - It was fit with the custom Gibbs sampler: PSIS-LOO 52,439.6, 1,376 s on the RTX 2060.
 - Ben chose it as the app's model on 2026-09-29, for interpretability at equal accuracy. It scores
   +8.2 ± 18.3 against the previous selection on identical rows.
-- The anonymous building level falls from 29% to 8% of the variance. On a listing page most of a
-  building's premium now shows as named rows: building era, size, class and status.
+- The anonymous building level falls from 29% to 8% of the variance. On a listing page the building
+  facts show as named rows (building era, size, class and status). In 70% of buildings they outweigh
+  the building's own level.
 - `config/main-analysis.json` selects its summary at commit 90aa695: 1,200 draws, 226 s on the RTX
   2060, 2.9 GB peak. The listings site publishes that summary.
 
@@ -78,9 +79,9 @@ Checks:
 | In the fit, unit has other rows | 36,746 | 95.1% | 79.7% | 4.0% | 2.0% |
 | In the fit, unit listed once | 10,628 | 91.4% | 76.9% | 6.0% | 1.5% |
 
-The calibration and the median gaps are the same as for the previous selection. They are smaller
-than for the NumPyro fit of 2026-09-26, which had 4.7% on held-out rows and 7.1% for units listed
-once.
+The calibration and the median gaps are the same as for the previous selection. The median gaps
+are smaller than for the NumPyro fit of 2026-09-26, which had 4.7% on held-out rows and 7.1% for
+units listed once.
 
 Rows in the fit whose unit has other rows behave like genuinely held-out rows. The in-sample
 residuals are half as large, which is the pull toward the ask that leave-own-row-out removes.

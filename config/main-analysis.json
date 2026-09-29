@@ -27,5 +27,5 @@
   },
   "selected_by": "Ben, 2026-09-29",
   "selection_reason": "Ben chose the building-facts version of the app's design for interpretability at equal accuracy: the Gibbs m5-nocurves fit with unitdescpluto-v3 (the listing features plus NYC MapPLUTO building facts: era, size, class, landmark and historic-district status, alteration since 2000; the 2015 flood-zone flag left out because in Chelsea it marks the western blocks). PSIS-LOO +8.2 ± 18.3 against the previous selection (m5-nocurves + unitdesc-v1) on identical rows, 1,376 s on the RTX 2060; the anonymous building level falls from 29% to 8% of the variance. Every term has a renter-facing explanation (docs/research-plan.md, glossary).",
-  "uncertainty": "Conditional posterior uncertainty; source errors, omitted features and incomplete market coverage remain separate. Estimates for a unit's only listing are under-covered (91.5% in the 95% predictive range)."
+  "uncertainty": "Conditional posterior uncertainty; source errors, omitted features and incomplete market coverage remain separate. Estimates for a unit's only listing are under-covered (91.4% in the 95% predictive range)."
 }

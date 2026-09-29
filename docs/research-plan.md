@@ -12,8 +12,9 @@ contract and pitfalls in [the 2026-09-24 brief](brief-2026-09-24.md) and the
 Push the frontier of **PSIS-LOO ΔELPD** against **fit time on thelio**. That means more accurate
 descriptions of every listing for the same fit time, or the same accuracy sooner. Product decisions stay
 Ben's. On 2026-09-29 he chose the Gibbs `m5-nocurves` fit with the building facts
-(`unitdescpluto-v3`) as the app's model, which ties the most accurate gate-passing fit within the
-30-minute window and names most of each building's premium (earlier that day `m5-nocurves` +
+(`unitdescpluto-v3`) as the app's model: the most accurate gate-passing fit within the 30-minute
+window (tied with the same design without them), and it names most of the differences between
+buildings (earlier that day `m5-nocurves` +
 `unitdesc-v1`, and from 2026-09-26 the best NumPyro fit); it ships through the summary output to the
 [listings site](site.md). West Village is on hold.
 

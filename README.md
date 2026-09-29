@@ -8,8 +8,9 @@ defines the data contracts, temporal semantics, model scope, and research gates.
 The app's selected model (`config/main-analysis.json`, Ben's choice on 2026-09-29) is
 the Gibbs `m5-nocurves` fit with `unitdescpluto-v3` features: the listing features plus
 the building facts from NYC's MapPLUTO (era, size, class, landmark and historic district,
-recent alteration). It ties the most accurate fit within 30 minutes on thelio and explains
-most of each building's premium by named facts. It is served through its
+recent alteration). It is the most accurate gate-passing fit within 30 minutes on thelio
+(tied with the same design without the building facts), and it explains most of the differences
+between buildings by named facts. It is served through its
 [per-listing estimates](docs/model/listing-estimates.md).
 The earlier main models were **hierarchical Bayesian PyMC**, using compiled sampling and
 the saved joint posterior. The workflow is **scrape → transform → fit → analyze**,
