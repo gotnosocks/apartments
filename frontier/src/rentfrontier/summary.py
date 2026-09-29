@@ -114,6 +114,15 @@ TERM_TEXT = {
     "past advertisement.",
     "description": "Flags from the advertisement's own text (renovated, "
     "dishwasher, no fee, rent stabilized, ...), or no text.",
+    "building era": "When the building was built (NYC MapPLUTO), against 1900-1929, "
+    "or not recorded.",
+    "building size": "The building's height and number of apartments, the space "
+    "per apartment and how densely the lot is built (MapPLUTO), or not recorded.",
+    "building class": "The building's type (MapPLUTO class): a walk-up, a "
+    "condominium, a small mixed-use building of a few apartments over a store or "
+    "office, or another type, against an elevator apartment building.",
+    "building status": "Landmark or historic-district status and an alteration "
+    "since 2000 (MapPLUTO), and the 2015 flood-zone flag where the design has it.",
     "bedroom_market_curve": "The bedroom group's own market-curve deviation.",
     "building": "The building's level against an average building.",
     "building_drift": "The building's own movement over time (walk or trend).",
