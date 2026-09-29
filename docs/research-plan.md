@@ -752,6 +752,24 @@ comes from other sources, most of them public NYC and NYS data.
 | Safety | NYPD complaint data | incidents near the building per year, as-of |
 | Risk | FEMA and NYC flood hazard maps | flood zone |
 
+*Results so far* (each on the app's design, Gibbs m5-nocurves with `unit-labels-v1`, 2 × (300 +
+3600), RTX 2060, paired on identical rows).
+- Building facts (MapPLUTO): see A.1. They add no accuracy, but the building level's share of the
+  variance falls from 29% to 8%.
+- **Transit** (`unitdescplutotransit-v2`, 74ff297, 2026-09-29; MTA station stops snapshot
+  20260929-8e7c364).
+  - Per building: log minutes' walk to the nearest station stop (80 m/min, straight line) and
+    log(1 + distinct daytime routes within 800 m). A stop counts only for listings in months that
+    begin after it opened (34 St–Hudson Yards, 2015-09-13), which changes 1,049 rows in 35
+    buildings.
+  - It passes in 1,372 s. PSIS-LOO is **−0.0 ± 6.7 against the building facts alone** (52,438.3).
+  - Effects are nil: a 2- to 8-minute walk changes rent by +0.1% (−4.1 to +4.3), and 4 against 14
+    routes nearby by +0.2% (−3.9 to +4.7).
+  - In Chelsea almost every building is a short walk from the subway: a median of 206 m and a 90th
+    percentile of 515 m. What differences remain sit in the building levels.
+  - The first version (`-v1`, f980477) used today's stations for every year. It scored the same
+    (+1.1 ± 6.7) and was replaced to keep the no-future-information rule.
+
 *Unit orientation* (street vs courtyard, and the street's size).
 - StreetEasy's view and exposure fields are sparse (base-v1 has `view_street`, `view_courtyard`
   and window directions).
