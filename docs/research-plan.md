@@ -300,11 +300,12 @@ implementation over implementing our own").
     the gap. With it, an iteration costs about 3 block solves (~145 ms per chain), and four chains
     don't batch on this card. So a walk design that passes the gate needs about 15–17 min.
   - A short-warmup adaptation bug (steps sized from drift, ν frozen) is fixed.
-- **Step 3. Native fits.** Fit the best candidates on each local class within 15 minutes with the
-  step 1 settings, then score PSIS-LOO and the variance decomposition. These points form that
-  class's sub-15-minute frontier.
-- **Step 4. Structure search within 15 minutes** (Ben, 2026-09-25: explore feature space and model
-  shapes to keep improving the frontier under the 15-minute limit). See the next section.
+- **Step 3. Native fits.** Fit the best candidates on each local class within the window (30
+  minutes from 2026-09-29) with the step 1 settings, then score PSIS-LOO and the variance
+  decomposition. These points form that class's frontier within the window.
+- **Step 4. Structure search within the window** (Ben, 2026-09-25: explore feature space and
+  model shapes to keep improving the frontier under the 15-minute limit; 30 minutes from
+  2026-09-29). See the next section.
 
 ## Misspecification first (Ben, 2026-09-25)
 
@@ -566,7 +567,7 @@ with library samplers only.
    - NUTS cost is tree depth × gradient cost. The depth depends on the coordinates (see the NUTS
      findings above).
    - The gradient cost grows with rows × terms, plus the per-building and per-unit arrays.
-3. Fit the shortlist natively, one at a time, within 15 minutes on each class. Right-size the draw
+3. Fit the shortlist natively, one at a time, within the window on each class. Right-size the draw
    budget to the gate (ESS > 400) and score PSIS-LOO and the variance decomposition.
 4. Keep what moves the frontier; record what doesn't, in this plan and on the board.
 
@@ -655,7 +656,7 @@ comes from other sources, most of them public NYC and NYS data.
 *Testing.*
 - Add each source group as its own feature set, alone and then combined.
 - Put building-level features in the building mean (the NUTS-friendly form).
-- Screen by projection, then fit the best combinations natively within 15 minutes.
+- Screen by projection, then fit the best combinations natively within the window.
 - The gain should show up mainly on buildings with few rows and on units listed once.
 - Also watch the variance decomposition. Named neighbourhood features that take over building-level
   variance make the description more interpretable, even at equal PSIS-LOO.
@@ -699,7 +700,7 @@ comes from other sources, most of them public NYC and NYS data.
    also carries the unit-orientation features (A′). The plan is in the
    [research backlog](model/research-backlog.md), under "Column ("line") effects".
 
-**C. Implementations within 15 minutes.**
+**C. Implementations within the window.**
 1. **NUTS in NUTS-friendly coordinates on the CPU.**
    - Exact reparameterizations: trend levels, zero-sum season, units centred within buildings.
    - If NUTS reaches m0q/m1q/m5 within 15 minutes, it can fit any shape `build_model` expresses
@@ -711,7 +712,7 @@ comes from other sources, most of them public NYC and NYS data.
 
 **Order.** By expected PSIS-LOO gain per second of fit time:
 1. C.1: NUTS on m0q, m1q and m5 in the new coordinates. Every later step needs a library fit that
-   reaches these designs within 15 minutes. m0q passes in 888 s on the 2060. m1q's building walk
+   reaches these designs within the window. m0q passes in 888 s on the 2060. m1q's building walk
    is next, with yearly knots (B.1) if quarterly knots stay too slow.
 2. A.1 and A.2 (building covariates and location) on the best NUTS design. In parallel, since it
    needs no fits: the building registry (A′) and the first sources: MapPLUTO, subway entrances,
@@ -789,7 +790,7 @@ The dashboard and board are generated from the run records; see them for the liv
   the gate of 400, and at 895 s it is just under the 15-minute limit.
 - Library NUTS (NumPyro) in the NUTS-friendly coordinates passes L0–L5 on the CPU (40–909 s) and
   m0q on the RTX 2060 in 888 s (PSIS-LOO 40,607.5, equal to the deprecated Gibbs m0q). m1q
-  and m5 do not yet fit within the window on NUTS.
+  and m5 did not fit within the 15-minute window on NUTS (as of 2026-09-26; to recheck at 30).
 
 The table below is the Modal H100/H200 frontier, recorded when this plan was written.
 
