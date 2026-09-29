@@ -698,6 +698,23 @@ They enter the design matrix, so NUTS fits them like any other design.
 2. **Location.** Buildings have latitude and longitude. Try a low-rank spatial basis over building
    locations, as building-level columns, so neighbouring buildings share information (west vs
    east Chelsea, the avenues, the High Line).
+   - **First result: a smooth surface on the building facts** (`unitdescplutoloc-v1` =
+     `unitdescpluto-v1` plus 42 Gaussian bumps 250 m apart and wide over the registry
+     coordinates, scaled to a prior sd of about 0.15 in log rent; prior correlation 0.78 at
+     250 m, 0.39 at 500 m, 0 at 1 km). Gibbs m5-nocurves, `unit-labels-v1`, 2 × (300 + 3600),
+     10f6c70, RTX 2060, 2026-09-29.
+     - It passes in 1,584 s (215 s more than without the surface): R-hat 1.006, ESS 623,
+       every-element R-hat 1.009.
+     - PSIS-LOO is 52,429.4, **−9.0 ± 8.0 against the building facts alone** on identical rows
+       (no gain), −2.0 ± 19.2 against the app's fit. Held-out ΔELPD is +524.5.
+     - The surface takes the flood-zone proxy's place: the flag falls from +7.6% (+3 to +12) to
+       +3.2% (−4 to +10), and historic district from +5.6% to +2.9%. The other building facts
+       barely move. The building level falls from 7.8% to 6.8% of the variance and
+       building_scale from 0.159 to 0.154.
+     - So the building facts plus each building's own level already carry the location signal,
+       and the surface adds fit time without accuracy. It is not a frontier move. As a
+       renter-facing term it is also weaker than named places (transit, parks, the waterfront),
+       which are next.
 3. **Floor.** The label-derived floor and the expanded-floor sidecar (T3.2) next to the advertised
    floor label.
 4. **Size and layout.**
