@@ -80,7 +80,7 @@ capture this, pooling information across floors where today each unit stands alo
 3. **Screen first.**
    - Project the m8 + desc reference onto m0q/m5-nocurves + columns to see whether columns take
      variance from the unit and building shares in the variance decomposition.
-   - Then run a native NUTS fit within 15 minutes.
+   - Then run a native NUTS fit within the fit window (30 minutes from 2026-09-29).
 4. **Combine with orientation.** Columns are the natural carrier for the unit-orientation features
    in the external-data track (research plan, A′): street vs courtyard, the width of the facing
    street, window direction. A line faces one side of the building on every floor.

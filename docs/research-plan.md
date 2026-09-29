@@ -178,11 +178,13 @@ History, from the removed PyMC/NumPyro ladder (ladder.py, 3c26c4a–ac9e02b):
 - Its records (lines `pymc` and `numpyro`, feature set `none` below L4) stay on the board as
   data.
 
-## Current effort: the sub-15-minute frontier on thelio (from 2026-09-24)
+## Current effort: the frontier within the fit window on thelio (from 2026-09-24)
 
 Ben asked for a research effort on the part of the frontier that fits in under 10 minutes, with
 variance decomposition as a measure of modeling quality and projection to search for more
-efficient models. On 2026-09-25 he widened the window to **15 minutes per fit**. It runs
+efficient models. On 2026-09-25 he widened the window to 15 minutes per fit, and on 2026-09-29
+to **30 minutes per fit**, with a hard stop at **35 minutes** ("to keep up the pace of
+iteration"). It runs
 separately on each local hardware class (RTX 2060 SUPER and the CPU).
 
 **Samplers: library over custom** (Ben, 2026-09-25: "I would prefer to use a library sampler
@@ -288,8 +290,9 @@ implementation over implementing our own").
     steps per iteration. Both options were removed.
   - The sampler line stops here (Ben, 2026-09-25; see "Misspecification first" below). The
     NUTS coordinates and the SVI warm start stay; no further sampler work.
-  - Every timed fit is capped at 30 minutes (Ben, 2026-09-25). Past the 15-minute window a fit
-    has already shown it is outside, and its warmup log gives the diagnostics.
+  - Every timed fit is capped: at 30 minutes from 2026-09-25, and at 35 minutes from 2026-09-29
+    (Ben). Past the window a fit has already shown it is outside, and its warmup log gives the
+    diagnostics.
 - New sampler work uses library samplers on `model.build_model`, with library options only:
   - NumPyro NUTS (`--sampler nuts`), with a diagonal or a structured dense mass matrix;
   - BlackJAX's NUTS and many-chain adaptation;
@@ -337,11 +340,12 @@ implementation over implementing our own").
     the gap. With it, an iteration costs about 3 block solves (~145 ms per chain), and four chains
     don't batch on this card. So a walk design that passes the gate needs about 15–17 min.
   - A short-warmup adaptation bug (steps sized from drift, ν frozen) is fixed.
-- **Step 3. Native fits.** Fit the best candidates on each local class within 15 minutes with the
-  step 1 settings, then score PSIS-LOO and the variance decomposition. These points form that
-  class's sub-15-minute frontier.
-- **Step 4. Structure search within 15 minutes** (Ben, 2026-09-25: explore feature space and model
-  shapes to keep improving the frontier under the 15-minute limit). See the next section.
+- **Step 3. Native fits.** Fit the best candidates on each local class within the window (30
+  minutes from 2026-09-29) with the step 1 settings, then score PSIS-LOO and the variance
+  decomposition. These points form that class's frontier within the window.
+- **Step 4. Structure search within the window** (Ben, 2026-09-25: explore feature space and
+  model shapes to keep improving the frontier under the 15-minute limit; 30 minutes from
+  2026-09-29). See the next section.
 
 ## Misspecification first (Ben, 2026-09-25)
 
@@ -582,9 +586,10 @@ the fix goes into the model, the features or the data, not the sampler.
 3. **Model shape.** Simpler time and unit terms (above), judged by PSIS-LOO and by whether the
    tails lighten (ν rising) and the geometry eases.
 
-## Structure search under 15 minutes (from 2026-09-25)
+## Structure search within the fit window (15 minutes from 2026-09-25, 30 from 2026-09-29)
 
-**Goal.** Raise the most accurate gate-passing fit within 15 minutes on each thelio hardware class,
+**Goal.** Raise the most accurate gate-passing fit within the window (30 minutes from 2026-09-29)
+on each thelio hardware class,
 with library samplers only.
 - The Gibbs sampler left a mark on the RTX 2060: m5-nocurves + desc, +9,922 PSIS-LOO
   over m0 in 895 s.
@@ -602,7 +607,7 @@ with library samplers only.
    - NUTS cost is tree depth × gradient cost. The depth depends on the coordinates (see the NUTS
      findings above).
    - The gradient cost grows with rows × terms, plus the per-building and per-unit arrays.
-3. Fit the shortlist natively, one at a time, within 15 minutes on each class. Right-size the draw
+3. Fit the shortlist natively, one at a time, within the window on each class. Right-size the draw
    budget to the gate (ESS > 400) and score PSIS-LOO and the variance decomposition.
 4. Keep what moves the frontier; record what doesn't, in this plan and on the board.
 
@@ -691,7 +696,7 @@ comes from other sources, most of them public NYC and NYS data.
 *Testing.*
 - Add each source group as its own feature set, alone and then combined.
 - Put building-level features in the building mean (the NUTS-friendly form).
-- Screen by projection, then fit the best combinations natively within 15 minutes.
+- Screen by projection, then fit the best combinations natively within the window.
 - The gain should show up mainly on buildings with few rows and on units listed once.
 - Also watch the variance decomposition. Named neighbourhood features that take over building-level
   variance make the description more interpretable, even at equal PSIS-LOO.
@@ -735,10 +740,10 @@ comes from other sources, most of them public NYC and NYS data.
    also carries the unit-orientation features (A′). The plan is in the
    [research backlog](model/research-backlog.md), under "Column ("line") effects".
 
-**C. Implementations within 15 minutes.**
+**C. Implementations within the window.**
 1. **NUTS in NUTS-friendly coordinates on the CPU.**
    - Exact reparameterizations: trend levels, zero-sum season, units centred within buildings.
-   - If NUTS reaches m0q/m1q/m5 within 15 minutes, it can fit any shape `build_model` expresses
+   - If NUTS reaches m0q/m1q/m5 within the window, it can fit any shape `build_model` expresses
      without sampler code. That includes the t-unit, drift and slope shapes the Gibbs
      sampler could not mix.
 2. **Per-design draw budgets and chain counts** sized to the gate on each hardware class.
@@ -748,7 +753,7 @@ comes from other sources, most of them public NYC and NYS data.
 
 **Order.** By expected PSIS-LOO gain per second of fit time:
 1. C.1: NUTS on m0q, m1q and m5 in the new coordinates. Every later step needs a library fit that
-   reaches these designs within 15 minutes. m0q passes in 888 s on the 2060. m1q's building walk
+   reaches these designs within the window. m0q passes in 888 s on the 2060. m1q's building walk
    is next, with yearly knots (B.1) if quarterly knots stay too slow.
 2. A.1 and A.2 (building covariates and location) on the best NUTS design. In parallel, since it
    needs no fits: the building registry (A′) and the first sources: MapPLUTO, subway entrances,
@@ -826,7 +831,7 @@ The dashboard and board are generated from the run records; see them for the liv
   the gate of 400, and at 895 s it is just under the 15-minute limit.
 - Library NUTS (NumPyro) in the NUTS-friendly coordinates passes L0–L5 on the CPU (40–909 s) and
   m0q on the RTX 2060 in 888 s (PSIS-LOO 40,607.5, equal to the Gibbs m0q). m1q
-  and m5 do not yet fit within the window on NUTS.
+  and m5 did not fit within the 15-minute window on NUTS (as of 2026-09-26; to recheck at 30).
 
 The table below is the Modal H100/H200 frontier, recorded when this plan was written.
 

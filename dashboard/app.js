@@ -10,8 +10,8 @@ const LINES = {
   numpyro: { label: 'NumPyro (NUTS)', short: 'NumPyro', color: 'var(--series-3)' },
 };
 const HIT = 24; // minimum hover target, px
-// The area of interest: fits of at most 15 minutes (Ben, 2026-09-25).
-const FIT_WINDOW = 15 * 60;
+// The area of interest: fits of at most 30 minutes (Ben, 2026-09-29; 15 from 2026-09-25).
+const FIT_WINDOW = 30 * 60;
 // Primary score: PSIS-LOO dELPD vs the baseline, with its combined error.
 const score = (e) => (e.psis ? e.psis.delta : null);
 const scoreErr = (e) => (e.psis ? Math.hypot(e.psis.delta_se, e.psis.delta_mcse) : null);
@@ -382,11 +382,11 @@ function drawFrontier(v, dom) {
     const top = [...fc].sort((a, b) => b.fit - a.fit)[0];
     ends.push({ c, y: y(clampY(score(top))) });
   }
-  // The 15-minute window.
+  // The 30-minute window.
   if (FIT_WINDOW > dom.fit[0] && FIT_WINDOW < dom.fit[1]) {
     const wx = x(FIT_WINDOW);
     svg('line', { class: 'ref-line', x1: wx, x2: wx, y1: f.inner.y0, y2: f.inner.y1 }, f.root);
-    svg('text', { class: 'label-muted', x: wx - 4, y: f.inner.y1 - 6, 'text-anchor': 'end', text: '≤ 15 min per fit' }, f.root);
+    svg('text', { class: 'label-muted', x: wx - 4, y: f.inner.y1 - 6, 'text-anchor': 'end', text: '≤ 30 min per fit' }, f.root);
   }
   // Baseline (dELPD 0) hairline, when 0 is on the axis (not in the default zoom).
   const zeroOnAxis = dom.rows[0] <= 0;
@@ -992,8 +992,8 @@ function drawKpis(v) {
       entryLabel(b) + (b.design_text ? ` — ${b.design_text}` : ''),
       `${fmtDur(b.fit)}: the fastest entry within 2 SE of the top score` +
         (top && top.key !== b.key ? ` (top: ${entryLabel(top)}, ${fmtDelta(score(top))}, ${fmtDur(top.fit)})` : ''),
-      inWindow ? `Most accurate within 15 min: ${entryLabel(inWindow)} ${fmtDelta(score(inWindow))} (${fmtDur(inWindow.fit)})`
-        : 'No passing entry within 15 min',
+      inWindow ? `Most accurate within 30 min: ${entryLabel(inWindow)} ${fmtDelta(score(inWindow))} (${fmtDur(inWindow.fit)})`
+        : 'No passing entry within 30 min',
       prevBest ? `Previous best: ${prevBest.best} (${fmtDelta(prevBest.best_delta)})` : 'First gate-passing entry',
     ], !multi);
   }
