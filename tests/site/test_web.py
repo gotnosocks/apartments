@@ -247,3 +247,13 @@ def test_chart_data_block_has_no_angle_brackets():
     )
     block = figure.split('class="chart-data">')[1].split("</script>")[0]
     assert "<" not in block and "\\u003c!--" in block
+
+
+def test_unit_page_links_to_streeteasy(client):
+    html = client.get("/units/u1").get_data(as_text=True)
+    unit = f"https://streeteasy.com/building/{GROVE}/11-C"
+    assert f'href="{unit}"' in html and "View this unit on StreetEasy" in html
+    # each listing's own StreetEasy ad, opened safely in a new tab
+    for listing_id in ("1000", "2000", "3000"):
+        assert f'href="https://streeteasy.com/rental/{listing_id}"' in html
+    assert html.count('rel="noopener noreferrer" target="_blank"') == 4
