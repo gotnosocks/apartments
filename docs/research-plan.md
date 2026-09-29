@@ -38,16 +38,20 @@ that a typical apartment renter thinks about when choosing a place to rent."
 | Term | What it says about a listing |
 |---|---|
 | Market trend and season | What Chelsea rents are doing overall at that time, and in that month of the year. |
-| Listing attributes (bedrooms, baths, size, floor, amenities, views, windows) | What the apartment offers, priced the same way everywhere. |
-| Unit bedrooms and relabels (`unitbeds-v1`) | The apartment's real bedroom count; a "flex" or "junior" bedroom adds about 40% of a real one. |
-| Unit size, floor and label flags (`unitattrs`, `unitfloor`, `unitlabels`) | The same apartment keeps its size and floor across listings; penthouses, garden and lower-level units are priced as such. |
+| Listing attributes (bedrooms, baths, size, floor, amenities, views, windows) | What the apartment offers, priced the same way everywhere (unless a design adds the per-building slopes below). |
+| Price basis (`current_capture_ask`) | A data control, not a quality: 0.3% of rows record the price shown when the page was captured, not the listing's first advertised price (later prices can be cut). |
+| Unit bedrooms and relabels (`unitbeds-v1`) | The apartment's real bedroom count; a "flex" or "junior" bedroom adds about a third to 40% of a real one (0.085–0.099 against 0.23–0.26 in log rent). |
+| Unit size, floor and label flags (`unitattrs`, `unitfloor`, `unitlabels`) | The same apartment keeps its size across listings; when a listing states no floor, the unit label's floor is used (if the building is that tall); penthouses, garden and lower-level units are priced as such. |
 | Description flags (`desc-v1`) | What the ad says: renovated, washer-dryer, outdoor space, no fee, furnished, and so on. |
 | Building level | This building's premium beyond its apartments' features: its location, quality and management. |
-| Building trend or walk | How that premium has moved over time, for example a renovation or a changing block. Sum-to-zero walks make it relative to the market, so "the market" and "this building" never overlap. |
+| Building trend or walk | How that premium has moved over time, for example a renovation or a changing block: steadily (the trend) or along a path that can change direction at each knot, joined by straight lines (the walk). Sum-to-zero walks make it relative to the market, so "the market" and "this building" never overlap. |
 | Bedroom slope (m5) | In some buildings the larger apartments carry an extra premium or discount. |
+| Size and bathroom slopes (m6–m8) | In some buildings extra space or an extra bathroom is worth more or less than usual. |
+| Bedroom-group market curves (m2, m4, m5–m8; not the nocurves designs) | Studios, 2- and 3+-bedroom apartments can follow their own market path over time. |
 | Line (column) effects | Apartments stacked in the same column share a layout and exposure. |
 | Unit level | This apartment's own premium beyond its listed features: layout, light, condition. |
-| Unit drift (m8) | This apartment's ask moving over time on its own. |
+| Unit drift (m8) | This apartment's ask moving steadily over time on its own. |
+| Student-t unit levels (m7, m8) | A few apartments differ a lot from their building (a penthouse, an oddity) without pulling the others' estimates. |
 | Heavy-tailed residuals (Student-t) | Some asks are unusual for reasons the data don't show. |
 
 ## The score
@@ -203,8 +207,9 @@ implementation over implementing our own").
   simplifications (Ben: "the custom sampler and other options based on mathematical
   simplifications are no longer deprecated").
   - `run.py --sampler gibbs` fits any design that `gibbs.build_design` has exact updates for.
-    Designs with terms it lacks (market drift, building trends, coarse or Student-t walks,
-    walk masks and anchors, line effects) are refused there.
+    Designs with terms it lacks (market drift, building trends, coarse, Student-t or
+    sum-to-zero walks, walk masks and anchors, line effects), or without every base term, are
+    refused there.
   - Exact coordinates and collapsed updates are back in use next to library NUTS.
 - **NUTS belongs on the CPU here.** On the RTX 2060, NumPyro NUTS took 23 s for L0-mean, 110 s for
   L1-drift and over 20 minutes for L2-trend (stopped), against 8 s, 9 s and 322 s for PyMC NUTS
@@ -293,10 +298,12 @@ implementation over implementing our own").
   - Every timed fit is capped: at 30 minutes from 2026-09-25, and at 35 minutes from 2026-09-29
     (Ben). Past the window a fit has already shown it is outside, and its warmup log gives the
     diagnostics.
-- New sampler work uses library samplers on `model.build_model`, with library options only:
-  - NumPyro NUTS (`--sampler nuts`), with a diagonal or a structured dense mass matrix;
-  - BlackJAX's NUTS and many-chain adaptation;
-  - nutpie's Rust NUTS on the JAX log density.
+- Samplers for new work (from 2026-09-29, when Ben reinstated the custom Gibbs sampler), all on
+  `model.build_model`:
+  - the custom Gibbs sampler (`--sampler gibbs`), for the designs it has exact updates for;
+  - NumPyro NUTS (`--sampler nuts`), with a diagonal or a structured dense mass matrix and the
+    exact coordinates above;
+  - BlackJAX's NUTS and many-chain adaptation, and nutpie's Rust NUTS on the JAX log density.
 
 - **Starting point.** On the H100, only m0 (83 s) is under 10 minutes; m1-walk (6–12 min) failed
   the gate and m5-nocurves took 13 min. On thelio, m0 with 8 chains × (100 + 100) took 241 s on
@@ -589,8 +596,8 @@ the fix goes into the model, the features or the data, not the sampler.
 ## Structure search within the fit window (15 minutes from 2026-09-25, 30 from 2026-09-29)
 
 **Goal.** Raise the most accurate gate-passing fit within the window (30 minutes from 2026-09-29)
-on each thelio hardware class,
-with library samplers only.
+on each thelio hardware class, with the Gibbs sampler or NUTS (library samplers only from
+2026-09-25 until 2026-09-29).
 - The Gibbs sampler left a mark on the RTX 2060: m5-nocurves + desc, +9,922 PSIS-LOO
   over m0 in 895 s.
 - The library path first has to reach comparable designs within the window (C.1). Then every

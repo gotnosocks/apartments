@@ -3,9 +3,10 @@
 Deprecated on 2026-09-25 and reinstated on 2026-09-29 (Ben: "the custom sampler
 and other options based on mathematical simplifications are no longer
 deprecated"). `run.py --sampler gibbs` fits a design with it; designs with
-terms it has no exact update for (market drift, building trends, coarse or
-Student-t walks, walk masks and anchors, line effects) are refused by
-`build_design`.
+terms it has no exact update for (market drift, building trends, coarse,
+Student-t or sum-to-zero walks, walk masks and anchors, line effects), or
+without every base term (trend, season, features, buildings, units), are
+refused by `build_design`.
 
 Same posterior as the NumPyro model (same priors, Student-t likelihood).
 The Student-t is written as a scale mixture: eps_i | lam_i ~ N(0, sigma^2 /
