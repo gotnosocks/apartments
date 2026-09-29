@@ -256,6 +256,8 @@ REGISTRY_SNAPSHOT = "/data1/apartments/external/registry/20260925-6b67137"
 PLUTO_SNAPSHOT = "/data1/apartments/external/pluto/20260925-3096a62"
 REGISTRY_FILE = f"{REGISTRY_SNAPSHOT}/buildings.parquet"
 PLUTO_FILE = f"{PLUTO_SNAPSHOT}/pluto.parquet"
+SUBWAY_SNAPSHOT = "/data1/apartments/external/subway/20260929-8e7c364"
+SUBWAY_FILE = f"{SUBWAY_SNAPSHOT}/subway.parquet"
 ERAS = (
     (0, 1900, "pre-1900"),
     (1900, 1930, "1900-1929"),
@@ -409,6 +411,84 @@ def location_v1(
     )
 
 
+WALK_M_PER_MIN = 80.0
+TRANSIT_WALK_M = 800.0  # a 10-minute walk
+# Station stops that opened after the data begin (2010) and are close enough to a
+# registry building to change a value, by GTFS stop id. A listing counts a stop
+# only if it opened before the listing's month began (no future information).
+# 726: 34 St-Hudson Yards (7), opened 2015-09-13. Later openings farther away
+# (72, 86 and 96 St on the Q, 2017; WTC Cortlandt, reopened 2018) are beyond
+# 800 m of every registry building and never the nearest stop, so they are left out.
+STOP_OPENED = {"726": "2015-09-13"}
+
+
+def stops_not_open(month) -> frozenset:
+    """GTFS ids of the stops that had not opened when `month` began."""
+    start = pd.Timestamp(month).replace(day=1)
+    return frozenset(s for s, day in STOP_OPENED.items() if pd.Timestamp(day) >= start)
+
+
+def building_transit(buildings, exclude=frozenset()) -> pd.DataFrame:
+    """Per building (registry coordinates): metres to the nearest subway
+    station stop and the distinct daytime routes stopping within
+    TRANSIT_WALK_M (straight-line distances), without the stops in `exclude`
+    (GTFS ids)."""
+    registry = pd.read_parquet(REGISTRY_FILE).set_index("building")
+    stops = pd.read_parquet(SUBWAY_FILE)
+    stops = stops[~stops.gtfs_stop_id.isin(exclude)].reset_index(drop=True)
+    lat0 = registry.latitude.mean()
+    metres, cos = 111_320.0, np.cos(np.radians(lat0))
+
+    def xy(lat, lon):
+        return np.column_stack(
+            [np.asarray(lon) * metres * cos, np.asarray(lat) * metres]
+        )
+
+    b = xy(registry.latitude, registry.longitude)
+    s = xy(stops.gtfs_latitude, stops.gtfs_longitude)
+    d = np.sqrt(((b[:, None, :] - s[None]) ** 2).sum(-1))
+    routes = stops.daytime_routes.fillna("").str.split()
+    n_routes = [len(set().union(*routes[row <= TRANSIT_WALK_M])) for row in d]
+    table = pd.DataFrame(
+        {"subway_m": d.min(1), "routes_10min": n_routes}, index=registry.index
+    )
+    return table.reindex(buildings).reset_index(drop=True)
+
+
+def transit_v2(
+    frame: pd.DataFrame,
+    train: np.ndarray,
+    id: str = "transit-v2",
+    base: str = "base-v1",
+) -> Features:
+    """A base set plus transit access as of each listing's month: the walk to
+    the nearest subway station and the subway routes within a 10-minute walk
+    (building-level, changing when a station opens)."""
+    base = FEATURE_SETS[base](frame, train)
+    closed = frame.period.map(stops_not_open)
+    t = pd.DataFrame(index=range(len(frame)), columns=["subway_m", "routes_10min"])
+    for exclude in closed.unique():
+        rows = (closed == exclude).to_numpy()
+        part = building_transit(frame.building.to_numpy()[rows], exclude)
+        t.loc[rows] = part.to_numpy()
+    known = t.subway_m.notna().to_numpy()
+    walk = np.log(np.maximum(t.subway_m.to_numpy(dtype=float) / WALK_M_PER_MIN, 1.0))
+    routes = np.log1p(t.routes_10min.to_numpy(dtype=float))
+    b = _Builder(frame)
+    for name, v in (("log_walk_min_to_subway", walk), ("log1p_routes_10min", routes)):
+        centre = float(np.mean(v[train & known]))
+        # A building without coordinates (none in the registry today) sits at the mean.
+        b.add("transit", name, np.where(known, v - centre, 0.0))
+    extra = b.build(id)
+    return Features(
+        id,
+        base.names + extra.names,
+        base.groups + extra.groups,
+        np.column_stack([base.values, extra.values]),
+        np.concatenate([base.prior_scale, extra.prior_scale]),
+    )
+
+
 # Feature sets that read the external snapshots (run records list them).
 EXTERNAL = {
     "pluto-v1",
@@ -416,10 +496,19 @@ EXTERNAL = {
     "unitdesc-v1",
     "unitdescpluto-v1",
     "unitdescplutoloc-v1",
+    "unitdescplutotransit-v2",
 }
+# Feature sets that read the subway stations snapshot.
+SUBWAY = {"unitdescplutotransit-v2"}
 # Feature sets that read the advertisement descriptions (`descriptions.SOURCE`),
 # directly or through their base set.
-DESCRIPTIONS = {"desc-v1", "unitdesc-v1", "unitdescpluto-v1", "unitdescplutoloc-v1"}
+DESCRIPTIONS = {
+    "desc-v1",
+    "unitdesc-v1",
+    "unitdescpluto-v1",
+    "unitdescplutoloc-v1",
+    "unitdescplutotransit-v2",
+}
 
 FEATURE_SETS = {
     "base-v1": base_v1,
@@ -444,6 +533,10 @@ FEATURE_SETS = {
     # The location surface on the building facts.
     "unitdescplutoloc-v1": partial(
         location_v1, id="unitdescplutoloc-v1", base="unitdescpluto-v1"
+    ),
+    # Transit access (as of each listing's month) on the building facts.
+    "unitdescplutotransit-v2": partial(
+        transit_v2, id="unitdescplutotransit-v2", base="unitdescpluto-v1"
     ),
 }
 

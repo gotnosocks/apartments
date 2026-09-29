@@ -13,6 +13,8 @@ Sources:
   one row per tax lot (BBL) in the registry. Assessed values are not kept:
   for rental buildings they are derived from rental income, which would make
   the feature partly circular.
+- subway: MTA Subway Stations (data.ny.gov 39hk-dx4f), every station stop with
+  its daytime routes and coordinates (transit access).
 """
 
 from __future__ import annotations
@@ -91,38 +93,90 @@ def fetch_pluto(bbls, batch: int = 100) -> tuple[pd.DataFrame, list[str]]:
     return table, queries
 
 
+NY_SOCRATA = "https://data.ny.gov"
+SUBWAY_ID = "39hk-dx4f"
+SUBWAY_COLUMNS = (
+    "gtfs_stop_id",
+    "station_id",
+    "complex_id",
+    "stop_name",
+    "line",
+    "daytime_routes",
+    "structure",
+    "borough",
+    "ada",
+    "gtfs_latitude",
+    "gtfs_longitude",
+)
+
+
+def fetch_subway() -> tuple[pd.DataFrame, list[str], dict]:
+    params = {"$select": ", ".join(SUBWAY_COLUMNS), "$limit": 5000}
+    url = f"{NY_SOCRATA}/resource/{SUBWAY_ID}.json?{urllib.parse.urlencode(params)}"
+    with urllib.request.urlopen(url, timeout=60) as r:
+        rows = json.loads(r.read())
+    with urllib.request.urlopen(
+        f"{NY_SOCRATA}/api/views/{SUBWAY_ID}.json", timeout=60
+    ) as r:
+        meta = json.loads(r.read())
+    table = pd.DataFrame(rows, columns=list(SUBWAY_COLUMNS))
+    for c in ("gtfs_latitude", "gtfs_longitude"):
+        table[c] = table[c].astype(float)
+    version = {
+        "name": meta.get("name"),
+        "rows_updated_at": dt.datetime.fromtimestamp(
+            meta["rowsUpdatedAt"], dt.UTC
+        ).isoformat(),
+    }
+    return table, [urllib.parse.urlencode(params)], version
+
+
 def main(argv=None):
     parser = argparse.ArgumentParser(
         description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
     )
-    parser.add_argument("source", choices=("pluto",))
+    parser.add_argument("source", choices=("pluto", "subway"))
     args = parser.parse_args(argv)
     dirty = git("status", "--porcelain")
     if dirty:
         raise SystemExit(f"Refusing to run on a dirty working tree:\n{dirty}")
     commit = git("rev-parse", "HEAD")
     started = dt.datetime.now(dt.UTC)
-    registry = pd.read_parquet(REGISTRY)
-    table, queries = fetch_pluto(registry.bbl.dropna())
     out_dir = EXTERNAL_ROOT / args.source / f"{started:%Y%m%d}-{commit[:7]}"
-    out_dir.mkdir(parents=True, exist_ok=True)
     path = out_dir / f"{args.source}.parquet"
+    if args.source == "pluto":
+        registry = pd.read_parquet(REGISTRY)
+        table, queries = fetch_pluto(registry.bbl.dropna())
+        missing = sorted(set(registry.bbl.dropna()) - set(table.bbl))
+        details = {
+            "source": f"{SOCRATA}/{PLUTO_ID}",
+            "dataset": "MapPLUTO (NYC DCP) via NYC Open Data",
+            "versions": sorted(table.version.dropna().unique().tolist()),
+            "registry": str(REGISTRY),
+            "lots": len(table),
+            "registry_lots_missing": missing,
+        }
+        summary = f"{len(table)} lots, {len(missing)} registry lots missing"
+    else:
+        table, queries, version = fetch_subway()
+        details = {
+            "source": f"{NY_SOCRATA}/resource/{SUBWAY_ID}",
+            "dataset": "MTA Subway Stations via data.ny.gov",
+            "version": version,
+            "stops": len(table),
+        }
+        summary = f"{len(table)} station stops"
+    out_dir.mkdir(parents=True, exist_ok=True)
     table.to_parquet(path)
-    missing = sorted(set(registry.bbl.dropna()) - set(table.bbl))
     provenance = {
-        "source": f"{SOCRATA}/{PLUTO_ID}",
-        "dataset": "MapPLUTO (NYC DCP) via NYC Open Data",
-        "versions": sorted(table.version.dropna().unique().tolist()),
-        "registry": str(REGISTRY),
+        **details,
         "queries": queries,
         "retrieved_at": started.isoformat(),
         "commit": commit,
-        "lots": len(table),
-        "registry_lots_missing": missing,
         "sha256": hashlib.sha256(path.read_bytes()).hexdigest(),
     }
     (out_dir / "provenance.json").write_text(json.dumps(provenance, indent=2))
-    print(f"wrote {path}: {len(table)} lots, {len(missing)} registry lots missing")
+    print(f"wrote {path}: {summary}")
 
 
 if __name__ == "__main__":

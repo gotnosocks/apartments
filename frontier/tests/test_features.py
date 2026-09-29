@@ -96,6 +96,52 @@ def test_unitdescpluto_is_the_building_columns_on_unitdesc():
     assert "unitdescpluto-v1" in features.EXTERNAL
 
 
+def test_unitdescplutotransit_is_transit_on_unitdescpluto(monkeypatch):
+    from rentfrontier import run
+
+    fn = features.FEATURE_SETS["unitdescplutotransit-v2"]
+    assert fn.func is features.transit_v2
+    assert fn.keywords == {"id": "unitdescplutotransit-v2", "base": "unitdescpluto-v1"}
+    assert "unitdescplutotransit-v2" in features.EXTERNAL
+    # Every set built on transit_v2 records the stations snapshot.
+    on_transit = {
+        name
+        for name, f in features.FEATURE_SETS.items()
+        if getattr(f, "func", f) is features.transit_v2
+    }
+    assert on_transit == features.SUBWAY
+    monkeypatch.setattr(run.data, "sha256", lambda path: "sha")
+    sources = run.feature_sources("unitdescplutotransit-v2")
+    assert {"registry", "pluto", "subway", "descriptions"} <= sources.keys()
+    assert "subway" not in run.feature_sources("unitdescpluto-v1")
+
+
+def test_transit_counts_only_stations_open_that_month(monkeypatch, tmp_path):
+    registry = pd.DataFrame(
+        {"building": ["a", "b"], "latitude": [40.0, 40.0], "longitude": [-74.0, -73.9]}
+    )
+    stops = pd.DataFrame(
+        {
+            "gtfs_stop_id": ["1", "726"],
+            "daytime_routes": ["1 2", "7"],
+            # "1" is ~850 m east of "a"; "726" is 80 m from "a".
+            "gtfs_latitude": [40.0, 40.00072],
+            "gtfs_longitude": [-73.99, -74.0],
+        }
+    )
+    registry.to_parquet(tmp_path / "registry.parquet")
+    stops.to_parquet(tmp_path / "subway.parquet")
+    monkeypatch.setattr(features, "REGISTRY_FILE", str(tmp_path / "registry.parquet"))
+    monkeypatch.setattr(features, "SUBWAY_FILE", str(tmp_path / "subway.parquet"))
+    # 726 opened 2015-09-13: not yet open for September 2015, open from October.
+    assert features.stops_not_open("2015-09-01") == {"726"}
+    assert features.stops_not_open("2015-10-01") == frozenset()
+    now = features.building_transit(["a"])
+    before = features.building_transit(["a"], features.stops_not_open("2015-09-01"))
+    assert now.subway_m[0] < 100 and now.routes_10min[0] == 1
+    assert before.subway_m[0] > 800 and before.routes_10min[0] == 0
+
+
 def test_location_bumps_cover_the_sites_with_unit_mean_square():
     rng = np.random.default_rng(0)
     sites = rng.uniform(0, 1500, size=(200, 2))

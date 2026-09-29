@@ -52,6 +52,7 @@ that a typical apartment renter thinks about when choosing a place to rent."
 | Description flags (`desc-v1`) | What the ad says: renovated, washer-dryer, outdoor space, no fee, furnished, and so on. |
 | Building facts (`pluto-v1`, `unitdescpluto-v1`) | What the city records about the building: when it was built, its height and number of apartments, the space per apartment, how densely the lot is built, its type (walk-up, elevator, condo, a small mixed-use building of a few apartments over a store or office, or other), landmark or historic-district status, flood zone and a recent alteration; an "unknown" flag where the city's record has no usable value. |
 | Location (`unitdescplutoloc-v1`) | What buildings nearby rent for: a smooth premium over the map, shared by buildings a few blocks apart (for example the western blocks near the High Line). |
+| Transit (`unitdescplutotransit-v2`) | The walk to the nearest subway station, and how many subway lines stop within a 10-minute walk, counting the stations open at the time of the listing. |
 | Building level | This building's premium beyond its apartments' features: its location, quality and management. |
 | Building trend or walk | How that premium has moved over time, for example a renovation or a changing block: steadily (the trend) or along a path that can change direction at each knot, joined by straight lines (the walk). Sum-to-zero walks make it relative to the market, so "the market" and "this building" never overlap. |
 | Bedroom slope (m5) | In some buildings the larger apartments carry an extra premium or discount. |
@@ -781,6 +782,25 @@ comes from other sources, most of them public NYC and NYS data.
 | Open space | NYC Parks properties | distance to a park, the High Line, Hudson River Park, the waterfront |
 | Safety | NYPD complaint data | incidents near the building per year, as-of |
 | Risk | FEMA and NYC flood hazard maps | flood zone |
+
+*Results so far* (each on the app's design, Gibbs m5-nocurves with `unit-labels-v1`, 2 × (300 +
+3600), RTX 2060, paired on identical rows).
+- Building facts (MapPLUTO): see A.1. They add no accuracy, but the building level's share of the
+  variance falls from 29% to 8%.
+- **Transit** (`unitdescplutotransit-v2`, 74ff297, 2026-09-29; MTA station stops snapshot
+  20260929-8e7c364).
+  - Per building: log minutes' walk to the nearest station stop (80 m/min, straight line) and
+    log(1 + distinct daytime routes within 800 m). A stop counts only for listings in months that
+    begin after it opened (34 St–Hudson Yards, 2015-09-13), which changes 1,049 rows in 35
+    buildings.
+  - It passes in 1,372 s. PSIS-LOO is **−0.0 ± 6.7 against the building facts alone** (52,438.3).
+  - Effects are nil: a 2- to 8-minute walk changes rent by +0.1% (−4.1 to +4.3), and 4 against 14
+    routes nearby by +0.2% (−3.9 to +4.7).
+  - In Chelsea almost every building is a short walk from the subway: a median of 206 m and a 90th
+    percentile of 515 m. What differences remain sit in the building levels.
+  - The first version (`-v1`, f980477) used today's stations for every year. It scored the same
+    (+1.1 ± 6.7, noise) and was replaced to keep the no-future-information rule. Its run is archived
+    under `runs-archive/future-information-2026-09-29/`, off the board.
 
 *Unit orientation* (street vs courtyard, and the street's size).
 - StreetEasy's view and exposure fields are sparse (base-v1 has `view_street`, `view_courtyard`
