@@ -7,11 +7,14 @@
 const SVGNS = 'http://www.w3.org/2000/svg';
 const $ = (id) => document.getElementById(id);
 const HIT = 24; // minimum hover target, px
-// Five rent bands, light to dark (validated ordinal ramps, one per mode).
-const BANDS = 5;
+// Diverging classes of a building's premium over Chelsea's median building that
+// year (blue cheaper, red dearer, gray within 5%). Each arm is a validated
+// ordinal ramp: on light, darker away from the middle; on dark, lighter.
+const BREAKS = [-0.30, -0.15, -0.05, 0.05, 0.15, 0.30];
+const CLASS_LABELS = ['30% or more below', '15–30% below', '5–15% below', 'within 5%', '5–15% above', '15–30% above', '30% or more above'];
 const RAMP = {
-  light: ['#86b6ef', '#3987e5', '#256abf', '#184f95', '#0d366b'],
-  dark: ['#184f95', '#256abf', '#3987e5', '#86b6ef', '#cde2fb'],
+  light: ['#184f95', '#3987e5', '#86b6ef', 'var(--ghost-line)', '#ea9a93', '#d75853', '#892b2a'],
+  dark: ['#86b6ef', '#3987e5', '#184f95', 'var(--ghost-line)', '#892b2a', '#d75853', '#ea9a93'],
 };
 const BED_COLORS = ['var(--cat-1)', 'var(--cat-2)', 'var(--cat-3)', 'var(--cat-4)'];
 const state = { data: null, bed: '1', year: 0, showBefore: false, playing: null, sort: { key: 'rent', dir: -1 } };
@@ -38,7 +41,8 @@ function html(tag, attrs = {}, parent, text) {
   return n;
 }
 const usd = (x) => '$' + Math.round(x).toLocaleString('en-US');
-const usdK = (x) => '$' + (x / 1000).toFixed(x < 10000 ? 1 : 0) + 'k';
+const usdK = (x) => (x === 0 ? '$0' : `$${x / 1000}k`);
+const pctText = (p) => (Math.abs(p) < 0.005 ? 'at' : `${p > 0 ? '+' : '−'}${Math.abs(100 * p).toFixed(0)}%`);
 const range = (lo, hi) => `${usd(lo)}–${usd(hi)}`;
 const isDark = () => (document.documentElement.dataset.theme || (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light')) === 'dark';
 
@@ -73,16 +77,9 @@ function pointerPos(root, evt) {
 const yearIndex = () => state.year;
 const yearOf = (i) => state.data.years[i];
 function rentOf(b, bedKey, yi) { return state.data.rent[bedKey][b][yi]; } // [p05, median, p95]
-// Fixed bands per bedroom count: quintiles of the medians over every building-year
-// where the building has listings, rounded to $50, so a band means the same in every year.
-function bandBreaks(bedKey) {
-  const d = state.data, vals = [];
-  d.buildings.forEach((b, i) => d.years.forEach((y, yi) => { if (y >= b.first_year) vals.push(rentOf(i, bedKey, yi)[1]); }));
-  vals.sort((a, b) => a - b);
-  const q = (p) => vals[Math.min(vals.length - 1, Math.floor(p * vals.length))];
-  return Array.from({ length: BANDS - 1 }, (_, k) => Math.round(q((k + 1) / BANDS) / 50) * 50);
-}
-const bandOf = (x, breaks) => breaks.filter((b) => x >= b).length;
+const median = (bedKey, yi) => state.data.chelsea_median[bedKey][yi]; // [p05, median, p95]
+const premium = (i, bedKey, yi) => rentOf(i, bedKey, yi)[1] / median(bedKey, yi)[1] - 1;
+const classOf = (p) => BREAKS.filter((b) => p >= b).length;
 const visible = (b, yi) => state.showBefore || yearOf(yi) >= b.first_year;
 
 // ---------- controls ----------
@@ -138,8 +135,8 @@ function buildControls() {
 // ---------- headline numbers ----------
 function renderKpis() {
   const d = state.data, yi = yearIndex(), bedLabel = d.bedrooms.find((b) => b.key === state.bed).label;
-  const [lo, mid, hi] = d.chelsea_average[state.bed][yi];
-  const first = d.chelsea_average[state.bed][0][1];
+  const [lo, mid, hi] = median(state.bed, yi);
+  const first = median(state.bed, 0)[1];
   const shown = d.buildings.filter((b) => visible(b, yi)).length;
   const k = $('map-kpis');
   k.replaceChildren();
@@ -150,7 +147,7 @@ function renderKpis() {
     if (sub) html('div', { class: 'sub' }, t, sub);
   };
   const partial = d.year_months[yi] < 12 ? ` (${d.year_months[yi]} months)` : '';
-  tile(`Chelsea average, ${bedLabel.toLowerCase()}, ${yearOf(yi)}${partial}`, usd(mid), `90% interval ${range(lo, hi)} a month`, true);
+  tile(`Chelsea's median building, ${bedLabel.toLowerCase()}, ${yearOf(yi)}${partial}`, usd(mid), `90% interval ${range(lo, hi)} a month`, true);
   const ch = mid / first - 1;
   tile(`Since ${d.years[0]}`, `${ch >= 0 ? '+' : '−'}${Math.abs(100 * ch).toFixed(0)}%`, `from ${usd(first)} a month`);
   tile('Buildings on the map', shown.toLocaleString('en-US'), `of ${d.buildings.length.toLocaleString('en-US')} with listings in the fit`);
@@ -159,7 +156,7 @@ function renderKpis() {
 // ---------- map ----------
 function renderMap() {
   const d = state.data, yi = yearIndex(), bed = state.bed;
-  const breaks = bandBreaks(bed), ramp = RAMP[isDark() ? 'dark' : 'light'];
+  const ramp = RAMP[isDark() ? 'dark' : 'light'];
   const container = $('chart-map');
   container.replaceChildren();
   const pts = d.buildings.filter((b) => b.x !== null);
@@ -185,15 +182,16 @@ function renderMap() {
     transform: `rotate(-90 16 ${(m.top + height - m.bottom) / 2})`, text: '← Hudson River (west)' }, root);
   const marks = [];
   const layer = svg('g', {}, root);
-  // Draw low bands first so the dearest buildings sit on top; hollow extrapolations under all.
+  // Draw near-median buildings first so strong premiums and discounts sit on top;
+  // hollow extrapolations under all.
   const order = d.buildings.map((b, i) => i).filter((i) => d.buildings[i].x !== null && visible(d.buildings[i], yi))
     .sort((a, b) => {
       const ea = yearOf(yi) < d.buildings[a].first_year, eb = yearOf(yi) < d.buildings[b].first_year;
       if (ea !== eb) return ea ? -1 : 1;
-      return rentOf(a, bed, yi)[1] - rentOf(b, bed, yi)[1];
+      return Math.abs(premium(a, bed, yi)) - Math.abs(premium(b, bed, yi));
     });
   for (const i of order) {
-    const b = d.buildings[i], v = rentOf(i, bed, yi), col = ramp[bandOf(v[1], breaks)];
+    const b = d.buildings[i], col = ramp[classOf(premium(i, bed, yi))];
     const extrap = yearOf(yi) < b.first_year;
     const node = svg('circle', { class: 'dot' + (extrap ? ' hollow' : ''), cx: X(b.x), cy: Y(b.y), r: 4.5,
       style: extrap ? `stroke:${col}` : `fill:${col}` }, layer);
@@ -210,17 +208,15 @@ function renderMap() {
     showTip(evt, (t) => buildingTip(t, best.i, yi));
   });
   root.addEventListener('pointerleave', () => { hideTip(); if (lifted) lifted.classList.remove('lift'); });
-  // Legend: the five bands.
+  // Legend: the seven classes, cheapest to dearest.
   const lg = $('legend-map');
   lg.replaceChildren();
-  const edges = [null, ...breaks, null];
-  for (let k = 0; k < BANDS; k++) {
+  CLASS_LABELS.forEach((label, k) => {
     const it = html('span', { class: 'item' }, lg);
     const sw = html('span', { class: 'swatch' }, it);
     sw.style.background = ramp[k];
-    const lo = edges[k], hi = edges[k + 1];
-    it.appendChild(document.createTextNode(lo === null ? `under ${usd(hi)}` : hi === null ? `${usd(lo)} and up` : `${usd(lo)}–${usd(hi)}`));
-  }
+    it.appendChild(document.createTextNode(label));
+  });
   const ex = html('span', { class: 'item' }, lg);
   html('span', { class: 'swatch hollow' }, ex);
   ex.appendChild(document.createTextNode('before the building\'s first listing (extrapolated)'));
@@ -231,7 +227,7 @@ function buildingTip(t, i, yi) {
   html('div', { class: 't-value' }, t, `${usd(v[1])} a month`);
   html('div', { class: 't-name' }, t, b.label);
   tipRow(t, '90% interval', range(v[0], v[2]));
-  tipRow(t, 'Chelsea average', usd(d.chelsea_average[state.bed][yi][1]));
+  tipRow(t, 'Against the median building', `${pctText(premium(i, state.bed, yi))} (${usd(median(state.bed, yi)[1])})`);
   tipRow(t, 'Listings in the fit', `${b.fit_listings.toLocaleString('en-US')} (${b.first_year}–${b.last_year})`);
   if (yearOf(yi) < b.first_year) html('div', { class: 't-note' }, t, `No listings before ${b.first_year}: the model's extrapolation.`);
 }
@@ -240,11 +236,12 @@ function renderMapTable(order, yi) {
   wrap.replaceChildren();
   const rows = order.map((i) => ({ i, b: d.buildings[i], v: rentOf(i, bed, yi) }));
   const key = state.sort.key, dir = state.sort.dir;
-  const val = { building: (r) => r.b.label, rent: (r) => r.v[1], listings: (r) => r.b.fit_listings, first: (r) => r.b.first_year };
+  const val = { building: (r) => r.b.label, rent: (r) => r.v[1], premium: (r) => premium(r.i, bed, yi), listings: (r) => r.b.fit_listings, first: (r) => r.b.first_year };
   rows.sort((a, b) => { const x = val[key](a), y = val[key](b); return (x < y ? -1 : x > y ? 1 : 0) * dir; });
   const table = html('table', {}, wrap);
   const head = html('tr', {}, html('thead', {}, table));
   for (const [k, label, num] of [['building', 'Building', false], ['rent', 'Typical rent', true], [null, '90% interval', true],
+    ['premium', 'Against the median building', true],
     ['listings', 'Listings in the fit', true], ['first', 'Listed from', true]]) {
     const th = html('th', { class: num ? 'num' : undefined, scope: 'col' }, head);
     if (!k) { th.textContent = label; continue; }
@@ -257,6 +254,7 @@ function renderMapTable(order, yi) {
     html('td', {}, tr, r.b.label);
     html('td', { class: 'num' }, tr, usd(r.v[1]));
     html('td', { class: 'num' }, tr, range(r.v[0], r.v[2]));
+    html('td', { class: 'num' }, tr, pctText(premium(r.i, bed, yi)));
     html('td', { class: 'num' }, tr, r.b.fit_listings.toLocaleString('en-US'));
     html('td', { class: 'num' }, tr, String(r.b.first_year));
   }
@@ -269,8 +267,8 @@ function renderTrend() {
   container.replaceChildren();
   const width = Math.max(320, container.clientWidth), height = 300;
   const m = { left: 64, right: 110, top: 16, bottom: 34 };
-  const root = svg('svg', { viewBox: `0 0 ${width} ${height}`, width, height, role: 'img', 'aria-label': 'Chelsea average typical rent by bedrooms over time' }, container);
-  const all = d.bedrooms.flatMap((b) => d.chelsea_average[b.key].flat());
+  const root = svg('svg', { viewBox: `0 0 ${width} ${height}`, width, height, role: 'img', 'aria-label': "Chelsea's median building's typical rent by bedrooms over time" }, container);
+  const all = d.bedrooms.flatMap((b) => d.chelsea_median[b.key].flat());
   const lo = 0, hi = Math.max(...all) * 1.05;
   const X = (i) => m.left + (i / (d.years.length - 1)) * (width - m.left - m.right);
   const Y = (v) => height - m.bottom - ((v - lo) / (hi - lo)) * (height - m.top - m.bottom);
@@ -283,14 +281,14 @@ function renderTrend() {
   svg('line', { class: 'baseline', x1: m.left, x2: width - m.right, y1: Y(0), y2: Y(0) }, root);
   d.years.forEach((y, i) => { if (i % 2 === 0 || i === d.years.length - 1) svg('text', { x: X(i), y: height - m.bottom + 17, 'text-anchor': 'middle', text: String(y) }, root); });
   // The chosen bedroom count's 90% band, under the lines.
-  const sel = d.chelsea_average[state.bed];
+  const sel = d.chelsea_median[state.bed];
   const band = sel.map((v, i) => `${X(i)},${Y(v[2])}`).concat(sel.slice().reverse().map((v, j) => `${X(sel.length - 1 - j)},${Y(v[0])}`));
   svg('polygon', { class: 'frontier-wash', points: band.join(' ') }, root);
   svg('line', { class: 'cursor', x1: X(yi), x2: X(yi), y1: m.top, y2: height - m.bottom }, root);
   const lg = $('legend-trend');
   lg.replaceChildren();
   d.bedrooms.forEach((b, k) => {
-    const series = d.chelsea_average[b.key];
+    const series = d.chelsea_median[b.key];
     const chosen = b.key === state.bed;
     svg('polyline', { class: 'series-line', points: series.map((v, i) => `${X(i)},${Y(v[1])}`).join(' '),
       style: `stroke:${BED_COLORS[k]};stroke-width:${chosen ? 2.5 : 2}` }, root);
@@ -307,7 +305,7 @@ function renderTrend() {
     hl.setAttribute('x1', X(i)); hl.setAttribute('x2', X(i)); hl.setAttribute('visibility', 'visible');
     showTip(evt, (t) => {
       html('div', { class: 't-value' }, t, String(d.years[i]) + (d.year_months[i] < 12 ? ` (${d.year_months[i]} months)` : ''));
-      d.bedrooms.forEach((b) => { const v = d.chelsea_average[b.key][i]; tipRow(t, b.label, `${usd(v[1])} (${range(v[0], v[2])})`); });
+      d.bedrooms.forEach((b) => { const v = d.chelsea_median[b.key][i]; tipRow(t, b.label, `${usd(v[1])} (${range(v[0], v[2])})`); });
     });
   });
   root.addEventListener('pointerleave', () => { hideTip(); hl.setAttribute('visibility', 'hidden'); });
@@ -328,7 +326,7 @@ function renderTrend() {
   d.years.forEach((y, i) => {
     const tr = html('tr', {}, body);
     html('td', {}, tr, String(y) + (d.year_months[i] < 12 ? ` (${d.year_months[i]} months)` : ''));
-    for (const b of d.bedrooms) { const v = d.chelsea_average[b.key][i]; html('td', { class: 'num' }, tr, `${usd(v[1])} (${range(v[0], v[2])})`); }
+    for (const b of d.bedrooms) { const v = d.chelsea_median[b.key][i]; html('td', { class: 'num' }, tr, `${usd(v[1])} (${range(v[0], v[2])})`); }
   });
 }
 

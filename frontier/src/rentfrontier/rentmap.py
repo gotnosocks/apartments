@@ -19,6 +19,8 @@ the posterior of the typical asking rent of an apartment with:
 Rents are exp of the log-scale mean, i.e. the typical (median) ask. Each value
 is the posterior median with a 90% interval. Years before a building's first
 listing in the fit are extrapolated by its walk and marked in `first_year`.
+`chelsea_median` is the median building's value per draw (all buildings),
+again as a posterior median and 90% interval.
 
 Writes /data1/apartments/frontier/maps/<run>-<commit>/map.json.
 """
@@ -221,8 +223,9 @@ def compute(name: str) -> dict:
         )  # (d, B, Y)
         q = np.quantile(np.exp(log), PROBABILITIES, axis=0)  # (3, B, Y)
         out_rent[key] = np.rint(np.moveaxis(q, 0, -1)).astype(int).tolist()
-        c = np.quantile(np.exp(log).mean(1), PROBABILITIES, axis=0)  # (3, Y)
-        chelsea[key] = np.rint(c.T).astype(int).tolist()
+        # Chelsea's median building, per draw (robust to the dearest buildings).
+        c = np.quantile(np.median(np.exp(log), axis=1), PROBABILITIES, axis=0)
+        chelsea[key] = np.rint(c.T).astype(int).tolist()  # (Y, 3)
     months = (by_year > 0).sum(1)
     buildings = building_table(prep, years)
     grid = grid_layout(buildings)
@@ -242,7 +245,7 @@ def compute(name: str) -> dict:
         "buildings": buildings,
         "grid": grid,
         "rent": out_rent,
-        "chelsea_average": chelsea,
+        "chelsea_median": chelsea,
     }
 
 

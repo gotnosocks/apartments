@@ -40,9 +40,10 @@
     <div class="card-head">
       <div>
         <h2 id="map-title">Typical rent by building</h2>
-        <p class="caption">One dot per building, drawn on Manhattan's street grid (avenues run up the page, the Hudson is to the left). Colour is the typical asking rent
-          (posterior median) in five fixed bands for the chosen bedroom count, the same in every year. Buildings are shown from the year of their first listing in the fit;
-          before that, their rent is the model's extrapolation (tick the box above to show them, hollow).</p>
+        <p class="caption">One dot per building, drawn on Manhattan's street grid (avenues run up the page, the Hudson is to the left). Colour is how the building's typical
+          asking rent (posterior median) compares with Chelsea's median building that year, for the chosen bedroom count: blue cheaper, red dearer, gray within 5%.
+          The chart below shows how the level itself moved. Buildings are shown from the year of their first listing in the fit; before that, their rent is the model's
+          extrapolation (tick the box above to show them, hollow). Hover for the rent in dollars.</p>
       </div>
       <button class="ghost table-toggle" type="button" data-target="map">Table view</button>
     </div>
@@ -54,9 +55,9 @@
   <section class="card" id="trend-card">
     <div class="card-head">
       <div>
-        <h2>Chelsea average by bedrooms over time</h2>
-        <p class="caption">The typical rent averaged over all buildings, per year, with a 90% interval for the chosen bedroom count. The vertical line is the year on the map.
-          The last year is partial (months with listings so far).</p>
+        <h2>Chelsea's median building by bedrooms over time</h2>
+        <p class="caption">The typical rent of Chelsea's median building (the middle of all buildings), per year, with a 90% interval for the chosen bedroom count. The vertical
+          line is the year on the map; click to move it. The last year is partial (months with listings so far).</p>
       </div>
       <button class="ghost table-toggle" type="button" data-target="trend">Table view</button>
     </div>
