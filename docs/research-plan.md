@@ -714,6 +714,13 @@ They enter the design matrix, so NUTS fits them like any other design.
      western blocks' premium (+5.6% → +7.5%, +1 to +14), and built 1990 or later rises by about
      one point. The other facts barely move (under 0.5 posterior sd), and the building level
      stays at 7.9% of the variance.
+   - **With alterations dated by the latest** (`unitdescpluto-v3`, faa8c78, 2026-09-29; the app
+     candidate). `altered_since_2000` used the lot's first recorded alteration (`yearalter1`),
+     so 44 buildings (950 rows) altered before 2000 and again after got 0 (PR #52 review). v3
+     takes the later of the two recorded alterations, on v2 (no flood-zone flag). It passes in
+     1,376 s: R-hat 1.006, ESS 585, every-element R-hat 1.009. PSIS-LOO is 52,439.6: +1.4 ± 6.8
+     against v2 and +8.2 ± 18.3 against the app's fit. An alteration since 2000 is now +6.8%
+     (+3 to +10, +6.4% in v2); nothing else moves.
 2. **Location.** Buildings have latitude and longitude. Try a low-rank spatial basis over building
    locations, as building-level columns, so neighbouring buildings share information (west vs
    east Chelsea, the avenues, the High Line).
