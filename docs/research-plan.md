@@ -33,6 +33,10 @@ that a typical apartment renter thinks about when choosing a place to rent."
 - **Not model terms.** Sampling coordinates, warm starts and samplers change how a fit runs, not
   what the model says. Data rules are cleaning and must be explainable as such ("one apartment,
   one id").
+- **Visualization (Ben, 2026-09-29; a lesser goal).** "Features that work well in a data
+  visualization", for example "a visualization geo-spatial-temporal model of rents stratified by
+  number of bedrooms". Terms that compose into a map beat anonymous per-building effects at equal
+  accuracy: the market over time, the bedroom count and a smooth location surface.
 
 **Glossary** (terms in the current designs, and what each means to a renter):
 
@@ -717,9 +721,11 @@ They enter the design matrix, so NUTS fits them like any other design.
        barely move. The building level falls from 7.8% to 6.8% of the variance and
        building_scale from 0.159 to 0.154.
      - So the building facts plus each building's own level already carry the location signal,
-       and the surface adds fit time without accuracy. It is not a frontier move. As a
-       renter-facing term it is also weaker than named places (transit, parks, the waterfront),
-       which are next.
+       and the surface adds fit time without accuracy. It is not a frontier move on accuracy.
+     - It is, though, the piece a map needs (the visualization goal above). Market, bedrooms and
+       the surface give "what a typical N-bedroom rents for here, that month" at any point in
+       Chelsea, not only at buildings with listings. A true geo-temporal map also needs the
+       surface to change over time (a space-time term), which is the next step on this line.
 3. **Floor.** The label-derived floor and the expanded-floor sidecar (T3.2) next to the advertised
    floor label.
 4. **Size and layout.**
