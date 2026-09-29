@@ -211,3 +211,8 @@ details ul { margin: 4px 0 0; padding-left: 18px; color: var(--text-secondary); 
 .page-foot p { margin-bottom: 6px; }
 .subtitle a, .caption a { color: var(--text-primary); }
 .legend .rect { display: inline-block; width: 10px; height: 10px; border-radius: 2px; }
+
+/* Rent map: bedroom choice as a row of radio chips. */
+.seg { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; border: 0; margin: 0; padding: 0; }
+.seg legend { float: left; font-weight: 600; color: var(--text-primary); margin-right: 4px; padding: 0; }
+.seg .chip { cursor: pointer; }

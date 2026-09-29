@@ -28,6 +28,38 @@ http://thelio.tail3983e0.ts.net:8500 (tailnet only).
 - The ΔELPD axis zooms past the baseline by default (it sits far below every other entry and is
   drawn at the floor); "Full ΔELPD range" shows everything.
 
+## Rent map (`map.html`)
+
+A prototype of Ben's visualization goal (2026-09-29: "a visualization geo-spatial-temporal model of
+rents stratified by number of bedrooms"), for the app's selected model.
+
+- **What a value is.** What a typical apartment with that many bedrooms rents for in a building in
+  a year (`rentfrontier.rentmap`):
+  - bathrooms, size, laundry, views and ad-text features at Chelsea's average for the bedroom
+    count;
+  - floor, elevator, doorman, pet policy and the building facts at the building's own average;
+  - plus the building's level, its path over time and its own bedroom premium, and the market that
+    year (trend averaged over the year's months, no season).
+
+  The value is the posterior median of the typical asking rent, with a 90% interval.
+- **Map.** One dot per building on Manhattan's street grid (rotated 29°, avenues up the page), with
+  guide lines for the avenues and a few streets placed from the buildings' own addresses.
+  - Colour is the building's premium over Chelsea's median building that year and bedroom count,
+    in seven diverging classes (blue cheaper, red dearer, gray within 5%; breaks at 5, 15 and 30%).
+    Rents rose about 70% since 2010, so fixed dollar bands would only show time. The level over
+    time is the chart below, and the dollars are in the tooltip and the table.
+  - Years outside a building's listings in the fit (before the first, after the last) are the
+    model's extrapolation. They are hidden by default and hollow when shown.
+  - Designs whose terms the map does not model (bedroom-group curves, per-building feature
+    slopes, market drift, a trend on top of a walk, sum-to-zero or masked walks) are refused.
+- **Controls.** Bedrooms (studio, 1, 2, 3+), a year slider with play, hover for a building's value
+  and interval, and a table view.
+- **Chelsea's median building by bedrooms over time.** The median building's typical rent per year
+  and bedroom count (per draw, over all buildings), with the chosen count's 90% interval.
+- **Data.** `python -m rentfrontier.rentmap <run>` (a heavy job: take the lock) writes
+  `/data1/apartments/frontier/maps/<run>-<commit>/map.json`. The dashboard build copies the newest
+  map of the run that `config/main-analysis.json` selects, and the page says so when there is none.
+
 ## How it is built and served
 
 - `frontier/src/rentfrontier/dashboard.py` reads the leaderboard's records (frontier runs under
