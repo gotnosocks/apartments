@@ -203,8 +203,9 @@ implementation over implementing our own").
   simplifications (Ben: "the custom sampler and other options based on mathematical
   simplifications are no longer deprecated").
   - `run.py --sampler gibbs` fits any design that `gibbs.build_design` has exact updates for.
-    Designs with terms it lacks (market drift, building trends, coarse or Student-t walks,
-    walk masks and anchors, line effects) are refused there.
+    Designs with terms it lacks (market drift, building trends, coarse, Student-t or
+    sum-to-zero walks, walk masks and anchors, line effects), or without every base term, are
+    refused there.
   - Exact coordinates and collapsed updates are back in use next to library NUTS.
 - **NUTS belongs on the CPU here.** On the RTX 2060, NumPyro NUTS took 23 s for L0-mean, 110 s for
   L1-drift and over 20 minutes for L2-trend (stopped), against 8 s, 9 s and 322 s for PyMC NUTS
@@ -293,10 +294,12 @@ implementation over implementing our own").
   - Every timed fit is capped: at 30 minutes from 2026-09-25, and at 35 minutes from 2026-09-29
     (Ben). Past the window a fit has already shown it is outside, and its warmup log gives the
     diagnostics.
-- New sampler work uses library samplers on `model.build_model`, with library options only:
-  - NumPyro NUTS (`--sampler nuts`), with a diagonal or a structured dense mass matrix;
-  - BlackJAX's NUTS and many-chain adaptation;
-  - nutpie's Rust NUTS on the JAX log density.
+- Samplers for new work (from 2026-09-29, when Ben reinstated the custom Gibbs sampler), all on
+  `model.build_model`:
+  - the custom Gibbs sampler (`--sampler gibbs`), for the designs it has exact updates for;
+  - NumPyro NUTS (`--sampler nuts`), with a diagonal or a structured dense mass matrix and the
+    exact coordinates above;
+  - BlackJAX's NUTS and many-chain adaptation, and nutpie's Rust NUTS on the JAX log density.
 
 - **Starting point.** On the H100, only m0 (83 s) is under 10 minutes; m1-walk (6–12 min) failed
   the gate and m5-nocurves took 13 min. On thelio, m0 with 8 chains × (100 + 100) took 241 s on
@@ -589,8 +592,8 @@ the fix goes into the model, the features or the data, not the sampler.
 ## Structure search within the fit window (15 minutes from 2026-09-25, 30 from 2026-09-29)
 
 **Goal.** Raise the most accurate gate-passing fit within the window (30 minutes from 2026-09-29)
-on each thelio hardware class,
-with library samplers only.
+on each thelio hardware class, with the Gibbs sampler or NUTS (library samplers only from
+2026-09-25 until 2026-09-29).
 - The Gibbs sampler left a mark on the RTX 2060: m5-nocurves + desc, +9,922 PSIS-LOO
   over m0 in 895 s.
 - The library path first has to reach comparable designs within the window (C.1). Then every
