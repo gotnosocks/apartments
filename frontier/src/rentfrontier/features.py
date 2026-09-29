@@ -343,9 +343,12 @@ def pluto_v1(
 
 WALK_M_PER_MIN = 80.0
 TRANSIT_WALK_M = 800.0  # a 10-minute walk
-# Station stops in the snapshot that opened after the data begin (2010), by GTFS
-# stop id. A listing counts a stop only if it opened before the listing's month
-# began (no future information). 726: 34 St-Hudson Yards (7), opened 2015-09-13.
+# Station stops that opened after the data begin (2010) and are close enough to a
+# registry building to change a value, by GTFS stop id. A listing counts a stop
+# only if it opened before the listing's month began (no future information).
+# 726: 34 St-Hudson Yards (7), opened 2015-09-13. Later openings farther away
+# (72, 86 and 96 St on the Q, 2017; WTC Cortlandt, reopened 2018) are beyond
+# 800 m of every registry building and never the nearest stop, so they are left out.
 STOP_OPENED = {"726": "2015-09-13"}
 
 

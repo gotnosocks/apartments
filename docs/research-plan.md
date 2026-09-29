@@ -768,7 +768,8 @@ comes from other sources, most of them public NYC and NYS data.
   - In Chelsea almost every building is a short walk from the subway: a median of 206 m and a 90th
     percentile of 515 m. What differences remain sit in the building levels.
   - The first version (`-v1`, f980477) used today's stations for every year. It scored the same
-    (+1.1 ± 6.7) and was replaced to keep the no-future-information rule.
+    (+1.1 ± 6.7, noise) and was replaced to keep the no-future-information rule. Its run is archived
+    under `runs-archive/future-information-2026-09-29/`, off the board.
 
 *Unit orientation* (street vs courtyard, and the street's size).
 - StreetEasy's view and exposure fields are sparse (base-v1 has `view_street`, `view_courtyard`
