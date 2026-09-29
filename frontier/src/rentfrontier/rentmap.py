@@ -25,6 +25,10 @@ sum-to-zero, masked or anchored walks) are refused.
 `chelsea_median` is the median building's value per draw (all buildings),
 again as a posterior median and 90% interval.
 
+The map under the buildings comes from the basemap snapshot
+(`rentfrontier.external basemap`): streets at their recorded width, paths,
+parks and the shoreline, in the same grid coordinates as the buildings.
+
 Writes /data1/apartments/frontier/maps/<run>-<commit>/map.json.
 """
 

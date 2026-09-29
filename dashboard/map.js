@@ -168,11 +168,10 @@ const FT = 0.3048; // metres per foot
 function mapFrame(container) {
   const d = state.data, [ex0, ex1, ey0, ey1] = d.basemap.extent;
   const width = Math.max(320, container.clientWidth);
-  // Fit the whole map in the window when its card sits under the sticky filter
-  // row: the filters, the card's own head and legend, and the card padding.
-  const card = $('map-card');
-  const above = $('filters').offsetHeight + (container.getBoundingClientRect().top - card.getBoundingClientRect().top) + 28;
-  const height = Math.max(360, Math.min(window.innerHeight - above, Math.round(width * (ey1 - ey0) / (ex1 - ex0))));
+  // Fit the whole map in the window below where it starts on screen (never
+  // above the sticky filter row), less the card's bottom padding.
+  const top = Math.max(container.getBoundingClientRect().top, $('filters').getBoundingClientRect().bottom);
+  const height = Math.max(360, Math.min(window.innerHeight - top - 24, Math.round(width * (ey1 - ey0) / (ex1 - ex0))));
   const fit = Math.min(width / (ex1 - ex0), height / (ey1 - ey0));
   if (view.cx === null) { view.cx = (ex0 + ex1) / 2; view.cy = (ey0 + ey1) / 2; }
   const k = fit * view.zoom;
