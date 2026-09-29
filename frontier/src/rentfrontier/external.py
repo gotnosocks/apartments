@@ -15,6 +15,11 @@ Sources:
   the feature partly circular.
 - subway: MTA Subway Stations (data.ny.gov 39hk-dx4f), every station stop with
   its daytime routes and coordinates (transit access).
+- basemap: the map under the rent map, around the registry's buildings (their
+  bounding box plus BASEMAP_MARGIN_M): street centerlines with width, lanes,
+  speed and roadway type (NYC Open Data inkn-q76z), parks (enfh-gkve) and
+  Manhattan's shoreline (borough boundary, gthc-hcne). One row per feature,
+  geometry as GeoJSON.
 """
 
 from __future__ import annotations
@@ -23,6 +28,7 @@ import argparse
 import datetime as dt
 import hashlib
 import json
+import math
 import urllib.parse
 import urllib.request
 
@@ -32,7 +38,8 @@ from .registry import EXTERNAL_ROOT
 from .run import git
 
 REGISTRY = EXTERNAL_ROOT / "registry" / "20260925-6b67137" / "buildings.parquet"
-SOCRATA = "https://data.cityofnewyork.us/resource"
+NYC_OPEN_DATA = "https://data.cityofnewyork.us"
+SOCRATA = f"{NYC_OPEN_DATA}/resource"
 PLUTO_ID = "64uk-42ks"
 PLUTO_COLUMNS = (
     "bbl",
@@ -131,11 +138,85 @@ def fetch_subway() -> tuple[pd.DataFrame, list[str], dict]:
     return table, [urllib.parse.urlencode(params)], version
 
 
+CENTERLINE_ID = "inkn-q76z"
+PARKS_ID = "enfh-gkve"
+BOROUGHS_ID = "gthc-hcne"
+BASEMAP_MARGIN_M = 400.0
+CENTERLINE_COLUMNS = (
+    "physicalid",
+    "full_street_name",
+    "stname_label",
+    "streetwidth",
+    "number_travel_lanes",
+    "posted_speed",
+    "rw_type",
+    "trafdir",
+    "the_geom",
+)
+
+
+def basemap_box(registry: pd.DataFrame) -> tuple[float, float, float, float]:
+    """(north, west, south, east) degrees around the registry's buildings."""
+    lat, lon = registry.latitude.dropna(), registry.longitude.dropna()
+    dlat = BASEMAP_MARGIN_M / 111_320.0
+    dlon = dlat / math.cos(math.radians(lat.mean()))
+    return lat.max() + dlat, lon.min() - dlon, lat.min() - dlat, lon.max() + dlon
+
+
+def fetch_basemap(box) -> tuple[pd.DataFrame, list[str], dict]:
+    n, w, s, e = box
+    rows, queries, versions = [], [], {}
+    for layer, dataset, params in (
+        (
+            "street",
+            CENTERLINE_ID,
+            {
+                "$select": ", ".join(CENTERLINE_COLUMNS),
+                "$where": f"within_box(the_geom, {n}, {w}, {s}, {e})",
+                "$limit": 20000,
+            },
+        ),
+        (
+            "park",
+            PARKS_ID,
+            {
+                "$select": "signname, typecategory, multipolygon",
+                "$where": f"within_box(multipolygon, {n}, {w}, {s}, {e})",
+                "$limit": 5000,
+            },
+        ),
+        ("land", BOROUGHS_ID, {"$select": "boroname, the_geom", "borocode": 1}),
+    ):
+        for r in _socrata(dataset, params):
+            geometry = r.pop("the_geom", None) or r.pop("multipolygon", None)
+            name = r.pop("full_street_name", None) or r.pop("signname", None)
+            rows.append(
+                {
+                    "layer": layer,
+                    "name": name or r.get("boroname"),
+                    "attributes": json.dumps(r, sort_keys=True),
+                    "geometry": json.dumps(geometry),
+                }
+            )
+        queries.append(f"{dataset}?{urllib.parse.urlencode(params)}")
+        with urllib.request.urlopen(
+            f"{NYC_OPEN_DATA}/api/views/{dataset}.json", timeout=60
+        ) as r:
+            meta = json.loads(r.read())
+        versions[dataset] = {
+            "name": meta.get("name"),
+            "rows_updated_at": dt.datetime.fromtimestamp(
+                meta["rowsUpdatedAt"], dt.UTC
+            ).isoformat(),
+        }
+    return pd.DataFrame(rows), queries, versions
+
+
 def main(argv=None):
     parser = argparse.ArgumentParser(
         description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
     )
-    parser.add_argument("source", choices=("pluto", "subway"))
+    parser.add_argument("source", choices=("pluto", "subway", "basemap"))
     args = parser.parse_args(argv)
     dirty = git("status", "--porcelain")
     if dirty:
@@ -157,6 +238,19 @@ def main(argv=None):
             "registry_lots_missing": missing,
         }
         summary = f"{len(table)} lots, {len(missing)} registry lots missing"
+    elif args.source == "basemap":
+        box = basemap_box(pd.read_parquet(REGISTRY))
+        table, queries, versions = fetch_basemap(box)
+        counts = table.layer.value_counts().to_dict()
+        details = {
+            "source": SOCRATA,
+            "dataset": "NYC Open Data: street centerlines, parks, borough boundary",
+            "versions": versions,
+            "registry": str(REGISTRY),
+            "box_north_west_south_east": box,
+            "features": counts,
+        }
+        summary = ", ".join(f"{v} {k}" for k, v in sorted(counts.items()))
     else:
         table, queries, version = fetch_subway()
         details = {
