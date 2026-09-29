@@ -141,11 +141,13 @@ History, from the removed PyMC/NumPyro ladder (ladder.py, 3c26c4a–ac9e02b):
 - Its records (lines `pymc` and `numpyro`, feature set `none` below L4) stay on the board as
   data.
 
-## Current effort: the sub-15-minute frontier on thelio (from 2026-09-24)
+## Current effort: the frontier within the fit window on thelio (from 2026-09-24)
 
 Ben asked for a research effort on the part of the frontier that fits in under 10 minutes, with
 variance decomposition as a measure of modeling quality and projection to search for more
-efficient models. On 2026-09-25 he widened the window to **15 minutes per fit**. It runs
+efficient models. On 2026-09-25 he widened the window to 15 minutes per fit, and on 2026-09-29
+to **30 minutes per fit**, with a hard stop at **35 minutes** ("to keep up the pace of
+iteration"). It runs
 separately on each local hardware class (RTX 2060 SUPER and the CPU).
 
 **Samplers: library over custom** (Ben, 2026-09-25: "I would prefer to use a library sampler
@@ -248,8 +250,9 @@ implementation over implementing our own").
     steps per iteration. Both options were removed.
   - The sampler line stops here (Ben, 2026-09-25; see "Misspecification first" below). The
     NUTS coordinates and the SVI warm start stay; no further sampler work.
-  - Every timed fit is capped at 30 minutes (Ben, 2026-09-25). Past the 15-minute window a fit
-    has already shown it is outside, and its warmup log gives the diagnostics.
+  - Every timed fit is capped: at 30 minutes from 2026-09-25, and at 35 minutes from 2026-09-29
+    (Ben). Past the window a fit has already shown it is outside, and its warmup log gives the
+    diagnostics.
 - New sampler work uses library samplers on `model.build_model`, with library options only:
   - NumPyro NUTS (`--sampler nuts`), with a diagonal or a structured dense mass matrix;
   - BlackJAX's NUTS and many-chain adaptation;
@@ -542,9 +545,10 @@ the fix goes into the model, the features or the data, not the sampler.
 3. **Model shape.** Simpler time and unit terms (above), judged by PSIS-LOO and by whether the
    tails lighten (ν rising) and the geometry eases.
 
-## Structure search under 15 minutes (from 2026-09-25)
+## Structure search within the fit window (15 minutes from 2026-09-25, 30 from 2026-09-29)
 
-**Goal.** Raise the most accurate gate-passing fit within 15 minutes on each thelio hardware class,
+**Goal.** Raise the most accurate gate-passing fit within the window (30 minutes from 2026-09-29)
+on each thelio hardware class,
 with library samplers only.
 - The deprecated Gibbs sampler left a mark on the RTX 2060: m5-nocurves + desc, +9,922 PSIS-LOO
   over m0 in 895 s.
