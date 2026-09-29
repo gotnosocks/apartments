@@ -11,9 +11,9 @@ LocScaleReparam). The design is set by `ModelConfig`; the feature set is
 chosen separately (features.py).
 
 This is the one definition of every design. NUTS (nuts.py) samples it
-directly; the deprecated Gibbs sampler (gibbs.py, kept only to reproduce old
-run records) works on it through `gibbs.site_values`. Both are scored by the
-same code (collect.py, loo.py, variance.py).
+directly; the Gibbs sampler (gibbs.py) works on it through
+`gibbs.site_values`, for the designs it has exact updates for. Both are
+scored by the same code (collect.py, loo.py, variance.py).
 """
 
 from __future__ import annotations
@@ -1206,8 +1206,8 @@ MODELS = {
 }
 
 # The model ladder: the simplest design first, one term more per step, up to
-# the sub-15-minute candidates. Fit by NUTS (the deprecated Gibbs sampler
-# needs every base term and is not used for new work).
+# the sub-15-minute candidates. Fit by NUTS (the Gibbs sampler needs every
+# base term).
 _BARE = {
     "trend": False,
     "season": False,
