@@ -274,9 +274,12 @@ def building_lots(frame: pd.DataFrame) -> pd.DataFrame:
     return pluto.reindex(lot.to_numpy()).reset_index(drop=True)
 
 
-def pluto_v1(frame: pd.DataFrame, train: np.ndarray) -> Features:
-    """base-v1 plus the building's MapPLUTO attributes (building-level)."""
-    base = base_v1(frame, train)
+def pluto_v1(
+    frame: pd.DataFrame, train: np.ndarray, id: str = "pluto-v1", base: str = "base-v1"
+) -> Features:
+    """A base set (base-v1) plus the building's MapPLUTO attributes
+    (building-level)."""
+    base = FEATURE_SETS[base](frame, train)
     lot = building_lots(frame)
     num = {
         c: pd.to_numeric(lot[c], errors="coerce")
@@ -326,9 +329,9 @@ def pluto_v1(frame: pd.DataFrame, train: np.ndarray) -> Features:
     b.add("building status", "historic_district", lot.histdist.notna())
     b.add("building status", "flood_zone_2015", lot.pfirm15_flag.notna())
     b.add("building status", "altered_since_2000", num["yearalter1"] >= 2000)
-    extra = b.build("pluto-v1")
+    extra = b.build(id)
     return Features(
-        "pluto-v1",
+        id,
         base.names + extra.names,
         base.groups + extra.groups,
         np.column_stack([base.values, extra.values]),
@@ -337,9 +340,10 @@ def pluto_v1(frame: pd.DataFrame, train: np.ndarray) -> Features:
 
 
 # Feature sets that read the external snapshots (run records list them).
-EXTERNAL = {"pluto-v1", "unitfloor-v2", "unitdesc-v1"}
-# Feature sets that read the advertisement descriptions (`descriptions.SOURCE`).
-DESCRIPTIONS = {"desc-v1", "unitdesc-v1"}
+EXTERNAL = {"pluto-v1", "unitfloor-v2", "unitdesc-v1", "unitdescpluto-v1"}
+# Feature sets that read the advertisement descriptions (`descriptions.SOURCE`),
+# directly or through their base set.
+DESCRIPTIONS = {"desc-v1", "unitdesc-v1", "unitdescpluto-v1"}
 
 FEATURE_SETS = {
     "base-v1": base_v1,
@@ -360,6 +364,7 @@ FEATURE_SETS = {
     # The description flags on the unit-consistent features.
     "unitdesc-v1": partial(desc_v1, id="unitdesc-v1", base="unitfloor-v2"),
     "pluto-v1": pluto_v1,
+    "unitdescpluto-v1": partial(pluto_v1, id="unitdescpluto-v1", base="unitdesc-v1"),
 }
 
 

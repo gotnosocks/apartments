@@ -44,6 +44,7 @@ that a typical apartment renter thinks about when choosing a place to rent."
 | Unit bedrooms and relabels (`unitbeds-v1`) | The apartment's real bedroom count; a "flex" or "junior" bedroom adds about a third to 40% of a real one (0.085–0.099 against 0.23–0.26 in log rent). |
 | Unit size, floor and label flags (`unitattrs`, `unitfloor`, `unitlabels`) | The same apartment keeps its size across listings; when a listing states no floor, the unit label's floor is used (if the building is that tall); penthouses, garden and lower-level units are priced as such. |
 | Description flags (`desc-v1`) | What the ad says: renovated, washer-dryer, outdoor space, no fee, furnished, and so on. |
+| Building facts (`pluto-v1`, `unitdescpluto-v1`) | What the city records about the building: when it was built, its height and number of apartments, the space per apartment, how densely the lot is built, its type (walk-up, elevator, condo, a small mixed-use building of a few apartments over a store or office, or other), landmark or historic-district status, flood zone and a recent alteration; an "unknown" flag where the city's record has no usable value. |
 | Building level | This building's premium beyond its apartments' features: its location, quality and management. |
 | Building trend or walk | How that premium has moved over time, for example a renovation or a changing block: steadily (the trend) or along a path that can change direction at each knot, joined by straight lines (the walk). Sum-to-zero walks make it relative to the market, so "the market" and "this building" never overlap. |
 | Bedroom slope (m5) | In some buildings the larger apartments carry an extra premium or discount. |
@@ -669,6 +670,35 @@ They enter the design matrix, so NUTS fits them like any other design.
      - The building attributes explain about two thirds of the building-level variation, which the
        building effects were already capturing. So accuracy is equal and the description is much
        more interpretable.
+   - **On the app's design** (`unitdescpluto-v1` = `unitdesc-v1` plus the 22 building columns;
+     Gibbs m5-nocurves, `unit-labels-v1`, 2 × (300 + 3600), c84f228, RTX 2060, 2026-09-29).
+     - It passes in 1,369 s (44 s more than without the building facts): R-hat 1.006, ESS 665
+       (sigma), every-element R-hat 1.010.
+     - PSIS-LOO is 52,438.3, **+6.9 ± 18.5 against the same design without them** on identical
+       rows (no measurable change) and +11,844 over m0. Held-out ΔELPD is +525.1 (+520.1 without).
+     - The variance decomposition moves from anonymous to named terms: features 54.0% → 76.8%,
+       building level 29.3% → 7.8%, building over time 2.4% → 1.0%. Market (8.4%), slopes (1.7% →
+       1.6%), unit (1.9%) and residual (2.5%) are unchanged. building_scale falls from 0.257 to 0.159;
+       walk_scale, unit_scale, sigma and ν do not move.
+     - Effects (posterior mean, 95% interval):
+       - space per apartment: +27% per log unit (+23 to +31);
+       - condominium buildings (class R): +17% (+12 to +22) against elevator apartment buildings
+         (D);
+       - walk-ups (C): −7% (−11 to −3);
+       - small mixed-use buildings (S: a few apartments over a store or office): −11% (−16 to
+         −5); other classes: −11% (−17 to −5);
+       - built 1990–2009 or 2010 on: +9% (+2 to +16, +2 to +18) against 1900–1929;
+       - built 1960–1989: −9% (−15 to −3);
+       - altered since 2000: +7% (+3 to +11);
+       - historic district: +6% (−1 to +12);
+       - landmark: +0% (−14 to +17).
+     - The 2015 flood-zone flag gets +8% (+3 to +12). The 146 flagged buildings are the
+       sample's western blocks: all west of Ninth Avenue, 90 of them between Ninth and Tenth
+       (89 on the side streets, where the flag splits the buildings 89 to 70, and Chelsea
+       Market), 14 on Tenth, 35 between Tenth and Eleventh and 7 on or west of Eleventh. So the
+       flag most likely stands in for location there rather than flood risk (this fit cannot
+       separate the two), which makes it a poor renter-facing term. A location term (below)
+       should take it over.
 2. **Location.** Buildings have latitude and longitude. Try a low-rank spatial basis over building
    locations, as building-level columns, so neighbouring buildings share information (west vs
    east Chelsea, the avenues, the High Line).
