@@ -341,7 +341,8 @@ def pluto_v1(
 
 # The location surface: Gaussian bumps LOCATION_SPACING_M apart (and as wide)
 # over the buildings' registry coordinates, scaled so the surface's prior sd is
-# about beta_sd * LOCATION_SCALE (0.15 in log rent) everywhere.
+# about beta_sd * LOCATION_SCALE (0.15 in log rent) on average over the buildings
+# (lower at the map's edges).
 LOCATION_SPACING_M = 250.0
 LOCATION_SCALE = 0.3
 
