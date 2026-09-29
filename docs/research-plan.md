@@ -720,7 +720,7 @@ They enter the design matrix, so NUTS fits them like any other design.
      takes the later of the two recorded alterations, on v2 (no flood-zone flag). It passes in
      1,376 s: R-hat 1.006, ESS 585, every-element R-hat 1.009. PSIS-LOO is 52,439.6: +1.4 ± 6.8
      against v2 and +8.2 ± 18.3 against the app's fit. An alteration since 2000 is now +6.8%
-     (+3 to +10, +6.4% in v2); nothing else moves.
+     (+3 to +10, +6.4% in v2); no coefficient moves more than 0.2 posterior sd.
 2. **Location.** Buildings have latitude and longitude. Try a low-rank spatial basis over building
    locations, as building-level columns, so neighbouring buildings share information (west vs
    east Chelsea, the avenues, the High Line).
