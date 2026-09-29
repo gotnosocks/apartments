@@ -50,7 +50,7 @@ that a typical apartment renter thinks about when choosing a place to rent."
 | Unit bedrooms and relabels (`unitbeds-v1`) | The apartment's real bedroom count; a "flex" or "junior" bedroom adds about a third to 40% of a real one (0.085–0.099 against 0.23–0.26 in log rent). |
 | Unit size, floor and label flags (`unitattrs`, `unitfloor`, `unitlabels`) | The same apartment keeps its size across listings; when a listing states no floor, the unit label's floor is used (if the building is that tall); penthouses, garden and lower-level units are priced as such. |
 | Description flags (`desc-v1`) | What the ad says: renovated, washer-dryer, outdoor space, no fee, furnished, and so on. |
-| Building facts (`pluto-v1`, `unitdescpluto-v1`; `unitdescpluto-v2` without the flood-zone flag) | What the city records about the building: when it was built, its height and number of apartments, the space per apartment, how densely the lot is built, its type (walk-up, elevator, condo, a small mixed-use building of a few apartments over a store or office, or other), landmark or historic-district status, flood zone and a recent alteration; an "unknown" flag where the city's record has no usable value. |
+| Building facts (`pluto-v1`, `unitdescpluto-v1`; `unitdescpluto-v2` without the flood-zone flag; `unitdescpluto-v3` also dating alterations by the latest) | What the city records about the building: when it was built, its height and number of apartments, the space per apartment, how densely the lot is built, its type (walk-up, elevator, condo, a small mixed-use building of a few apartments over a store or office, or other), landmark or historic-district status, flood zone and a recent alteration; an "unknown" flag where the city's record has no usable value. |
 | Location (`unitdescplutoloc-v1`) | What buildings nearby rent for: a smooth premium over the map, shared by buildings a few blocks apart (for example the western blocks near the High Line). |
 | Transit (`unitdescplutotransit-v2`) | The walk to the nearest subway station, and how many subway lines stop within a 10-minute walk, counting the stations open at the time of the listing. |
 | Building level | This building's premium beyond its apartments' features: its location, quality and management. |
@@ -714,6 +714,14 @@ They enter the design matrix, so NUTS fits them like any other design.
      western blocks' premium (+5.6% → +7.5%, +1 to +14), and built 1990 or later rises by about
      one point. The other facts barely move (under 0.5 posterior sd), and the building level
      stays at 7.9% of the variance.
+   - **With alterations dated by the latest** (`unitdescpluto-v3`, faa8c78, 2026-09-29; the app
+     candidate). `altered_since_2000` used `yearalter1` alone, so 44 buildings (950 rows) whose
+     alteration in 2000 or later is recorded only in `yearalter2` got 0 (PR #52 review): 39
+     altered before 2000 and again after, 5 with no `yearalter1` at all. v3 takes the later of
+     the two recorded alterations, on v2 (no flood-zone flag). It passes in
+     1,376 s: R-hat 1.006, ESS 585, every-element R-hat 1.009. PSIS-LOO is 52,439.6: +1.4 ± 6.8
+     against v2 and +8.2 ± 18.3 against the app's fit. An alteration since 2000 is now +6.8%
+     (+3 to +10, +6.4% in v2); no coefficient moves more than 0.2 posterior sd.
 2. **Location.** Buildings have latitude and longitude. Try a low-rank spatial basis over building
    locations, as building-level columns, so neighbouring buildings share information (west vs
    east Chelsea, the avenues, the High Line).
