@@ -3,6 +3,12 @@
 {% block content %}
 {% set p = meta.provenance %}
 {% set s = meta.stats %}
+{% set names = terms | map(attribute="name") | list %}
+{% set building = ["its level against an average building"] %}
+{% if "building_drift" in names %}{% set building = building + ["how that level has moved over time"] %}{% endif %}
+{% if "building_bedroom_premium" in names %}{% set building = building + ["its own premium or discount for larger apartments"] %}{% endif %}
+{% if "building_feature_slopes" in names %}{% set building = building + ["its own price for extra space and bathrooms"] %}{% endif %}
+{% if "line" in names %}{% set building = building + ["the line (column) of apartments within it"] %}{% endif %}
 <h1>About the estimates</h1>
 
 <section class="card prose">
@@ -11,9 +17,9 @@
   month: the median of the asks it expects, in dollars a month. It combines four things, each learned from all
   {{ "{:,}".format(s.listings) }} listings:</p>
   <ul>
-    <li>the <strong>market</strong> that month (a trend and a calendar season);</li>
+    <li>the <strong>market</strong> that month (a trend and a calendar season{% if "bedroom_market_curve" in names %}, and each bedroom group's own path{% endif %});</li>
     <li>the apartment's <strong>features</strong>: bedrooms, baths, size, floor, building amenities, views, and flags from the ad text;</li>
-    <li>the <strong>building</strong>: its level against an average building, and its own trend;</li>
+    <li>the <strong>building</strong>: {{ building[:-1] | join(", ") }}{% if building | length > 1 %} and {% endif %}{{ building[-1] }};</li>
     <li>the <strong>unit</strong> itself, learned from its other listings.</li>
   </ul>
   <p>Each estimate leaves out the listing's <strong>own ask</strong> (leave-own-row-out). A model that had seen the ask would be
@@ -45,14 +51,14 @@
   </div>
   <p class="note">Estimates for a unit's only listing in the fit rest on the building and features alone, and their ranges are somewhat too
   narrow. {{ "{:,}".format(s.unreliable_estimates) }} listings (marked <span class="warn-mark">*</span>) have an unstable
-  leave-own-row-out correction (Pareto k above {{ p.estimate_pareto_k.threshold }}).</p>
+  leave-own-row-out correction (Pareto k above {{ p.estimate_pareto_k.threshold | round(3) }}).</p>
 </section>
 
 <section class="card">
   <h2>The model</h2>
   <dl class="facts wide">
     <dt>Design</dt><dd><code>{{ p.model.name }}</code> with features <code>{{ p.feature_set }}</code>{% if p.data_rules %} and data rules <code>{{ p.data_rules | join(", ") }}</code>{% endif %}</dd>
-    <dt>Fit</dt><dd>{{ p.sampler | upper if p.sampler else "" }} on {{ p.fit_hardware }}, {{ (p.fit_seconds / 60) | round(1) }} minutes, started {{ p.fit_started_at[:16] | replace("T", " ") if p.fit_started_at else "" }}; {{ "{:,}".format(p.draws) }} posterior draws</dd>
+    <dt>Fit</dt><dd>{{ {"gibbs": "Custom Gibbs sampler", "nuts": "NUTS (NumPyro)"}.get(p.sampler, p.sampler or "") }} on {{ p.fit_hardware }}, {{ (p.fit_seconds / 60) | round(1) }} minutes, started {{ p.fit_started_at[:16] | replace("T", " ") if p.fit_started_at else "" }}; {{ "{:,}".format(p.draws) }} posterior draws</dd>
     <dt>Convergence gate</dt><dd>{{ "passes" if p.gate.passes else "fails" }}: max R-hat {{ "%.3f" | format(p.gate.max_rhat) }}, min bulk ESS {{ p.gate.min_ess | round | int }},
       every group effect R-hat &lt; 1.05 (worst {{ "%.3f" | format(p.gate.group_rhat_max) }}){% if p.gate.divergences is not none %}, {{ p.gate.divergences }} divergences{% endif %}</dd>
     {% if p.psis_loo %}<dt>Accuracy (PSIS-LOO)</dt><dd>{{ "{:,.1f}".format(p.psis_loo.elpd_loo) }} ± {{ "{:,.1f}".format(p.psis_loo.elpd_loo_se) }} over {{ "{:,}".format(p.rows_in_fit) }} listings in the fit</dd>{% endif %}
