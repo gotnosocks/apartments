@@ -42,8 +42,15 @@ rents stratified by number of bedrooms"), for the app's selected model.
     year (trend averaged over the year's months, no season).
 
   The value is the posterior median of the typical asking rent, with a 90% interval.
-- **Map.** One dot per building on Manhattan's street grid (rotated 29°, avenues up the page), with
-  guide lines for the avenues and a few streets placed from the buildings' own addresses.
+- **Map.** One dot per building on a map of Chelsea turned 29° to Manhattan's street grid (avenues
+  up the page).
+  - The map comes from NYC Open Data (`rentfrontier.external basemap`): street centerlines drawn at
+    their recorded width, paths, parks (the High Line, Chelsea Park, ...) and the Hudson shoreline.
+    Avenue and street labels are placed from the buildings' own addresses.
+  - The map keeps the mapped area's proportions and is as large as fits the card and the window
+    below where it starts in the page, beside a side panel with the legend and headline numbers.
+    Zoom with the buttons or a double click, and drag to pan (within the mapped area); "Whole map"
+    resets.
   - Colour is the building's premium over Chelsea's median building that year and bedroom count,
     in seven diverging classes (blue cheaper, red dearer, gray within 5%; breaks at 5, 15 and 30%).
     Rents rose about 70% since 2010, so fixed dollar bands would only show time. The level over

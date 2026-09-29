@@ -62,3 +62,15 @@ def test_unsupported_designs_are_named():
     assert "sum-to-zero, masked or anchored walks" in rentmap.unsupported_terms(
         model.MODELS["m1-walk36-zs"]
     )
+
+
+def test_clip_ring_and_thin():
+    # A 4 x 4 square centred on a 2 x 2 window clips to the window.
+    square = [(-2, -2), (2, -2), (2, 2), (-2, 2)]
+    clipped = rentmap._clip_ring(square, -1, 1, -1, 1)
+    assert sorted(clipped) == [(-1, -1), (-1, 1), (1, -1), (1, 1)]
+    # A ring wholly outside clips to nothing.
+    assert rentmap._clip_ring([(5, 5), (6, 5), (6, 6)], -1, 1, -1, 1) == []
+    # Thinning keeps the ends and drops points closer than the step.
+    line = [(0.0, 0.0), (0.5, 0.0), (1.0, 0.0), (3.0, 0.0), (3.2, 0.0)]
+    assert rentmap._thin(line, step=1.5) == [(0.0, 0.0), (3.0, 0.0), (3.2, 0.0)]

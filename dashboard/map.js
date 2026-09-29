@@ -112,6 +112,10 @@ function buildControls() {
     }, 900);
   });
   $('show-before').addEventListener('change', (e) => { state.showBefore = e.target.checked; render(); });
+  initMapEvents();
+  $('zoom-in').addEventListener('click', () => zoomBy(2));
+  $('zoom-out').addEventListener('click', () => zoomBy(0.5));
+  $('zoom-reset').addEventListener('click', () => { view.zoom = 1; view.cx = null; view.cy = null; renderMap(); });
   for (const b of document.querySelectorAll('.table-toggle')) {
     b.addEventListener('click', () => {
       const t = $(`table-${b.dataset.target}`);
@@ -158,60 +162,63 @@ function renderKpis() {
 }
 
 // ---------- map ----------
+// The view: world centre (grid metres) and zoom over the fit-to-window scale.
+const view = { cx: null, cy: null, zoom: 1 };
+const FT = 0.3048; // metres per foot
+// The mapped area: the basemap's extent, or the buildings' own (older bundles).
+function mapExtent() {
+  const d = state.data;
+  if (d.basemap) return d.basemap.extent;
+  const xs = d.buildings.filter((b) => b.x !== null).map((b) => b.x), ys = d.buildings.filter((b) => b.y !== null).map((b) => b.y);
+  return [Math.min(...xs) - 120, Math.max(...xs) + 120, Math.min(...ys) - 120, Math.max(...ys) + 120];
+}
+function mapFrame(container) {
+  const [ex0, ex1, ey0, ey1] = mapExtent(), aspect = (ex1 - ex0) / (ey1 - ey0);
+  // The frame has the mapped area's proportions (no water painted over land), as
+  // large as fits the card's width and the window below where the map starts in
+  // the page (its document position, so it does not depend on the scroll).
+  const top = container.getBoundingClientRect().top + window.scrollY;
+  const tall = Math.max(280, window.innerHeight - top - 24);
+  const width = Math.round(Math.min(Math.max(320, container.clientWidth), tall * aspect));
+  const height = Math.round(width / aspect);
+  const k = (width / (ex1 - ex0)) * view.zoom;
+  // Keep the view inside the mapped area.
+  const hw = width / 2 / k, hh = height / 2 / k;
+  view.cx = Math.min(ex1 - hw, Math.max(ex0 + hw, view.cx ?? (ex0 + ex1) / 2));
+  view.cy = Math.min(ey1 - hh, Math.max(ey0 + hh, view.cy ?? (ey0 + ey1) / 2));
+  const X = (x) => width / 2 + (x - view.cx) * k, Y = (y) => height / 2 - (y - view.cy) * k;
+  return { width, height, k, X, Y };
+}
+const pathOf = (pts, X, Y, close) => pts.map((p, i) => `${i ? 'L' : 'M'}${X(p[0]).toFixed(1)},${Y(p[1]).toFixed(1)}`).join('') + (close ? 'Z' : '');
+function drawBasemap(root, f) {
+  const b = state.data.basemap, { X, Y, k } = f;
+  if (!b) return;
+  svg('rect', { class: 'water', x: 0, y: 0, width: f.width, height: f.height }, root);
+  for (const land of b.land) svg('path', { class: 'land', 'fill-rule': 'evenodd', d: land.rings.map((r) => pathOf(r, X, Y, true)).join('') }, root);
+  for (const park of b.parks) {
+    const n = svg('path', { class: 'park', d: park.rings.map((r) => pathOf(r, X, Y, true)).join('') }, root);
+    svg('title', { text: park.name || 'Park' }, n);
+  }
+  for (const p of b.paths) svg('path', { class: 'path', d: pathOf(p.points, X, Y, false) }, root);
+  // Streets at their recorded width (feet), never thinner than a hairline.
+  for (const s of b.streets) {
+    const w = Math.min(60, Math.max(0.8, (s.width_ft || 30) * FT * k));
+    svg('path', { class: 'street', 'stroke-width': w.toFixed(1), d: pathOf(s.points, X, Y, false) }, root);
+  }
+  const g = state.data.grid;
+  for (const a of g.avenues) {
+    const x = X(a.x);
+    if (x > 20 && x < f.width - 20) svg('text', { class: 'map-label', x, y: f.height - 6, 'text-anchor': 'middle', text: a.label }, root);
+  }
+  for (const s of g.streets) {
+    const y = Y(s.y);
+    if (y > 12 && y < f.height - 20) svg('text', { class: 'map-label', x: f.width - 6, y: y + 4, 'text-anchor': 'end', text: s.label }, root);
+  }
+  svg('text', { class: 'water-label', x: 14, y: f.height / 2, transform: `rotate(-90 14 ${f.height / 2})`, 'text-anchor': 'middle', text: 'Hudson River' }, root);
+}
 function renderMap() {
   const d = state.data, yi = yearIndex(), bed = state.bed;
   const ramp = RAMP[isDark() ? 'dark' : 'light'];
-  const container = $('chart-map');
-  container.replaceChildren();
-  const pts = d.buildings.filter((b) => b.x !== null);
-  const xs = pts.map((b) => b.x), ys = pts.map((b) => b.y);
-  const [x0, x1, y0, y1] = [Math.min(...xs), Math.max(...xs), Math.min(...ys), Math.max(...ys)];
-  const width = Math.max(320, container.clientWidth);
-  const m = { left: 56, right: 70, top: 26, bottom: 30 };
-  const scale = (width - m.left - m.right) / (x1 - x0);
-  const height = Math.round((y1 - y0) * scale + m.top + m.bottom);
-  const root = svg('svg', { viewBox: `0 0 ${width} ${height}`, width, height, role: 'img',
-    'aria-label': `Map of typical ${bed === 'studio' ? 'studio' : bed + '-bedroom'} rents by building in ${yearOf(yi)}` }, container);
-  const X = (x) => m.left + (x - x0) * scale, Y = (y) => m.top + (y1 - y) * scale;
-  const g = svg('g', { class: 'grid' }, root);
-  for (const a of d.grid.avenues) {
-    svg('line', { x1: X(a.x), x2: X(a.x), y1: m.top - 8, y2: height - m.bottom + 8 }, g);
-    svg('text', { x: X(a.x), y: height - 8, 'text-anchor': 'middle', text: a.label }, root);
-  }
-  for (const s of d.grid.streets) {
-    svg('line', { x1: m.left - 8, x2: width - m.right + 8, y1: Y(s.y), y2: Y(s.y) }, g);
-    svg('text', { x: width - m.right + 12, y: Y(s.y) + 4, text: s.label }, root);
-  }
-  svg('text', { class: 'axis-title', x: 16, y: (m.top + height - m.bottom) / 2, 'text-anchor': 'middle',
-    transform: `rotate(-90 16 ${(m.top + height - m.bottom) / 2})`, text: '← Hudson River (west)' }, root);
-  const marks = [];
-  const layer = svg('g', {}, root);
-  // Draw near-median buildings first so strong premiums and discounts sit on top;
-  // hollow extrapolations under all.
-  const order = d.buildings.map((b, i) => i).filter((i) => d.buildings[i].x !== null && visible(d.buildings[i], yi))
-    .sort((a, b) => {
-      const ea = extrapolated(d.buildings[a], yi), eb = extrapolated(d.buildings[b], yi);
-      if (ea !== eb) return ea ? -1 : 1;
-      return Math.abs(premium(a, bed, yi)) - Math.abs(premium(b, bed, yi));
-    });
-  for (const i of order) {
-    const b = d.buildings[i], col = ramp[classOf(premium(i, bed, yi))];
-    const extrap = extrapolated(b, yi);
-    const node = svg('circle', { class: 'dot' + (extrap ? ' hollow' : ''), cx: X(b.x), cy: Y(b.y), r: 4.5,
-      style: extrap ? `stroke:${col}` : `fill:${col}` }, layer);
-    marks.push({ x: X(b.x), y: Y(b.y), i, node });
-  }
-  let lifted = null;
-  root.addEventListener('pointermove', (evt) => {
-    const [px, py] = pointerPos(root, evt);
-    let best = null, bd = Infinity;
-    for (const p of marks) { const dd = Math.hypot(p.x - px, p.y - py); if (dd < bd) { bd = dd; best = p; } }
-    if (lifted) lifted.classList.remove('lift');
-    if (!best || bd > HIT) { hideTip(); return; }
-    lifted = best.node; lifted.classList.add('lift');
-    showTip(evt, (t) => buildingTip(t, best.i, yi));
-  });
-  root.addEventListener('pointerleave', () => { hideTip(); if (lifted) lifted.classList.remove('lift'); });
   // Legend: the seven classes, cheapest to dearest.
   const lg = $('legend-map');
   lg.replaceChildren();
@@ -224,7 +231,80 @@ function renderMap() {
   const ex = html('span', { class: 'item' }, lg);
   html('span', { class: 'swatch hollow' }, ex);
   ex.appendChild(document.createTextNode('outside the years of the building\'s listings (extrapolated)'));
+  const container = $('chart-map');
+  container.replaceChildren();
+  const f = mapFrame(container), { X, Y } = f;
+  const root = svg('svg', { viewBox: `0 0 ${f.width} ${f.height}`, width: f.width, height: f.height, role: 'img',
+    'aria-label': `Map of typical ${bed === 'studio' ? 'studio' : bed + '-bedroom'} rents by building in ${yearOf(yi)}` }, container);
+  drawBasemap(root, f);
+  const marks = [];
+  const layer = svg('g', {}, root);
+  // Draw near-median buildings first so strong premiums and discounts sit on top;
+  // hollow extrapolations under all.
+  const order = d.buildings.map((b, i) => i).filter((i) => d.buildings[i].x !== null && visible(d.buildings[i], yi))
+    .sort((a, b) => {
+      const ea = extrapolated(d.buildings[a], yi), eb = extrapolated(d.buildings[b], yi);
+      if (ea !== eb) return ea ? -1 : 1;
+      return Math.abs(premium(a, bed, yi)) - Math.abs(premium(b, bed, yi));
+    });
+  const r = Math.min(7, 4.5 * Math.sqrt(view.zoom));
+  for (const i of order) {
+    const b = d.buildings[i], col = ramp[classOf(premium(i, bed, yi))];
+    const cx = X(b.x), cy = Y(b.y);
+    if (cx < -10 || cx > f.width + 10 || cy < -10 || cy > f.height + 10) continue;
+    const extrap = extrapolated(b, yi);
+    const node = svg('circle', { class: 'dot' + (extrap ? ' hollow' : ''), cx, cy, r,
+      style: extrap ? `stroke:${col}` : `fill:${col}` }, layer);
+    marks.push({ x: cx, y: cy, i, node });
+  }
+  mapState.f = f; mapState.marks = marks; mapState.yi = yi;
   renderMapTable(order, yi);
+}
+// Pointer handling lives on the container, which survives re-renders (a drag
+// re-renders every frame): hover tooltips, drag to pan, double click to zoom.
+const mapState = { f: null, marks: [], yi: 0, drag: null, lifted: null };
+function initMapEvents() {
+  const c = $('chart-map');
+  const pos = (evt) => {
+    const r = c.querySelector('svg').getBoundingClientRect();
+    return [((evt.clientX - r.left) / r.width) * mapState.f.width, ((evt.clientY - r.top) / r.height) * mapState.f.height];
+  };
+  c.addEventListener('pointermove', (evt) => {
+    if (!mapState.f) return;
+    const [px, py] = pos(evt), drag = mapState.drag;
+    if (drag) {
+      view.cx = drag.cx - (px - drag.px) / mapState.f.k; view.cy = drag.cy + (py - drag.py) / mapState.f.k;
+      if (!drag.frame) drag.frame = requestAnimationFrame(() => { drag.frame = null; renderMap(); });
+      return;
+    }
+    let best = null, bd = Infinity;
+    for (const p of mapState.marks) { const dd = Math.hypot(p.x - px, p.y - py); if (dd < bd) { bd = dd; best = p; } }
+    if (mapState.lifted) mapState.lifted.classList.remove('lift');
+    if (!best || bd > HIT) { hideTip(); return; }
+    mapState.lifted = best.node; best.node.classList.add('lift');
+    showTip(evt, (t) => buildingTip(t, best.i, mapState.yi));
+  });
+  c.addEventListener('pointerdown', (evt) => {
+    if (!mapState.f || view.zoom === 1) return; // nothing to pan at the whole-map view
+    const [px, py] = pos(evt);
+    mapState.drag = { px, py, cx: view.cx, cy: view.cy, frame: null };
+    c.setPointerCapture(evt.pointerId); c.classList.add('dragging'); hideTip();
+  });
+  const end = () => { mapState.drag = null; c.classList.remove('dragging'); };
+  c.addEventListener('pointerup', end);
+  c.addEventListener('pointercancel', end);
+  c.addEventListener('pointerleave', () => { hideTip(); if (mapState.lifted) mapState.lifted.classList.remove('lift'); });
+  c.addEventListener('dblclick', (evt) => {
+    if (!mapState.f) return;
+    const [px, py] = pos(evt);
+    view.cx += (px - mapState.f.width / 2) / mapState.f.k; view.cy -= (py - mapState.f.height / 2) / mapState.f.k;
+    zoomBy(2);
+  });
+}
+function zoomBy(factor) {
+  view.zoom = Math.max(1, Math.min(8, view.zoom * factor));
+  if (view.zoom === 1) { view.cx = null; view.cy = null; }
+  renderMap();
 }
 function buildingTip(t, i, yi) {
   const d = state.data, b = d.buildings[i], v = rentOf(i, state.bed, yi);
