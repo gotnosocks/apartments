@@ -338,6 +338,8 @@ def pluto_v1(frame: pd.DataFrame, train: np.ndarray) -> Features:
 
 # Feature sets that read the external snapshots (run records list them).
 EXTERNAL = {"pluto-v1", "unitfloor-v2", "unitdesc-v1"}
+# Feature sets that read the advertisement descriptions (`descriptions.SOURCE`).
+DESCRIPTIONS = {"desc-v1", "unitdesc-v1"}
 
 FEATURE_SETS = {
     "base-v1": base_v1,
