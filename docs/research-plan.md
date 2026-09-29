@@ -694,10 +694,11 @@ They enter the design matrix, so NUTS fits them like any other design.
        - landmark: +0% (−14 to +17).
      - The 2015 flood-zone flag gets +8% (+3 to +12). The 146 flagged buildings are the
        sample's western blocks: all west of Ninth Avenue, 90 of them between Ninth and Tenth
-       (89 on the side streets, where the flag splits the buildings 89 to 70, and Chelsea Market), 14 on Tenth, 35 between Tenth and Eleventh
-       and 7 on or west of Eleventh. So the flag most likely stands in for location there rather
-       than flood risk (this fit cannot separate the two), which makes it a poor renter-facing
-       term. A location term (below) should take it over.
+       (89 on the side streets, where the flag splits the buildings 89 to 70, and Chelsea
+       Market), 14 on Tenth, 35 between Tenth and Eleventh and 7 on or west of Eleventh. So the
+       flag most likely stands in for location there rather than flood risk (this fit cannot
+       separate the two), which makes it a poor renter-facing term. A location term (below)
+       should take it over.
 2. **Location.** Buildings have latitude and longitude. Try a low-rank spatial basis over building
    locations, as building-level columns, so neighbouring buildings share information (west vs
    east Chelsea, the avenues, the High Line).
