@@ -22,8 +22,9 @@ signal of over- or under-pricing ([what an estimate is](model/listing-estimates.
     unit's only listing, from the building and features alone.
   - It shows the dollar contributions that add up to the estimate, the listing's attributes and ad-text
     flags, the in-sample fit for comparison, the unit's other listings, and links to StreetEasy.
-  - Listings with an unstable leave-own-row-out correction (Pareto k > 0.7) are marked \* and
-    explained.
+  - Listings with an unstable leave-own-row-out correction are marked \* and explained: Pareto k
+    above the run's threshold (`loo.k_threshold`: 0.7, or lower for fewer than about 2,150 draws;
+    0.675 at 1,200).
 - **Unit:** asks and estimates of each of its listings over time.
 - **Buildings** (`/buildings`, searchable and sortable) and **building** pages:
   - level against an average building and yearly trend, with 95% intervals;

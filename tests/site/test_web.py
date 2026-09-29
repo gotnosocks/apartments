@@ -257,3 +257,34 @@ def test_unit_page_links_to_streeteasy(client):
     for listing_id in ("1000", "2000", "3000"):
         assert f'href="https://streeteasy.com/rental/{listing_id}"' in html
     assert html.count('rel="noopener noreferrer" target="_blank"') == 4
+
+
+def test_model_page_describes_the_designs_terms(client, site_root):
+    """The building bullet lists the building terms the design has; the sampler
+    and the k threshold are shown readably."""
+    html = client.get("/model").get_data(as_text=True)
+    assert "<strong>building</strong>: its level against an average building;" in html
+    assert "NUTS (NumPyro) on" in html and "Pareto k above 0.7)" in html
+    db = sqlite3.connect((site_root / "current" / "site.sqlite").resolve())
+    position = db.execute("SELECT max(position) FROM terms").fetchone()[0]
+    for i, name in enumerate(["building_drift", "building_bedroom_premium"], 1):
+        db.execute(
+            "INSERT INTO terms VALUES (?,?,?,?)", (position + i, name, name, "text")
+        )
+    provenance = json.loads(
+        db.execute("SELECT value FROM meta WHERE key='provenance'").fetchone()[0]
+    )
+    provenance["sampler"] = "gibbs"
+    provenance["estimate_pareto_k"]["threshold"] = 0.6752383441917945
+    db.execute(
+        "UPDATE meta SET value=? WHERE key='provenance'", (json.dumps(provenance),)
+    )
+    db.commit()
+    db.close()
+    html = client.get("/model").get_data(as_text=True)
+    assert (
+        "<strong>building</strong>: its level against an average building, how that"
+        " level has moved over time and its own premium or discount for larger"
+        " apartments;" in html
+    )
+    assert "Custom Gibbs sampler on" in html and "Pareto k above 0.675)" in html

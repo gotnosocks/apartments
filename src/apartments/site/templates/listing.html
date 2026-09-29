@@ -108,7 +108,7 @@
     <dt>Estimate median</dt><dd>{{ usd(row.estimate_median) }}</dd>
     <dt>Ask percentile</dt><dd>{{ "%.1f" | format(100 * row.pit) }}</dd>
     <dt>Method</dt><dd>{{ "held out of the fit" if row.method == "heldout" else "leave-own-row-out (PSIS)" }}</dd>
-    {% if row.pareto_k is not none %}<dt>Pareto k</dt><dd>{{ "%.2f" | format(row.pareto_k) }}{% if not row.reliable %} (above {{ meta.provenance.estimate_pareto_k.threshold }}){% endif %}</dd>{% endif %}
+    {% if row.pareto_k is not none %}<dt>Pareto k</dt><dd>{{ "%.2f" | format(row.pareto_k) }}{% if not row.reliable %} (above {{ meta.provenance.estimate_pareto_k.threshold | round(3) }}){% endif %}</dd>{% endif %}
     <dt>Unit's listings in the fit</dt><dd>{{ row.unit_fit_rows }}</dd>
     <dt>In-sample fit</dt><dd>{{ usd(row.fitted) }} <span class="muted">({{ usd(row.fitted_lower) }}–{{ usd(row.fitted_upper) }})</span></dd>
   </dl>
