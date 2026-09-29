@@ -277,10 +277,15 @@ def building_lots(frame: pd.DataFrame) -> pd.DataFrame:
 
 
 def pluto_v1(
-    frame: pd.DataFrame, train: np.ndarray, id: str = "pluto-v1", base: str = "base-v1"
+    frame: pd.DataFrame,
+    train: np.ndarray,
+    id: str = "pluto-v1",
+    base: str = "base-v1",
+    flood_zone: bool = True,
 ) -> Features:
     """A base set (base-v1) plus the building's MapPLUTO attributes
-    (building-level)."""
+    (building-level). `flood_zone=False` leaves out the 2015 flood-zone flag,
+    which in Chelsea marks the western blocks (location), not flood risk."""
     base = FEATURE_SETS[base](frame, train)
     lot = building_lots(frame)
     num = {
@@ -329,7 +334,8 @@ def pluto_v1(
     b.categorical("building class", family, reference="D")
     b.add("building status", "landmark", lot.landmark.notna())
     b.add("building status", "historic_district", lot.histdist.notna())
-    b.add("building status", "flood_zone_2015", lot.pfirm15_flag.notna())
+    if flood_zone:
+        b.add("building status", "flood_zone_2015", lot.pfirm15_flag.notna())
     b.add("building status", "altered_since_2000", num["yearalter1"] >= 2000)
     extra = b.build(id)
     return Features(
@@ -497,6 +503,7 @@ EXTERNAL = {
     "unitdescpluto-v1",
     "unitdescplutoloc-v1",
     "unitdescplutotransit-v2",
+    "unitdescpluto-v2",
 }
 # Feature sets that read the subway stations snapshot.
 SUBWAY = {"unitdescplutotransit-v2"}
@@ -508,6 +515,7 @@ DESCRIPTIONS = {
     "unitdescpluto-v1",
     "unitdescplutoloc-v1",
     "unitdescplutotransit-v2",
+    "unitdescpluto-v2",
 }
 
 FEATURE_SETS = {
@@ -530,6 +538,10 @@ FEATURE_SETS = {
     "unitdesc-v1": partial(desc_v1, id="unitdesc-v1", base="unitfloor-v2"),
     "pluto-v1": pluto_v1,
     "unitdescpluto-v1": partial(pluto_v1, id="unitdescpluto-v1", base="unitdesc-v1"),
+    # The building facts without the flood-zone flag (a location proxy here).
+    "unitdescpluto-v2": partial(
+        pluto_v1, id="unitdescpluto-v2", base="unitdesc-v1", flood_zone=False
+    ),
     # The location surface on the building facts.
     "unitdescplutoloc-v1": partial(
         location_v1, id="unitdescplutoloc-v1", base="unitdescpluto-v1"

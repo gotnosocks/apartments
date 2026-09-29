@@ -161,3 +161,14 @@ def test_unitdescplutoloc_is_the_location_surface_on_unitdescpluto():
     assert fn.func is features.location_v1
     assert fn.keywords == {"id": "unitdescplutoloc-v1", "base": "unitdescpluto-v1"}
     assert "unitdescplutoloc-v1" in features.EXTERNAL
+
+
+def test_unitdescpluto_v2_is_the_building_facts_without_the_flood_zone():
+    fn = features.FEATURE_SETS["unitdescpluto-v2"]
+    assert fn.func is features.pluto_v1
+    assert fn.keywords == {
+        "id": "unitdescpluto-v2",
+        "base": "unitdesc-v1",
+        "flood_zone": False,
+    }
+    assert {"unitdescpluto-v2"} <= features.EXTERNAL & features.DESCRIPTIONS

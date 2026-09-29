@@ -264,3 +264,9 @@ def test_verify_run_refuses_differing_rows_and_indexes(tmp_path):
 def test_chunk_rows_bounds_the_batch():
     assert summary.chunk_rows(2200) == 1022
     assert summary.chunk_rows(100) == 1024 and summary.chunk_rows(100_000) == 256
+
+
+def test_building_fact_groups_have_descriptions():
+    names = ["building era", "building size", "building class", "building status"]
+    for term in summary.terms_record(names):
+        assert not term["description"].startswith("Listing attributes"), term
