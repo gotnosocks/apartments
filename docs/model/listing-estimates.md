@@ -72,8 +72,8 @@ fit is +6,616.3 ± 136.7 over it on identical rows.
 The median gap between ask and estimate is smaller than under the previous selection (4.7% on held-out
 rows and 7.1% for units listed once). Rows in the fit whose unit has other rows behave like genuinely
 held-out rows. The in-sample residuals are half as large, which is the pull toward the ask that
-leave-own-row-out removes. Units listed once are less well calibrated: their PIT is U-shaped (about
-15% more mass than uniform in each outer decile), so the Normal unit prior is too light-tailed for
+leave-own-row-out removes. Units listed once are less well calibrated: their PIT is U-shaped (13–18% more
+mass than uniform in the outer deciles), so the Normal unit prior is too light-tailed for
 them. The site reports this rather than widening their intervals.
 
 The design's building walks give each building its own path over time, which the listing pages
