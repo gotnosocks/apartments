@@ -14,6 +14,42 @@ descriptions of every listing for the same fit time, or the same accuracy sooner
 Ben's. On 2026-09-26 he chose the best gate-passing NumPyro fit as the app's model; it ships through
 the summary output to the [listings site](site.md). West Village is on hold.
 
+## Interpretability and elegance (Ben, 2026-09-29)
+
+"One of the goals of the project is that the selected model is interpretable and elegant. There
+should be a simple conceptual explanation for the role of each term in the model that makes sense
+to a reasonable user. The model should reflect the qualities of an apartment and its surroundings
+that a typical apartment renter thinks about when choosing a place to rent."
+
+- **Rule.** A term can enter the selected model only with a one-sentence explanation a renter
+  would accept (the glossary below). A term without one is a research tool, not a selection
+  candidate. PSIS-LOO per fit time is still the frontier; this is a gate on what gets selected.
+- **Features** should be qualities renters weigh: size and layout, light and views, floor,
+  outdoor space, condition and renovation, amenities, the building, the block and
+  neighbourhood, transit, noise, schools, groceries, parks.
+- **Fewer, clearer terms.** Overlapping terms are hard to explain and, as the trend-plus-walk
+  design showed, hard to sample.
+- **Not model terms.** Sampling coordinates, warm starts and samplers change how a fit runs, not
+  what the model says. Data rules are cleaning and must be explainable as such ("one apartment,
+  one id").
+
+**Glossary** (terms in the current designs, and what each means to a renter):
+
+| Term | What it says about a listing |
+|---|---|
+| Market trend and season | What Chelsea rents are doing overall at that time, and in that month of the year. |
+| Listing attributes (bedrooms, baths, size, floor, amenities, views, windows) | What the apartment offers, priced the same way everywhere. |
+| Unit bedrooms and relabels (`unitbeds-v1`) | The apartment's real bedroom count; a "flex" or "junior" bedroom adds about 40% of a real one. |
+| Unit size, floor and label flags (`unitattrs`, `unitfloor`, `unitlabels`) | The same apartment keeps its size and floor across listings; penthouses, garden and lower-level units are priced as such. |
+| Description flags (`desc-v1`) | What the ad says: renovated, washer-dryer, outdoor space, no fee, furnished, and so on. |
+| Building level | This building's premium beyond its apartments' features: its location, quality and management. |
+| Building trend or walk | How that premium has moved over time, for example a renovation or a changing block. Sum-to-zero walks make it relative to the market, so "the market" and "this building" never overlap. |
+| Bedroom slope (m5) | In some buildings the larger apartments carry an extra premium or discount. |
+| Line (column) effects | Apartments stacked in the same column share a layout and exposure. |
+| Unit level | This apartment's own premium beyond its listed features: layout, light, condition. |
+| Unit drift (m8) | This apartment's ask moving over time on its own. |
+| Heavy-tailed residuals (Student-t) | Some asks are unusual for reasons the data don't show. |
+
 ## The score
 
 - **Definition.** For every row of the row split's 47,374 training rows (seed 20260922; fixed and
@@ -66,7 +102,8 @@ the summary output to the [listings site](site.md). West Village is on hold.
 - **Gate.** Split R-hat < 1.01 and bulk ESS > 400 on scalars and traced effects. Frontier-line runs
   also need R-hat < 1.05 over every element of every group effect (1.1 when recomputed from older
   runs' kept draws). No divergences under NUTS. Named additive dollar contributions are required.
-- **Eligible.** Passes the gate, is interpretable, and has a PSIS-LOO score.
+- **Eligible.** Passes the gate, is interpretable (every term in the glossary under
+  "Interpretability and elegance"), and has a PSIS-LOO score.
 - **Best.** The top PSIS-LOO ΔELPD defines a tie band of two combined SE. The best is the fastest
   entry inside that band.
 - **Frontier.** Eligible entries that no other eligible entry beats on both PSIS-LOO ΔELPD and fit
