@@ -531,6 +531,10 @@ def constants(prep: Prepared, config: ModelConfig) -> dict:
                 raise ValueError(
                     "walk_zero_sum is for walks anchored at the first knot"
                 )
+            if config.walk_t:
+                # Centring Student-t steps across buildings is a valid model, but
+                # not the zero-sum-steps model this option stands for.
+                raise ValueError("walk_zero_sum is for Normal walk steps")
             out["walk_zero_sum"] = jnp.asarray(1.0)
         if config.walk_min_rows_per_knot > 0:
             out["walk_mask"] = jnp.asarray(walk_mask(prep, config))

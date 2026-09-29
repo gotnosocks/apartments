@@ -281,6 +281,16 @@ def test_gibbs_refuses_the_walk_mask_and_anchor():
             gibbs.build_design(synthetic(), config)
 
 
+def test_zero_sum_walks_refuse_student_t_steps_and_gibbs():
+    config = replace(model.MODELS["m1-walk24-zs"], walk_t=True)
+    with pytest.raises(ValueError, match="Normal walk steps"):
+        model.constants(windowed(), config)
+    # A 6-month walk passes Gibbs's spacing check, so this reaches walk_zero_sum.
+    six = replace(model.MODELS["m1-walk"], walk_zero_sum=True)
+    with pytest.raises(ValueError, match="--sampler nuts"):
+        gibbs.build_design(synthetic(), six)
+
+
 def test_zero_sum_walks_have_no_common_part():
     """walk_zero_sum: at every knot the likelihood's walks sum to zero across
     buildings, so the market trend carries all common time variation."""

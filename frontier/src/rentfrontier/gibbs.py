@@ -163,7 +163,8 @@ def build_design(
     ):
         raise ValueError(
             f"{config.name}: the Gibbs sampler needs every base term and no market "
-            "drift, building trend or walk options (spacing, t steps, mask, anchor); "
+            "drift, building trend, line effects or walk options (spacing, t steps, "
+            "mask, anchor, zero-sum); "
             "fit these designs with --sampler nuts"
         )
     tr = prep.train
