@@ -355,10 +355,13 @@ def rent_map() -> Path | None:
     run (config/main-analysis.json), if one has been made."""
     try:
         run = json.loads((REPO / "config" / "main-analysis.json").read_text())["run"]
-    except (OSError, ValueError, KeyError):
+    except (OSError, ValueError, KeyError, TypeError):
         return None
+    if not isinstance(run, str):
+        return None
+    # <run>-<7-hex commit>: not a longer run name that starts with this one.
     maps = sorted(
-        rentmap.MAPS.glob(f"{glob.escape(run)}-*/map.json"),
+        rentmap.MAPS.glob(f"{glob.escape(run)}-{'[0-9a-f]' * 7}/map.json"),
         key=lambda p: p.stat().st_mtime,
     )
     return maps[-1] if maps else None

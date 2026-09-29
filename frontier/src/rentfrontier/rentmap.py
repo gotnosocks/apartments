@@ -17,8 +17,11 @@ the posterior of the typical asking rent of an apartment with:
 - a first advertised price (price basis at its reference).
 
 Rents are exp of the log-scale mean, i.e. the typical (median) ask. Each value
-is the posterior median with a 90% interval. Years before a building's first
-listing in the fit are extrapolated by its walk and marked in `first_year`.
+is the posterior median with a 90% interval. Years outside a building's
+listings in the fit (before `first_year`, after `last_year`) are the walk's
+extrapolation. Designs whose terms this does not model (bedroom-group market
+curves, per-building feature slopes, market drift, a trend on top of a walk,
+sum-to-zero, masked or anchored walks) are refused.
 `chelsea_median` is the median building's value per draw (all buildings),
 again as a posterior median and 90% interval.
 
@@ -71,12 +74,14 @@ GRID_BEARING_DEG = 29.0
 GUIDE_STREETS = (14, 18, 23, 28, 34)
 SIDE_STREET = re.compile(r"^\d+\s+WEST\s+(\d+)\s+STREET")
 AVENUE = re.compile(r"^\d+\s+(\d+)\s+AVENUE")
+AMERICAS = re.compile(r"AVENUE OF (THE )?AMERICAS|AMERICAS AVENUE")
 DEFINITION = (
-    "A typical apartment with that many bedrooms: bathrooms, size, views and "
-    "ad-text features at Chelsea's average for its bedroom count; floor and "
-    "building amenities at the building's own average; plus the building's own "
-    "level, path over time and bedroom premium, and the market that year. "
-    "Posterior median of the typical asking rent, with a 90% interval."
+    "A typical apartment with that many bedrooms: bathrooms, size, laundry, views "
+    "and ad-text features at Chelsea's average for its bedroom count; floor, "
+    "elevator, doorman, pet policy and building facts at the building's own "
+    "average; plus the building's own level, path over time and bedroom premium, "
+    "and the market that year. Posterior median of the typical asking rent, with a "
+    "90% interval."
 )
 
 
@@ -168,7 +173,7 @@ def grid_layout(buildings: list[dict]) -> dict:
         address = b["label"].upper()
         if m := SIDE_STREET.match(address):
             streets.setdefault(int(m.group(1)), []).append(b["y"])
-        elif "AVENUE OF THE AMERICAS" in address:
+        elif AMERICAS.search(address):
             avenues.setdefault(6, []).append(b["x"])
         elif m := AVENUE.match(address):
             avenues.setdefault(int(m.group(1)), []).append(b["x"])
@@ -188,6 +193,23 @@ def grid_layout(buildings: list[dict]) -> dict:
     }
 
 
+def unsupported_terms(config: model.ModelConfig) -> list[str]:
+    """The terms of a design that the rent map does not model (empty: supported)."""
+    unsupported = {
+        "no building walk or trend": not (
+            config.building_walk or config.building_trend
+        ),
+        "both a walk and a trend": config.building_walk and config.building_trend,
+        "bedroom-group market curves": config.bedroom_time,
+        "per-building feature slopes": bool(config.feature_slopes),
+        "market drift": config.market_drift,
+        "sum-to-zero, masked or anchored walks": config.walk_zero_sum
+        or bool(config.walk_min_rows_per_knot)
+        or config.walk_anchor_data,
+    }
+    return [k for k, bad in unsupported.items() if bad]
+
+
 def compute(name: str) -> dict:
     _, result, kept = explain.load_run(name)
     config = model.MODELS[result["model"]["name"]]
@@ -196,8 +218,11 @@ def compute(name: str) -> dict:
     frame = data.apply_rules(frame, result.get("data_rules", ()))
     feats = features.build(result["feature_set"], frame, ~heldout)
     prep = model.prepare(frame, heldout, feats)
-    if not (config.building_walk or config.building_trend):
-        raise SystemExit("the rent map needs a building walk or trend design")
+    missing = unsupported_terms(config)
+    if missing:
+        raise SystemExit(
+            f"the rent map does not model this design: {', '.join(missing)}"
+        )
     years, by_year, walk_year = year_weights(prep.periods, model.walk_spacing(config))
     market = prep.offset + kept["alpha"][:, None] + kept["trend"] @ by_year.T  # (d, Y)
     if config.building_walk:

@@ -46,3 +46,19 @@ def test_grid_layout_puts_streets_up_and_avenues_across():
     assert avenues["8th Av"] - avenues["9th Av"] > 200
     ys = [b["y"] for b in buildings[:2]]
     assert abs(ys[0] - ys[1]) < 1.0  # same street, same height
+
+
+def test_unsupported_designs_are_named():
+    from rentfrontier import model
+
+    assert rentmap.unsupported_terms(model.MODELS["m5-nocurves"]) == []
+    assert rentmap.unsupported_terms(model.MODELS["m0q-btrend"]) == []
+    assert "no building walk or trend" in rentmap.unsupported_terms(model.MODELS["m0q"])
+    assert "bedroom-group market curves" in rentmap.unsupported_terms(
+        model.MODELS["m5-quarterly"]
+    )
+    m1 = rentmap.unsupported_terms(model.MODELS["m1-btrend-walk24"])
+    assert "both a walk and a trend" in m1
+    assert "sum-to-zero, masked or anchored walks" in rentmap.unsupported_terms(
+        model.MODELS["m1-walk36-zs"]
+    )

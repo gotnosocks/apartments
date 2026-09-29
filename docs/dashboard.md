@@ -35,9 +35,9 @@ rents stratified by number of bedrooms"), for the app's selected model.
 
 - **What a value is.** What a typical apartment with that many bedrooms rents for in a building in
   a year (`rentfrontier.rentmap`):
-  - bathrooms, size, views and ad-text features at Chelsea's average for the bedroom count;
-  - floor and building amenities (elevator, doorman, pets, building facts) at the building's own
-    average;
+  - bathrooms, size, laundry, views and ad-text features at Chelsea's average for the bedroom
+    count;
+  - floor, elevator, doorman, pet policy and the building facts at the building's own average;
   - plus the building's level, its path over time and its own bedroom premium, and the market that
     year (trend averaged over the year's months, no season).
 
@@ -48,8 +48,10 @@ rents stratified by number of bedrooms"), for the app's selected model.
     in seven diverging classes (blue cheaper, red dearer, gray within 5%; breaks at 5, 15 and 30%).
     Rents rose about 70% since 2010, so fixed dollar bands would only show time. The level over
     time is the chart below, and the dollars are in the tooltip and the table.
-  - Years before a building's first listing in the fit are the model's extrapolation. They are
-    hidden by default and hollow when shown.
+  - Years outside a building's listings in the fit (before the first, after the last) are the
+    model's extrapolation. They are hidden by default and hollow when shown.
+  - Designs whose terms the map does not model (bedroom-group curves, per-building feature
+    slopes, market drift, a trend on top of a walk, sum-to-zero or masked walks) are refused.
 - **Controls.** Bedrooms (studio, 1, 2, 3+), a year slider with play, hover for a building's value
   and interval, and a table view.
 - **Chelsea's median building by bedrooms over time.** The median building's typical rent per year

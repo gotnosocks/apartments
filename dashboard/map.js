@@ -80,7 +80,9 @@ function rentOf(b, bedKey, yi) { return state.data.rent[bedKey][b][yi]; } // [p0
 const median = (bedKey, yi) => state.data.chelsea_median[bedKey][yi]; // [p05, median, p95]
 const premium = (i, bedKey, yi) => rentOf(i, bedKey, yi)[1] / median(bedKey, yi)[1] - 1;
 const classOf = (p) => BREAKS.filter((b) => p >= b).length;
-const visible = (b, yi) => state.showBefore || yearOf(yi) >= b.first_year;
+// Years outside a building's listings in the fit are the model's extrapolation.
+const extrapolated = (b, yi) => yearOf(yi) < b.first_year || yearOf(yi) > b.last_year;
+const visible = (b, yi) => state.showBefore || !extrapolated(b, yi);
 
 // ---------- controls ----------
 function buildControls() {
@@ -116,6 +118,8 @@ function buildControls() {
       t.hidden = !t.hidden;
       b.textContent = t.hidden ? 'Table view' : 'Chart view';
       $(`chart-${b.dataset.target}`).hidden = !t.hidden;
+      // A chart rebuilt while hidden was sized to the fallback width: redraw it.
+      if (t.hidden) render();
     });
   }
   const saved = localStorage.getItem('dashboard-theme');
@@ -150,7 +154,7 @@ function renderKpis() {
   tile(`Chelsea's median building, ${bedLabel.toLowerCase()}, ${yearOf(yi)}${partial}`, usd(mid), `90% interval ${range(lo, hi)} a month`, true);
   const ch = mid / first - 1;
   tile(`Since ${d.years[0]}`, `${ch >= 0 ? '+' : '−'}${Math.abs(100 * ch).toFixed(0)}%`, `from ${usd(first)} a month`);
-  tile('Buildings on the map', shown.toLocaleString('en-US'), `of ${d.buildings.length.toLocaleString('en-US')} with listings in the fit`);
+  tile('Buildings on the map', shown.toLocaleString('en-US'), `of ${d.buildings.length.toLocaleString('en-US')} with listings in the fit${state.showBefore ? '' : `, listed around ${yearOf(yi)}`}`);
 }
 
 // ---------- map ----------
@@ -186,13 +190,13 @@ function renderMap() {
   // hollow extrapolations under all.
   const order = d.buildings.map((b, i) => i).filter((i) => d.buildings[i].x !== null && visible(d.buildings[i], yi))
     .sort((a, b) => {
-      const ea = yearOf(yi) < d.buildings[a].first_year, eb = yearOf(yi) < d.buildings[b].first_year;
+      const ea = extrapolated(d.buildings[a], yi), eb = extrapolated(d.buildings[b], yi);
       if (ea !== eb) return ea ? -1 : 1;
       return Math.abs(premium(a, bed, yi)) - Math.abs(premium(b, bed, yi));
     });
   for (const i of order) {
     const b = d.buildings[i], col = ramp[classOf(premium(i, bed, yi))];
-    const extrap = yearOf(yi) < b.first_year;
+    const extrap = extrapolated(b, yi);
     const node = svg('circle', { class: 'dot' + (extrap ? ' hollow' : ''), cx: X(b.x), cy: Y(b.y), r: 4.5,
       style: extrap ? `stroke:${col}` : `fill:${col}` }, layer);
     marks.push({ x: X(b.x), y: Y(b.y), i, node });
@@ -219,7 +223,7 @@ function renderMap() {
   });
   const ex = html('span', { class: 'item' }, lg);
   html('span', { class: 'swatch hollow' }, ex);
-  ex.appendChild(document.createTextNode('before the building\'s first listing (extrapolated)'));
+  ex.appendChild(document.createTextNode('outside the years of the building\'s listings (extrapolated)'));
   renderMapTable(order, yi);
 }
 function buildingTip(t, i, yi) {
@@ -229,7 +233,7 @@ function buildingTip(t, i, yi) {
   tipRow(t, '90% interval', range(v[0], v[2]));
   tipRow(t, 'Against the median building', `${pctText(premium(i, state.bed, yi))} (${usd(median(state.bed, yi)[1])})`);
   tipRow(t, 'Listings in the fit', `${b.fit_listings.toLocaleString('en-US')} (${b.first_year}–${b.last_year})`);
-  if (yearOf(yi) < b.first_year) html('div', { class: 't-note' }, t, `No listings before ${b.first_year}: the model's extrapolation.`);
+  if (extrapolated(b, yi)) html('div', { class: 't-note' }, t, `Listed only ${b.first_year}–${b.last_year}: the model's extrapolation.`);
 }
 function renderMapTable(order, yi) {
   const d = state.data, bed = state.bed, wrap = $('table-map');

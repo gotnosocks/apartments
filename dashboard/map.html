@@ -31,7 +31,7 @@
       <output id="year-label" for="year-range"></output>
       <button id="year-play" class="ghost" type="button">Play</button>
     </div>
-    <label class="check"><input id="show-before" type="checkbox"> Buildings before their first listing</label>
+    <label class="check"><input id="show-before" type="checkbox"> Buildings outside the years of their listings</label>
   </section>
 
   <section class="kpis" id="map-kpis" aria-label="Headline numbers"></section>
@@ -42,8 +42,8 @@
         <h2 id="map-title">Typical rent by building</h2>
         <p class="caption">One dot per building, drawn on Manhattan's street grid (avenues run up the page, the Hudson is to the left). Colour is how the building's typical
           asking rent (posterior median) compares with Chelsea's median building that year, for the chosen bedroom count: blue cheaper, red dearer, gray within 5%.
-          The chart below shows how the level itself moved. Buildings are shown from the year of their first listing in the fit; before that, their rent is the model's
-          extrapolation (tick the box above to show them, hollow). Hover for the rent in dollars.</p>
+          The chart below shows how the level itself moved. Buildings are shown in the years from their first to their last listing in the fit; outside those years
+          their rent is the model's extrapolation (tick the box above to show them, hollow). Hover for the rent in dollars.</p>
       </div>
       <button class="ghost table-toggle" type="button" data-target="map">Table view</button>
     </div>
