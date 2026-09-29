@@ -94,3 +94,24 @@ def test_unitdescpluto_is_the_building_columns_on_unitdesc():
     assert fn.func is features.pluto_v1
     assert fn.keywords == {"id": "unitdescpluto-v1", "base": "unitdesc-v1"}
     assert "unitdescpluto-v1" in features.EXTERNAL
+
+
+def test_location_bumps_cover_the_sites_with_unit_mean_square():
+    rng = np.random.default_rng(0)
+    sites = rng.uniform(0, 1500, size=(200, 2))
+    bumps = features.location_bumps(sites, sites)
+    assert np.isclose((bumps**2).sum(1).mean(), 1.0)
+    # A point far from every site sees (almost) no bump.
+    assert features.location_bumps(np.array([[1e5, 1e5]]), sites).max() < 1e-12
+    # Neighbouring points share bumps; points 2 km apart do not.
+    near = features.location_bumps(np.array([[700.0, 700.0], [750.0, 700.0]]), sites)
+    far = features.location_bumps(np.array([[0.0, 0.0], [0.0, 2000.0]]), sites)
+    cos = lambda m: m[0] @ m[1] / np.linalg.norm(m[0]) / np.linalg.norm(m[1])
+    assert cos(near) > 0.9 and cos(far) < 0.05
+
+
+def test_unitdescplutoloc_is_the_location_surface_on_unitdescpluto():
+    fn = features.FEATURE_SETS["unitdescplutoloc-v1"]
+    assert fn.func is features.location_v1
+    assert fn.keywords == {"id": "unitdescplutoloc-v1", "base": "unitdescpluto-v1"}
+    assert "unitdescplutoloc-v1" in features.EXTERNAL
