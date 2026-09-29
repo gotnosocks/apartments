@@ -172,3 +172,15 @@ def test_unitdescpluto_v2_is_the_building_facts_without_the_flood_zone():
         "flood_zone": False,
     }
     assert {"unitdescpluto-v2"} <= features.EXTERNAL & features.DESCRIPTIONS
+
+
+def test_unitdescpluto_v3_dates_alterations_by_the_latest():
+    fn = features.FEATURE_SETS["unitdescpluto-v3"]
+    assert fn.func is features.pluto_v1
+    assert fn.keywords == {
+        "id": "unitdescpluto-v3",
+        "base": "unitdesc-v1",
+        "flood_zone": False,
+        "latest_alteration": True,
+    }
+    assert {"unitdescpluto-v3"} <= features.EXTERNAL & features.DESCRIPTIONS

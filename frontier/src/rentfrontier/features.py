@@ -282,10 +282,13 @@ def pluto_v1(
     id: str = "pluto-v1",
     base: str = "base-v1",
     flood_zone: bool = True,
+    latest_alteration: bool = False,
 ) -> Features:
     """A base set (base-v1) plus the building's MapPLUTO attributes
     (building-level). `flood_zone=False` leaves out the 2015 flood-zone flag,
-    which in Chelsea marks the western blocks (location), not flood risk."""
+    which in Chelsea marks the western blocks (location), not flood risk.
+    `latest_alteration=True` dates "altered since 2000" by the later of the
+    lot's two recorded alterations (yearalter1 is the first one)."""
     base = FEATURE_SETS[base](frame, train)
     lot = building_lots(frame)
     num = {
@@ -293,6 +296,7 @@ def pluto_v1(
         for c in (
             "yearbuilt",
             "yearalter1",
+            "yearalter2",
             "numfloors",
             "unitsres",
             "resarea",
@@ -336,7 +340,10 @@ def pluto_v1(
     b.add("building status", "historic_district", lot.histdist.notna())
     if flood_zone:
         b.add("building status", "flood_zone_2015", lot.pfirm15_flag.notna())
-    b.add("building status", "altered_since_2000", num["yearalter1"] >= 2000)
+    altered = num["yearalter1"]
+    if latest_alteration:
+        altered = pd.concat([altered, num["yearalter2"]], axis=1).max(axis=1)
+    b.add("building status", "altered_since_2000", altered >= 2000)
     extra = b.build(id)
     return Features(
         id,
@@ -504,6 +511,7 @@ EXTERNAL = {
     "unitdescplutoloc-v1",
     "unitdescplutotransit-v2",
     "unitdescpluto-v2",
+    "unitdescpluto-v3",
 }
 # Feature sets that read the subway stations snapshot.
 SUBWAY = {"unitdescplutotransit-v2"}
@@ -516,6 +524,7 @@ DESCRIPTIONS = {
     "unitdescplutoloc-v1",
     "unitdescplutotransit-v2",
     "unitdescpluto-v2",
+    "unitdescpluto-v3",
 }
 
 FEATURE_SETS = {
@@ -541,6 +550,14 @@ FEATURE_SETS = {
     # The building facts without the flood-zone flag (a location proxy here).
     "unitdescpluto-v2": partial(
         pluto_v1, id="unitdescpluto-v2", base="unitdesc-v1", flood_zone=False
+    ),
+    # v2 with "altered since 2000" from the latest recorded alteration.
+    "unitdescpluto-v3": partial(
+        pluto_v1,
+        id="unitdescpluto-v3",
+        base="unitdesc-v1",
+        flood_zone=False,
+        latest_alteration=True,
     ),
     # The location surface on the building facts.
     "unitdescplutoloc-v1": partial(
