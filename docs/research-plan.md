@@ -44,10 +44,10 @@ that a typical apartment renter thinks about when choosing a place to rent."
 | Unit size, floor and label flags (`unitattrs`, `unitfloor`, `unitlabels`) | The same apartment keeps its size across listings; when a listing states no floor, the unit label's floor is used (if the building is that tall); penthouses, garden and lower-level units are priced as such. |
 | Description flags (`desc-v1`) | What the ad says: renovated, washer-dryer, outdoor space, no fee, furnished, and so on. |
 | Building level | This building's premium beyond its apartments' features: its location, quality and management. |
-| Building trend or walk | How that premium has moved over time, for example a renovation or a changing block: steadily (the trend) or along a smooth path (the walk). Sum-to-zero walks make it relative to the market, so "the market" and "this building" never overlap. |
+| Building trend or walk | How that premium has moved over time, for example a renovation or a changing block: steadily (the trend) or along a path that can change direction at each knot, joined by straight lines (the walk). Sum-to-zero walks make it relative to the market, so "the market" and "this building" never overlap. |
 | Bedroom slope (m5) | In some buildings the larger apartments carry an extra premium or discount. |
 | Size and bathroom slopes (m6–m8) | In some buildings extra space or an extra bathroom is worth more or less than usual. |
-| Bedroom-group market curves (m2, and m6–m8 with curves) | Studios, 2- and 3+-bedroom apartments can follow their own market path over time. |
+| Bedroom-group market curves (m2, m4, m5–m8; not the nocurves designs) | Studios, 2- and 3+-bedroom apartments can follow their own market path over time. |
 | Line (column) effects | Apartments stacked in the same column share a layout and exposure. |
 | Unit level | This apartment's own premium beyond its listed features: layout, light, condition. |
 | Unit drift (m8) | This apartment's ask moving steadily over time on its own. |
