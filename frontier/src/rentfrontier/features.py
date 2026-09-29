@@ -341,6 +341,76 @@ def pluto_v1(
     )
 
 
+# The location surface: Gaussian bumps LOCATION_SPACING_M apart (and as wide)
+# over the buildings' registry coordinates, scaled so the surface's prior sd is
+# about beta_sd * LOCATION_SCALE (0.15 in log rent) on average over the buildings
+# (lower at the map's edges).
+LOCATION_SPACING_M = 250.0
+LOCATION_SCALE = 0.3
+
+
+def building_xy(buildings) -> np.ndarray:
+    """(n, 2) east and north metres of buildings (registry coordinates) from
+    the registry's centre."""
+    registry = pd.read_parquet(REGISTRY_FILE).set_index("building")
+    lat0, lon0 = registry.latitude.mean(), registry.longitude.mean()
+    lat = registry.latitude.reindex(buildings).to_numpy()
+    lon = registry.longitude.reindex(buildings).to_numpy()
+    metres = 111_320.0
+    return np.column_stack(
+        [(lon - lon0) * metres * np.cos(np.radians(lat0)), (lat - lat0) * metres]
+    )
+
+
+def location_bumps(xy: np.ndarray, sites: np.ndarray) -> np.ndarray:
+    """(len(xy), k) bump values at points xy for bumps on a square grid that
+    covers `sites` (each kept bump centre is within one spacing of a site),
+    normalised so the mean over sites of the sum of squared bumps is 1."""
+    h = LOCATION_SPACING_M
+    lo, hi = sites.min(0) - h, sites.max(0) + h
+    gx, gy = np.meshgrid(np.arange(lo[0], hi[0] + h, h), np.arange(lo[1], hi[1] + h, h))
+    centres = np.column_stack([gx.ravel(), gy.ravel()])
+    near = ((sites[:, None, :] - centres[None]) ** 2).sum(-1).min(0) <= h**2
+    centres = centres[near]
+
+    def bumps(points):
+        d2 = ((points[:, None, :] - centres[None]) ** 2).sum(-1)
+        return np.exp(-d2 / (2 * h**2))
+
+    norm = np.sqrt((bumps(sites) ** 2).sum(1).mean())
+    return bumps(xy) / norm
+
+
+def location_v1(
+    frame: pd.DataFrame,
+    train: np.ndarray,
+    id: str = "location-v1",
+    base: str = "base-v1",
+) -> Features:
+    """A base set plus a smooth location surface over the map: what buildings
+    nearby rent for (building-level)."""
+    base = FEATURE_SETS[base](frame, train)
+    registry = pd.read_parquet(REGISTRY_FILE)
+    sites = building_xy(registry.building)
+    sites = sites[np.isfinite(sites).all(1)]
+    xy = building_xy(frame.building.to_numpy())
+    known = np.isfinite(xy).all(1)
+    values = np.zeros((len(frame), 0))
+    if known.any():
+        values = np.where(known[:, None], location_bumps(np.nan_to_num(xy), sites), 0.0)
+    b = _Builder(frame)
+    for k in range(values.shape[1]):
+        b.add("location", f"location_{k:02d}", values[:, k], scale=LOCATION_SCALE)
+    extra = b.build(id)
+    return Features(
+        id,
+        base.names + extra.names,
+        base.groups + extra.groups,
+        np.column_stack([base.values, extra.values]),
+        np.concatenate([base.prior_scale, extra.prior_scale]),
+    )
+
+
 WALK_M_PER_MIN = 80.0
 TRANSIT_WALK_M = 800.0  # a 10-minute walk
 # Station stops that opened after the data begin (2010) and are close enough to a
@@ -425,13 +495,20 @@ EXTERNAL = {
     "unitfloor-v2",
     "unitdesc-v1",
     "unitdescpluto-v1",
+    "unitdescplutoloc-v1",
     "unitdescplutotransit-v2",
 }
 # Feature sets that read the subway stations snapshot.
 SUBWAY = {"unitdescplutotransit-v2"}
 # Feature sets that read the advertisement descriptions (`descriptions.SOURCE`),
 # directly or through their base set.
-DESCRIPTIONS = {"desc-v1", "unitdesc-v1", "unitdescpluto-v1", "unitdescplutotransit-v2"}
+DESCRIPTIONS = {
+    "desc-v1",
+    "unitdesc-v1",
+    "unitdescpluto-v1",
+    "unitdescplutoloc-v1",
+    "unitdescplutotransit-v2",
+}
 
 FEATURE_SETS = {
     "base-v1": base_v1,
@@ -453,6 +530,10 @@ FEATURE_SETS = {
     "unitdesc-v1": partial(desc_v1, id="unitdesc-v1", base="unitfloor-v2"),
     "pluto-v1": pluto_v1,
     "unitdescpluto-v1": partial(pluto_v1, id="unitdescpluto-v1", base="unitdesc-v1"),
+    # The location surface on the building facts.
+    "unitdescplutoloc-v1": partial(
+        location_v1, id="unitdescplutoloc-v1", base="unitdescpluto-v1"
+    ),
     # Transit access (as of each listing's month) on the building facts.
     "unitdescplutotransit-v2": partial(
         transit_v2, id="unitdescplutotransit-v2", base="unitdescpluto-v1"

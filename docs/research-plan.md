@@ -33,6 +33,12 @@ that a typical apartment renter thinks about when choosing a place to rent."
 - **Not model terms.** Sampling coordinates, warm starts and samplers change how a fit runs, not
   what the model says. Data rules are cleaning and must be explainable as such ("one apartment,
   one id").
+- **Visualization (Ben, 2026-09-29).** "A lesser goal or element of the desire for descriptive,
+  interpretable features that is perhaps better described as 'features that work well in a data
+  visualization'", for example "a visualization geo-spatial-temporal model of rents stratified by
+  number of bedrooms". "Again a lesser goal, but something to keep in mind." Terms that compose
+  into a map (the market over time, the bedroom count, a smooth location surface) serve it;
+  anonymous per-building effects do not. This is guidance for the research, not a selection rule.
 
 **Glossary** (terms in the current designs, and what each means to a renter):
 
@@ -45,6 +51,7 @@ that a typical apartment renter thinks about when choosing a place to rent."
 | Unit size, floor and label flags (`unitattrs`, `unitfloor`, `unitlabels`) | The same apartment keeps its size across listings; when a listing states no floor, the unit label's floor is used (if the building is that tall); penthouses, garden and lower-level units are priced as such. |
 | Description flags (`desc-v1`) | What the ad says: renovated, washer-dryer, outdoor space, no fee, furnished, and so on. |
 | Building facts (`pluto-v1`, `unitdescpluto-v1`) | What the city records about the building: when it was built, its height and number of apartments, the space per apartment, how densely the lot is built, its type (walk-up, elevator, condo, a small mixed-use building of a few apartments over a store or office, or other), landmark or historic-district status, flood zone and a recent alteration; an "unknown" flag where the city's record has no usable value. |
+| Location (`unitdescplutoloc-v1`) | What buildings nearby rent for: a smooth premium over the map, shared by buildings a few blocks apart (for example the western blocks near the High Line). |
 | Transit (`unitdescplutotransit-v2`) | The walk to the nearest subway station, and how many subway lines stop within a 10-minute walk, counting the stations open at the time of the listing. |
 | Building level | This building's premium beyond its apartments' features: its location, quality and management. |
 | Building trend or walk | How that premium has moved over time, for example a renovation or a changing block: steadily (the trend) or along a path that can change direction at each knot, joined by straight lines (the walk). Sum-to-zero walks make it relative to the market, so "the market" and "this building" never overlap. |
@@ -703,6 +710,30 @@ They enter the design matrix, so NUTS fits them like any other design.
 2. **Location.** Buildings have latitude and longitude. Try a low-rank spatial basis over building
    locations, as building-level columns, so neighbouring buildings share information (west vs
    east Chelsea, the avenues, the High Line).
+   - **First result: a smooth surface on the building facts** (`unitdescplutoloc-v1` =
+     `unitdescpluto-v1` plus 42 Gaussian bumps 250 m apart and wide over the registry
+     coordinates, scaled to a prior sd of about 0.15 in log rent; prior correlation 0.78 at
+     250 m, 0.37 at 500 m, about 0 at 1 km). Gibbs m5-nocurves, `unit-labels-v1`, 2 × (300 + 3600),
+     10f6c70, RTX 2060, 2026-09-29.
+     - It passes in 1,584 s (215 s more than without the surface): R-hat 1.006, ESS 623,
+       every-element R-hat 1.009.
+     - PSIS-LOO is 52,429.4, **−9.0 ± 8.0 against the building facts alone** on identical rows
+       (no gain), −2.0 ± 19.2 against the app's fit. Held-out ΔELPD is +524.5.
+     - The surface takes the flood-zone proxy's place: the flag falls from +7.6% (+3 to +12) to
+       +3.2% (−3 to +10), 2.1 posterior sd of the earlier estimate, and historic district from
+       +5.6% to +2.9%. Some other building facts shift by 0.5–0.9 sd: built 1990–2009 from +9.0%
+       (+2 to +16) to +6.0% (−1 to +13), floors (log) from +6.5% to +8.2%, floor-area ratio
+       (log) from −4.8% to −6.5%. The building level falls from 7.8% to 6.8% of the variance
+       and building_scale from 0.159 to 0.154.
+     - So the building facts plus each building's own level already carry the location signal,
+       and the surface adds fit time without accuracy. It is not a frontier move on accuracy.
+     - It is, though, the piece a map needs (the visualization goal above). Market, bedrooms and
+       the surface give "what a typical N-bedroom rents for here, that month" at any point in
+       Chelsea, not only at buildings with listings. The surface is identified relative to its
+       own mean (its spread across buildings is 0.047 in log rent against a posterior sd of
+       0.023; 37% of buildings have 90% intervals excluding 0), so the map shows where rents are
+       above or below the Chelsea average. A true geo-temporal map also needs the
+       surface to change over time (a space-time term), which is the next step on this line.
 3. **Floor.** The label-derived floor and the expanded-floor sidecar (T3.2) next to the advertised
    floor label.
 4. **Size and layout.**
