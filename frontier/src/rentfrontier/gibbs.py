@@ -1,11 +1,12 @@
-"""DEPRECATED (Ben, 2026-09-25): do not use this sampler for new work.
+"""Structured blocked Gibbs sampler for the model in `model.build_model`.
 
-It is kept only to reproduce the existing run records that cite it; new fits
-use library samplers on `model.build_model` (`run.py --sampler nuts`), and
-`run.py` refuses `--sampler gibbs` without `--reproduce-deprecated`. Do not
-extend it.
-
-Structured blocked Gibbs sampler for the model in `model.build_model`.
+Deprecated on 2026-09-25 and reinstated on 2026-09-29 (Ben: "the custom sampler
+and other options based on mathematical simplifications are no longer
+deprecated"). `run.py --sampler gibbs` fits a design with it; designs with
+terms it has no exact update for (market drift, building trends, coarse,
+Student-t or sum-to-zero walks, walk masks and anchors, line effects), or
+without every base term (trend, season, features, buildings, units), are
+refused by `build_design`.
 
 Same posterior as the NumPyro model (same priors, Student-t likelihood).
 The Student-t is written as a scale mixture: eps_i | lam_i ~ N(0, sigma^2 /
@@ -158,10 +159,12 @@ def build_design(
         or config.walk_min_rows_per_knot
         or config.walk_anchor_data
         or config.line_effects
+        or config.walk_zero_sum
     ):
         raise ValueError(
             f"{config.name}: the Gibbs sampler needs every base term and no market "
-            "drift, building trend or walk options (spacing, t steps, mask, anchor); "
+            "drift, building trend, line effects or walk options (spacing, t steps, "
+            "mask, anchor, zero-sum); "
             "fit these designs with --sampler nuts"
         )
     tr = prep.train

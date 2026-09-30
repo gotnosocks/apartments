@@ -11,6 +11,10 @@ id, so older leaderboard entries stay reproducible from their commit anyway.
 
 from __future__ import annotations
 
+import functools
+import json
+import math
+import re
 from dataclasses import dataclass
 from functools import partial
 
@@ -256,6 +260,11 @@ REGISTRY_SNAPSHOT = "/data1/apartments/external/registry/20260925-6b67137"
 PLUTO_SNAPSHOT = "/data1/apartments/external/pluto/20260925-3096a62"
 REGISTRY_FILE = f"{REGISTRY_SNAPSHOT}/buildings.parquet"
 PLUTO_FILE = f"{PLUTO_SNAPSHOT}/pluto.parquet"
+SUBWAY_SNAPSHOT = "/data1/apartments/external/subway/20260929-8e7c364"
+SUBWAY_FILE = f"{SUBWAY_SNAPSHOT}/subway.parquet"
+# Street centerlines, parks and shoreline (`rentfrontier.external basemap`).
+BASEMAP_SNAPSHOT = "/data1/apartments/external/basemap/20260929-da7e40d"
+BASEMAP_FILE = f"{BASEMAP_SNAPSHOT}/basemap.parquet"
 ERAS = (
     (0, 1900, "pre-1900"),
     (1900, 1930, "1900-1929"),
@@ -274,15 +283,28 @@ def building_lots(frame: pd.DataFrame) -> pd.DataFrame:
     return pluto.reindex(lot.to_numpy()).reset_index(drop=True)
 
 
-def pluto_v1(frame: pd.DataFrame, train: np.ndarray) -> Features:
-    """base-v1 plus the building's MapPLUTO attributes (building-level)."""
-    base = base_v1(frame, train)
+def pluto_v1(
+    frame: pd.DataFrame,
+    train: np.ndarray,
+    id: str = "pluto-v1",
+    base: str = "base-v1",
+    flood_zone: bool = True,
+    latest_alteration: bool = False,
+) -> Features:
+    """A base set (base-v1) plus the building's MapPLUTO attributes
+    (building-level). `flood_zone=False` leaves out the 2015 flood-zone flag,
+    which in Chelsea marks the western blocks (location), not flood risk.
+    `latest_alteration=True` dates "altered since 2000" by the later of the
+    lot's two recorded alterations; yearalter1 alone misses an alteration in
+    2000 or later recorded only in yearalter2."""
+    base = FEATURE_SETS[base](frame, train)
     lot = building_lots(frame)
     num = {
         c: pd.to_numeric(lot[c], errors="coerce")
         for c in (
             "yearbuilt",
             "yearalter1",
+            "yearalter2",
             "numfloors",
             "unitsres",
             "resarea",
@@ -324,11 +346,363 @@ def pluto_v1(frame: pd.DataFrame, train: np.ndarray) -> Features:
     b.categorical("building class", family, reference="D")
     b.add("building status", "landmark", lot.landmark.notna())
     b.add("building status", "historic_district", lot.histdist.notna())
-    b.add("building status", "flood_zone_2015", lot.pfirm15_flag.notna())
-    b.add("building status", "altered_since_2000", num["yearalter1"] >= 2000)
-    extra = b.build("pluto-v1")
+    if flood_zone:
+        b.add("building status", "flood_zone_2015", lot.pfirm15_flag.notna())
+    altered = num["yearalter1"]
+    if latest_alteration:
+        altered = pd.concat([altered, num["yearalter2"]], axis=1).max(axis=1)
+    b.add("building status", "altered_since_2000", altered >= 2000)
+    extra = b.build(id)
     return Features(
-        "pluto-v1",
+        id,
+        base.names + extra.names,
+        base.groups + extra.groups,
+        np.column_stack([base.values, extra.values]),
+        np.concatenate([base.prior_scale, extra.prior_scale]),
+    )
+
+
+# The location surface: Gaussian bumps LOCATION_SPACING_M apart (and as wide)
+# over the buildings' registry coordinates, scaled so the surface's prior sd is
+# about beta_sd * LOCATION_SCALE (0.15 in log rent) on average over the buildings
+# (lower at the map's edges).
+LOCATION_SPACING_M = 250.0
+LOCATION_SCALE = 0.3
+
+
+def building_xy(buildings) -> np.ndarray:
+    """(n, 2) east and north metres of buildings (registry coordinates) from
+    the registry's centre."""
+    registry = pd.read_parquet(REGISTRY_FILE).set_index("building")
+    lat0, lon0 = registry.latitude.mean(), registry.longitude.mean()
+    lat = registry.latitude.reindex(buildings).to_numpy()
+    lon = registry.longitude.reindex(buildings).to_numpy()
+    metres = 111_320.0
+    return np.column_stack(
+        [(lon - lon0) * metres * np.cos(np.radians(lat0)), (lat - lat0) * metres]
+    )
+
+
+def location_bumps(xy: np.ndarray, sites: np.ndarray) -> np.ndarray:
+    """(len(xy), k) bump values at points xy for bumps on a square grid that
+    covers `sites` (each kept bump centre is within one spacing of a site),
+    normalised so the mean over sites of the sum of squared bumps is 1."""
+    h = LOCATION_SPACING_M
+    lo, hi = sites.min(0) - h, sites.max(0) + h
+    gx, gy = np.meshgrid(np.arange(lo[0], hi[0] + h, h), np.arange(lo[1], hi[1] + h, h))
+    centres = np.column_stack([gx.ravel(), gy.ravel()])
+    near = ((sites[:, None, :] - centres[None]) ** 2).sum(-1).min(0) <= h**2
+    centres = centres[near]
+
+    def bumps(points):
+        d2 = ((points[:, None, :] - centres[None]) ** 2).sum(-1)
+        return np.exp(-d2 / (2 * h**2))
+
+    norm = np.sqrt((bumps(sites) ** 2).sum(1).mean())
+    return bumps(xy) / norm
+
+
+def location_v1(
+    frame: pd.DataFrame,
+    train: np.ndarray,
+    id: str = "location-v1",
+    base: str = "base-v1",
+) -> Features:
+    """A base set plus a smooth location surface over the map: what buildings
+    nearby rent for (building-level)."""
+    base = FEATURE_SETS[base](frame, train)
+    registry = pd.read_parquet(REGISTRY_FILE)
+    sites = building_xy(registry.building)
+    sites = sites[np.isfinite(sites).all(1)]
+    xy = building_xy(frame.building.to_numpy())
+    known = np.isfinite(xy).all(1)
+    values = np.zeros((len(frame), 0))
+    if known.any():
+        values = np.where(known[:, None], location_bumps(np.nan_to_num(xy), sites), 0.0)
+    b = _Builder(frame)
+    for k in range(values.shape[1]):
+        b.add("location", f"location_{k:02d}", values[:, k], scale=LOCATION_SCALE)
+    extra = b.build(id)
+    return Features(
+        id,
+        base.names + extra.names,
+        base.groups + extra.groups,
+        np.column_stack([base.values, extra.values]),
+        np.concatenate([base.prior_scale, extra.prior_scale]),
+    )
+
+
+WALK_M_PER_MIN = 80.0
+TRANSIT_WALK_M = 800.0  # a 10-minute walk
+# Station stops that opened after the data begin (2010) and are close enough to a
+# registry building to change a value, by GTFS stop id. A listing counts a stop
+# only if it opened before the listing's month began (no future information).
+# 726: 34 St-Hudson Yards (7), opened 2015-09-13. Later openings farther away
+# (72, 86 and 96 St on the Q, 2017; WTC Cortlandt, reopened 2018) are beyond
+# 800 m of every registry building and never the nearest stop, so they are left out.
+STOP_OPENED = {"726": "2015-09-13"}
+
+
+def stops_not_open(month) -> frozenset:
+    """GTFS ids of the stops that had not opened when `month` began."""
+    start = pd.Timestamp(month).replace(day=1)
+    return frozenset(s for s, day in STOP_OPENED.items() if pd.Timestamp(day) >= start)
+
+
+def building_transit(buildings, exclude=frozenset()) -> pd.DataFrame:
+    """Per building (registry coordinates): metres to the nearest subway
+    station stop and the distinct daytime routes stopping within
+    TRANSIT_WALK_M (straight-line distances), without the stops in `exclude`
+    (GTFS ids)."""
+    registry = pd.read_parquet(REGISTRY_FILE).set_index("building")
+    stops = pd.read_parquet(SUBWAY_FILE)
+    stops = stops[~stops.gtfs_stop_id.isin(exclude)].reset_index(drop=True)
+    lat0 = registry.latitude.mean()
+    metres, cos = 111_320.0, np.cos(np.radians(lat0))
+
+    def xy(lat, lon):
+        return np.column_stack(
+            [np.asarray(lon) * metres * cos, np.asarray(lat) * metres]
+        )
+
+    b = xy(registry.latitude, registry.longitude)
+    s = xy(stops.gtfs_latitude, stops.gtfs_longitude)
+    d = np.sqrt(((b[:, None, :] - s[None]) ** 2).sum(-1))
+    routes = stops.daytime_routes.fillna("").str.split()
+    n_routes = [len(set().union(*routes[row <= TRANSIT_WALK_M])) for row in d]
+    table = pd.DataFrame(
+        {"subway_m": d.min(1), "routes_10min": n_routes}, index=registry.index
+    )
+    return table.reindex(buildings).reset_index(drop=True)
+
+
+def transit_v2(
+    frame: pd.DataFrame,
+    train: np.ndarray,
+    id: str = "transit-v2",
+    base: str = "base-v1",
+) -> Features:
+    """A base set plus transit access as of each listing's month: the walk to
+    the nearest subway station and the subway routes within a 10-minute walk
+    (building-level, changing when a station opens)."""
+    base = FEATURE_SETS[base](frame, train)
+    closed = frame.period.map(stops_not_open)
+    t = pd.DataFrame(index=range(len(frame)), columns=["subway_m", "routes_10min"])
+    for exclude in closed.unique():
+        rows = (closed == exclude).to_numpy()
+        part = building_transit(frame.building.to_numpy()[rows], exclude)
+        t.loc[rows] = part.to_numpy()
+    known = t.subway_m.notna().to_numpy()
+    walk = np.log(np.maximum(t.subway_m.to_numpy(dtype=float) / WALK_M_PER_MIN, 1.0))
+    routes = np.log1p(t.routes_10min.to_numpy(dtype=float))
+    b = _Builder(frame)
+    for name, v in (("log_walk_min_to_subway", walk), ("log1p_routes_10min", routes)):
+        centre = float(np.mean(v[train & known]))
+        # A building without coordinates (none in the registry today) sits at the mean.
+        b.add("transit", name, np.where(known, v - centre, 0.0))
+    extra = b.build(id)
+    return Features(
+        id,
+        base.names + extra.names,
+        base.groups + extra.groups,
+        np.column_stack([base.values, extra.values]),
+        np.concatenate([base.prior_scale, extra.prior_scale]),
+    )
+
+
+# Which way an apartment faces: the building's frontage (the street of its
+# address, and which side of it the building stands on) against the apartment's
+# window exposures, front/rear unit labels and ad text, pooled over the unit's
+# listings. Manhattan's grid runs FRONTAGE_BEARING_DEG east of true north; a
+# front on the grid's north or south lands on the same compass point either way.
+FRONTAGE_BEARING_DEG = 29.0
+WIDE_STREETS = frozenset({14, 23, 34})  # Chelsea's wide two-way crosstown streets
+_SIDE_ADDRESS = re.compile(r"^\d+[A-Z]?(?:-\d+)?\s+WEST\s+(\d+)\s+STREET")
+ORDINAL_AVENUES = {
+    "FIFTH": 5,
+    "SIXTH": 6,
+    "SEVENTH": 7,
+    "EIGHTH": 8,
+    "NINTH": 9,
+    "TENTH": 10,
+    "ELEVENTH": 11,
+    "TWELFTH": 12,
+}
+_AVENUE_ADDRESS = re.compile(
+    r"^\d+[A-Z]?(?:-\d+)?\s+(\d+|" + "|".join(ORDINAL_AVENUES) + r")\s+AVENUE"
+)
+_AMERICAS = re.compile(r"AVENUE OF (THE )?AMERICAS|AMERICAS AVENUE")
+FRONT_TEXT = (
+    r"street[- ]facing|facing the street|faces the street|front[- ]facing"
+    r"|avenue[- ]facing|facing (?:the )?avenue"
+    r"|overlook(?:s|ing) (?:the )?(?:avenue|street|\d+(?:st|nd|rd|th) street)"
+)
+REAR_TEXT = (
+    r"rear[- ]facing|back of the building|courtyard[- ]facing|faces the courtyard"
+    r"|facing the courtyard|quiet (?:rear|back)|garden[- ]facing|facing the garden"
+    r"|back[- ]facing|faces the back"
+)
+THROUGH_TEXT = r"floor[- ]?through"  # windows at the front and the back
+OPPOSITE = {"north": "south", "south": "north", "east": "west", "west": "east"}
+
+
+def frontage_street(label: str):
+    """(centerline name, street type, axis) of an address label, or Nones."""
+    address = str(label).upper().split(",")[0]
+    if m := _SIDE_ADDRESS.match(address):
+        n = int(m.group(1))
+        kind = "wide street" if n in WIDE_STREETS else "side street"
+        return f"W  {n} ST", kind, "crosstown"
+    if _AMERICAS.search(address):
+        return "AVE OF THE AMERICAS", "avenue", "avenue"
+    if m := _AVENUE_ADDRESS.match(address):
+        n = ORDINAL_AVENUES.get(m.group(1)) or int(m.group(1))
+        # Sixth Avenue's centerlines are named Avenue of the Americas.
+        name = "AVE OF THE AMERICAS" if n == 6 else f"{n} AVE"
+        return name, "avenue", "avenue"
+    return None, None, None
+
+
+@functools.lru_cache(maxsize=1)
+def building_frontage() -> pd.DataFrame:
+    """Per registry building: its frontage street type (avenue, wide street,
+    side street) and the grid direction its front faces (the side of its
+    address street it stands on, from the street's centerline)."""
+    registry = pd.read_parquet(REGISTRY_FILE).set_index("building")
+    lat0, lon0 = registry.latitude.mean(), registry.longitude.mean()
+    phi, metres = math.radians(FRONTAGE_BEARING_DEG), 111_320.0
+    cos0 = math.cos(math.radians(lat0))
+
+    def grid(lon, lat):
+        east, north = (lon - lon0) * metres * cos0, (lat - lat0) * metres
+        return np.array(
+            [
+                east * math.cos(phi) - north * math.sin(phi),
+                east * math.sin(phi) + north * math.cos(phi),
+            ]
+        )
+
+    streets = pd.read_parquet(BASEMAP_FILE).query("layer == 'street'")
+    segments = {}
+    for row in streets.itertuples():
+        geometry = json.loads(row.geometry)
+        lines = geometry["coordinates"]
+        lines = lines if geometry["type"] == "MultiLineString" else [lines]
+        for line in lines:
+            points = np.array([grid(*p) for p in line])
+            segments.setdefault(row.name, []).append((points[:-1], points[1:]))
+    out = []
+    for building, r in registry.iterrows():
+        name, kind, axis = frontage_street(r.label)
+        if name not in segments or pd.isna(r.latitude):
+            out.append((building, None, None))
+            continue
+        p = grid(r.longitude, r.latitude)
+        best, offset = np.inf, None
+        for a, b in segments[name]:
+            ab = b - a
+            t = np.clip(
+                ((p - a) * ab).sum(1) / np.maximum((ab * ab).sum(1), 1e-12), 0, 1
+            )
+            q = a + t[:, None] * ab
+            d = np.hypot(*(p - q).T)
+            i = int(d.argmin())
+            if d[i] < best:
+                best, offset = d[i], p - q[i]
+        if axis == "crosstown":
+            front = "south" if offset[1] > 0 else "north"
+        else:
+            front = "west" if offset[0] > 0 else "east"
+        out.append((building, kind, front))
+    return pd.DataFrame(out, columns=["building", "street_type", "front"]).set_index(
+        "building"
+    )
+
+
+def unit_orientation(frame: pd.DataFrame) -> pd.DataFrame:
+    """Per row: which way its unit faces (front, rear, front and rear, side,
+    unknown) and the building's frontage street type, from all of the unit's
+    listings."""
+    from . import descriptions
+
+    frontage = building_frontage().reindex(frame.building.to_numpy())
+    front_dir = frontage.front.to_numpy()
+    windows = {d: frame[f"window_{d}"].eq("yes").to_numpy() for d in OPPOSITE}
+    known = pd.notna(front_dir)
+    at = lambda d: np.array(
+        [windows[x][i] if isinstance(x, str) else False for i, x in enumerate(d)]
+    )
+    front_window = at(front_dir)
+    back_window = at([OPPOSITE[x] if isinstance(x, str) else None for x in front_dir])
+    any_window = np.column_stack(list(windows.values())).any(1)
+    # "2F" / "2R": front and rear, only in buildings whose lettered labels are all F or R.
+    label = frame.canonical_unit_url.str.extract(r"/([^/]+)$")[0].str.upper().fillna("")
+    letter = label.str.extract(r"^\d{1,2}([A-Z]+)$")[0]
+    letters = letter.groupby(frame.building.to_numpy()).agg(lambda s: set(s.dropna()))
+    fr_building = frame.building.map(
+        lambda b: (
+            letters.get(b, set()) <= {"F", "R"} and len(letters.get(b, set())) == 2
+        )
+    )
+    label_front = (fr_building & letter.eq("F")).to_numpy()
+    label_rear = (fr_building & letter.eq("R")).to_numpy()
+    text = descriptions.attach(frame).fillna("").str.lower()
+    through = text.str.contains(THROUGH_TEXT, regex=True).to_numpy()
+    text_front = text.str.contains(FRONT_TEXT, regex=True).to_numpy() | through
+    text_rear = text.str.contains(REAR_TEXT, regex=True).to_numpy() | through
+    rows = pd.DataFrame(
+        {
+            "front": (known & front_window)
+            | label_front
+            | text_front
+            | frame.view_street.eq("yes").to_numpy(),
+            "rear": (known & back_window)
+            | label_rear
+            | text_rear
+            | frame.view_courtyard.eq("yes").to_numpy(),
+            # Side windows need a known frontage to be told from front or back ones.
+            "window": any_window & known,
+        },
+        index=frame.index,
+    )
+    unit = rows.groupby(frame.unit_id.to_numpy()).transform("any")
+    facing = np.select(
+        [
+            unit.front & unit.rear,
+            unit.front,
+            unit.rear,
+            unit.window,
+        ],
+        ["front and rear", "front", "rear", "side"],
+        "unknown",
+    )
+    return pd.DataFrame(
+        {"facing": facing, "street_type": frontage.street_type.to_numpy()},
+        index=frame.index,
+    )
+
+
+def facing_v2(
+    frame: pd.DataFrame, train: np.ndarray, id: str = "facing-v2", base: str = "base-v1"
+) -> Features:
+    """A base set plus which way the apartment faces (unit-level): its
+    building's front on an avenue, a wide street or a side street, its rear,
+    both (floor-through), or only the sides; against no evidence."""
+    base = FEATURE_SETS[base](frame, train)
+    o = unit_orientation(frame)
+    b = _Builder(frame)
+    for kind in ("avenue", "wide street", "side street"):
+        b.add(
+            "facing",
+            f"faces front: {kind}",
+            (o.facing == "front") & (o.street_type == kind),
+        )
+    b.add("facing", "faces rear only", o.facing == "rear")
+    b.add("facing", "faces front and rear", o.facing == "front and rear")
+    b.add("facing", "faces the sides only", o.facing == "side")
+    extra = b.build(id)
+    return Features(
+        id,
         base.names + extra.names,
         base.groups + extra.groups,
         np.column_stack([base.values, extra.values]),
@@ -337,7 +711,33 @@ def pluto_v1(frame: pd.DataFrame, train: np.ndarray) -> Features:
 
 
 # Feature sets that read the external snapshots (run records list them).
-EXTERNAL = {"pluto-v1", "unitfloor-v2", "unitdesc-v1"}
+EXTERNAL = {
+    "pluto-v1",
+    "unitfloor-v2",
+    "unitdesc-v1",
+    "unitdescpluto-v1",
+    "unitdescplutoloc-v1",
+    "unitdescplutotransit-v2",
+    "unitdescpluto-v2",
+    "unitdescpluto-v3",
+    "unitfacing-v2",
+}
+# Feature sets that read the subway stations snapshot.
+SUBWAY = {"unitdescplutotransit-v2"}
+# Feature sets that read the basemap snapshot (street centerlines).
+BASEMAP = {"unitfacing-v2"}
+# Feature sets that read the advertisement descriptions (`descriptions.SOURCE`),
+# directly or through their base set.
+DESCRIPTIONS = {
+    "desc-v1",
+    "unitdesc-v1",
+    "unitdescpluto-v1",
+    "unitdescplutoloc-v1",
+    "unitdescplutotransit-v2",
+    "unitdescpluto-v2",
+    "unitdescpluto-v3",
+    "unitfacing-v2",
+}
 
 FEATURE_SETS = {
     "base-v1": base_v1,
@@ -358,6 +758,29 @@ FEATURE_SETS = {
     # The description flags on the unit-consistent features.
     "unitdesc-v1": partial(desc_v1, id="unitdesc-v1", base="unitfloor-v2"),
     "pluto-v1": pluto_v1,
+    "unitdescpluto-v1": partial(pluto_v1, id="unitdescpluto-v1", base="unitdesc-v1"),
+    # The building facts without the flood-zone flag (a location proxy here).
+    "unitdescpluto-v2": partial(
+        pluto_v1, id="unitdescpluto-v2", base="unitdesc-v1", flood_zone=False
+    ),
+    # Which way the apartment faces, on the app's building facts (v3).
+    "unitfacing-v2": partial(facing_v2, id="unitfacing-v2", base="unitdescpluto-v3"),
+    # v2 with "altered since 2000" from the latest recorded alteration.
+    "unitdescpluto-v3": partial(
+        pluto_v1,
+        id="unitdescpluto-v3",
+        base="unitdesc-v1",
+        flood_zone=False,
+        latest_alteration=True,
+    ),
+    # The location surface on the building facts.
+    "unitdescplutoloc-v1": partial(
+        location_v1, id="unitdescplutoloc-v1", base="unitdescpluto-v1"
+    ),
+    # Transit access (as of each listing's month) on the building facts.
+    "unitdescplutotransit-v2": partial(
+        transit_v2, id="unitdescplutotransit-v2", base="unitdescpluto-v1"
+    ),
 }
 
 

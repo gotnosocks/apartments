@@ -5,13 +5,13 @@
 const SVGNS = 'http://www.w3.org/2000/svg';
 const $ = (id) => document.getElementById(id);
 const LINES = {
-  frontier: { label: 'Custom Gibbs (JAX, deprecated)', short: 'Gibbs (deprecated)', color: 'var(--series-1)' },
+  frontier: { label: 'Custom Gibbs (JAX)', short: 'Gibbs', color: 'var(--series-1)' },
   pymc: { label: 'PyMC (NUTS)', short: 'PyMC', color: 'var(--series-2)' },
   numpyro: { label: 'NumPyro (NUTS)', short: 'NumPyro', color: 'var(--series-3)' },
 };
 const HIT = 24; // minimum hover target, px
-// The area of interest: fits of at most 15 minutes (Ben, 2026-09-25).
-const FIT_WINDOW = 15 * 60;
+// The area of interest: fits of at most 30 minutes (Ben, 2026-09-29; 15 from 2026-09-25).
+const FIT_WINDOW = 30 * 60;
 // Primary score: PSIS-LOO dELPD vs the baseline, with its combined error.
 const score = (e) => (e.psis ? e.psis.delta : null);
 const scoreErr = (e) => (e.psis ? Math.hypot(e.psis.delta_se, e.psis.delta_mcse) : null);
@@ -382,11 +382,11 @@ function drawFrontier(v, dom) {
     const top = [...fc].sort((a, b) => b.fit - a.fit)[0];
     ends.push({ c, y: y(clampY(score(top))) });
   }
-  // The 15-minute window.
+  // The 30-minute window.
   if (FIT_WINDOW > dom.fit[0] && FIT_WINDOW < dom.fit[1]) {
     const wx = x(FIT_WINDOW);
     svg('line', { class: 'ref-line', x1: wx, x2: wx, y1: f.inner.y0, y2: f.inner.y1 }, f.root);
-    svg('text', { class: 'label-muted', x: wx - 4, y: f.inner.y1 - 6, 'text-anchor': 'end', text: '≤ 15 min per fit' }, f.root);
+    svg('text', { class: 'label-muted', x: wx - 4, y: f.inner.y1 - 6, 'text-anchor': 'end', text: '≤ 30 min per fit' }, f.root);
   }
   // Baseline (dELPD 0) hairline, when 0 is on the axis (not in the default zoom).
   const zeroOnAxis = dom.rows[0] <= 0;
@@ -992,8 +992,8 @@ function drawKpis(v) {
       entryLabel(b) + (b.design_text ? ` — ${b.design_text}` : ''),
       `${fmtDur(b.fit)}: the fastest entry within 2 SE of the top score` +
         (top && top.key !== b.key ? ` (top: ${entryLabel(top)}, ${fmtDelta(score(top))}, ${fmtDur(top.fit)})` : ''),
-      inWindow ? `Most accurate within 15 min: ${entryLabel(inWindow)} ${fmtDelta(score(inWindow))} (${fmtDur(inWindow.fit)})`
-        : 'No passing entry within 15 min',
+      inWindow ? `Most accurate within 30 min: ${entryLabel(inWindow)} ${fmtDelta(score(inWindow))} (${fmtDur(inWindow.fit)})`
+        : 'No passing entry within 30 min',
       prevBest ? `Previous best: ${prevBest.best} (${fmtDelta(prevBest.best_delta)})` : 'First gate-passing entry',
     ], !multi);
   }
@@ -1108,6 +1108,51 @@ function drawMilestones(v) {
   }
 }
 
+// ---------- data quality ----------
+function drawDataQuality() {
+  const dq = state.data.data_quality;
+  const box = $('data-quality');
+  box.replaceChildren();
+  if (!dq || !dq.rules) { box.textContent = 'No data rules recorded in this build.'; return; }
+  const cap = $('data-caption');
+  cap.replaceChildren();
+  cap.appendChild(document.createTextNode(
+    'Data rules run after the held-out split, so every other row keeps its split. A run that uses a rule is fit without the ' +
+    'rows it drops; every paired score on this page leaves those rows out, for every entry (one population). ' +
+    'This card shows the current rules, whatever the As-of slider says. '));
+  if (dq.app_run) {
+    const rules = (dq.app_rules || []).length ? `uses ${dq.app_rules.join(' and ')}` : 'uses no data rules';
+    const rows = Number.isFinite(dq.app_rows) && Number.isFinite(dq.app_rows_in_fit)
+      ? `: ${dq.app_rows.toLocaleString('en-US')} listings, ${dq.app_rows_in_fit.toLocaleString('en-US')} of them in the fit.` : '.';
+    cap.appendChild(document.createTextNode(`The app's model (${dq.app_run}) ${rules}${rows}`));
+  }
+  for (const r of dq.rules) {
+    const block = html('div', { class: 'rule' }, box);
+    html('h3', {}, block, r.rule + (r.in_app_model ? ' · used by the app\'s model' : ''));
+    html('p', { class: 'caption' }, block, r.text);
+    if (!r.actions) continue;
+    const max = Math.max(...r.actions.map((a) => a.rows));
+    const table = html('table', { class: 'bars' }, block);
+    html('caption', { class: 'visually-hidden' }, table, `${r.rule}: listings left out, by reason`);
+    const head = html('tr', {}, html('thead', {}, table));
+    html('th', { scope: 'col' }, head, 'Why a listing is left out');
+    html('th', { scope: 'col', class: 'num' }, head, 'Listings');
+    html('th', { scope: 'col', 'aria-hidden': 'true' }, head, '');
+    const body = html('tbody', {}, table);
+    for (const a of r.actions) {
+      const tr = html('tr', {}, body);
+      html('th', { scope: 'row' }, tr, a.label);
+      html('td', { class: 'num' }, tr, a.rows.toLocaleString('en-US'));
+      const td = html('td', { class: 'bar', 'aria-hidden': 'true' }, tr);
+      html('span', { style: `width:${(100 * a.rows / max).toFixed(1)}%` }, td);
+    }
+    const note = html('p', { class: 'caption' }, block,
+      `${r.rows.toLocaleString('en-US')} listings in ${r.buildings.toLocaleString('en-US')} buildings, each with its reason and evidence (the ad's own words, or MapPLUTO) in ${r.file}. `);
+    const site = `${location.protocol}//${location.hostname}:8600/quarantined`;
+    html('a', { href: site }, note, 'The listings site lists them with their reasons.');
+  }
+}
+
 // ---------- top-level ----------
 function setIdx(i) {
   state.idx = Math.max(0, Math.min(state.data.snapshots.length - 1, i));
@@ -1130,6 +1175,7 @@ function render() {
   drawFitTime(v, dom);
   drawEntries(v);
   drawMilestones(v);
+  drawDataQuality();
 }
 
 function initTheme() {

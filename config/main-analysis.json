@@ -1,1 +1,32 @@
-{"cohort":{"bathroom_composition_known":52428,"bathroom_composition_unknown":210,"buildings":1129,"current_rows":172,"rows":52638,"units":22144},"dataset":"data/model/chelsea-product-scope-analysis-20260921","evidence":"data/model/chelsea-refreshed-bayesian-descriptions-20260918","evidence_manifest_sha256":"79308dfdbefd7fe8a03630bdd048fa742d0f7cd3335b82f25da0575a9d9b7e08","experiment":"data/model/chelsea-bayesian-product-scope-structure-20260923","fit_manifest_sha256":"222eff742bea6cf60c298ff59f2227f047584e30025b5386db360389ee0dfbfc","model_family":"pymc_bayesian","protocol_manifest_sha256":"4999b353e4321f3fab120ed58b49dec9ceac7f9f4346eb51b9ac7c2e0eb2561b","protocol_sha256":"5a5d5b9e599f445583d065f49633f06f9a4bdba8f6b4313ebb5ff76fb1d92c4c","selection_reason":"Main contribution, residual and counterfactual analysis uses the accepted PyMC joint posterior.","source_issue_cases":3,"source_issues":"data/model/chelsea-product-scope-source-issues-20260921","source_issues_manifest_sha256":"98b576096510b5ef9610d435773f1d3224bb2aca01f3e67552c901d18326d809","source_manifest_sha256":"a328ff0c0d9506b51995f6cf7970cb5c633db2bea32c67846b5ee62c592eca1a","source_observations_sha256":"8e29179bac059bf04b86c7b57acc65324e80fc209fb14793fbb1b9be47b2816f","source_review":"data/model/chelsea-structure-source-review-20260923","source_review_cases":8,"source_review_manifest_sha256":"c86a9010abe29651470c30ddde50ee8980bdb4b80d1b38d52ec9b3b73c8e2865","uncertainty":"Conditional posterior uncertainty; source errors, omitted features and incomplete market coverage remain separate.","version":"main-pymc-analysis-selection-v1"}
+{
+  "version": "main-analysis-selection-v2",
+  "model_family": "frontier_summary",
+  "summary": "/data1/apartments/frontier/summaries/m5-nocurves-unitdescpluto-v3-rows-fef2aa5-gibbs-2060-3600-ul1q1-d0f3cc9",
+  "summary_manifest_sha256": "d7bc56e1d7517ade50fb77d39328c67c84b18d0e3ffba4deaa27aa0dc17b63f1",
+  "summary_commit": "d0f3cc959d3517ecd935551b9dc3a3d03e23e77c",
+  "run": "m5-nocurves-unitdescpluto-v3-rows-fef2aa5-gibbs-2060-3600-ul1q1",
+  "run_commit": "fef2aa56f352d970f1f2921ae256e9cbc45bda17",
+  "model": "m5-nocurves",
+  "feature_set": "unitdescpluto-v3",
+  "data_rules": [
+    "unit-labels-v1",
+    "quarantine-v1"
+  ],
+  "dataset": "data/model/chelsea-product-scope-analysis-20260921",
+  "source_observations_sha256": "8e29179bac059bf04b86c7b57acc65324e80fc209fb14793fbb1b9be47b2816f",
+  "gate": {
+    "passes": true,
+    "max_rhat": 1.0043306052651497,
+    "min_ess": 694.145660769441,
+    "divergences": null,
+    "group_rhat_max": 1.0099161107539147
+  },
+  "psis_loo": {
+    "elpd_loo": 52586.13934151,
+    "elpd_loo_se": 237.11869588460198,
+    "loo_commit": "fef2aa56f352d970f1f2921ae256e9cbc45bda17"
+  },
+  "selected_by": "Ben, 2026-09-30",
+  "selection_reason": "Ben chose the served design (Gibbs m5-nocurves + unitdescpluto-v3) refit with the divergence review's quarantine (data rule quarantine-v1: 143 advertisements that their own words or MapPLUTO show are not an open-market lease of a whole Chelsea apartment at the recorded address), and asked that the site say which listings are quarantined. Accuracy ties the previous selection on the rows both keep (PSIS-LOO +8.9 \u00b1 13.5, held-out +2.7 \u00b1 3.1); 1,361 s on the RTX 2060. The site lists the quarantined listings with the review's reason and no estimate.",
+  "uncertainty": "Conditional posterior uncertainty; source errors, omitted features and incomplete market coverage remain separate. Estimates for a unit's only listing are under-covered (91.6% in the 95% predictive range)."
+}

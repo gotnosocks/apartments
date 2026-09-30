@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+{% import "_macros.html" as m with context %}
+{% set first = rows[0] if rows else None %}
+{% if within == "building" %}{% set heading = "Quarantined listings at " ~ first.building %}
+{% elif within == "unit" %}{% set heading = "Quarantined listings of " ~ (first.unit_label or "a unit") ~ " at " ~ first.building %}
+{% else %}{% set heading = "Quarantined listings" %}{% endif %}
+{% block title %}{{ heading }}{% endblock %}
+{% block content %}
+<nav class="crumbs" aria-label="Breadcrumb">
+  {% if within == "unit" and first.building_id in linked %}<a href="{{ url_for('quarantined') }}">Quarantined listings</a> › <a href="{{ url_for('building', building_id=first.building_id) }}">{{ first.building }}</a> › <span aria-current="page">{{ first.unit_label or "Unit" }}</span>
+  {% elif within %}<a href="{{ url_for('quarantined') }}">Quarantined listings</a> › <span aria-current="page">{{ first.building }}</span>
+  {% else %}<span aria-current="page">Quarantined listings</span>{% endif %}
+</nav>
+<h1>{{ heading }}</h1>
+<p class="lede">These listings are left out of the model and have no estimate. A review of the listings whose asks the model
+found most surprising, and a search of every ad's text, found that each is not an open-market lease of a whole apartment at
+its address: its own ad (quoted on its page), or NYC's MapPLUTO lot record, says so. Unusual but real listings, such as
+penthouses, lofts and rent-stabilized apartments, stay in.</p>
+{% if within == "building" and first.building_id in linked %}
+<p class="links"><a href="{{ url_for('building', building_id=first.building_id) }}">The building's other listings and estimates →</a></p>
+{% elif within == "building" %}
+<p class="note">Every listing on this building's page is quarantined, so the site has no building page for it.</p>
+{% endif %}
+<section class="card">
+  <p class="results-links">{{ "{:,}".format(rows | length) }} listing{{ "" if rows | length == 1 else "s" }}</p>
+  {{ m.quarantine_table(rows, show_building=within != "unit") }}
+</section>
+{% endblock %}

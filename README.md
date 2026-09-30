@@ -5,7 +5,17 @@ compare apartments against an individual's willingness to pay for amenities.
 Chelsea is the existing pilot. The [project intent](docs/project-intent.md)
 defines the data contracts, temporal semantics, model scope, and research gates.
 
-The main model is **hierarchical Bayesian PyMC**, using compiled sampling and
+The app's selected model (`config/main-analysis.json`, Ben's choice on 2026-09-30) is
+the Gibbs `m5-nocurves` fit with `unitdescpluto-v3` features: the listing features plus
+the building facts from NYC's MapPLUTO (era, size, class, landmark and historic district,
+recent alteration). It is fit without the 143 listings the divergence review quarantined
+(data rule `quarantine-v1`: offices and shops, ads placed elsewhere, SRO rooms,
+income-restricted and short-stay offers), which the site lists with their reasons. It is
+the most accurate gate-passing fit within 30 minutes on thelio (tied with the same design
+without the building facts, and with it before the quarantine), and it explains most of the
+differences between buildings by named facts. It is served through its
+[per-listing estimates](docs/model/listing-estimates.md).
+The earlier main models were **hierarchical Bayesian PyMC**, using compiled sampling and
 the saved joint posterior. The workflow is **scrape → transform → fit → analyze**,
 emphasizing feature contributions and fitted residuals. The [current-analysis workflow](docs/model/current-analysis.md)
 includes fresh observations in the fit. The [complete model-version report](docs/model/main-model-evolution.md)
@@ -14,7 +24,9 @@ changes and promotion rationale over time. A standalone [HTML version](docs/mode
 is also included for browser reading. Research progress (the Pareto frontier
 of held-out ΔELPD × fit time, and how it moved over time) is on the
 [research dashboard](docs/dashboard.md) at http://thelio.tail3983e0.ts.net:8500,
-rebuilt every 10 minutes from the run records.
+rebuilt every 10 minutes from the run records. The [listings site](docs/site.md) at
+http://thelio.tail3983e0.ts.net:8600 shows every listing with the selected model's
+leave-own-row-out estimate, its dollar contributions and the gap to the ask.
 The [current-listing ranking command](docs/model/bayesian-candidate-ranking.md)
 connects that selected PyMC fit to personal preference frontiers, with separate
 posterior price diagnostics and explicit unknown/source-conflict handling.
@@ -100,7 +112,8 @@ The primary project and archive now live on **thelio**, with the archive under
 `/data1/apartments/archive`. See the [hosting and migration runbook](docs/operations/thelio.md)
 for the verified cutover record, the archive browser and the research dashboard.
 Migration completed on September 16 at 21:19 EDT; Modal retains a frozen backup.
-Direct Tailscale access: [research dashboard](http://thelio.tail3983e0.ts.net:8500/) ·
+Direct Tailscale access: [listings site](http://thelio.tail3983e0.ts.net:8600/) ·
+[research dashboard](http://thelio.tail3983e0.ts.net:8500/) ·
 [raw archive](http://thelio.tail3983e0.ts.net:8765/).
 
 Earlier baseline: [September 17 minimal canonical-unit model](docs/analysis/chelsea-minimal-2026-09-17.md).

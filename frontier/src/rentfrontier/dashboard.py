@@ -34,6 +34,7 @@ import argparse
 import copy
 import datetime as dt
 import functools
+import glob
 import json
 import os
 import re
@@ -41,7 +42,8 @@ import shutil
 import subprocess
 from pathlib import Path
 
-from . import leaderboard, variance
+from . import data as data_module
+from . import leaderboard, rentmap, variance
 
 REPO = Path(__file__).resolve().parents[3]
 SITE_SOURCE = REPO / "dashboard"
@@ -345,8 +347,102 @@ def data():
         "entries": out,
         "snapshots": snaps,
         "milestones": milestones(),
+        "data_quality": data_quality(),
         "footer": board.get("footer", []),
     }
+
+
+# The review's actions (config/reviews/), as the listings site labels them.
+QUARANTINE_ACTIONS = {
+    "quarantine_nonresidential": "Not a home",
+    "quarantine_location_conflict": "Placed elsewhere",
+    "quarantine_product_scope": "Not a whole apartment on the open market",
+    "quarantine_explicit_short_term_offer": "Short stay only",
+    "quarantine_price_basis": "Ask is not the rent",
+    "quarantine_attribute_conflict": "Bedrooms contradict the ad",
+}
+
+
+# What each data rule does, in plain words (the rule's docstring otherwise).
+DATA_RULE_TEXT = {
+    "unit-labels-v1": "One apartment, one id: unit labels StreetEasy writes differently "
+    '("4-B" and "4B", "02" and "2") count as the same apartment. No listing is dropped.',
+    "quarantine-v1": "Listings a review found are not an open-market lease of a whole "
+    "Chelsea apartment at their address: offices and shops, ads that place the "
+    "apartment elsewhere, SRO rooms, income-restricted and short-stay offers, and a "
+    "few whose own ad contradicts the ask or the bedroom count.",
+}
+
+
+def data_quality() -> dict:
+    """The data rules, what the row-dropping ones leave out (by action, from
+    their files), and which rules the app's selected model uses."""
+    try:
+        selection = json.loads((REPO / "config" / "main-analysis.json").read_text())
+    except (OSError, ValueError):
+        selection = {}
+    if not isinstance(selection, dict):
+        selection = {}
+    app_rules = selection.get("data_rules") or []
+    if not isinstance(app_rules, list):
+        app_rules = []
+    rules = []
+    for rule, fn in data_module.DATA_RULES.items():
+        doc = DATA_RULE_TEXT.get(rule) or " ".join((fn.__doc__ or "").split())
+        entry = {"rule": rule, "text": doc, "in_app_model": rule in app_rules}
+        if rule in data_module.RULE_SOURCES:
+            path = Path(data_module.RULE_SOURCES[rule])
+            with open(path) as f:
+                rows = [json.loads(line) for line in f if line.strip()]
+            counts: dict[str, int] = {}
+            for r in rows:
+                counts[r["action"]] = counts.get(r["action"], 0) + 1
+            entry.update(
+                file=str(path.relative_to(REPO))
+                if path.is_relative_to(REPO)
+                else str(path),
+                rows=len(rows),
+                buildings=len({r.get("building") for r in rows}),
+                actions=[
+                    {"action": a, "label": QUARANTINE_ACTIONS.get(a, a), "rows": n}
+                    for a, n in sorted(counts.items(), key=lambda kv: -kv[1])
+                ],
+            )
+        rules.append(entry)
+    summary = {}
+    if isinstance(selection.get("summary"), str):
+        try:
+            summary = json.loads(
+                (Path(selection["summary"]) / "complete.json").read_text()
+            )
+        except (OSError, ValueError):
+            summary = {}
+    if not isinstance(summary, dict):
+        summary = {}
+    return {
+        "app_run": selection.get("run"),
+        "app_rules": app_rules,
+        "app_rows": summary.get("rows"),
+        "app_rows_in_fit": summary.get("rows_in_fit"),
+        "rules": rules,
+    }
+
+
+def rent_map() -> Path | None:
+    """The newest rent-map bundle (`rentfrontier.rentmap`) of the app's selected
+    run (config/main-analysis.json), if one has been made."""
+    try:
+        run = json.loads((REPO / "config" / "main-analysis.json").read_text())["run"]
+    except (OSError, ValueError, KeyError, TypeError):
+        return None
+    if not isinstance(run, str):
+        return None
+    # <run>-<7-hex commit>: not a longer run name that starts with this one.
+    maps = sorted(
+        rentmap.MAPS.glob(f"{glob.escape(run)}-{'[0-9a-f]' * 7}/map.json"),
+        key=lambda p: p.stat().st_mtime,
+    )
+    return maps[-1] if maps else None
 
 
 def publish(out: Path):
@@ -355,6 +451,8 @@ def publish(out: Path):
     target = builds / stamp
     shutil.copytree(SITE_SOURCE, target)
     (target / "data.json").write_text(json.dumps(data(), indent=1))
+    if (bundle := rent_map()) is not None:
+        shutil.copyfile(bundle, target / "map.json")
     link = out / "site"
     tmp = out / f".site-{stamp}"
     os.symlink(target, tmp)

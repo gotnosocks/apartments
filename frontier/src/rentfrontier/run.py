@@ -222,7 +222,7 @@ def score(
 def feature_sources(feature_set: str) -> dict:
     """Input files behind a feature set, beyond the analytical dataset."""
     out = {}
-    if feature_set.startswith("desc"):
+    if feature_set in features.DESCRIPTIONS:
         from . import descriptions
 
         out["descriptions"] = {
@@ -236,6 +236,12 @@ def feature_sources(feature_set: str) -> dict:
             ("pluto", features.PLUTO_FILE),
         ):
             out[name] = {"path": path, "sha256": data.sha256(Path(path))}
+    if feature_set in features.BASEMAP:
+        path = features.BASEMAP_FILE
+        out["basemap"] = {"path": path, "sha256": data.sha256(Path(path))}
+    if feature_set in features.SUBWAY:
+        path = features.SUBWAY_FILE
+        out["subway"] = {"path": path, "sha256": data.sha256(Path(path))}
     return out
 
 
@@ -247,6 +253,14 @@ def _data_rules(value: str) -> tuple:
             f"unknown data rules {unknown}; known: {sorted(data.DATA_RULES)}"
         )
     return rules
+
+
+def check_rules_for_split(rules, split: str) -> None:
+    """unit-labels-v1 merges units after the split, which on the units split
+    would join held-out units to training units (77 units, 142 held-out rows).
+    Rules that only drop rows keep every other row's split, on either split."""
+    if "unit-labels-v1" in rules and split == "units":
+        raise SystemExit("unit-labels-v1 merges units: not with the units split")
 
 
 def main(argv=None):
@@ -268,12 +282,8 @@ def main(argv=None):
         "--sampler",
         choices=("nuts", "gibbs"),
         default="nuts",
-        help="nuts: NumPyro NUTS; gibbs: the custom Gibbs sampler (deprecated)",
-    )
-    parser.add_argument(
-        "--reproduce-deprecated",
-        action="store_true",
-        help="allow --sampler gibbs, only to reproduce an existing run record",
+        help="nuts: NumPyro NUTS; gibbs: the custom blocked Gibbs sampler (units "
+        "integrated out)",
     )
     parser.add_argument("--chains", type=int)
     parser.add_argument("--warmup", type=int)
@@ -318,12 +328,6 @@ def main(argv=None):
         "--dev", action="store_true", help="allow a dirty tree; run is not reportable"
     )
     args = parser.parse_args(argv)
-    if args.sampler == "gibbs" and not args.reproduce_deprecated:
-        raise SystemExit(
-            "The custom Gibbs sampler is deprecated (2026-09-25) and not for new work; "
-            "use --sampler nuts (--reproduce-deprecated only to reproduce an old run)."
-        )
-
     # Remote workers get a clean export of a commit and no .git; the local
     # submitter checks the tree and passes the commit in FRONTIER_COMMIT.
     commit = os.environ.get("FRONTIER_COMMIT")
@@ -349,11 +353,8 @@ def main(argv=None):
     frame = data.load()
     heldout = splits.SPLITS[args.split](frame)
     rules = args.data_rules
-    if rules and args.split == "units":
-        # unit-labels-v1 merges units after the split, which would join held-out
-        # units to training units (77 units, 142 held-out rows).
-        raise SystemExit("data rules merge units: not with the units split")
-    frame = data.apply_rules(frame, rules)  # after the split: scored rows are fixed
+    check_rules_for_split(rules, args.split)
+    frame, heldout = data.apply_rules(frame, heldout, rules)  # after the split
     feats = features.build(args.features, frame, ~heldout)
     prep = model.prepare(frame, heldout, feats)
     prep_seconds = time.perf_counter() - t0
@@ -441,11 +442,15 @@ def main(argv=None):
         "split_seed": splits.SEED,
         "feature_set": args.features,
         "data_rules": list(rules),
+        "data_rule_sources": {
+            rule: {"path": str(path), "sha256": data.sha256(path)}
+            for rule, path in data.RULE_SOURCES.items()
+            if rule in rules
+        },
         "feature_sources": feature_sources(args.features),
         "model": config.to_dict(),
         "sampler": args.sampler,
         "line": "frontier" if args.sampler == "gibbs" else "numpyro",
-        "deprecated_sampler": args.sampler == "gibbs",
         "sampler_settings": settings.to_dict(),
         "dtype": out.get("dtype"),
         "adapted": {

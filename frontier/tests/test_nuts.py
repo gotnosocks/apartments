@@ -59,6 +59,7 @@ def test_market_drift_is_a_linear_trend_about_the_mean_month():
 @pytest.mark.parametrize(
     "name",
     [
+        "m1-walk24-zs",
         "L0-mean",
         "L5-building",
         "m0q-btrend",
@@ -280,6 +281,30 @@ def test_gibbs_refuses_the_walk_mask_and_anchor():
             gibbs.build_design(synthetic(), config)
 
 
+def test_zero_sum_walks_refuse_student_t_steps_and_gibbs():
+    config = replace(model.MODELS["m1-walk24-zs"], walk_t=True)
+    with pytest.raises(ValueError, match="Normal walk steps"):
+        model.constants(windowed(), config)
+    # A 6-month walk passes Gibbs's spacing check, so this reaches walk_zero_sum.
+    six = replace(model.MODELS["m1-walk"], walk_zero_sum=True)
+    with pytest.raises(ValueError, match="--sampler nuts"):
+        gibbs.build_design(synthetic(), six)
+
+
+def test_zero_sum_walks_have_no_common_part():
+    """walk_zero_sum: at every knot the likelihood's walks sum to zero across
+    buildings, so the market trend carries all common time variation."""
+    prep = windowed()
+    config = model.MODELS["m1-walk24-zs"]
+    tr = handlers.trace(handlers.seed(model.build_model(prep, config), 0)).get_trace()
+    p = model.constants(prep, config) | {
+        k: v["value"] for k, v in tr.items() if v["type"] in ("sample", "deterministic")
+    }
+    walk = np.asarray(model.effects(p)["walk"])
+    assert np.abs(walk).max() > 0
+    np.testing.assert_allclose(walk.mean(axis=0), 0.0, atol=1e-12)
+
+
 def lined():
     """synthetic() with each building's units in three lines (2-3 units each)."""
     prep = synthetic()
@@ -499,6 +524,7 @@ TWALK12 = replace(WALK, name="tw12", walk_knot_months=12, walk_t=True)
 # (5 of the 15 windowed buildings have fewer).
 MASKED12 = replace(TWALK12, name="tw12min", walk_min_rows_per_knot=6.0)
 ANCHORED12 = replace(TWALK12, name="tw12anchored", walk_anchor_data=True)
+ZS12 = replace(WALK, name="zs12", walk_knot_months=12, walk_zero_sum=True)
 
 
 def test_walk_position_matches_the_stored_half_year_knots():
@@ -526,8 +552,17 @@ def test_walk_position_matches_the_stored_half_year_knots():
         (TWALK12, ("building_totals", "walk_levels")),
         (MASKED12, ("building_totals", "walk_levels")),
         (ANCHORED12, ("building_totals", "walk_levels")),
+        (ZS12, ("building_totals", "walk_levels")),
     ],
-    ids=["walk", "walk-slopes", "walk12-trend", "twalk12", "masked12", "anchored12"],
+    ids=[
+        "walk",
+        "walk-slopes",
+        "walk12-trend",
+        "twalk12",
+        "masked12",
+        "anchored12",
+        "zerosum12",
+    ],
 )
 def test_walk_and_slope_totals_are_the_same_model(config, coordinates):
     """walk_levels samples each walk as levels inside the building's data
@@ -571,7 +606,12 @@ def test_walk_and_slope_totals_are_the_same_model(config, coordinates):
             assert 0 < mask.sum() < len(mask)
         # The building total is its level at its anchor knot, where an anchored
         # walk is 0 by definition.
-        at_anchor = 0.0 if config.walk_anchor_data else mask * walk[rows, anchor]
+        if config.walk_anchor_data:
+            at_anchor = 0.0
+        elif config.walk_zero_sum:  # the likelihood's (centred) walk
+            at_anchor = (walk - walk.mean(axis=0))[rows, anchor]
+        else:
+            at_anchor = mask * walk[rows, anchor]
         total = p["building"] + fixed["building_xbar"] @ p["beta"] + at_anchor
         unit = p["unit"]
         if "slope_totals" in coordinates:
@@ -605,8 +645,17 @@ def test_walk_and_slope_totals_need_building_totals(coordinate):
         (TWALK12, ("building_totals", "walk_levels")),
         (MASKED12, ("building_totals", "walk_levels")),
         (ANCHORED12, ("building_totals", "walk_levels")),
+        (ZS12, ("building_totals", "walk_levels")),
     ],
-    ids=["walk", "walk-slopes", "walk12-trend", "twalk12", "masked12", "anchored12"],
+    ids=[
+        "walk",
+        "walk-slopes",
+        "walk12-trend",
+        "twalk12",
+        "masked12",
+        "anchored12",
+        "zerosum12",
+    ],
 )
 def test_nuts_with_walk_and_slope_totals_returns_the_effects(config, coordinates):
     prep = windowed()

@@ -61,3 +61,254 @@ def test_unitdesc_is_the_description_flags_on_unitfloor():
     assert fn.func is features.desc_v1
     assert fn.keywords == {"id": "unitdesc-v1", "base": "unitfloor-v2"}
     assert "unitdesc-v1" in features.EXTERNAL
+
+
+def test_description_sets_record_their_source(monkeypatch):
+    """Every feature set built on desc_v1, directly or through its base set, is
+    listed, so run records hash the descriptions file (unitdesc-v1 did not
+    match the old "desc" prefix test)."""
+    from rentfrontier import run
+
+    def reads_descriptions(fn):
+        while True:
+            if getattr(fn, "func", fn) is features.desc_v1:
+                return True
+            base = getattr(fn, "keywords", {}).get("base")
+            if base is None:
+                return False
+            fn = features.FEATURE_SETS[base]
+
+    built_on_desc = {
+        name for name, fn in features.FEATURE_SETS.items() if reads_descriptions(fn)
+    }
+    assert "unitdescpluto-v1" in built_on_desc
+    assert built_on_desc == features.DESCRIPTIONS
+    monkeypatch.setattr(run.data, "sha256", lambda path: "sha")
+    for name in built_on_desc:
+        assert run.feature_sources(name)["descriptions"]["sha256"] == "sha"
+    assert "descriptions" not in run.feature_sources("unitfloor-v2")
+
+
+def test_unitdescpluto_is_the_building_columns_on_unitdesc():
+    fn = features.FEATURE_SETS["unitdescpluto-v1"]
+    assert fn.func is features.pluto_v1
+    assert fn.keywords == {"id": "unitdescpluto-v1", "base": "unitdesc-v1"}
+    assert "unitdescpluto-v1" in features.EXTERNAL
+
+
+def test_unitdescplutotransit_is_transit_on_unitdescpluto(monkeypatch):
+    from rentfrontier import run
+
+    fn = features.FEATURE_SETS["unitdescplutotransit-v2"]
+    assert fn.func is features.transit_v2
+    assert fn.keywords == {"id": "unitdescplutotransit-v2", "base": "unitdescpluto-v1"}
+    assert "unitdescplutotransit-v2" in features.EXTERNAL
+    # Every set built on transit_v2 records the stations snapshot.
+    on_transit = {
+        name
+        for name, f in features.FEATURE_SETS.items()
+        if getattr(f, "func", f) is features.transit_v2
+    }
+    assert on_transit == features.SUBWAY
+    monkeypatch.setattr(run.data, "sha256", lambda path: "sha")
+    sources = run.feature_sources("unitdescplutotransit-v2")
+    assert {"registry", "pluto", "subway", "descriptions"} <= sources.keys()
+    assert "subway" not in run.feature_sources("unitdescpluto-v1")
+
+
+def test_transit_counts_only_stations_open_that_month(monkeypatch, tmp_path):
+    registry = pd.DataFrame(
+        {"building": ["a", "b"], "latitude": [40.0, 40.0], "longitude": [-74.0, -73.9]}
+    )
+    stops = pd.DataFrame(
+        {
+            "gtfs_stop_id": ["1", "726"],
+            "daytime_routes": ["1 2", "7"],
+            # "1" is ~850 m east of "a"; "726" is 80 m from "a".
+            "gtfs_latitude": [40.0, 40.00072],
+            "gtfs_longitude": [-73.99, -74.0],
+        }
+    )
+    registry.to_parquet(tmp_path / "registry.parquet")
+    stops.to_parquet(tmp_path / "subway.parquet")
+    monkeypatch.setattr(features, "REGISTRY_FILE", str(tmp_path / "registry.parquet"))
+    monkeypatch.setattr(features, "SUBWAY_FILE", str(tmp_path / "subway.parquet"))
+    # 726 opened 2015-09-13: not yet open for September 2015, open from October.
+    assert features.stops_not_open("2015-09-01") == {"726"}
+    assert features.stops_not_open("2015-10-01") == frozenset()
+    now = features.building_transit(["a"])
+    before = features.building_transit(["a"], features.stops_not_open("2015-09-01"))
+    assert now.subway_m[0] < 100 and now.routes_10min[0] == 1
+    assert before.subway_m[0] > 800 and before.routes_10min[0] == 0
+
+
+def test_location_bumps_cover_the_sites_with_unit_mean_square():
+    rng = np.random.default_rng(0)
+    sites = rng.uniform(0, 1500, size=(200, 2))
+    bumps = features.location_bumps(sites, sites)
+    assert np.isclose((bumps**2).sum(1).mean(), 1.0)
+    # A point far from every site sees (almost) no bump.
+    assert features.location_bumps(np.array([[1e5, 1e5]]), sites).max() < 1e-12
+    # Neighbouring points share bumps; points 2 km apart do not.
+    near = features.location_bumps(np.array([[700.0, 700.0], [750.0, 700.0]]), sites)
+    far = features.location_bumps(np.array([[0.0, 0.0], [0.0, 2000.0]]), sites)
+    cos = lambda m: m[0] @ m[1] / np.linalg.norm(m[0]) / np.linalg.norm(m[1])
+    assert cos(near) > 0.9 and cos(far) < 0.05
+
+
+def test_unitdescplutoloc_is_the_location_surface_on_unitdescpluto():
+    fn = features.FEATURE_SETS["unitdescplutoloc-v1"]
+    assert fn.func is features.location_v1
+    assert fn.keywords == {"id": "unitdescplutoloc-v1", "base": "unitdescpluto-v1"}
+    assert "unitdescplutoloc-v1" in features.EXTERNAL
+
+
+def test_unitdescpluto_v2_is_the_building_facts_without_the_flood_zone():
+    fn = features.FEATURE_SETS["unitdescpluto-v2"]
+    assert fn.func is features.pluto_v1
+    assert fn.keywords == {
+        "id": "unitdescpluto-v2",
+        "base": "unitdesc-v1",
+        "flood_zone": False,
+    }
+    assert {"unitdescpluto-v2"} <= features.EXTERNAL & features.DESCRIPTIONS
+
+
+def test_unitdescpluto_v3_dates_alterations_by_the_latest():
+    fn = features.FEATURE_SETS["unitdescpluto-v3"]
+    assert fn.func is features.pluto_v1
+    assert fn.keywords == {
+        "id": "unitdescpluto-v3",
+        "base": "unitdesc-v1",
+        "flood_zone": False,
+        "latest_alteration": True,
+    }
+    assert {"unitdescpluto-v3"} <= features.EXTERNAL & features.DESCRIPTIONS
+
+
+def test_latest_alteration_takes_the_later_recorded_year(monkeypatch):
+    """altered_since_2000 per lot: yearalter1 alone, or the later of the two
+    recorded alterations (0 = none recorded)."""
+    pairs = [(1987, 2001), (0, 2014), (2008, 2001), (1999, 0), (0, 0), (np.nan, np.nan)]
+    n = len(pairs)
+    lots = pd.DataFrame(
+        {
+            "yearbuilt": [1920] * n,
+            "yearalter1": [a for a, _ in pairs],
+            "yearalter2": [b for _, b in pairs],
+            "numfloors": [6] * n,
+            "unitsres": [20] * n,
+            "resarea": [20_000] * n,
+            "builtfar": [4.0] * n,
+            "lotfront": [50] * n,
+            "bldgclass": ["D1"] * n,
+            "landmark": [None] * n,
+            "histdist": [None] * n,
+            "pfirm15_flag": [None] * n,
+        }
+    )
+    frame = pd.DataFrame({"building": [f"b{i}" for i in range(n)]})
+    empty = features.Features("empty", [], [], np.zeros((n, 0)), np.zeros(0))
+    monkeypatch.setitem(features.FEATURE_SETS, "empty", lambda frame, train: empty)
+    monkeypatch.setattr(features, "building_lots", lambda frame: lots)
+    train = np.ones(n, dtype=bool)
+
+    def altered(**kw):
+        f = features.pluto_v1(frame, train, base="empty", **kw)
+        return f.values[:, f.names.index("altered_since_2000")].tolist()
+
+    assert altered(latest_alteration=True) == [1, 1, 1, 0, 0, 0]
+    assert altered() == [0, 0, 1, 0, 0, 0]
+
+
+def test_frontage_street_parses_addresses():
+    assert features.frontage_street("100 West 15 Street, New York") == (
+        "W  15 ST",
+        "side street",
+        "crosstown",
+    )
+    assert features.frontage_street("200 WEST 23 STREET")[1] == "wide street"
+    assert features.frontage_street("300 8 Avenue") == ("8 AVE", "avenue", "avenue")
+    assert (
+        features.frontage_street("1 Avenue Of The Americas")[0] == "AVE OF THE AMERICAS"
+    )
+    assert features.frontage_street("4 Chelsea Square") == (None, None, None)
+    # Sixth Avenue's centerlines are Avenue of the Americas; spelled-out avenues parse.
+    assert features.frontage_street("545 6 Avenue")[0] == "AVE OF THE AMERICAS"
+    assert features.frontage_street("138 Seventh Avenue") == (
+        "7 AVE",
+        "avenue",
+        "avenue",
+    )
+    assert features.frontage_street("212 Rear West 16 Street") == (None, None, None)
+
+
+def test_unit_orientation_pools_evidence_over_the_unit(monkeypatch):
+    from rentfrontier import descriptions
+
+    frontage = pd.DataFrame(
+        {"street_type": ["side street", "side street"], "front": ["north", "north"]},
+        index=pd.Index(["walkup", "tower"], name="building"),
+    )
+    monkeypatch.setattr(features, "building_frontage", lambda: frontage)
+    rows = [
+        # (building, unit, label, windows, text)
+        ("tower", "u1", "5A", {"north"}, ""),
+        ("tower", "u1", "5A", set(), ""),  # same unit, no windows this time
+        ("tower", "u2", "6B", {"south"}, ""),
+        ("tower", "u3", "7C", {"north", "south"}, ""),
+        ("tower", "u4", "8D", {"east"}, ""),
+        ("walkup", "u5", "2F", set(), ""),
+        ("walkup", "u6", "2R", set(), ""),
+        ("tower", "u7", "9E", set(), "A quiet rear apartment."),
+        ("tower", "u8", "10F", set(), ""),  # F is a line letter here
+        ("nofront", "u9", "3A", {"east"}, ""),  # no frontage: a window says nothing
+        ("tower", "u10", "11G", set(), "A sunny floor-through."),
+    ]
+    frame = pd.DataFrame(
+        {
+            "building": [r[0] for r in rows],
+            "unit_id": [r[1] for r in rows],
+            "canonical_unit_url": [f"https://x/building/{r[0]}/{r[2]}" for r in rows],
+            **{
+                f"window_{d}": ["yes" if d in r[3] else "unknown" for r in rows]
+                for d in ("north", "south", "east", "west")
+            },
+            "view_street": ["unknown"] * len(rows),
+            "view_courtyard": ["unknown"] * len(rows),
+        }
+    )
+    monkeypatch.setattr(
+        descriptions, "attach", lambda f: pd.Series([r[4] for r in rows])
+    )
+    got = features.unit_orientation(frame).facing.tolist()
+    assert got == [
+        "front",
+        "front",
+        "rear",
+        "front and rear",
+        "side",
+        "front",
+        "rear",
+        "rear",
+        "unknown",
+        "unknown",
+        "front and rear",
+    ]
+
+
+def test_unitfacing_records_the_basemap(monkeypatch):
+    from rentfrontier import run
+
+    fn = features.FEATURE_SETS["unitfacing-v2"]
+    assert fn.func is features.facing_v2
+    assert fn.keywords == {"id": "unitfacing-v2", "base": "unitdescpluto-v3"}
+    on_facing = {
+        name
+        for name, f in features.FEATURE_SETS.items()
+        if getattr(f, "func", f) is features.facing_v2
+    }
+    assert on_facing == features.BASEMAP
+    monkeypatch.setattr(run.data, "sha256", lambda path: "sha")
+    sources = run.feature_sources("unitfacing-v2")
+    assert {"registry", "pluto", "descriptions", "basemap"} <= sources.keys()

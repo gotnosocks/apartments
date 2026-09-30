@@ -5,9 +5,15 @@ in the [main-model evolution report](main-model-evolution.md). This page describ
 the workflow and retains contemporaneous fit instructions; the current selected
 pointer is authoritative when this page's historical cohort description differs.
 
-The main workflow is scrape → transform → fit → analyze. The main model is the
-hierarchical PyMC posterior selected by `config/main-analysis.json`. Feature
-contributions, fitted residuals and joint apartment-specific contrasts are the
+The main workflow is scrape → transform → fit → analyze. Since 2026-09-26,
+`config/main-analysis.json` selects a frontier summary bundle
+([listing estimates](listing-estimates.md)), not a PyMC posterior (Ben's choice). The
+PyMC analysis commands `analyze-apartment` and `rank-current-apartments` refuse the default
+selection. Pass them `--selection` with a PyMC selection, for example the last one:
+`git show 3d22dc2:config/main-analysis.json > /data1/apartments/tmp/<you>/pymc-selection.json`.
+Its relative paths resolve against the repository root. The old PyMC research scripts in `models/`
+that default to `config/main-analysis.json` also need their `--selection`.
+Feature contributions, fitted residuals and joint apartment-specific contrasts are the
 primary outputs.
 
 ## Current selected fit
@@ -44,12 +50,15 @@ new output directory. A failed convergence gate does not produce an accepted
 main selection.
 
 After diagnostics, source review and matched research comparisons support
-selection, publish the explicit pointer:
+selection, write the explicit pointer. **`--output` defaults to `config/main-analysis.json`,
+which is the app's selected model. Replacing it needs Ben's OK, and the listings site's build
+refuses a PyMC selection.** For analysis, write the pointer elsewhere:
 
 ```sh
 uv run --locked --extra model python -m apartments.main_analysis \
   --experiment data/model/chelsea-next-bayesian-fit \
-  --dataset data/model/chelsea-reviewed-scope-composition-projection-20260918
+  --dataset data/model/chelsea-reviewed-scope-composition-projection-20260918 \
+  --output /data1/apartments/tmp/<you>/pymc-selection.json
 ```
 
 The selection command verifies the source, fit and both convergence gates.

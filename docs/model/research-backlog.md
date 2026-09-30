@@ -80,7 +80,7 @@ capture this, pooling information across floors where today each unit stands alo
 3. **Screen first.**
    - Project the m8 + desc reference onto m0q/m5-nocurves + columns to see whether columns take
      variance from the unit and building shares in the variance decomposition.
-   - Then run a native NUTS fit within 15 minutes.
+   - Then run a native NUTS fit within the fit window (30 minutes from 2026-09-29).
 4. **Combine with orientation.** Columns are the natural carrier for the unit-orientation features
    in the external-data track (research plan, A′): street vs courtyard, the width of the facing
    street, window direction. A line faces one side of the building on every floor.
@@ -91,6 +91,35 @@ capture this, pooling information across floors where today each unit stands alo
 - Lines that switch layout above a setback.
 - Columns with a single unit add nothing and should fold into the unit effect.
 - Compare PSIS-LOO on the same rows: the gain should show up mainly on units listed once.
+
+## Rent map and building-level follow-ups (Ben, September 29)
+
+**What prompted these.** Ben, watching the rent map (research dashboard, `map.html`): the areas of
+high and low rents inside Chelsea seem "stable" and "driven more by certain buildings than by
+streets or blocks". The map's own data (1-bedroom, the served model) put numbers on it:
+- **Stable.** Buildings' premiums over Chelsea's median building keep their rank: correlation 0.97
+  from 2012 to 2016 and 0.90 from 2012 to 2024. The spread of the 2012–2024 change is 0.12 in log
+  rent, against a spread of 0.22 across the same buildings in 2024. Part of this is built into
+  the model (one fixed level per building plus a slow path over time), but the data set how slowly
+  the path moves: "building over time" is 1% of the variance.
+- **Buildings more than blocks.** Premiums of building pairs correlate +0.25 within 50 m, +0.16 at
+  50–100 m, +0.06 at 100–200 m and about 0 beyond. This matches the location-surface result (no
+  gain; research plan A.2).
+
+Ben chose to start with street-facing units (research plan A′, "Unit orientation"). These wait:
+1. **Map: colour by change since a chosen year.** This makes the few buildings that moved stand out
+   against the stable background. Three layout nits from the PR #56 review:
+   - the "Hudson River" label stays at the frame's left edge after panning east;
+   - street labels at the right edge sit under dots on small maps;
+   - below 1,100 px the legend falls below the map.
+2. **Building condition and management data.** The anonymous building level is still 8% of the
+   variance. Condition, management and amenities are likelier sources of it than geography:
+   - HPD violations and complaints per unit, as of the listing date;
+   - DOB alteration permits, as a renovation proxy;
+   - Local Law 84 energy scores.
+
+   The research plan's A′ table lists these sources. Each needs as-of values (no future
+   information) and a renter-facing glossary row.
 
 ## Pipeline review, September 20
 

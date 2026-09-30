@@ -1,0 +1,24 @@
+[Unit]
+Description=Apartments listings site: listings with the selected model's estimates (read-only, tailnet)
+Documentation=file:///data1/apartments/serve/site/docs/site.md
+RequiresMountsFor=/data1
+
+[Service]
+Type=simple
+# Code: the serving worktree, moved only by ops/site-deploy.sh. Data: the
+# published build that SITE_ROOT/current points at (apartments.site build);
+# each request follows the symlink, so a publish needs no restart.
+WorkingDirectory=/data1/apartments/serve/site
+Environment=SITE_ROOT=/data1/apartments/site
+Environment=TMPDIR=/data1/apartments/tmp/site-serve
+ExecStartPre=/usr/bin/mkdir -p /data1/apartments/tmp/site-serve
+ExecStart=/data1/apartments/venvs/serve-site/bin/python -m apartments.site serve --listen 100.80.84.126:8600 --listen 127.0.0.1:8600 --allowed-host thelio.tail3983e0.ts.net --allowed-host thelio --allowed-host 100.80.84.126
+# Retries until the Tailscale address is up after a boot.
+Restart=on-failure
+RestartSec=5
+MemoryMax=512M
+UMask=0077
+NoNewPrivileges=yes
+
+[Install]
+WantedBy=default.target

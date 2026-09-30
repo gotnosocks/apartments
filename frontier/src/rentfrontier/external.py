@@ -13,6 +13,13 @@ Sources:
   one row per tax lot (BBL) in the registry. Assessed values are not kept:
   for rental buildings they are derived from rental income, which would make
   the feature partly circular.
+- subway: MTA Subway Stations (data.ny.gov 39hk-dx4f), every station stop with
+  its daytime routes and coordinates (transit access).
+- basemap: the map under the rent map, around the registry's buildings (their
+  bounding box plus BASEMAP_MARGIN_M): street centerlines with width, lanes,
+  speed and roadway type (NYC Open Data inkn-q76z), parks (enfh-gkve) and
+  Manhattan's shoreline (borough boundary, gthc-hcne). One row per feature,
+  geometry as GeoJSON.
 """
 
 from __future__ import annotations
@@ -21,6 +28,7 @@ import argparse
 import datetime as dt
 import hashlib
 import json
+import math
 import urllib.parse
 import urllib.request
 
@@ -30,7 +38,8 @@ from .registry import EXTERNAL_ROOT
 from .run import git
 
 REGISTRY = EXTERNAL_ROOT / "registry" / "20260925-6b67137" / "buildings.parquet"
-SOCRATA = "https://data.cityofnewyork.us/resource"
+NYC_OPEN_DATA = "https://data.cityofnewyork.us"
+SOCRATA = f"{NYC_OPEN_DATA}/resource"
 PLUTO_ID = "64uk-42ks"
 PLUTO_COLUMNS = (
     "bbl",
@@ -91,38 +100,177 @@ def fetch_pluto(bbls, batch: int = 100) -> tuple[pd.DataFrame, list[str]]:
     return table, queries
 
 
+NY_SOCRATA = "https://data.ny.gov"
+SUBWAY_ID = "39hk-dx4f"
+SUBWAY_COLUMNS = (
+    "gtfs_stop_id",
+    "station_id",
+    "complex_id",
+    "stop_name",
+    "line",
+    "daytime_routes",
+    "structure",
+    "borough",
+    "ada",
+    "gtfs_latitude",
+    "gtfs_longitude",
+)
+
+
+def fetch_subway() -> tuple[pd.DataFrame, list[str], dict]:
+    params = {"$select": ", ".join(SUBWAY_COLUMNS), "$limit": 5000}
+    url = f"{NY_SOCRATA}/resource/{SUBWAY_ID}.json?{urllib.parse.urlencode(params)}"
+    with urllib.request.urlopen(url, timeout=60) as r:
+        rows = json.loads(r.read())
+    with urllib.request.urlopen(
+        f"{NY_SOCRATA}/api/views/{SUBWAY_ID}.json", timeout=60
+    ) as r:
+        meta = json.loads(r.read())
+    table = pd.DataFrame(rows, columns=list(SUBWAY_COLUMNS))
+    for c in ("gtfs_latitude", "gtfs_longitude"):
+        table[c] = table[c].astype(float)
+    version = {
+        "name": meta.get("name"),
+        "rows_updated_at": dt.datetime.fromtimestamp(
+            meta["rowsUpdatedAt"], dt.UTC
+        ).isoformat(),
+    }
+    return table, [urllib.parse.urlencode(params)], version
+
+
+CENTERLINE_ID = "inkn-q76z"
+PARKS_ID = "enfh-gkve"
+BOROUGHS_ID = "gthc-hcne"
+BASEMAP_MARGIN_M = 400.0
+CENTERLINE_COLUMNS = (
+    "physicalid",
+    "full_street_name",
+    "stname_label",
+    "streetwidth",
+    "number_travel_lanes",
+    "posted_speed",
+    "rw_type",
+    "trafdir",
+    "the_geom",
+)
+
+
+def basemap_box(registry: pd.DataFrame) -> tuple[float, float, float, float]:
+    """(north, west, south, east) degrees around the registry's buildings."""
+    lat, lon = registry.latitude.dropna(), registry.longitude.dropna()
+    dlat = BASEMAP_MARGIN_M / 111_320.0
+    dlon = dlat / math.cos(math.radians(lat.mean()))
+    return lat.max() + dlat, lon.min() - dlon, lat.min() - dlat, lon.max() + dlon
+
+
+def fetch_basemap(box) -> tuple[pd.DataFrame, list[str], dict]:
+    n, w, s, e = box
+    rows, queries, versions = [], [], {}
+    for layer, dataset, params in (
+        (
+            "street",
+            CENTERLINE_ID,
+            {
+                "$select": ", ".join(CENTERLINE_COLUMNS),
+                "$where": f"within_box(the_geom, {n}, {w}, {s}, {e})",
+                "$limit": 20000,
+            },
+        ),
+        (
+            "park",
+            PARKS_ID,
+            {
+                "$select": "signname, typecategory, multipolygon",
+                "$where": f"within_box(multipolygon, {n}, {w}, {s}, {e})",
+                "$limit": 5000,
+            },
+        ),
+        ("land", BOROUGHS_ID, {"$select": "boroname, the_geom", "borocode": 1}),
+    ):
+        for r in _socrata(dataset, params):
+            geometry = r.pop("the_geom", None) or r.pop("multipolygon", None)
+            name = r.pop("full_street_name", None) or r.pop("signname", None)
+            rows.append(
+                {
+                    "layer": layer,
+                    "name": name or r.get("boroname"),
+                    "attributes": json.dumps(r, sort_keys=True),
+                    "geometry": json.dumps(geometry),
+                }
+            )
+        queries.append(f"{dataset}?{urllib.parse.urlencode(params)}")
+        with urllib.request.urlopen(
+            f"{NYC_OPEN_DATA}/api/views/{dataset}.json", timeout=60
+        ) as r:
+            meta = json.loads(r.read())
+        versions[dataset] = {
+            "name": meta.get("name"),
+            "rows_updated_at": dt.datetime.fromtimestamp(
+                meta["rowsUpdatedAt"], dt.UTC
+            ).isoformat(),
+        }
+    return pd.DataFrame(rows), queries, versions
+
+
 def main(argv=None):
     parser = argparse.ArgumentParser(
         description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
     )
-    parser.add_argument("source", choices=("pluto",))
+    parser.add_argument("source", choices=("pluto", "subway", "basemap"))
     args = parser.parse_args(argv)
     dirty = git("status", "--porcelain")
     if dirty:
         raise SystemExit(f"Refusing to run on a dirty working tree:\n{dirty}")
     commit = git("rev-parse", "HEAD")
     started = dt.datetime.now(dt.UTC)
-    registry = pd.read_parquet(REGISTRY)
-    table, queries = fetch_pluto(registry.bbl.dropna())
     out_dir = EXTERNAL_ROOT / args.source / f"{started:%Y%m%d}-{commit[:7]}"
-    out_dir.mkdir(parents=True, exist_ok=True)
     path = out_dir / f"{args.source}.parquet"
+    if args.source == "pluto":
+        registry = pd.read_parquet(REGISTRY)
+        table, queries = fetch_pluto(registry.bbl.dropna())
+        missing = sorted(set(registry.bbl.dropna()) - set(table.bbl))
+        details = {
+            "source": f"{SOCRATA}/{PLUTO_ID}",
+            "dataset": "MapPLUTO (NYC DCP) via NYC Open Data",
+            "versions": sorted(table.version.dropna().unique().tolist()),
+            "registry": str(REGISTRY),
+            "lots": len(table),
+            "registry_lots_missing": missing,
+        }
+        summary = f"{len(table)} lots, {len(missing)} registry lots missing"
+    elif args.source == "basemap":
+        box = basemap_box(pd.read_parquet(REGISTRY))
+        table, queries, versions = fetch_basemap(box)
+        counts = table.layer.value_counts().to_dict()
+        details = {
+            "source": SOCRATA,
+            "dataset": "NYC Open Data: street centerlines, parks, borough boundary",
+            "versions": versions,
+            "registry": str(REGISTRY),
+            "box_north_west_south_east": box,
+            "features": counts,
+        }
+        summary = ", ".join(f"{v} {k}" for k, v in sorted(counts.items()))
+    else:
+        table, queries, version = fetch_subway()
+        details = {
+            "source": f"{NY_SOCRATA}/resource/{SUBWAY_ID}",
+            "dataset": "MTA Subway Stations via data.ny.gov",
+            "version": version,
+            "stops": len(table),
+        }
+        summary = f"{len(table)} station stops"
+    out_dir.mkdir(parents=True, exist_ok=True)
     table.to_parquet(path)
-    missing = sorted(set(registry.bbl.dropna()) - set(table.bbl))
     provenance = {
-        "source": f"{SOCRATA}/{PLUTO_ID}",
-        "dataset": "MapPLUTO (NYC DCP) via NYC Open Data",
-        "versions": sorted(table.version.dropna().unique().tolist()),
-        "registry": str(REGISTRY),
+        **details,
         "queries": queries,
         "retrieved_at": started.isoformat(),
         "commit": commit,
-        "lots": len(table),
-        "registry_lots_missing": missing,
         "sha256": hashlib.sha256(path.read_bytes()).hexdigest(),
     }
     (out_dir / "provenance.json").write_text(json.dumps(provenance, indent=2))
-    print(f"wrote {path}: {len(table)} lots, {len(missing)} registry lots missing")
+    print(f"wrote {path}: {summary}")
 
 
 if __name__ == "__main__":

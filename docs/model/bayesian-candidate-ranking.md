@@ -1,7 +1,9 @@
 # Current-listing preferences with PyMC diagnostics
 
-`rank-current-apartments` connects the selected accepted PyMC fit to the
-preference frontier. It considers only current-capture observations already in
+`rank-current-apartments` connects an accepted PyMC fit to the
+preference frontier. Since 2026-09-26 the repository selection is a frontier summary, which this
+command refuses, so pass a PyMC selection with `--selection` (see
+[current analysis](current-analysis.md)). It considers only current-capture observations already in
 that fit, matching the scrape → transform → fit → analyze workflow. It never
 substitutes the older robust model or predicts newly scraped units without a
 refit.
@@ -11,6 +13,7 @@ UV_CACHE_DIR=/tmp/apartments-uv-cache MPLCONFIGDIR=/tmp/apartments-mpl \
 OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 \
 uv run --frozen --no-sync python -m apartments.cli rank-current-apartments \
   config/example-search-preferences.json data/model/my-current-ranking \
+  --selection /data1/apartments/tmp/<you>/pymc-selection.json \
   --as-of 2026-09-19T09:26:27Z --budget 6000
 ```
 

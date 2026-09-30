@@ -1,4 +1,5 @@
 import datetime as dt
+import json
 
 import numpy as np
 from rentfrontier import dashboard
@@ -198,3 +199,98 @@ def test_samplers_of_one_design_share_its_structure():
     }
     assert dashboard.structure(nuts_l0) == "L0-mean/none"
     assert dashboard.structure(e("L0-mean", "pymc", "none")) == "L0-mean/none"
+
+
+def test_rent_map_is_the_selected_runs_newest(monkeypatch, tmp_path):
+    import os
+
+    from rentfrontier import rentmap
+
+    repo, maps = tmp_path / "repo", tmp_path / "maps"
+    (repo / "config").mkdir(parents=True)
+    (repo / "config" / "main-analysis.json").write_text(json.dumps({"run": "r-1"}))
+    monkeypatch.setattr(dashboard, "REPO", repo)
+    monkeypatch.setattr(rentmap, "MAPS", maps)
+    assert dashboard.rent_map() is None
+    runs = (
+        ("r-1-aaaaaaa", 1),
+        ("r-1-bbbbbbb", 2),
+        ("r-10-ccccccc", 3),
+        ("r-1-solo-ddddddd", 4),
+    )
+    for name, mtime in runs:
+        (maps / name).mkdir(parents=True)
+        (maps / name / "map.json").write_text("{}")
+        os.utime(maps / name / "map.json", (mtime, mtime))
+    # The newest map of exactly r-1, not r-1-solo's (a longer run name).
+    assert dashboard.rent_map() == maps / "r-1-bbbbbbb" / "map.json"
+    (repo / "config" / "main-analysis.json").write_text("[]")
+    assert dashboard.rent_map() is None
+
+
+def test_data_quality_counts_each_rules_rows_by_action(monkeypatch, tmp_path):
+    rules = tmp_path / "q.jsonl"
+    rules.write_text(
+        "".join(
+            json.dumps(r) + "\n"
+            for r in (
+                {
+                    "audit_id": "a",
+                    "building": "b1",
+                    "action": "quarantine_nonresidential",
+                },
+                {
+                    "audit_id": "b",
+                    "building": "b1",
+                    "action": "quarantine_product_scope",
+                },
+                {
+                    "audit_id": "c",
+                    "building": "b2",
+                    "action": "quarantine_product_scope",
+                },
+            )
+        )
+    )
+    summary = tmp_path / "summary"
+    summary.mkdir()
+    (summary / "complete.json").write_text(json.dumps({"rows": 10, "rows_in_fit": 9}))
+    config = tmp_path / "repo" / "config"
+    config.mkdir(parents=True)
+    (config / "main-analysis.json").write_text(
+        json.dumps(
+            {
+                "run": "r",
+                "data_rules": ["unit-labels-v1", "quarantine-v1"],
+                "summary": str(summary),
+            }
+        )
+    )
+    monkeypatch.setattr(dashboard, "REPO", tmp_path / "repo")
+    monkeypatch.setitem(dashboard.data_module.RULE_SOURCES, "quarantine-v1", rules)
+    out = dashboard.data_quality()
+    assert (
+        out["app_run"] == "r" and out["app_rows"] == 10 and out["app_rows_in_fit"] == 9
+    )
+    by_rule = {r["rule"]: r for r in out["rules"]}
+    q = by_rule["quarantine-v1"]
+    assert q["in_app_model"] and q["rows"] == 3 and q["buildings"] == 2
+    assert [(a["label"], a["rows"]) for a in q["actions"]] == [
+        ("Not a whole apartment on the open market", 2),
+        ("Not a home", 1),
+    ]
+    assert by_rule["unit-labels-v1"]["text"].startswith("One apartment, one id")
+    assert "rows" not in by_rule["unit-labels-v1"]  # merges units, drops no rows
+
+
+def test_data_quality_survives_a_malformed_selection(monkeypatch, tmp_path):
+    config = tmp_path / "repo" / "config"
+    config.mkdir(parents=True)
+    (config / "main-analysis.json").write_text(json.dumps([1, 2]))
+    monkeypatch.setattr(dashboard, "REPO", tmp_path / "repo")
+    out = dashboard.data_quality()
+    assert out["app_run"] is None and out["app_rules"] == [] and out["app_rows"] is None
+    (config / "main-analysis.json").write_text(
+        json.dumps({"data_rules": None, "summary": 3})
+    )
+    assert dashboard.data_quality()["app_rules"] == []
