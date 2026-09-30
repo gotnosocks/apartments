@@ -714,17 +714,14 @@ def facing_v2(
 
 
 # Building condition: hazardous (class B) and immediately hazardous (class C)
-# housing-code violations HPD found in the building in the year before the
-# listing's month, per apartment. The year trails the listing, so no later
-# information enters. A few: under VIOLATIONS_MANY per apartment.
-VIOLATION_DAYS = 365
-VIOLATIONS_MANY = 0.25
+# housing-code violations HPD found in the building in the years before the
+# listing's month, per apartment and year. The window trails the listing, so
+# no later information enters.
 
 
-def building_violations(frame: pd.DataFrame) -> np.ndarray:
+def building_violations(frame: pd.DataFrame, days: int = 365) -> np.ndarray:
     """Per row: class B and C violations found in its building (registry BIN,
-    or its lot for placeholder BINs) in the VIOLATION_DAYS before the row's
-    month."""
+    or its lot for placeholder BINs) in the `days` before the row's month."""
     registry = pd.read_parquet(REGISTRY_FILE).set_index("building")
     hpd = pd.read_parquet(HPD_FILE)
     hpd = hpd[hpd["class"].isin(["B", "C"])]
@@ -737,7 +734,7 @@ def building_violations(frame: pd.DataFrame) -> np.ndarray:
         k: np.sort(g.found.to_numpy()) for k, g in hpd.groupby(hpd.bbl.astype(str))
     }
     period = frame.period.to_numpy().astype("datetime64[ns]")
-    start = period - np.timedelta64(VIOLATION_DAYS, "D")
+    start = period - np.timedelta64(days, "D")
     out = np.zeros(len(frame))
     for building, idx in frame.groupby("building").indices.items():
         if building not in registry.index:
@@ -755,29 +752,32 @@ def building_violations(frame: pd.DataFrame) -> np.ndarray:
 
 
 def hpd_v1(
-    frame: pd.DataFrame, train: np.ndarray, id: str = "hpd-v1", base: str = "base-v1"
+    frame: pd.DataFrame,
+    train: np.ndarray,
+    id: str = "hpd-v1",
+    base: str = "base-v1",
+    years: int = 1,
+    many: float = 0.25,
 ) -> Features:
     """A base set plus the building's condition as of the listing: hazardous
-    housing-code violations HPD found in the year before, per apartment (none,
-    a few, many). Apartments are MapPLUTO's residential units, or the units
-    listed in the building where the lot records none (condominium lots)."""
+    housing-code violations HPD found in the `years` before, per apartment and
+    year (none, a few, or `many` or more). Apartments are MapPLUTO's
+    residential units, or the units listed in the building where the lot
+    records none (condominium lots)."""
     base = FEATURE_SETS[base](frame, train)
     lot = building_lots(frame)
     units = pd.to_numeric(lot.unitsres, errors="coerce").to_numpy()
     listed = frame.groupby("building").unit_id.transform("nunique").to_numpy()
     units = np.where(units > 0, units, listed).clip(min=1)
-    rate = building_violations(frame) / units
+    rate = building_violations(frame, days=365 * years) / units / years
+    past = "the past year" if years == 1 else f"the past {years} years"
     b = _Builder(frame)
     b.add(
         "building condition",
-        "a few housing-code violations in the past year",
-        (rate > 0) & (rate < VIOLATIONS_MANY),
+        f"a few housing-code violations in {past}",
+        (rate > 0) & (rate < many),
     )
-    b.add(
-        "building condition",
-        "many housing-code violations in the past year",
-        rate >= VIOLATIONS_MANY,
-    )
+    b.add("building condition", f"many housing-code violations in {past}", rate >= many)
     extra = b.build(id)
     return Features(
         id,
@@ -800,13 +800,14 @@ EXTERNAL = {
     "unitdescpluto-v3",
     "unitfacing-v2",
     "unitdescplutohpd-v1",
+    "unitdescplutohpd-v2",
 }
 # Feature sets that read the subway stations snapshot.
 SUBWAY = {"unitdescplutotransit-v2"}
 # Feature sets that read the basemap snapshot (street centerlines).
 BASEMAP = {"unitfacing-v2"}
 # Feature sets that read the HPD violations snapshot.
-HPD = {"unitdescplutohpd-v1"}
+HPD = {"unitdescplutohpd-v1", "unitdescplutohpd-v2"}
 # Feature sets that read the advertisement descriptions (`descriptions.SOURCE`),
 # directly or through their base set.
 DESCRIPTIONS = {
@@ -819,6 +820,7 @@ DESCRIPTIONS = {
     "unitdescpluto-v3",
     "unitfacing-v2",
     "unitdescplutohpd-v1",
+    "unitdescplutohpd-v2",
 }
 
 FEATURE_SETS = {
@@ -862,6 +864,11 @@ FEATURE_SETS = {
     # Building condition (HPD violations, as of each listing) on the app's facts.
     "unitdescplutohpd-v1": partial(
         hpd_v1, id="unitdescplutohpd-v1", base="unitdescpluto-v3"
+    ),
+    # The same over the past five years: chronic condition (0.05 or more a year
+    # per apartment is "many", about the top 15% of listings).
+    "unitdescplutohpd-v2": partial(
+        hpd_v1, id="unitdescplutohpd-v2", base="unitdescpluto-v3", years=5, many=0.05
     ),
     # Transit access (as of each listing's month) on the building facts.
     "unitdescplutotransit-v2": partial(
