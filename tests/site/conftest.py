@@ -320,9 +320,10 @@ def make_bundle(root: Path, *, gate=True, rule_lines=None) -> Path:
         [
             {
                 "bbl": "1007680059",
-                "yearbuilt": 1986,
-                "numfloors": 20.0,
-                "unitsres": 200,
+                # As in the MapPLUTO snapshots: numbers stored as strings.
+                "yearbuilt": "1986",
+                "numfloors": "20.0000000",
+                "unitsres": "200",
                 "bldgclass": "D9",
                 "landmark": None,
                 "histdist": None,
