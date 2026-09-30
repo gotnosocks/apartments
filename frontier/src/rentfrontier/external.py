@@ -359,7 +359,7 @@ NOISE_COLUMNS = (
 )
 
 
-def fetch_noise(box, page: int = 50_000):
+def fetch_noise(box, page: int = 10_000):
     """Every 311 noise complaint in the box (north, west, south, east)."""
     north, west, south, east = box
     where = (
