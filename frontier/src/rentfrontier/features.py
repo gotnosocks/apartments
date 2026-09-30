@@ -164,12 +164,7 @@ def base_v1(
     b.add("size", "sqft_unknown", ~known)
 
     # Advertised floor label (a proxy, not a verified physical floor).
-    floor = frame.listed_floor.astype("float")
-    if label_floor:
-        label = label_floor_number(frame)
-        height = pd.to_numeric(building_lots(frame).numfloors, errors="coerce")
-        label = label.where(label.le(height.to_numpy() + 2))
-        floor = floor.where(floor.ge(1), label)
+    floor = row_floor(frame) if label_floor else frame.listed_floor.astype("float")
     floor_known = floor.ge(1)
     log_floor = np.log(floor.where(floor_known, 1.0))
     b.add("floor", "log_floor", log_floor)
@@ -1072,9 +1067,10 @@ LOW_FLOORS = 4
 
 
 def row_floor(frame: pd.DataFrame) -> pd.Series:
-    """Each row's floor as the base features read it: the listed floor, or the
-    unit label's floor where the label is plausible for the building's height;
-    NaN when neither is known."""
+    """Each row's floor as the base features read it (`base_v1` with
+    label_floor, and the low-floor flags): the listed floor, or the unit label's
+    floor where the label is plausible for the building's height; NaN when
+    neither is known."""
     floor = frame.listed_floor.astype("float")
     label = label_floor_number(frame)
     height = pd.to_numeric(building_lots(frame).numfloors, errors="coerce")
