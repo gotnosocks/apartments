@@ -880,6 +880,29 @@ comes from other sources, most of them public NYC and NYS data.
   - The first version (`-v1`, f980477) used today's stations for every year. It scored the same
     (+1.1 ± 6.7, noise) and was replaced to keep the no-future-information rule. Its run is archived
     under `runs-archive/future-information-2026-09-29/`, off the board.
+- **Building condition: HPD housing-code violations** (`unitdescplutohpd-v1`, 0544905;
+  `unitdescplutohpd-v2`, 0fc2df7; 2026-09-30; HPD snapshot 20260930-cb289ad; both with
+  `quarantine-v1`, against fef2aa5).
+  - **Data.** 30,302 violations in 901 of our buildings. The feature counts class B (hazardous)
+    and class C (immediately hazardous) violations found in the building before the listing's
+    month, per apartment and year. Apartments are MapPLUTO's residential units, or the units
+    listed where a condominium lot records none. The window trails the listing, so no future
+    information enters.
+  - **v1, the past year.** Levels are none, a few, or many (a quarter or more per apartment).
+    - About 15% of listings fall in "a few" and 5% in "many".
+    - 1,359 s, passes. PSIS-LOO **+0.4 ± 6.6**, held-out +0.3 ± 0.2.
+    - Effects: a few +0.1% (−0.3 to +0.4), many −0.1% (−0.6 to +0.4).
+  - **v2, the past five years** (chronic condition). "Many" is 0.05 or more a year per
+    apartment, about the top 15% of listings.
+    - 1,358 s, passes. PSIS-LOO **−1.0 ± 6.7**, held-out −0.4 ± 0.5.
+    - Effects: a few −0.1% (−0.6 to +0.4), many +0.3% (−0.4 to +0.9).
+  - **Why it adds nothing.** Across buildings, violations do go with lower rents: the quarter of
+    buildings with the most violations since 2010 have a median premium of −2.7%, against +1.9%
+    and +0.3% for the two lowest quarters. But the building facts and each building's own level
+    already carry that. The building level's share of the variance stays at 7.7%, and a year with
+    violations does not move a building's asks against its own path.
+  - Recording condition in the site's building facts, as information rather than a model term,
+    is a possible follow-up.
 
 *Unit orientation* (street vs courtyard, and the street's size).
 - StreetEasy's view and exposure fields are sparse (base-v1 has `view_street`, `view_courtyard`
