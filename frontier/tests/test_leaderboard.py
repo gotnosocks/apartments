@@ -224,3 +224,19 @@ def test_runs_that_differ_only_in_data_rules_do_not_collide():
     ruled = run | {"data_rules": ["unit-labels-v1"]}
     assert design_key(run) != design_key(ruled)
     assert design_key(run) == design_key(run | {"data_rules": []})
+
+
+def test_an_entry_that_cannot_be_paired_loses_its_score_not_the_board():
+    base = {"id": "base", "psis": {"_dir": "b"}}
+    good = {"id": "good", "psis": {"_dir": "g"}, "note": ""}
+    odd = {"id": "odd", "psis": {"_dir": "o"}}
+
+    def paired(a, b):
+        if a == "o":
+            raise ValueError("Training rows differ: o (10) vs b (12), 2 not dropped")
+        return 1.0, 0.5, 0.1
+
+    leaderboard.pair_with_baseline([base, good, odd], base, paired=paired)
+    assert base["psis"]["delta"] == 0.0 and good["psis"]["delta"] == 1.0
+    assert odd["psis"] is None
+    assert odd["unpaired"].startswith("PSIS-LOO not paired: Training rows differ")
