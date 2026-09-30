@@ -385,7 +385,7 @@ def test_facing_sets_record_basemap_and_footprints(monkeypatch):
     }
     assert on_v3 == features.FOOTPRINTS and on_v3 <= features.BASEMAP
     monkeypatch.setattr(run.data, "sha256", lambda path: "sha")
-    for name in ("unitfacing-v3", "unitfacing-v4"):
+    for name in ("unitfacing-v3", "unitfacing-v4", "unitfacing-v5"):
         assert {"basemap", "footprints"} <= run.feature_sources(name).keys()
 
 
@@ -601,3 +601,28 @@ def test_facing_v4_marks_loud_streets_on_low_floors(monkeypatch):
     cols = {n: out.values[:, i] for i, n in enumerate(out.names)}
     assert cols["looks onto an avenue, floors 1-4"].tolist() == [1, 0, 0, 0]
     assert cols["looks onto a wide street, floors 1-4"].tolist() == [0, 0, 1, 0]
+
+
+def test_facing_reads_the_build_registry(monkeypatch):
+    """building_sides and building_frontage read the registry of the set being
+    built (LOT_SNAPSHOTS), with the grid origin of the first registry."""
+    seen = []
+    monkeypatch.setattr(
+        features, "_building_sides", lambda path: seen.append(path) or path
+    )
+    monkeypatch.setattr(
+        features, "_building_frontage", lambda path: seen.append(path) or path
+    )
+    assert features.building_sides() == features.REGISTRY_FILE
+    token = features._LOTS.set(("r3", "p3"))
+    try:
+        assert features.building_sides() == "r3"
+        assert features.building_frontage() == "r3"
+    finally:
+        features._LOTS.reset(token)
+    assert features.building_frontage() == features.REGISTRY_FILE
+    assert features.lot_files("unitfacing-v5") == {
+        "registry": features.REGISTRY_V3_FILE,
+        "pluto": features.PLUTO_V3_FILE,
+    }
+    assert features.lot_files("unitfacing-v4")["registry"] == features.REGISTRY_FILE
