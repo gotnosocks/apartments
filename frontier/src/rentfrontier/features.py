@@ -300,6 +300,18 @@ ERAS = (
 )
 
 
+def lot_registry() -> str:
+    """The registry file the current build reads (`LOT_SNAPSHOTS`), else the first."""
+    return (_LOTS.get() or (REGISTRY_FILE, PLUTO_FILE))[0]
+
+
+def _grid_origin() -> tuple[float, float]:
+    """The facing grid's origin: the first registry's mean position, whichever
+    registry a set reads, so buildings a correction leaves alone keep their sides."""
+    first = pd.read_parquet(REGISTRY_FILE)
+    return first.latitude.mean(), first.longitude.mean()
+
+
 def building_lots(frame: pd.DataFrame) -> pd.DataFrame:
     """MapPLUTO attributes of each row's building (one row per listing row)."""
     registry_file, pluto_file = _LOTS.get() or (REGISTRY_FILE, PLUTO_FILE)
@@ -589,13 +601,17 @@ def frontage_street(label: str):
     return None, None, None
 
 
-@functools.lru_cache(maxsize=1)
 def building_frontage() -> pd.DataFrame:
     """Per registry building: its frontage street type (avenue, wide street,
     side street) and the grid direction its front faces (the side of its
     address street it stands on, from the street's centerline)."""
-    registry = pd.read_parquet(REGISTRY_FILE).set_index("building")
-    lat0, lon0 = registry.latitude.mean(), registry.longitude.mean()
+    return _building_frontage(lot_registry())
+
+
+@functools.lru_cache(maxsize=2)
+def _building_frontage(registry_file: str) -> pd.DataFrame:
+    registry = pd.read_parquet(registry_file).set_index("building")
+    lat0, lon0 = _grid_origin()
     phi, metres = math.radians(FRONTAGE_BEARING_DEG), 111_320.0
     cos0 = math.cos(math.radians(lat0))
 
@@ -830,12 +846,16 @@ def facade_sides(ring, streets, occluders) -> dict:
     return sides
 
 
-@functools.lru_cache(maxsize=1)
 def building_sides() -> pd.DataFrame:
     """Per registry building with a footprint: for each grid direction the type
     of street that side looks onto, or "none" (no street), or "no facade"."""
-    registry = pd.read_parquet(REGISTRY_FILE).set_index("building")
-    lat0, lon0 = registry.latitude.mean(), registry.longitude.mean()
+    return _building_sides(lot_registry())
+
+
+@functools.lru_cache(maxsize=2)
+def _building_sides(registry_file: str) -> pd.DataFrame:
+    registry = pd.read_parquet(registry_file).set_index("building")
+    lat0, lon0 = _grid_origin()
     phi, metres = math.radians(FRONTAGE_BEARING_DEG), 111_320.0
     cos0 = math.cos(math.radians(lat0))
 
@@ -1129,6 +1149,7 @@ EXTERNAL = {
     "unitfacing-v2",
     "unitfacing-v3",
     "unitfacing-v4",
+    "unitfacing-v5",
     "unitdescpluto-v4",
     "unitdescpluto-v5",
     "unitdescplutohpd-v1",
@@ -1137,9 +1158,9 @@ EXTERNAL = {
 # Feature sets that read the subway stations snapshot.
 SUBWAY = {"unitdescplutotransit-v2"}
 # Feature sets that read the basemap snapshot (street centerlines).
-BASEMAP = {"unitfacing-v2", "unitfacing-v3", "unitfacing-v4"}
+BASEMAP = {"unitfacing-v2", "unitfacing-v3", "unitfacing-v4", "unitfacing-v5"}
 # Feature sets that read the building footprints snapshot.
-FOOTPRINTS = {"unitfacing-v3", "unitfacing-v4"}
+FOOTPRINTS = {"unitfacing-v3", "unitfacing-v4", "unitfacing-v5"}
 # Feature sets that read the HPD violations snapshot.
 HPD = {"unitdescplutohpd-v1", "unitdescplutohpd-v2"}
 # Feature sets that read the advertisement descriptions (`descriptions.SOURCE`),
@@ -1155,6 +1176,7 @@ DESCRIPTIONS = {
     "unitfacing-v2",
     "unitfacing-v3",
     "unitfacing-v4",
+    "unitfacing-v5",
     "unitdescpluto-v4",
     "unitdescpluto-v5",
     "unitdescplutohpd-v1",
@@ -1191,6 +1213,9 @@ FEATURE_SETS = {
     "unitfacing-v3": partial(facing_v3, id="unitfacing-v3", base="unitdescpluto-v3"),
     # v3 plus avenue and wide-street views on low floors (traffic noise).
     "unitfacing-v4": partial(facing_v4, id="unitfacing-v4", base="unitfacing-v3"),
+    # v4 on the corrected registry (LOT_SNAPSHOTS): building facts, fronts and
+    # sides from the right buildings for the 12 re-geocoded pages.
+    "unitfacing-v5": partial(facing_v4, id="unitfacing-v5", base="unitfacing-v3"),
     # v2 with "altered since 2000" from the latest recorded alteration.
     "unitdescpluto-v3": partial(
         pluto_v1,
@@ -1240,6 +1265,7 @@ FEATURE_SETS = {
 LOT_SNAPSHOTS = {
     "unitdescpluto-v4": {"registry": REGISTRY_V2_FILE, "pluto": PLUTO_V2_FILE},
     "unitdescpluto-v5": {"registry": REGISTRY_V3_FILE, "pluto": PLUTO_V3_FILE},
+    "unitfacing-v5": {"registry": REGISTRY_V3_FILE, "pluto": PLUTO_V3_FILE},
 }
 
 
