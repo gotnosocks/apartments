@@ -234,7 +234,8 @@ def annotate(store, generation, data, body, url, body_hash=None, persist=True):
             for e in rental_events
             if str(e.get("event_listing_id", "")).isdigit()
         }
-        keys.add(f"rental:{row['listing_id']}:detail")
+        current = f"rental:{row['listing_id']}:detail"
+        keys.add(current)
         with store._tx():
             for member in keys:
                 store.db.execute(
@@ -254,7 +255,44 @@ def annotate(store, generation, data, body, url, body_hash=None, persist=True):
                     "UPDATE frontier SET state='pending' WHERE generation=? AND listing_key=? AND state='excluded' AND url IN (SELECT url FROM collection_exclusions WHERE generation=? AND reason='missing_canonical_unit_association')",
                     (generation, member, generation),
                 )
+            scope_member_history(store, generation, unit, keys - {current})
             refresh_claim_rounds(store, generation, unit)
+
+
+MEMBER_SCOPE_REASON = "canonical unit membership of "
+
+
+def scope_member_history(store, generation, unit, keys):
+    """Scope a unit's historical rental advertisements from its own membership.
+
+    `scope.expand` scopes history from `priceHistories[].listingUrl`, but StreetEasy
+    leaves that link null for some rows. Membership already comes from the unit
+    page's `propertyHistory`, so scope those advertisements too, for units in a
+    scoped building only. The caller excludes the page's own current listing,
+    which the unit capture already holds. Caller owns the transaction.
+    """
+    from .scope import building_root
+
+    root = building_root(unit)
+    if (
+        not root
+        or not store.db.execute(
+            "SELECT 1 FROM scope_buildings WHERE generation=? AND url=?",
+            (generation, root),
+        ).fetchone()
+    ):
+        return
+    for key in keys:
+        ad = _ad_number(key)
+        if ad:
+            store.db.execute(
+                "INSERT OR IGNORE INTO scope_urls VALUES(?,?,?)",
+                (
+                    generation,
+                    f"https://streeteasy.com/rental/{ad}",
+                    MEMBER_SCOPE_REASON + unit,
+                ),
+            )
 
 
 PROBE_RULE = "inventory-label-unit-probe-v1"

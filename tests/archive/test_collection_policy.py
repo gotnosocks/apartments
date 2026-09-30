@@ -429,3 +429,41 @@ def test_min_listing_id_persists_across_resume_and_can_be_cleared(tmp_path):
     setup(s, g, min_listing_id=0)
     assert min_listing_id(s, g) == 0
     s.close()
+
+
+def test_unit_membership_scopes_history_ads_except_current_listing(tmp_path):
+    s = ArchiveStore(tmp_path)
+    g = s.new_generation()
+    setup(s, g)
+    a = "https://streeteasy.com/building/example/1a"
+    s.db.execute(
+        "INSERT INTO scope_buildings VALUES(?,?)",
+        (g, "https://streeteasy.com/building/example"),
+    )
+    s.db.commit()
+    ads = [f"https://streeteasy.com/rental/{n}" for n in (100, 200, 300)]
+    s.enqueue(g, [{"url": u, "kind": "listing"} for u in ads])
+    annotate(s, g, {}, unit_body(a, "300", ["100", "200", "300"]), a)
+    scoped = dict(
+        s.db.execute("SELECT url, reason FROM scope_urls WHERE generation=?", (g,))
+    )
+    assert scoped == {
+        ads[0]: "canonical unit membership of " + a,
+        ads[1]: "canonical unit membership of " + a,
+    }
+    # A scoped crawl now claims the history ads; the current listing stays unscoped.
+    claimed = []
+    while row := s.claim(g, scoped=True, prefer_units=True):
+        claimed.append(row["url"])
+    assert claimed == [ads[1], ads[0]]
+    s.close()
+
+
+def test_unit_membership_does_not_scope_ads_outside_scoped_buildings(tmp_path):
+    s = ArchiveStore(tmp_path)
+    g = s.new_generation()
+    setup(s, g)
+    a = "https://streeteasy.com/building/example/1a"
+    annotate(s, g, {}, unit_body(a, "300", ["100", "300"]), a)
+    assert s.db.execute("SELECT count(*) FROM scope_urls").fetchone()[0] == 0
+    s.close()
