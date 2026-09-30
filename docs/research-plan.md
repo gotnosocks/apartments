@@ -1331,6 +1331,15 @@ comes from other sources, most of them public NYC and NYS data.
 - Switched again the same day (Ben: the building facts without the flood-zone flag, once they tie):
   the Gibbs `m5-nocurves` + `unitdescpluto-v3` + `unit-labels-v1` fit (PSIS-LOO 52,439.6, +8.2 ± 18.3
   against the previous selection; 1,376 s).
+- Switched on 2026-09-30 by `rentfrontier.autoselect`, its first decision. The served
+  `unitdescpluto-v3` + `quarantine-v1` fit was fit with superseded data rules, so the rule chose
+  `m5-nocurves` + `unitfacing-v5` + `unit-labels-v1` + `quarantine-v2` (66cf77f, 1,346 s).
+  - The rule ranks it first of the two eligible fits. It ties the other on PSIS-LOO (+4.9 ± 8.7)
+    and is as fast.
+  - Against the previous selection, on the rows both keep: PSIS-LOO −7.4 ± 12.0, and held-out
+    −5.3 ± 2.8, inside the guard.
+  - The site now shows the corrected building facts for 12 pages, the facing terms and the 188
+    quarantined listings.
 - On hold: West Village, once its crawl completes.
 
 ## Current state
