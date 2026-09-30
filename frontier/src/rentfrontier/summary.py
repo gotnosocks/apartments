@@ -128,8 +128,8 @@ TERM_TEXT = {
     "district, and whether it has been altered since 2000 (NYC MapPLUTO); some "
     "versions of the model also use the 2015 flood map.",
     "building condition": "Hazardous housing-code violations the city (HPD) found "
-    "in the building in the year before the listing, per apartment: a few, or many "
-    "(a quarter or more per apartment), against none.",
+    "in the building before the listing (the past year or the past five years, by "
+    "version), per apartment and year: a few, or many, against none.",
     "bedroom_market_curve": "The bedroom group's own market-curve deviation.",
     "building": "The building's level against an average building.",
     "building_drift": "The building's own movement over time (walk or trend).",
