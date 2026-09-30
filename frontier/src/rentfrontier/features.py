@@ -518,18 +518,31 @@ def transit_v2(
 FRONTAGE_BEARING_DEG = 29.0
 WIDE_STREETS = frozenset({14, 23, 34})  # Chelsea's wide two-way crosstown streets
 _SIDE_ADDRESS = re.compile(r"^\d+[A-Z]?(?:-\d+)?\s+WEST\s+(\d+)\s+STREET")
-_AVENUE_ADDRESS = re.compile(r"^\d+[A-Z]?(?:-\d+)?\s+(\d+)\s+AVENUE")
+ORDINAL_AVENUES = {
+    "FIFTH": 5,
+    "SIXTH": 6,
+    "SEVENTH": 7,
+    "EIGHTH": 8,
+    "NINTH": 9,
+    "TENTH": 10,
+    "ELEVENTH": 11,
+    "TWELFTH": 12,
+}
+_AVENUE_ADDRESS = re.compile(
+    r"^\d+[A-Z]?(?:-\d+)?\s+(\d+|" + "|".join(ORDINAL_AVENUES) + r")\s+AVENUE"
+)
 _AMERICAS = re.compile(r"AVENUE OF (THE )?AMERICAS|AMERICAS AVENUE")
 FRONT_TEXT = (
     r"street[- ]facing|facing the street|faces the street|front[- ]facing"
-    r"|avenue[- ]facing|facing (the )?avenue"
-    r"|overlook(s|ing) (the )?(avenue|street|\d+(st|nd|rd|th) street)"
+    r"|avenue[- ]facing|facing (?:the )?avenue"
+    r"|overlook(?:s|ing) (?:the )?(?:avenue|street|\d+(?:st|nd|rd|th) street)"
 )
 REAR_TEXT = (
     r"rear[- ]facing|back of the building|courtyard[- ]facing|faces the courtyard"
-    r"|facing the courtyard|quiet (rear|back)|garden[- ]facing|facing the garden"
+    r"|facing the courtyard|quiet (?:rear|back)|garden[- ]facing|facing the garden"
     r"|back[- ]facing|faces the back"
 )
+THROUGH_TEXT = r"floor[- ]?through"  # windows at the front and the back
 OPPOSITE = {"north": "south", "south": "north", "east": "west", "west": "east"}
 
 
@@ -543,7 +556,10 @@ def frontage_street(label: str):
     if _AMERICAS.search(address):
         return "AVE OF THE AMERICAS", "avenue", "avenue"
     if m := _AVENUE_ADDRESS.match(address):
-        return f"{int(m.group(1))} AVE", "avenue", "avenue"
+        n = ORDINAL_AVENUES.get(m.group(1)) or int(m.group(1))
+        # Sixth Avenue's centerlines are named Avenue of the Americas.
+        name = "AVE OF THE AMERICAS" if n == 6 else f"{n} AVE"
+        return name, "avenue", "avenue"
     return None, None, None
 
 
@@ -631,8 +647,9 @@ def unit_orientation(frame: pd.DataFrame) -> pd.DataFrame:
     label_front = (fr_building & letter.eq("F")).to_numpy()
     label_rear = (fr_building & letter.eq("R")).to_numpy()
     text = descriptions.attach(frame).fillna("").str.lower()
-    text_front = text.str.contains(FRONT_TEXT, regex=True).to_numpy()
-    text_rear = text.str.contains(REAR_TEXT, regex=True).to_numpy()
+    through = text.str.contains(THROUGH_TEXT, regex=True).to_numpy()
+    text_front = text.str.contains(FRONT_TEXT, regex=True).to_numpy() | through
+    text_rear = text.str.contains(REAR_TEXT, regex=True).to_numpy() | through
     rows = pd.DataFrame(
         {
             "front": (known & front_window)
@@ -643,7 +660,8 @@ def unit_orientation(frame: pd.DataFrame) -> pd.DataFrame:
             | label_rear
             | text_rear
             | frame.view_courtyard.eq("yes").to_numpy(),
-            "window": any_window,
+            # Side windows need a known frontage to be told from front or back ones.
+            "window": any_window & known,
         },
         index=frame.index,
     )
@@ -664,8 +682,8 @@ def unit_orientation(frame: pd.DataFrame) -> pd.DataFrame:
     )
 
 
-def facing_v1(
-    frame: pd.DataFrame, train: np.ndarray, id: str = "facing-v1", base: str = "base-v1"
+def facing_v2(
+    frame: pd.DataFrame, train: np.ndarray, id: str = "facing-v2", base: str = "base-v1"
 ) -> Features:
     """A base set plus which way the apartment faces (unit-level): its
     building's front on an avenue, a wide street or a side street, its rear,
@@ -702,12 +720,12 @@ EXTERNAL = {
     "unitdescplutotransit-v2",
     "unitdescpluto-v2",
     "unitdescpluto-v3",
-    "unitfacing-v1",
+    "unitfacing-v2",
 }
 # Feature sets that read the subway stations snapshot.
 SUBWAY = {"unitdescplutotransit-v2"}
 # Feature sets that read the basemap snapshot (street centerlines).
-BASEMAP = {"unitfacing-v1"}
+BASEMAP = {"unitfacing-v2"}
 # Feature sets that read the advertisement descriptions (`descriptions.SOURCE`),
 # directly or through their base set.
 DESCRIPTIONS = {
@@ -718,7 +736,7 @@ DESCRIPTIONS = {
     "unitdescplutotransit-v2",
     "unitdescpluto-v2",
     "unitdescpluto-v3",
-    "unitfacing-v1",
+    "unitfacing-v2",
 }
 
 FEATURE_SETS = {
@@ -746,7 +764,7 @@ FEATURE_SETS = {
         pluto_v1, id="unitdescpluto-v2", base="unitdesc-v1", flood_zone=False
     ),
     # Which way the apartment faces, on the app's building facts (v3).
-    "unitfacing-v1": partial(facing_v1, id="unitfacing-v1", base="unitdescpluto-v3"),
+    "unitfacing-v2": partial(facing_v2, id="unitfacing-v2", base="unitdescpluto-v3"),
     # v2 with "altered since 2000" from the latest recorded alteration.
     "unitdescpluto-v3": partial(
         pluto_v1,

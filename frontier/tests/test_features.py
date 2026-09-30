@@ -233,6 +233,14 @@ def test_frontage_street_parses_addresses():
         features.frontage_street("1 Avenue Of The Americas")[0] == "AVE OF THE AMERICAS"
     )
     assert features.frontage_street("4 Chelsea Square") == (None, None, None)
+    # Sixth Avenue's centerlines are Avenue of the Americas; spelled-out avenues parse.
+    assert features.frontage_street("545 6 Avenue")[0] == "AVE OF THE AMERICAS"
+    assert features.frontage_street("138 Seventh Avenue") == (
+        "7 AVE",
+        "avenue",
+        "avenue",
+    )
+    assert features.frontage_street("212 Rear West 16 Street") == (None, None, None)
 
 
 def test_unit_orientation_pools_evidence_over_the_unit(monkeypatch):
@@ -254,6 +262,8 @@ def test_unit_orientation_pools_evidence_over_the_unit(monkeypatch):
         ("walkup", "u6", "2R", set(), ""),
         ("tower", "u7", "9E", set(), "A quiet rear apartment."),
         ("tower", "u8", "10F", set(), ""),  # F is a line letter here
+        ("nofront", "u9", "3A", {"east"}, ""),  # no frontage: a window says nothing
+        ("tower", "u10", "11G", set(), "A sunny floor-through."),
     ]
     frame = pd.DataFrame(
         {
@@ -282,21 +292,23 @@ def test_unit_orientation_pools_evidence_over_the_unit(monkeypatch):
         "rear",
         "rear",
         "unknown",
+        "unknown",
+        "front and rear",
     ]
 
 
 def test_unitfacing_records_the_basemap(monkeypatch):
     from rentfrontier import run
 
-    fn = features.FEATURE_SETS["unitfacing-v1"]
-    assert fn.func is features.facing_v1
-    assert fn.keywords == {"id": "unitfacing-v1", "base": "unitdescpluto-v3"}
+    fn = features.FEATURE_SETS["unitfacing-v2"]
+    assert fn.func is features.facing_v2
+    assert fn.keywords == {"id": "unitfacing-v2", "base": "unitdescpluto-v3"}
     on_facing = {
         name
         for name, f in features.FEATURE_SETS.items()
-        if getattr(f, "func", f) is features.facing_v1
+        if getattr(f, "func", f) is features.facing_v2
     }
     assert on_facing == features.BASEMAP
     monkeypatch.setattr(run.data, "sha256", lambda path: "sha")
-    sources = run.feature_sources("unitfacing-v1")
+    sources = run.feature_sources("unitfacing-v2")
     assert {"registry", "pluto", "descriptions", "basemap"} <= sources.keys()
