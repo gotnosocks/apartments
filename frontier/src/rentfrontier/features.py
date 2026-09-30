@@ -266,15 +266,12 @@ SUBWAY_FILE = f"{SUBWAY_SNAPSHOT}/subway.parquet"
 # Street centerlines, parks and shoreline (`rentfrontier.external basemap`).
 BASEMAP_SNAPSHOT = "/data1/apartments/external/basemap/20260929-da7e40d"
 BASEMAP_FILE = f"{BASEMAP_SNAPSHOT}/basemap.parquet"
-<<<<<<< HEAD
 # Building outlines, the registry's and their neighbours' (`rentfrontier.external footprints`).
 FOOTPRINTS_SNAPSHOT = "/data1/apartments/external/footprints/20260930-6634906"
 FOOTPRINTS_FILE = f"{FOOTPRINTS_SNAPSHOT}/footprints.parquet"
-=======
 # HPD housing-code violations of the registry's buildings (`rentfrontier.external hpd`).
 HPD_SNAPSHOT = "/data1/apartments/external/hpd/20260930-cb289ad"
 HPD_FILE = f"{HPD_SNAPSHOT}/hpd.parquet"
->>>>>>> origin/master
 ERAS = (
     (0, 1900, "pre-1900"),
     (1900, 1930, "1900-1929"),
@@ -720,7 +717,6 @@ def facing_v2(
     )
 
 
-<<<<<<< HEAD
 # Every side of a building: the street it looks onto, from its footprint. Each
 # facade edge (grouped by the grid direction its outward normal is nearest) is
 # sampled every SIDE_SPACING_M, or once at its middle if shorter. A sample
@@ -967,7 +963,16 @@ def facing_v3(
         ("none", "looks onto the rear or a courtyard"),
     ):
         b.add("facing", name, looks[kind])
-=======
+    extra = b.build(id)
+    return Features(
+        id,
+        base.names + extra.names,
+        base.groups + extra.groups,
+        np.column_stack([base.values, extra.values]),
+        np.concatenate([base.prior_scale, extra.prior_scale]),
+    )
+
+
 # Building condition: hazardous (class B) and immediately hazardous (class C)
 # housing-code violations HPD found in the building in the years before the
 # listing's month, per apartment and year. The window trails the listing, so
@@ -1033,7 +1038,6 @@ def hpd_v1(
         (rate > 0) & (rate < many),
     )
     b.add("building condition", f"many housing-code violations in {past}", rate >= many)
->>>>>>> origin/master
     extra = b.build(id)
     return Features(
         id,
@@ -1055,25 +1059,18 @@ EXTERNAL = {
     "unitdescpluto-v2",
     "unitdescpluto-v3",
     "unitfacing-v2",
-<<<<<<< HEAD
     "unitfacing-v3",
-=======
     "unitdescplutohpd-v1",
     "unitdescplutohpd-v2",
->>>>>>> origin/master
 }
 # Feature sets that read the subway stations snapshot.
 SUBWAY = {"unitdescplutotransit-v2"}
 # Feature sets that read the basemap snapshot (street centerlines).
-<<<<<<< HEAD
 BASEMAP = {"unitfacing-v2", "unitfacing-v3"}
 # Feature sets that read the building footprints snapshot.
 FOOTPRINTS = {"unitfacing-v3"}
-=======
-BASEMAP = {"unitfacing-v2"}
 # Feature sets that read the HPD violations snapshot.
 HPD = {"unitdescplutohpd-v1", "unitdescplutohpd-v2"}
->>>>>>> origin/master
 # Feature sets that read the advertisement descriptions (`descriptions.SOURCE`),
 # directly or through their base set.
 DESCRIPTIONS = {
@@ -1085,12 +1082,9 @@ DESCRIPTIONS = {
     "unitdescpluto-v2",
     "unitdescpluto-v3",
     "unitfacing-v2",
-<<<<<<< HEAD
     "unitfacing-v3",
-=======
     "unitdescplutohpd-v1",
     "unitdescplutohpd-v2",
->>>>>>> origin/master
 }
 
 FEATURE_SETS = {

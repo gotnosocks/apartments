@@ -314,7 +314,6 @@ def test_unitfacing_records_the_basemap(monkeypatch):
     assert {"registry", "pluto", "descriptions", "basemap"} <= sources.keys()
 
 
-<<<<<<< HEAD
 def test_street_kind():
     assert features.street_kind("8 AVE", "1") == "avenue"
     assert features.street_kind("AVE OF THE AMERICAS", "1") == "avenue"
@@ -510,7 +509,8 @@ def test_facade_sides_sample_short_edges_and_their_own_walls_block():
     wing = (u[:-1][5:7], u[1:][5:7])  # the left arm's inner wall, x=10
     assert features.facade_sides(right_arm, west, wing)["west"] == "none"
     assert features.facade_sides(u, west, NO_OCCLUDERS)["west"] == "avenue"
-=======
+
+
 def test_building_violations_count_the_trailing_year_only(tmp_path, monkeypatch):
     registry = pd.DataFrame(
         {"building": ["a", "b"], "bin": ["1000001", "1000000"], "bbl": ["1", "2"]}
@@ -543,4 +543,3 @@ def test_building_violations_count_the_trailing_year_only(tmp_path, monkeypatch)
         }
     )
     assert features.building_violations(frame).tolist() == [2.0, 0.0, 1.0, 0.0]
->>>>>>> origin/master
