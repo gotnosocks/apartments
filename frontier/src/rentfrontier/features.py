@@ -11,6 +11,10 @@ id, so older leaderboard entries stay reproducible from their commit anyway.
 
 from __future__ import annotations
 
+import functools
+import json
+import math
+import re
 from dataclasses import dataclass
 from functools import partial
 
@@ -258,6 +262,9 @@ REGISTRY_FILE = f"{REGISTRY_SNAPSHOT}/buildings.parquet"
 PLUTO_FILE = f"{PLUTO_SNAPSHOT}/pluto.parquet"
 SUBWAY_SNAPSHOT = "/data1/apartments/external/subway/20260929-8e7c364"
 SUBWAY_FILE = f"{SUBWAY_SNAPSHOT}/subway.parquet"
+# Street centerlines, parks and shoreline (`rentfrontier.external basemap`).
+BASEMAP_SNAPSHOT = "/data1/apartments/external/basemap/20260929-da7e40d"
+BASEMAP_FILE = f"{BASEMAP_SNAPSHOT}/basemap.parquet"
 ERAS = (
     (0, 1900, "pre-1900"),
     (1900, 1930, "1900-1929"),
@@ -503,6 +510,188 @@ def transit_v2(
     )
 
 
+# Which way an apartment faces: the building's frontage (the street of its
+# address, and which side of it the building stands on) against the apartment's
+# window exposures, front/rear unit labels and ad text, pooled over the unit's
+# listings. Manhattan's grid runs FRONTAGE_BEARING_DEG east of true north; a
+# front on the grid's north or south lands on the same compass point either way.
+FRONTAGE_BEARING_DEG = 29.0
+WIDE_STREETS = frozenset({14, 23, 34})  # Chelsea's wide two-way crosstown streets
+_SIDE_ADDRESS = re.compile(r"^\d+[A-Z]?(?:-\d+)?\s+WEST\s+(\d+)\s+STREET")
+_AVENUE_ADDRESS = re.compile(r"^\d+[A-Z]?(?:-\d+)?\s+(\d+)\s+AVENUE")
+_AMERICAS = re.compile(r"AVENUE OF (THE )?AMERICAS|AMERICAS AVENUE")
+FRONT_TEXT = (
+    r"street[- ]facing|facing the street|faces the street|front[- ]facing"
+    r"|avenue[- ]facing|facing (the )?avenue"
+    r"|overlook(s|ing) (the )?(avenue|street|\d+(st|nd|rd|th) street)"
+)
+REAR_TEXT = (
+    r"rear[- ]facing|back of the building|courtyard[- ]facing|faces the courtyard"
+    r"|facing the courtyard|quiet (rear|back)|garden[- ]facing|facing the garden"
+    r"|back[- ]facing|faces the back"
+)
+OPPOSITE = {"north": "south", "south": "north", "east": "west", "west": "east"}
+
+
+def frontage_street(label: str):
+    """(centerline name, street type, axis) of an address label, or Nones."""
+    address = str(label).upper().split(",")[0]
+    if m := _SIDE_ADDRESS.match(address):
+        n = int(m.group(1))
+        kind = "wide street" if n in WIDE_STREETS else "side street"
+        return f"W  {n} ST", kind, "crosstown"
+    if _AMERICAS.search(address):
+        return "AVE OF THE AMERICAS", "avenue", "avenue"
+    if m := _AVENUE_ADDRESS.match(address):
+        return f"{int(m.group(1))} AVE", "avenue", "avenue"
+    return None, None, None
+
+
+@functools.lru_cache(maxsize=1)
+def building_frontage() -> pd.DataFrame:
+    """Per registry building: its frontage street type (avenue, wide street,
+    side street) and the grid direction its front faces (the side of its
+    address street it stands on, from the street's centerline)."""
+    registry = pd.read_parquet(REGISTRY_FILE).set_index("building")
+    lat0, lon0 = registry.latitude.mean(), registry.longitude.mean()
+    phi, metres = math.radians(FRONTAGE_BEARING_DEG), 111_320.0
+    cos0 = math.cos(math.radians(lat0))
+
+    def grid(lon, lat):
+        east, north = (lon - lon0) * metres * cos0, (lat - lat0) * metres
+        return np.array(
+            [
+                east * math.cos(phi) - north * math.sin(phi),
+                east * math.sin(phi) + north * math.cos(phi),
+            ]
+        )
+
+    streets = pd.read_parquet(BASEMAP_FILE).query("layer == 'street'")
+    segments = {}
+    for row in streets.itertuples():
+        geometry = json.loads(row.geometry)
+        lines = geometry["coordinates"]
+        lines = lines if geometry["type"] == "MultiLineString" else [lines]
+        for line in lines:
+            points = np.array([grid(*p) for p in line])
+            segments.setdefault(row.name, []).append((points[:-1], points[1:]))
+    out = []
+    for building, r in registry.iterrows():
+        name, kind, axis = frontage_street(r.label)
+        if name not in segments or pd.isna(r.latitude):
+            out.append((building, None, None))
+            continue
+        p = grid(r.longitude, r.latitude)
+        best, offset = np.inf, None
+        for a, b in segments[name]:
+            ab = b - a
+            t = np.clip(
+                ((p - a) * ab).sum(1) / np.maximum((ab * ab).sum(1), 1e-12), 0, 1
+            )
+            q = a + t[:, None] * ab
+            d = np.hypot(*(p - q).T)
+            i = int(d.argmin())
+            if d[i] < best:
+                best, offset = d[i], p - q[i]
+        if axis == "crosstown":
+            front = "south" if offset[1] > 0 else "north"
+        else:
+            front = "west" if offset[0] > 0 else "east"
+        out.append((building, kind, front))
+    return pd.DataFrame(out, columns=["building", "street_type", "front"]).set_index(
+        "building"
+    )
+
+
+def unit_orientation(frame: pd.DataFrame) -> pd.DataFrame:
+    """Per row: which way its unit faces (front, rear, front and rear, side,
+    unknown) and the building's frontage street type, from all of the unit's
+    listings."""
+    from . import descriptions
+
+    frontage = building_frontage().reindex(frame.building.to_numpy())
+    front_dir = frontage.front.to_numpy()
+    windows = {d: frame[f"window_{d}"].eq("yes").to_numpy() for d in OPPOSITE}
+    known = pd.notna(front_dir)
+    at = lambda d: np.array(
+        [windows[x][i] if isinstance(x, str) else False for i, x in enumerate(d)]
+    )
+    front_window = at(front_dir)
+    back_window = at([OPPOSITE[x] if isinstance(x, str) else None for x in front_dir])
+    any_window = np.column_stack(list(windows.values())).any(1)
+    # "2F" / "2R": front and rear, only in buildings whose lettered labels are all F or R.
+    label = frame.canonical_unit_url.str.extract(r"/([^/]+)$")[0].str.upper().fillna("")
+    letter = label.str.extract(r"^\d{1,2}([A-Z]+)$")[0]
+    letters = letter.groupby(frame.building.to_numpy()).agg(lambda s: set(s.dropna()))
+    fr_building = frame.building.map(
+        lambda b: (
+            letters.get(b, set()) <= {"F", "R"} and len(letters.get(b, set())) == 2
+        )
+    )
+    label_front = (fr_building & letter.eq("F")).to_numpy()
+    label_rear = (fr_building & letter.eq("R")).to_numpy()
+    text = descriptions.attach(frame).fillna("").str.lower()
+    text_front = text.str.contains(FRONT_TEXT, regex=True).to_numpy()
+    text_rear = text.str.contains(REAR_TEXT, regex=True).to_numpy()
+    rows = pd.DataFrame(
+        {
+            "front": (known & front_window)
+            | label_front
+            | text_front
+            | frame.view_street.eq("yes").to_numpy(),
+            "rear": (known & back_window)
+            | label_rear
+            | text_rear
+            | frame.view_courtyard.eq("yes").to_numpy(),
+            "window": any_window,
+        },
+        index=frame.index,
+    )
+    unit = rows.groupby(frame.unit_id.to_numpy()).transform("any")
+    facing = np.select(
+        [
+            unit.front & unit.rear,
+            unit.front,
+            unit.rear,
+            unit.window,
+        ],
+        ["front and rear", "front", "rear", "side"],
+        "unknown",
+    )
+    return pd.DataFrame(
+        {"facing": facing, "street_type": frontage.street_type.to_numpy()},
+        index=frame.index,
+    )
+
+
+def facing_v1(
+    frame: pd.DataFrame, train: np.ndarray, id: str = "facing-v1", base: str = "base-v1"
+) -> Features:
+    """A base set plus which way the apartment faces (unit-level): its
+    building's front on an avenue, a wide street or a side street, its rear,
+    both (floor-through), or only the sides; against no evidence."""
+    base = FEATURE_SETS[base](frame, train)
+    o = unit_orientation(frame)
+    b = _Builder(frame)
+    for kind in ("avenue", "wide street", "side street"):
+        b.add(
+            "facing",
+            f"faces front: {kind}",
+            (o.facing == "front") & (o.street_type == kind),
+        )
+    b.add("facing", "faces rear only", o.facing == "rear")
+    b.add("facing", "faces front and rear", o.facing == "front and rear")
+    b.add("facing", "faces the sides only", o.facing == "side")
+    extra = b.build(id)
+    return Features(
+        id,
+        base.names + extra.names,
+        base.groups + extra.groups,
+        np.column_stack([base.values, extra.values]),
+        np.concatenate([base.prior_scale, extra.prior_scale]),
+    )
+
+
 # Feature sets that read the external snapshots (run records list them).
 EXTERNAL = {
     "pluto-v1",
@@ -513,9 +702,12 @@ EXTERNAL = {
     "unitdescplutotransit-v2",
     "unitdescpluto-v2",
     "unitdescpluto-v3",
+    "unitfacing-v1",
 }
 # Feature sets that read the subway stations snapshot.
 SUBWAY = {"unitdescplutotransit-v2"}
+# Feature sets that read the basemap snapshot (street centerlines).
+BASEMAP = {"unitfacing-v1"}
 # Feature sets that read the advertisement descriptions (`descriptions.SOURCE`),
 # directly or through their base set.
 DESCRIPTIONS = {
@@ -526,6 +718,7 @@ DESCRIPTIONS = {
     "unitdescplutotransit-v2",
     "unitdescpluto-v2",
     "unitdescpluto-v3",
+    "unitfacing-v1",
 }
 
 FEATURE_SETS = {
@@ -552,6 +745,8 @@ FEATURE_SETS = {
     "unitdescpluto-v2": partial(
         pluto_v1, id="unitdescpluto-v2", base="unitdesc-v1", flood_zone=False
     ),
+    # Which way the apartment faces, on the app's building facts (v3).
+    "unitfacing-v1": partial(facing_v1, id="unitfacing-v1", base="unitdescpluto-v3"),
     # v2 with "altered since 2000" from the latest recorded alteration.
     "unitdescpluto-v3": partial(
         pluto_v1,
