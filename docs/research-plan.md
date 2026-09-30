@@ -829,32 +829,38 @@ comes from other sources, most of them public NYC and NYS data.
   building's frontage street (LION and building footprints). A street-facing unit then gets that
   street's width and traffic.
 - Height against the neighbours (MapPLUTO heights) as a light and view proxy.
-- **First result: which way the apartment faces** (`unitfacing-v1` = `unitdescpluto-v3` plus the
-  facing columns; Gibbs m5-nocurves, `unit-labels-v1`, 2 × (300 + 3600), 18df498, 2026-09-29;
+- **First result: which way the apartment faces** (`unitfacing-v2` = `unitdescpluto-v3` plus the
+  facing columns; Gibbs m5-nocurves, `unit-labels-v1`, 2 × (300 + 3600), 4519fb2, 2026-09-29;
   Ben's hypothesis, 2026-09-29: facing a wide, loud street such as 14th or an avenue is cheaper,
   facing a quiet side street dearer).
   - Frontage per building: the street of its address (avenue, wide crosstown street 14th, 23rd or
     34th, or side street) and the side of it the building stands on, from the basemap snapshot's
-    centerlines. It is found for 1,095 of 1,129 buildings and agrees with house-number parity on
-    all 901 crosstown buildings.
+    centerlines. It is found for 1,121 of 1,129 buildings; the rest are rear buildings and named
+    places. It agrees with house-number parity on all 901 crosstown buildings.
   - Facing per unit, pooled over its listings, uses four kinds of evidence: window exposures
     against the frontage, front/rear labels (2F/2R, only in buildings whose lettered labels are all
-    F or R), ad text ("street-facing", "quiet rear", ...) and street or courtyard views.
-    - Front: 1,613 rows on an avenue, 1,081 on a wide street, 2,641 on a side street.
-    - Other classes: rear only 4,710; front and rear 1,414; sides only 2,968.
-    - Unknown (the reference): 38,211.
-  - It passes in 1,365 s: R-hat 1.006, ESS 727, every-element R-hat 1.010. PSIS-LOO is 52,448.5,
-    **+8.9 ± 7.9 against the building facts alone** (not a clear gain), and +11,855 over m0.
-  - Effects are small, a percent or two. Against rear-facing units:
-    - **front on a wide street −0.8%** (−1.8 to +0.2), and −1.0% (−2.2 to +0.0) against front on
-      a side street: the direction Ben expected;
-    - front on an avenue +0.5% (−0.3 to +1.4): not the expected direction; avenue-facing
-      apartments in towers also get light and views;
-    - front on a side street +0.3% (−0.5 to +1.0);
-    - front and rear (floor-throughs) **+1.8%** (+0.8 to +2.9);
-    - sides only −0.4% (−1.1 to +0.3).
+    F or R), ad text ("street-facing", "quiet rear", "floor-through", ...) and street or courtyard
+    views.
+    - Front: 1,717 rows on an avenue, 1,050 on a wide street, 2,547 on a side street.
+    - Other classes: rear only 4,733; windows front and back 2,763; sides only 2,592 (side
+      windows count only where the frontage is known).
+    - Unknown (the reference): 37,236.
+  - It passes in 1,365 s: R-hat 1.006, ESS 579, every-element R-hat 1.009. PSIS-LOO is 52,453.4,
+    **+13.7 ± 9.1 against the building facts alone** (not a clear gain), and +11,860 over m0.
+  - Effects are small, about a percent. Against rear-facing units:
+    - front on a wide street −0.9% (−1.8 to +0.1), and −1.1% (−2.2 to +0.0) against front on a
+      side street. That is the direction Ben expected, but both intervals reach zero;
+    - front on an avenue +0.8% (−0.0 to +1.6): the other way. Avenue-facing units are often in
+      taller buildings with light and views, which may explain it;
+    - front on a side street +0.2% (−0.6 to +1.0);
+    - windows front and back **+2.3%** (+1.5 to +3.2). The class counts floor-throughs, but also
+      corner units with three or four exposures in towers;
+    - sides only −0.3% (−1.0 to +0.5).
+  - A first version (`-v1`, 18df498) missed Sixth Avenue: its centerlines are named Avenue of the
+    Americas, and spelled-out avenues did not parse. It also counted side windows where the
+    frontage was unknown. It scored +8.9 ± 7.9 with the same pattern (PR #58 review).
   - Why so small:
-    - the evidence covers 27% of rows;
+    - the evidence covers 29% of rows;
     - a unit's own level already carries its orientation when it has other listings;
     - noise may matter mostly on low floors (an interaction with floor is the natural next test).
 

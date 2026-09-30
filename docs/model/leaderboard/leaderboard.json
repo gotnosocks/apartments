@@ -16522,6 +16522,201 @@
         "baseline": "m0-base/base-v1/gibbs@5cc0809"
       },
       "hardware_class": "thelio RTX 2060 SUPER",
+      "frontier": false,
+      "current_best": false,
+      "note": "",
+      "annotations": []
+    },
+    {
+      "id": "m5-nocurves/unitfacing-v2/gibbs@4519fb2+unit-labels-v1",
+      "commit": "4519fb2243f023d6a8cec2360eb5e3485922291f",
+      "model": {
+        "name": "m5-nocurves",
+        "trend": true,
+        "season": true,
+        "features": true,
+        "buildings": true,
+        "units": true,
+        "market_drift": false,
+        "market_drift_sd": 0.1,
+        "beta_sd": 0.5,
+        "trend_scale_sd": 0.05,
+        "season_scale_sd": 0.05,
+        "building_scale_sd": 0.5,
+        "unit_scale_sd": 0.2,
+        "noise_scale_sd": 0.2,
+        "noncentered": [],
+        "coordinates": [],
+        "building_walk": true,
+        "walk_scale_sd": 0.1,
+        "walk_knot_months": 6,
+        "walk_t": false,
+        "walk_nu_fixed": null,
+        "walk_min_rows_per_knot": 0.0,
+        "walk_anchor_data": false,
+        "line_effects": false,
+        "line_scale_sd": 0.1,
+        "walk_zero_sum": false,
+        "building_trend": false,
+        "building_trend_scale_sd": 0.05,
+        "bedroom_time": false,
+        "bedroom_time_scale_sd": 0.02,
+        "bedroom_slope": true,
+        "bedroom_slope_scale_sd": 0.1,
+        "feature_slopes": [],
+        "feature_slope_scale_sd": 0.1,
+        "trend_knot_months": 3,
+        "bedroom_time_knot_months": 1,
+        "nu_fixed": null,
+        "unit_t": false,
+        "unit_nu_fixed": null,
+        "unit_drift": false,
+        "unit_drift_scale_sd": 0.05
+      },
+      "feature_set": "unitfacing-v2",
+      "sampler": "gibbs",
+      "sampler_settings": {
+        "chains": 2,
+        "warmup": 300,
+        "draws": 3600,
+        "keep_every": 6,
+        "seed": 20260923,
+        "noise_steps": 10,
+        "sigma_step_sd": 0.004,
+        "nu_step_sd": 0.03,
+        "rescale_steps": 20,
+        "rescale_step_sd": 0.01,
+        "trace_groups": 32,
+        "collapse": true,
+        "collapse_scale": 2.38,
+        "collapse_cov": true,
+        "chain_batch": 2,
+        "solo_scales": [
+          "walk_scale"
+        ]
+      },
+      "hardware": "thelio RTX 2060 SUPER",
+      "interpretable": true,
+      "splits": {
+        "rows": {
+          "run": "m5-nocurves-unitfacing-v2-rows-4519fb2-gibbs-2060-3600-ul1",
+          "elpd": 6387.154254066725,
+          "elpd_se": 75.46597378945225,
+          "elpd_mcse": 0.06707907507097843,
+          "delta": 523.4587602878146,
+          "delta_se": 46.99449194086586,
+          "paired_rows": 5264,
+          "max_rhat": 1.0057207119340619,
+          "min_ess": 578.8014205684605,
+          "divergences": null,
+          "passes": true,
+          "fit_seconds": 1364.9022637599846,
+          "sampling_seconds": 1235.8088693530299,
+          "cost_usd": null,
+          "group_rhat_max": 1.009463311704779,
+          "group_rhat_method": "per-chain moments, all effects"
+        }
+      },
+      "passes_checks": true,
+      "split_hardware": {
+        "rows": "thelio RTX 2060 SUPER"
+      },
+      "line": "frontier",
+      "grade": "full",
+      "fit_seconds": 1364.9022637599846,
+      "fit_seconds_all_splits": 1364.9022637599846,
+      "cost_usd": 0.0,
+      "contention": {
+        "wall_seconds": 1364.9025603419868,
+        "own_cpu_seconds": 1453.5,
+        "other_cpu_seconds": 111.3399999999674,
+        "other_cores": 0.08157358864655534,
+        "cpus": 12,
+        "gpu_other_pids": []
+      },
+      "variance": {
+        "commit": "4519fb2243f023d6a8cec2360eb5e3485922291f",
+        "shares": {
+          "market and time": 0.08375373200443043,
+          "features": 0.7675140164625713,
+          "building": 0.07825303831573142,
+          "building over time": 0.010176832521652862,
+          "building slopes": 0.016485795659097763,
+          "unit": 0.0184752857975721,
+          "residual": 0.025341299238944084,
+          "r2": 0.974658700761056
+        },
+        "intervals": {
+          "market and time": {
+            "mean": 0.08375373200443043,
+            "lower_90": 0.08163884444231462,
+            "upper_90": 0.08582772657994656
+          },
+          "features": {
+            "mean": 0.7675140164625713,
+            "lower_90": 0.7515553018874168,
+            "upper_90": 0.783513794277454
+          },
+          "building": {
+            "mean": 0.07825303831573142,
+            "lower_90": 0.06347840298402842,
+            "upper_90": 0.0933065418292667
+          },
+          "building over time": {
+            "mean": 0.010176832521652862,
+            "lower_90": -0.0004519536991192644,
+            "upper_90": 0.02039158143553513
+          },
+          "building slopes": {
+            "mean": 0.016485795659097763,
+            "lower_90": 0.009189381805306504,
+            "upper_90": 0.023561307311772327
+          },
+          "unit": {
+            "mean": 0.0184752857975721,
+            "lower_90": 0.016915569670636576,
+            "upper_90": 0.02014788356467041
+          },
+          "residual": {
+            "mean": 0.025341299238944084,
+            "lower_90": 0.02483641587062009,
+            "upper_90": 0.025844849320364953
+          },
+          "r2": {
+            "mean": 0.974658700761056,
+            "lower_90": 0.9741551506796351,
+            "upper_90": 0.9751635841293799
+          }
+        }
+      },
+      "psis": {
+        "run": "m5-nocurves-unitfacing-v2-rows-4519fb2-gibbs-2060-3600-ul1",
+        "commit": "4519fb2243f023d6a8cec2360eb5e3485922291f",
+        "rows": 47374,
+        "draws": 1200,
+        "elpd": 52453.37030239854,
+        "elpd_se": 239.3017410148466,
+        "mcse": 4.686337233632385,
+        "pareto_k": {
+          "threshold": 0.6752383441917945,
+          "over_threshold": 386,
+          "over_0_7": 339,
+          "max": 1.970983463185138,
+          "share_over_threshold": 0.008147929243889053
+        },
+        "validation": {
+          "note": "mean held-out lpd (repeat-listed units, genuinely left out) vs mean PSIS-LOO over training rows of units with 2+ training rows",
+          "heldout_rows": 5264,
+          "heldout_mean_lpd": 1.2133651698455026,
+          "psis_mean_lpd_multi_row_units": 1.2173109372243571
+        },
+        "integrated": "unit level",
+        "delta": 11859.499692075304,
+        "delta_se": 174.29791869727256,
+        "delta_mcse": 5.827797895349201,
+        "baseline": "m0-base/base-v1/gibbs@5cc0809"
+      },
+      "hardware_class": "thelio RTX 2060 SUPER",
       "frontier": true,
       "current_best": false,
       "note": "",
