@@ -574,3 +574,25 @@ def test_building_violations_count_the_trailing_year_only(tmp_path, monkeypatch)
         }
     )
     assert features.building_violations(frame).tolist() == [2.0, 0.0, 1.0, 0.0]
+
+
+def test_facing_v4_marks_loud_streets_on_low_floors(monkeypatch):
+    frame = pd.DataFrame({"unit_id": ["a", "b", "c", "d"]})
+    looks = pd.DataFrame(
+        {
+            "avenue": [True, True, False, False],
+            "wide street": [False, False, True, True],
+            "side street": [False] * 4,
+            "none": [False] * 4,
+        }
+    )
+    base = features.Features("b", ["x"], ["g"], np.zeros((4, 1)), np.ones(1))
+    monkeypatch.setitem(features.FEATURE_SETS, "probe-base", lambda f, t: base)
+    monkeypatch.setattr(features, "unit_sides", lambda f: looks)
+    monkeypatch.setattr(
+        features, "row_floor", lambda f: pd.Series([2.0, 9.0, 4.0, np.nan])
+    )
+    out = features.facing_v4(frame, np.ones(4, bool), base="probe-base")
+    cols = {n: out.values[:, i] for i, n in enumerate(out.names)}
+    assert cols["looks onto an avenue, floors 1-4"].tolist() == [1, 0, 0, 0]
+    assert cols["looks onto a wide street, floors 1-4"].tolist() == [0, 0, 1, 0]
