@@ -298,7 +298,8 @@ about 51 never queued).
 
 ### Restart
 
-Only for a new collection run: the September 30 crawl finished its queue. Check the journal for HTTP 401/402/403 first.
+Only for a new collection run: the September 30 crawl finished its queue. Check
+the journal for HTTP 401/402/403 first.
 The runtime is fixed. Resume replays offline setup before any request; it spends
 no credits. Setup re-reads every archived unit and listing capture, so its length
 grows with the archive: 2.5 to 6.5 minutes under v6 (September 22-23), about 26
@@ -350,8 +351,7 @@ placed in claim order have negative `frontier.rowid`.
   large fits run alongside the crawl, check free memory or coordinate with the
   fitting session.
 - The Codex heartbeat `improve-west-village-scrape-efficiency` is paused.
-- Scale: about 23k advertisements from 2014 on remain queued (September 26), about
-  4 days at four per minute, unless credits run out first.
+- Scale: the September 30 crawl finished its queue; see Handoff status for totals.
 
 ### Code and version control
 
