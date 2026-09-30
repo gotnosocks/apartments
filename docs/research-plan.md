@@ -714,6 +714,25 @@ the fix goes into the model, the features or the data, not the sampler.
       Eleventh Avenue, a lot missing from the MapPLUTO snapshot.
 
     All three go to the backlog.
+  - **Follow-up: Avalon West Chelsea (`registry-overrides-v2`, `unitdescpluto-v5`).**
+    - Its ads give "largest studio in avalon west chelsea (282 11th avenue)" and "282 11th ave,
+      1110". GeoSearch puts that on lot 1007000009, which MapPLUTO records as 539 West 28th: 31
+      floors and 710 apartments, built 2013. The page had sat on 550 West 29th (12 floors, 19
+      apartments), while 55 of its 124 listed floors are above the 12th.
+    - Registry v3 (`20260930-676c382`) changes only this page. MapPLUTO for its lots adds only lot
+      1007000009; every other lot is unchanged.
+    - AVA High Line stays: its address field says "507 West Chelsea", and its ads give no house
+      number. 507 West Chelsea is on the right lot, the three towers of 509 West 28th, but
+      MapPLUTO's 13 floors understate its tallest tower (385 ft, listings to the 33rd floor).
+    - **Result: a tie, as expected.** The fit is Gibbs m5-nocurves + `unitdescpluto-v5`,
+      `unit-labels-v1` + `quarantine-v1`, 90f66cf. It took 1,362 s and passes (R-hat 1.0058, ESS
+      644).
+      - Against v4 (3e514d6), PSIS-LOO is +0.0 ± 6.5 and held-out +0.0 ± 0.1. Avalon's 216 fit
+        rows move by +0.05 in all: with that many listings, its building level already carried
+        what the wrong facts missed.
+      - Features 78.2% → 78.3% of the variance, and building level 7.0% → 7.0%.
+      - What changes is what renters see: a v5 app fit would show Avalon West Chelsea's real
+        height and size.
   - **Result: a tie in accuracy; the named facts carry more.** The run is Gibbs m5-nocurves +
     `unitdescpluto-v4`, `unit-labels-v1` + `quarantine-v1`, 3e514d6. It took 1,363 s and passes
     (R-hat 1.0046, ESS 672).
