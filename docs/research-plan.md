@@ -60,7 +60,7 @@ that a typical apartment renter thinks about when choosing a place to rent."
 | Transit (`unitdescplutotransit-v2`) | The walk to the nearest subway station, and how many subway lines stop within a 10-minute walk, counting the stations open at the time of the listing. |
 | Which way the apartment faces (`unitfacing-v2`) | Whether the apartment looks onto its building's street (an avenue, a wide street such as 14th, or a side street), onto the back, both front and back, or only to the sides, from its window directions, front/rear unit labels, ad text and street or courtyard views. |
 | Streets the apartment looks onto (`unitfacing-v3`) | Whether the apartment's windows look onto an avenue, a wide street such as 14th, a side street, or the rear or a courtyard, using every side of its building that has a clear view of a street (corner and through-block buildings have more than one; a wall against a neighbour has none). |
-| A loud street on a low floor (`unitfacing-v4`) | Whether an apartment on floors 1–4 looks onto an avenue or a wide street, where traffic noise is loudest; the same view higher up is priced as in `unitfacing-v3`. |
+| A loud street on a low floor (`unitfacing-v4`; `unitfacing-v5` on the corrected registry) | Whether an apartment on floors 1–4 looks onto an avenue or a wide street, where traffic noise is loudest; the same view higher up is priced as in `unitfacing-v3`. |
 | Building level | This building's premium beyond its apartments' features: its location, quality and management. |
 | Building trend or walk | How that premium has moved over time, for example a renovation or a changing block: steadily (the trend) or along a path that can change direction at each knot, joined by straight lines (the walk). Sum-to-zero walks make it relative to the market, so "the market" and "this building" never overlap. |
 | Bedroom slope (m5) | In some buildings the larger apartments carry an extra premium or discount. |
@@ -1103,6 +1103,29 @@ comes from other sources, most of them public NYC and NYS data.
     −0.6%, 87% below zero). It matches what renters say about street noise, and it adds two
     terms at no cost in accuracy or time. As with `unitfacing-v3`, it is not a selection change:
     the gain is in the description, within noise on the score (PR #72 review).
+- **Facing on the corrected registry** (`unitfacing-v5`; Gibbs m5-nocurves, `unit-labels-v1` +
+  `quarantine-v1`, 2 × (300 + 3600), 1a1da8f, 2026-09-30).
+  - **What.** `unitfacing-v4` on registry v3, the 12 pages re-geocoded from their ads (#68, #74).
+    Building facts, address fronts and footprint sides now come from the right buildings.
+    - `building_sides` and `building_frontage` read the registry of the set being built.
+    - The facing grid keeps the first registry's origin, so every other building's sides are
+      exactly as before. Built with this code, `unitfacing-v4` is identical to master's.
+  - **Changes.** The facing flags change on 353 rows, all on the re-geocoded pages: One Hudson
+    Yards 202, ART 54, Chatham 33, Verde 29, HL23 12, One High Line 12, the Cortland 8, 301
+    West 21st 3.
+  - **Result: a tie in accuracy; the named terms carry more.** 1,352 s, passes (R-hat 1.0060,
+    ESS 719).
+    - Against `unitfacing-v4` (dc50bf1), PSIS-LOO is −2.4 ± 7.1 and held-out −0.8 ± 0.5.
+      Against `unitdescpluto-v5` (90f66cf, the same facts without facing), +6.1 ± 8.3 and −2.2 ±
+      1.5. Against the app's model (fef2aa5), +5.9 ± 8.7 and −2.4 ± 1.6.
+    - Named features rise from 77.11% to 78.37% of the variance against `unitfacing-v4`; the
+      building level falls from 7.70% to 6.91%, and building over time from 0.92% to 0.48%.
+    - The facing effects hold. Against a side street, on floors 1–4: a wide street −2.4% (−3.8
+      to −1.0; 99.8% below zero), an avenue −1.1% (−2.3 to +0.1; 93.5%). From the 5th floor
+      up: a wide street −0.6% (−1.4 to +0.2), an avenue +0.0% (−0.7 to +0.7).
+  - **Reading.** This is the design that serves the corrected building facts and the facing
+    terms together. With `quarantine-v2`, it is the candidate for the app, and switching is
+    Ben's call.
 
 *Testing.*
 - Add each source group as its own feature set, alone and then combined.

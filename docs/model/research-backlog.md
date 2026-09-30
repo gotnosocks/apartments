@@ -133,9 +133,19 @@ Ben chose to start with street-facing units (research plan A′, "Unit orientati
     Chelsea". Its ads describe an AvalonBay building "on 28th st bet 10 & 11th avs" with a
     14th-floor roof deck, and its listings reach the 12th floor. That fits the lower part of
     the Avalon lot (539 West 28th), but the ads give no house number, so it stays.
-- **Reverse-geocoded pages without an address in their ads.** 99 pages remain matched by
-  reverse geocoding. The two checks found nothing wrong with them, but neither check can show
-  that they are right.
+- **Reverse-geocoded pages.** 99 pages remain matched by reverse geocoding. A check against
+  the ads' own location statements ("located on …", house-number addresses) and the streets each
+  building fronts (centerlines within 25 m of its footprints) sorts them:
+  - 67 are confirmed: every statement names a street the building fronts.
+  - 8 have statements that disagree, all for benign reasons: a corner or a second entrance (the
+    Carteret, the Irvin House, the Sierra and Stonehenge Gardens on 15th Street, the same lot as
+    108 West 15th), a sponsor's address, a broker's other building, or a slip ("151 east 21st").
+  - 24 pages (2,987 rows) state no address, so nothing confirms them.
+- **Pages with no footprint.** 18 pages (363 rows) match no footprint by BIN or lot, so their
+  facing sides are unknown. Most are condominiums on a billing lot (75xx) with a placeholder BIN
+  (1000000): Lantern House, The Seymour, Soori High Line, the Spears Building. GeoSearch on the
+  address gives the real BIN (Lantern House, 515 West 18th: 1091605), so a registry version could
+  resolve them.
 - **Listings above their footprint's roof.** The registry BIN's footprint roof height is far
   below the listings' floors for eight buildings. No feature reads the roof height: building
   heights come from MapPLUTO's floor count, and for Chelsea29 (MapPLUTO 21 floors, listings to
