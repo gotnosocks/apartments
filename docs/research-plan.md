@@ -899,9 +899,9 @@ comes from other sources, most of them public NYC and NYS data.
   - **Why it adds nothing.** Across buildings, violations do go with lower rents. About half the
     buildings have no class B or C violations since 2010, and their median premium is +2.4%.
     Buildings with any have a median of −1.3%, and the quarter with the most per apartment,
-    about −2.5%. But the
-    building facts and each building's own level already carry that. The building level's share of the variance stays at 7.7%, and a year with
-    violations does not move a building's asks against its own path.
+    about −2.5%. But the building facts and each building's own level already carry that. The
+    building level's share of the variance stays at 7.7%, and a year with violations does not
+    move a building's asks against its own path.
   - **Known limitations of these versions** (PR #67 review; a new version would fix them, but
     the result gives no reason to make one):
     - A building with its own BIN but no class B or C violations falls back to its lot's, taking
