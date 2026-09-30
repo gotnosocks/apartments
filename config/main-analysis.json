@@ -1,31 +1,32 @@
 {
   "version": "main-analysis-selection-v2",
   "model_family": "frontier_summary",
-  "summary": "/data1/apartments/frontier/summaries/m5-nocurves-unitdescpluto-v3-rows-faa8c78-gibbs-2060-3600-ul1-90aa695",
-  "summary_manifest_sha256": "32f353b7e74e68eb89157e53b71515614ab9fbc52c1619e5a6e63abffb133c89",
-  "summary_commit": "90aa6950a44af1f8cc87a3df83c830e9e8814b3b",
-  "run": "m5-nocurves-unitdescpluto-v3-rows-faa8c78-gibbs-2060-3600-ul1",
-  "run_commit": "faa8c78fb978a3b87a446b83a9dabefaea15a471",
+  "summary": "/data1/apartments/frontier/summaries/m5-nocurves-unitdescpluto-v3-rows-fef2aa5-gibbs-2060-3600-ul1q1-d0f3cc9",
+  "summary_manifest_sha256": "d7bc56e1d7517ade50fb77d39328c67c84b18d0e3ffba4deaa27aa0dc17b63f1",
+  "summary_commit": "d0f3cc959d3517ecd935551b9dc3a3d03e23e77c",
+  "run": "m5-nocurves-unitdescpluto-v3-rows-fef2aa5-gibbs-2060-3600-ul1q1",
+  "run_commit": "fef2aa56f352d970f1f2921ae256e9cbc45bda17",
   "model": "m5-nocurves",
   "feature_set": "unitdescpluto-v3",
   "data_rules": [
-    "unit-labels-v1"
+    "unit-labels-v1",
+    "quarantine-v1"
   ],
   "dataset": "data/model/chelsea-product-scope-analysis-20260921",
   "source_observations_sha256": "8e29179bac059bf04b86c7b57acc65324e80fc209fb14793fbb1b9be47b2816f",
   "gate": {
     "passes": true,
-    "max_rhat": 1.0059402577195036,
-    "min_ess": 585.2078715310015,
+    "max_rhat": 1.0043306052651497,
+    "min_ess": 694.145660769441,
     "divergences": null,
-    "group_rhat_max": 1.008767126366731
+    "group_rhat_max": 1.0099161107539147
   },
   "psis_loo": {
-    "elpd_loo": 52439.62424279524,
-    "elpd_loo_se": 239.35530062654178,
-    "loo_commit": "faa8c78fb978a3b87a446b83a9dabefaea15a471"
+    "elpd_loo": 52586.13934151,
+    "elpd_loo_se": 237.11869588460198,
+    "loo_commit": "fef2aa56f352d970f1f2921ae256e9cbc45bda17"
   },
-  "selected_by": "Ben, 2026-09-29",
-  "selection_reason": "Ben chose the building-facts version of the app's design for interpretability at equal accuracy: the Gibbs m5-nocurves fit with unitdescpluto-v3 (the listing features plus NYC MapPLUTO building facts: era, size, class, landmark and historic-district status, alteration since 2000; the 2015 flood-zone flag left out because in Chelsea it marks the western blocks). PSIS-LOO +8.2 ± 18.3 against the previous selection (m5-nocurves + unitdesc-v1) on identical rows, 1,376 s on the RTX 2060; the anonymous building level falls from 29% to 8% of the variance. Every term has a renter-facing explanation (docs/research-plan.md, glossary).",
-  "uncertainty": "Conditional posterior uncertainty; source errors, omitted features and incomplete market coverage remain separate. Estimates for a unit's only listing are under-covered (91.4% in the 95% predictive range)."
+  "selected_by": "Ben, 2026-09-30",
+  "selection_reason": "Ben chose the served design (Gibbs m5-nocurves + unitdescpluto-v3) refit with the divergence review's quarantine (data rule quarantine-v1: 143 advertisements that their own words or MapPLUTO show are not an open-market lease of a whole Chelsea apartment at the recorded address), and asked that the site say which listings are quarantined. Accuracy ties the previous selection on the rows both keep (PSIS-LOO +8.9 \u00b1 13.5, held-out +2.7 \u00b1 3.1); 1,361 s on the RTX 2060. The site lists the quarantined listings with the review's reason and no estimate.",
+  "uncertainty": "Conditional posterior uncertainty; source errors, omitted features and incomplete market coverage remain separate. Estimates for a unit's only listing are under-covered (91.6% in the 95% predictive range)."
 }
