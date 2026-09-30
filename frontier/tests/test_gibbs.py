@@ -77,6 +77,7 @@ def synthetic(seed=0, n_buildings=15, units_per_building=8, months=24):
 DESIGNS = {
     "base": model.ModelConfig(),
     "walk": model.ModelConfig(building_walk=True),
+    "walk12": model.ModelConfig(building_walk=True, walk_knot_months=12),
     "bedtime-slope": model.ModelConfig(bedroom_time=True, bedroom_slope=True),
     "all": model.ModelConfig(building_walk=True, bedroom_time=True, bedroom_slope=True),
     "fslopes": model.ModelConfig(
