@@ -69,7 +69,7 @@ that a typical apartment renter thinks about when choosing a place to rent."
 | Line (column) effects | Apartments stacked in the same column share a layout and exposure. |
 | Unit level | This apartment's own premium beyond its listed features: layout, light, condition. |
 | Unit drift (m8) | This apartment's ask moving steadily over time on its own. |
-| Student-t unit levels (m7, m8) | A few apartments differ a lot from their building (a penthouse, an oddity) without pulling the others' estimates. |
+| Student-t unit levels (m5-nocurves-tunits, m7, m8) | A few apartments differ a lot from their building (a penthouse, an oddity) without pulling the others' estimates. |
 | Heavy-tailed residuals (Student-t) | Some asks are unusual for reasons the data don't show. |
 
 ## The score
@@ -1275,6 +1275,36 @@ comes from other sources, most of them public NYC and NYS data.
 3. B.1 (yearly walk knots), reinvesting the saved time in B.2 (yearly bedroom curves) or A.5;
 4. the t-unit and drift shapes under NUTS (B.5);
 5. A.5 (flag ablation), A.6 (pruning), B.6 (noise) and A.3–A.4.
+
+- **Coarser building walks under Gibbs** (`m5-nocurves-walk12`; loop experiment, 2026-09-30).
+  - The NUTS m1 walks scored better with 2-year knots than half-year ones (+660), and half-year
+    knots leave rows alone at their knot, the high Pareto-k rows. The Gibbs sampler now takes
+    any knot spacing (`walk_knot_months`; `gibbs.site_values` carries it to the held-out
+    scores).
+  - **Result: a clear loss.** The yearly walk with `unitfacing-v5` + `quarantine-v2` (4b32a84)
+    fits in 943 s against 1,346 s and passes (R-hat 1.0058, ESS 847). But against the served
+    half-year design (66cf77f), PSIS-LOO is **−776.5 ± 34.7** and held-out −111.8 ± 12.9.
+    Rows over the Pareto-k threshold fall only from 389 to 321.
+  - **Reading.** In the m5 design, with a bedroom slope and a quarterly market trend, the
+    half-year walk carries real building movement that a yearly walk misses. The 2-year fit was
+    stopped: it could only be coarser. The yearly design stays on the board as a faster, less
+    accurate frontier point.
+
+- **Student-t unit levels on the served design** (`m5-nocurves-tunits`; loop experiment,
+  2026-09-30). The board's richer Gibbs designs (m7, m8) scored +2,800 to +3,100 over m5 but
+  failed the gate at 2 × (300 + 3000). This fit isolates one of their pieces: Student-t unit
+  levels, df estimated.
+  - **Result: a clear win.** The fit is `unitfacing-v5` + `unit-labels-v1` + `quarantine-v2`
+    (f74db76), 1,408 s, and passes (R-hat 1.0065, ESS 611). Against the served 66cf77f:
+    **PSIS-LOO +854.8 ± 61.2** and **held-out +76.1 ± 19.5**.
+  - The unit levels are very heavy-tailed: their df is 2.29 ± 0.07, and their scale falls from
+    0.067 to 0.042. So most apartments sit close to their building, and a few are far from
+    it: a penthouse, an oddity. The residual's ν rises from 2.10 to 2.42. Tails the residual
+    had carried now sit with the units they belong to.
+  - Variance: the unit share is 3.3% against 1.9%, and the residual share 1.9% against 2.4%.
+  - Rows over the Pareto-k threshold: 240 against 389.
+  - By `rentfrontier.autoselect` this clearly beats the served fit, so it becomes the served
+    model once merged.
 
 ## Work tracks, in order
 
