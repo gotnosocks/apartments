@@ -730,7 +730,7 @@ the fix goes into the model, the features or the data, not the sampler.
       - Against v4 (3e514d6), PSIS-LOO is +0.0 ± 6.5 and held-out +0.0 ± 0.1. Avalon's 216 fit
         rows move by +0.05 in all: with that many listings, its building level already carried
         what the wrong facts missed.
-      - Features 78.2% → 78.3% of the variance, and building level 7.0% → 7.0%.
+      - Features 78.20% → 78.32% of the variance, and building level 7.04% → 6.96%.
       - What changes is what renters see: a v5 app fit would show Avalon West Chelsea's real
         height and size.
   - **Result: a tie in accuracy; the named facts carry more.** The run is Gibbs m5-nocurves +
