@@ -683,6 +683,22 @@ the fix goes into the model, the features or the data, not the sampler.
     - A first draft of the file (131 rows, be61586) was also a tie: +3.6 ± 14.1 and +2.9 ± 2.4.
       That fit is archived under `runs-archive/quarantine-draft-2026-09-30`.
 
+- **Data rule `quarantine-v2`: a second review over every listing (2026-09-30).** It keeps all
+  143 rows of v1 and adds 15, each with its quote, in
+  `config/reviews/chelsea-quarantine-v2-20260930.jsonl`:
+  - six ads that locate the apartment on another street: four "335 West 29th" studios "located on
+    35th st & 8th ave", a 220 West 24th ad "located on tree-lined west 21st street", and a 421
+    West 21st ad "situated on west 22nd street";
+  - nine bedroom counts the ad flatly contradicts, found by comparing the count the ad's first
+    sentence states with the record, dropping hedged wording such as "convertible" or "1.5
+    bedroom". For example, Verde Chelsea 5A is recorded as one bedroom, and its ad says "1,686
+    square foot three-bedroom home".
+  - **Result: a tie.** The served design was refit with `unit-labels-v1` + `quarantine-v2`
+    (7ed6c55, 1,363 s, passes). Against the v1 fit (fef2aa5), on the rows both keep, PSIS-LOO is
+    −6.3 ± 9.0 and held-out −1.3 ± 1.4; ν stays at 2.10. The 15 rows were not badly fit (+0.4 PSIS-LOO
+    per row in the served fit): they are wrong data, not outliers.
+  - Paired scores on the board now leave out every row either quarantine drops (158).
+
 **Order.**
 1. **Data quality** (backlog "Data quality"). Audit rows by rules that do not use a model's
    residuals: within-unit consistency, attribute plausibility (price per square foot, bedrooms
