@@ -682,6 +682,40 @@ the fix goes into the model, the features or the data, not the sampler.
       list.
     - A first draft of the file (131 rows, be61586) was also a tie: +3.6 ± 14.1 and +2.9 ± 2.4.
       That fit is archived under `runs-archive/quarantine-draft-2026-09-30`.
+- **Registry corrections (`registry-overrides-v1`, `unitdescpluto-v4`, 2026-09-30).**
+  - **The problem.** The registry matched 111 building pages by reverse geocoding their archived
+    coordinates, because the page is a name or its address did not match nearby. Two checks
+    found the pages matched to a neighbouring lot:
+    - the page's ads give another address, and GeoSearch puts it on another lot;
+    - MapPLUTO records the matched lot far shorter than the floors its listings name.
+
+    Eleven pages, with 885 listings, fail one check or both. Some examples:
+    - One High Line was a 3-storey store lot, but its listings reach the 31st floor;
+    - HL23 was a 1-storey lot;
+    - Verde Chelsea and Citizen shared one lot;
+    - 301 West 21st Street had been placed a block south.
+  - **The fix.** `config/reviews/registry-overrides-20260930.json` holds each page's address with
+    its evidence: the ads' own words, or the page's own address. `rentfrontier.registry --base
+    … --overrides …` re-geocodes only those pages (registry `20260930-4d41f8b`, MapPLUTO for its
+    lots `20260930-4d41f8b`). Every other building keeps its match exactly.
+  - **The feature set.** `unitdescpluto-v4` is `unitdescpluto-v3` on the corrected snapshots.
+    - Feature sets now choose their registry and MapPLUTO files (`features.LOT_SNAPSHOTS`), and
+      run records hash the files the set read. Older runs keep the first snapshots.
+    - Beyond the constant shift that centring gives the building-size columns, only the 885
+      listings of the 11 pages change.
+  - **Left as they are.** 507 West Chelsea, AVA High Line and Avalon West Chelsea look like one
+    complex of towers under three page names that share one lot. It is not clear which tower's
+    facts apply, so they go to the backlog.
+  - **Result: a tie in accuracy; the named facts carry more.** The run is Gibbs m5-nocurves +
+    `unitdescpluto-v4`, `unit-labels-v1` + `quarantine-v1`, 3e514d6. It took 1,363 s and passes
+    (R-hat 1.0046, ESS 672).
+    - Against the app's model (fef2aa5), PSIS-LOO is −0.2 ± 7.0 and held-out −0.3 ± 0.5. The
+      817 fit rows on the 11 pages gain +4.7; the rest move by noise.
+    - The variance shifts toward named terms: features 77.1% → 78.2%, building level
+      7.75% → 7.0%, building over time 0.9% → 0.5%. With the right lots, the building facts
+      explain more of what the anonymous building level carried.
+    - The site's building pages would show the right facts if the app switched to a v4 fit. That
+      is a selection change, so Ben's call.
 
 **Order.**
 1. **Data quality** (backlog "Data quality"). Audit rows by rules that do not use a model's

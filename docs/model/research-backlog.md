@@ -121,6 +121,23 @@ Ben chose to start with street-facing units (research plan A′, "Unit orientati
    The research plan's A′ table lists these sources. Each needs as-of values (no future
    information) and a renter-facing glossary row.
 
+## Registry follow-ups (September 30)
+
+- **507 West Chelsea, AVA High Line and Avalon West Chelsea.**
+  - The three pages share one registry lot (MapPLUTO: 509 West 28th Street, 13 floors), but
+    their listings reach the 33rd floor.
+  - The ads say "the three towers of 507 west chelsea" and give 282 and 269 Eleventh Avenue.
+  - Map each page to its own tower's BIN (Building Footprints give the towers' heights) before
+    changing their facts.
+- **Reverse-geocoded pages without an address in their ads.** 100 pages remain matched by
+  reverse geocoding. The two checks found nothing wrong with them, but neither check can show
+  that they are right.
+- **Listings above their footprint's roof.** The registry BIN's footprint roof height is far
+  below the listings' floors for eight buildings. For some the BIN is a low wing of a multi-part
+  lot whose MapPLUTO facts are right: One Hudson Yards' lot records 33 floors. Chelsea29 (221 W
+  29th, roof 89 ft, listings to the 20th floor), 551 W 21st (49 ft, 17th) and 606 W 30th need a
+  look, including whether their listed floors are unit numbers.
+
 ## Pipeline review, September 20
 
 Items from an end-to-end review of collection → transform → fit → analyze,
