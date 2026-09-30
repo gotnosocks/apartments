@@ -1061,6 +1061,55 @@ def hpd_v1(
     )
 
 
+# Street noise is worst low down: the floors counted as low for facing_v4.
+LOW_FLOORS = 4
+
+
+def row_floor(frame: pd.DataFrame) -> pd.Series:
+    """Each row's floor as the base features read it: the listed floor, or the
+    unit label's floor where the label is plausible for the building's height;
+    NaN when neither is known."""
+    floor = frame.listed_floor.astype("float")
+    label = label_floor_number(frame)
+    height = pd.to_numeric(building_lots(frame).numfloors, errors="coerce")
+    label = label.where(label.le(height.to_numpy() + 2))
+    floor = floor.where(floor.ge(1), label)
+    return floor.where(floor.ge(1))
+
+
+def facing_v4(
+    frame: pd.DataFrame,
+    train: np.ndarray,
+    id: str = "facing-v4",
+    base: str = "unitfacing-v3",
+) -> Features:
+    """The streets an apartment looks onto (a facing-v3 set), plus whether a
+    unit that looks onto an avenue or a wide street is on a low floor
+    (LOW_FLOORS or below), where traffic noise is worst."""
+    base = FEATURE_SETS[base](frame, train)
+    looks = unit_sides(frame)
+    low = row_floor(frame).le(LOW_FLOORS).to_numpy()
+    b = _Builder(frame)
+    b.add(
+        "facing",
+        f"looks onto an avenue, floors 1-{LOW_FLOORS}",
+        looks["avenue"].to_numpy() & low,
+    )
+    b.add(
+        "facing",
+        f"looks onto a wide street, floors 1-{LOW_FLOORS}",
+        looks["wide street"].to_numpy() & low,
+    )
+    extra = b.build(id)
+    return Features(
+        id,
+        base.names + extra.names,
+        base.groups + extra.groups,
+        np.column_stack([base.values, extra.values]),
+        np.concatenate([base.prior_scale, extra.prior_scale]),
+    )
+
+
 # Feature sets that read the external snapshots (run records list them).
 EXTERNAL = {
     "pluto-v1",
@@ -1073,6 +1122,7 @@ EXTERNAL = {
     "unitdescpluto-v3",
     "unitfacing-v2",
     "unitfacing-v3",
+    "unitfacing-v4",
     "unitdescpluto-v4",
     "unitdescplutohpd-v1",
     "unitdescplutohpd-v2",
@@ -1080,9 +1130,9 @@ EXTERNAL = {
 # Feature sets that read the subway stations snapshot.
 SUBWAY = {"unitdescplutotransit-v2"}
 # Feature sets that read the basemap snapshot (street centerlines).
-BASEMAP = {"unitfacing-v2", "unitfacing-v3"}
+BASEMAP = {"unitfacing-v2", "unitfacing-v3", "unitfacing-v4"}
 # Feature sets that read the building footprints snapshot.
-FOOTPRINTS = {"unitfacing-v3"}
+FOOTPRINTS = {"unitfacing-v3", "unitfacing-v4"}
 # Feature sets that read the HPD violations snapshot.
 HPD = {"unitdescplutohpd-v1", "unitdescplutohpd-v2"}
 # Feature sets that read the advertisement descriptions (`descriptions.SOURCE`),
@@ -1097,6 +1147,7 @@ DESCRIPTIONS = {
     "unitdescpluto-v3",
     "unitfacing-v2",
     "unitfacing-v3",
+    "unitfacing-v4",
     "unitdescpluto-v4",
     "unitdescplutohpd-v1",
     "unitdescplutohpd-v2",
@@ -1130,6 +1181,8 @@ FEATURE_SETS = {
     "unitfacing-v2": partial(facing_v2, id="unitfacing-v2", base="unitdescpluto-v3"),
     # Which streets the apartment looks onto, from every side of its building.
     "unitfacing-v3": partial(facing_v3, id="unitfacing-v3", base="unitdescpluto-v3"),
+    # v3 plus avenue and wide-street views on low floors (traffic noise).
+    "unitfacing-v4": partial(facing_v4, id="unitfacing-v4", base="unitfacing-v3"),
     # v2 with "altered since 2000" from the latest recorded alteration.
     "unitdescpluto-v3": partial(
         pluto_v1,
