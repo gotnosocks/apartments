@@ -622,6 +622,56 @@ the fix goes into the model, the features or the data, not the sampler.
 - Other attributes also vary within units: square feet (9% of multi-row units; stated on 35% of
   rows, 48% if filled from the unit's other listings), laundry (12%, in-building against
   in-unit) and doorman (7%; it varies across listings in 116 of 1,129 buildings).
+- **Data rule `quarantine-v1`: the divergence review (Ben, 2026-09-29).**
+  - **Queue.** The served fit's leave-own-row-out estimates picked 664 candidate rows: asks more
+    than 1.5× off the estimate, PIT outside [0.002, 0.998], or Pareto k above 0.7. Text detectors
+    over all rows added more.
+  - **Rule.** As in the earlier scope review (`config/reviews/`), the queue does not justify an
+    exclusion. Only the ad's own words do, with MapPLUTO where it corroborates.
+  - **What is quarantined.** 131 rows in 52 buildings. Each has its reason and a quote from the ad
+    in `config/reviews/chelsea-divergence-quarantine-20260929.jsonl`:
+    - 9 non-residential offers: retail, offices, a recording studio, commercial condos, and a
+      "full floor" at $28,681 in an office building with no apartments.
+    - 38 ads that place the apartment elsewhere:
+      - 8 on Park Slope's Seventh Avenue, geocoded to Manhattan's;
+      - East 15th and East 19th Street ads filed as West;
+      - ads that correct their own address;
+      - AVA High Line, SoHo, Murray Hill and East Village ads filed at other addresses;
+      - six at "the-amanda-i" that the ads place on West 22nd Street, in the East Village or in
+        Williamsburg;
+      - all 11 rows of the registry page "103-8-avenue". Its lot is 111 Eighth Avenue, an office
+        building with no apartments, and its ads name four other buildings.
+    - 72 outside the product the model prices:
+      - 61 SRO rooms with shared baths, in six buildings;
+      - 10 income-restricted apartments;
+      - a room share.
+    - 7 short-stay-only offers.
+    - 1 ask net of a departing tenant's $2,200 monthly incentive.
+    - 4 bedroom counts that the ad contradicts, for example a "studio" whose ad and other
+      listings say two bedrooms.
+  - **Kept.** Penthouses, lofts, townhouses and rent-stabilized units stay in. So do furnished
+    and "short or long term" offers: the 51 rows that mention short stays have a median ask of
+    1.03× the estimate. Three studios at 225 W 23rd St ask $999–1,610, against $3,450–3,950 for
+    studios of the same size there in the same months. They have no ad text that says why, so
+    they stay in, unresolved.
+  - **How it applies.** The rule runs after the split. It drops the rows from the fit and the
+    held-out set, so every other row keeps its split. The board and paired comparisons score
+    runs on the rows both keep.
+  - **Cost of these rows in the served fit.** Its 128 quarantined training rows average −1.11
+    PSIS-LOO per row, against +1.11 for all rows.
+  - **Result: a tie.** The served design was refit with the rule (`m5-nocurves` +
+    `unitdescpluto-v3` + `unit-labels-v1` + `quarantine-v1`, Gibbs 2 × (300 + 3600), be61586,
+    RTX 2060). It took 1,364 s and passes the gate (R-hat 1.0036, ESS 647).
+    - On the rows both fits keep, PSIS-LOO is +3.6 ± 14.2 (47,246 rows) and held-out +2.9 ± 2.4
+      (5,261 rows) over the served fit.
+    - ν is 2.10 ± 0.04, against 2.06 ± 0.03. The tails do not lighten.
+    - The 131 rows are errors, but they are 0.25% of the data: they do not change how the model
+      fits the other rows, and they are not what the heavy tails protect against.
+    - The rule's value is in what the model serves. The quarantined listings leave the site. So do
+      19 building pages that had only quarantined rows, including the office lot at 103 Eighth
+      Avenue and four Park Slope addresses.
+  - **Board.** Paired scores now leave out the quarantined rows for every entry, so all entries
+    share one population. The served fit is +11,861.3 over m0 and the quarantine refit +11,864.9.
 
 **Order.**
 1. **Data quality** (backlog "Data quality"). Audit rows by rules that do not use a model's

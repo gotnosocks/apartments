@@ -152,16 +152,18 @@ def load_variance():
 
 
 def shared_rows(a: dict, b: dict, what: str, a_dir, b_dir) -> list:
-    """The rows both runs score. Rows only one run has must be rows a data rule
-    drops (cleaning is scored on the rows both keep); any other difference is
-    not the same test, so it is refused."""
-    unexplained = (a.keys() ^ b.keys()) - data.dropped_rows()
+    """The rows both runs score, less every row a data rule drops, so every
+    pair is scored on one population: the cleaned rows (Ben, 2026-09-25:
+    cleaning is scored on shared rows). Rows only one run has must be rows a
+    data rule drops; any other difference is not the same test and is refused."""
+    dropped = data.dropped_rows()
+    unexplained = (a.keys() ^ b.keys()) - dropped
     if unexplained:
         raise ValueError(
             f"{what} rows differ: {Path(a_dir).name} ({len(a)}) vs "
             f"{Path(b_dir).name} ({len(b)}), {len(unexplained)} not dropped by a data rule"
         )
-    return [k for k in a if k in b]
+    return [k for k in a if k in b and k not in dropped]
 
 
 def paired_loo(a_dir, b_dir):
@@ -779,6 +781,7 @@ def markdown(board) -> str:
         "Fit time is the sampler wall time of the scored fit (frontier: warmup + draws, including JIT compilation; PyMC screens: the screen's recorded seconds)",
         "on the hardware in its column; times compare well within a line and hardware, only roughly across them.",
         "Runs named `dev-*` or `canary-*` are pipeline checks and are not listed.",
+        f"Paired scores leave out the {len(data.dropped_rows())} rows the data rules quarantine, for every entry (one population).",
         *board.get("footer", []),
         "",
     ]
