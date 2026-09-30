@@ -1208,6 +1208,17 @@ MODELS = {
         feature_slopes=("log_sqft_vs_bedroom_median", "bathrooms=2", "bathrooms=3"),
         unit_t=True,
     ),
+    # m7-nocurves without the per-building slope on a third bathroom: few
+    # buildings have 3-bath units, and that slope's scale was what kept m7 from
+    # the gate (ac9e02b: fslope_scale[2] ESS 194).
+    "m7-nocurves-2slopes": ModelConfig(
+        name="m7-nocurves-2slopes",
+        building_walk=True,
+        bedroom_slope=True,
+        trend_knot_months=3,
+        feature_slopes=("log_sqft_vs_bedroom_median", "bathrooms=2"),
+        unit_t=True,
+    ),
     "m8-nocurves": ModelConfig(
         name="m8-nocurves",
         building_walk=True,
