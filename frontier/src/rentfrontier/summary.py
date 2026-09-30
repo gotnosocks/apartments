@@ -114,9 +114,9 @@ TERM_TEXT = {
     "views": "Views the listing states (city, park, water, skyline, ...).",
     "windows": "Window exposures the listing states.",
     "unit label": "Penthouse, garden and lower-level units, from the unit label.",
-    "facing": "The streets the apartment's windows look onto: an avenue, a wide "
-    "street such as 14th or 23rd, a side street, or the rear or a courtyard; in "
-    "later versions also a view onto an avenue or a wide street from floors 1-4, "
+    "facing": "The streets the apartment's windows look onto (an avenue, a wide "
+    "street such as 14th or 23rd, a side street, or the rear or a courtyard), and "
+    "whether an apartment on floors 1-4 looks onto an avenue or a wide street, "
     "where traffic noise is loudest.",
     "price_basis": "A current capture's gross ask, against the first ask of a "
     "past advertisement.",

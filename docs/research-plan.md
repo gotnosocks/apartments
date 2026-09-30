@@ -714,6 +714,16 @@ the fix goes into the model, the features or the data, not the sampler.
       Eleventh Avenue, a lot missing from the MapPLUTO snapshot.
 
     All three go to the backlog.
+  - **Result: a tie in accuracy; the named facts carry more.** The run is Gibbs m5-nocurves +
+    `unitdescpluto-v4`, `unit-labels-v1` + `quarantine-v1`, 3e514d6. It took 1,363 s and passes
+    (R-hat 1.0046, ESS 672).
+    - Against the app's model (fef2aa5), PSIS-LOO is −0.2 ± 7.0 and held-out −0.3 ± 0.5. The
+      817 fit rows on the 11 pages gain +4.7; the rest move by noise.
+    - The variance shifts toward named terms: features 77.1% → 78.2%, building level
+      7.75% → 7.0%, building over time 0.9% → 0.5%. With the right lots, the building facts
+      explain more of what the anonymous building level carried.
+    - The site's building pages would show the right facts if the app switched to a v4 fit. That
+      is a selection change, so Ben's call.
   - **Follow-up: Avalon West Chelsea (`registry-overrides-v2`, `unitdescpluto-v5`).**
     - Its ads give "largest studio in avalon west chelsea (282 11th avenue)" and "282 11th ave,
       1110". GeoSearch puts that on lot 1007000009, which MapPLUTO records as 539 West 28th: 31
@@ -728,21 +738,12 @@ the fix goes into the model, the features or the data, not the sampler.
       `unit-labels-v1` + `quarantine-v1`, 90f66cf. It took 1,362 s and passes (R-hat 1.0058, ESS
       644).
       - Against v4 (3e514d6), PSIS-LOO is +0.0 ± 6.5 and held-out +0.05 ± 0.06. Avalon's 216 fit
-        rows move by +0.05 in all: with that many listings, its building level already carried
-        what the wrong facts missed.
+        rows move by +0.05 in all. On the wrong lot the building facts over-predicted it, and its
+        building level was offsetting them: the facts' contribution falls from +0.51 to +0.20 (log
+        scale), and the building level rises from −0.20 to +0.01.
       - Features 78.20% → 78.32% of the variance, and building level 7.04% → 6.96%.
       - What changes is what renters see: a v5 app fit would show Avalon West Chelsea's real
         height and size.
-  - **Result: a tie in accuracy; the named facts carry more.** The run is Gibbs m5-nocurves +
-    `unitdescpluto-v4`, `unit-labels-v1` + `quarantine-v1`, 3e514d6. It took 1,363 s and passes
-    (R-hat 1.0046, ESS 672).
-    - Against the app's model (fef2aa5), PSIS-LOO is −0.2 ± 7.0 and held-out −0.3 ± 0.5. The
-      817 fit rows on the 11 pages gain +4.7; the rest move by noise.
-    - The variance shifts toward named terms: features 77.1% → 78.2%, building level
-      7.75% → 7.0%, building over time 0.9% → 0.5%. With the right lots, the building facts
-      explain more of what the anonymous building level carried.
-    - The site's building pages would show the right facts if the app switched to a v4 fit. That
-      is a selection change, so Ben's call.
 
 - **Data rule `quarantine-v2`: a second review (2026-09-30).** It keeps all 143 rows of v1 and
   adds 45, each with its quote, in `config/reviews/chelsea-quarantine-v2-20260930.jsonl`:
