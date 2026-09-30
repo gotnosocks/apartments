@@ -71,6 +71,16 @@
   </div>
 </section>
 
+{% if quarantined %}
+<section class="card" id="quarantined">
+  <h2>Quarantined listings</h2>
+  <p class="note">{{ quarantined | length }} of this building's listings are left out of the model, with no estimate, because
+  their own ad (or NYC's lot record) shows they are not an open-market lease of a whole apartment here.
+  <a href="{{ url_for('quarantined') }}">About quarantined listings</a></p>
+  {{ m.quarantine_table(quarantined, show_building=False) }}
+</section>
+{% endif %}
+
 <section class="card" id="listings">
   <h2>Listings{% if filters.status == "current" %} available now{% endif %}</h2>
   <p class="results-links">{{ "{:,}".format(total) }} listing{{ "" if total == 1 else "s" }}{% if filters.status == "current" %} · <a href="{{ url_for('building', building_id=b.id) }}">all listings</a>{% endif %}</p>

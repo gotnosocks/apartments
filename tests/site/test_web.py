@@ -26,6 +26,10 @@ GROVE = "the-grove-250-west-19th-street-new_york"
         "/buildings",
         f"/buildings/{GROVE}",
         "/model",
+        "/quarantined",
+        f"/quarantined?building={GROVE}",
+        "/listings/q1",
+        "/listings/q2",
     ],
 )
 def test_pages_render(client, path):
@@ -288,3 +292,35 @@ def test_model_page_describes_the_designs_terms(client, site_root):
         " apartments;" in html
     )
     assert "Custom Gibbs sampler on" in html and "Pareto k above 0.675)" in html
+
+
+def test_quarantined_listings_are_shown_with_their_reason(client):
+    index = client.get("/").get_data(as_text=True)
+    assert "2 more listings are" in index and 'href="/quarantined"' in index
+    page = client.get("/quarantined").get_data(as_text=True)
+    assert "A ground-floor retail space." in page and "Not a home" in page
+    assert "Placed elsewhere" in page
+    listing = client.get("/listings/q1").get_data(as_text=True)
+    assert "Quarantined: no estimate" in listing
+    assert "ground floor retail space" in listing  # the ad's own words
+    assert "/rental/91" in listing
+    office = client.get("/listings/q2").get_data(as_text=True)
+    assert "MapPLUTO: office (O6)." in office
+    building = client.get(f"/buildings/{GROVE}").get_data(as_text=True)
+    assert 'id="quarantined"' in building and "/listings/q1" in building
+    # Quarantined listings are not listings: no estimate, not in the search.
+    assert "q1" not in [a for a in listed(client)]
+
+
+def test_a_page_with_only_quarantined_listings_redirects_to_them(client):
+    response = client.get("/buildings/103-8-avenue-new_york")
+    assert response.status_code == 302
+    assert response.headers["Location"].endswith(
+        "/quarantined?building=103-8-avenue-new_york"
+    )
+    page = client.get("/quarantined?building=103-8-avenue-new_york").get_data(
+        as_text=True
+    )
+    assert "no building page" in page
+    assert client.get("/quarantined?building=nowhere").status_code == 404
+    assert client.get("/units/q-q2").status_code == 302

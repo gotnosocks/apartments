@@ -22,6 +22,11 @@
   <div class="tile"><span class="tile-label">Units</span><span class="tile-value">{{ "{:,}".format(s.units) }}</span></div>
   <div class="tile"><span class="tile-label">Period</span><span class="tile-value tile-small">{{ month(s.first_period) }} – {{ month(s.last_period) }}</span></div>
 </section>
+{% if quarantined %}
+<p class="note">{{ "{:,}".format(quarantined) }} more listings are <a href="{{ url_for('quarantined') }}">quarantined</a>: their own ads
+show they are not an open-market lease of a whole apartment at their address (offices and shops, other addresses, SRO rooms,
+income-restricted and short-stay offers), so the model leaves them out and gives them no estimate.</p>
+{% endif %}
 
 <section class="card">
   <div class="card-head">

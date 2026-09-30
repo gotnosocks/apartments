@@ -24,4 +24,11 @@
   {{ chart }}
   {{ m.listing_table(rows, show_building=False, show_source=True) }}
 </section>
+{% if quarantined %}
+<section class="card" id="quarantined">
+  <h2>Quarantined listings</h2>
+  <p class="note">Left out of the model, with no estimate. <a href="{{ url_for('quarantined') }}">About quarantined listings</a></p>
+  {{ m.quarantine_table(quarantined, show_building=False) }}
+</section>
+{% endif %}
 {% endblock %}

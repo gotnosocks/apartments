@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+{% import "_macros.html" as m with context %}
+{% block title %}{{ row.unit_label or "Listing" }} at {{ row.building }} (quarantined){% endblock %}
+{% block content %}
+<nav class="crumbs" aria-label="Breadcrumb">
+  <a href="{{ url_for('quarantined') }}">Quarantined listings</a> ›
+  {% if has_building %}<a href="{{ url_for('building', building_id=row.building_id) }}">{{ row.building }}</a>{% else %}<a href="{{ url_for('quarantined', building=row.building_id) }}">{{ row.building }}</a>{% endif %} ›
+  <span aria-current="page">{{ row.unit_label or "Listing" }}</span>
+</nav>
+<h1>{{ row.unit_label or "Listing" }} at {{ row.building }}</h1>
+<p class="subline">{{ month(row.period) }}{% if row.is_current %} · available now{% endif %} · {{ m.layout(row) }} · ask {{ usd(row.ask) }}</p>
+<section class="card">
+  <h2>{{ m.quarantine_chip(row) }} Quarantined: no estimate</h2>
+  <p>{{ row.reason }}</p>
+  {% if row.evidence %}<blockquote class="evidence">“{{ row.evidence }}”</blockquote><p class="note">From the listing's own ad.</p>{% endif %}
+  {% if row.external_evidence %}<p class="note">{{ row.external_evidence }}</p>{% endif %}
+  <p class="note">The model leaves this listing out ({{ row.rule }}), so it has no estimate and does not inform any other
+  listing's. <a href="{{ url_for('quarantined') }}">All quarantined listings</a></p>
+</section>
+{% if row.listing_url or row.unit_url %}
+<p class="links">
+  {% if row.listing_url %}<a class="source" href="{{ row.listing_url }}" rel="noopener noreferrer" target="_blank">View the ad on StreetEasy ↗</a>{% endif %}
+  {% if row.unit_url %}<a class="source" href="{{ row.unit_url }}" rel="noopener noreferrer" target="_blank">The unit on StreetEasy ↗</a>{% endif %}
+</p>
+{% endif %}
+{% endblock %}
