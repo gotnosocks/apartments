@@ -499,6 +499,8 @@ def rule_decisions(record: dict, bundle: Path) -> dict[str, dict]:
     of the run leaves out (from the bundle's verified copies)."""
     out = {}
     for rule, name in record.get("data_rule_files", {}).items():
+        if name not in record.get("files", {}):
+            raise BuildError(f"the bundle's {rule} file is not in its hashed files")
         with open(bundle / name) as f:
             for line in f:
                 if line.strip():
@@ -518,7 +520,7 @@ def _listing_url(obs: dict) -> tuple[str, str | None]:
 def quarantined_rows(missing, observations, decisions, registry) -> list[dict]:
     located = {r["building"]: r for r in registry}
     out = []
-    for audit_id in sorted(missing, key=lambda a: observations[a]["period"]):
+    for audit_id in sorted(missing, key=lambda a: (observations[a]["period"], a)):
         obs, d = observations[audit_id], decisions[audit_id]
         reg = located.get(obs["building"], {})
         name, address = building_names(obs["building"], title_address(reg.get("label")))
@@ -561,6 +563,13 @@ def write_database(path: Path, record: dict, bundle: Path, scope: str) -> dict:
         raise BuildError(
             f"{len(unexplained)} dataset rows are missing from the bundle and no "
             "data rule drops them"
+        )
+    # The rule's rows are exactly the missing ones: none left in the bundle,
+    # none absent from the dataset.
+    if decisions.keys() - missing:
+        raise BuildError(
+            f"{len(decisions.keys() - missing)} rows a data rule drops are in the "
+            "bundle or not in the dataset"
         )
     terms = json.loads((bundle / "terms.json").read_text())
     names = [t["name"] for t in terms]
