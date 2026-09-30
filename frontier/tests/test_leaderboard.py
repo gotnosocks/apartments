@@ -17,6 +17,35 @@ def test_paired_refuses_differing_row_sets(tmp_path):
         leaderboard.paired(tmp_path / "a", tmp_path / "b")
 
 
+def test_paired_scores_cleaning_on_the_rows_both_keep(tmp_path, monkeypatch):
+    # r3 is a row a data rule drops: pair on r1 and r2, whether or not a run
+    # has it (one population). r4 is not: refuse.
+    monkeypatch.setattr(leaderboard.data, "dropped_rows", lambda: frozenset({"r3"}))
+    heldout(tmp_path / "a", ["r1", "r2", "r3"], np.array([1.0, 2.0, 3.0]))
+    heldout(tmp_path / "b", ["r2", "r1"], np.array([1.0, 0.5]))
+    heldout(tmp_path / "d", ["r3", "r1", "r2"], np.array([0.0, 0.0, 0.0]))
+    delta, _ = leaderboard.paired(tmp_path / "a", tmp_path / "b")
+    assert delta == pytest.approx(1.5)
+    delta, _ = leaderboard.paired(tmp_path / "a", tmp_path / "d")
+    assert delta == pytest.approx(3.0)
+    heldout(tmp_path / "c", ["r1", "r2", "r4"], np.array([1.0, 2.0, 3.0]))
+    with pytest.raises(ValueError, match="Held-out rows differ"):
+        leaderboard.paired(tmp_path / "c", tmp_path / "b")
+
+
+def test_vs_reference_pairs_the_shared_rows_less_the_dropped_ones(
+    tmp_path, monkeypatch
+):
+    # The reference lacks r4 (as the promoted runs dropped a few rows); r3 is
+    # quarantined: pair on r1 and r2 only.
+    monkeypatch.setattr(leaderboard.data, "dropped_rows", lambda: frozenset({"r3"}))
+    heldout(tmp_path / "run", ["r1", "r2", "r3", "r4"], np.array([1.0, 2.0, 9.0, 9.0]))
+    heldout(tmp_path / "ref", ["r2", "r1", "r3"], np.array([1.0, 0.0, 0.0]))
+    out = leaderboard.vs_reference(tmp_path / "run", tmp_path / "ref" / "heldout.npz")
+    assert out["paired_rows"] == 2
+    assert out["delta_elpd"] == pytest.approx(2.0)
+
+
 def test_paired_refuses_duplicate_audit_ids(tmp_path):
     heldout(tmp_path / "a", ["r1", "r1", "r2"], np.array([1.0, 2.0, 3.0]))
     heldout(tmp_path / "b", ["r1", "r2"], np.array([0.5, 1.0]))

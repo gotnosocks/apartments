@@ -270,3 +270,15 @@ def test_building_fact_groups_have_descriptions():
     names = ["building era", "building size", "building class", "building status"]
     for term in summary.terms_record(names):
         assert not term["description"].startswith("Listing attributes"), term
+
+
+def test_check_heldout_units_refuses_unseen_units():
+    from types import SimpleNamespace
+
+    summary.check_heldout_units(
+        SimpleNamespace(test=SimpleNamespace(unit=np.array([0, 3])))
+    )
+    with pytest.raises(SystemExit, match="no rows in the fit"):
+        summary.check_heldout_units(
+            SimpleNamespace(test=SimpleNamespace(unit=np.array([0, -1])))
+        )

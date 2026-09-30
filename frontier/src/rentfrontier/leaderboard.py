@@ -25,7 +25,9 @@ Primary score (since 2026-09-24): integrated PSIS-LOO over the row split's
 baseline entry (BASELINE). Its uncertainty combines the paired standard error
 with both runs' Monte Carlo errors. Held-out dELPD against the promoted PyMC
 model (5,264 row-split held-out rows) and the unit split are validation and
-secondary columns.
+secondary columns. Every paired score leaves out the rows the data rules
+quarantine (`data.dropped_rows`), for every entry, so all entries are scored on
+one population.
 
 Ranking rule. Eligible entries pass the convergence gate, are
 interpretable and have a PSIS-LOO score. The top entry has the highest
@@ -151,8 +153,23 @@ def load_variance():
     return latest_records(VARIANCE_ROOT)
 
 
+def shared_rows(a: dict, b: dict, what: str, a_dir, b_dir) -> list:
+    """The rows both runs score, less every row a data rule drops, so every
+    pair is scored on one population: the cleaned rows (Ben, 2026-09-25:
+    cleaning is scored on shared rows). Rows only one run has must be rows a
+    data rule drops; any other difference is not the same test and is refused."""
+    dropped = data.dropped_rows()
+    unexplained = (a.keys() ^ b.keys()) - dropped
+    if unexplained:
+        raise ValueError(
+            f"{what} rows differ: {Path(a_dir).name} ({len(a)}) vs "
+            f"{Path(b_dir).name} ({len(b)}), {len(unexplained)} not dropped by a data rule"
+        )
+    return [k for k in a if k in b and k not in dropped]
+
+
 def paired_loo(a_dir, b_dir):
-    """Paired PSIS-LOO difference a - b on identical training rows:
+    """Paired PSIS-LOO difference a - b on the training rows both keep:
     (sum, SE, combined Monte Carlo error)."""
     a = np.load(Path(a_dir) / "pointwise.npz", allow_pickle=True)
     b = np.load(Path(b_dir) / "pointwise.npz", allow_pickle=True)
@@ -161,15 +178,11 @@ def paired_loo(a_dir, b_dir):
             raise ValueError(f"Duplicate training audit IDs in {Path(folder).name}")
     ai = dict(zip(a["audit_id"].tolist(), range(len(a["audit_id"]))))
     bi = dict(zip(b["audit_id"].tolist(), range(len(b["audit_id"]))))
-    if ai.keys() != bi.keys():
-        raise ValueError(
-            f"Training rows differ: {Path(a_dir).name} ({len(ai)}) vs {Path(b_dir).name} ({len(bi)})"
-        )
-    keys = list(ai)
+    keys = shared_rows(ai, bi, "Training", a_dir, b_dir)
     ia = np.array([ai[k] for k in keys])
     ib = np.array([bi[k] for k in keys])
     d = a["elpd_loo"][ia] - b["elpd_loo"][ib]
-    mc = math.sqrt(float(np.sum(a["mcse"] ** 2) + np.sum(b["mcse"] ** 2)))
+    mc = math.sqrt(float(np.sum(a["mcse"][ia] ** 2) + np.sum(b["mcse"][ib] ** 2)))
     return float(d.sum()), float(d.std(ddof=1) * math.sqrt(len(d))), mc
 
 
@@ -267,10 +280,8 @@ def design_key(r):
 
 
 def paired(a_dir: Path, b_dir: Path):
-    """Paired sum and SE of lpd differences a - b on identical held-out rows.
-
-    Refuses differing row sets: a comparison on a silently shrunken subset is
-    not the same test."""
+    """Paired sum and SE of lpd differences a - b on the held-out rows both
+    keep (`shared_rows`: any other difference in row sets is refused)."""
     a = np.load(a_dir / "heldout.npz", allow_pickle=True)
     b = np.load(b_dir / "heldout.npz", allow_pickle=True)
     for x, folder in ((a, a_dir), (b, b_dir)):
@@ -278,12 +289,30 @@ def paired(a_dir: Path, b_dir: Path):
             raise ValueError(f"Duplicate held-out audit IDs in {folder.name}")
     al = dict(zip(a["audit_id"].tolist(), a["lpd"]))
     bl = dict(zip(b["audit_id"].tolist(), b["lpd"]))
-    if al.keys() != bl.keys():
-        raise ValueError(
-            f"Held-out rows differ: {a_dir.name} ({len(al)}) vs {b_dir.name} ({len(bl)})"
-        )
-    d = np.array([al[k] - bl[k] for k in al])
+    d = np.array([al[k] - bl[k] for k in shared_rows(al, bl, "Held-out", a_dir, b_dir)])
     return float(d.sum()), float(d.std(ddof=1) * math.sqrt(len(d)))
+
+
+def vs_reference(run_dir: Path, ref_path: Path) -> dict:
+    """Held-out dELPD of a run against the promoted model's held-out rows: on
+    the rows both score (the promoted runs dropped a few rows outside their
+    floor range or time horizon, as `run.score` pairs them), less every row a
+    data rule drops."""
+    ref = np.load(ref_path, allow_pickle=True)
+    mine = np.load(run_dir / "heldout.npz", allow_pickle=True)
+    ref_lpd = dict(zip(ref["audit_id"].tolist(), ref["lpd"]))
+    dropped = data.dropped_rows()
+    pairs = [
+        (lpd, ref_lpd[a])
+        for a, lpd in zip(mine["audit_id"].tolist(), mine["lpd"])
+        if a in ref_lpd and a not in dropped
+    ]
+    d = np.array([a - b for a, b in pairs])
+    return {
+        "delta_elpd": float(d.sum()),
+        "delta_elpd_se": float(d.std(ddof=1) * math.sqrt(len(d))),
+        "paired_rows": len(d),
+    }
 
 
 def screen_entries():
@@ -492,15 +521,11 @@ def build(keep_dirs=False):
         for split, r in by_split.items():
             s = r["score"]
             vp = dict(s.get("vs_promoted", {}))
-            if (
-                vp.get("delta_elpd") is None
-                and REFERENCES.get(split, Path("/nonexistent")).exists()
-            ):
-                # Reference landed after the run was scored: pair it here.
-                d_, se_ = paired(r["_dir"], REFERENCES[split].parent)
-                vp.update(
-                    delta_elpd=d_, delta_elpd_se=se_, reference=str(REFERENCES[split])
-                )
+            ref = REFERENCES.get(split, Path("/nonexistent"))
+            if ref.exists():
+                # Paired here rather than taken from the run record, so every
+                # entry is scored on one population (quarantined rows left out).
+                vp.update(vs_reference(Path(r["_dir"]), ref), reference=str(ref))
             e["splits"][split] = {
                 "run": r["name"],
                 "elpd": s["elpd"],
@@ -709,9 +734,9 @@ def markdown(board) -> str:
         "Generated by `python -m rentfrontier.leaderboard` from recorded frontier runs and PyMC NUTS screens; machine-readable copy in `leaderboard.json`.",
         "The plan behind it is [docs/research-plan.md](../../research-plan.md).",
         "",
-        f"**Primary score: PSIS-LOO ΔELPD** over the row split's 47,374 training rows (log-rent density, unit effects integrated exactly per row; `rentfrontier.loo`), paired row by row against `{base}`.",
+        f"**Primary score: PSIS-LOO ΔELPD** over the row split's 47,374 training rows, less those the data rules quarantine (log-rent density, unit effects integrated exactly per row; `rentfrontier.loo`), paired row by row against `{base}`.",
         "± is the paired standard error combined with both runs' Monte Carlo errors. *k* is the share of rows whose Pareto k exceeds the draw-count threshold (reliability).",
-        "**Held-out** ΔELPD (5,264 row-split held-out rows, vs the promoted PyMC model) is the independent validation; the unit split is secondary.",
+        "**Held-out** ΔELPD (the row split's 5,264 held-out rows less the quarantined ones, vs the promoted PyMC model) is the independent validation; the unit split is secondary.",
         "",
         "**Ranking.** Eligible entries pass the convergence gate (max split R-hat < 1.01 and min bulk ESS > 400; frontier runs also need",
         "R-hat < 1.05 over every group effect, 1.1 when recomputed from older runs' kept draws; NUTS runs also need no divergences), are interpretable and have a PSIS-LOO score.",
@@ -776,6 +801,7 @@ def markdown(board) -> str:
         "Fit time is the sampler wall time of the scored fit (frontier: warmup + draws, including JIT compilation; PyMC screens: the screen's recorded seconds)",
         "on the hardware in its column; times compare well within a line and hardware, only roughly across them.",
         "Runs named `dev-*` or `canary-*` are pipeline checks and are not listed.",
+        f"Paired scores, PSIS-LOO and held-out, leave out every row the data rules quarantine ({len(data.dropped_rows())} rows, training and held-out), for every entry (one population).",
         *board.get("footer", []),
         "",
     ]

@@ -622,6 +622,62 @@ the fix goes into the model, the features or the data, not the sampler.
 - Other attributes also vary within units: square feet (9% of multi-row units; stated on 35% of
   rows, 48% if filled from the unit's other listings), laundry (12%, in-building against
   in-unit) and doorman (7%; it varies across listings in 116 of 1,129 buildings).
+- **Data rule `quarantine-v1`: the divergence review (Ben, 2026-09-29).**
+  - **Queue.** The served fit's leave-own-row-out estimates picked 664 candidate rows: asks more
+    than 1.5× off the estimate, PIT outside [0.002, 0.998], or Pareto k above 0.7. Text detectors
+    over all rows (commercial, location, SRO, income-restriction and short-stay wording) found
+    the rest. Of the 143 rows quarantined, 45 came from the queue and 98 from the detectors.
+  - **Rule.** As in the earlier scope review (`config/reviews/`), a large residual only puts a row
+    in the queue. What excludes it is the ad's own words, or official data: MapPLUTO shows the
+    registry lot has no apartments, or a unit label shows it is not an apartment.
+  - **What is quarantined.** 143 rows in 55 buildings. Each has its reason and a quote from the ad
+    (or the MapPLUTO record) in `config/reviews/chelsea-divergence-quarantine-20260929.jsonl`:
+    - 10 non-residential offers: retail, offices, a recording studio, commercial condos and
+      lofts, and a "full floor" at $28,681 in an office building with no apartments.
+    - 36 ads that place the apartment elsewhere:
+      - 8 on Park Slope's Seventh Avenue, geocoded to Manhattan's;
+      - East 15th and East 19th Street ads filed as West;
+      - ads that correct their own address;
+      - AVA High Line, SoHo, Murray Hill and East Village ads filed at other addresses;
+      - four at "the-amanda-i" that the ads place on West 22nd Street or in the East Village;
+      - all 11 rows of the registry page "103-8-avenue". MapPLUTO records its lot, 111 Eighth
+        Avenue, as an office building with no apartments, and some of its ads name other
+        buildings.
+    - 83 outside the product the model prices:
+      - 68 SRO rooms with shared or communal baths, in six buildings;
+      - 14 income-restricted apartments;
+      - a room share.
+    - 9 short-stay-only offers.
+    - 1 ask net of a departing tenant's $2,200 monthly incentive.
+    - 4 bedroom counts that the ad contradicts, for example a "studio" whose ad and other
+      listings say two bedrooms.
+  - **Kept.** Penthouses, lofts, townhouses and rent-stabilized units stay in. So do furnished
+    and "short or long term" offers: the 305 kept rows that mention short-term stays have a median
+    ask of 1.00× the estimate. Some rows stay in, unresolved:
+    - Three studios at 225 W 23rd St ask $999–1,610, against $3,450–3,950 for studios of the same
+      size there in the same months. They have no ad text that says why.
+    - Two the-amanda-i ads name "22nd and 8th" (a block from the registry address) and, in
+      template text, Williamsburg.
+  - **How it applies.** The rule runs after the split. It drops the rows from the fit and the
+    held-out set, so every other row keeps its split. Every reader that re-applies a run's rules
+    refuses a rule file that differs from the run's hash. The board's paired scores (PSIS-LOO and held-out)
+    leave out the quarantined rows for every entry, so all entries share one population.
+  - **Cost of these rows in the served fit.** Its 139 quarantined training rows average −0.99
+    PSIS-LOO per row, against +1.11 for all rows.
+  - **Result: a tie.** The served design was refit with the rule (`m5-nocurves` +
+    `unitdescpluto-v3` + `unit-labels-v1` + `quarantine-v1`, Gibbs 2 × (300 + 3600), fef2aa5,
+    RTX 2060). It took 1,361 s and passes the gate (R-hat 1.0043, ESS 694).
+    - On the rows both fits keep, PSIS-LOO is +8.9 ± 13.5 (47,235 rows) and held-out +2.7 ± 3.1
+      (5,260 rows) over the served fit.
+    - ν is 2.10 ± 0.04, against 2.06 ± 0.03: the tails barely lighten.
+    - The 143 rows are errors or out-of-scope offers, 0.27% of the data. Dropping them leaves the
+      scores on the other rows unchanged within error.
+    - The rule's value is in what the model serves. If the app switched to this fit (a selection
+      change, so Ben's call), the quarantined listings would leave the site. So would 20
+      building pages that had only quarantined rows, including the office lot at 103 Eighth
+      Avenue and three Park Slope addresses.
+    - A first draft of the file (131 rows, be61586) was also a tie: +3.6 ± 14.1 and +2.9 ± 2.4.
+      That fit is archived under `runs-archive/quarantine-draft-2026-09-30`.
 
 **Order.**
 1. **Data quality** (backlog "Data quality"). Audit rows by rules that do not use a model's
