@@ -50,6 +50,25 @@
 - Then test lighter tails on the cleaned data: a larger fixed ν, and Gaussian noise. If they win,
   fit time and NUTS geometry improve too.
 
+**Left open by `quarantine-v2` (September 30).**
+- Two pages sit on lots MapPLUTO records without apartments. Their other ads stay in until each
+  page is matched to the right building:
+  - 256 West 23rd, lot 1007720075, is a theatre (J9) whose ads describe a "charming townhouse"
+    walk-up;
+  - 401 West 15th's lot is 75 Ninth Avenue, an office building (O6).
+- 466 West 23rd has ads saying "466 west 22nd", but the same units' other ads say 23rd. It looks
+  like a template slip, so the rows stay in.
+- **Stated size against recorded square feet.** 1,442 rows have an ad that states the
+  apartment's own size, found by phrases such as "1,100 sq ft two-bedroom" or "the apartment is
+  approximately 850 square feet", with terraces, gardens and amenities left out. In 27 of them
+  the size is more than 1.6× off the record. Most of those still describe another space ("a
+  400 square foot" roof, "4,420 square feet across three apartments").
+  - The few real conflicts are at 440 West 22nd: three ads say "1,625 sq.ft two bed" for units
+    recorded as 825 sq ft one-bedrooms.
+  - The 27 asks sit close to the model's estimates (0.8–1.4×, most near 1), so none is
+    quarantined yet. A size rule would need the bedroom count to disagree as well.
+  - Scratch script: `/data1/apartments/tmp/bridge/sqft_conflicts.py`.
+
 ## Column ("line") effects within buildings (Ben, September 25)
 
 **Idea.** In most buildings, units with the same letter or line on different floors ("4C", "7C",

@@ -723,21 +723,51 @@ the fix goes into the model, the features or the data, not the sampler.
     - The site's building pages would show the right facts if the app switched to a v4 fit. That
       is a selection change, so Ben's call.
 
-- **Data rule `quarantine-v2`: a second review over every listing (2026-09-30).** It keeps all
-  143 rows of v1 and adds 15, each with its quote, in
-  `config/reviews/chelsea-quarantine-v2-20260930.jsonl`:
-  - six ads that locate the apartment on another street: four "335 West 29th" studios "located on
-    35th st & 8th ave", a 220 West 24th ad "located on tree-lined west 21st street", and a 421
-    West 21st ad "situated on west 22nd street";
-  - nine bedroom counts the ad flatly contradicts, found by comparing the count the ad's first
-    sentence states with the record, dropping hedged wording such as "convertible" or "1.5
-    bedroom". For example, Verde Chelsea 5A is recorded as one bedroom, and its ad says "1,686
-    square foot three-bedroom home".
+- **Data rule `quarantine-v2`: a second review (2026-09-30).** It keeps all 143 rows of v1 and
+  adds 47, each with its quote, in `config/reviews/chelsea-quarantine-v2-20260930.jsonl`:
+  - **39 ads whose own words place the apartment somewhere else.**
+    - Every ad that says where the apartment is was checked against the streets its building
+      fronts. That means "located on/at …", "on West Nth Street between …", and house-number
+      addresses that are not a leasing office or another listing. A building fronts the named
+      centerlines within 25 m of its footprints, so through lots and corners count.
+    - Most mismatches are not errors: a subway or Citi Bike station "located at 23rd street", a
+      broker's other listings, a through-block entrance such as 255 West 23rd.
+    - The rest place the apartment elsewhere, for example:
+      - "located on west 69th street off columbus avenue";
+      - "address correction: 342 west 21st street 5d";
+      - four "145 west 15th street (bet 6th & 7th avenue)" ads on the 145 West 14th page;
+      - four "located on 14th street and 7th avenue" ads on the 545 Sixth Avenue page;
+      - two ads on the 220 West 24th page and two on the 225 West 23rd page, each naming the
+        other building;
+      - two "premier upper west side" ads for floors above Port 10's 13.
+    - Every other "wrong location" detector hit was read as well. They name places nearby or
+      within reach ("the l to brooklyn", "queens size beds").
+  - **Eight bedroom counts the ad flatly contradicts.** They were found by comparing the count
+    the ad's first sentence states with the record, leaving out hedged wording such as
+    "convertible" or "1.5 bedroom". For example, Verde Chelsea 5A is recorded as one bedroom,
+    and its ad says "1,686 square foot three-bedroom home". The first draft had nine; review
+    took out 154 West 27th C, whose ad also says "true 2/4 bedroom" and whose other ads say
+    "true two bedroom".
+  - **Left in:**
+    - 466 West 23rd ads that say "466 west 22nd", because the same units' other ads say 23rd (a
+      template slip);
+    - same-number slips such as "133 west 2nd", "151 east 21st" and "230 west 26th";
+    - the other ads on two pages whose lots MapPLUTO records without apartments: 256 West 23rd
+      (a theatre lot) and 401 West 15th (75 Ninth Avenue, an office building). These two pages
+      are in the backlog.
   - **Result: a tie.** The served design was refit with `unit-labels-v1` + `quarantine-v2`
-    (7ed6c55, 1,363 s, passes). Against the v1 fit (fef2aa5), on the rows both keep, PSIS-LOO is
-    −6.3 ± 9.0 and held-out −1.3 ± 1.4; ν stays at 2.10. The 15 rows were not badly fit (+0.4 PSIS-LOO
-    per row in the served fit): they are wrong data, not outliers.
-  - Paired scores on the board now leave out every row either quarantine drops (158).
+    (Gibbs m5-nocurves + `unitdescpluto-v3`, 7f6cd08, 1,364 s, passes: R-hat 1.0029, ESS 623).
+    - Against the v1 fit (fef2aa5), on the rows both keep: PSIS-LOO −11.4 ± 10.6 and held-out
+      −3.3 ± 2.2. ν stays at 2.10.
+    - The loss is mostly noise. The 52 other rows of the units that lost a listing are −5.0 ± 2.8:
+      those units have one listing fewer to learn from. Rows in the same buildings are +1.8 ±
+      4.0, and the other 44,498 rows −8.2 ± 6.8, within the Monte Carlo error of two fits
+      (6.5).
+    - The 47 new rows were not badly fit in the served model: +0.44 PSIS-LOO per row against
+      +1.11 for all rows. They are wrong data, not outliers.
+    - The first draft's fit (7ed6c55, 158 rows: −6.3 ± 9.0) is archived under
+      `runs-archive/quarantine-v2-draft-2026-09-30`.
+  - Paired scores on the board now leave out every row either quarantine drops (190).
 
 **Order.**
 1. **Data quality** (backlog "Data quality"). Audit rows by rules that do not use a model's
