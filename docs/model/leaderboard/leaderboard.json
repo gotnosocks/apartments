@@ -16918,8 +16918,8 @@
       "annotations": []
     },
     {
-      "id": "m5-nocurves/unitfacing-v3/gibbs@bf09466+unit-labels-v1",
-      "commit": "bf09466ac37cae71aaa131ccf656047e1d3eb5cd",
+      "id": "m5-nocurves/unitfacing-v3/gibbs@dff9f62+unit-labels-v1+quarantine-v1",
+      "commit": "dff9f62ee5df0843349d4bd9ba80ef7bea84fdbd",
       "model": {
         "name": "m5-nocurves",
         "trend": true,
@@ -16989,21 +16989,21 @@
       "interpretable": true,
       "splits": {
         "rows": {
-          "run": "m5-nocurves-unitfacing-v3-rows-bf09466-gibbs-2060-3600-ul1",
-          "elpd": 6386.317482950809,
-          "elpd_se": 75.52514210791225,
-          "elpd_mcse": 0.47169521001569586,
-          "delta": 513.93954244309,
-          "delta_se": 46.710936011733516,
+          "run": "m5-nocurves-unitfacing-v3-rows-dff9f62-gibbs-2060-3600-ul1q1",
+          "elpd": 6397.332709263055,
+          "elpd_se": 75.09727508425655,
+          "elpd_mcse": 0.28471113557179706,
+          "delta": 517.4109271087824,
+          "delta_se": 46.68580182135818,
           "paired_rows": 5260,
-          "max_rhat": 1.0055523385788618,
-          "min_ess": 692.7515498170643,
+          "max_rhat": 1.0058069153522273,
+          "min_ess": 659.8440941506491,
           "divergences": null,
           "passes": true,
-          "fit_seconds": 1381.6270312949782,
-          "sampling_seconds": 1251.6274272439769,
+          "fit_seconds": 1367.46891193802,
+          "sampling_seconds": 1239.812588238041,
           "cost_usd": null,
-          "group_rhat_max": 1.0083572353837387,
+          "group_rhat_max": 1.0087032712286,
           "group_rhat_method": "per-chain moments, all effects"
         }
       },
@@ -17013,97 +17013,97 @@
       },
       "line": "frontier",
       "grade": "full",
-      "fit_seconds": 1381.6270312949782,
-      "fit_seconds_all_splits": 1381.6270312949782,
+      "fit_seconds": 1367.46891193802,
+      "fit_seconds_all_splits": 1367.46891193802,
       "cost_usd": 0.0,
       "contention": {
-        "wall_seconds": 1381.6305459380383,
-        "own_cpu_seconds": 1471.7,
-        "other_cpu_seconds": 127.94000000001392,
-        "other_cores": 0.09260073206701644,
+        "wall_seconds": 1367.4699063689914,
+        "own_cpu_seconds": 1450.1200000000003,
+        "other_cpu_seconds": 126.17000000003691,
+        "other_cores": 0.09226528453196674,
         "cpus": 12,
         "gpu_other_pids": []
       },
       "variance": {
-        "commit": "bf09466ac37cae71aaa131ccf656047e1d3eb5cd",
+        "commit": "dff9f62ee5df0843349d4bd9ba80ef7bea84fdbd",
         "shares": {
-          "market and time": 0.08374034708504376,
-          "features": 0.7675851244544928,
-          "building": 0.07790806146584574,
-          "building over time": 0.010274176300255589,
-          "building slopes": 0.016582263778023753,
-          "unit": 0.018537553608285955,
-          "residual": 0.025372473308052503,
-          "r2": 0.9746275266919474
+          "market and time": 0.08451025957991862,
+          "features": 0.7710835640293389,
+          "building": 0.07699224824336663,
+          "building over time": 0.009210300937372573,
+          "building slopes": 0.015092956086170683,
+          "unit": 0.01880201844199207,
+          "residual": 0.024308652681840633,
+          "r2": 0.9756913473181593
         },
         "intervals": {
           "market and time": {
-            "mean": 0.08374034708504376,
-            "lower_90": 0.08164520359430973,
-            "upper_90": 0.08586426421017214
+            "mean": 0.08451025957991862,
+            "lower_90": 0.08255131451454514,
+            "upper_90": 0.08659886038426613
           },
           "features": {
-            "mean": 0.7675851244544928,
-            "lower_90": 0.7518099426713197,
-            "upper_90": 0.7836115100334363
+            "mean": 0.7710835640293389,
+            "lower_90": 0.7550472986913789,
+            "upper_90": 0.7872898075741773
           },
           "building": {
-            "mean": 0.07790806146584574,
-            "lower_90": 0.0635791995618567,
-            "upper_90": 0.09262903155634528
+            "mean": 0.07699224824336663,
+            "lower_90": 0.06245261101227177,
+            "upper_90": 0.09192843606537535
           },
           "building over time": {
-            "mean": 0.010274176300255589,
-            "lower_90": -0.00011379546268896627,
-            "upper_90": 0.020600020627283312
+            "mean": 0.009210300937372573,
+            "lower_90": -0.0011615367796179003,
+            "upper_90": 0.019571825534165293
           },
           "building slopes": {
-            "mean": 0.016582263778023753,
-            "lower_90": 0.009376081509115942,
-            "upper_90": 0.0236798594838724
+            "mean": 0.015092956086170683,
+            "lower_90": 0.008069127926244497,
+            "upper_90": 0.022370542525602652
           },
           "unit": {
-            "mean": 0.018537553608285955,
-            "lower_90": 0.016966821617559417,
-            "upper_90": 0.02020740105310739
+            "mean": 0.01880201844199207,
+            "lower_90": 0.017221785752844165,
+            "upper_90": 0.020407221874610998
           },
           "residual": {
-            "mean": 0.025372473308052503,
-            "lower_90": 0.024867397446638937,
-            "upper_90": 0.02588511506938487
+            "mean": 0.024308652681840633,
+            "lower_90": 0.02383469944573528,
+            "upper_90": 0.024778070335143024
           },
           "r2": {
-            "mean": 0.9746275266919474,
-            "lower_90": 0.9741148849306152,
-            "upper_90": 0.9751326025533611
+            "mean": 0.9756913473181593,
+            "lower_90": 0.975221929664857,
+            "upper_90": 0.9761653005542648
           }
         }
       },
       "psis": {
-        "run": "m5-nocurves-unitfacing-v3-rows-bf09466-gibbs-2060-3600-ul1",
-        "commit": "bf09466ac37cae71aaa131ccf656047e1d3eb5cd",
-        "rows": 47374,
+        "run": "m5-nocurves-unitfacing-v3-rows-dff9f62-gibbs-2060-3600-ul1q1",
+        "commit": "dff9f62ee5df0843349d4bd9ba80ef7bea84fdbd",
+        "rows": 47235,
         "draws": 1200,
-        "elpd": 52447.80608911667,
-        "elpd_se": 239.41970456649847,
-        "mcse": 4.681459021020875,
+        "elpd": 52590.36180065631,
+        "elpd_se": 237.20980012813888,
+        "mcse": 4.624523909456253,
         "pareto_k": {
           "threshold": 0.6752383441917945,
-          "over_threshold": 390,
-          "over_0_7": 334,
-          "max": 1.907697946577442,
-          "share_over_threshold": 0.008232363743825728
+          "over_threshold": 373,
+          "over_0_7": 328,
+          "max": 2.116154182518853,
+          "share_over_threshold": 0.0078966867788716
         },
         "validation": {
           "note": "mean held-out lpd (repeat-listed units, genuinely left out) vs mean PSIS-LOO over training rows of units with 2+ training rows",
-          "heldout_rows": 5264,
-          "heldout_mean_lpd": 1.2132062087672508,
-          "psis_mean_lpd_multi_row_units": 1.2173409143613745
+          "heldout_rows": 5260,
+          "heldout_mean_lpd": 1.2162229485290978,
+          "psis_mean_lpd_multi_row_units": 1.2191779965626517
         },
         "integrated": "unit level",
-        "delta": 11865.922261405329,
-        "delta_se": 173.88560080167903,
-        "delta_mcse": 5.64037990293064,
+        "delta": 11871.28493596371,
+        "delta_se": 173.834284627053,
+        "delta_mcse": 5.653358543716956,
         "baseline": "m0-base/base-v1/gibbs@5cc0809"
       },
       "hardware_class": "thelio RTX 2060 SUPER",
