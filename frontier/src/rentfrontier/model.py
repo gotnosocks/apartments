@@ -1033,6 +1033,16 @@ MODELS = {
         bedroom_slope=True,
         trend_knot_months=3,
     ),
+    # m5-nocurves with Student-t unit effects (df estimated): a few apartments
+    # differ a lot from their building (a penthouse, an oddity) without pulling
+    # the others' estimates.
+    "m5-nocurves-tunits": ModelConfig(
+        name="m5-nocurves-tunits",
+        building_walk=True,
+        bedroom_slope=True,
+        trend_knot_months=3,
+        unit_t=True,
+    ),
     # Per-building slopes on size and bathrooms, on top of m5.
     "m6-slopes": ModelConfig(
         name="m6-slopes",
