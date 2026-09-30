@@ -347,12 +347,65 @@ def fetch_hpd(registry: pd.DataFrame, batch: int = 100, page: int = 50_000):
     return table.reset_index(drop=True), queries, version
 
 
+# NYC 311 service requests: 2010-2019 and 2020 on are separate datasets.
+NOISE_IDS = ("76ig-c548", "erm2-nwe9")
+NOISE_COLUMNS = (
+    "unique_key",
+    "created_date",
+    "complaint_type",
+    "descriptor",
+    "latitude",
+    "longitude",
+)
+
+
+def fetch_noise(box, page: int = 50_000):
+    """Every 311 noise complaint in the box (north, west, south, east)."""
+    north, west, south, east = box
+    where = (
+        f"latitude between {south} and {north} and longitude between {west} and "
+        f"{east} and starts_with(complaint_type, 'Noise')"
+    )
+    rows, queries, versions = [], [], {}
+    for dataset in NOISE_IDS:
+        for offset in itertools.count(0, page):
+            params = {
+                "$select": ", ".join(NOISE_COLUMNS),
+                "$where": where,
+                "$order": "unique_key",
+                "$limit": page,
+                "$offset": offset,
+            }
+            got = _socrata(dataset, params)
+            rows += [{k: r.get(k) for k in NOISE_COLUMNS} for r in got]
+            queries.append(f"{dataset}?{urllib.parse.urlencode(params)}")
+            if len(got) < page:
+                break
+        with urllib.request.urlopen(
+            f"{NYC_OPEN_DATA}/api/views/{dataset}.json", timeout=60
+        ) as r:
+            meta = json.loads(r.read())
+        versions[dataset] = {
+            "name": meta.get("name"),
+            "rows_updated_at": dt.datetime.fromtimestamp(
+                meta["rowsUpdatedAt"], dt.UTC
+            ).isoformat(),
+        }
+    table = pd.DataFrame(rows, columns=list(NOISE_COLUMNS)).drop_duplicates(
+        "unique_key"
+    )
+    table["latitude"] = pd.to_numeric(table.latitude, errors="coerce")
+    table["longitude"] = pd.to_numeric(table.longitude, errors="coerce")
+    return table.reset_index(drop=True), queries, versions
+
+
 def main(argv=None):
     parser = argparse.ArgumentParser(
         description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
     )
     parser.add_argument(
-        "source", choices=("pluto", "subway", "basemap", "hpd", "footprints")
+        "source",
+        choices=("pluto", "subway", "basemap", "hpd", "footprints", "noise311"),
     )
     parser.add_argument(
         "--registry",
@@ -408,6 +461,19 @@ def main(argv=None):
             "registry_bins_missing": missing,
         }
         summary = f"{len(table)} footprints, {len(missing)} registry BINs without one"
+    elif args.source == "noise311":
+        box = basemap_box(pd.read_parquet(registry_path))
+        table, queries, versions = fetch_noise(box)
+        counts = table.complaint_type.value_counts().to_dict()
+        details = {
+            "source": [f"{SOCRATA}/{d}" for d in NOISE_IDS],
+            "dataset": "NYC 311 Service Requests (2010-2019 and 2020 on), noise complaints",
+            "versions": versions,
+            "registry": str(registry_path),
+            "box_north_west_south_east": box,
+            "complaints": counts,
+        }
+        summary = f"{len(table)} noise complaints"
     elif args.source == "basemap":
         box = basemap_box(pd.read_parquet(registry_path))
         table, queries, versions = fetch_basemap(box)
