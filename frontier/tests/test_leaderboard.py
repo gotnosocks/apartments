@@ -17,6 +17,18 @@ def test_paired_refuses_differing_row_sets(tmp_path):
         leaderboard.paired(tmp_path / "a", tmp_path / "b")
 
 
+def test_paired_scores_cleaning_on_the_rows_both_keep(tmp_path, monkeypatch):
+    # r3 is a row a data rule drops: pair on r1 and r2. r4 is not: refuse.
+    monkeypatch.setattr(leaderboard.data, "dropped_rows", lambda: frozenset({"r3"}))
+    heldout(tmp_path / "a", ["r1", "r2", "r3"], np.array([1.0, 2.0, 3.0]))
+    heldout(tmp_path / "b", ["r2", "r1"], np.array([1.0, 0.5]))
+    delta, _ = leaderboard.paired(tmp_path / "a", tmp_path / "b")
+    assert delta == pytest.approx(1.5)
+    heldout(tmp_path / "c", ["r1", "r2", "r4"], np.array([1.0, 2.0, 3.0]))
+    with pytest.raises(ValueError, match="Held-out rows differ"):
+        leaderboard.paired(tmp_path / "c", tmp_path / "b")
+
+
 def test_paired_refuses_duplicate_audit_ids(tmp_path):
     heldout(tmp_path / "a", ["r1", "r1", "r2"], np.array([1.0, 2.0, 3.0]))
     heldout(tmp_path / "b", ["r1", "r2"], np.array([0.5, 1.0]))

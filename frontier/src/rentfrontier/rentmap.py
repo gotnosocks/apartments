@@ -342,7 +342,7 @@ def compute(name: str) -> dict:
     config = model.MODELS[result["model"]["name"]]
     frame = data.load(Path(result["dataset"]))
     heldout = splits.SPLITS[result["split"]](frame)
-    frame = data.apply_rules(frame, result.get("data_rules", ()))
+    frame, heldout = data.apply_rules(frame, heldout, result.get("data_rules", ()))
     feats = features.build(result["feature_set"], frame, ~heldout)
     prep = model.prepare(frame, heldout, feats)
     missing = unsupported_terms(config)

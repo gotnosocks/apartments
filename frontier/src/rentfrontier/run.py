@@ -345,11 +345,11 @@ def main(argv=None):
     frame = data.load()
     heldout = splits.SPLITS[args.split](frame)
     rules = args.data_rules
-    if rules and args.split == "units":
+    if "unit-labels-v1" in rules and args.split == "units":
         # unit-labels-v1 merges units after the split, which would join held-out
         # units to training units (77 units, 142 held-out rows).
-        raise SystemExit("data rules merge units: not with the units split")
-    frame = data.apply_rules(frame, rules)  # after the split: scored rows are fixed
+        raise SystemExit("unit-labels-v1 merges units: not with the units split")
+    frame, heldout = data.apply_rules(frame, heldout, rules)  # after the split
     feats = features.build(args.features, frame, ~heldout)
     prep = model.prepare(frame, heldout, feats)
     prep_seconds = time.perf_counter() - t0
@@ -437,6 +437,11 @@ def main(argv=None):
         "split_seed": splits.SEED,
         "feature_set": args.features,
         "data_rules": list(rules),
+        "data_rule_sources": {
+            rule: {"path": str(path), "sha256": data.sha256(path)}
+            for rule, path in data.RULE_SOURCES.items()
+            if rule in rules
+        },
         "feature_sources": feature_sources(args.features),
         "model": config.to_dict(),
         "sampler": args.sampler,

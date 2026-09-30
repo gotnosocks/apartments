@@ -151,8 +151,21 @@ def load_variance():
     return latest_records(VARIANCE_ROOT)
 
 
+def shared_rows(a: dict, b: dict, what: str, a_dir, b_dir) -> list:
+    """The rows both runs score. Rows only one run has must be rows a data rule
+    drops (cleaning is scored on the rows both keep); any other difference is
+    not the same test, so it is refused."""
+    unexplained = (a.keys() ^ b.keys()) - data.dropped_rows()
+    if unexplained:
+        raise ValueError(
+            f"{what} rows differ: {Path(a_dir).name} ({len(a)}) vs "
+            f"{Path(b_dir).name} ({len(b)}), {len(unexplained)} not dropped by a data rule"
+        )
+    return [k for k in a if k in b]
+
+
 def paired_loo(a_dir, b_dir):
-    """Paired PSIS-LOO difference a - b on identical training rows:
+    """Paired PSIS-LOO difference a - b on the training rows both keep:
     (sum, SE, combined Monte Carlo error)."""
     a = np.load(Path(a_dir) / "pointwise.npz", allow_pickle=True)
     b = np.load(Path(b_dir) / "pointwise.npz", allow_pickle=True)
@@ -161,15 +174,11 @@ def paired_loo(a_dir, b_dir):
             raise ValueError(f"Duplicate training audit IDs in {Path(folder).name}")
     ai = dict(zip(a["audit_id"].tolist(), range(len(a["audit_id"]))))
     bi = dict(zip(b["audit_id"].tolist(), range(len(b["audit_id"]))))
-    if ai.keys() != bi.keys():
-        raise ValueError(
-            f"Training rows differ: {Path(a_dir).name} ({len(ai)}) vs {Path(b_dir).name} ({len(bi)})"
-        )
-    keys = list(ai)
+    keys = shared_rows(ai, bi, "Training", a_dir, b_dir)
     ia = np.array([ai[k] for k in keys])
     ib = np.array([bi[k] for k in keys])
     d = a["elpd_loo"][ia] - b["elpd_loo"][ib]
-    mc = math.sqrt(float(np.sum(a["mcse"] ** 2) + np.sum(b["mcse"] ** 2)))
+    mc = math.sqrt(float(np.sum(a["mcse"][ia] ** 2) + np.sum(b["mcse"][ib] ** 2)))
     return float(d.sum()), float(d.std(ddof=1) * math.sqrt(len(d))), mc
 
 
@@ -267,10 +276,8 @@ def design_key(r):
 
 
 def paired(a_dir: Path, b_dir: Path):
-    """Paired sum and SE of lpd differences a - b on identical held-out rows.
-
-    Refuses differing row sets: a comparison on a silently shrunken subset is
-    not the same test."""
+    """Paired sum and SE of lpd differences a - b on the held-out rows both
+    keep (`shared_rows`: any other difference in row sets is refused)."""
     a = np.load(a_dir / "heldout.npz", allow_pickle=True)
     b = np.load(b_dir / "heldout.npz", allow_pickle=True)
     for x, folder in ((a, a_dir), (b, b_dir)):
@@ -278,11 +285,7 @@ def paired(a_dir: Path, b_dir: Path):
             raise ValueError(f"Duplicate held-out audit IDs in {folder.name}")
     al = dict(zip(a["audit_id"].tolist(), a["lpd"]))
     bl = dict(zip(b["audit_id"].tolist(), b["lpd"]))
-    if al.keys() != bl.keys():
-        raise ValueError(
-            f"Held-out rows differ: {a_dir.name} ({len(al)}) vs {b_dir.name} ({len(bl)})"
-        )
-    d = np.array([al[k] - bl[k] for k in al])
+    d = np.array([al[k] - bl[k] for k in shared_rows(al, bl, "Held-out", a_dir, b_dir)])
     return float(d.sum()), float(d.std(ddof=1) * math.sqrt(len(d)))
 
 
