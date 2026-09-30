@@ -14,7 +14,9 @@ descriptions of every listing for the same fit time, or the same accuracy sooner
 Ben's. On 2026-09-29 he chose the Gibbs `m5-nocurves` fit with the building facts
 (`unitdescpluto-v3`) as the app's model: the most accurate gate-passing fit within the 30-minute
 window (tied with the same design without them), and it names most of the differences between
-buildings (earlier that day `m5-nocurves` +
+buildings. On 2026-09-30 he switched the app to the same design refit without the quarantined
+listings (`quarantine-v1`, a tie on shared rows), with the site saying which listings are
+quarantined and why (earlier on 2026-09-29 `m5-nocurves` +
 `unitdesc-v1`, and from 2026-09-26 the best NumPyro fit); it ships through the summary output to the
 [listings site](site.md). West Village is on hold.
 
@@ -672,10 +674,12 @@ the fix goes into the model, the features or the data, not the sampler.
     - ν is 2.10 ± 0.04, against 2.06 ± 0.03: the tails barely lighten.
     - The 143 rows are errors or out-of-scope offers, 0.27% of the data. Dropping them leaves the
       scores on the other rows unchanged within error.
-    - The rule's value is in what the model serves. If the app switched to this fit (a selection
-      change, so Ben's call), the quarantined listings would leave the site. So would 20
-      building pages that had only quarantined rows, including the office lot at 103 Eighth
-      Avenue and three Park Slope addresses.
+    - The rule's value is in what the model serves. Ben switched the app to this fit on
+      2026-09-30 and asked that the site say which listings are quarantined. The site lists all
+      143 at `/quarantined`, and on their building, unit and listing pages, with the review's
+      reason and no estimate. The 20 building pages that had only quarantined rows, including
+      the office lot at 103 Eighth Avenue and three Park Slope addresses, now redirect to that
+      list.
     - A first draft of the file (131 rows, be61586) was also a tie: +3.6 ± 14.1 and +2.9 ± 2.4.
       That fit is archived under `runs-archive/quarantine-draft-2026-09-30`.
 

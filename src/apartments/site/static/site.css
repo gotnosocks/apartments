@@ -165,6 +165,8 @@ table.data { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
 .chip { display: inline-block; font-size: 0.78rem; font-weight: 600; border-radius: 999px; padding: 0 0.5rem; white-space: nowrap; color: var(--ink); background: var(--neutral-bg); }
 .chip.good { color: var(--good); background: var(--good-bg); }
 .chip.serious { color: var(--serious); background: var(--serious-bg); }
+.chip.muted-chip { color: var(--ink-2); background: var(--neutral-bg); border: 1px dashed currentColor; }
+blockquote.evidence { margin: 0.5rem 0; padding: 0.25rem 0.75rem; border-left: 3px solid var(--axis); font-style: italic; }
 .pager { display: flex; gap: 1rem; align-items: center; justify-content: center; margin: 1rem 0; }
 .pager .disabled { color: var(--muted); }
 

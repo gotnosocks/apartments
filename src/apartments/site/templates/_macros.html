@@ -72,3 +72,36 @@
 </nav>
 {% endif %}
 {% endmacro %}
+
+{% macro quarantine_chip(row) -%}
+<span class="chip muted-chip" title="Quarantined by the data review: no estimate">{{ QUARANTINE_ACTIONS.get(row.action, "Quarantined") }}</span>
+{%- endmacro %}
+
+{% macro quarantine_table(rows, show_building=True, linked=None) %}
+<div class="table-wrap">
+<table class="data">
+  <thead>
+    <tr>
+      <th scope="col">Listed</th>
+      <th scope="col">{% if show_building %}Building · unit{% else %}Unit{% endif %}</th>
+      <th scope="col">Layout</th>
+      <th scope="col" class="num">Ask</th>
+      <th scope="col">Why it is quarantined</th>
+      <th scope="col">StreetEasy</th>
+    </tr>
+  </thead>
+  <tbody>
+  {% for row in rows %}
+    <tr>
+      <td class="nowrap">{{ month(row.period) }}{% if row.is_current %} <span class="tag">now</span>{% endif %}</td>
+      <td><a href="{{ url_for('listing', audit_id=row.audit_id) }}">{% if show_building %}{{ row.building }}{% if row.unit_label %} · {{ row.unit_label }}{% endif %}{% else %}{{ row.unit_label or "Unit" }}{% endif %}</a></td>
+      <td class="nowrap">{{ layout(row) }}</td>
+      <td class="num">{{ usd(row.ask) }}</td>
+      <td>{{ quarantine_chip(row) }} {{ row.reason }}</td>
+      <td class="nowrap">{% if row.listing_url %}<a href="{{ row.listing_url }}" rel="noopener noreferrer" target="_blank">Ad ↗<span class="visually-hidden"> for {{ month(row.period) }} on StreetEasy</span></a>{% endif %}</td>
+    </tr>
+  {% endfor %}
+  </tbody>
+</table>
+</div>
+{% endmacro %}

@@ -121,6 +121,49 @@ LISTINGS = [
 ]
 
 
+# Listings the quarantine-v1 rule leaves out of the bundle: one in a building
+# with other listings, one on a page with no others. (audit_id, building,
+# label, period, ask, action, reason, evidence)
+QUARANTINED = [
+    (
+        "q1",
+        "the-grove-250-west-19th-street-new_york",
+        "retail",
+        "2016-02-01",
+        8500.0,
+        "quarantine_nonresidential",
+        "A ground-floor retail space.",
+        "ground floor retail space",
+    ),
+    (
+        "q2",
+        "103-8-avenue-new_york",
+        "2l",
+        "2017-07-01",
+        3295.0,
+        "quarantine_location_conflict",
+        "MapPLUTO records the lot as an office building with no apartments.",
+        "",
+    ),
+]
+
+
+def rule_file_lines():
+    return [
+        {
+            "audit_id": audit,
+            "unit_id": f"q-{audit}",
+            "building": building,
+            "unit_label": label.upper(),
+            "action": action,
+            "evidence": evidence,
+            "reason": reason,
+            **({} if evidence else {"external_evidence": "MapPLUTO: office (O6)."}),
+        }
+        for audit, building, label, _, _, action, reason, evidence in QUARANTINED
+    ]
+
+
 def summary_rows():
     rows = []
     for (
@@ -223,11 +266,34 @@ def observations():
     return out
 
 
-def make_bundle(root: Path, *, gate=True) -> Path:
+def quarantined_observations():
+    return [
+        {
+            **observations()[0],
+            "audit_id": audit,
+            "unit_id": f"dataset:q-{audit}",
+            "building": building,
+            "canonical_unit_url": f"https://streeteasy.com/building/{building}/{label}",
+            "source_listing_id": "9" + audit[1:],
+            "asking_rent": ask,
+            "period": period,
+            "price_at": period + "T00:00:00+00:00",
+            "analysis_price_basis": "historical_initial_own_advertisement_ask",
+            "concession": None,
+        }
+        for audit, building, label, period, ask, *_ in QUARANTINED
+    ]
+
+
+def make_bundle(root: Path, *, gate=True, rule_lines=None) -> Path:
     dataset = root / "dataset"
     dataset.mkdir(parents=True)
     source = dataset / "observations.jsonl"
-    source.write_text("".join(json.dumps(r) + "\n" for r in observations()))
+    source.write_text(
+        "".join(
+            json.dumps(r) + "\n" for r in observations() + quarantined_observations()
+        )
+    )
     external = root / "external"
     external.mkdir()
     _parquet(
@@ -329,6 +395,13 @@ def make_bundle(root: Path, *, gate=True) -> Path:
             ]
         )
     )
+    rules = bundle / "data-rule-quarantine-v1.jsonl"
+    rules.write_text(
+        "".join(
+            json.dumps(r) + "\n"
+            for r in (rule_file_lines() if rule_lines is None else rule_lines)
+        )
+    )
     files = {p.name: _sha(p) for p in sorted(bundle.iterdir())}
     record = {
         "version": "frontier-summary-v1",
@@ -338,7 +411,8 @@ def make_bundle(root: Path, *, gate=True) -> Path:
         "created_at": "2026-09-26T18:00:00+00:00",
         "dataset": str(dataset),
         "dataset_observations_sha256": _sha(source),
-        "data_rules": ["unit-labels-v1"],
+        "data_rules": ["unit-labels-v1", "quarantine-v1"],
+        "data_rule_files": {"quarantine-v1": rules.name},
         "feature_set": "unitdesc-v1",
         "feature_sources": {
             "registry": {

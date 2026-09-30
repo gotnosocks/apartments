@@ -26,6 +26,7 @@ from flask import (
     abort,
     g,
     jsonify,
+    redirect,
     render_template,
     request,
     stream_with_context,
@@ -44,6 +45,15 @@ BANDS = {
     "below": "Below typical",
     "typical": "Typical",
     "above": "Above typical",
+}
+# The divergence review's actions (config/reviews/), as a renter would put them.
+QUARANTINE_ACTIONS = {
+    "quarantine_nonresidential": "Not a home",
+    "quarantine_location_conflict": "Placed elsewhere",
+    "quarantine_product_scope": "Not a whole apartment on the open market",
+    "quarantine_explicit_short_term_offer": "Short stay only",
+    "quarantine_price_basis": "Ask is not the rent",
+    "quarantine_attribute_conflict": "Bedrooms contradict the ad",
 }
 SORTS = {
     "date": ("l.period", "Date"),
@@ -428,6 +438,7 @@ def create_app(root: Path | str | None = None, *, allowed_hosts=None) -> Flask:
             "BANDS": BANDS,
             "SORTS": SORTS,
             "PER_PAGE": PER_PAGE,
+            "QUARANTINE_ACTIONS": QUARANTINE_ACTIONS,
         }
 
     def listings_query(filters: Filters):
@@ -450,6 +461,11 @@ def create_app(root: Path | str | None = None, *, allowed_hosts=None) -> Flask:
             .fetchall()
         )
         market = db().execute("SELECT * FROM market ORDER BY period").fetchall()
+        quarantined = (
+            db().execute("SELECT COUNT(*) FROM quarantined").fetchone()[0]
+            if has_quarantine()
+            else 0
+        )
         chart = charts.band_line(
             [
                 {
@@ -468,6 +484,7 @@ def create_app(root: Path | str | None = None, *, allowed_hosts=None) -> Flask:
             "index.html",
             meta=m,
             current=current,
+            quarantined=quarantined,
             market=market,
             market_chart=chart,
         )
@@ -538,7 +555,21 @@ def create_app(root: Path | str | None = None, *, allowed_hosts=None) -> Flask:
             .fetchone()
         )
         if row is None:
-            abort(404, description="No listing with that id.")
+            held = (
+                db()
+                .execute("SELECT * FROM quarantined WHERE audit_id = ?", (audit_id,))
+                .fetchone()
+                if has_quarantine()
+                else None
+            )
+            if held is None:
+                abort(404, description="No listing with that id.")
+            return render_template(
+                "quarantined_listing.html",
+                meta=meta(),
+                row=held,
+                has_building=building_exists(held["building_id"]),
+            )
         terms = {
             r["name"]: r for r in db().execute("SELECT * FROM terms ORDER BY position")
         }
@@ -584,6 +615,75 @@ def create_app(root: Path | str | None = None, *, allowed_hosts=None) -> Flask:
             chart=unit_chart(others) if len(others) > 1 else None,
         )
 
+    def building_exists(building_id) -> bool:
+        return (
+            db()
+            .execute("SELECT 1 FROM buildings WHERE id = ?", (building_id,))
+            .fetchone()
+            is not None
+        )
+
+    def has_quarantine() -> bool:
+        """Builds before schema 2 have no quarantined table."""
+        return (
+            db()
+            .execute(
+                "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'quarantined'"
+            )
+            .fetchone()
+            is not None
+        )
+
+    def quarantined_for(column, value):
+        if not has_quarantine():
+            return []
+        return (
+            db()
+            .execute(
+                f"SELECT * FROM quarantined WHERE {column} = ? ORDER BY period",
+                (value,),
+            )
+            .fetchall()
+        )
+
+    @app.get("/quarantined")
+    def quarantined():
+        building_id = request.args.get("building")
+        unit_id = request.args.get("unit")
+        if building_id:
+            rows, within = quarantined_for("building_id", building_id), "building"
+        elif unit_id:
+            rows, within = quarantined_for("unit_id", unit_id), "unit"
+        else:
+            rows, within = (
+                db()
+                .execute("SELECT * FROM quarantined ORDER BY period DESC, audit_id")
+                .fetchall()
+                if has_quarantine()
+                else [],
+                None,
+            )
+        if within and not rows:
+            abort(404, description="No quarantined listings there.")
+        linked = (
+            {
+                r["id"]
+                for r in db().execute(
+                    "SELECT id FROM buildings WHERE id IN "
+                    "(SELECT building_id FROM quarantined)"
+                )
+            }
+            if has_quarantine()
+            else set()
+        )
+        return render_template(
+            "quarantined.html",
+            meta=meta(),
+            rows=rows,
+            within=within,
+            linked=linked,
+        )
+
     def unit_chart(rows):
         return charts.asks_and_estimates(
             [
@@ -614,6 +714,8 @@ def create_app(root: Path | str | None = None, *, allowed_hosts=None) -> Flask:
             .fetchone()
         )
         if row is None:
+            if quarantined_for("unit_id", unit_id):
+                return redirect(url_for("quarantined", unit=unit_id))
             abort(404, description="No unit with that id.")
         rows = (
             db()
@@ -623,7 +725,12 @@ def create_app(root: Path | str | None = None, *, allowed_hosts=None) -> Flask:
             .fetchall()
         )
         return render_template(
-            "unit.html", meta=meta(), unit=row, rows=rows, chart=unit_chart(rows)
+            "unit.html",
+            meta=meta(),
+            unit=row,
+            rows=rows,
+            chart=unit_chart(rows),
+            quarantined=quarantined_for("unit_id", unit_id),
         )
 
     @app.get("/buildings")
@@ -691,6 +798,8 @@ def create_app(root: Path | str | None = None, *, allowed_hosts=None) -> Flask:
             .fetchone()
         )
         if row is None:
+            if quarantined_for("building_id", building_id):
+                return redirect(url_for("quarantined", building=building_id))
             abort(404, description="No building with that id.")
         units = (
             db()
@@ -737,6 +846,13 @@ def create_app(root: Path | str | None = None, *, allowed_hosts=None) -> Flask:
             pages=pages,
             filters=filters,
             chart=chart,
+            # The page's status filter applies to its quarantined listings too.
+            quarantined=[
+                q
+                for q in quarantined_for("building_id", building_id)
+                if filters.status == "all"
+                or bool(q["is_current"]) == (filters.status == "current")
+            ],
         )
 
     @app.get("/model")
