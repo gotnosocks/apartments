@@ -898,14 +898,15 @@ comes from other sources, most of them public NYC and NYS data.
     - Effects: a few −0.1% (−0.6 to +0.4), many +0.3% (−0.4 to +0.9).
   - **Why it adds nothing.** Across buildings, violations do go with lower rents. About half the
     buildings have no class B or C violations since 2010, and their median premium is +2.4%.
-    Buildings with any have a median of −1.3%, and the quarter with the most about −2.6%. But the
+    Buildings with any have a median of −1.3%, and the quarter with the most per apartment,
+    about −2.5%. But the
     building facts and each building's own level already carry that. The building level's share of the variance stays at 7.7%, and a year with
     violations does not move a building's asks against its own path.
   - **Known limitations of these versions** (PR #67 review; a new version would fix them, but
     the result gives no reason to make one):
     - A building with its own BIN but no class B or C violations falls back to its lot's, taking
-      the violations of other buildings on the lot (20 buildings, 535 rows; Penn South's lot, for
-      example).
+      the violations of other buildings on the lot (20 buildings, 535 rows; London Terrace's lot,
+      for example).
     - On lots with several buildings, a building's violations are divided by the whole lot's
       apartments.
   - Recording condition in the site's building facts, as information rather than a model term,
