@@ -1078,11 +1078,12 @@ comes from other sources, most of them public NYC and NYS data.
       −1.2% (−2.4 to −0.1; 95.9%);
     - from the 5th floor up, a wide street −0.6% (−1.4 to +0.2) and an avenue −0.1% (−0.8 to
       +0.6).
-  - **Reading.** The discount for a loud street is a low-floor discount: a second- or
+  - **Reading.** The discount for a loud street is mostly a low-floor discount: a second- or
     third-floor apartment looking onto 23rd Street asks about 2% less than one looking onto a
-    side street, and higher up the difference fades. It is what renters describe, and it adds
-    two terms at no cost in accuracy or time. As with `unitfacing-v3`, it is not a selection
-    change: the gain is in the description, within noise on the score.
+    side street, and from the 5th floor up the difference is a fraction of that (a wide street
+    −0.6%, 87% below zero). It matches what renters say about street noise, and it adds two
+    terms at no cost in accuracy or time. As with `unitfacing-v3`, it is not a selection change:
+    the gain is in the description, within noise on the score (PR #72 review).
 
 *Testing.*
 - Add each source group as its own feature set, alone and then combined.
