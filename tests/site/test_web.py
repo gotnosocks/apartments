@@ -324,3 +324,14 @@ def test_a_page_with_only_quarantined_listings_redirects_to_them(client):
     assert "no building page" in page
     assert client.get("/quarantined?building=nowhere").status_code == 404
     assert client.get("/units/q-q2").status_code == 302
+
+
+def test_a_build_without_the_quarantined_table_still_renders(client, site_root):
+    # Builds before schema 2 have no quarantined table (a deploy can land first).
+    db = sqlite3.connect(site_root / "current" / "site.sqlite")
+    db.execute("DROP TABLE quarantined")
+    db.commit()
+    db.close()
+    for path in ("/", "/quarantined", f"/buildings/{GROVE}", "/units/u1"):
+        assert client.get(path).status_code == 200, path
+    assert client.get("/listings/q1").status_code == 404

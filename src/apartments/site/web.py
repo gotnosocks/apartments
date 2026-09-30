@@ -461,7 +461,11 @@ def create_app(root: Path | str | None = None, *, allowed_hosts=None) -> Flask:
             .fetchall()
         )
         market = db().execute("SELECT * FROM market ORDER BY period").fetchall()
-        quarantined = db().execute("SELECT COUNT(*) FROM quarantined").fetchone()[0]
+        quarantined = (
+            db().execute("SELECT COUNT(*) FROM quarantined").fetchone()[0]
+            if has_quarantine()
+            else 0
+        )
         chart = charts.band_line(
             [
                 {
@@ -555,6 +559,8 @@ def create_app(root: Path | str | None = None, *, allowed_hosts=None) -> Flask:
                 db()
                 .execute("SELECT * FROM quarantined WHERE audit_id = ?", (audit_id,))
                 .fetchone()
+                if has_quarantine()
+                else None
             )
             if held is None:
                 abort(404, description="No listing with that id.")
@@ -617,7 +623,20 @@ def create_app(root: Path | str | None = None, *, allowed_hosts=None) -> Flask:
             is not None
         )
 
+    def has_quarantine() -> bool:
+        """Builds before schema 2 have no quarantined table."""
+        return (
+            db()
+            .execute(
+                "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'quarantined'"
+            )
+            .fetchone()
+            is not None
+        )
+
     def quarantined_for(column, value):
+        if not has_quarantine():
+            return []
         return (
             db()
             .execute(
@@ -639,17 +658,24 @@ def create_app(root: Path | str | None = None, *, allowed_hosts=None) -> Flask:
             rows, within = (
                 db()
                 .execute("SELECT * FROM quarantined ORDER BY period DESC, audit_id")
-                .fetchall(),
+                .fetchall()
+                if has_quarantine()
+                else [],
                 None,
             )
         if within and not rows:
             abort(404, description="No quarantined listings there.")
-        linked = {
-            r["id"]
-            for r in db().execute(
-                "SELECT id FROM buildings WHERE id IN (SELECT building_id FROM quarantined)"
-            )
-        }
+        linked = (
+            {
+                r["id"]
+                for r in db().execute(
+                    "SELECT id FROM buildings WHERE id IN "
+                    "(SELECT building_id FROM quarantined)"
+                )
+            }
+            if has_quarantine()
+            else set()
+        )
         return render_template(
             "quarantined.html",
             meta=meta(),
