@@ -744,6 +744,55 @@ the fix goes into the model, the features or the data, not the sampler.
     - The site's building pages would show the right facts if the app switched to a v4 fit. That
       is a selection change, so Ben's call.
 
+- **Data rule `quarantine-v2`: a second review (2026-09-30).** It keeps all 143 rows of v1 and
+  adds 45, each with its quote, in `config/reviews/chelsea-quarantine-v2-20260930.jsonl`:
+  - **37 ads whose own words place the apartment somewhere else.**
+    - Every ad that says where the apartment is was checked against the streets its building
+      fronts. That means "located on/at …", "on West Nth Street between …", and house-number
+      addresses that are not a leasing office or another listing. A building fronts the named
+      centerlines within 25 m of its footprints, so through lots and corners count.
+    - Most mismatches are not errors: a subway or Citi Bike station "located at 23rd street", a
+      broker's other listings, a through-block entrance such as 255 West 23rd.
+    - The rest place the apartment elsewhere, for example:
+      - "located on west 69th street off columbus avenue";
+      - "address correction: 342 west 21st street 5d";
+      - four "145 west 15th street (bet 6th & 7th avenue)" ads on the 145 West 14th page;
+      - four "located on 14th street and 7th avenue" ads on the 545 Sixth Avenue page;
+      - two ads on the 220 West 24th page and two on the 225 West 23rd page, each naming the
+        other building;
+      - two "premier upper west side" ads for floors above Port 10's 13.
+    - Every other "wrong location" detector hit was read as well. They name places nearby or
+      within reach ("the l to brooklyn", "queens size beds").
+  - **Eight bedroom counts the ad flatly contradicts.** They were found by comparing the count
+    the ad's first sentence states with the record, leaving out hedged wording such as
+    "convertible" or "1.5 bedroom". For example, Verde Chelsea 5A is recorded as one bedroom,
+    and its ad says "1,686 square foot three-bedroom home". The first draft had nine; review
+    took out 154 West 27th C, whose ad also says "true 2/4 bedroom" and whose other ads say
+    "true two bedroom".
+  - **Left in:**
+    - 466 West 23rd ads that say "466 west 22nd", because the same units' other ads say 23rd (a
+      template slip);
+    - same-number slips such as "133 west 2nd", "151 east 21st" and "230 west 26th";
+    - broker boilerplate that contradicts an ad's own address: The Grove's two "heart of the
+      upper east side" ads open with "west 19th street and seventh avenue" (PR #70 review), as
+      the Amanda's Williamsburg template did in v1;
+    - the other ads on two pages whose lots MapPLUTO records without apartments: 256 West 23rd
+      (a theatre lot) and 401 West 15th (75 Ninth Avenue, an office building). These two pages
+      are in the backlog.
+  - **Result: a tie.** The served design was refit with `unit-labels-v1` + `quarantine-v2`
+    (Gibbs m5-nocurves + `unitdescpluto-v3`, 87d4701, 1,357 s, passes: R-hat 1.0062, ESS 633).
+    - Against the v1 fit (fef2aa5), on the rows both keep: PSIS-LOO −12.3 ± 10.6 and held-out
+      −2.7 ± 2.2. ν stays at 2.10.
+    - The loss is mostly noise. The 51 other rows of the units that lost a listing are −4.7 ± 2.8:
+      those units have one listing fewer to learn from. Rows in the same buildings are +1.0 ±
+      3.8, and the other 45,181 rows −8.6 ± 6.9, within the Monte Carlo error of two fits
+      (6.5).
+    - The 44 new training rows were not badly fit in the served model: +0.42 PSIS-LOO per row
+      against +1.11 for all rows. They are wrong data, not outliers.
+    - The two drafts' fits (7ed6c55, 158 rows, −6.3 ± 9.0; 7f6cd08, 190 rows, −11.4 ± 10.6) are
+      archived under `runs-archive/quarantine-v2-draft-2026-09-30`.
+  - Paired scores on the board now leave out every row either quarantine drops (188).
+
 **Order.**
 1. **Data quality** (backlog "Data quality"). Audit rows by rules that do not use a model's
    residuals: within-unit consistency, attribute plausibility (price per square foot, bedrooms
