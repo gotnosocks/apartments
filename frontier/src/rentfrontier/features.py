@@ -11,6 +11,7 @@ id, so older leaderboard entries stay reproducible from their commit anyway.
 
 from __future__ import annotations
 
+import contextvars
 import functools
 import itertools
 import json
@@ -261,6 +262,17 @@ REGISTRY_SNAPSHOT = "/data1/apartments/external/registry/20260925-6b67137"
 PLUTO_SNAPSHOT = "/data1/apartments/external/pluto/20260925-3096a62"
 REGISTRY_FILE = f"{REGISTRY_SNAPSHOT}/buildings.parquet"
 PLUTO_FILE = f"{PLUTO_SNAPSHOT}/pluto.parquet"
+# The registry with 11 pages re-geocoded from their ads' addresses
+# (config/reviews/registry-overrides-20260930.json), and MapPLUTO for its lots.
+REGISTRY_V2_FILE = (
+    "/data1/apartments/external/registry/20260930-4d41f8b/buildings.parquet"
+)
+PLUTO_V2_FILE = "/data1/apartments/external/pluto/20260930-4d41f8b/pluto.parquet"
+# Which registry and MapPLUTO snapshots building_lots reads while a feature set
+# is built (`build`); feature sets not listed in LOT_SNAPSHOTS read the first.
+_LOTS: contextvars.ContextVar[tuple[str, str] | None] = contextvars.ContextVar(
+    "lots", default=None
+)
 SUBWAY_SNAPSHOT = "/data1/apartments/external/subway/20260929-8e7c364"
 SUBWAY_FILE = f"{SUBWAY_SNAPSHOT}/subway.parquet"
 # Street centerlines, parks and shoreline (`rentfrontier.external basemap`).
@@ -284,8 +296,9 @@ ERAS = (
 
 def building_lots(frame: pd.DataFrame) -> pd.DataFrame:
     """MapPLUTO attributes of each row's building (one row per listing row)."""
-    registry = pd.read_parquet(REGISTRY_FILE)
-    pluto = pd.read_parquet(PLUTO_FILE).set_index("bbl")
+    registry_file, pluto_file = _LOTS.get() or (REGISTRY_FILE, PLUTO_FILE)
+    registry = pd.read_parquet(registry_file)
+    pluto = pd.read_parquet(pluto_file).set_index("bbl")
     lot = registry.set_index("building").bbl.reindex(frame.building.to_numpy())
     return pluto.reindex(lot.to_numpy()).reset_index(drop=True)
 
@@ -1060,6 +1073,7 @@ EXTERNAL = {
     "unitdescpluto-v3",
     "unitfacing-v2",
     "unitfacing-v3",
+    "unitdescpluto-v4",
     "unitdescplutohpd-v1",
     "unitdescplutohpd-v2",
 }
@@ -1083,6 +1097,7 @@ DESCRIPTIONS = {
     "unitdescpluto-v3",
     "unitfacing-v2",
     "unitfacing-v3",
+    "unitdescpluto-v4",
     "unitdescplutohpd-v1",
     "unitdescplutohpd-v2",
 }
@@ -1127,6 +1142,15 @@ FEATURE_SETS = {
     "unitdescplutoloc-v1": partial(
         location_v1, id="unitdescplutoloc-v1", base="unitdescpluto-v1"
     ),
+    # v3 on the corrected registry (LOT_SNAPSHOTS): building facts and heights
+    # from the right lots for 11 pages the registry had matched to a neighbour.
+    "unitdescpluto-v4": partial(
+        pluto_v1,
+        id="unitdescpluto-v4",
+        base="unitdesc-v1",
+        flood_zone=False,
+        latest_alteration=True,
+    ),
     # Building condition (HPD violations, as of each listing) on the app's facts.
     "unitdescplutohpd-v1": partial(
         hpd_v1, id="unitdescplutohpd-v1", base="unitdescpluto-v3"
@@ -1143,5 +1167,21 @@ FEATURE_SETS = {
 }
 
 
+# Feature sets that read other registry and MapPLUTO snapshots than the first.
+LOT_SNAPSHOTS = {
+    "unitdescpluto-v4": {"registry": REGISTRY_V2_FILE, "pluto": PLUTO_V2_FILE},
+}
+
+
+def lot_files(name: str) -> dict:
+    """The registry and MapPLUTO files a feature set's building lots read."""
+    return LOT_SNAPSHOTS.get(name, {"registry": REGISTRY_FILE, "pluto": PLUTO_FILE})
+
+
 def build(name: str, frame: pd.DataFrame, train: np.ndarray) -> Features:
-    return FEATURE_SETS[name](frame, np.asarray(train, dtype=bool))
+    files = lot_files(name)
+    token = _LOTS.set((files["registry"], files["pluto"]))
+    try:
+        return FEATURE_SETS[name](frame, np.asarray(train, dtype=bool))
+    finally:
+        _LOTS.reset(token)
