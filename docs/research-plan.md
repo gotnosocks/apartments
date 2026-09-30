@@ -667,9 +667,10 @@ the fix goes into the model, the features or the data, not the sampler.
     - ν is 2.10 ± 0.04, against 2.06 ± 0.03. The tails do not lighten.
     - The 131 rows are errors, but they are 0.25% of the data: they do not change how the model
       fits the other rows, and they are not what the heavy tails protect against.
-    - The rule's value is in what the model serves. The quarantined listings leave the site. So do
-      19 building pages that had only quarantined rows, including the office lot at 103 Eighth
-      Avenue and four Park Slope addresses.
+    - The rule's value is in what the model serves. If the app switched to this fit (a selection
+      change, so Ben's call), the quarantined listings would leave the site. So would 19 building
+      pages that had only quarantined rows, including the office lot at 103 Eighth Avenue and
+      three Park Slope addresses.
   - **Board.** Paired scores now leave out the quarantined rows for every entry, so all entries
     share one population. The served fit is +11,861.3 over m0 and the quarantine refit +11,864.9.
 
