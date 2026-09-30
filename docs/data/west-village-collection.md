@@ -295,9 +295,10 @@ no requests.
   Models can opt in by mapping `unit_id` to `representative_unit_id`, preferably for
   `history_confirmed` groups only. The canonical-url-v1 dataset is unchanged.
 
-## Handoff status (September 30, 12:45 EDT)
+## Handoff status (September 30, 19:30 EDT)
 
-**The crawl is complete. Do not relaunch it.**
+**The crawl is complete. Do not relaunch it.** (A v9 follow-up run on September 30,
+17:54 to 18:56 EDT, found nothing further to fetch; see the coverage-gap note.)
 `apartments-west-village-low-rate-20260919-v8` exited on its own at 11:30 EDT on
 September 30 with `finish_reason: finished` (systemd `Result=success`, exit 0). The
 eligible queue was empty. The 6,574 rows still marked pending are all outside the
@@ -368,7 +369,7 @@ placed in claim order have negative `frontier.rowid`.
   Do not delete, rebuild or `uv sync` that `.venv`, and do not edit
   existing `data/probes/west-village-20260919/runtime-v*` directories. Change code
   through a reviewed PR, a new fixed runtime directory and a
-  controlled stop and resume (next: `runtime-v9`). Never edit files listed in `ruff.toml`'s
+  controlled stop and resume (next: `runtime-v10`). Never edit files listed in `ruff.toml`'s
   `extend-exclude` (including `store.py` and `crawler.py`): saved datasets hash them.
 - Memory: the service's cgroup sits at its 2 GB `MemoryMax` within minutes, but
   that is reclaimable file cache from reading the archive; the process itself uses
