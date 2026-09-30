@@ -59,6 +59,7 @@ that a typical apartment renter thinks about when choosing a place to rent."
 | Location (`unitdescplutoloc-v1`) | What buildings nearby rent for: a smooth premium over the map, shared by buildings a few blocks apart (for example the western blocks near the High Line). |
 | Transit (`unitdescplutotransit-v2`) | The walk to the nearest subway station, and how many subway lines stop within a 10-minute walk, counting the stations open at the time of the listing. |
 | Which way the apartment faces (`unitfacing-v2`) | Whether the apartment looks onto its building's street (an avenue, a wide street such as 14th, or a side street), onto the back, both front and back, or only to the sides, from its window directions, front/rear unit labels, ad text and street or courtyard views. |
+| Streets the apartment looks onto (`unitfacing-v3`) | Whether the apartment's windows look onto an avenue, a wide street such as 14th, a side street, or the rear or a courtyard, using every side of its building that has a clear view of a street (corner and through-block buildings have more than one; a wall against a neighbour has none). |
 | Building level | This building's premium beyond its apartments' features: its location, quality and management. |
 | Building trend or walk | How that premium has moved over time, for example a renovation or a changing block: steadily (the trend) or along a path that can change direction at each knot, joined by straight lines (the walk). Sum-to-zero walks make it relative to the market, so "the market" and "this building" never overlap. |
 | Bedroom slope (m5) | In some buildings the larger apartments carry an extra premium or discount. |
@@ -1013,10 +1014,53 @@ comes from other sources, most of them public NYC and NYS data.
     - a unit's own level already carries its orientation when it has other listings;
     - noise may matter mostly on low floors (an interaction with floor is the natural next test);
     - frontage is ambiguous for 39% of listings (above).
-  - **Next: every side's street, from building footprints.** NYC Building Footprints (joined by BIN)
-    give each building's outline. Each side of the outline gets the street it faces (the nearest
-    centerline beyond it) or none (a lot line or the rear). A unit's window directions then say
-    which street it looks onto. Corner and through buildings get their real fronts.
+- **Every side's street, from building footprints** (`unitfacing-v3`; Gibbs m5-nocurves,
+  `unit-labels-v1` + `quarantine-v1`, 2 × (300 + 3600), ceb269f, 2026-09-30).
+  - **Sides.** The input is NYC Building Footprints (5zhs-2jue): the outline of every building in
+    the registry's box plus 100 m, 3,347 in all (snapshot 20260930-6634906).
+    - Each facade edge of 1 m or more is sampled every 5 m, or once if it is shorter.
+    - A sample looks straight out, along the edge's normal, for up to 45 m. It sees the first
+      street centerline it crosses, unless another building's outline crosses first. That
+      includes a neighbour on the same tax lot, and the building's own walls across a courtyard.
+    - A side looks onto the street most of its clear samples see, if at least two samples see
+      one or one edge sees it along its whole length (a narrow front between recessed walls).
+  - **Check.** The address street's type is among a building's sides for 1,101 of the 1,102
+    buildings with an address street. Two earlier cuts did worse:
+    - The first (bf09466) took the nearest centerline overall and scored 95.9%. It missed the
+      avenue side of corner buildings, whose short avenue front sees the cross street running
+      past it (234 8th Ave, 181 7th Ave, Chelsea Tower), and it read party walls as street
+      fronts.
+    - The second (dff9f62) used the nearest centerline in the outward cone. It left buildings on
+      the same lot out of the blockers, so the row buildings at 106–112 8th Avenue saw 15th and
+      16th Streets through their neighbours (PR #62 review).
+    - The Sierra and Stonehenge Gardens look onto 14th Street, as Ben said. Stonehenge Gardens'
+      rear sees 15th Street only through a gap between the buildings on 15th.
+  - **Units.** Each unit gets four flags, which are not exclusive: it looks onto an avenue, a
+    wide street, a side street, or the rear or a courtyard. They come from window directions
+    against the sides, plus front/rear labels, ad text and views.
+  - **Fit.** 1,370 s, passes (R-hat 1.0065, ESS 710). Against the same design without it
+    (fef2aa5, the app's model), PSIS-LOO is +4.8 ± 8.0 and held-out −1.3 ± 1.4: **a tie**.
+  - **Effects** against no evidence:
+    - avenue +0.5% (−0.1 to +1.2);
+    - wide street −0.1% (−1.0 to +0.8);
+    - side street +0.9% (+0.4 to +1.3);
+    - rear or courtyard +0.4% (+0.0 to +0.9).
+  - **Contrasts:**
+    - **a wide street against a side street −0.9% (−1.8 to −0.1; 98.2% below zero)**, the
+      direction Ben expected;
+    - an avenue against a side street −0.3% (−1.1 to +0.5);
+    - a side street against the rear +0.4% (−0.2 to +1.0).
+  - **Reading.** The street an apartment looks onto is worth about a percent: an apartment looking
+    onto 14th, 23rd or 34th Street asks about 1% less than one looking onto a quiet side street.
+    That is renter-facing and mappable, but accuracy changes only within noise. The board marks it
+    on the frontier by a +4.8 ± 8.0 margin. The natural next test is its interaction with a low
+    floor, where noise is worst.
+  - **Known limitation.** 21 street sides that are not the address front rest on a single clear
+    sample, some from wall stubs or chamfers under 3 m (a corner stub at The Heywood, a sliver gap
+    at 232 8th Ave). Resetting the doubtful ones changes 3 rows. A minimum edge length of about
+    3 m for counting samples would remove them, and is for a later version (PR #62 review).
+  - The two earlier cuts' fits (bf09466; dff9f62, +4.2 ± 8.2 against fef2aa5) are archived under
+    `runs-archive/facing-v3-draft-2026-09-30`.
 
 *Testing.*
 - Add each source group as its own feature set, alone and then combined.
