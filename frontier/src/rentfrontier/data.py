@@ -169,7 +169,7 @@ def quarantine_v1(frame: pd.DataFrame) -> pd.DataFrame:
 
 
 def quarantine_v2(frame: pd.DataFrame) -> pd.DataFrame:
-    """v1 and the second review's rows (190 in all): 39 more ads whose own words
+    """v1 and the second review's rows (188 in all): 37 more ads whose own words
     place the apartment at another address or on a street its building does not
     front, and eight more bedroom counts the ad flatly contradicts. The other rows
     are unchanged."""
