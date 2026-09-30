@@ -883,7 +883,7 @@ comes from other sources, most of them public NYC and NYS data.
 - **Building condition: HPD housing-code violations** (`unitdescplutohpd-v1`, 0544905;
   `unitdescplutohpd-v2`, 0fc2df7; 2026-09-30; HPD snapshot 20260930-cb289ad; both with
   `quarantine-v1`, against fef2aa5).
-  - **Data.** 30,302 violations in 901 of our buildings. The feature counts class B (hazardous)
+  - **Data.** 30,302 violations; 914 of the 1,129 registry buildings have at least one. The feature counts class B (hazardous)
     and class C (immediately hazardous) violations found in the building before the listing's
     month, per apartment and year. Apartments are MapPLUTO's residential units, or the units
     listed where a condominium lot records none. The window trails the listing, so no future
@@ -896,11 +896,19 @@ comes from other sources, most of them public NYC and NYS data.
     apartment, about the top 15% of listings.
     - 1,358 s, passes. PSIS-LOO **−1.0 ± 6.7**, held-out −0.4 ± 0.5.
     - Effects: a few −0.1% (−0.6 to +0.4), many +0.3% (−0.4 to +0.9).
-  - **Why it adds nothing.** Across buildings, violations do go with lower rents: the quarter of
-    buildings with the most violations since 2010 have a median premium of −2.7%, against +1.9%
-    and +0.3% for the two lowest quarters. But the building facts and each building's own level
-    already carry that. The building level's share of the variance stays at 7.7%, and a year with
-    violations does not move a building's asks against its own path.
+  - **Why it adds nothing.** Across buildings, violations do go with lower rents. About half the
+    buildings have no class B or C violations since 2010, and their median premium is +2.4%.
+    Buildings with any have a median of −1.3%, and the quarter with the most per apartment,
+    about −2.5%. But the building facts and each building's own level already carry that. The
+    building level's share of the variance stays at 7.7%, and a year with violations does not
+    move a building's asks against its own path.
+  - **Known limitations of these versions** (PR #67 review; a new version would fix them, but
+    the result gives no reason to make one):
+    - A building with its own BIN but no class B or C violations falls back to its lot's, taking
+      the violations of other buildings on the lot (20 buildings, 535 rows; London Terrace's lot,
+      for example).
+    - On lots with several buildings, a building's violations are divided by the whole lot's
+      apartments.
   - Recording condition in the site's building facts, as information rather than a model term,
     is a possible follow-up.
 
