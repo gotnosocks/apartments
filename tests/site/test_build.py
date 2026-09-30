@@ -228,3 +228,24 @@ def test_publish_never_prunes_staging(bundle, tmp_path):
         len([p for p in (root / "builds").iterdir() if not p.name.endswith(".tmp")])
         == build.KEEP
     )
+
+
+def test_quarantined_listings_are_kept_with_their_reason(site_root):
+    rows = {r["audit_id"]: r for r in query(site_root, "SELECT * FROM quarantined")}
+    assert set(rows) == {"q1", "q2"}
+    q1 = rows["q1"]
+    assert q1["action"] == "quarantine_nonresidential" and q1["rule"] == "quarantine-v1"
+    assert q1["evidence"] == "ground floor retail space" and q1["ask"] == 8500.0
+    assert q1["building"] == "The Grove" and q1["listing_url"].endswith("/rental/91")
+    assert rows["q2"]["evidence"] is None and rows["q2"]["external_evidence"]
+    info = json.loads((site_root / "current" / "build.json").read_text())
+    assert info["stats"]["quarantined_listings"] == 2
+    assert info["stats"]["listings"] == 6  # quarantined rows are not listings
+
+
+def test_build_refuses_rows_missing_that_no_rule_drops(tmp_path, make_bundle):
+    # The rule file names q1 only; q2 is missing from the bundle all the same.
+    q1 = {"audit_id": "q1", "action": "quarantine_nonresidential", "reason": "Retail."}
+    bundle = make_bundle(tmp_path / "inputs", rule_lines=[q1])
+    with pytest.raises(build.BuildError, match="no data rule drops them"):
+        build.build(bundle, tmp_path / "site")

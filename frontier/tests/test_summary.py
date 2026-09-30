@@ -206,7 +206,47 @@ def test_write_records_every_file_and_renames_last(tmp_path, monkeypatch):
         "terms.json",
     }
     assert record["rows"] == 2 and record["rows_in_fit"] == 1
+    assert record["data_rule_files"] == {}
     assert not (tmp_path / "s.tmp").exists()
+
+
+def test_write_copies_the_row_dropping_rules_file(tmp_path, monkeypatch):
+    rule_file = tmp_path / "q.jsonl"
+    rule_file.write_text('{"audit_id": "c", "action": "x", "reason": "y"}\n')
+    monkeypatch.setitem(summary.data.RULE_SOURCES, "quarantine-v1", rule_file)
+    monkeypatch.setattr(summary, "hardware", lambda: {"cpu": "test"})
+    monkeypatch.setattr(summary, "loo_score", lambda run: None)
+    rows = pd.DataFrame({"audit_id": ["a"], "in_fit": [True], "pareto_k": [0.2]})
+    sources = {"quarantine-v1": {"sha256": summary.data.sha256(rule_file)}}
+    out = {
+        "result": {
+            "name": "r",
+            "commit": "c" * 40,
+            "dataset": "/d",
+            "dataset_observations_sha256": "s",
+            "data_rules": ["unit-labels-v1", "quarantine-v1"],
+            "data_rule_sources": sources,
+            "feature_set": "f",
+            "model": {"name": "m"},
+            "split": "rows",
+            "seconds": {"fit_total": 1.0},
+            "hardware": {"cpu": "x", "gpu": None},
+        },
+        "gate": {"passes": True},
+        "draws": 10,
+        "names": ["market"],
+        "rows": rows,
+        "market": pd.DataFrame({"period": ["2020-01-01"]}),
+        "buildings": pd.DataFrame({"building": ["b"]}),
+        "coefficients": pd.DataFrame({"feature": ["x"]}),
+        "k_threshold": 0.7,
+    }
+    path = summary.write(out, tmp_path / "s", "d" * 40, 1.0)
+    record = json.loads((path / "complete.json").read_text())
+    name = "data-rule-quarantine-v1.jsonl"
+    assert record["data_rule_files"] == {"quarantine-v1": name}
+    assert record["files"][name] == summary.data.sha256(rule_file)
+    assert record["data_rule_sources"] == sources
 
 
 def _result(**changes):

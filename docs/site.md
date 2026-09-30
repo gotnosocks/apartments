@@ -33,6 +33,12 @@ signal of over- or under-pricing ([what an estimate is](model/listing-estimates.
   - MapPLUTO facts;
   - ask against estimate over time for every listing;
   - its units and listings.
+- **Quarantined listings** (`/quarantined`, and a section on each building and unit page): the
+  listings the selected fit's data rules leave out (`quarantine-v1`, the divergence review). Each
+  shows the review's reason, the ad's own words or the MapPLUTO record behind it, and no estimate.
+  A quarantined listing's URL opens a page that explains why. A building or unit with only
+  quarantined listings redirects to its list. Quarantined listings are not in the listings search
+  or any estimate statistic; the start page counts them.
 - **About the estimates** (`/model`): what an estimate is and is not, calibration by estimate type,
   the fit's provenance, convergence gate and PSIS-LOO score, the parts of an estimate, and every
   feature coefficient.
@@ -52,7 +58,9 @@ listings fall in each band, as calibration predicts.
    checks every input against the bundle's provenance:
    - the bundle's files (sha256);
    - the analytical dataset it was made from (observations.jsonl sha256);
-   - the building registry and MapPLUTO extracts the run used (sha256).
+   - the building registry and MapPLUTO extracts the run used (sha256);
+   - the bundle's copies of the run's row-dropping rules (`data-rule-<rule>.jsonl`): a dataset row
+     missing from the bundle must be one of their rows, and it goes into the quarantined table.
 
    It refuses a failing gate. It writes `/data1/apartments/site/builds/<stamp>/site.sqlite` and
    `build.json`, swaps the `current` symlink atomically, and keeps the newest three builds. It takes

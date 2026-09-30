@@ -50,6 +50,8 @@ buildings.parquet     per building: level and yearly trend as percentages,
 coefficients.parquet  per feature column: exp(beta) - 1, mean, 95% interval
                       and probability positive.
 terms.json            the contribution terms in display order, with labels.
+data-rule-<rule>.jsonl  a copy of each row-dropping rule's file (the run's
+                      hash): the rows the bundle leaves out, with reasons.
 complete.json         provenance (run, commits, dataset and feature-source
                       sha256, gate, PSIS-LOO score, draws) and the sha256 of
                       every file; written last.
@@ -61,6 +63,7 @@ import argparse
 import datetime as dt
 import json
 import math
+import shutil
 import time
 from pathlib import Path
 
@@ -567,6 +570,12 @@ def write(out: dict, out_dir: Path, commit: str, seconds: float) -> Path:
     out["coefficients"].to_parquet(tmp / "coefficients.parquet", index=False)
     (tmp / "terms.json").write_text(json.dumps(terms_record(out["names"]), indent=2))
     result = out["result"]
+    rule_files = {}
+    for rule in data.recorded_rules(result):
+        if rule in data.RULE_SOURCES:
+            name = f"data-rule-{rule}.jsonl"
+            shutil.copyfile(data.RULE_SOURCES[rule], tmp / name)
+            rule_files[rule] = name
     rows = out["rows"]
     k = rows.pareto_k.to_numpy()
     record = {
@@ -580,6 +589,8 @@ def write(out: dict, out_dir: Path, commit: str, seconds: float) -> Path:
         "dataset": result["dataset"],
         "dataset_observations_sha256": result["dataset_observations_sha256"],
         "data_rules": result.get("data_rules", []),
+        "data_rule_sources": result.get("data_rule_sources", {}),
+        "data_rule_files": rule_files,
         "feature_set": result["feature_set"],
         "feature_sources": result.get("feature_sources", {}),
         "model": result["model"],

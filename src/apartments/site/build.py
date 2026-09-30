@@ -11,7 +11,11 @@ Inputs, each checked against the bundle's provenance (complete.json):
 - the analytical dataset it was made from (observations.jsonl sha256): the
   listing attributes, prices, dates and StreetEasy links;
 - the building registry and MapPLUTO extracts the run used, when recorded
-  (sha256): addresses, coordinates and building facts.
+  (sha256): addresses, coordinates and building facts;
+- the bundle's copies of the run's row-dropping data rules (quarantine-v1):
+  a dataset row missing from the bundle must be one of their rows. Those
+  listings are kept in their own table, with the review's reason and no
+  estimate, so the site can say which listings are quarantined and why.
 
 Writes <root>/builds/<stamp>/site.sqlite and build.json, then points
 <root>/current at the new build with an atomic symlink swap and keeps the
@@ -36,7 +40,7 @@ from pathlib import Path
 import duckdb
 
 VERSION = "listings-site-v1"
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 2
 DEFAULT_ROOT = Path(os.environ.get("SITE_ROOT", "/data1/apartments/site"))
 SELECTION = Path(__file__).resolve().parents[3] / "config" / "main-analysis.json"
 SELECTION_VERSION = "main-analysis-selection-v2"
@@ -87,6 +91,16 @@ CREATE TABLE listings(
   contributions TEXT NOT NULL, inputs TEXT NOT NULL);
 -- Every sort key has an index ending in id, in the same direction as the key,
 -- so ORDER BY <key> <dir>, id <dir> scans it either way (no temp sort).
+CREATE TABLE quarantined(
+  audit_id TEXT PRIMARY KEY, building_id TEXT NOT NULL, building TEXT NOT NULL,
+  unit_id TEXT, unit_label TEXT, unit_url TEXT, listing_id TEXT, listing_url TEXT,
+  period TEXT NOT NULL, is_current INTEGER NOT NULL, ask REAL NOT NULL,
+  bedrooms REAL, bathrooms REAL, square_feet REAL,
+  rule TEXT NOT NULL, action TEXT NOT NULL, reason TEXT NOT NULL,
+  evidence TEXT, external_evidence TEXT);
+CREATE INDEX quarantined_building ON quarantined(building_id, period);
+CREATE INDEX quarantined_unit ON quarantined(unit_id, period);
+CREATE INDEX quarantined_period ON quarantined(period, audit_id);
 CREATE INDEX listings_period ON listings(period, id);
 CREATE INDEX listings_ask ON listings(ask, id);
 CREATE INDEX listings_estimate ON listings(estimate, id);
@@ -480,14 +494,73 @@ def _insert(db, table, rows):
     )
 
 
+def rule_decisions(record: dict, bundle: Path) -> dict[str, dict]:
+    """audit_id -> the review decision of every row a row-dropping data rule
+    of the run leaves out (from the bundle's verified copies)."""
+    out = {}
+    for rule, name in record.get("data_rule_files", {}).items():
+        with open(bundle / name) as f:
+            for line in f:
+                if line.strip():
+                    decision = json.loads(line)
+                    out[decision["audit_id"]] = {**decision, "rule": rule}
+    return out
+
+
+def _listing_url(obs: dict) -> tuple[str, str | None]:
+    listing_id = str(obs["source_listing_id"])
+    url = (
+        f"https://streeteasy.com/rental/{listing_id}" if listing_id.isdigit() else None
+    )
+    return listing_id, url
+
+
+def quarantined_rows(missing, observations, decisions, registry) -> list[dict]:
+    located = {r["building"]: r for r in registry}
+    out = []
+    for audit_id in sorted(missing, key=lambda a: observations[a]["period"]):
+        obs, d = observations[audit_id], decisions[audit_id]
+        reg = located.get(obs["building"], {})
+        name, address = building_names(obs["building"], title_address(reg.get("label")))
+        listing_id, listing_url = _listing_url(obs)
+        out.append(
+            {
+                "audit_id": audit_id,
+                "building_id": obs["building"],
+                "building": name or address,
+                "unit_id": d.get("unit_id"),
+                "unit_label": unit_label(obs.get("canonical_unit_url")),
+                "unit_url": obs.get("canonical_unit_url"),
+                "listing_id": listing_id,
+                "listing_url": listing_url,
+                "period": obs["period"],
+                "is_current": int(obs["analysis_price_basis"] != HISTORICAL_BASIS),
+                "ask": float(obs["asking_rent"]),
+                "bedrooms": obs.get("bedrooms"),
+                "bathrooms": obs.get("bathrooms"),
+                "square_feet": obs.get("square_feet"),
+                "rule": d["rule"],
+                "action": d["action"],
+                "reason": d["reason"],
+                "evidence": d.get("evidence") or None,
+                "external_evidence": d.get("external_evidence"),
+            }
+        )
+    return out
+
+
 def write_database(path: Path, record: dict, bundle: Path, scope: str) -> dict:
     observations = load_observations(
         Path(record["dataset"]), record["dataset_observations_sha256"]
     )
     rows = parquet_rows(bundle / "rows.parquet")
-    if len(rows) != len(observations):
+    decisions = rule_decisions(record, bundle)
+    missing = observations.keys() - {r["audit_id"] for r in rows}
+    unexplained = missing - decisions.keys()
+    if unexplained:
         raise BuildError(
-            f"the bundle has {len(rows)} rows, the dataset {len(observations)}"
+            f"{len(unexplained)} dataset rows are missing from the bundle and no "
+            "data rule drops them"
         )
     terms = json.loads((bundle / "terms.json").read_text())
     names = [t["name"] for t in terms]
@@ -496,13 +569,15 @@ def write_database(path: Path, record: dict, bundle: Path, scope: str) -> dict:
     k_threshold = record["estimate_pareto_k"]["threshold"]
     listings = listing_rows(rows, observations, names, k_threshold)
     units = unit_rows(listings)
+    registry = external(record, "registry")
     buildings = building_rows(
         parquet_rows(bundle / "buildings.parquet"),
         listings,
         units,
-        external(record, "registry"),
+        registry,
         external(record, "pluto"),
     )
+    quarantined = quarantined_rows(missing, observations, decisions, registry)
     market = [
         {
             "period": m["period"],
@@ -536,6 +611,8 @@ def write_database(path: Path, record: dict, bundle: Path, scope: str) -> dict:
         "first_period": periods[0],
         "last_period": periods[-1],
         "unreliable_estimates": sum(1 - r["reliable"] for r in listings),
+        "quarantined_listings": len(quarantined),
+        "quarantined_current": sum(r["is_current"] for r in quarantined),
     }
     db = sqlite3.connect(path)
     try:
@@ -543,6 +620,7 @@ def write_database(path: Path, record: dict, bundle: Path, scope: str) -> dict:
         _insert(db, "buildings", buildings)
         _insert(db, "units", units)
         _insert(db, "listings", listings)
+        _insert(db, "quarantined", quarantined)
         _insert(db, "market", market)
         _insert(db, "coefficients", coefficients)
         db.executemany(
