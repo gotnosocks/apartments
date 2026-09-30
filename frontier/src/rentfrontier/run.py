@@ -231,10 +231,7 @@ def feature_sources(feature_set: str) -> dict:
         }
     if feature_set in features.EXTERNAL:
         # Hash the files the features read, not the provenance's record of them.
-        for name, path in (
-            ("registry", features.REGISTRY_FILE),
-            ("pluto", features.PLUTO_FILE),
-        ):
+        for name, path in features.lot_files(feature_set).items():
             out[name] = {"path": path, "sha256": data.sha256(Path(path))}
     if feature_set in features.BASEMAP:
         path = features.BASEMAP_FILE
