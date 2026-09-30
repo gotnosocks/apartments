@@ -138,8 +138,10 @@ def typical_rows(prep: model.Prepared) -> dict:
     return out
 
 
-def building_table(prep: model.Prepared, years) -> list[dict]:
-    registry = pd.read_parquet(features.REGISTRY_FILE).set_index("building")
+def building_table(prep: model.Prepared, years, registry_file=None) -> list[dict]:
+    registry = pd.read_parquet(registry_file or features.REGISTRY_FILE).set_index(
+        "building"
+    )
     tr = prep.train
     first = pd.Series(prep.periods[tr.month].year).groupby(tr.building).min()
     last = pd.Series(prep.periods[tr.month].year).groupby(tr.building).max()
@@ -379,7 +381,9 @@ def compute(name: str) -> dict:
         c = np.quantile(np.median(np.exp(log), axis=1), PROBABILITIES, axis=0)
         chelsea[key] = np.rint(c.T).astype(int).tolist()  # (Y, 3)
     months = (by_year > 0).sum(1)
-    buildings = building_table(prep, years)
+    # The registry the run's features read (the first snapshot for older runs).
+    recorded = (result.get("feature_sources") or {}).get("registry") or {}
+    buildings = building_table(prep, years, recorded.get("path"))
     grid = grid_layout(buildings)
     basemap = basemap_layers(buildings)
     return {

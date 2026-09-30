@@ -314,6 +314,37 @@ def test_unitfacing_records_the_basemap(monkeypatch):
     assert {"registry", "pluto", "descriptions", "basemap"} <= sources.keys()
 
 
+def test_unitdescpluto_v4_reads_the_corrected_registry(monkeypatch):
+    seen = []
+
+    def fake_lots(frame):
+        seen.append(features._LOTS.get())
+        return pd.DataFrame(index=range(len(frame)))
+
+    monkeypatch.setattr(features, "building_lots", fake_lots)
+    monkeypatch.setitem(
+        features.FEATURE_SETS,
+        "probe-v4",
+        lambda frame, train: features.building_lots(frame),
+    )
+    monkeypatch.setitem(
+        features.LOT_SNAPSHOTS, "probe-v4", {"registry": "r2", "pluto": "p2"}
+    )
+    frame = pd.DataFrame({"building": ["a"]})
+    features.build("probe-v4", frame, np.array([True]))
+    assert seen == [("r2", "p2")]
+    assert features._LOTS.get() is None  # reset after the build
+    files = features.lot_files("unitdescpluto-v4")
+    assert files == {
+        "registry": features.REGISTRY_V2_FILE,
+        "pluto": features.PLUTO_V2_FILE,
+    }
+    assert features.lot_files("unitdescpluto-v3") == {
+        "registry": features.REGISTRY_FILE,
+        "pluto": features.PLUTO_FILE,
+    }
+
+
 def test_building_violations_count_the_trailing_year_only(tmp_path, monkeypatch):
     registry = pd.DataFrame(
         {"building": ["a", "b"], "bin": ["1000001", "1000000"], "bbl": ["1", "2"]}
