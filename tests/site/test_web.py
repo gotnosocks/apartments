@@ -110,6 +110,7 @@ def test_building_page(client):
     html = client.get(f"/buildings/{GROVE}").get_data(as_text=True)
     assert "The Grove" in html and "250 West 19th Street" in html
     assert "+10%" in html and "Built" in html and "1986" in html
+    assert "Floors" in html
     assert 'data-chart="points"' in html
     current = client.get(f"/buildings/{GROVE}?status=current").get_data(as_text=True)
     assert current.count('href="/listings/') == 1
