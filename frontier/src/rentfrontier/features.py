@@ -11,7 +11,9 @@ id, so older leaderboard entries stay reproducible from their commit anyway.
 
 from __future__ import annotations
 
+import contextvars
 import functools
+import itertools
 import json
 import math
 import re
@@ -162,12 +164,7 @@ def base_v1(
     b.add("size", "sqft_unknown", ~known)
 
     # Advertised floor label (a proxy, not a verified physical floor).
-    floor = frame.listed_floor.astype("float")
-    if label_floor:
-        label = label_floor_number(frame)
-        height = pd.to_numeric(building_lots(frame).numfloors, errors="coerce")
-        label = label.where(label.le(height.to_numpy() + 2))
-        floor = floor.where(floor.ge(1), label)
+    floor = row_floor(frame) if label_floor else frame.listed_floor.astype("float")
     floor_known = floor.ge(1)
     log_floor = np.log(floor.where(floor_known, 1.0))
     b.add("floor", "log_floor", log_floor)
@@ -260,11 +257,34 @@ REGISTRY_SNAPSHOT = "/data1/apartments/external/registry/20260925-6b67137"
 PLUTO_SNAPSHOT = "/data1/apartments/external/pluto/20260925-3096a62"
 REGISTRY_FILE = f"{REGISTRY_SNAPSHOT}/buildings.parquet"
 PLUTO_FILE = f"{PLUTO_SNAPSHOT}/pluto.parquet"
+# The registry with 11 pages re-geocoded from their ads' addresses
+# (config/reviews/registry-overrides-20260930.json), and MapPLUTO for its lots.
+REGISTRY_V2_FILE = (
+    "/data1/apartments/external/registry/20260930-4d41f8b/buildings.parquet"
+)
+PLUTO_V2_FILE = "/data1/apartments/external/pluto/20260930-4d41f8b/pluto.parquet"
+# That registry with Avalon West Chelsea also re-geocoded from its ads
+# (config/reviews/registry-overrides-20260930-avalon.json), and MapPLUTO for its lots.
+REGISTRY_V3_FILE = (
+    "/data1/apartments/external/registry/20260930-676c382/buildings.parquet"
+)
+PLUTO_V3_FILE = "/data1/apartments/external/pluto/20260930-676c382/pluto.parquet"
+# Which registry and MapPLUTO snapshots building_lots reads while a feature set
+# is built (`build`); feature sets not listed in LOT_SNAPSHOTS read the first.
+_LOTS: contextvars.ContextVar[tuple[str, str] | None] = contextvars.ContextVar(
+    "lots", default=None
+)
 SUBWAY_SNAPSHOT = "/data1/apartments/external/subway/20260929-8e7c364"
 SUBWAY_FILE = f"{SUBWAY_SNAPSHOT}/subway.parquet"
 # Street centerlines, parks and shoreline (`rentfrontier.external basemap`).
 BASEMAP_SNAPSHOT = "/data1/apartments/external/basemap/20260929-da7e40d"
 BASEMAP_FILE = f"{BASEMAP_SNAPSHOT}/basemap.parquet"
+# Building outlines, the registry's and their neighbours' (`rentfrontier.external footprints`).
+FOOTPRINTS_SNAPSHOT = "/data1/apartments/external/footprints/20260930-6634906"
+FOOTPRINTS_FILE = f"{FOOTPRINTS_SNAPSHOT}/footprints.parquet"
+# HPD housing-code violations of the registry's buildings (`rentfrontier.external hpd`).
+HPD_SNAPSHOT = "/data1/apartments/external/hpd/20260930-cb289ad"
+HPD_FILE = f"{HPD_SNAPSHOT}/hpd.parquet"
 ERAS = (
     (0, 1900, "pre-1900"),
     (1900, 1930, "1900-1929"),
@@ -275,10 +295,23 @@ ERAS = (
 )
 
 
+def lot_registry() -> str:
+    """The registry file the current build reads (`LOT_SNAPSHOTS`), else the first."""
+    return (_LOTS.get() or (REGISTRY_FILE, PLUTO_FILE))[0]
+
+
+def _grid_origin() -> tuple[float, float]:
+    """The facing grid's origin: the first registry's mean position, whichever
+    registry a set reads, so buildings a correction leaves alone keep their sides."""
+    first = pd.read_parquet(REGISTRY_FILE)
+    return first.latitude.mean(), first.longitude.mean()
+
+
 def building_lots(frame: pd.DataFrame) -> pd.DataFrame:
     """MapPLUTO attributes of each row's building (one row per listing row)."""
-    registry = pd.read_parquet(REGISTRY_FILE)
-    pluto = pd.read_parquet(PLUTO_FILE).set_index("bbl")
+    registry_file, pluto_file = _LOTS.get() or (REGISTRY_FILE, PLUTO_FILE)
+    registry = pd.read_parquet(registry_file)
+    pluto = pd.read_parquet(pluto_file).set_index("bbl")
     lot = registry.set_index("building").bbl.reindex(frame.building.to_numpy())
     return pluto.reindex(lot.to_numpy()).reset_index(drop=True)
 
@@ -563,13 +596,17 @@ def frontage_street(label: str):
     return None, None, None
 
 
-@functools.lru_cache(maxsize=1)
 def building_frontage() -> pd.DataFrame:
     """Per registry building: its frontage street type (avenue, wide street,
     side street) and the grid direction its front faces (the side of its
     address street it stands on, from the street's centerline)."""
-    registry = pd.read_parquet(REGISTRY_FILE).set_index("building")
-    lat0, lon0 = registry.latitude.mean(), registry.longitude.mean()
+    return _building_frontage(lot_registry())
+
+
+@functools.lru_cache(maxsize=2)
+def _building_frontage(registry_file: str) -> pd.DataFrame:
+    registry = pd.read_parquet(registry_file).set_index("building")
+    lat0, lon0 = _grid_origin()
     phi, metres = math.radians(FRONTAGE_BEARING_DEG), 111_320.0
     cos0 = math.cos(math.radians(lat0))
 
@@ -710,6 +747,391 @@ def facing_v2(
     )
 
 
+# Every side of a building: the street it looks onto, from its footprint. Each
+# facade edge (grouped by the grid direction its outward normal is nearest) is
+# sampled every SIDE_SPACING_M, or once at its middle if shorter. A sample
+# looks straight out, along the edge's normal, for up to SIDE_REACH_M: it sees
+# the first street centerline its sight line crosses, unless another
+# building's outline crosses it first (a party wall, or a rear yard with
+# buildings behind it). A side looks onto the street most of its clear samples
+# see, if two samples see one or one edge sees it along its whole length (a
+# narrow front between recessed walls); otherwise it faces no street.
+SIDE_REACH_M = 45.0
+SIDE_SPACING_M = 5.0
+SIDE_MIN_EDGE_M = 1.0
+GRID_DIRECTIONS = {
+    "north": (0.0, 1.0),
+    "south": (0.0, -1.0),
+    "east": (1.0, 0.0),
+    "west": (-1.0, 0.0),
+}
+LOUD_ROADS = frozenset({"WEST ST", "12 AVE"})  # the West Side Highway, with the avenues
+
+
+def street_kind(name: str, roadway: str | None) -> str | None:
+    """Street type of a centerline: avenue (and the highway), wide crosstown
+    street, side street, or None for other ways."""
+    if roadway == "2" or name in LOUD_ROADS:
+        return "avenue"
+    if name.endswith(" AVE") or name in ("AVE OF THE AMERICAS", "BROADWAY"):
+        return "avenue"
+    if m := re.fullmatch(r"W\s+(\d+) ST", name):
+        return "wide street" if int(m.group(1)) in WIDE_STREETS else "side street"
+    return None
+
+
+def _hits(p, q, e0, e1) -> np.ndarray:
+    """Where segment p-q crosses each edge e0[i]-e1[i], as a fraction of p-q
+    (inf where it does not)."""
+    if not len(e0):
+        return np.zeros(0)
+    d, e, ap = q - p, e1 - e0, e0 - p
+    den = d[0] * e[:, 1] - d[1] * e[:, 0]
+    ok = np.abs(den) > 1e-9
+    den = np.where(ok, den, 1.0)
+    t = (ap[:, 0] * e[:, 1] - ap[:, 1] * e[:, 0]) / den
+    u = (ap[:, 0] * d[1] - ap[:, 1] * d[0]) / den
+    return np.where(ok & (t > 1e-6) & (t <= 1) & (u >= 0) & (u <= 1), t, np.inf)
+
+
+def facade_sides(ring, streets, occluders) -> dict:
+    """For one counter-clockwise outline (grid metres): per grid direction the
+    type of street that side looks onto, "none", or "no facade". streets is
+    (starts, ends, kinds) of centerline segments; occluders is (starts, ends)
+    of the other buildings' outline edges."""
+    a, b, kinds = streets
+    # The outline's own walls block too (an inner courtyard wall does not see
+    # through the building's other wing).
+    e0 = np.concatenate([occluders[0], ring[:-1]])
+    e1 = np.concatenate([occluders[1], ring[1:]])
+    votes = {d: {} for d in GRID_DIRECTIONS}
+    whole = {d: set() for d in GRID_DIRECTIONS}  # kinds an edge sees end to end
+    for p, q in itertools.pairwise(ring):
+        edge = q - p
+        length = float(np.hypot(*edge))
+        if length < SIDE_MIN_EDGE_M:
+            continue
+        normal = np.array([edge[1], -edge[0]]) / length
+        side = max(GRID_DIRECTIONS, key=lambda d: normal @ np.array(GRID_DIRECTIONS[d]))
+        spots = np.arange(SIDE_SPACING_M / 2, length, SIDE_SPACING_M)
+        seen = []
+        for s in spots if len(spots) else [length / 2]:
+            start = p + edge * (s / length) + 0.3 * normal
+            end = start + SIDE_REACH_M * normal
+            street = _hits(start, end, a, b)
+            i = int(street.argmin()) if len(street) else -1
+            hit = "none"
+            if i >= 0 and np.isfinite(street[i]):
+                wall = _hits(start, end, e0, e1)
+                if not (len(wall) and wall.min() < street[i]):
+                    hit = kinds[i]
+            votes[side][hit] = votes[side].get(hit, 0) + 1
+            seen.append(hit)
+        if seen[0] != "none" and len(set(seen)) == 1:
+            whole[side].add(seen[0])
+    sides = {}
+    for d, v in votes.items():
+        clear = {k: n for k, n in v.items() if k != "none"}
+        if not v:
+            sides[d] = "no facade"
+        elif clear and (sum(clear.values()) >= 2 or whole[d]):
+            sides[d] = max(clear, key=clear.get)
+        else:
+            sides[d] = "none"
+    return sides
+
+
+def building_sides() -> pd.DataFrame:
+    """Per registry building with a footprint: for each grid direction the type
+    of street that side looks onto, or "none" (no street), or "no facade"."""
+    return _building_sides(lot_registry())
+
+
+@functools.lru_cache(maxsize=2)
+def _building_sides(registry_file: str) -> pd.DataFrame:
+    registry = pd.read_parquet(registry_file).set_index("building")
+    lat0, lon0 = _grid_origin()
+    phi, metres = math.radians(FRONTAGE_BEARING_DEG), 111_320.0
+    cos0 = math.cos(math.radians(lat0))
+
+    def grid(lon, lat):
+        east = (np.asarray(lon, float) - lon0) * metres * cos0
+        north = (np.asarray(lat, float) - lat0) * metres
+        return np.stack(
+            [
+                east * math.cos(phi) - north * math.sin(phi),
+                east * math.sin(phi) + north * math.cos(phi),
+            ],
+            -1,
+        )
+
+    def rings_of(geometry):
+        geometry = json.loads(geometry)
+        polygons = geometry["coordinates"]
+        polygons = polygons if geometry["type"] == "MultiPolygon" else [polygons]
+        return [grid([q[0] for q in pg[0]], [q[1] for q in pg[0]]) for pg in polygons]
+
+    starts, ends, kinds = [], [], []
+    for row in pd.read_parquet(BASEMAP_FILE).query("layer == 'street'").itertuples():
+        roadway = json.loads(row.attributes).get("rw_type")
+        kind = street_kind(row.name, roadway)
+        if kind is None or roadway not in ("1", "2", "3", "9"):
+            continue
+        geometry = json.loads(row.geometry)
+        lines = geometry["coordinates"]
+        for line in lines if geometry["type"] == "MultiLineString" else [lines]:
+            pts = grid([p[0] for p in line], [p[1] for p in line])
+            starts.append(pts[:-1])
+            ends.append(pts[1:])
+            kinds += [kind] * (len(pts) - 1)
+    streets = (np.concatenate(starts), np.concatenate(ends), np.array(kinds))
+
+    footprints = pd.read_parquet(FOOTPRINTS_FILE)
+    e0, e1, owner = [], [], []
+    for r in footprints.itertuples():
+        for ring in rings_of(r.geometry):
+            e0.append(ring[:-1])
+            e1.append(ring[1:])
+            owner += [str(r.bin)] * (len(ring) - 1)
+    e0, e1 = np.concatenate(e0), np.concatenate(e1)
+    owner = np.array(owner)
+    by_bin = footprints.groupby(footprints.bin.astype(str))
+    by_lot = footprints.groupby(footprints.base_bbl.astype(str))
+    out = {}
+    for building, r in registry.iterrows():
+        key_bin, key_lot = str(r.bin), str(r.bbl)
+        if not re.fullmatch(r"[1-5]000000", key_bin) and key_bin in by_bin.groups:
+            rows = by_bin.get_group(key_bin)
+        elif key_lot in by_lot.groups:
+            rows = by_lot.get_group(key_lot)
+        else:
+            continue
+        rings = [
+            (str(fp_bin), ring)
+            for fp_bin, g in zip(rows.bin, rows.geometry)
+            for ring in rings_of(g)
+        ]
+        # The outline nearest the registry point (a lot can hold several buildings).
+        here = grid(r.longitude, r.latitude)
+        ring_bin, ring = min(
+            rings, key=lambda q: float(np.hypot(*(q[1].mean(0) - here)))
+        )
+        if 0.5 * np.sum(ring[:-1, 0] * ring[1:, 1] - ring[1:, 0] * ring[:-1, 1]) < 0:
+            ring = ring[::-1]  # counter-clockwise, so the outward normal is (dy, -dx)
+        # Every other building nearby blocks the view, on the same lot too;
+        # outlines of the building itself (its BIN) are left to facade_sides,
+        # which lets the outline's own walls block.
+        own = (owner == ring_bin) & (not re.fullmatch(r"[1-5]000000", ring_bin))
+        centre = ring.mean(0)
+        radius = float(np.hypot(*(ring - centre).T).max()) + SIDE_REACH_M + 10.0
+        # A lower bound on each edge's distance from the centre.
+        reach = np.minimum(np.hypot(*(e0 - centre).T), np.hypot(*(e1 - centre).T))
+        near = (reach - np.hypot(*(e1 - e0).T) < radius) & ~own
+        out[building] = facade_sides(ring, streets, (e0[near], e1[near]))
+    return pd.DataFrame.from_dict(out, orient="index")
+
+
+def unit_sides(frame: pd.DataFrame) -> pd.DataFrame:
+    """Per row: whether its unit looks onto an avenue, a wide street, a side
+    street, or no street (rear, courtyard), pooled over the unit's listings,
+    from window directions against its building's sides, front/rear labels,
+    ad text and views (text, labels and views place the front on the address
+    street)."""
+    from . import descriptions
+
+    sides = building_sides().reindex(frame.building.to_numpy())
+    address_kind = (
+        building_frontage().street_type.reindex(frame.building.to_numpy()).to_numpy()
+    )
+    has_sides = sides.notna().all(axis=1).to_numpy()
+    looks = {
+        k: np.zeros(len(frame), bool)
+        for k in ("avenue", "wide street", "side street", "none")
+    }
+    for d in GRID_DIRECTIONS:
+        window = frame[f"window_{d}"].eq("yes").to_numpy() & has_sides
+        side = sides[d].to_numpy()
+        for kind in looks:
+            looks[kind] |= window & (side == kind)
+    label = frame.canonical_unit_url.str.extract(r"/([^/]+)$")[0].str.upper().fillna("")
+    letter = label.str.extract(r"^\d{1,2}([A-Z]+)$")[0]
+    letters = letter.groupby(frame.building.to_numpy()).agg(lambda s: set(s.dropna()))
+    fr_building = frame.building.map(
+        lambda b: letters.get(b, set()) == {"F", "R"}
+    ).to_numpy()
+    text = descriptions.attach(frame).fillna("").str.lower()
+    through = text.str.contains(THROUGH_TEXT, regex=True).to_numpy()
+    front = (
+        (fr_building & letter.eq("F").to_numpy())
+        | text.str.contains(FRONT_TEXT, regex=True).to_numpy()
+        | through
+        | frame.view_street.eq("yes").to_numpy()
+    )
+    rear = (
+        (fr_building & letter.eq("R").to_numpy())
+        | text.str.contains(REAR_TEXT, regex=True).to_numpy()
+        | through
+        | frame.view_courtyard.eq("yes").to_numpy()
+    )
+    for kind in ("avenue", "wide street", "side street"):
+        looks[kind] |= front & (address_kind == kind)
+    looks["none"] |= rear
+    rows = pd.DataFrame(looks, index=frame.index)
+    return rows.groupby(frame.unit_id.to_numpy()).transform("any")
+
+
+def facing_v3(
+    frame: pd.DataFrame, train: np.ndarray, id: str = "facing-v3", base: str = "base-v1"
+) -> Features:
+    """A base set plus which streets the apartment looks onto (unit-level): an
+    avenue, a wide street, a side street, and whether it also looks onto the
+    rear or a courtyard; each from every side of its building (footprints), not
+    only the address street. No evidence is the reference."""
+    base = FEATURE_SETS[base](frame, train)
+    looks = unit_sides(frame)
+    b = _Builder(frame)
+    for kind, name in (
+        ("avenue", "looks onto an avenue"),
+        ("wide street", "looks onto a wide street"),
+        ("side street", "looks onto a side street"),
+        ("none", "looks onto the rear or a courtyard"),
+    ):
+        b.add("facing", name, looks[kind])
+    extra = b.build(id)
+    return Features(
+        id,
+        base.names + extra.names,
+        base.groups + extra.groups,
+        np.column_stack([base.values, extra.values]),
+        np.concatenate([base.prior_scale, extra.prior_scale]),
+    )
+
+
+# Building condition: hazardous (class B) and immediately hazardous (class C)
+# housing-code violations HPD found in the building in the years before the
+# listing's month, per apartment and year. The window trails the listing, so
+# no later information enters.
+
+
+def building_violations(frame: pd.DataFrame, days: int = 365) -> np.ndarray:
+    """Per row: class B and C violations found in its building (registry BIN,
+    or its lot for placeholder BINs) in the `days` before the row's month."""
+    registry = pd.read_parquet(REGISTRY_FILE).set_index("building")
+    hpd = pd.read_parquet(HPD_FILE)
+    hpd = hpd[hpd["class"].isin(["B", "C"])]
+    found = pd.to_datetime(hpd.inspectiondate, errors="coerce")
+    hpd = hpd.assign(found=found)[found.notna()]
+    by_bin = {
+        k: np.sort(g.found.to_numpy()) for k, g in hpd.groupby(hpd.bin.astype(str))
+    }
+    by_lot = {
+        k: np.sort(g.found.to_numpy()) for k, g in hpd.groupby(hpd.bbl.astype(str))
+    }
+    period = frame.period.to_numpy().astype("datetime64[ns]")
+    start = period - np.timedelta64(days, "D")
+    out = np.zeros(len(frame))
+    for building, idx in frame.groupby("building").indices.items():
+        if building not in registry.index:
+            continue
+        r = registry.loc[building]
+        key_bin = str(r.bin)
+        if not re.fullmatch(r"[1-5]000000", key_bin) and key_bin in by_bin:
+            times = by_bin[key_bin]
+        else:
+            times = by_lot.get(str(r.bbl), np.array([], dtype="datetime64[ns]"))
+        out[idx] = np.searchsorted(times, period[idx]) - np.searchsorted(
+            times, start[idx]
+        )
+    return out
+
+
+def hpd_v1(
+    frame: pd.DataFrame,
+    train: np.ndarray,
+    id: str = "hpd-v1",
+    base: str = "base-v1",
+    years: int = 1,
+    many: float = 0.25,
+) -> Features:
+    """A base set plus the building's condition as of the listing: hazardous
+    housing-code violations HPD found in the `years` before, per apartment and
+    year (none, a few, or `many` or more). Apartments are MapPLUTO's
+    residential units, or the units listed in the building where the lot
+    records none (condominium lots)."""
+    base = FEATURE_SETS[base](frame, train)
+    lot = building_lots(frame)
+    units = pd.to_numeric(lot.unitsres, errors="coerce").to_numpy()
+    listed = frame.groupby("building").unit_id.transform("nunique").to_numpy()
+    units = np.where(units > 0, units, listed).clip(min=1)
+    rate = building_violations(frame, days=365 * years) / units / years
+    past = "the past year" if years == 1 else f"the past {years} years"
+    b = _Builder(frame)
+    b.add(
+        "building condition",
+        f"a few housing-code violations in {past}",
+        (rate > 0) & (rate < many),
+    )
+    b.add("building condition", f"many housing-code violations in {past}", rate >= many)
+    extra = b.build(id)
+    return Features(
+        id,
+        base.names + extra.names,
+        base.groups + extra.groups,
+        np.column_stack([base.values, extra.values]),
+        np.concatenate([base.prior_scale, extra.prior_scale]),
+    )
+
+
+# Street noise is worst low down: the floors counted as low for facing_v4.
+LOW_FLOORS = 4
+
+
+def row_floor(frame: pd.DataFrame) -> pd.Series:
+    """Each row's floor as the base features read it (`base_v1` with
+    label_floor, and the low-floor flags): the listed floor, or the unit label's
+    floor where the label is plausible for the building's height; NaN when
+    neither is known."""
+    floor = frame.listed_floor.astype("float")
+    label = label_floor_number(frame)
+    height = pd.to_numeric(building_lots(frame).numfloors, errors="coerce")
+    label = label.where(label.le(height.to_numpy() + 2))
+    floor = floor.where(floor.ge(1), label)
+    return floor.where(floor.ge(1))
+
+
+def facing_v4(
+    frame: pd.DataFrame,
+    train: np.ndarray,
+    id: str = "facing-v4",
+    base: str = "unitfacing-v3",
+) -> Features:
+    """The streets an apartment looks onto (a facing-v3 set), plus whether a
+    unit that looks onto an avenue or a wide street is on a low floor
+    (LOW_FLOORS or below), where traffic noise is worst."""
+    base = FEATURE_SETS[base](frame, train)
+    looks = unit_sides(frame)
+    low = row_floor(frame).le(LOW_FLOORS).to_numpy()
+    b = _Builder(frame)
+    b.add(
+        "facing",
+        f"looks onto an avenue, floors 1-{LOW_FLOORS}",
+        looks["avenue"].to_numpy() & low,
+    )
+    b.add(
+        "facing",
+        f"looks onto a wide street, floors 1-{LOW_FLOORS}",
+        looks["wide street"].to_numpy() & low,
+    )
+    extra = b.build(id)
+    return Features(
+        id,
+        base.names + extra.names,
+        base.groups + extra.groups,
+        np.column_stack([base.values, extra.values]),
+        np.concatenate([base.prior_scale, extra.prior_scale]),
+    )
+
+
 # Feature sets that read the external snapshots (run records list them).
 EXTERNAL = {
     "pluto-v1",
@@ -721,11 +1143,22 @@ EXTERNAL = {
     "unitdescpluto-v2",
     "unitdescpluto-v3",
     "unitfacing-v2",
+    "unitfacing-v3",
+    "unitfacing-v4",
+    "unitfacing-v5",
+    "unitdescpluto-v4",
+    "unitdescpluto-v5",
+    "unitdescplutohpd-v1",
+    "unitdescplutohpd-v2",
 }
 # Feature sets that read the subway stations snapshot.
 SUBWAY = {"unitdescplutotransit-v2"}
 # Feature sets that read the basemap snapshot (street centerlines).
-BASEMAP = {"unitfacing-v2"}
+BASEMAP = {"unitfacing-v2", "unitfacing-v3", "unitfacing-v4", "unitfacing-v5"}
+# Feature sets that read the building footprints snapshot.
+FOOTPRINTS = {"unitfacing-v3", "unitfacing-v4", "unitfacing-v5"}
+# Feature sets that read the HPD violations snapshot.
+HPD = {"unitdescplutohpd-v1", "unitdescplutohpd-v2"}
 # Feature sets that read the advertisement descriptions (`descriptions.SOURCE`),
 # directly or through their base set.
 DESCRIPTIONS = {
@@ -737,6 +1170,13 @@ DESCRIPTIONS = {
     "unitdescpluto-v2",
     "unitdescpluto-v3",
     "unitfacing-v2",
+    "unitfacing-v3",
+    "unitfacing-v4",
+    "unitfacing-v5",
+    "unitdescpluto-v4",
+    "unitdescpluto-v5",
+    "unitdescplutohpd-v1",
+    "unitdescplutohpd-v2",
 }
 
 FEATURE_SETS = {
@@ -765,6 +1205,13 @@ FEATURE_SETS = {
     ),
     # Which way the apartment faces, on the app's building facts (v3).
     "unitfacing-v2": partial(facing_v2, id="unitfacing-v2", base="unitdescpluto-v3"),
+    # Which streets the apartment looks onto, from every side of its building.
+    "unitfacing-v3": partial(facing_v3, id="unitfacing-v3", base="unitdescpluto-v3"),
+    # v3 plus avenue and wide-street views on low floors (traffic noise).
+    "unitfacing-v4": partial(facing_v4, id="unitfacing-v4", base="unitfacing-v3"),
+    # v4 on the corrected registry (LOT_SNAPSHOTS): building facts, fronts and
+    # sides from the right buildings for the 12 re-geocoded pages.
+    "unitfacing-v5": partial(facing_v4, id="unitfacing-v5", base="unitfacing-v3"),
     # v2 with "altered since 2000" from the latest recorded alteration.
     "unitdescpluto-v3": partial(
         pluto_v1,
@@ -777,6 +1224,32 @@ FEATURE_SETS = {
     "unitdescplutoloc-v1": partial(
         location_v1, id="unitdescplutoloc-v1", base="unitdescpluto-v1"
     ),
+    # v3 on the corrected registry (LOT_SNAPSHOTS): building facts and heights
+    # from the right lots for 11 pages the registry had matched to a neighbour.
+    "unitdescpluto-v4": partial(
+        pluto_v1,
+        id="unitdescpluto-v4",
+        base="unitdesc-v1",
+        flood_zone=False,
+        latest_alteration=True,
+    ),
+    # v4 with Avalon West Chelsea on its own lot (282 Eleventh Avenue).
+    "unitdescpluto-v5": partial(
+        pluto_v1,
+        id="unitdescpluto-v5",
+        base="unitdesc-v1",
+        flood_zone=False,
+        latest_alteration=True,
+    ),
+    # Building condition (HPD violations, as of each listing) on the app's facts.
+    "unitdescplutohpd-v1": partial(
+        hpd_v1, id="unitdescplutohpd-v1", base="unitdescpluto-v3"
+    ),
+    # The same over the past five years: chronic condition (0.05 or more a year
+    # per apartment is "many", about the top 15% of listings).
+    "unitdescplutohpd-v2": partial(
+        hpd_v1, id="unitdescplutohpd-v2", base="unitdescpluto-v3", years=5, many=0.05
+    ),
     # Transit access (as of each listing's month) on the building facts.
     "unitdescplutotransit-v2": partial(
         transit_v2, id="unitdescplutotransit-v2", base="unitdescpluto-v1"
@@ -784,5 +1257,23 @@ FEATURE_SETS = {
 }
 
 
+# Feature sets that read other registry and MapPLUTO snapshots than the first.
+LOT_SNAPSHOTS = {
+    "unitdescpluto-v4": {"registry": REGISTRY_V2_FILE, "pluto": PLUTO_V2_FILE},
+    "unitdescpluto-v5": {"registry": REGISTRY_V3_FILE, "pluto": PLUTO_V3_FILE},
+    "unitfacing-v5": {"registry": REGISTRY_V3_FILE, "pluto": PLUTO_V3_FILE},
+}
+
+
+def lot_files(name: str) -> dict:
+    """The registry and MapPLUTO files a feature set's building lots read."""
+    return LOT_SNAPSHOTS.get(name, {"registry": REGISTRY_FILE, "pluto": PLUTO_FILE})
+
+
 def build(name: str, frame: pd.DataFrame, train: np.ndarray) -> Features:
-    return FEATURE_SETS[name](frame, np.asarray(train, dtype=bool))
+    files = lot_files(name)
+    token = _LOTS.set((files["registry"], files["pluto"]))
+    try:
+        return FEATURE_SETS[name](frame, np.asarray(train, dtype=bool))
+    finally:
+        _LOTS.reset(token)

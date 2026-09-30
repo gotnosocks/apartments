@@ -50,6 +50,25 @@
 - Then test lighter tails on the cleaned data: a larger fixed ν, and Gaussian noise. If they win,
   fit time and NUTS geometry improve too.
 
+**Left open by `quarantine-v2` (September 30).**
+- Two pages sit on lots MapPLUTO records without apartments. Their other ads stay in until each
+  page is matched to the right building:
+  - 256 West 23rd, lot 1007720075, is a theatre (J9) whose ads describe a "charming townhouse"
+    walk-up;
+  - 401 West 15th's lot is 75 Ninth Avenue, an office building (O6).
+- 466 West 23rd has ads saying "466 west 22nd", but the same units' other ads say 23rd. It looks
+  like a template slip, so the rows stay in.
+- **Stated size against recorded square feet.** 1,442 rows have an ad that states the
+  apartment's own size, found by phrases such as "1,100 sq ft two-bedroom" or "the apartment is
+  approximately 850 square feet", with terraces, gardens and amenities left out. In 27 of them
+  the size is more than 1.6× off the record. Most of those still describe another space ("a
+  400 square foot" roof, "4,420 square feet across three apartments").
+  - The few real conflicts are at 440 West 22nd: three ads say "1,625 sq.ft two bed" for units
+    recorded as 825 sq ft one-bedrooms.
+  - The 27 asks sit close to the model's estimates (0.8–1.4×, most near 1), so none is
+    quarantined yet. A size rule would need the bedroom count to disagree as well.
+  - Scratch script: `/data1/apartments/tmp/bridge/sqft_conflicts.py`.
+
 ## Column ("line") effects within buildings (Ben, September 25)
 
 **Idea.** In most buildings, units with the same letter or line on different floors ("4C", "7C",
@@ -120,6 +139,38 @@ Ben chose to start with street-facing units (research plan A′, "Unit orientati
 
    The research plan's A′ table lists these sources. Each needs as-of values (no future
    information) and a renter-facing glossary row.
+
+## Registry follow-ups (September 30)
+
+- **507 West Chelsea and AVA High Line.** Avalon West Chelsea is fixed (`unitdescpluto-v5`: its
+  ads give 282 Eleventh Avenue, MapPLUTO lot 1007000009, 31 floors and 710 apartments).
+  - 507 West Chelsea is on the right lot: 509 West 28th Street, three buildings and 372
+    apartments, the "three towers" its ads name. But MapPLUTO records 13 floors, while the
+    tallest footprint on the lot is 385 ft and the listings reach the 33rd floor, so the lot's
+    floor count is low.
+  - AVA High Line's page also sits on that lot, because its address field reads "507 West
+    Chelsea". Its ads describe an AvalonBay building "on 28th st bet 10 & 11th avs" with a
+    14th-floor roof deck, and its listings reach the 12th floor. That fits the lower part of
+    the Avalon lot (539 West 28th), but the ads give no house number, so it stays.
+- **Reverse-geocoded pages.** 99 pages remain matched by reverse geocoding. A check against
+  the ads' own location statements ("located on …", house-number addresses) and the streets each
+  building fronts (centerlines within 25 m of its footprints) sorts them:
+  - 67 are confirmed: every statement names a street the building fronts.
+  - 8 have statements that disagree, all for benign reasons: a corner or a second entrance (the
+    Carteret, the Irvin House, the Sierra and Stonehenge Gardens on 15th Street, the same lot as
+    108 West 15th), a sponsor's address, a broker's other building, or a slip ("151 east 21st").
+  - 24 pages (2,987 rows) state no address, so nothing confirms them.
+- **Pages with no footprint.** 18 pages (363 rows) match no footprint by BIN or lot, so their
+  facing sides are unknown. Most are condominiums on a billing lot (75xx) with a placeholder BIN
+  (1000000): Lantern House, The Seymour, Soori High Line, the Spears Building. GeoSearch on the
+  address gives the real BIN (Lantern House, 515 West 18th: 1091605), so a registry version could
+  resolve them.
+- **Listings above their footprint's roof.** The registry BIN's footprint roof height is far
+  below the listings' floors for eight buildings. No feature reads the roof height: building
+  heights come from MapPLUTO's floor count, and for Chelsea29 (MapPLUTO 21 floors, listings to
+  the 22nd), 551 W 21st (20, 17th) and 606 W 30th (45, 47th) it agrees with the listings. The
+  footprints' heights are low for these BINs (89, 49 and 187 ft), perhaps a lower wing or a
+  capture before completion.
 
 ## Pipeline review, September 20
 

@@ -475,12 +475,13 @@ def calibration(listings) -> dict:
 
 
 def _int(value):
+    """A whole number from a MapPLUTO field, which the snapshots store as text
+    ("20.0000000"); None when absent or not a number."""
     try:
-        if value is None or (isinstance(value, float) and math.isnan(value)):
-            return None
-        return int(value)
+        number = float(value)
     except (TypeError, ValueError):
         return None
+    return None if math.isnan(number) else int(number)
 
 
 def _insert(db, table, rows):

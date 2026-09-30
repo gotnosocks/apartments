@@ -75,6 +75,7 @@ def test_buildings_get_names_addresses_and_lot_facts(site_root):
     grove = b["the-grove-250-west-19th-street-new_york"]
     assert grove["name"] == "The Grove" and grove["address"] == "250 West 19th Street"
     assert grove["year_built"] == 1986 and grove["current_listings"] == 1
+    assert grove["floors"] == 20 and grove["residential_units"] == 200
     assert grove["level_pct"] == pytest.approx(10.4) and grove["units"] == 2
     plain = b["134-west-23-street-new_york"]
     assert plain["name"] is None and plain["address"] == "134 West 23rd Street"

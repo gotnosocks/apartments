@@ -93,6 +93,7 @@ TERM_LABELS = {
     "price_basis": "Price basis",
     "unit label": "Unit label",
     "hvac": "HVAC",
+    "facing": "Streets it looks onto",
 }
 TERM_TEXT = {
     "market": "A reference apartment (one bedroom, one bath, every attribute at "
@@ -113,6 +114,10 @@ TERM_TEXT = {
     "views": "Views the listing states (city, park, water, skyline, ...).",
     "windows": "Window exposures the listing states.",
     "unit label": "Penthouse, garden and lower-level units, from the unit label.",
+    "facing": "The streets the apartment's windows look onto (an avenue, a wide "
+    "street such as 14th or 23rd, a side street, or the rear or a courtyard), and "
+    "whether an apartment on floors 1-4 looks onto an avenue or a wide street, "
+    "where traffic noise is loudest.",
     "price_basis": "A current capture's gross ask, against the first ask of a "
     "past advertisement.",
     "description": "Flags from the advertisement's own text (renovated, "
@@ -127,6 +132,9 @@ TERM_TEXT = {
     "building status": "Whether the building is a city landmark or in a historic "
     "district, and whether it has been altered since 2000 (NYC MapPLUTO); some "
     "versions of the model also use the 2015 flood map.",
+    "building condition": "Hazardous housing-code violations the city (HPD) found "
+    "in the building before the listing (the past year or the past five years, by "
+    "version), per apartment and year: a few, or many, against none.",
     "bedroom_market_curve": "The bedroom group's own market-curve deviation.",
     "building": "The building's level against an average building.",
     "building_drift": "The building's own movement over time (walk or trend).",

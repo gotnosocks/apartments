@@ -1,0 +1,18 @@
+{
+  "version": "registry-overrides-v1",
+  "reviewed_at": "2026-09-30",
+  "rule": "Pages the registry matched by reverse geocoding (or to a lot MapPLUTO records far shorter than the floors the listings name) are geocoded from the address their own ads give, or from their own slug address. Complexes whose towers share a page name (507 West Chelsea, AVA High Line, Avalon West Chelsea) are left as they are.",
+  "overrides": [
+    {"building": "one-hudson-yards", "address": "530 West 30 Street", "evidence": "530 west 30th street, coined as one hudson yards (13 ads)", "registry_was": "537 West 29 Street (reverse); MapPLUTO 14 floors, listings to the 30th"},
+    {"building": "art-condominium", "address": "540 West 28 Street", "evidence": "540 West 28th Street named in 46 ads", "registry_was": "539 West 27 Street (reverse); MapPLUTO 5 floors, listings to the 10th"},
+    {"building": "chatham-in-chelsea", "address": "445 West 19 Street", "evidence": "445 West 19th Street named in 26 ads; located on west 19th street", "registry_was": "446 West 20 Street (reverse); MapPLUTO 4 floors, listings to the 7th"},
+    {"building": "verde-chelsea", "address": "125 West 22 Street", "evidence": "125 west 22nd street, verde chelsea (16 ads)", "registry_was": "128 West 23 Street (reverse), the same lot as Citizen"},
+    {"building": "citizen-condominium", "address": "124 West 23 Street", "evidence": "124 West 23rd Street named in 13 ads", "registry_was": "128 West 23 Street (reverse), the same lot as Verde Chelsea"},
+    {"building": "the-cortland", "address": "555 West 22 Street", "evidence": "555 West 22nd Street named in 23 ads", "registry_was": "551 West 22 Street (reverse); MapPLUTO 3 floors, listings to the 11th"},
+    {"building": "the-flynn", "address": "155 West 18 Street", "evidence": "payable to 155 west 18th street condominium", "registry_was": "157 West 18 Street (reverse), an office lot"},
+    {"building": "one-high-line", "address": "500 West 18 Street", "evidence": "500 West 18th Street named in the ads", "registry_was": "128 10 Avenue (reverse); MapPLUTO a 3-storey store lot, listings to the 31st"},
+    {"building": "hl23-condominium", "address": "515 West 23 Street", "evidence": "515 West 23rd Street named in the ads", "registry_was": "511 West 23 Street (reverse); MapPLUTO a 1-storey store lot, listings to the 11th"},
+    {"building": "301-west-21-street-new_york", "address": "301 West 21 Street", "evidence": "the page's own address; located on west 21st street and the corner of eighth avenue", "registry_was": "346 West 20 Street (reverse), a block south"},
+    {"building": "425-west-18th-street-new_york", "address": "425 West 18 Street", "evidence": "the page's own address", "registry_was": "114 10 Avenue (reverse); MapPLUTO 5 floors, listings to the 9th"}
+  ]
+}

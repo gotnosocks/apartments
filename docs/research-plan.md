@@ -59,6 +59,8 @@ that a typical apartment renter thinks about when choosing a place to rent."
 | Location (`unitdescplutoloc-v1`) | What buildings nearby rent for: a smooth premium over the map, shared by buildings a few blocks apart (for example the western blocks near the High Line). |
 | Transit (`unitdescplutotransit-v2`) | The walk to the nearest subway station, and how many subway lines stop within a 10-minute walk, counting the stations open at the time of the listing. |
 | Which way the apartment faces (`unitfacing-v2`) | Whether the apartment looks onto its building's street (an avenue, a wide street such as 14th, or a side street), onto the back, both front and back, or only to the sides, from its window directions, front/rear unit labels, ad text and street or courtyard views. |
+| Streets the apartment looks onto (`unitfacing-v3`) | Whether the apartment's windows look onto an avenue, a wide street such as 14th, a side street, or the rear or a courtyard, using every side of its building that has a clear view of a street (corner and through-block buildings have more than one; a wall against a neighbour has none). |
+| A loud street on a low floor (`unitfacing-v4`; `unitfacing-v5` on the corrected registry) | Whether an apartment on floors 1–4 looks onto an avenue or a wide street, where traffic noise is loudest; the same view higher up is priced as in `unitfacing-v3`. |
 | Building level | This building's premium beyond its apartments' features: its location, quality and management. |
 | Building trend or walk | How that premium has moved over time, for example a renovation or a changing block: steadily (the trend) or along a path that can change direction at each knot, joined by straight lines (the walk). Sum-to-zero walks make it relative to the market, so "the market" and "this building" never overlap. |
 | Bedroom slope (m5) | In some buildings the larger apartments carry an extra premium or discount. |
@@ -682,6 +684,115 @@ the fix goes into the model, the features or the data, not the sampler.
       list.
     - A first draft of the file (131 rows, be61586) was also a tie: +3.6 ± 14.1 and +2.9 ± 2.4.
       That fit is archived under `runs-archive/quarantine-draft-2026-09-30`.
+- **Registry corrections (`registry-overrides-v1`, `unitdescpluto-v4`, 2026-09-30).**
+  - **The problem.** The registry matched 111 building pages by reverse geocoding their archived
+    coordinates, because the page is a name or its address did not match nearby. Two checks
+    found the pages matched to a neighbouring lot:
+    - the page's ads give another address, and GeoSearch puts it on another lot;
+    - MapPLUTO records the matched lot far shorter than the floors its listings name.
+
+    Eleven pages, with 885 listings, fail one check or both. Some examples:
+    - One High Line was a 3-storey store lot, but its listings reach the 31st floor;
+    - HL23 was a 1-storey lot;
+    - Verde Chelsea and Citizen shared one lot;
+    - 301 West 21st Street had been placed a block south.
+  - **The fix.** `config/reviews/registry-overrides-20260930.json` holds each page's address with
+    its evidence: the ads' own words, or the page's own address. `rentfrontier.registry --base
+    … --overrides …` re-geocodes only those pages (registry `20260930-4d41f8b`, MapPLUTO for its
+    lots `20260930-4d41f8b`). Every other building keeps its match exactly.
+  - **The feature set.** `unitdescpluto-v4` is `unitdescpluto-v3` on the corrected snapshots.
+    - Feature sets now choose their registry and MapPLUTO files (`features.LOT_SNAPSHOTS`), and
+      run records hash the files the set read. Older runs keep the first snapshots.
+    - Beyond the constant shift that centring gives the building-size columns, only the 885
+      listings of the 11 pages change.
+  - **Left as they are.**
+    - 507 West Chelsea and AVA High Line share one lot (509 West 28th Street, 13 floors), and
+      their listings reach the 33rd floor. They look like towers of one complex under two
+      names, so it is not clear which tower's facts apply.
+    - Avalon West Chelsea sits on another building's lot (550 West 29th, 12 floors, shared with
+      the `five-five-zero` page), and its listings reach the 30th floor. Its ads give 282
+      Eleventh Avenue, a lot missing from the MapPLUTO snapshot.
+
+    All three go to the backlog.
+  - **Result: a tie in accuracy; the named facts carry more.** The run is Gibbs m5-nocurves +
+    `unitdescpluto-v4`, `unit-labels-v1` + `quarantine-v1`, 3e514d6. It took 1,363 s and passes
+    (R-hat 1.0046, ESS 672).
+    - Against the app's model (fef2aa5), PSIS-LOO is −0.2 ± 7.0 and held-out −0.3 ± 0.5. The
+      817 fit rows on the 11 pages gain +4.7; the rest move by noise.
+    - The variance shifts toward named terms: features 77.1% → 78.2%, building level
+      7.75% → 7.0%, building over time 0.9% → 0.5%. With the right lots, the building facts
+      explain more of what the anonymous building level carried.
+    - The site's building pages would show the right facts if the app switched to a v4 fit. That
+      is a selection change, so Ben's call.
+  - **Follow-up: Avalon West Chelsea (`registry-overrides-v2`, `unitdescpluto-v5`).**
+    - Its ads give "largest studio in avalon west chelsea (282 11th avenue)" and "282 11th ave,
+      1110". GeoSearch puts that on lot 1007000009, which MapPLUTO records as 539 West 28th: 31
+      floors and 710 apartments, built 2013. The page had sat on 550 West 29th (12 floors, 19
+      apartments), while 55 of its 124 listed floors are above the 12th.
+    - Registry v3 (`20260930-676c382`) changes only this page. MapPLUTO for its lots adds only lot
+      1007000009; every other lot is unchanged.
+    - AVA High Line stays: its address field says "507 West Chelsea", and its ads give no house
+      number. 507 West Chelsea is on the right lot, the three towers of 509 West 28th, but
+      MapPLUTO's 13 floors understate its tallest tower (385 ft, listings to the 33rd floor).
+    - **Result: a tie, as expected.** The fit is Gibbs m5-nocurves + `unitdescpluto-v5`,
+      `unit-labels-v1` + `quarantine-v1`, 90f66cf. It took 1,362 s and passes (R-hat 1.0058, ESS
+      644).
+      - Against v4 (3e514d6), PSIS-LOO is +0.0 ± 6.5 and held-out +0.05 ± 0.06. Avalon's 216 fit
+        rows move by +0.05 in all. On the wrong lot the building facts over-predicted it, and its
+        building level was offsetting them: the facts' contribution falls from +0.51 to +0.20 (log
+        scale), and the building level rises from −0.20 to +0.01.
+      - Features 78.20% → 78.32% of the variance, and building level 7.04% → 6.96%.
+      - What changes is what renters see: a v5 app fit would show Avalon West Chelsea's real
+        height and size.
+
+- **Data rule `quarantine-v2`: a second review (2026-09-30).** It keeps all 143 rows of v1 and
+  adds 45, each with its quote, in `config/reviews/chelsea-quarantine-v2-20260930.jsonl`:
+  - **37 ads whose own words place the apartment somewhere else.**
+    - Every ad that says where the apartment is was checked against the streets its building
+      fronts. That means "located on/at …", "on West Nth Street between …", and house-number
+      addresses that are not a leasing office or another listing. A building fronts the named
+      centerlines within 25 m of its footprints, so through lots and corners count.
+    - Most mismatches are not errors: a subway or Citi Bike station "located at 23rd street", a
+      broker's other listings, a through-block entrance such as 255 West 23rd.
+    - The rest place the apartment elsewhere, for example:
+      - "located on west 69th street off columbus avenue";
+      - "address correction: 342 west 21st street 5d";
+      - four "145 west 15th street (bet 6th & 7th avenue)" ads on the 145 West 14th page;
+      - four "located on 14th street and 7th avenue" ads on the 545 Sixth Avenue page;
+      - two ads on the 220 West 24th page and two on the 225 West 23rd page, each naming the
+        other building;
+      - two "premier upper west side" ads for floors above Port 10's 13.
+    - Every other "wrong location" detector hit was read as well. They name places nearby or
+      within reach ("the l to brooklyn", "queens size beds").
+  - **Eight bedroom counts the ad flatly contradicts.** They were found by comparing the count
+    the ad's first sentence states with the record, leaving out hedged wording such as
+    "convertible" or "1.5 bedroom". For example, Verde Chelsea 5A is recorded as one bedroom,
+    and its ad says "1,686 square foot three-bedroom home". The first draft had nine; review
+    took out 154 West 27th C, whose ad also says "true 2/4 bedroom" and whose other ads say
+    "true two bedroom".
+  - **Left in:**
+    - 466 West 23rd ads that say "466 west 22nd", because the same units' other ads say 23rd (a
+      template slip);
+    - same-number slips such as "133 west 2nd", "151 east 21st" and "230 west 26th";
+    - broker boilerplate that contradicts an ad's own address: The Grove's two "heart of the
+      upper east side" ads open with "west 19th street and seventh avenue" (PR #70 review), as
+      the Amanda's Williamsburg template did in v1;
+    - the other ads on two pages whose lots MapPLUTO records without apartments: 256 West 23rd
+      (a theatre lot) and 401 West 15th (75 Ninth Avenue, an office building). These two pages
+      are in the backlog.
+  - **Result: a tie.** The served design was refit with `unit-labels-v1` + `quarantine-v2`
+    (Gibbs m5-nocurves + `unitdescpluto-v3`, 87d4701, 1,357 s, passes: R-hat 1.0062, ESS 633).
+    - Against the v1 fit (fef2aa5), on the rows both keep: PSIS-LOO −12.3 ± 10.6 and held-out
+      −2.7 ± 2.2. ν stays at 2.10.
+    - The loss is mostly noise. The 51 other rows of the units that lost a listing are −4.7 ± 2.8:
+      those units have one listing fewer to learn from. Rows in the same buildings are +1.0 ±
+      3.8, and the other 45,181 rows −8.6 ± 6.9, within the Monte Carlo error of two fits
+      (6.5).
+    - The 44 new training rows were not badly fit in the served model: +0.42 PSIS-LOO per row
+      against +1.11 for all rows. They are wrong data, not outliers.
+    - The two drafts' fits (7ed6c55, 158 rows, −6.3 ± 9.0; 7f6cd08, 190 rows, −11.4 ± 10.6) are
+      archived under `runs-archive/quarantine-v2-draft-2026-09-30`.
+  - Paired scores on the board now leave out every row either quarantine drops (188).
 
 **Order.**
 1. **Data quality** (backlog "Data quality"). Audit rows by rules that do not use a model's
@@ -880,6 +991,37 @@ comes from other sources, most of them public NYC and NYS data.
   - The first version (`-v1`, f980477) used today's stations for every year. It scored the same
     (+1.1 ± 6.7, noise) and was replaced to keep the no-future-information rule. Its run is archived
     under `runs-archive/future-information-2026-09-29/`, off the board.
+- **Building condition: HPD housing-code violations** (`unitdescplutohpd-v1`, 0544905;
+  `unitdescplutohpd-v2`, 0fc2df7; 2026-09-30; HPD snapshot 20260930-cb289ad; both with
+  `quarantine-v1`, against fef2aa5).
+  - **Data.** 30,302 violations; 914 of the 1,129 registry buildings have at least one. The feature counts class B (hazardous)
+    and class C (immediately hazardous) violations found in the building before the listing's
+    month, per apartment and year. Apartments are MapPLUTO's residential units, or the units
+    listed where a condominium lot records none. The window trails the listing, so no future
+    information enters.
+  - **v1, the past year.** Levels are none, a few, or many (a quarter or more per apartment).
+    - About 15% of listings fall in "a few" and 5% in "many".
+    - 1,359 s, passes. PSIS-LOO **+0.4 ± 6.6**, held-out +0.3 ± 0.2.
+    - Effects: a few +0.1% (−0.3 to +0.4), many −0.1% (−0.6 to +0.4).
+  - **v2, the past five years** (chronic condition). "Many" is 0.05 or more a year per
+    apartment, about the top 15% of listings.
+    - 1,358 s, passes. PSIS-LOO **−1.0 ± 6.7**, held-out −0.4 ± 0.5.
+    - Effects: a few −0.1% (−0.6 to +0.4), many +0.3% (−0.4 to +0.9).
+  - **Why it adds nothing.** Across buildings, violations do go with lower rents. About half the
+    buildings have no class B or C violations since 2010, and their median premium is +2.4%.
+    Buildings with any have a median of −1.3%, and the quarter with the most per apartment,
+    about −2.5%. But the building facts and each building's own level already carry that. The
+    building level's share of the variance stays at 7.7%, and a year with violations does not
+    move a building's asks against its own path.
+  - **Known limitations of these versions** (PR #67 review; a new version would fix them, but
+    the result gives no reason to make one):
+    - A building with its own BIN but no class B or C violations falls back to its lot's, taking
+      the violations of other buildings on the lot (20 buildings, 535 rows; London Terrace's lot,
+      for example).
+    - On lots with several buildings, a building's violations are divided by the whole lot's
+      apartments.
+  - Recording condition in the site's building facts, as information rather than a model term,
+    is a possible follow-up.
 
 *Unit orientation* (street vs courtyard, and the street's size).
 - StreetEasy's view and exposure fields are sparse (base-v1 has `view_street`, `view_courtyard`
@@ -942,10 +1084,98 @@ comes from other sources, most of them public NYC and NYS data.
     - a unit's own level already carries its orientation when it has other listings;
     - noise may matter mostly on low floors (an interaction with floor is the natural next test);
     - frontage is ambiguous for 39% of listings (above).
-  - **Next: every side's street, from building footprints.** NYC Building Footprints (joined by BIN)
-    give each building's outline. Each side of the outline gets the street it faces (the nearest
-    centerline beyond it) or none (a lot line or the rear). A unit's window directions then say
-    which street it looks onto. Corner and through buildings get their real fronts.
+- **Every side's street, from building footprints** (`unitfacing-v3`; Gibbs m5-nocurves,
+  `unit-labels-v1` + `quarantine-v1`, 2 × (300 + 3600), ceb269f, 2026-09-30).
+  - **Sides.** The input is NYC Building Footprints (5zhs-2jue): the outline of every building in
+    the registry's box plus 100 m, 3,347 in all (snapshot 20260930-6634906).
+    - Each facade edge of 1 m or more is sampled every 5 m, or once if it is shorter.
+    - A sample looks straight out, along the edge's normal, for up to 45 m. It sees the first
+      street centerline it crosses, unless another building's outline crosses first. That
+      includes a neighbour on the same tax lot, and the building's own walls across a courtyard.
+    - A side looks onto the street most of its clear samples see, if at least two samples see
+      one or one edge sees it along its whole length (a narrow front between recessed walls).
+  - **Check.** The address street's type is among a building's sides for 1,101 of the 1,102
+    buildings with an address street. Two earlier cuts did worse:
+    - The first (bf09466) took the nearest centerline overall and scored 95.9%. It missed the
+      avenue side of corner buildings, whose short avenue front sees the cross street running
+      past it (234 8th Ave, 181 7th Ave, Chelsea Tower), and it read party walls as street
+      fronts.
+    - The second (dff9f62) used the nearest centerline in the outward cone. It left buildings on
+      the same lot out of the blockers, so the row buildings at 106–112 8th Avenue saw 15th and
+      16th Streets through their neighbours (PR #62 review).
+    - The Sierra and Stonehenge Gardens look onto 14th Street, as Ben said. Stonehenge Gardens'
+      rear sees 15th Street only through a gap between the buildings on 15th.
+  - **Units.** Each unit gets four flags, which are not exclusive: it looks onto an avenue, a
+    wide street, a side street, or the rear or a courtyard. They come from window directions
+    against the sides, plus front/rear labels, ad text and views.
+  - **Fit.** 1,370 s, passes (R-hat 1.0065, ESS 710). Against the same design without it
+    (fef2aa5, the app's model), PSIS-LOO is +4.8 ± 8.0 and held-out −1.3 ± 1.4: **a tie**.
+  - **Effects** against no evidence:
+    - avenue +0.5% (−0.1 to +1.2);
+    - wide street −0.1% (−1.0 to +0.8);
+    - side street +0.9% (+0.4 to +1.3);
+    - rear or courtyard +0.4% (+0.0 to +0.9).
+  - **Contrasts:**
+    - **a wide street against a side street −0.9% (−1.8 to −0.1; 98.2% below zero)**, the
+      direction Ben expected;
+    - an avenue against a side street −0.3% (−1.1 to +0.5);
+    - a side street against the rear +0.4% (−0.2 to +1.0).
+  - **Reading.** The street an apartment looks onto is worth about a percent: an apartment looking
+    onto 14th, 23rd or 34th Street asks about 1% less than one looking onto a quiet side street.
+    That is renter-facing and mappable, but accuracy changes only within noise. The board marks it
+    on the frontier by a +4.8 ± 8.0 margin. The natural next test is its interaction with a low
+    floor, where noise is worst.
+  - **Known limitation.** 21 street sides that are not the address front rest on a single clear
+    sample, some from wall stubs or chamfers under 3 m (a corner stub at The Heywood, a sliver gap
+    at 232 8th Ave). Resetting the doubtful ones changes 3 rows. A minimum edge length of about
+    3 m for counting samples would remove them, and is for a later version (PR #62 review).
+  - The two earlier cuts' fits (bf09466; dff9f62, +4.2 ± 8.2 against fef2aa5) are archived under
+    `runs-archive/facing-v3-draft-2026-09-30`.
+- **A loud street on a low floor** (`unitfacing-v4`; Gibbs m5-nocurves, `unit-labels-v1` +
+  `quarantine-v1`, 2 × (300 + 3600), dc50bf1, 2026-09-30). Ben's street-graph idea, narrowed to
+  noise: traffic should matter most near the street.
+  - **Terms.** `unitfacing-v3` plus two flags: the apartment looks onto an avenue, or a wide
+    street, and is on floors 1–4. The floor is the one the base features read: the listed floor,
+    else the unit label's floor if the building is that tall. 673 rows have the avenue flag and
+    348 the wide-street flag; 34% of rows are on floors 1–4 and 26% have no known floor (no flag).
+  - **Fit.** 1,352 s, passes (R-hat 1.0056, ESS 706). Against `unitfacing-v3` (ceb269f),
+    PSIS-LOO is +3.5 ± 6.9 and held-out −0.4 ± 0.5; against the app's model (fef2aa5), +8.3 ± 8.3
+    and −1.7 ± 1.5. **A tie in accuracy.**
+  - **Effects.** The low-floor flags are −1.2% for an avenue (−2.3 to −0.1) and −1.7% for a wide
+    street (−3.2 to −0.2). Against a side street:
+    - on floors 1–4, **a wide street −2.3% (−3.7 to −0.8; 99.8% below zero)** and an avenue
+      −1.2% (−2.4 to −0.1; 95.9%);
+    - from the 5th floor up, a wide street −0.6% (−1.4 to +0.2) and an avenue −0.1% (−0.8 to
+      +0.6).
+  - **Reading.** The discount for a loud street is mostly a low-floor discount: a second- or
+    third-floor apartment looking onto 23rd Street asks about 2% less than one looking onto a
+    side street, and from the 5th floor up the difference is a fraction of that (a wide street
+    −0.6%, 87% below zero). It matches what renters say about street noise, and it adds two
+    terms at no cost in accuracy or time. As with `unitfacing-v3`, it is not a selection change:
+    the gain is in the description, within noise on the score (PR #72 review).
+- **Facing on the corrected registry** (`unitfacing-v5`; Gibbs m5-nocurves, `unit-labels-v1` +
+  `quarantine-v1`, 2 × (300 + 3600), 1a1da8f, 2026-09-30).
+  - **What.** `unitfacing-v4` on registry v3, the 12 pages re-geocoded from their ads (#68, #74).
+    Building facts, address fronts and footprint sides now come from the right buildings.
+    - `building_sides` and `building_frontage` read the registry of the set being built.
+    - The facing grid keeps the first registry's origin, so every other building's sides are
+      exactly as before. Built with this code, `unitfacing-v4` is identical to master's.
+  - **Changes.** The facing flags change on 353 rows, all on the re-geocoded pages: One Hudson
+    Yards 202, ART 54, Chatham 33, Verde 29, HL23 12, One High Line 12, the Cortland 8, 301
+    West 21st 3.
+  - **Result: a tie in accuracy; the named terms carry more.** 1,352 s, passes (R-hat 1.0060,
+    ESS 719).
+    - Against `unitfacing-v4` (dc50bf1), PSIS-LOO is −2.4 ± 7.1 and held-out −0.8 ± 0.5.
+      Against `unitdescpluto-v5` (90f66cf, the same facts without facing), +6.1 ± 8.3 and −2.2 ±
+      1.5. Against the app's model (fef2aa5), +5.9 ± 8.7 and −2.4 ± 1.6.
+    - Named features rise from 77.11% to 78.37% of the variance against `unitfacing-v4`; the
+      building level falls from 7.70% to 6.91%, and building over time from 0.92% to 0.48%.
+    - The facing effects hold. Against a side street, on floors 1–4: a wide street −2.4% (−3.8
+      to −1.0; 99.8% below zero), an avenue −1.1% (−2.3 to +0.1; 93.5%). From the 5th floor
+      up: a wide street −0.6% (−1.4 to +0.2), an avenue +0.0% (−0.7 to +0.7).
+  - **Reading.** This is the design that serves the corrected building facts and the facing
+    terms together. With `quarantine-v2`, it is the candidate for the app, and switching is
+    Ben's call.
 
 *Testing.*
 - Add each source group as its own feature set, alone and then combined.
