@@ -308,10 +308,208 @@ def test_unitfacing_records_the_basemap(monkeypatch):
         for name, f in features.FEATURE_SETS.items()
         if getattr(f, "func", f) is features.facing_v2
     }
-    assert on_facing == features.BASEMAP
+    assert on_facing <= features.BASEMAP
     monkeypatch.setattr(run.data, "sha256", lambda path: "sha")
     sources = run.feature_sources("unitfacing-v2")
     assert {"registry", "pluto", "descriptions", "basemap"} <= sources.keys()
+
+
+def test_street_kind():
+    assert features.street_kind("8 AVE", "1") == "avenue"
+    assert features.street_kind("AVE OF THE AMERICAS", "1") == "avenue"
+    assert features.street_kind("WEST ST", "2") == "avenue"  # the West Side Highway
+    assert features.street_kind("W  23 ST", "1") == "wide street"
+    assert features.street_kind("W  22 ST", "1") == "side street"
+    assert features.street_kind("HIGH LINE", "6") is None
+
+
+def test_unit_sides_uses_every_side_of_the_building(monkeypatch):
+    from rentfrontier import descriptions
+
+    # A corner building: north on a side street, west on an avenue, rear to the south.
+    sides = pd.DataFrame(
+        {
+            "north": ["side street"],
+            "south": ["none"],
+            "east": ["none"],
+            "west": ["avenue"],
+        },
+        index=["corner"],
+    )
+    frontage = pd.DataFrame(
+        {"street_type": ["side street"], "front": ["north"]}, index=["corner"]
+    )
+    monkeypatch.setattr(features, "building_sides", lambda: sides)
+    monkeypatch.setattr(features, "building_frontage", lambda: frontage)
+    rows = [
+        ("u1", {"west"}, ""),  # onto the avenue
+        ("u2", {"north", "west"}, ""),  # corner unit: both streets
+        ("u3", {"south"}, ""),  # rear
+        ("u4", set(), "Street-facing one bedroom."),  # text: the address street
+        ("u5", set(), ""),  # no evidence
+    ]
+    frame = pd.DataFrame(
+        {
+            "building": ["corner"] * len(rows),
+            "unit_id": [r[0] for r in rows],
+            "canonical_unit_url": [
+                f"https://x/building/corner/{i}A" for i in range(len(rows))
+            ],
+            **{
+                f"window_{d}": ["yes" if d in r[1] else "unknown" for r in rows]
+                for d in ("north", "south", "east", "west")
+            },
+            "view_street": ["unknown"] * len(rows),
+            "view_courtyard": ["unknown"] * len(rows),
+        }
+    )
+    monkeypatch.setattr(
+        descriptions, "attach", lambda f: pd.Series([r[2] for r in rows])
+    )
+    got = features.unit_sides(frame)
+    assert got.avenue.tolist() == [True, True, False, False, False]
+    assert got["side street"].tolist() == [False, True, False, True, False]
+    assert got["none"].tolist() == [False, False, True, False, False]
+    assert not got["wide street"].any()
+
+
+def test_facing_sets_record_basemap_and_footprints(monkeypatch):
+    from rentfrontier import run
+
+    fn = features.FEATURE_SETS["unitfacing-v3"]
+    assert fn.func is features.facing_v3
+    on_v3 = {
+        n
+        for n, f in features.FEATURE_SETS.items()
+        if getattr(f, "func", f) in (features.facing_v3, features.facing_v4)
+    }
+    assert on_v3 == features.FOOTPRINTS and on_v3 <= features.BASEMAP
+    monkeypatch.setattr(run.data, "sha256", lambda path: "sha")
+    for name in ("unitfacing-v3", "unitfacing-v4"):
+        assert {"basemap", "footprints"} <= run.feature_sources(name).keys()
+
+
+def _box(x0, y0, x1, y1):
+    """A counter-clockwise rectangle outline in grid metres."""
+    return np.array([[x0, y0], [x1, y0], [x1, y1], [x0, y1], [x0, y0]], float)
+
+
+def _streets(*lines):
+    starts = np.array([a for a, _, _ in lines], float)
+    ends = np.array([b for _, b, _ in lines], float)
+    return starts, ends, np.array([k for _, _, k in lines])
+
+
+NO_OCCLUDERS = (np.zeros((0, 2)), np.zeros((0, 2)))
+
+
+def test_facade_sides_finds_the_avenue_of_a_corner_building():
+    # A 7 m avenue front at a corner: the cross street's centerline (13.5 m,
+    # sideways) is nearer than the avenue's (15 m, outward).
+    streets = _streets(
+        ((-15, -100), (-15, 100), "avenue"), ((-15, 16), (100, 16), "side street")
+    )
+    sides = features.facade_sides(_box(0, 0, 20, 7), streets, NO_OCCLUDERS)
+    assert sides["west"] == "avenue" and sides["north"] == "side street"
+    assert sides["east"] == "none" and sides["south"] == "none"
+
+
+def test_facade_sides_party_walls_and_rear_yards_see_no_street():
+    streets = _streets(
+        ((-40, -100), (-40, 100), "avenue"),
+        ((-100, 29), (100, 29), "side street"),
+        ((-100, -40), (100, -40), "side street"),
+    )
+    ring = _box(0, 0, 8, 20)
+    open_lot = features.facade_sides(ring, streets, NO_OCCLUDERS)
+    assert open_lot["west"] == "avenue" and open_lot["south"] == "side street"
+    # A neighbour against the west wall and one across the rear yard.
+    neighbours = [_box(-8, 0, -0.1, 20), _box(0, -30, 8, -10)]
+    occluders = (
+        np.concatenate([r[:-1] for r in neighbours]),
+        np.concatenate([r[1:] for r in neighbours]),
+    )
+    sides = features.facade_sides(ring, streets, occluders)
+    assert sides["north"] == "side street"
+    assert sides["west"] == "none" and sides["south"] == "none"
+
+
+def test_facade_sides_keep_a_narrow_front_between_recessed_walls():
+    # A 6 m front on the avenue, flanked by walls set back 20 m behind
+    # neighbours: two of three west samples are blocked, the front sees it all.
+    ring = np.array(
+        [
+            [0, 0],
+            [30, 0],
+            [30, 26],
+            [0, 26],
+            [0, 16],
+            [-20, 16],
+            [-20, 10],
+            [0, 10],
+            [0, 0],
+        ],
+        float,
+    )
+    streets = _streets(((-40, -100), (-40, 100), "avenue"))
+    neighbours = [_box(-38, 0, -1, 9.5), _box(-38, 16.5, -1, 26)]
+    occluders = (
+        np.concatenate([r[:-1] for r in neighbours]),
+        np.concatenate([r[1:] for r in neighbours]),
+    )
+    assert features.facade_sides(ring, streets, occluders)["west"] == "avenue"
+
+
+def test_facade_sides_look_straight_out_not_diagonally():
+    # The avenue's centerline ends beside the building: a west wall cannot see
+    # a street that is only diagonally in front of it.
+    streets = _streets(((-15, 40), (-15, 100), "avenue"))
+    sides = features.facade_sides(_box(0, 0, 20, 20), streets, NO_OCCLUDERS)
+    assert sides["west"] == "none"
+
+
+def test_facade_sides_sample_short_edges_and_their_own_walls_block():
+    # A 2.5 m notch still gets a sample. In a U-shaped outline the inner wall
+    # of one arm looks across the courtyard into the other arm: its own walls
+    # block it, so only the outer walls see the avenue to the west.
+    streets = _streets(((-100, 30), (100, 30), "side street"))
+    notch = np.array(
+        [
+            [0, 0],
+            [10, 0],
+            [10, 20],
+            [6, 20],
+            [6, 21.5],
+            [3.5, 21.5],
+            [3.5, 20],
+            [0, 20],
+            [0, 0],
+        ],
+        float,
+    )
+    assert features.facade_sides(notch, streets, NO_OCCLUDERS)["north"] == "side street"
+    u = np.array(
+        [
+            [0, 0],
+            [30, 0],
+            [30, 20],
+            [20, 20],
+            [20, 5],
+            [10, 5],
+            [10, 20],
+            [0, 20],
+            [0, 0],
+        ],
+        float,
+    )
+    west = _streets(((-10, -100), (-10, 100), "avenue"))
+    # Only the inner wall at x=20 faces west from the right arm: with the left
+    # arm cut away, the right arm alone would see the avenue through the gap.
+    right_arm = np.array([[20, 0], [30, 0], [30, 20], [20, 20], [20, 0]], float)
+    assert features.facade_sides(right_arm, west, NO_OCCLUDERS)["west"] == "avenue"
+    wing = (u[:-1][5:7], u[1:][5:7])  # the left arm's inner wall, x=10
+    assert features.facade_sides(right_arm, west, wing)["west"] == "none"
+    assert features.facade_sides(u, west, NO_OCCLUDERS)["west"] == "avenue"
 
 
 def test_unitdescpluto_v4_reads_the_corrected_registry(monkeypatch):
@@ -338,6 +536,10 @@ def test_unitdescpluto_v4_reads_the_corrected_registry(monkeypatch):
     assert files == {
         "registry": features.REGISTRY_V2_FILE,
         "pluto": features.PLUTO_V2_FILE,
+    }
+    assert features.lot_files("unitdescpluto-v5") == {
+        "registry": features.REGISTRY_V3_FILE,
+        "pluto": features.PLUTO_V3_FILE,
     }
     assert features.lot_files("unitdescpluto-v3") == {
         "registry": features.REGISTRY_FILE,
@@ -377,3 +579,25 @@ def test_building_violations_count_the_trailing_year_only(tmp_path, monkeypatch)
         }
     )
     assert features.building_violations(frame).tolist() == [2.0, 0.0, 1.0, 0.0]
+
+
+def test_facing_v4_marks_loud_streets_on_low_floors(monkeypatch):
+    frame = pd.DataFrame({"unit_id": ["a", "b", "c", "d"]})
+    looks = pd.DataFrame(
+        {
+            "avenue": [True, True, False, False],
+            "wide street": [False, False, True, True],
+            "side street": [False] * 4,
+            "none": [False] * 4,
+        }
+    )
+    base = features.Features("b", ["x"], ["g"], np.zeros((4, 1)), np.ones(1))
+    monkeypatch.setitem(features.FEATURE_SETS, "probe-base", lambda f, t: base)
+    monkeypatch.setattr(features, "unit_sides", lambda f: looks)
+    monkeypatch.setattr(
+        features, "row_floor", lambda f: pd.Series([2.0, 9.0, 4.0, np.nan])
+    )
+    out = features.facing_v4(frame, np.ones(4, bool), base="probe-base")
+    cols = {n: out.values[:, i] for i, n in enumerate(out.names)}
+    assert cols["looks onto an avenue, floors 1-4"].tolist() == [1, 0, 0, 0]
+    assert cols["looks onto a wide street, floors 1-4"].tolist() == [0, 0, 1, 0]

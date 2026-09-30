@@ -428,6 +428,27 @@ def scored(e):
     return (e.get("psis") or {}).get("delta") is not None
 
 
+def pair_with_baseline(entries, base, paired=paired_loo):
+    """Each scored entry's PSIS-LOO dELPD against the baseline. An entry that
+    cannot be paired (its rows differ by rows no data rule on this commit
+    drops: a run of a rule from an unmerged branch) loses its PSIS-LOO score
+    and says why ("unpaired", shown as its note), so one such run cannot stop
+    the board."""
+    for e in entries:
+        if not e.get("psis") or base is None:
+            continue
+        if e is base:
+            d, se, mc = 0.0, 0.0, 0.0
+        else:
+            try:
+                d, se, mc = paired(e["psis"]["_dir"], base["psis"]["_dir"])
+            except ValueError as err:
+                e["psis"] = None
+                e["unpaired"] = f"PSIS-LOO not paired: {err}"
+                continue
+        e["psis"].update(delta=d, delta_se=se, delta_mcse=mc, baseline=BASELINE)
+
+
 def choose_best(entries, paired=paired_loo):
     """The fastest eligible entry tied (within two combined SE) with the top
     PSIS-LOO dELPD. Entries need ``psis["_dir"]``; ``paired`` can be a cached
@@ -603,13 +624,7 @@ def build(keep_dirs=False):
         entries.append(e)
     entries += screen_entries()
     base = next((e for e in entries if e["id"] == BASELINE and scored_raw(e)), None)
-    for e in entries:
-        if e.get("psis") and base is not None:
-            if e is base:
-                d, se, mc = 0.0, 0.0, 0.0
-            else:
-                d, se, mc = paired_loo(e["psis"]["_dir"], base["psis"]["_dir"])
-            e["psis"].update(delta=d, delta_se=se, delta_mcse=mc, baseline=BASELINE)
+    pair_with_baseline(entries, base)
 
     # The frontier and the best are per hardware class: a fit time only
     # competes with fit times on the same hardware.
@@ -634,7 +649,7 @@ def build(keep_dirs=False):
             if any(s["delta"] is None for s in e["splits"].values()):
                 note += "; held-out rows differ from the reference, so not paired"
         elif not scored(e) and e["line"] != "pymc" and "rows" in e["splits"]:
-            note = "no PSIS-LOO score yet"
+            note = e.get("unpaired") or "no PSIS-LOO score yet"
         elif best is not None and e is not best and scored(e):
             d, se, mc = paired_loo(best["psis"]["_dir"], e["psis"]["_dir"])
             if d > tie_tolerance(se, mc):
