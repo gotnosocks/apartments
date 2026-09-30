@@ -37,6 +37,7 @@ import json
 import math
 import urllib.parse
 import urllib.request
+from pathlib import Path
 
 import pandas as pd
 
@@ -275,7 +276,14 @@ def main(argv=None):
         description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
     )
     parser.add_argument("source", choices=("pluto", "subway", "basemap", "hpd"))
+    parser.add_argument(
+        "--registry",
+        type=Path,
+        default=REGISTRY,
+        help="registry buildings.parquet to join through (default: the first snapshot)",
+    )
     args = parser.parse_args(argv)
+    registry_path = args.registry
     dirty = git("status", "--porcelain")
     if dirty:
         raise SystemExit(f"Refusing to run on a dirty working tree:\n{dirty}")
@@ -284,39 +292,39 @@ def main(argv=None):
     out_dir = EXTERNAL_ROOT / args.source / f"{started:%Y%m%d}-{commit[:7]}"
     path = out_dir / f"{args.source}.parquet"
     if args.source == "pluto":
-        registry = pd.read_parquet(REGISTRY)
+        registry = pd.read_parquet(registry_path)
         table, queries = fetch_pluto(registry.bbl.dropna())
         missing = sorted(set(registry.bbl.dropna()) - set(table.bbl))
         details = {
             "source": f"{SOCRATA}/{PLUTO_ID}",
             "dataset": "MapPLUTO (NYC DCP) via NYC Open Data",
             "versions": sorted(table.version.dropna().unique().tolist()),
-            "registry": str(REGISTRY),
+            "registry": str(registry_path),
             "lots": len(table),
             "registry_lots_missing": missing,
         }
         summary = f"{len(table)} lots, {len(missing)} registry lots missing"
     elif args.source == "hpd":
-        registry = pd.read_parquet(REGISTRY)
+        registry = pd.read_parquet(registry_path)
         table, queries, version = fetch_hpd(registry)
         details = {
             "source": f"{SOCRATA}/{HPD_ID}",
             "dataset": "HPD Housing Maintenance Code Violations via NYC Open Data",
             "version": version,
-            "registry": str(REGISTRY),
+            "registry": str(registry_path),
             "violations": len(table),
             "buildings": int(table.bin.nunique()),
         }
         summary = f"{len(table)} violations in {table.bin.nunique()} buildings"
     elif args.source == "basemap":
-        box = basemap_box(pd.read_parquet(REGISTRY))
+        box = basemap_box(pd.read_parquet(registry_path))
         table, queries, versions = fetch_basemap(box)
         counts = table.layer.value_counts().to_dict()
         details = {
             "source": SOCRATA,
             "dataset": "NYC Open Data: street centerlines, parks, borough boundary",
             "versions": versions,
-            "registry": str(REGISTRY),
+            "registry": str(registry_path),
             "box_north_west_south_east": box,
             "features": counts,
         }

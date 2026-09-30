@@ -14,6 +14,12 @@ the matched label and the distance to the archived point.
 Writes /data1/apartments/external/registry/<date>-<commit>/buildings.parquet
 and provenance.json (URL, PAD version, retrieval time, sha256). Refuses a
 dirty tree.
+
+    python -m rentfrontier.registry --base <snapshot dir> --overrides <file>
+
+copies a snapshot and geocodes only the buildings the overrides file names,
+from the address it gives (method "override", with the review's evidence),
+so every other building keeps its match exactly.
 """
 
 from __future__ import annotations
@@ -148,6 +154,42 @@ def locate(slug: str, lat: float, lon: float) -> dict:
     }
 
 
+def locate_address(slug: str, address: str) -> dict:
+    """The building at a reviewed address: GeoSearch's first match with a BBL
+    whose house number and street are the address's."""
+    number, street = re.match(r"(\d+[A-Z]?)\s+(.*)", address).groups()
+    for f in _get("search", {"text": f"{address}, Manhattan", "size": 5})["features"]:
+        pad = (f["properties"].get("addendum") or {}).get("pad") or {}
+        label = (f["properties"].get("label") or "").upper()
+        if pad.get("bbl") and label.startswith(f"{number} {street.upper()}"):
+            glon, glat = f["geometry"]["coordinates"]
+            return {
+                "building": slug,
+                "method": "override",
+                "query": address,
+                "label": f["properties"].get("label"),
+                "bbl": str(pad["bbl"]),
+                "bin": str(pad.get("bin") or ""),
+                "pad_version": pad.get("version"),
+                "latitude": glat,
+                "longitude": glon,
+                "distance_m": 0.0,
+            }
+    raise SystemExit(f"{slug}: GeoSearch has no {address}")
+
+
+def apply_overrides(base: pd.DataFrame, overrides: list[dict]) -> pd.DataFrame:
+    """A registry with each overridden building re-geocoded from its reviewed
+    address; every other row unchanged."""
+    out = base.set_index("building")
+    for o in overrides:
+        if o["building"] not in out.index:
+            raise SystemExit(f"{o['building']} is not in the base registry")
+        row = locate_address(o["building"], o["address"])
+        out.loc[o["building"], list(row)[1:]] = list(row.values())[1:]
+    return out.reset_index()
+
+
 def build(pause: float = 0.1) -> pd.DataFrame:
     frame = data.load()
     covariates = pd.read_csv(COVARIATES).set_index("building")
@@ -160,21 +202,42 @@ def build(pause: float = 0.1) -> pd.DataFrame:
 
 
 def main(argv=None):
-    argparse.ArgumentParser(
+    parser = argparse.ArgumentParser(
         description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
-    ).parse_args(argv)
+    )
+    parser.add_argument("--base", type=Path, help="snapshot dir to copy")
+    parser.add_argument("--overrides", type=Path, help="reviewed addresses (JSON)")
+    args = parser.parse_args(argv)
+    if bool(args.base) != bool(args.overrides):
+        raise SystemExit("--base and --overrides go together")
     dirty = git("status", "--porcelain")
     if dirty:
         raise SystemExit(f"Refusing to run on a dirty working tree:\n{dirty}")
     commit = git("rev-parse", "HEAD")
     started = dt.datetime.now(dt.UTC)
-    table = build()
+    extra = {}
+    if args.base:
+        overrides = json.loads(args.overrides.read_text())["overrides"]
+        table = apply_overrides(
+            pd.read_parquet(args.base / "buildings.parquet"), overrides
+        )
+        extra = {
+            "base": str(args.base),
+            "overrides": {
+                "path": str(args.overrides),
+                "sha256": hashlib.sha256(args.overrides.read_bytes()).hexdigest(),
+                "buildings": [o["building"] for o in overrides],
+            },
+        }
+    else:
+        table = build()
     out_dir = EXTERNAL_ROOT / "registry" / f"{started:%Y%m%d}-{commit[:7]}"
     out_dir.mkdir(parents=True, exist_ok=True)
     path = out_dir / "buildings.parquet"
     table.to_parquet(path)
     counts = table.method.value_counts().to_dict()
     provenance = {
+        **extra,
         "source": GEOSEARCH,
         "pad_versions": sorted(table.pad_version.dropna().unique().tolist()),
         "retrieved_at": started.isoformat(),
