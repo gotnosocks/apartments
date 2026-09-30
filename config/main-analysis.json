@@ -1,32 +1,32 @@
 {
   "version": "main-analysis-selection-v2",
   "model_family": "frontier_summary",
-  "summary": "/data1/apartments/frontier/summaries/m5-nocurves-unitdescpluto-v3-rows-fef2aa5-gibbs-2060-3600-ul1q1-d0f3cc9",
-  "summary_manifest_sha256": "d7bc56e1d7517ade50fb77d39328c67c84b18d0e3ffba4deaa27aa0dc17b63f1",
-  "summary_commit": "d0f3cc959d3517ecd935551b9dc3a3d03e23e77c",
-  "run": "m5-nocurves-unitdescpluto-v3-rows-fef2aa5-gibbs-2060-3600-ul1q1",
-  "run_commit": "fef2aa56f352d970f1f2921ae256e9cbc45bda17",
+  "summary": "/data1/apartments/frontier/summaries/m5-nocurves-unitfacing-v5-rows-66cf77f-gibbs-2060-3600-ul1q2-ff91917",
+  "summary_manifest_sha256": "5717f6166713b68d5da1d7c6a9f9a1ffd8f1428070c8ed7802874db1b344dfb9",
+  "summary_commit": "ff91917a1204c8821b962e5c016f8539f4a27be6",
+  "run": "m5-nocurves-unitfacing-v5-rows-66cf77f-gibbs-2060-3600-ul1q2",
+  "run_commit": "66cf77f35cee476f7215190dc32442a4cbcaa618",
   "model": "m5-nocurves",
-  "feature_set": "unitdescpluto-v3",
+  "feature_set": "unitfacing-v5",
   "data_rules": [
     "unit-labels-v1",
-    "quarantine-v1"
+    "quarantine-v2"
   ],
   "dataset": "data/model/chelsea-product-scope-analysis-20260921",
   "source_observations_sha256": "8e29179bac059bf04b86c7b57acc65324e80fc209fb14793fbb1b9be47b2816f",
   "gate": {
     "passes": true,
-    "max_rhat": 1.0043306052651497,
-    "min_ess": 694.145660769441,
+    "max_rhat": 1.0057771725433768,
+    "min_ess": 580.9967339768344,
     "divergences": null,
-    "group_rhat_max": 1.0099161107539147
+    "group_rhat_max": 1.0075395036494723
   },
   "psis_loo": {
-    "elpd_loo": 52586.13934151,
-    "elpd_loo_se": 237.11869588460198,
-    "loo_commit": "fef2aa56f352d970f1f2921ae256e9cbc45bda17"
+    "elpd_loo": 52560.17708311011,
+    "elpd_loo_se": 237.01820547768304,
+    "loo_commit": "66cf77f35cee476f7215190dc32442a4cbcaa618"
   },
-  "selected_by": "Ben, 2026-09-30",
-  "selection_reason": "Ben chose the served design (Gibbs m5-nocurves + unitdescpluto-v3) refit with the divergence review's quarantine (data rule quarantine-v1: 143 advertisements that their own words or MapPLUTO show are not an open-market lease of a whole Chelsea apartment at the recorded address), and asked that the site say which listings are quarantined. Accuracy ties the previous selection on the rows both keep (PSIS-LOO +8.9 \u00b1 13.5, held-out +2.7 \u00b1 3.1); 1,361 s on the RTX 2060. The site lists the quarantined listings with the review's reason and no estimate.",
+  "selected_by": "rentfrontier.autoselect, 2026-09-30 (Ben, 2026-09-30: switch automatically by the agreed metrics)",
+  "selection_reason": "Chosen by the automatic rule because the incumbent cannot be served: it was fit with quarantine-v1 + unit-labels-v1, not the current quarantine-v2 + unit-labels-v1. Gibbs m5-nocurves + unitfacing-v5 with unit-labels-v1 + quarantine-v2, 1,346 s on the RTX 2060. Against the previous selection on the rows both keep: PSIS-LOO -7.4 \u00b1 12.0, held-out -5.3 \u00b1 2.8.",
   "uncertainty": "Conditional posterior uncertainty; source errors, omitted features and incomplete market coverage remain separate. Estimates for a unit's only listing are under-covered (91.6% in the 95% predictive range)."
 }

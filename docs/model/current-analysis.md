@@ -51,8 +51,9 @@ main selection.
 
 After diagnostics, source review and matched research comparisons support
 selection, write the explicit pointer. **`--output` defaults to `config/main-analysis.json`,
-which is the app's selected model. Replacing it needs Ben's OK, and the listings site's build
-refuses a PyMC selection.** For analysis, write the pointer elsewhere:
+which is the app's selected model. It is replaced only by the automatic rule,
+`python -m rentfrontier.autoselect` (Ben, 2026-09-30), and the listings site's build refuses a
+PyMC selection.** For analysis, write the pointer elsewhere:
 
 ```sh
 uv run --locked --extra model python -m apartments.main_analysis \
