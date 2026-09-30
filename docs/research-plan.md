@@ -60,6 +60,7 @@ that a typical apartment renter thinks about when choosing a place to rent."
 | Transit (`unitdescplutotransit-v2`) | The walk to the nearest subway station, and how many subway lines stop within a 10-minute walk, counting the stations open at the time of the listing. |
 | Which way the apartment faces (`unitfacing-v2`) | Whether the apartment looks onto its building's street (an avenue, a wide street such as 14th, or a side street), onto the back, both front and back, or only to the sides, from its window directions, front/rear unit labels, ad text and street or courtyard views. |
 | Streets the apartment looks onto (`unitfacing-v3`) | Whether the apartment's windows look onto an avenue, a wide street such as 14th, a side street, or the rear or a courtyard, using every side of its building that has a clear view of a street (corner and through-block buildings have more than one; a wall against a neighbour has none). |
+| A loud street on a low floor (`unitfacing-v4`) | Whether an apartment on floors 1–4 looks onto an avenue or a wide street, where traffic noise is loudest; the same view higher up is priced as in `unitfacing-v3`. |
 | Building level | This building's premium beyond its apartments' features: its location, quality and management. |
 | Building trend or walk | How that premium has moved over time, for example a renovation or a changing block: steadily (the trend) or along a path that can change direction at each knot, joined by straight lines (the walk). Sum-to-zero walks make it relative to the market, so "the market" and "this building" never overlap. |
 | Bedroom slope (m5) | In some buildings the larger apartments carry an extra premium or discount. |
@@ -1061,6 +1062,27 @@ comes from other sources, most of them public NYC and NYS data.
     3 m for counting samples would remove them, and is for a later version (PR #62 review).
   - The two earlier cuts' fits (bf09466; dff9f62, +4.2 ± 8.2 against fef2aa5) are archived under
     `runs-archive/facing-v3-draft-2026-09-30`.
+- **A loud street on a low floor** (`unitfacing-v4`; Gibbs m5-nocurves, `unit-labels-v1` +
+  `quarantine-v1`, 2 × (300 + 3600), dc50bf1, 2026-09-30). Ben's street-graph idea, narrowed to
+  noise: traffic should matter most near the street.
+  - **Terms.** `unitfacing-v3` plus two flags: the apartment looks onto an avenue, or a wide
+    street, and is on floors 1–4. The floor is the one the base features read: the listed floor,
+    else the unit label's floor if the building is that tall. 673 rows have the avenue flag and
+    348 the wide-street flag; 34% of rows are on floors 1–4 and 26% have no known floor (no flag).
+  - **Fit.** 1,352 s, passes (R-hat 1.0056, ESS 706). Against `unitfacing-v3` (ceb269f),
+    PSIS-LOO is +3.5 ± 6.9 and held-out −0.4 ± 0.5; against the app's model (fef2aa5), +8.3 ± 8.3
+    and −1.7 ± 1.5. **A tie in accuracy.**
+  - **Effects.** The low-floor flags are −1.2% for an avenue (−2.3 to −0.1) and −1.7% for a wide
+    street (−3.2 to −0.2). Against a side street:
+    - on floors 1–4, **a wide street −2.3% (−3.7 to −0.8; 99.8% below zero)** and an avenue
+      −1.2% (−2.4 to −0.1; 95.9%);
+    - from the 5th floor up, a wide street −0.6% (−1.4 to +0.2) and an avenue −0.1% (−0.8 to
+      +0.6).
+  - **Reading.** The discount for a loud street is a low-floor discount: a second- or
+    third-floor apartment looking onto 23rd Street asks about 2% less than one looking onto a
+    side street, and higher up the difference fades. It is what renters describe, and it adds
+    two terms at no cost in accuracy or time. As with `unitfacing-v3`, it is not a selection
+    change: the gain is in the description, within noise on the score.
 
 *Testing.*
 - Add each source group as its own feature set, alone and then combined.

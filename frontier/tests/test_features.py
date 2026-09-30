@@ -373,7 +373,7 @@ def test_unit_sides_uses_every_side_of_the_building(monkeypatch):
     assert not got["wide street"].any()
 
 
-def test_unitfacing_v3_records_basemap_and_footprints(monkeypatch):
+def test_facing_sets_record_basemap_and_footprints(monkeypatch):
     from rentfrontier import run
 
     fn = features.FEATURE_SETS["unitfacing-v3"]
@@ -381,11 +381,12 @@ def test_unitfacing_v3_records_basemap_and_footprints(monkeypatch):
     on_v3 = {
         n
         for n, f in features.FEATURE_SETS.items()
-        if getattr(f, "func", f) is features.facing_v3
+        if getattr(f, "func", f) in (features.facing_v3, features.facing_v4)
     }
     assert on_v3 == features.FOOTPRINTS and on_v3 <= features.BASEMAP
     monkeypatch.setattr(run.data, "sha256", lambda path: "sha")
-    assert {"basemap", "footprints"} <= run.feature_sources("unitfacing-v3").keys()
+    for name in ("unitfacing-v3", "unitfacing-v4"):
+        assert {"basemap", "footprints"} <= run.feature_sources(name).keys()
 
 
 def _box(x0, y0, x1, y1):
