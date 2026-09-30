@@ -249,3 +249,19 @@ def test_build_refuses_rows_missing_that_no_rule_drops(tmp_path, make_bundle):
     bundle = make_bundle(tmp_path / "inputs", rule_lines=[q1])
     with pytest.raises(build.BuildError, match="no data rule drops them"):
         build.build(bundle, tmp_path / "site")
+
+
+def test_build_refuses_a_rule_row_still_in_the_bundle(tmp_path, make_bundle):
+    # a1 is in the bundle: a rule that drops it disagrees with the bundle.
+    lines = [
+        {"audit_id": a, "action": "quarantine_nonresidential", "reason": "Retail."}
+        for a in ("q1", "q2", "a1")
+    ]
+    bundle = make_bundle(tmp_path / "inputs", rule_lines=lines)
+    with pytest.raises(build.BuildError, match="in the bundle or not in the dataset"):
+        build.build(bundle, tmp_path / "site")
+
+
+def test_quarantined_rows_are_in_a_stable_order(site_root):
+    rows = query(site_root, "SELECT audit_id FROM quarantined ORDER BY rowid")
+    assert [r["audit_id"] for r in rows] == ["q1", "q2"]

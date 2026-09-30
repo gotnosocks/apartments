@@ -881,6 +881,37 @@ comes from other sources, most of them public NYC and NYS data.
   - The first version (`-v1`, f980477) used today's stations for every year. It scored the same
     (+1.1 ± 6.7, noise) and was replaced to keep the no-future-information rule. Its run is archived
     under `runs-archive/future-information-2026-09-29/`, off the board.
+- **Building condition: HPD housing-code violations** (`unitdescplutohpd-v1`, 0544905;
+  `unitdescplutohpd-v2`, 0fc2df7; 2026-09-30; HPD snapshot 20260930-cb289ad; both with
+  `quarantine-v1`, against fef2aa5).
+  - **Data.** 30,302 violations; 914 of the 1,129 registry buildings have at least one. The feature counts class B (hazardous)
+    and class C (immediately hazardous) violations found in the building before the listing's
+    month, per apartment and year. Apartments are MapPLUTO's residential units, or the units
+    listed where a condominium lot records none. The window trails the listing, so no future
+    information enters.
+  - **v1, the past year.** Levels are none, a few, or many (a quarter or more per apartment).
+    - About 15% of listings fall in "a few" and 5% in "many".
+    - 1,359 s, passes. PSIS-LOO **+0.4 ± 6.6**, held-out +0.3 ± 0.2.
+    - Effects: a few +0.1% (−0.3 to +0.4), many −0.1% (−0.6 to +0.4).
+  - **v2, the past five years** (chronic condition). "Many" is 0.05 or more a year per
+    apartment, about the top 15% of listings.
+    - 1,358 s, passes. PSIS-LOO **−1.0 ± 6.7**, held-out −0.4 ± 0.5.
+    - Effects: a few −0.1% (−0.6 to +0.4), many +0.3% (−0.4 to +0.9).
+  - **Why it adds nothing.** Across buildings, violations do go with lower rents. About half the
+    buildings have no class B or C violations since 2010, and their median premium is +2.4%.
+    Buildings with any have a median of −1.3%, and the quarter with the most per apartment,
+    about −2.5%. But the building facts and each building's own level already carry that. The
+    building level's share of the variance stays at 7.7%, and a year with violations does not
+    move a building's asks against its own path.
+  - **Known limitations of these versions** (PR #67 review; a new version would fix them, but
+    the result gives no reason to make one):
+    - A building with its own BIN but no class B or C violations falls back to its lot's, taking
+      the violations of other buildings on the lot (20 buildings, 535 rows; London Terrace's lot,
+      for example).
+    - On lots with several buildings, a building's violations are divided by the whole lot's
+      apartments.
+  - Recording condition in the site's building facts, as information rather than a model term,
+    is a possible follow-up.
 
 *Unit orientation* (street vs courtyard, and the street's size).
 - StreetEasy's view and exposure fields are sparse (base-v1 has `view_street`, `view_courtyard`
@@ -962,8 +993,8 @@ comes from other sources, most of them public NYC and NYS data.
     - The second (dff9f62) used the nearest centerline in the outward cone. It left buildings on
       the same lot out of the blockers, so the row buildings at 106–112 8th Avenue saw 15th and
       16th Streets through their neighbours (PR #62 review).
-    - The Sierra and Stonehenge Gardens look onto 14th Street, and Stonehenge Gardens onto 15th
-      as well, as a through lot.
+    - The Sierra and Stonehenge Gardens look onto 14th Street, as Ben said. Stonehenge Gardens'
+      rear sees 15th Street only through a gap between the buildings on 15th.
   - **Units.** Each unit gets four flags, which are not exclusive: it looks onto an avenue, a
     wide street, a side street, or the rear or a courtyard. They come from window directions
     against the sides, plus front/rear labels, ad text and views.
@@ -981,8 +1012,13 @@ comes from other sources, most of them public NYC and NYS data.
     - a side street against the rear +0.4% (−0.2 to +1.0).
   - **Reading.** The street an apartment looks onto is worth about a percent: an apartment looking
     onto 14th, 23rd or 34th Street asks about 1% less than one looking onto a quiet side street.
-    That is renter-facing and mappable, but too small to move the frontier. The natural next test is
-    its interaction with a low floor, where noise is worst.
+    That is renter-facing and mappable, but accuracy changes only within noise. The board marks it
+    on the frontier by a +4.8 ± 8.0 margin. The natural next test is its interaction with a low
+    floor, where noise is worst.
+  - **Known limitation.** 21 street sides that are not the address front rest on a single clear
+    sample, some from wall stubs or chamfers under 3 m (a corner stub at The Heywood, a sliver gap
+    at 232 8th Ave). Resetting the doubtful ones changes 3 rows. A minimum edge length of about
+    3 m for counting samples would remove them, and is for a later version (PR #62 review).
   - The two earlier cuts' fits (bf09466; dff9f62, +4.2 ± 8.2 against fef2aa5) are archived under
     `runs-archive/facing-v3-draft-2026-09-30`.
 

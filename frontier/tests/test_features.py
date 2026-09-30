@@ -314,6 +314,7 @@ def test_unitfacing_records_the_basemap(monkeypatch):
     assert {"registry", "pluto", "descriptions", "basemap"} <= sources.keys()
 
 
+<<<<<<< HEAD
 def test_street_kind():
     assert features.street_kind("8 AVE", "1") == "avenue"
     assert features.street_kind("AVE OF THE AMERICAS", "1") == "avenue"
@@ -509,3 +510,37 @@ def test_facade_sides_sample_short_edges_and_their_own_walls_block():
     wing = (u[:-1][5:7], u[1:][5:7])  # the left arm's inner wall, x=10
     assert features.facade_sides(right_arm, west, wing)["west"] == "none"
     assert features.facade_sides(u, west, NO_OCCLUDERS)["west"] == "avenue"
+=======
+def test_building_violations_count_the_trailing_year_only(tmp_path, monkeypatch):
+    registry = pd.DataFrame(
+        {"building": ["a", "b"], "bin": ["1000001", "1000000"], "bbl": ["1", "2"]}
+    )
+    hpd = pd.DataFrame(
+        {
+            "violationid": ["v1", "v2", "v3", "v4", "v5"],
+            "bin": ["1000001", "1000001", "1000001", "1000001", "1000000"],
+            "bbl": ["1", "1", "1", "1", "2"],
+            "class": ["B", "C", "A", "B", "C"],
+            "inspectiondate": [
+                "2020-03-01",  # in the year before 2020-06
+                "2019-07-15",  # in it too
+                "2020-04-01",  # class A: not counted
+                "2020-06-15",  # after the listing's month began: not counted
+                "2020-01-01",  # b by lot (placeholder BIN)
+            ],
+        }
+    )
+    registry.to_parquet(tmp_path / "r.parquet")
+    hpd.to_parquet(tmp_path / "h.parquet")
+    monkeypatch.setattr(features, "REGISTRY_FILE", str(tmp_path / "r.parquet"))
+    monkeypatch.setattr(features, "HPD_FILE", str(tmp_path / "h.parquet"))
+    frame = pd.DataFrame(
+        {
+            "building": ["a", "a", "b", "c"],
+            "period": pd.to_datetime(
+                ["2020-06-01", "2021-09-01", "2020-06-01", "2020-06-01"]
+            ),
+        }
+    )
+    assert features.building_violations(frame).tolist() == [2.0, 0.0, 1.0, 0.0]
+>>>>>>> origin/master

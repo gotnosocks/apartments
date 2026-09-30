@@ -7,7 +7,8 @@
 {% block title %}{{ heading }}{% endblock %}
 {% block content %}
 <nav class="crumbs" aria-label="Breadcrumb">
-  {% if within %}<a href="{{ url_for('quarantined') }}">Quarantined listings</a> › <span aria-current="page">{{ first.building }}</span>
+  {% if within == "unit" and first.building_id in linked %}<a href="{{ url_for('quarantined') }}">Quarantined listings</a> › <a href="{{ url_for('building', building_id=first.building_id) }}">{{ first.building }}</a> › <span aria-current="page">{{ first.unit_label or "Unit" }}</span>
+  {% elif within %}<a href="{{ url_for('quarantined') }}">Quarantined listings</a> › <span aria-current="page">{{ first.building }}</span>
   {% else %}<span aria-current="page">Quarantined listings</span>{% endif %}
 </nav>
 <h1>{{ heading }}</h1>
