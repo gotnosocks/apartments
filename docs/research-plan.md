@@ -1276,6 +1276,20 @@ comes from other sources, most of them public NYC and NYS data.
 4. the t-unit and drift shapes under NUTS (B.5);
 5. A.5 (flag ablation), A.6 (pruning), B.6 (noise) and A.3–A.4.
 
+- **Coarser building walks under Gibbs** (`m5-nocurves-walk12`; loop experiment, 2026-09-30).
+  - The NUTS m1 walks scored better with 2-year knots than half-year ones (+660), and half-year
+    knots leave rows alone at their knot, the high Pareto-k rows. The Gibbs sampler now takes
+    any knot spacing (`walk_knot_months`; `gibbs.site_values` carries it to the held-out
+    scores).
+  - **Result: a clear loss.** The yearly walk with `unitfacing-v5` + `quarantine-v2` (4b32a84)
+    fits in 943 s against 1,346 s and passes (R-hat 1.0058, ESS 847). But against the served
+    half-year design (66cf77f), PSIS-LOO is **−776.5 ± 34.7** and held-out −111.8 ± 12.9.
+    Rows over the Pareto-k threshold fall only from 389 to 321.
+  - **Reading.** In the m5 design, with a bedroom slope and a quarterly market trend, the
+    half-year walk carries real building movement that a yearly walk misses. The 2-year fit was
+    stopped: it could only be coarser. The yearly design stays on the board as a faster, less
+    accurate frontier point.
+
 ## Work tracks, in order
 
 ### T1. Make the score resolve design differences
