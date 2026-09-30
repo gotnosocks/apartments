@@ -60,8 +60,9 @@ def test_quarantine_drops_rows_from_the_frame_and_the_heldout_mask(monkeypatch):
     assert ruled.attrs["source_sha256"] == "s"
 
 
-def test_quarantine_file_names_each_row_once_with_its_evidence():
-    with open(data.QUARANTINE_V1) as f:
+@pytest.mark.parametrize("path", [data.QUARANTINE_V1, data.QUARANTINE_V2])
+def test_quarantine_file_names_each_row_once_with_its_evidence(path):
+    with open(path) as f:
         rows = [json.loads(line) for line in f if line.strip()]
     actions = {
         "quarantine_nonresidential",
@@ -71,11 +72,17 @@ def test_quarantine_file_names_each_row_once_with_its_evidence():
         "quarantine_price_basis",
         "quarantine_attribute_conflict",
     }
-    assert len(rows) == len({r["audit_id"] for r in rows}) == len(data.quarantined())
+    assert (
+        len(rows) == len({r["audit_id"] for r in rows}) == len(data.quarantined(path))
+    )
     for r in rows:
         assert r["action"] in actions and r["reason"], r
         assert r["evidence"] or r.get("external_evidence"), r
-    assert data.dropped_rows() == data.quarantined()
+    assert data.quarantined(path) <= data.dropped_rows()
+
+
+def test_quarantine_v2_keeps_every_v1_row():
+    assert data.quarantined() < data.quarantined(data.QUARANTINE_V2)
 
 
 def test_unit_line_key():

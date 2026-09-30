@@ -149,6 +149,9 @@ REPO = Path(__file__).resolve().parents[3]
 QUARANTINE_V1 = (
     REPO / "config" / "reviews" / "chelsea-divergence-quarantine-20260929.jsonl"
 )
+# v1 plus the second review (2026-09-30): ads that name another street for the
+# apartment, and bedroom counts the ad flatly contradicts, over every row.
+QUARANTINE_V2 = REPO / "config" / "reviews" / "chelsea-quarantine-v2-20260930.jsonl"
 
 
 @functools.lru_cache(maxsize=4)
@@ -165,11 +168,22 @@ def quarantine_v1(frame: pd.DataFrame) -> pd.DataFrame:
     return frame[~frame.audit_id.isin(quarantined())]
 
 
+def quarantine_v2(frame: pd.DataFrame) -> pd.DataFrame:
+    """v1 and the second review's rows (158 in all): six more ads that place
+    the apartment on another street, and nine more bedroom counts the ad flatly
+    contradicts. The other rows are unchanged."""
+    return frame[~frame.audit_id.isin(quarantined(QUARANTINE_V2))]
+
+
 # Named data rules, applied after the held-out split is drawn (the row split
 # depends on unit ids, and scored rows must not change). Run records list them.
-DATA_RULES = {"unit-labels-v1": merge_unit_labels, "quarantine-v1": quarantine_v1}
+DATA_RULES = {
+    "unit-labels-v1": merge_unit_labels,
+    "quarantine-v1": quarantine_v1,
+    "quarantine-v2": quarantine_v2,
+}
 # Rules that drop the rows their file lists; run records hash the files.
-RULE_SOURCES = {"quarantine-v1": QUARANTINE_V1}
+RULE_SOURCES = {"quarantine-v1": QUARANTINE_V1, "quarantine-v2": QUARANTINE_V2}
 
 
 def dropped_rows() -> frozenset:

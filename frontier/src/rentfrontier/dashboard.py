@@ -371,6 +371,9 @@ DATA_RULE_TEXT = {
     "Chelsea apartment at their address: offices and shops, ads that place the "
     "apartment elsewhere, SRO rooms, income-restricted and short-stay offers, and a "
     "few whose own ad contradicts the ask or the bedroom count.",
+    "quarantine-v2": "quarantine-v1 and a second review over every listing: ads that "
+    "place the apartment on another street, and bedroom counts the ad flatly "
+    'contradicts (a "three-bedroom home" recorded as one bedroom).',
 }
 
 
