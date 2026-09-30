@@ -119,6 +119,36 @@ that a typical apartment renter thinks about when choosing a place to rent."
   column shows it. Thelio fits from before this rule whose times may include contention were
   moved to `/data1/apartments/frontier/runs-archive/contended-2026-09-24/` and are being re-timed.
 
+## Automatic loop and selection (Ben, 2026-09-30)
+
+Ben, 2026-09-30: "I want you to run the model and data improvements in an auto research loop and
+automatically switch the dashboard to the best model according to the metrics we've discussed.
+You do not need my approval to change the dashboard model."
+
+- **The served model** is the run `config/main-analysis.json` selects. The listings site
+  publishes it, and the dashboard's rent map and data card follow it. From 2026-09-30 it is
+  chosen by a rule in code, `python -m rentfrontier.autoselect`, and no longer by hand.
+- **Eligible fits.** A fit must meet all of these:
+  - it passes the gate, has named additive contributions, and has a paired PSIS-LOO score;
+  - it ran on the RTX 2060 row split within the 30-minute window;
+  - it used the current data rules, the latest version of each rule family. A fit on rows a
+    later review found to be wrong is not served.
+- **The choice** is the board's own best among the eligible fits:
+  - Take the top PSIS-LOO, and the fits tied with it within two combined SE.
+  - Among those, take the fastest. Fit times within 10% count as equal, and then the higher
+    PSIS-LOO wins, so timing noise cannot decide.
+- **Hysteresis.** An eligible incumbent stays unless it is beaten clearly: PSIS-LOO beyond the
+  tie tolerance, or tied and more than 10% faster.
+- **Held-out guard.** A challenger whose paired held-out score is more than 2 SE below the
+  incumbent's is refused, and the next fit is tried.
+- **A switch** still goes through a reviewed PR: the rule writes the selection
+  (`autoselect --write <bundle>`), and the reviewer reruns the rule. After the merge, the site
+  code is deployed and the selection published, and the rent map is recomputed.
+- **The loop.** Each experiment is a change to the data or the model: one branch, tests, one fit
+  on the RTX 2060 under the heavy lock, a plan entry, a reviewed PR. Autoselect runs after each
+  merge. A new data rule makes every fit on the old rules ineligible, so the loop refits the
+  leading designs on it.
+
 ## Rules
 
 - **Gate.** Split R-hat < 1.01 and bulk ESS > 400 on scalars and traced effects. Frontier-line runs
@@ -1293,8 +1323,9 @@ comes from other sources, most of them public NYC and NYS data.
 
 - Shipped on 2026-09-26: `rentfrontier.summary` (per-listing leave-own-row-out estimates, PR #34), the
   [listings site](site.md) (PR #35), and `config/main-analysis.json` selecting the summary of
-  `m0q-btrend` + `unitdesc-v1` + `unit-labels-v1`. A new selection needs Ben's OK. It takes a summary,
-  a publish, and an edit of the selection.
+  `m0q-btrend` + `unitdesc-v1` + `unit-labels-v1`. A new selection takes a summary, a publish, and
+  an edit of the selection. From 2026-09-30 the edit is made by `rentfrontier.autoselect` (see
+  "Automatic loop and selection"), and it no longer needs Ben's OK.
 - Switched on 2026-09-29 (Ben): the selection names the summary of the Gibbs `m5-nocurves` +
   `unitdesc-v1` + `unit-labels-v1` fit (PSIS-LOO 52,431.4, 1,326 s on the RTX 2060).
 - Switched again the same day (Ben: the building facts without the flood-zone flag, once they tie):
