@@ -56,6 +56,7 @@ that a typical apartment renter thinks about when choosing a place to rent."
 | Building facts (`pluto-v1`, `unitdescpluto-v1`; `unitdescpluto-v2` without the flood-zone flag; `unitdescpluto-v3` also dating alterations by the latest) | What the city records about the building: when it was built, its height and number of apartments, the space per apartment, how densely the lot is built, its type (walk-up, elevator, condo, a small mixed-use building of a few apartments over a store or office, or other), landmark or historic-district status, flood zone and a recent alteration; an "unknown" flag where the city's record has no usable value. |
 | Location (`unitdescplutoloc-v1`) | What buildings nearby rent for: a smooth premium over the map, shared by buildings a few blocks apart (for example the western blocks near the High Line). |
 | Transit (`unitdescplutotransit-v2`) | The walk to the nearest subway station, and how many subway lines stop within a 10-minute walk, counting the stations open at the time of the listing. |
+| Which way the apartment faces (`unitfacing-v2`) | Whether the apartment looks onto its building's street (an avenue, a wide street such as 14th, or a side street), onto the back, both ways (floor-through) or only to the sides, from its window directions, front/rear unit labels and ad text. |
 | Building level | This building's premium beyond its apartments' features: its location, quality and management. |
 | Building trend or walk | How that premium has moved over time, for example a renovation or a changing block: steadily (the trend) or along a path that can change direction at each knot, joined by straight lines (the walk). Sum-to-zero walks make it relative to the market, so "the market" and "this building" never overlap. |
 | Bedroom slope (m5) | In some buildings the larger apartments carry an extra premium or discount. |
@@ -828,6 +829,40 @@ comes from other sources, most of them public NYC and NYS data.
   building's frontage street (LION and building footprints). A street-facing unit then gets that
   street's width and traffic.
 - Height against the neighbours (MapPLUTO heights) as a light and view proxy.
+- **First result: which way the apartment faces** (`unitfacing-v2` = `unitdescpluto-v3` plus the
+  facing columns; Gibbs m5-nocurves, `unit-labels-v1`, 2 × (300 + 3600), 4519fb2, 2026-09-29;
+  Ben's hypothesis, 2026-09-29: facing a wide, loud street such as 14th or an avenue is cheaper,
+  facing a quiet side street dearer).
+  - Frontage per building: the street of its address (avenue, wide crosstown street 14th, 23rd or
+    34th, or side street) and the side of it the building stands on, from the basemap snapshot's
+    centerlines. It is found for 1,121 of 1,129 buildings; the rest are rear buildings and named
+    places. It agrees with house-number parity on all 901 crosstown buildings.
+  - Facing per unit, pooled over its listings, uses four kinds of evidence: window exposures
+    against the frontage, front/rear labels (2F/2R, only in buildings whose lettered labels are all
+    F or R), ad text ("street-facing", "quiet rear", "floor-through", ...) and street or courtyard
+    views.
+    - Front: 1,717 rows on an avenue, 1,050 on a wide street, 2,547 on a side street.
+    - Other classes: rear only 4,733; windows front and back 2,763; sides only 2,592 (side
+      windows count only where the frontage is known).
+    - Unknown (the reference): 37,236.
+  - It passes in 1,365 s: R-hat 1.006, ESS 579, every-element R-hat 1.009. PSIS-LOO is 52,453.4,
+    **+13.7 ± 9.1 against the building facts alone** (not a clear gain), and +11,860 over m0.
+  - Effects are small, about a percent. Against rear-facing units:
+    - front on a wide street −0.9% (−1.8 to +0.1), and −1.1% (−2.2 to +0.0) against front on a
+      side street. That is the direction Ben expected, but both intervals reach zero;
+    - front on an avenue +0.8% (−0.0 to +1.6): the other way. Avenue-facing units are often in
+      taller buildings with light and views, which may explain it;
+    - front on a side street +0.2% (−0.6 to +1.0);
+    - windows front and back **+2.3%** (+1.5 to +3.2). The class counts floor-throughs, but also
+      corner units with three or four exposures in towers;
+    - sides only −0.3% (−1.0 to +0.5).
+  - A first version (`-v1`, 18df498) missed Sixth Avenue: its centerlines are named Avenue of the
+    Americas, and spelled-out avenues did not parse. It also counted side windows where the
+    frontage was unknown. It scored +8.9 ± 7.9 with the same pattern (PR #58 review).
+  - Why so small:
+    - the evidence covers 29% of rows;
+    - a unit's own level already carries its orientation when it has other listings;
+    - noise may matter mostly on low floors (an interaction with floor is the natural next test).
 
 *Testing.*
 - Add each source group as its own feature set, alone and then combined.

@@ -81,8 +81,7 @@ AVENUE = re.compile(r"^\d+\s+(\d+)\s+AVENUE")
 AMERICAS = re.compile(r"AVENUE OF (THE )?AMERICAS|AMERICAS AVENUE")
 # The map under the dots (`rentfrontier.external basemap`), clipped to the
 # buildings' extent plus BASEMAP_PAD_M; street widths in feet, as recorded.
-BASEMAP_SNAPSHOT = "/data1/apartments/external/basemap/20260929-da7e40d"
-BASEMAP_FILE = f"{BASEMAP_SNAPSHOT}/basemap.parquet"
+BASEMAP_FILE = features.BASEMAP_FILE
 BASEMAP_PAD_M = 120.0
 # Centerline roadway types drawn: street, highway, bridge, ramp; paths apart.
 ROADS, PATHS = {"1", "2", "3", "9"}, {"6"}

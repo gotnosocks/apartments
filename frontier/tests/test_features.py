@@ -219,3 +219,96 @@ def test_latest_alteration_takes_the_later_recorded_year(monkeypatch):
 
     assert altered(latest_alteration=True) == [1, 1, 1, 0, 0, 0]
     assert altered() == [0, 0, 1, 0, 0, 0]
+
+
+def test_frontage_street_parses_addresses():
+    assert features.frontage_street("100 West 15 Street, New York") == (
+        "W  15 ST",
+        "side street",
+        "crosstown",
+    )
+    assert features.frontage_street("200 WEST 23 STREET")[1] == "wide street"
+    assert features.frontage_street("300 8 Avenue") == ("8 AVE", "avenue", "avenue")
+    assert (
+        features.frontage_street("1 Avenue Of The Americas")[0] == "AVE OF THE AMERICAS"
+    )
+    assert features.frontage_street("4 Chelsea Square") == (None, None, None)
+    # Sixth Avenue's centerlines are Avenue of the Americas; spelled-out avenues parse.
+    assert features.frontage_street("545 6 Avenue")[0] == "AVE OF THE AMERICAS"
+    assert features.frontage_street("138 Seventh Avenue") == (
+        "7 AVE",
+        "avenue",
+        "avenue",
+    )
+    assert features.frontage_street("212 Rear West 16 Street") == (None, None, None)
+
+
+def test_unit_orientation_pools_evidence_over_the_unit(monkeypatch):
+    from rentfrontier import descriptions
+
+    frontage = pd.DataFrame(
+        {"street_type": ["side street", "side street"], "front": ["north", "north"]},
+        index=pd.Index(["walkup", "tower"], name="building"),
+    )
+    monkeypatch.setattr(features, "building_frontage", lambda: frontage)
+    rows = [
+        # (building, unit, label, windows, text)
+        ("tower", "u1", "5A", {"north"}, ""),
+        ("tower", "u1", "5A", set(), ""),  # same unit, no windows this time
+        ("tower", "u2", "6B", {"south"}, ""),
+        ("tower", "u3", "7C", {"north", "south"}, ""),
+        ("tower", "u4", "8D", {"east"}, ""),
+        ("walkup", "u5", "2F", set(), ""),
+        ("walkup", "u6", "2R", set(), ""),
+        ("tower", "u7", "9E", set(), "A quiet rear apartment."),
+        ("tower", "u8", "10F", set(), ""),  # F is a line letter here
+        ("nofront", "u9", "3A", {"east"}, ""),  # no frontage: a window says nothing
+        ("tower", "u10", "11G", set(), "A sunny floor-through."),
+    ]
+    frame = pd.DataFrame(
+        {
+            "building": [r[0] for r in rows],
+            "unit_id": [r[1] for r in rows],
+            "canonical_unit_url": [f"https://x/building/{r[0]}/{r[2]}" for r in rows],
+            **{
+                f"window_{d}": ["yes" if d in r[3] else "unknown" for r in rows]
+                for d in ("north", "south", "east", "west")
+            },
+            "view_street": ["unknown"] * len(rows),
+            "view_courtyard": ["unknown"] * len(rows),
+        }
+    )
+    monkeypatch.setattr(
+        descriptions, "attach", lambda f: pd.Series([r[4] for r in rows])
+    )
+    got = features.unit_orientation(frame).facing.tolist()
+    assert got == [
+        "front",
+        "front",
+        "rear",
+        "front and rear",
+        "side",
+        "front",
+        "rear",
+        "rear",
+        "unknown",
+        "unknown",
+        "front and rear",
+    ]
+
+
+def test_unitfacing_records_the_basemap(monkeypatch):
+    from rentfrontier import run
+
+    fn = features.FEATURE_SETS["unitfacing-v2"]
+    assert fn.func is features.facing_v2
+    assert fn.keywords == {"id": "unitfacing-v2", "base": "unitdescpluto-v3"}
+    on_facing = {
+        name
+        for name, f in features.FEATURE_SETS.items()
+        if getattr(f, "func", f) is features.facing_v2
+    }
+    assert on_facing == features.BASEMAP
+    monkeypatch.setattr(run.data, "sha256", lambda path: "sha")
+    sources = run.feature_sources("unitfacing-v2")
+    assert {"registry", "pluto", "descriptions", "basemap"} <= sources.keys()
