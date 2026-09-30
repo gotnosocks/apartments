@@ -343,3 +343,37 @@ def test_unitdescpluto_v4_reads_the_corrected_registry(monkeypatch):
         "registry": features.REGISTRY_FILE,
         "pluto": features.PLUTO_FILE,
     }
+
+
+def test_building_violations_count_the_trailing_year_only(tmp_path, monkeypatch):
+    registry = pd.DataFrame(
+        {"building": ["a", "b"], "bin": ["1000001", "1000000"], "bbl": ["1", "2"]}
+    )
+    hpd = pd.DataFrame(
+        {
+            "violationid": ["v1", "v2", "v3", "v4", "v5"],
+            "bin": ["1000001", "1000001", "1000001", "1000001", "1000000"],
+            "bbl": ["1", "1", "1", "1", "2"],
+            "class": ["B", "C", "A", "B", "C"],
+            "inspectiondate": [
+                "2020-03-01",  # in the year before 2020-06
+                "2019-07-15",  # in it too
+                "2020-04-01",  # class A: not counted
+                "2020-06-15",  # after the listing's month began: not counted
+                "2020-01-01",  # b by lot (placeholder BIN)
+            ],
+        }
+    )
+    registry.to_parquet(tmp_path / "r.parquet")
+    hpd.to_parquet(tmp_path / "h.parquet")
+    monkeypatch.setattr(features, "REGISTRY_FILE", str(tmp_path / "r.parquet"))
+    monkeypatch.setattr(features, "HPD_FILE", str(tmp_path / "h.parquet"))
+    frame = pd.DataFrame(
+        {
+            "building": ["a", "a", "b", "c"],
+            "period": pd.to_datetime(
+                ["2020-06-01", "2021-09-01", "2020-06-01", "2020-06-01"]
+            ),
+        }
+    )
+    assert features.building_violations(frame).tolist() == [2.0, 0.0, 1.0, 0.0]

@@ -124,11 +124,14 @@ Ben chose to start with street-facing units (research plan A′, "Unit orientati
 ## Registry follow-ups (September 30)
 
 - **507 West Chelsea, AVA High Line and Avalon West Chelsea.**
-  - The three pages share one registry lot (MapPLUTO: 509 West 28th Street, 13 floors), but
-    their listings reach the 33rd floor.
-  - The ads say "the three towers of 507 west chelsea" and give 282 and 269 Eleventh Avenue.
-  - Map each page to its own tower's BIN (Building Footprints give the towers' heights) before
-    changing their facts.
+  - 507 West Chelsea and AVA High Line share one registry lot (MapPLUTO: 509 West 28th Street,
+    13 floors), but their listings reach the 33rd floor. The ads say "the three towers of 507
+    west chelsea" and give 269 Eleventh Avenue.
+  - Avalon West Chelsea is on lot 1007007502 (550 West 29th, 12 floors, shared with the
+    `five-five-zero` page), and its listings reach the 30th floor. Its ads give 282 Eleventh
+    Avenue, which GeoSearch puts on lot 1007000009. That lot is not in the MapPLUTO snapshot.
+  - Map each page to its own tower's BIN (Building Footprints give the towers' heights) and
+    lot before changing their facts.
 - **Reverse-geocoded pages without an address in their ads.** 100 pages remain matched by
   reverse geocoding. The two checks found nothing wrong with them, but neither check can show
   that they are right.

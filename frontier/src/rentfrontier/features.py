@@ -277,6 +277,9 @@ SUBWAY_FILE = f"{SUBWAY_SNAPSHOT}/subway.parquet"
 # Street centerlines, parks and shoreline (`rentfrontier.external basemap`).
 BASEMAP_SNAPSHOT = "/data1/apartments/external/basemap/20260929-da7e40d"
 BASEMAP_FILE = f"{BASEMAP_SNAPSHOT}/basemap.parquet"
+# HPD housing-code violations of the registry's buildings (`rentfrontier.external hpd`).
+HPD_SNAPSHOT = "/data1/apartments/external/hpd/20260930-cb289ad"
+HPD_FILE = f"{HPD_SNAPSHOT}/hpd.parquet"
 ERAS = (
     (0, 1900, "pre-1900"),
     (1900, 1930, "1900-1929"),
@@ -723,6 +726,81 @@ def facing_v2(
     )
 
 
+# Building condition: hazardous (class B) and immediately hazardous (class C)
+# housing-code violations HPD found in the building in the years before the
+# listing's month, per apartment and year. The window trails the listing, so
+# no later information enters.
+
+
+def building_violations(frame: pd.DataFrame, days: int = 365) -> np.ndarray:
+    """Per row: class B and C violations found in its building (registry BIN,
+    or its lot for placeholder BINs) in the `days` before the row's month."""
+    registry = pd.read_parquet(REGISTRY_FILE).set_index("building")
+    hpd = pd.read_parquet(HPD_FILE)
+    hpd = hpd[hpd["class"].isin(["B", "C"])]
+    found = pd.to_datetime(hpd.inspectiondate, errors="coerce")
+    hpd = hpd.assign(found=found)[found.notna()]
+    by_bin = {
+        k: np.sort(g.found.to_numpy()) for k, g in hpd.groupby(hpd.bin.astype(str))
+    }
+    by_lot = {
+        k: np.sort(g.found.to_numpy()) for k, g in hpd.groupby(hpd.bbl.astype(str))
+    }
+    period = frame.period.to_numpy().astype("datetime64[ns]")
+    start = period - np.timedelta64(days, "D")
+    out = np.zeros(len(frame))
+    for building, idx in frame.groupby("building").indices.items():
+        if building not in registry.index:
+            continue
+        r = registry.loc[building]
+        key_bin = str(r.bin)
+        if not re.fullmatch(r"[1-5]000000", key_bin) and key_bin in by_bin:
+            times = by_bin[key_bin]
+        else:
+            times = by_lot.get(str(r.bbl), np.array([], dtype="datetime64[ns]"))
+        out[idx] = np.searchsorted(times, period[idx]) - np.searchsorted(
+            times, start[idx]
+        )
+    return out
+
+
+def hpd_v1(
+    frame: pd.DataFrame,
+    train: np.ndarray,
+    id: str = "hpd-v1",
+    base: str = "base-v1",
+    years: int = 1,
+    many: float = 0.25,
+) -> Features:
+    """A base set plus the building's condition as of the listing: hazardous
+    housing-code violations HPD found in the `years` before, per apartment and
+    year (none, a few, or `many` or more). Apartments are MapPLUTO's
+    residential units, or the units listed in the building where the lot
+    records none (condominium lots)."""
+    base = FEATURE_SETS[base](frame, train)
+    lot = building_lots(frame)
+    units = pd.to_numeric(lot.unitsres, errors="coerce").to_numpy()
+    listed = frame.groupby("building").unit_id.transform("nunique").to_numpy()
+    units = np.where(units > 0, units, listed).clip(min=1)
+    rate = building_violations(frame, days=365 * years) / units / years
+    past = "the past year" if years == 1 else f"the past {years} years"
+    b = _Builder(frame)
+    b.add(
+        "building condition",
+        f"a few housing-code violations in {past}",
+        (rate > 0) & (rate < many),
+    )
+    b.add("building condition", f"many housing-code violations in {past}", rate >= many)
+    extra = b.build(id)
+    return Features(
+        id,
+        base.names + extra.names,
+        base.groups + extra.groups,
+        np.column_stack([base.values, extra.values]),
+        np.concatenate([base.prior_scale, extra.prior_scale]),
+    )
+
+
 # Feature sets that read the external snapshots (run records list them).
 EXTERNAL = {
     "pluto-v1",
@@ -735,11 +813,15 @@ EXTERNAL = {
     "unitdescpluto-v3",
     "unitfacing-v2",
     "unitdescpluto-v4",
+    "unitdescplutohpd-v1",
+    "unitdescplutohpd-v2",
 }
 # Feature sets that read the subway stations snapshot.
 SUBWAY = {"unitdescplutotransit-v2"}
 # Feature sets that read the basemap snapshot (street centerlines).
 BASEMAP = {"unitfacing-v2"}
+# Feature sets that read the HPD violations snapshot.
+HPD = {"unitdescplutohpd-v1", "unitdescplutohpd-v2"}
 # Feature sets that read the advertisement descriptions (`descriptions.SOURCE`),
 # directly or through their base set.
 DESCRIPTIONS = {
@@ -752,6 +834,8 @@ DESCRIPTIONS = {
     "unitdescpluto-v3",
     "unitfacing-v2",
     "unitdescpluto-v4",
+    "unitdescplutohpd-v1",
+    "unitdescplutohpd-v2",
 }
 
 FEATURE_SETS = {
@@ -800,6 +884,15 @@ FEATURE_SETS = {
         base="unitdesc-v1",
         flood_zone=False,
         latest_alteration=True,
+    ),
+    # Building condition (HPD violations, as of each listing) on the app's facts.
+    "unitdescplutohpd-v1": partial(
+        hpd_v1, id="unitdescplutohpd-v1", base="unitdescpluto-v3"
+    ),
+    # The same over the past five years: chronic condition (0.05 or more a year
+    # per apartment is "many", about the top 15% of listings).
+    "unitdescplutohpd-v2": partial(
+        hpd_v1, id="unitdescplutohpd-v2", base="unitdescpluto-v3", years=5, many=0.05
     ),
     # Transit access (as of each listing's month) on the building facts.
     "unitdescplutotransit-v2": partial(

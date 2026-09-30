@@ -703,9 +703,15 @@ the fix goes into the model, the features or the data, not the sampler.
       run records hash the files the set read. Older runs keep the first snapshots.
     - Beyond the constant shift that centring gives the building-size columns, only the 885
       listings of the 11 pages change.
-  - **Left as they are.** 507 West Chelsea, AVA High Line and Avalon West Chelsea look like one
-    complex of towers under three page names that share one lot. It is not clear which tower's
-    facts apply, so they go to the backlog.
+  - **Left as they are.**
+    - 507 West Chelsea and AVA High Line share one lot (509 West 28th Street, 13 floors), and
+      their listings reach the 33rd floor. They look like towers of one complex under two
+      names, so it is not clear which tower's facts apply.
+    - Avalon West Chelsea sits on another building's lot (550 West 29th, 12 floors, shared with
+      the `five-five-zero` page), and its listings reach the 30th floor. Its ads give 282
+      Eleventh Avenue, a lot missing from the MapPLUTO snapshot.
+
+    All three go to the backlog.
   - **Result: a tie in accuracy; the named facts carry more.** The run is Gibbs m5-nocurves +
     `unitdescpluto-v4`, `unit-labels-v1` + `quarantine-v1`, 3e514d6. It took 1,363 s and passes
     (R-hat 1.0046, ESS 672).
@@ -914,6 +920,37 @@ comes from other sources, most of them public NYC and NYS data.
   - The first version (`-v1`, f980477) used today's stations for every year. It scored the same
     (+1.1 ± 6.7, noise) and was replaced to keep the no-future-information rule. Its run is archived
     under `runs-archive/future-information-2026-09-29/`, off the board.
+- **Building condition: HPD housing-code violations** (`unitdescplutohpd-v1`, 0544905;
+  `unitdescplutohpd-v2`, 0fc2df7; 2026-09-30; HPD snapshot 20260930-cb289ad; both with
+  `quarantine-v1`, against fef2aa5).
+  - **Data.** 30,302 violations; 914 of the 1,129 registry buildings have at least one. The feature counts class B (hazardous)
+    and class C (immediately hazardous) violations found in the building before the listing's
+    month, per apartment and year. Apartments are MapPLUTO's residential units, or the units
+    listed where a condominium lot records none. The window trails the listing, so no future
+    information enters.
+  - **v1, the past year.** Levels are none, a few, or many (a quarter or more per apartment).
+    - About 15% of listings fall in "a few" and 5% in "many".
+    - 1,359 s, passes. PSIS-LOO **+0.4 ± 6.6**, held-out +0.3 ± 0.2.
+    - Effects: a few +0.1% (−0.3 to +0.4), many −0.1% (−0.6 to +0.4).
+  - **v2, the past five years** (chronic condition). "Many" is 0.05 or more a year per
+    apartment, about the top 15% of listings.
+    - 1,358 s, passes. PSIS-LOO **−1.0 ± 6.7**, held-out −0.4 ± 0.5.
+    - Effects: a few −0.1% (−0.6 to +0.4), many +0.3% (−0.4 to +0.9).
+  - **Why it adds nothing.** Across buildings, violations do go with lower rents. About half the
+    buildings have no class B or C violations since 2010, and their median premium is +2.4%.
+    Buildings with any have a median of −1.3%, and the quarter with the most per apartment,
+    about −2.5%. But the building facts and each building's own level already carry that. The
+    building level's share of the variance stays at 7.7%, and a year with violations does not
+    move a building's asks against its own path.
+  - **Known limitations of these versions** (PR #67 review; a new version would fix them, but
+    the result gives no reason to make one):
+    - A building with its own BIN but no class B or C violations falls back to its lot's, taking
+      the violations of other buildings on the lot (20 buildings, 535 rows; London Terrace's lot,
+      for example).
+    - On lots with several buildings, a building's violations are divided by the whole lot's
+      apartments.
+  - Recording condition in the site's building facts, as information rather than a model term,
+    is a possible follow-up.
 
 *Unit orientation* (street vs courtyard, and the street's size).
 - StreetEasy's view and exposure fields are sparse (base-v1 has `view_street`, `view_courtyard`

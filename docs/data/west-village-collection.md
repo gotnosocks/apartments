@@ -245,29 +245,60 @@ listings from before 2014. Inventory list dates put the boundary between IDs
 resumes. About 3,600 of the skipped advertisements would have carried a unit link.
 Exclusions are not re-queued if the cutoff is later lowered.
 
-## Handoff status (September 26, 12:30 EDT)
+### September 27 round progress
 
-**The crawl is running as `apartments-west-village-low-rate-20260919-v8`** at four
-submissions per minute. On September 26 at 12:30 EDT v7 was stopped cleanly and v8
-was launched with `resume-v8-4pm.py` on the fixed `runtime-v8/src`. That runtime is
-`runtime-v7` with `collection_policy.py` and `cli.py` replaced by the merged PR #30
-versions. The resume passes `--rental-min-listing-id 1210000`, so rental
-advertisements listed before 2014 are excluded before any request
-(`before_min_listing_id`), at the user's request. That removed 8,539 of 31,474
-queued advertisements, about 36 hours of requests. Advertisements are still claimed
-round-robin by unit, newest first (PR #20, since v7). Rate, concurrency and the
-eligibility rules are unchanged. The service is a transient `systemd-run` unit, so
-a reboot removes it and it must be relaunched by hand after checking for account
-errors.
+Round 1 of the advertisement queue finished around 14:00 EDT on September 27. The
+cutoff then excluded its 820 pre-2014 advertisements without any request, as
+intended; about 7,700 remain in later rounds. Round 2 opened with a spike in
+`captured_listing_not_eligible` (39 of 479 captures from 12:37 to 14:37, against
+1-3% in the preceding windows). Like the start of the advertisement phase, each
+round begins with the newest advertisements, which cluster in the few large
+buildings with inconsistent unit spellings, so the rate should settle again. It
+did: 2 of 481 in the next two hours.
 
-Progress as of September 26, 12:30 EDT: unit probes are finished (17,229;
-14,798 units with canonical membership). The advertisement phase began at 02:28:
-about 3,200 advertisement requests so far, with 14,265 more satisfied free from
-unit-page captures, and no account, credit or block errors.
+Coverage gap: `scope.expand` scopes a unit's historical advertisements from
+`priceHistories[].listingUrl`, while membership comes from the parser's
+`propertyHistory` listing IDs. Advertisements in the second but not the first get
+membership without a scope entry, so the scoped crawl never claims them. Of 48,913
+memberships, 186 are queued without scope and 51 were never queued (about 0.5%,
+mostly in `the-west-coast` and `10-downing-street-new_york`). `scope.py` is hashed,
+so a fix would scope member advertisements from `collection_policy`. It would add
+about 237 requests, so it is left to the user.
+
+## Handoff status (September 30, 12:45 EDT)
+
+**The crawl is complete. Do not relaunch it.**
+`apartments-west-village-low-rate-20260919-v8` exited on its own at 11:30 EDT on
+September 30 with `finish_reason: finished` (systemd `Result=success`, exit 0). The
+eligible queue was empty. The 6,574 rows still marked pending are all outside the
+scoped West Village crawl, so it never claims them: 2,357 unit routes, 1,966 sale
+listings, 1,574 searches, 349 directory pages, 263 rental advertisements, 64
+buildings and 1 sitemap. Of those 263 advertisements, 60 are post-2014 with
+canonical membership: the remaining scope gap described above. There were no
+account, credit or block errors at any point.
+
+Final archive totals: 46,490 observations from September 19 21:19 to September 30
+11:30. Since the v6 launch (observation 4179) there were 40,649 HTTP 200, 1,659 HTTP
+404 and 3 transient provider failures, including 25,061 advertisement page
+requests. There are 14,803 units with canonical membership and 48,918 memberships.
+Rental advertisement queue rows ended as follows: 25,882 done, 14,374 superseded
+(same advertisement already captured on its unit page, no request), and 11,769
+excluded. Exclusion reasons over the whole crawl: 17,884
+`missing_canonical_unit_association`, 8,458 `before_min_listing_id` (pre-2014, no
+request), 2,080 `captured_listing_not_eligible`, 764 `sale_route` and 4
+`conflicting_canonical_unit_association`.
+
+Next steps (see "After collection"): freeze a new read-only snapshot, run
+`models/transform_local.py` with a new run ID, and run the collection audit. These
+wait for the user's go-ahead. Open decisions for the user: whether spelling-only
+unit URL differences (`5v`/`005v`, `4b`/`4-b`) should count as the same unit, which
+would allow offline re-evaluation of the `captured_listing_not_eligible`
+captures, and whether to fetch the scope-gap advertisements (now 60 queued and
+about 51 never queued).
 
 ### Restart
 
-Use this if the service is stopped (check the journal for HTTP 401/402/403 first).
+Only for a new collection run: the September 30 crawl finished its queue. Check the journal for HTTP 401/402/403 first.
 The runtime is fixed. Resume replays offline setup before any request; it spends
 no credits. Setup re-reads every archived unit and listing capture, so its length
 grows with the archive: 2.5 to 6.5 minutes under v6 (September 22-23), about 26

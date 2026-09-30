@@ -20,6 +20,11 @@ Sources:
   speed and roadway type (NYC Open Data inkn-q76z), parks (enfh-gkve) and
   Manhattan's shoreline (borough boundary, gthc-hcne). One row per feature,
   geometry as GeoJSON.
+- hpd: HPD Housing Maintenance Code Violations (NYC Open Data wvxf-dwi5) of
+  the registry's buildings, by BIN, and by tax lot (BBL) for placeholder BINs
+  (n000000): class (A non-hazardous, B hazardous, C immediately hazardous, I
+  information), when the inspection found it and when the notice was issued,
+  and its current status.
 """
 
 from __future__ import annotations
@@ -27,6 +32,7 @@ from __future__ import annotations
 import argparse
 import datetime as dt
 import hashlib
+import itertools
 import json
 import math
 import urllib.parse
@@ -213,11 +219,63 @@ def fetch_basemap(box) -> tuple[pd.DataFrame, list[str], dict]:
     return pd.DataFrame(rows), queries, versions
 
 
+HPD_ID = "wvxf-dwi5"
+HPD_COLUMNS = (
+    "violationid",
+    "bin",
+    "bbl",
+    "class",
+    "inspectiondate",
+    "novissueddate",
+    "currentstatus",
+    "currentstatusdate",
+    "violationstatus",
+    "rentimpairing",
+)
+
+
+def fetch_hpd(registry: pd.DataFrame, batch: int = 100, page: int = 50_000):
+    bins = registry.bin.dropna().astype(str)
+    placeholder = bins.str.fullmatch(r"[1-5]000000")
+    rows, queries = [], []
+    for field, values in (
+        ("bin", sorted(set(bins[~placeholder]))),
+        ("bbl", sorted(set(registry.bbl[placeholder.to_numpy()].dropna().astype(str)))),
+    ):
+        for i in range(0, len(values), batch):
+            where = f"{field} in ({', '.join(repr(v) for v in values[i : i + batch])})"
+            for offset in itertools.count(0, page):
+                params = {
+                    "$select": ", ".join(HPD_COLUMNS),
+                    "$where": where,
+                    "$order": "violationid",
+                    "$limit": page,
+                    "$offset": offset,
+                }
+                got = _socrata(HPD_ID, params)
+                rows += [{k: r.get(k) for k in HPD_COLUMNS} for r in got]
+                queries.append(f"{HPD_ID}?{urllib.parse.urlencode(params)}")
+                if len(got) < page:
+                    break
+    table = pd.DataFrame(rows, columns=list(HPD_COLUMNS)).drop_duplicates("violationid")
+    with urllib.request.urlopen(
+        f"{NYC_OPEN_DATA}/api/views/{HPD_ID}.json", timeout=60
+    ) as r:
+        meta = json.loads(r.read())
+    version = {
+        "name": meta.get("name"),
+        "rows_updated_at": dt.datetime.fromtimestamp(
+            meta["rowsUpdatedAt"], dt.UTC
+        ).isoformat(),
+    }
+    return table.reset_index(drop=True), queries, version
+
+
 def main(argv=None):
     parser = argparse.ArgumentParser(
         description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
     )
-    parser.add_argument("source", choices=("pluto", "subway", "basemap"))
+    parser.add_argument("source", choices=("pluto", "subway", "basemap", "hpd"))
     parser.add_argument(
         "--registry",
         type=Path,
@@ -246,6 +304,18 @@ def main(argv=None):
             "registry_lots_missing": missing,
         }
         summary = f"{len(table)} lots, {len(missing)} registry lots missing"
+    elif args.source == "hpd":
+        registry = pd.read_parquet(registry_path)
+        table, queries, version = fetch_hpd(registry)
+        details = {
+            "source": f"{SOCRATA}/{HPD_ID}",
+            "dataset": "HPD Housing Maintenance Code Violations via NYC Open Data",
+            "version": version,
+            "registry": str(registry_path),
+            "violations": len(table),
+            "buildings": int(table.bin.nunique()),
+        }
+        summary = f"{len(table)} violations in {table.bin.nunique()} buildings"
     elif args.source == "basemap":
         box = basemap_box(pd.read_parquet(registry_path))
         table, queries, versions = fetch_basemap(box)

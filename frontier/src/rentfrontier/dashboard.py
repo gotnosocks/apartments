@@ -363,6 +363,17 @@ QUARANTINE_ACTIONS = {
 }
 
 
+# What each data rule does, in plain words (the rule's docstring otherwise).
+DATA_RULE_TEXT = {
+    "unit-labels-v1": "One apartment, one id: unit labels StreetEasy writes differently "
+    '("4-B" and "4B", "02" and "2") count as the same apartment. No listing is dropped.',
+    "quarantine-v1": "Listings a review found are not an open-market lease of a whole "
+    "Chelsea apartment at their address: offices and shops, ads that place the "
+    "apartment elsewhere, SRO rooms, income-restricted and short-stay offers, and a "
+    "few whose own ad contradicts the ask or the bedroom count.",
+}
+
+
 def data_quality() -> dict:
     """The data rules, what the row-dropping ones leave out (by action, from
     their files), and which rules the app's selected model uses."""
@@ -370,10 +381,14 @@ def data_quality() -> dict:
         selection = json.loads((REPO / "config" / "main-analysis.json").read_text())
     except (OSError, ValueError):
         selection = {}
-    app_rules = selection.get("data_rules", []) if isinstance(selection, dict) else []
+    if not isinstance(selection, dict):
+        selection = {}
+    app_rules = selection.get("data_rules") or []
+    if not isinstance(app_rules, list):
+        app_rules = []
     rules = []
     for rule, fn in data_module.DATA_RULES.items():
-        doc = " ".join((fn.__doc__ or "").split())
+        doc = DATA_RULE_TEXT.get(rule) or " ".join((fn.__doc__ or "").split())
         entry = {"rule": rule, "text": doc, "in_app_model": rule in app_rules}
         if rule in data_module.RULE_SOURCES:
             path = Path(data_module.RULE_SOURCES[rule])
@@ -395,15 +410,17 @@ def data_quality() -> dict:
             )
         rules.append(entry)
     summary = {}
-    if isinstance(selection, dict) and selection.get("summary"):
+    if isinstance(selection.get("summary"), str):
         try:
             summary = json.loads(
                 (Path(selection["summary"]) / "complete.json").read_text()
             )
         except (OSError, ValueError):
             summary = {}
+    if not isinstance(summary, dict):
+        summary = {}
     return {
-        "app_run": selection.get("run") if isinstance(selection, dict) else None,
+        "app_run": selection.get("run"),
         "app_rules": app_rules,
         "app_rows": summary.get("rows"),
         "app_rows_in_fit": summary.get("rows_in_fit"),
