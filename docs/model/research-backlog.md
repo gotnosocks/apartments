@@ -92,6 +92,33 @@ capture this, pooling information across floors where today each unit stands alo
 - Columns with a single unit add nothing and should fold into the unit effect.
 - Compare PSIS-LOO on the same rows: the gain should show up mainly on units listed once.
 
+## Rent map and building-level follow-ups (Ben, September 29)
+
+**What prompted these.** Ben, watching the rent map (research dashboard, `map.html`): the areas of
+high and low rents inside Chelsea seem "stable" and "driven more by certain buildings than by
+streets or blocks". The map data (1-bedroom, the served model) agree:
+- **Stable.** Buildings' premiums over Chelsea's median building keep their rank: correlation 0.97
+  from 2012 to 2016 and 0.90 from 2012 to 2024. The spread of the 2012–2024 change is 0.12 in log
+  rent, against a spread of 0.22 across buildings.
+- **Buildings, not blocks.** Premiums of building pairs correlate +0.25 within 50 m, +0.16 at
+  50–100 m, +0.06 at 100–200 m and about 0 beyond. This matches the location-surface result (no
+  gain; research plan A.2).
+
+Ben chose to start with street-facing units (research plan A′, "Unit orientation"). These wait:
+1. **Map: colour by change since a chosen year.** This makes the few buildings that moved stand out
+   against the stable background. Three layout nits from the PR #56 review:
+   - the "Hudson River" label stays at the frame's left edge after panning east;
+   - street labels at the right edge sit under dots on small maps;
+   - below 1,100 px the legend falls below the map.
+2. **Building condition and management data.** The anonymous building level is still 8% of the
+   variance. Condition is the likeliest source of it, more than geography:
+   - HPD violations and complaints per unit, as of the listing date;
+   - DOB alteration permits, as a renovation proxy;
+   - Local Law 84 energy scores.
+
+   The research plan's A′ table lists these sources. Each needs as-of values (no future
+   information) and a renter-facing glossary row.
+
 ## Pipeline review, September 20
 
 Items from an end-to-end review of collection → transform → fit → analyze,
