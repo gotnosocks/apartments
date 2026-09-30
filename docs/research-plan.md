@@ -859,27 +859,29 @@ comes from other sources, most of them public NYC and NYS data.
   - A first version (`-v1`, 18df498) missed Sixth Avenue: its centerlines are named Avenue of the
     Americas, and spelled-out avenues did not parse. It also counted side windows where the
     frontage was unknown. It scored +8.9 ± 7.9 with the same pattern (PR #58 review).
-  - **Frontage is ambiguous for 43% of listings** (Ben, 2026-09-29, pointing to 130 West 15th, whose
+  - **Frontage is ambiguous for 39% of listings** (Ben, 2026-09-29, pointing to 130 West 15th, whose
     front desk is on 15th but which stands on 14th, and a Stonehenge building). The frontage above
-    is the address street. By MapPLUTO, 211 buildings holding 22,554 listings have more than one
-    street front or a different one:
+    is the address street. By MapPLUTO, 178 buildings holding 20,451 listings have, or may have,
+    more than one street front, or a different one:
     - corner lots: 120 buildings, 12,172 listings;
-    - through lots: 22 buildings, 2,373 listings (The Tate, Chelsea Tower, London Terrace,
-      Walker Tower, Stonehenge Gardens);
-    - other lots over 150 ft deep: 45 buildings, 10,593 listings (The Sierra at 125 West 14th runs
-      206 ft, through to 15th);
-    - MapPLUTO's lot address on another street than the registry's: 101 buildings, 12,367
-      listings.
+    - through lots: 22 buildings, 2,373 listings (The Tate, Chelsea Tower, the London Terrace
+      complex on one lot, Walker Tower, Stonehenge Gardens);
+    - other lots 150 ft or deeper, neither corner nor through: 22 buildings, 4,456 listings (The
+      Sierra at 125 West 14th runs 206 ft, through to 15th; some avenue lots are deep without
+      reaching another street);
+    - MapPLUTO's lot address on a different street from the registry's (both addresses read): 61
+      buildings, 10,164 listings.
 
-    In these buildings a "rear" unit may face a second street, which dilutes the contrasts. The fix
-    is each side's street from building footprints (below). The 25 buildings whose listed windows
-    mostly face their assigned back are nearly all on the south side of their street: their back
-    faces south, so this is ads featuring south light rather than wrong frontages.
+    In these buildings a "rear" or "side" unit may face a second street, which dilutes the
+    contrasts. The fix is each side's street from building footprints (below). The 25 buildings
+    whose listed windows mostly face their assigned back are nearly all on the south side of their
+    street (22 of 25): their back faces south, which looks like ads featuring south light rather
+    than wrong frontages.
   - Why so small:
     - the evidence covers 29% of rows;
     - a unit's own level already carries its orientation when it has other listings;
     - noise may matter mostly on low floors (an interaction with floor is the natural next test);
-    - frontage is ambiguous for 43% of listings (above).
+    - frontage is ambiguous for 39% of listings (above).
   - **Next: every side's street, from building footprints.** NYC Building Footprints (joined by BIN)
     give each building's outline. Each side of the outline gets the street it faces (the nearest
     centerline beyond it) or none (a lot line or the rear). A unit's window directions then say
