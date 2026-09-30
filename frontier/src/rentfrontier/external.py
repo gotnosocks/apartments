@@ -20,6 +20,9 @@ Sources:
   speed and roadway type (NYC Open Data inkn-q76z), parks (enfh-gkve) and
   Manhattan's shoreline (borough boundary, gthc-hcne). One row per feature,
   geometry as GeoJSON.
+- footprints: NYC Building Footprints (5zhs-2jue) of the registry's buildings,
+  by BIN, and by tax lot (base BBL) for placeholder BINs (n000000): outline,
+  roof height and construction year.
 """
 
 from __future__ import annotations
@@ -212,11 +215,55 @@ def fetch_basemap(box) -> tuple[pd.DataFrame, list[str], dict]:
     return pd.DataFrame(rows), queries, versions
 
 
+FOOTPRINTS_ID = "5zhs-2jue"
+FOOTPRINT_COLUMNS = ("bin", "base_bbl", "height_roof", "construction_year", "the_geom")
+
+
+def fetch_footprints(registry: pd.DataFrame, batch: int = 100):
+    bins = registry.bin.dropna().astype(str)
+    placeholder = bins.str.fullmatch(r"[1-5]000000")
+    rows, queries = [], []
+    for field, values in (
+        ("bin", sorted(set(bins[~placeholder]))),
+        (
+            "base_bbl",
+            sorted(set(registry.bbl[placeholder.to_numpy()].dropna().astype(str))),
+        ),
+    ):
+        for i in range(0, len(values), batch):
+            where = f"{field} in ({', '.join(repr(v) for v in values[i : i + batch])})"
+            params = {
+                "$select": ", ".join(FOOTPRINT_COLUMNS),
+                "$where": where,
+                "$limit": 5000,
+            }
+            for r in _socrata(FOOTPRINTS_ID, params):
+                rows.append(
+                    {
+                        **{k: r.get(k) for k in FOOTPRINT_COLUMNS[:-1]},
+                        "geometry": json.dumps(r.get("the_geom")),
+                    }
+                )
+            queries.append(f"{FOOTPRINTS_ID}?{urllib.parse.urlencode(params)}")
+    table = pd.DataFrame(rows).drop_duplicates(subset=["bin", "base_bbl", "geometry"])
+    with urllib.request.urlopen(
+        f"{NYC_OPEN_DATA}/api/views/{FOOTPRINTS_ID}.json", timeout=60
+    ) as r:
+        meta = json.loads(r.read())
+    version = {
+        "name": meta.get("name"),
+        "rows_updated_at": dt.datetime.fromtimestamp(
+            meta["rowsUpdatedAt"], dt.UTC
+        ).isoformat(),
+    }
+    return table.reset_index(drop=True), queries, version
+
+
 def main(argv=None):
     parser = argparse.ArgumentParser(
         description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
     )
-    parser.add_argument("source", choices=("pluto", "subway", "basemap"))
+    parser.add_argument("source", choices=("pluto", "subway", "basemap", "footprints"))
     args = parser.parse_args(argv)
     dirty = git("status", "--porcelain")
     if dirty:
@@ -238,6 +285,20 @@ def main(argv=None):
             "registry_lots_missing": missing,
         }
         summary = f"{len(table)} lots, {len(missing)} registry lots missing"
+    elif args.source == "footprints":
+        registry = pd.read_parquet(REGISTRY)
+        table, queries, version = fetch_footprints(registry)
+        found = set(table.bin.astype(str))
+        missing = sorted(set(registry.bin.astype(str)) - found)
+        details = {
+            "source": f"{SOCRATA}/{FOOTPRINTS_ID}",
+            "dataset": "NYC Building Footprints via NYC Open Data",
+            "version": version,
+            "registry": str(REGISTRY),
+            "footprints": len(table),
+            "registry_bins_missing": missing,
+        }
+        summary = f"{len(table)} footprints, {len(missing)} registry BINs without one"
     elif args.source == "basemap":
         box = basemap_box(pd.read_parquet(REGISTRY))
         table, queries, versions = fetch_basemap(box)
