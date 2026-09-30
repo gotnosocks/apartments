@@ -1033,6 +1033,23 @@ MODELS = {
         bedroom_slope=True,
         trend_knot_months=3,
     ),
+    # m5-nocurves with a yearly or two-yearly building walk: fewer knots, so a
+    # building's path over time rests on more listings per knot (half-year knots
+    # leave 2-4% of rows alone at their knot, the high Pareto-k rows).
+    "m5-nocurves-walk12": ModelConfig(
+        name="m5-nocurves-walk12",
+        building_walk=True,
+        bedroom_slope=True,
+        trend_knot_months=3,
+        walk_knot_months=12,
+    ),
+    "m5-nocurves-walk24": ModelConfig(
+        name="m5-nocurves-walk24",
+        building_walk=True,
+        bedroom_slope=True,
+        trend_knot_months=3,
+        walk_knot_months=24,
+    ),
     # Per-building slopes on size and bathrooms, on top of m5.
     "m6-slopes": ModelConfig(
         name="m6-slopes",
