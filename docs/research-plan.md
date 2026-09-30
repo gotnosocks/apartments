@@ -659,8 +659,8 @@ the fix goes into the model, the features or the data, not the sampler.
     - Two the-amanda-i ads name "22nd and 8th" (a block from the registry address) and, in
       template text, Williamsburg.
   - **How it applies.** The rule runs after the split. It drops the rows from the fit and the
-    held-out set, so every other row keeps its split. Every reader of a recorded run refuses a
-    rule file that differs from the run's hash. The board's paired scores (PSIS-LOO and held-out)
+    held-out set, so every other row keeps its split. Every reader that re-applies a run's rules
+    refuses a rule file that differs from the run's hash. The board's paired scores (PSIS-LOO and held-out)
     leave out the quarantined rows for every entry, so all entries share one population.
   - **Cost of these rows in the served fit.** Its 139 quarantined training rows average −0.99
     PSIS-LOO per row, against +1.11 for all rows.

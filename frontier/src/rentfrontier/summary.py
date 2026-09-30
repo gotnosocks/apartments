@@ -307,6 +307,14 @@ def check_run(result):
     data.recorded_rules(result)
 
 
+def check_heldout_units(prep):
+    """Refuse held-out rows of units with no rows in the fit: a data rule that
+    drops rows can remove every training row of a held-out row's unit, and the
+    estimates here assume each held-out unit is in the fit."""
+    if (np.asarray(prep.test.unit) < 0).any():
+        raise SystemExit("held-out rows of units with no rows in the fit")
+
+
 def verify_run(result, frame, heldout, prep, run_dir, post_units, post_buildings):
     if frame.attrs["source_sha256"] != result["dataset_observations_sha256"]:
         raise SystemExit("dataset differs from the run's recorded dataset")
@@ -350,9 +358,7 @@ def summarize(name: str, allow_failing: bool = False):
     frame, heldout = data.apply_rules(frame, heldout, data.recorded_rules(result))
     feats = features.build(result["feature_set"], frame, ~heldout)
     prep = model.prepare(frame, heldout, feats)
-    if (np.asarray(prep.test.unit) < 0).any():
-        # A data rule dropped every training row of some held-out row's unit.
-        raise SystemExit("held-out rows of units with no rows in the fit")
+    check_heldout_units(prep)
     post = np.load(run_dir / "posterior.npz", allow_pickle=True)
     verify_run(result, frame, heldout, prep, run_dir, post["units"], post["buildings"])
     draws = kept["alpha"].shape[0]
