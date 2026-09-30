@@ -279,5 +279,18 @@ def test_data_quality_counts_each_rules_rows_by_action(monkeypatch, tmp_path):
         ("Not a whole apartment on the open market", 2),
         ("Not a home", 1),
     ]
-    assert by_rule["unit-labels-v1"]["text"].startswith("One unit id")
+    assert by_rule["unit-labels-v1"]["text"].startswith("One apartment, one id")
     assert "rows" not in by_rule["unit-labels-v1"]  # merges units, drops no rows
+
+
+def test_data_quality_survives_a_malformed_selection(monkeypatch, tmp_path):
+    config = tmp_path / "repo" / "config"
+    config.mkdir(parents=True)
+    (config / "main-analysis.json").write_text(json.dumps([1, 2]))
+    monkeypatch.setattr(dashboard, "REPO", tmp_path / "repo")
+    out = dashboard.data_quality()
+    assert out["app_run"] is None and out["app_rules"] == [] and out["app_rows"] is None
+    (config / "main-analysis.json").write_text(
+        json.dumps({"data_rules": None, "summary": 3})
+    )
+    assert dashboard.data_quality()["app_rules"] == []

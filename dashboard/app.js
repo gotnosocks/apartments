@@ -1117,12 +1117,14 @@ function drawDataQuality() {
   const cap = $('data-caption');
   cap.replaceChildren();
   cap.appendChild(document.createTextNode(
-    'Data rules run after the held-out split, so every other row keeps its split. Rows a rule drops are left out of the fit ' +
-    'and out of every paired score on this page, for every entry (one population). '));
+    'Data rules run after the held-out split, so every other row keeps its split. A run that uses a rule is fit without the ' +
+    'rows it drops; every paired score on this page leaves those rows out, for every entry (one population). ' +
+    'This card shows the current rules, whatever the As-of slider says. '));
   if (dq.app_run) {
-    cap.appendChild(document.createTextNode(
-      `The app's model (${dq.app_run}) uses ${dq.app_rules.join(' and ')}` +
-      (dq.app_rows ? `: ${dq.app_rows.toLocaleString('en-US')} listings, ${dq.app_rows_in_fit.toLocaleString('en-US')} of them in the fit.` : '.')));
+    const rules = (dq.app_rules || []).length ? `uses ${dq.app_rules.join(' and ')}` : 'uses no data rules';
+    const rows = Number.isFinite(dq.app_rows) && Number.isFinite(dq.app_rows_in_fit)
+      ? `: ${dq.app_rows.toLocaleString('en-US')} listings, ${dq.app_rows_in_fit.toLocaleString('en-US')} of them in the fit.` : '.';
+    cap.appendChild(document.createTextNode(`The app's model (${dq.app_run}) ${rules}${rows}`));
   }
   for (const r of dq.rules) {
     const block = html('div', { class: 'rule' }, box);
@@ -1131,20 +1133,21 @@ function drawDataQuality() {
     if (!r.actions) continue;
     const max = Math.max(...r.actions.map((a) => a.rows));
     const table = html('table', { class: 'bars' }, block);
+    html('caption', { class: 'visually-hidden' }, table, `${r.rule}: listings left out, by reason`);
     const head = html('tr', {}, html('thead', {}, table));
     html('th', { scope: 'col' }, head, 'Why a listing is left out');
     html('th', { scope: 'col', class: 'num' }, head, 'Listings');
-    html('th', { scope: 'col' }, head, '');
+    html('th', { scope: 'col', 'aria-hidden': 'true' }, head, '');
     const body = html('tbody', {}, table);
     for (const a of r.actions) {
       const tr = html('tr', {}, body);
       html('th', { scope: 'row' }, tr, a.label);
       html('td', { class: 'num' }, tr, a.rows.toLocaleString('en-US'));
-      const td = html('td', { class: 'bar' }, tr);
+      const td = html('td', { class: 'bar', 'aria-hidden': 'true' }, tr);
       html('span', { style: `width:${(100 * a.rows / max).toFixed(1)}%` }, td);
     }
     const note = html('p', { class: 'caption' }, block,
-      `${r.rows.toLocaleString('en-US')} listings in ${r.buildings.toLocaleString('en-US')} buildings, each with its reason and the ad's own words in ${r.file}. `);
+      `${r.rows.toLocaleString('en-US')} listings in ${r.buildings.toLocaleString('en-US')} buildings, each with its reason and evidence (the ad's own words, or MapPLUTO) in ${r.file}. `);
     const site = `${location.protocol}//${location.hostname}:8600/quarantined`;
     html('a', { href: site }, note, 'The listings site lists them with their reasons.');
   }

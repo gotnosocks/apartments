@@ -257,3 +257,4 @@ table.bars { width: auto; min-width: 60%; margin: 6px 0; }
 table.bars th[scope="row"] { font-weight: 500; text-align: left; padding-right: 16px; }
 table.bars td.bar { width: 320px; }
 table.bars td.bar span { display: block; height: 8px; border-radius: 0 4px 4px 0; background: var(--series-1); }
+.visually-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
