@@ -373,7 +373,7 @@ def test_unit_sides_uses_every_side_of_the_building(monkeypatch):
     assert not got["wide street"].any()
 
 
-def test_unitfacing_v3_records_basemap_and_footprints(monkeypatch):
+def test_facing_sets_record_basemap_and_footprints(monkeypatch):
     from rentfrontier import run
 
     fn = features.FEATURE_SETS["unitfacing-v3"]
@@ -381,11 +381,12 @@ def test_unitfacing_v3_records_basemap_and_footprints(monkeypatch):
     on_v3 = {
         n
         for n, f in features.FEATURE_SETS.items()
-        if getattr(f, "func", f) is features.facing_v3
+        if getattr(f, "func", f) in (features.facing_v3, features.facing_v4)
     }
     assert on_v3 == features.FOOTPRINTS and on_v3 <= features.BASEMAP
     monkeypatch.setattr(run.data, "sha256", lambda path: "sha")
-    assert {"basemap", "footprints"} <= run.feature_sources("unitfacing-v3").keys()
+    for name in ("unitfacing-v3", "unitfacing-v4"):
+        assert {"basemap", "footprints"} <= run.feature_sources(name).keys()
 
 
 def _box(x0, y0, x1, y1):
@@ -578,3 +579,25 @@ def test_building_violations_count_the_trailing_year_only(tmp_path, monkeypatch)
         }
     )
     assert features.building_violations(frame).tolist() == [2.0, 0.0, 1.0, 0.0]
+
+
+def test_facing_v4_marks_loud_streets_on_low_floors(monkeypatch):
+    frame = pd.DataFrame({"unit_id": ["a", "b", "c", "d"]})
+    looks = pd.DataFrame(
+        {
+            "avenue": [True, True, False, False],
+            "wide street": [False, False, True, True],
+            "side street": [False] * 4,
+            "none": [False] * 4,
+        }
+    )
+    base = features.Features("b", ["x"], ["g"], np.zeros((4, 1)), np.ones(1))
+    monkeypatch.setitem(features.FEATURE_SETS, "probe-base", lambda f, t: base)
+    monkeypatch.setattr(features, "unit_sides", lambda f: looks)
+    monkeypatch.setattr(
+        features, "row_floor", lambda f: pd.Series([2.0, 9.0, 4.0, np.nan])
+    )
+    out = features.facing_v4(frame, np.ones(4, bool), base="probe-base")
+    cols = {n: out.values[:, i] for i, n in enumerate(out.names)}
+    assert cols["looks onto an avenue, floors 1-4"].tolist() == [1, 0, 0, 0]
+    assert cols["looks onto a wide street, floors 1-4"].tolist() == [0, 0, 1, 0]
