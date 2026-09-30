@@ -1215,6 +1215,16 @@ MODELS = {
         feature_slopes=("log_sqft_vs_bedroom_median", "bathrooms=2", "bathrooms=3"),
         unit_t=True,
     ),
+    # Student-t unit levels plus one per-building slope, on size: in some
+    # buildings extra space is worth more or less than usual.
+    "m7-nocurves-1slope": ModelConfig(
+        name="m7-nocurves-1slope",
+        building_walk=True,
+        bedroom_slope=True,
+        trend_knot_months=3,
+        feature_slopes=("log_sqft_vs_bedroom_median",),
+        unit_t=True,
+    ),
     "m8-nocurves": ModelConfig(
         name="m8-nocurves",
         building_walk=True,
