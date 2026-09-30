@@ -256,14 +256,44 @@ round begins with the newest advertisements, which cluster in the few large
 buildings with inconsistent unit spellings, so the rate should settle again. It
 did: 2 of 481 in the next two hours.
 
-Coverage gap: `scope.expand` scopes a unit's historical advertisements from
-`priceHistories[].listingUrl`, while membership comes from the parser's
-`propertyHistory` listing IDs. Advertisements in the second but not the first get
-membership without a scope entry, so the scoped crawl never claims them. Of 48,913
-memberships, 186 are queued without scope and 51 were never queued (about 0.5%,
-mostly in `the-west-coast` and `10-downing-street-new_york`). `scope.py` is hashed,
-so a fix would scope member advertisements from `collection_policy`. It would add
-about 237 requests, so it is left to the user.
+Coverage gap (corrected September 30): `scope.expand` scopes a unit's historical
+advertisements from `priceHistories[].listingUrl`, while membership comes from the
+parser's `propertyHistory` listing IDs. The 115 member advertisements without scope
+(60 queued, 55 never queued) turned out to be each unit page's own displayed
+listing, whose price-history rows always have `listingUrl: null`. The unit page
+capture already holds them in full, so there was no real gap. PR #79 scopes member
+history advertisements other than the page's own listing; the v9 follow-up run
+(September 30, 17:54 to 18:56 EDT, all setup) found nothing new to fetch and made
+no requests.
+
+### September 30 collection outputs
+
+- Snapshot: `/data1/apartments/archive/snapshots/west-village-backfill-20260930/archive.sqlite3`
+  (read-only, standalone journal, 55,066,198,016 bytes, SHA-256
+  `3b209717ca72564cdcd64cfa024e5b08c3fb4c7cfec54d4abd151ac121da89e1`, in the adjacent
+  `.sha256` file). Copied with `streeteasy_archive.snapshot_copy` under the crawler
+  lock after a checkpoint. Page bodies are not copied; they stay in the crawl's
+  `bodies/` directory.
+- Granular transform (`models/transform_local.py`, master `be9a196`, 3 workers,
+  the same empty corrections ledger as September 22):
+  `/data1/apartments/archive/datasets/west-village-granular-20260930-canonical-url-v1`.
+  It has 44,785 snapshots, 41,506 listing observations, 328 listing exclusions,
+  987,953 event mentions, and 15,169 rental units (`canonical-url-v1`) with 40,126
+  associated listing IDs; none are unresolved and 8,386 units have more than one
+  listing. For comparison, September 22 had 231 units.
+- Collection audit: `data/probes/west-village-20260930-final/audit.json`, run on
+  `audit-input/`, which links the snapshot database and the crawl's `bodies/`. The
+  audit reads bodies next to the database, so pointing it at the snapshot directory
+  alone reports every capture as unreadable. Current interpretation of the 2,080
+  `captured_listing_not_eligible` captures: 1,160 not a verified rental, 581
+  canonical unit mismatch, 328 missing canonical unit, 11 association now supported.
+  There were 1,705 capture errors (404s and provider failures).
+- Unit spelling aliases (PR #80, user decision September 30):
+  `/data1/apartments/archive/datasets/west-village-granular-20260930-unit-spelling-aliases-v1`.
+  There are 257 groups of units whose URLs differ only in case, punctuation or leading
+  zeros (521 units, 1,292 listings); 248 are confirmed by a crawled unit page's history.
+  Models can opt in by mapping `unit_id` to `representative_unit_id`, preferably for
+  `history_confirmed` groups only. The canonical-url-v1 dataset is unchanged.
 
 ## Handoff status (September 30, 12:45 EDT)
 
@@ -273,8 +303,8 @@ September 30 with `finish_reason: finished` (systemd `Result=success`, exit 0). 
 eligible queue was empty. The 6,574 rows still marked pending are all outside the
 scoped West Village crawl, so it never claims them: 2,357 unit routes, 1,966 sale
 listings, 1,574 searches, 349 directory pages, 263 rental advertisements, 64
-buildings and 1 sitemap. Of those 263 advertisements, 60 are post-2014 with
-canonical membership: the remaining scope gap described above. There were no
+buildings and 1 sitemap. Of those 263 advertisements, 60 are post-2014 unit-page listings already captured
+on their unit pages (see the corrected coverage-gap note above). There were no
 account, credit or block errors at any point.
 
 Final archive totals: 46,490 observations from September 19 21:19 to September 30
@@ -288,13 +318,9 @@ excluded. Exclusion reasons over the whole crawl: 17,884
 request), 2,080 `captured_listing_not_eligible`, 764 `sale_route` and 4
 `conflicting_canonical_unit_association`.
 
-Next steps (see "After collection"): freeze a new read-only snapshot, run
-`models/transform_local.py` with a new run ID, and run the collection audit. These
-wait for the user's go-ahead. Open decisions for the user: whether spelling-only
-unit URL differences (`5v`/`005v`, `4b`/`4-b`) should count as the same unit, which
-would allow offline re-evaluation of the `captured_listing_not_eligible`
-captures, and whether to fetch the scope-gap advertisements (now 60 queued and
-about 51 never queued).
+Next steps: done on September 30 (see "September 30 collection outputs"). The
+snapshot, transform, audit and spelling alias table exist. The scope-gap follow-up
+found nothing to fetch.
 
 ### Restart
 
