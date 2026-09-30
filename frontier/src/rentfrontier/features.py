@@ -268,6 +268,12 @@ REGISTRY_V2_FILE = (
     "/data1/apartments/external/registry/20260930-4d41f8b/buildings.parquet"
 )
 PLUTO_V2_FILE = "/data1/apartments/external/pluto/20260930-4d41f8b/pluto.parquet"
+# That registry with Avalon West Chelsea also re-geocoded from its ads
+# (config/reviews/registry-overrides-20260930-avalon.json), and MapPLUTO for its lots.
+REGISTRY_V3_FILE = (
+    "/data1/apartments/external/registry/20260930-676c382/buildings.parquet"
+)
+PLUTO_V3_FILE = "/data1/apartments/external/pluto/20260930-676c382/pluto.parquet"
 # Which registry and MapPLUTO snapshots building_lots reads while a feature set
 # is built (`build`); feature sets not listed in LOT_SNAPSHOTS read the first.
 _LOTS: contextvars.ContextVar[tuple[str, str] | None] = contextvars.ContextVar(
@@ -1124,6 +1130,7 @@ EXTERNAL = {
     "unitfacing-v3",
     "unitfacing-v4",
     "unitdescpluto-v4",
+    "unitdescpluto-v5",
     "unitdescplutohpd-v1",
     "unitdescplutohpd-v2",
 }
@@ -1149,6 +1156,7 @@ DESCRIPTIONS = {
     "unitfacing-v3",
     "unitfacing-v4",
     "unitdescpluto-v4",
+    "unitdescpluto-v5",
     "unitdescplutohpd-v1",
     "unitdescplutohpd-v2",
 }
@@ -1204,6 +1212,14 @@ FEATURE_SETS = {
         flood_zone=False,
         latest_alteration=True,
     ),
+    # v4 with Avalon West Chelsea on its own lot (282 Eleventh Avenue).
+    "unitdescpluto-v5": partial(
+        pluto_v1,
+        id="unitdescpluto-v5",
+        base="unitdesc-v1",
+        flood_zone=False,
+        latest_alteration=True,
+    ),
     # Building condition (HPD violations, as of each listing) on the app's facts.
     "unitdescplutohpd-v1": partial(
         hpd_v1, id="unitdescplutohpd-v1", base="unitdescpluto-v3"
@@ -1223,6 +1239,7 @@ FEATURE_SETS = {
 # Feature sets that read other registry and MapPLUTO snapshots than the first.
 LOT_SNAPSHOTS = {
     "unitdescpluto-v4": {"registry": REGISTRY_V2_FILE, "pluto": PLUTO_V2_FILE},
+    "unitdescpluto-v5": {"registry": REGISTRY_V3_FILE, "pluto": PLUTO_V3_FILE},
 }
 
 

@@ -537,6 +537,10 @@ def test_unitdescpluto_v4_reads_the_corrected_registry(monkeypatch):
         "registry": features.REGISTRY_V2_FILE,
         "pluto": features.PLUTO_V2_FILE,
     }
+    assert features.lot_files("unitdescpluto-v5") == {
+        "registry": features.REGISTRY_V3_FILE,
+        "pluto": features.PLUTO_V3_FILE,
+    }
     assert features.lot_files("unitdescpluto-v3") == {
         "registry": features.REGISTRY_FILE,
         "pluto": features.PLUTO_FILE,

@@ -1,0 +1,9 @@
+{
+  "version": "registry-overrides-v2",
+  "reviewed_at": "2026-09-30",
+  "base": "registry snapshot 20260930-4d41f8b (registry-overrides-v1 applied)",
+  "rule": "As in registry-overrides-v1: a page is geocoded from the address its own ads give when the registry's lot contradicts the listings. AVA High Line and 507 West Chelsea are left as they are: AVA High Line's ads give no house number, and 507 West Chelsea's lot (509 West 28th, three buildings) is the three towers its ads name.",
+  "overrides": [
+    {"building": "avalon-west-chelsea", "address": "282 11 Avenue", "evidence": "largest studio in avalon west chelsea (282 11th avenue); 282 11th ave, 1110", "registry_was": "550A West 29 Street (reverse, 42 m from the page); MapPLUTO 12 floors and 19 apartments, 55 of 124 listed floors above the 12th"}
+  ]
+}
