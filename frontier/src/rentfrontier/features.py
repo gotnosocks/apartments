@@ -715,16 +715,17 @@ def facing_v2(
 
 
 # Every side of a building: the street it looks onto, from its footprint. Each
-# facade (outline edges whose outward normal is nearest a grid direction) is
-# sampled every 5 m. A sample sees the nearest street centerline that lies
-# outward (within SIDE_COSINE of the facade's direction) and within
-# SIDE_REACH_M, unless another building's footprint is in the way: a party
-# wall, or a rear yard with buildings behind it, sees no street. A side looks
-# onto the street most of its clear samples see, if two of them do (10 m of
-# facade), or all of them on a narrower side; otherwise it faces no street.
+# facade edge (grouped by the grid direction its outward normal is nearest) is
+# sampled every SIDE_SPACING_M, or once at its middle if shorter. A sample
+# looks straight out, along the edge's normal, for up to SIDE_REACH_M: it sees
+# the first street centerline its sight line crosses, unless another
+# building's outline crosses it first (a party wall, or a rear yard with
+# buildings behind it). A side looks onto the street most of its clear samples
+# see, if two samples see one or one edge sees it along its whole length (a
+# narrow front between recessed walls); otherwise it faces no street.
 SIDE_REACH_M = 45.0
-SIDE_COSINE = 0.6
 SIDE_SPACING_M = 5.0
+SIDE_MIN_EDGE_M = 1.0
 GRID_DIRECTIONS = {
     "north": (0.0, 1.0),
     "south": (0.0, -1.0),
@@ -746,17 +747,18 @@ def street_kind(name: str, roadway: str | None) -> str | None:
     return None
 
 
-def _crosses(p, q, e0, e1) -> bool:
-    """Whether segment p-q crosses any edge e0[i]-e1[i]."""
+def _hits(p, q, e0, e1) -> np.ndarray:
+    """Where segment p-q crosses each edge e0[i]-e1[i], as a fraction of p-q
+    (inf where it does not)."""
     if not len(e0):
-        return False
+        return np.zeros(0)
     d, e, ap = q - p, e1 - e0, e0 - p
     den = d[0] * e[:, 1] - d[1] * e[:, 0]
     ok = np.abs(den) > 1e-9
     den = np.where(ok, den, 1.0)
     t = (ap[:, 0] * e[:, 1] - ap[:, 1] * e[:, 0]) / den
     u = (ap[:, 0] * d[1] - ap[:, 1] * d[0]) / den
-    return bool((ok & (t > 1e-6) & (t < 1 - 1e-6) & (u >= 0) & (u <= 1)).any())
+    return np.where(ok & (t > 1e-6) & (t <= 1) & (u >= 0) & (u <= 1), t, np.inf)
 
 
 def facade_sides(ring, streets, occluders) -> dict:
@@ -765,37 +767,41 @@ def facade_sides(ring, streets, occluders) -> dict:
     (starts, ends, kinds) of centerline segments; occluders is (starts, ends)
     of the other buildings' outline edges."""
     a, b, kinds = streets
-    ab = b - a
-    ab2 = np.maximum((ab * ab).sum(1), 1e-12)
-    e0, e1 = occluders
+    # The outline's own walls block too (an inner courtyard wall does not see
+    # through the building's other wing).
+    e0 = np.concatenate([occluders[0], ring[:-1]])
+    e1 = np.concatenate([occluders[1], ring[1:]])
     votes = {d: {} for d in GRID_DIRECTIONS}
+    whole = {d: set() for d in GRID_DIRECTIONS}  # kinds an edge sees end to end
     for p, q in itertools.pairwise(ring):
         edge = q - p
         length = float(np.hypot(*edge))
-        if length < 3.0:
+        if length < SIDE_MIN_EDGE_M:
             continue
         normal = np.array([edge[1], -edge[0]]) / length
         side = max(GRID_DIRECTIONS, key=lambda d: normal @ np.array(GRID_DIRECTIONS[d]))
-        out = np.array(GRID_DIRECTIONS[side])
-        for s in np.arange(SIDE_SPACING_M / 2, length, SIDE_SPACING_M):
-            pt = p + edge * (s / length)
-            t = np.clip(((pt - a) * ab).sum(1) / ab2, 0, 1)
-            v = a + t[:, None] * ab - pt
-            dist = np.hypot(v[:, 0], v[:, 1])
-            outward = (v @ out) / np.maximum(dist, 1e-9) >= SIDE_COSINE
-            dist = np.where(outward, dist, np.inf)
-            i = int(dist.argmin())
-            blocked = dist[i] > SIDE_REACH_M or _crosses(
-                pt + 0.3 * out, pt + v[i], e0, e1
-            )
-            hit = "none" if blocked else kinds[i]
+        spots = np.arange(SIDE_SPACING_M / 2, length, SIDE_SPACING_M)
+        seen = []
+        for s in spots if len(spots) else [length / 2]:
+            start = p + edge * (s / length) + 0.3 * normal
+            end = start + SIDE_REACH_M * normal
+            street = _hits(start, end, a, b)
+            i = int(street.argmin()) if len(street) else -1
+            hit = "none"
+            if i >= 0 and np.isfinite(street[i]):
+                wall = _hits(start, end, e0, e1)
+                if not (len(wall) and wall.min() < street[i]):
+                    hit = kinds[i]
             votes[side][hit] = votes[side].get(hit, 0) + 1
+            seen.append(hit)
+        if seen[0] != "none" and len(set(seen)) == 1:
+            whole[side].add(seen[0])
     sides = {}
     for d, v in votes.items():
         clear = {k: n for k, n in v.items() if k != "none"}
         if not v:
             sides[d] = "no facade"
-        elif clear and sum(clear.values()) >= min(2, sum(v.values())):
+        elif clear and (sum(clear.values()) >= 2 or whole[d]):
             sides[d] = max(clear, key=clear.get)
         else:
             sides[d] = "none"
@@ -844,15 +850,14 @@ def building_sides() -> pd.DataFrame:
     streets = (np.concatenate(starts), np.concatenate(ends), np.array(kinds))
 
     footprints = pd.read_parquet(FOOTPRINTS_FILE)
-    e0, e1, owner, lot = [], [], [], []
+    e0, e1, owner = [], [], []
     for r in footprints.itertuples():
         for ring in rings_of(r.geometry):
             e0.append(ring[:-1])
             e1.append(ring[1:])
             owner += [str(r.bin)] * (len(ring) - 1)
-            lot += [str(r.base_bbl)] * (len(ring) - 1)
     e0, e1 = np.concatenate(e0), np.concatenate(e1)
-    owner, lot = np.array(owner), np.array(lot)
+    owner = np.array(owner)
     by_bin = footprints.groupby(footprints.bin.astype(str))
     by_lot = footprints.groupby(footprints.base_bbl.astype(str))
     out = {}
@@ -864,16 +869,22 @@ def building_sides() -> pd.DataFrame:
             rows = by_lot.get_group(key_lot)
         else:
             continue
-        rings = [ring for g in rows.geometry for ring in rings_of(g)]
+        rings = [
+            (str(fp_bin), ring)
+            for fp_bin, g in zip(rows.bin, rows.geometry)
+            for ring in rings_of(g)
+        ]
         # The outline nearest the registry point (a lot can hold several buildings).
         here = grid(r.longitude, r.latitude)
-        ring = min(rings, key=lambda q: float(np.hypot(*(q.mean(0) - here))))
+        ring_bin, ring = min(
+            rings, key=lambda q: float(np.hypot(*(q[1].mean(0) - here)))
+        )
         if 0.5 * np.sum(ring[:-1, 0] * ring[1:, 1] - ring[1:, 0] * ring[:-1, 1]) < 0:
             ring = ring[::-1]  # counter-clockwise, so the outward normal is (dy, -dx)
-        # Other buildings nearby block the view; the building's own outlines
-        # (its BIN and lot) do not.
-        own = np.isin(owner, list(set(rows.bin.astype(str)) | {key_bin}))
-        own |= np.isin(lot, list(set(rows.base_bbl.astype(str))))
+        # Every other building nearby blocks the view, on the same lot too;
+        # outlines of the building itself (its BIN) are left to facade_sides,
+        # which lets the outline's own walls block.
+        own = (owner == ring_bin) & (not re.fullmatch(r"[1-5]000000", ring_bin))
         centre = ring.mean(0)
         radius = float(np.hypot(*(ring - centre).T).max()) + SIDE_REACH_M + 10.0
         # A lower bound on each edge's distance from the centre.

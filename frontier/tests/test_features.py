@@ -431,3 +431,81 @@ def test_facade_sides_party_walls_and_rear_yards_see_no_street():
     sides = features.facade_sides(ring, streets, occluders)
     assert sides["north"] == "side street"
     assert sides["west"] == "none" and sides["south"] == "none"
+
+
+def test_facade_sides_keep_a_narrow_front_between_recessed_walls():
+    # A 6 m front on the avenue, flanked by walls set back 20 m behind
+    # neighbours: two of three west samples are blocked, the front sees it all.
+    ring = np.array(
+        [
+            [0, 0],
+            [30, 0],
+            [30, 26],
+            [0, 26],
+            [0, 16],
+            [-20, 16],
+            [-20, 10],
+            [0, 10],
+            [0, 0],
+        ],
+        float,
+    )
+    streets = _streets(((-40, -100), (-40, 100), "avenue"))
+    neighbours = [_box(-38, 0, -1, 9.5), _box(-38, 16.5, -1, 26)]
+    occluders = (
+        np.concatenate([r[:-1] for r in neighbours]),
+        np.concatenate([r[1:] for r in neighbours]),
+    )
+    assert features.facade_sides(ring, streets, occluders)["west"] == "avenue"
+
+
+def test_facade_sides_look_straight_out_not_diagonally():
+    # The avenue's centerline ends beside the building: a west wall cannot see
+    # a street that is only diagonally in front of it.
+    streets = _streets(((-15, 40), (-15, 100), "avenue"))
+    sides = features.facade_sides(_box(0, 0, 20, 20), streets, NO_OCCLUDERS)
+    assert sides["west"] == "none"
+
+
+def test_facade_sides_sample_short_edges_and_their_own_walls_block():
+    # A 2.5 m notch still gets a sample. In a U-shaped outline the inner wall
+    # of one arm looks across the courtyard into the other arm: its own walls
+    # block it, so only the outer walls see the avenue to the west.
+    streets = _streets(((-100, 30), (100, 30), "side street"))
+    notch = np.array(
+        [
+            [0, 0],
+            [10, 0],
+            [10, 20],
+            [6, 20],
+            [6, 21.5],
+            [3.5, 21.5],
+            [3.5, 20],
+            [0, 20],
+            [0, 0],
+        ],
+        float,
+    )
+    assert features.facade_sides(notch, streets, NO_OCCLUDERS)["north"] == "side street"
+    u = np.array(
+        [
+            [0, 0],
+            [30, 0],
+            [30, 20],
+            [20, 20],
+            [20, 5],
+            [10, 5],
+            [10, 20],
+            [0, 20],
+            [0, 0],
+        ],
+        float,
+    )
+    west = _streets(((-10, -100), (-10, 100), "avenue"))
+    # Only the inner wall at x=20 faces west from the right arm: with the left
+    # arm cut away, the right arm alone would see the avenue through the gap.
+    right_arm = np.array([[20, 0], [30, 0], [30, 20], [20, 20], [20, 0]], float)
+    assert features.facade_sides(right_arm, west, NO_OCCLUDERS)["west"] == "avenue"
+    wing = (u[:-1][5:7], u[1:][5:7])  # the left arm's inner wall, x=10
+    assert features.facade_sides(right_arm, west, wing)["west"] == "none"
+    assert features.facade_sides(u, west, NO_OCCLUDERS)["west"] == "avenue"
