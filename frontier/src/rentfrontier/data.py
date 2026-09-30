@@ -169,9 +169,10 @@ def quarantine_v1(frame: pd.DataFrame) -> pd.DataFrame:
 
 
 def quarantine_v2(frame: pd.DataFrame) -> pd.DataFrame:
-    """v1 and the second review's rows (158 in all): six more ads that place
-    the apartment on another street, and nine more bedroom counts the ad flatly
-    contradicts. The other rows are unchanged."""
+    """v1 and the second review's rows (190 in all): 39 more ads whose own words
+    place the apartment at another address or on a street its building does not
+    front, and eight more bedroom counts the ad flatly contradicts. The other rows
+    are unchanged."""
     return frame[~frame.audit_id.isin(quarantined(QUARANTINE_V2))]
 
 
