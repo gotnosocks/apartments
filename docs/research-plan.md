@@ -56,7 +56,7 @@ that a typical apartment renter thinks about when choosing a place to rent."
 | Building facts (`pluto-v1`, `unitdescpluto-v1`; `unitdescpluto-v2` without the flood-zone flag; `unitdescpluto-v3` also dating alterations by the latest) | What the city records about the building: when it was built, its height and number of apartments, the space per apartment, how densely the lot is built, its type (walk-up, elevator, condo, a small mixed-use building of a few apartments over a store or office, or other), landmark or historic-district status, flood zone and a recent alteration; an "unknown" flag where the city's record has no usable value. |
 | Location (`unitdescplutoloc-v1`) | What buildings nearby rent for: a smooth premium over the map, shared by buildings a few blocks apart (for example the western blocks near the High Line). |
 | Transit (`unitdescplutotransit-v2`) | The walk to the nearest subway station, and how many subway lines stop within a 10-minute walk, counting the stations open at the time of the listing. |
-| Which way the apartment faces (`unitfacing-v2`) | Whether the apartment looks onto its building's street (an avenue, a wide street such as 14th, or a side street), onto the back, both ways (floor-through) or only to the sides, from its window directions, front/rear unit labels and ad text. |
+| Which way the apartment faces (`unitfacing-v2`) | Whether the apartment looks onto its building's street (an avenue, a wide street such as 14th, or a side street), onto the back, both front and back, or only to the sides, from its window directions, front/rear unit labels, ad text and street or courtyard views. |
 | Streets the apartment looks onto (`unitfacing-v3`) | Whether the apartment's windows look onto an avenue, a wide street such as 14th, a side street, or the rear or a courtyard, using every side of its building (corner and through-block buildings have more than one street). |
 | Building level | This building's premium beyond its apartments' features: its location, quality and management. |
 | Building trend or walk | How that premium has moved over time, for example a renovation or a changing block: steadily (the trend) or along a path that can change direction at each knot, joined by straight lines (the walk). Sum-to-zero walks make it relative to the market, so "the market" and "this building" never overlap. |
@@ -623,6 +623,62 @@ the fix goes into the model, the features or the data, not the sampler.
 - Other attributes also vary within units: square feet (9% of multi-row units; stated on 35% of
   rows, 48% if filled from the unit's other listings), laundry (12%, in-building against
   in-unit) and doorman (7%; it varies across listings in 116 of 1,129 buildings).
+- **Data rule `quarantine-v1`: the divergence review (Ben, 2026-09-29).**
+  - **Queue.** The served fit's leave-own-row-out estimates picked 664 candidate rows: asks more
+    than 1.5× off the estimate, PIT outside [0.002, 0.998], or Pareto k above 0.7. Text detectors
+    over all rows (commercial, location, SRO, income-restriction and short-stay wording) found
+    the rest. Of the 143 rows quarantined, 45 came from the queue and 98 from the detectors.
+  - **Rule.** As in the earlier scope review (`config/reviews/`), a large residual only puts a row
+    in the queue. What excludes it is the ad's own words, or official data: MapPLUTO shows the
+    registry lot has no apartments, or a unit label shows it is not an apartment.
+  - **What is quarantined.** 143 rows in 55 buildings. Each has its reason and a quote from the ad
+    (or the MapPLUTO record) in `config/reviews/chelsea-divergence-quarantine-20260929.jsonl`:
+    - 10 non-residential offers: retail, offices, a recording studio, commercial condos and
+      lofts, and a "full floor" at $28,681 in an office building with no apartments.
+    - 36 ads that place the apartment elsewhere:
+      - 8 on Park Slope's Seventh Avenue, geocoded to Manhattan's;
+      - East 15th and East 19th Street ads filed as West;
+      - ads that correct their own address;
+      - AVA High Line, SoHo, Murray Hill and East Village ads filed at other addresses;
+      - four at "the-amanda-i" that the ads place on West 22nd Street or in the East Village;
+      - all 11 rows of the registry page "103-8-avenue". MapPLUTO records its lot, 111 Eighth
+        Avenue, as an office building with no apartments, and some of its ads name other
+        buildings.
+    - 83 outside the product the model prices:
+      - 68 SRO rooms with shared or communal baths, in six buildings;
+      - 14 income-restricted apartments;
+      - a room share.
+    - 9 short-stay-only offers.
+    - 1 ask net of a departing tenant's $2,200 monthly incentive.
+    - 4 bedroom counts that the ad contradicts, for example a "studio" whose ad and other
+      listings say two bedrooms.
+  - **Kept.** Penthouses, lofts, townhouses and rent-stabilized units stay in. So do furnished
+    and "short or long term" offers: the 305 kept rows that mention short-term stays have a median
+    ask of 1.00× the estimate. Some rows stay in, unresolved:
+    - Three studios at 225 W 23rd St ask $999–1,610, against $3,450–3,950 for studios of the same
+      size there in the same months. They have no ad text that says why.
+    - Two the-amanda-i ads name "22nd and 8th" (a block from the registry address) and, in
+      template text, Williamsburg.
+  - **How it applies.** The rule runs after the split. It drops the rows from the fit and the
+    held-out set, so every other row keeps its split. Every reader that re-applies a run's rules
+    refuses a rule file that differs from the run's hash. The board's paired scores (PSIS-LOO and held-out)
+    leave out the quarantined rows for every entry, so all entries share one population.
+  - **Cost of these rows in the served fit.** Its 139 quarantined training rows average −0.99
+    PSIS-LOO per row, against +1.11 for all rows.
+  - **Result: a tie.** The served design was refit with the rule (`m5-nocurves` +
+    `unitdescpluto-v3` + `unit-labels-v1` + `quarantine-v1`, Gibbs 2 × (300 + 3600), fef2aa5,
+    RTX 2060). It took 1,361 s and passes the gate (R-hat 1.0043, ESS 694).
+    - On the rows both fits keep, PSIS-LOO is +8.9 ± 13.5 (47,235 rows) and held-out +2.7 ± 3.1
+      (5,260 rows) over the served fit.
+    - ν is 2.10 ± 0.04, against 2.06 ± 0.03: the tails barely lighten.
+    - The 143 rows are errors or out-of-scope offers, 0.27% of the data. Dropping them leaves the
+      scores on the other rows unchanged within error.
+    - The rule's value is in what the model serves. If the app switched to this fit (a selection
+      change, so Ben's call), the quarantined listings would leave the site. So would 20
+      building pages that had only quarantined rows, including the office lot at 103 Eighth
+      Avenue and three Park Slope addresses.
+    - A first draft of the file (131 rows, be61586) was also a tie: +3.6 ± 14.1 and +2.9 ± 2.4.
+      That fit is archived under `runs-archive/quarantine-draft-2026-09-30`.
 
 **Order.**
 1. **Data quality** (backlog "Data quality"). Audit rows by rules that do not use a model's
@@ -860,10 +916,33 @@ comes from other sources, most of them public NYC and NYS data.
   - A first version (`-v1`, 18df498) missed Sixth Avenue: its centerlines are named Avenue of the
     Americas, and spelled-out avenues did not parse. It also counted side windows where the
     frontage was unknown. It scored +8.9 ± 7.9 with the same pattern (PR #58 review).
+  - **Frontage is ambiguous for 39% of listings** (Ben, 2026-09-29, pointing to 130 West 15th, whose
+    front desk is on 15th but which stands on 14th, and a Stonehenge building). The frontage above
+    is the address street. By MapPLUTO, 178 buildings holding 20,451 listings have, or may have,
+    more than one street front, or a different one:
+    - corner lots: 120 buildings, 12,172 listings;
+    - through lots: 22 buildings, 2,373 listings (The Tate, Chelsea Tower, the London Terrace
+      complex on one lot, Walker Tower, Stonehenge Gardens);
+    - other lots 150 ft or deeper, neither corner nor through: 22 buildings, 4,456 listings (The
+      Sierra at 125 West 14th runs 206 ft, through to 15th; some avenue lots are deep without
+      reaching another street);
+    - MapPLUTO's lot address on a different street from the registry's (both addresses read): 61
+      buildings, 10,164 listings.
+
+    In these buildings a "rear" or "side" unit may face a second street, which dilutes the
+    contrasts. The fix is each side's street from building footprints (below). The 25 buildings
+    whose listed windows mostly face their assigned back are nearly all on the south side of their
+    street (22 of 25): their back faces south, which looks like ads featuring south light rather
+    than wrong frontages.
   - Why so small:
     - the evidence covers 29% of rows;
     - a unit's own level already carries its orientation when it has other listings;
-    - noise may matter mostly on low floors (an interaction with floor is the natural next test).
+    - noise may matter mostly on low floors (an interaction with floor is the natural next test);
+    - frontage is ambiguous for 39% of listings (above).
+  - **Next: every side's street, from building footprints.** NYC Building Footprints (joined by BIN)
+    give each building's outline. Each side of the outline gets the street it faces (the nearest
+    centerline beyond it) or none (a lot line or the rear). A unit's window directions then say
+    which street it looks onto. Corner and through buildings get their real fronts.
 
 *Testing.*
 - Add each source group as its own feature set, alone and then combined.

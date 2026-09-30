@@ -10,6 +10,7 @@ held-out splits depend on that order.
 
 from __future__ import annotations
 
+import functools
 import hashlib
 import json
 import os
@@ -141,12 +142,66 @@ def unit_line_key(frame: pd.DataFrame) -> pd.Series:
     return (frame.building + "/" + line).where(line.notna())
 
 
+REPO = Path(__file__).resolve().parents[3]
+# The divergence review of 2026-09-29: advertisements whose own words, or
+# MapPLUTO, show they are not an open-market lease of a whole Chelsea apartment
+# at the recorded address, one JSON line each with its reason and evidence.
+QUARANTINE_V1 = (
+    REPO / "config" / "reviews" / "chelsea-divergence-quarantine-20260929.jsonl"
+)
+
+
+@functools.lru_cache(maxsize=4)
+def quarantined(path: Path = QUARANTINE_V1) -> frozenset:
+    with open(path) as f:
+        return frozenset(json.loads(line)["audit_id"] for line in f if line.strip())
+
+
+def quarantine_v1(frame: pd.DataFrame) -> pd.DataFrame:
+    """Drop the advertisements the divergence review quarantined (143 rows:
+    non-residential offers, ads that place the apartment elsewhere, SRO rooms,
+    income-restricted and short-stay offers, a net-of-incentive ask, and bedroom
+    counts the ad contradicts). The other rows are unchanged."""
+    return frame[~frame.audit_id.isin(quarantined())]
+
+
 # Named data rules, applied after the held-out split is drawn (the row split
 # depends on unit ids, and scored rows must not change). Run records list them.
-DATA_RULES = {"unit-labels-v1": merge_unit_labels}
+DATA_RULES = {"unit-labels-v1": merge_unit_labels, "quarantine-v1": quarantine_v1}
+# Rules that drop the rows their file lists; run records hash the files.
+RULE_SOURCES = {"quarantine-v1": QUARANTINE_V1}
 
 
-def apply_rules(frame: pd.DataFrame, rules) -> pd.DataFrame:
+def dropped_rows() -> frozenset:
+    """Audit ids some data rule drops: the only rows two runs' scores may
+    differ by (cleaning is scored on the rows both keep)."""
+    return frozenset().union(*(quarantined(path) for path in RULE_SOURCES.values()))
+
+
+def recorded_rules(result: dict) -> tuple:
+    """A run record's data rules, refused if a rule is unknown or its file
+    differs now from the hash the run recorded (the rows would not be the
+    run's rows)."""
+    rules = tuple(result.get("data_rules", ()))
+    for rule in rules:
+        if rule not in DATA_RULES:
+            raise SystemExit(f"unknown data rule {rule} in the run's record")
+        if rule in RULE_SOURCES:
+            src = result.get("data_rule_sources", {}).get(rule)
+            if src is None:
+                raise SystemExit(f"the run records no hash for data rule {rule}'s file")
+            if sha256(RULE_SOURCES[rule]) != src["sha256"]:
+                raise SystemExit(
+                    f"data rule {rule}'s file differs from the run's record"
+                )
+    return rules
+
+
+def apply_rules(frame: pd.DataFrame, heldout: np.ndarray, rules):
+    """(frame, heldout) after the named rules. A rule that drops rows drops them
+    from the held-out mask too, so every other row keeps its split; the frame
+    gets a fresh RangeIndex."""
+    mask = pd.Series(np.asarray(heldout, dtype=bool), index=frame.index)
     for rule in rules:
         frame = DATA_RULES[rule](frame)
-    return frame
+    return frame.reset_index(drop=True), mask.loc[frame.index].to_numpy()
