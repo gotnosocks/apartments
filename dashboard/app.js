@@ -1108,6 +1108,48 @@ function drawMilestones(v) {
   }
 }
 
+// ---------- data quality ----------
+function drawDataQuality() {
+  const dq = state.data.data_quality;
+  const box = $('data-quality');
+  box.replaceChildren();
+  if (!dq || !dq.rules) { box.textContent = 'No data rules recorded in this build.'; return; }
+  const cap = $('data-caption');
+  cap.replaceChildren();
+  cap.appendChild(document.createTextNode(
+    'Data rules run after the held-out split, so every other row keeps its split. Rows a rule drops are left out of the fit ' +
+    'and out of every paired score on this page, for every entry (one population). '));
+  if (dq.app_run) {
+    cap.appendChild(document.createTextNode(
+      `The app's model (${dq.app_run}) uses ${dq.app_rules.join(' and ')}` +
+      (dq.app_rows ? `: ${dq.app_rows.toLocaleString('en-US')} listings, ${dq.app_rows_in_fit.toLocaleString('en-US')} of them in the fit.` : '.')));
+  }
+  for (const r of dq.rules) {
+    const block = html('div', { class: 'rule' }, box);
+    html('h3', {}, block, r.rule + (r.in_app_model ? ' · used by the app\'s model' : ''));
+    html('p', { class: 'caption' }, block, r.text);
+    if (!r.actions) continue;
+    const max = Math.max(...r.actions.map((a) => a.rows));
+    const table = html('table', { class: 'bars' }, block);
+    const head = html('tr', {}, html('thead', {}, table));
+    html('th', { scope: 'col' }, head, 'Why a listing is left out');
+    html('th', { scope: 'col', class: 'num' }, head, 'Listings');
+    html('th', { scope: 'col' }, head, '');
+    const body = html('tbody', {}, table);
+    for (const a of r.actions) {
+      const tr = html('tr', {}, body);
+      html('th', { scope: 'row' }, tr, a.label);
+      html('td', { class: 'num' }, tr, a.rows.toLocaleString('en-US'));
+      const td = html('td', { class: 'bar' }, tr);
+      html('span', { style: `width:${(100 * a.rows / max).toFixed(1)}%` }, td);
+    }
+    const note = html('p', { class: 'caption' }, block,
+      `${r.rows.toLocaleString('en-US')} listings in ${r.buildings.toLocaleString('en-US')} buildings, each with its reason and the ad's own words in ${r.file}. `);
+    const site = `${location.protocol}//${location.hostname}:8600/quarantined`;
+    html('a', { href: site }, note, 'The listings site lists them with their reasons.');
+  }
+}
+
 // ---------- top-level ----------
 function setIdx(i) {
   state.idx = Math.max(0, Math.min(state.data.snapshots.length - 1, i));
@@ -1130,6 +1172,7 @@ function render() {
   drawFitTime(v, dom);
   drawEntries(v);
   drawMilestones(v);
+  drawDataQuality();
 }
 
 function initTheme() {

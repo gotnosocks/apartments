@@ -249,3 +249,11 @@ details ul { margin: 4px 0 0; padding-left: 18px; color: var(--text-secondary); 
   .map-layout { grid-template-columns: 1fr; }
   .map-side { position: static; }
 }
+
+/* Data quality: one bar per reason, magnitude in a single hue. */
+#data-quality .rule { margin-top: 12px; }
+#data-quality h3 { font-size: 14px; margin: 0 0 4px; }
+table.bars { width: auto; min-width: 60%; margin: 6px 0; }
+table.bars th[scope="row"] { font-weight: 500; text-align: left; padding-right: 16px; }
+table.bars td.bar { width: 320px; }
+table.bars td.bar span { display: block; height: 8px; border-radius: 0 4px 4px 0; background: var(--series-1); }

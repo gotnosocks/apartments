@@ -226,3 +226,58 @@ def test_rent_map_is_the_selected_runs_newest(monkeypatch, tmp_path):
     assert dashboard.rent_map() == maps / "r-1-bbbbbbb" / "map.json"
     (repo / "config" / "main-analysis.json").write_text("[]")
     assert dashboard.rent_map() is None
+
+
+def test_data_quality_counts_each_rules_rows_by_action(monkeypatch, tmp_path):
+    rules = tmp_path / "q.jsonl"
+    rules.write_text(
+        "".join(
+            json.dumps(r) + "\n"
+            for r in (
+                {
+                    "audit_id": "a",
+                    "building": "b1",
+                    "action": "quarantine_nonresidential",
+                },
+                {
+                    "audit_id": "b",
+                    "building": "b1",
+                    "action": "quarantine_product_scope",
+                },
+                {
+                    "audit_id": "c",
+                    "building": "b2",
+                    "action": "quarantine_product_scope",
+                },
+            )
+        )
+    )
+    summary = tmp_path / "summary"
+    summary.mkdir()
+    (summary / "complete.json").write_text(json.dumps({"rows": 10, "rows_in_fit": 9}))
+    config = tmp_path / "repo" / "config"
+    config.mkdir(parents=True)
+    (config / "main-analysis.json").write_text(
+        json.dumps(
+            {
+                "run": "r",
+                "data_rules": ["unit-labels-v1", "quarantine-v1"],
+                "summary": str(summary),
+            }
+        )
+    )
+    monkeypatch.setattr(dashboard, "REPO", tmp_path / "repo")
+    monkeypatch.setitem(dashboard.data_module.RULE_SOURCES, "quarantine-v1", rules)
+    out = dashboard.data_quality()
+    assert (
+        out["app_run"] == "r" and out["app_rows"] == 10 and out["app_rows_in_fit"] == 9
+    )
+    by_rule = {r["rule"]: r for r in out["rules"]}
+    q = by_rule["quarantine-v1"]
+    assert q["in_app_model"] and q["rows"] == 3 and q["buildings"] == 2
+    assert [(a["label"], a["rows"]) for a in q["actions"]] == [
+        ("Not a whole apartment on the open market", 2),
+        ("Not a home", 1),
+    ]
+    assert by_rule["unit-labels-v1"]["text"].startswith("One unit id")
+    assert "rows" not in by_rule["unit-labels-v1"]  # merges units, drops no rows
