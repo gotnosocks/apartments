@@ -56,7 +56,7 @@ that a typical apartment renter thinks about when choosing a place to rent."
 | Building facts (`pluto-v1`, `unitdescpluto-v1`; `unitdescpluto-v2` without the flood-zone flag; `unitdescpluto-v3` also dating alterations by the latest) | What the city records about the building: when it was built, its height and number of apartments, the space per apartment, how densely the lot is built, its type (walk-up, elevator, condo, a small mixed-use building of a few apartments over a store or office, or other), landmark or historic-district status, flood zone and a recent alteration; an "unknown" flag where the city's record has no usable value. |
 | Location (`unitdescplutoloc-v1`) | What buildings nearby rent for: a smooth premium over the map, shared by buildings a few blocks apart (for example the western blocks near the High Line). |
 | Transit (`unitdescplutotransit-v2`) | The walk to the nearest subway station, and how many subway lines stop within a 10-minute walk, counting the stations open at the time of the listing. |
-| Which way the apartment faces (`unitfacing-v2`) | Whether the apartment looks onto its building's street (an avenue, a wide street such as 14th, or a side street), onto the back, both ways (floor-through) or only to the sides, from its window directions, front/rear unit labels and ad text. |
+| Which way the apartment faces (`unitfacing-v2`) | Whether the apartment looks onto its building's street (an avenue, a wide street such as 14th, or a side street), onto the back, both front and back, or only to the sides, from its window directions, front/rear unit labels, ad text and street or courtyard views. |
 | Building level | This building's premium beyond its apartments' features: its location, quality and management. |
 | Building trend or walk | How that premium has moved over time, for example a renovation or a changing block: steadily (the trend) or along a path that can change direction at each knot, joined by straight lines (the walk). Sum-to-zero walks make it relative to the market, so "the market" and "this building" never overlap. |
 | Bedroom slope (m5) | In some buildings the larger apartments carry an extra premium or discount. |
@@ -859,10 +859,33 @@ comes from other sources, most of them public NYC and NYS data.
   - A first version (`-v1`, 18df498) missed Sixth Avenue: its centerlines are named Avenue of the
     Americas, and spelled-out avenues did not parse. It also counted side windows where the
     frontage was unknown. It scored +8.9 ± 7.9 with the same pattern (PR #58 review).
+  - **Frontage is ambiguous for 39% of listings** (Ben, 2026-09-29, pointing to 130 West 15th, whose
+    front desk is on 15th but which stands on 14th, and a Stonehenge building). The frontage above
+    is the address street. By MapPLUTO, 178 buildings holding 20,451 listings have, or may have,
+    more than one street front, or a different one:
+    - corner lots: 120 buildings, 12,172 listings;
+    - through lots: 22 buildings, 2,373 listings (The Tate, Chelsea Tower, the London Terrace
+      complex on one lot, Walker Tower, Stonehenge Gardens);
+    - other lots 150 ft or deeper, neither corner nor through: 22 buildings, 4,456 listings (The
+      Sierra at 125 West 14th runs 206 ft, through to 15th; some avenue lots are deep without
+      reaching another street);
+    - MapPLUTO's lot address on a different street from the registry's (both addresses read): 61
+      buildings, 10,164 listings.
+
+    In these buildings a "rear" or "side" unit may face a second street, which dilutes the
+    contrasts. The fix is each side's street from building footprints (below). The 25 buildings
+    whose listed windows mostly face their assigned back are nearly all on the south side of their
+    street (22 of 25): their back faces south, which looks like ads featuring south light rather
+    than wrong frontages.
   - Why so small:
     - the evidence covers 29% of rows;
     - a unit's own level already carries its orientation when it has other listings;
-    - noise may matter mostly on low floors (an interaction with floor is the natural next test).
+    - noise may matter mostly on low floors (an interaction with floor is the natural next test);
+    - frontage is ambiguous for 39% of listings (above).
+  - **Next: every side's street, from building footprints.** NYC Building Footprints (joined by BIN)
+    give each building's outline. Each side of the outline gets the street it faces (the nearest
+    centerline beyond it) or none (a lot line or the rear). A unit's window directions then say
+    which street it looks onto. Corner and through buildings get their real fronts.
 
 *Testing.*
 - Add each source group as its own feature set, alone and then combined.
