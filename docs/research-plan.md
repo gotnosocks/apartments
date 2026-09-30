@@ -944,43 +944,46 @@ comes from other sources, most of them public NYC and NYS data.
     - noise may matter mostly on low floors (an interaction with floor is the natural next test);
     - frontage is ambiguous for 39% of listings (above).
 - **Every side's street, from building footprints** (`unitfacing-v3`; Gibbs m5-nocurves,
-  `unit-labels-v1` + `quarantine-v1`, 2 × (300 + 3600), dff9f62, 2026-09-30).
+  `unit-labels-v1` + `quarantine-v1`, 2 × (300 + 3600), ceb269f, 2026-09-30).
   - **Sides.** The input is NYC Building Footprints (5zhs-2jue): the outline of every building in
     the registry's box plus 100 m, 3,347 in all (snapshot 20260930-6634906).
-    - Each facade is sampled every 5 m.
-    - A sample sees the nearest street centerline in its outward direction within 45 m, unless
-      another building's outline is in the way.
-    - A side looks onto the street that two of its samples see, or that all of them see on a
-      narrower side.
-  - **Check.** The address street is among a building's sides for 98.65% of the 1,110 buildings
-    with an outline.
-    - A first cut (bf09466) took the nearest centerline overall and ignored neighbours. It scored
-      95.9%: it missed the avenue side of corner buildings whose short avenue front sees the cross
-      street running past it (234 8th Ave, 181 7th Ave, Chelsea Tower), and it read party walls
-      as street fronts.
-    - The fix changes the facing flags of 1,041 rows.
-    - The Sierra and Stonehenge Gardens look onto 14th Street only, as Ben described.
-  - **Units.** Each unit gets four flags, which are not exclusive: it looks onto an avenue, a wide
-    street, a side street, or the rear or a courtyard. They come from window directions against the
-    sides, plus front/rear labels, ad text and views.
-  - **Fit.** 1,367 s, passes (R-hat 1.0058, ESS 660). Against the same design without it (fef2aa5,
-    the app's model), PSIS-LOO is +4.2 ± 8.2 and held-out −1.3 ± 1.5: **a tie**.
+    - Each facade edge of 1 m or more is sampled every 5 m, or once if it is shorter.
+    - A sample looks straight out, along the edge's normal, for up to 45 m. It sees the first
+      street centerline it crosses, unless another building's outline crosses first. That
+      includes a neighbour on the same tax lot, and the building's own walls across a courtyard.
+    - A side looks onto the street most of its clear samples see, if at least two samples see
+      one or one edge sees it along its whole length (a narrow front between recessed walls).
+  - **Check.** The address street's type is among a building's sides for 1,101 of the 1,102
+    buildings with an address street. Two earlier cuts did worse:
+    - The first (bf09466) took the nearest centerline overall and scored 95.9%. It missed the
+      avenue side of corner buildings, whose short avenue front sees the cross street running
+      past it (234 8th Ave, 181 7th Ave, Chelsea Tower), and it read party walls as street
+      fronts.
+    - The second (dff9f62) used the nearest centerline in the outward cone. It left buildings on
+      the same lot out of the blockers, so the row buildings at 106–112 8th Avenue saw 15th and
+      16th Streets through their neighbours (PR #62 review).
+    - The Sierra and Stonehenge Gardens look onto 14th Street, and Stonehenge Gardens onto 15th
+      as well, as a through lot.
+  - **Units.** Each unit gets four flags, which are not exclusive: it looks onto an avenue, a
+    wide street, a side street, or the rear or a courtyard. They come from window directions
+    against the sides, plus front/rear labels, ad text and views.
+  - **Fit.** 1,370 s, passes (R-hat 1.0065, ESS 710). Against the same design without it
+    (fef2aa5, the app's model), PSIS-LOO is +4.8 ± 8.0 and held-out −1.3 ± 1.4: **a tie**.
   - **Effects** against no evidence:
     - avenue +0.5% (−0.1 to +1.2);
-    - wide street −0.1% (−0.9 to +0.8);
-    - side street +0.9% (+0.5 to +1.4);
+    - wide street −0.1% (−1.0 to +0.8);
+    - side street +0.9% (+0.4 to +1.3);
     - rear or courtyard +0.4% (+0.0 to +0.9).
   - **Contrasts:**
-    - **a wide street against a side street −1.0% (−1.9 to −0.1; 98.5% below zero)**. This is the
-      direction Ben expected, and the interval now excludes zero (the first cut: −0.8%, −1.7 to
-      +0.1);
-    - an avenue against a side street −0.4% (−1.2 to +0.3);
-    - a side street against the rear +0.5% (−0.1 to +1.1).
+    - **a wide street against a side street −0.9% (−1.8 to −0.1; 98.2% below zero)**, the
+      direction Ben expected;
+    - an avenue against a side street −0.3% (−1.1 to +0.5);
+    - a side street against the rear +0.4% (−0.2 to +1.0).
   - **Reading.** The street an apartment looks onto is worth about a percent: an apartment looking
     onto 14th, 23rd or 34th Street asks about 1% less than one looking onto a quiet side street.
     That is renter-facing and mappable, but too small to move the frontier. The natural next test is
     its interaction with a low floor, where noise is worst.
-  - The first cut's fit (bf09466, +8.2 ± 8.3 against the building facts alone) is archived under
+  - The two earlier cuts' fits (bf09466; dff9f62, +4.2 ± 8.2 against fef2aa5) are archived under
     `runs-archive/facing-v3-draft-2026-09-30`.
 
 *Testing.*
