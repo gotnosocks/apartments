@@ -386,3 +386,48 @@ def test_unitfacing_v3_records_basemap_and_footprints(monkeypatch):
     assert on_v3 == features.FOOTPRINTS and on_v3 <= features.BASEMAP
     monkeypatch.setattr(run.data, "sha256", lambda path: "sha")
     assert {"basemap", "footprints"} <= run.feature_sources("unitfacing-v3").keys()
+
+
+def _box(x0, y0, x1, y1):
+    """A counter-clockwise rectangle outline in grid metres."""
+    return np.array([[x0, y0], [x1, y0], [x1, y1], [x0, y1], [x0, y0]], float)
+
+
+def _streets(*lines):
+    starts = np.array([a for a, _, _ in lines], float)
+    ends = np.array([b for _, b, _ in lines], float)
+    return starts, ends, np.array([k for _, _, k in lines])
+
+
+NO_OCCLUDERS = (np.zeros((0, 2)), np.zeros((0, 2)))
+
+
+def test_facade_sides_finds_the_avenue_of_a_corner_building():
+    # A 7 m avenue front at a corner: the cross street's centerline (13.5 m,
+    # sideways) is nearer than the avenue's (15 m, outward).
+    streets = _streets(
+        ((-15, -100), (-15, 100), "avenue"), ((-15, 16), (100, 16), "side street")
+    )
+    sides = features.facade_sides(_box(0, 0, 20, 7), streets, NO_OCCLUDERS)
+    assert sides["west"] == "avenue" and sides["north"] == "side street"
+    assert sides["east"] == "none" and sides["south"] == "none"
+
+
+def test_facade_sides_party_walls_and_rear_yards_see_no_street():
+    streets = _streets(
+        ((-40, -100), (-40, 100), "avenue"),
+        ((-100, 29), (100, 29), "side street"),
+        ((-100, -40), (100, -40), "side street"),
+    )
+    ring = _box(0, 0, 8, 20)
+    open_lot = features.facade_sides(ring, streets, NO_OCCLUDERS)
+    assert open_lot["west"] == "avenue" and open_lot["south"] == "side street"
+    # A neighbour against the west wall and one across the rear yard.
+    neighbours = [_box(-8, 0, -0.1, 20), _box(0, -30, 8, -10)]
+    occluders = (
+        np.concatenate([r[:-1] for r in neighbours]),
+        np.concatenate([r[1:] for r in neighbours]),
+    )
+    sides = features.facade_sides(ring, streets, occluders)
+    assert sides["north"] == "side street"
+    assert sides["west"] == "none" and sides["south"] == "none"
