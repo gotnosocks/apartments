@@ -308,7 +308,81 @@ def test_unitfacing_records_the_basemap(monkeypatch):
         for name, f in features.FEATURE_SETS.items()
         if getattr(f, "func", f) is features.facing_v2
     }
-    assert on_facing == features.BASEMAP
+    assert on_facing <= features.BASEMAP
     monkeypatch.setattr(run.data, "sha256", lambda path: "sha")
     sources = run.feature_sources("unitfacing-v2")
     assert {"registry", "pluto", "descriptions", "basemap"} <= sources.keys()
+
+
+def test_street_kind():
+    assert features.street_kind("8 AVE", "1") == "avenue"
+    assert features.street_kind("AVE OF THE AMERICAS", "1") == "avenue"
+    assert features.street_kind("WEST ST", "2") == "avenue"  # the West Side Highway
+    assert features.street_kind("W  23 ST", "1") == "wide street"
+    assert features.street_kind("W  22 ST", "1") == "side street"
+    assert features.street_kind("HIGH LINE", "6") is None
+
+
+def test_unit_sides_uses_every_side_of_the_building(monkeypatch):
+    from rentfrontier import descriptions
+
+    # A corner building: north on a side street, west on an avenue, rear to the south.
+    sides = pd.DataFrame(
+        {
+            "north": ["side street"],
+            "south": ["none"],
+            "east": ["none"],
+            "west": ["avenue"],
+        },
+        index=["corner"],
+    )
+    frontage = pd.DataFrame(
+        {"street_type": ["side street"], "front": ["north"]}, index=["corner"]
+    )
+    monkeypatch.setattr(features, "building_sides", lambda: sides)
+    monkeypatch.setattr(features, "building_frontage", lambda: frontage)
+    rows = [
+        ("u1", {"west"}, ""),  # onto the avenue
+        ("u2", {"north", "west"}, ""),  # corner unit: both streets
+        ("u3", {"south"}, ""),  # rear
+        ("u4", set(), "Street-facing one bedroom."),  # text: the address street
+        ("u5", set(), ""),  # no evidence
+    ]
+    frame = pd.DataFrame(
+        {
+            "building": ["corner"] * len(rows),
+            "unit_id": [r[0] for r in rows],
+            "canonical_unit_url": [
+                f"https://x/building/corner/{i}A" for i in range(len(rows))
+            ],
+            **{
+                f"window_{d}": ["yes" if d in r[1] else "unknown" for r in rows]
+                for d in ("north", "south", "east", "west")
+            },
+            "view_street": ["unknown"] * len(rows),
+            "view_courtyard": ["unknown"] * len(rows),
+        }
+    )
+    monkeypatch.setattr(
+        descriptions, "attach", lambda f: pd.Series([r[2] for r in rows])
+    )
+    got = features.unit_sides(frame)
+    assert got.avenue.tolist() == [True, True, False, False, False]
+    assert got["side street"].tolist() == [False, True, False, True, False]
+    assert got["none"].tolist() == [False, False, True, False, False]
+    assert not got["wide street"].any()
+
+
+def test_unitfacing_v3_records_basemap_and_footprints(monkeypatch):
+    from rentfrontier import run
+
+    fn = features.FEATURE_SETS["unitfacing-v3"]
+    assert fn.func is features.facing_v3
+    on_v3 = {
+        n
+        for n, f in features.FEATURE_SETS.items()
+        if getattr(f, "func", f) is features.facing_v3
+    }
+    assert on_v3 == features.FOOTPRINTS and on_v3 <= features.BASEMAP
+    monkeypatch.setattr(run.data, "sha256", lambda path: "sha")
+    assert {"basemap", "footprints"} <= run.feature_sources("unitfacing-v3").keys()

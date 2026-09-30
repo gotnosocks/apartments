@@ -12,6 +12,7 @@ id, so older leaderboard entries stay reproducible from their commit anyway.
 from __future__ import annotations
 
 import functools
+import itertools
 import json
 import math
 import re
@@ -265,6 +266,9 @@ SUBWAY_FILE = f"{SUBWAY_SNAPSHOT}/subway.parquet"
 # Street centerlines, parks and shoreline (`rentfrontier.external basemap`).
 BASEMAP_SNAPSHOT = "/data1/apartments/external/basemap/20260929-da7e40d"
 BASEMAP_FILE = f"{BASEMAP_SNAPSHOT}/basemap.parquet"
+# Building outlines (`rentfrontier.external footprints`).
+FOOTPRINTS_SNAPSHOT = "/data1/apartments/external/footprints/20260930-c5ab14f"
+FOOTPRINTS_FILE = f"{FOOTPRINTS_SNAPSHOT}/footprints.parquet"
 ERAS = (
     (0, 1900, "pre-1900"),
     (1900, 1930, "1900-1929"),
@@ -710,6 +714,203 @@ def facing_v2(
     )
 
 
+# Every side of a building: the street it faces, from its footprint. A facade
+# (outline edges whose outward normal is nearest a grid direction) faces the
+# street whose centerline is the nearest one to most of its points, if that
+# centerline lies outward within SIDE_REACH_M; otherwise it faces no street (a
+# party wall, a rear yard or a courtyard).
+SIDE_REACH_M = 45.0
+SIDE_COSINE = 0.6
+GRID_DIRECTIONS = {
+    "north": (0.0, 1.0),
+    "south": (0.0, -1.0),
+    "east": (1.0, 0.0),
+    "west": (-1.0, 0.0),
+}
+LOUD_ROADS = frozenset({"WEST ST", "12 AVE"})  # the West Side Highway, with the avenues
+
+
+def street_kind(name: str, roadway: str | None) -> str | None:
+    """Street type of a centerline: avenue (and the highway), wide crosstown
+    street, side street, or None for other ways."""
+    if roadway == "2" or name in LOUD_ROADS:
+        return "avenue"
+    if name.endswith(" AVE") or name in ("AVE OF THE AMERICAS", "BROADWAY"):
+        return "avenue"
+    if m := re.fullmatch(r"W\s+(\d+) ST", name):
+        return "wide street" if int(m.group(1)) in WIDE_STREETS else "side street"
+    return None
+
+
+@functools.lru_cache(maxsize=1)
+def building_sides() -> pd.DataFrame:
+    """Per registry building with a footprint: for each grid direction the type
+    of street that side faces, or "none" (no street), or "no facade"."""
+    registry = pd.read_parquet(REGISTRY_FILE).set_index("building")
+    lat0, lon0 = registry.latitude.mean(), registry.longitude.mean()
+    phi, metres = math.radians(FRONTAGE_BEARING_DEG), 111_320.0
+    cos0 = math.cos(math.radians(lat0))
+
+    def grid(lon, lat):
+        east = (np.asarray(lon, float) - lon0) * metres * cos0
+        north = (np.asarray(lat, float) - lat0) * metres
+        return np.stack(
+            [
+                east * math.cos(phi) - north * math.sin(phi),
+                east * math.sin(phi) + north * math.cos(phi),
+            ],
+            -1,
+        )
+
+    starts, ends, kinds = [], [], []
+    for row in pd.read_parquet(BASEMAP_FILE).query("layer == 'street'").itertuples():
+        roadway = json.loads(row.attributes).get("rw_type")
+        kind = street_kind(row.name, roadway)
+        if kind is None or roadway not in ("1", "2", "3", "9"):
+            continue
+        geometry = json.loads(row.geometry)
+        lines = geometry["coordinates"]
+        for line in lines if geometry["type"] == "MultiLineString" else [lines]:
+            pts = grid([p[0] for p in line], [p[1] for p in line])
+            starts.append(pts[:-1])
+            ends.append(pts[1:])
+            kinds += [kind] * (len(pts) - 1)
+    a, b, kinds = np.concatenate(starts), np.concatenate(ends), np.array(kinds)
+    ab = b - a
+    ab2 = np.maximum((ab * ab).sum(1), 1e-12)
+
+    def nearest(p):
+        t = np.clip(((p - a) * ab).sum(1) / ab2, 0, 1)
+        v = a + t[:, None] * ab - p
+        d = np.hypot(v[:, 0], v[:, 1])
+        i = int(d.argmin())
+        return d[i], v[i], kinds[i]
+
+    footprints = pd.read_parquet(FOOTPRINTS_FILE)
+    by_bin = footprints.groupby(footprints.bin.astype(str))
+    by_lot = footprints.groupby(footprints.base_bbl.astype(str))
+    out = {}
+    for building, r in registry.iterrows():
+        key_bin, key_lot = str(r.bin), str(r.bbl)
+        if not re.fullmatch(r"[1-5]000000", key_bin) and key_bin in by_bin.groups:
+            rows = by_bin.get_group(key_bin)
+        elif key_lot in by_lot.groups:
+            rows = by_lot.get_group(key_lot)
+        else:
+            continue
+        rings = []
+        for geometry in rows.geometry.map(json.loads):
+            polygons = geometry["coordinates"]
+            for polygon in (
+                polygons if geometry["type"] == "MultiPolygon" else [polygons]
+            ):
+                rings.append(
+                    grid([q[0] for q in polygon[0]], [q[1] for q in polygon[0]])
+                )
+        # The outline nearest the registry point (a lot can hold several buildings).
+        here = grid(r.longitude, r.latitude)
+        ring = min(rings, key=lambda q: float(np.hypot(*(q.mean(0) - here))))
+        if 0.5 * np.sum(ring[:-1, 0] * ring[1:, 1] - ring[1:, 0] * ring[:-1, 1]) < 0:
+            ring = ring[::-1]  # counter-clockwise, so the outward normal is (dy, -dx)
+        votes = {d: {} for d in GRID_DIRECTIONS}
+        for p, q in itertools.pairwise(ring):
+            edge = q - p
+            length = float(np.hypot(*edge))
+            if length < 3.0:
+                continue
+            normal = np.array([edge[1], -edge[0]]) / length
+            side = max(
+                GRID_DIRECTIONS, key=lambda d: normal @ np.array(GRID_DIRECTIONS[d])
+            )
+            for s in np.arange(2.5, length, 5.0):
+                dist, v, kind = nearest(p + edge * (s / length))
+                outward = (v @ np.array(GRID_DIRECTIONS[side])) / max(dist, 1e-9)
+                hit = (
+                    kind if dist <= SIDE_REACH_M and outward >= SIDE_COSINE else "none"
+                )
+                votes[side][hit] = votes[side].get(hit, 0) + 1
+        out[building] = {
+            d: max(v, key=v.get) if v else "no facade" for d, v in votes.items()
+        }
+    return pd.DataFrame.from_dict(out, orient="index")
+
+
+def unit_sides(frame: pd.DataFrame) -> pd.DataFrame:
+    """Per row: whether its unit looks onto an avenue, a wide street, a side
+    street, or no street (rear, courtyard), pooled over the unit's listings,
+    from window directions against its building's sides, front/rear labels,
+    ad text and views (text, labels and views place the front on the address
+    street)."""
+    from . import descriptions
+
+    sides = building_sides().reindex(frame.building.to_numpy())
+    address_kind = (
+        building_frontage().street_type.reindex(frame.building.to_numpy()).to_numpy()
+    )
+    has_sides = sides.notna().all(axis=1).to_numpy()
+    looks = {
+        k: np.zeros(len(frame), bool)
+        for k in ("avenue", "wide street", "side street", "none")
+    }
+    for d in GRID_DIRECTIONS:
+        window = frame[f"window_{d}"].eq("yes").to_numpy() & has_sides
+        side = sides[d].to_numpy()
+        for kind in looks:
+            looks[kind] |= window & (side == kind)
+    label = frame.canonical_unit_url.str.extract(r"/([^/]+)$")[0].str.upper().fillna("")
+    letter = label.str.extract(r"^\d{1,2}([A-Z]+)$")[0]
+    letters = letter.groupby(frame.building.to_numpy()).agg(lambda s: set(s.dropna()))
+    fr_building = frame.building.map(
+        lambda b: letters.get(b, set()) == {"F", "R"}
+    ).to_numpy()
+    text = descriptions.attach(frame).fillna("").str.lower()
+    through = text.str.contains(THROUGH_TEXT, regex=True).to_numpy()
+    front = (
+        (fr_building & letter.eq("F").to_numpy())
+        | text.str.contains(FRONT_TEXT, regex=True).to_numpy()
+        | through
+        | frame.view_street.eq("yes").to_numpy()
+    )
+    rear = (
+        (fr_building & letter.eq("R").to_numpy())
+        | text.str.contains(REAR_TEXT, regex=True).to_numpy()
+        | through
+        | frame.view_courtyard.eq("yes").to_numpy()
+    )
+    for kind in ("avenue", "wide street", "side street"):
+        looks[kind] |= front & (address_kind == kind)
+    looks["none"] |= rear
+    rows = pd.DataFrame(looks, index=frame.index)
+    return rows.groupby(frame.unit_id.to_numpy()).transform("any")
+
+
+def facing_v3(
+    frame: pd.DataFrame, train: np.ndarray, id: str = "facing-v3", base: str = "base-v1"
+) -> Features:
+    """A base set plus which streets the apartment looks onto (unit-level): an
+    avenue, a wide street, a side street, and whether it also looks onto the
+    rear or a courtyard; each from every side of its building (footprints), not
+    only the address street. No evidence is the reference."""
+    base = FEATURE_SETS[base](frame, train)
+    looks = unit_sides(frame)
+    b = _Builder(frame)
+    for kind, name in (
+        ("avenue", "looks onto an avenue"),
+        ("wide street", "looks onto a wide street"),
+        ("side street", "looks onto a side street"),
+        ("none", "looks onto the rear or a courtyard"),
+    ):
+        b.add("facing", name, looks[kind])
+    extra = b.build(id)
+    return Features(
+        id,
+        base.names + extra.names,
+        base.groups + extra.groups,
+        np.column_stack([base.values, extra.values]),
+        np.concatenate([base.prior_scale, extra.prior_scale]),
+    )
+
+
 # Feature sets that read the external snapshots (run records list them).
 EXTERNAL = {
     "pluto-v1",
@@ -721,11 +922,14 @@ EXTERNAL = {
     "unitdescpluto-v2",
     "unitdescpluto-v3",
     "unitfacing-v2",
+    "unitfacing-v3",
 }
 # Feature sets that read the subway stations snapshot.
 SUBWAY = {"unitdescplutotransit-v2"}
 # Feature sets that read the basemap snapshot (street centerlines).
-BASEMAP = {"unitfacing-v2"}
+BASEMAP = {"unitfacing-v2", "unitfacing-v3"}
+# Feature sets that read the building footprints snapshot.
+FOOTPRINTS = {"unitfacing-v3"}
 # Feature sets that read the advertisement descriptions (`descriptions.SOURCE`),
 # directly or through their base set.
 DESCRIPTIONS = {
@@ -737,6 +941,7 @@ DESCRIPTIONS = {
     "unitdescpluto-v2",
     "unitdescpluto-v3",
     "unitfacing-v2",
+    "unitfacing-v3",
 }
 
 FEATURE_SETS = {
@@ -765,6 +970,8 @@ FEATURE_SETS = {
     ),
     # Which way the apartment faces, on the app's building facts (v3).
     "unitfacing-v2": partial(facing_v2, id="unitfacing-v2", base="unitdescpluto-v3"),
+    # Which streets the apartment looks onto, from every side of its building.
+    "unitfacing-v3": partial(facing_v3, id="unitfacing-v3", base="unitdescpluto-v3"),
     # v2 with "altered since 2000" from the latest recorded alteration.
     "unitdescpluto-v3": partial(
         pluto_v1,
