@@ -727,7 +727,7 @@ the fix goes into the model, the features or the data, not the sampler.
     - **Result: a tie, as expected.** The fit is Gibbs m5-nocurves + `unitdescpluto-v5`,
       `unit-labels-v1` + `quarantine-v1`, 90f66cf. It took 1,362 s and passes (R-hat 1.0058, ESS
       644).
-      - Against v4 (3e514d6), PSIS-LOO is +0.0 ± 6.5 and held-out +0.0 ± 0.1. Avalon's 216 fit
+      - Against v4 (3e514d6), PSIS-LOO is +0.0 ± 6.5 and held-out +0.05 ± 0.06. Avalon's 216 fit
         rows move by +0.05 in all: with that many listings, its building level already carried
         what the wrong facts missed.
       - Features 78.20% → 78.32% of the variance, and building level 7.04% → 6.96%.
