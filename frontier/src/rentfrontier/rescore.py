@@ -93,7 +93,7 @@ def rescore(name: str):
     if frame.attrs["source_sha256"] != result["dataset_observations_sha256"]:
         raise SystemExit("dataset differs from the run's recorded dataset")
     heldout = splits.SPLITS[result["split"]](frame)
-    frame, heldout = data.apply_rules(frame, heldout, result.get("data_rules", ()))
+    frame, heldout = data.apply_rules(frame, heldout, data.recorded_rules(result))
     feats = features.build(result["feature_set"], frame, ~heldout)
     prep = model.prepare(frame, heldout, feats)
     if not np.array_equal(

@@ -33,6 +33,19 @@ def test_paired_scores_cleaning_on_the_rows_both_keep(tmp_path, monkeypatch):
         leaderboard.paired(tmp_path / "c", tmp_path / "b")
 
 
+def test_vs_reference_pairs_the_shared_rows_less_the_dropped_ones(
+    tmp_path, monkeypatch
+):
+    # The reference lacks r4 (as the promoted runs dropped a few rows); r3 is
+    # quarantined: pair on r1 and r2 only.
+    monkeypatch.setattr(leaderboard.data, "dropped_rows", lambda: frozenset({"r3"}))
+    heldout(tmp_path / "run", ["r1", "r2", "r3", "r4"], np.array([1.0, 2.0, 9.0, 9.0]))
+    heldout(tmp_path / "ref", ["r2", "r1", "r3"], np.array([1.0, 0.0, 0.0]))
+    out = leaderboard.vs_reference(tmp_path / "run", tmp_path / "ref" / "heldout.npz")
+    assert out["paired_rows"] == 2
+    assert out["delta_elpd"] == pytest.approx(2.0)
+
+
 def test_paired_refuses_duplicate_audit_ids(tmp_path):
     heldout(tmp_path / "a", ["r1", "r1", "r2"], np.array([1.0, 2.0, 3.0]))
     heldout(tmp_path / "b", ["r1", "r2"], np.array([0.5, 1.0]))

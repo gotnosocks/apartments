@@ -5,6 +5,7 @@ import json
 
 import numpy as np
 import pandas as pd
+import pytest
 from rentfrontier import data
 
 
@@ -72,7 +73,8 @@ def test_quarantine_file_names_each_row_once_with_its_evidence():
     }
     assert len(rows) == len({r["audit_id"] for r in rows}) == len(data.quarantined())
     for r in rows:
-        assert r["action"] in actions and r["reason"] and r["evidence"], r
+        assert r["action"] in actions and r["reason"], r
+        assert r["evidence"] or r.get("external_evidence"), r
     assert data.dropped_rows() == data.quarantined()
 
 
@@ -96,3 +98,30 @@ def test_unit_line_key():
     got = data.unit_line_key(frame).tolist()
     assert got[:6] == ["b/C", "b/C", "b/04", "b/04", "b/FL", "b/FL"]
     assert all(pd.isna(x) for x in got[6:9]) and got[9] == "b/FL"
+
+
+def test_recorded_rules_refuse_an_unknown_rule_or_a_changed_file(tmp_path, monkeypatch):
+    path = tmp_path / "q.jsonl"
+    path.write_text('{"audit_id": "a"}\n')
+    monkeypatch.setitem(data.RULE_SOURCES, "quarantine-v1", path)
+    good = {
+        "data_rules": ["unit-labels-v1", "quarantine-v1"],
+        "data_rule_sources": {"quarantine-v1": {"sha256": data.sha256(path)}},
+    }
+    assert data.recorded_rules(good) == ("unit-labels-v1", "quarantine-v1")
+    assert data.recorded_rules({}) == ()  # older records: no rules, nothing to check
+    with pytest.raises(SystemExit, match="unknown data rule"):
+        data.recorded_rules({"data_rules": ["no-such-rule"]})
+    with pytest.raises(SystemExit, match="records no hash"):
+        data.recorded_rules({"data_rules": ["quarantine-v1"]})
+    path.write_text('{"audit_id": "b"}\n')
+    with pytest.raises(SystemExit, match="differs from the run's record"):
+        data.recorded_rules(good)
+
+
+def test_dropped_rows_are_the_union_of_every_rule_file(tmp_path, monkeypatch):
+    a, b = tmp_path / "a.jsonl", tmp_path / "b.jsonl"
+    a.write_text('{"audit_id": "x"}\n')
+    b.write_text('{"audit_id": "y"}\n{"audit_id": "x"}\n')
+    monkeypatch.setattr(data, "RULE_SOURCES", {"quarantine-v1": a, "quarantine-v2": b})
+    assert data.dropped_rows() == {"x", "y"}

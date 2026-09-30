@@ -304,9 +304,7 @@ def check_run(result):
     for key, src in result.get("feature_sources", {}).items():
         if key not in now or now[key]["sha256"] != src["sha256"]:
             raise SystemExit(f"feature source {key} differs from the run's record")
-    for rule, src in result.get("data_rule_sources", {}).items():
-        if data.sha256(Path(data.RULE_SOURCES[rule])) != src["sha256"]:
-            raise SystemExit(f"data rule {rule}'s file differs from the run's record")
+    data.recorded_rules(result)
 
 
 def verify_run(result, frame, heldout, prep, run_dir, post_units, post_buildings):
@@ -349,9 +347,12 @@ def summarize(name: str, allow_failing: bool = False):
     config = model.MODELS[result["model"]["name"]]
     frame = data.load(Path(result["dataset"]))
     heldout = splits.SPLITS[result["split"]](frame)
-    frame, heldout = data.apply_rules(frame, heldout, result.get("data_rules", ()))
+    frame, heldout = data.apply_rules(frame, heldout, data.recorded_rules(result))
     feats = features.build(result["feature_set"], frame, ~heldout)
     prep = model.prepare(frame, heldout, feats)
+    if (np.asarray(prep.test.unit) < 0).any():
+        # A data rule dropped every training row of some held-out row's unit.
+        raise SystemExit("held-out rows of units with no rows in the fit")
     post = np.load(run_dir / "posterior.npz", allow_pickle=True)
     verify_run(result, frame, heldout, prep, run_dir, post["units"], post["buildings"])
     draws = kept["alpha"].shape[0]
