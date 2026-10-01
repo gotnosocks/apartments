@@ -583,3 +583,35 @@ def test_review_fixes_on_research_model_and_home(client, research_file):
     assert html.count("<dt>Convergence gate</dt>") == 1
     # published by hand: no claim that the rule picked it
     assert "A rule picks it" not in html
+
+
+def test_serve_status_without_the_dashboards_reason():
+    """Before the research data carries `why_not_served`, a fit that fails the
+    checks is still not servable, and nothing else is claimed."""
+    from apartments.site.research import serve_status
+
+    passing = {"passes_checks": True, "splits": {"rows": {"run": "r"}}}
+    failing = {"passes_checks": False, "splits": {"rows": {"run": "r"}}}
+    assert serve_status(passing) == ("unknown", None)
+    assert serve_status(failing) == ("no", "it fails the convergence gate")
+    assert serve_status(dict(passing, why_not_served=None)) == ("yes", None)
+    assert serve_status(dict(passing, why_not_served="old rules")) == (
+        "no",
+        "old rules",
+    )
+    subset = {"passes_checks": True, "splits": {"rows": {"run": "m-nb-tune35"}}}
+    assert serve_status(subset) == ("no", "a subset fit, for exploration only")
+
+
+def test_frontier_page_never_calls_an_unknown_fit_servable(client):
+    html = client.get("/research").get_data(as_text=True)
+    # the served entry has no why_not_served in this research data
+    assert "not known yet" in html
+    assert "no: it fails the convergence gate" in html  # m-failing's own reason
+    assert html.count("<td>yes</td>") == 0
+
+
+def test_frontier_page_with_an_empty_board(site_root, research_file):
+    research_file.write_text(json.dumps({"entries": [], "snapshots": []}))
+    app = create_app(site_root, research_data=research_file)
+    assert app.test_client().get("/research").status_code == 503

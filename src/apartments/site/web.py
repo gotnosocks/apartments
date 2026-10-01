@@ -941,7 +941,14 @@ def create_app(
                 "not rated" if f["complexity"] is None else str(f["complexity"]),
             ]
         )
-        rows.append(["Servable", "yes" if not f["why_not"] else f["why_not"]])
+        rows.append(
+            [
+                "Servable",
+                {"yes": "yes", "unknown": "not known yet"}.get(
+                    f["serve"], f"no: {f['why_not']}"
+                ),
+            ]
+        )
         return rows
 
     @app.get("/research")
@@ -951,6 +958,8 @@ def create_app(
         if not data:
             abort(503, description="The research data is not available yet.")
         classes = hardware_classes(data)
+        if not classes:
+            abort(503, description="The board has no fits yet.")
         hardware = request.args.get("hardware")
         if hardware not in classes:
             hardware = TARGET_HARDWARE if TARGET_HARDWARE in classes else classes[0]
@@ -969,7 +978,7 @@ def create_app(
                 "x": f["minutes"],
                 "y": f["delta"],
                 "kind": f["kind"],
-                "title": f["entry"]["id"],
+                "title": f["entry"]["key"],
                 "rows": fit_rows(f),
             }
             for f in scored
@@ -1037,7 +1046,6 @@ def create_app(
             terms=terms,
             labels=labels,
             entry=entry_for_run(data, m["provenance"]["run"]),
-            gate=data.get("gate") if data else None,
             baseline=data.get("baseline") if data else None,
             autoselect=data.get("autoselect") if data else None,
         )
