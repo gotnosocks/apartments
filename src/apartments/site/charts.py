@@ -403,3 +403,94 @@ def fit_scatter(
         + "</div>"
     )
     return _figure("points", _svg(parts, label, frame), hover, legend)
+
+
+def _y_title(frame, title):
+    return f'<text class="axis-title" x="{frame.left - 56}" y="10">{escape(title)}</text>'
+
+
+def lines_over_time(series, *, label: str, y_title: str, y_format) -> Markup:
+    """Up to four series over time, one categorical colour each (fixed order,
+    slots s1-s4), with a legend; `step` series hold their value until the
+    next point (a running best). series: [{"name", "points": [(iso time,
+    value)], "step": bool}]."""
+    series = [s for s in series if s["points"]][:4]
+    if not series:
+        return Markup("")
+    periods = [p[0] for s in series for p in s["points"]]
+    values = [p[1] for s in series for p in s["points"]]
+    frame = Frame(periods, values, zero=True)
+    frame.top = max(frame.top, 20)
+    parts = _axes(frame, y_format)
+    parts.append(_y_title(frame, y_title))
+    hover = []
+    for i, s in enumerate(series, start=1):
+        xy = [(frame.x(t), frame.y(v)) for t, v in s["points"]]
+        if s.get("step"):
+            stepped = []
+            for (x, y), nxt in zip(xy, xy[1:] + [None]):
+                stepped.append((x, y))
+                if nxt:
+                    stepped.append((nxt[0], y))
+            xy_path = stepped
+        else:
+            xy_path = xy
+        parts.append(f'<path class="line s{i}" d="{_path(xy_path)}"/>')
+        for (x, y), (t, v) in zip(xy, s["points"]):
+            hover.append(
+                {
+                    "x": round(x, 1),
+                    "y": round(y, 1),
+                    "title": t[:10],
+                    "rows": [[s["name"], y_format(v)]],
+                }
+            )
+    legend = (
+        '<div class="legend">'
+        + "".join(
+            f'<span class="key"><span class="key-line s{i}"></span>'
+            f"{escape(s['name'])}</span>"
+            for i, s in enumerate(series, start=1)
+        )
+        + "</div>"
+    )
+    return _figure("points", _svg(parts, label, frame), hover, legend)
+
+
+def dated_points(points, *, label: str, y_title: str, y_format) -> Markup:
+    """One dot per item over time. points: [{"at", "y", "kind" (a FIT_KINDS
+    key), "title", "rows", "href"}]."""
+    if not points:
+        return Markup("")
+    frame = Frame([p["at"] for p in points], [p["y"] for p in points], zero=True)
+    frame.top = max(frame.top, 20)
+    parts = _axes(frame, y_format)
+    parts.append(_y_title(frame, y_title))
+    order = {k: i for i, k in enumerate(FIT_KINDS)}
+    hover = []
+    for p in sorted(points, key=lambda p: order[p["kind"]]):
+        x, y = frame.x(p["at"]), frame.y(p["y"])
+        radius = 5.5 if p["kind"] == "served" else 4
+        parts.append(
+            f'<circle class="fit {p["kind"]}" cx="{x:.1f}" cy="{y:.1f}" r="{radius}"/>'
+        )
+        hover.append(
+            {
+                "x": round(x, 1),
+                "y": round(y, 1),
+                "title": p["title"],
+                "rows": [["", FIT_KINDS[p["kind"]]], *p.get("rows", [])],
+                "href": p.get("href"),
+            }
+        )
+    present = [k for k in FIT_KINDS if any(p["kind"] == k for p in points)]
+    legend = (
+        '<div class="legend">'
+        + "".join(
+            f'<span class="key"><span class="key-fit {k}"></span>'
+            f"{escape(FIT_KINDS[k])}</span>"
+            for k in reversed(present)
+        )
+        + "</div>"
+    )
+    return _figure("points", _svg(parts, label, frame), hover, legend)

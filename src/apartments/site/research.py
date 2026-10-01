@@ -176,3 +176,86 @@ def frontier_view(
         "unrated": sum(f["complexity"] is None for f in fits if f["delta"] is not None),
         "hidden_subsets": hidden,
     }
+
+
+# Model lines on the board, in plain words.
+LINES = {
+    "frontier": "Custom samplers (JAX)",
+    "numpyro": "NumPyro NUTS",
+    "pymc": "PyMC",
+}
+BOARD_SORTS = {
+    "delta": lambda e: (e.get("psis") or {}).get("delta"),
+    "time": lambda e: e.get("fit_seconds"),
+    "complexity": lambda e: e.get("complexity"),
+    "landed": lambda e: e.get("available_at"),
+}
+
+
+def entry_by_key(data: dict | None, key: str) -> dict | None:
+    if not data:
+        return None
+    return next((e for e in data.get("entries", []) if e.get("key") == key), None)
+
+
+def board_rows(
+    data: dict,
+    *,
+    hardware: str | None = None,
+    line: str | None = None,
+    q: str = "",
+    servable: bool = False,
+    subsets: bool = False,
+    sort: str = "delta",
+    descending: bool = True,
+) -> list[dict]:
+    """Board entries filtered and sorted; entries without the sort value last."""
+    q = q.lower()
+    rows = [
+        e
+        for e in data.get("entries", [])
+        if (hardware is None or e["hardware_class"] == hardware)
+        and (line is None or e.get("line") == line)
+        and (
+            not q or q in e["key"].lower() or q in (e.get("design_text") or "").lower()
+        )
+        and (not servable or not e.get("why_not_served"))
+        and (subsets or not is_subset(run_of(e)))
+    ]
+    value = BOARD_SORTS.get(sort, BOARD_SORTS["delta"])
+    present = [e for e in rows if value(e) is not None]
+    missing = [e for e in rows if value(e) is None]
+    present.sort(key=value, reverse=descending)
+    return present + missing
+
+
+def best_over_time(data: dict, hardware: str) -> list[tuple[str, float]]:
+    """The best fit's PSIS-LOO ΔELPD each time a result landed (the board's
+    own replay), for one hardware class."""
+    out = []
+    for snap in sorted(data.get("snapshots", []), key=lambda s: s["at"]):
+        best = snap.get("by_class", {}).get(hardware, {}).get("best_delta")
+        if best is not None:
+            out.append((snap["at"], best))
+    return out
+
+
+def compute_by_line(data: dict) -> list[dict]:
+    """Cumulative fit hours by model line, one point per finished split."""
+    splits = sorted(
+        (
+            s["completed_at"],
+            e.get("line") or "frontier",
+            s.get("fit_seconds") or 0.0,
+        )
+        for e in data.get("entries", [])
+        for s in (e.get("splits") or {}).values()
+        if s.get("completed_at")
+    )
+    totals: dict[str, float] = {}
+    series: dict[str, list] = {}
+    for at, line, seconds in splits:
+        totals[line] = totals.get(line, 0.0) + seconds / 3600
+        series.setdefault(line, []).append((at, totals[line]))
+    order = [k for k in LINES if k in series] + [k for k in series if k not in LINES]
+    return [{"name": LINES.get(k, k), "points": series[k], "line": k} for k in order]
