@@ -279,6 +279,73 @@ def test_solo_updates_reusing_parts_match_recomputing_them(monkeypatch):
         )
 
 
+@pytest.mark.parametrize("design", ["walk", "walk12", "all", "fslopes", "tunits"])
+def test_compact_walk_matches_the_full_block(design):
+    """Integrating out the walk knots no row touches leaves the posterior mean
+    (untouched knots at their conditional mean) and the scale dependence of the
+    marginal likelihood unchanged."""
+    prep = synthetic(seed=2, units_per_building=3, months=72)
+    full = gibbs.build_design(prep, DESIGNS[design], compact=False)
+    comp = gibbs.build_design(prep, DESIGNS[design])
+    assert (
+        comp.buckets
+        and comp.walk_rank < full.n_buildings * full.local_ranks["walk_scale"]
+    )
+    assert sum(b.buildings.shape[0] for b in comp.buckets) == comp.n_buildings
+    rng = np.random.default_rng(4)
+    lam = jnp.asarray(rng.gamma(2.5, 1 / 2.5, full.y.shape[0]))
+    kappa = jnp.asarray(rng.gamma(1.5, 1 / 1.5, full.n_units))
+    zeros = (
+        jnp.zeros(full.a.shape[1]),
+        jnp.zeros((full.n_buildings, full.n_local)),
+        jnp.zeros(full.n_units),
+    )
+    other = {k: v * 1.4 for k, v in SCALES.items()}
+    a = gibbs.gaussian_block(full, lam, SCALES, *zeros, kappa)
+    b = gibbs.gaussian_block(comp, lam, SCALES, *zeros, kappa)
+    for x, y in zip(a[:5], b[:5]):
+        np.testing.assert_allclose(np.asarray(x), np.asarray(y), atol=1e-9)
+    a2 = gibbs.gaussian_block(full, lam, other, *zeros, kappa)[-1]
+    b2 = gibbs.gaussian_block(comp, lam, other, *zeros, kappa)[-1]
+    np.testing.assert_allclose(float(a[-1] - a2), float(b[-1] - b2), atol=1e-7)
+
+
+def test_filled_knots_have_the_walk_conditional_covariance():
+    """fill_walk draws the untouched knots from the RW1 bridge given the touched
+    ones: covariance s^2 (S_uu - S_ut S_tt^-1 S_tu) with S_ij = min(i, j)."""
+    prep = synthetic(seed=2, units_per_building=3, months=72)
+    d = gibbs.build_design(prep, DESIGNS["walk"])
+    k = d.n_local - d.knot_start + 1
+    scale = 0.07
+    left = np.asarray(d.fill["left"])
+    for b in range(d.n_buildings):
+        touched = np.unique(left[b])  # every touched knot is its own left
+        touched = touched[touched > 0]
+        free = np.setdiff1d(np.arange(1, k), touched)
+        if len(free) == 0:
+            continue
+
+        def draw(z, b=b):
+            return gibbs.fill_walk(d, jnp.zeros((d.n_buildings, k)), scale, z)[b]
+
+        jac = np.asarray(jax.jacfwd(draw)(jnp.zeros((d.n_buildings, k))))[:, b, :]
+        cov = jac @ jac.T  # fill_walk scales the noise itself
+        idx = np.arange(1, k)
+        s_all = np.minimum.outer(idx, idx).astype(float)
+        t, u = touched - 1, free - 1
+        expect = (
+            s_all[np.ix_(u, u)]
+            - s_all[np.ix_(u, t)]
+            @ np.linalg.solve(s_all[np.ix_(t, t)], s_all[np.ix_(t, u)])
+            if len(t)
+            else s_all[np.ix_(u, u)]
+        )
+        np.testing.assert_allclose(
+            cov[np.ix_(free, free)], scale**2 * expect, atol=1e-12
+        )
+        np.testing.assert_allclose(cov[np.ix_(touched, touched)], 0.0, atol=1e-14)
+
+
 def test_student_t_units_block_matches_dense():
     """Per-unit prior precisions kappa_j / tau^2 (Student-t units as a scale mixture)."""
     prep = synthetic()

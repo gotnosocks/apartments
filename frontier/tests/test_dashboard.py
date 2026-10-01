@@ -277,7 +277,6 @@ def test_serve_check_gives_autoselects_reason_or_a_note(tmp_path):
     reason = dashboard.serve_check(e, frozenset())
     assert reason == f"it did not run on the {autoselect.TARGET_HARDWARE} row split"
     e["hardware"] = autoselect.TARGET_HARDWARE
-    e["complexity"] = 10  # rated (rentfrontier.elegance), so the rules are read next
     # its run directory has no result.json to read the data rules from
     assert dashboard.serve_check(e, frozenset()) == (
         "its record cannot be read (FileNotFoundError)"

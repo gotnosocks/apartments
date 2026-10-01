@@ -42,7 +42,7 @@ import shutil
 import subprocess
 from pathlib import Path
 
-from . import autoselect, leaderboard, variance
+from . import autoselect, leaderboard, simplicity, variance
 from . import data as data_module
 
 REPO = Path(__file__).resolve().parents[3]
@@ -329,9 +329,9 @@ def data():
                 "passes_checks": e["passes_checks"],
                 "frontier": e["frontier"],
                 "current_best": e["current_best"],
-                # The board's judged complexity (rentfrontier.elegance; lower is
-                # simpler); None for an unrated design or a board without it.
-                "complexity": e.get("complexity"),
+                # The judge agents' pairwise simplicity judgements of this
+                # design (rentfrontier.simplicity): [{vs, verdict, reason}].
+                "simplicity": e.get("simplicity", []),
                 "why_not_served": serve_check(e, rules),
                 "psis": psis_fields(e.get("psis")),
                 "note": e["note"],
@@ -383,6 +383,13 @@ def data():
         "milestones": milestones(),
         "data_quality": data_quality(),
         "autoselect": selection_decision(entries),
+        # Every recorded simplicity judgement (config/simplicity-judgements.jsonl).
+        "simplicity_judgements": [
+            j
+            for _, j in sorted(
+                simplicity.judgements().items(), key=lambda kv: sorted(kv[0])
+            )
+        ],
         "footer": board.get("footer", []),
     }
 

@@ -145,8 +145,13 @@ listings fall in each band, as calibration predicts.
    needs no restart.
 4. **Research data.** `rentfrontier.dashboard` (frontier environment, run from
    `/data1/apartments/serve/master` every 10 minutes under the heavy-job lock by
-   `ops/systemd/apartments-dashboard-build.timer`; about 3 minutes and 600 MB) writes the board's `data.json`: entries, as-of snapshots, milestones and the
-   data-quality card. The site reads `/data1/apartments/dashboard/site/data.json` (`RESEARCH_DATA`
+   `ops/systemd/apartments-dashboard-build.timer`; about 3 minutes and 600 MB) writes the board's
+   `data.json`: entries, as-of snapshots, milestones and the data-quality card. Each entry carries
+   the judge agents' pairwise `simplicity` judgements of its design (`rentfrontier.simplicity`: a
+   list of `{vs, verdict, reason}`, empty when none) and `why_not_served`, autoselect's plain reason
+   the fit cannot be served (null when it can). The top-level `autoselect` is autoselect's decision
+   on the current board against the served run: keep or switch, the reason, the eligible fits and
+   every fit checked; an error note replaces it if a pairing fails. The site reads `/data1/apartments/dashboard/site/data.json` (`RESEARCH_DATA`
    overrides it) and keeps the parsed copy until the file behind the symlink changes. Without it,
    the research parts of a page are left out. When the publish comes from the repository's
    selection, the build also stores the selection's reason (`selected_by`, `selection_reason`).
