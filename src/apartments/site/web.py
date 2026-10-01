@@ -34,6 +34,8 @@ from flask import (
 )
 
 from . import charts
+from .research import Research, entry_for_run, latest_milestones
+from .selection import SELECTION, selection_note
 
 log = logging.getLogger("apartments.site")
 
@@ -282,8 +284,31 @@ def _asset_versions(static: Path) -> dict:
     }
 
 
-def create_app(root: Path | str | None = None, *, allowed_hosts=None) -> Flask:
+# The site's two sections and the endpoints in each (navigation and titles).
+SECTIONS = {
+    "estimates": (
+        "estimates",
+        "listings",
+        "listing",
+        "unit",
+        "buildings",
+        "building",
+        "quarantined",
+        "about",
+    ),
+    "research": ("research_model",),
+}
+
+
+def section_of(endpoint: str | None) -> str | None:
+    return next((k for k, v in SECTIONS.items() if endpoint in v), None)
+
+
+def create_app(
+    root: Path | str | None = None, *, allowed_hosts=None, research_data=None
+) -> Flask:
     root = Path(root or os.environ.get("SITE_ROOT", "/data1/apartments/site"))
+    research = Research(research_data)
     app = Flask(__name__)
     if allowed_hosts is None:
         allowed_hosts = os.environ.get("SITE_ALLOWED_HOSTS", "").split(",")
@@ -424,6 +449,7 @@ def create_app(root: Path | str | None = None, *, allowed_hosts=None) -> Flask:
             )
 
         return {
+            "section": section_of(request.endpoint),
             "sort_url": sort_url,
             "ordinal": ordinal,
             "usd": charts.usd,
@@ -448,8 +474,37 @@ def create_app(root: Path | str | None = None, *, allowed_hosts=None) -> Flask:
         rows = db().execute(*page_query(filters)).fetchall()
         return rows, total, pages
 
+    def served_selection(m: dict) -> dict | None:
+        """Why the published bundle is served. Builds from before the build
+        recorded it fall back to the repository's selection, if it names the
+        published bundle."""
+        if "selection" in m:
+            return m["selection"]
+        return selection_note(SELECTION, m.get("summary_sha256"))
+
     @app.get("/")
     def index():
+        m = meta()
+        data = research.load()
+        counts = {
+            "quarantined": db()
+            .execute("SELECT COUNT(*) FROM quarantined")
+            .fetchone()[0]
+            if has_quarantine()
+            else 0
+        }
+        return render_template(
+            "home.html",
+            meta=m,
+            selection=served_selection(m),
+            counts=counts,
+            entry=entry_for_run(data, m["provenance"]["run"]),
+            milestones=latest_milestones(data),
+            research_at=data.get("generated_at") if data else None,
+        )
+
+    @app.get("/estimates")
+    def estimates():
         m = meta()
         current = (
             db()
@@ -481,7 +536,7 @@ def create_app(root: Path | str | None = None, *, allowed_hosts=None) -> Flask:
             value_label="Reference rent",
         )
         return render_template(
-            "index.html",
+            "estimates.html",
             meta=m,
             current=current,
             quarantined=quarantined,
@@ -855,21 +910,35 @@ def create_app(root: Path | str | None = None, *, allowed_hosts=None) -> Flask:
             ],
         )
 
-    @app.get("/model")
-    def model_page():
+    @app.get("/about")
+    def about():
+        return render_template("about.html", meta=meta(), terms=terms_list())
+
+    def terms_list():
+        return db().execute("SELECT * FROM terms ORDER BY position").fetchall()
+
+    @app.get("/research/model")
+    def research_model():
+        m = meta()
         coefficients = (
             db()
             .execute("SELECT * FROM coefficients ORDER BY feature_group, feature")
             .fetchall()
         )
-        terms = db().execute("SELECT * FROM terms ORDER BY position").fetchall()
+        terms = terms_list()
         labels = {t["name"]: t["label"] for t in terms}
+        data = research.load()
         return render_template(
-            "model.html",
-            meta=meta(),
+            "research_model.html",
+            meta=m,
+            selection=served_selection(m),
             coefficients=coefficients,
             terms=terms,
             labels=labels,
+            entry=entry_for_run(data, m["provenance"]["run"]),
+            gate=data.get("gate") if data else None,
+            baseline=data.get("baseline") if data else None,
+            autoselect=data.get("autoselect") if data else None,
         )
 
     @app.get("/healthz")

@@ -1,13 +1,13 @@
 {% extends "base.html" %}
 {% import "_macros.html" as m with context %}
-{% block title %}Listings and estimates{% endblock %}
+{% block title %}Estimates{% endblock %}
 {% block content %}
 {% set s = meta.stats %}
 <section class="intro">
   <h1>{{ meta.scope }} rental listings, with what the model expects each to ask</h1>
   <p class="lede">Every listing's estimate uses the building, the apartment's features, the market that month and the unit's
   <em>other</em> listings, never the listing's own ask. That makes the gap between ask and estimate a fair signal of
-  over- or under-pricing. <a href="{{ url_for('model_page') }}">How the estimates work</a></p>
+  over- or under-pricing. <a href="{{ url_for('about') }}">How the estimates work</a></p>
   <form class="search" action="{{ url_for('listings') }}" method="get" role="search">
     <label for="q" class="visually-hidden">Building, address or unit</label>
     <input id="q" name="q" type="search" placeholder="Building, address or unit (e.g. 23C)" autocomplete="off">
