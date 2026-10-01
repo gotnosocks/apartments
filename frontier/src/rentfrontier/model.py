@@ -1246,6 +1246,17 @@ MODELS = {
         feature_slopes=("log_sqft_vs_bedroom_median",),
         unit_t=True,
     ),
+    # The served m7-nocurves-2slopes plus each unit's linear drift per year
+    # (m8 without the third-bath slope).
+    "m8-nocurves-2slopes": ModelConfig(
+        name="m8-nocurves-2slopes",
+        building_walk=True,
+        bedroom_slope=True,
+        trend_knot_months=3,
+        feature_slopes=("log_sqft_vs_bedroom_median", "bathrooms=2"),
+        unit_t=True,
+        unit_drift=True,
+    ),
     "m8-nocurves": ModelConfig(
         name="m8-nocurves",
         building_walk=True,
