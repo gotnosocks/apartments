@@ -18,7 +18,7 @@ import os
 import sqlite3
 import time
 from pathlib import Path
-from urllib.parse import quote, urlencode
+from urllib.parse import quote, urlencode, urlsplit
 
 from flask import (
     Flask,
@@ -458,7 +458,9 @@ def create_app(
                 page=None,
             )
 
+        host = urlsplit("//" + request.host).hostname or "localhost"
         return {
+            "host_name": f"[{host}]" if ":" in host else host,
             "section": section_of(request.endpoint),
             "sort_url": sort_url,
             "ordinal": ordinal,

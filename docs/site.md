@@ -5,10 +5,7 @@ http://thelio.tail3983e0.ts.net:8600 (tailnet only).
 One site in two sections, with shared navigation and style (Ben, 2026-10-01: "one site, two
 sections"). **Estimates** shows the scraped listings with the selected model's rent estimates.
 **Research** shows how candidate models are compared and which one is served. The research pages
-are moving here from the [research dashboard](dashboard.md) one at a time. Every estimate is
-**leave-own-row-out**: it uses the building, the features, the market that month and the unit's
-other listings, never the listing's own ask. The gap between ask and estimate is therefore a fair
-signal of over- or under-pricing ([what an estimate is](model/listing-estimates.md)).
+are moving here from the [research dashboard](dashboard.md) one at a time.
 
 The estimates use the building, the features, the market that month and the unit's
 other listings, never the listing's own ask (**leave-own-row-out**). The gap between ask and estimate
@@ -50,7 +47,7 @@ is therefore a fair signal of over- or under-pricing ([what an estimate is](mode
   shows the review's reason, the ad's own words or the MapPLUTO record behind it, and no estimate.
   A quarantined listing's URL opens a page that explains why. A building or unit with only
   quarantined listings redirects to its list. Quarantined listings are not in the listings search
-  or any estimate statistic; the start page counts them.
+  or any estimate statistic; the home page and the Estimates overview count them.
 - **How estimates work** (`/about`): for renters. What an estimate is and is not, calibration by
   estimate type, and why some listings are left out.
 

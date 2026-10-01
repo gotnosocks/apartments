@@ -58,8 +58,11 @@ def entry_for_run(data: dict | None, run: str | None) -> dict | None:
 def latest_milestones(data: dict | None, n: int = 6) -> list[dict]:
     if not data:
         return []
+    # Newest first; a model switch before the merge that carries it (same time).
     milestones = sorted(
-        data.get("milestones", []), key=lambda m: m.get("at", ""), reverse=True
+        data.get("milestones", []),
+        key=lambda m: (m.get("at", ""), m.get("kind") == "selection"),
+        reverse=True,
     )
     return milestones[:n]
 

@@ -70,3 +70,36 @@ def test_analysis_rows_keep_one_row_per_unit_month_and_exclude():
     assert np.isnan(rows.square_feet.iloc[0])
     assert cov["exclusions"] == {"invalid_rent": 1, "furnished": 1}
     assert cov["conflicting_unit_month_rows"] == 2
+
+
+def test_combine_adds_the_neighbourhood_and_refuses_overlap(tmp_path):
+    import json
+
+    import pytest
+
+    def part(name, rows):
+        d = tmp_path / name
+        d.mkdir()
+        (d / "observations.jsonl").write_text(
+            "".join(json.dumps(r) + "\n" for r in rows)
+        )
+        return d
+
+    row = lambda a, u, s, b: {
+        "audit_id": a,
+        "unit_id": u,
+        "source_listing_id": s,
+        "building": b,
+    }
+    a = part("a", [row("1", "u1", "10", "b1")])
+    b = part("b", [row("2", "u2", "20", "b2")])
+    out = cohort.combine(tmp_path / "ab", {"Chelsea": a, "West Village": b})
+    lines = [
+        json.loads(x)
+        for x in (tmp_path / "ab" / "observations.jsonl").read_text().splitlines()
+    ]
+    assert [x["neighbourhood"] for x in lines] == ["Chelsea", "West Village"]
+    assert out["rows"] == {"Chelsea": 1, "West Village": 1}
+    c = part("c", [row("3", "u3", "30", "b1")])  # a building in both
+    with pytest.raises(SystemExit):
+        cohort.combine(tmp_path / "ac", {"Chelsea": a, "Other": c})
