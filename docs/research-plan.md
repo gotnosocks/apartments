@@ -1436,6 +1436,11 @@ comes from other sources, most of them public NYC and NYS data.
   per-building slopes on size and a second bathroom.
   - Against the previous selection (66cf77f): PSIS-LOO +1,818.7 ± 87.3, held-out +143.6 ± 24.5.
   - The share of a unit's only listing inside the 95% predictive range rises from 91.6% to 93.0%.
+- Switched a third time on 2026-09-30 by `rentfrontier.autoselect`, because the challenger
+  clearly beats the incumbent. The new selection is `m7-nocurves-floorslope` with
+  `unitfacing-v5`, `unit-labels-v1` and `quarantine-v2` (a8ef50d, solo updates on both slope
+  scales, 2 × (300 + 3000), 1,765 s). It adds a per-building floor slope.
+  - Against the previous selection (8502559): PSIS-LOO +191.9 ± 24.9, held-out +4.6 ± 5.5.
 - On hold: West Village, once its crawl completes.
 
 ## Current state
