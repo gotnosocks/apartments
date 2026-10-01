@@ -7,8 +7,8 @@ defines the data contracts, temporal semantics, model scope, and research gates.
 
 The app's model is the run `config/main-analysis.json` selects. Since 2026-09-30 an automatic
 rule chooses it (`python -m rentfrontier.autoselect`, at Ben's request): the most accurate
-gate-passing fit by PSIS-LOO within 30 minutes on thelio's RTX 2060, fit with the current data
-rules. The rule, and the reason it gives for each choice, are recorded in the selection and
+gate-passing fit by PSIS-LOO within 2 hours on thelio's RTX 2060 (ties go to the simpler model),
+fit on the full data with the current data rules. The rule, and the reason it gives for each choice, are recorded in the selection and
 in the [research plan](docs/research-plan.md) ("Automatic loop and selection"). Listings
 that the data rules quarantine are left out of the fit, and the site lists them with their
 reasons. The model is served through its
