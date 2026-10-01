@@ -5,10 +5,7 @@ http://thelio.tail3983e0.ts.net:8600 (tailnet only).
 One site in two sections, with shared navigation and style (Ben, 2026-10-01: "one site, two
 sections"). **Estimates** shows the scraped listings with the selected model's rent estimates.
 **Research** shows how candidate models are compared and which one is served. The research pages
-are moving here from the [research dashboard](dashboard.md) one at a time. Every estimate is
-**leave-own-row-out**: it uses the building, the features, the market that month and the unit's
-other listings, never the listing's own ask. The gap between ask and estimate is therefore a fair
-signal of over- or under-pricing ([what an estimate is](model/listing-estimates.md)).
+are moving here from the [research dashboard](dashboard.md) one at a time.
 
 The estimates use the building, the features, the market that month and the unit's
 other listings, never the listing's own ask (**leave-own-row-out**). The gap between ask and estimate
@@ -50,20 +47,33 @@ is therefore a fair signal of over- or under-pricing ([what an estimate is](mode
   shows the review's reason, the ad's own words or the MapPLUTO record behind it, and no estimate.
   A quarantined listing's URL opens a page that explains why. A building or unit with only
   quarantined listings redirects to its list. Quarantined listings are not in the listings search
-  or any estimate statistic; the start page counts them.
+  or any estimate statistic; the home page and the Estimates overview count them.
 - **How estimates work** (`/about`): for renters. What an estimate is and is not, calibration by
   estimate type, and why some listings are left out.
 
 ### Research
 
+- **Frontier** (`/research`): every fit of one hardware class (default: the RTX 2060, the served
+  model's), with these parts:
+  - accuracy (PSIS-LOO ΔELPD) against fit time on the full dataset, with Ben's 30-minute target, and
+    against judged complexity (fits not rated yet are counted, not drawn);
+  - the frontier fits in a table, with whether each can be served and why not;
+  - every fit in a table view.
+
+  The marks are served, on the frontier, other, fails the convergence checks, and subset. Frontier
+  membership and the best come from the board's own snapshots, so "board as of" shows the
+  frontier as it stood at the end of any day with results. Subset fits (a `tune…` part in the run
+  name, for example `nb-tune35`) are exploration only. They are hidden unless asked for, and never
+  servable. Fits far below the rest (the mean-only baselines) are drawn at the chart's floor
+  unless "the full accuracy range" is ticked.
 - **Served model** (`/research/model`):
   - why it is served: the selection's own reason, and the latest automatic decision when the research
     data carries it (`autoselect`);
   - its place on the board: PSIS-LOO ΔELPD, the held-out check, fit time, complexity, frontier and
     gate;
   - the fit's provenance, the parts of an estimate, and every feature coefficient.
-- **Frontier, board and history:** still on the research dashboard (:8500), linked from the navigation
-  until they move here.
+- **Board and history:** still on the research dashboard (:8500), linked from the navigation until
+  they move here.
 
 ### Service pages
 

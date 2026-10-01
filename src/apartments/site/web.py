@@ -18,7 +18,7 @@ import os
 import sqlite3
 import time
 from pathlib import Path
-from urllib.parse import quote, urlencode
+from urllib.parse import quote, urlencode, urlsplit
 
 from flask import (
     Flask,
@@ -34,7 +34,17 @@ from flask import (
 )
 
 from . import charts
-from .research import Research, entry_for_run, latest_milestones
+from .research import (
+    TARGET_HARDWARE,
+    TARGET_MINUTES,
+    Research,
+    entry_for_run,
+    frontier_view,
+    hardware_classes,
+    latest_milestones,
+    outlier_floor,
+    snapshot_days,
+)
 from .selection import SELECTION, selection_note
 
 log = logging.getLogger("apartments.site")
@@ -296,7 +306,7 @@ SECTIONS = {
         "quarantined",
         "about",
     ),
-    "research": ("research_model",),
+    "research": ("research_frontier", "research_model"),
 }
 
 
@@ -448,7 +458,9 @@ def create_app(
                 page=None,
             )
 
+        host = urlsplit("//" + request.host).hostname or "localhost"
         return {
+            "host_name": f"[{host}]" if ":" in host else host,
             "section": section_of(request.endpoint),
             "sort_url": sort_url,
             "ordinal": ordinal,
@@ -917,6 +929,104 @@ def create_app(
     def terms_list():
         return db().execute("SELECT * FROM terms ORDER BY position").fetchall()
 
+    def fit_rows(f) -> list:
+        rows = []
+        if f["delta"] is not None:
+            se = f" ± {f['delta_se']:,.1f}" if f["delta_se"] is not None else ""
+            rows.append(["PSIS-LOO ΔELPD", f"{f['delta']:+,.1f}{se}"])
+        rows.append(["Fit time", f"{f['minutes']:.1f} min"])
+        rows.append(
+            [
+                "Complexity",
+                "not rated" if f["complexity"] is None else str(f["complexity"]),
+            ]
+        )
+        rows.append(
+            [
+                "Servable",
+                {"yes": "yes", "unknown": "not known yet"}.get(
+                    f["serve"], f"no: {f['why_not']}"
+                ),
+            ]
+        )
+        return rows
+
+    @app.get("/research")
+    def research_frontier():
+        m = meta()
+        data = research.load()
+        if not data:
+            abort(503, description="The research data is not available yet.")
+        classes = hardware_classes(data)
+        if not classes:
+            abort(503, description="The board has no fits yet.")
+        hardware = request.args.get("hardware")
+        if hardware not in classes:
+            hardware = TARGET_HARDWARE if TARGET_HARDWARE in classes else classes[0]
+        days = snapshot_days(data)
+        day = request.args.get("as_of")
+        day = day if day in days else None
+        subsets = request.args.get("subsets") == "1"
+        full = request.args.get("range") == "full"
+        view = frontier_view(data, hardware, day, m["provenance"]["run"], subsets)
+        scored = [f for f in view["fits"] if f["delta"] is not None]
+        floor = None if full else outlier_floor([f["delta"] for f in scored])
+        target = hardware == TARGET_HARDWARE
+        device = "the RTX 2060" if target else hardware
+        time_points = [
+            {
+                "x": f["minutes"],
+                "y": f["delta"],
+                "kind": f["kind"],
+                "title": f["entry"]["key"],
+                "rows": fit_rows(f),
+            }
+            for f in scored
+        ]
+        rated = [f for f in scored if f["complexity"] is not None]
+        complexity_points = [
+            dict(point, x=f["complexity"])
+            for point, f in zip(time_points, scored)
+            if f["complexity"] is not None
+        ]
+        delta_axis = "PSIS-LOO ΔELPD (higher is more accurate)"
+        return render_template(
+            "research_frontier.html",
+            meta=m,
+            view=view,
+            classes=classes,
+            hardware=hardware,
+            days=days,
+            day=day,
+            subsets=subsets,
+            full=full,
+            floor=floor,
+            target=target,
+            target_minutes=TARGET_MINUTES,
+            rated=rated,
+            time_chart=charts.fit_scatter(
+                time_points,
+                label=f"Accuracy against fit time on {device}, one dot per fit",
+                x_title=f"Fit time on {device}, full dataset (minutes)",
+                y_title=delta_axis,
+                x_format=lambda v: f"{v:g}",
+                y_format=lambda v: f"{v:+,.0f}",
+                y_floor=floor,
+                x_line=(TARGET_MINUTES, f"{TARGET_MINUTES}-minute target")
+                if target
+                else None,
+            ),
+            complexity_chart=charts.fit_scatter(
+                complexity_points,
+                label="Accuracy against judged complexity, one dot per rated fit",
+                x_title="Complexity (judged; lower is simpler)",
+                y_title=delta_axis,
+                x_format=lambda v: f"{v:g}",
+                y_format=lambda v: f"{v:+,.0f}",
+                y_floor=floor,
+            ),
+        )
+
     @app.get("/research/model")
     def research_model():
         m = meta()
@@ -936,7 +1046,6 @@ def create_app(
             terms=terms,
             labels=labels,
             entry=entry_for_run(data, m["provenance"]["run"]),
-            gate=data.get("gate") if data else None,
             baseline=data.get("baseline") if data else None,
             autoselect=data.get("autoselect") if data else None,
         )
