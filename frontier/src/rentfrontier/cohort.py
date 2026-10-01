@@ -260,6 +260,50 @@ def build(history_dir: Path, granular: Path, output: Path) -> dict:
     return complete
 
 
+def combine(output: Path, parts: dict) -> dict:
+    """One cohort from several neighbourhoods' analysis datasets: every row
+    unchanged plus its `neighbourhood`, refused if any audit id, unit, listing
+    or building is in two of them."""
+    seen = {k: set() for k in ("audit_id", "unit_id", "source_listing_id", "building")}
+    output.mkdir(parents=True, exist_ok=False)
+    path = output / "observations.jsonl"
+    counts, sources = {}, {}
+    with open(path, "w") as out:
+        for name, directory in parts.items():
+            mine = {k: set() for k in seen}
+            n = 0
+            with open(directory / "observations.jsonl") as f:
+                for line in f:
+                    if not line.strip():
+                        continue
+                    row = json.loads(line)
+                    for k in seen:
+                        mine[k].add(
+                            str(row[k] if k != "building" else row.get("building"))
+                        )
+                    row["neighbourhood"] = name
+                    out.write(json.dumps(row, default=str) + "\n")
+                    n += 1
+            for k, values in seen.items():
+                if values & mine[k]:
+                    raise SystemExit(f"{name} shares {k} values with another part")
+                values |= mine[k]
+            counts[name] = n
+            sources[name] = {
+                "path": str(directory),
+                "observations_sha256": _sha(directory / "observations.jsonl"),
+            }
+    complete = {
+        "version": "combined-neighbourhood-cohort-v1",
+        "built_at": dt.datetime.now(dt.UTC).isoformat(),
+        "parts": sources,
+        "rows": counts,
+        "files": {"observations.jsonl": _sha(path)},
+    }
+    (output / "complete.json").write_text(json.dumps(complete, indent=2) + "\n")
+    return complete
+
+
 def building_covariates(granular: Path) -> pd.DataFrame:
     """Per building in the transform: its median archived coordinates, the
     smallest floor count and residential-unit count its pages report, as the
@@ -291,6 +335,15 @@ def main(argv=None):
     import sys
 
     argv = sys.argv[1:] if argv is None else argv
+    if argv and argv[0] == "combine":
+        # python -m rentfrontier.cohort combine <output dir> <name>=<dataset dir> ...
+        parts = dict(a.split("=", 1) for a in argv[2:])
+        print(
+            json.dumps(
+                combine(Path(argv[1]), {k: Path(v) for k, v in parts.items()}), indent=2
+            )
+        )
+        return
     if argv and argv[0] == "covariates":
         # python -m rentfrontier.cohort covariates <granular dir> <buildings.csv>
         table = building_covariates(Path(argv[1]))
