@@ -234,13 +234,13 @@ def feature_sources(feature_set: str) -> dict:
         for name, path in features.lot_files(feature_set).items():
             out[name] = {"path": path, "sha256": data.sha256(Path(path))}
     if feature_set in features.BASEMAP:
-        path = features.BASEMAP_FILE
+        path = features.area_files(feature_set)["basemap"]
         out["basemap"] = {"path": path, "sha256": data.sha256(Path(path))}
     if feature_set in features.NOISE:
         path = features.NOISE_FILE
         out["noise311"] = {"path": path, "sha256": data.sha256(Path(path))}
     if feature_set in features.FOOTPRINTS:
-        path = features.FOOTPRINTS_FILE
+        path = features.area_files(feature_set)["footprints"]
         out["footprints"] = {"path": path, "sha256": data.sha256(Path(path))}
     if feature_set in features.SUBWAY:
         path = features.SUBWAY_FILE

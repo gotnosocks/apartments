@@ -207,6 +207,12 @@ def main(argv=None):
     )
     parser.add_argument("--base", type=Path, help="snapshot dir to copy")
     parser.add_argument("--overrides", type=Path, help="reviewed addresses (JSON)")
+    parser.add_argument(
+        "--merge",
+        type=Path,
+        nargs="+",
+        help="snapshot dirs to concatenate (neighbourhoods with disjoint buildings)",
+    )
     args = parser.parse_args(argv)
     if bool(args.base) != bool(args.overrides):
         raise SystemExit("--base and --overrides go together")
@@ -216,7 +222,13 @@ def main(argv=None):
     commit = git("rev-parse", "HEAD")
     started = dt.datetime.now(dt.UTC)
     extra = {}
-    if args.base:
+    if args.merge:
+        parts = [pd.read_parquet(d / "buildings.parquet") for d in args.merge]
+        table = pd.concat(parts, ignore_index=True)
+        if table.building.duplicated().any():
+            raise SystemExit("the snapshots share buildings; merge needs disjoint ones")
+        extra = {"merged": [str(d) for d in args.merge]}
+    elif args.base:
         overrides = json.loads(args.overrides.read_text())["overrides"]
         table = apply_overrides(
             pd.read_parquet(args.base / "buildings.parquet"), overrides
