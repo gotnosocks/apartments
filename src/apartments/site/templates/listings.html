@@ -9,6 +9,15 @@
     <label for="f-q">Building, address or unit</label>
     <input id="f-q" name="q" type="search" value="{{ filters.q }}" autocomplete="off">
   </div>
+  {% if neighbourhoods | length > 1 %}
+  <div class="field">
+    <label for="f-nb">Neighbourhood</label>
+    <select id="f-nb" name="nb">
+      <option value=""{% if not filters.nb %} selected{% endif %}>All</option>
+    {% for name, count in neighbourhoods.items() %}<option value="{{ name }}"{% if filters.nb == name %} selected{% endif %}>{{ name }} ({{ "{:,}".format(count) }})</option>{% endfor %}
+    </select>
+  </div>
+  {% endif %}
   <fieldset class="field">
     <legend>Bedrooms</legend>
     <div class="checks">

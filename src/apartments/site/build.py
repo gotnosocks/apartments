@@ -36,6 +36,7 @@ import re
 import shutil
 import sqlite3
 import statistics
+from collections import Counter
 from pathlib import Path
 
 import duckdb
@@ -43,7 +44,7 @@ import duckdb
 from .selection import SELECTION, selection_note
 
 VERSION = "listings-site-v1"
-SCHEMA_VERSION = 2
+SCHEMA_VERSION = 3
 DEFAULT_ROOT = Path(os.environ.get("SITE_ROOT", "/data1/apartments/site"))
 SELECTION_VERSION = "main-analysis-selection-v2"
 KEEP = 3
@@ -69,6 +70,7 @@ CREATE TABLE buildings(
   level_pct REAL, level_pct_lower REAL, level_pct_upper REAL,
   trend_pct REAL, trend_pct_lower REAL, trend_pct_upper REAL,
   fit_rows INTEGER, listings INTEGER NOT NULL, units INTEGER NOT NULL,
+  neighbourhood TEXT,
   current_listings INTEGER NOT NULL, first_period TEXT, last_period TEXT,
   median_residual_pct REAL);
 CREATE TABLE units(
@@ -78,6 +80,7 @@ CREATE TABLE units(
   last_ask REAL, last_estimate REAL, last_residual_pct REAL);
 CREATE TABLE listings(
   id INTEGER PRIMARY KEY, audit_id TEXT NOT NULL UNIQUE,
+  neighbourhood TEXT NOT NULL,
   unit_id TEXT NOT NULL REFERENCES units(id),
   building_id TEXT NOT NULL REFERENCES buildings(id),
   unit_label TEXT, unit_url TEXT, listing_id TEXT, listing_url TEXT,
@@ -114,6 +117,7 @@ CREATE INDEX listings_building ON listings(building_id, period, id);
 CREATE INDEX listings_unit ON listings(unit_id, period);
 CREATE INDEX listings_current ON listings(is_current, period, id);
 CREATE INDEX listings_bedrooms ON listings(bedrooms);
+CREATE INDEX listings_neighbourhood ON listings(neighbourhood, period, id);
 CREATE INDEX units_building ON units(building_id);
 """
 
@@ -287,7 +291,9 @@ def _concession(value) -> str | None:
     return value if isinstance(value, str) else json.dumps(value, sort_keys=True)
 
 
-def listing_rows(rows, observations, names, k_threshold) -> list[dict]:
+def listing_rows(rows, observations, names, k_threshold, scope="Chelsea") -> list[dict]:
+    """Site rows of the listings. Each carries its neighbourhood: the summary's
+    (combined cohorts), else the dataset's, else the build's scope."""
     out = []
     for r in rows:
         obs = observations.get(r["audit_id"])
@@ -310,6 +316,9 @@ def listing_rows(rows, observations, names, k_threshold) -> list[dict]:
         out.append(
             {
                 "audit_id": r["audit_id"],
+                "neighbourhood": r.get("neighbourhood")
+                or obs.get("neighbourhood")
+                or scope,
                 "unit_id": r["unit_id"],
                 "building_id": r["building"],
                 "unit_label": unit_label(obs.get("canonical_unit_url")),
@@ -418,6 +427,9 @@ def building_rows(effects, listings, units, registry, pluto) -> list[dict]:
         out.append(
             {
                 "id": slug,
+                "neighbourhood": Counter(r["neighbourhood"] for r in rows).most_common(
+                    1
+                )[0][0],
                 "name": name,
                 "address": address,
                 "sort_key": natural_key(display),
@@ -583,7 +595,7 @@ def write_database(
     if names != record["terms"]:
         raise BuildError("terms.json differs from the bundle's record")
     k_threshold = record["estimate_pareto_k"]["threshold"]
-    listings = listing_rows(rows, observations, names, k_threshold)
+    listings = listing_rows(rows, observations, names, k_threshold, scope)
     units = unit_rows(listings)
     registry = external(record, "registry")
     buildings = building_rows(
@@ -622,6 +634,9 @@ def write_database(
         "calibration": calibration(listings),
         "listings": len(listings),
         "current_listings": sum(r["is_current"] for r in listings),
+        "neighbourhoods": dict(
+            sorted(Counter(r["neighbourhood"] for r in listings).items())
+        ),
         "units": len(units),
         "buildings": len(buildings),
         "first_period": periods[0],

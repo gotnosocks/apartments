@@ -320,3 +320,19 @@ def test_build_bundles_the_served_runs_map(bundle, tmp_path, monkeypatch):
     )
     info = json.loads((root / "current" / "build.json").read_text())
     assert info["rent_map"] == str(source)
+
+
+def test_listings_and_buildings_carry_their_neighbourhood(
+    site_root, tmp_path, make_bundle
+):
+    rows = query(site_root, "SELECT DISTINCT neighbourhood FROM listings")
+    assert [r[0] for r in rows] == ["Chelsea"]  # the scope, when the summary has none
+    bundle = make_bundle(
+        tmp_path / "nb", neighbourhoods={"134-west-23-street-new_york": "West Village"}
+    )
+    root = tmp_path / "nb-site"
+    build.build(bundle, root)
+    b = {r["id"]: r["neighbourhood"] for r in query(root, "SELECT * FROM buildings")}
+    assert b["134-west-23-street-new_york"] == "West Village"
+    meta = {r["key"]: json.loads(r["value"]) for r in query(root, "SELECT * FROM meta")}
+    assert meta["stats"]["neighbourhoods"] == {"Chelsea": 4, "West Village": 2}
