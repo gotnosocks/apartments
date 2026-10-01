@@ -281,3 +281,78 @@ def compute_by_line(data: dict) -> list[dict]:
         series.setdefault(line, []).append((at, totals[line]))
     order = [k for k in LINES if k in series] + [k for k in series if k not in LINES]
     return [{"name": LINES.get(k, k), "points": series[k], "line": k} for k in order]
+
+
+def _ranks(values: list[float]) -> list[float]:
+    """Ranks from 1, ties sharing their average rank."""
+    order = sorted(range(len(values)), key=lambda i: values[i])
+    ranks = [0.0] * len(values)
+    i = 0
+    while i < len(order):
+        j = i
+        while j + 1 < len(order) and values[order[j + 1]] == values[order[i]]:
+            j += 1
+        for k in range(i, j + 1):
+            ranks[order[k]] = (i + j) / 2 + 1
+        i = j + 1
+    return ranks
+
+
+def spearman(xs: list[float], ys: list[float]) -> float | None:
+    """Spearman rank correlation, or None for fewer than three pairs or no
+    spread."""
+    if len(xs) < 3:
+        return None
+    rx, ry = _ranks(xs), _ranks(ys)
+    mx, my = sum(rx) / len(rx), sum(ry) / len(ry)
+    sxy = sum((a - mx) * (b - my) for a, b in zip(rx, ry))
+    sxx = sum((a - mx) ** 2 for a in rx)
+    syy = sum((b - my) ** 2 for b in ry)
+    if not sxx or not syy:
+        return None
+    return sxy / (sxx * syy) ** 0.5
+
+
+def validation_pairs(data: dict, hardware: str | None) -> list[dict]:
+    """Fits with both their PSIS-LOO score and a genuine held-out score (the
+    row split's held-out listings), on one hardware class or all."""
+    out = []
+    for e in data.get("entries", []):
+        if hardware and e["hardware_class"] != hardware:
+            continue
+        if is_subset(run_of(e)):
+            continue
+        psis = (e.get("psis") or {}).get("delta")
+        rows = (e.get("splits") or {}).get("rows") or {}
+        if psis is None or rows.get("delta") is None:
+            continue
+        out.append(
+            {
+                "entry": e,
+                "psis": psis,
+                "heldout": rows["delta"],
+                "heldout_se": rows.get("delta_se"),
+            }
+        )
+    return out
+
+
+def implementations(data: dict) -> list[dict]:
+    """Designs fit by more than one sampler on the same hardware: the same
+    model, different implementations."""
+    groups: dict[tuple, list] = {}
+    for e in data.get("entries", []):
+        groups.setdefault((e.get("structure"), e["hardware_class"]), []).append(e)
+    out = []
+    for (structure, hardware), entries in sorted(
+        groups.items(), key=lambda kv: (kv[0][1], kv[0][0] or "")
+    ):
+        if len({e.get("sampler") for e in entries}) > 1:
+            out.append(
+                {
+                    "structure": structure,
+                    "hardware": hardware,
+                    "entries": sorted(entries, key=lambda e: e["fit_seconds"]),
+                }
+            )
+    return out

@@ -192,6 +192,9 @@ dl.facts { display: grid; grid-template-columns: max-content 1fr; gap: 0.3rem 1r
 dl.facts.wide { grid-template-columns: minmax(9rem, max-content) 1fr; }
 dl.facts dt { color: var(--ink-2); }
 dl.facts dd { margin: 0; }
+dl.glossary dt { font-weight: 650; margin-top: 0.8rem; scroll-margin-top: 1rem; }
+dl.glossary dd { margin: 0.2rem 0 0; max-width: 50rem; }
+dl.glossary dt:target, dl.glossary dt:target + dd { background: var(--warn-bg); }
 .links { display: flex; flex-wrap: wrap; gap: 1rem; margin: 0.8rem 0 0; }
 .links .source { font-weight: 600; }
 

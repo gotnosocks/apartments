@@ -70,6 +70,7 @@ then the simplest, then the fastest, and it changes only when another fit clearl
 
 <section class="card prose">
   <h2>What these measures mean</h2>
+  <p class="note">More terms are in the <a href="{{ url_for('research_glossary') }}">glossary</a>.</p>
   <dl class="facts wide">
     <dt>PSIS-LOO ΔELPD</dt><dd>How well a fit predicts each listing's asking rent from all the other listings, compared with the
       simplest baseline model. It is summed over the {{ "{:,}".format(meta.provenance.rows_in_fit) if meta.provenance.rows_in_fit else "" }}

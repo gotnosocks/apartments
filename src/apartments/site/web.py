@@ -48,12 +48,15 @@ from .research import (
     entry_for_run,
     frontier_view,
     hardware_classes,
+    implementations,
     is_subset,
     latest_milestones,
     outlier_floor,
     run_of,
     serve_status,
     snapshot_days,
+    spearman,
+    validation_pairs,
 )
 from .selection import SELECTION, selection_note
 
@@ -321,6 +324,8 @@ SECTIONS = {
         "research_board",
         "research_fit",
         "research_history",
+        "research_validation",
+        "research_glossary",
         "research_model",
     ),
 }
@@ -1212,6 +1217,91 @@ def create_app(
                 clamp_zero=True,
             ),
         )
+
+    @app.get("/research/validation")
+    def research_validation():
+        m = meta()
+        data = research_data_or_503()
+        classes = hardware_classes(data)
+        if not classes:
+            abort(503, description="The board has no fits yet.")
+        hardware = request.args.get("hardware")
+        if hardware not in classes:
+            hardware = TARGET_HARDWARE if TARGET_HARDWARE in classes else classes[0]
+        served_run = m["provenance"]["run"]
+        pairs = validation_pairs(data, hardware)
+        floor = outlier_floor([p["psis"] for p in pairs])
+        shown = [p for p in pairs if floor is None or p["psis"] >= floor]
+        rho = spearman([p["psis"] for p in shown], [p["heldout"] for p in shown])
+        points = []
+        for p in shown:
+            e = p["entry"]
+            kind = (
+                "served"
+                if run_of(e) == served_run
+                else "frontier"
+                if e.get("frontier")
+                else "failing"
+                if not e.get("passes_checks")
+                else "other"
+            )
+            se = p["heldout_se"]
+            points.append(
+                {
+                    "x": p["psis"],
+                    "y": p["heldout"],
+                    "kind": kind,
+                    "title": e["key"],
+                    "rows": [
+                        ["PSIS-LOO ΔELPD", f"{p['psis']:+,.1f}"],
+                        [
+                            "Held-out ΔELPD",
+                            f"{p['heldout']:+,.1f}"
+                            + (f" ± {se:,.1f}" if se is not None else ""),
+                        ],
+                    ],
+                    "href": url_for("research_fit", key=e["key"]),
+                }
+            )
+        frontier = [
+            e
+            for e in data.get("entries", [])
+            if e["hardware_class"] == hardware
+            and e.get("frontier")
+            and e.get("variance")
+        ]
+        frontier.sort(key=lambda e: -((e.get("psis") or {}).get("delta") or 0))
+        return render_template(
+            "research_validation.html",
+            meta=m,
+            classes=classes,
+            hardware=hardware,
+            rho=rho,
+            shown=shown,
+            left_out=len(pairs) - len(shown),
+            chart=charts.fit_scatter(
+                points,
+                label="Each fit's PSIS-LOO score against its genuine held-out score",
+                x_title="PSIS-LOO ΔELPD (estimated from the fit itself)",
+                y_title="Held-out ΔELPD against the reference model",
+                x_format=lambda v: f"{v:+,.0f}",
+                y_format=lambda v: f"{v:+,.0f}",
+                x_zero=False,
+            ),
+            variance=frontier,
+            groups=data.get("variance_groups", []),
+            implementations=implementations(data),
+            units=[
+                e
+                for e in data.get("entries", [])
+                if "units" in (e.get("splits") or {})
+                and e["splits"]["units"].get("delta") is not None
+            ],
+        )
+
+    @app.get("/research/glossary")
+    def research_glossary():
+        return render_template("research_glossary.html", meta=meta())
 
     @app.get("/research/model")
     def research_model():

@@ -80,14 +80,22 @@ is therefore a fair signal of over- or under-pricing ([what an estimate is](mode
   - each fit's fit time by the day it landed;
   - cumulative hours of fitting by model line (custom samplers, NumPyro NUTS, PyMC);
   - every merged change and model switch.
+- **Validation** (`/research/validation`):
+  - each fit's PSIS-LOO score against its genuine held-out score, with their rank correlation
+    (the simple baselines far below the rest are left out of the chart and counted);
+  - where the variation in rents goes for the frontier fits;
+  - the same design fit with different samplers;
+  - the unit split (unseen apartments).
+- **Glossary** (`/research/glossary`): every research term in plain words, with anchors the pages
+  link to.
 - **Served model** (`/research/model`):
   - why it is served: the selection's own reason, and the latest automatic decision when the research
     data carries it (`autoselect`);
   - its place on the board: PSIS-LOO ΔELPD, the held-out check, fit time, complexity, frontier and
     gate;
   - the fit's provenance, the parts of an estimate, and every feature coefficient.
-- **Validation and data quality:** still on the research dashboard (:8500), linked from the
-  navigation until they move here.
+- **Data quality:** still on the research dashboard (:8500), linked from the navigation until it
+  moves here.
 
 ### Service pages
 

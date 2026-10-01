@@ -1,0 +1,71 @@
+{% extends "base.html" %}
+{% block title %}Glossary{% endblock %}
+{% block content %}
+<h1>Glossary</h1>
+<p class="lede">The terms on the research pages, in plain words.</p>
+
+<section class="card prose">
+  <h2>Measuring a model</h2>
+  <dl class="glossary">
+    <dt id="elpd">ELPD (expected log predictive density)</dt>
+    <dd>How well a model predicts asking rents it has not seen, added up over listings. For each listing, it is the log of the
+    probability the model gave the actual ask. Higher is better. Only differences between models mean anything.</dd>
+    <dt id="psis-loo">PSIS-LOO</dt>
+    <dd>Leave-one-out: predict each listing's ask from all the others. Refitting once per listing would take years, so
+    Pareto-smoothed importance sampling (PSIS) estimates it from a single fit.</dd>
+    <dt id="delta-elpd">ΔELPD and the ±</dt>
+    <dd>A model's ELPD minus the simplest baseline's, on the same listings. The ± is its standard error: two fits within about two
+    of these are a tie.</dd>
+    <dt id="pareto-k">Pareto k</dt>
+    <dd>How trustworthy the PSIS shortcut is for one listing. Above about 0.7 the estimate for that listing is shaky; a few such
+    listings are normal, many mean the score should be read with care.</dd>
+    <dt id="held-out">Held-out check</dt>
+    <dd>Some listings (about 10%, from apartments listed more than once) are kept out of every fit. A fit's score on them is a
+    genuine test, used to check that the PSIS shortcut ranks models correctly.</dd>
+    <dt id="unit-split">Unit split</dt>
+    <dd>A harder test: every listing of about 10% of apartments held out, so the model must predict apartments it has never seen.</dd>
+    <dt id="fit-time">Fit time</dt>
+    <dd>Minutes from start to finish to fit a model to the full dataset on one machine's hardware. Times only compare on the same
+    hardware. The target: the full Chelsea + West Village dataset within 30 minutes on the RTX 2060 graphics card.</dd>
+    <dt id="complexity">Complexity</dt>
+    <dd>How much a design asks a renter to understand, judged by the researcher and written down in <code>rentfrontier.elegance</code>.
+    Each structural term (the market over time, a building's premium, a building's path over time, per-building slopes, unusual
+    apartments) and each layer of facts (what the listing offers, what the ad says, the city's building facts, which streets the
+    windows face, the neighbourhood) adds points. Terms that move over time or overlap another term cost more. Lower is simpler.</dd>
+  </dl>
+</section>
+
+<section class="card prose">
+  <h2>Choosing a model</h2>
+  <dl class="glossary">
+    <dt id="frontier">The frontier</dt>
+    <dd>The fits no other fit beats on accuracy, fit time and complexity at once: anything better on one of them is worse on another.</dd>
+    <dt id="convergence">Convergence checks</dt>
+    <dd>Whether the sampler settled on one stable answer. R-hat compares independent runs (near 1 means they agree), the
+    effective sample size (ESS) counts how many independent draws the answer rests on, and divergences flag places the sampler
+    could not explore. A fit that fails them is never served.</dd>
+    <dt id="servable">Servable</dt>
+    <dd>A fit the automatic selection may serve: it passes the convergence checks, has a PSIS-LOO score, ran on the target hardware
+    within the time window on the full dataset, uses the current data rules and has a complexity rating.</dd>
+    <dt id="autoselect">Automatic selection</dt>
+    <dd>The rule that picks the served model from the servable fits: the most accurate, then among ties the simplest, then the
+    fastest. It replaces the served model only when another fit clearly beats it.</dd>
+    <dt id="subset">Subset fit</dt>
+    <dd>A fit on a part of the data, used to tune settings quickly. Exploration only; never served.</dd>
+    <dt id="data-rules">Data rules</dt>
+    <dd>Fixed corrections applied before fitting, such as counting the same apartment's differently written labels as one, and
+    leaving out listings a review found are not an open-market lease of a whole apartment.</dd>
+  </dl>
+</section>
+
+<section class="card prose">
+  <h2>Estimates</h2>
+  <dl class="glossary">
+    <dt id="estimate">Estimate</dt>
+    <dd>The model's typical asking rent for that apartment, in that building, that month, made without the listing's own ask
+    (leave-own-row-out). See <a href="{{ url_for('about') }}">how estimates work</a>.</dd>
+    <dt id="price-band">Below typical, typical, above typical</dt>
+    <dd>Where the ask falls among the asks the model expects for that apartment: the lowest 10%, the middle 80%, or the highest 10%.</dd>
+  </dl>
+</section>
+{% endblock %}

@@ -760,3 +760,55 @@ def test_axis_review_fixes():
         ["2026-01-01", "2026-06-01"], [5.0, 20.0], zero=True, clamp_zero=True
     )
     assert clamped.ticks[0] == 0
+
+
+def test_spearman_and_ranks():
+    from apartments.site.research import _ranks, spearman
+
+    assert _ranks([3.0, 1.0, 1.0, 2.0]) == [4.0, 1.5, 1.5, 3.0]
+    assert spearman([1, 2, 3, 4], [10, 20, 30, 40]) == pytest.approx(1.0)
+    assert spearman([1, 2, 3, 4], [4, 3, 2, 1]) == pytest.approx(-1.0)
+    assert spearman([1, 2], [1, 2]) is None
+    assert spearman([1, 1, 1], [1, 2, 3]) is None
+
+
+def test_validation_page(client, research_file):
+    data = json.loads(research_file.read_text())
+    for e in data["entries"]:
+        rows = e["splits"]["rows"]
+        if e.get("psis"):
+            rows["delta"] = e["psis"]["delta"] / 10
+            rows["delta_se"] = 5.0
+    served = next(e for e in data["entries"] if e["id"].startswith("m-test"))
+    served["splits"]["units"] = {"run": "u", "delta": 120.0, "delta_se": 9.0}
+    data["entries"].append(
+        dict(served, id="m-test-gibbs", key="m-test-gibbs", sampler="gibbs")
+    )
+    research_file.write_text(json.dumps(data))
+    html = client.get("/research/validation").get_data(as_text=True)
+    assert "the rank correlation is <strong>1.00</strong>" in html
+    assert "1 simple baseline far below" in html  # L0-mean left out
+    assert "Same model, different implementations" in html
+    assert ">gibbs</a>" in html and ">nuts</a>" in html
+    assert "+120.0" in html  # the unit split
+    assert "78.6%" in html  # the served fit is on the frontier with a breakdown
+    empty = client.get("/research/validation?hardware=thelio+CPU").get_data(
+        as_text=True
+    )
+    assert "No frontier fit on this hardware has a variance breakdown." in empty
+
+
+def test_glossary_has_anchors_the_pages_link_to(client):
+    html = client.get("/research/glossary").get_data(as_text=True)
+    for anchor in (
+        "psis-loo",
+        "delta-elpd",
+        "pareto-k",
+        "complexity",
+        "frontier",
+        "servable",
+    ):
+        assert f'id="{anchor}"' in html
+    assert "/research/glossary#psis-loo" in client.get("/research/validation").get_data(
+        as_text=True
+    )
