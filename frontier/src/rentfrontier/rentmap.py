@@ -268,7 +268,7 @@ def _thin(points, step=1.5):
     return out
 
 
-def basemap_layers(buildings: list[dict]) -> dict:
+def basemap_layers(buildings: list[dict], basemap_file: str = BASEMAP_FILE) -> dict:
     """Streets, paths, parks and land from the basemap snapshot, in the map's
     grid coordinates, clipped to the buildings' extent plus BASEMAP_PAD_M."""
     to_grid = grid_projection(buildings)
@@ -277,7 +277,7 @@ def basemap_layers(buildings: list[dict]) -> dict:
     x0, x1 = min(xs) - BASEMAP_PAD_M, max(xs) + BASEMAP_PAD_M
     y0, y1 = min(ys) - BASEMAP_PAD_M, max(ys) + BASEMAP_PAD_M
     inside = lambda p: x0 <= p[0] <= x1 and y0 <= p[1] <= y1
-    table = pd.read_parquet(BASEMAP_FILE)
+    table = pd.read_parquet(basemap_file)
     out = {
         "extent": [x0, x1, y0, y1],
         "land": [],
@@ -397,7 +397,11 @@ def compute(name: str) -> dict:
     recorded = (result.get("feature_sources") or {}).get("registry") or {}
     buildings = building_table(prep, years, recorded.get("path"))
     grid = grid_layout(buildings)
-    basemap = basemap_layers(buildings)
+    # The basemap the run's features read, else the first snapshot.
+    basemap_file = ((result.get("feature_sources") or {}).get("basemap") or {}).get(
+        "path", BASEMAP_FILE
+    )
+    basemap = basemap_layers(buildings, basemap_file)
     return {
         "version": VERSION,
         "run": name,
@@ -415,8 +419,8 @@ def compute(name: str) -> dict:
         "grid": grid,
         "basemap": basemap,
         "basemap_source": {
-            "path": BASEMAP_FILE,
-            "sha256": data.sha256(Path(BASEMAP_FILE)),
+            "path": basemap_file,
+            "sha256": data.sha256(Path(basemap_file)),
         },
         "rent": out_rent,
         "chelsea_median": chelsea,
