@@ -56,14 +56,27 @@ is therefore a fair signal of over- or under-pricing ([what an estimate is](mode
 
 ### Research
 
+- **Frontier** (`/research`): every fit of one hardware class (default: the RTX 2060, the served
+  model's), with these parts:
+  - accuracy (PSIS-LOO ΔELPD) against fit time on the full dataset, with Ben's 30-minute target, and
+    against judged complexity (fits not rated yet are counted, not drawn);
+  - the frontier fits in a table, with whether each can be served and why not;
+  - every fit in a table view.
+
+  The marks are served, on the frontier, other, fails the convergence checks, and subset. Frontier
+  membership and the best come from the board's own snapshots, so "board as of" shows the
+  frontier as it stood at the end of any day with results. Subset fits (a `tune…` part in the run
+  name, for example `nb-tune35`) are exploration only. They are hidden unless asked for, and never
+  servable. Fits far below the rest (the mean-only baselines) are drawn at the chart's floor
+  unless "the full accuracy range" is ticked.
 - **Served model** (`/research/model`):
   - why it is served: the selection's own reason, and the latest automatic decision when the research
     data carries it (`autoselect`);
   - its place on the board: PSIS-LOO ΔELPD, the held-out check, fit time, complexity, frontier and
     gate;
   - the fit's provenance, the parts of an estimate, and every feature coefficient.
-- **Frontier, board and history:** still on the research dashboard (:8500), linked from the navigation
-  until they move here.
+- **Board and history:** still on the research dashboard (:8500), linked from the navigation until
+  they move here.
 
 ### Service pages
 

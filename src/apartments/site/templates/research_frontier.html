@@ -1,0 +1,87 @@
+{% extends "base.html" %}
+{% block title %}The frontier{% endblock %}
+{% block content %}
+{% set snap = view.snapshot %}
+<h1>The frontier</h1>
+<p class="lede">Every model fit on the board, compared three ways: how accurately it predicts asks it has not seen, how long it
+takes to fit, and how simple it is to understand. A fit is <strong>on the frontier</strong> when no other fit beats it on one of
+these without losing on another. The served model is chosen from the frontier.</p>
+
+<form class="filters" action="{{ url_for('research_frontier') }}" method="get" aria-label="Choose the view">
+  <div class="field">
+    <label for="f-hw">Hardware</label>
+    <select id="f-hw" name="hardware">
+    {% for c in classes %}<option value="{{ c }}"{% if c == hardware %} selected{% endif %}>{{ c }}</option>{% endfor %}
+    </select>
+  </div>
+  <div class="field">
+    <label for="f-day">Board as of</label>
+    <select id="f-day" name="as_of">
+      <option value=""{% if not day %} selected{% endif %}>Now</option>
+    {% for d in days %}<option value="{{ d }}"{% if d == day %} selected{% endif %}>end of {{ d }}</option>{% endfor %}
+    </select>
+  </div>
+  <fieldset class="field">
+    <legend>Show</legend>
+    <div class="checks">
+      <label><input type="checkbox" name="subsets" value="1"{% if subsets %} checked{% endif %}> Subset fits</label>
+      <label><input type="checkbox" name="range" value="full"{% if full %} checked{% endif %}> The full accuracy range</label>
+    </div>
+  </fieldset>
+  <div class="field actions"><button type="submit">Apply</button></div>
+</form>
+
+<section class="tiles" aria-label="This view">
+  <div class="tile"><span class="tile-label">Fits on this hardware</span><span class="tile-value">{{ view.fits | length }}</span></div>
+  <div class="tile"><span class="tile-label">On the frontier</span><span class="tile-value">{{ view.fits | selectattr("frontier") | list | length }}</span></div>
+  <div class="tile"><span class="tile-label">Board as of</span><span class="tile-value tile-small">{{ snap.at[:16] | replace("T", " ") if snap else "—" }} UTC</span></div>
+</section>
+
+<section class="card">
+  <h2>Accuracy against fit time</h2>
+  <p class="note">Each dot is one fit. Up is more accurate; left is faster. {% if target %}The line marks Ben's target: the full
+  Chelsea + West Village dataset fit within {{ target_minutes }} minutes on the RTX 2060 graphics card. {% endif %}Fit times only
+  compare within one hardware class.{% if floor is not none %} Fits far below the rest (the mean-only baselines) are drawn at the
+  chart's floor; tick "The full accuracy range" to see them where they are.{% endif %}</p>
+  {{ time_chart }}
+</section>
+
+<section class="card">
+  <h2>Accuracy against complexity</h2>
+  <p class="note">The same fits by how simple they are to understand: left is simpler. When two models predict equally well, the
+  simpler one is served.{% if view.unrated %} {{ view.unrated }} scored fit{{ "" if view.unrated == 1 else "s" }} {{ "is" if view.unrated == 1 else "are" }} not rated yet and not shown.{% endif %}</p>
+  {% if rated %}{{ complexity_chart }}{% else %}<p class="empty-note">No fit on this hardware has a complexity rating yet.</p>{% endif %}
+</section>
+
+<section class="card">
+  <h2>On the frontier{% if day %} at the end of {{ day }}{% endif %}</h2>
+  <p class="note">The frontier fits, most accurate first, with the served model.{% if view.unscored %} {{ view.unscored }} fit{{ "" if view.unscored == 1 else "s" }}
+  without a PSIS-LOO score cannot be placed.{% endif %}{% if view.hidden_subsets %} {{ view.hidden_subsets }} subset fit{{ "" if view.hidden_subsets == 1 else "s" }} hidden.{% endif %}</p>
+  {% set rows = view.frontier %}
+  {% include "_fit_table.html" %}
+  <details class="table-view">
+    <summary>Every fit in the charts ({{ view.fits | length }})</summary>
+    {% set rows = view.fits %}
+    {% include "_fit_table.html" %}
+  </details>
+</section>
+
+<section class="card prose">
+  <h2>What these measures mean</h2>
+  <dl class="facts wide">
+    <dt>PSIS-LOO ΔELPD</dt><dd>How well a fit predicts each listing's asking rent from all the other listings, compared with the
+      simplest baseline model. It is summed over the {{ "{:,}".format(meta.provenance.rows_in_fit) if meta.provenance.rows_in_fit else "" }}
+      listings in the fit, on a log scale; higher is better. Two fits within about two standard errors (the ±) are a tie.</dd>
+    <dt>Fit time</dt><dd>Minutes from start to finish to fit the model to the full dataset on one machine's hardware. Only fits on
+      the same hardware compare.</dd>
+    <dt>Complexity</dt><dd>How much a design asks a renter to understand, judged by the researcher and written down in
+      <code>rentfrontier.elegance</code>. Each structural term (the market over time, a building's premium, a building's path over
+      time, per-building slopes, unusual apartments) and each layer of facts (what the listing offers, what the ad says, the city's
+      building facts, which streets the windows face, the neighbourhood) adds points. Terms that move over time or overlap another
+      term cost more. Lower is simpler.</dd>
+    <dt>Convergence checks</dt><dd>Whether the sampler settled on one stable answer (R-hat and effective sample size). A fit that
+      fails them is shown hollow and never served.</dd>
+    <dt>Subset fits</dt><dd>Fits on a part of the data, used to tune settings quickly. They are exploration only, never served.</dd>
+  </dl>
+</section>
+{% endblock %}

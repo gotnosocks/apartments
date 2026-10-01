@@ -491,12 +491,69 @@ def research_data():
         },
         "splits": {"rows": {"run": "m-test-run", "delta": -12.5, "delta_se": 30.1}},
     }
-    other = dict(served, id="m-other", splits={"rows": {"run": "m-other-run"}})
+    served["available_at"] = "2026-09-30T08:00:00+00:00"
+    served["key"] = served["id"]
+    other = dict(
+        served,
+        id="m-other",
+        key="m-other",
+        frontier=False,
+        current_best=False,
+        psis={"delta": 4100.0, "delta_se": 110.0},
+        fit_seconds=600.0,
+        complexity=12,
+        why_not_served="it was fit with no data rules, not the current quarantine-v2",
+        available_at="2026-09-25T08:00:00+00:00",
+        splits={"rows": {"run": "m-other-run"}},
+    )
+    failing = dict(
+        other,
+        id="m-failing",
+        key="m-failing",
+        passes_checks=False,
+        psis={"delta": 5000.0, "delta_se": 100.0},
+        why_not_served="it fails the convergence gate",
+        splits={"rows": {"run": "m-failing-run"}},
+    )
+    baseline = dict(
+        other,
+        id="L0-mean",
+        key="L0-mean",
+        psis={"delta": -72000.0, "delta_se": 250.0},
+        fit_seconds=30.0,
+        splits={"rows": {"run": "L0-run"}},
+    )
+    subset = dict(
+        other,
+        id="m-subset",
+        key="m-subset",
+        psis=None,
+        splits={"rows": {"run": "m-test-nb-facing-v1-rows-abc-gibbs-2060-nb-tune35"}},
+    )
+    cpu = dict(other, id="m-cpu", key="m-cpu", hardware_class="thelio CPU")
+    entries = [other, served, failing, baseline, subset, cpu]
+    for e in entries:
+        e.setdefault("complexity", None)
+    gpu = "thelio RTX 2060 SUPER"
     return {
+        "snapshots": [
+            {
+                "at": "2026-09-25T08:00:00+00:00",
+                "by_class": {
+                    gpu: {"best": "m-other", "frontier": ["m-other", "L0-mean"]}
+                },
+            },
+            {
+                "at": "2026-09-30T08:00:00+00:00",
+                "by_class": {
+                    gpu: {"best": served["key"], "frontier": [served["key"], "L0-mean"]}
+                },
+            },
+        ],
         "generated_at": "2026-10-01T11:33:00+00:00",
         "gate": {"rhat": 1.01, "ess": 400, "all_effects_rhat": 1.05},
         "baseline": "m0-base/base-v1/gibbs@5cc0809",
-        "entries": [other, served],
+        "entries": entries,
         "milestones": [
             {
                 "kind": "pr",

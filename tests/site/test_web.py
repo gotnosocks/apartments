@@ -360,7 +360,7 @@ def test_section_navigation(client):
     assert 'href="/estimates" aria-current="true"' in estimates
     research = client.get("/research/model").get_data(as_text=True)
     assert '<nav class="wrap" aria-label="Research">' in research
-    assert 'href="/research/model" aria-current="true"' in research
+    assert 'href="/research" aria-current="true"' in research
     assert 'aria-label="Estimates">' not in client.get("/").get_data(as_text=True)
     assert (
         client.get("/model").status_code == 404
@@ -464,3 +464,99 @@ def test_older_builds_fall_back_to_the_repository_selection(
     assert "Chosen by</dt><dd>rentfrontier.autoselect" in client.get("/").get_data(
         as_text=True
     )
+
+
+def test_research_helpers(research_file):
+    from apartments.site import research
+
+    data = json.loads(research_file.read_text())
+    assert research.is_subset("m7-nb-facing-v1-rows-abc-gibbs-2060-nb-tune35")
+    assert not research.is_subset("m5-nocurves-tunits-unitfacing-v5-rows-f74db76")
+    assert research.hardware_classes(data) == ["thelio RTX 2060 SUPER", "thelio CPU"]
+    assert research.snapshot_days(data) == ["2026-09-30", "2026-09-25"]
+    assert research.snapshot_on(data, "2026-09-27")["at"].startswith("2026-09-25")
+    assert research.snapshot_on(data, None)["at"].startswith("2026-09-30")
+    assert research.snapshot_on(data, "2026-09-01") is None
+    # the mean-only baseline is far below the rest: the floor leaves it out
+    assert research.outlier_floor([-72000.0, 4100.0, 5000.0, 5221.0, 5300.0]) == 4100.0
+    assert research.outlier_floor([4100.0, 5000.0, 5221.0, 5300.0]) is None
+    assert research.outlier_floor([1.0, 2.0]) is None
+
+
+def test_frontier_view_marks_and_as_of(research_file):
+    from apartments.site import research
+
+    data = json.loads(research_file.read_text())
+    gpu = "thelio RTX 2060 SUPER"
+    view = research.frontier_view(data, gpu, None, "m-test-run")
+    kinds = {f["entry"]["id"]: f["kind"] for f in view["fits"]}
+    assert kinds == {
+        "m-test/unitdesc-v1/nuts@aaaaaaa": "served",
+        "m-other": "other",
+        "m-failing": "failing",
+        "L0-mean": "frontier",
+    }
+    assert view["hidden_subsets"] == 1 and view["unrated"] == 1
+    assert [f["entry"]["id"] for f in view["frontier"]] == [
+        "m-test/unitdesc-v1/nuts@aaaaaaa",
+        "L0-mean",
+    ]
+    shown = research.frontier_view(data, gpu, None, "m-test-run", subsets=True)
+    subset = next(f for f in shown["fits"] if f["kind"] == "subset")
+    assert subset["why_not"] == "a subset fit, for exploration only"
+    # on 2026-09-27 the served fit had not landed; m-other was on the frontier
+    earlier = research.frontier_view(data, gpu, "2026-09-27", "m-test-run")
+    kinds = {f["entry"]["id"]: f["kind"] for f in earlier["fits"]}
+    assert "m-test/unitdesc-v1/nuts@aaaaaaa" not in kinds
+    assert kinds["m-other"] == "frontier"
+
+
+def test_frontier_page(client):
+    html = client.get("/research").get_data(as_text=True)
+    assert "Fit time on the RTX 2060, full dataset (minutes)" in html
+    assert "30-minute target" in html
+    assert 'class="fit served"' in html and 'class="fit failing"' in html
+    # the baseline is drawn at the floor, and says so
+    assert "below the chart" in html
+    assert "1 subset fit hidden." in html
+    assert "<code>m-other</code>" in html  # in the table of every fit
+    rated = client.get("/research?subsets=1&range=full").get_data(as_text=True)
+    assert "below the chart" not in rated
+    assert 'class="fit subset"' not in rated  # unscored subsets have no dot
+    cpu = client.get("/research?hardware=thelio+CPU").get_data(as_text=True)
+    assert "Fit time on thelio CPU, full dataset (minutes)" in cpu
+    assert "30-minute target" not in cpu
+    odd = client.get("/research?hardware=nope&as_of=x&range=zzz")
+    assert odd.status_code == 200
+    past = client.get("/research?as_of=2026-09-25").get_data(as_text=True)
+    assert "On the frontier at the end of 2026-09-25" in past
+    assert 'class="fit served"' not in past
+
+
+def test_frontier_page_needs_research_data(site_root, tmp_path):
+    app = create_app(site_root, research_data=tmp_path / "missing.json")
+    assert app.test_client().get("/research").status_code == 503
+
+
+def test_fit_scatter_marks_and_legend():
+    figure = str(
+        charts.fit_scatter(
+            [
+                {"x": 10, "y": 5000, "kind": "frontier", "title": "a"},
+                {"x": 20, "y": -70000, "kind": "other", "title": "b"},
+                {"x": 25, "y": 5200, "kind": "served", "title": "c"},
+            ],
+            label="t",
+            x_title="minutes",
+            y_title="delta",
+            x_format=str,
+            y_format=str,
+            y_floor=5000,
+            x_line=(30, "target"),
+        )
+    )
+    legend = figure.split('<div class="legend">')[1].split("</div>")[0]
+    assert legend.index("Served model") < legend.index("On the frontier")
+    assert "Fails the convergence checks" not in legend
+    assert figure.count('class="fit ') == 3 and "target" in figure
+    assert "drawn at its floor" in figure

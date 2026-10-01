@@ -278,3 +278,128 @@ def contribution_bar(value, lower, upper, scale) -> Markup:
         f'<line class="whisker" x1="{lo:.1f}" x2="{hi:.1f}" y1="9" y2="9"/>'
         "</svg>"
     )
+
+
+XY_PAD = {"left": 64, "right": 16, "top": 28, "bottom": 46}
+
+
+class XYFrame:
+    """Linear scales for two measures (a scatter), in a WIDTH x HEIGHT viewBox.
+    `y_floor` cuts the y range from below; points under it are drawn at the
+    floor and say so in their tooltip."""
+
+    def __init__(self, xs, ys, *, y_floor=None, x_zero=True, height=HEIGHT):
+        self.height = height
+        xlo, xhi = min(xs), max(xs)
+        if x_zero:
+            xlo = min(xlo, 0.0)
+        xpad = (xhi - xlo) * 0.04 or 1.0
+        self.xticks = nice_ticks(xlo, xhi + xpad, count=6)
+        self.x0, self.x1 = self.xticks[0], self.xticks[-1]
+        shown = [y for y in ys if y_floor is None or y >= y_floor]
+        ylo, yhi = min(shown or ys), max(shown or ys)
+        ypad = (yhi - ylo) * 0.06 or abs(yhi) * 0.05 or 1.0
+        self.yticks = nice_ticks(ylo - ypad, yhi + ypad)
+        self.y0, self.y1 = self.yticks[0], self.yticks[-1]
+        self.left, self.right = XY_PAD["left"], WIDTH - XY_PAD["right"]
+        self.top, self.bottom = XY_PAD["top"], height - XY_PAD["bottom"]
+
+    def x(self, value: float) -> float:
+        span = self.x1 - self.x0
+        return self.left + (value - self.x0) / span * (self.right - self.left)
+
+    def y(self, value: float) -> float:
+        value = max(value, self.y0)
+        span = self.y1 - self.y0
+        return self.bottom - (value - self.y0) / span * (self.bottom - self.top)
+
+
+# Marks of a fit on the research charts, drawn in this order (the served
+# fit last, on top). Text labels say the same in the legend and tooltip.
+FIT_KINDS = {
+    "subset": "Subset fit (exploration only)",
+    "failing": "Fails the convergence checks",
+    "other": "Other fit",
+    "frontier": "On the frontier",
+    "served": "Served model",
+}
+
+
+def fit_scatter(
+    points,
+    *,
+    label: str,
+    x_title: str,
+    y_title: str,
+    x_format,
+    y_format,
+    y_floor=None,
+    x_line=None,
+) -> Markup:
+    """One dot per fit on two measures. points: [{"x", "y", "kind" (a
+    FIT_KINDS key), "title", "rows", "href"}]. x_line: (value, label) draws a
+    reference line, such as a time target."""
+    if not points:
+        return Markup("")
+    xs = [p["x"] for p in points] + ([x_line[0]] if x_line else [])
+    frame = XYFrame(xs, [p["y"] for p in points], y_floor=y_floor)
+    parts = []
+    for tick in frame.yticks:
+        y = frame.y(tick)
+        parts.append(
+            f'<line class="grid" x1="{frame.left}" x2="{frame.right}" '
+            f'y1="{y:.1f}" y2="{y:.1f}"/>'
+            f'<text class="tick" x="{frame.left - 8}" y="{y + 4:.1f}" '
+            f'text-anchor="end">{escape(y_format(tick))}</text>'
+        )
+    for tick in frame.xticks:
+        x = frame.x(tick)
+        parts.append(
+            f'<text class="tick" x="{x:.1f}" y="{frame.bottom + 16}" '
+            f'text-anchor="middle">{escape(x_format(tick))}</text>'
+        )
+    parts.append(
+        f'<line class="axis" x1="{frame.left}" x2="{frame.right}" '
+        f'y1="{frame.bottom}" y2="{frame.bottom}"/>'
+        f'<text class="axis-title" x="{(frame.left + frame.right) / 2:.1f}" '
+        f'y="{frame.height - 6}" text-anchor="middle">{escape(x_title)}</text>'
+        f'<text class="axis-title" x="{frame.left - 56}" y="14">{escape(y_title)}</text>'
+    )
+    if x_line:
+        x = frame.x(x_line[0])
+        parts.append(
+            f'<line class="ref" x1="{x:.1f}" x2="{x:.1f}" y1="{frame.top}" '
+            f'y2="{frame.bottom}"/><text class="ref-label" x="{x - 4:.1f}" '
+            f'y="{frame.bottom - 6}" text-anchor="end">{escape(x_line[1])}</text>'
+        )
+    order = {k: i for i, k in enumerate(FIT_KINDS)}
+    hover = []
+    for p in sorted(points, key=lambda p: order[p["kind"]]):
+        x, y = frame.x(p["x"]), frame.y(p["y"])
+        radius = 5.5 if p["kind"] == "served" else 4
+        parts.append(
+            f'<circle class="fit {p["kind"]}" cx="{x:.1f}" cy="{y:.1f}" r="{radius}"/>'
+        )
+        rows = list(p.get("rows", []))
+        if p["y"] < frame.y0:
+            rows.append(["Note", "below the chart's range, drawn at its floor"])
+        hover.append(
+            {
+                "x": round(x, 1),
+                "y": round(y, 1),
+                "title": p["title"],
+                "rows": [["", FIT_KINDS[p["kind"]]], *rows],
+                "href": p.get("href"),
+            }
+        )
+    present = [k for k in FIT_KINDS if any(p["kind"] == k for p in points)]
+    legend = (
+        '<div class="legend">'
+        + "".join(
+            f'<span class="key"><span class="key-fit {k}"></span>'
+            f"{escape(FIT_KINDS[k])}</span>"
+            for k in reversed(present)
+        )
+        + "</div>"
+    )
+    return _figure("points", _svg(parts, label, frame), hover, legend)
