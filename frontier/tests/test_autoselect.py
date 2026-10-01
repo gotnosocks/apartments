@@ -219,3 +219,11 @@ def test_fits_ranked_below_an_eligible_incumbent_do_not_replace_it(tmp_path):
     assert order[0] == "I"
     d = autoselect.decide(es, "I", RULES, paired, no_heldout_loss)
     assert d["action"] == "keep" and d["run"] == "I"
+
+
+def test_an_incumbent_that_ranks_first_says_so(tmp_path):
+    es = [entry(tmp_path, "inc", 20.0, 1300), entry(tmp_path, "low", 0.0, 1300)]
+    d = autoselect.decide(
+        es, "inc", RULES, paired_from({"inc": 20.0, "low": 0.0}), no_heldout_loss
+    )
+    assert d["action"] == "keep" and d["reason"] == "the incumbent ranks first"

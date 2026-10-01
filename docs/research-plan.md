@@ -141,7 +141,7 @@ You do not need my approval to change the dashboard model."
   - Among those, take the fastest. Fit times within 10% count as equal, and then the higher
     PSIS-LOO wins, so timing noise cannot decide.
 - **Hysteresis.** An eligible incumbent stays unless it is beaten clearly: PSIS-LOO beyond the
-  tie tolerance, or tied and more than 10% faster.
+  tie tolerance, or tied and more than 10% faster. Fits ranked below an eligible incumbent are not tried.
 - **Held-out guard.** A challenger whose paired held-out score is more than 2 SE below the
   incumbent's is refused, and the next fit is tried. Challengers are tried in ranked order,
   and the first one that passes the guard and clearly beats an eligible incumbent is chosen.

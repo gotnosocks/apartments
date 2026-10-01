@@ -23,6 +23,7 @@ card follow it.
    noise cannot decide.
 
 **Against the incumbent,** the currently selected run:
+- Fits ranked below an eligible incumbent are not tried.
 - An eligible incumbent is kept unless the choice beats it clearly: better
   PSIS-LOO beyond the tie tolerance, or tied and faster by more than
   `TIME_TIE`.
@@ -210,6 +211,8 @@ def decide(
             "no eligible fit clearly beats the incumbent and passes the held-out guard"
             if out["checked"]
             else "the incumbent is the only eligible fit"
+            if len(order) == 1
+            else "the incumbent ranks first"
         )
     else:
         reason = (
