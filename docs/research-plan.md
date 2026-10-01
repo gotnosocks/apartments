@@ -1443,12 +1443,45 @@ comes from other sources, most of them public NYC and NYS data.
   | m7-nocurves-bathfloor, solo ×3, 3,000 draws | wv-unitpluto-v1 | 1,593 s | passes | **33,160.0** |
 
   - Square feet are stated on only 18% of West Village rows, so a per-building size slope
-    cannot be identified. Dropping it (bath and floor slopes only) passes, and scores +674.5
+    cannot be identified. Dropping it (bath and floor slopes only) passes, and scores +674.3
     over Student-t units with the same facts.
   - West Village's own MapPLUTO facts barely move PSIS-LOO (+11.0). But the building level falls
     from 20.9% to 9.6% of the variance as the named facts take it over.
   - Next (Ben, 2026-10-01): one model for the whole dataset, Chelsea and West Village together,
     with designs tuned on a fixed subset of buildings.
+
+- **Chelsea + West Village: tuning on a subset of buildings** (2026-10-01).
+  - **Setup.** The combined cohort is `chelsea-west-village-analysis-20261001-eea4f66`: 86,756 rows,
+    and 86,568 after `quarantine-v2`.
+  - **The subset rule.** `tune-b35-v1` keeps the rows of 35% of buildings, chosen by a hash of the
+    building, so every design sees the same subset. That is 811 buildings and 29,170 rows (26,179
+    training).
+  - **Fits.** `nb-facing-v1` features (the served terms plus the neighbourhood), `unit-labels-v1` +
+    `quarantine-v2` + `tune-b35-v1`, Gibbs on the RTX 2060 at commit f7e4f19.
+
+  | Design | Time | Gate | PSIS-LOO | vs t-units |
+  |---|---:|---|---:|---:|
+  | m5-nocurves-tunits, 3,600 draws | 994 s | fails (ESS 150) | 28,355.8 | 0 |
+  | m7-nocurves-2slopes, 3,600 draws | 1,076 s | fails (ESS 90) | 28,933.9 | +578.1 ± 49.7 |
+  | m7-nocurves-bathfloor, solo ×3, 3,000 draws | 1,239 s | fails (ESS 124) | 28,849.8 | +494.0 ± 45.9 |
+  | m7-nocurves-floorslope, solo ×3, 3,000 draws | 1,272 s | fails (ESS 85) | **28,998.8** | +643.0 ± 52.0 |
+
+  - **The ranking agrees with Chelsea's.** The floor slope beats two slopes by +64.9 ± 18.9, and
+    beats bath and floor slopes without the size slope by +149.0 ± 28.5.
+  - **Every fit fails the gate on the same term:** `beta[label:lower_level]`, the
+    lower-level-unit flag. On a third of the buildings there are too few such units for it to mix.
+    This is a property of the subset, not of the designs.
+  - **The subset saves less time than its size suggests.** It has a third of the rows but takes
+    70–75% of the time of a full Chelsea fit. Across these fits, fit time is roughly 750 s plus 20 s
+    per thousand training rows.
+  - **So a full combined fit (77,904 training rows) would take about 2,400 s for the leading
+    designs.** That is over the 30-minute window, which makes exact sampler speedups the first
+    task for the combined target.
+  - **Where the time goes** (one block solve on the combined data: 2,296 buildings, 39 local slots,
+    177 global columns): 79 ms. Of that, 26 ms is the global Schur product, which is near the
+    RTX 2060's float64 peak, and 10 ms is the per-building product. The leading designs run 5
+    block solves per iteration: the base update, the joint collapsed update, and three solo scale
+    updates.
 
 ## Work tracks, in order
 
@@ -1525,7 +1558,8 @@ comes from other sources, most of them public NYC and NYS data.
   `unitfacing-v5`, `unit-labels-v1` and `quarantine-v2` (a8ef50d, solo updates on both slope
   scales, 2 × (300 + 3000), 1,765 s). It adds a per-building floor slope.
   - Against the previous selection (8502559): PSIS-LOO +191.9 ± 24.9, held-out +4.6 ± 5.5.
-- On hold: West Village, once its crawl completes.
+- West Village: in the analysis from 2026-10-01 (the combined cohort, PR #98). The served model
+  stays Chelsea's until a combined fit is eligible.
 
 ## Current state
 

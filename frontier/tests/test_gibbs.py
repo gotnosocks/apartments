@@ -230,6 +230,55 @@ def test_collapsed_marginal_likelihood_matches_dense(design):
     )
 
 
+@pytest.mark.parametrize("design", ["all", "fslopes", "tunits", "drift"])
+def test_block_parts_are_reused_exactly_across_prior_scales(design):
+    """block_solve on parts summed under other prior scales (outside
+    PART_SCALES) is gaussian_block under the new scales."""
+    prep = synthetic()
+    d = gibbs.build_design(prep, DESIGNS[design])
+    rng = np.random.default_rng(7)
+    lam = jnp.asarray(rng.gamma(2.5, 1 / 2.5, d.y.shape[0]))
+    kappa = jnp.asarray(rng.gamma(1.5, 1 / 1.5, d.n_units))
+    z = (
+        jnp.asarray(rng.normal(size=d.a.shape[1])),
+        jnp.asarray(rng.normal(size=(d.n_buildings, d.n_local))),
+        jnp.asarray(rng.normal(size=(d.n_units, 2) if d.unit_drift else d.n_units)),
+    )
+    other = {k: v if k in gibbs.PART_SCALES else v * 1.7 for k, v in SCALES.items()}
+    reused = gibbs.block_solve(d, gibbs.block_parts(d, lam, SCALES, kappa), other, *z)
+    direct = gibbs.gaussian_block(d, lam, other, *z, kappa)
+    for a, b in zip(reused, direct):
+        np.testing.assert_allclose(np.asarray(a), np.asarray(b), rtol=1e-10, atol=1e-10)
+
+
+def test_solo_updates_reusing_parts_match_recomputing_them(monkeypatch):
+    """A step whose solo updates reuse the row sums gives the same state as one
+    that recomputes them for every proposal (same keys)."""
+    prep = synthetic()
+    d = gibbs.build_design(prep, DESIGNS["tunits"])
+    state = jax.tree.map(lambda x: x[0], gibbs.init_states(d, jax.random.PRNGKey(3), 1))
+    cfg = (5, 0.1, 0.1, 3, 0.1, 0.1)
+    hier = list(d.scale_names)
+    prop_sd = jnp.full(len(hier), 0.05)
+    solo = {"sigma": 0.05, "walk_scale": 0.3, "fslope_scale_0": 0.3}
+
+    def run(steps=4):
+        inner = gibbs.make_step(d)
+        step = jax.jit(lambda k, st: inner(k, st, cfg, prop_sd, solo))
+        st = state
+        for k in jax.random.split(jax.random.PRNGKey(11), steps):
+            st, _ = step(k, st)
+        return st
+
+    reused = run()
+    monkeypatch.setattr(gibbs, "PART_SCALES", frozenset(d.scale_names) | {"sigma"})
+    recomputed = run()
+    for k in reused:
+        np.testing.assert_allclose(
+            np.asarray(reused[k]), np.asarray(recomputed[k]), rtol=1e-9, atol=1e-10
+        )
+
+
 def test_student_t_units_block_matches_dense():
     """Per-unit prior precisions kappa_j / tau^2 (Student-t units as a scale mixture)."""
     prep = synthetic()

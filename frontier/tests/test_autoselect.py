@@ -230,6 +230,29 @@ def test_an_incumbent_that_ranks_first_says_so(tmp_path):
     assert d["action"] == "keep" and d["reason"] == "the incumbent ranks first"
 
 
+def test_tuning_rules_are_not_served(tmp_path):
+    assert autoselect.current_rules(["tune-b35-v1", "unit-labels-v1"]) == {
+        "unit-labels-v1"
+    }
+    e = entry(
+        tmp_path,
+        "tuned",
+        10.0,
+        600,
+        rules={"unit-labels-v1", "quarantine-v2", "tune-b35-v1"},
+    )
+    assert "tuning fit" in autoselect.why_not(e, RULES)
+
+
+def test_a_fit_on_another_dataset_is_not_served(tmp_path, monkeypatch):
+    e = entry(tmp_path, "old", 10.0, 1300)
+    rec = json.loads((tmp_path / "runs" / "old" / "result.json").read_text())
+    rec["dataset"] = str(tmp_path / "chelsea-only")
+    (tmp_path / "runs" / "old" / "result.json").write_text(json.dumps(rec))
+    monkeypatch.setattr(autoselect.data, "DATASET", tmp_path / "combined")
+    assert "not the current combined" in autoselect.why_not(e, RULES)
+
+
 def test_a_design_without_a_simplicity_rating_is_not_eligible(tmp_path):
     ok = entry(tmp_path, "ok", 10, 1300)
     unrated = entry(tmp_path, "unrated", 10, 1300, complexity=None)

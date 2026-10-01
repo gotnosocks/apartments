@@ -366,11 +366,24 @@ def local_value(theta_l, building, slots, values):
     return jnp.sum(theta_l[building[:, None], slots] * values, axis=1)
 
 
+# The scales `block_parts` reads. The rest (the global and local prior scales)
+# enter only `block_solve`, so a proposal that changes only those reuses the
+# parts: the row sums over every row, about half of a block draw's cost.
+PART_SCALES = frozenset({"sigma", "unit_scale", "unit_drift_scale"})
+
+
 def gaussian_block(d: Design, lam, s, z_g, z_l, z_u, kappa=None):
     """Joint draw of (global, building blocks, units) given lam and scales `s`.
 
     With zero noise vectors it returns the conditional posterior mean.
     """
+    return block_solve(d, block_parts(d, lam, s, kappa), s, z_g, z_l, z_u)
+
+
+def block_parts(d: Design, lam, s, kappa=None) -> dict:
+    """The precision and right-hand-side sums of `gaussian_block` before the
+    prior scales outside PART_SCALES are added: the units integrated out and
+    the building cells summed over rows."""
     J, K, L = d.n_units, d.n_buildings, d.n_local
     y, a, bld, slots, vals = d.y, d.a, d.building, d.slots, d.slot_values
     n_slots = slots.shape[1]
@@ -411,6 +424,7 @@ def gaussian_block(d: Design, lam, s, z_g, z_l, z_u, kappa=None):
                 glu = glu.at[d.unit, k_, slots[:, m]].add(wz[:, k_] * vals[:, m])
         cg = jnp.einsum("jkl,jlp->jkp", cu, gu)
         ch = jnp.einsum("jkl,jl->jk", cu, hu)
+        unit = {"wz": wz, "cu": cu, "hu": hu, "ch": ch, "det": det}
         q = gram(d, w) - jnp.einsum("jkp,jkq->pq", gu, cg) + jnp.diag(d.prior_fixed)
         rhs_g = wa.T @ y - jnp.einsum("jkp,jk->p", gu, ch)
         cgl = jnp.einsum("jkl,jlm->jkm", cu, glu)
@@ -429,10 +443,7 @@ def gaussian_block(d: Design, lam, s, z_g, z_l, z_u, kappa=None):
         rhs_g = wa.T @ y - g.T @ (c * h)
         adj = a_l - (c[:, None] * gl)[d.unit]
         a_t = a - (c[:, None] * g)[d.unit]
-
-    # Global prior blocks.
-    for name, (sl, r) in d.global_blocks.items():
-        q = q.at[sl, sl].add(r / s[name] ** 2)
+        unit = {"c": c, "h": h}
 
     # Building blocks, with units integrated out (units nest in buildings).
     # With adj_i = a_L,i - (unit correction) and a~_i = a_i - (unit
@@ -457,8 +468,33 @@ def gaussian_block(d: Design, lam, s, z_g, z_l, z_u, kappa=None):
     q_lg = q_lg.reshape(K, L, a.shape[1])
     q_ll = 0.5 * (q_ll + jnp.swapaxes(q_ll, 1, 2))
     r_l = seg_b(wadj * y[:, None])
+    return {
+        "w": w,
+        "kappa": kappa,
+        "q": q,
+        "rhs_g": rhs_g,
+        "q_ll": q_ll,
+        "q_lg": q_lg,
+        "r_l": r_l,
+        **unit,
+    }
+
+
+def block_solve(d: Design, parts: dict, s, z_g, z_l, z_u):
+    """`gaussian_block` from its parts: adds the prior scales outside
+    PART_SCALES, eliminates the building blocks, then the global block."""
+    J, K = d.n_units, d.n_buildings
+    y, a, bld, slots, vals = d.y, d.a, d.building, d.slots, d.slot_values
+    w, kappa, q, rhs_g = parts["w"], parts["kappa"], parts["q"], parts["rhs_g"]
+    q_lg, r_l = parts["q_lg"], parts["r_l"]
+    L = d.n_local
+    seg_u = lambda v: jax.ops.segment_sum(v, d.unit, J)
+
+    # Global prior blocks.
+    for name, (sl, r) in d.global_blocks.items():
+        q = q.at[sl, sl].add(r / s[name] ** 2)
     prior_l = sum(d.local_structures[n] / s[n] ** 2 for n in d.local_structures)
-    q_ll = q_ll + prior_l[None]
+    q_ll = parts["q_ll"] + prior_l[None]
 
     # Eliminate building blocks (batched Cholesky), then the global block.
     chol_l = jnp.linalg.cholesky(q_ll)
@@ -480,6 +516,7 @@ def gaussian_block(d: Design, lam, s, z_g, z_l, z_u, kappa=None):
     ]
     fixed = a @ theta + local_value(theta_l, bld, slots, vals)
     if d.unit_drift:
+        wz, cu, hu, ch, det = (parts[k] for k in ("wz", "cu", "hu", "ch", "det"))
         mean_u = jnp.einsum("jkl,jl->jk", cu, hu - seg_u(wz * fixed[:, None]))
         l11 = jnp.sqrt(cu[:, 0, 0])
         l21 = cu[:, 1, 0] / l11
@@ -490,6 +527,7 @@ def gaussian_block(d: Design, lam, s, z_g, z_l, z_u, kappa=None):
         quad_u = jnp.sum(hu * ch)
         logdet_u = jnp.sum(jnp.log(det))
     else:
+        c, h = parts["c"], parts["h"]
         u = c * (h - seg_u(w * fixed)) + jnp.sqrt(c) * z_u
         drift = jnp.zeros(J)
         quad_u = jnp.sum(c * h * h)
@@ -599,7 +637,8 @@ def make_step(d: Design):
                 keys[2], (d.n_units, 2) if d.unit_drift else (d.n_units,)
             ),
         )
-        out = gaussian_block(d, state["lam"], s, *z, state["kappa"])
+        parts = block_parts(d, state["lam"], s, state["kappa"])
+        out = block_solve(d, parts, s, *z)
         info = {}
         if prop_sd is not None:
             # Collapsed scale update: p(scales | lam, sigma, y) with all
@@ -613,7 +652,8 @@ def make_step(d: Design):
             s_new = dict(s)
             for i, name in enumerate(hier):
                 s_new[name] = s[name] * jnp.exp(step_[i])
-            out_new = gaussian_block(d, state["lam"], s_new, *z, state["kappa"])
+            parts_new = block_parts(d, state["lam"], s_new, state["kappa"])
+            out_new = block_solve(d, parts_new, s_new, *z)
 
             def log_prior(sc):
                 return sum(
@@ -625,14 +665,28 @@ def make_step(d: Design):
             ok = jnp.log(jax.random.uniform(k2)) < log_ratio
             out = jax.tree.map(lambda a, b, ok=ok: jnp.where(ok, b, a), out, out_new)
             s = {k: jnp.where(ok, s_new[k], s[k]) for k in s}
+            solos = solo_sd or {}
+
+            def keep(ok, old, new):
+                return jax.tree.map(lambda a, b: jnp.where(ok, b, a), old, new)
+
+            if solos:
+                # The solo updates below reuse the parts of the kept scales.
+                parts = keep(ok, parts, parts_new)
             info["collapsed_accept"] = ok.astype(jnp.float64)
             # One-dimensional collapsed updates for the slowest scales, each
             # with its own proposal size (a joint step must use the smallest).
-            for i, (name, sd_i) in enumerate((solo_sd or {}).items()):
+            for i, (name, sd_i) in enumerate(solos.items()):
                 k1, k2 = jax.random.split(jax.random.fold_in(keys[11], 100 + i))
                 s_new = dict(s)
                 s_new[name] = s[name] * jnp.exp(sd_i * jax.random.normal(k1))
-                out_new = gaussian_block(d, state["lam"], s_new, *z, state["kappa"])
+                # Only a solo on a scale in PART_SCALES needs new row sums.
+                parts_new = (
+                    block_parts(d, state["lam"], s_new, state["kappa"])
+                    if name in PART_SCALES
+                    else parts
+                )
+                out_new = block_solve(d, parts_new, s_new, *z)
                 log_ratio = (
                     out_new[-1]
                     - out[-1]
@@ -644,6 +698,8 @@ def make_step(d: Design):
                     lambda a, b, ok=ok: jnp.where(ok, b, a), out, out_new
                 )
                 s = {k: jnp.where(ok, s_new[k], s[k]) for k in s}
+                if name in PART_SCALES:
+                    parts = keep(ok, parts, parts_new)
                 info[f"solo_accept_{name}"] = ok.astype(jnp.float64)
         theta, theta_l, u, fixed, drift, _ = out
         e = d.y - fixed - u[d.unit]

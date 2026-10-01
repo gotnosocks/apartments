@@ -242,6 +242,23 @@ def test_an_entry_that_cannot_be_paired_loses_its_score_not_the_board():
     assert odd["unpaired"].startswith("PSIS-LOO not paired: Training rows differ")
 
 
+def test_a_tuning_fit_is_not_scored_on_the_board():
+    base = {"id": "base", "psis": {"_dir": "b"}}
+    tuned = {
+        "id": "tuned",
+        "psis": {"_dir": "t"},
+        "data_rules": ["unit-labels-v1", "tune-b35-v1"],
+        "passes_checks": True,
+        "interpretable": True,
+        "fit_seconds": 600,
+    }
+    leaderboard.pair_with_baseline(
+        [base, tuned], base, paired=lambda a, b: (1.0, 0.5, 0.1)
+    )
+    assert tuned["psis"] is None and "tune-b35-v1" in tuned["unpaired"]
+    assert not leaderboard.on_frontier([tuned])[0]
+
+
 def _board_entry(name, delta, seconds, complexity):
     return {
         "id": name,
