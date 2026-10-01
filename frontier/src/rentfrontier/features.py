@@ -1298,6 +1298,7 @@ def neighbourhood_v1(
 
 # Feature sets that read the external snapshots (run records list them).
 EXTERNAL = {
+    "nb-pluto-base",
     "nb-unitpluto-v1",
     "nb-facing-v1",
     "wv-unitpluto-v1",
@@ -1475,6 +1476,7 @@ LOT_SNAPSHOTS = {
     "unitdescpluto-v5": {"registry": REGISTRY_V3_FILE, "pluto": PLUTO_V3_FILE},
     "unitfacing-v5": {"registry": REGISTRY_V3_FILE, "pluto": PLUTO_V3_FILE},
     "wv-unitpluto-v1": {"registry": WV_REGISTRY_FILE, "pluto": WV_PLUTO_FILE},
+    "nb-pluto-base": {"registry": NB_REGISTRY_FILE, "pluto": NB_PLUTO_FILE},
     "nb-unitpluto-v1": {"registry": NB_REGISTRY_FILE, "pluto": NB_PLUTO_FILE},
     "nb-facing-v1": {"registry": NB_REGISTRY_FILE, "pluto": NB_PLUTO_FILE},
     "unitnoise-v1": {"registry": REGISTRY_V3_FILE, "pluto": PLUTO_V3_FILE},

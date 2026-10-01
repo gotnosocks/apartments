@@ -11,22 +11,29 @@ card follow it.
   PSIS-LOO score (`leaderboard.scored`).
 - It ran on the target hardware (`TARGET_HARDWARE`) within the fit window
   (`WINDOW_SECONDS`).
+- Its design has a simplicity rating (`elegance.complexity`).
 - It used the current data rules: the latest version of every rule family
   (`current_rules`). A fit on rows a later review has shown to be wrong is not
   served.
+- It is not a tuning fit on a subset of buildings (a `data.TUNING_PREFIX`
+  rule): those are exploration only (Ben, 2026-10-01).
+- It was fit on the current dataset (`data.DATASET`).
 
-**The choice.** It follows the board's `choose_best` on the eligible fits:
+**The choice.** It follows the board's `choose_best` on the eligible fits
+(Ben, 2026-10-01: "serve the best fit and break ties with which model is
+simpler"):
 1. Take the top paired PSIS-LOO, and the fits tied with it within two combined
    SE.
-2. Among those, take the fastest. Fit times within `TIME_TIE` of the fastest
-   count as equal, and among them the higher PSIS-LOO wins, so run-to-run timing
-   noise cannot decide.
+2. Among those, take the simplest: the lowest judged complexity.
+3. Among equally simple fits, take the fastest. Fit times within `TIME_TIE` of
+   the fastest count as equal, and among them the higher PSIS-LOO wins, so
+   run-to-run timing noise cannot decide.
 
 **Against the incumbent,** the currently selected run:
 - Fits ranked below an eligible incumbent are not tried.
 - An eligible incumbent is kept unless the choice beats it clearly: better
-  PSIS-LOO beyond the tie tolerance, or tied and faster by more than
-  `TIME_TIE`.
+  PSIS-LOO beyond the tie tolerance, or tied and simpler, or tied, as simple
+  and faster by more than `TIME_TIE`.
 - A challenger is refused if its paired held-out score is below the
   incumbent's by more than two SE (the board's independent check), and the
   next eligible fit is tried.
@@ -47,7 +54,7 @@ import math
 import re
 from pathlib import Path
 
-from rentfrontier import data, leaderboard
+from rentfrontier import data, elegance, leaderboard
 
 TARGET_HARDWARE = "thelio RTX 2060 SUPER"
 WINDOW_SECONDS = 30 * 60
@@ -80,6 +87,10 @@ def _rules(entry) -> frozenset:
     return frozenset(_record(entry).get("data_rules", ()))
 
 
+def _complexity(e):
+    return e["complexity"] if "complexity" in e else elegance.complexity(e)
+
+
 def why_not(e, rules) -> str | None:
     """Why an entry cannot be served, or None if it can."""
     if not e["passes_checks"]:
@@ -98,6 +109,8 @@ def why_not(e, rules) -> str | None:
     dataset = _record(e).get("dataset")
     if dataset is not None and Path(dataset).resolve() != Path(data.DATASET).resolve():
         return f"it was fit on {Path(dataset).name}, not the current {Path(data.DATASET).name}"
+    if _complexity(e) is None:
+        return "its design has no simplicity rating (rentfrontier.elegance)"
     if _rules(e) != rules:
         used = " + ".join(sorted(_rules(e))) or "no data rules"
         return f"it was fit with {used}, not the current {' + '.join(sorted(rules))}"
@@ -126,11 +139,15 @@ def ranked(candidates, paired=leaderboard.paired_loo) -> list:
             continue
         d, se, mc = paired(e["psis"]["_dir"], top["psis"]["_dir"])
         (tied if abs(d) <= leaderboard.tie_tolerance(se, mc) else rest).append(e)
-    fastest = min(e["fit_seconds"] for e in tied)
+    fastest = {}
+    for e in tied:
+        c = _complexity(e)
+        fastest[c] = min(fastest.get(c, math.inf), e["fit_seconds"])
 
     def order(e):
-        quick = e["fit_seconds"] <= fastest * (1 + TIME_TIE)
-        return (not quick, -e["psis"]["delta"], e["fit_seconds"])
+        c = _complexity(e)
+        quick = e["fit_seconds"] <= fastest[c] * (1 + TIME_TIE)
+        return (c, not quick, -e["psis"]["delta"], e["fit_seconds"])
 
     tied.sort(key=order)
     rest.sort(key=lambda e: -e["psis"]["delta"])
@@ -201,10 +218,16 @@ def decide(
             if h < -2 * hse:
                 check["refused"] = "held-out worse than the incumbent by more than 2 SE"
                 continue
-            faster = abs(d) <= tol and e["fit_seconds"] < incumbent["fit_seconds"] * (
-                1 - TIME_TIE
+            tied = abs(d) <= tol
+            c, c_inc = _complexity(e), _complexity(incumbent)
+            # An ineligible incumbent may be unrated; then nothing is simpler.
+            simpler = tied and c_inc is not None and c < c_inc
+            faster = (
+                tied
+                and c == c_inc
+                and e["fit_seconds"] < incumbent["fit_seconds"] * (1 - TIME_TIE)
             )
-            if inc_ok and not (d > tol or faster):
+            if inc_ok and not (d > tol or simpler or faster):
                 check["refused"] = "does not clearly beat the eligible incumbent"
                 continue
         why = (

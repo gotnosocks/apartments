@@ -42,6 +42,7 @@ def entry(tmp_path, name, delta, seconds, rules=RULES, **kw):
         "passes_checks": True,
         "interpretable": True,
         "hardware": autoselect.TARGET_HARDWARE,
+        "complexity": 10,
     }
     e.update(kw)
     return e
@@ -250,3 +251,43 @@ def test_a_fit_on_another_dataset_is_not_served(tmp_path, monkeypatch):
     (tmp_path / "runs" / "old" / "result.json").write_text(json.dumps(rec))
     monkeypatch.setattr(autoselect.data, "DATASET", tmp_path / "combined")
     assert "not the current combined" in autoselect.why_not(e, RULES)
+
+
+def test_a_design_without_a_simplicity_rating_is_not_eligible(tmp_path):
+    ok = entry(tmp_path, "ok", 10, 1300)
+    unrated = entry(tmp_path, "unrated", 10, 1300, complexity=None)
+    assert autoselect.eligible([ok, unrated], RULES) == [ok]
+    assert "simplicity rating" in autoselect.why_not(unrated, RULES)
+
+
+def test_ranked_prefers_the_simpler_tie_before_the_faster(tmp_path):
+    deltas = {"top": 10.0, "simple": 9.0, "fast": 9.5}
+    es = [
+        entry(tmp_path, "top", 10.0, 1300, complexity=12),
+        entry(tmp_path, "simple", 9.0, 1500, complexity=8),
+        entry(tmp_path, "fast", 9.5, 600, complexity=12),
+    ]
+    order = [
+        e["splits"]["rows"]["run"] for e in autoselect.ranked(es, paired_from(deltas))
+    ]
+    assert order == ["simple", "fast", "top"]
+
+
+def test_a_tied_simpler_challenger_replaces_the_incumbent(tmp_path):
+    deltas = {"inc": 10.0, "new": 9.5}
+    es = [
+        entry(tmp_path, "inc", 10.0, 1300, complexity=12),
+        entry(tmp_path, "new", 9.5, 1500, complexity=9),
+    ]
+    d = autoselect.decide(es, "inc", RULES, paired_from(deltas), no_heldout_loss)
+    assert d["action"] == "switch" and d["run"] == "new"
+
+
+def test_a_tied_faster_but_more_complex_challenger_does_not(tmp_path):
+    deltas = {"inc": 10.0, "new": 10.5}
+    es = [
+        entry(tmp_path, "inc", 10.0, 1300, complexity=9),
+        entry(tmp_path, "new", 10.5, 600, complexity=12),
+    ]
+    d = autoselect.decide(es, "inc", RULES, paired_from(deltas), no_heldout_loss)
+    assert d["action"] == "keep" and d["run"] == "inc"
