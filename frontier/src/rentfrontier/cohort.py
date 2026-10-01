@@ -263,41 +263,36 @@ def build(history_dir: Path, granular: Path, output: Path) -> dict:
 def combine(output: Path, parts: dict) -> dict:
     """One cohort from several neighbourhoods' analysis datasets: every row
     unchanged plus its `neighbourhood`, refused if any audit id, unit, listing
-    or building is in two of them."""
-    seen = {k: set() for k in ("audit_id", "unit_id", "source_listing_id", "building")}
+    or building is in two of them (checked before anything is written)."""
+    keys = ("audit_id", "unit_id", "source_listing_id", "building")
+    seen = {k: set() for k in keys}
+    rows, sources = {}, {}
+    for name, directory in parts.items():
+        with open(directory / "observations.jsonl") as f:
+            rows[name] = [json.loads(line) for line in f if line.strip()]
+        mine = {
+            k: {str(r[k]) for r in rows[name] if r.get(k) is not None} for k in keys
+        }
+        for k, values in seen.items():
+            if values & mine[k]:
+                raise SystemExit(f"{name} shares {k} values with another part")
+            values |= mine[k]
+        sources[name] = {
+            "path": str(directory),
+            "observations_sha256": _sha(directory / "observations.jsonl"),
+        }
     output.mkdir(parents=True, exist_ok=False)
     path = output / "observations.jsonl"
-    counts, sources = {}, {}
     with open(path, "w") as out:
-        for name, directory in parts.items():
-            mine = {k: set() for k in seen}
-            n = 0
-            with open(directory / "observations.jsonl") as f:
-                for line in f:
-                    if not line.strip():
-                        continue
-                    row = json.loads(line)
-                    for k in seen:
-                        mine[k].add(
-                            str(row[k] if k != "building" else row.get("building"))
-                        )
-                    row["neighbourhood"] = name
-                    out.write(json.dumps(row, default=str) + "\n")
-                    n += 1
-            for k, values in seen.items():
-                if values & mine[k]:
-                    raise SystemExit(f"{name} shares {k} values with another part")
-                values |= mine[k]
-            counts[name] = n
-            sources[name] = {
-                "path": str(directory),
-                "observations_sha256": _sha(directory / "observations.jsonl"),
-            }
+        for name, part in rows.items():
+            for row in part:
+                row["neighbourhood"] = name
+                out.write(json.dumps(row, default=str) + "\n")
     complete = {
         "version": "combined-neighbourhood-cohort-v1",
         "built_at": dt.datetime.now(dt.UTC).isoformat(),
         "parts": sources,
-        "rows": counts,
+        "rows": {name: len(part) for name, part in rows.items()},
         "files": {"observations.jsonl": _sha(path)},
     }
     (output / "complete.json").write_text(json.dumps(complete, indent=2) + "\n")
