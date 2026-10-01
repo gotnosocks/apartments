@@ -24,10 +24,24 @@ extraction with evidence spans and one consolidated scope overlay; (6) building
 covariates in the building-effect mean; (7) era-stability check on coefficients;
 (8) collapse `models/`, artifact retention, doc shape.
 
-**West Village collection, September 22:** the first crawl completed but
-yielded only 231 canonical units out of ~17,800 inventory-listed units. Inventory-label unit
-probes are implemented and dry-run tested (17,229 queued). The next paid run
-awaits approval of its scope; see [West Village collection](data/west-village-collection.md#september-21-completion-and-september-22-yield-review).
+**West Village: expand the analysis to include it** (Ben, 2026-10-01; to do).
+The collection is complete. The crawl finished on September 30, and the snapshot
+`west-village-backfill-20260930`, the transform
+`west-village-granular-20260930-canonical-url-v1` (15,169 rental units, 40,126 listing IDs)
+and its audit and unit-spelling alias table exist; see
+[West Village collection](data/west-village-collection.md). The models still fit Chelsea only.
+- [ ] Build a West Village analysis dataset: the historical own-advertisement rows and the
+      generic projections, as Chelsea's `chelsea-product-scope-analysis-20260921` was built.
+      List which of Chelsea's reviewed corrections have a West Village counterpart.
+- [ ] Choose between a combined Chelsea + West Village fit (one market, neighbourhood terms)
+      and a fit per neighbourhood. The combined data is about twice Chelsea's, and the served
+      design already takes 1,765 s of the 30-minute window on the RTX 2060.
+- [ ] Geocode the registry for West Village buildings. Then the MapPLUTO, footprints, basemap
+      and 311 snapshots for its box, and the descriptions source.
+- [ ] Data rules for West Village: the alias table as the unit-label merge, and a quarantine
+      review like Chelsea's.
+- [ ] Fit, score and select through `rentfrontier.autoselect`, then the listings site's
+      neighbourhood scope and the rent map's extent.
 
 Immediate pilot work:
 
