@@ -66,14 +66,28 @@ is therefore a fair signal of over- or under-pricing ([what an estimate is](mode
   name, for example `nb-tune35`) are exploration only. They are hidden unless asked for, and never
   servable. Fits far below the rest (the mean-only baselines) are drawn at the chart's floor
   unless "the full accuracy range" is ticked.
+- **Board** (`/research/board`): every fit on the board with its accuracy, fit time, complexity,
+  checks, whether it can be served and why not, and when it landed. Filters are hardware, model
+  line, a search over design, features and commit, "only servable" and "subset fits"; columns sort.
+  Servable is yes only when the research data says so (autoselect's `why_not_served`). Otherwise a
+  fit that fails the checks is "no", and anything else is "not known yet".
+- **Fit** (`/research/fits/<key>`): one fit's headline numbers, whether it can be served and why
+  not, the board's note and annotations, the sampler and run, the accuracy in detail (ELPD, Pareto
+  k, the held-out check), each split's diagnostics, and where the variation in rents goes. Every
+  dot on the research charts and every fit in their tables links here.
+- **History** (`/research/history`):
+  - the best fit's accuracy over time on one hardware class (the board's own replay);
+  - each fit's fit time by the day it landed;
+  - cumulative hours of fitting by model line (custom samplers, NumPyro NUTS, PyMC);
+  - every merged change and model switch.
 - **Served model** (`/research/model`):
   - why it is served: the selection's own reason, and the latest automatic decision when the research
     data carries it (`autoselect`);
   - its place on the board: PSIS-LOO ΔELPD, the held-out check, fit time, complexity, frontier and
     gate;
   - the fit's provenance, the parts of an estimate, and every feature coefficient.
-- **Board and history:** still on the research dashboard (:8500), linked from the navigation until
-  they move here.
+- **Validation and data quality:** still on the research dashboard (:8500), linked from the
+  navigation until they move here.
 
 ### Service pages
 
