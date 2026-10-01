@@ -89,8 +89,9 @@ DEFINITION = (
     "A typical apartment with that many bedrooms: bathrooms, size, laundry, views "
     "and ad-text features at Chelsea's average for its bedroom count; floor, "
     "elevator, doorman, pet policy and building facts at the building's own "
-    "average; plus the building's own level, path over time and bedroom premium, "
-    "and the market that year. Posterior median of the typical asking rent, with a "
+    "average; plus the building's own level, path over time and bedroom premium "
+    "(and, in designs with them, its own size and bathroom slopes), and the market "
+    "that year. Posterior median of the typical asking rent, with a "
     "90% interval."
 )
 
@@ -330,13 +331,20 @@ def unsupported_terms(config: model.ModelConfig) -> list[str]:
         ),
         "both a walk and a trend": config.building_walk and config.building_trend,
         "bedroom-group market curves": config.bedroom_time,
-        "per-building feature slopes": bool(config.feature_slopes),
         "market drift": config.market_drift,
         "sum-to-zero, masked or anchored walks": config.walk_zero_sum
         or bool(config.walk_min_rows_per_knot)
         or config.walk_anchor_data,
     }
     return [k for k, bad in unsupported.items() if bad]
+
+
+def feature_slope_term(fslope, x, cols) -> np.ndarray:
+    """Each building's own slopes times the typical apartment's values of those
+    features: fslope (draws, buildings, slopes), x (buildings, features), cols
+    the slopes' feature columns; (draws, buildings). As in the model's linear
+    predictor, fslope[building] times x at the slopes' columns."""
+    return np.einsum("dbj,bj->db", fslope, x[:, cols])
 
 
 def compute(name: str) -> dict:
@@ -366,14 +374,18 @@ def compute(name: str) -> dict:
         )
     level = kept["building"]  # (d, B)
     slope = kept["bedroom_slope"] if config.bedroom_slope else np.zeros_like(level)
+    fcols = [prep.features.names.index(n) for n in config.feature_slopes]
     out_rent, chelsea = {}, {}
     for key, (x, beds) in typical_rows(prep).items():
         log = (
             market[:, None, :]
             + path
-            + (level + np.einsum("bf,df->db", x, kept["beta"]) + slope * beds)[
-                ..., None
-            ]
+            + (
+                level
+                + np.einsum("bf,df->db", x, kept["beta"])
+                + slope * beds
+                + (feature_slope_term(kept["fslope"], x, fcols) if fcols else 0.0)
+            )[..., None]
         )  # (d, B, Y)
         q = np.quantile(np.exp(log), PROBABILITIES, axis=0)  # (3, B, Y)
         out_rent[key] = np.rint(np.moveaxis(q, 0, -1)).astype(int).tolist()

@@ -74,3 +74,16 @@ def test_clip_ring_and_thin():
     # Thinning keeps the ends and drops points closer than the step.
     line = [(0.0, 0.0), (0.5, 0.0), (1.0, 0.0), (3.0, 0.0), (3.2, 0.0)]
     assert rentmap._thin(line, step=1.5) == [(0.0, 0.0), (3.0, 0.0), (3.2, 0.0)]
+
+
+def test_designs_with_building_slopes_are_mapped():
+    import numpy as np
+    from rentfrontier import model
+
+    assert rentmap.unsupported_terms(model.MODELS["m7-nocurves-2slopes"]) == []
+    rng = np.random.default_rng(0)
+    fslope = rng.normal(size=(4, 3, 2))  # draws, buildings, slopes
+    x = rng.normal(size=(3, 5))  # buildings, features
+    got = rentmap.feature_slope_term(fslope, x, [1, 4])
+    want = np.array([[fslope[d, b] @ x[b, [1, 4]] for b in range(3)] for d in range(4)])
+    np.testing.assert_allclose(got, want)
