@@ -10,8 +10,10 @@ contract and pitfalls in [the 2026-09-24 brief](brief-2026-09-24.md) and the
 ## Objective
 
 Push the frontier of **PSIS-LOO ΔELPD** against **fit time on thelio**. That means more accurate
-descriptions of every listing for the same fit time, or the same accuracy sooner. Product decisions stay
-Ben's. On 2026-09-29 he chose the Gibbs `m5-nocurves` fit with the building facts
+descriptions of every listing for the same fit time, or the same accuracy sooner. Since 2026-09-30 the
+app's model is chosen by an automatic rule on these metrics (Ben: "You do not need my approval to
+change the dashboard model"; see "Automatic loop and selection"). Before that, product decisions
+were Ben's. On 2026-09-29 he chose the Gibbs `m5-nocurves` fit with the building facts
 (`unitdescpluto-v3`) as the app's model: the most accurate gate-passing fit within the 30-minute
 window (tied with the same design without them), and it names most of the differences between
 buildings. On 2026-09-30 he switched the app to the same design refit without the quarantined
@@ -133,14 +135,19 @@ You do not need my approval to change the dashboard model."
   - it ran on the RTX 2060 row split within the 30-minute window;
   - it used the current data rules, the latest version of each rule family. A fit on rows a
     later review found to be wrong is not served.
-- **The choice** is the board's own best among the eligible fits:
+- **The choice** follows the board's `choose_best` among the eligible fits. It differs only
+  where the 10% time tie below changes the order:
   - Take the top PSIS-LOO, and the fits tied with it within two combined SE.
   - Among those, take the fastest. Fit times within 10% count as equal, and then the higher
     PSIS-LOO wins, so timing noise cannot decide.
 - **Hysteresis.** An eligible incumbent stays unless it is beaten clearly: PSIS-LOO beyond the
   tie tolerance, or tied and more than 10% faster.
 - **Held-out guard.** A challenger whose paired held-out score is more than 2 SE below the
-  incumbent's is refused, and the next fit is tried.
+  incumbent's is refused, and the next fit is tried. Challengers are tried in ranked order,
+  and the first one that passes the guard and clearly beats an eligible incumbent is chosen.
+- **Data rules are part of serving.** Merging a new version of a data rule makes it current,
+  so the served fit becomes ineligible until a fit on the new rule exists. A rule's file is
+  also checked against the hash the fit recorded.
 - **A switch** still goes through a reviewed PR: the rule writes the selection
   (`autoselect --write <bundle>`), and the reviewer reruns the rule. After the merge, the site
   code is deployed and the selection published, and the rent map is recomputed.
