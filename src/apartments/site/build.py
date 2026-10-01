@@ -27,6 +27,7 @@ from __future__ import annotations
 
 import argparse
 import datetime as dt
+import glob
 import hashlib
 import json
 import math
@@ -46,6 +47,8 @@ SCHEMA_VERSION = 2
 DEFAULT_ROOT = Path(os.environ.get("SITE_ROOT", "/data1/apartments/site"))
 SELECTION_VERSION = "main-analysis-selection-v2"
 KEEP = 3
+# Rent maps of runs (`rentfrontier.rentmap`): <run>-<7-hex commit>/map.json.
+MAPS = Path(os.environ.get("FRONTIER_MAPS", "/data1/apartments/frontier/maps"))
 # Where the ask falls in its leave-own-row-out predictive distribution.
 PRICE_BANDS = (0.10, 0.90)
 HISTORICAL_BASIS = "historical_initial_own_advertisement_ask"
@@ -669,6 +672,25 @@ def write_database(
     return stats
 
 
+def rent_map(run: str, maps: Path | None = None) -> Path | None:
+    """The newest rent map of `run`, if one has been made; a bundle that names
+    another run is refused."""
+    maps = MAPS if maps is None else maps
+    found = sorted(
+        maps.glob(f"{glob.escape(run)}-{'[0-9a-f]' * 7}/map.json"),
+        key=lambda p: p.stat().st_mtime,
+    )
+    if not found:
+        return None
+    try:
+        named = json.loads(found[-1].read_text()).get("run")
+    except (OSError, ValueError) as error:
+        raise BuildError(f"cannot read the rent map {found[-1]}: {error}") from None
+    if named != run:
+        raise BuildError(f"the rent map {found[-1]} is of {named}, not {run}")
+    return found[-1]
+
+
 def publish(build_dir: Path, root: Path, keep: int = KEEP) -> None:
     """Point root/current at build_dir atomically; prune old builds."""
     link = root / "current"
@@ -710,8 +732,12 @@ def build(
             scope,
             selection_note(selection, record["_sha256"]),
         )
+        source_map = rent_map(record["run"])
+        if source_map is not None:
+            shutil.copyfile(source_map, staging / "map.json")
         info = {
             "version": VERSION,
+            "rent_map": str(source_map) if source_map else None,
             "built_at": dt.datetime.now(dt.UTC).isoformat(timespec="seconds"),
             "summary": str(summary),
             "summary_sha256": record["_sha256"],

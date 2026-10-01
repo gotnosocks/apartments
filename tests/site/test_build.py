@@ -283,3 +283,40 @@ def test_selection_note_only_for_the_selected_bundle(bundle, tmp_path):
     build.build(bundle, root, selection=path)
     meta = {r["key"]: json.loads(r["value"]) for r in query(root, "SELECT * FROM meta")}
     assert meta["selection"]["selection_reason"] == "why"
+
+
+def _map(maps, run, commit, named=None):
+    folder = maps / f"{run}-{commit}"
+    folder.mkdir(parents=True)
+    (folder / "map.json").write_text(json.dumps({"run": named or run, "years": [2026]}))
+    return folder / "map.json"
+
+
+def test_rent_map_is_the_runs_newest_and_must_name_it(tmp_path):
+    import os
+
+    maps = tmp_path / "maps"
+    assert build.rent_map("m-test-run", maps) is None
+    old = _map(maps, "m-test-run", "aaaaaaa")
+    new = _map(maps, "m-test-run", "bbbbbbb")
+    os.utime(old, (1, 1))
+    _map(maps, "m-test-run-longer", "ccccccc")  # another run's name starts with it
+    assert build.rent_map("m-test-run", maps) == new
+    _map(maps, "m-other", "ddddddd", named="m-test-run")
+    wrong = _map(maps, "m-mixed", "eeeeeee", named="m-other")
+    with pytest.raises(build.BuildError, match="is of m-other, not m-mixed"):
+        build.rent_map("m-mixed", maps)
+    assert wrong.exists()
+
+
+def test_build_bundles_the_served_runs_map(bundle, tmp_path, monkeypatch):
+    maps = tmp_path / "maps"
+    source = _map(maps, "m-test-run", "1234567")
+    monkeypatch.setattr(build, "MAPS", maps)
+    root = tmp_path / "site"
+    build.build(bundle, root)
+    assert (
+        json.loads((root / "current" / "map.json").read_text())["run"] == "m-test-run"
+    )
+    info = json.loads((root / "current" / "build.json").read_text())
+    assert info["rent_map"] == str(source)

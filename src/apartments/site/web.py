@@ -321,6 +321,7 @@ SECTIONS = {
         "building",
         "quarantined",
         "about",
+        "estimates_map",
     ),
     "research": (
         "research_frontier",
@@ -956,6 +957,25 @@ def create_app(
                 or bool(q["is_current"]) == (filters.status == "current")
             ],
         )
+
+    @app.get("/estimates/map")
+    def estimates_map():
+        db()  # 503 before any publish
+        return render_template(
+            "estimates_map.html",
+            meta=meta(),
+            has_map=(database_path().parent / "map.json").is_file(),
+        )
+
+    @app.get("/estimates/map.json")
+    def estimates_map_data():
+        db()
+        path = database_path().parent / "map.json"
+        if not path.is_file():
+            abort(404, description="No rent map for the served model yet.")
+        response = Response(path.read_bytes(), mimetype="application/json")
+        response.headers["Cache-Control"] = "no-cache"
+        return response
 
     @app.get("/about")
     def about():
