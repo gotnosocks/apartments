@@ -242,23 +242,44 @@ def test_an_entry_that_cannot_be_paired_loses_its_score_not_the_board():
     assert odd["unpaired"].startswith("PSIS-LOO not paired: Training rows differ")
 
 
-def _board_entry(name, delta, seconds, complexity):
+def _board_entry(name, delta, seconds):
     return {
         "id": name,
+        "model": {"name": name},
+        "feature_set": "f",
         "psis": {"delta": delta, "delta_se": 1.0, "delta_mcse": 0.0, "_dir": name},
         "fit_seconds": seconds,
-        "complexity": complexity,
         "passes_checks": True,
         "interpretable": True,
     }
 
 
-def test_the_best_is_the_simplest_tie_then_the_fastest():
+def _judged(monkeypatch, verdicts):
+    table = {}
+    for (a, b), v in verdicts.items():
+        ids = [f"{a}/f", f"{b}/f"]
+        table[frozenset(ids)] = {
+            "designs": ids,
+            "verdict": "equal" if v == "equal" else f"{v}/f",
+            "reason": "test",
+        }
+    monkeypatch.setattr(leaderboard.simplicity, "judgements", lambda *a: table)
+
+
+def test_the_best_is_the_simplest_tie_then_the_fastest(monkeypatch):
+    _judged(
+        monkeypatch,
+        {
+            ("top", "simple"): "simple",
+            ("top", "simple-fast"): "simple-fast",
+            ("simple", "simple-fast"): "equal",
+        },
+    )
     es = [
-        _board_entry("top", 10.0, 600, 12),
-        _board_entry("simple", 9.5, 1500, 8),
-        _board_entry("simple-fast", 9.0, 900, 8),
-        _board_entry("worse", 0.0, 100, 3),
+        _board_entry("top", 10.0, 600),
+        _board_entry("simple", 9.5, 1500),
+        _board_entry("simple-fast", 9.0, 900),
+        _board_entry("worse", 0.0, 100),
     ]
     deltas = {e["id"]: e["psis"]["delta"] for e in es}
 
@@ -268,11 +289,15 @@ def test_the_best_is_the_simplest_tie_then_the_fastest():
     assert leaderboard.choose_best(es, paired=paired)["id"] == "simple-fast"
 
 
-def test_the_frontier_has_three_axes():
+def test_the_frontier_keeps_a_beaten_fit_only_if_judged_simpler(monkeypatch):
+    _judged(
+        monkeypatch,
+        {("best", "simple"): "simple", ("best", "dominated"): "best"},
+    )
     es = [
-        _board_entry("best", 10.0, 1500, 12),
-        _board_entry("simple", 5.0, 1500, 6),
-        _board_entry("dominated", 5.0, 1500, 7),
-        _board_entry("unrated", 9.0, 1600, None),
+        _board_entry("best", 10.0, 1500),
+        _board_entry("simple", 5.0, 1500),
+        _board_entry("dominated", 5.0, 1500),
+        _board_entry("unjudged", 9.0, 1600),
     ]
     assert leaderboard.on_frontier(es) == [True, True, False, False]

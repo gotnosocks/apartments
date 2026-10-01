@@ -42,7 +42,8 @@ def entry(tmp_path, name, delta, seconds, rules=RULES, **kw):
         "passes_checks": True,
         "interpretable": True,
         "hardware": autoselect.TARGET_HARDWARE,
-        "complexity": 10,
+        "model": {"name": name},
+        "feature_set": "f",
     }
     e.update(kw)
     return e
@@ -163,8 +164,12 @@ def test_an_unscored_incumbent_is_replaced_without_pairing(tmp_path):
     assert "no paired PSIS-LOO score" in d["reason"]
 
 
-def test_a_lower_ranked_fit_that_clearly_beats_the_incumbent_is_chosen(tmp_path):
-    # a ties the incumbent and ranks first, b is clearly better than the incumbent.
+def test_a_lower_ranked_fit_that_clearly_beats_the_incumbent_is_chosen(
+    tmp_path, monkeypatch
+):
+    # a ties the incumbent (judged as simple, not faster) and ranks first, b is
+    # clearly better than the incumbent.
+    judged(monkeypatch, {("inc", "a"): "equal"})
     es = [
         entry(tmp_path, "inc", 10.0, 1300),
         entry(tmp_path, "a", 10.5, 1300),
@@ -230,19 +235,26 @@ def test_an_incumbent_that_ranks_first_says_so(tmp_path):
     assert d["action"] == "keep" and d["reason"] == "the incumbent ranks first"
 
 
-def test_a_design_without_a_simplicity_rating_is_not_eligible(tmp_path):
-    ok = entry(tmp_path, "ok", 10, 1300)
-    unrated = entry(tmp_path, "unrated", 10, 1300, complexity=None)
-    assert autoselect.eligible([ok, unrated], RULES) == [ok]
-    assert "simplicity rating" in autoselect.why_not(unrated, RULES)
+def judged(monkeypatch, verdicts):
+    """Simplicity judgements for test entries: {(a, b): winner or "equal"}."""
+    table = {}
+    for (a, b), v in verdicts.items():
+        ids = [f"{a}/f", f"{b}/f"]
+        table[frozenset(ids)] = {
+            "designs": ids,
+            "verdict": "equal" if v == "equal" else f"{v}/f",
+            "reason": "test",
+        }
+    monkeypatch.setattr(autoselect.simplicity, "judgements", lambda *a: table)
 
 
-def test_ranked_prefers_the_simpler_tie_before_the_faster(tmp_path):
+def test_ranked_prefers_the_simpler_tie_before_the_faster(tmp_path, monkeypatch):
+    judged(monkeypatch, {("top", "simple"): "simple", ("simple", "fast"): "simple"})
     deltas = {"top": 10.0, "simple": 9.0, "fast": 9.5}
     es = [
-        entry(tmp_path, "top", 10.0, 1300, complexity=12),
-        entry(tmp_path, "simple", 9.0, 1500, complexity=8),
-        entry(tmp_path, "fast", 9.5, 600, complexity=12),
+        entry(tmp_path, "top", 10.0, 1300),
+        entry(tmp_path, "simple", 9.0, 1500),
+        entry(tmp_path, "fast", 9.5, 600),
     ]
     order = [
         e["splits"]["rows"]["run"] for e in autoselect.ranked(es, paired_from(deltas))
@@ -250,21 +262,37 @@ def test_ranked_prefers_the_simpler_tie_before_the_faster(tmp_path):
     assert order == ["simple", "fast", "top"]
 
 
-def test_a_tied_simpler_challenger_replaces_the_incumbent(tmp_path):
+def test_a_tied_simpler_challenger_replaces_the_incumbent(tmp_path, monkeypatch):
+    judged(monkeypatch, {("inc", "new"): "new"})
     deltas = {"inc": 10.0, "new": 9.5}
-    es = [
-        entry(tmp_path, "inc", 10.0, 1300, complexity=12),
-        entry(tmp_path, "new", 9.5, 1500, complexity=9),
-    ]
+    es = [entry(tmp_path, "inc", 10.0, 1300), entry(tmp_path, "new", 9.5, 1500)]
     d = autoselect.decide(es, "inc", RULES, paired_from(deltas), no_heldout_loss)
     assert d["action"] == "switch" and d["run"] == "new"
 
 
-def test_a_tied_faster_but_more_complex_challenger_does_not(tmp_path):
+def test_a_tied_faster_but_less_simple_challenger_does_not(tmp_path, monkeypatch):
+    judged(monkeypatch, {("inc", "new"): "inc"})
     deltas = {"inc": 10.0, "new": 10.5}
-    es = [
-        entry(tmp_path, "inc", 10.0, 1300, complexity=9),
-        entry(tmp_path, "new", 10.5, 600, complexity=12),
-    ]
+    es = [entry(tmp_path, "inc", 10.0, 1300), entry(tmp_path, "new", 10.5, 600)]
     d = autoselect.decide(es, "inc", RULES, paired_from(deltas), no_heldout_loss)
     assert d["action"] == "keep" and d["run"] == "inc"
+
+
+def test_a_tied_equally_simple_and_much_faster_challenger_replaces(
+    tmp_path, monkeypatch
+):
+    judged(monkeypatch, {("inc", "new"): "equal"})
+    deltas = {"inc": 10.0, "new": 10.5}
+    es = [entry(tmp_path, "inc", 10.0, 1300), entry(tmp_path, "new", 10.5, 600)]
+    d = autoselect.decide(es, "inc", RULES, paired_from(deltas), no_heldout_loss)
+    assert d["action"] == "switch" and d["run"] == "new"
+
+
+def test_an_unjudged_tie_waits_for_a_judgement(tmp_path, monkeypatch):
+    judged(monkeypatch, {})
+    deltas = {"inc": 10.0, "new": 10.5}
+    es = [entry(tmp_path, "inc", 10.0, 1300), entry(tmp_path, "new", 10.5, 600)]
+    d = autoselect.decide(es, "inc", RULES, paired_from(deltas), no_heldout_loss)
+    assert d["action"] == "keep"
+    assert "no simplicity judgement" in d["checked"][0]["refused"]
+    assert d["pending_judgements"] == [("inc/f", "new/f")]
