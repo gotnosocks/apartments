@@ -560,3 +560,26 @@ def test_fit_scatter_marks_and_legend():
     assert "Fails the convergence checks" not in legend
     assert figure.count('class="fit ') == 3 and "target" in figure
     assert "drawn at its floor" in figure
+
+
+def test_review_fixes_on_research_model_and_home(client, research_file):
+    data = json.loads(research_file.read_text())
+    # a model switch and its merge land at the same time: the switch shows first
+    data["milestones"] = [
+        {"kind": "pr", "at": "2026-10-01T03:00:00+00:00", "pr": 92, "title": "PR"},
+        {"kind": "selection", "at": "2026-10-01T03:00:00+00:00", "title": "Switch"},
+    ] + [
+        {"kind": "pr", "at": f"2026-10-01T0{h}:00:00+00:00", "pr": h, "title": f"t{h}"}
+        for h in range(4, 9)
+    ]
+    served = next(e for e in data["entries"] if e["id"].startswith("m-test"))
+    served["psis"].pop("validation")
+    served["splits"]["rows"]["delta_se"] = None
+    research_file.write_text(json.dumps(data))
+    home = client.get("/").get_data(as_text=True)
+    assert "Model switch" in home
+    html = client.get("/research/model").get_data(as_text=True)
+    assert "on the listings kept out of every fit" in html  # no count, no gap
+    assert html.count("<dt>Convergence gate</dt>") == 1
+    # published by hand: no claim that the rule picked it
+    assert "A rule picks it" not in html
