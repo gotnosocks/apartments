@@ -288,6 +288,28 @@ BASEMAP_FILE = f"{BASEMAP_SNAPSHOT}/basemap.parquet"
 # Building outlines, the registry's and their neighbours' (`rentfrontier.external footprints`).
 FOOTPRINTS_SNAPSHOT = "/data1/apartments/external/footprints/20260930-6634906"
 FOOTPRINTS_FILE = f"{FOOTPRINTS_SNAPSHOT}/footprints.parquet"
+# Chelsea + West Village (cohort chelsea-west-village-analysis-20261001-eea4f66):
+# the two registries merged, and the neighbourhoods' MapPLUTO, footprints and
+# basemap snapshots merged (`rentfrontier.external merge`).
+NB_REGISTRY_FILE = (
+    "/data1/apartments/external/registry/20261001-eea4f66/buildings.parquet"
+)
+NB_PLUTO_FILE = "/data1/apartments/external/pluto/20261001-9b54648/pluto.parquet"
+NB_FOOTPRINTS_FILE = (
+    "/data1/apartments/external/footprints/20261001-9b54648/footprints.parquet"
+)
+NB_BASEMAP_FILE = "/data1/apartments/external/basemap/20261001-9b54648/basemap.parquet"
+# Which basemap and footprints snapshots facing reads while a set is built.
+_AREA: contextvars.ContextVar[tuple[str, str] | None] = contextvars.ContextVar(
+    "area", default=None
+)
+
+
+def area_snapshot() -> tuple[str, str]:
+    """(basemap, footprints) files of the set being built (AREA_SNAPSHOTS)."""
+    return _AREA.get() or (BASEMAP_FILE, FOOTPRINTS_FILE)
+
+
 # HPD housing-code violations of the registry's buildings (`rentfrontier.external hpd`).
 HPD_SNAPSHOT = "/data1/apartments/external/hpd/20260930-cb289ad"
 HPD_FILE = f"{HPD_SNAPSHOT}/hpd.parquet"
@@ -606,11 +628,13 @@ def building_frontage() -> pd.DataFrame:
     """Per registry building: its frontage street type (avenue, wide street,
     side street) and the grid direction its front faces (the side of its
     address street it stands on, from the street's centerline)."""
-    return _building_frontage(lot_registry())
+    return _building_frontage(lot_registry(), area_snapshot()[0])
 
 
 @functools.lru_cache(maxsize=2)
-def _building_frontage(registry_file: str) -> pd.DataFrame:
+def _building_frontage(
+    registry_file: str, basemap_file: str = BASEMAP_FILE
+) -> pd.DataFrame:
     registry = pd.read_parquet(registry_file).set_index("building")
     lat0, lon0 = _grid_origin()
     phi, metres = math.radians(FRONTAGE_BEARING_DEG), 111_320.0
@@ -625,7 +649,7 @@ def _building_frontage(registry_file: str) -> pd.DataFrame:
             ]
         )
 
-    streets = pd.read_parquet(BASEMAP_FILE).query("layer == 'street'")
+    streets = pd.read_parquet(basemap_file).query("layer == 'street'")
     segments = {}
     for row in streets.itertuples():
         geometry = json.loads(row.geometry)
@@ -850,11 +874,15 @@ def facade_sides(ring, streets, occluders) -> dict:
 def building_sides() -> pd.DataFrame:
     """Per registry building with a footprint: for each grid direction the type
     of street that side looks onto, or "none" (no street), or "no facade"."""
-    return _building_sides(lot_registry())
+    return _building_sides(lot_registry(), *area_snapshot())
 
 
 @functools.lru_cache(maxsize=2)
-def _building_sides(registry_file: str) -> pd.DataFrame:
+def _building_sides(
+    registry_file: str,
+    basemap_file: str = BASEMAP_FILE,
+    footprints_file: str = FOOTPRINTS_FILE,
+) -> pd.DataFrame:
     registry = pd.read_parquet(registry_file).set_index("building")
     lat0, lon0 = _grid_origin()
     phi, metres = math.radians(FRONTAGE_BEARING_DEG), 111_320.0
@@ -878,7 +906,7 @@ def _building_sides(registry_file: str) -> pd.DataFrame:
         return [grid([q[0] for q in pg[0]], [q[1] for q in pg[0]]) for pg in polygons]
 
     starts, ends, kinds = [], [], []
-    for row in pd.read_parquet(BASEMAP_FILE).query("layer == 'street'").itertuples():
+    for row in pd.read_parquet(basemap_file).query("layer == 'street'").itertuples():
         roadway = json.loads(row.attributes).get("rw_type")
         kind = street_kind(row.name, roadway)
         if kind is None or roadway not in ("1", "2", "3", "9"):
@@ -892,7 +920,7 @@ def _building_sides(registry_file: str) -> pd.DataFrame:
             kinds += [kind] * (len(pts) - 1)
     streets = (np.concatenate(starts), np.concatenate(ends), np.array(kinds))
 
-    footprints = pd.read_parquet(FOOTPRINTS_FILE)
+    footprints = pd.read_parquet(footprints_file)
     e0, e1, owner = [], [], []
     for r in footprints.itertuples():
         for ring in rings_of(r.geometry):
@@ -1247,8 +1275,31 @@ def noise_v1(
     )
 
 
+def neighbourhood_v1(
+    frame: pd.DataFrame,
+    train: np.ndarray,
+    id: str = "neighbourhood-v1",
+    base: str = "unitfloor-v2",
+) -> Features:
+    """A base set plus the neighbourhood: West Village against Chelsea (the
+    shift of every building's level there, before its own building effect)."""
+    base = FEATURE_SETS[base](frame, train)
+    b = _Builder(frame)
+    b.add("neighbourhood", "West Village", frame.neighbourhood.eq("West Village"))
+    extra = b.build(id)
+    return Features(
+        id,
+        base.names + extra.names,
+        base.groups + extra.groups,
+        np.column_stack([base.values, extra.values]),
+        np.concatenate([base.prior_scale, extra.prior_scale]),
+    )
+
+
 # Feature sets that read the external snapshots (run records list them).
 EXTERNAL = {
+    "nb-unitpluto-v1",
+    "nb-facing-v1",
     "wv-unitpluto-v1",
     "pluto-v1",
     "unitfloor-v2",
@@ -1277,9 +1328,16 @@ BASEMAP = {
     "unitfacing-v4",
     "unitfacing-v5",
     "unitnoise-v1",
+    "nb-facing-v1",
 }
 # Feature sets that read the building footprints snapshot.
-FOOTPRINTS = {"unitfacing-v3", "unitfacing-v4", "unitfacing-v5", "unitnoise-v1"}
+FOOTPRINTS = {
+    "unitfacing-v3",
+    "unitfacing-v4",
+    "unitfacing-v5",
+    "unitnoise-v1",
+    "nb-facing-v1",
+}
 # Feature sets that read the 311 noise complaints snapshot.
 NOISE = {"unitnoise-v1"}
 # Feature sets that read the HPD violations snapshot.
@@ -1287,6 +1345,7 @@ HPD = {"unitdescplutohpd-v1", "unitdescplutohpd-v2"}
 # Feature sets that read the advertisement descriptions (`descriptions.SOURCE`),
 # directly or through their base set.
 DESCRIPTIONS = {
+    "nb-facing-v1",
     "desc-v1",
     "unitdesc-v1",
     "unitdescpluto-v1",
@@ -1312,6 +1371,22 @@ FEATURE_SETS = {
     "unitlabels-v1": partial(
         base_v1, id="unitlabels-v1", by_unit=True, unit_size=True, unit_labels=True
     ),
+    # Chelsea + West Village: building facts on the unit and floor features,
+    # plus the neighbourhood.
+    "nb-unitpluto-v1": partial(
+        neighbourhood_v1, id="nb-unitpluto-v1", base="nb-pluto-base"
+    ),
+    "nb-pluto-base": partial(
+        pluto_v1,
+        id="nb-pluto-base",
+        base="unitfloor-v2",
+        flood_zone=False,
+        latest_alteration=True,
+    ),
+    # Chelsea + West Village: the served design's terms (descriptions where a
+    # description source has the ad, building facts, facing, the low-floor
+    # flags) plus the neighbourhood.
+    "nb-facing-v1": partial(neighbourhood_v1, id="nb-facing-v1", base="unitfacing-v4"),
     # West Village: the app design's building facts (as unitdescpluto-v3) on the
     # unit and floor features; West Village has no description source yet.
     "wv-unitpluto-v1": partial(
@@ -1400,8 +1475,23 @@ LOT_SNAPSHOTS = {
     "unitdescpluto-v5": {"registry": REGISTRY_V3_FILE, "pluto": PLUTO_V3_FILE},
     "unitfacing-v5": {"registry": REGISTRY_V3_FILE, "pluto": PLUTO_V3_FILE},
     "wv-unitpluto-v1": {"registry": WV_REGISTRY_FILE, "pluto": WV_PLUTO_FILE},
+    "nb-unitpluto-v1": {"registry": NB_REGISTRY_FILE, "pluto": NB_PLUTO_FILE},
+    "nb-facing-v1": {"registry": NB_REGISTRY_FILE, "pluto": NB_PLUTO_FILE},
     "unitnoise-v1": {"registry": REGISTRY_V3_FILE, "pluto": PLUTO_V3_FILE},
 }
+
+
+# Feature sets that read other basemap and footprints snapshots than the first.
+AREA_SNAPSHOTS = {
+    "nb-facing-v1": {"basemap": NB_BASEMAP_FILE, "footprints": NB_FOOTPRINTS_FILE},
+}
+
+
+def area_files(name: str) -> dict:
+    """The basemap and footprints files a feature set's facing terms read."""
+    return AREA_SNAPSHOTS.get(
+        name, {"basemap": BASEMAP_FILE, "footprints": FOOTPRINTS_FILE}
+    )
 
 
 def lot_files(name: str) -> dict:
@@ -1411,8 +1501,11 @@ def lot_files(name: str) -> dict:
 
 def build(name: str, frame: pd.DataFrame, train: np.ndarray) -> Features:
     files = lot_files(name)
+    area = area_files(name)
     token = _LOTS.set((files["registry"], files["pluto"]))
+    area_token = _AREA.set((area["basemap"], area["footprints"]))
     try:
         return FEATURE_SETS[name](frame, np.asarray(train, dtype=bool))
     finally:
         _LOTS.reset(token)
+        _AREA.reset(area_token)
