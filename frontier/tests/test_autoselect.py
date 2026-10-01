@@ -309,6 +309,7 @@ def test_a_tied_equally_simple_and_much_faster_challenger_replaces(
     es = [entry(tmp_path, "inc", 10.0, 1300), entry(tmp_path, "new", 10.5, 600)]
     d = autoselect.decide(es, "inc", RULES, paired_from(deltas), no_heldout_loss)
     assert d["action"] == "switch" and d["run"] == "new"
+    assert "judged as simple" in d["reason"] and "faster" in d["reason"]
 
 
 def test_an_unjudged_tie_waits_for_a_judgement(tmp_path, monkeypatch):

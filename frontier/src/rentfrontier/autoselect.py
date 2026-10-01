@@ -230,6 +230,7 @@ def decide(
             continue
         check = {"run": _run(e)}
         out["checked"].append(check)
+        won = "it clearly beats the incumbent"
         if comparable:
             d, se, mc = paired(e["psis"]["_dir"], incumbent["psis"]["_dir"])
             tol = leaderboard.tie_tolerance(se, mc)
@@ -266,11 +267,15 @@ def decide(
             if inc_ok and not (d > tol or simpler or faster):
                 check["refused"] = "does not clearly beat the eligible incumbent"
                 continue
-        why = (
-            "it clearly beats the incumbent"
-            if inc_ok
-            else f"the incumbent cannot be served: {inc_why}"
-        )
+            won = (
+                "its PSIS-LOO is clearly better than the incumbent's"
+                if d > tol
+                else "it ties the incumbent on PSIS-LOO and is judged simpler"
+                if simpler
+                else "it ties the incumbent on PSIS-LOO, is judged as simple, and is "
+                f"more than {TIME_TIE:.0%} faster"
+            )
+        why = won if inc_ok else f"the incumbent cannot be served: {inc_why}"
         out.update(action="switch", run=_run(e), reason=why)
         return out
     if inc_ok:

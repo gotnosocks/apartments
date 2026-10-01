@@ -252,9 +252,7 @@ def main(argv=None):
         for line in lines:
             print(f"{line['designs'][0]} vs {line['designs'][1]}: {line['verdict']}")
     else:
-        from rentfrontier import leaderboard
-
-        from rentfrontier import autoselect
+        from rentfrontier import autoselect, leaderboard
 
         board = leaderboard.build(keep_dirs=True)
         incumbent = json.loads(autoselect.SELECTION.read_text())["run"]
