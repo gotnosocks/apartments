@@ -1373,6 +1373,25 @@ comes from other sources, most of them public NYC and NYS data.
   scale also mixed slowly before (ac9e02b: R-hat 1.085). A drift only for units with enough
   listings, which needs model and sampler support, is in the queue.
 
+- **West Village: first fits** (2026-10-01; cohort `west-village-analysis-20261001-6b3ad1a`,
+  34,118 rows, 13,740 units after `unit-labels-v1`, 1,190 buildings; Gibbs on the RTX 2060).
+  Scores are within West Village and are not comparable with Chelsea's.
+
+  | Design | Features | Time | Gate | PSIS-LOO |
+  |---|---|---:|---|---:|
+  | m7-nocurves-floorslope, solo ×3, 3,000 draws | unitfloor-v2 | 1,525 s | **fails** (size-slope scale ESS 202) | 33,304.1 |
+  | m5-nocurves-tunits | unitfloor-v2 | 1,147 s | passes | 32,474.6 |
+  | m5-nocurves-tunits | **wv-unitpluto-v1** | 1,241 s | passes | 32,485.6 |
+  | m7-nocurves-bathfloor, solo ×3, 3,000 draws | wv-unitpluto-v1 | 1,593 s | passes | **33,160.0** |
+
+  - Square feet are stated on only 18% of West Village rows, so a per-building size slope
+    cannot be identified. Dropping it (bath and floor slopes only) passes, and scores +674.5
+    over Student-t units with the same facts.
+  - West Village's own MapPLUTO facts barely move PSIS-LOO (+11.0). But the building level falls
+    from 20.9% to 9.6% of the variance as the named facts take it over.
+  - Next (Ben, 2026-10-01): one model for the whole dataset, Chelsea and West Village together,
+    with designs tuned on a fixed subset of buildings.
+
 ## Work tracks, in order
 
 ### T1. Make the score resolve design differences

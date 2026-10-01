@@ -269,6 +269,12 @@ REGISTRY_V3_FILE = (
     "/data1/apartments/external/registry/20260930-676c382/buildings.parquet"
 )
 PLUTO_V3_FILE = "/data1/apartments/external/pluto/20260930-676c382/pluto.parquet"
+# West Village (cohort west-village-analysis-20261001-6b3ad1a): its own registry,
+# geocoded from the transform's building coordinates, and MapPLUTO for its lots.
+WV_REGISTRY_FILE = (
+    "/data1/apartments/external/registry/20261001-3709acc/buildings.parquet"
+)
+WV_PLUTO_FILE = "/data1/apartments/external/pluto/20261001-3709acc/pluto.parquet"
 # Which registry and MapPLUTO snapshots building_lots reads while a feature set
 # is built (`build`); feature sets not listed in LOT_SNAPSHOTS read the first.
 _LOTS: contextvars.ContextVar[tuple[str, str] | None] = contextvars.ContextVar(
@@ -1243,6 +1249,7 @@ def noise_v1(
 
 # Feature sets that read the external snapshots (run records list them).
 EXTERNAL = {
+    "wv-unitpluto-v1",
     "pluto-v1",
     "unitfloor-v2",
     "unitdesc-v1",
@@ -1304,6 +1311,15 @@ FEATURE_SETS = {
     "unitattrs-v1": partial(base_v1, id="unitattrs-v1", by_unit=True, unit_size=True),
     "unitlabels-v1": partial(
         base_v1, id="unitlabels-v1", by_unit=True, unit_size=True, unit_labels=True
+    ),
+    # West Village: the app design's building facts (as unitdescpluto-v3) on the
+    # unit and floor features; West Village has no description source yet.
+    "wv-unitpluto-v1": partial(
+        pluto_v1,
+        id="wv-unitpluto-v1",
+        base="unitfloor-v2",
+        flood_zone=False,
+        latest_alteration=True,
     ),
     "unitfloor-v2": partial(
         base_v1,
@@ -1383,6 +1399,7 @@ LOT_SNAPSHOTS = {
     "unitdescpluto-v4": {"registry": REGISTRY_V2_FILE, "pluto": PLUTO_V2_FILE},
     "unitdescpluto-v5": {"registry": REGISTRY_V3_FILE, "pluto": PLUTO_V3_FILE},
     "unitfacing-v5": {"registry": REGISTRY_V3_FILE, "pluto": PLUTO_V3_FILE},
+    "wv-unitpluto-v1": {"registry": WV_REGISTRY_FILE, "pluto": WV_PLUTO_FILE},
     "unitnoise-v1": {"registry": REGISTRY_V3_FILE, "pluto": PLUTO_V3_FILE},
 }
 

@@ -25,7 +25,9 @@ the chain's generic rules and none of Chelsea's review decisions:
 
 `python -m rentfrontier.cohort <history dir> <granular dir> <output dir>` writes
 `observations.jsonl` and `complete.json`. Use the result with
-`FRONTIER_DATASET=<output dir>`.
+`FRONTIER_DATASET=<output dir>`. `python -m rentfrontier.cohort covariates
+<granular dir> <buildings.csv>` writes the building coordinates the registry
+geocodes from (`FRONTIER_BUILDING_COVARIATES`).
 """
 
 from __future__ import annotations
@@ -258,7 +260,43 @@ def build(history_dir: Path, granular: Path, output: Path) -> dict:
     return complete
 
 
+def building_covariates(granular: Path) -> pd.DataFrame:
+    """Per building in the transform: its median archived coordinates, the
+    smallest floor count and residential-unit count its pages report, as the
+    registry's covariates file (`registry.COVARIATES`) is laid out."""
+    obs = pd.read_parquet(
+        granular / "building_observations",
+        columns=[
+            "building_slug",
+            "latitude",
+            "longitude",
+            "residential_units",
+            "raw_building_json",
+        ],
+    )
+    obs["stories"] = obs.raw_building_json.map(
+        lambda raw: (json.loads(raw) if raw else {}).get("floorCount")
+    )
+    obs = obs.dropna(subset=["latitude", "longitude"])
+    out = obs.groupby("building_slug").agg(
+        latitude=("latitude", "median"),
+        longitude=("longitude", "median"),
+        stories=("stories", "min"),
+        residential_units=("residential_units", "min"),
+    )
+    return out.rename_axis("building").reset_index()
+
+
 def main(argv=None):
+    import sys
+
+    argv = sys.argv[1:] if argv is None else argv
+    if argv and argv[0] == "covariates":
+        # python -m rentfrontier.cohort covariates <granular dir> <buildings.csv>
+        table = building_covariates(Path(argv[1]))
+        table.to_csv(argv[2], index=False)
+        print(f"wrote {argv[2]}: {len(table)} buildings")
+        return
     parser = argparse.ArgumentParser(
         description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
     )
