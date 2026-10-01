@@ -1303,8 +1303,22 @@ comes from other sources, most of them public NYC and NYS data.
     had carried now sit with the units they belong to.
   - Variance: the unit share is 3.3% against 1.9%, and the residual share 1.9% against 2.4%.
   - Rows over the Pareto-k threshold: 240 against 389.
-  - By `rentfrontier.autoselect` this clearly beats the served fit, so it becomes the served
-    model once merged.
+  - By `rentfrontier.autoselect` this clearly beats the served fit. The fit below beats it in
+    turn.
+- **Student-t units plus per-building size and second-bath slopes** (`m7-nocurves-2slopes`;
+  loop experiment, 2026-09-30). This is m7-nocurves without the slope on a third bathroom.
+  Few buildings have three-bath units, and that slope's scale is what kept m7 from the gate
+  (ac9e02b: `fslope_scale[2]` ESS 194).
+  - **Result: the best fit yet, and it passes.** The fit is `unitfacing-v5` + `unit-labels-v1`
+    + `quarantine-v2` (8502559), 1,510 s, inside the 30-minute window. It passes: R-hat 1.0081,
+    ESS 551 (`fslope_scale[1]`), every-element R-hat 1.023.
+    - Against the served 66cf77f: **PSIS-LOO +1,818.7 ± 87.3**, **held-out +143.6 ± 24.5**.
+    - Against `m5-nocurves-tunits`: PSIS-LOO +963.9 ± 66.2, held-out +67.6 ± 15.2.
+  - The building size slope's scale is 0.24 and the second-bath slope's 0.16. In some
+    buildings extra space or a second bathroom is worth much more or less than usual.
+    Building slopes carry 2.4% of the variance, against 1.5% for the bedroom slope alone.
+  - The unit df is 2.19, and the residual ν rises to 2.44.
+  - `rentfrontier.autoselect` should choose it.
 
 ## Work tracks, in order
 
