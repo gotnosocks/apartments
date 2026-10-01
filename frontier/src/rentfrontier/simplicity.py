@@ -191,17 +191,23 @@ def brief(first: str, second: str) -> str:
     return BRIEF.format(first=first, second=second)
 
 
-def pending(entries, rules=None) -> list:
+def pending(entries, rules=None, incumbent_run=None) -> list:
     """Unjudged pairs whose judgement could change what is served or what is
-    on the frontier, among the fits autoselect could serve: pairs tied on
-    PSIS-LOO with the top, and pairs where one fit beats the other on accuracy
-    and fit time (the beaten one survives only if judged simpler)."""
+    on the frontier, among the fits autoselect could serve:
+    - pairs tied on PSIS-LOO with the top;
+    - with `incumbent_run`, the pairs autoselect's decision is waiting on
+      (a challenger tied with the incumbent, even outside the top's tie band);
+    - pairs where one fit beats the other on accuracy and fit time (the
+      beaten one survives only if judged simpler)."""
     from rentfrontier import autoselect
 
     cands = autoselect.eligible(entries, rules)
     need = set()
     for pair in autoselect.tie_pairs(cands):
         need.add(pair)
+    if incumbent_run is not None:
+        decision = autoselect.decide(entries, incumbent_run, rules)
+        need.update(tuple(p) for p in decision["pending_judgements"])
     for e in cands:
         for o in cands:
             if o is e:
@@ -248,8 +254,11 @@ def main(argv=None):
     else:
         from rentfrontier import leaderboard
 
+        from rentfrontier import autoselect
+
         board = leaderboard.build(keep_dirs=True)
-        for a, b_ in pending(board["entries"]):
+        incumbent = json.loads(autoselect.SELECTION.read_text())["run"]
+        for a, b_ in pending(board["entries"], incumbent_run=incumbent):
             print(f"{a}\t{b_}")
 
 
