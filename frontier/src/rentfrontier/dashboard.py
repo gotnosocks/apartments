@@ -42,8 +42,8 @@ import shutil
 import subprocess
 from pathlib import Path
 
+from . import autoselect, leaderboard, rentmap, variance
 from . import data as data_module
-from . import leaderboard, rentmap, variance
 
 REPO = Path(__file__).resolve().parents[3]
 SITE_SOURCE = REPO / "dashboard"
@@ -263,9 +263,36 @@ def structure(e) -> str:
     return f"{m['name']}/{e['feature_set'] if uses_features else 'none'}"
 
 
+def serve_check(e, rules) -> str | None:
+    """Why an entry cannot be served (`autoselect.why_not`), or None if it
+    can; a record that cannot be read gets a note instead of stopping the
+    build."""
+    try:
+        return autoselect.why_not(e, rules)
+    except (OSError, KeyError, ValueError) as error:
+        return f"its record cannot be read ({type(error).__name__})"
+
+
+def selection_decision(entries) -> dict | None:
+    """The automatic selection's decision on the current board
+    (`autoselect.decide` against the run `config/main-analysis.json` serves):
+    keep or switch, why, and every fit it checked. None when there is no
+    selection; an error note when the decision cannot be made."""
+    try:
+        selection = json.loads((REPO / "config" / "main-analysis.json").read_text())
+    except (OSError, ValueError):
+        return None
+    try:
+        return autoselect.decide(entries, selection.get("run"))
+    except (OSError, KeyError, ValueError, ArithmeticError) as error:
+        # The board must build even if a pairing fails.
+        return {"error": f"{type(error).__name__}: {error}"}
+
+
 def data():
     board = leaderboard.build(keep_dirs=True)
     entries = assign_keys(board["entries"])
+    rules = autoselect.current_rules()
     for e in entries:
         for s in e["splits"].values():
             s["_at"] = completed_at(s)
@@ -299,6 +326,10 @@ def data():
                 "passes_checks": e["passes_checks"],
                 "frontier": e["frontier"],
                 "current_best": e["current_best"],
+                # The board's judged complexity (rentfrontier.elegance; lower is
+                # simpler); None for an unrated design or a board without it.
+                "complexity": e.get("complexity"),
+                "why_not_served": serve_check(e, rules),
                 "psis": psis_fields(e.get("psis")),
                 "note": e["note"],
                 "annotations": e.get("annotations", []),
@@ -348,6 +379,7 @@ def data():
         "snapshots": snaps,
         "milestones": milestones(),
         "data_quality": data_quality(),
+        "autoselect": selection_decision(entries),
         "footer": board.get("footer", []),
     }
 

@@ -294,3 +294,47 @@ def test_data_quality_survives_a_malformed_selection(monkeypatch, tmp_path):
         json.dumps({"data_rules": None, "summary": 3})
     )
     assert dashboard.data_quality()["app_rules"] == []
+
+
+def test_serve_check_gives_autoselects_reason_or_a_note(tmp_path):
+    from rentfrontier import autoselect
+
+    e = entry(tmp_path, "cpu-fit", 10.0, 100.0, at(1))
+    e["hardware"] = "thelio CPU"
+    reason = dashboard.serve_check(e, frozenset())
+    assert reason == f"it did not run on the {autoselect.TARGET_HARDWARE} row split"
+    e["hardware"] = autoselect.TARGET_HARDWARE
+    # its run directory has no result.json to read the data rules from
+    assert dashboard.serve_check(e, frozenset()) == (
+        "its record cannot be read (FileNotFoundError)"
+    )
+
+
+def test_selection_decision(monkeypatch, tmp_path):
+    from rentfrontier import autoselect
+
+    repo = tmp_path / "repo"
+    monkeypatch.setattr(dashboard, "REPO", repo)
+    assert dashboard.selection_decision([]) is None  # no selection file
+    (repo / "config").mkdir(parents=True)
+    (repo / "config" / "main-analysis.json").write_text(json.dumps({"run": "served"}))
+    calls = []
+
+    def decide(entries, run):
+        calls.append(run)
+        return {"action": "keep", "reason": "the incumbent ranks first"}
+
+    monkeypatch.setattr(autoselect, "decide", decide)
+    assert dashboard.selection_decision(["e"]) == {
+        "action": "keep",
+        "reason": "the incumbent ranks first",
+    }
+    assert calls == ["served"]
+
+    def broken(entries, run):
+        raise ValueError("no pointwise file")
+
+    monkeypatch.setattr(autoselect, "decide", broken)
+    assert dashboard.selection_decision([]) == {
+        "error": "ValueError: no pointwise file"
+    }
