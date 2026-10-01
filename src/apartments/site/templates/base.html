@@ -33,8 +33,10 @@
   {% elif section == "research" %}
   <div class="subnav"><nav class="wrap" aria-label="Research">
     <a href="{{ url_for('research_frontier') }}"{% if here == "research_frontier" %} aria-current="page"{% endif %}>Frontier</a>
+    <a href="{{ url_for('research_board') }}"{% if here in ("research_board", "research_fit") %} aria-current="page"{% endif %}>Board</a>
+    <a href="{{ url_for('research_history') }}"{% if here == "research_history" %} aria-current="page"{% endif %}>History</a>
     <a href="{{ url_for('research_model') }}"{% if here == "research_model" %} aria-current="page"{% endif %}>Served model</a>
-    <a href="//{{ host_name }}:8500/">Board and history ↗</a>
+    <a href="//{{ host_name }}:8500/">Validation and data quality ↗</a>
   </nav></div>
   {% endif %}
 </header>

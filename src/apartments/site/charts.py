@@ -37,6 +37,13 @@ def pct(value, signed=True, digits=0) -> str:
     return text
 
 
+def signed(value: float) -> str:
+    """An axis value with its sign ("+1,000", "−500", "0")."""
+    if not value:
+        return "0"
+    return ("+" if value > 0 else "−") + f"{abs(value):,.0f}"
+
+
 def month_label(period: str) -> str:
     return dt.date.fromisoformat(period).strftime("%b %Y")
 
@@ -59,15 +66,22 @@ def nice_ticks(lo: float, hi: float, count: int = 5) -> list[float]:
     return ticks
 
 
-def _days(period: str) -> int:
-    return dt.date.fromisoformat(period[:10]).toordinal()
+def _days(period: str) -> float:
+    """Days since year 1 of a date, or of a timestamp with its time of day."""
+    if len(period) > 10:
+        t = dt.datetime.fromisoformat(period)
+        return t.toordinal() + (t.hour * 3600 + t.minute * 60 + t.second) / 86400
+    return dt.date.fromisoformat(period).toordinal()
 
 
 class Frame:
     """Linear scales from data to the plot area of a WIDTH x HEIGHT viewBox."""
 
-    def __init__(self, periods, values, *, zero=False, height=HEIGHT):
+    def __init__(self, periods, values, *, zero=False, clamp_zero=False, height=HEIGHT):
+        """zero: the y range includes zero. clamp_zero: the measure is never
+        negative (or never positive), so the axis stops at zero."""
         self.height = height
+        self.timestamped = any(len(p) > 10 for p in periods)
         days = [_days(p) for p in periods]
         self.x0, self.x1 = min(days), max(days)
         if self.x1 == self.x0:
@@ -76,7 +90,12 @@ class Frame:
         if zero:
             lo, hi = min(lo, 0.0), max(hi, 0.0)
         pad = (hi - lo) * 0.05 or abs(hi) * 0.05 or 1.0
-        self.ticks = nice_ticks(lo - pad, hi + pad)
+        # A measure that is never negative (or never positive) stops at zero.
+        low_pad = 0.0 if clamp_zero and lo >= 0.0 else pad
+        high_pad = 0.0 if clamp_zero and hi <= 0.0 else pad
+        if clamp_zero:
+            lo, hi = min(lo, 0.0), max(hi, 0.0)
+        self.ticks = nice_ticks(lo - low_pad, hi + high_pad)
         self.y0, self.y1 = self.ticks[0], self.ticks[-1]
         self.left, self.right = PAD["left"], WIDTH - PAD["right"]
         self.top, self.bottom = PAD["top"], height - PAD["bottom"]
@@ -90,8 +109,33 @@ class Frame:
         return self.bottom - (value - self.y0) / span * (self.bottom - self.top)
 
     def year_ticks(self) -> list[tuple[float, str]]:
-        first = dt.date.fromordinal(self.x0).year
-        last = dt.date.fromordinal(self.x1).year
+        """Tick labels along time: years for long spans, months or days for
+        short ones (the research history spans weeks)."""
+        span = self.x1 - self.x0
+        start, end = math.ceil(self.x0), math.floor(self.x1)
+        if span < 75 and self.timestamped:
+            step = max(1, math.ceil(span / 8))
+            days = range(start, end + 1, step)
+            return [
+                (
+                    self.x(dt.date.fromordinal(d).isoformat()),
+                    dt.date.fromordinal(d).strftime("%b %-d"),
+                )
+                for d in days
+            ]
+        if span < 700:
+            out, d = [], dt.date.fromordinal(start).replace(day=1)
+            months = []
+            while d.toordinal() <= self.x1:
+                if d.toordinal() >= self.x0:
+                    months.append(d)
+                d = (d + dt.timedelta(days=32)).replace(day=1)
+            every = max(1, math.ceil(len(months) / 8))
+            for m in months[::every]:
+                out.append((self.x(m.isoformat()), m.strftime("%b %Y")))
+            return out
+        first = dt.date.fromordinal(start).year
+        last = dt.date.fromordinal(end).year
         years = list(range(first + 1, last + 1)) or [first]
         step = max(1, math.ceil(len(years) / 8))
         out = []
@@ -389,6 +433,108 @@ def fit_scatter(
                 "y": round(y, 1),
                 "title": p["title"],
                 "rows": [["", FIT_KINDS[p["kind"]]], *rows],
+                "href": p.get("href"),
+            }
+        )
+    present = [k for k in FIT_KINDS if any(p["kind"] == k for p in points)]
+    legend = (
+        '<div class="legend">'
+        + "".join(
+            f'<span class="key"><span class="key-fit {k}"></span>'
+            f"{escape(FIT_KINDS[k])}</span>"
+            for k in reversed(present)
+        )
+        + "</div>"
+    )
+    return _figure("points", _svg(parts, label, frame), hover, legend)
+
+
+def _y_title(frame, title):
+    return (
+        f'<text class="axis-title" x="{frame.left - 56}" y="10">{escape(title)}</text>'
+    )
+
+
+def lines_over_time(
+    series, *, label: str, y_title: str, y_format, clamp_zero=False
+) -> Markup:
+    """Up to four series over time, one categorical colour each (fixed order,
+    slots s1-s4), with a legend; `step` series hold their value until the
+    next point (a running best). series: [{"name", "points": [(iso time,
+    value)], "step": bool}]."""
+    series = [s for s in series if s["points"]][:4]
+    if not series:
+        return Markup("")
+    periods = [p[0] for s in series for p in s["points"]]
+    values = [p[1] for s in series for p in s["points"]]
+    frame = Frame(periods, values, zero=True, clamp_zero=clamp_zero)
+    frame.top = max(frame.top, 20)
+    parts = _axes(frame, y_format)
+    parts.append(_y_title(frame, y_title))
+    hover = []
+    for i, s in enumerate(series, start=1):
+        xy = [(frame.x(t), frame.y(v)) for t, v in s["points"]]
+        if s.get("step"):
+            stepped = []
+            for (x, y), nxt in zip(xy, xy[1:] + [None]):
+                stepped.append((x, y))
+                if nxt:
+                    stepped.append((nxt[0], y))
+            xy_path = stepped
+        else:
+            xy_path = xy
+        parts.append(f'<path class="line s{i}" d="{_path(xy_path)}"/>')
+        for (x, y), (t, v) in zip(xy, s["points"]):
+            hover.append(
+                {
+                    "x": round(x, 1),
+                    "y": round(y, 1),
+                    "title": t[:10],
+                    "rows": [[s["name"], y_format(v)]],
+                }
+            )
+    legend = (
+        '<div class="legend">'
+        + "".join(
+            f'<span class="key"><span class="key-line s{i}"></span>'
+            f"{escape(s['name'])}</span>"
+            for i, s in enumerate(series, start=1)
+        )
+        + "</div>"
+    )
+    return _figure("points", _svg(parts, label, frame), hover, legend)
+
+
+def dated_points(
+    points, *, label: str, y_title: str, y_format, clamp_zero=False
+) -> Markup:
+    """One dot per item over time. points: [{"at", "y", "kind" (a FIT_KINDS
+    key), "title", "rows", "href"}]."""
+    if not points:
+        return Markup("")
+    frame = Frame(
+        [p["at"] for p in points],
+        [p["y"] for p in points],
+        zero=True,
+        clamp_zero=clamp_zero,
+    )
+    frame.top = max(frame.top, 20)
+    parts = _axes(frame, y_format)
+    parts.append(_y_title(frame, y_title))
+    order = {k: i for i, k in enumerate(FIT_KINDS)}
+    hover = []
+    for p in sorted(points, key=lambda p: order[p["kind"]]):
+        x, y = frame.x(p["at"]), frame.y(p["y"])
+        radius = 5.5 if p["kind"] == "served" else 4
+        parts.append(
+            f'<circle class="fit {p["kind"]}" cx="{x:.1f}" cy="{y:.1f}" r="{radius}"/>'
+        )
+        hover.append(
+            {
+                "x": round(x, 1),
+                "y": round(y, 1),
+                "title": p["title"],
+                "rows": [["", FIT_KINDS[p["kind"]]], *p.get("rows", [])],
                 "href": p.get("href"),
             }
         )

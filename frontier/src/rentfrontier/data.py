@@ -182,7 +182,27 @@ def quarantine_v2(frame: pd.DataFrame) -> pd.DataFrame:
 
 # Named data rules, applied after the held-out split is drawn (the row split
 # depends on unit ids, and scored rows must not change). Run records list them.
+# Tuning subsets (Ben, 2026-10-01: "consider using a subset of the listings or
+# units for tuning the fit"): a fixed share of buildings, chosen by a hash of the
+# building slug, so every tuning fit has the same rows and pairs with the others.
+# Tuning fits are never served (rentfrontier.autoselect).
+TUNING_PREFIX = "tune-"
+TUNE_B35_SHARE = 35  # percent of buildings
+
+
+def in_tuning_subset(building: str, share: int = TUNE_B35_SHARE) -> bool:
+    digest = hashlib.sha256(f"tune-buildings:{building}".encode()).digest()
+    return int.from_bytes(digest[:8], "big") % 100 < share
+
+
+def tune_b35_v1(frame: pd.DataFrame) -> pd.DataFrame:
+    """Rows of 35% of buildings (in every neighbourhood alike)."""
+    keep = frame.building.map(in_tuning_subset)
+    return frame[keep.to_numpy()]
+
+
 DATA_RULES = {
+    "tune-b35-v1": tune_b35_v1,
     "unit-labels-v1": merge_unit_labels,
     "quarantine-v1": quarantine_v1,
     "quarantine-v2": quarantine_v2,
