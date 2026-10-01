@@ -489,7 +489,28 @@ def research_data():
             "delta_se": 120.4,
             "validation": {"heldout_rows": 5264},
         },
-        "splits": {"rows": {"run": "m-test-run", "delta": -12.5, "delta_se": 30.1}},
+        "splits": {
+            "rows": {
+                "run": "m-test-run",
+                "delta": -12.5,
+                "delta_se": 30.1,
+                "max_rhat": 1.004,
+                "min_ess": 612.0,
+                "passes": True,
+                "fit_seconds": 745.0,
+                "completed_at": "2026-09-30T08:00:00+00:00",
+            }
+        },
+        "line": "frontier",
+        "hardware": "thelio RTX 2060 SUPER",
+        "sampler": "nuts",
+        "design_text": "A test design with <b>bold</b> claims",
+        "note": "",
+        "annotations": ["Serves the app (Ben)."],
+        "variance": {
+            "features": {"mean": 0.786, "lower_90": 0.769, "upper_90": 0.802},
+            "residual": {"mean": 0.019, "lower_90": 0.018, "upper_90": 0.019},
+        },
     }
     served["available_at"] = "2026-09-30T08:00:00+00:00"
     served["key"] = served["id"]
@@ -504,7 +525,17 @@ def research_data():
         complexity=12,
         why_not_served="it was fit with no data rules, not the current quarantine-v2",
         available_at="2026-09-25T08:00:00+00:00",
-        splits={"rows": {"run": "m-other-run"}},
+        splits={
+            "rows": {
+                "run": "m-other-run",
+                "fit_seconds": 600.0,
+                "completed_at": "2026-09-25T08:00:00+00:00",
+            }
+        },
+        line="numpyro",
+        note="beaten by the served fit",
+        annotations=[],
+        variance=None,
     )
     failing = dict(
         other,
@@ -553,6 +584,7 @@ def research_data():
         "generated_at": "2026-10-01T11:33:00+00:00",
         "gate": {"rhat": 1.01, "ess": 400, "all_effects_rhat": 1.05},
         "baseline": "m0-base/base-v1/gibbs@5cc0809",
+        "variance_groups": ["market and time", "features", "building", "residual"],
         "entries": entries,
         "milestones": [
             {

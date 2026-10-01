@@ -583,3 +583,83 @@ def test_review_fixes_on_research_model_and_home(client, research_file):
     assert html.count("<dt>Convergence gate</dt>") == 1
     # published by hand: no claim that the rule picked it
     assert "A rule picks it" not in html
+
+
+def test_board_filters_sorts_and_links(client):
+    html = client.get("/research/board").get_data(as_text=True)
+    # most accurate first; the subset fit is hidden; the CPU fit is listed
+    assert html.index("<code>m-test/") < html.index("<code>m-failing</code>")
+    assert "m-subset" not in html and "<code>m-cpu</code>" in html
+    assert 'href="/research/fits/m-other"' in html
+    assert "beaten by the served fit" in html  # the board's note
+    servable = client.get("/research/board?servable=1").get_data(as_text=True)
+    assert "<code>m-other</code>" not in servable and "<code>m-test/" in servable
+    numpyro = client.get("/research/board?line=numpyro").get_data(as_text=True)
+    assert "<code>m-test/" not in numpyro and "<code>m-other</code>" in numpyro
+    fastest = client.get("/research/board?sort=time&order=asc").get_data(as_text=True)
+    assert fastest.index("<code>L0-mean</code>") < fastest.index("<code>m-test/")
+    searched = client.get("/research/board?q=failing").get_data(as_text=True)
+    assert "1</strong> of 6 fits" in searched
+    with_subsets = client.get("/research/board?subsets=1").get_data(as_text=True)
+    assert "no: a subset fit, for exploration only" in with_subsets
+    odd = client.get("/research/board?sort=zzz&order=x&hardware=nope&line=nope")
+    assert odd.status_code == 200
+
+
+def test_fit_page(client):
+    key = "m-test/unitdesc-v1/nuts@aaaaaaa"
+    html = client.get(f"/research/fits/{key}").get_data(as_text=True)
+    assert "Yes: it passes every rule the automatic selection applies." in html
+    assert "It is the served model." in html
+    assert "A test design with &lt;b&gt;bold&lt;/b&gt; claims" in html  # escaped
+    assert "Serves the app (Ben)." in html
+    assert "78.6%" in html and "76.9–80.2%" in html  # variance share
+    assert "1.004" in html and "612" in html  # split diagnostics
+    other = client.get("/research/fits/m-other").get_data(as_text=True)
+    assert "No: it was fit with no data rules" in other
+    assert "Where the variation" not in other  # no variance recorded
+    assert client.get("/research/fits/nothing-here").status_code == 404
+
+
+def test_history_page(client):
+    html = client.get("/research/history").get_data(as_text=True)
+    assert "The best fit&#39;s accuracy over time" in html
+    assert html.count('class="line s1"') >= 1
+    # compute by model line: one series per line, in the fixed order
+    legend = html.split("Hours of fitting by model line")[1]
+    assert legend.index("Custom samplers (JAX)") < legend.index("NumPyro NUTS")
+    assert (
+        'href=\\"/research/fits/m-other\\"' in html or "/research/fits/m-other" in html
+    )
+    assert "Model switch" in html and "PR #97" in html
+    assert client.get("/research/history?hardware=thelio+CPU").status_code == 200
+
+
+def test_history_helpers(research_file):
+    from apartments.site import research
+
+    data = json.loads(research_file.read_text())
+    assert research.best_over_time(data, "thelio RTX 2060 SUPER") == []  # no deltas
+    data["snapshots"][0]["by_class"]["thelio RTX 2060 SUPER"]["best_delta"] = 4100.0
+    assert research.best_over_time(data, "thelio RTX 2060 SUPER") == [
+        ("2026-09-25T08:00:00+00:00", 4100.0)
+    ]
+    lines = research.compute_by_line(data)
+    assert [s["name"] for s in lines][:2] == ["Custom samplers (JAX)", "NumPyro NUTS"]
+    jax = lines[0]["points"]
+    assert jax[-1][1] == pytest.approx(745.0 / 3600)
+
+
+def test_time_axes_and_zero_floor():
+    frame = charts.Frame(
+        ["2026-09-25T08:00:00+00:00", "2026-10-01T02:00:00+00:00"],
+        [3.0, 30.0],
+        zero=True,
+    )
+    assert frame.ticks[0] == 0  # fit times never go below zero
+    labels = [label for _, label in frame.year_ticks()]
+    assert labels[0] == "Sep 26" and "Oct 1" in labels
+    long = charts.Frame(["2015-01-01", "2026-09-01"], [1.0, 2.0])
+    assert next(label for _, label in long.year_ticks()) == "2016"
+    months = charts.Frame(["2026-01-15", "2026-09-01"], [1.0, 2.0])
+    assert next(label for _, label in months.year_ticks()) == "Feb 2026"

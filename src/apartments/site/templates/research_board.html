@@ -1,0 +1,78 @@
+{% extends "base.html" %}
+{% block title %}The board{% endblock %}
+{% block content %}
+<h1>The board</h1>
+<p class="lede">Every model fit that has been run, with how accurate it is, how long it took, how simple it is and whether it can
+be served. Select a fit for its details.</p>
+
+<form class="filters" action="{{ url_for('research_board') }}" method="get" aria-label="Filter the board">
+  <div class="field grow">
+    <label for="b-q">Design, features or commit</label>
+    <input id="b-q" name="q" type="search" value="{{ q }}" autocomplete="off">
+  </div>
+  <div class="field">
+    <label for="b-hw">Hardware</label>
+    <select id="b-hw" name="hardware">
+      <option value=""{% if not hardware %} selected{% endif %}>All</option>
+    {% for c in classes %}<option value="{{ c }}"{% if c == hardware %} selected{% endif %}>{{ c }}</option>{% endfor %}
+    </select>
+  </div>
+  <div class="field">
+    <label for="b-line">Model line</label>
+    <select id="b-line" name="line">
+      <option value=""{% if not line %} selected{% endif %}>All</option>
+    {% for key, label in lines.items() %}<option value="{{ key }}"{% if key == line %} selected{% endif %}>{{ label }}</option>{% endfor %}
+    </select>
+  </div>
+  <fieldset class="field">
+    <legend>Show</legend>
+    <div class="checks">
+      <label><input type="checkbox" name="servable" value="1"{% if servable %} checked{% endif %}> Only servable fits</label>
+      <label><input type="checkbox" name="subsets" value="1"{% if subsets %} checked{% endif %}> Subset fits</label>
+    </div>
+  </fieldset>
+  <div class="field actions"><button type="submit">Apply</button>{% if q or hardware or line or servable or subsets %}<a href="{{ url_for('research_board') }}">Reset</a>{% endif %}</div>
+</form>
+
+<div class="results-head"><p><strong>{{ rows | length }}</strong> of {{ total }} fits</p></div>
+{% macro sort_head(label, key, num=True) -%}
+{%- set active = sort == key -%}
+<th scope="col" class="{{ 'num' if num }}"{% if active %} aria-sort="{{ 'descending' if order == 'desc' else 'ascending' }}"{% endif %}><a href="{{ board_url(sort=(None if key == 'delta' else key), order=('asc' if active and order == 'desc' else None)) }}">{{ label }}{% if active %} <span aria-hidden="true">{{ "↓" if order == "desc" else "↑" }}</span>{% endif %}</a></th>
+{%- endmacro %}
+<div class="table-wrap">
+<table class="data">
+  <thead><tr>
+    <th scope="col">Fit</th>
+    <th scope="col">Hardware</th>
+    {{ sort_head("PSIS-LOO ΔELPD", "delta") }}
+    {{ sort_head("Fit time", "time") }}
+    {{ sort_head("Complexity", "complexity") }}
+    <th scope="col">Checks</th>
+    <th scope="col">Servable</th>
+    {{ sort_head("Landed", "landed", num=False) }}
+  </tr></thead>
+  <tbody>
+  {% for e in rows %}
+    {% set run = run_of(e) %}
+    <tr>
+      <td><a href="{{ url_for('research_fit', key=e.key) }}"><code>{{ e.id }}</code></a>
+        {% if run == served_run %} <span class="tag">served</span>{% endif %}{% if e.current_best %} <span class="tag">best</span>{% endif %}{% if e.frontier %} <span class="tag">frontier</span>{% endif %}
+        {% if e.note %}<br><span class="muted">{{ e.note }}</span>{% endif %}</td>
+      <td class="nowrap">{{ e.hardware_class }}</td>
+      <td class="num nowrap">{% if e.psis %}{{ "{:+,.1f}".format(e.psis.delta) }}{% if e.psis.delta_se is number %} <span class="muted">± {{ "{:,.1f}".format(e.psis.delta_se) }}</span>{% endif %}{% else %}<span class="muted">not scored</span>{% endif %}</td>
+      <td class="num nowrap">{{ "%.1f" | format(e.fit_seconds / 60) }} min</td>
+      <td class="num">{{ e.complexity if e.complexity is not none else "—" }}</td>
+      <td>{{ "pass" if e.passes_checks else "fail" }}</td>
+      <td>{% if is_subset(run) %}no: a subset fit, for exploration only{% elif e.why_not_served %}no: {{ e.why_not_served }}{% else %}yes{% endif %}</td>
+      <td class="nowrap">{{ e.available_at[:10] if e.available_at else "—" }}</td>
+    </tr>
+  {% else %}
+    <tr><td colspan="8" class="empty">No fits match.</td></tr>
+  {% endfor %}
+  </tbody>
+</table>
+</div>
+<p class="note">PSIS-LOO ΔELPD: how well a fit predicts each listing's ask from the others, against the simplest baseline; higher is
+better, and fits within about two ± of each other tie. Fit times compare only on the same hardware. Complexity is judged; lower is
+simpler. See <a href="{{ url_for('research_frontier') }}">the frontier</a> for these three side by side.</p>
+{% endblock %}

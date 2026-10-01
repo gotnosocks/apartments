@@ -35,14 +35,22 @@ from flask import (
 
 from . import charts
 from .research import (
+    BOARD_SORTS,
+    LINES,
     TARGET_HARDWARE,
     TARGET_MINUTES,
     Research,
+    best_over_time,
+    board_rows,
+    compute_by_line,
+    entry_by_key,
     entry_for_run,
     frontier_view,
     hardware_classes,
+    is_subset,
     latest_milestones,
     outlier_floor,
+    run_of,
     snapshot_days,
 )
 from .selection import SELECTION, selection_note
@@ -306,7 +314,13 @@ SECTIONS = {
         "quarantined",
         "about",
     ),
-    "research": ("research_frontier", "research_model"),
+    "research": (
+        "research_frontier",
+        "research_board",
+        "research_fit",
+        "research_history",
+        "research_model",
+    ),
 }
 
 
@@ -971,6 +985,7 @@ def create_app(
                 "kind": f["kind"],
                 "title": f["entry"]["id"],
                 "rows": fit_rows(f),
+                "href": url_for("research_fit", key=f["entry"]["key"]),
             }
             for f in scored
         ]
@@ -1015,6 +1030,162 @@ def create_app(
                 x_format=lambda v: f"{v:g}",
                 y_format=lambda v: f"{v:+,.0f}",
                 y_floor=floor,
+            ),
+        )
+
+    def research_data_or_503() -> dict:
+        data = research.load()
+        if not data:
+            abort(503, description="The research data is not available yet.")
+        return data
+
+    @app.get("/research/board")
+    def research_board():
+        m = meta()
+        data = research_data_or_503()
+        classes = hardware_classes(data)
+        hardware = request.args.get("hardware")
+        hardware = hardware if hardware in classes else None
+        line = request.args.get("line")
+        line = line if line in LINES else None
+        sort = request.args.get("sort")
+        sort = sort if sort in BOARD_SORTS else "delta"
+        order = request.args.get("order")
+        order = order if order in ("asc", "desc") else "desc"
+        q = (request.args.get("q") or "").strip()[:80]
+        servable = request.args.get("servable") == "1"
+        subsets = request.args.get("subsets") == "1"
+        rows = board_rows(
+            data,
+            hardware=hardware,
+            line=line,
+            q=q,
+            servable=servable,
+            subsets=subsets,
+            sort=sort,
+            descending=order == "desc",
+        )
+
+        def board_url(**changes):
+            args = {
+                "hardware": hardware,
+                "line": line,
+                "q": q or None,
+                "servable": "1" if servable else None,
+                "subsets": "1" if subsets else None,
+                "sort": None if sort == "delta" else sort,
+                "order": None if order == "desc" else order,
+            }
+            args.update(changes)
+            query = _query({k: v for k, v in args.items() if v is not None})
+            return url_for("research_board") + (f"?{query}" if query else "")
+
+        return render_template(
+            "research_board.html",
+            meta=m,
+            rows=rows,
+            total=len(data.get("entries", [])),
+            classes=classes,
+            lines=LINES,
+            hardware=hardware,
+            line=line,
+            q=q,
+            servable=servable,
+            subsets=subsets,
+            sort=sort,
+            order=order,
+            board_url=board_url,
+            served_run=m["provenance"]["run"],
+            run_of=run_of,
+            is_subset=is_subset,
+        )
+
+    @app.get("/research/fits/<path:key>")
+    def research_fit(key):
+        m = meta()
+        data = research_data_or_503()
+        entry = entry_by_key(data, key)
+        if entry is None:
+            abort(404, description="No fit with that key on the board.")
+        return render_template(
+            "research_fit.html",
+            meta=m,
+            e=entry,
+            run=run_of(entry),
+            subset=is_subset(run_of(entry)),
+            served=run_of(entry) == m["provenance"]["run"],
+            groups=data.get("variance_groups", []),
+            baseline=data.get("baseline"),
+            lines=LINES,
+        )
+
+    @app.get("/research/history")
+    def research_history():
+        m = meta()
+        data = research_data_or_503()
+        classes = hardware_classes(data)
+        hardware = request.args.get("hardware")
+        if hardware not in classes:
+            hardware = TARGET_HARDWARE if TARGET_HARDWARE in classes else classes[0]
+        served_run = m["provenance"]["run"]
+        best = best_over_time(data, hardware)
+        fits = []
+        for e in data.get("entries", []):
+            if e["hardware_class"] != hardware or not e.get("available_at"):
+                continue
+            run = run_of(e)
+            kind = (
+                "served"
+                if run and run == served_run
+                else "subset"
+                if is_subset(run)
+                else "frontier"
+                if e.get("frontier")
+                else "failing"
+                if not e.get("passes_checks")
+                else "other"
+            )
+            fits.append(
+                {
+                    "at": e["available_at"],
+                    "y": e["fit_seconds"] / 60,
+                    "kind": kind,
+                    "title": e["id"],
+                    "rows": [["Fit time", f"{e['fit_seconds'] / 60:.1f} min"]],
+                    "href": url_for("research_fit", key=e["key"]),
+                }
+            )
+        compute = compute_by_line(data)
+        milestones = sorted(
+            data.get("milestones", []),
+            key=lambda ms: (ms.get("at", ""), ms.get("kind") == "selection"),
+            reverse=True,
+        )
+        return render_template(
+            "research_history.html",
+            meta=m,
+            classes=classes,
+            hardware=hardware,
+            best=best,
+            compute=compute,
+            milestones=milestones,
+            best_chart=charts.lines_over_time(
+                [{"name": "Best fit", "points": best, "step": True}],
+                label=f"The best fit's accuracy on {hardware} over time",
+                y_title="PSIS-LOO ΔELPD of the best fit",
+                y_format=lambda v: f"{v:+,.0f}",
+            ),
+            time_chart=charts.dated_points(
+                fits,
+                label=f"Fit time of each fit on {hardware}, by the day it landed",
+                y_title="Fit time (minutes)",
+                y_format=lambda v: f"{v:,.0f}",
+            ),
+            compute_chart=charts.lines_over_time(
+                compute,
+                label="Cumulative hours of fitting by model line",
+                y_title="Hours of fitting, cumulative",
+                y_format=lambda v: f"{v:,.0f}",
             ),
         )
 

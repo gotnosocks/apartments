@@ -59,8 +59,12 @@ def nice_ticks(lo: float, hi: float, count: int = 5) -> list[float]:
     return ticks
 
 
-def _days(period: str) -> int:
-    return dt.date.fromisoformat(period[:10]).toordinal()
+def _days(period: str) -> float:
+    """Days since year 1 of a date, or of a timestamp with its time of day."""
+    if len(period) > 10:
+        t = dt.datetime.fromisoformat(period)
+        return t.toordinal() + (t.hour * 3600 + t.minute * 60 + t.second) / 86400
+    return dt.date.fromisoformat(period).toordinal()
 
 
 class Frame:
@@ -76,7 +80,10 @@ class Frame:
         if zero:
             lo, hi = min(lo, 0.0), max(hi, 0.0)
         pad = (hi - lo) * 0.05 or abs(hi) * 0.05 or 1.0
-        self.ticks = nice_ticks(lo - pad, hi + pad)
+        # A measure that is never negative (or never positive) stops at zero.
+        low_pad = 0.0 if zero and lo == 0.0 else pad
+        high_pad = 0.0 if zero and hi == 0.0 else pad
+        self.ticks = nice_ticks(lo - low_pad, hi + high_pad)
         self.y0, self.y1 = self.ticks[0], self.ticks[-1]
         self.left, self.right = PAD["left"], WIDTH - PAD["right"]
         self.top, self.bottom = PAD["top"], height - PAD["bottom"]
@@ -90,8 +97,33 @@ class Frame:
         return self.bottom - (value - self.y0) / span * (self.bottom - self.top)
 
     def year_ticks(self) -> list[tuple[float, str]]:
-        first = dt.date.fromordinal(self.x0).year
-        last = dt.date.fromordinal(self.x1).year
+        """Tick labels along time: years for long spans, months or days for
+        short ones (the research history spans weeks)."""
+        span = self.x1 - self.x0
+        start, end = math.ceil(self.x0), math.floor(self.x1)
+        if span < 75:
+            step = max(1, math.ceil(span / 8))
+            days = range(start, end + 1, step)
+            return [
+                (
+                    self.x(dt.date.fromordinal(d).isoformat()),
+                    dt.date.fromordinal(d).strftime("%b %-d"),
+                )
+                for d in days
+            ]
+        if span < 700:
+            out, d = [], dt.date.fromordinal(start).replace(day=1)
+            months = []
+            while d.toordinal() <= self.x1:
+                if d.toordinal() >= self.x0:
+                    months.append(d)
+                d = (d + dt.timedelta(days=32)).replace(day=1)
+            every = max(1, math.ceil(len(months) / 8))
+            for m in months[::every]:
+                out.append((self.x(m.isoformat()), m.strftime("%b %Y")))
+            return out
+        first = dt.date.fromordinal(start).year
+        last = dt.date.fromordinal(end).year
         years = list(range(first + 1, last + 1)) or [first]
         step = max(1, math.ceil(len(years) / 8))
         out = []
@@ -406,7 +438,9 @@ def fit_scatter(
 
 
 def _y_title(frame, title):
-    return f'<text class="axis-title" x="{frame.left - 56}" y="10">{escape(title)}</text>'
+    return (
+        f'<text class="axis-title" x="{frame.left - 56}" y="10">{escape(title)}</text>'
+    )
 
 
 def lines_over_time(series, *, label: str, y_title: str, y_format) -> Markup:

@@ -11,7 +11,7 @@
   <tbody>
   {% for f in rows %}
     <tr>
-      <td><code>{{ f.entry.id }}</code>{% if f.kind == "served" %} <span class="tag">served</span>{% endif %}{% if f.best %} <span class="tag">best</span>{% endif %}</td>
+      <td><a href="{{ url_for('research_fit', key=f.entry.key) }}"><code>{{ f.entry.id }}</code></a>{% if f.kind == "served" %} <span class="tag">served</span>{% endif %}{% if f.best %} <span class="tag">best</span>{% endif %}</td>
       <td class="num nowrap">{% if f.delta is not none %}{{ "{:+,.1f}".format(f.delta) }}{% if f.delta_se is not none %} <span class="muted">± {{ "{:,.1f}".format(f.delta_se) }}</span>{% endif %}{% else %}<span class="muted">not scored</span>{% endif %}</td>
       <td class="num nowrap">{{ "%.1f" | format(f.minutes) }} min</td>
       <td class="num">{{ f.complexity if f.complexity is not none else "—" }}</td>

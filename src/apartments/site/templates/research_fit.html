@@ -1,0 +1,107 @@
+{% extends "base.html" %}
+{% block title %}{{ e.id }}{% endblock %}
+{% block content %}
+<nav class="crumbs" aria-label="Breadcrumb">
+  <a href="{{ url_for('research_board') }}">The board</a> › <span aria-current="page">{{ e.design }}</span>
+</nav>
+<h1><code>{{ e.id }}</code></h1>
+<p class="subline">{% if served %}<span class="tag">served</span> {% endif %}{% if e.current_best %}<span class="tag">best</span> {% endif %}{% if e.frontier %}<span class="tag">frontier</span> {% endif %}
+  {{ lines.get(e.line, e.line) }} · {{ e.hardware_class }}{% if e.available_at %} · landed {{ e.available_at[:16] | replace("T", " ") }} UTC{% endif %}</p>
+{% if e.design_text %}<p class="lede">{{ e.design_text }}</p>{% endif %}
+
+<section class="figures" aria-label="Headline numbers">
+  <div class="figure">
+    <span class="figure-label">Accuracy (PSIS-LOO ΔELPD)</span>
+    <span class="figure-value">{% if e.psis %}{{ "{:+,.0f}".format(e.psis.delta) }}{% else %}—{% endif %}</span>
+    <span class="figure-note">{% if e.psis %}{% if e.psis.delta_se is number %}± {{ "{:,.1f}".format(e.psis.delta_se) }} {% endif %}against the baseline{% if baseline %} <code>{{ baseline }}</code>{% endif %}{% else %}not scored{% endif %}</span>
+  </div>
+  <div class="figure">
+    <span class="figure-label">Fit time</span>
+    <span class="figure-value">{{ "%.1f" | format(e.fit_seconds / 60) }} min</span>
+    <span class="figure-note">on {{ e.hardware }}{% if e.other_cores is number %}, {{ "%.1f" | format(e.other_cores) }} other cores busy{% endif %}</span>
+  </div>
+  <div class="figure">
+    <span class="figure-label">Complexity</span>
+    <span class="figure-value">{{ e.complexity if e.complexity is not none else "—" }}</span>
+    <span class="figure-note">{{ "judged; lower is simpler" if e.complexity is not none else "not rated" }}</span>
+  </div>
+</section>
+
+<section class="card">
+  <h2>Can it be served?</h2>
+  {% if subset %}<p>No: it is a subset fit, for exploration only.</p>
+  {% elif e.why_not_served %}<p>No: {{ e.why_not_served }}.</p>
+  {% elif e.why_not_served is defined %}<p>Yes: it passes every rule the automatic selection applies.{% if served %} It is the served model.{% endif %}</p>
+  {% else %}<p class="note">Not known for this board build.</p>{% endif %}
+  {% if e.note %}<p class="note">{{ e.note }}</p>{% endif %}
+  {% for a in e.annotations %}<p class="note">{{ a }}</p>{% endfor %}
+</section>
+
+<div class="columns">
+<section class="card">
+  <h2>The fit</h2>
+  <dl class="facts">
+    <dt>Design</dt><dd><code>{{ e.design }}</code></dd>
+    <dt>Features</dt><dd><code>{{ e.feature_set }}</code></dd>
+    <dt>Sampler</dt><dd>{{ e.sampler }}{% if e.chains %}, {{ e.chains }} chains{% endif %}{% if e.draws %} × {{ "{:,}".format(e.draws) }} draws{% endif %}</dd>
+    {% if e.commit %}<dt>Commit</dt><dd><code>{{ e.commit }}</code></dd>{% endif %}
+    {% if run %}<dt>Run</dt><dd><code>{{ run }}</code></dd>{% endif %}
+    {% if e.cost_usd %}<dt>Cloud cost</dt><dd>${{ "%.2f" | format(e.cost_usd) }}</dd>{% endif %}
+    <dt>Convergence checks</dt><dd>{{ "pass" if e.passes_checks else "fail" }} ({{ e.grade }})</dd>
+  </dl>
+</section>
+{% if e.psis %}
+<section class="card">
+  <h2>Accuracy in detail</h2>
+  <dl class="facts">
+    {% if e.psis.elpd is number %}<dt>ELPD</dt><dd>{{ "{:,.1f}".format(e.psis.elpd) }}{% if e.psis.elpd_se is number %} ± {{ "{:,.1f}".format(e.psis.elpd_se) }}{% endif %}{% if e.psis.mcse is number %} (Monte Carlo error {{ "%.2f" | format(e.psis.mcse) }}){% endif %}</dd>{% endif %}
+    {% if e.psis.k_share is number %}<dt>Pareto k</dt><dd>{{ "%.2f" | format(100 * e.psis.k_share) }}% of listings above {{ "%.2f" | format(e.psis.k_threshold) }}{% if e.psis.k_over %} ({{ "{:,}".format(e.psis.k_over) }}){% endif %}: where the leave-one-out shortcut is less reliable</dd>{% endif %}
+    {% if e.psis.validation and e.psis.validation.heldout_mean_lpd is number %}<dt>Held-out check</dt><dd>mean log density {{ "%.3f" | format(e.psis.validation.heldout_mean_lpd) }} on {{ "{:,}".format(e.psis.validation.heldout_rows) }} held-out listings, against {{ "%.3f" | format(e.psis.validation.psis_mean_lpd_multi_row_units) }} from PSIS-LOO on comparable listings: close values mean the shortcut agrees with a real hold-out</dd>{% endif %}
+  </dl>
+</section>
+{% endif %}
+</div>
+
+<section class="card">
+  <h2>Each split</h2>
+  <p class="note">The row split holds out some listings of repeat-listed units; the unit split holds out whole apartments. ΔELPD here is
+  on the held-out listings, against the reference model.</p>
+  <div class="table-wrap">
+  <table class="data">
+    <thead><tr><th scope="col">Split</th><th scope="col">Run</th><th scope="col" class="num">Held-out ΔELPD</th><th scope="col" class="num">Max R-hat</th><th scope="col" class="num">Min ESS</th><th scope="col" class="num">Worst group R-hat</th><th scope="col" class="num">Divergences</th><th scope="col">Checks</th><th scope="col" class="num">Fit time</th></tr></thead>
+    <tbody>
+    {% for name, s in e.splits.items() %}
+      <tr><th scope="row">{{ name }}</th><td><code>{{ s.run }}</code></td>
+        <td class="num nowrap">{% if s.delta is number %}{{ "{:+,.1f}".format(s.delta) }}{% if s.delta_se is number %} ± {{ "{:,.1f}".format(s.delta_se) }}{% endif %}{% else %}—{% endif %}</td>
+        <td class="num">{{ "%.3f" | format(s.max_rhat) if s.max_rhat is number else "—" }}</td>
+        <td class="num">{{ s.min_ess | round | int if s.min_ess is number else "—" }}</td>
+        <td class="num">{{ "%.3f" | format(s.group_rhat_max) if s.group_rhat_max is number else "—" }}</td>
+        <td class="num">{{ s.divergences if s.divergences is number else "—" }}</td>
+        <td>{{ "pass" if s.passes else ("fail" if s.passes is defined else "—") }}</td>
+        <td class="num nowrap">{{ "%.1f min" | format(s.fit_seconds / 60) if s.fit_seconds is number else "—" }}</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  </div>
+</section>
+
+{% if e.variance %}
+<section class="card">
+  <h2>Where the variation in rents goes</h2>
+  <p class="note">The share of the variation in asking rents (on a log scale) that each part of the model accounts for, with its 90%
+  interval. The rest is noise the model leaves unexplained.</p>
+  <div class="table-wrap">
+  <table class="data">
+    <thead><tr><th scope="col">Part</th><th scope="col" class="num">Share</th><th scope="col" class="num">90% interval</th></tr></thead>
+    <tbody>
+    {% for g in groups if g in e.variance %}
+      {% set v = e.variance[g] %}
+      <tr><th scope="row">{{ g | capitalize }}</th><td class="num">{{ "%.1f" | format(100 * v.mean) }}%</td>
+        <td class="num muted nowrap">{{ "%.1f" | format(100 * v.lower_90) }}–{{ "%.1f" | format(100 * v.upper_90) }}%</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  </div>
+</section>
+{% endif %}
+{% endblock %}
