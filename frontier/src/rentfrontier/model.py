@@ -1236,6 +1236,16 @@ MODELS = {
         feature_slopes=("log_sqft_vs_bedroom_median", "bathrooms=2"),
         unit_t=True,
     ),
+    # m7-nocurves-2slopes plus a per-building slope on the floor: in some
+    # buildings a high floor is worth much more than usual (views, light).
+    "m7-nocurves-floorslope": ModelConfig(
+        name="m7-nocurves-floorslope",
+        building_walk=True,
+        bedroom_slope=True,
+        trend_knot_months=3,
+        feature_slopes=("log_sqft_vs_bedroom_median", "bathrooms=2", "log_floor"),
+        unit_t=True,
+    ),
     "m8-nocurves": ModelConfig(
         name="m8-nocurves",
         building_walk=True,
