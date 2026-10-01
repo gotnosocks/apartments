@@ -1410,6 +1410,12 @@ comes from other sources, most of them public NYC and NYS data.
     −5.3 ± 2.8, inside the guard.
   - The site now shows the corrected building facts for 12 pages, the facing terms and the 188
     quarantined listings.
+- Switched again on 2026-09-30 by `rentfrontier.autoselect`, because the challenger clearly
+  beats the incumbent. The new selection is `m7-nocurves-2slopes` + `unitfacing-v5` +
+  `unit-labels-v1` + `quarantine-v2` (8502559, 1,510 s): Student-t unit levels and
+  per-building slopes on size and a second bathroom.
+  - Against the previous selection (66cf77f): PSIS-LOO +1,818.7 ± 87.3, held-out +143.6 ± 24.5.
+  - The share of a unit's only listing inside the 95% predictive range rises from 91.6% to 93.0%.
 - On hold: West Village, once its crawl completes.
 
 ## Current state
