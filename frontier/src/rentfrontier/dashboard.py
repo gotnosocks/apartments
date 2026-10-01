@@ -269,8 +269,10 @@ def serve_check(e, rules) -> str | None:
     build."""
     try:
         return autoselect.why_not(e, rules)
-    except (OSError, KeyError, ValueError) as error:
+    except (OSError, ValueError) as error:
         return f"its record cannot be read ({type(error).__name__})"
+    except KeyError as error:
+        return f"its record lacks a field ({error})"
 
 
 def selection_decision(entries) -> dict | None:
@@ -281,6 +283,8 @@ def selection_decision(entries) -> dict | None:
     try:
         selection = json.loads((REPO / "config" / "main-analysis.json").read_text())
     except (OSError, ValueError):
+        return None
+    if not isinstance(selection, dict):
         return None
     try:
         return autoselect.decide(entries, selection.get("run"))
