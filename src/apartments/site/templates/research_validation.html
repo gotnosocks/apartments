@@ -5,7 +5,7 @@
 <p class="lede">Checks that the accuracy measure can be trusted: whether the score each fit estimates for itself agrees with a genuine
 held-out test, what each model explains, and whether the same model gives the same answer in different code.</p>
 
-<form class="filters" action="{{ url_for('research_validation') }}" method="get" aria-label="Choose the hardware">
+<form class="filters" action="{{ url_for('research_validation') }}" method="get" aria-label="Choose the hardware for the first two sections">
   <div class="field">
     <label for="v-hw">Hardware</label>
     <select id="v-hw" name="hardware">
@@ -61,7 +61,7 @@ held-out test, what each model explains, and whether the same model gives the sa
 </section>
 
 <section class="card">
-  <h2>Same model, different implementations</h2>
+  <h2>Same model, different implementations <span class="muted">(all hardware)</span></h2>
   <p class="note">Designs fit with more than one sampler on the same hardware. Matching accuracy means the code is right; the fit times
   show which implementation is faster.</p>
   {% if implementations %}
@@ -83,7 +83,7 @@ held-out test, what each model explains, and whether the same model gives the sa
 </section>
 
 <section class="card">
-  <h2>Unseen apartments (the unit split)</h2>
+  <h2>Unseen apartments (the unit split) <span class="muted">(all hardware)</span></h2>
   <p class="note">A second, harder test some fits also took: every listing of about 10% of apartments held out, so the model must
   predict apartments it has never seen. Higher is better, against the reference model.</p>
   {% if units %}

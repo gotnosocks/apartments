@@ -1292,7 +1292,7 @@ def create_app(
             chart=charts.fit_scatter(
                 points,
                 label="Each fit's PSIS-LOO score against its genuine held-out score",
-                x_title="PSIS-LOO ΔELPD (estimated from the fit itself)",
+                x_title="PSIS-LOO ΔELPD against the simplest baseline (from the fit itself)",
                 y_title="Held-out ΔELPD against the reference model",
                 x_format=charts.signed,
                 y_format=charts.signed,
@@ -1338,6 +1338,7 @@ def create_app(
             plan=Markup(current["html"]),
             toc=current["toc"],
             modified=dt.datetime.fromtimestamp(current["modified"], dt.UTC),
+            fallback=current["fallback"],
         )
 
     @app.get("/research/glossary")

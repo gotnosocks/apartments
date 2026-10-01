@@ -374,12 +374,17 @@ GITHUB = "https://github.com/gotnosocks/apartments/blob/master/"
 def doc_link(href: str, base: str = "docs") -> str:
     """A link in a document under docs/, made absolute: other repository
     files open on GitHub; web links and in-page anchors are kept."""
-    if not href or href.startswith(("#", "http://", "https://", "mailto:")):
+    if not href or href.startswith("#"):
         return href
+    if re.match(r"^[a-zA-Z][a-zA-Z0-9+.-]*:", href):
+        return href  # any scheme (https:, mailto:, ...) is left as written
+    if href.startswith("/"):
+        href = href.lstrip("/")
+        base = ""
     path, _, fragment = href.partition("#")
     resolved = posixpath.normpath(posixpath.join(base, path))
     if resolved.startswith(".."):
-        return href
+        return "#"  # outside the repository: no link
     return GITHUB + resolved + (f"#{fragment}" if fragment else "")
 
 
@@ -406,7 +411,15 @@ def render_markdown(text: str) -> tuple[str, list[tuple[int, str, str]]]:
             level = min(int(token.tag[1]) + 1, 6)
             token.tag = f"h{level}"
             if token.type == "heading_open":
-                title = tokens[i + 1].content
+                inline = tokens[i + 1]
+                title = (
+                    "".join(
+                        c.content
+                        for c in inline.children or []
+                        if c.type in ("text", "code_inline")
+                    )
+                    or inline.content
+                )
                 slug = _slug(title, seen)
                 token.attrSet("id", slug)
                 if level <= 3:
@@ -415,6 +428,11 @@ def render_markdown(text: str) -> tuple[str, list[tuple[int, str, str]]]:
             for child in token.children or []:
                 if child.type == "link_open":
                     child.attrSet("href", doc_link(child.attrGet("href") or ""))
+                elif child.type == "image":
+                    child.attrSet(
+                        "src",
+                        doc_link(child.attrGet("src") or "").replace("/blob/", "/raw/"),
+                    )
     return md.renderer.render(tokens, md.options, {}), toc
 
 
@@ -444,6 +462,7 @@ class Plan:
                     "html": html,
                     "toc": toc,
                     "source": str(source),
+                    "fallback": source != self.path,
                     "modified": stat.st_mtime,
                 }
             return self._value

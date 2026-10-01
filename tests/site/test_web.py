@@ -825,7 +825,10 @@ def test_doc_links_and_markdown_rendering():
     )
     assert doc_link("#objective") == "#objective"
     assert doc_link("https://example.com/x") == "https://example.com/x"
-    assert doc_link("../../outside.md") == "../../outside.md"
+    assert doc_link("../../outside.md") == "#"
+    assert doc_link("/frontier/README.md") == github + "frontier/README.md"
+    assert doc_link("ftp://example.com/x") == "ftp://example.com/x"
+    assert doc_link("HTTP://example.com") == "HTTP://example.com"
     html, toc = render_markdown(
         "# Plan\n\nSee [the board](model/leaderboard/leaderboard.md).\n\n"
         "## Objective\n\n<script>alert(1)</script>\n\n## Objective\n\n| a | b |\n|---|---|\n| 1 | 2 |\n"
@@ -884,3 +887,13 @@ def test_research_navigation_stays_on_this_site(client):
     ):
         assert f'href="{path}"' in html
     assert ":8500" not in html
+
+
+def test_contents_titles_drop_markdown_and_images_resolve():
+    from apartments.site.research import render_markdown
+
+    html, toc = render_markdown("## The `walk` *scale*\n\n![map](img/map.png)\n")
+    assert toc == [(3, "The walk scale", "the-walk-scale")]
+    assert (
+        "https://github.com/gotnosocks/apartments/raw/master/docs/img/map.png" in html
+    )

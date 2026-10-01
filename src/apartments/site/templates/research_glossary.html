@@ -14,8 +14,12 @@
     <dd>Leave-one-out: predict each listing's ask from all the others. Refitting once per listing would take years, so
     Pareto-smoothed importance sampling (PSIS) estimates it from a single fit.</dd>
     <dt id="delta-elpd">ΔELPD and the ±</dt>
-    <dd>A model's ELPD minus the simplest baseline's, on the same listings. The ± is its standard error: two fits within about two
-    of these are a tie.</dd>
+    <dd>A difference in ELPD between two models on the same listings. On the frontier and the board, PSIS-LOO ΔELPD is against the
+    simplest baseline model; in the held-out check it is against the <a href="#reference-model">reference model</a>, so the two
+    numbers for one fit differ. The ± is the standard error: two fits within about two of these are a tie.</dd>
+    <dt id="reference-model">Reference model</dt>
+    <dd>The PyMC model that was served before this research began. Held-out scores are measured against it so that every fit is
+    compared with the same yardstick on the same held-out listings.</dd>
     <dt id="pareto-k">Pareto k</dt>
     <dd>How trustworthy the PSIS shortcut is for one listing. Above about 0.7 the estimate for that listing is shaky; a few such
     listings are normal, many mean the score should be read with care.</dd>
