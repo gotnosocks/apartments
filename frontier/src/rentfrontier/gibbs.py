@@ -41,6 +41,7 @@ Chains run in parallel under vmap, in float64.
 
 from __future__ import annotations
 
+import itertools
 import time
 from dataclasses import asdict, dataclass
 
@@ -129,6 +130,12 @@ class Design:
     gram_feat: jnp.ndarray | None = None  # (N, F) feature columns of a
     gram_fcols: np.ndarray | None = None
     gram_kcols: np.ndarray | None = None
+    # Walk knots no row touches are integrated out (`compact_walk`): each
+    # building's block holds its fixed slots and the knots its rows touch,
+    # in buckets of buildings with similar counts; `fill` redraws the rest.
+    buckets: tuple = ()
+    fill: dict | None = None
+    walk_rank: int = 0  # touched knots over all buildings (the walk's rank)
 
     @property
     def scale_names(self):
@@ -147,8 +154,163 @@ def _rw1_anchored(n):
     return d.T @ d
 
 
+@dataclass
+class Bucket:
+    """Buildings whose blocks share one compact width."""
+
+    buildings: jnp.ndarray  # (K_b,) building ids
+    rows: jnp.ndarray  # (n_b,) their training rows
+    bld: jnp.ndarray  # (n_b,) row -> index within the bucket
+    slots: jnp.ndarray  # (n_b, S) compact slots
+    values: jnp.ndarray  # (n_b, S)
+    units: jnp.ndarray  # (J_b,) unit ids
+    unit: jnp.ndarray  # (n_b,) row -> unit index within the bucket
+    width: int  # compact block size
+    walk: jnp.ndarray  # (K_b, width, width) walk precision over touched knots
+    pad: jnp.ndarray  # (K_b, width) 1 on unused slots (a fixed unit prior)
+    knot: jnp.ndarray  # (K_b, width - n_fixed) knot of each walk slot (k: unused)
+
+
+# At most this many compact widths: one batched elimination per bucket.
+MAX_BUCKETS = 4
+
+
+def _bucket_widths(sizes, max_buckets=MAX_BUCKETS):
+    """Widths (largest touched-knot count per bucket) minimising the summed
+    block size: the cost of the global Schur product is linear in it."""
+    distinct = np.unique(sizes)
+    count = np.array([(sizes == v).sum() for v in distinct])
+    best = (np.inf, None)
+    top = len(distinct) - 1
+    for cuts in itertools.combinations(range(top), min(max_buckets, len(distinct)) - 1):
+        ends = [*cuts, top]
+        cost, lo = 0.0, 0
+        for e in ends:
+            cost += count[lo : e + 1].sum() * distinct[e]
+            lo = e + 1
+        best = min(best, (cost, tuple(distinct[e] for e in ends)), key=lambda t: t[0])
+    return best[1]
+
+
+def compact_walk(
+    slots,
+    values,
+    building,
+    unit,
+    unit_building,
+    n_buildings,
+    n_units,
+    knot_start,
+    n_local,
+    max_buckets=MAX_BUCKETS,
+):
+    """Buckets and fill rules that integrate out the walk knots no row touches.
+
+    Under the anchored RW1 prior a building's touched knots t_1 < ... < t_m
+    (knot 0 fixed at 0) have independent steps x_{t_i} - x_{t_{i-1}} with
+    variance walk_scale^2 (t_i - t_{i-1}). The other knots enter no
+    likelihood term. Given the touched knots they are a random-walk bridge
+    between their neighbours, or a free walk after the last one, and `fill`
+    holds what draws them: the left and right touched knot of every knot and
+    its interpolation weight.
+    """
+    n_fixed, k = knot_start, n_local - knot_start + 1  # knots 0..k-1
+    walk_cols = slice(slots.shape[1] - 2, slots.shape[1])
+    touched = np.zeros((n_buildings, k), bool)
+    touched[building[:, None], slots[:, walk_cols] - knot_start + 1] = True
+    touched[:, 0] = False  # the fixed anchor is not a variable
+    sizes = touched.sum(1)
+    widths = _bucket_widths(sizes, max_buckets)
+    knots = np.arange(k)
+    # Left and right touched (or anchor) knot of every knot, and the weight.
+    left = np.zeros((n_buildings, k), np.int32)
+    right = np.zeros((n_buildings, k), np.int32)
+    alpha = np.zeros((n_buildings, k))
+    for b in range(n_buildings):
+        t = np.r_[0, np.flatnonzero(touched[b])]
+        li = np.searchsorted(t, knots, side="right") - 1
+        left[b] = t[li]
+        has_right = li + 1 < len(t)
+        r = np.where(has_right, t[np.minimum(li + 1, len(t) - 1)], t[li])
+        right[b] = r
+        gap = r - left[b]
+        alpha[b] = np.where(gap > 0, (knots - left[b]) / np.maximum(gap, 1), 0.0)
+    buckets, lo = [], -1
+    order = np.argsort(sizes, kind="stable")
+    for wmax in widths:
+        members = order[(sizes[order] > lo) & (sizes[order] <= wmax)]
+        lo = wmax
+        if len(members) == 0:
+            continue
+        width = n_fixed + int(wmax)
+        index = np.full(n_buildings, -1)
+        index[members] = np.arange(len(members))
+        rows = np.flatnonzero(index[building] >= 0)
+        pos = np.full((n_buildings, k), -1)
+        walk = np.zeros((len(members), width, width))
+        pad = np.zeros((len(members), width))
+        knot = np.full((len(members), width - n_fixed), k)
+        for i, b in enumerate(members):
+            t = np.flatnonzero(touched[b])
+            pos[b, t] = n_fixed + np.arange(len(t))
+            knot[i, : len(t)] = t
+            steps = np.diff(np.r_[0, t])
+            diff = np.eye(len(t)) - np.eye(len(t), k=-1)  # x_t_i - x_t_(i-1)
+            walk[i, n_fixed : n_fixed + len(t), n_fixed : n_fixed + len(t)] = (
+                diff.T @ np.diag(1.0 / steps) @ diff
+            )
+            pad[i, n_fixed + len(t) :] = 1.0
+        cs = slots[rows].copy()
+        cs[:, walk_cols] = pos[
+            building[rows][:, None], slots[rows, walk_cols] - knot_start + 1
+        ]
+        units = np.flatnonzero(index[unit_building] >= 0)
+        uidx = np.full(n_units, -1)
+        uidx[units] = np.arange(len(units))
+        buckets.append(
+            Bucket(
+                buildings=jnp.asarray(members, jnp.int32),
+                rows=jnp.asarray(rows, jnp.int32),
+                bld=jnp.asarray(index[building[rows]], jnp.int32),
+                slots=jnp.asarray(cs, jnp.int32),
+                values=jnp.asarray(values[rows]),
+                units=jnp.asarray(units, jnp.int32),
+                unit=jnp.asarray(uidx[unit[rows]], jnp.int32),
+                width=width,
+                walk=jnp.asarray(walk),
+                pad=jnp.asarray(pad),
+                knot=jnp.asarray(knot, jnp.int32),
+            )
+        )
+    fill = {
+        "left": jnp.asarray(left),
+        "right": jnp.asarray(right),
+        "alpha": jnp.asarray(alpha),
+    }
+    return tuple(buckets), fill, int(sizes.sum())
+
+
+def fill_walk(d: Design, x_touched, scale, z_f=None):
+    """The full walk (K, k) from its touched knots (K, k: other knots 0), with
+    every other knot drawn given them (`compact_walk`): x_j = x_l + a (x_r - x_l)
+    + scale (B_j - B_l - a (B_r - B_l)) for a free standard walk B."""
+    f = d.fill
+    rows = jnp.arange(x_touched.shape[0])[:, None]
+    xl, xr = x_touched[rows, f["left"]], x_touched[rows, f["right"]]
+    x = xl + f["alpha"] * (xr - xl)
+    if z_f is not None:
+        walk = jnp.concatenate(
+            [jnp.zeros((z_f.shape[0], 1)), jnp.cumsum(z_f[:, 1:], axis=1)], axis=1
+        )
+        bl, br = walk[rows, f["left"]], walk[rows, f["right"]]
+        x = x + scale * (walk - bl - f["alpha"] * (br - bl))
+    return x
+
+
 def build_design(
-    prep: model_module.Prepared, config: model_module.ModelConfig
+    prep: model_module.Prepared,
+    config: model_module.ModelConfig,
+    compact: bool = True,
 ) -> Design:
     base = ("trend", "season", "features", "buildings", "units")
     if (
@@ -276,6 +438,19 @@ def build_design(
         m[knot_start:, knot_start:] = _rw1_anchored(n_local - knot_start)
         local_structures["walk_scale"] = m
         local_ranks["walk_scale"] = n_local - knot_start
+    buckets, fill, walk_rank = (), None, 0
+    if compact and config.building_walk and not config.unit_drift:
+        buckets, fill, walk_rank = compact_walk(
+            slots,
+            values,
+            tr.building,
+            tr.unit,
+            unit_building,
+            len(prep.buildings),
+            len(prep.units),
+            knot_start,
+            n_local,
+        )
 
     prior_sd = {
         "sigma": config.noise_scale_sd,
@@ -332,6 +507,9 @@ def build_design(
         gram_feat=jnp.asarray(a[:, fcols]),
         gram_fcols=fcols,
         gram_kcols=kcols,
+        buckets=buckets,
+        fill=fill,
+        walk_rank=walk_rank,
     )
 
 
@@ -372,12 +550,12 @@ def local_value(theta_l, building, slots, values):
 PART_SCALES = frozenset({"sigma", "unit_scale", "unit_drift_scale"})
 
 
-def gaussian_block(d: Design, lam, s, z_g, z_l, z_u, kappa=None):
+def gaussian_block(d: Design, lam, s, z_g, z_l, z_u, kappa=None, z_f=None):
     """Joint draw of (global, building blocks, units) given lam and scales `s`.
 
     With zero noise vectors it returns the conditional posterior mean.
     """
-    return block_solve(d, block_parts(d, lam, s, kappa), s, z_g, z_l, z_u)
+    return block_solve(d, block_parts(d, lam, s, kappa), s, z_g, z_l, z_u, z_f)
 
 
 def block_parts(d: Design, lam, s, kappa=None) -> dict:
@@ -395,6 +573,8 @@ def block_parts(d: Design, lam, s, kappa=None) -> dict:
     kappa = jnp.ones(J) if kappa is None else kappa
     wa = w[:, None] * a
     n = a.shape[0]
+    if d.buckets and not d.unit_drift:
+        return _compact_parts(d, w, kappa, s)
     a_l = jnp.zeros((n, L)).at[jnp.arange(n)[:, None], slots].add(vals)
     if d.unit_drift:
         # Unit block [level, drift]: z_i = (1, t_i), t_i in years from the
@@ -480,40 +660,158 @@ def block_parts(d: Design, lam, s, kappa=None) -> dict:
     }
 
 
-def block_solve(d: Design, parts: dict, s, z_g, z_l, z_u):
+def _compact_parts(d: Design, w, kappa, s) -> dict:
+    """`block_parts` with the untouched walk knots integrated out: the building
+    cells per bucket at its compact width (`compact_walk`)."""
+    J = d.n_units
+    y, a = d.y, d.a
+    seg_u = lambda v: jax.ops.segment_sum(v, d.unit, J)
+    c = 1.0 / (kappa / s["unit_scale"] ** 2 + seg_u(w))
+    h = seg_u(w * y)
+    wa = w[:, None] * a
+    g = seg_u(wa)
+    q = gram(d, w) - g.T @ (c[:, None] * g) + jnp.diag(d.prior_fixed)
+    rhs_g = wa.T @ y - g.T @ (c * h)
+    a_t = a - (c[:, None] * g)[d.unit]
+    cells = []
+    for bk in d.buckets:
+        kb, width, nb = bk.buildings.shape[0], bk.width, bk.rows.shape[0]
+        wb, yb, at_b = w[bk.rows], y[bk.rows], a_t[bk.rows]
+        a_l = (
+            jnp.zeros((nb, width)).at[jnp.arange(nb)[:, None], bk.slots].add(bk.values)
+        )
+        gl = jnp.zeros((bk.units.shape[0], width))
+        for m in range(bk.slots.shape[1]):
+            gl = gl.at[bk.unit, bk.slots[:, m]].add(wb * bk.values[:, m])
+        adj = a_l - (c[bk.units][:, None] * gl)[bk.unit]
+        q_ll = jnp.zeros((kb * width, width))
+        q_lg = jnp.zeros((kb * width, a.shape[1]))
+        for m in range(bk.slots.shape[1]):
+            cell = bk.bld * width + bk.slots[:, m]
+            wv = (wb * bk.values[:, m])[:, None]
+            q_ll = q_ll + jax.ops.segment_sum(wv * adj, cell, kb * width)
+            q_lg = q_lg + jax.ops.segment_sum(wv * at_b, cell, kb * width)
+        q_ll = q_ll.reshape(kb, width, width)
+        cells.append(
+            {
+                "q_ll": 0.5 * (q_ll + jnp.swapaxes(q_ll, 1, 2)),
+                "q_lg": q_lg.reshape(kb, width, a.shape[1]),
+                "r_l": jax.ops.segment_sum((wb * yb)[:, None] * adj, bk.bld, kb),
+            }
+        )
+    return {
+        "w": w,
+        "kappa": kappa,
+        "q": q,
+        "rhs_g": rhs_g,
+        "c": c,
+        "h": h,
+        "buckets": tuple(cells),
+    }
+
+
+def _compact_solve(d: Design, parts, s, q, rhs_g, z_g, z_l, z_f):
+    """The building eliminations and draws per bucket, then the full walk
+    (`fill_walk`). Returns theta, the full local block and its quad and
+    log-determinant pieces."""
+    n_fixed = d.knot_start
+    k = d.n_local - n_fixed + 1
+    shared = sum(
+        d.local_structures[n] / s[n] ** 2
+        for n in d.local_structures
+        if n != "walk_scale"
+    )
+    schur, r_s, per = q, rhs_g, []
+    quad_l = logdet_l = 0.0
+    for bk, cell in zip(d.buckets, parts["buckets"]):
+        width = bk.width
+        prior = (
+            shared[:width, :width][None]
+            + bk.walk / s["walk_scale"] ** 2
+            + jax.vmap(jnp.diag)(bk.pad)
+        )
+        chol_b = jnp.linalg.cholesky(cell["q_ll"] + prior)
+        inv_b = solve_triangular(
+            chol_b,
+            jnp.broadcast_to(jnp.eye(width), (bk.buildings.shape[0], width, width)),
+            lower=True,
+        )
+        v = inv_b @ cell["q_lg"]
+        vr = solve_triangular(chol_b, cell["r_l"][..., None], lower=True)[..., 0]
+        schur = schur - jnp.einsum("klp,klq->pq", v, v)
+        r_s = r_s - jnp.einsum("klp,kl->p", v, vr)
+        quad_l = quad_l + jnp.sum(vr * vr)
+        logdet_l = logdet_l + 2 * jnp.sum(
+            jnp.log(jnp.diagonal(chol_b, axis1=1, axis2=2))
+        )
+        per.append((chol_b, v, vr))
+    chol = jnp.linalg.cholesky(schur)
+    white = solve_triangular(chol, r_s, lower=True)
+    theta = solve_triangular(chol.T, white + z_g, lower=False)
+    fixed_l = jnp.zeros((d.n_buildings, n_fixed))
+    x = jnp.zeros((d.n_buildings, k + 1))  # column k takes the unused slots
+    for bk, (chol_b, v, vr) in zip(d.buckets, per):
+        rhs = vr - jnp.einsum("klp,p->kl", v, theta) + z_l[bk.buildings, : bk.width]
+        tc = solve_triangular(jnp.swapaxes(chol_b, 1, 2), rhs[..., None], lower=False)[
+            ..., 0
+        ]
+        fixed_l = fixed_l.at[bk.buildings].set(tc[:, :n_fixed])
+        x = x.at[bk.buildings[:, None], bk.knot].set(tc[:, n_fixed:])
+    walk = fill_walk(d, x[:, :k], s["walk_scale"], z_f)
+    theta_l = jnp.concatenate([fixed_l, walk[:, 1:]], axis=1)
+    return (
+        theta,
+        theta_l,
+        quad_l + jnp.sum(white * white),
+        logdet_l + 2 * jnp.sum(jnp.log(jnp.diagonal(chol))),
+    )
+
+
+def block_solve(d: Design, parts: dict, s, z_g, z_l, z_u, z_f=None):
     """`gaussian_block` from its parts: adds the prior scales outside
-    PART_SCALES, eliminates the building blocks, then the global block."""
+    PART_SCALES, eliminates the building blocks, then the global block.
+    `z_f` draws the walk knots no row touches (compact designs; None: their
+    conditional mean)."""
     J, K = d.n_units, d.n_buildings
     y, a, bld, slots, vals = d.y, d.a, d.building, d.slots, d.slot_values
     w, kappa, q, rhs_g = parts["w"], parts["kappa"], parts["q"], parts["rhs_g"]
-    q_lg, r_l = parts["q_lg"], parts["r_l"]
     L = d.n_local
     seg_u = lambda v: jax.ops.segment_sum(v, d.unit, J)
 
     # Global prior blocks.
     for name, (sl, r) in d.global_blocks.items():
         q = q.at[sl, sl].add(r / s[name] ** 2)
-    prior_l = sum(d.local_structures[n] / s[n] ** 2 for n in d.local_structures)
-    q_ll = parts["q_ll"] + prior_l[None]
+    if "buckets" in parts:
+        theta, theta_l, quad_lg, logdet_lg = _compact_solve(
+            d, parts, s, q, rhs_g, z_g, z_l, z_f
+        )
+    else:
+        q_lg, r_l = parts["q_lg"], parts["r_l"]
+        prior_l = sum(d.local_structures[n] / s[n] ** 2 for n in d.local_structures)
+        q_ll = parts["q_ll"] + prior_l[None]
 
-    # Eliminate building blocks (batched Cholesky), then the global block.
-    chol_l = jnp.linalg.cholesky(q_ll)
-    # L_k^-1 once per building (L columns), then one batched product: cheaper
-    # than a triangular solve against all P global columns.
-    inv_l = solve_triangular(
-        chol_l, jnp.broadcast_to(jnp.eye(L), (K, L, L)), lower=True
-    )
-    v = inv_l @ q_lg  # (K, L, P)
-    vr = solve_triangular(chol_l, r_l[..., None], lower=True)[..., 0]
-    schur = q - jnp.einsum("klp,klq->pq", v, v)
-    r_s = rhs_g - jnp.einsum("klp,kl->p", v, vr)
-    chol = jnp.linalg.cholesky(schur)
-    white = solve_triangular(chol, r_s, lower=True)
-    theta = solve_triangular(chol.T, white + z_g, lower=False)
-    rhs = vr - jnp.einsum("klp,p->kl", v, theta) + z_l
-    theta_l = solve_triangular(jnp.swapaxes(chol_l, 1, 2), rhs[..., None], lower=False)[
-        ..., 0
-    ]
+        # Eliminate building blocks (batched Cholesky), then the global block.
+        chol_l = jnp.linalg.cholesky(q_ll)
+        # L_k^-1 once per building (L columns), then one batched product:
+        # cheaper than a triangular solve against all P global columns.
+        inv_l = solve_triangular(
+            chol_l, jnp.broadcast_to(jnp.eye(L), (K, L, L)), lower=True
+        )
+        v = inv_l @ q_lg  # (K, L, P)
+        vr = solve_triangular(chol_l, r_l[..., None], lower=True)[..., 0]
+        schur = q - jnp.einsum("klp,klq->pq", v, v)
+        r_s = rhs_g - jnp.einsum("klp,kl->p", v, vr)
+        chol = jnp.linalg.cholesky(schur)
+        white = solve_triangular(chol, r_s, lower=True)
+        theta = solve_triangular(chol.T, white + z_g, lower=False)
+        rhs = vr - jnp.einsum("klp,p->kl", v, theta) + z_l
+        theta_l = solve_triangular(
+            jnp.swapaxes(chol_l, 1, 2), rhs[..., None], lower=False
+        )[..., 0]
+        quad_lg = jnp.sum(vr * vr) + jnp.sum(white * white)
+        logdet_lg = 2 * jnp.sum(
+            jnp.log(jnp.diagonal(chol_l, axis1=1, axis2=2))
+        ) + 2 * jnp.sum(jnp.log(jnp.diagonal(chol)))
     fixed = a @ theta + local_value(theta_l, bld, slots, vals)
     if d.unit_drift:
         wz, cu, hu, ch, det = (parts[k] for k in ("wz", "cu", "hu", "ch", "det"))
@@ -538,19 +836,18 @@ def block_solve(d: Design, parts: dict, s, z_g, z_l, z_u):
     # group scales:  1/2 b'Q^-1 b - 1/2 log|Q_post| + 1/2 log|Q_prior|.
     # The block elimination order (units, buildings, global) splits both the
     # quadratic form and the determinant into per-level pieces.
-    quad = quad_u + jnp.sum(vr * vr) + jnp.sum(white * white)
-    logdet_post = (
-        logdet_u
-        + 2 * jnp.sum(jnp.log(jnp.diagonal(chol_l, axis1=1, axis2=2)))
-        + 2 * jnp.sum(jnp.log(jnp.diagonal(chol)))
-    )
+    quad = quad_u + quad_lg
+    logdet_post = logdet_u + logdet_lg
     logdet_prior = jnp.sum(jnp.log(kappa)) - 2 * J * jnp.log(s["unit_scale"])
     if d.unit_drift:
         logdet_prior = logdet_prior - 2 * J * jnp.log(s["unit_drift_scale"])
     for name, rank in d.global_ranks.items():
         logdet_prior = logdet_prior - 2 * rank * jnp.log(s[name])
     for name, rank in d.local_ranks.items():
-        logdet_prior = logdet_prior - 2 * K * rank * jnp.log(s[name])
+        # With the untouched knots integrated out the walk's rank is the
+        # number of touched knots.
+        total = d.walk_rank if name == "walk_scale" and d.buckets else K * rank
+        logdet_prior = logdet_prior - 2 * total * jnp.log(s[name])
     # Terms that depend on sigma through W = lam / sigma^2.
     logdet_w = jnp.sum(jnp.log(w))
     logml = 0.5 * (quad - logdet_post + logdet_prior + logdet_w - jnp.sum(w * y * y))
@@ -636,6 +933,10 @@ def make_step(d: Design):
             jax.random.normal(
                 keys[2], (d.n_units, 2) if d.unit_drift else (d.n_units,)
             ),
+            # The walk knots no row touches (compact designs).
+            jax.random.normal(keys[8], (d.n_buildings, d.n_local - d.knot_start + 1))
+            if d.buckets
+            else None,
         )
         parts = block_parts(d, state["lam"], s, state["kappa"])
         out = block_solve(d, parts, s, *z)
