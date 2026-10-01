@@ -3,8 +3,8 @@
 Deprecated on 2026-09-25 and reinstated on 2026-09-29 (Ben: "the custom sampler
 and other options based on mathematical simplifications are no longer
 deprecated"). `run.py --sampler gibbs` fits a design with it; designs with
-terms it has no exact update for (market drift, building trends, coarse,
-Student-t or sum-to-zero walks, walk masks and anchors, line effects), or
+terms it has no exact update for (market drift, building trends, Student-t
+or sum-to-zero walks, walk masks and anchors, line effects), or
 without every base term (trend, season, features, buildings, units), are
 refused by `build_design`.
 
@@ -108,6 +108,7 @@ class Design:
     fslope_local: list  # local indices of per-building feature slopes
     fslope_cols: list  # their feature columns
     knot_start: int | None  # local index of walk knot 1 (knot 0 is fixed at 0)
+    walk_months: int  # months between walk knots
     n_features: int
     n_months: int
     n_units: int
@@ -154,7 +155,6 @@ def build_design(
         not all(getattr(config, t) for t in base)
         or config.market_drift
         or config.building_trend
-        or config.walk_knot_months != model_module.KNOT_MONTHS
         or config.walk_t
         or config.walk_min_rows_per_knot
         or config.walk_anchor_data
@@ -163,7 +163,7 @@ def build_design(
     ):
         raise ValueError(
             f"{config.name}: the Gibbs sampler needs every base term and no market "
-            "drift, building trend, line effects or walk options (spacing, t steps, "
+            "drift, building trend, line effects or walk options (t steps, "
             "mask, anchor, zero-sum); "
             "fit these designs with --sampler nuts"
         )
@@ -244,9 +244,14 @@ def build_design(
         structures[f"fslope_scale_{i}"] = [n_local]
         n_local += 1
     if config.building_walk:
-        k = model_module.n_knots(t)
+        # Knots every config.walk_knot_months months (6 up to m8; coarser knots
+        # leave fewer knots that a lone row pins).
+        k = model_module.n_knots(t, config.walk_knot_months)
         knot_start = n_local
-        lo, frac = tr.knot, tr.knot_frac
+        lo, frac = (
+            np.asarray(v)
+            for v in model_module.walk_position(tr, config.walk_knot_months)
+        )
         # Knot j >= 1 sits at local index knot_start + j - 1; knot 0 is fixed at 0,
         # so a row before knot 1 puts zero weight on its lower slot.
         columns.append(
@@ -309,6 +314,7 @@ def build_design(
         fslope_local=fslope_local,
         fslope_cols=fslope_cols,
         knot_start=knot_start,
+        walk_months=config.walk_knot_months,
         n_features=f,
         n_months=t,
         n_units=len(prep.units),
@@ -555,6 +561,8 @@ def site_values(d: Design, state):
         out["fslope_index"] = jnp.asarray(d.fslope_cols, dtype=jnp.int32)
     if d.knot_start is not None:
         out["walk_step"] = steps(theta_l[:, d.knot_start :])
+        # The spacing linear_predictor interpolates the walk with (held-out scores).
+        out["walk_knot_months"] = d.walk_months
     return out
 
 
