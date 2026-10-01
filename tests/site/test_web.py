@@ -812,3 +812,75 @@ def test_glossary_has_anchors_the_pages_link_to(client):
     assert "/research/glossary#psis-loo" in client.get("/research/validation").get_data(
         as_text=True
     )
+
+
+def test_doc_links_and_markdown_rendering():
+    from apartments.site.research import doc_link, render_markdown
+
+    github = "https://github.com/gotnosocks/apartments/blob/master/"
+    assert doc_link("dashboard.md") == github + "docs/dashboard.md"
+    assert doc_link("model/a.md#b") == github + "docs/model/a.md#b"
+    assert (
+        doc_link("../config/main-analysis.json") == github + "config/main-analysis.json"
+    )
+    assert doc_link("#objective") == "#objective"
+    assert doc_link("https://example.com/x") == "https://example.com/x"
+    assert doc_link("../../outside.md") == "../../outside.md"
+    html, toc = render_markdown(
+        "# Plan\n\nSee [the board](model/leaderboard/leaderboard.md).\n\n"
+        "## Objective\n\n<script>alert(1)</script>\n\n## Objective\n\n| a | b |\n|---|---|\n| 1 | 2 |\n"
+    )
+    assert '<h2 id="plan">Plan</h2>' in html  # one level down
+    assert '<h3 id="objective">' in html and '<h3 id="objective-2">' in html
+    assert "<script>" not in html and "&lt;script&gt;" in html
+    assert github + "docs/model/leaderboard/leaderboard.md" in html
+    assert "<table>" in html
+    assert toc == [
+        (2, "Plan", "plan"),
+        (3, "Objective", "objective"),
+        (3, "Objective", "objective-2"),
+    ]
+
+
+def test_plan_page_reads_the_current_plan(site_root, research_file, tmp_path):
+    plan = tmp_path / "plan.md"
+    plan.write_text("# Research plan\n\n## Goal\n\nFit fast.\n")
+    app = create_app(site_root, research_data=research_file, research_plan=plan)
+    client = app.test_client()
+    html = client.get("/research/plan").get_data(as_text=True)
+    assert '<a href="#goal">Goal</a>' in html and "Fit fast." in html
+    plan.write_text("# Research plan\n\n## Goal\n\nFit faster.\n")
+    import os
+
+    os.utime(plan, ns=(1, 2_000_000_000_000_000_000))
+    assert "Fit faster." in client.get("/research/plan").get_data(as_text=True)
+
+
+def test_data_quality_page(client, research_file, data_quality):
+    data = json.loads(research_file.read_text())
+    data["data_quality"] = data_quality
+    research_file.write_text(json.dumps(data))
+    html = client.get("/research/data").get_data(as_text=True)
+    assert "52,450" in html and "47,191" in html
+    assert (
+        '<code>quarantine-v2</code> <span class="tag">in the served model</span>'
+        in html
+    )
+    assert "&lt;not&gt; open-market" in html  # rule text is escaped
+    assert "Leaves out 188 listings in" in html and "Placed elsewhere" in html
+    assert 'href="/quarantined"' in html
+
+
+def test_research_navigation_stays_on_this_site(client):
+    html = client.get("/research").get_data(as_text=True)
+    for path in (
+        "/research/board",
+        "/research/history",
+        "/research/validation",
+        "/research/model",
+        "/research/glossary",
+        "/research/data",
+        "/research/plan",
+    ):
+        assert f'href="{path}"' in html
+    assert ":8500" not in html

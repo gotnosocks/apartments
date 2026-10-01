@@ -8,6 +8,7 @@ parsed leniently: an invalid value is ignored, never an error page.
 from __future__ import annotations
 
 import csv
+import datetime as dt
 import gzip
 import hashlib
 import io
@@ -32,6 +33,7 @@ from flask import (
     stream_with_context,
     url_for,
 )
+from markupsafe import Markup
 
 from . import charts
 from .research import (
@@ -40,6 +42,7 @@ from .research import (
     LINES,
     TARGET_HARDWARE,
     TARGET_MINUTES,
+    Plan,
     Research,
     best_over_time,
     board_rows,
@@ -325,6 +328,8 @@ SECTIONS = {
         "research_fit",
         "research_history",
         "research_validation",
+        "research_data_quality",
+        "research_plan_page",
         "research_glossary",
         "research_model",
     ),
@@ -336,10 +341,15 @@ def section_of(endpoint: str | None) -> str | None:
 
 
 def create_app(
-    root: Path | str | None = None, *, allowed_hosts=None, research_data=None
+    root: Path | str | None = None,
+    *,
+    allowed_hosts=None,
+    research_data=None,
+    research_plan=None,
 ) -> Flask:
     root = Path(root or os.environ.get("SITE_ROOT", "/data1/apartments/site"))
     research = Research(research_data)
+    plan = Plan(research_plan)
     app = Flask(__name__)
     if allowed_hosts is None:
         allowed_hosts = os.environ.get("SITE_ALLOWED_HOSTS", "").split(",")
@@ -1297,6 +1307,37 @@ def create_app(
                 if "units" in (e.get("splits") or {})
                 and e["splits"]["units"].get("delta") is not None
             ],
+        )
+
+    @app.get("/research/data")
+    def research_data_quality():
+        m = meta()
+        data = research_data_or_503()
+        quality = data.get("data_quality") or {}
+        quarantined = (
+            db().execute("SELECT COUNT(*) FROM quarantined").fetchone()[0]
+            if has_quarantine()
+            else 0
+        )
+        return render_template(
+            "research_data.html",
+            meta=m,
+            quality=quality,
+            quarantined=quarantined,
+        )
+
+    @app.get("/research/plan")
+    def research_plan_page():
+        m = meta()
+        current = plan.load()
+        if current is None:
+            abort(503, description="The research plan is not available.")
+        return render_template(
+            "research_plan.html",
+            meta=m,
+            plan=Markup(current["html"]),
+            toc=current["toc"],
+            modified=dt.datetime.fromtimestamp(current["modified"], dt.UTC),
         )
 
     @app.get("/research/glossary")

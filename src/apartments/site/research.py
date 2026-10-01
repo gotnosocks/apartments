@@ -11,6 +11,8 @@ from __future__ import annotations
 
 import json
 import os
+import posixpath
+import re
 import threading
 from pathlib import Path
 
@@ -356,3 +358,92 @@ def implementations(data: dict) -> list[dict]:
                 }
             )
     return out
+
+
+# The research plan, read from the dashboard's checkout, which follows master
+# every ten minutes, so the page is current between site deploys.
+PLAN = Path(
+    os.environ.get(
+        "RESEARCH_PLAN", "/data1/apartments/serve/master/docs/research-plan.md"
+    )
+)
+REPO_PLAN = Path(__file__).resolve().parents[3] / "docs" / "research-plan.md"
+GITHUB = "https://github.com/gotnosocks/apartments/blob/master/"
+
+
+def doc_link(href: str, base: str = "docs") -> str:
+    """A link in a document under docs/, made absolute: other repository
+    files open on GitHub; web links and in-page anchors are kept."""
+    if not href or href.startswith(("#", "http://", "https://", "mailto:")):
+        return href
+    path, _, fragment = href.partition("#")
+    resolved = posixpath.normpath(posixpath.join(base, path))
+    if resolved.startswith(".."):
+        return href
+    return GITHUB + resolved + (f"#{fragment}" if fragment else "")
+
+
+def _slug(text: str, seen: set) -> str:
+    base = re.sub(r"[^a-z0-9]+", "-", text.lower()).strip("-") or "section"
+    slug, n = base, 2
+    while slug in seen:
+        slug, n = f"{base}-{n}", n + 1
+    seen.add(slug)
+    return slug
+
+
+def render_markdown(text: str) -> tuple[str, list[tuple[int, str, str]]]:
+    """Markdown to HTML (raw HTML in the source is escaped, not rendered),
+    with headings one level down (the page has its own h1), ids on them for a
+    contents list, and repository links pointing at GitHub."""
+    from markdown_it import MarkdownIt
+
+    md = MarkdownIt("commonmark", {"html": False}).enable("table")
+    tokens = md.parse(text)
+    toc, seen = [], set()
+    for i, token in enumerate(tokens):
+        if token.type in ("heading_open", "heading_close"):
+            level = min(int(token.tag[1]) + 1, 6)
+            token.tag = f"h{level}"
+            if token.type == "heading_open":
+                title = tokens[i + 1].content
+                slug = _slug(title, seen)
+                token.attrSet("id", slug)
+                if level <= 3:
+                    toc.append((level, title, slug))
+        if token.type == "inline":
+            for child in token.children or []:
+                if child.type == "link_open":
+                    child.attrSet("href", doc_link(child.attrGet("href") or ""))
+    return md.renderer.render(tokens, md.options, {}), toc
+
+
+class Plan:
+    """The rendered research plan, kept until the file changes."""
+
+    def __init__(self, path: Path | str | None = None):
+        self.path = Path(path) if path else PLAN
+        self._key = None
+        self._value = None
+        self._lock = threading.Lock()
+
+    def load(self) -> dict | None:
+        source = next(
+            (p for p in (self.path, REPO_PLAN) if p.is_file()),
+            None,
+        )
+        if source is None:
+            return None
+        stat = source.stat()
+        key = (str(source.resolve()), stat.st_mtime_ns, stat.st_size)
+        with self._lock:
+            if key != self._key:
+                html, toc = render_markdown(source.read_text())
+                self._key = key
+                self._value = {
+                    "html": html,
+                    "toc": toc,
+                    "source": str(source),
+                    "modified": stat.st_mtime,
+                }
+            return self._value

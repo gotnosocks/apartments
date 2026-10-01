@@ -628,3 +628,32 @@ def client(site_root, research_file):
     )
     app.config["TESTING"] = True
     return app.test_client()
+
+
+DATA_QUALITY = {
+    "app_run": "m-test-run",
+    "app_rules": ["unit-labels-v1", "quarantine-v2"],
+    "app_rows": 52450,
+    "app_rows_in_fit": 47191,
+    "rules": [
+        {
+            "rule": "unit-labels-v1",
+            "text": "One apartment, one id.",
+            "in_app_model": True,
+        },
+        {
+            "rule": "quarantine-v2",
+            "text": "Listings a review found are <not> open-market leases.",
+            "in_app_model": True,
+            "file": "config/reviews/q2.jsonl",
+            "rows": 188,
+            "buildings": 82,
+            "actions": [{"action": "x", "label": "Placed elsewhere", "rows": 73}],
+        },
+    ],
+}
+
+
+@pytest.fixture
+def data_quality():
+    return json.loads(json.dumps(DATA_QUALITY))

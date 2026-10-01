@@ -38,7 +38,8 @@
     <a href="{{ url_for('research_validation') }}"{% if here == "research_validation" %} aria-current="page"{% endif %}>Validation</a>
     <a href="{{ url_for('research_model') }}"{% if here == "research_model" %} aria-current="page"{% endif %}>Served model</a>
     <a href="{{ url_for('research_glossary') }}"{% if here == "research_glossary" %} aria-current="page"{% endif %}>Glossary</a>
-    <a href="//{{ host_name }}:8500/">Data quality ↗</a>
+    <a href="{{ url_for('research_data_quality') }}"{% if here == "research_data_quality" %} aria-current="page"{% endif %}>Data quality</a>
+    <a href="{{ url_for('research_plan_page') }}"{% if here == "research_plan_page" %} aria-current="page"{% endif %}>Plan</a>
   </nav></div>
   {% endif %}
 </header>

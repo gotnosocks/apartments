@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+{% block title %}Research plan{% endblock %}
+{% block content %}
+<h1>Research plan</h1>
+<p class="lede">The plan the research follows: the goal, how fits are scored and chosen, what has been tried and what comes next. It is the
+repository's <code>docs/research-plan.md</code> on master, last changed {{ modified.strftime("%Y-%m-%d %H:%M") }} UTC. Terms are in the
+<a href="{{ url_for('research_glossary') }}">glossary</a>.</p>
+{% if toc %}
+<nav class="card toc" aria-label="Contents">
+  <h2>Contents</h2>
+  <ul>{% for level, title, slug in toc %}<li class="toc-{{ level }}"><a href="#{{ slug }}">{{ title }}</a></li>{% endfor %}</ul>
+</nav>
+{% endif %}
+<article class="card prose markdown">
+{{ plan }}
+</article>
+{% endblock %}

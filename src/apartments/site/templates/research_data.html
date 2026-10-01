@@ -1,0 +1,51 @@
+{% extends "base.html" %}
+{% block title %}Data quality{% endblock %}
+{% block content %}
+<h1>Data quality</h1>
+<p class="lede">What the model is fit on, and what it leaves out. Each data rule is a fixed correction applied before fitting, written down
+so any fit can be repeated on exactly the same listings.</p>
+
+{% if quality %}
+<section class="tiles" aria-label="The served model's data">
+  <div class="tile"><span class="tile-label">Listings in the data</span><span class="tile-value">{{ "{:,}".format(quality.app_rows) if quality.app_rows is number else "—" }}</span></div>
+  <div class="tile"><span class="tile-label">In the served fit</span><span class="tile-value">{{ "{:,}".format(quality.app_rows_in_fit) if quality.app_rows_in_fit is number else "—" }}</span></div>
+  <div class="tile"><span class="tile-label">Left out by review</span><span class="tile-value">{{ "{:,}".format(quarantined) }}</span></div>
+</section>
+<p class="note">The served fit holds out about 10% of listings as a genuine test (see <a href="{{ url_for('research_glossary') }}#held-out">held-out
+check</a>); that is the gap between the first two numbers. Its data rules: {% for r in quality.app_rules or [] %}<code>{{ r }}</code>{% if not loop.last %}, {% endif %}{% else %}none{% endfor %}.</p>
+
+<section class="card">
+  <h2>The data rules</h2>
+  <p class="note">Every rule on record. The served model uses the ones tagged "in the served model"; a newer version of a rule
+  replaces the older one.</p>
+  {% for rule in quality.rules or [] %}
+  <article class="rule">
+    <h3><code>{{ rule.rule }}</code>{% if rule.in_app_model %} <span class="tag">in the served model</span>{% endif %}</h3>
+    <p>{{ rule.text }}</p>
+    {% if rule.rows is number %}
+    <p class="note">Leaves out {{ "{:,}".format(rule.rows) }} listing{{ "" if rule.rows == 1 else "s" }}{% if rule.buildings is number %} in
+    {{ "{:,}".format(rule.buildings) }} building{{ "" if rule.buildings == 1 else "s" }}{% endif %}{% if rule.file %}, from the review file <code>{{ rule.file }}</code>{% endif %}.</p>
+    {% if rule.actions %}
+    <div class="table-wrap">
+    <table class="data compact-table">
+      <thead><tr><th scope="col">Why left out</th><th scope="col" class="num">Listings</th></tr></thead>
+      <tbody>{% for a in rule.actions %}<tr><td>{{ a.label }}</td><td class="num">{{ "{:,}".format(a.rows) }}</td></tr>{% endfor %}</tbody>
+    </table>
+    </div>
+    {% endif %}
+    {% endif %}
+  </article>
+  {% else %}
+  <p class="empty-note">No data rules on record.</p>
+  {% endfor %}
+</section>
+{% else %}
+<p class="empty-note">This research data has no data-quality section.</p>
+{% endif %}
+
+<section class="card">
+  <h2>The listings left out</h2>
+  <p>Each listing a review left out is on the Estimates side with the review's reason and the ad's own words:
+  <a href="{{ url_for('quarantined') }}">listings left out</a>.</p>
+</section>
+{% endblock %}

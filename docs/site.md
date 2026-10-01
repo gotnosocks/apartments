@@ -86,6 +86,13 @@ is therefore a fair signal of over- or under-pricing ([what an estimate is](mode
   - where the variation in rents goes for the frontier fits;
   - the same design fit with different samplers;
   - the unit split (unseen apartments).
+- **Data quality** (`/research/data`): listings in the data and in the served fit, every data rule in
+  plain words with whether the served model uses it, the listings each review rule leaves out by
+  reason, and a link to them on the Estimates side.
+- **Plan** (`/research/plan`): `docs/research-plan.md` rendered with a contents list. It is read from
+  the dashboard's checkout, which follows master (`/data1/apartments/serve/master`; `RESEARCH_PLAN`
+  overrides it), so it is current between site deploys. Raw HTML in the source is escaped, not
+  rendered; repository links open on GitHub.
 - **Glossary** (`/research/glossary`): every research term in plain words, with anchors the pages
   link to.
 - **Served model** (`/research/model`):
@@ -94,8 +101,6 @@ is therefore a fair signal of over- or under-pricing ([what an estimate is](mode
   - its place on the board: PSIS-LOO ΔELPD, the held-out check, fit time, complexity, frontier and
     gate;
   - the fit's provenance, the parts of an estimate, and every feature coefficient.
-- **Data quality:** still on the research dashboard (:8500), linked from the navigation until it
-  moves here.
 
 ### Service pages
 
