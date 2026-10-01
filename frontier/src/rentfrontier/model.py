@@ -1256,6 +1256,17 @@ MODELS = {
         feature_slopes=("log_sqft_vs_bedroom_median", "bathrooms=2", "log_floor"),
         unit_t=True,
     ),
+    # Student-t units with per-building slopes on a second bathroom and the
+    # floor, no size slope: for data that rarely states square feet (West
+    # Village: 18% of rows, where the size slope's scale did not mix).
+    "m7-nocurves-bathfloor": ModelConfig(
+        name="m7-nocurves-bathfloor",
+        building_walk=True,
+        bedroom_slope=True,
+        trend_knot_months=3,
+        feature_slopes=("bathrooms=2", "log_floor"),
+        unit_t=True,
+    ),
     "m8-nocurves": ModelConfig(
         name="m8-nocurves",
         building_walk=True,
