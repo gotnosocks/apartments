@@ -87,6 +87,20 @@ h2 { font-size: 1.1rem; margin: 0 0 0.6rem; }
 .top nav a { color: var(--ink-2); text-decoration: none; padding: 0.15rem 0; border-bottom: 2px solid transparent; }
 .top nav a:hover { color: var(--ink); }
 .top nav a[aria-current="page"] { color: var(--ink); border-bottom-color: var(--accent); }
+.top .sections a { font-weight: 600; }
+.top .sections a[aria-current="true"] { color: var(--ink); border-bottom-color: var(--accent); }
+.subnav { border-top: 1px solid var(--border); background: var(--page); }
+.subnav nav { display: flex; flex-wrap: wrap; gap: 0.25rem 1.1rem; padding-top: 0.45rem; padding-bottom: 0.45rem; font-size: 0.92rem; }
+.subnav a { color: var(--ink-2); text-decoration: none; padding: 0.1rem 0; border-bottom: 2px solid transparent; }
+.subnav a:hover { color: var(--ink); }
+.subnav a[aria-current="page"] { color: var(--ink); border-bottom-color: var(--accent); }
+.section-card h2 a { color: var(--ink); text-decoration: none; }
+.section-card h2 a:hover { text-decoration: underline; }
+.link-list { margin: 0.6rem 0 0; padding-left: 1.1rem; }
+.link-list li { margin: 0.2rem 0; }
+.tiles.compact { margin: 0.6rem 0; grid-template-columns: repeat(auto-fit, minmax(7rem, 1fr)); }
+.tiles.compact .tile-value { font-size: 1.25rem; }
+h3 { font-size: 1rem; margin: 1rem 0 0.4rem; }
 .foot { color: var(--muted); font-size: 0.85rem; padding-top: 1.5rem; padding-bottom: 2rem; }
 
 /* Page blocks */

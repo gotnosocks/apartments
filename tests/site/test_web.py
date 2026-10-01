@@ -25,7 +25,9 @@ GROVE = "the-grove-250-west-19th-street-new_york"
         "/units/u2",
         "/buildings",
         f"/buildings/{GROVE}",
-        "/model",
+        "/estimates",
+        "/about",
+        "/research/model",
         "/quarantined",
         f"/quarantined?building={GROVE}",
         "/listings/q1",
@@ -228,7 +230,7 @@ def test_every_sort_pages_through_an_index(site_root, sort, order, extra):
 
 
 def test_model_page_without_a_calibration_group(client, site_root):
-    """An all-rows fit has no held-out rows; /model must still render."""
+    """An all-rows fit has no held-out rows; /about must still render."""
     path = (site_root / "current" / "site.sqlite").resolve()
     db = sqlite3.connect(path)
     stats = json.loads(
@@ -238,7 +240,7 @@ def test_model_page_without_a_calibration_group(client, site_root):
     db.execute("UPDATE meta SET value=? WHERE key='stats'", (json.dumps(stats),))
     db.commit()
     db.close()
-    html = client.get("/model").get_data(as_text=True)
+    html = client.get("/about").get_data(as_text=True)
     assert "only listing in the fit" in html and "Held out of the fit" not in html
     assert client.get("/listings/a4").status_code == 200
 
@@ -267,9 +269,10 @@ def test_unit_page_links_to_streeteasy(client):
 def test_model_page_describes_the_designs_terms(client, site_root):
     """The building bullet lists the building terms the design has; the sampler
     and the k threshold are shown readably."""
-    html = client.get("/model").get_data(as_text=True)
+    html = client.get("/about").get_data(as_text=True)
     assert "<strong>building</strong>: its level against an average building;" in html
-    assert "NUTS (NumPyro) on" in html and "Pareto k above 0.7)" in html
+    assert "Pareto k above 0.7)" in html
+    assert "NUTS (NumPyro) on" in client.get("/research/model").get_data(as_text=True)
     db = sqlite3.connect((site_root / "current" / "site.sqlite").resolve())
     position = db.execute("SELECT max(position) FROM terms").fetchone()[0]
     for i, name in enumerate(["building_drift", "building_bedroom_premium"], 1):
@@ -286,13 +289,15 @@ def test_model_page_describes_the_designs_terms(client, site_root):
     )
     db.commit()
     db.close()
-    html = client.get("/model").get_data(as_text=True)
+    html = client.get("/about").get_data(as_text=True)
     assert (
         "<strong>building</strong>: its level against an average building, how that"
         " level has moved over time and its own premium or discount for larger"
         " apartments;" in html
     )
-    assert "Custom Gibbs sampler on" in html and "Pareto k above 0.675)" in html
+    assert "Pareto k above 0.675)" in html
+    research = client.get("/research/model").get_data(as_text=True)
+    assert "Custom Gibbs sampler on" in research
 
 
 def test_quarantined_listings_are_shown_with_their_reason(client):
@@ -336,3 +341,126 @@ def test_a_build_without_the_quarantined_table_still_renders(client, site_root):
     for path in ("/", "/quarantined", f"/buildings/{GROVE}", "/units/u1"):
         assert client.get(path).status_code == 200, path
     assert client.get("/listings/q1").status_code == 404
+
+
+def test_home_page_joins_both_sections(client):
+    html = client.get("/").get_data(as_text=True)
+    assert 'href="/estimates"' in html and 'href="/research/model"' in html
+    # the served model's place on the board, from the research data
+    assert "+5,221 ± 120 over the simplest baseline" in html
+    assert "12.4 minutes on Test GPU" in html
+    # newest change first; titles are escaped
+    assert html.index("Newest &lt;b&gt;change&lt;/b&gt;") < html.index("Serve m-test")
+    assert "Model switch" in html and "PR #97" in html
+
+
+def test_section_navigation(client):
+    estimates = client.get("/listings").get_data(as_text=True)
+    assert '<nav class="wrap" aria-label="Estimates">' in estimates
+    assert 'href="/estimates" aria-current="true"' in estimates
+    research = client.get("/research/model").get_data(as_text=True)
+    assert '<nav class="wrap" aria-label="Research">' in research
+    assert 'href="/research/model" aria-current="true"' in research
+    assert 'aria-label="Estimates">' not in client.get("/").get_data(as_text=True)
+    assert (
+        client.get("/model").status_code == 404
+    )  # moved to /about and /research/model
+
+
+def test_research_model_page(client):
+    html = client.get("/research/model").get_data(as_text=True)
+    assert "published by hand" in html  # the fixture bundle is not the repo's selection
+    assert "+5,221.3 ± 120.4 over the" in html and "−12.5" not in html
+    assert "+-12.5" not in html and "-12.5 ± 30.1" in html
+    assert "On the frontier</dt><dd>yes; the best fit on its hardware" in html
+    assert "Convergence gate</dt><dd>passes" in html
+
+
+def test_research_model_page_shows_the_selection_and_decision(
+    tmp_path, bundle, research_file
+):
+    from apartments.site import build
+
+    selection = tmp_path / "selection.json"
+    selection.write_text(
+        json.dumps(
+            {
+                "summary_manifest_sha256": build.sha256(bundle / "complete.json"),
+                "selected_by": "rentfrontier.autoselect, 2026-10-01",
+                "selection_reason": "Chosen because it clearly beats the incumbent.",
+            }
+        )
+    )
+    root = tmp_path / "selected"
+    build.build(bundle, root, selection=selection)
+    data = json.loads(research_file.read_text())
+    data["autoselect"] = {
+        "action": "keep",
+        "reason": "The served fit is still the best.",
+        "checked": [
+            {
+                "run": "m-other-run",
+                "psis": -3.2,
+                "psis_pm": 4.0,
+                "heldout": None,
+                "refused": "tied and not faster",
+            },
+        ],
+    }
+    research_file.write_text(json.dumps(data))
+    app = create_app(root, research_data=research_file)
+    html = app.test_client().get("/research/model").get_data(as_text=True)
+    assert "Chosen because it clearly beats the incumbent." in html
+    assert "Chosen by rentfrontier.autoselect, 2026-10-01." in html
+    assert "The served fit is still the best." in html
+    assert "<code>m-other-run</code>" in html and "tied and not faster" in html
+
+
+def test_pages_render_without_research_data(site_root, tmp_path):
+    app = create_app(site_root, research_data=tmp_path / "missing.json")
+    client = app.test_client()
+    for path in ("/", "/research/model", "/estimates"):
+        assert client.get(path).status_code == 200, path
+    assert "Latest changes" not in client.get("/").get_data(as_text=True)
+
+
+def test_research_data_reloads_when_the_build_changes(research_file):
+    from apartments.site.research import Research
+
+    research = Research(research_file)
+    first = research.load()
+    assert research.load() is first  # cached
+    data = dict(first, generated_at="2026-10-01T12:00:00+00:00")
+    research_file.write_text(json.dumps(data) + " ")
+    assert research.load()["generated_at"] == "2026-10-01T12:00:00+00:00"
+    research_file.write_text("{broken")
+    assert research.load()["generated_at"] == "2026-10-01T12:00:00+00:00"
+
+
+def test_older_builds_fall_back_to_the_repository_selection(
+    client, site_root, bundle, tmp_path, monkeypatch
+):
+    """A build from before the selection was recorded shows the repository's
+    selection when it names the published bundle."""
+    from apartments.site import build
+
+    db = sqlite3.connect((site_root / "current" / "site.sqlite").resolve())
+    db.execute("DELETE FROM meta WHERE key='selection'")
+    db.commit()
+    db.close()
+    selection = tmp_path / "selection.json"
+    selection.write_text(
+        json.dumps(
+            {
+                "summary_manifest_sha256": build.sha256(bundle / "complete.json"),
+                "selected_by": "rentfrontier.autoselect",
+                "selection_reason": "The repository's own reason.",
+            }
+        )
+    )
+    monkeypatch.setattr(web, "SELECTION", selection)
+    html = client.get("/research/model").get_data(as_text=True)
+    assert "The repository&#39;s own reason." in html
+    assert "Chosen by</dt><dd>rentfrontier.autoselect" in client.get("/").get_data(
+        as_text=True
+    )
