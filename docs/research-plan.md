@@ -10,8 +10,10 @@ contract and pitfalls in [the 2026-09-24 brief](brief-2026-09-24.md) and the
 ## Objective
 
 Push the frontier of **PSIS-LOO ΔELPD** against **fit time on thelio**. That means more accurate
-descriptions of every listing for the same fit time, or the same accuracy sooner. Product decisions stay
-Ben's. On 2026-09-29 he chose the Gibbs `m5-nocurves` fit with the building facts
+descriptions of every listing for the same fit time, or the same accuracy sooner. Since 2026-09-30 the
+app's model is chosen by an automatic rule on these metrics (Ben: "You do not need my approval to
+change the dashboard model"; see "Automatic loop and selection"). Before that, product decisions
+were Ben's. On 2026-09-29 he chose the Gibbs `m5-nocurves` fit with the building facts
 (`unitdescpluto-v3`) as the app's model: the most accurate gate-passing fit within the 30-minute
 window (tied with the same design without them), and it names most of the differences between
 buildings. On 2026-09-30 he switched the app to the same design refit without the quarantined
@@ -133,14 +135,19 @@ You do not need my approval to change the dashboard model."
   - it ran on the RTX 2060 row split within the 30-minute window;
   - it used the current data rules, the latest version of each rule family. A fit on rows a
     later review found to be wrong is not served.
-- **The choice** is the board's own best among the eligible fits:
+- **The choice** follows the board's `choose_best` among the eligible fits. It differs only
+  where the 10% time tie below changes the order:
   - Take the top PSIS-LOO, and the fits tied with it within two combined SE.
   - Among those, take the fastest. Fit times within 10% count as equal, and then the higher
     PSIS-LOO wins, so timing noise cannot decide.
 - **Hysteresis.** An eligible incumbent stays unless it is beaten clearly: PSIS-LOO beyond the
-  tie tolerance, or tied and more than 10% faster.
+  tie tolerance, or tied and more than 10% faster. Fits ranked below an eligible incumbent are not tried.
 - **Held-out guard.** A challenger whose paired held-out score is more than 2 SE below the
-  incumbent's is refused, and the next fit is tried.
+  incumbent's is refused, and the next fit is tried. Challengers are tried in ranked order,
+  and the first one that passes the guard and clearly beats an eligible incumbent is chosen.
+- **Data rules are part of serving.** Merging a new version of a data rule makes it current,
+  so the served fit becomes ineligible until a fit on the new rule exists. A rule's file is
+  also checked against the hash the fit recorded.
 - **A switch** still goes through a reviewed PR: the rule writes the selection
   (`autoselect --write <bundle>`), and the reviewer reruns the rule. After the merge, the site
   code is deployed and the selection published, and the rent map is recomputed.
@@ -1324,6 +1331,25 @@ comes from other sources, most of them public NYC and NYS data.
   Against `m7-nocurves-2slopes`: **PSIS-LOO −569.6 ± 57.2**, held-out −46.4 ± 12.4. The
   second-bath slope matters: in some buildings a second bathroom is worth much more or less
   than usual. `m7-nocurves-2slopes` stays the leader.
+- **Noise around the building, as of each listing** (`unitnoise-v1`; loop experiment,
+  2026-09-30).
+  - **Source.** NYC 311 noise complaints, 2010 on, both datasets: 183,250 in the registry box
+    (snapshot `noise311/20260930-1549d7a`).
+  - **Terms.** Two groups of complaints within 100 m of the building in the year before the
+    listing's month: street and nightlife (Street/Sidewalk, Vehicle, Commercial, Park), and
+    construction (after-hours work, equipment, jackhammers). Each is measured in doublings
+    against Chelsea's average that month, since 311 use grew over the years. They vary a lot
+    within buildings over time (median within-building SD 0.7 and 0.9 doublings).
+  - **Result: null.** The fit is on the served design (`unitfacing-v5` + `quarantine-v2`),
+    3d3220b, 1,416 s, and passes. Against the served 66cf77f, PSIS-LOO is −2.2 ± 6.8 and
+    held-out +1.1 ± 0.7.
+    - A doubling of street and nightlife complaints is −0.1% (−0.2 to +0.0); of construction
+      complaints, +0.1% (−0.0 to +0.2).
+    - The building's level and half-year walk already carry what the complaints measure.
+  - Not selected. The source and code stay for later work: maps, and the listing site's
+    building pages.
+  - Known limitation (PR #84 review): the construction pattern misses the descriptor
+    "Jackhammer" (23 complaints). It is left as fit, since a fix would change the set's rows.
 
 ## Work tracks, in order
 
@@ -1389,6 +1415,12 @@ comes from other sources, most of them public NYC and NYS data.
     −5.3 ± 2.8, inside the guard.
   - The site now shows the corrected building facts for 12 pages, the facing terms and the 188
     quarantined listings.
+- Switched again on 2026-09-30 by `rentfrontier.autoselect`, because the challenger clearly
+  beats the incumbent. The new selection is `m7-nocurves-2slopes` + `unitfacing-v5` +
+  `unit-labels-v1` + `quarantine-v2` (8502559, 1,510 s): Student-t unit levels and
+  per-building slopes on size and a second bathroom.
+  - Against the previous selection (66cf77f): PSIS-LOO +1,818.7 ± 87.3, held-out +143.6 ± 24.5.
+  - The share of a unit's only listing inside the 95% predictive range rises from 91.6% to 93.0%.
 - On hold: West Village, once its crawl completes.
 
 ## Current state

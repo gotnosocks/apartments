@@ -378,14 +378,18 @@ def test_facing_sets_record_basemap_and_footprints(monkeypatch):
 
     fn = features.FEATURE_SETS["unitfacing-v3"]
     assert fn.func is features.facing_v3
-    on_v3 = {
-        n
-        for n, f in features.FEATURE_SETS.items()
-        if getattr(f, "func", f) in (features.facing_v3, features.facing_v4)
-    }
+
+    def on_facing(f):
+        """A facing set, or a set built on one (its base chain)."""
+        if getattr(f, "func", f) in (features.facing_v3, features.facing_v4):
+            return True
+        base = getattr(f, "keywords", {}).get("base")
+        return base is not None and on_facing(features.FEATURE_SETS[base])
+
+    on_v3 = {n for n, f in features.FEATURE_SETS.items() if on_facing(f)}
     assert on_v3 == features.FOOTPRINTS and on_v3 <= features.BASEMAP
     monkeypatch.setattr(run.data, "sha256", lambda path: "sha")
-    for name in ("unitfacing-v3", "unitfacing-v4", "unitfacing-v5"):
+    for name in ("unitfacing-v3", "unitfacing-v4", "unitfacing-v5", "unitnoise-v1"):
         assert {"basemap", "footprints"} <= run.feature_sources(name).keys()
 
 
@@ -626,3 +630,62 @@ def test_facing_reads_the_build_registry(monkeypatch):
         "pluto": features.PLUTO_V3_FILE,
     }
     assert features.lot_files("unitfacing-v4")["registry"] == features.REGISTRY_FILE
+
+
+def test_noise_kinds():
+    t = pd.DataFrame(
+        {
+            "complaint_type": [
+                "Noise - Street/Sidewalk",
+                "Noise - Commercial",
+                "Noise",
+                "Noise",
+                "Noise - Residential",
+                "Noise - Helicopter",
+            ],
+            "descriptor": [
+                "Loud Talking",
+                "Loud Music/Party",
+                "Noise: Construction Before/After Hours (NM1)",
+                "Noise, Barking Dog (NR5)",
+                "Loud Music/Party",
+                "Other",
+            ],
+        }
+    )
+    assert features.noise_kind(t).where(lambda k: k.notna(), None).tolist() == [
+        "street and nightlife",
+        "street and nightlife",
+        "construction",
+        None,
+        None,
+        None,
+    ]
+
+
+def test_nearby_noise_counts_the_year_before_against_chelsea(monkeypatch):
+    t = lambda *d: np.array(d, dtype="datetime64[ns]")
+    times = {
+        "street and nightlife": {
+            # a: 3 complaints in 2020, b: 1; nothing in 2021.
+            "a": t("2020-02-01", "2020-06-01", "2020-12-15"),
+            "b": t("2020-03-01"),
+        },
+        "construction": {"a": t(), "b": t()},
+    }
+    monkeypatch.setattr(features, "_noise_times", lambda path: times)
+    frame = pd.DataFrame(
+        {
+            "building": ["a", "b", "a", "c"],
+            "period": pd.to_datetime(
+                ["2021-01-01", "2021-01-01", "2022-06-01", "2021-01-01"]
+            ),
+        }
+    )
+    out = features.nearby_noise(frame)
+    chelsea = (np.log2(4) + np.log2(2)) / 2
+    np.testing.assert_allclose(
+        out["street and nightlife"],
+        [np.log2(4) - chelsea, np.log2(2) - chelsea, 0.0, 0.0],
+    )
+    np.testing.assert_allclose(out["construction"], 0.0)

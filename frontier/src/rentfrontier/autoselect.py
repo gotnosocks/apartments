@@ -23,6 +23,7 @@ card follow it.
    noise cannot decide.
 
 **Against the incumbent,** the currently selected run:
+- Fits ranked below an eligible incumbent are not tried.
 - An eligible incumbent is kept unless the choice beats it clearly: better
   PSIS-LOO beyond the tie tolerance, or tied and faster by more than
   `TIME_TIE`.
@@ -52,11 +53,6 @@ TARGET_HARDWARE = "thelio RTX 2060 SUPER"
 WINDOW_SECONDS = 30 * 60
 TIME_TIE = 0.10
 SELECTION = data.REPO / "config" / "main-analysis.json"
-UNCERTAINTY = (
-    "Conditional posterior uncertainty; source errors, omitted features and "
-    "incomplete market coverage remain separate. Estimates for a unit's only "
-    "listing are under-covered (91.6% in the 95% predictive range)."
-)
 
 
 def current_rules(rules=None) -> frozenset:
@@ -64,17 +60,22 @@ def current_rules(rules=None) -> frozenset:
     "quarantine-v1")."""
     latest = {}
     for name in rules if rules is not None else data.DATA_RULES:
-        family, version = re.fullmatch(r"(.+)-v(\d+)", name).groups()
-        if int(version) > latest.get(family, (0, ""))[0]:
-            latest[family] = (int(version), name)
+        m = re.fullmatch(r"(.+)-v(\d+)", name)
+        family, version = (m.group(1), int(m.group(2))) if m else (name, 0)
+        if family not in latest or version > latest[family][0]:
+            latest[family] = (version, name)
     return frozenset(name for _, name in latest.values())
 
 
+def _record(entry) -> dict:
+    return json.loads(
+        (Path(entry["splits"]["rows"]["_dir"]) / "result.json").read_text()
+    )
+
+
 def _rules(entry) -> frozenset:
-    run_dir = Path(entry["splits"]["rows"]["_dir"])
     # Records from before data rules existed have none.
-    record = json.loads((run_dir / "result.json").read_text())
-    return frozenset(record.get("data_rules", ()))
+    return frozenset(_record(entry).get("data_rules", ()))
 
 
 def why_not(e, rules) -> str | None:
@@ -92,6 +93,10 @@ def why_not(e, rules) -> str | None:
     if _rules(e) != rules:
         used = " + ".join(sorted(_rules(e))) or "no data rules"
         return f"it was fit with {used}, not the current {' + '.join(sorted(rules))}"
+    try:
+        data.recorded_rules(_record(e))  # the rule files are the ones it was fit on
+    except SystemExit as err:
+        return f"its data rules cannot be re-applied: {err}"
     return None
 
 
@@ -135,22 +140,29 @@ def decide(
     paired=leaderboard.paired_loo,
     heldout=leaderboard.paired,
 ) -> dict:
-    """keep or switch, with the reason and the comparisons behind it."""
+    """keep or switch, with the reason and the comparisons behind it.
+
+    Challengers are tried in ranked order. Against a scored incumbent, each must
+    pass the held-out guard, and must clearly beat an eligible incumbent. The
+    first one that does is chosen. An incumbent that cannot be paired (not on
+    the board, or unscored) gives no guard, so the top-ranked fit is chosen."""
+    rules = current_rules() if rules is None else rules
     candidates = eligible(entries, rules)
     order = ranked(candidates, paired)
     incumbent = next(
         (e for e in entries if "rows" in e["splits"] and _run(e) == incumbent_run), None
     )
-    rules = current_rules() if rules is None else rules
-    inc_ok = incumbent is not None and any(e is incumbent for e in candidates)
     inc_why = (
-        "there is no incumbent"
+        "the selected run is not on the board"
         if incumbent is None
-        else why_not(incumbent, rules) or "it is eligible"
+        else why_not(incumbent, rules)
     )
+    inc_ok = inc_why is None
+    comparable = incumbent is not None and leaderboard.scored(incumbent)
     out = {
         "incumbent": incumbent_run,
         "incumbent_eligible": inc_ok,
+        "incumbent_why_not": inc_why,
         "rules": sorted(rules),
         "eligible": [
             {
@@ -164,14 +176,13 @@ def decide(
     }
     for e in order:
         if e is incumbent:
+            # Fits ranked below an eligible incumbent do not replace it.
             if inc_ok:
-                out.update(
-                    action="keep", run=incumbent_run, reason="the incumbent ranks first"
-                )
-                return out
+                break
             continue
         check = {"run": _run(e)}
-        if incumbent is not None:
+        out["checked"].append(check)
+        if comparable:
             d, se, mc = paired(e["psis"]["_dir"], incumbent["psis"]["_dir"])
             tol = leaderboard.tie_tolerance(se, mc)
             h, hse = heldout(
@@ -181,38 +192,49 @@ def decide(
             check.update(psis=d, psis_pm=math.hypot(se, mc), heldout=h, heldout_se=hse)
             if h < -2 * hse:
                 check["refused"] = "held-out worse than the incumbent by more than 2 SE"
-                out["checked"].append(check)
                 continue
-            if inc_ok:
-                clearly_better = d > tol
-                faster = abs(d) <= tol and e["fit_seconds"] < incumbent[
-                    "fit_seconds"
-                ] * (1 - TIME_TIE)
-                if not (clearly_better or faster):
-                    check["refused"] = "does not clearly beat the eligible incumbent"
-                    out["checked"].append(check)
-                    out.update(
-                        action="keep",
-                        run=incumbent_run,
-                        reason="no eligible fit clearly beats the incumbent",
-                    )
-                    return out
-        out["checked"].append(check)
+            faster = abs(d) <= tol and e["fit_seconds"] < incumbent["fit_seconds"] * (
+                1 - TIME_TIE
+            )
+            if inc_ok and not (d > tol or faster):
+                check["refused"] = "does not clearly beat the eligible incumbent"
+                continue
         why = (
-            f"the incumbent cannot be served: {inc_why}"
-            if not inc_ok
-            else "it clearly beats the incumbent"
+            "it clearly beats the incumbent"
+            if inc_ok
+            else f"the incumbent cannot be served: {inc_why}"
         )
         out.update(action="switch", run=_run(e), reason=why)
         return out
-    out.update(
-        action="keep",
-        run=incumbent_run,
-        reason="no eligible challenger passes the held-out guard"
-        if out["checked"]
-        else "no eligible fit",
-    )
+    if inc_ok:
+        reason = (
+            "no eligible fit clearly beats the incumbent and passes the held-out guard"
+            if out["checked"]
+            else "the incumbent is the only eligible fit"
+            if len(order) == 1
+            else "the incumbent ranks first"
+        )
+    else:
+        reason = (
+            "no eligible challenger passes the held-out guard"
+            if out["checked"]
+            else "no eligible fit"
+        ) + f"; the incumbent stays although {inc_why}"
+    out.update(action="keep", run=incumbent_run, reason=reason)
     return out
+
+
+def single_listing_coverage(summary: Path) -> float | None:
+    """Share of fit rows whose unit has no other fit row with the ask inside
+    the 95% predictive range (PIT between 0.025 and 0.975, the site's
+    calibration measure)."""
+    import pandas as pd
+
+    rows = pd.read_parquet(summary / "rows.parquet")
+    one = rows[rows.in_fit & rows.unit_fit_rows.eq(1) & rows.pit.notna()]
+    if one.empty:
+        return None
+    return float(one.pit.between(0.025, 0.975, inclusive="neither").mean())
 
 
 def selection_record(
@@ -232,6 +254,18 @@ def selection_record(
         f"{checked['heldout']:+.1f} ± {checked['heldout_se']:.1f}."
         if "psis" in checked
         else ""
+    )
+    hardware = leaderboard.hardware_class(result)
+    coverage = single_listing_coverage(summary)
+    uncertainty = (
+        "Conditional posterior uncertainty; source errors, omitted features and "
+        "incomplete market coverage remain separate."
+        + (
+            f" Estimates for a unit's only listing are under-covered "
+            f"({coverage * 100:.1f}% in the 95% predictive range)."
+            if coverage is not None
+            else ""
+        )
     )
     return {
         "version": "main-analysis-selection-v2",
@@ -262,10 +296,10 @@ def selection_record(
         "selected_by": f"rentfrontier.autoselect, {dt.datetime.now(dt.UTC).date().isoformat()} "
         "(Ben, 2026-09-30: switch automatically by the agreed metrics)",
         "selection_reason": f"Chosen by the automatic rule because {decision['reason']}. "
-        f"Gibbs {result['model']['name']} + {result['feature_set']} with "
-        f"{' + '.join(result['data_rules'])}, {result['seconds']['fit_total']:,.0f} s "
-        f"on the RTX 2060.{vs}",
-        "uncertainty": UNCERTAINTY,
+        f"{result['sampler'].capitalize()} {result['model']['name']} + "
+        f"{result['feature_set']} with {' + '.join(result['data_rules'])}, "
+        f"{result['seconds']['fit_total']:,.0f} s on {hardware}.{vs}",
+        "uncertainty": uncertainty,
     }
 
 

@@ -1132,6 +1132,115 @@ def facing_v4(
     )
 
 
+# NYC 311 noise complaints (rentfrontier.external noise311).
+NOISE_SNAPSHOT = "/data1/apartments/external/noise311/20260930-1549d7a"
+NOISE_FILE = f"{NOISE_SNAPSHOT}/noise311.parquet"
+NOISE_RADIUS_M = 100.0  # about a block
+NOISE_STREET = (
+    "Noise - Street/Sidewalk",
+    "Noise - Vehicle",
+    "Noise - Commercial",
+    "Noise - Park",
+)
+
+
+def noise_kind(t: pd.DataFrame) -> pd.Series:
+    """Street and nightlife (people, music, traffic, bars) or construction
+    (after-hours work, equipment, jackhammers); other noise complaints (a
+    neighbour's apartment, helicopters) are left out."""
+    kind = pd.Series(None, index=t.index, dtype=object)
+    kind[t.complaint_type.isin(NOISE_STREET)] = "street and nightlife"
+    construction = t.complaint_type.eq("Noise") & t.descriptor.fillna("").str.contains(
+        r"Construction|Jack Hammering"
+    )
+    kind[construction] = "construction"
+    return kind
+
+
+@functools.lru_cache(maxsize=2)
+def _noise_times(registry_file: str) -> dict:
+    """{kind: {building: sorted times of complaints within NOISE_RADIUS_M}}."""
+    from scipy.spatial import cKDTree
+
+    registry = (
+        pd.read_parquet(registry_file)
+        .dropna(subset=["latitude", "longitude"])
+        .set_index("building")
+    )
+    t = pd.read_parquet(NOISE_FILE).dropna(subset=["latitude", "longitude"])
+    t = t.assign(kind=noise_kind(t), when=pd.to_datetime(t.created_date))
+    t = t[t.kind.notna()]
+    lat0, lon0 = _grid_origin()
+    cos0, metres = math.cos(math.radians(lat0)), 111_320.0
+
+    def xy(lon, lat):
+        return np.c_[(lon - lon0) * metres * cos0, (lat - lat0) * metres]
+
+    here = xy(registry.longitude.to_numpy(), registry.latitude.to_numpy())
+    out = {}
+    for kind, g in t.groupby("kind"):
+        tree = cKDTree(xy(g.longitude.to_numpy(), g.latitude.to_numpy()))
+        times = g.when.to_numpy().astype("datetime64[ns]")
+        hits = tree.query_ball_point(here, r=NOISE_RADIUS_M)
+        out[kind] = {
+            b: np.sort(times[np.asarray(h, dtype=int)])
+            for b, h in zip(registry.index, hits)
+        }
+    return out
+
+
+def nearby_noise(frame: pd.DataFrame, days: int = 365) -> dict:
+    """Per kind and row: log2 of 1 + the 311 noise complaints within
+    NOISE_RADIUS_M of its building in the `days` before the row's month, less
+    the same over every registry building that month (Chelsea's average: 311
+    use grew over the years). Rows of buildings without coordinates get 0."""
+    times = _noise_times(lot_registry())
+    period = frame.period.to_numpy().astype("datetime64[ns]")
+    months = np.unique(period)
+    back = np.timedelta64(days, "D")
+
+    def log_count(ts, at):
+        return np.log2(1 + np.searchsorted(ts, at) - np.searchsorted(ts, at - back))
+
+    out = {}
+    for kind, by_building in times.items():
+        chelsea = np.mean(
+            [log_count(ts, months) for ts in by_building.values()], axis=0
+        )
+        ref = chelsea[np.searchsorted(months, period)]
+        v = np.zeros(len(frame))
+        for building, idx in frame.groupby("building").indices.items():
+            ts = by_building.get(building)
+            if ts is not None:
+                v[idx] = log_count(ts, period[idx]) - ref[idx]
+        out[kind] = v
+    return out
+
+
+def noise_v1(
+    frame: pd.DataFrame,
+    train: np.ndarray,
+    id: str = "noise-v1",
+    base: str = "unitfacing-v5",
+) -> Features:
+    """A base set plus the noise around the building as of the listing: 311
+    complaints within about a block in the year before, street and nightlife,
+    and construction, each in doublings against Chelsea's average that month."""
+    base = FEATURE_SETS[base](frame, train)
+    noise = nearby_noise(frame)
+    b = _Builder(frame)
+    for kind in ("street and nightlife", "construction"):
+        b.add("noise", f"{kind} noise complaints nearby (doublings)", noise[kind])
+    extra = b.build(id)
+    return Features(
+        id,
+        base.names + extra.names,
+        base.groups + extra.groups,
+        np.column_stack([base.values, extra.values]),
+        np.concatenate([base.prior_scale, extra.prior_scale]),
+    )
+
+
 # Feature sets that read the external snapshots (run records list them).
 EXTERNAL = {
     "pluto-v1",
@@ -1146,6 +1255,7 @@ EXTERNAL = {
     "unitfacing-v3",
     "unitfacing-v4",
     "unitfacing-v5",
+    "unitnoise-v1",
     "unitdescpluto-v4",
     "unitdescpluto-v5",
     "unitdescplutohpd-v1",
@@ -1154,9 +1264,17 @@ EXTERNAL = {
 # Feature sets that read the subway stations snapshot.
 SUBWAY = {"unitdescplutotransit-v2"}
 # Feature sets that read the basemap snapshot (street centerlines).
-BASEMAP = {"unitfacing-v2", "unitfacing-v3", "unitfacing-v4", "unitfacing-v5"}
+BASEMAP = {
+    "unitfacing-v2",
+    "unitfacing-v3",
+    "unitfacing-v4",
+    "unitfacing-v5",
+    "unitnoise-v1",
+}
 # Feature sets that read the building footprints snapshot.
-FOOTPRINTS = {"unitfacing-v3", "unitfacing-v4", "unitfacing-v5"}
+FOOTPRINTS = {"unitfacing-v3", "unitfacing-v4", "unitfacing-v5", "unitnoise-v1"}
+# Feature sets that read the 311 noise complaints snapshot.
+NOISE = {"unitnoise-v1"}
 # Feature sets that read the HPD violations snapshot.
 HPD = {"unitdescplutohpd-v1", "unitdescplutohpd-v2"}
 # Feature sets that read the advertisement descriptions (`descriptions.SOURCE`),
@@ -1173,6 +1291,7 @@ DESCRIPTIONS = {
     "unitfacing-v3",
     "unitfacing-v4",
     "unitfacing-v5",
+    "unitnoise-v1",
     "unitdescpluto-v4",
     "unitdescpluto-v5",
     "unitdescplutohpd-v1",
@@ -1212,6 +1331,8 @@ FEATURE_SETS = {
     # v4 on the corrected registry (LOT_SNAPSHOTS): building facts, fronts and
     # sides from the right buildings for the 12 re-geocoded pages.
     "unitfacing-v5": partial(facing_v4, id="unitfacing-v5", base="unitfacing-v3"),
+    # The served design plus the noise around the building as of each listing.
+    "unitnoise-v1": partial(noise_v1, id="unitnoise-v1", base="unitfacing-v5"),
     # v2 with "altered since 2000" from the latest recorded alteration.
     "unitdescpluto-v3": partial(
         pluto_v1,
@@ -1262,6 +1383,7 @@ LOT_SNAPSHOTS = {
     "unitdescpluto-v4": {"registry": REGISTRY_V2_FILE, "pluto": PLUTO_V2_FILE},
     "unitdescpluto-v5": {"registry": REGISTRY_V3_FILE, "pluto": PLUTO_V3_FILE},
     "unitfacing-v5": {"registry": REGISTRY_V3_FILE, "pluto": PLUTO_V3_FILE},
+    "unitnoise-v1": {"registry": REGISTRY_V3_FILE, "pluto": PLUTO_V3_FILE},
 }
 
 

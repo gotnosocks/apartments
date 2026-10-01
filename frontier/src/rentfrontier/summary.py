@@ -94,6 +94,7 @@ TERM_LABELS = {
     "unit label": "Unit label",
     "hvac": "HVAC",
     "facing": "Streets it looks onto",
+    "noise": "Noise around the building",
 }
 TERM_TEXT = {
     "market": "A reference apartment (one bedroom, one bath, every attribute at "
@@ -114,6 +115,9 @@ TERM_TEXT = {
     "views": "Views the listing states (city, park, water, skyline, ...).",
     "windows": "Window exposures the listing states.",
     "unit label": "Penthouse, garden and lower-level units, from the unit label.",
+    "noise": "Noise complaints to 311 within about a block of the building in the "
+    "year before the listing, street and nightlife (people, music, traffic, bars) "
+    "and construction, each against Chelsea's average at the time.",
     "facing": "The streets the apartment's windows look onto (an avenue, a wide "
     "street such as 14th or 23rd, a side street, or the rear or a courtyard), and "
     "whether an apartment on floors 1-4 looks onto an avenue or a wide street, "

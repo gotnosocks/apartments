@@ -5,15 +5,13 @@ compare apartments against an individual's willingness to pay for amenities.
 Chelsea is the existing pilot. The [project intent](docs/project-intent.md)
 defines the data contracts, temporal semantics, model scope, and research gates.
 
-The app's selected model (`config/main-analysis.json`, Ben's choice on 2026-09-30) is
-the Gibbs `m5-nocurves` fit with `unitdescpluto-v3` features: the listing features plus
-the building facts from NYC's MapPLUTO (era, size, class, landmark and historic district,
-recent alteration). It is fit without the 143 listings the divergence review quarantined
-(data rule `quarantine-v1`: offices and shops, ads placed elsewhere, SRO rooms,
-income-restricted and short-stay offers), which the site lists with their reasons. It is
-the most accurate gate-passing fit within 30 minutes on thelio (tied with the same design
-without the building facts, and with it before the quarantine), and it explains most of the
-differences between buildings by named facts. It is served through its
+The app's model is the run `config/main-analysis.json` selects. Since 2026-09-30 an automatic
+rule chooses it (`python -m rentfrontier.autoselect`, at Ben's request): the most accurate
+gate-passing fit by PSIS-LOO within 30 minutes on thelio's RTX 2060, fit with the current data
+rules. The rule, and the reason it gives for each choice, are recorded in the selection and
+in the [research plan](docs/research-plan.md) ("Automatic loop and selection"). Listings
+that the data rules quarantine are left out of the fit, and the site lists them with their
+reasons. The model is served through its
 [per-listing estimates](docs/model/listing-estimates.md).
 The earlier main models were **hierarchical Bayesian PyMC**, using compiled sampling and
 the saved joint posterior. The workflow is **scrape → transform → fit → analyze**,
