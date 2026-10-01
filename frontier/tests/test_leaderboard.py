@@ -240,3 +240,39 @@ def test_an_entry_that_cannot_be_paired_loses_its_score_not_the_board():
     assert base["psis"]["delta"] == 0.0 and good["psis"]["delta"] == 1.0
     assert odd["psis"] is None
     assert odd["unpaired"].startswith("PSIS-LOO not paired: Training rows differ")
+
+
+def _board_entry(name, delta, seconds, complexity):
+    return {
+        "id": name,
+        "psis": {"delta": delta, "delta_se": 1.0, "delta_mcse": 0.0, "_dir": name},
+        "fit_seconds": seconds,
+        "complexity": complexity,
+        "passes_checks": True,
+        "interpretable": True,
+    }
+
+
+def test_the_best_is_the_simplest_tie_then_the_fastest():
+    es = [
+        _board_entry("top", 10.0, 600, 12),
+        _board_entry("simple", 9.5, 1500, 8),
+        _board_entry("simple-fast", 9.0, 900, 8),
+        _board_entry("worse", 0.0, 100, 3),
+    ]
+    deltas = {e["id"]: e["psis"]["delta"] for e in es}
+
+    def paired(a, b):
+        return deltas[a] - deltas[b], 1.0, 0.0
+
+    assert leaderboard.choose_best(es, paired=paired)["id"] == "simple-fast"
+
+
+def test_the_frontier_has_three_axes():
+    es = [
+        _board_entry("best", 10.0, 1500, 12),
+        _board_entry("simple", 5.0, 1500, 6),
+        _board_entry("dominated", 5.0, 1500, 7),
+        _board_entry("unrated", 9.0, 1600, None),
+    ]
+    assert leaderboard.on_frontier(es) == [True, True, False, False]
