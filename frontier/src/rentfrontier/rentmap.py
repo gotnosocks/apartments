@@ -90,7 +90,7 @@ DEFINITION = (
     "and ad-text features at Chelsea's average for its bedroom count; floor, "
     "elevator, doorman, pet policy and building facts at the building's own "
     "average; plus the building's own level, path over time and bedroom premium "
-    "(and, in designs with them, its own size and bathroom slopes), and the market "
+    "(and, in designs with them, its own size, bathroom and floor slopes), and the market "
     "that year. Posterior median of the typical asking rent, with a "
     "90% interval."
 )
