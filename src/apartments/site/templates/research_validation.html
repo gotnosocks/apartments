@@ -33,7 +33,7 @@ held-out test, what each model explains, and whether the same model gives the sa
       {% for p in shown | sort(attribute="psis", reverse=true) %}
         <tr><td><a href="{{ url_for('research_fit', key=p.entry.key) }}"><code>{{ p.entry.key }}</code></a></td>
           <td class="num nowrap">{{ "{:+,.1f}".format(p.psis) }}</td>
-          <td class="num nowrap">{{ "{:+,.1f}".format(p.heldout) }}{% if p.heldout_se is not none %} <span class="muted">± {{ "{:,.1f}".format(p.heldout_se) }}</span>{% endif %}</td></tr>
+          <td class="num nowrap">{{ "{:+,.1f}".format(p.heldout) }}{% if p.heldout_se is finite %} <span class="muted">± {{ "{:,.1f}".format(p.heldout_se) }}</span>{% endif %}</td></tr>
       {% endfor %}
       </tbody>
     </table>
@@ -93,7 +93,7 @@ held-out test, what each model explains, and whether the same model gives the sa
     <tbody>
     {% for e in units | sort(attribute="splits.units.delta", reverse=true) %}
       <tr><td><a href="{{ url_for('research_fit', key=e.key) }}"><code>{{ e.key }}</code></a></td><td class="nowrap">{{ e.hardware_class }}</td>
-        <td class="num nowrap">{{ "{:+,.1f}".format(e.splits.units.delta) }}{% if e.splits.units.delta_se is number %} <span class="muted">± {{ "{:,.1f}".format(e.splits.units.delta_se) }}</span>{% endif %}</td></tr>
+        <td class="num nowrap">{{ "{:+,.1f}".format(e.splits.units.delta) }}{% if e.splits.units.delta_se is finite %} <span class="muted">± {{ "{:,.1f}".format(e.splits.units.delta_se) }}</span>{% endif %}</td></tr>
     {% endfor %}
     </tbody>
   </table>
