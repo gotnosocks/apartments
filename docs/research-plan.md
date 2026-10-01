@@ -1326,6 +1326,11 @@ comes from other sources, most of them public NYC and NYS data.
     Building slopes carry 2.4% of the variance, against 1.5% for the bedroom slope alone.
   - The unit df is 2.19, and the residual ν rises to 2.44.
   - `rentfrontier.autoselect` should choose it.
+- **One slope only, on size** (`m7-nocurves-1slope`; loop experiment, 2026-09-30). Student-t
+  units with the per-building size slope and no bathroom slope (7352de3, 1,449 s, passes).
+  Against `m7-nocurves-2slopes`: **PSIS-LOO −569.6 ± 57.2**, held-out −46.4 ± 12.4. The
+  second-bath slope matters: in some buildings a second bathroom is worth much more or less
+  than usual. `m7-nocurves-2slopes` stays the leader.
 - **Noise around the building, as of each listing** (`unitnoise-v1`; loop experiment,
   2026-09-30).
   - **Source.** NYC 311 noise complaints, 2010 on, both datasets: 183,250 in the registry box
