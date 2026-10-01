@@ -44,8 +44,7 @@
   <ul class="link-list">
     <li><a href="{{ url_for('research_frontier') }}">The frontier: accuracy, fit time and simplicity of every fit</a></li>
     <li><a href="{{ url_for('research_model') }}">The served model and why it was chosen</a></li>
-    <li><a href="//{{ host_name }}:8500/">The board of every fit, and the history ↗</a>
-      <span class="muted">(moving into this site)</span></li>
+    <li><a href="{{ url_for('research_board') }}">The board of every fit</a> · <a href="{{ url_for('research_history') }}">History</a></li>
   </ul>
 </section>
 </div>

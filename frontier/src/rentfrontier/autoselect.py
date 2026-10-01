@@ -14,6 +14,9 @@ card follow it.
 - It used the current data rules: the latest version of every rule family
   (`current_rules`). A fit on rows a later review has shown to be wrong is not
   served.
+- It is not a tuning fit on a subset of buildings (a `data.TUNING_PREFIX`
+  rule): those are exploration only (Ben, 2026-10-01).
+- It was fit on the current dataset (`data.DATASET`).
 
 **The choice.** It follows the board's `choose_best` on the eligible fits
 (Ben, 2026-10-01: "serve the best fit and break ties with which model is
@@ -67,6 +70,8 @@ def current_rules(rules=None) -> frozenset:
     "quarantine-v1")."""
     latest = {}
     for name in rules if rules is not None else data.DATA_RULES:
+        if name.startswith(data.TUNING_PREFIX):
+            continue  # tuning subsets are never part of the served rules
         m = re.fullmatch(r"(.+)-v(\d+)", name)
         family, version = (m.group(1), int(m.group(2))) if m else (name, 0)
         if family not in latest or version > latest[family][0]:
@@ -97,6 +102,12 @@ def why_not(e, rules) -> str | None:
         return f"it did not run on the {TARGET_HARDWARE} row split"
     if e["fit_seconds"] > WINDOW_SECONDS:
         return "its fit took longer than the window"
+    tuning = sorted(r for r in _rules(e) if r.startswith(data.TUNING_PREFIX))
+    if tuning:
+        return f"it is a tuning fit on a subset ({', '.join(tuning)})"
+    dataset = _record(e).get("dataset")
+    if dataset is not None and Path(dataset).resolve() != Path(data.DATASET).resolve():
+        return f"it was fit on {Path(dataset).name}, not the current {Path(data.DATASET).name}"
     if _rules(e) != rules:
         used = " + ".join(sorted(_rules(e))) or "no data rules"
         return f"it was fit with {used}, not the current {' + '.join(sorted(rules))}"

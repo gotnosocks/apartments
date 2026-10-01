@@ -437,9 +437,20 @@ def pair_with_baseline(entries, base, paired=paired_loo):
     cannot be paired (its rows differ by rows no data rule on this commit
     drops: a run of a rule from an unmerged branch) loses its PSIS-LOO score
     and says why ("unpaired", shown as its note), so one such run cannot stop
-    the board."""
+    the board. A tuning fit (a rule starting `data.TUNING_PREFIX`: a subset of
+    buildings) is exploration only, so it is not scored here either."""
     for e in entries:
         if not e.get("psis") or base is None:
+            continue
+        tuning = [
+            r for r in e.get("data_rules", ()) if r.startswith(data.TUNING_PREFIX)
+        ]
+        if tuning:
+            e["psis"] = None
+            e["unpaired"] = (
+                f"a tuning fit on a subset of buildings ({', '.join(tuning)}): "
+                "exploration only, not scored on the board"
+            )
             continue
         if e is base:
             d, se, mc = 0.0, 0.0, 0.0
@@ -553,6 +564,7 @@ def build(keep_dirs=False):
             "feature_set": any_run["feature_set"],
             "sampler": any_run["sampler"],
             "sampler_settings": any_run["sampler_settings"],
+            "data_rules": list(any_run.get("data_rules", ())),
             "hardware": hardware_class(any_run),
             "interpretable": bool(
                 any_run["interpretability"]["named_additive_contributions"]

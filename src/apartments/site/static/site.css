@@ -16,6 +16,8 @@
   --accent: #2a78d6;
   --s1: #2a78d6;
   --s2: #eb6834;
+  --s3: #1baf7a;
+  --s4: #eda100;
   --up: #e34948;
   --down: #2a78d6;
   --good: #006300;
@@ -42,6 +44,8 @@
     --accent: #3987e5;
     --s1: #3987e5;
     --s2: #d95926;
+    --s3: #199e70;
+    --s4: #c98500;
     --up: #e66767;
     --down: #3987e5;
     --good: #0ca30c;
@@ -204,6 +208,9 @@ details.table-view summary { cursor: pointer; color: var(--link); font-size: 0.9
 .chart .tick { fill: var(--muted); font-size: 11px; font-variant-numeric: tabular-nums; }
 .chart .line { fill: none; stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
 .chart .line.s1 { stroke: var(--s1); }
+.chart .line.s2 { stroke: var(--s2); }
+.chart .line.s3 { stroke: var(--s3); }
+.chart .line.s4 { stroke: var(--s4); }
 .chart .band.s1 { fill: var(--s1); fill-opacity: 0.12; stroke: none; }
 .chart .dot { stroke: var(--surface); stroke-width: 2; }
 .chart .dot.s1 { fill: var(--s1); fill-opacity: 0.85; }
@@ -232,6 +239,9 @@ details.table-view summary { cursor: pointer; color: var(--link); font-size: 0.9
 .key { display: inline-flex; align-items: center; gap: 0.4rem; }
 .key-line { display: inline-block; width: 16px; height: 2px; border-radius: 1px; }
 .key-line.s1 { background: var(--s1); }
+.key-line.s2 { background: var(--s2); }
+.key-line.s3 { background: var(--s3); }
+.key-line.s4 { background: var(--s4); }
 .key-dot { display: inline-block; width: 9px; height: 9px; border-radius: 50%; }
 .key-dot.s2 { background: var(--s2); }
 .key-tick { display: inline-block; width: 12px; height: 3px; border-radius: 1px; }
