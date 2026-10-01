@@ -1,0 +1,103 @@
+{% extends "base.html" %}
+{% block title %}Validation{% endblock %}
+{% block content %}
+<h1>Validation</h1>
+<p class="lede">Checks that the accuracy measure can be trusted: whether the score each fit estimates for itself agrees with a genuine
+held-out test, what each model explains, and whether the same model gives the same answer in different code.</p>
+
+<form class="filters" action="{{ url_for('research_validation') }}" method="get" aria-label="Choose the hardware for the first two sections">
+  <div class="field">
+    <label for="v-hw">Hardware</label>
+    <select id="v-hw" name="hardware">
+    {% for c in classes %}<option value="{{ c }}"{% if c == hardware %} selected{% endif %}>{{ c }}</option>{% endfor %}
+    </select>
+  </div>
+  <div class="field actions"><button type="submit">Apply</button></div>
+</form>
+
+<section class="card">
+  <h2>The estimated score against a real hold-out</h2>
+  <p class="note">The board ranks fits by <a href="{{ url_for('research_glossary') }}#psis-loo">PSIS-LOO</a>, a shortcut that estimates
+  from one fit how well it would predict each listing it had not seen. Each fit also kept some listings out entirely; their
+  held-out score is the real thing. Dots that rise from left to right mean the shortcut ranks fits the way a real test does.
+  {% if rho is not none %}Here the rank correlation is <strong>{{ "%.2f" | format(rho) }}</strong> over {{ shown | length }} fits
+  (1 is perfect agreement).{% endif %}{% if left_out %} {{ left_out }} simple baseline{{ "" if left_out == 1 else "s" }} far below
+  the rest {{ "is" if left_out == 1 else "are" }} left out.{% endif %}</p>
+  {% if shown %}{{ chart }}{% else %}<p class="empty-note">No fit on this hardware has both scores.</p>{% endif %}
+  <details class="table-view">
+    <summary>Table view ({{ shown | length }})</summary>
+    <div class="table-wrap tall">
+    <table class="data">
+      <thead><tr><th scope="col">Fit</th><th scope="col" class="num">PSIS-LOO ΔELPD</th><th scope="col" class="num">Held-out ΔELPD</th></tr></thead>
+      <tbody>
+      {% for p in shown | sort(attribute="psis", reverse=true) %}
+        <tr><td><a href="{{ url_for('research_fit', key=p.entry.key) }}"><code>{{ p.entry.key }}</code></a></td>
+          <td class="num nowrap">{{ "{:+,.1f}".format(p.psis) }}</td>
+          <td class="num nowrap">{{ "{:+,.1f}".format(p.heldout) }}{% if p.heldout_se is finite %} <span class="muted">± {{ "{:,.1f}".format(p.heldout_se) }}</span>{% endif %}</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+    </div>
+  </details>
+</section>
+
+<section class="card">
+  <h2>Where the variation in rents goes</h2>
+  <p class="note">For each fit on the frontier, the share of the variation in asking rents (on a log scale) that each part of the model
+  accounts for. "Residual" is what no part explains.</p>
+  {% if variance %}
+  <div class="table-wrap">
+  <table class="data">
+    <thead><tr><th scope="col">Fit</th>{% for g in groups %}<th scope="col" class="num">{{ g | capitalize }}</th>{% endfor %}</tr></thead>
+    <tbody>
+    {% for e in variance %}
+      <tr><td><a href="{{ url_for('research_fit', key=e.key) }}"><code>{{ e.key }}</code></a></td>
+      {% for g in groups %}<td class="num">{% if g in e.variance %}{{ "%.1f" | format(100 * e.variance[g].mean) }}%{% else %}—{% endif %}</td>{% endfor %}</tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  </div>
+  {% else %}<p class="empty-note">No frontier fit on this hardware has a variance breakdown.</p>{% endif %}
+</section>
+
+<section class="card">
+  <h2>Same model, different implementations <span class="muted">(all hardware)</span></h2>
+  <p class="note">Designs fit with more than one sampler on the same hardware. Matching accuracy means the code is right; the fit times
+  show which implementation is faster.</p>
+  {% if implementations %}
+  <div class="table-wrap">
+  <table class="data">
+    <thead><tr><th scope="col">Design</th><th scope="col">Hardware</th><th scope="col">Sampler</th><th scope="col" class="num">PSIS-LOO ΔELPD</th><th scope="col" class="num">Fit time</th><th scope="col">Checks</th></tr></thead>
+    <tbody>
+    {% for group in implementations %}{% for e in group.entries %}
+      <tr><td>{% if loop.first %}<code>{{ group.structure }}</code>{% endif %}</td><td>{% if loop.first %}{{ group.hardware }}{% endif %}</td>
+        <td><a href="{{ url_for('research_fit', key=e.key) }}">{{ e.sampler }}</a></td>
+        <td class="num nowrap">{% if e.psis %}{{ "{:+,.1f}".format(e.psis.delta) }}{% else %}<span class="muted">not scored</span>{% endif %}</td>
+        <td class="num nowrap">{{ "%.1f" | format(e.fit_seconds / 60) }} min</td>
+        <td>{{ "pass" if e.passes_checks else "fail" }}</td></tr>
+    {% endfor %}{% endfor %}
+    </tbody>
+  </table>
+  </div>
+  {% else %}<p class="empty-note">No design has been fit with two samplers on the same hardware.</p>{% endif %}
+</section>
+
+<section class="card">
+  <h2>Unseen apartments (the unit split) <span class="muted">(all hardware)</span></h2>
+  <p class="note">A second, harder test some fits also took: every listing of about 10% of apartments held out, so the model must
+  predict apartments it has never seen. Higher is better, against the reference model.</p>
+  {% if units %}
+  <div class="table-wrap tall">
+  <table class="data">
+    <thead><tr><th scope="col">Fit</th><th scope="col">Hardware</th><th scope="col" class="num">Unseen-apartment ΔELPD</th></tr></thead>
+    <tbody>
+    {% for e in units | sort(attribute="splits.units.delta", reverse=true) %}
+      <tr><td><a href="{{ url_for('research_fit', key=e.key) }}"><code>{{ e.key }}</code></a></td><td class="nowrap">{{ e.hardware_class }}</td>
+        <td class="num nowrap">{{ "{:+,.1f}".format(e.splits.units.delta) }}{% if e.splits.units.delta_se is finite %} <span class="muted">± {{ "{:,.1f}".format(e.splits.units.delta_se) }}</span>{% endif %}</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  </div>
+  {% else %}<p class="empty-note">No fit has a unit-split score.</p>{% endif %}
+</section>
+{% endblock %}

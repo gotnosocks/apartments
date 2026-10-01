@@ -379,6 +379,7 @@ def fit_scatter(
     y_format,
     y_floor=None,
     x_line=None,
+    x_zero=True,
 ) -> Markup:
     """One dot per fit on two measures. points: [{"x", "y", "kind" (a
     FIT_KINDS key), "title", "rows", "href"}]. x_line: (value, label) draws a
@@ -386,7 +387,7 @@ def fit_scatter(
     if not points:
         return Markup("")
     xs = [p["x"] for p in points] + ([x_line[0]] if x_line else [])
-    frame = XYFrame(xs, [p["y"] for p in points], y_floor=y_floor)
+    frame = XYFrame(xs, [p["y"] for p in points], y_floor=y_floor, x_zero=x_zero)
     parts = []
     for tick in frame.yticks:
         y = frame.y(tick)

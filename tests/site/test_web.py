@@ -760,3 +760,140 @@ def test_axis_review_fixes():
         ["2026-01-01", "2026-06-01"], [5.0, 20.0], zero=True, clamp_zero=True
     )
     assert clamped.ticks[0] == 0
+
+
+def test_spearman_and_ranks():
+    from apartments.site.research import _ranks, spearman
+
+    assert _ranks([3.0, 1.0, 1.0, 2.0]) == [4.0, 1.5, 1.5, 3.0]
+    assert spearman([1, 2, 3, 4], [10, 20, 30, 40]) == pytest.approx(1.0)
+    assert spearman([1, 2, 3, 4], [4, 3, 2, 1]) == pytest.approx(-1.0)
+    assert spearman([1, 2], [1, 2]) is None
+    assert spearman([1, 1, 1], [1, 2, 3]) is None
+
+
+def test_validation_page(client, research_file):
+    data = json.loads(research_file.read_text())
+    for e in data["entries"]:
+        rows = e["splits"]["rows"]
+        if e.get("psis"):
+            rows["delta"] = e["psis"]["delta"] / 10
+            rows["delta_se"] = 5.0
+    served = next(e for e in data["entries"] if e["id"].startswith("m-test"))
+    served["splits"]["units"] = {"run": "u", "delta": 120.0, "delta_se": 9.0}
+    data["entries"].append(
+        dict(served, id="m-test-gibbs", key="m-test-gibbs", sampler="gibbs")
+    )
+    research_file.write_text(json.dumps(data))
+    html = client.get("/research/validation").get_data(as_text=True)
+    assert "the rank correlation is <strong>1.00</strong>" in html
+    assert "1 simple baseline far below" in html  # L0-mean left out
+    assert "Same model, different implementations" in html
+    assert ">gibbs</a>" in html and ">nuts</a>" in html
+    assert "+120.0" in html  # the unit split
+    assert "78.6%" in html  # the served fit is on the frontier with a breakdown
+    empty = client.get("/research/validation?hardware=thelio+CPU").get_data(
+        as_text=True
+    )
+    assert "No frontier fit on this hardware has a variance breakdown." in empty
+
+
+def test_glossary_has_anchors_the_pages_link_to(client):
+    html = client.get("/research/glossary").get_data(as_text=True)
+    for anchor in (
+        "psis-loo",
+        "delta-elpd",
+        "pareto-k",
+        "complexity",
+        "frontier",
+        "servable",
+    ):
+        assert f'id="{anchor}"' in html
+    assert "/research/glossary#psis-loo" in client.get("/research/validation").get_data(
+        as_text=True
+    )
+
+
+def test_doc_links_and_markdown_rendering():
+    from apartments.site.research import doc_link, render_markdown
+
+    github = "https://github.com/gotnosocks/apartments/blob/master/"
+    assert doc_link("dashboard.md") == github + "docs/dashboard.md"
+    assert doc_link("model/a.md#b") == github + "docs/model/a.md#b"
+    assert (
+        doc_link("../config/main-analysis.json") == github + "config/main-analysis.json"
+    )
+    assert doc_link("#objective") == "#objective"
+    assert doc_link("https://example.com/x") == "https://example.com/x"
+    assert doc_link("../../outside.md") == "#"
+    assert doc_link("/frontier/README.md") == github + "frontier/README.md"
+    assert doc_link("ftp://example.com/x") == "ftp://example.com/x"
+    assert doc_link("HTTP://example.com") == "HTTP://example.com"
+    html, toc = render_markdown(
+        "# Plan\n\nSee [the board](model/leaderboard/leaderboard.md).\n\n"
+        "## Objective\n\n<script>alert(1)</script>\n\n## Objective\n\n| a | b |\n|---|---|\n| 1 | 2 |\n"
+    )
+    assert '<h2 id="plan">Plan</h2>' in html  # one level down
+    assert '<h3 id="objective">' in html and '<h3 id="objective-2">' in html
+    assert "<script>" not in html and "&lt;script&gt;" in html
+    assert github + "docs/model/leaderboard/leaderboard.md" in html
+    assert "<table>" in html
+    assert toc == [
+        (2, "Plan", "plan"),
+        (3, "Objective", "objective"),
+        (3, "Objective", "objective-2"),
+    ]
+
+
+def test_plan_page_reads_the_current_plan(site_root, research_file, tmp_path):
+    plan = tmp_path / "plan.md"
+    plan.write_text("# Research plan\n\n## Goal\n\nFit fast.\n")
+    app = create_app(site_root, research_data=research_file, research_plan=plan)
+    client = app.test_client()
+    html = client.get("/research/plan").get_data(as_text=True)
+    assert '<a href="#goal">Goal</a>' in html and "Fit fast." in html
+    plan.write_text("# Research plan\n\n## Goal\n\nFit faster.\n")
+    import os
+
+    os.utime(plan, ns=(1, 2_000_000_000_000_000_000))
+    assert "Fit faster." in client.get("/research/plan").get_data(as_text=True)
+
+
+def test_data_quality_page(client, research_file, data_quality):
+    data = json.loads(research_file.read_text())
+    data["data_quality"] = data_quality
+    research_file.write_text(json.dumps(data))
+    html = client.get("/research/data").get_data(as_text=True)
+    assert "52,450" in html and "47,191" in html
+    assert (
+        '<code>quarantine-v2</code> <span class="tag">in the served model</span>'
+        in html
+    )
+    assert "&lt;not&gt; open-market" in html  # rule text is escaped
+    assert "Leaves out 188 listings in" in html and "Placed elsewhere" in html
+    assert 'href="/quarantined"' in html
+
+
+def test_research_navigation_stays_on_this_site(client):
+    html = client.get("/research").get_data(as_text=True)
+    for path in (
+        "/research/board",
+        "/research/history",
+        "/research/validation",
+        "/research/model",
+        "/research/glossary",
+        "/research/data",
+        "/research/plan",
+    ):
+        assert f'href="{path}"' in html
+    assert ":8500" not in html
+
+
+def test_contents_titles_drop_markdown_and_images_resolve():
+    from apartments.site.research import render_markdown
+
+    html, toc = render_markdown("## The `walk` *scale*\n\n![map](img/map.png)\n")
+    assert toc == [(3, "The walk scale", "the-walk-scale")]
+    assert (
+        "https://github.com/gotnosocks/apartments/raw/master/docs/img/map.png" in html
+    )

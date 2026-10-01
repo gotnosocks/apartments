@@ -192,6 +192,9 @@ dl.facts { display: grid; grid-template-columns: max-content 1fr; gap: 0.3rem 1r
 dl.facts.wide { grid-template-columns: minmax(9rem, max-content) 1fr; }
 dl.facts dt { color: var(--ink-2); }
 dl.facts dd { margin: 0; }
+dl.glossary dt { font-weight: 650; margin-top: 0.8rem; scroll-margin-top: 1rem; }
+dl.glossary dd { margin: 0.2rem 0 0; max-width: 50rem; }
+dl.glossary dt:target, dl.glossary dt:target + dd { background: var(--warn-bg); }
 .links { display: flex; flex-wrap: wrap; gap: 1rem; margin: 0.8rem 0 0; }
 .links .source { font-weight: 600; }
 
@@ -234,6 +237,22 @@ details.table-view summary { cursor: pointer; color: var(--link); font-size: 0.9
 .key-fit.failing { border: 1.5px solid var(--muted); }
 .key-fit.subset { border: 1.5px solid var(--s1); opacity: 0.7; }
 .empty-note { color: var(--muted); font-style: italic; }
+.rule { border-top: 1px solid var(--grid); padding-top: 0.6rem; margin-top: 0.6rem; }
+.rule:first-of-type { border-top: 0; margin-top: 0; padding-top: 0; }
+.rule p { margin: 0.3rem 0; max-width: 60rem; }
+.compact-table { max-width: 32rem; }
+.toc ul { list-style: none; margin: 0; padding: 0; columns: 2 18rem; }
+.toc li { margin: 0.15rem 0; }
+.toc .toc-3 { padding-left: 1rem; font-size: 0.92rem; }
+.markdown { max-width: 60rem; }
+.markdown h2 { font-size: 1.3rem; margin-top: 1.2rem; }
+.markdown h3 { font-size: 1.1rem; margin-top: 1.2rem; }
+.markdown h4, .markdown h5 { font-size: 1rem; margin-top: 1rem; }
+.markdown table { border-collapse: collapse; font-size: 0.88rem; display: block; overflow-x: auto; }
+.markdown th, .markdown td { border-bottom: 1px solid var(--grid); padding: 0.3rem 0.5rem; text-align: left; vertical-align: top; }
+.markdown pre { background: var(--neutral-bg); padding: 0.6rem; overflow-x: auto; border-radius: 6px; }
+.markdown code { background: var(--neutral-bg); padding: 0 0.2rem; border-radius: 3px; }
+.markdown pre code { background: none; padding: 0; }
 .chart .hover-ring { fill: none; stroke: var(--ink); stroke-width: 2; }
 .legend { display: flex; flex-wrap: wrap; gap: 0.3rem 1.2rem; font-size: 0.85rem; color: var(--ink-2); margin-bottom: 0.2rem; }
 .key { display: inline-flex; align-items: center; gap: 0.4rem; }

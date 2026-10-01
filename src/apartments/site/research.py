@@ -11,6 +11,8 @@ from __future__ import annotations
 
 import json
 import os
+import posixpath
+import re
 import threading
 from pathlib import Path
 
@@ -281,3 +283,186 @@ def compute_by_line(data: dict) -> list[dict]:
         series.setdefault(line, []).append((at, totals[line]))
     order = [k for k in LINES if k in series] + [k for k in series if k not in LINES]
     return [{"name": LINES.get(k, k), "points": series[k], "line": k} for k in order]
+
+
+def _ranks(values: list[float]) -> list[float]:
+    """Ranks from 1, ties sharing their average rank."""
+    order = sorted(range(len(values)), key=lambda i: values[i])
+    ranks = [0.0] * len(values)
+    i = 0
+    while i < len(order):
+        j = i
+        while j + 1 < len(order) and values[order[j + 1]] == values[order[i]]:
+            j += 1
+        for k in range(i, j + 1):
+            ranks[order[k]] = (i + j) / 2 + 1
+        i = j + 1
+    return ranks
+
+
+def spearman(xs: list[float], ys: list[float]) -> float | None:
+    """Spearman rank correlation, or None for fewer than three pairs or no
+    spread."""
+    if len(xs) < 3:
+        return None
+    rx, ry = _ranks(xs), _ranks(ys)
+    mx, my = sum(rx) / len(rx), sum(ry) / len(ry)
+    sxy = sum((a - mx) * (b - my) for a, b in zip(rx, ry))
+    sxx = sum((a - mx) ** 2 for a in rx)
+    syy = sum((b - my) ** 2 for b in ry)
+    if not sxx or not syy:
+        return None
+    return sxy / (sxx * syy) ** 0.5
+
+
+def validation_pairs(data: dict, hardware: str | None) -> list[dict]:
+    """Fits with both their PSIS-LOO score and a genuine held-out score (the
+    row split's held-out listings), on one hardware class or all."""
+    out = []
+    for e in data.get("entries", []):
+        if hardware and e["hardware_class"] != hardware:
+            continue
+        if is_subset(run_of(e)):
+            continue
+        psis = (e.get("psis") or {}).get("delta")
+        rows = (e.get("splits") or {}).get("rows") or {}
+        if psis is None or rows.get("delta") is None:
+            continue
+        out.append(
+            {
+                "entry": e,
+                "psis": psis,
+                "heldout": rows["delta"],
+                "heldout_se": rows.get("delta_se"),
+            }
+        )
+    return out
+
+
+def implementations(data: dict) -> list[dict]:
+    """Designs fit by more than one sampler on the same hardware: the same
+    model, different implementations."""
+    groups: dict[tuple, list] = {}
+    for e in data.get("entries", []):
+        groups.setdefault((e.get("structure"), e["hardware_class"]), []).append(e)
+    out = []
+    for (structure, hardware), entries in sorted(
+        groups.items(), key=lambda kv: (kv[0][1], kv[0][0] or "")
+    ):
+        if len({e.get("sampler") for e in entries}) > 1:
+            out.append(
+                {
+                    "structure": structure,
+                    "hardware": hardware,
+                    "entries": sorted(entries, key=lambda e: e["fit_seconds"]),
+                }
+            )
+    return out
+
+
+# The research plan, read from the dashboard's checkout, which follows master
+# every ten minutes, so the page is current between site deploys.
+PLAN = Path(
+    os.environ.get(
+        "RESEARCH_PLAN", "/data1/apartments/serve/master/docs/research-plan.md"
+    )
+)
+REPO_PLAN = Path(__file__).resolve().parents[3] / "docs" / "research-plan.md"
+GITHUB = "https://github.com/gotnosocks/apartments/blob/master/"
+
+
+def doc_link(href: str, base: str = "docs") -> str:
+    """A link in a document under docs/, made absolute: other repository
+    files open on GitHub; web links and in-page anchors are kept."""
+    if not href or href.startswith("#"):
+        return href
+    if re.match(r"^[a-zA-Z][a-zA-Z0-9+.-]*:", href):
+        return href  # any scheme (https:, mailto:, ...) is left as written
+    if href.startswith("/"):
+        href = href.lstrip("/")
+        base = ""
+    path, _, fragment = href.partition("#")
+    resolved = posixpath.normpath(posixpath.join(base, path))
+    if resolved.startswith(".."):
+        return "#"  # outside the repository: no link
+    return GITHUB + resolved + (f"#{fragment}" if fragment else "")
+
+
+def _slug(text: str, seen: set) -> str:
+    base = re.sub(r"[^a-z0-9]+", "-", text.lower()).strip("-") or "section"
+    slug, n = base, 2
+    while slug in seen:
+        slug, n = f"{base}-{n}", n + 1
+    seen.add(slug)
+    return slug
+
+
+def render_markdown(text: str) -> tuple[str, list[tuple[int, str, str]]]:
+    """Markdown to HTML (raw HTML in the source is escaped, not rendered),
+    with headings one level down (the page has its own h1), ids on them for a
+    contents list, and repository links pointing at GitHub."""
+    from markdown_it import MarkdownIt
+
+    md = MarkdownIt("commonmark", {"html": False}).enable("table")
+    tokens = md.parse(text)
+    toc, seen = [], set()
+    for i, token in enumerate(tokens):
+        if token.type in ("heading_open", "heading_close"):
+            level = min(int(token.tag[1]) + 1, 6)
+            token.tag = f"h{level}"
+            if token.type == "heading_open":
+                inline = tokens[i + 1]
+                title = (
+                    "".join(
+                        c.content
+                        for c in inline.children or []
+                        if c.type in ("text", "code_inline")
+                    )
+                    or inline.content
+                )
+                slug = _slug(title, seen)
+                token.attrSet("id", slug)
+                if level <= 3:
+                    toc.append((level, title, slug))
+        if token.type == "inline":
+            for child in token.children or []:
+                if child.type == "link_open":
+                    child.attrSet("href", doc_link(child.attrGet("href") or ""))
+                elif child.type == "image":
+                    child.attrSet(
+                        "src",
+                        doc_link(child.attrGet("src") or "").replace("/blob/", "/raw/"),
+                    )
+    return md.renderer.render(tokens, md.options, {}), toc
+
+
+class Plan:
+    """The rendered research plan, kept until the file changes."""
+
+    def __init__(self, path: Path | str | None = None):
+        self.path = Path(path) if path else PLAN
+        self._key = None
+        self._value = None
+        self._lock = threading.Lock()
+
+    def load(self) -> dict | None:
+        source = next(
+            (p for p in (self.path, REPO_PLAN) if p.is_file()),
+            None,
+        )
+        if source is None:
+            return None
+        stat = source.stat()
+        key = (str(source.resolve()), stat.st_mtime_ns, stat.st_size)
+        with self._lock:
+            if key != self._key:
+                html, toc = render_markdown(source.read_text())
+                self._key = key
+                self._value = {
+                    "html": html,
+                    "toc": toc,
+                    "source": str(source),
+                    "fallback": source != self.path,
+                    "modified": stat.st_mtime,
+                }
+            return self._value

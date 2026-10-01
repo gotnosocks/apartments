@@ -15,6 +15,7 @@ dependencies = [
   "Flask>=3.1,<4",
   "waitress>=3,<4",
   "requests>=2.32",
+  "markdown-it-py>=4,<5",
 ]
 
 [project.optional-dependencies]
