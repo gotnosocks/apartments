@@ -612,10 +612,12 @@ def test_facing_reads_the_build_registry(monkeypatch):
     built (LOT_SNAPSHOTS), with the grid origin of the first registry."""
     seen = []
     monkeypatch.setattr(
-        features, "_building_sides", lambda path: seen.append(path) or path
+        features, "_building_sides", lambda path, *area: seen.append(path) or path
     )
     monkeypatch.setattr(
-        features, "_building_frontage", lambda path: seen.append(path) or path
+        features,
+        "_building_frontage",
+        lambda path, *area: seen.append(path) or path,
     )
     assert features.building_sides() == features.REGISTRY_FILE
     token = features._LOTS.set(("r3", "p3"))

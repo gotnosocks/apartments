@@ -32,13 +32,16 @@ one population.
 Ranking rule. Eligible entries pass the convergence gate, are
 interpretable and have a PSIS-LOO score. The top entry has the highest
 PSIS-LOO dELPD; every eligible entry within two combined standard errors of
-it ties, and the fastest tied entry is the current best (Ben's axes are
-accuracy and fit time). PyMC screens that fail the gate are screen-grade:
+it ties, and the simplest tied entry is the current best (judged complexity,
+`elegance.complexity`; then the fastest). Ben's axes are accuracy, fit time
+and, from 2026-10-01, simplicity: "serve the best fit and break ties with which
+model is simpler". PyMC screens that fail the gate are screen-grade:
 shown, never best or on the frontier; screens without saved draws have no
 PSIS-LOO score.
 
 Frontier. An entry is on the frontier if no other eligible entry is at
-least as good on PSIS-LOO dELPD and fit time and strictly better on one.
+least as good on PSIS-LOO dELPD, fit time and complexity, and strictly better
+on one. An unrated design counts as the least simple.
 Fit time is the scored (row-split) fit's wall time; unit-split fits are
 optional and not counted.
 """
@@ -53,7 +56,7 @@ from pathlib import Path
 
 import numpy as np
 
-from . import data
+from . import data, elegance
 from .run import REFERENCES, git
 
 RUNS = data.OUTPUT_ROOT / "runs"
@@ -449,9 +452,15 @@ def pair_with_baseline(entries, base, paired=paired_loo):
         e["psis"].update(delta=d, delta_se=se, delta_mcse=mc, baseline=BASELINE)
 
 
+def simplicity_key(e):
+    """Sorts simpler entries first; unrated ones last."""
+    c = e.get("complexity")
+    return math.inf if c is None else c
+
+
 def choose_best(entries, paired=paired_loo):
-    """The fastest eligible entry tied (within two combined SE) with the top
-    PSIS-LOO dELPD. Entries need ``psis["_dir"]``; ``paired`` can be a cached
+    """The simplest eligible entry tied (within two combined SE) with the top
+    PSIS-LOO dELPD, then the fastest. Entries need ``psis["_dir"]``; ``paired`` can be a cached
     equivalent of `paired_loo`."""
     eligible = [
         e for e in entries if e["passes_checks"] and e["interpretable"] and scored(e)
@@ -467,15 +476,17 @@ def choose_best(entries, paired=paired_loo):
         d, se, mc = paired(e["psis"]["_dir"], top["psis"]["_dir"])
         if abs(d) <= tie_tolerance(se, mc):
             tied.append(e)
-    return min(tied, key=lambda e: (e["fit_seconds"], -e["psis"]["delta"]))
+    return min(
+        tied, key=lambda e: (simplicity_key(e), e["fit_seconds"], -e["psis"]["delta"])
+    )
 
 
 def on_frontier(entries):
-    """Per entry: not dominated on (PSIS-LOO dELPD, fit time) by another
-    eligible entry."""
+    """Per entry: not dominated on (PSIS-LOO dELPD, fit time, complexity) by
+    another eligible entry."""
 
     def point(e):
-        return (e["psis"]["delta"], -e["fit_seconds"])
+        return (e["psis"]["delta"], -e["fit_seconds"], -simplicity_key(e))
 
     candidates = [
         e for e in entries if e["passes_checks"] and e["interpretable"] and scored(e)
@@ -599,6 +610,7 @@ def build(keep_dirs=False):
         # Other processes' mean busy cores during the scored fit (recorded
         # from 3c26c4a on); None when not measured.
         e["contention"] = (rows_run or {}).get("contention")
+        e["complexity"] = elegance.complexity(e)
         if rows_run and rows_run["name"] in variances:
             vr = variances[rows_run["name"]]
             e["variance"] = {
@@ -736,7 +748,7 @@ def row(e, marks) -> str:
         f"| `{e['id']}` | {e['line']} | {e['model']['name']} | {e['feature_set']} | {psis} | {kshare} | "
         f"{fmt(r.get('delta'))}{' ± ' + fmt(r.get('delta_se')) if r.get('delta') is not None else ''} | "
         f"{fmt(u.get('delta'))}{' ± ' + fmt(u.get('delta_se')) if u.get('delta') is not None else ''} | {shares} | {diag} | "
-        f"{fmt(e['fit_seconds'], 0)} s | {e['grade']} | "
+        f"{fmt(e['fit_seconds'], 0)} s | {fmt(e.get('complexity'), 0)} | {e['grade']} | "
         f"{'**best**' if e['current_best'] else ''} | {'yes' if e['frontier'] else ''} | {note} |"
     )
 
@@ -755,8 +767,9 @@ def markdown(board) -> str:
         "",
         "**Ranking.** Eligible entries pass the convergence gate (max split R-hat < 1.01 and min bulk ESS > 400; frontier runs also need",
         "R-hat < 1.05 over every group effect, 1.1 when recomputed from older runs' kept draws; NUTS runs also need no divergences), are interpretable and have a PSIS-LOO score.",
-        "Every eligible entry within two combined SE of the top PSIS-LOO ΔELPD ties with it; the **best** is the fastest tied entry.",
-        "**Frontier** = not beaten on PSIS-LOO ΔELPD and fit time at once. Fit time is the scored (row-split) fit's sampler wall time.",
+        "Every eligible entry within two combined SE of the top PSIS-LOO ΔELPD ties with it; the **best** is the simplest tied entry, then the fastest.",
+        "**Complexity** is a judged score of how much the design asks a renter to understand, structure plus features (`rentfrontier.elegance`; lower is simpler, — is unrated).",
+        "**Frontier** = not beaten on PSIS-LOO ΔELPD, fit time and complexity at once. Fit time is the scored (row-split) fit's sampler wall time.",
         "**Per hardware.** The frontier and the best are computed separately for each hardware class (where the fit actually ran):",
         "a fit time only competes with fit times on the same hardware.",
         "**Variance** = share of the variation in log rent over the training rows attributed to features / building level / unit effects / residual",
@@ -788,8 +801,8 @@ def markdown(board) -> str:
             "",
             f"### {cls}",
             "",
-            "| Entry | Line | Design | Features | PSIS-LOO ΔELPD | k | Held-out ΔELPD | Units ΔELPD | Variance: features / building / unit / residual | R-hat / ESS | Fit time | Grade | Best | Frontier | Note |",
-            "|---|---|---|---|---:|---:|---:|---:|---:|---|---:|---|---|---|---|",
+            "| Entry | Line | Design | Features | PSIS-LOO ΔELPD | k | Held-out ΔELPD | Units ΔELPD | Variance: features / building / unit / residual | R-hat / ESS | Fit time | Complexity | Grade | Best | Frontier | Note |",
+            "|---|---|---|---|---:|---:|---:|---:|---:|---|---:|---:|---|---|---|---|",
         ]
         for e in group:
             lines.append(row(e, marks))

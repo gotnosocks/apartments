@@ -266,3 +266,20 @@ def test_build_refuses_a_rule_row_still_in_the_bundle(tmp_path, make_bundle):
 def test_quarantined_rows_are_in_a_stable_order(site_root):
     rows = query(site_root, "SELECT audit_id FROM quarantined ORDER BY rowid")
     assert [r["audit_id"] for r in rows] == ["q1", "q2"]
+
+
+def test_selection_note_only_for_the_selected_bundle(bundle, tmp_path):
+    sha = build.sha256(bundle / "complete.json")
+    path = _selection(
+        tmp_path, bundle, selected_by="autoselect", selection_reason="why"
+    )
+    assert build.selection_note(path, sha) == {
+        "selected_by": "autoselect",
+        "selection_reason": "why",
+    }
+    assert build.selection_note(path, "0" * 64) is None
+    assert build.selection_note(tmp_path / "missing.json", sha) is None
+    root = tmp_path / "site"
+    build.build(bundle, root, selection=path)
+    meta = {r["key"]: json.loads(r["value"]) for r in query(root, "SELECT * FROM meta")}
+    assert meta["selection"]["selection_reason"] == "why"

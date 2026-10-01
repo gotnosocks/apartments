@@ -28,6 +28,8 @@ DATASET = Path(
 )
 OUTPUT_ROOT = Path(os.environ.get("FRONTIER_OUTPUT_ROOT", "/data1/apartments/frontier"))
 
+# Version of the flattened row (the cache key): v2 adds the neighbourhood.
+SCHEMA = "v2"
 VIEWS = ("city", "courtyard", "garden", "park", "skyline", "street", "water")
 WINDOWS = ("east", "north", "south", "west")
 
@@ -73,6 +75,8 @@ def _flatten(row: dict) -> dict:
         "hvac": row["hvac_type"] or "unknown",
         "pets": row["pet_policy"] or "unknown",
         "has_description": row.get("description_interpreted_at") is not None,
+        # Datasets before the combined cohort are Chelsea's.
+        "neighbourhood": row.get("neighbourhood", "Chelsea"),
     }
     for name in VIEWS:
         out[f"view_{name}"] = _tristate(views.get(name))
@@ -84,7 +88,7 @@ def _flatten(row: dict) -> dict:
 def load(dataset: Path = DATASET, cache_root: Path = OUTPUT_ROOT) -> pd.DataFrame:
     source = dataset / "observations.jsonl"
     digest = sha256(source)
-    cache = cache_root / "cache" / f"observations-{digest[:16]}.parquet"
+    cache = cache_root / "cache" / f"observations-{digest[:16]}-{SCHEMA}.parquet"
     if cache.exists():
         frame = pd.read_parquet(cache)
     else:
