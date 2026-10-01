@@ -39,10 +39,11 @@ from pathlib import Path
 
 import duckdb
 
+from .selection import SELECTION, selection_note
+
 VERSION = "listings-site-v1"
 SCHEMA_VERSION = 2
 DEFAULT_ROOT = Path(os.environ.get("SITE_ROOT", "/data1/apartments/site"))
-SELECTION = Path(__file__).resolve().parents[3] / "config" / "main-analysis.json"
 SELECTION_VERSION = "main-analysis-selection-v2"
 KEEP = 3
 # Where the ask falls in its leave-own-row-out predictive distribution.
@@ -552,7 +553,9 @@ def quarantined_rows(missing, observations, decisions, registry) -> list[dict]:
     return out
 
 
-def write_database(path: Path, record: dict, bundle: Path, scope: str) -> dict:
+def write_database(
+    path: Path, record: dict, bundle: Path, scope: str, selection: dict | None = None
+) -> dict:
     observations = load_observations(
         Path(record["dataset"]), record["dataset_observations_sha256"]
     )
@@ -648,6 +651,7 @@ def write_database(path: Path, record: dict, bundle: Path, scope: str) -> dict:
             "provenance": provenance,
             "stats": stats,
             "price_bands": PRICE_BANDS,
+            "selection": selection,
         }
         db.executemany(
             "INSERT INTO meta VALUES (?,?)",
@@ -684,7 +688,12 @@ def publish(build_dir: Path, root: Path, keep: int = KEEP) -> None:
             shutil.rmtree(old)
 
 
-def build(summary: Path, root: Path = DEFAULT_ROOT, scope: str = "Chelsea") -> Path:
+def build(
+    summary: Path,
+    root: Path = DEFAULT_ROOT,
+    scope: str = "Chelsea",
+    selection: Path = SELECTION,
+) -> Path:
     summary = summary.resolve()
     record = load_bundle(summary)
     if not record["gate"]["passes"]:
@@ -694,7 +703,13 @@ def build(summary: Path, root: Path = DEFAULT_ROOT, scope: str = "Chelsea") -> P
     staging = build_dir.with_name(build_dir.name + ".tmp")
     staging.mkdir(parents=True)
     try:
-        stats = write_database(staging / "site.sqlite", record, summary, scope)
+        stats = write_database(
+            staging / "site.sqlite",
+            record,
+            summary,
+            scope,
+            selection_note(selection, record["_sha256"]),
+        )
         info = {
             "version": VERSION,
             "built_at": dt.datetime.now(dt.UTC).isoformat(timespec="seconds"),
@@ -728,7 +743,7 @@ def main(argv=None):
     args = parser.parse_args(argv)
     try:
         summary = args.summary or selected_summary(args.selection)
-        path = build(summary, args.root, args.scope)
+        path = build(summary, args.root, args.scope, args.selection)
     except BuildError as error:
         raise SystemExit(f"build failed: {error}") from None
     print(f"published {path}")
