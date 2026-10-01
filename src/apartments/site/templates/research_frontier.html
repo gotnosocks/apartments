@@ -5,7 +5,8 @@
 <h1>The frontier</h1>
 <p class="lede">Every model fit on the board, compared three ways: how accurately it predicts asks it has not seen, how long it
 takes to fit, and how simple it is to understand. A fit is <strong>on the frontier</strong> when no other fit beats it on one of
-these without losing on another. The served model is chosen from the frontier.</p>
+these without losing on another. The served model is chosen automatically among the fits that can be served: the most accurate,
+then the simplest, then the fastest, and it changes only when another fit clearly beats it.</p>
 
 <form class="filters" action="{{ url_for('research_frontier') }}" method="get" aria-label="Choose the view">
   <div class="field">
@@ -41,9 +42,9 @@ these without losing on another. The served model is chosen from the frontier.</
   <h2>Accuracy against fit time</h2>
   <p class="note">Each dot is one fit. Up is more accurate; left is faster. {% if target %}The line marks Ben's target: the full
   Chelsea + West Village dataset fit within {{ target_minutes }} minutes on the RTX 2060 graphics card. {% endif %}Fit times only
-  compare within one hardware class.{% if floor is not none %} Fits far below the rest (the mean-only baselines) are drawn at the
+  compare within one hardware class.{% if floor is not none %} Fits far below the rest (the simple baselines) are drawn at the
   chart's floor; tick "The full accuracy range" to see them where they are.{% endif %}</p>
-  {{ time_chart }}
+  {% if view.fits | selectattr("delta", "number") | list %}{{ time_chart }}{% else %}<p class="empty-note">No fit on this hardware has a PSIS-LOO score{% if day %} at this date{% endif %}.</p>{% endif %}
 </section>
 
 <section class="card">
@@ -55,12 +56,13 @@ these without losing on another. The served model is chosen from the frontier.</
 
 <section class="card">
   <h2>On the frontier{% if day %} at the end of {{ day }}{% endif %}</h2>
-  <p class="note">The frontier fits, most accurate first, with the served model.{% if view.unscored %} {{ view.unscored }} fit{{ "" if view.unscored == 1 else "s" }}
+  <p class="note">The frontier fits, most accurate first{% if not day %}, with the served model{% endif %}.{% if day %} Whether each fit can be
+  served is as of today.{% endif %}{% if view.unscored %} {{ view.unscored }} fit{{ "" if view.unscored == 1 else "s" }}
   without a PSIS-LOO score cannot be placed.{% endif %}{% if view.hidden_subsets %} {{ view.hidden_subsets }} subset fit{{ "" if view.hidden_subsets == 1 else "s" }} hidden.{% endif %}</p>
   {% set rows = view.frontier %}
   {% include "_fit_table.html" %}
   <details class="table-view">
-    <summary>Every fit in the charts ({{ view.fits | length }})</summary>
+    <summary>Every fit ({{ view.fits | length }}{% if view.unscored %}; {{ view.unscored }} without a score have no dot{% endif %})</summary>
     {% set rows = view.fits %}
     {% include "_fit_table.html" %}
   </details>

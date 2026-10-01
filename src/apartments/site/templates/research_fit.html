@@ -29,10 +29,9 @@
 
 <section class="card">
   <h2>Can it be served?</h2>
-  {% if subset %}<p>No: it is a subset fit, for exploration only.</p>
-  {% elif e.why_not_served %}<p>No: {{ e.why_not_served }}.</p>
-  {% elif e.why_not_served is defined %}<p>Yes: it passes every rule the automatic selection applies.{% if served %} It is the served model.{% endif %}</p>
-  {% else %}<p class="note">Not known for this board build.</p>{% endif %}
+  {% if serve == "no" %}<p>No: {{ why_not }}.</p>
+  {% elif serve == "yes" %}<p>Yes: it passes every rule the automatic selection applies.{% if served %} It is the served model.{% endif %}</p>
+  {% else %}<p class="note">Not known yet: this research data does not say.</p>{% endif %}
   {% if e.note %}<p class="note">{{ e.note }}</p>{% endif %}
   {% for a in e.annotations %}<p class="note">{{ a }}</p>{% endfor %}
 </section>

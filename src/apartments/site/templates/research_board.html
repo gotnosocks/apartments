@@ -63,7 +63,8 @@ be served. Select a fit for its details.</p>
       <td class="num nowrap">{{ "%.1f" | format(e.fit_seconds / 60) }} min</td>
       <td class="num">{{ e.complexity if e.complexity is not none else "—" }}</td>
       <td>{{ "pass" if e.passes_checks else "fail" }}</td>
-      <td>{% if is_subset(run) %}no: a subset fit, for exploration only{% elif e.why_not_served %}no: {{ e.why_not_served }}{% else %}yes{% endif %}</td>
+      {% set serve, why = serve_status(e) %}
+      <td>{% if serve == "yes" %}yes{% elif serve == "no" %}no: {{ why }}{% else %}<span class="muted">not known yet</span>{% endif %}</td>
       <td class="nowrap">{{ e.available_at[:10] if e.available_at else "—" }}</td>
     </tr>
   {% else %}

@@ -83,6 +83,21 @@ def is_subset(run: str) -> bool:
     return any(part.startswith("tune") for part in run.split("-"))
 
 
+def serve_status(entry: dict) -> tuple[str, str | None]:
+    """Whether a fit can be served: ("yes", None), ("no", reason) or
+    ("unknown", None). The reason is autoselect's (`why_not_served`, written
+    by the dashboard build); without it, a fit that fails the convergence
+    checks is still a "no", and anything else is not known yet."""
+    if is_subset(run_of(entry)):
+        return "no", "a subset fit, for exploration only"
+    if "why_not_served" in entry:
+        reason = entry["why_not_served"]
+        return ("no", reason) if reason else ("yes", None)
+    if not entry.get("passes_checks"):
+        return "no", "it fails the convergence gate"
+    return "unknown", None
+
+
 def hardware_classes(data: dict) -> list[str]:
     """Hardware classes on the board, the target first, then by entry count."""
     counts: dict[str, int] = {}
@@ -125,7 +140,8 @@ def frontier_view(
     subsets: bool = False,
 ) -> dict:
     """The fits of one hardware class as the board stood on `day`: their marks
-    (served, frontier, other, failing, subset), and the frontier and best."""
+    (served, subset, frontier, failing, other), and the frontier and best.
+    The served mark is today's, so a past day shows none."""
     snap = snapshot_on(data, day)
     cut = snap["at"] if snap else None
     group = (snap or {}).get("by_class", {}).get(hardware, {})
@@ -143,17 +159,18 @@ def frontier_view(
         run = run_of(e)
         if is_subset(run) and not subsets:
             continue
-        if run and run == served_run:
+        if run and run == served_run and day is None:
             kind = "served"
-        elif e["key"] in frontier:
-            kind = "frontier"
         elif is_subset(run):
             kind = "subset"
+        elif e["key"] in frontier:
+            kind = "frontier"
         elif not e.get("passes_checks"):
             kind = "failing"
         else:
             kind = "other"
         psis = e.get("psis") or {}
+        serve, why_not = serve_status(e)
         fits.append(
             {
                 "entry": e,
@@ -165,9 +182,8 @@ def frontier_view(
                 "delta_se": psis.get("delta_se"),
                 "minutes": e["fit_seconds"] / 60,
                 "complexity": e.get("complexity"),
-                "why_not": "a subset fit, for exploration only"
-                if is_subset(run)
-                else e.get("why_not_served"),
+                "serve": serve,
+                "why_not": why_not,
             }
         )
     fits.sort(key=lambda f: (f["delta"] is None, -(f["delta"] or 0)))

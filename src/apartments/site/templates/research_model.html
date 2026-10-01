@@ -59,7 +59,8 @@ equally simple ones the fastest.{% endif %}</p>
       <span class="muted">({{ "%.1f" | format(entry.other_cores) }} other cores busy during the fit)</span>{% endif %}</dd>
     {% if entry.complexity is defined %}<dt>Complexity</dt><dd>{{ entry.complexity if entry.complexity is not none else "not rated" }}
       <span class="muted">(lower is simpler to understand)</span></dd>{% endif %}
-    <dt>On the frontier</dt><dd>{{ "yes" if entry.frontier else "no" }}{% if entry.current_best %}; the best fit on its hardware{% endif %}</dd>
+    <dt>On the frontier</dt><dd>{{ "yes" if entry.frontier else "no" }}{% if entry.current_best %}; the best fit on its hardware{% endif %}
+      <span class="muted">(no other fit is at least as accurate, as fast and as simple, and better on one of them)</span></dd>
 
   </dl>
 </section>

@@ -51,6 +51,7 @@ from .research import (
     latest_milestones,
     outlier_floor,
     run_of,
+    serve_status,
     snapshot_days,
 )
 from .selection import SELECTION, selection_note
@@ -955,7 +956,14 @@ def create_app(
                 "not rated" if f["complexity"] is None else str(f["complexity"]),
             ]
         )
-        rows.append(["Servable", "yes" if not f["why_not"] else f["why_not"]])
+        rows.append(
+            [
+                "Servable",
+                {"yes": "yes", "unknown": "not known yet"}.get(
+                    f["serve"], f"no: {f['why_not']}"
+                ),
+            ]
+        )
         return rows
 
     @app.get("/research")
@@ -965,6 +973,8 @@ def create_app(
         if not data:
             abort(503, description="The research data is not available yet.")
         classes = hardware_classes(data)
+        if not classes:
+            abort(503, description="The board has no fits yet.")
         hardware = request.args.get("hardware")
         if hardware not in classes:
             hardware = TARGET_HARDWARE if TARGET_HARDWARE in classes else classes[0]
@@ -983,7 +993,7 @@ def create_app(
                 "x": f["minutes"],
                 "y": f["delta"],
                 "kind": f["kind"],
-                "title": f["entry"]["id"],
+                "title": f["entry"]["key"],
                 "rows": fit_rows(f),
                 "href": url_for("research_fit", key=f["entry"]["key"]),
             }
@@ -1097,7 +1107,7 @@ def create_app(
             board_url=board_url,
             served_run=m["provenance"]["run"],
             run_of=run_of,
-            is_subset=is_subset,
+            serve_status=serve_status,
         )
 
     @app.get("/research/fits/<path:key>")
@@ -1107,12 +1117,14 @@ def create_app(
         entry = entry_by_key(data, key)
         if entry is None:
             abort(404, description="No fit with that key on the board.")
+        serve, why_not = serve_status(entry)
         return render_template(
             "research_fit.html",
             meta=m,
             e=entry,
             run=run_of(entry),
-            subset=is_subset(run_of(entry)),
+            serve=serve,
+            why_not=why_not,
             served=run_of(entry) == m["provenance"]["run"],
             groups=data.get("variance_groups", []),
             baseline=data.get("baseline"),
@@ -1208,7 +1220,6 @@ def create_app(
             terms=terms,
             labels=labels,
             entry=entry_for_run(data, m["provenance"]["run"]),
-            gate=data.get("gate") if data else None,
             baseline=data.get("baseline") if data else None,
             autoselect=data.get("autoselect") if data else None,
         )

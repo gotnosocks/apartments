@@ -609,8 +609,8 @@ def test_board_filters_sorts_and_links(client):
 def test_fit_page(client):
     key = "m-test/unitdesc-v1/nuts@aaaaaaa"
     html = client.get(f"/research/fits/{key}").get_data(as_text=True)
-    assert "Yes: it passes every rule the automatic selection applies." in html
-    assert "It is the served model." in html
+    # this research data has no why_not_served for the served fit
+    assert "Not known yet" in html
     assert "A test design with &lt;b&gt;bold&lt;/b&gt; claims" in html  # escaped
     assert "Serves the app (Ben)." in html
     assert "78.6%" in html and "76.9–80.2%" in html  # variance share
@@ -623,7 +623,7 @@ def test_fit_page(client):
 
 def test_history_page(client):
     html = client.get("/research/history").get_data(as_text=True)
-    assert "The best fit&#39;s accuracy over time" in html
+    assert "The best fit's accuracy over time" in html
     assert html.count('class="line s1"') >= 1
     # compute by model line: one series per line, in the fixed order
     legend = html.split("Hours of fitting by model line")[1]
@@ -663,3 +663,48 @@ def test_time_axes_and_zero_floor():
     assert next(label for _, label in long.year_ticks()) == "2016"
     months = charts.Frame(["2026-01-15", "2026-09-01"], [1.0, 2.0])
     assert next(label for _, label in months.year_ticks()) == "Feb 2026"
+
+
+def test_serve_status_without_the_dashboards_reason():
+    """Before the research data carries `why_not_served`, a fit that fails the
+    checks is still not servable, and nothing else is claimed."""
+    from apartments.site.research import serve_status
+
+    passing = {"passes_checks": True, "splits": {"rows": {"run": "r"}}}
+    failing = {"passes_checks": False, "splits": {"rows": {"run": "r"}}}
+    assert serve_status(passing) == ("unknown", None)
+    assert serve_status(failing) == ("no", "it fails the convergence gate")
+    assert serve_status(dict(passing, why_not_served=None)) == ("yes", None)
+    assert serve_status(dict(passing, why_not_served="old rules")) == (
+        "no",
+        "old rules",
+    )
+    subset = {"passes_checks": True, "splits": {"rows": {"run": "m-nb-tune35"}}}
+    assert serve_status(subset) == ("no", "a subset fit, for exploration only")
+
+
+def test_frontier_page_never_calls_an_unknown_fit_servable(client):
+    html = client.get("/research").get_data(as_text=True)
+    # the served entry has no why_not_served in this research data
+    assert "not known yet" in html
+    assert "no: it fails the convergence gate" in html  # m-failing's own reason
+    assert html.count("<td>yes</td>") == 0
+
+
+def test_frontier_page_with_an_empty_board(site_root, research_file):
+    research_file.write_text(json.dumps({"entries": [], "snapshots": []}))
+    app = create_app(site_root, research_data=research_file)
+    assert app.test_client().get("/research").status_code == 503
+
+
+def test_fit_page_says_yes_only_with_the_dashboards_reason(client, research_file):
+    data = json.loads(research_file.read_text())
+    served = next(e for e in data["entries"] if e["id"].startswith("m-test"))
+    served["why_not_served"] = None
+    research_file.write_text(json.dumps(data))
+    key = "m-test/unitdesc-v1/nuts@aaaaaaa"
+    html = client.get(f"/research/fits/{key}").get_data(as_text=True)
+    assert "Yes: it passes every rule the automatic selection applies." in html
+    assert "It is the served model." in html
+    failing = client.get("/research/fits/m-failing").get_data(as_text=True)
+    assert "No: it fails the convergence gate." in failing
