@@ -34,7 +34,7 @@ signal of over- or under-pricing ([what an estimate is](model/listing-estimates.
   - ask against estimate over time for every listing;
   - its units and listings.
 - **Quarantined listings** (`/quarantined`, and a section on each building and unit page): the
-  listings the selected fit's data rules leave out (the latest `quarantine-vN` review file). Each
+  listings the selected fit's data rules leave out (its `quarantine-vN` review file). Each
   shows the review's reason, the ad's own words or the MapPLUTO record behind it, and no estimate.
   A quarantined listing's URL opens a page that explains why. A building or unit with only
   quarantined listings redirects to its list. Quarantined listings are not in the listings search

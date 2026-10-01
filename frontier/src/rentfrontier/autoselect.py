@@ -175,6 +175,9 @@ def decide(
     }
     for e in order:
         if e is incumbent:
+            # Fits ranked below an eligible incumbent do not replace it.
+            if inc_ok:
+                break
             continue
         check = {"run": _run(e)}
         out["checked"].append(check)
@@ -220,15 +223,15 @@ def decide(
 
 def single_listing_coverage(summary: Path) -> float | None:
     """Share of fit rows whose unit has no other fit row with the ask inside
-    the estimate's 95% range."""
+    the 95% predictive range (PIT between 0.025 and 0.975, the site's
+    calibration measure)."""
     import pandas as pd
 
     rows = pd.read_parquet(summary / "rows.parquet")
-    one = rows[rows.in_fit & rows.unit_fit_rows.eq(1)]
+    one = rows[rows.in_fit & rows.unit_fit_rows.eq(1) & rows.pit.notna()]
     if one.empty:
         return None
-    inside = one.asking_rent.between(one.estimate_lower_95, one.estimate_upper_95)
-    return float(inside.mean())
+    return float(one.pit.between(0.025, 0.975, inclusive="neither").mean())
 
 
 def selection_record(

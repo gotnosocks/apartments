@@ -196,9 +196,26 @@ def test_single_listing_coverage(tmp_path):
         {
             "in_fit": [True, True, True, False],
             "unit_fit_rows": [1, 1, 2, 1],
-            "asking_rent": [100.0, 300.0, 100.0, 100.0],
-            "estimate_lower_95": [90.0, 90.0, 0.0, 0.0],
-            "estimate_upper_95": [110.0, 110.0, 1.0, 1.0],
+            "pit": [0.5, 0.99, 0.5, 0.5],
         }
     ).to_parquet(tmp_path / "rows.parquet")
     assert autoselect.single_listing_coverage(tmp_path) == 0.5
+
+
+def test_fits_ranked_below_an_eligible_incumbent_do_not_replace_it(tmp_path):
+    # X ties I, I ties C, C does not tie X: the board's choice is I (fastest of
+    # those tied with the top); C is faster than I but ranks below it.
+    es = [
+        entry(tmp_path, "X", 100.0, 1500),
+        entry(tmp_path, "I", 95.0, 1000),
+        entry(tmp_path, "C", 55.0, 800),
+    ]
+
+    def paired(a, b):
+        d = {"X": 100.0, "I": 95.0, "C": 55.0}
+        return d[a] - d[b], 20.0, 0.0  # tolerance 40
+
+    order = [e["splits"]["rows"]["run"] for e in autoselect.ranked(es, paired)]
+    assert order[0] == "I"
+    d = autoselect.decide(es, "I", RULES, paired, no_heldout_loss)
+    assert d["action"] == "keep" and d["run"] == "I"
