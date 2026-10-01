@@ -897,3 +897,18 @@ def test_contents_titles_drop_markdown_and_images_resolve():
     assert (
         "https://github.com/gotnosocks/apartments/raw/master/docs/img/map.png" in html
     )
+
+
+def test_rent_map_page_and_data(client, site_root):
+    page = client.get("/estimates/map").get_data(as_text=True)
+    assert "no rent map for the served model yet" in page
+    assert client.get("/estimates/map.json").status_code == 404
+    current = (site_root / "current").resolve()
+    (current / "map.json").write_text(
+        json.dumps({"run": "m-test-run", "years": [2026]})
+    )
+    page = client.get("/estimates/map").get_data(as_text=True)
+    assert 'data-src="/estimates/map.json"' in page and "rentmap.js" in page
+    assert 'href="/estimates/map" aria-current="page"' in page
+    data = client.get("/estimates/map.json")
+    assert data.status_code == 200 and data.get_json()["run"] == "m-test-run"
