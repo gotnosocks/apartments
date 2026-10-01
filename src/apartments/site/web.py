@@ -35,6 +35,7 @@ from flask import (
 
 from . import charts
 from .research import (
+    BOARD_ORDERS,
     BOARD_SORTS,
     LINES,
     TARGET_HARDWARE,
@@ -448,6 +449,10 @@ def create_app(
         ), 500
 
     app.jinja_env.filters["trim_float"] = trim_float
+    app.jinja_env.filters["minus"] = lambda text: str(text).replace("-", "−")
+    app.jinja_env.tests["finite"] = lambda v: (
+        isinstance(v, (int, float)) and not isinstance(v, bool) and math.isfinite(v)
+    )
 
     @app.context_processor
     def helpers():
@@ -1026,7 +1031,7 @@ def create_app(
                 x_title=f"Fit time on {device}, full dataset (minutes)",
                 y_title=delta_axis,
                 x_format=lambda v: f"{v:g}",
-                y_format=lambda v: f"{v:+,.0f}",
+                y_format=charts.signed,
                 y_floor=floor,
                 x_line=(TARGET_MINUTES, f"{TARGET_MINUTES}-minute target")
                 if target
@@ -1038,7 +1043,7 @@ def create_app(
                 x_title="Complexity (judged; lower is simpler)",
                 y_title=delta_axis,
                 x_format=lambda v: f"{v:g}",
-                y_format=lambda v: f"{v:+,.0f}",
+                y_format=charts.signed,
                 y_floor=floor,
             ),
         )
@@ -1061,7 +1066,7 @@ def create_app(
         sort = request.args.get("sort")
         sort = sort if sort in BOARD_SORTS else "delta"
         order = request.args.get("order")
-        order = order if order in ("asc", "desc") else "desc"
+        order = order if order in ("asc", "desc") else BOARD_ORDERS[sort]
         q = (request.args.get("q") or "").strip()[:80]
         servable = request.args.get("servable") == "1"
         subsets = request.args.get("subsets") == "1"
@@ -1084,7 +1089,7 @@ def create_app(
                 "servable": "1" if servable else None,
                 "subsets": "1" if subsets else None,
                 "sort": None if sort == "delta" else sort,
-                "order": None if order == "desc" else order,
+                "order": None if order == BOARD_ORDERS[sort] else order,
             }
             args.update(changes)
             query = _query({k: v for k, v in args.items() if v is not None})
@@ -1105,6 +1110,7 @@ def create_app(
             sort=sort,
             order=order,
             board_url=board_url,
+            board_orders=BOARD_ORDERS,
             served_run=m["provenance"]["run"],
             run_of=run_of,
             serve_status=serve_status,
@@ -1136,6 +1142,8 @@ def create_app(
         m = meta()
         data = research_data_or_503()
         classes = hardware_classes(data)
+        if not classes:
+            abort(503, description="The board has no fits yet.")
         hardware = request.args.get("hardware")
         if hardware not in classes:
             hardware = TARGET_HARDWARE if TARGET_HARDWARE in classes else classes[0]
@@ -1159,6 +1167,7 @@ def create_app(
             )
             fits.append(
                 {
+                    "key": e["key"],
                     "at": e["available_at"],
                     "y": e["fit_seconds"] / 60,
                     "kind": kind,
@@ -1181,23 +1190,26 @@ def create_app(
             best=best,
             compute=compute,
             milestones=milestones,
+            fits=sorted(fits, key=lambda f: f["at"], reverse=True),
             best_chart=charts.lines_over_time(
                 [{"name": "Best fit", "points": best, "step": True}],
                 label=f"The best fit's accuracy on {hardware} over time",
                 y_title="PSIS-LOO ΔELPD of the best fit",
-                y_format=lambda v: f"{v:+,.0f}",
+                y_format=charts.signed,
             ),
             time_chart=charts.dated_points(
                 fits,
                 label=f"Fit time of each fit on {hardware}, by the day it landed",
                 y_title="Fit time (minutes)",
                 y_format=lambda v: f"{v:,.0f}",
+                clamp_zero=True,
             ),
             compute_chart=charts.lines_over_time(
                 compute,
                 label="Cumulative hours of fitting by model line",
                 y_title="Hours of fitting, cumulative",
                 y_format=lambda v: f"{v:,.0f}",
+                clamp_zero=True,
             ),
         )
 

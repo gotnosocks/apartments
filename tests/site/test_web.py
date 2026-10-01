@@ -592,11 +592,13 @@ def test_board_filters_sorts_and_links(client):
     assert "m-subset" not in html and "<code>m-cpu</code>" in html
     assert 'href="/research/fits/m-other"' in html
     assert "beaten by the served fit" in html  # the board's note
+    # no fit in this research data is confirmed servable (the served one has no
+    # why_not_served), so "only servable" lists none
     servable = client.get("/research/board?servable=1").get_data(as_text=True)
-    assert "<code>m-other</code>" not in servable and "<code>m-test/" in servable
+    assert "0</strong> of 6 fits" in servable
     numpyro = client.get("/research/board?line=numpyro").get_data(as_text=True)
     assert "<code>m-test/" not in numpyro and "<code>m-other</code>" in numpyro
-    fastest = client.get("/research/board?sort=time&order=asc").get_data(as_text=True)
+    fastest = client.get("/research/board?sort=time").get_data(as_text=True)
     assert fastest.index("<code>L0-mean</code>") < fastest.index("<code>m-test/")
     searched = client.get("/research/board?q=failing").get_data(as_text=True)
     assert "1</strong> of 6 fits" in searched
@@ -655,6 +657,7 @@ def test_time_axes_and_zero_floor():
         ["2026-09-25T08:00:00+00:00", "2026-10-01T02:00:00+00:00"],
         [3.0, 30.0],
         zero=True,
+        clamp_zero=True,
     )
     assert frame.ticks[0] == 0  # fit times never go below zero
     labels = [label for _, label in frame.year_ticks()]
@@ -708,3 +711,52 @@ def test_fit_page_says_yes_only_with_the_dashboards_reason(client, research_file
     assert "It is the served model." in html
     failing = client.get("/research/fits/m-failing").get_data(as_text=True)
     assert "No: it fails the convergence gate." in failing
+
+
+def test_board_review_fixes(client, research_file):
+    data = json.loads(research_file.read_text())
+    served = next(e for e in data["entries"] if e["id"].startswith("m-test"))
+    served["why_not_served"] = None
+    other = next(e for e in data["entries"] if e["id"] == "m-other")
+    other["psis"]["delta_se"] = float("nan")
+    other["psis"]["elpd"] = 54570.8
+    research_file.write_text(json.dumps(data).replace("NaN", "NaN"))
+    servable = client.get("/research/board?servable=1").get_data(as_text=True)
+    assert "1</strong> of 6 fits" in servable and "<code>m-test/" in servable
+    board = client.get("/research/board").get_data(as_text=True)
+    assert "± nan" not in board
+    # time and complexity sort fastest and simplest first; their links say so
+    assert 'href="/research/board?sort=time"' in board
+    assert 'href="/research/board?sort=complexity"' in board
+    assert 'href="/research/board?sort=landed"' in board
+    assert "best on its hardware" in board
+    fit = client.get("/research/fits/m-other").get_data(as_text=True)
+    assert "± nan" not in fit
+    assert "the log of the probability the fit gives" in fit
+
+
+def test_history_review_fixes(client, site_root, research_file):
+    html = client.get("/research/history").get_data(as_text=True)
+    assert '<th scope="col">Landed</th>' in html  # the fit-time chart's table view
+    assert "No fit on thelio RTX 2060 SUPER has a PSIS-LOO score yet." in html
+    research_file.write_text(json.dumps({"entries": [], "snapshots": []}))
+    assert client.get("/research/history").status_code == 503
+
+
+def test_axis_review_fixes():
+    assert charts.signed(0) == "0" and charts.signed(1500) == "+1,500"
+    assert charts.signed(-500) == "−500"
+    # monthly periods over a short span keep month ticks, not days
+    monthly = charts.Frame(["2026-07-01", "2026-08-01", "2026-09-01"], [1.0, 2.0, 3.0])
+    assert [label for _, label in monthly.year_ticks()] == [
+        "Jul 2026",
+        "Aug 2026",
+        "Sep 2026",
+    ]
+    # zero without clamping still pads both sides (building residual scatters)
+    padded = charts.Frame(["2026-01-01", "2026-06-01"], [5.0, 20.0], zero=True)
+    assert padded.ticks[0] < 0
+    clamped = charts.Frame(
+        ["2026-01-01", "2026-06-01"], [5.0, 20.0], zero=True, clamp_zero=True
+    )
+    assert clamped.ticks[0] == 0

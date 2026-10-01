@@ -37,6 +37,13 @@ def pct(value, signed=True, digits=0) -> str:
     return text
 
 
+def signed(value: float) -> str:
+    """An axis value with its sign ("+1,000", "−500", "0")."""
+    if not value:
+        return "0"
+    return ("+" if value > 0 else "−") + f"{abs(value):,.0f}"
+
+
 def month_label(period: str) -> str:
     return dt.date.fromisoformat(period).strftime("%b %Y")
 
@@ -70,8 +77,11 @@ def _days(period: str) -> float:
 class Frame:
     """Linear scales from data to the plot area of a WIDTH x HEIGHT viewBox."""
 
-    def __init__(self, periods, values, *, zero=False, height=HEIGHT):
+    def __init__(self, periods, values, *, zero=False, clamp_zero=False, height=HEIGHT):
+        """zero: the y range includes zero. clamp_zero: the measure is never
+        negative (or never positive), so the axis stops at zero."""
         self.height = height
+        self.timestamped = any(len(p) > 10 for p in periods)
         days = [_days(p) for p in periods]
         self.x0, self.x1 = min(days), max(days)
         if self.x1 == self.x0:
@@ -81,8 +91,10 @@ class Frame:
             lo, hi = min(lo, 0.0), max(hi, 0.0)
         pad = (hi - lo) * 0.05 or abs(hi) * 0.05 or 1.0
         # A measure that is never negative (or never positive) stops at zero.
-        low_pad = 0.0 if zero and lo == 0.0 else pad
-        high_pad = 0.0 if zero and hi == 0.0 else pad
+        low_pad = 0.0 if clamp_zero and lo >= 0.0 else pad
+        high_pad = 0.0 if clamp_zero and hi <= 0.0 else pad
+        if clamp_zero:
+            lo, hi = min(lo, 0.0), max(hi, 0.0)
         self.ticks = nice_ticks(lo - low_pad, hi + high_pad)
         self.y0, self.y1 = self.ticks[0], self.ticks[-1]
         self.left, self.right = PAD["left"], WIDTH - PAD["right"]
@@ -101,7 +113,7 @@ class Frame:
         short ones (the research history spans weeks)."""
         span = self.x1 - self.x0
         start, end = math.ceil(self.x0), math.floor(self.x1)
-        if span < 75:
+        if span < 75 and self.timestamped:
             step = max(1, math.ceil(span / 8))
             days = range(start, end + 1, step)
             return [
@@ -443,7 +455,9 @@ def _y_title(frame, title):
     )
 
 
-def lines_over_time(series, *, label: str, y_title: str, y_format) -> Markup:
+def lines_over_time(
+    series, *, label: str, y_title: str, y_format, clamp_zero=False
+) -> Markup:
     """Up to four series over time, one categorical colour each (fixed order,
     slots s1-s4), with a legend; `step` series hold their value until the
     next point (a running best). series: [{"name", "points": [(iso time,
@@ -453,7 +467,7 @@ def lines_over_time(series, *, label: str, y_title: str, y_format) -> Markup:
         return Markup("")
     periods = [p[0] for s in series for p in s["points"]]
     values = [p[1] for s in series for p in s["points"]]
-    frame = Frame(periods, values, zero=True)
+    frame = Frame(periods, values, zero=True, clamp_zero=clamp_zero)
     frame.top = max(frame.top, 20)
     parts = _axes(frame, y_format)
     parts.append(_y_title(frame, y_title))
@@ -491,12 +505,19 @@ def lines_over_time(series, *, label: str, y_title: str, y_format) -> Markup:
     return _figure("points", _svg(parts, label, frame), hover, legend)
 
 
-def dated_points(points, *, label: str, y_title: str, y_format) -> Markup:
+def dated_points(
+    points, *, label: str, y_title: str, y_format, clamp_zero=False
+) -> Markup:
     """One dot per item over time. points: [{"at", "y", "kind" (a FIT_KINDS
     key), "title", "rows", "href"}]."""
     if not points:
         return Markup("")
-    frame = Frame([p["at"] for p in points], [p["y"] for p in points], zero=True)
+    frame = Frame(
+        [p["at"] for p in points],
+        [p["y"] for p in points],
+        zero=True,
+        clamp_zero=clamp_zero,
+    )
     frame.top = max(frame.top, 20)
     parts = _axes(frame, y_format)
     parts.append(_y_title(frame, y_title))

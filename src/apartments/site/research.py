@@ -203,6 +203,9 @@ LINES = {
     "numpyro": "NumPyro NUTS",
     "pymc": "PyMC",
 }
+# The first direction of each board sort: most accurate, fastest, simplest,
+# newest first.
+BOARD_ORDERS = {"delta": "desc", "time": "asc", "complexity": "asc", "landed": "desc"}
 BOARD_SORTS = {
     "delta": lambda e: (e.get("psis") or {}).get("delta"),
     "time": lambda e: e.get("fit_seconds"),
@@ -238,7 +241,7 @@ def board_rows(
         and (
             not q or q in e["key"].lower() or q in (e.get("design_text") or "").lower()
         )
-        and (not servable or not e.get("why_not_served"))
+        and (not servable or serve_status(e)[0] == "yes")
         and (subsets or not is_subset(run_of(e)))
     ]
     value = BOARD_SORTS.get(sort, BOARD_SORTS["delta"])
