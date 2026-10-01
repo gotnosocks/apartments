@@ -15,14 +15,28 @@
 <header class="top">
   <div class="wrap top-inner">
     <a class="brand" href="{{ url_for('index') }}">{{ scope }} rents</a>
-    <nav aria-label="Main">
-      {% set here = request.endpoint %}
-      <a href="{{ url_for('listings') }}"{% if here in ('listings', 'listing', 'unit') and request.args.get('status') != 'current' %} aria-current="page"{% endif %}>Listings</a>
-      <a href="{{ url_for('listings', status='current', sort='diff_pct') }}"{% if here == 'listings' and request.args.get('status') == 'current' %} aria-current="page"{% endif %}>Available now</a>
-      <a href="{{ url_for('buildings') }}"{% if here in ('buildings', 'building') %} aria-current="page"{% endif %}>Buildings</a>
-      <a href="{{ url_for('model_page') }}"{% if here == 'model_page' %} aria-current="page"{% endif %}>About the estimates</a>
+    <nav aria-label="Sections" class="sections">
+      <a href="{{ url_for('estimates') }}"{% if section == "estimates" %} aria-current="true"{% endif %}>Estimates</a>
+      <a href="{{ url_for('research_frontier') }}"{% if section == "research" %} aria-current="true"{% endif %}>Research</a>
     </nav>
   </div>
+  {% set here = request.endpoint %}
+  {% if section == "estimates" %}
+  <div class="subnav"><nav class="wrap" aria-label="Estimates">
+    <a href="{{ url_for('estimates') }}"{% if here == "estimates" %} aria-current="page"{% endif %}>Overview</a>
+    <a href="{{ url_for('listings') }}"{% if here in ("listings", "listing", "unit") and request.args.get("status") != "current" %} aria-current="page"{% endif %}>Listings</a>
+    <a href="{{ url_for('listings', status='current', sort='diff_pct') }}"{% if here == "listings" and request.args.get("status") == "current" %} aria-current="page"{% endif %}>Available now</a>
+    <a href="{{ url_for('buildings') }}"{% if here in ("buildings", "building") %} aria-current="page"{% endif %}>Buildings</a>
+    <a href="{{ url_for('quarantined') }}"{% if here == "quarantined" %} aria-current="page"{% endif %}>Left out</a>
+    <a href="{{ url_for('about') }}"{% if here == "about" %} aria-current="page"{% endif %}>How estimates work</a>
+  </nav></div>
+  {% elif section == "research" %}
+  <div class="subnav"><nav class="wrap" aria-label="Research">
+    <a href="{{ url_for('research_frontier') }}"{% if here == "research_frontier" %} aria-current="page"{% endif %}>Frontier</a>
+    <a href="{{ url_for('research_model') }}"{% if here == "research_model" %} aria-current="page"{% endif %}>Served model</a>
+    <a href="//{{ host_name }}:8500/">Board and history ↗</a>
+  </nav></div>
+  {% endif %}
 </header>
 <main id="main" class="wrap">
 {% block content %}{% endblock %}
@@ -31,7 +45,7 @@
   {% if meta %}
   {% set p = meta.provenance %}
   <p>{{ "{:,}".format(meta.stats.listings) }} listings, {{ month(meta.stats.first_period) }} to {{ month(meta.stats.last_period) }}.
-  Estimates from <a href="{{ url_for('model_page') }}">{{ p.model.name }} + {{ p.feature_set }}</a>, fit {{ p.fit_started_at[:10] if p.fit_started_at else "" }}.
+  Estimates from <a href="{{ url_for('research_model') }}">{{ p.model.name }} + {{ p.feature_set }}</a>, fit {{ p.fit_started_at[:10] if p.fit_started_at else "" }}.
   Model outputs, not appraisals: they describe asking rents, not what a unit would lease for.</p>
   {% endif %}
 </footer>

@@ -87,6 +87,20 @@ h2 { font-size: 1.1rem; margin: 0 0 0.6rem; }
 .top nav a { color: var(--ink-2); text-decoration: none; padding: 0.15rem 0; border-bottom: 2px solid transparent; }
 .top nav a:hover { color: var(--ink); }
 .top nav a[aria-current="page"] { color: var(--ink); border-bottom-color: var(--accent); }
+.top .sections a { font-weight: 600; }
+.top .sections a[aria-current="true"] { color: var(--ink); border-bottom-color: var(--accent); }
+.subnav { border-top: 1px solid var(--border); background: var(--page); }
+.subnav nav { display: flex; flex-wrap: wrap; gap: 0.25rem 1.1rem; padding-top: 0.45rem; padding-bottom: 0.45rem; font-size: 0.92rem; }
+.subnav a { color: var(--ink-2); text-decoration: none; padding: 0.1rem 0; border-bottom: 2px solid transparent; }
+.subnav a:hover { color: var(--ink); }
+.subnav a[aria-current="page"] { color: var(--ink); border-bottom-color: var(--accent); }
+.section-card h2 a { color: var(--ink); text-decoration: none; }
+.section-card h2 a:hover { text-decoration: underline; }
+.link-list { margin: 0.6rem 0 0; padding-left: 1.1rem; }
+.link-list li { margin: 0.2rem 0; }
+.tiles.compact { margin: 0.6rem 0; grid-template-columns: repeat(auto-fit, minmax(7rem, 1fr)); }
+.tiles.compact .tile-value { font-size: 1.25rem; }
+h3 { font-size: 1rem; margin: 1rem 0 0.4rem; }
 .foot { color: var(--muted); font-size: 0.85rem; padding-top: 1.5rem; padding-bottom: 2rem; }
 
 /* Page blocks */
@@ -197,6 +211,22 @@ details.table-view summary { cursor: pointer; color: var(--link); font-size: 0.9
 .chart .whisker.s1 { stroke: var(--s1); stroke-width: 1.5; stroke-opacity: 0.55; stroke-linecap: round; }
 .chart .tick-mark.s1 { stroke: var(--s1); stroke-width: 2.5; stroke-linecap: round; }
 .chart .crosshair { stroke: var(--ink-2); stroke-width: 1; }
+.chart .axis-title { fill: var(--ink-2); font-size: 12px; }
+.chart .ref { stroke: var(--warn); stroke-width: 1.5; }
+.chart .ref-label { fill: var(--ink-2); font-size: 11px; }
+.chart .fit { stroke: var(--surface); stroke-width: 2; }
+.chart .fit.served { fill: var(--s2); }
+.chart .fit.frontier { fill: var(--s1); }
+.chart .fit.other { fill: var(--muted); fill-opacity: 0.55; }
+.chart .fit.failing { fill: none; stroke: var(--muted); stroke-width: 1.5; }
+.chart .fit.subset { fill: none; stroke: var(--s1); stroke-width: 1.5; stroke-opacity: 0.7; }
+.key-fit { display: inline-block; width: 10px; height: 10px; border-radius: 50%; }
+.key-fit.served { background: var(--s2); }
+.key-fit.frontier { background: var(--s1); }
+.key-fit.other { background: var(--muted); opacity: 0.55; }
+.key-fit.failing { border: 1.5px solid var(--muted); }
+.key-fit.subset { border: 1.5px solid var(--s1); opacity: 0.7; }
+.empty-note { color: var(--muted); font-style: italic; }
 .chart .hover-ring { fill: none; stroke: var(--ink); stroke-width: 2; }
 .legend { display: flex; flex-wrap: wrap; gap: 0.3rem 1.2rem; font-size: 0.85rem; color: var(--ink-2); margin-bottom: 0.2rem; }
 .key { display: inline-flex; align-items: center; gap: 0.4rem; }

@@ -1,7 +1,8 @@
-# Research plan: the PSIS-LOO × fit-time frontier
+# Research plan: the PSIS-LOO × fit-time × simplicity frontier
 
 Living plan for the modeling work. Ben set its objective on 2026-09-24: optimize the Pareto frontier of
-PSIS-LOO accuracy and fit time. The [board](model/leaderboard/leaderboard.md) and the
+PSIS-LOO accuracy and fit time. On 2026-10-01 he added simplicity as a third axis and made Chelsea plus
+West Village the target (see "Objective"). The [board](model/leaderboard/leaderboard.md) and the
 [dashboard](dashboard.md) (http://thelio.tail3983e0.ts.net:8500) apply the rules below. The goals, data
 contract and pitfalls in [the 2026-09-24 brief](brief-2026-09-24.md) and the
 [project intent](project-intent.md) still apply. This plan replaces the brief's evaluation contract
@@ -9,7 +10,29 @@ contract and pitfalls in [the 2026-09-24 brief](brief-2026-09-24.md) and the
 
 ## Objective
 
-Push the frontier of **PSIS-LOO ΔELPD** against **fit time on thelio**. That means more accurate
+**From 2026-10-01 (Ben).** "All the research goals from the chelsea effort stand, I'm interested in the
+Pareto frontier of fit quality, fit time, and model elegance/simplicity". He confirmed the details when
+asked:
+
+- **Three axes:** PSIS-LOO ΔELPD (fit quality), fit time on the RTX 2060, and simplicity.
+- **The target is the full dataset:** Chelsea plus West Village, one fit within the **30-minute window**
+  on the RTX 2060. The hard stop stays at 35 minutes. Fits on a subset of buildings (tuning rules
+  such as `tune-b35-v1`) are for exploration and never frontier points or served.
+- **Simplicity is judged.** "You should use your judgement to evaluate the simplicity and elegance of
+  each design." The judgement is written down in `rentfrontier.elegance` as a complexity score (lower
+  is simpler), so a review can check it and every fit is rated the same way. See "The simplicity
+  axis".
+- **Serving:** "serve the best fit and break ties with which model is simpler". The top PSIS-LOO and
+  the fits tied with it come first; among the tied fits the simplest wins, and fit time decides only
+  between equally simple fits. `autoselect` applies this automatically.
+- **One site:** the dashboard pages and the listings site become one coherent site with two sections.
+  The research section covers the frontier, runs, data quality and this plan. The estimates section
+  browses and visualizes the estimates for every listing and building.
+
+Until a combined fit is eligible, the served model stays the best Chelsea fit. When one is, the
+dataset (`data.DATASET`) switches to the combined cohort, and Chelsea-only fits stop being eligible.
+
+**The objective from 2026-09-24 to 2026-09-30.** Push the frontier of **PSIS-LOO ΔELPD** against **fit time on thelio**. That means more accurate
 descriptions of every listing for the same fit time, or the same accuracy sooner. Since 2026-09-30 the
 app's model is chosen by an automatic rule on these metrics (Ben: "You do not need my approval to
 change the dashboard model"; see "Automatic loop and selection"). Before that, product decisions
@@ -20,7 +43,7 @@ buildings. On 2026-09-30 he switched the app to the same design refit without th
 listings (`quarantine-v1`, a tie on shared rows), with the site saying which listings are
 quarantined and why (earlier on 2026-09-29 `m5-nocurves` +
 `unitdesc-v1`, and from 2026-09-26 the best NumPyro fit); it ships through the summary output to the
-[listings site](site.md). West Village is on hold.
+[listings site](site.md). West Village was on hold until its crawl finished on 2026-10-01.
 
 ## Interpretability and elegance (Ben, 2026-09-29)
 
@@ -73,6 +96,38 @@ that a typical apartment renter thinks about when choosing a place to rent."
 | Unit drift (m8) | This apartment's ask moving steadily over time on its own. |
 | Student-t unit levels (m5-nocurves-tunits, m7, m8) | A few apartments differ a lot from their building (a penthouse, an oddity) without pulling the others' estimates. |
 | Heavy-tailed residuals (Student-t) | Some asks are unusual for reasons the data don't show. |
+
+## The simplicity axis (from 2026-10-01)
+
+`rentfrontier.elegance.complexity` rates a design as the sum of two judged parts.
+
+- **Model structure,** from the run's recorded `ModelConfig`:
+  - 1 point each for the market trend, the building level and the unit level.
+  - 2 for each building's walk over time: a second clock beside the market's.
+  - 1 for the bedroom slope, and 1 per further building slope.
+  - 1 for Student-t unit levels.
+  - 2 for unit drift and for the bedroom-group market curves, since each overlaps another
+    time-varying term.
+  - Knot spacing, sum-to-zero centring and other parameterizations: 0, because they change how a
+    term is sampled, not what the model says.
+- **Features,** from the feature set:
+  - 3 for the listing attributes.
+  - 1 more each for what the ad says, one apartment keeping its facts across listings, the facing
+    streets, the loud-street-on-a-low-floor interaction, transit, noise and the neighbourhood.
+  - 2 for the bundle of building facts from MapPLUTO, and 2 for a smooth location surface.
+
+The points weigh how much a term asks a renter to understand, not its parameter count. An unrated
+structural option or feature set makes the design ineligible to be served until a reviewed change
+rates it. Some current designs:
+
+| Design | Structure | Features | Complexity |
+|---|---:|---:|---:|
+| m5-nocurves + unitdescpluto-v3 | 6 | 7 | 13 |
+| m5-nocurves-tunits + unitfacing-v5 | 7 | 9 | 16 |
+| m7-nocurves-2slopes + unitfacing-v5 | 9 | 9 | 18 |
+| m7-nocurves-bathfloor + nb-facing-v1 | 9 | 10 | 19 |
+| m7-nocurves-floorslope + unitfacing-v5 (served) | 10 | 9 | 19 |
+| m8-nocurves + desc-v1 | 12 | 4 | 16 |
 
 ## The score
 
@@ -132,16 +187,18 @@ You do not need my approval to change the dashboard model."
   chosen by a rule in code, `python -m rentfrontier.autoselect`, and no longer by hand.
 - **Eligible fits.** A fit must meet all of these:
   - it passes the gate, has named additive contributions, and has a paired PSIS-LOO score;
+  - its design has a simplicity rating (`rentfrontier.elegance`);
   - it ran on the RTX 2060 row split within the 30-minute window;
   - it used the current data rules, the latest version of each rule family. A fit on rows a
     later review found to be wrong is not served.
 - **The choice** follows the board's `choose_best` among the eligible fits. It differs only
   where the 10% time tie below changes the order:
   - Take the top PSIS-LOO, and the fits tied with it within two combined SE.
-  - Among those, take the fastest. Fit times within 10% count as equal, and then the higher
-    PSIS-LOO wins, so timing noise cannot decide.
+  - Among those, take the simplest (from 2026-10-01; before that, the fastest).
+  - Among equally simple fits, take the fastest. Fit times within 10% count as equal, and then
+    the higher PSIS-LOO wins, so timing noise cannot decide.
 - **Hysteresis.** An eligible incumbent stays unless it is beaten clearly: PSIS-LOO beyond the
-  tie tolerance, or tied and more than 10% faster. Fits ranked below an eligible incumbent are not tried.
+  tie tolerance, or tied and simpler, or tied, as simple and more than 10% faster. Fits ranked below an eligible incumbent are not tried.
 - **Held-out guard.** A challenger whose paired held-out score is more than 2 SE below the
   incumbent's is refused, and the next fit is tried. Challengers are tried in ranked order,
   and the first one that passes the guard and clearly beats an eligible incumbent is chosen.
@@ -163,10 +220,11 @@ You do not need my approval to change the dashboard model."
   runs' kept draws). No divergences under NUTS. Named additive dollar contributions are required.
 - **Eligible.** Passes the gate, is interpretable (every term in the glossary under
   "Interpretability and elegance"), and has a PSIS-LOO score.
-- **Best.** The top PSIS-LOO ΔELPD defines a tie band of two combined SE. The best is the fastest
-  entry inside that band.
-- **Frontier.** Eligible entries that no other eligible entry beats on both PSIS-LOO ΔELPD and fit
-  time.
+- **Best.** The top PSIS-LOO ΔELPD defines a tie band of two combined SE. The best is the simplest
+  entry inside that band, and the fastest among equally simple ones (the fastest before 2026-10-01).
+- **Frontier.** Eligible entries that no other eligible entry beats on PSIS-LOO ΔELPD, fit time and
+  complexity at once: at least as good on all three and better on one. An unrated design counts as
+  the least simple.
 - Screen-grade PyMC runs stay visible and are never best or on the frontier. PyMC screens that
   saved no draws have no PSIS-LOO score yet.
 

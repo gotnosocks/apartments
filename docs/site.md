@@ -1,16 +1,25 @@
-# Listings site
+# Rents site: estimates and research
 
 http://thelio.tail3983e0.ts.net:8600 (tailnet only).
 
-The site shows the scraped listings with the selected model's rent estimates. Every estimate is
-**leave-own-row-out**: it uses the building, the features, the market that month and the unit's
-other listings, never the listing's own ask. The gap between ask and estimate is therefore a fair
-signal of over- or under-pricing ([what an estimate is](model/listing-estimates.md)).
+One site in two sections, with shared navigation and style (Ben, 2026-10-01: "one site, two
+sections"). **Estimates** shows the scraped listings with the selected model's rent estimates.
+**Research** shows how candidate models are compared and which one is served. The research pages
+are moving here from the [research dashboard](dashboard.md) one at a time.
+
+The estimates use the building, the features, the market that month and the unit's
+other listings, never the listing's own ask (**leave-own-row-out**). The gap between ask and estimate
+is therefore a fair signal of over- or under-pricing ([what an estimate is](model/listing-estimates.md)).
 
 ## Pages
 
-- **Start page:** coverage figures, the listings available now (lowest ask against estimate first),
-  and the market reference rent over time.
+- **Home** (`/`): the served model with its place on the board, coverage, entry points to both
+  sections, and the latest merged changes and model switches.
+
+### Estimates
+
+- **Overview** (`/estimates`): coverage figures, the listings available now (lowest ask against
+  estimate first), and the market reference rent over time.
 - **Listings** (`/listings`), with filters in one row above the table:
   - building, address or unit label; bedrooms; ask range; years; status (all, available now, past);
     and the ask against the model (below typical, typical, above typical);
@@ -38,10 +47,36 @@ signal of over- or under-pricing ([what an estimate is](model/listing-estimates.
   shows the review's reason, the ad's own words or the MapPLUTO record behind it, and no estimate.
   A quarantined listing's URL opens a page that explains why. A building or unit with only
   quarantined listings redirects to its list. Quarantined listings are not in the listings search
-  or any estimate statistic; the start page counts them.
-- **About the estimates** (`/model`): what an estimate is and is not, calibration by estimate type,
-  the fit's provenance, convergence gate and PSIS-LOO score, the parts of an estimate, and every
-  feature coefficient.
+  or any estimate statistic; the home page and the Estimates overview count them.
+- **How estimates work** (`/about`): for renters. What an estimate is and is not, calibration by
+  estimate type, and why some listings are left out.
+
+### Research
+
+- **Frontier** (`/research`): every fit of one hardware class (default: the RTX 2060, the served
+  model's), with these parts:
+  - accuracy (PSIS-LOO ΔELPD) against fit time on the full dataset, with Ben's 30-minute target, and
+    against judged complexity (fits not rated yet are counted, not drawn);
+  - the frontier fits in a table, with whether each can be served and why not;
+  - every fit in a table view.
+
+  The marks are served, on the frontier, other, fails the convergence checks, and subset. Frontier
+  membership and the best come from the board's own snapshots, so "board as of" shows the
+  frontier as it stood at the end of any day with results. Subset fits (a `tune…` part in the run
+  name, for example `nb-tune35`) are exploration only. They are hidden unless asked for, and never
+  servable. Fits far below the rest (the mean-only baselines) are drawn at the chart's floor
+  unless "the full accuracy range" is ticked.
+- **Served model** (`/research/model`):
+  - why it is served: the selection's own reason, and the latest automatic decision when the research
+    data carries it (`autoselect`);
+  - its place on the board: PSIS-LOO ΔELPD, the held-out check, fit time, complexity, frontier and
+    gate;
+  - the fit's provenance, the parts of an estimate, and every feature coefficient.
+- **Board and history:** still on the research dashboard (:8500), linked from the navigation until
+  they move here.
+
+### Service pages
+
 - `/healthz` (JSON: status, build, run, listing count) and `/robots.txt` (disallow all).
 
 "Below typical" and "above typical" mean the ask is in the lowest or highest 10% of the model's
@@ -67,6 +102,12 @@ listings fall in each band, as calibration predicts.
    about 8 s with a 1.1 GB peak, and the database is about 130 MB.
 3. **Serve.** The app opens `current/site.sqlite` read-only (immutable) on each request, so a publish
    needs no restart.
+4. **Research data.** `rentfrontier.dashboard` (frontier environment, every 10 minutes under the
+   heavy-job lock) writes the board's `data.json`: entries, as-of snapshots, milestones and the
+   data-quality card. The site reads `/data1/apartments/dashboard/site/data.json` (`RESEARCH_DATA`
+   overrides it) and keeps the parsed copy until the file behind the symlink changes. Without it,
+   the research parts of a page are left out. When the publish comes from the repository's
+   selection, the build also stores the selection's reason (`selected_by`, `selection_reason`).
 
 Publishing on thelio takes the shared heavy-job lock like other heavy jobs:
 

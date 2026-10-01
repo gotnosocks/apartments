@@ -1,0 +1,72 @@
+{% extends "base.html" %}
+{% block title %}Estimates and research{% endblock %}
+{% block content %}
+{% set s = meta.stats %}
+{% set p = meta.provenance %}
+<section class="intro">
+  <h1>{{ meta.scope }} rents: estimates and research</h1>
+  <p class="lede">Every scraped {{ meta.scope }} rental listing, with what a statistical model expects it to ask, and the research
+  behind that model: how candidate models are compared, which one is served and why.</p>
+</section>
+
+<div class="columns">
+<section class="card section-card">
+  <h2><a href="{{ url_for('estimates') }}">Estimates</a></h2>
+  <p>Each listing's ask next to the model's estimate for that apartment, made without seeing the listing's own ask, so the
+  gap is a fair sign of over- or under-pricing.</p>
+  <div class="tiles compact" aria-label="Coverage">
+    <div class="tile"><span class="tile-label">Listings</span><span class="tile-value">{{ "{:,}".format(s.listings) }}</span></div>
+    <div class="tile"><span class="tile-label">Available now</span><span class="tile-value">{{ "{:,}".format(s.current_listings) }}</span></div>
+    <div class="tile"><span class="tile-label">Buildings</span><span class="tile-value">{{ "{:,}".format(s.buildings) }}</span></div>
+  </div>
+  <p class="note">{{ month(s.first_period) }} to {{ month(s.last_period) }}{% if counts.quarantined %}; {{ "{:,}".format(counts.quarantined) }} more listings are
+  <a href="{{ url_for('quarantined') }}">left out</a> because their own ads show they are not an open-market apartment lease{% endif %}.</p>
+  <ul class="link-list">
+    <li><a href="{{ url_for('listings', status='current', sort='diff_pct') }}">Available now, lowest ask against estimate first</a></li>
+    <li><a href="{{ url_for('listings') }}">Browse and filter every listing</a></li>
+    <li><a href="{{ url_for('buildings') }}">Buildings</a> · <a href="{{ url_for('about') }}">How estimates work</a></li>
+  </ul>
+</section>
+
+<section class="card section-card">
+  <h2><a href="{{ url_for('research_frontier') }}">Research</a></h2>
+  <p>Candidate models are fit to the same listings and compared on how well they predict asks they have not seen, how long
+  they take to fit, and how simple they are to understand. The best one is served automatically.</p>
+  <dl class="facts">
+    <dt>Served model</dt><dd><code>{{ p.model.name }}</code> + <code>{{ p.feature_set }}</code></dd>
+    {% if entry and entry.psis %}
+    <dt>Accuracy</dt><dd>{{ "{:+,.0f}".format(entry.psis.delta) }} ± {{ "{:,.0f}".format(entry.psis.delta_se) }} over the simplest baseline
+      <span class="muted">(PSIS-LOO ΔELPD: higher predicts unseen asks better)</span></dd>
+    {% endif %}
+    <dt>Fit time</dt><dd>{{ (p.fit_seconds / 60) | round(1) }} minutes on {{ p.fit_hardware }}</dd>
+    {% if selection and selection.selected_by %}<dt>Chosen by</dt><dd>{{ selection.selected_by }}</dd>{% endif %}
+  </dl>
+  <ul class="link-list">
+    <li><a href="{{ url_for('research_frontier') }}">The frontier: accuracy, fit time and simplicity of every fit</a></li>
+    <li><a href="{{ url_for('research_model') }}">The served model and why it was chosen</a></li>
+    <li><a href="//{{ host_name }}:8500/">The board of every fit, and the history ↗</a>
+      <span class="muted">(moving into this site)</span></li>
+  </ul>
+</section>
+</div>
+
+{% if milestones %}
+<section class="card">
+  <h2>Latest changes</h2>
+  <p class="note">Merged changes to the code and data, and switches of the served model{% if research_at %}; research data as of
+  {{ research_at[:16] | replace("T", " ") }} UTC{% endif %}.</p>
+  <div class="table-wrap">
+  <table class="data">
+    <thead><tr><th scope="col">When</th><th scope="col">What</th><th scope="col">Change</th></tr></thead>
+    <tbody>
+    {% for ms in milestones %}
+      <tr><td class="nowrap">{{ ms.at[:10] }}</td>
+        <td class="nowrap">{% if ms.kind == "selection" %}Model switch{% elif ms.kind == "pr" %}PR #{{ ms.pr }}{% else %}{{ ms.kind | capitalize }}{% endif %}</td>
+        <td>{{ ms.title }}</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  </div>
+</section>
+{% endif %}
+{% endblock %}

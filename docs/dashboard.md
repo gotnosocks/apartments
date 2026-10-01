@@ -74,6 +74,11 @@ rents stratified by number of bedrooms"), for the app's selected model.
   writes `data.json` next to a copy of the static page in `dashboard/` (plain HTML, CSS and JS,
   no dependencies). Each build goes to `/data1/apartments/dashboard/builds/<stamp>/`; the `site`
   symlink is swapped atomically.
+- `data.json` also feeds the research pages of the [rents site](site.md). Each entry carries the
+  board's judged `complexity` (`rentfrontier.elegance`; null when unrated) and `why_not_served`,
+  autoselect's plain reason the fit cannot be served (null when it can). The top-level `autoselect`
+  is autoselect's decision on the current board against the served run: keep or switch, the reason,
+  the eligible fits and every fit checked. An error note replaces the decision if a pairing fails.
 - Units in `ops/systemd/` (installed to `~/.config/systemd/user/`):
   - `apartments-dashboard.service`: `python3 -m http.server` on the tailscale IP, port 8500,
     MemoryMax 128M;

@@ -470,10 +470,129 @@ def site_root(tmp_path, bundle):
     return root
 
 
+def research_data():
+    """The dashboard build's data.json, in the shape of rentfrontier.dashboard's."""
+    served = {
+        "id": "m-test/unitdesc-v1/nuts@aaaaaaa",
+        "key": "m-test/unitdesc-v1/nuts@aaaaaaa [m-test-run]",
+        "design": "m-test",
+        "feature_set": "unitdesc-v1",
+        "hardware_class": "thelio RTX 2060 SUPER",
+        "fit_seconds": 745.0,
+        "other_cores": 0.2,
+        "grade": "full",
+        "passes_checks": True,
+        "frontier": True,
+        "current_best": True,
+        "psis": {
+            "delta": 5221.3,
+            "delta_se": 120.4,
+            "validation": {"heldout_rows": 5264},
+        },
+        "splits": {"rows": {"run": "m-test-run", "delta": -12.5, "delta_se": 30.1}},
+    }
+    served["available_at"] = "2026-09-30T08:00:00+00:00"
+    served["key"] = served["id"]
+    other = dict(
+        served,
+        id="m-other",
+        key="m-other",
+        frontier=False,
+        current_best=False,
+        psis={"delta": 4100.0, "delta_se": 110.0},
+        fit_seconds=600.0,
+        complexity=12,
+        why_not_served="it was fit with no data rules, not the current quarantine-v2",
+        available_at="2026-09-25T08:00:00+00:00",
+        splits={"rows": {"run": "m-other-run"}},
+    )
+    failing = dict(
+        other,
+        id="m-failing",
+        key="m-failing",
+        passes_checks=False,
+        psis={"delta": 5000.0, "delta_se": 100.0},
+        why_not_served="it fails the convergence gate",
+        splits={"rows": {"run": "m-failing-run"}},
+    )
+    baseline = dict(
+        other,
+        id="L0-mean",
+        key="L0-mean",
+        psis={"delta": -72000.0, "delta_se": 250.0},
+        fit_seconds=30.0,
+        splits={"rows": {"run": "L0-run"}},
+    )
+    subset = dict(
+        other,
+        id="m-subset",
+        key="m-subset",
+        psis=None,
+        splits={"rows": {"run": "m-test-nb-facing-v1-rows-abc-gibbs-2060-nb-tune35"}},
+    )
+    cpu = dict(other, id="m-cpu", key="m-cpu", hardware_class="thelio CPU")
+    entries = [other, served, failing, baseline, subset, cpu]
+    for e in entries:
+        e.setdefault("complexity", None)
+    gpu = "thelio RTX 2060 SUPER"
+    return {
+        "snapshots": [
+            {
+                "at": "2026-09-25T08:00:00+00:00",
+                "by_class": {
+                    gpu: {"best": "m-other", "frontier": ["m-other", "L0-mean"]}
+                },
+            },
+            {
+                "at": "2026-09-30T08:00:00+00:00",
+                "by_class": {
+                    gpu: {"best": served["key"], "frontier": [served["key"], "L0-mean"]}
+                },
+            },
+        ],
+        "generated_at": "2026-10-01T11:33:00+00:00",
+        "gate": {"rhat": 1.01, "ess": 400, "all_effects_rhat": 1.05},
+        "baseline": "m0-base/base-v1/gibbs@5cc0809",
+        "entries": entries,
+        "milestones": [
+            {
+                "kind": "pr",
+                "at": "2026-09-30T10:00:00+00:00",
+                "pr": 90,
+                "title": "Older change",
+            },
+            {
+                "kind": "selection",
+                "at": "2026-10-01T02:00:00+00:00",
+                "model": "m-test",
+                "title": "Serve m-test",
+            },
+            {
+                "kind": "pr",
+                "at": "2026-10-01T07:24:28+00:00",
+                "pr": 97,
+                "title": "Newest <b>change</b>",
+            },
+        ],
+    }
+
+
 @pytest.fixture
-def client(site_root):
+def research_file(tmp_path):
+    path = tmp_path / "dashboard" / "data.json"
+    path.parent.mkdir()
+    path.write_text(json.dumps(research_data()))
+    return path
+
+
+@pytest.fixture
+def client(site_root, research_file):
     from apartments.site.web import create_app
 
-    app = create_app(site_root, allowed_hosts=["thelio.example.ts.net"])
+    app = create_app(
+        site_root,
+        allowed_hosts=["thelio.example.ts.net"],
+        research_data=research_file,
+    )
     app.config["TESTING"] = True
     return app.test_client()
