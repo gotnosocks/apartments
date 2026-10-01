@@ -132,3 +132,15 @@ def test_dropped_rows_are_the_union_of_every_rule_file(tmp_path, monkeypatch):
     b.write_text('{"audit_id": "y"}\n{"audit_id": "x"}\n')
     monkeypatch.setattr(data, "RULE_SOURCES", {"quarantine-v1": a, "quarantine-v2": b})
     assert data.dropped_rows() == {"x", "y"}
+
+
+def test_tuning_subset_is_a_stable_share_of_buildings():
+    import numpy as np
+
+    buildings = [f"b{i}" for i in range(4000)]
+    keep = np.array([data.in_tuning_subset(b) for b in buildings])
+    assert 0.32 < keep.mean() < 0.38
+    assert data.in_tuning_subset("b7") == data.in_tuning_subset("b7")
+    frame = pd.DataFrame({"building": buildings, "x": range(4000)})
+    out, held = data.apply_rules(frame, np.zeros(4000, bool), ("tune-b35-v1",))
+    assert len(out) == keep.sum() and not held.any()

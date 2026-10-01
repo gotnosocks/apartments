@@ -60,6 +60,8 @@ def current_rules(rules=None) -> frozenset:
     "quarantine-v1")."""
     latest = {}
     for name in rules if rules is not None else data.DATA_RULES:
+        if name.startswith(data.TUNING_PREFIX):
+            continue  # tuning subsets are never part of the served rules
         m = re.fullmatch(r"(.+)-v(\d+)", name)
         family, version = (m.group(1), int(m.group(2))) if m else (name, 0)
         if family not in latest or version > latest[family][0]:
@@ -90,6 +92,12 @@ def why_not(e, rules) -> str | None:
         return f"it did not run on the {TARGET_HARDWARE} row split"
     if e["fit_seconds"] > WINDOW_SECONDS:
         return "its fit took longer than the window"
+    tuning = sorted(r for r in _rules(e) if r.startswith(data.TUNING_PREFIX))
+    if tuning:
+        return f"it is a tuning fit on a subset ({', '.join(tuning)})"
+    dataset = _record(e).get("dataset")
+    if dataset is not None and Path(dataset).resolve() != Path(data.DATASET).resolve():
+        return f"it was fit on {Path(dataset).name}, not the current {Path(data.DATASET).name}"
     if _rules(e) != rules:
         used = " + ".join(sorted(_rules(e))) or "no data rules"
         return f"it was fit with {used}, not the current {' + '.join(sorted(rules))}"
