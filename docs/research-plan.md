@@ -66,7 +66,7 @@ that a typical apartment renter thinks about when choosing a place to rent."
 | Building level | This building's premium beyond its apartments' features: its location, quality and management. |
 | Building trend or walk | How that premium has moved over time, for example a renovation or a changing block: steadily (the trend) or along a path that can change direction at each knot, joined by straight lines (the walk). Sum-to-zero walks make it relative to the market, so "the market" and "this building" never overlap. |
 | Bedroom slope (m5) | In some buildings the larger apartments carry an extra premium or discount. |
-| Size and bathroom slopes (m6–m8) | In some buildings extra space or an extra bathroom is worth more or less than usual. |
+| Size, bathroom and floor slopes (m6–m8, m7-nocurves-2slopes, -floorslope) | In some buildings extra space or an extra bathroom is worth more or less than usual. |
 | Bedroom-group market curves (m2, m4, m5–m8; not the nocurves designs) | Studios, 2- and 3+-bedroom apartments can follow their own market path over time. |
 | Line (column) effects | Apartments stacked in the same column share a layout and exposure. |
 | Unit level | This apartment's own premium beyond its listed features: layout, light, condition. |
@@ -1350,6 +1350,21 @@ comes from other sources, most of them public NYC and NYS data.
     building pages.
   - Known limitation (PR #84 review): the construction pattern misses the descriptor
     "Jackhammer" (23 complaints). It is left as fit, since a fix would change the set's rows.
+
+- **A per-building floor slope** (`m7-nocurves-floorslope`; loop experiment, 2026-09-30). This
+  is `m7-nocurves-2slopes` plus a per-building slope on the log floor: in some buildings a high
+  floor is worth much more than usual (views, light).
+  - **First fit** (a8ef50d, 2 × (300 + 3600)): 1,563 s, PSIS-LOO about +180 over two slopes,
+    but it **fails** the gate on the floor slope's scale (R-hat 1.017, ESS 235).
+  - **With exact solo collapsed updates** on both slope scales (`--solo-scales
+    walk_scale,fslope_scale_1,fslope_scale_2`) and 2 × (300 + 3000): it **passes**. The fit
+    takes 1,765 s, inside the 30-minute window, with about 1.8 other cores busy. R-hat 1.0066,
+    ESS 487 (`fslope_scale[1]`), every-element R-hat 1.010. A solo update on the floor scale
+    alone, at 3,000 draws, left the second-bath scale at ESS 338.
+  - Against `m7-nocurves-2slopes` (8502559, the served fit): **PSIS-LOO +191.9 ± 24.9**,
+    held-out +4.6 ± 5.5. By `rentfrontier.autoselect` it clearly beats the served fit, and it
+    becomes the served model once merged.
+  - Rows over the Pareto-k threshold: 479 against 395, partly from the fewer draws.
 
 ## Work tracks, in order
 
