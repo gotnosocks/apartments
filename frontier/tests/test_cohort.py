@@ -90,7 +90,7 @@ def test_combine_adds_the_neighbourhood_and_refuses_overlap(tmp_path):
         "unit_id": u,
         "source_listing_id": s,
         "building": b,
-    }  # noqa: E731
+    }
     a = part("a", [row("1", "u1", "10", "b1")])
     b = part("b", [row("2", "u2", "20", "b2")])
     out = cohort.combine(tmp_path / "ab", {"Chelsea": a, "West Village": b})
