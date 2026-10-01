@@ -146,6 +146,8 @@ class Filters:
 
     def __init__(self, args):
         self.q = (args.get("q") or "").strip()[:80]
+        # Checked against the build's neighbourhoods by the route.
+        self.nb = (args.get("nb") or "").strip()[:60] or None
         self.beds = [b for b in args.getlist("beds") if b in BEDROOMS]
         self.min_ask = _number(args.get("min_ask"))
         self.max_ask = _number(args.get("max_ask"))
@@ -168,6 +170,9 @@ class Filters:
         if self.building:
             clauses.append("l.building_id = ?")
             params.append(self.building)
+        if self.nb:
+            clauses.append("l.neighbourhood = ?")
+            params.append(self.nb)
         if self.q:
             clauses.append(
                 "(b.search LIKE ? ESCAPE '\\' OR l.unit_label LIKE ? ESCAPE '\\')"
@@ -213,6 +218,7 @@ class Filters:
         """Query-string items for a link with some filters changed."""
         items = {
             "q": self.q or None,
+            "nb": self.nb,
             "beds": self.beds or None,
             "min_ask": _fmt_number(self.min_ask),
             "max_ask": _fmt_number(self.max_ask),
@@ -231,6 +237,7 @@ class Filters:
     def active(self) -> bool:
         return bool(
             self.q
+            or self.nb
             or self.beds
             or self.min_ask is not None
             or self.max_ask is not None
@@ -495,7 +502,12 @@ def create_app(
             )
 
         host = urlsplit("//" + request.host).hostname or "localhost"
+        try:
+            nbs = neighbourhoods() if getattr(g, "db", None) is not None else {}
+        except sqlite3.Error:
+            nbs = {}
         return {
+            "neighbourhoods": nbs,
             "host_name": f"[{host}]" if ":" in host else host,
             "section": section_of(request.endpoint),
             "sort_url": sort_url,
@@ -594,7 +606,7 @@ def create_app(
 
     @app.get("/listings")
     def listings():
-        filters = Filters(request.args)
+        filters = checked(Filters(request.args))
         rows, total, pages = listings_query(filters)
         return render_template(
             "listings.html",
@@ -610,7 +622,7 @@ def create_app(
 
     @app.get("/listings.csv")
     def listings_csv():
-        filters = Filters(request.args)
+        filters = checked(Filters(request.args))
         where, params = filters.where()
         cursor = db().execute(
             "SELECT "
@@ -725,6 +737,16 @@ def create_app(
             .fetchone()
             is not None
         )
+
+    def neighbourhoods() -> dict:
+        """The build's neighbourhoods and their listing counts ({} for builds
+        from before neighbourhoods)."""
+        return meta().get("stats", {}).get("neighbourhoods") or {}
+
+    def checked(filters: Filters) -> Filters:
+        if filters.nb not in neighbourhoods():
+            filters.nb = None
+        return filters
 
     def has_quarantine() -> bool:
         """Builds before schema 2 have no quarantined table."""
@@ -845,10 +867,16 @@ def create_app(
         order = request.args.get("order")
         order = order if order in ("asc", "desc") else default
         page = max(1, _int(request.args.get("page"), 1))
-        where, params = "", []
+        nb = request.args.get("nb")
+        nb = nb if nb in neighbourhoods() else None
+        clauses, params = [], []
         if q:
-            where = " WHERE b.search LIKE ? ESCAPE '\\'"
-            params = ["%" + _escape_like(q.lower()) + "%"]
+            clauses.append("b.search LIKE ? ESCAPE '\\'")
+            params.append("%" + _escape_like(q.lower()) + "%")
+        if nb:
+            clauses.append("b.neighbourhood = ?")
+            params.append(nb)
+        where = (" WHERE " + " AND ".join(clauses)) if clauses else ""
         total = (
             db()
             .execute("SELECT COUNT(*) FROM buildings b" + where, params)
@@ -871,6 +899,7 @@ def create_app(
         def link(**changes):
             args = {
                 "q": q or None,
+                "nb": nb,
                 "sort": None if sort == "name" else sort,
                 "order": None if order == default else order,
                 "page": None if page == 1 else page,
@@ -881,6 +910,7 @@ def create_app(
 
         return render_template(
             "buildings.html",
+            nb=nb,
             meta=meta(),
             rows=rows,
             q=q,
@@ -910,7 +940,7 @@ def create_app(
             .fetchall()
         )
         units = sorted(units, key=lambda u: _natural(u["label"] or ""))
-        filters = Filters(request.args)
+        filters = checked(Filters(request.args))
         filters.building = building_id
         rows, total, pages = listings_query(filters)
         points = (

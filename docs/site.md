@@ -58,6 +58,12 @@ is therefore a fair signal of over- or under-pricing ([what an estimate is](mode
 - **How estimates work** (`/about`): for renters. What an estimate is and is not, calibration by
   estimate type, and why some listings are left out.
 
+Neighbourhoods: every listing and building carries one (the summary's `neighbourhood` per row,
+else the dataset's, else the build's `--scope`). The listings and buildings pages show a
+neighbourhood filter, and tables and building pages name the neighbourhood, only when a build covers
+more than one, so a Chelsea-only build looks as before. Older builds without the column are served
+without the filter.
+
 ### Research
 
 - **Frontier** (`/research`): every fit of one hardware class (default: the RTX 2060, the served

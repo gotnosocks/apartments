@@ -6,7 +6,7 @@
   <a href="{{ url_for('buildings') }}">Buildings</a> › <span aria-current="page">{{ b.name or b.address }}</span>
 </nav>
 <h1>{{ b.name or b.address }}</h1>
-<p class="subline">{% if b.name %}{{ b.address }} · {% endif %}{{ "{:,}".format(b.listings) }} listings of {{ "{:,}".format(b.units) }} units,
+<p class="subline">{% if neighbourhoods | length > 1 and b.neighbourhood %}{{ b.neighbourhood }} · {% endif %}{% if b.name %}{{ b.address }} · {% endif %}{{ "{:,}".format(b.listings) }} listings of {{ "{:,}".format(b.units) }} units,
 {{ month(b.first_period) }} to {{ month(b.last_period) }}{% if b.current_listings %} · <a href="{{ url_for('building', building_id=b.id, status='current') }}">{{ b.current_listings }} available now</a>{% endif %}</p>
 
 <section class="figures" aria-label="Building effects">
