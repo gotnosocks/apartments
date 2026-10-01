@@ -1326,6 +1326,25 @@ comes from other sources, most of them public NYC and NYS data.
     Building slopes carry 2.4% of the variance, against 1.5% for the bedroom slope alone.
   - The unit df is 2.19, and the residual ν rises to 2.44.
   - `rentfrontier.autoselect` should choose it.
+- **Noise around the building, as of each listing** (`unitnoise-v1`; loop experiment,
+  2026-09-30).
+  - **Source.** NYC 311 noise complaints, 2010 on, both datasets: 183,250 in the registry box
+    (snapshot `noise311/20260930-1549d7a`).
+  - **Terms.** Two groups of complaints within 100 m of the building in the year before the
+    listing's month: street and nightlife (Street/Sidewalk, Vehicle, Commercial, Park), and
+    construction (after-hours work, equipment, jackhammers). Each is measured in doublings
+    against Chelsea's average that month, since 311 use grew over the years. They vary a lot
+    within buildings over time (median within-building SD 0.7 and 0.9 doublings).
+  - **Result: null.** The fit is on the served design (`unitfacing-v5` + `quarantine-v2`),
+    3d3220b, 1,416 s, and passes. Against the served 66cf77f, PSIS-LOO is −2.2 ± 6.8 and
+    held-out +1.1 ± 0.7.
+    - A doubling of street and nightlife complaints is −0.1% (−0.2 to +0.0); of construction
+      complaints, +0.1% (−0.0 to +0.2).
+    - The building's level and half-year walk already carry what the complaints measure.
+  - Not selected. The source and code stay for later work: maps, and the listing site's
+    building pages.
+  - Known limitation (PR #84 review): the construction pattern misses the descriptor
+    "Jackhammer" (23 complaints). It is left as fit, since a fix would change the set's rows.
 
 ## Work tracks, in order
 
