@@ -402,7 +402,57 @@ def fetch_noise(box, page: int = 50_000):
     return table.reset_index(drop=True), queries, versions
 
 
+# Keys that identify one record when snapshots of overlapping areas are merged.
+MERGE_KEYS = {"pluto": ["bbl"], "footprints": ["bin"], "basemap": None}
+
+
+def merge(source: str, snapshots: list) -> tuple[pd.DataFrame, dict]:
+    """One snapshot from several of the same source (neighbourhoods' boxes):
+    concatenated, a record kept once (MERGE_KEYS; whole rows for the basemap).
+    MapPLUTO snapshots must share a version."""
+    parts = [pd.read_parquet(Path(d) / f"{source}.parquet") for d in snapshots]
+    if source == "pluto":
+        versions = {v for p in parts for v in p.version.dropna().unique()}
+        if len(versions) > 1:
+            raise SystemExit(f"MapPLUTO versions differ: {sorted(versions)}")
+    table = pd.concat(parts, ignore_index=True)
+    before = len(table)
+    table = table.drop_duplicates(MERGE_KEYS[source]).reset_index(drop=True)
+    details = {
+        "merged": [str(d) for d in snapshots],
+        "rows_in": [len(p) for p in parts],
+        "duplicates_dropped": before - len(table),
+    }
+    return table, details
+
+
 def main(argv=None):
+    import sys
+
+    argv = sys.argv[1:] if argv is None else argv
+    if argv and argv[0] == "merge":
+        # python -m rentfrontier.external merge <source> <snapshot dir> <snapshot dir> ...
+        source, snapshots = argv[1], argv[2:]
+        if git("status", "--porcelain"):
+            raise SystemExit("Refusing to run on a dirty working tree")
+        commit = git("rev-parse", "HEAD")
+        started = dt.datetime.now(dt.UTC)
+        table, details = merge(source, snapshots)
+        out_dir = EXTERNAL_ROOT / source / f"{started:%Y%m%d}-{commit[:7]}"
+        out_dir.mkdir(parents=True, exist_ok=False)
+        path = out_dir / f"{source}.parquet"
+        table.to_parquet(path)
+        provenance = {
+            **details,
+            "retrieved_at": started.isoformat(),
+            "commit": commit,
+            "sha256": hashlib.sha256(path.read_bytes()).hexdigest(),
+        }
+        (out_dir / "provenance.json").write_text(json.dumps(provenance, indent=2))
+        print(
+            f"wrote {path}: {len(table)} rows, {details['duplicates_dropped']} duplicates dropped"
+        )
+        return
     parser = argparse.ArgumentParser(
         description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
     )
