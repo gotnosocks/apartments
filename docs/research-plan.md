@@ -1293,6 +1293,8 @@ comes from other sources, most of them public NYC and NYS data.
     - The building's level and half-year walk already carry what the complaints measure.
   - Not selected. The source and code stay for later work: maps, and the listing site's
     building pages.
+  - Known limitation (PR #84 review): the construction pattern misses the descriptor
+    "Jackhammer" (23 complaints). It is left as fit, since a fix would change the set's rows.
 
 ## Work tracks, in order
 

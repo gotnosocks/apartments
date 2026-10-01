@@ -378,14 +378,18 @@ def test_facing_sets_record_basemap_and_footprints(monkeypatch):
 
     fn = features.FEATURE_SETS["unitfacing-v3"]
     assert fn.func is features.facing_v3
-    on_v3 = {
-        n
-        for n, f in features.FEATURE_SETS.items()
-        if getattr(f, "func", f) in (features.facing_v3, features.facing_v4)
-    }
+
+    def on_facing(f):
+        """A facing set, or a set built on one (its base chain)."""
+        if getattr(f, "func", f) in (features.facing_v3, features.facing_v4):
+            return True
+        base = getattr(f, "keywords", {}).get("base")
+        return base is not None and on_facing(features.FEATURE_SETS[base])
+
+    on_v3 = {n for n, f in features.FEATURE_SETS.items() if on_facing(f)}
     assert on_v3 == features.FOOTPRINTS and on_v3 <= features.BASEMAP
     monkeypatch.setattr(run.data, "sha256", lambda path: "sha")
-    for name in ("unitfacing-v3", "unitfacing-v4", "unitfacing-v5"):
+    for name in ("unitfacing-v3", "unitfacing-v4", "unitfacing-v5", "unitnoise-v1"):
         assert {"basemap", "footprints"} <= run.feature_sources(name).keys()
 
 
