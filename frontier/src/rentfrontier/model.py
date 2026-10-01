@@ -1033,6 +1033,16 @@ MODELS = {
         bedroom_slope=True,
         trend_knot_months=3,
     ),
+    # m5-nocurves with Student-t unit effects (df estimated): a few apartments
+    # differ a lot from their building (a penthouse, an oddity) without pulling
+    # the others' estimates.
+    "m5-nocurves-tunits": ModelConfig(
+        name="m5-nocurves-tunits",
+        building_walk=True,
+        bedroom_slope=True,
+        trend_knot_months=3,
+        unit_t=True,
+    ),
     # m5-nocurves with a yearly or two-yearly building walk: fewer knots, so a
     # building's path over time rests on more listings per knot (half-year knots
     # leave 2-4% of rows alone at their knot, the high Pareto-k rows).
@@ -1213,6 +1223,17 @@ MODELS = {
         bedroom_slope=True,
         trend_knot_months=3,
         feature_slopes=("log_sqft_vs_bedroom_median", "bathrooms=2", "bathrooms=3"),
+        unit_t=True,
+    ),
+    # m7-nocurves without the per-building slope on a third bathroom: few
+    # buildings have 3-bath units, and that slope's scale was what kept m7 from
+    # the gate (ac9e02b: fslope_scale[2] ESS 194).
+    "m7-nocurves-2slopes": ModelConfig(
+        name="m7-nocurves-2slopes",
+        building_walk=True,
+        bedroom_slope=True,
+        trend_knot_months=3,
+        feature_slopes=("log_sqft_vs_bedroom_median", "bathrooms=2"),
         unit_t=True,
     ),
     "m8-nocurves": ModelConfig(
