@@ -66,7 +66,7 @@ that a typical apartment renter thinks about when choosing a place to rent."
 | Building level | This building's premium beyond its apartments' features: its location, quality and management. |
 | Building trend or walk | How that premium has moved over time, for example a renovation or a changing block: steadily (the trend) or along a path that can change direction at each knot, joined by straight lines (the walk). Sum-to-zero walks make it relative to the market, so "the market" and "this building" never overlap. |
 | Bedroom slope (m5) | In some buildings the larger apartments carry an extra premium or discount. |
-| Size, bathroom and floor slopes (m6–m8, m7-nocurves-2slopes, -floorslope) | In some buildings extra space, a second bathroom or a high floor is worth more or less than usual. |
+| Size, bathroom and floor slopes (m6–m8, m7-nocurves-2slopes, -floorslope) | In some buildings extra space, an extra bathroom or a high floor is worth more or less than usual. |
 | Bedroom-group market curves (m2, m4, m5–m8; not the nocurves designs) | Studios, 2- and 3+-bedroom apartments can follow their own market path over time. |
 | Line (column) effects | Apartments stacked in the same column share a layout and exposure. |
 | Unit level | This apartment's own premium beyond its listed features: layout, light, condition. |
@@ -1365,6 +1365,13 @@ comes from other sources, most of them public NYC and NYS data.
     held-out +4.6 ± 5.5. By `rentfrontier.autoselect` it clearly beats the served fit, and it
     becomes the served model once merged.
   - Rows over the Pareto-k threshold: 479 against 395, partly from the fewer draws.
+
+- **A per-unit drift on the served design** (`m8-nocurves-2slopes`; loop experiment,
+  2026-09-30). This is `m7-nocurves-2slopes` plus each unit's linear drift per year, with solo
+  updates on the walk, second-bath and drift scales, 2 × (300 + 3000), d96c99b. It **hit the
+  35-minute cap** and was stopped, so it is outside the window on the RTX 2060. m8's drift
+  scale also mixed slowly before (ac9e02b: R-hat 1.085). A drift only for units with enough
+  listings, which needs model and sampler support, is in the queue.
 
 ## Work tracks, in order
 
