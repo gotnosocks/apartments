@@ -46,6 +46,10 @@ class ModelConfig:
     # training month and folded into the trend effect (the ladder's L1).
     market_drift: bool = False
     market_drift_sd: float = 0.1
+    # The calendar season as K sine-cosine pairs over the month (season(m) =
+    # sum_k a_k sin(2 pi k m / 12) + b_k cos(2 pi k m / 12)), coefficient sd
+    # season_scale / k, instead of 12 month effects; 0 = month effects.
+    season_harmonics: int = 0
     beta_sd: float = 0.5
     trend_scale_sd: float = 0.05
     season_scale_sd: float = 0.05
@@ -188,6 +192,24 @@ class ModelConfig:
 
 KNOT_MONTHS = 6
 BEDROOM_GROUPS = ("studio", "one_bedroom", "two_bedroom", "three_plus")
+
+
+def season_basis(harmonics: int) -> np.ndarray:
+    """(12, 2K) the season's Fourier basis over calendar months 0..11: the
+    sine and cosine of each harmonic k = 1..K (each column sums to 0 over the
+    year for K < 6, so the season is centred)."""
+    m = np.arange(12)[:, None]
+    k = np.arange(1, harmonics + 1)[None, :]
+    angle = 2 * np.pi * k * m / 12
+    return np.concatenate([np.sin(angle), np.cos(angle)], axis=1)
+
+
+def season_shrink(harmonics: int) -> np.ndarray:
+    """(2K,) each coefficient's sd divisor: k, so higher harmonics shrink more."""
+    k = np.arange(1, harmonics + 1, dtype=float)
+    return np.concatenate([k, k])
+
+
 TIME_GROUPS = (
     0,
     2,
@@ -804,6 +826,13 @@ def build_model(prep: Prepared, config: ModelConfig):
                 "season_raw",
                 numpyro.sample("season", dist.ZeroSumNormal(p["season_scale"], (12,))),
             )
+        elif config.season and config.season_harmonics:
+            basis = jnp.asarray(season_basis(config.season_harmonics))
+            shrink = jnp.asarray(season_shrink(config.season_harmonics))
+            coef = numpyro.sample(
+                "season_fourier", dist.Normal(0.0, p["season_scale"] / shrink)
+            )
+            p["season_raw"] = numpyro.deterministic("season_raw", basis @ coef)
         elif config.season:
             p["season_raw"] = numpyro.sample(
                 "season_raw", dist.Normal(0.0, p["season_scale"]).expand([12])
@@ -1266,6 +1295,17 @@ MODELS = {
         trend_knot_months=3,
         feature_slopes=("bathrooms=2", "log_floor"),
         unit_t=True,
+    ),
+    # The leading design with a smooth two-harmonic calendar season (4
+    # coefficients) instead of 12 month effects.
+    "m7-nocurves-floorslope-fourier": ModelConfig(
+        name="m7-nocurves-floorslope-fourier",
+        building_walk=True,
+        bedroom_slope=True,
+        trend_knot_months=3,
+        feature_slopes=("log_sqft_vs_bedroom_median", "bathrooms=2", "log_floor"),
+        unit_t=True,
+        season_harmonics=2,
     ),
     "m8-nocurves": ModelConfig(
         name="m8-nocurves",
