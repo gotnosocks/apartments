@@ -289,7 +289,7 @@ ELEGANCE_CELLS = {
 
 def design_id(entry: dict) -> str:
     """ "model/feature set", the design the judges compare
-    (rentfrontier.simplicity.design_id)."""
+    (rentfrontier.elegance.design_id)."""
     if entry.get("design") and entry.get("feature_set"):
         return f"{entry['design']}/{entry['feature_set']}"
     return str(entry.get("id") or entry.get("key"))
