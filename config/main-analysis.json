@@ -1,32 +1,32 @@
 {
   "version": "main-analysis-selection-v2",
   "model_family": "frontier_summary",
-  "summary": "/data1/apartments/frontier/summaries/m7-nocurves-floorslope-unitfacing-v5-rows-bbf7530-gibbs-2060-3000solo2c-ul1q2-996e3bc",
-  "summary_manifest_sha256": "f1138161214db97d2184665e8ab133da8dc7521be7f88705ca0cd3fe725dce1b",
-  "summary_commit": "996e3bcb1326260a8e667ed0d461fc7c6928715e",
-  "run": "m7-nocurves-floorslope-unitfacing-v5-rows-bbf7530-gibbs-2060-3000solo2c-ul1q2",
+  "summary": "/data1/apartments/frontier/summaries/m7-nocurves-bathfloor-nb-facing-v1-rows-bbf7530-gibbs-2060-4500k9solo2c-nb-5fbddc7",
+  "summary_manifest_sha256": "925f469c5d3918da95a707b7b397a1730485eeaae8cf390e89a719e735abf0fc",
+  "summary_commit": "5fbddc74d2064c16b9ac36df8e3f7b069143c27f",
+  "run": "m7-nocurves-bathfloor-nb-facing-v1-rows-bbf7530-gibbs-2060-4500k9solo2c-nb",
   "run_commit": "bbf7530731c6c89674f87b9066986d13e8bac13f",
-  "model": "m7-nocurves-floorslope",
-  "feature_set": "unitfacing-v5",
+  "model": "m7-nocurves-bathfloor",
+  "feature_set": "nb-facing-v1",
   "data_rules": [
     "unit-labels-v1",
     "quarantine-v2"
   ],
-  "dataset": "data/model/chelsea-product-scope-analysis-20260921",
-  "source_observations_sha256": "8e29179bac059bf04b86c7b57acc65324e80fc209fb14793fbb1b9be47b2816f",
+  "dataset": "/data1/apartments/frontier/datasets/chelsea-west-village-analysis-20261001-eea4f66",
+  "source_observations_sha256": "c62c1e1500b20f3fc19f756ff08de4d9a175f4ab3ea2bb621157b2554fc37d10",
   "gate": {
     "passes": true,
-    "max_rhat": 1.0075176340870127,
-    "min_ess": 451.87920966077655,
+    "max_rhat": 1.0086739855783533,
+    "min_ess": 583.6363852929944,
     "divergences": null,
-    "group_rhat_max": 1.0348178099013599
+    "group_rhat_max": 1.016417640938078
   },
   "psis_loo": {
-    "elpd_loo": 54564.67964124384,
-    "elpd_loo_se": 234.75100712363755,
+    "elpd_loo": 87334.13497563136,
+    "elpd_loo_se": 308.82953374607604,
     "loo_commit": "bbf7530731c6c89674f87b9066986d13e8bac13f"
   },
   "selected_by": "rentfrontier.autoselect, 2026-10-02 (Ben, 2026-09-30: switch automatically by the agreed metrics)",
-  "selection_reason": "Chosen by the automatic rule because it ties the incumbent on PSIS-LOO, is judged as simple, and is more than 10% faster. Gibbs m7-nocurves-floorslope + unitfacing-v5 with unit-labels-v1 + quarantine-v2, 1,168 s on thelio RTX 2060 SUPER. Against the previous selection on the rows both keep: PSIS-LOO -6.1 \u00b1 9.4, held-out +2.0 \u00b1 0.9.",
-  "uncertainty": "Conditional posterior uncertainty; source errors, omitted features and incomplete market coverage remain separate. Estimates for a unit's only listing are under-covered (93.0% in the 95% predictive range)."
+  "selection_reason": "Chosen by the automatic rule because the incumbent cannot be served: it has no paired PSIS-LOO score. Gibbs m7-nocurves-bathfloor + nb-facing-v1 with unit-labels-v1 + quarantine-v2, 2,800 s on thelio RTX 2060 SUPER.",
+  "uncertainty": "Conditional posterior uncertainty; source errors, omitted features and incomplete market coverage remain separate. Estimates for a unit's only listing are under-covered (92.7% in the 95% predictive range)."
 }
