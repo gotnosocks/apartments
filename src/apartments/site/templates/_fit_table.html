@@ -4,6 +4,7 @@
     <th scope="col">Fit</th>
     <th scope="col" class="num">PSIS-LOO ΔELPD</th>
     <th scope="col" class="num">Fit time</th>
+    <th scope="col" class="num">Draws</th>
     <th scope="col">Elegance <span class="muted">(judged pairs)</span></th>
     <th scope="col">Checks</th>
     <th scope="col">Servable</th>
@@ -14,12 +15,13 @@
       <td><a href="{{ url_for('research_fit', key=f.entry.key) }}"><code>{{ f.entry.key }}</code></a>{% if f.kind == "served" %} <span class="tag">served</span>{% endif %}{% if f.best %} <span class="tag">best</span>{% endif %}{% if f.tier == "exploration" %} <span class="tag exploration">exploration</span>{% endif %}</td>
       <td class="num nowrap">{% if f.delta is not none %}{{ "{:+,.1f}".format(f.delta) }}{% if f.delta_se is not none %} <span class="muted">± {{ "{:,.1f}".format(f.delta_se) }}</span>{% endif %}{% else %}<span class="muted">not scored</span>{% endif %}</td>
       <td class="num nowrap">{{ "%.1f" | format(f.minutes) }} min</td>
+      <td class="num">{{ "{:,}".format(f.draws) if f.draws else "—" }}</td>
       <td>{{ f.elegance or "—" }}</td>
       <td>{{ "pass" if f.entry.passes_checks else "fail" }}</td>
       <td>{% if f.serve == "yes" %}yes{% elif f.serve == "no" %}no: {{ f.why_not }}{% else %}<span class="muted">not known yet</span>{% endif %}</td>
     </tr>
   {% else %}
-    <tr><td colspan="6" class="empty">No fits on this hardware at this date.</td></tr>
+    <tr><td colspan="7" class="empty">No fits on this hardware at this date.</td></tr>
   {% endfor %}
   </tbody>
 </table>

@@ -41,6 +41,7 @@ from .research import (
     BOARD_SORTS,
     ELEGANCE_CELLS,
     LINES,
+    SUBSET_MINUTES,
     TARGET_HARDWARE,
     TARGET_MINUTES,
     TIERS,
@@ -1034,6 +1035,8 @@ def create_app(
             se = f" ± {f['delta_se']:,.1f}" if f["delta_se"] is not None else ""
             rows.append(["PSIS-LOO ΔELPD", f"{f['delta']:+,.1f}{se}"])
         rows.append(["Fit time", f"{f['minutes']:.1f} min"])
+        if f["draws"]:
+            rows.append(["Draws", f"{f['draws']:,}"])
         rows.append(["Tier", TIERS[f["tier"]]])
         rows.append(["Elegance", f["elegance"] or "not judged yet"])
         rows.append(
@@ -1074,6 +1077,9 @@ def create_app(
                 "y": f["delta"],
                 "kind": f["kind"],
                 "tier": f["tier"],
+                "draws": f["draws"],
+                "group": f["group"],
+                "faded": f["faded"],
                 "title": f["entry"]["key"],
                 "rows": fit_rows(f),
                 "href": url_for("research_fit", key=f["entry"]["key"]),
@@ -1093,6 +1099,7 @@ def create_app(
             floor=floor,
             target=target,
             target_minutes=TARGET_MINUTES,
+            subset_minutes=SUBSET_MINUTES,
             judged_pairs=len(judgements(data)),
             exploration=data.get("exploration"),
             tiers=TIERS,
@@ -1104,7 +1111,7 @@ def create_app(
                 x_format=lambda v: f"{v:g}",
                 y_format=charts.signed,
                 y_floor=floor,
-                x_line=(TARGET_MINUTES, f"{TARGET_MINUTES}-minute target")
+                x_line=(TARGET_MINUTES, "2-hour limit for a full fit")
                 if target
                 else None,
             ),

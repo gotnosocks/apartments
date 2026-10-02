@@ -71,8 +71,9 @@ then the most elegant, then the fastest, and it changes only when another fit cl
 
 <section class="card">
   <h2>Accuracy against fit time</h2>
-  <p class="note">Each dot is one fit. Up is more accurate; left is faster. {% if target %}The line marks Ben's target: the full
-  Chelsea + West Village dataset fit within {{ target_minutes }} minutes on the RTX 2060 graphics card. {% endif %}Fit times only
+  <p class="note">Each dot is one fit. Up is more accurate; left is faster. {% if target %}Ben's window on the RTX 2060 graphics card:
+  a full fit of the Chelsea + West Village data within {{ (target_minutes / 60) | int }} hours (a line marks it when fits reach
+  it), and exploratory fits on a subset within {{ subset_minutes }} minutes. {% endif %}Fit times only
   compare within one hardware class.{% if floor is not none %} Fits far below the rest (the simple baselines) are drawn at the
   chart's floor; tick "The full accuracy range" to see them where they are.{% endif %}</p>
   {% if view.fits | selectattr("delta", "number") | list %}{{ time_chart }}{% else %}<p class="empty-note">No fit on this hardware has a PSIS-LOO score{% if day %} at this date{% endif %}.</p>{% endif %}

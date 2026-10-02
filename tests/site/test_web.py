@@ -532,7 +532,9 @@ def test_frontier_view_marks_and_as_of(research_file):
 def test_frontier_page(client):
     html = client.get("/research").get_data(as_text=True)
     assert "Fit time on the RTX 2060, full dataset (minutes)" in html
-    assert "30-minute target" in html
+    # Ben's window, in words; the 2-hour line is drawn only when fits reach it
+    assert "within 2 hours" in html and "within 30 minutes" in html
+    assert "2-hour limit for a full fit" not in html
     assert 'class="fit served"' in html and 'class="fit failing"' in html
     # the baseline is drawn at the floor, and says so
     assert "below the chart" in html
@@ -543,7 +545,7 @@ def test_frontier_page(client):
     assert 'class="fit subset"' not in rated  # unscored subsets have no dot
     cpu = client.get("/research?hardware=thelio+CPU").get_data(as_text=True)
     assert "Fit time on thelio CPU, full dataset (minutes)" in cpu
-    assert "30-minute target" not in cpu
+    assert "within 2 hours" not in cpu
     odd = client.get("/research?hardware=nope&as_of=x&range=zzz")
     assert odd.status_code == 200
     past = client.get("/research?as_of=2026-09-25").get_data(as_text=True)
@@ -1164,3 +1166,54 @@ def test_tiers_without_research_fields():
         "an exploration fit, for tracking the research only",
     )
     assert research.subset_fit({"tier": {"name": "exploration", "subset": "tune-x"}})
+
+
+def test_one_design_measured_twice_is_joined(client, research_file):
+    from apartments.site import research
+
+    _with_exploration(research_file)
+    html = client.get("/research").get_data(as_text=True)
+    # the 200-draw exploration fit and the 1,000-draw full fit of m-test
+    assert html.count('<polyline class="measured"') == 1
+    assert 'class="fit frontier faded"' in html  # the exploration diamond
+    assert "One design at several draw counts" in html
+    assert '<td class="num">1,000</td>' in html  # the Draws column
+
+    def fit(key, draws, at, delta=1.0, rules=""):
+        entry = {
+            "id": f"m/f/g@{key}{rules}",
+            "design": "m",
+            "feature_set": "f",
+            "available_at": at,
+        }
+        return {"entry": entry, "delta": delta, "draws": draws}
+
+    a, b, c = fit("a", 300, "1"), fit("b", 1500, "2"), fit("c", 1500, "3")
+    other_rules = fit("d", 600, "4", rules="+q1")
+    unscored = fit("e", 9000, "5", delta=None)
+    research.group_measurements([a, b, c, other_rules, unscored])
+    assert a["group"] == b["group"] == c["group"] == 0
+    assert (a["faded"], b["faded"], c["faded"]) == (True, True, False)  # newest
+    assert other_rules["group"] is None and not other_rules["faded"]
+    assert unscored["group"] is None
+
+
+def test_time_limit_line_drawn_only_when_fits_reach_it():
+    from apartments.site import charts
+
+    def chart(minutes):
+        point = {"x": minutes, "y": 1.0, "kind": "other", "title": "f", "rows": []}
+        return str(
+            charts.fit_scatter(
+                [point],
+                label="t",
+                x_title="x",
+                y_title="y",
+                x_format=str,
+                y_format=str,
+                x_line=(120, "2-hour limit for a full fit"),
+            )
+        )
+
+    assert "2-hour limit" not in chart(10)
+    assert "2-hour limit" in chart(150)
