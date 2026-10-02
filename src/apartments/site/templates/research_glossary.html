@@ -51,7 +51,7 @@
     could not explore. A fit that fails them is never served.</dd>
     <dt id="servable">Servable</dt>
     <dd>A fit the automatic selection may serve: it passes the convergence checks, has a PSIS-LOO score, ran on the target hardware
-    within the time window on the full dataset, and uses the current data rules. Subset fits are never servable.</dd>
+    within the time window on the full dataset, and uses the current data rules. Exploration fits and subset fits are never servable.</dd>
     <dt id="autoselect">Automatic selection</dt>
     <dd>The rule that picks the served model from the servable fits: the most accurate, then among ties the simplest, then the
     fastest. It replaces the served model only when another fit clearly beats it.</dd>
