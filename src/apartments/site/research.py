@@ -71,8 +71,11 @@ def latest_milestones(data: dict | None, n: int = 6) -> list[dict]:
 
 # The hardware the served model is chosen on (rentfrontier.autoselect).
 TARGET_HARDWARE = "thelio RTX 2060 SUPER"
-# Ben's target: a full Chelsea + West Village fit within 30 minutes.
-TARGET_MINUTES = 30
+# Ben's fit window (2026-10-01): a full Chelsea + West Village fit within 2
+# hours (autoselect's WINDOW_SECONDS); exploratory subset fits within 30
+# minutes, never served.
+TARGET_MINUTES = 120
+SUBSET_MINUTES = 30
 
 
 def run_of(entry: dict) -> str:
@@ -111,6 +114,33 @@ def data_rules_of(entry: dict) -> tuple[str, ...]:
     +rule+rule"; none for a fit on all the rows)."""
     after = str(entry.get("id") or "").split(" ")[0].partition("@")[2]
     return tuple(sorted(after.split("+")[1:]))
+
+
+def draws_of(entry: dict) -> int | None:
+    """How many posterior draws the fit kept (its tier's, else the entry's)."""
+    draws = (entry.get("tier") or {}).get("draws") or entry.get("draws")
+    return draws if isinstance(draws, int) else None
+
+
+def group_measurements(fits: list[dict]) -> None:
+    """A design measured more than once (the same model, features and data
+    rules at several draw counts, #126): give each scored fit of it a shared
+    `group`, and fade all but the best-measured one (most draws, then the
+    newest)."""
+    groups: dict[tuple, list[dict]] = {}
+    for f in fits:
+        f["group"], f["faded"] = None, False
+        if f["delta"] is not None:
+            key = (design_id(f["entry"]), data_rules_of(f["entry"]))
+            groups.setdefault(key, []).append(f)
+    members = [g for g in groups.values() if len(g) > 1]
+    for i, group in enumerate(members):
+        best = max(
+            group,
+            key=lambda f: (f["draws"] or 0, f["entry"].get("available_at") or ""),
+        )
+        for f in group:
+            f["group"], f["faded"] = i, f is not best
 
 
 def full_fits_of(data: dict, entry: dict) -> list[dict]:
@@ -231,6 +261,7 @@ def frontier_view(
                 "kind": kind,
                 "frontier": e["key"] in frontier,
                 "tier": tier,
+                "draws": draws_of(e),
                 "best": e["key"] == best,
                 "delta": psis.get("delta"),
                 "delta_se": psis.get("delta_se"),
@@ -241,6 +272,7 @@ def frontier_view(
             }
         )
     fits.sort(key=lambda f: (f["delta"] is None, -(f["delta"] or 0)))
+    group_measurements(fits)
     return {
         "snapshot": snap,
         "fits": fits,

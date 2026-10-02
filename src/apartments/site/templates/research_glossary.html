@@ -30,7 +30,8 @@
     <dd>A harder test: every listing of about 10% of apartments held out, so the model must predict apartments it has never seen.</dd>
     <dt id="fit-time">Fit time</dt>
     <dd>Minutes from start to finish to fit a model to the full dataset on one machine's hardware. Times only compare on the same
-    hardware. The target: the full Chelsea + West Village dataset within 30 minutes on the RTX 2060 graphics card.</dd>
+    hardware. Ben's window on the RTX 2060 graphics card: a full fit of the Chelsea + West Village data within 2 hours, and
+    exploratory fits on a subset within 30 minutes. A fit outside the window is never served.</dd>
     <dt id="elegance">Elegance</dt>
     <dd>How coherent a model is as a statistical model of how asks arise. A more elegant model tells one generative story
     whose structure mirrors the data (apartments in buildings in neighbourhoods, over time). It uses few distinct mechanisms, applied

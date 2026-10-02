@@ -373,14 +373,15 @@ def _fit_mark(p, x: float, y: float) -> str:
     """A fit's mark: a circle for a full fit, a diamond of about the same area
     for an exploration fit (so the tier is not colour alone)."""
     radius = 5.5 if p["kind"] == "served" else 4
+    cls = f"fit {p['kind']}" + (" faded" if p.get("faded") else "")
     if p.get("tier") == "exploration":
         r = radius * 1.25
         return (
-            f'<path class="fit {p["kind"]}" d="M{x:.1f} {y - r:.1f}'
+            f'<path class="{cls}" d="M{x:.1f} {y - r:.1f}'
             f"L{x + r:.1f} {y:.1f}L{x:.1f} {y + r:.1f}L{x - r:.1f} {y:.1f}Z"
             '"/>'
         )
-    return f'<circle class="fit {p["kind"]}" cx="{x:.1f}" cy="{y:.1f}" r="{radius}"/>'
+    return f'<circle class="{cls}" cx="{x:.1f}" cy="{y:.1f}" r="{radius}"/>'
 
 
 def _fit_label(p) -> str:
@@ -431,7 +432,9 @@ def fit_scatter(
     x_line: (value, label) draws a reference line, such as a time target."""
     if not points:
         return Markup("")
-    xs = [p["x"] for p in points] + ([x_line[0]] if x_line else [])
+    # A reference line is drawn where the data reach it; it does not stretch
+    # the axis (a 2-hour limit would squash fits of a few minutes).
+    xs = [p["x"] for p in points]
     frame = XYFrame(xs, [p["y"] for p in points], y_floor=y_floor, x_zero=x_zero)
     parts = []
     for tick in frame.yticks:
@@ -455,16 +458,26 @@ def fit_scatter(
         f'y="{frame.height - 6}" text-anchor="middle">{escape(x_title)}</text>'
         f'<text class="axis-title" x="{frame.left - 56}" y="14">{escape(y_title)}</text>'
     )
-    if x_line:
+    if x_line and frame.x0 <= x_line[0] <= frame.x1:
         x = frame.x(x_line[0])
         parts.append(
             f'<line class="ref" x1="{x:.1f}" x2="{x:.1f}" y1="{frame.top}" '
             f'y2="{frame.bottom}"/><text class="ref-label" x="{x - 4:.1f}" '
             f'y="{frame.bottom - 6}" text-anchor="end">{escape(x_line[1])}</text>'
         )
+    # One design measured at several draw counts: its points joined in draw
+    # order, under the marks.
+    groups: dict = {}
+    for p in points:
+        if p.get("group") is not None:
+            groups.setdefault(p["group"], []).append(p)
+    for group in groups.values():
+        group.sort(key=lambda p: p.get("draws") or 0)
+        line = " ".join(f"{frame.x(p['x']):.1f},{frame.y(p['y']):.1f}" for p in group)
+        parts.append(f'<polyline class="measured" points="{line}"/>')
     order = {k: i for i, k in enumerate(FIT_KINDS)}
     hover = []
-    for p in sorted(points, key=lambda p: order[p["kind"]]):
+    for p in sorted(points, key=lambda p: (not p.get("faded"), order[p["kind"]])):
         x, y = frame.x(p["x"]), frame.y(p["y"])
         parts.append(_fit_mark(p, x, y))
         rows = list(p.get("rows", []))
@@ -480,6 +493,12 @@ def fit_scatter(
             }
         )
     legend = _fit_legend(points)
+    if groups:
+        legend = legend.replace(
+            "</div>",
+            '<span class="key"><span class="key-measured"></span>One design at '
+            "several draw counts, joined; the faded points have fewer draws</span></div>",
+        )
     return _figure("points", _svg(parts, label, frame), hover, legend)
 
 

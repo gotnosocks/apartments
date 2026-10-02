@@ -69,7 +69,10 @@ without the filter.
 
 - **Frontier** (`/research`): every fit of one hardware class (default: the RTX 2060, the served
   model's), with these parts:
-  - accuracy (PSIS-LOO ΔELPD) against fit time on the full dataset, with Ben's 30-minute target;
+  - accuracy (PSIS-LOO ΔELPD) against fit time on the full dataset, with Ben's window (a full fit
+    within 2 hours, drawn when fits reach it; exploratory subset fits within 30 minutes). A design
+    measured at several draw counts is joined by a line, its best-measured fit solid and the others
+    faded; the tables give each fit's draws;
   - how elegance enters (judged in pairs, so it has no chart) and how many pairs are judged;
   - the frontier fits in a table, with whether each can be served and why not;
   - every fit in a table view;
