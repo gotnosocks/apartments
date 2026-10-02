@@ -67,7 +67,7 @@ def test_eligible_needs_gate_hardware_window_and_current_rules(tmp_path):
     out = [
         entry(tmp_path, "gate", 10, 1300, passes_checks=False),
         entry(tmp_path, "cpu", 10, 1300, hardware="thelio CPU (Ryzen 5 3600X)"),
-        entry(tmp_path, "slow", 10, 2000),
+        entry(tmp_path, "slow", 10, autoselect.WINDOW_SECONDS + 1),
         entry(
             tmp_path, "old-rules", 10, 1300, rules={"unit-labels-v1", "quarantine-v1"}
         ),
