@@ -27,10 +27,12 @@ follow_master() {
 
 fingerprint() {
   # Every finished record (its files and their times) and the master commit.
+  # The board's other input, the PyMC screens under data/model, is frozen.
   {
     git -C "$MASTER" rev-parse HEAD
-    find "$FRONTIER/runs" "$FRONTIER/loo" "$FRONTIER/variance" -mindepth 2 -maxdepth 2 \
-      \( -name result.json -o -name pointwise.npz \) -printf '%p %T@ %s\n' 2>/dev/null | sort
+    find "$FRONTIER/runs" "$FRONTIER/loo" "$FRONTIER/variance" "$FRONTIER/rescores" \
+      -mindepth 2 -maxdepth 2 \
+      \( -name result.json -o -name pointwise.npz -o -name heldout.npz \) -printf '%p %T@ %s\n' 2>/dev/null | sort
   } | sha256sum | cut -d' ' -f1
 }
 

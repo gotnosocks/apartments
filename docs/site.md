@@ -157,7 +157,7 @@ listings fall in each band, as calibration predicts.
 
 The research data is live: new fits appear without a deploy (Ben, 2026-10-01).
 `apartments-dashboard-build.path` starts the build when a fit's run record, LOO score or variance
-shares land (a new directory in `/data1/apartments/frontier/runs`, `loo` or `variance`), and
+shares land (a new directory in `/data1/apartments/frontier/runs`, `loo`, `variance` or `rescores`), and
 `apartments-dashboard-build.timer` every 10 minutes as a fallback. The script waits a minute for a
 burst of files to settle, then builds only if a finished record or master changed since the last
 build (a fingerprint in `/data1/apartments/dashboard/.last-build`), and builds again if more landed
