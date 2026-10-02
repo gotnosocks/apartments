@@ -1175,6 +1175,29 @@ comes from other sources, most of them public NYC and NYS data.
   - The first version (`-v1`, f980477) used today's stations for every year. It scored the same
     (+1.1 ± 6.7, noise) and was replaced to keep the no-future-information rule. Its run is archived
     under `runs-archive/future-information-2026-09-29/`, off the board.
+- **Transit on the combined data** (`nb-transit-v1`, PR #139, a8481ca, 2026-10-02; not merged).
+  - The terms were `nb-facing-v2` plus the walk to the subway, the routes within 800 m and the walk to
+    PATH (Port Authority GTFS snapshot `external/path/20261002-0adddaf`).
+  - West Village varies no more than Chelsea for the subway: a median of 243 m and a 90th percentile of
+    455 m.
+  - **Result: null.** On `m7-nocurves-floorslope`, 2 × (100 + 600), paired against `nb-facing-v2`:
+    - all rows +0.0 ± 13.8;
+    - rows of buildings with five rows or fewer +6.6 ± 7.2;
+    - the reference high-k rows +6.1 ± 7.6;
+    - the high-k count went from 1,482 to 1,514.
+  - The building level already absorbs transit.
+- **Open space on the combined data** (`nb-openspace-v1`, 2026-10-02).
+  - The terms are `nb-facing-v2` plus the log walk to four places, as of the listing's month:
+    - the waterfront (Manhattan's shoreline, which Hudson River Park follows on the West Side);
+    - the nearest NYC Parks property;
+    - the nearest park of a hectare or more (Washington Square, Union Square, Madison Square,
+      Chelsea Park);
+    - the nearest open High Line section. The sections opened 2009-06, 2011-06 (to West 30th)
+      and 2014-09; for example One Hudson Yards is 776 m from the open line before mid-2011 and 25 m
+      after.
+  - **Screen.** Against the served fit's building effects, West Village correlates −0.14 with the
+    walk to the waterfront, −0.15 with the walk to the High Line and +0.17 with the walk to a large
+    park; Chelsea is near 0 throughout.
 - **Building condition: HPD housing-code violations** (`unitdescplutohpd-v1`, 0544905;
   `unitdescplutohpd-v2`, 0fc2df7; 2026-09-30; HPD snapshot 20260930-cb289ad; both with
   `quarantine-v1`, against fef2aa5).
