@@ -1,5 +1,5 @@
 [Unit]
-Description=Rebuild the apartments research-progress dashboard every 10 minutes
+Description=Rebuild the rents site's research data every 10 minutes (a fallback for the .path trigger; skips when nothing is new)
 
 [Timer]
 # Wall-clock schedule: OnUnitActiveSec does not re-arm reliably for a oneshot

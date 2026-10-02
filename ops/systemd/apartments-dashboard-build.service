@@ -1,21 +1,22 @@
 [Unit]
-Description=Rebuild the apartments research-progress dashboard from run records and master
+Description=Rebuild the rents site's research data (data.json) from run records and master
 
 [Service]
 Type=oneshot
-WorkingDirectory=/data1/apartments/serve/master/frontier
 Environment=UV_PROJECT_ENVIRONMENT=/data1/apartments/venvs/serve-frontier
 Environment=TMPDIR=/data1/apartments/tmp/dashboard
-# Follow master; if the fetch fails, rebuild from the current checkout. The
-# checkout is dedicated to serving, so --force discards any stray local change.
+# Follow master first, so the script below is master's; if the fetch fails,
+# rebuild from the current checkout (--force: the checkout only serves).
 ExecStartPre=-/usr/bin/git -C /data1/apartments/serve/master fetch -q origin master
 ExecStartPre=-/usr/bin/git -C /data1/apartments/serve/master checkout -q --force --detach origin/master
 ExecStartPre=/usr/bin/mkdir -p /data1/apartments/tmp/dashboard
-# --locked: never rewrite uv.lock (a git-tracked file) in the serving checkout.
-# The build is a heavy job (~20 s, ~450 MB): it waits for the shared lock so it
-# never runs during a timed fit (docs/research-plan.md, "One timed job at a time").
-ExecStart=/usr/bin/flock /data1/apartments/tmp/heavy.lock /home/ben/.local/bin/uv run --locked -q python -m rentfrontier.dashboard --out /data1/apartments/dashboard
-# A fit can hold the lock for up to an hour.
-TimeoutStartSec=2h
+# Skips when nothing has landed since the last build; see the script. The
+# build only reads small records (no draws): about 3 minutes of one core and
+# ~600 MB, run without heavy.lock at idle priority so a timed fit barely
+# notices it. --locked inside: never rewrite uv.lock in the serving checkout.
+ExecStart=/data1/apartments/serve/master/ops/research-data-build.sh
+TimeoutStartSec=30min
 MemoryMax=1G
-Nice=10
+Nice=19
+CPUSchedulingPolicy=idle
+IOSchedulingClass=idle

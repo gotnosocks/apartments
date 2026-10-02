@@ -1441,7 +1441,6 @@ def create_app(
             entry=entry_for_run(data, m["provenance"]["run"]),
             baseline=data.get("baseline") if data else None,
             autoselect=data.get("autoselect") if data else None,
-            design_fits=design_fits(data) if data else {},
         )
 
     @app.get("/healthz")

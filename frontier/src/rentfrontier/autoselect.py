@@ -10,7 +10,9 @@ card follow it.
 - It passes the convergence gate, has named additive contributions and has a
   PSIS-LOO score (`leaderboard.scored`).
 - It ran on the target hardware (`TARGET_HARDWARE`) within the fit window
-  (`WINDOW_SECONDS`).
+  (`WINDOW_SECONDS`: Ben, 2026-10-01, "the full fit can take more than 30
+  mins", with a 2-hour hard stop; exploratory fits on a subset must run under
+  30 minutes, and are never served).
 - It used the current data rules: the latest version of every rule family
   (`current_rules`). A fit on rows a later review has shown to be wrong is not
   served.
@@ -61,7 +63,9 @@ from pathlib import Path
 from rentfrontier import data, leaderboard, simplicity
 
 TARGET_HARDWARE = "thelio RTX 2060 SUPER"
-WINDOW_SECONDS = 30 * 60
+WINDOW_SECONDS = (
+    2 * 60 * 60
+)  # full fits; subset (tuning) fits: 30 minutes, never served
 TIME_TIE = 0.10
 SELECTION = data.REPO / "config" / "main-analysis.json"
 
@@ -93,6 +97,8 @@ def _rules(entry) -> frozenset:
 
 def why_not(e, rules) -> str | None:
     """Why an entry cannot be served, or None if it can."""
+    if (e.get("tier") or {}).get("name", "full") != "full":
+        return "it is an exploration fit (fewer draws or a subset), never served"
     if not e["passes_checks"]:
         return "it fails the convergence gate"
     if not e["interpretable"]:
