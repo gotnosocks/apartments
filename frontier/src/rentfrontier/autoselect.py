@@ -93,6 +93,8 @@ def _rules(entry) -> frozenset:
 
 def why_not(e, rules) -> str | None:
     """Why an entry cannot be served, or None if it can."""
+    if (e.get("tier") or {}).get("name", "full") != "full":
+        return "it is an exploration fit (fewer draws or a subset), never served"
     if not e["passes_checks"]:
         return "it fails the convergence gate"
     if not e["interpretable"]:

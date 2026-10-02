@@ -331,6 +331,13 @@ def main(argv=None):
     )
     parser.add_argument("--name", required=True)
     parser.add_argument(
+        "--tier",
+        choices=("full", "exploration"),
+        default="full",
+        help="exploration: a short fit (fewer draws, maybe a subset) for the research "
+        "frontier, never served; full: full draws and the gate (Ben, 2026-10-01)",
+    )
+    parser.add_argument(
         "--dev", action="store_true", help="allow a dirty tree; run is not reportable"
     )
     args = parser.parse_args(argv)
@@ -457,6 +464,7 @@ def main(argv=None):
         "model": config.to_dict(),
         "sampler": args.sampler,
         "line": "frontier" if args.sampler == "gibbs" else "numpyro",
+        "tier": args.tier,
         "sampler_settings": settings.to_dict(),
         "dtype": out.get("dtype"),
         "adapted": {

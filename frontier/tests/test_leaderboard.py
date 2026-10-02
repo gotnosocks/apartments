@@ -318,3 +318,40 @@ def test_the_frontier_keeps_a_beaten_fit_only_if_judged_simpler(monkeypatch):
         _board_entry("unjudged", 9.0, 1600),
     ]
     assert leaderboard.on_frontier(es) == [True, True, False, False]
+
+
+def test_tier_of_reads_the_flag_or_the_legacy_label():
+    run = {
+        "name": "m0-base-base-v1-rows-e61a794-x-2060-100w300d-nb",
+        "sampler_settings": {"draws": 300, "warmup": 100, "chains": 2},
+        "data_rules": ["unit-labels-v1"],
+    }
+    assert leaderboard.tier_of(run) == {
+        "name": "exploration",
+        "draws": 300,
+        "warmup": 100,
+        "chains": 2,
+        "subset": None,
+    }
+    full = run | {"name": "m0-base-base-v1-rows-e61a794-gibbs-2060-3600"}
+    assert leaderboard.tier_of(full)["name"] == "full"
+    tuned = full | {"tier": "exploration", "data_rules": ["tune-b35-v1"]}
+    assert leaderboard.tier_of(tuned)["name"] == "exploration"
+    assert leaderboard.tier_of(tuned)["subset"] == "tune-b35-v1"
+
+
+def test_exploration_fits_count_on_the_frontier_without_the_gate():
+    quick = _board_entry("quick", 8.0, 300) | {
+        "passes_checks": False,
+        "tier": {"name": "exploration"},
+    }
+    failed_full = _board_entry("failed", 9.0, 200) | {"passes_checks": False}
+    slow = _board_entry("slow", 10.0, 1500)
+    assert leaderboard.on_frontier([quick, failed_full, slow]) == [True, False, True]
+    # The board's best still needs the gate.
+    deltas = {"quick": 8.0, "failed": 9.0, "slow": 10.0}
+    best = leaderboard.choose_best(
+        [quick, failed_full, slow],
+        paired=lambda a, b: (deltas[a] - deltas[b], 1.0, 0.0),
+    )
+    assert best["id"] == "slow"
