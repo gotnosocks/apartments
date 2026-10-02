@@ -82,6 +82,30 @@ queue and design work before it; the rest of this plan is context.
   - **The exploration tier is set to 2 × (100 + 600) draws, keep 2:** about 4–10 minutes per fit with
     LOO. A difference under about 50 points is confirmed with more draws or overnight with a full fit.
     The tier's 100 warmup iterations are assumed to match 300, as they did at 300 draws.
+- **Exploration results on the leading design** (2026-10-01 to 10-02; exploration tier, full combined
+  data, v1 data rules).
+  - Each row is paired against `m7-nocurves-floorslope` + `nb-facing-v2` at the same tier, PSIS-LOO
+    88,087.7 (`...-rows-4759d81-x-2060-100w600d-nb`).
+  - "Small" means buildings with 5 or fewer rows. "High-k" means the reference's high-Pareto-k rows:
+    1,482 of them.
+
+  | Change | All rows | Small | High-k | Chelsea | West Village | Outcome |
+  |---|---:|---:|---:|---:|---:|---|
+  | `nb-facing-v2` (West Village ad text) vs v1 | +136 ± 34 | +22 ± 9 | | | | merged (#137) |
+  | One residual scale per bedroom group (`-bednoise`) | **+290.7 ± 36.0** | +2.7 ± 8.3 | −13.4 ± 8.1 | +261.9 ± 28.1 | +28.8 ± 22.5 | #142; full fit 2026-10-03 03:00 |
+  | `nb-text-v1` (14 ad-text flags screened on Chelsea) | +81.5 ± 30.9 | | | +69.7 ± 23.8 | +11.8 ± 19.8 | partly selection; `nb-text-v2` (#141) screens on half of Chelsea |
+  | Two-harmonic Fourier season (`-fourier`) | +3.1 ± 13.2 | | | | | tie with 4 coefficients for 12; #144, on elegance |
+  | Location bumps 250 m apart (`nb-loc-v1`) | +9.5 ± 15.2 | +16.8 ± 8.7 | | −6.5 | +16.0 ± 11.1 | tie; closed (#143) |
+  | Open space (`nb-openspace-v1`) | −5.6 ± 14.1 | | | | | null; closed (#140) |
+  | Transit, construction | null | | | | | closed (#139) |
+
+  - **The bedroom noise result.** The larger the apartment, the more its asks scatter around the
+    model. The fitted scales are 0.031 (studio), 0.033, 0.041 and 0.047 (3+), against one shared
+    0.034. p_loo falls from 17,871 to 17,105, because the unit levels no longer absorb the large
+    apartments' extra scatter.
+  - **Small buildings remain the open problem.** No change so far moves their rows much. The
+    location surface gives a hint (+16.8 ± 8.7). The structural ideas are in the
+    [research backlog](model/research-backlog.md), under "Model structure for the full-data frontier".
 
 ## Objective
 

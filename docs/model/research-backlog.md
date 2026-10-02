@@ -1,5 +1,40 @@
 # Chelsea pricing research backlog
 
+## Model structure for the full-data frontier (2026-10-02)
+
+These are ideas for the PSIS-LOO × fit-time × elegance frontier on the combined Chelsea + West
+Village data, each to be tried first at the exploration tier on the leading design. Results so far are
+in the research plan, under "Exploration results on the leading design".
+
+- [ ] **Small-building pooling.** 47% of the high-k rows are in buildings with 5 or fewer rows, and
+  72% are alone at a walk knot. Try shrinking a small building's level toward its neighbours rather
+  than toward the area mean: a spatial prior on the building effect, not extra feature columns.
+  The fixed Gaussian-bump surface (`nb-loc-v1`, #143) tied overall but helped small buildings
+  (+16.8 ± 8.7).
+- [ ] **A Gaussian-process location surface (HSGP).** This is a Hilbert-space approximate GP over
+  coordinates, with a learned amplitude and length scale. It replaces the fixed bumps, so the data
+  sets how smooth location is. With m basis functions it stays one Gaussian block for the Gibbs
+  sampler.
+- [ ] **A space × time surface.** Let the location surface drift over time: a separable HSGP in
+  (x, y) × month, or one surface per half-year tied by a random walk. It could replace part of the
+  per-building walk with a neighbourhood-level one. It would also make the rent map by time a model
+  term rather than a summary.
+- [ ] **Fourier seasonality.** Two harmonics tie the 12 month effects (#144). Try K = 1 and K = 3,
+  and combine with the bedroom noise.
+- [ ] **A shared building factor.** One latent "premium" per building that loads on the building's
+  level, its bedroom slope and its size slope (a one-factor model), instead of independent
+  per-building effects. That is fewer free effects per building and a single story ("a premium
+  building is pricier, and more so for larger units").
+- [ ] **Latent square footage.** Treat a missing or rounded size as a latent variable with a prior
+  from the building, the bedroom count and the floor plan, instead of a missing-value column.
+- [ ] **Heteroscedastic noise beyond bedrooms.** The bedroom scales are a large gain (#142). Try a
+  scale per area (Chelsea and West Village) or a smooth log-scale in log size, then check whether
+  the bedroom groups still carry it.
+- [ ] **Richer ad text.** Flags chosen on held-out halves (`nb-text-v2`, #141). Also consider a
+  low-dimensional text embedding with a shrinkage prior, if the flags replicate.
+- [ ] **The low end of the frontier.** Under 5 minutes per fit: `m5-nocurves-bednoise`, `m0q` and
+  `m1q` with the bedroom noise, and fewer walk knots.
+
 ## Data quality: clean the data so the model can be less defensive (Ben, September 25)
 
 "If the data is cleaner, then the model doesn't have to be as defensive against outliers."
