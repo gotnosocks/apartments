@@ -173,16 +173,42 @@ def shared_rows(a: dict, b: dict, what: str, a_dir, b_dir) -> list:
     return [k for k in a if k in b and k not in dropped]
 
 
+@functools.lru_cache(maxsize=16)
+def _pointwise(path: str, mtime: float):
+    """A LOO record's per-row arrays and its audit id -> row index, read once
+    per build (keyed by the file's mtime, so a rewritten record is re-read)."""
+    x = np.load(Path(path) / "pointwise.npz", allow_pickle=True)
+    ids = x["audit_id"].tolist()
+    if len(set(ids)) != len(ids):
+        raise ValueError(f"Duplicate training audit IDs in {Path(path).name}")
+    return dict(zip(ids, range(len(ids)))), x["elpd_loo"], x["mcse"]
+
+
+def pointwise(folder):
+    path = Path(folder)
+    return _pointwise(str(path), (path / "pointwise.npz").stat().st_mtime)
+
+
 def paired_loo(a_dir, b_dir):
     """Paired PSIS-LOO difference a - b on the training rows both keep:
-    (sum, SE, combined Monte Carlo error)."""
-    a = np.load(Path(a_dir) / "pointwise.npz", allow_pickle=True)
-    b = np.load(Path(b_dir) / "pointwise.npz", allow_pickle=True)
-    for x, folder in ((a, a_dir), (b, b_dir)):
-        if len(set(x["audit_id"].tolist())) != len(x["audit_id"]):
-            raise ValueError(f"Duplicate training audit IDs in {Path(folder).name}")
-    ai = dict(zip(a["audit_id"].tolist(), range(len(a["audit_id"]))))
-    bi = dict(zip(b["audit_id"].tolist(), range(len(b["audit_id"]))))
+    (sum, SE, combined Monte Carlo error). Cached per pair of records (by
+    their files' mtimes): a build pairs the same records many times."""
+    a, b = Path(a_dir), Path(b_dir)
+    return _paired_loo(
+        str(a),
+        (a / "pointwise.npz").stat().st_mtime,
+        str(b),
+        (b / "pointwise.npz").stat().st_mtime,
+        data.dropped_rows(),
+    )
+
+
+@functools.lru_cache(maxsize=4096)
+def _paired_loo(a_dir, a_mtime, b_dir, b_mtime, dropped):
+    ai, a_elpd, a_mcse = pointwise(a_dir)
+    bi, b_elpd, b_mcse = pointwise(b_dir)
+    a = {"elpd_loo": a_elpd, "mcse": a_mcse}
+    b = {"elpd_loo": b_elpd, "mcse": b_mcse}
     keys = shared_rows(ai, bi, "Training", a_dir, b_dir)
     ia = np.array([ai[k] for k in keys])
     ib = np.array([bi[k] for k in keys])

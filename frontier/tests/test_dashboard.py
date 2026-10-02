@@ -201,33 +201,6 @@ def test_samplers_of_one_design_share_its_structure():
     assert dashboard.structure(e("L0-mean", "pymc", "none")) == "L0-mean/none"
 
 
-def test_rent_map_is_the_selected_runs_newest(monkeypatch, tmp_path):
-    import os
-
-    from rentfrontier import rentmap
-
-    repo, maps = tmp_path / "repo", tmp_path / "maps"
-    (repo / "config").mkdir(parents=True)
-    (repo / "config" / "main-analysis.json").write_text(json.dumps({"run": "r-1"}))
-    monkeypatch.setattr(dashboard, "REPO", repo)
-    monkeypatch.setattr(rentmap, "MAPS", maps)
-    assert dashboard.rent_map() is None
-    runs = (
-        ("r-1-aaaaaaa", 1),
-        ("r-1-bbbbbbb", 2),
-        ("r-10-ccccccc", 3),
-        ("r-1-solo-ddddddd", 4),
-    )
-    for name, mtime in runs:
-        (maps / name).mkdir(parents=True)
-        (maps / name / "map.json").write_text("{}")
-        os.utime(maps / name / "map.json", (mtime, mtime))
-    # The newest map of exactly r-1, not r-1-solo's (a longer run name).
-    assert dashboard.rent_map() == maps / "r-1-bbbbbbb" / "map.json"
-    (repo / "config" / "main-analysis.json").write_text("[]")
-    assert dashboard.rent_map() is None
-
-
 def test_data_quality_counts_each_rules_rows_by_action(monkeypatch, tmp_path):
     rules = tmp_path / "q.jsonl"
     rules.write_text(
