@@ -495,6 +495,47 @@ def location_v1(
     )
 
 
+def location_v2(
+    frame: pd.DataFrame,
+    train: np.ndarray,
+    id: str = "nb-loc-v1",
+    base: str = "nb-facing-v2",
+) -> Features:
+    """A base set plus a smooth location surface over the map of the set's own
+    registry (`lot_registry`; Chelsea and West Village for the nb- sets): the
+    Gaussian bumps of `location_v1`, 250 m apart, so neighbouring buildings share
+    a premium (a fixed-scale basis-function approximation of a spatial Gaussian
+    process over building coordinates)."""
+    base = FEATURE_SETS[base](frame, train)
+    registry = pd.read_parquet(lot_registry()).set_index("building")
+    lat0, lon0 = registry.latitude.mean(), registry.longitude.mean()
+
+    def xy(buildings):
+        lat = registry.latitude.reindex(buildings).to_numpy()
+        lon = registry.longitude.reindex(buildings).to_numpy()
+        metres = 111_320.0
+        return np.column_stack(
+            [(lon - lon0) * metres * np.cos(np.radians(lat0)), (lat - lat0) * metres]
+        )
+
+    sites = xy(registry.index.to_numpy())
+    sites = sites[np.isfinite(sites).all(1)]
+    points = xy(frame.building.to_numpy())
+    known = np.isfinite(points).all(1)
+    values = np.where(known[:, None], location_bumps(np.nan_to_num(points), sites), 0.0)
+    b = _Builder(frame)
+    for k in range(values.shape[1]):
+        b.add("location", f"location_{k:02d}", values[:, k], scale=LOCATION_SCALE)
+    extra = b.build(id)
+    return Features(
+        id,
+        base.names + extra.names,
+        base.groups + extra.groups,
+        np.column_stack([base.values, extra.values]),
+        np.concatenate([base.prior_scale, extra.prior_scale]),
+    )
+
+
 WALK_M_PER_MIN = 80.0
 TRANSIT_WALK_M = 800.0  # a 10-minute walk
 # Station stops that opened after the data begin (2010) and are close enough to a
@@ -1304,6 +1345,7 @@ EXTERNAL = {
     "nb-unitpluto-v1",
     "nb-facing-v1",
     "nb-facing-v2",
+    "nb-loc-v1",
     "wv-unitpluto-v1",
     "pluto-v1",
     "unitfloor-v2",
@@ -1334,6 +1376,7 @@ BASEMAP = {
     "unitnoise-v1",
     "nb-facing-v1",
     "nb-facing-v2",
+    "nb-loc-v1",
 }
 # Feature sets that read the building footprints snapshot.
 FOOTPRINTS = {
@@ -1343,6 +1386,7 @@ FOOTPRINTS = {
     "unitnoise-v1",
     "nb-facing-v1",
     "nb-facing-v2",
+    "nb-loc-v1",
 }
 # Feature sets that read the 311 noise complaints snapshot.
 NOISE = {"unitnoise-v1"}
@@ -1353,6 +1397,7 @@ HPD = {"unitdescplutohpd-v1", "unitdescplutohpd-v2"}
 DESCRIPTIONS = {
     "nb-facing-v1",
     "nb-facing-v2",
+    "nb-loc-v1",
     "desc-v1",
     "unitdesc-v1",
     "unitdescpluto-v1",
@@ -1396,6 +1441,8 @@ FEATURE_SETS = {
     "nb-facing-v1": partial(neighbourhood_v1, id="nb-facing-v1", base="unitfacing-v4"),
     # nb-facing-v1 with West Village's ads too (`DESCRIPTION_SOURCES`).
     "nb-facing-v2": partial(neighbourhood_v1, id="nb-facing-v2", base="unitfacing-v4"),
+    # nb-facing-v2 plus a smooth location surface over the combined registry.
+    "nb-loc-v1": partial(location_v2, id="nb-loc-v1", base="nb-facing-v2"),
     # West Village: the app design's building facts (as unitdescpluto-v3) on the
     # unit and floor features (no West Village ads: see nb-facing-v2).
     "wv-unitpluto-v1": partial(
@@ -1488,6 +1535,7 @@ LOT_SNAPSHOTS = {
     "nb-unitpluto-v1": {"registry": NB_REGISTRY_FILE, "pluto": NB_PLUTO_FILE},
     "nb-facing-v1": {"registry": NB_REGISTRY_FILE, "pluto": NB_PLUTO_FILE},
     "nb-facing-v2": {"registry": NB_REGISTRY_FILE, "pluto": NB_PLUTO_FILE},
+    "nb-loc-v1": {"registry": NB_REGISTRY_FILE, "pluto": NB_PLUTO_FILE},
     "unitnoise-v1": {"registry": REGISTRY_V3_FILE, "pluto": PLUTO_V3_FILE},
 }
 
@@ -1499,6 +1547,10 @@ DESCRIPTION_SOURCES = {
         "descriptions": str(descriptions_module.SOURCE),
         "descriptions_wv": str(descriptions_module.WV_SOURCE),
     },
+    "nb-loc-v1": {
+        "descriptions": str(descriptions_module.SOURCE),
+        "descriptions_wv": str(descriptions_module.WV_SOURCE),
+    },
 }
 
 
@@ -1506,6 +1558,7 @@ DESCRIPTION_SOURCES = {
 AREA_SNAPSHOTS = {
     "nb-facing-v1": {"basemap": NB_BASEMAP_FILE, "footprints": NB_FOOTPRINTS_FILE},
     "nb-facing-v2": {"basemap": NB_BASEMAP_FILE, "footprints": NB_FOOTPRINTS_FILE},
+    "nb-loc-v1": {"basemap": NB_BASEMAP_FILE, "footprints": NB_FOOTPRINTS_FILE},
 }
 
 
