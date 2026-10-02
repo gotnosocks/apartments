@@ -19,11 +19,13 @@ import math
 import re
 from dataclasses import dataclass
 from functools import partial
+from pathlib import Path
 
 import numpy as np
 import pandas as pd
 
 from . import data as data_module
+from . import descriptions as descriptions_module
 
 
 @dataclass
@@ -1301,6 +1303,7 @@ EXTERNAL = {
     "nb-pluto-base",
     "nb-unitpluto-v1",
     "nb-facing-v1",
+    "nb-facing-v2",
     "wv-unitpluto-v1",
     "pluto-v1",
     "unitfloor-v2",
@@ -1330,6 +1333,7 @@ BASEMAP = {
     "unitfacing-v5",
     "unitnoise-v1",
     "nb-facing-v1",
+    "nb-facing-v2",
 }
 # Feature sets that read the building footprints snapshot.
 FOOTPRINTS = {
@@ -1338,6 +1342,7 @@ FOOTPRINTS = {
     "unitfacing-v5",
     "unitnoise-v1",
     "nb-facing-v1",
+    "nb-facing-v2",
 }
 # Feature sets that read the 311 noise complaints snapshot.
 NOISE = {"unitnoise-v1"}
@@ -1347,6 +1352,7 @@ HPD = {"unitdescplutohpd-v1", "unitdescplutohpd-v2"}
 # directly or through their base set.
 DESCRIPTIONS = {
     "nb-facing-v1",
+    "nb-facing-v2",
     "desc-v1",
     "unitdesc-v1",
     "unitdescpluto-v1",
@@ -1388,8 +1394,10 @@ FEATURE_SETS = {
     # description source has the ad, building facts, facing, the low-floor
     # flags) plus the neighbourhood.
     "nb-facing-v1": partial(neighbourhood_v1, id="nb-facing-v1", base="unitfacing-v4"),
+    # nb-facing-v1 with West Village's ads too (`DESCRIPTION_SOURCES`).
+    "nb-facing-v2": partial(neighbourhood_v1, id="nb-facing-v2", base="unitfacing-v4"),
     # West Village: the app design's building facts (as unitdescpluto-v3) on the
-    # unit and floor features; West Village has no description source yet.
+    # unit and floor features (no West Village ads: see nb-facing-v2).
     "wv-unitpluto-v1": partial(
         pluto_v1,
         id="wv-unitpluto-v1",
@@ -1479,13 +1487,25 @@ LOT_SNAPSHOTS = {
     "nb-pluto-base": {"registry": NB_REGISTRY_FILE, "pluto": NB_PLUTO_FILE},
     "nb-unitpluto-v1": {"registry": NB_REGISTRY_FILE, "pluto": NB_PLUTO_FILE},
     "nb-facing-v1": {"registry": NB_REGISTRY_FILE, "pluto": NB_PLUTO_FILE},
+    "nb-facing-v2": {"registry": NB_REGISTRY_FILE, "pluto": NB_PLUTO_FILE},
     "unitnoise-v1": {"registry": REGISTRY_V3_FILE, "pluto": PLUTO_V3_FILE},
+}
+
+
+# Feature sets that read more description evidence than Chelsea's
+# (`descriptions.SOURCE`), by run-record key.
+DESCRIPTION_SOURCES = {
+    "nb-facing-v2": {
+        "descriptions": str(descriptions_module.SOURCE),
+        "descriptions_wv": str(descriptions_module.WV_SOURCE),
+    },
 }
 
 
 # Feature sets that read other basemap and footprints snapshots than the first.
 AREA_SNAPSHOTS = {
     "nb-facing-v1": {"basemap": NB_BASEMAP_FILE, "footprints": NB_FOOTPRINTS_FILE},
+    "nb-facing-v2": {"basemap": NB_BASEMAP_FILE, "footprints": NB_FOOTPRINTS_FILE},
 }
 
 
@@ -1501,13 +1521,24 @@ def lot_files(name: str) -> dict:
     return LOT_SNAPSHOTS.get(name, {"registry": REGISTRY_FILE, "pluto": PLUTO_FILE})
 
 
+def description_files(name: str) -> dict:
+    """The description evidence files a feature set reads, by record key."""
+    return DESCRIPTION_SOURCES.get(
+        name, {"descriptions": str(descriptions_module.SOURCE)}
+    )
+
+
 def build(name: str, frame: pd.DataFrame, train: np.ndarray) -> Features:
     files = lot_files(name)
     area = area_files(name)
     token = _LOTS.set((files["registry"], files["pluto"]))
     area_token = _AREA.set((area["basemap"], area["footprints"]))
+    text_token = descriptions_module.SOURCES.set(
+        tuple(Path(p) for p in description_files(name).values())
+    )
     try:
         return FEATURE_SETS[name](frame, np.asarray(train, dtype=bool))
     finally:
         _LOTS.reset(token)
         _AREA.reset(area_token)
+        descriptions_module.SOURCES.reset(text_token)
