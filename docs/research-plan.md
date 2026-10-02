@@ -56,6 +56,32 @@ queue and design work before it; the rest of this plan is context.
 - **First results.** The bath-and-floor design (`m7-nocurves-bathfloor` + `nb-facing-v1`) at 2 ×
   (300 + 4,500) draws is the first full-data fit that passes the gate: 2,800 s, PSIS-LOO 87,334.1.
   It is the calibration reference for the short fits.
+- **Calibration of short fits** (2026-10-01, full combined data, exploration tier, master e61a794):
+
+  | Design | 2×(100+300) | 2×(300+300) | 2×(300+600) | 2×(300+1500) | Full 2×(300+4500) |
+  |---|---:|---:|---:|---:|---:|
+  | m0-base + base-v1 | 64,985.2 (147 s) | | | 64,966.7 (437 s) | |
+  | m5-nocurves + nb-facing-v1 | 84,382.7 (243 s) | 84,379.2 (296 s) | 84,333.0 (406 s) | 84,280.6 (745 s) | |
+  | m7-nocurves-bathfloor + nb-facing-v1 | 87,374.6 (365 s) | 87,374.6 (440 s) | 87,363.4 (605 s) | 87,323.9 (1,116 s) | 87,334.1 (2,800 s) |
+
+  - **Short fits score too high:** at 300 draws, by 18–102 points against each design's longest run.
+    The excess depends on the draws, not the warmup: 100 and 300 warmup iterations give the same
+    scores. It is consistent with under-dispersed draws, whose slow scales have low ESS.
+  - **Design differences converge faster than the scores.** Bath-and-floor minus m5, both at the same
+    draws, is 2,995 at 300 draws, 3,030 at 600 and 3,043 at 1,500. There is no full m5 fit yet, so the
+    only longer reference is bath-and-floor's full fit minus m5 at 1,500 draws (3,054), and that
+    shares the m5 run. Bath-and-floor alone is 10 points below its full fit at 1,500 draws, within
+    Monte Carlo error (about 10), and 29 points above it at 600 draws (measured with 300 warmup).
+    So 600 draws looks good to a few tens of points; a full m5 fit tonight (03:00–08:00 ET) checks
+    the difference properly.
+  - **Fixed costs:**
+    - compilation takes 50–120 s (from the warmup at 100 and 300 iterations: about 51 s for m0, 79 s
+      for m5, 120 s for bath-and-floor);
+    - PSIS-LOO takes 65–110 s;
+    - the variance decomposition takes 12–70 s, and exploration fits now skip it.
+  - **The exploration tier is set to 2 × (100 + 600) draws, keep 2:** about 4–10 minutes per fit with
+    LOO. A difference under about 50 points is confirmed with more draws or overnight with a full fit.
+    The tier's 100 warmup iterations are assumed to match 300, as they did at 300 draws.
 
 ## Objective
 
