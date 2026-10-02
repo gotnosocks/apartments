@@ -194,4 +194,4 @@ def test_the_alias_file_is_hashed_but_drops_no_rows():
     assert "unit-labels-v2" not in data.DROPPING_RULES
     groups = data.unit_aliases()
     assert len(groups) == 248 and all(len(g) > 1 for g in groups)
-    assert len(data.dropped_rows()) == len(data.quarantined(data.QUARANTINE_V2))
+    assert data.dropped_rows() == data.quarantined(data.QUARANTINE_V3)
