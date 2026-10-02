@@ -39,6 +39,11 @@ SOURCE = Path(
         "/home/ben/code/apartments/data/model/chelsea-refreshed-bayesian-descriptions-20260918/evidence.jsonl",
     )
 )
+# West Village: each row's own ad from the granular crawl of 2026-09-30
+# (cohort west-village-analysis-20261001-6b3ad1a; 34,087 of 34,118 rows).
+WV_SOURCE = Path(
+    "/data1/apartments/frontier/descriptions/west-village-20261002-62172be/evidence.jsonl"
+)
 # The evidence files `attach` reads while a feature set is built
 # (`features.build`); Chelsea's alone unless the feature set lists more.
 SOURCES: contextvars.ContextVar[tuple[Path, ...]] = contextvars.ContextVar(

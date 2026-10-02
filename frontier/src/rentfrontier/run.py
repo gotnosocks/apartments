@@ -223,12 +223,8 @@ def feature_sources(feature_set: str) -> dict:
     """Input files behind a feature set, beyond the analytical dataset."""
     out = {}
     if feature_set in features.DESCRIPTIONS:
-        from . import descriptions
-
-        out["descriptions"] = {
-            "path": str(descriptions.SOURCE),
-            "sha256": data.sha256(descriptions.SOURCE),
-        }
+        for name, path in features.description_files(feature_set).items():
+            out[name] = {"path": path, "sha256": data.sha256(Path(path))}
     if feature_set in features.EXTERNAL:
         # Hash the files the features read, not the provenance's record of them.
         for name, path in features.lot_files(feature_set).items():

@@ -63,3 +63,20 @@ def test_build_writes_each_rows_own_ad_as_last_captured(tmp_path, monkeypatch):
             descriptions.attach(frame)
     finally:
         descriptions.SOURCES.reset(token)
+
+
+def test_only_listed_feature_sets_read_west_villages_ads(monkeypatch):
+    from rentfrontier import features, run
+
+    monkeypatch.setattr(run.data, "sha256", lambda path: "sha")
+    assert set(run.feature_sources("nb-facing-v2")) >= {"descriptions", "descriptions_wv"}
+    assert "descriptions_wv" not in run.feature_sources("nb-facing-v1")
+    seen = {}
+
+    def record(frame, train):
+        seen["sources"] = descriptions.SOURCES.get()
+
+    monkeypatch.setitem(features.FEATURE_SETS, "nb-facing-v2", record)
+    features.build("nb-facing-v2", pd.DataFrame(), [])
+    assert seen["sources"] == (descriptions.SOURCE, descriptions.WV_SOURCE)
+    assert descriptions.SOURCES.get() == (descriptions.SOURCE,)
