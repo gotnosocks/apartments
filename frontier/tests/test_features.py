@@ -726,3 +726,14 @@ def test_nb_text_adds_the_v2_flags_on_nb_facing_v2(monkeypatch):
     assert got["text:river_view"].tolist() == [1, 0, 0]
     assert got["text:large_words"].tolist() == [1, 0, 0]
     assert got["text:small_words"].tolist() == [0, 1, 0]
+
+
+def test_nb_text_v2_reads_only_the_flags_chosen_on_half_of_chelsea():
+    fn = features.FEATURE_SETS["nb-text-v2"]
+    assert fn.keywords["flags"] == features.TEXT_FLAGS_SCREENED_ON_HALF
+    assert set(features.TEXT_FLAGS_SCREENED_ON_HALF) < set(
+        features.DESCRIPTION_FLAGS_V2
+    )
+    halves = [features.text_screen_half(f"b{i}") for i in range(2000)]
+    assert 0.45 < sum(halves) / len(halves) < 0.55
+    assert features.text_screen_half("b1") == features.text_screen_half("b1")

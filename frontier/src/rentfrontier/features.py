@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import contextvars
 import functools
+import hashlib
 import itertools
 import json
 import math
@@ -276,14 +277,38 @@ DESCRIPTION_FLAGS_V2 = {
 }
 
 
+# nb-text-v1's flags were chosen on all of Chelsea, so its Chelsea gain is
+# partly selection. nb-text-v2's were chosen on half of Chelsea's buildings
+# alone (|z| >= 2.5 against the served fit's residuals; `text_screen_half`),
+# leaving the other half and all of West Village to score them.
+TEXT_FLAGS_SCREENED_ON_HALF = (
+    "terrace",
+    "penthouse_text",
+    "loft",
+    "large_words",
+    "home_office",
+    "walk_in_closet",
+    "chefs_kitchen",
+    "whole_house",
+)
+
+
+def text_screen_half(building: str) -> bool:
+    """Whether a building is in the half whose rows chose nb-text-v2's flags."""
+    digest = hashlib.sha256(f"text-screen:{building}".encode()).digest()
+    return int.from_bytes(digest[:8], "big") % 2 == 0
+
+
 def text_v2(
     frame: pd.DataFrame,
     train: np.ndarray,
     id: str = "text-v2",
     base: str = "desc-v1",
+    flags: tuple | None = None,
 ) -> Features:
     """A base set that reads the ads (desc-v1 or one built on it) plus the
-    DESCRIPTION_FLAGS_V2 flags, 0 where the ad is unknown."""
+    DESCRIPTION_FLAGS_V2 flags (those named in `flags`, else all), 0 where the
+    ad is unknown."""
     from . import descriptions
 
     base = FEATURE_SETS[base](frame, train)
@@ -291,6 +316,8 @@ def text_v2(
     known = text.str.len() > 20
     b = _Builder(frame)
     for name, pattern in DESCRIPTION_FLAGS_V2.items():
+        if flags is not None and name not in flags:
+            continue
         b.add(
             "description",
             f"text:{name}",
@@ -1357,6 +1384,7 @@ EXTERNAL = {
     "nb-facing-v1",
     "nb-facing-v2",
     "nb-text-v1",
+    "nb-text-v2",
     "wv-unitpluto-v1",
     "pluto-v1",
     "unitfloor-v2",
@@ -1388,6 +1416,7 @@ BASEMAP = {
     "nb-facing-v1",
     "nb-facing-v2",
     "nb-text-v1",
+    "nb-text-v2",
 }
 # Feature sets that read the building footprints snapshot.
 FOOTPRINTS = {
@@ -1398,6 +1427,7 @@ FOOTPRINTS = {
     "nb-facing-v1",
     "nb-facing-v2",
     "nb-text-v1",
+    "nb-text-v2",
 }
 # Feature sets that read the 311 noise complaints snapshot.
 NOISE = {"unitnoise-v1"}
@@ -1409,6 +1439,7 @@ DESCRIPTIONS = {
     "nb-facing-v1",
     "nb-facing-v2",
     "nb-text-v1",
+    "nb-text-v2",
     "desc-v1",
     "unitdesc-v1",
     "unitdescpluto-v1",
@@ -1454,6 +1485,13 @@ FEATURE_SETS = {
     "nb-facing-v2": partial(neighbourhood_v1, id="nb-facing-v2", base="unitfacing-v4"),
     # nb-facing-v2 plus more of what the ad says (DESCRIPTION_FLAGS_V2).
     "nb-text-v1": partial(text_v2, id="nb-text-v1", base="nb-facing-v2"),
+    # The flags chosen on half of Chelsea's buildings (TEXT_FLAGS_SCREENED_ON_HALF).
+    "nb-text-v2": partial(
+        text_v2,
+        id="nb-text-v2",
+        base="nb-facing-v2",
+        flags=TEXT_FLAGS_SCREENED_ON_HALF,
+    ),
     # West Village: the app design's building facts (as unitdescpluto-v3) on the
     # unit and floor features (no West Village ads: see nb-facing-v2).
     "wv-unitpluto-v1": partial(
@@ -1547,6 +1585,7 @@ LOT_SNAPSHOTS = {
     "nb-facing-v1": {"registry": NB_REGISTRY_FILE, "pluto": NB_PLUTO_FILE},
     "nb-facing-v2": {"registry": NB_REGISTRY_FILE, "pluto": NB_PLUTO_FILE},
     "nb-text-v1": {"registry": NB_REGISTRY_FILE, "pluto": NB_PLUTO_FILE},
+    "nb-text-v2": {"registry": NB_REGISTRY_FILE, "pluto": NB_PLUTO_FILE},
     "unitnoise-v1": {"registry": REGISTRY_V3_FILE, "pluto": PLUTO_V3_FILE},
 }
 
@@ -1560,6 +1599,7 @@ _NB_DESCRIPTIONS = {
 DESCRIPTION_SOURCES = {
     "nb-facing-v2": _NB_DESCRIPTIONS,
     "nb-text-v1": _NB_DESCRIPTIONS,
+    "nb-text-v2": _NB_DESCRIPTIONS,
 }
 
 
@@ -1568,6 +1608,7 @@ AREA_SNAPSHOTS = {
     "nb-facing-v1": {"basemap": NB_BASEMAP_FILE, "footprints": NB_FOOTPRINTS_FILE},
     "nb-facing-v2": {"basemap": NB_BASEMAP_FILE, "footprints": NB_FOOTPRINTS_FILE},
     "nb-text-v1": {"basemap": NB_BASEMAP_FILE, "footprints": NB_FOOTPRINTS_FILE},
+    "nb-text-v2": {"basemap": NB_BASEMAP_FILE, "footprints": NB_FOOTPRINTS_FILE},
 }
 
 
