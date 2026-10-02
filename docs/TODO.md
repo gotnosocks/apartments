@@ -33,9 +33,9 @@ and its audit and unit-spelling alias table exist; see
 - [ ] Build a West Village analysis dataset: the historical own-advertisement rows and the
       generic projections, as Chelsea's `chelsea-product-scope-analysis-20260921` was built.
       List which of Chelsea's reviewed corrections have a West Village counterpart.
-- [ ] Choose between a combined Chelsea + West Village fit (one market, neighbourhood terms)
-      and a fit per neighbourhood. The combined data is about twice Chelsea's, and the served
-      design already takes 1,765 s of the 30-minute window on the RTX 2060.
+- [x] Choose between a combined Chelsea + West Village fit and a fit per neighbourhood: one
+      combined fit (Ben, 2026-10-01). Full fits may take up to 2 hours; exploratory fits on a
+      subset must finish within 30 minutes.
 - [ ] Geocode the registry for West Village buildings. Then the MapPLUTO, footprints, basemap
       and 311 snapshots for its box, and the descriptions source.
 - [ ] Data rules for West Village: the alias table as the unit-label merge, and a quarantine

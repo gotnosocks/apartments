@@ -332,6 +332,9 @@ def data():
                 # The judge agents' pairwise simplicity judgements of this
                 # design (rentfrontier.simplicity): [{vs, verdict, reason}].
                 "simplicity": e.get("simplicity", []),
+                # exploration (a short fit for the research frontier, never
+                # served) or full, with draws, warmup, chains and subset.
+                "tier": e.get("tier"),
                 "why_not_served": serve_check(e, rules),
                 "psis": psis_fields(e.get("psis")),
                 "note": e["note"],
@@ -383,6 +386,7 @@ def data():
         "milestones": milestones(),
         "data_quality": data_quality(),
         "autoselect": selection_decision(entries),
+        "exploration": exploration_summary(),
         # Every recorded simplicity judgement (config/simplicity-judgements.jsonl).
         "simplicity_judgements": [
             j
@@ -418,6 +422,22 @@ DATA_RULE_TEXT = {
     'bedroom counts the ad flatly contradicts (a "three-bedroom home" recorded as one '
     "bedroom).",
 }
+
+
+def exploration_summary() -> dict | None:
+    """The research's exploration header for the site (config/exploration.json:
+    the goal, the tiers and what calibration has shown), with the dataset and
+    the board's baseline; None without the file."""
+    try:
+        conf = json.loads((REPO / "config" / "exploration.json").read_text())
+    except (OSError, ValueError):
+        return None
+    return {
+        "as_of": dt.datetime.now(dt.UTC).isoformat(timespec="seconds"),
+        "dataset": Path(data_module.DATASET).name,
+        "baseline": leaderboard.BASELINE,
+        **conf,
+    }
 
 
 def data_quality() -> dict:
