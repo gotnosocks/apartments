@@ -3,7 +3,7 @@
 Living plan for the modeling work. Ben set its objective on 2026-09-24: optimize the Pareto frontier of
 PSIS-LOO accuracy and fit time. On 2026-10-01 he added simplicity as a third axis and made Chelsea plus
 West Village the target (see "Objective"). The [board](model/leaderboard/leaderboard.md) and the
-[dashboard](dashboard.md) (http://thelio.tail3983e0.ts.net:8500) apply the rules below. The goals, data
+[Research section of the rents site](site.md) (http://thelio.tail3983e0.ts.net:8600/research) apply the rules below. The goals, data
 contract and pitfalls in [the 2026-09-24 brief](brief-2026-09-24.md) and the
 [project intent](project-intent.md) still apply. This plan replaces the brief's evaluation contract
 (§4) and first tasks (§5).

@@ -1,5 +1,5 @@
 [Unit]
-Description=Rebuild the apartments research-progress dashboard from run records and master
+Description=Rebuild the rents site's research data (data.json) from run records and master
 
 [Service]
 Type=oneshot
@@ -12,7 +12,7 @@ ExecStartPre=-/usr/bin/git -C /data1/apartments/serve/master fetch -q origin mas
 ExecStartPre=-/usr/bin/git -C /data1/apartments/serve/master checkout -q --force --detach origin/master
 ExecStartPre=/usr/bin/mkdir -p /data1/apartments/tmp/dashboard
 # --locked: never rewrite uv.lock (a git-tracked file) in the serving checkout.
-# The build is a heavy job (~20 s, ~450 MB): it waits for the shared lock so it
+# The build is a heavy job (about 3 minutes, ~600 MB): it waits for the shared lock so it
 # never runs during a timed fit (docs/research-plan.md, "One timed job at a time").
 ExecStart=/usr/bin/flock /data1/apartments/tmp/heavy.lock /home/ben/.local/bin/uv run --locked -q python -m rentfrontier.dashboard --out /data1/apartments/dashboard
 # A fit can hold the lock for up to an hour.

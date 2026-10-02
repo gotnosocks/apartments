@@ -1,11 +1,12 @@
 # Rents site: estimates and research
 
-http://thelio.tail3983e0.ts.net:8600 (tailnet only).
+http://thelio.tail3983e0.ts.net:8600 (tailnet only; also on port 8500, the old research dashboard's
+address, so its links keep working).
 
 One site in two sections, with shared navigation and style (Ben, 2026-10-01: "one site, two
 sections"). **Estimates** shows the scraped listings with the selected model's rent estimates.
-**Research** shows how candidate models are compared and which one is served. The research pages
-are moving here from the [research dashboard](dashboard.md) one at a time.
+**Research** shows how candidate models are compared and which one is served. It replaces the old
+static research dashboard.
 
 The estimates use the building, the features, the market that month and the unit's
 other listings, never the listing's own ask (**leave-own-row-out**). The gap between ask and estimate
@@ -103,7 +104,7 @@ without the filter.
   plain words with whether the served model uses it, the listings each review rule leaves out by
   reason, and a link to them on the Estimates side.
 - **Plan** (`/research/plan`): `docs/research-plan.md` rendered with a contents list. It is read from
-  the dashboard's checkout, which follows master (`/data1/apartments/serve/master`; `RESEARCH_PLAN`
+  the research-data checkout, which follows master (`/data1/apartments/serve/master`; `RESEARCH_PLAN`
   overrides it), so it is current between site deploys. Raw HTML in the source is escaped, not
   rendered; repository links open on GitHub.
 - **Glossary** (`/research/glossary`): every research term in plain words, with anchors the pages
@@ -142,9 +143,15 @@ listings fall in each band, as calibration predicts.
    about 8 s with a 1.1 GB peak, and the database is about 130 MB.
 3. **Serve.** The app opens `current/site.sqlite` read-only (immutable) on each request, so a publish
    needs no restart.
-4. **Research data.** `rentfrontier.dashboard` (frontier environment, every 10 minutes under the
-   heavy-job lock) writes the board's `data.json`: entries, as-of snapshots, milestones and the
-   data-quality card. The site reads `/data1/apartments/dashboard/site/data.json` (`RESEARCH_DATA`
+4. **Research data.** `rentfrontier.dashboard` (frontier environment, run from
+   `/data1/apartments/serve/master` every 10 minutes under the heavy-job lock by
+   `ops/systemd/apartments-dashboard-build.timer`; about 3 minutes and 600 MB) writes the board's
+   `data.json`: entries, as-of snapshots, milestones and the data-quality card. Each entry carries
+   the judge agents' pairwise `simplicity` judgements of its design (`rentfrontier.simplicity`: a
+   list of `{vs, verdict, reason}`, empty when none) and `why_not_served`, autoselect's plain reason
+   the fit cannot be served (null when it can). The top-level `autoselect` is autoselect's decision
+   on the current board against the served run: keep or switch, the reason, the eligible fits and
+   every fit checked; an error note replaces it if a pairing fails. The site reads `/data1/apartments/dashboard/site/data.json` (`RESEARCH_DATA`
    overrides it) and keeps the parsed copy until the file behind the symlink changes. Without it,
    the research parts of a page are left out. When the publish comes from the repository's
    selection, the build also stores the selection's reason (`selected_by`, `selection_reason`).
