@@ -15,6 +15,8 @@ Sources:
   the feature partly circular.
 - subway: MTA Subway Stations (data.ny.gov 39hk-dx4f), every station stop with
   its daytime routes and coordinates (transit access).
+- path: PATH stations (the Port Authority's GTFS feed, stops.txt, stations
+  only): name and coordinates. The Manhattan stations opened in 1908-1910.
 - basemap: the map under the rent map, around the registry's buildings (their
   bounding box plus BASEMAP_MARGIN_M): street centerlines with width, lanes,
   speed and roadway type (NYC Open Data inkn-q76z), parks (enfh-gkve) and
@@ -148,6 +150,32 @@ def fetch_subway() -> tuple[pd.DataFrame, list[str], dict]:
         ).isoformat(),
     }
     return table, [urllib.parse.urlencode(params)], version
+
+
+PATH_GTFS = "http://data.trilliumtransit.com/gtfs/path-nj-us/path-nj-us.zip"
+
+
+def fetch_path() -> tuple[pd.DataFrame, list[str], dict]:
+    import io
+    import zipfile
+
+    with urllib.request.urlopen(PATH_GTFS, timeout=60) as r:
+        raw = r.read()
+    with zipfile.ZipFile(io.BytesIO(raw)) as z:
+        stops = pd.read_csv(z.open("stops.txt"), dtype={"stop_id": str})
+        feed = (
+            pd.read_csv(z.open("feed_info.txt")).iloc[0].to_dict()
+            if "feed_info.txt" in z.namelist()
+            else {}
+        )
+    table = stops[stops.location_type == 1][
+        ["stop_id", "stop_name", "stop_lat", "stop_lon"]
+    ]
+    version = {
+        "zip_sha256": hashlib.sha256(raw).hexdigest(),
+        "feed_info": {k: str(v) for k, v in feed.items()},
+    }
+    return table.reset_index(drop=True), [PATH_GTFS], version
 
 
 CENTERLINE_ID = "inkn-q76z"
@@ -458,7 +486,7 @@ def main(argv=None):
     )
     parser.add_argument(
         "source",
-        choices=("pluto", "subway", "basemap", "hpd", "footprints", "noise311"),
+        choices=("pluto", "subway", "path", "basemap", "hpd", "footprints", "noise311"),
     )
     parser.add_argument(
         "--registry",
@@ -540,6 +568,15 @@ def main(argv=None):
             "features": counts,
         }
         summary = ", ".join(f"{v} {k}" for k, v in sorted(counts.items()))
+    elif args.source == "path":
+        table, queries, version = fetch_path()
+        details = {
+            "source": PATH_GTFS,
+            "dataset": "PATH GTFS (Port Authority of NY & NJ), stations",
+            "version": version,
+            "stations": len(table),
+        }
+        summary = f"{len(table)} PATH stations"
     else:
         table, queries, version = fetch_subway()
         details = {
