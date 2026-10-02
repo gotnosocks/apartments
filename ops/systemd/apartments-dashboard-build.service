@@ -11,8 +11,8 @@ ExecStartPre=-/usr/bin/git -C /data1/apartments/serve/master fetch -q origin mas
 ExecStartPre=-/usr/bin/git -C /data1/apartments/serve/master checkout -q --force --detach origin/master
 ExecStartPre=/usr/bin/mkdir -p /data1/apartments/tmp/dashboard
 # Skips when nothing has landed since the last build; see the script. The
-# build only reads small records (no draws): about 30-60 s of one core and
-# ~500 MB, run without heavy.lock at idle priority so a timed fit barely
+# build only reads small records (no draws): about 3 minutes of one core and
+# ~600 MB, run without heavy.lock at idle priority so a timed fit barely
 # notices it. --locked inside: never rewrite uv.lock in the serving checkout.
 ExecStart=/data1/apartments/serve/master/ops/research-data-build.sh
 TimeoutStartSec=30min
