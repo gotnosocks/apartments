@@ -32,17 +32,16 @@ one population.
 Ranking rule. Eligible entries pass the convergence gate, are
 interpretable and have a PSIS-LOO score. The top entry has the highest
 PSIS-LOO dELPD; every eligible entry within two combined standard errors of
-it ties, and the simplest tied entry is the current best (by the judge agents'
-pairwise judgements, `simplicity`; then the fastest). Ben's axes are accuracy,
-fit time and, from 2026-10-01, simplicity: "serve the best fit and break ties
-with which model is simpler". PyMC screens that fail the gate are screen-grade:
+it ties, and the most elegant tied entry is the current best (by the judge agents'
+pairwise judgements, `elegance`; then the fastest). Ben's axes are accuracy,
+fit time and, from 2026-10-01, elegance: ties go to the more elegant model. PyMC screens that fail the gate are screen-grade:
 shown, never best or on the frontier; screens without saved draws have no
 PSIS-LOO score.
 
 Frontier. An entry is on the frontier if no other eligible entry is at
-least as good on PSIS-LOO dELPD and fit time and not judged less simple, and
+least as good on PSIS-LOO dELPD and fit time and not judged less elegant, and
 strictly better on one of the three. A pair not judged counts as equally
-simple.
+elegant.
 Fit time is the scored (row-split) fit's wall time; unit-split fits are
 optional and not counted.
 """
@@ -58,7 +57,7 @@ from pathlib import Path
 
 import numpy as np
 
-from . import data, simplicity
+from . import data, elegance
 from .run import REFERENCES, git
 
 RUNS = data.OUTPUT_ROOT / "runs"
@@ -490,13 +489,13 @@ def pair_with_baseline(entries, base, paired=paired_loo):
 
 
 def _judged(a, b) -> int:
-    """+1 if entry a's design is judged simpler than b's, -1 if less simple,
+    """+1 if entry a's design is judged more elegant than b's, -1 if less,
     0 if equal or not judged."""
-    return simplicity.compare(simplicity.design_id(a), simplicity.design_id(b)) or 0
+    return elegance.compare(elegance.design_id(a), elegance.design_id(b)) or 0
 
 
 def choose_best(entries, paired=paired_loo):
-    """The simplest eligible entry tied (within two combined SE) with the top
+    """The most elegant eligible entry tied (within two combined SE) with the top
     PSIS-LOO dELPD, then the fastest. Entries need ``psis["_dir"]``; ``paired`` can be a cached
     equivalent of `paired_loo`."""
     eligible = [
@@ -523,9 +522,19 @@ def choose_best(entries, paired=paired_loo):
     )
 
 
+def frontier_candidate(e) -> bool:
+    """Interpretable and scored, and passing the gate unless an exploration
+    fit: those count without it, judged on ranking (Ben, 2026-10-01)."""
+    return bool(
+        e["interpretable"]
+        and scored(e)
+        and (e["passes_checks"] or (e.get("tier") or {}).get("name") == "exploration")
+    )
+
+
 def on_frontier(entries):
     """Per entry: not dominated on (PSIS-LOO dELPD, fit time, judged
-    simplicity) by another eligible entry."""
+    elegance) by another eligible entry."""
 
     def dominates(o, e):
         s = _judged(o, e)
@@ -539,15 +548,7 @@ def on_frontier(entries):
         )
         return ge and s >= 0 and strict
 
-    # Exploration fits count without the gate: they are judged on ranking
-    # (Ben, 2026-10-01); full fits need it.
-    candidates = [
-        e
-        for e in entries
-        if e["interpretable"]
-        and scored(e)
-        and (e["passes_checks"] or (e.get("tier") or {}).get("name") == "exploration")
-    ]
+    candidates = [e for e in entries if frontier_candidate(e)]
     flags = []
     for e in entries:
         if not any(e is c for c in candidates):
@@ -665,8 +666,8 @@ def build(keep_dirs=False):
         # Other processes' mean busy cores during the scored fit (recorded
         # from 3c26c4a on); None when not measured.
         e["contention"] = (rows_run or {}).get("contention")
-        # The judge agents' pairwise simplicity judgements of this design.
-        e["simplicity"] = simplicity.for_design(simplicity.design_id(e))
+        # The judge agents' pairwise elegance judgements of this design.
+        e["elegance"] = elegance.for_design(elegance.design_id(e))
         if rows_run and rows_run["name"] in variances:
             vr = variances[rows_run["name"]]
             e["variance"] = {
@@ -685,6 +686,9 @@ def build(keep_dirs=False):
                 "elpd_se": lr["elpd_loo_se"],
                 "mcse": lr["elpd_loo_mcse"],
                 "pareto_k": lr["pareto_k"],
+                # Effective number of parameters (lppd - elpd_loo); records
+                # from before it was saved have none.
+                "p_loo": lr.get("p_loo"),
                 "validation": lr["validation"],
                 "integrated": lr["integrated"],
                 "_dir": lr["_dir"],
@@ -766,15 +770,15 @@ def fmt(x, digits=1):
     return "—" if x is None else f"{x:,.{digits}f}"
 
 
-def _simpler(e) -> str:
-    """Judged comparisons in a table cell: "simpler than 2, equal to 1"."""
+def _elegance_cell(e) -> str:
+    """Judged comparisons in a table cell: "more elegant than 2, ..."."""
     counts = {}
-    for j in e.get("simplicity") or ():
+    for j in e.get("elegance") or ():
         counts[j["verdict"]] = counts.get(j["verdict"], 0) + 1
     words = {
-        "simpler": "simpler than",
-        "equal": "as simple as",
-        "less simple": "less simple than",
+        "more elegant": "more elegant than",
+        "equal": "as elegant as",
+        "less elegant": "less elegant than",
     }
     return ", ".join(f"{words[k]} {v}" for k, v in counts.items()) or "—"
 
@@ -817,7 +821,7 @@ def row(e, marks) -> str:
         f"| `{e['id']}` | {e['line']} | {e['model']['name']} | {e['feature_set']} | {psis} | {kshare} | "
         f"{fmt(r.get('delta'))}{' ± ' + fmt(r.get('delta_se')) if r.get('delta') is not None else ''} | "
         f"{fmt(u.get('delta'))}{' ± ' + fmt(u.get('delta_se')) if u.get('delta') is not None else ''} | {shares} | {diag} | "
-        f"{fmt(e['fit_seconds'], 0)} s | {_simpler(e)} | {e['grade']} | "
+        f"{fmt(e['fit_seconds'], 0)} s | {fmt((e.get('psis') or {}).get('p_loo'), 0)} | {_elegance_cell(e)} | {e['grade']} | "
         f"{'**best**' if e['current_best'] else ''} | {'yes' if e['frontier'] else ''} | {note} |"
     )
 
@@ -836,9 +840,9 @@ def markdown(board) -> str:
         "",
         "**Ranking.** Eligible entries pass the convergence gate (max split R-hat < 1.01 and min bulk ESS > 400; frontier runs also need",
         "R-hat < 1.05 over every group effect, 1.1 when recomputed from older runs' kept draws; NUTS runs also need no divergences), are interpretable and have a PSIS-LOO score.",
-        "Every eligible entry within two combined SE of the top PSIS-LOO ΔELPD ties with it; the **best** is the simplest tied entry, then the fastest.",
-        "**Simplicity** is judged holistically by judge agents, one pair of designs at a time, blind to scores (`rentfrontier.simplicity`; recorded in `config/simplicity-judgements.jsonl`). The column counts each design's judged pairs.",
-        "**Frontier** = not beaten on PSIS-LOO ΔELPD, fit time and judged simplicity at once (a pair not judged counts as equally simple). Fit time is the scored (row-split) fit's sampler wall time.",
+        "Every eligible entry within two combined SE of the top PSIS-LOO ΔELPD ties with it; the **best** is the most elegant tied entry (by judged pairs), then the fastest.",
+        "**Elegance** is judged holistically by two blind judge agents per pair of designs, as a statistical model: one coherent generative story, few mechanisms used consistently, no overlapping terms, few special cases, natural forms, economy (`rentfrontier.elegance`; `config/elegance-judgements.jsonl`). The column counts each design's judged pairs; p_loo (PSIS-LOO effective parameters) is shown beside it as an objective check.",
+        "**Frontier** = not beaten on PSIS-LOO ΔELPD, fit time and judged elegance at once (a pair not judged counts as equal). Fit time is the scored (row-split) fit's sampler wall time.",
         "**Per hardware.** The frontier and the best are computed separately for each hardware class (where the fit actually ran):",
         "a fit time only competes with fit times on the same hardware.",
         "**Variance** = share of the variation in log rent over the training rows attributed to features / building level / unit effects / residual",
@@ -870,8 +874,8 @@ def markdown(board) -> str:
             "",
             f"### {cls}",
             "",
-            "| Entry | Line | Design | Features | PSIS-LOO ΔELPD | k | Held-out ΔELPD | Units ΔELPD | Variance: features / building / unit / residual | R-hat / ESS | Fit time | Simplicity (judged pairs) | Grade | Best | Frontier | Note |",
-            "|---|---|---|---|---:|---:|---:|---:|---:|---|---:|---:|---|---|---|---|",
+            "| Entry | Line | Design | Features | PSIS-LOO ΔELPD | k | Held-out ΔELPD | Units ΔELPD | Variance: features / building / unit / residual | R-hat / ESS | Fit time | p_loo | Elegance (judged pairs) | Grade | Best | Frontier | Note |",
+            "|---|---|---|---|---:|---:|---:|---:|---:|---|---:|---:|---:|---|---|---|---|",
         ]
         for e in group:
             lines.append(row(e, marks))

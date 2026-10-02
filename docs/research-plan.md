@@ -1,7 +1,7 @@
-# Research plan: the PSIS-LOO × fit-time × simplicity frontier
+# Research plan: the PSIS-LOO × fit-time × elegance frontier
 
 Living plan for the modeling work. Ben set its objective on 2026-09-24: optimize the Pareto frontier of
-PSIS-LOO accuracy and fit time. On 2026-10-01 he added simplicity as a third axis and made Chelsea plus
+PSIS-LOO accuracy and fit time. On 2026-10-01 he added elegance as a third axis and made Chelsea plus
 West Village the target (see "Objective"). The [board](model/leaderboard/leaderboard.md) and the
 [dashboard](dashboard.md) (http://thelio.tail3983e0.ts.net:8500) apply the rules below. The goals, data
 contract and pitfalls in [the 2026-09-24 brief](brief-2026-09-24.md) and the
@@ -14,7 +14,8 @@ contract and pitfalls in [the 2026-09-24 brief](brief-2026-09-24.md) and the
 Pareto frontier of fit quality, fit time, and model elegance/simplicity". He confirmed the details when
 asked:
 
-- **Three axes:** PSIS-LOO ΔELPD (fit quality), fit time on the RTX 2060, and simplicity.
+- **Three axes:** PSIS-LOO ΔELPD (fit quality), fit time on the RTX 2060, and elegance (named
+  simplicity until Ben made it a modelling-oriented elegance target later on 2026-10-01).
 - **The target is the full dataset:** Chelsea plus West Village, one fit on the RTX 2060. From
   2026-10-01 (Ben: "we can update our rules so that the exploratory fits (data subset) must run under
   30 mins and the full fit can take more than 30 mins"; a 2-hour hard stop, and fit time stays an
@@ -24,13 +25,14 @@ asked:
 
   Fits on a subset of buildings (tuning rules
   such as `tune-b35-v1`) are for exploration and never frontier points or served.
-- **Simplicity is judged holistically, by judge agents, a pair of designs at a time.** Ben first left
+- **Elegance is judged holistically, by judge agents, a pair of designs at a time.** Ben first left
   it to judgement, then chose a holistic judgement over a points rubric: "I prefer a wholistic
   judgement to the described rubric approach, and I don't expect we have that many pairs to evaluate
-  so it should be possible for an agent to do at reasonable cost." See "The simplicity axis".
-- **Serving:** "serve the best fit and break ties with which model is simpler". The top PSIS-LOO and
-  the fits tied with it come first; among the tied fits the simplest wins, and fit time decides only
-  between equally simple fits. `autoselect` applies this automatically.
+  so it should be possible for an agent to do at reasonable cost." See "The elegance axis".
+- **Serving:** "serve the best fit and break ties with which model is simpler", now the more
+  elegant. The top PSIS-LOO and the fits tied with it come first; among the tied fits the most
+  elegant wins, and fit time decides only
+  between equally elegant fits. `autoselect` applies this automatically.
 - **One site:** the dashboard pages and the listings site become one coherent site with two sections.
   The research section covers the frontier, runs, data quality and this plan. The estimates section
   browses and visualizes the estimates for every listing and building.
@@ -51,21 +53,15 @@ quarantined and why (earlier on 2026-09-29 `m5-nocurves` +
 `unitdesc-v1`, and from 2026-09-26 the best NumPyro fit); it ships through the summary output to the
 [listings site](site.md). West Village was on hold until its crawl finished on 2026-10-01.
 
-## Interpretability and elegance (Ben, 2026-09-29)
+## Elegance and the glossary
 
-"One of the goals of the project is that the selected model is interpretable and elegant. There
-should be a simple conceptual explanation for the role of each term in the model that makes sense
-to a reasonable user. The model should reflect the qualities of an apartment and its surroundings
-that a typical apartment renter thinks about when choosing a place to rent."
+The selected model should be elegant as a statistical model, judged as in "The elegance axis" (Ben,
+2026-10-01 evening). His earlier renter rule (2026-09-29: a term enters the selected model only with an
+explanation a renter would accept) and its renter-understanding framing were dropped then; they are
+not a gate or a criterion. The glossary below describes what each term means for a listing.
 
-- **Rule.** A term can enter the selected model only with a one-sentence explanation a renter
-  would accept (the glossary below). A term without one is a research tool, not a selection
-  candidate. PSIS-LOO per fit time is still the frontier; this is a gate on what gets selected.
-- **Features** should be qualities renters weigh: size and layout, light and views, floor,
-  outdoor space, condition and renovation, amenities, the building, the block and
-  neighbourhood, transit, noise, schools, groceries, parks.
-- **Fewer, clearer terms.** Overlapping terms are hard to explain and, as the trend-plus-walk
-  design showed, hard to sample.
+- **Fewer, clearer terms.** Overlapping terms compete and, as the trend-plus-walk design showed, are
+  hard to sample (hard to sample means misspecified).
 - **Not model terms.** Sampling coordinates, warm starts and samplers change how a fit runs, not
   what the model says. Data rules are cleaning and must be explainable as such ("one apartment,
   one id").
@@ -76,7 +72,8 @@ that a typical apartment renter thinks about when choosing a place to rent."
   into a map (the market over time, the bedroom count, a smooth location surface) serve it;
   anonymous per-building effects do not. This is guidance for the research, not a selection rule.
 
-**Glossary** (terms in the current designs, and what each means to a renter):
+**Glossary** (terms in the current designs, and what each means for a listing; a description, not a
+criterion):
 
 | Term | What it says about a listing |
 |---|---|
@@ -103,33 +100,38 @@ that a typical apartment renter thinks about when choosing a place to rent."
 | Student-t unit levels (m5-nocurves-tunits, m7, m8) | A few apartments differ a lot from their building (a penthouse, an oddity) without pulling the others' estimates. |
 | Heavy-tailed residuals (Student-t) | Some asks are unusual for reasons the data don't show. |
 
-## The simplicity axis (from 2026-10-01)
+## The elegance axis (from 2026-10-01)
 
-Simplicity is a holistic judgement made by judge agents, one pair of designs at a time, and recorded
-(`rentfrontier.simplicity`, `config/simplicity-judgements.jsonl`). A design is a model and a feature
-set. Data rules, samplers and settings are not part of it.
+Elegance is a holistic judgement of each design as a statistical model, made by judge agents one pair
+of designs at a time and recorded (`rentfrontier.elegance`, `config/elegance-judgements.jsonl`, brief
+`elegance-v1`). A design is a model and a feature set; data rules, samplers and settings are not part
+of it.
 
-- **The judges.** Two judge agents judge each pair independently, each seeing the pair in the
-  opposite order (`python -m rentfrontier.simplicity brief A B`).
-  - They read the two designs' definitions (model configuration, feature set and its builders) and
-    the glossary below.
-  - They are blind to scores and fit times.
-  - Each says which design a renter would find simpler and more elegant, or that they are about
-    equally simple, and gives a reason a reviewer can check.
-- **Weighing, as a whole:**
-  - how many ideas a renter must hold, and how familiar they are;
-  - whether terms overlap or each has one clear role;
-  - whether the terms are qualities renters weigh, and how naturally they compose.
-- **Combining.** If the two judges agree, their verdict stands. If they disagree, the pair is recorded
-  as equally simple: no clear difference (`record`).
-- **Recording.** Judgements are added by a reviewed PR, like any other change to what is served.
-- **Which pairs.** Only the pairs that can matter are judged (`python -m rentfrontier.simplicity
-  pending`), among the fits autoselect could serve:
-  - pairs tied on PSIS-LOO with the top;
-  - pairs where one fit beats the other on accuracy and fit time, because the beaten one stays on the
-    frontier only if it is judged simpler.
-- **A pair not judged** counts as equally simple on the board. Autoselect does not switch on a tie
-  with the incumbent until that pair has been judged.
+- **What the judges weigh** (Ben, 2026-10-01 evening), as a whole:
+  - one coherent generative story whose structure mirrors the data (apartments within buildings
+    within neighbourhoods, over time), not terms bolted on;
+  - few distinct mechanisms, used consistently (the same pooling idea at every level);
+  - no overlapping or competing terms, each separately identifiable;
+  - few special cases: no one-off flags, hand-tuned cutoffs or patches for particular subsets of rows;
+  - natural rather than arbitrary forms for the likelihood, priors and scales;
+  - economy: the fewest structural choices (variance scales, components, hyperparameters) for what
+    the model captures.
+
+  Implementation details (samplers, reparameterizations, knot spacing, centring) do not count.
+- **The judges.** Two judge agents judge each pair independently, each shown the pair in the opposite
+  order, blind to scores and fit times (`python -m rentfrontier.elegance brief A B`). If they agree
+  their verdict stands; if they disagree the pair is recorded as equal (`record`).
+- **Recording.** Judgements are added by a reviewed PR. Every pair was re-judged under this brief;
+  the earlier simplicity verdicts are not carried over.
+- **Which pairs** (`python -m rentfrontier.elegance pending`):
+  - pairs tied on PSIS-LOO with the top among the fits autoselect could serve;
+  - pairs autoselect's decision is waiting on;
+  - pairs on the research frontier's candidates (exploration fits included) where one fit beats the
+    other on accuracy and fit time: the beaten one stays on the frontier only if judged more elegant.
+- **A pair not judged** counts as equal on the board; autoselect does not switch on a tie with the
+  incumbent until that pair has been judged.
+- **An objective companion.** The board shows p_loo, the effective number of parameters from
+  PSIS-LOO (in-sample lppd minus elpd_loo), beside the verdicts. The judges still decide.
 
 ## The score
 
@@ -200,13 +202,13 @@ You do not need my approval to change the dashboard model."
 - **The choice** follows the board's `choose_best` among the eligible fits. It differs only
   where the 10% time tie below changes the order:
   - Take the top PSIS-LOO, and the fits tied with it within two combined SE.
-  - Among those, take the simplest by the recorded judgements: fits are ordered by how many other
-    tied fits are judged simpler than them, fewest first (from 2026-10-01; before that, the
+  - Among those, take the most elegant by the recorded judgements: fits are ordered by how many
+    other tied fits are judged more elegant than them, fewest first (from 2026-10-01; before that, the
     fastest). A cycle of judgements leaves its fits level.
   - Then take the fastest. Fit times within 10% count as equal, and then
     the higher PSIS-LOO wins, so timing noise cannot decide.
 - **Hysteresis.** An eligible incumbent stays unless it is beaten clearly: PSIS-LOO beyond the
-  tie tolerance, or tied and judged simpler, or tied, judged equally simple and more than 10%
+  tie tolerance, or tied and judged more elegant, or tied, judged equally elegant and more than 10%
   faster. A tie whose pair has not been judged waits for a judgement. Fits ranked below an eligible incumbent are not tried.
 - **Held-out guard.** A challenger whose paired held-out score is more than 2 SE below the
   incumbent's is refused, and the next fit is tried. Challengers are tried in ranked order,
@@ -227,14 +229,14 @@ You do not need my approval to change the dashboard model."
 - **Gate.** Split R-hat < 1.01 and bulk ESS > 400 on scalars and traced effects. Frontier-line runs
   also need R-hat < 1.05 over every element of every group effect (1.1 when recomputed from older
   runs' kept draws). No divergences under NUTS. Named additive dollar contributions are required.
-- **Eligible.** Passes the gate, is interpretable (every term in the glossary under
-  "Interpretability and elegance"), and has a PSIS-LOO score.
+- **Eligible.** Passes the gate, has named additive contributions, and has a PSIS-LOO score.
 - **Best.** The top PSIS-LOO ΔELPD defines a tie band of two combined SE. The best is the entry inside
-  that band that the fewest others are judged simpler than, then the fastest (the fastest before
+  that band that the fewest others are judged more elegant than, then the fastest (the fastest before
   2026-10-01).
 - **Frontier.** Eligible entries that no other eligible entry beats on PSIS-LOO ΔELPD, fit time and
-  judged simplicity at once: at least as good on accuracy and time, not judged less simple, and
-  better on one of the three. A pair not judged counts as equally simple.
+  judged elegance at once: at least as good on accuracy and time, not judged less elegant, and
+  better on one of the three. A pair not judged counts as equal. Exploration fits count without the
+  gate (they are judged on ranking).
 - Screen-grade PyMC runs stay visible and are never best or on the frontier. PyMC screens that
   saved no draws have no PSIS-LOO score yet.
 

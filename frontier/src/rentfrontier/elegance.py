@@ -1,11 +1,13 @@
-"""Which of two designs is simpler: holistic judgements by judge agents.
+"""Which of two designs is more elegant: holistic judgements by judge agents.
 
 Ben, 2026-10-01: the research seeks the Pareto frontier of fit quality
-(PSIS-LOO), fit time and "model elegance/simplicity", and the served model is
-the best fit with ties broken by "which model is simpler". On how to judge it:
-"I prefer a wholistic judgement to the described rubric approach, and I don't
-expect we have that many pairs to evaluate so it should be possible for an
-agent to do at reasonable cost."
+(PSIS-LOO), fit time and elegance, and ties go to the more elegant model. He
+chose holistic judgements by agents over a points rubric ("I prefer a
+wholistic judgement to the described rubric approach"). Later the same day he
+made the axis a modelling-oriented elegance target, not renter understanding:
+one coherent generative story whose structure mirrors the data, few mechanisms
+used consistently, no overlapping terms, few special cases, natural forms,
+economy (`BRIEF`).
 
 **A design** is a model and a feature set (`design_id`: "model/feature set").
 Data rules, samplers and settings do not change what a model says, so they are
@@ -14,33 +16,31 @@ not part of it.
 **Judgements** are recorded in `JUDGEMENTS`, one line per pair of designs,
 added by reviewed PRs:
 
-    {"designs": [a, b], "verdict": a | b | "equal", "reason": ...,
+    {"designs": [a, b], "verdict": a | b | "equal", "reason": ..., "brief": ...,
      "judges": [{"shown": [a, b], "verdict": ..., "reason": ...},
                 {"shown": [b, a], "verdict": ..., "reason": ...}],
      "date": ..., "judge": ...}
 
 **The protocol** (`brief`):
-- Two judge agents work independently. Each sees the pair in the opposite order
-  and is blind to scores and fit times.
-- Each reads the two designs' definitions in the code and the plan's glossary,
-  then judges which design a renter would find simpler and more elegant, or
-  that they are about equally simple.
-- If the judges agree, their verdict stands. If they disagree, the pair is
-  recorded as "equal": no clear difference (`combine`).
+- Two judge agents work independently, each shown the pair in the opposite
+  order, blind to scores and fit times.
+- They read the two designs' definitions in the code.
+- If they agree, their verdict stands. If they disagree, the pair is recorded
+  as "equal": no clear difference (`combine`).
 
 **Where it is used:**
-- `compare` returns +1 (a is simpler), 0 (equal), -1 (b is simpler) or None
-  (not judged).
+- `compare` returns +1 (a is more elegant), 0 (equal), -1 (b is) or None (not
+  judged).
 - The board and `autoselect` break PSIS-LOO ties by it, then by fit time.
-- On the frontier, a fit judged simpler than one that beats it on accuracy and
-  time survives. A pair not judged counts as equally simple.
+- On the frontier, a fit judged more elegant than one that beats it on accuracy
+  and time survives. A pair not judged counts as equal.
 - `autoselect` does not switch on a tie that an unjudged pair could decide;
   `pending` lists the pairs to judge.
 
-`python -m rentfrontier.simplicity pending` prints the pairs whose judgement
-the current board needs. `brief A B` prints a judge's instructions.
-`record ONE.json TWO.json` combines two judges' answers (one answer or a list
-of them per judge) pair by pair and appends them to `JUDGEMENTS`.
+`python -m rentfrontier.elegance pending` prints the pairs the current board
+needs. `brief A B` prints a judge's instructions. `record ONE.json TWO.json`
+combines two judges' answers (one or a list each) pair by pair and appends
+them to `JUDGEMENTS`.
 """
 
 from __future__ import annotations
@@ -53,7 +53,8 @@ from pathlib import Path
 
 from rentfrontier import data
 
-JUDGEMENTS = data.REPO / "config" / "simplicity-judgements.jsonl"
+JUDGEMENTS = data.REPO / "config" / "elegance-judgements.jsonl"
+BRIEF_VERSION = "elegance-v1"
 
 
 def design_id(entry) -> str:
@@ -76,10 +77,10 @@ def _load(path: str, mtime: float) -> dict:
         j = json.loads(line)
         a, b = j["designs"]
         if a == b or j["verdict"] not in (a, b, "equal"):
-            raise ValueError(f"malformed simplicity judgement: {line}")
+            raise ValueError(f"malformed elegance judgement: {line}")
         key = frozenset((a, b))
         if key in out:
-            raise ValueError(f"two simplicity judgements of {a} and {b}")
+            raise ValueError(f"two elegance judgements of {a} and {b}")
         out[key] = j
     return out
 
@@ -91,7 +92,7 @@ def judgements(path: Path = JUDGEMENTS) -> dict:
 
 
 def compare(a: str, b: str, table=None) -> int | None:
-    """+1 if design a is judged simpler than b, -1 if b is, 0 if equal (or
+    """+1 if design a is judged more elegant than b, -1 if b is, 0 if equal (or
     the same design), None if the pair has not been judged."""
     if a == b:
         return 0
@@ -112,7 +113,7 @@ def for_design(design: str, table=None) -> list:
         verdict = (
             "equal"
             if j["verdict"] == "equal"
-            else ("simpler" if j["verdict"] == design else "less simple")
+            else ("more elegant" if j["verdict"] == design else "less elegant")
         )
         out.append({"vs": other, "verdict": verdict, "reason": j["reason"]})
     return out
@@ -143,43 +144,44 @@ def combine(first: dict, second: dict) -> dict:
         "designs": [a, b],
         "verdict": verdict,
         "reason": reason,
+        "brief": BRIEF_VERSION,
         "judges": [first, second],
         "date": dt.datetime.now(dt.UTC).date().isoformat(),
         "judge": first.get("judge", "judge agent"),
     }
 
 
-BRIEF = """You are judging which of two rent-model designs is SIMPLER AND MORE ELEGANT.
+BRIEF = """You are judging which of two rent-model designs is MORE ELEGANT as a statistical model.
 This is a holistic judgement, not a points count.
 
-The project (NYC apartment rents; read the repository you are given) wants a model
-whose every term has a plain explanation a renter would accept. In Ben's words: "the
-selected model is interpretable and elegant. There should be a simple conceptual
-explanation for the role of each term in the model that makes sense to a reasonable
-user. The model should reflect the qualities of an apartment and its surroundings that
-a typical apartment renter thinks about when choosing a place to rent."
+The project models NYC apartment asking rents (log rent per listing). Read the repository you are
+given.
 
 Design 1: {first}
 Design 2: {second}
 
-A design is a model configuration (frontier/src/rentfrontier/model.py, the MODELS
-entry with that name and its comment) plus a feature set (frontier/src/rentfrontier/
-features.py, the FEATURE_SETS entry, the builders it calls and their docstrings).
-The glossary in docs/research-plan.md under "Interpretability and elegance" says what
-each term means to a renter. Read what you need. Do NOT look at scores, fit times,
-run results, the leaderboard or the research plan's result sections: judge the designs
-as models, blind to how well they fit.
+A design is two things:
+- a model configuration: the MODELS entry with that name in frontier/src/rentfrontier/model.py, its
+  comment, and how model.build_model uses its options;
+- a feature set: the FEATURE_SETS entry in frontier/src/rentfrontier/features.py, the builders it
+  calls (follow the `base=` chain) and their docstrings.
 
-Weigh, as a whole:
-- how many ideas a renter must hold to understand the model, and how familiar they are;
-- whether the terms overlap, or each has one clear role;
-- whether the terms are qualities renters weigh, and how naturally they compose
-  (for example into a map or a story about a listing);
-- anything else that makes one design clearly easier or harder to explain.
+Read what you need. Do NOT look at scores, fit times, run results, the leaderboard or the research
+plan's result sections. Judge the designs as models, blind to how well they fit.
 
-Implementation details that do not change what the model says (knot spacing,
-centring, samplers, priors, data cleaning) are not part of simplicity.
-If neither design is clearly simpler, say "equal".
+Weigh, as a whole, what makes a model elegant to a statistician:
+- one coherent generative story whose structure mirrors the data (apartments within buildings within
+  neighbourhoods, observed over time), not terms bolted on;
+- few distinct mechanisms, used consistently (the same pooling idea at every level);
+- no overlapping or competing terms; each term separately identifiable;
+- few special cases: no one-off flags, hand-tuned cutoffs or patches for particular subsets of rows;
+- natural rather than arbitrary forms for the likelihood, priors and scales;
+- economy: the fewest structural choices (variance scales, components, hyperparameters) for what the
+  model captures.
+
+Implementation details that do not change what the model says are not part of elegance: samplers,
+reparameterizations, knot spacing, centring, data cleaning. If neither design is clearly more
+elegant, say "equal".
 
 Answer with JSON only:
 {{"shown": ["{first}", "{second}"], "verdict": "<one of the two designs, or equal>",
@@ -191,20 +193,29 @@ def brief(first: str, second: str) -> str:
     return BRIEF.format(first=first, second=second)
 
 
-def pending(entries, rules=None, incumbent_run=None) -> list:
+def pending(entries, rules=None, incumbent_run=None, hardware=None) -> list:
     """Unjudged pairs whose judgement could change what is served or what is
-    on the frontier, among the fits autoselect could serve:
-    - pairs tied on PSIS-LOO with the top;
-    - with `incumbent_run`, the pairs autoselect's decision is waiting on
-      (a challenger tied with the incumbent, even outside the top's tie band);
-    - pairs where one fit beats the other on accuracy and fit time (the
-      beaten one survives only if judged simpler)."""
-    from rentfrontier import autoselect
+    on the research frontier:
+    - among the fits autoselect could serve, pairs tied on PSIS-LOO with the
+      top;
+    - with `incumbent_run`, the pairs autoselect's decision is waiting on (a
+      challenger tied with the incumbent, even outside the top's tie band);
+    - among the frontier's candidates on the target hardware (exploration fits
+      included), pairs where one fit beats the other on accuracy and fit time
+      (the beaten one survives only if judged more elegant)."""
+    from rentfrontier import autoselect, leaderboard
 
-    cands = autoselect.eligible(entries, rules)
+    served = autoselect.eligible(entries, rules)
     need = set()
-    for pair in autoselect.tie_pairs(cands):
+    for pair in autoselect.tie_pairs(served):
         need.add(pair)
+    hardware = autoselect.TARGET_HARDWARE if hardware is None else hardware
+    cands = [
+        e
+        for e in entries
+        if e.get("hardware_class", e.get("hardware")) == hardware
+        and leaderboard.frontier_candidate(e)
+    ]
     if incumbent_run is not None:
         decision = autoselect.decide(entries, incumbent_run, rules)
         need.update(tuple(p) for p in decision["pending_judgements"])
