@@ -166,6 +166,12 @@ class ModelConfig:
     # with its own HalfNormal(feature_slope_scale_sd) scale.
     feature_slopes: tuple = ()
     feature_slope_scale_sd: float = 0.1
+    # Feature groups (by Features.groups name) whose coefficients share a
+    # learned scale: each column's prior sd is the group's scale times its
+    # prior_scale, the scale ~ HalfNormal(beta_sd), instead of the fixed
+    # beta_sd times prior_scale. The data set how strongly, e.g., a location
+    # surface varies.
+    learned_feature_groups: tuple = ()
     # Knot spacing (months) of the market trend and bedroom-group curves:
     # random walks over knots, linearly interpolated; 1 = one value per month.
     trend_knot_months: int = 1
@@ -434,6 +440,14 @@ def _walk(p):
     return walk
 
 
+def feature_group_columns(features, group: str) -> slice:
+    """The feature columns of `group` (they must be contiguous)."""
+    cols = np.flatnonzero(np.asarray(features.groups) == group)
+    if len(cols) == 0 or not np.array_equal(cols, np.arange(cols[0], cols[-1] + 1)):
+        raise ValueError(f"feature group {group!r} is missing or not contiguous")
+    return slice(int(cols[0]), int(cols[-1]) + 1)
+
+
 def effects(p):
     """Named effect vectors (log scale) from constrained site values."""
     season = p["season_raw"] - p["season_raw"].mean()
@@ -479,6 +493,7 @@ def effects(p):
         "bedroom_slope_scale": p.get("bedroom_slope_scale", jnp.zeros(())),
         "fslope": p.get("fslope", jnp.zeros((1, 1))),
         "fslope_scales": p.get("fslope_scales", jnp.zeros(1)),
+        "feature_group_scales": p.get("feature_group_scales", jnp.zeros(1)),
     }
 
 
@@ -746,7 +761,8 @@ def build_model(prep: Prepared, config: ModelConfig):
     n_months = len(prep.periods)
     y = jnp.asarray(a.y)
     arrays = a.map(jnp.asarray)
-    beta_sd = config.beta_sd * jnp.asarray(prep.features.prior_scale)
+    prior_scale = jnp.asarray(prep.features.prior_scale)
+    beta_sd = config.beta_sd * prior_scale
     fixed = constants(prep, config)
     trend_basis = fixed["trend_basis"]
     n_lines = int(np.max(prep.unit_line)) + 1 if config.line_effects else 0
@@ -755,7 +771,20 @@ def build_model(prep: Prepared, config: ModelConfig):
         p = dict(fixed)
         p["alpha"] = numpyro.sample("alpha", dist.Normal(0.0, 1.0))
         if config.features:
-            p["beta"] = numpyro.sample("beta", dist.Normal(0.0, beta_sd))
+            sd = beta_sd
+            if config.learned_feature_groups:
+                p["feature_group_scales"] = numpyro.sample(
+                    "feature_group_scales",
+                    dist.HalfNormal(config.beta_sd).expand(
+                        [len(config.learned_feature_groups)]
+                    ),
+                )
+                for i, g in enumerate(config.learned_feature_groups):
+                    cols = feature_group_columns(prep.features, g)
+                    sd = sd.at[cols].set(
+                        p["feature_group_scales"][i] * prior_scale[cols]
+                    )
+            p["beta"] = numpyro.sample("beta", dist.Normal(0.0, sd))
         if config.trend:
             p["trend_scale"] = numpyro.sample(
                 "trend_scale", dist.HalfNormal(config.trend_scale_sd)
@@ -1255,6 +1284,19 @@ MODELS = {
         trend_knot_months=3,
         feature_slopes=("log_sqft_vs_bedroom_median", "bathrooms=2", "log_floor"),
         unit_t=True,
+    ),
+    # The leading design with a learned scale on the location surface (the
+    # `location` group of nb-loc-v1's bumps): a smooth map of rent premiums
+    # whose strength the data set, a process-convolution approximation of a
+    # spatial Gaussian process with a learned amplitude.
+    "m7-nocurves-floorslope-locscale": ModelConfig(
+        name="m7-nocurves-floorslope-locscale",
+        building_walk=True,
+        bedroom_slope=True,
+        trend_knot_months=3,
+        feature_slopes=("log_sqft_vs_bedroom_median", "bathrooms=2", "log_floor"),
+        unit_t=True,
+        learned_feature_groups=("location",),
     ),
     # Student-t units with per-building slopes on a second bathroom and the
     # floor, no size slope: for data that rarely states square feet (West

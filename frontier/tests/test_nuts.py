@@ -788,3 +788,27 @@ def test_partially_centred_units_run_and_return_unit_effects(unit_t):
     )
     assert np.isfinite(out["lpd"]).all()
     assert out["kept"]["unit"].shape[-1] == len(prep.units)
+
+
+def test_a_learned_feature_group_scale_sets_its_columns_prior_sd():
+    """learned_feature_groups: the group's beta prior sd is the sampled
+    feature_group_scales times prior_scale; other columns keep beta_sd."""
+    prep = synthetic()
+    config = model.ModelConfig(name="g", learned_feature_groups=("x",))
+    tr = handlers.trace(handlers.seed(model.build_model(prep, config), 0)).get_trace()
+    scale = tr["feature_group_scales"]["value"]
+    assert scale.shape == (1,)
+    np.testing.assert_allclose(
+        np.asarray(tr["beta"]["fn"].scale),
+        float(scale[0]) * np.asarray(prep.features.prior_scale),
+    )
+    plain = handlers.trace(
+        handlers.seed(
+            model.build_model(prep, replace(config, learned_feature_groups=())), 0
+        )
+    ).get_trace()
+    assert "feature_group_scales" not in plain
+    np.testing.assert_allclose(
+        np.asarray(plain["beta"]["fn"].scale),
+        config.beta_sd * np.asarray(prep.features.prior_scale),
+    )

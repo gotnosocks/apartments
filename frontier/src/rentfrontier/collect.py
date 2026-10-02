@@ -169,6 +169,7 @@ def collect(
                 "building": e["building"][trace_b],
                 "unit": e["unit"][trace_u],
                 "fslope_scales": e["fslope_scales"],
+                "feature_group_scales": e["feature_group_scales"],
                 **info,
             }
             return (st, acc, s1, s2), trace
