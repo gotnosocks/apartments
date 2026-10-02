@@ -108,7 +108,7 @@ resume behavior.
 
 The primary project and archive now live on **thelio**, with the archive under
 `/data1/apartments/archive`. See the [hosting and migration runbook](docs/operations/thelio.md)
-for the verified cutover record, the archive browser and the research dashboard.
+for the verified cutover record, the archive browser and the rents site.
 Migration completed on September 16 at 21:19 EDT; Modal retains a frozen backup.
 Direct Tailscale access: [listings site](http://thelio.tail3983e0.ts.net:8600/) ·
 [research](http://thelio.tail3983e0.ts.net:8600/research) ·
