@@ -442,6 +442,10 @@ DATA_RULE_TEXT = {
     "apartment at another address or on a street its building does not front, and "
     'bedroom counts the ad flatly contradicts (a "three-bedroom home" recorded as one '
     "bedroom).",
+    "quarantine-v3": "quarantine-v2 and a third review, the first of West Village: ads "
+    "that place the apartment elsewhere (Brooklyn's Grove and Bleecker Streets, Park "
+    "Slope, Harlem, the Upper West Side), shops, restaurants and event spaces, a room, "
+    "short-stay-only offers, and an ask the ad contradicts.",
 }
 
 
