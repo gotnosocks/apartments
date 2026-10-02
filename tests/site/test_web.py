@@ -995,8 +995,8 @@ def _with_exploration(research_file):
     served = next(e for e in data["entries"] if e["id"].startswith("m-test/"))
     quick = dict(
         served,
-        id="m-test/unitdesc-v1/nuts@bbbbbbb+quick",
-        key="m-test/unitdesc-v1/nuts@bbbbbbb+quick",
+        id="m-test/unitdesc-v1/nuts@bbbbbbb [quick]",
+        key="m-test/unitdesc-v1/nuts@bbbbbbb [quick]",
         tier={"name": "exploration", "draws": 200, "warmup": 200, "chains": 2},
         passes_checks=False,
         frontier=True,
@@ -1010,8 +1010,8 @@ def _with_exploration(research_file):
     )
     subset = dict(
         quick,
-        id="m-test/unitdesc-v1/nuts@ccccccc+sub",
-        key="m-test/unitdesc-v1/nuts@ccccccc+sub",
+        id="m-test/unitdesc-v1/nuts@ccccccc [sub]",
+        key="m-test/unitdesc-v1/nuts@ccccccc [sub]",
         tier={"name": "exploration", "draws": 200, "subset": "tune-b35-v1"},
         psis=None,
         frontier=False,
@@ -1100,7 +1100,9 @@ def test_board_filters_by_tier(client, research_file):
 
 def test_exploration_fit_page_links_its_full_fits(client, research_file):
     quick, _ = _with_exploration(research_file)
-    html = client.get(f"/research/fits/{quick['key']}").get_data(as_text=True)
+    from urllib.parse import quote
+
+    html = client.get(f"/research/fits/{quote(quick['key'])}").get_data(as_text=True)
     assert "<h2>An exploration fit</h2>" in html
     assert "No: it is an exploration fit." in html
     assert "200 over 2 chains" in html
