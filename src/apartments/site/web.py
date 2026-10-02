@@ -57,6 +57,8 @@ from .research import (
     outlier_floor,
     run_of,
     serve_status,
+    simplicity_pairs,
+    simplicity_summary,
     snapshot_days,
     spearman,
     validation_pairs,
@@ -340,6 +342,7 @@ SECTIONS = {
         "research_plan_page",
         "research_glossary",
         "research_model",
+        "research_simplicity",
     ),
 }
 
@@ -476,6 +479,8 @@ def create_app(
     app.jinja_env.tests["finite"] = lambda v: (
         isinstance(v, (int, float)) and not isinstance(v, bool) and math.isfinite(v)
     )
+
+    app.jinja_env.globals["simplicity_summary"] = simplicity_summary
 
     @app.context_processor
     def helpers():
@@ -1020,12 +1025,7 @@ def create_app(
             se = f" ± {f['delta_se']:,.1f}" if f["delta_se"] is not None else ""
             rows.append(["PSIS-LOO ΔELPD", f"{f['delta']:+,.1f}{se}"])
         rows.append(["Fit time", f"{f['minutes']:.1f} min"])
-        rows.append(
-            [
-                "Complexity",
-                "not rated" if f["complexity"] is None else str(f["complexity"]),
-            ]
-        )
+        rows.append(["Simplicity", f["simplicity"] or "not judged yet"])
         rows.append(
             [
                 "Servable",
@@ -1069,13 +1069,6 @@ def create_app(
             }
             for f in scored
         ]
-        rated = [f for f in scored if f["complexity"] is not None]
-        complexity_points = [
-            dict(point, x=f["complexity"])
-            for point, f in zip(time_points, scored)
-            if f["complexity"] is not None
-        ]
-        delta_axis = "PSIS-LOO ΔELPD (higher is more accurate)"
         return render_template(
             "research_frontier.html",
             meta=m,
@@ -1089,27 +1082,18 @@ def create_app(
             floor=floor,
             target=target,
             target_minutes=TARGET_MINUTES,
-            rated=rated,
+            judged_pairs=len(data.get("simplicity_judgements") or ()),
             time_chart=charts.fit_scatter(
                 time_points,
                 label=f"Accuracy against fit time on {device}, one dot per fit",
                 x_title=f"Fit time on {device}, full dataset (minutes)",
-                y_title=delta_axis,
+                y_title="PSIS-LOO ΔELPD (higher is more accurate)",
                 x_format=lambda v: f"{v:g}",
                 y_format=charts.signed,
                 y_floor=floor,
                 x_line=(TARGET_MINUTES, f"{TARGET_MINUTES}-minute target")
                 if target
                 else None,
-            ),
-            complexity_chart=charts.fit_scatter(
-                complexity_points,
-                label="Accuracy against judged complexity, one dot per rated fit",
-                x_title="Complexity (judged; lower is simpler)",
-                y_title=delta_axis,
-                x_format=lambda v: f"{v:g}",
-                y_format=charts.signed,
-                y_floor=floor,
             ),
         )
 
@@ -1200,6 +1184,25 @@ def create_app(
             groups=data.get("variance_groups", []),
             baseline=data.get("baseline"),
             lines=LINES,
+            design_fits=design_fits(data),
+        )
+
+    def design_fits(data: dict) -> dict:
+        """Each judged design's fits on the board, to link the other side of a
+        judgement."""
+        return {
+            d["id"]: d["fits"] for p in simplicity_pairs(data) for d in p["designs"]
+        }
+
+    @app.get("/research/simplicity")
+    def research_simplicity():
+        data = research_data_or_503()
+        pending = (data.get("autoselect") or {}).get("pending_judgements") or []
+        return render_template(
+            "research_simplicity.html",
+            meta=meta(),
+            pairs=simplicity_pairs(data),
+            pending=pending,
         )
 
     @app.get("/research/history")
@@ -1416,6 +1419,7 @@ def create_app(
             entry=entry_for_run(data, m["provenance"]["run"]),
             baseline=data.get("baseline") if data else None,
             autoselect=data.get("autoselect") if data else None,
+            design_fits=design_fits(data) if data else {},
         )
 
     @app.get("/healthz")

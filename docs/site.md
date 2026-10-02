@@ -1,11 +1,12 @@
 # Rents site: estimates and research
 
-http://thelio.tail3983e0.ts.net:8600 (tailnet only).
+http://thelio.tail3983e0.ts.net:8600 (tailnet only; also on port 8500, the old research dashboard's
+address, so its links keep working).
 
 One site in two sections, with shared navigation and style (Ben, 2026-10-01: "one site, two
 sections"). **Estimates** shows the scraped listings with the selected model's rent estimates.
-**Research** shows how candidate models are compared and which one is served. The research pages
-are moving here from the [research dashboard](dashboard.md) one at a time.
+**Research** shows how candidate models are compared and which one is served. It replaces the old
+static research dashboard.
 
 The estimates use the building, the features, the market that month and the unit's
 other listings, never the listing's own ask (**leave-own-row-out**). The gap between ask and estimate
@@ -68,8 +69,8 @@ without the filter.
 
 - **Frontier** (`/research`): every fit of one hardware class (default: the RTX 2060, the served
   model's), with these parts:
-  - accuracy (PSIS-LOO ΔELPD) against fit time on the full dataset, with Ben's 30-minute target, and
-    against judged complexity (fits not rated yet are counted, not drawn);
+  - accuracy (PSIS-LOO ΔELPD) against fit time on the full dataset, with Ben's 30-minute target;
+  - how simplicity enters (judged in pairs, so it has no chart) and how many pairs are judged;
   - the frontier fits in a table, with whether each can be served and why not;
   - every fit in a table view.
 
@@ -79,13 +80,14 @@ without the filter.
   name, for example `nb-tune35`) are exploration only. They are hidden unless asked for, and never
   servable. Fits far below the rest (the mean-only baselines) are drawn at the chart's floor
   unless "the full accuracy range" is ticked.
-- **Board** (`/research/board`): every fit on the board with its accuracy, fit time, complexity,
-  checks, whether it can be served and why not, and when it landed. Filters are hardware, model
+- **Board** (`/research/board`): every fit on the board with its accuracy, fit time, its judged
+  simplicity pairs counted in words ("simpler than 1, less simple than 2"), checks, whether it can be served and why not, and when it landed. Filters are hardware, model
   line, a search over design, features and commit, "only servable" and "subset fits"; columns sort.
   Servable is yes only when the research data says so (autoselect's `why_not_served`). Otherwise a
   fit that fails the checks is "no", and anything else is "not known yet".
 - **Fit** (`/research/fits/<key>`): one fit's headline numbers, whether it can be served and why
-  not, the board's note and annotations, the sampler and run, the accuracy in detail (ELPD, Pareto
+  not, the judge agents' simplicity verdicts against other designs with their
+  reasons, the board's note and annotations, the sampler and run, the accuracy in detail (ELPD, Pareto
   k, the held-out check), each split's diagnostics, and where the variation in rents goes. Every
   dot on the research charts and every fit in their tables links here.
 - **History** (`/research/history`):
@@ -103,15 +105,20 @@ without the filter.
   plain words with whether the served model uses it, the listings each review rule leaves out by
   reason, and a link to them on the Estimates side.
 - **Plan** (`/research/plan`): `docs/research-plan.md` rendered with a contents list. It is read from
-  the dashboard's checkout, which follows master (`/data1/apartments/serve/master`; `RESEARCH_PLAN`
+  the research-data checkout, which follows master (`/data1/apartments/serve/master`; `RESEARCH_PLAN`
   overrides it), so it is current between site deploys. Raw HTML in the source is escaped, not
   rendered; repository links open on GitHub.
+- **Simplicity** (`/research/simplicity`): every recorded judgement (`simplicity_judgements`), newest
+  first: the two designs (linked to their fits), the verdict and reason, whether the two judges
+  agreed (if not, the pair counts as equal), and each judge's own answer. Pairs the automatic
+  selection is waiting on (`autoselect.pending_judgements`) are listed first.
 - **Glossary** (`/research/glossary`): every research term in plain words, with anchors the pages
   link to.
 - **Served model** (`/research/model`):
   - why it is served: the selection's own reason, and the latest automatic decision when the research
-    data carries it (`autoselect`);
-  - its place on the board: PSIS-LOO ΔELPD, the held-out check, fit time, complexity, frontier and
+    data carries it (`autoselect`), with each checked fit's simplicity against the served one and the
+    pairs waiting for a judgement;
+  - its place on the board: PSIS-LOO ΔELPD, the held-out check, fit time, simplicity, frontier and
     gate;
   - the fit's provenance, the parts of an estimate, and every feature coefficient.
 
@@ -142,12 +149,28 @@ listings fall in each band, as calibration predicts.
    about 8 s with a 1.1 GB peak, and the database is about 130 MB.
 3. **Serve.** The app opens `current/site.sqlite` read-only (immutable) on each request, so a publish
    needs no restart.
-4. **Research data.** `rentfrontier.dashboard` (frontier environment, every 10 minutes under the
-   heavy-job lock) writes the board's `data.json`: entries, as-of snapshots, milestones and the
-   data-quality card. The site reads `/data1/apartments/dashboard/site/data.json` (`RESEARCH_DATA`
+4. **Research data.** `rentfrontier.dashboard` (frontier environment, run from
+   `/data1/apartments/serve/master` by `ops/research-data-build.sh`) writes the board's
+   `data.json`: entries, as-of snapshots, milestones and the data-quality card. Each entry carries
+   the judge agents' pairwise `elegance` judgements of its design (`rentfrontier.elegance`: a list
+   of `{vs, verdict, reason}`, verdict "more elegant", "equal" or "less elegant"; empty when none),
+   its `tier`, `psis.p_loo`, and `why_not_served`, autoselect's plain reason
+   the fit cannot be served (null when it can). The top-level `autoselect` is autoselect's decision
+   on the current board against the served run: keep or switch, the reason, the eligible fits and
+   every fit checked; an error note replaces it if a pairing fails. The site reads `/data1/apartments/dashboard/site/data.json` (`RESEARCH_DATA`
    overrides it) and keeps the parsed copy until the file behind the symlink changes. Without it,
    the research parts of a page are left out. When the publish comes from the repository's
    selection, the build also stores the selection's reason (`selected_by`, `selection_reason`).
+
+The research data is live: new fits appear without a deploy (Ben, 2026-10-01).
+`apartments-dashboard-build.path` starts the build when a fit's run record, LOO score or variance
+shares land (a new directory in `/data1/apartments/frontier/runs`, `loo`, `variance` or `rescores`), and
+`apartments-dashboard-build.timer` every 10 minutes as a fallback. The script waits a minute for a
+burst of files to settle, then builds only if a finished record or master changed since the last
+build (a fingerprint in `/data1/apartments/dashboard/.last-build`), and builds again if more landed
+meanwhile. The build only reads small records, so it runs without the heavy-job lock, at idle CPU
+and I/O priority (about 3 minutes of one core and 600 MB; a skip takes a second). Each build is a
+new directory with the `site` symlink swapped atomically, so a page never reads a half-written file.
 
 Publishing on thelio takes the shared heavy-job lock like other heavy jobs:
 

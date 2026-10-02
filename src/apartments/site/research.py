@@ -183,7 +183,7 @@ def frontier_view(
                 "delta": psis.get("delta"),
                 "delta_se": psis.get("delta_se"),
                 "minutes": e["fit_seconds"] / 60,
-                "complexity": e.get("complexity"),
+                "simplicity": simplicity_summary(e),
                 "serve": serve,
                 "why_not": why_not,
             }
@@ -194,7 +194,6 @@ def frontier_view(
         "fits": fits,
         "frontier": [f for f in fits if f["frontier"] or f["kind"] == "served"],
         "unscored": sum(f["delta"] is None for f in fits),
-        "unrated": sum(f["complexity"] is None for f in fits if f["delta"] is not None),
         "hidden_subsets": hidden,
     }
 
@@ -205,15 +204,67 @@ LINES = {
     "numpyro": "NumPyro NUTS",
     "pymc": "PyMC",
 }
-# The first direction of each board sort: most accurate, fastest, simplest,
-# newest first.
-BOARD_ORDERS = {"delta": "desc", "time": "asc", "complexity": "asc", "landed": "desc"}
+# The first direction of each board sort: most accurate, fastest, newest first.
+BOARD_ORDERS = {"delta": "desc", "time": "asc", "landed": "desc"}
 BOARD_SORTS = {
     "delta": lambda e: (e.get("psis") or {}).get("delta"),
     "time": lambda e: e.get("fit_seconds"),
-    "complexity": lambda e: e.get("complexity"),
     "landed": lambda e: e.get("available_at"),
 }
+
+
+# A fit's simplicity judgement against another design, in plain words.
+SIMPLICITY_WORDS = {
+    "simpler": "simpler than",
+    "equal": "as simple as",
+    "less simple": "less simple than",
+}
+
+
+def design_id(entry: dict) -> str:
+    """ "model/feature set", the design the judges compare
+    (rentfrontier.simplicity.design_id)."""
+    if entry.get("design") and entry.get("feature_set"):
+        return f"{entry['design']}/{entry['feature_set']}"
+    return str(entry.get("id") or entry.get("key"))
+
+
+def simplicity_summary(entry: dict) -> str | None:
+    """A fit's judged pairs counted in words ("simpler than 2, less simple
+    than 1"), or None when its design has no judgement."""
+    counts: dict[str, int] = {}
+    for j in entry.get("simplicity") or ():
+        counts[j.get("verdict")] = counts.get(j.get("verdict"), 0) + 1
+    words = [
+        f"{SIMPLICITY_WORDS[k]} {counts[k]}" for k in SIMPLICITY_WORDS if k in counts
+    ]
+    return ", ".join(words) or None
+
+
+def simplicity_pairs(data: dict) -> list[dict]:
+    """Every recorded judgement, newest first, with the board fits of each
+    design and whether the two judges agreed."""
+    fits: dict[str, list[str]] = {}
+    for e in data.get("entries", []):
+        fits.setdefault(design_id(e), []).append(e["key"])
+    out = []
+    for j in data.get("simplicity_judgements") or ():
+        designs = list(j.get("designs") or ())
+        if len(designs) != 2:
+            continue
+        verdicts = [x.get("verdict") for x in j.get("judges") or ()]
+        out.append(
+            {
+                "designs": [{"id": d, "fits": fits.get(d, [])} for d in designs],
+                "verdict": j.get("verdict"),
+                "reason": j.get("reason"),
+                "date": j.get("date"),
+                "judges": j.get("judges") or [],
+                "agreed": len(verdicts) > 1 and len(set(verdicts)) == 1,
+            }
+        )
+    out.sort(key=lambda p: p["date"] or "", reverse=True)
+    return out
 
 
 def entry_by_key(data: dict | None, key: str) -> dict | None:
