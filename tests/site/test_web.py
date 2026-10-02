@@ -417,7 +417,9 @@ def test_research_model_page_shows_the_selection_and_decision(
     assert "The served fit is still the best." in html
     assert "<code>m-other-run</code>" in html and "tied and not faster" in html
     assert "<td>less simple</td>" in html  # the check's simplicity judgement
-    assert "<code>m-new/unitdesc-v1</code> against <code>m-test/unitdesc-v1</code>" in html
+    assert (
+        "<code>m-new/unitdesc-v1</code> against <code>m-test/unitdesc-v1</code>" in html
+    )
     assert "simpler than 1" in html and "#simplicity" in html
 
 
