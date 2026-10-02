@@ -158,13 +158,14 @@ listings fall in each band, as calibration predicts.
 4. **Research data.** `rentfrontier.dashboard` (frontier environment, run from
    `/data1/apartments/serve/master` by `ops/research-data-build.sh`) writes the board's
    `data.json`: entries, as-of snapshots, milestones and the data-quality card. Each entry carries
-   the judge agents' pairwise `simplicity` judgements of its design (`rentfrontier.simplicity`: a
-   list of `{vs, verdict, reason}`, empty when none) and `why_not_served`, autoselect's plain reason
-   the fit cannot be served (null when it can), and its `tier` (`rentfrontier` fit tiers:
-   `{name: "exploration" | "full", draws, warmup, chains, subset}`; none means full). Exploration
-   fits count on the research frontier but are never served; a fit with a `subset` has no PSIS-LOO
-   score on the full data and shows in tables only. The top-level `exploration` (goal, dataset,
-   baseline, a legend of `tiers` and `notes`) heads the frontier page. The top-level `autoselect` is autoselect's decision
+   the judge agents' pairwise `elegance` judgements of its design (`rentfrontier.elegance`: a list
+   of `{vs, verdict, reason}`, verdict "more elegant", "equal" or "less elegant"; empty when none),
+   `psis.p_loo`, `why_not_served`, autoselect's plain reason the fit cannot be served (null when it
+   can), and its `tier` (`rentfrontier` fit tiers: `{name: "exploration" | "full", draws, warmup,
+   chains, subset}`; none means full). Exploration fits count on the research frontier but are never
+   served; a fit with a `subset` has no PSIS-LOO score on the full data and shows in tables only. The
+   top-level `exploration` (goal, dataset, baseline, a legend of `tiers` and `notes`) heads the
+   frontier page. The top-level `autoselect` is autoselect's decision
    on the current board against the served run: keep or switch, the reason, the eligible fits and
    every fit checked; an error note replaces it if a pairing fails. The site reads `/data1/apartments/dashboard/site/data.json` (`RESEARCH_DATA`
    overrides it) and keeps the parsed copy until the file behind the symlink changes. Without it,

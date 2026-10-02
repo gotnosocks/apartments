@@ -1118,6 +1118,21 @@ def test_exploration_fit_page_links_its_full_fits(client, research_file):
 def test_tiers_without_research_fields():
     from apartments.site import research
 
+    assert research.data_rules_of(
+        {"id": "m7/f-v5/gibbs@a8ef50d+unit-labels-v1+quarantine-v2 [x]"}
+    ) == ("quarantine-v2", "unit-labels-v1")
+    assert research.data_rules_of({"id": "m0/base-v1/nuts@5cc0809"}) == ()
+    quick = {
+        "id": "m/f/g@b+q2",
+        "design": "m",
+        "feature_set": "f",
+        "tier": {"name": "exploration"},
+    }
+    same = {"id": "m/f/g@c+q2", "design": "m", "feature_set": "f", "key": "same"}
+    other = {"id": "m/f/g@d+q1", "design": "m", "feature_set": "f", "key": "q1"}
+    found = research.full_fits_of({"entries": [quick, same, other]}, quick)
+    assert [e["key"] for e in found] == ["same"]
+
     assert research.tier_of({}) == "full"
     assert research.tier_of({"tier": {"name": "nonsense"}}) == "full"
     explore = {"tier": {"name": "exploration"}, "passes_checks": True}

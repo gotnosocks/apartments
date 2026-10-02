@@ -106,17 +106,24 @@ def subset_fit(entry: dict) -> bool:
     return bool((entry.get("tier") or {}).get("subset")) or is_subset(run_of(entry))
 
 
+def data_rules_of(entry: dict) -> tuple[str, ...]:
+    """The data rules a fit used, from its id ("model/features/sampler@commit
+    +rule+rule"; none for a fit on all the rows)."""
+    after = str(entry.get("id") or "").split(" ")[0].partition("@")[2]
+    return tuple(sorted(after.split("+")[1:]))
+
+
 def full_fits_of(data: dict, entry: dict) -> list[dict]:
     """The full fits of an exploration fit's design (same model, features
     and data rules), newest first: where a promising design went next."""
-    rules = entry.get("data_rules")
+    rules = data_rules_of(entry)
     return sorted(
         (
             e
             for e in data.get("entries", [])
             if tier_of(e) == "full"
             and design_id(e) == design_id(entry)
-            and (rules is None or e.get("data_rules") in (None, rules))
+            and data_rules_of(e) == rules
         ),
         key=lambda e: e.get("available_at") or "",
         reverse=True,

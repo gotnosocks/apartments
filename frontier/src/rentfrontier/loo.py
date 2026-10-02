@@ -129,6 +129,7 @@ def integrated_loglik(y, mu, seg, n_seg, unit_time, params, *, t_units, drift):
 
 def psis_loo(loglik, block=4000):
     """PSIS-LOO from (draws, rows) log densities: pointwise elpd, k, MCSE.
+    `lppd` gives the in-sample log predictive density for p_loo.
 
     Rows are processed in blocks so memory stays bounded at large draw counts."""
     loglik = np.asarray(loglik, float)
@@ -137,6 +138,22 @@ def psis_loo(loglik, block=4000):
         for lo in range(0, loglik.shape[1], block)
     ]
     return tuple(np.concatenate(p) for p in zip(*parts))
+
+
+def lppd(loglik, block=4000):
+    """Pointwise log of the mean likelihood over draws, from (draws, rows) log
+    densities; p_loo = sum(lppd) - sum(elpd_loo) is the effective number of
+    parameters."""
+    from scipy.special import logsumexp
+
+    loglik = np.asarray(loglik, float)
+    s = loglik.shape[0]
+    return np.concatenate(
+        [
+            logsumexp(loglik[:, lo : lo + block], axis=0) - math.log(s)
+            for lo in range(0, loglik.shape[1], block)
+        ]
+    )
 
 
 def _psis_block(loglik):
@@ -243,10 +260,12 @@ def score_run(name: str):
         loglik[:, lo:hi] = np.asarray(ll)[:, :n]
 
     elpd, k, mcse = psis_loo(loglik)
+    in_sample = lppd(loglik)
     audit = frame.audit_id.to_numpy()[rows_sorted]
     # Back to frame order of the training rows.
     back = np.argsort(rows_sorted)
     audit, elpd, k, mcse = audit[back], elpd[back], k[back], mcse[back]
+    in_sample = in_sample[back]
     unit_rows = np.bincount(prep.train.unit, minlength=len(prep.units))
     train_unit = pd_index(prep.units, frame.unit_id.to_numpy()[train_idx])
     held = np.load(run_dir / "heldout.npz", allow_pickle=True)
@@ -263,6 +282,9 @@ def score_run(name: str):
         "elpd_loo": float(elpd.sum()),
         "elpd_loo_se": float(elpd.std(ddof=1) * math.sqrt(len(elpd))),
         "elpd_loo_mcse": float(math.sqrt(np.sum(mcse**2))),
+        # Effective number of parameters: in-sample lppd minus elpd_loo, with
+        # the unit level integrated out as in elpd_loo.
+        "p_loo": float(in_sample.sum() - elpd.sum()),
         "pareto_k": {
             "threshold": thr,
             "over_threshold": int((k > thr).sum()),
