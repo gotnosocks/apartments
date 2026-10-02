@@ -2,7 +2,7 @@
 {% block title %}The board{% endblock %}
 {% block content %}
 <h1>The board</h1>
-<p class="lede">Every model fit that has been run, with how accurate it is, how long it took, how simple it is and whether it can
+<p class="lede">Every model fit that has been run, with how accurate it is, how long it took, how elegant it is and whether it can
 be served. Select a fit for its details.</p>
 
 <form class="filters" action="{{ url_for('research_board') }}" method="get" aria-label="Filter the board">
@@ -24,6 +24,13 @@ be served. Select a fit for its details.</p>
     {% for key, label in lines.items() %}<option value="{{ key }}"{% if key == line %} selected{% endif %}>{{ label }}</option>{% endfor %}
     </select>
   </div>
+  <div class="field">
+    <label for="b-tier">Tier</label>
+    <select id="b-tier" name="tier">
+      <option value=""{% if not tier %} selected{% endif %}>Both</option>
+    {% for key, label in tiers.items() %}<option value="{{ key }}"{% if tier == key %} selected{% endif %}>{{ label }}s</option>{% endfor %}
+    </select>
+  </div>
   <fieldset class="field">
     <legend>Show</legend>
     <div class="checks">
@@ -31,7 +38,7 @@ be served. Select a fit for its details.</p>
       <label><input type="checkbox" name="subsets" value="1"{% if subsets %} checked{% endif %}> Subset fits</label>
     </div>
   </fieldset>
-  <div class="field actions"><button type="submit">Apply</button>{% if q or hardware or line or servable or subsets %}<a href="{{ url_for('research_board') }}">Reset</a>{% endif %}</div>
+  <div class="field actions"><button type="submit">Apply</button>{% if q or hardware or line or servable or subsets or tier %}<a href="{{ url_for('research_board') }}">Reset</a>{% endif %}</div>
 </form>
 
 <div class="results-head"><p><strong>{{ rows | length }}</strong> of {{ total }} fits</p></div>
@@ -48,7 +55,8 @@ be served. Select a fit for its details.</p>
     <th scope="col">Hardware</th>
     {{ sort_head("PSIS-LOO ΔELPD", "delta") }}
     {{ sort_head("Fit time", "time") }}
-    {{ sort_head("Complexity", "complexity") }}
+    <th scope="col">Elegance <span class="muted">(judged pairs)</span></th>
+    {{ sort_head("Effective parameters", "params") }}
     <th scope="col" title="Whether the sampler settled on one stable answer (R-hat, effective sample size, divergences)">Checks</th>
     <th scope="col">Servable</th>
     {{ sort_head("Landed", "landed", num=False) }}
@@ -58,25 +66,27 @@ be served. Select a fit for its details.</p>
     {% set run = run_of(e) %}
     <tr>
       <td><a href="{{ url_for('research_fit', key=e.key) }}"><code>{{ e.key }}</code></a>
-        {% if run == served_run %} <span class="tag">served</span>{% endif %}{% if e.current_best %} <span class="tag" title="The best fit on its hardware">best on its hardware</span>{% endif %}{% if e.frontier %} <span class="tag">frontier</span>{% endif %}
+        {% if run == served_run %} <span class="tag">served</span>{% endif %}{% if e.current_best %} <span class="tag" title="The best fit on its hardware">best on its hardware</span>{% endif %}{% if e.frontier %} <span class="tag">frontier</span>{% endif %}{% if tier_of(e) == "exploration" %} <span class="tag exploration">exploration</span>{% endif %}
         {% if e.note %}<br><span class="muted">{{ e.note }}</span>{% endif %}</td>
       <td class="nowrap">{{ e.hardware_class }}</td>
       <td class="num nowrap">{% if e.psis %}{{ "{:+,.1f}".format(e.psis.delta) }}{% if e.psis.delta_se is finite %} <span class="muted">± {{ "{:,.1f}".format(e.psis.delta_se) }}</span>{% endif %}{% else %}<span class="muted">not scored</span>{% endif %}</td>
       <td class="num nowrap">{{ "%.1f" | format(e.fit_seconds / 60) }} min</td>
-      <td class="num">{{ e.complexity if e.complexity is not none else "—" }}</td>
+      <td>{{ elegance_summary(e) or "—" }}</td>
+      <td class="num">{{ "{:,.0f}".format(e.psis.p_loo) if e.psis and e.psis.p_loo is number else "—" }}</td>
       <td>{{ "pass" if e.passes_checks else "fail" }}</td>
       {% set serve, why = serve_status(e) %}
       <td>{% if serve == "yes" %}yes{% elif serve == "no" %}no: {{ why }}{% else %}<span class="muted">not known yet</span>{% endif %}</td>
       <td class="nowrap">{{ e.available_at[:10] if e.available_at else "—" }}</td>
     </tr>
   {% else %}
-    <tr><td colspan="8" class="empty">No fits match.</td></tr>
+    <tr><td colspan="9" class="empty">No fits match.</td></tr>
   {% endfor %}
   </tbody>
 </table>
 </div>
 <p class="note">PSIS-LOO ΔELPD: how well a fit predicts each listing's ask from the others, against the simplest baseline; higher is
-better, and fits within about two ± of each other tie. Fit times compare only on the same hardware. Complexity is judged; lower is
-simpler. Checks: whether the sampler settled on one stable answer; a fit that fails them is never served. See
+better, and fits within about two ± of each other tie. Fit times compare only on the same hardware. Elegance counts the judge agents'
+verdicts against other designs (<a href="{{ url_for('research_elegance') }}">every judgement</a>); effective parameters are an
+objective check beside it (fewer means the same fit with less). Checks: whether the sampler settled on one stable answer; a fit that fails them is never served. See
 <a href="{{ url_for('research_frontier') }}">the frontier</a> for these three side by side.</p>
 {% endblock %}

@@ -369,6 +369,50 @@ FIT_KINDS = {
 }
 
 
+def _fit_mark(p, x: float, y: float) -> str:
+    """A fit's mark: a circle for a full fit, a diamond of about the same area
+    for an exploration fit (so the tier is not colour alone)."""
+    radius = 5.5 if p["kind"] == "served" else 4
+    if p.get("tier") == "exploration":
+        r = radius * 1.25
+        return (
+            f'<path class="fit {p["kind"]}" d="M{x:.1f} {y - r:.1f}'
+            f"L{x + r:.1f} {y:.1f}L{x:.1f} {y + r:.1f}L{x - r:.1f} {y:.1f}Z"
+            '"/>'
+        )
+    return f'<circle class="fit {p["kind"]}" cx="{x:.1f}" cy="{y:.1f}" r="{radius}"/>'
+
+
+def _fit_label(p) -> str:
+    """The tooltip's first line: the fit's kind, and its tier when it is an
+    exploration fit."""
+    label = FIT_KINDS[p["kind"]]
+    return label + " · exploration fit" if p.get("tier") == "exploration" else label
+
+
+def _fit_legend(points) -> str:
+    """The kinds present, and the two shapes when any fit is an exploration
+    fit."""
+    present = [k for k in FIT_KINDS if any(p["kind"] == k for p in points)]
+    shapes = ""
+    if any(p.get("tier") == "exploration" for p in points):
+        shapes = (
+            '<span class="key"><span class="key-shape circle"></span>Full fit</span>'
+            '<span class="key"><span class="key-shape diamond"></span>'
+            "Exploration fit</span>"
+        )
+    return (
+        '<div class="legend">'
+        + "".join(
+            f'<span class="key"><span class="key-fit {k}"></span>'
+            f"{escape(FIT_KINDS[k])}</span>"
+            for k in reversed(present)
+        )
+        + shapes
+        + "</div>"
+    )
+
+
 def fit_scatter(
     points,
     *,
@@ -382,8 +426,9 @@ def fit_scatter(
     x_zero=True,
 ) -> Markup:
     """One dot per fit on two measures. points: [{"x", "y", "kind" (a
-    FIT_KINDS key), "title", "rows", "href"}]. x_line: (value, label) draws a
-    reference line, such as a time target."""
+    FIT_KINDS key), "title", "rows", "href", "tier" (optional: "exploration"
+    draws a diamond instead of a circle, so the tier is not colour alone)}].
+    x_line: (value, label) draws a reference line, such as a time target."""
     if not points:
         return Markup("")
     xs = [p["x"] for p in points] + ([x_line[0]] if x_line else [])
@@ -421,10 +466,7 @@ def fit_scatter(
     hover = []
     for p in sorted(points, key=lambda p: order[p["kind"]]):
         x, y = frame.x(p["x"]), frame.y(p["y"])
-        radius = 5.5 if p["kind"] == "served" else 4
-        parts.append(
-            f'<circle class="fit {p["kind"]}" cx="{x:.1f}" cy="{y:.1f}" r="{radius}"/>'
-        )
+        parts.append(_fit_mark(p, x, y))
         rows = list(p.get("rows", []))
         if p["y"] < frame.y0:
             rows.append(["Note", "below the chart's range, drawn at its floor"])
@@ -433,20 +475,11 @@ def fit_scatter(
                 "x": round(x, 1),
                 "y": round(y, 1),
                 "title": p["title"],
-                "rows": [["", FIT_KINDS[p["kind"]]], *rows],
+                "rows": [["", _fit_label(p)], *rows],
                 "href": p.get("href"),
             }
         )
-    present = [k for k in FIT_KINDS if any(p["kind"] == k for p in points)]
-    legend = (
-        '<div class="legend">'
-        + "".join(
-            f'<span class="key"><span class="key-fit {k}"></span>'
-            f"{escape(FIT_KINDS[k])}</span>"
-            for k in reversed(present)
-        )
-        + "</div>"
-    )
+    legend = _fit_legend(points)
     return _figure("points", _svg(parts, label, frame), hover, legend)
 
 
@@ -526,27 +559,15 @@ def dated_points(
     hover = []
     for p in sorted(points, key=lambda p: order[p["kind"]]):
         x, y = frame.x(p["at"]), frame.y(p["y"])
-        radius = 5.5 if p["kind"] == "served" else 4
-        parts.append(
-            f'<circle class="fit {p["kind"]}" cx="{x:.1f}" cy="{y:.1f}" r="{radius}"/>'
-        )
+        parts.append(_fit_mark(p, x, y))
         hover.append(
             {
                 "x": round(x, 1),
                 "y": round(y, 1),
                 "title": p["title"],
-                "rows": [["", FIT_KINDS[p["kind"]]], *p.get("rows", [])],
+                "rows": [["", _fit_label(p)], *p.get("rows", [])],
                 "href": p.get("href"),
             }
         )
-    present = [k for k in FIT_KINDS if any(p["kind"] == k for p in points)]
-    legend = (
-        '<div class="legend">'
-        + "".join(
-            f'<span class="key"><span class="key-fit {k}"></span>'
-            f"{escape(FIT_KINDS[k])}</span>"
-            for k in reversed(present)
-        )
-        + "</div>"
-    )
+    legend = _fit_legend(points)
     return _figure("points", _svg(parts, label, frame), hover, legend)

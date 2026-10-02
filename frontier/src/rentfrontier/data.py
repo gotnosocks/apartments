@@ -23,7 +23,9 @@ import pandas as pd
 DATASET = Path(
     os.environ.get(
         "FRONTIER_DATASET",
-        "/home/ben/code/apartments/data/model/chelsea-product-scope-analysis-20260921",
+        # Chelsea + West Village (Ben, 2026-10-01: the full data is the target);
+        # Chelsea alone was data/model/chelsea-product-scope-analysis-20260921.
+        "/data1/apartments/frontier/datasets/chelsea-west-village-analysis-20261001-eea4f66",
     )
 )
 OUTPUT_ROOT = Path(os.environ.get("FRONTIER_OUTPUT_ROOT", "/data1/apartments/frontier"))

@@ -4,9 +4,9 @@
 {% set snap = view.snapshot %}
 <h1>The frontier</h1>
 <p class="lede">Every model fit on the board, compared three ways: how accurately it predicts asks it has not seen, how long it
-takes to fit, and how simple it is to understand. A fit is <strong>on the frontier</strong> when no other fit beats it on one of
+takes to fit, and how elegant it is as a statistical model. A fit is <strong>on the frontier</strong> when no other fit beats it on one of
 these without losing on another. The served model is chosen automatically among the fits that can be served: the most accurate,
-then the simplest, then the fastest, and it changes only when another fit clearly beats it.</p>
+then the most elegant, then the fastest, and it changes only when another fit clearly beats it.</p>
 
 <form class="filters" action="{{ url_for('research_frontier') }}" method="get" aria-label="Choose the view">
   <div class="field">
@@ -34,9 +34,40 @@ then the simplest, then the fastest, and it changes only when another fit clearl
 
 <section class="tiles" aria-label="This view">
   <div class="tile"><span class="tile-label">Fits on this hardware</span><span class="tile-value">{{ view.fits | length }}</span></div>
+  {% set explored = view.fits | selectattr("tier", "equalto", "exploration") | list | length %}
+  {% if explored %}<div class="tile"><span class="tile-label">Exploration fits</span><span class="tile-value">{{ explored }}</span></div>{% endif %}
   <div class="tile"><span class="tile-label">On the frontier</span><span class="tile-value">{{ view.fits | selectattr("frontier") | list | length }}</span></div>
   <div class="tile"><span class="tile-label">Board as of</span><span class="tile-value tile-small">{{ snap.at[:16] | replace("T", " ") if snap else "—" }} UTC</span></div>
 </section>
+
+{% if exploration %}
+<section class="card">
+  <h2>The current exploration</h2>
+  {% if exploration.goal %}<p>{{ exploration.goal }}</p>{% endif %}
+  <p class="note">Exploration fits are short fits that show quickly whether a design is promising. They count on the frontier
+  (drawn as diamonds; full fits are circles) but are never served: only a full fit's estimates reach the rest of the site.{% if exploration.dataset %}
+  Data: <code>{{ exploration.dataset }}</code>.{% endif %}{% if exploration.as_of %} As of {{ exploration.as_of[:16] | replace("T", " ") }} UTC.{% endif %}</p>
+  {% if exploration.tiers %}
+  {# The legend may give each tier's settings or only describe it: show the columns it has. #}
+  {% set settings = exploration.tiers | selectattr("draws", "number") | list %}
+  <div class="table-wrap">
+  <table class="data">
+    <thead><tr><th scope="col">Tier</th>{% if settings %}<th scope="col" class="num">Draws</th><th scope="col" class="num">Warm-up</th><th scope="col" class="num">Chains</th>{% endif %}<th scope="col">What it is for</th></tr></thead>
+    <tbody>
+    {% for t in exploration.tiers %}
+      <tr><td>{{ tiers.get(t.name, t.name) }}</td>
+        {% if settings %}<td class="num">{{ "{:,}".format(t.draws) if t.draws is number else "—" }}</td>
+        <td class="num">{{ "{:,}".format(t.warmup) if t.warmup is number else "—" }}</td>
+        <td class="num">{{ t.chains if t.chains is number else "—" }}</td>{% endif %}
+        <td>{{ t.description or "" }}{% if t.subset %} <span class="muted">(subset <code>{{ t.subset }}</code>)</span>{% endif %}</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  </div>
+  {% endif %}
+  {% if exploration.notes %}<ul>{% for n in exploration.notes %}<li>{{ n }}</li>{% endfor %}</ul>{% endif %}
+</section>
+{% endif %}
 
 <section class="card">
   <h2>Accuracy against fit time</h2>
@@ -48,10 +79,12 @@ then the simplest, then the fastest, and it changes only when another fit clearl
 </section>
 
 <section class="card">
-  <h2>Accuracy against complexity</h2>
-  <p class="note">The same fits by how simple they are to understand: left is simpler. When two models predict equally well, the
-  simpler one is served.{% if view.unrated %} {{ view.unrated }} scored fit{{ "" if view.unrated == 1 else "s" }} {{ "is" if view.unrated == 1 else "are" }} not rated yet and not shown.{% endif %}</p>
-  {% if rated %}{{ complexity_chart }}{% else %}<p class="empty-note">No fit on this hardware has a complexity rating yet.</p>{% endif %}
+  <h2>Elegance</h2>
+  <p class="note">Elegance is not a score, so it has no chart: judge agents compare two model designs at a time and say which one
+  is the more coherent statistical model. When two models predict equally well, the more elegant one is served, and a fit judged
+  more elegant than one that beats it on accuracy and fit time stays on the frontier. {% if judged_pairs %}{{ judged_pairs }} pair{{ "" if judged_pairs == 1 else "s" }}
+  of designs {{ "has" if judged_pairs == 1 else "have" }} been judged so far; see <a href="{{ url_for('research_elegance') }}">every
+  judgement and its reason</a>.{% else %}No pair of designs has been judged under the elegance brief yet.{% endif %}</p>
 </section>
 
 <section class="card">
@@ -77,13 +110,16 @@ then the simplest, then the fastest, and it changes only when another fit clearl
       listings in the fit, on a log scale; higher is better. Two fits within about two standard errors (the ±) are a tie.</dd>
     <dt>Fit time</dt><dd>Minutes from start to finish to fit the model to the full dataset on one machine's hardware. Only fits on
       the same hardware compare.</dd>
-    <dt>Complexity</dt><dd>How much a design asks a renter to understand, judged by the researcher and written down in
-      <code>rentfrontier.elegance</code>. Each structural term (the market over time, a building's premium, a building's path over
-      time, per-building slopes, unusual apartments) and each layer of facts (what the listing offers, what the ad says, the city's
-      building facts, which streets the windows face, the neighbourhood) adds points. Terms that move over time or overlap another
-      term cost more. Lower is simpler.</dd>
+    <dt>Elegance</dt><dd>How coherent a model is as a statistical model of how asks arise. A more elegant model tells one generative story
+    whose structure mirrors the data (apartments in buildings in neighbourhoods, over time). It uses few distinct mechanisms, applied
+    consistently, and has no overlapping or competing terms. It avoids one-off flags, hand-tuned cutoffs and patches, uses natural
+    forms for its likelihood and priors, and needs no more structural choices than what it captures. For pairs of models that matter,
+    two independent AI judges read both model definitions without seeing any scores. Each says which one is more elegant, or that
+    they are about equal, and why. If they disagree, the pair counts as equal. Ties in accuracy go to the more elegant model. The table counts each fit's judged pairs.</dd>
     <dt>Convergence checks</dt><dd>Whether the sampler settled on one stable answer (R-hat and effective sample size). A fit that
       fails them is shown hollow and never served.</dd>
+    <dt>Exploration fits</dt><dd>Short fits (fewer draws) that show quickly whether a design is promising. They count on the
+      frontier, drawn as diamonds, and are never served; a promising design gets a full fit.</dd>
     <dt>Subset fits</dt><dd>Fits on a part of the data, used to tune settings quickly. They are exploration only, never served.</dd>
   </dl>
 </section>

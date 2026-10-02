@@ -280,10 +280,10 @@ def _judged(monkeypatch, verdicts):
             "verdict": "equal" if v == "equal" else f"{v}/f",
             "reason": "test",
         }
-    monkeypatch.setattr(leaderboard.simplicity, "judgements", lambda *a: table)
+    monkeypatch.setattr(leaderboard.elegance, "judgements", lambda *a: table)
 
 
-def test_the_best_is_the_simplest_tie_then_the_fastest(monkeypatch):
+def test_the_best_is_the_most_elegant_tie_then_the_fastest(monkeypatch):
     _judged(
         monkeypatch,
         {
@@ -306,7 +306,7 @@ def test_the_best_is_the_simplest_tie_then_the_fastest(monkeypatch):
     assert leaderboard.choose_best(es, paired=paired)["id"] == "simple-fast"
 
 
-def test_the_frontier_keeps_a_beaten_fit_only_if_judged_simpler(monkeypatch):
+def test_the_frontier_keeps_a_beaten_fit_only_if_judged_more_elegant(monkeypatch):
     _judged(
         monkeypatch,
         {("best", "simple"): "simple", ("best", "dominated"): "best"},
@@ -318,3 +318,74 @@ def test_the_frontier_keeps_a_beaten_fit_only_if_judged_simpler(monkeypatch):
         _board_entry("unjudged", 9.0, 1600),
     ]
     assert leaderboard.on_frontier(es) == [True, True, False, False]
+
+
+def test_tier_of_reads_the_flag_or_the_legacy_label():
+    run = {
+        "name": "m0-base-base-v1-rows-e61a794-x-2060-100w300d-nb",
+        "sampler_settings": {"draws": 300, "warmup": 100, "chains": 2},
+        "data_rules": ["unit-labels-v1"],
+    }
+    assert leaderboard.tier_of(run) == {
+        "name": "exploration",
+        "draws": 300,
+        "warmup": 100,
+        "chains": 2,
+        "subset": None,
+    }
+    full = run | {"name": "m0-base-base-v1-rows-e61a794-gibbs-2060-3600"}
+    assert leaderboard.tier_of(full)["name"] == "full"
+    tuned = full | {"tier": "exploration", "data_rules": ["tune-b35-v1"]}
+    assert leaderboard.tier_of(tuned)["name"] == "exploration"
+    assert leaderboard.tier_of(tuned)["subset"] == "tune-b35-v1"
+
+
+def test_exploration_fits_count_on_the_frontier_without_the_gate():
+    quick = _board_entry("quick", 8.0, 300) | {
+        "passes_checks": False,
+        "tier": {"name": "exploration"},
+    }
+    failed_full = _board_entry("failed", 9.0, 200) | {"passes_checks": False}
+    slow = _board_entry("slow", 10.0, 1500)
+    assert leaderboard.on_frontier([quick, failed_full, slow]) == [True, False, True]
+    # The board's best still needs the gate.
+    deltas = {"quick": 8.0, "failed": 9.0, "slow": 10.0}
+    best = leaderboard.choose_best(
+        [quick, failed_full, slow],
+        paired=lambda a, b: (deltas[a] - deltas[b], 1.0, 0.0),
+    )
+    assert best["id"] == "slow"
+
+
+def test_the_baseline_is_found_by_run_name_or_entry_id(monkeypatch):
+    monkeypatch.setattr(leaderboard, "BASELINE", "m0-base-base-v1-rows-abc1234-x-run")
+    by_run = {
+        "id": "m0-base/base-v1/gibbs@abc1234",
+        "splits": {"rows": {"run": "m0-base-base-v1-rows-abc1234-x-run"}},
+    }
+    other = {
+        "id": "m0-base/base-v1/gibbs@abc1234",
+        "splits": {"rows": {"run": "m0-base-base-v1-rows-abc1234-x-short"}},
+    }
+    assert leaderboard.is_baseline(by_run) and not leaderboard.is_baseline(other)
+    monkeypatch.setattr(leaderboard, "BASELINE", "m0-base/base-v1/gibbs@5cc0809")
+    assert leaderboard.is_baseline(
+        {"id": "m0-base/base-v1/gibbs@5cc0809", "splits": {}}
+    )
+
+
+def test_a_short_fit_does_not_dominate_a_longer_fit_of_its_design():
+    full = _board_entry("full", 10.0, 2800) | {
+        "tier": {"name": "full", "draws": 4500},
+        "data_rules": ["unit-labels-v1"],
+    }
+    short = _board_entry("full", 10.4, 360) | {
+        "id": "short",
+        "passes_checks": False,
+        "tier": {"name": "exploration", "draws": 300},
+        "data_rules": ["unit-labels-v1"],
+    }
+    # Same design ("full/f") and rules: both stay on the frontier.
+    assert leaderboard.on_frontier([full, short]) == [True, True]
+    other = short | {"model": {"name": "other"}}
+    assert leaderboard.on_frontier([full, other]) == [False, True]

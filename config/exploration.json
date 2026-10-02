@@ -1,0 +1,18 @@
+{
+  "goal": "Find the best model at every fit-time limit on the full Chelsea + West Village data, preferring more elegant ones, from short exploration fits confirmed overnight by full fits.",
+  "tiers": [
+    {
+      "name": "exploration",
+      "description": "A short fit to rank designs quickly: 2 chains x (100 warmup + 600 draws), about 4-10 minutes. It counts on the research frontier but is never served."
+    },
+    {
+      "name": "full",
+      "description": "Full draws, the convergence gate and the 2-hour cap; full-data confirmation fits run only between 03:00 and 08:00 ET. Only these can be served."
+    }
+  ],
+  "notes": [
+    "The first full-data fit that passes the gate: bath and floor slopes per building with the served features and the neighbourhood, 2 x (300 + 4,500) draws, 2,800 s, PSIS-LOO 87,334.",
+    "Calibration on the full data: short fits score too high, by 18 to 102 points at 300 draws against each design's longest run, and the excess shrinks with the number of draws, not the warmup. Differences between designs move much less: bath and floor minus m5 is 2,995 at 300 draws, 3,030 at 600 and 3,043 at 1,500. A full m5 fit tonight checks the reference.",
+    "So exploration fits use 600 draws and 100 warmup iterations, about 5 to 10 minutes each: compiling costs 50 to 120 seconds and PSIS-LOO about 65 to 110 seconds."
+  ]
+}

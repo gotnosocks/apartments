@@ -39,27 +39,35 @@ from . import charts
 from .research import (
     BOARD_ORDERS,
     BOARD_SORTS,
+    ELEGANCE_CELLS,
     LINES,
     TARGET_HARDWARE,
     TARGET_MINUTES,
+    TIERS,
     Plan,
     Research,
     best_over_time,
     board_rows,
     compute_by_line,
+    elegance_pairs,
+    elegance_summary,
     entry_by_key,
     entry_for_run,
     frontier_view,
+    full_fits_of,
     hardware_classes,
     implementations,
-    is_subset,
+    judgements,
     latest_milestones,
     outlier_floor,
     run_of,
     serve_status,
     snapshot_days,
     spearman,
+    subset_fit,
+    tier_of,
     validation_pairs,
+    verdicts,
 )
 from .selection import SELECTION, selection_note
 
@@ -340,6 +348,7 @@ SECTIONS = {
         "research_plan_page",
         "research_glossary",
         "research_model",
+        "research_elegance",
     ),
 }
 
@@ -476,6 +485,11 @@ def create_app(
     app.jinja_env.tests["finite"] = lambda v: (
         isinstance(v, (int, float)) and not isinstance(v, bool) and math.isfinite(v)
     )
+
+    app.jinja_env.globals["elegance_summary"] = elegance_summary
+    app.jinja_env.globals["verdicts"] = verdicts
+    app.jinja_env.globals["elegance_cells"] = ELEGANCE_CELLS
+    app.jinja_env.globals["tier_of"] = tier_of
 
     @app.context_processor
     def helpers():
@@ -1020,12 +1034,8 @@ def create_app(
             se = f" ± {f['delta_se']:,.1f}" if f["delta_se"] is not None else ""
             rows.append(["PSIS-LOO ΔELPD", f"{f['delta']:+,.1f}{se}"])
         rows.append(["Fit time", f"{f['minutes']:.1f} min"])
-        rows.append(
-            [
-                "Complexity",
-                "not rated" if f["complexity"] is None else str(f["complexity"]),
-            ]
-        )
+        rows.append(["Tier", TIERS[f["tier"]]])
+        rows.append(["Elegance", f["elegance"] or "not judged yet"])
         rows.append(
             [
                 "Servable",
@@ -1063,19 +1073,13 @@ def create_app(
                 "x": f["minutes"],
                 "y": f["delta"],
                 "kind": f["kind"],
+                "tier": f["tier"],
                 "title": f["entry"]["key"],
                 "rows": fit_rows(f),
                 "href": url_for("research_fit", key=f["entry"]["key"]),
             }
             for f in scored
         ]
-        rated = [f for f in scored if f["complexity"] is not None]
-        complexity_points = [
-            dict(point, x=f["complexity"])
-            for point, f in zip(time_points, scored)
-            if f["complexity"] is not None
-        ]
-        delta_axis = "PSIS-LOO ΔELPD (higher is more accurate)"
         return render_template(
             "research_frontier.html",
             meta=m,
@@ -1089,27 +1093,20 @@ def create_app(
             floor=floor,
             target=target,
             target_minutes=TARGET_MINUTES,
-            rated=rated,
+            judged_pairs=len(judgements(data)),
+            exploration=data.get("exploration"),
+            tiers=TIERS,
             time_chart=charts.fit_scatter(
                 time_points,
                 label=f"Accuracy against fit time on {device}, one dot per fit",
                 x_title=f"Fit time on {device}, full dataset (minutes)",
-                y_title=delta_axis,
+                y_title="PSIS-LOO ΔELPD (higher is more accurate)",
                 x_format=lambda v: f"{v:g}",
                 y_format=charts.signed,
                 y_floor=floor,
                 x_line=(TARGET_MINUTES, f"{TARGET_MINUTES}-minute target")
                 if target
                 else None,
-            ),
-            complexity_chart=charts.fit_scatter(
-                complexity_points,
-                label="Accuracy against judged complexity, one dot per rated fit",
-                x_title="Complexity (judged; lower is simpler)",
-                y_title=delta_axis,
-                x_format=lambda v: f"{v:g}",
-                y_format=charts.signed,
-                y_floor=floor,
             ),
         )
 
@@ -1135,6 +1132,8 @@ def create_app(
         q = (request.args.get("q") or "").strip()[:80]
         servable = request.args.get("servable") == "1"
         subsets = request.args.get("subsets") == "1"
+        tier = request.args.get("tier")
+        tier = tier if tier in TIERS else None
         rows = board_rows(
             data,
             hardware=hardware,
@@ -1142,6 +1141,7 @@ def create_app(
             q=q,
             servable=servable,
             subsets=subsets,
+            tier=tier,
             sort=sort,
             descending=order == "desc",
         )
@@ -1153,6 +1153,7 @@ def create_app(
                 "q": q or None,
                 "servable": "1" if servable else None,
                 "subsets": "1" if subsets else None,
+                "tier": tier,
                 "sort": None if sort == "delta" else sort,
                 "order": None if order == BOARD_ORDERS[sort] else order,
             }
@@ -1165,6 +1166,8 @@ def create_app(
             meta=m,
             rows=rows,
             total=len(data.get("entries", [])),
+            tier=tier,
+            tiers=TIERS,
             classes=classes,
             lines=LINES,
             hardware=hardware,
@@ -1200,6 +1203,27 @@ def create_app(
             groups=data.get("variance_groups", []),
             baseline=data.get("baseline"),
             lines=LINES,
+            design_fits=design_fits(data),
+            tier=(entry.get("tier") or {}) if tier_of(entry) == "exploration" else None,
+            full_fits=full_fits_of(data, entry)
+            if tier_of(entry) == "exploration"
+            else [],
+        )
+
+    def design_fits(data: dict) -> dict:
+        """Each judged design's fits on the board, to link the other side of a
+        judgement."""
+        return {d["id"]: d["fits"] for p in elegance_pairs(data) for d in p["designs"]}
+
+    @app.get("/research/elegance")
+    def research_elegance():
+        data = research_data_or_503()
+        pending = (data.get("autoselect") or {}).get("pending_judgements") or []
+        return render_template(
+            "research_elegance.html",
+            meta=meta(),
+            pairs=elegance_pairs(data),
+            pending=pending,
         )
 
     @app.get("/research/history")
@@ -1223,11 +1247,11 @@ def create_app(
                 "served"
                 if run and run == served_run
                 else "subset"
-                if is_subset(run)
+                if subset_fit(e)
                 else "frontier"
                 if e.get("frontier")
                 else "failing"
-                if not e.get("passes_checks")
+                if not e.get("passes_checks") and tier_of(e) == "full"
                 else "other"
             )
             fits.append(
@@ -1236,6 +1260,7 @@ def create_app(
                     "at": e["available_at"],
                     "y": e["fit_seconds"] / 60,
                     "kind": kind,
+                    "tier": tier_of(e),
                     "title": e["id"],
                     "rows": [["Fit time", f"{e['fit_seconds'] / 60:.1f} min"]],
                     "href": url_for("research_fit", key=e["key"]),

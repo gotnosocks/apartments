@@ -5,7 +5,7 @@
   <a href="{{ url_for('research_board') }}">The board</a> › <span aria-current="page">{{ e.design }}</span>
 </nav>
 <h1><code>{{ e.id }}</code></h1>
-<p class="subline">{% if served %}<span class="tag">served</span> {% endif %}{% if e.current_best %}<span class="tag">best</span> {% endif %}{% if e.frontier %}<span class="tag">frontier</span> {% endif %}
+<p class="subline">{% if served %}<span class="tag">served</span> {% endif %}{% if e.current_best %}<span class="tag">best</span> {% endif %}{% if e.frontier %}<span class="tag">frontier</span> {% endif %}{% if tier_of(e) == "exploration" %}<span class="tag exploration">exploration</span> {% endif %}
   {{ lines.get(e.line, e.line) }} · {{ e.hardware_class }}{% if e.available_at %} · landed {{ e.available_at[:16] | replace("T", " ") }} UTC{% endif %}</p>
 {% if e.design_text %}<p class="lede">{{ e.design_text }}</p>{% endif %}
 
@@ -20,11 +20,38 @@
     <span class="figure-value">{{ "%.1f" | format(e.fit_seconds / 60) }} min</span>
     <span class="figure-note">on {{ e.hardware }}{% if e.other_cores is finite %}, {{ "%.1f" | format(e.other_cores) }} other cores busy{% endif %}</span>
   </div>
+  {% if e.psis and e.psis.p_loo is number %}
   <div class="figure">
-    <span class="figure-label">Complexity</span>
-    <span class="figure-value">{{ e.complexity if e.complexity is not none else "—" }}</span>
-    <span class="figure-note">{{ "judged; lower is simpler" if e.complexity is not none else "not rated" }}</span>
+    <span class="figure-label">Effective parameters</span>
+    <span class="figure-value">{{ "{:,.0f}".format(e.psis.p_loo) }}</span>
+    <span class="figure-note">p<sub>loo</sub>, measured from the data; <a href="{{ url_for('research_glossary', _anchor='p-loo') }}">what it means</a></span>
   </div>
+  {% endif %}
+</section>
+
+<section class="card" id="elegance">
+  <h2>Elegance</h2>
+  {% set judged = verdicts(e) %}
+  {% if judged %}
+  <p class="note">How the judge agents compared this design (<code>{{ e.design }}/{{ e.feature_set }}</code>) with others as
+  statistical models, without seeing any scores. <a href="{{ url_for('research_glossary', _anchor='elegance') }}">How elegance is judged</a>.</p>
+  <div class="table-wrap">
+  <table class="data">
+    <thead><tr><th scope="col">Against</th><th scope="col">This design is</th><th scope="col">Why</th></tr></thead>
+    <tbody>
+    {% for j in judged %}
+      {% set others = design_fits.get(j.vs, []) %}
+      <tr><td>{% if others %}<a href="{{ url_for('research_fit', key=others[0]) }}"><code>{{ j.vs }}</code></a>{% else %}<code>{{ j.vs }}</code>{% endif %}</td>
+        <td class="nowrap">{{ elegance_cells.get(j.verdict, j.verdict) }}</td>
+        <td>{{ j.reason }}</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  </div>
+  {% else %}
+  <p class="note">No judge has compared this design with another yet. Designs are judged only in pairs that matter: tied on
+  accuracy, or where one beats the other on accuracy and speed. Until then it counts as equally elegant as every other design.</p>
+  {% endif %}
 </section>
 
 <section class="card">
@@ -35,6 +62,26 @@
   {% if e.note %}<p class="note">{{ e.note }}</p>{% endif %}
   {% for a in e.annotations %}<p class="note">{{ a }}</p>{% endfor %}
 </section>
+
+{% if tier is not none %}
+<section class="card">
+  <h2>An exploration fit</h2>
+  <p class="note">A short fit, run to see quickly whether a design is worth a full fit. It counts on the research frontier, so the
+  research can be judged by it, but it is never served: only a full fit's estimates reach the rest of the site.
+  <a href="{{ url_for('research_glossary', _anchor='exploration-fit') }}">Exploration and full fits</a>.</p>
+  <dl class="facts">
+    {% if tier.draws is number %}<dt>Draws</dt><dd>{{ "{:,}".format(tier.draws) }}{% if tier.chains is number %} over {{ tier.chains }} chain{{ "" if tier.chains == 1 else "s" }}{% endif %}</dd>{% endif %}
+    {% if tier.warmup is number %}<dt>Warm-up</dt><dd>{{ "{:,}".format(tier.warmup) }} steps</dd>{% endif %}
+    <dt>Data</dt><dd>{% if tier.subset %}a subset (<code>{{ tier.subset }}</code>), so its accuracy is not comparable and it has no dot on the charts{% else %}the full dataset{% endif %}</dd>
+  </dl>
+  {% if full_fits %}
+  <p>Full fits of the same design:</p>
+  <ul>{% for f in full_fits %}<li><a href="{{ url_for('research_fit', key=f.key) }}"><code>{{ f.key }}</code></a>{% if f.available_at %} <span class="muted">· {{ f.available_at[:10] }}</span>{% endif %}</li>{% endfor %}</ul>
+  {% else %}
+  <p class="note">No full fit of this design yet.</p>
+  {% endif %}
+</section>
+{% endif %}
 
 <div class="columns">
 <section class="card">

@@ -31,11 +31,17 @@
     <dt id="fit-time">Fit time</dt>
     <dd>Minutes from start to finish to fit a model to the full dataset on one machine's hardware. Times only compare on the same
     hardware. The target: the full Chelsea + West Village dataset within 30 minutes on the RTX 2060 graphics card.</dd>
-    <dt id="complexity">Complexity</dt>
-    <dd>How much a design asks a renter to understand, judged by the researcher and written down in <code>rentfrontier.elegance</code>.
-    Each structural term (the market over time, a building's premium, a building's path over time, per-building slopes, unusual
-    apartments) and each layer of facts (what the listing offers, what the ad says, the city's building facts, which streets the
-    windows face, the neighbourhood) adds points. Terms that move over time or overlap another term cost more. Lower is simpler.</dd>
+    <dt id="elegance">Elegance</dt>
+    <dd>How coherent a model is as a statistical model of how asks arise. A more elegant model tells one generative story
+    whose structure mirrors the data (apartments in buildings in neighbourhoods, over time). It uses few distinct mechanisms, applied
+    consistently, and has no overlapping or competing terms. It avoids one-off flags, hand-tuned cutoffs and patches, uses natural
+    forms for its likelihood and priors, and needs no more structural choices than what it captures. For pairs of models that matter,
+    two independent AI judges read both model definitions without seeing any scores. Each says which one is more elegant, or that
+    they are about equal, and why. If they disagree, the pair counts as equal. Ties in accuracy go to the more elegant model. <a href="{{ url_for('research_elegance') }}">Every judgement</a> is listed with its reason.</dd>
+    <dt id="p-loo">Effective parameters</dt>
+    <dd>How many parameters the fit effectively uses, measured from the data (the
+    in-sample fit minus the leave-one-out fit). An objective check beside the judges: of two equally accurate models, the one with
+    fewer effective parameters is doing the same with less. Written p<sub>loo</sub>.</dd>
   </dl>
 </section>
 
@@ -43,17 +49,24 @@
   <h2>Choosing a model</h2>
   <dl class="glossary">
     <dt id="frontier">The frontier</dt>
-    <dd>The fits no other fit beats on accuracy, fit time and complexity at once: anything better on one of them is worse on another.</dd>
+    <dd>The fits no other fit beats on accuracy, fit time and elegance at once: anything better on one of them is worse on another.
+    Two designs no judge has compared count as equally elegant.</dd>
     <dt id="convergence">Convergence checks</dt>
     <dd>Whether the sampler settled on one stable answer. R-hat compares independent runs (near 1 means they agree), the
     effective sample size (ESS) counts how many independent draws the answer rests on, and divergences flag places the sampler
     could not explore. A fit that fails them is never served.</dd>
     <dt id="servable">Servable</dt>
     <dd>A fit the automatic selection may serve: it passes the convergence checks, has a PSIS-LOO score, ran on the target hardware
-    within the time window on the full dataset, uses the current data rules and has a complexity rating.</dd>
+    within the time window on the full dataset, and uses the current data rules. Exploration fits and subset fits are never servable.</dd>
     <dt id="autoselect">Automatic selection</dt>
-    <dd>The rule that picks the served model from the servable fits: the most accurate, then among ties the simplest, then the
-    fastest. It replaces the served model only when another fit clearly beats it.</dd>
+    <dd>The rule that picks the served model from the servable fits: the most accurate, then among ties the most elegant, then
+    the fastest. It replaces the served model only when another fit clearly beats it.</dd>
+    <dt id="exploration-fit">Exploration fit</dt>
+    <dd>A short fit, with fewer draws than a full fit, run to see quickly whether a design is worth a full fit. Exploration fits count
+    on the research frontier, so the research can be judged by them, but they are never served: only a full fit's estimates reach
+    the listings, buildings and rent map. On the charts they are diamonds; full fits are circles.</dd>
+    <dt id="full-fit">Full fit</dt>
+    <dd>A fit with enough draws to pass the convergence checks on the full dataset. Only full fits can be served.</dd>
     <dt id="subset">Subset fit</dt>
     <dd>A fit on a part of the data, used to tune settings quickly. Exploration only; never served.</dd>
     <dt id="data-rules">Data rules</dt>

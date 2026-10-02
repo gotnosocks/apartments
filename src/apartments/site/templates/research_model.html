@@ -6,8 +6,8 @@
 <h1>The served model</h1>
 <p class="lede">The model whose estimates the site shows: <code>{{ p.model.name }}</code> with the <code>{{ p.feature_set }}</code>
 features.{% if sel %} A rule picks it automatically from the board of every fit: among fits that pass the convergence checks on the
-target hardware within the fit-time window, the most accurate. When several are equally accurate, the simplest wins, and between
-equally simple ones the fastest.{% endif %}</p>
+target hardware within the fit-time window, the most accurate. When several are equally accurate, the most elegant wins, and between
+equally elegant ones the fastest.{% endif %}</p>
 
 <section class="card">
   <h2>Why this model</h2>
@@ -23,17 +23,22 @@ equally simple ones the fastest.{% endif %}</p>
   {% if autoselect.checked %}
   <div class="table-wrap">
   <table class="data">
-    <thead><tr><th scope="col">Fit checked</th><th scope="col" class="num">PSIS-LOO against the served fit</th><th scope="col" class="num">Held-out against the served fit</th><th scope="col">Outcome</th></tr></thead>
+    <thead><tr><th scope="col">Fit checked</th><th scope="col" class="num">PSIS-LOO against the served fit</th><th scope="col" class="num">Held-out against the served fit</th><th scope="col">Elegance against the served fit</th><th scope="col">Outcome</th></tr></thead>
     <tbody>
     {% for c in autoselect.checked %}
       <tr><td><code>{{ c.run }}</code></td>
-        <td class="num nowrap">{% if c.psis is not none %}{{ "{:+,.1f}".format(c.psis) }}{% if c.psis_pm is not none %} ± {{ "{:,.1f}".format(c.psis_pm) }}{% endif %}{% else %}—{% endif %}</td>
-        <td class="num nowrap">{% if c.heldout is not none %}{{ "{:+,.1f}".format(c.heldout) }}{% if c.heldout_se is not none %} ± {{ "{:,.1f}".format(c.heldout_se) }}{% endif %}{% else %}—{% endif %}</td>
+        <td class="num nowrap">{% if c.psis is number %}{{ "{:+,.1f}".format(c.psis) }}{% if c.psis_pm is number %} ± {{ "{:,.1f}".format(c.psis_pm) }}{% endif %}{% else %}—{% endif %}</td>
+        <td class="num nowrap">{% if c.heldout is number %}{{ "{:+,.1f}".format(c.heldout) }}{% if c.heldout_se is number %} ± {{ "{:,.1f}".format(c.heldout_se) }}{% endif %}{% else %}—{% endif %}</td>
+        <td>{{ {1: "more elegant", 0: "about as elegant", -1: "less elegant"}.get(c.elegance, "not judged") if c.elegance is defined else "—" }}</td>
         <td>{{ c.refused or "chosen" }}</td></tr>
     {% endfor %}
     </tbody>
   </table>
   </div>
+  {% endif %}
+  {% if autoselect.pending_judgements %}
+  <p class="note">Waiting for an elegance judgement before the selection can decide:</p>
+  <ul>{% for a, b in autoselect.pending_judgements %}<li><code>{{ a }}</code> against <code>{{ b }}</code></li>{% endfor %}</ul>
   {% endif %}
   {% endif %}
 </section>
@@ -43,24 +48,28 @@ equally simple ones the fastest.{% endif %}</p>
   <h2>On the board</h2>
   <p class="note">How this fit scores on the research board, where every fit is compared on the same listings.</p>
   <dl class="facts wide">
-    {% if entry.psis %}
-    <dt>Accuracy (PSIS-LOO ΔELPD)</dt><dd>{{ "{:+,.1f}".format(entry.psis.delta) }} ± {{ "{:,.1f}".format(entry.psis.delta_se) }} over the
+    {% if entry.psis and entry.psis.delta is number %}
+    <dt>Accuracy (PSIS-LOO ΔELPD)</dt><dd>{{ "{:+,.1f}".format(entry.psis.delta) }}{% if entry.psis.delta_se is number %} ± {{ "{:,.1f}".format(entry.psis.delta_se) }}{% endif %} over the
       baseline{% if baseline %} <code>{{ baseline }}</code>{% endif %}: how much better it predicts each listing's ask from all the other
       listings, in log-likelihood units summed over the listings; higher is better.</dd>
     {% endif %}
     {% set rows = entry.splits.rows if entry.splits and entry.splits.rows else none %}
-    {% if rows and rows.delta is not none %}
+    {% if rows and rows.delta is number %}
     {% set held = entry.psis.validation.heldout_rows if entry.psis and entry.psis.validation and entry.psis.validation.heldout_rows else none %}
-    <dt>Held-out check</dt><dd>{{ "{:+,.1f}".format(rows.delta) }}{% if rows.delta_se is not none %} ± {{ "{:,.1f}".format(rows.delta_se) }}{% endif %}
+    <dt>Held-out check</dt><dd>{{ "{:+,.1f}".format(rows.delta) }}{% if rows.delta_se is number %} ± {{ "{:,.1f}".format(rows.delta_se) }}{% endif %}
       on the {% if held %}{{ "{:,}".format(held) }} {% endif %}listings kept out of every fit, against the reference model: an
       independent check of the same accuracy.</dd>
     {% endif %}
     <dt>Fit time</dt><dd>{{ (entry.fit_seconds / 60) | round(1) }} minutes on {{ entry.hardware_class }}{% if entry.other_cores %}
       <span class="muted">({{ "%.1f" | format(entry.other_cores) }} other cores busy during the fit)</span>{% endif %}</dd>
-    {% if entry.complexity is defined %}<dt>Complexity</dt><dd>{{ entry.complexity if entry.complexity is not none else "not rated" }}
-      <span class="muted">(lower is simpler to understand)</span></dd>{% endif %}
+    {% set judged = verdicts(entry) %}
+    <dt>Elegance</dt><dd>{% if judged %}compared with {{ judged | length }} other design{{ "" if judged | length == 1 else "s" }}
+      by AI judges who see the model definitions but no scores: {{ elegance_summary(entry) }}
+      (<a href="{{ url_for('research_fit', key=entry.key, _anchor='elegance') }}">their reasons</a>){% else %}not compared with another design yet{% endif %}</dd>
+    {% if entry.psis and entry.psis.p_loo is number %}<dt>Effective parameters</dt><dd>{{ "{:,.0f}".format(entry.psis.p_loo) }}
+      <span class="muted">(p<sub>loo</sub>: how many parameters the fit effectively uses, measured from the data)</span></dd>{% endif %}
     <dt>On the frontier</dt><dd>{{ "yes" if entry.frontier else "no" }}{% if entry.current_best %}; the best fit on its hardware{% endif %}
-      <span class="muted">(no other fit is at least as accurate, as fast and as simple, and better on one of them)</span></dd>
+      <span class="muted">(no other fit is at least as accurate, as fast and as elegant, and better on one of them)</span></dd>
 
   </dl>
 </section>

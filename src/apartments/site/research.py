@@ -85,16 +85,63 @@ def is_subset(run: str) -> bool:
     return any(part.startswith("tune") for part in run.split("-"))
 
 
+# A fit's tier (`tier.name`, rentfrontier fit tiers): a full fit, or a short
+# exploration fit that counts on the research frontier but is never served.
+TIERS = {
+    "full": "Full fit",
+    "exploration": "Exploration fit",
+}
+
+
+def tier_of(entry: dict) -> str:
+    """The fit's tier; entries from before tiers are full fits."""
+    name = (entry.get("tier") or {}).get("name")
+    return name if name in TIERS else "full"
+
+
+def subset_fit(entry: dict) -> bool:
+    """A fit on a subset of the data (its tier names one, or its run name
+    has a tuning part): its accuracy covers fewer listings, so it is shown in
+    tables only."""
+    return bool((entry.get("tier") or {}).get("subset")) or is_subset(run_of(entry))
+
+
+def data_rules_of(entry: dict) -> tuple[str, ...]:
+    """The data rules a fit used, from its id ("model/features/sampler@commit
+    +rule+rule"; none for a fit on all the rows)."""
+    after = str(entry.get("id") or "").split(" ")[0].partition("@")[2]
+    return tuple(sorted(after.split("+")[1:]))
+
+
+def full_fits_of(data: dict, entry: dict) -> list[dict]:
+    """The full fits of an exploration fit's design (same model, features
+    and data rules), newest first: where a promising design went next."""
+    rules = data_rules_of(entry)
+    return sorted(
+        (
+            e
+            for e in data.get("entries", [])
+            if tier_of(e) == "full"
+            and design_id(e) == design_id(entry)
+            and data_rules_of(e) == rules
+        ),
+        key=lambda e: e.get("available_at") or "",
+        reverse=True,
+    )
+
+
 def serve_status(entry: dict) -> tuple[str, str | None]:
     """Whether a fit can be served: ("yes", None), ("no", reason) or
     ("unknown", None). The reason is autoselect's (`why_not_served`, written
     by the dashboard build); without it, a fit that fails the convergence
     checks is still a "no", and anything else is not known yet."""
-    if is_subset(run_of(entry)):
+    if subset_fit(entry):
         return "no", "a subset fit, for exploration only"
     if "why_not_served" in entry:
         reason = entry["why_not_served"]
         return ("no", reason) if reason else ("yes", None)
+    if tier_of(entry) == "exploration":
+        return "no", "an exploration fit, for tracking the research only"
     if not entry.get("passes_checks"):
         return "no", "it fails the convergence gate"
     return "unknown", None
@@ -155,19 +202,23 @@ def frontier_view(
         and e.get("available_at")
         and (cut is None or e["available_at"] <= cut)
     ]
-    hidden = 0 if subsets else sum(is_subset(run_of(e)) for e in entries)
+    hidden = 0 if subsets else sum(subset_fit(e) for e in entries)
     fits = []
     for e in entries:
         run = run_of(e)
-        if is_subset(run) and not subsets:
+        subset = subset_fit(e)
+        if subset and not subsets:
             continue
+        tier = tier_of(e)
         if run and run == served_run and day is None:
             kind = "served"
-        elif is_subset(run):
+        elif subset:
             kind = "subset"
         elif e["key"] in frontier:
             kind = "frontier"
-        elif not e.get("passes_checks"):
+        elif not e.get("passes_checks") and tier == "full":
+            # The convergence gate applies to full fits; exploration fits are
+            # judged on their ranking.
             kind = "failing"
         else:
             kind = "other"
@@ -179,11 +230,12 @@ def frontier_view(
                 "run": run,
                 "kind": kind,
                 "frontier": e["key"] in frontier,
+                "tier": tier,
                 "best": e["key"] == best,
                 "delta": psis.get("delta"),
                 "delta_se": psis.get("delta_se"),
                 "minutes": e["fit_seconds"] / 60,
-                "complexity": e.get("complexity"),
+                "elegance": elegance_summary(e),
                 "serve": serve,
                 "why_not": why_not,
             }
@@ -194,7 +246,6 @@ def frontier_view(
         "fits": fits,
         "frontier": [f for f in fits if f["frontier"] or f["kind"] == "served"],
         "unscored": sum(f["delta"] is None for f in fits),
-        "unrated": sum(f["complexity"] is None for f in fits if f["delta"] is not None),
         "hidden_subsets": hidden,
     }
 
@@ -205,15 +256,100 @@ LINES = {
     "numpyro": "NumPyro NUTS",
     "pymc": "PyMC",
 }
-# The first direction of each board sort: most accurate, fastest, simplest,
-# newest first.
-BOARD_ORDERS = {"delta": "desc", "time": "asc", "complexity": "asc", "landed": "desc"}
+# The first direction of each board sort: most accurate, fastest, fewest
+# effective parameters, newest first.
+BOARD_ORDERS = {"delta": "desc", "time": "asc", "params": "asc", "landed": "desc"}
 BOARD_SORTS = {
     "delta": lambda e: (e.get("psis") or {}).get("delta"),
     "time": lambda e: e.get("fit_seconds"),
-    "complexity": lambda e: e.get("complexity"),
+    "params": lambda e: (e.get("psis") or {}).get("p_loo"),
     "landed": lambda e: e.get("available_at"),
 }
+
+
+# The judge agents' pairwise elegance judgements, as rentfrontier writes them
+# (Ben, 2026-10-01: elegance replaces renter simplicity; every pair is judged
+# again under the elegance brief, so the old simplicity verdicts are not shown).
+VERDICTS_FIELD = "elegance"
+JUDGEMENTS_FIELD = "elegance_judgements"
+
+# A fit's verdict against another design, in words.
+ELEGANCE_WORDS = {
+    "more elegant": "more elegant than",
+    "equal": "as elegant as",
+    "less elegant": "less elegant than",
+}
+# The same verdict as a table cell ("this design is ...").
+ELEGANCE_CELLS = {
+    "more elegant": "more elegant",
+    "equal": "about as elegant",
+    "less elegant": "less elegant",
+}
+
+
+def design_id(entry: dict) -> str:
+    """ "model/feature set", the design the judges compare
+    (rentfrontier.elegance.design_id)."""
+    if entry.get("design") and entry.get("feature_set"):
+        return f"{entry['design']}/{entry['feature_set']}"
+    return str(entry.get("id") or entry.get("key"))
+
+
+def verdicts(entry: dict) -> list[dict]:
+    """A fit's judged pairs: [{vs, verdict, reason}]."""
+    return list(entry.get(VERDICTS_FIELD) or ())
+
+
+def judgements(data: dict) -> list[dict]:
+    return list(data.get(JUDGEMENTS_FIELD) or ())
+
+
+def elegance_summary(entry: dict) -> str | None:
+    """A fit's judged pairs counted in words ("more elegant than 2, less
+    elegant than 1"), or None when its design has no judgement."""
+    counts: dict[str, int] = {}
+    for j in verdicts(entry):
+        word = ELEGANCE_WORDS.get(j.get("verdict"))
+        if word:
+            counts[word] = counts.get(word, 0) + 1
+    order = ["more elegant than", "as elegant as", "less elegant than"]
+    return ", ".join(f"{w} {counts[w]}" for w in order if w in counts) or None
+
+
+def elegance_pairs(data: dict) -> list[dict]:
+    """Every recorded judgement, newest first, with the board fits of each
+    design and whether the two judges agreed."""
+    fits: dict[str, list[str]] = {}
+    p_loo: dict[str, float] = {}
+    newest = sorted(data.get("entries", []), key=lambda e: e.get("available_at") or "")
+    for e in newest:
+        fits.setdefault(design_id(e), []).append(e["key"])
+        value = (e.get("psis") or {}).get("p_loo")
+        if isinstance(value, (int, float)):
+            p_loo[design_id(e)] = value  # the newest fit's
+    for keys in fits.values():
+        keys.reverse()  # newest first: a design links to its latest fit
+    out = []
+    for j in judgements(data):
+        designs = list(j.get("designs") or ())
+        if len(designs) != 2:
+            continue
+        said = [x.get("verdict") for x in j.get("judges") or ()]
+        out.append(
+            {
+                "designs": [
+                    {"id": d, "fits": fits.get(d, []), "p_loo": p_loo.get(d)}
+                    for d in designs
+                ],
+                "verdict": j.get("verdict"),
+                "reason": j.get("reason"),
+                "date": j.get("date"),
+                "judges": j.get("judges") or [],
+                "agreed": len(said) > 1 and len(set(said)) == 1,
+            }
+        )
+    out.sort(key=lambda p: p["date"] or "", reverse=True)
+    return out
 
 
 def entry_by_key(data: dict | None, key: str) -> dict | None:
@@ -230,6 +366,7 @@ def board_rows(
     q: str = "",
     servable: bool = False,
     subsets: bool = False,
+    tier: str | None = None,
     sort: str = "delta",
     descending: bool = True,
 ) -> list[dict]:
@@ -244,7 +381,8 @@ def board_rows(
             not q or q in e["key"].lower() or q in (e.get("design_text") or "").lower()
         )
         and (not servable or serve_status(e)[0] == "yes")
-        and (subsets or not is_subset(run_of(e)))
+        and (subsets or not subset_fit(e))
+        and (tier is None or tier_of(e) == tier)
     ]
     value = BOARD_SORTS.get(sort, BOARD_SORTS["delta"])
     present = [e for e in rows if value(e) is not None]
@@ -322,7 +460,7 @@ def validation_pairs(data: dict, hardware: str | None) -> list[dict]:
     for e in data.get("entries", []):
         if hardware and e["hardware_class"] != hardware:
             continue
-        if is_subset(run_of(e)):
+        if subset_fit(e):
             continue
         psis = (e.get("psis") or {}).get("delta")
         rows = (e.get("splits") or {}).get("rows") or {}

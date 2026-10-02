@@ -403,9 +403,11 @@ def test_research_model_page_shows_the_selection_and_decision(
                 "psis": -3.2,
                 "psis_pm": 4.0,
                 "heldout": None,
+                "elegance": -1,
                 "refused": "tied and not faster",
             },
         ],
+        "pending_judgements": [["m-new/unitdesc-v1", "m-test/unitdesc-v1"]],
     }
     research_file.write_text(json.dumps(data))
     app = create_app(root, research_data=research_file)
@@ -414,6 +416,22 @@ def test_research_model_page_shows_the_selection_and_decision(
     assert "Chosen by rentfrontier.autoselect, 2026-10-01." in html
     assert "The served fit is still the best." in html
     assert "<code>m-other-run</code>" in html and "tied and not faster" in html
+    assert "<td>less elegant</td>" in html  # the check's elegance judgement
+    assert (
+        "<code>m-new/unitdesc-v1</code> against <code>m-test/unitdesc-v1</code>" in html
+    )
+    assert "more elegant than 1" in html and "#elegance" in html
+    assert "Effective parameters</dt><dd>413" in html
+    # a check without scores (the incumbent could not be paired) and an
+    # entry whose PSIS-LOO has no paired delta still render
+    data["autoselect"]["checked"].append({"run": "m-bare-run"})
+    served = next(e for e in data["entries"] if e["id"].startswith("m-test/"))
+    served["psis"] = {"delta": None, "elpd": 1.0}
+    research_file.write_text(json.dumps(data))
+    bare = app.test_client().get("/research/model")
+    assert bare.status_code == 200 and "<code>m-bare-run</code>" in bare.get_data(
+        as_text=True
+    )
 
 
 def test_pages_render_without_research_data(site_root, tmp_path):
@@ -496,7 +514,7 @@ def test_frontier_view_marks_and_as_of(research_file):
         "m-failing": "failing",
         "L0-mean": "frontier",
     }
-    assert view["hidden_subsets"] == 1 and view["unrated"] == 1
+    assert view["hidden_subsets"] == 1
     assert [f["entry"]["id"] for f in view["frontier"]] == [
         "m-test/unitdesc-v1/nuts@aaaaaaa",
         "L0-mean",
@@ -725,9 +743,11 @@ def test_board_review_fixes(client, research_file):
     assert "1</strong> of 6 fits" in servable and "<code>m-test/" in servable
     board = client.get("/research/board").get_data(as_text=True)
     assert "± nan" not in board
-    # time and complexity sort fastest and simplest first; their links say so
+    # time sorts fastest first; its link says so
     assert 'href="/research/board?sort=time"' in board
-    assert 'href="/research/board?sort=complexity"' in board
+    assert "sort=complexity" not in board and "Complexity" not in board
+    assert "less elegant than 1" in board
+    assert 'href="/research/board?sort=params"' in board and ">413<" in board
     assert 'href="/research/board?sort=landed"' in board
     assert "best on its hardware" in board
     fit = client.get("/research/fits/m-other").get_data(as_text=True)
@@ -804,7 +824,8 @@ def test_glossary_has_anchors_the_pages_link_to(client):
         "psis-loo",
         "delta-elpd",
         "pareto-k",
-        "complexity",
+        "elegance",
+        "p-loo",
         "frontier",
         "servable",
     ):
@@ -882,6 +903,7 @@ def test_research_navigation_stays_on_this_site(client):
         "/research/validation",
         "/research/model",
         "/research/glossary",
+        "/research/elegance",
         "/research/data",
         "/research/plan",
     ):
@@ -902,6 +924,8 @@ def test_contents_titles_drop_markdown_and_images_resolve():
 def test_rent_map_page_and_data(client, site_root):
     page = client.get("/estimates/map").get_data(as_text=True)
     assert "no rent map for the served model yet" in page
+    # the map script names the area from the build when the map does not
+    assert 'data-area="Chelsea"' in page
     assert client.get("/estimates/map.json").status_code == 404
     current = (site_root / "current").resolve()
     (current / "map.json").write_text(
@@ -947,3 +971,196 @@ def test_neighbourhoods_filter_listings_and_buildings(
     assert "The Grove" in buildings and "134 West 23rd Street" not in buildings
     page = client.get("/buildings/134-west-23-street-new_york").get_data(as_text=True)
     assert '<p class="subline">West Village · ' in page
+
+
+def test_elegance_page_lists_every_judgement(client):
+    html = client.get("/research/elegance").get_data(as_text=True)
+    # the modeling session's definition, word for word
+    assert "how coherent a model is as a statistical model of how asks arise" in html
+    assert "Ties in accuracy go to the more elegant model." in html
+    assert "renter" not in html
+    # newest first; each design links to a fit on the board, with its p_loo
+    assert html.index("m-other/unitdesc-v1") < html.index("m-cpu/unitdesc-v1")
+    assert "<code>m-other/unitdesc-v1</code></a>" in html
+    assert "(413 effective parameters)" in html
+    assert "<code>m-test/unitdesc-v1</code> is more elegant" in html
+    assert "both judges agreed" in html
+    assert "about equally elegant" in html
+    assert "the judges disagreed, so the pair counts as equal" in html
+    assert "<i>term</i>" not in html and "&lt;i&gt;term" in html  # escaped
+    assert 'aria-current="page">Elegance' in html
+    assert client.get("/research/simplicity").status_code == 404
+
+
+def test_fit_page_shows_its_elegance_judgements(client, research_file):
+    html = client.get("/research/fits/m-other").get_data(as_text=True)
+    assert 'id="elegance"' in html
+    served = '<a href="/research/fits/m-test/unitdesc-v1/nuts@aaaaaaa">'
+    assert served + "<code>m-test/unitdesc-v1</code></a>" in html
+    assert "less elegant" in html and "renter" not in html
+    mine = client.get("/research/fits/m-test/unitdesc-v1/nuts@aaaaaaa")
+    assert "Effective parameters</span>" in mine.get_data(as_text=True)
+    assert "Complexity" not in html
+    lone = client.get("/research/fits/L0-mean").get_data(as_text=True)
+    assert "No judge has compared this design with another yet." in lone
+    frontier = client.get("/research").get_data(as_text=True)
+    assert "Complexity" not in frontier and "2 pairs" in frontier
+    assert "less elegant than 1" in frontier  # the frontier table
+    assert "renter" not in frontier
+
+
+def _with_exploration(research_file):
+    """The research data with two exploration fits of the served design (one
+    on a subset) and the exploration header."""
+    data = json.loads(research_file.read_text())
+    served = next(e for e in data["entries"] if e["id"].startswith("m-test/"))
+    quick = dict(
+        served,
+        id="m-test/unitdesc-v1/nuts@bbbbbbb [quick]",
+        key="m-test/unitdesc-v1/nuts@bbbbbbb [quick]",
+        tier={"name": "exploration", "draws": 200, "warmup": 200, "chains": 2},
+        passes_checks=False,
+        frontier=True,
+        current_best=False,
+        fit_seconds=120.0,
+        psis={"delta": 5100.0, "delta_se": 130.0},
+        why_not_served="it is an exploration fit",
+        available_at="2026-09-29T09:00:00+00:00",
+        splits={"rows": {"run": "m-test-quick-run"}},
+        elegance=[],
+    )
+    subset = dict(
+        quick,
+        id="m-test/unitdesc-v1/nuts@ccccccc [sub]",
+        key="m-test/unitdesc-v1/nuts@ccccccc [sub]",
+        tier={"name": "exploration", "draws": 200, "subset": "tune-b35-v1"},
+        psis=None,
+        frontier=False,
+        splits={"rows": {"run": "m-test-sub-run"}},
+    )
+    served["tier"] = {"name": "full", "draws": 1000, "warmup": 1000, "chains": 4}
+    data["entries"] += [quick, subset]
+    data["snapshots"][-1]["by_class"]["thelio RTX 2060 SUPER"]["frontier"].append(
+        quick["key"]
+    )
+    data["exploration"] = {
+        "as_of": "2026-10-01T09:30:00+00:00",
+        "goal": "Find <b>fast</b> designs on Chelsea and West Village.",
+        "dataset": "chelsea-wv-v1",
+        "tiers": [
+            {
+                "name": "exploration",
+                "draws": 200,
+                "warmup": 200,
+                "chains": 2,
+                "subset": None,
+                "description": "Ranks designs in minutes.",
+            },
+            {
+                "name": "full",
+                "draws": 1000,
+                "warmup": 1000,
+                "chains": 4,
+                "subset": None,
+                "description": "Passes the gate; can be served.",
+            },
+        ],
+        "notes": ["200 draws rank designs like 1,000 do."],
+    }
+    research_file.write_text(json.dumps(data))
+    return quick, subset
+
+
+def test_exploration_fits_count_on_the_frontier(client, research_file):
+    quick, subset = _with_exploration(research_file)
+    html = client.get("/research").get_data(as_text=True)
+    # a diamond on the chart, with both shapes in the legend
+    assert '<path class="fit frontier" d="M' in html
+    assert "key-shape diamond" in html and "Full fit" in html
+    # the tooltip names the kind, then the tier (JSON escapes the dot)
+    assert "On the frontier \\u00b7 exploration fit" in html
+    # in the frontier table, tagged, and not marked as failing the checks
+    table = html[html.index("<h2>On the frontier") :]
+    assert quick["key"] in table and 'class="tag exploration"' in table
+    # the header: goal escaped, tiers and notes
+    assert "Find &lt;b&gt;fast&lt;/b&gt; designs" in html
+    assert "Ranks designs in minutes." in html and "<code>chelsea-wv-v1</code>" in html
+    assert "200 draws rank designs like 1,000 do." in html
+    assert 'Exploration fits</span><span class="tile-value">1<' in html
+    # the subset fit is hidden unless asked for
+    assert subset["key"] not in html
+    shown = client.get("/research?subsets=1").get_data(as_text=True)
+    assert subset["key"] in shown
+    # a legend that only describes its tiers, as the live data does
+    data = json.loads(research_file.read_text())
+    data["exploration"]["tiers"] = [
+        {"name": "exploration", "description": "Short."},
+        {"name": "full", "description": "Full."},
+    ]
+    research_file.write_text(json.dumps(data))
+    described = client.get("/research").get_data(as_text=True)
+    assert "<td>Short.</td>" in described and ">Draws<" not in described
+    # no exploration header: no card, the fits still drawn
+    research_file.write_text(json.dumps(dict(data, exploration=None)))
+    plain = client.get("/research").get_data(as_text=True)
+    assert "The current exploration" not in plain and "key-shape diamond" in plain
+
+
+def test_board_filters_by_tier(client, research_file):
+    quick, _ = _with_exploration(research_file)
+    both = client.get("/research/board").get_data(as_text=True)
+    assert quick["key"] in both and 'name="tier"' in both
+    only = client.get("/research/board?tier=exploration").get_data(as_text=True)
+    assert quick["key"] in only and "<code>m-other</code>" not in only
+    assert 'href="/research/fits/m-test/unitdesc-v1/nuts@aaaaaaa"' not in only
+    full = client.get("/research/board?tier=full").get_data(as_text=True)
+    assert quick["key"] not in full and "<code>m-other</code>" in full
+    ignored = client.get("/research/board?tier=bogus").get_data(as_text=True)
+    assert quick["key"] in ignored
+
+
+def test_exploration_fit_page_links_its_full_fits(client, research_file):
+    quick, _ = _with_exploration(research_file)
+    from urllib.parse import quote
+
+    html = client.get(f"/research/fits/{quote(quick['key'])}").get_data(as_text=True)
+    assert "<h2>An exploration fit</h2>" in html
+    assert "No: it is an exploration fit." in html
+    assert "200 over 2 chains" in html
+    served = 'href="/research/fits/m-test/unitdesc-v1/nuts@aaaaaaa"'
+    assert served in html[html.index("Full fits of the same design") :]
+    full = client.get("/research/fits/m-test/unitdesc-v1/nuts@aaaaaaa").get_data(
+        as_text=True
+    )
+    assert "An exploration fit" not in full
+    assert 'id="exploration-fit"' in client.get("/research/glossary").get_data(
+        as_text=True
+    )
+
+
+def test_tiers_without_research_fields():
+    from apartments.site import research
+
+    assert research.data_rules_of(
+        {"id": "m7/f-v5/gibbs@a8ef50d+unit-labels-v1+quarantine-v2 [x]"}
+    ) == ("quarantine-v2", "unit-labels-v1")
+    assert research.data_rules_of({"id": "m0/base-v1/nuts@5cc0809"}) == ()
+    quick = {
+        "id": "m/f/g@b+q2",
+        "design": "m",
+        "feature_set": "f",
+        "tier": {"name": "exploration"},
+    }
+    same = {"id": "m/f/g@c+q2", "design": "m", "feature_set": "f", "key": "same"}
+    other = {"id": "m/f/g@d+q1", "design": "m", "feature_set": "f", "key": "q1"}
+    found = research.full_fits_of({"entries": [quick, same, other]}, quick)
+    assert [e["key"] for e in found] == ["same"]
+
+    assert research.tier_of({}) == "full"
+    assert research.tier_of({"tier": {"name": "nonsense"}}) == "full"
+    explore = {"tier": {"name": "exploration"}, "passes_checks": True}
+    assert research.serve_status(explore) == (
+        "no",
+        "an exploration fit, for tracking the research only",
+    )
+    assert research.subset_fit({"tier": {"name": "exploration", "subset": "tune-x"}})
