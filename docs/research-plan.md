@@ -8,6 +8,56 @@ contract and pitfalls in [the 2026-09-24 brief](brief-2026-09-24.md) and the
 [project intent](project-intent.md) still apply. This plan replaces the brief's evaluation contract
 (§4) and first tasks (§5).
 
+## Current direction: a fresh autoresearch on the full data (Ben, 2026-10-01 evening)
+
+Relayed from Ben on 2026-10-01 at about 20:30 ET, with a correction soon after. It replaces the
+queue and design work before it; the rest of this plan is context.
+
+- **Goal.** A fresh autoresearch on the full Chelsea + West Village data: the best fit possible at a
+  range of fit-time limits, that is, frontier models along the whole fit-time × PSIS-LOO curve.
+  - Simpler, more elegant models are preferred (judged as in "The simplicity axis").
+  - Start fresh from simple models. The existing designs are not targets to rebuild, and the
+    existing fits, knowledge, sampler and code are context only.
+  - No prescribed ladder. Put a reasonable effort into the lower time limits before moving to the
+    longer ones.
+- **Iteration speed first.** Find the shortest experiments that still give good data: fewer draws, a
+  building subset, or both.
+  - An exploration fit is judged on whether it ranks designs as full fits do, within Monte Carlo
+    error, not on the convergence gate.
+  - The fixed costs are profiled: compilation, warmup, and the post-fit LOO and variance
+    decomposition (about 170 s).
+  - Known so far: the 35% building subset saves only 25–30% (about 750 s fixed plus 20 s per
+    thousand rows) and always fails the gate on `beta[label:lower_level]`. Fewer draws is probably
+    the bigger lever; it is being measured.
+- **Tiers.** Every fit records a tier: `exploration` (fewer draws, optionally a subset) or `full`
+  (full draws, the gate, the 2-hour cap).
+  - **Exploration fits count** as points on the research frontier and board, tagged with their tier
+    (draws, warmup, chains, subset). Ben judges the research by them. The gate is not required of
+    them; a full-tier fit still needs it.
+  - A subset fit scores fewer rows, so it is shown with its tier but cannot sit on the full-data
+    frontier.
+- **Serving is separate.** Only a full-tier, full-data fit that passes the gate is served to the rest
+  of the app; once one exists it is served there. `autoselect` refuses exploration fits.
+- **When fits run.** Ben wants to watch research progress while he is awake.
+  - Full-data confirmation fits (full draws, gate, 2-hour cap) run only between 12am and 5am PT,
+    which is 03:00–08:00 ET on the machine's clock.
+  - Outside that window, only cheap exploration fits run.
+  - There is no full fit for every frontier model, only confirmations.
+- **Data choices to try in exploration:** the West Village unit alias table (`unit-labels-v2`) is
+  one. It is no longer a separately queued fit.
+- **Unchanged:**
+  - one timed fit at a time under the heavy lock; local compute only;
+  - `model.build_model` is the only model;
+  - a PR per independent change;
+  - simplicity by judge agents;
+  - the faster-refit selection (#115) ships in the single deploy with the site rewrite.
+- **Where results go.** Exploration results are shown on the site's research pages, labelled as
+  exploration and never served. They come from the board's `entries` with their `tier`, plus a
+  top-level `exploration` summary in `data.json`, as agreed with the site session.
+- **First results.** The bath-and-floor design (`m7-nocurves-bathfloor` + `nb-facing-v1`) at 2 ×
+  (300 + 4,500) draws is the first full-data fit that passes the gate: 2,800 s, PSIS-LOO 87,334.1.
+  It is the calibration reference for the short fits.
+
 ## Objective
 
 **From 2026-10-01 (Ben).** "All the research goals from the chelsea effort stand, I'm interested in the
