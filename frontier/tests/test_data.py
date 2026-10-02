@@ -60,7 +60,9 @@ def test_quarantine_drops_rows_from_the_frame_and_the_heldout_mask(monkeypatch):
     assert ruled.attrs["source_sha256"] == "s"
 
 
-@pytest.mark.parametrize("path", [data.QUARANTINE_V1, data.QUARANTINE_V2])
+@pytest.mark.parametrize(
+    "path", [data.QUARANTINE_V1, data.QUARANTINE_V2, data.QUARANTINE_V3]
+)
 def test_quarantine_file_names_each_row_once_with_its_evidence(path):
     with open(path) as f:
         rows = [json.loads(line) for line in f if line.strip()]
@@ -83,6 +85,10 @@ def test_quarantine_file_names_each_row_once_with_its_evidence(path):
 
 def test_quarantine_v2_keeps_every_v1_row():
     assert data.quarantined() < data.quarantined(data.QUARANTINE_V2)
+
+
+def test_quarantine_v3_keeps_every_v2_row():
+    assert data.quarantined(data.QUARANTINE_V2) < data.quarantined(data.QUARANTINE_V3)
 
 
 def test_unit_line_key():
@@ -131,6 +137,7 @@ def test_dropped_rows_are_the_union_of_every_rule_file(tmp_path, monkeypatch):
     a.write_text('{"audit_id": "x"}\n')
     b.write_text('{"audit_id": "y"}\n{"audit_id": "x"}\n')
     monkeypatch.setattr(data, "RULE_SOURCES", {"quarantine-v1": a, "quarantine-v2": b})
+    monkeypatch.setattr(data, "DROPPING_RULES", ("quarantine-v1", "quarantine-v2"))
     assert data.dropped_rows() == {"x", "y"}
 
 
