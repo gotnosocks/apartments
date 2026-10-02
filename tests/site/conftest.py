@@ -507,6 +507,13 @@ def research_data():
         "hardware": "thelio RTX 2060 SUPER",
         "sampler": "nuts",
         "design_text": "A test design with <b>bold</b> claims",
+        "simplicity": [
+            {
+                "vs": "m-other/unitdesc-v1",
+                "verdict": "simpler",
+                "reason": "One fewer <i>term</i> to explain.",
+            }
+        ],
         "note": "",
         "annotations": ["Serves the app (Ben)."],
         "variance": {
@@ -524,7 +531,14 @@ def research_data():
         current_best=False,
         psis={"delta": 4100.0, "delta_se": 110.0},
         fit_seconds=600.0,
-        complexity=12,
+        design="m-other",
+        simplicity=[
+            {
+                "vs": "m-test/unitdesc-v1",
+                "verdict": "less simple",
+                "reason": "One fewer <i>term</i> to explain.",
+            }
+        ],
         why_not_served="it was fit with no data rules, not the current quarantine-v2",
         available_at="2026-09-25T08:00:00+00:00",
         splits={
@@ -552,6 +566,8 @@ def research_data():
         other,
         id="L0-mean",
         key="L0-mean",
+        design="L0-mean",
+        simplicity=[],
         psis={"delta": -72000.0, "delta_se": 250.0},
         fit_seconds=30.0,
         splits={"rows": {"run": "L0-run"}},
@@ -565,8 +581,6 @@ def research_data():
     )
     cpu = dict(other, id="m-cpu", key="m-cpu", hardware_class="thelio CPU")
     entries = [other, served, failing, baseline, subset, cpu]
-    for e in entries:
-        e.setdefault("complexity", None)
     gpu = "thelio RTX 2060 SUPER"
     return {
         "snapshots": [
@@ -588,6 +602,36 @@ def research_data():
         "baseline": "m0-base/base-v1/gibbs@5cc0809",
         "variance_groups": ["market and time", "features", "building", "residual"],
         "entries": entries,
+        "simplicity_judgements": [
+            {
+                "designs": ["m-other/unitdesc-v1", "m-test/unitdesc-v1"],
+                "verdict": "m-test/unitdesc-v1",
+                "reason": "One fewer <i>term</i> to explain.",
+                "date": "2026-10-01",
+                "judges": [
+                    {
+                        "shown": ["m-test/unitdesc-v1", "m-other/unitdesc-v1"],
+                        "verdict": "m-test/unitdesc-v1",
+                        "reason": "Design 1 has one fewer term.",
+                    },
+                    {
+                        "shown": ["m-other/unitdesc-v1", "m-test/unitdesc-v1"],
+                        "verdict": "m-test/unitdesc-v1",
+                        "reason": "Design 2 has one fewer term.",
+                    },
+                ],
+            },
+            {
+                "designs": ["m-cpu/unitdesc-v1", "m-test/unitdesc-v1"],
+                "verdict": "equal",
+                "reason": "The judges disagreed.",
+                "date": "2026-09-30",
+                "judges": [
+                    {"shown": [], "verdict": "m-cpu/unitdesc-v1", "reason": "a"},
+                    {"shown": [], "verdict": "m-test/unitdesc-v1", "reason": "b"},
+                ],
+            },
+        ],
         "milestones": [
             {
                 "kind": "pr",

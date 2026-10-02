@@ -403,9 +403,11 @@ def test_research_model_page_shows_the_selection_and_decision(
                 "psis": -3.2,
                 "psis_pm": 4.0,
                 "heldout": None,
+                "simplicity": -1,
                 "refused": "tied and not faster",
             },
         ],
+        "pending_judgements": [["m-new/unitdesc-v1", "m-test/unitdesc-v1"]],
     }
     research_file.write_text(json.dumps(data))
     app = create_app(root, research_data=research_file)
@@ -414,6 +416,9 @@ def test_research_model_page_shows_the_selection_and_decision(
     assert "Chosen by rentfrontier.autoselect, 2026-10-01." in html
     assert "The served fit is still the best." in html
     assert "<code>m-other-run</code>" in html and "tied and not faster" in html
+    assert "<td>less simple</td>" in html  # the check's simplicity judgement
+    assert "<code>m-new/unitdesc-v1</code> against <code>m-test/unitdesc-v1</code>" in html
+    assert "simpler than 1" in html and "#simplicity" in html
 
 
 def test_pages_render_without_research_data(site_root, tmp_path):
@@ -496,7 +501,7 @@ def test_frontier_view_marks_and_as_of(research_file):
         "m-failing": "failing",
         "L0-mean": "frontier",
     }
-    assert view["hidden_subsets"] == 1 and view["unrated"] == 1
+    assert view["hidden_subsets"] == 1
     assert [f["entry"]["id"] for f in view["frontier"]] == [
         "m-test/unitdesc-v1/nuts@aaaaaaa",
         "L0-mean",
@@ -725,9 +730,10 @@ def test_board_review_fixes(client, research_file):
     assert "1</strong> of 6 fits" in servable and "<code>m-test/" in servable
     board = client.get("/research/board").get_data(as_text=True)
     assert "± nan" not in board
-    # time and complexity sort fastest and simplest first; their links say so
+    # time sorts fastest first; its link says so
     assert 'href="/research/board?sort=time"' in board
-    assert 'href="/research/board?sort=complexity"' in board
+    assert "sort=complexity" not in board and "Complexity" not in board
+    assert "less simple than 1" in board
     assert 'href="/research/board?sort=landed"' in board
     assert "best on its hardware" in board
     fit = client.get("/research/fits/m-other").get_data(as_text=True)
@@ -804,7 +810,7 @@ def test_glossary_has_anchors_the_pages_link_to(client):
         "psis-loo",
         "delta-elpd",
         "pareto-k",
-        "complexity",
+        "simplicity",
         "frontier",
         "servable",
     ):
@@ -882,6 +888,7 @@ def test_research_navigation_stays_on_this_site(client):
         "/research/validation",
         "/research/model",
         "/research/glossary",
+        "/research/simplicity",
         "/research/data",
         "/research/plan",
     ):
@@ -947,3 +954,33 @@ def test_neighbourhoods_filter_listings_and_buildings(
     assert "The Grove" in buildings and "134 West 23rd Street" not in buildings
     page = client.get("/buildings/134-west-23-street-new_york").get_data(as_text=True)
     assert '<p class="subline">West Village · ' in page
+
+
+def test_simplicity_page_lists_every_judgement(client):
+    html = client.get("/research/simplicity").get_data(as_text=True)
+    # the peer's glossary text, word for word
+    assert "two independent AI judges read both model definitions without" in html
+    assert "If they disagree, the pair counts as\nequal." in html
+    # newest first; each design links to its fit on the board
+    assert html.index("m-other/unitdesc-v1") < html.index("m-cpu/unitdesc-v1")
+    assert 'href="/research/fits/m-other"><code>m-other/unitdesc-v1</code>' in html
+    assert "<code>m-test/unitdesc-v1</code> is simpler" in html
+    assert "both judges agreed" in html
+    assert "about equally simple" in html
+    assert "the judges disagreed, so the pair counts as equal" in html
+    assert "<i>term</i>" not in html and "&lt;i&gt;term" in html  # escaped
+    assert 'aria-current="page">Simplicity' in html
+
+
+def test_fit_page_shows_its_simplicity_judgements(client, research_file):
+    html = client.get("/research/fits/m-other").get_data(as_text=True)
+    assert 'id="simplicity"' in html
+    served = '<a href="/research/fits/m-test/unitdesc-v1/nuts@aaaaaaa">'
+    assert served + "<code>m-test/unitdesc-v1</code></a>" in html
+    assert "less simple" in html
+    assert "Complexity" not in html
+    lone = client.get("/research/fits/L0-mean").get_data(as_text=True)
+    assert "No judge has compared this design with another yet." in lone
+    frontier = client.get("/research").get_data(as_text=True)
+    assert "Complexity" not in frontier and "2 pairs" in frontier
+    assert "less simple than 1" in frontier  # the frontier table
