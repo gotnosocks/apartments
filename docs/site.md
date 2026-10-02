@@ -72,9 +72,13 @@ without the filter.
   - accuracy (PSIS-LOO ΔELPD) against fit time on the full dataset, with Ben's 30-minute target;
   - how simplicity enters (judged in pairs, so it has no chart) and how many pairs are judged;
   - the frontier fits in a table, with whether each can be served and why not;
-  - every fit in a table view.
+  - every fit in a table view;
+  - when the research data has an `exploration` block, the current exploration: its goal, data,
+    the tier legend and the modeling notes, with a count of exploration fits.
 
-  The marks are served, on the frontier, other, fails the convergence checks, and subset. Frontier
+  The marks are served, on the frontier, other, fails the convergence checks, and subset; full fits
+  are circles and exploration fits diamonds (a key explains both), and the tables tag exploration
+  fits. Exploration fits count on the frontier; the convergence gate applies to full fits only. Frontier
   membership and the best come from the board's own snapshots, so "board as of" shows the
   frontier as it stood at the end of any day with results. Subset fits (a `tune…` part in the run
   name, for example `nb-tune35`) are exploration only. They are hidden unless asked for, and never
@@ -82,13 +86,15 @@ without the filter.
   unless "the full accuracy range" is ticked.
 - **Board** (`/research/board`): every fit on the board with its accuracy, fit time, its judged
   simplicity pairs counted in words ("simpler than 1, less simple than 2"), checks, whether it can be served and why not, and when it landed. Filters are hardware, model
-  line, a search over design, features and commit, "only servable" and "subset fits"; columns sort.
+  line, a search over design, features and commit, "only servable", "subset fits" and the tier (both, full or exploration); columns sort.
   Servable is yes only when the research data says so (autoselect's `why_not_served`). Otherwise a
   fit that fails the checks is "no", and anything else is "not known yet".
 - **Fit** (`/research/fits/<key>`): one fit's headline numbers, whether it can be served and why
   not, the judge agents' simplicity verdicts against other designs with their
   reasons, the board's note and annotations, the sampler and run, the accuracy in detail (ELPD, Pareto
-  k, the held-out check), each split's diagnostics, and where the variation in rents goes. Every
+  k, the held-out check), each split's diagnostics, and where the variation in rents goes. An
+  exploration fit's page says what that means, gives its draws and chains, and links any full fits of
+  the same design (same model, features and data rules), newest first. Every
   dot on the research charts and every fit in their tables links here.
 - **History** (`/research/history`):
   - the best fit's accuracy over time on one hardware class (the board's own replay);
@@ -154,7 +160,11 @@ listings fall in each band, as calibration predicts.
    `data.json`: entries, as-of snapshots, milestones and the data-quality card. Each entry carries
    the judge agents' pairwise `simplicity` judgements of its design (`rentfrontier.simplicity`: a
    list of `{vs, verdict, reason}`, empty when none) and `why_not_served`, autoselect's plain reason
-   the fit cannot be served (null when it can). The top-level `autoselect` is autoselect's decision
+   the fit cannot be served (null when it can), and its `tier` (`rentfrontier` fit tiers:
+   `{name: "exploration" | "full", draws, warmup, chains, subset}`; none means full). Exploration
+   fits count on the research frontier but are never served; a fit with a `subset` has no PSIS-LOO
+   score on the full data and shows in tables only. The top-level `exploration` (goal, dataset,
+   baseline, a legend of `tiers` and `notes`) heads the frontier page. The top-level `autoselect` is autoselect's decision
    on the current board against the served run: keep or switch, the reason, the eligible fits and
    every fit checked; an error note replaces it if a pairing fails. The site reads `/data1/apartments/dashboard/site/data.json` (`RESEARCH_DATA`
    overrides it) and keeps the parsed copy until the file behind the symlink changes. Without it,
