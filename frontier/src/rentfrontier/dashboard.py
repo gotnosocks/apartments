@@ -376,7 +376,7 @@ def data():
         "variance_groups": [*variance.GROUPS, "residual"],
         "baseline": leaderboard.BASELINE,
         "baseline_key": next(
-            (e["_key"] for e in entries if e["id"] == leaderboard.BASELINE), None
+            (e["_key"] for e in entries if leaderboard.is_baseline(e)), None
         ),
         "reference": reference_entry(),
         "entries": out,

@@ -318,3 +318,20 @@ def test_the_frontier_keeps_a_beaten_fit_only_if_judged_simpler(monkeypatch):
         _board_entry("unjudged", 9.0, 1600),
     ]
     assert leaderboard.on_frontier(es) == [True, True, False, False]
+
+
+def test_the_baseline_is_found_by_run_name_or_entry_id(monkeypatch):
+    monkeypatch.setattr(leaderboard, "BASELINE", "m0-base-base-v1-rows-abc1234-x-run")
+    by_run = {
+        "id": "m0-base/base-v1/gibbs@abc1234",
+        "splits": {"rows": {"run": "m0-base-base-v1-rows-abc1234-x-run"}},
+    }
+    other = {
+        "id": "m0-base/base-v1/gibbs@abc1234",
+        "splits": {"rows": {"run": "m0-base-base-v1-rows-abc1234-x-short"}},
+    }
+    assert leaderboard.is_baseline(by_run) and not leaderboard.is_baseline(other)
+    monkeypatch.setattr(leaderboard, "BASELINE", "m0-base/base-v1/gibbs@5cc0809")
+    assert leaderboard.is_baseline(
+        {"id": "m0-base/base-v1/gibbs@5cc0809", "splits": {}}
+    )
