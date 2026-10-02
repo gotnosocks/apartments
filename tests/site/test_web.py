@@ -897,3 +897,53 @@ def test_contents_titles_drop_markdown_and_images_resolve():
     assert (
         "https://github.com/gotnosocks/apartments/raw/master/docs/img/map.png" in html
     )
+
+
+def test_rent_map_page_and_data(client, site_root):
+    page = client.get("/estimates/map").get_data(as_text=True)
+    assert "no rent map for the served model yet" in page
+    assert client.get("/estimates/map.json").status_code == 404
+    current = (site_root / "current").resolve()
+    (current / "map.json").write_text(
+        json.dumps({"run": "m-test-run", "years": [2026]})
+    )
+    page = client.get("/estimates/map").get_data(as_text=True)
+    assert 'data-src="/estimates/map.json"' in page and "rentmap.js" in page
+    assert 'href="/estimates/map" aria-current="page"' in page
+    data = client.get("/estimates/map.json")
+    assert data.status_code == 200 and data.get_json()["run"] == "m-test-run"
+
+
+def test_one_neighbourhood_shows_no_neighbourhood_controls(client):
+    html = client.get("/listings").get_data(as_text=True)
+    assert 'name="nb"' not in html
+    assert 'name="nb"' not in client.get("/buildings").get_data(as_text=True)
+
+
+def test_neighbourhoods_filter_listings_and_buildings(
+    tmp_path, make_bundle, research_file
+):
+    from apartments.site import build
+
+    bundle = make_bundle(
+        tmp_path / "nb",
+        neighbourhoods={"134-west-23-street-new_york": "West Village"},
+    )
+    root = tmp_path / "nb-site"
+    build.build(bundle, root, scope="Chelsea and West Village")
+    client = create_app(root, research_data=research_file).test_client()
+    html = client.get("/listings").get_data(as_text=True)
+    assert '<option value="West Village">West Village (2)</option>' in html
+    assert "(West Village)" in html  # next to the building in the table
+    wv = client.get("/listings?nb=West+Village").get_data(as_text=True)
+    assert wv.count('href="/listings/a') == 2 and "/listings/a1" not in wv
+    assert (
+        client.get("/listings?nb=Nowhere")
+        .get_data(as_text=True)
+        .count('href="/listings/a')
+        == 6
+    )  # an unknown neighbourhood is ignored
+    buildings = client.get("/buildings?nb=Chelsea").get_data(as_text=True)
+    assert "The Grove" in buildings and "134 West 23rd Street" not in buildings
+    page = client.get("/buildings/134-west-23-street-new_york").get_data(as_text=True)
+    assert '<p class="subline">West Village · ' in page

@@ -164,7 +164,7 @@ def rule_file_lines():
     ]
 
 
-def summary_rows():
+def summary_rows(neighbourhoods=None):
     rows = []
     for (
         audit,
@@ -211,6 +211,8 @@ def summary_rows():
             row[f"{name}_usd_lower_95"] = lower
             row[f"{name}_usd_upper_95"] = upper
         row["inputs"] = json.dumps({"text:renovated": 1.0, "label:penthouse": 1.0})
+        if neighbourhoods:
+            row["neighbourhood"] = neighbourhoods.get(building, "Chelsea")
         rows.append(row)
     return rows
 
@@ -285,7 +287,7 @@ def quarantined_observations():
     ]
 
 
-def make_bundle(root: Path, *, gate=True, rule_lines=None) -> Path:
+def make_bundle(root: Path, *, gate=True, rule_lines=None, neighbourhoods=None) -> Path:
     dataset = root / "dataset"
     dataset.mkdir(parents=True)
     source = dataset / "observations.jsonl"
@@ -332,7 +334,7 @@ def make_bundle(root: Path, *, gate=True, rule_lines=None) -> Path:
     )
     bundle = root / "summary"
     bundle.mkdir()
-    _parquet(bundle / "rows.parquet", summary_rows())
+    _parquet(bundle / "rows.parquet", summary_rows(neighbourhoods))
     _parquet(
         bundle / "market.parquet",
         [

@@ -48,8 +48,21 @@ is therefore a fair signal of over- or under-pricing ([what an estimate is](mode
   A quarantined listing's URL opens a page that explains why. A building or unit with only
   quarantined listings redirects to its list. Quarantined listings are not in the listings search
   or any estimate statistic; the home page and the Estimates overview count them.
+- **Rent map** (`/estimates/map`): what a typical apartment rents for in each building, by bedrooms
+  and year, from the served model (`rentfrontier.rentmap`; its definition is on the page). It has
+  zoom, pan, hover and play, the median building's trend by bedroom count, and table views.
+  `apartments.site build` bundles the served run's newest map (`/data1/apartments/frontier/maps`,
+  `FRONTIER_MAPS` overrides it) and refuses a map of another run, so map and estimates always come
+  from the same model. The page says when there is no map yet. The data is at
+  `/estimates/map.json`.
 - **How estimates work** (`/about`): for renters. What an estimate is and is not, calibration by
   estimate type, and why some listings are left out.
+
+Neighbourhoods: every listing and building carries one (the summary's `neighbourhood` per row,
+else the dataset's, else the build's `--scope`). The listings and buildings pages show a
+neighbourhood filter, and tables and building pages name the neighbourhood, only when a build covers
+more than one, so a Chelsea-only build looks as before. Older builds without the column are served
+without the filter.
 
 ### Research
 

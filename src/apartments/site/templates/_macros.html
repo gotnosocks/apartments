@@ -10,7 +10,7 @@
 {%- endmacro %}
 
 {% macro place(row) -%}
-{{ row.building_name or row.building_address }}{% if row.unit_label %} · {{ row.unit_label }}{% endif %}
+{{ row.building_name or row.building_address }}{% if row.unit_label %} · {{ row.unit_label }}{% endif %}{% if neighbourhoods | length > 1 and row.neighbourhood %} <span class="muted">({{ row.neighbourhood }})</span>{% endif %}
 {%- endmacro %}
 
 {% macro layout(row) -%}

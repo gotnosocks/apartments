@@ -27,6 +27,7 @@ from __future__ import annotations
 
 import argparse
 import datetime as dt
+import glob
 import hashlib
 import json
 import math
@@ -35,6 +36,7 @@ import re
 import shutil
 import sqlite3
 import statistics
+from collections import Counter
 from pathlib import Path
 
 import duckdb
@@ -42,10 +44,12 @@ import duckdb
 from .selection import SELECTION, selection_note
 
 VERSION = "listings-site-v1"
-SCHEMA_VERSION = 2
+SCHEMA_VERSION = 3
 DEFAULT_ROOT = Path(os.environ.get("SITE_ROOT", "/data1/apartments/site"))
 SELECTION_VERSION = "main-analysis-selection-v2"
 KEEP = 3
+# Rent maps of runs (`rentfrontier.rentmap`): <run>-<7-hex commit>/map.json.
+MAPS = Path(os.environ.get("FRONTIER_MAPS", "/data1/apartments/frontier/maps"))
 # Where the ask falls in its leave-own-row-out predictive distribution.
 PRICE_BANDS = (0.10, 0.90)
 HISTORICAL_BASIS = "historical_initial_own_advertisement_ask"
@@ -66,6 +70,7 @@ CREATE TABLE buildings(
   level_pct REAL, level_pct_lower REAL, level_pct_upper REAL,
   trend_pct REAL, trend_pct_lower REAL, trend_pct_upper REAL,
   fit_rows INTEGER, listings INTEGER NOT NULL, units INTEGER NOT NULL,
+  neighbourhood TEXT,
   current_listings INTEGER NOT NULL, first_period TEXT, last_period TEXT,
   median_residual_pct REAL);
 CREATE TABLE units(
@@ -75,6 +80,7 @@ CREATE TABLE units(
   last_ask REAL, last_estimate REAL, last_residual_pct REAL);
 CREATE TABLE listings(
   id INTEGER PRIMARY KEY, audit_id TEXT NOT NULL UNIQUE,
+  neighbourhood TEXT NOT NULL,
   unit_id TEXT NOT NULL REFERENCES units(id),
   building_id TEXT NOT NULL REFERENCES buildings(id),
   unit_label TEXT, unit_url TEXT, listing_id TEXT, listing_url TEXT,
@@ -111,6 +117,7 @@ CREATE INDEX listings_building ON listings(building_id, period, id);
 CREATE INDEX listings_unit ON listings(unit_id, period);
 CREATE INDEX listings_current ON listings(is_current, period, id);
 CREATE INDEX listings_bedrooms ON listings(bedrooms);
+CREATE INDEX listings_neighbourhood ON listings(neighbourhood, period, id);
 CREATE INDEX units_building ON units(building_id);
 """
 
@@ -284,7 +291,9 @@ def _concession(value) -> str | None:
     return value if isinstance(value, str) else json.dumps(value, sort_keys=True)
 
 
-def listing_rows(rows, observations, names, k_threshold) -> list[dict]:
+def listing_rows(rows, observations, names, k_threshold, scope="Chelsea") -> list[dict]:
+    """Site rows of the listings. Each carries its neighbourhood: the summary's
+    (combined cohorts), else the dataset's, else the build's scope."""
     out = []
     for r in rows:
         obs = observations.get(r["audit_id"])
@@ -307,6 +316,9 @@ def listing_rows(rows, observations, names, k_threshold) -> list[dict]:
         out.append(
             {
                 "audit_id": r["audit_id"],
+                "neighbourhood": r.get("neighbourhood")
+                or obs.get("neighbourhood")
+                or scope,
                 "unit_id": r["unit_id"],
                 "building_id": r["building"],
                 "unit_label": unit_label(obs.get("canonical_unit_url")),
@@ -415,6 +427,9 @@ def building_rows(effects, listings, units, registry, pluto) -> list[dict]:
         out.append(
             {
                 "id": slug,
+                "neighbourhood": Counter(r["neighbourhood"] for r in rows).most_common(
+                    1
+                )[0][0],
                 "name": name,
                 "address": address,
                 "sort_key": natural_key(display),
@@ -580,7 +595,7 @@ def write_database(
     if names != record["terms"]:
         raise BuildError("terms.json differs from the bundle's record")
     k_threshold = record["estimate_pareto_k"]["threshold"]
-    listings = listing_rows(rows, observations, names, k_threshold)
+    listings = listing_rows(rows, observations, names, k_threshold, scope)
     units = unit_rows(listings)
     registry = external(record, "registry")
     buildings = building_rows(
@@ -619,6 +634,9 @@ def write_database(
         "calibration": calibration(listings),
         "listings": len(listings),
         "current_listings": sum(r["is_current"] for r in listings),
+        "neighbourhoods": dict(
+            sorted(Counter(r["neighbourhood"] for r in listings).items())
+        ),
         "units": len(units),
         "buildings": len(buildings),
         "first_period": periods[0],
@@ -669,6 +687,25 @@ def write_database(
     return stats
 
 
+def rent_map(run: str, maps: Path | None = None) -> Path | None:
+    """The newest rent map of `run`, if one has been made; a bundle that names
+    another run is refused."""
+    maps = MAPS if maps is None else maps
+    found = sorted(
+        maps.glob(f"{glob.escape(run)}-{'[0-9a-f]' * 7}/map.json"),
+        key=lambda p: p.stat().st_mtime,
+    )
+    if not found:
+        return None
+    try:
+        named = json.loads(found[-1].read_text()).get("run")
+    except (OSError, ValueError) as error:
+        raise BuildError(f"cannot read the rent map {found[-1]}: {error}") from None
+    if named != run:
+        raise BuildError(f"the rent map {found[-1]} is of {named}, not {run}")
+    return found[-1]
+
+
 def publish(build_dir: Path, root: Path, keep: int = KEEP) -> None:
     """Point root/current at build_dir atomically; prune old builds."""
     link = root / "current"
@@ -710,8 +747,12 @@ def build(
             scope,
             selection_note(selection, record["_sha256"]),
         )
+        source_map = rent_map(record["run"])
+        if source_map is not None:
+            shutil.copyfile(source_map, staging / "map.json")
         info = {
             "version": VERSION,
+            "rent_map": str(source_map) if source_map else None,
             "built_at": dt.datetime.now(dt.UTC).isoformat(timespec="seconds"),
             "summary": str(summary),
             "summary_sha256": record["_sha256"],

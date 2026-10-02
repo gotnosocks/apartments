@@ -13,7 +13,6 @@ card follow it.
   (`WINDOW_SECONDS`: Ben, 2026-10-01, "the full fit can take more than 30
   mins", with a 2-hour hard stop; exploratory fits on a subset must run under
   30 minutes, and are never served).
-- Its design has a simplicity rating (`elegance.complexity`).
 - It used the current data rules: the latest version of every rule family
   (`current_rules`). A fit on rows a later review has shown to be wrong is not
   served.
@@ -26,16 +25,21 @@ card follow it.
 simpler"):
 1. Take the top paired PSIS-LOO, and the fits tied with it within two combined
    SE.
-2. Among those, take the simplest: the lowest judged complexity.
-3. Among equally simple fits, take the fastest. Fit times within `TIME_TIE` of
+2. Among those, take the simplest, by the judge agents' recorded pairwise
+   judgements (`simplicity`): fits are ordered by how many other tied fits
+   are judged simpler than them, fewest first (a fit no tied fit is judged
+   simpler than comes first; a cycle of judgements leaves its fits level).
+3. Then take the fastest. Fit times within `TIME_TIE` of
    the fastest count as equal, and among them the higher PSIS-LOO wins, so
    run-to-run timing noise cannot decide.
 
 **Against the incumbent,** the currently selected run:
 - Fits ranked below an eligible incumbent are not tried.
 - An eligible incumbent is kept unless the choice beats it clearly: better
-  PSIS-LOO beyond the tie tolerance, or tied and simpler, or tied, as simple
-  and faster by more than `TIME_TIE`.
+  PSIS-LOO beyond the tie tolerance, or tied and judged simpler, or tied,
+  judged equally simple and faster by more than `TIME_TIE`. A tied challenger
+  whose pair with the incumbent has not been judged is refused until it is
+  (`simplicity.pending` lists such pairs).
 - A challenger is refused if its paired held-out score is below the
   incumbent's by more than two SE (the board's independent check), and the
   next eligible fit is tried.
@@ -56,7 +60,7 @@ import math
 import re
 from pathlib import Path
 
-from rentfrontier import data, elegance, leaderboard
+from rentfrontier import data, leaderboard, simplicity
 
 TARGET_HARDWARE = "thelio RTX 2060 SUPER"
 WINDOW_SECONDS = (
@@ -91,10 +95,6 @@ def _rules(entry) -> frozenset:
     return frozenset(_record(entry).get("data_rules", ()))
 
 
-def _complexity(e):
-    return e["complexity"] if "complexity" in e else elegance.complexity(e)
-
-
 def why_not(e, rules) -> str | None:
     """Why an entry cannot be served, or None if it can."""
     if not e["passes_checks"]:
@@ -113,8 +113,6 @@ def why_not(e, rules) -> str | None:
     dataset = _record(e).get("dataset")
     if dataset is not None and Path(dataset).resolve() != Path(data.DATASET).resolve():
         return f"it was fit on {Path(dataset).name}, not the current {Path(data.DATASET).name}"
-    if _complexity(e) is None:
-        return "its design has no simplicity rating (rentfrontier.elegance)"
     if _rules(e) != rules:
         used = " + ".join(sorted(_rules(e))) or "no data rules"
         return f"it was fit with {used}, not the current {' + '.join(sorted(rules))}"
@@ -131,10 +129,10 @@ def eligible(entries, rules=None) -> list:
     return [e for e in entries if why_not(e, rules) is None]
 
 
-def ranked(candidates, paired=leaderboard.paired_loo) -> list:
-    """Candidates in the order the choice prefers them."""
+def _split_tied(candidates, paired):
+    """(fits tied with the top PSIS-LOO, the rest)."""
     if not candidates:
-        return []
+        return [], []
     top = max(candidates, key=lambda e: e["psis"]["delta"])
     tied, rest = [], []
     for e in candidates:
@@ -143,15 +141,36 @@ def ranked(candidates, paired=leaderboard.paired_loo) -> list:
             continue
         d, se, mc = paired(e["psis"]["_dir"], top["psis"]["_dir"])
         (tied if abs(d) <= leaderboard.tie_tolerance(se, mc) else rest).append(e)
+    return tied, rest
+
+
+def tie_pairs(candidates, paired=leaderboard.paired_loo) -> set:
+    """Pairs of designs among the fits tied with the top: the judgements the
+    choice can need."""
+    tied, _ = _split_tied(candidates, paired)
+    ids = sorted({simplicity.design_id(e) for e in tied})
+    return {(a, b) for i, a in enumerate(ids) for b in ids[i + 1 :]}
+
+
+def beaten(e, others) -> int:
+    """How many of `others` are judged simpler than e."""
+    me = simplicity.design_id(e)
+    return sum(simplicity.compare(simplicity.design_id(o), me) == 1 for o in others)
+
+
+def ranked(candidates, paired=leaderboard.paired_loo) -> list:
+    """Candidates in the order the choice prefers them."""
+    tied, rest = _split_tied(candidates, paired)
+    if not tied:
+        return []
+    rank = {id(e): beaten(e, tied) for e in tied}
     fastest = {}
     for e in tied:
-        c = _complexity(e)
-        fastest[c] = min(fastest.get(c, math.inf), e["fit_seconds"])
+        fastest[rank[id(e)]] = min(fastest.get(rank[id(e)], math.inf), e["fit_seconds"])
 
     def order(e):
-        c = _complexity(e)
-        quick = e["fit_seconds"] <= fastest[c] * (1 + TIME_TIE)
-        return (c, not quick, -e["psis"]["delta"], e["fit_seconds"])
+        quick = e["fit_seconds"] <= fastest[rank[id(e)]] * (1 + TIME_TIE)
+        return (rank[id(e)], not quick, -e["psis"]["delta"], e["fit_seconds"])
 
     tied.sort(key=order)
     rest.sort(key=lambda e: -e["psis"]["delta"])
@@ -202,6 +221,10 @@ def decide(
             for e in order
         ],
         "checked": [],
+        # Tied pairs no judge agent has judged yet (rentfrontier.simplicity).
+        "pending_judgements": sorted(
+            p for p in tie_pairs(candidates, paired) if simplicity.compare(*p) is None
+        ),
     }
     for e in order:
         if e is incumbent:
@@ -211,6 +234,7 @@ def decide(
             continue
         check = {"run": _run(e)}
         out["checked"].append(check)
+        won = "it clearly beats the incumbent"
         if comparable:
             d, se, mc = paired(e["psis"]["_dir"], incumbent["psis"]["_dir"])
             tol = leaderboard.tie_tolerance(se, mc)
@@ -223,22 +247,39 @@ def decide(
                 check["refused"] = "held-out worse than the incumbent by more than 2 SE"
                 continue
             tied = abs(d) <= tol
-            c, c_inc = _complexity(e), _complexity(incumbent)
-            # An ineligible incumbent may be unrated; then nothing is simpler.
-            simpler = tied and c_inc is not None and c < c_inc
+            judged = simplicity.compare(
+                simplicity.design_id(e), simplicity.design_id(incumbent)
+            )
+            check["simplicity"] = judged
+            simpler = tied and judged == 1
             faster = (
                 tied
-                and c == c_inc
+                and judged == 0
                 and e["fit_seconds"] < incumbent["fit_seconds"] * (1 - TIME_TIE)
             )
+            if inc_ok and tied and judged is None:
+                check["refused"] = (
+                    "tied with the incumbent, and the pair has no simplicity "
+                    "judgement yet (rentfrontier.simplicity pending)"
+                )
+                pair = tuple(
+                    sorted((simplicity.design_id(e), simplicity.design_id(incumbent)))
+                )
+                if pair not in out["pending_judgements"]:
+                    out["pending_judgements"].append(pair)
+                continue
             if inc_ok and not (d > tol or simpler or faster):
                 check["refused"] = "does not clearly beat the eligible incumbent"
                 continue
-        why = (
-            "it clearly beats the incumbent"
-            if inc_ok
-            else f"the incumbent cannot be served: {inc_why}"
-        )
+            won = (
+                "its PSIS-LOO is clearly better than the incumbent's"
+                if d > tol
+                else "it ties the incumbent on PSIS-LOO and is judged simpler"
+                if simpler
+                else "it ties the incumbent on PSIS-LOO, is judged as simple, and is "
+                f"more than {TIME_TIE:.0%} faster"
+            )
+        why = won if inc_ok else f"the incumbent cannot be served: {inc_why}"
         out.update(action="switch", run=_run(e), reason=why)
         return out
     if inc_ok:

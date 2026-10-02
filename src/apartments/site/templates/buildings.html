@@ -7,6 +7,15 @@
     <label for="b-q">Name or address</label>
     <input id="b-q" name="q" type="search" value="{{ q }}" autocomplete="off">
   </div>
+  {% if neighbourhoods | length > 1 %}
+  <div class="field">
+    <label for="b-nb">Neighbourhood</label>
+    <select id="b-nb" name="nb">
+      <option value=""{% if not nb %} selected{% endif %}>All</option>
+    {% for name in neighbourhoods %}<option value="{{ name }}"{% if nb == name %} selected{% endif %}>{{ name }}</option>{% endfor %}
+    </select>
+  </div>
+  {% endif %}
   <div class="field">
     <label for="b-sort">Sort</label>
     <select id="b-sort" name="sort">
@@ -20,7 +29,7 @@
       <option value="desc"{% if order == "desc" %} selected{% endif %}>Descending</option>
     </select>
   </div>
-  <div class="field actions"><button type="submit">Apply</button>{% if q %}<a href="{{ url_for('buildings') }}">Reset</a>{% endif %}</div>
+  <div class="field actions"><button type="submit">Apply</button>{% if q or nb %}<a href="{{ url_for('buildings') }}">Reset</a>{% endif %}</div>
 </form>
 <div class="results-head"><p><strong>{{ "{:,}".format(total) }}</strong> building{{ "" if total == 1 else "s" }}</p></div>
 <div class="table-wrap">
@@ -37,7 +46,7 @@
   <tbody>
   {% for b in rows %}
     <tr>
-      <td><a href="{{ url_for('building', building_id=b.id) }}">{{ b.name or b.address }}</a>{% if b.name %}<br><span class="muted">{{ b.address }}</span>{% endif %}</td>
+      <td><a href="{{ url_for('building', building_id=b.id) }}">{{ b.name or b.address }}</a>{% if b.name %}<br><span class="muted">{{ b.address }}</span>{% endif %}{% if neighbourhoods | length > 1 and b.neighbourhood %}<br><span class="muted">{{ b.neighbourhood }}</span>{% endif %}</td>
       <td class="num">{{ "{:,}".format(b.listings) }}</td>
       <td class="num">{{ "{:,}".format(b.units) }}</td>
       <td class="num">{{ b.current_listings or "" }}</td>
