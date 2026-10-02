@@ -1,0 +1,56 @@
+{% extends "base.html" %}
+{% block title %}Simplicity{% endblock %}
+{% macro design(d) -%}
+{% if d.fits %}<a href="{{ url_for('research_fit', key=d.fits[0]) }}"><code>{{ d.id }}</code></a>{% else %}<code>{{ d.id }}</code>{% endif %}
+{%- endmacro %}
+{% macro verdict(v, ids) -%}
+{% if v == "equal" %}about equally simple{% elif v in ids %}<code>{{ v }}</code> is simpler{% else %}{{ v }}{% endif %}
+{%- endmacro %}
+{% block content %}
+<h1>Simplicity</h1>
+<p class="lede">Whether a model is easy for a renter to understand as a whole. For pairs of models that matter (tied on accuracy, or
+where one beats the other on accuracy and speed), two independent AI judges read both model definitions without seeing any scores.
+Each says which one a renter would find simpler, or that they are about equal, and why. If they disagree, the pair counts as
+equal.</p>
+<p class="note">A design is a model with its features; the data rules and the sampler do not change it. When two fits predict
+equally well, the simpler design is served, and a fit judged simpler than one that beats it on accuracy and fit time stays on
+<a href="{{ url_for('research_frontier') }}">the frontier</a>. Two designs no judge has compared count as equally simple.</p>
+
+{% if pending %}
+<section class="card">
+  <h2>Waiting for a judgement</h2>
+  <p class="note">The automatic selection cannot decide between these tied designs until the judges compare them.</p>
+  <ul>{% for a, b in pending %}<li><code>{{ a }}</code> against <code>{{ b }}</code></li>{% endfor %}</ul>
+</section>
+{% endif %}
+
+<section class="card">
+  <h2>Every judgement</h2>
+  {% if pairs %}
+  <p class="note">{{ pairs | length }} pair{{ "" if pairs | length == 1 else "s" }} of designs, newest first. Each design links to its
+  fit on the board.</p>
+  {% for p in pairs %}
+  {% set ids = p.designs | map(attribute="id") | list %}
+  <article class="judgement">
+    <h3>{{ design(p.designs[0]) }} against {{ design(p.designs[1]) }}</h3>
+    <p><strong>{{ verdict(p.verdict, ids) }}</strong>{% if p.date %} <span class="muted">· {{ p.date }}</span>{% endif %}
+      <span class="muted">· {% if p.agreed %}both judges agreed{% else %}the judges disagreed, so the pair counts as equal{% endif %}</span></p>
+    {% if p.reason %}<p>{{ p.reason }}</p>{% endif %}
+    {% if p.judges %}
+    <details>
+      <summary>Each judge's answer</summary>
+      <dl class="facts wide">
+      {% for j in p.judges %}
+        <dt>Judge {{ loop.index }}{% if j.shown %} <span class="muted">(shown {{ j.shown | join(" first, then ") }})</span>{% endif %}</dt>
+        <dd><strong>{{ verdict(j.verdict, ids) }}</strong>{% if j.reason %}: {{ j.reason }}{% endif %}</dd>
+      {% endfor %}
+      </dl>
+    </details>
+    {% endif %}
+  </article>
+  {% endfor %}
+  {% else %}
+  <p class="empty-note">No pair of designs has been judged yet.</p>
+  {% endif %}
+</section>
+{% endblock %}

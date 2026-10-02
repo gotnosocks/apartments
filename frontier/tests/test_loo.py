@@ -157,3 +157,11 @@ def test_psis_blocks_match_one_block():
     for a, b in zip(one, many):
         np.testing.assert_allclose(a, b)
     assert loo.chunk_rows(320) == loo.CHUNK and loo.chunk_rows(2000) == 3000
+
+
+def test_lppd_and_p_loo_on_a_known_case():
+    import numpy as np
+
+    ll = np.log(np.array([[0.2, 0.5], [0.4, 0.5]]))  # 2 draws, 2 rows
+    np.testing.assert_allclose(loo.lppd(ll), np.log([0.3, 0.5]))
+    np.testing.assert_allclose(loo.lppd(ll, block=1), np.log([0.3, 0.5]))

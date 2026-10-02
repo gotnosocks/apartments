@@ -1,11 +1,11 @@
 {
   "version": "main-analysis-selection-v2",
   "model_family": "frontier_summary",
-  "summary": "/data1/apartments/frontier/summaries/m7-nocurves-floorslope-unitfacing-v5-rows-a8ef50d-gibbs-2060-3000solo2-ul1q2-18b650b",
-  "summary_manifest_sha256": "935892ab3a53756a39aec5d4b33e6f3d258af548a0c5956b65ac8edae942867a",
-  "summary_commit": "18b650b9ba926e48a15f2e9c68aa1cc7a3205ea7",
-  "run": "m7-nocurves-floorslope-unitfacing-v5-rows-a8ef50d-gibbs-2060-3000solo2-ul1q2",
-  "run_commit": "a8ef50daec3d365d1c4649219e49431fd12bf040",
+  "summary": "/data1/apartments/frontier/summaries/m7-nocurves-floorslope-unitfacing-v5-rows-bbf7530-gibbs-2060-3000solo2c-ul1q2-996e3bc",
+  "summary_manifest_sha256": "f1138161214db97d2184665e8ab133da8dc7521be7f88705ca0cd3fe725dce1b",
+  "summary_commit": "996e3bcb1326260a8e667ed0d461fc7c6928715e",
+  "run": "m7-nocurves-floorslope-unitfacing-v5-rows-bbf7530-gibbs-2060-3000solo2c-ul1q2",
+  "run_commit": "bbf7530731c6c89674f87b9066986d13e8bac13f",
   "model": "m7-nocurves-floorslope",
   "feature_set": "unitfacing-v5",
   "data_rules": [
@@ -16,17 +16,17 @@
   "source_observations_sha256": "8e29179bac059bf04b86c7b57acc65324e80fc209fb14793fbb1b9be47b2816f",
   "gate": {
     "passes": true,
-    "max_rhat": 1.0066245103311098,
-    "min_ess": 486.73904554607475,
+    "max_rhat": 1.0075176340870127,
+    "min_ess": 451.87920966077655,
     "divergences": null,
-    "group_rhat_max": 1.0102211535624552
+    "group_rhat_max": 1.0348178099013599
   },
   "psis_loo": {
-    "elpd_loo": 54570.8042219645,
-    "elpd_loo_se": 234.70951654459657,
-    "loo_commit": "a8ef50daec3d365d1c4649219e49431fd12bf040"
+    "elpd_loo": 54564.67964124384,
+    "elpd_loo_se": 234.75100712363755,
+    "loo_commit": "bbf7530731c6c89674f87b9066986d13e8bac13f"
   },
-  "selected_by": "rentfrontier.autoselect, 2026-10-01 (Ben, 2026-09-30: switch automatically by the agreed metrics)",
-  "selection_reason": "Chosen by the automatic rule because it clearly beats the incumbent. Gibbs m7-nocurves-floorslope + unitfacing-v5 with unit-labels-v1 + quarantine-v2, 1,765 s on thelio RTX 2060 SUPER. Against the previous selection on the rows both keep: PSIS-LOO +191.9 \u00b1 24.9, held-out +4.6 \u00b1 5.5.",
+  "selected_by": "rentfrontier.autoselect, 2026-10-02 (Ben, 2026-09-30: switch automatically by the agreed metrics)",
+  "selection_reason": "Chosen by the automatic rule because it ties the incumbent on PSIS-LOO, is judged as simple, and is more than 10% faster. Gibbs m7-nocurves-floorslope + unitfacing-v5 with unit-labels-v1 + quarantine-v2, 1,168 s on thelio RTX 2060 SUPER. Against the previous selection on the rows both keep: PSIS-LOO -6.1 \u00b1 9.4, held-out +2.0 \u00b1 0.9.",
   "uncertainty": "Conditional posterior uncertainty; source errors, omitted features and incomplete market coverage remain separate. Estimates for a unit's only listing are under-covered (93.0% in the 95% predictive range)."
 }
