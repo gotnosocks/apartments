@@ -372,3 +372,20 @@ def test_the_baseline_is_found_by_run_name_or_entry_id(monkeypatch):
     assert leaderboard.is_baseline(
         {"id": "m0-base/base-v1/gibbs@5cc0809", "splits": {}}
     )
+
+
+def test_a_short_fit_does_not_dominate_a_longer_fit_of_its_design():
+    full = _board_entry("full", 10.0, 2800) | {
+        "tier": {"name": "full", "draws": 4500},
+        "data_rules": ["unit-labels-v1"],
+    }
+    short = _board_entry("full", 10.4, 360) | {
+        "id": "short",
+        "passes_checks": False,
+        "tier": {"name": "exploration", "draws": 300},
+        "data_rules": ["unit-labels-v1"],
+    }
+    # Same design ("full/f") and rules: both stay on the frontier.
+    assert leaderboard.on_frontier([full, short]) == [True, True]
+    other = short | {"model": {"name": "other"}}
+    assert leaderboard.on_frontier([full, other]) == [False, True]
