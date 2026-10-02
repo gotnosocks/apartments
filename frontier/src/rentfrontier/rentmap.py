@@ -436,8 +436,6 @@ def compute(name: str) -> dict:
         },
         "rent": out_rent,
         "median": median_rent,
-        # The same as `median`, under its old name, until the site reads `median`.
-        "chelsea_median": median_rent,
         "area": area,
     }
 
