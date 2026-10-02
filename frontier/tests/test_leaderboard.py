@@ -280,10 +280,10 @@ def _judged(monkeypatch, verdicts):
             "verdict": "equal" if v == "equal" else f"{v}/f",
             "reason": "test",
         }
-    monkeypatch.setattr(leaderboard.simplicity, "judgements", lambda *a: table)
+    monkeypatch.setattr(leaderboard.elegance, "judgements", lambda *a: table)
 
 
-def test_the_best_is_the_simplest_tie_then_the_fastest(monkeypatch):
+def test_the_best_is_the_most_elegant_tie_then_the_fastest(monkeypatch):
     _judged(
         monkeypatch,
         {
@@ -306,7 +306,7 @@ def test_the_best_is_the_simplest_tie_then_the_fastest(monkeypatch):
     assert leaderboard.choose_best(es, paired=paired)["id"] == "simple-fast"
 
 
-def test_the_frontier_keeps_a_beaten_fit_only_if_judged_simpler(monkeypatch):
+def test_the_frontier_keeps_a_beaten_fit_only_if_judged_more_elegant(monkeypatch):
     _judged(
         monkeypatch,
         {("best", "simple"): "simple", ("best", "dominated"): "best"},

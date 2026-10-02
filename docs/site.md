@@ -152,8 +152,9 @@ listings fall in each band, as calibration predicts.
 4. **Research data.** `rentfrontier.dashboard` (frontier environment, run from
    `/data1/apartments/serve/master` by `ops/research-data-build.sh`) writes the board's
    `data.json`: entries, as-of snapshots, milestones and the data-quality card. Each entry carries
-   the judge agents' pairwise `simplicity` judgements of its design (`rentfrontier.simplicity`: a
-   list of `{vs, verdict, reason}`, empty when none) and `why_not_served`, autoselect's plain reason
+   the judge agents' pairwise `elegance` judgements of its design (`rentfrontier.elegance`: a list
+   of `{vs, verdict, reason}`, verdict "more elegant", "equal" or "less elegant"; empty when none),
+   its `tier`, `psis.p_loo`, and `why_not_served`, autoselect's plain reason
    the fit cannot be served (null when it can). The top-level `autoselect` is autoselect's decision
    on the current board against the served run: keep or switch, the reason, the eligible fits and
    every fit checked; an error note replaces it if a pairing fails. The site reads `/data1/apartments/dashboard/site/data.json` (`RESEARCH_DATA`

@@ -21,14 +21,13 @@ card follow it.
 - It was fit on the current dataset (`data.DATASET`).
 
 **The choice.** It follows the board's `choose_best` on the eligible fits
-(Ben, 2026-10-01: "serve the best fit and break ties with which model is
-simpler"):
+(Ben, 2026-10-01: ties go to the more elegant model):
 1. Take the top paired PSIS-LOO, and the fits tied with it within two combined
    SE.
-2. Among those, take the simplest, by the judge agents' recorded pairwise
-   judgements (`simplicity`): fits are ordered by how many other tied fits
-   are judged simpler than them, fewest first (a fit no tied fit is judged
-   simpler than comes first; a cycle of judgements leaves its fits level).
+2. Among those, take the most elegant, by the judge agents' recorded pairwise
+   judgements (`elegance`): fits are ordered by how many other tied fits are
+   judged more elegant than them, fewest first (a cycle of judgements leaves
+   its fits level).
 3. Then take the fastest. Fit times within `TIME_TIE` of
    the fastest count as equal, and among them the higher PSIS-LOO wins, so
    run-to-run timing noise cannot decide.
@@ -36,10 +35,10 @@ simpler"):
 **Against the incumbent,** the currently selected run:
 - Fits ranked below an eligible incumbent are not tried.
 - An eligible incumbent is kept unless the choice beats it clearly: better
-  PSIS-LOO beyond the tie tolerance, or tied and judged simpler, or tied,
-  judged equally simple and faster by more than `TIME_TIE`. A tied challenger
+  PSIS-LOO beyond the tie tolerance, or tied and judged more elegant, or tied,
+  judged equally elegant and faster by more than `TIME_TIE`. A tied challenger
   whose pair with the incumbent has not been judged is refused until it is
-  (`simplicity.pending` lists such pairs).
+  (`elegance.pending` lists such pairs).
 - A challenger is refused if its paired held-out score is below the
   incumbent's by more than two SE (the board's independent check), and the
   next eligible fit is tried.
@@ -60,7 +59,7 @@ import math
 import re
 from pathlib import Path
 
-from rentfrontier import data, leaderboard, simplicity
+from rentfrontier import data, elegance, leaderboard
 
 TARGET_HARDWARE = "thelio RTX 2060 SUPER"
 WINDOW_SECONDS = (
@@ -150,14 +149,14 @@ def tie_pairs(candidates, paired=leaderboard.paired_loo) -> set:
     """Pairs of designs among the fits tied with the top: the judgements the
     choice can need."""
     tied, _ = _split_tied(candidates, paired)
-    ids = sorted({simplicity.design_id(e) for e in tied})
+    ids = sorted({elegance.design_id(e) for e in tied})
     return {(a, b) for i, a in enumerate(ids) for b in ids[i + 1 :]}
 
 
 def beaten(e, others) -> int:
-    """How many of `others` are judged simpler than e."""
-    me = simplicity.design_id(e)
-    return sum(simplicity.compare(simplicity.design_id(o), me) == 1 for o in others)
+    """How many of `others` are judged more elegant than e."""
+    me = elegance.design_id(e)
+    return sum(elegance.compare(elegance.design_id(o), me) == 1 for o in others)
 
 
 def ranked(candidates, paired=leaderboard.paired_loo) -> list:
@@ -223,9 +222,9 @@ def decide(
             for e in order
         ],
         "checked": [],
-        # Tied pairs no judge agent has judged yet (rentfrontier.simplicity).
+        # Tied pairs no judge agent has judged yet (rentfrontier.elegance).
         "pending_judgements": sorted(
-            p for p in tie_pairs(candidates, paired) if simplicity.compare(*p) is None
+            p for p in tie_pairs(candidates, paired) if elegance.compare(*p) is None
         ),
     }
     for e in order:
@@ -249,11 +248,11 @@ def decide(
                 check["refused"] = "held-out worse than the incumbent by more than 2 SE"
                 continue
             tied = abs(d) <= tol
-            judged = simplicity.compare(
-                simplicity.design_id(e), simplicity.design_id(incumbent)
+            judged = elegance.compare(
+                elegance.design_id(e), elegance.design_id(incumbent)
             )
-            check["simplicity"] = judged
-            simpler = tied and judged == 1
+            check["elegance"] = judged
+            more_elegant = tied and judged == 1
             faster = (
                 tied
                 and judged == 0
@@ -261,24 +260,24 @@ def decide(
             )
             if inc_ok and tied and judged is None:
                 check["refused"] = (
-                    "tied with the incumbent, and the pair has no simplicity "
-                    "judgement yet (rentfrontier.simplicity pending)"
+                    "tied with the incumbent, and the pair has no elegance "
+                    "judgement yet (rentfrontier.elegance pending)"
                 )
                 pair = tuple(
-                    sorted((simplicity.design_id(e), simplicity.design_id(incumbent)))
+                    sorted((elegance.design_id(e), elegance.design_id(incumbent)))
                 )
                 if pair not in out["pending_judgements"]:
                     out["pending_judgements"].append(pair)
                 continue
-            if inc_ok and not (d > tol or simpler or faster):
+            if inc_ok and not (d > tol or more_elegant or faster):
                 check["refused"] = "does not clearly beat the eligible incumbent"
                 continue
             won = (
                 "its PSIS-LOO is clearly better than the incumbent's"
                 if d > tol
-                else "it ties the incumbent on PSIS-LOO and is judged simpler"
-                if simpler
-                else "it ties the incumbent on PSIS-LOO, is judged as simple, and is "
+                else "it ties the incumbent on PSIS-LOO and is judged more elegant"
+                if more_elegant
+                else "it ties the incumbent on PSIS-LOO, is judged as elegant, and is "
                 f"more than {TIME_TIE:.0%} faster"
             )
         why = won if inc_ok else f"the incumbent cannot be served: {inc_why}"
