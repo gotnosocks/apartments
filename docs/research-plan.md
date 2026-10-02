@@ -165,7 +165,9 @@ set. Data rules, samplers and settings are not part of it.
   (Ben, 2026-09-24).
 - **One timed job at a time** (Ben, 2026-09-24: "I'm okay with waiting longer to do these things
   serially in favor of getting good data"). Every heavy job on thelio holds
-  `/data1/apartments/tmp/heavy.lock`: fits, LOO and variance scoring, and reviewers' tests. The
+  `/data1/apartments/tmp/heavy.lock`: fits, LOO and variance scoring, and reviewers' tests. Light
+  read-only jobs run without it at idle priority instead, such as the site's research-data build
+  (Ben, 2026-10-01: live updates, never blocked by the lock). The
   fit queue runs from a fixed-commit worktree. From commit 3c26c4a, each run record carries a
   `contention` block: the mean number of cores other processes kept busy during the fit, and any
   other GPU compute processes. A timing is clean below 0.5 other cores, and the dashboard's Timing

@@ -155,14 +155,15 @@ both the `/data1` mount and the cutover marker. It binds to loopback and the exp
 a 2 GiB memory limit.
 
 ```sh
-systemctl --user status apartments-archive apartments-site apartments-dashboard-build.timer
+systemctl --user status apartments-archive apartments-site apartments-dashboard-build.path apartments-dashboard-build.timer
 journalctl --user -u apartments-dashboard-build -n 30 --no-pager
 ```
 
 The rents site is served on port 8600 (tailnet and loopback) and on port 8500 (tailnet, the old
 research dashboard's address) by `ops/systemd/apartments-site.service`, deployed with
-`ops/site-deploy.sh`. `apartments-dashboard-build.timer` rebuilds its research data every 10
-minutes; see [the site doc](../site.md).
+`ops/site-deploy.sh`. Its research data is rebuilt when a fit's results land
+(`apartments-dashboard-build.path`) and every 10 minutes as a fallback (the timer), without the
+heavy-job lock; see [the site doc](../site.md).
 
 The installed Mac LaunchAgent `com.ben.apartments-tunnel` forwards port 8765
 and reconnects when the network returns. Its definition is in

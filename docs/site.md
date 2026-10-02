@@ -144,8 +144,7 @@ listings fall in each band, as calibration predicts.
 3. **Serve.** The app opens `current/site.sqlite` read-only (immutable) on each request, so a publish
    needs no restart.
 4. **Research data.** `rentfrontier.dashboard` (frontier environment, run from
-   `/data1/apartments/serve/master` every 10 minutes under the heavy-job lock by
-   `ops/systemd/apartments-dashboard-build.timer`; about 3 minutes and 600 MB) writes the board's
+   `/data1/apartments/serve/master` by `ops/research-data-build.sh`) writes the board's
    `data.json`: entries, as-of snapshots, milestones and the data-quality card. Each entry carries
    the judge agents' pairwise `simplicity` judgements of its design (`rentfrontier.simplicity`: a
    list of `{vs, verdict, reason}`, empty when none) and `why_not_served`, autoselect's plain reason
@@ -155,6 +154,16 @@ listings fall in each band, as calibration predicts.
    overrides it) and keeps the parsed copy until the file behind the symlink changes. Without it,
    the research parts of a page are left out. When the publish comes from the repository's
    selection, the build also stores the selection's reason (`selected_by`, `selection_reason`).
+
+The research data is live: new fits appear without a deploy (Ben, 2026-10-01).
+`apartments-dashboard-build.path` starts the build when a fit's run record, LOO score or variance
+shares land (a new directory in `/data1/apartments/frontier/runs`, `loo` or `variance`), and
+`apartments-dashboard-build.timer` every 10 minutes as a fallback. The script waits a minute for a
+burst of files to settle, then builds only if a finished record or master changed since the last
+build (a fingerprint in `/data1/apartments/dashboard/.last-build`), and builds again if more landed
+meanwhile. The build only reads small records, so it runs without the heavy-job lock, at idle CPU
+and I/O priority (about 3 minutes of one core and 600 MB; a skip takes a second). Each build is a
+new directory with the `site` symlink swapped atomically, so a page never reads a half-written file.
 
 Publishing on thelio takes the shared heavy-job lock like other heavy jobs:
 
