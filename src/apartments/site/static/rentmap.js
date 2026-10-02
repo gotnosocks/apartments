@@ -8,7 +8,7 @@
 const SVGNS = 'http://www.w3.org/2000/svg';
 const $ = (id) => document.getElementById(id);
 const HIT = 24; // minimum hover target, px
-// Diverging classes of a building's premium over Chelsea's median building that
+// Diverging classes of a building's premium over the area's median building that
 // year (blue cheaper, red dearer, gray within 5%). Each arm is a validated
 // ordinal ramp: on light, darker away from the middle; on dark, lighter.
 const BREAKS = [-0.30, -0.15, -0.05, 0.05, 0.15, 0.30];
@@ -79,7 +79,7 @@ function pointerPos(root, evt) {
 const yearIndex = () => state.year;
 const yearOf = (i) => state.data.years[i];
 function rentOf(b, bedKey, yi) { return state.data.rent[bedKey][b][yi]; } // [p05, median, p95]
-const median = (bedKey, yi) => state.data.chelsea_median[bedKey][yi]; // [p05, median, p95]
+const median = (bedKey, yi) => state.data.median[bedKey][yi]; // [p05, median, p95]
 const premium = (i, bedKey, yi) => rentOf(i, bedKey, yi)[1] / median(bedKey, yi)[1] - 1;
 const classOf = (p) => BREAKS.filter((b) => p >= b).length;
 // Years outside a building's listings in the fit are the model's extrapolation.
@@ -146,7 +146,7 @@ function renderKpis() {
     if (sub) html('div', { class: 'sub' }, t, sub);
   };
   const partial = d.year_months[yi] < 12 ? ` (${d.year_months[yi]} months)` : '';
-  tile(`Chelsea's median building, ${bedLabel.toLowerCase()}, ${yearOf(yi)}${partial}`, usd(mid), `90% interval ${range(lo, hi)} a month`, true);
+  tile(`Median building across ${d.area}, ${bedLabel.toLowerCase()}, ${yearOf(yi)}${partial}`, usd(mid), `90% interval ${range(lo, hi)} a month`, true);
   const ch = mid / first - 1;
   tile(`Since ${d.years[0]}`, `${ch >= 0 ? '+' : '−'}${Math.abs(100 * ch).toFixed(0)}%`, `from ${usd(first)} a month`);
   tile('Buildings on the map', shown.toLocaleString('en-US'), `of ${d.buildings.length.toLocaleString('en-US')} with listings in the fit${state.showBefore ? '' : `; shown where their listings span ${yearOf(yi)}`}`);
@@ -335,15 +335,15 @@ function renderMapTable(order, yi) {
   }
 }
 
-// ---------- Chelsea average over time ----------
+// ---------- The area's median building over time ----------
 function renderTrend() {
   const d = state.data, yi = yearIndex();
   const container = $('chart-trend');
   container.replaceChildren();
   const width = Math.max(320, container.clientWidth), height = 300;
   const m = { left: 64, right: 110, top: 16, bottom: 34 };
-  const root = svg('svg', { viewBox: `0 0 ${width} ${height}`, width, height, role: 'img', 'aria-label': "Chelsea's median building's typical rent by bedrooms over time" }, container);
-  const all = d.bedrooms.flatMap((b) => d.chelsea_median[b.key].flat());
+  const root = svg('svg', { viewBox: `0 0 ${width} ${height}`, width, height, role: 'img', 'aria-label': `Typical rent of the median building across ${d.area}, by bedrooms over time` }, container);
+  const all = d.bedrooms.flatMap((b) => d.median[b.key].flat());
   const lo = 0, hi = Math.max(...all) * 1.05;
   const X = (i) => m.left + (i / (d.years.length - 1)) * (width - m.left - m.right);
   const Y = (v) => height - m.bottom - ((v - lo) / (hi - lo)) * (height - m.top - m.bottom);
@@ -356,14 +356,14 @@ function renderTrend() {
   svg('line', { class: 'baseline', x1: m.left, x2: width - m.right, y1: Y(0), y2: Y(0) }, root);
   d.years.forEach((y, i) => { if (i % 2 === 0 || i === d.years.length - 1) svg('text', { x: X(i), y: height - m.bottom + 17, 'text-anchor': 'middle', text: String(y) }, root); });
   // The chosen bedroom count's 90% band, under the lines.
-  const sel = d.chelsea_median[state.bed];
+  const sel = d.median[state.bed];
   const band = sel.map((v, i) => `${X(i)},${Y(v[2])}`).concat(sel.slice().reverse().map((v, j) => `${X(sel.length - 1 - j)},${Y(v[0])}`));
   svg('polygon', { class: 'frontier-wash', points: band.join(' ') }, root);
   svg('line', { class: 'cursor', x1: X(yi), x2: X(yi), y1: m.top, y2: height - m.bottom }, root);
   const lg = $('legend-trend');
   lg.replaceChildren();
   d.bedrooms.forEach((b, k) => {
-    const series = d.chelsea_median[b.key];
+    const series = d.median[b.key];
     const chosen = b.key === state.bed;
     svg('polyline', { class: 'series-line', points: series.map((v, i) => `${X(i)},${Y(v[1])}`).join(' '),
       style: `stroke:${BED_COLORS[k]};stroke-width:${chosen ? 2.5 : 2}` }, root);
@@ -380,7 +380,7 @@ function renderTrend() {
     hl.setAttribute('x1', X(i)); hl.setAttribute('x2', X(i)); hl.setAttribute('visibility', 'visible');
     showTip(evt, (t) => {
       html('div', { class: 't-value' }, t, String(d.years[i]) + (d.year_months[i] < 12 ? ` (${d.year_months[i]} months)` : ''));
-      d.bedrooms.forEach((b) => { const v = d.chelsea_median[b.key][i]; tipRow(t, b.label, `${usd(v[1])} (${range(v[0], v[2])})`); });
+      d.bedrooms.forEach((b) => { const v = d.median[b.key][i]; tipRow(t, b.label, `${usd(v[1])} (${range(v[0], v[2])})`); });
     });
   });
   root.addEventListener('pointerleave', () => { hideTip(); hl.setAttribute('visibility', 'hidden'); });
@@ -401,7 +401,7 @@ function renderTrend() {
   d.years.forEach((y, i) => {
     const tr = html('tr', {}, body);
     html('td', {}, tr, String(y) + (d.year_months[i] < 12 ? ` (${d.year_months[i]} months)` : ''));
-    for (const b of d.bedrooms) { const v = d.chelsea_median[b.key][i]; html('td', { class: 'num' }, tr, `${usd(v[1])} (${range(v[0], v[2])})`); }
+    for (const b of d.bedrooms) { const v = d.median[b.key][i]; html('td', { class: 'num' }, tr, `${usd(v[1])} (${range(v[0], v[2])})`); }
   });
 }
 
@@ -425,12 +425,16 @@ async function main() {
     $('map-kpis').textContent = 'No rent map for the served model yet.';
     return;
   }
+  // Maps from before rentfrontier named the area carry chelsea_median and no
+  // area: the site's own name for its area stands in.
+  d.median = d.median || d.chelsea_median;
+  d.area = d.area || $('rent-map').dataset.area || 'Chelsea';
   state.data = d;
   $('map-definition').textContent = d.definition;
   $('map-meta').textContent = `${d.model} · ${d.feature_set} · ${d.draws.toLocaleString('en-US')} draws · made ${d.created_at.slice(0, 10)}`;
   const foot = $('map-foot');
   html('p', {}, foot, `Run ${d.run} (commit ${d.run_commit.slice(0, 7)}); map at commit ${d.commit.slice(0, 7)}.`);
-  html('p', {}, foot, 'Typical rents are the model\'s, not listings\' asks: a building with few listings leans on Chelsea and on buildings like it. '
+  html('p', {}, foot, `Typical rents are the model's, not listings' asks: a building with few listings leans on the whole area (${d.area}) and on buildings like it. `
     + 'Intervals are the model\'s uncertainty about the typical ask, not the spread of individual asks.');
   buildControls();
   render();

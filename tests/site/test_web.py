@@ -924,6 +924,8 @@ def test_contents_titles_drop_markdown_and_images_resolve():
 def test_rent_map_page_and_data(client, site_root):
     page = client.get("/estimates/map").get_data(as_text=True)
     assert "no rent map for the served model yet" in page
+    # the map script names the area from the build when the map does not
+    assert 'data-area="Chelsea"' in page
     assert client.get("/estimates/map.json").status_code == 404
     current = (site_root / "current").resolve()
     (current / "map.json").write_text(
