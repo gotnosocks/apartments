@@ -573,6 +573,195 @@ def transit_v2(
     )
 
 
+# Open space near a building (`open_space_v1`), from the basemap the build
+# reads: NYC Parks properties and Manhattan's shoreline (the waterfront, which
+# Hudson River Park follows on the West Side). The High Line opened in three
+# sections (NYC Parks): Gansevoort to West 20th on 2009-06-09, to West 30th on
+# 2011-06-08 and to West 34th on 2014-09-21. A section counts for listings in
+# months that begin after it opened.
+HIGH_LINE = "The High Line"
+HIGH_LINE_SECTIONS = (
+    (None, "W  20 ST", "2009-06-09"),
+    ("W  20 ST", "W  30 ST", "2011-06-08"),
+    ("W  30 ST", None, "2014-09-21"),
+)
+LARGE_PARK_M2 = 10_000.0  # a hectare: Washington Square, Union Square, Chelsea Park
+OPEN_SPACE_STEP_M = 5.0  # outlines are sampled this densely
+
+
+def high_line_open(month) -> tuple:
+    """Which High Line sections (indices into HIGH_LINE_SECTIONS) had opened
+    when `month` began."""
+    start = pd.Timestamp(month).replace(day=1)
+    return tuple(
+        i
+        for i, (_, _, day) in enumerate(HIGH_LINE_SECTIONS)
+        if pd.Timestamp(day) < start
+    )
+
+
+@functools.lru_cache(maxsize=2)
+def _open_space_points(basemap_file: str) -> dict:
+    """Outline points (east and north metres from the first registry's mean)
+    of the waterfront, every park, the large parks, and each High Line
+    section."""
+    lat0, lon0 = _grid_origin()
+    metres = 111_320.0
+    cos0 = math.cos(math.radians(lat0))
+
+    def xy(points):
+        p = np.asarray(points, float)
+        return np.column_stack(
+            [(p[:, 0] - lon0) * metres * cos0, (p[:, 1] - lat0) * metres]
+        )
+
+    def outline(geometry):
+        geometry = json.loads(geometry)
+        polygons = geometry["coordinates"]
+        polygons = polygons if geometry["type"] == "MultiPolygon" else [polygons]
+        rings = [xy(ring) for polygon in polygons for ring in polygon]
+        area = sum(
+            0.5 * abs(np.sum(r[:-1, 0] * r[1:, 1] - r[1:, 0] * r[:-1, 1]))
+            for polygon in polygons
+            for r in [xy(polygon[0])]
+        )
+        pts = []
+        for r in rings:
+            for a, b in itertools.pairwise(r):
+                n = max(2, int(np.hypot(*(b - a)) / OPEN_SPACE_STEP_M) + 1)
+                pts.append(a + np.linspace(0, 1, n)[:, None] * (b - a))
+        return np.concatenate(pts), area
+
+    basemap = pd.read_parquet(basemap_file)
+    parks = [outline(g) for g in basemap[basemap.layer == "park"].geometry]
+    names = basemap[basemap.layer == "park"].name.tolist()
+    out = {
+        "water": outline(basemap[basemap.layer == "land"].geometry.iloc[0])[0],
+        "park": np.concatenate([p for p, _ in parks]),
+        "large_park": np.concatenate(
+            [
+                p
+                for (p, a), n in zip(parks, names)
+                if a >= LARGE_PARK_M2 and n != HIGH_LINE
+            ]
+        ),
+    }
+    # High Line sections, cut where the named cross streets meet it (the
+    # streets' mean position along the line's direction, north-northeast).
+    line = np.concatenate([p for (p, _), n in zip(parks, names) if n == HIGH_LINE])
+    phi = math.radians(FRONTAGE_BEARING_DEG)
+
+    def along(p):
+        return p[:, 0] * math.sin(phi) + p[:, 1] * math.cos(phi)
+
+    streets = basemap[basemap.layer == "street"]
+
+    def cut(name):
+        if name is None:
+            return None
+        pts = []
+        for g in streets[streets.name == name].geometry:
+            g = json.loads(g)
+            lines = (
+                g["coordinates"]
+                if g["type"] == "MultiLineString"
+                else [g["coordinates"]]
+            )
+            pts += [xy(l) for l in lines]
+        pts = np.concatenate(pts)
+        # The street's points within 150 m of the line.
+        d = np.sqrt(((pts[:, None, :] - line[None, ::10]) ** 2).sum(-1)).min(1)
+        return float(along(pts[d < 150]).mean())
+
+    a = along(line)
+    for i, (lo, hi, _) in enumerate(HIGH_LINE_SECTIONS):
+        lo, hi = cut(lo), cut(hi)
+        keep = (a >= (-np.inf if lo is None else lo)) & (
+            a < (np.inf if hi is None else hi)
+        )
+        out[f"high_line_{i}"] = line[keep]
+    return out
+
+
+def building_open_space(buildings, sections=(0, 1, 2)) -> pd.DataFrame:
+    """Per building (the build's registry coordinates): metres to the
+    waterfront, the nearest park, the nearest large park and the nearest open
+    High Line section (`sections`; NaN when none is open)."""
+    registry = pd.read_parquet(lot_registry()).set_index("building")
+    points = _open_space_points(area_snapshot()[0])
+    lat0, lon0 = _grid_origin()
+    cos0 = math.cos(math.radians(lat0))
+    b = np.column_stack(
+        [
+            (registry.longitude.to_numpy() - lon0) * 111_320.0 * cos0,
+            (registry.latitude.to_numpy() - lat0) * 111_320.0,
+        ]
+    )
+
+    def nearest_m(p):
+        if len(p) == 0:
+            return np.full(len(b), np.nan)
+        return np.concatenate(
+            [
+                np.sqrt(((b[i : i + 256, None, :] - p[None]) ** 2).sum(-1)).min(1)
+                for i in range(0, len(b), 256)
+            ]
+        )
+
+    line = [points[f"high_line_{i}"] for i in sections]
+    table = pd.DataFrame(
+        {
+            "water_m": nearest_m(points["water"]),
+            "park_m": nearest_m(points["park"]),
+            "large_park_m": nearest_m(points["large_park"]),
+            "high_line_m": nearest_m(
+                np.concatenate(line) if line else np.empty((0, 2))
+            ),
+        },
+        index=registry.index,
+    )
+    return table.reindex(buildings).reset_index(drop=True)
+
+
+def open_space_v1(
+    frame: pd.DataFrame,
+    train: np.ndarray,
+    id: str = "openspace-v1",
+    base: str = "base-v1",
+) -> Features:
+    """A base set plus open space near the building, as of each listing's
+    month: the walk to the waterfront, to the nearest park, to the nearest
+    large park, and to the nearest High Line section that had opened (every
+    listing month is after the first section's, 2009-06)."""
+    base = FEATURE_SETS[base](frame, train)
+    state = frame.period.map(high_line_open)
+    columns = ["water_m", "park_m", "large_park_m", "high_line_m"]
+    t = pd.DataFrame(index=range(len(frame)), columns=columns, dtype=float)
+    for sections in state.unique():
+        rows = (state == sections).to_numpy()
+        part = building_open_space(frame.building.to_numpy()[rows], sections)
+        t.loc[rows] = part[columns].to_numpy(dtype=float)
+    b = _Builder(frame)
+    for name, col in (
+        ("log_walk_min_to_waterfront", "water_m"),
+        ("log_walk_min_to_park", "park_m"),
+        ("log_walk_min_to_large_park", "large_park_m"),
+        ("log_walk_min_to_high_line", "high_line_m"),
+    ):
+        v = np.log(np.maximum(t[col].to_numpy(dtype=float) / WALK_M_PER_MIN, 1.0))
+        known = np.isfinite(v)
+        centre = float(np.mean(v[train & known]))
+        b.add("open space", name, np.where(known, v - centre, 0.0))
+    extra = b.build(id)
+    return Features(
+        id,
+        base.names + extra.names,
+        base.groups + extra.groups,
+        np.column_stack([base.values, extra.values]),
+        np.concatenate([base.prior_scale, extra.prior_scale]),
+    )
+
+
 # Which way an apartment faces: the building's frontage (the street of its
 # address, and which side of it the building stands on) against the apartment's
 # window exposures, front/rear unit labels and ad text, pooled over the unit's
@@ -1304,6 +1493,7 @@ EXTERNAL = {
     "nb-unitpluto-v1",
     "nb-facing-v1",
     "nb-facing-v2",
+    "nb-openspace-v1",
     "wv-unitpluto-v1",
     "pluto-v1",
     "unitfloor-v2",
@@ -1334,6 +1524,7 @@ BASEMAP = {
     "unitnoise-v1",
     "nb-facing-v1",
     "nb-facing-v2",
+    "nb-openspace-v1",
 }
 # Feature sets that read the building footprints snapshot.
 FOOTPRINTS = {
@@ -1343,6 +1534,7 @@ FOOTPRINTS = {
     "unitnoise-v1",
     "nb-facing-v1",
     "nb-facing-v2",
+    "nb-openspace-v1",
 }
 # Feature sets that read the 311 noise complaints snapshot.
 NOISE = {"unitnoise-v1"}
@@ -1353,6 +1545,7 @@ HPD = {"unitdescplutohpd-v1", "unitdescplutohpd-v2"}
 DESCRIPTIONS = {
     "nb-facing-v1",
     "nb-facing-v2",
+    "nb-openspace-v1",
     "desc-v1",
     "unitdesc-v1",
     "unitdescpluto-v1",
@@ -1396,6 +1589,11 @@ FEATURE_SETS = {
     "nb-facing-v1": partial(neighbourhood_v1, id="nb-facing-v1", base="unitfacing-v4"),
     # nb-facing-v1 with West Village's ads too (`DESCRIPTION_SOURCES`).
     "nb-facing-v2": partial(neighbourhood_v1, id="nb-facing-v2", base="unitfacing-v4"),
+    # nb-facing-v2 plus open space as of the listing's month: the walk to the
+    # waterfront, a park, a large park and the open High Line.
+    "nb-openspace-v1": partial(
+        open_space_v1, id="nb-openspace-v1", base="nb-facing-v2"
+    ),
     # West Village: the app design's building facts (as unitdescpluto-v3) on the
     # unit and floor features (no West Village ads: see nb-facing-v2).
     "wv-unitpluto-v1": partial(
@@ -1488,17 +1686,20 @@ LOT_SNAPSHOTS = {
     "nb-unitpluto-v1": {"registry": NB_REGISTRY_FILE, "pluto": NB_PLUTO_FILE},
     "nb-facing-v1": {"registry": NB_REGISTRY_FILE, "pluto": NB_PLUTO_FILE},
     "nb-facing-v2": {"registry": NB_REGISTRY_FILE, "pluto": NB_PLUTO_FILE},
+    "nb-openspace-v1": {"registry": NB_REGISTRY_FILE, "pluto": NB_PLUTO_FILE},
     "unitnoise-v1": {"registry": REGISTRY_V3_FILE, "pluto": PLUTO_V3_FILE},
 }
 
 
 # Feature sets that read more description evidence than Chelsea's
 # (`descriptions.SOURCE`), by run-record key.
+_NB_DESCRIPTIONS = {
+    "descriptions": str(descriptions_module.SOURCE),
+    "descriptions_wv": str(descriptions_module.WV_SOURCE),
+}
 DESCRIPTION_SOURCES = {
-    "nb-facing-v2": {
-        "descriptions": str(descriptions_module.SOURCE),
-        "descriptions_wv": str(descriptions_module.WV_SOURCE),
-    },
+    "nb-facing-v2": _NB_DESCRIPTIONS,
+    "nb-openspace-v1": _NB_DESCRIPTIONS,
 }
 
 
@@ -1506,6 +1707,7 @@ DESCRIPTION_SOURCES = {
 AREA_SNAPSHOTS = {
     "nb-facing-v1": {"basemap": NB_BASEMAP_FILE, "footprints": NB_FOOTPRINTS_FILE},
     "nb-facing-v2": {"basemap": NB_BASEMAP_FILE, "footprints": NB_FOOTPRINTS_FILE},
+    "nb-openspace-v1": {"basemap": NB_BASEMAP_FILE, "footprints": NB_FOOTPRINTS_FILE},
 }
 
 

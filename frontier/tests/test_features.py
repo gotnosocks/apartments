@@ -691,3 +691,16 @@ def test_nearby_noise_counts_the_year_before_against_chelsea(monkeypatch):
         [np.log2(4) - chelsea, np.log2(2) - chelsea, 0.0, 0.0],
     )
     np.testing.assert_allclose(out["construction"], 0.0)
+
+
+def test_high_line_sections_count_from_the_month_after_they_opened():
+    assert features.high_line_open("2009-06-01") == ()
+    assert features.high_line_open("2009-07-01") == (0,)
+    assert features.high_line_open("2011-06-01") == (0,)
+    assert features.high_line_open("2011-07-01") == (0, 1)
+    assert features.high_line_open("2014-10-01") == (0, 1, 2)
+    fn = features.FEATURE_SETS["nb-openspace-v1"]
+    assert fn.func is features.open_space_v1
+    assert fn.keywords == {"id": "nb-openspace-v1", "base": "nb-facing-v2"}
+    assert features.lot_files("nb-openspace-v1") == features.lot_files("nb-facing-v2")
+    assert features.area_files("nb-openspace-v1") == features.area_files("nb-facing-v2")
