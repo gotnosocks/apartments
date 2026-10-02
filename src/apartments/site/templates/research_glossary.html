@@ -55,6 +55,12 @@
     <dt id="autoselect">Automatic selection</dt>
     <dd>The rule that picks the served model from the servable fits: the most accurate, then among ties the simplest, then the
     fastest. It replaces the served model only when another fit clearly beats it.</dd>
+    <dt id="exploration-fit">Exploration fit</dt>
+    <dd>A short fit, with fewer draws than a full fit, run to see quickly whether a design is worth a full fit. Exploration fits count
+    on the research frontier, so the research can be judged by them, but they are never served: only a full fit's estimates reach
+    the listings, buildings and rent map. On the charts they are diamonds; full fits are circles.</dd>
+    <dt id="full-fit">Full fit</dt>
+    <dd>A fit with enough draws to pass the convergence checks on the full dataset. Only full fits can be served.</dd>
     <dt id="subset">Subset fit</dt>
     <dd>A fit on a part of the data, used to tune settings quickly. Exploration only; never served.</dd>
     <dt id="data-rules">Data rules</dt>

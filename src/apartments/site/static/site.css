@@ -365,3 +365,9 @@ details.table-view summary { cursor: pointer; color: var(--link); font-size: 0.9
 .judgement { border-top: 1px solid var(--border); padding-top: .75rem; margin-top: .75rem; }
 .judgement h3 { margin: 0 0 .25rem; font-size: 1rem; }
 .judgement p { margin: .25rem 0; }
+
+/* Fit tiers: full fits are circles, exploration fits diamonds (shape, not colour alone). */
+.key-shape { display: inline-block; width: 9px; height: 9px; border: 1.5px solid var(--ink); }
+.key-shape.circle { border-radius: 50%; }
+.key-shape.diamond { transform: rotate(45deg) scale(0.85); }
+.tag.exploration { background: var(--neutral-bg); color: var(--ink); }

@@ -40,7 +40,7 @@ every merged change and switch of the served model.</p>
     <div class="table-wrap tall">
     <table class="data">
       <thead><tr><th scope="col">Landed</th><th scope="col">Fit</th><th scope="col" class="num">Fit time</th></tr></thead>
-      <tbody>{% for f in fits %}<tr><td class="nowrap">{{ f.at[:16] | replace("T", " ") }}</td><td><a href="{{ f.href }}"><code>{{ f.key }}</code></a></td><td class="num">{{ "%.1f" | format(f.y) }} min</td></tr>{% endfor %}</tbody>
+      <tbody>{% for f in fits %}<tr><td class="nowrap">{{ f.at[:16] | replace("T", " ") }}</td><td><a href="{{ f.href }}"><code>{{ f.key }}</code></a>{% if f.tier == "exploration" %} <span class="tag exploration">exploration</span>{% endif %}</td><td class="num">{{ "%.1f" | format(f.y) }} min</td></tr>{% endfor %}</tbody>
     </table>
     </div>
   </details>

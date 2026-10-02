@@ -5,7 +5,7 @@
   <a href="{{ url_for('research_board') }}">The board</a> › <span aria-current="page">{{ e.design }}</span>
 </nav>
 <h1><code>{{ e.id }}</code></h1>
-<p class="subline">{% if served %}<span class="tag">served</span> {% endif %}{% if e.current_best %}<span class="tag">best</span> {% endif %}{% if e.frontier %}<span class="tag">frontier</span> {% endif %}
+<p class="subline">{% if served %}<span class="tag">served</span> {% endif %}{% if e.current_best %}<span class="tag">best</span> {% endif %}{% if e.frontier %}<span class="tag">frontier</span> {% endif %}{% if tier_of(e) == "exploration" %}<span class="tag exploration">exploration</span> {% endif %}
   {{ lines.get(e.line, e.line) }} · {{ e.hardware_class }}{% if e.available_at %} · landed {{ e.available_at[:16] | replace("T", " ") }} UTC{% endif %}</p>
 {% if e.design_text %}<p class="lede">{{ e.design_text }}</p>{% endif %}
 
@@ -54,6 +54,26 @@
   {% if e.note %}<p class="note">{{ e.note }}</p>{% endif %}
   {% for a in e.annotations %}<p class="note">{{ a }}</p>{% endfor %}
 </section>
+
+{% if tier is not none %}
+<section class="card">
+  <h2>An exploration fit</h2>
+  <p class="note">A short fit, run to see quickly whether a design is worth a full fit. It counts on the research frontier, so the
+  research can be judged by it, but it is never served: only a full fit's estimates reach the rest of the site.
+  <a href="{{ url_for('research_glossary', _anchor='exploration-fit') }}">Exploration and full fits</a>.</p>
+  <dl class="facts">
+    {% if tier.draws is not none %}<dt>Draws</dt><dd>{{ "{:,}".format(tier.draws) }}{% if tier.chains %} over {{ tier.chains }} chain{{ "" if tier.chains == 1 else "s" }}{% endif %}</dd>{% endif %}
+    {% if tier.warmup is not none %}<dt>Warm-up</dt><dd>{{ "{:,}".format(tier.warmup) }} steps</dd>{% endif %}
+    <dt>Data</dt><dd>{% if tier.subset %}a subset (<code>{{ tier.subset }}</code>), so its accuracy is not comparable and it has no dot on the charts{% else %}the full dataset{% endif %}</dd>
+  </dl>
+  {% if full_fits %}
+  <p>Full fits of the same design:</p>
+  <ul>{% for f in full_fits %}<li><a href="{{ url_for('research_fit', key=f.key) }}"><code>{{ f.key }}</code></a>{% if f.available_at %} <span class="muted">· {{ f.available_at[:10] }}</span>{% endif %}</li>{% endfor %}</ul>
+  {% else %}
+  <p class="note">No full fit of this design yet.</p>
+  {% endif %}
+</section>
+{% endif %}
 
 <div class="columns">
 <section class="card">
