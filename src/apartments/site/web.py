@@ -39,6 +39,7 @@ from . import charts
 from .research import (
     BOARD_ORDERS,
     BOARD_SORTS,
+    ELEGANCE_CELLS,
     LINES,
     TARGET_HARDWARE,
     TARGET_MINUTES,
@@ -48,26 +49,25 @@ from .research import (
     best_over_time,
     board_rows,
     compute_by_line,
+    elegance_pairs,
+    elegance_summary,
     entry_by_key,
     entry_for_run,
     frontier_view,
     full_fits_of,
     hardware_classes,
     implementations,
+    judgements,
     latest_milestones,
     outlier_floor,
     run_of,
     serve_status,
-    ELEGANCE_CELLS,
-    elegance_pairs,
-    elegance_summary,
-    judgements,
-    verdicts,
     snapshot_days,
     spearman,
     subset_fit,
     tier_of,
     validation_pairs,
+    verdicts,
 )
 from .selection import SELECTION, selection_note
 
@@ -1213,9 +1213,7 @@ def create_app(
     def design_fits(data: dict) -> dict:
         """Each judged design's fits on the board, to link the other side of a
         judgement."""
-        return {
-            d["id"]: d["fits"] for p in elegance_pairs(data) for d in p["designs"]
-        }
+        return {d["id"]: d["fits"] for p in elegance_pairs(data) for d in p["designs"]}
 
     @app.get("/research/elegance")
     def research_elegance():
