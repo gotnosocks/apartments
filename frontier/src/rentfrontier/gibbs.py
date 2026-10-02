@@ -140,6 +140,9 @@ class Design:
     # group; None for one scale.
     noise_group: jnp.ndarray | None = None
     n_noise: int = 1
+    # (12, 2K) Fourier basis of the season (`season_harmonics`); None for 12
+    # month effects.
+    season_basis: jnp.ndarray | None = None
 
     @property
     def noise_names(self):
@@ -353,7 +356,8 @@ def build_design(
     bed_basis = model_module.knot_basis(t, config.bedroom_time_knot_months)
     nt, nb = trend_basis.shape[1], bed_basis.shape[1]
     trend = slice(1 + f, 1 + f + nt)
-    season = slice(trend.stop, trend.stop + 12)
+    n_season = 2 * config.season_harmonics if config.season_harmonics else 12
+    season = slice(trend.stop, trend.stop + n_season)
     bedroom_time = (
         slice(season.stop, season.stop + len(groups) * nb)
         if config.bedroom_time
@@ -364,12 +368,21 @@ def build_design(
     a[:, 0] = 1.0
     a[:, 1 : 1 + f] = tr.x
     a[:, trend] = trend_basis[tr.month]
-    # Season enters as season_raw - mean(season_raw), as in the NumPyro model.
-    a[:, season] = -1.0 / 12
-    a[np.arange(n), season.start + tr.calendar] += 1.0
+    if config.season_harmonics:
+        # Fourier season: the basis at the row's calendar month (centred).
+        a[:, season] = model_module.season_basis(config.season_harmonics)[tr.calendar]
+    else:
+        # Season enters as season_raw - mean(season_raw), as in the NumPyro model.
+        a[:, season] = -1.0 / 12
+        a[np.arange(n), season.start + tr.calendar] += 1.0
     blocks = {
         "trend_scale": (trend, _rw1_anchored(nt)),
-        "season_scale": (season, np.eye(12)),
+        "season_scale": (
+            season,
+            np.diag(model_module.season_shrink(config.season_harmonics) ** 2)
+            if config.season_harmonics
+            else np.eye(12),
+        ),
     }
     if bedroom_time is not None:
         for gi, g in enumerate(groups):
@@ -500,6 +513,9 @@ def build_design(
         local_ranks=local_ranks,
         trend=trend,
         season=season,
+        season_basis=jnp.asarray(model_module.season_basis(config.season_harmonics))
+        if config.season_harmonics
+        else None,
         bedroom_time=bedroom_time,
         trend_basis=jnp.asarray(trend_basis),
         bedroom_time_basis=jnp.asarray(bed_basis),
@@ -904,7 +920,9 @@ def site_values(d: Design, state):
         "beta": theta[1 : 1 + f],
         "trend_step": steps(theta[d.trend]),
         "trend_basis": d.trend_basis,
-        "season_raw": theta[d.season],
+        "season_raw": theta[d.season]
+        if d.season_basis is None
+        else d.season_basis @ theta[d.season],
         "building": theta_l[:, 0],
         "unit": state["unit"],
         "nu": state["nu"],
