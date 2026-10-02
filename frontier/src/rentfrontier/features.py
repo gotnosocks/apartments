@@ -254,6 +254,58 @@ def desc_v1(
     )
 
 
+# More of what an ad says about the apartment (text_v2), screened against the
+# served fit's residuals on Chelsea, whose ads it already read (2026-10-02):
+# each shifts the ask by 0.4-8% beyond DESCRIPTION_FLAGS, the same way in West
+# Village. Physical attributes only; market cues (pets, guarantors) are left out.
+DESCRIPTION_FLAGS_V2 = {
+    "whole_house": r"(?:entire|whole|single[- ]family) (?:town ?house|house|home)|single[- ]family",
+    "penthouse_text": r"penthouse",
+    "garden_level": r"garden (?:level|apartment|floor)",
+    "terrace": r"\bterrace\b",
+    "loft": r"\bloft\b",
+    "gut_renovated": r"gut[- ]renovat",
+    "chefs_kitchen": r"chef'?s kitchen|viking|sub[- ]?zero|miele|wolf range",
+    "home_office": r"home office",
+    "walk_in_closet": r"walk[- ]?in closet",
+    "central_air": r"central (?:air|a/?c)\b",
+    "river_view": r"(?:river|water|hudson) views?",
+    "skyline_view": r"(?:skyline|city|empire state|panoramic) views?",
+    "large_words": r"\bhuge\b|massive|enormous|oversized|sprawling",
+    "small_words": r"\bcozy\b|\bpetite\b|\btiny\b",
+}
+
+
+def text_v2(
+    frame: pd.DataFrame,
+    train: np.ndarray,
+    id: str = "text-v2",
+    base: str = "desc-v1",
+) -> Features:
+    """A base set that reads the ads (desc-v1 or one built on it) plus the
+    DESCRIPTION_FLAGS_V2 flags, 0 where the ad is unknown."""
+    from . import descriptions
+
+    base = FEATURE_SETS[base](frame, train)
+    text = descriptions.attach(frame)
+    known = text.str.len() > 20
+    b = _Builder(frame)
+    for name, pattern in DESCRIPTION_FLAGS_V2.items():
+        b.add(
+            "description",
+            f"text:{name}",
+            known & text.str.contains(pattern, regex=True),
+        )
+    extra = b.build(id)
+    return Features(
+        id,
+        base.names + extra.names,
+        base.groups + extra.groups,
+        np.column_stack([base.values, extra.values]),
+        np.concatenate([base.prior_scale, extra.prior_scale]),
+    )
+
+
 # External snapshots read by feature sets (rentfrontier.registry, .external).
 REGISTRY_SNAPSHOT = "/data1/apartments/external/registry/20260925-6b67137"
 PLUTO_SNAPSHOT = "/data1/apartments/external/pluto/20260925-3096a62"
@@ -1304,6 +1356,7 @@ EXTERNAL = {
     "nb-unitpluto-v1",
     "nb-facing-v1",
     "nb-facing-v2",
+    "nb-text-v1",
     "wv-unitpluto-v1",
     "pluto-v1",
     "unitfloor-v2",
@@ -1334,6 +1387,7 @@ BASEMAP = {
     "unitnoise-v1",
     "nb-facing-v1",
     "nb-facing-v2",
+    "nb-text-v1",
 }
 # Feature sets that read the building footprints snapshot.
 FOOTPRINTS = {
@@ -1343,6 +1397,7 @@ FOOTPRINTS = {
     "unitnoise-v1",
     "nb-facing-v1",
     "nb-facing-v2",
+    "nb-text-v1",
 }
 # Feature sets that read the 311 noise complaints snapshot.
 NOISE = {"unitnoise-v1"}
@@ -1353,6 +1408,7 @@ HPD = {"unitdescplutohpd-v1", "unitdescplutohpd-v2"}
 DESCRIPTIONS = {
     "nb-facing-v1",
     "nb-facing-v2",
+    "nb-text-v1",
     "desc-v1",
     "unitdesc-v1",
     "unitdescpluto-v1",
@@ -1396,6 +1452,8 @@ FEATURE_SETS = {
     "nb-facing-v1": partial(neighbourhood_v1, id="nb-facing-v1", base="unitfacing-v4"),
     # nb-facing-v1 with West Village's ads too (`DESCRIPTION_SOURCES`).
     "nb-facing-v2": partial(neighbourhood_v1, id="nb-facing-v2", base="unitfacing-v4"),
+    # nb-facing-v2 plus more of what the ad says (DESCRIPTION_FLAGS_V2).
+    "nb-text-v1": partial(text_v2, id="nb-text-v1", base="nb-facing-v2"),
     # West Village: the app design's building facts (as unitdescpluto-v3) on the
     # unit and floor features (no West Village ads: see nb-facing-v2).
     "wv-unitpluto-v1": partial(
@@ -1488,17 +1546,20 @@ LOT_SNAPSHOTS = {
     "nb-unitpluto-v1": {"registry": NB_REGISTRY_FILE, "pluto": NB_PLUTO_FILE},
     "nb-facing-v1": {"registry": NB_REGISTRY_FILE, "pluto": NB_PLUTO_FILE},
     "nb-facing-v2": {"registry": NB_REGISTRY_FILE, "pluto": NB_PLUTO_FILE},
+    "nb-text-v1": {"registry": NB_REGISTRY_FILE, "pluto": NB_PLUTO_FILE},
     "unitnoise-v1": {"registry": REGISTRY_V3_FILE, "pluto": PLUTO_V3_FILE},
 }
 
 
 # Feature sets that read more description evidence than Chelsea's
 # (`descriptions.SOURCE`), by run-record key.
+_NB_DESCRIPTIONS = {
+    "descriptions": str(descriptions_module.SOURCE),
+    "descriptions_wv": str(descriptions_module.WV_SOURCE),
+}
 DESCRIPTION_SOURCES = {
-    "nb-facing-v2": {
-        "descriptions": str(descriptions_module.SOURCE),
-        "descriptions_wv": str(descriptions_module.WV_SOURCE),
-    },
+    "nb-facing-v2": _NB_DESCRIPTIONS,
+    "nb-text-v1": _NB_DESCRIPTIONS,
 }
 
 
@@ -1506,6 +1567,7 @@ DESCRIPTION_SOURCES = {
 AREA_SNAPSHOTS = {
     "nb-facing-v1": {"basemap": NB_BASEMAP_FILE, "footprints": NB_FOOTPRINTS_FILE},
     "nb-facing-v2": {"basemap": NB_BASEMAP_FILE, "footprints": NB_FOOTPRINTS_FILE},
+    "nb-text-v1": {"basemap": NB_BASEMAP_FILE, "footprints": NB_FOOTPRINTS_FILE},
 }
 
 

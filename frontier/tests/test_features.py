@@ -691,3 +691,38 @@ def test_nearby_noise_counts_the_year_before_against_chelsea(monkeypatch):
         [np.log2(4) - chelsea, np.log2(2) - chelsea, 0.0, 0.0],
     )
     np.testing.assert_allclose(out["construction"], 0.0)
+
+
+def test_nb_text_adds_the_v2_flags_on_nb_facing_v2(monkeypatch):
+    import pandas as pd
+    from rentfrontier import descriptions
+
+    fn = features.FEATURE_SETS["nb-text-v1"]
+    assert fn.func is features.text_v2
+    assert fn.keywords == {"id": "nb-text-v1", "base": "nb-facing-v2"}
+    assert features.description_files("nb-text-v1") == features.description_files(
+        "nb-facing-v2"
+    )
+    frame = pd.DataFrame({"audit_id": ["a", "b", "c"]})
+    text = pd.Series(
+        [
+            "Entire townhouse with a private terrace and Hudson River views, huge",
+            "Cozy studio, short ad text here for test",
+            "",
+        ]
+    )
+    monkeypatch.setattr(descriptions, "attach", lambda f: text.str.lower())
+    monkeypatch.setitem(
+        features.FEATURE_SETS,
+        "stub-base",
+        lambda f, t: features.Features(
+            "stub-base", [], [], np.zeros((len(f), 0)), np.zeros(0)
+        ),
+    )
+    out = features.text_v2(frame, np.ones(3, bool), id="t", base="stub-base")
+    got = dict(zip(out.names, out.values.T))
+    assert got["text:whole_house"].tolist() == [1, 0, 0]
+    assert got["text:terrace"].tolist() == [1, 0, 0]
+    assert got["text:river_view"].tolist() == [1, 0, 0]
+    assert got["text:large_words"].tolist() == [1, 0, 0]
+    assert got["text:small_words"].tolist() == [0, 1, 0]
