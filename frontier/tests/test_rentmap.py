@@ -87,3 +87,11 @@ def test_designs_with_building_slopes_are_mapped():
     got = rentmap.feature_slope_term(fslope, x, [1, 4])
     want = np.array([[fslope[d, b] @ x[b, [1, 4]] for b in range(3)] for d in range(4)])
     np.testing.assert_allclose(got, want)
+
+
+def test_area_name_lists_the_fit_neighbourhoods():
+    from rentfrontier import rentmap
+
+    assert rentmap.area_name(["Chelsea", "Chelsea"]) == "Chelsea"
+    assert rentmap.area_name(["West Village", "Chelsea"]) == "Chelsea and West Village"
+    assert rentmap.area_name(["C", "A", "B"]) == "A, B and C"

@@ -8,8 +8,8 @@ fits. For every building, calendar year and bedroom group (studio, 1, 2, 3+),
 the posterior of the typical asking rent of an apartment with:
 
 - the apartment's own attributes (bedrooms, bathrooms, size, laundry, heating
-  and cooling, views, windows, unit label, ad-text flags) at Chelsea's average
-  over the fit's listings with that many bedrooms;
+  and cooling, views, windows, unit label, ad-text flags) at the average over
+  the fit's listings with that many bedrooms;
 - the building's attributes (floor, elevator, doorman, pets and the building
   facts of the feature set) at the building's own average over its listings;
 - the building's level, its path over time and its own bedroom premium;
@@ -22,8 +22,9 @@ listings in the fit (before `first_year`, after `last_year`) are the walk's
 extrapolation. Designs whose terms this does not model (bedroom-group market
 curves, per-building feature slopes, market drift, a trend on top of a walk,
 sum-to-zero, masked or anchored walks) are refused.
-`chelsea_median` is the median building's value per draw (all buildings),
-again as a posterior median and 90% interval.
+`median` is the median building's value per draw (all buildings of the fit),
+again as a posterior median and 90% interval; `area` names the neighbourhoods
+the fit covers ("Chelsea and West Village").
 
 The map under the buildings comes from the basemap snapshot
 (`rentfrontier.external basemap`): streets at their recorded width, paths,
@@ -48,7 +49,7 @@ from . import data, explain, features, model, splits
 from .run import git
 
 MAPS = data.OUTPUT_ROOT / "maps"
-VERSION = "rent-map-v1"
+VERSION = "rent-map-v2"
 BEDROOMS = (
     ("studio", "Studio", (0,)),
     ("1", "1 bedroom", (1,)),
@@ -56,7 +57,7 @@ BEDROOMS = (
     ("3+", "3+ bedrooms", (3, 4)),
 )
 # Feature groups taken at the building's own average; every other group is an
-# attribute of the apartment, taken at Chelsea's average for its bedroom count.
+# attribute of the apartment, taken at the fit's average for its bedroom count.
 BUILDING_GROUPS = frozenset(
     {
         "floor",
@@ -87,7 +88,8 @@ BASEMAP_PAD_M = 120.0
 ROADS, PATHS = {"1", "2", "3", "9"}, {"6"}
 DEFINITION = (
     "A typical apartment with that many bedrooms: bathrooms, size, laundry, views "
-    "and ad-text features at Chelsea's average for its bedroom count; floor, "
+    "and ad-text features at the average over all fitted listings with that many "
+    "bedrooms; floor, "
     "elevator, doorman, pet policy and building facts at the building's own "
     "average; plus the building's own level, path over time and bedroom premium "
     "(and, in designs with them, its own size, bathroom and floor slopes), and the market "
@@ -114,8 +116,14 @@ def year_weights(periods: pd.DatetimeIndex, spacing: int):
     return years, by_year, interp @ by_year.T
 
 
+def area_name(neighbourhoods) -> str:
+    """ "Chelsea", "Chelsea and West Village", "A, B and C"."""
+    names = sorted(set(neighbourhoods))
+    return names[0] if len(names) == 1 else ", ".join(names[:-1]) + " and " + names[-1]
+
+
 def typical_rows(prep: model.Prepared) -> dict:
-    """Per bedroom group: the apartment part of x (Chelsea's average over the
+    """Per bedroom group: the apartment part of x (the average over the
     fit's rows with that many bedrooms) and each building's own part, (buildings,
     features); plus the group's average centred bedroom count."""
     tr = prep.train
@@ -355,6 +363,10 @@ def compute(name: str) -> dict:
     frame, heldout = data.apply_rules(frame, heldout, data.recorded_rules(result))
     feats = features.build(result["feature_set"], frame, ~heldout)
     prep = model.prepare(frame, heldout, feats)
+    # The neighbourhoods the fit covers, for the map's labels.
+    area = area_name(
+        frame.neighbourhood[~heldout] if "neighbourhood" in frame else ["Chelsea"]
+    )
     missing = unsupported_terms(config)
     if missing:
         raise SystemExit(
@@ -375,7 +387,7 @@ def compute(name: str) -> dict:
     level = kept["building"]  # (d, B)
     slope = kept["bedroom_slope"] if config.bedroom_slope else np.zeros_like(level)
     fcols = [prep.features.names.index(n) for n in config.feature_slopes]
-    out_rent, chelsea = {}, {}
+    out_rent, median_rent = {}, {}
     for key, (x, beds) in typical_rows(prep).items():
         log = (
             market[:, None, :]
@@ -389,9 +401,9 @@ def compute(name: str) -> dict:
         )  # (d, B, Y)
         q = np.quantile(np.exp(log), PROBABILITIES, axis=0)  # (3, B, Y)
         out_rent[key] = np.rint(np.moveaxis(q, 0, -1)).astype(int).tolist()
-        # Chelsea's median building, per draw (robust to the dearest buildings).
+        # The median building of the fit, per draw (robust to the dearest ones).
         c = np.quantile(np.median(np.exp(log), axis=1), PROBABILITIES, axis=0)
-        chelsea[key] = np.rint(c.T).astype(int).tolist()  # (Y, 3)
+        median_rent[key] = np.rint(c.T).astype(int).tolist()  # (Y, 3)
     months = (by_year > 0).sum(1)
     # The registry the run's features read (the first snapshot for older runs).
     recorded = (result.get("feature_sources") or {}).get("registry") or {}
@@ -423,7 +435,10 @@ def compute(name: str) -> dict:
             "sha256": data.sha256(Path(basemap_file)),
         },
         "rent": out_rent,
-        "chelsea_median": chelsea,
+        "median": median_rent,
+        # The same as `median`, under its old name, until the site reads `median`.
+        "chelsea_median": median_rent,
+        "area": area,
     }
 
 
