@@ -42,7 +42,7 @@ import shutil
 import subprocess
 from pathlib import Path
 
-from . import autoselect, leaderboard, simplicity, variance
+from . import autoselect, elegance, leaderboard, variance
 from . import data as data_module
 
 REPO = Path(__file__).resolve().parents[3]
@@ -249,6 +249,8 @@ def psis_fields(ps):
         "k_threshold": ps["pareto_k"]["threshold"],
         "k_over": ps["pareto_k"]["over_threshold"],
         "validation": ps["validation"],
+        # PSIS-LOO effective parameters (None for older LOO records).
+        "p_loo": ps.get("p_loo"),
     }
 
 
@@ -329,9 +331,9 @@ def data():
                 "passes_checks": e["passes_checks"],
                 "frontier": e["frontier"],
                 "current_best": e["current_best"],
-                # The judge agents' pairwise simplicity judgements of this
-                # design (rentfrontier.simplicity): [{vs, verdict, reason}].
-                "simplicity": e.get("simplicity", []),
+                # The judge agents' pairwise elegance judgements of this
+                # design (rentfrontier.elegance): [{vs, verdict, reason}].
+                "elegance": e.get("elegance", []),
                 # exploration (a short fit for the research frontier, never
                 # served) or full, with draws, warmup, chains and subset.
                 "tier": e.get("tier"),
@@ -387,11 +389,11 @@ def data():
         "data_quality": data_quality(),
         "autoselect": selection_decision(entries),
         "exploration": exploration_summary(),
-        # Every recorded simplicity judgement (config/simplicity-judgements.jsonl).
-        "simplicity_judgements": [
+        # Every recorded elegance judgement (config/elegance-judgements.jsonl).
+        "elegance_judgements": [
             j
             for _, j in sorted(
-                simplicity.judgements().items(), key=lambda kv: sorted(kv[0])
+                elegance.judgements().items(), key=lambda kv: sorted(kv[0])
             )
         ],
         "footer": board.get("footer", []),

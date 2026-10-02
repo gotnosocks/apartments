@@ -167,7 +167,7 @@ def test_an_unscored_incumbent_is_replaced_without_pairing(tmp_path):
 def test_a_lower_ranked_fit_that_clearly_beats_the_incumbent_is_chosen(
     tmp_path, monkeypatch
 ):
-    # a ties the incumbent (judged as simple, not faster) and ranks first, b is
+    # a ties the incumbent (judged as elegant, not faster) and ranks first, b is
     # clearly better than the incumbent.
     judged(monkeypatch, {("inc", "a"): "equal"})
     es = [
@@ -259,7 +259,7 @@ def test_a_fit_on_another_dataset_is_not_served(tmp_path, monkeypatch):
 
 
 def judged(monkeypatch, verdicts):
-    """Simplicity judgements for test entries: {(a, b): winner or "equal"}."""
+    """Elegance judgements for test entries: {(a, b): winner or "equal"}."""
     table = {}
     for (a, b), v in verdicts.items():
         ids = [f"{a}/f", f"{b}/f"]
@@ -268,10 +268,10 @@ def judged(monkeypatch, verdicts):
             "verdict": "equal" if v == "equal" else f"{v}/f",
             "reason": "test",
         }
-    monkeypatch.setattr(autoselect.simplicity, "judgements", lambda *a: table)
+    monkeypatch.setattr(autoselect.elegance, "judgements", lambda *a: table)
 
 
-def test_ranked_prefers_the_simpler_tie_before_the_faster(tmp_path, monkeypatch):
+def test_ranked_prefers_the_more_elegant_tie_before_the_faster(tmp_path, monkeypatch):
     judged(monkeypatch, {("top", "simple"): "simple", ("simple", "fast"): "simple"})
     deltas = {"top": 10.0, "simple": 9.0, "fast": 9.5}
     es = [
@@ -285,7 +285,7 @@ def test_ranked_prefers_the_simpler_tie_before_the_faster(tmp_path, monkeypatch)
     assert order == ["simple", "fast", "top"]
 
 
-def test_a_tied_simpler_challenger_replaces_the_incumbent(tmp_path, monkeypatch):
+def test_a_tied_more_elegant_challenger_replaces_the_incumbent(tmp_path, monkeypatch):
     judged(monkeypatch, {("inc", "new"): "new"})
     deltas = {"inc": 10.0, "new": 9.5}
     es = [entry(tmp_path, "inc", 10.0, 1300), entry(tmp_path, "new", 9.5, 1500)]
@@ -293,7 +293,7 @@ def test_a_tied_simpler_challenger_replaces_the_incumbent(tmp_path, monkeypatch)
     assert d["action"] == "switch" and d["run"] == "new"
 
 
-def test_a_tied_faster_but_less_simple_challenger_does_not(tmp_path, monkeypatch):
+def test_a_tied_faster_but_less_elegant_challenger_does_not(tmp_path, monkeypatch):
     judged(monkeypatch, {("inc", "new"): "inc"})
     deltas = {"inc": 10.0, "new": 10.5}
     es = [entry(tmp_path, "inc", 10.0, 1300), entry(tmp_path, "new", 10.5, 600)]
@@ -301,7 +301,7 @@ def test_a_tied_faster_but_less_simple_challenger_does_not(tmp_path, monkeypatch
     assert d["action"] == "keep" and d["run"] == "inc"
 
 
-def test_a_tied_equally_simple_and_much_faster_challenger_replaces(
+def test_a_tied_equally_elegant_and_much_faster_challenger_replaces(
     tmp_path, monkeypatch
 ):
     judged(monkeypatch, {("inc", "new"): "equal"})
@@ -309,7 +309,7 @@ def test_a_tied_equally_simple_and_much_faster_challenger_replaces(
     es = [entry(tmp_path, "inc", 10.0, 1300), entry(tmp_path, "new", 10.5, 600)]
     d = autoselect.decide(es, "inc", RULES, paired_from(deltas), no_heldout_loss)
     assert d["action"] == "switch" and d["run"] == "new"
-    assert "judged as simple" in d["reason"] and "faster" in d["reason"]
+    assert "judged as elegant" in d["reason"] and "faster" in d["reason"]
 
 
 def test_an_unjudged_tie_waits_for_a_judgement(tmp_path, monkeypatch):
@@ -318,7 +318,7 @@ def test_an_unjudged_tie_waits_for_a_judgement(tmp_path, monkeypatch):
     es = [entry(tmp_path, "inc", 10.0, 1300), entry(tmp_path, "new", 10.5, 600)]
     d = autoselect.decide(es, "inc", RULES, paired_from(deltas), no_heldout_loss)
     assert d["action"] == "keep"
-    assert "no simplicity judgement" in d["checked"][0]["refused"]
+    assert "no elegance judgement" in d["checked"][0]["refused"]
     assert d["pending_judgements"] == [("inc/f", "new/f")]
 
 
