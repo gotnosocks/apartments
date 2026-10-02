@@ -17,7 +17,7 @@ every merged change and switch of the served model.</p>
 
 <section class="card">
   <h2>The best fit's accuracy over time</h2>
-  <p class="note">Each step is a new best fit on {{ hardware }}: the most accurate, or a simpler or faster one that ties with it. Higher
+  <p class="note">Each step is a new best fit on {{ hardware }}: the most accurate, or a more elegant or faster one that ties with it. Higher
   is better.</p>
   {% if best %}{{ best_chart }}{% else %}<p class="empty-note">No fit on {{ hardware }} has a PSIS-LOO score yet.</p>{% endif %}
   <details class="table-view">

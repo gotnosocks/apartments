@@ -58,8 +58,11 @@ from .research import (
     outlier_floor,
     run_of,
     serve_status,
-    simplicity_pairs,
-    simplicity_summary,
+    ELEGANCE_CELLS,
+    elegance_pairs,
+    elegance_summary,
+    judgements,
+    verdicts,
     snapshot_days,
     spearman,
     subset_fit,
@@ -345,7 +348,7 @@ SECTIONS = {
         "research_plan_page",
         "research_glossary",
         "research_model",
-        "research_simplicity",
+        "research_elegance",
     ),
 }
 
@@ -483,7 +486,9 @@ def create_app(
         isinstance(v, (int, float)) and not isinstance(v, bool) and math.isfinite(v)
     )
 
-    app.jinja_env.globals["simplicity_summary"] = simplicity_summary
+    app.jinja_env.globals["elegance_summary"] = elegance_summary
+    app.jinja_env.globals["verdicts"] = verdicts
+    app.jinja_env.globals["elegance_cells"] = ELEGANCE_CELLS
     app.jinja_env.globals["tier_of"] = tier_of
 
     @app.context_processor
@@ -1030,7 +1035,7 @@ def create_app(
             rows.append(["PSIS-LOO ΔELPD", f"{f['delta']:+,.1f}{se}"])
         rows.append(["Fit time", f"{f['minutes']:.1f} min"])
         rows.append(["Tier", TIERS[f["tier"]]])
-        rows.append(["Simplicity", f["simplicity"] or "not judged yet"])
+        rows.append(["Elegance", f["elegance"] or "not judged yet"])
         rows.append(
             [
                 "Servable",
@@ -1088,7 +1093,7 @@ def create_app(
             floor=floor,
             target=target,
             target_minutes=TARGET_MINUTES,
-            judged_pairs=len(data.get("simplicity_judgements") or ()),
+            judged_pairs=len(judgements(data)),
             exploration=data.get("exploration"),
             tiers=TIERS,
             time_chart=charts.fit_scatter(
@@ -1209,17 +1214,17 @@ def create_app(
         """Each judged design's fits on the board, to link the other side of a
         judgement."""
         return {
-            d["id"]: d["fits"] for p in simplicity_pairs(data) for d in p["designs"]
+            d["id"]: d["fits"] for p in elegance_pairs(data) for d in p["designs"]
         }
 
-    @app.get("/research/simplicity")
-    def research_simplicity():
+    @app.get("/research/elegance")
+    def research_elegance():
         data = research_data_or_503()
         pending = (data.get("autoselect") or {}).get("pending_judgements") or []
         return render_template(
-            "research_simplicity.html",
+            "research_elegance.html",
             meta=meta(),
-            pairs=simplicity_pairs(data),
+            pairs=elegance_pairs(data),
             pending=pending,
         )
 

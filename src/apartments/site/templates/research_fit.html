@@ -20,21 +20,29 @@
     <span class="figure-value">{{ "%.1f" | format(e.fit_seconds / 60) }} min</span>
     <span class="figure-note">on {{ e.hardware }}{% if e.other_cores is finite %}, {{ "%.1f" | format(e.other_cores) }} other cores busy{% endif %}</span>
   </div>
+  {% if e.psis and e.psis.p_loo is number %}
+  <div class="figure">
+    <span class="figure-label">Effective parameters</span>
+    <span class="figure-value">{{ "{:,.0f}".format(e.psis.p_loo) }}</span>
+    <span class="figure-note">p<sub>loo</sub>, measured from the data; <a href="{{ url_for('research_glossary', _anchor='p-loo') }}">what it means</a></span>
+  </div>
+  {% endif %}
 </section>
 
-<section class="card" id="simplicity">
-  <h2>Simplicity</h2>
-  {% if e.simplicity %}
-  <p class="note">How the judge agents compared this design (<code>{{ e.design }}/{{ e.feature_set }}</code>) with others, without
-  seeing any scores. <a href="{{ url_for('research_glossary', _anchor='simplicity') }}">How simplicity is judged</a>.</p>
+<section class="card" id="elegance">
+  <h2>Elegance</h2>
+  {% set judged = verdicts(e) %}
+  {% if judged %}
+  <p class="note">How the judge agents compared this design (<code>{{ e.design }}/{{ e.feature_set }}</code>) with others as
+  statistical models, without seeing any scores. <a href="{{ url_for('research_glossary', _anchor='elegance') }}">How elegance is judged</a>.</p>
   <div class="table-wrap">
   <table class="data">
     <thead><tr><th scope="col">Against</th><th scope="col">This design is</th><th scope="col">Why</th></tr></thead>
     <tbody>
-    {% for j in e.simplicity %}
+    {% for j in judged %}
       {% set others = design_fits.get(j.vs, []) %}
       <tr><td>{% if others %}<a href="{{ url_for('research_fit', key=others[0]) }}"><code>{{ j.vs }}</code></a>{% else %}<code>{{ j.vs }}</code>{% endif %}</td>
-        <td class="nowrap">{{ {"simpler": "simpler", "equal": "about as simple", "less simple": "less simple"}.get(j.verdict, j.verdict) }}</td>
+        <td class="nowrap">{{ elegance_cells.get(j.verdict, j.verdict) }}</td>
         <td>{{ j.reason }}</td></tr>
     {% endfor %}
     </tbody>
@@ -42,7 +50,7 @@
   </div>
   {% else %}
   <p class="note">No judge has compared this design with another yet. Designs are judged only in pairs that matter: tied on
-  accuracy, or where one beats the other on accuracy and speed. Until then it counts as equally simple as every other design.</p>
+  accuracy, or where one beats the other on accuracy and speed. Until then it counts as equally elegant as every other design.</p>
   {% endif %}
 </section>
 

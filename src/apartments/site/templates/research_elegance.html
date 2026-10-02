@@ -1,20 +1,25 @@
 {% extends "base.html" %}
-{% block title %}Simplicity{% endblock %}
+{% block title %}Elegance{% endblock %}
 {% macro design(d) -%}
 {% if d.fits %}<a href="{{ url_for('research_fit', key=d.fits[0]) }}"><code>{{ d.id }}</code></a>{% else %}<code>{{ d.id }}</code>{% endif %}
+{%- if d.p_loo is number %} <span class="muted nowrap">({{ "{:,.0f}".format(d.p_loo) }} effective parameters)</span>{% endif %}
 {%- endmacro %}
 {% macro verdict(v, ids) -%}
-{% if v == "equal" %}about equally simple{% elif v in ids %}<code>{{ v }}</code> is simpler{% else %}{{ v }}{% endif %}
+{% if v == "equal" %}about equally elegant{% elif v in ids %}<code>{{ v }}</code> is more elegant{% else %}{{ v }}{% endif %}
 {%- endmacro %}
 {% block content %}
-<h1>Simplicity</h1>
-<p class="lede">Whether a model is easy for a renter to understand as a whole. For pairs of models that matter (tied on accuracy, or
-where one beats the other on accuracy and speed), two independent AI judges read both model definitions without seeing any scores.
-Each says which one a renter would find simpler, or that they are about equal, and why. If they disagree, the pair counts as
-equal.</p>
-<p class="note">A design is a model with its features; the data rules and the sampler do not change it. When two fits predict
-equally well, the simpler design is served, and a fit judged simpler than one that beats it on accuracy and fit time stays on
-<a href="{{ url_for('research_frontier') }}">the frontier</a>. Two designs no judge has compared count as equally simple.</p>
+<h1>Elegance</h1>
+<p class="lede">Elegance is how coherent a model is as a statistical model of how asks arise. A more elegant model tells one generative story
+whose structure mirrors the data (apartments in buildings in neighbourhoods, over time). It uses few distinct mechanisms, applied
+consistently, and has no overlapping or competing terms. It avoids one-off flags, hand-tuned cutoffs and patches, uses natural forms
+for its likelihood and priors, and needs no more structural choices than what it captures. For pairs of models that matter, two
+independent AI judges read both model definitions without seeing any scores. Each says which one is more elegant, or that they are
+about equal, and why. If they disagree, the pair counts as equal. Ties in accuracy go to the more elegant model.</p>
+<p class="note">A design is a model with its features; the data rules and the sampler do not change it. A fit judged more elegant
+than one that beats it on accuracy and fit time stays on <a href="{{ url_for('research_frontier') }}">the frontier</a>. Two designs no
+judge has compared count as equally elegant. Beside each design is its
+<a href="{{ url_for('research_glossary', _anchor='p-loo') }}">effective number of parameters</a>, an objective check measured
+from the data.</p>
 
 {% if pending %}
 <section class="card">
@@ -50,7 +55,7 @@ equally well, the simpler design is served, and a fit judged simpler than one th
   </article>
   {% endfor %}
   {% else %}
-  <p class="empty-note">No pair of designs has been judged yet.</p>
+  <p class="empty-note">No pair of designs has been judged under the elegance brief yet.</p>
   {% endif %}
 </section>
 {% endblock %}

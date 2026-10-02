@@ -489,6 +489,7 @@ def research_data():
         "psis": {
             "delta": 5221.3,
             "delta_se": 120.4,
+            "p_loo": 412.6,
             "validation": {"heldout_rows": 5264},
         },
         "splits": {
@@ -507,10 +508,10 @@ def research_data():
         "hardware": "thelio RTX 2060 SUPER",
         "sampler": "nuts",
         "design_text": "A test design with <b>bold</b> claims",
-        "simplicity": [
+        "elegance": [
             {
                 "vs": "m-other/unitdesc-v1",
-                "verdict": "simpler",
+                "verdict": "more elegant",
                 "reason": "One fewer <i>term</i> to explain.",
             }
         ],
@@ -532,10 +533,10 @@ def research_data():
         psis={"delta": 4100.0, "delta_se": 110.0},
         fit_seconds=600.0,
         design="m-other",
-        simplicity=[
+        elegance=[
             {
                 "vs": "m-test/unitdesc-v1",
-                "verdict": "less simple",
+                "verdict": "less elegant",
                 "reason": "One fewer <i>term</i> to explain.",
             }
         ],
@@ -567,7 +568,7 @@ def research_data():
         id="L0-mean",
         key="L0-mean",
         design="L0-mean",
-        simplicity=[],
+        elegance=[],
         psis={"delta": -72000.0, "delta_se": 250.0},
         fit_seconds=30.0,
         splits={"rows": {"run": "L0-run"}},
@@ -602,7 +603,7 @@ def research_data():
         "baseline": "m0-base/base-v1/gibbs@5cc0809",
         "variance_groups": ["market and time", "features", "building", "residual"],
         "entries": entries,
-        "simplicity_judgements": [
+        "elegance_judgements": [
             {
                 "designs": ["m-other/unitdesc-v1", "m-test/unitdesc-v1"],
                 "verdict": "m-test/unitdesc-v1",
