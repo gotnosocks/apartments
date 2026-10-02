@@ -574,7 +574,20 @@ def on_frontier(entries):
     """Per entry: not dominated on (PSIS-LOO dELPD, fit time, judged
     elegance) by another eligible entry."""
 
+    def same_design_fewer_draws(o, e):
+        # Short fits score high (fewer draws; docs/research-plan.md,
+        # calibration), so a fit never dominates a better-measured fit of the
+        # same design and data rules.
+        same = elegance.design_id(o) == elegance.design_id(e) and sorted(
+            o.get("data_rules") or ()
+        ) == sorted(e.get("data_rules") or ())
+        od = (o.get("tier") or {}).get("draws") or 0
+        ed = (e.get("tier") or {}).get("draws") or 0
+        return same and od < ed
+
     def dominates(o, e):
+        if same_design_fewer_draws(o, e):
+            return False
         s = _judged(o, e)
         ge = o["psis"]["delta"] >= e["psis"]["delta"] and (
             o["fit_seconds"] <= e["fit_seconds"]
