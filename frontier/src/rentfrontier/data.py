@@ -158,6 +158,9 @@ QUARANTINE_V1 = (
 # v1 plus the second review (2026-09-30): ads that name another street for the
 # apartment, and bedroom counts the ad flatly contradicts, over every row.
 QUARANTINE_V2 = REPO / "config" / "reviews" / "chelsea-quarantine-v2-20260930.jsonl"
+# v2 plus the third review (2026-10-02): West Village, read for the first time
+# (its ads from the granular crawl), and Chelsea's ads against the same detectors.
+QUARANTINE_V3 = REPO / "config" / "reviews" / "quarantine-v3-20261002.jsonl"
 
 
 @functools.lru_cache(maxsize=4)
@@ -180,6 +183,15 @@ def quarantine_v2(frame: pd.DataFrame) -> pd.DataFrame:
     front, and eight more bedroom counts the ad flatly contradicts. The other rows
     are unchanged."""
     return frame[~frame.audit_id.isin(quarantined(QUARANTINE_V2))]
+
+
+def quarantine_v3(frame: pd.DataFrame) -> pd.DataFrame:
+    """v2 and the third review's rows (261 in all): 65 West Village and 8
+    Chelsea ads whose own words place the apartment elsewhere (Brooklyn's
+    Grove and Bleecker Streets, Park Slope's avenues, Harlem, the Upper West
+    Side), offer a shop, restaurant, office or event space, a room, or a short
+    stay only, or contradict the recorded ask. The other rows are unchanged."""
+    return frame[~frame.audit_id.isin(quarantined(QUARANTINE_V3))]
 
 
 # Named data rules, applied after the held-out split is drawn (the row split
@@ -208,9 +220,14 @@ DATA_RULES = {
     "unit-labels-v1": merge_unit_labels,
     "quarantine-v1": quarantine_v1,
     "quarantine-v2": quarantine_v2,
+    "quarantine-v3": quarantine_v3,
 }
 # Rules that drop the rows their file lists; run records hash the files.
-RULE_SOURCES = {"quarantine-v1": QUARANTINE_V1, "quarantine-v2": QUARANTINE_V2}
+RULE_SOURCES = {
+    "quarantine-v1": QUARANTINE_V1,
+    "quarantine-v2": QUARANTINE_V2,
+    "quarantine-v3": QUARANTINE_V3,
+}
 
 
 def dropped_rows() -> frozenset:

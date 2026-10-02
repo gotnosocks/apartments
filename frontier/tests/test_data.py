@@ -60,7 +60,9 @@ def test_quarantine_drops_rows_from_the_frame_and_the_heldout_mask(monkeypatch):
     assert ruled.attrs["source_sha256"] == "s"
 
 
-@pytest.mark.parametrize("path", [data.QUARANTINE_V1, data.QUARANTINE_V2])
+@pytest.mark.parametrize(
+    "path", [data.QUARANTINE_V1, data.QUARANTINE_V2, data.QUARANTINE_V3]
+)
 def test_quarantine_file_names_each_row_once_with_its_evidence(path):
     with open(path) as f:
         rows = [json.loads(line) for line in f if line.strip()]
@@ -83,6 +85,10 @@ def test_quarantine_file_names_each_row_once_with_its_evidence(path):
 
 def test_quarantine_v2_keeps_every_v1_row():
     assert data.quarantined() < data.quarantined(data.QUARANTINE_V2)
+
+
+def test_quarantine_v3_keeps_every_v2_row():
+    assert data.quarantined(data.QUARANTINE_V2) < data.quarantined(data.QUARANTINE_V3)
 
 
 def test_unit_line_key():
