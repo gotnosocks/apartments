@@ -235,7 +235,7 @@ def frontier_view(
                 "delta": psis.get("delta"),
                 "delta_se": psis.get("delta_se"),
                 "minutes": e["fit_seconds"] / 60,
-                "simplicity": simplicity_summary(e),
+                "elegance": elegance_summary(e),
                 "serve": serve,
                 "why_not": why_not,
             }
@@ -256,63 +256,96 @@ LINES = {
     "numpyro": "NumPyro NUTS",
     "pymc": "PyMC",
 }
-# The first direction of each board sort: most accurate, fastest, newest first.
-BOARD_ORDERS = {"delta": "desc", "time": "asc", "landed": "desc"}
+# The first direction of each board sort: most accurate, fastest, fewest
+# effective parameters, newest first.
+BOARD_ORDERS = {"delta": "desc", "time": "asc", "params": "asc", "landed": "desc"}
 BOARD_SORTS = {
     "delta": lambda e: (e.get("psis") or {}).get("delta"),
     "time": lambda e: e.get("fit_seconds"),
+    "params": lambda e: (e.get("psis") or {}).get("p_loo"),
     "landed": lambda e: e.get("available_at"),
 }
 
 
-# A fit's simplicity judgement against another design, in plain words.
-SIMPLICITY_WORDS = {
-    "simpler": "simpler than",
-    "equal": "as simple as",
-    "less simple": "less simple than",
+# The judge agents' pairwise elegance judgements, as rentfrontier writes them
+# (Ben, 2026-10-01: elegance replaces renter simplicity; every pair is judged
+# again under the elegance brief, so the old simplicity verdicts are not shown).
+VERDICTS_FIELD = "elegance"
+JUDGEMENTS_FIELD = "elegance_judgements"
+
+# A fit's verdict against another design, in words.
+ELEGANCE_WORDS = {
+    "more elegant": "more elegant than",
+    "equal": "as elegant as",
+    "less elegant": "less elegant than",
+}
+# The same verdict as a table cell ("this design is ...").
+ELEGANCE_CELLS = {
+    "more elegant": "more elegant",
+    "equal": "about as elegant",
+    "less elegant": "less elegant",
 }
 
 
 def design_id(entry: dict) -> str:
     """ "model/feature set", the design the judges compare
-    (rentfrontier.simplicity.design_id)."""
+    (rentfrontier.elegance.design_id)."""
     if entry.get("design") and entry.get("feature_set"):
         return f"{entry['design']}/{entry['feature_set']}"
     return str(entry.get("id") or entry.get("key"))
 
 
-def simplicity_summary(entry: dict) -> str | None:
-    """A fit's judged pairs counted in words ("simpler than 2, less simple
-    than 1"), or None when its design has no judgement."""
+def verdicts(entry: dict) -> list[dict]:
+    """A fit's judged pairs: [{vs, verdict, reason}]."""
+    return list(entry.get(VERDICTS_FIELD) or ())
+
+
+def judgements(data: dict) -> list[dict]:
+    return list(data.get(JUDGEMENTS_FIELD) or ())
+
+
+def elegance_summary(entry: dict) -> str | None:
+    """A fit's judged pairs counted in words ("more elegant than 2, less
+    elegant than 1"), or None when its design has no judgement."""
     counts: dict[str, int] = {}
-    for j in entry.get("simplicity") or ():
-        counts[j.get("verdict")] = counts.get(j.get("verdict"), 0) + 1
-    words = [
-        f"{SIMPLICITY_WORDS[k]} {counts[k]}" for k in SIMPLICITY_WORDS if k in counts
-    ]
-    return ", ".join(words) or None
+    for j in verdicts(entry):
+        word = ELEGANCE_WORDS.get(j.get("verdict"))
+        if word:
+            counts[word] = counts.get(word, 0) + 1
+    order = ["more elegant than", "as elegant as", "less elegant than"]
+    return ", ".join(f"{w} {counts[w]}" for w in order if w in counts) or None
 
 
-def simplicity_pairs(data: dict) -> list[dict]:
+def elegance_pairs(data: dict) -> list[dict]:
     """Every recorded judgement, newest first, with the board fits of each
     design and whether the two judges agreed."""
     fits: dict[str, list[str]] = {}
-    for e in data.get("entries", []):
+    p_loo: dict[str, float] = {}
+    newest = sorted(data.get("entries", []), key=lambda e: e.get("available_at") or "")
+    for e in newest:
         fits.setdefault(design_id(e), []).append(e["key"])
+        value = (e.get("psis") or {}).get("p_loo")
+        if isinstance(value, (int, float)):
+            p_loo[design_id(e)] = value  # the newest fit's
+    for keys in fits.values():
+        keys.reverse()  # newest first: a design links to its latest fit
     out = []
-    for j in data.get("simplicity_judgements") or ():
+    for j in judgements(data):
         designs = list(j.get("designs") or ())
         if len(designs) != 2:
             continue
-        verdicts = [x.get("verdict") for x in j.get("judges") or ()]
+        said = [x.get("verdict") for x in j.get("judges") or ()]
         out.append(
             {
-                "designs": [{"id": d, "fits": fits.get(d, [])} for d in designs],
+                "designs": [
+                    {"id": d, "fits": fits.get(d, []), "p_loo": p_loo.get(d)}
+                    for d in designs
+                ],
                 "verdict": j.get("verdict"),
                 "reason": j.get("reason"),
                 "date": j.get("date"),
                 "judges": j.get("judges") or [],
-                "agreed": len(verdicts) > 1 and len(set(verdicts)) == 1,
+                "agreed": len(said) > 1 and len(set(said)) == 1,
             }
         )
     out.sort(key=lambda p: p["date"] or "", reverse=True)

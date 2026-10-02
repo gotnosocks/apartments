@@ -403,7 +403,7 @@ def test_research_model_page_shows_the_selection_and_decision(
                 "psis": -3.2,
                 "psis_pm": 4.0,
                 "heldout": None,
-                "simplicity": -1,
+                "elegance": -1,
                 "refused": "tied and not faster",
             },
         ],
@@ -416,11 +416,22 @@ def test_research_model_page_shows_the_selection_and_decision(
     assert "Chosen by rentfrontier.autoselect, 2026-10-01." in html
     assert "The served fit is still the best." in html
     assert "<code>m-other-run</code>" in html and "tied and not faster" in html
-    assert "<td>less simple</td>" in html  # the check's simplicity judgement
+    assert "<td>less elegant</td>" in html  # the check's elegance judgement
     assert (
         "<code>m-new/unitdesc-v1</code> against <code>m-test/unitdesc-v1</code>" in html
     )
-    assert "simpler than 1" in html and "#simplicity" in html
+    assert "more elegant than 1" in html and "#elegance" in html
+    assert "Effective parameters</dt><dd>413" in html
+    # a check without scores (the incumbent could not be paired) and an
+    # entry whose PSIS-LOO has no paired delta still render
+    data["autoselect"]["checked"].append({"run": "m-bare-run"})
+    served = next(e for e in data["entries"] if e["id"].startswith("m-test/"))
+    served["psis"] = {"delta": None, "elpd": 1.0}
+    research_file.write_text(json.dumps(data))
+    bare = app.test_client().get("/research/model")
+    assert bare.status_code == 200 and "<code>m-bare-run</code>" in bare.get_data(
+        as_text=True
+    )
 
 
 def test_pages_render_without_research_data(site_root, tmp_path):
@@ -735,7 +746,8 @@ def test_board_review_fixes(client, research_file):
     # time sorts fastest first; its link says so
     assert 'href="/research/board?sort=time"' in board
     assert "sort=complexity" not in board and "Complexity" not in board
-    assert "less simple than 1" in board
+    assert "less elegant than 1" in board
+    assert 'href="/research/board?sort=params"' in board and ">413<" in board
     assert 'href="/research/board?sort=landed"' in board
     assert "best on its hardware" in board
     fit = client.get("/research/fits/m-other").get_data(as_text=True)
@@ -812,7 +824,8 @@ def test_glossary_has_anchors_the_pages_link_to(client):
         "psis-loo",
         "delta-elpd",
         "pareto-k",
-        "simplicity",
+        "elegance",
+        "p-loo",
         "frontier",
         "servable",
     ):
@@ -890,7 +903,7 @@ def test_research_navigation_stays_on_this_site(client):
         "/research/validation",
         "/research/model",
         "/research/glossary",
-        "/research/simplicity",
+        "/research/elegance",
         "/research/data",
         "/research/plan",
     ):
@@ -958,34 +971,40 @@ def test_neighbourhoods_filter_listings_and_buildings(
     assert '<p class="subline">West Village · ' in page
 
 
-def test_simplicity_page_lists_every_judgement(client):
-    html = client.get("/research/simplicity").get_data(as_text=True)
-    # the peer's glossary text, word for word
-    assert "two independent AI judges read both model definitions without" in html
-    assert "If they disagree, the pair counts as\nequal." in html
-    # newest first; each design links to its fit on the board
+def test_elegance_page_lists_every_judgement(client):
+    html = client.get("/research/elegance").get_data(as_text=True)
+    # the modeling session's definition, word for word
+    assert "how coherent a model is as a statistical model of how asks arise" in html
+    assert "Ties in accuracy go to the more elegant model." in html
+    assert "renter" not in html
+    # newest first; each design links to a fit on the board, with its p_loo
     assert html.index("m-other/unitdesc-v1") < html.index("m-cpu/unitdesc-v1")
-    assert 'href="/research/fits/m-other"><code>m-other/unitdesc-v1</code>' in html
-    assert "<code>m-test/unitdesc-v1</code> is simpler" in html
+    assert "<code>m-other/unitdesc-v1</code></a>" in html
+    assert "(413 effective parameters)" in html
+    assert "<code>m-test/unitdesc-v1</code> is more elegant" in html
     assert "both judges agreed" in html
-    assert "about equally simple" in html
+    assert "about equally elegant" in html
     assert "the judges disagreed, so the pair counts as equal" in html
     assert "<i>term</i>" not in html and "&lt;i&gt;term" in html  # escaped
-    assert 'aria-current="page">Simplicity' in html
+    assert 'aria-current="page">Elegance' in html
+    assert client.get("/research/simplicity").status_code == 404
 
 
-def test_fit_page_shows_its_simplicity_judgements(client, research_file):
+def test_fit_page_shows_its_elegance_judgements(client, research_file):
     html = client.get("/research/fits/m-other").get_data(as_text=True)
-    assert 'id="simplicity"' in html
+    assert 'id="elegance"' in html
     served = '<a href="/research/fits/m-test/unitdesc-v1/nuts@aaaaaaa">'
     assert served + "<code>m-test/unitdesc-v1</code></a>" in html
-    assert "less simple" in html
+    assert "less elegant" in html and "renter" not in html
+    mine = client.get("/research/fits/m-test/unitdesc-v1/nuts@aaaaaaa")
+    assert "Effective parameters</span>" in mine.get_data(as_text=True)
     assert "Complexity" not in html
     lone = client.get("/research/fits/L0-mean").get_data(as_text=True)
     assert "No judge has compared this design with another yet." in lone
     frontier = client.get("/research").get_data(as_text=True)
     assert "Complexity" not in frontier and "2 pairs" in frontier
-    assert "less simple than 1" in frontier  # the frontier table
+    assert "less elegant than 1" in frontier  # the frontier table
+    assert "renter" not in frontier
 
 
 def _with_exploration(research_file):
@@ -1006,7 +1025,7 @@ def _with_exploration(research_file):
         why_not_served="it is an exploration fit",
         available_at="2026-09-29T09:00:00+00:00",
         splits={"rows": {"run": "m-test-quick-run"}},
-        simplicity=[],
+        elegance=[],
     )
     subset = dict(
         quick,

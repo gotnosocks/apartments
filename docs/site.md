@@ -70,7 +70,7 @@ without the filter.
 - **Frontier** (`/research`): every fit of one hardware class (default: the RTX 2060, the served
   model's), with these parts:
   - accuracy (PSIS-LOO ΔELPD) against fit time on the full dataset, with Ben's 30-minute target;
-  - how simplicity enters (judged in pairs, so it has no chart) and how many pairs are judged;
+  - how elegance enters (judged in pairs, so it has no chart) and how many pairs are judged;
   - the frontier fits in a table, with whether each can be served and why not;
   - every fit in a table view;
   - when the research data has an `exploration` block, the current exploration: its goal, data,
@@ -85,12 +85,13 @@ without the filter.
   servable. Fits far below the rest (the mean-only baselines) are drawn at the chart's floor
   unless "the full accuracy range" is ticked.
 - **Board** (`/research/board`): every fit on the board with its accuracy, fit time, its judged
-  simplicity pairs counted in words ("simpler than 1, less simple than 2"), checks, whether it can be served and why not, and when it landed. Filters are hardware, model
+  elegance pairs counted in words ("more elegant than 1, less elegant than 2"), its effective
+  number of parameters (p_loo, sortable), checks, whether it can be served and why not, and when it landed. Filters are hardware, model
   line, a search over design, features and commit, "only servable", "subset fits" and the tier (both, full or exploration); columns sort.
   Servable is yes only when the research data says so (autoselect's `why_not_served`). Otherwise a
   fit that fails the checks is "no", and anything else is "not known yet".
 - **Fit** (`/research/fits/<key>`): one fit's headline numbers, whether it can be served and why
-  not, the judge agents' simplicity verdicts against other designs with their
+  not, the judge agents' elegance verdicts against other designs with their
   reasons, the board's note and annotations, the sampler and run, the accuracy in detail (ELPD, Pareto
   k, the held-out check), each split's diagnostics, and where the variation in rents goes. An
   exploration fit's page says what that means, gives its draws and chains, and links any full fits of
@@ -114,7 +115,8 @@ without the filter.
   the research-data checkout, which follows master (`/data1/apartments/serve/master`; `RESEARCH_PLAN`
   overrides it), so it is current between site deploys. Raw HTML in the source is escaped, not
   rendered; repository links open on GitHub.
-- **Simplicity** (`/research/simplicity`): every recorded judgement (`simplicity_judgements`), newest
+- **Elegance** (`/research/elegance`): Ben's elegance target (2026-10-01; it replaced renter simplicity)
+  in the modeling session's words, and every judgement under its brief (`elegance_judgements`), newest
   first: the two designs (linked to their fits), the verdict and reason, whether the two judges
   agreed (if not, the pair counts as equal), and each judge's own answer. Pairs the automatic
   selection is waiting on (`autoselect.pending_judgements`) are listed first.
@@ -122,9 +124,9 @@ without the filter.
   link to.
 - **Served model** (`/research/model`):
   - why it is served: the selection's own reason, and the latest automatic decision when the research
-    data carries it (`autoselect`), with each checked fit's simplicity against the served one and the
+    data carries it (`autoselect`), with each checked fit's elegance against the served one and the
     pairs waiting for a judgement;
-  - its place on the board: PSIS-LOO ΔELPD, the held-out check, fit time, simplicity, frontier and
+  - its place on the board: PSIS-LOO ΔELPD, the held-out check, fit time, elegance, effective parameters, frontier and
     gate;
   - the fit's provenance, the parts of an estimate, and every feature coefficient.
 
@@ -152,7 +154,8 @@ listings fall in each band, as calibration predicts.
 
    It refuses a failing gate. It writes `/data1/apartments/site/builds/<stamp>/site.sqlite` and
    `build.json`, swaps the `current` symlink atomically, and keeps the newest three builds. It takes
-   about 8 s with a 1.1 GB peak, and the database is about 130 MB.
+   about 8 s with a 1.1 GB peak for Chelsea alone, and about 18 s with a 1.9 GB peak for Chelsea and
+   West Village (86,568 listings), with a database of about 130 MB and 400 MB respectively.
 3. **Serve.** The app opens `current/site.sqlite` read-only (immutable) on each request, so a publish
    needs no restart.
 4. **Research data.** `rentfrontier.dashboard` (frontier environment, run from
@@ -186,7 +189,7 @@ Publishing on thelio takes the shared heavy-job lock like other heavy jobs:
 
 ```sh
 cd /data1/apartments/serve/site
-flock /data1/apartments/tmp/heavy.lock systemd-run --user --scope -p MemoryMax=2G \
+flock /data1/apartments/tmp/heavy.lock systemd-run --user --scope -p MemoryMax=3G \
   --setenv=TMPDIR=/data1/apartments/tmp/site-serve \
   /data1/apartments/venvs/serve-site/bin/python -m apartments.site build
 ```
@@ -219,7 +222,7 @@ mv -T current.new current` in `/data1/apartments/site`.
   git -C /home/ben/code/apartments worktree add --detach /data1/apartments/serve/site origin/master
   cd /data1/apartments/serve/site
   UV_PROJECT_ENVIRONMENT=/data1/apartments/venvs/serve-site uv sync --locked
-  flock /data1/apartments/tmp/heavy.lock systemd-run --user --scope -p MemoryMax=2G \
+  flock /data1/apartments/tmp/heavy.lock systemd-run --user --scope -p MemoryMax=3G \
     --setenv=TMPDIR=/data1/apartments/tmp/site-serve \
     /data1/apartments/venvs/serve-site/bin/python -m apartments.site build
   cp ops/systemd/apartments-site.service ~/.config/systemd/user/
