@@ -24,8 +24,9 @@ simpler"):
 1. Take the top paired PSIS-LOO, and the fits tied with it within two combined
    SE.
 2. Among those, take the simplest, by the judge agents' recorded pairwise
-   judgements (`simplicity`): a fit no other tied fit is judged simpler than
-   comes first.
+   judgements (`simplicity`): fits are ordered by how many other tied fits
+   are judged simpler than them, fewest first (a fit no tied fit is judged
+   simpler than comes first; a cycle of judgements leaves its fits level).
 3. Then take the fastest. Fit times within `TIME_TIE` of
    the fastest count as equal, and among them the higher PSIS-LOO wins, so
    run-to-run timing noise cannot decide.
@@ -229,6 +230,7 @@ def decide(
             continue
         check = {"run": _run(e)}
         out["checked"].append(check)
+        won = "it clearly beats the incumbent"
         if comparable:
             d, se, mc = paired(e["psis"]["_dir"], incumbent["psis"]["_dir"])
             tol = leaderboard.tie_tolerance(se, mc)
@@ -256,15 +258,24 @@ def decide(
                     "tied with the incumbent, and the pair has no simplicity "
                     "judgement yet (rentfrontier.simplicity pending)"
                 )
+                pair = tuple(
+                    sorted((simplicity.design_id(e), simplicity.design_id(incumbent)))
+                )
+                if pair not in out["pending_judgements"]:
+                    out["pending_judgements"].append(pair)
                 continue
             if inc_ok and not (d > tol or simpler or faster):
                 check["refused"] = "does not clearly beat the eligible incumbent"
                 continue
-        why = (
-            "it clearly beats the incumbent"
-            if inc_ok
-            else f"the incumbent cannot be served: {inc_why}"
-        )
+            won = (
+                "its PSIS-LOO is clearly better than the incumbent's"
+                if d > tol
+                else "it ties the incumbent on PSIS-LOO and is judged simpler"
+                if simpler
+                else "it ties the incumbent on PSIS-LOO, is judged as simple, and is "
+                f"more than {TIME_TIE:.0%} faster"
+            )
+        why = won if inc_ok else f"the incumbent cannot be served: {inc_why}"
         out.update(action="switch", run=_run(e), reason=why)
         return out
     if inc_ok:

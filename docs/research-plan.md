@@ -189,8 +189,9 @@ You do not need my approval to change the dashboard model."
 - **The choice** follows the board's `choose_best` among the eligible fits. It differs only
   where the 10% time tie below changes the order:
   - Take the top PSIS-LOO, and the fits tied with it within two combined SE.
-  - Among those, take the simplest by the recorded judgements: a fit that no other tied fit is
-    judged simpler than (from 2026-10-01; before that, the fastest).
+  - Among those, take the simplest by the recorded judgements: fits are ordered by how many other
+    tied fits are judged simpler than them, fewest first (from 2026-10-01; before that, the
+    fastest). A cycle of judgements leaves its fits level.
   - Then take the fastest. Fit times within 10% count as equal, and then
     the higher PSIS-LOO wins, so timing noise cannot decide.
 - **Hysteresis.** An eligible incumbent stays unless it is beaten clearly: PSIS-LOO beyond the
