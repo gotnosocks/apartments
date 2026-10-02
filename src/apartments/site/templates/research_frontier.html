@@ -48,10 +48,12 @@ then the simplest, then the fastest, and it changes only when another fit clearl
 </section>
 
 <section class="card">
-  <h2>Accuracy against complexity</h2>
-  <p class="note">The same fits by how simple they are to understand: left is simpler. When two models predict equally well, the
-  simpler one is served.{% if view.unrated %} {{ view.unrated }} scored fit{{ "" if view.unrated == 1 else "s" }} {{ "is" if view.unrated == 1 else "are" }} not rated yet and not shown.{% endif %}</p>
-  {% if rated %}{{ complexity_chart }}{% else %}<p class="empty-note">No fit on this hardware has a complexity rating yet.</p>{% endif %}
+  <h2>Simplicity</h2>
+  <p class="note">Simplicity is not a score, so it has no chart: judge agents compare two designs at a time and say which one a
+  renter would find simpler. When two models predict equally well, the simpler one is served, and a fit judged simpler than one that
+  beats it on accuracy and fit time stays on the frontier. {% if judged_pairs %}{{ judged_pairs }} pair{{ "" if judged_pairs == 1 else "s" }}
+  of designs {{ "has" if judged_pairs == 1 else "have" }} been judged so far; see <a href="{{ url_for('research_simplicity') }}">every
+  judgement and its reason</a>.{% else %}No pair of designs has been judged yet.{% endif %}</p>
 </section>
 
 <section class="card">
@@ -77,11 +79,10 @@ then the simplest, then the fastest, and it changes only when another fit clearl
       listings in the fit, on a log scale; higher is better. Two fits within about two standard errors (the ±) are a tie.</dd>
     <dt>Fit time</dt><dd>Minutes from start to finish to fit the model to the full dataset on one machine's hardware. Only fits on
       the same hardware compare.</dd>
-    <dt>Complexity</dt><dd>How much a design asks a renter to understand, judged by the researcher and written down in
-      <code>rentfrontier.elegance</code>. Each structural term (the market over time, a building's premium, a building's path over
-      time, per-building slopes, unusual apartments) and each layer of facts (what the listing offers, what the ad says, the city's
-      building facts, which streets the windows face, the neighbourhood) adds points. Terms that move over time or overlap another
-      term cost more. Lower is simpler.</dd>
+    <dt>Simplicity</dt><dd>Whether a model is easy for a renter to understand as a whole. For pairs of models that matter (tied on accuracy,
+    or where one beats the other on accuracy and speed), two independent AI judges read both model definitions without seeing any
+    scores. Each says which one a renter would find simpler, or that they are about equal, and why. If they disagree, the pair counts
+    as equal. The table counts each fit's judged pairs.</dd>
     <dt>Convergence checks</dt><dd>Whether the sampler settled on one stable answer (R-hat and effective sample size). A fit that
       fails them is shown hollow and never served.</dd>
     <dt>Subset fits</dt><dd>Fits on a part of the data, used to tune settings quickly. They are exploration only, never served.</dd>

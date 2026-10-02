@@ -360,3 +360,8 @@ details.table-view summary { cursor: pointer; color: var(--link); font-size: 0.9
 .map-tip .t-row span:last-child { font-variant-numeric: tabular-nums; text-align: right; }
 .map-tip .t-note { color: var(--ink-2); margin-top: 6px; }
 @media (max-width: 900px) { .map-layout { grid-template-columns: 1fr; } }
+
+/* Simplicity judgements: one pair per block, separated by a rule. */
+.judgement { border-top: 1px solid var(--border); padding-top: .75rem; margin-top: .75rem; }
+.judgement h3 { margin: 0 0 .25rem; font-size: 1rem; }
+.judgement p { margin: .25rem 0; }

@@ -48,7 +48,7 @@ be served. Select a fit for its details.</p>
     <th scope="col">Hardware</th>
     {{ sort_head("PSIS-LOO ΔELPD", "delta") }}
     {{ sort_head("Fit time", "time") }}
-    {{ sort_head("Complexity", "complexity") }}
+    <th scope="col">Simplicity <span class="muted">(judged pairs)</span></th>
     <th scope="col" title="Whether the sampler settled on one stable answer (R-hat, effective sample size, divergences)">Checks</th>
     <th scope="col">Servable</th>
     {{ sort_head("Landed", "landed", num=False) }}
@@ -63,7 +63,7 @@ be served. Select a fit for its details.</p>
       <td class="nowrap">{{ e.hardware_class }}</td>
       <td class="num nowrap">{% if e.psis %}{{ "{:+,.1f}".format(e.psis.delta) }}{% if e.psis.delta_se is finite %} <span class="muted">± {{ "{:,.1f}".format(e.psis.delta_se) }}</span>{% endif %}{% else %}<span class="muted">not scored</span>{% endif %}</td>
       <td class="num nowrap">{{ "%.1f" | format(e.fit_seconds / 60) }} min</td>
-      <td class="num">{{ e.complexity if e.complexity is not none else "—" }}</td>
+      <td>{{ simplicity_summary(e) or "—" }}</td>
       <td>{{ "pass" if e.passes_checks else "fail" }}</td>
       {% set serve, why = serve_status(e) %}
       <td>{% if serve == "yes" %}yes{% elif serve == "no" %}no: {{ why }}{% else %}<span class="muted">not known yet</span>{% endif %}</td>
@@ -76,7 +76,7 @@ be served. Select a fit for its details.</p>
 </table>
 </div>
 <p class="note">PSIS-LOO ΔELPD: how well a fit predicts each listing's ask from the others, against the simplest baseline; higher is
-better, and fits within about two ± of each other tie. Fit times compare only on the same hardware. Complexity is judged; lower is
-simpler. Checks: whether the sampler settled on one stable answer; a fit that fails them is never served. See
+better, and fits within about two ± of each other tie. Fit times compare only on the same hardware. Simplicity counts the judge agents'
+verdicts against other designs (<a href="{{ url_for('research_simplicity') }}">every judgement</a>). Checks: whether the sampler settled on one stable answer; a fit that fails them is never served. See
 <a href="{{ url_for('research_frontier') }}">the frontier</a> for these three side by side.</p>
 {% endblock %}
