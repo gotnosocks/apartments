@@ -355,3 +355,20 @@ def test_exploration_fits_count_on_the_frontier_without_the_gate():
         paired=lambda a, b: (deltas[a] - deltas[b], 1.0, 0.0),
     )
     assert best["id"] == "slow"
+
+
+def test_the_baseline_is_found_by_run_name_or_entry_id(monkeypatch):
+    monkeypatch.setattr(leaderboard, "BASELINE", "m0-base-base-v1-rows-abc1234-x-run")
+    by_run = {
+        "id": "m0-base/base-v1/gibbs@abc1234",
+        "splits": {"rows": {"run": "m0-base-base-v1-rows-abc1234-x-run"}},
+    }
+    other = {
+        "id": "m0-base/base-v1/gibbs@abc1234",
+        "splits": {"rows": {"run": "m0-base-base-v1-rows-abc1234-x-short"}},
+    }
+    assert leaderboard.is_baseline(by_run) and not leaderboard.is_baseline(other)
+    monkeypatch.setattr(leaderboard, "BASELINE", "m0-base/base-v1/gibbs@5cc0809")
+    assert leaderboard.is_baseline(
+        {"id": "m0-base/base-v1/gibbs@5cc0809", "splits": {}}
+    )
