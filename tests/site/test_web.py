@@ -1065,8 +1065,8 @@ def test_exploration_fits_count_on_the_frontier(client, research_file):
     # a diamond on the chart, with both shapes in the legend
     assert '<path class="fit frontier" d="M' in html
     assert "key-shape diamond" in html and "Full fit" in html
-    assert "Frontier · exploration fit" not in html  # kind first, then tier
-    assert "On the frontier · exploration fit" in html  # the tooltip
+    # the tooltip names the kind, then the tier (JSON escapes the dot)
+    assert "On the frontier \\u00b7 exploration fit" in html
     # in the frontier table, tagged, and not marked as failing the checks
     table = html[html.index("<h2>On the frontier") :]
     assert quick["key"] in table and 'class="tag exploration"' in table
