@@ -1077,7 +1077,7 @@ def test_exploration_fits_count_on_the_frontier(client, research_file):
     quick, subset = _with_exploration(research_file)
     html = client.get("/research").get_data(as_text=True)
     # a diamond on the chart, with both shapes in the legend
-    assert '<path class="fit frontier" d="M' in html
+    assert '<path class="fit frontier' in html  # faded: m-test has a full fit
     assert "key-shape diamond" in html and "Full fit" in html
     # the tooltip names the kind, then the tier (JSON escapes the dot)
     assert "On the frontier \\u00b7 exploration fit" in html
@@ -1173,8 +1173,9 @@ def test_one_design_measured_twice_is_joined(client, research_file):
 
     _with_exploration(research_file)
     html = client.get("/research").get_data(as_text=True)
-    # the 200-draw exploration fit and the 1,000-draw full fit of m-test
-    assert html.count('<polyline class="measured"') == 1
+    # two designs measured twice: m-test (the 200-draw exploration fit and
+    # the 1,000-draw full fit) and m-other (m-other and m-failing)
+    assert html.count('<polyline class="measured"') == 2
     assert 'class="fit frontier faded"' in html  # the exploration diamond
     assert "One design at several draw counts" in html
     assert '<td class="num">1,000</td>' in html  # the Draws column
