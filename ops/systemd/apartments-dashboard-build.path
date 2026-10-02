@@ -1,0 +1,14 @@
+[Unit]
+Description=Rebuild the rents site's research data when a fit's results land
+
+[Path]
+# Each finished fit adds a directory to each: its run record, then its LOO
+# score (1-2 minutes later), then its variance shares. The build waits a minute
+# and skips if nothing new is complete.
+PathChanged=/data1/apartments/frontier/runs
+PathChanged=/data1/apartments/frontier/loo
+PathChanged=/data1/apartments/frontier/variance
+Unit=apartments-dashboard-build.service
+
+[Install]
+WantedBy=paths.target
