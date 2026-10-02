@@ -422,6 +422,16 @@ def test_research_model_page_shows_the_selection_and_decision(
     )
     assert "more elegant than 1" in html and "#elegance" in html
     assert "Effective parameters</dt><dd>413" in html
+    # a check without scores (the incumbent could not be paired) and an
+    # entry whose PSIS-LOO has no paired delta still render
+    data["autoselect"]["checked"].append({"run": "m-bare-run"})
+    served = next(e for e in data["entries"] if e["id"].startswith("m-test/"))
+    served["psis"] = {"delta": None, "elpd": 1.0}
+    research_file.write_text(json.dumps(data))
+    bare = app.test_client().get("/research/model")
+    assert bare.status_code == 200 and "<code>m-bare-run</code>" in bare.get_data(
+        as_text=True
+    )
 
 
 def test_pages_render_without_research_data(site_root, tmp_path):

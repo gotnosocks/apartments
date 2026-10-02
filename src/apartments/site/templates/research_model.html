@@ -27,8 +27,8 @@ equally elegant ones the fastest.{% endif %}</p>
     <tbody>
     {% for c in autoselect.checked %}
       <tr><td><code>{{ c.run }}</code></td>
-        <td class="num nowrap">{% if c.psis is not none %}{{ "{:+,.1f}".format(c.psis) }}{% if c.psis_pm is not none %} ± {{ "{:,.1f}".format(c.psis_pm) }}{% endif %}{% else %}—{% endif %}</td>
-        <td class="num nowrap">{% if c.heldout is not none %}{{ "{:+,.1f}".format(c.heldout) }}{% if c.heldout_se is not none %} ± {{ "{:,.1f}".format(c.heldout_se) }}{% endif %}{% else %}—{% endif %}</td>
+        <td class="num nowrap">{% if c.psis is number %}{{ "{:+,.1f}".format(c.psis) }}{% if c.psis_pm is number %} ± {{ "{:,.1f}".format(c.psis_pm) }}{% endif %}{% else %}—{% endif %}</td>
+        <td class="num nowrap">{% if c.heldout is number %}{{ "{:+,.1f}".format(c.heldout) }}{% if c.heldout_se is number %} ± {{ "{:,.1f}".format(c.heldout_se) }}{% endif %}{% else %}—{% endif %}</td>
         <td>{{ {1: "more elegant", 0: "about as elegant", -1: "less elegant"}.get(c.elegance, "not judged") if c.elegance is defined else "—" }}</td>
         <td>{{ c.refused or "chosen" }}</td></tr>
     {% endfor %}
@@ -48,15 +48,15 @@ equally elegant ones the fastest.{% endif %}</p>
   <h2>On the board</h2>
   <p class="note">How this fit scores on the research board, where every fit is compared on the same listings.</p>
   <dl class="facts wide">
-    {% if entry.psis %}
-    <dt>Accuracy (PSIS-LOO ΔELPD)</dt><dd>{{ "{:+,.1f}".format(entry.psis.delta) }} ± {{ "{:,.1f}".format(entry.psis.delta_se) }} over the
+    {% if entry.psis and entry.psis.delta is number %}
+    <dt>Accuracy (PSIS-LOO ΔELPD)</dt><dd>{{ "{:+,.1f}".format(entry.psis.delta) }}{% if entry.psis.delta_se is number %} ± {{ "{:,.1f}".format(entry.psis.delta_se) }}{% endif %} over the
       baseline{% if baseline %} <code>{{ baseline }}</code>{% endif %}: how much better it predicts each listing's ask from all the other
       listings, in log-likelihood units summed over the listings; higher is better.</dd>
     {% endif %}
     {% set rows = entry.splits.rows if entry.splits and entry.splits.rows else none %}
-    {% if rows and rows.delta is not none %}
+    {% if rows and rows.delta is number %}
     {% set held = entry.psis.validation.heldout_rows if entry.psis and entry.psis.validation and entry.psis.validation.heldout_rows else none %}
-    <dt>Held-out check</dt><dd>{{ "{:+,.1f}".format(rows.delta) }}{% if rows.delta_se is not none %} ± {{ "{:,.1f}".format(rows.delta_se) }}{% endif %}
+    <dt>Held-out check</dt><dd>{{ "{:+,.1f}".format(rows.delta) }}{% if rows.delta_se is number %} ± {{ "{:,.1f}".format(rows.delta_se) }}{% endif %}
       on the {% if held %}{{ "{:,}".format(held) }} {% endif %}listings kept out of every fit, against the reference model: an
       independent check of the same accuracy.</dd>
     {% endif %}

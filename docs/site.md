@@ -152,7 +152,8 @@ listings fall in each band, as calibration predicts.
 
    It refuses a failing gate. It writes `/data1/apartments/site/builds/<stamp>/site.sqlite` and
    `build.json`, swaps the `current` symlink atomically, and keeps the newest three builds. It takes
-   about 8 s with a 1.1 GB peak, and the database is about 130 MB.
+   about 8 s with a 1.1 GB peak for Chelsea alone, and about 18 s with a 1.9 GB peak for Chelsea and
+   West Village (86,568 listings), with a database of about 130 MB and 400 MB respectively.
 3. **Serve.** The app opens `current/site.sqlite` read-only (immutable) on each request, so a publish
    needs no restart.
 4. **Research data.** `rentfrontier.dashboard` (frontier environment, run from
@@ -186,7 +187,7 @@ Publishing on thelio takes the shared heavy-job lock like other heavy jobs:
 
 ```sh
 cd /data1/apartments/serve/site
-flock /data1/apartments/tmp/heavy.lock systemd-run --user --scope -p MemoryMax=2G \
+flock /data1/apartments/tmp/heavy.lock systemd-run --user --scope -p MemoryMax=3G \
   --setenv=TMPDIR=/data1/apartments/tmp/site-serve \
   /data1/apartments/venvs/serve-site/bin/python -m apartments.site build
 ```
@@ -219,7 +220,7 @@ mv -T current.new current` in `/data1/apartments/site`.
   git -C /home/ben/code/apartments worktree add --detach /data1/apartments/serve/site origin/master
   cd /data1/apartments/serve/site
   UV_PROJECT_ENVIRONMENT=/data1/apartments/venvs/serve-site uv sync --locked
-  flock /data1/apartments/tmp/heavy.lock systemd-run --user --scope -p MemoryMax=2G \
+  flock /data1/apartments/tmp/heavy.lock systemd-run --user --scope -p MemoryMax=3G \
     --setenv=TMPDIR=/data1/apartments/tmp/site-serve \
     /data1/apartments/venvs/serve-site/bin/python -m apartments.site build
   cp ops/systemd/apartments-site.service ~/.config/systemd/user/
