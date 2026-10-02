@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% block title %}Rent map{% endblock %}
 {% block content %}
-<div class="rent-map" id="rent-map" data-src="{{ url_for('estimates_map_data') }}">
+<div class="rent-map" id="rent-map" data-src="{{ url_for('estimates_map_data') }}" data-area="{{ meta.scope or '' }}">
 <h1>Rent map</h1>
 <p class="lede">What a typical apartment rents for in each {{ meta.scope }} building, by year and number of bedrooms, from the served model.
 <span id="map-meta" class="muted"></span></p>
