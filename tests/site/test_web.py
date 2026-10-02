@@ -1101,7 +1101,12 @@ def test_exploration_fits_count_on_the_frontier(client, research_file):
     ]
     research_file.write_text(json.dumps(data))
     described = client.get("/research").get_data(as_text=True)
-    assert "<td>Short.</td>" in described and ">Draws<" not in described
+    card = described[
+        described.index("The current exploration") : described.index(
+            "Accuracy against fit time"
+        )
+    ]
+    assert "<td>Short.</td>" in card and ">Draws<" not in card
     # no exploration header: no card, the fits still drawn
     research_file.write_text(json.dumps(dict(data, exploration=None)))
     plain = client.get("/research").get_data(as_text=True)
