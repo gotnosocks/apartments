@@ -85,3 +85,22 @@ def test_only_listed_feature_sets_read_west_villages_ads(monkeypatch):
     features.build("nb-facing-v2", pd.DataFrame(), [])
     assert seen["sources"] == (descriptions.SOURCE, descriptions.WV_SOURCE)
     assert descriptions.SOURCES.get() == (descriptions.SOURCE,)
+
+
+def test_sets_built_on_a_multi_source_set_read_the_same_sources():
+    from rentfrontier import features
+
+    def bases(name):
+        while True:
+            fn = features.FEATURE_SETS[name]
+            name = getattr(fn, "keywords", {}).get("base")
+            if name is None:
+                return
+            yield name
+
+    for name in features.FEATURE_SETS:
+        for base in bases(name):
+            if base in features.DESCRIPTION_SOURCES:
+                assert features.description_files(name) == (
+                    features.description_files(base)
+                ), name

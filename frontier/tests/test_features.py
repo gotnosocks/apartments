@@ -691,3 +691,43 @@ def test_nearby_noise_counts_the_year_before_against_chelsea(monkeypatch):
         [np.log2(4) - chelsea, np.log2(2) - chelsea, 0.0, 0.0],
     )
     np.testing.assert_allclose(out["construction"], 0.0)
+
+
+def test_nb_transit_adds_path_to_the_transit_terms(monkeypatch, tmp_path):
+    import pandas as pd
+
+    reg = pd.DataFrame(
+        {
+            "building": ["a", "b"],
+            "latitude": [40.7330, 40.7500],
+            "longitude": [-74.0070, -74.0070],
+        }
+    )
+    reg.to_parquet(tmp_path / "reg.parquet")
+    pd.DataFrame(
+        {
+            "gtfs_stop_id": ["x"],
+            "daytime_routes": ["1 2"],
+            "gtfs_latitude": [40.7330],
+            "gtfs_longitude": [-74.0040],
+        }
+    ).to_parquet(tmp_path / "subway.parquet")
+    pd.DataFrame(
+        {
+            "stop_name": ["Christopher Street"],
+            "stop_lat": [40.73295],
+            "stop_lon": [-74.00707],
+        }
+    ).to_parquet(tmp_path / "path.parquet")
+    monkeypatch.setattr(features, "SUBWAY_FILE", str(tmp_path / "subway.parquet"))
+    monkeypatch.setattr(features, "PATH_FILE", str(tmp_path / "path.parquet"))
+    token = features._LOTS.set((str(tmp_path / "reg.parquet"), None))
+    try:
+        t = features.building_transit(["a", "b"])
+    finally:
+        features._LOTS.reset(token)
+    assert t.path_m[0] < 10 and 1800 < t.path_m[1] < 2000
+    assert t.routes_10min.tolist() == [2, 0]
+    fn = features.FEATURE_SETS["nb-transit-v1"]
+    assert fn.keywords == {"id": "nb-transit-v1", "base": "nb-facing-v2", "path": True}
+    assert "nb-transit-v1" in features.SUBWAY & features.PATH_STATIONS

@@ -284,6 +284,8 @@ _LOTS: contextvars.ContextVar[tuple[str, str] | None] = contextvars.ContextVar(
 )
 SUBWAY_SNAPSHOT = "/data1/apartments/external/subway/20260929-8e7c364"
 SUBWAY_FILE = f"{SUBWAY_SNAPSHOT}/subway.parquet"
+# PATH stations (`rentfrontier.external path`; Manhattan's opened 1908-1910).
+PATH_FILE = "/data1/apartments/external/path/20261002-0adddaf/path.parquet"
 # Street centerlines, parks and shoreline (`rentfrontier.external basemap`).
 BASEMAP_SNAPSHOT = "/data1/apartments/external/basemap/20260929-da7e40d"
 BASEMAP_FILE = f"{BASEMAP_SNAPSHOT}/basemap.parquet"
@@ -516,8 +518,9 @@ def building_transit(buildings, exclude=frozenset()) -> pd.DataFrame:
     """Per building (registry coordinates): metres to the nearest subway
     station stop and the distinct daytime routes stopping within
     TRANSIT_WALK_M (straight-line distances), without the stops in `exclude`
-    (GTFS ids)."""
-    registry = pd.read_parquet(REGISTRY_FILE).set_index("building")
+    (GTFS ids), and metres to the nearest PATH station. Coordinates are the
+    registry's the build reads (`LOT_SNAPSHOTS`)."""
+    registry = pd.read_parquet(lot_registry()).set_index("building")
     stops = pd.read_parquet(SUBWAY_FILE)
     stops = stops[~stops.gtfs_stop_id.isin(exclude)].reset_index(drop=True)
     lat0 = registry.latitude.mean()
@@ -533,8 +536,12 @@ def building_transit(buildings, exclude=frozenset()) -> pd.DataFrame:
     d = np.sqrt(((b[:, None, :] - s[None]) ** 2).sum(-1))
     routes = stops.daytime_routes.fillna("").str.split()
     n_routes = [len(set().union(*routes[row <= TRANSIT_WALK_M])) for row in d]
+    path = pd.read_parquet(PATH_FILE)
+    p = xy(path.stop_lat, path.stop_lon)
+    path_m = np.sqrt(((b[:, None, :] - p[None]) ** 2).sum(-1)).min(1)
     table = pd.DataFrame(
-        {"subway_m": d.min(1), "routes_10min": n_routes}, index=registry.index
+        {"subway_m": d.min(1), "routes_10min": n_routes, "path_m": path_m},
+        index=registry.index,
     )
     return table.reindex(buildings).reset_index(drop=True)
 
@@ -544,22 +551,33 @@ def transit_v2(
     train: np.ndarray,
     id: str = "transit-v2",
     base: str = "base-v1",
+    path: bool = False,
 ) -> Features:
     """A base set plus transit access as of each listing's month: the walk to
     the nearest subway station and the subway routes within a 10-minute walk
-    (building-level, changing when a station opens)."""
+    (building-level, changing when a station opens). `path=True` adds the walk
+    to the nearest PATH station."""
     base = FEATURE_SETS[base](frame, train)
     closed = frame.period.map(stops_not_open)
-    t = pd.DataFrame(index=range(len(frame)), columns=["subway_m", "routes_10min"])
+    columns = ["subway_m", "routes_10min", "path_m"]
+    t = pd.DataFrame(index=range(len(frame)), columns=columns)
     for exclude in closed.unique():
         rows = (closed == exclude).to_numpy()
         part = building_transit(frame.building.to_numpy()[rows], exclude)
-        t.loc[rows] = part.to_numpy()
+        t.loc[rows] = part[columns].to_numpy()
     known = t.subway_m.notna().to_numpy()
-    walk = np.log(np.maximum(t.subway_m.to_numpy(dtype=float) / WALK_M_PER_MIN, 1.0))
-    routes = np.log1p(t.routes_10min.to_numpy(dtype=float))
+
+    def log_walk(m):
+        return np.log(np.maximum(m.to_numpy(dtype=float) / WALK_M_PER_MIN, 1.0))
+
+    terms = [
+        ("log_walk_min_to_subway", log_walk(t.subway_m)),
+        ("log1p_routes_10min", np.log1p(t.routes_10min.to_numpy(dtype=float))),
+    ]
+    if path:
+        terms.append(("log_walk_min_to_path", log_walk(t.path_m)))
     b = _Builder(frame)
-    for name, v in (("log_walk_min_to_subway", walk), ("log1p_routes_10min", routes)):
+    for name, v in terms:
         centre = float(np.mean(v[train & known]))
         # A building without coordinates (none in the registry today) sits at the mean.
         b.add("transit", name, np.where(known, v - centre, 0.0))
@@ -1304,6 +1322,7 @@ EXTERNAL = {
     "nb-unitpluto-v1",
     "nb-facing-v1",
     "nb-facing-v2",
+    "nb-transit-v1",
     "wv-unitpluto-v1",
     "pluto-v1",
     "unitfloor-v2",
@@ -1324,7 +1343,9 @@ EXTERNAL = {
     "unitdescplutohpd-v2",
 }
 # Feature sets that read the subway stations snapshot.
-SUBWAY = {"unitdescplutotransit-v2"}
+SUBWAY = {"unitdescplutotransit-v2", "nb-transit-v1"}
+# Feature sets that read the PATH stations snapshot.
+PATH_STATIONS = {"nb-transit-v1"}
 # Feature sets that read the basemap snapshot (street centerlines).
 BASEMAP = {
     "unitfacing-v2",
@@ -1334,6 +1355,7 @@ BASEMAP = {
     "unitnoise-v1",
     "nb-facing-v1",
     "nb-facing-v2",
+    "nb-transit-v1",
 }
 # Feature sets that read the building footprints snapshot.
 FOOTPRINTS = {
@@ -1343,6 +1365,7 @@ FOOTPRINTS = {
     "unitnoise-v1",
     "nb-facing-v1",
     "nb-facing-v2",
+    "nb-transit-v1",
 }
 # Feature sets that read the 311 noise complaints snapshot.
 NOISE = {"unitnoise-v1"}
@@ -1353,6 +1376,7 @@ HPD = {"unitdescplutohpd-v1", "unitdescplutohpd-v2"}
 DESCRIPTIONS = {
     "nb-facing-v1",
     "nb-facing-v2",
+    "nb-transit-v1",
     "desc-v1",
     "unitdesc-v1",
     "unitdescpluto-v1",
@@ -1396,6 +1420,11 @@ FEATURE_SETS = {
     "nb-facing-v1": partial(neighbourhood_v1, id="nb-facing-v1", base="unitfacing-v4"),
     # nb-facing-v1 with West Village's ads too (`DESCRIPTION_SOURCES`).
     "nb-facing-v2": partial(neighbourhood_v1, id="nb-facing-v2", base="unitfacing-v4"),
+    # nb-facing-v2 plus transit as of the listing's month: the walk to the
+    # subway, the routes within a 10-minute walk, and the walk to PATH.
+    "nb-transit-v1": partial(
+        transit_v2, id="nb-transit-v1", base="nb-facing-v2", path=True
+    ),
     # West Village: the app design's building facts (as unitdescpluto-v3) on the
     # unit and floor features (no West Village ads: see nb-facing-v2).
     "wv-unitpluto-v1": partial(
@@ -1488,17 +1517,20 @@ LOT_SNAPSHOTS = {
     "nb-unitpluto-v1": {"registry": NB_REGISTRY_FILE, "pluto": NB_PLUTO_FILE},
     "nb-facing-v1": {"registry": NB_REGISTRY_FILE, "pluto": NB_PLUTO_FILE},
     "nb-facing-v2": {"registry": NB_REGISTRY_FILE, "pluto": NB_PLUTO_FILE},
+    "nb-transit-v1": {"registry": NB_REGISTRY_FILE, "pluto": NB_PLUTO_FILE},
     "unitnoise-v1": {"registry": REGISTRY_V3_FILE, "pluto": PLUTO_V3_FILE},
 }
 
 
 # Feature sets that read more description evidence than Chelsea's
 # (`descriptions.SOURCE`), by run-record key.
+_NB_DESCRIPTIONS = {
+    "descriptions": str(descriptions_module.SOURCE),
+    "descriptions_wv": str(descriptions_module.WV_SOURCE),
+}
 DESCRIPTION_SOURCES = {
-    "nb-facing-v2": {
-        "descriptions": str(descriptions_module.SOURCE),
-        "descriptions_wv": str(descriptions_module.WV_SOURCE),
-    },
+    "nb-facing-v2": _NB_DESCRIPTIONS,
+    "nb-transit-v1": _NB_DESCRIPTIONS,
 }
 
 
@@ -1506,6 +1538,7 @@ DESCRIPTION_SOURCES = {
 AREA_SNAPSHOTS = {
     "nb-facing-v1": {"basemap": NB_BASEMAP_FILE, "footprints": NB_FOOTPRINTS_FILE},
     "nb-facing-v2": {"basemap": NB_BASEMAP_FILE, "footprints": NB_FOOTPRINTS_FILE},
+    "nb-transit-v1": {"basemap": NB_BASEMAP_FILE, "footprints": NB_FOOTPRINTS_FILE},
 }
 
 
