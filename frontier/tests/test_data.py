@@ -144,3 +144,47 @@ def test_tuning_subset_is_a_stable_share_of_buildings():
     frame = pd.DataFrame({"building": buildings, "x": range(4000)})
     out, held = data.apply_rules(frame, np.zeros(4000, bool), ("tune-b35-v1",))
     assert len(out) == keep.sum() and not held.any()
+
+
+def test_unit_labels_v2_joins_confirmed_alias_groups_through_v1(tmp_path, monkeypatch):
+    """v2 = v1 plus the alias table's confirmed groups; groups chained through
+    either rule become one unit with the smallest id; unconfirmed groups and
+    rows are untouched."""
+    url = "https://streeteasy.com/building/{}/{}".format
+    frame = pd.DataFrame(
+        {
+            "building": ["a", "a", "a", "a", "a", "a"],
+            "unit_id": ["u5", "u2", "u3", "u4", "u6", "u7"],
+            "canonical_unit_url": [
+                url("a", "ph-4"),  # v1 joins u5 and u2 (punctuation)
+                url("a", "ph4"),
+                url("a", "ph04"),  # the alias table joins u3 with u2 ...
+                url("a", "r01"),
+                url("a", "r1"),  # ... and u4 with u6, but unconfirmed
+                url("a", "9c"),
+            ],
+            "asking_rent": [1.0, 2.0, 3.0, 4.0, 5.0, 6.0],
+        }
+    )
+    aliases = tmp_path / "aliases.jsonl"
+    lines = [
+        {"alias_group_id": "g1", "unit_id": "u3", "history_confirmed": True},
+        {"alias_group_id": "g1", "unit_id": "u2", "history_confirmed": True},
+        {"alias_group_id": "g2", "unit_id": "u4", "history_confirmed": False},
+        {"alias_group_id": "g2", "unit_id": "u6", "history_confirmed": False},
+    ]
+    aliases.write_text("".join(json.dumps(x) + "\n" for x in lines))
+    groups = data.unit_aliases.__wrapped__(aliases)
+    monkeypatch.setattr(data, "unit_aliases", lambda path=None: groups)
+    out = data.merge_unit_aliases(frame)
+    assert out.unit_id.tolist() == ["u2", "u2", "u2", "u4", "u6", "u7"]
+    assert out.asking_rent.tolist() == frame.asking_rent.tolist()
+    assert data.DATA_RULES["unit-labels-v2"] is data.merge_unit_aliases
+
+
+def test_the_alias_file_is_hashed_but_drops_no_rows():
+    assert "unit-labels-v2" in data.RULE_SOURCES
+    assert "unit-labels-v2" not in data.DROPPING_RULES
+    groups = data.unit_aliases()
+    assert len(groups) == 248 and all(len(g) > 1 for g in groups)
+    assert len(data.dropped_rows()) == len(data.quarantined(data.QUARANTINE_V2))
