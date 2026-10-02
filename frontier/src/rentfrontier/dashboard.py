@@ -1,12 +1,12 @@
-"""Build the research-progress dashboard: a static site over the leaderboard.
+"""Build the research data for the rents site's Research section.
 
     python -m rentfrontier.dashboard [--out /data1/apartments/dashboard]
 
 Reads the same records as `rentfrontier.leaderboard` (frontier runs, PyMC NUTS
 screens, the promoted reference, rescores, annotations) plus git history, and
-writes a self-contained static site: the page sources in `dashboard/` at the
-repo root and one generated `data.json`. Nothing is fitted or scored here
-beyond the board's own paired comparisons.
+writes one `data.json`, which the site (`apartments.site`, docs/site.md) reads.
+Nothing is fitted or scored here beyond the board's own paired comparisons and
+autoselect's decision.
 
 Time. Every board entry gets the time each split's result landed: frontier
 runs `started_at` + prepare + fit seconds (the end of sampling; scoring and
@@ -14,7 +14,7 @@ writing the record take about another minute); PyMC screens the remote
 worker's `finished_at`, else the result file's modification time. For every
 moment a result landed, the board's own rules (`leaderboard.choose_best`,
 `leaderboard.on_frontier`) are re-applied to the results available by then,
-so the dashboard's frontier and best at any date agree with what the board
+so the frontier and best shown for any date agree with what the board
 would have said at that date. An entry counts from its row-split result (its
 PSIS-LOO score is a function of that fit's saved draws, so it counts from
 then too); its gate status uses only the splits available at that moment.
@@ -25,7 +25,8 @@ id. Each entry gets a unique `key`: its id, plus its row-split run name when
 the id is shared. The board's own ids are unchanged.
 
 Publishing. Each build goes to <out>/builds/<stamp>/ and the `site` symlink
-is swapped atomically, so a server of <out>/site never sees a partial build.
+is swapped atomically, so a reader of <out>/site/data.json never sees a
+partial build.
 """
 
 from __future__ import annotations
@@ -34,7 +35,6 @@ import argparse
 import copy
 import datetime as dt
 import functools
-import glob
 import json
 import os
 import re
@@ -42,11 +42,10 @@ import shutil
 import subprocess
 from pathlib import Path
 
-from . import autoselect, leaderboard, rentmap, simplicity, variance
+from . import autoselect, leaderboard, simplicity, variance
 from . import data as data_module
 
 REPO = Path(__file__).resolve().parents[3]
-SITE_SOURCE = REPO / "dashboard"
 OUT = Path("/data1/apartments/dashboard")
 KEEP_BUILDS = 3
 
@@ -333,6 +332,9 @@ def data():
                 # The judge agents' pairwise simplicity judgements of this
                 # design (rentfrontier.simplicity): [{vs, verdict, reason}].
                 "simplicity": e.get("simplicity", []),
+                # exploration (a short fit for the research frontier, never
+                # served) or full, with draws, warmup, chains and subset.
+                "tier": e.get("tier"),
                 "why_not_served": serve_check(e, rules),
                 "psis": psis_fields(e.get("psis")),
                 "note": e["note"],
@@ -384,6 +386,7 @@ def data():
         "milestones": milestones(),
         "data_quality": data_quality(),
         "autoselect": selection_decision(entries),
+        "exploration": exploration_summary(),
         # Every recorded simplicity judgement (config/simplicity-judgements.jsonl).
         "simplicity_judgements": [
             j
@@ -419,6 +422,22 @@ DATA_RULE_TEXT = {
     'bedroom counts the ad flatly contradicts (a "three-bedroom home" recorded as one '
     "bedroom).",
 }
+
+
+def exploration_summary() -> dict | None:
+    """The research's exploration header for the site (config/exploration.json:
+    the goal, the tiers and what calibration has shown), with the dataset and
+    the board's baseline; None without the file."""
+    try:
+        conf = json.loads((REPO / "config" / "exploration.json").read_text())
+    except (OSError, ValueError):
+        return None
+    return {
+        "as_of": dt.datetime.now(dt.UTC).isoformat(timespec="seconds"),
+        "dataset": Path(data_module.DATASET).name,
+        "baseline": leaderboard.BASELINE,
+        **conf,
+    }
 
 
 def data_quality() -> dict:
@@ -475,31 +494,12 @@ def data_quality() -> dict:
     }
 
 
-def rent_map() -> Path | None:
-    """The newest rent-map bundle (`rentfrontier.rentmap`) of the app's selected
-    run (config/main-analysis.json), if one has been made."""
-    try:
-        run = json.loads((REPO / "config" / "main-analysis.json").read_text())["run"]
-    except (OSError, ValueError, KeyError, TypeError):
-        return None
-    if not isinstance(run, str):
-        return None
-    # <run>-<7-hex commit>: not a longer run name that starts with this one.
-    maps = sorted(
-        rentmap.MAPS.glob(f"{glob.escape(run)}-{'[0-9a-f]' * 7}/map.json"),
-        key=lambda p: p.stat().st_mtime,
-    )
-    return maps[-1] if maps else None
-
-
 def publish(out: Path):
     stamp = dt.datetime.now(dt.UTC).strftime("%Y%m%dT%H%M%S%fZ")
     builds = out / "builds"
     target = builds / stamp
-    shutil.copytree(SITE_SOURCE, target)
+    target.mkdir(parents=True)
     (target / "data.json").write_text(json.dumps(data(), indent=1))
-    if (bundle := rent_map()) is not None:
-        shutil.copyfile(bundle, target / "map.json")
     link = out / "site"
     tmp = out / f".site-{stamp}"
     os.symlink(target, tmp)

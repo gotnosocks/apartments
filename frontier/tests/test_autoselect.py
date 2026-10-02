@@ -67,7 +67,7 @@ def test_eligible_needs_gate_hardware_window_and_current_rules(tmp_path):
     out = [
         entry(tmp_path, "gate", 10, 1300, passes_checks=False),
         entry(tmp_path, "cpu", 10, 1300, hardware="thelio CPU (Ryzen 5 3600X)"),
-        entry(tmp_path, "slow", 10, 2000),
+        entry(tmp_path, "slow", 10, autoselect.WINDOW_SECONDS + 1),
         entry(
             tmp_path, "old-rules", 10, 1300, rules={"unit-labels-v1", "quarantine-v1"}
         ),
@@ -340,3 +340,9 @@ def test_a_tie_with_the_incumbent_outside_the_top_band_is_pending(
     d = autoselect.decide(es, "inc", RULES, paired_from(deltas), heldout)
     assert d["action"] == "keep"
     assert d["pending_judgements"] == [("inc/f", "new/f")]
+
+
+def test_an_exploration_fit_is_never_served(tmp_path):
+    e = entry(tmp_path, "quick", 10.0, 300, tier={"name": "exploration"})
+    assert "exploration fit" in autoselect.why_not(e, RULES)
+    assert autoselect.eligible([e], RULES) == []

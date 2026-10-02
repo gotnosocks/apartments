@@ -52,6 +52,7 @@ from __future__ import annotations
 import functools
 import json
 import math
+import re
 import subprocess
 from pathlib import Path
 
@@ -172,22 +173,72 @@ def shared_rows(a: dict, b: dict, what: str, a_dir, b_dir) -> list:
     return [k for k in a if k in b and k not in dropped]
 
 
+@functools.lru_cache(maxsize=16)
+def _pointwise(path: str, mtime: float):
+    """A LOO record's per-row arrays and its audit id -> row index, read once
+    per build (keyed by the file's mtime, so a rewritten record is re-read)."""
+    x = np.load(Path(path) / "pointwise.npz", allow_pickle=True)
+    ids = x["audit_id"].tolist()
+    if len(set(ids)) != len(ids):
+        raise ValueError(f"Duplicate training audit IDs in {Path(path).name}")
+    return dict(zip(ids, range(len(ids)))), x["elpd_loo"], x["mcse"]
+
+
+def pointwise(folder):
+    path = Path(folder)
+    return _pointwise(str(path), (path / "pointwise.npz").stat().st_mtime)
+
+
 def paired_loo(a_dir, b_dir):
     """Paired PSIS-LOO difference a - b on the training rows both keep:
-    (sum, SE, combined Monte Carlo error)."""
-    a = np.load(Path(a_dir) / "pointwise.npz", allow_pickle=True)
-    b = np.load(Path(b_dir) / "pointwise.npz", allow_pickle=True)
-    for x, folder in ((a, a_dir), (b, b_dir)):
-        if len(set(x["audit_id"].tolist())) != len(x["audit_id"]):
-            raise ValueError(f"Duplicate training audit IDs in {Path(folder).name}")
-    ai = dict(zip(a["audit_id"].tolist(), range(len(a["audit_id"]))))
-    bi = dict(zip(b["audit_id"].tolist(), range(len(b["audit_id"]))))
+    (sum, SE, combined Monte Carlo error). Cached per pair of records (by
+    their files' mtimes): a build pairs the same records many times."""
+    a, b = Path(a_dir), Path(b_dir)
+    return _paired_loo(
+        str(a),
+        (a / "pointwise.npz").stat().st_mtime,
+        str(b),
+        (b / "pointwise.npz").stat().st_mtime,
+        data.dropped_rows(),
+    )
+
+
+@functools.lru_cache(maxsize=4096)
+def _paired_loo(a_dir, a_mtime, b_dir, b_mtime, dropped):
+    ai, a_elpd, a_mcse = pointwise(a_dir)
+    bi, b_elpd, b_mcse = pointwise(b_dir)
+    a = {"elpd_loo": a_elpd, "mcse": a_mcse}
+    b = {"elpd_loo": b_elpd, "mcse": b_mcse}
     keys = shared_rows(ai, bi, "Training", a_dir, b_dir)
     ia = np.array([ai[k] for k in keys])
     ib = np.array([bi[k] for k in keys])
     d = a["elpd_loo"][ia] - b["elpd_loo"][ib]
     mc = math.sqrt(float(np.sum(a["mcse"][ia] ** 2) + np.sum(b["mcse"][ib] ** 2)))
     return float(d.sum()), float(d.std(ddof=1) * math.sqrt(len(d))), mc
+
+
+# Runs from before the --tier flag whose label starts "x-" were exploration fits.
+_LEGACY_EXPLORATION = re.compile(r"-rows-[0-9a-f]{7}-x-")
+
+
+def tier_of(run) -> dict:
+    """A run's tier (Ben, 2026-10-01): "exploration" (a short fit, maybe on a
+    subset, for the research frontier; never served) or "full", with the
+    draws, warmup, chains and subset rule that define it."""
+    s = run.get("sampler_settings") or {}
+    name = run.get("tier") or (
+        "exploration" if _LEGACY_EXPLORATION.search(run.get("name", "")) else "full"
+    )
+    subset = next(
+        (r for r in run.get("data_rules", ()) if r.startswith(data.TUNING_PREFIX)), None
+    )
+    return {
+        "name": name,
+        "draws": s.get("draws"),
+        "warmup": s.get("warmup"),
+        "chains": s.get("chains"),
+        "subset": subset,
+    }
 
 
 def tie_tolerance(se, mcse):
@@ -514,8 +565,14 @@ def on_frontier(entries):
         )
         return ge and s >= 0 and strict
 
+    # Exploration fits count without the gate: they are judged on ranking
+    # (Ben, 2026-10-01); full fits need it.
     candidates = [
-        e for e in entries if e["passes_checks"] and e["interpretable"] and scored(e)
+        e
+        for e in entries
+        if e["interpretable"]
+        and scored(e)
+        and (e["passes_checks"] or (e.get("tier") or {}).get("name") == "exploration")
     ]
     flags = []
     for e in entries:
@@ -565,6 +622,7 @@ def build(keep_dirs=False):
             "sampler": any_run["sampler"],
             "sampler_settings": any_run["sampler_settings"],
             "data_rules": list(any_run.get("data_rules", ())),
+            "tier": tier_of(by_split.get("rows", any_run)),
             "hardware": hardware_class(any_run),
             "interpretable": bool(
                 any_run["interpretability"]["named_additive_contributions"]
