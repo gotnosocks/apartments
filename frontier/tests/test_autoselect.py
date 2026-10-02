@@ -340,3 +340,9 @@ def test_a_tie_with_the_incumbent_outside_the_top_band_is_pending(
     d = autoselect.decide(es, "inc", RULES, paired_from(deltas), heldout)
     assert d["action"] == "keep"
     assert d["pending_judgements"] == [("inc/f", "new/f")]
+
+
+def test_an_exploration_fit_is_never_served(tmp_path):
+    e = entry(tmp_path, "quick", 10.0, 300, tier={"name": "exploration"})
+    assert "exploration fit" in autoselect.why_not(e, RULES)
+    assert autoselect.eligible([e], RULES) == []
