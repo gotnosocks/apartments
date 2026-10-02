@@ -48,17 +48,18 @@ then the simplest, then the fastest, and it changes only when another fit clearl
   (drawn as diamonds; full fits are circles) but are never served: only a full fit's estimates reach the rest of the site.{% if exploration.dataset %}
   Data: <code>{{ exploration.dataset }}</code>.{% endif %}{% if exploration.as_of %} As of {{ exploration.as_of[:16] | replace("T", " ") }} UTC.{% endif %}</p>
   {% if exploration.tiers %}
+  {# The legend may give each tier's settings or only describe it: show the columns it has. #}
+  {% set settings = exploration.tiers | selectattr("draws", "number") | list %}
   <div class="table-wrap">
   <table class="data">
-    <thead><tr><th scope="col">Tier</th><th scope="col" class="num">Draws</th><th scope="col" class="num">Warm-up</th><th scope="col" class="num">Chains</th><th scope="col">Data</th><th scope="col">What it is for</th></tr></thead>
+    <thead><tr><th scope="col">Tier</th>{% if settings %}<th scope="col" class="num">Draws</th><th scope="col" class="num">Warm-up</th><th scope="col" class="num">Chains</th>{% endif %}<th scope="col">What it is for</th></tr></thead>
     <tbody>
     {% for t in exploration.tiers %}
       <tr><td>{{ tiers.get(t.name, t.name) }}</td>
-        <td class="num">{{ "{:,}".format(t.draws) if t.draws is not none else "—" }}</td>
-        <td class="num">{{ "{:,}".format(t.warmup) if t.warmup is not none else "—" }}</td>
-        <td class="num">{{ t.chains if t.chains is not none else "—" }}</td>
-        <td>{% if t.subset %}subset <code>{{ t.subset }}</code>{% else %}all listings{% endif %}</td>
-        <td>{{ t.description or "" }}</td></tr>
+        {% if settings %}<td class="num">{{ "{:,}".format(t.draws) if t.draws is number else "—" }}</td>
+        <td class="num">{{ "{:,}".format(t.warmup) if t.warmup is number else "—" }}</td>
+        <td class="num">{{ t.chains if t.chains is number else "—" }}</td>{% endif %}
+        <td>{{ t.description or "" }}{% if t.subset %} <span class="muted">(subset <code>{{ t.subset }}</code>)</span>{% endif %}</td></tr>
     {% endfor %}
     </tbody>
   </table>

@@ -1004,7 +1004,7 @@ def _with_exploration(research_file):
         fit_seconds=120.0,
         psis={"delta": 5100.0, "delta_se": 130.0},
         why_not_served="it is an exploration fit",
-        available_at="2026-10-01T09:00:00+00:00",
+        available_at="2026-09-29T09:00:00+00:00",
         splits={"rows": {"run": "m-test-quick-run"}},
         simplicity=[],
     )
@@ -1070,6 +1070,19 @@ def test_exploration_fits_count_on_the_frontier(client, research_file):
     assert subset["key"] not in html
     shown = client.get("/research?subsets=1").get_data(as_text=True)
     assert subset["key"] in shown
+    # a legend that only describes its tiers, as the live data does
+    data = json.loads(research_file.read_text())
+    data["exploration"]["tiers"] = [
+        {"name": "exploration", "description": "Short."},
+        {"name": "full", "description": "Full."},
+    ]
+    research_file.write_text(json.dumps(data))
+    described = client.get("/research").get_data(as_text=True)
+    assert "<td>Short.</td>" in described and ">Draws<" not in described
+    # no exploration header: no card, the fits still drawn
+    research_file.write_text(json.dumps(dict(data, exploration=None)))
+    plain = client.get("/research").get_data(as_text=True)
+    assert "The current exploration" not in plain and "key-shape diamond" in plain
 
 
 def test_board_filters_by_tier(client, research_file):
