@@ -49,7 +49,7 @@ from . import data, explain, features, model, splits
 from .run import git
 
 MAPS = data.OUTPUT_ROOT / "maps"
-VERSION = "rent-map-v1"
+VERSION = "rent-map-v2"
 BEDROOMS = (
     ("studio", "Studio", (0,)),
     ("1", "1 bedroom", (1,)),
@@ -436,6 +436,8 @@ def compute(name: str) -> dict:
         },
         "rent": out_rent,
         "median": median_rent,
+        # The same as `median`, under its old name, until the site reads `median`.
+        "chelsea_median": median_rent,
         "area": area,
     }
 
