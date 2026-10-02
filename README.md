@@ -21,7 +21,7 @@ records every major model generation, its equations, source revisions, model
 changes and promotion rationale over time. A standalone [HTML version](docs/model/main-model-evolution.html)
 is also included for browser reading. Research progress (the Pareto frontier
 of held-out ΔELPD × fit time, and how it moved over time) is on the
-[research dashboard](docs/dashboard.md) at http://thelio.tail3983e0.ts.net:8500,
+[Research section of the rents site](docs/site.md) at http://thelio.tail3983e0.ts.net:8600/research,
 rebuilt every 10 minutes from the run records. The [listings site](docs/site.md) at
 http://thelio.tail3983e0.ts.net:8600 shows every listing with the selected model's
 leave-own-row-out estimate, its dollar contributions and the gap to the ask.
@@ -108,10 +108,10 @@ resume behavior.
 
 The primary project and archive now live on **thelio**, with the archive under
 `/data1/apartments/archive`. See the [hosting and migration runbook](docs/operations/thelio.md)
-for the verified cutover record, the archive browser and the research dashboard.
+for the verified cutover record, the archive browser and the rents site.
 Migration completed on September 16 at 21:19 EDT; Modal retains a frozen backup.
 Direct Tailscale access: [listings site](http://thelio.tail3983e0.ts.net:8600/) ·
-[research dashboard](http://thelio.tail3983e0.ts.net:8500/) ·
+[research](http://thelio.tail3983e0.ts.net:8600/research) ·
 [raw archive](http://thelio.tail3983e0.ts.net:8765/).
 
 Earlier baseline: [September 17 minimal canonical-unit model](docs/analysis/chelsea-minimal-2026-09-17.md).

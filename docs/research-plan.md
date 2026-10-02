@@ -3,7 +3,7 @@
 Living plan for the modeling work. Ben set its objective on 2026-09-24: optimize the Pareto frontier of
 PSIS-LOO accuracy and fit time. On 2026-10-01 he added elegance as a third axis and made Chelsea plus
 West Village the target (see "Objective"). The [board](model/leaderboard/leaderboard.md) and the
-[dashboard](dashboard.md) (http://thelio.tail3983e0.ts.net:8500) apply the rules below. The goals, data
+[Research section of the rents site](site.md) (http://thelio.tail3983e0.ts.net:8600/research) apply the rules below. The goals, data
 contract and pitfalls in [the 2026-09-24 brief](brief-2026-09-24.md) and the
 [project intent](project-intent.md) still apply. This plan replaces the brief's evaluation contract
 (§4) and first tasks (§5).
@@ -177,7 +177,9 @@ of it.
   (Ben, 2026-09-24).
 - **One timed job at a time** (Ben, 2026-09-24: "I'm okay with waiting longer to do these things
   serially in favor of getting good data"). Every heavy job on thelio holds
-  `/data1/apartments/tmp/heavy.lock`: fits, LOO and variance scoring, and reviewers' tests. The
+  `/data1/apartments/tmp/heavy.lock`: fits, LOO and variance scoring, and reviewers' tests. Light
+  read-only jobs run without it at idle priority instead, such as the site's research-data build
+  (Ben, 2026-10-01: live updates, never blocked by the lock). The
   fit queue runs from a fixed-commit worktree. From commit 3c26c4a, each run record carries a
   `contention` block: the mean number of cores other processes kept busy during the fit, and any
   other GPU compute processes. A timing is clean below 0.5 other cores, and the dashboard's Timing
