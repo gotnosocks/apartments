@@ -38,7 +38,9 @@ def test_build_writes_each_rows_own_ad_as_last_captured(tmp_path, monkeypatch):
     )
     out = descriptions.build(tmp_path / "granular", cohort, "wv", "abcdef0123")
     assert out.name.startswith("wv-") and out.name.endswith("-abcdef0")
-    evidence = [json.loads(x) for x in (out / "evidence.jsonl").read_text().splitlines()]
+    evidence = [
+        json.loads(x) for x in (out / "evidence.jsonl").read_text().splitlines()
+    ]
     assert {(e["audit_id"], e["description"]) for e in evidence} == {
         ("a", "Sunny one bedroom"),
         ("c", "Studio on Perry"),
@@ -69,7 +71,10 @@ def test_only_listed_feature_sets_read_west_villages_ads(monkeypatch):
     from rentfrontier import features, run
 
     monkeypatch.setattr(run.data, "sha256", lambda path: "sha")
-    assert set(run.feature_sources("nb-facing-v2")) >= {"descriptions", "descriptions_wv"}
+    assert set(run.feature_sources("nb-facing-v2")) >= {
+        "descriptions",
+        "descriptions_wv",
+    }
     assert "descriptions_wv" not in run.feature_sources("nb-facing-v1")
     seen = {}
 
