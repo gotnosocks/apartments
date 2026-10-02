@@ -42,6 +42,7 @@ from .research import (
     LINES,
     TARGET_HARDWARE,
     TARGET_MINUTES,
+    TIERS,
     Plan,
     Research,
     best_over_time,
@@ -50,9 +51,9 @@ from .research import (
     entry_by_key,
     entry_for_run,
     frontier_view,
+    full_fits_of,
     hardware_classes,
     implementations,
-    is_subset,
     latest_milestones,
     outlier_floor,
     run_of,
@@ -61,6 +62,8 @@ from .research import (
     simplicity_summary,
     snapshot_days,
     spearman,
+    subset_fit,
+    tier_of,
     validation_pairs,
 )
 from .selection import SELECTION, selection_note
@@ -481,6 +484,7 @@ def create_app(
     )
 
     app.jinja_env.globals["simplicity_summary"] = simplicity_summary
+    app.jinja_env.globals["tier_of"] = tier_of
 
     @app.context_processor
     def helpers():
@@ -1025,6 +1029,7 @@ def create_app(
             se = f" ± {f['delta_se']:,.1f}" if f["delta_se"] is not None else ""
             rows.append(["PSIS-LOO ΔELPD", f"{f['delta']:+,.1f}{se}"])
         rows.append(["Fit time", f"{f['minutes']:.1f} min"])
+        rows.append(["Tier", TIERS[f["tier"]]])
         rows.append(["Simplicity", f["simplicity"] or "not judged yet"])
         rows.append(
             [
@@ -1063,6 +1068,7 @@ def create_app(
                 "x": f["minutes"],
                 "y": f["delta"],
                 "kind": f["kind"],
+                "tier": f["tier"],
                 "title": f["entry"]["key"],
                 "rows": fit_rows(f),
                 "href": url_for("research_fit", key=f["entry"]["key"]),
@@ -1083,6 +1089,8 @@ def create_app(
             target=target,
             target_minutes=TARGET_MINUTES,
             judged_pairs=len(data.get("simplicity_judgements") or ()),
+            exploration=data.get("exploration"),
+            tiers=TIERS,
             time_chart=charts.fit_scatter(
                 time_points,
                 label=f"Accuracy against fit time on {device}, one dot per fit",
@@ -1119,6 +1127,8 @@ def create_app(
         q = (request.args.get("q") or "").strip()[:80]
         servable = request.args.get("servable") == "1"
         subsets = request.args.get("subsets") == "1"
+        tier = request.args.get("tier")
+        tier = tier if tier in TIERS else None
         rows = board_rows(
             data,
             hardware=hardware,
@@ -1126,6 +1136,7 @@ def create_app(
             q=q,
             servable=servable,
             subsets=subsets,
+            tier=tier,
             sort=sort,
             descending=order == "desc",
         )
@@ -1137,6 +1148,7 @@ def create_app(
                 "q": q or None,
                 "servable": "1" if servable else None,
                 "subsets": "1" if subsets else None,
+                "tier": tier,
                 "sort": None if sort == "delta" else sort,
                 "order": None if order == BOARD_ORDERS[sort] else order,
             }
@@ -1149,6 +1161,8 @@ def create_app(
             meta=m,
             rows=rows,
             total=len(data.get("entries", [])),
+            tier=tier,
+            tiers=TIERS,
             classes=classes,
             lines=LINES,
             hardware=hardware,
@@ -1185,6 +1199,10 @@ def create_app(
             baseline=data.get("baseline"),
             lines=LINES,
             design_fits=design_fits(data),
+            tier=(entry.get("tier") or {}) if tier_of(entry) == "exploration" else None,
+            full_fits=full_fits_of(data, entry)
+            if tier_of(entry) == "exploration"
+            else [],
         )
 
     def design_fits(data: dict) -> dict:
@@ -1226,11 +1244,11 @@ def create_app(
                 "served"
                 if run and run == served_run
                 else "subset"
-                if is_subset(run)
+                if subset_fit(e)
                 else "frontier"
                 if e.get("frontier")
                 else "failing"
-                if not e.get("passes_checks")
+                if not e.get("passes_checks") and tier_of(e) == "full"
                 else "other"
             )
             fits.append(
@@ -1239,6 +1257,7 @@ def create_app(
                     "at": e["available_at"],
                     "y": e["fit_seconds"] / 60,
                     "kind": kind,
+                    "tier": tier_of(e),
                     "title": e["id"],
                     "rows": [["Fit time", f"{e['fit_seconds'] / 60:.1f} min"]],
                     "href": url_for("research_fit", key=e["key"]),

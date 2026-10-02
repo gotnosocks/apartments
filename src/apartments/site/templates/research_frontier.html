@@ -34,9 +34,40 @@ then the simplest, then the fastest, and it changes only when another fit clearl
 
 <section class="tiles" aria-label="This view">
   <div class="tile"><span class="tile-label">Fits on this hardware</span><span class="tile-value">{{ view.fits | length }}</span></div>
+  {% set explored = view.fits | selectattr("tier", "equalto", "exploration") | list | length %}
+  {% if explored %}<div class="tile"><span class="tile-label">Exploration fits</span><span class="tile-value">{{ explored }}</span></div>{% endif %}
   <div class="tile"><span class="tile-label">On the frontier</span><span class="tile-value">{{ view.fits | selectattr("frontier") | list | length }}</span></div>
   <div class="tile"><span class="tile-label">Board as of</span><span class="tile-value tile-small">{{ snap.at[:16] | replace("T", " ") if snap else "—" }} UTC</span></div>
 </section>
+
+{% if exploration %}
+<section class="card">
+  <h2>The current exploration</h2>
+  {% if exploration.goal %}<p>{{ exploration.goal }}</p>{% endif %}
+  <p class="note">Exploration fits are short fits that show quickly whether a design is promising. They count on the frontier
+  (drawn as diamonds; full fits are circles) but are never served: only a full fit's estimates reach the rest of the site.{% if exploration.dataset %}
+  Data: <code>{{ exploration.dataset }}</code>.{% endif %}{% if exploration.as_of %} As of {{ exploration.as_of[:16] | replace("T", " ") }} UTC.{% endif %}</p>
+  {% if exploration.tiers %}
+  {# The legend may give each tier's settings or only describe it: show the columns it has. #}
+  {% set settings = exploration.tiers | selectattr("draws", "number") | list %}
+  <div class="table-wrap">
+  <table class="data">
+    <thead><tr><th scope="col">Tier</th>{% if settings %}<th scope="col" class="num">Draws</th><th scope="col" class="num">Warm-up</th><th scope="col" class="num">Chains</th>{% endif %}<th scope="col">What it is for</th></tr></thead>
+    <tbody>
+    {% for t in exploration.tiers %}
+      <tr><td>{{ tiers.get(t.name, t.name) }}</td>
+        {% if settings %}<td class="num">{{ "{:,}".format(t.draws) if t.draws is number else "—" }}</td>
+        <td class="num">{{ "{:,}".format(t.warmup) if t.warmup is number else "—" }}</td>
+        <td class="num">{{ t.chains if t.chains is number else "—" }}</td>{% endif %}
+        <td>{{ t.description or "" }}{% if t.subset %} <span class="muted">(subset <code>{{ t.subset }}</code>)</span>{% endif %}</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  </div>
+  {% endif %}
+  {% if exploration.notes %}<ul>{% for n in exploration.notes %}<li>{{ n }}</li>{% endfor %}</ul>{% endif %}
+</section>
+{% endif %}
 
 <section class="card">
   <h2>Accuracy against fit time</h2>
@@ -85,6 +116,8 @@ then the simplest, then the fastest, and it changes only when another fit clearl
     as equal. The table counts each fit's judged pairs.</dd>
     <dt>Convergence checks</dt><dd>Whether the sampler settled on one stable answer (R-hat and effective sample size). A fit that
       fails them is shown hollow and never served.</dd>
+    <dt>Exploration fits</dt><dd>Short fits (fewer draws) that show quickly whether a design is promising. They count on the
+      frontier, drawn as diamonds, and are never served; a promising design gets a full fit.</dd>
     <dt>Subset fits</dt><dd>Fits on a part of the data, used to tune settings quickly. They are exploration only, never served.</dd>
   </dl>
 </section>
