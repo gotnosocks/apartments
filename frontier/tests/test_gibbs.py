@@ -91,6 +91,9 @@ DESIGNS = {
         feature_slopes=("x0",),
         unit_t=True,
     ),
+    "fourier": model.ModelConfig(
+        building_walk=True, bedroom_slope=True, season_harmonics=2
+    ),
     "drift": model.ModelConfig(building_walk=True, unit_drift=True),
     "tdrift": model.ModelConfig(
         building_walk=True,
@@ -376,7 +379,9 @@ def test_student_t_units_block_matches_dense():
     )
 
 
-@pytest.mark.parametrize("design", ["all", "quarterly", "fslopes", "tunits", "tdrift"])
+@pytest.mark.parametrize(
+    "design", ["all", "quarterly", "fslopes", "tunits", "tdrift", "fourier"]
+)
 def test_site_values_reproduce_linear_predictor(design):
     """Gibbs state -> NumPyro sites -> model.linear_predictor equals the Gibbs fit."""
     prep = synthetic()
@@ -597,3 +602,14 @@ def test_detrended_cov_recovers_correlation_despite_drift():
     np.testing.assert_allclose(gibbs._detrended_cov(x), c, rtol=0.1, atol=1e-6)
     f = np.linalg.cholesky(c)
     np.testing.assert_allclose(gibbs._step_sds(f), [0.01, 0.01])
+
+
+def test_fourier_season_basis_is_centred_and_shrinks_higher_harmonics():
+    basis = model.season_basis(2)
+    assert basis.shape == (12, 4)
+    np.testing.assert_allclose(basis.sum(0), 0.0, atol=1e-12)
+    np.testing.assert_allclose(model.season_shrink(2), [1, 2, 1, 2])
+    d = gibbs.build_design(synthetic(), DESIGNS["fourier"])
+    assert d.season.stop - d.season.start == 4
+    _, r = d.global_blocks["season_scale"]
+    np.testing.assert_allclose(np.diag(np.asarray(r)), [1, 4, 1, 4])
