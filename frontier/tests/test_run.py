@@ -35,3 +35,14 @@ def test_only_the_unit_merge_is_refused_on_the_units_split():
     check_rules_for_split(("quarantine-v1",), "units")
     with pytest.raises(SystemExit, match="unit-labels-v1"):
         check_rules_for_split(("unit-labels-v1",), "units")
+
+
+def test_unit_merging_rules_are_refused_on_the_units_split():
+    import pytest
+    from rentfrontier import run
+
+    for rule in ("unit-labels-v1", "unit-labels-v2"):
+        with pytest.raises(SystemExit, match="merges units"):
+            run.check_rules_for_split([rule, "quarantine-v2"], "units")
+        run.check_rules_for_split([rule], "rows")
+    run.check_rules_for_split(["quarantine-v2"], "units")

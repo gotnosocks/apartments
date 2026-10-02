@@ -262,11 +262,13 @@ def _data_rules(value: str) -> tuple:
 
 
 def check_rules_for_split(rules, split: str) -> None:
-    """unit-labels-v1 merges units after the split, which on the units split
-    would join held-out units to training units (77 units, 142 held-out rows).
-    Rules that only drop rows keep every other row's split, on either split."""
-    if "unit-labels-v1" in rules and split == "units":
-        raise SystemExit("unit-labels-v1 merges units: not with the units split")
+    """The unit-labels rules merge units after the split, which on the units
+    split would join held-out units to training units (v1: 77 units, 142
+    held-out rows). Rules that only drop rows keep every other row's split, on
+    either split."""
+    merging = [r for r in rules if r.startswith("unit-labels-")]
+    if merging and split == "units":
+        raise SystemExit(f"{merging[0]} merges units: not with the units split")
 
 
 def main(argv=None):
