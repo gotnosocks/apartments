@@ -15,8 +15,14 @@ Pareto frontier of fit quality, fit time, and model elegance/simplicity". He con
 asked:
 
 - **Three axes:** PSIS-LOO ΔELPD (fit quality), fit time on the RTX 2060, and simplicity.
-- **The target is the full dataset:** Chelsea plus West Village, one fit within the **30-minute window**
-  on the RTX 2060. The hard stop stays at 35 minutes. Fits on a subset of buildings (tuning rules
+- **The target is the full dataset:** Chelsea plus West Village, one fit on the RTX 2060. From
+  2026-10-01 (Ben: "we can update our rules so that the exploratory fits (data subset) must run under
+  30 mins and the full fit can take more than 30 mins"; a 2-hour hard stop, and fit time stays an
+  axis):
+  - a full fit may take up to **2 hours**, the hard stop and the window autoselect serves within;
+  - an exploratory fit on a subset must finish within **30 minutes**.
+
+  Fits on a subset of buildings (tuning rules
   such as `tune-b35-v1`) are for exploration and never frontier points or served.
 - **Simplicity is judged holistically, by judge agents, a pair of designs at a time.** Ben first left
   it to judgement, then chose a holistic judgement over a points rubric: "I prefer a wholistic
@@ -155,6 +161,10 @@ set. Data rules, samplers and settings are not part of it.
 
 - Fit time is the scored (row-split) fit's sampler wall time, including JIT compilation, on the
   hardware recorded with the run. Unit-split fits are optional and are not counted.
+- **Time limits (from 2026-10-01):**
+  - Full-data fits stop at 2 hours, and autoselect serves fits within that.
+  - Exploratory fits on a subset of buildings stop at 30 minutes.
+  - One timed fit at a time, as before.
 - **One frontier per hardware class** (Ben, 2026-09-24: the frontier on different hardware is
   expected to differ a lot). A fit time only competes with fit times on the same hardware. The
   class is where the fit actually ran (the JAX device, not just the host's GPU): Modal H100,
@@ -183,7 +193,8 @@ You do not need my approval to change the dashboard model."
   chosen by a rule in code, `python -m rentfrontier.autoselect`, and no longer by hand.
 - **Eligible fits.** A fit must meet all of these:
   - it passes the gate, has named additive contributions, and has a paired PSIS-LOO score;
-  - it ran on the RTX 2060 row split within the 30-minute window;
+  - it ran on the RTX 2060 row split within the 2-hour window for full fits (30 minutes until
+    2026-10-01);
   - it used the current data rules, the latest version of each rule family. A fit on rows a
     later review found to be wrong is not served.
 - **The choice** follows the board's `choose_best` among the eligible fits. It differs only

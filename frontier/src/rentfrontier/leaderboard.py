@@ -52,6 +52,7 @@ from __future__ import annotations
 import functools
 import json
 import math
+import re
 import subprocess
 from pathlib import Path
 
@@ -188,6 +189,30 @@ def paired_loo(a_dir, b_dir):
     d = a["elpd_loo"][ia] - b["elpd_loo"][ib]
     mc = math.sqrt(float(np.sum(a["mcse"][ia] ** 2) + np.sum(b["mcse"][ib] ** 2)))
     return float(d.sum()), float(d.std(ddof=1) * math.sqrt(len(d))), mc
+
+
+# Runs from before the --tier flag whose label starts "x-" were exploration fits.
+_LEGACY_EXPLORATION = re.compile(r"-rows-[0-9a-f]{7}-x-")
+
+
+def tier_of(run) -> dict:
+    """A run's tier (Ben, 2026-10-01): "exploration" (a short fit, maybe on a
+    subset, for the research frontier; never served) or "full", with the
+    draws, warmup, chains and subset rule that define it."""
+    s = run.get("sampler_settings") or {}
+    name = run.get("tier") or (
+        "exploration" if _LEGACY_EXPLORATION.search(run.get("name", "")) else "full"
+    )
+    subset = next(
+        (r for r in run.get("data_rules", ()) if r.startswith(data.TUNING_PREFIX)), None
+    )
+    return {
+        "name": name,
+        "draws": s.get("draws"),
+        "warmup": s.get("warmup"),
+        "chains": s.get("chains"),
+        "subset": subset,
+    }
 
 
 def tie_tolerance(se, mcse):
@@ -514,8 +539,14 @@ def on_frontier(entries):
         )
         return ge and s >= 0 and strict
 
+    # Exploration fits count without the gate: they are judged on ranking
+    # (Ben, 2026-10-01); full fits need it.
     candidates = [
-        e for e in entries if e["passes_checks"] and e["interpretable"] and scored(e)
+        e
+        for e in entries
+        if e["interpretable"]
+        and scored(e)
+        and (e["passes_checks"] or (e.get("tier") or {}).get("name") == "exploration")
     ]
     flags = []
     for e in entries:
@@ -565,6 +596,7 @@ def build(keep_dirs=False):
             "sampler": any_run["sampler"],
             "sampler_settings": any_run["sampler_settings"],
             "data_rules": list(any_run.get("data_rules", ())),
+            "tier": tier_of(by_split.get("rows", any_run)),
             "hardware": hardware_class(any_run),
             "interpretable": bool(
                 any_run["interpretability"]["named_additive_contributions"]
