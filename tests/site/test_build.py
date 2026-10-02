@@ -336,3 +336,12 @@ def test_listings_and_buildings_carry_their_neighbourhood(
     assert b["134-west-23-street-new_york"] == "West Village"
     meta = {r["key"]: json.loads(r["value"]) for r in query(root, "SELECT * FROM meta")}
     assert meta["stats"]["neighbourhoods"] == {"Chelsea": 4, "West Village": 2}
+    # without --scope, the site is named for the neighbourhoods it covers
+    assert meta["scope"] == "Chelsea and West Village"
+    assert build.scope_of([{"neighbourhood": "Chelsea"}]) == "Chelsea"
+    assert (
+        build.scope_of(
+            [{"neighbourhood": n} for n in ("West Village", "Chelsea", "Flatiron")]
+        )
+        == "Chelsea, Flatiron and West Village"
+    )

@@ -569,7 +569,11 @@ def quarantined_rows(missing, observations, decisions, registry) -> list[dict]:
 
 
 def write_database(
-    path: Path, record: dict, bundle: Path, scope: str, selection: dict | None = None
+    path: Path,
+    record: dict,
+    bundle: Path,
+    scope: str | None,
+    selection: dict | None = None,
 ) -> dict:
     observations = load_observations(
         Path(record["dataset"]), record["dataset_observations_sha256"]
@@ -595,7 +599,9 @@ def write_database(
     if names != record["terms"]:
         raise BuildError("terms.json differs from the bundle's record")
     k_threshold = record["estimate_pareto_k"]["threshold"]
-    listings = listing_rows(rows, observations, names, k_threshold, scope)
+    listings = listing_rows(rows, observations, names, k_threshold, scope or "Chelsea")
+    if not scope:
+        scope = scope_of(listings)
     units = unit_rows(listings)
     registry = external(record, "registry")
     buildings = building_rows(
@@ -725,10 +731,20 @@ def publish(build_dir: Path, root: Path, keep: int = KEEP) -> None:
             shutil.rmtree(old)
 
 
+def scope_of(listings: list[dict]) -> str:
+    """The neighbourhoods the listings cover, in words ("Chelsea and West
+    Village"): the site's name for the area when the publish does not give
+    one."""
+    names = sorted({row["neighbourhood"] for row in listings})
+    if len(names) <= 1:
+        return names[0] if names else "Chelsea"
+    return ", ".join(names[:-1]) + " and " + names[-1]
+
+
 def build(
     summary: Path,
     root: Path = DEFAULT_ROOT,
-    scope: str = "Chelsea",
+    scope: str | None = None,
     selection: Path = SELECTION,
 ) -> Path:
     summary = summary.resolve()
@@ -780,7 +796,11 @@ def main(argv=None):
     )
     parser.add_argument("--selection", type=Path, default=SELECTION)
     parser.add_argument("--root", type=Path, default=DEFAULT_ROOT)
-    parser.add_argument("--scope", default="Chelsea", help="neighborhoods covered")
+    parser.add_argument(
+        "--scope",
+        default=None,
+        help="neighbourhoods covered, in words (default: the listings' own)",
+    )
     args = parser.parse_args(argv)
     try:
         summary = args.summary or selected_summary(args.selection)
