@@ -59,6 +59,8 @@ def resolve_delay(explicit, transport, neighborhood, profile):
 
 
 def main(argv=None):
+    from .neighborhoods import choices as neighborhood_choices
+
     parser = argparse.ArgumentParser(prog="streeteasy-archive")
     parser.add_argument(
         "--data",
@@ -89,7 +91,7 @@ def main(argv=None):
         )
         command.add_argument(
             "--neighborhood",
-            choices=("chelsea", "west-village"),
+            choices=neighborhood_choices(),
             help="persistent neighborhood scope; Chelsea includes West Chelsea, excluding Hudson Yards",
         )
         command.add_argument(
