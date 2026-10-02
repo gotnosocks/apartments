@@ -65,13 +65,17 @@ def k_threshold(draws: int) -> float:
     return min(1.0 - 1.0 / math.log10(draws), 0.7)
 
 
-def integrated_loglik(y, mu, seg, n_seg, unit_time, params, *, t_units, drift):
+def integrated_loglik(
+    y, mu, seg, n_seg, unit_time, params, *, t_units, drift, bed_group=None
+):
     """(draws, rows) log p(y_j | theta_s, y_{u(j),-j}) with the unit effect integrated.
 
     y: (rows,); mu: (draws, rows) predictor without unit terms; seg: (rows,)
     unit segment ids in [0, n_seg); unit_time: (rows,) years from the unit's
     mean training date; params: dict of (draws,) arrays nu, sigma,
-    unit_scale, and unit_nu (t_units) / unit_drift_scale (drift).
+    unit_scale, and unit_nu (t_units) / unit_drift_scale (drift). With one
+    residual scale per bedroom group, sigma is (draws, groups) and
+    `bed_group` gives each row's group.
     """
     import jax
     import jax.numpy as jnp
@@ -89,6 +93,9 @@ def integrated_loglik(y, mu, seg, n_seg, unit_time, params, *, t_units, drift):
     y = jnp.asarray(y)
     seg = jnp.asarray(seg)
     unit_time = jnp.asarray(unit_time)
+    groups = jnp.asarray(
+        np.zeros(y.shape[0], np.int32) if bed_group is None else bed_group
+    )
 
     def one(args):
         mu_s, p = args
@@ -106,12 +113,15 @@ def integrated_loglik(y, mu, seg, n_seg, unit_time, params, *, t_units, drift):
             else jnp.zeros((y.shape[0], 1))
         )
         resid = y - mu_s
+        sigma = p["sigma"]
+        if sigma.ndim:  # one scale per bedroom group: each row's group's
+            sigma = sigma[groups][:, None, None]
         ll = student_t_logpdf(
             resid[:, None, None]
             - p["unit_scale"] * z[None, None, :]
             - drift_off[:, :, None],
             p["nu"],
-            p["sigma"],
+            sigma,
         )  # (rows, D, G)
         total = jax.ops.segment_sum(ll, seg, num_segments=n_seg)  # (units, D, G)
         count = jax.ops.segment_sum(ones, seg, num_segments=n_seg)
@@ -246,6 +256,7 @@ def score_run(name: str):
         )
         mu = sum(v for k, v in terms.items() if k not in UNIT_TERMS) - prep.offset
         mu, y, ut, unit = mu[:, pos], a.y[pos], a.unit_time[pos], a.unit[pos]
+        bg = a.bed_group[pos]
         _, seg = np.unique(unit, return_inverse=True)
         n = hi - lo
         pad = size - n
@@ -254,8 +265,17 @@ def score_run(name: str):
         mu_p = np.concatenate([mu, np.zeros((draws, pad))], axis=1)
         seg_p = np.r_[seg, seg.max() + 1 + np.arange(pad)]
         ut_p = np.r_[ut, np.zeros(pad)]
+        bg_p = np.r_[bg, np.zeros(pad, bg.dtype)]
         ll = integrated_loglik(
-            y_p, mu_p, seg_p, size, ut_p, params, t_units=t_units, drift=drift
+            y_p,
+            mu_p,
+            seg_p,
+            size,
+            ut_p,
+            params,
+            t_units=t_units,
+            drift=drift,
+            bed_group=bg_p,
         )
         loglik[:, lo:hi] = np.asarray(ll)[:, :n]
 

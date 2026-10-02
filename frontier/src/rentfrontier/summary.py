@@ -194,7 +194,7 @@ def weighted_quantiles(values, weights, probabilities=PROBABILITIES):
     return out
 
 
-def loo_unit_levels(y, rest, seg, n_seg, params, key, *, t_units):
+def loo_unit_levels(y, rest, seg, n_seg, params, key, *, t_units, bed_group=None):
     """Leave-own-row-out unit levels for rows sorted into whole units.
 
     y: (rows,) log rent less offset; rest: (draws, rows) predictor without the
@@ -219,16 +219,21 @@ def loo_unit_levels(y, rest, seg, n_seg, params, key, *, t_units):
     ones = jnp.ones(y.shape[0])
     y = jnp.asarray(y)
     seg = jnp.asarray(seg)
+    groups = jnp.asarray(
+        np.zeros(y.shape[0], np.int32) if bed_group is None else bed_group
+    )
 
     def one(args):
         rest_s, p, k = args
+        # One residual scale, or (noise_by_bedrooms) each row's group's.
+        sigma = p["sigma"][groups][:, None] if p["sigma"].ndim else p["sigma"]
         if t_units:
             log_wz = student_t_logpdf(z, jnp.maximum(p["unit_nu"], 1e-3), 1.0)
         else:
             log_wz = -0.5 * z * z - 0.5 * math.log(2 * math.pi)
         w = log_wz + log_dz
         ll = student_t_logpdf(
-            (y - rest_s)[:, None] - p["unit_scale"] * z[None, :], p["nu"], p["sigma"]
+            (y - rest_s)[:, None] - p["unit_scale"] * z[None, :], p["nu"], sigma
         )  # (rows, grid)
         total = jax.ops.segment_sum(ll, seg, num_segments=n_seg)
         count = jax.ops.segment_sum(ones, seg, num_segments=n_seg)
@@ -261,7 +266,8 @@ def _stats(prefix, values, weights, table):
 def row_table(sub, terms, log_w, pareto_k, fitted, sigma, nu, names, inputs):
     """One chunk's output rows. terms: the leave-own-row-out log terms
     (draws, rows); log_w: (draws, rows) log importance weights (0 = the
-    posterior as is); fitted: (draws, rows) in-sample exp(mu)."""
+    posterior as is); fitted: (draws, rows) in-sample exp(mu); sigma: the
+    residual scale, (draws, 1) or per row (draws, rows)."""
     from scipy import stats
 
     weights = normalized_weights(log_w)
@@ -280,7 +286,7 @@ def row_table(sub, terms, log_w, pareto_k, fitted, sigma, nu, names, inputs):
     table["residual_usd"] = table["asking_rent"] - mean
     table["residual_pct"] = table["asking_rent"] / mean - 1.0
     table["pareto_k"] = pareto_k
-    cdf = stats.t.cdf((log_ask[None] - total) / sigma[:, None], nu[:, None])
+    cdf = stats.t.cdf((log_ask[None] - total) / sigma, nu[:, None])
     table["pit"] = (cdf * weights).sum(0)
     flat = np.full_like(fitted, 1.0 / fitted.shape[0])
     _stats("fitted_rent", fitted, flat, table)
@@ -383,6 +389,11 @@ def summarize(name: str, allow_failing: bool = False):
     fslope_index = [feats.names.index(n) for n in config.feature_slopes]
     params = {k: kept[k] for k in ("nu", "sigma", "unit_scale", "unit_nu") if k in kept}
     sigma, nu = kept["sigma"], kept["nu"]
+
+    def row_scale(a):
+        """(draws, rows) residual scales, or (draws, 1) with one scale."""
+        return sigma[:, a.bed_group] if sigma.ndim == 2 else sigma[:, None]
+
     key = jax.random.PRNGKey(SEED)
 
     def terms_for(mask):
@@ -426,6 +437,7 @@ def summarize(name: str, allow_failing: bool = False):
             params,
             sub_key,
             t_units=t_units,
+            bed_group=np.r_[a.bed_group, np.zeros(pad, a.bed_group.dtype)],
         )
         loglik, level = loglik[:, : len(rows)], level[:, : len(rows)]
         terms["unit"] = level
@@ -437,7 +449,7 @@ def summarize(name: str, allow_failing: bool = False):
                 log_w,
                 k,
                 fitted,
-                sigma,
+                row_scale(a),
                 nu,
                 names,
                 row_inputs(feats, rows),
@@ -450,7 +462,7 @@ def summarize(name: str, allow_failing: bool = False):
             continue
         mask = np.zeros(len(frame), dtype=bool)
         mask[rows] = True
-        _, terms = terms_for(mask)
+        a, terms = terms_for(mask)
         fitted = np.exp(sum(terms.values()))
         tables.append(
             row_table(
@@ -459,7 +471,7 @@ def summarize(name: str, allow_failing: bool = False):
                 np.zeros((draws, len(rows))),
                 np.full(len(rows), np.nan),
                 fitted,
-                sigma,
+                row_scale(a),
                 nu,
                 names,
                 row_inputs(feats, rows),

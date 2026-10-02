@@ -136,12 +136,24 @@ class Design:
     buckets: tuple = ()
     fill: dict | None = None
     walk_rank: int = 0  # touched knots over all buildings (the walk's rank)
+    # One residual scale per bedroom group (`noise_by_bedrooms`): each row's
+    # group; None for one scale.
+    noise_group: jnp.ndarray | None = None
+    n_noise: int = 1
+
+    @property
+    def noise_names(self):
+        return (
+            tuple(f"sigma_{g}" for g in range(self.n_noise))
+            if self.noise_group is not None
+            else ("sigma",)
+        )
 
     @property
     def scale_names(self):
         drift = ("unit_drift_scale",) if self.unit_drift else ()
         return (
-            "sigma",
+            *self.noise_names,
             "unit_scale",
             *drift,
             *self.global_blocks,
@@ -452,8 +464,14 @@ def build_design(
             n_local,
         )
 
+    noise_names = (
+        [f"sigma_{g}" for g in range(len(model_module.BEDROOM_GROUPS))]
+        if config.noise_by_bedrooms
+        else []
+    )
     prior_sd = {
         "sigma": config.noise_scale_sd,
+        **{name: config.noise_scale_sd for name in noise_names},
         "unit_scale": config.unit_scale_sd,
         "building_scale": config.building_scale_sd,
         "trend_scale": config.trend_scale_sd,
@@ -508,6 +526,10 @@ def build_design(
         gram_fcols=fcols,
         gram_kcols=kcols,
         buckets=buckets,
+        noise_group=jnp.asarray(tr.bed_group, jnp.int32)
+        if config.noise_by_bedrooms
+        else None,
+        n_noise=len(model_module.BEDROOM_GROUPS) if config.noise_by_bedrooms else 1,
         fill=fill,
         walk_rank=walk_rank,
     )
@@ -550,6 +572,18 @@ def local_value(theta_l, building, slots, values):
 PART_SCALES = frozenset({"sigma", "unit_scale", "unit_drift_scale"})
 
 
+def is_part_scale(name: str) -> bool:
+    """A scale `block_parts` reads: the residual scale(s) and the unit scales."""
+    return name in PART_SCALES or name.startswith("sigma_")
+
+
+def sigma_rows(d, s):
+    """Each row's residual scale: s["sigma"], or its bedroom group's."""
+    if d.noise_group is None:
+        return s["sigma"]
+    return jnp.stack([s[n] for n in d.noise_names])[d.noise_group]
+
+
 def gaussian_block(d: Design, lam, s, z_g, z_l, z_u, kappa=None, z_f=None):
     """Joint draw of (global, building blocks, units) given lam and scales `s`.
 
@@ -565,7 +599,7 @@ def block_parts(d: Design, lam, s, kappa=None) -> dict:
     J, K, L = d.n_units, d.n_buildings, d.n_local
     y, a, bld, slots, vals = d.y, d.a, d.building, d.slots, d.slot_values
     n_slots = slots.shape[1]
-    w = lam / s["sigma"] ** 2
+    w = lam / sigma_rows(d, s) ** 2
     seg_u = lambda v: jax.ops.segment_sum(v, d.unit, J)
     sw = seg_u(w)
     # Unit prior precision kappa_j / unit_scale^2 (kappa = 1: Gaussian units;
@@ -877,6 +911,12 @@ def site_values(d: Design, state):
         **({"unit_nu": state["unit_nu"]} if d.unit_t else {}),
         **({"unit_drift": state["drift"]} if d.unit_drift else {}),
         **{n: state[n] for n in d.scale_names},
+        # The NumPyro site: one scale, or one per bedroom group.
+        **(
+            {"sigma": jnp.stack([state[n] for n in d.noise_names], axis=-1)}
+            if d.noise_group is not None
+            else {}
+        ),
     }
     if d.bedroom_time is not None:
         out["bedroom_time_step"] = steps(
@@ -905,6 +945,14 @@ def make_step(d: Design):
     n = d.y.shape[0]
     rank = {
         "sigma": n,
+        **(
+            {
+                f"sigma_{g}": int(np.sum(np.asarray(d.noise_group) == g))
+                for g in range(d.n_noise)
+            }
+            if d.noise_group is not None
+            else {}
+        ),
         "unit_scale": d.n_units,
         "unit_drift_scale": d.n_units,
         **d.global_ranks,
@@ -984,7 +1032,7 @@ def make_step(d: Design):
                 # Only a solo on a scale in PART_SCALES needs new row sums.
                 parts_new = (
                     block_parts(d, state["lam"], s_new, state["kappa"])
-                    if name in PART_SCALES
+                    if is_part_scale(name)
                     else parts
                 )
                 out_new = block_solve(d, parts_new, s_new, *z)
@@ -999,7 +1047,7 @@ def make_step(d: Design):
                     lambda a, b, ok=ok: jnp.where(ok, b, a), out, out_new
                 )
                 s = {k: jnp.where(ok, s_new[k], s[k]) for k in s}
-                if name in PART_SCALES:
+                if is_part_scale(name):
                     parts = keep(ok, parts, parts_new)
                 info[f"solo_accept_{name}"] = ok.astype(jnp.float64)
         theta, theta_l, u, fixed, drift, _ = out
@@ -1010,41 +1058,88 @@ def make_step(d: Design):
         # lam | sigma, nu, e. Updating sigma given lam instead mixes slowly,
         # because sigma and all lam can scale up together.
         sigma_prior = d.prior_sd["sigma"]
+        nu_sd = 0.0 if d.nu_fixed is not None else nu_step_sd
+        if d.noise_group is None:
 
-        def log_target(z):
-            sigma, nu = jnp.exp(z[0]), jnp.exp(z[1])
-            return (
-                jnp.sum(collect_module.student_t_logpdf(e, nu, sigma))
-                - sigma**2 / (2 * sigma_prior**2)
-                + jax.scipy.stats.gamma.logpdf(nu, 2.0, scale=10.0)
-                + z[0]
-                + z[1]
+            def log_target(z):
+                sigma, nu = jnp.exp(z[0]), jnp.exp(z[1])
+                return (
+                    jnp.sum(collect_module.student_t_logpdf(e, nu, sigma))
+                    - sigma**2 / (2 * sigma_prior**2)
+                    + jax.scipy.stats.gamma.logpdf(nu, 2.0, scale=10.0)
+                    + z[0]
+                    + z[1]
+                )
+
+            step_sd = jnp.asarray([sigma_step_sd, nu_sd])
+
+            def noise_mh(carry, k):
+                z, lt, acc = carry
+                k1, k2 = jax.random.split(k)
+                prop = z + step_sd * jax.random.normal(k1, (2,))
+                lp = log_target(prop)
+                ok = jnp.log(jax.random.uniform(k2)) < lp - lt
+                return (jnp.where(ok, prop, z), jnp.where(ok, lp, lt), acc + ok), None
+
+            z0 = jnp.log(jnp.stack([s["sigma"], state["nu"]]))
+            (z, _, noise_acc), _ = jax.lax.scan(
+                noise_mh,
+                (z0, log_target(z0), jnp.zeros(())),
+                jax.random.split(keys[3], noise_steps),
             )
+            sigma, nu = jnp.exp(z[0]), jnp.exp(z[1])
+            new = {"sigma": sigma}
+        else:
+            # One scale per bedroom group: the groups' likelihoods factor given
+            # nu, so each step moves every group's log scale at once (accepted
+            # per group), then log nu given the scales.
+            G, grp = d.n_noise, d.noise_group
 
-        step_sd = jnp.asarray(
-            [sigma_step_sd, 0.0 if d.nu_fixed is not None else nu_step_sd]
-        )
+            def group_lp(zs, nu):
+                sig = jnp.exp(zs)
+                rows = collect_module.student_t_logpdf(e, nu, sig[grp])
+                return (
+                    jax.ops.segment_sum(rows, grp, G)
+                    - sig**2 / (2 * sigma_prior**2)
+                    + zs
+                )
 
-        def noise_mh(carry, k):
-            z, lt, acc = carry
-            k1, k2 = jax.random.split(k)
-            prop = z + step_sd * jax.random.normal(k1, (2,))
-            lp = log_target(prop)
-            ok = jnp.log(jax.random.uniform(k2)) < lp - lt
-            return (jnp.where(ok, prop, z), jnp.where(ok, lp, lt), acc + ok), None
+            def nu_lp(zs, znu):
+                nu = jnp.exp(znu)
+                return (
+                    jnp.sum(group_lp(zs, nu))
+                    + jax.scipy.stats.gamma.logpdf(nu, 2.0, scale=10.0)
+                    + znu
+                )
 
-        z0 = jnp.log(jnp.stack([s["sigma"], state["nu"]]))
-        (z, _, noise_acc), _ = jax.lax.scan(
-            noise_mh,
-            (z0, log_target(z0), jnp.zeros(())),
-            jax.random.split(keys[3], noise_steps),
-        )
-        sigma, nu = jnp.exp(z[0]), jnp.exp(z[1])
+            def noise_mh(carry, k):
+                zs, znu, acc = carry
+                k1, k2, k3, k4 = jax.random.split(k, 4)
+                nu = jnp.exp(znu)
+                prop = zs + sigma_step_sd * jax.random.normal(k1, (G,))
+                ok = jnp.log(jax.random.uniform(k2, (G,))) < group_lp(
+                    prop, nu
+                ) - group_lp(zs, nu)
+                zs = jnp.where(ok, prop, zs)
+                pnu = znu + nu_sd * jax.random.normal(k3)
+                ok_nu = jnp.log(jax.random.uniform(k4)) < nu_lp(zs, pnu) - nu_lp(
+                    zs, znu
+                )
+                znu = jnp.where(ok_nu, pnu, znu)
+                return (zs, znu, acc + ok.mean()), None
+
+            zs0 = jnp.log(jnp.stack([s[n] for n in d.noise_names]))
+            (zs, znu, noise_acc), _ = jax.lax.scan(
+                noise_mh,
+                (zs0, jnp.log(state["nu"]), jnp.zeros(())),
+                jax.random.split(keys[3], noise_steps),
+            )
+            nu = jnp.exp(znu)
+            new = {n: jnp.exp(zs[g]) for g, n in enumerate(d.noise_names)}
+        sigma = sigma_rows(d, new)  # per row (a scalar with one scale)
         lam = jax.random.gamma(keys[4], (nu + 1) / 2, (n,)) / (
             (nu + (e / sigma) ** 2) / 2
         )
-
-        new = {"sigma": sigma}
         # Student-t units: (unit_scale, unit_nu) | u jointly with kappa
         # integrated out (random-walk Metropolis on the logs; the scale and
         # tail weight trade off, so they are moved together), then kappa.
@@ -1135,6 +1230,13 @@ def make_step(d: Design):
             # unit's mean residual); then lam and kappa are redrawn exactly.
             count = jax.ops.segment_sum(jnp.ones_like(resid), d.unit, d.n_units)
             rbar = jax.ops.segment_sum(resid, d.unit, d.n_units) / count
+            # Each unit's residual scale (its rows' mean, with per-group scales).
+            sigma_u = (
+                jax.ops.segment_sum(
+                    jnp.broadcast_to(sigma, resid.shape), d.unit, d.n_units
+                )
+                / count
+            )
 
             def log_f(uu):
                 rows = collect_module.student_t_logpdf(resid - uu[d.unit], nu, sigma)
@@ -1144,7 +1246,7 @@ def make_step(d: Design):
 
             def log_q(uu):
                 a_ = jax.scipy.stats.norm.logpdf(uu, 0.0, 2 * tau)
-                b_ = jax.scipy.stats.norm.logpdf(uu, rbar, 2 * sigma)
+                b_ = jax.scipy.stats.norm.logpdf(uu, rbar, 2 * sigma_u)
                 return jnp.logaddexp(a_, b_) - jnp.log(2.0)
 
             kh = jax.random.split(jax.random.fold_in(keys[13], 3), 3)
@@ -1152,7 +1254,7 @@ def make_step(d: Design):
             prop = jnp.where(
                 pick,
                 2 * tau * jax.random.normal(kh[1], (d.n_units,)),
-                rbar + 2 * sigma * jax.random.normal(kh[2], (d.n_units,)),
+                rbar + 2 * sigma_u * jax.random.normal(kh[2], (d.n_units,)),
             )
             log_ratio = log_f(prop) - log_f(u) + log_q(u) - log_q(prop)
             hop = (
@@ -1280,7 +1382,11 @@ START = {
 def init_states(d: Design, key, chains):
     """Overdispersed starting scales; latents are drawn in the first step."""
     names = d.scale_names
-    start = {**START, **{n: 0.05 for n in names if n.startswith("fslope_scale_")}}
+    start = {
+        **START,
+        **{n: 0.05 for n in names if n.startswith("fslope_scale_")},
+        **{n: START["sigma"] for n in names if n.startswith("sigma_")},
+    }
     k1, _ = jax.random.split(key)
     jitter = jnp.exp(0.7 * jax.random.normal(k1, (chains, len(names) + 1)))
     state = {n: start[n] * jitter[:, i] for i, n in enumerate(names)}
@@ -1429,7 +1535,9 @@ def run(
         # Size the (log sigma, log nu) random-walk steps from warmup too.
         cfg = (
             settings.noise_steps,
-            float(2.38 / np.sqrt(2) * sd[hier.index("sigma")]),
+            float(
+                2.38 / np.sqrt(2) * np.mean([sd[hier.index(n)] for n in d.noise_names])
+            ),
             float(2.38 / np.sqrt(2) * sd[-1]),
             settings.rescale_steps,
             settings.rescale_step_sd,

@@ -151,6 +151,10 @@ def diagnostics(trace, names_beta, rhat_all=None) -> dict:
         quantities[f"trend[{12 * i}]"] = trace["trend"][..., i]
     for i in range(trace["fslope_scales"].shape[-1]):
         quantities[f"fslope_scale[{i}]"] = trace["fslope_scales"][..., i]
+    groups = trace.get("sigma_groups")
+    if groups is not None and groups.shape[-1] > 1:  # one scale per bedroom group
+        for i in range(groups.shape[-1]):
+            quantities[f"sigma[{i}]"] = groups[..., i]
     for key in ("building", "unit"):
         for i in range(trace[key].shape[-1]):
             quantities[f"{key}[trace {i}]"] = trace[key][..., i]

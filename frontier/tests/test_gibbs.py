@@ -91,6 +91,13 @@ DESIGNS = {
         feature_slopes=("x0",),
         unit_t=True,
     ),
+    "bednoise": model.ModelConfig(
+        building_walk=True,
+        bedroom_slope=True,
+        feature_slopes=("x0",),
+        unit_t=True,
+        noise_by_bedrooms=True,
+    ),
     "drift": model.ModelConfig(building_walk=True, unit_drift=True),
     "tdrift": model.ModelConfig(
         building_walk=True,
@@ -155,7 +162,9 @@ def dense_mean(d, lam, s, kappa=None):
     return mean[:p], mean[p : p + K * L].reshape(K, L), mean[p + K * L : p + K * L + J]
 
 
-@pytest.mark.parametrize("design", sorted(DESIGNS))
+# The dense reference has one residual scale; "bednoise" is checked against
+# the one-scale block with rescaled weights instead.
+@pytest.mark.parametrize("design", sorted(set(DESIGNS) - {"bednoise"}))
 def test_joint_gaussian_mean_matches_dense_solve(design):
     prep = synthetic()
     d = gibbs.build_design(prep, DESIGNS[design])
@@ -376,7 +385,9 @@ def test_student_t_units_block_matches_dense():
     )
 
 
-@pytest.mark.parametrize("design", ["all", "quarterly", "fslopes", "tunits", "tdrift"])
+@pytest.mark.parametrize(
+    "design", ["all", "quarterly", "fslopes", "tunits", "tdrift", "bednoise"]
+)
 def test_site_values_reproduce_linear_predictor(design):
     """Gibbs state -> NumPyro sites -> model.linear_predictor equals the Gibbs fit."""
     prep = synthetic()
@@ -390,7 +401,7 @@ def test_site_values_reproduce_linear_predictor(design):
         "unit_nu": 4.0,
         "kappa": jnp.ones(d.n_units),
         "drift": jnp.asarray(rng.normal(0, 0.05, d.n_units)),
-        **{k: SCALES[k] for k in d.scale_names},
+        **{k: SCALES.get(k, 0.05) for k in d.scale_names},
     }
     p = gibbs.site_values(d, state)
     mu_model = model.linear_predictor(p, prep.train.map(jnp.asarray))
@@ -547,7 +558,7 @@ def test_unseen_unit_quadrature_matches_adaptive_integration():
         "kappa": jnp.ones(d.n_units),
         "nu": 3.0,
         "unit_nu": 2.5,
-        **{k: SCALES[k] for k in d.scale_names},
+        **{k: SCALES.get(k, 0.05) for k in d.scale_names},
     }
     p = gibbs.site_values(d, state)
     base = prep.test.map(jnp.asarray)
@@ -597,3 +608,41 @@ def test_detrended_cov_recovers_correlation_despite_drift():
     np.testing.assert_allclose(gibbs._detrended_cov(x), c, rtol=0.1, atol=1e-6)
     f = np.linalg.cholesky(c)
     np.testing.assert_allclose(gibbs._step_sds(f), [0.01, 0.01])
+
+
+def test_per_group_noise_is_the_one_scale_block_with_rescaled_weights():
+    """With one residual scale per bedroom group, the block draw and marginal
+    likelihood equal the one-scale design's with each row's weight lam
+    rescaled by (sigma / sigma_group)^2: W = lam / sigma_row^2 either way."""
+    prep = synthetic()
+    grouped = gibbs.build_design(prep, DESIGNS["bednoise"])
+    one = gibbs.build_design(
+        prep, dataclasses.replace(DESIGNS["bednoise"], noise_by_bedrooms=False)
+    )
+    assert grouped.noise_names == ("sigma_0", "sigma_1", "sigma_2", "sigma_3")
+    rng = np.random.default_rng(9)
+    lam = rng.gamma(2.5, 1 / 2.5, one.y.shape[0])
+    group_sigma = np.array([0.04, 0.05, 0.07, 0.09])
+    s_grouped = dict(SCALES) | {f"sigma_{g}": group_sigma[g] for g in range(4)}
+    rescale = (SCALES["sigma"] / group_sigma[np.asarray(grouped.noise_group)]) ** 2
+    z = (
+        jnp.asarray(rng.normal(size=one.a.shape[1])),
+        jnp.asarray(rng.normal(size=(one.n_buildings, one.n_local))),
+        jnp.asarray(rng.normal(size=one.n_units)),
+    )
+    a = gibbs.gaussian_block(grouped, jnp.asarray(lam), s_grouped, *z)
+    b = gibbs.gaussian_block(one, jnp.asarray(lam * rescale), SCALES, *z)
+    for x, y in zip(a, b):
+        np.testing.assert_allclose(np.asarray(x), np.asarray(y), rtol=1e-9, atol=1e-9)
+
+
+def test_per_group_noise_runs_and_reports_a_scale_per_group():
+    prep = synthetic()
+    out = gibbs.run(
+        prep,
+        DESIGNS["bednoise"],
+        gibbs.Settings(chains=2, warmup=40, draws=40, keep_every=4),
+        log=lambda *_: None,
+    )
+    assert np.asarray(out["mean"]["sigma"]).shape == (4,)
+    assert np.all(np.asarray(out["mean"]["sigma"]) > 0)
