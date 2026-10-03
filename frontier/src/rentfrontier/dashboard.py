@@ -486,11 +486,13 @@ def data_quality() -> dict:
             counts: dict[str, int] = {}
             for r in rows:
                 counts[r["action"]] = counts.get(r["action"], 0) + 1
+            # A dropping rule leaves its rows out; a corrections file keeps them.
+            dropping = rule in data_module.DROPPING_RULES
             entry.update(
                 file=str(path.relative_to(REPO))
                 if path.is_relative_to(REPO)
                 else str(path),
-                rows=len(rows),
+                **{"rows" if dropping else "corrected": len(rows)},
                 buildings=len({r.get("building") for r in rows}),
                 actions=[
                     {"action": a, "label": QUARANTINE_ACTIONS.get(a, a), "rows": n}

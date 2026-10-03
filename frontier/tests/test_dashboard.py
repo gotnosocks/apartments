@@ -337,3 +337,21 @@ def test_selection_decision_ignores_a_selection_that_is_not_an_object(
     (repo / "config" / "main-analysis.json").write_text("[1, 2]")
     monkeypatch.setattr(dashboard, "REPO", repo)
     assert dashboard.selection_decision([]) is None
+
+
+def test_data_quality_counts_corrections_as_corrected_not_left_out(
+    monkeypatch, tmp_path
+):
+    fixes = tmp_path / "c.jsonl"
+    fixes.write_text(
+        "".join(
+            json.dumps({"audit_id": a, "building": b, "action": "correct_bedrooms"})
+            + "\n"
+            for a, b in (("a", "b1"), ("b", "b2"))
+        )
+    )
+    monkeypatch.setattr(dashboard, "REPO", tmp_path / "repo")
+    monkeypatch.setitem(dashboard.data_module.RULE_SOURCES, "bedrooms-ad-v1", fixes)
+    rule = {r["rule"]: r for r in dashboard.data_quality()["rules"]}["bedrooms-ad-v1"]
+    assert "rows" not in rule and rule["corrected"] == 2 and rule["buildings"] == 2
+    assert rule["actions"][0]["label"] == "Bedrooms corrected from the ad"
