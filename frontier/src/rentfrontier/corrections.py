@@ -135,7 +135,7 @@ def placed_elsewhere(frame: pd.DataFrame, text: pd.Series) -> pd.Series:
 
     def other_avenue(t, a):
         named = {ORDINALS.get(w) for w in ON_AVENUE.findall(t)} - {None}
-        return bool(named) and a == a and a not in named
+        return bool(named) and not np.isnan(a) and a not in named
 
     av = pd.Series(
         [other_avenue(t, a) for t, a in zip(text, avenue)], index=frame.index
