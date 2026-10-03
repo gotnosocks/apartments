@@ -16,6 +16,13 @@ reads the analytical dataset and both description evidence files
 (`descriptions.SOURCE`, `descriptions.WV_SOURCE`) and writes the file and its
 provenance beside it. Refuses a dirty tree.
 
+Version 2 of both (`bedrooms-ad-v2`, `baths-ad-v2`; `--version 2`) is
+stricter: half of the unit's other listings must record the ad's count; ads
+placed in the other neighbourhood or on another avenue, with a bedroom range
+or a rec room anywhere, with an adjectival count ("3 true bedrooms") that
+disagrees, or a bare count on a unit with no other listing are left alone;
+bath counts must fit the ad's own bedrooms.
+
 Baths (`baths-ad-v1`, `... baths --out ...`): the ad states one bathroom
 count, more than the record's full baths plus half its half baths and not
 their plain sum, with no shared, powder-room, hedging or other-area words; the
@@ -143,6 +150,26 @@ def placed_elsewhere(frame: pd.DataFrame, text: pd.Series) -> pd.Series:
     return hood | av
 
 
+# v2: counts with an adjective ("3 true bedrooms", "two king-size bedrooms")
+# must agree with the others; a range anywhere in the ad ("3- 4 bedroom") or a
+# rec room hedges it; a bare "3-bed" ad on a unit with no other listing is too
+# thin to correct.
+COUNT_V2 = re.compile(
+    r"(?<![\d.])\b(one|two|three|four|five|[1-5])[- ]{0,2}"
+    r"(?:true|real|full|actual|separate|large|king[- ]?size[d]?|queen[- ]?size[d]?)"
+    r"[- ]bed(?:room)?s?\b"
+)
+DOUBT_V2 = re.compile(
+    r"\d ?[-–—/] ?\d ?(?:bed|br|bd)|\b(?:one|two|three|four) ?[-–—] ?(?:two|three|"
+    r"four|five) (?:bed|br)|rec(?:reation)? room|media room|family room"
+)
+
+
+def stated_counts_v2(text: str) -> set:
+    """The bedroom counts an ad states with an adjective ("3 true bedrooms")."""
+    return {float(WORDS.get(m.group(1), m.group(1))) for m in COUNT_V2.finditer(text)}
+
+
 def _count(m: re.Match) -> float:
     word = m.group(1) or m.group(2)
     return float(WORDS.get(word, word))
@@ -189,7 +216,15 @@ def bedroom_corrections(
         & ~frame.audit_id.isin(data.dropped_rows())
     )
     if version >= 2:
-        clear &= majority(frame, "bedrooms", stated) & ~placed_elsewhere(frame, text)
+        units = data.merge_unit_aliases(frame).unit_id
+        alone = units.groupby(units).transform("size").eq(1)
+        clear &= (
+            majority(frame, "bedrooms", stated)
+            & ~placed_elsewhere(frame, text)
+            & ~text.str.contains(DOUBT_V2)
+            & ~(alone & text.str.strip().str.len().lt(20))
+            & text.map(lambda t: stated_counts_v2(t) <= {s for s in stated_counts(t)})
+        )
     rows = frame.loc[clear, ["audit_id", "building", "unit_id"]].copy()
     rows["action"] = "correct_bedrooms"
     rows["field"] = "bedrooms"
@@ -291,7 +326,7 @@ def _git(*args) -> str:
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     parser.add_argument("kind", choices=["bedrooms", "baths"])
-    parser.add_argument("--version", type=int, choices=[1, 2], default=2)
+    parser.add_argument("--version", type=int, choices=[1, 2], default=1)
     parser.add_argument("--out", type=Path, required=True)
     args = parser.parse_args(argv)
     if _git("status", "--porcelain", "--untracked-files=no"):

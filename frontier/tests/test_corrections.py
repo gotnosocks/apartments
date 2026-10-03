@@ -139,3 +139,49 @@ def test_v2_baths_must_fit_the_ads_own_bedrooms(monkeypatch):
     assert len(corrections.bathroom_corrections(frame, text, version=1)) == 3
     v2 = corrections.bathroom_corrections(frame, text, version=2)
     assert v2.audit_id.tolist() == ["a"]
+
+
+def test_v2_majority_joins_units_as_unit_labels_v2(monkeypatch):
+    frame = pd.DataFrame(
+        {
+            "audit_id": list("abc"),
+            "building": "1-w-1-street",
+            "unit_id": ["u1", "u2", "u2"],
+            "neighbourhood": "Chelsea",
+            "bedrooms": [1, 1, 1],
+        }
+    )
+    text = pd.Series(["Cozy studio in Chelsea, top floor.", "", ""])
+    # Alone, u1 has no other listing; joined with u2, two others record 1.
+    monkeypatch.setattr(corrections.data, "merge_unit_aliases", lambda f: f)
+    assert corrections.bedroom_corrections(
+        frame, text, version=2
+    ).audit_id.tolist() == ["a"]
+
+    def joined(f):
+        return f.assign(unit_id="u1")
+
+    monkeypatch.setattr(corrections.data, "merge_unit_aliases", joined)
+    assert corrections.bedroom_corrections(frame, text, version=2).empty
+
+
+def test_v2_refuses_ranges_rec_rooms_and_disagreeing_true_counts(monkeypatch):
+    monkeypatch.setattr(corrections.data, "merge_unit_aliases", lambda f: f)
+    frame = pd.DataFrame(
+        {
+            "audit_id": list("abcd"),
+            "building": "1-w-1-street",
+            "unit_id": ["u1", "u2", "u3", "u4"],
+            "neighbourhood": "Chelsea",
+            "bedrooms": [3, 3, 1, 1],
+        }
+    )
+    text = pd.Series(
+        [
+            "Massive 4 bedroom. It features 3 true bedrooms and a den-like nook.",
+            "Grand 4 bedroom in a townhouse. A gracious 3- 4 bedroom home.",
+            "Renovated 2 bedroom with one king sized rec room.",
+            "1br",
+        ]
+    )
+    assert corrections.bedroom_corrections(frame, text, version=2).empty
