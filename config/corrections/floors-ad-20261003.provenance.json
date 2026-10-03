@@ -6,12 +6,12 @@
     "/home/ben/code/apartments/data/model/chelsea-refreshed-bayesian-descriptions-20260918/evidence.jsonl": "ffbdf6731fce3b1e297640b6d725f05808c8c1dde17df7f5a20d418ce2d242fa",
     "/data1/apartments/frontier/descriptions/west-village-20261002-62172be/evidence.jsonl": "17cba0d76d28d439bfc7a36d36a16afdbd44f3a9e85924450938f0c673d41dea"
   },
-  "commit": "37a64669b302f757de880d1bca70c73445e443eb",
-  "rows": 2927,
+  "commit": "f10471378dfa060afbf02bd8424388727959813f",
+  "rows": 3836,
   "by_change": {
-    "ad": 1634,
-    "top": 546,
-    "ground": 409,
-    "unit": 338
+    "ad": 2706,
+    "ground": 416,
+    "top": 382,
+    "unit": 332
   }
 }
