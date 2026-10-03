@@ -22,7 +22,10 @@ from dataclasses import dataclass, field
 from markupsafe import Markup, escape
 
 # ModelConfig's defaults for the fields that change what a model says. Older
-# run records predate some fields; a missing field had its default.
+# run records predate some fields; a missing field had its default. Some fields
+# are not on master's ModelConfig but appear in run records from model
+# branches (noise_by_bedrooms, learned_feature_groups) or from code since
+# reverted (line_min_units); they are described so those fits read right.
 DEFAULTS = {
     "trend": True,
     "season": True,
@@ -107,7 +110,7 @@ FEATURE_SHORT = {
 FEATURE_WORDS = {
     "bathrooms=2": "a second full bath",
     "bathrooms=3": "a third full bath",
-    "log_floor": "floor height",
+    "log_floor": "a higher floor",
     "log_sqft_vs_bedroom_median": "size beyond the typical for the bedroom count",
 }
 
@@ -125,6 +128,8 @@ class Part:
     math: Markup = field(default_factory=Markup)
     # The features of per-building slopes, in words.
     words: list[str] = field(default_factory=list)
+    # Feature groups whose prior scale is learned (the features part).
+    words_learned: list[str] = field(default_factory=list)
     # A few words for the design matrix's cell ("" for a plain yes).
     short: str = ""
 
@@ -236,9 +241,11 @@ def _lhs() -> Markup:
     )
 
 
-def _since(level: str) -> Markup:
-    """(t_i - t̄_B(i)): years since the building's or unit's mean date."""
-    return _row(_mo("("), _t(), _mo("−"), _sub(_bar(_mi("t")), _of(level)), _mo(")"))
+def _since(level: str | None = None) -> Markup:
+    """(t_i - t̄_B(i)): years from the building's or unit's mean training date
+    (from the mean training date of every row without a level)."""
+    mean = _sub(_bar(_mi("t")), _of(level)) if level else _bar(_mi("t"))
+    return _row(_mo("("), _t(), _mo("−"), mean, _mo(")"))
 
 
 # --- Parts -----------------------------------------------------------------
@@ -308,10 +315,13 @@ def describe(model: dict | None, sizes: dict | None = None) -> Anatomy | None:
         "Steady market drift",
         c["market_drift"],
         setting="per year",
-        plain="The whole market rises or falls at one steady rate per year.",
+        plain=(
+            "The whole market rises or falls at one steady rate per year, "
+            "counted from the mean date of the listings."
+        ),
         prior=f"δ ~ Normal(0, {_num(c['market_drift_sd'])})",
         count=1,
-        math=_row(_mi("δ"), _mo("⁢"), _t()),
+        math=_row(_mi("δ"), _mo("⁢"), _since()),
     )
     tk = c["trend_knot_months"]
     trend_knots = _knots(months, tk)
@@ -334,7 +344,12 @@ def describe(model: dict | None, sizes: dict | None = None) -> Anatomy | None:
         count=trend_knots,
         math=_sub(_mi("τ"), _of("m")),
     )
-    harmonics = c["season_harmonics"] or 0
+    # build_model takes the zero-sum season (12 month effects) before harmonics.
+    harmonics = (
+        0
+        if "season_zerosum" in (c.get("coordinates") or ())
+        else c["season_harmonics"] or 0
+    )
     add(
         "season",
         "market",
@@ -346,8 +361,8 @@ def describe(model: dict | None, sizes: dict | None = None) -> Anatomy | None:
             else "12 month effects"
         ),
         plain=(
-            "Some calendar months are pricier than others (summer more than winter), "
-            "the same pattern every year"
+            "Some calendar months can be pricier than others, "
+            "with the same pattern every year"
             + (", drawn as a smooth yearly wave" if harmonics else "")
             + "."
         ),
@@ -368,7 +383,8 @@ def describe(model: dict | None, sizes: dict | None = None) -> Anatomy | None:
         c["bedroom_time"],
         setting=_every(btk),
         plain=(
-            "Studios, two- and three-bedrooms each follow their own market path, "
+            "Studios, two-bedrooms and three-or-more-bedrooms each follow their own "
+            "market path, "
             "relative to one-bedrooms."
         ),
         prior=(
@@ -432,7 +448,12 @@ def describe(model: dict | None, sizes: dict | None = None) -> Anatomy | None:
         prior=(
             "w_B is a random walk: each step ~ "
             + ("Student-t(ν_w, 0, σ_w)" if c["walk_t"] else "Normal(0, σ_w)")
-            + f", σ_w ~ HalfNormal({_num(c['walk_scale_sd'])})"
+            + f", σ_w ~ HalfNormal({_num(c['walk_scale_sd'])}); 0 at "
+            + (
+                "the building's anchor step"
+                if c["walk_anchor_data"]
+                else "the first step"
+            )
             + (
                 ", ν_w ~ Gamma(2, 0.1)"
                 if c["walk_t"] and not c["walk_nu_fixed"]
@@ -463,7 +484,10 @@ def describe(model: dict | None, sizes: dict | None = None) -> Anatomy | None:
         "Building's price per bedroom",
         c["bedroom_slope"],
         plain="Each building has its own price for an extra bedroom, around the market's.",
-        prior=f"κ ~ Normal(0, σ_κ), σ_κ ~ HalfNormal({_num(c['bedroom_slope_scale_sd'])})",
+        prior=(
+            f"κ ~ Normal(0, σ_κ), σ_κ ~ HalfNormal({_num(c['bedroom_slope_scale_sd'])}); "
+            "beds counted up to 4"
+        ),
         count=_times(buildings, plus=1),
         math=_row(
             _sub(_mi("κ"), _of("B")),
@@ -570,7 +594,10 @@ def describe(model: dict | None, sizes: dict | None = None) -> Anatomy | None:
         "listing",
         "Listing features",
         c["features"],
-        setting=f"{n_features} features" if n_features else "",
+        setting=", ".join(
+            ([f"{n_features} features"] if n_features else [])
+            + ([f"{_join(learned)} shrinkage learned"] if learned else [])
+        ),
         plain=(
             "What the listing says about the apartment and its building (bedrooms, baths, "
             "size, floor, doorman, laundry and so on), each with one price shared by every "
@@ -585,12 +612,13 @@ def describe(model: dict | None, sizes: dict | None = None) -> Anatomy | None:
         prior=(
             f"β_j ~ Normal(0, {_num(c['beta_sd'])} · s_j), s_j the feature's own scale"
             + (
-                f"; for {_join(learned)}: β_j ~ Normal(0, λ · s_j), λ ~ HalfNormal({_num(c['beta_sd'])})"
+                f"; for {_join(learned)}: β_j ~ Normal(0, λ_g · s_j), each group's λ_g ~ HalfNormal({_num(c['beta_sd'])})"
                 if learned
                 else ""
             )
         ),
         count=None if n_features is None else n_features + len(learned),
+        words_learned=learned,
         math=_row(_subsup(_mi("x"), _mi("i"), _mo("⊤")), _mi("β")),
     )
     nu = c["nu_fixed"]
@@ -607,13 +635,14 @@ def describe(model: dict | None, sizes: dict | None = None) -> Anatomy | None:
         plain=(
             "Each ask's own scatter around the model: mostly small, with occasional big "
             "surprises (heavy tails)"
-            + ("; larger apartments' asks scatter more" if by_beds else "")
+            + ("; each bedroom count has its own scatter" if by_beds else "")
             + "."
         ),
         prior=(
             "ε_i ~ Student-t(ν, 0, "
             + ("σ_g(i)" if by_beds else "σ")
-            + f"), σ ~ HalfNormal({_num(c['noise_scale_sd'])}), "
+            + ("), each σ_g" if by_beds else "), σ")
+            + f" ~ HalfNormal({_num(c['noise_scale_sd'])}), "
             + (f"ν = {_num(nu)}" if nu else "ν ~ Gamma(2, 0.1)")
         ),
         count=(4 if by_beds else 1) + (0 if nu else 1),
@@ -638,7 +667,10 @@ def describe(model: dict | None, sizes: dict | None = None) -> Anatomy | None:
         "feature_slopes": ", ".join(FEATURE_SHORT.get(f, f) for f in slopes),
         "line": f"≥ {min_units} units",
         "unit": "heavy-tailed" if c["unit_t"] else "",
-        "features": str(n_features) if n_features else "",
+        "features": ", ".join(
+            ([str(n_features)] if n_features else [])
+            + ([f"{_join(learned)} learned"] if learned else [])
+        ),
         "noise": ("ν = " + _num(nu) if nu else "ν fitted")
         + (", by bedrooms" if by_beds else ""),
     }
@@ -688,7 +720,12 @@ def differences(a: Anatomy, b: Anatomy) -> list[str]:
             )
         elif q.present and not p.present:
             out.append(f"drops {q.label.lower()}")
-        elif p.present and p.setting != q.setting and p.key != "features":
+        elif p.key == "features" and p.present and q.present:
+            if p.words_learned != q.words_learned:
+                mine = _join(p.words_learned) or "none"
+                yours = _join(q.words_learned) or "none"
+                out.append(f"features with a learned prior scale: {mine}, not {yours}")
+        elif p.present and p.setting != q.setting:
             out.append(
                 f"{p.label.lower()}: {p.setting or 'plain'}, not {q.setting or 'plain'}"
             )

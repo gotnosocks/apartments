@@ -74,7 +74,7 @@ def test_describe_reads_the_parts_and_counts():
     assert parts["trend"].count == 68 and parts["trend"].setting == "quarterly"
     # 2,296 buildings x 34 half-year steps, and the walk's scale.
     assert parts["walk"].count == 2296 * 34 + 1
-    assert parts["feature_slopes"].setting == "a second full bath and floor height"
+    assert parts["feature_slopes"].setting == "a second full bath and a higher floor"
     assert parts["unit"].count == 35217 + 2  # the scale and the estimated nu
     assert a.parameters == sum(p.count for p in a.present)
     assert a.other == [] and a.sampling == []
@@ -141,8 +141,27 @@ def test_differences_from_another_design():
         "calendar season: 2 Fourier pairs, not 12 month effects",
         "drops building drift over time",
         "adds each building's own price for size beyond the typical for the bedroom count",
-        "drops each building's own price for floor height",
+        "drops each building's own price for a higher floor",
         "adds line premium (lines of ≥ 2 apartments)",
         "apartment premium: Normal, not heavy-tailed",
     ]
     assert anatomy.differences(served, served) == []
+
+
+def test_learned_feature_scales_and_the_zero_sum_season():
+    served = anatomy.describe(SERVED, SIZES)
+    locscale = anatomy.describe(
+        {**SERVED, "learned_feature_groups": ["location"]}, SIZES
+    )
+    features = next(p for p in locscale.parts if p.key == "features")
+    assert features.setting == "97 features, location shrinkage learned"
+    assert "λ_g" in features.prior
+    assert anatomy.differences(locscale, served) == [
+        "features with a learned prior scale: location, not none"
+    ]
+    # build_model's zero-sum season takes precedence over harmonics.
+    both = anatomy.describe(
+        {**SERVED, "season_harmonics": 2, "coordinates": ["season_zerosum"]}
+    )
+    season = next(p for p in both.parts if p.key == "season")
+    assert season.setting == "12 month effects"

@@ -661,9 +661,15 @@ def designs(data: dict | None, served_run: str | None) -> tuple[list[dict], list
             unrecorded.append(name)
             continue
         scored = [e for e in recorded if _delta(e) is not None]
-        best = max(scored, key=_delta) if scored else recorded[-1]
+        best = (
+            max(scored, key=_delta)
+            if scored
+            else max(recorded, key=lambda e: e.get("available_at") or "")
+        )
         own = served if name == served_design else best
-        a = describe(own.get("model"), own.get("sizes"))
+        a = describe(own.get("model"), own.get("sizes")) or describe(
+            best.get("model"), best.get("sizes")
+        )
         rows.append(
             {
                 "name": name,

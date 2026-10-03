@@ -1,7 +1,7 @@
 {# A design's structure (apartments.site.anatomy): plate diagram, equation, table. #}
 
 {% macro chip(p) -%}
-<li class="chip{% if not p.present %} off{% endif %}"><span class="chip-label">{{ p.label }}</span>{% if p.present and p.setting %}<span class="chip-set">{{ p.setting }}</span>{% endif %}{% if not p.present %}<span class="visually-hidden"> (not in this design)</span>{% endif %}</li>
+<li class="part-chip{% if not p.present %} off{% endif %}"><span>{{ p.label }}</span>{% if p.present and p.setting %}<span class="part-chip-set">{{ p.setting }}</span>{% endif %}{% if not p.present %}<span class="visually-hidden"> (not in this design)</span>{% endif %}</li>
 {%- endmacro %}
 
 {% macro diagram(a) %}
@@ -16,12 +16,14 @@
   {% for key, label, what in anatomy_levels %}
   <div class="plate plate-{{ key }}">
     <p class="plate-head"><span class="plate-name">{{ label }}</span> <span class="plate-count">{{ counts[key] }}</span></p>
-    <ul class="chips">{% for p in a.level(key) if p.key != "intercept" %}{{ chip(p) }}{% endfor %}</ul>
+    <ul class="part-chips">{% for p in a.level(key) if p.key != "intercept" %}{{ chip(p) }}{% endfor %}</ul>
   {% endfor %}
   {% for _ in anatomy_levels %}</div>{% endfor %}
   <figcaption>Each box sits inside the one that holds it: the market holds every building, a building its apartments, an
-  apartment its listings. A part in a box takes one value for each thing the box counts. Dashed parts are ones this design
-  leaves out. Together the parts add up to the log of the asking rent.</figcaption>
+  apartment its listings. A part sits in the box whose things it varies with: one premium per building, one per apartment,
+  the market trend by month; the listing features' prices and the leftover scatter are shared, and apply to each ask.
+  Dashed parts are ones this design leaves out. Together the parts add up to the log of the asking rent. Counts are the
+  fit's training data.</figcaption>
 </figure>
 {% endmacro %}
 

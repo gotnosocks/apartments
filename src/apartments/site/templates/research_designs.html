@@ -14,6 +14,9 @@ then the rest by their best accuracy.</p>
   its page, and each fit's page draws its own design.</p>
   <div class="table-wrap">
   <table class="data designs">
+    <colgroup span="1"></colgroup>
+    {% for key, label, what in anatomy_levels %}{% set n = columns | selectattr("level", "equalto", key) | list | length %}{% if n %}<colgroup span="{{ n }}"></colgroup>{% endif %}{% endfor %}
+    <colgroup span="2"></colgroup>
     <thead>
       <tr><td></td>
         {% for key, label, what in anatomy_levels %}{% set n = columns | selectattr("level", "equalto", key) | list | length %}{% if n %}<th scope="colgroup" colspan="{{ n }}" class="level">{{ label }}</th>{% endif %}{% endfor %}
@@ -43,6 +46,7 @@ then the rest by their best accuracy.</p>
   {% for n in unrecorded %}<code>{{ n }}</code>{{ ", " if not loop.last }}{% endfor %}.</p>{% endif %}
 </section>
 
+{% if rows[0].served %}
 <section class="card" id="differences">
   <h2>How each design differs from the served model</h2>
   <p class="note">Against <code>{{ rows[0].name if rows[0].served else "the served design" }}</code>, part by part. Feature
@@ -54,6 +58,9 @@ then the rest by their best accuracy.</p>
   {% endfor %}
   </dl>
 </section>
+{% else %}
+<section class="card"><p class="note">The served model's design is not on the board, so no design is compared with it.</p></section>
+{% endif %}
 {% else %}
 <section class="card"><p class="note">No design on the board records its structure yet.</p></section>
 {% endif %}
