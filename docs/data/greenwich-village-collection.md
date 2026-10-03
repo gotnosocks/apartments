@@ -41,7 +41,7 @@ captured; about 60% were sale-only or 404, and none of the rest unlocked an adve
 1,210,000. Since the inventory row is the latest advertisement, every ad such a unit could unlock is
 also below the cutoff and would be skipped. Rule `probe_source_before_min_listing_id` (in
 `collection_policy.exclusion_reason`) skips them before any request when a cutoff is set. It would
-have saved about 765 of the first 10,196 requests (7.5%). Most of Greenwich Village's are already spent,
+have saved 766 of the first 10,196 requests (7.5%). Most of Greenwich Village's are already spent,
 so it pays off in the remaining buildings and in later neighborhoods.
 
 The inventory lists only past advertisements, so a unit re-let after its last inventory row
