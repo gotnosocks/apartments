@@ -34,6 +34,10 @@ check</a>); that is the gap between the first two numbers. Its data rules: {% fo
     </div>
     {% endif %}
     {% endif %}
+    {% if rule.corrected is number %}
+    <p class="note">Corrects {{ "{:,}".format(rule.corrected) }} listing{{ "" if rule.corrected == 1 else "s" }}{% if rule.buildings is number %} in
+    {{ "{:,}".format(rule.buildings) }} building{{ "" if rule.buildings == 1 else "s" }}{% endif %}{% if rule.file %}, from the file <code>{{ rule.file }}</code>{% endif %}; none is left out.</p>
+    {% endif %}
   </article>
   {% else %}
   <p class="empty-note">No data rules on record.</p>

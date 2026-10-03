@@ -424,6 +424,7 @@ QUARANTINE_ACTIONS = {
     "quarantine_explicit_short_term_offer": "Short stay only",
     "quarantine_price_basis": "Ask is not the rent",
     "quarantine_attribute_conflict": "Bedrooms contradict the ad",
+    "correct_bedrooms": "Bedrooms corrected from the ad",
 }
 
 
@@ -442,6 +443,10 @@ DATA_RULE_TEXT = {
     "apartment at another address or on a street its building does not front, and "
     'bedroom counts the ad flatly contradicts (a "three-bedroom home" recorded as one '
     "bedroom).",
+    "bedrooms-ad-v1": "Bedroom counts corrected from the listing's own ad: its first "
+    'sentence states another count ("Bright 1 bedroom in Chelsea" recorded as two '
+    "bedrooms), every count in the ad agrees, and the ad has no flex, den, office or "
+    "conversion words. No listing is dropped.",
     "quarantine-v3": "quarantine-v2 and a third review, the first of West Village: ads "
     "that place the apartment elsewhere (Brooklyn's Grove and Bleecker Streets, Park "
     "Slope, Harlem, the Upper West Side), shops, restaurants and event spaces, a room, "
@@ -481,7 +486,8 @@ def data_quality() -> dict:
     for rule, fn in data_module.DATA_RULES.items():
         doc = DATA_RULE_TEXT.get(rule) or " ".join((fn.__doc__ or "").split())
         entry = {"rule": rule, "text": doc, "in_app_model": rule in app_rules}
-        if rule in data_module.RULE_SOURCES and rule not in data_module.DROPPING_RULES:
+        # The unit alias table (unit-labels-*) joins units; it has no per-row actions.
+        if rule in data_module.RULE_SOURCES and rule.startswith("unit-labels-"):
             path = Path(data_module.RULE_SOURCES[rule])
             entry.update(
                 file=str(path.relative_to(REPO))
@@ -496,11 +502,13 @@ def data_quality() -> dict:
             counts: dict[str, int] = {}
             for r in rows:
                 counts[r["action"]] = counts.get(r["action"], 0) + 1
+            # A dropping rule leaves its rows out; a corrections file keeps them.
+            dropping = rule in data_module.DROPPING_RULES
             entry.update(
                 file=str(path.relative_to(REPO))
                 if path.is_relative_to(REPO)
                 else str(path),
-                rows=len(rows),
+                **{"rows" if dropping else "corrected": len(rows)},
                 buildings=len({r.get("building") for r in rows}),
                 actions=[
                     {"action": a, "label": QUARANTINE_ACTIONS.get(a, a), "rows": n}

@@ -242,6 +242,33 @@ def quarantine_v2(frame: pd.DataFrame) -> pd.DataFrame:
     return frame[~frame.audit_id.isin(quarantined(QUARANTINE_V2))]
 
 
+# The corrections overlay (rentfrontier.corrections): bedroom counts the
+# listing's own ad clearly states otherwise, one JSON line per row with the
+# ad's first sentence as evidence; provenance beside it.
+BEDROOM_CORRECTIONS = REPO / "config" / "corrections" / "bedrooms-ad-20261003.jsonl"
+
+
+@functools.lru_cache(maxsize=2)
+def corrections(path: Path = BEDROOM_CORRECTIONS) -> dict:
+    """audit_id -> (field, corrected value) for each row of a corrections file."""
+    with open(path) as f:
+        rows = [json.loads(line) for line in f if line.strip()]
+    return {r["audit_id"]: (r["field"], r["corrected"]) for r in rows}
+
+
+def correct_bedrooms_v1(frame: pd.DataFrame) -> pd.DataFrame:
+    """The bedroom count of rows whose ad's first sentence states another count
+    than the record, every count in the ad agreeing and no flex, den, office or
+    conversion words, the unit's other listings not contradicting it (100 rows).
+    Every row is kept; only `bedrooms` changes."""
+    listed = corrections(RULE_SOURCES["bedrooms-ad-v1"])
+    fixes = {a: v for a, (field, v) in listed.items() if field == "bedrooms"}
+    out = frame.copy()
+    hit = out.audit_id.isin(fixes)
+    out.loc[hit, "bedrooms"] = out.loc[hit, "audit_id"].map(fixes).to_numpy()
+    return out
+
+
 def quarantine_v3(frame: pd.DataFrame) -> pd.DataFrame:
     """v2 and the third review's rows (261 in all): 65 West Village and 8
     Chelsea ads whose own words place the apartment elsewhere (Brooklyn's
@@ -278,6 +305,7 @@ DATA_RULES = {
     "unit-labels-v2": merge_unit_aliases,
     "quarantine-v1": quarantine_v1,
     "quarantine-v2": quarantine_v2,
+    "bedrooms-ad-v1": correct_bedrooms_v1,
     "quarantine-v3": quarantine_v3,
 }
 # Rules that read a file; run records hash the files.
@@ -286,6 +314,7 @@ RULE_SOURCES = {
     "quarantine-v2": QUARANTINE_V2,
     "quarantine-v3": QUARANTINE_V3,
     "unit-labels-v2": UNIT_ALIASES,
+    "bedrooms-ad-v1": BEDROOM_CORRECTIONS,
 }
 # Of those, the rules that drop the rows their file lists.
 DROPPING_RULES = ("quarantine-v1", "quarantine-v2", "quarantine-v3")
