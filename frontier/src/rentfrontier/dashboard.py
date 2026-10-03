@@ -425,6 +425,7 @@ QUARANTINE_ACTIONS = {
     "quarantine_price_basis": "Ask is not the rent",
     "quarantine_attribute_conflict": "Bedrooms contradict the ad",
     "correct_bedrooms": "Bedrooms corrected from the ad",
+    "correct_baths": "Baths corrected from the ad",
 }
 
 
@@ -444,6 +445,10 @@ DATA_RULE_TEXT = {
     'sentence states another count ("Bright 1 bedroom in Chelsea" recorded as two '
     "bedrooms), every count in the ad agrees, and the ad has no flex, den, office or "
     "conversion words. No listing is dropped.",
+    "baths-ad-v1": "Bathroom counts corrected from the listing's own ad where it states "
+    'more than the record ("2 bedroom, 2 bathroom" recorded with one bath), states one '
+    "count only and does not mention shared baths or powder rooms. No listing is "
+    "dropped.",
 }
 
 

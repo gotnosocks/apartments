@@ -209,6 +209,26 @@ def correct_bedrooms_v1(frame: pd.DataFrame) -> pd.DataFrame:
     return out
 
 
+BATH_CORRECTIONS = REPO / "config" / "corrections" / "baths-ad-20261003.jsonl"
+
+
+def correct_baths_v1(frame: pd.DataFrame) -> pd.DataFrame:
+    """The full and half baths of rows whose ad states more bathrooms than the
+    record (one count in the ad, no shared, powder-room or hedging words).
+    Every row is kept; only `full_baths` and `half_baths` change."""
+    with open(RULE_SOURCES["baths-ad-v1"]) as f:
+        rows = {
+            r["audit_id"]: r for r in (json.loads(line) for line in f if line.strip())
+        }
+    out = frame.copy()
+    hit = out.audit_id.isin(rows)
+    for col in ("full_baths", "half_baths"):
+        out.loc[hit, col] = (
+            out.loc[hit, "audit_id"].map(lambda a, col=col: rows[a][col]).to_numpy()
+        )
+    return out
+
+
 # Named data rules, applied after the held-out split is drawn (the row split
 # depends on unit ids, and scored rows must not change). Run records list them.
 # Tuning subsets (Ben, 2026-10-01: "consider using a subset of the listings or
@@ -236,12 +256,14 @@ DATA_RULES = {
     "quarantine-v1": quarantine_v1,
     "quarantine-v2": quarantine_v2,
     "bedrooms-ad-v1": correct_bedrooms_v1,
+    "baths-ad-v1": correct_baths_v1,
 }
 # Rules that read a file; run records hash the files.
 RULE_SOURCES = {
     "quarantine-v1": QUARANTINE_V1,
     "quarantine-v2": QUARANTINE_V2,
     "bedrooms-ad-v1": BEDROOM_CORRECTIONS,
+    "baths-ad-v1": BATH_CORRECTIONS,
 }
 # Of those, the rules that drop the rows their file lists.
 DROPPING_RULES = ("quarantine-v1", "quarantine-v2")

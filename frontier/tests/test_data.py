@@ -172,3 +172,29 @@ def test_bedroom_corrections_file_names_each_row_once_with_its_evidence():
         assert r["action"] == "correct_bedrooms" and r["field"] == "bedrooms", r
         assert r["corrected"] != r["recorded"] and r["evidence"], r
     assert len(data.corrections()) == len(rows)
+
+
+def test_bath_corrections_change_only_the_bath_counts(tmp_path, monkeypatch):
+    import numpy as np
+
+    path = tmp_path / "c.jsonl"
+    path.write_text('{"audit_id": "b", "full_baths": 1, "half_baths": 1}\n')
+    monkeypatch.setitem(data.RULE_SOURCES, "baths-ad-v1", path)
+    frame = pd.DataFrame(
+        {"audit_id": ["a", "b"], "full_baths": [1, 1], "half_baths": [0, 0]}
+    )
+    out, _ = data.apply_rules(frame, np.zeros(2, bool), ["baths-ad-v1"])
+    assert out.full_baths.tolist() == [1, 1]
+    assert out.half_baths.tolist() == [0, 1]
+    assert frame.half_baths.tolist() == [0, 0]
+    assert "b" not in data.dropped_rows()
+
+
+def test_bath_corrections_file_names_each_row_once_with_its_evidence():
+    with open(data.BATH_CORRECTIONS) as f:
+        rows = [json.loads(line) for line in f if line.strip()]
+    assert rows and len(rows) == len({r["audit_id"] for r in rows})
+    for r in rows:
+        assert r["action"] == "correct_baths" and r["corrected"] > r["recorded"], r
+        assert r["full_baths"] + 0.5 * r["half_baths"] == r["corrected"], r
+        assert r["evidence"], r

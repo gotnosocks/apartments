@@ -15,6 +15,10 @@ record's:
 reads the analytical dataset and both description evidence files
 (`descriptions.SOURCE`, `descriptions.WV_SOURCE`) and writes the file and its
 provenance beside it. Refuses a dirty tree.
+
+Baths (`baths-ad-v1`, `... baths --out ...`): the ad states one bathroom
+count, more than the record's full plus half baths, with no shared,
+powder-room or hedging words; its count sets the full and half baths.
 """
 
 from __future__ import annotations
@@ -134,6 +138,65 @@ def bedroom_corrections(frame: pd.DataFrame, text: pd.Series) -> pd.DataFrame:
     return rows.reset_index(drop=True)
 
 
+# A bathroom count ("2 bath", "1.5 baths", "two full bathrooms", "2ba").
+BATHS = re.compile(
+    r"(?<![\d.])\b(one|two|three|four|[1-4])(?:\.(5))?[- ]{0,2}(?:full )?"
+    r"(?:bath(?:room)?s?|ba)\b"
+)
+# Words that make a bath count a matter of sharing or of counting a half bath.
+BATH_HEDGE = re.compile(
+    r"\bor\b|\bplus\b|\+|shared|share|common|hall bath|down the hall|"
+    r"powder|half|\d ?[-/] ?\d ?(?:bath|ba)|\d,? (?:and|&) ?\d|"
+    r"also (?:for rent|available)|other (?:units?|apartments?)"
+)
+
+
+def bath_counts(text: str) -> set:
+    """Every bathroom count the ad states."""
+    return {
+        float(WORDS.get(m.group(1), m.group(1))) + (0.5 if m.group(2) else 0.0)
+        for m in BATHS.finditer(text.lower())
+    }
+
+
+def bath_sentence(text: str) -> str:
+    """The first sentence of the ad that states a bathroom count."""
+    for sentence in SENTENCE_END.split(text.strip().lower()):
+        if BATHS.search(sentence):
+            return sentence.strip()[:200]
+    return ""
+
+
+def bathroom_corrections(frame: pd.DataFrame, text: pd.Series) -> pd.DataFrame:
+    """Rows whose ad states more bathrooms than the record: one count in the
+    whole ad, above the record's full baths plus half its half baths and not
+    their plain sum (an ad that counts a half bath as a bath), with no shared,
+    powder-room or hedging words. Ads that state fewer are left alone: they
+    often leave a half bath out. The ad's count sets the full and half baths."""
+    text = text.fillna("").str.lower()
+    counts = text.map(bath_counts)
+    stated = counts.map(lambda c: next(iter(c)) if len(c) == 1 else np.nan)
+    full = pd.to_numeric(frame.full_baths, errors="coerce")
+    half = pd.to_numeric(frame.half_baths, errors="coerce").fillna(0)
+    recorded = full + 0.5 * half
+    clear = (
+        stated.notna()
+        & full.notna()
+        & (stated > recorded)
+        & (stated != full + half)
+        & ~text.str.contains(BATH_HEDGE)
+    )
+    rows = frame.loc[clear, ["audit_id", "building", "unit_id"]].copy()
+    rows["action"] = "correct_baths"
+    rows["field"] = "baths"
+    rows["recorded"] = recorded[clear].astype(float)
+    rows["corrected"] = stated[clear].astype(float)
+    rows["full_baths"] = np.floor(stated[clear]).astype(int)
+    rows["half_baths"] = (stated[clear] % 1 > 0).astype(int)
+    rows["evidence"] = text[clear].map(bath_sentence)
+    return rows.reset_index(drop=True)
+
+
 def _git(*args) -> str:
     return subprocess.run(
         ["git", *args], capture_output=True, text=True, check=True
@@ -142,7 +205,7 @@ def _git(*args) -> str:
 
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
-    parser.add_argument("kind", choices=["bedrooms"])
+    parser.add_argument("kind", choices=["bedrooms", "baths"])
     parser.add_argument("--out", type=Path, required=True)
     args = parser.parse_args(argv)
     if _git("status", "--porcelain", "--untracked-files=no"):
@@ -154,21 +217,22 @@ def main(argv=None):
         text = descriptions.attach(frame)
     finally:
         descriptions.SOURCES.reset(token)
-    rows = bedroom_corrections(frame, text)
+    build = {"bedrooms": bedroom_corrections, "baths": bathroom_corrections}
+    rows = build[args.kind](frame, text)
     args.out.parent.mkdir(parents=True, exist_ok=True)
     with open(args.out, "w") as f:
         f.writelines(
             json.dumps(r, ensure_ascii=False) + "\n" for r in rows.to_dict("records")
         )
     provenance = {
-        "rule": "bedrooms-ad-v1",
+        "rule": {"bedrooms": "bedrooms-ad-v1", "baths": "baths-ad-v1"}[args.kind],
         "dataset": frame.attrs["dataset"],
         "dataset_observations_sha256": frame.attrs["source_sha256"],
         "descriptions": {str(p): data.sha256(p) for p in sources},
         "commit": _git("rev-parse", "HEAD"),
         "rows": len(rows),
         "by_change": {
-            f"{int(a)}->{int(b)}": int(n)
+            f"{a:g}->{b:g}": int(n)
             for (a, b), n in rows.groupby(["recorded", "corrected"]).size().items()
         },
     }
