@@ -417,8 +417,8 @@ to **30 minutes per fit**, with a hard stop at **35 minutes** ("to keep up the p
 iteration"). It runs
 separately on each local hardware class (RTX 2060 SUPER and the CPU).
 
-**Samplers: library over custom** (Ben, 2026-09-25: "I would prefer to use a library sampler
-implementation over implementing our own").
+**Samplers.** Both samplers fit the one model, `model.build_model`: the custom Gibbs sampler and
+NUTS, with exact mathematical simplifications (coordinates, collapsed updates) allowed in either.
 - The custom Gibbs sampler (`gibbs.py`) is ours end to end: exact Gaussian block draws with units
   integrated out, its own Student-t augmentation, collapsed Metropolis scale updates and warmup
   adaptation. No library offers that combination in this stack:
@@ -428,15 +428,20 @@ implementation over implementing our own").
   - PyMC has no conjugate Gaussian step;
   - NIMBLE and JAGS assign conjugate and block samplers automatically, but on the CPU outside this
     stack.
-- The custom Gibbs sampler was **deprecated** on 2026-09-25 (Ben: not for new work) and
-  **reinstated on 2026-09-29**, together with the other options based on exact mathematical
-  simplifications (Ben: "the custom sampler and other options based on mathematical
-  simplifications are no longer deprecated").
-  - `run.py --sampler gibbs` fits any design that `gibbs.build_design` has exact updates for.
-    Designs with terms it lacks (market drift, building trends, coarse, Student-t or
-    sum-to-zero walks, walk masks and anchors, line effects), or without every base term, are
-    refused there.
-  - Exact coordinates and collapsed updates are back in use next to library NUTS.
+- **Scope of the Gibbs sampler** (the sampler review's guardrails, adopted 2026-10-02):
+  - It fits designs that are conditionally Gaussian, given the Student-t mixing weights and the
+    scales, with every unit nested in one building.
+  - `gibbs.build_design` refuses everything else, and tests check each refusal:
+    - terms it has no exact update for: market drift, building trends, coarse, Student-t or
+      sum-to-zero walks, walk masks and anchors, line effects;
+    - designs without every base term;
+    - data where a unit's rows sit in more than one building.
+  - Shapes beyond the scope go to NUTS. The NUTS coordinate work (exact reparameterisations, dense
+    mass matrices) continues off the critical path.
+  - Convergence is checked independently ([project intent](project-intent.md)): R-hat and ESS over
+    every group effect in each fit. The tests check agreement with a reference sampler on small
+    models; a per-design NUTS agreement check on the full data before serving is proposed, not
+    implemented.
 - **NUTS belongs on the CPU here.** On the RTX 2060, NumPyro NUTS took 23 s for L0-mean, 110 s for
   L1-drift and over 20 minutes for L2-trend (stopped), against 8 s, 9 s and 322 s for PyMC NUTS
   on the CPU. Every leapfrog step is many small float64 kernels, and the card runs float64 at
@@ -524,7 +529,7 @@ implementation over implementing our own").
   - Every timed fit is capped: at 30 minutes from 2026-09-25, and at 35 minutes from 2026-09-29
     (Ben). Past the window a fit has already shown it is outside, and its warmup log gives the
     diagnostics.
-- Samplers for new work (from 2026-09-29, when Ben reinstated the custom Gibbs sampler), all on
+- Samplers for new work, all on
   `model.build_model`:
   - the custom Gibbs sampler (`--sampler gibbs`), for the designs it has exact updates for;
   - NumPyro NUTS (`--sampler nuts`), with a diagonal or a structured dense mass matrix and the
@@ -759,7 +764,7 @@ the fix goes into the model, the features or the data, not the sampler.
     (−6.1 ± 5.0 against the 650-draw fit, i.e. Monte Carlo noise): **+2,686.5 ± 79.4 over
     `m0q-btrend`** on identical rows and +7,908 over m0. Held-out ΔELPD is +138.7. It is the
     best passing library (NUTS) fit.
-- **The reinstated Gibbs sampler: m5-nocurves with `unitdesc-v1` and `unit-labels-v1`**
+- **The Gibbs sampler: m5-nocurves with `unitdesc-v1` and `unit-labels-v1`**
   (ab2a7df, 2026-09-29, RTX 2060). The design has building walks and a bedroom premium per
   building, and the sampler integrates the units out.
   - At 2 × (300 + 3000) it failed only on sigma (R-hat 1.011, ESS 388) in 1,128 s. At
@@ -1017,8 +1022,7 @@ the fix goes into the model, the features or the data, not the sampler.
 ## Structure search within the fit window (15 minutes from 2026-09-25, 30 from 2026-09-29)
 
 **Goal.** Raise the most accurate gate-passing fit within the window (30 minutes from 2026-09-29)
-on each thelio hardware class, with the Gibbs sampler or NUTS (library samplers only from
-2026-09-25 until 2026-09-29).
+on each thelio hardware class, with the Gibbs sampler or NUTS.
 - The mark on the RTX 2060 (2026-09-29) is the Gibbs m5-nocurves with `unitdesc-v1` and
   `unit-labels-v1`: +11,838 PSIS-LOO over m0 in 1,326 s. The best NUTS fit is the sum-to-zero
   walk, +7,908 in 1,300 s.
@@ -1439,8 +1443,8 @@ comes from other sources, most of them public NYC and NYS data.
      without sampler code. That includes the t-unit, drift and slope shapes the Gibbs
      sampler could not mix.
 2. **Per-design draw budgets and chain counts** sized to the gate on each hardware class.
-3. **Samplers** (Ben, 2026-09-29): the custom Gibbs sampler and exact simplifications
-   (coordinates, collapsed updates) are in use again next to NumPyro NUTS. Other libraries
+3. **Samplers**: the custom Gibbs sampler and exact simplifications (coordinates, collapsed
+   updates) are in use next to NumPyro NUTS. Other libraries
    (BlackJAX NUTS, nutpie) can run on the same model too.
 
 **Order.** By expected PSIS-LOO gain per second of fit time:
