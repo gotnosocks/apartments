@@ -491,7 +491,8 @@ def data_quality() -> dict:
     for rule, fn in data_module.DATA_RULES.items():
         doc = DATA_RULE_TEXT.get(rule) or " ".join((fn.__doc__ or "").split())
         entry = {"rule": rule, "text": doc, "in_app_model": rule in app_rules}
-        if rule in data_module.RULE_SOURCES and rule not in data_module.DROPPING_RULES:
+        # The unit alias table (unit-labels-*) joins units; it has no per-row actions.
+        if rule in data_module.RULE_SOURCES and rule.startswith("unit-labels-"):
             path = Path(data_module.RULE_SOURCES[rule])
             entry.update(
                 file=str(path.relative_to(REPO))
