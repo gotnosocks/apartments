@@ -427,7 +427,7 @@ def make_bundle(root: Path, *, gate=True, rule_lines=None, neighbourhoods=None) 
                 "sha256": _sha(external / "pluto.parquet"),
             },
         },
-        "model": {"name": "m-test"},
+        "model": {"name": "m-test", "building_walk": True, "beta_sd": 0.5},
         "split": "rows",
         "sampler": "nuts",
         "fit_seconds": 745.0,

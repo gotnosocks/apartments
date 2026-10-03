@@ -1470,11 +1470,11 @@ def create_app(
         labels = {t["name"]: t["label"] for t in terms}
         data = research.load()
         entry = entry_for_run(data, m["provenance"]["run"])
+        # The board entry's record (with data sizes) when the research data
+        # has it, else the served bundle's own ModelConfig.
         anatomy = (
-            describe(entry.get("model"), entry.get("sizes"))
-            if entry
-            else describe(m["provenance"].get("model"))
-        )
+            describe(entry.get("model"), entry.get("sizes")) if entry else None
+        ) or describe(m["provenance"].get("model"))
         return render_template(
             "research_model.html",
             anatomy=anatomy,
