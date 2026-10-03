@@ -85,7 +85,22 @@ gpu job alone, with a light job keeping all six light CPUs busy (five matrix-mul
 memory-copy thread), and with the same load on all twelve CPUs at normal priority, which is what
 running a job beside a fit without `ops/job` looks like.
 
-BENCHMARK_TABLE
+| Beside the fit | Fit (s) | vs alone | Other cores on the fit's CPUs | Light cores |
+|---|---|---|---|---|
+| nothing (4 runs) | 173.6–174.2 | — | 0.03–0.07 | 0 |
+| three test suites as light jobs | 179.0 | +3% | 0.06 | 4.0 |
+| six matrix-multiply threads (light) | 179.9 | +3% | 0.30 | 6.0 |
+| one memory-copy thread (light) | 184.5 | +6% | 0.13 | 1.0 |
+| five multiply + one copy thread (light, 2 runs) | 186.3, 187.1 | +7% | 0.09–0.10 | 6.0 |
+| the same on all 12 CPUs, without `ops/job` | 361.7 | +108% | 4.58 | — |
+
+Alone, the fit's time repeats to within 0.6 s. Fencing removes almost all interference: the same
+load without it doubles the fit's time. What is left comes mostly from the memory bus, which the
+two core complexes share: one thread copying memory costs more than six threads of arithmetic.
+Ordinary light work (tests) costs about 3%, and `light_cores` in the run record shows how much
+ran alongside. Full fits, whose time decides comparisons, run exclusive (`-x`).
+
+The benchmark scripts are in `/data1/apartments/tmp/jobs-bench/` (`bench.sh`, `bench2.sh`).
 
 ## Setup
 
