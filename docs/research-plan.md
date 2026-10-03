@@ -37,10 +37,13 @@ queue and design work before it; the rest of this plan is context.
     frontier.
 - **Serving is separate.** Only a full-tier, full-data fit that passes the gate is served to the rest
   of the app; once one exists it is served there. `autoselect` refuses exploration fits.
-- **When fits run.** Ben wants to watch research progress while he is awake.
-  - Full-data confirmation fits (full draws, gate, 2-hour cap) run only between 12am and 5am PT,
-    which is 03:00–08:00 ET on the machine's clock.
-  - Outside that window, only cheap exploration fits run.
+- **When fits run.** Keep the GPU busy: exploration studies or full fits back to back, never idle
+  (Ben, 2026-10-03).
+  - Full-data confirmation fits (full draws, gate, 2-hour cap) preferably run between 12am and 5am
+    PT, which is 03:00–08:00 ET on the machine's clock, so Ben can watch exploration progress while
+    he is awake. This is a preference, not a rule: a full fit runs outside the window whenever
+    nothing better is queued.
+  - Gaps are filled with exploration fits.
   - There is no full fit for every frontier model, only confirmations.
 - **Data choices to try in exploration:** the West Village unit alias table (`unit-labels-v2`) is
   one. It is no longer a separately queued fit.
