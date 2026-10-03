@@ -199,7 +199,7 @@ def corrections(path: Path = BEDROOM_CORRECTIONS) -> dict:
 def correct_bedrooms_v1(frame: pd.DataFrame) -> pd.DataFrame:
     """The bedroom count of rows whose ad's first sentence states another count
     than the record, every count in the ad agreeing and no flex, den, office or
-    conversion words (212 rows). Every row is kept; only `bedrooms` changes."""
+    conversion words (167 rows). Every row is kept; only `bedrooms` changes."""
     listed = corrections(RULE_SOURCES["bedrooms-ad-v1"])
     fixes = {a: v for a, (field, v) in listed.items() if field == "bedrooms"}
     out = frame.copy()
