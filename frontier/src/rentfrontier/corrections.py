@@ -35,7 +35,7 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
-from . import data, descriptions
+from . import data, descriptions, features
 
 # A bedroom count ("2-bedroom", "two  bed", "3br", "1 bdrm", "studio"); a half
 # count ("1.5 bedroom") is none.
@@ -203,6 +203,104 @@ def bathroom_corrections(frame: pd.DataFrame, text: pd.Series) -> pd.DataFrame:
     return rows.reset_index(drop=True)
 
 
+# Floors (`floors-ad-v1`): rows with no floor (no listed floor, no plausible
+# label floor) get one from evidence about that apartment. Phrasings tie the
+# floor to the apartment; on rows whose floor is known they agree exactly
+# 86-87% of the time and within one floor 95-97% (2026-10-03).
+ORDINALS = {
+    "first": 1, "second": 2, "third": 3, "fourth": 4, "fifth": 5, "sixth": 6,
+    "seventh": 7, "eighth": 8, "ninth": 9, "tenth": 10, "eleventh": 11,
+    "twelfth": 12, "thirteenth": 13, "fourteenth": 14, "fifteenth": 15,
+}  # fmt: skip
+_NTH = r"(\d{1,2})(?:st|nd|rd|th)|(" + "|".join(ORDINALS) + ")"
+APARTMENT_FLOOR = re.compile(
+    rf"(?:apartment|apt|unit|home|residence|studio|bedroom|loft|this|it|located|"
+    rf"situated|sits|is) (?:is )?(?:located |situated )?on the (?:{_NTH}) "
+    rf"(?:floor|fl)\b|\b(?:{_NTH}) (?:floor|fl)\.? (?:apartment|apt|unit|studio|"
+    rf"walk[- ]?up|one|two|three|1|2|3|corner|rear|front|loft|home|residence)"
+)
+GROUND_FLOOR = re.compile(
+    r"\b(?:apartment|apt|unit|home|studio|this|located|is) (?:is )?(?:located )?"
+    r"on the ground floor|\bground[- ]floor (?:apartment|apt|unit|studio|one|two|"
+    r"1|2|loft)|\bgarden (?:level|apartment|apt|floor)\b"
+)
+TOP_FLOOR = re.compile(r"\btop floor\b")
+NOT_TOP = re.compile(
+    r"top floor of (?:a |the |this )?(?:duplex|triplex)|top floors|not (?:on )?the top"
+)
+
+
+def apartment_floors(text: str) -> set:
+    """The floors an ad places the apartment on ("located on the 4th floor",
+    "third floor walk-up")."""
+    out = set()
+    for m in APARTMENT_FLOOR.finditer(text):
+        n, word = m.group(1) or m.group(3), m.group(2) or m.group(4)
+        out.add(int(n) if n else ORDINALS[word])
+    return out
+
+
+def floor_corrections(
+    frame: pd.DataFrame, text: pd.Series, floor: pd.Series, height: pd.Series
+) -> pd.DataFrame:
+    """Rows with no floor (`floor` NaN, as the features read it) that evidence
+    places: first the floor the unit's other listings record (units joined as
+    unit-labels-v2, one floor among them); else the one floor the ad puts the
+    apartment on; else the building's height (MapPLUTO) for a "top floor" ad;
+    else floor 1 for a ground-floor or garden-level ad. Sources that disagree
+    by more than one floor leave the row alone."""
+    text = text.fillna("").map(plain).str.lower()
+    units = data.merge_unit_aliases(frame).unit_id
+    floors = floor.groupby(units).agg(lambda s: set(s.dropna()))
+    unit_floor = units.map(floors).map(
+        lambda s: next(iter(s)) if len(s) == 1 else np.nan
+    )
+    ad = text.map(apartment_floors).map(
+        lambda s: next(iter(s)) if len(s) == 1 else np.nan
+    )
+    top = height.where(text.str.contains(TOP_FLOOR) & ~text.str.contains(NOT_TOP))
+    ground = pd.Series(
+        np.where(text.str.contains(GROUND_FLOOR), 1.0, np.nan), index=frame.index
+    )
+    sources = pd.DataFrame({"unit": unit_floor, "ad": ad, "top": top, "ground": ground})
+    corrected = sources.bfill(axis=1).iloc[:, 0]
+    source = sources.notna().idxmax(axis=1).where(corrected.notna())
+    spread = sources.max(axis=1) - sources.min(axis=1)
+    clear = (
+        floor.isna()
+        & corrected.ge(1)
+        & spread.le(1)
+        & ~frame.audit_id.isin(data.dropped_rows())
+    )
+    evidence = pd.Series("", index=frame.index)
+    for name, pat in (
+        ("ad", APARTMENT_FLOOR),
+        ("top", TOP_FLOOR),
+        ("ground", GROUND_FLOOR),
+    ):
+        hit = clear & source.eq(name)
+        evidence[hit] = text[hit].map(lambda t, p=pat: _sentence_with(t, p))
+    unit_hit = clear & source.eq("unit")
+    evidence[unit_hit] = "the unit's other listings record floor " + corrected[
+        unit_hit
+    ].astype(int).astype(str)
+    rows = frame.loc[clear, ["audit_id", "building", "unit_id"]].copy()
+    rows["action"] = "correct_floor"
+    rows["field"] = "listed_floor"
+    rows["recorded"] = None
+    rows["corrected"] = corrected[clear].astype(int)
+    rows["source"] = source[clear]
+    rows["evidence"] = evidence[clear]
+    return rows.reset_index(drop=True)
+
+
+def _sentence_with(text: str, pattern: re.Pattern) -> str:
+    for sentence in SENTENCE_END.split(text.strip()):
+        if pattern.search(sentence):
+            return sentence.strip()[:200]
+    return ""
+
+
 def _git(*args) -> str:
     return subprocess.run(
         ["git", *args], capture_output=True, text=True, check=True
@@ -211,7 +309,7 @@ def _git(*args) -> str:
 
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
-    parser.add_argument("kind", choices=["bedrooms", "baths"])
+    parser.add_argument("kind", choices=["bedrooms", "baths", "floors"])
     parser.add_argument("--out", type=Path, required=True)
     args = parser.parse_args(argv)
     if _git("status", "--porcelain", "--untracked-files=no"):
@@ -223,24 +321,39 @@ def main(argv=None):
         text = descriptions.attach(frame)
     finally:
         descriptions.SOURCES.reset(token)
-    build = {"bedrooms": bedroom_corrections, "baths": bathroom_corrections}
-    rows = build[args.kind](frame, text)
+    if args.kind == "floors":
+        token = features._LOTS.set((features.NB_REGISTRY_FILE, features.NB_PLUTO_FILE))
+        try:
+            floor = features.row_floor(frame)
+            height = pd.to_numeric(
+                features.building_lots(frame).numfloors, errors="coerce"
+            ).set_axis(frame.index)
+        finally:
+            features._LOTS.reset(token)
+        rows = floor_corrections(frame, text, floor, height)
+    else:
+        build = {"bedrooms": bedroom_corrections, "baths": bathroom_corrections}
+        rows = build[args.kind](frame, text)
     args.out.parent.mkdir(parents=True, exist_ok=True)
     with open(args.out, "w") as f:
         f.writelines(
             json.dumps(r, ensure_ascii=False) + "\n" for r in rows.to_dict("records")
         )
     provenance = {
-        "rule": {"bedrooms": "bedrooms-ad-v1", "baths": "baths-ad-v1"}[args.kind],
+        "rule": f"{args.kind}-ad-v1",
         "dataset": frame.attrs["dataset"],
         "dataset_observations_sha256": frame.attrs["source_sha256"],
         "descriptions": {str(p): data.sha256(p) for p in sources},
         "commit": _git("rev-parse", "HEAD"),
         "rows": len(rows),
-        "by_change": {
-            f"{a:g}->{b:g}": int(n)
-            for (a, b), n in rows.groupby(["recorded", "corrected"]).size().items()
-        },
+        "by_change": (
+            {k: int(n) for k, n in rows.source.value_counts().items()}
+            if args.kind == "floors"
+            else {
+                f"{a:g}->{b:g}": int(n)
+                for (a, b), n in rows.groupby(["recorded", "corrected"]).size().items()
+            }
+        ),
     }
     args.out.with_suffix(".provenance.json").write_text(
         json.dumps(provenance, indent=2) + "\n"

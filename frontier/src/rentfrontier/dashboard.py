@@ -426,6 +426,7 @@ QUARANTINE_ACTIONS = {
     "quarantine_attribute_conflict": "Bedrooms contradict the ad",
     "correct_bedrooms": "Bedrooms corrected from the ad",
     "correct_baths": "Baths corrected from the ad",
+    "correct_floor": "Floor filled from the ad or the unit",
 }
 
 
@@ -452,6 +453,9 @@ DATA_RULE_TEXT = {
     'more than the record ("2 bedroom, 2 bathroom" recorded with one bath), states one '
     "count only and does not mention shared baths or powder rooms. No listing is "
     "dropped.",
+    "floors-ad-v1": "Floors for listings that state none, from the apartment's other "
+    'listings or its own ad ("located on the 4th floor", "third floor walk-up", "top '
+    'floor" with the building\'s height, "garden level"). No listing is dropped.',
     "quarantine-v3": "quarantine-v2 and a third review, the first of West Village: ads "
     "that place the apartment elsewhere (Brooklyn's Grove and Bleecker Streets, Park "
     "Slope, Harlem, the Upper West Side), shops, restaurants and event spaces, a room, "
