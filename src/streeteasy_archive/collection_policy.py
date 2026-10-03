@@ -162,7 +162,10 @@ def exclusion_reason(store, generation, url):
     # An inventory row names the unit's latest rental advertisement, so when that
     # source ad is below the cutoff every ad the probe could unlock is too.
     # Greenwich Village: 765 such probes were captured (60% sale-only or 404) and
-    # none unlocked an ad at or above the cutoff.
+    # none unlocked an ad at or above the cutoff. The inventory lists only past ads, and
+    # scope_urls keeps a URL's first reason, so a unit re-let after its last inventory
+    # row would also be skipped if its route were reached another way. In Greenwich
+    # Village no post-cutoff capture links to any of these units.
     if not key and cutoff:
         row = store.db.execute(
             "SELECT reason FROM scope_urls WHERE generation=? AND url=?", (generation, url)

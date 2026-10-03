@@ -26,7 +26,7 @@ lot by building, from 0% sale-only (the-hilary-gardens, 1-university-place, 60-e
 to over 50% (the-john-adams, the-randall-house, 250-mercer-street).
 
 Bedrooms and price barely separate the outcomes. The date of the inventory row, which is the
-unit's latest rental advertisement, does:
+unit's latest past rental advertisement, does (read a little later, 4,531 probes):
 
 | Latest rental ad | Probes | Rental | Sale-only | 404 |
 |---|---:|---:|---:|---:|
@@ -36,13 +36,17 @@ unit's latest rental advertisement, does:
 | 2020–2023 | 1,240 | 0.80 | 0.19 | 0.01 |
 | 2024–2026 | 1,400 | 0.96 | 0.04 | 0.00 |
 
-**Probes whose source advertisement is below the ID cutoff never pay off.** 765 such probes were
+**Probes whose source advertisement is below the ID cutoff never pay off.** 766 such probes were
 captured; about 60% were sale-only or 404, and none of the rest unlocked an advertisement at or above
 1,210,000. Since the inventory row is the latest advertisement, every ad such a unit could unlock is
 also below the cutoff and would be skipped. Rule `probe_source_before_min_listing_id` (in
 `collection_policy.exclusion_reason`) skips them before any request when a cutoff is set. It would
-have saved 765 of the first 10,196 requests (7.5%). Most of Greenwich Village's are already spent,
+have saved about 765 of the first 10,196 requests (7.5%). Most of Greenwich Village's are already spent,
 so it pays off in the remaining buildings and in later neighborhoods.
+
+The inventory lists only past advertisements, so a unit re-let after its last inventory row
+would be skipped too if its route were reached another way. None of the 5,157 captures of
+post-cutoff advertisements, or any other capture, links to one of these units.
 
 The remaining sale-only probes (2014 onward) have no cheap predictor yet: rental and sale-only units
 interleave within buildings, so a per-building early stop would lose rentals.
