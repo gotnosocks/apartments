@@ -53,6 +53,10 @@ class ModelConfig:
     # sum_k a_k sin(2 pi k m / 12) + b_k cos(2 pi k m / 12)), coefficient sd
     # season_scale / k, instead of 12 month effects; 0 = month effects.
     season_harmonics: int = 0
+    # With season_harmonics: the Fourier season at each listing's own date (the
+    # fraction of its calendar year, `Arrays.year_frac`) instead of its month, so
+    # the end of one month flows smoothly into the next.
+    season_daily: bool = False
     beta_sd: float = 0.5
     trend_scale_sd: float = 0.05
     season_scale_sd: float = 0.05
@@ -213,6 +217,21 @@ def season_basis(harmonics: int) -> np.ndarray:
     return np.concatenate([np.sin(angle), np.cos(angle)], axis=1)
 
 
+def day_basis(year_frac, harmonics: int):
+    """(n, 2K) the Fourier season at fractions of the calendar year (0 = 1
+    January): the sine and cosine of each harmonic k = 1..K."""
+    xp = jnp if isinstance(year_frac, jnp.ndarray) else np
+    k = xp.arange(1, harmonics + 1)
+    angle = 2 * np.pi * year_frac[..., None] * k
+    return xp.concatenate([xp.sin(angle), xp.cos(angle)], axis=-1)
+
+
+def mid_month_basis(harmonics: int) -> np.ndarray:
+    """(12, 2K) `day_basis` at the middle of each calendar month: a daily
+    season's monthly values (centred over the year for K < 6)."""
+    return day_basis((np.arange(12) + 0.5) / 12, harmonics)
+
+
 def season_shrink(harmonics: int) -> np.ndarray:
     """(2K,) each coefficient's sd divisor: k, so higher harmonics shrink more."""
     k = np.arange(1, harmonics + 1, dtype=float)
@@ -239,6 +258,9 @@ class Arrays:
     bed_group: np.ndarray  # index into BEDROOM_GROUPS
     beds_centered: np.ndarray  # bedrooms (capped at 4) minus 1
     unit_time: np.ndarray  # years from the unit's mean training date (unit drift)
+    # Fraction of the calendar year at the listing's date (the middle of its
+    # month when no date is given); read only by a daily season.
+    year_frac: np.ndarray | None = None
 
     FIELDS = (
         "y",
@@ -252,7 +274,12 @@ class Arrays:
         "bed_group",
         "beds_centered",
         "unit_time",
+        "year_frac",
     )
+
+    def __post_init__(self):
+        if self.year_frac is None:
+            self.year_frac = (np.asarray(self.calendar) + 0.5) / 12
 
     def map(self, fn):
         return Arrays(*(fn(getattr(self, f)) for f in self.FIELDS))
@@ -361,7 +388,21 @@ def row_arrays(prep: Prepared, frame: pd.DataFrame, mask: np.ndarray) -> Arrays:
         .astype(np.int32),
         beds_centered=sub.bedrooms.round().clip(0, 4).to_numpy() - 1.0,
         unit_time=_unit_time(prep, sub, month),
+        year_frac=_year_frac(sub),
     )
+
+
+def _year_frac(sub: pd.DataFrame) -> np.ndarray:
+    """Each row's fraction of its calendar year at its price date (`price_at`),
+    or the middle of its month without one."""
+    mid = (sub.period.dt.month.to_numpy() - 0.5) / 12
+    if "price_at" not in sub:
+        return mid
+    at = pd.to_datetime(sub.price_at, utc=True)
+    days = np.where(at.dt.is_leap_year, 366.0, 365.0)
+    seconds = (at.dt.hour * 3600 + at.dt.minute * 60 + at.dt.second).to_numpy()
+    frac = (at.dt.dayofyear.to_numpy() - 1 + seconds / 86400) / days
+    return np.where(at.isna().to_numpy(), mid, frac)
 
 
 def _unit_time(prep: Prepared, sub: pd.DataFrame, month: np.ndarray) -> np.ndarray:
@@ -379,6 +420,15 @@ def _unit_time(prep: Prepared, sub: pd.DataFrame, month: np.ndarray) -> np.ndarr
     return (month - center) / 12.0
 
 
+def season_term(p, e, a: Arrays):
+    """Each row's season: the daily Fourier season at its date
+    (`season_daily_coef`), or its calendar month's effect."""
+    coef = p.get("season_daily_coef")
+    if coef is not None and coef.shape[-1] > 1:
+        return day_basis(a.year_frac, coef.shape[-1] // 2) @ coef
+    return e["season"][a.calendar]
+
+
 def linear_predictor(p, a: Arrays, include_unit=True):
     """Mean log rent without offset, from constrained site values."""
     e = effects(p)
@@ -386,7 +436,7 @@ def linear_predictor(p, a: Arrays, include_unit=True):
         e["alpha"]
         + a.x @ e["beta"]
         + e["trend"][a.month]
-        + e["season"][a.calendar]
+        + season_term(p, e, a)
         + e["building"][a.building]
     )
     if "walk_step" in p:
@@ -482,6 +532,8 @@ def effects(p):
         "trend": trend,
         "market_drift": p.get("market_drift", jnp.zeros(())),
         "season": season,
+        # A daily season's Fourier coefficients (a placeholder 0 otherwise).
+        "season_daily_coef": p.get("season_daily_coef", jnp.zeros(1)),
         "building": p["building"],
         "unit": p["unit"],
         "sigma": p["sigma"],
@@ -841,12 +893,18 @@ def build_model(prep: Prepared, config: ModelConfig):
                 numpyro.sample("season", dist.ZeroSumNormal(p["season_scale"], (12,))),
             )
         elif config.season and config.season_harmonics:
-            basis = jnp.asarray(season_basis(config.season_harmonics))
+            basis = jnp.asarray(
+                mid_month_basis(config.season_harmonics)
+                if config.season_daily
+                else season_basis(config.season_harmonics)
+            )
             shrink = jnp.asarray(season_shrink(config.season_harmonics))
             coef = numpyro.sample(
                 "season_fourier", dist.Normal(0.0, p["season_scale"] / shrink)
             )
             p["season_raw"] = numpyro.deterministic("season_raw", basis @ coef)
+            if config.season_daily:
+                p["season_daily_coef"] = coef
         elif config.season:
             p["season_raw"] = numpyro.sample(
                 "season_raw", dist.Normal(0.0, p["season_scale"]).expand([12])
@@ -1325,6 +1383,43 @@ MODELS = {
         feature_slopes=("log_sqft_vs_bedroom_median", "bathrooms=2", "log_floor"),
         unit_t=True,
         noise_by_bedrooms=True,
+    ),
+    # The bedroom-noise design with a two-harmonic Fourier season over the
+    # calendar month (4 coefficients for 12 month effects).
+    "m7-nocurves-floorslope-bednoise-fourier": ModelConfig(
+        name="m7-nocurves-floorslope-bednoise-fourier",
+        building_walk=True,
+        bedroom_slope=True,
+        trend_knot_months=3,
+        feature_slopes=("log_sqft_vs_bedroom_median", "bathrooms=2", "log_floor"),
+        unit_t=True,
+        noise_by_bedrooms=True,
+        season_harmonics=2,
+    ),
+    # The same season at each listing's own date: the end of one month flows
+    # smoothly into the next.
+    "m7-nocurves-floorslope-bednoise-dayfourier": ModelConfig(
+        name="m7-nocurves-floorslope-bednoise-dayfourier",
+        building_walk=True,
+        bedroom_slope=True,
+        trend_knot_months=3,
+        feature_slopes=("log_sqft_vs_bedroom_median", "bathrooms=2", "log_floor"),
+        unit_t=True,
+        noise_by_bedrooms=True,
+        season_harmonics=2,
+        season_daily=True,
+    ),
+    # The daily season with three harmonics.
+    "m7-nocurves-floorslope-bednoise-dayfourier3": ModelConfig(
+        name="m7-nocurves-floorslope-bednoise-dayfourier3",
+        building_walk=True,
+        bedroom_slope=True,
+        trend_knot_months=3,
+        feature_slopes=("log_sqft_vs_bedroom_median", "bathrooms=2", "log_floor"),
+        unit_t=True,
+        noise_by_bedrooms=True,
+        season_harmonics=3,
+        season_daily=True,
     ),
     "m5-nocurves-bednoise": ModelConfig(
         name="m5-nocurves-bednoise",
