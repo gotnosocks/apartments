@@ -17,8 +17,10 @@ reads the analytical dataset and both description evidence files
 provenance beside it. Refuses a dirty tree.
 
 Baths (`baths-ad-v1`, `... baths --out ...`): the ad states one bathroom
-count, more than the record's full plus half baths, with no shared,
-powder-room or hedging words; its count sets the full and half baths.
+count, more than the record's full baths plus half its half baths and not
+their plain sum, with no shared, powder-room, hedging or other-area words; the
+unit's other listings, if any, record that count; rows a quarantine drops are
+left to it. Its count sets the full and half baths.
 """
 
 from __future__ import annotations
