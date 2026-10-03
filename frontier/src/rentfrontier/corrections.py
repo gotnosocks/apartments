@@ -171,9 +171,10 @@ def bathroom_corrections(frame: pd.DataFrame, text: pd.Series) -> pd.DataFrame:
     """Rows whose ad states more bathrooms than the record: one count in the
     whole ad, above the record's full baths plus half its half baths and not
     their plain sum (an ad that counts a half bath as a bath), with no shared,
-    powder-room or hedging words. Ads that state fewer are left alone: they
+    powder-room, hedging or other-area words, the unit's other listings, if
+    any, recording that count. Ads that state fewer are left alone: they
     often leave a half bath out. The ad's count sets the full and half baths."""
-    text = text.fillna("").str.lower()
+    text = text.fillna("").map(plain).str.lower()
     counts = text.map(bath_counts)
     stated = counts.map(lambda c: next(iter(c)) if len(c) == 1 else np.nan)
     full = pd.to_numeric(frame.full_baths, errors="coerce")
@@ -185,6 +186,9 @@ def bathroom_corrections(frame: pd.DataFrame, text: pd.Series) -> pd.DataFrame:
         & (stated > recorded)
         & (stated != full + half)
         & ~text.str.contains(BATH_HEDGE)
+        & ~text.str.contains(ELSEWHERE)
+        & corroborated(frame, "bathrooms", stated)
+        & ~frame.audit_id.isin(data.dropped_rows())
     )
     rows = frame.loc[clear, ["audit_id", "building", "unit_id"]].copy()
     rows["action"] = "correct_baths"

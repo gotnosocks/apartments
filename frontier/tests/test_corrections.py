@@ -64,15 +64,18 @@ def test_bath_corrections_only_raise_a_clear_count():
             "2 bath. Also for rent: a 3 bath unit.",  # two counts: no
             "2 bathrooms shared with a roommate.",  # shared: no
             "Two bathrooms.",  # the record's 1 full + 1 half counted plainly: no
+            "Sunny 2 bath home.",  # the unit's other listing records 1 bath: no
+            "Charming home.",  # that other listing
         ]
     )
     frame = pd.DataFrame(
         {
-            "audit_id": list("abcdefg"),
+            "audit_id": list("abcdefghi"),
             "building": "x",
-            "unit_id": "x/1",
-            "full_baths": [1, 1, 2, 1, 1, 1, 1],
-            "half_baths": [0, 0, 0, 0, 0, 0, 1],
+            "unit_id": [f"x/{i}" for i in range(8)] + ["x/7"],
+            "full_baths": [1, 1, 2, 1, 1, 1, 1, 1, 1],
+            "half_baths": [0, 0, 0, 0, 0, 0, 1, 0, 0],
+            "bathrooms": [1, 1, 2, 1, 1, 1, 1.5, 1, 1],
         }
     )
     rows = corrections.bathroom_corrections(frame, text)
