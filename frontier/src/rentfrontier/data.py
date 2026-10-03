@@ -290,6 +290,25 @@ def correct_baths_v1(frame: pd.DataFrame) -> pd.DataFrame:
     return out
 
 
+FLOOR_CORRECTIONS = REPO / "config" / "corrections" / "floors-ad-20261003.jsonl"
+
+
+def correct_floors_v1(frame: pd.DataFrame) -> pd.DataFrame:
+    """The floor of rows with none (no listed floor, no plausible label floor)
+    from the unit's other listings or ads whose subject is the apartment
+    ("this one bedroom is located on the 4th floor", "third floor walk-up",
+    "top-floor studio" with the building's height, "garden level"), pooled per
+    unit and agreeing within a floor; multi-level units are left alone
+    (3,880 rows). Every row is kept; only `listed_floor` changes."""
+    listed = corrections(RULE_SOURCES["floors-ad-v1"])
+    fixes = {a: v for a, (field, v) in listed.items() if field == "listed_floor"}
+    out = frame.copy()
+    hit = out.audit_id.isin(fixes)
+    out["listed_floor"] = out.listed_floor.astype("float")
+    out.loc[hit, "listed_floor"] = out.loc[hit, "audit_id"].map(fixes).astype(float)
+    return out
+
+
 def quarantine_v3(frame: pd.DataFrame) -> pd.DataFrame:
     """v2 and the third review's rows (261 in all): 65 West Village and 8
     Chelsea ads whose own words place the apartment elsewhere (Brooklyn's
@@ -328,6 +347,7 @@ DATA_RULES = {
     "quarantine-v2": quarantine_v2,
     "bedrooms-ad-v1": correct_bedrooms_v1,
     "baths-ad-v1": correct_baths_v1,
+    "floors-ad-v1": correct_floors_v1,
     "quarantine-v3": quarantine_v3,
 }
 # Rules that read a file; run records hash the files.
@@ -338,6 +358,7 @@ RULE_SOURCES = {
     "unit-labels-v2": UNIT_ALIASES,
     "bedrooms-ad-v1": BEDROOM_CORRECTIONS,
     "baths-ad-v1": BATH_CORRECTIONS,
+    "floors-ad-v1": FLOOR_CORRECTIONS,
 }
 # Of those, the rules that drop the rows their file lists.
 DROPPING_RULES = ("quarantine-v1", "quarantine-v2", "quarantine-v3")
