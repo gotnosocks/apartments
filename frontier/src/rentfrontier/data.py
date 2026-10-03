@@ -295,10 +295,11 @@ FLOOR_CORRECTIONS = REPO / "config" / "corrections" / "floors-ad-20261003.jsonl"
 
 def correct_floors_v1(frame: pd.DataFrame) -> pd.DataFrame:
     """The floor of rows with none (no listed floor, no plausible label floor)
-    from the unit's other listings, the ad's own words ("located on the 4th
-    floor", "third floor walk-up", "top floor" with the building's height,
-    "garden level"), sources agreeing within a floor. Every row is kept; only
-    `listed_floor` changes."""
+    from the unit's other listings or ads whose subject is the apartment
+    ("this one bedroom is located on the 4th floor", "third floor walk-up",
+    "top-floor studio" with the building's height, "garden level"), pooled per
+    unit and agreeing within a floor; multi-level units are left alone
+    (3,836 rows). Every row is kept; only `listed_floor` changes."""
     listed = corrections(RULE_SOURCES["floors-ad-v1"])
     fixes = {a: v for a, (field, v) in listed.items() if field == "listed_floor"}
     out = frame.copy()

@@ -88,29 +88,31 @@ def test_bath_corrections_only_raise_a_clear_count():
 
 def test_floor_corrections_fill_unknown_floors_from_evidence(monkeypatch):
     monkeypatch.setattr(corrections.data, "merge_unit_aliases", lambda f: f)
+    units = ["u1", "u1", "u2", "u3", "u4", "u5", "u6", "u7", "u8", "u8", "u9", "u10"]
     frame = pd.DataFrame(
-        {
-            "audit_id": list("abcdefgh"),
-            "building": "x",
-            "unit_id": ["u1", "u1", "u2", "u3", "u4", "u5", "u6", "u7"],
-        }
+        {"audit_id": list("abcdefghijkl"), "building": "x", "unit_id": units}
     )
-    floor = pd.Series([3, np.nan, np.nan, np.nan, np.nan, np.nan, 5, np.nan])
-    height = pd.Series([5.0] * 8)
+    floor = pd.Series([3] + [np.nan] * 5 + [5] + [np.nan] * 5, dtype=float)
+    height = pd.Series([5.0] * 11 + [np.nan])
     text = pd.Series(
         [
             "",
-            "Sunny one bedroom.",  # the unit's other listing records floor 3
-            "Note: this is a 4th floor walk-up.",  # the ad: 4
-            "Top floor one bedroom with skylight.",  # the building's height: 5
-            "Super charming garden level studio.",  # floor 1
-            "Laundry on the 2nd floor; roof deck on the sixth floor.",  # no
-            "This apartment is on the 2nd floor.",  # floor already known: no
-            "Located on the 2nd floor. Top floor views.",  # 2 and 5 disagree: no
+            "Sunny one bedroom.",  # b: the unit's other listing records 3
+            "Note: this is a 4th floor walk-up.",  # c: the ad, 4
+            "Top floor one bedroom with skylight.",  # d: the building's height, 5
+            "Super charming garden level studio.",  # e: 1
+            "The laundry room is located on the 2nd floor.",  # f: not the apartment
+            "This apartment is on the 2nd floor.",  # g: floor already known
+            "Duplex: the bedroom is located on the 2nd floor.",  # h: levels
+            "Bright 3rd floor apartment.",  # i: the ad, 3 ...
+            "Bright one bedroom.",  # j: ... and the same unit's other listing
+            "This studio is on the 9th floor.",  # k: above a 5-storey building
+            "This unit is located on the 9th floor.",  # l: no height on record
         ]
     )
     rows = corrections.floor_corrections(frame, text, floor, height)
-    assert rows.audit_id.tolist() == ["b", "c", "d", "e"]
-    assert rows.corrected.tolist() == [3, 4, 5, 1]
-    assert rows.source.tolist() == ["unit", "ad", "top", "ground"]
+    assert rows.audit_id.tolist() == ["b", "c", "d", "e", "i", "j", "l"]
+    assert rows.corrected.tolist() == [3, 4, 5, 1, 3, 3, 9]
+    assert rows.source.tolist() == ["unit", "ad", "top", "ground", "ad", "ad", "ad"]
     assert rows.evidence.iloc[1] == "note: this is a 4th floor walk-up."
+    assert rows.evidence.iloc[5].startswith("another listing of this apartment: ")

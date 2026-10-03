@@ -16,6 +16,10 @@ reads the analytical dataset and both description evidence files
 (`descriptions.SOURCE`, `descriptions.WV_SOURCE`) and writes the file and its
 provenance beside it. Refuses a dirty tree.
 
+Floors (`floors-ad-v1`, `... floors --out ...`): rows with no floor get the
+floor their unit's other listings record, or the one its ads place the
+apartment on (`floor_corrections`).
+
 Baths (`baths-ad-v1`, `... baths --out ...`): the ad states one bathroom
 count, more than the record's full baths plus half its half baths and not
 their plain sum, with no shared, powder-room, hedging or other-area words; the
@@ -204,86 +208,128 @@ def bathroom_corrections(frame: pd.DataFrame, text: pd.Series) -> pd.DataFrame:
 
 
 # Floors (`floors-ad-v1`): rows with no floor (no listed floor, no plausible
-# label floor) get one from evidence about that apartment. Phrasings tie the
-# floor to the apartment; on rows whose floor is known they agree exactly
-# 86-87% of the time and within one floor 95-97% (2026-10-03).
+# label floor) get one from evidence about that apartment: a floor its other
+# listings record, or a phrase whose subject is the apartment itself. Ads for
+# multi-level units are left out (their floors are levels), and evidence is
+# pooled per unit, so every listing of an apartment gets the same floor.
 ORDINALS = {
     "first": 1, "second": 2, "third": 3, "fourth": 4, "fifth": 5, "sixth": 6,
     "seventh": 7, "eighth": 8, "ninth": 9, "tenth": 10, "eleventh": 11,
     "twelfth": 12, "thirteenth": 13, "fourteenth": 14, "fifteenth": 15,
 }  # fmt: skip
 _NTH = r"(\d{1,2})(?:st|nd|rd|th)|(" + "|".join(ORDINALS) + ")"
+# The apartment as a sentence's subject: "the apartment", "this sunny one
+# bedroom", "unit 4b"; not "the laundry room" or "the second bedroom".
+_SUBJECT = (
+    r"(?:\b(?:apartment|apt|unit|residence|home)\b(?: \w{1,4})?|\bthis (?:\w+ ){0,3}?"
+    r"(?:apartment|apt|unit|home|residence|studio|loft|one[- ]bedroom|"
+    r"two[- ]bedroom|\d ?(?:bed(?:room)?|br)))"
+)
+_ON = r"(?: is| sits)? (?:located |situated )?on the "
 APARTMENT_FLOOR = re.compile(
-    rf"(?:apartment|apt|unit|home|residence|studio|bedroom|loft|this|it|located|"
-    rf"situated|sits|is) (?:is )?(?:located |situated )?on the (?:{_NTH}) "
-    rf"(?:floor|fl)\b|\b(?:{_NTH}) (?:floor|fl)\.? (?:apartment|apt|unit|studio|"
-    rf"walk[- ]?up|one|two|three|1|2|3|corner|rear|front|loft|home|residence)"
+    rf"{_SUBJECT}{_ON}(?:{_NTH}) (?:floor|fl)\b|\b(?:{_NTH})[- ](?:floor|fl)\.? "
+    rf"(?:apartment|apt|unit|studio|walk[- ]?up|loft|home|residence|corner|rear|"
+    rf"front|(?:one|two|three|[123])[- ]?(?:bed(?:room)?|br)\b)"
+)
+TOP_FLOOR = re.compile(
+    rf"{_SUBJECT}{_ON}top floor\b|\btop[- ]floor (?:apartment|apt|unit|studio|loft|"
+    r"home|residence|walk[- ]?up|penthouse|(?:one|two|three|[123])[- ]?"
+    r"(?:bed(?:room)?|br)\b)"
 )
 GROUND_FLOOR = re.compile(
-    r"\b(?:apartment|apt|unit|home|studio|this|located|is) (?:is )?(?:located )?"
-    r"on the ground floor|\bground[- ]floor (?:apartment|apt|unit|studio|one|two|"
-    r"1|2|loft)|\bgarden (?:level|apartment|apt|floor)\b"
+    rf"{_SUBJECT}{_ON}ground floor\b|\bground[- ]floor (?:apartment|apt|unit|studio|"
+    r"loft|(?:one|two|[12])[- ]?(?:bed(?:room)?|br)\b)|\bgarden[- ](?:level|"
+    r"apartment|apt)\b"
 )
-TOP_FLOOR = re.compile(r"\btop floor\b")
-NOT_TOP = re.compile(
-    r"top floor of (?:a |the |this )?(?:duplex|triplex)|top floors|not (?:on )?the top"
+# Units whose ads give levels, not the apartment's floor.
+MULTI_LEVEL = re.compile(
+    r"duplex|triplex|multi[- ]?level|split[- ]level|\b(?:two|three|four|[234])[- ]"
+    r"(?:level|stor(?:y|ey))s?\b|\blevels\b|upstairs|downstairs|"
+    r"(?:entire|whole) (?:town ?)?house|single[- ]family|"
+    r"\b(?:five|six|seven|[5-7])[- ]?bed(?:room)?s?\b"
 )
+BELOW_GROUND = re.compile(r"basement|below (?:grade|street)|lower level|sunken")
 
 
-def apartment_floors(text: str) -> set:
-    """The floors an ad places the apartment on ("located on the 4th floor",
-    "third floor walk-up")."""
-    out = set()
-    for m in APARTMENT_FLOOR.finditer(text):
-        n, word = m.group(1) or m.group(3), m.group(2) or m.group(4)
-        out.add(int(n) if n else ORDINALS[word])
-    return out
+def floor_evidence(text: str, height: float) -> tuple[float, str, str]:
+    """(floor, source, sentence) from the first sentence of an ad that places
+    the apartment: "ad" for "located on the 4th floor" or "third floor
+    walk-up", "top" for "top floor" (the building's height), "ground" for
+    ground floor or garden level (1). NaN when the ad places it nowhere, on two
+    floors, or is for a multi-level unit."""
+    if MULTI_LEVEL.search(text):
+        return np.nan, "", ""
+    found = []
+    for sentence in SENTENCE_END.split(text.strip()):
+        for m in APARTMENT_FLOOR.finditer(sentence):
+            n, word = m.group(1) or m.group(3), m.group(2) or m.group(4)
+            found.append((float(n) if n else float(ORDINALS[word]), "ad", sentence))
+        if TOP_FLOOR.search(sentence) and height >= 1:
+            found.append((float(np.floor(height)), "top", sentence))
+        if GROUND_FLOOR.search(sentence) and not BELOW_GROUND.search(text):
+            found.append((1.0, "ground", sentence))
+    if not found or len({f for f, _, _ in found}) > 1:
+        return np.nan, "", ""
+    floor, source, sentence = found[0]
+    return floor, source, sentence.strip()[:200]
 
 
 def floor_corrections(
     frame: pd.DataFrame, text: pd.Series, floor: pd.Series, height: pd.Series
 ) -> pd.DataFrame:
-    """Rows with no floor (`floor` NaN, as the features read it) that evidence
-    places: first the floor the unit's other listings record (units joined as
-    unit-labels-v2, one floor among them); else the one floor the ad puts the
-    apartment on; else the building's height (MapPLUTO) for a "top floor" ad;
-    else floor 1 for a ground-floor or garden-level ad. Sources that disagree
-    by more than one floor leave the row alone."""
+    """Rows with no floor (`floor` NaN, as the features read it) whose
+    apartment the evidence places, pooled over the unit's listings (units
+    joined as unit-labels-v2): the floor its listings record, else the floor
+    its ads place it on (`floor_evidence`). The unit's floors and evidence
+    must agree within one floor and, where MapPLUTO has the building's
+    height, be at most one above it. Every unknown-floor listing of such a
+    unit gets the floor."""
     text = text.fillna("").map(plain).str.lower()
-    units = data.merge_unit_aliases(frame).unit_id
-    floors = floor.groupby(units).agg(lambda s: set(s.dropna()))
-    unit_floor = units.map(floors).map(
-        lambda s: next(iter(s)) if len(s) == 1 else np.nan
+    units = data.merge_unit_aliases(frame).unit_id.fillna(frame.audit_id)
+    found = pd.DataFrame(
+        [floor_evidence(t, h) for t, h in zip(text, height)],
+        index=frame.index,
+        columns=["floor", "source", "sentence"],
     )
-    ad = text.map(apartment_floors).map(
-        lambda s: next(iter(s)) if len(s) == 1 else np.nan
+    pool = pd.concat([floor, found.floor]).groupby(pd.concat([units, units]))
+    spread = pool.max() - pool.min()
+    recorded = floor.groupby(units).agg(
+        lambda s: s.mode().min() if s.notna().any() else np.nan
     )
-    top = height.where(text.str.contains(TOP_FLOOR) & ~text.str.contains(NOT_TOP))
-    ground = pd.Series(
-        np.where(text.str.contains(GROUND_FLOOR), 1.0, np.nan), index=frame.index
-    )
-    sources = pd.DataFrame({"unit": unit_floor, "ad": ad, "top": top, "ground": ground})
-    corrected = sources.bfill(axis=1).iloc[:, 0]
-    source = sources.notna().idxmax(axis=1).where(corrected.notna())
-    spread = sources.max(axis=1) - sources.min(axis=1)
+    rank = found.source.map({"ad": 0, "top": 1, "ground": 2})
+    best = found[found.floor.notna()].assign(rank=rank).sort_values("rank")
+    first = best.groupby(units[best.index]).head(1)
+    from_ad = pd.Series(first.floor.to_numpy(), index=units[first.index].to_numpy())
+    unit_floor = recorded.fillna(from_ad)
+    corrected = units.map(unit_floor)
+    limit = height + 1
     clear = (
         floor.isna()
         & corrected.ge(1)
-        & spread.le(1)
+        & units.map(spread).le(1)
+        & ~(limit.notna() & corrected.gt(limit))
         & ~frame.audit_id.isin(data.dropped_rows())
     )
-    evidence = pd.Series("", index=frame.index)
-    for name, pat in (
-        ("ad", APARTMENT_FLOOR),
-        ("top", TOP_FLOOR),
-        ("ground", GROUND_FLOOR),
-    ):
-        hit = clear & source.eq(name)
-        evidence[hit] = text[hit].map(lambda t, p=pat: _sentence_with(t, p))
-    unit_hit = clear & source.eq("unit")
-    evidence[unit_hit] = "the unit's other listings record floor " + corrected[
-        unit_hit
-    ].astype(int).astype(str)
+    by_unit = first.assign(unit=units[first.index]).set_index("unit")
+    has_record = units.map(recorded).notna()
+    source = pd.Series(
+        np.where(has_record, "unit", units.map(by_unit.source)), index=frame.index
+    )
+    own = found.floor.notna() & ~has_record
+    evidence = pd.Series(
+        np.where(
+            has_record,
+            "the unit's other listings record floor "
+            + corrected.fillna(0).astype(int).astype(str),
+            np.where(
+                own,
+                found.sentence,
+                "another listing of this apartment: "
+                + units.map(by_unit.sentence).fillna(""),
+            ),
+        ),
+        index=frame.index,
+    )
     rows = frame.loc[clear, ["audit_id", "building", "unit_id"]].copy()
     rows["action"] = "correct_floor"
     rows["field"] = "listed_floor"
@@ -292,13 +338,6 @@ def floor_corrections(
     rows["source"] = source[clear]
     rows["evidence"] = evidence[clear]
     return rows.reset_index(drop=True)
-
-
-def _sentence_with(text: str, pattern: re.Pattern) -> str:
-    for sentence in SENTENCE_END.split(text.strip()):
-        if pattern.search(sentence):
-            return sentence.strip()[:200]
-    return ""
 
 
 def _git(*args) -> str:
