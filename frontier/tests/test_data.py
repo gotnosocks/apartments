@@ -250,3 +250,26 @@ def test_the_alias_file_is_hashed_but_drops_no_rows():
     groups = data.unit_aliases()
     assert len(groups) == 248 and all(len(g) > 1 for g in groups)
     assert data.dropped_rows() == data.quarantined(data.QUARANTINE_V3)
+
+
+def test_floor_corrections_fill_only_listed_floor(tmp_path, monkeypatch):
+    path = tmp_path / "f.jsonl"
+    path.write_text('{"audit_id": "b", "field": "listed_floor", "corrected": 4}\n')
+    monkeypatch.setitem(data.RULE_SOURCES, "floors-ad-v1", path)
+    frame = pd.DataFrame(
+        {"audit_id": ["a", "b"], "listed_floor": [2, None], "bedrooms": [1.0, 1.0]}
+    )
+    out, _ = data.apply_rules(frame, np.zeros(2, bool), ["floors-ad-v1"])
+    assert out.listed_floor.tolist() == [2.0, 4.0]
+    assert out.bedrooms.tolist() == [1.0, 1.0]
+    assert "b" not in data.dropped_rows()
+
+
+def test_floor_corrections_file_names_each_row_once_with_its_evidence():
+    with open(data.FLOOR_CORRECTIONS) as f:
+        rows = [json.loads(line) for line in f if line.strip()]
+    assert rows and len(rows) == len({r["audit_id"] for r in rows})
+    for r in rows:
+        assert r["action"] == "correct_floor" and r["field"] == "listed_floor", r
+        assert r["corrected"] >= 1 and r["evidence"], r
+    assert not {r["audit_id"] for r in rows} & data.dropped_rows()

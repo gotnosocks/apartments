@@ -84,3 +84,33 @@ def test_bath_corrections_only_raise_a_clear_count():
     assert rows.full_baths.tolist() == [2, 1]
     assert rows.half_baths.tolist() == [0, 1]
     assert rows.evidence.iloc[0] == "sunny 2 bedroom, 2 bathroom home."
+
+
+def test_floor_corrections_fill_unknown_floors_from_evidence(monkeypatch):
+    monkeypatch.setattr(corrections.data, "merge_unit_aliases", lambda f: f)
+    frame = pd.DataFrame(
+        {
+            "audit_id": list("abcdefgh"),
+            "building": "x",
+            "unit_id": ["u1", "u1", "u2", "u3", "u4", "u5", "u6", "u7"],
+        }
+    )
+    floor = pd.Series([3, np.nan, np.nan, np.nan, np.nan, np.nan, 5, np.nan])
+    height = pd.Series([5.0] * 8)
+    text = pd.Series(
+        [
+            "",
+            "Sunny one bedroom.",  # the unit's other listing records floor 3
+            "Note: this is a 4th floor walk-up.",  # the ad: 4
+            "Top floor one bedroom with skylight.",  # the building's height: 5
+            "Super charming garden level studio.",  # floor 1
+            "Laundry on the 2nd floor; roof deck on the sixth floor.",  # no
+            "This apartment is on the 2nd floor.",  # floor already known: no
+            "Located on the 2nd floor. Top floor views.",  # 2 and 5 disagree: no
+        ]
+    )
+    rows = corrections.floor_corrections(frame, text, floor, height)
+    assert rows.audit_id.tolist() == ["b", "c", "d", "e"]
+    assert rows.corrected.tolist() == [3, 4, 5, 1]
+    assert rows.source.tolist() == ["unit", "ad", "top", "ground"]
+    assert rows.evidence.iloc[1] == "note: this is a 4th floor walk-up."
