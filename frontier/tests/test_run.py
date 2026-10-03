@@ -1,19 +1,40 @@
+import os
 import time
 
 from rentfrontier.run import contention, cpu_clock
 
 
 def test_contention_counts_own_work_as_own():
+    # Spin until 0.2 s of own CPU time, however busy the machine is (light
+    # jobs run at low priority beside others).
     clock = cpu_clock()
-    end = time.perf_counter() + 0.3
+    start = sum(os.times()[:2])
     x = 0
-    while time.perf_counter() < end:
+    while sum(os.times()[:2]) - start < 0.2:
         x += 1
     load = contention(clock)
-    assert load["wall_seconds"] >= 0.3
-    assert load["own_cpu_seconds"] > 0.2
+    assert load["wall_seconds"] >= 0.2
+    assert load["own_cpu_seconds"] >= 0.2
     assert load["other_cpu_seconds"] >= 0.0
     assert load["other_cores"] == load["other_cpu_seconds"] / load["wall_seconds"]
+    assert load["fit_cpus"] == sorted(os.sched_getaffinity(0))
+    assert 0.0 <= load["other_cores_on_fit_cpus"] <= len(load["fit_cpus"])
+
+
+def test_contention_on_fit_cpus_ignores_other_cpus():
+    # Pinned to one CPU, the fit's own CPUs can't be busier than that one CPU.
+    before = os.sched_getaffinity(0)
+    cpu = min(before)
+    os.sched_setaffinity(0, {cpu})
+    try:
+        clock = cpu_clock()
+        time.sleep(0.3)
+        load = contention(clock)
+    finally:
+        os.sched_setaffinity(0, before)
+    assert load["fit_cpus"] == [cpu]
+    # /proc/stat counts whole 10 ms ticks, so allow one tick over the wall time.
+    assert load["other_cores_on_fit_cpus"] <= 1.1
 
 
 def test_data_rules_are_validated_when_parsed():

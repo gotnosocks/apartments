@@ -1,0 +1,9 @@
+[Unit]
+Description=thelio light jobs: tests, reviews, data and site builds (ops/job light)
+
+[Slice]
+# Behind agents and services, and capped in total so light jobs can't push
+# a fit or the crawler out of memory (15 GB machine).
+CPUWeight=20
+MemoryHigh=4500M
+MemoryMax=5G
