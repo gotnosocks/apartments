@@ -144,3 +144,31 @@ def test_tuning_subset_is_a_stable_share_of_buildings():
     frame = pd.DataFrame({"building": buildings, "x": range(4000)})
     out, held = data.apply_rules(frame, np.zeros(4000, bool), ("tune-b35-v1",))
     assert len(out) == keep.sum() and not held.any()
+
+
+def test_bedroom_corrections_change_only_bedrooms(tmp_path, monkeypatch):
+    import numpy as np
+
+    path = tmp_path / "c.jsonl"
+    path.write_text(
+        '{"audit_id": "b", "field": "bedrooms", "corrected": 2.0}\n'
+        '{"audit_id": "z", "field": "bedrooms", "corrected": 0.0}\n'
+    )
+    monkeypatch.setitem(data.RULE_SOURCES, "bedrooms-ad-v1", path)
+    frame = pd.DataFrame({"audit_id": ["a", "b", "c"], "bedrooms": [1.0, 1.0, 3.0]})
+    out, held = data.apply_rules(frame, np.array([0, 1, 0], bool), ["bedrooms-ad-v1"])
+    assert out.audit_id.tolist() == ["a", "b", "c"]
+    assert out.bedrooms.tolist() == [1.0, 2.0, 3.0]
+    assert held.tolist() == [False, True, False]
+    assert frame.bedrooms.tolist() == [1.0, 1.0, 3.0]  # the input is untouched
+    assert "z" not in data.dropped_rows() and "b" not in data.dropped_rows()
+
+
+def test_bedroom_corrections_file_names_each_row_once_with_its_evidence():
+    with open(data.BEDROOM_CORRECTIONS) as f:
+        rows = [json.loads(line) for line in f if line.strip()]
+    assert rows and len(rows) == len({r["audit_id"] for r in rows})
+    for r in rows:
+        assert r["action"] == "correct_bedrooms" and r["field"] == "bedrooms", r
+        assert r["corrected"] != r["recorded"] and r["evidence"], r
+    assert len(data.corrections()) == len(rows)

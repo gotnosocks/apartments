@@ -182,6 +182,32 @@ def quarantine_v2(frame: pd.DataFrame) -> pd.DataFrame:
     return frame[~frame.audit_id.isin(quarantined(QUARANTINE_V2))]
 
 
+# The corrections overlay (rentfrontier.corrections): bedroom counts the
+# listing's own ad clearly states otherwise, one JSON line per row with the
+# ad's first sentence as evidence; provenance beside it.
+BEDROOM_CORRECTIONS = REPO / "config" / "corrections" / "bedrooms-ad-20261003.jsonl"
+
+
+@functools.lru_cache(maxsize=2)
+def corrections(path: Path = BEDROOM_CORRECTIONS) -> dict:
+    """audit_id -> (field, corrected value) for each row of a corrections file."""
+    with open(path) as f:
+        rows = [json.loads(line) for line in f if line.strip()]
+    return {r["audit_id"]: (r["field"], r["corrected"]) for r in rows}
+
+
+def correct_bedrooms_v1(frame: pd.DataFrame) -> pd.DataFrame:
+    """The bedroom count of rows whose ad's first sentence states another count
+    than the record, every count in the ad agreeing and no flex, den, office or
+    conversion words (212 rows). Every row is kept; only `bedrooms` changes."""
+    listed = corrections(RULE_SOURCES["bedrooms-ad-v1"])
+    fixes = {a: v for a, (field, v) in listed.items() if field == "bedrooms"}
+    out = frame.copy()
+    hit = out.audit_id.isin(fixes)
+    out.loc[hit, "bedrooms"] = out.loc[hit, "audit_id"].map(fixes).to_numpy()
+    return out
+
+
 # Named data rules, applied after the held-out split is drawn (the row split
 # depends on unit ids, and scored rows must not change). Run records list them.
 # Tuning subsets (Ben, 2026-10-01: "consider using a subset of the listings or
@@ -208,15 +234,22 @@ DATA_RULES = {
     "unit-labels-v1": merge_unit_labels,
     "quarantine-v1": quarantine_v1,
     "quarantine-v2": quarantine_v2,
+    "bedrooms-ad-v1": correct_bedrooms_v1,
 }
-# Rules that drop the rows their file lists; run records hash the files.
-RULE_SOURCES = {"quarantine-v1": QUARANTINE_V1, "quarantine-v2": QUARANTINE_V2}
+# Rules that read a file; run records hash the files.
+RULE_SOURCES = {
+    "quarantine-v1": QUARANTINE_V1,
+    "quarantine-v2": QUARANTINE_V2,
+    "bedrooms-ad-v1": BEDROOM_CORRECTIONS,
+}
+# Of those, the rules that drop the rows their file lists.
+DROPPING_RULES = ("quarantine-v1", "quarantine-v2")
 
 
 def dropped_rows() -> frozenset:
     """Audit ids some data rule drops: the only rows two runs' scores may
     differ by (cleaning is scored on the rows both keep)."""
-    return frozenset().union(*(quarantined(path) for path in RULE_SOURCES.values()))
+    return frozenset().union(*(quarantined(RULE_SOURCES[r]) for r in DROPPING_RULES))
 
 
 def recorded_rules(result: dict) -> tuple:

@@ -424,6 +424,7 @@ QUARANTINE_ACTIONS = {
     "quarantine_explicit_short_term_offer": "Short stay only",
     "quarantine_price_basis": "Ask is not the rent",
     "quarantine_attribute_conflict": "Bedrooms contradict the ad",
+    "correct_bedrooms": "Bedrooms corrected from the ad",
 }
 
 
@@ -439,6 +440,10 @@ DATA_RULE_TEXT = {
     "apartment at another address or on a street its building does not front, and "
     'bedroom counts the ad flatly contradicts (a "three-bedroom home" recorded as one '
     "bedroom).",
+    "bedrooms-ad-v1": "Bedroom counts corrected from the listing's own ad: its first "
+    'sentence states another count ("Bright 1 bedroom in Chelsea" recorded as two '
+    "bedrooms), every count in the ad agrees, and the ad has no flex, den, office or "
+    "conversion words. No listing is dropped.",
 }
 
 
