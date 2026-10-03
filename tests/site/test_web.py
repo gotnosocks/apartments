@@ -1243,3 +1243,23 @@ def test_designs_page(client):
     assert "Which parts each design has" in html
     assert html.index("<code>m-test</code>") < html.index("<code>m-other</code>")
     assert "Drops building drift over time" in html
+
+
+def test_pages_without_recorded_structure(tmp_path, site_root):
+    from apartments.site.web import create_app
+
+    from .conftest import research_data
+
+    data = research_data()
+    for e in data["entries"]:
+        e.pop("model", None)
+        e.pop("sizes", None)
+    path = tmp_path / "data.json"
+    path.write_text(json.dumps(data))
+    client = create_app(
+        site_root, allowed_hosts=["thelio.example.ts.net"], research_data=path
+    ).test_client()
+    fit = client.get("/research/fits/m-other").get_data(as_text=True)
+    assert "holds no structure for this design" in fit
+    designs = client.get("/research/designs").get_data(as_text=True)
+    assert "No design on the board records its structure yet" in designs
