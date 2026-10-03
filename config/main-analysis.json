@@ -1,13 +1,13 @@
 {
   "version": "main-analysis-selection-v2",
   "model_family": "frontier_summary",
-  "summary": "/data1/apartments/frontier/summaries/m7-nocurves-bathfloor-nb-facing-v1-rows-bbf7530-gibbs-2060-4500k9solo2c-nb-5fbddc7",
-  "summary_manifest_sha256": "925f469c5d3918da95a707b7b397a1730485eeaae8cf390e89a719e735abf0fc",
-  "summary_commit": "5fbddc74d2064c16b9ac36df8e3f7b069143c27f",
-  "run": "m7-nocurves-bathfloor-nb-facing-v1-rows-bbf7530-gibbs-2060-4500k9solo2c-nb",
-  "run_commit": "bbf7530731c6c89674f87b9066986d13e8bac13f",
-  "model": "m7-nocurves-bathfloor",
-  "feature_set": "nb-facing-v1",
+  "summary": "/data1/apartments/frontier/summaries/m7-nocurves-floorslope-bednoise-nb-bedtext-v1-rows-1c324fc-gibbs-2060-4500k9-nb-ca26a7d",
+  "summary_manifest_sha256": "1c06ea4517da035cd7a4273d2a618b1ffe5336de53a244b859c718237f2aec08",
+  "summary_commit": "ca26a7ddde1b7a76ecd6d1e901b07d3d7fad6a3b",
+  "run": "m7-nocurves-floorslope-bednoise-nb-bedtext-v1-rows-1c324fc-gibbs-2060-4500k9-nb",
+  "run_commit": "1c324fc0751a2bdbfd2560d095540617be117d85",
+  "model": "m7-nocurves-floorslope-bednoise",
+  "feature_set": "nb-bedtext-v1",
   "data_rules": [
     "unit-labels-v1",
     "quarantine-v2"
@@ -16,17 +16,17 @@
   "source_observations_sha256": "c62c1e1500b20f3fc19f756ff08de4d9a175f4ab3ea2bb621157b2554fc37d10",
   "gate": {
     "passes": true,
-    "max_rhat": 1.0086739855783533,
-    "min_ess": 583.6363852929944,
+    "max_rhat": 1.0047032616747387,
+    "min_ess": 817.0902116062041,
     "divergences": null,
-    "group_rhat_max": 1.016417640938078
+    "group_rhat_max": 1.0222523402789907
   },
   "psis_loo": {
-    "elpd_loo": 87334.13497563136,
-    "elpd_loo_se": 308.82953374607604,
-    "loo_commit": "bbf7530731c6c89674f87b9066986d13e8bac13f"
+    "elpd_loo": 88406.96351081219,
+    "elpd_loo_se": 306.47625469694367,
+    "loo_commit": "1c324fc0751a2bdbfd2560d095540617be117d85"
   },
-  "selected_by": "rentfrontier.autoselect, 2026-10-02 (Ben, 2026-09-30: switch automatically by the agreed metrics)",
-  "selection_reason": "Chosen by the automatic rule because the incumbent cannot be served: it has no paired PSIS-LOO score. Gibbs m7-nocurves-bathfloor + nb-facing-v1 with unit-labels-v1 + quarantine-v2, 2,800 s on thelio RTX 2060 SUPER.",
-  "uncertainty": "Conditional posterior uncertainty; source errors, omitted features and incomplete market coverage remain separate. Estimates for a unit's only listing are under-covered (92.7% in the 95% predictive range)."
+  "selected_by": "rentfrontier.autoselect, 2026-10-03 (Ben, 2026-09-30: switch automatically by the agreed metrics)",
+  "selection_reason": "Chosen by the automatic rule because its PSIS-LOO is clearly better than the incumbent's. Gibbs m7-nocurves-floorslope-bednoise + nb-bedtext-v1 with unit-labels-v1 + quarantine-v2, 3,303 s on thelio RTX 2060 SUPER. Against the previous selection on the rows both keep: PSIS-LOO +1072.8 \u00b1 72.2, held-out +89.7 \u00b1 21.6.",
+  "uncertainty": "Conditional posterior uncertainty; source errors, omitted features and incomplete market coverage remain separate. Estimates for a unit's only listing are under-covered (92.6% in the 95% predictive range)."
 }
