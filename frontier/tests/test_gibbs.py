@@ -102,6 +102,9 @@ DESIGNS = {
         building_walk=True, bedroom_slope=True, season_harmonics=2
     ),
     "drift": model.ModelConfig(building_walk=True, unit_drift=True),
+    "fgroup": model.ModelConfig(
+        building_walk=True, bedroom_slope=True, learned_feature_groups=("x",)
+    ),
     "tdrift": model.ModelConfig(
         building_walk=True,
         bedroom_slope=True,
@@ -128,6 +131,7 @@ SCALES = {
     "unit_drift_scale": 0.03,
     "fslope_scale_0": 0.05,
     "fslope_scale_1": 0.07,
+    "fgroup_scale_0": 0.2,
 }
 
 
@@ -223,7 +227,7 @@ def dense_logml(d, lam, s, kappa=None):
 
 
 @pytest.mark.parametrize(
-    "design", ["base", "all", "quarterly", "fslopes", "drift", "tdrift"]
+    "design", ["base", "all", "quarterly", "fslopes", "drift", "tdrift", "fgroup"]
 )
 def test_collapsed_marginal_likelihood_matches_dense(design):
     prep = synthetic()
@@ -390,7 +394,16 @@ def test_student_t_units_block_matches_dense():
 
 @pytest.mark.parametrize(
     "design",
-    ["all", "quarterly", "fslopes", "tunits", "tdrift", "bednoise", "fourier"],
+    [
+        "all",
+        "quarterly",
+        "fslopes",
+        "tunits",
+        "tdrift",
+        "bednoise",
+        "fourier",
+        "fgroup",
+    ],
 )
 def test_site_values_reproduce_linear_predictor(design):
     """Gibbs state -> NumPyro sites -> model.linear_predictor equals the Gibbs fit."""
@@ -676,3 +689,38 @@ def test_gibbs_refuses_units_that_span_buildings():
     )
     with pytest.raises(ValueError, match="nested in one building"):
         gibbs.build_design(moved, DESIGNS["all"])
+
+
+def test_a_learned_feature_group_scale_replaces_the_fixed_prior():
+    """The group's coefficients leave the fixed diagonal prior for a global
+    block under fgroup_scale_0, structure diag(1 / prior_scale^2); the scale
+    is reported as feature_group_scales."""
+    prep = synthetic()
+    d = gibbs.build_design(prep, DESIGNS["fgroup"])
+    plain = gibbs.build_design(
+        prep, dataclasses.replace(DESIGNS["fgroup"], learned_feature_groups=())
+    )
+    assert model.feature_group_columns(prep.features, "x") == slice(0, 2)
+    np.testing.assert_allclose(np.asarray(d.prior_fixed)[1:3], 0.0)
+    np.testing.assert_allclose(
+        np.asarray(plain.prior_fixed)[1:3], 1 / (0.5 * prep.features.prior_scale) ** 2
+    )
+    sl, r = d.global_blocks["fgroup_scale_0"]
+    assert (sl.start, sl.stop) == (1, 3)
+    np.testing.assert_allclose(np.asarray(r), np.diag(1 / prep.features.prior_scale**2))
+    assert "fgroup_scale_0" in d.scale_names
+    assert d.prior_sd["fgroup_scale_0"] == 0.5
+    out = gibbs.run(
+        prep,
+        DESIGNS["fgroup"],
+        gibbs.Settings(chains=2, warmup=40, draws=40, keep_every=4),
+        log=lambda *_: None,
+    )
+    assert np.asarray(out["mean"]["feature_group_scales"]).shape == (1,)
+    with pytest.raises(ValueError, match="not contiguous"):
+        model.feature_group_columns(
+            Features(
+                "f", ["a", "b", "c"], ["g", "h", "g"], np.zeros((1, 3)), np.ones(3)
+            ),
+            "g",
+        )

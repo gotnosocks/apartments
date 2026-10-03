@@ -121,6 +121,7 @@ class Design:
     unit_nu_fixed: float | None = None
     unit_drift: bool = False
     unit_time: jnp.ndarray | None = None
+    n_feature_groups: int = 0  # learned feature-group scales (fgroup_scale_i)
     # a'Wa by structure: every global column except the features is a
     # function of the row's (bedroom group, month) key, so the Gram matrix is
     # a dense feature block plus per-key sums through a small basis.
@@ -407,6 +408,16 @@ def build_design(
     fixed = np.zeros(p)
     fixed[0] = 1.0
     fixed[1 : 1 + f] = 1.0 / (config.beta_sd * prep.features.prior_scale) ** 2
+    # Learned feature-group scales: a group's coefficients leave the fixed
+    # prior for a global prior block under the group's own scale.
+    for i, g in enumerate(config.learned_feature_groups):
+        cols = model_module.feature_group_columns(prep.features, g)
+        sl = slice(1 + cols.start, 1 + cols.stop)
+        fixed[sl] = 0.0
+        blocks[f"fgroup_scale_{i}"] = (
+            sl,
+            np.diag(1.0 / prep.features.prior_scale[cols] ** 2),
+        )
     unit_building = np.zeros(len(prep.units), dtype=np.int32)
     unit_building[tr.unit] = tr.building
     if not np.array_equal(unit_building[tr.unit], tr.building):
@@ -502,6 +513,10 @@ def build_design(
             f"fslope_scale_{i}": config.feature_slope_scale_sd
             for i in range(len(fslope_cols))
         },
+        **{
+            f"fgroup_scale_{i}": config.beta_sd
+            for i in range(len(config.learned_feature_groups))
+        },
     }
     return Design(
         a=jnp.asarray(a),
@@ -527,6 +542,7 @@ def build_design(
         slope_index=slope_index,
         fslope_local=fslope_local,
         fslope_cols=fslope_cols,
+        n_feature_groups=len(config.learned_feature_groups),
         knot_start=knot_start,
         walk_months=config.walk_knot_months,
         n_features=f,
@@ -957,6 +973,10 @@ def site_values(d: Design, state):
             [state[f"fslope_scale_{i}"] for i in range(len(d.fslope_local))]
         )
         out["fslope_index"] = jnp.asarray(d.fslope_cols, dtype=jnp.int32)
+    if d.n_feature_groups:
+        out["feature_group_scales"] = jnp.stack(
+            [state[f"fgroup_scale_{i}"] for i in range(d.n_feature_groups)]
+        )
     if d.knot_start is not None:
         out["walk_step"] = steps(theta_l[:, d.knot_start :])
         # The spacing linear_predictor interpolates the walk with (held-out scores).
@@ -1409,6 +1429,7 @@ def init_states(d: Design, key, chains):
         **START,
         **{n: 0.05 for n in names if n.startswith("fslope_scale_")},
         **{n: START["sigma"] for n in names if n.startswith("sigma_")},
+        **{n: 0.1 for n in names if n.startswith("fgroup_scale_")},
     }
     k1, _ = jax.random.split(key)
     jitter = jnp.exp(0.7 * jax.random.normal(k1, (chains, len(names) + 1)))

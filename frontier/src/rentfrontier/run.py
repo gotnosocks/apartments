@@ -155,6 +155,8 @@ def diagnostics(trace, names_beta, rhat_all=None) -> dict:
     if groups is not None and groups.shape[-1] > 1:  # one scale per bedroom group
         for i in range(groups.shape[-1]):
             quantities[f"sigma[{i}]"] = groups[..., i]
+    for i in range(trace["feature_group_scales"].shape[-1]):
+        quantities[f"feature_group_scale[{i}]"] = trace["feature_group_scales"][..., i]
     for key in ("building", "unit"):
         for i in range(trace[key].shape[-1]):
             quantities[f"{key}[trace {i}]"] = trace[key][..., i]
