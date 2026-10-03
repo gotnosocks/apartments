@@ -173,15 +173,18 @@ def test_v2_refuses_ranges_rec_rooms_and_disagreeing_true_counts(monkeypatch):
             "building": "1-w-1-street",
             "unit_id": ["u1", "u2", "u3", "u4"],
             "neighbourhood": "Chelsea",
-            "bedrooms": [3, 3, 1, 1],
+            "bedrooms": [3, 3, 1, 0],
         }
     )
     text = pd.Series(
         [
-            "Massive 4 bedroom. It features 3 true bedrooms and a den-like nook.",
-            "Grand 4 bedroom in a townhouse. A gracious 3- 4 bedroom home.",
+            "Massive 4 bedroom. It features 3 true bedrooms.",
+            "Grand 4 bedroom townhouse. A gracious 3- 4 bedroom home.",
             "Renovated 2 bedroom with one king sized rec room.",
             "1br",
         ]
     )
+    # v1 corrects all four; each is refused in v2 by its own rule.
+    v1 = corrections.bedroom_corrections(frame, text, version=1)
+    assert v1.audit_id.tolist() == ["a", "b", "c", "d"]
     assert corrections.bedroom_corrections(frame, text, version=2).empty
