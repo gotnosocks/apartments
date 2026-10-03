@@ -261,7 +261,18 @@ def correct_bedrooms_v1(frame: pd.DataFrame) -> pd.DataFrame:
     than the record, every count in the ad agreeing and no flex, den, office or
     conversion words, the unit's other listings not contradicting it (100 rows).
     Every row is kept; only `bedrooms` changes."""
-    listed = corrections(RULE_SOURCES["bedrooms-ad-v1"])
+    return _correct_bedrooms(frame, "bedrooms-ad-v1")
+
+
+def correct_bedrooms_v2(frame: pd.DataFrame) -> pd.DataFrame:
+    """v1's rule, and half of the unit's other listings (units joined as
+    unit-labels-v2) recording the ad's count, and no ad that places the
+    apartment in the other neighbourhood or on another avenue (94 rows)."""
+    return _correct_bedrooms(frame, "bedrooms-ad-v2")
+
+
+def _correct_bedrooms(frame: pd.DataFrame, rule: str) -> pd.DataFrame:
+    listed = corrections(RULE_SOURCES[rule])
     fixes = {a: v for a, (field, v) in listed.items() if field == "bedrooms"}
     out = frame.copy()
     hit = out.audit_id.isin(fixes)
@@ -270,6 +281,12 @@ def correct_bedrooms_v1(frame: pd.DataFrame) -> pd.DataFrame:
 
 
 BATH_CORRECTIONS = REPO / "config" / "corrections" / "baths-ad-20261003.jsonl"
+# The second pass (rentfrontier.corrections --version 2): stricter on units
+# whose other listings disagree and on ads written for another apartment.
+BEDROOM_CORRECTIONS_V2 = (
+    REPO / "config" / "corrections" / "bedrooms-ad-v2-20261003.jsonl"
+)
+BATH_CORRECTIONS_V2 = REPO / "config" / "corrections" / "baths-ad-v2-20261003.jsonl"
 
 
 def correct_baths_v1(frame: pd.DataFrame) -> pd.DataFrame:
@@ -277,7 +294,18 @@ def correct_baths_v1(frame: pd.DataFrame) -> pd.DataFrame:
     record (one count in the ad, no shared, powder-room, hedging or other-area
     words, the unit's other listings not contradicting it; 47 rows).
     Every row is kept; only `full_baths` and `half_baths` change."""
-    with open(RULE_SOURCES["baths-ad-v1"]) as f:
+    return _correct_baths(frame, "baths-ad-v1")
+
+
+def correct_baths_v2(frame: pd.DataFrame) -> pd.DataFrame:
+    """v1's rule, and half of the unit's other listings recording the ad's
+    count, no ad placed elsewhere or whose own bedroom counts leave out the
+    record's, and at most one bath beyond the bedrooms (41 rows)."""
+    return _correct_baths(frame, "baths-ad-v2")
+
+
+def _correct_baths(frame: pd.DataFrame, rule: str) -> pd.DataFrame:
+    with open(RULE_SOURCES[rule]) as f:
         rows = {
             r["audit_id"]: r for r in (json.loads(line) for line in f if line.strip())
         }
@@ -328,6 +356,8 @@ DATA_RULES = {
     "quarantine-v2": quarantine_v2,
     "bedrooms-ad-v1": correct_bedrooms_v1,
     "baths-ad-v1": correct_baths_v1,
+    "bedrooms-ad-v2": correct_bedrooms_v2,
+    "baths-ad-v2": correct_baths_v2,
     "quarantine-v3": quarantine_v3,
 }
 # Rules that read a file; run records hash the files.
@@ -338,6 +368,8 @@ RULE_SOURCES = {
     "unit-labels-v2": UNIT_ALIASES,
     "bedrooms-ad-v1": BEDROOM_CORRECTIONS,
     "baths-ad-v1": BATH_CORRECTIONS,
+    "bedrooms-ad-v2": BEDROOM_CORRECTIONS_V2,
+    "baths-ad-v2": BATH_CORRECTIONS_V2,
 }
 # Of those, the rules that drop the rows their file lists.
 DROPPING_RULES = ("quarantine-v1", "quarantine-v2", "quarantine-v3")
