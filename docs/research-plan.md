@@ -103,7 +103,7 @@ queue and design work before it; the rest of this plan is context.
   | Location bumps 250 m apart (`nb-loc-v1`) | +9.5 ± 15.2 | +16.8 ± 8.7 | | −6.5 | +16.0 ± 11.1 | tie; closed (#143) |
   | The bumps with a learned scale (`-locscale`, `learned_feature_groups`) | +9.6 ± 14.9 | +15.3 ± 8.5 | +8.6 ± 8.2 | −5.0 ± 10.3 | +14.6 ± 10.8 | vs fixed scale +0.1 ± 13.1: null (`model/location-scale`) |
   | Spatial GP on building levels, 800 m (`-spatial`, `nb-hsgp800-v1`, replacing the West Village indicator) | +9.1 ± 14.7 | +12.2 ± 8.3 | +6.0 ± 8.2 | −3.2 ± 10.1 | +12.3 ± 10.7 | tie (`model/spatial-hsgp`) |
-  | The same at 500 m (`nb-hsgp500-v1`) | +8.5 ± 14.9 | +13.0 ± 8.5 | +6.6 ± 8.2 | −5.3 ± 10.2 | +13.8 ± 10.8 | tie; 300 m ran out of GPU memory (130 columns) |
+  | The same at 500 m (`nb-hsgp500-v1`) | +8.5 ± 14.9 | +13.0 ± 8.5 | +6.6 ± 8.2 | −5.3 ± 10.2 | +13.8 ± 10.8 | tie; 300 m (121 columns) ran out of GPU memory |
   | Open space (`nb-openspace-v1`) | −5.6 ± 14.1 | | | | | null; closed (#140) |
   | Transit, construction | null | | | | | closed (#139) |
 
