@@ -92,7 +92,11 @@ def main(argv=None):
         command.add_argument(
             "--neighborhood",
             choices=neighborhood_choices(),
-            help="persistent neighborhood scope; Chelsea includes West Chelsea, excluding Hudson Yards",
+            help=(
+                "persistent neighborhood scope: a StreetEasy area and no child areas, "
+                "except that Chelsea includes West Chelsea (not Hudson Yards); "
+                "Greenwich Village excludes NoHo"
+            ),
         )
         command.add_argument(
             "--delay",
