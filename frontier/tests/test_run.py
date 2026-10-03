@@ -31,7 +31,8 @@ def test_contention_on_fit_cpus_ignores_other_cpus():
     finally:
         os.sched_setaffinity(0, before)
     assert load["fit_cpus"] == [cpu]
-    assert load["other_cores_on_fit_cpus"] <= 1.0 + 1e-9
+    # /proc/stat counts whole 10 ms ticks, so allow one tick over the wall time.
+    assert load["other_cores_on_fit_cpus"] <= 1.1
 
 
 def test_data_rules_are_validated_when_parsed():

@@ -41,7 +41,10 @@ CPU, and each run record measures them (below).
 
 The GPU lock is `/data1/apartments/tmp/locks/gpu.lock`, a symlink to the old `heavy.lock`. A script
 that still takes `heavy.lock` therefore queues with GPU jobs and never runs beside them, so
-scripts can move over one at a time. A legacy job isn't pinned, though: it can share the light
+scripts can move over one at a time. When wrapping a script in `ops/job gpu`, remove its own
+`flock heavy.lock`: that is the same lock, and it would wait on itself forever (a nested
+`ops/job gpu` is fine; it reuses the held lock). A background process a GPU job leaves running
+keeps the lock until it exits. A legacy job isn't pinned, though: it can share the light
 cores, and its own time isn't fenced. Move fit queues to `ops/job gpu` first.
 
 Light jobs don't take the GPU lock. That includes LOO and variance on the CPU
@@ -58,8 +61,8 @@ LOO on the GPU is a gpu job.
 - `light_cores`: the mean number of cores the light jobs used meanwhile.
 
 `other_cores` keeps its old meaning: other work on the whole machine. A fit's time is clean when
-`other_cores_on_fit_cpus` is below 0.5. For runs before this change, `fit_cpus` is all 12 CPUs, so
-the two numbers are the same.
+`other_cores_on_fit_cpus` is below 0.5, and the research pages show that number. Runs from before
+this change have only `other_cores`, which is the same thing for a fit that could use every CPU.
 
 ## Benchmark (2026-10-03)
 
@@ -80,4 +83,4 @@ systemctl --user daemon-reload
 ```
 
 The research-data build (`apartments-dashboard-build.service`) runs in the light slice on the
-light CPUs. After changing it, copy it to `~/.config/systemd/user/` and reload as above.
+light CPUs, without taking a slot (it is small and runs at idle priority). After changing it, copy it to `~/.config/systemd/user/` and reload as above.

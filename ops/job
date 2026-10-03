@@ -18,6 +18,10 @@
 # status is passed on. TMPDIR defaults to /data1/apartments/tmp/jobs when unset
 # or under /tmp (a small shared tmpfs). The class goes in APARTMENTS_JOB_CLASS,
 # which rentfrontier.run records in the run's contention block.
+#
+# A nested `ops/job gpu` inside a GPU job reuses the held lock, but a wrapped
+# script must not flock heavy.lock itself: that is the same lock, and it would
+# wait forever. The lock lasts as long as any process that inherited it.
 set -euo pipefail
 
 LOCKS=${APARTMENTS_LOCKS:-/data1/apartments/tmp/locks}
@@ -72,7 +76,7 @@ for slice in apartments-gpu.slice apartments-light.slice; do
   fi
 done
 mkdir -p "$LOCKS"
-[ -e "$GPU_LOCK" ] || ln -s ../heavy.lock "$GPU_LOCK"
+[ -L "$GPU_LOCK" ] || ln -s ../heavy.lock "$GPU_LOCK" 2>/dev/null || true
 case "${TMPDIR:-/tmp}" in
   /tmp|/tmp/*) export TMPDIR=/data1/apartments/tmp/jobs ;;
 esac
@@ -84,8 +88,12 @@ desc="$class: $*"
 desc=${desc:0:200}
 
 if [ "$class" = gpu ]; then
-  exec 9>"$GPU_LOCK"
-  flock 9
+  # Inside a GPU job already (a queue script wrapped whole): the lock is held.
+  if [ "${APARTMENTS_GPU_LOCK_HELD:-}" != 1 ]; then
+    exec 9>"$GPU_LOCK"
+    flock 9
+    export APARTMENTS_GPU_LOCK_HELD=1
+  fi
   exec systemd-run --user --scope -q --slice=apartments-gpu.slice \
     -p MemoryMax="$mem" --description="$desc" \
     taskset -c "$GPU_CPUS" "$@"
