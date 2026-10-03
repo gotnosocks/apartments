@@ -597,7 +597,7 @@ def write(out: dict, out_dir: Path, commit: str, seconds: float) -> Path:
     rule_files = {}
     for rule in data.recorded_rules(result):
         # Only the rules that drop rows have per-row decisions the site lists
-        # (the corrections of bedrooms-ad-v1 keep every row).
+        # (the alias table of unit-labels-v2 and the corrections keep every row).
         if rule in data.DROPPING_RULES:
             name = f"data-rule-{rule}.jsonl"
             shutil.copyfile(data.RULE_SOURCES[rule], tmp / name)

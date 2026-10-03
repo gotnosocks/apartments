@@ -7,7 +7,7 @@
     },
     {
       "name": "full",
-      "description": "Full draws, the convergence gate and the 2-hour cap; full-data confirmation fits run only between 03:00 and 08:00 ET. Only these can be served."
+      "description": "Full draws, the convergence gate and the 2-hour cap; full-data confirmation fits preferably run 03:00–08:00 ET, and any time nothing better is queued. Only these can be served."
     }
   ],
   "notes": [
