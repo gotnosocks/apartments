@@ -218,12 +218,19 @@ def test_write_copies_the_row_dropping_rules_file(tmp_path, monkeypatch):
     fixes = tmp_path / "c.jsonl"
     fixes.write_text('{"audit_id": "a", "action": "correct_bedrooms"}\n')
     monkeypatch.setitem(summary.data.RULE_SOURCES, "bedrooms-ad-v1", fixes)
+    # unit-labels-v2's alias table is hashed but has no per-row decisions.
+    aliases = tmp_path / "aliases.jsonl"
+    aliases.write_text(
+        '{"alias_group_id": "g", "unit_id": "u", "history_confirmed": true}\n'
+    )
+    monkeypatch.setitem(summary.data.RULE_SOURCES, "unit-labels-v2", aliases)
     monkeypatch.setattr(summary, "hardware", lambda: {"cpu": "test"})
     monkeypatch.setattr(summary, "loo_score", lambda run: None)
     rows = pd.DataFrame({"audit_id": ["a"], "in_fit": [True], "pareto_k": [0.2]})
     sources = {
         "quarantine-v1": {"sha256": summary.data.sha256(rule_file)},
         "bedrooms-ad-v1": {"sha256": summary.data.sha256(fixes)},
+        "unit-labels-v2": {"sha256": summary.data.sha256(aliases)},
     }
     out = {
         "result": {
@@ -231,7 +238,7 @@ def test_write_copies_the_row_dropping_rules_file(tmp_path, monkeypatch):
             "commit": "c" * 40,
             "dataset": "/d",
             "dataset_observations_sha256": "s",
-            "data_rules": ["unit-labels-v1", "quarantine-v1", "bedrooms-ad-v1"],
+            "data_rules": ["unit-labels-v2", "quarantine-v1", "bedrooms-ad-v1"],
             "data_rule_sources": sources,
             "feature_set": "f",
             "model": {"name": "m"},

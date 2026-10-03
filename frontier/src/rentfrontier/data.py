@@ -134,6 +134,63 @@ def merge_unit_labels(frame: pd.DataFrame) -> pd.DataFrame:
     return out
 
 
+# The West Village unit spelling alias table (apartments.unit_spelling_aliases,
+# PR #80) for west-village-granular-20260930-canonical-url-v1: units of one
+# building whose labels are equal after lowercasing, removing punctuation and
+# stripping the leading zeros of every number ("ph04" and "ph4", "r01" and
+# "r1"), one JSON line per member; provenance beside it.
+UNIT_ALIASES = (
+    Path(__file__).resolve().parents[3]
+    / "config"
+    / "unit-aliases"
+    / "west-village-20260930.jsonl"
+)
+
+
+@functools.lru_cache(maxsize=2)
+def unit_aliases(path: Path = UNIT_ALIASES) -> tuple:
+    """Groups of unit ids the alias table joins, history-confirmed groups only
+    (a crawled unit page lists an ad the transform gave the other spelling)."""
+    groups = {}
+    with open(path) as f:
+        for line in f:
+            if line.strip():
+                r = json.loads(line)
+                if r["history_confirmed"]:
+                    groups.setdefault(r["alias_group_id"], []).append(r["unit_id"])
+    return tuple(tuple(sorted(g)) for g in groups.values() if len(g) > 1)
+
+
+def merge_unit_aliases(frame: pd.DataFrame) -> pd.DataFrame:
+    """unit-labels-v1, and the West Village alias table's history-confirmed
+    groups joined too (248 groups; most are already the same label under v1;
+    the rest pad zeros inside the label: "ph04" and "ph4"). Groups that share
+    a unit through either rule are one unit, whose id is the smallest. Rows
+    are unchanged."""
+    out = merge_unit_labels(frame)
+    parent = {}
+
+    def find(u):
+        parent.setdefault(u, u)
+        while parent[u] != u:
+            parent[u] = parent[parent[u]]
+            u = parent[u]
+        return u
+
+    def union(a, b):
+        ra, rb = find(a), find(b)
+        if ra != rb:
+            parent[max(ra, rb)] = min(ra, rb)
+
+    for old, new in zip(frame.unit_id, out.unit_id):
+        union(old, new)
+    for group in unit_aliases():
+        for u in group[1:]:
+            union(group[0], u)
+    out["unit_id"] = frame.unit_id.map(find)
+    return out
+
+
 def unit_line_key(frame: pd.DataFrame) -> pd.Series:
     """Each row's line ("column") within its building, from the unit label:
     "23C" and "4C" are line C, "1204" and "304" are line 04, "2ND", "4TH" and
@@ -158,6 +215,9 @@ QUARANTINE_V1 = (
 # v1 plus the second review (2026-09-30): ads that name another street for the
 # apartment, and bedroom counts the ad flatly contradicts, over every row.
 QUARANTINE_V2 = REPO / "config" / "reviews" / "chelsea-quarantine-v2-20260930.jsonl"
+# v2 plus the third review (2026-10-02): West Village, read for the first time
+# (its ads from the granular crawl), and Chelsea's ads against the same detectors.
+QUARANTINE_V3 = REPO / "config" / "reviews" / "quarantine-v3-20261002.jsonl"
 
 
 @functools.lru_cache(maxsize=4)
@@ -230,6 +290,15 @@ def correct_baths_v1(frame: pd.DataFrame) -> pd.DataFrame:
     return out
 
 
+def quarantine_v3(frame: pd.DataFrame) -> pd.DataFrame:
+    """v2 and the third review's rows (261 in all): 65 West Village and 8
+    Chelsea ads whose own words place the apartment elsewhere (Brooklyn's
+    Grove and Bleecker Streets, Park Slope's avenues, Harlem, the Upper West
+    Side), offer a shop, restaurant, office or event space, a room, or a short
+    stay only, or contradict the recorded ask. The other rows are unchanged."""
+    return frame[~frame.audit_id.isin(quarantined(QUARANTINE_V3))]
+
+
 # Named data rules, applied after the held-out split is drawn (the row split
 # depends on unit ids, and scored rows must not change). Run records list them.
 # Tuning subsets (Ben, 2026-10-01: "consider using a subset of the listings or
@@ -254,20 +323,24 @@ def tune_b35_v1(frame: pd.DataFrame) -> pd.DataFrame:
 DATA_RULES = {
     "tune-b35-v1": tune_b35_v1,
     "unit-labels-v1": merge_unit_labels,
+    "unit-labels-v2": merge_unit_aliases,
     "quarantine-v1": quarantine_v1,
     "quarantine-v2": quarantine_v2,
     "bedrooms-ad-v1": correct_bedrooms_v1,
     "baths-ad-v1": correct_baths_v1,
+    "quarantine-v3": quarantine_v3,
 }
 # Rules that read a file; run records hash the files.
 RULE_SOURCES = {
     "quarantine-v1": QUARANTINE_V1,
     "quarantine-v2": QUARANTINE_V2,
+    "quarantine-v3": QUARANTINE_V3,
+    "unit-labels-v2": UNIT_ALIASES,
     "bedrooms-ad-v1": BEDROOM_CORRECTIONS,
     "baths-ad-v1": BATH_CORRECTIONS,
 }
 # Of those, the rules that drop the rows their file lists.
-DROPPING_RULES = ("quarantine-v1", "quarantine-v2")
+DROPPING_RULES = ("quarantine-v1", "quarantine-v2", "quarantine-v3")
 
 
 def dropped_rows() -> frozenset:

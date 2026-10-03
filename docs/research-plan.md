@@ -1017,6 +1017,51 @@ the fix goes into the model, the features or the data, not the sampler.
     - The two drafts' fits (7ed6c55, 158 rows, −6.3 ± 9.0; 7f6cd08, 190 rows, −11.4 ± 10.6) are
       archived under `runs-archive/quarantine-v2-draft-2026-09-30`.
   - Paired scores on the board now leave out every row either quarantine drops (188).
+- **Data rule `quarantine-v3`: a third review, and the first of West Village (2026-10-02).** It
+  keeps all 188 rows of v2 and adds 73 (65 West Village, 8 Chelsea), each with its quote, in
+  `config/reviews/quarantine-v3-20261002.jsonl`.
+  - **Why now.** v1 and v2 read only Chelsea; West Village had no ad text in the frontier.
+    The served fit (m7-nocurves-bathfloor + `nb-facing-v1`) has 881 rows with Pareto k over
+    2/3, 1.47% of West Village rows against 0.91% of Chelsea's.
+  - **Those 881 rows are mostly structure, not bad data.** 72% are alone in their building's
+    half-year walk knot, 47% are in buildings with five rows or fewer (23% of such rows are
+    over), and 669 have positive PSIS-LOO: they are influential, not misfit. Only 14 of them are
+    quarantined here. The structure went to the model line (pooling small buildings' walks).
+  - **Method.** West Village's ads come from the granular crawl of 2026-09-30
+    (`rentfrontier.descriptions`, 34,087 of 34,118 rows). The v1 and v2 detectors, plus new
+    ones for uptown and Brooklyn cues, room shares, short-stay-only terms and commercial use,
+    ran over every row of both neighbourhoods. Every hit was read, as was every West Village row
+    more than 2× or under 0.5× its estimate. Addresses an ad gives were geocoded with NYC
+    GeoSearch (PAD) and compared with the building's lot.
+  - **What is quarantined.**
+    - 34 ads that place the apartment elsewhere:
+      - Brooklyn streets with Village names: Bushwick's Grove Street (28, 30, 57 and 59 Grove,
+        "grove st & goodwin pl", the J/M/Z at Gates Av) and Bleecker Street (273 and 318
+        Bleecker, "dekalb or myrtle/wyckoff");
+      - Park Slope's Sixth and Eighth Avenues (345 Sixth, 37 and 74 Eighth) and "across from
+        brooklyn botanical gardens" (807 Washington);
+      - uptown numbered streets filed under the Village's: "west 111th street & manhattan
+        ave", "west 122nd street", Columbia, Harlem, and "the uws at whitehall" (250 West
+        100th) on the 250 West 10th page;
+      - three Chelsea ads ("prime uws", Columbia and City College, Columbia's medical center);
+      - three that give another lot: "correct address is: 59 carmine street", "200 waverly
+        place" (the next lot) and "444 east 13th street".
+    - 16 that are not homes: shops, restaurants, a salon, event spaces and an office sublease.
+    - 1 room in a shared apartment.
+    - 21 short-stay-only offers. These are fixed terms under a year, with no option of a full
+      lease, such as "short term only… no option to renew". Lease assignments stay in.
+    - 1 ask the ad contradicts: recorded at $39,937 where the ad gives $3,937.
+  - **Left in:**
+    - Asks the ad says are net effective (1,583 rows, 0.99× their estimate): the
+      `text:concession` flag prices them where the ad is known (West Village needs
+      `nb-facing-v2`).
+    - Bedroom counts the ad's first sentence contradicts: the detector flags 2.3% of
+      Chelsea's stated counts and 0.7% of West Village's, far more than v2's reviewed 12.
+      That makes it a feature question (a text bedroom count), not a quarantine.
+    - Whole townhouses at 2–3× their estimate: a distinct product, for the model line.
+    - Template slips such as "tribeca's" for Greenwich Court and "east village" at 566 Hudson.
+  - **Cost of these rows in the served fit.** The 73 new training rows average −3.13 PSIS-LOO
+    per row against +1.12 for all rows (−228 in all).
 
 **Order.**
 1. **Data quality** (backlog "Data quality"). Audit rows by rules that do not use a model's

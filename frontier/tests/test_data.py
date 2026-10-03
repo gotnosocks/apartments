@@ -60,7 +60,9 @@ def test_quarantine_drops_rows_from_the_frame_and_the_heldout_mask(monkeypatch):
     assert ruled.attrs["source_sha256"] == "s"
 
 
-@pytest.mark.parametrize("path", [data.QUARANTINE_V1, data.QUARANTINE_V2])
+@pytest.mark.parametrize(
+    "path", [data.QUARANTINE_V1, data.QUARANTINE_V2, data.QUARANTINE_V3]
+)
 def test_quarantine_file_names_each_row_once_with_its_evidence(path):
     with open(path) as f:
         rows = [json.loads(line) for line in f if line.strip()]
@@ -83,6 +85,10 @@ def test_quarantine_file_names_each_row_once_with_its_evidence(path):
 
 def test_quarantine_v2_keeps_every_v1_row():
     assert data.quarantined() < data.quarantined(data.QUARANTINE_V2)
+
+
+def test_quarantine_v3_keeps_every_v2_row():
+    assert data.quarantined(data.QUARANTINE_V2) < data.quarantined(data.QUARANTINE_V3)
 
 
 def test_unit_line_key():
@@ -131,6 +137,7 @@ def test_dropped_rows_are_the_union_of_every_rule_file(tmp_path, monkeypatch):
     a.write_text('{"audit_id": "x"}\n')
     b.write_text('{"audit_id": "y"}\n{"audit_id": "x"}\n')
     monkeypatch.setattr(data, "RULE_SOURCES", {"quarantine-v1": a, "quarantine-v2": b})
+    monkeypatch.setattr(data, "DROPPING_RULES", ("quarantine-v1", "quarantine-v2"))
     assert data.dropped_rows() == {"x", "y"}
 
 
@@ -198,3 +205,47 @@ def test_bath_corrections_file_names_each_row_once_with_its_evidence():
         assert r["action"] == "correct_baths" and r["corrected"] > r["recorded"], r
         assert r["full_baths"] + 0.5 * r["half_baths"] == r["corrected"], r
         assert r["evidence"], r
+
+
+def test_unit_labels_v2_joins_confirmed_alias_groups_through_v1(tmp_path, monkeypatch):
+    """v2 = v1 plus the alias table's confirmed groups; groups chained through
+    either rule become one unit with the smallest id; unconfirmed groups and
+    rows are untouched."""
+    url = "https://streeteasy.com/building/{}/{}".format
+    frame = pd.DataFrame(
+        {
+            "building": ["a", "a", "a", "a", "a", "a"],
+            "unit_id": ["u5", "u2", "u3", "u4", "u6", "u7"],
+            "canonical_unit_url": [
+                url("a", "ph-4"),  # v1 joins u5 and u2 (punctuation)
+                url("a", "ph4"),
+                url("a", "ph04"),  # the alias table joins u3 with u2 ...
+                url("a", "r01"),
+                url("a", "r1"),  # ... and u4 with u6, but unconfirmed
+                url("a", "9c"),
+            ],
+            "asking_rent": [1.0, 2.0, 3.0, 4.0, 5.0, 6.0],
+        }
+    )
+    aliases = tmp_path / "aliases.jsonl"
+    lines = [
+        {"alias_group_id": "g1", "unit_id": "u3", "history_confirmed": True},
+        {"alias_group_id": "g1", "unit_id": "u2", "history_confirmed": True},
+        {"alias_group_id": "g2", "unit_id": "u4", "history_confirmed": False},
+        {"alias_group_id": "g2", "unit_id": "u6", "history_confirmed": False},
+    ]
+    aliases.write_text("".join(json.dumps(x) + "\n" for x in lines))
+    groups = data.unit_aliases.__wrapped__(aliases)
+    monkeypatch.setattr(data, "unit_aliases", lambda path=None: groups)
+    out = data.merge_unit_aliases(frame)
+    assert out.unit_id.tolist() == ["u2", "u2", "u2", "u4", "u6", "u7"]
+    assert out.asking_rent.tolist() == frame.asking_rent.tolist()
+    assert data.DATA_RULES["unit-labels-v2"] is data.merge_unit_aliases
+
+
+def test_the_alias_file_is_hashed_but_drops_no_rows():
+    assert "unit-labels-v2" in data.RULE_SOURCES
+    assert "unit-labels-v2" not in data.DROPPING_RULES
+    groups = data.unit_aliases()
+    assert len(groups) == 248 and all(len(g) > 1 for g in groups)
+    assert data.dropped_rows() == data.quarantined(data.QUARANTINE_V3)

@@ -433,6 +433,9 @@ QUARANTINE_ACTIONS = {
 DATA_RULE_TEXT = {
     "unit-labels-v1": "One apartment, one id: unit labels StreetEasy writes differently "
     '("4-B" and "4B", "02" and "2") count as the same apartment. No listing is dropped.',
+    "unit-labels-v2": "unit-labels-v1, and West Village apartments StreetEasy lists under "
+    'two spellings of one label ("PH04" and "PH4"), joined where the apartment\'s own '
+    "StreetEasy history lists ads under both. No listing is dropped.",
     "quarantine-v1": "Listings a review found are not an open-market lease of a whole "
     "Chelsea apartment at their address: offices and shops, ads that place the "
     "apartment elsewhere, SRO rooms, income-restricted and short-stay offers, and a "
@@ -449,6 +452,10 @@ DATA_RULE_TEXT = {
     'more than the record ("2 bedroom, 2 bathroom" recorded with one bath), states one '
     "count only and does not mention shared baths or powder rooms. No listing is "
     "dropped.",
+    "quarantine-v3": "quarantine-v2 and a third review, the first of West Village: ads "
+    "that place the apartment elsewhere (Brooklyn's Grove and Bleecker Streets, Park "
+    "Slope, Harlem, the Upper West Side), shops, restaurants and event spaces, a room, "
+    "short-stay-only offers, and an ask the ad contradicts.",
 }
 
 
@@ -484,7 +491,15 @@ def data_quality() -> dict:
     for rule, fn in data_module.DATA_RULES.items():
         doc = DATA_RULE_TEXT.get(rule) or " ".join((fn.__doc__ or "").split())
         entry = {"rule": rule, "text": doc, "in_app_model": rule in app_rules}
-        if rule in data_module.RULE_SOURCES:
+        if rule in data_module.RULE_SOURCES and rule not in data_module.DROPPING_RULES:
+            path = Path(data_module.RULE_SOURCES[rule])
+            entry.update(
+                file=str(path.relative_to(REPO))
+                if path.is_relative_to(REPO)
+                else str(path),
+                groups=len(data_module.unit_aliases(path)),
+            )
+        elif rule in data_module.RULE_SOURCES:
             path = Path(data_module.RULE_SOURCES[rule])
             with open(path) as f:
                 rows = [json.loads(line) for line in f if line.strip()]
