@@ -49,7 +49,7 @@ then the rest by their best accuracy.</p>
 {% if rows[0].served %}
 <section class="card" id="differences">
   <h2>How each design differs from the served model</h2>
-  <p class="note">Against <code>{{ rows[0].name if rows[0].served else "the served design" }}</code>, part by part. Feature
+  <p class="note">Against <code>{{ rows[0].name }}</code>, part by part. Feature
   sets and data rules are separate choices: the <a href="{{ url_for('research_board') }}">board</a> lists them per fit.</p>
   <dl class="facts wide">
   {% for r in rows if not r.served %}

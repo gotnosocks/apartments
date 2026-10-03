@@ -448,16 +448,17 @@ def describe(model: dict | None, sizes: dict | None = None) -> Anatomy | None:
         prior=(
             "w_B is a random walk: each step ~ "
             + ("Student-t(ν_w, 0, σ_w)" if c["walk_t"] else "Normal(0, σ_w)")
-            + f", σ_w ~ HalfNormal({_num(c['walk_scale_sd'])}); 0 at "
-            + (
-                "the building's anchor step"
-                if c["walk_anchor_data"]
-                else "the first step"
-            )
+            + f", σ_w ~ HalfNormal({_num(c['walk_scale_sd'])})"
             + (
                 ", ν_w ~ Gamma(2, 0.1)"
                 if c["walk_t"] and not c["walk_nu_fixed"]
                 else ""
+            )
+            + "; the walk is 0 at "
+            + (
+                "the building's anchor knot"
+                if c["walk_anchor_data"]
+                else "the first knot"
             )
         ),
         count=None
