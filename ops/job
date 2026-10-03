@@ -2,13 +2,15 @@
 # Run a job on thelio in its resource class, so light work runs beside a
 # timed fit without changing the fit's time (docs/thelio-jobs.md).
 #
-#   ops/job gpu   [-m MEM] -- command...   anything that uses the GPU: fits, GPU LOO, summaries
+#   ops/job gpu   [-m MEM] [-x] -- command...   anything that uses the GPU: fits, GPU LOO, summaries
 #   ops/job light [-m MEM] -- command...   everything else: tests, reviews, data and site builds
 #   ops/job status                          what is running in each class
 #
 # gpu: one at a time (the GPU lock), on cores 0-2 and their SMT siblings
 # (CPUs 0-2,6-8: the first core complex, with its own L3 cache), in
-# apartments-gpu.slice. Default MemoryMax 6G.
+# apartments-gpu.slice. Default MemoryMax 6G. With -x (exclusive) it also takes
+# every light slot, waiting for running light jobs to finish, so nothing in
+# ops/job runs beside it: for full fits whose time decides a comparison.
 #
 # light: up to 3 at once (slots), on cores 3-5 (CPUs 3-5,9-11: the second core
 # complex), in apartments-light.slice (5G in total, low CPU weight), at nice 10.
@@ -59,9 +61,11 @@ case "$class" in
   light) mem=3G ;;
   *) usage ;;
 esac
-while getopts "m:" opt; do
+exclusive=
+while getopts "m:x" opt; do
   case "$opt" in
     m) mem=$OPTARG ;;
+    x) [ "$class" = gpu ] || usage; exclusive=1 ;;
     *) usage ;;
   esac
 done
@@ -93,6 +97,14 @@ if [ "$class" = gpu ]; then
     exec 9>"$GPU_LOCK"
     flock 9
     export APARTMENTS_GPU_LOCK_HELD=1
+  fi
+  if [ -n "$exclusive" ]; then
+    # Slots 1-3 on fds 5-7, held (and inherited) until the job exits.
+    for i in 1 2 3; do
+      eval "exec $((4 + i))>\"\$LOCKS/light-$i.lock\""
+      flock $((4 + i))
+    done
+    export APARTMENTS_JOB_CLASS=gpu-exclusive
   fi
   exec systemd-run --user --scope -q --slice=apartments-gpu.slice \
     -p MemoryMax="$mem" --description="$desc" \

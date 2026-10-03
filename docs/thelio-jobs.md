@@ -7,9 +7,9 @@ fits. Now each job runs in one of two resource classes with `ops/job`, and light
 a fit on cores the fit never uses.
 
 ```sh
-ops/job gpu   [-m MEM] -- command...   # anything that uses the GPU: fits, GPU LOO, summaries
-ops/job light [-m MEM] -- command...   # everything else: tests, reviews, data and site builds
-ops/job status                          # what is running in each class
+ops/job gpu   [-m MEM] [-x] -- command...   # anything that uses the GPU: fits, GPU LOO, summaries
+ops/job light [-m MEM] -- command...        # everything else: tests, reviews, data and site builds
+ops/job status                               # what is running in each class
 ```
 
 The canonical copy is `/data1/apartments/serve/master/ops/job`, which follows master; call it by
@@ -47,6 +47,11 @@ scripts can move over one at a time. When wrapping a script in `ops/job gpu`, re
 keeps the lock until it exits. A legacy job isn't pinned, though: it can share the light
 cores, and its own time isn't fenced. Move fit queues to `ops/job gpu` first.
 
+Light jobs still share the memory bus with a fit (see the benchmark), so `ops/job gpu -x`
+(exclusive) also takes all three light slots: it waits for running light jobs to finish, and new
+ones wait for it. Use it for full fits, whose time decides comparisons on the frontier; exploration
+fits run beside light work. A run records `job_class` `gpu-exclusive` or `gpu`.
+
 Light jobs don't take the GPU lock. That includes LOO and variance on the CPU
 (`JAX_PLATFORMS=cpu`), the research-data build, site builds, board rebuilds and data builds.
 LOO on the GPU is a gpu job.
@@ -55,7 +60,7 @@ LOO on the GPU is a gpu job.
 
 `rentfrontier.run` adds to each run's `contention` block:
 
-- `job_class`: `gpu` when started by `ops/job gpu`;
+- `job_class`: `gpu` or `gpu-exclusive` when started by `ops/job gpu`;
 - `fit_cpus`: the CPUs the fit could use;
 - `other_cores_on_fit_cpus`: the mean number of those CPUs busy with other processes;
 - `light_cores`: the mean number of cores the light jobs used meanwhile.

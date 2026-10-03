@@ -293,7 +293,8 @@ of it.
   ([thelio-jobs.md](thelio-jobs.md)). GPU jobs (fits, GPU LOO, summaries) take the GPU lock and run
   one at a time on the first core complex (CPUs 0–2, 6–8). Light jobs (tests, reviews, CPU LOO and
   variance, data, board and site builds) run up to three at once on the other complex (CPUs 3–5,
-  9–11), at low priority and capped at 5 GB together, without the GPU. The fit queue runs from a
+  9–11), at low priority and capped at 5 GB together, without the GPU. Full fits run exclusive
+  (`ops/job gpu -x`): light jobs wait for them, since they still share the memory bus. The fit queue runs from a
   fixed-commit worktree. Each run record carries a `contention` block: the mean number of cores
   other processes kept busy during the fit, on the whole machine (`other_cores`) and on the fit's
   own CPUs (`other_cores_on_fit_cpus`, from this change), the light jobs' use, and any other GPU
