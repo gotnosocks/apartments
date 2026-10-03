@@ -116,3 +116,21 @@ def test_floor_corrections_fill_unknown_floors_from_evidence(monkeypatch):
     assert rows.source.tolist() == ["unit", "ad", "top", "ground", "ad", "ad", "ad"]
     assert rows.evidence.iloc[1] == "note: this is a 4th floor walk-up."
     assert rows.evidence.iloc[5].startswith("another listing of this apartment: ")
+
+
+def test_floor_corrections_cite_the_units_most_common_floor(monkeypatch):
+    monkeypatch.setattr(corrections.data, "merge_unit_aliases", lambda f: f)
+    frame = pd.DataFrame({"audit_id": list("abcd"), "building": "x", "unit_id": "u1"})
+    floor = pd.Series([np.nan] * 4)
+    text = pd.Series(
+        [
+            "This apartment is on the 1st floor.",
+            "This apartment is on the 2nd floor.",
+            "A 2nd floor walk-up.",
+            "Sunny one bedroom.",  # gets the unit's most common floor, 2
+        ]
+    )
+    rows = corrections.floor_corrections(frame, text, floor, pd.Series([5.0] * 4))
+    assert rows.corrected.tolist() == [1, 2, 2, 2]
+    assert rows.source.tolist() == ["ad"] * 4
+    assert rows.evidence.iloc[3].startswith("another listing of this apartment: this ")

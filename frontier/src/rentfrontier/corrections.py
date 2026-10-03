@@ -303,8 +303,12 @@ def floor_corrections(
     best = found[found.floor.notna()].assign(rank=rank, unit=units)
     best = best[best["rank"].eq(best.groupby("unit")["rank"].transform("min"))]
     from_ad = best.groupby("unit").floor.agg(lambda s: s.mode().min())
-    first = best.sort_values(["unit", "floor"], kind="stable").drop_duplicates("unit")
-    first = first[first.floor.eq(first.unit.map(from_ad))].set_index("unit")
+    first = (
+        best[best.floor.eq(best.unit.map(from_ad))]
+        .sort_values(["unit", "floor"], kind="stable")
+        .drop_duplicates("unit")
+        .set_index("unit")
+    )
     unit_floor = recorded.fillna(from_ad)
     corrected = units.map(unit_floor)
     # A row's own evidence sets its own floor (within the unit's spread).
