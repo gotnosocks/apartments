@@ -43,7 +43,6 @@ queue and design work before it; the rest of this plan is context.
     PT, which is 03:00–08:00 ET on the machine's clock, so Ben can watch exploration progress while
     he is awake. This is a preference, not a rule: a full fit runs outside the window whenever
     nothing better is queued.
-  - Gaps are filled with exploration fits.
   - There is no full fit for every frontier model, only confirmations.
 - **Data choices to try in exploration:** the West Village unit alias table (`unit-labels-v2`) is
   one. It is no longer a separately queued fit.
