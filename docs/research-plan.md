@@ -94,7 +94,7 @@ queue and design work before it; the rest of this plan is context.
   | `nb-facing-v2` (West Village ad text) vs v1 | +136 ± 34 | +22 ± 9 | | | | merged (#137) |
   | One residual scale per bedroom group (`-bednoise`) | **+290.7 ± 36.0** | +2.7 ± 8.3 | −13.4 ± 8.1 | +261.9 ± 28.1 | +28.8 ± 22.5 | #142; full fit 2026-10-03 03:00 |
   | `nb-text-v1` (14 ad-text flags screened on Chelsea) | +81.5 ± 30.9 | | | +69.7 ± 23.8 | +11.8 ± 19.8 | mostly selection (see v2); closed (#141) |
-| `nb-text-v2` (8 flags screened on half of Chelsea's buildings) | +16.5 ± 26.5 | −1.7 ± 7.5 | +7.0 ± 7.7 | +17.1 ± 21.0 | −0.6 ± 16.2 | held-out ids −3.9 ± 21.3: null; closed (#141) |
+  | `nb-text-v2` (8 flags screened on half of Chelsea's buildings) | +16.5 ± 26.5 | −1.7 ± 7.5 | +7.0 ± 7.7 | +17.1 ± 21.0 | −0.6 ± 16.2 | held-out ids −3.9 ± 21.3: null; closed (#141) |
   | Two-harmonic Fourier season (`-fourier`) | +3.1 ± 13.2 | | | | | tie with 4 coefficients for 12; #144, on elegance |
   | Location bumps 250 m apart (`nb-loc-v1`) | +9.5 ± 15.2 | +16.8 ± 8.7 | | −6.5 | +16.0 ± 11.1 | tie; closed (#143) |
   | Open space (`nb-openspace-v1`) | −5.6 ± 14.1 | | | | | null; closed (#140) |
