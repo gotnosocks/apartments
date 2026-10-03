@@ -250,3 +250,25 @@ def test_the_alias_file_is_hashed_but_drops_no_rows():
     groups = data.unit_aliases()
     assert len(groups) == 248 and all(len(g) > 1 for g in groups)
     assert data.dropped_rows() == data.quarantined(data.QUARANTINE_V3)
+
+
+@pytest.mark.parametrize(
+    "path,action",
+    [
+        (data.BEDROOM_CORRECTIONS_V2, "correct_bedrooms"),
+        (data.BATH_CORRECTIONS_V2, "correct_baths"),
+    ],
+)
+def test_v2_corrections_files_are_strict_subsets_of_v1(path, action):
+    v1_path = {
+        data.BEDROOM_CORRECTIONS_V2: data.BEDROOM_CORRECTIONS,
+        data.BATH_CORRECTIONS_V2: data.BATH_CORRECTIONS,
+    }[path]
+    with open(path) as f:
+        rows = [json.loads(line) for line in f if line.strip()]
+    with open(v1_path) as f:
+        v1 = {json.loads(line)["audit_id"] for line in f if line.strip()}
+    assert rows and len(rows) == len({r["audit_id"] for r in rows})
+    assert {r["audit_id"] for r in rows} < v1
+    assert all(r["action"] == action and r["evidence"] for r in rows)
+    assert not {r["audit_id"] for r in rows} & data.dropped_rows()

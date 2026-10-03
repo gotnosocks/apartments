@@ -84,3 +84,107 @@ def test_bath_corrections_only_raise_a_clear_count():
     assert rows.full_baths.tolist() == [2, 1]
     assert rows.half_baths.tolist() == [0, 1]
     assert rows.evidence.iloc[0] == "sunny 2 bedroom, 2 bathroom home."
+
+
+def test_v2_needs_half_the_units_listings_and_the_right_place(monkeypatch):
+    monkeypatch.setattr(corrections.data, "merge_unit_aliases", lambda f: f)
+    frame = pd.DataFrame(
+        {
+            "audit_id": list("abcdefgh"),
+            "building": ["1-w-1-street"] * 6 + ["202-8-avenue"] * 2,
+            "unit_id": ["u1", "u1", "u1", "u1", "u2", "u3", "u4", "u5"],
+            "neighbourhood": ["Chelsea"] * 8,
+            "bedrooms": [1, 0, 1, 1, 0, 0, 0, 0],
+        }
+    )
+    text = pd.Series(
+        [
+            "Cozy studio.",  # u1: one of three others records 0: refused in v2
+            "Bright studio.",
+            "Sunny 1 bedroom.",
+            "Sunny 1 bedroom.",
+            "Bright 1 bedroom in Chelsea.",  # u2, alone: corrected 0 -> 1
+            "Sunny 1 bedroom in the heart of the West Village.",  # other area
+            "Lovely 1-bedroom on seventh ave!",  # building on 8th Avenue
+            "Lovely 1 bedroom on eighth avenue.",  # its own avenue: corrected
+        ]
+    )
+    v1 = corrections.bedroom_corrections(frame, text, version=1)
+    v2 = corrections.bedroom_corrections(frame, text, version=2)
+    assert {"a", "e", "f", "g", "h"} <= set(v1.audit_id)
+    assert v2.audit_id.tolist() == ["e", "h"]
+
+
+def test_v2_baths_must_fit_the_ads_own_bedrooms(monkeypatch):
+    monkeypatch.setattr(corrections.data, "merge_unit_aliases", lambda f: f)
+    frame = pd.DataFrame(
+        {
+            "audit_id": list("abc"),
+            "building": "x",
+            "unit_id": ["u1", "u2", "u3"],
+            "neighbourhood": "Chelsea",
+            "bedrooms": [1, 0, 1],
+            "full_baths": [1, 1, 1],
+            "half_baths": [0, 0, 0],
+            "bathrooms": [1, 1, 1],
+        }
+    )
+    text = pd.Series(
+        [
+            "Sunny 1 bedroom, 2 bathroom home.",  # corrected 1 -> 2
+            "Awesome studio with 2 baths.",  # a studio with two baths: refused
+            "2 room studio, 2 baths.",  # the ad says studio, the record 1 bed
+        ]
+    )
+    assert len(corrections.bathroom_corrections(frame, text, version=1)) == 3
+    v2 = corrections.bathroom_corrections(frame, text, version=2)
+    assert v2.audit_id.tolist() == ["a"]
+
+
+def test_v2_majority_joins_units_as_unit_labels_v2(monkeypatch):
+    frame = pd.DataFrame(
+        {
+            "audit_id": list("abc"),
+            "building": "1-w-1-street",
+            "unit_id": ["u1", "u2", "u2"],
+            "neighbourhood": "Chelsea",
+            "bedrooms": [1, 1, 1],
+        }
+    )
+    text = pd.Series(["Cozy studio in Chelsea, top floor.", "", ""])
+    # Alone, u1 has no other listing; joined with u2, two others record 1.
+    monkeypatch.setattr(corrections.data, "merge_unit_aliases", lambda f: f)
+    assert corrections.bedroom_corrections(
+        frame, text, version=2
+    ).audit_id.tolist() == ["a"]
+
+    def joined(f):
+        return f.assign(unit_id="u1")
+
+    monkeypatch.setattr(corrections.data, "merge_unit_aliases", joined)
+    assert corrections.bedroom_corrections(frame, text, version=2).empty
+
+
+def test_v2_refuses_ranges_rec_rooms_and_disagreeing_true_counts(monkeypatch):
+    monkeypatch.setattr(corrections.data, "merge_unit_aliases", lambda f: f)
+    frame = pd.DataFrame(
+        {
+            "audit_id": list("abcd"),
+            "building": "1-w-1-street",
+            "unit_id": ["u1", "u2", "u3", "u4"],
+            "neighbourhood": "Chelsea",
+            "bedrooms": [3, 3, 1, 0],
+        }
+    )
+    text = pd.Series(
+        [
+            "Massive 4 bedroom. It features 3 true bedrooms.",
+            "Grand 4 bedroom townhouse. A gracious 3- 4 bedroom home.",
+            "Renovated 2 bedroom with one king sized rec room.",
+            "1br",
+        ]
+    )
+    # v1 corrects all four; each is refused in v2 by its own rule.
+    v1 = corrections.bedroom_corrections(frame, text, version=1)
+    assert v1.audit_id.tolist() == ["a", "b", "c", "d"]
+    assert corrections.bedroom_corrections(frame, text, version=2).empty

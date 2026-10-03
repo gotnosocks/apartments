@@ -461,6 +461,13 @@ DATA_RULE_TEXT = {
     'more than the record ("2 bedroom, 2 bathroom" recorded with one bath), states one '
     "count only and does not mention shared baths or powder rooms. No listing is "
     "dropped.",
+    "bedrooms-ad-v2": "bedrooms-ad-v1, and stricter: at least half of the apartment's "
+    "other listings record the ad's count, and ads that place the apartment in the "
+    "other neighbourhood or on another avenue are left alone. No listing is dropped.",
+    "baths-ad-v2": "baths-ad-v1, and stricter: at least half of the apartment's other "
+    "listings record the ad's count, ads placed elsewhere or whose bedroom count "
+    "disagrees with the record are left alone, and no more than one bath beyond the "
+    "bedrooms. No listing is dropped.",
     "quarantine-v3": "quarantine-v2 and a third review, the first of West Village: ads "
     "that place the apartment elsewhere (Brooklyn's Grove and Bleecker Streets, Park "
     "Slope, Harlem, the Upper West Side), shops, restaurants and event spaces, a room, "
