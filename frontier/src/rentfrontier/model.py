@@ -1326,6 +1326,18 @@ MODELS = {
         unit_t=True,
         noise_by_bedrooms=True,
     ),
+    # The same with the two-harmonic Fourier season (4 coefficients for 12 month
+    # effects): tied on PSIS-LOO and judged more elegant (#153).
+    "m7-nocurves-floorslope-bednoise-fourier": ModelConfig(
+        name="m7-nocurves-floorslope-bednoise-fourier",
+        building_walk=True,
+        bedroom_slope=True,
+        trend_knot_months=3,
+        feature_slopes=("log_sqft_vs_bedroom_median", "bathrooms=2", "log_floor"),
+        unit_t=True,
+        noise_by_bedrooms=True,
+        season_harmonics=2,
+    ),
     "m5-nocurves-bednoise": ModelConfig(
         name="m5-nocurves-bednoise",
         building_walk=True,
