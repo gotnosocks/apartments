@@ -388,6 +388,8 @@ details.table-view summary { cursor: pointer; color: var(--link); font-size: 0.9
 .plate-count { color: var(--muted); font-variant-numeric: tabular-nums; }
 .part-chips { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 0.35rem; }
 .part-chip { display: inline-flex; flex-direction: column; border: 1.5px solid var(--accent); border-radius: 6px; padding: 0.2rem 0.5rem; background: var(--surface); font-size: 0.85rem; line-height: 1.3; max-width: 100%; }
+.part-chip > span:first-child { font-weight: 600; }
+.part-chip.off > span:first-child { font-weight: 400; }
 .part-chip-set { color: var(--ink-2); font-size: 0.78rem; }
 .part-chip.off { border: 1.5px dashed var(--axis); color: var(--muted); background: transparent; }
 .plates figcaption { color: var(--muted); font-size: 0.82rem; margin-top: 0.5rem; max-width: 60rem; }
