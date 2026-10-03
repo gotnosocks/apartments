@@ -1,0 +1,60 @@
+{% extends "base.html" %}
+{% block title %}Model designs{% endblock %}
+{% block content %}
+<h1>Model designs</h1>
+<p class="lede">Every model design on the board, part by part: which parts of the rent equation each one has, and how it
+differs from the served model. A design is drawn from the configuration its fits recorded; the served design comes first,
+then the rest by their best accuracy.</p>
+
+{% if rows %}
+<section class="card">
+  <h2>Which parts each design has</h2>
+  <p class="note">A tick means the design has the part, with its setting where it has one; a dash means it leaves the part
+  out. <a href="{{ url_for('research_model', _anchor='structure') }}">The served model's parts</a> are explained in full on
+  its page, and each fit's page draws its own design.</p>
+  <div class="table-wrap">
+  <table class="data designs">
+    <thead>
+      <tr><td></td>
+        {% for key, label, what in anatomy_levels %}{% set n = columns | selectattr("level", "equalto", key) | list | length %}{% if n %}<th scope="colgroup" colspan="{{ n }}" class="level">{{ label }}</th>{% endif %}{% endfor %}
+        <td colspan="2"></td></tr>
+      <tr><th scope="col">Design</th>
+        {% for key, label, what in anatomy_levels %}{% for c in columns if c.level == key %}<th scope="col" class="part"><span class="visually-hidden">{{ label }}: </span>{{ c.column }}</th>{% endfor %}{% endfor %}
+        <th scope="col" class="num">Best PSIS-LOO ΔELPD</th><th scope="col" class="num">Fits</th></tr>
+    </thead>
+    <tbody>
+    {% for r in rows %}
+      {% set parts = r.anatomy.parts | selectattr("key", "ne", "intercept") | list %}
+      <tr{% if r.served %} class="served"{% endif %}>
+        <th scope="row"><a href="{{ url_for('research_fit', key=r.best.key, _anchor='structure') }}"><code>{{ r.name }}</code></a>{% if r.served %} <span class="tag">served</span>{% endif %}</th>
+        {% for key, label, what in anatomy_levels %}{% for p in parts if p.level == key %}
+        <td class="part-cell{% if not p.present %} off{% endif %}">{% if p.present %}<span aria-hidden="true">✓</span><span class="visually-hidden">yes</span>{% if p.short %} {{ p.short }}{% endif %}{% else %}<span aria-hidden="true">—</span><span class="visually-hidden">no</span>{% endif %}</td>
+        {% endfor %}{% endfor %}
+        <td class="num nowrap">{% if r.best.psis and r.best.psis.delta is number %}{{ "{:+,.0f}".format(r.best.psis.delta) }}{% else %}—{% endif %}</td>
+        <td class="num">{{ r.fits }}</td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  </div>
+  <p class="note">Accuracy is each design's best fit against the board's baseline, so it mixes full and exploration fits and
+  feature sets; the <a href="{{ url_for('research_board') }}">board</a> compares fits properly.</p>
+  {% if unrecorded %}<p class="note">Not shown, because their records hold no structure (fits by an earlier PyMC backend):
+  {% for n in unrecorded %}<code>{{ n }}</code>{{ ", " if not loop.last }}{% endfor %}.</p>{% endif %}
+</section>
+
+<section class="card" id="differences">
+  <h2>How each design differs from the served model</h2>
+  <p class="note">Against <code>{{ rows[0].name if rows[0].served else "the served design" }}</code>, part by part. Feature
+  sets and data rules are separate choices: the <a href="{{ url_for('research_board') }}">board</a> lists them per fit.</p>
+  <dl class="facts wide">
+  {% for r in rows if not r.served %}
+    <dt><a href="{{ url_for('research_fit', key=r.best.key, _anchor='structure') }}"><code>{{ r.name }}</code></a></dt>
+    <dd>{% if r.differences %}{% for d in r.differences %}{{ d[:1] | upper }}{{ d[1:] }}{{ "; " if not loop.last else "." }}{% endfor %}{% else %}The same structure.{% endif %}</dd>
+  {% endfor %}
+  </dl>
+</section>
+{% else %}
+<section class="card"><p class="note">No design on the board records its structure yet.</p></section>
+{% endif %}
+{% endblock %}

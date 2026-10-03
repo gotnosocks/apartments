@@ -1,0 +1,75 @@
+{# A design's structure (apartments.site.anatomy): plate diagram, equation, table. #}
+
+{% macro chip(p) -%}
+<li class="chip{% if not p.present %} off{% endif %}"><span class="chip-label">{{ p.label }}</span>{% if p.present and p.setting %}<span class="chip-set">{{ p.setting }}</span>{% endif %}{% if not p.present %}<span class="visually-hidden"> (not in this design)</span>{% endif %}</li>
+{%- endmacro %}
+
+{% macro diagram(a) %}
+{% set s = a.sizes %}
+{% set counts = {
+  "market": ("{:,} months".format(s.months) if s.months is number else "every month"),
+  "building": ("{:,} buildings".format(s.buildings) if s.buildings is number else "each building"),
+  "unit": ("{:,} apartments".format(s.units) if s.units is number else "each apartment"),
+  "listing": ("{:,} asks".format(s.rows) if s.rows is number else "each ask"),
+} %}
+<figure class="plates">
+  {% for key, label, what in anatomy_levels %}
+  <div class="plate plate-{{ key }}">
+    <p class="plate-head"><span class="plate-name">{{ label }}</span> <span class="plate-count">{{ counts[key] }}</span></p>
+    <ul class="chips">{% for p in a.level(key) if p.key != "intercept" %}{{ chip(p) }}{% endfor %}</ul>
+  {% endfor %}
+  {% for _ in anatomy_levels %}</div>{% endfor %}
+  <figcaption>Each box sits inside the one that holds it: the market holds every building, a building its apartments, an
+  apartment its listings. A part in a box takes one value for each thing the box counts. Dashed parts are ones this design
+  leaves out. Together the parts add up to the log of the asking rent.</figcaption>
+</figure>
+{% endmacro %}
+
+{% macro equation(a) %}
+<div class="equation" role="group" aria-label="The model's equation">
+  {% for label, m in a.equation() %}
+  <div class="eq-line"><span class="eq-math">{% for t in m %}<span class="eq-term">{{ t }}</span>{% endfor %}</span>{% if label %}<span class="eq-level">{{ label }}</span>{% endif %}</div>
+  {% endfor %}
+</div>
+<p class="note">r<sub>i</sub> is listing i's asking rent. B(i), U(i), L(i), m(i) and c(i) are its building, apartment, line,
+month and calendar month, and t<sub>i</sub> its date. The table below names every term.</p>
+{% endmacro %}
+
+{% macro parts_table(a) %}
+<div class="table-wrap">
+<table class="data parts">
+  <thead><tr><th scope="col">Part</th><th scope="col">Term</th><th scope="col">What it does</th><th scope="col" class="num">Parameters</th></tr></thead>
+  <tbody>
+  {% for p in a.present %}
+    <tr><th scope="row">{{ p.label }}{% if p.setting %}<span class="muted block">{{ p.setting }}</span>{% endif %}</th>
+      <td class="nowrap">{{ p.formula }}</td>
+      <td>{{ p.plain }}<span class="prior">{{ p.prior }}</span></td>
+      <td class="num">{% if p.count is number %}{{ "{:,}".format(p.count) }}{% elif p.key == "line" %}one per line{% else %}—{% endif %}</td></tr>
+  {% endfor %}
+  </tbody>
+</table>
+</div>
+{% set off = a.parts | rejectattr("present") | map(attribute="label") | list %}
+{% if off %}<p class="note">Not in this design: {{ off | join(", ") | lower }}.</p>{% endif %}
+{% if a.parameters is number %}<p class="note">About {{ "{:,}".format(a.parameters) }} parameters in all, counting each
+part's scale. Most belong to buildings and apartments, and each of those is pulled toward zero unless its own listings say
+otherwise.</p>{% endif %}
+{% if a.other %}<p class="note">Other options this page does not describe yet:
+{% for k, v in a.other %}<code>{{ k }} = {{ v }}</code>{{ ", " if not loop.last }}{% endfor %}.</p>{% endif %}
+{% if a.sampling %}<p class="note">Sampled in other coordinates ({% for c in a.sampling %}<code>{{ c }}</code>{{ ", " if not loop.last }}{% endfor %}):
+these change how the sampler moves, not what the model says.</p>{% endif %}
+{% endmacro %}
+
+{% macro structure(a, diffs=none, served=false) %}
+{{ diagram(a) }}
+{% if diffs is not none %}
+<h3>Against the served model</h3>
+{% if served %}<p class="note">This is the served design.</p>
+{% elif diffs %}<ul class="diffs">{% for d in diffs %}<li>{{ d[:1] | upper }}{{ d[1:] }}</li>{% endfor %}</ul>
+{% else %}<p class="note">The same structure as the served design{% if a.sizes.features is number %}; any difference is in the features or the data{% endif %}.</p>{% endif %}
+{% endif %}
+<h3>The equation</h3>
+{{ equation(a) }}
+<h3>Every part</h3>
+{{ parts_table(a) }}
+{% endmacro %}

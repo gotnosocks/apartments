@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% from "_anatomy.html" import structure with context %}
 {% block title %}Served model{% endblock %}
 {% block content %}
 {% set p = meta.provenance %}
@@ -8,6 +9,14 @@
 features.{% if sel %} A rule picks it automatically from the board of every fit: among fits that pass the convergence checks on the
 target hardware within the fit-time window, the most accurate. When several are equally accurate, the most elegant wins, and between
 equally elegant ones the fastest.{% endif %}</p>
+
+{% if anatomy %}
+<section class="card" id="structure">
+  <h2>What the model does</h2>
+  <p class="note">The design drawn from the configuration its fit recorded. <a href="{{ url_for('research_designs') }}">Every design side by side</a>.</p>
+  {{ structure(anatomy) }}
+</section>
+{% endif %}
 
 <section class="card">
   <h2>Why this model</h2>

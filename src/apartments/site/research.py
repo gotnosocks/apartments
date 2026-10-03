@@ -636,3 +636,58 @@ class Plan:
                     "modified": stat.st_mtime,
                 }
             return self._value
+
+
+def designs(data: dict | None, served_run: str | None) -> tuple[list[dict], list[str]]:
+    """Every model design on the board with a recorded structure, best first:
+    [{name, anatomy, best (the entry with the highest PSIS-LOO, else the
+    latest), fits, served, differences (from the served design)}], and the
+    names of designs whose records hold no structure (the old PyMC screens)."""
+    from .anatomy import describe, differences
+
+    if not data:
+        return [], []
+    served = entry_for_run(data, served_run)
+    served_design = served.get("design") if served else None
+    by_design: dict[str, list[dict]] = {}
+    for e in data.get("entries", []):
+        by_design.setdefault(e.get("design") or "", []).append(e)
+    rows, unrecorded = [], []
+    for name, entries in by_design.items():
+        # Fits of one design name by another backend (the PyMC ladder) record
+        # no structure: take the design from the fits that do.
+        recorded = [e for e in entries if describe(e.get("model")) is not None]
+        if not recorded:
+            unrecorded.append(name)
+            continue
+        scored = [e for e in recorded if _delta(e) is not None]
+        best = max(scored, key=_delta) if scored else recorded[-1]
+        own = served if name == served_design else best
+        a = describe(own.get("model"), own.get("sizes"))
+        rows.append(
+            {
+                "name": name,
+                "anatomy": a,
+                "best": best,
+                "fits": len(entries),
+                "served": name == served_design,
+            }
+        )
+    base = next((r["anatomy"] for r in rows if r["served"]), None)
+    for r in rows:
+        r["differences"] = (
+            differences(r["anatomy"], base) if base and not r["served"] else []
+        )
+    rows.sort(
+        key=lambda r: (
+            not r["served"],
+            _delta(r["best"]) is None,
+            -(_delta(r["best"]) or 0.0),
+        )
+    )
+    return rows, sorted(unrecorded)
+
+
+def _delta(entry: dict) -> float | None:
+    d = (entry.get("psis") or {}).get("delta")
+    return d if isinstance(d, (int, float)) else None

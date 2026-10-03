@@ -1223,3 +1223,23 @@ def test_time_limit_line_drawn_only_when_fits_reach_it():
 
     assert "2-hour limit" not in chart(10)
     assert "2-hour limit" in chart(150)
+
+
+def test_fit_page_draws_the_design(client):
+    from urllib.parse import quote
+
+    served = client.get("/research/fits/" + quote("m-test/unitdesc-v1/nuts@aaaaaaa"))
+    html = served.get_data(as_text=True)
+    assert 'id="structure"' in html and "<math" in html
+    assert "2,296" not in html and "10 buildings" in html  # the fixture's sizes
+    assert "Building drift over time" in html and "This is the served design" in html
+    other = client.get("/research/fits/m-other").get_data(as_text=True)
+    assert "Drops building drift over time" in other
+    assert "chip off" in other  # parts it leaves out are drawn dashed
+
+
+def test_designs_page(client):
+    html = client.get("/research/designs").get_data(as_text=True)
+    assert "Which parts each design has" in html
+    assert html.index("<code>m-test</code>") < html.index("<code>m-other</code>")
+    assert "Drops building drift over time" in html

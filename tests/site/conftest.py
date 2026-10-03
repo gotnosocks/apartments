@@ -521,6 +521,25 @@ def research_data():
             "features": {"mean": 0.786, "lower_90": 0.769, "upper_90": 0.802},
             "residual": {"mean": 0.019, "lower_90": 0.018, "upper_90": 0.019},
         },
+        # The run record's ModelConfig (abridged) and data sizes.
+        "model": {
+            "name": "m-test",
+            "building_walk": True,
+            "bedroom_slope": True,
+            "feature_slopes": ["log_floor"],
+            "trend_knot_months": 3,
+            "unit_t": True,
+            "beta_sd": 0.5,
+            "coordinates": [],
+        },
+        "sizes": {
+            "rows": 1000,
+            "features": 40,
+            "months": 25,
+            "buildings": 10,
+            "units": 300,
+            "heldout_rows": 100,
+        },
     }
     served["available_at"] = "2026-09-30T08:00:00+00:00"
     served["key"] = served["id"]
@@ -550,6 +569,7 @@ def research_data():
             }
         },
         line="numpyro",
+        model={"name": "m-other", "trend_knot_months": 3, "beta_sd": 0.5},
         note="beaten by the served fit",
         annotations=[],
         variance=None,
