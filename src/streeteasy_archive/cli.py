@@ -93,9 +93,9 @@ def main(argv=None):
             "--neighborhood",
             choices=neighborhood_choices(),
             help=(
-                "persistent neighborhood scope: a StreetEasy area and no child areas, "
-                "except that Chelsea includes West Chelsea (Hudson Yards is separate); "
-                "e.g. Greenwich Village excludes NoHo"
+                "persistent neighborhood scope: one StreetEasy area without its child areas "
+                "(e.g. Greenwich Village excludes NoHo); Chelsea also includes West Chelsea "
+                "(Hudson Yards is separate)"
             ),
         )
         command.add_argument(
