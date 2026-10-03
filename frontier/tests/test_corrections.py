@@ -52,3 +52,35 @@ def test_corrections_need_a_clear_contradiction():
     r = rows.iloc[0]
     assert (r.recorded, r.corrected, r.action) == (2.0, 1.0, "correct_bedrooms")
     assert r.evidence == "bright 1 bedroom in chelsea."
+
+
+def test_bath_corrections_only_raise_a_clear_count():
+    text = pd.Series(
+        [
+            "Sunny 2 bedroom, 2 bathroom home.",  # corrected: 1 -> 2
+            "Renovated 1.5 baths, a short walk to the park.",  # corrected: 1 -> 1.5
+            "Charming 1 bath.",  # fewer than the record: left alone
+            "2 baths, one of them a powder room.",  # powder room: no
+            "2 bath. Also for rent: a 3 bath unit.",  # two counts: no
+            "2 bathrooms shared with a roommate.",  # shared: no
+            "Two bathrooms.",  # the record's 1 full + 1 half counted plainly: no
+            "Sunny 2 bath home.",  # the unit's other listing records 1 bath: no
+            "Charming home.",  # that other listing
+        ]
+    )
+    frame = pd.DataFrame(
+        {
+            "audit_id": list("abcdefghi"),
+            "building": "x",
+            "unit_id": [f"x/{i}" for i in range(8)] + ["x/7"],
+            "full_baths": [1, 1, 2, 1, 1, 1, 1, 1, 1],
+            "half_baths": [0, 0, 0, 0, 0, 0, 1, 0, 0],
+            "bathrooms": [1, 1, 2, 1, 1, 1, 1.5, 1, 1],
+        }
+    )
+    rows = corrections.bathroom_corrections(frame, text)
+    assert rows.audit_id.tolist() == ["a", "b"]
+    assert rows.corrected.tolist() == [2.0, 1.5]
+    assert rows.full_baths.tolist() == [2, 1]
+    assert rows.half_baths.tolist() == [0, 1]
+    assert rows.evidence.iloc[0] == "sunny 2 bedroom, 2 bathroom home."
