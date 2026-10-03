@@ -254,6 +254,60 @@ def desc_v1(
     )
 
 
+# The bedroom count an ad's first sentence states ("Sunny 2-bedroom ...",
+# "One bed with ...", "Studio ..."): its first match, else none. A half count
+# ("1.5 bedroom") states none.
+_STATED_BEDROOMS = re.compile(
+    r"(?<![\d.])\b(?:(one|two|three|four|five|[1-5])[- ]?"
+    r"(?:bed(?:room)?s?|bdrms?|br|bd)\b|(studio)\b)"
+)
+# A sentence ends at . ! or ? before a space, or at a line break.
+_SENTENCE_END = re.compile(r"(?<=[.!?])\s|\n|<br\s*/?>")
+_BEDROOM_WORDS = {"studio": 0, "one": 1, "two": 2, "three": 3, "four": 4, "five": 5}
+
+
+def stated_bedrooms(text: str) -> float:
+    """The bedroom count the first sentence of an ad states, or NaN."""
+    first = _SENTENCE_END.split(text.strip(), maxsplit=1)[0][:200].lower()
+    m = _STATED_BEDROOMS.search(first)
+    if not m:
+        return np.nan
+    word = m.group(1) or m.group(2)
+    return float(_BEDROOM_WORDS.get(word, word))
+
+
+def bedtext_v1(
+    frame: pd.DataFrame,
+    train: np.ndarray,
+    id: str = "bedtext-v1",
+    base: str = "desc-v1",
+) -> Features:
+    """A base set that reads the ads plus whether the ad's first sentence
+    states fewer or more bedrooms than the record (0 where it states none or
+    the ad is unknown). The record's count prices the apartment; a smaller
+    count in the ad marks a converted or flex room, a larger one a count the
+    record missed."""
+    from . import descriptions
+
+    base = FEATURE_SETS[base](frame, train)
+    text = descriptions.attach(frame).fillna("")
+    stated = text.map(stated_bedrooms).to_numpy()
+    recorded = pd.to_numeric(frame.bedrooms, errors="coerce").to_numpy()
+    with np.errstate(invalid="ignore"):
+        diff = stated - recorded
+    b = _Builder(frame)
+    b.add("description", "text:states_fewer_bedrooms", diff < 0)
+    b.add("description", "text:states_more_bedrooms", diff > 0)
+    extra = b.build(id)
+    return Features(
+        id,
+        base.names + extra.names,
+        base.groups + extra.groups,
+        np.column_stack([base.values, extra.values]),
+        np.concatenate([base.prior_scale, extra.prior_scale]),
+    )
+
+
 # External snapshots read by feature sets (rentfrontier.registry, .external).
 REGISTRY_SNAPSHOT = "/data1/apartments/external/registry/20260925-6b67137"
 PLUTO_SNAPSHOT = "/data1/apartments/external/pluto/20260925-3096a62"
@@ -1304,6 +1358,7 @@ EXTERNAL = {
     "nb-unitpluto-v1",
     "nb-facing-v1",
     "nb-facing-v2",
+    "nb-bedtext-v1",
     "wv-unitpluto-v1",
     "pluto-v1",
     "unitfloor-v2",
@@ -1334,6 +1389,7 @@ BASEMAP = {
     "unitnoise-v1",
     "nb-facing-v1",
     "nb-facing-v2",
+    "nb-bedtext-v1",
 }
 # Feature sets that read the building footprints snapshot.
 FOOTPRINTS = {
@@ -1343,6 +1399,7 @@ FOOTPRINTS = {
     "unitnoise-v1",
     "nb-facing-v1",
     "nb-facing-v2",
+    "nb-bedtext-v1",
 }
 # Feature sets that read the 311 noise complaints snapshot.
 NOISE = {"unitnoise-v1"}
@@ -1353,6 +1410,7 @@ HPD = {"unitdescplutohpd-v1", "unitdescplutohpd-v2"}
 DESCRIPTIONS = {
     "nb-facing-v1",
     "nb-facing-v2",
+    "nb-bedtext-v1",
     "desc-v1",
     "unitdesc-v1",
     "unitdescpluto-v1",
@@ -1396,6 +1454,8 @@ FEATURE_SETS = {
     "nb-facing-v1": partial(neighbourhood_v1, id="nb-facing-v1", base="unitfacing-v4"),
     # nb-facing-v1 with West Village's ads too (`DESCRIPTION_SOURCES`).
     "nb-facing-v2": partial(neighbourhood_v1, id="nb-facing-v2", base="unitfacing-v4"),
+    # nb-facing-v2 plus an ad that states fewer or more bedrooms than the record.
+    "nb-bedtext-v1": partial(bedtext_v1, id="nb-bedtext-v1", base="nb-facing-v2"),
     # West Village: the app design's building facts (as unitdescpluto-v3) on the
     # unit and floor features (no West Village ads: see nb-facing-v2).
     "wv-unitpluto-v1": partial(
@@ -1488,17 +1548,20 @@ LOT_SNAPSHOTS = {
     "nb-unitpluto-v1": {"registry": NB_REGISTRY_FILE, "pluto": NB_PLUTO_FILE},
     "nb-facing-v1": {"registry": NB_REGISTRY_FILE, "pluto": NB_PLUTO_FILE},
     "nb-facing-v2": {"registry": NB_REGISTRY_FILE, "pluto": NB_PLUTO_FILE},
+    "nb-bedtext-v1": {"registry": NB_REGISTRY_FILE, "pluto": NB_PLUTO_FILE},
     "unitnoise-v1": {"registry": REGISTRY_V3_FILE, "pluto": PLUTO_V3_FILE},
 }
 
 
 # Feature sets that read more description evidence than Chelsea's
 # (`descriptions.SOURCE`), by run-record key.
+_NB_DESCRIPTIONS = {
+    "descriptions": str(descriptions_module.SOURCE),
+    "descriptions_wv": str(descriptions_module.WV_SOURCE),
+}
 DESCRIPTION_SOURCES = {
-    "nb-facing-v2": {
-        "descriptions": str(descriptions_module.SOURCE),
-        "descriptions_wv": str(descriptions_module.WV_SOURCE),
-    },
+    "nb-facing-v2": _NB_DESCRIPTIONS,
+    "nb-bedtext-v1": _NB_DESCRIPTIONS,
 }
 
 
@@ -1506,6 +1569,7 @@ DESCRIPTION_SOURCES = {
 AREA_SNAPSHOTS = {
     "nb-facing-v1": {"basemap": NB_BASEMAP_FILE, "footprints": NB_FOOTPRINTS_FILE},
     "nb-facing-v2": {"basemap": NB_BASEMAP_FILE, "footprints": NB_FOOTPRINTS_FILE},
+    "nb-bedtext-v1": {"basemap": NB_BASEMAP_FILE, "footprints": NB_FOOTPRINTS_FILE},
 }
 
 

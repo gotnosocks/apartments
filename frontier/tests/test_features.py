@@ -691,3 +691,55 @@ def test_nearby_noise_counts_the_year_before_against_chelsea(monkeypatch):
         [np.log2(4) - chelsea, np.log2(2) - chelsea, 0.0, 0.0],
     )
     np.testing.assert_allclose(out["construction"], 0.0)
+
+
+def test_stated_bedrooms_reads_the_first_sentence():
+    assert (
+        features.stated_bedrooms("Sunny 2-bedroom on Bank St. Has a 3 bed feel.") == 2
+    )
+    assert features.stated_bedrooms("ONE BED with a garden") == 1
+    assert features.stated_bedrooms("Studio, top floor") == 0
+    assert features.stated_bedrooms("Renovated 3BR") == 3
+    assert features.stated_bedrooms("Sunny 1 bdrm, high floor") == 1
+    assert np.isnan(features.stated_bedrooms("Rare 1.5 bedroom with 2 baths"))
+    assert np.isnan(features.stated_bedrooms("Charming home\n2 bedrooms"))
+    assert np.isnan(features.stated_bedrooms("Charming home<br>2 bedrooms"))
+    assert np.isnan(features.stated_bedrooms("Lovely home. 2 bedrooms."))
+    assert np.isnan(features.stated_bedrooms(""))
+
+
+def test_nb_bedtext_flags_ads_stating_another_count(monkeypatch):
+    import pandas as pd
+    from rentfrontier import descriptions
+
+    fn = features.FEATURE_SETS["nb-bedtext-v1"]
+    assert fn.func is features.bedtext_v1
+    assert fn.keywords == {"id": "nb-bedtext-v1", "base": "nb-facing-v2"}
+    for files in (
+        features.description_files,
+        features.lot_files,
+        features.area_files,
+    ):
+        assert files("nb-bedtext-v1") == files("nb-facing-v2")
+    from rentfrontier import run
+
+    monkeypatch.setattr(run.data, "sha256", lambda path: "sha")
+    assert run.feature_sources("nb-bedtext-v1") == run.feature_sources("nb-facing-v2")
+    frame = pd.DataFrame(
+        {"audit_id": list("abcdef"), "bedrooms": [2, 2, 1, 0, 1, np.nan]}
+    )
+    text = pd.Series(
+        ["One bedroom flex.", "Huge 3 bed loft", "1 br", None, "Bright.", "2 bed"]
+    )
+    monkeypatch.setattr(descriptions, "attach", lambda f: text)
+    monkeypatch.setitem(
+        features.FEATURE_SETS,
+        "stub-base",
+        lambda f, t: features.Features(
+            "stub-base", [], [], np.zeros((len(f), 0)), np.zeros(0)
+        ),
+    )
+    out = features.bedtext_v1(frame, np.ones(6, bool), id="t", base="stub-base")
+    got = dict(zip(out.names, out.values.T))
+    assert got["text:states_fewer_bedrooms"].tolist() == [1, 0, 0, 0, 0, 0]
+    assert got["text:states_more_bedrooms"].tolist() == [0, 1, 0, 0, 0, 0]
