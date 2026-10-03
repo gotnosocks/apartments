@@ -32,6 +32,12 @@
     <dd>Minutes from start to finish to fit a model to the full dataset on one machine's hardware. Times only compare on the same
     hardware. Ben's window on the RTX 2060 graphics card: a full fit of the Chelsea + West Village data within 2 hours, and
     exploratory fits on a subset within 30 minutes. A fit outside the window is never served.</dd>
+    <dt id="fit-cores">Other cores busy on the fit's cores</dt>
+    <dd>How many of the processor threads a fit runs on were, on average, kept busy by other work during the fit. A fit
+    started with the job classes of 2026-10-03 has its own half of the processor, and lighter jobs (tests, data and site
+    builds) run on the other half, so this counts only what still landed on the fit's half. Below 0.5 the fit's time is clean:
+    other work barely slowed it. Fits started any other way, including every fit before then, could use every core, so for
+    them it counts other work on the whole machine.</dd>
     <dt id="elegance">Elegance</dt>
     <dd>How coherent a model is as a statistical model of how asks arise. A more elegant model tells one generative story
     whose structure mirrors the data (apartments in buildings in neighbourhoods, over time). It uses few distinct mechanisms, applied

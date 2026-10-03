@@ -19,7 +19,7 @@
   <div class="figure">
     <span class="figure-label">Fit time</span>
     <span class="figure-value">{{ "%.1f" | format(e.fit_seconds / 60) }} min</span>
-    <span class="figure-note">on {{ e.hardware }}{% if e.other_cores is finite %}, {{ "%.1f" | format(e.other_cores) }} other cores busy{% endif %}</span>
+    <span class="figure-note">on {{ e.hardware }}{% if e.other_cores is finite %}, {{ "%.1f" | format(e.other_cores) }} other cores busy on the fit's cores (<a href="{{ url_for('research_glossary', _anchor='fit-cores') }}">{{ "clean timing" if e.other_cores < 0.5 else "timing may be slowed" }}</a>){% endif %}</span>
   </div>
   {% if e.psis and e.psis.p_loo is number %}
   <div class="figure">
