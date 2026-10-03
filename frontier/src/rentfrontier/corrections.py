@@ -3,10 +3,12 @@ corrected in place by a data rule (`data.DATA_RULES`), one JSON line per row
 with the ad's words as evidence. Rows are kept; only the field changes.
 
 Bedrooms (`bedrooms-ad-v1`): the ad's first sentence states a bedroom count
-("Sunny 2-bedroom ...", "Studio ..."), every count the ad states anywhere is
-that count, the record's count is not among them, and the ad has no flex or
-conversion words
-and no hedge ("or", "plus", a range) in its first sentence. The ad's count replaces the record's:
+("Sunny 2-bedroom ...", "Studio ..."), one more or one fewer than the record,
+every count the ad states anywhere is that count, the ad has no flex,
+conversion or other-area words and no hedge ("or", "plus", a range) in its
+first sentence, and the unit's other listings, if any, record that count too.
+Rows a quarantine already drops are left to it. The ad's count replaces the
+record's:
 
     python -m rentfrontier.corrections bedrooms --out config/corrections/<file>
 
@@ -18,6 +20,7 @@ provenance beside it. Refuses a dirty tree.
 from __future__ import annotations
 
 import argparse
+import html
 import json
 import re
 import subprocess
@@ -43,18 +46,43 @@ ROOM_USE = re.compile(
     r"\bflex|convert|could be|can be|set up as|used as|use as|utiliz|\bjr|"
     r"junior|alcove|offic|\bden\b|study|guest|nursery|baby|bonus|"
     r"extra (?:room|bed)|additional (?:room|bed)|interior room|small bedroom|"
-    r"sleep|nook|loft bed|windowless|wall|roommate|room in a|"
+    r"sleep|nook|loft|upper level|two level|split|potential|possible|partition|"
+    r"divid|windowless|wall|roommate|room in a|"
     r"\b(?:two|three|2|3)[- ]room|\bconv\b|"
     r"(?:art|artist|yoga|recording|dance|photo|music|design|fitness|exercise) studio"
 )
 # Words in the first sentence that hedge its count: "or", "plus", ranges and
 # lists of counts, sizes ("the size of a one bedroom").
 HEDGE = re.compile(
-    r"\bor\b|\bplus\b|\+|\d ?[-/] ?\d|\d,? (?:and|&) ?\d|\d, ?\d|"
+    r"\bor\b|\bplus\b|\+|\d ?[-–—/] ?\d|\d,? (?:and|&) ?\d|\d, ?\d|"
     r"\b(?:one|two|three|four|\d) to (?:two|three|four|five|\d)\b|"
     r"size of|as (?:large|big) as|large as|equivalent|representation|fits a|"
     r"duplex|triplex|currently"
 )
+
+# Places outside Chelsea and the West Village: an ad written for another
+# apartment.
+ELSEWHERE = re.compile(
+    r"brooklyn|bushwick|williamsburg|queens|astoria|bronx|harlem|"
+    r"upper (?:east|west)|jersey|hoboken"
+)
+TAG = re.compile(r"<(?!br\b)[^>]*>")
+
+
+def plain(text: str) -> str:
+    """Ad text with HTML entities decoded and tags other than <br> removed."""
+    return TAG.sub(" ", html.unescape(text))
+
+
+def corroborated(frame: pd.DataFrame, field: str, value: pd.Series) -> pd.Series:
+    """Whether each row's unit has no other listing, or another of its listings
+    records `value` for `field`."""
+    recorded = pd.to_numeric(frame[field], errors="coerce")
+    others = frame.groupby("unit_id").audit_id.transform("size") - 1
+    keys = pd.Series(list(zip(frame.unit_id, recorded)), index=frame.index)
+    counts = keys.value_counts()
+    wanted = pd.Series(list(zip(frame.unit_id, value)), index=frame.index)
+    return (others == 0) | wanted.map(counts).fillna(0).gt(0)
 
 
 def _count(m: re.Match) -> float:
@@ -78,9 +106,10 @@ def first_count(text: str) -> float:
 
 
 def bedroom_corrections(frame: pd.DataFrame, text: pd.Series) -> pd.DataFrame:
-    """Rows whose ad clearly states another bedroom count than the record:
-    audit_id, building, unit_id, recorded, corrected and the first sentence."""
-    text = text.fillna("").str.lower()
+    """Rows whose ad clearly states another bedroom count than the record, the
+    unit's other listings not contradicting it: audit_id, building, unit_id,
+    recorded, corrected and the first sentence."""
+    text = text.fillna("").map(plain).str.lower()
     stated = text.map(first_count)
     recorded = pd.to_numeric(frame.bedrooms, errors="coerce")
     counts = text.map(stated_counts)
@@ -88,10 +117,13 @@ def bedroom_corrections(frame: pd.DataFrame, text: pd.Series) -> pd.DataFrame:
     clear = (
         stated.notna()
         & recorded.notna()
-        & (stated != recorded)
+        & (stated - recorded).abs().eq(1)
         & counts.map(len).eq(1)
         & ~text.str.contains(ROOM_USE)
+        & ~text.str.contains(ELSEWHERE)
         & ~first.str.contains(HEDGE)
+        & corroborated(frame, "bedrooms", stated)
+        & ~frame.audit_id.isin(data.dropped_rows())
     )
     rows = frame.loc[clear, ["audit_id", "building", "unit_id"]].copy()
     rows["action"] = "correct_bedrooms"
