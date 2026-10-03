@@ -82,7 +82,7 @@ queue and design work before it; the rest of this plan is context.
   - **The exploration tier is set to 2 × (100 + 600) draws, keep 2:** about 4–10 minutes per fit with
     LOO. A difference under about 50 points is confirmed with more draws or overnight with a full fit.
     The tier's 100 warmup iterations are assumed to match 300, as they did at 300 draws.
-- **Exploration results on the leading design** (2026-10-01 to 10-02; exploration tier, full combined
+- **Exploration results on the leading design** (2026-10-01 to 10-03; exploration tier, full combined
   data, v1 data rules).
   - Each row is paired against `m7-nocurves-floorslope` + `nb-facing-v2` at the same tier, PSIS-LOO
     88,087.7 (`...-rows-4759d81-x-2060-100w600d-nb`).
@@ -92,11 +92,18 @@ queue and design work before it; the rest of this plan is context.
   | Change | All rows | Small | High-k | Chelsea | West Village | Outcome |
   |---|---:|---:|---:|---:|---:|---|
   | `nb-facing-v2` (West Village ad text) vs v1 | +136 ± 34 | +22 ± 9 | | | | merged (#137) |
-  | One residual scale per bedroom group (`-bednoise`) | **+290.7 ± 36.0** | +2.7 ± 8.3 | −13.4 ± 8.1 | +261.9 ± 28.1 | +28.8 ± 22.5 | #142; full fit 2026-10-03 03:00 |
+  | One residual scale per bedroom group (`-bednoise`) | **+290.7 ± 36.0** | +2.7 ± 8.3 | −13.4 ± 8.1 | +261.9 ± 28.1 | +28.8 ± 22.5 | merged (#142); full fit 2026-10-03 03:00 |
   | `nb-text-v1` (14 ad-text flags screened on Chelsea) | +81.5 ± 30.9 | | | +69.7 ± 23.8 | +11.8 ± 19.8 | mostly selection (see v2); closed (#141) |
   | `nb-text-v2` (8 flags screened on half of Chelsea's buildings) | +16.5 ± 26.5 | −1.7 ± 7.5 | +7.0 ± 7.7 | +17.1 ± 21.0 | −0.6 ± 16.2 | held-out ids −3.9 ± 21.3: null; closed (#141) |
-  | Two-harmonic Fourier season (`-fourier`) | +3.1 ± 13.2 | | | | | tie with 4 coefficients for 12; #144, on elegance |
+  | Bedroom noise on m5 (`m5-nocurves-bednoise` vs `m5-nocurves`) | +380.9 ± 41.9 | +8.9 ± 9.8 | −35.4 ± 9.2 | +317.0 ± 32.6 | +63.9 ± 26.4 | the gain holds at the low end; merged (#142) |
+  | Two-harmonic Fourier season (`-fourier`) | +3.1 ± 13.2 | | | | | tie with 4 coefficients for 12; merged (#144), judged more elegant (#153) |
+  | Bedroom noise and Fourier (`-bednoise-fourier`) | +290.8 ± 36.0 | +0.8 ± 8.3 | −14.5 ± 8.2 | +262.3 ± 28.1 | +28.5 ± 22.6 | vs `-bednoise` +0.1 ± 12.8: tie, judged more elegant (#153) |
+  | Ad first sentence states fewer or more bedrooms (`nb-bedtext-v1`, 16c9211) | +95.7 ± 29.1 | −0.4 ± 7.3 | −2.8 ± 7.8 | +103.3 ± 23.9 | −7.6 ± 16.6 | one rule fixed in advance |
+  | The same after the parser fix (25fe8ba) | **+87.8 ± 27.0** | +2.7 ± 7.2 | −1.4 ± 7.7 | +85.6 ± 21.8 | +2.2 ± 15.9 | merged (#149); full fit next |
   | Location bumps 250 m apart (`nb-loc-v1`) | +9.5 ± 15.2 | +16.8 ± 8.7 | | −6.5 | +16.0 ± 11.1 | tie; closed (#143) |
+  | The bumps with a learned scale (`-locscale`, `learned_feature_groups`) | +9.6 ± 14.9 | +15.3 ± 8.5 | +8.6 ± 8.2 | −5.0 ± 10.3 | +14.6 ± 10.8 | vs fixed scale +0.1 ± 13.1: null (`model/location-scale`) |
+  | Spatial GP on building levels, 800 m (`-spatial`, `nb-hsgp800-v1`, replacing the West Village indicator) | +9.1 ± 14.7 | +12.2 ± 8.3 | +6.0 ± 8.2 | −3.2 ± 10.1 | +12.3 ± 10.7 | tie (`model/spatial-hsgp`) |
+  | The same at 500 m (`nb-hsgp500-v1`) | +8.5 ± 14.9 | +13.0 ± 8.5 | +6.6 ± 8.2 | −5.3 ± 10.2 | +13.8 ± 10.8 | tie; 300 m (121 columns) ran out of GPU memory |
   | Open space (`nb-openspace-v1`) | −5.6 ± 14.1 | | | | | null; closed (#140) |
   | Transit, construction | null | | | | | closed (#139) |
 
@@ -104,8 +111,11 @@ queue and design work before it; the rest of this plan is context.
     model. The fitted scales are 0.031 (studio), 0.033, 0.041 and 0.047 (3+), against one shared
     0.034. p_loo falls from 17,871 to 17,105, because the unit levels no longer absorb the large
     apartments' extra scatter.
-  - **Small buildings remain the open problem.** No change so far moves their rows much. The
-    location surface gives a hint (+16.8 ± 8.7). The structural ideas are in the
+  - **Small buildings remain the open problem.** No change so far moves their rows much. Every
+    location surface gives the same hint (+12 to +17, about 1.5 to 2 SE), with or without a learned
+    amplitude and at any length-scale. A building's own level already carries its location: the
+    spatial GP's amplitude is large (0.25 at 800 m, absorbing the West Village shift), but the
+    building scale falls only from 0.155 to 0.149. The structural ideas are in the
     [research backlog](model/research-backlog.md), under "Model structure for the full-data frontier".
 
 ## Objective
