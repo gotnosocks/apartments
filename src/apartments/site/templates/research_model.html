@@ -69,8 +69,9 @@ equally elegant ones the fastest.{% endif %}</p>
       on the {% if held %}{{ "{:,}".format(held) }} {% endif %}listings kept out of every fit, against the reference model: an
       independent check of the same accuracy.</dd>
     {% endif %}
-    <dt>Fit time</dt><dd>{{ (entry.fit_seconds / 60) | round(1) }} minutes on {{ entry.hardware_class }}{% if entry.other_cores %}
-      <span class="muted">({{ "%.1f" | format(entry.other_cores) }} other cores busy during the fit)</span>{% endif %}</dd>
+    <dt>Fit time</dt><dd>{{ (entry.fit_seconds / 60) | round(1) }} minutes on {{ entry.hardware_class }}{% if entry.other_cores is number %}
+      <span class="muted">({{ "%.1f" | format(entry.other_cores) }} other cores busy on the fit's cores during the fit:
+      <a href="{{ url_for('research_glossary', _anchor='fit-cores') }}">{{ "clean timing" if entry.other_cores < 0.5 else "timing may be slowed" }}</a>)</span>{% endif %}</dd>
     {% set judged = verdicts(entry) %}
     <dt>Elegance</dt><dd>{% if judged %}compared with {{ judged | length }} other design{{ "" if judged | length == 1 else "s" }}
       by AI judges who see the model definitions but no scores: {{ elegance_summary(entry) }}
