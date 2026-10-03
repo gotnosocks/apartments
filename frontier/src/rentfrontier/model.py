@@ -1428,6 +1428,16 @@ MODELS = {
         trend_knot_months=3,
         noise_by_bedrooms=True,
     ),
+    # The low-end design with the daily Fourier season (K = 2).
+    "m5-nocurves-bednoise-dayfourier": ModelConfig(
+        name="m5-nocurves-bednoise-dayfourier",
+        building_walk=True,
+        bedroom_slope=True,
+        trend_knot_months=3,
+        noise_by_bedrooms=True,
+        season_harmonics=2,
+        season_daily=True,
+    ),
     # The leading design with a smooth two-harmonic calendar season (4
     # coefficients) instead of 12 month effects.
     "m7-nocurves-floorslope-fourier": ModelConfig(
