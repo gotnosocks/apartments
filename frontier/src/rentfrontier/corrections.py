@@ -40,14 +40,20 @@ SENTENCE_END = re.compile(r"(?<=[.!?])\s|[\r\n]|<br\s*/?>")
 # Words anywhere in the ad that make its bedroom count a matter of use, not of
 # rooms: flex and converted rooms, offices, dens, nooks, alcoves.
 ROOM_USE = re.compile(
-    r"\bflex|convert|could be|can be|set up as|used as|use as|utiliz|\bjr\b|"
-    r"junior|alcove|office|\bden\b|guest|nursery|baby|bonus|extra (?:room|bed)|"
-    r"additional (?:room|bed)|interior room|sleep|nook|loft bed|windowless|"
+    r"\bflex|convert|could be|can be|set up as|used as|use as|utiliz|\bjr|"
+    r"junior|alcove|offic|\bden\b|study|guest|nursery|baby|bonus|"
+    r"extra (?:room|bed)|additional (?:room|bed)|interior room|small bedroom|"
+    r"sleep|nook|loft bed|windowless|wall|roommate|room in a|"
     r"\b(?:two|three|2|3)[- ]room|\bconv\b|"
-    r"(?:art|artist|yoga|recording|dance|photo|music|design|fitness) studio"
+    r"(?:art|artist|yoga|recording|dance|photo|music|design|fitness|exercise) studio"
 )
-# Words in the first sentence that hedge its count: "or", "plus", ranges.
-HEDGE = re.compile(r"\bor\b|\bplus\b|\+|\d ?[-/] ?\d|duplex|triplex|currently")
+# Words in the first sentence that hedge its count: "or", "plus", ranges and
+# lists of counts, sizes ("the size of a one bedroom").
+HEDGE = re.compile(
+    r"\bor\b|\bplus\b|\+|\d ?[-/] ?\d|\d,? (?:and|&) ?\d|\d, ?\d|"
+    r"\b(?:one|two|three|four|\d) to (?:two|three|four|five|\d)\b|"
+    r"size of|as (?:large|big) as|large as|duplex|triplex|currently"
+)
 
 
 def _count(m: re.Match) -> float:
