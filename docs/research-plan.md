@@ -417,8 +417,9 @@ to **30 minutes per fit**, with a hard stop at **35 minutes** ("to keep up the p
 iteration"). It runs
 separately on each local hardware class (RTX 2060 SUPER and the CPU).
 
-**Samplers: library over custom** (Ben, 2026-09-25: "I would prefer to use a library sampler
-implementation over implementing our own").
+**Samplers.** Both samplers fit the one model, `model.build_model`. The custom Gibbs sampler is in
+full use, with no deprecation; Ben reinstated it on 2026-09-29 together with the other exact
+mathematical simplifications.
 - The custom Gibbs sampler (`gibbs.py`) is ours end to end: exact Gaussian block draws with units
   integrated out, its own Student-t augmentation, collapsed Metropolis scale updates and warmup
   adaptation. No library offers that combination in this stack:
@@ -428,15 +429,19 @@ implementation over implementing our own").
   - PyMC has no conjugate Gaussian step;
   - NIMBLE and JAGS assign conjugate and block samplers automatically, but on the CPU outside this
     stack.
-- The custom Gibbs sampler was **deprecated** on 2026-09-25 (Ben: not for new work) and
-  **reinstated on 2026-09-29**, together with the other options based on exact mathematical
-  simplifications (Ben: "the custom sampler and other options based on mathematical
-  simplifications are no longer deprecated").
-  - `run.py --sampler gibbs` fits any design that `gibbs.build_design` has exact updates for.
-    Designs with terms it lacks (market drift, building trends, coarse, Student-t or
-    sum-to-zero walks, walk masks and anchors, line effects), or without every base term, are
-    refused there.
-  - Exact coordinates and collapsed updates are back in use next to library NUTS.
+- **Scope of the Gibbs sampler** (the sampler review's guardrails, adopted 2026-10-02):
+  - It fits designs that are conditionally Gaussian, given the Student-t mixing weights and the
+    scales, with every unit nested in one building.
+  - `gibbs.build_design` refuses everything else, and tests check each refusal:
+    - terms it has no exact update for: market drift, building trends, coarse, Student-t or
+      sum-to-zero walks, walk masks and anchors, line effects;
+    - designs without every base term;
+    - data where a unit's rows sit in more than one building.
+  - The Student-t unit move and the unit-drift move are frozen: no new Gibbs work on either.
+  - Shapes beyond the scope go to NUTS. The NUTS coordinate work (exact reparameterisations, dense
+    mass matrices) continues off the critical path.
+  - Convergence is checked independently ([project intent](project-intent.md)): R-hat and ESS over
+    every group effect in each fit, and agreement with a reference sampler on the same model.
 - **NUTS belongs on the CPU here.** On the RTX 2060, NumPyro NUTS took 23 s for L0-mean, 110 s for
   L1-drift and over 20 minutes for L2-trend (stopped), against 8 s, 9 s and 322 s for PyMC NUTS
   on the CPU. Every leapfrog step is many small float64 kernels, and the card runs float64 at
