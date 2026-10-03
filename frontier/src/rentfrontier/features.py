@@ -1434,6 +1434,7 @@ EXTERNAL = {
     "nb-loc-v1",
     "nb-hsgp300-v1",
     "nb-hsgp800-v1",
+    "nb-hsgp500-v1",
     "wv-unitpluto-v1",
     "pluto-v1",
     "unitfloor-v2",
@@ -1467,6 +1468,7 @@ BASEMAP = {
     "nb-loc-v1",
     "nb-hsgp300-v1",
     "nb-hsgp800-v1",
+    "nb-hsgp500-v1",
 }
 # Feature sets that read the building footprints snapshot.
 FOOTPRINTS = {
@@ -1479,6 +1481,7 @@ FOOTPRINTS = {
     "nb-loc-v1",
     "nb-hsgp300-v1",
     "nb-hsgp800-v1",
+    "nb-hsgp500-v1",
 }
 # Feature sets that read the 311 noise complaints snapshot.
 NOISE = {"unitnoise-v1"}
@@ -1492,6 +1495,7 @@ DESCRIPTIONS = {
     "nb-loc-v1",
     "nb-hsgp300-v1",
     "nb-hsgp800-v1",
+    "nb-hsgp500-v1",
     "desc-v1",
     "unitdesc-v1",
     "unitdescpluto-v1",
@@ -1538,9 +1542,10 @@ FEATURE_SETS = {
     # nb-facing-v2 plus a smooth location surface over the combined registry.
     "nb-loc-v1": partial(location_v2, id="nb-loc-v1", base="nb-facing-v2"),
     # nb-facing-v2 with the West Village indicator replaced by a spatial GP
-    # over building coordinates, length-scale 300 m or 800 m.
+    # over building coordinates, length-scale 300 m, 500 m or 800 m.
     "nb-hsgp300-v1": partial(spatial_v1, id="nb-hsgp300-v1", lengthscale=300.0),
     "nb-hsgp800-v1": partial(spatial_v1, id="nb-hsgp800-v1", lengthscale=800.0),
+    "nb-hsgp500-v1": partial(spatial_v1, id="nb-hsgp500-v1", lengthscale=500.0),
     # West Village: the app design's building facts (as unitdescpluto-v3) on the
     # unit and floor features (no West Village ads: see nb-facing-v2).
     "wv-unitpluto-v1": partial(
@@ -1636,6 +1641,7 @@ LOT_SNAPSHOTS = {
     "nb-loc-v1": {"registry": NB_REGISTRY_FILE, "pluto": NB_PLUTO_FILE},
     "nb-hsgp300-v1": {"registry": NB_REGISTRY_FILE, "pluto": NB_PLUTO_FILE},
     "nb-hsgp800-v1": {"registry": NB_REGISTRY_FILE, "pluto": NB_PLUTO_FILE},
+    "nb-hsgp500-v1": {"registry": NB_REGISTRY_FILE, "pluto": NB_PLUTO_FILE},
     "unitnoise-v1": {"registry": REGISTRY_V3_FILE, "pluto": PLUTO_V3_FILE},
 }
 
@@ -1659,6 +1665,10 @@ DESCRIPTION_SOURCES = {
         "descriptions": str(descriptions_module.SOURCE),
         "descriptions_wv": str(descriptions_module.WV_SOURCE),
     },
+    "nb-hsgp500-v1": {
+        "descriptions": str(descriptions_module.SOURCE),
+        "descriptions_wv": str(descriptions_module.WV_SOURCE),
+    },
 }
 
 
@@ -1669,6 +1679,7 @@ AREA_SNAPSHOTS = {
     "nb-loc-v1": {"basemap": NB_BASEMAP_FILE, "footprints": NB_FOOTPRINTS_FILE},
     "nb-hsgp300-v1": {"basemap": NB_BASEMAP_FILE, "footprints": NB_FOOTPRINTS_FILE},
     "nb-hsgp800-v1": {"basemap": NB_BASEMAP_FILE, "footprints": NB_FOOTPRINTS_FILE},
+    "nb-hsgp500-v1": {"basemap": NB_BASEMAP_FILE, "footprints": NB_FOOTPRINTS_FILE},
 }
 
 
