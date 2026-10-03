@@ -52,7 +52,8 @@ ROOM_USE = re.compile(
 HEDGE = re.compile(
     r"\bor\b|\bplus\b|\+|\d ?[-/] ?\d|\d,? (?:and|&) ?\d|\d, ?\d|"
     r"\b(?:one|two|three|four|\d) to (?:two|three|four|five|\d)\b|"
-    r"size of|as (?:large|big) as|large as|duplex|triplex|currently"
+    r"size of|as (?:large|big) as|large as|equivalent|representation|fits a|"
+    r"duplex|triplex|currently"
 )
 
 
