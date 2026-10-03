@@ -1253,12 +1253,12 @@ def make_step(d: Design):
             # unit's mean residual); then lam and kappa are redrawn exactly.
             count = jax.ops.segment_sum(jnp.ones_like(resid), d.unit, d.n_units)
             rbar = jax.ops.segment_sum(resid, d.unit, d.n_units) / count
-            # Each unit's residual scale (its rows' mean, with per-group scales).
+            # Each unit's residual scale: sigma, or (with per-group scales) its
+            # rows' mean, so one scale reproduces the single-scale move exactly.
             sigma_u = (
-                jax.ops.segment_sum(
-                    jnp.broadcast_to(sigma, resid.shape), d.unit, d.n_units
-                )
-                / count
+                sigma
+                if d.noise_group is None
+                else jax.ops.segment_sum(sigma, d.unit, d.n_units) / count
             )
 
             def log_f(uu):
