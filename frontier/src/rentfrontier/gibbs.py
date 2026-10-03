@@ -1,12 +1,12 @@
 """Structured blocked Gibbs sampler for the model in `model.build_model`.
 
-Deprecated on 2026-09-25 and reinstated on 2026-09-29 (Ben: "the custom sampler
-and other options based on mathematical simplifications are no longer
-deprecated"). `run.py --sampler gibbs` fits a design with it; designs with
-terms it has no exact update for (market drift, building trends, Student-t
-or sum-to-zero walks, walk masks and anchors, line effects), or
-without every base term (trend, season, features, buildings, units), are
-refused by `build_design`.
+Scope: designs that are conditionally Gaussian given the Student-t mixing
+weights and the scales, with every unit nested in one building.
+`run.py --sampler gibbs` fits a design with it; `build_design` refuses the
+rest: terms it has no exact update for (market drift, building trends,
+Student-t or sum-to-zero walks, walk masks and anchors, line effects),
+designs without every base term (trend, season, features, buildings, units),
+and data where a unit's rows sit in more than one building.
 
 Same posterior as the NumPyro model (same priors, Student-t likelihood).
 The Student-t is written as a scale mixture: eps_i | lam_i ~ N(0, sigma^2 /
@@ -409,6 +409,11 @@ def build_design(
     fixed[1 : 1 + f] = 1.0 / (config.beta_sd * prep.features.prior_scale) ** 2
     unit_building = np.zeros(len(prep.units), dtype=np.int32)
     unit_building[tr.unit] = tr.building
+    if not np.array_equal(unit_building[tr.unit], tr.building):
+        raise ValueError(
+            "the Gibbs sampler needs every unit nested in one building; "
+            "some units have rows in more than one building"
+        )
 
     # ------------------------------------------------------------ local block
     # Per building: [level, (bedroom slope), (walk knots 1..k-1)].

@@ -93,7 +93,8 @@ queue and design work before it; the rest of this plan is context.
   |---|---:|---:|---:|---:|---:|---|
   | `nb-facing-v2` (West Village ad text) vs v1 | +136 ± 34 | +22 ± 9 | | | | merged (#137) |
   | One residual scale per bedroom group (`-bednoise`) | **+290.7 ± 36.0** | +2.7 ± 8.3 | −13.4 ± 8.1 | +261.9 ± 28.1 | +28.8 ± 22.5 | #142; full fit 2026-10-03 03:00 |
-  | `nb-text-v1` (14 ad-text flags screened on Chelsea) | +81.5 ± 30.9 | | | +69.7 ± 23.8 | +11.8 ± 19.8 | partly selection; `nb-text-v2` (#141) screens on half of Chelsea |
+  | `nb-text-v1` (14 ad-text flags screened on Chelsea) | +81.5 ± 30.9 | | | +69.7 ± 23.8 | +11.8 ± 19.8 | mostly selection (see v2); closed (#141) |
+  | `nb-text-v2` (8 flags screened on half of Chelsea's buildings) | +16.5 ± 26.5 | −1.7 ± 7.5 | +7.0 ± 7.7 | +17.1 ± 21.0 | −0.6 ± 16.2 | held-out ids −3.9 ± 21.3: null; closed (#141) |
   | Two-harmonic Fourier season (`-fourier`) | +3.1 ± 13.2 | | | | | tie with 4 coefficients for 12; #144, on elegance |
   | Location bumps 250 m apart (`nb-loc-v1`) | +9.5 ± 15.2 | +16.8 ± 8.7 | | −6.5 | +16.0 ± 11.1 | tie; closed (#143) |
   | Open space (`nb-openspace-v1`) | −5.6 ± 14.1 | | | | | null; closed (#140) |
@@ -417,8 +418,8 @@ to **30 minutes per fit**, with a hard stop at **35 minutes** ("to keep up the p
 iteration"). It runs
 separately on each local hardware class (RTX 2060 SUPER and the CPU).
 
-**Samplers: library over custom** (Ben, 2026-09-25: "I would prefer to use a library sampler
-implementation over implementing our own").
+**Samplers.** Both samplers fit the one model, `model.build_model`: the custom Gibbs sampler and
+NUTS, with exact mathematical simplifications (coordinates, collapsed updates) allowed in either.
 - The custom Gibbs sampler (`gibbs.py`) is ours end to end: exact Gaussian block draws with units
   integrated out, its own Student-t augmentation, collapsed Metropolis scale updates and warmup
   adaptation. No library offers that combination in this stack:
@@ -428,15 +429,20 @@ implementation over implementing our own").
   - PyMC has no conjugate Gaussian step;
   - NIMBLE and JAGS assign conjugate and block samplers automatically, but on the CPU outside this
     stack.
-- The custom Gibbs sampler was **deprecated** on 2026-09-25 (Ben: not for new work) and
-  **reinstated on 2026-09-29**, together with the other options based on exact mathematical
-  simplifications (Ben: "the custom sampler and other options based on mathematical
-  simplifications are no longer deprecated").
-  - `run.py --sampler gibbs` fits any design that `gibbs.build_design` has exact updates for.
-    Designs with terms it lacks (market drift, building trends, coarse, Student-t or
-    sum-to-zero walks, walk masks and anchors, line effects), or without every base term, are
-    refused there.
-  - Exact coordinates and collapsed updates are back in use next to library NUTS.
+- **Scope of the Gibbs sampler** (the sampler review's guardrails, adopted 2026-10-02):
+  - It fits designs that are conditionally Gaussian, given the Student-t mixing weights and the
+    scales, with every unit nested in one building.
+  - `gibbs.build_design` refuses everything else, and tests check each refusal:
+    - terms it has no exact update for: market drift, building trends, coarse, Student-t or
+      sum-to-zero walks, walk masks and anchors, line effects;
+    - designs without every base term;
+    - data where a unit's rows sit in more than one building.
+  - Shapes beyond the scope go to NUTS. The NUTS coordinate work (exact reparameterisations, dense
+    mass matrices) continues off the critical path.
+  - Convergence is checked independently ([project intent](project-intent.md)): R-hat and ESS over
+    every group effect in each fit. The tests check agreement with a reference sampler on small
+    models; a per-design NUTS agreement check on the full data before serving is proposed, not
+    implemented.
 - **NUTS belongs on the CPU here.** On the RTX 2060, NumPyro NUTS took 23 s for L0-mean, 110 s for
   L1-drift and over 20 minutes for L2-trend (stopped), against 8 s, 9 s and 322 s for PyMC NUTS
   on the CPU. Every leapfrog step is many small float64 kernels, and the card runs float64 at
@@ -524,7 +530,7 @@ implementation over implementing our own").
   - Every timed fit is capped: at 30 minutes from 2026-09-25, and at 35 minutes from 2026-09-29
     (Ben). Past the window a fit has already shown it is outside, and its warmup log gives the
     diagnostics.
-- Samplers for new work (from 2026-09-29, when Ben reinstated the custom Gibbs sampler), all on
+- Samplers for new work, all on
   `model.build_model`:
   - the custom Gibbs sampler (`--sampler gibbs`), for the designs it has exact updates for;
   - NumPyro NUTS (`--sampler nuts`), with a diagonal or a structured dense mass matrix and the
@@ -759,7 +765,7 @@ the fix goes into the model, the features or the data, not the sampler.
     (−6.1 ± 5.0 against the 650-draw fit, i.e. Monte Carlo noise): **+2,686.5 ± 79.4 over
     `m0q-btrend`** on identical rows and +7,908 over m0. Held-out ΔELPD is +138.7. It is the
     best passing library (NUTS) fit.
-- **The reinstated Gibbs sampler: m5-nocurves with `unitdesc-v1` and `unit-labels-v1`**
+- **The Gibbs sampler: m5-nocurves with `unitdesc-v1` and `unit-labels-v1`**
   (ab2a7df, 2026-09-29, RTX 2060). The design has building walks and a bedroom premium per
   building, and the sampler integrates the units out.
   - At 2 × (300 + 3000) it failed only on sigma (R-hat 1.011, ESS 388) in 1,128 s. At
@@ -1017,8 +1023,7 @@ the fix goes into the model, the features or the data, not the sampler.
 ## Structure search within the fit window (15 minutes from 2026-09-25, 30 from 2026-09-29)
 
 **Goal.** Raise the most accurate gate-passing fit within the window (30 minutes from 2026-09-29)
-on each thelio hardware class, with the Gibbs sampler or NUTS (library samplers only from
-2026-09-25 until 2026-09-29).
+on each thelio hardware class, with the Gibbs sampler or NUTS.
 - The mark on the RTX 2060 (2026-09-29) is the Gibbs m5-nocurves with `unitdesc-v1` and
   `unit-labels-v1`: +11,838 PSIS-LOO over m0 in 1,326 s. The best NUTS fit is the sum-to-zero
   walk, +7,908 in 1,300 s.
@@ -1199,6 +1204,41 @@ comes from other sources, most of them public NYC and NYS data.
   - The first version (`-v1`, f980477) used today's stations for every year. It scored the same
     (+1.1 ± 6.7, noise) and was replaced to keep the no-future-information rule. Its run is archived
     under `runs-archive/future-information-2026-09-29/`, off the board.
+- **Transit on the combined data** (`nb-transit-v1`, PR #139, a8481ca, 2026-10-02; not merged).
+  - The terms were `nb-facing-v2` plus the walk to the subway, the routes within 800 m and the walk to
+    PATH (Port Authority GTFS snapshot `external/path/20261002-0adddaf`).
+  - West Village varies no more than Chelsea for the subway: a median of 243 m and a 90th percentile of
+    455 m.
+  - **Result: null.** On `m7-nocurves-floorslope`, 2 × (100 + 600), paired against `nb-facing-v2`:
+    - all rows +0.0 ± 13.8;
+    - rows of buildings with five rows or fewer +6.6 ± 7.2;
+    - the reference high-k rows +6.1 ± 7.6;
+    - the high-k count went from 1,482 to 1,514.
+  - The building level already absorbs transit.
+- **Open space on the combined data** (`nb-openspace-v1`, 2026-10-02).
+  - The terms are `nb-facing-v2` plus the log walk to four places, as of the listing's month:
+    - the waterfront (Manhattan's shoreline, which Hudson River Park follows on the West Side);
+    - the nearest NYC Parks property;
+    - the nearest park of a hectare or more (Washington Square, Union Square, Madison Square,
+      Chelsea Park);
+    - the nearest open High Line section. The sections opened 2009-06, 2011-06 (to West 30th)
+      and 2014-09; for example One Hudson Yards is 776 m from the open line before mid-2011 and 25 m
+      after.
+  - **Screen.** Against the served fit's building effects, West Village correlates −0.14 with the
+    walk to the waterfront, −0.15 with the walk to the High Line and +0.17 with the walk to a large
+    park; Chelsea is near 0 throughout.
+  - **Result: null.** On `m7-nocurves-floorslope`, 2 × (100 + 600), paired against `nb-facing-v2`:
+    −5.6 ± 14.1, with nothing on small buildings or high-k rows. Closed (PR #140, `archive/pr-140`).
+- **More ad-text flags** (`nb-text-v1`, 9320909; `nb-text-v2`, 088d1c7; PR #141, 2026-10-02; not merged).
+  - v1 added 14 flags to `nb-facing-v2` (whole house, penthouse, garden level, terrace, loft, gut
+    renovated, chef's kitchen, home office, walk-in closet, central air, river and skyline views, size
+    words). Each was picked by its shift in the served fit's Chelsea residuals. It scored +81.5 ± 30.9,
+    +69.7 of it on Chelsea, the rows that chose the flags.
+  - v2 picked 8 flags on half of Chelsea's buildings only. On the ids held out from that screen
+    (52,127 LOO rows: the other half of Chelsea and all of West Village) it scored −3.9 ± 21.3.
+  - **Result: null.** v1's gain was selection, and the existing flags already carry what ad text
+    adds. Next ad-text ideas must be scored on rows held out from their screen. Closed
+    (`archive/pr-141`).
 - **Building condition: HPD housing-code violations** (`unitdescplutohpd-v1`, 0544905;
   `unitdescplutohpd-v2`, 0fc2df7; 2026-09-30; HPD snapshot 20260930-cb289ad; both with
   `quarantine-v1`, against fef2aa5).
@@ -1439,8 +1479,8 @@ comes from other sources, most of them public NYC and NYS data.
      without sampler code. That includes the t-unit, drift and slope shapes the Gibbs
      sampler could not mix.
 2. **Per-design draw budgets and chain counts** sized to the gate on each hardware class.
-3. **Samplers** (Ben, 2026-09-29): the custom Gibbs sampler and exact simplifications
-   (coordinates, collapsed updates) are in use again next to NumPyro NUTS. Other libraries
+3. **Samplers**: the custom Gibbs sampler and exact simplifications (coordinates, collapsed
+   updates) are in use next to NumPyro NUTS. Other libraries
    (BlackJAX NUTS, nutpie) can run on the same model too.
 
 **Order.** By expected PSIS-LOO gain per second of fit time:

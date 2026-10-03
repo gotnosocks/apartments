@@ -661,3 +661,18 @@ def test_fourier_season_basis_is_centred_and_shrinks_higher_harmonics():
     assert d.season.stop - d.season.start == 4
     _, r = d.global_blocks["season_scale"]
     np.testing.assert_allclose(np.diag(np.asarray(r)), [1, 4, 1, 4])
+
+
+def test_gibbs_refuses_units_that_span_buildings():
+    """Units must nest in buildings: the building blocks are eliminated per
+    building with each unit's effect integrated out inside its building."""
+    prep = synthetic()
+    building = np.asarray(prep.train.building).copy()
+    unit = np.asarray(prep.train.unit)
+    first = np.flatnonzero(unit == np.flatnonzero(np.bincount(unit) > 1)[0])
+    building[first[0]] = (building[first[0]] + 1) % len(prep.buildings)
+    moved = dataclasses.replace(
+        prep, train=dataclasses.replace(prep.train, building=building)
+    )
+    with pytest.raises(ValueError, match="nested in one building"):
+        gibbs.build_design(moved, DESIGNS["all"])
