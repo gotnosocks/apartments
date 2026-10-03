@@ -1345,6 +1345,19 @@ MODELS = {
         unit_t=True,
         learned_feature_groups=("location",),
     ),
+    # The leading design with a spatial Gaussian process on the building
+    # level (the `spatial` group of the nb-hsgp sets, which drop the West
+    # Village indicator): neighbouring buildings share a smooth premium whose
+    # amplitude the data set; each building's own level is its deviation.
+    "m7-nocurves-floorslope-spatial": ModelConfig(
+        name="m7-nocurves-floorslope-spatial",
+        building_walk=True,
+        bedroom_slope=True,
+        trend_knot_months=3,
+        feature_slopes=("log_sqft_vs_bedroom_median", "bathrooms=2", "log_floor"),
+        unit_t=True,
+        learned_feature_groups=("spatial",),
+    ),
     # Student-t units with per-building slopes on a second bathroom and the
     # floor, no size slope: for data that rarely states square feet (West
     # Village: 18% of rows, where the size slope's scale did not mix).

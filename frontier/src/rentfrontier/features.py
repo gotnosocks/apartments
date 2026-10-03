@@ -614,6 +614,92 @@ def transit_v2(
     )
 
 
+# The spatial Gaussian process on building levels (Hilbert-space approximation,
+# Solin & Särkkä 2020): Laplacian eigenfunctions on a box SPATIAL_MARGIN
+# length-scales beyond the buildings' extent, in grid-aligned coordinates (Manhattan's grid runs
+# FRONTAGE_BEARING_DEG east of north), each weighted by the square root of the
+# squared-exponential spectral density at the length-scale, unit amplitude. The
+# model learns the amplitude (`learned_feature_groups=("spatial",)`); columns
+# whose weight is below SPATIAL_MIN_WEIGHT of the largest are dropped.
+SPATIAL_MARGIN = 2.0
+SPATIAL_MIN_WEIGHT = 0.01
+
+
+def hsgp_basis(points: np.ndarray, sites: np.ndarray, lengthscale: float) -> np.ndarray:
+    """(n, m) the weighted eigenfunctions at `points`, for a box around `sites`
+    (both (., 2) metres)."""
+    theta = np.radians(FRONTAGE_BEARING_DEG)
+    rot = np.array([[np.cos(theta), -np.sin(theta)], [np.sin(theta), np.cos(theta)]])
+    s, x = sites @ rot, points @ rot
+    centre = (s.max(0) + s.min(0)) / 2
+    half = (s.max(0) - s.min(0)) / 2
+    box = half + SPATIAL_MARGIN * lengthscale
+    x = x - centre
+    m = np.ceil(1.75 * box / lengthscale).astype(int)
+    cols, weights = [], []
+    for j1 in range(1, m[0] + 1):
+        for j2 in range(1, m[1] + 1):
+            w1, w2 = np.pi * j1 / (2 * box[0]), np.pi * j2 / (2 * box[1])
+            spectral = (
+                2
+                * np.pi
+                * lengthscale**2
+                * np.exp(-0.5 * lengthscale**2 * (w1**2 + w2**2))
+            )
+            phi = np.sin(w1 * (x[:, 0] + box[0])) * np.sin(w2 * (x[:, 1] + box[1]))
+            cols.append(phi / np.sqrt(box[0] * box[1]))
+            weights.append(np.sqrt(spectral))
+    weights = np.asarray(weights)
+    keep = weights >= SPATIAL_MIN_WEIGHT * weights.max()
+    return np.column_stack(cols)[:, keep] * weights[keep]
+
+
+def spatial_v1(
+    frame: pd.DataFrame,
+    train: np.ndarray,
+    id: str = "nb-hsgp300-v1",
+    base: str = "nb-facing-v2",
+    lengthscale: float = 300.0,
+    drop: tuple = ("West Village",),
+) -> Features:
+    """A base set with its location proxies (`drop`: the West Village
+    indicator) replaced by a spatial Gaussian process over building
+    coordinates (`hsgp_basis`, the set's own registry): the building level's
+    mean is a smooth map, so a building with few listings borrows from its
+    neighbours. The amplitude is learned with
+    `learned_feature_groups=("spatial",)`."""
+    full = FEATURE_SETS[base](frame, train)
+    kept = [i for i, n in enumerate(full.names) if n not in drop]
+    registry = pd.read_parquet(lot_registry()).set_index("building")
+    lat0, lon0 = registry.latitude.mean(), registry.longitude.mean()
+
+    def xy(buildings):
+        lat = registry.latitude.reindex(buildings).to_numpy()
+        lon = registry.longitude.reindex(buildings).to_numpy()
+        metres = 111_320.0
+        return np.column_stack(
+            [(lon - lon0) * metres * np.cos(np.radians(lat0)), (lat - lat0) * metres]
+        )
+
+    sites = xy(registry.index.to_numpy())
+    sites = sites[np.isfinite(sites).all(1)]
+    points = xy(frame.building.to_numpy())
+    known = np.isfinite(points).all(1)
+    basis = hsgp_basis(np.nan_to_num(points), sites, lengthscale)
+    values = np.where(known[:, None], basis, 0.0)
+    b = _Builder(frame)
+    for k in range(values.shape[1]):
+        b.add("spatial", f"spatial_{k:03d}", values[:, k])
+    extra = b.build(id)
+    return Features(
+        id,
+        [full.names[i] for i in kept] + extra.names,
+        [full.groups[i] for i in kept] + extra.groups,
+        np.column_stack([full.values[:, kept], extra.values]),
+        np.concatenate([full.prior_scale[kept], extra.prior_scale]),
+    )
+
+
 # Which way an apartment faces: the building's frontage (the street of its
 # address, and which side of it the building stands on) against the apartment's
 # window exposures, front/rear unit labels and ad text, pooled over the unit's
@@ -1346,6 +1432,8 @@ EXTERNAL = {
     "nb-facing-v1",
     "nb-facing-v2",
     "nb-loc-v1",
+    "nb-hsgp300-v1",
+    "nb-hsgp800-v1",
     "wv-unitpluto-v1",
     "pluto-v1",
     "unitfloor-v2",
@@ -1377,6 +1465,8 @@ BASEMAP = {
     "nb-facing-v1",
     "nb-facing-v2",
     "nb-loc-v1",
+    "nb-hsgp300-v1",
+    "nb-hsgp800-v1",
 }
 # Feature sets that read the building footprints snapshot.
 FOOTPRINTS = {
@@ -1387,6 +1477,8 @@ FOOTPRINTS = {
     "nb-facing-v1",
     "nb-facing-v2",
     "nb-loc-v1",
+    "nb-hsgp300-v1",
+    "nb-hsgp800-v1",
 }
 # Feature sets that read the 311 noise complaints snapshot.
 NOISE = {"unitnoise-v1"}
@@ -1398,6 +1490,8 @@ DESCRIPTIONS = {
     "nb-facing-v1",
     "nb-facing-v2",
     "nb-loc-v1",
+    "nb-hsgp300-v1",
+    "nb-hsgp800-v1",
     "desc-v1",
     "unitdesc-v1",
     "unitdescpluto-v1",
@@ -1443,6 +1537,10 @@ FEATURE_SETS = {
     "nb-facing-v2": partial(neighbourhood_v1, id="nb-facing-v2", base="unitfacing-v4"),
     # nb-facing-v2 plus a smooth location surface over the combined registry.
     "nb-loc-v1": partial(location_v2, id="nb-loc-v1", base="nb-facing-v2"),
+    # nb-facing-v2 with the West Village indicator replaced by a spatial GP
+    # over building coordinates, length-scale 300 m or 800 m.
+    "nb-hsgp300-v1": partial(spatial_v1, id="nb-hsgp300-v1", lengthscale=300.0),
+    "nb-hsgp800-v1": partial(spatial_v1, id="nb-hsgp800-v1", lengthscale=800.0),
     # West Village: the app design's building facts (as unitdescpluto-v3) on the
     # unit and floor features (no West Village ads: see nb-facing-v2).
     "wv-unitpluto-v1": partial(
@@ -1536,6 +1634,8 @@ LOT_SNAPSHOTS = {
     "nb-facing-v1": {"registry": NB_REGISTRY_FILE, "pluto": NB_PLUTO_FILE},
     "nb-facing-v2": {"registry": NB_REGISTRY_FILE, "pluto": NB_PLUTO_FILE},
     "nb-loc-v1": {"registry": NB_REGISTRY_FILE, "pluto": NB_PLUTO_FILE},
+    "nb-hsgp300-v1": {"registry": NB_REGISTRY_FILE, "pluto": NB_PLUTO_FILE},
+    "nb-hsgp800-v1": {"registry": NB_REGISTRY_FILE, "pluto": NB_PLUTO_FILE},
     "unitnoise-v1": {"registry": REGISTRY_V3_FILE, "pluto": PLUTO_V3_FILE},
 }
 
@@ -1551,6 +1651,14 @@ DESCRIPTION_SOURCES = {
         "descriptions": str(descriptions_module.SOURCE),
         "descriptions_wv": str(descriptions_module.WV_SOURCE),
     },
+    "nb-hsgp300-v1": {
+        "descriptions": str(descriptions_module.SOURCE),
+        "descriptions_wv": str(descriptions_module.WV_SOURCE),
+    },
+    "nb-hsgp800-v1": {
+        "descriptions": str(descriptions_module.SOURCE),
+        "descriptions_wv": str(descriptions_module.WV_SOURCE),
+    },
 }
 
 
@@ -1559,6 +1667,8 @@ AREA_SNAPSHOTS = {
     "nb-facing-v1": {"basemap": NB_BASEMAP_FILE, "footprints": NB_FOOTPRINTS_FILE},
     "nb-facing-v2": {"basemap": NB_BASEMAP_FILE, "footprints": NB_FOOTPRINTS_FILE},
     "nb-loc-v1": {"basemap": NB_BASEMAP_FILE, "footprints": NB_FOOTPRINTS_FILE},
+    "nb-hsgp300-v1": {"basemap": NB_BASEMAP_FILE, "footprints": NB_FOOTPRINTS_FILE},
+    "nb-hsgp800-v1": {"basemap": NB_BASEMAP_FILE, "footprints": NB_FOOTPRINTS_FILE},
 }
 
 

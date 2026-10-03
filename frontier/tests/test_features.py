@@ -691,3 +691,16 @@ def test_nearby_noise_counts_the_year_before_against_chelsea(monkeypatch):
         [np.log2(4) - chelsea, np.log2(2) - chelsea, 0.0, 0.0],
     )
     np.testing.assert_allclose(out["construction"], 0.0)
+
+
+def test_hsgp_basis_approximates_the_squared_exponential_kernel():
+    """B B' over the sites is the unit-amplitude squared-exponential kernel."""
+    rng = np.random.default_rng(0)
+    sites = np.column_stack(
+        [rng.uniform(-800, 800, 200), rng.uniform(-1200, 1200, 200)]
+    )
+    for lengthscale in (300.0, 800.0):
+        b = features.hsgp_basis(sites, sites, lengthscale)
+        d = np.linalg.norm(sites[:, None] - sites[None], axis=-1)
+        k = np.exp(-0.5 * (d / lengthscale) ** 2)
+        np.testing.assert_allclose(b @ b.T, k, atol=0.02)
