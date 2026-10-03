@@ -165,3 +165,63 @@ def test_lppd_and_p_loo_on_a_known_case():
     ll = np.log(np.array([[0.2, 0.5], [0.4, 0.5]]))  # 2 draws, 2 rows
     np.testing.assert_allclose(loo.lppd(ll), np.log([0.3, 0.5]))
     np.testing.assert_allclose(loo.lppd(ll, block=1), np.log([0.3, 0.5]))
+
+
+def test_per_group_scales_with_equal_values_match_one_scale():
+    import jax
+    import numpy as np
+
+    jax.config.update("jax_enable_x64", True)
+    rng = np.random.default_rng(2)
+    rows, draws = 12, 3
+    y = rng.normal(0, 0.1, rows)
+    mu = rng.normal(0, 0.1, (draws, rows))
+    seg = np.repeat(np.arange(4), 3)
+    base = {
+        "nu": np.full(draws, 5.0),
+        "unit_scale": np.full(draws, 0.1),
+    }
+    one = loo.integrated_loglik(
+        y,
+        mu,
+        seg,
+        4,
+        np.zeros(rows),
+        base | {"sigma": np.full(draws, 0.07)},
+        t_units=False,
+        drift=False,
+    )
+    grouped = loo.integrated_loglik(
+        y,
+        mu,
+        seg,
+        4,
+        np.zeros(rows),
+        base | {"sigma": np.full((draws, 4), 0.07)},
+        t_units=False,
+        drift=False,
+        bed_group=rng.integers(0, 4, rows),
+    )
+    np.testing.assert_allclose(np.asarray(grouped), np.asarray(one), rtol=1e-12)
+    bigger = loo.integrated_loglik(
+        y,
+        mu,
+        seg,
+        4,
+        np.zeros(rows),
+        base | {"sigma": np.tile([0.07, 0.07, 0.07, 0.2], (draws, 1))},
+        t_units=False,
+        drift=False,
+        bed_group=np.full(rows, 3),
+    )
+    wide = loo.integrated_loglik(
+        y,
+        mu,
+        seg,
+        4,
+        np.zeros(rows),
+        base | {"sigma": np.full(draws, 0.2)},
+        t_units=False,
+        drift=False,
+    )
+    np.testing.assert_allclose(np.asarray(bigger), np.asarray(wide), rtol=1e-12)

@@ -46,6 +46,9 @@ class ModelConfig:
     # training month and folded into the trend effect (the ladder's L1).
     market_drift: bool = False
     market_drift_sd: float = 0.1
+    # One residual scale per bedroom group (studio, 1, 2, 3+) instead of one
+    # for every ask: larger apartments' asks scatter more around the model.
+    noise_by_bedrooms: bool = False
     # The calendar season as K sine-cosine pairs over the month (season(m) =
     # sum_k a_k sin(2 pi k m / 12) + b_k cos(2 pi k m / 12)), coefficient sd
     # season_scale / k, instead of 12 month effects; 0 = month effects.
@@ -192,6 +195,12 @@ class ModelConfig:
 
 KNOT_MONTHS = 6
 BEDROOM_GROUPS = ("studio", "one_bedroom", "two_bedroom", "three_plus")
+
+
+def row_sigma(sigma, bed_group):
+    """Each row's residual scale: `sigma` itself, or (with one scale per
+    bedroom group, `noise_by_bedrooms`) the row's group's."""
+    return sigma if jnp.ndim(sigma) == 0 else sigma[..., bed_group]
 
 
 def season_basis(harmonics: int) -> np.ndarray:
@@ -794,7 +803,12 @@ def build_model(prep: Prepared, config: ModelConfig):
             p["unit_scale"] = numpyro.sample(
                 "unit_scale", dist.HalfNormal(config.unit_scale_sd)
             )
-        p["sigma"] = numpyro.sample("sigma", dist.HalfNormal(config.noise_scale_sd))
+        p["sigma"] = numpyro.sample(
+            "sigma",
+            dist.HalfNormal(config.noise_scale_sd).expand([len(BEDROOM_GROUPS)])
+            if config.noise_by_bedrooms
+            else dist.HalfNormal(config.noise_scale_sd),
+        )
         p["nu"] = (
             jnp.asarray(config.nu_fixed)
             if config.nu_fixed is not None
@@ -1002,7 +1016,11 @@ def build_model(prep: Prepared, config: ModelConfig):
                 ),
             )
         mu = linear_predictor(p, arrays)
-        numpyro.sample("y", dist.StudentT(p["nu"], mu, p["sigma"]), obs=y)
+        numpyro.sample(
+            "y",
+            dist.StudentT(p["nu"], mu, row_sigma(p["sigma"], arrays.bed_group)),
+            obs=y,
+        )
 
     reparam = {
         site: LocScaleReparam(
@@ -1295,6 +1313,25 @@ MODELS = {
         trend_knot_months=3,
         feature_slopes=("bathrooms=2", "log_floor"),
         unit_t=True,
+    ),
+    # The leading designs with one residual scale per bedroom group: larger
+    # apartments' asks scatter more around the model (the served fit's 95%
+    # intervals miss 4% of studios but 10% of 3+ bedrooms).
+    "m7-nocurves-floorslope-bednoise": ModelConfig(
+        name="m7-nocurves-floorslope-bednoise",
+        building_walk=True,
+        bedroom_slope=True,
+        trend_knot_months=3,
+        feature_slopes=("log_sqft_vs_bedroom_median", "bathrooms=2", "log_floor"),
+        unit_t=True,
+        noise_by_bedrooms=True,
+    ),
+    "m5-nocurves-bednoise": ModelConfig(
+        name="m5-nocurves-bednoise",
+        building_walk=True,
+        bedroom_slope=True,
+        trend_knot_months=3,
+        noise_by_bedrooms=True,
     ),
     # The leading design with a smooth two-harmonic calendar season (4
     # coefficients) instead of 12 month effects.

@@ -146,7 +146,7 @@ def test_row_table_contributions_add_up_to_the_estimate():
         log_w,
         np.zeros(n),
         np.exp(sum(terms.values())),
-        np.full(draws, 0.05),
+        np.full((draws, 1), 0.05),
         np.full(draws, 5.0),
         ["market", "bedrooms", "building", "unit"],
         ["{}"] * n,

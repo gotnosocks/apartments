@@ -80,7 +80,11 @@ def heldout_logpdf_given_mu(p, test: model_module.Arrays, mu, u, unseen: bool = 
       an exact 2-D quadrature of the t-level plus normal-drift convolution.
     """
     seen = test.unit >= 0
-    lp_seen = student_t_logpdf(test.y - mu - u, p["nu"], p["sigma"])
+    # One residual scale, or (noise_by_bedrooms) each row's bedroom group's.
+    sigma = model_module.row_sigma(p["sigma"], test.bed_group)
+    s1 = sigma[:, None] if jnp.ndim(sigma) else sigma
+    s2 = sigma[:, None, None] if jnp.ndim(sigma) else sigma
+    lp_seen = student_t_logpdf(test.y - mu - u, p["nu"], sigma)
     if not unseen:
         return lp_seen
 
@@ -93,7 +97,7 @@ def heldout_logpdf_given_mu(p, test: model_module.Arrays, mu, u, unseen: bool = 
         test.y[:, None] - mu[:, None] - math.sqrt(2.0) * gauss_scale[:, None] * x[None]
     )
     lp_gauss = logsumexp(
-        student_t_logpdf(shifted, p["nu"], p["sigma"]) + jnp.log(w)[None], axis=1
+        student_t_logpdf(shifted, p["nu"], s1) + jnp.log(w)[None], axis=1
     ) - 0.5 * math.log(math.pi)
     # Student-t units: level on a grid (spacing 0.2 unit scale), drift by GH.
     nu_u = p.get("unit_nu", jnp.zeros(()))
@@ -108,7 +112,7 @@ def heldout_logpdf_given_mu(p, test: model_module.Arrays, mu, u, unseen: bool = 
         - drift_nodes[:, :, None]
     )  # (rows, 8, grid)
     inner = logsumexp(
-        student_t_logpdf(shifted_t, p["nu"], p["sigma"]) + log_wz[None, None], axis=2
+        student_t_logpdf(shifted_t, p["nu"], s2) + log_wz[None, None], axis=2
     )
     lp_t = logsumexp(inner + jnp.log(wd)[None], axis=1) - 0.5 * math.log(math.pi)
     lp_new = jnp.where(nu_u > 0, lp_t, lp_gauss)
@@ -163,7 +167,11 @@ def collect(
             s1 = jax.tree.map(lambda a, v: a + v, s1, e)
             s2 = jax.tree.map(lambda a, v: a + v * v, s2, e)
             trace = {
-                "scalars": jnp.stack([e[n] for n in SCALARS]),
+                # A site with one value per group (sigma with
+                # noise_by_bedrooms) enters the scalars as its mean and is
+                # traced per group below.
+                "scalars": jnp.stack([jnp.mean(e[n]) for n in SCALARS]),
+                "sigma_groups": jnp.atleast_1d(e["sigma"]),
                 "beta": e["beta"],
                 "trend": e["trend"][::12],
                 "building": e["building"][trace_b],
