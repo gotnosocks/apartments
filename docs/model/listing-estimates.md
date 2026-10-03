@@ -6,9 +6,8 @@ thelio, like `rentfrontier.loo`.
 
 ```sh
 cd frontier
-flock /data1/apartments/tmp/heavy.lock systemd-run --user --scope -p MemoryMax=5G \
-  --setenv=TMPDIR=/data1/apartments/tmp/<you> --setenv=XLA_PYTHON_CLIENT_PREALLOCATE=false \
-  uv run --extra gpu python -m rentfrontier.summary <run>
+TMPDIR=/data1/apartments/tmp/<you> XLA_PYTHON_CLIENT_PREALLOCATE=false \
+  /data1/apartments/serve/master/ops/job gpu -m 5G -- uv run --extra gpu python -m rentfrontier.summary <run>
 ```
 
 It writes `/data1/apartments/frontier/summaries/<run>-<commit>/`. The module docstring has the full

@@ -1,3 +1,4 @@
+import os
 import time
 
 from rentfrontier.run import contention, cpu_clock
@@ -14,6 +15,23 @@ def test_contention_counts_own_work_as_own():
     assert load["own_cpu_seconds"] > 0.2
     assert load["other_cpu_seconds"] >= 0.0
     assert load["other_cores"] == load["other_cpu_seconds"] / load["wall_seconds"]
+    assert load["fit_cpus"] == sorted(os.sched_getaffinity(0))
+    assert 0.0 <= load["other_cores_on_fit_cpus"] <= len(load["fit_cpus"])
+
+
+def test_contention_on_fit_cpus_ignores_other_cpus():
+    # Pinned to one CPU, the fit's own CPUs can't be busier than that one CPU.
+    before = os.sched_getaffinity(0)
+    cpu = min(before)
+    os.sched_setaffinity(0, {cpu})
+    try:
+        clock = cpu_clock()
+        time.sleep(0.3)
+        load = contention(clock)
+    finally:
+        os.sched_setaffinity(0, before)
+    assert load["fit_cpus"] == [cpu]
+    assert load["other_cores_on_fit_cpus"] <= 1.0 + 1e-9
 
 
 def test_data_rules_are_validated_when_parsed():

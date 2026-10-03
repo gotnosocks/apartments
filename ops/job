@@ -1,0 +1,111 @@
+#!/usr/bin/env bash
+# Run a job on thelio in its resource class, so light work runs beside a
+# timed fit without changing the fit's time (docs/thelio-jobs.md).
+#
+#   ops/job gpu   [-m MEM] -- command...   anything that uses the GPU: fits, GPU LOO, summaries
+#   ops/job light [-m MEM] -- command...   everything else: tests, reviews, data and site builds
+#   ops/job status                          what is running in each class
+#
+# gpu: one at a time (the GPU lock), on cores 0-2 and their SMT siblings
+# (CPUs 0-2,6-8: the first core complex, with its own L3 cache), in
+# apartments-gpu.slice. Default MemoryMax 6G.
+#
+# light: up to 3 at once (slots), on cores 3-5 (CPUs 3-5,9-11: the second core
+# complex), in apartments-light.slice (5G in total, low CPU weight), at nice 10.
+# The GPU is hidden (CUDA_VISIBLE_DEVICES= JAX_PLATFORMS=cpu). Default MemoryMax 3G.
+#
+# The job runs as a systemd scope in the caller's foreground and its exit
+# status is passed on. TMPDIR defaults to /data1/apartments/tmp/jobs when unset
+# or under /tmp (a small shared tmpfs). The class goes in APARTMENTS_JOB_CLASS,
+# which rentfrontier.run records in the run's contention block.
+set -euo pipefail
+
+LOCKS=${APARTMENTS_LOCKS:-/data1/apartments/tmp/locks}
+# The GPU lock is the old heavy.lock (locks/gpu.lock is a symlink to it), so
+# scripts that still take heavy.lock queue with gpu jobs, never beside them.
+GPU_LOCK=$LOCKS/gpu.lock
+GPU_CPUS=0-2,6-8
+LIGHT_CPUS=3-5,9-11
+LIGHT_SLOTS=3
+
+usage() {
+  sed -n '2,10p' "$0" | sed 's/^# \{0,1\}//' >&2
+  exit 2
+}
+
+CGROUP=/sys/fs/cgroup/user.slice/user-$(id -u).slice/user@$(id -u).service/apartments.slice
+
+status() {
+  for class in gpu light; do
+    echo "== $class"
+    for scope in "$CGROUP/apartments-$class.slice"/*.scope; do
+      [ -d "$scope" ] || continue
+      unit=${scope##*/}
+      echo "  $unit  $(systemctl --user show -P Description "$unit")"
+    done
+  done
+}
+
+[ $# -ge 1 ] || usage
+class=$1
+shift
+case "$class" in
+  status) status; exit 0 ;;
+  gpu) mem=6G ;;
+  light) mem=3G ;;
+  *) usage ;;
+esac
+while getopts "m:" opt; do
+  case "$opt" in
+    m) mem=$OPTARG ;;
+    *) usage ;;
+  esac
+done
+shift $((OPTIND - 1))
+[ "${1:-}" = "--" ] && shift
+[ $# -ge 1 ] || usage
+
+for slice in apartments-gpu.slice apartments-light.slice; do
+  if ! systemctl --user cat "$slice" >/dev/null 2>&1; then
+    echo "ops/job: $slice is not installed; see docs/thelio-jobs.md" >&2
+    exit 1
+  fi
+done
+mkdir -p "$LOCKS"
+[ -e "$GPU_LOCK" ] || ln -s ../heavy.lock "$GPU_LOCK"
+case "${TMPDIR:-/tmp}" in
+  /tmp|/tmp/*) export TMPDIR=/data1/apartments/tmp/jobs ;;
+esac
+mkdir -p "$TMPDIR"
+export APARTMENTS_JOB_CLASS=$class
+
+# A short description for `ops/job status`: the command, trimmed.
+desc="$class: $*"
+desc=${desc:0:200}
+
+if [ "$class" = gpu ]; then
+  exec 9>"$GPU_LOCK"
+  flock 9
+  exec systemd-run --user --scope -q --slice=apartments-gpu.slice \
+    -p MemoryMax="$mem" --description="$desc" \
+    taskset -c "$GPU_CPUS" "$@"
+fi
+
+# light: take the first free slot, waiting for one if all are busy. The slot's
+# lock is held by fd 8, which the job inherits, until the job exits.
+slot=
+while [ -z "$slot" ]; do
+  for i in $(seq 1 "$LIGHT_SLOTS"); do
+    exec 8>"$LOCKS/light-$i.lock"
+    if flock -n 8; then
+      slot=$i
+      break
+    fi
+    exec 8>&-
+  done
+  [ -n "$slot" ] || sleep 5
+done
+export CUDA_VISIBLE_DEVICES= JAX_PLATFORMS=cpu
+exec systemd-run --user --scope -q --slice=apartments-light.slice \
+  -p MemoryMax="$mem" --description="$desc" \
+  taskset -c "$LIGHT_CPUS" nice -n 10 ionice -c2 -n7 "$@"

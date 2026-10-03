@@ -45,36 +45,70 @@ def git(*args) -> str:
     ).stdout.strip()
 
 
+LIGHT_SLICE = Path(
+    f"/sys/fs/cgroup/user.slice/user-{os.getuid()}.slice/user@{os.getuid()}.service"
+    "/apartments.slice/apartments-light.slice/cpu.stat"
+)
+
+
+def _busy(fields) -> int:
+    user, nice, system, _idle, _iowait, irq, softirq, steal = (
+        int(x) for x in fields[:8]
+    )
+    return user + nice + system + irq + softirq + steal
+
+
 def cpu_clock():
-    """(machine busy CPU seconds, this process's CPU seconds, wall seconds) now."""
+    """CPU counters now: machine busy, busy on this process's CPUs, this
+    process's own CPU and the light jobs' slice (seconds), and wall seconds."""
+    tick = os.sysconf("SC_CLK_TCK")
+    mine = os.sched_getaffinity(0)
+    busy = mine_busy = 0
     with open("/proc/stat") as f:
-        user, nice, system, _idle, _iowait, irq, softirq, steal = (
-            int(x) for x in f.readline().split()[1:9]
-        )
-    busy = (user + nice + system + irq + softirq + steal) / os.sysconf("SC_CLK_TCK")
+        for line in f:
+            name, *fields = line.split()
+            if name == "cpu":
+                busy = _busy(fields) / tick
+            elif name.startswith("cpu") and int(name[3:]) in mine:
+                mine_busy += _busy(fields) / tick
     t = os.times()
     own = t.user + t.system + t.children_user + t.children_system
-    return busy, own, time.perf_counter()
+    try:
+        usage = LIGHT_SLICE.read_text().split()
+        light = int(usage[usage.index("usage_usec") + 1]) / 1e6
+    except (OSError, ValueError):
+        light = None
+    return busy, mine_busy, own, light, time.perf_counter()
 
 
 def contention(start) -> dict:
     """What else used the machine while a fit ran, since `start = cpu_clock()`.
 
     other_cores is the mean number of cores busy with other processes over the
-    fit's wall time; a timing is clean when it is near zero. GPU compute
-    processes other than this one are listed as seen at the end.
+    fit's wall time, machine-wide; other_cores_on_fit_cpus counts only the CPUs
+    the fit may run on (ops/job gpu pins it to its own core complex). A timing
+    is clean when the latter is near zero. light_cores is the light jobs' use
+    (ops/job light, on the other cores). GPU compute processes other than this
+    one are listed as seen at the end.
     """
-    busy0, own0, wall0 = start
-    busy1, own1, wall1 = cpu_clock()
+    busy0, mine0, own0, light0, wall0 = start
+    busy1, mine1, own1, light1, wall1 = cpu_clock()
     wall = wall1 - wall0
-    other = max(0.0, (busy1 - busy0) - (own1 - own0))
+    own = own1 - own0
+    other = max(0.0, (busy1 - busy0) - own)
+    other_mine = max(0.0, (mine1 - mine0) - own)
     out = {
         "wall_seconds": wall,
-        "own_cpu_seconds": own1 - own0,
+        "own_cpu_seconds": own,
         "other_cpu_seconds": other,
         "other_cores": other / wall if wall > 0 else 0.0,
         "cpus": os.cpu_count(),
+        "fit_cpus": sorted(os.sched_getaffinity(0)),
+        "other_cores_on_fit_cpus": other_mine / wall if wall > 0 else 0.0,
+        "job_class": os.environ.get("APARTMENTS_JOB_CLASS"),
     }
+    if light0 is not None and light1 is not None and wall > 0:
+        out["light_cores"] = (light1 - light0) / wall
     try:
         pids = subprocess.run(
             ["nvidia-smi", "--query-compute-apps=pid", "--format=csv,noheader"],

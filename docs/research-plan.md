@@ -47,7 +47,7 @@ queue and design work before it; the rest of this plan is context.
 - **Data choices to try in exploration:** the West Village unit alias table (`unit-labels-v2`) is
   one. It is no longer a separately queued fit.
 - **Unchanged:**
-  - one timed fit at a time under the heavy lock; local compute only;
+  - one timed fit at a time (now the GPU class of `ops/job`); local compute only;
   - `model.build_model` is the only model;
   - a PR per independent change;
   - elegance by judge agents;
@@ -287,16 +287,19 @@ of it.
   recorded frontier run so far used a Modal H100 or H200. Those points stay on the board as
   context, labeled by hardware, but their thelio times are unmeasured. m8 is not refit locally
   (Ben, 2026-09-24).
-- **One timed job at a time** (Ben, 2026-09-24: "I'm okay with waiting longer to do these things
-  serially in favor of getting good data"). Every heavy job on thelio holds
-  `/data1/apartments/tmp/heavy.lock`: fits, LOO and variance scoring, and reviewers' tests. Light
-  read-only jobs run without it at idle priority instead, such as the site's research-data build
-  (Ben, 2026-10-01: live updates, never blocked by the lock). The
-  fit queue runs from a fixed-commit worktree. From commit 3c26c4a, each run record carries a
-  `contention` block: the mean number of cores other processes kept busy during the fit, and any
-  other GPU compute processes. A timing is clean below 0.5 other cores, and the dashboard's Timing
-  column shows it. Thelio fits from before this rule whose times may include contention were
-  moved to `/data1/apartments/frontier/runs-archive/contended-2026-09-24/` and are being re-timed.
+- **One GPU job at a time, light work beside it** (Ben, 2026-09-24: "I'm okay with waiting longer
+  to do these things serially in favor of getting good data"; Ben, 2026-10-03: the global lock
+  was holding the project back). Every job on thelio runs through `ops/job` in one of two classes
+  ([thelio-jobs.md](thelio-jobs.md)). GPU jobs (fits, GPU LOO, summaries) take the GPU lock and run
+  one at a time on the first core complex (CPUs 0–2, 6–8). Light jobs (tests, reviews, CPU LOO and
+  variance, data, board and site builds) run up to three at once on the other complex (CPUs 3–5,
+  9–11), at low priority and capped at 5 GB together, without the GPU. The fit queue runs from a
+  fixed-commit worktree. Each run record carries a `contention` block: the mean number of cores
+  other processes kept busy during the fit, on the whole machine (`other_cores`) and on the fit's
+  own CPUs (`other_cores_on_fit_cpus`, from this change), the light jobs' use, and any other GPU
+  compute processes. A timing is clean below 0.5 other cores on the fit's CPUs, and the
+  dashboard's Timing column shows it. Thelio fits from before the 2026-09-24 rule whose times may
+  include contention were moved to `/data1/apartments/frontier/runs-archive/contended-2026-09-24/`.
 
 ## Automatic loop and selection (Ben, 2026-09-30)
 
@@ -334,7 +337,7 @@ You do not need my approval to change the dashboard model."
   (`autoselect --write <bundle>`), and the reviewer reruns the rule. After the merge, the site
   code is deployed and the selection published, and the rent map is recomputed.
 - **The loop.** Each experiment is a change to the data or the model: one branch, tests, one fit
-  on the RTX 2060 under the heavy lock, a plan entry, a reviewed PR. Autoselect runs after each
+  on the RTX 2060 as a GPU job (`ops/job gpu`), a plan entry, a reviewed PR. Autoselect runs after each
   merge. A new data rule makes every fit on the old rules ineligible, so the loop refits the
   leading designs on it.
 
