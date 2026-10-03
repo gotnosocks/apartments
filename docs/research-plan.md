@@ -437,7 +437,6 @@ mathematical simplifications.
       sum-to-zero walks, walk masks and anchors, line effects;
     - designs without every base term;
     - data where a unit's rows sit in more than one building.
-  - The Student-t unit move and the unit-drift move are frozen: no new Gibbs work on either.
   - Shapes beyond the scope go to NUTS. The NUTS coordinate work (exact reparameterisations, dense
     mass matrices) continues off the critical path.
   - Convergence is checked independently ([project intent](project-intent.md)): R-hat and ESS over
