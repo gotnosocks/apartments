@@ -255,16 +255,20 @@ def desc_v1(
 
 
 # The bedroom count an ad's first sentence states ("Sunny 2-bedroom ...",
-# "One bed with ...", "Studio ..."): its first match, else none.
+# "One bed with ...", "Studio ..."): its first match, else none. A half count
+# ("1.5 bedroom") states none.
 _STATED_BEDROOMS = re.compile(
-    r"\b(?:(one|two|three|four|five|[1-5])[- ]?(?:bed(?:room)?s?|br|bd)\b|(studio)\b)"
+    r"(?<![\d.])\b(?:(one|two|three|four|five|[1-5])[- ]?"
+    r"(?:bed(?:room)?s?|bdrms?|br|bd)\b|(studio)\b)"
 )
+# A sentence ends at . ! or ? before a space, or at a line break.
+_SENTENCE_END = re.compile(r"(?<=[.!?])\s|\n|<br\s*/?>")
 _BEDROOM_WORDS = {"studio": 0, "one": 1, "two": 2, "three": 3, "four": 4, "five": 5}
 
 
 def stated_bedrooms(text: str) -> float:
     """The bedroom count the first sentence of an ad states, or NaN."""
-    first = re.split(r"(?<=[.!?])\s", text.strip(), maxsplit=1)[0][:200].lower()
+    first = _SENTENCE_END.split(text.strip(), maxsplit=1)[0][:200].lower()
     m = _STATED_BEDROOMS.search(first)
     if not m:
         return np.nan
