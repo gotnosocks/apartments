@@ -299,7 +299,7 @@ def correct_floors_v1(frame: pd.DataFrame) -> pd.DataFrame:
     ("this one bedroom is located on the 4th floor", "third floor walk-up",
     "top-floor studio" with the building's height, "garden level"), pooled per
     unit and agreeing within a floor; multi-level units are left alone
-    (3,836 rows). Every row is kept; only `listed_floor` changes."""
+    (3,880 rows). Every row is kept; only `listed_floor` changes."""
     listed = corrections(RULE_SOURCES["floors-ad-v1"])
     fixes = {a: v for a, (field, v) in listed.items() if field == "listed_floor"}
     out = frame.copy()

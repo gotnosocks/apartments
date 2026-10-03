@@ -221,9 +221,10 @@ _NTH = r"(\d{1,2})(?:st|nd|rd|th)|(" + "|".join(ORDINALS) + ")"
 # The apartment as a sentence's subject: "the apartment", "this sunny one
 # bedroom", "unit 4b"; not "the laundry room" or "the second bedroom".
 _SUBJECT = (
-    r"(?:\b(?:apartment|apt|unit|residence|home)\b(?: \w{1,4})?|\bthis (?:\w+ ){0,3}?"
-    r"(?:apartment|apt|unit|home|residence|studio|loft|one[- ]bedroom|"
-    r"two[- ]bedroom|\d ?(?:bed(?:room)?|br)))"
+    r"(?:(?<!another )(?<!identical )(?<!storage )(?<!similar )"
+    r"\b(?:apartment|apt|unit|residence|home)\b(?: #?[a-z]?\d{1,2}[a-z]?\b)?"
+    r"|\bthis (?:\w+ ){0,3}?(?:apartment|apt|unit|home|residence|studio|loft|"
+    r"one[- ]bedroom|two[- ]bedroom|\d ?(?:bed(?:room)?|br)))"
 )
 _ON = r"(?: is| sits)? (?:located |situated )?on the "
 APARTMENT_FLOOR = re.compile(
@@ -296,12 +297,19 @@ def floor_corrections(
     recorded = floor.groupby(units).agg(
         lambda s: s.mode().min() if s.notna().any() else np.nan
     )
+    # The unit's floor from its ads: the most common floor of its best kind
+    # of evidence (ad over top over ground), the lowest on a tie.
     rank = found.source.map({"ad": 0, "top": 1, "ground": 2})
-    best = found[found.floor.notna()].assign(rank=rank).sort_values("rank")
-    first = best.groupby(units[best.index]).head(1)
-    from_ad = pd.Series(first.floor.to_numpy(), index=units[first.index].to_numpy())
+    best = found[found.floor.notna()].assign(rank=rank, unit=units)
+    best = best[best["rank"].eq(best.groupby("unit")["rank"].transform("min"))]
+    from_ad = best.groupby("unit").floor.agg(lambda s: s.mode().min())
+    first = best.sort_values(["unit", "floor"], kind="stable").drop_duplicates("unit")
+    first = first[first.floor.eq(first.unit.map(from_ad))].set_index("unit")
     unit_floor = recorded.fillna(from_ad)
     corrected = units.map(unit_floor)
+    # A row's own evidence sets its own floor (within the unit's spread).
+    own_floor = found.floor.where(units.map(recorded).isna())
+    corrected = own_floor.fillna(corrected)
     limit = height + 1
     clear = (
         floor.isna()
@@ -310,10 +318,15 @@ def floor_corrections(
         & ~(limit.notna() & corrected.gt(limit))
         & ~frame.audit_id.isin(data.dropped_rows())
     )
-    by_unit = first.assign(unit=units[first.index]).set_index("unit")
+    by_unit = first
     has_record = units.map(recorded).notna()
     source = pd.Series(
-        np.where(has_record, "unit", units.map(by_unit.source)), index=frame.index
+        np.where(
+            has_record,
+            "unit",
+            found.source.where(found.floor.notna(), units.map(by_unit.source)),
+        ),
+        index=frame.index,
     )
     own = found.floor.notna() & ~has_record
     evidence = pd.Series(
