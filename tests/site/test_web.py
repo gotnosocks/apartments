@@ -1264,6 +1264,9 @@ def test_pages_without_recorded_structure(tmp_path, site_root):
     assert "holds no structure for this design" in fit
     designs = client.get("/research/designs").get_data(as_text=True)
     assert "No design on the board records its structure yet" in designs
+    # The served model's page falls back to the bundle's own ModelConfig.
+    served = client.get("/research/model").get_data(as_text=True)
+    assert 'id="structure"' in served and "Building drift over time" in served
 
 
 def test_designs_page_without_the_served_design(tmp_path, site_root):
