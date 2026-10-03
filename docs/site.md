@@ -93,13 +93,28 @@ without the filter.
   line, a search over design, features and commit, "only servable", "subset fits" and the tier (both, full or exploration); columns sort.
   Servable is yes only when the research data says so (autoselect's `why_not_served`). Otherwise a
   fit that fails the checks is "no", and anything else is "not known yet".
-- **Fit** (`/research/fits/<key>`): one fit's headline numbers, whether it can be served and why
+- **Fit** (`/research/fits/<key>`): one fit's headline numbers, what its design does (below), whether it can be served and why
   not, the judge agents' elegance verdicts against other designs with their
   reasons, the board's note and annotations, the sampler and run, the accuracy in detail (ELPD, Pareto
   k, the held-out check), each split's diagnostics, and where the variation in rents goes. An
   exploration fit's page says what that means, gives its draws and chains, and links any full fits of
   the same design (same model, features and data rules), newest first. Every
   dot on the research charts and every fit in their tables links here.
+- **What the model does** (on each fit's page and the served model's, `apartments.site.anatomy`): the
+  design drawn from the `ModelConfig` its run recorded, with no hand-written per-design text:
+  - a plate diagram in HTML and CSS: market, building, apartment and listing boxes, each holding its
+    parts with their settings, and the parts the design leaves out drawn dashed;
+  - the log-rent equation in MathML (rendered by the browser, no script), one line per level, each
+    term its own element so a narrow screen wraps between terms;
+  - a table of every part: its term, a plain sentence, its prior and its number of parameters (from
+    the run's data sizes), which is also the text alternative to the diagram and equation;
+  - on a fit's page, how its design differs from the served one ("drops building drift over time").
+  Old PyMC screens record no structure and say so. A config field the module does not describe shows
+  as "other option"; `tests/site/test_anatomy.py` reads ModelConfig's fields from the frontier source
+  and fails until each one is described or listed as a prior or sampling setting.
+- **Designs** (`/research/designs`): every design on the board as a row of the same parts (tick and
+  setting, or a dash), the served design first and then by best PSIS-LOO; each links to its best fit's
+  structure. Below it, how each design differs from the served one, in words.
 - **History** (`/research/history`):
   - the best fit's accuracy over time on one hardware class (the board's own replay);
   - each fit's fit time by the day it landed;
@@ -166,7 +181,8 @@ listings fall in each band, as calibration predicts.
    `data.json`: entries, as-of snapshots, milestones and the data-quality card. Each entry carries
    the judge agents' pairwise `elegance` judgements of its design (`rentfrontier.elegance`: a list
    of `{vs, verdict, reason}`, verdict "more elegant", "equal" or "less elegant"; empty when none),
-   `psis.p_loo`, `why_not_served`, autoselect's plain reason the fit cannot be served (null when it
+   `psis.p_loo`, its `model` (the design's ModelConfig as the run recorded it) and `sizes` (the rows
+   fit's rows, features, months, buildings and units), `why_not_served`, autoselect's plain reason the fit cannot be served (null when it
    can), and its `tier` (`rentfrontier` fit tiers: `{name: "exploration" | "full", draws, warmup,
    chains, subset}`; none means full). Exploration fits count on the research frontier but are never
    served; a fit with a `subset` has no PSIS-LOO score on the full data and shows in tables only. The

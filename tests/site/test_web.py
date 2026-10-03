@@ -4,6 +4,7 @@ import io
 import itertools
 import json
 import sqlite3
+from pathlib import Path
 
 import pytest
 
@@ -1223,3 +1224,69 @@ def test_time_limit_line_drawn_only_when_fits_reach_it():
 
     assert "2-hour limit" not in chart(10)
     assert "2-hour limit" in chart(150)
+
+
+def test_fit_page_draws_the_design(client):
+    from urllib.parse import quote
+
+    served = client.get("/research/fits/" + quote("m-test/unitdesc-v1/nuts@aaaaaaa"))
+    html = served.get_data(as_text=True)
+    assert 'id="structure"' in html and "<math" in html
+    assert "2,296" not in html and "10 buildings" in html  # the fixture's sizes
+    assert "Building drift over time" in html and "This is the served design" in html
+    other = client.get("/research/fits/m-other").get_data(as_text=True)
+    assert "Drops building drift over time" in other
+    assert "part-chip off" in other  # parts it leaves out are drawn dashed
+
+
+def test_designs_page(client):
+    html = client.get("/research/designs").get_data(as_text=True)
+    assert "Which parts each design has" in html
+    assert html.index("<code>m-test</code>") < html.index("<code>m-other</code>")
+    assert "Drops building drift over time" in html
+
+
+def test_pages_without_recorded_structure(tmp_path, site_root):
+    from apartments.site.web import create_app
+
+    from .conftest import research_data
+
+    data = research_data()
+    for e in data["entries"]:
+        e.pop("model", None)
+        e.pop("sizes", None)
+    path = tmp_path / "data.json"
+    path.write_text(json.dumps(data))
+    client = create_app(
+        site_root, allowed_hosts=["thelio.example.ts.net"], research_data=path
+    ).test_client()
+    fit = client.get("/research/fits/m-other").get_data(as_text=True)
+    assert "holds no structure for this design" in fit
+    designs = client.get("/research/designs").get_data(as_text=True)
+    assert "No design on the board records its structure yet" in designs
+
+
+def test_designs_page_without_the_served_design(tmp_path, site_root):
+    from apartments.site.web import create_app
+
+    from .conftest import research_data
+
+    data = research_data()
+    data["entries"] = [e for e in data["entries"] if e["design"] != "m-test"]
+    path = tmp_path / "data.json"
+    path.write_text(json.dumps(data))
+    client = create_app(
+        site_root, allowed_hosts=["thelio.example.ts.net"], research_data=path
+    ).test_client()
+    html = client.get("/research/designs").get_data(as_text=True)
+    assert "<code>m-other</code>" in html
+    assert "not on the board, so no design is compared" in html
+    assert "The same structure." not in html
+
+
+def test_part_chips_leave_the_listing_chips_alone():
+    css = (
+        Path(__file__).parents[2] / "src/apartments/site/static/site.css"
+    ).read_text()
+    anatomy_css = css[css.index("/* A design's structure") :]
+    assert "\n.chip" not in anatomy_css and ".chips" not in anatomy_css

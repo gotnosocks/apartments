@@ -155,6 +155,22 @@ def test_completed_at_rules(tmp_path):
     assert dashboard.completed_at({"_dir": local}).timestamp() == 1_790_000_000
 
 
+def test_sizes_of_reads_the_rows_fits_record(tmp_path):
+    run = tmp_path / "rows"
+    run.mkdir()
+    sizes = {"rows": 10, "features": 3, "months": 12, "buildings": 2, "units": 4}
+    (run / "result.json").write_text(json.dumps({"sizes": sizes}))
+    other = tmp_path / "units"
+    other.mkdir()
+    (other / "result.json").write_text("{}")
+    entry = {"splits": {"units": {"_dir": str(other)}, "rows": {"_dir": str(run)}}}
+    assert dashboard.sizes_of(entry) == sizes
+    assert dashboard.sizes_of({"splits": {"units": {"_dir": str(other)}}}) is None
+    assert (
+        dashboard.sizes_of({"splits": {"rows": {"_dir": str(tmp_path / "x")}}}) is None
+    )
+
+
 def test_best_is_the_fastest_entry_tied_with_the_top_score(tmp_path):
     rng = np.random.default_rng(1)
     noise = rng.normal(0, 0.5, 50)

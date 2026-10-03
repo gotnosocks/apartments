@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% from "_anatomy.html" import structure with context %}
 {% block title %}{{ e.id }}{% endblock %}
 {% block content %}
 <nav class="crumbs" aria-label="Breadcrumb">
@@ -26,6 +27,16 @@
     <span class="figure-value">{{ "{:,.0f}".format(e.psis.p_loo) }}</span>
     <span class="figure-note">p<sub>loo</sub>, measured from the data; <a href="{{ url_for('research_glossary', _anchor='p-loo') }}">what it means</a></span>
   </div>
+  {% endif %}
+</section>
+
+<section class="card" id="structure">
+  <h2>What the model does</h2>
+  {% if anatomy %}
+  <p class="note">The design <code>{{ e.design }}</code> drawn from the configuration its fit recorded. <a href="{{ url_for('research_designs') }}">Every design side by side</a>.</p>
+  {{ structure(anatomy, diffs, served_design) }}
+  {% else %}
+  <p class="note">The research data holds no structure for this design: early PyMC screens recorded none.</p>
   {% endif %}
 </section>
 

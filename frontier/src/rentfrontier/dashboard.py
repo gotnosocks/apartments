@@ -137,6 +137,18 @@ def completed_at(split: dict) -> dt.datetime:
     return dt.datetime.fromtimestamp((folder / "result.json").stat().st_mtime, dt.UTC)
 
 
+def sizes_of(entry) -> dict | None:
+    """The data sizes (rows, features, months, buildings, units) of an entry's
+    rows fit, as its run record states them; None when it does not."""
+    split = entry["splits"].get("rows") or next(iter(entry["splits"].values()))
+    try:
+        result = json.loads((Path(split["_dir"]) / "result.json").read_text())
+    except (OSError, ValueError, KeyError):
+        return None
+    sizes = result.get("sizes")
+    return sizes if isinstance(sizes, dict) else None
+
+
 def as_of(entries, t):
     """Entries as the board would have seen them at time t."""
     out = []
@@ -314,6 +326,10 @@ def data():
                 "structure": structure(e),
                 "design": design,
                 "design_text": DESIGNS.get(design, ""),
+                # The design's ModelConfig as the run recorded it, and the data
+                # sizes, for the site's equation, diagram and design matrix.
+                "model": e["model"],
+                "sizes": sizes_of(e),
                 "feature_set": e["feature_set"],
                 "commit": (e.get("commit") or "")[:7] or None,
                 "sampler": e["sampler"],

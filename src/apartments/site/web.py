@@ -36,6 +36,8 @@ from flask import (
 from markupsafe import Markup
 
 from . import charts
+from .anatomy import LEVELS as ANATOMY_LEVELS
+from .anatomy import describe, differences
 from .research import (
     BOARD_ORDERS,
     BOARD_SORTS,
@@ -50,6 +52,7 @@ from .research import (
     best_over_time,
     board_rows,
     compute_by_line,
+    designs,
     elegance_pairs,
     elegance_summary,
     entry_by_key,
@@ -491,6 +494,7 @@ def create_app(
     app.jinja_env.globals["verdicts"] = verdicts
     app.jinja_env.globals["elegance_cells"] = ELEGANCE_CELLS
     app.jinja_env.globals["tier_of"] = tier_of
+    app.jinja_env.globals["anatomy_levels"] = ANATOMY_LEVELS
 
     @app.context_processor
     def helpers():
@@ -1199,10 +1203,22 @@ def create_app(
         if entry is None:
             abort(404, description="No fit with that key on the board.")
         serve, why_not = serve_status(entry)
+        anatomy = describe(entry.get("model"), entry.get("sizes"))
+        served_entry = entry_for_run(data, m["provenance"]["run"])
+        base = (
+            describe(served_entry.get("model"), served_entry.get("sizes"))
+            if served_entry
+            else None
+        )
         return render_template(
             "research_fit.html",
             meta=m,
             e=entry,
+            anatomy=anatomy,
+            diffs=differences(anatomy, base) if anatomy and base else None,
+            served_design=bool(
+                served_entry and served_entry.get("design") == entry.get("design")
+            ),
             run=run_of(entry),
             serve=serve,
             why_not=why_not,
@@ -1221,6 +1237,21 @@ def create_app(
         """Each judged design's fits on the board, to link the other side of a
         judgement."""
         return {d["id"]: d["fits"] for p in elegance_pairs(data) for d in p["designs"]}
+
+    @app.get("/research/designs")
+    def research_designs():
+        m = meta()
+        data = research_data_or_503()
+        rows, unrecorded = designs(data, m["provenance"]["run"])
+        return render_template(
+            "research_designs.html",
+            meta=m,
+            rows=rows,
+            unrecorded=unrecorded,
+            columns=[p for p in rows[0]["anatomy"].parts if p.key != "intercept"]
+            if rows
+            else [],
+        )
 
     @app.get("/research/elegance")
     def research_elegance():
@@ -1438,14 +1469,21 @@ def create_app(
         terms = terms_list()
         labels = {t["name"]: t["label"] for t in terms}
         data = research.load()
+        entry = entry_for_run(data, m["provenance"]["run"])
+        anatomy = (
+            describe(entry.get("model"), entry.get("sizes"))
+            if entry
+            else describe(m["provenance"].get("model"))
+        )
         return render_template(
             "research_model.html",
+            anatomy=anatomy,
             meta=m,
             selection=served_selection(m),
             coefficients=coefficients,
             terms=terms,
             labels=labels,
-            entry=entry_for_run(data, m["provenance"]["run"]),
+            entry=entry,
             baseline=data.get("baseline") if data else None,
             autoselect=data.get("autoselect") if data else None,
         )

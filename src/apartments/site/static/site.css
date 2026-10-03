@@ -376,3 +376,46 @@ details.table-view summary { cursor: pointer; color: var(--link); font-size: 0.9
 .chart .measured { fill: none; stroke: var(--axis); stroke-width: 1.5; }
 .chart .fit.faded { fill-opacity: 0.35; stroke-opacity: 0.5; }
 .key-measured { display: inline-block; width: 16px; height: 0; border-top: 1.5px solid var(--axis); vertical-align: middle; }
+
+/* A design's structure (anatomy): nested plates, the equation, the parts table, the design matrix. */
+.plates { margin: 0.5rem 0 1rem; }
+.plate { border: 1.5px solid var(--axis); border-radius: 8px; padding: 0.5rem 0.6rem 0.6rem; margin-top: 0.5rem; background: var(--surface); }
+.plates > .plate { margin-top: 0; }
+.plate-market { background: var(--neutral-bg); }
+.plate-unit { background: var(--neutral-bg); }
+.plate-head { margin: 0 0 0.35rem; font-size: 0.85rem; }
+.plate-name { font-weight: 650; }
+.plate-count { color: var(--muted); font-variant-numeric: tabular-nums; }
+.part-chips { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 0.35rem; }
+.part-chip { display: inline-flex; flex-direction: column; border: 1.5px solid var(--accent); border-radius: 6px; padding: 0.2rem 0.5rem; background: var(--surface); font-size: 0.85rem; line-height: 1.3; max-width: 100%; }
+.part-chip > span:first-child { font-weight: 600; }
+.part-chip.off > span:first-child { font-weight: 400; }
+.part-chip-set { color: var(--ink-2); font-size: 0.78rem; }
+.part-chip.off { border: 1.5px dashed var(--axis); color: var(--muted); background: transparent; }
+.plates figcaption { color: var(--muted); font-size: 0.82rem; margin-top: 0.5rem; max-width: 60rem; }
+.equation { overflow-x: auto; padding: 0.4rem 0; font-size: 1.1rem; }
+.eq-line { display: flex; align-items: baseline; gap: 1rem; padding: 0.1rem 0 0.1rem 1.5rem; }
+.eq-line:first-child { padding-left: 0; }
+.eq-math { display: flex; flex-wrap: wrap; column-gap: 0.25em; }
+.eq-term { white-space: nowrap; }
+.eq-level { color: var(--muted); font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.04em; }
+table.parts th[scope="row"] { font-weight: 600; min-width: 9rem; }
+table.parts .block { display: block; font-weight: 400; font-size: 0.82rem; }
+table.parts .prior { display: block; color: var(--muted); font-size: 0.8rem; margin-top: 0.15rem; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; overflow-wrap: anywhere; }
+ul.diffs { margin: 0.2rem 0 0.6rem; padding-left: 1.2rem; }
+table.designs th.level { text-align: center; border-bottom: 1px solid var(--axis); }
+table.designs th.part { font-size: 0.78rem; font-weight: 600; vertical-align: bottom; min-width: 5.5rem; }
+table.designs td.part-cell { font-size: 0.8rem; white-space: nowrap; }
+table.designs td.off { color: var(--muted); }
+table.designs tr.served { background: var(--good-bg); }
+table.designs th[scope="row"] { white-space: nowrap; position: sticky; left: 0; background: var(--surface); z-index: 1; }
+table.designs tr.served th[scope="row"] { background: var(--good-bg); }
+table.designs th[scope="row"] code { overflow-wrap: normal; }
+@media (max-width: 640px) {
+  table.parts thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+  table.parts, table.parts tbody, table.parts tr, table.parts th, table.parts td { display: block; width: auto; text-align: left; }
+  table.parts tr { padding: 0.5rem 0; border-bottom: 1px solid var(--grid); }
+  table.parts th[scope="row"], table.parts td { border: 0; padding: 0.1rem 0; }
+  table.parts td.num::before { content: "Parameters: "; color: var(--muted); }
+  .eq-line { flex-direction: column; gap: 0; }
+}
