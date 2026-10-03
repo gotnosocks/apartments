@@ -159,6 +159,20 @@ def exclusion_reason(store, generation, url):
     cutoff = min_listing_id(store, generation)
     if key and cutoff and 0 < _ad_number(key) < cutoff:
         return "before_min_listing_id"
+    # An inventory row names the unit's latest rental advertisement, so when that
+    # source ad is below the cutoff every ad the probe could unlock is too.
+    # Greenwich Village: 766 such probes were captured (about 60% sale-only or 404) and
+    # none unlocked an ad at or above the cutoff. The inventory lists only past ads, and
+    # scope_urls keeps a URL's first reason, so a unit re-let after its last inventory
+    # row would also be skipped if its route were reached another way. In Greenwich
+    # Village no post-cutoff capture links to any of these units.
+    if not key and cutoff:
+        row = store.db.execute(
+            "SELECT reason FROM scope_urls WHERE generation=? AND url=?", (generation, url)
+        ).fetchone()
+        source = re.match(rf"{PROBE_RULE} from https://streeteasy\.com/rental/(\d+)$", row[0]) if row else None
+        if source and int(source[1]) < cutoff:
+            return "probe_source_before_min_listing_id"
     if key:
         rows = store.db.execute(
             "SELECT DISTINCT unit_url FROM collection_memberships WHERE generation=? AND listing_key=?",

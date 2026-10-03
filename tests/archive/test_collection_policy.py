@@ -418,6 +418,33 @@ def test_ads_below_min_listing_id_are_skipped_before_any_request(tmp_path):
     s.close()
 
 
+def test_unit_probes_from_ads_below_min_listing_id_are_skipped(tmp_path):
+    s = ArchiveStore(tmp_path)
+    g = s.new_generation()
+    setup(s, g, min_listing_id=200)
+    s.db.execute(
+        "INSERT INTO scope_buildings VALUES(?,?)",
+        (g, "https://streeteasy.com/building/example"),
+    )
+    s.db.commit()
+    rows = [("https://streeteasy.com/rental/150", "#1A"), ("https://streeteasy.com/rental/250", "#2B")]
+    expand(s, g, inventory_data(rows), INVENTORY, neighborhood="west-village")
+    old, new = "https://streeteasy.com/building/example/1a", "https://streeteasy.com/building/example/2b"
+    other = "https://streeteasy.com/building/example/3c"  # a unit route enrolled another way
+    s.enqueue(g, [{"url": other, "kind": "listing"}])
+    assert exclusion_reason(s, g, old) == "probe_source_before_min_listing_id"
+    assert exclusion_reason(s, g, new) is None
+    assert exclusion_reason(s, g, other) is None
+    claimed = claim_all(s, g)
+    assert new in claimed and other in claimed and old not in claimed
+    attempts = dict(s.db.execute("SELECT url, attempts FROM frontier"))
+    assert attempts[old] == 0
+    # Without a cutoff every probe is requested.
+    setup(s, g, min_listing_id=0)
+    assert exclusion_reason(s, g, old) is None
+    s.close()
+
+
 def test_min_listing_id_persists_across_resume_and_can_be_cleared(tmp_path):
     s = ArchiveStore(tmp_path)
     g = s.new_generation()
