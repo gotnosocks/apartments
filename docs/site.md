@@ -60,7 +60,7 @@ is therefore a fair signal of over- or under-pricing ([what an estimate is](mode
   estimate type, and why some listings are left out.
 
 Neighbourhoods: every listing and building carries one (the summary's `neighbourhood` per row,
-else the dataset's, else the build's `--scope`, and "Chelsea" when no `--scope` is given). Without
+else the dataset's, else the build's `--scope`, or "Chelsea" when no `--scope` is given). Without
 `--scope` the site's name for the area comes from the listings' neighbourhoods ("Chelsea and West
 Village"; `build.scope_of`). The listings and buildings pages show a
 neighbourhood filter, and tables and building pages name the neighbourhood, only when a build covers
