@@ -267,7 +267,9 @@ def correct_bedrooms_v1(frame: pd.DataFrame) -> pd.DataFrame:
 def correct_bedrooms_v2(frame: pd.DataFrame) -> pd.DataFrame:
     """v1's rule, and half of the unit's other listings (units joined as
     unit-labels-v2) recording the ad's count, and no ad that places the
-    apartment in the other neighbourhood or on another avenue (94 rows)."""
+    apartment in the other neighbourhood or on another avenue, no bedroom
+    range, rec room or disagreeing "true" count, no bare count on a unit with
+    no other listing (84 rows)."""
     return _correct_bedrooms(frame, "bedrooms-ad-v2")
 
 
