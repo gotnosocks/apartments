@@ -305,7 +305,11 @@ def project(reference: str, candidates=CANDIDATES):
         parts.append(sum(terms.values()).mean(0) - prep.offset)
     mu_ref = np.concatenate(parts)
     y = prep.train.y
-    sigma, nu = float(kept["sigma"].mean()), float(kept["nu"].mean())
+    # The reference's noise scale per training row: one scale, or (with
+    # noise_by_bedrooms) the row's bedroom group's.
+    sigma = np.asarray(kept["sigma"]).mean(0)
+    sigma_rows = sigma if sigma.ndim == 0 else sigma[np.asarray(prep.train.bed_group)]
+    nu = float(kept["nu"].mean())
     scales = {
         k: float(kept[k].mean())
         for k in (
@@ -322,7 +326,7 @@ def project(reference: str, candidates=CANDIDATES):
     }
     scales["fslope_scales"] = kept["fslope_scales"].mean(0).tolist()
     scales["trend_knot_months"] = config.trend_knot_months
-    elpd_ref = float(t_logpdf(y - mu_ref, nu, sigma).sum())
+    elpd_ref = float(t_logpdf(y - mu_ref, nu, sigma_rows).sum())
     base_x = features.build("base-v1", frame, ~heldout)
     xs = {
         "desc-v1": feats.values[~heldout],
@@ -344,16 +348,18 @@ def project(reference: str, candidates=CANDIDATES):
             scales,
         )
         # Posterior mode of the structure fit to mu_ref with the reference's
-        # noise scale: (z'z + sigma^2 P) b = z' mu_ref.
+        # noise scales: (z'Wz + P) b = z'W mu_ref, W = diag(1 / sigma_i^2)
+        # (with one scale, (z'z + sigma^2 P) b = z' mu_ref).
         # Conjugate gradients with a Jacobi preconditioner: only sparse
         # products, no factorization fill (building walks couple to units).
-        system = (z.T @ z + sigma**2 * pen).tocsr()
+        zw = sp.diags(np.broadcast_to(sigma_rows**-2.0, (z.shape[0],))) @ z
+        system = (z.T @ zw + pen).tocsr()
         precond = sp.diags(1.0 / system.diagonal())
-        b, info = cg(system, z.T @ mu_ref, M=precond, rtol=1e-10, maxiter=20000)
+        b, info = cg(system, zw.T @ mu_ref, M=precond, rtol=1e-10, maxiter=20000)
         if info != 0:
             raise RuntimeError(f"CG did not converge for {s.name} (info {info})")
         m = z @ b
-        loss = elpd_ref - float(t_logpdf(y - m, nu, sigma).sum())
+        loss = elpd_ref - float(t_logpdf(y - m, nu, sigma_rows).sum())
         out.append(
             {
                 **asdict(s),
@@ -374,7 +380,7 @@ def project(reference: str, candidates=CANDIDATES):
         "reference_commit": result["commit"],
         "rows": len(y),
         "reference_elpd_in_sample": elpd_ref,
-        "noise": {"sigma": sigma, "nu": nu},
+        "noise": {"sigma": sigma.tolist(), "nu": nu},
         "scales": scales,
         "candidates": out,
     }

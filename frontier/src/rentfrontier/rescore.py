@@ -43,25 +43,28 @@ def _approx_unseen_logpdf(p, test, mu, u):
     import jax.numpy as jnp
     from jax.scipy.special import logsumexp
 
+    from . import model
     from .collect import GH_NODES, student_t_logpdf
 
     seen = test.unit >= 0
+    sigma = model.row_sigma(p["sigma"], test.bed_group)
+    s1 = sigma[:, None] if jnp.ndim(sigma) else sigma
     drift_scale = p["unit_drift_scale"]
     unit_scale = jnp.sqrt(p["unit_scale"] ** 2 + (drift_scale * test.unit_time) ** 2)
-    lp_seen = student_t_logpdf(test.y - mu - u, p["nu"], p["sigma"])
+    lp_seen = student_t_logpdf(test.y - mu - u, p["nu"], sigma)
     x, w = (jnp.asarray(a, mu.dtype) for a in np.polynomial.hermite.hermgauss(GH_NODES))
     shifted = (
         test.y[:, None] - mu[:, None] - math.sqrt(2.0) * unit_scale[:, None] * x[None]
     )
     lp_new = logsumexp(
-        student_t_logpdf(shifted, p["nu"], p["sigma"]) + jnp.log(w)[None], axis=1
+        student_t_logpdf(shifted, p["nu"], s1) + jnp.log(w)[None], axis=1
     ) - 0.5 * math.log(math.pi)
     nu_u = p["unit_nu"]
     z = jnp.linspace(-40.0, 40.0, 801, dtype=mu.dtype)
     log_wz = student_t_logpdf(z, jnp.maximum(nu_u, 1e-3), 1.0) + math.log(0.1)
     shifted_t = test.y[:, None] - mu[:, None] - unit_scale[:, None] * z[None]
     lp_new_t = logsumexp(
-        student_t_logpdf(shifted_t, p["nu"], p["sigma"]) + log_wz[None], axis=1
+        student_t_logpdf(shifted_t, p["nu"], s1) + log_wz[None], axis=1
     )
     lp_new = jnp.where(nu_u > 0, lp_new_t, lp_new)
     return jnp.where(seen, lp_seen, lp_new)

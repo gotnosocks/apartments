@@ -101,6 +101,15 @@ DESIGNS = {
     "fourier": model.ModelConfig(
         building_walk=True, bedroom_slope=True, season_harmonics=2
     ),
+    # Both options together (as in m7-nocurves-floorslope-bednoise-fourier).
+    "bednoise-fourier": model.ModelConfig(
+        building_walk=True,
+        bedroom_slope=True,
+        feature_slopes=("x0",),
+        unit_t=True,
+        noise_by_bedrooms=True,
+        season_harmonics=2,
+    ),
     "drift": model.ModelConfig(building_walk=True, unit_drift=True),
     "tdrift": model.ModelConfig(
         building_walk=True,
@@ -167,7 +176,9 @@ def dense_mean(d, lam, s, kappa=None):
 
 # The dense reference has one residual scale; "bednoise" is checked against
 # the one-scale block with rescaled weights instead.
-@pytest.mark.parametrize("design", sorted(set(DESIGNS) - {"bednoise"}))
+@pytest.mark.parametrize(
+    "design", sorted(set(DESIGNS) - {"bednoise", "bednoise-fourier"})
+)
 def test_joint_gaussian_mean_matches_dense_solve(design):
     prep = synthetic()
     d = gibbs.build_design(prep, DESIGNS[design])
@@ -390,7 +401,16 @@ def test_student_t_units_block_matches_dense():
 
 @pytest.mark.parametrize(
     "design",
-    ["all", "quarterly", "fslopes", "tunits", "tdrift", "bednoise", "fourier"],
+    [
+        "all",
+        "quarterly",
+        "fslopes",
+        "tunits",
+        "tdrift",
+        "bednoise",
+        "fourier",
+        "bednoise-fourier",
+    ],
 )
 def test_site_values_reproduce_linear_predictor(design):
     """Gibbs state -> NumPyro sites -> model.linear_predictor equals the Gibbs fit."""
