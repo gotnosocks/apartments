@@ -214,7 +214,7 @@ BATH_CORRECTIONS = REPO / "config" / "corrections" / "baths-ad-20261003.jsonl"
 
 def correct_baths_v1(frame: pd.DataFrame) -> pd.DataFrame:
     """The full and half baths of rows whose ad states more bathrooms than the
-    record (one count in the ad, no shared, powder-room or hedging words).
+    record (one count in the ad, no shared, powder-room or hedging words; 62 rows).
     Every row is kept; only `full_baths` and `half_baths` change."""
     with open(RULE_SOURCES["baths-ad-v1"]) as f:
         rows = {
