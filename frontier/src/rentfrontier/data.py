@@ -269,6 +269,27 @@ def correct_bedrooms_v1(frame: pd.DataFrame) -> pd.DataFrame:
     return out
 
 
+BATH_CORRECTIONS = REPO / "config" / "corrections" / "baths-ad-20261003.jsonl"
+
+
+def correct_baths_v1(frame: pd.DataFrame) -> pd.DataFrame:
+    """The full and half baths of rows whose ad states more bathrooms than the
+    record (one count in the ad, no shared, powder-room, hedging or other-area
+    words, the unit's other listings not contradicting it; 47 rows).
+    Every row is kept; only `full_baths` and `half_baths` change."""
+    with open(RULE_SOURCES["baths-ad-v1"]) as f:
+        rows = {
+            r["audit_id"]: r for r in (json.loads(line) for line in f if line.strip())
+        }
+    out = frame.copy()
+    hit = out.audit_id.isin(rows)
+    for col in ("full_baths", "half_baths"):
+        out.loc[hit, col] = (
+            out.loc[hit, "audit_id"].map(lambda a, col=col: rows[a][col]).to_numpy()
+        )
+    return out
+
+
 def quarantine_v3(frame: pd.DataFrame) -> pd.DataFrame:
     """v2 and the third review's rows (261 in all): 65 West Village and 8
     Chelsea ads whose own words place the apartment elsewhere (Brooklyn's
@@ -306,6 +327,7 @@ DATA_RULES = {
     "quarantine-v1": quarantine_v1,
     "quarantine-v2": quarantine_v2,
     "bedrooms-ad-v1": correct_bedrooms_v1,
+    "baths-ad-v1": correct_baths_v1,
     "quarantine-v3": quarantine_v3,
 }
 # Rules that read a file; run records hash the files.
@@ -315,6 +337,7 @@ RULE_SOURCES = {
     "quarantine-v3": QUARANTINE_V3,
     "unit-labels-v2": UNIT_ALIASES,
     "bedrooms-ad-v1": BEDROOM_CORRECTIONS,
+    "baths-ad-v1": BATH_CORRECTIONS,
 }
 # Of those, the rules that drop the rows their file lists.
 DROPPING_RULES = ("quarantine-v1", "quarantine-v2", "quarantine-v3")

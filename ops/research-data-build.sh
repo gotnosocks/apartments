@@ -2,9 +2,9 @@
 # Rebuild the rents site's research data (data.json) when something new has
 # landed: a fit's run record, LOO or variance result, or a master commit.
 # Run by apartments-dashboard-build.service, triggered by its .path unit (new
-# results) and its timer (fallback). It only reads records, so it runs without
-# heavy.lock at idle CPU and I/O priority (Ben, 2026-10-01: live research
-# updates, never blocked by the lock).
+# results) and its timer (fallback). It only reads records, so it runs as a light
+# job, on the light CPUs at idle CPU and I/O priority (Ben, 2026-10-01: live
+# research updates, never blocked by a fit; docs/thelio-jobs.md).
 set -uo pipefail
 # The script lives in the checkout it updates: read it whole before running.
 {

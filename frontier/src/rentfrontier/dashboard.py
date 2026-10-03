@@ -85,6 +85,12 @@ DESIGNS = {
 }
 
 
+def _other_cores(load: dict):
+    """Cores other processes kept busy where the fit could run."""
+    on_fit = load.get("other_cores_on_fit_cpus")
+    return on_fit if on_fit is not None else load.get("other_cores")
+
+
 def git(*args, cwd=REPO) -> str:
     return subprocess.run(
         ["git", *args], cwd=cwd, check=True, capture_output=True, text=True
@@ -341,7 +347,10 @@ def data():
                 "hardware_class": e["hardware_class"],
                 "variance": (e.get("variance") or {}).get("intervals"),
                 "fit_seconds": e["fit_seconds"],
-                "other_cores": (e.get("contention") or {}).get("other_cores"),
+                # Other work on the fit's own cores (ops/job pins a GPU job to
+                # its core complex); runs before that have only the
+                # machine-wide count, which is the same for an unpinned fit.
+                "other_cores": _other_cores(e.get("contention") or {}),
                 "cost_usd": e["cost_usd"],
                 "grade": e["grade"],
                 "passes_checks": e["passes_checks"],
@@ -425,6 +434,7 @@ QUARANTINE_ACTIONS = {
     "quarantine_price_basis": "Ask is not the rent",
     "quarantine_attribute_conflict": "Bedrooms contradict the ad",
     "correct_bedrooms": "Bedrooms corrected from the ad",
+    "correct_baths": "Baths corrected from the ad",
 }
 
 
@@ -447,6 +457,10 @@ DATA_RULE_TEXT = {
     'sentence states another count ("Bright 1 bedroom in Chelsea" recorded as two '
     "bedrooms), every count in the ad agrees, and the ad has no flex, den, office or "
     "conversion words. No listing is dropped.",
+    "baths-ad-v1": "Bathroom counts corrected from the listing's own ad where it states "
+    'more than the record ("2 bedroom, 2 bathroom" recorded with one bath), states one '
+    "count only and does not mention shared baths or powder rooms. No listing is "
+    "dropped.",
     "quarantine-v3": "quarantine-v2 and a third review, the first of West Village: ads "
     "that place the apartment elsewhere (Brooklyn's Grove and Bleecker Streets, Park "
     "Slope, Harlem, the Upper West Side), shops, restaurants and event spaces, a room, "

@@ -1,0 +1,7 @@
+[Unit]
+Description=thelio GPU jobs: fits and other GPU work, one at a time (ops/job gpu)
+
+[Slice]
+# Ahead of everything else in the user manager on the fit's cores.
+CPUWeight=1000
+MemoryMax=7G
