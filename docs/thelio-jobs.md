@@ -50,7 +50,16 @@ cores, and its own time isn't fenced. Move fit queues to `ops/job gpu` first.
 Light jobs still share the memory bus with a fit (see the benchmark), so `ops/job gpu -x`
 (exclusive) also takes all three light slots: it waits for running light jobs to finish, and new
 ones wait for it. Use it for full fits, whose time decides comparisons on the frontier; exploration
-fits run beside light work. A run records `job_class` `gpu-exclusive` or `gpu`.
+fits run beside light work. A run records `job_class` `gpu-exclusive` or `gpu`. An exclusive job
+takes the slots one at a time, so under a steady stream of light jobs it can wait a while with
+the GPU idle. The research-data build takes no slot, so it can still run beside an exclusive fit
+(small, at idle priority).
+
+Inside a job, `ops/job` reuses what the job holds. `ops/job gpu` inside a GPU job runs in place
+(taking the light slots first for `-x`), so a fit queue can be wrapped whole. `ops/job light`
+inside a light or exclusive job runs in place on the light CPUs. `ops/job gpu` inside a light job
+is refused, since it would hold a slot while waiting for the GPU: a light job never takes the GPU
+lock, by `ops/job` or by `flock heavy.lock`.
 
 Light jobs don't take the GPU lock. That includes LOO and variance on the CPU
 (`JAX_PLATFORMS=cpu`), the research-data build, site builds, board rebuilds and data builds.

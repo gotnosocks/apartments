@@ -85,11 +85,11 @@ DESIGNS = {
 }
 
 
-
 def _other_cores(load: dict):
     """Cores other processes kept busy where the fit could run."""
     on_fit = load.get("other_cores_on_fit_cpus")
     return on_fit if on_fit is not None else load.get("other_cores")
+
 
 def git(*args, cwd=REPO) -> str:
     return subprocess.run(

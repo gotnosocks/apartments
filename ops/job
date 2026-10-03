@@ -3,8 +3,8 @@
 # timed fit without changing the fit's time (docs/thelio-jobs.md).
 #
 #   ops/job gpu   [-m MEM] [-x] -- command...   anything that uses the GPU: fits, GPU LOO, summaries
-#   ops/job light [-m MEM] -- command...   everything else: tests, reviews, data and site builds
-#   ops/job status                          what is running in each class
+#   ops/job light [-m MEM] -- command...        everything else: tests, reviews, data and site builds
+#   ops/job status                               what is running in each class
 #
 # gpu: one at a time (the GPU lock), on cores 0-2 and their SMT siblings
 # (CPUs 0-2,6-8: the first core complex, with its own L3 cache), in
@@ -21,9 +21,13 @@
 # or under /tmp (a small shared tmpfs). The class goes in APARTMENTS_JOB_CLASS,
 # which rentfrontier.run records in the run's contention block.
 #
-# A nested `ops/job gpu` inside a GPU job reuses the held lock, but a wrapped
-# script must not flock heavy.lock itself: that is the same lock, and it would
-# wait forever. The lock lasts as long as any process that inherited it.
+# Inside a job (APARTMENTS_JOB_CLASS is inherited), ops/job reuses what the job
+# holds: `gpu` inside a GPU job runs in place (taking the slots first for -x),
+# `light` inside a light or exclusive job runs in place on the light CPUs, and
+# `gpu` inside a light job is refused (it would hold a slot while waiting for
+# the GPU). A wrapped script must not flock heavy.lock itself: that is the GPU
+# lock, and it would wait forever. Locks last as long as any process that
+# inherited them.
 set -euo pipefail
 
 LOCKS=${APARTMENTS_LOCKS:-/data1/apartments/tmp/locks}
@@ -35,7 +39,7 @@ LIGHT_CPUS=3-5,9-11
 LIGHT_SLOTS=3
 
 usage() {
-  sed -n '2,10p' "$0" | sed 's/^# \{0,1\}//' >&2
+  sed -n '2,7p' "$0" | sed 's/^# \{0,1\}//' >&2
   exit 2
 }
 
@@ -62,6 +66,7 @@ case "$class" in
   *) usage ;;
 esac
 exclusive=
+parent=${APARTMENTS_JOB_CLASS:-}
 while getopts "m:x" opt; do
   case "$opt" in
     m) mem=$OPTARG ;;
@@ -85,31 +90,55 @@ case "${TMPDIR:-/tmp}" in
   /tmp|/tmp/*) export TMPDIR=/data1/apartments/tmp/jobs ;;
 esac
 mkdir -p "$TMPDIR"
-export APARTMENTS_JOB_CLASS=$class
 
-# A short description for `ops/job status`: the command, trimmed.
+# A short description for `ops/job status`: the command, trimmed. The unit name
+# is unique, since an exec chain keeps one PID (systemd's default name).
 desc="$class: $*"
 desc=${desc:0:200}
+unit=apartments-$class-$$-$RANDOM$RANDOM
+# --expand-environment=no: pass "${VAR}" and "$$" in the command through as is.
+run=(systemd-run --user --scope -q --expand-environment=no --unit="$unit")
+
+take_slots() {  # every light slot, on fds 5-7, held (and inherited) until the job exits
+  for i in 1 2 3; do
+    eval "exec $((4 + i))>\"\$LOCKS/light-$i.lock\""
+    flock $((4 + i))
+  done
+}
 
 if [ "$class" = gpu ]; then
-  # Inside a GPU job already (a queue script wrapped whole): the lock is held.
-  if [ "${APARTMENTS_GPU_LOCK_HELD:-}" != 1 ]; then
-    exec 9>"$GPU_LOCK"
-    flock 9
-    export APARTMENTS_GPU_LOCK_HELD=1
-  fi
+  case "$parent" in
+    light)
+      echo "ops/job: a light job can't start a GPU job; run it as its own ops/job gpu" >&2
+      exit 2 ;;
+    gpu-exclusive)
+      exec "$@" ;;
+    gpu)
+      if [ -n "$exclusive" ]; then
+        take_slots
+        export APARTMENTS_JOB_CLASS=gpu-exclusive
+      fi
+      exec "$@" ;;
+  esac
+  exec 9>"$GPU_LOCK"
+  flock 9
+  export APARTMENTS_JOB_CLASS=gpu
   if [ -n "$exclusive" ]; then
-    # Slots 1-3 on fds 5-7, held (and inherited) until the job exits.
-    for i in 1 2 3; do
-      eval "exec $((4 + i))>\"\$LOCKS/light-$i.lock\""
-      flock $((4 + i))
-    done
+    take_slots
     export APARTMENTS_JOB_CLASS=gpu-exclusive
   fi
-  exec systemd-run --user --scope -q --slice=apartments-gpu.slice \
-    -p MemoryMax="$mem" --description="$desc" \
-    taskset -c "$GPU_CPUS" "$@"
+  exec "${run[@]}" --slice=apartments-gpu.slice -p MemoryMax="$mem" \
+    --description="$desc" taskset -c "$GPU_CPUS" "$@"
 fi
+
+export CUDA_VISIBLE_DEVICES= JAX_PLATFORMS=cpu
+light=(taskset -c "$LIGHT_CPUS" nice -n 10 ionice -c2 -n7)
+case "$parent" in
+  # The job already holds a slot, or all of them: run in place.
+  light) exec "$@" ;;
+  gpu-exclusive) exec "${light[@]}" "$@" ;;
+esac
+export APARTMENTS_JOB_CLASS=light
 
 # light: take the first free slot, waiting for one if all are busy. The slot's
 # lock is held by fd 8, which the job inherits, until the job exits.
@@ -125,7 +154,5 @@ while [ -z "$slot" ]; do
   done
   [ -n "$slot" ] || sleep 5
 done
-export CUDA_VISIBLE_DEVICES= JAX_PLATFORMS=cpu
-exec systemd-run --user --scope -q --slice=apartments-light.slice \
-  -p MemoryMax="$mem" --description="$desc" \
-  taskset -c "$LIGHT_CPUS" nice -n 10 ionice -c2 -n7 "$@"
+exec "${run[@]}" --slice=apartments-light.slice -p MemoryMax="$mem" \
+  --description="$desc" "${light[@]}" "$@"

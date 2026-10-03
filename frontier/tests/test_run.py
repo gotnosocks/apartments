@@ -5,14 +5,16 @@ from rentfrontier.run import contention, cpu_clock
 
 
 def test_contention_counts_own_work_as_own():
+    # Spin until 0.2 s of own CPU time, however busy the machine is (light
+    # jobs run at low priority beside others).
     clock = cpu_clock()
-    end = time.perf_counter() + 0.3
+    start = sum(os.times()[:2])
     x = 0
-    while time.perf_counter() < end:
+    while sum(os.times()[:2]) - start < 0.2:
         x += 1
     load = contention(clock)
-    assert load["wall_seconds"] >= 0.3
-    assert load["own_cpu_seconds"] > 0.2
+    assert load["wall_seconds"] >= 0.2
+    assert load["own_cpu_seconds"] >= 0.2
     assert load["other_cpu_seconds"] >= 0.0
     assert load["other_cores"] == load["other_cpu_seconds"] / load["wall_seconds"]
     assert load["fit_cpus"] == sorted(os.sched_getaffinity(0))
