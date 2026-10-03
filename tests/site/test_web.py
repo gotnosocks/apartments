@@ -1293,3 +1293,15 @@ def test_part_chips_leave_the_listing_chips_alone():
     ).read_text()
     anatomy_css = css[css.index("/* A design's structure") :]
     assert "\n.chip" not in anatomy_css and ".chips" not in anatomy_css
+
+
+def test_fit_time_says_how_busy_the_fits_cores_were(client):
+    from urllib.parse import quote
+
+    html = client.get(
+        "/research/fits/" + quote("m-test/unitdesc-v1/nuts@aaaaaaa")
+    ).get_data(as_text=True)
+    assert "0.2 other cores busy on the fit's cores" in html
+    assert "clean timing" in html and "#fit-cores" in html
+    glossary = client.get("/research/glossary").get_data(as_text=True)
+    assert 'id="fit-cores"' in glossary

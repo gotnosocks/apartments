@@ -202,16 +202,15 @@ shares land (a new directory in `/data1/apartments/frontier/runs`, `loo`, `varia
 `apartments-dashboard-build.timer` every 10 minutes as a fallback. The script waits a minute for a
 burst of files to settle, then builds only if a finished record or master changed since the last
 build (a fingerprint in `/data1/apartments/dashboard/.last-build`), and builds again if more landed
-meanwhile. The build only reads small records, so it runs without the heavy-job lock, at idle CPU
-and I/O priority (about 3 minutes of one core and 600 MB; a skip takes a second). Each build is a
+meanwhile. The build only reads small records, so it runs as a light job (see
+[thelio-jobs.md](thelio-jobs.md)), on the light CPUs at idle CPU and I/O priority (about 3 minutes of one core and 600 MB; a skip takes a second). Each build is a
 new directory with the `site` symlink swapped atomically, so a page never reads a half-written file.
 
-Publishing on thelio takes the shared heavy-job lock like other heavy jobs:
+Publishing on thelio is a light job ([thelio-jobs.md](thelio-jobs.md)):
 
 ```sh
 cd /data1/apartments/serve/site
-flock /data1/apartments/tmp/heavy.lock systemd-run --user --scope -p MemoryMax=3G \
-  --setenv=TMPDIR=/data1/apartments/tmp/site-serve \
+TMPDIR=/data1/apartments/tmp/site-serve /data1/apartments/serve/master/ops/job light -m 3G -- \
   /data1/apartments/venvs/serve-site/bin/python -m apartments.site build
 ```
 
@@ -243,8 +242,7 @@ mv -T current.new current` in `/data1/apartments/site`.
   git -C /home/ben/code/apartments worktree add --detach /data1/apartments/serve/site origin/master
   cd /data1/apartments/serve/site
   UV_PROJECT_ENVIRONMENT=/data1/apartments/venvs/serve-site uv sync --locked
-  flock /data1/apartments/tmp/heavy.lock systemd-run --user --scope -p MemoryMax=3G \
-    --setenv=TMPDIR=/data1/apartments/tmp/site-serve \
+  TMPDIR=/data1/apartments/tmp/site-serve /data1/apartments/serve/master/ops/job light -m 3G -- \
     /data1/apartments/venvs/serve-site/bin/python -m apartments.site build
   cp ops/systemd/apartments-site.service ~/.config/systemd/user/
   systemctl --user daemon-reload && systemctl --user enable --now apartments-site
