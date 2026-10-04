@@ -22,7 +22,7 @@ def test_a_large_studio_is_flagged(client, site_root):
     db.commit()
     db.close()
     html = client.get("/listings/a1").get_data(as_text=True)
-    assert "An unusual combination for a studio" in html
+    assert "<dt>Note</dt>" in html and "An unusual combination for a studio" in html
 
 
 def test_a_unit_whose_layout_jumps_says_so(client, site_root):
@@ -31,7 +31,7 @@ def test_a_unit_whose_layout_jumps_says_so(client, site_root):
         0
     ]
     first = db.execute(
-        "SELECT MIN(id) FROM listings WHERE unit_id = ?", (unit,)
+        "SELECT id FROM listings WHERE unit_id = ? ORDER BY period, id LIMIT 1", (unit,)
     ).fetchone()[0]
     db.execute("UPDATE listings SET bedrooms = 4 WHERE id = ?", (first,))
     db.commit()

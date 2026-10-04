@@ -935,7 +935,8 @@ def create_app(
         rows = (
             db()
             .execute(
-                "SELECT * FROM listings WHERE unit_id = ? ORDER BY period", (unit_id,)
+                "SELECT * FROM listings WHERE unit_id = ? ORDER BY period, id",
+                (unit_id,),
             )
             .fetchall()
         )
