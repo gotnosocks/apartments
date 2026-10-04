@@ -31,7 +31,8 @@
   {{ (100 * meta.price_bands[0]) | round | int }}% of the asks the model expects for that apartment, noise included. The
   <strong>range for the typical rent</strong> shown with each estimate is the 95% uncertainty of the typical rent itself, not
   the spread of individual asks: it holds the actual ask much less often than 95% of the time, because asks scatter around
-  the typical rent.</p>
+  the typical rent. Where a listing page shows a <strong>likely ask range</strong>, that is the spread of asks itself: the
+  middle 80% of the asks the model expects, the same range the Below/Typical/Above label uses.</p>
   <p>Estimates describe <strong>asking</strong> rents on StreetEasy, not leases, net effective rents or appraisals. Listings
   from before {{ month(s.last_period) }} show the first ask of each advertisement. The model cannot see anything
   missing from the listing data, such as renovations the ad does not mention, light or noise.</p>
