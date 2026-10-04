@@ -12,6 +12,7 @@ import datetime as dt
 import gzip
 import hashlib
 import io
+import itertools
 import json
 import logging
 import math
@@ -771,6 +772,19 @@ def create_app(
             is not None
         )
 
+    def layout_changes(rows) -> list[dict]:
+        """Where a unit's listed layout jumps between consecutive listings
+        (oldest first): a different bedroom count, or a size that changes by
+        more than 15%. A renovation, or a data error in one of the ads."""
+        out = []
+        for before, after in itertools.pairwise(rows):
+            beds = before["bedrooms"] != after["bedrooms"]
+            a, b = before["square_feet"], after["square_feet"]
+            size = bool(a and b and abs(b - a) / a > 0.15)
+            if beds or size:
+                out.append({"before": before, "after": after})
+        return out
+
     def current_coverage() -> list[dict]:
         """Which neighbourhoods have listings on the market in the latest
         capture, how many, and when they were captured: [{neighbourhood,
@@ -928,12 +942,15 @@ def create_app(
         rows = (
             db()
             .execute(
-                "SELECT * FROM listings WHERE unit_id = ? ORDER BY period", (unit_id,)
+                "SELECT * FROM listings WHERE unit_id = ? ORDER BY period, id",
+                (unit_id,),
             )
             .fetchall()
         )
+        changes = layout_changes(rows)
         return render_template(
             "unit.html",
+            layout_changes=changes,
             meta=meta(),
             unit=row,
             rows=rows,
