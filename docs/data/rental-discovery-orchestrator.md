@@ -8,7 +8,7 @@ scope (`rental_search.SCOPES`): Chelsea or West Chelsea for the two Chelsea seed
 `/for-rent/west-village`. Cards carry `in_scope`; readers still accept the v2 name
 `in_chelsea_scope`. Since September 2026 later result pages can omit the H1 suffix ` - Page N`; the
 pagination's current-page marker still binds the page, and a suffix that is present must match.
-All 17 archived West Village search pages (Sept 21: 175 displayed, 124 distinct in-scope ads) parse.
+All 17 archived West Village search pages (Sept 21: 175–176 displayed, 124 distinct in-scope ads) parse.
 The detail queue is published by `python -m apartments.discovery_review --discovery-report REPORT
 --output REVIEW [--reference DATASET]`, which generalizes the frozen September 18 review script.
 

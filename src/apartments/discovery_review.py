@@ -2,7 +2,7 @@
 
 Generalizes the frozen September 18 Chelsea review script
 (data/model/chelsea-current-discovery-pass-review-20260918/publish_discovery_review.py)
-to any discovery report and its seeds. The queue is the input of
+to any discovery report and its seeds, with the same summary keys. The queue is the input of
 ``apartments.discovery_detail_refresh``: one row per in-scope advertisement, with
 every source card occurrence. A reference dataset is optional and only flags
 advertisements that already appear in it.
@@ -48,7 +48,7 @@ def review(discovery_report, *, reference=None):
                     'source_clock': page['source_clock'], 'body_sha256': page['body_sha256'],
                     'capture_reference': page['capture_reference'], 'card': card}
             # Reports from rental-search-v2 named this field in_chelsea_scope.
-            if card.get('in_scope', card.get('in_chelsea_scope')):
+            if card['in_scope'] if 'in_scope' in card else card['in_chelsea_scope']:
                 queue[card['source_listing_id']].append(item)
             else:
                 outside.append(item)
@@ -78,19 +78,21 @@ def review(discovery_report, *, reference=None):
                'seeds': seeds, 'unique_regular_advertisements': len(coverage['regular_union_ids']),
                'cross_seed_regular_overlap': len(coverage['cross_seed_regular_overlap_ids']),
                'in_scope_advertisements_all_placements': len(items),
-               'in_scope_distinct_canonical_urls': len({r['canonical_unit_url'] for r in items}),
+               'in_scope_distinct_canonical_units': len({r['canonical_unit_url'] for r in items}),
                'out_of_scope_occurrences': len(outside),
                'out_of_scope_placements': dict(Counter(o['card']['placement'] for o in outside)),
                'out_of_scope_areas': dict(Counter(o['card']['source_fields']['areaName'] for o in outside)),
-               'advertisements_already_in_reference': len(set(queue) & fitted),
-               'reference_current_advertisements_rediscovered': sorted(set(queue) & current),
-               'reference_current_advertisements_not_seen': sorted(current - set(queue)),
+               'advertisements_already_in_selected_fit': len(set(queue) & fitted),
+               'selected_current_advertisements_rediscovered': sorted(set(queue) & current),
+               'selected_current_advertisements_not_seen': sorted(current - set(queue)),
                'unique_page_experiment_randomization_keys': len(keys),
                'identity_conflicts': len(coverage['listing_identity_conflicts']),
                'complete_inventory': False,
                'interpretation': 'Visited search evidence only. Closed pagination, displayed counts and '
-                                 'request success do not establish unique inventory coverage. Search cards '
-                                 'are not detail-verified current analytical observations.'}
+                                 'request success do not establish unique inventory coverage. Different page '
+                                 'experiment identifiers are observed; their causal role in duplicate organic '
+                                 'ordering has not been tested. Search cards are not detail-verified current '
+                                 'analytical observations.'}
     return summary, items, outside
 
 

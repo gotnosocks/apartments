@@ -34,7 +34,7 @@ def prepare(review, discovery_report, output, *, max_targets=250):
         page = json.loads(line)
         for card in page['cards']:
             # Reports from rental-search-v2 named this field in_chelsea_scope.
-            if card.get('in_scope', card.get('in_chelsea_scope')):
+            if card['in_scope'] if 'in_scope' in card else card['in_chelsea_scope']:
                 expected[card['source_listing_id']].append({
                     'seed': page['seed_path'], 'page': page['page'], 'source_url': page['source_url'],
                     'source_clock': page['source_clock'], 'body_sha256': page['body_sha256'],
