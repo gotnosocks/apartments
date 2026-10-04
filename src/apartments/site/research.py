@@ -705,3 +705,22 @@ def designs(data: dict | None, served_run: str | None) -> tuple[list[dict], list
 def _delta(entry: dict) -> float | None:
     d = (entry.get("psis") or {}).get("delta")
     return d if isinstance(d, (int, float)) else None
+
+
+def elegance_standings(pairs: list[dict]) -> list[dict]:
+    """Each judged design's record over its pairs: [{id, more, equal, less}],
+    the most often more elegant first."""
+    rows: dict[str, dict] = {}
+    for p in pairs:
+        ids = [d["id"] for d in p["designs"]]
+        for i in ids:
+            rows.setdefault(i, {"id": i, "more": 0, "equal": 0, "less": 0})
+        if p["verdict"] in ids:
+            rows[p["verdict"]]["more"] += 1
+            for i in ids:
+                if i != p["verdict"]:
+                    rows[i]["less"] += 1
+        else:
+            for i in ids:
+                rows[i]["equal"] += 1
+    return sorted(rows.values(), key=lambda r: (-(r["more"] - r["less"]), r["id"]))
