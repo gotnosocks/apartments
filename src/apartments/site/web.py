@@ -112,6 +112,7 @@ BUILDING_SORTS = {
 CSV_COLUMNS = (
     "audit_id",
     "building_id",
+    "neighbourhood",  # left out for builds from before neighbourhoods
     "unit_label",
     "period",
     "is_current",
@@ -643,9 +644,11 @@ def create_app(
     def listings_csv():
         filters = checked(Filters(request.args))
         where, params = filters.where()
+        have = {r["name"] for r in db().execute("PRAGMA table_info(listings)")}
+        columns = [c for c in CSV_COLUMNS if c in have]
         cursor = db().execute(
             "SELECT "
-            + ", ".join(f"l.{c}" for c in CSV_COLUMNS)
+            + ", ".join(f"l.{c}" for c in columns)
             + " FROM listings l JOIN buildings b ON b.id = l.building_id"
             + where
             + filters.order_by(),
@@ -657,7 +660,7 @@ def create_app(
             try:
                 buffer = io.StringIO()
                 writer = csv.writer(buffer)
-                writer.writerow(CSV_COLUMNS)
+                writer.writerow(columns)
                 for row in cursor:
                     writer.writerow(row)
                     if buffer.tell() > 64 * 1024:
