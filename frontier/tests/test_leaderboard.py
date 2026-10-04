@@ -389,3 +389,17 @@ def test_a_short_fit_does_not_dominate_a_longer_fit_of_its_design():
     assert leaderboard.on_frontier([full, short]) == [True, True]
     other = short | {"model": {"name": "other"}}
     assert leaderboard.on_frontier([full, other]) == [False, True]
+
+
+def test_design_label_describes_the_configuration():
+    from rentfrontier import model
+
+    label = leaderboard.design_label(
+        "m7-nocurves-floorslope-bednoise-dayfourier-bedtime"
+    )
+    assert "a market curve per bedroom group" in label
+    assert "2-harmonic Fourier season at each listing's date" in label
+    assert "one noise scale per bedroom group" in label
+    assert "Student-t apartment levels" in label
+    assert leaderboard.design_label("no-such-design") is None
+    assert "12 month effects" in model.design_label(model.MODELS["m5-nocurves"])

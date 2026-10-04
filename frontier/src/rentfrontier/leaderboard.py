@@ -60,6 +60,16 @@ import numpy as np
 from . import data, elegance
 from .run import REFERENCES, git
 
+
+def design_label(name: str):
+    """The plain description of a design (`model.design_label`), or None for a
+    name no longer in `model.MODELS`."""
+    from . import model
+
+    config = model.MODELS.get(name)
+    return model.design_label(config) if config is not None else None
+
+
 RUNS = data.OUTPUT_ROOT / "runs"
 RESCORES = data.OUTPUT_ROOT / "rescores"
 LOO_ROOT = data.OUTPUT_ROOT / "loo"
@@ -644,6 +654,7 @@ def build(keep_dirs=False):
             + "".join(f"+{rule}" for rule in any_run.get("data_rules", ())),
             "commit": any_run["commit"],
             "model": any_run["model"],
+            "model_label": design_label(any_run["model"]["name"]),
             "feature_set": any_run["feature_set"],
             "sampler": any_run["sampler"],
             "sampler_settings": any_run["sampler_settings"],

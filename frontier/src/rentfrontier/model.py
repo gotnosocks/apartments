@@ -201,6 +201,46 @@ KNOT_MONTHS = 6
 BEDROOM_GROUPS = ("studio", "one_bedroom", "two_bedroom", "three_plus")
 
 
+def design_label(config: ModelConfig) -> str:
+    """A plain description of a design, built from its configuration, for
+    readers: design names are historical identifiers ("nocurves" designs can
+    have bedroom-group market curves)."""
+    parts = []
+    if config.units:
+        parts.append(
+            "Student-t apartment levels" if config.unit_t else "apartment levels"
+        )
+    if config.buildings:
+        parts.append(
+            "building levels with a drift over time"
+            if config.building_walk
+            else "building levels with a trend"
+            if config.building_trend
+            else "building levels"
+        )
+    if config.bedroom_slope:
+        parts.append("a per-building bedroom premium")
+    if config.feature_slopes:
+        parts.append(f"per-building slopes on {', '.join(config.feature_slopes)}")
+    if config.trend:
+        parts.append("a market trend")
+    if config.bedroom_time:
+        parts.append("a market curve per bedroom group")
+    if config.season and config.season_harmonics:
+        k = config.season_harmonics
+        when = "each listing's date" if config.season_daily else "the calendar month"
+        parts.append(f"a {k}-harmonic Fourier season at {when}")
+    elif config.season:
+        parts.append("12 month effects")
+    if config.noise_by_bedrooms:
+        parts.append("one noise scale per bedroom group")
+    if config.unit_drift:
+        parts.append("apartment drift")
+    if config.line_effects:
+        parts.append("line effects")
+    return "; ".join(parts)
+
+
 def row_sigma(sigma, bed_group):
     """Each row's residual scale: `sigma` itself, or (with one scale per
     bedroom group, `noise_by_bedrooms`) the row's group's."""

@@ -633,6 +633,9 @@ def write(out: dict, out_dir: Path, commit: str, seconds: float) -> Path:
         "feature_set": result["feature_set"],
         "feature_sources": result.get("feature_sources", {}),
         "model": result["model"],
+        "model_label": model.design_label(model.MODELS[result["model"]["name"]])
+        if result["model"]["name"] in model.MODELS
+        else None,
         "split": result["split"],
         "sampler": result.get("sampler"),
         "fit_seconds": result["seconds"]["fit_total"],
