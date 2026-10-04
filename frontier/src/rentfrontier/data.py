@@ -347,7 +347,7 @@ def quarantine_v4(frame: pd.DataFrame) -> pd.DataFrame:
 def quarantine_v5(frame: pd.DataFrame) -> pd.DataFrame:
     """v4 and the fifth review's rows (277 in all): the ads of 477 listings
     more than 0.3 in log rent from their estimate, in apartments with other
-    listings, read in full; 2 offer a shop or office, 1 places the apartment
+    listings, read in full; 1 is a commercial lease, 1 an office, 1 places the apartment
     on Broadway at West 104th, 1 is a three-month stay, and 1 states another
     rent than the ask. The other rows are unchanged."""
     return frame[~frame.audit_id.isin(quarantined(QUARANTINE_V5))]
