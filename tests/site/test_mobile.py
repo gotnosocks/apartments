@@ -12,7 +12,7 @@ def test_listing_tables_carry_the_card_layout_hooks(client):
     assert 'class="c-place"' in html
 
 
-def test_minor_columns_and_scroll_hints(client):
+def test_minor_columns_and_contained_labels(client):
     html = client.get("/buildings").get_data(as_text=True)
     assert '<table class="data buildings">' in html and "col-minor" in html
     assert ".col-minor { display: none; }" in CSS
