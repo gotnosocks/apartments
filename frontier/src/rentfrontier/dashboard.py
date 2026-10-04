@@ -480,6 +480,10 @@ DATA_RULE_TEXT = {
     "are left out: ads written for another address (One Morton Square, The Grove, a "
     "Harlem condominium, near Columbia), short stays, a room, and an ask the ad "
     "contradicts.",
+    "quarantine-v5": "quarantine-v4 and a fifth review: the ads of listings whose rent "
+    "the model found far out of line, in apartments with other listings. Five more are "
+    "left out: a commercial lease, an office, an ad for Broadway at West 104th, a "
+    "three-month stay, and an ask the ad contradicts.",
 }
 
 
