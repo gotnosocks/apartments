@@ -39,3 +39,14 @@ def test_the_build_reads_the_bundle_fields():
     assert build._real(row.get("estimate_pred_upper_80")) is None
     assert build._real(row.get("estimate_pred_lower_95")) is None
     assert build.SCHEMA_VERSION == 4
+
+
+def test_csv_carries_the_likely_ask_range(client, site_root):
+    import csv
+    import io
+
+    with_predictive(site_root)
+    rows = list(
+        csv.DictReader(io.StringIO(client.get("/listings.csv").get_data(as_text=True)))
+    )
+    assert rows and float(rows[0]["pred_lower_80"]) > 0

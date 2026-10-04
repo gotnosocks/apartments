@@ -18,7 +18,7 @@
 {%- endmacro %}
 
 {% macro listing_table(rows, filters=None, endpoint=None, show_building=True, show_source=False) %}
-{% set pred = rows and rows[0].pred_lower_80 is number %}
+{% set pred = rows and (rows | selectattr("pred_lower_80", "number") | list) %}
 <div class="table-wrap">
 <table class="data listings">
   <thead>
