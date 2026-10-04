@@ -221,6 +221,9 @@ QUARANTINE_V3 = REPO / "config" / "reviews" / "quarantine-v3-20261002.jsonl"
 # v3 and a fourth review (2026-10-03): the ads of single-listing apartments the
 # served fit gives a very large unit effect, read for errors their own words show.
 QUARANTINE_V4 = REPO / "config" / "reviews" / "quarantine-v4-20261003.jsonl"
+# v4 and a fifth review (2026-10-04): the ads of listings far from their estimate
+# in apartments with other listings, read for errors their own words show.
+QUARANTINE_V5 = REPO / "config" / "reviews" / "quarantine-v5-20261004.jsonl"
 
 
 @functools.lru_cache(maxsize=4)
@@ -356,6 +359,15 @@ def quarantine_v4(frame: pd.DataFrame) -> pd.DataFrame:
     return frame[~frame.audit_id.isin(quarantined(QUARANTINE_V4))]
 
 
+def quarantine_v5(frame: pd.DataFrame) -> pd.DataFrame:
+    """v4 and the fifth review's rows (277 in all): the ads of 477 listings
+    more than 0.3 in log rent from their estimate, in apartments with other
+    listings, read in full; 1 is a commercial lease, 1 an office, 1 places the apartment
+    on Broadway at West 104th, 1 is a three-month stay, and 1 states another
+    rent than the ask. The other rows are unchanged."""
+    return frame[~frame.audit_id.isin(quarantined(QUARANTINE_V5))]
+
+
 # Named data rules, applied after the held-out split is drawn (the row split
 # depends on unit ids, and scored rows must not change). Run records list them.
 # Tuning subsets (Ben, 2026-10-01: "consider using a subset of the listings or
@@ -390,6 +402,7 @@ DATA_RULES = {
     "fields-review-v1": correct_fields_review_v1,
     "quarantine-v3": quarantine_v3,
     "quarantine-v4": quarantine_v4,
+    "quarantine-v5": quarantine_v5,
 }
 # Rules that read a file; run records hash the files.
 RULE_SOURCES = {
@@ -397,6 +410,7 @@ RULE_SOURCES = {
     "quarantine-v2": QUARANTINE_V2,
     "quarantine-v3": QUARANTINE_V3,
     "quarantine-v4": QUARANTINE_V4,
+    "quarantine-v5": QUARANTINE_V5,
     "unit-labels-v2": UNIT_ALIASES,
     "bedrooms-ad-v1": BEDROOM_CORRECTIONS,
     "baths-ad-v1": BATH_CORRECTIONS,
@@ -405,7 +419,13 @@ RULE_SOURCES = {
     "fields-review-v1": FIELD_REVIEW,
 }
 # Of those, the rules that drop the rows their file lists.
-DROPPING_RULES = ("quarantine-v1", "quarantine-v2", "quarantine-v3", "quarantine-v4")
+DROPPING_RULES = (
+    "quarantine-v1",
+    "quarantine-v2",
+    "quarantine-v3",
+    "quarantine-v4",
+    "quarantine-v5",
+)
 
 
 def dropped_rows() -> frozenset:

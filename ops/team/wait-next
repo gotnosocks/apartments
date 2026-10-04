@@ -1,0 +1,174 @@
+#!/usr/bin/env python3
+"""Block until something a workstream session should act on happens, then print it.
+
+A Remote Control session on thelio parks about 60 minutes after its last activity
+unless it has a background task pending, and a parked session sees no fit landing,
+no PR merging and no idle GPU until a person writes to it (CLAUDE.md). Run this
+with the Bash tool's run_in_background before ending every turn: the pending task
+keeps the session alive, and its exit wakes the session with what changed.
+
+    ops/team/wait-next [--unit PATTERN]... [--gpu] [--pr N]... [--file PATH]...
+                       [--max MINUTES] [--poll SECONDS]
+
+Events (any one ends the wait):
+  --unit PATTERN  an active systemd --user unit matching PATTERN finishes
+                  (default frontier-*; pass --unit '' to watch none)
+  --gpu           the GPU goes idle: no gpu-class job for two polls in a row after
+                  one ran, or for --idle-grace minutes (default 30) if it was idle
+                  when the wait started
+  --pr N          PR N in gotnosocks/apartments changes state, review or head
+  --file PATH     PATH appears or changes
+  --max MINUTES   the heartbeat: nothing else happened for this long (default 120)
+"""
+
+from __future__ import annotations
+
+import argparse
+import datetime as dt
+import json
+import os
+import subprocess
+import sys
+import time
+from pathlib import Path
+
+REPO = "gotnosocks/apartments"
+GPU_LOCK = "/data1/apartments/tmp/heavy.lock"  # locks/gpu.lock links here
+GPU_SLICE = Path(
+    f"/sys/fs/cgroup/user.slice/user-{os.getuid()}.slice/user@{os.getuid()}.service"
+    "/apartments.slice/apartments-gpu.slice"
+)
+
+
+def run(cmd: list[str]) -> str | None:
+    """stdout, or None when the command fails (callers treat None as "unknown")."""
+    try:
+        r = subprocess.run(cmd, capture_output=True, text=True, timeout=60)
+    except (OSError, subprocess.SubprocessError):
+        return None
+    return r.stdout if r.returncode == 0 else None
+
+
+def active_units(patterns: list[str]) -> set[str] | None:
+    if not patterns:
+        return set()
+    out = run(["systemctl", "--user", "list-units", "--plain", "--no-legend",
+               "--state=active,activating,reloading", *patterns])
+    if out is None:
+        return None
+    return {line.split()[0] for line in out.splitlines() if line.strip()}
+
+
+def unit_result(unit: str) -> str:
+    out = run(["systemctl", "--user", "show", "-p", "LoadState", "-p", "Result",
+               "-p", "ExecMainStatus", unit]) or ""
+    fields = dict(line.split("=", 1) for line in out.splitlines() if "=" in line)
+    if fields.get("LoadState", "not-found") == "not-found":
+        return "unit collected; result in its log"
+    return f"result={fields.get('Result', '?')} status={fields.get('ExecMainStatus', '?')}"
+
+
+def gpu_jobs() -> list[str]:
+    """gpu-class scopes, or the GPU lock's holder for jobs started without ops/job."""
+    jobs = sorted(p.name for p in GPU_SLICE.glob("*.scope")) if GPU_SLICE.is_dir() else []
+    if not jobs:
+        for line in (run(["lslocks", "-n", "-r", "-o", "PID,PATH"]) or "").splitlines():
+            pid, _, path = line.strip().partition(" ")
+            if path.strip() == GPU_LOCK:
+                jobs.append(f"pid {pid} holds {GPU_LOCK}")
+    return jobs
+
+
+def pr_state(number: int) -> str:
+    out = run(["gh", "pr", "view", str(number), "--repo", REPO,
+               "--json", "state,isDraft,reviewDecision,headRefOid"])
+    try:
+        d = json.loads(out or "")
+    except ValueError:
+        return ""  # gh failed (network); not a change
+    draft = " draft" if d.get("isDraft") else ""
+    review = f" review={d['reviewDecision']}" if d.get("reviewDecision") else ""
+    return f"{d.get('state', '?')}{draft}{review} head={d.get('headRefOid', '')[:7]}"
+
+
+def file_state(path: str) -> str:
+    try:
+        st = os.stat(path)
+    except OSError:
+        return "missing"
+    stamp = dt.datetime.fromtimestamp(st.st_mtime).strftime("%H:%M:%S")
+    return f"{st.st_size} bytes, modified {stamp}.{st.st_mtime_ns % 10**9:09d}"
+
+
+def wait(args: argparse.Namespace, probes=None, clock=time.monotonic, sleep=time.sleep) -> list[str]:
+    """Poll until an event; return its lines. `probes` replaces the system calls in tests."""
+    p = probes or {
+        "units": active_units, "result": unit_result, "gpu": gpu_jobs,
+        "pr": pr_state, "file": file_state,
+    }
+    start = clock()
+    units = p["units"](args.unit) or set()
+    prs = {n: p["pr"](n) for n in args.pr}
+    files = {f: p["file"](f) for f in args.file}
+    gpu_busy = bool(p["gpu"]())
+    idle_polls = 0
+    polls = 0
+    while True:
+        events: list[str] = []
+        now_units = p["units"](args.unit)
+        if now_units is not None:  # None: systemctl failed this poll
+            for unit in sorted(units - now_units):
+                events.append(f"finished: {unit} ({p['result'](unit)})")
+            units = now_units
+        if args.gpu:
+            if p["gpu"]():
+                gpu_busy, idle_polls = True, 0
+            else:
+                idle_polls += 1
+                if gpu_busy and idle_polls >= 2:
+                    events.append("gpu idle: no gpu-class job is running or holding the GPU lock")
+                elif not gpu_busy and clock() - start >= args.idle_grace * 60:
+                    events.append(f"gpu idle: nothing has used the GPU for {args.idle_grace:g} min")
+        if polls % 5 == 0:
+            for n, old in prs.items():
+                new = p["pr"](n)
+                if new and not old:  # the first lookup failed; this is the baseline
+                    prs[n] = new
+                elif new and new != old:
+                    events.append(f"PR #{n}: {old} -> {new}")
+                    prs[n] = new
+        for f, old in files.items():
+            new = p["file"](f)
+            if new != old:
+                events.append(f"file {f}: {old} -> {new}")
+                files[f] = new
+        if not events and clock() - start >= args.max * 60:
+            events.append(f"heartbeat: nothing changed in {args.max:g} min; check state and keep work queued")
+        if events:
+            return events
+        polls += 1
+        sleep(args.poll)
+
+
+def main(argv: list[str] | None = None) -> int:
+    ap = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
+    ap.add_argument("--unit", action="append", default=None)
+    ap.add_argument("--gpu", action="store_true")
+    ap.add_argument("--pr", action="append", type=int, default=[])
+    ap.add_argument("--file", action="append", default=[])
+    ap.add_argument("--idle-grace", type=float, default=30.0)
+    ap.add_argument("--max", type=float, default=120.0)
+    ap.add_argument("--poll", type=float, default=60.0)
+    args = ap.parse_args(argv)
+    args.unit = [u for u in (args.unit if args.unit is not None else ["frontier-*"]) if u]
+    events = wait(args)
+    print(f"{dt.datetime.now():%Y-%m-%d %H:%M:%S}")
+    print("\n".join(events))
+    jobs = gpu_jobs()
+    print(f"gpu: {'busy: ' + ', '.join(jobs) if jobs else 'idle'}")
+    print("Act on this, keep the GPU queued, then re-arm ops/team/wait-next in the background.")
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())
