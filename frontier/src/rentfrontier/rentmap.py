@@ -13,15 +13,15 @@ the posterior of the typical asking rent of an apartment with:
 - the building's attributes (floor, elevator, doorman, pets and the building
   facts of the feature set) at the building's own average over its listings;
 - the building's level, its path over time and its own bedroom premium;
-- the market that year (trend averaged over the year's months, no season);
+- the market that year (trend averaged over the year's months, no season),
+  plus, with bedroom-group market curves, the group's own curve that year;
 - a first advertised price (price basis at its reference).
 
 Rents are exp of the log-scale mean, i.e. the typical (median) ask. Each value
 is the posterior median with a 90% interval. Years outside a building's
 listings in the fit (before `first_year`, after `last_year`) are the walk's
-extrapolation. Designs whose terms this does not model (bedroom-group market
-curves, per-building feature slopes, market drift, a trend on top of a walk,
-sum-to-zero, masked or anchored walks) are refused.
+extrapolation. Designs whose terms this does not model (market drift, a trend
+on top of a walk, sum-to-zero, masked or anchored walks) are refused.
 `median` is the median building's value per draw (all buildings of the fit),
 again as a posterior median and 90% interval; `area` names the neighbourhoods
 the fit covers ("Chelsea and West Village").
@@ -338,7 +338,6 @@ def unsupported_terms(config: model.ModelConfig) -> list[str]:
             config.building_walk or config.building_trend
         ),
         "both a walk and a trend": config.building_walk and config.building_trend,
-        "bedroom-group market curves": config.bedroom_time,
         "market drift": config.market_drift,
         "sum-to-zero, masked or anchored walks": config.walk_zero_sum
         or bool(config.walk_min_rows_per_knot)
@@ -388,9 +387,15 @@ def compute(name: str) -> dict:
     slope = kept["bedroom_slope"] if config.bedroom_slope else np.zeros_like(level)
     fcols = [prep.features.names.index(n) for n in config.feature_slopes]
     out_rent, median_rent = {}, {}
-    for key, (x, beds) in typical_rows(prep).items():
+    for gi, (key, (x, beds)) in enumerate(typical_rows(prep).items()):
+        # BEDROOMS is in model.BEDROOM_GROUPS order: the group's own curve.
+        curve = (
+            kept["bedroom_time"][:, gi, :] @ by_year.T  # (d, Y)
+            if config.bedroom_time
+            else 0.0
+        )
         log = (
-            market[:, None, :]
+            (market + curve)[:, None, :]
             + path
             + (
                 level
