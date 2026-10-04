@@ -1,6 +1,6 @@
 """Coded fields of each listing's own StreetEasy record that the analytical dataset
-does not carry: private outdoor space types, room count, fireplace types, broker group
-and source type. Read from the granular crawls' listing observations (each listing's
+does not carry: private outdoor space types, room count, fireplace types, the coded
+amenity and unit-feature lists, broker group and source type. Read from the granular crawls' listing observations (each listing's
 last capture), keyed by listing id:
 
     python -m rentfrontier.listing_extras
@@ -38,6 +38,10 @@ def record_extras(raw: str) -> dict:
         "outdoor_types": "|".join(sorted(feats.get("privateOutdoorSpaceTypes") or [])),
         "fireplace_types": "|".join(sorted(feats.get("fireplaceTypes") or [])),
         "room_count": details.get("roomCount"),
+        "amenities": "|".join(
+            sorted((details.get("amenities") or {}).get("list") or [])
+        ),
+        "unit_features": "|".join(sorted(feats.get("list") or [])),
         "broker_group": legacy.get("sourceGroupLabel"),
         "source_type": (d.get("listingSource") or {}).get("sourceType"),
     }
