@@ -396,8 +396,8 @@ NB_FOOTPRINTS_FILE = (
 )
 NB_BASEMAP_FILE = "/data1/apartments/external/basemap/20261001-9b54648/basemap.parquet"
 # Whether the set being built dates the building's MapPLUTO alterations as of
-# each listing (`AS_OF_SETS`): an alteration counts only from its year on, so a
-# listing never sees a later one (no future information).
+# each listing (`AS_OF_SETS`): an alteration counts only from the year after it,
+# so a listing never sees a later one (no future information).
 _AS_OF: contextvars.ContextVar[bool] = contextvars.ContextVar(
     "pluto_as_of", default=False
 )
@@ -515,11 +515,13 @@ def pluto_v1(
     if latest_alteration:
         altered = pd.concat([altered, num["yearalter2"]], axis=1).max(axis=1)
     if _AS_OF.get():
-        # The later alteration if it was done by the listing's year, else
-        # the earlier one if that was.
+        # The later alteration if it was done before the listing's year, else
+        # the earlier one if that was (a year's own alterations may postdate
+        # its listings, so they wait for the next year).
+        assert latest_alteration, "as-of alterations read both recorded years"
         listed = pd.to_datetime(frame.period).dt.year.to_numpy()
         a1, a2 = num["yearalter1"].to_numpy(), num["yearalter2"].to_numpy()
-        done = [np.where(a <= listed, a, np.nan) for a in (a1, a2)]
+        done = [np.where(a < listed, a, np.nan) for a in (a1, a2)]
         altered = pd.Series(np.fmax(*done), index=lot.index)
     b.add("building status", "altered_since_2000", altered >= 2000)
     extra = b.build(id)
