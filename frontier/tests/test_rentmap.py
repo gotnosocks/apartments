@@ -54,8 +54,13 @@ def test_unsupported_designs_are_named():
     assert rentmap.unsupported_terms(model.MODELS["m5-nocurves"]) == []
     assert rentmap.unsupported_terms(model.MODELS["m0q-btrend"]) == []
     assert "no building walk or trend" in rentmap.unsupported_terms(model.MODELS["m0q"])
-    assert "bedroom-group market curves" in rentmap.unsupported_terms(
-        model.MODELS["m5-quarterly"]
+    # Bedroom-group market curves are modelled: each group's map adds its curve.
+    assert rentmap.unsupported_terms(model.MODELS["m5-quarterly"]) == []
+    assert (
+        rentmap.unsupported_terms(
+            model.MODELS["m7-nocurves-floorslope-bednoise-dayfourier-bedtime"]
+        )
+        == []
     )
     m1 = rentmap.unsupported_terms(model.MODELS["m1-btrend-walk24"])
     assert "both a walk and a trend" in m1
