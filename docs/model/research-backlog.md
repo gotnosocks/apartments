@@ -1,5 +1,61 @@
 # Chelsea pricing research backlog
 
+## Exact dates instead of months (Ben, 2026-10-03)
+
+The daily Fourier season (`season_daily`, #168) beat 12 month effects by +77.0 ± 17.2 paired,
+because a listing's own date (`price_at`) lets the end of one month flow into the next. Most other time terms
+still read only the listing's month (`Arrays.month`, `calendar`, `period` = the first of the month).
+Ben: "Brainstorm other opportunities to use specific dates instead of truncating pieces of date
+info."
+Ranked by expected value:
+
+1. **Continuous time in every time curve.** The market trend, the bedroom-group curves
+   (`bedroom_time`, +196.3 ± 30.6 at the exploration tier) and the building walks interpolate
+   their knots at the row's month index (`knot_basis`, `walk_position`). Interpolate at the exact
+   date (months as a fraction) instead.
+   - **Gibbs cost:** the trend and bedroom curves are keyed columns (a function of bedroom group
+     and month). Key them by bedroom group and week instead: 4 × about 870 keys keeps the
+     Gram exact at one-week resolution. The building walks are local columns and take the
+     fraction directly.
+   - **Test:** paired on the served design; small buildings should be flat. The gain should
+     show in Chelsea's fast-moving years (2020–2022).
+2. **Unit drift from exact dates.** `unit_time` is years from the unit's mean training *month*.
+   Use days. This is cheap, and only matters for units with several listings close together.
+3. **Within-month and weekly cycles.** NYC leases mostly start on the 1st, and listings posted late
+   in a month compete for next month's move-ins.
+   - **Day-of-month cycle:** a K = 1 Fourier term on the day-of-month fraction.
+   - **Weekday:** day-of-week indicators.
+   - Both are dense columns, as with `season_daily`, and the cost is small. Check first that
+     `price_at` carries a real time of day and not only a date.
+4. **Exact event dates for the dated features.** Several features use "as of the month's start"
+   for the no-future rule:
+   - subway openings (`stops_not_open`);
+   - High Line sections (`nb-openspace-v1`);
+   - 311 noise and HPD violation windows ("the `days` before the row's month").
+
+   Use the listing's own date. That makes the no-future rule tighter, not looser, and gives
+   about two more weeks of history for windows. Expect small gains; it's mainly correctness.
+5. **Time since the unit's previous listing.** Days between this ask and the same unit's previous ask
+   (with unit-labels-v2 joins), as a feature. A quick relist (under 90 days) suggests a
+   problem unit, a failed lease or a corrected ask. A long gap suggests a renovation. That's
+   new information, not a refinement, so it's for the data session to build, with no future
+   rows: the previous listing only.
+6. **Building age at the listing date.** Use continuous years since construction or the last
+   alteration (MapPLUTO `yearbuilt`, `yearalter1/2`, or DOB permit dates) at the exact listing
+   date, in place of era buckets and `altered_since_2000`. That removes arbitrary cut-offs. Judge
+   it on elegance as much as on PSIS-LOO.
+7. **Move-in date from the ad.** "Available 9/1", "immediate occupancy": the gap between the
+   listing date and the stated move-in date, as an urgency or seasonality signal. This is
+   ad-text work for the data session. It is only useful if a few thousand rows state a date.
+8. **Out-of-time validation.** Score models on the last N weeks by exact date, fit on
+   everything before, as a secondary check that the time terms forecast rather than smooth.
+   This is a diagnostic, not a selection rule.
+9. **Lower priority:**
+   - Holiday and academic-calendar bumps (Labor Day, NYU's semester start in the Village):
+     daily K = 3 added nothing over K = 2, so only as fixed event windows if residuals show
+     them.
+   - Daily macro series (mortgage rates): the market trend already absorbs them.
+
 ## Model structure for the full-data frontier (2026-10-02)
 
 These are ideas for the PSIS-LOO × fit-time × elegance frontier on the combined Chelsea + West
