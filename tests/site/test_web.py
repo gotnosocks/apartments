@@ -601,7 +601,7 @@ def test_review_fixes_on_research_model_and_home(client, research_file):
     home = client.get("/").get_data(as_text=True)
     assert "Model switch" in home
     html = client.get("/research/model").get_data(as_text=True)
-    assert "on the listings kept out of every fit" in html  # no count, no gap
+    assert "-12.5 on the held-out listings the" in " ".join(html.split())
     assert html.count("<dt>Convergence gate</dt>") == 1
     # published by hand: no claim that the rule picked it
     assert "A rule picks it" not in html

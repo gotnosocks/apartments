@@ -374,6 +374,8 @@ def data():
                         "run": s["run"],
                         "delta": s["delta"],
                         "delta_se": s["delta_se"],
+                        # Held-out rows paired with the reference model's.
+                        "paired_rows": s.get("paired_rows"),
                         "elpd": s["elpd"],
                         "max_rhat": s["max_rhat"],
                         "min_ess": s["min_ess"],
