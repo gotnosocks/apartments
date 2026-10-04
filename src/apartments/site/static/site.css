@@ -425,17 +425,9 @@ table.designs .feature-sets { display: block; white-space: normal; max-width: 16
 
 .notice { background: var(--warn-bg); color: var(--ink); border-left: 3px solid var(--warn); padding: 0.5rem 0.75rem; border-radius: 4px; }
 
-/* Phones: the price columns first. Minor columns (ranges, counts) are left out below 640px, and a
-   table wider than the screen shows a shadow at the edge it scrolls toward. */
+/* Phones: the price columns first. Minor columns (ranges, counts) are left out below 640px. */
 @media (max-width: 640px) {
   .col-minor { display: none; }
-}
-.table-wrap {
-  background:
-    linear-gradient(to right, var(--surface) 30%, transparent) left / 2rem 100% no-repeat local,
-    linear-gradient(to left, var(--surface) 30%, transparent) right / 2rem 100% no-repeat local,
-    radial-gradient(farthest-side at 0 50%, rgba(0, 0, 0, 0.18), transparent) left / 0.8rem 100% no-repeat scroll,
-    radial-gradient(farthest-side at 100% 50%, rgba(0, 0, 0, 0.18), transparent) right / 0.8rem 100% no-repeat scroll;
 }
 /* Phones: each listing row becomes a card, the place first, then the prices in a grid. */
 @media (max-width: 640px) {
