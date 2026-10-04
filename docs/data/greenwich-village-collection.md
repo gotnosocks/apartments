@@ -50,3 +50,22 @@ post-cutoff advertisements, or any other capture, links to one of these units.
 
 The remaining sale-only probes (2014 onward) have no cheap predictor yet: rental and sale-only units
 interleave within buildings, so a per-building early stop would lose rentals.
+
+## Where the remaining requests go (Oct 4 2026)
+
+Over the 24 hours to Oct 4 12:30 EDT (11,200 requests): 89% captured eligible rental pages (55%
+advertisements, 34% unit probes) and 7% were building, inventory and directory pages. About 3.7%
+were spent on pages the policy then rejects: sale-only probes 1.3%, 404 probes 1.1%, ineligible
+rental advertisements 1.3%. None of these can be told apart before the request, so the crawl's cost
+is close to its floor under the current policy.
+
+The 249 ineligible rental advertisements captured so far fall into two groups:
+
+- **92 have no canonical unit link.** All are in the ID band 1,210,000–1,300,000 (19% of the 474
+  fetched there; none above it, as in West Village). Raising the cutoff to 1,300,000 would also
+  drop that band's 382 eligible advertisements, so the cutoff stays.
+- **157 name a canonical unit other than the unit page that vouched for them.** Most are the same
+  apartment under two StreetEasy unit records with different spellings (`4` / `4fl`, `f4` / `f-4`,
+  `9k` / `9-k`, `5` / `5thfl`, `3` / `thirdfl`); a few are different units (`3ew` / `9gw`). They are
+  archived but excluded from the analytical rows. A spelling-alias table at transform time, like
+  West Village's `unit-labels-v2`, could recover them as a data choice without touching the crawl.
