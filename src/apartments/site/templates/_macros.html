@@ -111,3 +111,13 @@ apartments with few listings, so the same % gap can be typical for one apartment
 </table>
 </div>
 {% endmacro %}
+
+{% macro coverage_note(coverage) -%}
+{%- set covered = coverage | selectattr("listings") | list -%}
+{%- set without = coverage | rejectattr("listings") | map(attribute="neighbourhood") | select | list -%}
+<p class="note coverage">“Available now” means seen on the market in the latest capture{% if covered %}:
+{% for c in covered %}{% if c.neighbourhood %}{{ c.neighbourhood }}, {% endif %}{{ "{:,}".format(c.listings) }} listing{{ "" if c.listings == 1 else "s" }}{% if c.captured %} captured {{ c.captured }}{% endif %}{{ "; " if not loop.last }}{% endfor %}{% endif %}.
+{% if without %}<strong>{{ without | join(" and ") }} {{ "has" if without | length == 1 else "have" }} no current capture yet</strong>, so
+none of {{ "its" if without | length == 1 else "their" }} listings show as available; {{ "its" if without | length == 1 else "their" }}
+recent listings are under <a href="{{ url_for('listings', nb=without[0]) if without | length == 1 else url_for('listings') }}">all listings</a>, at their first ask.{% endif %}</p>
+{%- endmacro %}

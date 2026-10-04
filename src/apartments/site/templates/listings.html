@@ -3,6 +3,7 @@
 {% block title %}{{ "Available now" if filters.status == "current" else "Listings" }}{% endblock %}
 {% block content %}
 <h1>{{ "Available now" if filters.status == "current" else "Listings" }}</h1>
+{% if coverage %}{{ m.coverage_note(coverage) }}{% endif %}
 
 <form class="filters" action="{{ url_for('listings') }}" method="get" aria-label="Filter listings">
   <div class="field grow">
