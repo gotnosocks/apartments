@@ -54,14 +54,14 @@
   <h2>Units</h2>
   <div class="table-wrap tall">
   <table class="data">
-    <thead><tr><th scope="col">Unit</th><th scope="col">Layout</th><th scope="col" class="num">Floor</th><th scope="col" class="num">Listings</th><th scope="col">Last listed</th><th scope="col" class="num">Last ask</th><th scope="col" class="num">Estimate</th><th scope="col" class="num">Ask vs estimate</th></tr></thead>
+    <thead><tr><th scope="col">Unit</th><th scope="col" class="col-minor">Layout</th><th scope="col" class="num col-minor">Floor</th><th scope="col" class="num col-minor">Listings</th><th scope="col" class="col-minor">Last listed</th><th scope="col" class="num">Last ask</th><th scope="col" class="num">Estimate</th><th scope="col" class="num">Ask vs estimate</th></tr></thead>
     <tbody>
     {% for u in units %}
       <tr><td><a href="{{ url_for('unit', unit_id=u.id) }}">{{ u.label or "Unit" }}</a></td>
-        <td class="nowrap">{{ m.layout(u) }}</td>
-        <td class="num">{{ u.floor if u.floor is not none else "" }}</td>
-        <td class="num">{{ u.listings }}</td>
-        <td class="nowrap">{{ month(u.last_period) }}</td>
+        <td class="nowrap col-minor">{{ m.layout(u) }}</td>
+        <td class="num col-minor">{{ u.floor if u.floor is not none else "" }}</td>
+        <td class="num col-minor">{{ u.listings }}</td>
+        <td class="nowrap col-minor">{{ month(u.last_period) }}</td>
         <td class="num">{{ usd(u.last_ask) }}</td>
         <td class="num">{{ usd(u.last_estimate) }}</td>
         <td class="num">{{ pct(100 * u.last_residual_pct) }}</td></tr>

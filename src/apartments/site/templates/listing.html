@@ -71,16 +71,16 @@
   can add or subtract dollars too.</p>
   <div class="table-wrap">
   <table class="data contributions">
-    <thead><tr><th scope="col">Part</th><th scope="col" class="bar-col"><span class="visually-hidden">Bar</span></th><th scope="col" class="num">Dollars</th><th scope="col" class="num">95% interval</th></tr></thead>
+    <thead><tr><th scope="col">Part</th><th scope="col" class="bar-col"><span class="visually-hidden">Bar</span></th><th scope="col" class="num">Dollars</th><th scope="col" class="num col-minor">95% interval</th></tr></thead>
     <tbody>
-      <tr class="base"><th scope="row">{{ terms.market.label }}</th><td class="bar-col"></td><td class="num">{{ usd(market.usd) }}</td><td class="num muted nowrap">{{ usd(market.lower) }}–{{ usd(market.upper) }}</td></tr>
+      <tr class="base"><th scope="row">{{ terms.market.label }}</th><td class="bar-col"></td><td class="num">{{ usd(market.usd) }}</td><td class="num muted nowrap col-minor">{{ usd(market.lower) }}–{{ usd(market.upper) }}</td></tr>
       {% for c in parts %}
       <tr><th scope="row" title="{{ terms[c.term].description if c.term in terms }}">{{ terms[c.term].label if c.term in terms else c.term }}</th>
         <td class="bar-col">{{ c.bar }}</td>
         <td class="num">{{ usd(c.usd, signed=True) }}</td>
-        <td class="num muted nowrap">{{ usd(c.lower, signed=True) }} to {{ usd(c.upper, signed=True) }}</td></tr>
+        <td class="num muted nowrap col-minor">{{ usd(c.lower, signed=True) }} to {{ usd(c.upper, signed=True) }}</td></tr>
       {% endfor %}
-      <tr class="total"><th scope="row">Estimate</th><td class="bar-col"></td><td class="num">{{ usd(row.estimate) }}</td><td class="num muted nowrap">{{ usd(row.estimate_lower) }}–{{ usd(row.estimate_upper) }}</td></tr>
+      <tr class="total"><th scope="row">Estimate</th><td class="bar-col"></td><td class="num">{{ usd(row.estimate) }}</td><td class="num muted nowrap col-minor">{{ usd(row.estimate_lower) }}–{{ usd(row.estimate_upper) }}</td></tr>
     </tbody>
   </table>
   </div>

@@ -264,6 +264,7 @@ function initMapEvents() {
     if (!mapState.f) return;
     const [px, py] = pos(evt), drag = mapState.drag;
     if (drag) {
+      if (Math.hypot(px - drag.px, py - drag.py) > 4) mapState.moved = true;
       view.cx = drag.cx - (px - drag.px) / mapState.f.k; view.cy = drag.cy + (py - drag.py) / mapState.f.k;
       if (!drag.frame) drag.frame = requestAnimationFrame(() => { drag.frame = null; renderMap(); });
       return;
@@ -285,6 +286,15 @@ function initMapEvents() {
   c.addEventListener('pointerup', end);
   c.addEventListener('pointercancel', end);
   c.addEventListener('pointerleave', () => { hideTip(); if (mapState.lifted) mapState.lifted.classList.remove('lift'); });
+  // A click (not the end of a drag) on a building opens its page.
+  c.addEventListener('click', (evt) => {
+    if (!mapState.f) return;
+    if (mapState.moved) { mapState.moved = false; return; }
+    const [px, py] = pos(evt);
+    let best = null, bd = Infinity;
+    for (const p of mapState.marks) { const dd = Math.hypot(p.x - px, p.y - py); if (dd < bd) { bd = dd; best = p; } }
+    if (best && bd <= HIT) window.location.href = buildingUrl(state.data.buildings[best.i].id);
+  });
   c.addEventListener('dblclick', (evt) => {
     if (!mapState.f) return;
     const [px, py] = pos(evt);
@@ -292,6 +302,7 @@ function initMapEvents() {
     zoomBy(2);
   });
 }
+function buildingUrl(id) { return '/buildings/' + encodeURIComponent(id); }
 function zoomBy(factor) {
   view.zoom = Math.max(1, Math.min(8, view.zoom * factor));
   if (view.zoom === 1) { view.cx = null; view.cy = null; }
@@ -326,7 +337,7 @@ function renderMapTable(order, yi) {
   const body = html('tbody', {}, table);
   for (const r of rows) {
     const tr = html('tr', {}, body);
-    html('td', {}, tr, r.b.label);
+    html('a', { href: buildingUrl(r.b.id) }, html('td', {}, tr), r.b.label);
     html('td', { class: 'num' }, tr, usd(r.v[1]));
     html('td', { class: 'num' }, tr, range(r.v[0], r.v[2]));
     html('td', { class: 'num' }, tr, pctText(premium(r.i, bed, yi)));
