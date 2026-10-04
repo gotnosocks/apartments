@@ -410,9 +410,7 @@ def board_rows(
         for e in data.get("entries", [])
         if (hardware is None or e["hardware_class"] == hardware)
         and (line is None or e.get("line") == line)
-        and (
-            not q or q in e["key"].lower() or q in (e.get("design_text") or "").lower()
-        )
+        and (not q or q in _haystack(e))
         and (not servable or serve_status(e)[0] == "yes")
         and (subsets or not subset_fit(e))
         and (tier is None or tier_of(e) == tier)
@@ -422,6 +420,17 @@ def board_rows(
     missing = [e for e in rows if value(e) is None]
     present.sort(key=value, reverse=descending)
     return present + missing
+
+
+def _haystack(entry: dict) -> str:
+    """What the board search looks in: the fit's key, its hand-written design
+    text and its design label (what the design does)."""
+    from .anatomy import describe
+
+    a = describe(entry.get("model"), entry.get("sizes"))
+    return " ".join(
+        [entry["key"], entry.get("design_text") or "", a.label if a else ""]
+    ).lower()
 
 
 def best_over_time(data: dict, hardware: str) -> list[tuple[str, float]]:

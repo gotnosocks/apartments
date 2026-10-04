@@ -197,23 +197,31 @@ class Anatomy:
                     bits.append(f"{p.column.lower()} {p.short}")
                 elif p.key == "unit" and p.short:
                     bits.append(f"{p.short} apartment premium")
+                elif p.key == "features" and p.words_learned:
+                    bits.append(f"{_join(p.words_learned)} shrinkage learned")
                 continue
             if p.key == "noise":
-                if "by bedrooms" in p.short:
-                    bits.append("scatter by bedrooms")
+                scatter = [
+                    b
+                    for b in p.short.split(", ")
+                    if b == "by bedrooms" or (b.startswith("ν =") and b != "ν fitted")
+                ]
+                if scatter:
+                    bits.append("scatter " + ", ".join(scatter))
                 continue
             if p.present:
                 name = {
                     "walk": "building drift",
                     "bedroom_time": "trend by bedrooms",
                     "bedroom_slope": "price per bedroom",
-                    "feature_slopes": "own prices",
+                    "feature_slopes": "building's own prices:",
                     "line": "line premium",
                     "building_trend": "building trend",
                     "unit_drift": "apartment trend",
                     "market_drift": "steady drift",
                 }.get(p.key, p.label.lower())
-                bits.append(f"{name} {p.short}".strip() if p.short else name)
+                short = "" if p.short == "monthly" else p.short
+                bits.append(f"{name} {short}".strip() if short else name)
         return " · ".join(bits) or "basic hierarchy"
 
     @property
@@ -755,7 +763,14 @@ def describe(model: dict | None, sizes: dict | None = None) -> Anatomy | None:
         "bedroom_time": _every(btk),
         "walk": ", ".join(
             [f"{wk} mo"]
-            + (["heavy-tailed"] if c["walk_t"] else [])
+            + (
+                [
+                    "heavy-tailed"
+                    + (f" ν = {_num(c['walk_nu_fixed'])}" if c["walk_nu_fixed"] else "")
+                ]
+                if c["walk_t"]
+                else []
+            )
             + (["zero-sum"] if c["walk_zero_sum"] else [])
             + (
                 [f"≥ {_num(c['walk_min_rows_per_knot'])}/step"]
@@ -765,8 +780,13 @@ def describe(model: dict | None, sizes: dict | None = None) -> Anatomy | None:
             + (["anchored"] if c["walk_anchor_data"] else [])
         ),
         "feature_slopes": ", ".join(FEATURE_SHORT.get(f, f) for f in slopes),
-        "line": f"≥ {min_units} units",
-        "unit": "heavy-tailed" if c["unit_t"] else "",
+        "line": f"≥ {min_units} apartments",
+        "unit": (
+            "heavy-tailed"
+            + (f" ν = {_num(c['unit_nu_fixed'])}" if c["unit_nu_fixed"] else "")
+        )
+        if c["unit_t"]
+        else "",
         "features": ", ".join(
             ([str(n_features)] if n_features else [])
             + ([f"{_join(learned)} learned"] if learned else [])

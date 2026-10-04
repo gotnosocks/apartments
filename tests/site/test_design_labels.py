@@ -15,7 +15,7 @@ def test_label_says_what_the_design_adds():
         }
     )
     assert a.label == (
-        "trend quarterly · building drift 6 mo · own prices floor · "
+        "trend quarterly · building drift 6 mo · building's own prices: floor · "
         "heavy-tailed apartment premium"
     )
     assert anatomy.describe({"name": "m0", "beta_sd": 0.5}).label == "basic hierarchy"
@@ -47,3 +47,36 @@ def test_hand_written_design_text_is_escaped_without_a_structure(
         as_text=True
     )
     assert "A test design with &lt;b&gt;bold&lt;/b&gt; claims" in html
+
+
+def test_distinct_structures_get_distinct_labels():
+    base = {
+        "name": "x",
+        "building_walk": True,
+        "bedroom_slope": True,
+        "trend_knot_months": 3,
+        "beta_sd": 0.5,
+    }
+    variants = [
+        {},
+        {"learned_feature_groups": ["location"]},
+        {"learned_feature_groups": ["spatial"]},
+        {"nu_fixed": 5.0},
+        {"walk_t": True},
+        {"walk_t": True, "walk_nu_fixed": 3.0},
+        {"unit_t": True},
+        {"unit_t": True, "unit_nu_fixed": 4.0},
+        {"noise_by_bedrooms": True},
+        {"noise_by_bedrooms": True, "nu_fixed": 5.0},
+        {"line_effects": True},
+        {"bedroom_time": True},
+        {"season_harmonics": 2},
+        {"season_harmonics": 2, "season_daily": True},
+    ]
+    labels = [anatomy.describe({**base, **v}).label for v in variants]
+    assert len(set(labels)) == len(labels), labels
+
+
+def test_board_search_finds_label_words(client):
+    html = client.get("/research/board?q=building+drift").get_data(as_text=True)
+    assert "m-test" in html
