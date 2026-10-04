@@ -419,3 +419,4 @@ table.designs th[scope="row"] code { overflow-wrap: normal; }
   table.parts td.num::before { content: "Parameters: "; color: var(--muted); }
   .eq-line { flex-direction: column; gap: 0; }
 }
+table.designs .feature-sets { display: block; white-space: normal; max-width: 16rem; font-size: 0.75rem; font-weight: 400; color: var(--muted); }

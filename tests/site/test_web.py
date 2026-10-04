@@ -1243,6 +1243,7 @@ def test_fit_page_draws_the_design(client):
 def test_designs_page(client):
     html = client.get("/research/designs").get_data(as_text=True)
     assert "Which parts each design has" in html
+    assert '<span class="feature-sets">unitdesc-v1</span>' in html
     assert html.index("<code>m-test</code>") < html.index("<code>m-other</code>")
     assert "Drops building drift over time" in html
     assert "; Drops" not in html
@@ -1307,6 +1308,21 @@ def test_fit_time_says_how_busy_the_fits_cores_were(client):
     assert "clean timing" in html and "#fit-cores" in html
     glossary = client.get("/research/glossary").get_data(as_text=True)
     assert 'id="fit-cores"' in glossary
+
+
+def test_designs_page_caps_the_feature_sets_shown():
+    from apartments.site.research import designs
+
+    from .conftest import research_data
+
+    data = research_data()
+    base = next(e for e in data["entries"] if e["design"] == "m-other")
+    data["entries"] += [
+        dict(base, feature_set=f"fs-{i}", key=f"m-other-{i}") for i in range(5)
+    ]
+    rows, _ = designs(data, "m-test-run")
+    other = next(r for r in rows if r["name"] == "m-other")
+    assert len(other["feature_sets"]) == 6
 
 
 def test_a_build_from_before_neighbourhoods_still_serves(client, site_root):
