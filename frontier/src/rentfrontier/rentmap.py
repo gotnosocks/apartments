@@ -23,8 +23,10 @@ listings in the fit (before `first_year`, after `last_year`) are the walk's
 extrapolation. Designs whose terms this does not model (market drift, a trend
 on top of a walk, sum-to-zero, masked or anchored walks) are refused.
 `median` is the median building's value per draw (all buildings of the fit),
-again as a posterior median and 90% interval; `area` names the neighbourhoods
-the fit covers ("Chelsea and West Village").
+again as a posterior median and 90% interval; `median_by_area` is the same
+within each neighbourhood (the median of that neighbourhood's buildings, per
+draw); `area` names the neighbourhoods the fit covers ("Chelsea and West
+Village").
 
 The map under the buildings comes from the basemap snapshot
 (`rentfrontier.external basemap`): streets at their recorded width, paths,
@@ -386,7 +388,20 @@ def compute(name: str) -> dict:
     level = kept["building"]  # (d, B)
     slope = kept["bedroom_slope"] if config.bedroom_slope else np.zeros_like(level)
     fcols = [prep.features.names.index(n) for n in config.feature_slopes]
+    # Each building's neighbourhood (its listings in the fit), for the
+    # per-neighbourhood medians.
+    if "neighbourhood" in frame:
+        hood = (
+            frame[~heldout]
+            .groupby("building")
+            .neighbourhood.first()
+            .reindex(prep.buildings)
+        ).to_numpy()
+    else:
+        hood = np.full(len(prep.buildings), "Chelsea", dtype=object)
+    areas = sorted(set(hood))
     out_rent, median_rent = {}, {}
+    median_area = {a: {} for a in areas}
     for gi, (key, (x, beds)) in enumerate(typical_rows(prep).items()):
         # BEDROOMS is in model.BEDROOM_GROUPS order: the group's own curve.
         curve = (
@@ -409,6 +424,11 @@ def compute(name: str) -> dict:
         # The median building of the fit, per draw (robust to the dearest ones).
         c = np.quantile(np.median(np.exp(log), axis=1), PROBABILITIES, axis=0)
         median_rent[key] = np.rint(c.T).astype(int).tolist()  # (Y, 3)
+        # The same within each neighbourhood: the median of its buildings, per draw.
+        for a in areas:
+            inside = np.exp(log[:, hood == a, :])
+            c = np.quantile(np.median(inside, axis=1), PROBABILITIES, axis=0)
+            median_area[a][key] = np.rint(c.T).astype(int).tolist()  # (Y, 3)
     months = (by_year > 0).sum(1)
     # The registry the run's features read (the first snapshot for older runs).
     recorded = (result.get("feature_sources") or {}).get("registry") or {}
@@ -441,6 +461,8 @@ def compute(name: str) -> dict:
         },
         "rent": out_rent,
         "median": median_rent,
+        # Per neighbourhood: {neighbourhood: {bedroom key: (year, [low, median, high])}}.
+        "median_by_area": median_area,
         "area": area,
     }
 
