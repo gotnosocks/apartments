@@ -33,7 +33,8 @@ def prepare(review, discovery_report, output, *, max_targets=250):
     for line in df['pages.jsonl'].decode().splitlines():
         page = json.loads(line)
         for card in page['cards']:
-            if card['in_chelsea_scope']:
+            # Reports from rental-search-v2 named this field in_chelsea_scope.
+            if card.get('in_scope', card.get('in_chelsea_scope')):
                 expected[card['source_listing_id']].append({
                     'seed': page['seed_path'], 'page': page['page'], 'source_url': page['source_url'],
                     'source_clock': page['source_clock'], 'body_sha256': page['body_sha256'],

@@ -1,4 +1,4 @@
-"""Offline, fail-closed parser for the observed Chelsea rental search template.
+"""Offline, fail-closed parser for the observed StreetEasy rental search template.
 
 A closed pagination chain is evidence of visited pages, never a market census.
 No network or archive mutation. Source roles and DOM placements remain separate.
@@ -15,8 +15,14 @@ from streeteasy_archive.crawler import is_challenge
 from streeteasy_archive.extract import _selector, _scripts, canonical_url, flight_text
 from streeteasy_archive.flight import decode_records
 
-VERSION = 'chelsea-rental-search-v2'
-AREAS = {'/for-rent/chelsea': 'Chelsea', '/for-rent/west-chelsea': 'West Chelsea'}
+VERSION = 'rental-search-v3'
+AREAS = {'/for-rent/chelsea': 'Chelsea', '/for-rent/west-chelsea': 'West Chelsea',
+         '/for-rent/west-village': 'West Village'}
+# Card area names that count as in scope for each search route. A search can show
+# cards from other areas (West Chelsea in-feed cards in Hudson Yards, for example).
+_CHELSEA = frozenset({'Chelsea', 'West Chelsea'})
+SCOPES = {'/for-rent/chelsea': _CHELSEA, '/for-rent/west-chelsea': _CHELSEA,
+          '/for-rent/west-village': frozenset({'West Village'})}
 ROLES = {'FeaturedRentalEdge': 'featured', 'SponsoredRentalEdge': 'infeed', 'OrganicRentalEdge': 'regular'}
 FIELDS = ('id', 'urlPath', 'street', 'unit', 'displayUnit', 'price', 'totalMonthlyPrice',
           'netEffectivePrice', 'monthsFree', 'leaseTermMonths', 'areaName', 'status',
@@ -121,7 +127,9 @@ def parse_page(body: bytes, url: str, *, source_clock=None):
     h1 = headings[0].xpath('normalize-space(string(.))').get()
     match = re.fullmatch(r'([\d,]+) ' + re.escape(AREAS[path]) +
                         r', Manhattan NY Apartments for Rent(?: - Page ([1-9]\d*))?', h1)
-    if not match or int(match[2] or 1) != page_number:
+    # Since September 2026 later pages can omit the H1 page suffix; the pagination's
+    # current-page marker below still binds the page number.
+    if not match or (match[2] is not None and int(match[2]) != page_number):
         raise ValueError('H1 and source route disagree')
     total = int(match[1].replace(',', ''))
     current = pagination.css('[class*="Pagination_currentPage"]::text').getall()
@@ -175,7 +183,7 @@ def parse_page(body: bytes, url: str, *, source_clock=None):
         cards.append({'position': index + 1, 'href': href, 'href_query': query,
                       'canonical_url': canonical, 'detail_url_identity': identity, 'address_text': anchors[0].xpath('normalize-space(string(.))').get(),
                       'placement': placement, 'source_role': role, 'source_listing_id': listing_id,
-                      'in_chelsea_scope': node['areaName'] in AREAS.values(),
+                      'in_scope': node['areaName'] in SCOPES[path],
                       'source_fields': {key: node[key] for key in FIELDS if key in node},
                       'source_reference': {'edge_path': edge_path, 'edge_sha256': fingerprint(edge),
                                            'node_path': edge_path + '/node', 'node_sha256': fingerprint(node),
@@ -267,7 +275,7 @@ def coverage(pages):
                         'regular_duplicates': {key: val for key, val in sorted(occurrences.items()) if len(val) > 1 and key not in conflicts},
                         'all_placement_duplicates': {key: val for key, val in sorted(all_occurrences.items()) if len(val) > 1 and key not in conflicts},
                         'placement_counts': dict(Counter(c['placement'] for p in group for c in p['cards'])),
-                        'out_of_scope_cards': [{'page': p['page'], 'card': c} for p in group for c in p['cards'] if not c['in_chelsea_scope']],
+                        'out_of_scope_cards': [{'page': p['page'], 'card': c} for p in group for c in p['cards'] if not c['in_scope']],
                         'page_signatures': [{'page': p['page'], 'body_sha256': p['body_sha256'],
                                              'ordered_page_signature': p['ordered_page_signature'],
                                              'ordered_regular_signature': p['ordered_regular_signature']} for p in group]}
