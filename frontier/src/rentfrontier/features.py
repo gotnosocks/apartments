@@ -348,6 +348,62 @@ def relist_v1(
     )
 
 
+# Coded fields of each listing's own record (rentfrontier.listing_extras).
+LISTING_EXTRAS_FILE = (
+    "/data1/apartments/external/listing-extras/20261004-14e27e9/listing-extras.parquet"
+)
+# StreetEasy's private outdoor space types, grouped.
+OUTDOOR_TYPES = {
+    "terrace": ("TERRACE",),
+    "roof_deck": ("PRIVATE_ROOF_DECK", "ROOF_RIGHTS"),
+    "garden": ("GARDEN",),
+    "balcony": ("BALCONY",),
+    "patio": ("PATIO",),
+}
+
+
+def coded_v1(
+    frame: pd.DataFrame,
+    train: np.ndarray,
+    id: str = "coded-v1",
+    base: str = "nb-relist-v1",
+) -> Features:
+    """A base set plus coded fields of the listing's own StreetEasy record that the
+    dataset lacks: its private outdoor space types (terrace, private roof deck,
+    garden, balcony, patio) and its rooms beyond the bedrooms (room count less
+    bedrooms: 0-1, 2, 3 or 4+, against 2; unknown where the record has none or
+    states more than ten extra rooms)."""
+    base = FEATURE_SETS[base](frame, train)
+    extras = pd.read_parquet(LISTING_EXTRAS_FILE).set_index("listing_id")
+    ids = frame.source_listing_id.astype(str)
+    types = ids.map(extras.outdoor_types).fillna("").str.split("|")
+    rooms = pd.to_numeric(ids.map(extras.room_count), errors="coerce")
+    extra = rooms - pd.to_numeric(frame.bedrooms, errors="coerce")
+    # A room count more than ten above the bedrooms is a recording error.
+    known = rooms.gt(0) & extra.ge(0) & extra.le(10)
+    level = pd.Series("unknown", index=frame.index)
+    level[known & extra.le(1)] = "0-1"
+    level[known & extra.eq(2)] = "2"
+    level[known & extra.eq(3)] = "3"
+    level[known & extra.ge(4)] = "4+"
+    b = _Builder(frame)
+    for name, codes in OUTDOOR_TYPES.items():
+        b.add(
+            "outdoor space",
+            f"outdoor:{name}",
+            types.map(lambda t, c=codes: any(x in c for x in t)),
+        )
+    b.categorical("rooms beyond bedrooms", level, reference="2")
+    out = b.build(id)
+    return Features(
+        id,
+        base.names + out.names,
+        base.groups + out.groups,
+        np.column_stack([base.values, out.values]),
+        np.concatenate([base.prior_scale, out.prior_scale]),
+    )
+
+
 # External snapshots read by feature sets (rentfrontier.registry, .external).
 REGISTRY_SNAPSHOT = "/data1/apartments/external/registry/20260925-6b67137"
 PLUTO_SNAPSHOT = "/data1/apartments/external/pluto/20260925-3096a62"
@@ -1417,6 +1473,7 @@ EXTERNAL = {
     "nb-facing-v3",
     "nb-bedtext-v2",
     "nb-relist-v1",
+    "nb-coded-v1",
     "wv-unitpluto-v1",
     "pluto-v1",
     "unitfloor-v2",
@@ -1451,6 +1508,7 @@ BASEMAP = {
     "nb-facing-v3",
     "nb-bedtext-v2",
     "nb-relist-v1",
+    "nb-coded-v1",
 }
 # Feature sets that read the building footprints snapshot.
 FOOTPRINTS = {
@@ -1464,6 +1522,7 @@ FOOTPRINTS = {
     "nb-facing-v3",
     "nb-bedtext-v2",
     "nb-relist-v1",
+    "nb-coded-v1",
 }
 # Feature sets that read the 311 noise complaints snapshot.
 NOISE = {"unitnoise-v1"}
@@ -1478,6 +1537,7 @@ DESCRIPTIONS = {
     "nb-facing-v3",
     "nb-bedtext-v2",
     "nb-relist-v1",
+    "nb-coded-v1",
     "desc-v1",
     "unitdesc-v1",
     "unitdescpluto-v1",
@@ -1529,6 +1589,8 @@ FEATURE_SETS = {
     "nb-bedtext-v2": partial(bedtext_v1, id="nb-bedtext-v2", base="nb-facing-v3"),
     # nb-bedtext-v2 plus the months since the apartment's previous listing.
     "nb-relist-v1": partial(relist_v1, id="nb-relist-v1", base="nb-bedtext-v2"),
+    # nb-relist-v1 plus the listing record's outdoor space types and extra rooms.
+    "nb-coded-v1": partial(coded_v1, id="nb-coded-v1", base="nb-relist-v1"),
     # West Village: the app design's building facts (as unitdescpluto-v3) on the
     # unit and floor features (no West Village ads: see nb-facing-v2).
     "wv-unitpluto-v1": partial(
@@ -1625,6 +1687,7 @@ LOT_SNAPSHOTS = {
     "nb-facing-v3": {"registry": NB_REGISTRY_FILE, "pluto": NB_PLUTO_FILE},
     "nb-bedtext-v2": {"registry": NB_REGISTRY_FILE, "pluto": NB_PLUTO_FILE},
     "nb-relist-v1": {"registry": NB_REGISTRY_FILE, "pluto": NB_PLUTO_FILE},
+    "nb-coded-v1": {"registry": NB_REGISTRY_FILE, "pluto": NB_PLUTO_FILE},
     "unitnoise-v1": {"registry": REGISTRY_V3_FILE, "pluto": PLUTO_V3_FILE},
 }
 
@@ -1641,11 +1704,14 @@ DESCRIPTION_SOURCES = {
     "nb-facing-v3": _NB_DESCRIPTIONS,
     "nb-bedtext-v2": _NB_DESCRIPTIONS,
     "nb-relist-v1": _NB_DESCRIPTIONS,
+    "nb-coded-v1": _NB_DESCRIPTIONS,
 }
 
 
 # Feature sets whose building alterations are dated as of each listing.
-AS_OF_SETS = {"nb-facing-v3", "nb-bedtext-v2", "nb-relist-v1"}
+AS_OF_SETS = {"nb-facing-v3", "nb-bedtext-v2", "nb-relist-v1", "nb-coded-v1"}
+# Feature sets that read the listing-extras snapshot.
+LISTING_EXTRAS = {"nb-coded-v1"}
 
 
 # Feature sets that read other basemap and footprints snapshots than the first.
@@ -1656,6 +1722,7 @@ AREA_SNAPSHOTS = {
     "nb-facing-v3": {"basemap": NB_BASEMAP_FILE, "footprints": NB_FOOTPRINTS_FILE},
     "nb-bedtext-v2": {"basemap": NB_BASEMAP_FILE, "footprints": NB_FOOTPRINTS_FILE},
     "nb-relist-v1": {"basemap": NB_BASEMAP_FILE, "footprints": NB_FOOTPRINTS_FILE},
+    "nb-coded-v1": {"basemap": NB_BASEMAP_FILE, "footprints": NB_FOOTPRINTS_FILE},
 }
 
 

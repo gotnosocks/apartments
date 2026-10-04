@@ -45,6 +45,10 @@ income-restricted and short-stay offers), so the model leaves them out and gives
   <p class="note">A reference apartment (one bedroom, one bath, every attribute at its reference level) in an average {{ meta.scope }}
   building, seasonally adjusted, with its 95% interval. Every estimate starts from this and adds the listing's features,
   building and unit.</p>
+  <p class="note">This is a starting point, not what a typical one-bedroom asks: the reference apartment has every feature at its
+  baseline. For what a one-bedroom asks in a typical building, see the <a href="{{ url_for('estimates_map') }}">rent map</a>'s
+  median building, which is higher because real apartments have features that add to the rent.
+  <a href="{{ url_for('research_glossary') }}">Glossary of terms</a>.</p>
   {{ market_chart }}
   <details class="table-view">
     <summary>Table view</summary>

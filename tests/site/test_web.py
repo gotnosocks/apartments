@@ -481,7 +481,7 @@ def test_older_builds_fall_back_to_the_repository_selection(
     monkeypatch.setattr(web, "SELECTION", selection)
     html = client.get("/research/model").get_data(as_text=True)
     assert "The repository&#39;s own reason." in html
-    assert "Chosen by</dt><dd>rentfrontier.autoselect" in client.get("/").get_data(
+    assert "Chosen by</dt><dd>the automatic selection rule" in client.get("/").get_data(
         as_text=True
     )
 
