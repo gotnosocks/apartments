@@ -42,7 +42,7 @@ def test_roles_source_fields_and_global_recommendation_exclusion():
     assert [c['placement'] for c in page['cards']] == ['featured', 'infeed', 'regular']
     assert page['cards'][0]['href_query'] == {'featured': ['1']}
     assert '?' not in page['cards'][0]['canonical_url']
-    assert page['cards'][1]['in_chelsea_scope'] is False
+    assert page['cards'][1]['in_scope'] is False
     assert page['cards'][2]['source_reference']['node_path'] == '/flight_records/a/listings/2/node'
     assert page['cards'][2]['source_fields']['price'] == 5000
     assert page == parse_page(encode(html, data), URL, source_clock={'started_at': '2026-09-18T00:00:00Z'})
@@ -194,3 +194,23 @@ def test_matching_rental_id_does_not_erase_conflicting_building_scope():
     result = coverage([p1,parse_page(encode(h,d),URL+'?page=2')])
     assert result['listing_identity_conflicts']['123']['reasons'] == ['multiple_building_paths']
     assert result['compatible_advertisement_url_aliases'] == {}
+
+
+def test_scope_is_per_search_route():
+    wv = 'https://streeteasy.com/for-rent/west-village'
+    html, data = fixture(ids=('123', '124'))
+    html = html.replace('Chelsea, Manhattan', 'West Village, Manhattan').replace('/for-rent/chelsea', '/for-rent/west-village')
+    data['listings'][0]['node']['areaName'] = 'West Village'
+    page = parse_page(encode(html, data), wv)
+    # A Chelsea card on the West Village search is out of scope, and vice versa.
+    assert [c['in_scope'] for c in page['cards']] == [True, False]
+    html, data = fixture(ids=('123',))
+    data['listings'][0]['node']['areaName'] = 'West Village'
+    assert parse_page(encode(html, data), URL)['cards'][0]['in_scope'] is False
+
+
+def test_h1_page_suffix_is_optional_but_must_agree():
+    html, data = fixture(page=2, ids=('123',))
+    assert parse_page(encode(html.replace(' - Page 2', ''), data), URL + '?page=2')['page'] == 2
+    with pytest.raises(ValueError, match='H1'):
+        parse_page(encode(html.replace(' - Page 2', ' - Page 3'), data), URL + '?page=2')

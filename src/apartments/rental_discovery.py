@@ -16,11 +16,11 @@ from apartments import rental_search
 from apartments.research_pipeline import _verified_bundle, digest, publish_bundle
 from streeteasy_archive import probe as capture_probe
 from streeteasy_archive.oxylabs import _result_item, build_payload
-from streeteasy_archive.scope import SEEDS as CONFIGURED_SEEDS
 
-VERSION = 'bounded-rental-discovery-v2'
-SEEDS = tuple(url for url in CONFIGURED_SEEDS if url in
-              {'https://streeteasy.com' + path for path in rental_search.AREAS})
+VERSION = 'bounded-rental-discovery-v3'
+# Seeds come from the parser's supported routes, in order. scope.py is hashed by
+# saved datasets, so West Village (v3) is added here rather than to its SEEDS.
+SEEDS = tuple('https://streeteasy.com' + path for path in rental_search.AREAS)
 RAW_FILES = ('request.json', 'response.json', 'body.html', 'extracted.json', 'metadata.json')
 CODE_FILES = ('apartments/rental_discovery.py', 'apartments/rental_search.py',
               'apartments/research_pipeline.py', 'apartments/corrections.py',
