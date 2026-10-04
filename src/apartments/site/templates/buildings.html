@@ -41,7 +41,7 @@
     <th scope="col" class="num">Available now</th>
     <th scope="col" class="num" title="The building's level against an average building, with the same apartment">Building level</th>
     <th scope="col" class="num col-minor" title="Median over the building's listings of ask against estimate">Median ask vs estimate</th>
-    <th scope="col">Last listed</th>
+    <th scope="col" class="col-minor">Last listed</th>
   </tr></thead>
   <tbody>
   {% for b in rows %}
@@ -52,7 +52,7 @@
       <td class="num">{{ b.current_listings or "" }}</td>
       <td class="num">{{ pct(b.level_pct) }} <span class="muted nowrap">({{ pct(b.level_pct_lower) }} to {{ pct(b.level_pct_upper) }})</span></td>
       <td class="num col-minor">{{ pct(100 * b.median_residual_pct, digits=1) }}</td>
-      <td class="nowrap">{{ month(b.last_period) }}</td>
+      <td class="nowrap col-minor">{{ month(b.last_period) }}</td>
     </tr>
   {% else %}
     <tr><td colspan="7" class="empty">No buildings match.</td></tr>
