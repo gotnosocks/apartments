@@ -751,7 +751,7 @@ def test_as_of_sets_count_only_alterations_done_by_the_listing(monkeypatch):
     lots = pd.DataFrame(
         {
             "yearbuilt": [1920] * 4,
-            "yearalter1": [1990, 2005, 0, 2001],
+            "yearalter1": [1990, 2005, None, 2001],
             "yearalter2": [2015, 0, 0, 2012],
             "numfloors": [5] * 4,
             "unitsres": [10] * 4,
@@ -799,6 +799,32 @@ def test_as_of_sets_count_only_alterations_done_by_the_listing(monkeypatch):
     # As of the listing: the 2015 alteration is after the 2012 listing (and 1990
     # is before 2000); the 2001 alteration counts for the 2010 listing.
     assert flag(True) == [0, 1, 0, 1]
+    # A same-year alteration waits for the next year.
+    same = frame.assign(period=pd.to_datetime(["2015-06-01"] * 4))
+    token = features._AS_OF.set(True)
+    try:
+        out = features.pluto_v1(
+            same, np.ones(4, bool), id="t", base="stub-base", latest_alteration=True
+        )
+    finally:
+        features._AS_OF.reset(token)
+    assert dict(zip(out.names, out.values.T))["altered_since_2000"].tolist() == [
+        0,
+        1,
+        0,
+        1,
+    ]
+    # build() sets the flag for the as-of sets only, and resets it after.
+    seen = {}
+    for name in ("nb-bedtext-v1", "nb-bedtext-v2"):
+        monkeypatch.setitem(
+            features.FEATURE_SETS,
+            name,
+            lambda f, t, name=name: seen.setdefault(name, features._AS_OF.get()),
+        )
+        features.build(name, frame, np.ones(4, bool))
+    assert seen == {"nb-bedtext-v1": False, "nb-bedtext-v2": True}
+    assert features._AS_OF.get() is False
     assert {"nb-facing-v3", "nb-bedtext-v2"} == features.AS_OF_SETS
     for files in (features.lot_files, features.area_files, features.description_files):
         assert files("nb-bedtext-v2") == files("nb-bedtext-v1")
