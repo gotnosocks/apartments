@@ -19,7 +19,7 @@
 
 {% macro listing_table(rows, filters=None, endpoint=None, show_building=True, show_source=False) %}
 <div class="table-wrap">
-<table class="data">
+<table class="data listings">
   <thead>
     <tr>
       {{ sort_th("Listed", "date", filters, endpoint) }}
@@ -27,7 +27,7 @@
       <th scope="col">Layout</th>
       {{ sort_th("Ask", "ask", filters, endpoint, num=True) }}
       {{ sort_th("Estimate", "estimate", filters, endpoint, num=True) }}
-      <th scope="col" class="num">Range for the typical rent</th>
+      <th scope="col" class="num col-minor">Range for the typical rent</th>
       {{ sort_th("Ask vs estimate", "diff_pct", filters, endpoint, num=True) }}
       <th scope="col">Price</th>
       {% if show_source %}<th scope="col">StreetEasy</th>{% endif %}
@@ -36,14 +36,14 @@
   <tbody>
   {% for row in rows %}
     <tr>
-      <td class="nowrap">{{ month(row.period) }}{% if row.is_current %} <span class="tag">now</span>{% endif %}</td>
-      <td><a href="{{ url_for('listing', audit_id=row.audit_id) }}">{% if show_building %}{{ place(row) }}{% else %}{{ row.unit_label or "Unit" }}{% endif %}</a></td>
-      <td class="nowrap">{{ layout(row) }}</td>
-      <td class="num">{{ usd(row.ask) }}</td>
-      <td class="num">{{ usd(row.estimate) }}{% if not row.reliable %} <span class="warn-mark" title="Less reliable estimate (Pareto k {{ '%.2f' | format(row.pareto_k) }})">*</span>{% endif %}</td>
-      <td class="num muted nowrap">{{ usd(row.estimate_lower) }}–{{ usd(row.estimate_upper) }}</td>
-      <td class="num nowrap">{{ usd(row.residual_usd, signed=True) }} <span class="muted">({{ pct(100 * row.residual_pct) }})</span></td>
-      <td>{{ band_chip(row) }}</td>
+      <td class="nowrap c-date">{{ month(row.period) }}{% if row.is_current %} <span class="tag">now</span>{% endif %}</td>
+      <td class="c-place"><a href="{{ url_for('listing', audit_id=row.audit_id) }}">{% if show_building %}{{ place(row) }}{% else %}{{ row.unit_label or "Unit" }}{% endif %}</a></td>
+      <td class="nowrap c-layout">{{ layout(row) }}</td>
+      <td class="num" data-label="Ask">{{ usd(row.ask) }}</td>
+      <td class="num" data-label="Estimate">{{ usd(row.estimate) }}{% if not row.reliable %} <span class="warn-mark" title="Less reliable estimate (Pareto k {{ '%.2f' | format(row.pareto_k) }})">*</span>{% endif %}</td>
+      <td class="num muted nowrap col-minor">{{ usd(row.estimate_lower) }}–{{ usd(row.estimate_upper) }}</td>
+      <td class="num nowrap" data-label="Ask vs estimate">{{ usd(row.residual_usd, signed=True) }} <span class="muted">({{ pct(100 * row.residual_pct) }})</span></td>
+      <td class="c-band" data-label="Price">{{ band_chip(row) }}</td>
       {% if show_source %}<td class="nowrap">{% if row.listing_url %}<a href="{{ row.listing_url }}" rel="noopener noreferrer" target="_blank">Ad ↗<span class="visually-hidden"> for {{ month(row.period) }} on StreetEasy</span></a>{% endif %}</td>{% endif %}
     </tr>
   {% else %}
