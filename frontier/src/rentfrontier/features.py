@@ -276,6 +276,45 @@ def stated_bedrooms(text: str) -> float:
     return float(_BEDROOM_WORDS.get(word, word))
 
 
+def cycle_v1(
+    frame: pd.DataFrame,
+    train: np.ndarray,
+    id: str = "nb-bedtext-cycle-v1",
+    base: str = "nb-bedtext-v1",
+) -> Features:
+    """A base set plus the listing date's place in its month and week: the
+    sine and cosine of the day-of-month fraction (leases mostly start on the
+    1st) and day-of-week indicators (Sunday the reference). From each row's
+    own `price_at`; rows without one get 0."""
+    base = FEATURE_SETS[base](frame, train)
+    at = pd.to_datetime(frame.price_at, utc=True)
+    known = at.notna().to_numpy()
+    days = at.dt.days_in_month.to_numpy(dtype=float)
+    frac = (
+        at.dt.day.to_numpy(dtype=float)
+        - 1
+        + (at.dt.hour * 3600 + at.dt.minute * 60 + at.dt.second).to_numpy(dtype=float)
+        / 86400
+    ) / days
+    b = _Builder(frame)
+    angle = 2 * np.pi * np.nan_to_num(frac)
+    b.add("cycle", "day_of_month_sin", np.where(known, np.sin(angle), 0.0))
+    b.add("cycle", "day_of_month_cos", np.where(known, np.cos(angle), 0.0))
+    wd = at.dt.dayofweek.to_numpy()
+    for k, name in enumerate(
+        ("monday", "tuesday", "wednesday", "thursday", "friday", "saturday")
+    ):
+        b.add("cycle", f"weekday={name}", np.where(known, wd == k, False).astype(float))
+    extra = b.build(id)
+    return Features(
+        id,
+        base.names + extra.names,
+        base.groups + extra.groups,
+        np.column_stack([base.values, extra.values]),
+        np.concatenate([base.prior_scale, extra.prior_scale]),
+    )
+
+
 def bedtext_v1(
     frame: pd.DataFrame,
     train: np.ndarray,
@@ -1359,6 +1398,7 @@ EXTERNAL = {
     "nb-facing-v1",
     "nb-facing-v2",
     "nb-bedtext-v1",
+    "nb-bedtext-cycle-v1",
     "wv-unitpluto-v1",
     "pluto-v1",
     "unitfloor-v2",
@@ -1390,6 +1430,7 @@ BASEMAP = {
     "nb-facing-v1",
     "nb-facing-v2",
     "nb-bedtext-v1",
+    "nb-bedtext-cycle-v1",
 }
 # Feature sets that read the building footprints snapshot.
 FOOTPRINTS = {
@@ -1400,6 +1441,7 @@ FOOTPRINTS = {
     "nb-facing-v1",
     "nb-facing-v2",
     "nb-bedtext-v1",
+    "nb-bedtext-cycle-v1",
 }
 # Feature sets that read the 311 noise complaints snapshot.
 NOISE = {"unitnoise-v1"}
@@ -1411,6 +1453,7 @@ DESCRIPTIONS = {
     "nb-facing-v1",
     "nb-facing-v2",
     "nb-bedtext-v1",
+    "nb-bedtext-cycle-v1",
     "desc-v1",
     "unitdesc-v1",
     "unitdescpluto-v1",
@@ -1456,6 +1499,8 @@ FEATURE_SETS = {
     "nb-facing-v2": partial(neighbourhood_v1, id="nb-facing-v2", base="unitfacing-v4"),
     # nb-facing-v2 plus an ad that states fewer or more bedrooms than the record.
     "nb-bedtext-v1": partial(bedtext_v1, id="nb-bedtext-v1", base="nb-facing-v2"),
+    # nb-bedtext-v1 plus the listing date's day-of-month cycle and weekday.
+    "nb-bedtext-cycle-v1": partial(cycle_v1, id="nb-bedtext-cycle-v1"),
     # West Village: the app design's building facts (as unitdescpluto-v3) on the
     # unit and floor features (no West Village ads: see nb-facing-v2).
     "wv-unitpluto-v1": partial(
@@ -1549,6 +1594,7 @@ LOT_SNAPSHOTS = {
     "nb-facing-v1": {"registry": NB_REGISTRY_FILE, "pluto": NB_PLUTO_FILE},
     "nb-facing-v2": {"registry": NB_REGISTRY_FILE, "pluto": NB_PLUTO_FILE},
     "nb-bedtext-v1": {"registry": NB_REGISTRY_FILE, "pluto": NB_PLUTO_FILE},
+    "nb-bedtext-cycle-v1": {"registry": NB_REGISTRY_FILE, "pluto": NB_PLUTO_FILE},
     "unitnoise-v1": {"registry": REGISTRY_V3_FILE, "pluto": PLUTO_V3_FILE},
 }
 
@@ -1562,6 +1608,7 @@ _NB_DESCRIPTIONS = {
 DESCRIPTION_SOURCES = {
     "nb-facing-v2": _NB_DESCRIPTIONS,
     "nb-bedtext-v1": _NB_DESCRIPTIONS,
+    "nb-bedtext-cycle-v1": _NB_DESCRIPTIONS,
 }
 
 
@@ -1570,6 +1617,10 @@ AREA_SNAPSHOTS = {
     "nb-facing-v1": {"basemap": NB_BASEMAP_FILE, "footprints": NB_FOOTPRINTS_FILE},
     "nb-facing-v2": {"basemap": NB_BASEMAP_FILE, "footprints": NB_FOOTPRINTS_FILE},
     "nb-bedtext-v1": {"basemap": NB_BASEMAP_FILE, "footprints": NB_FOOTPRINTS_FILE},
+    "nb-bedtext-cycle-v1": {
+        "basemap": NB_BASEMAP_FILE,
+        "footprints": NB_FOOTPRINTS_FILE,
+    },
 }
 
 
