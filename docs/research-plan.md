@@ -1023,6 +1023,25 @@ the fix goes into the model, the features or the data, not the sampler.
     - The two drafts' fits (7ed6c55, 158 rows, −6.3 ± 9.0; 7f6cd08, 190 rows, −11.4 ± 10.6) are
       archived under `runs-archive/quarantine-v2-draft-2026-09-30`.
   - Paired scores on the board now leave out every row either quarantine drops (188).
+- **Data rule `quarantine-v4`: a fourth review, of apartments with one listing (2026-10-03).**
+  It keeps all 261 rows of v3 and adds 11, each with its quote, in
+  `config/reviews/quarantine-v4-20261003.jsonl`.
+  - **Why.** On the served fit, rows of single-listing apartments make up 57% of the high-k rows.
+    553 such apartments have a unit effect over 0.15 in log rent, against a typical sd of 0.06.
+    A single listing with a wrong rent, address or unit has nothing to dilute it.
+  - **Method.** All 553 ads were read in full, beside the building's median ask for the same
+    bedrooms. The effect tracks that ratio (r = 0.78). Only the ad's own words count as evidence.
+  - **Findings.** 479 ads explain the effect: penthouses, townhouses, gardens and terraces;
+    rent-stabilized, net-effective or pandemic asks. 36 look odd, but the ad proves nothing.
+    11 are quarantined here:
+    - 7 written for another address: One Morton Square on the 272 Bleecker page, The Grove
+      (250 W 19th) on 259 W 19th, PS90 Condominiums (Harlem) on 220 W 14th, "a few blocks
+      from Columbia" twice on West 11th, a Morton Street walk-up on the Morton Square page,
+      and "located at 235 West 13th" on 231 W 13th;
+    - 2 short stays only, 1 room in an owner-occupied share, and 1 ask the ad contradicts
+      ($1,750 recorded, "the rent is $2,300").
+    - The 16 field errors the same reading found (bedroom and bath counts) are a separate
+      corrections rule.
 - **Data rule `quarantine-v3`: a third review, and the first of West Village (2026-10-02).** It
   keeps all 188 rows of v2 and adds 73 (65 West Village, 8 Chelsea), each with its quote, in
   `config/reviews/quarantine-v3-20261002.jsonl`.

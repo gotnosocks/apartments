@@ -101,6 +101,9 @@ DESIGNS = {
     "fourier": model.ModelConfig(
         building_walk=True, bedroom_slope=True, season_harmonics=2
     ),
+    "dayfourier": model.ModelConfig(
+        building_walk=True, bedroom_slope=True, season_harmonics=2, season_daily=True
+    ),
     # Both options together (as in m7-nocurves-floorslope-bednoise-fourier).
     "bednoise-fourier": model.ModelConfig(
         building_walk=True,
@@ -410,6 +413,7 @@ def test_student_t_units_block_matches_dense():
         "bednoise",
         "fourier",
         "bednoise-fourier",
+        "dayfourier",
     ],
 )
 def test_site_values_reproduce_linear_predictor(design):
@@ -696,3 +700,56 @@ def test_gibbs_refuses_units_that_span_buildings():
     )
     with pytest.raises(ValueError, match="nested in one building"):
         gibbs.build_design(moved, DESIGNS["all"])
+
+
+def test_daily_season_is_the_basis_at_each_rows_date():
+    """A daily Fourier season reads the row's year fraction, not its month:
+    two rows in one month with different dates get different seasons, and the
+    Gibbs design puts the season columns in the dense block."""
+    prep = synthetic()
+    rng = np.random.default_rng(4)
+    prep.train.year_frac = (
+        prep.train.calendar + rng.uniform(0, 1, len(prep.train.y))
+    ) / 12
+    d = gibbs.build_design(prep, DESIGNS["dayfourier"])
+    np.testing.assert_allclose(
+        np.asarray(d.a)[:, d.season],
+        model.day_basis(np.asarray(prep.train.year_frac), 2),
+    )
+    assert set(range(d.season.start, d.season.stop)) <= set(np.asarray(d.gram_fcols))
+    coef = jnp.asarray([0.02, -0.01, 0.005, 0.003])
+    p = {"season_daily_coef": coef}
+    got = model.season_term(p, {"season": jnp.zeros(12)}, prep.train)
+    np.testing.assert_allclose(
+        np.asarray(got), model.day_basis(np.asarray(prep.train.year_frac), 2) @ coef
+    )
+
+
+def test_year_frac_reads_the_price_date():
+    frame = pd.DataFrame(
+        {
+            "period": pd.to_datetime(["2024-03-01", "2023-03-01", "2023-07-01"]),
+            "price_at": pd.to_datetime(
+                ["2024-03-01T12:00:00Z", "2023-03-01T00:00:00Z", None], utc=True
+            ),
+        }
+    )
+    got = model._year_frac(frame)
+    np.testing.assert_allclose(got[:2], [(60 + 0.5) / 366, 59 / 365])
+    np.testing.assert_allclose(got[2], 6.5 / 12)
+
+
+def test_build_model_records_the_daily_season_as_a_site():
+    """NUTS and the mean-field fit read sites only: the daily season's
+    coefficients must be one, or held-out scores fall back to the month."""
+    from numpyro import handlers
+
+    prep = synthetic()
+    model_fn = model.build_model(prep, DESIGNS["dayfourier"])
+    fn = model_fn[0] if isinstance(model_fn, tuple) else model_fn
+    tr = handlers.trace(handlers.seed(fn, 0)).get_trace()
+    assert tr["season_daily_coef"]["value"].shape == (4,)
+    with pytest.raises(ValueError, match="season_harmonics"):
+        model.build_model(
+            prep, dataclasses.replace(DESIGNS["dayfourier"], season_harmonics=0)
+        )
