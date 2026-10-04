@@ -46,21 +46,30 @@ def record_extras(raw: str) -> dict:
 def build() -> pd.DataFrame:
     rows = []
     for neighbourhood, crawl in CRAWLS.items():
-        for path in sorted(glob.glob(f"{crawl}/listing_observations/**/*.parquet", recursive=True)):
-            table = pq.read_table(path, columns=["listing_id", "collected_at", "raw_listing_json"])
+        for path in sorted(
+            glob.glob(f"{crawl}/listing_observations/**/*.parquet", recursive=True)
+        ):
+            table = pq.read_table(
+                path, columns=["listing_id", "collected_at", "raw_listing_json"]
+            )
             for r in table.to_pylist():
                 if r["raw_listing_json"]:
-                    rows.append({"listing_id": str(r["listing_id"]),
-                                 "collected_at": r["collected_at"],
-                                 "neighbourhood": neighbourhood,
-                                 **record_extras(r["raw_listing_json"])})
+                    rows.append(
+                        {
+                            "listing_id": str(r["listing_id"]),
+                            "collected_at": r["collected_at"],
+                            "neighbourhood": neighbourhood,
+                            **record_extras(r["raw_listing_json"]),
+                        }
+                    )
     out = pd.DataFrame(rows).sort_values(["collected_at", "listing_id"])
     return out.drop_duplicates("listing_id", keep="last").reset_index(drop=True)
 
 
 def _git(*args) -> str:
-    return subprocess.run(["git", *args], capture_output=True, text=True,
-                          check=True).stdout.strip()
+    return subprocess.run(
+        ["git", *args], capture_output=True, text=True, check=True
+    ).stdout.strip()
 
 
 def main():
@@ -76,13 +85,25 @@ def main():
     sources = {}
     for name, crawl in CRAWLS.items():
         complete = Path(crawl) / "complete.json"
-        sources[name] = {"path": crawl, "complete_sha256": hashlib.sha256(
-            complete.read_bytes()).hexdigest() if complete.exists() else None}
-    (out_dir / "provenance.json").write_text(json.dumps({
-        "sources": sources, "built_at": started.isoformat(), "commit": commit,
-        "listings": len(table), "sha256": hashlib.sha256(path.read_bytes()).hexdigest(),
-        "note": "each listing's last captured record (as the description evidence is)",
-    }, indent=2))
+        sources[name] = {
+            "path": crawl,
+            "complete_sha256": hashlib.sha256(complete.read_bytes()).hexdigest()
+            if complete.exists()
+            else None,
+        }
+    (out_dir / "provenance.json").write_text(
+        json.dumps(
+            {
+                "sources": sources,
+                "built_at": started.isoformat(),
+                "commit": commit,
+                "listings": len(table),
+                "sha256": hashlib.sha256(path.read_bytes()).hexdigest(),
+                "note": "each listing's last captured record (as the description evidence is)",
+            },
+            indent=2,
+        )
+    )
     print(f"wrote {path}: {len(table)} listings")
 
 
