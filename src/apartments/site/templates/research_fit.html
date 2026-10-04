@@ -8,7 +8,8 @@
 <h1><code>{{ e.id }}</code></h1>
 <p class="subline">{% if served %}<span class="tag">served</span> {% endif %}{% if e.current_best %}<span class="tag">best</span> {% endif %}{% if e.frontier %}<span class="tag">frontier</span> {% endif %}{% if tier_of(e) == "exploration" %}<span class="tag exploration">exploration</span> {% endif %}
   {{ lines.get(e.line, e.line) }} · {{ e.hardware_class }}{% if e.available_at %} · landed {{ e.available_at[:16] | replace("T", " ") }} UTC{% endif %}</p>
-{% if e.design_text %}<p class="lede">{{ e.design_text }}</p>{% endif %}
+{% if anatomy %}<p class="lede">{{ anatomy.summary }}.</p>
+<p class="subline design-label">{{ anatomy.label }}</p>{% elif e.design_text %}<p class="lede">{{ e.design_text }}</p>{% endif %}
 
 <section class="figures" aria-label="Headline numbers">
   <div class="figure">

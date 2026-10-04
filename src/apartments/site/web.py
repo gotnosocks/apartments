@@ -500,6 +500,7 @@ def create_app(
     app.jinja_env.globals["elegance_cells"] = ELEGANCE_CELLS
     app.jinja_env.globals["tier_of"] = tier_of
     app.jinja_env.globals["anatomy_levels"] = ANATOMY_LEVELS
+    app.jinja_env.globals["design_label"] = design_label
     app.jinja_env.globals["chosen_by"] = chosen_by
 
     @app.context_processor
@@ -1593,6 +1594,13 @@ def create_app(
         return Response("User-agent: *\nDisallow: /\n", mimetype="text/plain")
 
     return app
+
+
+def design_label(entry: dict) -> str:
+    """What an entry's design adds to the basic hierarchy, in a few words
+    (`Anatomy.label`); "" when its record holds no structure."""
+    a = describe(entry.get("model"), entry.get("sizes"))
+    return a.label if a else ""
 
 
 def chosen_by(selected_by: str) -> str:

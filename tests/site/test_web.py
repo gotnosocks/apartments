@@ -635,7 +635,8 @@ def test_fit_page(client):
     html = client.get(f"/research/fits/{key}").get_data(as_text=True)
     # this research data has no why_not_served for the served fit
     assert "Not known yet" in html
-    assert "A test design with &lt;b&gt;bold&lt;/b&gt; claims" in html  # escaped
+    # led by what the design does (its recorded structure), not the hand-written text
+    assert 'class="subline design-label">' in html
     assert "Serves the app (Ben)." in html
     assert "78.6%" in html and "76.9–80.2%" in html  # variance share
     assert "1.004" in html and "612" in html  # split diagnostics
