@@ -478,6 +478,11 @@ DATA_RULE_TEXT = {
     "that place the apartment elsewhere (Brooklyn's Grove and Bleecker Streets, Park "
     "Slope, Harlem, the Upper West Side), shops, restaurants and event spaces, a room, "
     "short-stay-only offers, and an ask the ad contradicts.",
+    "quarantine-v4": "quarantine-v3 and a fourth review: the ads of apartments with a "
+    "single listing whose rent the model found far out of line, read in full. Eleven more "
+    "are left out: ads written for another address (One Morton Square, The Grove, a "
+    "Harlem condominium, near Columbia), short stays, a room, and an ask the ad "
+    "contradicts.",
 }
 
 
