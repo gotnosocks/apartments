@@ -737,3 +737,19 @@ def test_year_frac_reads_the_price_date():
     got = model._year_frac(frame)
     np.testing.assert_allclose(got[:2], [(60 + 0.5) / 366, 59 / 365])
     np.testing.assert_allclose(got[2], 6.5 / 12)
+
+
+def test_build_model_records_the_daily_season_as_a_site():
+    """NUTS and the mean-field fit read sites only: the daily season's
+    coefficients must be one, or held-out scores fall back to the month."""
+    from numpyro import handlers
+
+    prep = synthetic()
+    model_fn = model.build_model(prep, DESIGNS["dayfourier"])
+    fn = model_fn[0] if isinstance(model_fn, tuple) else model_fn
+    tr = handlers.trace(handlers.seed(fn, 0)).get_trace()
+    assert tr["season_daily_coef"]["value"].shape == (4,)
+    with pytest.raises(ValueError, match="season_harmonics"):
+        model.build_model(
+            prep, dataclasses.replace(DESIGNS["dayfourier"], season_harmonics=0)
+        )

@@ -825,6 +825,8 @@ def _walk_levels(scale, fixed, nu=None):
 def build_model(prep: Prepared, config: ModelConfig):
     from numpyro.infer.reparam import LocScaleReparam
 
+    if config.season_daily and not config.season_harmonics:
+        raise ValueError(f"{config.name}: season_daily needs season_harmonics > 0")
     a = prep.train
     n_months = len(prep.periods)
     y = jnp.asarray(a.y)
@@ -904,7 +906,11 @@ def build_model(prep: Prepared, config: ModelConfig):
             )
             p["season_raw"] = numpyro.deterministic("season_raw", basis @ coef)
             if config.season_daily:
-                p["season_daily_coef"] = coef
+                # A site, so every sampler's draws carry it (held-out and LOO
+                # scores read each row's date through it).
+                p["season_daily_coef"] = numpyro.deterministic(
+                    "season_daily_coef", coef
+                )
         elif config.season:
             p["season_raw"] = numpyro.sample(
                 "season_raw", dist.Normal(0.0, p["season_scale"]).expand([12])
