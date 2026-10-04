@@ -24,3 +24,24 @@ def test_estimates_explains_the_market_reference(client):
     html = " ".join(client.get("/estimates").get_data(as_text=True).split())
     assert "not what a typical one-bedroom asks" in html
     assert "Glossary of terms" in html
+
+
+def test_chosen_by_in_words():
+    from apartments.site.web import chosen_by
+
+    assert (
+        chosen_by("rentfrontier.autoselect, 2026-10-04 (Ben, 2026-09-30: switch)")
+        == "the automatic selection rule, 2026-10-04"
+    )
+    assert chosen_by("rentfrontier.autoselect") == "the automatic selection rule"
+    assert chosen_by("Ben, 2026-09-26") == "Ben, 2026-09-26"
+    assert chosen_by("Ben, after review") == "Ben, after review"
+
+
+def test_rent_map_compares_only_the_one_bedroom():
+    from pathlib import Path
+
+    page = (
+        Path(__file__).parents[2] / "src/apartments/site/templates/estimates_map.html"
+    )
+    assert "For a one-bedroom it is higher" in " ".join(page.read_text().split())

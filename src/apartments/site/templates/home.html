@@ -42,7 +42,7 @@
       higher predicts unseen asks better)</span></dd>
     {% endif %}
     <dt>Fit time</dt><dd>{{ (p.fit_seconds / 60) | round(1) }} minutes on {{ p.fit_hardware }}</dd>
-    {% if selection and selection.selected_by %}<dt>Chosen by</dt><dd>{{ "the automatic selection rule" if selection.selected_by.startswith("rentfrontier.autoselect") else selection.selected_by }}{% set when = selection.selected_by.split(", ")[1][:10] if ", " in selection.selected_by else "" %}{% if when %}, {{ when }}{% endif %}</dd>{% endif %}
+    {% if selection and selection.selected_by %}<dt>Chosen by</dt><dd>{{ chosen_by(selection.selected_by) }}</dd>{% endif %}
   </dl>
   <ul class="link-list">
     <li><a href="{{ url_for('research_frontier') }}">The frontier: accuracy, fit time and simplicity of every fit</a></li>

@@ -16,6 +16,7 @@ import json
 import logging
 import math
 import os
+import re
 import sqlite3
 import time
 from pathlib import Path
@@ -498,6 +499,7 @@ def create_app(
     app.jinja_env.globals["elegance_cells"] = ELEGANCE_CELLS
     app.jinja_env.globals["tier_of"] = tier_of
     app.jinja_env.globals["anatomy_levels"] = ANATOMY_LEVELS
+    app.jinja_env.globals["chosen_by"] = chosen_by
 
     @app.context_processor
     def helpers():
@@ -1574,6 +1576,15 @@ def create_app(
         return Response("User-agent: *\nDisallow: /\n", mimetype="text/plain")
 
     return app
+
+
+def chosen_by(selected_by: str) -> str:
+    """Who chose the served model, in words: the automatic rule with its
+    date ("rentfrontier.autoselect, 2026-10-04 (Ben, …)"), else as written."""
+    if selected_by.startswith("rentfrontier.autoselect"):
+        day = re.search(r"\d{4}-\d{2}-\d{2}", selected_by)
+        return "the automatic selection rule" + (f", {day.group()}" if day else "")
+    return selected_by
 
 
 def _names(value) -> list[str]:
