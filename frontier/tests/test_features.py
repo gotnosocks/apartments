@@ -912,3 +912,43 @@ def test_flagfix_reads_the_rewritten_description_flags(monkeypatch):
     assert features._FLAGS.get() is features.DESCRIPTION_FLAGS
     for files in (features.lot_files, features.area_files, features.description_files):
         assert files("nb-flagfix-v1") == files("nb-relist-v1")
+
+
+def test_attrs_adds_the_attribute_flags(monkeypatch):
+    import pandas as pd
+    from rentfrontier import descriptions
+
+    fn = features.FEATURE_SETS["nb-attrs-v1"]
+    assert fn.func is features.attrs_v1
+    assert fn.keywords == {"id": "nb-attrs-v1", "base": "nb-flagfix-v1"}
+    assert {"nb-attrs-v1"} <= features.AS_OF_SETS & features.FLAGS_V2_SETS
+    for files in (features.lot_files, features.area_files, features.description_files):
+        assert files("nb-attrs-v1") == files("nb-flagfix-v1")
+    text = pd.Series(
+        [
+            "Prewar corner unit on a tree-lined block; heat and hot water included.",
+            "Live-in super, video intercom, windowed kitchen, walk-in closet, skylight.",
+            "",
+        ]
+    )
+    monkeypatch.setattr(descriptions, "attach", lambda f: text)
+    monkeypatch.setitem(
+        features.FEATURE_SETS,
+        "stub-base",
+        lambda f, t: features.Features(
+            "stub-base", [], [], np.zeros((len(f), 0)), np.zeros(0)
+        ),
+    )
+    frame = pd.DataFrame({"audit_id": list("abc")})
+    out = features.attrs_v1(frame, np.ones(3, bool), id="t", base="stub-base")
+    got = dict(zip(out.names, out.values.T))
+    for name in ("prewar_text", "corner_unit", "tree_lined", "utilities_included"):
+        assert got[f"text:{name}"].tolist() == [1, 0, 0], name
+    for name in (
+        "live_in_super",
+        "video_intercom",
+        "windowed_kitchen",
+        "walk_in_closet",
+        "skylight",
+    ):
+        assert got[f"text:{name}"].tolist() == [0, 1, 0], name

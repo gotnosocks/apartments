@@ -369,6 +369,58 @@ def relist_v1(
     )
 
 
+# Attributes a Sonnet reading of 1,000 ads (2026-10-04) found stated often and not in
+# the feature list, each with a regex its labels support. Additive; 0 where the ad is
+# unknown.
+ATTRIBUTE_FLAGS = {
+    "walk_in_closet": r"walk[- ]?in closet",
+    "live_in_super": r"live[- ]in super|on[- ]site super|super on[- ]site|resident super|live[- ]in (?:building )?(?:superintendent|manager)",
+    "utilities_included": r"(?:heat|hot water|gas|electric(?:ity)?|utilities|water)(?: and | & |, |/)?(?:hot water|gas|cold water|water|electric)?[^.\n]{0,20}\bincluded|includes? (?:heat|hot water|gas|electric|utilities)",
+    "windowed_kitchen": r"windowed (?:eat[- ]in )?kitchen|kitchen (?:has|with) (?:a )?window",
+    "windowed_bath": r"windowed (?:marble )?bath|bath(?:room)? (?:has|with) (?:a |its own )?window",
+    "tree_lined": r"tree[- ]lined",
+    "skylight": r"sky ?lights?|sky ?lites?",
+    "video_intercom": r"video intercom|virtual doorman",
+    "corner_unit": r"corner (?:unit|apartment|residence|home|loft|studio|one|two|1|2|3|bedroom)",
+    "separate_kitchen": r"separate (?:eat[- ]in |windowed )?kitchen",
+    "floor_to_ceiling_windows": r"floor[- ]to[- ]ceiling (?:windows|glass)",
+    "marble_bath": r"marble (?:bath|bathroom)",
+    "hardwood": r"hard ?wood|wood floor|wide[- ]plank|oak floor|parquet",
+    "stainless": r"stainless",
+    "prewar_text": r"pre[- ]?war",
+}
+
+
+def attrs_v1(
+    frame: pd.DataFrame,
+    train: np.ndarray,
+    id: str = "attrs-v1",
+    base: str = "nb-flagfix-v1",
+) -> Features:
+    """A base set that reads the ads plus the ATTRIBUTE_FLAGS, 0 where the ad is
+    unknown."""
+    from . import descriptions
+
+    base = FEATURE_SETS[base](frame, train)
+    text = descriptions.attach(frame).fillna("").str.lower()
+    known = text.str.len() > 20
+    b = _Builder(frame)
+    for name, pattern in ATTRIBUTE_FLAGS.items():
+        b.add(
+            "description",
+            f"text:{name}",
+            known & text.str.contains(pattern, regex=True),
+        )
+    extra = b.build(id)
+    return Features(
+        id,
+        base.names + extra.names,
+        base.groups + extra.groups,
+        np.column_stack([base.values, extra.values]),
+        np.concatenate([base.prior_scale, extra.prior_scale]),
+    )
+
+
 # External snapshots read by feature sets (rentfrontier.registry, .external).
 REGISTRY_SNAPSHOT = "/data1/apartments/external/registry/20260925-6b67137"
 PLUTO_SNAPSHOT = "/data1/apartments/external/pluto/20260925-3096a62"
@@ -1439,6 +1491,7 @@ EXTERNAL = {
     "nb-bedtext-v2",
     "nb-relist-v1",
     "nb-flagfix-v1",
+    "nb-attrs-v1",
     "wv-unitpluto-v1",
     "pluto-v1",
     "unitfloor-v2",
@@ -1474,6 +1527,7 @@ BASEMAP = {
     "nb-bedtext-v2",
     "nb-relist-v1",
     "nb-flagfix-v1",
+    "nb-attrs-v1",
 }
 # Feature sets that read the building footprints snapshot.
 FOOTPRINTS = {
@@ -1488,6 +1542,7 @@ FOOTPRINTS = {
     "nb-bedtext-v2",
     "nb-relist-v1",
     "nb-flagfix-v1",
+    "nb-attrs-v1",
 }
 # Feature sets that read the 311 noise complaints snapshot.
 NOISE = {"unitnoise-v1"}
@@ -1503,6 +1558,7 @@ DESCRIPTIONS = {
     "nb-bedtext-v2",
     "nb-relist-v1",
     "nb-flagfix-v1",
+    "nb-attrs-v1",
     "desc-v1",
     "unitdesc-v1",
     "unitdescpluto-v1",
@@ -1556,6 +1612,8 @@ FEATURE_SETS = {
     "nb-relist-v1": partial(relist_v1, id="nb-relist-v1", base="nb-bedtext-v2"),
     # nb-relist-v1 with the six rewritten description flags (`FLAGS_V2_SETS`).
     "nb-flagfix-v1": partial(relist_v1, id="nb-flagfix-v1", base="nb-bedtext-v2"),
+    # nb-flagfix-v1 plus attributes the ads state that the features lacked.
+    "nb-attrs-v1": partial(attrs_v1, id="nb-attrs-v1", base="nb-flagfix-v1"),
     # West Village: the app design's building facts (as unitdescpluto-v3) on the
     # unit and floor features (no West Village ads: see nb-facing-v2).
     "wv-unitpluto-v1": partial(
@@ -1653,6 +1711,7 @@ LOT_SNAPSHOTS = {
     "nb-bedtext-v2": {"registry": NB_REGISTRY_FILE, "pluto": NB_PLUTO_FILE},
     "nb-relist-v1": {"registry": NB_REGISTRY_FILE, "pluto": NB_PLUTO_FILE},
     "nb-flagfix-v1": {"registry": NB_REGISTRY_FILE, "pluto": NB_PLUTO_FILE},
+    "nb-attrs-v1": {"registry": NB_REGISTRY_FILE, "pluto": NB_PLUTO_FILE},
     "unitnoise-v1": {"registry": REGISTRY_V3_FILE, "pluto": PLUTO_V3_FILE},
 }
 
@@ -1670,13 +1729,20 @@ DESCRIPTION_SOURCES = {
     "nb-bedtext-v2": _NB_DESCRIPTIONS,
     "nb-relist-v1": _NB_DESCRIPTIONS,
     "nb-flagfix-v1": _NB_DESCRIPTIONS,
+    "nb-attrs-v1": _NB_DESCRIPTIONS,
 }
 
 
 # Feature sets whose building alterations are dated as of each listing.
-AS_OF_SETS = {"nb-facing-v3", "nb-bedtext-v2", "nb-relist-v1", "nb-flagfix-v1"}
+AS_OF_SETS = {
+    "nb-facing-v3",
+    "nb-bedtext-v2",
+    "nb-relist-v1",
+    "nb-flagfix-v1",
+    "nb-attrs-v1",
+}
 # Feature sets that read the rewritten description flags (DESCRIPTION_FLAGS_V2).
-FLAGS_V2_SETS = {"nb-flagfix-v1"}
+FLAGS_V2_SETS = {"nb-flagfix-v1", "nb-attrs-v1"}
 
 
 # Feature sets that read other basemap and footprints snapshots than the first.
@@ -1688,6 +1754,7 @@ AREA_SNAPSHOTS = {
     "nb-bedtext-v2": {"basemap": NB_BASEMAP_FILE, "footprints": NB_FOOTPRINTS_FILE},
     "nb-relist-v1": {"basemap": NB_BASEMAP_FILE, "footprints": NB_FOOTPRINTS_FILE},
     "nb-flagfix-v1": {"basemap": NB_BASEMAP_FILE, "footprints": NB_FOOTPRINTS_FILE},
+    "nb-attrs-v1": {"basemap": NB_BASEMAP_FILE, "footprints": NB_FOOTPRINTS_FILE},
 }
 
 
