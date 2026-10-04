@@ -12,10 +12,12 @@ import datetime as dt
 import gzip
 import hashlib
 import io
+import itertools
 import json
 import logging
 import math
 import os
+import re
 import sqlite3
 import time
 from pathlib import Path
@@ -499,6 +501,7 @@ def create_app(
     app.jinja_env.globals["tier_of"] = tier_of
     app.jinja_env.globals["anatomy_levels"] = ANATOMY_LEVELS
     app.jinja_env.globals["design_label"] = design_label
+    app.jinja_env.globals["chosen_by"] = chosen_by
 
     @app.context_processor
     def helpers():
@@ -576,12 +579,17 @@ def create_app(
             if has_quarantine()
             else 0
         }
+        entry = entry_for_run(data, m["provenance"]["run"])
+        anatomy = (
+            describe(entry.get("model"), entry.get("sizes")) if entry else None
+        ) or describe(m["provenance"].get("model"))
         return render_template(
             "home.html",
+            anatomy=anatomy,
             meta=m,
             selection=served_selection(m),
             counts=counts,
-            entry=entry_for_run(data, m["provenance"]["run"]),
+            entry=entry,
             milestones=latest_milestones(data),
             research_at=data.get("generated_at") if data else None,
         )
@@ -765,6 +773,19 @@ def create_app(
             is not None
         )
 
+    def layout_changes(rows) -> list[dict]:
+        """Where a unit's listed layout jumps between consecutive listings
+        (oldest first): a different bedroom count, or a size that changes by
+        more than 15%. A renovation, or a data error in one of the ads."""
+        out = []
+        for before, after in itertools.pairwise(rows):
+            beds = before["bedrooms"] != after["bedrooms"]
+            a, b = before["square_feet"], after["square_feet"]
+            size = bool(a and b and abs(b - a) / a > 0.15)
+            if beds or size:
+                out.append({"before": before, "after": after})
+        return out
+
     def current_coverage() -> list[dict]:
         """Which neighbourhoods have listings on the market in the latest
         capture, how many, and when they were captured: [{neighbourhood,
@@ -922,12 +943,15 @@ def create_app(
         rows = (
             db()
             .execute(
-                "SELECT * FROM listings WHERE unit_id = ? ORDER BY period", (unit_id,)
+                "SELECT * FROM listings WHERE unit_id = ? ORDER BY period, id",
+                (unit_id,),
             )
             .fetchall()
         )
+        changes = layout_changes(rows)
         return render_template(
             "unit.html",
+            layout_changes=changes,
             meta=meta(),
             unit=row,
             rows=rows,
@@ -1577,6 +1601,15 @@ def design_label(entry: dict) -> str:
     (`Anatomy.label`); "" when its record holds no structure."""
     a = describe(entry.get("model"), entry.get("sizes"))
     return a.label if a else ""
+
+
+def chosen_by(selected_by: str) -> str:
+    """Who chose the served model, in words: the automatic rule with its
+    date ("rentfrontier.autoselect, 2026-10-04 (Ben, …)"), else as written."""
+    if selected_by.startswith("rentfrontier.autoselect"):
+        day = re.search(r"\d{4}-\d{2}-\d{2}", selected_by)
+        return "the automatic selection rule" + (f", {day.group()}" if day else "")
+    return selected_by
 
 
 def _names(value) -> list[str]:
