@@ -25,7 +25,7 @@
   {% if layout_changes %}
   <p class="note layout-change"><strong>Layout changed</strong> between listings:
   {% for c in layout_changes[:2] %}{{ m.layout(c.before) }} in {{ month(c.before.period) }} to {{ m.layout(c.after) }} in
-  {{ month(c.after.period) }}{{ "; " if not loop.last }}{% endfor %}{% if layout_changes | length > 2 %}, and
+  {{ month(c.after.period) }}{{ "; " if not loop.last }}{% endfor %}{% if layout_changes | length > 2 %}; and
   {{ layout_changes | length - 2 }} more change{{ "" if layout_changes | length == 3 else "s" }}{% endif %}. A renovation can do
   this, or the ads describe the same apartment differently (an alcove studio listed as a one-bedroom, say); each estimate uses
   its own listing's layout.</p>
