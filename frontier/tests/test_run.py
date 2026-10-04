@@ -22,7 +22,8 @@ def test_contention_counts_own_work_as_own():
     assert load["other_cpu_seconds"] >= 0.0
     assert load["other_cores"] == load["other_cpu_seconds"] / wall
     assert load["fit_cpus"] == sorted(os.sched_getaffinity(0))
-    # Each of the fit's CPUs, and the own total, may round up by a tick.
+    # Each of the fit's CPUs may round up by a tick, and the own total (os.times)
+    # down by one, which shows up as "other".
     n = len(load["fit_cpus"])
     assert 0.0 <= load["other_cores_on_fit_cpus"] <= n + (n + 1) * tick / wall
 
@@ -39,9 +40,10 @@ def test_contention_on_fit_cpus_ignores_other_cpus():
     finally:
         os.sched_setaffinity(0, before)
     assert load["fit_cpus"] == [cpu]
-    # /proc/stat and os.times count whole clock ticks: allow one each.
+    # /proc/stat and os.times count whole clock ticks, and each rounds several
+    # fields separately: allow three ticks.
     tick = 1 / os.sysconf("SC_CLK_TCK")
-    assert load["other_cores_on_fit_cpus"] <= 1.0 + 2 * tick / load["wall_seconds"]
+    assert load["other_cores_on_fit_cpus"] <= 1.0 + 3 * tick / load["wall_seconds"]
 
 
 def test_data_rules_are_validated_when_parsed():
