@@ -36,12 +36,12 @@ def test_judgements_are_paged_and_filterable(site_root, research_file):
 
 
 def test_standings_count_each_designs_verdicts():
+    # ranked by more minus less: d (2 - 0) above a (3 - 2) though a won more often
     pairs = [
         {"designs": [{"id": "a"}, {"id": "b"}], "verdict": "a"},
-        {"designs": [{"id": "a"}, {"id": "c"}], "verdict": "equal"},
+        {"designs": [{"id": "a"}, {"id": "c"}], "verdict": "a"},
+        {"designs": [{"id": "a"}, {"id": "e"}], "verdict": "a"},
+        {"designs": [{"id": "d"}, {"id": "a"}], "verdict": "d"},
+        {"designs": [{"id": "d"}, {"id": "a"}], "verdict": "d"},
     ]
-    assert elegance_standings(pairs) == [
-        {"id": "a", "more": 1, "equal": 1, "less": 0},
-        {"id": "c", "more": 0, "equal": 1, "less": 0},
-        {"id": "b", "more": 0, "equal": 0, "less": 1},
-    ]
+    assert [r["id"] for r in elegance_standings(pairs)] == ["d", "a", "b", "c", "e"]

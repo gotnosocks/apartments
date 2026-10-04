@@ -1341,7 +1341,11 @@ def create_app(
         pending = (data.get("autoselect") or {}).get("pending_judgements") or []
         pairs = elegance_pairs(data)
         q = (request.args.get("design") or "").strip()[:120]
-        shown = [p for p in pairs if not q or any(q in d["id"] for d in p["designs"])]
+        shown = [
+            p
+            for p in pairs
+            if not q or any(q.lower() in d["id"].lower() for d in p["designs"])
+        ]
         per = 50
         pages = max(1, -(-len(shown) // per))
         try:

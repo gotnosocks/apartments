@@ -709,7 +709,7 @@ def _delta(entry: dict) -> float | None:
 
 def elegance_standings(pairs: list[dict]) -> list[dict]:
     """Each judged design's record over its pairs: [{id, more, equal, less}],
-    the most often more elegant first."""
+    ranked by times judged more elegant minus times judged less elegant."""
     rows: dict[str, dict] = {}
     for p in pairs:
         ids = [d["id"] for d in p["designs"]]
