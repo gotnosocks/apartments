@@ -165,3 +165,23 @@ def test_learned_feature_scales_and_the_zero_sum_season():
     )
     season = next(p for p in both.parts if p.key == "season")
     assert season.setting == "12 month effects"
+
+
+def test_daily_season():
+    daily = anatomy.describe({**SERVED, "season_harmonics": 2, "season_daily": True})
+    season = next(p for p in daily.parts if p.key == "season")
+    assert season.setting == "2 Fourier pairs at each listing's date"
+    assert season.short == "2 Fourier, daily" and "<mi>d</mi>" in season.math
+    monthly = anatomy.describe({**SERVED, "season_harmonics": 2})
+    assert anatomy.differences(daily, monthly) == [
+        "calendar season: 2 Fourier pairs at each listing's date, not 2 Fourier pairs"
+    ]
+
+
+def test_noise_differences_read_plainly():
+    served = anatomy.describe({**SERVED, "noise_by_bedrooms": True})
+    plain = anatomy.describe({**SERVED, "nu_fixed": 5.0})
+    assert anatomy.differences(plain, served) == [
+        "what's left: one scale for every ask, not one per bedroom count",
+        "what's left: ν = 5, not ν fitted",
+    ]
