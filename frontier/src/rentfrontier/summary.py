@@ -328,12 +328,19 @@ def check_run(result):
     data.recorded_rules(result)
 
 
-def check_heldout_units(prep):
-    """Refuse held-out rows of units with no rows in the fit: a data rule that
-    drops rows can remove every training row of a held-out row's unit, and the
-    estimates here assume each held-out unit is in the fit."""
-    if (np.asarray(prep.test.unit) < 0).any():
-        raise SystemExit("held-out rows of units with no rows in the fit")
+def new_unit_levels(params, n_rows, key, *, t_units):
+    """(draws, rows) unit levels from the unit prior: for held-out rows of
+    units with no rows in the fit (a row-dropping data rule can remove every
+    training row of a held-out row's unit), as for a new apartment."""
+    import jax
+
+    draws = np.asarray(params["unit_scale"]).shape[0]
+    if t_units:
+        nu = np.maximum(np.asarray(params["unit_nu"]), 1e-3)[:, None]
+        z = np.asarray(jax.random.t(key, nu, (draws, n_rows)))
+    else:
+        z = np.asarray(jax.random.normal(key, (draws, n_rows)))
+    return np.asarray(params["unit_scale"])[:, None] * z
 
 
 def verify_run(result, frame, heldout, prep, run_dir, post_units, post_buildings):
@@ -379,7 +386,6 @@ def summarize(name: str, allow_failing: bool = False):
     frame, heldout = data.apply_rules(frame, heldout, data.recorded_rules(result))
     feats = features.build(result["feature_set"], frame, ~heldout)
     prep = model.prepare(frame, heldout, feats)
-    check_heldout_units(prep)
     post = np.load(run_dir / "posterior.npz", allow_pickle=True)
     verify_run(result, frame, heldout, prep, run_dir, post["units"], post["buildings"])
     draws = kept["alpha"].shape[0]
@@ -463,6 +469,13 @@ def summarize(name: str, allow_failing: bool = False):
         mask = np.zeros(len(frame), dtype=bool)
         mask[rows] = True
         a, terms = terms_for(mask)
+        unseen = np.asarray(a.unit) < 0
+        if unseen.any():
+            key, sub_key = jax.random.split(key)
+            terms["unit"] = np.asarray(terms["unit"], dtype=float).copy()
+            terms["unit"][:, unseen] = new_unit_levels(
+                params, int(unseen.sum()), sub_key, t_units=t_units
+            )
         fitted = np.exp(sum(terms.values()))
         tables.append(
             row_table(
