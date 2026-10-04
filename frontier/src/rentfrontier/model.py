@@ -1415,6 +1415,35 @@ MODELS = {
         season_harmonics=2,
         season_daily=True,
     ),
+    # The daily-season design with one market curve per bedroom group (studios
+    # and large apartments can trend apart).
+    "m7-nocurves-floorslope-bednoise-dayfourier-bedtime": ModelConfig(
+        name="m7-nocurves-floorslope-bednoise-dayfourier-bedtime",
+        building_walk=True,
+        bedroom_slope=True,
+        trend_knot_months=3,
+        feature_slopes=("log_sqft_vs_bedroom_median", "bathrooms=2", "log_floor"),
+        unit_t=True,
+        noise_by_bedrooms=True,
+        season_harmonics=2,
+        season_daily=True,
+        bedroom_time=True,
+        bedroom_time_knot_months=3,
+    ),
+    # The bedroom-group market curves at 6-month knots.
+    "m7-nocurves-floorslope-bednoise-dayfourier-bedtime6": ModelConfig(
+        name="m7-nocurves-floorslope-bednoise-dayfourier-bedtime6",
+        building_walk=True,
+        bedroom_slope=True,
+        trend_knot_months=3,
+        feature_slopes=("log_sqft_vs_bedroom_median", "bathrooms=2", "log_floor"),
+        unit_t=True,
+        noise_by_bedrooms=True,
+        season_harmonics=2,
+        season_daily=True,
+        bedroom_time=True,
+        bedroom_time_knot_months=6,
+    ),
     # The daily season with three harmonics.
     "m7-nocurves-floorslope-bednoise-dayfourier3": ModelConfig(
         name="m7-nocurves-floorslope-bednoise-dayfourier3",
@@ -1443,6 +1472,18 @@ MODELS = {
         noise_by_bedrooms=True,
         season_harmonics=2,
         season_daily=True,
+    ),
+    # The low end with a market curve per bedroom group.
+    "m5-nocurves-bednoise-dayfourier-bedtime": ModelConfig(
+        name="m5-nocurves-bednoise-dayfourier-bedtime",
+        building_walk=True,
+        bedroom_slope=True,
+        trend_knot_months=3,
+        noise_by_bedrooms=True,
+        season_harmonics=2,
+        season_daily=True,
+        bedroom_time=True,
+        bedroom_time_knot_months=3,
     ),
     # The leading design with a smooth two-harmonic calendar season (4
     # coefficients) instead of 12 month effects.
