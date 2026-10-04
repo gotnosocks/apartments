@@ -27,7 +27,7 @@
       <th scope="col">Layout</th>
       {{ sort_th("Ask", "ask", filters, endpoint, num=True) }}
       {{ sort_th("Estimate", "estimate", filters, endpoint, num=True) }}
-      <th scope="col" class="num">95% range</th>
+      <th scope="col" class="num">Estimate's 95% range</th>
       {{ sort_th("Ask vs estimate", "diff_pct", filters, endpoint, num=True) }}
       <th scope="col">Price</th>
       {% if show_source %}<th scope="col">StreetEasy</th>{% endif %}
@@ -52,6 +52,11 @@
   </tbody>
 </table>
 </div>
+{% if rows %}<p class="note band-note"><strong>Price</strong> compares the ask with the spread of asks the model expects for that
+apartment: <em>Below typical</em> is the lowest 10%, <em>Above typical</em> the highest 10%. That spread is wider than the
+estimate's 95% range, which is only the uncertainty of the typical ask, and wider still for apartments with few listings,
+so the same % gap can be typical for one apartment and below typical for another.
+<a href="{{ url_for('research_glossary', _anchor='price-band') }}">More</a>.</p>{% endif %}
 {% endmacro %}
 
 {% macro sort_th(label, key, filters, endpoint, num=False) -%}

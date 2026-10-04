@@ -25,7 +25,7 @@
   <div class="figure">
     <span class="figure-label">Model estimate</span>
     <span class="figure-value">{{ usd(row.estimate) }}</span>
-    <span class="figure-note">95% range {{ usd(row.estimate_lower) }}–{{ usd(row.estimate_upper) }}</span>
+    <span class="figure-note">the estimate's 95% range {{ usd(row.estimate_lower) }}–{{ usd(row.estimate_upper) }}</span>
   </div>
   <div class="figure">
     <span class="figure-label">Ask vs estimate</span>
@@ -35,8 +35,13 @@
 </section>
 
 <section class="card explain">
-  <p>The ask sits at the <strong>{{ ordinal((row.pit * 100) | round | int) }} percentile</strong> of what the model expects
-  asks for this apartment to be, in this building, in {{ month(row.period) }}{% if row.price_band == "typical" %}, within the usual range{% elif row.price_band == "below" %}, lower than 90% of comparable asks{% else %}, higher than 90% of comparable asks{% endif %}.</p>
+  {% set p = (row.pit * 100) | round | int %}
+  <p>The ask sits at the <strong>{{ ordinal(p) }} percentile</strong> of the asks the model expects for this apartment, in
+  this building, in {{ month(row.period) }}: {% if row.price_band == "below" %}lower than {{ 100 - p }}% of them, so
+  <strong>below typical</strong>{% elif row.price_band == "above" %}higher than {{ p }}% of them, so <strong>above
+  typical</strong>{% else %}within the middle 80%, so <strong>typical</strong>{% endif %}. Asks scatter more widely than the
+  estimate's own 95% range, which is only the uncertainty of the typical ask, so an ask can sit inside that range and still
+  be below or above typical.</p>
   {% if row.method == "heldout" %}
   <p>This listing was held out of the model fit as a validation row, so the estimate never saw its ask. It uses the unit's
   {{ row.unit_fit_rows }} other listing{{ "" if row.unit_fit_rows == 1 else "s" }}.</p>
@@ -59,7 +64,9 @@
 <section class="card">
   <h2>What makes up the estimate</h2>
   <p class="note">Dollar contributions, starting from the market reference: a one-bedroom, one-bath apartment with every attribute
-  at its reference level, in an average building that month. They add up to the estimate. Bars show the mean; whiskers show the 95% interval.</p>
+  at its reference level, in an average building that month. They add up to the estimate. Bars show the mean; whiskers show the 95% interval.
+  A detail the listing leaves out (“not stated”) is a level of its own: such listings ask differently from the reference, so it
+  can add or subtract dollars too.</p>
   <div class="table-wrap">
   <table class="data contributions">
     <thead><tr><th scope="col">Part</th><th scope="col" class="bar-col"><span class="visually-hidden">Bar</span></th><th scope="col" class="num">Dollars</th><th scope="col" class="num">95% interval</th></tr></thead>
@@ -110,9 +117,10 @@
     <dt>Method</dt><dd>{{ "held out of the fit" if row.method == "heldout" else "leave-own-row-out (PSIS)" }}</dd>
     {% if row.pareto_k is not none %}<dt>Pareto k</dt><dd>{{ "%.2f" | format(row.pareto_k) }}{% if not row.reliable %} (above {{ meta.provenance.estimate_pareto_k.threshold | round(3) }}){% endif %}</dd>{% endif %}
     <dt>Unit's listings in the fit</dt><dd>{{ row.unit_fit_rows }}</dd>
-    <dt>In-sample fit</dt><dd>{{ usd(row.fitted) }} <span class="muted">({{ usd(row.fitted_lower) }}–{{ usd(row.fitted_upper) }})</span></dd>
+    <dt>{{ "Model fit" if row.method == "heldout" else "In-sample fit" }}</dt><dd>{{ usd(row.fitted) }} <span class="muted">({{ usd(row.fitted_lower) }}–{{ usd(row.fitted_upper) }})</span></dd>
   </dl>
-  <p class="note">The in-sample fit saw this ask, so it is pulled toward it; the estimate above does not.</p>
+  {% if row.method == "heldout" %}<p class="note">This listing was held out, so neither the fit nor the estimate saw its ask.</p>
+  {% else %}<p class="note">The in-sample fit saw this ask, so it is pulled toward it; the estimate above does not.</p>{% endif %}
 </section>
 </div>
 
