@@ -33,6 +33,7 @@ income-restricted and short-stay offers), so the model leaves them out and gives
     <h2>Available now, lowest ask against estimate first</h2>
     <a href="{{ url_for('listings', status='current', sort='diff_pct') }}">All {{ s.current_listings }} available listings →</a>
   </div>
+  {{ m.coverage_note(coverage) }}
   {{ m.listing_table(current) }}
   <p class="note">Asks as captured on {{ month(s.last_period) }}. <span class="warn-mark">*</span> marks a less reliable estimate.</p>
 </section>

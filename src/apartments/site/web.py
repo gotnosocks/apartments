@@ -618,6 +618,7 @@ def create_app(
         return render_template(
             "estimates.html",
             meta=m,
+            coverage=current_coverage(),
             current=current,
             quarantined=quarantined,
             market=market,
@@ -631,6 +632,7 @@ def create_app(
         return render_template(
             "listings.html",
             meta=meta(),
+            coverage=current_coverage() if filters.status == "current" else [],
             rows=rows,
             total=total,
             pages=pages,
@@ -759,6 +761,38 @@ def create_app(
             .fetchone()
             is not None
         )
+
+    def current_coverage() -> list[dict]:
+        """Which neighbourhoods have listings on the market in the latest
+        capture, how many, and when they were captured: [{neighbourhood,
+        listings, captured}], every neighbourhood of the build included (0 and
+        None where there is no current capture)."""
+        have = {r["name"] for r in db().execute("PRAGMA table_info(listings)")}
+        if "neighbourhood" not in have:
+            row = (
+                db()
+                .execute(
+                    "SELECT COUNT(*), MAX(collected_at) FROM listings WHERE is_current = 1"
+                )
+                .fetchone()
+            )
+            return [{"neighbourhood": None, "listings": row[0], "captured": row[1]}]
+        found = {
+            r[0]: (r[1], r[2])
+            for r in db().execute(
+                "SELECT neighbourhood, COUNT(*), MAX(collected_at) FROM listings"
+                " WHERE is_current = 1 GROUP BY neighbourhood"
+            )
+        }
+        names = sorted(set(neighbourhoods()) | set(found))
+        return [
+            {
+                "neighbourhood": n,
+                "listings": found.get(n, (0, None))[0],
+                "captured": found.get(n, (0, None))[1],
+            }
+            for n in names
+        ]
 
     def neighbourhoods() -> dict:
         """The build's neighbourhoods and their listing counts ({} for builds
