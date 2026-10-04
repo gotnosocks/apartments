@@ -355,6 +355,12 @@ NB_FOOTPRINTS_FILE = (
     "/data1/apartments/external/footprints/20261001-9b54648/footprints.parquet"
 )
 NB_BASEMAP_FILE = "/data1/apartments/external/basemap/20261001-9b54648/basemap.parquet"
+# Whether the set being built dates the building's MapPLUTO alterations as of
+# each listing (`AS_OF_SETS`): an alteration counts only from its year on, so a
+# listing never sees a later one (no future information).
+_AS_OF: contextvars.ContextVar[bool] = contextvars.ContextVar(
+    "pluto_as_of", default=False
+)
 # Which basemap and footprints snapshots facing reads while a set is built.
 _AREA: contextvars.ContextVar[tuple[str, str] | None] = contextvars.ContextVar(
     "area", default=None
@@ -468,6 +474,13 @@ def pluto_v1(
     altered = num["yearalter1"]
     if latest_alteration:
         altered = pd.concat([altered, num["yearalter2"]], axis=1).max(axis=1)
+    if _AS_OF.get():
+        # The later alteration if it was done by the listing's year, else
+        # the earlier one if that was.
+        listed = pd.to_datetime(frame.period).dt.year.to_numpy()
+        a1, a2 = num["yearalter1"].to_numpy(), num["yearalter2"].to_numpy()
+        done = [np.where(a <= listed, a, np.nan) for a in (a1, a2)]
+        altered = pd.Series(np.fmax(*done), index=lot.index)
     b.add("building status", "altered_since_2000", altered >= 2000)
     extra = b.build(id)
     return Features(
@@ -1359,6 +1372,8 @@ EXTERNAL = {
     "nb-facing-v1",
     "nb-facing-v2",
     "nb-bedtext-v1",
+    "nb-facing-v3",
+    "nb-bedtext-v2",
     "wv-unitpluto-v1",
     "pluto-v1",
     "unitfloor-v2",
@@ -1390,6 +1405,8 @@ BASEMAP = {
     "nb-facing-v1",
     "nb-facing-v2",
     "nb-bedtext-v1",
+    "nb-facing-v3",
+    "nb-bedtext-v2",
 }
 # Feature sets that read the building footprints snapshot.
 FOOTPRINTS = {
@@ -1400,6 +1417,8 @@ FOOTPRINTS = {
     "nb-facing-v1",
     "nb-facing-v2",
     "nb-bedtext-v1",
+    "nb-facing-v3",
+    "nb-bedtext-v2",
 }
 # Feature sets that read the 311 noise complaints snapshot.
 NOISE = {"unitnoise-v1"}
@@ -1411,6 +1430,8 @@ DESCRIPTIONS = {
     "nb-facing-v1",
     "nb-facing-v2",
     "nb-bedtext-v1",
+    "nb-facing-v3",
+    "nb-bedtext-v2",
     "desc-v1",
     "unitdesc-v1",
     "unitdescpluto-v1",
@@ -1456,6 +1477,10 @@ FEATURE_SETS = {
     "nb-facing-v2": partial(neighbourhood_v1, id="nb-facing-v2", base="unitfacing-v4"),
     # nb-facing-v2 plus an ad that states fewer or more bedrooms than the record.
     "nb-bedtext-v1": partial(bedtext_v1, id="nb-bedtext-v1", base="nb-facing-v2"),
+    # nb-facing-v2 and nb-bedtext-v1 with the building's alterations dated as of
+    # each listing (`AS_OF_SETS`): no alteration from after the listing.
+    "nb-facing-v3": partial(neighbourhood_v1, id="nb-facing-v3", base="unitfacing-v4"),
+    "nb-bedtext-v2": partial(bedtext_v1, id="nb-bedtext-v2", base="nb-facing-v3"),
     # West Village: the app design's building facts (as unitdescpluto-v3) on the
     # unit and floor features (no West Village ads: see nb-facing-v2).
     "wv-unitpluto-v1": partial(
@@ -1549,6 +1574,8 @@ LOT_SNAPSHOTS = {
     "nb-facing-v1": {"registry": NB_REGISTRY_FILE, "pluto": NB_PLUTO_FILE},
     "nb-facing-v2": {"registry": NB_REGISTRY_FILE, "pluto": NB_PLUTO_FILE},
     "nb-bedtext-v1": {"registry": NB_REGISTRY_FILE, "pluto": NB_PLUTO_FILE},
+    "nb-facing-v3": {"registry": NB_REGISTRY_FILE, "pluto": NB_PLUTO_FILE},
+    "nb-bedtext-v2": {"registry": NB_REGISTRY_FILE, "pluto": NB_PLUTO_FILE},
     "unitnoise-v1": {"registry": REGISTRY_V3_FILE, "pluto": PLUTO_V3_FILE},
 }
 
@@ -1562,7 +1589,13 @@ _NB_DESCRIPTIONS = {
 DESCRIPTION_SOURCES = {
     "nb-facing-v2": _NB_DESCRIPTIONS,
     "nb-bedtext-v1": _NB_DESCRIPTIONS,
+    "nb-facing-v3": _NB_DESCRIPTIONS,
+    "nb-bedtext-v2": _NB_DESCRIPTIONS,
 }
+
+
+# Feature sets whose building alterations are dated as of each listing.
+AS_OF_SETS = {"nb-facing-v3", "nb-bedtext-v2"}
 
 
 # Feature sets that read other basemap and footprints snapshots than the first.
@@ -1570,6 +1603,8 @@ AREA_SNAPSHOTS = {
     "nb-facing-v1": {"basemap": NB_BASEMAP_FILE, "footprints": NB_FOOTPRINTS_FILE},
     "nb-facing-v2": {"basemap": NB_BASEMAP_FILE, "footprints": NB_FOOTPRINTS_FILE},
     "nb-bedtext-v1": {"basemap": NB_BASEMAP_FILE, "footprints": NB_FOOTPRINTS_FILE},
+    "nb-facing-v3": {"basemap": NB_BASEMAP_FILE, "footprints": NB_FOOTPRINTS_FILE},
+    "nb-bedtext-v2": {"basemap": NB_BASEMAP_FILE, "footprints": NB_FOOTPRINTS_FILE},
 }
 
 
@@ -1596,6 +1631,7 @@ def build(name: str, frame: pd.DataFrame, train: np.ndarray) -> Features:
     files = lot_files(name)
     area = area_files(name)
     token = _LOTS.set((files["registry"], files["pluto"]))
+    as_of_token = _AS_OF.set(name in AS_OF_SETS)
     area_token = _AREA.set((area["basemap"], area["footprints"]))
     text_token = descriptions_module.SOURCES.set(
         tuple(Path(p) for p in description_files(name).values())
@@ -1604,5 +1640,6 @@ def build(name: str, frame: pd.DataFrame, train: np.ndarray) -> Features:
         return FEATURE_SETS[name](frame, np.asarray(train, dtype=bool))
     finally:
         _LOTS.reset(token)
+        _AS_OF.reset(as_of_token)
         _AREA.reset(area_token)
         descriptions_module.SOURCES.reset(text_token)
