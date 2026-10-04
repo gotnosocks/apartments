@@ -711,6 +711,28 @@ def write_database(
     return stats
 
 
+def bundle_map(source: Path, target: Path, database: Path) -> None:
+    """The run's rent map for the build, each building tagged with its
+    neighbourhood from the build's database (the map's neighbourhood choice
+    lists a neighbourhood's buildings by it)."""
+    data = json.loads(source.read_text())
+    db = sqlite3.connect(f"file:{database}?mode=ro", uri=True)
+    try:
+        columns = {r[1] for r in db.execute("PRAGMA table_info(buildings)")}
+        names = (
+            dict(db.execute("SELECT id, neighbourhood FROM buildings"))
+            if "neighbourhood" in columns
+            else {}
+        )
+    finally:
+        db.close()
+    for b in data.get("buildings", []):
+        # rentmap's own tag (the neighbourhood its medians used) wins.
+        if not b.get("neighbourhood") and names.get(b.get("id")):
+            b["neighbourhood"] = names[b["id"]]
+    target.write_text(json.dumps(data, separators=(",", ":")))
+
+
 def rent_map(run: str, maps: Path | None = None) -> Path | None:
     """The newest rent map of `run`, if one has been made; a bundle that names
     another run is refused."""
@@ -783,7 +805,7 @@ def build(
         )
         source_map = rent_map(record["run"])
         if source_map is not None:
-            shutil.copyfile(source_map, staging / "map.json")
+            bundle_map(source_map, staging / "map.json", staging / "site.sqlite")
         info = {
             "version": VERSION,
             "rent_map": str(source_map) if source_map else None,

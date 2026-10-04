@@ -18,7 +18,7 @@ const RAMP = {
   dark: ['#86b6ef', '#3987e5', '#184f95', 'var(--map-neutral)', '#892b2a', '#d75853', '#ea9a93'],
 };
 const BED_COLORS = ['var(--s1)', 'var(--s2)', 'var(--s3)', 'var(--s4)'];
-const state = { data: null, bed: '1', year: 0, showBefore: false, playing: null, sort: { key: 'rent', dir: -1 } };
+const state = { data: null, area: null, bed: '1', year: 0, showBefore: false, playing: null, sort: { key: 'rent', dir: -1 } };
 
 function svg(tag, attrs = {}, parent) {
   const n = document.createElementNS(SVGNS, tag);
@@ -79,16 +79,35 @@ function pointerPos(root, evt) {
 const yearIndex = () => state.year;
 const yearOf = (i) => state.data.years[i];
 function rentOf(b, bedKey, yi) { return state.data.rent[bedKey][b][yi]; } // [p05, median, p95]
-const median = (bedKey, yi) => state.data.median[bedKey][yi]; // [p05, median, p95]
+// The median building's series for a bedroom key: of the chosen neighbourhood
+// (map.json's median_by_area, when it has one), else of the whole area.
+const medianSeries = (bedKey) => {
+  const d = state.data, byArea = state.area && d.median_by_area && d.median_by_area[state.area];
+  return byArea ? byArea[bedKey] : d.median[bedKey];
+};
+const median = (bedKey, yi) => medianSeries(bedKey)[yi]; // [p05, median, p95]
+const areaName = () => state.area || state.data.area;
 const premium = (i, bedKey, yi) => rentOf(i, bedKey, yi)[1] / median(bedKey, yi)[1] - 1;
 const classOf = (p) => BREAKS.filter((b) => p >= b).length;
 // Years outside a building's listings in the fit are the model's extrapolation.
 const extrapolated = (b, yi) => yearOf(yi) < b.first_year || yearOf(yi) > b.last_year;
-const visible = (b, yi) => state.showBefore || !extrapolated(b, yi);
+const inArea = (b) => !state.area || b.neighbourhood === state.area;
+const visible = (b, yi) => inArea(b) && (state.showBefore || !extrapolated(b, yi));
 
 // ---------- controls ----------
 function buildControls() {
   const d = state.data;
+  const areas = Object.keys(d.median_by_area || {}).sort();
+  if (areas.length > 1 && d.buildings.some((b) => b.neighbourhood)) {
+    const box = $('area-select');
+    box.hidden = false;
+    for (const [value, label] of [['', `All of ${d.area}`], ...areas.map((a) => [a, a])]) {
+      const lab = html('label', { class: 'chip' }, box);
+      const inp = html('input', { type: 'radio', name: 'area', value, checked: value === '' }, lab);
+      lab.appendChild(document.createTextNode(' ' + label));
+      inp.addEventListener('change', () => { state.area = value || null; view.zoom = 1; view.cx = null; view.cy = null; render(); });
+    }
+  }
   const seg = $('beds-select');
   for (const b of d.bedrooms) {
     const lab = html('label', { class: 'chip' }, seg);
@@ -137,6 +156,7 @@ function renderKpis() {
   const [lo, mid, hi] = median(state.bed, yi);
   const first = median(state.bed, 0)[1];
   const shown = d.buildings.filter((b) => visible(b, yi)).length;
+  const total = d.buildings.filter(inArea).length;
   const k = $('map-kpis');
   k.replaceChildren();
   const tile = (label, value, sub, hero) => {
@@ -146,10 +166,10 @@ function renderKpis() {
     if (sub) html('div', { class: 'sub' }, t, sub);
   };
   const partial = d.year_months[yi] < 12 ? ` (${d.year_months[yi]} months)` : '';
-  tile(`Median building across ${d.area}, ${bedLabel.toLowerCase()}, ${yearOf(yi)}${partial}`, usd(mid), `90% interval ${range(lo, hi)} a month`, true);
+  tile(`Median building ${state.area ? 'in' : 'across'} ${areaName()}, ${bedLabel.toLowerCase()}, ${yearOf(yi)}${partial}`, usd(mid), `90% interval ${range(lo, hi)} a month`, true);
   const ch = mid / first - 1;
   tile(`Since ${d.years[0]}`, `${ch >= 0 ? '+' : '−'}${Math.abs(100 * ch).toFixed(0)}%`, `from ${usd(first)} a month`);
-  tile('Buildings on the map', shown.toLocaleString('en-US'), `of ${d.buildings.length.toLocaleString('en-US')} with listings in the fit${state.showBefore ? '' : `; shown where their listings span ${yearOf(yi)}`}`);
+  tile('Buildings on the map', shown.toLocaleString('en-US'), `of ${total.toLocaleString('en-US')} with listings in the fit${state.showBefore ? '' : `; shown where their listings span ${yearOf(yi)}`}`);
 }
 
 // ---------- map ----------
@@ -359,8 +379,8 @@ function renderTrend() {
   container.replaceChildren();
   const width = Math.max(320, container.clientWidth), height = 300;
   const m = { left: 64, right: 110, top: 16, bottom: 34 };
-  const root = svg('svg', { viewBox: `0 0 ${width} ${height}`, width, height, role: 'img', 'aria-label': `Typical rent of the median building across ${d.area}, by bedrooms over time` }, container);
-  const all = d.bedrooms.flatMap((b) => d.median[b.key].flat());
+  const root = svg('svg', { viewBox: `0 0 ${width} ${height}`, width, height, role: 'img', 'aria-label': `Typical rent of the median building ${state.area ? 'in' : 'across'} ${areaName()}, by bedrooms over time` }, container);
+  const all = d.bedrooms.flatMap((b) => medianSeries(b.key).flat());
   const lo = 0, hi = Math.max(...all) * 1.05;
   const X = (i) => m.left + (i / (d.years.length - 1)) * (width - m.left - m.right);
   const Y = (v) => height - m.bottom - ((v - lo) / (hi - lo)) * (height - m.top - m.bottom);
@@ -373,14 +393,14 @@ function renderTrend() {
   svg('line', { class: 'baseline', x1: m.left, x2: width - m.right, y1: Y(0), y2: Y(0) }, root);
   d.years.forEach((y, i) => { if (i % 2 === 0 || i === d.years.length - 1) svg('text', { x: X(i), y: height - m.bottom + 17, 'text-anchor': 'middle', text: String(y) }, root); });
   // The chosen bedroom count's 90% band, under the lines.
-  const sel = d.median[state.bed];
+  const sel = medianSeries(state.bed);
   const band = sel.map((v, i) => `${X(i)},${Y(v[2])}`).concat(sel.slice().reverse().map((v, j) => `${X(sel.length - 1 - j)},${Y(v[0])}`));
   svg('polygon', { class: 'frontier-wash', points: band.join(' ') }, root);
   svg('line', { class: 'cursor', x1: X(yi), x2: X(yi), y1: m.top, y2: height - m.bottom }, root);
   const lg = $('legend-trend');
   lg.replaceChildren();
   d.bedrooms.forEach((b, k) => {
-    const series = d.median[b.key];
+    const series = medianSeries(b.key);
     const chosen = b.key === state.bed;
     svg('polyline', { class: 'series-line', points: series.map((v, i) => `${X(i)},${Y(v[1])}`).join(' '),
       style: `stroke:${BED_COLORS[k]};stroke-width:${chosen ? 2.5 : 2}` }, root);
@@ -397,7 +417,7 @@ function renderTrend() {
     hl.setAttribute('x1', X(i)); hl.setAttribute('x2', X(i)); hl.setAttribute('visibility', 'visible');
     showTip(evt, (t) => {
       html('div', { class: 't-value' }, t, String(d.years[i]) + (d.year_months[i] < 12 ? ` (${d.year_months[i]} months)` : ''));
-      d.bedrooms.forEach((b) => { const v = d.median[b.key][i]; tipRow(t, b.label, `${usd(v[1])} (${range(v[0], v[2])})`); });
+      d.bedrooms.forEach((b) => { const v = medianSeries(b.key)[i]; tipRow(t, b.label, `${usd(v[1])} (${range(v[0], v[2])})`); });
     });
   });
   root.addEventListener('pointerleave', () => { hideTip(); hl.setAttribute('visibility', 'hidden'); });
@@ -418,7 +438,7 @@ function renderTrend() {
   d.years.forEach((y, i) => {
     const tr = html('tr', {}, body);
     html('td', {}, tr, String(y) + (d.year_months[i] < 12 ? ` (${d.year_months[i]} months)` : ''));
-    for (const b of d.bedrooms) { const v = d.median[b.key][i]; html('td', { class: 'num' }, tr, `${usd(v[1])} (${range(v[0], v[2])})`); }
+    for (const b of d.bedrooms) { const v = medianSeries(b.key)[i]; html('td', { class: 'num' }, tr, `${usd(v[1])} (${range(v[0], v[2])})`); }
   });
 }
 
