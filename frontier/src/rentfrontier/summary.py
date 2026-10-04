@@ -100,9 +100,9 @@ TERM_LABELS = {
 TERM_TEXT = {
     "neighbourhood": "West Village against Chelsea: the shift of every building's "
     "level in the West Village, before the building's own effect.",
-    "relisting": "How long the apartment was off the market: the months since the "
-    "same apartment's previous listing (only earlier listings count), or a flag "
-    "for its first listing. A quick relist hints at a problem unit, a long gap at "
+    "relisting": "Time since the same apartment's previous listing (from that "
+    "listing's date, so it includes its time on the market; only earlier listings "
+    "count), or a flag for its first listing. A quick relist hints at a problem unit, a long gap at "
     "a renovation.",
     "location": "A smooth location surface over the map (Gaussian bumps about 250 "
     "m apart over the buildings' coordinates).",
