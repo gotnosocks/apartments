@@ -1,4 +1,18 @@
-# Bounded Chelsea rental pagination
+# Bounded rental pagination
+
+**Version 3 (Oct 2026): West Village and per-seed scope.** Seeds are now the parser's supported
+routes, in order: `/for-rent/chelsea`, `/for-rent/west-chelsea`, `/for-rent/west-village`. They are
+listed in `rental_search.AREAS` rather than taken from `streeteasy_archive.scope.SEEDS`, which is
+hashed by saved datasets. A card is in scope when its source `areaName` belongs to its own seed's
+scope (`rental_search.SCOPES`): Chelsea or West Chelsea for the two Chelsea seeds, West Village for
+`/for-rent/west-village`. Cards carry `in_scope`; readers still accept the v2 name
+`in_chelsea_scope`. Since September 2026 later result pages can omit the H1 suffix ` - Page N`; the
+pagination's current-page marker still binds the page, and a suffix that is present must match.
+All 17 archived West Village search pages (Sept 21: 175–176 displayed, 124 distinct in-scope ads) parse.
+The detail queue is published by `python -m apartments.discovery_review --discovery-report REPORT
+--output REVIEW [--reference DATASET]`, which generalizes the frozen September 18 review script.
+
+The September 18 description below refers to version 2, which covered the two Chelsea seeds only.
 
 `apartments.rental_discovery` follows the two configured Chelsea rental-search seeds through only the next links accepted by the offline parser. It uses the existing one-request Oxylabs HTML probe for every new capture. It does not request listing details, visit building directories, alter the archive, or claim complete inventory.
 

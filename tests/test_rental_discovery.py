@@ -116,11 +116,15 @@ def test_global_budget_includes_reused_and_resume_never_exceeds(tmp_path, monkey
         return saved_probe(url, mode, output, **kw)
 
     monkeypatch.setattr(discovery.capture_probe, "probe", fake)
-    result = discovery.run(tmp_path / "run", max_requests=3, preflight_bundle=bundle)
+    seeds = len(discovery.SEEDS)
+    result = discovery.run(
+        tmp_path / "run", max_requests=seeds + 1, preflight_bundle=bundle
+    )
     assert calls == [discovery.SEEDS[0] + "?page=2"]
-    assert result["reused_provider_submissions"] == 2
+    assert result["reused_provider_submissions"] == seeds
     assert (
-        result["new_request_intents"] == 1 and result["global_reserved_requests"] == 3
+        result["new_request_intents"] == 1
+        and result["global_reserved_requests"] == seeds + 1
     )
     assert (
         result["stop_reason"] == "request_ceiling"
@@ -134,7 +138,7 @@ def test_global_budget_includes_reused_and_resume_never_exceeds(tmp_path, monkey
         == result["report_directory"]
     )
     with pytest.raises(ValueError, match="Resume protocol differs"):
-        discovery.run(tmp_path / "run", resume=True, max_requests=4)
+        discovery.run(tmp_path / "run", resume=True, max_requests=seeds + 2)
 
 
 def test_offline_checkpoint_then_resume_follows_observed_urls(tmp_path, monkeypatch):
@@ -288,7 +292,10 @@ def test_local_evidence_is_self_contained_and_tampering_stops_resume(
     bundle = preflight(tmp_path)
     monkeypatch.setattr(discovery.capture_probe, "probe", no_network)
     first = discovery.run(
-        tmp_path / "run", max_requests=2, preflight_bundle=bundle, replay_only=True
+        tmp_path / "run",
+        max_requests=len(discovery.SEEDS),
+        preflight_bundle=bundle,
+        replay_only=True,
     )
     rows = [
         json.loads(s)
@@ -348,11 +355,11 @@ def test_preflight_jsonl_preserves_literal_unicode_line_separators(
     monkeypatch.setattr(discovery.capture_probe, "probe", no_network)
     result = discovery.run(
         tmp_path / "run",
-        max_requests=2,
+        max_requests=len(discovery.SEEDS),
         preflight_bundle=unicode_bundle,
         replay_only=True,
     )
-    assert result["reused_provider_submissions"] == 2
+    assert result["reused_provider_submissions"] == len(discovery.SEEDS)
 
 
 def test_implementation_snapshot_is_exact_and_checked_on_resume(tmp_path, monkeypatch):

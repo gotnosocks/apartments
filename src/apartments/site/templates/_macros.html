@@ -1,11 +1,11 @@
 {% macro band_chip(row) -%}
 {%- set p = (row.pit * 100) | round | int -%}
 {%- if row.price_band == "below" -%}
-<span class="chip good" title="The ask is at the {{ ordinal(p) }} percentile of the model's range for this apartment."><span aria-hidden="true">▼</span> Below typical</span>
+<span class="chip good" title="The ask is at the {{ ordinal(p) }} percentile of the asks the model expects for this apartment."><span aria-hidden="true">▼</span> Below typical</span>
 {%- elif row.price_band == "above" -%}
-<span class="chip serious" title="The ask is at the {{ ordinal(p) }} percentile of the model's range for this apartment."><span aria-hidden="true">▲</span> Above typical</span>
+<span class="chip serious" title="The ask is at the {{ ordinal(p) }} percentile of the asks the model expects for this apartment."><span aria-hidden="true">▲</span> Above typical</span>
 {%- else -%}
-<span class="chip neutral" title="The ask is at the {{ ordinal(p) }} percentile of the model's range for this apartment."><span aria-hidden="true">●</span> Typical</span>
+<span class="chip neutral" title="The ask is at the {{ ordinal(p) }} percentile of the asks the model expects for this apartment."><span aria-hidden="true">●</span> Typical</span>
 {%- endif -%}
 {%- endmacro %}
 
@@ -19,7 +19,7 @@
 
 {% macro listing_table(rows, filters=None, endpoint=None, show_building=True, show_source=False) %}
 <div class="table-wrap">
-<table class="data">
+<table class="data listings">
   <thead>
     <tr>
       {{ sort_th("Listed", "date", filters, endpoint) }}
@@ -27,7 +27,7 @@
       <th scope="col">Layout</th>
       {{ sort_th("Ask", "ask", filters, endpoint, num=True) }}
       {{ sort_th("Estimate", "estimate", filters, endpoint, num=True) }}
-      <th scope="col" class="num">95% range</th>
+      <th scope="col" class="num col-minor">Range for the typical rent</th>
       {{ sort_th("Ask vs estimate", "diff_pct", filters, endpoint, num=True) }}
       <th scope="col">Price</th>
       {% if show_source %}<th scope="col">StreetEasy</th>{% endif %}
@@ -36,14 +36,14 @@
   <tbody>
   {% for row in rows %}
     <tr>
-      <td class="nowrap">{{ month(row.period) }}{% if row.is_current %} <span class="tag">now</span>{% endif %}</td>
-      <td><a href="{{ url_for('listing', audit_id=row.audit_id) }}">{% if show_building %}{{ place(row) }}{% else %}{{ row.unit_label or "Unit" }}{% endif %}</a></td>
-      <td class="nowrap">{{ layout(row) }}</td>
-      <td class="num">{{ usd(row.ask) }}</td>
-      <td class="num">{{ usd(row.estimate) }}{% if not row.reliable %} <span class="warn-mark" title="Less reliable estimate (Pareto k {{ '%.2f' | format(row.pareto_k) }})">*</span>{% endif %}</td>
-      <td class="num muted nowrap">{{ usd(row.estimate_lower) }}–{{ usd(row.estimate_upper) }}</td>
-      <td class="num nowrap">{{ usd(row.residual_usd, signed=True) }} <span class="muted">({{ pct(100 * row.residual_pct) }})</span></td>
-      <td>{{ band_chip(row) }}</td>
+      <td class="nowrap c-date">{{ month(row.period) }}{% if row.is_current %} <span class="tag">now</span>{% endif %}</td>
+      <td class="c-place"><a href="{{ url_for('listing', audit_id=row.audit_id) }}">{% if show_building %}{{ place(row) }}{% else %}{{ row.unit_label or "Unit" }}{% endif %}</a></td>
+      <td class="nowrap c-layout">{{ layout(row) }}</td>
+      <td class="num" data-label="Ask">{{ usd(row.ask) }}</td>
+      <td class="num" data-label="Estimate">{{ usd(row.estimate) }}{% if not row.reliable %} <span class="warn-mark" title="Less reliable estimate (Pareto k {{ '%.2f' | format(row.pareto_k) }})">*</span>{% endif %}</td>
+      <td class="num muted nowrap col-minor">{{ usd(row.estimate_lower) }}–{{ usd(row.estimate_upper) }}</td>
+      <td class="num nowrap" data-label="Ask vs estimate">{{ usd(row.residual_usd, signed=True) }} <span class="muted">({{ pct(100 * row.residual_pct) }})</span></td>
+      <td class="c-band" data-label="Price">{{ band_chip(row) }}</td>
       {% if show_source %}<td class="nowrap">{% if row.listing_url %}<a href="{{ row.listing_url }}" rel="noopener noreferrer" target="_blank">Ad ↗<span class="visually-hidden"> for {{ month(row.period) }} on StreetEasy</span></a>{% endif %}</td>{% endif %}
     </tr>
   {% else %}
@@ -52,6 +52,12 @@
   </tbody>
 </table>
 </div>
+{% if rows %}<p class="note band-note"><strong>Price</strong> compares the ask with the spread of asks the model expects for that
+apartment: <em>Below typical</em> is the lowest 10%, <em>Above typical</em> the highest 10%. The <em>range for the typical
+rent</em> is something else: the 95% uncertainty of the model's typical rent for that apartment, not where its ask will
+land, so it holds the actual ask much less often than 95% of the time. Asks spread wider than that, and wider still for
+apartments with few listings, so the same % gap can be typical for one apartment and below typical for another.
+<a href="{{ url_for('research_glossary', _anchor='price-band') }}">More</a>.</p>{% endif %}
 {% endmacro %}
 
 {% macro sort_th(label, key, filters, endpoint, num=False) -%}
@@ -105,3 +111,13 @@
 </table>
 </div>
 {% endmacro %}
+
+{% macro coverage_note(coverage) -%}
+{%- set covered = coverage | selectattr("listings") | list -%}
+{%- set without = coverage | rejectattr("listings") | map(attribute="neighbourhood") | select | list -%}
+<p class="note coverage">“Available now” means seen on the market in the latest capture{% if covered %}:
+{% for c in covered %}{% if c.neighbourhood %}{{ c.neighbourhood }}, {% endif %}{{ "{:,}".format(c.listings) }} listing{{ "" if c.listings == 1 else "s" }}{% if c.captured %} captured {{ c.captured }}{% endif %}{{ "; " if not loop.last }}{% endfor %}{% endif %}.
+{% if without %}<strong>{{ without | join(" and ") }} {{ "has" if without | length == 1 else "have" }} no current capture yet</strong>, so
+none of {{ "its" if without | length == 1 else "their" }} listings show as available; {{ "its" if without | length == 1 else "their" }}
+recent listings are under <a href="{{ url_for('listings', nb=without[0]) if without | length == 1 else url_for('listings') }}">all listings</a>, at their first ask.{% endif %}</p>
+{%- endmacro %}

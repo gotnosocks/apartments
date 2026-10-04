@@ -27,7 +27,9 @@
   estimate an honest signal. The page shows the in-sample fit separately.</p>
   <p><strong>Below typical</strong> and <strong>Above typical</strong> mean that the ask is in the lowest or highest
   {{ (100 * meta.price_bands[0]) | round | int }}% of the asks the model expects for that apartment, noise included. The
-  <strong>95% range</strong> is the uncertainty of the typical ask itself, not the spread of individual asks.</p>
+  <strong>range for the typical rent</strong> shown with each estimate is the 95% uncertainty of the typical rent itself, not
+  the spread of individual asks: it holds the actual ask much less often than 95% of the time, because asks scatter around
+  the typical rent.</p>
   <p>Estimates describe <strong>asking</strong> rents on StreetEasy, not leases, net effective rents or appraisals. Listings
   from before {{ month(s.last_period) }} show the first ask of each advertisement. The model cannot see anything
   missing from the listing data, such as renovations the ad does not mention, light or noise.</p>
@@ -35,8 +37,9 @@
 
 <section class="card">
   <h2>How well the estimates are calibrated</h2>
-  <p class="note">Share of asks inside the model's predictive ranges. A well-calibrated model puts 95% of asks in its 95% range
-  and 80% in its 80% range.</p>
+  <p class="note">Share of asks inside the model's predictive ranges for individual asks (the spread the Price labels use,
+  noise included, so much wider than the range for the typical rent). A well-calibrated model puts 95% of asks in its 95% predictive
+  range and 80% in its 80% range.</p>
   <div class="table-wrap">
   <table class="data">
     <thead><tr><th scope="col">Listings</th><th scope="col" class="num">Count</th><th scope="col" class="num">In 95% range</th><th scope="col" class="num">In 80% range</th><th scope="col" class="num">Median |ask − estimate|</th></tr></thead>

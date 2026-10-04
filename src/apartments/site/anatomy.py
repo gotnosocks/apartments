@@ -170,6 +170,29 @@ class Anatomy:
             return None
         return sum(counts)
 
+    @property
+    def symbols(self) -> list[tuple[str, str]]:
+        """The row indices the equation uses, in words: [(symbol, meaning)]."""
+        math = "".join(str(p.math) for p in self.present)
+        meanings = (
+            ("B", "building"),
+            ("U", "apartment"),
+            ("L", "line"),
+            ("g", "bedroom group"),
+            ("m", "month"),
+            ("c", "calendar month"),
+        )
+        out = [
+            (f"{s}(i)", m)
+            for s, m in meanings
+            if f"<mi>{s}</mi><mo>(</mo><mi>i</mi><mo>)</mo>" in math
+        ]
+        if "<mi>t</mi><mi>i</mi>" in math:
+            out.append(("tᵢ", "date"))
+        if "<mi>d</mi><mi>i</mi>" in math:
+            out.append(("dᵢ", "date's place in its year"))
+        return out
+
     def equation(self) -> list[tuple[str, list[Markup]]]:
         """The equation's lines: [(level label, [MathML term])], the left-hand
         side first and one line per level with terms. Each term (with its
@@ -410,7 +433,7 @@ def describe(model: dict | None, sizes: dict | None = None) -> Anatomy | None:
         ),
         # Three paths of (knots - 1) steps, and their scale.
         count=_times(_knots(months, btk), 3, plus=-2),
-        math=_sub(_mi("c"), _row(_of("g"), _mo(","), _of("m"))),
+        math=_sub(_mi("η"), _row(_of("g"), _mo(","), _of("m"))),
     )
 
     # Building.

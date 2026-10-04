@@ -374,7 +374,7 @@ def test_research_model_page(client):
     assert "published by hand" in html  # the fixture bundle is not the repo's selection
     assert "+5,221.3 ± 120.4 over the" in html and "−12.5" not in html
     assert "+-12.5" not in html and "-12.5 ± 30.1" in html
-    assert "On the frontier</dt><dd>yes; the best fit on its hardware" in html
+    assert "On the frontier</dt><dd>yes, and the best fit on its hardware" in html
     assert "Convergence gate</dt><dd>passes" in html
 
 
@@ -601,7 +601,7 @@ def test_review_fixes_on_research_model_and_home(client, research_file):
     home = client.get("/").get_data(as_text=True)
     assert "Model switch" in home
     html = client.get("/research/model").get_data(as_text=True)
-    assert "on the listings kept out of every fit" in html  # no count, no gap
+    assert "-12.5 on the held-out listings the" in " ".join(html.split())
     assert html.count("<dt>Convergence gate</dt>") == 1
     # published by hand: no claim that the rule picked it
     assert "A rule picks it" not in html
@@ -1243,6 +1243,7 @@ def test_fit_page_draws_the_design(client):
 def test_designs_page(client):
     html = client.get("/research/designs").get_data(as_text=True)
     assert "Which parts each design has" in html
+    assert '<span class="feature-sets">unitdesc-v1</span>' in html
     assert html.index("<code>m-test</code>") < html.index("<code>m-other</code>")
     assert "Drops building drift over time" in html
     assert "; Drops" not in html
@@ -1309,6 +1310,21 @@ def test_fit_time_says_how_busy_the_fits_cores_were(client):
     assert 'id="fit-cores"' in glossary
 
 
+def test_designs_page_caps_the_feature_sets_shown():
+    from apartments.site.research import designs
+
+    from .conftest import research_data
+
+    data = research_data()
+    base = next(e for e in data["entries"] if e["design"] == "m-other")
+    data["entries"] += [
+        dict(base, feature_set=f"fs-{i}", key=f"m-other-{i}") for i in range(5)
+    ]
+    rows, _ = designs(data, "m-test-run")
+    other = next(r for r in rows if r["name"] == "m-other")
+    assert len(other["feature_sets"]) == 6
+
+
 def test_a_build_from_before_neighbourhoods_still_serves(client, site_root):
     # Builds before neighbourhoods have no neighbourhood columns or stats (an
     # older build can still be current when new code deploys).
@@ -1339,3 +1355,37 @@ def test_a_build_from_before_neighbourhoods_still_serves(client, site_root):
     response = client.get("/listings.csv")
     rows = list(csv.DictReader(io.StringIO(response.get_data(as_text=True))))
     assert rows and "neighbourhood" not in rows[0]
+
+
+def test_price_labels_are_explained_where_they_appear(client):
+    listings = client.get("/listings").get_data(as_text=True)
+    assert "Range for the typical rent" in listings
+    assert "the same % gap can be typical for one apartment" in listings
+    page = client.get("/listings/a2").get_data(as_text=True)
+    assert "of the asks the model expects for this apartment" in page
+    assert "lower than 90% of comparable asks" not in page
+    assert "“not stated”" in page
+
+
+def test_research_model_page_shows_a_pending_switch(site_root, research_file):
+    data = json.loads(research_file.read_text())
+    data["autoselect"] = {
+        "action": "switch",
+        "run": "m-new-run",
+        "reason": "The incumbent cannot be served.",
+        "checked": [{"run": "m-new-run", "psis": 12.0, "psis_pm": 4.0}],
+    }
+    served = next(e for e in data["entries"] if e["id"].startswith("m-test/"))
+    served["frontier"] = False
+    served["current_best"] = False
+    research_file.write_text(json.dumps(data))
+    html = (
+        create_app(site_root, research_data=research_file)
+        .test_client()
+        .get("/research/model")
+        .get_data(as_text=True)
+    )
+    assert "A switch is pending." in html and "<code>m-new-run</code>" in html
+    assert "<td>chosen; not published yet</td>" in html
+    assert "On the frontier</dt><dd>no" in html
+    assert "another fit is at least as accurate" in html

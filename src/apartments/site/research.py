@@ -14,6 +14,7 @@ import os
 import posixpath
 import re
 import threading
+from collections import Counter
 from pathlib import Path
 
 DEFAULT = Path(
@@ -676,6 +677,13 @@ def designs(data: dict | None, served_run: str | None) -> tuple[list[dict], list
                 "anatomy": a,
                 "best": best,
                 "fits": len(entries),
+                # Feature sets this design was fit with, most fits first.
+                "feature_sets": [
+                    f
+                    for f, _ in Counter(
+                        e.get("feature_set") for e in entries if e.get("feature_set")
+                    ).most_common()
+                ],
                 "served": name == served_design,
             }
         )

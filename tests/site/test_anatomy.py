@@ -185,3 +185,12 @@ def test_noise_differences_read_plainly():
         "what's left: one scale for every ask, not one per bedroom count",
         "what's left: ν = 5, not ν fitted",
     ]
+
+
+def test_symbols_are_the_ones_the_equation_uses():
+    a = anatomy.describe({**SERVED, "season_harmonics": 2, "season_daily": True})
+    names = [s for s, _ in a.symbols]
+    assert names == ["B(i)", "U(i)", "m(i)", "tᵢ", "dᵢ"]
+    with_curves = anatomy.describe({**SERVED, "bedroom_time": True})
+    assert ("g(i)", "bedroom group") in with_curves.symbols
+    assert ("c(i)", "calendar month") in with_curves.symbols

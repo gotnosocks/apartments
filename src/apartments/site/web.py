@@ -20,6 +20,7 @@ import sqlite3
 import time
 from pathlib import Path
 from urllib.parse import quote, urlencode, urlsplit
+from zoneinfo import ZoneInfo
 
 from flask import (
     Flask,
@@ -76,6 +77,7 @@ from .research import (
 from .selection import SELECTION, selection_note
 
 log = logging.getLogger("apartments.site")
+NEW_YORK = ZoneInfo("America/New_York")
 
 PER_PAGE = (25, 50, 100)
 BEDROOMS = {"0": "Studio", "1": "1 BR", "2": "2 BR", "3": "3 BR", "4": "4+ BR"}
@@ -618,6 +620,7 @@ def create_app(
         return render_template(
             "estimates.html",
             meta=m,
+            coverage=current_coverage(),
             current=current,
             quarantined=quarantined,
             market=market,
@@ -631,6 +634,7 @@ def create_app(
         return render_template(
             "listings.html",
             meta=meta(),
+            coverage=current_coverage() if filters.status == "current" else [],
             rows=rows,
             total=total,
             pages=pages,
@@ -760,6 +764,56 @@ def create_app(
             is not None
         )
 
+    def current_coverage() -> list[dict]:
+        """Which neighbourhoods have listings on the market in the latest
+        capture, how many, and when they were captured: [{neighbourhood,
+        listings, captured}], every neighbourhood of the build included (0 and
+        None where there is no current capture)."""
+        have = {r["name"] for r in db().execute("PRAGMA table_info(listings)")}
+        if "neighbourhood" not in have:
+            row = (
+                db()
+                .execute(
+                    "SELECT COUNT(*), MAX(collected_at) FROM listings WHERE is_current = 1"
+                )
+                .fetchone()
+            )
+            return [
+                {
+                    "neighbourhood": None,
+                    "listings": row[0],
+                    "captured": capture_day(row[1]),
+                }
+            ]
+        found = {
+            r[0]: (r[1], r[2])
+            for r in db().execute(
+                "SELECT neighbourhood, COUNT(*), MAX(collected_at) FROM listings"
+                " WHERE is_current = 1 GROUP BY neighbourhood"
+            )
+        }
+        names = sorted(set(neighbourhoods()) | set(found))
+        return [
+            {
+                "neighbourhood": n,
+                "listings": found.get(n, (0, None))[0],
+                "captured": capture_day(found.get(n, (0, None))[1]),
+            }
+            for n in names
+        ]
+
+    def capture_day(at: str | None) -> str | None:
+        """A capture time (ISO, UTC) as its New York day, "18 Sep 2026"."""
+        if not at:
+            return None
+        try:
+            t = dt.datetime.fromisoformat(at)
+        except ValueError:
+            return at[:10]
+        if t.tzinfo is not None:
+            t = t.astimezone(NEW_YORK)
+        return f"{t.day} {t:%b %Y}"
+
     def neighbourhoods() -> dict:
         """The build's neighbourhoods and their listing counts ({} for builds
         from before neighbourhoods)."""
@@ -846,7 +900,7 @@ def create_app(
                 for r in rows
             ],
             label="Each listing's ask and its leave-own-row-out estimate with "
-            "the estimate's 95% range",
+            "the 95% range for the typical rent",
         )
 
     @app.get("/units/<path:unit_id>")
@@ -1400,6 +1454,8 @@ def create_app(
         return render_template(
             "research_validation.html",
             meta=m,
+            served_entry=entry_for_run(data, served_run),
+            reference=data.get("reference"),
             classes=classes,
             hardware=hardware,
             rho=rho,
@@ -1481,6 +1537,7 @@ def create_app(
         return render_template(
             "research_model.html",
             anatomy=anatomy,
+            reference=data.get("reference") if data else None,
             meta=m,
             selection=served_selection(m),
             coefficients=coefficients,
