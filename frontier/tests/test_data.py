@@ -323,3 +323,17 @@ def test_fields_review_file_names_each_row_once_with_its_evidence():
         assert r["corrected"] != r["recorded"], r
         if r["field"] == "baths":
             assert r["full_baths"] + 0.5 * r["half_baths"] == r["corrected"], r
+
+
+def test_fields_review_v2_keeps_every_v1_row():
+    def rows(path):
+        with open(path) as f:
+            return [json.loads(line) for line in f if line.strip()]
+
+    v1, v2 = rows(data.FIELD_REVIEW), rows(data.FIELD_REVIEW_V2)
+    assert v2[: len(v1)] == v1 and len(v2) == 24
+    assert len({r["audit_id"] for r in v2}) == 24
+    for r in v2:
+        assert r["evidence"] and r["corrected"] != r["recorded"], r
+        if r["field"] == "baths":
+            assert r["full_baths"] + 0.5 * r["half_baths"] == r["corrected"], r
