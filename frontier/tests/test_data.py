@@ -62,7 +62,13 @@ def test_quarantine_drops_rows_from_the_frame_and_the_heldout_mask(monkeypatch):
 
 @pytest.mark.parametrize(
     "path",
-    [data.QUARANTINE_V1, data.QUARANTINE_V2, data.QUARANTINE_V3, data.QUARANTINE_V4],
+    [
+        data.QUARANTINE_V1,
+        data.QUARANTINE_V2,
+        data.QUARANTINE_V3,
+        data.QUARANTINE_V4,
+        data.QUARANTINE_V5,
+    ],
 )
 def test_quarantine_file_names_each_row_once_with_its_evidence(path):
     with open(path) as f:
@@ -95,6 +101,11 @@ def test_quarantine_v3_keeps_every_v2_row():
 def test_quarantine_v4_keeps_every_v3_row():
     assert data.quarantined(data.QUARANTINE_V3) < data.quarantined(data.QUARANTINE_V4)
     assert len(data.quarantined(data.QUARANTINE_V4)) == 272
+
+
+def test_quarantine_v5_keeps_every_v4_row():
+    assert data.quarantined(data.QUARANTINE_V4) < data.quarantined(data.QUARANTINE_V5)
+    assert len(data.quarantined(data.QUARANTINE_V5)) == 277
 
 
 def test_unit_line_key():
@@ -255,7 +266,7 @@ def test_the_alias_file_is_hashed_but_drops_no_rows():
     assert "unit-labels-v2" not in data.DROPPING_RULES
     groups = data.unit_aliases()
     assert len(groups) == 248 and all(len(g) > 1 for g in groups)
-    assert data.dropped_rows() == data.quarantined(data.QUARANTINE_V4)
+    assert data.dropped_rows() == data.quarantined(data.QUARANTINE_V5)
 
 
 @pytest.mark.parametrize(
