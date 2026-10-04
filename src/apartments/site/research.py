@@ -556,6 +556,8 @@ def doc_link(href: str, base: str = "docs") -> str:
     files open on GitHub; web links and in-page anchors are kept."""
     if not href or href.startswith("#"):
         return href
+    if href.startswith("site:/"):
+        return href.removeprefix("site:")  # the site itself (render_markdown)
     if re.match(r"^[a-zA-Z][a-zA-Z0-9+.-]*:", href):
         return href  # any scheme (https:, mailto:, ...) is left as written
     if href.startswith("/"):
@@ -584,6 +586,10 @@ def render_markdown(text: str) -> tuple[str, list[tuple[int, str, str]]]:
     from markdown_it import MarkdownIt
 
     md = MarkdownIt("commonmark", {"html": False}).enable("table")
+    # Links to the site itself on its tailnet host become site-relative.
+    # A bare tailnet URL in parentheses is dropped.
+    text = re.sub(r"(?<!\]) ?\((https?://[A-Za-z0-9.-]+\.ts\.net[^)\s]*)\)", "", text)
+    text = re.sub(r"https?://[A-Za-z0-9.-]+\.ts\.net(?::\d+)?(?=/)", "site:", text)
     tokens = md.parse(text)
     toc, seen = [], set()
     for i, token in enumerate(tokens):

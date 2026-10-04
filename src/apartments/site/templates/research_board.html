@@ -86,7 +86,8 @@ be served. Select a fit for its details.</p>
 </table>
 </div>
 <p class="note">PSIS-LOO ΔELPD: how well a fit predicts each listing's ask from the others, against the simplest baseline; higher is
-better, and fits within about two ± of each other tie. Fit times compare only on the same hardware. Elegance counts the judge agents'
+better. The ± is against the baseline; whether two fits differ is their paired difference, in each fit's note
+(<a href="{{ url_for('research_glossary', _anchor='delta-elpd') }}">why</a>). Fit times compare only on the same hardware. Elegance counts the judge agents'
 verdicts against other designs (<a href="{{ url_for('research_elegance') }}">every judgement</a>); effective parameters are an
 objective check beside it (fewer means the same fit with less). Checks: whether the sampler settled on one stable answer; a fit that fails them is never served. See
 <a href="{{ url_for('research_frontier') }}">the frontier</a> for these three side by side.</p>

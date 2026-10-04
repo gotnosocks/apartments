@@ -587,6 +587,7 @@ def create_app(
         return render_template(
             "home.html",
             anatomy=anatomy,
+            coverage=current_coverage(),
             meta=m,
             selection=served_selection(m),
             counts=counts,

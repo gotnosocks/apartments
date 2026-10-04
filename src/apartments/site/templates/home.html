@@ -16,7 +16,8 @@
   gap is a fair sign of over- or under-pricing.</p>
   <div class="tiles compact" aria-label="Coverage">
     <div class="tile"><span class="tile-label">Listings</span><span class="tile-value">{{ "{:,}".format(s.listings) }}</span></div>
-    <div class="tile"><span class="tile-label">Available now</span><span class="tile-value">{{ "{:,}".format(s.current_listings) }}</span></div>
+    {% set covered = coverage | selectattr("listings") | map(attribute="neighbourhood") | select | list %}
+    <div class="tile"><span class="tile-label">Available now{% if covered and covered | length < coverage | length %} ({{ covered | join(", ") }} only){% endif %}</span><span class="tile-value">{{ "{:,}".format(s.current_listings) }}</span></div>
     <div class="tile"><span class="tile-label">Buildings</span><span class="tile-value">{{ "{:,}".format(s.buildings) }}</span></div>
   </div>
   <p class="note">{{ month(s.first_period) }} to {{ month(s.last_period) }}{% if counts.quarantined %}; {{ "{:,}".format(counts.quarantined) }} more listings are
