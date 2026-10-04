@@ -3,8 +3,8 @@
 Ben runs the project as a team of Claude threads (Modeling, Data improvements, Data collection,
 Website), each with a Remote Control session on thelio. The goal is continuous improvement with
 no idle hours, so these rules are about never going quiet. They apply to the top-level session of
-a workstream thread, not to subagents, reviewers or one-off sessions. Conventions for fits, jobs, PRs and
-deploys are in project memory and in `docs/thelio-jobs.md`.
+a workstream thread, not to subagents, reviewers or one-off sessions. Conventions for fits, jobs,
+PRs and deploys are in project memory and in `docs/thelio-jobs.md`.
 
 ## Never end a turn with nothing pending
 
