@@ -10,7 +10,7 @@ then the rest by their best accuracy.</p>
 <section class="card">
   <h2>Which parts each design has</h2>
   <p class="note">A tick means the design has the part, with its setting where it has one; a dash means it leaves the part
-  out. <a href="{{ url_for('research_model', _anchor='structure') }}">The served model's parts</a> are explained in full on
+  out. Under each design are the feature sets it has been fit with, the most-fit first. <a href="{{ url_for('research_model', _anchor='structure') }}">The served model's parts</a> are explained in full on
   its page, and each fit's page draws its own design.</p>
   <div class="table-wrap">
   <table class="data designs">
@@ -29,7 +29,7 @@ then the rest by their best accuracy.</p>
     {% for r in rows %}
       {% set parts = r.anatomy.parts | selectattr("key", "ne", "intercept") | list %}
       <tr{% if r.served %} class="served"{% endif %}>
-        <th scope="row"><a href="{{ url_for('research_fit', key=r.best.key, _anchor='structure') }}"><code>{{ r.name }}</code></a>{% if r.served %} <span class="tag">served</span>{% endif %}</th>
+        <th scope="row"><a href="{{ url_for('research_fit', key=r.best.key, _anchor='structure') }}"><code>{{ r.name }}</code></a>{% if r.served %} <span class="tag">served</span>{% endif %}{% if r.feature_sets %}<span class="feature-sets">{{ r.feature_sets | join(", ") }}</span>{% endif %}</th>
         {% for key, label, what in anatomy_levels %}{% for p in parts if p.level == key %}
         <td class="part-cell{% if not p.present %} off{% endif %}">{% if p.present %}<span aria-hidden="true">✓</span><span class="visually-hidden">yes</span>{% if p.short %} {{ p.short }}{% endif %}{% else %}<span aria-hidden="true">—</span><span class="visually-hidden">no</span>{% endif %}</td>
         {% endfor %}{% endfor %}

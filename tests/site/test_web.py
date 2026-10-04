@@ -1242,6 +1242,7 @@ def test_fit_page_draws_the_design(client):
 def test_designs_page(client):
     html = client.get("/research/designs").get_data(as_text=True)
     assert "Which parts each design has" in html
+    assert '<span class="feature-sets">unitdesc-v1</span>' in html
     assert html.index("<code>m-test</code>") < html.index("<code>m-other</code>")
     assert "Drops building drift over time" in html
 
