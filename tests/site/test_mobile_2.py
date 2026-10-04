@@ -17,5 +17,5 @@ def test_minor_columns_marked_on_building_and_listing_pages(client):
 
 def test_map_buildings_link_to_their_pages():
     assert "function buildingUrl(id)" in JS
-    assert "window.location.href = buildingUrl(" in JS
+    assert "window.location.href = url" in JS and "evt.detail > 1" in JS
     assert "html('a', { href: buildingUrl(r.b.id) }" in JS
