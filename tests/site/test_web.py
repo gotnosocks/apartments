@@ -1306,3 +1306,18 @@ def test_fit_time_says_how_busy_the_fits_cores_were(client):
     assert "clean timing" in html and "#fit-cores" in html
     glossary = client.get("/research/glossary").get_data(as_text=True)
     assert 'id="fit-cores"' in glossary
+
+
+def test_designs_page_caps_the_feature_sets_shown():
+    from apartments.site.research import designs
+
+    from .conftest import research_data
+
+    data = research_data()
+    base = next(e for e in data["entries"] if e["design"] == "m-other")
+    data["entries"] += [
+        dict(base, feature_set=f"fs-{i}", key=f"m-other-{i}") for i in range(5)
+    ]
+    rows, _ = designs(data, "m-test-run")
+    other = next(r for r in rows if r["name"] == "m-other")
+    assert len(other["feature_sets"]) == 6
