@@ -35,9 +35,11 @@
 </section>
 
 <section class="card explain">
-  {% set p = (row.pit * 100) | round | int %}
+  {# Shares rounded down, so "lower than N%" is never more than true; percentiles kept within 1st–99th. #}
+  {% set p = [[(row.pit * 100) | int, 1] | max, 99] | min %}
+  {% set below_share = [((1 - row.pit) * 100) | int, 99] | min %}
   <p>The ask sits at the <strong>{{ ordinal(p) }} percentile</strong> of the asks the model expects for this apartment, in
-  this building, in {{ month(row.period) }}: {% if row.price_band == "below" %}lower than {{ 100 - p }}% of them, so
+  this building, in {{ month(row.period) }}: {% if row.price_band == "below" %}lower than {{ below_share }}% of them, so
   <strong>below typical</strong>{% elif row.price_band == "above" %}higher than {{ p }}% of them, so <strong>above
   typical</strong>{% else %}within the middle 80%, so <strong>typical</strong>{% endif %}. The range under the estimate is the
   95% uncertainty of the typical rent itself, not where an ask will land: individual asks spread more widely, so an ask can

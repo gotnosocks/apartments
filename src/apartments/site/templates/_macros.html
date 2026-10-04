@@ -1,11 +1,11 @@
 {% macro band_chip(row) -%}
 {%- set p = (row.pit * 100) | round | int -%}
 {%- if row.price_band == "below" -%}
-<span class="chip good" title="The ask is at the {{ ordinal(p) }} percentile of the model's range for this apartment."><span aria-hidden="true">▼</span> Below typical</span>
+<span class="chip good" title="The ask is at the {{ ordinal(p) }} percentile of the asks the model expects for this apartment."><span aria-hidden="true">▼</span> Below typical</span>
 {%- elif row.price_band == "above" -%}
-<span class="chip serious" title="The ask is at the {{ ordinal(p) }} percentile of the model's range for this apartment."><span aria-hidden="true">▲</span> Above typical</span>
+<span class="chip serious" title="The ask is at the {{ ordinal(p) }} percentile of the asks the model expects for this apartment."><span aria-hidden="true">▲</span> Above typical</span>
 {%- else -%}
-<span class="chip neutral" title="The ask is at the {{ ordinal(p) }} percentile of the model's range for this apartment."><span aria-hidden="true">●</span> Typical</span>
+<span class="chip neutral" title="The ask is at the {{ ordinal(p) }} percentile of the asks the model expects for this apartment."><span aria-hidden="true">●</span> Typical</span>
 {%- endif -%}
 {%- endmacro %}
 
