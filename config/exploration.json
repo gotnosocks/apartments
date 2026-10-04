@@ -3,7 +3,7 @@
   "tiers": [
     {
       "name": "exploration",
-      "description": "A short fit to rank designs quickly: 2 chains x (100 warmup + 600 draws), about 4-10 minutes. It counts on the research frontier but is never served."
+      "description": "A short fit to rank designs quickly: 2 chains x (100 warmup + 600 draws): about 6 minutes for the simplest designs and 18-22 minutes for the leading ones. It counts on the research frontier but is never served."
     },
     {
       "name": "full",
