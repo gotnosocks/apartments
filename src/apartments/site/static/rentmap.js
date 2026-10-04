@@ -277,6 +277,7 @@ function initMapEvents() {
     showTip(evt, (t) => buildingTip(t, best.i, mapState.yi));
   });
   c.addEventListener('pointerdown', (evt) => {
+    mapState.moved = false; // a new press: no drag yet
     if (!mapState.f || view.zoom === 1) return; // nothing to pan at the whole-map view
     const [px, py] = pos(evt);
     mapState.drag = { px, py, cx: view.cx, cy: view.cy, frame: null };
@@ -286,16 +287,21 @@ function initMapEvents() {
   c.addEventListener('pointerup', end);
   c.addEventListener('pointercancel', end);
   c.addEventListener('pointerleave', () => { hideTip(); if (mapState.lifted) mapState.lifted.classList.remove('lift'); });
-  // A click (not the end of a drag) on a building opens its page.
+  // A single click (not the end of a drag, not part of a double click, which
+  // zooms) on a building opens its page, after a short wait for a second click.
   c.addEventListener('click', (evt) => {
-    if (!mapState.f) return;
-    if (mapState.moved) { mapState.moved = false; return; }
+    if (!mapState.f || mapState.moved) return;
+    clearTimeout(mapState.open);
+    if (evt.detail > 1) return;
     const [px, py] = pos(evt);
     let best = null, bd = Infinity;
     for (const p of mapState.marks) { const dd = Math.hypot(p.x - px, p.y - py); if (dd < bd) { bd = dd; best = p; } }
-    if (best && bd <= HIT) window.location.href = buildingUrl(state.data.buildings[best.i].id);
+    if (!best || bd > HIT) return;
+    const url = buildingUrl(state.data.buildings[best.i].id);
+    mapState.open = setTimeout(() => { window.location.href = url; }, 300);
   });
   c.addEventListener('dblclick', (evt) => {
+    clearTimeout(mapState.open);
     if (!mapState.f) return;
     const [px, py] = pos(evt);
     view.cx += (px - mapState.f.width / 2) / mapState.f.k; view.cy -= (py - mapState.f.height / 2) / mapState.f.k;
