@@ -799,6 +799,36 @@ def test_as_of_sets_count_only_alterations_done_by_the_listing(monkeypatch):
     # As of the listing: the 2015 alteration is after the 2012 listing (and 1990
     # is before 2000); the 2001 alteration counts for the 2010 listing.
     assert flag(True) == [0, 1, 0, 1]
-    assert {"nb-facing-v3", "nb-bedtext-v2"} == features.AS_OF_SETS
+    assert {"nb-facing-v3", "nb-bedtext-v2"} <= features.AS_OF_SETS
     for files in (features.lot_files, features.area_files, features.description_files):
         assert files("nb-bedtext-v2") == files("nb-bedtext-v1")
+
+
+def test_relist_counts_only_earlier_listings_of_the_unit(monkeypatch):
+    import pandas as pd
+
+    monkeypatch.setitem(
+        features.FEATURE_SETS,
+        "stub-base",
+        lambda f, t: features.Features(
+            "stub-base", [], [], np.zeros((len(f), 0)), np.zeros(0)
+        ),
+    )
+    frame = pd.DataFrame(
+        {
+            "unit_id": ["u1", "u1", "u2", "u1"],
+            "price_at": pd.to_datetime(
+                ["2020-03-01", "2020-01-01", "2020-01-01", "2021-01-01"], utc=True
+            ),
+        }
+    )
+    out = features.relist_v1(frame, np.ones(4, bool), id="t", base="stub-base")
+    got = dict(zip(out.names, out.values.T))
+    assert got["first_listing_of_unit"].tolist() == [0, 1, 1, 0]
+    gap = got["log_months_since_last_listing"]
+    # 60 days after u1's first listing, then 306 days after that; centred.
+    raw = np.log1p(np.array([60, 306]) / 30.4)
+    np.testing.assert_allclose(gap[[0, 3]], raw - raw.mean())
+    assert gap[1] == gap[2] == 0.0
+    assert features.FEATURE_SETS["nb-relist-v1"].keywords["base"] == "nb-bedtext-v2"
+    assert "nb-relist-v1" in features.AS_OF_SETS
