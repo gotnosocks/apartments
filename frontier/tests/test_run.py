@@ -5,20 +5,26 @@ from rentfrontier.run import contention, cpu_clock
 
 
 def test_contention_counts_own_work_as_own():
-    # Spin until 0.2 s of own CPU time, however busy the machine is (light
-    # jobs run at low priority beside others).
+    # Spin until this thread has used 0.2 s of CPU, however busy the machine
+    # is (light jobs run at low priority beside others). thread_time is exact
+    # and can't run ahead of the wall clock; the process counters in the
+    # record (os.times, /proc/stat) count whole clock ticks.
+    tick = 1 / os.sysconf("SC_CLK_TCK")
     clock = cpu_clock()
-    start = sum(os.times()[:2])
+    start = time.thread_time()
     x = 0
-    while sum(os.times()[:2]) - start < 0.2:
+    while time.thread_time() - start < 0.2:
         x += 1
     load = contention(clock)
-    assert load["wall_seconds"] >= 0.2
-    assert load["own_cpu_seconds"] >= 0.2
+    wall = load["wall_seconds"]
+    assert wall >= 0.2
+    assert load["own_cpu_seconds"] >= 0.2 - 2 * tick
     assert load["other_cpu_seconds"] >= 0.0
-    assert load["other_cores"] == load["other_cpu_seconds"] / load["wall_seconds"]
+    assert load["other_cores"] == load["other_cpu_seconds"] / wall
     assert load["fit_cpus"] == sorted(os.sched_getaffinity(0))
-    assert 0.0 <= load["other_cores_on_fit_cpus"] <= len(load["fit_cpus"])
+    # Each of the fit's CPUs, and the own total, may round up by a tick.
+    n = len(load["fit_cpus"])
+    assert 0.0 <= load["other_cores_on_fit_cpus"] <= n + (n + 1) * tick / wall
 
 
 def test_contention_on_fit_cpus_ignores_other_cpus():
@@ -33,8 +39,9 @@ def test_contention_on_fit_cpus_ignores_other_cpus():
     finally:
         os.sched_setaffinity(0, before)
     assert load["fit_cpus"] == [cpu]
-    # /proc/stat counts whole 10 ms ticks, so allow one tick over the wall time.
-    assert load["other_cores_on_fit_cpus"] <= 1.1
+    # /proc/stat and os.times count whole clock ticks: allow one each.
+    tick = 1 / os.sysconf("SC_CLK_TCK")
+    assert load["other_cores_on_fit_cpus"] <= 1.0 + 2 * tick / load["wall_seconds"]
 
 
 def test_data_rules_are_validated_when_parsed():
