@@ -374,7 +374,7 @@ def test_research_model_page(client):
     assert "published by hand" in html  # the fixture bundle is not the repo's selection
     assert "+5,221.3 ± 120.4 over the" in html and "−12.5" not in html
     assert "+-12.5" not in html and "-12.5 ± 30.1" in html
-    assert "On the frontier</dt><dd>yes; the best fit on its hardware" in html
+    assert "On the frontier</dt><dd>yes, and the best fit on its hardware" in html
     assert "Convergence gate</dt><dd>passes" in html
 
 
@@ -1365,3 +1365,27 @@ def test_price_labels_are_explained_where_they_appear(client):
     assert "of the asks the model expects for this apartment" in page
     assert "lower than 90% of comparable asks" not in page
     assert "“not stated”" in page
+
+
+def test_research_model_page_shows_a_pending_switch(site_root, research_file):
+    data = json.loads(research_file.read_text())
+    data["autoselect"] = {
+        "action": "switch",
+        "run": "m-new-run",
+        "reason": "The incumbent cannot be served.",
+        "checked": [{"run": "m-new-run", "psis": 12.0, "psis_pm": 4.0}],
+    }
+    served = next(e for e in data["entries"] if e["id"].startswith("m-test/"))
+    served["frontier"] = False
+    served["current_best"] = False
+    research_file.write_text(json.dumps(data))
+    html = (
+        create_app(site_root, research_data=research_file)
+        .test_client()
+        .get("/research/model")
+        .get_data(as_text=True)
+    )
+    assert "A switch is pending." in html and "<code>m-new-run</code>" in html
+    assert "<td>chosen; not published yet</td>" in html
+    assert "On the frontier</dt><dd>no" in html
+    assert "another fit is at least as accurate" in html
