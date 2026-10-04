@@ -898,3 +898,37 @@ def test_coded_reads_outdoor_types_and_extra_rooms(monkeypatch, tmp_path):
 
     monkeypatch.setattr(run.data, "sha256", lambda p: "sha")
     assert "listing_extras" in run.feature_sources("nb-coded-v1")
+
+
+def test_coded_v2_reads_unit_features_and_amenities(monkeypatch, tmp_path):
+    import pandas as pd
+
+    path = tmp_path / "extras2.parquet"
+    pd.DataFrame(
+        {
+            "listing_id": ["1", "2"],
+            "unit_features": ["DISHWASHER|FIREPLACE", ""],
+            "amenities": ["GYM", "PARKING|STORAGE_SPACE"],
+        }
+    ).to_parquet(path)
+    monkeypatch.setattr(features, "LISTING_EXTRAS_V2_FILE", str(path))
+    monkeypatch.setitem(
+        features.FEATURE_SETS,
+        "stub-base",
+        lambda f, t: features.Features(
+            "stub-base", [], [], np.zeros((len(f), 0)), np.zeros(0)
+        ),
+    )
+    frame = pd.DataFrame({"source_listing_id": [1, 2, 9]})
+    out = features.coded_v2(frame, np.ones(3, bool), id="t", base="stub-base")
+    got = dict(zip(out.names, out.values.T))
+    assert got["coded:dishwasher"].tolist() == [1, 0, 0]
+    assert got["coded:fireplace"].tolist() == [1, 0, 0]
+    assert got["amenity:gym"].tolist() == [1, 0, 0]
+    assert got["amenity:storage_space"].tolist() == [0, 1, 0]
+    assert features.FEATURE_SETS["nb-coded-v2"].keywords["base"] == "nb-coded-v1"
+    from rentfrontier import run
+
+    monkeypatch.setattr(run.data, "sha256", lambda p: "sha")
+    src = run.feature_sources("nb-coded-v2")
+    assert {"listing_extras", "listing_extras_v2"} <= set(src)

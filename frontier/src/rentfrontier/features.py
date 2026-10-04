@@ -404,6 +404,53 @@ def coded_v1(
     )
 
 
+# The listing-extras snapshot with the coded amenity and unit-feature lists.
+LISTING_EXTRAS_V2_FILE = (
+    "/data1/apartments/external/listing-extras/20261004-da8c9ff/listing-extras.parquet"
+)
+# Coded unit features and building amenities of the listing's own record that shift
+# the ask beyond the base set (screened against the served fit, 2026-10-04).
+CODED_UNIT_FEATURES = ("DISHWASHER", "WASHER_DRYER", "FIREPLACE", "CENTRAL_AC", "LOFT")
+CODED_AMENITIES = ("SHARED_OUTDOOR_SPACE", "STORAGE_SPACE", "GYM", "PARKING")
+
+
+def coded_v2(
+    frame: pd.DataFrame,
+    train: np.ndarray,
+    id: str = "coded-v2",
+    base: str = "nb-coded-v1",
+) -> Features:
+    """A base set plus the coded unit features (dishwasher, washer/dryer, fireplace,
+    central air, loft) and building amenities (shared outdoor space, storage, gym,
+    parking) of the listing's own StreetEasy record; 0 where it lists none."""
+    base = FEATURE_SETS[base](frame, train)
+    extras = pd.read_parquet(LISTING_EXTRAS_V2_FILE).set_index("listing_id")
+    ids = frame.source_listing_id.astype(str)
+    feats = ids.map(extras.unit_features).fillna("").str.split("|")
+    amen = ids.map(extras.amenities).fillna("").str.split("|")
+    b = _Builder(frame)
+    for code in CODED_UNIT_FEATURES:
+        b.add(
+            "coded features",
+            f"coded:{code.lower()}",
+            feats.map(lambda t, c=code: c in t),
+        )
+    for code in CODED_AMENITIES:
+        b.add(
+            "coded amenities",
+            f"amenity:{code.lower()}",
+            amen.map(lambda t, c=code: c in t),
+        )
+    out = b.build(id)
+    return Features(
+        id,
+        base.names + out.names,
+        base.groups + out.groups,
+        np.column_stack([base.values, out.values]),
+        np.concatenate([base.prior_scale, out.prior_scale]),
+    )
+
+
 # External snapshots read by feature sets (rentfrontier.registry, .external).
 REGISTRY_SNAPSHOT = "/data1/apartments/external/registry/20260925-6b67137"
 PLUTO_SNAPSHOT = "/data1/apartments/external/pluto/20260925-3096a62"
@@ -1474,6 +1521,7 @@ EXTERNAL = {
     "nb-bedtext-v2",
     "nb-relist-v1",
     "nb-coded-v1",
+    "nb-coded-v2",
     "wv-unitpluto-v1",
     "pluto-v1",
     "unitfloor-v2",
@@ -1509,6 +1557,7 @@ BASEMAP = {
     "nb-bedtext-v2",
     "nb-relist-v1",
     "nb-coded-v1",
+    "nb-coded-v2",
 }
 # Feature sets that read the building footprints snapshot.
 FOOTPRINTS = {
@@ -1523,6 +1572,7 @@ FOOTPRINTS = {
     "nb-bedtext-v2",
     "nb-relist-v1",
     "nb-coded-v1",
+    "nb-coded-v2",
 }
 # Feature sets that read the 311 noise complaints snapshot.
 NOISE = {"unitnoise-v1"}
@@ -1538,6 +1588,7 @@ DESCRIPTIONS = {
     "nb-bedtext-v2",
     "nb-relist-v1",
     "nb-coded-v1",
+    "nb-coded-v2",
     "desc-v1",
     "unitdesc-v1",
     "unitdescpluto-v1",
@@ -1591,6 +1642,8 @@ FEATURE_SETS = {
     "nb-relist-v1": partial(relist_v1, id="nb-relist-v1", base="nb-bedtext-v2"),
     # nb-relist-v1 plus the listing record's outdoor space types and extra rooms.
     "nb-coded-v1": partial(coded_v1, id="nb-coded-v1", base="nb-relist-v1"),
+    # nb-coded-v1 plus the record's coded unit features and building amenities.
+    "nb-coded-v2": partial(coded_v2, id="nb-coded-v2", base="nb-coded-v1"),
     # West Village: the app design's building facts (as unitdescpluto-v3) on the
     # unit and floor features (no West Village ads: see nb-facing-v2).
     "wv-unitpluto-v1": partial(
@@ -1688,6 +1741,7 @@ LOT_SNAPSHOTS = {
     "nb-bedtext-v2": {"registry": NB_REGISTRY_FILE, "pluto": NB_PLUTO_FILE},
     "nb-relist-v1": {"registry": NB_REGISTRY_FILE, "pluto": NB_PLUTO_FILE},
     "nb-coded-v1": {"registry": NB_REGISTRY_FILE, "pluto": NB_PLUTO_FILE},
+    "nb-coded-v2": {"registry": NB_REGISTRY_FILE, "pluto": NB_PLUTO_FILE},
     "unitnoise-v1": {"registry": REGISTRY_V3_FILE, "pluto": PLUTO_V3_FILE},
 }
 
@@ -1705,13 +1759,22 @@ DESCRIPTION_SOURCES = {
     "nb-bedtext-v2": _NB_DESCRIPTIONS,
     "nb-relist-v1": _NB_DESCRIPTIONS,
     "nb-coded-v1": _NB_DESCRIPTIONS,
+    "nb-coded-v2": _NB_DESCRIPTIONS,
 }
 
 
 # Feature sets whose building alterations are dated as of each listing.
-AS_OF_SETS = {"nb-facing-v3", "nb-bedtext-v2", "nb-relist-v1", "nb-coded-v1"}
+AS_OF_SETS = {
+    "nb-facing-v3",
+    "nb-bedtext-v2",
+    "nb-relist-v1",
+    "nb-coded-v1",
+    "nb-coded-v2",
+}
 # Feature sets that read the listing-extras snapshot.
-LISTING_EXTRAS = {"nb-coded-v1"}
+LISTING_EXTRAS = {"nb-coded-v1", "nb-coded-v2"}
+# Feature sets that read the listing-extras snapshot with the coded lists.
+LISTING_EXTRAS_V2 = {"nb-coded-v2"}
 
 
 # Feature sets that read other basemap and footprints snapshots than the first.
@@ -1723,6 +1786,7 @@ AREA_SNAPSHOTS = {
     "nb-bedtext-v2": {"basemap": NB_BASEMAP_FILE, "footprints": NB_FOOTPRINTS_FILE},
     "nb-relist-v1": {"basemap": NB_BASEMAP_FILE, "footprints": NB_FOOTPRINTS_FILE},
     "nb-coded-v1": {"basemap": NB_BASEMAP_FILE, "footprints": NB_FOOTPRINTS_FILE},
+    "nb-coded-v2": {"basemap": NB_BASEMAP_FILE, "footprints": NB_FOOTPRINTS_FILE},
 }
 
 
