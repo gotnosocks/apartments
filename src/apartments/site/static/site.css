@@ -165,7 +165,7 @@ fieldset.field { border: 0; margin: 0; padding: 0; }
 .explain p { margin: 0.3rem 0; max-width: 60rem; }
 
 /* Tables: tabular figures only where columns align. */
-.table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+.table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; position: relative; }
 .table-wrap.tall { max-height: 32rem; overflow-y: auto; }
 table.data { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
 .data th, .data td { text-align: left; padding: 0.42rem 0.6rem; border-bottom: 1px solid var(--grid); vertical-align: top; }
@@ -307,7 +307,8 @@ details.table-view summary { cursor: pointer; color: var(--link); font-size: 0.9
 .rent-map .seg legend { float: left; font-weight: 600; margin-right: 4px; padding: 0; font-size: 0.9rem; color: var(--ink); }
 .rent-map .chip { border: 1px solid var(--border); border-radius: 999px; padding: 2px 10px 2px 6px; font-size: 0.85rem; cursor: pointer; font-weight: 400; background: none; color: var(--ink); }
 .rent-map .chip:has(input:checked) { background: var(--neutral-bg); }
-.rent-map .year-control { display: flex; align-items: center; gap: 6px; }
+.rent-map .year-control { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; max-width: 100%; }
+.rent-map .year-control input[type="range"] { flex: 1 1 8rem; min-width: 0; }
 .rent-map .year-control output { font-weight: 650; min-width: 3rem; }
 .rent-map .check-inline { font-size: 0.9rem; }
 .rent-map button.ghost { background: none; color: var(--ink); border: 1px solid var(--axis); font-weight: 500; padding: 0.2rem 0.6rem; }
@@ -423,3 +424,30 @@ table.designs .feature-sets { display: block; white-space: normal; max-width: 16
 .band-note { margin-top: 0.5rem; }
 
 .notice { background: var(--warn-bg); color: var(--ink); border-left: 3px solid var(--warn); padding: 0.5rem 0.75rem; border-radius: 4px; }
+
+/* Phones: the price columns first. Minor columns (ranges, counts) are left out below 640px, and a
+   table wider than the screen shows a shadow at the edge it scrolls toward. */
+@media (max-width: 640px) {
+  .col-minor { display: none; }
+}
+.table-wrap {
+  background:
+    linear-gradient(to right, var(--surface) 30%, transparent) left / 2rem 100% no-repeat local,
+    linear-gradient(to left, var(--surface) 30%, transparent) right / 2rem 100% no-repeat local,
+    radial-gradient(farthest-side at 0 50%, rgba(0, 0, 0, 0.18), transparent) left / 0.8rem 100% no-repeat scroll,
+    radial-gradient(farthest-side at 100% 50%, rgba(0, 0, 0, 0.18), transparent) right / 0.8rem 100% no-repeat scroll;
+}
+/* Phones: each listing row becomes a card, the place first, then the prices in a grid. */
+@media (max-width: 640px) {
+  table.listings thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+  table.listings, table.listings tbody { display: block; }
+  table.listings tr { display: grid; grid-template-columns: 1fr 1fr; gap: 0.15rem 0.75rem; padding: 0.6rem 0; border-bottom: 1px solid var(--grid); }
+  table.listings td { display: block; border: 0; padding: 0; text-align: left; white-space: normal; }
+  table.listings td.c-place { grid-column: 1 / -1; order: -2; font-weight: 600; }
+  table.listings td.c-date, table.listings td.c-layout { order: -1; color: var(--ink-2); font-size: 0.85rem; }
+  table.listings td[data-label]::before { content: attr(data-label); display: block; color: var(--muted); font-size: 0.72rem; }
+  table.listings td.empty { grid-column: 1 / -1; }
+  table.data.listings td.num { text-align: left; }
+  table.data.listings td.col-minor { display: none; }
+  table.buildings td:first-child { min-width: 9rem; }
+}
