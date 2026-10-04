@@ -33,8 +33,9 @@
   <div class="eq-line"><span class="eq-math">{% for t in m %}<span class="eq-term">{{ t }}</span>{% endfor %}</span>{% if label %}<span class="eq-level">{{ label }}</span>{% endif %}</div>
   {% endfor %}
 </div>
-<p class="note">r<sub>i</sub> is listing i's asking rent. B(i), U(i), L(i), m(i) and c(i) are its building, apartment, line,
-month and calendar month, and t<sub>i</sub> its date. The table below names every term.</p>
+<p class="note">r<sub>i</sub> is listing i's asking rent. B(i), U(i), L(i), g(i), m(i) and c(i) are its building, apartment,
+line, bedroom group, month and calendar month, t<sub>i</sub> its date and d<sub>i</sub> that date's place in its year. The
+table below names every term.</p>
 {% endmacro %}
 
 {% macro parts_table(a) %}

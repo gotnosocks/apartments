@@ -24,8 +24,8 @@ from markupsafe import Markup, escape
 # ModelConfig's defaults for the fields that change what a model says. Older
 # run records predate some fields; a missing field had its default. Some fields
 # are not on master's ModelConfig but appear in run records from model
-# branches (noise_by_bedrooms, learned_feature_groups) or from code since
-# reverted (line_min_units); they are described so those fits read right.
+# branches (learned_feature_groups) or from code since reverted
+# (line_min_units); they are described so those fits read right.
 DEFAULTS = {
     "trend": True,
     "season": True,
@@ -34,6 +34,7 @@ DEFAULTS = {
     "units": True,
     "market_drift": False,
     "season_harmonics": 0,
+    "season_daily": False,
     "noise_by_bedrooms": False,
     "building_walk": False,
     "walk_knot_months": 6,
@@ -350,6 +351,8 @@ def describe(model: dict | None, sizes: dict | None = None) -> Anatomy | None:
         if "season_zerosum" in (c.get("coordinates") or ())
         else c["season_harmonics"] or 0
     )
+    # The Fourier season at each listing's date (fraction of its year).
+    daily = bool(harmonics and c["season_daily"])
     add(
         "season",
         "market",
@@ -357,23 +360,37 @@ def describe(model: dict | None, sizes: dict | None = None) -> Anatomy | None:
         c["season"],
         setting=(
             f"{harmonics} Fourier pair{'s' if harmonics != 1 else ''}"
+            + (" at each listing's date" if daily else "")
             if harmonics
             else "12 month effects"
         ),
         plain=(
-            "Some calendar months can be pricier than others, "
+            (
+                "Some times of year can be pricier than others, with the same pattern "
+                "every year, drawn as a smooth yearly wave through each listing's own "
+                "date, so the end of one month flows into the next."
+            )
+            if daily
+            else "Some calendar months can be pricier than others, "
             "with the same pattern every year"
             + (", drawn as a smooth yearly wave" if harmonics else "")
             + "."
         ),
         prior=(
-            f"s_c = Σ_k a_k sin(2πkc/12) + b_k cos(2πkc/12), a_k, b_k ~ Normal(0, σ_s / k), "
+            "s(d) = Σ_k a_k sin(2πkd) + b_k cos(2πkd), d the fraction of the year, "
+            f"a_k, b_k ~ Normal(0, σ_s / k), σ_s ~ HalfNormal({_num(c['season_scale_sd'])})"
+            if daily
+            else f"s_c = Σ_k a_k sin(2πkc/12) + b_k cos(2πkc/12), a_k, b_k ~ Normal(0, σ_s / k), "
             f"σ_s ~ HalfNormal({_num(c['season_scale_sd'])})"
             if harmonics
             else f"s_c ~ Normal(0, σ_s), σ_s ~ HalfNormal({_num(c['season_scale_sd'])})"
         ),
         count=(2 * harmonics if harmonics else 12) + 1,
-        math=_sub(_mi("s"), _of("c")),
+        math=(
+            _row(_mi("s"), _mo("("), _sub(_mi("d"), _mi("i")), _mo(")"))
+            if daily
+            else _sub(_mi("s"), _of("c"))
+        ),
     )
     btk = c["bedroom_time_knot_months"]
     add(
@@ -652,7 +669,9 @@ def describe(model: dict | None, sizes: dict | None = None) -> Anatomy | None:
 
     short = {
         "trend": _every(tk),
-        "season": f"{harmonics} Fourier" if harmonics else "12 months",
+        "season": (f"{harmonics} Fourier" + (", daily" if daily else ""))
+        if harmonics
+        else "12 months",
         "bedroom_time": _every(btk),
         "walk": ", ".join(
             [f"{wk} mo"]
@@ -726,6 +745,22 @@ def differences(a: Anatomy, b: Anatomy) -> list[str]:
                 mine = _join(p.words_learned) or "none"
                 yours = _join(q.words_learned) or "none"
                 out.append(f"features with a learned prior scale: {mine}, not {yours}")
+        elif p.key == "noise" and p.present and q.present:
+            beds = ["per bedroom count" in x.setting for x in (p, q)]
+            if beds[0] != beds[1]:
+                out.append(
+                    "what's left: one scale per bedroom count, not one for every ask"
+                    if beds[0]
+                    else "what's left: one scale for every ask, not one per bedroom count"
+                )
+            nus = [
+                next(
+                    (b for b in x.setting.split(", ") if b.startswith("ν")), "ν fitted"
+                )
+                for x in (p, q)
+            ]
+            if nus[0] != nus[1]:
+                out.append(f"what's left: {nus[0]}, not {nus[1]}")
         elif p.present and p.setting != q.setting:
             out.append(
                 f"{p.label.lower()}: {p.setting or 'plain'}, not {q.setting or 'plain'}"
