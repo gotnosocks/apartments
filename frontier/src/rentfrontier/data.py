@@ -218,6 +218,9 @@ QUARANTINE_V2 = REPO / "config" / "reviews" / "chelsea-quarantine-v2-20260930.js
 # v2 plus the third review (2026-10-02): West Village, read for the first time
 # (its ads from the granular crawl), and Chelsea's ads against the same detectors.
 QUARANTINE_V3 = REPO / "config" / "reviews" / "quarantine-v3-20261002.jsonl"
+# v3 and a fourth review (2026-10-03): the ads of single-listing apartments the
+# served fit gives a very large unit effect, read for errors their own words show.
+QUARANTINE_V4 = REPO / "config" / "reviews" / "quarantine-v4-20261003.jsonl"
 
 
 @functools.lru_cache(maxsize=4)
@@ -289,6 +292,9 @@ BEDROOM_CORRECTIONS_V2 = (
     REPO / "config" / "corrections" / "bedrooms-ad-v2-20261003.jsonl"
 )
 BATH_CORRECTIONS_V2 = REPO / "config" / "corrections" / "baths-ad-v2-20261003.jsonl"
+# Field errors a review found by reading ads (the fourth review, of single-listing
+# apartments with a very large unit effect): bedroom and bath counts.
+FIELD_REVIEW = REPO / "config" / "corrections" / "fields-review-20261003.jsonl"
 
 
 def correct_baths_v1(frame: pd.DataFrame) -> pd.DataFrame:
@@ -309,7 +315,9 @@ def correct_baths_v2(frame: pd.DataFrame) -> pd.DataFrame:
 def _correct_baths(frame: pd.DataFrame, rule: str) -> pd.DataFrame:
     with open(RULE_SOURCES[rule]) as f:
         rows = {
-            r["audit_id"]: r for r in (json.loads(line) for line in f if line.strip())
+            r["audit_id"]: r
+            for r in (json.loads(line) for line in f if line.strip())
+            if "full_baths" in r
         }
     out = frame.copy()
     hit = out.audit_id.isin(rows)
@@ -320,6 +328,16 @@ def _correct_baths(frame: pd.DataFrame, rule: str) -> pd.DataFrame:
     return out
 
 
+def correct_fields_review_v1(frame: pd.DataFrame) -> pd.DataFrame:
+    """Bedroom and bath counts a review read in the listing's own ad, where the
+    record contradicts it (16 rows: "huge alcove studio" recorded as a
+    one-bedroom, "3br 2 bath" with one bath). Every row is kept; only
+    `bedrooms`, `full_baths` and `half_baths` change."""
+    return _correct_baths(
+        _correct_bedrooms(frame, "fields-review-v1"), "fields-review-v1"
+    )
+
+
 def quarantine_v3(frame: pd.DataFrame) -> pd.DataFrame:
     """v2 and the third review's rows (261 in all): 65 West Village and 8
     Chelsea ads whose own words place the apartment elsewhere (Brooklyn's
@@ -327,6 +345,15 @@ def quarantine_v3(frame: pd.DataFrame) -> pd.DataFrame:
     Side), offer a shop, restaurant, office or event space, a room, or a short
     stay only, or contradict the recorded ask. The other rows are unchanged."""
     return frame[~frame.audit_id.isin(quarantined(QUARANTINE_V3))]
+
+
+def quarantine_v4(frame: pd.DataFrame) -> pd.DataFrame:
+    """v3 and the fourth review's rows (272 in all): the ads of 553 apartments
+    with one listing and a very large unit effect, read in full; 7 place the
+    apartment at another address (One Morton Square, The Grove, PS90 in
+    Harlem, near Columbia), 2 offer a short stay only, 1 a room, and 1 states
+    another rent than the ask. The other rows are unchanged."""
+    return frame[~frame.audit_id.isin(quarantined(QUARANTINE_V4))]
 
 
 # Named data rules, applied after the held-out split is drawn (the row split
@@ -360,21 +387,25 @@ DATA_RULES = {
     "baths-ad-v1": correct_baths_v1,
     "bedrooms-ad-v2": correct_bedrooms_v2,
     "baths-ad-v2": correct_baths_v2,
+    "fields-review-v1": correct_fields_review_v1,
     "quarantine-v3": quarantine_v3,
+    "quarantine-v4": quarantine_v4,
 }
 # Rules that read a file; run records hash the files.
 RULE_SOURCES = {
     "quarantine-v1": QUARANTINE_V1,
     "quarantine-v2": QUARANTINE_V2,
     "quarantine-v3": QUARANTINE_V3,
+    "quarantine-v4": QUARANTINE_V4,
     "unit-labels-v2": UNIT_ALIASES,
     "bedrooms-ad-v1": BEDROOM_CORRECTIONS,
     "baths-ad-v1": BATH_CORRECTIONS,
     "bedrooms-ad-v2": BEDROOM_CORRECTIONS_V2,
     "baths-ad-v2": BATH_CORRECTIONS_V2,
+    "fields-review-v1": FIELD_REVIEW,
 }
 # Of those, the rules that drop the rows their file lists.
-DROPPING_RULES = ("quarantine-v1", "quarantine-v2", "quarantine-v3")
+DROPPING_RULES = ("quarantine-v1", "quarantine-v2", "quarantine-v3", "quarantine-v4")
 
 
 def dropped_rows() -> frozenset:
