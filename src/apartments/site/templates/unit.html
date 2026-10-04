@@ -22,6 +22,12 @@
   <p class="note">Each estimate uses the unit's other listings but not its own ask. Latest listing:
   ask {{ usd(unit.last_ask) }}, estimate {{ usd(unit.last_estimate) }} ({{ pct(100 * unit.last_residual_pct) }}).</p>
   {{ chart }}
+  {% if layout_changes %}
+  <p class="note layout-change"><strong>Layout changed</strong> between listings:
+  {% for c in layout_changes %}{{ m.layout(c.before) }} in {{ month(c.before.period) }} to {{ m.layout(c.after) }} in
+  {{ month(c.after.period) }}{{ "; " if not loop.last }}{% endfor %}. A renovation can do this, or one of the ads has the layout
+  wrong; each estimate uses its own listing's layout.</p>
+  {% endif %}
   {{ m.listing_table(rows, show_building=False, show_source=True) }}
 </section>
 {% if quarantined %}
