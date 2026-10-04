@@ -143,6 +143,7 @@ class Design:
     # (12, 2K) Fourier basis of the season (`season_harmonics`); None for 12
     # month effects.
     season_basis: jnp.ndarray | None = None
+    season_daily: bool = False  # the season at each row's date (dense block)
 
     @property
     def noise_names(self):
@@ -368,7 +369,13 @@ def build_design(
     a[:, 0] = 1.0
     a[:, 1 : 1 + f] = tr.x
     a[:, trend] = trend_basis[tr.month]
-    if config.season_harmonics:
+    if config.season_harmonics and config.season_daily:
+        # Daily Fourier season: the basis at the row's own date. Not a function
+        # of (bedroom group, month), so these columns join the dense block.
+        a[:, season] = model_module.day_basis(
+            np.asarray(tr.year_frac), config.season_harmonics
+        )
+    elif config.season_harmonics:
         # Fourier season: the basis at the row's calendar month (centred).
         a[:, season] = model_module.season_basis(config.season_harmonics)[tr.calendar]
     else:
@@ -399,6 +406,8 @@ def build_design(
     gram_n_keys = 4 * t
     gram_key = np.minimum(tr.bed_group, 3) * t + tr.month
     fcols = np.arange(1, 1 + f)
+    if config.season_daily:
+        fcols = np.concatenate([fcols, np.arange(season.start, season.stop)])
     kcols = np.setdiff1d(np.arange(p), fcols)
     gram_basis = np.zeros((gram_n_keys, len(kcols)))
     gram_basis[gram_key] = a[:, kcols]
@@ -518,9 +527,14 @@ def build_design(
         local_ranks=local_ranks,
         trend=trend,
         season=season,
-        season_basis=jnp.asarray(model_module.season_basis(config.season_harmonics))
+        season_basis=jnp.asarray(
+            model_module.mid_month_basis(config.season_harmonics)
+            if config.season_daily
+            else model_module.season_basis(config.season_harmonics)
+        )
         if config.season_harmonics
         else None,
+        season_daily=bool(config.season_harmonics and config.season_daily),
         bedroom_time=bedroom_time,
         trend_basis=jnp.asarray(trend_basis),
         bedroom_time_basis=jnp.asarray(bed_basis),
@@ -928,6 +942,7 @@ def site_values(d: Design, state):
         "season_raw": theta[d.season]
         if d.season_basis is None
         else d.season_basis @ theta[d.season],
+        **({"season_daily_coef": theta[d.season]} if d.season_daily else {}),
         "building": theta_l[:, 0],
         "unit": state["unit"],
         "nu": state["nu"],
