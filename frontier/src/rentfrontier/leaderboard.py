@@ -561,13 +561,11 @@ def choose_best(entries, paired=paired_loo):
 
 
 def frontier_candidate(e) -> bool:
-    """Interpretable and scored, and passing the gate unless an exploration
-    fit: those count without it, judged on ranking (Ben, 2026-10-01)."""
-    return bool(
-        e["interpretable"]
-        and scored(e)
-        and (e["passes_checks"] or (e.get("tier") or {}).get("name") == "exploration")
-    )
+    """Interpretable, scored and passing the convergence gate: the frontier line
+    is drawn from converged fits only. Exploration fits that fail the gate are
+    still shown as research points, off the line (statistician review,
+    2026-10-04)."""
+    return bool(e["interpretable"] and scored(e) and e["passes_checks"])
 
 
 def on_frontier(entries):

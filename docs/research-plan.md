@@ -30,9 +30,10 @@ queue and design work before it; the rest of this plan is context.
     37–45% against a full combined fit (1,239 s against 1,971 s; fit time is roughly 750 s plus 20 s
     per thousand training rows). It always fails the gate on `beta[label:lower_level]`. Fewer draws
     is probably the bigger lever; it is being measured.
-  - **Exploration fits count** as points on the research frontier and board, tagged with their tier
-    (draws, warmup, chains, subset). Ben judges the research by them. The gate is not required of
-    them; a full-tier fit still needs it.
+  - **Exploration fits count** as points on the research board, tagged with their tier (draws,
+    warmup, chains, subset). Ben judges the research by them. The frontier *line* is drawn from
+    gate-passing fits only, so a short fit's unconverged score never sets it; exploration fits that
+    fail the gate show as points off the line (statistician review, 2026-10-04).
   - A subset fit scores fewer rows, so it is shown with its tier but cannot sit on the full-data
     frontier.
 - **Serving is separate.** Only a full-tier, full-data fit that passes the gate is served to the rest
@@ -353,8 +354,8 @@ You do not need my approval to change the dashboard model."
   2026-10-01).
 - **Frontier.** Eligible entries that no other eligible entry beats on PSIS-LOO ΔELPD, fit time and
   judged elegance at once: at least as good on accuracy and time, not judged less elegant, and
-  better on one of the three. A pair not judged counts as equal. Exploration fits count without the
-  gate (they are judged on ranking).
+  better on one of the three. A pair not judged counts as equal. Only gate-passing fits are
+  eligible; exploration fits that fail the gate are shown, but off the frontier.
 - Screen-grade PyMC runs stay visible and are never best or on the frontier. PyMC screens that
   saved no draws have no PSIS-LOO score yet.
 
