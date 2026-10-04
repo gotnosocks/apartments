@@ -7,9 +7,9 @@
 <dl class="facts wide">
   {% if ps.k_share is number %}
   <dt><a href="{{ url_for('research_glossary', _anchor='pareto-k') }}">Pareto k</a> above {{ "%.2f" | format(ps.k_threshold) if ps.k_threshold is number else "the threshold" }}</dt>
-  <dd>{{ "%.1f" | format(100 * ps.k_share) }}% of listings{% if ps.k_over is number %} ({{ "{:,}".format(ps.k_over) }}){% endif %}.
+  <dd>{{ "%.1f" | format(100 * ps.k_share) }}% of the listings in the fit{% if ps.k_over is number %} ({{ "{:,}".format(ps.k_over) }}){% endif %}.
     <span class="muted">For these listings the leave-one-out shortcut is unreliable, so their estimates are marked less reliable.
-    A share of a percent or two is healthy; a large share would mean PSIS-LOO overstates the accuracy.</span></dd>
+    A share of a percent or two is usual; a large share would mean PSIS-LOO may overstate the accuracy.</span></dd>
   {% endif %}
   {% if v.heldout_mean_lpd is number and v.psis_mean_lpd_multi_row_units is number %}
   {% set gap = v.heldout_mean_lpd - v.psis_mean_lpd_multi_row_units %}
@@ -22,8 +22,10 @@
   {% endif %}
   {% if rows.delta is number %}
   <dt>Held-out score against the reference</dt>
-  <dd>{{ "{:+,.1f}".format(rows.delta) }}{% if rows.delta_se is number %} ± {{ "{:,.1f}".format(rows.delta_se) }}{% endif %} on the held-out listings{% if reference %},
-    against the <a href="{{ url_for('research_glossary', _anchor='reference-model') }}">reference model</a> ({{ reference.label }}){% endif %}.
+  <dd>{{ "{:+,.1f}".format(rows.delta) }}{% if rows.delta_se is number %} ± {{ "{:,.1f}".format(rows.delta_se) }}{% endif %} on the
+    {% if rows.paired_rows is number %}{{ "{:,}".format(rows.paired_rows) }} {% endif %}held-out listings the
+    <a href="{{ url_for('research_glossary', _anchor='reference-model') }}">reference model</a>{% if reference %} ({{ reference.label }}){% endif %}
+    also scored, summed over those listings.
     <span class="muted">Positive means this fit predicts asks it never saw better than the reference does.</span></dd>
   {% endif %}
 </dl>
