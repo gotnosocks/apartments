@@ -371,14 +371,16 @@ def coded_v1(
     """A base set plus coded fields of the listing's own StreetEasy record that the
     dataset lacks: its private outdoor space types (terrace, private roof deck,
     garden, balcony, patio) and its rooms beyond the bedrooms (room count less
-    bedrooms: 0-1, 2, 3 or 4+, against 2; unknown where the record has none)."""
+    bedrooms: 0-1, 2, 3 or 4+, against 2; unknown where the record has none or
+    states more than ten extra rooms)."""
     base = FEATURE_SETS[base](frame, train)
     extras = pd.read_parquet(LISTING_EXTRAS_FILE).set_index("listing_id")
     ids = frame.source_listing_id.astype(str)
     types = ids.map(extras.outdoor_types).fillna("").str.split("|")
     rooms = pd.to_numeric(ids.map(extras.room_count), errors="coerce")
     extra = rooms - pd.to_numeric(frame.bedrooms, errors="coerce")
-    known = rooms.gt(0) & extra.ge(0)
+    # A room count more than ten above the bedrooms is a recording error.
+    known = rooms.gt(0) & extra.ge(0) & extra.le(10)
     level = pd.Series("unknown", index=frame.index)
     level[known & extra.le(1)] = "0-1"
     level[known & extra.eq(2)] = "2"

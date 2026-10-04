@@ -889,8 +889,10 @@ def test_coded_reads_outdoor_types_and_extra_rooms(monkeypatch, tmp_path):
     assert got["outdoor:balcony"].tolist() == [0, 1, 0, 0, 0]
     assert got["outdoor:garden"].tolist() == [0, 0, 0, 1, 0]
     # extra rooms: 5-1=4 -> 4+; 3-1=2 (reference); 0 rooms -> unknown; 2-1=1 -> 0-1
-    names = [n for n in out.names if n.startswith("rooms beyond bedrooms")]
-    assert names, out.names
+    level = {n.split("=", 1)[1]: got[n].tolist() for n in out.names if "=" in n}
+    assert level["4+"] == [1, 0, 0, 0, 0]
+    assert level["0-1"] == [0, 0, 0, 1, 0]
+    assert level["unknown"] == [0, 0, 1, 0, 1]
     assert "nb-coded-v1" in features.LISTING_EXTRAS
     from rentfrontier import run
 
