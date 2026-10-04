@@ -984,7 +984,8 @@ def test_elegance_page_lists_every_judgement(client):
     assert "Ties in accuracy go to the more elegant model." in html
     assert "renter" not in html
     # newest first; each design links to a fit on the board, with its p_loo
-    assert html.index("m-other/unitdesc-v1") < html.index("m-cpu/unitdesc-v1")
+    listing = html[html.index("<h2>Every judgement</h2>") :]  # after the standings
+    assert listing.index("m-other/unitdesc-v1") < listing.index("m-cpu/unitdesc-v1")
     assert "<code>m-other/unitdesc-v1</code></a>" in html
     assert "(413 effective parameters)" in html
     assert "<code>m-test/unitdesc-v1</code> is more elegant" in html
