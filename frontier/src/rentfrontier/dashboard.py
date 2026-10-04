@@ -471,6 +471,9 @@ DATA_RULE_TEXT = {
     "fields-review-v1": "Bedroom and bath counts a review corrected by reading the "
     'listing\'s own ad ("huge alcove studio" recorded as a one-bedroom, "3br 2 bath" '
     "recorded with one bath). No listing is dropped.",
+    "fields-review-v2": "fields-review-v1 and nine more counts a second review read in "
+    'the listing\'s own ad ("mint renovated alcove studio" recorded as a one-bedroom). '
+    "No listing is dropped.",
     "quarantine-v3": "quarantine-v2 and a third review, the first of West Village: ads "
     "that place the apartment elsewhere (Brooklyn's Grove and Bleecker Streets, Park "
     "Slope, Harlem, the Upper West Side), shops, restaurants and event spaces, a room, "

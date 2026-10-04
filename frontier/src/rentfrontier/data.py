@@ -292,6 +292,9 @@ BATH_CORRECTIONS_V2 = REPO / "config" / "corrections" / "baths-ad-v2-20261003.js
 # Field errors a review found by reading ads (the fourth review, of single-listing
 # apartments with a very large unit effect): bedroom and bath counts.
 FIELD_REVIEW = REPO / "config" / "corrections" / "fields-review-20261003.jsonl"
+# v1 and the fifth review's field errors (listings far from their estimate in
+# apartments with other listings).
+FIELD_REVIEW_V2 = REPO / "config" / "corrections" / "fields-review-v2-20261004.jsonl"
 
 
 def correct_baths_v1(frame: pd.DataFrame) -> pd.DataFrame:
@@ -332,6 +335,16 @@ def correct_fields_review_v1(frame: pd.DataFrame) -> pd.DataFrame:
     `bedrooms`, `full_baths` and `half_baths` change."""
     return _correct_baths(
         _correct_bedrooms(frame, "fields-review-v1"), "fields-review-v1"
+    )
+
+
+def correct_fields_review_v2(frame: pd.DataFrame) -> pd.DataFrame:
+    """v1's 16 rows and 9 more from the fifth review ("mint renovated alcove
+    studio" recorded as a one-bedroom, "2.5 bedrooms and 1 bath" with two
+    baths). Every row is kept; only `bedrooms`, `full_baths` and `half_baths`
+    change."""
+    return _correct_baths(
+        _correct_bedrooms(frame, "fields-review-v2"), "fields-review-v2"
     )
 
 
@@ -376,6 +389,7 @@ DATA_RULES = {
     "bedrooms-ad-v2": correct_bedrooms_v2,
     "baths-ad-v2": correct_baths_v2,
     "fields-review-v1": correct_fields_review_v1,
+    "fields-review-v2": correct_fields_review_v2,
     "quarantine-v3": quarantine_v3,
 }
 # Rules that read a file; run records hash the files.
@@ -389,6 +403,7 @@ RULE_SOURCES = {
     "bedrooms-ad-v2": BEDROOM_CORRECTIONS_V2,
     "baths-ad-v2": BATH_CORRECTIONS_V2,
     "fields-review-v1": FIELD_REVIEW,
+    "fields-review-v2": FIELD_REVIEW_V2,
 }
 # Of those, the rules that drop the rows their file lists.
 DROPPING_RULES = ("quarantine-v1", "quarantine-v2", "quarantine-v3")
