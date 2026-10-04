@@ -443,3 +443,5 @@ table.designs .feature-sets { display: block; white-space: normal; max-width: 16
   table.data.listings td.col-minor { display: none; }
   table.buildings td:first-child { min-width: 9rem; }
 }
+.muted.block { display: block; font-size: 0.78rem; }
+.design-label { color: var(--ink-2); }

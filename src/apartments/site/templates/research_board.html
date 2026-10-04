@@ -65,7 +65,8 @@ be served. Select a fit for its details.</p>
   {% for e in rows %}
     {% set run = run_of(e) %}
     <tr>
-      <td><a href="{{ url_for('research_fit', key=e.key) }}"><code>{{ e.key }}</code></a>
+      <td>{% set label = design_label(e) %}<a href="{{ url_for('research_fit', key=e.key) }}">{% if label %}{{ label }}{% else %}<code>{{ e.key }}</code>{% endif %}</a>
+        {% if label %}<span class="muted block"><code>{{ e.key }}</code></span>{% endif %}
         {% if run == served_run %} <span class="tag">served</span>{% endif %}{% if e.current_best %} <span class="tag" title="The best fit on its hardware">best on its hardware</span>{% endif %}{% if e.frontier %} <span class="tag">frontier</span>{% endif %}{% if tier_of(e) == "exploration" %} <span class="tag exploration">exploration</span>{% endif %}
         {% if e.note %}<br><span class="muted">{{ e.note }}</span>{% endif %}</td>
       <td class="nowrap">{{ e.hardware_class }}</td>
