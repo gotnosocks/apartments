@@ -25,7 +25,7 @@
   <div class="figure">
     <span class="figure-label">Model estimate</span>
     <span class="figure-value">{{ usd(row.estimate) }}</span>
-    <span class="figure-note">the estimate's 95% range {{ usd(row.estimate_lower) }}–{{ usd(row.estimate_upper) }}</span>
+    <span class="figure-note">range for the typical rent {{ usd(row.estimate_lower) }}–{{ usd(row.estimate_upper) }} (95%)</span>
   </div>
   <div class="figure">
     <span class="figure-label">Ask vs estimate</span>
@@ -39,9 +39,9 @@
   <p>The ask sits at the <strong>{{ ordinal(p) }} percentile</strong> of the asks the model expects for this apartment, in
   this building, in {{ month(row.period) }}: {% if row.price_band == "below" %}lower than {{ 100 - p }}% of them, so
   <strong>below typical</strong>{% elif row.price_band == "above" %}higher than {{ p }}% of them, so <strong>above
-  typical</strong>{% else %}within the middle 80%, so <strong>typical</strong>{% endif %}. Asks scatter more widely than the
-  estimate's own 95% range, which is only the uncertainty of the typical ask, so an ask can sit inside that range and still
-  be below or above typical.</p>
+  typical</strong>{% else %}within the middle 80%, so <strong>typical</strong>{% endif %}. The range under the estimate is the
+  95% uncertainty of the typical rent itself, not where an ask will land: individual asks spread more widely, so an ask can
+  sit inside that range and still be below or above typical, or outside it and still be typical.</p>
   {% if row.method == "heldout" %}
   <p>This listing was held out of the model fit as a validation row, so the estimate never saw its ask. It uses the unit's
   {{ row.unit_fit_rows }} other listing{{ "" if row.unit_fit_rows == 1 else "s" }}.</p>
