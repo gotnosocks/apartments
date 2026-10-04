@@ -1,34 +1,35 @@
 {
   "version": "main-analysis-selection-v2",
   "model_family": "frontier_summary",
-  "summary": "/data1/apartments/frontier/summaries/m7-nocurves-floorslope-bednoise-nb-bedtext-v1-rows-f933a45-gibbs-2060-4500k9-nb-batch3-23b58cb",
-  "summary_manifest_sha256": "15229a0268b1673d9c6ff436fee413376ff2ae97a79916d9dbfbb1bad0c9ae61",
-  "summary_commit": "23b58cb209d5aa3e56ef1bd9c089cf4340a76c06",
-  "run": "m7-nocurves-floorslope-bednoise-nb-bedtext-v1-rows-f933a45-gibbs-2060-4500k9-nb-batch3",
-  "run_commit": "f933a453cf61d3efe6800ed56c5abd3659bf611a",
-  "model": "m7-nocurves-floorslope-bednoise",
+  "summary": "/data1/apartments/frontier/summaries/m7-nocurves-floorslope-bednoise-dayfourier-bedtime-nb-bedtext-v1-rows-ed278e5-gibbs-2060-4500k9cb1-nb-v4-36a5e43",
+  "summary_manifest_sha256": "82ae044951f1f53e1859265623b612fae9e266fe141d4ab2bd8a22883f0d2f59",
+  "summary_commit": "36a5e439e3ccb8b2f6ebebb33d29a3faf9da8efc",
+  "run": "m7-nocurves-floorslope-bednoise-dayfourier-bedtime-nb-bedtext-v1-rows-ed278e5-gibbs-2060-4500k9cb1-nb-v4",
+  "run_commit": "ed278e5d5e940f6af4d763c2d899e80bc9e3d2b8",
+  "model": "m7-nocurves-floorslope-bednoise-dayfourier-bedtime",
   "feature_set": "nb-bedtext-v1",
   "data_rules": [
     "unit-labels-v2",
-    "quarantine-v3",
-    "bedrooms-ad-v1",
-    "baths-ad-v1"
+    "quarantine-v4",
+    "bedrooms-ad-v2",
+    "baths-ad-v2",
+    "fields-review-v1"
   ],
   "dataset": "/data1/apartments/frontier/datasets/chelsea-west-village-analysis-20261001-eea4f66",
   "source_observations_sha256": "c62c1e1500b20f3fc19f756ff08de4d9a175f4ab3ea2bb621157b2554fc37d10",
   "gate": {
     "passes": true,
-    "max_rhat": 1.0032379918303567,
-    "min_ess": 795.825052942038,
+    "max_rhat": 1.008377718671722,
+    "min_ess": 498.5795923894693,
     "divergences": null,
-    "group_rhat_max": 1.0252515736994672
+    "group_rhat_max": 1.0152185374745686
   },
   "psis_loo": {
-    "elpd_loo": 88733.58894290871,
-    "elpd_loo_se": 302.771993683853,
-    "loo_commit": "f933a453cf61d3efe6800ed56c5abd3659bf611a"
+    "elpd_loo": 89076.35922294515,
+    "elpd_loo_se": 302.1573717904779,
+    "loo_commit": "ed278e5d5e940f6af4d763c2d899e80bc9e3d2b8"
   },
-  "selected_by": "rentfrontier.autoselect, 2026-10-03 (Ben, 2026-09-30: switch automatically by the agreed metrics)",
-  "selection_reason": "Chosen by the automatic rule because the incumbent cannot be served: it was fit with quarantine-v2 + unit-labels-v1, not the current baths-ad-v1 + bedrooms-ad-v1 + quarantine-v3 + unit-labels-v2. Gibbs m7-nocurves-floorslope-bednoise + nb-bedtext-v1 with unit-labels-v2 + quarantine-v3 + bedrooms-ad-v1 + baths-ad-v1, 3,296 s on thelio RTX 2060 SUPER. Against the previous selection on the rows both keep: PSIS-LOO +92.1 \u00b1 32.0, held-out +4.0 \u00b1 6.9.",
+  "selected_by": "rentfrontier.autoselect, 2026-10-04 (Ben, 2026-09-30: switch automatically by the agreed metrics)",
+  "selection_reason": "Chosen by the automatic rule because the incumbent cannot be served: it was fit with baths-ad-v1 + bedrooms-ad-v1 + quarantine-v3 + unit-labels-v2, not the current baths-ad-v2 + bedrooms-ad-v2 + fields-review-v1 + quarantine-v4 + unit-labels-v2. Gibbs m7-nocurves-floorslope-bednoise-dayfourier-bedtime + nb-bedtext-v1 with unit-labels-v2 + quarantine-v4 + bedrooms-ad-v2 + baths-ad-v2 + fields-review-v1, 6,522 s on thelio RTX 2060 SUPER. Against the previous selection on the rows both keep: PSIS-LOO +302.3 \u00b1 37.4, held-out +23.3 \u00b1 11.7.",
   "uncertainty": "Conditional posterior uncertainty; source errors, omitted features and incomplete market coverage remain separate. Estimates for a unit's only listing are under-covered (92.7% in the 95% predictive range)."
 }
