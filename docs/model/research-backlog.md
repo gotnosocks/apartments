@@ -1,5 +1,76 @@
 # Chelsea pricing research backlog
 
+## Exact dates instead of months (Ben, 2026-10-03)
+
+The daily Fourier season (`season_daily`, #168) beat 12 month effects by +77.0 ± 17.2 paired,
+because a listing's own date (`price_at`) lets the end of one month flow into the next. Most other
+time terms still read only the listing's month (`Arrays.month`, `calendar`, `period` = the first
+of the month). Ben: "Brainstorm other opportunities to use specific dates instead of truncating
+pieces of date info." Dates are UTC in the data; anything about the day itself (day of month,
+weekday) converts to America/New_York first. Ranked by expected value:
+
+1. **Continuous time in every time curve.** The market trend, the bedroom-group curves
+   (`bedroom_time`) and the building walks interpolate their knots at the row's month index
+   (`knot_basis`, `walk_position`). The NUTS-only `building_trend` and `market_drift` read the
+   month too.
+   - **The bedroom-group curves** gave +196.3 ± 30.6 paired on the daily-season design at the
+     exploration tier (run `…-dayfourier-bedtime-…-ed278e5-x-2060-100w600d-nb-v4`, not yet on
+     master).
+   - **On the served design** (`m7-nocurves-floorslope-bednoise`, no bedroom curves), the item is
+     the trend plus the walks.
+   - **Gibbs cost:** the trend and bedroom curves are keyed columns (a function of bedroom group
+     and month).
+     - Keyed by bedroom group and *week* instead, about 4 × 874 keys keep the Gram exact at
+       one-week resolution. The curves must then be interpolated at the row's week, not its
+       exact date, or the keyed-basis check in `build_design` fails.
+     - With month effects for the season (no `season_daily`), a week can straddle two calendar
+       months. So this needs `season_daily`, or keys that never cross a month boundary.
+     - The building walks are local columns and take the exact fraction directly.
+   - **Test:** paired on the served design. Small buildings should be flat. The gain should
+     show in the fast-moving years (2020–2022).
+2. **Unit drift from exact dates.** `unit_time` is years from the unit's mean training *month*;
+   use days instead. Cheap, and only matters for units with several listings close together.
+3. **Within-month and weekly cycles.** NYC leases mostly start on the 1st, and listings posted
+   late in a month compete for next month's move-ins. Add a K = 1 Fourier term on the
+   day-of-month fraction and day-of-week indicators, in New York time. They are plain feature
+   columns: being tried as `nb-bedtext-cycle-v1` (batch/dayfourier-v4).
+4. **Time since the unit's previous listing.** Days between this ask and the same unit's previous
+   ask (with unit-labels-v2 joins), as a feature. A quick relist (under 90 days) suggests a
+   problem unit, a failed lease or a corrected ask; a long gap suggests a renovation. This is
+   new information, not a refinement, so it's for the data session. Only earlier listings
+   count, so there is no future information.
+5. **Building age at the listing date.** Continuous years since construction (MapPLUTO
+   `yearbuilt`) at the listing date, in place of era buckets.
+   - Alterations need care. `yearalter1/2` are from a current snapshot, year-only, and only two.
+     A 2018 alteration would apply to a 2012 listing; `altered_since_2000` already has this
+     leak.
+   - Use only alterations dated before the listing, which means DOB permit or C of O dates for
+     exact timing.
+   - Judge it on elegance as much as on PSIS-LOO.
+6. **Exact event dates for the dated features.** Several features cut off at the start of the
+   listing's month:
+   - subway openings (`stops_not_open`);
+   - 311 noise and HPD violation windows ("the `days` before the row's month");
+   - High Line sections (`nb-openspace-v1`, only on `features/nb-openspace`, recorded null in
+     #147).
+
+   Cut off at the listing's own date instead (events strictly before `price_at`). That
+   *loosens* the rule from "before the month started" to "before this listing". It is still no
+   future information. The windows keep their length and move up to a month later, so they hold
+   more recent history. `nearby_noise`'s per-month Chelsea reference would become per-date too.
+   Expect small gains.
+7. **Move-in date from the ad.** "Available 9/1", "immediate occupancy": the gap between the
+   listing date and the stated move-in date, as an urgency or seasonality signal. This is
+   ad-text work for the data session, and only worth doing if a few thousand rows state a date.
+8. **Out-of-time validation.** Score models on the last N weeks by exact date, fit on
+   everything before, as a secondary check that the time terms forecast rather than smooth.
+   This is a diagnostic, not a selection rule.
+9. **Lower priority:**
+   - Holiday and academic-calendar bumps (Labor Day, NYU's semester start in the Village):
+     daily K = 3 added nothing over K = 2, so only as fixed event windows if residuals show
+     them.
+   - Daily macro series (mortgage rates): the market trend already absorbs them.
+
 ## Model structure for the full-data frontier (2026-10-02)
 
 These are ideas for the PSIS-LOO × fit-time × elegance frontier on the combined Chelsea + West
