@@ -2,7 +2,8 @@
 
 Ben runs the project as a team of Claude threads (Modeling, Data improvements, Data collection,
 Website), each with a Remote Control session on thelio. The goal is continuous improvement with
-no idle hours, so these rules are about never going quiet. Conventions for fits, jobs, PRs and
+no idle hours, so these rules are about never going quiet. They apply to the top-level session of
+a workstream thread, not to subagents, reviewers or one-off sessions. Conventions for fits, jobs, PRs and
 deploys are in project memory and in `docs/thelio-jobs.md`.
 
 ## Never end a turn with nothing pending
@@ -17,13 +18,16 @@ So end every turn by starting `ops/team/wait-next` with the Bash tool's `run_in_
 from the copy that follows master:
 
 ```sh
-/data1/apartments/serve/master/ops/team/wait-next --gpu --pr 178 --unit 'frontier-*'
+/data1/apartments/serve/master/ops/team/wait-next --gpu --pr N
 ```
 
-It returns when a watched unit finishes, the GPU goes idle (`--gpu`), a watched PR changes
+It returns when a `frontier-*` unit finishes (`--unit PATTERN` to watch others), the GPU goes
+idle (`--gpu`: after a job ends, or after 30 minutes if it was already idle), a watched PR changes
 (`--pr N`), a file appears or changes (`--file PATH`), or after `--max` minutes (default 120) as a
 heartbeat. Its exit wakes the session with what changed. Act on it, then start it again. A
 background `ops/job` run or fit you are waiting on works too, as long as something stays pending.
+If a message wakes you while a `wait-next` is still pending, leave it running rather than
+starting a second one. Leave out `--gpu` only when you don't own GPU work.
 
 - Session crons (CronCreate) die when a session parks, and a 2-hourly cron never fires before
   the 60-minute park. Use `wait-next --max` for periodic checks, and systemd `--user` timers

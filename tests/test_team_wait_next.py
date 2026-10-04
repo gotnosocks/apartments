@@ -15,7 +15,7 @@ def load():
 
 
 def args(**kw):
-    base = dict(unit=["frontier-*"], gpu=False, pr=[], file=[], max=120.0, poll=60.0)
+    base = dict(unit=["frontier-*"], gpu=False, pr=[], file=[], max=120.0, poll=60.0, idle_grace=30.0)
     base.update(kw)
     return argparse.Namespace(**base)
 
@@ -67,10 +67,17 @@ def test_gpu_idle_needs_two_idle_polls_after_busy():
     assert fake.t == 120.0
 
 
-def test_gpu_already_idle_is_not_an_event():
+def test_gpu_idle_when_armed_fires_after_the_grace_period():
     fake = Fake(units=[set()], gpu=[[]], pr=[""], file=["missing"])
-    assert run(fake, args(gpu=True, max=10)) == [
-        "heartbeat: nothing changed in 10 min; check state and keep work queued"]
+    assert run(fake, args(gpu=True)) == ["gpu idle: nothing has used the GPU for 30 min"]
+    assert fake.t == 1800.0
+
+
+def test_failed_unit_listing_is_not_a_finish():
+    fake = Fake(units=[{"frontier-a.service"}, None, {"frontier-a.service"}],
+                gpu=[[]], pr=[""], file=["missing"])
+    assert run(fake, args(max=5)) == [
+        "heartbeat: nothing changed in 5 min; check state and keep work queued"]
 
 
 def test_pr_change_and_failed_lookup():
@@ -81,3 +88,9 @@ def test_pr_change_and_failed_lookup():
 def test_file_appearing():
     fake = Fake(units=[set()], gpu=[[]], pr=[""], file=["missing", "missing", "10 bytes"])
     assert run(fake, args(file=["/x/summary.json"])) == ["file /x/summary.json: missing -> 10 bytes"]
+
+
+def test_failed_first_pr_lookup_sets_the_baseline_silently():
+    fake = Fake(units=[set()], gpu=[[]], pr=["", "OPEN head=abc"], file=["missing"])
+    assert run(fake, args(pr=[7], poll=1, max=0.5)) == [
+        "heartbeat: nothing changed in 0.5 min; check state and keep work queued"]

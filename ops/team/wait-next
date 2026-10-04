@@ -13,7 +13,9 @@ keeps the session alive, and its exit wakes the session with what changed.
 Events (any one ends the wait):
   --unit PATTERN  an active systemd --user unit matching PATTERN finishes
                   (default frontier-*; pass --unit '' to watch none)
-  --gpu           the GPU goes idle: no gpu-class job for two polls in a row
+  --gpu           the GPU goes idle: no gpu-class job for two polls in a row after
+                  one ran, or for --idle-grace minutes (default 30) if it was idle
+                  when the wait started
   --pr N          PR N in gotnosocks/apartments changes state, review or head
   --file PATH     PATH appears or changes
   --max MINUTES   the heartbeat: nothing else happened for this long (default 120)
@@ -38,26 +40,31 @@ GPU_SLICE = Path(
 )
 
 
-def run(cmd: list[str]) -> str:
+def run(cmd: list[str]) -> str | None:
+    """stdout, or None when the command fails (callers treat None as "unknown")."""
     try:
-        return subprocess.run(cmd, capture_output=True, text=True, timeout=60).stdout
+        r = subprocess.run(cmd, capture_output=True, text=True, timeout=60)
     except (OSError, subprocess.SubprocessError):
-        return ""
+        return None
+    return r.stdout if r.returncode == 0 else None
 
 
-def active_units(patterns: list[str]) -> set[str]:
+def active_units(patterns: list[str]) -> set[str] | None:
     if not patterns:
         return set()
     out = run(["systemctl", "--user", "list-units", "--plain", "--no-legend",
                "--state=active,activating,reloading", *patterns])
+    if out is None:
+        return None
     return {line.split()[0] for line in out.splitlines() if line.strip()}
 
 
 def unit_result(unit: str) -> str:
-    out = run(["systemctl", "--user", "show", "-p", "Result", "-p", "ExecMainStatus", unit])
+    out = run(["systemctl", "--user", "show", "-p", "LoadState", "-p", "Result",
+               "-p", "ExecMainStatus", unit]) or ""
     fields = dict(line.split("=", 1) for line in out.splitlines() if "=" in line)
-    if not fields:
-        return "gone"
+    if fields.get("LoadState", "not-found") == "not-found":
+        return "unit collected; result in its log"
     return f"result={fields.get('Result', '?')} status={fields.get('ExecMainStatus', '?')}"
 
 
@@ -65,7 +72,7 @@ def gpu_jobs() -> list[str]:
     """gpu-class scopes, or the GPU lock's holder for jobs started without ops/job."""
     jobs = sorted(p.name for p in GPU_SLICE.glob("*.scope")) if GPU_SLICE.is_dir() else []
     if not jobs:
-        for line in run(["lslocks", "-n", "-o", "PID,PATH"]).splitlines():
+        for line in (run(["lslocks", "-n", "-r", "-o", "PID,PATH"]) or "").splitlines():
             pid, _, path = line.strip().partition(" ")
             if path.strip() == GPU_LOCK:
                 jobs.append(f"pid {pid} holds {GPU_LOCK}")
@@ -76,7 +83,7 @@ def pr_state(number: int) -> str:
     out = run(["gh", "pr", "view", str(number), "--repo", REPO,
                "--json", "state,isDraft,reviewDecision,headRefOid"])
     try:
-        d = json.loads(out)
+        d = json.loads(out or "")
     except ValueError:
         return ""  # gh failed (network); not a change
     draft = " draft" if d.get("isDraft") else ""
@@ -89,7 +96,8 @@ def file_state(path: str) -> str:
         st = os.stat(path)
     except OSError:
         return "missing"
-    return f"{st.st_size} bytes, modified {dt.datetime.fromtimestamp(st.st_mtime):%H:%M:%S}"
+    stamp = dt.datetime.fromtimestamp(st.st_mtime).strftime("%H:%M:%S")
+    return f"{st.st_size} bytes, modified {stamp}.{st.st_mtime_ns % 10**9:09d}"
 
 
 def wait(args: argparse.Namespace, probes=None, clock=time.monotonic, sleep=time.sleep) -> list[str]:
@@ -99,7 +107,7 @@ def wait(args: argparse.Namespace, probes=None, clock=time.monotonic, sleep=time
         "pr": pr_state, "file": file_state,
     }
     start = clock()
-    units = p["units"](args.unit)
+    units = p["units"](args.unit) or set()
     prs = {n: p["pr"](n) for n in args.pr}
     files = {f: p["file"](f) for f in args.file}
     gpu_busy = bool(p["gpu"]())
@@ -108,21 +116,26 @@ def wait(args: argparse.Namespace, probes=None, clock=time.monotonic, sleep=time
     while True:
         events: list[str] = []
         now_units = p["units"](args.unit)
-        for unit in sorted(units - now_units):
-            events.append(f"finished: {unit} ({p['result'](unit)})")
-        units = now_units
+        if now_units is not None:  # None: systemctl failed this poll
+            for unit in sorted(units - now_units):
+                events.append(f"finished: {unit} ({p['result'](unit)})")
+            units = now_units
         if args.gpu:
             if p["gpu"]():
                 gpu_busy, idle_polls = True, 0
-            elif gpu_busy:
+            else:
                 idle_polls += 1
-                if idle_polls >= 2:
+                if gpu_busy and idle_polls >= 2:
                     events.append("gpu idle: no gpu-class job is running or holding the GPU lock")
+                elif not gpu_busy and clock() - start >= args.idle_grace * 60:
+                    events.append(f"gpu idle: nothing has used the GPU for {args.idle_grace:g} min")
         if polls % 5 == 0:
             for n, old in prs.items():
                 new = p["pr"](n)
-                if new and new != old:
-                    events.append(f"PR #{n}: {old or '?'} -> {new}")
+                if new and not old:  # the first lookup failed; this is the baseline
+                    prs[n] = new
+                elif new and new != old:
+                    events.append(f"PR #{n}: {old} -> {new}")
                     prs[n] = new
         for f, old in files.items():
             new = p["file"](f)
@@ -143,6 +156,7 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--gpu", action="store_true")
     ap.add_argument("--pr", action="append", type=int, default=[])
     ap.add_argument("--file", action="append", default=[])
+    ap.add_argument("--idle-grace", type=float, default=30.0)
     ap.add_argument("--max", type=float, default=120.0)
     ap.add_argument("--poll", type=float, default=60.0)
     args = ap.parse_args(argv)
