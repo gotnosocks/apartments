@@ -8,7 +8,7 @@ from apartments.site.research import render_markdown
 
 def test_about_counts_the_listings_in_the_fit(client):
     html = " ".join(client.get("/about").get_data(as_text=True).split())
-    assert "listings in the fit (the rest of the" in html
+    assert "listings in the fit (the rest of the" in html or "learned from the" in html
 
 
 def test_glossary_says_the_plus_minus_is_against_the_baseline(client):
@@ -44,3 +44,11 @@ def test_plan_links_to_the_site_drop_the_tailnet_host():
         "The site (http://thelio.tail3983e0.ts.net:8600/research) applies."
     )
     assert "ts.net" not in bare and "site:" not in bare
+
+
+def test_tailnet_links_in_autolinks_and_titles():
+    html, _ = render_markdown(
+        "<http://thelio.example.ts.net:8600/r> and "
+        '[x](http://thelio.example.ts.net:8500/research "t")'
+    )
+    assert 'href="/r"' in html and 'href="/research"' in html

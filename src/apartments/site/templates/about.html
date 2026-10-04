@@ -14,9 +14,10 @@
 <section class="card prose">
   <h2>What an estimate is</h2>
   <p>A listing's <strong>estimate</strong> is the model's typical asking rent for that apartment, in that building, in that
-  month: the median of the asks it expects, in dollars a month. It combines four things, each learned from the
-  {{ "{:,}".format(meta.provenance.rows_in_fit) if meta.provenance.rows_in_fit else "" }} listings in the fit (the rest of the
-  {{ "{:,}".format(s.listings) }} are held out to check it):</p>
+  month: the median of the asks it expects, in dollars a month. It combines four things, each learned from
+  {% set fit = meta.provenance.rows_in_fit %}{% if fit and fit < s.listings %}the {{ "{:,}".format(fit) }} listings in the fit
+  (the rest of the {{ "{:,}".format(s.listings) }} are held out to check it){% else %}the {{ "{:,}".format(s.listings) }}
+  listings{% endif %}:</p>
   <ul>
     <li>the <strong>market</strong> that month (a trend and a calendar season{% if "bedroom_market_curve" in names %}, and each bedroom group's own path{% endif %});</li>
     <li>the apartment's <strong>features</strong>: bedrooms, baths, size, floor, building amenities, views, and flags from the ad text;</li>
