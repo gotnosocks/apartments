@@ -339,7 +339,7 @@ def correct_fields_review_v1(frame: pd.DataFrame) -> pd.DataFrame:
 
 
 def correct_fields_review_v2(frame: pd.DataFrame) -> pd.DataFrame:
-    """v1's 16 rows and 9 more from the fifth review ("mint renovated alcove
+    """v1's 16 rows and 8 more from the fifth review ("mint renovated alcove
     studio" recorded as a one-bedroom, "2.5 bedrooms and 1 bath" with two
     baths). Every row is kept; only `bedrooms`, `full_baths` and `half_baths`
     change."""

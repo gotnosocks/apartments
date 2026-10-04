@@ -314,8 +314,8 @@ def test_fields_review_v2_keeps_every_v1_row():
             return [json.loads(line) for line in f if line.strip()]
 
     v1, v2 = rows(data.FIELD_REVIEW), rows(data.FIELD_REVIEW_V2)
-    assert v2[: len(v1)] == v1 and len(v2) == 25
-    assert len({r["audit_id"] for r in v2}) == 25
+    assert v2[: len(v1)] == v1 and len(v2) == 24
+    assert len({r["audit_id"] for r in v2}) == 24
     for r in v2:
         assert r["evidence"] and r["corrected"] != r["recorded"], r
         if r["field"] == "baths":
