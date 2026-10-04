@@ -1245,6 +1245,7 @@ def test_designs_page(client):
     assert '<span class="feature-sets">unitdesc-v1</span>' in html
     assert html.index("<code>m-test</code>") < html.index("<code>m-other</code>")
     assert "Drops building drift over time" in html
+    assert "; Drops" not in html
 
 
 def test_pages_without_recorded_structure(tmp_path, site_root):

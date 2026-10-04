@@ -54,7 +54,7 @@ then the rest by their best accuracy.</p>
   <dl class="facts wide">
   {% for r in rows if not r.served %}
     <dt><a href="{{ url_for('research_fit', key=r.best.key, _anchor='structure') }}"><code>{{ r.name }}</code></a></dt>
-    <dd>{% if r.differences %}{% for d in r.differences %}{{ d[:1] | upper }}{{ d[1:] }}{{ "; " if not loop.last else "." }}{% endfor %}{% else %}The same structure.{% endif %}</dd>
+    <dd>{% if r.differences %}{% set text = r.differences | join("; ") %}{{ text[:1] | upper }}{{ text[1:] }}.{% else %}The same structure.{% endif %}</dd>
   {% endfor %}
   </dl>
 </section>
