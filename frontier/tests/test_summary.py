@@ -340,3 +340,19 @@ def test_new_unit_levels_draw_from_the_unit_prior():
         assert levels.shape == (draws, 3)
         assert abs(levels.mean()) < 0.005
         assert 0.045 < levels.std() < 0.056
+
+
+def test_predictive_quantiles_invert_the_mixture_cdf():
+    from scipy.special import stdtr
+
+    rng = np.random.default_rng(0)
+    draws, rows = 200, 5
+    total = rng.normal(8.0, 0.05, (draws, rows))
+    sigma = np.full((draws, 1), 0.04)
+    nu = np.full(draws, 5.0)
+    weights = np.full((draws, rows), 1.0 / draws)
+    q = summary.predictive_quantiles(total, sigma, nu, weights, [0.025, 0.5, 0.975])
+    for i, p in enumerate([0.025, 0.5, 0.975]):
+        cdf = (stdtr(nu[:, None], (q[i][None] - total) / sigma) * weights).sum(0)
+        np.testing.assert_allclose(cdf, p, atol=1e-4)
+    assert (q[0] < q[1]).all() and (q[1] < q[2]).all()

@@ -255,6 +255,34 @@ def loo_unit_levels(y, rest, seg, n_seg, params, key, *, t_units, bed_group=None
     return np.asarray(loglik), np.asarray(level)
 
 
+# Posterior predictive intervals for the ask itself (Student-t noise included),
+# as (name, lower, upper) probabilities.
+PREDICTIVE = (("95", 0.025, 0.975), ("80", 0.10, 0.90))
+
+
+def predictive_quantiles(total, sigma, nu, weights, probabilities, iterations=26):
+    """(len(probabilities), rows) quantiles of the posterior predictive of the
+    log ask: the weighted mixture over draws of Student-t(nu_s) noise of scale
+    sigma_s around total_s, the distribution `pit` evaluates. Bisection on the
+    mixture's CDF, per row (26 halvings of 120 sigma: below 1e-5 on the log
+    scale). total, weights: (draws, rows); sigma: (draws, 1) or (draws, rows);
+    nu: (draws,)."""
+    from scipy.special import stdtr
+
+    sigma = np.broadcast_to(sigma, total.shape)
+    span = 60.0 * sigma.max(0)
+    out = np.empty((len(probabilities), total.shape[1]))
+    for q, p in enumerate(probabilities):
+        lo, hi = total.min(0) - span, total.max(0) + span
+        for _ in range(iterations):
+            mid = 0.5 * (lo + hi)
+            cdf = (stdtr(nu[:, None], (mid[None] - total) / sigma) * weights).sum(0)
+            below = cdf < p
+            lo, hi = np.where(below, mid, lo), np.where(below, hi, mid)
+        out[q] = 0.5 * (lo + hi)
+    return out
+
+
 def _stats(prefix, values, weights, table):
     mean = (values * weights).sum(0)
     q = weighted_quantiles(values, weights)
@@ -288,6 +316,11 @@ def row_table(sub, terms, log_w, pareto_k, fitted, sigma, nu, names, inputs):
     table["pareto_k"] = pareto_k
     cdf = stats.t.cdf((log_ask[None] - total) / sigma, nu[:, None])
     table["pit"] = (cdf * weights).sum(0)
+    probabilities = [p for _, lo, hi in PREDICTIVE for p in (lo, hi)]
+    pred = np.exp(predictive_quantiles(total, sigma, nu, weights, probabilities))
+    for i, (name, _, _) in enumerate(PREDICTIVE):
+        table[f"estimate_pred_lower_{name}"] = pred[2 * i]
+        table[f"estimate_pred_upper_{name}"] = pred[2 * i + 1]
     flat = np.full_like(fitted, 1.0 / fitted.shape[0])
     _stats("fitted_rent", fitted, flat, table)
     for name in names:
