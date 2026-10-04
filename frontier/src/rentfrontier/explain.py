@@ -84,7 +84,12 @@ def log_terms(
         "market": offset
         + kept["alpha"][:, None]
         + kept["trend"][:, a.month]
-        + kept["season"][:, a.calendar]
+        + (
+            kept["season_daily_coef"]
+            @ model.day_basis(a.year_frac, kept["season_daily_coef"].shape[1] // 2).T
+            if kept.get("season_daily_coef", np.zeros((1, 1))).shape[-1] > 1
+            else kept["season"][:, a.calendar]
+        )
     }
     groups = np.asarray(feature_groups)
     for g in dict.fromkeys(feature_groups):

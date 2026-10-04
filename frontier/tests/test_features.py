@@ -743,3 +743,88 @@ def test_nb_bedtext_flags_ads_stating_another_count(monkeypatch):
     got = dict(zip(out.names, out.values.T))
     assert got["text:states_fewer_bedrooms"].tolist() == [1, 0, 0, 0, 0, 0]
     assert got["text:states_more_bedrooms"].tolist() == [0, 1, 0, 0, 0, 0]
+
+
+def test_as_of_sets_count_only_alterations_done_by_the_listing(monkeypatch):
+    import pandas as pd
+
+    lots = pd.DataFrame(
+        {
+            "yearbuilt": [1920] * 4,
+            "yearalter1": [1990, 2005, None, 2001],
+            "yearalter2": [2015, 0, 0, 2012],
+            "numfloors": [5] * 4,
+            "unitsres": [10] * 4,
+            "resarea": [8000] * 4,
+            "builtfar": [4.0] * 4,
+            "lotfront": [25.0] * 4,
+            "bldgclass": ["C1"] * 4,
+            "landmark": [None] * 4,
+            "histdist": [None] * 4,
+            "pfirm15_flag": [None] * 4,
+        }
+    )
+    monkeypatch.setattr(features, "building_lots", lambda f: lots)
+    monkeypatch.setitem(
+        features.FEATURE_SETS,
+        "stub-base",
+        lambda f, t: features.Features(
+            "stub-base", [], [], np.zeros((len(f), 0)), np.zeros(0)
+        ),
+    )
+    frame = pd.DataFrame(
+        {
+            "period": pd.to_datetime(
+                ["2012-06-01", "2012-06-01", "2020-01-01", "2010-01-01"]
+            )
+        }
+    )
+
+    def flag(as_of):
+        token = features._AS_OF.set(as_of)
+        try:
+            out = features.pluto_v1(
+                frame,
+                np.ones(4, bool),
+                id="t",
+                base="stub-base",
+                latest_alteration=True,
+            )
+        finally:
+            features._AS_OF.reset(token)
+        return dict(zip(out.names, out.values.T))["altered_since_2000"].tolist()
+
+    # Present-day: 2015 and 2012 alterations count for 2012 and 2010 listings.
+    assert flag(False) == [1, 1, 0, 1]
+    # As of the listing: the 2015 alteration is after the 2012 listing (and 1990
+    # is before 2000); the 2001 alteration counts for the 2010 listing.
+    assert flag(True) == [0, 1, 0, 1]
+    # A same-year alteration waits for the next year.
+    same = frame.assign(period=pd.to_datetime(["2015-06-01"] * 4))
+    token = features._AS_OF.set(True)
+    try:
+        out = features.pluto_v1(
+            same, np.ones(4, bool), id="t", base="stub-base", latest_alteration=True
+        )
+    finally:
+        features._AS_OF.reset(token)
+    assert dict(zip(out.names, out.values.T))["altered_since_2000"].tolist() == [
+        0,
+        1,
+        0,
+        1,
+    ]
+    # build() sets the flag for the as-of sets only, and resets it after.
+    seen = {}
+    for name in ("nb-bedtext-v1", "nb-bedtext-v2"):
+        monkeypatch.setitem(
+            features.FEATURE_SETS,
+            name,
+            lambda f, t, name=name: seen.setdefault(name, features._AS_OF.get()),
+        )
+        features.build(name, frame, np.ones(4, bool))
+    assert seen == {"nb-bedtext-v1": False, "nb-bedtext-v2": True}
+    assert features._AS_OF.get() is False
+    assert {"nb-facing-v3", "nb-bedtext-v2"} == features.AS_OF_SETS
+    for files in (features.lot_files, features.area_files, features.description_files):
+        assert files("nb-bedtext-v2") == files("nb-bedtext-v1")

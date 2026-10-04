@@ -289,3 +289,37 @@ def test_v2_corrections_files_are_strict_subsets_of_v1(path, action):
     assert {r["audit_id"] for r in rows} < v1
     assert all(r["action"] == action and r["evidence"] for r in rows)
     assert not {r["audit_id"] for r in rows} & data.dropped_rows()
+
+
+def test_fields_review_corrects_bedrooms_and_baths_only(tmp_path, monkeypatch):
+    path = tmp_path / "r.jsonl"
+    path.write_text(
+        '{"audit_id": "a", "field": "bedrooms", "corrected": 0.0}\n'
+        '{"audit_id": "b", "field": "baths", "corrected": 2.5, '
+        '"full_baths": 2, "half_baths": 1}\n'
+    )
+    monkeypatch.setitem(data.RULE_SOURCES, "fields-review-v1", path)
+    frame = pd.DataFrame(
+        {
+            "audit_id": ["a", "b", "c"],
+            "bedrooms": [1.0, 2.0, 1.0],
+            "full_baths": [1, 3, 1],
+            "half_baths": [0.0, 0.0, 0.0],
+        }
+    )
+    out, _ = data.apply_rules(frame, np.zeros(3, bool), ["fields-review-v1"])
+    assert out.bedrooms.tolist() == [0.0, 2.0, 1.0]
+    assert out.full_baths.tolist() == [1, 2, 1]
+    assert out.half_baths.tolist() == [0.0, 1.0, 0.0]
+    assert out.full_baths.dtype == frame.full_baths.dtype
+
+
+def test_fields_review_file_names_each_row_once_with_its_evidence():
+    with open(data.FIELD_REVIEW) as f:
+        rows = [json.loads(line) for line in f if line.strip()]
+    assert len(rows) == len({r["audit_id"] for r in rows}) == 16
+    for r in rows:
+        assert r["field"] in ("bedrooms", "baths") and r["evidence"], r
+        assert r["corrected"] != r["recorded"], r
+        if r["field"] == "baths":
+            assert r["full_baths"] + 0.5 * r["half_baths"] == r["corrected"], r
