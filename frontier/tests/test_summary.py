@@ -326,13 +326,17 @@ def test_building_fact_groups_have_descriptions():
         assert not term["description"].startswith("Listing attributes"), term
 
 
-def test_check_heldout_units_refuses_unseen_units():
-    from types import SimpleNamespace
+def test_new_unit_levels_draw_from_the_unit_prior():
+    """Held-out rows of units with no rows in the fit get unit levels from the
+    prior: zero-centred, with the draws' unit scale (Normal or Student-t)."""
+    import jax
 
-    summary.check_heldout_units(
-        SimpleNamespace(test=SimpleNamespace(unit=np.array([0, 3])))
-    )
-    with pytest.raises(SystemExit, match="no rows in the fit"):
-        summary.check_heldout_units(
-            SimpleNamespace(test=SimpleNamespace(unit=np.array([0, -1])))
+    draws = 4000
+    params = {"unit_scale": np.full(draws, 0.05), "unit_nu": np.full(draws, 30.0)}
+    for t_units in (False, True):
+        levels = summary.new_unit_levels(
+            params, 3, jax.random.PRNGKey(0), t_units=t_units
         )
+        assert levels.shape == (draws, 3)
+        assert abs(levels.mean()) < 0.005
+        assert 0.045 < levels.std() < 0.056
