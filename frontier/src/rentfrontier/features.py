@@ -308,6 +308,46 @@ def bedtext_v1(
     )
 
 
+def relist_v1(
+    frame: pd.DataFrame,
+    train: np.ndarray,
+    id: str = "relist-v1",
+    base: str = "nb-bedtext-v2",
+) -> Features:
+    """A base set plus how long the apartment was off the market: the log of
+    the months since the unit's previous listing (its latest earlier ask), and
+    a flag for its first listing. Only earlier listings count, so a row sees no
+    later one. A quick relist hints at a problem unit, a long gap at a
+    renovation."""
+    base = FEATURE_SETS[base](frame, train)
+    at = pd.to_datetime(frame.price_at, utc=True)
+    order = np.lexsort((at.to_numpy(), frame.unit_id.to_numpy()))
+    units = frame.unit_id.to_numpy()[order]
+    times = at.to_numpy()[order]
+    gap = np.full(len(frame), np.nan)
+    same = np.r_[False, units[1:] == units[:-1]]
+    days = np.r_[np.nan, (times[1:] - times[:-1]) / np.timedelta64(1, "D")]
+    gap[order] = np.where(same, days, np.nan)
+    first = np.isnan(gap)
+    months = np.log1p(np.where(first, 0.0, gap) / 30.4)
+    centre = float(np.mean(months[train & ~first])) if (train & ~first).any() else 0.0
+    b = _Builder(frame)
+    b.add(
+        "relisting",
+        "log_months_since_last_listing",
+        np.where(first, 0.0, months - centre),
+    )
+    b.add("relisting", "first_listing_of_unit", first)
+    extra = b.build(id)
+    return Features(
+        id,
+        base.names + extra.names,
+        base.groups + extra.groups,
+        np.column_stack([base.values, extra.values]),
+        np.concatenate([base.prior_scale, extra.prior_scale]),
+    )
+
+
 # External snapshots read by feature sets (rentfrontier.registry, .external).
 REGISTRY_SNAPSHOT = "/data1/apartments/external/registry/20260925-6b67137"
 PLUTO_SNAPSHOT = "/data1/apartments/external/pluto/20260925-3096a62"
@@ -1376,6 +1416,7 @@ EXTERNAL = {
     "nb-bedtext-v1",
     "nb-facing-v3",
     "nb-bedtext-v2",
+    "nb-relist-v1",
     "wv-unitpluto-v1",
     "pluto-v1",
     "unitfloor-v2",
@@ -1409,6 +1450,7 @@ BASEMAP = {
     "nb-bedtext-v1",
     "nb-facing-v3",
     "nb-bedtext-v2",
+    "nb-relist-v1",
 }
 # Feature sets that read the building footprints snapshot.
 FOOTPRINTS = {
@@ -1421,6 +1463,7 @@ FOOTPRINTS = {
     "nb-bedtext-v1",
     "nb-facing-v3",
     "nb-bedtext-v2",
+    "nb-relist-v1",
 }
 # Feature sets that read the 311 noise complaints snapshot.
 NOISE = {"unitnoise-v1"}
@@ -1434,6 +1477,7 @@ DESCRIPTIONS = {
     "nb-bedtext-v1",
     "nb-facing-v3",
     "nb-bedtext-v2",
+    "nb-relist-v1",
     "desc-v1",
     "unitdesc-v1",
     "unitdescpluto-v1",
@@ -1483,6 +1527,8 @@ FEATURE_SETS = {
     # each listing (`AS_OF_SETS`): no alteration from after the listing.
     "nb-facing-v3": partial(neighbourhood_v1, id="nb-facing-v3", base="unitfacing-v4"),
     "nb-bedtext-v2": partial(bedtext_v1, id="nb-bedtext-v2", base="nb-facing-v3"),
+    # nb-bedtext-v2 plus the months since the apartment's previous listing.
+    "nb-relist-v1": partial(relist_v1, id="nb-relist-v1", base="nb-bedtext-v2"),
     # West Village: the app design's building facts (as unitdescpluto-v3) on the
     # unit and floor features (no West Village ads: see nb-facing-v2).
     "wv-unitpluto-v1": partial(
@@ -1578,6 +1624,7 @@ LOT_SNAPSHOTS = {
     "nb-bedtext-v1": {"registry": NB_REGISTRY_FILE, "pluto": NB_PLUTO_FILE},
     "nb-facing-v3": {"registry": NB_REGISTRY_FILE, "pluto": NB_PLUTO_FILE},
     "nb-bedtext-v2": {"registry": NB_REGISTRY_FILE, "pluto": NB_PLUTO_FILE},
+    "nb-relist-v1": {"registry": NB_REGISTRY_FILE, "pluto": NB_PLUTO_FILE},
     "unitnoise-v1": {"registry": REGISTRY_V3_FILE, "pluto": PLUTO_V3_FILE},
 }
 
@@ -1593,11 +1640,12 @@ DESCRIPTION_SOURCES = {
     "nb-bedtext-v1": _NB_DESCRIPTIONS,
     "nb-facing-v3": _NB_DESCRIPTIONS,
     "nb-bedtext-v2": _NB_DESCRIPTIONS,
+    "nb-relist-v1": _NB_DESCRIPTIONS,
 }
 
 
 # Feature sets whose building alterations are dated as of each listing.
-AS_OF_SETS = {"nb-facing-v3", "nb-bedtext-v2"}
+AS_OF_SETS = {"nb-facing-v3", "nb-bedtext-v2", "nb-relist-v1"}
 
 
 # Feature sets that read other basemap and footprints snapshots than the first.
@@ -1607,6 +1655,7 @@ AREA_SNAPSHOTS = {
     "nb-bedtext-v1": {"basemap": NB_BASEMAP_FILE, "footprints": NB_FOOTPRINTS_FILE},
     "nb-facing-v3": {"basemap": NB_BASEMAP_FILE, "footprints": NB_FOOTPRINTS_FILE},
     "nb-bedtext-v2": {"basemap": NB_BASEMAP_FILE, "footprints": NB_FOOTPRINTS_FILE},
+    "nb-relist-v1": {"basemap": NB_BASEMAP_FILE, "footprints": NB_FOOTPRINTS_FILE},
 }
 
 
