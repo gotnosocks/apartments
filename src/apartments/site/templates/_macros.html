@@ -1,11 +1,11 @@
 {% macro band_chip(row) -%}
 {%- set p = (row.pit * 100) | round | int -%}
 {%- if row.price_band == "below" -%}
-<span class="chip good" title="The ask is at the {{ ordinal(p) }} percentile of the model's range for this apartment."><span aria-hidden="true">▼</span> Below typical</span>
+<span class="chip good" title="The ask is at the {{ ordinal(p) }} percentile of the asks the model expects for this apartment."><span aria-hidden="true">▼</span> Below typical</span>
 {%- elif row.price_band == "above" -%}
-<span class="chip serious" title="The ask is at the {{ ordinal(p) }} percentile of the model's range for this apartment."><span aria-hidden="true">▲</span> Above typical</span>
+<span class="chip serious" title="The ask is at the {{ ordinal(p) }} percentile of the asks the model expects for this apartment."><span aria-hidden="true">▲</span> Above typical</span>
 {%- else -%}
-<span class="chip neutral" title="The ask is at the {{ ordinal(p) }} percentile of the model's range for this apartment."><span aria-hidden="true">●</span> Typical</span>
+<span class="chip neutral" title="The ask is at the {{ ordinal(p) }} percentile of the asks the model expects for this apartment."><span aria-hidden="true">●</span> Typical</span>
 {%- endif -%}
 {%- endmacro %}
 
@@ -27,7 +27,7 @@
       <th scope="col">Layout</th>
       {{ sort_th("Ask", "ask", filters, endpoint, num=True) }}
       {{ sort_th("Estimate", "estimate", filters, endpoint, num=True) }}
-      <th scope="col" class="num">95% range</th>
+      <th scope="col" class="num">Range for the typical rent</th>
       {{ sort_th("Ask vs estimate", "diff_pct", filters, endpoint, num=True) }}
       <th scope="col">Price</th>
       {% if show_source %}<th scope="col">StreetEasy</th>{% endif %}
@@ -52,6 +52,12 @@
   </tbody>
 </table>
 </div>
+{% if rows %}<p class="note band-note"><strong>Price</strong> compares the ask with the spread of asks the model expects for that
+apartment: <em>Below typical</em> is the lowest 10%, <em>Above typical</em> the highest 10%. The <em>range for the typical
+rent</em> is something else: the 95% uncertainty of the model's typical rent for that apartment, not where its ask will
+land, so it holds the actual ask much less often than 95% of the time. Asks spread wider than that, and wider still for
+apartments with few listings, so the same % gap can be typical for one apartment and below typical for another.
+<a href="{{ url_for('research_glossary', _anchor='price-band') }}">More</a>.</p>{% endif %}
 {% endmacro %}
 
 {% macro sort_th(label, key, filters, endpoint, num=False) -%}

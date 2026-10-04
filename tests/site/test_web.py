@@ -1357,6 +1357,16 @@ def test_a_build_from_before_neighbourhoods_still_serves(client, site_root):
     assert rows and "neighbourhood" not in rows[0]
 
 
+def test_price_labels_are_explained_where_they_appear(client):
+    listings = client.get("/listings").get_data(as_text=True)
+    assert "Range for the typical rent" in listings
+    assert "the same % gap can be typical for one apartment" in listings
+    page = client.get("/listings/a2").get_data(as_text=True)
+    assert "of the asks the model expects for this apartment" in page
+    assert "lower than 90% of comparable asks" not in page
+    assert "“not stated”" in page
+
+
 def test_research_model_page_shows_a_pending_switch(site_root, research_file):
     data = json.loads(research_file.read_text())
     data["autoselect"] = {

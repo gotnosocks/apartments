@@ -254,14 +254,17 @@ def asks_and_estimates(rows, *, label: str) -> Markup:
                 "rows": [
                     ["Ask", usd(r["ask"])],
                     ["Estimate", usd(r["estimate"])],
-                    ["95% range", f"{usd(r['lower'])} – {usd(r['upper'])}"],
+                    [
+                        "Range for the typical rent",
+                        f"{usd(r['lower'])} – {usd(r['upper'])}",
+                    ],
                 ],
                 "href": r.get("href"),
             }
         )
     legend = (
         '<div class="legend">'
-        '<span class="key"><span class="key-tick s1"></span>Estimate, with its 95% range</span>'
+        '<span class="key"><span class="key-tick s1"></span>Estimate, with the range for the typical rent</span>'
         '<span class="key"><span class="key-dot s2"></span>Ask</span></div>'
     )
     return _figure("line", _svg(parts, label, frame), points, legend)

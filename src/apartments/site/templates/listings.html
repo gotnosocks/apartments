@@ -83,6 +83,5 @@
 </div>
 {{ m.listing_table(rows, filters, 'listings') }}
 {{ m.pager(filters, pages, 'listings') }}
-<p class="note">“Below typical” and “Above typical” mean the ask is in the lowest or highest 10% of what the model expects for
-that apartment, in that building, that month. <span class="warn-mark">*</span> marks a less reliable estimate.</p>
+<p class="note"><span class="warn-mark">*</span> marks a less reliable estimate.</p>
 {% endblock %}
