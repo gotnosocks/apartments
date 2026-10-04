@@ -858,3 +858,57 @@ def test_relist_counts_only_earlier_listings_of_the_unit(monkeypatch):
     assert gap[1] == gap[2] == 0.0
     assert features.FEATURE_SETS["nb-relist-v1"].keywords["base"] == "nb-bedtext-v2"
     assert "nb-relist-v1" in features.AS_OF_SETS
+
+
+def test_flagfix_reads_the_rewritten_description_flags(monkeypatch):
+    import pandas as pd
+    from rentfrontier import descriptions
+
+    text = pd.Series(
+        [
+            "brand new washer & dryer, 3 flights up",
+            "the building has a furnished roof deck; washer/dryer in the basement",
+            "unit does not come furnished",
+            "offered fully furnished",
+        ]
+    )
+    frame = pd.DataFrame({"audit_id": list("abcd")})
+    monkeypatch.setattr(descriptions, "attach", lambda f: text)
+    monkeypatch.setitem(
+        features.FEATURE_SETS,
+        "stub-base",
+        lambda f, t: features.Features(
+            "stub-base", [], [], np.zeros((len(f), 0)), np.zeros(0)
+        ),
+    )
+
+    def flags(version):
+        token = features._FLAGS.set(version)
+        try:
+            out = features.desc_v1(frame, np.ones(4, bool), id="t", base="stub-base")
+        finally:
+            features._FLAGS.reset(token)
+        return dict(zip(out.names, out.values.T))
+
+    v1, v2 = flags(features.DESCRIPTION_FLAGS), flags(features.DESCRIPTION_FLAGS_V2)
+    assert v1["text:washer_dryer_in_unit"].tolist() == [0, 0, 0, 0]
+    assert v2["text:washer_dryer_in_unit"].tolist() == [1, 0, 0, 0]
+    assert v1["text:walkup_text"].tolist() == [0, 0, 0, 0]
+    assert v2["text:walkup_text"].tolist() == [1, 0, 0, 0]
+    assert v1["text:furnished"].tolist() == [0, 1, 1, 1]
+    assert v2["text:furnished"].tolist() == [0, 0, 0, 1]
+    assert v2["text:outdoor_shared"].tolist() == [0, 1, 0, 0]
+    # build() picks the flags for the set and resets them after.
+    seen = {}
+    for name in ("nb-relist-v1", "nb-flagfix-v1"):
+        monkeypatch.setitem(
+            features.FEATURE_SETS,
+            name,
+            lambda f, t, name=name: seen.setdefault(name, features._FLAGS.get()),
+        )
+        features.build(name, frame, np.ones(4, bool))
+    assert seen["nb-relist-v1"] is features.DESCRIPTION_FLAGS
+    assert seen["nb-flagfix-v1"] is features.DESCRIPTION_FLAGS_V2
+    assert features._FLAGS.get() is features.DESCRIPTION_FLAGS
+    for files in (features.lot_files, features.area_files, features.description_files):
+        assert files("nb-flagfix-v1") == files("nb-relist-v1")

@@ -226,6 +226,27 @@ DESCRIPTION_FLAGS = {
 }
 
 
+# The six flags DESCRIPTION_FLAGS read worst, rewritten against a Sonnet reading of
+# 1,000 ads (2026-10-04; precision / recall before -> after): washer/dryer in unit
+# 0.99/0.42 -> 0.99/0.92, walk-up 0.93/0.73 -> 0.90/0.97, shared outdoor
+# 0.92/0.48 -> 0.86/0.82, furnished 0.24/0.91 -> 0.90/0.82 (v1 read "furnished roof
+# deck" and "not furnished"), private outdoor 0.94/0.64 -> 0.91/0.71, high ceilings
+# 1.00/0.81 -> 1.00/0.83. Feature sets in FLAGS_V2_SETS read these.
+DESCRIPTION_FLAGS_V2 = {
+    **DESCRIPTION_FLAGS,
+    "washer_dryer_in_unit": r"(?:washer|w)\s*(?:/|&|and)\s*(?:dryer|d)\b(?![^.]{0,25}(?:in|on|each) (?:the )?(?:building|basement|floor))|in[- ]unit (?:washer|laundry|w/?d)|laundry in (?:the )?(?:unit|apartment|residence)",
+    "outdoor_shared": r"roof ?(?:deck|top|terrace|garden)|rooftop|(?:shared|common|communal|landscaped|private) (?:roof|garden|courtyard)|courtyard garden|(?:common|shared) (?:outdoor|terrace)",
+    "private_outdoor": r"private (?:outdoor|terrace|balcony|roof|garden|patio|backyard|deck)|(?:your|its|their|own) (?:own )?(?:private )?(?:terrace|balcony|garden|patio|backyard|deck)|(?:with|w/|features|has|and) (?:a |an )?(?:large |huge |sunny |spacious |)?(?:balcony|terrace|patio|backyard)",
+    "high_ceilings": r"high ceiling|soaring ceiling|tall ceiling|(?:1[0-9]|[89])[- ]?(?:ft|foot|feet|'|’)[- ]?(?:high )?ceiling|ceilings? (?:of|over|up to) (?:1[0-9]|[89])",
+    "walkup_text": r"walk[- ]?up|flights? up|no elevator",
+    "furnished": r"(?<!un)(?<!not )(?<!information )(?<!come )\bfurnished\b(?! (?:and landscaped|common|roof|rooftop|terrace|deck|garden|lounge|sky|pictures|herein))(?! and (?:landscaped|planted))",
+}
+# Which description flags the set being built reads (`FLAGS_V2_SETS`).
+_FLAGS: contextvars.ContextVar[dict] = contextvars.ContextVar(
+    "description_flags", default=DESCRIPTION_FLAGS
+)
+
+
 def desc_v1(
     frame: pd.DataFrame, train: np.ndarray, id: str = "desc-v1", base: str = "base-v1"
 ) -> Features:
@@ -238,7 +259,7 @@ def desc_v1(
     known = text.str.len() > 20
     b = _Builder(frame)
     b.add("description", "description_missing", ~known)
-    for name, pattern in DESCRIPTION_FLAGS.items():
+    for name, pattern in _FLAGS.get().items():
         b.add(
             "description",
             f"text:{name}",
@@ -1417,6 +1438,7 @@ EXTERNAL = {
     "nb-facing-v3",
     "nb-bedtext-v2",
     "nb-relist-v1",
+    "nb-flagfix-v1",
     "wv-unitpluto-v1",
     "pluto-v1",
     "unitfloor-v2",
@@ -1451,6 +1473,7 @@ BASEMAP = {
     "nb-facing-v3",
     "nb-bedtext-v2",
     "nb-relist-v1",
+    "nb-flagfix-v1",
 }
 # Feature sets that read the building footprints snapshot.
 FOOTPRINTS = {
@@ -1464,6 +1487,7 @@ FOOTPRINTS = {
     "nb-facing-v3",
     "nb-bedtext-v2",
     "nb-relist-v1",
+    "nb-flagfix-v1",
 }
 # Feature sets that read the 311 noise complaints snapshot.
 NOISE = {"unitnoise-v1"}
@@ -1478,6 +1502,7 @@ DESCRIPTIONS = {
     "nb-facing-v3",
     "nb-bedtext-v2",
     "nb-relist-v1",
+    "nb-flagfix-v1",
     "desc-v1",
     "unitdesc-v1",
     "unitdescpluto-v1",
@@ -1529,6 +1554,8 @@ FEATURE_SETS = {
     "nb-bedtext-v2": partial(bedtext_v1, id="nb-bedtext-v2", base="nb-facing-v3"),
     # nb-bedtext-v2 plus the months since the apartment's previous listing.
     "nb-relist-v1": partial(relist_v1, id="nb-relist-v1", base="nb-bedtext-v2"),
+    # nb-relist-v1 with the six rewritten description flags (`FLAGS_V2_SETS`).
+    "nb-flagfix-v1": partial(relist_v1, id="nb-flagfix-v1", base="nb-bedtext-v2"),
     # West Village: the app design's building facts (as unitdescpluto-v3) on the
     # unit and floor features (no West Village ads: see nb-facing-v2).
     "wv-unitpluto-v1": partial(
@@ -1625,6 +1652,7 @@ LOT_SNAPSHOTS = {
     "nb-facing-v3": {"registry": NB_REGISTRY_FILE, "pluto": NB_PLUTO_FILE},
     "nb-bedtext-v2": {"registry": NB_REGISTRY_FILE, "pluto": NB_PLUTO_FILE},
     "nb-relist-v1": {"registry": NB_REGISTRY_FILE, "pluto": NB_PLUTO_FILE},
+    "nb-flagfix-v1": {"registry": NB_REGISTRY_FILE, "pluto": NB_PLUTO_FILE},
     "unitnoise-v1": {"registry": REGISTRY_V3_FILE, "pluto": PLUTO_V3_FILE},
 }
 
@@ -1641,11 +1669,14 @@ DESCRIPTION_SOURCES = {
     "nb-facing-v3": _NB_DESCRIPTIONS,
     "nb-bedtext-v2": _NB_DESCRIPTIONS,
     "nb-relist-v1": _NB_DESCRIPTIONS,
+    "nb-flagfix-v1": _NB_DESCRIPTIONS,
 }
 
 
 # Feature sets whose building alterations are dated as of each listing.
-AS_OF_SETS = {"nb-facing-v3", "nb-bedtext-v2", "nb-relist-v1"}
+AS_OF_SETS = {"nb-facing-v3", "nb-bedtext-v2", "nb-relist-v1", "nb-flagfix-v1"}
+# Feature sets that read the rewritten description flags (DESCRIPTION_FLAGS_V2).
+FLAGS_V2_SETS = {"nb-flagfix-v1"}
 
 
 # Feature sets that read other basemap and footprints snapshots than the first.
@@ -1656,6 +1687,7 @@ AREA_SNAPSHOTS = {
     "nb-facing-v3": {"basemap": NB_BASEMAP_FILE, "footprints": NB_FOOTPRINTS_FILE},
     "nb-bedtext-v2": {"basemap": NB_BASEMAP_FILE, "footprints": NB_FOOTPRINTS_FILE},
     "nb-relist-v1": {"basemap": NB_BASEMAP_FILE, "footprints": NB_FOOTPRINTS_FILE},
+    "nb-flagfix-v1": {"basemap": NB_BASEMAP_FILE, "footprints": NB_FOOTPRINTS_FILE},
 }
 
 
@@ -1683,6 +1715,9 @@ def build(name: str, frame: pd.DataFrame, train: np.ndarray) -> Features:
     area = area_files(name)
     token = _LOTS.set((files["registry"], files["pluto"]))
     as_of_token = _AS_OF.set(name in AS_OF_SETS)
+    flags_token = _FLAGS.set(
+        DESCRIPTION_FLAGS_V2 if name in FLAGS_V2_SETS else DESCRIPTION_FLAGS
+    )
     area_token = _AREA.set((area["basemap"], area["footprints"]))
     text_token = descriptions_module.SOURCES.set(
         tuple(Path(p) for p in description_files(name).values())
@@ -1692,5 +1727,6 @@ def build(name: str, frame: pd.DataFrame, train: np.ndarray) -> Features:
     finally:
         _LOTS.reset(token)
         _AS_OF.reset(as_of_token)
+        _FLAGS.reset(flags_token)
         _AREA.reset(area_token)
         descriptions_module.SOURCES.reset(text_token)
