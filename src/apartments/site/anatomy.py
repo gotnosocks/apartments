@@ -171,6 +171,17 @@ class Anatomy:
         return sum(counts)
 
     @property
+    def summary(self) -> str:
+        """The design in one plain line: its parts, the intercept and the
+        leftover noise aside ("Market trend, calendar season, building premium
+        and listing features")."""
+        labels = [p.label for p in self.present if p.key not in ("intercept", "noise")]
+        if not labels:
+            return "An overall level only"
+        words = [labels[0]] + [w[:1].lower() + w[1:] for w in labels[1:]]
+        return _join(words)
+
+    @property
     def symbols(self) -> list[tuple[str, str]]:
         """The row indices the equation uses, in words: [(symbol, meaning)]."""
         math = "".join(str(p.math) for p in self.present)
