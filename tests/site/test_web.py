@@ -91,6 +91,7 @@ def test_csv_export_follows_the_filters(client):
     rows = list(csv.DictReader(io.StringIO(response.get_data(as_text=True))))
     assert [r["audit_id"] for r in rows] == ["a2", "a1", "a3", "a4"]
     assert rows[0]["price_band"] == "below" and float(rows[0]["ask"]) == 2600.0
+    assert rows[0]["neighbourhood"] == "Chelsea"
 
 
 def test_listing_page_explains_the_estimate(client):
@@ -1306,3 +1307,35 @@ def test_fit_time_says_how_busy_the_fits_cores_were(client):
     assert "clean timing" in html and "#fit-cores" in html
     glossary = client.get("/research/glossary").get_data(as_text=True)
     assert 'id="fit-cores"' in glossary
+
+
+def test_a_build_from_before_neighbourhoods_still_serves(client, site_root):
+    # Builds before neighbourhoods have no neighbourhood columns or stats (an
+    # older build can still be current when new code deploys).
+    db = sqlite3.connect(site_root / "current" / "site.sqlite")
+    db.execute("DROP INDEX listings_neighbourhood")
+    for table in ("listings", "buildings"):
+        db.execute(f"ALTER TABLE {table} DROP COLUMN neighbourhood")
+    stats = json.loads(
+        db.execute("SELECT value FROM meta WHERE key = 'stats'").fetchone()[0]
+    )
+    stats.pop("neighbourhoods", None)
+    db.execute("UPDATE meta SET value = ? WHERE key = 'stats'", (json.dumps(stats),))
+    db.commit()
+    db.close()
+    for path in (
+        "/",
+        "/estimates",
+        "/listings",
+        "/listings?nb=Chelsea",
+        "/listings?status=current",
+        "/buildings",
+        f"/buildings/{GROVE}",
+        "/units/u1",
+        "/listings/a1",
+        "/estimates/map",
+    ):
+        assert client.get(path).status_code == 200, path
+    response = client.get("/listings.csv")
+    rows = list(csv.DictReader(io.StringIO(response.get_data(as_text=True))))
+    assert rows and "neighbourhood" not in rows[0]
