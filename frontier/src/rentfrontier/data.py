@@ -292,6 +292,9 @@ BEDROOM_CORRECTIONS_V2 = (
     REPO / "config" / "corrections" / "bedrooms-ad-v2-20261003.jsonl"
 )
 BATH_CORRECTIONS_V2 = REPO / "config" / "corrections" / "baths-ad-v2-20261003.jsonl"
+# Field errors a review found by reading ads (the fourth review, of single-listing
+# apartments with a very large unit effect): bedroom and bath counts.
+FIELD_REVIEW = REPO / "config" / "corrections" / "fields-review-20261003.jsonl"
 
 
 def correct_baths_v1(frame: pd.DataFrame) -> pd.DataFrame:
@@ -312,7 +315,9 @@ def correct_baths_v2(frame: pd.DataFrame) -> pd.DataFrame:
 def _correct_baths(frame: pd.DataFrame, rule: str) -> pd.DataFrame:
     with open(RULE_SOURCES[rule]) as f:
         rows = {
-            r["audit_id"]: r for r in (json.loads(line) for line in f if line.strip())
+            r["audit_id"]: r
+            for r in (json.loads(line) for line in f if line.strip())
+            if "full_baths" in r
         }
     out = frame.copy()
     hit = out.audit_id.isin(rows)
@@ -321,6 +326,16 @@ def _correct_baths(frame: pd.DataFrame, rule: str) -> pd.DataFrame:
             out.loc[hit, "audit_id"].map(lambda a, col=col: rows[a][col]).to_numpy()
         )
     return out
+
+
+def correct_fields_review_v1(frame: pd.DataFrame) -> pd.DataFrame:
+    """Bedroom and bath counts a review read in the listing's own ad, where the
+    record contradicts it (16 rows: "huge alcove studio" recorded as a
+    one-bedroom, "3br 2 bath" with one bath). Every row is kept; only
+    `bedrooms`, `full_baths` and `half_baths` change."""
+    return _correct_baths(
+        _correct_bedrooms(frame, "fields-review-v1"), "fields-review-v1"
+    )
 
 
 def quarantine_v3(frame: pd.DataFrame) -> pd.DataFrame:
@@ -372,6 +387,7 @@ DATA_RULES = {
     "baths-ad-v1": correct_baths_v1,
     "bedrooms-ad-v2": correct_bedrooms_v2,
     "baths-ad-v2": correct_baths_v2,
+    "fields-review-v1": correct_fields_review_v1,
     "quarantine-v3": quarantine_v3,
     "quarantine-v4": quarantine_v4,
 }
@@ -386,6 +402,7 @@ RULE_SOURCES = {
     "baths-ad-v1": BATH_CORRECTIONS,
     "bedrooms-ad-v2": BEDROOM_CORRECTIONS_V2,
     "baths-ad-v2": BATH_CORRECTIONS_V2,
+    "fields-review-v1": FIELD_REVIEW,
 }
 # Of those, the rules that drop the rows their file lists.
 DROPPING_RULES = ("quarantine-v1", "quarantine-v2", "quarantine-v3", "quarantine-v4")
