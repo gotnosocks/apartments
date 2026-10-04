@@ -84,8 +84,9 @@ equally elegant ones the fastest.{% endif %}</p>
     {% if entry.psis and entry.psis.p_loo is number %}<dt>Effective parameters</dt><dd>{{ "{:,.0f}".format(entry.psis.p_loo) }}
       <span class="muted">(p<sub>loo</sub>: how many parameters the fit effectively uses, measured from the data)</span></dd>{% endif %}
     <dt>On the frontier</dt><dd>{% if entry.frontier %}yes{% if entry.current_best %}, and the best fit on its hardware{% endif %}
-      <span class="muted">(no other fit is at least as accurate, as fast and as elegant, and better on one of them)</span>{% else %}no
-      <span class="muted">(another fit is at least as accurate, as fast and as elegant, and better on one of them)</span>{% endif %}</dd>
+      <span class="muted">(no other fit is at least as accurate, as fast and as elegant, and better on one of them)</span>{% elif entry.psis and entry.psis.delta is number %}no
+      <span class="muted">(another fit is at least as accurate, as fast and as elegant, and better on one of them)</span>{% else %}no
+      <span class="muted">(not yet compared with the other fits on the same listings)</span>{% endif %}</dd>
 
   </dl>
 </section>
