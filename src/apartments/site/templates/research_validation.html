@@ -1,9 +1,18 @@
 {% extends "base.html" %}
+{% from "_checks.html" import fit_checks with context %}
 {% block title %}Validation{% endblock %}
 {% block content %}
 <h1>Validation</h1>
 <p class="lede">Checks that the accuracy measure can be trusted: whether the score each fit estimates for itself agrees with a genuine
 held-out test, what each model explains, and whether the same model gives the same answer in different code.</p>
+
+{% if served_entry %}
+<section class="card" id="served-checks">
+  <h2>The served fit's own checks</h2>
+  <p class="note"><code>{{ served_entry.id }}</code>: the fit whose estimates the site shows.</p>
+  {{ fit_checks(served_entry, reference) }}
+</section>
+{% endif %}
 
 <form class="filters" action="{{ url_for('research_validation') }}" method="get" aria-label="Choose the hardware for the first two sections">
   <div class="field">

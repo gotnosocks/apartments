@@ -16,13 +16,17 @@
     <dt id="delta-elpd">ΔELPD and the ±</dt>
     <dd>A difference in ELPD between two models on the same listings. On the frontier and the board, PSIS-LOO ΔELPD is against the
     simplest baseline model; in the held-out check it is against the <a href="#reference-model">reference model</a>, so the two
-    numbers for one fit differ. The ± is the standard error: two fits within about two of these are a tie.</dd>
+    numbers for one fit differ. The ± beside each fit is its standard error against that baseline. It does not say whether two fits
+    differ: for that, compare them directly on the same listings (a paired difference, shown in the board's notes and in the
+    served model's decision table), whose ± is much smaller. Two fits whose paired difference is within about two of its ± are
+    a tie.</dd>
     <dt id="reference-model">Reference model</dt>
     <dd>The PyMC model that was served before this research began. Held-out scores are measured against it so that every fit is
     compared with the same yardstick on the same held-out listings.</dd>
     <dt id="pareto-k">Pareto k</dt>
-    <dd>How trustworthy the PSIS shortcut is for one listing. Above about 0.7 the estimate for that listing is shaky; a few such
-    listings are normal, many mean the score should be read with care.</dd>
+    <dd>How trustworthy the PSIS shortcut is for one listing. Above the threshold, 1 − 1/log<sub>10</sub>(draws) capped at 0.7
+    (0.67 for the usual 1,000 draws), the estimate for that listing is shaky; a few such listings are normal, many mean the
+    score should be read with care.</dd>
     <dt id="held-out">Held-out check</dt>
     <dd>Some listings (about 10%, from apartments listed more than once) are kept out of every fit. A fit's score on them is a
     genuine test, used to check that the PSIS shortcut ranks models correctly.</dd>
@@ -89,7 +93,8 @@
     <dd>The model's typical asking rent for that apartment, in that building, that month, made without the listing's own ask
     (leave-own-row-out). See <a href="{{ url_for('about') }}">how estimates work</a>.</dd>
     <dt id="price-band">Below typical, typical, above typical</dt>
-    <dd>Where the ask falls among the asks the model expects for that apartment: the lowest 10%, the middle 80%, or the highest 10%.</dd>
+    <dd>Where the ask falls among the asks the model expects for that apartment: the lowest 10%, the middle 80%, or the highest 10%.
+    The middle 80% is the <em>likely ask range</em> shown on listing pages and in listing tables when the estimates carry it.</dd>
   </dl>
 </section>
 {% endblock %}

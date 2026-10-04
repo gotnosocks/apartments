@@ -65,7 +65,8 @@ be served. Select a fit for its details.</p>
   {% for e in rows %}
     {% set run = run_of(e) %}
     <tr>
-      <td><a href="{{ url_for('research_fit', key=e.key) }}"><code>{{ e.key }}</code></a>
+      <td>{% set label = design_label(e) %}<a href="{{ url_for('research_fit', key=e.key) }}">{% if label %}{{ label }}{% else %}<code>{{ e.key }}</code>{% endif %}</a>
+        {% if label %}<span class="muted block"><code>{{ e.key }}</code></span>{% endif %}
         {% if run == served_run %} <span class="tag">served</span>{% endif %}{% if e.current_best %} <span class="tag" title="The best fit on its hardware">best on its hardware</span>{% endif %}{% if e.frontier %} <span class="tag">frontier</span>{% endif %}{% if tier_of(e) == "exploration" %} <span class="tag exploration">exploration</span>{% endif %}
         {% if e.note %}<br><span class="muted">{{ e.note }}</span>{% endif %}</td>
       <td class="nowrap">{{ e.hardware_class }}</td>
@@ -85,7 +86,9 @@ be served. Select a fit for its details.</p>
 </table>
 </div>
 <p class="note">PSIS-LOO ΔELPD: how well a fit predicts each listing's ask from the others, against the simplest baseline; higher is
-better, and fits within about two ± of each other tie. Fit times compare only on the same hardware. Elegance counts the judge agents'
+better. The ± is against the baseline; whether two fits differ is their paired difference: a beaten fit's note gives its paired
+difference from the best
+(<a href="{{ url_for('research_glossary', _anchor='delta-elpd') }}">why</a>). Fit times compare only on the same hardware. Elegance counts the judge agents'
 verdicts against other designs (<a href="{{ url_for('research_elegance') }}">every judgement</a>); effective parameters are an
 objective check beside it (fewer means the same fit with less). Checks: whether the sampler settled on one stable answer; a fit that fails them is never served. See
 <a href="{{ url_for('research_frontier') }}">the frontier</a> for these three side by side.</p>

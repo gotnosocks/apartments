@@ -858,3 +858,43 @@ def test_relist_counts_only_earlier_listings_of_the_unit(monkeypatch):
     assert gap[1] == gap[2] == 0.0
     assert features.FEATURE_SETS["nb-relist-v1"].keywords["base"] == "nb-bedtext-v2"
     assert "nb-relist-v1" in features.AS_OF_SETS
+
+
+def test_coded_reads_outdoor_types_and_extra_rooms(monkeypatch, tmp_path):
+    import pandas as pd
+
+    path = tmp_path / "extras.parquet"
+    pd.DataFrame(
+        {
+            "listing_id": ["1", "2", "3", "4"],
+            "outdoor_types": ["TERRACE|PRIVATE_ROOF_DECK", "BALCONY", "", "GARDEN"],
+            "room_count": [5, 3, 0, 2],
+        }
+    ).to_parquet(path)
+    monkeypatch.setattr(features, "LISTING_EXTRAS_FILE", str(path))
+    monkeypatch.setitem(
+        features.FEATURE_SETS,
+        "stub-base",
+        lambda f, t: features.Features(
+            "stub-base", [], [], np.zeros((len(f), 0)), np.zeros(0)
+        ),
+    )
+    frame = pd.DataFrame(
+        {"source_listing_id": [1, 2, 3, 4, 9], "bedrooms": [1.0, 1.0, 0.0, 1.0, 1.0]}
+    )
+    out = features.coded_v1(frame, np.ones(5, bool), id="t", base="stub-base")
+    got = dict(zip(out.names, out.values.T))
+    assert got["outdoor:terrace"].tolist() == [1, 0, 0, 0, 0]
+    assert got["outdoor:roof_deck"].tolist() == [1, 0, 0, 0, 0]
+    assert got["outdoor:balcony"].tolist() == [0, 1, 0, 0, 0]
+    assert got["outdoor:garden"].tolist() == [0, 0, 0, 1, 0]
+    # extra rooms: 5-1=4 -> 4+; 3-1=2 (reference); 0 rooms -> unknown; 2-1=1 -> 0-1
+    level = {n.split("=", 1)[1]: got[n].tolist() for n in out.names if "=" in n}
+    assert level["4+"] == [1, 0, 0, 0, 0]
+    assert level["0-1"] == [0, 0, 0, 1, 0]
+    assert level["unknown"] == [0, 0, 1, 0, 1]
+    assert "nb-coded-v1" in features.LISTING_EXTRAS
+    from rentfrontier import run
+
+    monkeypatch.setattr(run.data, "sha256", lambda p: "sha")
+    assert "listing_extras" in run.feature_sources("nb-coded-v1")

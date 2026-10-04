@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% from "_checks.html" import fit_checks with context %}
 {% from "_anatomy.html" import structure with context %}
 {% block title %}Served model{% endblock %}
 {% block content %}
@@ -67,13 +68,6 @@ equally elegant ones the fastest.{% endif %}</p>
       baseline{% if baseline %} <code>{{ baseline }}</code>{% endif %}: how much better it predicts each listing's ask from all the other
       listings, in log-likelihood units summed over the listings; higher is better.</dd>
     {% endif %}
-    {% set rows = entry.splits.rows if entry.splits and entry.splits.rows else none %}
-    {% if rows and rows.delta is number %}
-    {% set held = entry.psis.validation.heldout_rows if entry.psis and entry.psis.validation and entry.psis.validation.heldout_rows else none %}
-    <dt>Held-out check</dt><dd>{{ "{:+,.1f}".format(rows.delta) }}{% if rows.delta_se is number %} ± {{ "{:,.1f}".format(rows.delta_se) }}{% endif %}
-      on the {% if held %}{{ "{:,}".format(held) }} {% endif %}listings kept out of every fit, against the reference model: an
-      independent check of the same accuracy.</dd>
-    {% endif %}
     <dt>Fit time</dt><dd>{{ (entry.fit_seconds / 60) | round(1) }} minutes on {{ entry.hardware_class }}{% if entry.other_cores is finite %}
       <span class="muted">({{ "%.1f" | format(entry.other_cores) }} other cores busy on the fit's cores during the fit:
       <a href="{{ url_for('research_glossary', _anchor='fit-cores') }}">{{ "clean timing" if entry.other_cores < 0.5 else "timing may be slowed" }}</a>)</span>{% endif %}</dd>
@@ -89,6 +83,8 @@ equally elegant ones the fastest.{% endif %}</p>
       <span class="muted">(not yet compared with the other fits on the same listings)</span>{% endif %}</dd>
 
   </dl>
+  <h3>Is the accuracy score trustworthy?</h3>
+  {{ fit_checks(entry, reference) }}
 </section>
 {% endif %}
 

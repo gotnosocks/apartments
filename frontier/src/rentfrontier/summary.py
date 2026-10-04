@@ -95,8 +95,23 @@ TERM_LABELS = {
     "hvac": "HVAC",
     "facing": "Streets it looks onto",
     "noise": "Noise around the building",
+    "relisting": "Time since its last listing",
 }
 TERM_TEXT = {
+    "neighbourhood": "West Village against Chelsea: the shift of every building's "
+    "level in the West Village, before the building's own effect.",
+    "relisting": "Time since the same apartment's previous listing (from that "
+    "listing's date, so it includes its time on the market; only earlier listings "
+    "count), or a flag for its first listing. A quick relist hints at a problem unit, a long gap at "
+    "a renovation.",
+    "location": "A smooth location surface over the map (Gaussian bumps about 250 "
+    "m apart over the buildings' coordinates).",
+    "transit": "The walk to the nearest subway station and the subway routes "
+    "within a 10-minute walk, as of the listing's month.",
+    "outdoor space": "Private outdoor space the listing's own record codes: a "
+    "terrace, roof deck, garden, balcony or patio.",
+    "rooms beyond bedrooms": "Rooms the listing's record counts beyond the "
+    "bedrooms (0-1, 3, 4 or more, against 2, or not usable).",
     "market": "A reference apartment (one bedroom, one bath, every attribute at "
     "its reference level) in an average building that month: offset, "
     "intercept, market trend and calendar season.",

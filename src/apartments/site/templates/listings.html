@@ -3,6 +3,7 @@
 {% block title %}{{ "Available now" if filters.status == "current" else "Listings" }}{% endblock %}
 {% block content %}
 <h1>{{ "Available now" if filters.status == "current" else "Listings" }}</h1>
+{% if coverage %}{{ m.coverage_note(coverage) }}{% endif %}
 
 <form class="filters" action="{{ url_for('listings') }}" method="get" aria-label="Filter listings">
   <div class="field grow">
@@ -83,6 +84,5 @@
 </div>
 {{ m.listing_table(rows, filters, 'listings') }}
 {{ m.pager(filters, pages, 'listings') }}
-<p class="note">“Below typical” and “Above typical” mean the ask is in the lowest or highest 10% of what the model expects for
-that apartment, in that building, that month. <span class="warn-mark">*</span> marks a less reliable estimate.</p>
+<p class="note"><span class="warn-mark">*</span> marks a less reliable estimate.</p>
 {% endblock %}

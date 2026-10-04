@@ -25,7 +25,12 @@
   <div class="figure">
     <span class="figure-label">Model estimate</span>
     <span class="figure-value">{{ usd(row.estimate) }}</span>
-    <span class="figure-note">95% range {{ usd(row.estimate_lower) }}–{{ usd(row.estimate_upper) }}</span>
+    {% if row.pred_lower_80 is number %}
+    <span class="figure-note">asks for this apartment likely fall in {{ usd(row.pred_lower_80) }}–{{ usd(row.pred_upper_80) }}
+      (80%; {{ usd(row.pred_lower_95) }}–{{ usd(row.pred_upper_95) }} for 95%)</span>
+    {% else %}
+    <span class="figure-note">range for the typical rent {{ usd(row.estimate_lower) }}–{{ usd(row.estimate_upper) }} (95%)</span>
+    {% endif %}
   </div>
   <div class="figure">
     <span class="figure-label">Ask vs estimate</span>
@@ -35,8 +40,16 @@
 </section>
 
 <section class="card explain">
-  <p>The ask sits at the <strong>{{ ordinal((row.pit * 100) | round | int) }} percentile</strong> of what the model expects
-  asks for this apartment to be, in this building, in {{ month(row.period) }}{% if row.price_band == "typical" %}, within the usual range{% elif row.price_band == "below" %}, lower than 90% of comparable asks{% else %}, higher than 90% of comparable asks{% endif %}.</p>
+  {# Shares rounded down, so "lower than N%" is never more than true; percentiles kept within 1st–99th. #}
+  {% set p = [[(row.pit * 100) | int, 1] | max, 99] | min %}
+  {% set below_share = [((1 - row.pit) * 100) | int, 99] | min %}
+  <p>The ask sits at the <strong>{{ ordinal(p) }} percentile</strong> of the asks the model expects for this apartment, in
+  this building, in {{ month(row.period) }}: {% if row.price_band == "below" %}lower than {{ below_share }}% of them, so
+  <strong>below typical</strong>{% elif row.price_band == "above" %}higher than {{ p }}% of them, so <strong>above
+  typical</strong>{% else %}within the middle 80%, so <strong>typical</strong>{% endif %}.{% if row.pred_lower_80 is number %} That middle 80% is the
+  likely ask range above, {{ usd(row.pred_lower_80) }}–{{ usd(row.pred_upper_80) }}.{% else %} The range under the estimate is the
+  95% uncertainty of the typical rent itself, not where an ask will land: individual asks spread more widely, so an ask can
+  sit inside that range and still be below or above typical, or outside it and still be typical.{% endif %}</p>
   {% if row.method == "heldout" %}
   <p>This listing was held out of the model fit as a validation row, so the estimate never saw its ask. It uses the unit's
   {{ row.unit_fit_rows }} other listing{{ "" if row.unit_fit_rows == 1 else "s" }}.</p>
@@ -59,7 +72,9 @@
 <section class="card">
   <h2>What makes up the estimate</h2>
   <p class="note">Dollar contributions, starting from the market reference: a one-bedroom, one-bath apartment with every attribute
-  at its reference level, in an average building that month. They add up to the estimate. Bars show the mean; whiskers show the 95% interval.</p>
+  at its reference level, in an average building that month. They add up to the estimate. Bars show the mean; whiskers show the 95% interval.
+  A detail the listing leaves out (“not stated”) is a level of its own: such listings ask differently from the reference, so it
+  can add or subtract dollars too.</p>
   <div class="table-wrap">
   <table class="data contributions">
     <thead><tr><th scope="col">Part</th><th scope="col" class="bar-col"><span class="visually-hidden">Bar</span></th><th scope="col" class="num">Dollars</th><th scope="col" class="num">95% interval</th></tr></thead>
@@ -85,12 +100,16 @@
     <dt>Bedrooms</dt><dd>{{ beds_label(row.bedrooms) }}</dd>
     <dt>Bathrooms</dt><dd>{{ row.bathrooms | trim_float }}{% if row.half_baths %} ({{ row.full_baths }} full, {{ row.half_baths }} half){% endif %}</dd>
     <dt>Size</dt><dd>{{ "{:,.0f} ft²".format(row.square_feet) if row.square_feet else "not stated" }}</dd>
+    {% if row.bedrooms == 0 and ((row.bathrooms or 0) >= 2 or (row.square_feet or 0) > 1000) %}
+    <dt>Note</dt><dd class="muted">An unusual combination for a studio: it may be a loft, or the ad may have
+      a detail wrong.</dd>
+    {% endif %}
     <dt>Floor</dt><dd>{{ row.floor if row.floor is not none else "not stated" }}</dd>
     {% for kind, value in [("elevator", row.elevator), ("doorman", row.doorman), ("laundry", row.laundry), ("hvac", row.hvac), ("pets", row.pets)] %}
     {% set text = attr_label(kind, value) %}
     <dt>{{ kind | capitalize if kind != "hvac" else "Heating and cooling" }}</dt><dd>{{ text or "not stated" }}</dd>
     {% endfor %}
-    {% if views %}<dt>Views</dt><dd>{{ views | join(", ") }}</dd>{% endif %}
+    {% if views %}<dt>Views</dt><dd>{{ views | join(", ") }} <span class="muted">(as listed by the broker)</span></dd>{% endif %}
     {% if windows %}<dt>Exposures</dt><dd>{{ windows | join(", ") }}</dd>{% endif %}
     {% if row.concession %}<dt>Concession</dt><dd>{{ row.concession }}</dd>{% endif %}
     {% if flags %}<dt>In the ad text</dt><dd>{{ flags | join(", ") }}</dd>{% endif %}
@@ -110,9 +129,10 @@
     <dt>Method</dt><dd>{{ "held out of the fit" if row.method == "heldout" else "leave-own-row-out (PSIS)" }}</dd>
     {% if row.pareto_k is not none %}<dt>Pareto k</dt><dd>{{ "%.2f" | format(row.pareto_k) }}{% if not row.reliable %} (above {{ meta.provenance.estimate_pareto_k.threshold | round(3) }}){% endif %}</dd>{% endif %}
     <dt>Unit's listings in the fit</dt><dd>{{ row.unit_fit_rows }}</dd>
-    <dt>In-sample fit</dt><dd>{{ usd(row.fitted) }} <span class="muted">({{ usd(row.fitted_lower) }}–{{ usd(row.fitted_upper) }})</span></dd>
+    <dt>{{ "Model fit" if row.method == "heldout" else "In-sample fit" }}</dt><dd>{{ usd(row.fitted) }} <span class="muted">({{ usd(row.fitted_lower) }}–{{ usd(row.fitted_upper) }})</span></dd>
   </dl>
-  <p class="note">The in-sample fit saw this ask, so it is pulled toward it; the estimate above does not.</p>
+  {% if row.method == "heldout" %}<p class="note">This listing was held out, so neither the fit nor the estimate saw its ask.</p>
+  {% else %}<p class="note">The in-sample fit saw this ask, so it is pulled toward it; the estimate above does not.</p>{% endif %}
 </section>
 </div>
 
