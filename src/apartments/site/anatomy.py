@@ -171,6 +171,52 @@ class Anatomy:
         return sum(counts)
 
     @property
+    def label(self) -> str:
+        """A compact label of what the design adds to the basic hierarchy
+        (market trend and season, building and apartment premiums, listing
+        features): "quarterly trend · building drift 6 mo · price per bedroom".
+        "Basic hierarchy" when it adds nothing; the ladder's simpler designs
+        say what they leave out."""
+        base = ("trend", "season", "building", "unit", "features")
+        bits = []
+        for p in self.parts:
+            if p.key in ("intercept",):
+                continue
+            if p.key in base:
+                if not p.present:
+                    bits.append(f"no {p.label.lower()}")
+                elif (
+                    p.short
+                    and p.key in ("trend", "season")
+                    and p.short
+                    not in (
+                        "monthly",
+                        "12 months",
+                    )
+                ):
+                    bits.append(f"{p.column.lower()} {p.short}")
+                elif p.key == "unit" and p.short:
+                    bits.append(f"{p.short} apartment premium")
+                continue
+            if p.key == "noise":
+                if "by bedrooms" in p.short:
+                    bits.append("scatter by bedrooms")
+                continue
+            if p.present:
+                name = {
+                    "walk": "building drift",
+                    "bedroom_time": "trend by bedrooms",
+                    "bedroom_slope": "price per bedroom",
+                    "feature_slopes": "own prices",
+                    "line": "line premium",
+                    "building_trend": "building trend",
+                    "unit_drift": "apartment trend",
+                    "market_drift": "steady drift",
+                }.get(p.key, p.label.lower())
+                bits.append(f"{name} {p.short}".strip() if p.short else name)
+        return " · ".join(bits) or "basic hierarchy"
+
+    @property
     def symbols(self) -> list[tuple[str, str]]:
         """The row indices the equation uses, in words: [(symbol, meaning)]."""
         math = "".join(str(p.math) for p in self.present)
