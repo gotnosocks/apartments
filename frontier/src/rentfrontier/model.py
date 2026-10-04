@@ -1415,6 +1415,21 @@ MODELS = {
         season_harmonics=2,
         season_daily=True,
     ),
+    # The daily-season design with one market curve per bedroom group (studios
+    # and large apartments can trend apart).
+    "m7-nocurves-floorslope-bednoise-dayfourier-bedtime": ModelConfig(
+        name="m7-nocurves-floorslope-bednoise-dayfourier-bedtime",
+        building_walk=True,
+        bedroom_slope=True,
+        trend_knot_months=3,
+        feature_slopes=("log_sqft_vs_bedroom_median", "bathrooms=2", "log_floor"),
+        unit_t=True,
+        noise_by_bedrooms=True,
+        season_harmonics=2,
+        season_daily=True,
+        bedroom_time=True,
+        bedroom_time_knot_months=3,
+    ),
     # The daily season with three harmonics.
     "m7-nocurves-floorslope-bednoise-dayfourier3": ModelConfig(
         name="m7-nocurves-floorslope-bednoise-dayfourier3",
