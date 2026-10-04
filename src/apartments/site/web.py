@@ -1400,6 +1400,8 @@ def create_app(
         return render_template(
             "research_validation.html",
             meta=m,
+            served_entry=entry_for_run(data, served_run),
+            reference=data.get("reference"),
             classes=classes,
             hardware=hardware,
             rho=rho,
@@ -1481,6 +1483,7 @@ def create_app(
         return render_template(
             "research_model.html",
             anatomy=anatomy,
+            reference=data.get("reference") if data else None,
             meta=m,
             selection=served_selection(m),
             coefficients=coefficients,
