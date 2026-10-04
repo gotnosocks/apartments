@@ -285,10 +285,12 @@ def cycle_v1(
     """A base set plus the listing date's place in its month and week: the
     sine and cosine of the day-of-month fraction (leases mostly start on the
     1st) and day-of-week indicators (Sunday the reference). From each row's
-    own `price_at` in New York time; rows without one get 0."""
+    own `price_at` (a calendar date); rows without one get 0."""
     base = FEATURE_SETS[base](frame, train)
-    # Local time: a listing posted at 9pm on the 31st in New York is the 31st.
-    at = pd.to_datetime(frame.price_at, utc=True).dt.tz_convert("America/New_York")
+    # price_at is a calendar date stored as UTC midnight (99.8% of rows carry
+    # no time of day), so read the date as is: converting to New York time
+    # would move every listing back a day.
+    at = pd.to_datetime(frame.price_at, utc=True)
     known = at.notna().to_numpy()
     days = at.dt.days_in_month.to_numpy(dtype=float)
     frac = (
