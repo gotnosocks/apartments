@@ -28,3 +28,8 @@ def test_a_neighbourhood_without_a_current_capture_is_named(client, site_root):
     assert "<strong>West Village has no current capture yet</strong>" in html
     estimates = client.get("/estimates").get_data(as_text=True)
     assert "West Village has no current capture yet" in estimates
+
+
+def test_capture_day_is_new_york_time(client):
+    html = client.get("/listings?status=current").get_data(as_text=True)
+    assert "captured 2026-" not in html  # a day in words, not an ISO date

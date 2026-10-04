@@ -20,6 +20,7 @@ import sqlite3
 import time
 from pathlib import Path
 from urllib.parse import quote, urlencode, urlsplit
+from zoneinfo import ZoneInfo
 
 from flask import (
     Flask,
@@ -76,6 +77,7 @@ from .research import (
 from .selection import SELECTION, selection_note
 
 log = logging.getLogger("apartments.site")
+NEW_YORK = ZoneInfo("America/New_York")
 
 PER_PAGE = (25, 50, 100)
 BEDROOMS = {"0": "Studio", "1": "1 BR", "2": "2 BR", "3": "3 BR", "4": "4+ BR"}
@@ -776,7 +778,13 @@ def create_app(
                 )
                 .fetchone()
             )
-            return [{"neighbourhood": None, "listings": row[0], "captured": row[1]}]
+            return [
+                {
+                    "neighbourhood": None,
+                    "listings": row[0],
+                    "captured": capture_day(row[1]),
+                }
+            ]
         found = {
             r[0]: (r[1], r[2])
             for r in db().execute(
@@ -789,10 +797,22 @@ def create_app(
             {
                 "neighbourhood": n,
                 "listings": found.get(n, (0, None))[0],
-                "captured": found.get(n, (0, None))[1],
+                "captured": capture_day(found.get(n, (0, None))[1]),
             }
             for n in names
         ]
+
+    def capture_day(at: str | None) -> str | None:
+        """A capture time (ISO, UTC) as its New York day, "18 Sep 2026"."""
+        if not at:
+            return None
+        try:
+            t = dt.datetime.fromisoformat(at)
+        except ValueError:
+            return at[:10]
+        if t.tzinfo is not None:
+            t = t.astimezone(NEW_YORK)
+        return f"{t.day} {t:%b %Y}"
 
     def neighbourhoods() -> dict:
         """The build's neighbourhoods and their listing counts ({} for builds
