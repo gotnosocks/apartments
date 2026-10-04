@@ -135,6 +135,8 @@ CSV_COLUMNS = (
     "square_feet",
     "floor",
     "listing_url",
+    "pred_lower_80",  # the likely ask range, when the build has it
+    "pred_upper_80",
 )
 LABELS = {
     "doorman": {
@@ -587,6 +589,7 @@ def create_app(
         return render_template(
             "home.html",
             anatomy=anatomy,
+            coverage=current_coverage(),
             meta=m,
             selection=served_selection(m),
             counts=counts,
