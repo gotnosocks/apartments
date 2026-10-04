@@ -356,3 +356,48 @@ def test_predictive_quantiles_invert_the_mixture_cdf():
         cdf = (stdtr(nu[:, None], (q[i][None] - total) / sigma) * weights).sum(0)
         np.testing.assert_allclose(cdf, p, atol=1e-4)
     assert (q[0] < q[1]).all() and (q[1] < q[2]).all()
+
+
+def test_predictive_bounds_agree_with_pit():
+    """row_table's predictive bounds invert the distribution pit evaluates: an
+    ask below the 80% range's lower bound has pit < 0.10, above its upper bound
+    pit > 0.90 (and the same for the 95% range at 0.025 and 0.975)."""
+    rng = np.random.default_rng(1)
+    draws, rows = 300, 400
+    total = rng.normal(8.3, 0.03, (draws, 1)) + rng.normal(0.0, 0.02, (1, rows))
+    asks = np.exp(total.mean(0) + rng.standard_t(4, rows) * 0.08)
+    sub = pd.DataFrame(
+        {
+            "audit_id": [f"a{i}" for i in range(rows)],
+            "unit_id": [f"u{i}" for i in range(rows)],
+            "building": ["b"] * rows,
+            "period": pd.to_datetime(["2024-05-01"] * rows),
+            "asking_rent": asks,
+        }
+    )
+    sigma = np.full((draws, 1), 0.05)
+    nu = np.full(draws, 5.0)
+    table = summary.row_table(
+        sub,
+        {"market": total},
+        np.zeros((draws, rows)),
+        np.full(rows, np.nan),
+        np.exp(total),
+        sigma,
+        nu,
+        [],
+        [""] * rows,
+    )
+    pit, ask = table.pit.to_numpy(), table.asking_rent.to_numpy()
+    for name, lo, hi in summary.PREDICTIVE:
+        low, high = (
+            table[f"estimate_pred_lower_{name}"],
+            table[f"estimate_pred_upper_{name}"],
+        )
+        clear = (np.abs(pit - lo) > 1e-3) & (np.abs(pit - hi) > 1e-3)
+        np.testing.assert_array_equal((pit < lo)[clear], (ask < low)[clear])
+        np.testing.assert_array_equal((pit > hi)[clear], (ask > high)[clear])
+    inside = (ask >= table.estimate_pred_lower_80) & (
+        ask <= table.estimate_pred_upper_80
+    )
+    assert 0.6 < inside.mean() < 0.95
