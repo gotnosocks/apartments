@@ -716,7 +716,7 @@ def bundle_map(source: Path, target: Path, database: Path) -> None:
     neighbourhood from the build's database (the map's neighbourhood choice
     lists a neighbourhood's buildings by it)."""
     data = json.loads(source.read_text())
-    db = sqlite3.connect(database)
+    db = sqlite3.connect(f"file:{database}?mode=ro", uri=True)
     try:
         columns = {r[1] for r in db.execute("PRAGMA table_info(buildings)")}
         names = (
@@ -727,7 +727,8 @@ def bundle_map(source: Path, target: Path, database: Path) -> None:
     finally:
         db.close()
     for b in data.get("buildings", []):
-        if names.get(b.get("id")):
+        # rentmap's own tag (the neighbourhood its medians used) wins.
+        if not b.get("neighbourhood") and names.get(b.get("id")):
             b["neighbourhood"] = names[b["id"]]
     target.write_text(json.dumps(data, separators=(",", ":")))
 
