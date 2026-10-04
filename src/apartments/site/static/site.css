@@ -420,3 +420,4 @@ table.designs th[scope="row"] code { overflow-wrap: normal; }
   .eq-line { flex-direction: column; gap: 0; }
 }
 table.designs .feature-sets { display: block; white-space: normal; max-width: 16rem; font-size: 0.75rem; font-weight: 400; color: var(--muted); }
+.notice { background: var(--warn-bg); color: var(--ink); border-left: 3px solid var(--warn); padding: 0.5rem 0.75rem; border-radius: 4px; }

@@ -21,13 +21,18 @@ equally elegant ones the fastest.{% endif %}</p>
 <section class="card">
   <h2>Why this model</h2>
   {% if sel and sel.selection_reason %}
-  <p>{{ sel.selection_reason }}</p>
+  <p>When it was chosen: {{ sel.selection_reason }}</p>
   <p class="note">Chosen by {{ sel.selected_by }}.{% if sel.uncertainty %} {{ sel.uncertainty }}{% endif %}</p>
   {% else %}
   <p class="note">These estimates were published by hand, not from the repository's model selection.</p>
   {% endif %}
   {% if autoselect %}
+  {% set pending = autoselect.action == "switch" and autoselect.run and autoselect.run != p.run %}
   <h3>The latest automatic decision</h3>
+  {% if pending %}
+  <p class="notice"><strong>A switch is pending.</strong> The automatic rule now picks <code>{{ autoselect.run }}</code>.
+  The site keeps serving this model until that fit's estimates are published, which happens shortly after the decision.</p>
+  {% endif %}
   <p>{{ autoselect.reason }}</p>
   {% if autoselect.checked %}
   <div class="table-wrap">
@@ -39,7 +44,7 @@ equally elegant ones the fastest.{% endif %}</p>
         <td class="num nowrap">{% if c.psis is number %}{{ "{:+,.1f}".format(c.psis) }}{% if c.psis_pm is number %} ± {{ "{:,.1f}".format(c.psis_pm) }}{% endif %}{% else %}—{% endif %}</td>
         <td class="num nowrap">{% if c.heldout is number %}{{ "{:+,.1f}".format(c.heldout) }}{% if c.heldout_se is number %} ± {{ "{:,.1f}".format(c.heldout_se) }}{% endif %}{% else %}—{% endif %}</td>
         <td>{{ {1: "more elegant", 0: "about as elegant", -1: "less elegant"}.get(c.elegance, "not judged") if c.elegance is defined else "—" }}</td>
-        <td>{{ c.refused or "chosen" }}</td></tr>
+        <td>{{ c.refused or ("chosen; not published yet" if pending and c.run == autoselect.run else "chosen") }}</td></tr>
     {% endfor %}
     </tbody>
   </table>
@@ -78,8 +83,10 @@ equally elegant ones the fastest.{% endif %}</p>
       (<a href="{{ url_for('research_fit', key=entry.key, _anchor='elegance') }}">their reasons</a>){% else %}not compared with another design yet{% endif %}</dd>
     {% if entry.psis and entry.psis.p_loo is number %}<dt>Effective parameters</dt><dd>{{ "{:,.0f}".format(entry.psis.p_loo) }}
       <span class="muted">(p<sub>loo</sub>: how many parameters the fit effectively uses, measured from the data)</span></dd>{% endif %}
-    <dt>On the frontier</dt><dd>{{ "yes" if entry.frontier else "no" }}{% if entry.current_best %}; the best fit on its hardware{% endif %}
-      <span class="muted">(no other fit is at least as accurate, as fast and as elegant, and better on one of them)</span></dd>
+    <dt>On the frontier</dt><dd>{% if entry.frontier %}yes{% if entry.current_best %}, and the best fit on its hardware{% endif %}
+      <span class="muted">(no other fit is at least as accurate, as fast and as elegant, and better on one of them)</span>{% elif entry.psis and entry.psis.delta is number %}no
+      <span class="muted">(another fit is at least as accurate, as fast and as elegant, and better on one of them)</span>{% else %}no
+      <span class="muted">(not yet compared with the other fits on the same listings)</span>{% endif %}</dd>
 
   </dl>
 </section>
