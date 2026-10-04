@@ -57,6 +57,7 @@ from .research import (
     compute_by_line,
     designs,
     elegance_pairs,
+    elegance_standings,
     elegance_summary,
     entry_by_key,
     entry_for_run,
@@ -1339,10 +1340,29 @@ def create_app(
     def research_elegance():
         data = research_data_or_503()
         pending = (data.get("autoselect") or {}).get("pending_judgements") or []
+        pairs = elegance_pairs(data)
+        q = (request.args.get("design") or "").strip()[:120]
+        shown = [
+            p
+            for p in pairs
+            if not q or any(q.lower() in d["id"].lower() for d in p["designs"])
+        ]
+        per = 50
+        pages = max(1, -(-len(shown) // per))
+        try:
+            page = min(max(int(request.args.get("page", 1)), 1), pages)
+        except ValueError:
+            page = 1
         return render_template(
             "research_elegance.html",
             meta=meta(),
-            pairs=elegance_pairs(data),
+            pairs=shown[(page - 1) * per : page * per],
+            total=len(pairs),
+            matched=len(shown),
+            q=q,
+            page=page,
+            pages=pages,
+            standings=elegance_standings(pairs),
             pending=pending,
         )
 

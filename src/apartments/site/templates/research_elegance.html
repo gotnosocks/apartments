@@ -29,11 +29,40 @@ from the data.</p>
 </section>
 {% endif %}
 
+{% if standings %}
+<section class="card">
+  <h2>Standings</h2>
+  <p class="note">How often each design was judged more elegant, about as elegant, or less elegant than the designs it was
+  compared with, over {{ "{:,}".format(total) }} pairs, ranked by times judged more elegant minus times judged less elegant.</p>
+  <details class="table-view">
+    <summary>Every design ({{ standings | length }})</summary>
+    <div class="table-wrap tall">
+    <table class="data">
+      <thead><tr><th scope="col">Design</th><th scope="col" class="num">More elegant</th><th scope="col" class="num">About equal</th><th scope="col" class="num">Less elegant</th></tr></thead>
+      <tbody>
+      {% for r in standings %}
+        <tr><td><a href="{{ url_for('research_elegance', design=r.id) }}"><code>{{ r.id }}</code></a></td><td class="num">{{ r.more }}</td><td class="num">{{ r.equal }}</td><td class="num">{{ r.less }}</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+    </div>
+  </details>
+</section>
+{% endif %}
+
 <section class="card">
   <h2>Every judgement</h2>
+  <form class="filters" action="{{ url_for('research_elegance') }}" method="get" aria-label="Find a design's judgements">
+    <div class="field grow">
+      <label for="e-design">Design</label>
+      <input id="e-design" name="design" type="search" value="{{ q }}" autocomplete="off" placeholder="e.g. m7-nocurves-floorslope">
+    </div>
+    <div class="field actions"><button type="submit">Apply</button>{% if q %} <a href="{{ url_for('research_elegance') }}">Reset</a>{% endif %}</div>
+  </form>
   {% if pairs %}
-  <p class="note">{{ pairs | length }} pair{{ "" if pairs | length == 1 else "s" }} of designs, newest first. Each design links to its
-  fit on the board.</p>
+  <p class="note">{% if q %}{{ "{:,}".format(matched) }} of {{ "{:,}".format(total) }} pairs involve a design matching
+  <code>{{ q }}</code>{% else %}{{ "{:,}".format(total) }} pair{{ "" if total == 1 else "s" }} of designs{% endif %}, newest first{% if pages > 1 %},
+  page {{ page }} of {{ pages }}{% endif %}. Each design links to its fit on the board.</p>
   {% for p in pairs %}
   {% set ids = p.designs | map(attribute="id") | list %}
   <article class="judgement">
@@ -54,6 +83,13 @@ from the data.</p>
     {% endif %}
   </article>
   {% endfor %}
+  {% if pages > 1 %}
+  <nav class="pager" aria-label="Pages">{% if page > 1 %}<a href="{{ url_for('research_elegance', design=q or None, page=page - 1) }}">← Newer</a>{% endif %}
+    Page {{ page }} of {{ pages }}
+    {% if page < pages %}<a href="{{ url_for('research_elegance', design=q or None, page=page + 1) }}">Older →</a>{% endif %}</nav>
+  {% endif %}
+  {% elif q %}
+  <p class="empty-note">No judged pair involves a design matching <code>{{ q }}</code>.</p>
   {% else %}
   <p class="empty-note">No pair of designs has been judged under the elegance brief yet.</p>
   {% endif %}
