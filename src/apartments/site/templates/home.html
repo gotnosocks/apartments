@@ -33,13 +33,16 @@
   <p>Candidate models are fit to the same listings and compared on how well they predict asks they have not seen, how long
   they take to fit, and how simple they are to understand. The best one is served automatically.</p>
   <dl class="facts">
-    <dt>Served model</dt><dd><code>{{ p.model.name }}</code> + <code>{{ p.feature_set }}</code></dd>
+    <dt>Served model</dt><dd>{% if anatomy %}{{ anatomy.summary }}{% else %}A hierarchical model of the market, buildings and apartments{% endif %}
+      (<a href="{{ url_for('research_model', _anchor='structure') }}">how it works</a>)
+      <span class="muted block"><code>{{ p.model.name }}</code> + <code>{{ p.feature_set }}</code></span></dd>
     {% if entry and entry.psis %}
     <dt>Accuracy</dt><dd>{{ "{:+,.0f}".format(entry.psis.delta) }} ± {{ "{:,.0f}".format(entry.psis.delta_se) }} over the simplest baseline
-      <span class="muted">(PSIS-LOO ΔELPD: higher predicts unseen asks better)</span></dd>
+      <span class="muted">(a log-score summed over listings, <a href="{{ url_for('research_glossary', _anchor='delta-elpd') }}">PSIS-LOO ΔELPD</a>;
+      higher predicts unseen asks better)</span></dd>
     {% endif %}
     <dt>Fit time</dt><dd>{{ (p.fit_seconds / 60) | round(1) }} minutes on {{ p.fit_hardware }}</dd>
-    {% if selection and selection.selected_by %}<dt>Chosen by</dt><dd>{{ selection.selected_by }}</dd>{% endif %}
+    {% if selection and selection.selected_by %}<dt>Chosen by</dt><dd>{{ "the automatic selection rule" if selection.selected_by.startswith("rentfrontier.autoselect") else selection.selected_by }}{% set when = selection.selected_by.split(", ")[1][:10] if ", " in selection.selected_by else "" %}{% if when %}, {{ when }}{% endif %}</dd>{% endif %}
   </dl>
   <ul class="link-list">
     <li><a href="{{ url_for('research_frontier') }}">The frontier: accuracy, fit time and simplicity of every fit</a></li>

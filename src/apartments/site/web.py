@@ -575,12 +575,17 @@ def create_app(
             if has_quarantine()
             else 0
         }
+        entry = entry_for_run(data, m["provenance"]["run"])
+        anatomy = (
+            describe(entry.get("model"), entry.get("sizes")) if entry else None
+        ) or describe(m["provenance"].get("model"))
         return render_template(
             "home.html",
+            anatomy=anatomy,
             meta=m,
             selection=served_selection(m),
             counts=counts,
-            entry=entry_for_run(data, m["provenance"]["run"]),
+            entry=entry,
             milestones=latest_milestones(data),
             research_at=data.get("generated_at") if data else None,
         )
