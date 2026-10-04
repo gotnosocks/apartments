@@ -18,6 +18,7 @@
 {%- endmacro %}
 
 {% macro listing_table(rows, filters=None, endpoint=None, show_building=True, show_source=False) %}
+{% set pred = rows and rows[0].pred_lower_80 is number %}
 <div class="table-wrap">
 <table class="data listings">
   <thead>
@@ -27,7 +28,7 @@
       <th scope="col">Layout</th>
       {{ sort_th("Ask", "ask", filters, endpoint, num=True) }}
       {{ sort_th("Estimate", "estimate", filters, endpoint, num=True) }}
-      <th scope="col" class="num col-minor">Range for the typical rent</th>
+      <th scope="col" class="num col-minor">{{ "Likely ask range" if pred else "Range for the typical rent" }}</th>
       {{ sort_th("Ask vs estimate", "diff_pct", filters, endpoint, num=True) }}
       <th scope="col">Price</th>
       {% if show_source %}<th scope="col">StreetEasy</th>{% endif %}
@@ -41,7 +42,7 @@
       <td class="nowrap c-layout">{{ layout(row) }}</td>
       <td class="num" data-label="Ask">{{ usd(row.ask) }}</td>
       <td class="num" data-label="Estimate">{{ usd(row.estimate) }}{% if not row.reliable %} <span class="warn-mark" title="Less reliable estimate (Pareto k {{ '%.2f' | format(row.pareto_k) }})">*</span>{% endif %}</td>
-      <td class="num muted nowrap col-minor">{{ usd(row.estimate_lower) }}–{{ usd(row.estimate_upper) }}</td>
+      <td class="num muted nowrap col-minor">{% if row.pred_lower_80 is number %}{{ usd(row.pred_lower_80) }}–{{ usd(row.pred_upper_80) }}{% else %}{{ usd(row.estimate_lower) }}–{{ usd(row.estimate_upper) }}{% endif %}</td>
       <td class="num nowrap" data-label="Ask vs estimate">{{ usd(row.residual_usd, signed=True) }} <span class="muted">({{ pct(100 * row.residual_pct) }})</span></td>
       <td class="c-band" data-label="Price">{{ band_chip(row) }}</td>
       {% if show_source %}<td class="nowrap">{% if row.listing_url %}<a href="{{ row.listing_url }}" rel="noopener noreferrer" target="_blank">Ad ↗<span class="visually-hidden"> for {{ month(row.period) }} on StreetEasy</span></a>{% endif %}</td>{% endif %}
@@ -52,7 +53,11 @@
   </tbody>
 </table>
 </div>
-{% if rows %}<p class="note band-note"><strong>Price</strong> compares the ask with the spread of asks the model expects for that
+{% if rows and pred %}<p class="note band-note"><strong>Likely ask range</strong> is where 80% of asks for that apartment
+are expected to fall, in that building and month. <strong>Price</strong> says where the ask sits against it: <em>Below
+typical</em> under it, <em>Above typical</em> over it, <em>Typical</em> inside it.
+<a href="{{ url_for('research_glossary', _anchor='price-band') }}">More</a>.</p>
+{% elif rows %}<p class="note band-note"><strong>Price</strong> compares the ask with the spread of asks the model expects for that
 apartment: <em>Below typical</em> is the lowest 10%, <em>Above typical</em> the highest 10%. The <em>range for the typical
 rent</em> is something else: the 95% uncertainty of the model's typical rent for that apartment, not where its ask will
 land, so it holds the actual ask much less often than 95% of the time. Asks spread wider than that, and wider still for
