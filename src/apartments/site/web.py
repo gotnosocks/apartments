@@ -433,7 +433,30 @@ def _query(args: dict) -> str:
 
 
 ZOOM_KEYS = ("x0", "x1", "y0", "y1")
-ZOOM_ANCHORS = {"f": "full-fits", "e": "exploration-fits"}
+# "fp" and "ep" zoom the charts of fits scored on the earlier data.
+ZOOM_ANCHORS = {
+    "f": "full-fits",
+    "e": "exploration-fits",
+    "fp": "f-earlier",
+    "ep": "e-earlier",
+}
+
+
+def best_so_far(points, eligible) -> set[int]:
+    """Indexes of the points no eligible point beats: none at least as fast
+    and at least as accurate, and better on one. Only for display (the
+    earlier-data charts); the board computes the real frontiers."""
+    pool = [(i, p) for i, p in enumerate(points) if eligible(p)]
+    return {
+        i
+        for i, p in pool
+        if not any(
+            q["x"] <= p["x"]
+            and q["y"] >= p["y"]
+            and (q["x"], q["y"]) != (p["x"], p["y"])
+            for _, q in pool
+        )
+    }
 
 
 def zoom_box(args, prefix: str):
@@ -1868,29 +1891,36 @@ def create_app(
             charts_by_tier[tier]["earlier_floored"] = earlier_floor is not None and any(
                 f["prior"]["delta"] < earlier_floor for f in earlier
             )
+            earlier_points = [
+                {
+                    "x": f["minutes"],
+                    "y": f["prior"]["delta"],
+                    "kind": "failing" if f["kind"] == "failing" else "other",
+                    "tier": f["tier"],
+                    "title": design_of(f["entry"]["key"]),
+                    "rows": [
+                        [
+                            "ΔELPD, earlier data",
+                            (f"{f['prior']['delta']:+,.1f} ± {f['prior']['se']:,.1f}"),
+                        ],
+                        *fit_rows(f),
+                    ],
+                    "href": url_for("research_fit", key=f["entry"]["key"]),
+                }
+                for f in earlier
+            ]
+            # The best fits on the earlier data, joined as on the charts
+            # above: every exploration fit, only converged full fits.
+            best = best_so_far(
+                earlier_points,
+                lambda p, t=tier: t == "exploration" or p["kind"] != "failing",
+            )
+            for i, p in enumerate(earlier_points):
+                p["on_line"] = i in best
+            ex_range, ey_range = zoom_box(request.args, prefix + "p")
             charts_by_tier[tier]["earlier_chart"] = (
                 charts.fit_scatter(
-                    [
-                        {
-                            "x": f["minutes"],
-                            "y": f["prior"]["delta"],
-                            "kind": "failing" if f["kind"] == "failing" else "other",
-                            "tier": f["tier"],
-                            "title": design_of(f["entry"]["key"]),
-                            "rows": [
-                                [
-                                    "ΔELPD, earlier data",
-                                    (
-                                        f"{f['prior']['delta']:+,.1f} ± "
-                                        f"{f['prior']['se']:,.1f}"
-                                    ),
-                                ],
-                                *fit_rows(f),
-                            ],
-                            "href": url_for("research_fit", key=f["entry"]["key"]),
-                        }
-                        for f in earlier
-                    ],
+                    earlier_points,
                     label=f"{TIERS[tier]}s scored on the earlier data, "
                     "against its own baseline: not comparable with the chart above",
                     x_title=f"Fit time on {device}, full dataset (minutes)",
@@ -1898,6 +1928,16 @@ def create_app(
                     x_format=lambda v: f"{v:g}",
                     y_format=charts.signed,
                     y_floor=earlier_floor,
+                    x_range=ex_range,
+                    y_range=ey_range,
+                    zoom=prefix + "p",
+                    frontier_line="solid" if tier == "full" else "dashed",
+                    line_label="The best fits on the earlier data, joined"
+                    + (
+                        "; it includes fits that fail the convergence checks"
+                        if tier == "exploration"
+                        else ""
+                    ),
                 )
                 if earlier
                 else None
