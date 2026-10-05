@@ -109,8 +109,9 @@ TERM_TEXT = {
     "count), or a flag for its first listing. A quick relist hints at a problem unit, a long gap at "
     "a renovation.",
     "previous listing": "How the same apartment's previous listing was repriced "
-    "before this one was listed: its last price over its first ask, and how many "
-    "times it changed. A cut says the last ask was above what the apartment let for.",
+    "before this one was listed: how many times its price changed and, where the "
+    "design has it, its last price over its first ask. A cut says the last ask was "
+    "above what the apartment let for.",
     "location": "A smooth location surface over the map (Gaussian bumps about 250 "
     "m apart over the buildings' coordinates).",
     "transit": "The walk to the nearest subway station and the subway routes "

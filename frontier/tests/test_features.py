@@ -970,3 +970,41 @@ def test_prevprice_reads_only_changes_before_the_listing(monkeypatch, tmp_path):
     monkeypatch.setattr(run.data, "sha256", lambda p: "sha")
     sources = run.feature_sources("nb-prevprice-v1")
     assert "price_history" in sources and "listing_extras" in sources
+
+
+def test_prevprice_never_reads_the_rows_own_advertisement(monkeypatch, tmp_path):
+    import json
+
+    import pandas as pd
+
+    path = tmp_path / "history.parquet"
+    pd.DataFrame(
+        {
+            "listing_id": ["10", "20"],
+            "price_changes": [
+                json.dumps([["2020-01-01T00:00:00Z", 5000], ["2020-06-01T00:00:00Z", 4000]]),
+                # The current capture's own ad, cut before the capture.
+                json.dumps([["2021-01-01T00:00:00Z", 6000], ["2021-02-01T00:00:00Z", 5400]]),
+            ],
+        }
+    ).to_parquet(path)
+    monkeypatch.setattr(features, "PRICE_HISTORY_FILE", str(path))
+    monkeypatch.setitem(
+        features.FEATURE_SETS,
+        "stub-base",
+        lambda f, t: features.Features(
+            "stub-base", [], [], np.zeros((len(f), 0)), np.zeros(0)
+        ),
+    )
+    frame = pd.DataFrame(
+        {
+            "unit_id": ["u"] * 3,
+            "source_listing_id": [10, 20, 20],  # ad 20: initial ask, then a capture
+            "asking_rent": [5000.0, 6000.0, 5400.0],
+            "price_at": pd.to_datetime(["2020-01-01", "2021-01-01", "2021-03-01"], utc=True),
+        }
+    )
+    out = features.prevprice_v1(frame, np.ones(3, bool), id="t", base="stub-base")
+    change = dict(zip(out.names, out.values.T))["previous_listing_price_change"]
+    # Both rows of ad 20 read ad 10 (cut to 4000), never ad 20's own cut.
+    np.testing.assert_allclose(change, [0, np.log(0.8), np.log(0.8)])

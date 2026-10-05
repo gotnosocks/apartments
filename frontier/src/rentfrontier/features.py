@@ -421,38 +421,48 @@ def prevprice_v1(
 ) -> Features:
     """A base set plus how the unit's previous listing was repriced before this one
     was listed: the log of its last price before this listing's date over its
-    initial ask (clipped to +-30%), and the log of one plus the number of its price
+    first price (clipped to +-30%), and the log of one plus the number of its price
     changes by then. A cut says the last ask was above what the unit let for; a
     rise, below. Only changes dated before this listing's own date count, so a row
-    sees nothing later. 0 for a unit's first listing.
+    sees nothing later. The previous listing is the unit's latest earlier row of
+    another advertisement (a current capture of an ad never reads its own ad's
+    history). 0 for a unit's first listing. Both terms read only the price-change
+    record, never the frame's rents.
 
-    The price change holds the previous row's own ask, so leave-one-out scores of
-    that row see its target through this row's covariate. `change=False` keeps
+    The price change holds the previous listing's own ask, so leave-one-out scores
+    of that row see its target through this row's covariate. `change=False` keeps
     only the count of price changes, which reads no ask."""
     base = FEATURE_SETS[base](frame, train)
     history = pd.read_parquet(PRICE_HISTORY_FILE).set_index("listing_id").price_changes
     at = pd.to_datetime(frame.price_at, utc=True)
     order = np.lexsort((at.to_numpy(), frame.unit_id.to_numpy()))
-    units = frame.unit_id.to_numpy()[order]
-    same = np.r_[False, units[1:] == units[:-1]]
-    prev = np.full(len(frame), -1)
-    prev[order[same]] = order[np.flatnonzero(same) - 1]
+    units = frame.unit_id.to_numpy()
     ids = frame.source_listing_id.astype(str).to_numpy()
-    rents = frame.asking_rent.to_numpy(dtype=float)
+    prev = np.full(len(frame), -1)
+    for k in range(1, len(order)):
+        i = order[k]
+        for back in range(k - 1, -1, -1):
+            j = order[back]
+            if units[j] != units[i]:
+                break
+            if ids[j] != ids[i]:
+                prev[i] = j
+                break
     change_values = np.zeros(len(frame))
     count = np.zeros(len(frame))
     seen = np.zeros(len(frame), bool)
     for i in np.flatnonzero(prev >= 0):
-        j = prev[i]
-        record = history.get(ids[j])
+        record = history.get(ids[prev[i]])
         if not isinstance(record, str):
             continue
-        steps = [(pd.Timestamp(t), p) for t, p in json.loads(record) if p]
-        steps = [p for t, p in steps if t < at.iloc[i]]
-        if not steps or not rents[j] > 0:
+        steps = sorted((pd.Timestamp(t), p) for t, p in json.loads(record) if p and t)
+        before = [p for t, p in steps if t < at.iloc[i]]
+        if not before:
             continue
-        change_values[i] = np.clip(np.log(steps[-1] / rents[j]), -PRICE_CHANGE_CLIP, PRICE_CHANGE_CLIP)
-        count[i] = np.log1p(len(steps) - 1)
+        change_values[i] = np.clip(
+            np.log(before[-1] / before[0]), -PRICE_CHANGE_CLIP, PRICE_CHANGE_CLIP
+        )
+        count[i] = np.log1p(len(before) - 1)
         seen[i] = True
     centre = float(np.mean(count[train & seen])) if (train & seen).any() else 0.0
     b = _Builder(frame)

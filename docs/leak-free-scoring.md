@@ -48,13 +48,6 @@ Designs are compared paired, on the held-out rows both runs share: the per-row E
 - **Listing-record fields (`nb-coded-v1`):** these are read from each listing's last capture, so a field could have been edited after the listing date. That is the listing's own later information, not another row's rent; the same holds for the description evidence. Dating them by capture is a possible future data rule.
 - **Data rules chosen with rents in view:** quarantines from residual and high-k reviews (q-v3, q-v4) were picked by looking at rents. They are judged on shared rows (`cleaning-scored-on-shared-rows`). That compares models on the same rows, but it does not make the choice of rows leak-free. A rule found that way should be confirmed on rows held out from the review that produced it.
 
-## First results (2026-10-05)
+## First results (2026-10-05): superseded
 
-Exploration tier (x-2060-100w600d-nb-cb1-q5, Gibbs), on the latest split at 05bfae7, with the current rules (unit-labels-v3, quarantine-v5, bedrooms-ad-v2, baths-ad-v2, fields-review-v1) and 8,648 held-out latest listings, paired:
-
-| design | vs nb-coded-v1 | Chelsea | West Village |
-|---|---|---|---|
-| nb-prevprice-v1 (price change and repricing count) | **+72.8 ± 15.2** | +37.4 ± 12.3 | +35.4 ± 8.9 |
-| nb-prevprice-v2 (repricing count only; reads no rent) | +26.3 ± 6.9 | +7.6 ± 5.8 | +18.7 ± 3.6 |
-
-v1 against v2: +46.5 ± 13.3. The previous listing's repricing is a real, leak-free signal for the next listing's ask. Most of it is in how far the price moved, not just how often.
+A first run (05bfae7) measured nb-prevprice-v1 at +72.8 ± 15.2 and v2 at +26.3 ± 6.9 against nb-coded-v1. Review then found a self-leak. A current-capture row shares its advertisement with that ad's initial-ask row, so the "previous listing" was the same ad, and its price changes included the row's own ask. That affected 70 rows, 28 of them held out. The feature now takes the latest earlier row of another advertisement, and both designs are being rerun.
