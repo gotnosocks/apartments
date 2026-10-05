@@ -78,8 +78,8 @@
 {% if tier is not none %}
 <section class="card">
   <h2>An exploration fit</h2>
-  <p class="note">A short fit, run to see quickly whether a design is worth a full fit. It counts on the research frontier, so the
-  research can be judged by it, but it is never served: only a full fit's estimates reach the rest of the site.
+  <p class="note">A short fit, run to see quickly whether a design is worth a full fit. It is a research point, so the research can be
+  judged by it; it sits on the frontier line only if it passes the convergence checks. It is never served: only a full fit's estimates reach the rest of the site.
   <a href="{{ url_for('research_glossary', _anchor='exploration-fit') }}">Exploration and full fits</a>.</p>
   <dl class="facts">
     {% if tier.draws is number %}<dt>Draws</dt><dd>{{ "{:,}".format(tier.draws) }}{% if tier.chains is number %} over {{ tier.chains }} chain{{ "" if tier.chains == 1 else "s" }}{% endif %}</dd>{% endif %}
