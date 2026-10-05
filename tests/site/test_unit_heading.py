@@ -25,3 +25,4 @@ def test_clean_forms_first_and_hyphens_kept():
     assert unit_heading(rows("UNIT3E", "UNIT3E", "3E")) == "3E"
     assert unit_heading(rows("460-11D", "46011D")) == "460-11D"
     assert unit_heading(rows("05", "5")) == "5"
+    assert unit_heading(rows("1-B", "1B")) == "1B"

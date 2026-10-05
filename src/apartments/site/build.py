@@ -399,7 +399,8 @@ def unit_heading(rows) -> str | None:
             clean,
             counts[label],
             -len(label.replace("-", "")),
-            "-" in label,
+            # A hyphen that separates parts (460-11D), not floor and letter (1-B).
+            "-" in label and not re.fullmatch(r"\d+-[A-Z]", label),
             order[label],
         )
 
