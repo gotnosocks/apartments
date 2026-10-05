@@ -323,3 +323,38 @@ def test_fields_review_file_names_each_row_once_with_its_evidence():
         assert r["corrected"] != r["recorded"], r
         if r["field"] == "baths":
             assert r["full_baths"] + 0.5 * r["half_baths"] == r["corrected"], r
+
+
+def test_unit_labels_v3_joins_number_words_with_matching_bedrooms(monkeypatch):
+    url = "https://streeteasy.com/building/{}/{}".format
+    frame = pd.DataFrame(
+        {
+            "building": ["b", "b", "b", "b", "b"],
+            "unit_id": ["u4", "uF", "u3", "uT", "u1"],
+            "canonical_unit_url": [
+                url("b", "4"),
+                url("b", "four"),  # joins u4: both one-bedrooms
+                url("b", "3fl"),
+                url("b", "third-fl"),  # joins u3
+                url("b", "one"),  # no unit "1": left alone
+            ],
+            "bedrooms": [1.0, 1.0, 2.0, 2.0, 1.0],
+        }
+    )
+    monkeypatch.setattr(data, "unit_aliases", lambda path=None: ())
+    out = data.merge_word_labels(frame)
+    assert out.unit_id.tolist() == ["u4", "u4", "u3", "u3", "u1"]
+    frame.loc[1, "bedrooms"] = 2.0  # "four" a two-bedroom: not the same apartment
+    assert data.merge_word_labels(frame).unit_id.tolist()[:2] == ["u4", "uF"]
+
+
+def test_a_held_out_row_without_a_training_building_moves_to_training():
+    frame = pd.DataFrame(
+        {
+            "building": ["a", "a", "b"],
+            "unit_id": ["a1", "a1", "b1"],
+            "audit_id": ["1", "2", "3"],
+        }
+    )
+    _, held = data.apply_rules(frame, np.array([True, False, True]), [])
+    assert held.tolist() == [True, False, False]

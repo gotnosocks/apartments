@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import csv
 import datetime as dt
+import functools
 import gzip
 import hashlib
 import io
@@ -19,6 +20,7 @@ import math
 import os
 import re
 import sqlite3
+import statistics
 import time
 from pathlib import Path
 from urllib.parse import quote, urlencode, urlsplit
@@ -171,6 +173,12 @@ class Filters:
         self.beds = [b for b in args.getlist("beds") if b in BEDROOMS]
         self.min_ask = _number(args.get("min_ask"))
         self.max_ask = _number(args.get("max_ask"))
+        self.min_baths = args.get("baths") if args.get("baths") in BATHS else None
+        self.min_sqft = _number(args.get("min_sqft"))
+        self.max_sqft = _number(args.get("max_sqft"))
+        self.elevator = (
+            args.get("elevator") if args.get("elevator") in ("yes", "no") else None
+        )
         self.year_from = _year(args.get("from"))
         self.year_to = _year(args.get("to"))
         self.status = args.get("status") if args.get("status") in STATUS else "all"
@@ -214,6 +222,18 @@ class Filters:
         if self.max_ask is not None:
             clauses.append("l.ask <= ?")
             params.append(self.max_ask)
+        if self.min_baths is not None:
+            clauses.append("l.bathrooms >= ?")
+            params.append(float(self.min_baths))
+        if self.min_sqft is not None:
+            clauses.append("l.square_feet >= ?")
+            params.append(self.min_sqft)
+        if self.max_sqft is not None:
+            clauses.append("l.square_feet <= ?")
+            params.append(self.max_sqft)
+        if self.elevator is not None:
+            clauses.append("l.elevator = ?")
+            params.append(self.elevator)
         if self.year_from is not None:
             clauses.append("l.period >= ?")
             params.append(f"{self.year_from}-01-01")
@@ -242,6 +262,10 @@ class Filters:
             "beds": self.beds or None,
             "min_ask": _fmt_number(self.min_ask),
             "max_ask": _fmt_number(self.max_ask),
+            "baths": self.min_baths,
+            "min_sqft": _fmt_number(self.min_sqft),
+            "max_sqft": _fmt_number(self.max_sqft),
+            "elevator": self.elevator,
             "from": self.year_from,
             "to": self.year_to,
             "status": None if self.status == "all" else self.status,
@@ -261,6 +285,10 @@ class Filters:
             or self.beds
             or self.min_ask is not None
             or self.max_ask is not None
+            or self.min_baths is not None
+            or self.min_sqft is not None
+            or self.max_sqft is not None
+            or self.elevator is not None
             or self.year_from
             or self.year_to
             or self.status != "all"
@@ -268,7 +296,26 @@ class Filters:
         )
 
 
+# Minimum bathrooms the listings filter offers.
+BATHS = ("1", "1.5", "2", "3")
 LISTING_JOIN = " JOIN buildings b ON b.id = l.building_id"
+
+
+def asks_summary(db, filters: Filters) -> dict | None:
+    """The filtered listings' asks in brief: their median and middle 80%
+    (10th to 90th percentile); None when nothing matches."""
+    where, params = filters.where()
+    join = LISTING_JOIN if "b." in where else ""
+    asks = sorted(
+        r[0] for r in db.execute(f"SELECT l.ask FROM listings l{join}{where}", params)
+    )
+    if not asks:
+        return None
+    out = {"n": len(asks), "median": statistics.median(asks), "low": None, "high": None}
+    if len(asks) >= 5:  # a middle 80% of fewer asks says little
+        deciles = statistics.quantiles(asks, n=10, method="inclusive")
+        out["low"], out["high"] = deciles[0], deciles[-1]
+    return out
 
 
 def count_query(filters: Filters):
@@ -388,6 +435,37 @@ def create_app(
     app.config["TRUSTED_HOSTS"] = [*DEFAULT_HOSTS, *hosts]
     app.config["SEND_FILE_MAX_AGE_DEFAULT"] = 365 * 24 * 3600
     versions = _asset_versions(Path(app.static_folder))
+
+    def building_typical(building_id: str) -> dict | None:
+        """The building's typical rent by bedroom count in the rent map's
+        latest year: {year, months, extrapolated, rows: [{label, rent, low,
+        high}]}; None without a map or when the map lacks the building."""
+        path = database_path().parent / "map.json"
+        try:
+            data = _rent_map(str(path), path.stat().st_mtime)
+            index = data["_index"].get(building_id)
+            if index is None:
+                return None
+            b = data["buildings"][index]
+            yi = len(data["years"]) - 1
+            year = data["years"][yi]
+            rows = []
+            for bed in data["bedrooms"]:
+                low, mid, high = data["rent"][bed["key"]][index][yi]
+                rows.append(
+                    {"label": bed["label"], "rent": mid, "low": low, "high": high}
+                )
+        except (OSError, ValueError, KeyError, IndexError, TypeError):
+            return None  # no map, or one this code does not understand
+        return {
+            "fit_listings": b.get("fit_listings"),
+            "year": year,
+            "months": data["year_months"][yi],
+            "extrapolated": not (b["first_year"] <= year <= b["last_year"]),
+            "last_year": b["last_year"],
+            "interval": data.get("interval", "90%"),
+            "rows": rows,
+        }
 
     def database_path() -> Path:
         return (root / "current" / "site.sqlite").resolve()
@@ -647,6 +725,7 @@ def create_app(
         rows, total, pages = listings_query(filters)
         return render_template(
             "listings.html",
+            summary=asks_summary(db(), filters) if filters.active() else None,
             meta=meta(),
             coverage=current_coverage() if filters.status == "current" else [],
             rows=rows,
@@ -1097,6 +1176,7 @@ def create_app(
         )
         return render_template(
             "building.html",
+            typical=building_typical(building_id),
             meta=meta(),
             b=row,
             units=units,
@@ -1415,7 +1495,7 @@ def create_app(
                 else "frontier"
                 if e.get("frontier")
                 else "failing"
-                if not e.get("passes_checks") and tier_of(e) == "full"
+                if not e.get("passes_checks")
                 else "other"
             )
             fits.append(
@@ -1528,10 +1608,12 @@ def create_app(
             and e.get("variance")
         ]
         frontier.sort(key=lambda e: -((e.get("psis") or {}).get("delta") or 0))
+        served_entry = entry_for_run(data, served_run)
         return render_template(
             "research_validation.html",
             meta=m,
-            served_entry=entry_for_run(data, served_run),
+            served_entry=served_entry,
+            served_units=served_unit_split(data, served_entry),
             reference=data.get("reference"),
             classes=classes,
             hardware=hardware,
@@ -1660,6 +1742,64 @@ def create_app(
     return app
 
 
+def rules_of(entry: dict) -> list[str]:
+    """The data rules a board key names after its commit ("...@abc1234+rule+rule")."""
+    return entry["key"].split(" [")[0].split("@", 1)[-1].split("+")[1:]
+
+
+def served_unit_split(data: dict, served: dict | None) -> dict | None:
+    """The unit-split score of the served design and feature set: a passing
+    fit first, then the one whose data rules differ least from the served
+    fit's, then the newest. {entry, split, missing_rules, extra_rules,
+    missed}, where missed lists the gate thresholds the fit fell short of."""
+    if not served:
+        return None
+    ours = rules_of(served)
+
+    def candidate(e):
+        theirs = rules_of(e)
+        return {
+            "entry": e,
+            "split": e["splits"]["units"],
+            "missing_rules": [r for r in ours if r not in theirs],
+            "extra_rules": [r for r in theirs if r not in ours],
+        }
+
+    found = [
+        candidate(e)
+        for e in data.get("entries", [])
+        if e.get("design") == served.get("design")
+        and e.get("feature_set") == served.get("feature_set")
+        and (e.get("splits") or {}).get("units", {}).get("delta") is not None
+    ]
+    if not found:
+        return None
+    best = max(
+        found,
+        key=lambda c: (
+            c["split"].get("passes") is True,
+            -(len(c["missing_rules"]) + len(c["extra_rules"])),
+            c["split"].get("completed_at") or "",
+        ),
+    )
+    best["missed"] = gate_misses(best["split"], data.get("gate") or {})
+    return best
+
+
+def gate_misses(split: dict, gate: dict) -> list[str]:
+    """The convergence thresholds a fit fell short of, in words."""
+    out = []
+    rhat, ess = split.get("max_rhat"), split.get("min_ess")
+    if isinstance(rhat, (int, float)) and gate.get("rhat") and rhat >= gate["rhat"]:
+        out.append(f"largest R-hat {rhat:.3f}; the gate needs below {gate['rhat']}")
+    if isinstance(ess, (int, float)) and gate.get("ess") and ess <= gate["ess"]:
+        out.append(
+            f"smallest effective sample size {ess:,.0f}; the gate needs more than "
+            f"{gate['ess']:,}"
+        )
+    return out
+
+
 def design_label(entry: dict) -> str:
     """What an entry's design adds to the basic hierarchy, in a few words
     (`Anatomy.label`); "" when its record holds no structure."""
@@ -1672,6 +1812,14 @@ def term_id(name: str) -> str:
     return "part-" + (
         re.sub(r"[^a-z0-9]+", "-", str(name).lower()).strip("-") or "term"
     )
+
+
+@functools.lru_cache(maxsize=2)
+def _rent_map(path: str, mtime: float) -> dict:
+    """A build's map.json, read once per file version, with a building index."""
+    data = json.loads(Path(path).read_text())
+    data["_index"] = {b["id"]: i for i, b in enumerate(data.get("buildings", []))}
+    return data
 
 
 def chosen_by(selected_by: str) -> str:

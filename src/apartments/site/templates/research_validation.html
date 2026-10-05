@@ -11,6 +11,17 @@ held-out test, what each model explains, and whether the same model gives the sa
   <h2>The served fit's own checks</h2>
   <p class="note"><code>{{ served_entry.id }}</code>: the fit whose estimates the site shows.</p>
   {{ fit_checks(served_entry, reference) }}
+  {% if served_units %}{% set u = served_units.split %}
+  <h3 id="served-unit-split">Unseen apartments</h3>
+  <p>With every listing of about 10% of apartments held out, the served design and features score
+  {{ "{:+,.1f}".format(u.delta) }}{% if u.delta_se is finite %} ± {{ "{:,.1f}".format(u.delta_se) }}{% endif %} held-out ΔELPD against
+  the reference model{% if u.paired_rows %}, on the {{ "{:,}".format(u.paired_rows) }} held-out listings both models scored{% endif %}.</p>
+  {% if u.passes is sameas false %}<p class="notice"><strong>Indicative only:</strong> this fit did not pass the convergence
+  gate{% if served_units.missed %} ({{ served_units.missed | join("; ") }}){% endif %}, so its score may move on a longer fit.</p>{% endif %}
+  {% if served_units.missing_rules or served_units.extra_rules %}<p class="note">It is a fit of the same design and features
+  with slightly different data rules{% if served_units.missing_rules %}: without {{ served_units.missing_rules | join(", ") }}{% endif %}{% if served_units.extra_rules %}{{ ";" if served_units.missing_rules else ":" }} with {{ served_units.extra_rules | join(", ") }}{% endif %}.
+  <a href="{{ url_for('research_fit', key=served_units.entry.key) }}">Its page</a>.</p>{% endif %}
+  {% endif %}
 </section>
 {% endif %}
 
@@ -94,15 +105,18 @@ held-out test, what each model explains, and whether the same model gives the sa
 <section class="card">
   <h2>Unseen apartments (the unit split) <span class="muted">(all hardware)</span></h2>
   <p class="note">A second, harder test some fits also took: every listing of about 10% of apartments held out, so the model must
-  predict apartments it has never seen. Higher is better, against the reference model.</p>
+  predict apartments it has never seen. Higher is better, against the reference model. A score from a fit that did not pass the
+  convergence gate is indicative only. Scores on different numbers of listings are not directly comparable.</p>
   {% if units %}
   <div class="table-wrap tall">
   <table class="data">
-    <thead><tr><th scope="col">Fit</th><th scope="col">Hardware</th><th scope="col" class="num">Unseen-apartment ΔELPD</th></tr></thead>
+    <thead><tr><th scope="col">Fit</th><th scope="col">Hardware</th><th scope="col" class="num">Unseen-apartment ΔELPD</th><th scope="col" class="num">Listings scored</th><th scope="col">Convergence</th></tr></thead>
     <tbody>
     {% for e in units | sort(attribute="splits.units.delta", reverse=true) %}
       <tr><td><a href="{{ url_for('research_fit', key=e.key) }}"><code>{{ e.key }}</code></a></td><td class="nowrap">{{ e.hardware_class }}</td>
-        <td class="num nowrap">{{ "{:+,.1f}".format(e.splits.units.delta) }}{% if e.splits.units.delta_se is finite %} <span class="muted">± {{ "{:,.1f}".format(e.splits.units.delta_se) }}</span>{% endif %}</td></tr>
+        <td class="num nowrap">{{ "{:+,.1f}".format(e.splits.units.delta) }}{% if e.splits.units.delta_se is finite %} <span class="muted">± {{ "{:,.1f}".format(e.splits.units.delta_se) }}</span>{% endif %}</td>
+        <td class="num">{{ "{:,}".format(e.splits.units.paired_rows) if e.splits.units.paired_rows else "—" }}</td>
+        <td>{% if e.splits.units.passes %}passed{% elif e.splits.units.passes is sameas false %}<span class="muted">indicative: did not pass the gate</span>{% else %}—{% endif %}</td></tr>
     {% endfor %}
     </tbody>
   </table>

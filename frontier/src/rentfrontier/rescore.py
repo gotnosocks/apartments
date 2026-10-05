@@ -31,7 +31,7 @@ import time
 
 import numpy as np
 
-from . import data, explain, features, model, splits
+from . import data, explain, features, model
 from .run import REFERENCES, git, hardware, score
 
 RESCORES = data.OUTPUT_ROOT / "rescores"
@@ -95,8 +95,9 @@ def rescore(name: str):
     frame = data.load()
     if frame.attrs["source_sha256"] != result["dataset_observations_sha256"]:
         raise SystemExit("dataset differs from the run's recorded dataset")
-    heldout = splits.SPLITS[result["split"]](frame)
-    frame, heldout = data.apply_rules(frame, heldout, data.recorded_rules(result))
+    frame, heldout = data.split_and_rules(
+        frame, result["split"], data.recorded_rules(result)
+    )
     feats = features.build(result["feature_set"], frame, ~heldout)
     prep = model.prepare(frame, heldout, feats)
     if not np.array_equal(

@@ -340,14 +340,22 @@ def test_tier_of_reads_the_flag_or_the_legacy_label():
     assert leaderboard.tier_of(tuned)["subset"] == "tune-b35-v1"
 
 
-def test_exploration_fits_count_on_the_frontier_without_the_gate():
+def test_the_frontier_line_is_drawn_from_gate_passing_fits_only():
     quick = _board_entry("quick", 8.0, 300) | {
         "passes_checks": False,
         "tier": {"name": "exploration"},
     }
+    passing_quick = _board_entry("pquick", 7.0, 400) | {
+        "tier": {"name": "exploration"},
+    }
     failed_full = _board_entry("failed", 9.0, 200) | {"passes_checks": False}
     slow = _board_entry("slow", 10.0, 1500)
-    assert leaderboard.on_frontier([quick, failed_full, slow]) == [True, False, True]
+    assert leaderboard.on_frontier([quick, passing_quick, failed_full, slow]) == [
+        False,
+        True,
+        False,
+        True,
+    ]
     # The board's best still needs the gate.
     deltas = {"quick": 8.0, "failed": 9.0, "slow": 10.0}
     best = leaderboard.choose_best(
@@ -381,7 +389,6 @@ def test_a_short_fit_does_not_dominate_a_longer_fit_of_its_design():
     }
     short = _board_entry("full", 10.4, 360) | {
         "id": "short",
-        "passes_checks": False,
         "tier": {"name": "exploration", "draws": 300},
         "data_rules": ["unit-labels-v1"],
     }

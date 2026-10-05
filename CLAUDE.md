@@ -21,10 +21,12 @@ from the copy that follows master:
 /data1/apartments/serve/master/ops/team/wait-next --gpu --pr N
 ```
 
-It returns when a `frontier-*` unit finishes (`--unit PATTERN` to watch others), the GPU goes
-idle (`--gpu`: after a job ends, or after 30 minutes if it was already idle), a watched PR changes
-(`--pr N`), a file appears or changes (`--file PATH`), or after `--max` minutes (default 120) as a
-heartbeat. Its exit wakes the session with what changed. Act on it, then start it again. A
+It returns when the GPU goes idle (`--gpu`: after a job ends, or after 30 minutes if it was
+already idle), a file appears or changes (`--file PATH`), or after `--max` minutes (default 120)
+as a heartbeat. A `frontier-*` unit finishing (watched with `--gpu`; `--unit PATTERN` for others)
+or a watched PR changing (`--pr N`) is batched: the wait goes on up to `--batch` minutes (default
+15) to collect the other watched units, and an idle GPU still ends it at once. Its exit wakes the
+session with what changed. Act on it, then start it again. A
 background `ops/job` run or fit you are waiting on works too, as long as something stays pending.
 If a message wakes you while a `wait-next` is still pending, leave it running rather than
 starting a second one. Leave out `--gpu` only when you don't own GPU work.
@@ -34,6 +36,24 @@ starting a second one. Leave out `--gpu` only when you don't own GPU work.
   for anything that must run with no session at all, like `apartments-gv-monitor.timer`.
 - After any wake, including a resume after a park or a usage-limit stop, check state yourself
   (`ops/job status`, `gh pr list`, your logs) and start `wait-next` again before ending the turn.
+
+## Keep the context small
+
+Every tool call re-reads the whole context, and a wake after the hour-long prompt cache expires
+writes all of it again. Over 2026-10-03..05 the two sessions that ran at 300k to 966k tokens made
+two thirds of the project's token cost (`docs/token-usage.md`). `.claude/settings.json` sets
+`CLAUDE_CODE_AUTO_COMPACT_WINDOW` so sessions compact near 200k instead of 1M. Help it along:
+
+- At each milestone (a PR merged, a fit landed and recorded, a decision from Ben), update your
+  thread's handoff note, `docs/handoff/<thread>.md`, with what the next turn needs, so a
+  compaction or a fresh session loses nothing.
+- Read logs and large files with `tail`, `grep` or `sed -n` ranges, never whole. Ask subagents
+  for a short conclusion, not file dumps.
+- Wake only for what you act on: watch the PRs you are waiting on, and leave out `--gpu` and
+  `--unit` when you own no GPU work.
+- Never ask Ben to type "go" or to confirm a step his standing rules already allow. Do it and
+  report. A decision that really is his goes to him once, and you carry on with your
+  recommended default.
 
 ## Keep the GPU queued
 

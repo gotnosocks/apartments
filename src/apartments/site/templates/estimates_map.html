@@ -20,6 +20,13 @@
     <button id="year-play" class="ghost" type="button">Play</button>
   </div>
   <label class="check-inline"><input id="show-before" type="checkbox"> Buildings outside the years of their listings</label>
+  <label class="check-inline">Compare with <select id="base-year"></select></label>
+  {# Written for the served design family (confirmed by Modeling, 2026-10-05); revisit if a model
+     gains neighbourhood-specific time terms. #}
+  <p class="note" id="area-caveat" hidden>The model has one market trend for both neighbourhoods, with its own path for each bedroom
+  group (studio, one, two, three or more) and a shared seasonal pattern; the neighbourhood itself only shifts the level. A
+  neighbourhood's own change over time comes only from its buildings' own drift (each building's half-yearly walk, partially
+  pooled across all buildings), so treat growth differences between Chelsea and the West Village with care.</p>
 </section>
 
 <div class="map-layout">
@@ -61,7 +68,7 @@
 
 <section class="card" id="trend-card">
   <div class="card-head">
-    <h2>The median building by bedrooms over time</h2>
+    <h2 id="trend-title">The median building by bedrooms over time</h2>
     <button class="ghost table-toggle" type="button" data-target="trend">Table view</button>
   </div>
   <p class="note">The typical rent of the median building (the middle of all buildings), per year, with a 90% interval for the chosen

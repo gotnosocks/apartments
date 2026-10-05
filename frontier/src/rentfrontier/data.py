@@ -193,6 +193,47 @@ def merge_unit_aliases(frame: pd.DataFrame) -> pd.DataFrame:
     return out
 
 
+# Unit labels written as words ("four", "third-fl") and the number they stand for.
+LABEL_WORDS = {
+    "one": "1", "two": "2", "three": "3", "four": "4", "five": "5", "six": "6",
+    "seven": "7", "eight": "8", "nine": "9", "ten": "10", "first": "1",
+    "second": "2", "third": "3", "fourth": "4", "fifth": "5",
+}  # fmt: skip
+_WORD_LABEL = re.compile(r"^(" + "|".join(LABEL_WORDS) + r")(?=$|[-_ ]?(?:fl|floor)$)")
+
+
+def merge_word_labels(frame: pd.DataFrame) -> pd.DataFrame:
+    """unit-labels-v2, and units labelled with a number word joined to the unit
+    of the same building whose label is that number ("four" and "4",
+    "third-fl" and "3fl"), where both units' median bedroom counts agree.
+    Rows are unchanged."""
+    out = merge_unit_aliases(frame)
+    raw = frame.canonical_unit_url.str.extract(r"/([^/]+)$")[0].str.lower()
+    word = raw.str.extract(_WORD_LABEL)[0]
+    numbered = (
+        word.map(LABEL_WORDS) + raw.str.replace(_WORD_LABEL, "", regex=True)
+    ).where(word.notna())
+    key = raw.map(lambda v: unit_label_key(v) if isinstance(v, str) else v)
+    word_key = numbered.map(lambda v: unit_label_key(v) if isinstance(v, str) else v)
+    beds = frame.bedrooms.groupby(out.unit_id).transform("median")
+    by_label = (
+        pd.DataFrame(
+            {"building": frame.building, "key": key, "unit": out.unit_id, "beds": beds}
+        )
+        .drop_duplicates(["building", "key"])
+        .set_index(["building", "key"])
+    )
+    joined = out.unit_id.copy()
+    for i in np.flatnonzero(word_key.notna().to_numpy()):
+        twin = (frame.building.iat[i], word_key.iat[i])
+        if twin in by_label.index and by_label.loc[twin, "beds"] == beds.iat[i]:
+            target = by_label.loc[twin, "unit"]
+            joined[out.unit_id == out.unit_id.iat[i]] = min(target, out.unit_id.iat[i])
+            joined[out.unit_id == target] = min(target, out.unit_id.iat[i])
+    out["unit_id"] = joined
+    return out
+
+
 def unit_line_key(frame: pd.DataFrame) -> pd.Series:
     """Each row's line ("column") within its building, from the unit label:
     "23C" and "4C" are line C, "1204" and "304" are line 04, "2ND", "4TH" and
@@ -395,6 +436,7 @@ DATA_RULES = {
     "tune-b35-v1": tune_b35_v1,
     "unit-labels-v1": merge_unit_labels,
     "unit-labels-v2": merge_unit_aliases,
+    "unit-labels-v3": merge_word_labels,
     "quarantine-v1": quarantine_v1,
     "quarantine-v2": quarantine_v2,
     "bedrooms-ad-v1": correct_bedrooms_v1,
@@ -414,6 +456,7 @@ RULE_SOURCES = {
     "quarantine-v4": QUARANTINE_V4,
     "quarantine-v5": QUARANTINE_V5,
     "unit-labels-v2": UNIT_ALIASES,
+    "unit-labels-v3": UNIT_ALIASES,
     "bedrooms-ad-v1": BEDROOM_CORRECTIONS,
     "baths-ad-v1": BATH_CORRECTIONS,
     "bedrooms-ad-v2": BEDROOM_CORRECTIONS_V2,
@@ -455,11 +498,34 @@ def recorded_rules(result: dict) -> tuple:
     return rules
 
 
+def split_and_rules(frame: pd.DataFrame, split: str, rules) -> tuple:
+    """(frame, heldout) for a run's split and data rules, in the run's order: most
+    splits are drawn first and the rules applied after; a split in
+    `splits.AFTER_RULES` (latest) is drawn after the rules, on merged units and
+    kept rows. Every reader of a run rebuilds its rows through this."""
+    from . import splits
+
+    if split in splits.AFTER_RULES:
+        frame, _ = apply_rules(frame, np.zeros(len(frame), dtype=bool), rules)
+        held = splits.SPLITS[split](frame)
+        # As apply_rules: a held-out row needs a training row in its building.
+        if "building" in frame:
+            held = held & frame.building.isin(set(frame.building[~held])).to_numpy()
+        return frame, held
+    return apply_rules(frame, splits.SPLITS[split](frame), rules)
+
+
 def apply_rules(frame: pd.DataFrame, heldout: np.ndarray, rules):
     """(frame, heldout) after the named rules. A rule that drops rows drops them
     from the held-out mask too, so every other row keeps its split; the frame
-    gets a fresh RangeIndex."""
+    gets a fresh RangeIndex. A held-out row whose building has no training row
+    left (the building's other rows dropped, by a rule or in a new dataset)
+    moves to training: a fit cannot score a building it never saw. On the
+    datasets fit before 2026-10-05 no row moves."""
     mask = pd.Series(np.asarray(heldout, dtype=bool), index=frame.index)
     for rule in rules:
         frame = DATA_RULES[rule](frame)
-    return frame.reset_index(drop=True), mask.loc[frame.index].to_numpy()
+    held = mask.loc[frame.index].to_numpy().copy()
+    if "building" in frame:
+        held &= frame.building.isin(set(frame.building[~held])).to_numpy()
+    return frame.reset_index(drop=True), held

@@ -233,8 +233,10 @@ def score(
         # Monte Carlo error of the pooled ELPD from the spread of per-chain estimates.
         "elpd_mcse": float(chain_elpd.std(ddof=1) / math.sqrt(n_chains)),
     }
-    ref_path = REFERENCES[split]
-    if ref_path.exists():
+    ref_path = REFERENCES.get(split)
+    if ref_path is None:
+        out["vs_promoted"] = {"status": f"no promoted reference on the {split} split"}
+    elif ref_path.exists():
         ref = np.load(ref_path, allow_pickle=True)
         ref_lpd = dict(zip(ref["audit_id"].tolist(), ref["lpd"]))
         mine = dict(zip(audit_id.tolist(), lpd))
@@ -403,10 +405,9 @@ def main(argv=None):
     started = time.time()
     t0 = time.perf_counter()
     frame = data.load()
-    heldout = splits.SPLITS[args.split](frame)
     rules = args.data_rules
     check_rules_for_split(rules, args.split)
-    frame, heldout = data.apply_rules(frame, heldout, rules)  # after the split
+    frame, heldout = data.split_and_rules(frame, args.split, rules)
     feats = features.build(args.features, frame, ~heldout)
     prep = model.prepare(frame, heldout, feats)
     prep_seconds = time.perf_counter() - t0
