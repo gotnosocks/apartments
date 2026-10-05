@@ -24,7 +24,7 @@ equally elegant ones the fastest.{% endif %}</p>
   {% if sel and sel.selection_reason %}
   {# "The incumbent" means a different model in each reason: the one served before this one when it
      was chosen, and this one in the latest decision. #}
-  <p>When it was chosen: {{ sel.selection_reason | replace("the incumbent", "the model served before it") | replace("The incumbent", "The model served before it") }}</p>
+  <p>When it was chosen: {{ sel.selection_reason | replace("the incumbent", "the model it replaced") | replace("The incumbent", "The model it replaced") }}</p>
   <p class="note">Chosen by {{ sel.selected_by }}.{% if sel.uncertainty %} {{ sel.uncertainty }}{% endif %}</p>
   {% else %}
   <p class="note">These estimates were published by hand, not from the repository's model selection.</p>

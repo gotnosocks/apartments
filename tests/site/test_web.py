@@ -433,7 +433,7 @@ def test_research_model_page_shows_the_selection_and_decision(
     app = create_app(root, research_data=research_file)
     html = app.test_client().get("/research/model").get_data(as_text=True)
     # "The incumbent" names a different model in each reason, so each says which.
-    assert "Chosen because it clearly beats the model served before it." in html
+    assert "Chosen because it clearly beats the model it replaced." in html
     assert "Chosen by rentfrontier.autoselect, 2026-10-01." in html
     assert "The served fit is still the best: this model ranks first." in html
     assert "<code>m-other-run</code>" in html and "tied and not faster" in html
