@@ -153,7 +153,7 @@ UNIT_ALIASES = (
 UNIT_ALIASES_GV = UNIT_ALIASES.with_name("wv-gv-20261005.jsonl")
 
 
-@functools.lru_cache(maxsize=2)
+@functools.lru_cache(maxsize=3)
 def unit_aliases(path: Path = UNIT_ALIASES) -> tuple:
     """Groups of unit ids the alias table joins, history-confirmed groups only
     (a crawled unit page lists an ad the transform gave the other spelling)."""
