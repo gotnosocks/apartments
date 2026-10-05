@@ -88,3 +88,16 @@ def test_the_breakdown_says_a_features_line_is_only_its_own_part(client):
     # Playtest round 4 (broker): a penthouse +$750 and views +$20 looked too small.
     html = " ".join(client.get("/listings/a1").get_data(as_text=True).split())
     assert "A feature's line is only what it adds on its own" in html
+
+
+def test_jargon_term_labels_get_plain_words(client, site_root):
+    # Playtest round 4: "Building size and bath slopes", "HVAC" read as jargon.
+    db = sqlite3.connect(site_root / "current" / "site.sqlite")
+    db.execute(
+        "INSERT INTO terms VALUES ((SELECT max(position) + 1 FROM terms), 'hvac', "
+        "'HVAC', 'Heating and air conditioning.')"
+    )
+    db.commit()
+    db.close()
+    html = client.get("/research/glossary").get_data(as_text=True)
+    assert ">Heating and cooling</dt>" in html and ">HVAC</dt>" not in html
