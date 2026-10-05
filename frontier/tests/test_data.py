@@ -346,3 +346,41 @@ def test_unit_labels_v3_joins_number_words_with_matching_bedrooms(monkeypatch):
     assert out.unit_id.tolist() == ["u4", "u4", "u3", "u3", "u1"]
     frame.loc[1, "bedrooms"] = 2.0  # "four" a two-bedroom: not the same apartment
     assert data.merge_word_labels(frame).unit_id.tolist()[:2] == ["u4", "uF"]
+
+
+def test_unit_labels_v4_joins_floor_only_aliases_when_bedrooms_agree(monkeypatch):
+    url = "https://streeteasy.com/building/{}/{}".format
+    frame = pd.DataFrame(
+        {
+            "building": ["b"] * 6,
+            "unit_id": ["u4", "u4f", "u5", "u5f", "u3", "uT"],
+            "canonical_unit_url": [
+                url("b", "4"),
+                url("b", "4th-floor"),  # v2 alias of u4, both one-bedrooms: joined
+                url("b", "5"),
+                url("b", "5fl"),  # v2 alias of u5 but a three-bedroom: kept apart
+                url("b", "3"),
+                url("b", "three"),  # number word, as v3
+            ],
+            "bedrooms": [1.0, 1.0, 1.0, 3.0, 2.0, 2.0],
+        }
+    )
+    v2 = (("u4", "u4f"), ("u5", "u5f"))
+    monkeypatch.setattr(
+        data,
+        "unit_aliases",
+        lambda path=data.UNIT_ALIASES: v2 if path == data.UNIT_ALIASES_V2 else (),
+    )
+    out = data.merge_unit_labels_v4(frame)
+    assert out.unit_id.tolist() == ["u4", "u4", "u5", "u5f", "u3", "u3"]
+    # Two words naming one numbered unit end as one unit.
+    two = pd.DataFrame(
+        {
+            "building": ["b"] * 3,
+            "unit_id": ["u3", "uT", "uR"],
+            "canonical_unit_url": [url("b", "3"), url("b", "three"), url("b", "third")],
+            "bedrooms": [2.0, 2.0, 2.0],
+        }
+    )
+    assert data.merge_unit_labels_v4(two).unit_id.nunique() == 1
+    assert data.RULE_SOURCES["unit-labels-v4"] == data.UNIT_ALIASES_V2
