@@ -1180,3 +1180,76 @@ def test_greenwich_v1_adds_greenwich_village_beside_the_base(monkeypatch):
     out = features.greenwich_v1(frame, np.ones(3, dtype=bool), base="fake-base")
     assert out.groups[-1] == "neighbourhood"
     assert out.values[:, -1].tolist() == [0, 0, 1]
+
+
+def test_nb3_v2_sets_read_lpc_and_otherwise_their_v1s_files(monkeypatch):
+    for new, old in (
+        ("nb3-coded-v2", "nb3-coded-v1"),
+        ("nb3-prevprice-v2", "nb3-prevprice-v1"),
+    ):
+        assert features.LPC_SNAPSHOTS[new] == features.NB3_LPC_FILE
+        assert features.lot_files(new) == features.lot_files(old)
+        assert features.area_files(new) == features.area_files(old)
+        assert features.description_files(new) == features.description_files(old)
+        assert features.EXTRAS_SNAPSHOTS[new] == features.EXTRAS_SNAPSHOTS[old]
+        for group in (
+            features.EXTERNAL,
+            features.BASEMAP,
+            features.FOOTPRINTS,
+            features.DESCRIPTIONS,
+            features.AS_OF_SETS,
+            features.LISTING_EXTRAS,
+            features.PRICE_HISTORY,
+            features.READS_EARLIER_RENTS,
+        ):
+            assert (new in group) == (old in group)
+    assert features.FEATURE_SETS["nb3-prevprice-v2"].keywords["base"] == "nb3-coded-v2"
+    assert "nb3-coded-v1" not in features.LPC_SNAPSHOTS
+    seen = {}
+
+    def spy(frame, train):
+        seen["lpc"] = features._LPC.get()
+        return features.Features("x", [], [], np.zeros((len(frame), 0)), np.zeros(0))
+
+    monkeypatch.setitem(features.FEATURE_SETS, "nb3-coded-v2", spy)
+    features.build("nb3-coded-v2", pd.DataFrame({"a": [1]}), np.ones(1, dtype=bool))
+    assert seen["lpc"] == features.NB3_LPC_FILE
+    assert features._LPC.get() is None
+
+
+def test_lpc_as_of_counts_a_designation_from_its_date(tmp_path):
+    registry = tmp_path / "registry.parquet"
+    pd.DataFrame(
+        {"building": ["a", "b", "c"], "bbl": ["1000010001", "1000010002", None]}
+    ).to_parquet(registry)
+    token = features._LOTS.set((str(registry), "unused"))
+    lpc = tmp_path / "lpc.parquet"
+    pd.DataFrame(
+        {
+            "bbl": ["1000010001", "1000010001", "1000010002"],
+            "lm_type": [
+                "Historic District",
+                "Individual Landmark",
+                "Historic District",
+            ],
+            "status": ["DESIGNATED"] * 3,
+            "desdate": ["12/17/2013", "6/22/2010", "4/29/1969"],
+        }
+    ).to_parquet(lpc)
+    frame = pd.DataFrame(
+        {
+            "building": ["a", "a", "b", "c"],
+            "price_at": [
+                "2012-05-01T00:00:00Z",
+                "2014-01-02T00:00:00Z",
+                "2011-01-01T00:00:00Z",
+                "2020-01-01T00:00:00Z",
+            ],
+        }
+    )
+    try:
+        landmark, district = features.lpc_as_of(frame, str(lpc))
+    finally:
+        features._LOTS.reset(token)
+    assert landmark.tolist() == [True, True, False, False]
+    assert district.tolist() == [False, True, True, False]

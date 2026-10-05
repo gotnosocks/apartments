@@ -641,6 +641,11 @@ NB3_BASEMAP_FILE = "/data1/apartments/external/basemap/20261005-2d5b3b6/basemap.
 NB3_EXTRAS_FILE = (
     "/data1/apartments/external/listing-extras/20261005-77068ea/listing-extras.parquet"
 )
+# LPC designations of the three neighbourhoods' lots (`rentfrontier.external lpc`).
+NB3_LPC_FILE = "/data1/apartments/external/lpc/20261005-8946d6f/lpc.parquet"
+# The LPC snapshot of the set being built (`LPC_SNAPSHOTS`): when set, a lot is a
+# landmark or in a historic district only from its designation date.
+_LPC: contextvars.ContextVar[str | None] = contextvars.ContextVar("lpc", default=None)
 # Whether the set being built dates the building's MapPLUTO alterations as of
 # each listing (`AS_OF_SETS`): an alteration counts only from the year after it,
 # so a listing never sees a later one (no future information).
@@ -690,6 +695,26 @@ def building_lots(frame: pd.DataFrame) -> pd.DataFrame:
     pluto = pd.read_parquet(pluto_file).set_index("bbl")
     lot = registry.set_index("building").bbl.reindex(frame.building.to_numpy())
     return pluto.reindex(lot.to_numpy()).reset_index(drop=True)
+
+
+def lpc_as_of(frame: pd.DataFrame, path: str) -> tuple[np.ndarray, np.ndarray]:
+    """Per row: whether the Landmarks Preservation Commission had designated
+    its building's lot an individual or interior landmark, and whether it had
+    designated it part of a historic district, by the day of the listing (no
+    future information: MapPLUTO's fields are today's status). A lot the LPC
+    has no record of is neither."""
+    lpc = pd.read_parquet(path)
+    lpc["desdate"] = pd.to_datetime(lpc.desdate, format="%m/%d/%Y")
+    lpc = lpc[lpc.status.eq("DESIGNATED")]
+    registry = pd.read_parquet(lot_registry()).set_index("building").bbl
+    bbl = registry.reindex(frame.building.to_numpy()).astype(str).to_numpy()
+    listed = pd.to_datetime(frame.price_at, utc=True).dt.tz_localize(None).to_numpy()
+    out = []
+    for district in (False, True):
+        kind = lpc[lpc.lm_type.eq("Historic District") == district]
+        since = kind.groupby("bbl").desdate.min().reindex(bbl).to_numpy()
+        out.append(~pd.isna(since) & (since <= listed))
+    return out[0], out[1]
 
 
 def pluto_v1(
@@ -753,8 +778,12 @@ def pluto_v1(
         .map(lambda c: c if c in ("C", "D", "R", "S") else "other")
     )
     b.categorical("building class", family, reference="D")
-    b.add("building status", "landmark", lot.landmark.notna())
-    b.add("building status", "historic_district", lot.histdist.notna())
+    if _LPC.get():
+        landmark, district = lpc_as_of(frame, _LPC.get())
+    else:
+        landmark, district = lot.landmark.notna(), lot.histdist.notna()
+    b.add("building status", "landmark", landmark)
+    b.add("building status", "historic_district", district)
     if flood_zone:
         b.add("building status", "flood_zone_2015", lot.pfirm15_flag.notna())
     altered = num["yearalter1"]
@@ -1846,6 +1875,13 @@ FEATURE_SETS = {
         prevprice_v1, id="nb3-prevprice-v1", base="nb3-coded-v1"
     ),
     "nb3-lineface-v1": partial(lineface_v1, id="nb3-lineface-v1", base="nb3-coded-v1"),
+    # nb3-coded-v1 and nb3-prevprice-v1 with landmark and historic district
+    # dated as of each listing from the LPC's designations (`LPC_SNAPSHOTS`).
+    # (nb3-prevprice-v2 has nb-prevprice-v1's terms, not nb-prevprice-v2's.)
+    "nb3-coded-v2": partial(greenwich_v1, id="nb3-coded-v2", base="nb-coded-v1"),
+    "nb3-prevprice-v2": partial(
+        prevprice_v1, id="nb3-prevprice-v2", base="nb3-coded-v2"
+    ),
     # West Village: the app design's building facts (as unitdescpluto-v3) on the
     # unit and floor features (no West Village ads: see nb-facing-v2).
     "wv-unitpluto-v1": partial(
@@ -2044,6 +2080,35 @@ def area_files(name: str) -> dict:
     )
 
 
+# Sets that read the LPC's designation dates, and the snapshot each reads.
+LPC_SNAPSHOTS = {"nb3-coded-v2": NB3_LPC_FILE, "nb3-prevprice-v2": NB3_LPC_FILE}
+# Otherwise the LPC sets read what their v1 reads.
+for _new, _old in (
+    ("nb3-coded-v2", "nb3-coded-v1"),
+    ("nb3-prevprice-v2", "nb3-prevprice-v1"),
+):
+    for _group in (
+        EXTERNAL,
+        BASEMAP,
+        FOOTPRINTS,
+        DESCRIPTIONS,
+        AS_OF_SETS,
+        LISTING_EXTRAS,
+        PRICE_HISTORY,
+        READS_EARLIER_RENTS,
+    ):
+        if _old in _group:
+            _group.add(_new)
+    for _table in (
+        LOT_SNAPSHOTS,
+        DESCRIPTION_SOURCES,
+        EXTRAS_SNAPSHOTS,
+        AREA_SNAPSHOTS,
+    ):
+        if _old in _table:
+            _table[_new] = _table[_old]
+
+
 def lot_files(name: str) -> dict:
     """The registry and MapPLUTO files a feature set's building lots read."""
     return LOT_SNAPSHOTS.get(name, {"registry": REGISTRY_FILE, "pluto": PLUTO_FILE})
@@ -2063,6 +2128,7 @@ def build(name: str, frame: pd.DataFrame, train: np.ndarray) -> Features:
     as_of_token = _AS_OF.set(name in AS_OF_SETS)
     area_token = _AREA.set((area["basemap"], area["footprints"]))
     extras_token = _EXTRAS.set(EXTRAS_SNAPSHOTS.get(name))
+    lpc_token = _LPC.set(LPC_SNAPSHOTS.get(name))
     text_token = descriptions_module.SOURCES.set(
         tuple(Path(p) for p in description_files(name).values())
     )
@@ -2073,4 +2139,5 @@ def build(name: str, frame: pd.DataFrame, train: np.ndarray) -> Features:
         _AS_OF.reset(as_of_token)
         _AREA.reset(area_token)
         _EXTRAS.reset(extras_token)
+        _LPC.reset(lpc_token)
         descriptions_module.SOURCES.reset(text_token)
