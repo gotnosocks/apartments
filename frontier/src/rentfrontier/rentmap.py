@@ -80,7 +80,8 @@ PROBABILITIES = (0.05, 0.5, 0.95)
 GRID_BEARING_DEG = 29.0
 GUIDE_STREETS = (14, 18, 23, 28, 34)
 SIDE_STREET = re.compile(r"^\d+\s+WEST\s+(\d+)\s+STREET")
-AVENUE = re.compile(r"^\d+\s+(\d+)\s+AVENUE")
+# Not Seventh Avenue South (Greenwich Village), which leaves the avenue's line.
+AVENUE = re.compile(r"^\d+\s+(\d+)\s+AVENUE(?!\s+SOUTH)")
 AMERICAS = re.compile(r"AVENUE OF (THE )?AMERICAS|AMERICAS AVENUE")
 # The map under the dots (`rentfrontier.external basemap`), clipped to the
 # buildings' extent plus BASEMAP_PAD_M; street widths in feet, as recorded.
