@@ -2,7 +2,7 @@
 
 What the next turn of the website thread needs. Updated at each milestone.
 
-## State (2026-10-05 13:00 UTC)
+## State (2026-10-05 14:30 UTC)
 
 - **Estimate form live.** `/estimate` uses the prediction kit (#228, `rentfrontier.kit`) through
   the site build (#229). The kit for the served u3 run is at
@@ -17,6 +17,8 @@ What the next turn of the website thread needs. Updated at each milestone.
   - #241 listing diagnostics folded away and glossed
   - #242 median estimate in the listings summary, and the building facts the form takes
   - #243 advertisement start and price change, and earlier bedroom counts on listing pages
+  - #245 forms show "Working…" while loading; #246 "Available now" with few matches links the past
+    listings; #247 the estimate form can set the elevator and doorman
 - **Kit step for Modeling.** After the summary bundle and rent map, and before
   `apartments.site build`:
   `cd /data1/apartments/serve/master/frontier && JAX_PLATFORMS=cpu /data1/apartments/serve/master/ops/job light -m 8G -- uv run --frozen --extra gpu python -m rentfrontier.kit <run> --summary <bundle>`.
@@ -26,17 +28,14 @@ What the next turn of the website thread needs. Updated at each milestone.
 
 ## Next
 
-1. Open round-3 findings not yet done:
-   - (9) "Available now" plus narrow filters gives about 1 row, and the note about it is buried.
-   - (10) No loading feedback on the estimate button or the building search.
-   - The estimate form can't override the elevator or doorman. That needs an encoding change in
-     `estimate.encode`.
-   - The breakdown labels "Price basis" and "Building size and bath slopes" come from frontier
-     TERM_LABELS.
-2. Playtest round 4 with fresh personas once these land, or after the next served model switch.
-   The brief is `/data1/apartments/tmp/playtests/brief.md`, and the venv is
-   `/data1/apartments/venvs/playtest`.
-3. Optional: cache the parsed kit per database (about 12 ms per request).
+1. Playtest round 4 is running: five fresh personas (family, broker, keyboard, economist, tablet).
+   Prompts and reports are in `/data1/apartments/tmp/playtests/2026-10-05-r4/<persona>/`. Write
+   `synthesis.md` there, and turn the findings into PRs.
+2. Still open: the breakdown labels "Price basis" and "Building size and bath slopes" come from
+   frontier TERM_LABELS.
+3. After the next served-model switch, check that `/estimate` still works. `autoselect-publish.sh`
+   builds the kit.
+4. Optional: cache the parsed kit per database (about 12 ms per request).
 
 ## Standing rules
 
