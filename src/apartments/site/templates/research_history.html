@@ -12,6 +12,7 @@ every merged change and switch of the served model.</p>
     {% for c in classes %}<option value="{{ c }}"{% if c == hardware %} selected{% endif %}>{{ c }}</option>{% endfor %}
     </select>
   </div>
+  {% if only %}<input type="hidden" name="changes" value="{{ only }}">{% endif %}
   <div class="field actions"><button type="submit">Apply</button></div>
 </form>
 
