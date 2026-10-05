@@ -1075,7 +1075,7 @@ def create_app(
                 for r in rows
             ],
             label="Each listing's ask and its leave-own-row-out estimate with "
-            "the 95% range for the typical rent",
+            "the 95% range of the typical rent",
         )
 
     @app.get("/units/<path:unit_id>")
