@@ -132,7 +132,7 @@ def test_units_default_to_frontier_only_with_gpu(monkeypatch):
     mod = load()
     seen = []
     monkeypatch.setattr(mod, "wait", lambda a: seen.append(a.unit) or ["x"])
-    monkeypatch.setattr(mod, "gpu_jobs", lambda: [])
+    monkeypatch.setattr(mod, "gpu_jobs", list)
     mod.main([])
     mod.main(["--gpu"])
     assert seen == [[], ["frontier-*"]]
