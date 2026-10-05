@@ -1410,8 +1410,14 @@ def create_app(
                 }
             )
         compute = compute_by_line(data)
+        only = request.args.get("changes")
+        only = only if only in ("switches",) else None
         milestones = sorted(
-            data.get("milestones", []),
+            (
+                ms
+                for ms in data.get("milestones", [])
+                if not only or ms.get("kind") == "selection"
+            ),
             key=lambda ms: (ms.get("at", ""), ms.get("kind") == "selection"),
             reverse=True,
         )
@@ -1423,12 +1429,14 @@ def create_app(
             best=best,
             compute=compute,
             milestones=milestones,
+            only=only,
             fits=sorted(fits, key=lambda f: f["at"], reverse=True),
             best_chart=charts.lines_over_time(
                 [{"name": "Best fit", "points": best, "step": True}],
                 label=f"The best fit's accuracy on {hardware} over time",
                 y_title="PSIS-LOO ΔELPD of the best fit",
                 y_format=charts.signed,
+                zero=False,  # the steps, not their distance from the baseline
             ),
             time_chart=charts.dated_points(
                 fits,

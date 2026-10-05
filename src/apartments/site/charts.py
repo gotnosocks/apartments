@@ -512,7 +512,7 @@ def _y_title(frame, title):
 
 
 def lines_over_time(
-    series, *, label: str, y_title: str, y_format, clamp_zero=False
+    series, *, label: str, y_title: str, y_format, clamp_zero=False, zero=True
 ) -> Markup:
     """Up to four series over time, one categorical colour each (fixed order,
     slots s1-s4), with a legend; `step` series hold their value until the
@@ -523,7 +523,7 @@ def lines_over_time(
         return Markup("")
     periods = [p[0] for s in series for p in s["points"]]
     values = [p[1] for s in series for p in s["points"]]
-    frame = Frame(periods, values, zero=True, clamp_zero=clamp_zero)
+    frame = Frame(periods, values, zero=zero, clamp_zero=clamp_zero)
     frame.top = max(frame.top, 20)
     parts = _axes(frame, y_format)
     parts.append(_y_title(frame, y_title))
