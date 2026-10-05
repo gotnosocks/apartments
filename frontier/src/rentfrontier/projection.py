@@ -42,7 +42,7 @@ import numpy as np
 import scipy.sparse as sp
 from scipy.sparse.linalg import cg
 
-from . import data, explain, features, model, splits
+from . import data, explain, features, model
 from .run import git, hardware
 
 PROJECTION_ROOT = data.OUTPUT_ROOT / "projection"
@@ -279,8 +279,9 @@ def project(reference: str, candidates=CANDIDATES):
     _, result, kept = explain.load_run(reference)
     config = model.MODELS[result["model"]["name"]]
     frame = data.load()
-    heldout = splits.SPLITS[result["split"]](frame)
-    frame, heldout = data.apply_rules(frame, heldout, data.recorded_rules(result))
+    frame, heldout = data.split_and_rules(
+        frame, result["split"], data.recorded_rules(result)
+    )
     feats = features.build(result["feature_set"], frame, ~heldout)
     prep = model.prepare(frame, heldout, feats)
     names = [str(n) for n in feats.names]
