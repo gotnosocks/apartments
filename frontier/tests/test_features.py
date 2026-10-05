@@ -1079,3 +1079,49 @@ def test_line_orientation_skips_labels_without_a_line(monkeypatch):
         }
     )
     assert features.line_orientation(frame).tolist() == ["", "", "", "rear"]
+
+
+def test_line_orientation_votes_per_listing_and_needs_three_quarters(monkeypatch):
+    import pandas as pd
+
+    def sides(frame):
+        # Evidence per row as given; line_orientation passes audit_id as unit_id.
+        rows = pd.DataFrame(
+            {
+                "avenue": frame.s.to_numpy(),
+                "wide street": False,
+                "side street": False,
+                "none": frame.r.to_numpy(),
+            },
+            index=frame.index,
+        )
+        return rows.groupby(frame.unit_id.to_numpy()).transform("any")
+
+    monkeypatch.setattr(features, "unit_sides", sides)
+    url = "https://streeteasy.com/building/b/{}".format
+    labels = ["1j", "1j", "2j", "2j", "3j", "4j", "9j"]
+    frame = pd.DataFrame(
+        {
+            "audit_id": [f"a{i}" for i in range(7)],
+            "unit_id": [f"u{x}" for x in labels],
+            "building": ["b"] * 7,
+            "canonical_unit_url": [url(x) for x in labels],
+            "price_at": pd.to_datetime(
+                [
+                    "2019-01-01",  # 1J, no evidence yet
+                    "2022-01-01",  # 1J shows the rear only now
+                    "2020-01-01",  # 2J lists between: must not see 1J's 2022 rear
+                    "2023-01-01",  # 2J again: sees 1J rear
+                    "2023-06-01",  # 3J faces the street
+                    "2024-01-01",  # 4J: 1 rear, 1 street -> no agreement
+                    "2024-01-01",
+                ],
+                utc=True,
+            ),
+            "s": [False, False, False, False, True, False, False],
+            "r": [False, True, False, False, False, False, False],
+        }
+    )
+    got = features.line_orientation(frame).tolist()
+    assert got[2] == "" and got[3] == "rear"
+    assert got[5] == "" and got[6] == ""
