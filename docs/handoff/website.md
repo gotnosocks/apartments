@@ -2,7 +2,16 @@
 
 What the next turn of the website thread needs. Updated at each milestone.
 
-## State (2026-10-05 18:30 UTC)
+## State (2026-10-05 17:10 UTC)
+
+- **Ratings live (#285).** Card on listing pages, `/ratings`, `/ratings.csv`, `/ratings.json`;
+  stored in `/data1/apartments/ratings/ratings.sqlite` (made on the first save). Design in
+  `docs/ratings.md`. Round 6 (#284) merged and deployed.
+- **Earlier-data charts on Chart.js.** Exploration fits trained before the board moved to the
+  current data (100 at 17:00 UTC) sit in the "Scored on the earlier data" chart, now zoomable
+  (prefixes `fp`, `ep`) with a best-so-far line (display only, `web.best_so_far`). Only 2
+  exploration fits are scored on the current data, so the main exploration chart is sparse until
+  Modeling rescores or refits.
 
 - **Estimate form live.** `/estimate` uses the prediction kit (#228, `rentfrontier.kit`) through
   the site build (#229). The kit for the served u3 run is at
@@ -73,9 +82,7 @@ What the next turn of the website thread needs. Updated at each milestone.
 
 ## Next
 
-1. Ratings (Ben): a score, appealing/unappealing tags and a note on listing pages, kept in a
-   separate writable SQLite under /data1/apartments, a My ratings page, CSV/JSON export, tailnet
-   only. Design first.
+1. Playtest round 7 with best-1bed (ratings touch listings), at most 3 personas, one bundled PR.
 2. Round 5 leftovers in `synthesis.md` order: building Units table capped at 13 rows,
    "Building level" glossary entry and class codes, rent map
    fit to area, estimate form's two steps, breakdown on phones, unit chart legend, journalist items.

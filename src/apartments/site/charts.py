@@ -468,6 +468,7 @@ def fit_scatter(
     y_range=None,
     zoom=None,
     frontier_line=None,
+    line_label=None,
 ) -> Markup:
     """One dot per fit on two measures. points: [{"x", "y", "kind" (a
     FIT_KINDS key), "title", "rows", "href", "tier" (optional: "exploration"
@@ -480,7 +481,8 @@ def fit_scatter(
     page, keeping the box in the URL.
     frontier_line: "solid" or "dashed" joins the points marked "on_line" (the
     chart's frontier) in fit-time order; dashed when the line includes fits
-    that fail the convergence checks."""
+    that fail the convergence checks. line_label: the legend's words for the
+    line, in place of the frontier's."""
     if not points:
         return Markup("")
     every = points
@@ -596,11 +598,16 @@ def fit_scatter(
         legend = legend.replace(
             "</div>",
             f'<span class="key"><span class="key-frontier {frontier_line}"></span>'
-            + (
-                "The frontier, joined; it includes fits that fail the convergence "
-                "checks (not converged)"
-                if frontier_line == "dashed"
-                else "The frontier, joined"
+            + str(
+                escape(
+                    line_label
+                    or (
+                        "The frontier, joined; it includes fits that fail the "
+                        "convergence checks (not converged)"
+                        if frontier_line == "dashed"
+                        else "The frontier, joined"
+                    )
+                )
             )
             + "</span></div>",
         )

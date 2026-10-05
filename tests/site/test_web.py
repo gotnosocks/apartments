@@ -1554,6 +1554,60 @@ def test_fits_on_earlier_data_are_drawn_apart(client, research_file):
     assert "earlier data" not in full
 
 
+def test_earlier_data_chart_is_zoomable_and_joins_its_best(client, research_file):
+    _with_exploration(research_file)
+    data = json.loads(research_file.read_text())
+    quick = next(e for e in data["entries"] if e["key"].endswith("[quick]"))
+    for tag, seconds, delta in (
+        ("a", 300.0, 500.0),
+        ("b", 600.0, 900.0),
+        ("c", 900.0, 400.0),
+    ):
+        key = f"m-test/unitdesc-v1/nuts@ddddddd [old-{tag}]"
+        data["entries"].append(
+            dict(
+                quick,
+                id=key,
+                key=key,
+                fit_seconds=seconds,
+                psis=None,
+                frontier=False,
+                psis_prior={
+                    "delta": delta,
+                    "se": 12.0,
+                    "mcse": 1.0,
+                    "baseline": "base-old",
+                    "dataset": "chelsea-wv-old",
+                },
+                splits={"rows": {"run": f"m-test-old-{tag}"}},
+            )
+        )
+    research_file.write_text(json.dumps(data))
+    html = client.get("/research").get_data(as_text=True)
+    card = html[html.index('id="e-earlier"') :]
+    card = card[: card.index("</section>")]
+    # drawn by Chart.js, zoomed with its own URL prefix
+    spec = json.loads(card.split('class="chart-spec">')[1].split("</script>")[0])
+    assert spec["zoom"] == "ep" and spec["line"] == "dashed"
+    on_line = {p["y"] for p in spec["points"] if p["on_line"]}
+    assert on_line == {500.0, 900.0}
+    assert "The best fits on the earlier data, joined" in card
+    assert "&lt;span" not in card
+
+
+def test_best_so_far_skips_dominated_and_ineligible_points():
+    from apartments.site.web import best_so_far
+
+    points = [
+        {"x": 1, "y": 1, "kind": "other"},
+        {"x": 2, "y": 3, "kind": "failing"},
+        {"x": 3, "y": 2, "kind": "other"},
+        {"x": 4, "y": 4, "kind": "other"},
+    ]
+    assert best_so_far(points, lambda p: True) == {0, 1, 3}
+    assert best_so_far(points, lambda p: p["kind"] != "failing") == {0, 2, 3}
+
+
 def test_frontier_charts_join_their_line(client, research_file):
     _with_exploration(research_file)
     data = json.loads(research_file.read_text())

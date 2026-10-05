@@ -121,7 +121,7 @@ then the most elegant, then the fastest, and it changes only when another fit cl
   <h3 id="{{ c.prefix }}-earlier">Scored on the earlier data: not comparable until rescored</h3>
   <p class="note">{{ 'This fit was' if c.earlier == 1 else 'These ' ~ c.earlier ~ ' fits were' }} trained on <code>{{ c.earlier_data }}</code>, before the board moved to the
   current data, so {{ 'it does' if c.earlier == 1 else 'they do' }} not pair with its baseline. Each is scored here against the earlier baseline on the data it was
-  trained on. The scale is not the one above, and none of these fits is on any frontier.{% if c.earlier_floored %} Fits far below the rest are drawn at
+  trained on. The scale is not the one above, and none of these fits is on the current frontier: the line joins the best of them on the earlier data.{% if c.earlier_floored %} Fits far below the rest are drawn at
   the chart's floor.{% endif %}</p>
   {{ c.earlier_chart }}
   {% endif %}
