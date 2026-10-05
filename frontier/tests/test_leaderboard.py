@@ -396,3 +396,14 @@ def test_a_short_fit_does_not_dominate_a_longer_fit_of_its_design():
     assert leaderboard.on_frontier([full, short]) == [True, True]
     other = short | {"model": {"name": "other"}}
     assert leaderboard.on_frontier([full, other]) == [False, True]
+
+
+def test_features_that_read_earlier_rents_are_off_the_frontier_line():
+    e = {
+        "interpretable": True,
+        "passes_checks": True,
+        "psis": {"delta": 750.0},
+        "feature_set": "nb-prevprice-v1",
+    }
+    assert not leaderboard.frontier_candidate(e)
+    assert leaderboard.frontier_candidate({**e, "feature_set": "nb-coded-v1"})
