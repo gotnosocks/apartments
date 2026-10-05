@@ -149,6 +149,7 @@ LABELS = {
         "full_time": "Full-time doorman",
         "part_time": "Part-time doorman",
         "virtual": "Virtual doorman",
+        "unspecified": "Doorman (kind not stated)",
         "none": "No doorman",
     },
     "laundry": {
@@ -181,8 +182,11 @@ class Filters:
         self.min_sqft = _number(args.get("min_sqft"))
         self.max_sqft = _number(args.get("max_sqft"))
         self.elevator = (
-            args.get("elevator") if args.get("elevator") in ("yes", "no") else None
+            args.get("elevator") if args.get("elevator") in ELEVATOR else None
         )
+        self.laundry = args.get("laundry") if args.get("laundry") in LAUNDRY else None
+        self.doorman = args.get("doorman") if args.get("doorman") in DOORMAN else None
+        self.outdoor = args.get("outdoor") == "yes"
         self.year_from = _year(args.get("from"))
         self.year_to = _year(args.get("to"))
         self.status = args.get("status") if args.get("status") in STATUS else "all"
@@ -235,9 +239,22 @@ class Filters:
         if self.max_sqft is not None:
             clauses.append("l.square_feet <= ?")
             params.append(self.max_sqft)
-        if self.elevator is not None:
+        if self.elevator == "yes_or_unstated":
+            clauses.append("(l.elevator IS NULL OR l.elevator <> 'no')")
+        elif self.elevator is not None:
             clauses.append("l.elevator = ?")
             params.append(self.elevator)
+        for column, value, options in (
+            ("laundry", self.laundry, LAUNDRY),
+            ("doorman", self.doorman, DOORMAN),
+        ):
+            if value is not None:
+                values = options[value][1]
+                clauses.append(f"l.{column} IN ({', '.join('?' * len(values))})")
+                params += values
+        if self.outdoor:
+            # The model's own reading of the ad: an "outdoor:<kind>" input.
+            clauses.append("l.inputs LIKE '%\"outdoor:%'")
         if self.year_from is not None:
             clauses.append("l.period >= ?")
             params.append(f"{self.year_from}-01-01")
@@ -270,6 +287,9 @@ class Filters:
             "min_sqft": _fmt_number(self.min_sqft),
             "max_sqft": _fmt_number(self.max_sqft),
             "elevator": self.elevator,
+            "laundry": self.laundry,
+            "doorman": self.doorman,
+            "outdoor": "yes" if self.outdoor else None,
             "from": self.year_from,
             "to": self.year_to,
             "status": None if self.status == "all" else self.status,
@@ -293,12 +313,33 @@ class Filters:
             or self.min_sqft is not None
             or self.max_sqft is not None
             or self.elevator is not None
+            or self.laundry is not None
+            or self.doorman is not None
+            or self.outdoor
             or self.year_from
             or self.year_to
             or self.status != "all"
             or self.band != "all"
         )
 
+
+# Feature filters: the option's label and, for laundry and doorman, the
+# column values it keeps. A listing that doesn't state the feature is left
+# out, except by "Yes or not stated" (playtest round 6: walk-ups in the West
+# Village often don't say).
+ELEVATOR = {
+    "yes": "Yes",
+    "yes_or_unstated": "Yes or not stated",
+    "no": "No (walk-up)",
+}
+LAUNDRY = {
+    "in_unit": ("In the unit", ("in_unit",)),
+    "any": ("In the unit or building", ("in_unit", "in_building")),
+}
+DOORMAN = {
+    "full_time": ("Full-time", ("full_time",)),
+    "any": ("Any kind", ("full_time", "part_time", "virtual", "unspecified")),
+}
 
 # Minimum bathrooms the listings filter offers.
 BATHS = ("1", "1.5", "2", "3")
@@ -701,6 +742,10 @@ def create_app(
             "BEDROOMS": BEDROOMS,
             "STATUS": STATUS,
             "BANDS": BANDS,
+            "ELEVATOR": ELEVATOR,
+            "LAUNDRY": LAUNDRY,
+            "DOORMAN": DOORMAN,
+            "features": features,
             "SORTS": SORTS,
             "PER_PAGE": PER_PAGE,
             "QUARANTINE_ACTIONS": QUARANTINE_ACTIONS,
@@ -953,6 +998,21 @@ def create_app(
             ).days
         return render_template(
             "listing.html",
+            captured=capture_day(row["collected_at"]),
+            read_floor=read_floor(row, inputs),
+            facing=next(
+                (
+                    k.removeprefix("looks onto ")
+                    for k in inputs
+                    if k.startswith("looks onto ")
+                ),
+                None,
+            ),
+            outdoor=[
+                k.split(":", 1)[1].replace("_", " ")
+                for k in inputs
+                if k.startswith("outdoor:")
+            ],
             summary=summary.listing_summary(row, contributions, inputs),
             ad_start=ad_start,
             opposite=opposite_moves(others),
@@ -2286,6 +2346,42 @@ def building_facts(x: dict[str, float]) -> dict:
             "not stated",
         ),
     }
+
+
+FEATURE_WORDS = {
+    ("laundry", "in_unit"): "W/D in unit",
+    ("laundry", "in_building"): "laundry in bldg",
+    ("doorman", "full_time"): "doorman",
+    ("doorman", "part_time"): "part-time doorman",
+    ("doorman", "virtual"): "virtual doorman",
+    ("doorman", "unspecified"): "doorman",
+    ("elevator", "yes"): "elevator",
+    ("elevator", "no"): "walk-up",
+}
+
+
+def features(row) -> list[str]:
+    """A listing's floor and stated amenities in a few short words, for a
+    line under its layout in listing tables (playtest round 6)."""
+    inputs = json.loads(row["inputs"] or "{}")
+    floor = row["floor"] if row["floor"] is not None else read_floor(row, inputs)
+    out = [f"floor {floor}"] if floor is not None else []
+    for kind in ("elevator", "laundry", "doorman"):
+        word = FEATURE_WORDS.get((kind, row[kind]))
+        if word:
+            out.append(word)
+    if any(k.startswith("outdoor:") for k in inputs):
+        out.append("outdoor space")
+    return out
+
+
+def read_floor(row, inputs: dict[str, float]) -> int | None:
+    """The floor the model used for a listing whose ad states none: read
+    from the unit's label, like 4 for "04E". None when the ad states one
+    or the model has none either."""
+    if row["floor"] is not None or "floor_unknown" in inputs:
+        return None
+    return round(math.exp(inputs.get("log_floor", 0.0)))  # floor 1 has no input
 
 
 def day_label(iso: str) -> str:

@@ -2,7 +2,7 @@
 
 What the next turn of the website thread needs. Updated at each milestone.
 
-## State (2026-10-05 14:10 UTC)
+## State (2026-10-05 18:30 UTC)
 
 - **Estimate form live.** `/estimate` uses the prediction kit (#228, `rentfrontier.kit`) through
   the site build (#229). The kit for the served u3 run is at
@@ -47,6 +47,23 @@ What the next turn of the website thread needs. Updated at each milestone.
     `ad_dates` table needs a site build to fill; build 20261005T140617320837Z dates 235 of 235.
 - **Playtest round 5** (journalist, renter, renewer, mobile, `/data1/apartments/tmp/playtests/2026-10-05-r5/`,
   `synthesis.md` lists the planned PRs): #267 the default-filter links read as actions.
+- **Since then (all merged and deployed):** #273 separate full and exploration frontier charts;
+  #275 listing pages say what the model makes of the listing (`summary.py`); #277 exploration fits
+  on the earlier data drawn apart; #279 a note when ask and estimate move opposite ways by more
+  than 5% each (`opposite_moves`); #280 small hover cards that wrap; #282 the frontier charts drawn
+  with Chart.js 4.5.1 plus the zoom plugin, vendored flat in `static/` (`VENDOR.md`), built by
+  `static/fitchart.js` from a `script.chart-spec` JSON block, with the SVG as the no-JS fallback.
+  The earlier-data, history and elegance charts are still SVG.
+- **Playtest rule (Ben 2026-10-05):** at most 3 personas a round, one bundled PR and one review
+  per round, `best-1bed` in any round that touches listings, summaries or ratings
+  (`docs/playtests/README.md`, enforced by `ops/playtest.sh`).
+- **Playtest round 6** (best-1bed, `/data1/apartments/tmp/playtests/2026-10-05-r6/synthesis.md`):
+  one bundled PR adds Laundry, Doorman and Outdoor filters, "Elevator: Yes or not stated", a
+  features line in listing tables, and Looks onto, Outdoor space and the floor read from the
+  unit number on listing pages.
+- **Walk-up wording (Modeling):** the walk-up floor effect lost; never imply one. Where walk-ups
+  are explained, say it was tested, didn't improve predictions, and isn't applied beyond the
+  existing floor terms.
 - **Kit step for Modeling.** After the summary bundle and rent map, and before
   `apartments.site build`:
   `cd /data1/apartments/serve/master/frontier && JAX_PLATFORMS=cpu /data1/apartments/serve/master/ops/job light -m 8G -- uv run --frozen --extra gpu python -m rentfrontier.kit <run> --summary <bundle>`.
@@ -56,13 +73,16 @@ What the next turn of the website thread needs. Updated at each milestone.
 
 ## Next
 
-1. Round 5 PRs in `synthesis.md` order: building Units table capped at 13 rows (branch
-   site-building-units-all started), "Building level" glossary entry and class codes, rent map
+1. Ratings (Ben): a score, appealing/unappealing tags and a note on listing pages, kept in a
+   separate writable SQLite under /data1/apartments, a My ratings page, CSV/JSON export, tailnet
+   only. Design first.
+2. Round 5 leftovers in `synthesis.md` order: building Units table capped at 13 rows,
+   "Building level" glossary entry and class codes, rent map
    fit to area, estimate form's two steps, breakdown on phones, unit chart legend, journalist items.
    Optional: warn when a building link lands on a much pricier building.
-2. After the next served-model switch, check that `/estimate` still works. `autoselect-publish.sh`
+3. After the next served-model switch, check that `/estimate` still works. `autoselect-publish.sh`
    builds the kit.
-3. Optional: cache the parsed kit per database (about 12 ms per request).
+4. Optional: cache the parsed kit per database (about 12 ms per request).
 
 ## Standing rules
 
