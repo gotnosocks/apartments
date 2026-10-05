@@ -463,6 +463,14 @@ def bundle(tmp_path):
     return make_bundle(tmp_path / "inputs")
 
 
+@pytest.fixture(autouse=True)
+def ratings_db(tmp_path, monkeypatch):
+    """Each test's ratings in its own file, never the machine's."""
+    path = tmp_path / "ratings" / "ratings.sqlite"
+    monkeypatch.setenv("RATINGS_DB", str(path))
+    return path
+
+
 @pytest.fixture
 def site_root(tmp_path, bundle):
     from apartments.site import build

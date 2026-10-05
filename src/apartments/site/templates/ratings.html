@@ -1,0 +1,63 @@
+{% extends "base.html" %}
+{% block title %}My ratings{% endblock %}
+{% block content %}
+<h1>My ratings</h1>
+<p class="lede">Your scores, tags and notes on listings, kept on this machine apart from the site's data. Rate a listing
+from its page. The ask and estimate here are from when you rated it; the next column says where the listing stands in
+the current data.</p>
+
+<form class="filters" action="{{ url_for('my_ratings') }}" method="get" aria-label="Filter ratings">
+  <div class="field">
+    <label for="r-tag">Tag</label>
+    <select id="r-tag" name="tag">
+      <option value="">Any</option>
+      {% for t in tags %}{% set side, words = tag_label(t) %}<option value="{{ t }}"{% if tag == t %} selected{% endif %}>{{ "+ " if side == "good" else ("− " if side == "bad") }}{{ words }}</option>{% endfor %}
+    </select>
+  </div>
+  <div class="field">
+    <label for="r-score">Score</label>
+    <select id="r-score" name="score">
+      <option value="">Any</option>
+      {% for n in range(5, 0, -1) %}<option value="{{ n }}"{% if min_score == n %} selected{% endif %}>{{ n }}{{ "+" if n < 5 }}</option>{% endfor %}
+    </select>
+  </div>
+  <div class="field">
+    <label for="r-sort">Sort</label>
+    <select id="r-sort" name="sort">
+      {% for key, label in sorts.items() %}<option value="{{ key }}"{% if sort == key %} selected{% endif %}>{{ label }}</option>{% endfor %}
+    </select>
+  </div>
+  <div class="field actions"><button type="submit">Apply</button></div>
+</form>
+
+<div class="results-head">
+  <p><strong>{{ rows | length }}</strong> rating{{ "" if rows | length == 1 else "s" }}</p>
+  <p class="results-links"><a class="download" href="{{ url_for('ratings_csv') }}" download>Download CSV</a>
+    <a class="download" href="{{ url_for('ratings_json') }}" download>Download JSON</a></p>
+</div>
+<div class="table-wrap">
+<table class="data ratings">
+  <thead><tr>
+    <th scope="col">Score</th><th scope="col">Listing</th><th scope="col">Tags</th><th scope="col">Note</th>
+    <th scope="col" class="num">Ask</th><th scope="col" class="num">Estimate</th><th scope="col">Now</th><th scope="col">Rated</th>
+  </tr></thead>
+  <tbody>
+  {% for r in rows %}{% set s = r.snapshot %}
+    <tr>
+      <td class="nowrap">{% if r.score %}<span class="stars" aria-label="{{ r.score }} out of 5">{{ "★" * r.score }}</span>{% else %}<span class="muted">—</span>{% endif %}</td>
+      <td>{% if r.now %}<a href="{{ url_for('listing', audit_id=r.audit_id) }}">{% endif %}{{ s.building }}{% if s.unit %} · {{ s.unit }}{% endif %}{% if r.now %}</a>{% endif %}
+        <span class="feat">{{ beds_label(s.bedrooms) }}{% if s.period %} · {{ month(s.period) }}{% endif %}</span></td>
+      <td>{% for t in r.tags %}{% set side, words = tag_label(t) %}<span class="rtag {{ side }}">{{ "+ " if side == "good" else ("− " if side == "bad") }}{{ words }}</span> {% endfor %}</td>
+      <td class="rating-note-cell">{{ (r.note.split("\n") | first) if r.note }}</td>
+      <td class="num">{{ usd(s.ask) if s.ask is not none }}</td>
+      <td class="num">{{ usd(s.estimate) if s.estimate is not none }}{% if r.diff is not none %} <span class="muted">({{ pct(100 * r.diff, digits=1) }})</span>{% endif %}</td>
+      <td class="nowrap">{% if not r.now %}<span class="muted">not in this build</span>{% elif r.now.is_current %}<span class="tag">now</span> {{ usd(r.now.ask) }}{% else %}<span class="muted">off the market</span>{% endif %}</td>
+      <td class="nowrap muted">{{ r.updated_at[:10] }}</td>
+    </tr>
+  {% else %}
+    <tr><td colspan="8" class="empty">{% if tag or min_score %}No ratings match.{% else %}No ratings yet. Open a listing and use "Your rating".{% endif %}</td></tr>
+  {% endfor %}
+  </tbody>
+</table>
+</div>
+{% endblock %}
