@@ -496,11 +496,34 @@ def recorded_rules(result: dict) -> tuple:
     return rules
 
 
+def split_and_rules(frame: pd.DataFrame, split: str, rules) -> tuple:
+    """(frame, heldout) for a run's split and data rules, in the run's order: most
+    splits are drawn first and the rules applied after; a split in
+    `splits.AFTER_RULES` (latest) is drawn after the rules, on merged units and
+    kept rows. Every reader of a run rebuilds its rows through this."""
+    from . import splits
+
+    if split in splits.AFTER_RULES:
+        frame, _ = apply_rules(frame, np.zeros(len(frame), dtype=bool), rules)
+        held = splits.SPLITS[split](frame)
+        # As apply_rules: a held-out row needs a training row in its building.
+        if "building" in frame:
+            held = held & frame.building.isin(set(frame.building[~held])).to_numpy()
+        return frame, held
+    return apply_rules(frame, splits.SPLITS[split](frame), rules)
+
+
 def apply_rules(frame: pd.DataFrame, heldout: np.ndarray, rules):
     """(frame, heldout) after the named rules. A rule that drops rows drops them
     from the held-out mask too, so every other row keeps its split; the frame
-    gets a fresh RangeIndex."""
+    gets a fresh RangeIndex. A held-out row whose building has no training row
+    left (the building's other rows dropped, by a rule or in a new dataset)
+    moves to training: a fit cannot score a building it never saw. On the
+    datasets fit before 2026-10-05 no row moves."""
     mask = pd.Series(np.asarray(heldout, dtype=bool), index=frame.index)
     for rule in rules:
         frame = DATA_RULES[rule](frame)
-    return frame.reset_index(drop=True), mask.loc[frame.index].to_numpy()
+    held = mask.loc[frame.index].to_numpy().copy()
+    if "building" in frame:
+        held &= frame.building.isin(set(frame.building[~held])).to_numpy()
+    return frame.reset_index(drop=True), held

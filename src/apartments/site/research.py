@@ -90,7 +90,8 @@ def is_subset(run: str) -> bool:
 
 
 # A fit's tier (`tier.name`, rentfrontier fit tiers): a full fit, or a short
-# exploration fit that counts on the research frontier but is never served.
+# exploration fit: a research point, on the frontier line only if it passes
+# the convergence gate, and never served.
 TIERS = {
     "full": "Full fit",
     "exploration": "Exploration fit",
@@ -247,9 +248,9 @@ def frontier_view(
             kind = "subset"
         elif e["key"] in frontier:
             kind = "frontier"
-        elif not e.get("passes_checks") and tier == "full":
-            # The convergence gate applies to full fits; exploration fits are
-            # judged on their ranking.
+        elif not e.get("passes_checks"):
+            # The convergence gate applies to every tier (Ben, 2026-10-05):
+            # a failing exploration fit is a failing-coloured diamond.
             kind = "failing"
         else:
             kind = "other"

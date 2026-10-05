@@ -15,7 +15,7 @@ def load():
 
 
 def args(**kw):
-    base = dict(unit=["frontier-*"], gpu=False, pr=[], file=[], max=120.0, poll=60.0, idle_grace=30.0)
+    base = dict(unit=["frontier-*"], gpu=False, pr=[], file=[], max=120.0, poll=60.0, idle_grace=30.0, batch=15.0)
     base.update(kw)
     return argparse.Namespace(**base)
 
@@ -94,3 +94,45 @@ def test_failed_first_pr_lookup_sets_the_baseline_silently():
     fake = Fake(units=[set()], gpu=[[]], pr=["", "OPEN head=abc"], file=["missing"])
     assert run(fake, args(pr=[7], poll=1, max=0.5)) == [
         "heartbeat: nothing changed in 0.5 min; check state and keep work queued"]
+
+
+def test_unit_finish_waits_for_the_other_watched_units():
+    fake = Fake(units=[{"frontier-a.service", "frontier-b.service"}, {"frontier-b.service"},
+                       {"frontier-b.service"}, set()],
+                gpu=[[]], pr=[""], file=["missing"])
+    assert run(fake, args()) == ["finished: frontier-a.service (result=success status=0)",
+                                 "finished: frontier-b.service (result=success status=0)"]
+    assert fake.t == 120.0
+
+
+def test_batch_window_caps_the_hold():
+    fake = Fake(units=[{"frontier-a.service", "frontier-b.service"}, {"frontier-b.service"}],
+                gpu=[[]], pr=[""], file=["missing"])
+    assert run(fake, args(batch=5)) == ["finished: frontier-a.service (result=success status=0)"]
+    assert fake.t == 300.0
+
+
+def test_gpu_idle_ends_the_batch_at_once():
+    fake = Fake(units=[{"frontier-a.service", "frontier-b.service"}, {"frontier-b.service"}],
+                gpu=[["fit"], ["fit"], [], []], pr=[""], file=["missing"])
+    assert run(fake, args(gpu=True)) == [
+        "finished: frontier-a.service (result=success status=0)",
+        "gpu idle: no gpu-class job is running or holding the GPU lock"]
+    assert fake.t == 120.0
+
+
+def test_batch_zero_wakes_on_the_first_event():
+    fake = Fake(units=[{"frontier-a.service", "frontier-b.service"}, {"frontier-b.service"}],
+                gpu=[[]], pr=[""], file=["missing"])
+    assert run(fake, args(batch=0)) == ["finished: frontier-a.service (result=success status=0)"]
+    assert fake.t == 0.0
+
+
+def test_units_default_to_frontier_only_with_gpu(monkeypatch):
+    mod = load()
+    seen = []
+    monkeypatch.setattr(mod, "wait", lambda a: seen.append(a.unit) or ["x"])
+    monkeypatch.setattr(mod, "gpu_jobs", list)
+    mod.main([])
+    mod.main(["--gpu"])
+    assert seen == [[], ["frontier-*"]]
