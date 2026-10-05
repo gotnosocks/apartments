@@ -954,8 +954,12 @@ def create_app(
             .fetchall()
         )
         changes = layout_changes(rows)
+        aliases = sorted(
+            {r["unit_label"] for r in rows if r["unit_label"]} - {row["label"]}
+        )
         return render_template(
             "unit.html",
+            aliases=aliases,
             layout_changes=changes,
             meta=meta(),
             unit=row,
