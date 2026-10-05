@@ -406,7 +406,7 @@ def coded_v1(
 
 # Each listing's price changes (rentfrontier.listing_extras, price_changes).
 PRICE_HISTORY_FILE = (
-    "/data1/apartments/external/listing-extras/PENDING/listing-extras.parquet"
+    "/data1/apartments/external/listing-extras/20261005-ae25150/listing-extras.parquet"
 )
 # The previous listing's price change is clipped to +-30% (larger ones are typos).
 PRICE_CHANGE_CLIP = 0.3
