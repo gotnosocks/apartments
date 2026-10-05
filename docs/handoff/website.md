@@ -2,7 +2,7 @@
 
 What the next turn of the website thread needs. Updated at each milestone.
 
-## State (2026-10-05 20:30 UTC)
+## State (2026-10-05 14:10 UTC)
 
 - **Estimate form live.** `/estimate` uses the prediction kit (#228, `rentfrontier.kit`) through
   the site build (#229). The kit for the served u3 run is at
@@ -41,6 +41,12 @@ What the next turn of the website thread needs. Updated at each milestone.
     narrow them
   - #263 building suggestions as you type (`/buildings.json` plus a datalist in site.js). On
     /estimate a pick sets the building id, unless two buildings share the name
+  - #266 current listing pages say when this ad went on StreetEasy (`site/ad_dates.py`: the
+    page's own `onMarketAt`, only when its listing id is the row's; a return after a rented or
+    off-market break comes from that listing id's own events). Per ad, never per unit (Ben). The
+    `ad_dates` table needs a site build to fill; build 20261005T140617320837Z dates 235 of 235.
+- **Playtest round 5** (journalist, renter, renewer, mobile, `/data1/apartments/tmp/playtests/2026-10-05-r5/`,
+  `synthesis.md` lists the planned PRs): #267 the default-filter links read as actions.
 - **Kit step for Modeling.** After the summary bundle and rent map, and before
   `apartments.site build`:
   `cd /data1/apartments/serve/master/frontier && JAX_PLATFORMS=cpu /data1/apartments/serve/master/ops/job light -m 8G -- uv run --frozen --extra gpu python -m rentfrontier.kit <run> --summary <bundle>`.
@@ -50,12 +56,10 @@ What the next turn of the website thread needs. Updated at each milestone.
 
 ## Next
 
-1. Still open from round 4:
-   - "On the market since" for current ads. Blocked on data: `listing_events` (StreetEasy price
-     history) lives in a DuckDB nobody has located. The only copy is
-     `/data1/apartments/archive/snapshots/chelsea-20260908`. I asked for
-     `listing_started.parquet` (source_listing_id, listed_at, first_ask, days_on_market).
-   - Optional: warn when a building link lands on a much pricier building.
+1. Round 5 PRs in `synthesis.md` order: building Units table capped at 13 rows (branch
+   site-building-units-all started), "Building level" glossary entry and class codes, rent map
+   fit to area, estimate form's two steps, breakdown on phones, unit chart legend, journalist items.
+   Optional: warn when a building link lands on a much pricier building.
 2. After the next served-model switch, check that `/estimate` still works. `autoselect-publish.sh`
    builds the kit.
 3. Optional: cache the parsed kit per database (about 12 ms per request).
