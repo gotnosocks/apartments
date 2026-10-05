@@ -82,7 +82,9 @@ def compute(frame: pd.DataFrame) -> pd.DataFrame:
             "bed_street": text.str.contains(BEDROOM_STREET, regex=True).to_numpy(),
             "at": pd.to_datetime(frame.price_at, utc=True).to_numpy(),
         }
-    ).sort_values(["unit_id", "at"])
+    ).sort_values(["unit_id", "at"], na_position="first")
+    # unit_sides already pools per apartment, so "first" of its columns is the
+    # apartment's; "last" is the latest listing's building, url and line.
     units = rows.groupby("unit_id").agg(
         building=("building", "last"),
         url=("url", "last"),
