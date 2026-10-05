@@ -401,3 +401,115 @@ def test_building_pages_link_the_form_when_it_is_available(site_root, client):
     install_kit(site_root)
     html = page(client, f"/buildings/{GROVE}")
     assert f'href="/estimate?building={GROVE}"' in html
+
+
+def test_a_building_pick_carries_only_the_forms_keys(site_root, client):
+    install_kit(site_root)
+    for extra in ("endpoint=x", "_anchor=zz", "_method=POST", "_external=1"):
+        r = client.get(f"/estimate?q=west&bedrooms=2&{extra}")
+        assert r.status_code == 200, extra
+        html = r.get_data(as_text=True)
+        assert (
+            "bedrooms=2" in html
+            and "_external" not in html
+            and "http://" not in html.split("Which building?")[1][:2000]
+        )
+
+
+def test_adding_an_ask_leaves_the_estimate_as_it_was(site_root, client):
+    install_kit(site_root)
+    base = f"/estimate?building={GROVE}&bedrooms=1&sqft=650"
+
+    def figures(html):
+        return html.split("Typical rent")[1].split("Likely ask range")[1][:200]
+
+    plain = page(client, base)
+    asked = page(client, base + "&ask=5200")
+    assert plain.split("Typical rent")[1][:120] == asked.split("Typical rent")[1][:120]
+    assert figures(plain) == figures(asked)
+
+
+def test_the_parts_show_the_season():
+    r = record()
+    r["season"]["coef"] = [[0.0, 0.0, 0.1, 0.0]] * 4
+    k = estimate.Kit.from_record(r, {})
+    parts = {
+        p["group"]: p["pct"]
+        for p in estimate.parts(k, flat_building(), {}, 1, dt.date(2026, 1, 1))
+    }
+    assert parts["season"] == pytest.approx(100 * math.expm1(0.1))
+
+
+def check_rows(k, n=24, studio_shift=0.0):
+    """Bundle-like rows of the kit's last month whose estimates are the kit's own."""
+    rows = []
+    for i in range(n):
+        beds = 0.0 if i % 2 else 1.0
+        log_rent = math.log(3000) + (studio_shift if beds == 0 else 0.0)
+        rows.append(
+            {
+                "audit_id": f"r{i}",
+                "period": "2026-09-01",
+                "price_at": "2026-09-15T00:00:00+00:00",
+                "in_fit": 1,
+                "unit_fit_rows": 1,
+                "pareto_k": 0.1,
+                "building_id": GROVE,
+                "bedrooms": beds,
+                "inputs": "{}",
+                "estimate_median": math.exp(log_rent),
+                "pred_lower_80": math.exp(log_rent),
+                "pred_upper_80": math.exp(log_rent),
+            }
+        )
+    return rows
+
+
+def test_the_scoring_check_scores_studios_as_studios():
+    r = record()
+    r["bedroom_time"] = [[0.2, 0.0, 0.0, 0.0]] * 4  # studios ask 22% more
+    k = estimate.Kit.from_record(r, {})
+    buildings = {GROVE: flat_building()}
+    assert estimate_build.check_scoring(k, buildings, check_rows(k, studio_shift=0.2))[
+        "passes"
+    ]
+    out = estimate_build.check_scoring(k, buildings, check_rows(k, studio_shift=0.0))
+    assert not out["passes"] and "differ" in out["reason"]
+    few = estimate_build.check_scoring(
+        k, buildings, check_rows(k, n=5, studio_shift=0.2)
+    )
+    assert not few["passes"] and "only 5 rows" in few["reason"]
+
+
+def test_the_encoding_check_compares_once_listed_apartments():
+    k = kit()
+    obs = {
+        "a": {
+            "bedrooms": 2.0,
+            "reported_full_bathrooms": 1,
+            "reported_half_bathrooms": 0,
+            "square_feet": 1000.0,
+            "listed_floor": 3,
+            "laundry_type": "in_unit",
+            "canonical_unit_url": "https://streeteasy.com/building/x/3a",
+            "view_exposures": {"park": True},
+            "window_exposures": {},
+        },
+    }
+    good = {
+        "bedrooms=2": 1.0,
+        "log_floor": round(math.log(3), 4),
+        "laundry=in_unit": 1.0,
+        "view_park": 1.0,
+        "log_sqft_vs_bedroom_median": 0.0,
+    }
+    listing = {"audit_id": "a", "unit_id": "u", "inputs": json.dumps(good)}
+    out = estimate_build.check_encoding(k, [listing], obs)
+    assert out["passes"] and out["listings"] == 1
+    bad = dict(good, **{"laundry=in_unit": 0.0})
+    out = estimate_build.check_encoding(k, [dict(listing, inputs=json.dumps(bad))], obs)
+    assert not out["passes"] and out["agreement"]["laundry"] == 0
+    twice = [listing, dict(listing, audit_id="b")]
+    assert (
+        estimate_build.check_encoding(k, twice, obs)["listings"] == 0
+    )  # listed twice: skipped

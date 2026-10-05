@@ -36,7 +36,7 @@ Every listing in the data still has its own estimate: <a href="{{ url_for('listi
   <div class="figures">
     <div class="figure">
       <span class="figure-label">Typical rent</span>
-      <span class="figure-value">{{ usd(result.median) }}</span>
+      <span class="figure-value">{{ usd(result.estimate) }}</span>
       <span class="figure-note">range for the typical rent {{ usd(result.lower_95) }}–{{ usd(result.upper_95) }} (95%)</span>
     </div>
     <div class="figure">
@@ -63,16 +63,17 @@ Every listing in the data still has its own estimate: <a href="{{ url_for('listi
   <table class="data">
     <thead><tr><th scope="col">Part</th><th scope="col" class="num">Effect</th></tr></thead>
     <tbody>
-      <tr><th scope="row">Market reference, {{ month(kit.period) }}</th><td class="num muted">a one-bedroom in an average building</td></tr>
-      {% for p in parts %}
-      <tr><th scope="row"><a href="{{ url_for('research_glossary', _anchor=(p.group | term_id)) }}">{{ "This building" if p.group == "building" else p.label }}</a></th>
+      <tr><th scope="row">Market reference, {{ month(kit.period) }}</th><td class="num muted">a one-bedroom with every input at its reference level</td></tr>
+      {% for p in parts if p.pct | round(1) != 0 %}
+      <tr><th scope="row">{% if p.group == "season" %}{{ p.label }}{% else %}<a href="{{ url_for('research_glossary', _anchor=(p.group | term_id)) }}">{{ "This building" if p.group == "building" else p.label }}</a>{% endif %}</th>
         <td class="num">{{ pct(p.pct, digits=1) }}</td></tr>
       {% endfor %}
     </tbody>
   </table>
   </div>
-  <p class="note">Percentages at the posterior mean, each against the reference level of its inputs; they multiply together.
-  "This building" is its own level, trend and bedroom and size premiums.</p>
+  <p class="note">Percentages at the posterior mean, each against the reference level of its inputs; multiplied together they
+  give roughly the typical rent, which also averages over how this apartment might differ from the building's usual. "This
+  building" is its own level, trend and bedroom and size premiums.</p>
 
   <h3>Building facts used</h3>
   <dl class="facts">
@@ -93,6 +94,8 @@ Every listing in the data still has its own estimate: <a href="{{ url_for('listi
     so its building level leans on similar buildings.</li>{% endif %}
     {% if form.floor and b.floors and form.floor > b.floors %}<li id="floor-caveat">Floor {{ form.floor }} is above the
     {{ b.floors }} floors its records give this building, so the floor's effect is an extrapolation.</li>{% endif %}
+    {% if form.facing %}<li>What it looks onto is taken as you give it; the model has not checked that this building has
+    such a side.</li>{% endif %}
     <li>It is treated as a first listing of the apartment at a current ask. Features the model does not code (light,
     condition beyond "renovated", the view itself) are not counted.</li>
     <li>Model outputs, not appraisals: they describe asking rents, not what an apartment would lease for.</li>

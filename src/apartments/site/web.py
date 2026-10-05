@@ -1240,14 +1240,15 @@ def create_app(
                     x,
                     form.bedrooms,
                     today,
-                    seed=f"{b['id']}|{today}|{form.canonical()}",
+                    seed=f"{b['id']}|{today}|{form.canonical()}",  # not the ask
                     ask=form.ask,
                 )
                 result["day"] = today
                 labels = dict(db().execute("SELECT name, label FROM terms"))
+                labels["season"] = f"Season ({today.day} {today:%B})"
                 parts = [
                     p | {"label": labels.get(p["group"], p["group"])}
-                    for p in estimate.parts(kit, terms, x, form.bedrooms)
+                    for p in estimate.parts(kit, terms, x, form.bedrooms, today)
                 ]
                 facts = {
                     "elevator": "no"
@@ -1264,7 +1265,11 @@ def create_app(
                 }
 
         def pick(chosen):
-            args = {k: request.args.getlist(k) for k in request.args if k != "q"}
+            args = {
+                k: request.args.getlist(k)
+                for k in estimate.FORM_KEYS
+                if k in request.args
+            }
             return (
                 url_for("estimate_apartment", **(args | {"building": chosen}))
                 + "#result"

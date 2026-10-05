@@ -58,8 +58,8 @@ BUILDING_GROUPS = (
     "building status",
     "neighbourhood",
 )
-# Draws x simulated asks per draw (250 x 80 = 20,000).
-SAMPLES_PER_DRAW = 80
+# Draws x simulated asks per draw (250 x 160 = 40,000).
+SAMPLES_PER_DRAW = 160
 # The unit level's range, in unit scales (`rentfrontier.loo.GRID`).
 UNIT_CLIP = 40.0
 LOW_FLOORS = 4
@@ -138,6 +138,25 @@ EXTRAS = (
     ("income_restricted", "Income restricted (housing lottery)"),
     ("shared_space", "Shared kitchen or bathroom"),
     ("walkup_text", "Called a walk-up"),
+)
+
+
+# The form's query keys (the only ones a building pick carries over).
+FORM_KEYS = (
+    "bedrooms",
+    "baths",
+    "half",
+    "sqft",
+    "floor",
+    "laundry",
+    "label",
+    "rooms",
+    "facing",
+    "outdoor",
+    "views",
+    "windows",
+    "extras",
+    "ask",
 )
 
 
@@ -291,8 +310,10 @@ class Form:
         )
 
     def canonical(self) -> str:
-        """A stable text of the inputs (the simulation's seed)."""
-        return json.dumps(self.__dict__, sort_keys=True, default=str)
+        """A stable text of the apartment's inputs (the simulation's seed):
+        without the ask, so adding one leaves the estimate as it was."""
+        fields = {k: v for k, v in self.__dict__.items() if k != "ask"}
+        return json.dumps(fields, sort_keys=True, default=str)
 
 
 def encode(form: Form, kit: Kit, building_inputs: dict[str, float]) -> dict[str, float]:
@@ -467,7 +488,7 @@ def _bisect(values: list[float], target: float) -> int:
 
 
 def parts(
-    kit: Kit, building: Building, x: dict[str, float], bedrooms: int
+    kit: Kit, building: Building, x: dict[str, float], bedrooms: int, day=None
 ) -> list[dict]:
     """What moves the estimate away from the market reference, per group of
     inputs, as the percentage the posterior mean of its log term gives:
@@ -496,7 +517,12 @@ def parts(
         )
         / d
     )
-    order = list(dict.fromkeys(kit.groups))
+    if day is not None:
+        frac = year_fraction(day)
+        season = sum(_season(kit, s, frac, day.month) for s in range(d)) / d
+        if season:
+            sums["season"] = season
+    order = ["season", *dict.fromkeys(kit.groups)]
     out = [
         {"group": g, "pct": 100.0 * math.expm1(sums[g])}
         for g in sorted(

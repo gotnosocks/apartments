@@ -61,13 +61,13 @@ form says it is unavailable, and the build itself goes ahead.
 Per request, in pure Python: the building's own columns come from its newest listing's `inputs`. The apartment's
 columns come from the form, with "not stated" levels for blanks, a first listing, a current ask and a description.
 The sqft median per bedroom count is recovered from the bundle's rows. The season is taken at today's date.
-80 simulated asks per draw (20,000 in all, about 0.06 s) give:
+160 simulated asks per draw (40,000 in all, about 0.1 s) give:
 
-- **Typical rent:** the median of the latent rent of a new apartment like this, and its 95% interval;
+- **Typical rent:** the mean of the latent rent of a new apartment like this (as listing pages' estimates), and its 95% interval;
 - **Likely ask range:** the 10–90% and 2.5–97.5% quantiles of the simulated asks;
 - **Your ask:** the share of simulated asks below it. The listing pages' price band applies: below 10%, above 90%.
 
-A form URL is deterministic: the seed is the building, the date and the inputs. A run with a feature group the
+A form URL is deterministic: the seed is the building, the date and the apartment's inputs (not the ask, so adding an ask leaves the estimate as it was). A run with a feature group the
 encoder does not know gets no form. So does a design without a kit (line effects, unit drift), or an older build.
 
 ## How the result is shown
@@ -82,8 +82,8 @@ An apartment like this at 1 Jane Street, September 2026
 - Below that, "What makes up the estimate", in the same format and wording as listing pages: the reference
   apartment, then each term as a percentage, with the building's own level and trend last. It links to the
   glossary.
-- A "Building facts used" line lists era, size, class, neighbourhood, elevator and doorman, from the building's
-  records.
+- A "Building facts used" list: neighbourhood, year built, floors and apartments (MapPLUTO), and the elevator and doorman
+  of its newest listing.
 - Caveats, in plain words:
   - a new apartment has no history in this building, so the range is wider than for a listed one;
   - a building with fewer than 5 fit listings is flagged, as on building pages;

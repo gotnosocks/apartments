@@ -142,7 +142,7 @@ def check_scoring(kit: estimate.Kit, buildings: dict, listings: list[dict]) -> d
             kit,
             buildings[r["building_id"]],
             x,
-            round(r["bedrooms"] or 1),
+            round(r["bedrooms"]) if r["bedrooms"] is not None else 1,
             _date(r["price_at"], r["period"]),
             seed=r["audit_id"],
             samples=SCORE_SAMPLES,
