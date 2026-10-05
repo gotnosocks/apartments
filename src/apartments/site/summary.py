@@ -16,6 +16,7 @@ from __future__ import annotations
 MIN_SHARE = 0.005  # of the estimate
 MIN_USD = 25.0
 MOST = 5  # parts named on each side
+NARROW = 0.03  # "in line" when the building's interval is within 3% of the estimate
 
 ORDINAL_WORDS = {2: "two", 3: "three", 4: "four"}
 DOORMAN = {
@@ -61,6 +62,39 @@ CLASSES = {
     "C": "a walk-up building",
     "R": "a condominium building",
     "S": "a small building over a store or office",
+}
+LABELS = {
+    "penthouse": "a penthouse",
+    "garden": "a garden unit",
+    "lower_level": "a lower-level unit",
+}
+WHOLE_FACING = {
+    "faces front: avenue": "windows onto an avenue",
+    "faces front: wide street": "windows onto a wide street",
+    "faces front: side street": "windows onto a quiet side street",
+    "faces rear only": "windows only at the rear",
+    "faces front and rear": "windows front and rear",
+    "faces the sides only": "windows only on the sides",
+}
+TEXT = {
+    "renovated": "a renovation",
+    "dishwasher": "a dishwasher",
+    "washer_dryer_in_unit": "a washer-dryer",
+    "no_fee": "no broker fee",
+    "furnished": "furnishing",
+    "concession": "free months or a concession",
+    "income_restricted": "income restrictions",
+    "rent_stabilized": "rent stabilization",
+    "private_outdoor": "private outdoor space",
+    "shared_space": "a shared kitchen or bath",
+    "luxury": "luxury",
+    "flex_convertible": "a flex or convertible layout",
+    "duplex": "a duplex",
+    "walkup_text": "a walk-up",
+    "high_ceilings": "high ceilings",
+    "short_term": "a short-term lease",
+    "states_fewer_bedrooms": "fewer bedrooms than listed",
+    "states_more_bedrooms": "more bedrooms than listed",
 }
 PETS = {
     "allowed": "pets allowed",
@@ -111,18 +145,22 @@ def phrase(term: str, row, inputs: dict, sign: int) -> str | None:
             words.append("a half bath" if half == 1 else f"{int(half)} half baths")
         return _join(words) or None
     if term == "size":
-        if "log_sqft_vs_bedroom_median" not in inputs:
+        # The input's own sign says bigger or smaller than usual.
+        size = inputs.get("log_sqft_vs_bedroom_median")
+        if not size:
             return None
-        return "more space than usual" if sign > 0 else "less space than usual"
+        return "more space than usual" if size > 0 else "less space than usual"
     if term == "floor":
-        if row["floor"] is None:
+        if inputs.get("floor_unknown") or row["floor"] is None:
             return None
         n = int(row["floor"])
+        if n < 1:
+            return "a ground or lower floor"
         if inputs.get("log_floor_x_no_elevator"):
             return f"a walk-up {_ordinal(n)} floor"
         return f"the {_ordinal(n)} floor"
     if term == "elevator":
-        return "no elevator" if row["elevator"] == "no" else None
+        return "no elevator" if inputs.get("elevator=no") else None
     if term == "doorman":
         levels = _with(inputs, "doorman=")
         return DOORMAN.get(levels[0]) if levels else None
@@ -138,16 +176,20 @@ def phrase(term: str, row, inputs: dict, sign: int) -> str | None:
         return "views of " + _join(seen) if seen else None
     if term == "windows":
         sides = _with(inputs, "window_")
-        return _join(sides) + "-facing windows" if sides else None
+        if not sides:
+            return None
+        return _join([s + "-" for s in sides[:-1]] + [sides[-1]]) + "-facing windows"
     if term == "facing":
         onto = [v for k, v in FACING.items() if inputs.get(k)]
         low = [v for k, v in LOW_FACING.items() if inputs.get(k)]
-        return _join((["windows onto " + _join(onto)] if onto else []) + low) or None
+        whole = [v for k, v in WHOLE_FACING.items() if inputs.get(k)]
+        words = (["windows onto " + _join(onto)] if onto else []) + low + whole
+        return _join(words) or None
     if term == "unit label":
         labels = [
-            k.removeprefix("label:").replace("_", " ") for k in _with(inputs, "label:")
+            LABELS.get(v, "a " + v.replace("_", " ")) for v in _with(inputs, "label:")
         ]
-        return _join(["a " + v for v in labels]) if labels else None
+        return _join(labels) if labels else None
     if term == "outdoor space":
         seen = [
             OUTDOOR.get(v, "a " + v.replace("_", " "))
@@ -162,10 +204,9 @@ def phrase(term: str, row, inputs: dict, sign: int) -> str | None:
             return None
         return "more rooms than most" if sign > 0 else "fewer rooms than most"
     if term == "description":
-        flags = [
-            k.removeprefix("text:").replace("_", " ") for k in _with(inputs, "text:")
-        ]
-        return "the ad's " + _join(flags) if flags else None
+        # One part for every flag: name them all, since any could be the cause.
+        flags = [TEXT.get(v, v.replace("_", " ")) for v in _with(inputs, "text:")]
+        return "an ad that mentions " + _join(flags) if flags else None
     if term == "building era":
         levels = _with(inputs, "building era=")
         return ERAS.get(levels[0]) if levels else None
@@ -180,6 +221,8 @@ def phrase(term: str, row, inputs: dict, sign: int) -> str | None:
             words.append("a landmark building")
         elif inputs.get("historic_district"):
             words.append("being in a historic district")
+        if inputs.get("flood_zone_2015"):
+            words.append("the 2015 flood-zone map")
         if inputs.get("altered_since_2000"):
             words.append("a building altered since 2000")
         return _join(words) or None
@@ -200,11 +243,25 @@ def _clear(c, floor: float) -> int:
     return 0
 
 
+def _round(usd: float) -> int:
+    """Dollars to the nearest $10 (to the nearest $50 from $1,000)."""
+    step = 50 if usd >= 1000 else 10
+    return int(round(usd / step) * step)
+
+
+def _narrow(c, estimate: float) -> bool:
+    """The part's whole 95% interval lies within NARROW of the estimate:
+    near zero for sure, not merely unsure."""
+    return bool(estimate) and max(abs(c["lower"]), abs(c["upper"])) <= NARROW * estimate
+
+
 def listing_summary(row, contributions: list[dict], inputs: dict) -> list[str]:
     """A few sentences on what the model makes of this listing: its building
     and the apartment's own level against peers, then the parts it prices up
     and down, largest first."""
     estimate = row["estimate"] or 0.0
+    if not estimate:
+        return []
     floor = max(MIN_USD, MIN_SHARE * estimate)
     by_term = {c["term"]: c for c in contributions}
     out = []
@@ -212,16 +269,22 @@ def listing_summary(row, contributions: list[dict], inputs: dict) -> list[str]:
     building = by_term.get("building")
     side = _clear(building, floor) if building else 0
     if side:
-        share = abs(building["usd"]) / estimate if estimate else 0
+        # The parts add up to the estimate (an LMDI split), so the building's
+        # is a dollar amount of it, not a ratio to an average building.
         out.append(
             "This listing is in a building that rents "
             + ("higher" if side > 0 else "lower")
-            + f" than its peers: about {share:.0%} "
-            + ("more" if side > 0 else "less")
-            + " than an average building with the same features."
+            + " than its peers with the same features: the model "
+            + ("adds" if side > 0 else "takes off")
+            + f" about ${_round(abs(building['usd'])):,} a month for it."
         )
-    elif building:
+    elif building and _narrow(building, estimate):
         out.append("Its building rents in line with its peers with the same features.")
+    elif building:
+        out.append(
+            "The model cannot yet tell whether its building rents above or below "
+            "its peers with the same features."
+        )
 
     unit = by_term.get("unit")
     side = _clear(unit, floor) if unit else 0
