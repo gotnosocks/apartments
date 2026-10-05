@@ -41,6 +41,10 @@ FEATURES = [
     ("looks onto an avenue, floors 1-4", "facing"),
     ("first_listing_of_unit", "relisting"),
     ("log_months_since_last_listing", "relisting"),
+    ("line looks onto a street", "line facing"),
+    ("line looks onto the rear or a courtyard", "line facing"),
+    ("previous_listing_price_change", "previous listing"),
+    ("log_previous_listing_repricings", "previous listing"),
     ("outdoor:terrace", "outdoor space"),
     ("rooms beyond bedrooms=3", "rooms beyond bedrooms"),
     ("building era=2010+", "building era"),
@@ -548,6 +552,20 @@ def test_the_form_can_set_the_elevator_and_doorman():
     assert estimate.encode(estimate.Form(floor=5), k, walk_up)["elevator=no"] == 1
     assert "elevator" not in estimate.Form().canonical()
     assert "elevator" in estimate.Form(elevator="no").canonical()
+
+
+def test_line_facing_counts_only_when_the_apartments_own_is_not_given():
+    k = kit()
+    assert not k.unknown_groups()
+    x = estimate.encode(estimate.Form(line="rear"), k, {})
+    assert x["line looks onto the rear or a courtyard"] == 1
+    x = estimate.encode(estimate.Form(line="rear", facing=["avenue"]), k, {})
+    assert not any(n.startswith("line looks") for n in x)
+    # A first listing has no previous listing to have been repriced.
+    assert not any("previous_listing" in n for n in x)
+    assert estimate.Form.parse(MultiDict({"line": "street"})).line == "street"
+    assert estimate.Form.parse(MultiDict({"line": "sideways"})).line == ""
+    assert "line" not in estimate.Form().canonical()
 
 
 def test_a_set_elevator_shows_beside_the_buildings(site_root, client):
