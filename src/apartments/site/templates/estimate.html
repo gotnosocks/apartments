@@ -111,6 +111,11 @@ Every listing in the data still has its own estimate: <a href="{{ url_for('listi
     <li>It is treated as a first listing of the apartment at a current ask. Features the model does not code (light,
     condition beyond "renovated", the view itself) are not counted.</li>
     <li>Model outputs, not appraisals: they describe asking rents, not what an apartment would lease for.</li>
+    {# Playtest round 4 (tablet): a stabilized tenant compared this with their renewal. #}
+    <li id="market-rate">It is the ask for an apartment advertised now. A renewal is set by the landlord's offer or, for a
+    rent-stabilized lease, capped by the Rent Guidelines Board's increases, so either can be far from it.{% if "rent_stabilized" in form.extras %}
+    Ticking “Rent stabilized” gives the ask of a newly advertised apartment described as stabilized, not the legal rent of an
+    existing lease.{% endif %}</li>
   </ul>
   <p><a href="{{ url_for('building', building_id=b.id) }}">{{ b.name or b.address }}</a> ·
   <a href="{{ url_for('listings', q=b.name or b.address, beds=(form.bedrooms if form.bedrooms < 4 else 4) | string) }}">its listings</a></p>

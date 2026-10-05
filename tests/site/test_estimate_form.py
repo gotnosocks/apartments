@@ -595,3 +595,13 @@ def test_the_building_choices_say_enough_to_tell_them_apart(site_root, client):
         "Same address and tax lot as The Grove, but listed as a separate building"
         in html
     )
+
+
+def test_the_estimate_says_it_is_a_market_ask_not_a_renewal(site_root, client):
+    # Playtest round 4 (tablet): a stabilized tenant compared the estimate with a renewal.
+    install_kit(site_root)
+    html = page(client, f"/estimate?building={GROVE}&bedrooms=1")
+    assert 'id="market-rate"' in html and "Rent Guidelines Board" in html
+    assert "not the legal rent of an existing lease" not in html
+    html = page(client, f"/estimate?building={GROVE}&bedrooms=1&extras=rent_stabilized")
+    assert "not the legal rent of an existing lease" in html
