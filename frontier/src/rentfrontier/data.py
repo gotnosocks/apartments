@@ -496,6 +496,23 @@ def recorded_rules(result: dict) -> tuple:
     return rules
 
 
+def split_and_rules(frame: pd.DataFrame, split: str, rules) -> tuple:
+    """(frame, heldout) for a run's split and data rules, in the run's order: most
+    splits are drawn first and the rules applied after; a split in
+    `splits.AFTER_RULES` (latest) is drawn after the rules, on merged units and
+    kept rows. Every reader of a run rebuilds its rows through this."""
+    from . import splits
+
+    if split in splits.AFTER_RULES:
+        frame, _ = apply_rules(frame, np.zeros(len(frame), dtype=bool), rules)
+        held = splits.SPLITS[split](frame)
+        # As apply_rules: a held-out row needs a training row in its building.
+        if "building" in frame:
+            held = held & frame.building.isin(set(frame.building[~held])).to_numpy()
+        return frame, held
+    return apply_rules(frame, splits.SPLITS[split](frame), rules)
+
+
 def apply_rules(frame: pd.DataFrame, heldout: np.ndarray, rules):
     """(frame, heldout) after the named rules. A rule that drops rows drops them
     from the held-out mask too, so every other row keeps its split; the frame
