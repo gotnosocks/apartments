@@ -37,7 +37,7 @@ def test_laundry_doorman_and_outdoor_filters(client, site_root):
     assert _count(client, "outdoor=yes") == 1
     html = client.get("/listings?laundry=in_unit").get_data(as_text=True)
     assert 'value="in_unit" selected' in html
-    assert "laundry, doorman and outdoor filters leave out" in html
+    assert "laundry, doorman, outdoor and facing filters leave out" in html
 
 
 def test_elevator_yes_or_not_stated_keeps_unstated_listings(client, site_root):

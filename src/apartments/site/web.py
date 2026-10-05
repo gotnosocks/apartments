@@ -42,7 +42,7 @@ from flask import (
 )
 from markupsafe import Markup
 
-from . import ad_dates, charts, estimate, estimate_build, ratings, summary
+from . import ad_dates, charts, estimate, estimate_build, exposure, ratings, summary
 from .anatomy import LEVELS as ANATOMY_LEVELS
 from .anatomy import describe, differences
 from .research import (
@@ -187,6 +187,8 @@ class Filters:
         self.laundry = args.get("laundry") if args.get("laundry") in LAUNDRY else None
         self.doorman = args.get("doorman") if args.get("doorman") in DOORMAN else None
         self.outdoor = args.get("outdoor") == "yes"
+        # Cleared by the route when the build has no exposure labels.
+        self.faces = args.get("faces") if args.get("faces") in FACES else None
         self.year_from = _year(args.get("from"))
         self.year_to = _year(args.get("to"))
         self.status = args.get("status") if args.get("status") in STATUS else "all"
@@ -255,6 +257,13 @@ class Filters:
         if self.outdoor:
             # The model's own reading of the ad: an "outdoor:<kind>" input.
             clauses.append("l.inputs LIKE '%\"outdoor:%'")
+        if self.faces is not None:
+            values = FACES[self.faces][1]
+            clauses.append(
+                "l.unit_id IN (SELECT unit_id FROM exposure WHERE exposure IN "
+                f"({', '.join('?' * len(values))}))"
+            )
+            params += values
         if self.year_from is not None:
             clauses.append("l.period >= ?")
             params.append(f"{self.year_from}-01-01")
@@ -290,6 +299,7 @@ class Filters:
             "laundry": self.laundry,
             "doorman": self.doorman,
             "outdoor": "yes" if self.outdoor else None,
+            "faces": self.faces,
             "from": self.year_from,
             "to": self.year_to,
             "status": None if self.status == "all" else self.status,
@@ -339,6 +349,12 @@ LAUNDRY = {
 DOORMAN = {
     "full_time": ("Full-time", ("full_time",)),
     "any": ("Any kind", ("full_time", "part_time", "virtual", "unspecified")),
+}
+# Which way the apartment faces (`exposure`), its own or its line's label.
+FACES = {
+    "rear": ("The rear or a courtyard", ("rear",)),
+    "rear_or_both": ("The rear, or both sides", ("rear", "both")),
+    "street": ("The street", ("street",)),
 }
 
 # Minimum bathrooms the listings filter offers.
@@ -781,7 +797,9 @@ def create_app(
             "ELEVATOR": ELEVATOR,
             "LAUNDRY": LAUNDRY,
             "DOORMAN": DOORMAN,
-            "features": features,
+            "features": lambda row: features(row, exposures().get(row["unit_id"])),
+            "FACES": FACES,
+            "has_exposure": has_exposure,
             "rated": rated,
             "RATING_GOOD": ratings.GOOD,
             "RATING_BAD": ratings.BAD,
@@ -1041,6 +1059,7 @@ def create_app(
             rating=store.get(audit_id),
             editing=request.args.get("edit") == "1",
             captured=capture_day(row["collected_at"]),
+            exposure=exposure_of(row["unit_id"]),
             read_floor=read_floor(row, inputs),
             facing=next(
                 (
@@ -1332,7 +1351,48 @@ def create_app(
     def checked(filters: Filters) -> Filters:
         if filters.nb not in neighbourhoods():
             filters.nb = None
+        if not has_exposure():
+            filters.faces = None
         return filters
+
+    def has_exposure() -> bool:
+        """Builds before the exposure labels have no exposure table."""
+        if "has_exposure" not in g:
+            g.has_exposure = (
+                db()
+                .execute(
+                    "SELECT 1 FROM sqlite_master WHERE type = 'table' "
+                    "AND name = 'exposure'"
+                )
+                .fetchone()
+                is not None
+            )
+        return g.has_exposure
+
+    def exposure_of(unit_id: str) -> dict | None:
+        if not has_exposure():
+            return None
+        return exposure.describe(
+            db()
+            .execute("SELECT * FROM exposure WHERE unit_id = ?", (unit_id,))
+            .fetchone()
+        )
+
+    def exposures() -> dict[str, str]:
+        """Every labelled unit's short words, for listing tables; read once
+        per build."""
+        if not has_exposure():
+            return {}
+        if exposure_short.get("build") != g.build:
+            exposure_short.clear()
+            exposure_short["units"] = {
+                r["unit_id"]: exposure.describe(r)["short"]
+                for r in db().execute("SELECT * FROM exposure")
+            }
+            exposure_short["build"] = g.build
+        return exposure_short["units"]
+
+    exposure_short: dict = {}
 
     def has_quarantine() -> bool:
         """Builds before schema 2 have no quarantined table."""
@@ -2564,9 +2624,10 @@ FEATURE_WORDS = {
 }
 
 
-def features(row) -> list[str]:
+def features(row, faces: str | None = None) -> list[str]:
     """A listing's floor and stated amenities in a few short words, for a
-    line under its layout in listing tables (playtest round 6)."""
+    line under its layout in listing tables (playtest round 6), with which way
+    the apartment faces when it is known."""
     inputs = json.loads(row["inputs"] or "{}")
     floor = row["floor"] if row["floor"] is not None else read_floor(row, inputs)
     out = [f"floor {floor}"] if floor is not None else []
@@ -2576,6 +2637,8 @@ def features(row) -> list[str]:
             out.append(word)
     if any(k.startswith("outdoor:") for k in inputs):
         out.append("outdoor space")
+    if faces:
+        out.append(faces)
     return out
 
 

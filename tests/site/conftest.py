@@ -471,6 +471,16 @@ def ratings_db(tmp_path, monkeypatch):
     return path
 
 
+@pytest.fixture(autouse=True)
+def exposure_file(tmp_path, monkeypatch):
+    """No exposure labels unless a test writes them, never the machine's."""
+    from apartments.site import exposure
+
+    path = tmp_path / "exposure" / "labels.parquet"
+    monkeypatch.setattr(exposure, "FILE", path)
+    return path
+
+
 @pytest.fixture
 def site_root(tmp_path, bundle):
     from apartments.site import build
