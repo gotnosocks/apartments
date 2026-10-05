@@ -404,6 +404,81 @@ def coded_v1(
     )
 
 
+# Each listing's price changes (rentfrontier.listing_extras, price_changes).
+PRICE_HISTORY_FILE = (
+    "/data1/apartments/external/listing-extras/20261005-ae25150/listing-extras.parquet"
+)
+# The previous listing's price change is clipped to +-30% (larger ones are typos).
+PRICE_CHANGE_CLIP = 0.3
+
+
+def prevprice_v1(
+    frame: pd.DataFrame,
+    train: np.ndarray,
+    id: str = "prevprice-v1",
+    base: str = "nb-coded-v1",
+    change: bool = True,
+) -> Features:
+    """A base set plus how the unit's previous listing was repriced before this one
+    was listed: the log of its last price before this listing's date over its
+    first price (clipped to +-30%), and the log of one plus the number of its price
+    changes by then. A cut says the last ask was above what the unit let for; a
+    rise, below. Only changes dated before this listing's own date count, so a row
+    sees nothing later. The previous listing is the unit's latest earlier row of
+    another advertisement (a current capture of an ad never reads its own ad's
+    history). 0 for a unit's first listing. Both terms read only the price-change
+    record, never the frame's rents.
+
+    The price change holds the previous listing's own ask, so leave-one-out scores
+    of that row see its target through this row's covariate. `change=False` keeps
+    only the count of price changes, which reads no ask."""
+    base = FEATURE_SETS[base](frame, train)
+    history = pd.read_parquet(PRICE_HISTORY_FILE).set_index("listing_id").price_changes
+    at = pd.to_datetime(frame.price_at, utc=True)
+    order = np.lexsort((at.to_numpy(), frame.unit_id.to_numpy()))
+    units = frame.unit_id.to_numpy()
+    ids = frame.source_listing_id.astype(str).to_numpy()
+    prev = np.full(len(frame), -1)
+    for k in range(1, len(order)):
+        i = order[k]
+        for back in range(k - 1, -1, -1):
+            j = order[back]
+            if units[j] != units[i]:
+                break
+            if ids[j] != ids[i]:
+                prev[i] = j
+                break
+    change_values = np.zeros(len(frame))
+    count = np.zeros(len(frame))
+    seen = np.zeros(len(frame), bool)
+    for i in np.flatnonzero(prev >= 0):
+        record = history.get(ids[prev[i]])
+        if not isinstance(record, str):
+            continue
+        steps = sorted((pd.Timestamp(t), p) for t, p in json.loads(record) if p and t)
+        before = [p for t, p in steps if t < at.iloc[i]]
+        if not before:
+            continue
+        change_values[i] = np.clip(
+            np.log(before[-1] / before[0]), -PRICE_CHANGE_CLIP, PRICE_CHANGE_CLIP
+        )
+        count[i] = np.log1p(len(before) - 1)
+        seen[i] = True
+    centre = float(np.mean(count[train & seen])) if (train & seen).any() else 0.0
+    b = _Builder(frame)
+    if change:
+        b.add("previous listing", "previous_listing_price_change", change_values)
+    b.add("previous listing", "log_previous_listing_repricings", np.where(seen, count - centre, 0.0))
+    out = b.build(id)
+    return Features(
+        id,
+        base.names + out.names,
+        base.groups + out.groups,
+        np.column_stack([base.values, out.values]),
+        np.concatenate([base.prior_scale, out.prior_scale]),
+    )
+
+
 # External snapshots read by feature sets (rentfrontier.registry, .external).
 REGISTRY_SNAPSHOT = "/data1/apartments/external/registry/20260925-6b67137"
 PLUTO_SNAPSHOT = "/data1/apartments/external/pluto/20260925-3096a62"
@@ -1474,6 +1549,8 @@ EXTERNAL = {
     "nb-bedtext-v2",
     "nb-relist-v1",
     "nb-coded-v1",
+    "nb-prevprice-v1",
+    "nb-prevprice-v2",
     "wv-unitpluto-v1",
     "pluto-v1",
     "unitfloor-v2",
@@ -1509,6 +1586,8 @@ BASEMAP = {
     "nb-bedtext-v2",
     "nb-relist-v1",
     "nb-coded-v1",
+    "nb-prevprice-v1",
+    "nb-prevprice-v2",
 }
 # Feature sets that read the building footprints snapshot.
 FOOTPRINTS = {
@@ -1523,6 +1602,8 @@ FOOTPRINTS = {
     "nb-bedtext-v2",
     "nb-relist-v1",
     "nb-coded-v1",
+    "nb-prevprice-v1",
+    "nb-prevprice-v2",
 }
 # Feature sets that read the 311 noise complaints snapshot.
 NOISE = {"unitnoise-v1"}
@@ -1538,6 +1619,8 @@ DESCRIPTIONS = {
     "nb-bedtext-v2",
     "nb-relist-v1",
     "nb-coded-v1",
+    "nb-prevprice-v1",
+    "nb-prevprice-v2",
     "desc-v1",
     "unitdesc-v1",
     "unitdescpluto-v1",
@@ -1591,6 +1674,12 @@ FEATURE_SETS = {
     "nb-relist-v1": partial(relist_v1, id="nb-relist-v1", base="nb-bedtext-v2"),
     # nb-relist-v1 plus the listing record's outdoor space types and extra rooms.
     "nb-coded-v1": partial(coded_v1, id="nb-coded-v1", base="nb-relist-v1"),
+    # nb-coded-v1 plus how the unit's previous listing was repriced before this one.
+    "nb-prevprice-v1": partial(prevprice_v1, id="nb-prevprice-v1", base="nb-coded-v1"),
+    # nb-coded-v1 plus only how many times the previous listing was repriced (no ask).
+    "nb-prevprice-v2": partial(
+        prevprice_v1, id="nb-prevprice-v2", base="nb-coded-v1", change=False
+    ),
     # West Village: the app design's building facts (as unitdescpluto-v3) on the
     # unit and floor features (no West Village ads: see nb-facing-v2).
     "wv-unitpluto-v1": partial(
@@ -1688,6 +1777,8 @@ LOT_SNAPSHOTS = {
     "nb-bedtext-v2": {"registry": NB_REGISTRY_FILE, "pluto": NB_PLUTO_FILE},
     "nb-relist-v1": {"registry": NB_REGISTRY_FILE, "pluto": NB_PLUTO_FILE},
     "nb-coded-v1": {"registry": NB_REGISTRY_FILE, "pluto": NB_PLUTO_FILE},
+    "nb-prevprice-v1": {"registry": NB_REGISTRY_FILE, "pluto": NB_PLUTO_FILE},
+    "nb-prevprice-v2": {"registry": NB_REGISTRY_FILE, "pluto": NB_PLUTO_FILE},
     "unitnoise-v1": {"registry": REGISTRY_V3_FILE, "pluto": PLUTO_V3_FILE},
 }
 
@@ -1705,13 +1796,29 @@ DESCRIPTION_SOURCES = {
     "nb-bedtext-v2": _NB_DESCRIPTIONS,
     "nb-relist-v1": _NB_DESCRIPTIONS,
     "nb-coded-v1": _NB_DESCRIPTIONS,
+    "nb-prevprice-v1": _NB_DESCRIPTIONS,
+    "nb-prevprice-v2": _NB_DESCRIPTIONS,
 }
 
 
 # Feature sets whose building alterations are dated as of each listing.
-AS_OF_SETS = {"nb-facing-v3", "nb-bedtext-v2", "nb-relist-v1", "nb-coded-v1"}
+AS_OF_SETS = {
+    "nb-facing-v3",
+    "nb-bedtext-v2",
+    "nb-relist-v1",
+    "nb-coded-v1",
+    "nb-prevprice-v1",
+    "nb-prevprice-v2",
+}
 # Feature sets that read the listing-extras snapshot.
-LISTING_EXTRAS = {"nb-coded-v1"}
+LISTING_EXTRAS = {"nb-coded-v1", "nb-prevprice-v1", "nb-prevprice-v2"}
+# Feature sets that read the price-history snapshot.
+PRICE_HISTORY = {"nb-prevprice-v1", "nb-prevprice-v2"}
+# Feature sets that read the rents of a unit's earlier listings. Their PSIS-LOO is
+# not leak-free (a left-out row's rent reaches the fit through its unit's next
+# row), so they are judged on the latest split, never ranked on PSIS-LOO
+# (docs/leak-free-scoring.md). nb-prevprice-v2 reads only counts, not rents.
+READS_EARLIER_RENTS = {"nb-prevprice-v1"}
 
 
 # Feature sets that read other basemap and footprints snapshots than the first.
@@ -1723,6 +1830,8 @@ AREA_SNAPSHOTS = {
     "nb-bedtext-v2": {"basemap": NB_BASEMAP_FILE, "footprints": NB_FOOTPRINTS_FILE},
     "nb-relist-v1": {"basemap": NB_BASEMAP_FILE, "footprints": NB_FOOTPRINTS_FILE},
     "nb-coded-v1": {"basemap": NB_BASEMAP_FILE, "footprints": NB_FOOTPRINTS_FILE},
+    "nb-prevprice-v1": {"basemap": NB_BASEMAP_FILE, "footprints": NB_FOOTPRINTS_FILE},
+    "nb-prevprice-v2": {"basemap": NB_BASEMAP_FILE, "footprints": NB_FOOTPRINTS_FILE},
 }
 
 

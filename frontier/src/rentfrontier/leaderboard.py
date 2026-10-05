@@ -57,7 +57,7 @@ from pathlib import Path
 
 import numpy as np
 
-from . import data, elegance
+from . import data, elegance, features
 from .run import REFERENCES, git
 
 RUNS = data.OUTPUT_ROOT / "runs"
@@ -566,8 +566,15 @@ def frontier_candidate(e) -> bool:
     """Interpretable, scored and passing the convergence gate: the frontier line
     is drawn from converged fits only. Exploration fits that fail the gate are
     still shown as research points, off the line (Ben, 2026-10-04, after the
-    statistician review)."""
-    return bool(e["interpretable"] and scored(e) and e["passes_checks"])
+    statistician review). Feature sets that read earlier rents of the same unit
+    are off the line too: they are scored on the latest split."""
+    return bool(
+        e["interpretable"]
+        and scored(e)
+        and e["passes_checks"]
+        # Their PSIS-LOO is not leak-free (docs/leak-free-scoring.md).
+        and e.get("feature_set") not in features.READS_EARLIER_RENTS
+    )
 
 
 def on_frontier(entries):
@@ -799,6 +806,16 @@ def build(keep_dirs=False):
                 rs = rescores[sp["run"]]
                 e["annotations"].append(rescore_text(split, rs))
     for e in entries:
+        if e.get("feature_set") in features.READS_EARLIER_RENTS:
+            e["note"] = "; ".join(
+                x
+                for x in (
+                    e["note"],
+                    "reads earlier rents of the same unit, so its PSIS-LOO is not "
+                    "comparable and it is off the frontier line; scored on the latest split",
+                )
+                if x
+            )
         if e.get("grade") == "screen" or (e["line"] == "pymc" and not scored(e)):
             e["note"] = "; ".join(
                 x for x in (e["note"], "no saved draws, so no PSIS-LOO score") if x

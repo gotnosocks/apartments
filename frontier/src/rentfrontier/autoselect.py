@@ -59,7 +59,7 @@ import math
 import re
 from pathlib import Path
 
-from rentfrontier import data, elegance, leaderboard
+from rentfrontier import data, elegance, features, leaderboard
 
 TARGET_HARDWARE = "thelio RTX 2060 SUPER"
 WINDOW_SECONDS = (
@@ -108,6 +108,11 @@ def why_not(e, rules) -> str | None:
         return f"it did not run on the {TARGET_HARDWARE} row split"
     if e["fit_seconds"] > WINDOW_SECONDS:
         return "its fit took longer than the window"
+    if _record(e).get("feature_set") in features.READS_EARLIER_RENTS:
+        return (
+            "it reads earlier rents of the same unit, so its PSIS-LOO is not "
+            "comparable; it is selected on the latest split"
+        )
     tuning = sorted(r for r in _rules(e) if r.startswith(data.TUNING_PREFIX))
     if tuning:
         return f"it is a tuning fit on a subset ({', '.join(tuning)})"
