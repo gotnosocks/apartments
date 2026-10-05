@@ -23,10 +23,12 @@
   <label class="check-inline">Compare with <select id="base-year"></select></label>
   {# Written for the served design family (confirmed by Modeling, 2026-10-05); revisit if a model
      gains neighbourhood-specific time terms. #}
-  <p class="note" id="area-caveat" hidden>The model has one market trend for both neighbourhoods, with its own path for each bedroom
-  group (studio, one, two, three or more) and a shared seasonal pattern; the neighbourhood itself only shifts the level. A
-  neighbourhood's own change over time comes only from its buildings' own drift (each building's half-yearly walk, partially
-  pooled across all buildings), so treat growth differences between Chelsea and the West Village with care.</p>
+  {# Plain words first (playtest round 4: the tablet tester could not tell what "partially pooled" meant). #}
+  <p class="note" id="area-caveat" hidden>Chelsea and the West Village share one market trend in the model (one for each bedroom
+  group: studio, one, two, three or more), and the neighbourhood itself only shifts the level. A neighbourhood grows faster
+  or slower than the other only through its own buildings drifting from that trend, which the model estimates cautiously
+  (each building's half-yearly walk, partially pooled across all buildings). So treat differences in growth between Chelsea and
+  the West Village with care: the levels are firmer than the growth.</p>
 </section>
 
 <div class="map-layout">
@@ -73,6 +75,10 @@
   </div>
   <p class="note">The typical rent of the median building (the middle of all buildings), per year, with a 90% interval for the chosen
     bedroom count. The vertical line is the year on the map; click to move it. The last year is partial.</p>
+  {# Playtest round 4 (economist): the model's growth and the listings' raw median ask growth differ, unexplained. #}
+  <p class="note" id="trend-vs-asks">This holds the building and the apartment fixed, so it grows differently from the median ask of
+    the listings each year (on <a href="{{ url_for('listings') }}">Listings</a>): that median also moves with which apartments
+    happen to be listed, which can be newer, larger or in pricier buildings in some years than in others.</p>
   <div class="legend" id="legend-trend"></div>
   <div class="chart" id="chart-trend"></div>
   <div class="table-view map-table" id="table-trend" hidden></div>
