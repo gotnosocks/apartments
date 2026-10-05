@@ -382,9 +382,10 @@ def versus_served(entries) -> dict:
     return {"run": run, "fits": out}
 
 
-# The board's baseline before the Oct 5 re-baseline (#221), on the Oct 1 data.
-PRIOR_BASELINE = "m0-base-base-v1-rows-e61a794-x-2060-300w1500d-nb"
-PRIOR_DATASET = "chelsea-west-village-analysis-20261001-eea4f66"
+# The board's baseline before the Greenwich Village re-baseline, on the Oct 5
+# Chelsea + West Village data (before that, #221: e61a794 on the Oct 1 data).
+PRIOR_BASELINE = "m0-base-base-v1-rows-a40e887-x-2060-300w1500d-nb-d1005"
+PRIOR_DATASET = "chelsea-west-village-analysis-20261005-1222e51"
 
 
 def prior_scores(entries, loos=None, paired=None) -> dict:
