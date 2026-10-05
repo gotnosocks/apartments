@@ -164,7 +164,8 @@
 // /buildings.json URL), shown as a native datalist so keyboards and screen
 // readers get the browser's own list. With data-suggest-id, picking a
 // suggestion also sets a hidden input of that name to the building's id, so
-// a shared address still goes to the building chosen. Typing on works as before.
+// a shared address still goes to the building chosen (two buildings with the
+// same name or address get no id). Typing on works as before.
 (function () {
   "use strict";
   document.querySelectorAll("input[data-suggest]").forEach(function (input) {
@@ -172,7 +173,9 @@
     list.id = input.id + "-suggestions";
     input.after(list);
     input.setAttribute("list", list.id);
-    var ids = {};
+    // value -> building id; null when two buildings share the value, so the
+    // text falls through to the server's list of matches.
+    var ids = new Map();
     var hidden = null;
     var idName = input.getAttribute("data-suggest-id");
     if (idName) {
@@ -186,7 +189,7 @@
     var asked = "";
     function pick() {
       if (!hidden) return;
-      var id = ids[input.value];
+      var id = ids.get(input.value);
       hidden.disabled = !id;
       hidden.value = id || "";
     }
@@ -200,7 +203,8 @@
           if (q !== asked) return;
           list.replaceChildren();
           rows.forEach(function (row) {
-            ids[row.value] = row.id;
+            var known = ids.get(row.value);
+            ids.set(row.value, known === undefined || known === row.id ? row.id : null);
             var option = document.createElement("option");
             option.value = row.value;
             option.label = row.label;
