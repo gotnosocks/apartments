@@ -44,3 +44,23 @@ def test_the_choices_are_kept_in_the_url():
 def test_trend_explains_growth_against_the_median_ask():
     assert 'id="trend-mix"' in PAGE
     assert "+75% against +83%" in PAGE
+
+
+def test_the_growth_caveat_names_every_neighbourhood():
+    import jinja2
+
+    start = PAGE.index("{# The neighbourhoods the listings cover")
+    fragment = PAGE[start : PAGE.index("</p>", start) + 4]
+    env = jinja2.Environment()
+
+    def caveat(neighbourhoods):
+        meta = {"stats": {"neighbourhoods": neighbourhoods}}
+        return " ".join(env.from_string(fragment).render(meta=meta).split())
+
+    two = caveat({"Chelsea": 4, "West Village": 2})
+    assert "hidden>Chelsea and the West Village share one market trend" in two
+    assert "slower than the other only" in two
+    assert "between Chelsea and the West Village with care" in two
+    three = caveat({"Chelsea": 4, "Greenwich Village": 1, "West Village": 2})
+    assert "hidden>Chelsea, Greenwich Village and the West Village share" in three
+    assert "slower than the others only" in three

@@ -227,6 +227,8 @@ def phrase(term: str, row, inputs: dict, sign: int) -> str | None:
             words.append("a building altered since 2000")
         return _join(words) or None
     if term == "neighbourhood":
+        if inputs.get("Greenwich Village"):
+            return "Greenwich Village"
         return "the West Village" if inputs.get("West Village") else "Chelsea"
     return None
 
