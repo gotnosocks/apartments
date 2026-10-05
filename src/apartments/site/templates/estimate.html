@@ -48,8 +48,14 @@ Every listing in the data still has its own estimate: <a href="{{ url_for('listi
     <div class="figure">
       <span class="figure-label">Your ask</span>
       <span class="figure-value">{{ usd(result.ask) }}</span>
-      <span class="figure-note">{% if band == "within" %}within the likely range{% else %}{{ band }} the likely range{% endif %}: higher than
-      {{ "{:.0f}".format(100 * result.ask_share_below) }}% of simulated asks</span>
+      {# Say the side the ask is on, as listing pages do: "higher than 0%" read backwards (playtest round 4).
+         Shares rounded down, so never more than true. #}
+      {% set above = (100 * result.ask_share_below) | int %}
+      {% set below = (100 * (1 - result.ask_share_below)) | int %}
+      <span class="figure-note">{% if band == "below" %}below the likely range: lower than {% if below >= 99 %}nearly all{% else %}{{ below }}%
+      of{% endif %} simulated asks{% elif band == "above" %}above the likely range: higher than {% if above >= 99 %}nearly
+      all{% else %}{{ above }}% of{% endif %} simulated asks{% else %}within the likely range: at the {{ ordinal([[above, 1] | max, 99] | min) }}
+      percentile of simulated asks{% endif %}</span>
     </div>
     {% endif %}
   </div>
