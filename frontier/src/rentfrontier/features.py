@@ -483,6 +483,95 @@ def prevprice_v1(
     )
 
 
+# Share of a line's labelled units that must agree for the line to label a unit.
+LINE_AGREEMENT = 0.75
+
+
+def line_orientation(frame: pd.DataFrame) -> pd.Series:
+    """Per row: "rear", "street" or "both" as its line's other units show it from
+    listings dated before this row (as `unit_sides` reads each listing: windows
+    against the building's sides, F/R labels, ad text and views), when at least
+    LINE_AGREEMENT of those units agree; "" otherwise. A line is the units of one
+    building that share a label letter or number (`data.unit_line_key`): one
+    facade. Leave-one-unit-out on units with their own evidence, the line agrees
+    89% of the time (2026-10-05)."""
+    rows = unit_sides(frame.assign(unit_id=frame.audit_id.to_numpy()))
+    street = rows[["avenue", "wide street", "side street"]].any(axis=1).to_numpy()
+    rear = rows["none"].to_numpy()
+    line = data_module.unit_line_key(frame)
+    has_line = line.map(lambda k: isinstance(k, str)).to_numpy()
+    line = line.where(has_line, "").astype(str).to_numpy()
+    at = pd.to_datetime(frame.price_at, utc=True).to_numpy()
+    units = frame.unit_id.to_numpy()
+    out = np.full(len(frame), "", dtype=object)
+    order = np.flatnonzero(has_line)
+    order = order[np.lexsort((at[order], line[order]))]
+    labels = {(True, False): "street", (False, True): "rear", (True, True): "both"}
+    start = 0
+    while start < len(order):
+        stop = start + 1
+        while stop < len(order) and line[order[stop]] == line[order[start]]:
+            stop += 1
+        seen = {}  # unit -> (street, rear) from its listings so far
+        votes = {"street": 0, "rear": 0, "both": 0}
+        k = start
+        while k < stop:
+            same = k + 1
+            while same < stop and at[order[same]] == at[order[k]]:
+                same += 1
+            for i in order[k:same]:
+                tally = dict(votes)
+                own = labels.get(seen.get(units[i], (False, False)))
+                if own:
+                    tally[own] -= 1
+                total = sum(tally.values())
+                if total:
+                    top = max(tally, key=tally.get)
+                    if tally[top] >= LINE_AGREEMENT * total:
+                        out[i] = top
+            for i in order[k:same]:
+                old = seen.get(units[i], (False, False))
+                new = (old[0] or bool(street[i]), old[1] or bool(rear[i]))
+                if new != old:
+                    if labels.get(old):
+                        votes[labels[old]] -= 1
+                    votes[labels[new]] += 1
+                    seen[units[i]] = new
+            k = same
+        start = stop
+    return pd.Series(out, index=frame.index)
+
+
+def lineface_v1(
+    frame: pd.DataFrame,
+    train: np.ndarray,
+    id: str = "lineface-v1",
+    base: str = "nb-coded-v1",
+) -> Features:
+    """A base set plus which way an apartment with no orientation evidence of its
+    own faces, read from the other apartments of its line (same building, same
+    label letter or number) in listings dated before it: the rear or a courtyard,
+    the street, or both (`line_orientation`). Apartments whose own listings
+    already show a side keep the base set's facing terms only."""
+    base = FEATURE_SETS[base](frame, train)
+    own = unit_sides(frame).any(axis=1).to_numpy()
+    inferred = line_orientation(frame).to_numpy()
+    b = _Builder(frame)
+    for lab, name in (
+        ("rear", "line looks onto the rear or a courtyard"),
+        ("street", "line looks onto a street"),
+        ("both", "line looks onto a street and the rear"),
+    ):
+        b.add("line facing", name, ~own & (inferred == lab))
+    out = b.build(id)
+    return Features(
+        id,
+        base.names + out.names,
+        base.groups + out.groups,
+        np.column_stack([base.values, out.values]),
+        np.concatenate([base.prior_scale, out.prior_scale]),
+    )
+
 # External snapshots read by feature sets (rentfrontier.registry, .external).
 REGISTRY_SNAPSHOT = "/data1/apartments/external/registry/20260925-6b67137"
 PLUTO_SNAPSHOT = "/data1/apartments/external/pluto/20260925-3096a62"
@@ -1553,6 +1642,7 @@ EXTERNAL = {
     "nb-bedtext-v2",
     "nb-relist-v1",
     "nb-coded-v1",
+    "nb-lineface-v1",
     "nb-prevprice-v1",
     "nb-prevprice-v2",
     "wv-unitpluto-v1",
@@ -1590,6 +1680,7 @@ BASEMAP = {
     "nb-bedtext-v2",
     "nb-relist-v1",
     "nb-coded-v1",
+    "nb-lineface-v1",
     "nb-prevprice-v1",
     "nb-prevprice-v2",
 }
@@ -1606,6 +1697,7 @@ FOOTPRINTS = {
     "nb-bedtext-v2",
     "nb-relist-v1",
     "nb-coded-v1",
+    "nb-lineface-v1",
     "nb-prevprice-v1",
     "nb-prevprice-v2",
 }
@@ -1623,6 +1715,7 @@ DESCRIPTIONS = {
     "nb-bedtext-v2",
     "nb-relist-v1",
     "nb-coded-v1",
+    "nb-lineface-v1",
     "nb-prevprice-v1",
     "nb-prevprice-v2",
     "desc-v1",
@@ -1680,6 +1773,8 @@ FEATURE_SETS = {
     "nb-coded-v1": partial(coded_v1, id="nb-coded-v1", base="nb-relist-v1"),
     # nb-coded-v1 plus how the unit's previous listing was repriced before this one.
     "nb-prevprice-v1": partial(prevprice_v1, id="nb-prevprice-v1", base="nb-coded-v1"),
+    # nb-coded-v1 plus orientation read from the apartment's line, as of each listing.
+    "nb-lineface-v1": partial(lineface_v1, id="nb-lineface-v1", base="nb-coded-v1"),
     # nb-coded-v1 plus only how many times the previous listing was repriced (no ask).
     "nb-prevprice-v2": partial(
         prevprice_v1, id="nb-prevprice-v2", base="nb-coded-v1", change=False
@@ -1781,6 +1876,7 @@ LOT_SNAPSHOTS = {
     "nb-bedtext-v2": {"registry": NB_REGISTRY_FILE, "pluto": NB_PLUTO_FILE},
     "nb-relist-v1": {"registry": NB_REGISTRY_FILE, "pluto": NB_PLUTO_FILE},
     "nb-coded-v1": {"registry": NB_REGISTRY_FILE, "pluto": NB_PLUTO_FILE},
+    "nb-lineface-v1": {"registry": NB_REGISTRY_FILE, "pluto": NB_PLUTO_FILE},
     "nb-prevprice-v1": {"registry": NB_REGISTRY_FILE, "pluto": NB_PLUTO_FILE},
     "nb-prevprice-v2": {"registry": NB_REGISTRY_FILE, "pluto": NB_PLUTO_FILE},
     "unitnoise-v1": {"registry": REGISTRY_V3_FILE, "pluto": PLUTO_V3_FILE},
@@ -1800,6 +1896,7 @@ DESCRIPTION_SOURCES = {
     "nb-bedtext-v2": _NB_DESCRIPTIONS,
     "nb-relist-v1": _NB_DESCRIPTIONS,
     "nb-coded-v1": _NB_DESCRIPTIONS,
+    "nb-lineface-v1": _NB_DESCRIPTIONS,
     "nb-prevprice-v1": _NB_DESCRIPTIONS,
     "nb-prevprice-v2": _NB_DESCRIPTIONS,
 }
@@ -1811,11 +1908,17 @@ AS_OF_SETS = {
     "nb-bedtext-v2",
     "nb-relist-v1",
     "nb-coded-v1",
+    "nb-lineface-v1",
     "nb-prevprice-v1",
     "nb-prevprice-v2",
 }
 # Feature sets that read the listing-extras snapshot.
-LISTING_EXTRAS = {"nb-coded-v1", "nb-prevprice-v1", "nb-prevprice-v2"}
+LISTING_EXTRAS = {
+    "nb-coded-v1",
+    "nb-prevprice-v1",
+    "nb-prevprice-v2",
+    "nb-lineface-v1",
+}
 # Feature sets that read the price-history snapshot.
 PRICE_HISTORY = {"nb-prevprice-v1", "nb-prevprice-v2"}
 # Feature sets that read the rents of a unit's earlier listings. Their PSIS-LOO is
@@ -1834,6 +1937,7 @@ AREA_SNAPSHOTS = {
     "nb-bedtext-v2": {"basemap": NB_BASEMAP_FILE, "footprints": NB_FOOTPRINTS_FILE},
     "nb-relist-v1": {"basemap": NB_BASEMAP_FILE, "footprints": NB_FOOTPRINTS_FILE},
     "nb-coded-v1": {"basemap": NB_BASEMAP_FILE, "footprints": NB_FOOTPRINTS_FILE},
+    "nb-lineface-v1": {"basemap": NB_BASEMAP_FILE, "footprints": NB_FOOTPRINTS_FILE},
     "nb-prevprice-v1": {"basemap": NB_BASEMAP_FILE, "footprints": NB_FOOTPRINTS_FILE},
     "nb-prevprice-v2": {"basemap": NB_BASEMAP_FILE, "footprints": NB_FOOTPRINTS_FILE},
 }

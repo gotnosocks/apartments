@@ -100,6 +100,7 @@ TERM_LABELS = {
     "noise": "Noise around the building",
     "relisting": "Time since its last listing",
     "previous listing": "Repricing of its last listing",
+    "line facing": "Which way its line faces",
 }
 TERM_TEXT = {
     "neighbourhood": "West Village against Chelsea: the shift of every building's "
@@ -112,6 +113,9 @@ TERM_TEXT = {
     "before this one was listed: how many times its price changed and, where the "
     "design has it, its last price over its first ask. A cut says the last ask was "
     "above what the apartment let for.",
+    "line facing": "For an apartment whose own listings never say which way it faces: "
+    "what the other apartments of its line (same building, same label letter or "
+    "number) showed in earlier listings: the rear or a courtyard, the street, or both.",
     "location": "A smooth location surface over the map (Gaussian bumps about 250 "
     "m apart over the buildings' coordinates).",
     "transit": "The walk to the nearest subway station and the subway routes "
