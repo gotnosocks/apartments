@@ -1584,6 +1584,7 @@ def create_app(
                 if (box := frontier_box(points))
                 else None,
                 "floored": floor is not None and any(p["y"] < floor for p in points),
+                "line": sum(1 for p in points if p["on_line"]) > 1,
                 "unscored": sum(
                     f["delta"] is None and not f["prior"]
                     for f in view["fits"]
