@@ -45,7 +45,11 @@
     <tbody>{% for r in typical.rows %}<tr><th scope="row">{{ r.label }}</th><td class="num">{{ usd(r.rent) }}</td><td class="num muted nowrap">{{ usd(r.low) }}–{{ usd(r.high) }}</td></tr>{% endfor %}</tbody>
   </table>
   </div>
+  {% if estimate_form %}<p><a href="{{ url_for('estimate_apartment', building=b.id) }}">Estimate a particular apartment here</a>: its size,
+  floor and features.</p>{% endif %}
 </section>
+{% elif estimate_form %}
+<p><a href="{{ url_for('estimate_apartment', building=b.id) }}">Estimate an apartment in this building</a>.</p>
 {% endif %}
 
 <section class="card">

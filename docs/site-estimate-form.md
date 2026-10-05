@@ -27,49 +27,48 @@ fixed at "a current ask". The month is the bundle's last month, and the result n
 
 ## How it is scored against the served fit
 
-It uses the same equation as every estimate on the site: `explain.log_terms` per posterior draw, with the
-new-apartment unit level `summary.new_unit_levels` uses for held-out rows of units the fit never saw. The site
-has no numpy or JAX, so the summary bundle gains a small prediction kit. It is written by `rentfrontier.summary`
-(or a sibling module) from the run's kept draws, thinned to 250 draws:
+The scoring is the same as for a held-out row of an apartment the fit never saw. Per posterior draw it uses the terms
+of `explain.log_terms` at the fit's last month, a unit level from the unit prior (`summary.new_unit_levels`,
+clipped to `loo`'s ±40 unit scales), and Student-t noise.
 
-- per draw:
-  - `beta` (every feature column);
-  - the market term at the last month (offset, intercept, trend and season);
-  - `bedroom_time` at the last month per bedroom group;
-  - `sigma` per bedroom group, `nu`, `unit_scale`, `unit_nu`;
-- per building, per draw: the building level plus its walk at the last month, `bedroom_slope`, and `fslope` for the
-  feature-slope columns;
-- encoder constants: the bedroom-median square feet `log_sqft_vs_bedroom_median` is measured against, and the
-  feature names in column order.
+The site has no numpy or JAX, so `rentfrontier.kit` (PR #228) writes a **prediction kit** per run to
+`/data1/apartments/frontier/kits/<run>-<commit>/`. The kit names its summary bundle by sha256. From 250 thinned
+draws it holds:
 
-The kit is stored as `kit.parquet` and `kit-buildings.parquet` (list columns, read with DuckDB like the rest of the
-bundle) and is listed in `complete.json`. It is about 10 MB.
+- `kit.json`, per draw:
+  - market without the season: offset, intercept and trend at the last month;
+  - the season coefficients (daily Fourier or monthly);
+  - beta;
+  - the bedroom curve at the last month;
+  - sigma per bedroom group, nu, unit scale and unit ν;
+  - the feature names, groups and slope columns, and the bedroom rule.
+- `buildings.parquet`, per building and per draw:
+  - its level plus its walk at the last month;
+  - its bedroom slope;
+  - its feature slopes.
 
-Per request, in pure Python, for each draw s:
+The site build (`estimate_build`) copies the kit into `site.sqlite` once it passes two checks. If either fails, the
+form says it is unavailable, and the build itself goes ahead.
 
-    total_s = market_s + beta_s · x + bedroom_time_s[g] + building_s[b] + bedroom_slope_s[b] · beds_centered + fslope_s[b] · x_slopes
-    level_s ~ unit_scale_s · t(unit_nu_s)        (several per draw)
-    log ask ~ total_s + level_s + sigma_s[g] · t(nu_s)
+1. **Scoring.** The bundle's rows of the last month whose apartment has only that row in the fit (k < 0.5) are
+   rescored from their own inputs. The median of kit / bundle − 1 must be within 2% for the median estimate and both
+   80% bounds. The bundle's values are leave-one-out and the kit uses the full posterior, so single rows differ by a
+   few percent; a wrong term would shift them all. On the served run: −0.4%, −0.3% and −0.3% over 93 rows.
+2. **Encoding.** The form's encoder, run on each once-listed apartment's recorded fields, must reproduce the model's
+   inputs, group by group, on at least 95% of listings. On the served run every group agrees on 99.7% or more of
+   15,696 listings.
 
-- **Typical rent:** the mean of exp(total_s + level_s), with its 95% interval: the latent rent of a new apartment
-  like this. This is the same quantity as a held-out row's estimate.
-- **Likely ask range:** the 80% (and 95%) quantiles of the simulated asks, the same quantity as
-  `estimate_pred_*` on listing pages. The site uses a fixed seed per input, so a URL always gives the same numbers.
-  20,000 simulated asks keep Monte Carlo error under about 0.5% at the 80% bounds.
-- **Your ask:** its percentile among the simulated asks, and the listing pages' price band (below / typical /
-  above at 0.10 / 0.90).
+Per request, in pure Python: the building's own columns come from its newest listing's `inputs`. The apartment's
+columns come from the form, with "not stated" levels for blanks, a first listing, a current ask and a description.
+The sqft median per bedroom count is recovered from the bundle's rows. The season is taken at today's date.
+80 simulated asks per draw (20,000 in all, about 0.06 s) give:
 
-Two checks guard against drift from the model, so the site keeps the one model definition:
+- **Typical rent:** the median of the latent rent of a new apartment like this, and its 95% interval;
+- **Likely ask range:** the 10–90% and 2.5–97.5% quantiles of the simulated asks;
+- **Your ask:** the share of simulated asks below it. The listing pages' price band applies: below 10%, above 90%.
 
-1. When the site is built, every held-out row of an unseen unit is rescored with the kit from the row's own
-   `inputs`. The build fails unless the estimate and the 80% bounds match the bundle's within Monte Carlo
-   tolerance. This tests the kit math against `summary.py` on every publish.
-2. The form's encoder (form fields → feature columns) is run on every bundle row's own observation fields, for the
-   fields the form asks. It must reproduce those columns of the row's `inputs` exactly. This tests the encoder
-   against `features.build`.
-
-A design without a kit (an older bundle, a line-effects or unit-drift design) shows the form as unavailable rather
-than estimating approximately.
+A form URL is deterministic: the seed is the building, the date and the inputs. A run with a feature group the
+encoder does not know gets no form. So does a design without a kit (line effects, unit drift), or an older build.
 
 ## How the result is shown
 
