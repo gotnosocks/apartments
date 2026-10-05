@@ -53,6 +53,8 @@ KEEP = 3
 MAPS = Path(os.environ.get("FRONTIER_MAPS", "/data1/apartments/frontier/maps"))
 # Where the ask falls in its leave-own-row-out predictive distribution.
 PRICE_BANDS = (0.10, 0.90)
+# Building tax classes the rent map can pick out (playtest round 7, landlord).
+KINDS = {"C": "walkup", "D": "elevator"}
 HISTORICAL_BASIS = "historical_initial_own_advertisement_ask"
 
 SCHEMA = """
@@ -786,7 +788,9 @@ def write_database(
 def bundle_map(source: Path, target: Path, database: Path) -> None:
     """The run's rent map for the build, each building tagged with its
     neighbourhood from the build's database (the map's neighbourhood choice
-    lists a neighbourhood's buildings by it)."""
+    lists a neighbourhood's buildings by it) and, from its tax class, whether
+    it is a walk-up (C) or an elevator building (D), for the map's building
+    choice."""
     data = json.loads(source.read_text())
     db = sqlite3.connect(f"file:{database}?mode=ro", uri=True)
     try:
@@ -796,12 +800,23 @@ def bundle_map(source: Path, target: Path, database: Path) -> None:
             if "neighbourhood" in columns
             else {}
         )
+        kinds = (
+            {
+                id_: KINDS[cls[:1]]
+                for id_, cls in db.execute("SELECT id, building_class FROM buildings")
+                if cls and cls[:1] in KINDS
+            }
+            if "building_class" in columns
+            else {}
+        )
     finally:
         db.close()
     for b in data.get("buildings", []):
         # rentmap's own tag (the neighbourhood its medians used) wins.
         if not b.get("neighbourhood") and names.get(b.get("id")):
             b["neighbourhood"] = names[b["id"]]
+        if kinds.get(b.get("id")):
+            b["kind"] = kinds[b["id"]]
     target.write_text(json.dumps(data, separators=(",", ":")))
 
 

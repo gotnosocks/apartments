@@ -21,6 +21,10 @@
   </div>
   <label class="check-inline"><input id="show-before" type="checkbox"> Buildings outside the years of their listings</label>
   <label class="check-inline">Compare with <select id="base-year"></select></label>
+  {# Playtest round 7 (landlord): the median building is an elevator-average figure, too high for a walk-up. #}
+  <label class="check-inline" id="kind-label" hidden>Buildings <select id="kind-select">
+    <option value="">All</option><option value="walkup">Walk-ups (tax class C)</option><option value="elevator">Elevator buildings (tax class D)</option>
+  </select></label>
   {# Written for the served design family (confirmed by Modeling, 2026-10-05); revisit if a model
      gains neighbourhood-specific time terms. #}
   {# Plain words first (playtest round 4: the tablet tester could not tell what "partially pooled" meant). #}
