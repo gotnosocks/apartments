@@ -28,6 +28,7 @@ FEATURES = [
     ("floor_unknown", "floor"),
     ("log_floor_x_no_elevator", "floor"),
     ("elevator=no", "elevator"),
+    ("doorman=full_time", "doorman"),
     ("laundry=in_unit", "laundry"),
     ("laundry=unknown", "laundry"),
     ("view_park", "views"),
@@ -527,7 +528,32 @@ def test_the_form_says_which_building_facts_it_takes(site_root, client):
     install_kit(site_root)
     html = page(client, f"/estimate?building={GROVE}&bedrooms=1")
     assert (
-        'id="form-facts"' in html and "Taken from the building, not asked here" in html
+        'id="form-facts"' in html and "From the building's records and listings" in html
     )
+    assert 'name="elevator"' in html and 'name="doorman"' in html
     assert 'id="facts-h"' in html and f'href="/buildings/{GROVE}">listings</a>' in html
     assert 'id="form-facts"' not in page(client, "/estimate")
+
+
+def test_the_form_can_set_the_elevator_and_doorman():
+    k = kit()
+    walk_up = {"elevator=no": 1.0}
+    form = estimate.Form(floor=5, elevator="yes", doorman="full_time")
+    x = estimate.encode(form, k, walk_up)
+    assert "elevator=no" not in x and "log_floor_x_no_elevator" not in x
+    assert x["doorman=full_time"] == 1
+    x = estimate.encode(estimate.Form(floor=5, elevator="no"), k, {})
+    assert x["elevator=no"] == 1 and x["log_floor_x_no_elevator"] > 0
+    # Left as the building's, they keep it and the seed of older estimates.
+    assert estimate.encode(estimate.Form(floor=5), k, walk_up)["elevator=no"] == 1
+    assert "elevator" not in estimate.Form().canonical()
+    assert "elevator" in estimate.Form(elevator="no").canonical()
+
+
+def test_a_set_elevator_shows_beside_the_buildings(site_root, client):
+    install_kit(site_root)
+    html = " ".join(
+        page(client, f"/estimate?building={GROVE}&bedrooms=1&elevator=no").split()
+    )
+    assert "(as you set it; its listings say" in html
+    assert '<option value="no" selected>' in html

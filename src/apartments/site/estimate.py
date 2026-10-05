@@ -115,6 +115,17 @@ VIEWS = (
     ("courtyard", "Courtyard"),
     ("street", "Street"),
 )
+# The building's elevator and doorman, which the form takes from its listings
+# unless the visitor sets them ("" keeps the building's).
+ELEVATOR = (("", "As its listings say"), ("yes", "Yes"), ("no", "No, a walk-up"))
+DOORMAN = (
+    ("", "As its listings say"),
+    ("full_time", "Full time"),
+    ("part_time", "Part time"),
+    ("virtual", "Virtual"),
+    ("unspecified", "Yes, hours not known"),
+    ("none", "None"),
+)
 WINDOWS = (("north", "North"), ("south", "South"), ("east", "East"), ("west", "West"))
 # The advertisement flags (`rentfrontier.features.DESCRIPTION_FLAGS`), in words.
 EXTRAS = (
@@ -156,6 +167,8 @@ FORM_KEYS = (
     "views",
     "windows",
     "extras",
+    "elevator",
+    "doorman",
     "ask",
 )
 
@@ -269,6 +282,8 @@ class Form:
     views: list[str] = field(default_factory=list)
     windows: list[str] = field(default_factory=list)
     extras: list[str] = field(default_factory=list)
+    elevator: str = ""
+    doorman: str = ""
     ask: float | None = None
 
     @classmethod
@@ -306,19 +321,28 @@ class Form:
             views=many("views", VIEWS),
             windows=many("windows", WINDOWS),
             extras=many("extras", EXTRAS),
+            elevator=choice("elevator", ELEVATOR, ""),
+            doorman=choice("doorman", DOORMAN, ""),
             ask=number("ask", 100, 1_000_000),
         )
 
     def canonical(self) -> str:
         """A stable text of the apartment's inputs (the simulation's seed):
-        without the ask, so adding one leaves the estimate as it was."""
-        fields = {k: v for k, v in self.__dict__.items() if k != "ask"}
+        without the ask, so adding one leaves the estimate as it was, and
+        without building facts left as the building's, so estimates from
+        before those fields keep their seed."""
+        fields = {
+            k: v
+            for k, v in self.__dict__.items()
+            if k != "ask" and not (k in ("elevator", "doorman") and v == "")
+        }
         return json.dumps(fields, sort_keys=True, default=str)
 
 
 def encode(form: Form, kit: Kit, building_inputs: dict[str, float]) -> dict[str, float]:
     """The model inputs of an apartment: the building's own groups from its
-    newest listing, every other column from the form (`FORM_GROUPS`)."""
+    newest listing, every other column from the form (`FORM_GROUPS`). The
+    form's elevator and doorman, when set, replace the building's."""
     x: dict[str, float] = {}
     group_of = dict(zip(kit.features, kit.groups))
     for name, value in building_inputs.items():
@@ -328,6 +352,13 @@ def encode(form: Form, kit: Kit, building_inputs: dict[str, float]) -> dict[str,
     def put(name, value=1.0):
         if value and kit.has(name):
             x[name] = float(value)
+
+    for key, value in (("elevator", form.elevator), ("doorman", form.doorman)):
+        if value:
+            for name in [n for n in x if n.startswith(f"{key}=")]:
+                del x[name]
+            if not (key == "elevator" and value == "yes"):  # the reference
+                put(f"{key}={value}")
 
     beds = bed_label(form.bedrooms)
     if beds != "1":
