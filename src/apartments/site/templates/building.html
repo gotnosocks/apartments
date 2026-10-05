@@ -75,8 +75,10 @@
 </section>
 
 <section class="card">
-  <h2>Units</h2>
-  <div class="table-wrap tall">
+  <h2>Units <span class="muted">· {{ "{:,}".format(units | length) }}</span></h2>
+  {# A short table shows whole; a long one scrolls inside the card, and says so. #}
+  {% if units | length > 50 %}<p class="note" id="units-scroll">All {{ "{:,}".format(units | length) }} units are in the table: scroll inside it to see them all.</p>{% endif %}
+  <div class="table-wrap{% if units | length > 50 %} tall{% endif %}">
   <table class="data">
     <thead><tr><th scope="col">Unit</th><th scope="col" class="col-minor">Layout</th><th scope="col" class="num col-minor">Floor</th><th scope="col" class="num col-minor">Listings</th><th scope="col" class="col-minor">Last listed</th><th scope="col" class="num">Last ask</th><th scope="col" class="num">Estimate</th><th scope="col" class="num">Ask vs estimate</th></tr></thead>
     <tbody>

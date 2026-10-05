@@ -135,6 +135,15 @@ def test_building_page(client):
     assert current.count('href="/listings/') == 1
 
 
+def test_a_short_units_table_shows_whole_with_its_count(client):
+    # Playtest round 5 (renewer): a capped scroll box hid most units unnoticed.
+    html = client.get(f"/buildings/{GROVE}").get_data(as_text=True)
+    units = html.split("<h2>Units", 1)[1].split("</section>", 1)[0]
+    n = units.count('href="/units/')
+    assert n and f'<span class="muted">· {n}</span>' in units
+    assert "table-wrap tall" not in units and 'id="units-scroll"' not in units
+
+
 def test_buildings_index_search_and_sort(client):
     html = client.get("/buildings?q=west+23").get_data(as_text=True)
     assert "134 West 23rd Street" in html and "The Grove" not in html
