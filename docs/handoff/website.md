@@ -2,7 +2,7 @@
 
 What the next turn of the website thread needs. Updated at each milestone.
 
-## State (2026-10-05 14:30 UTC)
+## State (2026-10-05 17:30 UTC)
 
 - **Estimate form live.** `/estimate` uses the prediction kit (#228, `rentfrontier.kit`) through
   the site build (#229). The kit for the served u3 run is at
@@ -19,6 +19,20 @@ What the next turn of the website thread needs. Updated at each milestone.
   - #243 advertisement start and price change, and earlier bedroom counts on listing pages
   - #245 forms show "Working…" while loading; #246 "Available now" with few matches links the past
     listings; #247 the estimate form can set the elevator and doorman
+- **Playtest round 4** (five personas, `/data1/apartments/tmp/playtests/2026-10-05-r4/`,
+  `synthesis.md`): PRs merged and deployed:
+  - #249 the "Why this model" box no longer says "the incumbent" for two different models
+  - #250 "Your ask" says which side of the simulated asks it is on
+  - #251 the skip link and #result take keyboard focus
+  - #252 estimate building choices show built, floors, elevator and listings, and say when two
+    share an address and tax lot (Ava High Line and 507 West Chelsea are separate towers, per
+    Data improvements)
+  - #253 rent map: a plainer area caveat, and why the trend differs from the median ask
+  - #254 "the model is 95% sure the typical rent itself is …", and a Glossary link in the
+    Estimates nav
+  - #255 the breakdown says a feature's line is only its own part (Modeling: penthouse +12.2%;
+    the rest sits in the unit and building lines)
+  - #256 rent map choices are kept in the URL
 - **Kit step for Modeling.** After the summary bundle and rent map, and before
   `apartments.site build`:
   `cd /data1/apartments/serve/master/frontier && JAX_PLATFORMS=cpu /data1/apartments/serve/master/ops/job light -m 8G -- uv run --frozen --extra gpu python -m rentfrontier.kit <run> --summary <bundle>`.
@@ -28,14 +42,20 @@ What the next turn of the website thread needs. Updated at each milestone.
 
 ## Next
 
-1. Playtest round 4 is running: five fresh personas (family, broker, keyboard, economist, tablet).
-   Prompts and reports are in `/data1/apartments/tmp/playtests/2026-10-05-r4/<persona>/`. Write
-   `synthesis.md` there, and turn the findings into PRs.
-2. Still open: the breakdown labels "Price basis" and "Building size and bath slopes" come from
-   frontier TERM_LABELS.
-3. After the next served-model switch, check that `/estimate` still works. `autoselect-publish.sh`
+1. Still open from round 4:
+   - "On the market since" for current ads. Blocked on data: `listing_events` (StreetEasy price
+     history) lives in a DuckDB nobody has located. The only copy is
+     `/data1/apartments/archive/snapshots/chelsea-20260908`. I asked for
+     `listing_started.parquet` (source_listing_id, listed_at, first_ask, days_on_market).
+   - Jargon on lay pages: the model codename and PSIS-LOO on the home page, plus the breakdown
+     labels "Building size and bath slopes" and "Price basis" (frontier TERM_LABELS).
+   - The 92.8% under-coverage for single-listing units is only on the model page.
+   - No autocomplete in building search.
+   - Filter defaults (Status All, Elevator Any) are easy to miss.
+   - The estimate is a market rate, not a stabilized renewal; say so where a tenant compares.
+2. After the next served-model switch, check that `/estimate` still works. `autoselect-publish.sh`
    builds the kit.
-4. Optional: cache the parsed kit per database (about 12 ms per request).
+3. Optional: cache the parsed kit per database (about 12 ms per request).
 
 ## Standing rules
 
