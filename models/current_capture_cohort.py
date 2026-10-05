@@ -15,11 +15,18 @@ analysis month:
     analysis month, 0-5 bedrooms, 1-5 baths, $750-50,000;
   - bathrooms come from `bathroom_projection`.
 - Each new row's neighbourhood is its discovery seed in the collection's review
-  queue (`/for-rent/west-village` is West Village, any other seed Chelsea). It
-  must agree with the neighbourhood of the building's earlier rows.
+  queue (`/for-rent/west-village` is West Village; `/for-rent/chelsea` and
+  `/for-rent/west-chelsea` are Chelsea; any other seed, or seeds of both, is
+  ambiguous and excluded). It must agree with the neighbourhood of the
+  building's earlier rows.
 - The floor is the ad's own floor, else its unit label read as
   `rentfrontier.cohort.floor_of` reads it, against the smallest floor count the
-  granular crawls' building pages report (`cohort.floor_counts`).
+  granular crawls' building pages report (`cohort.floor_counts`). A building whose
+  historical rows the floor review excluded from label numbering
+  (`reviewed_building_numbering_excluded`) gets no label floor.
+- A dropped current row's review (`research_review_history`) is carried to the new
+  row of the same advertisement when the new capture repeats the reviewed claim;
+  if the claim changed, the build stops for a new review.
 - A row is excluded when its building is not in the registry the feature sets
   read, since there is no location or lot for it.
 
@@ -51,23 +58,40 @@ except ImportError:  # the frontier package is not installed in the project venv
 
 VERSION = 'combined-current-capture-cohort-v1'
 PARENT_VERSION = 'combined-neighbourhood-cohort-v1'
-WEST_VILLAGE_SEED = '/for-rent/west-village'
+SEEDS = {'/for-rent/west-village': 'West Village', '/for-rent/chelsea': 'Chelsea',
+         '/for-rent/west-chelsea': 'Chelsea'}
+NUMBERING_EXCLUDED = 'reviewed_building_numbering_excluded'
 HISTORICAL = 'historical_initial_own_advertisement_ask'
 CURRENT = 'current_capture_gross_ask'
 
 
 def seed_neighbourhoods(queue_rows):
-    """source_listing_id -> neighbourhood from each queued ad's discovery seeds."""
-    out = {}
+    """source_listing_id -> neighbourhood from each queued ad's discovery seeds
+    (None when they name both, or a seed outside SEEDS)."""
+    names = defaultdict(set)
     for row in queue_rows:
-        seeds = {o.get('seed') for o in row.get('observations') or [] if o.get('seed')}
-        names = {'West Village' if WEST_VILLAGE_SEED in urlsplit(s).path else 'Chelsea'
-                 for s in seeds}
-        if len(names) == 1:
-            out[str(row['source_listing_id'])] = names.pop()
-        elif names:
-            out[str(row['source_listing_id'])] = None  # seeded from both: ambiguous
-    return out
+        for o in row.get('observations') or []:
+            if o.get('seed'):
+                names[str(row['source_listing_id'])].add(
+                    SEEDS.get(urlsplit(o['seed']).path.rstrip('/')))
+    return {k: (v.pop() if len(v) == 1 else None) for k, v in names.items()}
+
+
+def carry_review(projected, old):
+    """The dropped row's bathroom-composition review applied to the new row of the
+    same advertisement, when the new capture repeats the reviewed counts."""
+    keys = ('bathrooms', 'reported_full_bathrooms', 'reported_half_bathrooms')
+    history = old.get('research_review_history') or []
+    if any(h.get('action') != 'mask_bathroom_composition' for h in history) or any(
+            projected.get(k) != old.get(k) for k in keys):
+        raise ValueError(f"Review of {old['audit_id']} needs explicit reapplication")
+    evidence = {**projected['bathroom_count_evidence'],
+                'composition_status': old['bathroom_count_evidence']['composition_status'],
+                'flags': sorted({*projected['bathroom_count_evidence']['flags'],
+                                 *old['bathroom_count_evidence']['flags']})}
+    carried = [{**h, 'carried_from_audit_id': old['audit_id']} for h in history]
+    return {**projected, 'bathroom_count_evidence': evidence,
+            'research_review_history': carried}
 
 
 def unit_label(url):
@@ -78,20 +102,24 @@ def unit_label(url):
 def assemble(parent_rows, candidates, failures, sources, neighbourhoods, registry, counts, *,
              as_of, max_age_days, evidence_of=refresh.capture_evidence):
     cutoff = instant(as_of); month = cutoff.strftime('%Y-%m-01')
-    if any(instant(r['known_at']) > cutoff for r in parent_rows if r.get('known_at')):
+    if any(instant(r['known_at']) > cutoff for r in parent_rows):
         raise ValueError('Parent evidence is later than cutoff')
-    history, dropped = [], []
+    history, dropped, reviewed = [], [], {}
     for row in parent_rows:
         if row['analysis_price_basis'] == HISTORICAL and row['period'] < month:
             history.append(row)
         elif row['analysis_price_basis'] == CURRENT and row['period'] < month:
             dropped.append(row['audit_id'])
+            if row.get('research_review_history'):
+                reviewed[str(row['source_listing_id'])] = row
         else:
             raise ValueError('Parent has rows in or after the new analysis month')
     known = defaultdict(set)
     for row in history:
         known[row['building']].add(row['neighbourhood'])
     units = {row['unit_id'] for row in history}
+    unnumbered = {row['building'] for row in history
+                  if (row.get('floor_label_provenance') or {}).get('status') == NUMBERING_EXCLUDED}
     available, excluded = refresh.combine_records(candidates, failures, as_of=as_of)
     fresh, selection_exclusions, selection = fit_robust_analysis.current_rows(
         available, as_of=as_of, max_age_days=max_age_days)
@@ -111,10 +139,14 @@ def assemble(parent_rows, candidates, failures, sources, neighbourhoods, registr
         floor, why = cohort.floor_of(
             {'advertised_floor': row.get('advertised_floor')},
             [unit_label(row['canonical_unit_url'])], counts.get(row['building']))
+        if why == 'label_proxy' and row['building'] in unnumbered:
+            floor, why = None, NUMBERING_EXCLUDED
         projected.update(neighbourhood=name, listed_floor=floor,
                          label_derived_floor=floor if why == 'label_proxy' else None,
                          floor_label_provenance={'status': why,
                                                  'building_floor_count': counts.get(row['building'])})
+        if str(row['source_listing_id']) in reviewed:
+            projected = carry_review(projected, reviewed[str(row['source_listing_id'])])
         source['audit_id'] = projected['audit_id']
         evidence.append(source); current.append(projected)
     if not current:
@@ -135,6 +167,7 @@ def assemble(parent_rows, candidates, failures, sources, neighbourhoods, registr
         'units': len(buildings), 'buildings': len({r['building'] for r in rows}),
         'historical_rows_preserved_exactly': True, 'selection': selection,
         'exclusions': dict(Counter(e['reason'] for e in excluded)),
+        'carried_reviews': sorted(r['audit_id'] for r in current if r.get('research_review_history')),
         'current_floor_status': dict(Counter(r['floor_label_provenance']['status'] for r in current)),
         'current_bathroom_flags': dict(Counter(
             f for r in current for f in r['bathroom_count_evidence']['flags']))}
@@ -158,9 +191,8 @@ def run(parent, collections, review_queues, registry, granular, output, *, as_of
         if sources.keys() & s.keys():
             raise ValueError('Collections have overlapping capture identities')
         candidates.extend(c); failures.extend(f); sources.update(s); bindings.append(b)
-    neighbourhoods = {}
-    for path in review_queues:
-        neighbourhoods.update(seed_neighbourhoods(refresh.records(Path(path).read_bytes())))
+    neighbourhoods = seed_neighbourhoods(
+        [r for path in review_queues for r in refresh.records(Path(path).read_bytes())])
     names = set(pq.read_table(registry, columns=['building']).column('building').to_pylist())
     counts = {}
     for crawl in granular:
@@ -174,7 +206,8 @@ def run(parent, collections, review_queues, registry, granular, output, *, as_of
     files = {'observations.jsonl': ''.join(canonical(r) + '\n' for r in rows),
         'current-source-evidence.jsonl': ''.join(canonical(r) + '\n' for r in evidence),
         'current-excluded.jsonl': ''.join(canonical(r) + '\n' for r in excluded),
-        'summary.json': canonical(summary) + '\n'}
+        'refresh-failures.jsonl': ''.join(canonical(r) + '\n' for r in failures),
+        'summary.json': canonical(summary) + '\n', **{p.name: p.read_text() for p in paths}}
     return publish_bundle(output, files, {'version': VERSION, 'as_of': instant(as_of).isoformat(),
         'parent': str(parent), 'parent_manifest_sha256': digest(parent / 'complete.json'),
         'collections': bindings, 'review_queues': {str(p): digest(Path(p)) for p in review_queues},

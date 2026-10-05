@@ -52,8 +52,11 @@ def test_seeds_name_the_neighbourhood_and_both_is_ambiguous():
         queue("1", "/for-rent/west-village"),
         queue("2", "/for-rent/chelsea", "/for-rent/west-chelsea"),
         queue("3", "/for-rent/chelsea", "/for-rent/west-village"),
+        queue("4", "/for-rent/soho"),
+        queue("5", "/for-rent/chelsea"),
+        queue("5", "/for-rent/west-village"),  # another queue disagrees
     ])
-    assert got == {"1": "West Village", "2": "Chelsea", "3": None}
+    assert got == {"1": "West Village", "2": "Chelsea", "3": None, "4": None, "5": None}
 
 
 def test_new_month_replaces_old_captures_and_keeps_history():
@@ -100,3 +103,41 @@ def test_parent_rows_in_the_new_month_are_refused():
         m.assemble([history("u1", "b1", "Chelsea", period="2026-10-01")], [candidate(1)], [],
                    {}, {"101": "Chelsea"}, {"b1"}, {}, as_of="2026-10-05T02:00:00Z",
                    max_age_days=1, evidence_of=evidence)
+
+
+def old_current(listing, unit, **changes):
+    return {**history(unit, "b1", "Chelsea"), "audit_id": f"capture:old{listing}",
+            "analysis_price_basis": m.CURRENT, "source_listing_id": listing,
+            "bathrooms": 1, "reported_full_bathrooms": 1, "reported_half_bathrooms": 0,
+            "bathroom_count_evidence": {"flags": ["reviewed_bathroom_composition_conflict"],
+                                        "composition_status": "reviewed_composition_conflict_unknown"},
+            "research_review_history": [{"action": "mask_bathroom_composition", "decision_id": "d1"}],
+            **changes}
+
+
+def run_one(parent, cand, floors=None):
+    return m.assemble(parent, [cand], [], {cand["capture_id"]: None},
+                      {cand["source_listing_id"]: "Chelsea"}, {"b1"}, floors or {},
+                      as_of="2026-10-05T02:00:00Z", max_age_days=1, evidence_of=evidence)
+
+
+def test_reviews_carry_to_the_same_ad_or_stop_the_build():
+    parent = [history("u0", "b1", "Chelsea"), old_current("101", "u1")]
+    rows, *_ = run_one(parent, candidate(1))
+    new = next(r for r in rows if r["analysis_price_basis"] == m.CURRENT)
+    assert new["research_review_history"][0]["carried_from_audit_id"] == "capture:old101"
+    assert new["bathroom_count_evidence"]["composition_status"] == "reviewed_composition_conflict_unknown"
+    assert "reviewed_bathroom_composition_conflict" in new["bathroom_count_evidence"]["flags"]
+    with pytest.raises(ValueError, match="explicit reapplication"):
+        run_one(parent, candidate(1, bathrooms=2))
+
+
+def test_buildings_excluded_from_label_numbering_get_no_label_floor():
+    parent = [history("u0", "b1", "Chelsea",
+                      floor_label_provenance={"status": m.NUMBERING_EXCLUDED})]
+    rows, *_ = run_one(parent, candidate(1))
+    new = next(r for r in rows if r["analysis_price_basis"] == m.CURRENT)
+    assert new["listed_floor"] is None and new["label_derived_floor"] is None
+    assert new["floor_label_provenance"]["status"] == m.NUMBERING_EXCLUDED
+    rows, *_ = run_one(parent, candidate(1, advertised_floor=3))
+    assert next(r for r in rows if r["analysis_price_basis"] == m.CURRENT)["listed_floor"] == 3
