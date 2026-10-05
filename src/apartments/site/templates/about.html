@@ -4,7 +4,7 @@
 {% set p = meta.provenance %}
 {% set s = meta.stats %}
 {% set names = terms | map(attribute="name") | list %}
-{% set building = ["its level against an average building"] %}
+{% set building = ["its level against a building with the same listed features"] %}
 {% if "building_drift" in names %}{% set building = building + ["how that level has moved over time"] %}{% endif %}
 {% if "building_bedroom_premium" in names %}{% set building = building + ["its own premium or discount for larger apartments"] %}{% endif %}
 {% if "building_feature_slopes" in names %}{% set building = building + ["its own price for extra space and bathrooms"] %}{% endif %}

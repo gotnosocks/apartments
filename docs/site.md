@@ -37,7 +37,7 @@ is therefore a fair signal of over- or under-pricing ([what an estimate is](mode
     0.675 at 1,200).
 - **Unit:** asks and estimates of each of its listings over time.
 - **Buildings** (`/buildings`, searchable and sortable) and **building** pages:
-  - level against an average building, with its 95% interval, and the yearly trend for designs with
+  - level against a building with the same listed features, with its 95% interval, and the yearly trend for designs with
     a building trend (walk designs show the level only);
   - the median ask against estimate;
   - MapPLUTO facts;

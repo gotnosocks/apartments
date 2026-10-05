@@ -13,7 +13,7 @@
   <div class="figure">
     <span class="figure-label">Building level</span>
     <span class="figure-value">{{ pct(b.level_pct) }}</span>
-    <span class="figure-note">95% {{ pct(b.level_pct_lower) }} to {{ pct(b.level_pct_upper) }}, the same apartment against an average building</span>
+    <span class="figure-note">95% {{ pct(b.level_pct_lower) }} to {{ pct(b.level_pct_upper) }}, the same apartment against a building with the same age, size, elevator, doorman and other listed features</span>
   </div>
   {% if b.trend_pct is not none %}
   <div class="figure">
@@ -34,7 +34,8 @@
   <h2>Typical rent here, {{ typical.year }}{% if typical.months < 12 %} so far{% endif %}</h2>
   <p class="note">What a typical apartment of each size asks in this building, from the served model's
   <a href="{{ url_for('estimates_map') }}">rent map</a>: baths, size, laundry, views and listed extras at their average across all
-  listings with that many bedrooms, with this building's own usual floor and amenities. The interval ({{ typical.interval }}) is how sure the model
+  listings with that many bedrooms, with this building's own usual floor and amenities. Unlike the building level above, it includes what the building's features are worth, so
+  two buildings with similar levels can differ a lot here. The interval ({{ typical.interval }}) is how sure the model
   is of this typical rent, not the range of asks; a listing's own page gives the range its ask is likely to fall in.{% if typical.extrapolated %}
   <strong>This building has had no listings in the fit since {{ typical.last_year }}</strong>, so these figures are the model's
   extrapolation.{% endif %}{% if typical.fit_listings is number and typical.fit_listings < 5 %} They rest on only
@@ -45,11 +46,11 @@
     <tbody>{% for r in typical.rows %}<tr><th scope="row">{{ r.label }}</th><td class="num">{{ usd(r.rent) }}</td><td class="num muted nowrap">{{ usd(r.low) }}–{{ usd(r.high) }}</td></tr>{% endfor %}</tbody>
   </table>
   </div>
-  {% if estimate_form %}<p><a href="{{ url_for('estimate_apartment', building=b.id) }}">Estimate a particular apartment here</a>: its size,
-  floor and features.</p>{% endif %}
+  {% if estimate_form %}<p><a class="action" href="{{ url_for('estimate_apartment', building=b.id) }}">Estimate a particular apartment here</a>
+  with its own size, floor and features.</p>{% endif %}
 </section>
 {% elif estimate_form %}
-<p><a href="{{ url_for('estimate_apartment', building=b.id) }}">Estimate an apartment in this building</a>.</p>
+<p><a class="action" href="{{ url_for('estimate_apartment', building=b.id) }}">Estimate an apartment in this building</a></p>
 {% endif %}
 
 <section class="card">
