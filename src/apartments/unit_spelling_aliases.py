@@ -14,7 +14,9 @@ another member of the group. Prefer confirmed groups.
 `unit-spelling-alias-v2` also folds labels that only name a floor (`2nd-floor`,
 `thirdfl`, `fl-10`, `6flr` and `6` alike) and a leading apt/unit/suite/residence
 word (`unit-3c` and `3c`). Greenwich Village's crawl turned away such ads because
-the unit page that vouched for them spells the unit another way.
+the unit page that vouched for them spells the unit another way. Folding bare
+floor numbers can join different apartments (`4` and a `4th-floor` floor-through),
+so consumers of a v2 table should keep history-confirmed groups only.
 
 uv run --locked --no-sync python -m apartments.unit_spelling_aliases --help
 """

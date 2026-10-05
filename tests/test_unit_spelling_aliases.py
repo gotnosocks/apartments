@@ -122,6 +122,9 @@ def test_v2_folds_floor_only_labels_and_unit_words():
     # Different apartments stay apart, and v1 is unchanged.
     for a, b in (("2d", "2c"), ("34", "304"), ("9gw", "3ew"), ("2b", "2"), ("garden", "gardenfloor")):
         assert normalize_label(a, v2) != normalize_label(b, v2)
+    for label in ("apt", "unit", "floor", "fl"):
+        assert normalize_label(label, v2) == label
+    assert normalize_label("apt-ph", v2) == "aptph"
     assert normalize_label("3fl") == "3fl" and normalize_label("unit-3c") == "unit3c"
     assert unit_key(B + "4th-floor", v2) == unit_key(B + "4", v2)
     rows = alias_rows([unit("4", 3), unit("4fl", 1)], rule=v2)
