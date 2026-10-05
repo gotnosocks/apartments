@@ -44,8 +44,9 @@ then the most elegant, then the fastest, and it changes only when another fit cl
 <section class="card">
   <h2>The current exploration</h2>
   {% if exploration.goal %}<p>{{ exploration.goal }}</p>{% endif %}
-  <p class="note">Exploration fits are short fits that show quickly whether a design is promising. They count on the frontier
-  (drawn as diamonds; full fits are circles) but are never served: only a full fit's estimates reach the rest of the site.{% if exploration.dataset %}
+  <p class="note">Exploration fits are short fits that show quickly whether a design is promising. They are drawn as diamonds
+  (full fits are circles); the frontier line is drawn only from fits that pass the convergence checks, so an exploration fit
+  that fails them shows off the line. They are never served: only a full fit's estimates reach the rest of the site.{% if exploration.dataset %}
   Data: <code>{{ exploration.dataset }}</code>.{% endif %}{% if exploration.as_of %} As of {{ exploration.as_of[:16] | replace("T", " ") }} UTC.{% endif %}</p>
   {% if exploration.tiers %}
   {# The legend may give each tier's settings or only describe it: show the columns it has. #}

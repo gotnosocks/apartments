@@ -83,7 +83,8 @@ without the filter.
 
   The marks are served, on the frontier, other, fails the convergence checks, and subset; full fits
   are circles and exploration fits diamonds (a key explains both), and the tables tag exploration
-  fits. Exploration fits count on the frontier; the convergence gate applies to full fits only. Frontier
+  fits. The frontier line is drawn from gate-passing fits only; exploration fits that fail the gate are
+  shown as points off the line (Ben, 2026-10-04). Frontier
   membership and the best come from the board's own snapshots, so "board as of" shows the
   frontier as it stood at the end of any day with results. Subset fits (a `tune…` part in the run
   name, for example `nb-tune35`) are exploration only. They are hidden unless asked for, and never
@@ -186,8 +187,8 @@ listings fall in each band, as calibration predicts.
    `psis.p_loo`, its `model` (the design's ModelConfig as the run recorded it) and `sizes` (the rows
    fit's rows, features, months, buildings and units), `why_not_served`, autoselect's plain reason the fit cannot be served (null when it
    can), and its `tier` (`rentfrontier` fit tiers: `{name: "exploration" | "full", draws, warmup,
-   chains, subset}`; none means full). Exploration fits count on the research frontier but are never
-   served; a fit with a `subset` has no PSIS-LOO score on the full data and shows in tables only. The
+   chains, subset}`; none means full). Exploration fits are research points (on the frontier only when they pass
+   the gate) and are never served; a fit with a `subset` has no PSIS-LOO score on the full data and shows in tables only. The
    top-level `exploration` (goal, dataset, baseline, a legend of `tiers` and `notes`) heads the
    frontier page. The top-level `autoselect` is autoselect's decision
    on the current board against the served run: keep or switch, the reason, the eligible fits and

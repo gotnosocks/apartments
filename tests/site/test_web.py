@@ -503,6 +503,21 @@ def test_research_helpers(research_file):
     assert research.outlier_floor([1.0, 2.0]) is None
 
 
+def test_a_failing_exploration_fit_is_marked_failing(research_file):
+    """The gate applies to every tier (Ben, 2026-10-05): an exploration fit that
+    fails it is off the frontier line and marked failing, not other."""
+    from apartments.site import research
+
+    data = json.loads(research_file.read_text())
+    for e in data["entries"]:
+        if e["id"] == "m-other":
+            e["passes_checks"] = False
+            e["tier"] = {"name": "exploration", "draws": 600}
+    view = research.frontier_view(data, "thelio RTX 2060 SUPER", None, "m-test-run")
+    kinds = {f["entry"]["id"]: f["kind"] for f in view["fits"]}
+    assert kinds["m-other"] == "failing"
+
+
 def test_frontier_view_marks_and_as_of(research_file):
     from apartments.site import research
 

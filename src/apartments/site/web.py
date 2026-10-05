@@ -1495,7 +1495,7 @@ def create_app(
                 else "frontier"
                 if e.get("frontier")
                 else "failing"
-                if not e.get("passes_checks") and tier_of(e) == "full"
+                if not e.get("passes_checks")
                 else "other"
             )
             fits.append(
