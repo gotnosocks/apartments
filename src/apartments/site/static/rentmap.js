@@ -452,7 +452,37 @@ function renderTrend() {
   });
 }
 
+// The choices live in the URL so a map can be bookmarked or shared (playtest round 4):
+// ?area=Chelsea&beds=2&year=2020&base=2015&before=1. Unknown values are ignored.
+function readUrl() {
+  const d = state.data, q = new URLSearchParams(location.search);
+  if (q.get('area') && d.median_by_area && d.median_by_area[q.get('area')] && !$('area-select').hidden) state.area = q.get('area');
+  if (d.bedrooms.some((b) => b.key === q.get('beds'))) state.bed = q.get('beds');
+  const yi = d.years.indexOf(Number(q.get('year'))), bi = d.years.indexOf(Number(q.get('base')));
+  if (q.get('year') && yi >= 0) state.year = yi;
+  if (q.get('base') && bi >= 0) state.base = bi;
+  state.showBefore = q.get('before') === '1';
+  for (const inp of document.querySelectorAll('#area-select input')) inp.checked = inp.value === (state.area || '');
+  for (const inp of document.querySelectorAll('#beds-select input')) inp.checked = inp.value === state.bed;
+  $('year-range').value = state.year;
+  $('base-year').value = String(state.base);
+  $('show-before').checked = state.showBefore;
+}
+
+function writeUrl() {
+  const d = state.data, q = new URLSearchParams(location.search);
+  const put = (k, v) => (v === null ? q.delete(k) : q.set(k, v));
+  put('area', state.area);
+  put('beds', state.bed === '1' ? null : state.bed);
+  put('year', state.year === d.years.length - 1 ? null : String(yearOf(state.year)));
+  put('base', state.base === 0 ? null : String(yearOf(state.base)));
+  put('before', state.showBefore ? '1' : null);
+  const s = q.toString();
+  history.replaceState(null, '', location.pathname + (s ? '?' + s : '') + location.hash);
+}
+
 function render() {
+  writeUrl();
   $('year-label').textContent = String(yearOf(yearIndex()));
   const bedLabel = state.data.bedrooms.find((b) => b.key === state.bed).label;
   $('map-title').textContent = `Typical rent by building ${state.area ? 'in' : 'across'} ${areaName()}: ${bedLabel.toLowerCase()}, ${yearOf(yearIndex())}`;
@@ -486,6 +516,7 @@ async function main() {
   html('p', {}, foot, `Typical rents are the model's, not listings' asks: a building with few listings leans on the whole area (${d.area}) and on buildings like it. `
     + 'Intervals are the model\'s uncertainty about the typical ask, not the spread of individual asks.');
   buildControls();
+  readUrl();
   render();
   let resize;
   window.addEventListener('resize', () => { clearTimeout(resize); resize = setTimeout(render, 150); });
