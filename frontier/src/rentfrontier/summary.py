@@ -96,6 +96,7 @@ TERM_LABELS = {
     "facing": "Streets it looks onto",
     "noise": "Noise around the building",
     "relisting": "Time since its last listing",
+    "previous listing": "Repricing of its last listing",
 }
 TERM_TEXT = {
     "neighbourhood": "West Village against Chelsea: the shift of every building's "
@@ -104,6 +105,9 @@ TERM_TEXT = {
     "listing's date, so it includes its time on the market; only earlier listings "
     "count), or a flag for its first listing. A quick relist hints at a problem unit, a long gap at "
     "a renovation.",
+    "previous listing": "How the same apartment's previous listing was repriced "
+    "before this one was listed: its last price over its first ask, and how many "
+    "times it changed. A cut says the last ask was above what the apartment let for.",
     "location": "A smooth location surface over the map (Gaussian bumps about 250 "
     "m apart over the buildings' coordinates).",
     "transit": "The walk to the nearest subway station and the subway routes "
