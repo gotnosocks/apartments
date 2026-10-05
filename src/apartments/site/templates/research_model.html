@@ -22,7 +22,9 @@ equally elegant ones the fastest.{% endif %}</p>
 <section class="card">
   <h2>Why this model</h2>
   {% if sel and sel.selection_reason %}
-  <p>When it was chosen: {{ sel.selection_reason }}</p>
+  {# "The incumbent" means a different model in each reason: the one served before this one when it
+     was chosen, and this one in the latest decision. #}
+  <p>When it was chosen: {{ sel.selection_reason | replace("the incumbent", "the model it replaced") | replace("The incumbent", "The model it replaced") }}</p>
   <p class="note">Chosen by {{ sel.selected_by }}.{% if sel.uncertainty %} {{ sel.uncertainty }}{% endif %}</p>
   {% else %}
   <p class="note">These estimates were published by hand, not from the repository's model selection.</p>
@@ -34,7 +36,7 @@ equally elegant ones the fastest.{% endif %}</p>
   <p class="notice"><strong>A switch is pending.</strong> The automatic rule now picks <code>{{ autoselect.run }}</code>.
   The site keeps serving this model until that fit's estimates are published, which happens shortly after the decision.</p>
   {% endif %}
-  <p>{{ autoselect.reason }}</p>
+  <p>{% if pending %}{{ autoselect.reason }}{% else %}{{ autoselect.reason | replace("the incumbent", "this model") | replace("The incumbent", "This model") }}{% endif %}</p>
   {% if autoselect.checked %}
   <div class="table-wrap">
   <table class="data">
