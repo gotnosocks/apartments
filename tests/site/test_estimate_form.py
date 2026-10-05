@@ -3,6 +3,7 @@
 import datetime as dt
 import json
 import math
+import re
 import sqlite3
 
 import pytest
@@ -421,12 +422,13 @@ def test_adding_an_ask_leaves_the_estimate_as_it_was(site_root, client):
     base = f"/estimate?building={GROVE}&bedrooms=1&sqft=650"
 
     def figures(html):
-        return html.split("Typical rent")[1].split("Likely ask range")[1][:200]
+        head = html.split('id="result"')[1].split("Likely ask range")
+        likely = head[1].split("for 95%")[0]
+        return re.findall(r"\$[\d,]+", head[0] + likely)
 
-    plain = page(client, base)
-    asked = page(client, base + "&ask=5200")
-    assert plain.split("Typical rent")[1][:120] == asked.split("Typical rent")[1][:120]
-    assert figures(plain) == figures(asked)
+    plain, asked = page(client, base), page(client, base + "&ask=5200")
+    assert len(figures(plain)) == 7  # estimate, its range, the 80% and 95% ranges
+    assert figures(plain) == figures(asked) and "Your ask" in asked
 
 
 def test_the_parts_show_the_season():
