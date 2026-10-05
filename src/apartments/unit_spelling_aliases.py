@@ -11,6 +11,11 @@ Normalization can also join labels that are genuinely different (`1-2` and
 own rental history lists an advertisement that the transform assigned to
 another member of the group. Prefer confirmed groups.
 
+`unit-spelling-alias-v2` also folds labels that only name a floor (`2nd-floor`,
+`thirdfl`, `fl-10`, `6flr` and `6` alike) and a leading apt/unit/suite/residence
+word (`unit-3c` and `3c`). Greenwich Village's crawl turned away such ads because
+the unit page that vouched for them spells the unit another way.
+
 uv run --locked --no-sync python -m apartments.unit_spelling_aliases --help
 """
 
@@ -29,6 +34,14 @@ import pyarrow as pa
 import pyarrow.parquet as pq
 
 RULE = "unit-spelling-alias-v1"
+RULES = ("unit-spelling-alias-v1", "unit-spelling-alias-v2")
+ORDINALS = {
+    word: str(n)
+    for n, word in enumerate(
+        "first second third fourth fifth sixth seventh eighth ninth tenth".split(), 1
+    )
+}
+FLOOR = "(?:fl|flr|floor)"
 SOURCE_RULE = "canonical-url-v1"
 SCHEMA = pa.schema(
     [
@@ -45,21 +58,33 @@ SCHEMA = pa.schema(
 )
 
 
-def normalize_label(label):
-    """Lowercase, drop punctuation and strip leading zeros from each number."""
+def normalize_label(label, rule=RULE):
+    """Lowercase, drop punctuation and strip leading zeros from each number; v2
+    also reduces a floor-only label to its number and drops a leading apt, unit,
+    suite or residence word."""
     text = re.sub(r"[^a-z0-9]+", "", label.lower())
-    return re.sub(r"\d+", lambda m: m.group().lstrip("0") or "0", text)
+    text = re.sub(r"\d+", lambda m: m.group().lstrip("0") or "0", text)
+    if rule == "unit-spelling-alias-v1":
+        return text
+    text = re.sub(r"^(?:apt|apartment|unit|suite|residence)(?=\d)", "", text)
+    if m := re.fullmatch(rf"(\d+)(?:st|nd|rd|th)?{FLOOR}?", text):
+        return m[1]
+    if m := re.fullmatch(rf"{FLOOR}(\d+)", text):
+        return m[1]
+    if m := re.fullmatch(rf"({'|'.join(ORDINALS)}){FLOOR}?", text):
+        return ORDINALS[m[1]]
+    return text
 
 
-def unit_key(url):
+def unit_key(url, rule=RULE):
     """(building slug, normalized label) for a StreetEasy unit page, else None."""
     match = re.fullmatch(r"/building/([^/]+)/([^/]+)", urlsplit(url).path)
-    if not match or not normalize_label(match[2]):
+    if not match or not normalize_label(match[2], rule):
         return None
-    return match[1], normalize_label(match[2])
+    return match[1], normalize_label(match[2], rule)
 
 
-def alias_rows(units, memberships=(), evidence=()):
+def alias_rows(units, memberships=(), evidence=(), rule=RULE):
     """Alias rows for every unit in a group of two or more spellings.
 
     `units`: dicts with unit_id, canonical_unit_url and listing_count.
@@ -68,7 +93,7 @@ def alias_rows(units, memberships=(), evidence=()):
     """
     groups = defaultdict(list)
     for unit in units:
-        key = unit_key(unit["canonical_unit_url"])
+        key = unit_key(unit["canonical_unit_url"], rule)
         if key:
             groups[key].append(unit)
     unit_of_listing = dict(memberships)
@@ -92,7 +117,7 @@ def alias_rows(units, memberships=(), evidence=()):
             if uid in ids
         )
         group_id = "alias:" + str(
-            uuid.uuid5(uuid.NAMESPACE_URL, RULE + ":" + "\n".join(sorted(urls)))
+            uuid.uuid5(uuid.NAMESPACE_URL, rule + ":" + "\n".join(sorted(urls)))
         )
         rows.extend(
             {
@@ -104,7 +129,7 @@ def alias_rows(units, memberships=(), evidence=()):
                 "listing_count": u["listing_count"],
                 "group_size": len(members),
                 "history_confirmed": confirmed,
-                "rule": RULE,
+                "rule": rule,
             }
             for u in members
         )
@@ -119,7 +144,7 @@ def _sha256(path):
     return digest.hexdigest()
 
 
-def build(dataset, output, snapshot=None):
+def build(dataset, output, snapshot=None, rule=RULE):
     """Write `unit_spelling_aliases.parquet` and `manifest.json` to a new directory."""
     dataset, output = Path(dataset), Path(output)
     complete = json.loads((dataset / "complete.json").read_text())
@@ -156,7 +181,7 @@ def build(dataset, output, snapshot=None):
                     evidence.append((match[1], unit_url))
         finally:
             db.close()
-    rows = alias_rows(units, memberships, evidence)
+    rows = alias_rows(units, memberships, evidence, rule)
     output.mkdir(parents=True)
     table_path = output / "unit_spelling_aliases.parquet"
     pq.write_table(
@@ -164,7 +189,7 @@ def build(dataset, output, snapshot=None):
     )
     groups = {r["alias_group_id"]: r for r in rows}
     manifest = {
-        "rule": RULE,
+        "rule": rule,
         "created_at": time.time(),
         "source_dataset": str(dataset),
         "source_rule": SOURCE_RULE,
@@ -198,8 +223,10 @@ def main(argv=None):
     parser.add_argument(
         "--snapshot", type=Path, help="archive snapshot for history evidence"
     )
+    parser.add_argument("--rule", choices=RULES, default=RULE)
     args = parser.parse_args(argv)
-    print(json.dumps(build(args.dataset, args.output, args.snapshot)["counts"]))
+    counts = build(args.dataset, args.output, args.snapshot, args.rule)["counts"]
+    print(json.dumps(counts))
 
 
 if __name__ == "__main__":
