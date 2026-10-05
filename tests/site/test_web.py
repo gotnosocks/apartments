@@ -1633,3 +1633,11 @@ def test_frontier_charts_join_their_line(client, research_file):
     # both failing exploration fits are on the dashed line, said so
     assert card.count('class="frontier-line dashed"') == 1
     assert "includes fits that fail the convergence" in card
+
+
+def test_values_that_round_to_zero_carry_no_sign():
+    assert charts.pct(-0.3) == "0%"
+    assert charts.pct(-0.04, digits=1) == "0.0%"
+    assert charts.pct(-0.6) == "−1%"
+    assert charts.usd(-0.4, signed=True) == "$0"
+    assert charts.usd(-27, signed=True) == "−$27"

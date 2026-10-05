@@ -9,7 +9,8 @@ PAGE = (ROOT / "templates/estimates_map.html").read_text()
 
 def test_change_since_a_chosen_year():
     assert '<select id="base-year">' in PAGE
-    assert "state.base <= yi ? [state.base, yi] : [yi, state.base]" in JS
+    assert "other <= yi ? [other, yi] : [yi, other]" in JS
+    assert "state.base !== yi ? state.base : yi === last ? 0 : last" in JS
     assert "`From ${yearOf(from)} to ${yearOf(to)}" in JS  # a base after the map year
 
 

@@ -23,6 +23,8 @@ def usd(value, signed=False) -> str:
     if value is None:
         return "—"
     text = f"${abs(value):,.0f}"
+    if text == "$0":
+        return text
     if signed:
         return ("+" if value > 0 else "−" if value < 0 else "") + text
     return ("−" if value < 0 else "") + text
@@ -32,6 +34,8 @@ def pct(value, signed=True, digits=0) -> str:
     if value is None:
         return "—"
     text = f"{abs(value):.{digits}f}%"
+    if float(text[:-1]) == 0:
+        return text
     if signed:
         return ("+" if value > 0 else "−" if value < 0 else "") + text
     return text

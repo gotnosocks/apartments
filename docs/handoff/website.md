@@ -2,7 +2,16 @@
 
 What the next turn of the website thread needs. Updated at each milestone.
 
-## State (2026-10-05 17:10 UTC)
+## State (2026-10-05 17:30 UTC)
+
+- **Exposure live (#290).** Data improvements' labels (`/data1/apartments/exposure/labels.parquet`)
+  go into a build's `exposure` table: a Faces fact on listing pages, short words in listing
+  tables and a Faces filter (`/listings?faces=rear`). 12,875 units labelled (8,195 own, 4,680 from
+  their line) in build 20261005T172157196192Z-c11c9123. Code deploys don't rebuild the database:
+  a labels change shows after the next site build. "Looks onto" and the summary are unchanged until
+  agreed with Data improvements.
+- **Estimate form: line facing and previous listing groups (#289).**
+- **Round 7 running** (best-1bed, economist, landlord; `/data1/apartments/tmp/playtests/2026-10-05-r7/`).
 
 - **Ratings live (#285).** Card on listing pages, `/ratings`, `/ratings.csv`, `/ratings.json`;
   stored in `/data1/apartments/ratings/ratings.sqlite` (made on the first save). Design in
@@ -82,7 +91,7 @@ What the next turn of the website thread needs. Updated at each milestone.
 
 ## Next
 
-1. Playtest round 7 with best-1bed (ratings touch listings), at most 3 personas, one bundled PR.
+1. Round 7: write `synthesis.md`, then one bundled PR (branch `site-playtest-r7`) and one review.
 2. Round 5 leftovers in `synthesis.md` order: building Units table capped at 13 rows,
    "Building level" glossary entry and class codes, rent map
    fit to area, estimate form's two steps, breakdown on phones, unit chart legend, journalist items.

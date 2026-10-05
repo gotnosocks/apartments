@@ -144,7 +144,7 @@ function buildControls() {
     b.addEventListener('click', () => {
       const t = $(`table-${b.dataset.target}`);
       t.hidden = !t.hidden;
-      b.textContent = t.hidden ? 'Table view' : 'Chart view';
+      b.textContent = (t.hidden ? 'Table view' : 'Chart view') + (b.dataset.what ? ` of the ${b.dataset.what}` : '');
       $(`chart-${b.dataset.target}`).hidden = !t.hidden;
       // A chart rebuilt while hidden was sized to the fallback width: redraw it.
       if (t.hidden) render();
@@ -174,10 +174,14 @@ function renderKpis() {
   // The change between the chosen base year and the map year, read forwards
   // in time whichever comes first.
   const part = (i) => (d.year_months[i] < 12 ? ` (${d.year_months[i]} months)` : '');
-  const [from, to] = state.base <= yi ? [state.base, yi] : [yi, state.base];
+  // On the base year itself, compare with the latest year (or the first, on
+  // the latest) rather than show a change of +0%.
+  const last = d.years.length - 1;
+  const other = state.base !== yi ? state.base : yi === last ? 0 : last;
+  const [from, to] = other <= yi ? [other, yi] : [yi, other];
   const early = median(state.bed, from)[1], late = median(state.bed, to)[1];
   const ch = late / early - 1;
-  const changeLabel = state.base <= yi ? `Since ${yearOf(from)}${part(from)}` : `From ${yearOf(from)} to ${yearOf(to)}${part(to)}`;
+  const changeLabel = other <= yi ? `Since ${yearOf(from)}${part(from)}` : `From ${yearOf(from)} to ${yearOf(to)}${part(to)}`;
   tile(changeLabel, `${ch >= 0 ? '+' : '−'}${Math.abs(100 * ch).toFixed(0)}%`, `from ${usd(early)} a month`);
   tile('Buildings on the map', shown.toLocaleString('en-US'), `of ${total.toLocaleString('en-US')} with listings in the fit${state.showBefore ? '' : `; shown where their listings span ${yearOf(yi)}`}`);
 }

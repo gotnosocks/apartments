@@ -12,7 +12,8 @@ so any fit can be repeated on exactly the same listings.</p>
   <div class="tile"><span class="tile-label">Left out by review</span><span class="tile-value">{{ "{:,}".format(quarantined) }}</span></div>
 </section>
 <p class="note">The served fit holds out about 10% of listings as a genuine test (see <a href="{{ url_for('research_glossary') }}#held-out">held-out
-check</a>); that is the gap between the first two numbers. Its data rules: {% for r in quality.app_rules or [] %}<code>{{ r }}</code>{% if not loop.last %}, {% endif %}{% else %}none{% endfor %}.</p>
+check</a>); that is the gap between the first two numbers. The listings left out by review are not among the
+listings in the data: they come on top of them. Its data rules: {% for r in quality.app_rules or [] %}<code>{{ r }}</code>{% if not loop.last %}, {% endif %}{% else %}none{% endfor %}.</p>
 
 <section class="card">
   <h2>The data rules</h2>

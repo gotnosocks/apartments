@@ -45,7 +45,7 @@ def test_building_page_shows_typical_rent_by_size(client, site_root):
 def test_extrapolated_building_says_so(client, site_root):
     write_map(site_root, last_year=2020)
     html = " ".join(client.get(f"/buildings/{GROVE}").get_data(as_text=True).split())
-    assert "no listings in the fit since 2020" in html
+    assert "none of this building's listings after 2020" in html
 
 
 def test_no_map_no_card(client):
