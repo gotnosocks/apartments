@@ -24,3 +24,11 @@ def test_neighbourhood_growth_caveat_shows_with_an_area():
         and "the neighbourhood itself only shifts the level" in PAGE
     )
     assert "$('area-caveat').hidden = !state.area;" in JS
+
+
+def test_the_trend_says_why_it_differs_from_the_median_ask():
+    # Playtest round 4 (economist): the model's growth and the raw median ask's differ.
+    assert (
+        'id="trend-vs-asks"' in PAGE
+        and "holds the building and the apartment fixed" in PAGE
+    )
