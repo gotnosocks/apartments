@@ -164,6 +164,9 @@ Every listing in the data still has its own estimate: <a href="{{ url_for('listi
   {{ select("doorman", "Doorman", options.DOORMAN, form.doorman, "e-doorman") }}
   {% endif %}
   {{ checks("facing", "It looks onto", options.FACING, form.facing) }}
+  {% if kit and kit.has("line looks onto a street") %}
+  {{ select("line", "If not known: what its line looks onto", options.LINE_FACING, form.line, "e-line") }}
+  {% endif %}
   {{ checks("outdoor", "Private outdoor space", options.OUTDOOR, form.outdoor) }}
   {{ checks("views", "Views the ad lists", options.VIEWS, form.views) }}
   {{ checks("windows", "Windows face", options.WINDOWS, form.windows) }}

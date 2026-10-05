@@ -46,6 +46,10 @@ FORM_GROUPS = (
     "relisting",
     "outdoor space",
     "rooms beyond bedrooms",
+    "line facing",
+    # How the apartment's previous listing was repriced: the form estimates a
+    # first listing, which has none, so its terms stay 0.
+    "previous listing",
 )
 BUILDING_GROUPS = (
     "elevator",
@@ -99,6 +103,20 @@ FACING = (
     ("side street", "A side street", "looks onto a side street"),
     ("rear", "The rear or a courtyard", "looks onto the rear or a courtyard"),
 )
+# What the other apartments of its line (same building, same letter or number)
+# look onto (`rentfrontier.features.lineface_v1`), for an apartment whose own
+# facing is not given.
+LINE_FACING = (
+    ("", "Not known"),
+    ("rear", "The rear or a courtyard"),
+    ("street", "A street"),
+    ("both", "Both"),
+)
+LINE_COLUMNS = {
+    "rear": "line looks onto the rear or a courtyard",
+    "street": "line looks onto a street",
+    "both": "line looks onto a street and the rear",
+}
 OUTDOOR = (
     ("terrace", "Terrace"),
     ("roof_deck", "Private roof deck"),
@@ -163,6 +181,7 @@ FORM_KEYS = (
     "label",
     "rooms",
     "facing",
+    "line",
     "outdoor",
     "views",
     "windows",
@@ -278,6 +297,7 @@ class Form:
     label: str = ""
     rooms: str = "2"
     facing: list[str] = field(default_factory=list)
+    line: str = ""
     outdoor: list[str] = field(default_factory=list)
     views: list[str] = field(default_factory=list)
     windows: list[str] = field(default_factory=list)
@@ -317,6 +337,7 @@ class Form:
             label=choice("label", LABELS, ""),
             rooms=choice("rooms", ROOMS, "2"),
             facing=many("facing", FACING),
+            line=choice("line", LINE_FACING, ""),
             outdoor=many("outdoor", OUTDOOR),
             views=many("views", VIEWS),
             windows=many("windows", WINDOWS),
@@ -334,7 +355,7 @@ class Form:
         fields = {
             k: v
             for k, v in self.__dict__.items()
-            if k != "ask" and not (k in ("elevator", "doorman") and v == "")
+            if k != "ask" and not (k in ("elevator", "doorman", "line") and v == "")
         }
         return json.dumps(fields, sort_keys=True, default=str)
 
@@ -399,6 +420,8 @@ def encode(form: Form, kit: Kit, building_inputs: dict[str, float]) -> dict[str,
             put(column)
             if low and key in ("avenue", "wide street"):
                 put(f"{column}, floors 1-{LOW_FLOORS}")
+    if form.line and not form.facing:
+        put(LINE_COLUMNS[form.line])
     put("first_listing_of_unit")
     for name in form.outdoor:
         put(f"outdoor:{name}")
