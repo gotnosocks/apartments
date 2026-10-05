@@ -26,23 +26,23 @@ read -r RUN SUMMARY < <(python3 -c "
 import json, sys
 c = json.load(open(sys.argv[1]))
 print(c['run'], c['summary'])" "$SITE/config/main-analysis.json")
-COMMIT=$(git -C "$MASTER" rev-parse --short=7 HEAD)
+COMMIT=$(git -C "$MASTER" rev-parse HEAD | cut -c1-7)
 echo "== $RUN at $COMMIT $(date +%T)"
 
 cd "$MASTER/frontier"
 if [ -e "$FRONTIER/maps/$RUN-$COMMIT/map.json" ]; then
   echo "rent map exists"
 else
-  "$MASTER/ops/job" light -m 8G -- uv run --frozen --extra gpu python -m rentfrontier.rentmap "$RUN"
+  "$MASTER/ops/job" light -m 5G -- uv run --frozen --extra gpu python -m rentfrontier.rentmap "$RUN"
 fi
 if [ -e "$FRONTIER/kits/$RUN-$COMMIT/complete.json" ]; then
   echo "kit exists"
 else
-  "$MASTER/ops/job" light -m 8G -- uv run --frozen --extra gpu python -m rentfrontier.kit "$RUN" --summary "$SUMMARY"
+  "$MASTER/ops/job" light -m 5G -- uv run --frozen --extra gpu python -m rentfrontier.kit "$RUN" --summary "$SUMMARY"
 fi
 
 echo "== site build $(date +%T)"
 # A combined publish peaks at about 1.9 GB (docs/site.md): cap it at 3 GB.
 cd "$SITE"
 systemd-run --user --scope -q -p MemoryMax=3G env TMPDIR="$TMPDIR" "$SITE_VENV/bin/python" -m apartments.site build
-curl -s -m 10 http://127.0.0.1:8600/healthz; echo
+curl -s -m 10 http://127.0.0.1:8600/healthz || true; echo
