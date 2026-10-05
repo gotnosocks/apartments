@@ -7,6 +7,35 @@ Fixes for things that are broken or wrong on the live site still ship.
 Each round adds a section at the top, ranked by how much the finding gets in the way of
 finding the best one-bedroom. Reports are in `/data1/apartments/tmp/playtests/<round>/`.
 
+## Round 8, 2026-10-05 (best-1bed)
+
+All three goals reached: a shortlist (110 Horatio #120, 277 W 11th #6F, 43 Charles #2), wishes
+met or missed, and a verdict on each ask. It liked the listing page's candour about what the model
+doesn't know, and the unit's history. Report: `/data1/apartments/tmp/playtests/2026-10-05-r8/`.
+
+1. **No way to search for floor-through, garden or a quiet street** (major). "Faces" has no single
+   "front and rear" choice. The broker's "Views: garden" shows only on the listing page, with no
+   filter and no tag in the list. "Looks onto: a side street" is known but not shown in the list.
+   This overlaps carried-over items 1 and 11.
+2. **The default sort favours bargains** (major). Available now opens sorted by ask against
+   estimate, lowest first. It wants a "match my wishes" or neutral sort. The first row is the
+   150 Charles studio estimated at $12,155 (also round 5, for Modeling).
+3. **The estimate breakdown is hard to read** (major). "Description", "How the price was
+   recorded", "This unit" and "This building's change over time" carry hundreds of dollars with
+   no plain explanation, and the bars have no common scale. It wants the parts grouped
+   (apartment, building, market, unknown). This overlaps carried-over items 4 and 7.
+4. **"Looks onto" and "Faces" read as conflicting** on one page ("a side street" against "both
+   the street and the rear"). Explain them together, or merge them.
+5. **Elevator "not stated" next to a walk-up tax class reads as ambiguous.** Say "walk-up (tax
+   records)" in the row.
+6. **Size is missing on most listings,** and there is no price per square foot.
+7. **The "* less reliable estimate" footnote shows on every list,** even when no row has a `*`.
+   Show it only when a row is marked.
+8. **No side-by-side compare** of shortlisted or rated listings.
+
+Checked, not bugs: "Elevator: Yes" did not keep listings that don't state an elevator (the line
+says such filters leave them out). "3rd percentile, lower than 96%" is rounding on purpose (round 7).
+
 ## Carried over (rounds 5 and 7, 2026-10-05)
 
 Ranked roughly by how many personas hit the finding and how badly.
