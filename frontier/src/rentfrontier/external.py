@@ -30,6 +30,11 @@ Sources:
   facade's view of a street), and the registry's buildings by BIN, and by tax
   lot (base BBL) for placeholder BINs (n000000): outline, roof height and
   construction year.
+- lpc: LPC Designated and Calendared Buildings and Sites (NYC Open Data
+  ncre-qhxs), the Landmarks Preservation Commission's record of each lot in
+  the registry: individual or interior landmark, or a building in a historic
+  district, with the designation date (MapPLUTO's landmark and historic
+  district fields are today's status, with no date).
 """
 
 from __future__ import annotations
@@ -347,6 +352,49 @@ def fetch_hpd(registry: pd.DataFrame, batch: int = 100, page: int = 50_000):
     return table.reset_index(drop=True), queries, version
 
 
+LPC_ID = "ncre-qhxs"
+LPC_COLUMNS = (
+    "bbl",
+    "bin_number",
+    "lp_number",
+    "lm_name",
+    "lm_type",
+    "hist_distr",
+    "status",
+    "last_actio",
+    "most_curre",
+    "desdate",
+    "caldate",
+)
+
+
+def _version(dataset: str) -> dict:
+    with urllib.request.urlopen(
+        f"{NYC_OPEN_DATA}/api/views/{dataset}.json", timeout=60
+    ) as r:
+        meta = json.loads(r.read())
+    return {
+        "name": meta.get("name"),
+        "rows_updated_at": dt.datetime.fromtimestamp(
+            meta["rowsUpdatedAt"], dt.UTC
+        ).isoformat(),
+    }
+
+
+def fetch_lpc(registry: pd.DataFrame, batch: int = 100):
+    """Every LPC record of the registry's lots (one lot can have several: a
+    landmark inside a historic district, or a district and its extension)."""
+    rows, queries = [], []
+    bbls = sorted(set(registry.bbl.dropna().astype(str)))
+    for i in range(0, len(bbls), batch):
+        where = f"bbl in ({', '.join(repr(v) for v in bbls[i : i + batch])})"
+        params = {"$select": ", ".join(LPC_COLUMNS), "$where": where, "$limit": 50_000}
+        rows += [{k: r.get(k) for k in LPC_COLUMNS} for r in _socrata(LPC_ID, params)]
+        queries.append(f"{LPC_ID}?{urllib.parse.urlencode(params)}")
+    table = pd.DataFrame(rows, columns=list(LPC_COLUMNS)).drop_duplicates()
+    return table.reset_index(drop=True), queries, _version(LPC_ID)
+
+
 # NYC 311 service requests: 2010-2019 and 2020 on are separate datasets.
 NOISE_IDS = ("76ig-c548", "erm2-nwe9")
 NOISE_COLUMNS = (
@@ -458,7 +506,7 @@ def main(argv=None):
     )
     parser.add_argument(
         "source",
-        choices=("pluto", "subway", "basemap", "hpd", "footprints", "noise311"),
+        choices=("pluto", "subway", "basemap", "hpd", "footprints", "noise311", "lpc"),
     )
     parser.add_argument(
         "--registry",
@@ -500,6 +548,18 @@ def main(argv=None):
             "buildings": int(table.bin.nunique()),
         }
         summary = f"{len(table)} violations in {table.bin.nunique()} buildings"
+    elif args.source == "lpc":
+        registry = pd.read_parquet(registry_path)
+        table, queries, version = fetch_lpc(registry)
+        details = {
+            "source": f"{SOCRATA}/{LPC_ID}",
+            "dataset": "LPC Designated and Calendared Buildings and Sites via NYC Open Data",
+            "version": version,
+            "registry": str(registry_path),
+            "records": len(table),
+            "lots": int(table.bbl.nunique()),
+        }
+        summary = f"{len(table)} LPC records on {table.bbl.nunique()} lots"
     elif args.source == "footprints":
         registry = pd.read_parquet(registry_path)
         table, queries, version = fetch_footprints(registry)

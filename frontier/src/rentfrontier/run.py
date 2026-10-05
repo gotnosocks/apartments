@@ -287,6 +287,9 @@ def feature_sources(feature_set: str) -> dict:
     if feature_set in features.PRICE_HISTORY:
         path = features.EXTRAS_SNAPSHOTS.get(feature_set, features.PRICE_HISTORY_FILE)
         out["price_history"] = {"path": path, "sha256": data.sha256(Path(path))}
+    if feature_set in features.LPC_SNAPSHOTS:
+        path = features.LPC_SNAPSHOTS[feature_set]
+        out["lpc"] = {"path": path, "sha256": data.sha256(Path(path))}
     if feature_set in features.HPD:
         path = features.HPD_FILE
         out["hpd"] = {"path": path, "sha256": data.sha256(Path(path))}
