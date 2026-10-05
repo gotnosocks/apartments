@@ -105,9 +105,9 @@
     <a class="download" href="{{ csv_url }}" download>Download CSV</a>
   </p>
 </div>
-{% if summary %}<p class="summary-line"><strong>{{ "{:,}".format(summary.n) }}</strong> listing{{ "" if summary.n == 1 else "s" }} match:
-median ask <strong>{{ usd(summary.median) }}</strong>, middle 80% of asks {{ usd(summary.low) }}–{{ usd(summary.high) }}{% if filters.min_sqft is not none or filters.max_sqft is not none %}
-<span class="muted">(a size filter leaves out listings that don't state a size)</span>{% endif %}.</p>{% endif %}
+{% if summary %}<p class="summary-line"><strong>{{ "{:,}".format(summary.n) }}</strong> {{ "listing matches" if summary.n == 1 else "listings match" }}:
+median ask <strong>{{ usd(summary.median) }}</strong>{% if summary.low is not none %}, middle 80% of asks {{ usd(summary.low) }}–{{ usd(summary.high) }}{% endif %}{% if filters.min_sqft is not none or filters.max_sqft is not none or filters.elevator %}
+<span class="muted">(size and elevator filters leave out listings that don't state them)</span>{% endif %}.</p>{% endif %}
 {{ m.listing_table(rows, filters, 'listings') }}
 {{ m.pager(filters, pages, 'listings') }}
 <p class="note"><span class="warn-mark">*</span> marks a less reliable estimate.</p>

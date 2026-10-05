@@ -19,6 +19,7 @@ import math
 import os
 import re
 import sqlite3
+import statistics
 import time
 from pathlib import Path
 from urllib.parse import quote, urlencode, urlsplit
@@ -309,11 +310,11 @@ def asks_summary(db, filters: Filters) -> dict | None:
     )
     if not asks:
         return None
-
-    def q(p):
-        return asks[min(len(asks) - 1, int(p * (len(asks) - 1) + 0.5))]
-
-    return {"n": len(asks), "median": q(0.5), "low": q(0.1), "high": q(0.9)}
+    out = {"n": len(asks), "median": statistics.median(asks), "low": None, "high": None}
+    if len(asks) >= 5:  # a middle 80% of fewer asks says little
+        deciles = statistics.quantiles(asks, n=10, method="inclusive")
+        out["low"], out["high"] = deciles[0], deciles[-1]
+    return out
 
 
 def count_query(filters: Filters):

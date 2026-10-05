@@ -10,7 +10,7 @@ def test_filters_narrow_and_keep_their_values(client):
     assert 'value="1" selected' in html and 'value="yes" selected' in html
     assert 'name="min_sqft"' in html and 'value="100"' in html
     assert "listings match" in html or "listing match" in html
-    assert "a size filter leaves out listings" in html
+    assert "filters leave out listings that don" in html
 
 
 def test_summary_only_with_filters(client):
@@ -30,4 +30,9 @@ def test_asks_summary_percentiles():
             return "", []
 
     s = asks_summary(Db(), F())
-    assert s == {"n": 10, "median": 6, "low": 2, "high": 9}
+    assert (
+        s["n"] == 10
+        and s["median"] == 5.5
+        and s["low"] == 1.9
+        and abs(s["high"] - 9.1) < 1e-9
+    )
