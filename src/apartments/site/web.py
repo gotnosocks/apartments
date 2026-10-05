@@ -1263,15 +1263,32 @@ def create_app(
         )
         matches = []
         if b is None and q:
-            matches = (
-                db()
+            matches = [
+                dict(m_)
+                for m_ in db()
                 .execute(
-                    "SELECT id, name, address, neighbourhood FROM buildings "
-                    "WHERE search LIKE ? ESCAPE '\\' ORDER BY sort_key LIMIT 25",
+                    "SELECT b.id, b.name, b.address, b.neighbourhood, b.bbl, "
+                    "b.year_built, b.floors, b.listings, b.first_period, "
+                    "(SELECT l.elevator FROM listings l WHERE l.building_id = b.id "
+                    "AND l.elevator IS NOT NULL ORDER BY l.period DESC LIMIT 1) "
+                    "AS elevator FROM buildings b "
+                    "WHERE b.search LIKE ? ESCAPE '\\' ORDER BY b.sort_key LIMIT 25",
                     ("%" + _escape_like(q.lower()) + "%",),
                 )
                 .fetchall()
-            )
+            ]
+            # Two choices can share an address and tax lot (playtest round 4: "Ava
+            # High Line" and "507 West Chelsea", separate towers with no units in
+            # common); say so, so they can be told apart.
+            for m_ in matches:
+                m_["same"] = [
+                    o["name"] or o["address"]
+                    for o in matches
+                    if o is not m_
+                    and o["bbl"] is not None
+                    and o["bbl"] == m_["bbl"]
+                    and o["address"].lower() == m_["address"].lower()
+                ]
             if len(matches) == 1:
                 b = (
                     db()

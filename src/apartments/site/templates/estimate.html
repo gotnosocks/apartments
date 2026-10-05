@@ -169,7 +169,8 @@ you set them.</p>
 <section class="card" aria-labelledby="matches-h">
   <h2 id="matches-h">Which building?</h2>
   <ul class="tight">
-  {% for m_ in matches %}<li><a href="{{ pick(m_.id) }}">{{ m_.name or m_.address }}</a>{% if m_.name %} · {{ m_.address }}{% endif %}{% if m_.neighbourhood %} · {{ m_.neighbourhood }}{% endif %}</li>{% endfor %}
+  {% for m_ in matches %}<li><a href="{{ pick(m_.id) }}">{{ m_.name or m_.address }}</a>{% if m_.name %} · {{ m_.address }}{% endif %}{% if m_.neighbourhood %} · {{ m_.neighbourhood }}{% endif %}
+    <br><span class="note">{% if m_.year_built %}built {{ m_.year_built }} · {% endif %}{% if m_.floors %}{{ m_.floors }} floors · {% endif %}{% if m_.elevator == "yes" %}elevator · {% elif m_.elevator == "no" %}walk-up · {% endif %}{{ "{:,}".format(m_.listings or 0) }} listing{{ "" if m_.listings == 1 else "s" }}{% if m_.first_period %} since {{ m_.first_period[:4] }}{% endif %}{% if m_.same %}. Same address and tax lot as {{ m_.same | join(" and ") }}, but listed as a separate building with its own apartments{% endif %}</span></li>{% endfor %}
   </ul>
   {% if matches | length == 25 %}<p class="note">The first 25 matches; type more of the name or address to narrow them.</p>{% endif %}
 </section>
