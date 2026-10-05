@@ -95,7 +95,7 @@ def test_phrases_follow_the_models_inputs():
     assert words("unit label", {"label:garden": 1}).endswith("a garden unit.")
     # every input of a grouped part is named, since any could be the cause
     assert words("building status", {"landmark": 1, "flood_zone_2015": 1}, sign=-1) == (
-        "It prices it down for a landmark building and the 2015 flood-zone map."
+        "It prices it down for a landmark building and being in a 2015 flood zone."
     )
     # no elevator by the model's input, not the row's
     assert words("elevator", {"elevator=unknown": 1}, row={"elevator": "no"}) == ""

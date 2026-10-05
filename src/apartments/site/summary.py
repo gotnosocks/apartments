@@ -219,10 +219,10 @@ def phrase(term: str, row, inputs: dict, sign: int) -> str | None:
         words = []
         if inputs.get("landmark"):
             words.append("a landmark building")
-        elif inputs.get("historic_district"):
+        if inputs.get("historic_district"):
             words.append("being in a historic district")
         if inputs.get("flood_zone_2015"):
-            words.append("the 2015 flood-zone map")
+            words.append("being in a 2015 flood zone")
         if inputs.get("altered_since_2000"):
             words.append("a building altered since 2000")
         return _join(words) or None
