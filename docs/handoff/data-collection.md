@@ -1,32 +1,33 @@
 # Data collection — handoff
 
-Updated 2026-10-05 10:00 ET. Thread owner: the Data collection project thread (bridge session on thelio).
+Updated 2026-10-05 12:45 ET. Thread owner: the Data collection project thread (bridge session on thelio).
 
 ## State
-- **Greenwich Village crawl: FINISHED** Oct 4 23:54 ET (`finish_reason: finished`). 25,187 observations,
-  774 in-scope buildings, 8,635 units with canonical rental membership. The 5,668 frontier rows still
-  "pending" are out of scope (citywide/other-area links) and never claimed. Do not relaunch.
-  Controls and history: `data/probes/greenwich-village-20261001/README.md` (local, gitignored).
-  Archive: `/data1/apartments/archive/crawls/greenwich-village-20261001`. Findings:
-  `docs/data/greenwich-village-collection.md`.
-- Safety timer `apartments-gv-monitor.timer` (monitor.py, :47 every 2 h) still runs and logs
-  "crawl FINISHED: no relaunch"; it honours a `PAUSED` file. Ben may want it disabled.
-- **Current listings** (one-off, Ben "Capture once", no weekly refresh): captured Oct 5 01:47–02:30 UTC,
-  344 requests. Chelsea+West Chelsea 181 ACTIVE, West Village 109 ACTIVE + 1 RENTED, 8 identity
-  mismatches. Output `/data1/apartments/archive/current-listings/20261004/details/snapshot/candidates.jsonl`
-  (seed per ad in `review/detail-review-queue.jsonl`). Site/data side turns them into
-  `current_capture_gross_ask` rows (as `models/fit_robust_analysis.current_rows` did for Chelsea);
-  handed to the coordinator for the Website thread. Kit: `data/probes/current-listings-20261004/`.
+- **Flatiron + Gramercy Park crawl: RUNNING** since Oct 5 12:25 ET (Ben typed the go in this thread).
+  Unit `apartments-flatiron-gramercy-park-20261005`, runner `run-8pm-2w.py` (8/min, two workers),
+  fallbacks `run-8pm.py` then `run-4pm.py`. Neighborhood `flatiron-gramercy-park` (#281): StreetEasy
+  areas `flatiron` + `gramercy-park`, no child areas (NoMad). Frozen runtime master `efc2de7`.
+  Controls: `data/probes/flatiron-gramercy-park-20261005/README.md` (local). Archive
+  `/data1/apartments/archive/crawls/flatiron-gramercy-park-20261005`. Monitor
+  `apartments-fgp-monitor.timer` (every 2 h at :17). Estimate from 52 + 50 directory pages
+  (GV had 92 for 774 buildings, 25,187 requests): ~850 buildings, 25–35k requests, $30–40,
+  2.5–3.5 days.
+- **Greenwich Village: crawl FINISHED, dataset BUILT** Oct 5: see "Dataset (Oct 5 2026)" in
+  `docs/data/greenwich-village-collection.md`. Dataset
+  `greenwich-village-granular-20261005-canonical-url-v1`, aliases `...-unit-spelling-aliases-v2`.
+  Handed to Data improvements and Modeling via the coordinator. The GV monitor timer stays
+  installed (Ben); it logs "crawl FINISHED: no relaunch".
+- **Current listings** (one-off, done): `/data1/apartments/archive/current-listings/20261004/`;
+  Chelsea+West Chelsea 181 ACTIVE, West Village 109 ACTIVE + 1 RENTED.
 
-## Waiting on Ben
-- "build GV"? Ben said (Oct 4) to build the GV dataset once, after the crawl, and to ask first. Asked
-  Oct 5 ~13:55 UTC. Plan: snapshot under the crawler lock, transform to a new dataset ID, collection
-  audit (`--data` dir must hold `archive.sqlite3` and `bodies/`), unit spelling-alias table with the
-  #213 v2 rule (history-confirmed groups only; ~166 of 190 spelling-excluded ads recovered). All via
-  `ops/job light`, no requests.
+## Next
+- Watch the FGP crawl (429s, account errors, stalls); refine the estimate once the building list
+  fills in. When it finishes: ask Ben once, then build the same way as GV (build script
+  `/data1/apartments/tmp/gv-build-20261005/build.sh` is the template).
 
 ## Rules that bind this thread
-- Oxylabs requests need Ben's explicit word in the thread (the classifier blocks relayed approvals).
-- Never raise rate/concurrency beyond Ben's setting (8/min); never loosen eligibility; deploy crawl
-  code only through a new frozen runtime directory.
+- Oxylabs requests and new timers need Ben's words typed in this thread (the classifier blocks
+  relayed approvals).
+- Never raise rate/concurrency beyond Ben's setting (8/min); never loosen eligibility; crawl code
+  only through a new frozen runtime directory.
 - PRs: reviewer subagent, annotated `archive/pr-N` tag, `gh pr merge N --squash --match-head-commit`.
