@@ -846,8 +846,35 @@ def create_app(
             .fetchall()
         )
         inputs = json.loads(row["inputs"])
+        # The same advertisement seen earlier: when it first appeared and at
+        # what ask, so a price cut or rise shows (playtest round 3).
+        ad_start = next(
+            (
+                o
+                for o in others
+                if row["listing_id"]
+                and o["listing_id"] == row["listing_id"]
+                and o["period"] < row["period"]
+            ),
+            None,
+        )
+        # The latest other listing of this apartment with a different bedroom
+        # count: the ads relabelled it, or it was rebuilt.
+        relabelled = next(
+            (
+                o
+                for o in reversed(others)
+                if o["id"] != row["id"]
+                and o["bedrooms"] is not None
+                and row["bedrooms"] is not None
+                and o["bedrooms"] != row["bedrooms"]
+            ),
+            None,
+        )
         return render_template(
             "listing.html",
+            ad_start=ad_start,
+            relabelled=relabelled,
             meta=meta(),
             row=row,
             terms=terms,
