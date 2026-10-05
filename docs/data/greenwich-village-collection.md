@@ -8,6 +8,31 @@ area NoHo (118). Unit `apartments-greenwich-village-20261001`; archive
 `/data1/apartments/archive/crawls/greenwich-village-20261001`; controls and rate in
 `data/probes/greenwich-village-20261001/README.md` (local, not in git).
 
+## Dataset (Oct 5 2026)
+
+The crawl finished on Oct 4 at 23:54 EDT (`finish_reason: finished`): 25,187 observations,
+774 in-scope buildings. The 5,668 frontier rows still pending are out of scope. Built on Oct 5
+(Ben: "Build now"), with no requests, from master `4555f7f`:
+
+- Snapshot: `/data1/apartments/archive/snapshots/greenwich-village-20261001-final/archive.sqlite3`
+  (read-only; SHA-256 in the adjacent `.sha256` file), copied under the crawler lock. Page
+  bodies stay in the crawl's `bodies/`.
+- Granular transform (`models/transform_local.py`, 2 workers, empty corrections ledger):
+  `/data1/apartments/archive/datasets/greenwich-village-granular-20261005-canonical-url-v1`.
+  It has 24,596 snapshots, 22,900 listing observations, 120 listing exclusions, 395,444 event
+  mentions, and 8,790 rental units (`canonical-url-v1`) with 21,668 memberships.
+- Collection audit: `/data1/apartments/tmp/gv-build-20261005/audit.json`, run on `audit-input/`
+  (the snapshot database plus the crawl's `bodies/`). Of the captured ads the policy did not
+  accept, 1,118 are not verified rentals, 198 name a different canonical unit and 122 have no
+  canonical unit; 591 captures were errors (mostly 404s).
+- Unit spelling aliases, rule `unit-spelling-alias-v2` (#213):
+  `/data1/apartments/archive/datasets/greenwich-village-granular-20261005-unit-spelling-aliases-v2`.
+  175 groups (367 units, 909 listings), 136 of them confirmed by a crawled unit page's history
+  (285 units, 705 listings). Of the 198 canonical-unit-mismatch ads, v1 spelling matches 93, v2
+  173, and all 173 fall in history-confirmed groups; the other 25 are different units. Models
+  opt in as for West Village: map `unit_id` to `representative_unit_id` for `history_confirmed`
+  groups. The canonical-url-v1 dataset is unchanged.
+
 ## Progress (Oct 3 2026, 14:30 EDT)
 
 - 10,196 observations since Oct 1. Since 2 workers began (Oct 2 18:09): 8 requests/minute, no
