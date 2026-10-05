@@ -84,9 +84,9 @@ Every listing in the data still has its own estimate: <a href="{{ url_for('listi
     <dt>Doorman</dt><dd>{{ facts.doorman }}</dd>
   </dl>
   <p class="note">The building's records (MapPLUTO) give these, and its newest listing gives the elevator, doorman, heating
-  and pet policy; the form does not ask them. If they look wrong for this building, its
-  <a href="{{ url_for('building', building_id=b.id) }}">listings</a> are where they came from, and the estimate carries any
-  error in them.</p>
+  and pet policy; the form does not ask them. If the elevator or doorman looks wrong, the
+  building's <a href="{{ url_for('building', building_id=b.id) }}">listings</a> are where it came from, and the estimate
+  carries any error in them.</p>
 
   <h3>Things to know</h3>
   <ul class="tight">
