@@ -228,7 +228,6 @@ def test_max_caps_the_batch_window():
     assert fake.t == 180.0
 
 
-
 def test_defaults_stay_under_the_background_task_limit():
     src = SCRIPT.read_text()
     assert 'add_argument("--max", type=float, default=25.0)' in src
