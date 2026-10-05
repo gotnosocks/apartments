@@ -34,7 +34,7 @@ def test_building_page_shows_typical_rent_by_size(client, site_root):
     html = " ".join(client.get(f"/buildings/{GROVE}").get_data(as_text=True).split())
     assert 'id="typical-rent"' in html and "Typical rent here, 2026 so far" in html
     assert "$4,200" in html and "$4,100–$4,300" in html
-    assert "extrapolation" not in html
+    assert "extrapolation" not in html and "rest on only 3 listings here" in html
 
 
 def test_extrapolated_building_says_so(client, site_root):
@@ -47,3 +47,10 @@ def test_no_map_no_card(client):
     assert 'id="typical-rent"' not in client.get(f"/buildings/{GROVE}").get_data(
         as_text=True
     )
+
+
+def test_a_map_in_another_format_gives_no_card(client, site_root):
+    target = (site_root / "current" / "site.sqlite").resolve().parent / "map.json"
+    target.write_text(json.dumps({"buildings": [{"id": GROVE}], "years": [2026]}))
+    html = client.get(f"/buildings/{GROVE}").get_data(as_text=True)
+    assert 'id="typical-rent"' not in html

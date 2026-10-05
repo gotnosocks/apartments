@@ -443,19 +443,22 @@ def create_app(
         path = database_path().parent / "map.json"
         try:
             data = _rent_map(str(path), path.stat().st_mtime)
-        except (OSError, ValueError):
-            return None
-        index = data["_index"].get(building_id)
-        if index is None:
-            return None
-        b = data["buildings"][index]
-        yi = len(data["years"]) - 1
-        year = data["years"][yi]
-        rows = []
-        for bed in data["bedrooms"]:
-            low, mid, high = data["rent"][bed["key"]][index][yi]
-            rows.append({"label": bed["label"], "rent": mid, "low": low, "high": high})
+            index = data["_index"].get(building_id)
+            if index is None:
+                return None
+            b = data["buildings"][index]
+            yi = len(data["years"]) - 1
+            year = data["years"][yi]
+            rows = []
+            for bed in data["bedrooms"]:
+                low, mid, high = data["rent"][bed["key"]][index][yi]
+                rows.append(
+                    {"label": bed["label"], "rent": mid, "low": low, "high": high}
+                )
+        except (OSError, ValueError, KeyError, IndexError, TypeError):
+            return None  # no map, or one this code does not understand
         return {
+            "fit_listings": b.get("fit_listings"),
             "year": year,
             "months": data["year_months"][yi],
             "extrapolated": not (b["first_year"] <= year <= b["last_year"]),
