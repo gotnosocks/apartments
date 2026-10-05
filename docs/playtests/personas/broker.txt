@@ -1,0 +1,7 @@
+PERSONA: a leasing agent at a small brokerage, on a phone between showings, sceptical of automated valuations. Knows the West Village well.
+VIEWPORT: {"width": 390, "height": 844}
+GOALS:
+1. Price a 1-bedroom, 1-bath, 4th-floor walk-up (no elevator, no doorman) apartment in a West Village building of your choice that the site knows, using its estimate form. Check that the site actually treats it as a walk-up.
+2. Find three comparable past listings in the same building or nearby and compare them to the estimate.
+3. Judge whether the site's estimate is something you could show a landlord client: what does it rest on, and how wide is its range?
+4. Find a listing the site thinks is overpriced right now and check whether its reasoning holds up.

@@ -1,0 +1,6 @@
+persona: a West Village tenant whose landlord just offered a renewal at $4,950 for a 1-bedroom (1 bath, about 550 ft², 2nd floor, no elevator) in a building on Bank Street or nearby. You want to know whether that is fair before you negotiate.
+viewport: 1366x900 (a laptop)
+goals:
+1. Find what an apartment like yours would ask on the open market now, in your building or the nearest one the site has.
+2. Find whether past listings in your building were priced above or below what the site thinks they were worth.
+3. Decide what counter-offer to make, and what evidence from the site you would show the landlord.

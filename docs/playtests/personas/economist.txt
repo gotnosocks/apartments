@@ -1,0 +1,7 @@
+PERSONA: an urban economist who studies rent regulation, reviewing whether this site's numbers can be cited. Comfortable with Bayesian statistics.
+VIEWPORT: {"width": 1440, "height": 900}
+GOALS:
+1. Find out what model is served, how it was chosen over alternatives, and on what data (time span, neighbourhoods, how many listings, which rows were excluded and why).
+2. Check one claim on the rent map (for example the change in typical 1-bedroom rent in one area over time) against the listings it rests on.
+3. Assess whether the per-listing estimates are honest about uncertainty: look at ranges, diagnostics and the validation page.
+4. Note anything you would need before citing a number from the site in a paper.

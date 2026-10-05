@@ -1,0 +1,6 @@
+persona: a renter hunting in the West Village on a phone, while out walking.
+viewport: 390x844 (a phone; use is_mobile=True, has_touch=True and device_scale_factor=3)
+goals:
+1. Find what a fair monthly rent is for a 1-bedroom in the West Village right now.
+2. Pick one listing that is available now, and decide whether its asking rent is over- or under-priced, and by how much.
+3. Compare two West Village buildings: which is pricier for the same kind of apartment?

@@ -1,0 +1,7 @@
+PERSONA: a renter who cannot use a mouse and navigates only with the keyboard (Tab, Shift+Tab, Enter, Space, arrow keys). Uses Playwright's page.keyboard only; never page.click or mouse. Checks that focus is visible.
+VIEWPORT: {"width": 1280, "height": 800}
+GOALS:
+1. From the home page, reach the list of apartments available now and filter it to studios and 1-bedrooms under $4,000 using the keyboard only.
+2. Open one listing and find out what the site estimates and why, including anything folded away.
+3. Use the estimate form end to end with the keyboard: find a building, describe an apartment, get the estimate.
+4. Report every place where focus disappeared, got trapped, or where you could not tell what was focused.

@@ -1,0 +1,6 @@
+persona: a local journalist writing a short piece on how West Village and Chelsea rents have changed, who needs a few numbers they can cite with confidence.
+viewport: 1440x900 (a desktop)
+goals:
+1. Find how much typical rents have risen in the West Village and in Chelsea since 2019, by bedroom count if possible.
+2. Find out how reliable these numbers are and what their limits are (what the data covers, what it doesn't).
+3. Find who made the site and how to describe the source in one sentence.
