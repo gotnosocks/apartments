@@ -130,3 +130,15 @@ shows whether it is still on the market.{% endif %}
 none of {{ "its" if without | length == 1 else "their" }} listings show as available; {{ "its" if without | length == 1 else "their" }}
 recent listings are under <a href="{{ url_for('listings', nb=without[0]) if without | length == 1 else url_for('listings') }}">all listings</a>, at their first ask.{% endif %}</p>
 {%- endmacro %}
+
+{% macro opposite_note(opposite) -%}
+{% if opposite %}
+<p class="note" id="opposite-moves"><strong>Ask and estimate moved opposite ways</strong> between
+{{ month(opposite[0].before.period) }} and {{ month(opposite[0].after.period) }}{% if opposite | length > 1 %}, and
+{{ opposite | length - 1 }} more time{{ "" if opposite | length == 2 else "s" }}{% endif %}.
+Each estimate is made without that listing's own price, but it does use the apartment's other listings. So when an
+apartment was listed high one time and low another, each estimate leans toward the other listing's price, and the
+estimates can move the opposite way from the asks. The building's other apartments and the market can also move in
+between.</p>
+{% endif %}
+{%- endmacro %}

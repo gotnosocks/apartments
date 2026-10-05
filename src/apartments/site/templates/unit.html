@@ -23,6 +23,7 @@
   <p class="note">Each estimate uses the unit's other listings but not its own ask. Latest listing:
   ask {{ usd(unit.last_ask) }}, estimate {{ usd(unit.last_estimate) }} ({{ pct(100 * unit.last_residual_pct) }}).</p>
   {{ chart }}
+  {{ m.opposite_note(opposite) }}
   {% if layout_changes %}
   <p class="note layout-change"><strong>Layout changed</strong> between listings:
   {% for c in layout_changes[:2] %}{{ m.layout(c.before) }} in {{ month(c.before.period) }} to {{ m.layout(c.after) }} in
