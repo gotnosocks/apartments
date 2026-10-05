@@ -23,6 +23,8 @@ while [ $# -gt 0 ]; do
   PERSONAS+=("$1"); shift
 done
 [ ${#PERSONAS[@]} -gt 0 ] || { echo "no personas" >&2; exit 2; }
+# At most 3 personas a round, with one bundled PR and one review (Ben, 2026-10-05).
+[ ${#PERSONAS[@]} -le 3 ] || { echo "at most 3 personas a round" >&2; exit 2; }
 # Check every persona before starting any, so a round never half-launches.
 for p in "$ROUND" "${PERSONAS[@]}"; do
   [[ $p =~ ^[A-Za-z0-9_.-]+$ ]] || { echo "bad name: $p" >&2; exit 2; }

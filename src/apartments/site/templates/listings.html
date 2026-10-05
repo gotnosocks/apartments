@@ -55,10 +55,27 @@
     <label for="f-elev">Elevator</label>
     <select id="f-elev" name="elevator">
       <option value="">Any</option>
-      <option value="yes"{% if filters.elevator == "yes" %} selected{% endif %}>Yes</option>
-      <option value="no"{% if filters.elevator == "no" %} selected{% endif %}>No (walk-up)</option>
+      {% for key, label in ELEVATOR.items() %}<option value="{{ key }}"{% if filters.elevator == key %} selected{% endif %}>{{ label }}</option>{% endfor %}
     </select>
   </div>
+  <div class="field">
+    <label for="f-laundry">Laundry</label>
+    <select id="f-laundry" name="laundry">
+      <option value="">Any</option>
+      {% for key, spec in LAUNDRY.items() %}<option value="{{ key }}"{% if filters.laundry == key %} selected{% endif %}>{{ spec[0] }}</option>{% endfor %}
+    </select>
+  </div>
+  <div class="field">
+    <label for="f-doorman">Doorman</label>
+    <select id="f-doorman" name="doorman">
+      <option value="">Any</option>
+      {% for key, spec in DOORMAN.items() %}<option value="{{ key }}"{% if filters.doorman == key %} selected{% endif %}>{{ spec[0] }}</option>{% endfor %}
+    </select>
+  </div>
+  <fieldset class="field">
+    <legend>Outdoor space</legend>
+    <div class="checks"><label class="check"><input type="checkbox" name="outdoor" value="yes"{% if filters.outdoor %} checked{% endif %}> Has some</label></div>
+  </fieldset>
   <div class="field">
     <label for="f-from">Years</label>
     <input id="f-from" name="from" inputmode="numeric" size="4" maxlength="4" value="{{ filters.year_from or '' }}" placeholder="from">
@@ -113,8 +130,8 @@
 these filters: few apartments are listed at any one time. <a href="{{ page_url('listings', filters, status='past', page=None) }}">{{ "{:,}".format(past) }}
 past listing{{ " matches" if past == 1 else "s match" }} the same filters</a>, at their first ask.</p>{% endif %}
 {% if summary %}<p class="summary-line"><strong>{{ "{:,}".format(summary.n) }}</strong> {{ "listing matches" if summary.n == 1 else "listings match" }}:
-median ask <strong>{{ usd(summary.median) }}</strong>{% if summary.low is not none %}, middle 80% of asks {{ usd(summary.low) }}–{{ usd(summary.high) }}{% endif %}{% if summary.estimate is not none %}; median estimate <strong>{{ usd(summary.estimate) }}</strong>{% endif %}{% if filters.min_sqft is not none or filters.max_sqft is not none or filters.elevator %}
-<span class="muted">(size and elevator filters leave out listings that don't state them)</span>{% endif %}.</p>{% endif %}
+median ask <strong>{{ usd(summary.median) }}</strong>{% if summary.low is not none %}, middle 80% of asks {{ usd(summary.low) }}–{{ usd(summary.high) }}{% endif %}{% if summary.estimate is not none %}; median estimate <strong>{{ usd(summary.estimate) }}</strong>{% endif %}{% if filters.min_sqft is not none or filters.max_sqft is not none or filters.elevator in ("yes", "no") or filters.laundry or filters.doorman or filters.outdoor %}
+<span class="muted">(size, elevator, laundry, doorman and outdoor filters leave out listings that don't state them{% if filters.elevator == "yes" %}; <a href="{{ page_url('listings', filters, elevator='yes_or_unstated', page=None) }}">include listings that don't state an elevator</a>{% endif %})</span>{% endif %}.</p>{% endif %}
 {{ m.listing_table(rows, filters, 'listings') }}
 {{ m.pager(filters, pages, 'listings') }}
 <p class="note"><span class="warn-mark">*</span> marks a less reliable estimate.</p>

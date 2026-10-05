@@ -123,6 +123,8 @@ h3 { font-size: 1rem; margin: 1rem 0 0.4rem; }
 .prose p, .prose ul { max-width: 50rem; }
 .columns { display: grid; grid-template-columns: repeat(auto-fit, minmax(22rem, 1fr)); gap: 0 1rem; }
 .columns > .card { margin: 0.5rem 0; }
+.columns > .card.shrink { align-self: start; }
+.feat { display: block; color: var(--muted); font-size: 0.8rem; }
 .warn { background: var(--warn-bg); color: var(--ink); padding: 0.5rem 0.7rem; border-radius: 6px; }
 .warn-mark { color: var(--warn); font-weight: 700; cursor: help; }
 .error { max-width: 36rem; }

@@ -7,6 +7,10 @@ how many personas hit them and how badly, and turns the top items into one bundl
 review per round (Ben 2026-10-05, to save tokens). Split out only a fix that has to ship before
 the rest is ready.
 
+- **At most 3 personas a round** (Ben 2026-10-05). Rotate through `personas/` from round to round,
+  and include `best-1bed` whenever the round's changes touch listings, summaries or ratings.
+  `ops/playtest.sh` refuses more than 3. Feature work Ben asks for directly keeps its own PRs.
+
 - **Model:** playtesters run on Sonnet 5.5 (`claude-sonnet-5-5`, Ben 2026-10-05). The website
   thread's main session runs on Sonnet too (Ben 2026-10-05). Reviewers follow CLAUDE.md: Sonnet for
   site and docs PRs.

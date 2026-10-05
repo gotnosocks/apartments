@@ -12,8 +12,8 @@
 <h1>{{ row.unit_label or "Unit" }} at {{ bname }}</h1>
 <p class="subline">
   {% if row.building_name %}{{ row.building_address }} · {% endif %}
-  {% if row.is_current %}Available now, captured {{ row.collected_at[:10] if row.collected_at else month(row.period) }}{% else %}Listed {{ month(row.period) }}{% endif %}
-  · {{ m.layout(row) }}{% if row.floor is not none %} · floor {{ row.floor }}{% endif %}
+  {% if row.is_current %}Available now, captured {{ captured or month(row.period) }}{% else %}Listed {{ month(row.period) }}{% endif %}
+  · {{ m.layout(row) }}{% if row.floor is not none %} · floor {{ row.floor }}{% elif read_floor %} · floor {{ read_floor }}{% endif %}
 </p>
 {% if ad_start %}{% set change = row.ask / ad_start.ask - 1 %}
 <p class="note" id="ad-start">This advertisement first appeared in {{ month(ad_start.period) }} asking {{ usd(ad_start.ask) }};
@@ -138,24 +138,28 @@ called a one-bedroom, say), and sometimes the apartment was rebuilt; the estimat
     <dt>Note</dt><dd class="muted">An unusual combination for a studio: it may be a loft, or the ad may have
       a detail wrong.</dd>
     {% endif %}
-    <dt>Floor</dt><dd>{{ row.floor if row.floor is not none else "not stated" }}</dd>
+    <dt>Floor</dt><dd>{% if row.floor is not none %}{{ row.floor }}{% elif read_floor %}{{ read_floor }} <span class="muted">(not in the ad: read from the unit number)</span>{% else %}not stated{% endif %}</dd>
     {% for kind, value in [("elevator", row.elevator), ("doorman", row.doorman), ("laundry", row.laundry), ("hvac", row.hvac), ("pets", row.pets)] %}
     {% set text = attr_label(kind, value) %}
     <dt>{{ kind | capitalize if kind != "hvac" else "Heating and cooling" }}</dt><dd>{{ text or "not stated" }}</dd>
     {% endfor %}
     {% if views %}<dt>Views</dt><dd>{{ views | join(", ") }} <span class="muted">(as listed by the broker)</span></dd>{% endif %}
     {% if windows %}<dt>Exposures</dt><dd>{{ windows | join(", ") }}</dd>{% endif %}
+    <dt>Outdoor space</dt><dd>{{ outdoor | join(", ") | capitalize if outdoor else "none stated" }}</dd>
+    <dt><a href="{{ url_for('research_glossary', _anchor='facing' | term_id) }}">Looks onto</a></dt><dd>{{ facing | capitalize if facing else "not known" }}</dd>
     {% if row.concession %}<dt>Concession</dt><dd>{{ row.concession }}</dd>{% endif %}
     {% if flags %}<dt>In the ad text</dt><dd>{{ flags | join(", ") }}</dd>{% endif %}
     {% if label_flags %}<dt>Unit label</dt><dd>{{ label_flags | join(", ") }}</dd>{% endif %}
   </dl>
+  <p class="note">The data don't say whether an apartment runs front to back (a floor-through) or which way
+  its bedroom faces.</p>
   <p class="links">
     {% if row.listing_url %}<a href="{{ row.listing_url }}" rel="noopener noreferrer" target="_blank">Listing on StreetEasy ↗</a>{% endif %}
     {% if row.unit_url %}<a href="{{ row.unit_url }}" rel="noopener noreferrer" target="_blank">Unit on StreetEasy ↗</a>{% endif %}
   </p>
 </section>
 
-<section class="card">
+<section class="card shrink">
   <details class="table-view" id="model-details">
   <summary>Model details, for statisticians</summary>
   <dl class="facts">
