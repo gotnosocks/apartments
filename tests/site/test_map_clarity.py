@@ -64,3 +64,19 @@ def test_the_growth_caveat_names_every_neighbourhood():
     three = caveat({"Chelsea": 4, "Greenwich Village": 1, "West Village": 2})
     assert "hidden>Chelsea, Greenwich Village and the West Village share" in three
     assert "slower than the others only" in three
+
+
+def test_the_growth_decomposition_shows_only_for_its_own_run():
+    import jinja2
+
+    start = PAGE.index("{# Modeling's decomposition")
+    fragment = PAGE[start : PAGE.index("{% endif %}", start) + len("{% endif %}")]
+    env = jinja2.Environment()
+    run = "m7-nocurves-floorslope-bednoise-dayfourier-bedtime-nb-coded-v1-rows-c82aa9b-gibbs-2060-4500k9cb1-nb-v5f1u3-d1005"
+
+    def render(r):
+        return env.from_string(fragment).render(meta={"provenance": {"run": r}})
+
+    assert 'id="trend-mix"' in render(run)
+    assert 'id="trend-mix"' not in render("m8-nb3-coded-v1-gv")
+    assert 'id="trend-mix"' not in env.from_string(fragment).render(meta={})

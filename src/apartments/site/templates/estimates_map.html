@@ -86,7 +86,9 @@
   <p class="note" id="trend-vs-asks">This holds the building and the apartment fixed, so it grows differently from the median ask of
     the listings in a given year (set the years on <a href="{{ url_for('listings') }}">Listings</a>): that median also moves with which apartments
     happen to be listed, which can be newer, larger or in pricier buildings in some years than in others.</p>
-  {# Modeling's decomposition, playtest round 7 (economist), served model of 2026-10-05. #}
+  {# Modeling's decomposition, playtest round 7 (economist), of the run served on 2026-10-05: shown only
+     while that run is served, since its figures (and "more West Village") don't hold for another fit. #}
+  {% if (meta.provenance or {}).run == "m7-nocurves-floorslope-bednoise-dayfourier-bedtime-nb-coded-v1-rows-c82aa9b-gibbs-2060-4500k9cb1-nb-v5f1u3-d1005" %}
   <details class="note" id="trend-mix">
     <summary>Why the map grows less than the median ask</summary>
     <p>For one-bedrooms from 2010 to 2026, the map follows one typical apartment in the median building, so it grows less
@@ -98,6 +100,7 @@
     <p>In log points, of the 4.3-point gap: features and listing month 2.2, the median against the geometric mean about 0.8,
     the building mix 0.7, and 0.5 unexplained. (The served model as of 5 October 2026.)</p>
   </details>
+  {% endif %}
   <div class="legend" id="legend-trend"></div>
   <div class="chart" id="chart-trend"></div>
   <div class="table-view map-table" id="table-trend" hidden></div>

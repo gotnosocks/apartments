@@ -38,12 +38,15 @@ def test_grid_layout_puts_streets_up_and_avenues_across():
         place(-50, 100, "300 8 Avenue"),
         place(-300, -200, "200 9 Avenue"),
         place(-300, 100, "300 9 Avenue"),
+        place(-900, -900, "50 7 Avenue South"),
+        place(-950, -950, "60 7 Avenue South"),
     ]
     grid = rentmap.grid_layout(buildings)
     streets = {s["label"]: s["y"] for s in grid["streets"]}
     avenues = {a["label"]: a["x"] for a in grid["avenues"]}
     assert streets["W 23 St"] - streets["W 14 St"] > 700
     assert avenues["8th Av"] - avenues["9th Av"] > 200
+    assert "7th Av" not in avenues  # Seventh Avenue South leaves the avenue's line
     ys = [b["y"] for b in buildings[:2]]
     assert abs(ys[0] - ys[1]) < 1.0  # same street, same height
 
