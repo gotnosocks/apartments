@@ -115,12 +115,28 @@ def test_build_rejects_a_dataset_whose_tables_changed(tmp_path):
 
 def test_v2_folds_floor_only_labels_and_unit_words():
     v2 = "unit-spelling-alias-v2"
-    for label in ("2", "02", "2nd", "2fl", "2flr", "2nd-floor", "2ndfl", "fl-2", "second"):
+    for label in (
+        "2",
+        "02",
+        "2nd",
+        "2fl",
+        "2flr",
+        "2nd-floor",
+        "2ndfl",
+        "fl-2",
+        "second",
+    ):
         assert normalize_label(label, v2) == "2", label
     assert normalize_label("thirdfl", v2) == normalize_label("3rd-fl", v2) == "3"
     assert normalize_label("unit-3c", v2) == normalize_label("apt3c", v2) == "3c"
     # Different apartments stay apart, and v1 is unchanged.
-    for a, b in (("2d", "2c"), ("34", "304"), ("9gw", "3ew"), ("2b", "2"), ("garden", "gardenfloor")):
+    for a, b in (
+        ("2d", "2c"),
+        ("34", "304"),
+        ("9gw", "3ew"),
+        ("2b", "2"),
+        ("garden", "gardenfloor"),
+    ):
         assert normalize_label(a, v2) != normalize_label(b, v2)
     for label in ("apt", "unit", "floor", "fl"):
         assert normalize_label(label, v2) == label

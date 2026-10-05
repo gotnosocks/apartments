@@ -468,7 +468,11 @@ def prevprice_v1(
     b = _Builder(frame)
     if change:
         b.add("previous listing", "previous_listing_price_change", change_values)
-    b.add("previous listing", "log_previous_listing_repricings", np.where(seen, count - centre, 0.0))
+    b.add(
+        "previous listing",
+        "log_previous_listing_repricings",
+        np.where(seen, count - centre, 0.0),
+    )
     out = b.build(id)
     return Features(
         id,
