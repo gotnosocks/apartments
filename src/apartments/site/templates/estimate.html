@@ -141,7 +141,8 @@ Every listing in the data still has its own estimate: <a href="{{ url_for('listi
   {% else %}
   <div class="field grow">
     <label for="e-q">Building: name or address</label>
-    <input id="e-q" name="q" type="search" value="{{ q }}" autocomplete="off" required>
+    <input id="e-q" name="q" type="search" value="{{ q }}" autocomplete="off" required
+    data-suggest="{{ url_for('building_suggestions') }}" data-suggest-id="building">
   </div>
   {% endif %}
   {{ select("bedrooms", "Bedrooms", options.BEDROOMS, form.bedrooms | string, "e-beds") }}

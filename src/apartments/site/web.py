@@ -1368,6 +1368,39 @@ def create_app(
             has_map=(database_path().parent / "map.json").is_file(),
         )
 
+    @app.get("/buildings.json")
+    def building_suggestions():
+        """Up to eight buildings matching what's typed, most listed first, for the
+        search boxes' suggestions (playtest round 4: no autocomplete)."""
+        q = (request.args.get("q") or "").strip()[:80]
+        rows = (
+            db()
+            .execute(
+                "SELECT id, name, address, listings FROM buildings "
+                "WHERE search LIKE ? ESCAPE '\\' ORDER BY listings DESC, sort_key "
+                "LIMIT 8",
+                ("%" + _escape_like(q.lower()) + "%",),
+            )
+            .fetchall()
+            if len(q) >= 2
+            else []
+        )
+        return jsonify(
+            [
+                {
+                    "id": r["id"],
+                    "value": r["name"] or r["address"],
+                    "label": " · ".join(
+                        [
+                            *([r["address"]] if r["name"] else []),
+                            f"{r['listings']:,} listings",
+                        ]
+                    ),
+                }
+                for r in rows
+            ]
+        )
+
     @app.get("/estimates/map.json")
     def estimates_map_data():
         db()

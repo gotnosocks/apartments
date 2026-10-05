@@ -159,3 +159,65 @@
     window.addEventListener("pageshow", restore);
   });
 })();
+
+// Building suggestions for a search box marked data-suggest (its value is the
+// /buildings.json URL), shown as a native datalist so keyboards and screen
+// readers get the browser's own list. With data-suggest-id, picking a
+// suggestion also sets a hidden input of that name to the building's id, so
+// a shared address still goes to the building chosen (two buildings with the
+// same name or address get no id). Typing on works as before.
+(function () {
+  "use strict";
+  document.querySelectorAll("input[data-suggest]").forEach(function (input) {
+    var list = document.createElement("datalist");
+    list.id = input.id + "-suggestions";
+    input.after(list);
+    input.setAttribute("list", list.id);
+    // value -> building id; null when two buildings share the value, so the
+    // text falls through to the server's list of matches.
+    var ids = new Map();
+    var hidden = null;
+    var idName = input.getAttribute("data-suggest-id");
+    if (idName) {
+      hidden = document.createElement("input");
+      hidden.type = "hidden";
+      hidden.name = idName;
+      hidden.disabled = true;
+      input.after(hidden);
+    }
+    var timer = null;
+    var asked = "";
+    function pick() {
+      if (!hidden) return;
+      var id = ids.get(input.value);
+      hidden.disabled = !id;
+      hidden.value = id || "";
+    }
+    function fetchSuggestions() {
+      var q = input.value.trim();
+      if (q.length < 2 || q === asked) return;
+      asked = q;
+      fetch(input.getAttribute("data-suggest") + "?q=" + encodeURIComponent(q))
+        .then(function (response) { return response.ok ? response.json() : []; })
+        .then(function (rows) {
+          if (q !== asked) return;
+          list.replaceChildren();
+          rows.forEach(function (row) {
+            var known = ids.get(row.value);
+            ids.set(row.value, known === undefined || known === row.id ? row.id : null);
+            var option = document.createElement("option");
+            option.value = row.value;
+            option.label = row.label;
+            list.appendChild(option);
+          });
+          pick();
+        })
+        .catch(function () {});
+    }
+    input.addEventListener("input", function () {
+      pick();
+      clearTimeout(timer);
+      timer = setTimeout(fetchSuggestions, 150);
+    });
+  });
+})();

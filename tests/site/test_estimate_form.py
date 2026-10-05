@@ -624,3 +624,17 @@ def test_the_estimate_says_first_listings_run_narrow(site_root, client):
     assert 'id="single-coverage"' not in page(
         client, f"/estimate?building={GROVE}&bedrooms=1"
     )
+
+
+def test_building_suggestions(site_root, client):
+    # Playtest round 4 (keyboard, broker, tablet): no autocomplete in building search.
+    install_kit(site_root)
+    rows = client.get("/buildings.json?q=grove").get_json()
+    assert rows and rows[0]["id"] == GROVE and rows[0]["value"] == "The Grove"
+    assert "250 West 19th Street" in rows[0]["label"] and "listings" in rows[0]["label"]
+    assert client.get("/buildings.json?q=g").get_json() == []
+    assert client.get("/buildings.json?q=%25%25").get_json() == []
+    assert len(client.get("/buildings.json?q=st").get_json()) <= 8
+    for path in ("/estimate", "/listings", "/buildings", "/estimates"):
+        assert 'data-suggest="/buildings.json"' in page(client, path)
+    assert 'data-suggest-id="building"' in page(client, "/estimate")

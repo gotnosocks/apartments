@@ -5,7 +5,8 @@
 <form class="filters" action="{{ url_for('buildings') }}" method="get" role="search">
   <div class="field grow">
     <label for="b-q">Name or address</label>
-    <input id="b-q" name="q" type="search" value="{{ q }}" autocomplete="off">
+    <input id="b-q" name="q" type="search" value="{{ q }}" autocomplete="off"
+    data-suggest="{{ url_for('building_suggestions') }}">
   </div>
   {% if neighbourhoods | length > 1 %}
   <div class="field">
