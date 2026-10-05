@@ -953,6 +953,18 @@ def test_prevprice_reads_only_changes_before_the_listing(monkeypatch, tmp_path):
     assert count[1] == count[2] == 0.0
     assert features.FEATURE_SETS["nb-prevprice-v1"].keywords["base"] == "nb-coded-v1"
     assert "nb-prevprice-v1" in features.AS_OF_SETS
+    # v2 keeps only the count, which reads no other row's ask.
+    only = features.prevprice_v1(
+        frame, np.ones(4, bool), id="t", base="stub-base", change=False
+    )
+    assert only.names == ["log_previous_listing_repricings"]
+    np.testing.assert_allclose(only.values[:, 0], count)
+    frame2 = frame.assign(asking_rent=[1.0, 9999.0, 3000.0, 6000.0])
+    again = features.prevprice_v1(
+        frame2, np.ones(4, bool), id="t", base="stub-base", change=False
+    )
+    np.testing.assert_allclose(again.values, only.values)
+    assert "nb-prevprice-v2" in features.PRICE_HISTORY | features.AS_OF_SETS
     from rentfrontier import run
 
     monkeypatch.setattr(run.data, "sha256", lambda p: "sha")
