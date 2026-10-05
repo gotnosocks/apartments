@@ -12,6 +12,7 @@
 <p class="subline">
   {% if unit.building_name %}{{ unit.building_address }} · {% endif %}
   {{ m.layout(unit) }}{% if unit.floor is not none %} · floor {{ unit.floor }}{% endif %}
+  {% if aliases %}· also listed as {{ aliases | join(", ") }} {% endif %}
   · {{ unit.listings }} listing{{ "" if unit.listings == 1 else "s" }}, {{ month(unit.first_period) }}{% if unit.last_period != unit.first_period %} to {{ month(unit.last_period) }}{% endif %}
 </p>
 {% if unit.url %}
