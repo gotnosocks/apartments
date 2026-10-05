@@ -211,3 +211,24 @@ def test_compact_window_warning():
         mod.compact_window_missing({"CLAUDE_CODE_AUTO_COMPACT_WINDOW": "200000"})
         is None
     )
+
+
+def test_max_caps_the_batch_window():
+    # Claude Code kills a background task after about 30 minutes, so --max ends
+    # the wait even while a batch window is still collecting.
+    fake = Fake(
+        units=[{"frontier-a.service", "frontier-b.service"}, {"frontier-b.service"}],
+        gpu=[[]],
+        pr=[""],
+        file=["missing"],
+    )
+    assert run(fake, args(max=3, batch=15)) == [
+        "finished: frontier-a.service (result=success status=0)"
+    ]
+    assert fake.t == 180.0
+
+
+def test_defaults_stay_under_the_background_task_limit():
+    src = SCRIPT.read_text()
+    assert 'add_argument("--max", type=float, default=25.0)' in src
+    assert 'add_argument("--idle-grace", type=float, default=20.0)' in src

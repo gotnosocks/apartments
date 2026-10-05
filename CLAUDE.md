@@ -21,12 +21,13 @@ from the copy that follows master:
 /data1/apartments/serve/master/ops/team/wait-next --gpu --pr N
 ```
 
-It returns when the GPU goes idle (`--gpu`: after a job ends, or after 30 minutes if it was
-already idle), a file appears or changes (`--file PATH`), or after `--max` minutes (default 120)
-as a heartbeat. A `frontier-*` unit finishing (watched with `--gpu`; `--unit PATTERN` for others)
+It returns when the GPU goes idle (`--gpu`: after a job ends, or after 20 minutes if it was
+already idle), a file appears or changes (`--file PATH`), or after `--max` minutes (default 25)
+as a heartbeat. `--max` also caps the whole wait: since 2.1.289 Claude Code kills a background
+task after about 30 minutes, so keep `--max` under 30. A `frontier-*` unit finishing (watched with `--gpu`; `--unit PATTERN` for others)
 or a watched PR changing (`--pr N`) is batched: the wait goes on up to `--batch` minutes (default
-15) to collect the other watched units, and an idle GPU still ends it at once. Its exit wakes the
-session with what changed. Act on it, then start it again. A
+15) to collect the other watched units, and an idle GPU or `--max` still ends it at once. Its
+exit wakes the session with what changed. Act on it, then start it again. A
 background `ops/job` run or fit you are waiting on works too, as long as something stays pending.
 If a message wakes you while a `wait-next` is still pending, leave it running rather than
 starting a second one. Leave out `--gpu` only when you don't own GPU work.
