@@ -1495,7 +1495,7 @@ def create_app(
                 else "frontier"
                 if e.get("frontier")
                 else "failing"
-                if not e.get("passes_checks") and tier_of(e) == "full"
+                if not e.get("passes_checks")
                 else "other"
             )
             fits.append(
@@ -1608,10 +1608,12 @@ def create_app(
             and e.get("variance")
         ]
         frontier.sort(key=lambda e: -((e.get("psis") or {}).get("delta") or 0))
+        served_entry = entry_for_run(data, served_run)
         return render_template(
             "research_validation.html",
             meta=m,
-            served_entry=entry_for_run(data, served_run),
+            served_entry=served_entry,
+            served_units=served_unit_split(data, served_entry),
             reference=data.get("reference"),
             classes=classes,
             hardware=hardware,
@@ -1738,6 +1740,64 @@ def create_app(
         return Response("User-agent: *\nDisallow: /\n", mimetype="text/plain")
 
     return app
+
+
+def rules_of(entry: dict) -> list[str]:
+    """The data rules a board key names after its commit ("...@abc1234+rule+rule")."""
+    return entry["key"].split(" [")[0].split("@", 1)[-1].split("+")[1:]
+
+
+def served_unit_split(data: dict, served: dict | None) -> dict | None:
+    """The unit-split score of the served design and feature set: a passing
+    fit first, then the one whose data rules differ least from the served
+    fit's, then the newest. {entry, split, missing_rules, extra_rules,
+    missed}, where missed lists the gate thresholds the fit fell short of."""
+    if not served:
+        return None
+    ours = rules_of(served)
+
+    def candidate(e):
+        theirs = rules_of(e)
+        return {
+            "entry": e,
+            "split": e["splits"]["units"],
+            "missing_rules": [r for r in ours if r not in theirs],
+            "extra_rules": [r for r in theirs if r not in ours],
+        }
+
+    found = [
+        candidate(e)
+        for e in data.get("entries", [])
+        if e.get("design") == served.get("design")
+        and e.get("feature_set") == served.get("feature_set")
+        and (e.get("splits") or {}).get("units", {}).get("delta") is not None
+    ]
+    if not found:
+        return None
+    best = max(
+        found,
+        key=lambda c: (
+            c["split"].get("passes") is True,
+            -(len(c["missing_rules"]) + len(c["extra_rules"])),
+            c["split"].get("completed_at") or "",
+        ),
+    )
+    best["missed"] = gate_misses(best["split"], data.get("gate") or {})
+    return best
+
+
+def gate_misses(split: dict, gate: dict) -> list[str]:
+    """The convergence thresholds a fit fell short of, in words."""
+    out = []
+    rhat, ess = split.get("max_rhat"), split.get("min_ess")
+    if isinstance(rhat, (int, float)) and gate.get("rhat") and rhat >= gate["rhat"]:
+        out.append(f"largest R-hat {rhat:.3f}; the gate needs below {gate['rhat']}")
+    if isinstance(ess, (int, float)) and gate.get("ess") and ess <= gate["ess"]:
+        out.append(
+            f"smallest effective sample size {ess:,.0f}; the gate needs more than "
+            f"{gate['ess']:,}"
+        )
+    return out
 
 
 def design_label(entry: dict) -> str:

@@ -39,7 +39,7 @@ import json
 import numpy as np
 import pandas as pd
 
-from . import data, features, model, splits
+from . import data, features, model
 from .run import RUNS
 
 FIXED_TERMS = (
@@ -157,8 +157,9 @@ def explain(name, rows="current"):
     run_dir, result, kept = load_run(name)
     config = model.MODELS[result["model"]["name"]]
     frame = data.load()
-    heldout = splits.SPLITS[result["split"]](frame)
-    frame, heldout = data.apply_rules(frame, heldout, data.recorded_rules(result))
+    frame, heldout = data.split_and_rules(
+        frame, result["split"], data.recorded_rules(result)
+    )
     feats = features.build(result["feature_set"], frame, ~heldout)
     prep = model.prepare(frame, heldout, feats)
     select = {
