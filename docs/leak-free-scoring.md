@@ -66,3 +66,13 @@ Next: a full-tier pair on the latest split (the served design with and without n
 ## As-of check: listing-record fields
 
 `nb-coded-v1` reads each listing's last capture. Across the 29,602 listings captured more than once, the coded outdoor types change between captures in 0.66% of listings and the room count in 0.96%. (Computed with `listing_extras.record_extras` over every capture in both granular crawls' `listing_observations`.) The last capture is therefore, in effect, the listing's own as-of record.
+
+## Serving a design that reads earlier rents
+
+Ben approved this path on 2026-10-05. `autoselect` refuses feature sets in `features.READS_EARLIER_RENTS`; `python -m rentfrontier.latestselect` serves one instead when:
+
+1. a full-tier latest-split run of the served design (the reference) and one of the candidate design (same model, the new feature set) both pass the gate, on the current dataset and rules;
+2. the candidate's paired held-out ELPD beats the reference by more than two SE;
+3. a full-tier rows-split run of the candidate design meets every other autoselect condition (gate, hardware, window, dataset, rules).
+
+`--write <summary bundle>` writes the selection for the rows-split run. Its reason gives the latest-split comparison, and its `latest_pair` field names the two runs. Its PSIS-LOO is recorded, but not as a comparison.
