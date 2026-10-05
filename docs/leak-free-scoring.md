@@ -45,9 +45,24 @@ Designs are compared paired, on the held-out rows both runs share: the per-row E
 
 - **Features:** no feature set reads `asking_rent` or `log_rent`. A grep of `features.py` and `descriptions.py` finds none. `relist-v1` reads only the dates of the unit's earlier listings. Text flags read the row's own ad. Lot, registry, transit, noise and HPD features read external files, and the as-of sets date them by the listing.
 - **Model:** the model uses rents only as the target and as the offset, which is the mean training log rent. Under PSIS-LOO the offset includes the left-out row with weight 1/77,815, and both arms share it.
-- **Listing-record fields (`nb-coded-v1`):** these are read from each listing's last capture, so a field could have been edited after the listing date. That is the listing's own later information, not another row's rent; the same holds for the description evidence. Dating them by capture is a possible future data rule.
+- **Listing-record fields (`nb-coded-v1`):** these are read from each listing's last capture, so a field could have been edited after the listing date. That is the listing's own later information, not another row's rent; the same holds for the description evidence. They change between captures in under 1% of listings (see the as-of check below).
 - **Data rules chosen with rents in view:** quarantines from residual and high-k reviews (q-v3, q-v4) were picked by looking at rents. They are judged on shared rows (`cleaning-scored-on-shared-rows`). That compares models on the same rows, but it does not make the choice of rows leak-free. A rule found that way should be confirmed on rows held out from the review that produced it.
 
-## First results (2026-10-05): superseded
+## Results (2026-10-05)
 
-A first run (05bfae7) measured nb-prevprice-v1 at +72.8 ± 15.2 and v2 at +26.3 ± 6.9 against nb-coded-v1. Review then found a self-leak. A current-capture row shares its advertisement with that ad's initial-ask row, so the "previous listing" was the same ad, and its price changes included the row's own ask. That affected 70 rows, 28 of them held out. The feature now takes the latest earlier row of another advertisement, and both designs are being rerun.
+Exploration tier (x-2060-100w600d-nb-cb1-q5, Gibbs), on the latest split at 56b2d7b, with the Oct 1 cohort and the current rules (unit-labels-v3, quarantine-v5, bedrooms-ad-v2, baths-ad-v2, fields-review-v1). 8,648 held-out latest listings, paired:
+
+| design | vs nb-coded-v1 | Chelsea | West Village |
+|---|---|---|---|
+| nb-prevprice-v1 (price change and repricing count) | **+68.5 ± 15.1** | +34.0 ± 12.2 | +34.4 ± 8.8 |
+| nb-prevprice-v2 (repricing count only) | +24.2 ± 7.0 | +5.4 ± 5.9 | +18.9 ± 3.6 |
+
+v1 against v2: +44.2 ± 13.1.
+
+A first run (05bfae7) had measured +72.8 and +26.3. Review then found a self-leak: a current-capture row shares its advertisement with that ad's initial-ask row, so its "previous listing" was its own ad. That affected 70 rows, 28 of them held out. The feature now reads the latest earlier row of another advertisement, and builds both terms from that ad's price-change record alone, never from frame rents. On PSIS-LOO the pre-fix feature (a2b00d4) had shown +746.9.
+
+Next: a full-tier pair on the latest split (the served design with and without nb-prevprice-v1, on the Oct 5 cohort) decides whether it is served (Modeling's selection path).
+
+## As-of check: listing-record fields
+
+`nb-coded-v1` reads each listing's last capture. Across the 29,602 listings captured more than once, the coded outdoor types change between captures in 0.66% of listings and the room count in 0.96%. (Computed with `listing_extras.record_extras` over every capture in both granular crawls' `listing_observations`.) The last capture is therefore, in effect, the listing's own as-of record.
