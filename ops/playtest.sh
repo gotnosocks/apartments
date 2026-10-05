@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Run website playtester personas, each as its own Claude on Sonnet 5.
+# Run website playtester personas, each as its own Claude on Sonnet 5.5.
 #
 #   ops/playtest.sh ROUND PERSONA... [-- URL]
 #
@@ -10,9 +10,10 @@
 # ops/job light, per docs/playtests/brief.md. Watch the units with
 # `ops/team/wait-next --unit 'playtest-*'`.
 #
-# Playtesters run on Sonnet 5 (Ben, 2026-10-05; the id is claude-sonnet-5). Reviewers stay on the session's model.
+# Playtesters run on Sonnet 5.5 (Ben, 2026-10-05). claude -p warns "unrecognized_model" because this CLI's catalog predates it, but the API serves it.
+# Reviewers stay on the session's model.
 set -euo pipefail
-MODEL=${PLAYTEST_MODEL:-claude-sonnet-5}
+MODEL=${PLAYTEST_MODEL:-claude-sonnet-5-5}
 ROOT=$(cd "$(dirname "$0")/.." && pwd)
 ROUND=${1:?usage: ops/playtest.sh ROUND PERSONA... [-- URL]}
 shift
