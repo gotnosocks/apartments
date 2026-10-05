@@ -1,5 +1,11 @@
 {% extends "base.html" %}
 {% block title %}The frontier{% endblock %}
+{% block scripts %}
+{# Chart.js for the zoomable fit charts, self-hosted (static/VENDOR.md). #}
+<script src="{{ static_url('chart-4.5.1.min.js') }}" defer></script>
+<script src="{{ static_url('chartjs-plugin-zoom-2.2.0.min.js') }}" defer></script>
+<script src="{{ static_url('fitchart.js') }}" defer></script>
+{% endblock %}
 {% block content %}
 {% set snap = view.snapshot %}
 <h1>The frontier</h1>
