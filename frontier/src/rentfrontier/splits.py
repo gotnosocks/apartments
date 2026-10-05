@@ -64,6 +64,8 @@ def latest_split(data: pd.DataFrame, fraction=FRACTION, seed=SEED) -> np.ndarray
     order = data.assign(_at=at).sort_values(["unit_id", "_at", "audit_id"])
     counts = order.unit_id.map(order.unit_id.value_counts())
     last = order[counts.ge(2)].groupby("unit_id").tail(1)
+    if last.empty:
+        return np.zeros(len(data), dtype=bool)
     # A unit whose two latest listings share a date has no single latest one
     # (features that read earlier listings order ties by frame position).
     tied = order[order.unit_id.isin(last.unit_id)].groupby("unit_id")._at.apply(
