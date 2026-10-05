@@ -566,3 +566,11 @@ def test_your_ask_says_which_side_of_the_simulated_asks_it_is_on(site_root, clie
     assert "below the likely range: lower than nearly all simulated asks" in low
     assert "above the likely range: higher than nearly all simulated asks" in high
     assert "higher than 0%" not in low
+
+
+def test_the_skip_link_and_the_result_take_focus(site_root, client):
+    # Fragment navigation focuses only a focusable target (playtest round 4, keyboard).
+    install_kit(site_root)
+    html = page(client, f"/estimate?building={GROVE}&bedrooms=1")
+    assert '<main id="main" class="wrap" tabindex="-1">' in html
+    assert 'id="result" tabindex="-1"' in html

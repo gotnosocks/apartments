@@ -76,6 +76,8 @@ h2 { font-size: 1.1rem; margin: 0 0 0.6rem; }
 .wrap { max-width: 1180px; margin: 0 auto; padding: 0 1rem; }
 .skip { position: absolute; left: -999px; }
 .skip:focus { left: 1rem; top: 0.5rem; background: var(--surface); padding: 0.4rem 0.8rem; z-index: 10; }
+/* Skip-link and result targets take focus (tabindex=-1) so screen readers and Tab start there; no ring on a whole region. */
+#main:focus, #result:focus { outline: none; }
 .visually-hidden {
   position: absolute; width: 1px; height: 1px; overflow: hidden;
   clip: rect(0 0 0 0); white-space: nowrap;
