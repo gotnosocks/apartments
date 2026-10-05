@@ -844,7 +844,8 @@ def create_app(
         return f"{t.day} {t:%b %Y}"
 
     def capture_age(at: str | None) -> int | None:
-        """Whole days since a capture (ISO time), or None."""
+        """Calendar days since a capture (ISO time), counted on New York
+        dates like the capture day shown; None when unknown."""
         if not at:
             return None
         try:
@@ -853,7 +854,8 @@ def create_app(
             return None
         if t.tzinfo is None:
             t = t.replace(tzinfo=dt.UTC)
-        return max(0, (dt.datetime.now(dt.UTC) - t).days)
+        today = dt.datetime.now(NEW_YORK).date()
+        return max(0, (today - t.astimezone(NEW_YORK).date()).days)
 
     def neighbourhoods() -> dict:
         """The build's neighbourhoods and their listing counts ({} for builds
