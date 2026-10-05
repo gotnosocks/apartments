@@ -28,7 +28,7 @@
       <th scope="col">Layout</th>
       {{ sort_th("Ask", "ask", filters, endpoint, num=True) }}
       {{ sort_th("Estimate", "estimate", filters, endpoint, num=True) }}
-      <th scope="col" class="num col-minor">{{ "Likely ask range" if pred else "Range for the typical rent" }}</th>
+      <th scope="col" class="num col-minor">{{ "Likely ask range" if pred else "Typical rent, 95% range" }}</th>
       {{ sort_th("Ask vs estimate", "diff_pct", filters, endpoint, num=True) }}
       <th scope="col">Price</th>
       {% if show_source %}<th scope="col">StreetEasy</th>{% endif %}

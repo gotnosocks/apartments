@@ -10,6 +10,8 @@
 {% if "building_feature_slopes" in names %}{% set building = building + ["its own price for extra space and bathrooms"] %}{% endif %}
 {% if "line" in names %}{% set building = building + ["the line (column) of apartments within it"] %}{% endif %}
 <h1>How the estimates work</h1>
+<p class="lede">The words used across the site, from <em>estimate</em> to <em>PSIS-LOO</em>, are defined in the
+<a href="{{ url_for('research_glossary') }}">glossary</a>.</p>
 
 <section class="card prose">
   <h2>What an estimate is</h2>
@@ -29,7 +31,7 @@
   estimate an honest signal. The page shows the in-sample fit separately.</p>
   <p><strong>Below typical</strong> and <strong>Above typical</strong> mean that the ask is in the lowest or highest
   {{ (100 * meta.price_bands[0]) | round | int }}% of the asks the model expects for that apartment, noise included. The
-  <strong>range for the typical rent</strong> shown with each estimate is the 95% uncertainty of the typical rent itself, not
+  <strong>95% range of the typical rent</strong> (“95% sure the typical rent itself is …”) is the 95% uncertainty of the typical rent itself, not
   the spread of individual asks: it holds the actual ask much less often than 95% of the time, because asks scatter around
   the typical rent. Where a listing page shows a <strong>likely ask range</strong>, that is the spread of asks itself: the
   middle 80% of the asks the model expects, the same range the Below/Typical/Above label uses.</p>
@@ -41,7 +43,7 @@
 <section class="card">
   <h2>How well the estimates are calibrated</h2>
   <p class="note">Share of asks inside the model's predictive ranges for individual asks (the spread the Price labels use,
-  noise included, so much wider than the range for the typical rent). A well-calibrated model puts 95% of asks in its 95% predictive
+  noise included, so much wider than the 95% range of the typical rent). A well-calibrated model puts 95% of asks in its 95% predictive
   range and 80% in its 80% range.</p>
   <div class="table-wrap">
   <table class="data">

@@ -24,13 +24,15 @@ def test_listing_page_shows_the_likely_ask_range(client, site_root):
     listings = client.get("/listings").get_data(as_text=True)
     assert (
         "Likely ask range</th>" in listings
-        and "Range for the typical rent" not in listings
+        and "Typical rent, 95% range" not in listings
     )
 
 
 def test_without_it_the_typical_rent_range_stays(client):
     html = " ".join(client.get("/listings/a1").get_data(as_text=True).split())
-    assert "range for the typical rent" in html and "likely fall in" not in html
+    assert (
+        "95% sure the typical rent itself is" in html and "likely fall in" not in html
+    )
 
 
 def test_the_build_reads_the_bundle_fields():
