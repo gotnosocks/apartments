@@ -147,6 +147,10 @@ UNIT_ALIASES = (
     / "unit-aliases"
     / "west-village-20260930.jsonl"
 )
+# That table with Greenwich Village's appended: the unit spelling alias rule v2
+# (PR #213) on greenwich-village-granular-20261005-canonical-url-v1, 136
+# history-confirmed groups; provenance beside it.
+UNIT_ALIASES_GV = UNIT_ALIASES.with_name("wv-gv-20261005.jsonl")
 
 
 @functools.lru_cache(maxsize=2)
@@ -163,7 +167,7 @@ def unit_aliases(path: Path = UNIT_ALIASES) -> tuple:
     return tuple(tuple(sorted(g)) for g in groups.values() if len(g) > 1)
 
 
-def merge_unit_aliases(frame: pd.DataFrame) -> pd.DataFrame:
+def merge_unit_aliases(frame: pd.DataFrame, aliases: Path = UNIT_ALIASES) -> pd.DataFrame:
     """unit-labels-v1, and the West Village alias table's history-confirmed
     groups joined too (248 groups; most are already the same label under v1;
     the rest pad zeros inside the label: "ph04" and "ph4"). Groups that share
@@ -186,7 +190,7 @@ def merge_unit_aliases(frame: pd.DataFrame) -> pd.DataFrame:
 
     for old, new in zip(frame.unit_id, out.unit_id):
         union(old, new)
-    for group in unit_aliases():
+    for group in unit_aliases(aliases):
         for u in group[1:]:
             union(group[0], u)
     out["unit_id"] = frame.unit_id.map(find)
@@ -202,12 +206,12 @@ LABEL_WORDS = {
 _WORD_LABEL = re.compile(r"^(" + "|".join(LABEL_WORDS) + r")(?=$|[-_ ]?(?:fl|floor)$)")
 
 
-def merge_word_labels(frame: pd.DataFrame) -> pd.DataFrame:
+def merge_word_labels(frame: pd.DataFrame, aliases: Path = UNIT_ALIASES) -> pd.DataFrame:
     """unit-labels-v2, and units labelled with a number word joined to the unit
     of the same building whose label is that number ("four" and "4",
     "third-fl" and "3fl"), where both units' median bedroom counts agree.
     Rows are unchanged."""
-    out = merge_unit_aliases(frame)
+    out = merge_unit_aliases(frame, aliases)
     raw = frame.canonical_unit_url.str.extract(r"/([^/]+)$")[0].str.lower()
     word = raw.str.extract(_WORD_LABEL)[0]
     numbered = (
@@ -437,6 +441,8 @@ DATA_RULES = {
     "unit-labels-v1": merge_unit_labels,
     "unit-labels-v2": merge_unit_aliases,
     "unit-labels-v3": merge_word_labels,
+    # unit-labels-v3 with Greenwich Village's alias groups too (UNIT_ALIASES_GV).
+    "unit-labels-v5": functools.partial(merge_word_labels, aliases=UNIT_ALIASES_GV),
     "quarantine-v1": quarantine_v1,
     "quarantine-v2": quarantine_v2,
     "bedrooms-ad-v1": correct_bedrooms_v1,
@@ -457,6 +463,7 @@ RULE_SOURCES = {
     "quarantine-v5": QUARANTINE_V5,
     "unit-labels-v2": UNIT_ALIASES,
     "unit-labels-v3": UNIT_ALIASES,
+    "unit-labels-v5": UNIT_ALIASES_GV,
     "bedrooms-ad-v1": BEDROOM_CORRECTIONS,
     "baths-ad-v1": BATH_CORRECTIONS,
     "bedrooms-ad-v2": BEDROOM_CORRECTIONS_V2,
