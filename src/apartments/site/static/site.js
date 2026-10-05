@@ -131,3 +131,31 @@
 
   document.querySelectorAll("figure.chart").forEach(setup);
 })();
+
+// A submitted form says it is working: the estimate and the building search
+// take a moment, and without this the button looks dead (playtest round 3).
+// The page still works without it. Back/forward restores the button, and so
+// does a timer: a resubmit to the same URL with a #fragment (the estimate
+// form's) only scrolls, and no new page comes to replace this one.
+(function () {
+  "use strict";
+  document.querySelectorAll("form[method=get]").forEach(function (form) {
+    var button = form.querySelector("button[type=submit]");
+    if (!button) return;
+    var label = button.textContent;
+    var timer;
+    function restore() {
+      clearTimeout(timer);
+      button.textContent = label;
+      button.removeAttribute("aria-busy");
+      form.removeAttribute("aria-busy");
+    }
+    form.addEventListener("submit", function () {
+      button.textContent = "Working…";
+      button.setAttribute("aria-busy", "true");
+      form.setAttribute("aria-busy", "true");
+      timer = setTimeout(restore, 10000);
+    });
+    window.addEventListener("pageshow", restore);
+  });
+})();

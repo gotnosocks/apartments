@@ -453,3 +453,5 @@ table.designs .feature-sets { display: block; white-space: normal; max-width: 16
 .muted.block { display: block; font-size: 0.78rem; }
 .design-label { color: var(--ink-2); }
 .rent-map .chart .dot { cursor: pointer; }
+/* A submitted form while the next page loads (site.js). */
+button[aria-busy="true"] { cursor: progress; opacity: 0.75; }
