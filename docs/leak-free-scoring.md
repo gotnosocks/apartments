@@ -1,0 +1,43 @@
+# Leak-free feature evaluation
+
+Ben, 2026-10-05: feature evaluations must be leak-free, and the scoring procedure may change to achieve that.
+
+## The leak
+
+A score is leak-free when the row being scored contributes its rent to the fit only as the held-out target. It must not reach the fit through another row's covariates, and it must not shape a data rule.
+
+PSIS-LOO approximates leaving one row out of a fit on all rows. If a feature of row B is computed from row A's rent, then leaving A out still leaves A's rent in the fit, through B's covariate. The score of A is then partly a lookup.
+
+`nb-prevprice-v1` (#211) is the example. Each listing's covariate is the unit's previous listing's last price over that listing's initial ask, so it contains the previous row's target. Paired against `nb-coded-v1` on PSIS-LOO (x-2060-100w600d-nb-cb1-q5 at a2b00d4), the rows split as follows:
+
+| rows | n | paired ΔELPD |
+|---|---|---|
+| all | 77,815 | +746.9 ± 40.7 |
+| a later row of the unit exists (its ask feeds that row's covariate) | 44,867 | +637.9 ± 33.3 |
+| the unit's last listing | 32,948 | +108.9 ± 23.4 |
+
+Rows that no other covariate can see gain about a seventh of the headline.
+
+## The latest-listing split
+
+`--split latest` (`splits.latest_split`) holds out the most recent listing of a random set of re-listed units, 10% of all rows, with the usual seed. It is drawn after the data rules (`splits.AFTER_RULES`), on merged units and kept rows. The model is fitted on everything else, and held-out rows are scored as usual (`heldout.npz`, ELPD per row).
+
+- **Leak-free for unit history.** No training row comes after a held-out row in its unit. So no training covariate built from the same unit's earlier listings (previous asks, repricing, gaps) can contain a held-out rent.
+- **Legitimate past information is kept.** A held-out row's own covariates may read its unit's earlier listings, because those are known when it is listed.
+- **It is the site's task.** It scores the next listing of an apartment the model already knows, with that apartment's own unit effect learned from its earlier listings.
+- **It costs one fit per design**, the same as an exploration fit (`SPLIT=latest` in `drive.sh`).
+
+Designs are compared paired, on the held-out rows both runs share: the per-row ELPD difference, its sum, and the standard error from the row spread plus the chains' Monte Carlo error. Both arms must use the same data rules so that they hold out the same rows.
+
+## Which score a feature needs
+
+- **Reads no other row's rent** (every merged feature set today): PSIS-LOO on the frontier, unchanged.
+- **Reads earlier rents of the same unit** (`nb-prevprice-v1`): judged on the latest split. Its PSIS-LOO is not comparable, and it may not enter the PSIS-LOO frontier or autoselect on that score.
+- **Reads other units' rents** (building or block price aggregates, none so far): the latest split is not enough, because a later listing in the same building could read a held-out rent. Such a feature needs a time-forward split (hold out every row after a date). Build that split before merging such a feature.
+
+## Audit of merged features (2026-10-05)
+
+- **Features:** no feature set reads `asking_rent` or `log_rent`. A grep of `features.py` and `descriptions.py` finds none. `relist-v1` reads only the dates of the unit's earlier listings. Text flags read the row's own ad. Lot, registry, transit, noise and HPD features read external files, and the as-of sets date them by the listing.
+- **Model:** the model uses rents only as the target and as the offset, which is the mean training log rent. Under PSIS-LOO the offset includes the left-out row with weight 1/77,815, and both arms share it.
+- **Listing-record fields (`nb-coded-v1`):** these are read from each listing's last capture, so a field could have been edited after the listing date. That is the listing's own later information, not another row's rent; the same holds for the description evidence. Dating them by capture is a possible future data rule.
+- **Data rules chosen with rents in view:** quarantines from residual and high-k reviews (q-v3, q-v4) were picked by looking at rents. They are judged on shared rows (`cleaning-scored-on-shared-rows`). That compares models on the same rows, but it does not make the choice of rows leak-free. A rule found that way should be confirmed on rows held out from the review that produced it.

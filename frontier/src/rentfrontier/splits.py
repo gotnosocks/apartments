@@ -1,4 +1,4 @@
-"""The two declared held-out splits.
+"""The declared held-out splits.
 
 Both are reproduced from their written definitions so that results pair with
 the promoted model's held-out rows by audit_id:
@@ -7,6 +7,13 @@ the promoted model's held-out rows by audit_id:
   unit keeps one training row. Seed 20260922.
 - units: every row of about 10% of units, drawn from buildings with at least
   three units; each building keeps at least one training unit. Same seed.
+
+- latest: each of a random set of re-listed units' most recent listing, 10% of all
+  rows (units with two or more rows; seed as above). No training row comes after
+  a held-out row in its unit, so no training row's features can read a held-out
+  ask through features built from the same unit's earlier listings (Ben,
+  2026-10-05: leak-free feature evaluation; docs/leak-free-scoring.md). It is
+  drawn after the data rules, so the units are the merged ones.
 
 The promoted model's runs additionally dropped a few held-out rows outside its
 training floor range or time horizon. Paired comparisons use the intersection
@@ -51,9 +58,29 @@ def unit_split(data: pd.DataFrame, fraction=FRACTION, seed=SEED) -> np.ndarray:
     return data.unit_id.isin(chosen).to_numpy()
 
 
+def latest_split(data: pd.DataFrame, fraction=FRACTION, seed=SEED) -> np.ndarray:
+    """Boolean held-out mask for the latest-listing split."""
+    at = pd.to_datetime(data.price_at, utc=True)
+    order = data.assign(_at=at).sort_values(["unit_id", "_at", "audit_id"])
+    counts = order.unit_id.map(order.unit_id.value_counts())
+    last = order[counts.ge(2)].groupby("unit_id").tail(1)
+    size = min(round(fraction * len(data)), len(last))
+    chosen = np.random.default_rng(seed).choice(
+        np.sort(last.audit_id.to_numpy()), size=size, replace=False
+    )
+    return data.audit_id.isin(set(chosen)).to_numpy()
+
+
 def no_split(data: pd.DataFrame, fraction=FRACTION, seed=SEED) -> np.ndarray:
     """No held-out rows: the analysis fit on all data (residuals, contributions)."""
     return np.zeros(len(data), dtype=bool)
 
 
-SPLITS = {"rows": row_split, "units": unit_split, "all": no_split}
+SPLITS = {
+    "rows": row_split,
+    "units": unit_split,
+    "latest": latest_split,
+    "all": no_split,
+}
+# Splits drawn after the data rules (on merged units and kept rows).
+AFTER_RULES = {"latest"}
