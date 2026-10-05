@@ -611,9 +611,7 @@ def test_the_estimate_says_first_listings_run_narrow(site_root, client):
     # Playtest round 4 (economist): single-listing under-coverage was only on the model page.
     install_kit(site_root)
     html = page(client, f"/estimate?building={GROVE}&bedrooms=1")
-    assert (
-        'id="single-coverage"' in html and "fell within the model's 95% range" in html
-    )
+    assert 'id="single-coverage"' in html and "within the 95% ask range" in html
     path = (site_root / "current" / "site.sqlite").resolve()
     db = sqlite3.connect(path)
     stats = json.loads(
