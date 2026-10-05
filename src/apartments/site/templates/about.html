@@ -70,4 +70,13 @@
 
 <p class="note">The model's design, how it was chosen, its convergence checks and every feature's effect are on the research side:
 <a href="{{ url_for('research_model') }}">the served model</a>.</p>
+
+<section class="card" id="source">
+  <h2>About this site and how to cite it</h2>
+  <p>A personal research project: asking rents scraped from StreetEasy listings in {{ meta.scope }}, estimated by a Bayesian
+  model described on the <a href="{{ url_for('research_model') }}">research pages</a>. Figures are model estimates of asking rents,
+  not leases or appraisals, from listings first seen {{ month(meta.stats.first_period) }} to {{ month(meta.stats.last_period) }}.</p>
+  <p class="note">To cite a figure, name the site, the page and the date you read it: estimates change when the model is refit or
+  new listings arrive.</p>
+</section>
 {% endblock %}
