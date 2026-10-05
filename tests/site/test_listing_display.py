@@ -82,3 +82,9 @@ def test_a_listing_says_when_the_apartment_was_listed_with_other_bedrooms(
         client.get(f"/listings/{rows[-1][1]}").get_data(as_text=True).split()
     )
     assert 'id="relabelled"' in html and "listed as 2 BR in" in html
+
+
+def test_the_breakdown_says_a_features_line_is_only_its_own_part(client):
+    # Playtest round 4 (broker): a penthouse +$750 and views +$20 looked too small.
+    html = " ".join(client.get("/listings/a1").get_data(as_text=True).split())
+    assert "A feature's line is only what it adds on its own" in html
