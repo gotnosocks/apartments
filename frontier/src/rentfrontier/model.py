@@ -49,6 +49,12 @@ class ModelConfig:
     # One residual scale per bedroom group (studio, 1, 2, 3+) instead of one
     # for every ask: larger apartments' asks scatter more around the model.
     noise_by_bedrooms: bool = False
+    # With noise_by_bedrooms: one residual scale per bedroom group and calendar
+    # year. Asks scatter more around the model in some years (2010-12 and
+    # 2020-21 log residual sd 0.11-0.16 against about 0.09), and one scale for
+    # every year leaves those years' predictive ranges too narrow (2010: 67% of
+    # asks inside the 80% range, 2021: 68%).
+    noise_by_year: bool = False
     # The calendar season as K sine-cosine pairs over the month (season(m) =
     # sum_k a_k sin(2 pi k m / 12) + b_k cos(2 pi k m / 12)), coefficient sd
     # season_scale / k, instead of 12 month effects; 0 = month effects.
@@ -201,10 +207,40 @@ KNOT_MONTHS = 6
 BEDROOM_GROUPS = ("studio", "one_bedroom", "two_bedroom", "three_plus")
 
 
-def row_sigma(sigma, bed_group):
-    """Each row's residual scale: `sigma` itself, or (with one scale per
-    bedroom group, `noise_by_bedrooms`) the row's group's."""
-    return sigma if jnp.ndim(sigma) == 0 else sigma[..., bed_group]
+def row_sigma(sigma, group):
+    """Each row's residual scale: `sigma` itself, or (with one scale per noise
+    group, `noise_by_bedrooms`) the row's group's (`noise_group`)."""
+    return sigma if jnp.ndim(sigma) == 0 else sigma[..., group]
+
+
+def sigma_groups(sigma) -> int:
+    """How many noise groups a sigma draw (scalar or per-group vector) has."""
+    return 1 if jnp.ndim(sigma) == 0 else int(jnp.shape(sigma)[-1])
+
+
+def n_noise(config: ModelConfig, prep: "Prepared") -> int:
+    """The number of residual scales: 1, one per bedroom group, or one per
+    bedroom group and calendar year of the panel (`noise_by_year`)."""
+    if config.noise_by_year and not config.noise_by_bedrooms:
+        raise ValueError("noise_by_year needs noise_by_bedrooms")
+    if not config.noise_by_bedrooms:
+        return 1
+    years = prep.periods[-1].year - prep.periods[0].year + 1
+    return len(BEDROOM_GROUPS) * (years if config.noise_by_year else 1)
+
+
+def noise_group(n_groups: int, a: "Arrays") -> np.ndarray:
+    """Each row's residual scale among `n_groups` (the length of sigma's last
+    axis): 0 for one scale, the bedroom group for one per group, else the
+    bedroom group's scale in the row's calendar year (group-major), years
+    outside the panel taking its nearest."""
+    xp = jnp if isinstance(a.bed_group, jnp.ndarray) else np
+    if n_groups <= 1:
+        return xp.zeros_like(a.bed_group)
+    years = n_groups // len(BEDROOM_GROUPS)
+    if years == 1:
+        return a.bed_group
+    return a.bed_group * years + xp.clip(a.year, 0, years - 1)
 
 
 def season_basis(harmonics: int) -> np.ndarray:
@@ -261,6 +297,8 @@ class Arrays:
     # Fraction of the calendar year at the listing's date (the middle of its
     # month when no date is given); read only by a daily season.
     year_frac: np.ndarray | None = None
+    # Calendar years from the panel's first (read only by `noise_by_year`).
+    year: np.ndarray | None = None
 
     FIELDS = (
         "y",
@@ -275,11 +313,14 @@ class Arrays:
         "beds_centered",
         "unit_time",
         "year_frac",
+        "year",
     )
 
     def __post_init__(self):
         if self.year_frac is None:
             self.year_frac = (np.asarray(self.calendar) + 0.5) / 12
+        if self.year is None:
+            self.year = np.zeros_like(np.asarray(self.month))
 
     def map(self, fn):
         return Arrays(*(fn(getattr(self, f)) for f in self.FIELDS))
@@ -389,6 +430,7 @@ def row_arrays(prep: Prepared, frame: pd.DataFrame, mask: np.ndarray) -> Arrays:
         beds_centered=sub.bedrooms.round().clip(0, 4).to_numpy() - 1.0,
         unit_time=_unit_time(prep, sub, month),
         year_frac=_year_frac(sub),
+        year=(sub.period.dt.year - periods[0].year).to_numpy().astype(np.int32),
     )
 
 
@@ -859,7 +901,7 @@ def build_model(prep: Prepared, config: ModelConfig):
             )
         p["sigma"] = numpyro.sample(
             "sigma",
-            dist.HalfNormal(config.noise_scale_sd).expand([len(BEDROOM_GROUPS)])
+            dist.HalfNormal(config.noise_scale_sd).expand([n_noise(config, prep)])
             if config.noise_by_bedrooms
             else dist.HalfNormal(config.noise_scale_sd),
         )
@@ -1082,7 +1124,11 @@ def build_model(prep: Prepared, config: ModelConfig):
         mu = linear_predictor(p, arrays)
         numpyro.sample(
             "y",
-            dist.StudentT(p["nu"], mu, row_sigma(p["sigma"], arrays.bed_group)),
+            dist.StudentT(
+                p["nu"],
+                mu,
+                row_sigma(p["sigma"], noise_group(n_noise(config, prep), arrays)),
+            ),
             obs=y,
         )
 
@@ -1425,6 +1471,22 @@ MODELS = {
         feature_slopes=("log_sqft_vs_bedroom_median", "bathrooms=2", "log_floor"),
         unit_t=True,
         noise_by_bedrooms=True,
+        season_harmonics=2,
+        season_daily=True,
+        bedroom_time=True,
+        bedroom_time_knot_months=3,
+    ),
+    # The served design with the residual scale by bedroom group and calendar
+    # year: asks are noisier in the 2010-12 and 2020-21 markets.
+    "m7-nocurves-floorslope-bednoise-dayfourier-bedtime-yearnoise": ModelConfig(
+        name="m7-nocurves-floorslope-bednoise-dayfourier-bedtime-yearnoise",
+        building_walk=True,
+        bedroom_slope=True,
+        trend_knot_months=3,
+        feature_slopes=("log_sqft_vs_bedroom_median", "bathrooms=2", "log_floor"),
+        unit_t=True,
+        noise_by_bedrooms=True,
+        noise_by_year=True,
         season_harmonics=2,
         season_daily=True,
         bedroom_time=True,

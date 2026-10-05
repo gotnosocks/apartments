@@ -82,6 +82,7 @@ def last_month_rows(prep, n_features: int) -> model.Arrays:
         beds_centered=full(0.0, float),
         unit_time=full(0.0, float),
         year_frac=full((calendar + 0.5) / 12, float),
+        year=full(prep.periods[-1].year - prep.periods[0].year),
     )
 
 
@@ -136,6 +137,10 @@ def kit_tables(kept, prep, config, feats, keep: int = DRAWS):
     fslope_names = list(config.feature_slopes)
     fslope = kept["fslope"] if fslope_names else np.zeros((d, level.shape[1], 0))
     sigma = kept["sigma"] if kept["sigma"].ndim == 2 else kept["sigma"][:, None]
+    if sigma.shape[1] > len(model.BEDROOM_GROUPS):
+        # By bedroom group and year (group-major): the kit prices the last
+        # period, so it keeps that year's scales.
+        sigma = sigma.reshape(d, len(model.BEDROOM_GROUPS), -1)[:, :, -1]
     t_units = bool((kept.get("unit_nu", np.zeros(d)) > 0).all())
     record = {
         "period": prep.periods[-1].strftime("%Y-%m-%d"),

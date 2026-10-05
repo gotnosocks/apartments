@@ -147,6 +147,18 @@ def test_noise_and_unit_prior_are_the_thinned_draws():
     assert np.shape(record["sigma"]) == (250, 1)
 
 
+def test_noise_by_year_exports_the_last_years_scales():
+    kept, prep, config, feats = toy(draws=600)
+    years = 3
+    # Group-major: column g * years + y is bedroom group g in year y.
+    by_year = np.random.default_rng(1).uniform(0.05, 0.2, (600, 4 * years))
+    record, _ = kit.kit_tables(kept | {"sigma": by_year}, prep, config, feats)
+    idx = kit.thin(600)
+    np.testing.assert_array_equal(
+        record["sigma"], by_year[idx][:, [g * years + years - 1 for g in range(4)]]
+    )
+
+
 def test_thinning_keeps_evenly_spaced_draws():
     assert (
         kit.thin(1000).tolist() == np.linspace(0, 999, 250).round().astype(int).tolist()

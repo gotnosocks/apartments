@@ -80,8 +80,10 @@ def heldout_logpdf_given_mu(p, test: model_module.Arrays, mu, u, unseen: bool = 
       an exact 2-D quadrature of the t-level plus normal-drift convolution.
     """
     seen = test.unit >= 0
-    # One residual scale, or (noise_by_bedrooms) each row's bedroom group's.
-    sigma = model_module.row_sigma(p["sigma"], test.bed_group)
+    # One residual scale, or (noise_by_bedrooms) each row's noise group's.
+    sigma = model_module.row_sigma(
+        p["sigma"], model_module.noise_group(model_module.sigma_groups(p["sigma"]), test)
+    )
     s1 = sigma[:, None] if jnp.ndim(sigma) else sigma
     s2 = sigma[:, None, None] if jnp.ndim(sigma) else sigma
     lp_seen = student_t_logpdf(test.y - mu - u, p["nu"], sigma)

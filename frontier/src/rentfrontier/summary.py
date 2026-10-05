@@ -485,7 +485,11 @@ def summarize(name: str, allow_failing: bool = False):
 
     def row_scale(a):
         """(draws, rows) residual scales, or (draws, 1) with one scale."""
-        return sigma[:, a.bed_group] if sigma.ndim == 2 else sigma[:, None]
+        return (
+            sigma[:, model.noise_group(sigma.shape[1], a)]
+            if sigma.ndim == 2
+            else sigma[:, None]
+        )
 
     key = jax.random.PRNGKey(SEED)
 
@@ -530,7 +534,10 @@ def summarize(name: str, allow_failing: bool = False):
             params,
             sub_key,
             t_units=t_units,
-            bed_group=np.r_[a.bed_group, np.zeros(pad, a.bed_group.dtype)],
+            bed_group=np.r_[
+                model.noise_group(sigma.shape[1] if sigma.ndim == 2 else 1, a),
+                np.zeros(pad, a.bed_group.dtype),
+            ],
         )
         loglik, level = loglik[:, : len(rows)], level[:, : len(rows)]
         terms["unit"] = level

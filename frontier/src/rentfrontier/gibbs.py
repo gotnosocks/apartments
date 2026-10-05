@@ -136,7 +136,8 @@ class Design:
     buckets: tuple = ()
     fill: dict | None = None
     walk_rank: int = 0  # touched knots over all buildings (the walk's rank)
-    # One residual scale per bedroom group (`noise_by_bedrooms`): each row's
+    # One residual scale per noise group (`noise_by_bedrooms`, by year with
+    # `noise_by_year`; `model.noise_group`): each row's
     # group; None for one scale.
     noise_group: jnp.ndarray | None = None
     n_noise: int = 1
@@ -491,10 +492,9 @@ def build_design(
             n_local,
         )
 
+    n_noise = model_module.n_noise(config, prep)
     noise_names = (
-        [f"sigma_{g}" for g in range(len(model_module.BEDROOM_GROUPS))]
-        if config.noise_by_bedrooms
-        else []
+        [f"sigma_{g}" for g in range(n_noise)] if config.noise_by_bedrooms else []
     )
     prior_sd = {
         "sigma": config.noise_scale_sd,
@@ -561,10 +561,10 @@ def build_design(
         gram_fcols=fcols,
         gram_kcols=kcols,
         buckets=buckets,
-        noise_group=jnp.asarray(tr.bed_group, jnp.int32)
+        noise_group=jnp.asarray(model_module.noise_group(n_noise, tr), jnp.int32)
         if config.noise_by_bedrooms
         else None,
-        n_noise=len(model_module.BEDROOM_GROUPS) if config.noise_by_bedrooms else 1,
+        n_noise=n_noise,
         fill=fill,
         walk_rank=walk_rank,
     )
@@ -613,7 +613,7 @@ def is_part_scale(name: str) -> bool:
 
 
 def sigma_rows(d, s):
-    """Each row's residual scale: s["sigma"], or its bedroom group's."""
+    """Each row's residual scale: s["sigma"], or its noise group's."""
     if d.noise_group is None:
         return s["sigma"]
     return jnp.stack([s[n] for n in d.noise_names])[d.noise_group]
