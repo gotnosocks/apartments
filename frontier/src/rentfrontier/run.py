@@ -407,12 +407,7 @@ def main(argv=None):
     frame = data.load()
     rules = args.data_rules
     check_rules_for_split(rules, args.split)
-    if args.split in splits.AFTER_RULES:
-        frame, _ = data.apply_rules(frame, np.zeros(len(frame), bool), rules)
-        heldout = splits.SPLITS[args.split](frame)
-    else:
-        heldout = splits.SPLITS[args.split](frame)
-        frame, heldout = data.apply_rules(frame, heldout, rules)  # after the split
+    frame, heldout = data.split_and_rules(frame, args.split, rules)
     feats = features.build(args.features, frame, ~heldout)
     prep = model.prepare(frame, heldout, feats)
     prep_seconds = time.perf_counter() - t0
