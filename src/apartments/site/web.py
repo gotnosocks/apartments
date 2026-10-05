@@ -19,6 +19,7 @@ import math
 import os
 import re
 import sqlite3
+import statistics
 import time
 from pathlib import Path
 from urllib.parse import quote, urlencode, urlsplit
@@ -171,6 +172,12 @@ class Filters:
         self.beds = [b for b in args.getlist("beds") if b in BEDROOMS]
         self.min_ask = _number(args.get("min_ask"))
         self.max_ask = _number(args.get("max_ask"))
+        self.min_baths = args.get("baths") if args.get("baths") in BATHS else None
+        self.min_sqft = _number(args.get("min_sqft"))
+        self.max_sqft = _number(args.get("max_sqft"))
+        self.elevator = (
+            args.get("elevator") if args.get("elevator") in ("yes", "no") else None
+        )
         self.year_from = _year(args.get("from"))
         self.year_to = _year(args.get("to"))
         self.status = args.get("status") if args.get("status") in STATUS else "all"
@@ -214,6 +221,18 @@ class Filters:
         if self.max_ask is not None:
             clauses.append("l.ask <= ?")
             params.append(self.max_ask)
+        if self.min_baths is not None:
+            clauses.append("l.bathrooms >= ?")
+            params.append(float(self.min_baths))
+        if self.min_sqft is not None:
+            clauses.append("l.square_feet >= ?")
+            params.append(self.min_sqft)
+        if self.max_sqft is not None:
+            clauses.append("l.square_feet <= ?")
+            params.append(self.max_sqft)
+        if self.elevator is not None:
+            clauses.append("l.elevator = ?")
+            params.append(self.elevator)
         if self.year_from is not None:
             clauses.append("l.period >= ?")
             params.append(f"{self.year_from}-01-01")
@@ -242,6 +261,10 @@ class Filters:
             "beds": self.beds or None,
             "min_ask": _fmt_number(self.min_ask),
             "max_ask": _fmt_number(self.max_ask),
+            "baths": self.min_baths,
+            "min_sqft": _fmt_number(self.min_sqft),
+            "max_sqft": _fmt_number(self.max_sqft),
+            "elevator": self.elevator,
             "from": self.year_from,
             "to": self.year_to,
             "status": None if self.status == "all" else self.status,
@@ -261,6 +284,10 @@ class Filters:
             or self.beds
             or self.min_ask is not None
             or self.max_ask is not None
+            or self.min_baths is not None
+            or self.min_sqft is not None
+            or self.max_sqft is not None
+            or self.elevator is not None
             or self.year_from
             or self.year_to
             or self.status != "all"
@@ -268,7 +295,26 @@ class Filters:
         )
 
 
+# Minimum bathrooms the listings filter offers.
+BATHS = ("1", "1.5", "2", "3")
 LISTING_JOIN = " JOIN buildings b ON b.id = l.building_id"
+
+
+def asks_summary(db, filters: Filters) -> dict | None:
+    """The filtered listings' asks in brief: their median and middle 80%
+    (10th to 90th percentile); None when nothing matches."""
+    where, params = filters.where()
+    join = LISTING_JOIN if "b." in where else ""
+    asks = sorted(
+        r[0] for r in db.execute(f"SELECT l.ask FROM listings l{join}{where}", params)
+    )
+    if not asks:
+        return None
+    out = {"n": len(asks), "median": statistics.median(asks), "low": None, "high": None}
+    if len(asks) >= 5:  # a middle 80% of fewer asks says little
+        deciles = statistics.quantiles(asks, n=10, method="inclusive")
+        out["low"], out["high"] = deciles[0], deciles[-1]
+    return out
 
 
 def count_query(filters: Filters):
@@ -647,6 +693,7 @@ def create_app(
         rows, total, pages = listings_query(filters)
         return render_template(
             "listings.html",
+            summary=asks_summary(db(), filters) if filters.active() else None,
             meta=meta(),
             coverage=current_coverage() if filters.status == "current" else [],
             rows=rows,
