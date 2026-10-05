@@ -42,7 +42,7 @@ from flask import (
 )
 from markupsafe import Markup
 
-from . import ad_dates, charts, estimate, estimate_build
+from . import ad_dates, charts, estimate, estimate_build, summary
 from .anatomy import LEVELS as ANATOMY_LEVELS
 from .anatomy import describe, differences
 from .research import (
@@ -953,6 +953,7 @@ def create_app(
             ).days
         return render_template(
             "listing.html",
+            summary=summary.listing_summary(row, contributions, inputs),
             ad_start=ad_start,
             on_market=on_market,
             relabelled=relabelled,
