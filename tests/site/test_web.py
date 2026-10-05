@@ -272,7 +272,10 @@ def test_model_page_describes_the_designs_terms(client, site_root):
     """The building bullet lists the building terms the design has; the sampler
     and the k threshold are shown readably."""
     html = client.get("/about").get_data(as_text=True)
-    assert "<strong>building</strong>: its level against an average building;" in html
+    assert (
+        "<strong>building</strong>: its level against a building with the same listed features;"
+        in html
+    )
     assert "Pareto k above 0.7)" in html
     assert "NUTS (NumPyro) on" in client.get("/research/model").get_data(as_text=True)
     db = sqlite3.connect((site_root / "current" / "site.sqlite").resolve())
@@ -293,8 +296,8 @@ def test_model_page_describes_the_designs_terms(client, site_root):
     db.close()
     html = client.get("/about").get_data(as_text=True)
     assert (
-        "<strong>building</strong>: its level against an average building, how that"
-        " level has moved over time and its own premium or discount for larger"
+        "<strong>building</strong>: its level against a building with the same listed"
+        " features, how that level has moved over time and its own premium or discount for larger"
         " apartments;" in html
     )
     assert "Pareto k above 0.675)" in html
