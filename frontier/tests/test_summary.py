@@ -167,6 +167,14 @@ def test_present_terms_leave_out_terms_a_design_does_not_have():
     assert names == ["market", "bedrooms", "size", "building", "building_drift", "unit"]
     labels = {t["name"]: t["label"] for t in summary.terms_record(names)}
     assert labels["building_drift"] == "Building over time" and labels["size"] == "Size"
+    text = {
+        t["name"]: t["description"] for t in summary.terms_record(["neighbourhood"])
+    }
+    assert text["neighbourhood"] == summary.TERM_TEXT["neighbourhood"]
+    three = summary.terms_record(
+        ["neighbourhood"], ["West Village", "Greenwich Village"]
+    )
+    assert three[0]["description"] == summary.NEIGHBOURHOODS_TEXT
 
 
 def test_write_records_every_file_and_renames_last(tmp_path, monkeypatch):

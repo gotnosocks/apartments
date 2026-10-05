@@ -656,12 +656,25 @@ def coefficient_table(kept, feats: features.Features) -> pd.DataFrame:
     )
 
 
-def terms_record(names) -> list[dict]:
+# The neighbourhood term when the design has more than one neighbourhood column
+# (Greenwich Village beside the West Village, `features.greenwich_v1`).
+NEIGHBOURHOODS_TEXT = (
+    "Each neighbourhood against Chelsea (the West Village, Greenwich Village): the "
+    "shift of every building's level there, before the building's own effect."
+)
+
+
+def terms_record(names, columns=()) -> list[dict]:
+    """Label and description of each term; `columns` (the design's feature
+    names) picks the neighbourhood text for three neighbourhoods."""
+    text = dict(TERM_TEXT)
+    if "Greenwich Village" in columns:
+        text["neighbourhood"] = NEIGHBOURHOODS_TEXT
     return [
         {
             "name": n,
             "label": TERM_LABELS.get(n, n.replace("_", " ").capitalize()),
-            "description": TERM_TEXT.get(n, f"Listing attributes ({n})."),
+            "description": text.get(n, f"Listing attributes ({n})."),
         }
         for n in names
     ]
@@ -692,7 +705,11 @@ def write(out: dict, out_dir: Path, commit: str, seconds: float) -> Path:
     out["market"].to_parquet(tmp / "market.parquet", index=False)
     out["buildings"].to_parquet(tmp / "buildings.parquet", index=False)
     out["coefficients"].to_parquet(tmp / "coefficients.parquet", index=False)
-    (tmp / "terms.json").write_text(json.dumps(terms_record(out["names"]), indent=2))
+    (tmp / "terms.json").write_text(
+        json.dumps(
+            terms_record(out["names"], out["coefficients"].feature.tolist()), indent=2
+        )
+    )
     result = out["result"]
     rule_files = {}
     for rule in data.recorded_rules(result):

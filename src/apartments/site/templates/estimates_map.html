@@ -24,11 +24,14 @@
   {# Written for the served design family (confirmed by Modeling, 2026-10-05); revisit if a model
      gains neighbourhood-specific time terms. #}
   {# Plain words first (playtest round 4: the tablet tester could not tell what "partially pooled" meant). #}
-  <p class="note" id="area-caveat" hidden>Chelsea and the West Village share one market trend in the model (one for each bedroom
+  {# The neighbourhoods the listings cover, "the West Village" with its article. #}
+  {% set hoods = ((meta.stats or {}).neighbourhoods or {"Chelsea": 0, "West Village": 0}).keys() | sort %}
+  {% set hood_words = hoods | map("replace", "West Village", "the West Village") | list %}
+  {% set hood_list = hood_words[:-1] | join(", ") ~ " and " ~ hood_words[-1] if hood_words | length > 1 else hood_words | join %}
+  <p class="note" id="area-caveat" hidden>{{ hood_list[:1] | upper }}{{ hood_list[1:] }} share one market trend in the model (one for each bedroom
   group: studio, one, two, three or more), and the neighbourhood itself only shifts the level. A neighbourhood grows faster
-  or slower than the other only through its own buildings drifting from that trend, which the model estimates cautiously
-  (each building's half-yearly walk, partially pooled across all buildings). So treat differences in growth between Chelsea and
-  the West Village with care: the levels are firmer than the growth.</p>
+  or slower than the {{ "other" if hoods | length <= 2 else "others" }} only through its own buildings drifting from that trend, which the model estimates cautiously
+  (each building's half-yearly walk, partially pooled across all buildings). So treat differences in growth between {{ hood_list }} with care: the levels are firmer than the growth.</p>
 </section>
 
 <div class="map-layout">
