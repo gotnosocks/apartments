@@ -20,7 +20,9 @@
     <button id="year-play" class="ghost" type="button">Play</button>
   </div>
   <label class="check-inline"><input id="show-before" type="checkbox"> Buildings outside the years of their listings</label>
-  <label class="check-inline">Change since <select id="base-year"></select></label>
+  <label class="check-inline">Compare with <select id="base-year"></select></label>
+  {# Written for the served design family (confirmed by Modeling, 2026-10-05); revisit if a model
+     gains neighbourhood-specific time terms. #}
   <p class="note" id="area-caveat" hidden>The model has one market trend for both neighbourhoods, with its own path for each bedroom
   group (studio, one, two, three or more) and a shared seasonal pattern; the neighbourhood itself only shifts the level. A
   neighbourhood's own change over time comes only from its buildings' own drift (each building's half-yearly walk, partially

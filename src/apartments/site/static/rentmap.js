@@ -157,7 +157,6 @@ function buildControls() {
 function renderKpis() {
   const d = state.data, yi = yearIndex(), bedLabel = d.bedrooms.find((b) => b.key === state.bed).label;
   const [lo, mid, hi] = median(state.bed, yi);
-  const first = median(state.bed, state.base)[1];
   const shown = d.buildings.filter((b) => visible(b, yi)).length;
   const total = d.buildings.filter(inArea).length;
   const k = $('map-kpis');
@@ -171,9 +170,15 @@ function renderKpis() {
   const partial = d.year_months[yi] < 12 ? ` (${d.year_months[yi]} months)` : '';
   tile(`Median building ${state.area ? 'in' : 'across'} ${areaName()}, ${bedLabel.toLowerCase()}, ${yearOf(yi)}${partial}`, usd(mid),
     `90% interval ${range(lo, hi)} a month: how sure the model is of this typical rent, not the range of asks. `
-    + `A typical apartment of that size has the average baths, size and features of its bedroom count.`, true);
-  const ch = mid / first - 1;
-  tile(`Since ${d.years[state.base]}`, `${ch >= 0 ? '+' : '−'}${Math.abs(100 * ch).toFixed(0)}%`, `from ${usd(first)} a month`);
+    + `A typical apartment has the average baths, size, laundry, views and listed extras for its bedroom count, and the building's own usual floor and amenities.`, true);
+  // The change between the chosen base year and the map year, read forwards
+  // in time whichever comes first.
+  const part = (i) => (d.year_months[i] < 12 ? ` (${d.year_months[i]} months)` : '');
+  const [from, to] = state.base <= yi ? [state.base, yi] : [yi, state.base];
+  const early = median(state.bed, from)[1], late = median(state.bed, to)[1];
+  const ch = late / early - 1;
+  const changeLabel = state.base <= yi ? `Since ${yearOf(from)}${part(from)}` : `From ${yearOf(from)} to ${yearOf(to)}${part(to)}`;
+  tile(changeLabel, `${ch >= 0 ? '+' : '−'}${Math.abs(100 * ch).toFixed(0)}%`, `from ${usd(early)} a month`);
   tile('Buildings on the map', shown.toLocaleString('en-US'), `of ${total.toLocaleString('en-US')} with listings in the fit${state.showBefore ? '' : `; shown where their listings span ${yearOf(yi)}`}`);
 }
 
