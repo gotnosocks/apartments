@@ -42,13 +42,17 @@ starting a second one. Leave out `--gpu` only when you don't own GPU work.
 Every tool call re-reads the whole context, and a wake after the hour-long prompt cache expires
 writes all of it again. Over 2026-10-03..05 the two sessions that ran at 300k to 966k tokens made
 two thirds of the project's token cost (`docs/token-usage.md`). `.claude/settings.json` sets
-`CLAUDE_CODE_AUTO_COMPACT_WINDOW` so sessions compact near 200k instead of 1M. Help it along:
+`CLAUDE_CODE_AUTO_COMPACT_WINDOW` so sessions compact near 200k instead of 1M, and Ben's
+user settings on thelio set it for every session in any worktree (2026-10-05). Help it along:
 
 - At each milestone (a PR merged, a fit landed and recorded, a decision from Ben), update your
   thread's handoff note, `docs/handoff/<thread>.md`, with what the next turn needs, so a
   compaction or a fresh session loses nothing.
 - Read logs and large files with `tail`, `grep` or `sed -n` ranges, never whole. Ask subagents
   for a short conclusion, not file dumps.
+- Reviewer subagents for site and docs PRs run on Sonnet (the Agent tool's `model: "sonnet"`);
+  keep the default model for PRs that touch models, selection, data rules or ops code (Ben,
+  2026-10-05).
 - Wake only for what you act on: watch the PRs you are waiting on, and leave out `--gpu` and
   `--unit` when you own no GPU work.
 - Never ask Ben to type "go" or to confirm a step his standing rules already allow. Do it and
