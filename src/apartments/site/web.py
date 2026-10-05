@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import copy
 import csv
+import dataclasses
 import datetime as dt
 import functools
 import gzip
@@ -1301,19 +1302,20 @@ def create_app(
                     p | {"label": labels.get(p["group"], p["group"])}
                     for p in estimate.parts(kit, terms, x, form.bedrooms, today)
                 ]
-                facts = {
-                    "elevator": "no"
-                    if x.get("elevator=no")
-                    else ("not stated" if x.get("elevator=unknown") else "yes"),
-                    "doorman": next(
-                        (
-                            n.split("=", 1)[1].replace("_", " ")
-                            for n in x
-                            if n.startswith("doorman=")
-                        ),
-                        "not stated",
-                    ),
-                }
+                facts = building_facts(x)
+                # What the building's listings say, beside what the visitor set.
+                facts["building"] = (
+                    building_facts(
+                        estimate.encode(
+                            dataclasses.replace(form, elevator="", doorman=""),
+                            kit,
+                            terms.inputs,
+                        )
+                    )
+                    if form.elevator or form.doorman
+                    else dict(facts)
+                )
+                facts["set"] = {k for k in ("elevator", "doorman") if getattr(form, k)}
 
         def pick(chosen):
             args = {
@@ -2009,6 +2011,23 @@ def _natural(text: str):
     import re
 
     return [int(t) if t.isdigit() else t for t in re.split(r"(\d+)", text.upper())]
+
+
+def building_facts(x: dict[str, float]) -> dict:
+    """The elevator and doorman an apartment's model inputs say, in words."""
+    return {
+        "elevator": "no"
+        if x.get("elevator=no")
+        else ("not stated" if x.get("elevator=unknown") else "yes"),
+        "doorman": next(
+            (
+                n.split("=", 1)[1].replace("_", " ")
+                for n in x
+                if n.startswith("doorman=")
+            ),
+            "not stated",
+        ),
+    }
 
 
 def beds_label(value) -> str:
