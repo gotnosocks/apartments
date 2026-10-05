@@ -36,3 +36,13 @@ def test_asks_summary_percentiles():
         and abs(s["high"] - 9.1) < 1e-9
         and s["estimate"] == 10  # the nine listings with an estimate
     )
+
+
+def test_few_available_now_points_to_the_past_listings(client):
+    html = " ".join(
+        client.get("/listings?status=current").get_data(as_text=True).split()
+    )
+    assert 'id="few-current"' in html and "on the market now with these filters" in html
+    assert 'href="/listings?status=past"' in html
+    many = client.get("/listings?status=past").get_data(as_text=True)
+    assert 'id="few-current"' not in many

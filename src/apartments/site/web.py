@@ -7,6 +7,7 @@ parsed leniently: an invalid value is ignored, never an error page.
 
 from __future__ import annotations
 
+import copy
 import csv
 import datetime as dt
 import functools
@@ -87,6 +88,8 @@ NEW_YORK = ZoneInfo("America/New_York")
 PER_PAGE = (25, 50, 100)
 BEDROOMS = {"0": "Studio", "1": "1 BR", "2": "2 BR", "3": "3 BR", "4": "4+ BR"}
 STATUS = {"all": "All listings", "current": "Available now", "past": "Past listings"}
+# Fewer "Available now" matches than this point to the past listings too.
+FEW_CURRENT = 10
 BANDS = {
     "all": "Any price",
     "below": "Below typical",
@@ -736,8 +739,17 @@ def create_app(
     def listings():
         filters = checked(Filters(request.args))
         rows, total, pages = listings_query(filters)
+        # Few listings are on the market at once, so "Available now" with
+        # narrow filters can leave one or none (playtest round 3): say how
+        # many past listings match the same filters.
+        past = None
+        if filters.status == "current" and total < FEW_CURRENT:
+            every = copy.copy(filters)
+            every.status = "past"
+            past = db().execute(*count_query(every)).fetchone()[0]
         return render_template(
             "listings.html",
+            past=past,
             summary=asks_summary(db(), filters) if filters.active() else None,
             meta=meta(),
             coverage=current_coverage() if filters.status == "current" else [],
