@@ -98,7 +98,10 @@
 </form>
 
 <div class="results-head">
-  <p><strong>{{ "{:,}".format(total) }}</strong> listing{{ "" if total == 1 else "s" }}{% if total > filters.per %}, {{ "{:,}".format((filters.page - 1) * filters.per + 1) }}–{{ "{:,}".format([filters.page * filters.per, total] | min) }} shown{% endif %}</p>
+  <p><strong>{{ "{:,}".format(total) }}</strong> listing{{ "" if total == 1 else "s" }}{% if total > filters.per %}, {{ "{:,}".format((filters.page - 1) * filters.per + 1) }}–{{ "{:,}".format([filters.page * filters.per, total] | min) }} shown{% endif %}{# Playtest round 4 (family): the Status and Elevator defaults were easy to miss. #}
+  <span id="default-filters">{% if filters.status == "all" %} · past and current (<a href="{{ page_url('listings', filters, status='current', page=None) }}">available
+  now only</a>){% endif %}{% if not filters.elevator %} · with or without an elevator (<a href="{{ page_url('listings', filters, elevator='yes', page=None) }}">elevator
+  only</a>){% endif %}</span></p>
   <p class="results-links">
     Per page:
     {% for n in PER_PAGE %}{% if n == filters.per %}<strong>{{ n }}</strong>{% else %}<a href="{{ page_url('listings', filters, per=(None if n == 50 else n), page=None) }}">{{ n }}</a>{% endif %}{% if not loop.last %} · {% endif %}{% endfor %}
