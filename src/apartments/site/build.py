@@ -382,6 +382,17 @@ def listing_rows(rows, observations, names, k_threshold, scope="Chelsea") -> lis
     return out
 
 
+def unit_heading(rows) -> str | None:
+    """The label a unit goes by: the one its listings use most often (ties:
+    the shorter, then the most recent), so a joined unit is headed by its usual
+    form ("4U"), not by whichever variant came last ("004U")."""
+    counts = Counter(r["unit_label"] for r in rows if r["unit_label"])
+    if not counts:
+        return None
+    order = {r["unit_label"]: i for i, r in enumerate(rows)}  # last index wins
+    return max(counts, key=lambda label: (counts[label], -len(label), order[label]))
+
+
 def unit_rows(listings) -> list[dict]:
     by_unit: dict[str, list[dict]] = {}
     for row in listings:
@@ -399,7 +410,7 @@ def unit_rows(listings) -> list[dict]:
             {
                 "id": unit_id,
                 "building_id": last["building_id"],
-                "label": last["unit_label"],
+                "label": unit_heading(rows),
                 "url": last["unit_url"],
                 "bedrooms": latest("bedrooms"),
                 "bathrooms": latest("bathrooms"),
