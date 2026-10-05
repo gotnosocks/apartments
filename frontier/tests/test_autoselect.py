@@ -84,9 +84,9 @@ def test_feature_sets_that_read_earlier_rents_are_never_served(tmp_path, monkeyp
     run = Path(e["splits"]["rows"]["_dir"])
     rec = json.loads((run / "result.json").read_text())
     (run / "result.json").write_text(json.dumps({**rec, "feature_set": "leaky"}))
+    assert "nb-prevprice-v1" in features.READS_EARLIER_RENTS
     monkeypatch.setattr(features, "READS_EARLIER_RENTS", {"leaky"})
     assert "selected on the latest split" in autoselect.why_not(e, RULES)
-    assert "nb-prevprice-v1" in features.READS_EARLIER_RENTS
 
 
 def test_ranked_prefers_the_fastest_tie_but_not_on_timing_noise(tmp_path):
