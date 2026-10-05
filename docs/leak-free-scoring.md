@@ -59,10 +59,10 @@ Exploration tier (x-2060-100w600d-nb-cb1-q5, Gibbs), on the latest split at 56b2
 
 v1 against v2: +44.2 ± 13.1.
 
-A first run (05bfae7) had measured +72.8 and +26.3. Review then found a self-leak: a current-capture row shares its advertisement with that ad's initial-ask row, so its "previous listing" was its own ad. That affected 70 rows, 28 of them held out. The feature now reads the latest earlier row of another advertisement, and only its price-change record. On PSIS-LOO the same feature had shown +746.9.
+A first run (05bfae7) had measured +72.8 and +26.3. Review then found a self-leak: a current-capture row shares its advertisement with that ad's initial-ask row, so its "previous listing" was its own ad. That affected 70 rows, 28 of them held out. The feature now reads the latest earlier row of another advertisement, and builds both terms from that ad's price-change record alone, never from frame rents. On PSIS-LOO the pre-fix feature (a2b00d4) had shown +746.9.
 
 Next: a full-tier pair on the latest split (the served design with and without nb-prevprice-v1, on the Oct 5 cohort) decides whether it is served (Modeling's selection path).
 
 ## As-of check: listing-record fields
 
-`nb-coded-v1` reads each listing's last capture. Across the 29,602 listings captured more than once, the coded outdoor types change between captures in 0.66% of listings and the room count in 0.96%. The last capture is therefore, in effect, the listing's own as-of record.
+`nb-coded-v1` reads each listing's last capture. Across the 29,602 listings captured more than once, the coded outdoor types change between captures in 0.66% of listings and the room count in 0.96%. (Computed with `listing_extras.record_extras` over every capture in both granular crawls' `listing_observations`.) The last capture is therefore, in effect, the listing's own as-of record.
