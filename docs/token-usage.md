@@ -34,10 +34,9 @@ Cache reads are 98% of the tokens. Uncached input is negligible (7k).
 
 - `ops/team/wait-next` batches wakes: a unit finishing or a PR changing waits up to `--batch`
   minutes (default 15) for the other watched units, and an idle GPU, a watched file or the
-  heartbeat still ends the wait at once, so no GPU time is lost. A queued fit counts as a watched
-unit, so a fit that ends with the next one queued wakes its owner after the full window. `frontier-*` units are watched
-  only with `--gpu`.
-- Proposed for Ben's approval (agent instructions and settings, not changed here): a lower
-  auto-compact window (`CLAUDE_CODE_AUTO_COMPACT_WINDOW=200000` in `.claude/settings.json`), and
-  CLAUDE.md rules to write a handoff note at milestones, read logs with `tail`/`grep` only, and
-  never ask Ben to type "go".
+  heartbeat still ends the wait at once, so no GPU time is lost. A queued fit counts as a
+  watched unit, so a fit that ends with the next one queued wakes its owner after the full window.
+  `frontier-*` units are watched only with `--gpu`.
+- `.claude/settings.json` sets `CLAUDE_CODE_AUTO_COMPACT_WINDOW=200000`, so sessions compact near
+  200k (Ben approved 2026-10-05; it applies when a session restarts). CLAUDE.md asks for a handoff
+  note at milestones, log reads with `tail`/`grep` only, and never asking Ben to type "go".
