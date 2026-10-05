@@ -810,6 +810,7 @@ def create_app(
                     "neighbourhood": None,
                     "listings": row[0],
                     "captured": capture_day(row[1]),
+                    "age_days": capture_age(row[1]),
                 }
             ]
         found = {
@@ -825,6 +826,7 @@ def create_app(
                 "neighbourhood": n,
                 "listings": found.get(n, (0, None))[0],
                 "captured": capture_day(found.get(n, (0, None))[1]),
+                "age_days": capture_age(found.get(n, (0, None))[1]),
             }
             for n in names
         ]
@@ -840,6 +842,18 @@ def create_app(
         if t.tzinfo is not None:
             t = t.astimezone(NEW_YORK)
         return f"{t.day} {t:%b %Y}"
+
+    def capture_age(at: str | None) -> int | None:
+        """Whole days since a capture (ISO time), or None."""
+        if not at:
+            return None
+        try:
+            t = dt.datetime.fromisoformat(at)
+        except ValueError:
+            return None
+        if t.tzinfo is None:
+            t = t.replace(tzinfo=dt.UTC)
+        return max(0, (dt.datetime.now(dt.UTC) - t).days)
 
     def neighbourhoods() -> dict:
         """The build's neighbourhoods and their listing counts ({} for builds

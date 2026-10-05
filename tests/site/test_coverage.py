@@ -33,3 +33,16 @@ def test_a_neighbourhood_without_a_current_capture_is_named(client, site_root):
 def test_capture_day_is_new_york_time(client):
     html = client.get("/listings?status=current").get_data(as_text=True)
     assert "captured 2026-" not in html  # a day in words, not an ISO date
+
+
+def test_an_old_capture_says_listings_may_have_rented(client, site_root):
+    db = sqlite3.connect(site_root / "current" / "site.sqlite")
+    db.execute(
+        "UPDATE listings SET collected_at = '2020-01-01T00:00:00+00:00' WHERE is_current = 1"
+    )
+    db.commit()
+    db.close()
+    html = " ".join(
+        client.get("/listings?status=current").get_data(as_text=True).split()
+    )
+    assert "so some of these may have rented since" in html
