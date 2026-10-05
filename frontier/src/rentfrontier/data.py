@@ -508,7 +508,7 @@ def split_and_rules(frame: pd.DataFrame, split: str, rules) -> tuple:
         held = splits.SPLITS[split](frame)
         # As apply_rules: a held-out row needs a training row in its building.
         if "building" in frame:
-            held &= frame.building.isin(set(frame.building[~held])).to_numpy()
+            held = held & frame.building.isin(set(frame.building[~held])).to_numpy()
         return frame, held
     return apply_rules(frame, splits.SPLITS[split](frame), rules)
 

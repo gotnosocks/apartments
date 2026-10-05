@@ -20,7 +20,7 @@ Rows that no other covariate can see gain about a seventh of the headline.
 
 ## The latest-listing split
 
-`--split latest` (`splits.latest_split`) holds out the most recent listing of a random set of re-listed units, 10% of all rows, with the usual seed. It is drawn after the data rules (`splits.AFTER_RULES`), on merged units and kept rows. The model is fitted on everything else, and held-out rows are scored as usual (`heldout.npz`, ELPD per row).
+`--split latest` (`splits.latest_split`) holds out the most recent listing of a random set of re-listed units, 10% of all rows, with the usual seed. Units whose two latest listings share a date are not drawn. It is drawn after the data rules (`splits.AFTER_RULES`), on merged units and kept rows. The model is fitted on everything else, and held-out rows are scored as usual (`heldout.npz`, ELPD per row).
 
 - **Leak-free for unit history.** No training row comes after a held-out row in its unit. So no training covariate built from the same unit's earlier listings (previous asks, repricing, gaps) can contain a held-out rent.
 - **Legitimate past information is kept.** A held-out row's own covariates may read its unit's earlier listings, because those are known when it is listed.
@@ -30,7 +30,7 @@ Rows that no other covariate can see gain about a seventh of the headline.
 Every reader of a run (summary, loo, explain, rentmap, rescore, variance, projection) rebuilds its rows through `data.split_and_rules`, which keeps the run's order. That is rules first for the latest split, and split first for the others.
 
 **Limits.**
-- **Power:** the split scores about 8,700 rows against PSIS-LOO's 77,800, so paired standard errors are about three times larger. Effects of the size of #211's real gain (about +109 ± 23 on last listings under PSIS-LOO) resolve; small ones may not. When the interval straddles zero, K disjoint groups of the same last listings (K fits per design, each last listing held out once, still leak-free) buy power at K times the cost.
+- **Power:** under the current rules the split scores 8,648 rows (10%) against PSIS-LOO's 77,815, so paired standard errors are about three times larger. Effects of the size of #211's real gain (about +109 ± 23 on last listings under PSIS-LOO) resolve; small ones may not. When the interval straddles zero, K disjoint groups of the same last listings (K fits per design, each last listing held out once, still leak-free) buy power at K times the cost.
 - **Time skew:** latest listings sit mostly in recent months, where the market curve and walks have the least data after them. So the split mixes a feature's value with near-term extrapolation. It is the score for features that read earlier rents, not a general replacement for PSIS-LOO: changes to time structure (walk spacing, bedroom curves) score differently here.
 
 Designs are compared paired, on the held-out rows both runs share: the per-row ELPD difference, its sum, and the standard error from the row spread plus the chains' Monte Carlo error. Both arms must use the same data rules so that they hold out the same rows.

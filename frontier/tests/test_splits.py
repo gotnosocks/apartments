@@ -1,5 +1,3 @@
-
-
 def test_latest_split_holds_out_only_each_units_last_listing():
     import numpy as np
     import pandas as pd
@@ -25,6 +23,11 @@ def test_latest_split_holds_out_only_each_units_last_listing():
         # Nothing in its unit comes later, so no training row can read its ask.
         assert (same.price_at <= row.price_at).all()
     assert frame[held].unit_id.is_unique
+    # A unit whose two latest listings share a date is never held out.
+    tied = frame.copy()
+    tied.loc[len(tied)] = ["t1", "uT", pd.Timestamp("2025-01-01", tz="UTC")]
+    tied.loc[len(tied)] = ["t2", "uT", pd.Timestamp("2025-01-01", tz="UTC")]
+    assert not splits.latest_split(tied, fraction=0.9)[-2:].any()
     np.testing.assert_array_equal(held, splits.latest_split(frame))
     assert "latest" in splits.AFTER_RULES
 
@@ -39,6 +42,7 @@ def test_split_and_rules_draws_latest_after_the_rules(monkeypatch):
         {
             "audit_id": ["a", "b", "c", "d"],
             "unit_id": ["u1", "u1b", "u2", "u2"],
+            "building": ["b1", "b1", "b2", "b2"],
             "price_at": pd.to_datetime(
                 ["2020-01-01", "2021-01-01", "2020-01-01", "2021-01-01"], utc=True
             ),
