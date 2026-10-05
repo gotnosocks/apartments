@@ -283,8 +283,12 @@ details.table-view summary { cursor: pointer; color: var(--link); font-size: 0.9
   background: var(--surface); color: var(--ink); border: 1px solid var(--border);
   border-radius: 6px; box-shadow: 0 4px 14px rgba(0, 0, 0, 0.15);
   padding: 0.4rem 0.6rem; font-size: 0.82rem;
+  /* A small card that wraps, so it never covers the whole plot. */
+  max-width: min(17rem, 60%); overflow-wrap: anywhere;
 }
 .chart-tip .tip-title { color: var(--ink-2); margin-bottom: 0.15rem; }
+/* Phones: the card sits under the plot instead of over it. */
+.chart-tip.below { position: static; max-width: none; margin-top: 0.4rem; box-shadow: none; }
 .chart-tip .tip-row { display: flex; justify-content: space-between; gap: 1rem; }
 .chart-tip .tip-row strong { font-variant-numeric: tabular-nums; }
 .chart-tip .tip-row span { color: var(--ink-2); }

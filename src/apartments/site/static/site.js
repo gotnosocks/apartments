@@ -70,14 +70,25 @@
       marker.setAttribute("visibility", "visible");
       readout(tip, point);
       tip.hidden = false;
-      var scale = svg.getBoundingClientRect().width / view.width;
-      var left = point.x * scale + 14;
-      var top = point.y * scale - 10;
-      if (left + tip.offsetWidth > figure.clientWidth) {
-        left = point.x * scale - tip.offsetWidth - 14;
+      // Narrow screens: the card goes under the plot (CSS .below), so a tap
+      // never hides the chart. Otherwise it sits beside the point, flipped
+      // to the other side near the right or bottom edge, inside the figure.
+      var below = figure.clientWidth < 480;
+      tip.classList.toggle("below", below);
+      if (below) {
+        tip.style.left = "";
+        tip.style.top = "";
+      } else {
+        var scale = svg.getBoundingClientRect().width / view.width;
+        var px = point.x * scale, py = point.y * scale;
+        var left = px + 14;
+        if (left + tip.offsetWidth > figure.clientWidth) left = px - tip.offsetWidth - 14;
+        var top = py - 10;
+        var height = svg.getBoundingClientRect().height;
+        if (top + tip.offsetHeight > height) top = py - tip.offsetHeight - 10;
+        tip.style.left = Math.max(0, left) + "px";
+        tip.style.top = Math.max(0, top) + "px";
       }
-      tip.style.left = Math.max(0, left) + "px";
-      tip.style.top = Math.max(0, top) + "px";
       figure.style.cursor = point.href ? "pointer" : "";
     }
 

@@ -1513,24 +1513,20 @@ def create_app(
         ]
 
     def fit_rows(f) -> list:
+        """A fit's hover card: the key facts only (the fit's page and the
+        table below the chart have the rest)."""
         rows = []
         if f["delta"] is not None:
             se = f" ± {f['delta_se']:,.1f}" if f["delta_se"] is not None else ""
             rows.append(["PSIS-LOO ΔELPD", f"{f['delta']:+,.1f}{se}"])
         rows.append(["Fit time", f"{f['minutes']:.1f} min"])
-        if f["draws"]:
-            rows.append(["Draws", f"{f['draws']:,}"])
         rows.append(["Tier", TIERS[f["tier"]]])
-        rows.append(["Elegance", f["elegance"] or "not judged yet"])
-        rows.append(
-            [
-                "Servable",
-                {"yes": "yes", "unknown": "not known yet"}.get(
-                    f["serve"], f"no: {f['why_not']}"
-                ),
-            ]
-        )
         return rows
+
+    def design_of(key: str) -> str:
+        """A fit's design, for a hover card's title: its key up to the
+        commit and data choices (model/rows/sampler@commit+choices)."""
+        return key.split("@")[0]
 
     @app.get("/research")
     def research_frontier():
@@ -1569,7 +1565,7 @@ def create_app(
                 "draws": f["draws"],
                 "group": f["group"],
                 "faded": f["faded"],
-                "title": f["entry"]["key"],
+                "title": design_of(f["entry"]["key"]),
                 "rows": fit_rows(f),
                 "href": url_for("research_fit", key=f["entry"]["key"]),
             }
@@ -1656,10 +1652,10 @@ def create_app(
                             "y": f["prior"]["delta"],
                             "kind": "failing" if f["kind"] == "failing" else "other",
                             "tier": f["tier"],
-                            "title": f["entry"]["key"],
+                            "title": design_of(f["entry"]["key"]),
                             "rows": [
                                 [
-                                    "PSIS-LOO ΔELPD, earlier data (not comparable)",
+                                    "ΔELPD, earlier data",
                                     (
                                         f"{f['prior']['delta']:+,.1f} ± "
                                         f"{f['prior']['se']:,.1f}"
@@ -1899,7 +1895,7 @@ def create_app(
                     "y": e["fit_seconds"] / 60,
                     "kind": kind,
                     "tier": tier_of(e),
-                    "title": e["id"],
+                    "title": design_of(e["key"]),
                     "rows": [["Fit time", f"{e['fit_seconds'] / 60:.1f} min"]],
                     "href": url_for("research_fit", key=e["key"]),
                 }
@@ -1982,7 +1978,7 @@ def create_app(
                     "x": p["psis"],
                     "y": p["heldout"],
                     "kind": kind,
-                    "title": e["key"],
+                    "title": design_of(e["key"]),
                     "rows": [
                         ["PSIS-LOO ΔELPD", f"{p['psis']:+,.1f}"],
                         [
