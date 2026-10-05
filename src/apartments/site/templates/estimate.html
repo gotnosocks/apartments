@@ -104,8 +104,9 @@ Every listing in the data still has its own estimate: <a href="{{ url_for('listi
     whether it is a better or worse unit than the building's usual.{% set c = meta.stats.calibration.get("single") if meta.stats and meta.stats.calibration else None %}{% if c %}
     {# Playtest round 4 (economist): the single-listing under-coverage was only on the model page. #}
     <span id="single-coverage">Even so it runs a little narrow: of past asks that were a unit's only listing,
-    {% if c.cover80 is number %}{{ pct(100 * c.cover80, signed=False, digits=1) }} fell within the likely ask range (80%) and {% endif %}{{ pct(100 * c.cover95, signed=False, digits=1) }}
-    within the 95% ask range.</span>{% endif %}</li>
+    {% if c.cover80 is number %}{{ pct(100 * c.cover80, signed=False, digits=1) }} fell within the likely ask range (80%) and
+    {{ pct(100 * c.cover95, signed=False, digits=1) }} within{% else %}{{ pct(100 * c.cover95, signed=False, digits=1) }} fell within{% endif %}
+    the 95% ask range.</span>{% endif %}</li>
     {% if (b.fit_rows or 0) < 5 %}<li>The model has only {{ b.fit_rows or 0 }} listing{{ "" if b.fit_rows == 1 else "s" }} from this building,
     so its building level leans on similar buildings.</li>{% endif %}
     {% if form.floor and b.floors and form.floor > b.floors %}<li id="floor-caveat">Floor {{ form.floor }} is above the
