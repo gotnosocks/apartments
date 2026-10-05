@@ -65,10 +65,12 @@ RESCORES = data.OUTPUT_ROOT / "rescores"
 LOO_ROOT = data.OUTPUT_ROOT / "loo"
 VARIANCE_ROOT = data.OUTPUT_ROOT / "variance"
 # PSIS-LOO dELPD is paired against this entry (the plainest gate-passing design).
-# The plainest design on the current dataset (Chelsea + West Village from
-# 2026-10-01), named by its run; an entry id also matches (the Chelsea
-# baseline was "m0-base/base-v1/gibbs@5cc0809").
-BASELINE = "m0-base-base-v1-rows-e61a794-x-2060-300w1500d-nb"
+# The plainest design on the current dataset (Chelsea + West Village with the
+# Oct 5 captures, 20261005-1222e51), named by its run; an entry id also
+# matches. A new dataset redraws the rows split, so fits on another dataset do
+# not pair with it. Earlier: "m0-base-base-v1-rows-e61a794-x-2060-300w1500d-nb"
+# (the 2026-10-01 dataset), "m0-base/base-v1/gibbs@5cc0809" (Chelsea).
+BASELINE = "m0-base-base-v1-rows-a40e887-x-2060-300w1500d-nb-d1005"
 
 
 def is_baseline(e) -> bool:
