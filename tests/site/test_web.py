@@ -110,6 +110,21 @@ def test_listing_page_explains_the_estimate(client):
     assert "held out of the model fit" in held
 
 
+def test_listing_diagnostics_are_folded_away_and_glossed(client):
+    html = " ".join(client.get("/listings/a3").get_data(as_text=True).split())
+    assert (
+        "that shortcut is unstable (its" in html
+        and 'href="/research/glossary#pareto-k"' in html
+    )
+    assert '<details class="table-view" id="model-details">' in html
+    assert "<summary>Model details, for statisticians</summary>" in html
+    assert "(above 0.7, so less reliable)" in html
+    reliable = " ".join(client.get("/listings/a4").get_data(as_text=True).split())
+    assert "Less reliable estimate" not in reliable
+    assert "the fit reweighted as if it had not seen this ask" in reliable
+    assert "(below 0.7: the reweighting is reliable)" in reliable
+
+
 def test_building_page(client):
     html = client.get(f"/buildings/{GROVE}").get_data(as_text=True)
     assert "The Grove" in html and "250 West 19th Street" in html

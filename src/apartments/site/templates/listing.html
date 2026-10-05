@@ -64,8 +64,9 @@
   within the model's 95% predictive range.{% endif %}</p>
   {% endif %}
   {% if not row.reliable %}
-  <p class="warn"><strong>Less reliable estimate.</strong> The leave-own-row-out correction for this listing is unstable
-  (Pareto k {{ "%.2f" | format(row.pareto_k) }}), so treat the estimate as approximate. Unusual asks and data errors often cause this.</p>
+  <p class="warn"><strong>Less reliable estimate.</strong> The estimate leaves this listing's own ask out by reweighting the
+  model fit, and for this listing that shortcut is unstable (its <a href="{{ url_for('research_glossary', _anchor='pareto-k') }}">Pareto k</a>,
+  {{ "%.2f" | format(row.pareto_k) }}, is too high), so treat the estimate as approximate. Unusual asks and data errors often cause this.</p>
   {% endif %}
 </section>
 
@@ -122,17 +123,20 @@
 </section>
 
 <section class="card">
-  <h2>Model details</h2>
+  <details class="table-view" id="model-details">
+  <summary>Model details, for statisticians</summary>
   <dl class="facts">
     <dt>Estimate median</dt><dd>{{ usd(row.estimate_median) }}</dd>
     <dt>Ask percentile</dt><dd>{{ "%.1f" | format(100 * row.pit) }}</dd>
-    <dt>Method</dt><dd>{{ "held out of the fit" if row.method == "heldout" else "leave-own-row-out (PSIS)" }}</dd>
-    {% if row.pareto_k is not none %}<dt>Pareto k</dt><dd>{{ "%.2f" | format(row.pareto_k) }}{% if not row.reliable %} (above {{ meta.provenance.estimate_pareto_k.threshold | round(3) }}){% endif %}</dd>{% endif %}
+    <dt>Method</dt><dd>{% if row.method == "heldout" %}<a href="{{ url_for('research_glossary', _anchor='held-out') }}">held out of the fit</a>{% else %}leave-own-row-out
+      (<a href="{{ url_for('research_glossary', _anchor='psis-loo') }}">PSIS</a>): the fit reweighted as if it had not seen this ask{% endif %}</dd>
+    {% if row.pareto_k is not none %}<dt><a href="{{ url_for('research_glossary', _anchor='pareto-k') }}">Pareto k</a></dt><dd>{{ "%.2f" | format(row.pareto_k) }}{% if not row.reliable %} (above {{ meta.provenance.estimate_pareto_k.threshold | round(3) }}, so less reliable){% else %} <span class="muted">(below {{ meta.provenance.estimate_pareto_k.threshold | round(3) }}: the reweighting is reliable)</span>{% endif %}</dd>{% endif %}
     <dt>Unit's listings in the fit</dt><dd>{{ row.unit_fit_rows }}</dd>
     <dt>{{ "Model fit" if row.method == "heldout" else "In-sample fit" }}</dt><dd>{{ usd(row.fitted) }} <span class="muted">({{ usd(row.fitted_lower) }}–{{ usd(row.fitted_upper) }})</span></dd>
   </dl>
   {% if row.method == "heldout" %}<p class="note">This listing was held out, so neither the fit nor the estimate saw its ask.</p>
   {% else %}<p class="note">The in-sample fit saw this ask, so it is pulled toward it; the estimate above does not.</p>{% endif %}
+  </details>
 </section>
 </div>
 
