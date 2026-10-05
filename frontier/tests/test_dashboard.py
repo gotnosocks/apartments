@@ -396,6 +396,10 @@ def test_versus_served_pairs_full_passing_fits(monkeypatch, tmp_path):
             "tier": {"name": "exploration"},
         },
     ]
-    out = dashboard.versus_served(entries)
-    assert set(out) == {"a", "b"}
+    result = dashboard.versus_served(entries)
+    assert result["run"] == "s-rows"
+    out = result["fits"]
+    assert (
+        set(out) == {"a", "b"} and abs(out["a"]["pm"] - (3.0**2 + 0.5**2) ** 0.5) < 1e-9
+    )
     assert out["a"]["delta"] == 10.0 and not out["a"]["tie"] and out["b"]["tie"]

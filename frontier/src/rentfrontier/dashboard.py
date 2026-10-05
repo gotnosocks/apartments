@@ -36,6 +36,7 @@ import copy
 import datetime as dt
 import functools
 import json
+import math
 import os
 import re
 import shutil
@@ -315,19 +316,20 @@ def selection_decision(entries) -> dict | None:
 def versus_served(entries) -> dict:
     """Each full, gate-passing fit's paired PSIS-LOO difference from the
     served fit on the training rows both keep: {key: {delta, se, mcse, tie}},
-    tie when the difference is within leaderboard.tie_tolerance. Empty when
-    the served fit is not on the board or has no LOO record."""
+    tie when the difference is within leaderboard.tie_tolerance, as
+    {"run": the served run paired against, "fits": {...}}; no fits when the
+    served fit is not on the board or has no LOO record."""
     try:
         selection = json.loads((REPO / "config" / "main-analysis.json").read_text())
     except (OSError, ValueError):
-        return {}
+        return {"run": None, "fits": {}}
     run = selection.get("run") if isinstance(selection, dict) else None
     served = next(
         (e for e in entries if (e["splits"].get("rows") or {}).get("run") == run), None
     )
     base = ((served or {}).get("psis") or {}).get("_dir")
     if not base:
-        return {}
+        return {"run": run, "fits": {}}
     out = {}
     for e in entries:
         here = (e.get("psis") or {}).get("_dir")
@@ -346,9 +348,11 @@ def versus_served(entries) -> dict:
             "delta": d,
             "se": se,
             "mcse": mc,
+            # The ± autoselect shows (psis_pm), whose double is the tie rule.
+            "pm": math.hypot(se, mc),
             "tie": abs(d) <= leaderboard.tie_tolerance(se, mc),
         }
-    return out
+    return {"run": run, "fits": out}
 
 
 def data():
@@ -405,7 +409,7 @@ def data():
                 "why_not_served": serve_check(e, rules),
                 "psis": psis_fields(e.get("psis")),
                 # Paired PSIS-LOO against the served fit (full, passing fits).
-                "vs_served": against.get(e["_key"]),
+                "vs_served": against["fits"].get(e["_key"]),
                 "note": e["note"],
                 "annotations": e.get("annotations", []),
                 "available_at": iso(e["splits"]["rows"]["_at"])
@@ -434,6 +438,7 @@ def data():
         )
     head = git("rev-parse", "HEAD")
     return {
+        "vs_served_run": against["run"],
         "generated_at": iso(dt.datetime.now(dt.UTC)),
         "builder_commit": head[:7],
         "builder_dirty": bool(git("status", "--porcelain")),
