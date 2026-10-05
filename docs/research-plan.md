@@ -33,7 +33,7 @@ queue and design work before it; the rest of this plan is context.
   - **Exploration fits count** as points on the research board, tagged with their tier (draws,
     warmup, chains, subset). Ben judges the research by them. The frontier *line* is drawn from
     gate-passing fits only, so a short fit's unconverged score never sets it; exploration fits that
-    fail the gate show as points off the line (statistician review, 2026-10-04).
+    fail the gate show as points off the line (Ben, 2026-10-04, after the statistician review).
   - A subset fit scores fewer rows, so it is shown with its tier but cannot sit on the full-data
     frontier.
 - **Serving is separate.** Only a full-tier, full-data fit that passes the gate is served to the rest
