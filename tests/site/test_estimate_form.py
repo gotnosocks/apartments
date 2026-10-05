@@ -515,3 +515,9 @@ def test_the_encoding_check_compares_once_listed_apartments():
     assert (
         estimate_build.check_encoding(k, twice, obs)["listings"] == 0
     )  # listed twice: skipped
+
+
+def test_home_links_the_form_only_when_it_is_available(site_root, client):
+    assert "Estimate an apartment that isn't listed" not in page(client, "/")
+    install_kit(site_root)
+    assert 'href="/estimate">Estimate an apartment that isn' in page(client, "/")

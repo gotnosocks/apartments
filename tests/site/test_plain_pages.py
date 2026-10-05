@@ -45,3 +45,11 @@ def test_rent_map_compares_only_the_one_bedroom():
         Path(__file__).parents[2] / "src/apartments/site/templates/estimates_map.html"
     )
     assert "For a one-bedroom it is higher" in " ".join(page.read_text().split())
+
+
+def test_home_tiles_are_links(client):
+    html = " ".join(client.get("/").get_data(as_text=True).split())
+    assert '<a class="tile" href="/listings">' in html
+    assert '<a class="tile" href="/listings?status=current">' in html
+    assert '<a class="tile" href="/buildings">' in html
+    assert 'href="/estimates/map">Rent map</a>' in html
