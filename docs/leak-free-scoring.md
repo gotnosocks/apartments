@@ -38,7 +38,7 @@ Designs are compared paired, on the held-out rows both runs share: the per-row E
 ## Which score a feature needs
 
 - **Reads no other row's rent** (every merged feature set today): PSIS-LOO on the frontier, unchanged.
-- **Reads earlier rents of the same unit** (`nb-prevprice-v1`): judged on the latest split. Its PSIS-LOO is not comparable, and it may not enter the PSIS-LOO frontier or autoselect on that score.
+- **Reads earlier rents of the same unit** (`nb-prevprice-v1`): judged on the latest split. These sets are listed in `splits.READS_EARLIER_RENTS`, and `autoselect.why_not` refuses them, so their inflated PSIS-LOO can never select a served model. Serving one needs a selection rule on the latest split first.
 - **Reads other units' rents** (building or block price aggregates, none so far): the latest split is not enough, because a later listing in the same building could read a held-out rent. Such a feature needs a time-forward split (hold out every row after a date). Build that split before merging such a feature.
 
 ## Audit of merged features (2026-10-05)
@@ -47,3 +47,14 @@ Designs are compared paired, on the held-out rows both runs share: the per-row E
 - **Model:** the model uses rents only as the target and as the offset, which is the mean training log rent. Under PSIS-LOO the offset includes the left-out row with weight 1/77,815, and both arms share it.
 - **Listing-record fields (`nb-coded-v1`):** these are read from each listing's last capture, so a field could have been edited after the listing date. That is the listing's own later information, not another row's rent; the same holds for the description evidence. Dating them by capture is a possible future data rule.
 - **Data rules chosen with rents in view:** quarantines from residual and high-k reviews (q-v3, q-v4) were picked by looking at rents. They are judged on shared rows (`cleaning-scored-on-shared-rows`). That compares models on the same rows, but it does not make the choice of rows leak-free. A rule found that way should be confirmed on rows held out from the review that produced it.
+
+## First results (2026-10-05)
+
+Exploration tier (x-2060-100w600d-nb-cb1-q5, Gibbs), on the latest split at 05bfae7, with the current rules (unit-labels-v3, quarantine-v5, bedrooms-ad-v2, baths-ad-v2, fields-review-v1) and 8,648 held-out latest listings, paired:
+
+| design | vs nb-coded-v1 | Chelsea | West Village |
+|---|---|---|---|
+| nb-prevprice-v1 (price change and repricing count) | **+72.8 ± 15.2** | +37.4 ± 12.3 | +35.4 ± 8.9 |
+| nb-prevprice-v2 (repricing count only; reads no rent) | +26.3 ± 6.9 | +7.6 ± 5.8 | +18.7 ± 3.6 |
+
+v1 against v2: +46.5 ± 13.3. The previous listing's repricing is a real, leak-free signal for the next listing's ask. Most of it is in how far the price moved, not just how often.

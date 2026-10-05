@@ -76,6 +76,18 @@ def test_eligible_needs_gate_hardware_window_and_current_rules(tmp_path):
     assert autoselect.eligible([ok, *out], RULES) == [ok]
 
 
+def test_feature_sets_that_read_earlier_rents_are_never_served(tmp_path, monkeypatch):
+    from rentfrontier import splits
+
+    e = entry(tmp_path, "prev", 10, 1300)
+    run = Path(e["splits"]["rows"]["_dir"])
+    rec = json.loads((run / "result.json").read_text())
+    (run / "result.json").write_text(json.dumps({**rec, "feature_set": "leaky"}))
+    monkeypatch.setattr(splits, "READS_EARLIER_RENTS", {"leaky"})
+    assert "not leak-free" in autoselect.why_not(e, RULES)
+    assert "nb-prevprice-v1" in splits.READS_EARLIER_RENTS
+
+
 def test_ranked_prefers_the_fastest_tie_but_not_on_timing_noise(tmp_path):
     deltas = {"top": 10.0, "tie-fast": 9.0, "tie-noise": 9.5, "worse": 0.0}
     es = [
