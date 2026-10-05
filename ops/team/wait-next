@@ -15,11 +15,14 @@ Events:
                   (default frontier-* with --gpu, none without it, so sessions that
                   own no GPU work don't all wake on every fit)
   --gpu           the GPU goes idle: no gpu-class job for two polls in a row after
-                  one ran, or for --idle-grace minutes (default 30) if it was idle
+                  one ran, or for --idle-grace minutes (default 20) if it was idle
                   when the wait started
   --pr N          PR N in gotnosocks/apartments changes state, review or head
   --file PATH     PATH appears or changes
-  --max MINUTES   the heartbeat: nothing else happened for this long (default 120)
+  --max MINUTES   the heartbeat: nothing else happened for this long (default 25).
+                  It also caps the whole wait, batch window included: Claude Code
+                  2.1.289 kills a background task after about 30 minutes, and a
+                  killed wait wakes its session with nothing to act on.
 
 Each wake re-reads the session's whole context, so wakes are batched. A GPU going
 idle, a file change or the heartbeat ends the wait at once. A unit finishing or a PR
@@ -157,8 +160,10 @@ def wait(args: argparse.Namespace, probes=None, clock=time.monotonic, sleep=time
                 files[f] = new
         if batched and batch_start is None:
             batch_start = clock()
-        if not events and not batched and clock() - start >= args.max * 60:
-            events.append(f"heartbeat: nothing changed in {args.max:g} min; check state and keep work queued")
+        if clock() - start >= args.max * 60:
+            if not events and not batched:
+                events.append(f"heartbeat: nothing changed in {args.max:g} min; check state and keep work queued")
+            return batched + events
         if batched and (events or clock() - batch_start >= args.batch * 60
                         or (unit_finished and not units)):
             return batched + events
@@ -189,8 +194,8 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--pr", action="append", type=int, default=[])
     ap.add_argument("--file", action="append", default=[])
     ap.add_argument("--batch", type=float, default=15.0)
-    ap.add_argument("--idle-grace", type=float, default=30.0)
-    ap.add_argument("--max", type=float, default=120.0)
+    ap.add_argument("--idle-grace", type=float, default=20.0)
+    ap.add_argument("--max", type=float, default=25.0)
     ap.add_argument("--poll", type=float, default=60.0)
     args = ap.parse_args(argv)
     args.unit = [u for u in (args.unit if args.unit is not None else (["frontier-*"] if args.gpu else [])) if u]
