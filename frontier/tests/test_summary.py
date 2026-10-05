@@ -360,6 +360,28 @@ def test_predictive_quantiles_invert_the_mixture_cdf():
     assert (q[0] < q[1]).all() and (q[1] < q[2]).all()
 
 
+def test_predictive_quantiles_with_few_heavy_draws():
+    """PSIS weights on a few draws far apart, with very different noise
+    scales: the mixture CDF has plateaus where Newton alone can cycle."""
+    from scipy.special import stdtr
+
+    rng = np.random.default_rng(2)
+    draws, rows = 400, 50
+    total = rng.normal(7.7, 0.1, (draws, rows))
+    sigma = rng.uniform(0.01, 0.3, (draws, rows))
+    nu = rng.uniform(1.5, 30.0, draws)
+    log_w = rng.normal(0.0, 1.0, (draws, rows))
+    log_w[:3] += 12.0  # three draws hold almost all the weight
+    total[:3] += np.array([[-0.3], [0.0], [0.4]])
+    weights = np.exp(log_w - log_w.max(0))
+    weights /= weights.sum(0)
+    probabilities = [0.025, 0.1, 0.5, 0.9, 0.975]
+    q = summary.predictive_quantiles(total, sigma, nu, weights, probabilities)
+    for i, p in enumerate(probabilities):
+        cdf = (stdtr(nu[:, None], (q[i][None] - total) / sigma) * weights).sum(0)
+        np.testing.assert_allclose(cdf, p, atol=1e-6)
+
+
 def test_predictive_bounds_agree_with_pit():
     """row_table's predictive bounds invert the distribution pit evaluates: an
     ask below the 80% range's lower bound has pit < 0.10, above its upper bound

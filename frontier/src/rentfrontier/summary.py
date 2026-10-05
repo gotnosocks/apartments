@@ -278,13 +278,15 @@ def loo_unit_levels(y, rest, seg, n_seg, params, key, *, t_units, bed_group=None
 PREDICTIVE = (("95", 0.025, 0.975), ("80", 0.10, 0.90))
 
 
-def predictive_quantiles(total, sigma, nu, weights, probabilities, iterations=6):
+def predictive_quantiles(total, sigma, nu, weights, probabilities, iterations=10):
     """(len(probabilities), rows) quantiles of the posterior predictive of the
     log ask: the weighted mixture over draws of Student-t(nu_s) noise of scale
     sigma_s around total_s, the distribution `pit` evaluates. Per row, Newton
     steps on the mixture's CDF, kept inside a bracket that starts at the
     smallest and largest of the draws' own p-quantiles (the mixture's lies
-    between them) and falls back to bisection when a step leaves it.
+    between them) and falls back to bisection when a step leaves it. Rows
+    whose CDF is still off by more than 1e-7 after that (few heavy draws far
+    apart: Newton can cycle) are finished by bisection on their bracket.
     total, weights: (draws, rows); sigma: (draws, 1) or (draws, rows);
     nu: (draws,)."""
     from scipy.special import gammaln, stdtr, stdtrit
@@ -307,6 +309,17 @@ def predictive_quantiles(total, sigma, nu, weights, probabilities, iterations=6)
             step = x - f / np.maximum(d, 1e-300)
             inside = (step >= lo) & (step <= hi)
             x = np.where(inside, step, 0.5 * (lo + hi))
+        z = (x[None] - total) / sigma
+        f = (stdtr(nu_, z) * weights).sum(0) - p
+        slow = np.flatnonzero(np.abs(f) > 1e-7)
+        if len(slow):
+            t, s_, w = total[:, slow], sigma[:, slow], weights[:, slow]
+            a, b = np.where(f[slow] < 0, x[slow], lo[slow]), np.where(f[slow] < 0, hi[slow], x[slow])
+            for _ in range(50):
+                m = 0.5 * (a + b)
+                below = (stdtr(nu_, (m[None] - t) / s_) * w).sum(0) < p
+                a, b = np.where(below, m, a), np.where(below, b, m)
+            x[slow] = 0.5 * (a + b)
         out[q] = x
     return out
 
