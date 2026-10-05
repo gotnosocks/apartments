@@ -23,9 +23,19 @@ while [ $# -gt 0 ]; do
   PERSONAS+=("$1"); shift
 done
 [ ${#PERSONAS[@]} -gt 0 ] || { echo "no personas" >&2; exit 2; }
+# Check every persona before starting any, so a round never half-launches.
+for p in "$ROUND" "${PERSONAS[@]}"; do
+  [[ $p =~ ^[A-Za-z0-9_.-]+$ ]] || { echo "bad name: $p" >&2; exit 2; }
+done
+for p in "${PERSONAS[@]}"; do
+  [ -f "$ROOT/docs/playtests/personas/$p.txt" ] || { echo "no persona $p" >&2; exit 2; }
+  [ ! -e "/data1/apartments/tmp/playtests/$ROUND/$p/report.md" ] \
+    || { echo "$ROUND/$p already has a report" >&2; exit 2; }
+  ! systemctl --user is-active -q "playtest-$ROUND-$p" && ! systemctl --user is-failed -q "playtest-$ROUND-$p" \
+    || { echo "unit playtest-$ROUND-$p is loaded (systemctl --user reset-failed it)" >&2; exit 2; }
+done
 for p in "${PERSONAS[@]}"; do
   file=$ROOT/docs/playtests/personas/$p.txt
-  [ -f "$file" ] || { echo "no persona $file" >&2; exit 2; }
   out=/data1/apartments/tmp/playtests/$ROUND/$p
   mkdir -p "$out"
   python3 - "$ROOT/docs/playtests/brief.md" "$file" "$URL" "$out" > "$out/prompt.md" <<'PY'
