@@ -271,6 +271,9 @@ def frontier_view(
                 "best": e["key"] == best,
                 "delta": psis.get("delta"),
                 "delta_se": psis.get("delta_se"),
+                # A fit trained on earlier data than the board's baseline:
+                # its score against the earlier baseline (not comparable).
+                "prior": None if psis else e.get("psis_prior"),
                 "minutes": e["fit_seconds"] / 60,
                 "elegance": elegance_summary(e),
                 "serve": serve,
@@ -283,7 +286,7 @@ def frontier_view(
         "snapshot": snap,
         "fits": fits,
         "frontier": [f for f in fits if f["frontier"] or f["kind"] == "served"],
-        "unscored": sum(f["delta"] is None for f in fits),
+        "unscored": sum(f["delta"] is None and not f["prior"] for f in fits),
         "hidden_subsets": hidden,
     }
 
