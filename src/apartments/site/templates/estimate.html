@@ -112,8 +112,8 @@ Every listing in the data still has its own estimate: <a href="{{ url_for('listi
     condition beyond "renovated", the view itself) are not counted.</li>
     <li>Model outputs, not appraisals: they describe asking rents, not what an apartment would lease for.</li>
     {# Playtest round 4 (tablet): a stabilized tenant compared this with their renewal. #}
-    <li id="market-rate">It is the ask for an apartment advertised now. A lease renewal follows the lease, and a rent-stabilized
-    renewal follows the Rent Guidelines Board's increases, so either can be far from it.{% if "rent_stabilized" in form.extras %}
+    <li id="market-rate">It is the ask for an apartment advertised now. A renewal is set by the landlord's offer or, for a
+    rent-stabilized lease, capped by the Rent Guidelines Board's increases, so either can be far from it.{% if "rent_stabilized" in form.extras %}
     Ticking “Rent stabilized” gives the ask of a newly advertised apartment described as stabilized, not the legal rent of an
     existing lease.{% endif %}</li>
   </ul>
