@@ -18,7 +18,7 @@ const RAMP = {
   dark: ['#86b6ef', '#3987e5', '#184f95', 'var(--map-neutral)', '#892b2a', '#d75853', '#ea9a93'],
 };
 const BED_COLORS = ['var(--s1)', 'var(--s2)', 'var(--s3)', 'var(--s4)'];
-const state = { data: null, area: null, base: 0, bed: '1', year: 0, showBefore: false, playing: null, sort: { key: 'rent', dir: -1 } };
+const state = { data: null, area: null, kind: null, base: 0, bed: '1', year: 0, showBefore: false, playing: null, sort: { key: 'rent', dir: -1 } };
 
 function svg(tag, attrs = {}, parent) {
   const n = document.createElementNS(SVGNS, tag);
@@ -91,7 +91,8 @@ const premium = (i, bedKey, yi) => rentOf(i, bedKey, yi)[1] / median(bedKey, yi)
 const classOf = (p) => BREAKS.filter((b) => p >= b).length;
 // Years outside a building's listings in the fit are the model's extrapolation.
 const extrapolated = (b, yi) => yearOf(yi) < b.first_year || yearOf(yi) > b.last_year;
-const inArea = (b) => !state.area || b.neighbourhood === state.area;
+const inArea = (b) => (!state.area || b.neighbourhood === state.area) && (!state.kind || b.kind === state.kind);
+const KIND_NAMES = { walkup: 'walk-up', elevator: 'elevator' };
 const visible = (b, yi) => inArea(b) && (state.showBefore || !extrapolated(b, yi));
 
 // ---------- controls ----------
@@ -136,6 +137,10 @@ function buildControls() {
     }, 900);
   });
   $('show-before').addEventListener('change', (e) => { state.showBefore = e.target.checked; render(); });
+  if (d.buildings.some((b) => b.kind)) {
+    $('kind-label').hidden = false;
+    $('kind-select').addEventListener('change', (e) => { state.kind = e.target.value || null; render(); });
+  }
   initMapEvents();
   $('zoom-in').addEventListener('click', () => zoomBy(2));
   $('zoom-out').addEventListener('click', () => zoomBy(0.5));
@@ -168,7 +173,21 @@ function renderKpis() {
     if (sub) html('div', { class: 'sub' }, t, sub);
   };
   const partial = d.year_months[yi] < 12 ? ` (${d.year_months[yi]} months)` : '';
-  tile(`Median building ${state.area ? 'in' : 'across'} ${areaName()}, ${bedLabel.toLowerCase()}, ${yearOf(yi)}${partial}`, usd(mid),
+  let kindTile = false;
+  if (state.kind) {
+    // The middle of the chosen kind's own typical rents: the model's median
+    // building mixes walk-ups and elevator buildings.
+    const rents = d.buildings.map((b, i) => (visible(b, yi) ? rentOf(i, state.bed, yi) : null))
+      .filter((v) => v && v[1] !== null).map((v) => v[1]).sort((a, b) => a - b);
+    if (rents.length) {
+      const m = rents.length % 2 ? rents[(rents.length - 1) / 2] : (rents[rents.length / 2 - 1] + rents[rents.length / 2]) / 2;
+      tile(`Middle ${KIND_NAMES[state.kind]} building ${state.area ? 'in' : 'across'} ${areaName()}, ${bedLabel.toLowerCase()}, ${yearOf(yi)}${partial}`, usd(m),
+        `The middle of the typical rents of the ${rents.length.toLocaleString('en-US')} ${KIND_NAMES[state.kind]} buildings shown, by the city's tax class. `
+        + `The median building of all kinds is ${usd(mid)}.`, true);
+      kindTile = true;
+    }
+  }
+  if (!kindTile) tile(`Median building ${state.area ? 'in' : 'across'} ${areaName()}, ${bedLabel.toLowerCase()}, ${yearOf(yi)}${partial}`, usd(mid),
     `90% interval ${range(lo, hi)} a month: how sure the model is of this typical rent, not the range of asks. `
     + `A typical apartment has the average baths, size, laundry, views and listed extras for its bedroom count, and the building's own usual floor and amenities.`, true);
   // The change between the chosen base year and the map year, read forwards
@@ -182,7 +201,7 @@ function renderKpis() {
   const early = median(state.bed, from)[1], late = median(state.bed, to)[1];
   const ch = late / early - 1;
   const changeLabel = other <= yi ? `Since ${yearOf(from)}${part(from)}` : `From ${yearOf(from)} to ${yearOf(to)}${part(to)}`;
-  tile(changeLabel, `${ch >= 0 ? '+' : '−'}${Math.abs(100 * ch).toFixed(0)}%`, `from ${usd(early)} a month`);
+  tile(changeLabel, `${ch >= 0 ? '+' : '−'}${Math.abs(100 * ch).toFixed(0)}%`, `from ${usd(early)} a month${kindTile ? ', for the median building of all kinds' : ''}`);
   tile('Buildings on the map', shown.toLocaleString('en-US'), `of ${total.toLocaleString('en-US')} with listings in the fit${state.showBefore ? '' : `; shown where their listings span ${yearOf(yi)}`}`);
 }
 
@@ -461,6 +480,7 @@ function renderTrend() {
 function readUrl() {
   const d = state.data, q = new URLSearchParams(location.search);
   if (q.get('area') && d.median_by_area && d.median_by_area[q.get('area')] && !$('area-select').hidden) state.area = q.get('area');
+  if (['walkup', 'elevator'].includes(q.get('kind')) && !$('kind-label').hidden) state.kind = q.get('kind');
   if (d.bedrooms.some((b) => b.key === q.get('beds'))) state.bed = q.get('beds');
   const yi = d.years.indexOf(Number(q.get('year'))), bi = d.years.indexOf(Number(q.get('base')));
   if (q.get('year') && yi >= 0) state.year = yi;
@@ -471,12 +491,14 @@ function readUrl() {
   $('year-range').value = state.year;
   $('base-year').value = String(state.base);
   $('show-before').checked = state.showBefore;
+  $('kind-select').value = state.kind || '';
 }
 
 function writeUrl() {
   const d = state.data, q = new URLSearchParams(location.search);
   const put = (k, v) => (v === null ? q.delete(k) : q.set(k, v));
   put('area', state.area);
+  put('kind', state.kind);
   put('beds', state.bed === '1' ? null : state.bed);
   put('year', state.year === d.years.length - 1 ? null : String(yearOf(state.year)));
   put('base', state.base === 0 ? null : String(yearOf(state.base)));
