@@ -63,10 +63,12 @@ def test_listing_rows_carry_the_estimate_bands_and_contributions(site_root):
 
 
 def test_units_follow_the_summary_unit_ids_and_latest_listing(site_root):
+    # The heading is the label used most often (11C twice, 11-C once);
+    # the rest follows the latest listing.
     units = {r["id"]: r for r in query(site_root, "SELECT * FROM units")}
     assert set(units) == {"u1", "u2", "u3"}
     u1 = units["u1"]
-    assert u1["listings"] == 3 and u1["label"] == "11-C" and u1["last_ask"] == 3500.0
+    assert u1["listings"] == 3 and u1["label"] == "11C" and u1["last_ask"] == 3500.0
     assert u1["square_feet"] == 650.0 and u1["first_period"] == "2019-03-01"
 
 

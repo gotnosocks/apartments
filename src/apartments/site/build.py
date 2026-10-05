@@ -382,6 +382,31 @@ def listing_rows(rows, observations, names, k_threshold, scope="Chelsea") -> lis
     return out
 
 
+def unit_heading(rows) -> str | None:
+    """The label a unit goes by: a clean form first (no leading zero, no
+    UNIT/APT prefix), then the one its listings use most often, then the
+    shorter ignoring hyphens, then the hyphenated, then the most recent. So a
+    joined unit is headed "4U", not by whichever variant came last ("004U"),
+    and "460-11D" keeps its hyphen."""
+    counts = Counter(r["unit_label"] for r in rows if r["unit_label"])
+    if not counts:
+        return None
+    order = {r["unit_label"]: i for i, r in enumerate(rows)}  # last index wins
+
+    def rank(label):
+        clean = not re.match(r"(0\d|UNIT|APT)", label)
+        return (
+            clean,
+            counts[label],
+            -len(label.replace("-", "")),
+            # A hyphen that separates parts (460-11D), not floor and letter (1-B).
+            "-" in label and not re.fullmatch(r"\d+-[A-Z]", label),
+            order[label],
+        )
+
+    return max(counts, key=rank)
+
+
 def unit_rows(listings) -> list[dict]:
     by_unit: dict[str, list[dict]] = {}
     for row in listings:
@@ -399,7 +424,7 @@ def unit_rows(listings) -> list[dict]:
             {
                 "id": unit_id,
                 "building_id": last["building_id"],
-                "label": last["unit_label"],
+                "label": unit_heading(rows),
                 "url": last["unit_url"],
                 "bedrooms": latest("bedrooms"),
                 "bathrooms": latest("bathrooms"),

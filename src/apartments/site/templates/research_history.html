@@ -12,13 +12,14 @@ every merged change and switch of the served model.</p>
     {% for c in classes %}<option value="{{ c }}"{% if c == hardware %} selected{% endif %}>{{ c }}</option>{% endfor %}
     </select>
   </div>
+  {% if only %}<input type="hidden" name="changes" value="{{ only }}">{% endif %}
   <div class="field actions"><button type="submit">Apply</button></div>
 </form>
 
 <section class="card">
   <h2>The best fit's accuracy over time</h2>
   <p class="note">Each step is a new best fit on {{ hardware }}: the most accurate, or a more elegant or faster one that ties with it. Higher
-  is better.</p>
+  is better. The axis spans the steps themselves, not the distance from the baseline at zero.</p>
   {% if best %}{{ best_chart }}{% else %}<p class="empty-note">No fit on {{ hardware }} has a PSIS-LOO score yet.</p>{% endif %}
   <details class="table-view">
     <summary>Table view</summary>
@@ -61,16 +62,17 @@ every merged change and switch of the served model.</p>
   </details>
 </section>
 
-<section class="card">
+<section class="card" id="changes">
   <h2>Changes</h2>
-  <p class="note">Merged changes to the code and data, and switches of the served model, newest first.</p>
+  <p class="note">Merged changes to the code and data, and switches of the served model, newest first.
+  {% if only %}Showing model switches only: <a href="{{ url_for('research_history', hardware=hardware) }}#changes">every change</a>.{% else %}<a href="{{ url_for('research_history', hardware=hardware, changes='switches') }}#changes">Model switches only</a>.{% endif %}</p>
   <div class="table-wrap tall">
   <table class="data">
     <thead><tr><th scope="col">When</th><th scope="col">What</th><th scope="col">Change</th></tr></thead>
     <tbody>
     {% for ms in milestones %}
       <tr><td class="nowrap">{{ ms.at[:10] }}</td>
-        <td class="nowrap">{% if ms.kind == "selection" %}Model switch{% elif ms.kind == "pr" %}PR #{{ ms.pr }}{% else %}{{ ms.kind | capitalize }}{% endif %}</td>
+        <td class="nowrap">{% if ms.kind == "selection" %}Model switch{% elif ms.kind == "pr" %}<a href="https://github.com/gotnosocks/apartments/pull/{{ ms.pr }}">PR #{{ ms.pr }}</a>{% else %}{{ ms.kind | capitalize }}{% endif %}</td>
         <td>{{ ms.title }}{% if ms.kind == "selection" and ms.model %} <span class="muted">({{ ms.model }})</span>{% endif %}</td></tr>
     {% endfor %}
     </tbody>

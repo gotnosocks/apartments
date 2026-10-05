@@ -18,7 +18,7 @@ const RAMP = {
   dark: ['#86b6ef', '#3987e5', '#184f95', 'var(--map-neutral)', '#892b2a', '#d75853', '#ea9a93'],
 };
 const BED_COLORS = ['var(--s1)', 'var(--s2)', 'var(--s3)', 'var(--s4)'];
-const state = { data: null, area: null, bed: '1', year: 0, showBefore: false, playing: null, sort: { key: 'rent', dir: -1 } };
+const state = { data: null, area: null, base: 0, bed: '1', year: 0, showBefore: false, playing: null, sort: { key: 'rent', dir: -1 } };
 
 function svg(tag, attrs = {}, parent) {
   const n = document.createElementNS(SVGNS, tag);
@@ -115,6 +115,9 @@ function buildControls() {
     lab.appendChild(document.createTextNode(' ' + b.label));
     inp.addEventListener('change', () => { state.bed = b.key; render(); });
   }
+  const base = $('base-year');
+  d.years.forEach((y, i) => html('option', { value: String(i), selected: i === state.base }, base, String(y)));
+  base.addEventListener('change', () => { state.base = Number(base.value); render(); });
   const r = $('year-range');
   r.max = d.years.length - 1;
   state.year = d.years.length - 1;
@@ -154,7 +157,6 @@ function buildControls() {
 function renderKpis() {
   const d = state.data, yi = yearIndex(), bedLabel = d.bedrooms.find((b) => b.key === state.bed).label;
   const [lo, mid, hi] = median(state.bed, yi);
-  const first = median(state.bed, 0)[1];
   const shown = d.buildings.filter((b) => visible(b, yi)).length;
   const total = d.buildings.filter(inArea).length;
   const k = $('map-kpis');
@@ -166,9 +168,17 @@ function renderKpis() {
     if (sub) html('div', { class: 'sub' }, t, sub);
   };
   const partial = d.year_months[yi] < 12 ? ` (${d.year_months[yi]} months)` : '';
-  tile(`Median building ${state.area ? 'in' : 'across'} ${areaName()}, ${bedLabel.toLowerCase()}, ${yearOf(yi)}${partial}`, usd(mid), `90% interval ${range(lo, hi)} a month`, true);
-  const ch = mid / first - 1;
-  tile(`Since ${d.years[0]}`, `${ch >= 0 ? '+' : '−'}${Math.abs(100 * ch).toFixed(0)}%`, `from ${usd(first)} a month`);
+  tile(`Median building ${state.area ? 'in' : 'across'} ${areaName()}, ${bedLabel.toLowerCase()}, ${yearOf(yi)}${partial}`, usd(mid),
+    `90% interval ${range(lo, hi)} a month: how sure the model is of this typical rent, not the range of asks. `
+    + `A typical apartment has the average baths, size, laundry, views and listed extras for its bedroom count, and the building's own usual floor and amenities.`, true);
+  // The change between the chosen base year and the map year, read forwards
+  // in time whichever comes first.
+  const part = (i) => (d.year_months[i] < 12 ? ` (${d.year_months[i]} months)` : '');
+  const [from, to] = state.base <= yi ? [state.base, yi] : [yi, state.base];
+  const early = median(state.bed, from)[1], late = median(state.bed, to)[1];
+  const ch = late / early - 1;
+  const changeLabel = state.base <= yi ? `Since ${yearOf(from)}${part(from)}` : `From ${yearOf(from)} to ${yearOf(to)}${part(to)}`;
+  tile(changeLabel, `${ch >= 0 ? '+' : '−'}${Math.abs(100 * ch).toFixed(0)}%`, `from ${usd(early)} a month`);
   tile('Buildings on the map', shown.toLocaleString('en-US'), `of ${total.toLocaleString('en-US')} with listings in the fit${state.showBefore ? '' : `; shown where their listings span ${yearOf(yi)}`}`);
 }
 
@@ -445,7 +455,9 @@ function renderTrend() {
 function render() {
   $('year-label').textContent = String(yearOf(yearIndex()));
   const bedLabel = state.data.bedrooms.find((b) => b.key === state.bed).label;
-  $('map-title').textContent = `Typical rent by building: ${bedLabel.toLowerCase()}, ${yearOf(yearIndex())}`;
+  $('map-title').textContent = `Typical rent by building ${state.area ? 'in' : 'across'} ${areaName()}: ${bedLabel.toLowerCase()}, ${yearOf(yearIndex())}`;
+  $('area-caveat').hidden = !state.area;
+  $('trend-title').textContent = `The median building ${state.area ? 'in' : 'across'} ${areaName()} by bedrooms over time`;
   renderKpis();
   renderMap();
   renderTrend();

@@ -29,6 +29,9 @@ estimate      leave-own-row-out estimate of the row's latent rent exp(mu):
 pit           where the ask falls in the leave-own-row-out predictive
               distribution (Student-t noise included): about 0.5 is typical,
               below 0.025 or above 0.975 unusual.
+estimate_pred_lower/upper_95, _80
+              quantiles of that same predictive distribution, in dollars:
+              the range the ask is likely to fall in (95% and 80%).
 fitted_rent   the in-sample posterior of exp(mu), mean and 95% interval (the
               fit saw the row's ask; a review signal, not an out-of-sample
               error).
@@ -70,7 +73,7 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
-from . import data, explain, features, leaderboard, loo, model, splits
+from . import data, explain, features, leaderboard, loo, model
 from . import run as run_module
 from .run import git, hardware
 
@@ -270,6 +273,57 @@ def loo_unit_levels(y, rest, seg, n_seg, params, key, *, t_units, bed_group=None
     return np.asarray(loglik), np.asarray(level)
 
 
+# Posterior predictive intervals for the ask itself (Student-t noise included),
+# as (name, lower, upper) probabilities.
+PREDICTIVE = (("95", 0.025, 0.975), ("80", 0.10, 0.90))
+
+
+def predictive_quantiles(total, sigma, nu, weights, probabilities, iterations=10):
+    """(len(probabilities), rows) quantiles of the posterior predictive of the
+    log ask: the weighted mixture over draws of Student-t(nu_s) noise of scale
+    sigma_s around total_s, the distribution `pit` evaluates. Per row, Newton
+    steps on the mixture's CDF, kept inside a bracket that starts at the
+    smallest and largest of the draws' own p-quantiles (the mixture's lies
+    between them) and falls back to bisection when a step leaves it. Rows
+    whose CDF is still off by more than 1e-7 after that (few heavy draws far
+    apart: Newton can cycle) are finished by bisection on their bracket.
+    total, weights: (draws, rows); sigma: (draws, 1) or (draws, rows);
+    nu: (draws,)."""
+    from scipy.special import gammaln, stdtr, stdtrit
+
+    sigma = np.broadcast_to(sigma, total.shape)
+    nu_ = nu[:, None]
+    # Student-t density constant per draw, over sigma: weights of the pdf.
+    const = np.exp(gammaln((nu + 1) / 2) - gammaln(nu / 2)) / np.sqrt(nu * np.pi)
+    wpdf = weights * const[:, None] / sigma
+    out = np.empty((len(probabilities), total.shape[1]))
+    for q, p in enumerate(probabilities):
+        own = total + sigma * stdtrit(nu, p)[:, None]  # (draws, rows)
+        lo, hi = own.min(0), own.max(0)
+        x = (own * weights).sum(0)
+        for _ in range(iterations):
+            z = (x[None] - total) / sigma
+            f = (stdtr(nu_, z) * weights).sum(0) - p
+            d = (wpdf * (1 + z * z / nu_) ** (-(nu_ + 1) / 2)).sum(0)
+            lo, hi = np.where(f < 0, x, lo), np.where(f < 0, hi, x)
+            step = x - f / np.maximum(d, 1e-300)
+            inside = (step >= lo) & (step <= hi)
+            x = np.where(inside, step, 0.5 * (lo + hi))
+        z = (x[None] - total) / sigma
+        f = (stdtr(nu_, z) * weights).sum(0) - p
+        slow = np.flatnonzero(np.abs(f) > 1e-7)
+        if len(slow):
+            t, s_, w = total[:, slow], sigma[:, slow], weights[:, slow]
+            a, b = np.where(f[slow] < 0, x[slow], lo[slow]), np.where(f[slow] < 0, hi[slow], x[slow])
+            for _ in range(50):
+                m = 0.5 * (a + b)
+                below = (stdtr(nu_, (m[None] - t) / s_) * w).sum(0) < p
+                a, b = np.where(below, m, a), np.where(below, b, m)
+            x[slow] = 0.5 * (a + b)
+        out[q] = x
+    return out
+
+
 def _stats(prefix, values, weights, table):
     mean = (values * weights).sum(0)
     q = weighted_quantiles(values, weights)
@@ -303,6 +357,11 @@ def row_table(sub, terms, log_w, pareto_k, fitted, sigma, nu, names, inputs):
     table["pareto_k"] = pareto_k
     cdf = stats.t.cdf((log_ask[None] - total) / sigma, nu[:, None])
     table["pit"] = (cdf * weights).sum(0)
+    probabilities = [p for _, lo, hi in PREDICTIVE for p in (lo, hi)]
+    pred = np.exp(predictive_quantiles(total, sigma, nu, weights, probabilities))
+    for i, (name, _, _) in enumerate(PREDICTIVE):
+        table[f"estimate_pred_lower_{name}"] = pred[2 * i]
+        table[f"estimate_pred_upper_{name}"] = pred[2 * i + 1]
     flat = np.full_like(fitted, 1.0 / fitted.shape[0])
     _stats("fitted_rent", fitted, flat, table)
     for name in names:
@@ -397,8 +456,9 @@ def summarize(name: str, allow_failing: bool = False):
     check_run(result)
     config = model.MODELS[result["model"]["name"]]
     frame = data.load(Path(result["dataset"]))
-    heldout = splits.SPLITS[result["split"]](frame)
-    frame, heldout = data.apply_rules(frame, heldout, data.recorded_rules(result))
+    frame, heldout = data.split_and_rules(
+        frame, result["split"], data.recorded_rules(result)
+    )
     feats = features.build(result["feature_set"], frame, ~heldout)
     prep = model.prepare(frame, heldout, feats)
     post = np.load(run_dir / "posterior.npz", allow_pickle=True)
