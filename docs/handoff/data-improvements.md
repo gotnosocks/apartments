@@ -17,7 +17,6 @@ Updated 2026-10-05 19:45 ET. Thread owner: the Data improvements project thread 
 - **Prevprice (pre-GV):** passed the leak-free latest-split gate (+75.5 ± 15.7 PSIS-LOO, ~4.8 SE)
   but its rows serving fit overran the 2 h cap (16:02 Oct 5); not served, not retried on the old
   data. Prevprice is slower per draw, so the GV serving fit is borderline on time.
-
 - **LPC as-of (#307, merged):** `nb3-coded-v2` / `nb3-prevprice-v2` date the landmark and
   historic-district flags by the LPC's designation dates (`external lpc`, snapshot
   `/data1/apartments/external/lpc/20261005-8946d6f/`). This fixes 94 + 37 rows flagged for
