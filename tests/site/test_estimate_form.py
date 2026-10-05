@@ -557,3 +557,12 @@ def test_a_set_elevator_shows_beside_the_buildings(site_root, client):
     )
     assert "(as you set it; its listings say" in html
     assert '<option value="no" selected>' in html
+
+
+def test_your_ask_says_which_side_of_the_simulated_asks_it_is_on(site_root, client):
+    install_kit(site_root)
+    base = f"/estimate?building={GROVE}&bedrooms=1&sqft=650&ask="
+    low, high = (" ".join(page(client, base + a).split()) for a in ("500", "90000"))
+    assert "below the likely range: lower than nearly all simulated asks" in low
+    assert "above the likely range: higher than nearly all simulated asks" in high
+    assert "higher than 0%" not in low
