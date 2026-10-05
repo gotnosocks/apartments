@@ -391,6 +391,54 @@ def _query(args: dict) -> str:
     return urlencode(args, doseq=True)
 
 
+ZOOM_KEYS = ("x0", "x1", "y0", "y1")
+ZOOM_ANCHORS = {"f": "full-fits", "e": "exploration-fits"}
+
+
+def zoom_box(args, prefix: str):
+    """A chart's zoomed (x, y) ranges from its query parameters (prefix + x0,
+    x1, y0, y1); a range missing either end, or empty, or not finite is left
+    unzoomed."""
+    values = []
+    for k in ZOOM_KEYS:
+        try:
+            v = float(args.get(prefix + k, ""))
+        except ValueError:
+            v = None
+        values.append(v if v is not None and math.isfinite(v) else None)
+    ranges = []
+    for lo, hi in (values[:2], values[2:]):
+        ok = lo is not None and hi is not None and lo < hi
+        ranges.append((lo, hi) if ok else None)
+    return tuple(ranges)
+
+
+def zoom_url(args, prefix: str, box) -> str:
+    """This page with a chart zoomed to box ((x0, x1), (y0, y1)), or unzoomed
+    for None; the other parameters, the other chart's zoom too, are kept."""
+    kept = [
+        (k, v)
+        for k, v in args.items(multi=True)
+        if k not in {prefix + z for z in ZOOM_KEYS}
+    ]
+    if box:
+        (x0, x1), (y0, y1) = box
+        kept += [(prefix + k, f"{v:.6g}") for k, v in zip(ZOOM_KEYS, (x0, x1, y0, y1))]
+    return ("?" + urlencode(kept) if kept else "?") + "#" + ZOOM_ANCHORS[prefix]
+
+
+def frontier_box(points):
+    """The box around a chart's frontier and served fits, with a margin, for
+    its "zoom to the frontier" link; None when it has none to show."""
+    near = [p for p in points if p["kind"] in ("frontier", "served")]
+    if not near:
+        return None
+    xs, ys = [p["x"] for p in near], [p["y"] for p in near]
+    xpad = (max(xs) - min(xs)) * 0.15 or max(xs) * 0.15 or 1.0
+    ypad = (max(ys) - min(ys)) * 0.15 or abs(max(ys)) * 0.02 or 1.0
+    return (max(0.0, min(xs) - xpad), max(xs) + xpad), (min(ys) - ypad, max(ys) + ypad)
+
+
 def _asset_versions(static: Path) -> dict:
     return {
         p.name: hashlib.sha256(p.read_bytes()).hexdigest()[:10]
@@ -1483,7 +1531,12 @@ def create_app(
             {
                 "x": f["minutes"],
                 "y": f["delta"],
-                "kind": f["kind"],
+                # Each chart marks its own tier's frontier.
+                "kind": f["kind"]
+                if f["kind"] not in ("frontier", "other")
+                else "frontier"
+                if f["tier_frontier"]
+                else "other",
                 "tier": f["tier"],
                 "draws": f["draws"],
                 "group": f["group"],
@@ -1494,6 +1547,58 @@ def create_app(
             }
             for f in scored
         ]
+        charts_by_tier = {}
+        for prefix, tier in (("f", "full"), ("e", "exploration")):
+            points = [
+                p
+                for p in time_points
+                if (p["tier"] == "exploration") == (tier == "exploration")
+            ]
+            x_range, y_range = zoom_box(request.args, prefix)
+            charts_by_tier[tier] = {
+                "prefix": prefix,
+                "count": len(points),
+                "zoomed": bool(x_range or y_range),
+                "x_range": x_range,
+                "y_range": y_range,
+                "shown": sum(
+                    1
+                    for p in points
+                    if (not x_range or x_range[0] <= p["x"] <= x_range[1])
+                    and (not y_range or y_range[0] <= p["y"] <= y_range[1])
+                ),
+                "reset": zoom_url(request.args, prefix, None),
+                "keep": [
+                    (k, v)
+                    for k, v in request.args.items(multi=True)
+                    if k not in {prefix + z for z in ZOOM_KEYS}
+                ],
+                "focus": zoom_url(request.args, prefix, box)
+                if (box := frontier_box(points))
+                else None,
+                "floored": floor is not None and any(p["y"] < floor for p in points),
+                "unscored": sum(
+                    f["delta"] is None
+                    for f in view["fits"]
+                    if (f["tier"] == "exploration") == (tier == "exploration")
+                ),
+                "chart": charts.fit_scatter(
+                    points,
+                    label=f"Accuracy against fit time on {device}, "
+                    f"{TIERS[tier].lower()}s, one mark per fit",
+                    x_title=f"Fit time on {device}, full dataset (minutes)",
+                    y_title="PSIS-LOO ΔELPD (higher is more accurate)",
+                    x_format=lambda v: f"{v:g}",
+                    y_format=charts.signed,
+                    y_floor=floor,
+                    x_line=(TARGET_MINUTES, "2-hour limit for a full fit")
+                    if target and tier == "full"
+                    else None,
+                    x_range=x_range,
+                    y_range=y_range,
+                    zoom=prefix,
+                ),
+            }
         return render_template(
             "research_frontier.html",
             meta=m,
@@ -1511,18 +1616,7 @@ def create_app(
             judged_pairs=len(judgements(data)),
             exploration=data.get("exploration"),
             tiers=TIERS,
-            time_chart=charts.fit_scatter(
-                time_points,
-                label=f"Accuracy against fit time on {device}, one dot per fit",
-                x_title=f"Fit time on {device}, full dataset (minutes)",
-                y_title="PSIS-LOO ΔELPD (higher is more accurate)",
-                x_format=lambda v: f"{v:g}",
-                y_format=charts.signed,
-                y_floor=floor,
-                x_line=(TARGET_MINUTES, "2-hour limit for a full fit")
-                if target
-                else None,
-            ),
+            tier_charts=charts_by_tier,
         )
 
     def research_data_or_503() -> dict:

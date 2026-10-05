@@ -177,11 +177,14 @@ def _svg(parts, label: str, frame: Frame) -> str:
     )
 
 
-def _figure(kind: str, svg: str, points: list[dict], legend: str = "") -> Markup:
+def _figure(
+    kind: str, svg: str, points: list[dict], legend: str = "", attrs=None
+) -> Markup:
     # No "<" at all inside the script data block ("</script>", "<!--").
     data = json.dumps(points, separators=(",", ":")).replace("<", "\\u003c")
+    extra = "".join(f' {k}="{escape(v)}"' for k, v in (attrs or {}).items())
     return Markup(
-        f'<figure class="chart" data-chart="{kind}" tabindex="0">'
+        f'<figure class="chart" data-chart="{kind}"{extra} tabindex="0">'
         f"{legend}{svg}"
         f'<div class="chart-tip" hidden></div>'
         f'<script type="application/json" class="chart-data">{data}</script>'
@@ -330,24 +333,47 @@ def contribution_bar(value, lower, upper, scale) -> Markup:
 XY_PAD = {"left": 64, "right": 16, "top": 28, "bottom": 46}
 
 
+def _inside(ticks, bounds):
+    lo, hi = bounds
+    return [t for t in ticks if lo - 1e-9 <= t <= hi + 1e-9]
+
+
 class XYFrame:
     """Linear scales for two measures (a scatter), in a WIDTH x HEIGHT viewBox.
     `y_floor` cuts the y range from below; points under it are drawn at the
     floor and say so in their tooltip."""
 
-    def __init__(self, xs, ys, *, y_floor=None, x_zero=True, height=HEIGHT):
+    def __init__(
+        self,
+        xs,
+        ys,
+        *,
+        y_floor=None,
+        x_zero=True,
+        height=HEIGHT,
+        x_range=None,
+        y_range=None,
+    ):
         self.height = height
-        xlo, xhi = min(xs), max(xs)
-        if x_zero:
-            xlo = min(xlo, 0.0)
-        xpad = (xhi - xlo) * 0.04 or 1.0
-        self.xticks = nice_ticks(xlo, xhi + xpad, count=6)
-        self.x0, self.x1 = self.xticks[0], self.xticks[-1]
-        shown = [y for y in ys if y_floor is None or y >= y_floor]
-        ylo, yhi = min(shown or ys), max(shown or ys)
-        ypad = (yhi - ylo) * 0.06 or abs(yhi) * 0.05 or 1.0
-        self.yticks = nice_ticks(ylo - ypad, yhi + ypad)
-        self.y0, self.y1 = self.yticks[0], self.yticks[-1]
+        if x_range:
+            self.x0, self.x1 = x_range
+            self.xticks = _inside(nice_ticks(*x_range, count=6), x_range)
+        else:
+            xlo, xhi = min(xs), max(xs)
+            if x_zero:
+                xlo = min(xlo, 0.0)
+            xpad = (xhi - xlo) * 0.04 or 1.0
+            self.xticks = nice_ticks(xlo, xhi + xpad, count=6)
+            self.x0, self.x1 = self.xticks[0], self.xticks[-1]
+        if y_range:
+            self.y0, self.y1 = y_range
+            self.yticks = _inside(nice_ticks(*y_range), y_range)
+        else:
+            shown = [y for y in ys if y_floor is None or y >= y_floor]
+            ylo, yhi = min(shown or ys), max(shown or ys)
+            ypad = (yhi - ylo) * 0.06 or abs(yhi) * 0.05 or 1.0
+            self.yticks = nice_ticks(ylo - ypad, yhi + ypad)
+            self.y0, self.y1 = self.yticks[0], self.yticks[-1]
         self.left, self.right = XY_PAD["left"], WIDTH - XY_PAD["right"]
         self.top, self.bottom = XY_PAD["top"], height - XY_PAD["bottom"]
 
@@ -395,11 +421,11 @@ def _fit_label(p) -> str:
 
 
 def _fit_legend(points) -> str:
-    """The kinds present, and the two shapes when any fit is an exploration
-    fit."""
+    """The kinds present, and the two shapes when the chart has fits of both
+    tiers."""
     present = [k for k in FIT_KINDS if any(p["kind"] == k for p in points)]
     shapes = ""
-    if any(p.get("tier") == "exploration" for p in points):
+    if len({p.get("tier") == "exploration" for p in points}) == 2:
         shapes = (
             '<span class="key"><span class="key-shape circle"></span>Full fit</span>'
             '<span class="key"><span class="key-shape diamond"></span>'
@@ -428,17 +454,41 @@ def fit_scatter(
     y_floor=None,
     x_line=None,
     x_zero=True,
+    x_range=None,
+    y_range=None,
+    zoom=None,
 ) -> Markup:
     """One dot per fit on two measures. points: [{"x", "y", "kind" (a
     FIT_KINDS key), "title", "rows", "href", "tier" (optional: "exploration"
     draws a diamond instead of a circle, so the tier is not colour alone)}].
-    x_line: (value, label) draws a reference line, such as a time target."""
+    x_line: (value, label) draws a reference line, such as a time target.
+    x_range, y_range: (low, high) zoom the chart to that box; fits outside it
+    are left off. zoom: the query-parameter prefix the page reads the box from,
+    so dragging across the chart can ask for a new one (site.js)."""
     if not points:
         return Markup("")
+    if x_range or y_range:
+        points = [
+            p
+            for p in points
+            if (not x_range or x_range[0] <= p["x"] <= x_range[1])
+            and (not y_range or y_range[0] <= p["y"] <= y_range[1])
+        ]
+        if not points:
+            return Markup(
+                '<p class="empty-note">No fit falls inside the zoomed range.</p>'
+            )
     # A reference line is drawn where the data reach it; it does not stretch
     # the axis (a 2-hour limit would squash fits of a few minutes).
     xs = [p["x"] for p in points]
-    frame = XYFrame(xs, [p["y"] for p in points], y_floor=y_floor, x_zero=x_zero)
+    frame = XYFrame(
+        xs,
+        [p["y"] for p in points],
+        y_floor=None if y_range else y_floor,
+        x_zero=x_zero,
+        x_range=x_range,
+        y_range=y_range,
+    )
     parts = []
     for tick in frame.yticks:
         y = frame.y(tick)
@@ -474,6 +524,11 @@ def fit_scatter(
     for p in points:
         if p.get("group") is not None:
             groups.setdefault(p["group"], []).append(p)
+    # A design measured once on this chart (its other fits on another chart,
+    # or zoomed out of view) has no line, and no faded mark to explain.
+    alone = {id(g[0]) for g in groups.values() if len(g) == 1}
+    groups = {k: g for k, g in groups.items() if len(g) > 1}
+    points = [dict(p, faded=False) if id(p) in alone else p for p in points]
     for group in groups.values():
         group.sort(key=lambda p: p.get("draws") or 0)
         line = " ".join(f"{frame.x(p['x']):.1f},{frame.y(p['y']):.1f}" for p in group)
@@ -502,7 +557,16 @@ def fit_scatter(
             '<span class="key"><span class="key-measured"></span>One design at '
             "several draw counts, joined; the faded points have fewer draws</span></div>",
         )
-    return _figure("points", _svg(parts, label, frame), hover, legend)
+    attrs = {}
+    if zoom:
+        attrs = {
+            "data-zoom": zoom,
+            "data-frame": json.dumps(
+                [frame.x0, frame.x1, frame.y0, frame.y1]
+                + [frame.left, frame.right, frame.top, frame.bottom]
+            ),
+        }
+    return _figure("points", _svg(parts, label, frame), hover, legend, attrs)
 
 
 def _y_title(frame, title):

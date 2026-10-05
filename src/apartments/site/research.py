@@ -227,6 +227,9 @@ def frontier_view(
     cut = snap["at"] if snap else None
     group = (snap or {}).get("by_class", {}).get(hardware, {})
     frontier, best = set(group.get("frontier", [])), group.get("best")
+    # Each tier's own frontier, for its own chart; boards from before it was
+    # kept fall back to the one frontier.
+    by_tier = {t: set(keys) for t, keys in group.get("frontier_by_tier", {}).items()}
     entries = [
         e
         for e in data.get("entries", [])
@@ -262,6 +265,7 @@ def frontier_view(
                 "run": run,
                 "kind": kind,
                 "frontier": e["key"] in frontier,
+                "tier_frontier": e["key"] in by_tier.get(tier, frontier),
                 "tier": tier,
                 "draws": draws_of(e),
                 "best": e["key"] == best,

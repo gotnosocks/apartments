@@ -70,15 +70,40 @@ then the most elegant, then the fastest, and it changes only when another fit cl
 </section>
 {% endif %}
 
-<section class="card">
-  <h2>Accuracy against fit time</h2>
-  <p class="note">Each dot is one fit. Up is more accurate; left is faster. {% if target %}Ben's window on the RTX 2060 graphics card:
-  a full fit of the Chelsea + West Village data within {{ (target_minutes / 60) | int }} hours (a line marks it when fits reach
-  it), and exploratory fits on a subset within {{ subset_minutes }} minutes. {% endif %}Fit times only
-  compare within one hardware class.{% if floor is not none %} Fits far below the rest (the simple baselines) are drawn at the
-  chart's floor; tick "The full accuracy range" to see them where they are.{% endif %}</p>
-  {% if view.fits | selectattr("delta", "number") | list %}{{ time_chart }}{% else %}<p class="empty-note">No fit on this hardware has a PSIS-LOO score{% if day %} at this date{% endif %}.</p>{% endif %}
+{% for tier, c in tier_charts.items() %}
+<section class="card" id="{{ 'full-fits' if tier == 'full' else 'exploration-fits' }}">
+  <h2>{{ 'Full fits' if tier == 'full' else 'Exploration fits' }}: accuracy against fit time</h2>
+  <p class="note">{% if tier == 'full' %}Each dot is one full fit, the kind that can be served. {% if target %}Ben's window on the RTX 2060
+  graphics card is a full fit of the Chelsea + West Village data within {{ (target_minutes / 60) | int }} hours (a line marks it
+  when fits reach it). {% endif %}{% else %}Each diamond is one exploration fit: fewer draws, to try an idea quickly. {% if target %}They
+  aim to finish within {{ subset_minutes }} minutes. {% endif %}They are research points: only a full fit is served.
+  {% endif %}Up is more accurate; left is faster. "On the frontier" here means no other
+  {{ 'full' if tier == 'full' else 'exploration' }} fit is better on accuracy, fit time and judged elegance at once. Fit times only
+  compare within one hardware class.{% if c.floored and not c.zoomed %} Fits far below the rest (the simple baselines) are
+  drawn at the chart's floor; tick "The full accuracy range" to see them where they are.{% endif %}{% if c.unscored %}
+  {{ c.unscored }} more {{ 'full' if tier == 'full' else 'exploration' }} fit{{ '' if c.unscored == 1 else 's' }} on this hardware
+  {{ 'has' if c.unscored == 1 else 'have' }} no PSIS-LOO score yet, so {{ 'it is' if c.unscored == 1 else 'they are' }} not drawn
+  (<a href="/research/board">the board</a> says why for each).{% endif %}</p>
+  {% if c.count %}
+  <p class="note zoom-note">{% if c.zoomed %}Zoomed in: {{ c.shown }} of {{ c.count }} fits are inside the range.
+  <a href="{{ c.reset }}">Reset zoom</a>{% else %}Drag across the chart to zoom in on an area.{% endif %}{% if c.focus %}
+  · <a href="{{ c.focus }}">Zoom to the frontier</a>{% endif %}</p>
+  {{ c.chart }}
+  <details class="zoom-form">
+    <summary>Set the range by hand</summary>
+    <form method="get" action="#{{ 'full-fits' if tier == 'full' else 'exploration-fits' }}">
+      {% for k, v in c.keep %}<input type="hidden" name="{{ k }}" value="{{ v }}">{% endfor %}
+      <label>Fit time from <input type="number" step="any" min="0" name="{{ c.prefix }}x0" value="{{ '%g' % c.x_range[0] if c.x_range else '' }}"></label>
+      <label>to <input type="number" step="any" min="0" name="{{ c.prefix }}x1" value="{{ '%g' % c.x_range[1] if c.x_range else '' }}"> minutes</label>
+      <label>ΔELPD from <input type="number" step="any" name="{{ c.prefix }}y0" value="{{ '%g' % c.y_range[0] if c.y_range else '' }}"></label>
+      <label>to <input type="number" step="any" name="{{ c.prefix }}y1" value="{{ '%g' % c.y_range[1] if c.y_range else '' }}"></label>
+      <button type="submit">Zoom</button>
+    </form>
+    <p class="note">Leave a pair empty to keep that axis whole.</p>
+  </details>
+  {% else %}<p class="empty-note">No {{ 'full' if tier == 'full' else 'exploration' }} fit on this hardware has a PSIS-LOO score{% if day %} at this date{% endif %}.</p>{% endif %}
 </section>
+{% endfor %}
 
 <section class="card">
   <h2>Elegance</h2>

@@ -109,7 +109,9 @@
       if (point) show(point); else hide();
     });
     svg.addEventListener("pointerleave", hide);
+    var dragged = brush(figure, svg);
     svg.addEventListener("click", function (event) {
+      if (dragged()) return;
       var point = nearest(event);
       if (point && point.href) window.location.href = point.href;
     });
@@ -127,6 +129,99 @@
       }
     });
     figure.addEventListener("blur", hide);
+  }
+
+  // Drag-to-zoom on a chart marked data-zoom (its query-parameter prefix):
+  // a mouse or pen drag draws a box, and letting go loads the page with the
+  // chart zoomed to it (prefix + x0, x1, y0, y1; the server draws the
+  // zoomed chart). data-frame maps viewBox units to data values. Touch keeps
+  // scrolling the page; the "Set the range" form works everywhere. Returns
+  // a function that says whether the last press was a drag, so it is not
+  // also taken as a click on a fit.
+  function brush(figure, svg) {
+    var prefix = figure.getAttribute("data-zoom");
+    var frame;
+    try {
+      frame = JSON.parse(figure.getAttribute("data-frame") || "null");
+    } catch (error) {
+      frame = null;
+    }
+    var wasDrag = false;
+    if (!prefix || !frame) return function () { return false; };
+    var x0 = frame[0], x1 = frame[1], y0 = frame[2], y1 = frame[3];
+    var left = frame[4], right = frame[5], top = frame[6], bottom = frame[7];
+    var start = null;
+    var box = null;
+
+    function local(event) {
+      var matrix = svg.getScreenCTM();
+      if (!matrix) return null;
+      var p = new DOMPoint(event.clientX, event.clientY).matrixTransform(matrix.inverse());
+      return {
+        x: Math.min(right, Math.max(left, p.x)),
+        y: Math.min(bottom, Math.max(top, p.y))
+      };
+    }
+
+    function value(p) {
+      return {
+        x: x0 + (p.x - left) / (right - left) * (x1 - x0),
+        y: y1 - (p.y - top) / (bottom - top) * (y1 - y0)
+      };
+    }
+
+    svg.addEventListener("pointerdown", function (event) {
+      if (event.pointerType === "touch" || event.button !== 0) return;
+      start = local(event);
+      wasDrag = false;
+      if (!start) return;
+      svg.setPointerCapture(event.pointerId);
+      event.preventDefault();
+    });
+    svg.addEventListener("pointermove", function (event) {
+      if (!start) return;
+      var p = local(event);
+      if (!p) return;
+      if (!box) {
+        box = document.createElementNS(SVG, "rect");
+        box.setAttribute("class", "brush");
+        svg.appendChild(box);
+      }
+      box.setAttribute("x", Math.min(start.x, p.x));
+      box.setAttribute("y", Math.min(start.y, p.y));
+      box.setAttribute("width", Math.abs(p.x - start.x));
+      box.setAttribute("height", Math.abs(p.y - start.y));
+    });
+    function finish(event) {
+      if (!start) return;
+      var p = event.type === "pointerup" ? local(event) : null;
+      var from = start;
+      start = null;
+      if (box) {
+        box.remove();
+        box = null;
+      }
+      // Smaller than this (viewBox units) either way is a click, not a box.
+      if (!p || Math.abs(p.x - from.x) < 6 || Math.abs(p.y - from.y) < 6) return;
+      wasDrag = true;
+      var a = value(from), b = value(p);
+      var params = new URLSearchParams(window.location.search);
+      var zoom = {
+        x0: Math.max(0, Math.min(a.x, b.x)), x1: Math.max(a.x, b.x),
+        y0: Math.min(a.y, b.y), y1: Math.max(a.y, b.y)
+      };
+      Object.keys(zoom).forEach(function (k) {
+        params.set(prefix + k, String(Number(zoom[k].toPrecision(6))));
+      });
+      window.location.href = "?" + params.toString() + "#" + figure.closest("section").id;
+    }
+    svg.addEventListener("pointerup", finish);
+    svg.addEventListener("pointercancel", finish);
+    return function () {
+      var was = wasDrag;
+      wasDrag = false;
+      return was;
+    };
   }
 
   document.querySelectorAll("figure.chart").forEach(setup);

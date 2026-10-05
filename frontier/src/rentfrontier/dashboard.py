@@ -172,6 +172,18 @@ def as_of(entries, t):
     return out
 
 
+def tier_frontiers(group):
+    """The frontier among each tier's fits alone (full, exploration), by the
+    board's own rule: the site draws one chart per tier (Ben, 2026-10-05)."""
+    tiers = {}
+    for v in group:
+        tiers.setdefault((v.get("tier") or {}).get("name") or "full", []).append(v)
+    return {
+        name: [v["_key"] for v, on in zip(vs, leaderboard.on_frontier(vs)) if on]
+        for name, vs in sorted(tiers.items())
+    }
+
+
 def snapshots(entries):
     """Board best and frontier (entry keys) per hardware class after each
     result landed. The frontier is per hardware: a fit time only competes with
@@ -190,6 +202,7 @@ def snapshots(entries):
                 "best": best["_key"] if best else None,
                 "best_delta": best["psis"]["delta"] if best else None,
                 "frontier": [v["_key"] for v, on in zip(group, flags) if on],
+                "frontier_by_tier": tier_frontiers(group),
                 "entries": len(group),
             }
         snaps.append({"at": iso(t), "entries": len(view), "by_class": by_class})

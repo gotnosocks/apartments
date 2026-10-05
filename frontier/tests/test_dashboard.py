@@ -101,6 +101,19 @@ def test_snapshots_replay_the_board_rules_over_time(tmp_path):
     )
 
 
+def test_snapshots_keep_a_frontier_per_tier(tmp_path):
+    slow_full = entry(tmp_path, "full", 300.0, 3000.0, at(1))
+    quick = entry(tmp_path, "quick", 400.0, 600.0, at(2))
+    quick["tier"] = {"name": "exploration"}
+    entries = dashboard.assign_keys([slow_full, quick])
+    (_, last) = dashboard.snapshots(entries)
+    gpu = last["by_class"]["gpu"]
+    # The exploration fit beats the full fit on the one board, yet the full
+    # fit still heads its own tier's frontier.
+    assert gpu["frontier"] == ["quick"]
+    assert gpu["frontier_by_tier"] == {"exploration": ["quick"], "full": ["full"]}
+
+
 def test_shared_ids_get_unique_keys_and_snapshots_use_them(tmp_path):
     first = entry(tmp_path, "m6", 400.0, 1800.0, at(1), passes=False)
     solo = entry(tmp_path, "m6-solo-dir", 400.0, 2400.0, at(2), passes=True)
