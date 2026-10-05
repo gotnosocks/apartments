@@ -303,15 +303,26 @@ LISTING_JOIN = " JOIN buildings b ON b.id = l.building_id"
 
 def asks_summary(db, filters: Filters) -> dict | None:
     """The filtered listings' asks in brief: their median and middle 80%
-    (10th to 90th percentile); None when nothing matches."""
+    (10th to 90th percentile), and the median of their estimates; None when
+    nothing matches."""
     where, params = filters.where()
     join = LISTING_JOIN if "b." in where else ""
-    asks = sorted(
-        r[0] for r in db.execute(f"SELECT l.ask FROM listings l{join}{where}", params)
-    )
+    rows = db.execute(f"SELECT l.ask, l.estimate FROM listings l{join}{where}", params)
+    asks, estimates = [], []
+    for ask, est in rows:
+        asks.append(ask)
+        if est is not None:
+            estimates.append(est)
     if not asks:
         return None
-    out = {"n": len(asks), "median": statistics.median(asks), "low": None, "high": None}
+    asks.sort()
+    out = {
+        "n": len(asks),
+        "median": statistics.median(asks),
+        "low": None,
+        "high": None,
+        "estimate": statistics.median(estimates) if estimates else None,
+    }
     if len(asks) >= 5:  # a middle 80% of fewer asks says little
         deciles = statistics.quantiles(asks, n=10, method="inclusive")
         out["low"], out["high"] = deciles[0], deciles[-1]
