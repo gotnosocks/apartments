@@ -346,3 +346,15 @@ def test_unit_labels_v3_joins_number_words_with_matching_bedrooms(monkeypatch):
     assert out.unit_id.tolist() == ["u4", "u4", "u3", "u3", "u1"]
     frame.loc[1, "bedrooms"] = 2.0  # "four" a two-bedroom: not the same apartment
     assert data.merge_word_labels(frame).unit_id.tolist()[:2] == ["u4", "uF"]
+
+
+def test_a_held_out_row_without_a_training_building_moves_to_training():
+    frame = pd.DataFrame(
+        {
+            "building": ["a", "a", "b"],
+            "unit_id": ["a1", "a1", "b1"],
+            "audit_id": ["1", "2", "3"],
+        }
+    )
+    _, held = data.apply_rules(frame, np.array([True, False, True]), [])
+    assert held.tolist() == [True, False, False]
