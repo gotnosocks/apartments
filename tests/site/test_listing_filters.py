@@ -15,15 +15,14 @@ def test_filters_narrow_and_keep_their_values(client):
 
 def test_summary_only_with_filters(client):
     assert "match: median ask" not in client.get("/listings").get_data(as_text=True)
-    assert "match: median ask" in " ".join(
-        client.get("/listings?beds=1").get_data(as_text=True).split()
-    )
+    html = " ".join(client.get("/listings?beds=1").get_data(as_text=True).split())
+    assert "match: median ask" in html and "median estimate <strong>$" in html
 
 
 def test_asks_summary_percentiles():
     class Db:
         def execute(self, sql, params):
-            return [(a,) for a in range(1, 11)]
+            return [(a, None if a == 10 else 2 * a) for a in range(1, 11)]
 
     class F:
         def where(self):
@@ -35,4 +34,5 @@ def test_asks_summary_percentiles():
         and s["median"] == 5.5
         and s["low"] == 1.9
         and abs(s["high"] - 9.1) < 1e-9
+        and s["estimate"] == 10  # the nine listings with an estimate
     )

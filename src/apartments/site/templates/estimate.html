@@ -75,7 +75,7 @@ Every listing in the data still has its own estimate: <a href="{{ url_for('listi
   give roughly the typical rent, which also averages over how this apartment might differ from the building's usual. "This
   building" is its own level, trend and bedroom and size premiums.</p>
 
-  <h3>Building facts used</h3>
+  <h3 id="facts-h">Building facts used</h3>
   <dl class="facts">
     <dt>Neighbourhood</dt><dd>{{ b.neighbourhood or "—" }}</dd>
     <dt>Built</dt><dd>{{ b.year_built or "not usable" }}</dd>
@@ -84,7 +84,9 @@ Every listing in the data still has its own estimate: <a href="{{ url_for('listi
     <dt>Doorman</dt><dd>{{ facts.doorman }}</dd>
   </dl>
   <p class="note">The building's records (MapPLUTO) give these, and its newest listing gives the elevator, doorman, heating
-  and pet policy; the form does not ask them.</p>
+  and pet policy; the form does not ask them. If the elevator or doorman looks wrong, the
+  building's <a href="{{ url_for('building', building_id=b.id) }}">listings</a> are where it came from, and the estimate
+  carries any error in them.</p>
 
   <h3>Things to know</h3>
   <ul class="tight">
@@ -112,6 +114,8 @@ Every listing in the data still has its own estimate: <a href="{{ url_for('listi
     <span class="field-label">Building</span>
     <span><strong>{{ b.name or b.address }}</strong>{% if b.name %} · {{ b.address }}{% endif %} ·
     <a href="{{ url_for('estimate_apartment') }}">choose another</a></span>
+    {% if facts %}<span class="muted" id="form-facts">Taken from the building, not asked here: elevator {{ facts.elevator }},
+    doorman {{ facts.doorman }}{% if b.year_built %}, built {{ b.year_built }}{% endif %}. <a href="#facts-h">Why</a></span>{% endif %}
   </div>
   {% else %}
   <div class="field grow">
@@ -145,7 +149,8 @@ Every listing in the data still has its own estimate: <a href="{{ url_for('listi
   <div class="field actions"><button type="submit">{{ "Estimate" if b else "Find the building" }}</button></div>
 </form>
 <p class="note">Blank fields take the model's "not stated" level. Ticking none of what the ad mentions means an ad without
-those words. The building's own facts come from its records.</p>
+those words. The building's own facts (age, size, elevator, doorman) are not asked: they come from its records and its
+listings, the same for every apartment in it.</p>
 
 {% if matches and not b %}
 <section class="card" aria-labelledby="matches-h">

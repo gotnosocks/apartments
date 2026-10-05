@@ -521,3 +521,13 @@ def test_home_links_the_form_only_when_it_is_available(site_root, client):
     assert "Estimate an apartment that isn't listed" not in page(client, "/")
     install_kit(site_root)
     assert 'href="/estimate">Estimate an apartment that isn' in page(client, "/")
+
+
+def test_the_form_says_which_building_facts_it_takes(site_root, client):
+    install_kit(site_root)
+    html = page(client, f"/estimate?building={GROVE}&bedrooms=1")
+    assert (
+        'id="form-facts"' in html and "Taken from the building, not asked here" in html
+    )
+    assert 'id="facts-h"' in html and f'href="/buildings/{GROVE}">listings</a>' in html
+    assert 'id="form-facts"' not in page(client, "/estimate")
