@@ -39,7 +39,7 @@
     <th scope="col" class="num col-minor">Listings</th>
     <th scope="col" class="num col-minor">Units</th>
     <th scope="col" class="num">Available now</th>
-    <th scope="col" class="num" title="The building's level against an average building, with the same apartment">Building level</th>
+    <th scope="col" class="num" title="The same apartment against a building with the same listed features">Building level</th>
     <th scope="col" class="num col-minor" title="Median over the building's listings of ask against estimate">Median ask vs estimate</th>
     <th scope="col" class="col-minor">Last listed</th>
   </tr></thead>
@@ -67,5 +67,5 @@
   {% if page < pages %}<a href="{{ link(page=page + 1) }}" rel="next">Next →</a>{% else %}<span class="disabled">Next →</span>{% endif %}
 </nav>
 {% endif %}
-<p class="note">Building level: how much more (or less) the same apartment asks in this building than in an average building, with its 95% interval.</p>
+<p class="note">Building level: how much more (or less) the same apartment asks in this building than in a building with the same age, size, elevator, doorman and other listed features, with its 95% interval.</p>
 {% endblock %}

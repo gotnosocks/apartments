@@ -401,7 +401,7 @@ def test_building_pages_link_the_form_when_it_is_available(site_root, client):
     )
     install_kit(site_root)
     html = page(client, f"/buildings/{GROVE}")
-    assert f'href="/estimate?building={GROVE}"' in html
+    assert f'class="action" href="/estimate?building={GROVE}"' in html
 
 
 def test_a_building_pick_carries_only_the_forms_keys(site_root, client):
