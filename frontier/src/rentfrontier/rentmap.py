@@ -25,8 +25,8 @@ on top of a walk, sum-to-zero, masked or anchored walks) are refused.
 `median` is the median building's value per draw (all buildings of the fit),
 again as a posterior median and 90% interval; `median_by_area` is the same
 within each neighbourhood (the median of that neighbourhood's buildings, per
-draw); `area` names the neighbourhoods the fit covers ("Chelsea and West
-Village").
+draw), and each building's `neighbourhood` names its group there; `area`
+names the neighbourhoods the fit covers ("Chelsea and West Village").
 
 The map under the buildings comes from the basemap snapshot
 (`rentfrontier.external basemap`): streets at their recorded width, paths,
@@ -122,6 +122,19 @@ def area_name(neighbourhoods) -> str:
     """ "Chelsea", "Chelsea and West Village", "A, B and C"."""
     names = sorted(set(neighbourhoods))
     return names[0] if len(names) == 1 else ", ".join(names[:-1]) + " and " + names[-1]
+
+
+def building_hoods(frame: pd.DataFrame, heldout, buildings) -> np.ndarray:
+    """Each building's neighbourhood (its listings in the fit), in `buildings`
+    order: the groups of `median_by_area`. Chelsea when the data has none."""
+    if "neighbourhood" not in frame:
+        return np.full(len(buildings), "Chelsea", dtype=object)
+    return (
+        frame[~np.asarray(heldout)]
+        .groupby("building")
+        .neighbourhood.first()
+        .reindex(buildings)
+    ).to_numpy()
 
 
 def typical_rows(prep: model.Prepared) -> dict:
@@ -388,17 +401,7 @@ def compute(name: str) -> dict:
     level = kept["building"]  # (d, B)
     slope = kept["bedroom_slope"] if config.bedroom_slope else np.zeros_like(level)
     fcols = [prep.features.names.index(n) for n in config.feature_slopes]
-    # Each building's neighbourhood (its listings in the fit), for the
-    # per-neighbourhood medians.
-    if "neighbourhood" in frame:
-        hood = (
-            frame[~heldout]
-            .groupby("building")
-            .neighbourhood.first()
-            .reindex(prep.buildings)
-        ).to_numpy()
-    else:
-        hood = np.full(len(prep.buildings), "Chelsea", dtype=object)
+    hood = building_hoods(frame, heldout, prep.buildings)
     areas = sorted(set(hood))
     out_rent, median_rent = {}, {}
     median_area = {a: {} for a in areas}
@@ -433,6 +436,9 @@ def compute(name: str) -> dict:
     # The registry the run's features read (the first snapshot for older runs).
     recorded = (result.get("feature_sources") or {}).get("registry") or {}
     buildings = building_table(prep, years, recorded.get("path"))
+    # The neighbourhood each building's median_by_area group is.
+    for b, a in zip(buildings, hood):
+        b["neighbourhood"] = str(a)
     grid = grid_layout(buildings)
     # The basemap the run's features read, else the first snapshot.
     basemap_file = ((result.get("feature_sources") or {}).get("basemap") or {}).get(

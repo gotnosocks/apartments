@@ -100,3 +100,17 @@ def test_area_name_lists_the_fit_neighbourhoods():
     assert rentmap.area_name(["Chelsea", "Chelsea"]) == "Chelsea"
     assert rentmap.area_name(["West Village", "Chelsea"]) == "Chelsea and West Village"
     assert rentmap.area_name(["C", "A", "B"]) == "A, B and C"
+
+
+def test_building_hoods_follow_the_fit_rows():
+    frame = pd.DataFrame(
+        {
+            "building": ["b", "a", "a", "c"],
+            "neighbourhood": ["West Village", "Chelsea", "Chelsea", "Chelsea"],
+        }
+    )
+    heldout = np.array([False, False, False, True])
+    hoods = rentmap.building_hoods(frame, heldout, ["a", "b"])
+    assert list(hoods) == ["Chelsea", "West Village"]
+    no_hood = rentmap.building_hoods(frame[["building"]], heldout, ["a", "b"])
+    assert list(no_hood) == ["Chelsea", "Chelsea"]
