@@ -674,6 +674,7 @@ def create_app(
             selection=served_selection(m),
             counts=counts,
             entry=entry,
+            estimate_form=estimate_build.available(db()),
             milestones=latest_milestones(data),
             research_at=data.get("generated_at") if data else None,
         )
