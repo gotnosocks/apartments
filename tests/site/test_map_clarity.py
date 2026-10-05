@@ -39,3 +39,8 @@ def test_the_choices_are_kept_in_the_url():
     # Playtest round 4 (family): a chosen map could not be bookmarked or shared.
     assert "function readUrl()" in JS and "history.replaceState" in JS
     assert "buildControls();\n  readUrl();\n  render();" in JS
+
+
+def test_trend_explains_growth_against_the_median_ask():
+    assert 'id="trend-mix"' in PAGE
+    assert "+75% against +83%" in PAGE

@@ -526,6 +526,29 @@ def calibration(listings) -> dict:
     return out
 
 
+def calibration_by_year(listings) -> list[dict]:
+    """The same coverage by listing year, with the mean log(ask / estimate):
+    whether the estimates are centred each year, and whether the ranges are as
+    wide as the asks' scatter that year."""
+    years: dict[str, list] = {}
+    for r in listings:
+        years.setdefault(r["period"][:4], []).append(r)
+    out = []
+    for year, rows in sorted(years.items()):
+        n = len(rows)
+        out.append(
+            {
+                "year": int(year),
+                "n": n,
+                "cover95": sum(0.025 < r["pit"] < 0.975 for r in rows) / n,
+                "cover80": sum(0.1 < r["pit"] < 0.9 for r in rows) / n,
+                "mean_log_residual": sum(math.log1p(r["residual_pct"]) for r in rows)
+                / n,
+            }
+        )
+    return out
+
+
 def _int(value):
     """A whole number from a MapPLUTO field, which the snapshots store as text
     ("20.0000000"); None when absent or not a number."""
@@ -685,6 +708,7 @@ def write_database(
     periods = sorted(r["period"] for r in listings)
     stats = {
         "calibration": calibration(listings),
+        "calibration_by_year": calibration_by_year(listings),
         "listings": len(listings),
         "current_listings": sum(r["is_current"] for r in listings),
         "neighbourhoods": dict(

@@ -43,6 +43,9 @@ def test_build_publishes_a_complete_snapshot(site_root):
         cal["heldout"]["n"] == 1 and cal["single"]["n"] == 1 and cal["multi"]["n"] == 4
     )
     assert cal["multi"]["cover95"] == 1.0
+    years = stats["calibration_by_year"]
+    assert sum(y["n"] for y in years) == 6
+    assert [y["year"] for y in years] == sorted(y["year"] for y in years)
 
 
 def test_listing_rows_carry_the_estimate_bands_and_contributions(site_root):
