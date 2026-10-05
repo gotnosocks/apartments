@@ -355,3 +355,47 @@ def test_data_quality_counts_corrections_as_corrected_not_left_out(
     rule = {r["rule"]: r for r in dashboard.data_quality()["rules"]}["bedrooms-ad-v1"]
     assert "rows" not in rule and rule["corrected"] == 2 and rule["buildings"] == 2
     assert rule["actions"][0]["label"] == "Bedrooms corrected from the ad"
+
+
+def test_versus_served_pairs_full_passing_fits(monkeypatch, tmp_path):
+    (tmp_path / "config").mkdir()
+    (tmp_path / "config" / "main-analysis.json").write_text(
+        json.dumps({"run": "s-rows"})
+    )
+    monkeypatch.setattr(dashboard, "REPO", tmp_path)
+    monkeypatch.setattr(
+        dashboard.leaderboard,
+        "paired_loo",
+        lambda a, b: (10.0 if a == "a" else 1.0, 3.0, 0.5),
+    )
+    entries = [
+        {
+            "_key": "s",
+            "splits": {"rows": {"run": "s-rows"}},
+            "psis": {"_dir": "s"},
+            "passes_checks": True,
+        },
+        {
+            "_key": "a",
+            "splits": {"rows": {"run": "a"}},
+            "psis": {"_dir": "a"},
+            "passes_checks": True,
+        },
+        {
+            "_key": "b",
+            "splits": {"rows": {"run": "b"}},
+            "psis": {"_dir": "b"},
+            "passes_checks": True,
+        },
+        {"_key": "x", "splits": {}, "psis": {"_dir": "x"}, "passes_checks": False},
+        {
+            "_key": "e",
+            "splits": {},
+            "psis": {"_dir": "e"},
+            "passes_checks": True,
+            "tier": {"name": "exploration"},
+        },
+    ]
+    out = dashboard.versus_served(entries)
+    assert set(out) == {"a", "b"}
+    assert out["a"]["delta"] == 10.0 and not out["a"]["tie"] and out["b"]["tie"]

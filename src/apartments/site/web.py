@@ -1585,6 +1585,10 @@ def create_app(
         return render_template(
             "research_model.html",
             anatomy=anatomy,
+            runners_up=sorted(
+                (e for e in (data or {}).get("entries", []) if e.get("vs_served")),
+                key=lambda e: -e["vs_served"]["delta"],
+            )[:8],
             reference=data.get("reference") if data else None,
             meta=m,
             selection=served_selection(m),
