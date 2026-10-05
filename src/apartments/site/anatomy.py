@@ -36,6 +36,7 @@ DEFAULTS = {
     "season_harmonics": 0,
     "season_daily": False,
     "noise_by_bedrooms": False,
+    "noise_by_year": False,
     "building_walk": False,
     "walk_knot_months": 6,
     "walk_t": False,
@@ -729,6 +730,7 @@ def describe(model: dict | None, sizes: dict | None = None) -> Anatomy | None:
     )
     nu = c["nu_fixed"]
     by_beds = c["noise_by_bedrooms"]
+    by_year = by_beds and c["noise_by_year"]
     add(
         "noise",
         "listing",
@@ -737,21 +739,24 @@ def describe(model: dict | None, sizes: dict | None = None) -> Anatomy | None:
         setting=(
             ("Student-t" + (f", ν = {_num(nu)}" if nu else ""))
             + (", one scale per bedroom count" if by_beds else "")
+            + (" and year" if by_year else "")
         ),
         plain=(
             "Each ask's own scatter around the model: mostly small, with occasional big "
             "surprises (heavy tails)"
             + ("; each bedroom count has its own scatter" if by_beds else "")
+            + (", in each calendar year" if by_year else "")
             + "."
         ),
         prior=(
             "ε_i ~ Student-t(ν, 0, "
-            + ("σ_g(i)" if by_beds else "σ")
-            + ("), each σ_g" if by_beds else "), σ")
+            + ("σ_g(i),y(i)" if by_year else "σ_g(i)" if by_beds else "σ")
+            + ("), each σ_g,y" if by_year else "), each σ_g" if by_beds else "), σ")
             + f" ~ HalfNormal({_num(c['noise_scale_sd'])}), "
             + (f"ν = {_num(nu)}" if nu else "ν ~ Gamma(2, 0.1)")
         ),
-        count=(4 if by_beds else 1) + (0 if nu else 1),
+        # By year, the scale count depends on the panel's span.
+        count=None if by_year else (4 if by_beds else 1) + (0 if nu else 1),
         math=_sub(_mi("ε"), _mi("i")),
     )
 
@@ -792,7 +797,8 @@ def describe(model: dict | None, sizes: dict | None = None) -> Anatomy | None:
             + ([f"{_join(learned)} learned"] if learned else [])
         ),
         "noise": ("ν = " + _num(nu) if nu else "ν fitted")
-        + (", by bedrooms" if by_beds else ""),
+        + (", by bedrooms" if by_beds else "")
+        + (" and year" if by_year else ""),
     }
     for p in parts:
         p.short = short.get(p.key, "")

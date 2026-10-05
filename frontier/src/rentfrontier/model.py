@@ -221,6 +221,8 @@ def sigma_groups(sigma) -> int:
 def n_noise(config: ModelConfig, prep: "Prepared") -> int:
     """The number of residual scales: 1, one per bedroom group, or one per
     bedroom group and calendar year of the panel (`noise_by_year`)."""
+    if config.noise_by_year and not config.noise_by_bedrooms:
+        raise ValueError("noise_by_year needs noise_by_bedrooms")
     if not config.noise_by_bedrooms:
         return 1
     years = prep.periods[-1].year - prep.periods[0].year + 1

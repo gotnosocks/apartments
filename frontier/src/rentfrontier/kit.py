@@ -137,7 +137,9 @@ def kit_tables(kept, prep, config, feats, keep: int = DRAWS):
     fslope_names = list(config.feature_slopes)
     fslope = kept["fslope"] if fslope_names else np.zeros((d, level.shape[1], 0))
     sigma = kept["sigma"] if kept["sigma"].ndim == 2 else kept["sigma"][:, None]
-    if config.noise_by_year:  # the kit prices the last period: its year's scales
+    if sigma.shape[1] > len(model.BEDROOM_GROUPS):
+        # By bedroom group and year (group-major): the kit prices the last
+        # period, so it keeps that year's scales.
         sigma = sigma.reshape(d, len(model.BEDROOM_GROUPS), -1)[:, :, -1]
     t_units = bool((kept.get("unit_nu", np.zeros(d)) > 0).all())
     record = {
