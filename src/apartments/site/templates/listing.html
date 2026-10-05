@@ -40,7 +40,7 @@ called a one-bedroom, say), and sometimes the apartment was rebuilt; the estimat
     <span class="figure-note">asks for this apartment likely fall in {{ usd(row.pred_lower_80) }}–{{ usd(row.pred_upper_80) }}
       (80%; {{ usd(row.pred_lower_95) }}–{{ usd(row.pred_upper_95) }} for 95%)</span>
     {% else %}
-    <span class="figure-note">range for the typical rent {{ usd(row.estimate_lower) }}–{{ usd(row.estimate_upper) }} (95%)</span>
+    <span class="figure-note">the model is 95% sure the typical rent itself is {{ usd(row.estimate_lower) }}–{{ usd(row.estimate_upper) }}; single asks spread wider</span>
     {% endif %}
   </div>
   <div class="figure">

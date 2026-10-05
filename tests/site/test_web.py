@@ -1395,7 +1395,7 @@ def test_a_build_from_before_neighbourhoods_still_serves(client, site_root):
 
 def test_price_labels_are_explained_where_they_appear(client):
     listings = client.get("/listings").get_data(as_text=True)
-    assert "Range for the typical rent" in listings
+    assert "Typical rent, 95% range" in listings
     assert "the same % gap can be typical for one apartment" in listings
     page = client.get("/listings/a2").get_data(as_text=True)
     assert "of the asks the model expects for this apartment" in page

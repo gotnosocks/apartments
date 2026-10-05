@@ -31,6 +31,7 @@
     <a href="{{ url_for('estimate_apartment') }}"{% if here == "estimate_apartment" %} aria-current="page"{% endif %}>Estimate an apartment</a>
     <a href="{{ url_for('quarantined') }}"{% if here == "quarantined" %} aria-current="page"{% endif %}>Left out</a>
     <a href="{{ url_for('about') }}"{% if here == "about" %} aria-current="page"{% endif %}>How estimates work</a>
+    <a href="{{ url_for('research_glossary') }}">Glossary</a>
   </nav></div>
   {% elif section == "research" %}
   <div class="subnav"><nav class="wrap" aria-label="Research">

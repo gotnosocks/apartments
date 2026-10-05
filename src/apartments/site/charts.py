@@ -255,7 +255,7 @@ def asks_and_estimates(rows, *, label: str) -> Markup:
                     ["Ask", usd(r["ask"])],
                     ["Estimate", usd(r["estimate"])],
                     [
-                        "Range for the typical rent",
+                        "Typical rent, 95% range",
                         f"{usd(r['lower'])} – {usd(r['upper'])}",
                     ],
                 ],

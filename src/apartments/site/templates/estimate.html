@@ -37,7 +37,7 @@ Every listing in the data still has its own estimate: <a href="{{ url_for('listi
     <div class="figure">
       <span class="figure-label">Typical rent</span>
       <span class="figure-value">{{ usd(result.estimate) }}</span>
-      <span class="figure-note">range for the typical rent {{ usd(result.lower_95) }}–{{ usd(result.upper_95) }} (95%)</span>
+      <span class="figure-note">the model is 95% sure the typical rent itself is {{ usd(result.lower_95) }}–{{ usd(result.upper_95) }}; single asks spread wider</span>
     </div>
     <div class="figure">
       <span class="figure-label">Likely ask range</span>
