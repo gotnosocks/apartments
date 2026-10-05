@@ -21,6 +21,16 @@
 {{ "{:.0f}".format(100 * change) }}% higher{% elif row.ask == ad_start.ask %}the ask has not changed{% else %}this ask is
 about the same{% endif %}.</p>
 {% endif %}
+{% if on_market %}{% set days = on_market.span ~ " day" ~ ("" if on_market.span == 1 else "s") ~ " before" if on_market.span else "the day" %}
+{% set broke = {"RENTED": "marked it rented", "IN_CONTRACT": "marked it in contract",
+  "TEMPORARILY_OFF_MARKET": "took it off the market", "NO_LONGER_AVAILABLE": "marked it no longer available"} %}
+<p class="note" id="on-market">{% if on_market.back_at %}This ad first went on StreetEasy on {{ day(on_market.on_market_at) }}.
+StreetEasy {{ broke.get(on_market.break_status, "took it off the market") }} on {{ day(on_market.break_at) }}, and it has been
+back on the market since <strong>{{ day(on_market.back_at) }}</strong>, {{ days }} it was captured on
+{{ day(on_market.as_of) }}.{% else %}This ad has been on StreetEasy since <strong>{{ day(on_market.on_market_at) }}</strong>,
+{{ days }} it was captured on {{ day(on_market.as_of) }}.{% endif %} The dates are for this ad only: an earlier
+ad for the apartment is a separate listing with its own dates.</p>
+{% endif %}
 {% if relabelled %}{% macro as_beds(v) %}{{ "a studio" if v | round == 0 else beds_label(v) }}{% endmacro %}
 <p class="note" id="relabelled">This apartment was listed as {{ as_beds(relabelled.bedrooms) }} in
 {{ month(relabelled.period) }}, and as {{ as_beds(row.bedrooms) }} here. Ads often disagree on this (an alcove studio

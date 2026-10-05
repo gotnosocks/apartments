@@ -42,7 +42,7 @@ from flask import (
 )
 from markupsafe import Markup
 
-from . import charts, estimate, estimate_build
+from . import ad_dates, charts, estimate, estimate_build
 from .anatomy import LEVELS as ANATOMY_LEVELS
 from .anatomy import describe, differences
 from .research import (
@@ -639,6 +639,7 @@ def create_app(
             "usd": charts.usd,
             "pct": charts.pct,
             "month": charts.month_label,
+            "day": day_label,
             "static_url": static_url,
             "page_url": page_url,
             "beds_label": beds_label,
@@ -882,9 +883,24 @@ def create_app(
             ),
             None,
         )
+        # StreetEasy's own on-market date for this advertisement only (its
+        # listing id); the apartment's earlier ads keep their own dates.
+        on_market = ad_dates.read(db(), row["audit_id"]) if row["is_current"] else None
+        if on_market and on_market["listing_id"] != row["listing_id"]:
+            on_market = None
+        if on_market:
+            # Calendar days to our capture from the start of the ad's current
+            # stretch on the market: its return after the latest break, if any.
+            on_market["span"] = (
+                dt.date.fromisoformat(on_market["as_of"])
+                - dt.date.fromisoformat(
+                    on_market["back_at"] or on_market["on_market_at"]
+                )
+            ).days
         return render_template(
             "listing.html",
             ad_start=ad_start,
+            on_market=on_market,
             relabelled=relabelled,
             meta=meta(),
             row=row,
@@ -2097,6 +2113,12 @@ def building_facts(x: dict[str, float]) -> dict:
             "not stated",
         ),
     }
+
+
+def day_label(iso: str) -> str:
+    """'2026-04-21' -> 'Apr 21, 2026'."""
+    d = dt.date.fromisoformat(iso)
+    return f"{d:%b} {d.day}, {d.year}"
 
 
 def beds_label(value) -> str:

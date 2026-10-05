@@ -41,7 +41,7 @@ from pathlib import Path
 
 import duckdb
 
-from . import estimate_build
+from . import ad_dates, estimate_build
 from .selection import SELECTION, selection_note
 
 VERSION = "listings-site-v1"
@@ -619,6 +619,7 @@ def write_database(
     scope: str | None,
     selection: dict | None = None,
     kits: Path | None = None,
+    archives: Path | None = None,
 ) -> dict:
     observations = load_observations(
         Path(record["dataset"]), record["dataset_observations_sha256"]
@@ -710,6 +711,11 @@ def write_database(
         )
         stats["estimate_form"] = estimate_build.install(
             db, kit_dir, listings, observations
+        )
+        stats["ad_dates"] = ad_dates.install(
+            db,
+            ad_dates.collect(Path(record["dataset"]), archives or ad_dates.ARCHIVES),
+            listings,
         )
         db.executemany(
             "INSERT INTO terms VALUES (?,?,?,?)",
