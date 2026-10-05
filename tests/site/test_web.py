@@ -416,7 +416,7 @@ def test_research_model_page_shows_the_selection_and_decision(
     data = json.loads(research_file.read_text())
     data["autoselect"] = {
         "action": "keep",
-        "reason": "The served fit is still the best.",
+        "reason": "The served fit is still the best: the incumbent ranks first.",
         "checked": [
             {
                 "run": "m-other-run",
@@ -432,9 +432,10 @@ def test_research_model_page_shows_the_selection_and_decision(
     research_file.write_text(json.dumps(data))
     app = create_app(root, research_data=research_file)
     html = app.test_client().get("/research/model").get_data(as_text=True)
-    assert "Chosen because it clearly beats the incumbent." in html
+    # "The incumbent" names a different model in each reason, so each says which.
+    assert "Chosen because it clearly beats the model served before it." in html
     assert "Chosen by rentfrontier.autoselect, 2026-10-01." in html
-    assert "The served fit is still the best." in html
+    assert "The served fit is still the best: this model ranks first." in html
     assert "<code>m-other-run</code>" in html and "tied and not faster" in html
     assert "<td>less elegant</td>" in html  # the check's elegance judgement
     assert (
@@ -1421,6 +1422,9 @@ def test_research_model_page_shows_a_pending_switch(site_root, research_file):
         .get_data(as_text=True)
     )
     assert "A switch is pending." in html and "<code>m-new-run</code>" in html
+    assert (
+        "The incumbent cannot be served." in html
+    )  # a pending switch's incumbent is this one
     assert "<td>chosen; not published yet</td>" in html
     assert "On the frontier</dt><dd>no" in html
     assert "another fit is at least as accurate" in html
