@@ -574,3 +574,24 @@ def test_the_skip_link_and_the_result_take_focus(site_root, client):
     html = page(client, f"/estimate?building={GROVE}&bedrooms=1")
     assert '<main id="main" class="wrap" tabindex="-1">' in html
     assert 'id="result" tabindex="-1"' in html
+
+
+def test_the_building_choices_say_enough_to_tell_them_apart(site_root, client):
+    install_kit(site_root)
+    db = sqlite3.connect(site_root / "current" / "site.sqlite")
+    grove = db.execute("SELECT * FROM buildings WHERE id = ?", (GROVE,)).fetchone()
+    cols = [r[1] for r in db.execute("PRAGMA table_info(buildings)")]
+    twin = dict(zip(cols, grove), id="grove-twin", name=None, bbl="1000000001")
+    db.execute(
+        f"INSERT INTO buildings ({', '.join(cols)}) VALUES ({', '.join('?' * len(cols))})",
+        [twin[c] for c in cols],
+    )
+    db.execute("UPDATE buildings SET bbl = '1000000001' WHERE id = ?", (GROVE,))
+    db.commit()
+    db.close()
+    html = page(client, "/estimate?q=250+west+19")
+    assert "Which building?" in html and "listings since" in html
+    assert (
+        "Same address and tax lot as The Grove, but listed as a separate building"
+        in html
+    )
