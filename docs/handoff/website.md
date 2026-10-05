@@ -2,7 +2,7 @@
 
 What the next turn of the website thread needs. Updated at each milestone.
 
-## State (2026-10-05 17:30 UTC)
+## State (2026-10-05 20:30 UTC)
 
 - **Estimate form live.** `/estimate` uses the prediction kit (#228, `rentfrontier.kit`) through
   the site build (#229). The kit for the served u3 run is at
@@ -33,6 +33,14 @@ What the next turn of the website thread needs. Updated at each milestone.
   - #255 the breakdown says a feature's line is only its own part (Modeling: penthouse +12.2%;
     the rest sits in the unit and building lines)
   - #256 rent map choices are kept in the URL
+  - #259 plain labels for the breakdown terms, and plain accuracy words on the home page
+  - #260 the estimate is a market ask, not a renewal or legal rent
+  - #261 /estimate says first-listing ranges run narrow (single-listing coverage of the 80% and 95%
+    ranges; listing pages already said so)
+  - #262 the listings count spells out the default Status and Elevator filters, with links that
+    narrow them
+  - #263 building suggestions as you type (`/buildings.json` plus a datalist in site.js). On
+    /estimate a pick sets the building id, unless two buildings share the name
 - **Kit step for Modeling.** After the summary bundle and rent map, and before
   `apartments.site build`:
   `cd /data1/apartments/serve/master/frontier && JAX_PLATFORMS=cpu /data1/apartments/serve/master/ops/job light -m 8G -- uv run --frozen --extra gpu python -m rentfrontier.kit <run> --summary <bundle>`.
@@ -47,12 +55,7 @@ What the next turn of the website thread needs. Updated at each milestone.
      history) lives in a DuckDB nobody has located. The only copy is
      `/data1/apartments/archive/snapshots/chelsea-20260908`. I asked for
      `listing_started.parquet` (source_listing_id, listed_at, first_ask, days_on_market).
-   - Jargon on lay pages: the model codename and PSIS-LOO on the home page, plus the breakdown
-     labels "Building size and bath slopes" and "Price basis" (frontier TERM_LABELS).
-   - The 92.8% under-coverage for single-listing units is only on the model page.
-   - No autocomplete in building search.
-   - Filter defaults (Status All, Elevator Any) are easy to miss.
-   - The estimate is a market rate, not a stabilized renewal; say so where a tenant compares.
+   - Optional: warn when a building link lands on a much pricier building.
 2. After the next served-model switch, check that `/estimate` still works. `autoselect-publish.sh`
    builds the kit.
 3. Optional: cache the parsed kit per database (about 12 ms per request).
