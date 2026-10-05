@@ -51,7 +51,9 @@ def test_few_available_now_points_to_the_past_listings(client):
 def test_the_default_status_and_elevator_are_spelled_out(client):
     # Playtest round 4 (family): "All" status and "Any" elevator were easy to miss.
     html = " ".join(client.get("/listings?beds=2").get_data(as_text=True).split())
-    assert "including ads no longer up" in html and "with or without an elevator" in html
+    assert (
+        "including ads no longer up" in html and "with or without an elevator" in html
+    )
     assert 'href="/listings?beds=2&amp;status=current"' in html
     assert 'href="/listings?beds=2&amp;elevator=yes"' in html
     html = client.get("/listings?status=current&elevator=yes").get_data(as_text=True)

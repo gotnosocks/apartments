@@ -10,7 +10,8 @@
   over- or under-pricing. <a href="{{ url_for('about') }}">How the estimates work</a></p>
   <form class="search" action="{{ url_for('listings') }}" method="get" role="search">
     <label for="q" class="visually-hidden">Building, address or unit</label>
-    <input id="q" name="q" type="search" placeholder="Building, address or unit (e.g. 23C)" autocomplete="off">
+    <input id="q" name="q" type="search" placeholder="Building, address or unit (e.g. 23C)" autocomplete="off"
+    data-suggest="{{ url_for('building_suggestions') }}">
     <button type="submit">Search listings</button>
   </form>
 </section>

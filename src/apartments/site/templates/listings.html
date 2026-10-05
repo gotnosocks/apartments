@@ -8,7 +8,8 @@
 <form class="filters" action="{{ url_for('listings') }}" method="get" aria-label="Filter listings">
   <div class="field grow">
     <label for="f-q">Building, address or unit</label>
-    <input id="f-q" name="q" type="search" value="{{ filters.q }}" autocomplete="off">
+    <input id="f-q" name="q" type="search" value="{{ filters.q }}" autocomplete="off"
+    data-suggest="{{ url_for('building_suggestions') }}">
   </div>
   {% if neighbourhoods | length > 1 %}
   <div class="field">
