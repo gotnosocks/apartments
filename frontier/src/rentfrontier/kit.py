@@ -26,6 +26,13 @@ buildings.parquet   per building, a list over draws of: level (the building
                     bedroom_slope, and fslope (a list per draw).
 complete.json       provenance and the sha256 of each file; written last.
 
+The kit does not encode x. The site copies a building's own columns from its
+newest row in the summary bundle (`inputs`), encodes the apartment's columns
+from its form, and recovers the training median of log square feet per
+bedroom count from the bundle's rows (log square feet less the row's
+`log_sqft_vs_bedroom_median`); each build checks its encoder against the
+bundle's inputs.
+
 Writes /data1/apartments/frontier/kits/<run>-<commit>/. Refuses designs the
 formula above does not cover (line effects, unit drift) and a run that fails
 the convergence gate, as `summary` does.
@@ -88,8 +95,13 @@ def kit_tables(kept, prep, config, feats, keep: int = DRAWS):
     kept = {k: np.asarray(v)[idx] for k, v in kept.items() if np.ndim(v)}
     d = len(idx)
     a = last_month_rows(prep, len(feats.names))
+    # walk_term reads knot + 1, one past the last knot when the last month is
+    # a knot (its weight is then 0): repeat the last knot so numpy can index it.
+    padded = dict(kept)
+    if "walk" in kept:
+        padded["walk"] = np.concatenate([kept["walk"], kept["walk"][..., -1:]], axis=-1)
     terms = explain.log_terms(
-        kept,
+        padded,
         a,
         feats.groups,
         model.walk_spacing(config),
@@ -132,6 +144,12 @@ def kit_tables(kept, prep, config, feats, keep: int = DRAWS):
         "groups": list(feats.groups),
         "slopes": fslope_names,
         "bedroom_groups": [str(g) for g in model.BEDROOM_GROUPS],
+        # As `model.row_arrays`: bedroom_time and sigma by group, the
+        # building's bedroom slope by centred bedrooms.
+        "bedroom_rule": {
+            "group": "min(max(round(bedrooms), 0), 3)",
+            "centered": "min(max(round(bedrooms), 0), 4) - 1",
+        },
         "t_units": t_units,
         "market": market.tolist(),
         "season": {"daily": bool(daily), "coef": season.tolist()},

@@ -6,7 +6,15 @@ import pytest
 from rentfrontier import explain, kit, model
 
 
-def toy(seed=0, draws=12, buildings=5, months=20, slopes=("f1", "f2")):
+def toy(
+    seed=0,
+    draws=12,
+    buildings=5,
+    months=20,
+    slopes=("f1", "f2"),
+    spacing=6,
+    daily=True,
+):
     rng = np.random.default_rng(seed)
     names = ["f1", "f2", "f3", "f4"]
     feats = SimpleNamespace(names=names, groups=["a", "a", "b", "c"])
@@ -17,16 +25,17 @@ def toy(seed=0, draws=12, buildings=5, months=20, slopes=("f1", "f2")):
     )
     config = SimpleNamespace(
         building_walk=True,
-        walk_knot_months=6,
+        walk_knot_months=spacing,
         bedroom_time=True,
         bedroom_slope=True,
         feature_slopes=list(slopes),
     )
-    knots = model.n_knots(months, 6)
+    knots = model.n_knots(months, spacing)
     kept = {
         "alpha": rng.normal(0, 0.1, draws),
         "trend": rng.normal(0, 0.1, (draws, months)),
-        "season_daily_coef": rng.normal(0, 0.05, (draws, 4)),
+        "season_daily_coef": rng.normal(0, 0.05, (draws, 4 if daily else 1)),
+        "season": rng.normal(0, 0.05, (draws, 12)),
         "beta": rng.normal(0, 0.2, (draws, len(names))),
         "bedroom_time": rng.normal(0, 0.05, (draws, 4, months)),
         "building": rng.normal(0, 0.3, (draws, buildings)),
@@ -42,11 +51,14 @@ def toy(seed=0, draws=12, buildings=5, months=20, slopes=("f1", "f2")):
     return kept, prep, config, feats
 
 
-def kit_total(record, buildings, x, b, bedrooms, year_frac):
+def kit_total(record, buildings, x, b, bedrooms, year_frac, calendar):
     """The site's formula, in numpy: every term but the unit level."""
     beta = np.array(record["beta"])
     coef = np.array(record["season"]["coef"])
-    season = coef @ model.day_basis(np.array([year_frac]), coef.shape[1] // 2)[0]
+    if record["season"]["daily"]:
+        season = coef @ model.day_basis(np.array([year_frac]), coef.shape[1] // 2)[0]
+    else:
+        season = coef[:, calendar]
     group = min(max(round(bedrooms), 0), 3)
     centered = min(max(round(bedrooms), 0), 4) - 1.0
     row = buildings.iloc[b]
@@ -63,9 +75,19 @@ def kit_total(record, buildings, x, b, bedrooms, year_frac):
     )
 
 
-@pytest.mark.parametrize("slopes", [("f1", "f2"), ()])
-def test_kit_reproduces_log_terms_at_the_last_month(slopes):
-    kept, prep, config, feats = toy(slopes=slopes)
+@pytest.mark.parametrize(
+    "slopes, months, spacing, daily",
+    [
+        (("f1", "f2"), 20, 6, True),
+        ((), 20, 6, True),
+        (("f1",), 19, 6, True),  # the last month is a walk knot
+        (("f1", "f2"), 23, 3, False),  # monthly season, another spacing
+    ],
+)
+def test_kit_reproduces_log_terms_at_the_last_month(slopes, months, spacing, daily):
+    kept, prep, config, feats = toy(
+        slopes=slopes, months=months, spacing=spacing, daily=daily
+    )
     if not slopes:
         kept.pop("fslope")
     record, buildings = kit.kit_tables(kept, prep, config, feats)
@@ -89,13 +111,40 @@ def test_kit_reproduces_log_terms_at_the_last_month(slopes):
         year_frac=year_frac,
     )
     fidx = [feats.names.index(s) for s in slopes]
-    terms = explain.log_terms(kept, a, feats.groups, 6, True, True, prep.offset, fidx)
+    # log_terms on numpy cannot index past the last knot (JAX clamps); the
+    # reference repeats it, as the kit does, where its weight is 0.
+    padded = kept | {"walk": np.concatenate([kept["walk"], kept["walk"][..., -1:]], -1)}
+    terms = explain.log_terms(
+        padded, a, feats.groups, spacing, True, True, prep.offset, fidx
+    )
     expected = sum(v for k, v in terms.items() if k != "unit")
     for i in range(n):
         got = kit_total(
-            record, buildings, a.x[i], a.building[i], bedrooms[i], year_frac[i]
+            record,
+            buildings,
+            a.x[i],
+            a.building[i],
+            bedrooms[i],
+            year_frac[i],
+            a.calendar[i],
         )
         np.testing.assert_allclose(got, expected[:, i], rtol=0, atol=1e-12)
+
+
+def test_noise_and_unit_prior_are_the_thinned_draws():
+    kept, prep, config, feats = toy(draws=600)
+    record, _ = kit.kit_tables(kept, prep, config, feats)
+    idx = kit.thin(600)
+    np.testing.assert_array_equal(record["sigma"], kept["sigma"][idx])
+    for name in ("nu", "unit_scale", "unit_nu", "market"):
+        assert len(record[name]) == 250
+    np.testing.assert_array_equal(record["nu"], kept["nu"][idx])
+    np.testing.assert_array_equal(record["unit_scale"], kept["unit_scale"][idx])
+    np.testing.assert_array_equal(record["unit_nu"], kept["unit_nu"][idx])
+    assert record["t_units"]
+    one = kept | {"sigma": kept["sigma"][:, 0]}
+    record, _ = kit.kit_tables(one, prep, config, feats)
+    assert np.shape(record["sigma"]) == (250, 1)
 
 
 def test_thinning_keeps_evenly_spaced_draws():
