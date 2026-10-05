@@ -1008,3 +1008,18 @@ def test_prevprice_never_reads_the_rows_own_advertisement(monkeypatch, tmp_path)
     change = dict(zip(out.names, out.values.T))["previous_listing_price_change"]
     # Both rows of ad 20 read ad 10 (cut to 4000), never ad 20's own cut.
     np.testing.assert_allclose(change, [0, np.log(0.8), np.log(0.8)])
+
+
+def test_walkup_bends_the_floor_curve_above_the_third_floor_of_walkups(monkeypatch):
+    from rentfrontier import features
+
+    frame = pd.DataFrame({"elevator": ["no", "no", "yes", "unknown"]})
+    floors = np.log([5.0, 2.0, 9.0, 6.0])
+    stub = features.Features(
+        "stub", ["log_floor"], ["floor"], floors[:, None], np.ones(1)
+    )
+    monkeypatch.setitem(features.FEATURE_SETS, "stub", lambda frame, train: stub)
+    out = features.walkup_v1(frame, np.ones(4, bool), base="stub")
+    col = out.values[:, out.names.index("log_floor_above_3_x_no_elevator")]
+    np.testing.assert_allclose(col, [np.log(5 / 3), 0.0, 0.0, 0.0])
+    assert "nb-walkup-v1" in features.FEATURE_SETS

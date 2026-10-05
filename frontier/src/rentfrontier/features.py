@@ -404,6 +404,35 @@ def coded_v1(
     )
 
 
+def walkup_v1(
+    frame: pd.DataFrame,
+    train: np.ndarray,
+    id: str = "walkup-v1",
+    base: str = "nb-coded-v1",
+) -> Features:
+    """A base set plus a bend in the floor curve of walk-ups: log floor above the
+    3rd, in buildings without an elevator (the stairs above the third floor; a
+    broker playtest, 2026-10-05). The base's `log_floor_x_no_elevator` keeps one
+    slope for every walk-up floor; this lets the upper walk-up floors differ."""
+    base = FEATURE_SETS[base](frame, train)
+    log_floor = base.values[:, base.names.index("log_floor")]
+    walkup = frame.elevator.eq("no").to_numpy()
+    b = _Builder(frame)
+    b.add(
+        "floor",
+        "log_floor_above_3_x_no_elevator",
+        np.maximum(0.0, log_floor - np.log(3)) * walkup,
+    )
+    out = b.build(id)
+    return Features(
+        id,
+        base.names + out.names,
+        base.groups + out.groups,
+        np.column_stack([base.values, out.values]),
+        np.concatenate([base.prior_scale, out.prior_scale]),
+    )
+
+
 # Each listing's price changes (rentfrontier.listing_extras, price_changes).
 PRICE_HISTORY_FILE = (
     "/data1/apartments/external/listing-extras/20261005-ae25150/listing-extras.parquet"
@@ -1674,6 +1703,8 @@ FEATURE_SETS = {
     "nb-relist-v1": partial(relist_v1, id="nb-relist-v1", base="nb-bedtext-v2"),
     # nb-relist-v1 plus the listing record's outdoor space types and extra rooms.
     "nb-coded-v1": partial(coded_v1, id="nb-coded-v1", base="nb-relist-v1"),
+    # nb-coded-v1 plus a bend in the walk-up floor curve above the third floor.
+    "nb-walkup-v1": partial(walkup_v1, id="nb-walkup-v1", base="nb-coded-v1"),
     # nb-coded-v1 plus how the unit's previous listing was repriced before this one.
     "nb-prevprice-v1": partial(prevprice_v1, id="nb-prevprice-v1", base="nb-coded-v1"),
     # nb-coded-v1 plus only how many times the previous listing was repriced (no ask).
