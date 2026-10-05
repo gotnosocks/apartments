@@ -59,3 +59,13 @@ def test_a_map_in_another_format_gives_no_card(client, site_root):
     target.write_text(json.dumps({"buildings": [{"id": GROVE}], "years": [2026]}))
     html = client.get(f"/buildings/{GROVE}").get_data(as_text=True)
     assert 'id="typical-rent"' not in html
+
+
+def test_level_and_typical_rent_say_how_they_differ(client, site_root):
+    write_map(site_root)
+    html = " ".join(client.get(f"/buildings/{GROVE}").get_data(as_text=True).split())
+    assert "against a building with the same age, size, elevator, doorman" in html
+    assert (
+        "Unlike the building level above, it includes what the building's features"
+        in html
+    )
