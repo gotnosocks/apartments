@@ -169,6 +169,7 @@ called a one-bedroom, say), and sometimes the apartment was rebuilt; the estimat
     <a href="{{ url_for('unit', unit_id=row.unit_id) }}">Unit page →</a>
   </div>
   {% if chart %}{{ chart }}{% endif %}
+  {{ m.opposite_note(opposite) }}
   {{ m.listing_table(others, show_building=False) }}
 </section>
 {% endblock %}

@@ -954,6 +954,7 @@ def create_app(
         return render_template(
             "listing.html",
             ad_start=ad_start,
+            opposite=opposite_moves(others),
             on_market=on_market,
             relabelled=relabelled,
             meta=meta(),
@@ -988,6 +989,24 @@ def create_app(
             a, b = before["square_feet"], after["square_feet"]
             size = bool(a and b and abs(b - a) / a > 0.15)
             if beds or size:
+                out.append({"before": before, "after": after})
+        return out
+
+    def opposite_moves(rows) -> list[dict]:
+        """Consecutive listings of a unit (oldest first) whose ask and
+        estimate each moved more than 5%, in opposite directions (about 1 pair
+        in 20). Each estimate leaves
+        out its own ask but uses the unit's other listings, so a high ask one
+        time and a low one another pull each estimate the other way."""
+        out = []
+        for before, after in itertools.pairwise(rows):
+            asks = before["ask"], after["ask"]
+            ests = before["estimate"], after["estimate"]
+            if not (all(asks) and all(ests)):
+                continue
+            ask = asks[1] / asks[0] - 1
+            est = ests[1] / ests[0] - 1
+            if ask * est < 0 and min(abs(ask), abs(est)) > 0.05:
                 out.append({"before": before, "after": after})
         return out
 
@@ -1177,6 +1196,7 @@ def create_app(
             "unit.html",
             aliases=aliases,
             layout_changes=changes,
+            opposite=opposite_moves(rows),
             meta=meta(),
             unit=row,
             rows=rows,
