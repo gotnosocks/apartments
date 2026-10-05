@@ -177,18 +177,28 @@ def _svg(parts, label: str, frame: Frame) -> str:
     )
 
 
+def _json(value) -> str:
+    # No "<" at all inside a script data block ("</script>", "<!--").
+    return json.dumps(value, separators=(",", ":")).replace("<", "\\u003c")
+
+
 def _figure(
-    kind: str, svg: str, points: list[dict], legend: str = "", attrs=None
+    kind: str, svg: str, points: list[dict], legend: str = "", spec=None
 ) -> Markup:
-    # No "<" at all inside the script data block ("</script>", "<!--").
-    data = json.dumps(points, separators=(",", ":")).replace("<", "\\u003c")
-    extra = "".join(f' {k}="{escape(v)}"' for k, v in (attrs or {}).items())
+    """A chart's figure: its SVG, the hover card and the hover data
+    (static/site.js), and with spec the data static/fitchart.js draws the
+    chart from instead."""
+    extra = (
+        f'<script type="application/json" class="chart-spec">{_json(spec)}</script>'
+        if spec
+        else ""
+    )
     return Markup(
-        f'<figure class="chart" data-chart="{kind}"{extra} tabindex="0">'
+        f'<figure class="chart" data-chart="{kind}" tabindex="0">'
         f"{legend}{svg}"
         f'<div class="chart-tip" hidden></div>'
-        f'<script type="application/json" class="chart-data">{data}</script>'
-        f"</figure>"
+        f'<script type="application/json" class="chart-data">{_json(points)}</script>'
+        f"{extra}</figure>"
     )
 
 
@@ -464,13 +474,18 @@ def fit_scatter(
     draws a diamond instead of a circle, so the tier is not colour alone)}].
     x_line: (value, label) draws a reference line, such as a time target.
     x_range, y_range: (low, high) zoom the chart to that box; fits outside it
-    are left off. zoom: the query-parameter prefix the page reads the box from,
-    so dragging across the chart can ask for a new one (site.js).
+    are left off. zoom: the query-parameter prefix the page reads the box from;
+    with it the figure also carries every fit in data units (a chart-spec
+    block), and static/fitchart.js redraws it with Chart.js, zoomable in the
+    page, keeping the box in the URL.
     frontier_line: "solid" or "dashed" joins the points marked "on_line" (the
     chart's frontier) in fit-time order; dashed when the line includes fits
     that fail the convergence checks."""
     if not points:
         return Markup("")
+    every = points
+    box = [*(x_range or (None, None)), *(y_range or (None, None))]
+    empty = ""
     if x_range or y_range:
         points = [
             p
@@ -479,9 +494,16 @@ def fit_scatter(
             and (not y_range or y_range[0] <= p["y"] <= y_range[1])
         ]
         if not points:
-            return Markup(
-                '<p class="empty-note">No fit falls inside the zoomed range.</p>'
+            empty = (
+                '<p class="empty-note empty-zoom">No fit falls inside the zoomed '
+                "range.</p>"
             )
+            if not zoom:
+                return Markup(empty)
+            # The whole chart under the note, carrying the box, so
+            # fitchart.js can show it and zoom back out.
+            points = every
+            x_range = y_range = None
     # A reference line is drawn where the data reach it; it does not stretch
     # the axis (a 2-hour limit would squash fits of a few minutes).
     xs = [p["x"] for p in points]
@@ -582,16 +604,41 @@ def fit_scatter(
             )
             + "</span></div>",
         )
-    attrs = {}
+    spec = None
     if zoom:
-        attrs = {
-            "data-zoom": zoom,
-            "data-frame": json.dumps(
-                [frame.x0, frame.x1, frame.y0, frame.y1]
-                + [frame.left, frame.right, frame.top, frame.bottom]
-            ),
+        # The reference line where the unzoomed chart reaches it, as above.
+        whole = XYFrame([p["x"] for p in every], [p["y"] for p in every], x_zero=x_zero)
+        if x_line and not whole.x0 <= x_line[0] <= whole.x1:
+            x_line = None
+        spec = {
+            "zoom": zoom,
+            "label": label,
+            "x_title": x_title,
+            "y_title": y_title,
+            "y_signed": y_format is signed,
+            "floor": y_floor,
+            "x_line": list(x_line) if x_line else None,
+            "line": frontier_line,
+            "range": box,
+            "points": [
+                {
+                    "x": p["x"],
+                    "y": p["y"],
+                    "kind": p["kind"],
+                    "tier": p.get("tier"),
+                    "faded": bool(p.get("faded")),
+                    "group": p.get("group"),
+                    "draws": p.get("draws"),
+                    "on_line": bool(p.get("on_line")),
+                    "title": p["title"],
+                    "rows": [["", _fit_label(p)], *p.get("rows", [])],
+                    "href": p.get("href"),
+                }
+                for p in every
+            ],
         }
-    return _figure("points", _svg(parts, label, frame), hover, legend, attrs)
+    figure = _figure("points", _svg(parts, label, frame), hover, legend, spec=spec)
+    return Markup(empty) + figure
 
 
 def _y_title(frame, title):

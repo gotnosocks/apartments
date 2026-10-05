@@ -263,8 +263,12 @@ details.table-view summary { cursor: pointer; color: var(--link); font-size: 0.9
 .markdown code { background: var(--neutral-bg); padding: 0 0.2rem; border-radius: 3px; }
 .markdown pre code { background: none; padding: 0; }
 .chart .hover-ring { fill: none; stroke: var(--ink); stroke-width: 2; }
-.chart[data-zoom] svg { cursor: crosshair; }
-.chart .brush { fill: var(--ink); fill-opacity: 0.08; stroke: var(--ink); stroke-dasharray: 4 3; }
+/* The Chart.js canvas (fitchart.js) in place of the SVG: a fixed height. */
+.fit-canvas { position: relative; height: 24rem; }
+.link-button {
+  background: none; border: 0; padding: 0; font: inherit; color: var(--link);
+  text-decoration: underline; cursor: pointer;
+}
 .zoom-form form { display: flex; flex-wrap: wrap; gap: 0.5rem 1rem; align-items: end; margin-top: 0.5rem; }
 .zoom-form input[type=number] { width: 8em; }
 .legend { display: flex; flex-wrap: wrap; gap: 0.3rem 1.2rem; font-size: 0.85rem; color: var(--ink-2); margin-bottom: 0.2rem; }
@@ -300,6 +304,7 @@ details.table-view summary { cursor: pointer; color: var(--link); font-size: 0.9
 
 @media (max-width: 640px) {
   body { font-size: 14px; }
+  .fit-canvas { height: 18rem; }
   h1 { font-size: 1.3rem; }
   .figure-value { font-size: 1.6rem; }
   .contributions .bar-col { display: none; }

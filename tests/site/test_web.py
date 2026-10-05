@@ -1,6 +1,5 @@
 import csv
 import gzip
-import html
 import io
 import itertools
 import json
@@ -651,15 +650,19 @@ def test_fit_scatter_zooms_to_a_box():
     )
     # the fit outside the box is left off; the axes span the box exactly
     assert figure.count('class="fit ') == 2 and "drawn at its floor" not in figure
-    assert 'data-zoom="f"' in figure
-    frame = json.loads(html.unescape(figure.split('data-frame="')[1].split('"')[0]))
-    assert frame[:4] == [5, 30, 4900, 5300]
+    # the Chart.js spec carries every fit and the box, for fitchart.js
+    spec = json.loads(figure.split('class="chart-spec">')[1].split("</script>")[0])
+    assert spec["zoom"] == "f" and spec["range"] == [5, 30, 4900, 5300]
+    assert len(spec["points"]) == len(points)
     ticks = [float(t) for t in re.findall(r'text-anchor="end">([-\d.]+)<', figure)]
     assert ticks and all(4900 <= t <= 5300 for t in ticks)
     assert "No fit falls inside" in str(
         charts.fit_scatter(points, x_range=(100, 200), **kw)
     )
-    assert "data-zoom" not in str(charts.fit_scatter(points, **kw))
+    assert "chart-spec" not in str(charts.fit_scatter(points, **kw))
+    # an empty box still carries the whole chart, so Chart.js can zoom out
+    empty = str(charts.fit_scatter(points, x_range=(100, 200), zoom="f", **kw))
+    assert "No fit falls inside" in empty and '"range":[100,200,null,null]' in empty
 
 
 def test_review_fixes_on_research_model_and_home(client, research_file):
@@ -1206,7 +1209,7 @@ def test_exploration_fits_count_on_the_frontier(client, research_file):
 def test_frontier_charts_zoom_by_url(client, research_file):
     _with_exploration(research_file)
     html = client.get("/research").get_data(as_text=True)
-    assert 'data-zoom="f"' in html and 'data-zoom="e"' in html
+    assert '"zoom":"f"' in html and '"zoom":"e"' in html
     assert "Drag across the chart to zoom in" in html and "Reset zoom" not in html
     assert "Zoom to the frontier" in html and "?fx0=" in html
     # nothing inside the box: said so, with the count and a way back
