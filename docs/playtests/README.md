@@ -16,7 +16,7 @@ the rest is ready.
   and include `best-1bed` whenever the round's changes touch listings, summaries or ratings.
   `ops/playtest.sh` refuses more than 3. Feature work Ben asks for directly keeps its own PRs.
 
-- **Model:** playtesters run on Sonnet 5.5 (`claude-sonnet-5-5`, Ben 2026-10-05). The website
+- **Model:** playtesters run on Sonnet 5 (`claude-sonnet-5`, Ben 2026-10-05). The website
   thread's main session runs on Sonnet too (Ben 2026-10-05). Reviewers follow CLAUDE.md: Sonnet for
   site and docs PRs.
 - **Run a round:** `ops/playtest.sh 2026-10-06-r6 renter mobile best-1bed`. Each persona runs as
