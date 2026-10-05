@@ -397,8 +397,8 @@ ZOOM_ANCHORS = {"f": "full-fits", "e": "exploration-fits"}
 
 def zoom_box(args, prefix: str):
     """A chart's zoomed (x, y) ranges from its query parameters (prefix + x0,
-    x1, y0, y1); a range missing either end, or empty, or not finite is left
-    unzoomed."""
+    x1, y0, y1); a range missing either end, empty, reversed, not finite,
+    beyond 1e9 or narrower than a millionth of its values is left unzoomed."""
     values = []
     for k in ZOOM_KEYS:
         try:
@@ -408,7 +408,13 @@ def zoom_box(args, prefix: str):
         values.append(v if v is not None and math.isfinite(v) else None)
     ranges = []
     for lo, hi in (values[:2], values[2:]):
-        ok = lo is not None and hi is not None and lo < hi
+        # Bounded and not vanishingly narrow, so the ticks can be laid out.
+        ok = (
+            lo is not None
+            and hi is not None
+            and max(abs(lo), abs(hi)) <= 1e9
+            and hi - lo > 1e-6 * max(abs(lo), abs(hi), 1.0)
+        )
         ranges.append((lo, hi) if ok else None)
     return tuple(ranges)
 

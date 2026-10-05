@@ -1210,7 +1210,7 @@ def test_frontier_charts_zoom_by_url(client, research_file):
     assert "Drag across the chart to zoom in" in html and "Reset zoom" not in html
     assert "Zoom to the frontier" in html and "?fx0=" in html
     # nothing inside the box: said so, with the count and a way back
-    empty = client.get("/research?fy0=1e9&fy1=2e9").get_data(as_text=True)
+    empty = client.get("/research?fy0=1e8&fy1=2e8").get_data(as_text=True)
     assert "No fit falls inside the zoomed range." in empty
     assert "Zoomed in: 0 of" in empty and 'href="?#full-fits">Reset zoom' in empty
     # one chart's zoom keeps the other's, and the hand-set form keeps both
@@ -1222,7 +1222,14 @@ def test_frontier_charts_zoom_by_url(client, research_file):
     subsets = client.get("/research?subsets=1").get_data(as_text=True)
     assert "1 more exploration fit on this hardware\n  has no PSIS-LOO score" in subsets
     # a range that is empty, reversed or not a number is ignored
-    for bad in ("fx0=abc&fx1=5", "fy0=5&fy1=1", "fx0=1&fx1=1", "fx0=nan&fx1=inf"):
+    for bad in (
+        "fx0=abc&fx1=5",
+        "fy0=5&fy1=1",
+        "fx0=1&fx1=1",
+        "fx0=nan&fx1=inf",
+        "fx0=-1e308&fx1=1e308",
+        "fx0=37.123456789&fx1=37.12345678900001",
+    ):
         page = client.get(f"/research?{bad}").get_data(as_text=True)
         full = page[page.index('id="full-fits"') : page.index('id="exploration-fits"')]
         assert "Reset zoom" not in full, bad

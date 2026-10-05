@@ -177,7 +177,11 @@ def tier_frontiers(group):
     board's own rule: the site draws one chart per tier (Ben, 2026-10-05)."""
     tiers = {}
     for v in group:
-        tiers.setdefault((v.get("tier") or {}).get("name") or "full", []).append(v)
+        # As the site files them: any tier other than exploration is full.
+        name = (v.get("tier") or {}).get("name")
+        tiers.setdefault("exploration" if name == "exploration" else "full", []).append(
+            v
+        )
     return {
         name: [v["_key"] for v, on in zip(vs, leaderboard.on_frontier(vs)) if on]
         for name, vs in sorted(tiers.items())

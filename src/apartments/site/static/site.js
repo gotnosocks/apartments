@@ -105,6 +105,11 @@
     }
 
     svg.addEventListener("pointermove", function (event) {
+      // No readout while a mouse button is down (dragging a zoom box).
+      if (event.buttons && event.pointerType !== "touch") {
+        hide();
+        return;
+      }
       var point = nearest(event);
       if (point) show(point); else hide();
     });
