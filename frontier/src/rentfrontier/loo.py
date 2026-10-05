@@ -114,7 +114,7 @@ def integrated_loglik(
         )
         resid = y - mu_s
         sigma = p["sigma"]
-        if sigma.ndim:  # one scale per bedroom group: each row's group's
+        if sigma.ndim:  # one scale per noise group: each row's group's
             sigma = sigma[groups][:, None, None]
         ll = student_t_logpdf(
             resid[:, None, None]
@@ -257,7 +257,8 @@ def score_run(name: str):
         )
         mu = sum(v for k, v in terms.items() if k not in UNIT_TERMS) - prep.offset
         mu, y, ut, unit = mu[:, pos], a.y[pos], a.unit_time[pos], a.unit[pos]
-        bg = a.bed_group[pos]
+        n_groups = kept["sigma"].shape[1] if kept["sigma"].ndim == 2 else 1
+        bg = model.noise_group(n_groups, a)[pos]
         _, seg = np.unique(unit, return_inverse=True)
         n = hi - lo
         pad = size - n

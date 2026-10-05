@@ -309,7 +309,11 @@ def project(reference: str, candidates=CANDIDATES):
     # The reference's noise scale per training row: one scale, or (with
     # noise_by_bedrooms) the row's bedroom group's.
     sigma = np.asarray(kept["sigma"]).mean(0)
-    sigma_rows = sigma if sigma.ndim == 0 else sigma[np.asarray(prep.train.bed_group)]
+    sigma_rows = (
+        sigma
+        if sigma.ndim == 0
+        else sigma[model.noise_group(sigma.shape[0], prep.train)]
+    )
     nu = float(kept["nu"].mean())
     scales = {
         k: float(kept[k].mean())

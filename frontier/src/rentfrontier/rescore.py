@@ -47,7 +47,9 @@ def _approx_unseen_logpdf(p, test, mu, u):
     from .collect import GH_NODES, student_t_logpdf
 
     seen = test.unit >= 0
-    sigma = model.row_sigma(p["sigma"], test.bed_group)
+    sigma = model.row_sigma(
+        p["sigma"], model.noise_group(model.sigma_groups(p["sigma"]), test)
+    )
     s1 = sigma[:, None] if jnp.ndim(sigma) else sigma
     drift_scale = p["unit_drift_scale"]
     unit_scale = jnp.sqrt(p["unit_scale"] ** 2 + (drift_scale * test.unit_time) ** 2)

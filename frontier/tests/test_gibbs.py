@@ -98,6 +98,14 @@ DESIGNS = {
         unit_t=True,
         noise_by_bedrooms=True,
     ),
+    "yearnoise": model.ModelConfig(
+        building_walk=True,
+        bedroom_slope=True,
+        feature_slopes=("x0",),
+        unit_t=True,
+        noise_by_bedrooms=True,
+        noise_by_year=True,
+    ),
     "fourier": model.ModelConfig(
         building_walk=True, bedroom_slope=True, season_harmonics=2
     ),
@@ -180,7 +188,7 @@ def dense_mean(d, lam, s, kappa=None):
 # The dense reference has one residual scale; "bednoise" is checked against
 # the one-scale block with rescaled weights instead.
 @pytest.mark.parametrize(
-    "design", sorted(set(DESIGNS) - {"bednoise", "bednoise-fourier"})
+    "design", sorted(set(DESIGNS) - {"bednoise", "bednoise-fourier", "yearnoise"})
 )
 def test_joint_gaussian_mean_matches_dense_solve(design):
     prep = synthetic()
@@ -411,6 +419,7 @@ def test_student_t_units_block_matches_dense():
         "tunits",
         "tdrift",
         "bednoise",
+        "yearnoise",
         "fourier",
         "bednoise-fourier",
         "dayfourier",
@@ -673,6 +682,42 @@ def test_per_group_noise_runs_and_reports_a_scale_per_group():
         log=lambda *_: None,
     )
     assert np.asarray(out["mean"]["sigma"]).shape == (4,)
+    assert np.all(np.asarray(out["mean"]["sigma"]) > 0)
+
+
+def test_year_noise_groups_are_bedroom_group_by_calendar_year():
+    """noise_by_year: one scale per (bedroom group, year), row group
+    bed_group * years + year, the same index in the Gibbs design."""
+    prep = synthetic()
+    years = prep.periods[-1].year - prep.periods[0].year + 1
+    assert years > 1
+    config = DESIGNS["yearnoise"]
+    n = model.n_noise(config, prep)
+    assert n == len(model.BEDROOM_GROUPS) * years
+    tr = prep.train
+    group = model.noise_group(n, tr)
+    np.testing.assert_array_equal(group // years, tr.bed_group)
+    np.testing.assert_array_equal(group % years, tr.year)
+    assert tr.year.min() >= 0 and tr.year.max() < years
+    d = gibbs.build_design(prep, config)
+    assert len(d.noise_names) == n
+    np.testing.assert_array_equal(np.asarray(d.noise_group), group)
+    # Without the year split the groups are the bedroom groups.
+    np.testing.assert_array_equal(
+        model.noise_group(model.n_noise(DESIGNS["bednoise"], prep), tr), tr.bed_group
+    )
+
+
+def test_year_noise_runs_and_reports_a_scale_per_group():
+    prep = synthetic()
+    years = prep.periods[-1].year - prep.periods[0].year + 1
+    out = gibbs.run(
+        prep,
+        DESIGNS["yearnoise"],
+        gibbs.Settings(chains=2, warmup=40, draws=40, keep_every=4),
+        log=lambda *_: None,
+    )
+    assert np.asarray(out["mean"]["sigma"]).shape == (4 * years,)
     assert np.all(np.asarray(out["mean"]["sigma"]) > 0)
 
 
