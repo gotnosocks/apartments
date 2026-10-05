@@ -105,11 +105,14 @@ def test_area_name_lists_the_fit_neighbourhoods():
 def test_building_hoods_follow_the_fit_rows():
     frame = pd.DataFrame(
         {
-            "building": ["b", "a", "a", "c"],
-            "neighbourhood": ["West Village", "Chelsea", "Chelsea", "Chelsea"],
+            "building": ["a", "b", "a", "a", "c"],
+            "neighbourhood": [
+                "West Village", "West Village", "Chelsea", "Chelsea", "Chelsea"
+            ],
         }
     )
-    heldout = np.array([False, False, False, True])
+    # a's first row is held out: its fit rows say Chelsea.
+    heldout = np.array([True, False, False, False, True])
     hoods = rentmap.building_hoods(frame, heldout, ["a", "b"])
     assert list(hoods) == ["Chelsea", "West Village"]
     no_hood = rentmap.building_hoods(frame[["building"]], heldout, ["a", "b"])
