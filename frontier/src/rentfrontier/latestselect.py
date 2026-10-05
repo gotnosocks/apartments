@@ -43,7 +43,7 @@ def _problems_latest(r: dict, rules) -> list[str]:
     out = []
     if r.get("split") != "latest":
         out.append("not on the latest split")
-    if (r.get("tier") or {}).get("name", "full") != "full":
+    if leaderboard.tier_of(r)["name"] != "full":
         out.append("not a full-tier fit")
     if not r["diagnostics"]["passes"]:
         out.append("fails the convergence gate")
@@ -51,7 +51,18 @@ def _problems_latest(r: dict, rules) -> list[str]:
         out.append("not on the current dataset")
     if frozenset(r.get("data_rules", ())) != rules:
         out.append("not on the current data rules")
+    out += _rules_reapply(r)
     return out
+
+
+def _rules_reapply(r: dict) -> list[str]:
+    """As autoselect.why_not's last check: the run's rule files must still be
+    the ones it recorded."""
+    try:
+        data.recorded_rules(r)
+    except SystemExit as err:
+        return [f"its data rules cannot be re-applied ({err})"]
+    return []
 
 
 def decide(candidate: str, reference: str, serve: str, incumbent: dict,
@@ -81,6 +92,7 @@ def decide(candidate: str, reference: str, serve: str, incumbent: dict,
         problems["serve"].append("not on the current dataset")
     if frozenset(s.get("data_rules", ())) != rules:
         problems["serve"].append("not on the current data rules")
+    problems["serve"] += _rules_reapply(s)
     board = leaderboard.build(keep_dirs=True)
     entry = next(
         (e for e in board["entries"]

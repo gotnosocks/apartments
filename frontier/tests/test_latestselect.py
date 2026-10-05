@@ -11,7 +11,7 @@ def write(root, name, **kw):
     rec = {
         "name": name,
         "split": "latest",
-        "tier": {"name": "full"},
+        "tier": "full",
         "diagnostics": {"passes": True},
         "dataset": str(data.DATASET),
         "data_rules": sorted(RULES),
@@ -25,6 +25,7 @@ def write(root, name, **kw):
 
 @pytest.fixture
 def runs(tmp_path, monkeypatch):
+    monkeypatch.setattr(latestselect.data, "recorded_rules", lambda r: tuple(r["data_rules"]))
     monkeypatch.setattr(latestselect, "RUNS", tmp_path)
     monkeypatch.setattr(features, "READS_EARLIER_RENTS", {"prev"})
     write(tmp_path, "cand", feature_set="prev")
@@ -74,3 +75,48 @@ def test_an_invalid_pair_is_refused_before_scoring(runs):
     other = dict(INC, feature_set="nb-relist-v1")
     d = latestselect.decide("cand", "ref", "serve", other, RULES, paired=never)
     assert "not the served design" in d["problems"]["reference"]
+
+
+def test_every_part_of_the_pair_is_checked(runs, monkeypatch):
+    def never(a, b):
+        raise AssertionError("scored an invalid pair")
+
+    write(runs, "cand-plain")  # reads no earlier rents
+    write(runs, "cand-other-model", feature_set="prev", model={"name": "m5-test"})
+    write(runs, "cand-old-data", feature_set="prev", dataset="/elsewhere")
+    write(runs, "cand-explore", feature_set="prev", tier="exploration")
+    write(runs, "serve-wrong-design", split="rows")
+    cases = [
+        ("cand-plain", "serve", "candidate", "its feature set does not read earlier rents"),
+        ("cand-other-model", "serve", "candidate", "a different model from the reference"),
+        ("cand-old-data", "serve", "candidate", "not on the current dataset"),
+        ("cand-explore", "serve", "candidate", "not a full-tier fit"),
+        ("cand", "serve-wrong-design", "serve", "not the candidate's design"),
+    ]
+    for cand, serve, part, problem in cases:
+        d = latestselect.decide(cand, "ref", serve, INC, RULES, paired=never)
+        assert d["action"] == "keep" and problem in d["problems"][part], (cand, serve)
+
+
+def test_the_serving_run_must_pass_every_other_autoselect_check(runs, monkeypatch):
+    def never(a, b):
+        raise AssertionError("scored an invalid pair")
+
+    monkeypatch.setattr(
+        latestselect.autoselect, "why_not", lambda e, rules: "its fit took longer than the window"
+    )
+    d = latestselect.decide("cand", "ref", "serve", INC, RULES, paired=never)
+    assert "its fit took longer than the window" in d["problems"]["serve"]
+    write(runs, "serve-elsewhere", split="rows", feature_set="prev")
+    d = latestselect.decide("cand", "ref", "serve-elsewhere", INC, RULES, paired=never)
+    assert "not on the board" in d["problems"]["serve"]
+
+
+def test_changed_rule_files_refuse_the_pair(runs, monkeypatch):
+    def changed(r):
+        raise SystemExit("rule file changed")
+
+    monkeypatch.setattr(latestselect.data, "recorded_rules", changed)
+    d = latestselect.decide("cand", "ref", "serve", INC, RULES, paired=lambda a, b: (99.0, 1.0))
+    assert d["action"] == "keep"
+    assert any("cannot be re-applied" in p for p in d["problems"]["serve"])
