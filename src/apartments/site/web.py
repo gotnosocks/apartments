@@ -12,14 +12,17 @@ import datetime as dt
 import gzip
 import hashlib
 import io
+import itertools
 import json
 import logging
 import math
 import os
+import re
 import sqlite3
 import time
 from pathlib import Path
 from urllib.parse import quote, urlencode, urlsplit
+from zoneinfo import ZoneInfo
 
 from flask import (
     Flask,
@@ -54,6 +57,7 @@ from .research import (
     compute_by_line,
     designs,
     elegance_pairs,
+    elegance_standings,
     elegance_summary,
     entry_by_key,
     entry_for_run,
@@ -76,6 +80,7 @@ from .research import (
 from .selection import SELECTION, selection_note
 
 log = logging.getLogger("apartments.site")
+NEW_YORK = ZoneInfo("America/New_York")
 
 PER_PAGE = (25, 50, 100)
 BEDROOMS = {"0": "Studio", "1": "1 BR", "2": "2 BR", "3": "3 BR", "4": "4+ BR"}
@@ -130,6 +135,8 @@ CSV_COLUMNS = (
     "square_feet",
     "floor",
     "listing_url",
+    "pred_lower_80",  # the likely ask range, when the build has it
+    "pred_upper_80",
 )
 LABELS = {
     "doorman": {
@@ -496,6 +503,8 @@ def create_app(
     app.jinja_env.globals["elegance_cells"] = ELEGANCE_CELLS
     app.jinja_env.globals["tier_of"] = tier_of
     app.jinja_env.globals["anatomy_levels"] = ANATOMY_LEVELS
+    app.jinja_env.globals["design_label"] = design_label
+    app.jinja_env.globals["chosen_by"] = chosen_by
 
     @app.context_processor
     def helpers():
@@ -573,12 +582,18 @@ def create_app(
             if has_quarantine()
             else 0
         }
+        entry = entry_for_run(data, m["provenance"]["run"])
+        anatomy = (
+            describe(entry.get("model"), entry.get("sizes")) if entry else None
+        ) or describe(m["provenance"].get("model"))
         return render_template(
             "home.html",
+            anatomy=anatomy,
+            coverage=current_coverage(),
             meta=m,
             selection=served_selection(m),
             counts=counts,
-            entry=entry_for_run(data, m["provenance"]["run"]),
+            entry=entry,
             milestones=latest_milestones(data),
             research_at=data.get("generated_at") if data else None,
         )
@@ -618,6 +633,7 @@ def create_app(
         return render_template(
             "estimates.html",
             meta=m,
+            coverage=current_coverage(),
             current=current,
             quarantined=quarantined,
             market=market,
@@ -631,6 +647,7 @@ def create_app(
         return render_template(
             "listings.html",
             meta=meta(),
+            coverage=current_coverage() if filters.status == "current" else [],
             rows=rows,
             total=total,
             pages=pages,
@@ -760,6 +777,69 @@ def create_app(
             is not None
         )
 
+    def layout_changes(rows) -> list[dict]:
+        """Where a unit's listed layout jumps between consecutive listings
+        (oldest first): a different bedroom count, or a size that changes by
+        more than 15%. A renovation, or a data error in one of the ads."""
+        out = []
+        for before, after in itertools.pairwise(rows):
+            beds = before["bedrooms"] != after["bedrooms"]
+            a, b = before["square_feet"], after["square_feet"]
+            size = bool(a and b and abs(b - a) / a > 0.15)
+            if beds or size:
+                out.append({"before": before, "after": after})
+        return out
+
+    def current_coverage() -> list[dict]:
+        """Which neighbourhoods have listings on the market in the latest
+        capture, how many, and when they were captured: [{neighbourhood,
+        listings, captured}], every neighbourhood of the build included (0 and
+        None where there is no current capture)."""
+        have = {r["name"] for r in db().execute("PRAGMA table_info(listings)")}
+        if "neighbourhood" not in have:
+            row = (
+                db()
+                .execute(
+                    "SELECT COUNT(*), MAX(collected_at) FROM listings WHERE is_current = 1"
+                )
+                .fetchone()
+            )
+            return [
+                {
+                    "neighbourhood": None,
+                    "listings": row[0],
+                    "captured": capture_day(row[1]),
+                }
+            ]
+        found = {
+            r[0]: (r[1], r[2])
+            for r in db().execute(
+                "SELECT neighbourhood, COUNT(*), MAX(collected_at) FROM listings"
+                " WHERE is_current = 1 GROUP BY neighbourhood"
+            )
+        }
+        names = sorted(set(neighbourhoods()) | set(found))
+        return [
+            {
+                "neighbourhood": n,
+                "listings": found.get(n, (0, None))[0],
+                "captured": capture_day(found.get(n, (0, None))[1]),
+            }
+            for n in names
+        ]
+
+    def capture_day(at: str | None) -> str | None:
+        """A capture time (ISO, UTC) as its New York day, "18 Sep 2026"."""
+        if not at:
+            return None
+        try:
+            t = dt.datetime.fromisoformat(at)
+        except ValueError:
+            return at[:10]
+        if t.tzinfo is not None:
+            t = t.astimezone(NEW_YORK)
+        return f"{t.day} {t:%b %Y}"
+
     def neighbourhoods() -> dict:
         """The build's neighbourhoods and their listing counts ({} for builds
         from before neighbourhoods)."""
@@ -867,12 +947,15 @@ def create_app(
         rows = (
             db()
             .execute(
-                "SELECT * FROM listings WHERE unit_id = ? ORDER BY period", (unit_id,)
+                "SELECT * FROM listings WHERE unit_id = ? ORDER BY period, id",
+                (unit_id,),
             )
             .fetchall()
         )
+        changes = layout_changes(rows)
         return render_template(
             "unit.html",
+            layout_changes=changes,
             meta=meta(),
             unit=row,
             rows=rows,
@@ -1260,10 +1343,29 @@ def create_app(
     def research_elegance():
         data = research_data_or_503()
         pending = (data.get("autoselect") or {}).get("pending_judgements") or []
+        pairs = elegance_pairs(data)
+        q = (request.args.get("design") or "").strip()[:120]
+        shown = [
+            p
+            for p in pairs
+            if not q or any(q.lower() in d["id"].lower() for d in p["designs"])
+        ]
+        per = 50
+        pages = max(1, -(-len(shown) // per))
+        try:
+            page = min(max(int(request.args.get("page", 1)), 1), pages)
+        except ValueError:
+            page = 1
         return render_template(
             "research_elegance.html",
             meta=meta(),
-            pairs=elegance_pairs(data),
+            pairs=shown[(page - 1) * per : page * per],
+            total=len(pairs),
+            matched=len(shown),
+            q=q,
+            page=page,
+            pages=pages,
+            standings=elegance_standings(pairs),
             pending=pending,
         )
 
@@ -1400,6 +1502,8 @@ def create_app(
         return render_template(
             "research_validation.html",
             meta=m,
+            served_entry=entry_for_run(data, served_run),
+            reference=data.get("reference"),
             classes=classes,
             hardware=hardware,
             rho=rho,
@@ -1481,6 +1585,17 @@ def create_app(
         return render_template(
             "research_model.html",
             anatomy=anatomy,
+            runners_up=sorted(
+                (
+                    e
+                    for e in (data or {}).get("entries", [])
+                    if e.get("vs_served") and run_of(e) != m["provenance"]["run"]
+                )
+                if (data or {}).get("vs_served_run") == m["provenance"]["run"]
+                else (),
+                key=lambda e: -e["vs_served"]["delta"],
+            )[:8],
+            reference=data.get("reference") if data else None,
             meta=m,
             selection=served_selection(m),
             coefficients=coefficients,
@@ -1512,6 +1627,22 @@ def create_app(
         return Response("User-agent: *\nDisallow: /\n", mimetype="text/plain")
 
     return app
+
+
+def design_label(entry: dict) -> str:
+    """What an entry's design adds to the basic hierarchy, in a few words
+    (`Anatomy.label`); "" when its record holds no structure."""
+    a = describe(entry.get("model"), entry.get("sizes"))
+    return a.label if a else ""
+
+
+def chosen_by(selected_by: str) -> str:
+    """Who chose the served model, in words: the automatic rule with its
+    date ("rentfrontier.autoselect, 2026-10-04 (Ben, …)"), else as written."""
+    if selected_by.startswith("rentfrontier.autoselect"):
+        day = re.search(r"\d{4}-\d{2}-\d{2}", selected_by)
+        return "the automatic selection rule" + (f", {day.group()}" if day else "")
+    return selected_by
 
 
 def _names(value) -> list[str]:

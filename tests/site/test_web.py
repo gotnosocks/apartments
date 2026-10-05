@@ -481,7 +481,7 @@ def test_older_builds_fall_back_to_the_repository_selection(
     monkeypatch.setattr(web, "SELECTION", selection)
     html = client.get("/research/model").get_data(as_text=True)
     assert "The repository&#39;s own reason." in html
-    assert "Chosen by</dt><dd>rentfrontier.autoselect" in client.get("/").get_data(
+    assert "Chosen by</dt><dd>the automatic selection rule" in client.get("/").get_data(
         as_text=True
     )
 
@@ -601,7 +601,7 @@ def test_review_fixes_on_research_model_and_home(client, research_file):
     home = client.get("/").get_data(as_text=True)
     assert "Model switch" in home
     html = client.get("/research/model").get_data(as_text=True)
-    assert "on the listings kept out of every fit" in html  # no count, no gap
+    assert "-12.5 on the held-out listings the" in " ".join(html.split())
     assert html.count("<dt>Convergence gate</dt>") == 1
     # published by hand: no claim that the rule picked it
     assert "A rule picks it" not in html
@@ -635,7 +635,8 @@ def test_fit_page(client):
     html = client.get(f"/research/fits/{key}").get_data(as_text=True)
     # this research data has no why_not_served for the served fit
     assert "Not known yet" in html
-    assert "A test design with &lt;b&gt;bold&lt;/b&gt; claims" in html  # escaped
+    # led by what the design does (its recorded structure), not the hand-written text
+    assert 'class="subline design-label">' in html
     assert "Serves the app (Ben)." in html
     assert "78.6%" in html and "76.9–80.2%" in html  # variance share
     assert "1.004" in html and "612" in html  # split diagnostics
@@ -984,7 +985,8 @@ def test_elegance_page_lists_every_judgement(client):
     assert "Ties in accuracy go to the more elegant model." in html
     assert "renter" not in html
     # newest first; each design links to a fit on the board, with its p_loo
-    assert html.index("m-other/unitdesc-v1") < html.index("m-cpu/unitdesc-v1")
+    listing = html[html.index("<h2>Every judgement</h2>") :]  # after the standings
+    assert listing.index("m-other/unitdesc-v1") < listing.index("m-cpu/unitdesc-v1")
     assert "<code>m-other/unitdesc-v1</code></a>" in html
     assert "(413 effective parameters)" in html
     assert "<code>m-test/unitdesc-v1</code> is more elegant" in html

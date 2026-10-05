@@ -25,7 +25,12 @@
   <div class="figure">
     <span class="figure-label">Model estimate</span>
     <span class="figure-value">{{ usd(row.estimate) }}</span>
+    {% if row.pred_lower_80 is number %}
+    <span class="figure-note">asks for this apartment likely fall in {{ usd(row.pred_lower_80) }}–{{ usd(row.pred_upper_80) }}
+      (80%; {{ usd(row.pred_lower_95) }}–{{ usd(row.pred_upper_95) }} for 95%)</span>
+    {% else %}
     <span class="figure-note">range for the typical rent {{ usd(row.estimate_lower) }}–{{ usd(row.estimate_upper) }} (95%)</span>
+    {% endif %}
   </div>
   <div class="figure">
     <span class="figure-label">Ask vs estimate</span>
@@ -41,9 +46,10 @@
   <p>The ask sits at the <strong>{{ ordinal(p) }} percentile</strong> of the asks the model expects for this apartment, in
   this building, in {{ month(row.period) }}: {% if row.price_band == "below" %}lower than {{ below_share }}% of them, so
   <strong>below typical</strong>{% elif row.price_band == "above" %}higher than {{ p }}% of them, so <strong>above
-  typical</strong>{% else %}within the middle 80%, so <strong>typical</strong>{% endif %}. The range under the estimate is the
+  typical</strong>{% else %}within the middle 80%, so <strong>typical</strong>{% endif %}.{% if row.pred_lower_80 is number %} That middle 80% is the
+  likely ask range above, {{ usd(row.pred_lower_80) }}–{{ usd(row.pred_upper_80) }}.{% else %} The range under the estimate is the
   95% uncertainty of the typical rent itself, not where an ask will land: individual asks spread more widely, so an ask can
-  sit inside that range and still be below or above typical, or outside it and still be typical.</p>
+  sit inside that range and still be below or above typical, or outside it and still be typical.{% endif %}</p>
   {% if row.method == "heldout" %}
   <p>This listing was held out of the model fit as a validation row, so the estimate never saw its ask. It uses the unit's
   {{ row.unit_fit_rows }} other listing{{ "" if row.unit_fit_rows == 1 else "s" }}.</p>
@@ -71,16 +77,16 @@
   can add or subtract dollars too.</p>
   <div class="table-wrap">
   <table class="data contributions">
-    <thead><tr><th scope="col">Part</th><th scope="col" class="bar-col"><span class="visually-hidden">Bar</span></th><th scope="col" class="num">Dollars</th><th scope="col" class="num">95% interval</th></tr></thead>
+    <thead><tr><th scope="col">Part</th><th scope="col" class="bar-col"><span class="visually-hidden">Bar</span></th><th scope="col" class="num">Dollars</th><th scope="col" class="num col-minor">95% interval</th></tr></thead>
     <tbody>
-      <tr class="base"><th scope="row">{{ terms.market.label }}</th><td class="bar-col"></td><td class="num">{{ usd(market.usd) }}</td><td class="num muted nowrap">{{ usd(market.lower) }}–{{ usd(market.upper) }}</td></tr>
+      <tr class="base"><th scope="row">{{ terms.market.label }}</th><td class="bar-col"></td><td class="num">{{ usd(market.usd) }}</td><td class="num muted nowrap col-minor">{{ usd(market.lower) }}–{{ usd(market.upper) }}</td></tr>
       {% for c in parts %}
       <tr><th scope="row" title="{{ terms[c.term].description if c.term in terms }}">{{ terms[c.term].label if c.term in terms else c.term }}</th>
         <td class="bar-col">{{ c.bar }}</td>
         <td class="num">{{ usd(c.usd, signed=True) }}</td>
-        <td class="num muted nowrap">{{ usd(c.lower, signed=True) }} to {{ usd(c.upper, signed=True) }}</td></tr>
+        <td class="num muted nowrap col-minor">{{ usd(c.lower, signed=True) }} to {{ usd(c.upper, signed=True) }}</td></tr>
       {% endfor %}
-      <tr class="total"><th scope="row">Estimate</th><td class="bar-col"></td><td class="num">{{ usd(row.estimate) }}</td><td class="num muted nowrap">{{ usd(row.estimate_lower) }}–{{ usd(row.estimate_upper) }}</td></tr>
+      <tr class="total"><th scope="row">Estimate</th><td class="bar-col"></td><td class="num">{{ usd(row.estimate) }}</td><td class="num muted nowrap col-minor">{{ usd(row.estimate_lower) }}–{{ usd(row.estimate_upper) }}</td></tr>
     </tbody>
   </table>
   </div>
@@ -94,12 +100,16 @@
     <dt>Bedrooms</dt><dd>{{ beds_label(row.bedrooms) }}</dd>
     <dt>Bathrooms</dt><dd>{{ row.bathrooms | trim_float }}{% if row.half_baths %} ({{ row.full_baths }} full, {{ row.half_baths }} half){% endif %}</dd>
     <dt>Size</dt><dd>{{ "{:,.0f} ft²".format(row.square_feet) if row.square_feet else "not stated" }}</dd>
+    {% if row.bedrooms == 0 and ((row.bathrooms or 0) >= 2 or (row.square_feet or 0) > 1000) %}
+    <dt>Note</dt><dd class="muted">An unusual combination for a studio: it may be a loft, or the ad may have
+      a detail wrong.</dd>
+    {% endif %}
     <dt>Floor</dt><dd>{{ row.floor if row.floor is not none else "not stated" }}</dd>
     {% for kind, value in [("elevator", row.elevator), ("doorman", row.doorman), ("laundry", row.laundry), ("hvac", row.hvac), ("pets", row.pets)] %}
     {% set text = attr_label(kind, value) %}
     <dt>{{ kind | capitalize if kind != "hvac" else "Heating and cooling" }}</dt><dd>{{ text or "not stated" }}</dd>
     {% endfor %}
-    {% if views %}<dt>Views</dt><dd>{{ views | join(", ") }}</dd>{% endif %}
+    {% if views %}<dt>Views</dt><dd>{{ views | join(", ") }} <span class="muted">(as listed by the broker)</span></dd>{% endif %}
     {% if windows %}<dt>Exposures</dt><dd>{{ windows | join(", ") }}</dd>{% endif %}
     {% if row.concession %}<dt>Concession</dt><dd>{{ row.concession }}</dd>{% endif %}
     {% if flags %}<dt>In the ad text</dt><dd>{{ flags | join(", ") }}</dd>{% endif %}

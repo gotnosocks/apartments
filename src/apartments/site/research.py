@@ -410,9 +410,7 @@ def board_rows(
         for e in data.get("entries", [])
         if (hardware is None or e["hardware_class"] == hardware)
         and (line is None or e.get("line") == line)
-        and (
-            not q or q in e["key"].lower() or q in (e.get("design_text") or "").lower()
-        )
+        and (not q or q in _haystack(e))
         and (not servable or serve_status(e)[0] == "yes")
         and (subsets or not subset_fit(e))
         and (tier is None or tier_of(e) == tier)
@@ -422,6 +420,17 @@ def board_rows(
     missing = [e for e in rows if value(e) is None]
     present.sort(key=value, reverse=descending)
     return present + missing
+
+
+def _haystack(entry: dict) -> str:
+    """What the board search looks in: the fit's key, its hand-written design
+    text and its design label (what the design does)."""
+    from .anatomy import describe
+
+    a = describe(entry.get("model"), entry.get("sizes"))
+    return " ".join(
+        [entry["key"], entry.get("design_text") or "", a.label if a else ""]
+    ).lower()
 
 
 def best_over_time(data: dict, hardware: str) -> list[tuple[str, float]]:
@@ -547,6 +556,9 @@ def doc_link(href: str, base: str = "docs") -> str:
     files open on GitHub; web links and in-page anchors are kept."""
     if not href or href.startswith("#"):
         return href
+    tailnet = re.match(r"https?://[A-Za-z0-9.-]+\.ts\.net(?::\d+)?(/.*)?$", href)
+    if tailnet:
+        return tailnet.group(1) or "/"  # the site itself, on its tailnet host
     if re.match(r"^[a-zA-Z][a-zA-Z0-9+.-]*:", href):
         return href  # any scheme (https:, mailto:, ...) is left as written
     if href.startswith("/"):
@@ -575,6 +587,10 @@ def render_markdown(text: str) -> tuple[str, list[tuple[int, str, str]]]:
     from markdown_it import MarkdownIt
 
     md = MarkdownIt("commonmark", {"html": False}).enable("table")
+    # Links to the site itself on its tailnet host become site-relative
+    # (doc_link).
+    # A bare tailnet URL in parentheses is dropped.
+    text = re.sub(r"(?<!\]) ?\((https?://[A-Za-z0-9.-]+\.ts\.net[^)\s]*)\)", "", text)
     tokens = md.parse(text)
     toc, seen = [], set()
     for i, token in enumerate(tokens):
@@ -705,3 +721,22 @@ def designs(data: dict | None, served_run: str | None) -> tuple[list[dict], list
 def _delta(entry: dict) -> float | None:
     d = (entry.get("psis") or {}).get("delta")
     return d if isinstance(d, (int, float)) else None
+
+
+def elegance_standings(pairs: list[dict]) -> list[dict]:
+    """Each judged design's record over its pairs: [{id, more, equal, less}],
+    ranked by times judged more elegant minus times judged less elegant."""
+    rows: dict[str, dict] = {}
+    for p in pairs:
+        ids = [d["id"] for d in p["designs"]]
+        for i in ids:
+            rows.setdefault(i, {"id": i, "more": 0, "equal": 0, "less": 0})
+        if p["verdict"] in ids:
+            rows[p["verdict"]]["more"] += 1
+            for i in ids:
+                if i != p["verdict"]:
+                    rows[i]["less"] += 1
+        else:
+            for i in ids:
+                rows[i]["equal"] += 1
+    return sorted(rows.values(), key=lambda r: (-(r["more"] - r["less"]), r["id"]))

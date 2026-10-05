@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% from "_checks.html" import fit_checks with context %}
 {% from "_anatomy.html" import structure with context %}
 {% block title %}Served model{% endblock %}
 {% block content %}
@@ -57,6 +58,37 @@ equally elegant ones the fastest.{% endif %}</p>
   {% endif %}
 </section>
 
+{% set only = autoselect and autoselect.eligible is defined and autoselect.eligible | length == 1 and autoselect.eligible[0].run == p.run %}
+{% if runners_up or only %}
+<section class="card" id="runners-up">
+  <h2>The runners-up</h2>
+  {% if only %}
+  <p><strong>It was the only fit eligible under the current rules</strong>, so no trade-off between accuracy, time and elegance decided this choice. Other fits are ruled out by their
+  data rules, failed checks, or the fit-time window; each fit's page says why.</p>
+  {% endif %}
+  {% if runners_up %}
+  <p class="note">The closest full fits that pass the checks (up to eight), compared with the served fit on the listings both
+  keep (a paired difference, so its ± is much smaller than the board's; it includes the sampler's Monte Carlo error). Positive means the fit predicts better than the served one; within
+  about two of its ± is a tie.</p>
+  <div class="table-wrap">
+  <table class="data">
+    <thead><tr><th scope="col">Fit</th><th scope="col" class="num">PSIS-LOO against the served fit</th><th scope="col">Reading</th><th scope="col" class="num">Fit time</th><th scope="col">Can it be served?</th></tr></thead>
+    <tbody>
+    {% for e in runners_up %}
+      {% set v = e.vs_served %}
+      <tr><td>{% set label = design_label(e) %}<a href="{{ url_for('research_fit', key=e.key) }}">{% if label %}{{ label }}{% else %}<code>{{ e.key }}</code>{% endif %}</a>{% if label %}<span class="muted block"><code>{{ e.key }}</code></span>{% endif %}</td>
+        <td class="num nowrap">{{ "{:+,.1f}".format(v.delta) }} ± {{ "{:,.1f}".format(v.pm if v.pm is number else v.se) }}</td>
+        <td>{% if v.tie %}a tie{% elif v.delta > 0 %}better{% else %}worse{% endif %}</td>
+        <td class="num nowrap">{{ "%.0f" | format(e.fit_seconds / 60) }} min</td>
+        <td>{% if e.why_not_served %}no: {{ e.why_not_served }}{% else %}yes{% endif %}</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  </div>
+  {% endif %}
+</section>
+{% endif %}
+
 {% if entry %}
 <section class="card">
   <h2>On the board</h2>
@@ -66,13 +98,6 @@ equally elegant ones the fastest.{% endif %}</p>
     <dt>Accuracy (PSIS-LOO ΔELPD)</dt><dd>{{ "{:+,.1f}".format(entry.psis.delta) }}{% if entry.psis.delta_se is number %} ± {{ "{:,.1f}".format(entry.psis.delta_se) }}{% endif %} over the
       baseline{% if baseline %} <code>{{ baseline }}</code>{% endif %}: how much better it predicts each listing's ask from all the other
       listings, in log-likelihood units summed over the listings; higher is better.</dd>
-    {% endif %}
-    {% set rows = entry.splits.rows if entry.splits and entry.splits.rows else none %}
-    {% if rows and rows.delta is number %}
-    {% set held = entry.psis.validation.heldout_rows if entry.psis and entry.psis.validation and entry.psis.validation.heldout_rows else none %}
-    <dt>Held-out check</dt><dd>{{ "{:+,.1f}".format(rows.delta) }}{% if rows.delta_se is number %} ± {{ "{:,.1f}".format(rows.delta_se) }}{% endif %}
-      on the {% if held %}{{ "{:,}".format(held) }} {% endif %}listings kept out of every fit, against the reference model: an
-      independent check of the same accuracy.</dd>
     {% endif %}
     <dt>Fit time</dt><dd>{{ (entry.fit_seconds / 60) | round(1) }} minutes on {{ entry.hardware_class }}{% if entry.other_cores is finite %}
       <span class="muted">({{ "%.1f" | format(entry.other_cores) }} other cores busy on the fit's cores during the fit:
@@ -89,6 +114,8 @@ equally elegant ones the fastest.{% endif %}</p>
       <span class="muted">(not yet compared with the other fits on the same listings)</span>{% endif %}</dd>
 
   </dl>
+  <h3>Is the accuracy score trustworthy?</h3>
+  {{ fit_checks(entry, reference) }}
 </section>
 {% endif %}
 

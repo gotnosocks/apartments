@@ -1,0 +1,32 @@
+{# The served fit's own accuracy checks, from its research-data entry: Pareto k, the held-out cross-check
+   and the held-out score against the reference model. #}
+{% macro fit_checks(e, reference=none) %}
+{% set ps = e.psis or {} %}
+{% set v = ps.validation or {} %}
+{% set rows = (e.splits or {}).rows or {} %}
+<dl class="facts wide">
+  {% if ps.k_share is number %}
+  <dt><a href="{{ url_for('research_glossary', _anchor='pareto-k') }}">Pareto k</a> above {{ "%.2f" | format(ps.k_threshold) if ps.k_threshold is number else "the threshold" }}</dt>
+  <dd>{{ "%.1f" | format(100 * ps.k_share) }}% of the listings in the fit{% if ps.k_over is number %} ({{ "{:,}".format(ps.k_over) }}){% endif %}.
+    <span class="muted">For these listings the leave-one-out shortcut is unreliable, so their estimates are marked less reliable.
+    A share of a percent or two is usual; a large share would mean PSIS-LOO may overstate the accuracy.</span></dd>
+  {% endif %}
+  {% if v.heldout_mean_lpd is number and v.psis_mean_lpd_multi_row_units is number %}
+  {% set gap = v.heldout_mean_lpd - v.psis_mean_lpd_multi_row_units %}
+  <dt>Held-out cross-check</dt>
+  <dd>{{ "%.3f" | format(v.heldout_mean_lpd) }} per listing on the {% if v.heldout_rows is number %}{{ "{:,}".format(v.heldout_rows) }} {% endif %}listings
+    kept out of the fit, against PSIS-LOO's {{ "%.3f" | format(v.psis_mean_lpd_multi_row_units) }} on comparable listings in it
+    (apartments listed more than once): {{ "a gap of %+.3f" | format(gap) }}.
+    <span class="muted">Mean log score per listing, higher is better. The two agreeing closely means the shortcut is not
+    flattering the model.</span></dd>
+  {% endif %}
+  {% if rows.delta is number %}
+  <dt>Held-out score against the reference</dt>
+  <dd>{{ "{:+,.1f}".format(rows.delta) }}{% if rows.delta_se is number %} ± {{ "{:,.1f}".format(rows.delta_se) }}{% endif %} on the
+    {% if rows.paired_rows is number %}{{ "{:,}".format(rows.paired_rows) }} {% endif %}held-out listings the
+    <a href="{{ url_for('research_glossary', _anchor='reference-model') }}">reference model</a>{% if reference %} ({{ reference.label }}){% endif %}
+    also scored, summed over those listings.
+    <span class="muted">Positive means this fit predicts asks it never saw better than the reference does.</span></dd>
+  {% endif %}
+</dl>
+{% endmacro %}

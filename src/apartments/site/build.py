@@ -44,7 +44,7 @@ import duckdb
 from .selection import SELECTION, selection_note
 
 VERSION = "listings-site-v1"
-SCHEMA_VERSION = 3
+SCHEMA_VERSION = 4
 DEFAULT_ROOT = Path(os.environ.get("SITE_ROOT", "/data1/apartments/site"))
 SELECTION_VERSION = "main-analysis-selection-v2"
 KEEP = 3
@@ -95,6 +95,7 @@ CREATE TABLE listings(
   residual_pct REAL NOT NULL, pit REAL NOT NULL, price_band TEXT NOT NULL,
   pareto_k REAL, reliable INTEGER NOT NULL,
   fitted REAL, fitted_lower REAL, fitted_upper REAL,
+  pred_lower_95 REAL, pred_upper_95 REAL, pred_lower_80 REAL, pred_upper_80 REAL,
   contributions TEXT NOT NULL, inputs TEXT NOT NULL);
 -- Every sort key has an index ending in id, in the same direction as the key,
 -- so ORDER BY <key> <dir>, id <dir> scans it either way (no temp sort).
@@ -365,6 +366,15 @@ def listing_rows(rows, observations, names, k_threshold, scope="Chelsea") -> lis
                 "fitted": r["fitted_rent"],
                 "fitted_lower": r["fitted_rent_lower_95"],
                 "fitted_upper": r["fitted_rent_upper_95"],
+                # Where the ask itself is likely to fall (the predictive
+                # interval, noise included); bundles before it have none.
+                **{
+                    f"pred_{side}_{level}": _real(
+                        r.get(f"estimate_pred_{side}_{level}")
+                    )
+                    for level in (95, 80)
+                    for side in ("lower", "upper")
+                },
                 "contributions": json.dumps(contributions, separators=(",", ":")),
                 "inputs": r["inputs"],
             }
@@ -498,6 +508,14 @@ def _int(value):
     except (TypeError, ValueError):
         return None
     return None if math.isnan(number) else int(number)
+
+
+def _real(value) -> float | None:
+    """A float, or None for a missing or NaN value."""
+    if value is None:
+        return None
+    number = float(value)
+    return None if math.isnan(number) else number
 
 
 def _insert(db, table, rows):
@@ -693,6 +711,28 @@ def write_database(
     return stats
 
 
+def bundle_map(source: Path, target: Path, database: Path) -> None:
+    """The run's rent map for the build, each building tagged with its
+    neighbourhood from the build's database (the map's neighbourhood choice
+    lists a neighbourhood's buildings by it)."""
+    data = json.loads(source.read_text())
+    db = sqlite3.connect(f"file:{database}?mode=ro", uri=True)
+    try:
+        columns = {r[1] for r in db.execute("PRAGMA table_info(buildings)")}
+        names = (
+            dict(db.execute("SELECT id, neighbourhood FROM buildings"))
+            if "neighbourhood" in columns
+            else {}
+        )
+    finally:
+        db.close()
+    for b in data.get("buildings", []):
+        # rentmap's own tag (the neighbourhood its medians used) wins.
+        if not b.get("neighbourhood") and names.get(b.get("id")):
+            b["neighbourhood"] = names[b["id"]]
+    target.write_text(json.dumps(data, separators=(",", ":")))
+
+
 def rent_map(run: str, maps: Path | None = None) -> Path | None:
     """The newest rent map of `run`, if one has been made; a bundle that names
     another run is refused."""
@@ -765,7 +805,7 @@ def build(
         )
         source_map = rent_map(record["run"])
         if source_map is not None:
-            shutil.copyfile(source_map, staging / "map.json")
+            bundle_map(source_map, staging / "map.json", staging / "site.sqlite")
         info = {
             "version": VERSION,
             "rent_map": str(source_map) if source_map else None,
