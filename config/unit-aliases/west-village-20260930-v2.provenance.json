@@ -1,0 +1,21 @@
+{
+  "source": "/data1/apartments/archive/datasets/west-village-granular-20260930-unit-spelling-aliases-v2",
+  "rule": "unit-spelling-alias-v2",
+  "source_dataset": "/data1/apartments/archive/datasets/west-village-granular-20260930-canonical-url-v1",
+  "source_output_sha256": {
+    "rental_unit_memberships": "8d05639ab848e6681f0eb038295aa4ddde963105dd9f9fd4b72a7c0829771595",
+    "rental_units": "2e3e31265b1d0f3a087cb0a19232a9900717380e9e5cfbb118531ebcffd7f729"
+  },
+  "output_sha256": {
+    "unit_spelling_aliases": "79de78ec9059ea014f9fdee7f71b2280ef40a87931e8232c02e21aa68b3ad1f2"
+  },
+  "evidence_snapshot": "/data1/apartments/archive/snapshots/west-village-backfill-20260930/archive.sqlite3",
+  "implementation_sha256": "bd3abb079a9fcd00148ae093dfcd46f55bc09514e74722336a4b31b54556fd44",
+  "counts": {
+    "groups": 389,
+    "history_confirmed_groups": 332,
+    "listings_in_groups": 2030,
+    "units_in_groups": 819
+  },
+  "made_by": "apartments.unit_spelling_aliases --rule unit-spelling-alias-v2 (PR #213)"
+}

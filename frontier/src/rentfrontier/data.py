@@ -232,6 +232,81 @@ def merge_word_labels(frame: pd.DataFrame) -> pd.DataFrame:
     return out
 
 
+# The West Village alias table under unit-spelling-alias-v2 (PR #213): v1's
+# groups, and labels that only name a floor ("2nd-floor", "4fl", "4") or carry an
+# apt/unit word, folded together; history-confirmed groups are used.
+UNIT_ALIASES_V2 = (
+    Path(__file__).resolve().parents[3]
+    / "config"
+    / "unit-aliases"
+    / "west-village-20260930-v2.jsonl"
+)
+
+
+def merge_unit_labels_v4(frame: pd.DataFrame) -> pd.DataFrame:
+    """unit-labels-v2; the West Village alias table's v2 history-confirmed groups
+    (labels that only name a floor: "4fl", "4th-floor" and "4") where every part's
+    median bedroom count agrees; and number-word labels joined to the same
+    building's numbered unit when both units' median bedroom counts agree (as
+    unit-labels-v3). Every join goes through one union-find, so
+    two words that name one numbered unit end as one unit, whose id is the
+    smallest. The medians read the bedrooms as the frame has them when this rule
+    runs. Rows are unchanged."""
+    out = merge_unit_labels(frame)
+    parent = {}
+
+    def find(u):
+        parent.setdefault(u, u)
+        while parent[u] != u:
+            parent[u] = parent[parent[u]]
+            u = parent[u]
+        return u
+
+    def union(a, b):
+        ra, rb = find(a), find(b)
+        if ra != rb:
+            parent[max(ra, rb)] = min(ra, rb)
+
+    for old, new in zip(frame.unit_id, out.unit_id):
+        union(old, new)
+    for group in unit_aliases(UNIT_ALIASES):
+        for u in group[1:]:
+            union(group[0], u)
+    # The v2 table's further joins (floor-only labels) only where every part's
+    # median bedroom count agrees: they mix bedroom counts far more often (37% of
+    # joined units against 14% of West Village units with several listings).
+    units = frame.unit_id.map(find)
+    medians = frame.bedrooms.groupby(units).median()
+    for group in unit_aliases(UNIT_ALIASES_V2):
+        roots = {find(u) for u in group if u in parent}
+        if len(roots) > 1 and medians.reindex(list(roots)).nunique(dropna=False) == 1:
+            first, *rest = sorted(roots)
+            for u in rest:
+                union(first, u)
+    units = frame.unit_id.map(find)
+    raw = frame.canonical_unit_url.str.extract(r"/([^/]+)$")[0].str.lower()
+    word = raw.str.extract(_WORD_LABEL)[0]
+    numbered = (
+        word.map(LABEL_WORDS) + raw.str.replace(_WORD_LABEL, "", regex=True)
+    ).where(word.notna())
+    key = raw.map(lambda v: unit_label_key(v) if isinstance(v, str) else v)
+    word_key = numbered.map(lambda v: unit_label_key(v) if isinstance(v, str) else v)
+    beds = frame.bedrooms.groupby(units).transform("median")
+    by_label = (
+        pd.DataFrame(
+            {"building": frame.building, "key": key, "unit": units, "beds": beds}
+        )
+        .drop_duplicates(["building", "key"])
+        .set_index(["building", "key"])
+    )
+    for i in np.flatnonzero(word_key.notna().to_numpy()):
+        twin = (frame.building.iat[i], word_key.iat[i])
+        if twin in by_label.index and by_label.loc[twin, "beds"] == beds.iat[i]:
+            union(by_label.loc[twin, "unit"], units.iat[i])
+    out["unit_id"] = frame.unit_id.map(find)
+    return out
+
+
 def unit_line_key(frame: pd.DataFrame) -> pd.Series:
     """Each row's line ("column") within its building, from the unit label:
     "23C" and "4C" are line C, "1204" and "304" are line 04, "2ND", "4TH" and
@@ -435,6 +510,7 @@ DATA_RULES = {
     "unit-labels-v1": merge_unit_labels,
     "unit-labels-v2": merge_unit_aliases,
     "unit-labels-v3": merge_word_labels,
+    "unit-labels-v4": merge_unit_labels_v4,
     "quarantine-v1": quarantine_v1,
     "quarantine-v2": quarantine_v2,
     "bedrooms-ad-v1": correct_bedrooms_v1,
@@ -455,6 +531,7 @@ RULE_SOURCES = {
     "quarantine-v5": QUARANTINE_V5,
     "unit-labels-v2": UNIT_ALIASES,
     "unit-labels-v3": UNIT_ALIASES,
+    "unit-labels-v4": UNIT_ALIASES_V2,
     "bedrooms-ad-v1": BEDROOM_CORRECTIONS,
     "baths-ad-v1": BATH_CORRECTIONS,
     "bedrooms-ad-v2": BEDROOM_CORRECTIONS_V2,
