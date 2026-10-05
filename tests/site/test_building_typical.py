@@ -18,7 +18,12 @@ def write_map(site_root, last_year=2026):
                     {"key": "1", "label": "1 bedroom"},
                 ],
                 "buildings": [
-                    {"id": GROVE, "first_year": 2019, "last_year": last_year}
+                    {
+                        "id": GROVE,
+                        "first_year": 2019,
+                        "last_year": last_year,
+                        "fit_listings": 3,
+                    }
                 ],
                 "rent": {
                     "studio": [[[3000, 3100, 3200], [3100, 3200, 3300]]],
