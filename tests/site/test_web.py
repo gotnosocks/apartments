@@ -1,8 +1,10 @@
 import csv
 import gzip
+import html
 import io
 import itertools
 import json
+import re
 import sqlite3
 from pathlib import Path
 
@@ -629,6 +631,37 @@ def test_fit_scatter_marks_and_legend():
     assert "drawn at its floor" in figure
 
 
+def test_fit_scatter_zooms_to_a_box():
+    points = [
+        {"x": 10, "y": 5000, "kind": "frontier", "title": "a"},
+        {"x": 20, "y": -70000, "kind": "other", "title": "b"},
+        {"x": 25, "y": 5200, "kind": "served", "title": "c"},
+    ]
+    kw = {
+        "label": "t",
+        "x_title": "m",
+        "y_title": "d",
+        "x_format": str,
+        "y_format": str,
+    }
+    figure = str(
+        charts.fit_scatter(
+            points, x_range=(5, 30), y_range=(4900, 5300), zoom="f", y_floor=-1, **kw
+        )
+    )
+    # the fit outside the box is left off; the axes span the box exactly
+    assert figure.count('class="fit ') == 2 and "drawn at its floor" not in figure
+    assert 'data-zoom="f"' in figure
+    frame = json.loads(html.unescape(figure.split('data-frame="')[1].split('"')[0]))
+    assert frame[:4] == [5, 30, 4900, 5300]
+    ticks = [float(t) for t in re.findall(r'text-anchor="end">([-\d.]+)<', figure)]
+    assert ticks and all(4900 <= t <= 5300 for t in ticks)
+    assert "No fit falls inside" in str(
+        charts.fit_scatter(points, x_range=(100, 200), **kw)
+    )
+    assert "data-zoom" not in str(charts.fit_scatter(points, **kw))
+
+
 def test_review_fixes_on_research_model_and_home(client, research_file):
     data = json.loads(research_file.read_text())
     # a model switch and its merge land at the same time: the switch shows first
@@ -1125,9 +1158,15 @@ def _with_exploration(research_file):
 def test_exploration_fits_count_on_the_frontier(client, research_file):
     quick, subset = _with_exploration(research_file)
     html = client.get("/research").get_data(as_text=True)
-    # a diamond on the chart, with both shapes in the legend
-    assert '<path class="fit frontier' in html  # faded: m-test has a full fit
-    assert "key-shape diamond" in html and "Full fit" in html
+    # a diamond on the exploration fits' own chart, none on the full fits'
+    full = html[html.index('id="full-fits"') : html.index('id="exploration-fits"')]
+    explore = html[html.index('id="exploration-fits"') :]
+    explore = explore[: explore.index("</section>")]
+    assert '<path class="fit' not in full and "<circle" in full
+    assert (
+        '<path class="fit frontier' in explore and '<circle class="fit' not in explore
+    )
+    assert "2-hour limit" not in explore
     # the tooltip names the kind, then the tier (JSON escapes the dot)
     assert "On the frontier \\u00b7 exploration fit" in html
     # in the frontier table, tagged, and not marked as failing the checks
@@ -1152,14 +1191,48 @@ def test_exploration_fits_count_on_the_frontier(client, research_file):
     described = client.get("/research").get_data(as_text=True)
     card = described[
         described.index("The current exploration") : described.index(
-            "Accuracy against fit time"
+            "Full fits: accuracy against fit time"
         )
     ]
     assert "<td>Short.</td>" in card and ">Draws<" not in card
     # no exploration header: no card, the fits still drawn
     research_file.write_text(json.dumps(dict(data, exploration=None)))
     plain = client.get("/research").get_data(as_text=True)
-    assert "The current exploration" not in plain and "key-shape diamond" in plain
+    assert (
+        "The current exploration" not in plain and '<path class="fit frontier' in plain
+    )
+
+
+def test_frontier_charts_zoom_by_url(client, research_file):
+    _with_exploration(research_file)
+    html = client.get("/research").get_data(as_text=True)
+    assert 'data-zoom="f"' in html and 'data-zoom="e"' in html
+    assert "Drag across the chart to zoom in" in html and "Reset zoom" not in html
+    assert "Zoom to the frontier" in html and "?fx0=" in html
+    # nothing inside the box: said so, with the count and a way back
+    empty = client.get("/research?fy0=1e8&fy1=2e8").get_data(as_text=True)
+    assert "No fit falls inside the zoomed range." in empty
+    assert "Zoomed in: 0 of" in empty and 'href="?#full-fits">Reset zoom' in empty
+    # one chart's zoom keeps the other's, and the hand-set form keeps both
+    both = client.get("/research?ex0=0&ex1=50&fx0=0&fx1=1e6").get_data(as_text=True)
+    assert 'href="?ex0=0&amp;ex1=50#full-fits">Reset zoom' in both
+    assert '<input type="hidden" name="ex0" value="0">' in both
+    assert 'name="fx1" value="1e+06"' in both
+    # an unscored fit is counted under its own tier's chart
+    subsets = client.get("/research?subsets=1").get_data(as_text=True)
+    assert "1 more exploration fit on this hardware\n  has no PSIS-LOO score" in subsets
+    # a range that is empty, reversed or not a number is ignored
+    for bad in (
+        "fx0=abc&fx1=5",
+        "fy0=5&fy1=1",
+        "fx0=1&fx1=1",
+        "fx0=nan&fx1=inf",
+        "fx0=-1e308&fx1=1e308",
+        "fx0=37.123456789&fx1=37.12345678900001",
+    ):
+        page = client.get(f"/research?{bad}").get_data(as_text=True)
+        full = page[page.index('id="full-fits"') : page.index('id="exploration-fits"')]
+        assert "Reset zoom" not in full, bad
 
 
 def test_board_filters_by_tier(client, research_file):
@@ -1228,9 +1301,11 @@ def test_one_design_measured_twice_is_joined(client, research_file):
     _with_exploration(research_file)
     html = client.get("/research").get_data(as_text=True)
     # two designs measured twice: m-test (the 200-draw exploration fit and
-    # the 1,000-draw full fit) and m-other (m-other and m-failing)
-    assert html.count('<polyline class="measured"') == 2
-    assert 'class="fit frontier faded"' in html  # the exploration diamond
+    # the 1,000-draw full fit) and m-other (m-other and m-failing). Only
+    # m-other's fits share a chart: m-test's are one on each, unjoined, and
+    # its exploration diamond is not faded where nothing explains it.
+    assert html.count('<polyline class="measured"') == 1
+    assert 'class="fit frontier faded"' not in html
     assert "One design at several draw counts" in html
     assert '<td class="num">1,000</td>' in html  # the Draws column
 
