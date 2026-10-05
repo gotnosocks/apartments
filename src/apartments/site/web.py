@@ -42,7 +42,7 @@ from flask import (
 )
 from markupsafe import Markup
 
-from . import ad_dates, charts, estimate, estimate_build, summary
+from . import ad_dates, charts, estimate, estimate_build, ratings, summary
 from .anatomy import LEVELS as ANATOMY_LEVELS
 from .anatomy import describe, differences
 from .research import (
@@ -504,6 +504,7 @@ SECTIONS = {
         "buildings",
         "building",
         "quarantined",
+        "my_ratings",
         "about",
         "estimates_map",
         "estimate_apartment",
@@ -533,8 +534,12 @@ def create_app(
     allowed_hosts=None,
     research_data=None,
     research_plan=None,
+    ratings_db=None,
 ) -> Flask:
     root = Path(root or os.environ.get("SITE_ROOT", "/data1/apartments/site"))
+    store = ratings.Store(
+        ratings_db or os.environ.get("RATINGS_DB") or ratings.DEFAULT_PATH
+    )
     research = Research(research_data)
     plan = Plan(research_plan)
     app = Flask(__name__)
@@ -592,6 +597,12 @@ def create_app(
             g.db.row_factory = sqlite3.Row
             g.build = path.parent.name
         return g.db
+
+    def rated() -> dict:
+        """Every rated listing's score (None for a rating with no score)."""
+        if "rated" not in g:
+            g.rated = store.scores()
+        return g.rated
 
     def meta() -> dict:
         if "meta" not in g:
@@ -695,6 +706,8 @@ def create_app(
     app.jinja_env.globals["design_label"] = design_label
     app.jinja_env.globals["chosen_by"] = chosen_by
     app.jinja_env.filters["term_id"] = term_id
+    # A rating tag picked from the fixed lists ("+light", "-noisy"), not typed.
+    app.jinja_env.tests["rated_side"] = lambda t: ratings.tag_label(t)[0] != "own"
 
     @app.context_processor
     def helpers():
@@ -746,6 +759,10 @@ def create_app(
             "LAUNDRY": LAUNDRY,
             "DOORMAN": DOORMAN,
             "features": features,
+            "rated": rated,
+            "RATING_GOOD": ratings.GOOD,
+            "RATING_BAD": ratings.BAD,
+            "tag_label": ratings.tag_label,
             "SORTS": SORTS,
             "PER_PAGE": PER_PAGE,
             "QUARANTINE_ACTIONS": QUARANTINE_ACTIONS,
@@ -998,6 +1015,8 @@ def create_app(
             ).days
         return render_template(
             "listing.html",
+            rating=store.get(audit_id),
+            editing=request.args.get("edit") == "1",
             captured=capture_day(row["collected_at"]),
             read_floor=read_floor(row, inputs),
             facing=next(
@@ -1031,6 +1050,151 @@ def create_app(
             label_flags=_flags(inputs, "label:"),
             chart=unit_chart(others) if len(others) > 1 else None,
         )
+
+    def listing_row(audit_id):
+        return (
+            db()
+            .execute(
+                "SELECT l.*, b.name AS building_name, b.address AS building_address "
+                "FROM listings l JOIN buildings b ON b.id = l.building_id "
+                "WHERE l.audit_id = ?",
+                (audit_id,),
+            )
+            .fetchone()
+        )
+
+    @app.post("/ratings")
+    def rate():
+        """Save or clear the rating of one listing (docs/ratings.md)."""
+        origin = request.headers.get("Origin") or request.headers.get("Referer")
+        if not ratings.write_allowed(
+            request.remote_addr, origin, app.config["TRUSTED_HOSTS"]
+        ):
+            abort(403, description="Ratings are saved only from this site's own pages.")
+        audit_id = request.form.get("audit_id") or ""
+        row = listing_row(audit_id)
+        if row is None:
+            abort(404, description="No such listing in this build.")
+        if request.form.get("action") == "clear":
+            store.clear(audit_id)
+        else:
+            score, tags, note = ratings.parse_form(request.form)
+            snapshot = {
+                "building": row["building_name"] or row["building_address"],
+                "address": row["building_address"],
+                "unit": row["unit_label"],
+                "neighbourhood": row["neighbourhood"],
+                "period": row["period"],
+                "bedrooms": row["bedrooms"],
+                "bathrooms": row["bathrooms"],
+                "square_feet": row["square_feet"],
+                "ask": row["ask"],
+                "estimate": row["estimate"],
+                "likely_low": dict(row).get("pred_lower_80"),
+                "likely_high": dict(row).get("pred_upper_80"),
+                "listing_url": row["listing_url"],
+                "build": g.build,
+            }
+            store.save(
+                audit_id,
+                row["unit_id"],
+                row["building_id"],
+                score,
+                tags,
+                note,
+                snapshot,
+            )
+        return redirect(url_for("listing", audit_id=audit_id, _anchor="rating"), 303)
+
+    RATING_SORTS = {
+        "updated": "Last changed",
+        "score": "Score",
+        "diff": "Ask vs estimate",
+    }
+
+    @app.get("/ratings")
+    def my_ratings():
+        rows = store.all()
+        tag = request.args.get("tag") or None
+        try:
+            min_score = int(request.args.get("score") or 0)
+        except ValueError:
+            min_score = 0
+        sort = (
+            request.args.get("sort")
+            if request.args.get("sort") in RATING_SORTS
+            else "updated"
+        )
+        tags = sorted(
+            {t for r in rows for t in r["tags"]}, key=lambda t: ratings.tag_label(t)
+        )
+        if tag:
+            rows = [r for r in rows if tag in r["tags"]]
+        if min_score:
+            rows = [r for r in rows if (r["score"] or 0) >= min_score]
+        current = {}
+        if rows:
+            ids = [r["audit_id"] for r in rows]
+            for i in range(0, len(ids), 500):
+                chunk = ids[i : i + 500]
+                for c in db().execute(
+                    "SELECT audit_id, ask, estimate, residual_pct, is_current FROM listings "
+                    f"WHERE audit_id IN ({', '.join('?' * len(chunk))})",
+                    chunk,
+                ):
+                    current[c["audit_id"]] = c
+        for r in rows:
+            r["now"] = current.get(r["audit_id"])
+            snap = r["snapshot"]
+            r["diff"] = (
+                snap["ask"] / snap["estimate"] - 1
+                if snap.get("ask") and snap.get("estimate")
+                else None
+            )
+        if sort == "score":
+            rows.sort(key=lambda r: -(r["score"] or 0))
+        elif sort == "diff":
+            rows.sort(key=lambda r: (r["diff"] is None, r["diff"] or 0))
+        return render_template(
+            "ratings.html",
+            meta=meta(),
+            rows=rows,
+            tags=tags,
+            tag=tag,
+            min_score=min_score,
+            sort=sort,
+            sorts=RATING_SORTS,
+        )
+
+    def rating_export_rows() -> list[dict]:
+        out = []
+        for r in store.all():
+            flat = {k: v for k, v in r.items() if k != "snapshot"}
+            flat["tags"] = "; ".join(r["tags"])
+            for k, v in r["snapshot"].items():
+                flat[k] = v
+            out.append(flat)
+        return out
+
+    @app.get("/ratings.csv")
+    def ratings_csv():
+        rows = rating_export_rows()
+        columns = list(dict.fromkeys(k for r in rows for k in r)) or ["audit_id"]
+        buffer = io.StringIO()
+        writer = csv.DictWriter(buffer, columns)
+        writer.writeheader()
+        writer.writerows(rows)
+        return Response(
+            buffer.getvalue(),
+            mimetype="text/csv",
+            headers={"Content-Disposition": "attachment; filename=ratings.csv"},
+        )
+
+    @app.get("/ratings.json")
+    def ratings_json():
+        response = jsonify(store.all())
+        response.headers["Content-Disposition"] = "attachment; filename=ratings.json"
+        return response
 
     def building_exists(building_id) -> bool:
         return (
