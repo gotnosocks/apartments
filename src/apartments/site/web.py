@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import csv
 import datetime as dt
+import functools
 import gzip
 import hashlib
 import io
@@ -434,6 +435,34 @@ def create_app(
     app.config["TRUSTED_HOSTS"] = [*DEFAULT_HOSTS, *hosts]
     app.config["SEND_FILE_MAX_AGE_DEFAULT"] = 365 * 24 * 3600
     versions = _asset_versions(Path(app.static_folder))
+
+    def building_typical(building_id: str) -> dict | None:
+        """The building's typical rent by bedroom count in the rent map's
+        latest year: {year, months, extrapolated, rows: [{label, rent, low,
+        high}]}; None without a map or when the map lacks the building."""
+        path = database_path().parent / "map.json"
+        try:
+            data = _rent_map(str(path), path.stat().st_mtime)
+        except (OSError, ValueError):
+            return None
+        index = data["_index"].get(building_id)
+        if index is None:
+            return None
+        b = data["buildings"][index]
+        yi = len(data["years"]) - 1
+        year = data["years"][yi]
+        rows = []
+        for bed in data["bedrooms"]:
+            low, mid, high = data["rent"][bed["key"]][index][yi]
+            rows.append({"label": bed["label"], "rent": mid, "low": low, "high": high})
+        return {
+            "year": year,
+            "months": data["year_months"][yi],
+            "extrapolated": not (b["first_year"] <= year <= b["last_year"]),
+            "last_year": b["last_year"],
+            "interval": data.get("interval", "90%"),
+            "rows": rows,
+        }
 
     def database_path() -> Path:
         return (root / "current" / "site.sqlite").resolve()
@@ -1144,6 +1173,7 @@ def create_app(
         )
         return render_template(
             "building.html",
+            typical=building_typical(building_id),
             meta=meta(),
             b=row,
             units=units,
@@ -1719,6 +1749,14 @@ def term_id(name: str) -> str:
     return "part-" + (
         re.sub(r"[^a-z0-9]+", "-", str(name).lower()).strip("-") or "term"
     )
+
+
+@functools.lru_cache(maxsize=2)
+def _rent_map(path: str, mtime: float) -> dict:
+    """A build's map.json, read once per file version, with a building index."""
+    data = json.loads(Path(path).read_text())
+    data["_index"] = {b["id"]: i for i, b in enumerate(data.get("buildings", []))}
+    return data
 
 
 def chosen_by(selected_by: str) -> str:
