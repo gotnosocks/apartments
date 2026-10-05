@@ -417,13 +417,18 @@ def prevprice_v1(
     train: np.ndarray,
     id: str = "prevprice-v1",
     base: str = "nb-coded-v1",
+    change: bool = True,
 ) -> Features:
     """A base set plus how the unit's previous listing was repriced before this one
     was listed: the log of its last price before this listing's date over its
     initial ask (clipped to +-30%), and the log of one plus the number of its price
     changes by then. A cut says the last ask was above what the unit let for; a
     rise, below. Only changes dated before this listing's own date count, so a row
-    sees nothing later. 0 for a unit's first listing."""
+    sees nothing later. 0 for a unit's first listing.
+
+    The price change holds the previous row's own ask, so leave-one-out scores of
+    that row see its target through this row's covariate. `change=False` keeps
+    only the count of price changes, which reads no ask."""
     base = FEATURE_SETS[base](frame, train)
     history = pd.read_parquet(PRICE_HISTORY_FILE).set_index("listing_id").price_changes
     at = pd.to_datetime(frame.price_at, utc=True)
@@ -434,7 +439,7 @@ def prevprice_v1(
     prev[order[same]] = order[np.flatnonzero(same) - 1]
     ids = frame.source_listing_id.astype(str).to_numpy()
     rents = frame.asking_rent.to_numpy(dtype=float)
-    change = np.zeros(len(frame))
+    change_values = np.zeros(len(frame))
     count = np.zeros(len(frame))
     seen = np.zeros(len(frame), bool)
     for i in np.flatnonzero(prev >= 0):
@@ -446,12 +451,13 @@ def prevprice_v1(
         steps = [p for t, p in steps if t < at.iloc[i]]
         if not steps or not rents[j] > 0:
             continue
-        change[i] = np.clip(np.log(steps[-1] / rents[j]), -PRICE_CHANGE_CLIP, PRICE_CHANGE_CLIP)
+        change_values[i] = np.clip(np.log(steps[-1] / rents[j]), -PRICE_CHANGE_CLIP, PRICE_CHANGE_CLIP)
         count[i] = np.log1p(len(steps) - 1)
         seen[i] = True
     centre = float(np.mean(count[train & seen])) if (train & seen).any() else 0.0
     b = _Builder(frame)
-    b.add("previous listing", "previous_listing_price_change", change)
+    if change:
+        b.add("previous listing", "previous_listing_price_change", change_values)
     b.add("previous listing", "log_previous_listing_repricings", np.where(seen, count - centre, 0.0))
     out = b.build(id)
     return Features(
@@ -1534,6 +1540,7 @@ EXTERNAL = {
     "nb-relist-v1",
     "nb-coded-v1",
     "nb-prevprice-v1",
+    "nb-prevprice-v2",
     "wv-unitpluto-v1",
     "pluto-v1",
     "unitfloor-v2",
@@ -1570,6 +1577,7 @@ BASEMAP = {
     "nb-relist-v1",
     "nb-coded-v1",
     "nb-prevprice-v1",
+    "nb-prevprice-v2",
 }
 # Feature sets that read the building footprints snapshot.
 FOOTPRINTS = {
@@ -1585,6 +1593,7 @@ FOOTPRINTS = {
     "nb-relist-v1",
     "nb-coded-v1",
     "nb-prevprice-v1",
+    "nb-prevprice-v2",
 }
 # Feature sets that read the 311 noise complaints snapshot.
 NOISE = {"unitnoise-v1"}
@@ -1601,6 +1610,7 @@ DESCRIPTIONS = {
     "nb-relist-v1",
     "nb-coded-v1",
     "nb-prevprice-v1",
+    "nb-prevprice-v2",
     "desc-v1",
     "unitdesc-v1",
     "unitdescpluto-v1",
@@ -1656,6 +1666,10 @@ FEATURE_SETS = {
     "nb-coded-v1": partial(coded_v1, id="nb-coded-v1", base="nb-relist-v1"),
     # nb-coded-v1 plus how the unit's previous listing was repriced before this one.
     "nb-prevprice-v1": partial(prevprice_v1, id="nb-prevprice-v1", base="nb-coded-v1"),
+    # nb-coded-v1 plus only how many times the previous listing was repriced (no ask).
+    "nb-prevprice-v2": partial(
+        prevprice_v1, id="nb-prevprice-v2", base="nb-coded-v1", change=False
+    ),
     # West Village: the app design's building facts (as unitdescpluto-v3) on the
     # unit and floor features (no West Village ads: see nb-facing-v2).
     "wv-unitpluto-v1": partial(
@@ -1754,6 +1768,7 @@ LOT_SNAPSHOTS = {
     "nb-relist-v1": {"registry": NB_REGISTRY_FILE, "pluto": NB_PLUTO_FILE},
     "nb-coded-v1": {"registry": NB_REGISTRY_FILE, "pluto": NB_PLUTO_FILE},
     "nb-prevprice-v1": {"registry": NB_REGISTRY_FILE, "pluto": NB_PLUTO_FILE},
+    "nb-prevprice-v2": {"registry": NB_REGISTRY_FILE, "pluto": NB_PLUTO_FILE},
     "unitnoise-v1": {"registry": REGISTRY_V3_FILE, "pluto": PLUTO_V3_FILE},
 }
 
@@ -1772,6 +1787,7 @@ DESCRIPTION_SOURCES = {
     "nb-relist-v1": _NB_DESCRIPTIONS,
     "nb-coded-v1": _NB_DESCRIPTIONS,
     "nb-prevprice-v1": _NB_DESCRIPTIONS,
+    "nb-prevprice-v2": _NB_DESCRIPTIONS,
 }
 
 
@@ -1782,11 +1798,12 @@ AS_OF_SETS = {
     "nb-relist-v1",
     "nb-coded-v1",
     "nb-prevprice-v1",
+    "nb-prevprice-v2",
 }
 # Feature sets that read the listing-extras snapshot.
-LISTING_EXTRAS = {"nb-coded-v1", "nb-prevprice-v1"}
+LISTING_EXTRAS = {"nb-coded-v1", "nb-prevprice-v1", "nb-prevprice-v2"}
 # Feature sets that read the price-history snapshot.
-PRICE_HISTORY = {"nb-prevprice-v1"}
+PRICE_HISTORY = {"nb-prevprice-v1", "nb-prevprice-v2"}
 
 
 # Feature sets that read other basemap and footprints snapshots than the first.
@@ -1799,6 +1816,7 @@ AREA_SNAPSHOTS = {
     "nb-relist-v1": {"basemap": NB_BASEMAP_FILE, "footprints": NB_FOOTPRINTS_FILE},
     "nb-coded-v1": {"basemap": NB_BASEMAP_FILE, "footprints": NB_FOOTPRINTS_FILE},
     "nb-prevprice-v1": {"basemap": NB_BASEMAP_FILE, "footprints": NB_FOOTPRINTS_FILE},
+    "nb-prevprice-v2": {"basemap": NB_BASEMAP_FILE, "footprints": NB_FOOTPRINTS_FILE},
 }
 
 
