@@ -263,7 +263,6 @@ details.table-view summary { cursor: pointer; color: var(--link); font-size: 0.9
 .markdown code { background: var(--neutral-bg); padding: 0 0.2rem; border-radius: 3px; }
 .markdown pre code { background: none; padding: 0; }
 .chart .hover-ring { fill: none; stroke: var(--ink); stroke-width: 2; }
-.chart[data-zoom] svg { cursor: crosshair; }
 /* The Chart.js canvas (fitchart.js) in place of the SVG: a fixed height. */
 .fit-canvas { position: relative; height: 24rem; }
 .link-button {
