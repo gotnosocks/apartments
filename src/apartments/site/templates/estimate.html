@@ -79,7 +79,9 @@ Every listing in the data still has its own estimate: <a href="{{ url_for('listi
   </div>
   <p class="note">Percentages at the posterior mean, each against the reference level of its inputs; multiplied together they
   give roughly the typical rent, which also averages over how this apartment might differ from the building's usual. "This
-  building" is its own level, trend and bedroom and size premiums.</p>
+  building" is its own level, trend and bedroom and size premiums. A feature's line is only what it adds on its own: features
+  that come with pricier apartments, such as a penthouse or a view, can look small because much of their premium sits in each
+  apartment's own level, which the model learns from its listings and cannot know for an apartment it has not seen.</p>
 
   <h3 id="facts-h">Building facts used</h3>
   <dl class="facts">
