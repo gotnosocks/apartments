@@ -111,10 +111,13 @@ def majority(frame: pd.DataFrame, field: str, value: pd.Series) -> pd.Series:
 
 
 # v2: an ad that places the apartment in the other neighbourhood, or on another
-# avenue than its building's, was written for another apartment.
+# avenue than its building's, was written for another apartment. Greenwich
+# Village's ads say "West Village" for the same blocks (and the other way round),
+# so only Chelsea is another neighbourhood there.
 OTHER_NEIGHBOURHOOD = {
     "Chelsea": re.compile(r"(?:in|heart of) (?:the )?(?:west|greenwich) village"),
     "West Village": re.compile(r"(?:in|heart of) (?:the )?(?:west )?chelsea\b"),
+    "Greenwich Village": re.compile(r"(?:in|heart of) (?:the )?(?:west )?chelsea\b"),
 }
 ORDINALS = {
     "first": 1, "1st": 1, "second": 2, "2nd": 2, "third": 3, "3rd": 3,

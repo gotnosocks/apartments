@@ -100,6 +100,16 @@ def test_combine_adds_the_neighbourhood_and_refuses_overlap(tmp_path):
     ]
     assert [x["neighbourhood"] for x in lines] == ["Chelsea", "West Village"]
     assert out["rows"] == {"Chelsea": 1, "West Village": 1}
+    # A combined part keeps its rows' neighbourhoods.
+    g = part("g", [row("4", "u4", "40", "b4")])
+    out = cohort.combine(
+        tmp_path / "abg", {"Combined": tmp_path / "ab", "Greenwich Village": g}
+    )
+    assert out["neighbourhoods"] == {
+        "Chelsea": 1,
+        "West Village": 1,
+        "Greenwich Village": 1,
+    }
     c = part("c", [row("3", "u3", "30", "b1")])  # a building in both
     with pytest.raises(SystemExit):
         cohort.combine(tmp_path / "ac", {"Chelsea": a, "Other": c})

@@ -358,3 +358,15 @@ def test_a_held_out_row_without_a_training_building_moves_to_training():
     )
     _, held = data.apply_rules(frame, np.array([True, False, True]), [])
     assert held.tolist() == [True, False, False]
+
+
+def test_unit_labels_v5_adds_greenwich_villages_alias_groups():
+    """v5 is v3 on the West Village table with Greenwich Village's appended."""
+    rule = data.DATA_RULES["unit-labels-v5"]
+    assert rule.func is data.merge_word_labels
+    assert rule.keywords == {"aliases": data.UNIT_ALIASES_GV}
+    assert data.RULE_SOURCES["unit-labels-v5"] == data.UNIT_ALIASES_GV
+    assert "unit-labels-v5" not in data.DROPPING_RULES
+    wv = set(data.unit_aliases())
+    both = set(data.unit_aliases(data.UNIT_ALIASES_GV))
+    assert wv < both and len(both - wv) == 136

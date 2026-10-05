@@ -564,6 +564,9 @@ DATA_RULE_TEXT = {
     "unit-labels-v3": "unit-labels-v2, and apartments labelled with a number word "
     '("four", "third-fl") joined to the same building\'s apartment with that number '
     "when their bedroom counts agree. No listing is dropped.",
+    "unit-labels-v5": "unit-labels-v3, and Greenwich Village apartments StreetEasy "
+    "lists under two spellings of one label, joined where the apartment's own "
+    "StreetEasy history lists ads under both. No listing is dropped.",
     "quarantine-v1": "Listings a review found are not an open-market lease of a whole "
     "Chelsea apartment at their address: offices and shops, ads that place the "
     "apartment elsewhere, SRO rooms, income-restricted and short-stay offers, and a "

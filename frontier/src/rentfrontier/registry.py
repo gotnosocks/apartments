@@ -244,7 +244,9 @@ def main(argv=None):
     else:
         table = build()
     out_dir = EXTERNAL_ROOT / "registry" / f"{started:%Y%m%d}-{commit[:7]}"
-    out_dir.mkdir(parents=True, exist_ok=True)
+    # Never over another snapshot of the same day and commit (a merge right
+    # after a build would replace the part it read).
+    out_dir.mkdir(parents=True, exist_ok=False)
     path = out_dir / "buildings.parquet"
     table.to_parquet(path)
     counts = table.method.value_counts().to_dict()

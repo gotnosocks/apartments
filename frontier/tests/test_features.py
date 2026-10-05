@@ -1038,7 +1038,13 @@ def test_line_orientation_reads_only_earlier_listings_of_other_units(monkeypatch
             "audit_id": ["a1", "a2", "a3", "a4", "a5"],
             "unit_id": ["u3j", "u5j", "u5j", "u7j", "u4r"],
             "building": ["b"] * 5,
-            "canonical_unit_url": [url("3j"), url("5j"), url("5j"), url("7j"), url("4r")],
+            "canonical_unit_url": [
+                url("3j"),
+                url("5j"),
+                url("5j"),
+                url("7j"),
+                url("4r"),
+            ],
             "price_at": pd.to_datetime(
                 ["2020-01-01", "2019-01-01", "2021-01-01", "2020-01-01", "2018-01-01"],
                 utc=True,
@@ -1125,3 +1131,52 @@ def test_line_orientation_votes_per_listing_and_needs_three_quarters(monkeypatch
     got = features.line_orientation(frame).tolist()
     assert got[2] == "" and got[3] == "rear"
     assert got[5] == "" and got[6] == ""
+
+
+def test_nb3_sets_read_the_three_neighbourhoods_snapshots(monkeypatch):
+    for name in ("nb3-coded-v1", "nb3-prevprice-v1", "nb3-lineface-v1"):
+        assert features.lot_files(name) == {
+            "registry": features.NB3_REGISTRY_FILE,
+            "pluto": features.NB3_PLUTO_FILE,
+        }
+        assert features.area_files(name) == {
+            "basemap": features.NB3_BASEMAP_FILE,
+            "footprints": features.NB3_FOOTPRINTS_FILE,
+        }
+        files = features.description_files(name)
+        assert set(files) == {"descriptions", "descriptions_wv", "descriptions_gv"}
+        assert features.EXTRAS_SNAPSHOTS[name] == features.NB3_EXTRAS_FILE
+        for group in (features.EXTERNAL, features.BASEMAP, features.FOOTPRINTS):
+            assert name in group
+        for group in (features.DESCRIPTIONS, features.AS_OF_SETS):
+            assert name in group
+        assert name in features.LISTING_EXTRAS
+    assert "nb3-prevprice-v1" in features.READS_EARLIER_RENTS
+    assert features.FEATURE_SETS["nb3-prevprice-v1"].keywords["base"] == "nb3-coded-v1"
+    # Sets outside the list read the first extras files.
+    assert features.EXTRAS_SNAPSHOTS.get("nb-coded-v1") is None
+    seen = {}
+
+    def spy(frame, train):
+        seen["extras"] = features._EXTRAS.get()
+        return features.Features("x", [], [], np.zeros((len(frame), 0)), np.zeros(0))
+
+    monkeypatch.setitem(features.FEATURE_SETS, "nb3-coded-v1", spy)
+    features.build("nb3-coded-v1", pd.DataFrame({"a": [1]}), np.ones(1, dtype=bool))
+    assert seen["extras"] == features.NB3_EXTRAS_FILE
+    assert features._EXTRAS.get() is None
+
+
+def test_greenwich_v1_adds_greenwich_village_beside_the_base(monkeypatch):
+    def base(frame, train):
+        return features.Features(
+            "b", ["x"], ["g"], np.ones((len(frame), 1)), np.ones(1)
+        )
+
+    monkeypatch.setitem(features.FEATURE_SETS, "fake-base", base)
+    frame = pd.DataFrame(
+        {"neighbourhood": ["Chelsea", "West Village", "Greenwich Village"]}
+    )
+    out = features.greenwich_v1(frame, np.ones(3, dtype=bool), base="fake-base")
+    assert out.groups[-1] == "neighbourhood"
+    assert out.values[:, -1].tolist() == [0, 0, 1]

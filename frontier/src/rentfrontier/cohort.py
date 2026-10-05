@@ -263,7 +263,9 @@ def build(history_dir: Path, granular: Path, output: Path) -> dict:
 def combine(output: Path, parts: dict) -> dict:
     """One cohort from several neighbourhoods' analysis datasets: every row
     unchanged plus its `neighbourhood`, refused if any audit id, unit, listing
-    or building is in two of them (checked before anything is written)."""
+    or building is in two of them (checked before anything is written). A row
+    that already names its neighbourhood (a part that is itself combined, such
+    as Chelsea + West Village) keeps it."""
     keys = ("audit_id", "unit_id", "source_listing_id", "building")
     seen = {k: set() for k in keys}
     rows, sources = {}, {}
@@ -286,13 +288,16 @@ def combine(output: Path, parts: dict) -> dict:
     with open(path, "w") as out:
         for name, part in rows.items():
             for row in part:
-                row["neighbourhood"] = name
+                row.setdefault("neighbourhood", name)
                 out.write(json.dumps(row, default=str) + "\n")
     complete = {
         "version": "combined-neighbourhood-cohort-v1",
         "built_at": dt.datetime.now(dt.UTC).isoformat(),
         "parts": sources,
         "rows": {name: len(part) for name, part in rows.items()},
+        "neighbourhoods": dict(
+            Counter(r["neighbourhood"] for part in rows.values() for r in part)
+        ),
         "files": {"observations.jsonl": _sha(path)},
     }
     (output / "complete.json").write_text(json.dumps(complete, indent=2) + "\n")

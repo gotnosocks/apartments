@@ -1,0 +1,26 @@
+{
+  "parts": [
+    {
+      "file": "west-village-20260930.jsonl",
+      "provenance": "west-village-20260930.provenance.json"
+    },
+    {
+      "source": "/data1/apartments/archive/datasets/greenwich-village-granular-20261005-unit-spelling-aliases-v2",
+      "rule": "unit-spelling-alias-v2",
+      "source_dataset": "/data1/apartments/archive/datasets/greenwich-village-granular-20261005-canonical-url-v1",
+      "evidence_snapshot": "/data1/apartments/archive/snapshots/greenwich-village-20261001-final/archive.sqlite3",
+      "implementation_sha256": "bd3abb079a9fcd00148ae093dfcd46f55bc09514e74722336a4b31b54556fd44",
+      "output_sha256": {
+        "unit_spelling_aliases": "dcf3d3992b13d1d1c5636e6ca8321aca72ddb2a4aabbc3e9dfcfd5a312e2f7eb"
+      },
+      "counts": {
+        "groups": 175,
+        "history_confirmed_groups": 136,
+        "listings_in_groups": 909,
+        "units_in_groups": 367
+      },
+      "made_by": "apartments.unit_spelling_aliases (unit-spelling-alias-v2, PR #213)"
+    }
+  ],
+  "sha256": "d7a43e5bb3fffaf36314563b133fc9edd5efe895ffa8fc6d39779c637b4ac93d"
+}

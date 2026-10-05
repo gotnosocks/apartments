@@ -188,3 +188,20 @@ def test_v2_refuses_ranges_rec_rooms_and_disagreeing_true_counts(monkeypatch):
     v1 = corrections.bedroom_corrections(frame, text, version=1)
     assert v1.audit_id.tolist() == ["a", "b", "c", "d"]
     assert corrections.bedroom_corrections(frame, text, version=2).empty
+
+
+def test_greenwich_village_ads_may_name_the_west_village():
+    frame = pd.DataFrame(
+        {
+            "neighbourhood": ["Greenwich Village"] * 2 + ["Chelsea"],
+            "building": ["1-fifth-avenue"] * 3,
+        }
+    )
+    text = pd.Series(
+        [
+            "a sunny one bedroom in the west village",
+            "a sunny one bedroom in the heart of chelsea",
+            "a sunny one bedroom in greenwich village",
+        ]
+    )
+    assert corrections.placed_elsewhere(frame, text).tolist() == [False, True, True]
