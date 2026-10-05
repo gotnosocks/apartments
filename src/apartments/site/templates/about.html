@@ -60,6 +60,30 @@
   <p class="note">Estimates for a unit's only listing in the fit rest on the building and features alone, and their ranges are somewhat too
   narrow. {{ "{:,}".format(s.unreliable_estimates) }} listings (marked <span class="warn-mark">*</span>) have an unstable
   leave-own-row-out correction (Pareto k above {{ p.estimate_pareto_k.threshold | round(3) }}).</p>
+  {% if s.calibration_by_year %}
+  {# Modeling, 2026-10-05: centred every year; one noise level per bedroom group for all years, so volatile years are too narrow. #}
+  {% set narrow = s.calibration_by_year | selectattr("cover80", "lt", 0.75) | map(attribute="year") | list %}
+  <h3 id="calibration-by-year">By year</h3>
+  <p class="note">The estimates are centred in every year: the average gap between ask and estimate stays small.
+  {% if narrow %}But asks scattered more widely in some years ({{ narrow | join(", ") }}) than in others, and the model assumes the
+  same scatter every year, so fewer asks than promised fall inside the 80% range in those years.{% else %}The ranges hold about
+  as many asks as promised in every year.{% endif %}</p>
+  <details class="table-view">
+  <summary>Table view ({{ s.calibration_by_year | length }} years)</summary>
+  <div class="table-wrap">
+  <table class="data">
+    <thead><tr><th scope="col">Year</th><th scope="col" class="num">Listings</th><th scope="col" class="num">In 95% range</th><th scope="col" class="num">In 80% range</th><th scope="col" class="num">Average ask vs estimate</th></tr></thead>
+    <tbody>
+    {% for c in s.calibration_by_year %}
+    <tr><th scope="row">{{ c.year }}{% if c.year in narrow %} <span class="warn-mark" title="Fewer than 75% of asks in the 80% range">*</span>{% endif %}</th><td class="num">{{ "{:,}".format(c.n) }}</td><td class="num">{{ pct(100 * c.cover95, signed=False, digits=0) }}</td>
+      <td class="num">{{ pct(100 * c.cover80, signed=False, digits=0) }}</td><td class="num">{{ pct(100 * c.mean_log_residual, digits=1) }}</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  </div>
+  <p class="note">Average ask vs estimate is the mean of log(ask ÷ estimate), as a percentage.</p>
+  </details>
+  {% endif %}
 </section>
 
 <section class="card prose">

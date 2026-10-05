@@ -1641,3 +1641,34 @@ def test_values_that_round_to_zero_carry_no_sign():
     assert charts.pct(-0.6) == "−1%"
     assert charts.usd(-0.4, signed=True) == "$0"
     assert charts.usd(-27, signed=True) == "−$27"
+
+
+def test_about_shows_calibration_by_year_and_names_narrow_years(client, site_root):
+    path = (site_root / "current" / "site.sqlite").resolve()
+    db = sqlite3.connect(path)
+    stats = json.loads(
+        db.execute("SELECT value FROM meta WHERE key='stats'").fetchone()[0]
+    )
+    stats["calibration_by_year"] = [
+        {
+            "year": 2010,
+            "n": 307,
+            "cover95": 0.88,
+            "cover80": 0.67,
+            "mean_log_residual": 0.01,
+        },
+        {
+            "year": 2015,
+            "n": 900,
+            "cover95": 0.95,
+            "cover80": 0.80,
+            "mean_log_residual": -0.004,
+        },
+    ]
+    db.execute("UPDATE meta SET value=? WHERE key='stats'", (json.dumps(stats),))
+    db.commit()
+    db.close()
+    html = client.get("/about").get_data(as_text=True)
+    assert 'id="calibration-by-year"' in html
+    assert "in some years (2010) than in others" in html
+    assert '<td class="num">67%</td>' in html and "−0.4%" in html
