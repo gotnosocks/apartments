@@ -50,7 +50,7 @@ Cache reads are 98% of the tokens. Uncached input is negligible (7k).
 | Website playtesters (16 spawns) | 584 | 35.3M | 1.06M | 60k / 116k | 17% |
 | Modeling | 125 | 40.8M | 0.51M | 329k / 407k | 16% |
 | Website reviewers (31 spawns) | 238 | 9.0M | 1.05M | 42k / 58k | 9% |
-| Other reviewers (11 spawns) | 91 | 4.1M | 0.63M | 55k / 77k | 5% |
+| Data improvements and Modeling reviewers | 91 | 4.1M | 0.63M | 55k / 77k | 5% |
 | Data collection | 5 | 1.6M | 0.38M | 407k / 410k | 3% |
 
 Hourly cost peaked at 11:00 to 14:00 UTC (4.8, 7.8 and 9.3 units against about 2 before), driven by
