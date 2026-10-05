@@ -898,3 +898,75 @@ def test_coded_reads_outdoor_types_and_extra_rooms(monkeypatch, tmp_path):
 
     monkeypatch.setattr(run.data, "sha256", lambda p: "sha")
     assert "listing_extras" in run.feature_sources("nb-coded-v1")
+
+
+def test_prevprice_reads_only_changes_before_the_listing(monkeypatch, tmp_path):
+    import json
+
+    import pandas as pd
+
+    path = tmp_path / "history.parquet"
+    pd.DataFrame(
+        {
+            "listing_id": ["10", "11", "20"],
+            "price_changes": [
+                # u1's first listing: cut twice, the second cut after u1's next listing.
+                json.dumps(
+                    [
+                        ["2020-01-01T10:00:00.000-05:00", 5000],
+                        ["2020-02-01T10:00:00.000-05:00", 4500],
+                        ["2020-06-01T10:00:00.000-04:00", 4000],
+                    ]
+                ),
+                json.dumps([["2020-05-01T10:00:00.000-04:00", 4800]]),
+                json.dumps([["2020-01-01T10:00:00.000-05:00", 3000]]),
+            ],
+        }
+    ).to_parquet(path)
+    monkeypatch.setattr(features, "PRICE_HISTORY_FILE", str(path))
+    monkeypatch.setitem(
+        features.FEATURE_SETS,
+        "stub-base",
+        lambda f, t: features.Features(
+            "stub-base", [], [], np.zeros((len(f), 0)), np.zeros(0)
+        ),
+    )
+    frame = pd.DataFrame(
+        {
+            "unit_id": ["u1", "u1", "u2", "u1"],
+            "source_listing_id": [11, 10, 20, 12],
+            "asking_rent": [4800.0, 5000.0, 3000.0, 6000.0],
+            "price_at": pd.to_datetime(
+                ["2020-05-01", "2020-01-01", "2020-01-01", "2021-01-01"], utc=True
+            ),
+        }
+    )
+    out = features.prevprice_v1(frame, np.ones(4, bool), id="t", base="stub-base")
+    got = dict(zip(out.names, out.values.T))
+    change = got["previous_listing_price_change"]
+    # Row 0 sees listing 10 cut once by May (5000 -> 4500), not the June cut.
+    np.testing.assert_allclose(change, [np.log(4500 / 5000), 0, 0, 0])
+    # Row 3 follows listing 11 (never repriced); first listings get 0.
+    count = got["log_previous_listing_repricings"]
+    raw = np.log1p(np.array([1, 0]))
+    np.testing.assert_allclose(count[[0, 3]], raw - raw.mean())
+    assert count[1] == count[2] == 0.0
+    assert features.FEATURE_SETS["nb-prevprice-v1"].keywords["base"] == "nb-coded-v1"
+    assert "nb-prevprice-v1" in features.AS_OF_SETS
+    # v2 keeps only the count, which reads no other row's ask.
+    only = features.prevprice_v1(
+        frame, np.ones(4, bool), id="t", base="stub-base", change=False
+    )
+    assert only.names == ["log_previous_listing_repricings"]
+    np.testing.assert_allclose(only.values[:, 0], count)
+    frame2 = frame.assign(asking_rent=[1.0, 9999.0, 3000.0, 6000.0])
+    again = features.prevprice_v1(
+        frame2, np.ones(4, bool), id="t", base="stub-base", change=False
+    )
+    np.testing.assert_allclose(again.values, only.values)
+    assert "nb-prevprice-v2" in features.PRICE_HISTORY | features.AS_OF_SETS
+    from rentfrontier import run
+
+    monkeypatch.setattr(run.data, "sha256", lambda p: "sha")
+    sources = run.feature_sources("nb-prevprice-v1")
+    assert "price_history" in sources and "listing_extras" in sources
