@@ -2,7 +2,18 @@
 
 What the next turn of the website thread needs. Updated at each milestone.
 
-## State (2026-10-05 18:30 UTC)
+## State (2026-10-05 20:30 UTC)
+
+- **Website features on hold (Ben, 18:22 UTC).** Playtest only with `best-1bed`, one persona a
+  round, and log findings in `docs/playtests/backlog.md` (#299; round 8 in #302). No feature or
+  playtest-fix PRs; fixes for things broken or wrong on the live site still ship. Ben's standing
+  approval (19:23 UTC): apply his changes the coordinator relays without asking again, except
+  spending money or deleting data.
+- **Greenwich Village ready (#300).** The site follows the data for a third neighbourhood. The
+  map's growth decomposition shows only while run `m7-…-nb-v5f1u3-d1005` is served; ask Modeling
+  for new figures after the three-neighbourhood refit (03:00 ET 2026-10-06). After it lands,
+  check the map, `/estimate` and a Greenwich Village listing page.
+- **Bigger map (#298)** and the playtester model id `claude-sonnet-5` (#301) merged.
 
 - **Round 7 done (#291).** Since then: calibration by year on About and "why the map grows less
   than the median ask" on the rent map (#293, Modeling's numbers), a "Start here" card on Home
@@ -98,9 +109,7 @@ What the next turn of the website thread needs. Updated at each milestone.
 
 ## Next
 
-1. Round 7 leftovers (above), then round 5 leftovers in `synthesis.md` order: building Units table capped at 13 rows,
-   "Building level" glossary entry and class codes, estimate form's two steps, breakdown on phones, unit chart legend, journalist items.
-   Optional: warn when a building link lands on a much pricier building.
+1. After each round, add findings to the top of `docs/playtests/backlog.md` (docs-only PR).
 2. After the next served-model switch, check that `/estimate` still works. `autoselect-publish.sh`
    builds the kit.
 3. Optional: cache the parsed kit per database (about 12 ms per request).
