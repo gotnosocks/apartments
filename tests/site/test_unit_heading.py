@@ -18,3 +18,10 @@ def test_ties_go_to_the_shorter_then_the_newest():
 
 def test_no_labels():
     assert unit_heading(rows(None, None)) is None
+
+
+def test_clean_forms_first_and_hyphens_kept():
+    assert unit_heading(rows("003H", "003H", "3H")) == "3H"
+    assert unit_heading(rows("UNIT3E", "UNIT3E", "3E")) == "3E"
+    assert unit_heading(rows("460-11D", "46011D")) == "460-11D"
+    assert unit_heading(rows("05", "5")) == "5"
