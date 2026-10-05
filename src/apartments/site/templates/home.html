@@ -64,12 +64,14 @@
     <tbody>
     {% for ms in milestones %}
       <tr><td class="nowrap">{{ ms.at[:10] }}</td>
-        <td class="nowrap">{% if ms.kind == "selection" %}Model switch{% elif ms.kind == "pr" %}PR #{{ ms.pr }}{% else %}{{ ms.kind | capitalize }}{% endif %}</td>
+        <td class="nowrap">{% if ms.kind == "selection" %}Model switch{% elif ms.kind == "pr" %}<a href="https://github.com/gotnosocks/apartments/pull/{{ ms.pr }}">PR #{{ ms.pr }}</a>{% else %}{{ ms.kind | capitalize }}{% endif %}</td>
         <td>{{ ms.title }}</td></tr>
     {% endfor %}
     </tbody>
   </table>
   </div>
+  <p class="note"><a href="{{ url_for('research_history', _anchor='changes') }}">Every change</a> ·
+  <a href="{{ url_for('research_history', changes='switches', _anchor='changes') }}">model switches only</a></p>
 </section>
 {% endif %}
 {% endblock %}
