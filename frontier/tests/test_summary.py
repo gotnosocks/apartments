@@ -348,13 +348,15 @@ def test_predictive_quantiles_invert_the_mixture_cdf():
     rng = np.random.default_rng(0)
     draws, rows = 200, 5
     total = rng.normal(8.0, 0.05, (draws, rows))
-    sigma = np.full((draws, 1), 0.04)
-    nu = np.full(draws, 5.0)
-    weights = np.full((draws, rows), 1.0 / draws)
+    # Per-row noise scales, per-draw nu and unequal (PSIS-like) weights.
+    sigma = rng.uniform(0.03, 0.08, (draws, rows))
+    nu = rng.uniform(2.0, 30.0, draws)
+    weights = rng.exponential(1.0, (draws, rows))
+    weights /= weights.sum(0)
     q = summary.predictive_quantiles(total, sigma, nu, weights, [0.025, 0.5, 0.975])
     for i, p in enumerate([0.025, 0.5, 0.975]):
         cdf = (stdtr(nu[:, None], (q[i][None] - total) / sigma) * weights).sum(0)
-        np.testing.assert_allclose(cdf, p, atol=1e-4)
+        np.testing.assert_allclose(cdf, p, atol=1e-6)
     assert (q[0] < q[1]).all() and (q[1] < q[2]).all()
 
 

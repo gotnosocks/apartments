@@ -29,6 +29,9 @@ estimate      leave-own-row-out estimate of the row's latent rent exp(mu):
 pit           where the ask falls in the leave-own-row-out predictive
               distribution (Student-t noise included): about 0.5 is typical,
               below 0.025 or above 0.975 unusual.
+estimate_pred_lower/upper_95, _80
+              quantiles of that same predictive distribution, in dollars:
+              the range the ask is likely to fall in (95% and 80%).
 fitted_rent   the in-sample posterior of exp(mu), mean and 95% interval (the
               fit saw the row's ask; a review signal, not an out-of-sample
               error).
@@ -275,26 +278,36 @@ def loo_unit_levels(y, rest, seg, n_seg, params, key, *, t_units, bed_group=None
 PREDICTIVE = (("95", 0.025, 0.975), ("80", 0.10, 0.90))
 
 
-def predictive_quantiles(total, sigma, nu, weights, probabilities, iterations=26):
+def predictive_quantiles(total, sigma, nu, weights, probabilities, iterations=6):
     """(len(probabilities), rows) quantiles of the posterior predictive of the
     log ask: the weighted mixture over draws of Student-t(nu_s) noise of scale
-    sigma_s around total_s, the distribution `pit` evaluates. Bisection on the
-    mixture's CDF, per row (26 halvings of 120 sigma: below 1e-5 on the log
-    scale). total, weights: (draws, rows); sigma: (draws, 1) or (draws, rows);
+    sigma_s around total_s, the distribution `pit` evaluates. Per row, Newton
+    steps on the mixture's CDF, kept inside a bracket that starts at the
+    smallest and largest of the draws' own p-quantiles (the mixture's lies
+    between them) and falls back to bisection when a step leaves it.
+    total, weights: (draws, rows); sigma: (draws, 1) or (draws, rows);
     nu: (draws,)."""
-    from scipy.special import stdtr
+    from scipy.special import gammaln, stdtr, stdtrit
 
     sigma = np.broadcast_to(sigma, total.shape)
-    span = 60.0 * sigma.max(0)
+    nu_ = nu[:, None]
+    # Student-t density constant per draw, over sigma: weights of the pdf.
+    const = np.exp(gammaln((nu + 1) / 2) - gammaln(nu / 2)) / np.sqrt(nu * np.pi)
+    wpdf = weights * const[:, None] / sigma
     out = np.empty((len(probabilities), total.shape[1]))
     for q, p in enumerate(probabilities):
-        lo, hi = total.min(0) - span, total.max(0) + span
+        own = total + sigma * stdtrit(nu, p)[:, None]  # (draws, rows)
+        lo, hi = own.min(0), own.max(0)
+        x = (own * weights).sum(0)
         for _ in range(iterations):
-            mid = 0.5 * (lo + hi)
-            cdf = (stdtr(nu[:, None], (mid[None] - total) / sigma) * weights).sum(0)
-            below = cdf < p
-            lo, hi = np.where(below, mid, lo), np.where(below, hi, mid)
-        out[q] = 0.5 * (lo + hi)
+            z = (x[None] - total) / sigma
+            f = (stdtr(nu_, z) * weights).sum(0) - p
+            d = (wpdf * (1 + z * z / nu_) ** (-(nu_ + 1) / 2)).sum(0)
+            lo, hi = np.where(f < 0, x, lo), np.where(f < 0, hi, x)
+            step = x - f / np.maximum(d, 1e-300)
+            inside = (step >= lo) & (step <= hi)
+            x = np.where(inside, step, 0.5 * (lo + hi))
+        out[q] = x
     return out
 
 

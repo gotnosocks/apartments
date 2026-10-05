@@ -40,6 +40,8 @@ Each row also gets:
 - the ask less the estimate, in dollars and percent;
 - **pit**, where the ask falls in the leave-own-row-out predictive distribution (Student-t noise
   included);
+- **estimate_pred_lower/upper_95** and **_80**, the quantiles of that same predictive distribution in
+  dollars: the range the ask is likely to fall in;
 - the in-sample fitted rent, as a review signal;
 - **dollar contributions** of the estimate (the LMDI decomposition of `explain`, per draw, against
   a reference apartment in an average building that month). Their weighted means add up to the
