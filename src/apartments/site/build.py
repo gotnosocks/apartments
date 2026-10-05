@@ -41,7 +41,7 @@ from pathlib import Path
 
 import duckdb
 
-from . import ad_dates, estimate_build
+from . import ad_dates, estimate_build, exposure
 from .selection import SELECTION, selection_note
 
 VERSION = "listings-site-v1"
@@ -620,6 +620,7 @@ def write_database(
     selection: dict | None = None,
     kits: Path | None = None,
     archives: Path | None = None,
+    exposure_file: Path | None = None,
 ) -> dict:
     observations = load_observations(
         Path(record["dataset"]), record["dataset_observations_sha256"]
@@ -716,6 +717,14 @@ def write_database(
             db,
             ad_dates.collect(Path(record["dataset"]), archives or ad_dates.ARCHIVES),
             listings,
+        )
+        # Which way each unit faces, when Data improvements' labels exist; a
+        # build without them shows none.
+        labels = exposure_file or exposure.FILE
+        stats["exposure"] = (
+            exposure.install(db, labels, parquet_rows(labels), {u["id"] for u in units})
+            if labels.is_file()
+            else {"installed": False, "reason": f"no labels at {labels}"}
         )
         db.executemany(
             "INSERT INTO terms VALUES (?,?,?,?)",

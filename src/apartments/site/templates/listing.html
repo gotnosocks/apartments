@@ -187,12 +187,16 @@ called a one-bedroom, say), and sometimes the apartment was rebuilt; the estimat
     {% if windows %}<dt>Exposures</dt><dd>{{ windows | join(", ") }}</dd>{% endif %}
     <dt>Outdoor space</dt><dd>{{ outdoor | join(", ") | capitalize if outdoor else "none stated" }}</dd>
     <dt><a href="{{ url_for('research_glossary', _anchor='facing' | term_id) }}">Looks onto</a></dt><dd>{{ facing | capitalize if facing else "not known" }}</dd>
+    {% if exposure %}<dt>Faces</dt><dd id="exposure">{{ exposure.long }}{% if exposure.bedroom %}. {{ exposure.bedroom }}{% endif %}.</dd>{% endif %}
     {% if row.concession %}<dt>Concession</dt><dd>{{ row.concession }}</dd>{% endif %}
     {% if flags %}<dt>In the ad text</dt><dd>{{ flags | join(", ") }}</dd>{% endif %}
     {% if label_flags %}<dt>Unit label</dt><dd>{{ label_flags | join(", ") }}</dd>{% endif %}
   </dl>
-  <p class="note">The data don't say whether an apartment runs front to back (a floor-through) or which way
-  its bedroom faces.</p>
+  {% if not (exposure and exposure.bedroom) %}<p class="note">The data don't say whether an apartment runs front to back (a floor-through) or which way
+  its bedroom faces{% if exposure and exposure.side == "both" %}, only that it has windows on both sides{% endif %}.</p>{% endif %}
+  {% if exposure %}<p class="note">“Faces” is read from all of this apartment's listings, or when they don't say, from the other
+  apartments of its line, which agree with an apartment's own reading 89% of the time. It can differ from “Looks onto”, which is
+  what this listing alone told the model.</p>{% endif %}
   <p class="links">
     {% if row.listing_url %}<a href="{{ row.listing_url }}" rel="noopener noreferrer" target="_blank">Listing on StreetEasy ↗</a>{% endif %}
     {% if row.unit_url %}<a href="{{ row.unit_url }}" rel="noopener noreferrer" target="_blank">Unit on StreetEasy ↗</a>{% endif %}
