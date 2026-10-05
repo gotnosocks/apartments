@@ -340,3 +340,88 @@ def test_new_unit_levels_draw_from_the_unit_prior():
         assert levels.shape == (draws, 3)
         assert abs(levels.mean()) < 0.005
         assert 0.045 < levels.std() < 0.056
+
+
+def test_predictive_quantiles_invert_the_mixture_cdf():
+    from scipy.special import stdtr
+
+    rng = np.random.default_rng(0)
+    draws, rows = 200, 5
+    total = rng.normal(8.0, 0.05, (draws, rows))
+    # Per-row noise scales, per-draw nu and unequal (PSIS-like) weights.
+    sigma = rng.uniform(0.03, 0.08, (draws, rows))
+    nu = rng.uniform(2.0, 30.0, draws)
+    weights = rng.exponential(1.0, (draws, rows))
+    weights /= weights.sum(0)
+    q = summary.predictive_quantiles(total, sigma, nu, weights, [0.025, 0.5, 0.975])
+    for i, p in enumerate([0.025, 0.5, 0.975]):
+        cdf = (stdtr(nu[:, None], (q[i][None] - total) / sigma) * weights).sum(0)
+        np.testing.assert_allclose(cdf, p, atol=1e-6)
+    assert (q[0] < q[1]).all() and (q[1] < q[2]).all()
+
+
+def test_predictive_quantiles_with_few_heavy_draws():
+    """PSIS weights on a few draws far apart, with very different noise
+    scales: the mixture CDF has plateaus where Newton alone can cycle."""
+    from scipy.special import stdtr
+
+    rng = np.random.default_rng(2)
+    draws, rows = 400, 50
+    total = rng.normal(7.7, 0.1, (draws, rows))
+    sigma = rng.uniform(0.01, 0.3, (draws, rows))
+    nu = rng.uniform(1.5, 30.0, draws)
+    log_w = rng.normal(0.0, 1.0, (draws, rows))
+    log_w[:3] += 12.0  # three draws hold almost all the weight
+    total[:3] += np.array([[-0.3], [0.0], [0.4]])
+    weights = np.exp(log_w - log_w.max(0))
+    weights /= weights.sum(0)
+    probabilities = [0.025, 0.1, 0.5, 0.9, 0.975]
+    q = summary.predictive_quantiles(total, sigma, nu, weights, probabilities)
+    for i, p in enumerate(probabilities):
+        cdf = (stdtr(nu[:, None], (q[i][None] - total) / sigma) * weights).sum(0)
+        np.testing.assert_allclose(cdf, p, atol=1e-6)
+
+
+def test_predictive_bounds_agree_with_pit():
+    """row_table's predictive bounds invert the distribution pit evaluates: an
+    ask below the 80% range's lower bound has pit < 0.10, above its upper bound
+    pit > 0.90 (and the same for the 95% range at 0.025 and 0.975)."""
+    rng = np.random.default_rng(1)
+    draws, rows = 300, 400
+    total = rng.normal(8.3, 0.03, (draws, 1)) + rng.normal(0.0, 0.02, (1, rows))
+    asks = np.exp(total.mean(0) + rng.standard_t(4, rows) * 0.08)
+    sub = pd.DataFrame(
+        {
+            "audit_id": [f"a{i}" for i in range(rows)],
+            "unit_id": [f"u{i}" for i in range(rows)],
+            "building": ["b"] * rows,
+            "period": pd.to_datetime(["2024-05-01"] * rows),
+            "asking_rent": asks,
+        }
+    )
+    sigma = np.full((draws, 1), 0.05)
+    nu = np.full(draws, 5.0)
+    table = summary.row_table(
+        sub,
+        {"market": total},
+        np.zeros((draws, rows)),
+        np.full(rows, np.nan),
+        np.exp(total),
+        sigma,
+        nu,
+        [],
+        [""] * rows,
+    )
+    pit, ask = table.pit.to_numpy(), table.asking_rent.to_numpy()
+    for name, lo, hi in summary.PREDICTIVE:
+        low, high = (
+            table[f"estimate_pred_lower_{name}"],
+            table[f"estimate_pred_upper_{name}"],
+        )
+        clear = (np.abs(pit - lo) > 1e-3) & (np.abs(pit - hi) > 1e-3)
+        np.testing.assert_array_equal((pit < lo)[clear], (ask < low)[clear])
+        np.testing.assert_array_equal((pit > hi)[clear], (ask > high)[clear])
+    inside = (ask >= table.estimate_pred_lower_80) & (
+        ask <= table.estimate_pred_upper_80
+    )
+    assert 0.6 < inside.mean() < 0.95
