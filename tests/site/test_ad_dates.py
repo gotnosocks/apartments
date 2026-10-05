@@ -29,8 +29,9 @@ def _archive(root, bodies):
     return shas
 
 
-def _event(listing_id, date, status):
+def _event(listing_id, date, status, index=0):
     return {
+        "event_index": index,
         "event_listing_id": listing_id,
         "event_category": "rental",
         "event_date": date,
@@ -52,6 +53,17 @@ def test_last_break_is_the_ads_latest_return():
         "2026-09-08",
     )
     assert ad_dates.last_break(events[:1], "2026-08-10", "2026-10-05") == (None,) * 3
+    # Rented and back on the same day: the page lists the newer event first.
+    same_day = [
+        _event("7", "2026-10-05", "ACTIVE", 0),
+        _event("7", "2026-10-05", "RENTED", 1),
+        _event("7", "2026-08-10", "ACTIVE", 2),
+    ]
+    assert ad_dates.last_break(same_day, "2026-08-10", "2026-10-05") == (
+        "RENTED",
+        "2026-10-05",
+        "2026-10-05",
+    )
     # Off the market by the ad's own last event: no date at all.
     assert ad_dates.last_break(events[:2], "2026-08-10", "2026-10-05") is None
 

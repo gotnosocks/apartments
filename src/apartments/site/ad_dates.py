@@ -34,14 +34,17 @@ def last_break(events: list[dict], since: str, as_of: str):
     """The ad's latest break (status, date) and the day it came back on the
     market, from its own dated status events; (None, None, None) if it has been
     on the market without a break since `since`."""
-    dated = sorted(
-        (d, e["status"])
-        for e in events
-        if e.get("status") and (d := _date(e.get("event_date"))) and since <= d <= as_of
-    )
+    # StreetEasy lists events newest first, so on a shared day the higher
+    # event_index is the earlier one.
+    keyed = []
+    for e in events:
+        d = _date(e.get("event_date"))
+        if e.get("status") and d and since <= d <= as_of:
+            keyed.append((d, -int(e.get("event_index") or 0), e["status"]))
+    dated = [(d, s) for d, _, s in sorted(keyed)]
     found = (None, None, None)
     for (d0, s0), (d1, s1) in itertools.pairwise(dated):
-        if s0 != "ACTIVE" and s1 == "ACTIVE" and d0 >= since:
+        if s0 != "ACTIVE" and s1 == "ACTIVE":
             found = (s0, d0, d1)
     if dated and dated[-1][1] != "ACTIVE":
         return None  # the ad's own events say it is off the market now
