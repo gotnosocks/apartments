@@ -1383,14 +1383,19 @@ def create_app(
         per build."""
         if not has_exposure():
             return {}
-        if exposure_short.get("build") != g.build:
-            exposure_short.clear()
-            exposure_short["units"] = {
-                r["unit_id"]: exposure.describe(r)["short"]
-                for r in db().execute("SELECT * FROM exposure")
-            }
-            exposure_short["build"] = g.build
-        return exposure_short["units"]
+        cached = exposure_short.get("cached")
+        if cached is None or cached[0] != g.build:
+            # One tuple swapped in whole, so a request racing a build
+            # rollover reads either the old or the new words, never neither.
+            cached = (
+                g.build,
+                {
+                    r["unit_id"]: exposure.describe(r)["short"]
+                    for r in db().execute("SELECT * FROM exposure")
+                },
+            )
+            exposure_short["cached"] = cached
+        return cached[1]
 
     exposure_short: dict = {}
 
