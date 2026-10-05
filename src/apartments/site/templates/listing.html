@@ -15,6 +15,16 @@
   {% if row.is_current %}Available now, captured {{ row.collected_at[:10] if row.collected_at else month(row.period) }}{% else %}Listed {{ month(row.period) }}{% endif %}
   · {{ m.layout(row) }}{% if row.floor is not none %} · floor {{ row.floor }}{% endif %}
 </p>
+{% if ad_start %}{% set change = row.ask / ad_start.ask - 1 %}
+<p class="note" id="ad-start">This advertisement first appeared in {{ month(ad_start.period) }} asking {{ usd(ad_start.ask) }};
+{% if change < -0.005 %}this ask is {{ "{:.0f}".format(-100 * change) }}% lower{% elif change > 0.005 %}this ask is
+{{ "{:.0f}".format(100 * change) }}% higher{% else %}the ask has not changed{% endif %}.</p>
+{% endif %}
+{% if relabelled %}{% macro as_beds(v) %}{{ "a studio" if v | round == 0 else beds_label(v) }}{% endmacro %}
+<p class="note" id="relabelled">This apartment was listed as {{ as_beds(relabelled.bedrooms) }} in
+{{ month(relabelled.period) }}, and as {{ as_beds(row.bedrooms) }} here. The ads describe it differently, or it was
+rebuilt; the estimate uses this listing's layout. <a href="{{ url_for('unit', unit_id=row.unit_id) }}">Its listing history</a></p>
+{% endif %}
 
 <section class="figures" aria-label="Ask and estimate">
   <div class="figure">
