@@ -123,6 +123,7 @@ DOORMAN = (
     ("full_time", "Full time"),
     ("part_time", "Part time"),
     ("virtual", "Virtual"),
+    ("unspecified", "Yes, hours not known"),
     ("none", "None"),
 )
 WINDOWS = (("north", "North"), ("south", "South"), ("east", "East"), ("west", "West"))
