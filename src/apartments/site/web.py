@@ -1571,7 +1571,9 @@ def create_app(
 
     @app.get("/research/glossary")
     def research_glossary():
-        return render_template("research_glossary.html", meta=meta())
+        return render_template(
+            "research_glossary.html", meta=meta(), terms=terms_list()
+        )
 
     @app.get("/research/model")
     def research_model():

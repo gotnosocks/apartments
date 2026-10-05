@@ -2,7 +2,19 @@
 {% block title %}Glossary{% endblock %}
 {% block content %}
 <h1>Glossary</h1>
-<p class="lede">The terms on the research pages, in plain words.</p>
+<p class="lede">The terms on the research pages, in plain words. Renters: the parts of a listing's estimate come first.</p>
+
+{% if terms %}
+<section class="card prose" id="estimate-parts">
+  <h2>The parts of an estimate</h2>
+  <p class="note">Each listing's estimate starts from the market reference and adds one dollar amount for each of these parts,
+  shown in the listing page's "What makes up the estimate" table.</p>
+  <dl class="glossary">
+  {% for t in terms %}<dt id="part-{{ t.name | replace('_', '-') }}">{{ t.label }}</dt><dd>{{ t.description }}</dd>
+  {% endfor %}
+  </dl>
+</section>
+{% endif %}
 
 <section class="card prose">
   <h2>Measuring a model</h2>
