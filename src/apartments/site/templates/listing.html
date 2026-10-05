@@ -207,7 +207,8 @@ called a one-bedroom, say), and sometimes the apartment was rebuilt; the estimat
   <details class="table-view" id="model-details">
   <summary>Model details, for statisticians</summary>
   <dl class="facts">
-    <dt>Estimate median</dt><dd>{{ usd(row.estimate_median) }}</dd>
+    <dt>Typical rent, posterior median</dt><dd>{{ usd(row.estimate_median) }} <span class="muted">(the estimate above is the
+      posterior mean, so the two differ a little)</span></dd>
     <dt>Ask percentile</dt><dd>{{ "%.1f" | format(100 * row.pit) }}</dd>
     <dt>Method</dt><dd>{% if row.method == "heldout" %}<a href="{{ url_for('research_glossary', _anchor='held-out') }}">held out of the fit</a>{% else %}leave-own-row-out
       (<a href="{{ url_for('research_glossary', _anchor='psis-loo') }}">PSIS</a>): the fit reweighted as if it had not seen this ask{% endif %}</dd>

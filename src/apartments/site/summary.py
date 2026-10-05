@@ -59,7 +59,7 @@ ERAS = {
     "2010+": "a building from 2010 or later",
 }
 CLASSES = {
-    "C": "a walk-up building",
+    "C": "a building the city's tax records class as a walk-up",
     "R": "a condominium building",
     "S": "a small building over a store or office",
 }
