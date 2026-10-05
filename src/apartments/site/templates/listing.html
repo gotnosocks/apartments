@@ -60,6 +60,16 @@ called a one-bedroom, say), and sometimes the apartment was rebuilt; the estimat
   </div>
 </section>
 
+{% if summary %}
+<section class="card" id="summary">
+  <h2>What the model makes of it</h2>
+  <p>{{ summary | join(" ") }}</p>
+  <p class="note">Read off the model's parts below, and the details the listing states: a part is named only when the model is 95%
+  sure of its sign. The <a href="{{ url_for('research_glossary', _anchor='building' | term_id) }}">building</a> sentence compares the building
+  with average buildings that have the same features; things the model does not measure, like light or noise inside, are not in it.</p>
+</section>
+{% endif %}
+
 <section class="card explain">
   {# Shares rounded down, so "lower than N%" is never more than true; percentiles kept within 1st–99th. #}
   {% set p = [[(row.pit * 100) | int, 1] | max, 99] | min %}
