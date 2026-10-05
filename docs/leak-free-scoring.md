@@ -38,7 +38,7 @@ Designs are compared paired, on the held-out rows both runs share: the per-row E
 ## Which score a feature needs
 
 - **Reads no other row's rent** (every merged feature set today): PSIS-LOO on the frontier, unchanged.
-- **Reads earlier rents of the same unit** (`nb-prevprice-v1`): judged on the latest split. These sets are listed in `splits.READS_EARLIER_RENTS`, and `autoselect.why_not` refuses them, so their inflated PSIS-LOO can never select a served model. Serving one needs a selection rule on the latest split first.
+- **Reads earlier rents of the same unit** (`nb-prevprice-v1`): judged on the latest split. These sets are listed in `features.READS_EARLIER_RENTS`, and `autoselect.why_not` refuses them, so their inflated PSIS-LOO can never select a served model. Serving one needs a selection rule on the latest split first.
 - **Reads other units' rents** (building or block price aggregates, none so far): the latest split is not enough, because a later listing in the same building could read a held-out rent. Such a feature needs a time-forward split (hold out every row after a date). Build that split before merging such a feature.
 
 ## Audit of merged features (2026-10-05)

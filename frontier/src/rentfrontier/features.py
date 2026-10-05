@@ -1804,6 +1804,11 @@ AS_OF_SETS = {
 LISTING_EXTRAS = {"nb-coded-v1", "nb-prevprice-v1", "nb-prevprice-v2"}
 # Feature sets that read the price-history snapshot.
 PRICE_HISTORY = {"nb-prevprice-v1", "nb-prevprice-v2"}
+# Feature sets that read the rents of a unit's earlier listings. Their PSIS-LOO is
+# not leak-free (a left-out row's rent reaches the fit through its unit's next
+# row), so they are judged on the latest split, never ranked on PSIS-LOO
+# (docs/leak-free-scoring.md). nb-prevprice-v2 reads only counts, not rents.
+READS_EARLIER_RENTS = {"nb-prevprice-v1"}
 
 
 # Feature sets that read other basemap and footprints snapshots than the first.

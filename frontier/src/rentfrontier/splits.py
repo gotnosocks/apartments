@@ -92,8 +92,3 @@ SPLITS = {
 }
 # Splits drawn after the data rules (on merged units and kept rows).
 AFTER_RULES = {"latest"}
-# Feature sets that read the rents of a unit's earlier listings. Their PSIS-LOO is
-# not leak-free (a left-out row's rent reaches the fit through its unit's next
-# row), so they are judged on the latest split, never ranked on PSIS-LOO
-# (docs/leak-free-scoring.md).
-READS_EARLIER_RENTS = {"nb-prevprice-v1"}
