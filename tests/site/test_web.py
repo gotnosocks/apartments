@@ -367,7 +367,9 @@ def test_home_page_joins_both_sections(client):
     html = client.get("/").get_data(as_text=True)
     assert 'href="/estimates"' in html and 'href="/research/model"' in html
     # the served model's place on the board, from the research data
-    assert "+5,221 ± 120 over the simplest baseline" in html
+    flat = " ".join(html.split())
+    assert "Predicts asks it has not seen better than the simplest baseline" in flat
+    assert "+5,221 ± 120 in a log-score" in flat
     assert "12.4 minutes on Test GPU" in html
     # newest change first; titles are escaped
     assert html.index("Newest &lt;b&gt;change&lt;/b&gt;") < html.index("Serve m-test")

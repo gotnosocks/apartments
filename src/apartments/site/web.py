@@ -830,9 +830,7 @@ def create_app(
                 row=held,
                 has_building=building_exists(held["building_id"]),
             )
-        terms = {
-            r["name"]: r for r in db().execute("SELECT * FROM terms ORDER BY position")
-        }
+        terms = {r["name"]: r for r in terms_list()}
         contributions = json.loads(row["contributions"])
         market = next(c for c in contributions if c["term"] == "market")
         # Parts at their reference level contribute exactly nothing in every
@@ -1313,7 +1311,7 @@ def create_app(
                     ask=form.ask,
                 )
                 result["day"] = today
-                labels = dict(db().execute("SELECT name, label FROM terms"))
+                labels = {t["name"]: t["label"] for t in terms_list()}
                 labels["season"] = f"Season ({today.day} {today:%B})"
                 parts = [
                     p | {"label": labels.get(p["group"], p["group"])}
@@ -1385,7 +1383,10 @@ def create_app(
         return render_template("about.html", meta=meta(), terms=terms_list())
 
     def terms_list():
-        return db().execute("SELECT * FROM terms ORDER BY position").fetchall()
+        return [
+            dict(r, label=lay_label(r["name"], r["label"]))
+            for r in db().execute("SELECT * FROM terms ORDER BY position")
+        ]
 
     def fit_rows(f) -> list:
         rows = []
@@ -2028,6 +2029,24 @@ def _natural(text: str):
     import re
 
     return [int(t) if t.isdigit() else t for t in re.split(r"(\d+)", text.upper())]
+
+
+# Plain words for the bundle's term labels that read as jargon to renters (playtest
+# round 4: "Building size and bath slopes", "HVAC", "Price basis"). Research pages
+# name terms by these too; the glossary's anchors use the term names.
+LAY_LABELS = {
+    "hvac": "Heating and cooling",
+    "price_basis": "How the price was recorded",
+    "building era": "When the building was built",
+    "bedroom_market_curve": "Market trend for this many bedrooms",
+    "building_drift": "This building's change over time",
+    "building_bedroom_premium": "This building's premium for more bedrooms",
+    "building_feature_slopes": "This building's price for extra space and baths",
+}
+
+
+def lay_label(name: str, label: str) -> str:
+    return LAY_LABELS.get(name, label)
 
 
 def building_facts(x: dict[str, float]) -> dict:
