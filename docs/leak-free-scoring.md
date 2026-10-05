@@ -27,6 +27,12 @@ Rows that no other covariate can see gain about a seventh of the headline.
 - **It is the site's task.** It scores the next listing of an apartment the model already knows, with that apartment's own unit effect learned from its earlier listings.
 - **It costs one fit per design**, the same as an exploration fit (`SPLIT=latest` in `drive.sh`).
 
+Every reader of a run (summary, loo, explain, rentmap, rescore, variance, projection) rebuilds its rows through `data.split_and_rules`, which keeps the run's order. That is rules first for the latest split, and split first for the others.
+
+**Limits.**
+- **Power:** the split scores about 8,700 rows against PSIS-LOO's 77,800, so paired standard errors are about three times larger. Effects of the size of #211's real gain (about +109 ± 23 on last listings under PSIS-LOO) resolve; small ones may not. When the interval straddles zero, K disjoint groups of the same last listings (K fits per design, each last listing held out once, still leak-free) buy power at K times the cost.
+- **Time skew:** latest listings sit mostly in recent months, where the market curve and walks have the least data after them. So the split mixes a feature's value with near-term extrapolation. It is the score for features that read earlier rents, not a general replacement for PSIS-LOO: changes to time structure (walk spacing, bedroom curves) score differently here.
+
 Designs are compared paired, on the held-out rows both runs share: the per-row ELPD difference, its sum, and the standard error from the row spread plus the chains' Monte Carlo error. Both arms must use the same data rules so that they hold out the same rows.
 
 ## Which score a feature needs

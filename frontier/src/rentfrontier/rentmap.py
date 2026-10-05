@@ -47,7 +47,7 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
-from . import data, explain, features, model, splits
+from . import data, explain, features, model
 from .run import git
 
 MAPS = data.OUTPUT_ROOT / "maps"
@@ -373,8 +373,9 @@ def compute(name: str) -> dict:
     _, result, kept = explain.load_run(name)
     config = model.MODELS[result["model"]["name"]]
     frame = data.load(Path(result["dataset"]))
-    heldout = splits.SPLITS[result["split"]](frame)
-    frame, heldout = data.apply_rules(frame, heldout, data.recorded_rules(result))
+    frame, heldout = data.split_and_rules(
+        frame, result["split"], data.recorded_rules(result)
+    )
     feats = features.build(result["feature_set"], frame, ~heldout)
     prep = model.prepare(frame, heldout, feats)
     # The neighbourhoods the fit covers, for the map's labels.
