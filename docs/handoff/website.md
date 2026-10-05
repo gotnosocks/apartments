@@ -2,7 +2,15 @@
 
 What the next turn of the website thread needs. Updated at each milestone.
 
-## State (2026-10-05 17:30 UTC)
+## State (2026-10-05 18:30 UTC)
+
+- **Round 7 done (#291).** Since then: calibration by year on About and "why the map grows less
+  than the median ask" on the rent map (#293, Modeling's numbers), a "Start here" card on Home
+  (#294), a walk-up / elevator choice on the rent map (#296, tax class C / D), and the map sized to
+  the window's height rather than the space below its top (this PR; about 500 px wide on a
+  1366×900 screen instead of 175). Live build 20261005T180141796618Z-c11c9123.
+  Open from the round 7 synthesis: a dollar baseline for the estimate breakdown; photos, a map and
+  street quietness for best-1bed; counts for the not-stated filters.
 
 - **Exposure live (#290).** Data improvements' labels (`/data1/apartments/exposure/labels.parquet`)
   go into a build's `exposure` table: a Faces fact on listing pages, short words in listing
@@ -11,7 +19,6 @@ What the next turn of the website thread needs. Updated at each milestone.
   a labels change shows after the next site build. "Looks onto" and the summary are unchanged until
   agreed with Data improvements.
 - **Estimate form: line facing and previous listing groups (#289).**
-- **Round 7 running** (best-1bed, economist, landlord; `/data1/apartments/tmp/playtests/2026-10-05-r7/`).
 
 - **Ratings live (#285).** Card on listing pages, `/ratings`, `/ratings.csv`, `/ratings.json`;
   stored in `/data1/apartments/ratings/ratings.sqlite` (made on the first save). Design in
@@ -91,14 +98,12 @@ What the next turn of the website thread needs. Updated at each milestone.
 
 ## Next
 
-1. Round 7: write `synthesis.md`, then one bundled PR (branch `site-playtest-r7`) and one review.
-2. Round 5 leftovers in `synthesis.md` order: building Units table capped at 13 rows,
-   "Building level" glossary entry and class codes, rent map
-   fit to area, estimate form's two steps, breakdown on phones, unit chart legend, journalist items.
+1. Round 7 leftovers (above), then round 5 leftovers in `synthesis.md` order: building Units table capped at 13 rows,
+   "Building level" glossary entry and class codes, estimate form's two steps, breakdown on phones, unit chart legend, journalist items.
    Optional: warn when a building link lands on a much pricier building.
-3. After the next served-model switch, check that `/estimate` still works. `autoselect-publish.sh`
+2. After the next served-model switch, check that `/estimate` still works. `autoselect-publish.sh`
    builds the kit.
-4. Optional: cache the parsed kit per database (about 12 ms per request).
+3. Optional: cache the parsed kit per database (about 12 ms per request).
 
 ## Standing rules
 

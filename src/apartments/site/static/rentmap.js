@@ -219,10 +219,10 @@ function mapExtent() {
 function mapFrame(container) {
   const [ex0, ex1, ey0, ey1] = mapExtent(), aspect = (ex1 - ex0) / (ey1 - ey0);
   // The frame has the mapped area's proportions (no water painted over land), as
-  // large as fits the card's width and the window below where the map starts in
-  // the page (its document position, so it does not depend on the scroll).
-  const top = container.getBoundingClientRect().top + window.scrollY;
-  const tall = Math.max(280, window.innerHeight - top - 24);
+  // large as fits the card's width and the window's height less the header: the
+  // whole map fits on screen once scrolled to. (It used to fit the window below
+  // the map's top, which left a tall area a few inches wide; playtest round 7.)
+  const tall = Math.max(420, window.innerHeight - 96);
   const width = Math.round(Math.min(Math.max(320, container.clientWidth), tall * aspect));
   const height = Math.round(width / aspect);
   const k = (width / (ex1 - ex0)) * view.zoom;
