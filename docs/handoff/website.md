@@ -10,7 +10,7 @@ What the next turn of the website thread needs. Updated at each milestone.
   passes both checks (scoring within 0.24% on 93 rows, encoding at least 99.7%).
 - **Kit step for Modeling.** After the summary bundle and rent map, and before
   `apartments.site build`:
-  `cd /data1/apartments/serve/master/frontier && JAX_PLATFORMS=cpu ops/job light -m 8G -- uv run --frozen --extra gpu python -m rentfrontier.kit <run> --summary <bundle>`.
+  `cd /data1/apartments/serve/master/frontier && JAX_PLATFORMS=cpu /data1/apartments/serve/master/ops/job light -m 8G -- uv run --frozen --extra gpu python -m rentfrontier.kit <run> --summary <bundle>`.
   A build without the kit shows "not available for this build".
 - **Validation page** shows the served design's unit split, marked indicative when the fit failed
   the gate (#232).
