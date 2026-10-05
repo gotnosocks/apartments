@@ -53,3 +53,14 @@ def test_home_tiles_are_links(client):
     assert '<a class="tile" href="/listings?status=current">' in html
     assert '<a class="tile" href="/buildings">' in html
     assert 'href="/estimates/map">Rent map</a>' in html
+
+
+def test_home_starts_with_tasks_and_folds_the_technical_details(client):
+    html = " ".join(client.get("/").get_data(as_text=True).split())
+    start = html.index('id="start"')
+    assert start < html.index("Research</a></h2>")
+    assert "Looking for an apartment" in html and "How rents have changed" in html
+    # the technical name and score sit behind a fold
+    assert html.index("<summary>Technical details</summary>") < html.index(
+        "Technical name"
+    )

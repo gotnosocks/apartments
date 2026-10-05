@@ -9,6 +9,21 @@
   behind that model: how candidate models are compared, which one is served and why.</p>
 </section>
 
+{# Playtest round 7 (landlord): the home page led with research language; the tasks come first. #}
+<section class="card" id="start" aria-labelledby="start-title">
+  <h2 id="start-title">Start here</h2>
+  <div class="tasks">
+    <a class="task" href="{{ url_for('listings', status='current', sort='diff_pct') }}"><strong>Looking for an apartment</strong>
+      <span>What's available now, each with what the model expects it to ask. Filter by bedrooms, elevator, laundry or which way it faces.</span></a>
+    {% if estimate_form %}<a class="task" href="{{ url_for('estimate_apartment') }}"><strong>Pricing an apartment</strong>
+      <span>Your own, or one you're offered: an estimate, the range asks for it are likely to fall in, and where your price sits.</span></a>{% endif %}
+    <a class="task" href="{{ url_for('estimates_map') }}"><strong>How rents have changed</strong>
+      <span>Typical rents by area, building and bedroom count, year by year since {{ s.first_period[:4] }}.</span></a>
+    <a class="task" href="{{ url_for('about') }}"><strong>How the estimates work</strong>
+      <span>What the model takes into account, and how often asks land inside its ranges.</span></a>
+  </div>
+</section>
+
 <div class="columns">
 <section class="card section-card">
   <h2><a href="{{ url_for('estimates') }}">Estimates</a></h2>
@@ -37,18 +52,23 @@
   they take to fit, and how simple they are to understand. The best one is served automatically.</p>
   <dl class="facts">
     <dt>Served model</dt><dd>{% if anatomy %}{{ anatomy.summary }}{% else %}A hierarchical model of the market, buildings and apartments{% endif %}
-      (<a href="{{ url_for('research_model', _anchor='structure') }}">how it works</a>)
-      <span class="muted block">Technical name: <code>{{ p.model.name }}</code> + <code>{{ p.feature_set }}</code></span></dd>
+      (<a href="{{ url_for('research_model', _anchor='structure') }}">how it works</a>)</dd>
     {% if entry and entry.psis %}
     {# Plain words first (playtest round 4: renters met "PSIS-LOO ΔELPD" on the home page). #}
     <dt>Accuracy</dt><dd>{% if entry.psis.delta > 2 * entry.psis.delta_se %}Predicts asks it has not seen better than the simplest
-      baseline{% else %}Not clearly better than the simplest baseline at predicting asks it has not seen{% endif %}
-      <span class="muted block">{{ "{:+,.0f}".format(entry.psis.delta) }} ± {{ "{:,.0f}".format(entry.psis.delta_se) }} in a log-score
-      summed over listings (<a href="{{ url_for('research_glossary', _anchor='delta-elpd') }}">PSIS-LOO ΔELPD</a>; higher is better)</span></dd>
+      baseline{% else %}Not clearly better than the simplest baseline at predicting asks it has not seen{% endif %}</dd>
     {% endif %}
-    <dt>Fit time</dt><dd>{{ (p.fit_seconds / 60) | round(1) }} minutes on {{ p.fit_hardware }}</dd>
     {% if selection and selection.selected_by %}<dt>Chosen by</dt><dd>{{ chosen_by(selection.selected_by) }}</dd>{% endif %}
   </dl>
+  <details class="table-view">
+  <summary>Technical details</summary>
+  <dl class="facts">
+    <dt>Technical name</dt><dd><code>{{ p.model.name }}</code> + <code>{{ p.feature_set }}</code></dd>
+    {% if entry and entry.psis %}<dt>Score</dt><dd>{{ "{:+,.0f}".format(entry.psis.delta) }} ± {{ "{:,.0f}".format(entry.psis.delta_se) }} in a log-score
+      summed over listings (<a href="{{ url_for('research_glossary', _anchor='delta-elpd') }}">PSIS-LOO ΔELPD</a>; higher is better)</dd>{% endif %}
+    <dt>Fit time</dt><dd>{{ (p.fit_seconds / 60) | round(1) }} minutes on {{ p.fit_hardware }}</dd>
+  </dl>
+  </details>
   <ul class="link-list">
     <li><a href="{{ url_for('research_frontier') }}">The frontier: accuracy, fit time and simplicity of every fit</a></li>
     <li><a href="{{ url_for('research_model') }}">The served model and why it was chosen</a></li>
@@ -62,6 +82,8 @@
   <h2>Latest changes</h2>
   <p class="note">Merged changes to the code and data, and switches of the served model{% if research_at %}; research data as of
   {{ research_at[:16] | replace("T", " ") }} UTC{% endif %}.</p>
+  <details class="table-view">
+  <summary>The {{ milestones | length }} latest</summary>
   <div class="table-wrap">
   <table class="data">
     <thead><tr><th scope="col">When</th><th scope="col">What</th><th scope="col">Change</th></tr></thead>
@@ -74,6 +96,7 @@
     </tbody>
   </table>
   </div>
+  </details>
   <p class="note"><a href="{{ url_for('research_history', _anchor='changes') }}">Every change</a> ·
   <a href="{{ url_for('research_history', changes='switches', _anchor='changes') }}">model switches only</a></p>
 </section>
