@@ -499,8 +499,14 @@ def recorded_rules(result: dict) -> tuple:
 def apply_rules(frame: pd.DataFrame, heldout: np.ndarray, rules):
     """(frame, heldout) after the named rules. A rule that drops rows drops them
     from the held-out mask too, so every other row keeps its split; the frame
-    gets a fresh RangeIndex."""
+    gets a fresh RangeIndex. A held-out row whose building has no training row
+    left (the building's other rows dropped, by a rule or in a new dataset)
+    moves to training: a fit cannot score a building it never saw. On the
+    datasets fit before 2026-10-05 no row moves."""
     mask = pd.Series(np.asarray(heldout, dtype=bool), index=frame.index)
     for rule in rules:
         frame = DATA_RULES[rule](frame)
-    return frame.reset_index(drop=True), mask.loc[frame.index].to_numpy()
+    held = mask.loc[frame.index].to_numpy().copy()
+    if "building" in frame:
+        held &= frame.building.isin(set(frame.building[~held])).to_numpy()
+    return frame.reset_index(drop=True), held
