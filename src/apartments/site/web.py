@@ -505,6 +505,7 @@ def create_app(
     app.jinja_env.globals["anatomy_levels"] = ANATOMY_LEVELS
     app.jinja_env.globals["design_label"] = design_label
     app.jinja_env.globals["chosen_by"] = chosen_by
+    app.jinja_env.filters["term_id"] = term_id
 
     @app.context_processor
     def helpers():
@@ -1644,6 +1645,13 @@ def design_label(entry: dict) -> str:
     (`Anatomy.label`); "" when its record holds no structure."""
     a = describe(entry.get("model"), entry.get("sizes"))
     return a.label if a else ""
+
+
+def term_id(name: str) -> str:
+    """A glossary anchor for an estimate part: "building size" -> "part-building-size"."""
+    return "part-" + (
+        re.sub(r"[^a-z0-9]+", "-", str(name).lower()).strip("-") or "term"
+    )
 
 
 def chosen_by(selected_by: str) -> str:

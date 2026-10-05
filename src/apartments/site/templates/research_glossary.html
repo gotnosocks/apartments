@@ -10,7 +10,7 @@
   <p class="note">Each listing's estimate starts from the market reference and adds one dollar amount for each of these parts,
   shown in the listing page's "What makes up the estimate" table.</p>
   <dl class="glossary">
-  {% for t in terms %}<dt id="part-{{ t.name | replace('_', '-') }}">{{ t.label }}</dt><dd>{{ t.description }}</dd>
+  {% for t in terms %}<dt id="{{ t.name | term_id }}">{{ t.label }}</dt><dd>{{ t.description }}</dd>
   {% endfor %}
   </dl>
 </section>
