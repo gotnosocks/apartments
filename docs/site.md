@@ -164,7 +164,11 @@ listings fall in each band, as calibration predicts.
 1. **Estimates.** `python -m rentfrontier.summary <run>` (frontier package; see
    [listing estimates](model/listing-estimates.md)) writes a summary bundle under
    `/data1/apartments/frontier/summaries/`. Only runs that pass the convergence gate are accepted.
-2. **Publish.** `python -m apartments.site build` publishes the summary that `config/main-analysis.json`
+2. **Publish.** After an autoselect switch is merged and deployed, `ops/autoselect-publish.sh`
+   runs the three publish steps for the served run: the rent map (`rentfrontier.rentmap`), the
+   estimate kit (`rentfrontier.kit`, for /estimate) and the site build below. Each step keeps an
+   output that already exists for the run and commit.
+   `python -m apartments.site build` publishes the summary that `config/main-analysis.json`
    selects (checked against the selection's sha256); `--summary <bundle>` publishes another one. It writes one SQLite snapshot and
    checks every input against the bundle's provenance:
    - the bundle's files (sha256);
