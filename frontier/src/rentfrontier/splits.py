@@ -68,8 +68,10 @@ def latest_split(data: pd.DataFrame, fraction=FRACTION, seed=SEED) -> np.ndarray
         return np.zeros(len(data), dtype=bool)
     # A unit whose two latest listings share a date has no single latest one
     # (features that read earlier listings order ties by frame position).
-    tied = order[order.unit_id.isin(last.unit_id)].groupby("unit_id")._at.apply(
-        lambda t: len(t) > 1 and t.iloc[-1] == t.iloc[-2]
+    tied = (
+        order[order.unit_id.isin(last.unit_id)]
+        .groupby("unit_id")
+        ._at.apply(lambda t: len(t) > 1 and t.iloc[-1] == t.iloc[-2])
     )
     last = last[~last.unit_id.map(tied).to_numpy()]
     size = min(round(fraction * len(data)), len(last))

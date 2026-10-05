@@ -427,9 +427,15 @@ def test_unit_probes_from_ads_below_min_listing_id_are_skipped(tmp_path):
         (g, "https://streeteasy.com/building/example"),
     )
     s.db.commit()
-    rows = [("https://streeteasy.com/rental/150", "#1A"), ("https://streeteasy.com/rental/250", "#2B")]
+    rows = [
+        ("https://streeteasy.com/rental/150", "#1A"),
+        ("https://streeteasy.com/rental/250", "#2B"),
+    ]
     expand(s, g, inventory_data(rows), INVENTORY, neighborhood="west-village")
-    old, new = "https://streeteasy.com/building/example/1a", "https://streeteasy.com/building/example/2b"
+    old, new = (
+        "https://streeteasy.com/building/example/1a",
+        "https://streeteasy.com/building/example/2b",
+    )
     other = "https://streeteasy.com/building/example/3c"  # a unit route enrolled another way
     s.enqueue(g, [{"url": other, "kind": "listing"}])
     assert exclusion_reason(s, g, old) == "probe_source_before_min_listing_id"

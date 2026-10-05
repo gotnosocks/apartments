@@ -319,7 +319,10 @@ def predictive_quantiles(total, sigma, nu, weights, probabilities, iterations=10
         slow = np.flatnonzero(np.abs(f) > 1e-7)
         if len(slow):
             t, s_, w = total[:, slow], sigma[:, slow], weights[:, slow]
-            a, b = np.where(f[slow] < 0, x[slow], lo[slow]), np.where(f[slow] < 0, hi[slow], x[slow])
+            a, b = (
+                np.where(f[slow] < 0, x[slow], lo[slow]),
+                np.where(f[slow] < 0, hi[slow], x[slow]),
+            )
             for _ in range(50):
                 m = 0.5 * (a + b)
                 below = (stdtr(nu_, (m[None] - t) / s_) * w).sum(0) < p

@@ -65,8 +65,14 @@ def _rules_reapply(r: dict) -> list[str]:
     return []
 
 
-def decide(candidate: str, reference: str, serve: str, incumbent: dict,
-           rules=None, paired=leaderboard.paired) -> dict:
+def decide(
+    candidate: str,
+    reference: str,
+    serve: str,
+    incumbent: dict,
+    rules=None,
+    paired=leaderboard.paired,
+) -> dict:
     """switch or keep, with the checks behind it."""
     rules = autoselect.current_rules() if rules is None else rules
     c, ref, s = _result(candidate), _result(reference), _result(serve)
@@ -80,7 +86,8 @@ def decide(candidate: str, reference: str, serve: str, incumbent: dict,
     if c["model"]["name"] != ref["model"]["name"]:
         problems["candidate"].append("a different model from the reference")
     if (ref["model"]["name"], ref["feature_set"]) != (
-        incumbent["model"], incumbent["feature_set"]
+        incumbent["model"],
+        incumbent["feature_set"],
     ):
         problems["reference"].append("not the served design")
     if (s["model"]["name"], s["feature_set"]) != (c["model"]["name"], c["feature_set"]):
@@ -95,8 +102,11 @@ def decide(candidate: str, reference: str, serve: str, incumbent: dict,
     problems["serve"] += _rules_reapply(s)
     board = leaderboard.build(keep_dirs=True)
     entry = next(
-        (e for e in board["entries"]
-         if "rows" in e["splits"] and e["splits"]["rows"]["run"] == serve),
+        (
+            e
+            for e in board["entries"]
+            if "rows" in e["splits"] and e["splits"]["rows"]["run"] == serve
+        ),
         None,
     )
     if entry is None:
@@ -105,16 +115,24 @@ def decide(candidate: str, reference: str, serve: str, incumbent: dict,
         why = autoselect.why_not(entry, rules)
         if why is not None and not why.startswith(READS_REASON):
             problems["serve"].append(why)
-    out = {"candidate": candidate, "reference": reference, "serve": serve,
-           "incumbent": incumbent["run"], "problems": problems}
+    out = {
+        "candidate": candidate,
+        "reference": reference,
+        "serve": serve,
+        "incumbent": incumbent["run"],
+        "problems": problems,
+    }
     if any(problems.values()):
         out.update(action="keep", reason="the latest-split pair is not valid")
         return out
     h, hse = paired(RUNS / candidate, RUNS / reference)
     out.update(heldout=h, heldout_se=hse)
     if h <= 2 * hse:
-        out.update(action="keep", reason="the candidate does not beat the served "
-                   "design by more than two SE on the latest split")
+        out.update(
+            action="keep",
+            reason="the candidate does not beat the served "
+            "design by more than two SE on the latest split",
+        )
         return out
     out.update(
         action="switch",
@@ -134,9 +152,15 @@ def main(argv=None):
     parser = argparse.ArgumentParser(
         description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
     )
-    parser.add_argument("--candidate", required=True, help="latest-split run, reads earlier rents")
-    parser.add_argument("--reference", required=True, help="latest-split run, served design")
-    parser.add_argument("--serve", required=True, help="rows-split run of the candidate design")
+    parser.add_argument(
+        "--candidate", required=True, help="latest-split run, reads earlier rents"
+    )
+    parser.add_argument(
+        "--reference", required=True, help="latest-split run, served design"
+    )
+    parser.add_argument(
+        "--serve", required=True, help="rows-split run of the candidate design"
+    )
     parser.add_argument("--selection", type=Path, default=autoselect.SELECTION)
     parser.add_argument("--write", type=Path, metavar="SUMMARY")
     args = parser.parse_args(argv)
@@ -153,9 +177,12 @@ def main(argv=None):
             Path(entry["psis"]["_dir"]),
             {"reason": decision["reason"], "checked": [{"run": args.serve}]},
         )
-        record["selected_by"] = record["selected_by"].replace(
-            "rentfrontier.autoselect", "rentfrontier.latestselect"
-        ) + "; Ben, 2026-10-05: leak-free comparison for features that read earlier rents"
+        record["selected_by"] = (
+            record["selected_by"].replace(
+                "rentfrontier.autoselect", "rentfrontier.latestselect"
+            )
+            + "; Ben, 2026-10-05: leak-free comparison for features that read earlier rents"
+        )
         record["latest_pair"] = {
             "candidate": args.candidate,
             "reference": args.reference,

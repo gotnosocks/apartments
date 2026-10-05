@@ -982,9 +982,13 @@ def test_prevprice_never_reads_the_rows_own_advertisement(monkeypatch, tmp_path)
         {
             "listing_id": ["10", "20"],
             "price_changes": [
-                json.dumps([["2020-01-01T00:00:00Z", 5000], ["2020-06-01T00:00:00Z", 4000]]),
+                json.dumps(
+                    [["2020-01-01T00:00:00Z", 5000], ["2020-06-01T00:00:00Z", 4000]]
+                ),
                 # The current capture's own ad, cut before the capture.
-                json.dumps([["2021-01-01T00:00:00Z", 6000], ["2021-02-01T00:00:00Z", 5400]]),
+                json.dumps(
+                    [["2021-01-01T00:00:00Z", 6000], ["2021-02-01T00:00:00Z", 5400]]
+                ),
             ],
         }
     ).to_parquet(path)
@@ -1001,7 +1005,9 @@ def test_prevprice_never_reads_the_rows_own_advertisement(monkeypatch, tmp_path)
             "unit_id": ["u"] * 3,
             "source_listing_id": [10, 20, 20],  # ad 20: initial ask, then a capture
             "asking_rent": [5000.0, 6000.0, 5400.0],
-            "price_at": pd.to_datetime(["2020-01-01", "2021-01-01", "2021-03-01"], utc=True),
+            "price_at": pd.to_datetime(
+                ["2020-01-01", "2021-01-01", "2021-03-01"], utc=True
+            ),
         }
     )
     out = features.prevprice_v1(frame, np.ones(3, bool), id="t", base="stub-base")

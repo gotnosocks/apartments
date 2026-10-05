@@ -54,7 +54,9 @@ def test_split_and_rules_draws_latest_after_the_rules(monkeypatch):
     )
     from functools import partial
 
-    monkeypatch.setitem(splits.SPLITS, "latest", partial(splits.latest_split, fraction=0.5))
+    monkeypatch.setitem(
+        splits.SPLITS, "latest", partial(splits.latest_split, fraction=0.5)
+    )
     out, held = data.split_and_rules(frame, "latest", ["merge-test"])
     assert set(out.audit_id[held]) == {"b", "d"}
     # Other splits keep the old order: drawn first, rules after.

@@ -25,7 +25,9 @@ def write(root, name, **kw):
 
 @pytest.fixture
 def runs(tmp_path, monkeypatch):
-    monkeypatch.setattr(latestselect.data, "recorded_rules", lambda r: tuple(r["data_rules"]))
+    monkeypatch.setattr(
+        latestselect.data, "recorded_rules", lambda r: tuple(r["data_rules"])
+    )
     monkeypatch.setattr(latestselect, "RUNS", tmp_path)
     monkeypatch.setattr(features, "READS_EARLIER_RENTS", {"prev"})
     write(tmp_path, "cand", feature_set="prev")
@@ -47,20 +49,30 @@ INC = {"run": "served", "model": M, "feature_set": "nb-coded-v1"}
 
 
 def test_a_clear_latest_split_win_switches_to_the_serving_run(runs):
-    d = latestselect.decide("cand", "ref", "serve", INC, RULES, paired=lambda a, b: (68.5, 15.1))
+    d = latestselect.decide(
+        "cand", "ref", "serve", INC, RULES, paired=lambda a, b: (68.5, 15.1)
+    )
     assert d["action"] == "switch" and d["run"] == "serve"
     assert "+68.5 ± 15.1" in d["reason"] and "not comparable" in d["reason"]
 
 
 def test_within_two_se_keeps_the_incumbent(runs):
-    d = latestselect.decide("cand", "ref", "serve", INC, RULES, paired=lambda a, b: (20.0, 15.0))
+    d = latestselect.decide(
+        "cand", "ref", "serve", INC, RULES, paired=lambda a, b: (20.0, 15.0)
+    )
     assert d["action"] == "keep"
 
 
 def test_an_invalid_pair_is_refused_before_scoring(runs):
     write(runs, "ref-rows", split="rows")
     write(runs, "cand-fail", feature_set="prev", diagnostics={"passes": False})
-    write(runs, "serve-old", split="rows", feature_set="prev", data_rules=["unit-labels-v2"])
+    write(
+        runs,
+        "serve-old",
+        split="rows",
+        feature_set="prev",
+        data_rules=["unit-labels-v2"],
+    )
 
     def never(a, b):
         raise AssertionError("scored an invalid pair")
@@ -87,8 +99,18 @@ def test_every_part_of_the_pair_is_checked(runs, monkeypatch):
     write(runs, "cand-explore", feature_set="prev", tier="exploration")
     write(runs, "serve-wrong-design", split="rows")
     cases = [
-        ("cand-plain", "serve", "candidate", "its feature set does not read earlier rents"),
-        ("cand-other-model", "serve", "candidate", "a different model from the reference"),
+        (
+            "cand-plain",
+            "serve",
+            "candidate",
+            "its feature set does not read earlier rents",
+        ),
+        (
+            "cand-other-model",
+            "serve",
+            "candidate",
+            "a different model from the reference",
+        ),
         ("cand-old-data", "serve", "candidate", "not on the current dataset"),
         ("cand-explore", "serve", "candidate", "not a full-tier fit"),
         ("cand", "serve-wrong-design", "serve", "not the candidate's design"),
@@ -103,7 +125,9 @@ def test_the_serving_run_must_pass_every_other_autoselect_check(runs, monkeypatc
         raise AssertionError("scored an invalid pair")
 
     monkeypatch.setattr(
-        latestselect.autoselect, "why_not", lambda e, rules: "its fit took longer than the window"
+        latestselect.autoselect,
+        "why_not",
+        lambda e, rules: "its fit took longer than the window",
     )
     d = latestselect.decide("cand", "ref", "serve", INC, RULES, paired=never)
     assert "its fit took longer than the window" in d["problems"]["serve"]
@@ -117,6 +141,8 @@ def test_changed_rule_files_refuse_the_pair(runs, monkeypatch):
         raise SystemExit("rule file changed")
 
     monkeypatch.setattr(latestselect.data, "recorded_rules", changed)
-    d = latestselect.decide("cand", "ref", "serve", INC, RULES, paired=lambda a, b: (99.0, 1.0))
+    d = latestselect.decide(
+        "cand", "ref", "serve", INC, RULES, paired=lambda a, b: (99.0, 1.0)
+    )
     assert d["action"] == "keep"
     assert any("cannot be re-applied" in p for p in d["problems"]["serve"])

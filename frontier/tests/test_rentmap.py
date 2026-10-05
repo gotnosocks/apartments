@@ -107,7 +107,11 @@ def test_building_hoods_follow_the_fit_rows():
         {
             "building": ["a", "b", "a", "a", "c"],
             "neighbourhood": [
-                "West Village", "West Village", "Chelsea", "Chelsea", "Chelsea"
+                "West Village",
+                "West Village",
+                "Chelsea",
+                "Chelsea",
+                "Chelsea",
             ],
         }
     )

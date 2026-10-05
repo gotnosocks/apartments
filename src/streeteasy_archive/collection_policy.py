@@ -168,9 +168,16 @@ def exclusion_reason(store, generation, url):
     # Village no post-cutoff capture links to any of these units.
     if not key and cutoff:
         row = store.db.execute(
-            "SELECT reason FROM scope_urls WHERE generation=? AND url=?", (generation, url)
+            "SELECT reason FROM scope_urls WHERE generation=? AND url=?",
+            (generation, url),
         ).fetchone()
-        source = re.match(rf"{PROBE_RULE} from https://streeteasy\.com/rental/(\d+)$", row[0]) if row else None
+        source = (
+            re.match(
+                rf"{PROBE_RULE} from https://streeteasy\.com/rental/(\d+)$", row[0]
+            )
+            if row
+            else None
+        )
         if source and int(source[1]) < cutoff:
             return "probe_source_before_min_listing_id"
     if key:
