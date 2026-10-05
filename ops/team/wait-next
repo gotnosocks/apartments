@@ -168,6 +168,20 @@ def wait(args: argparse.Namespace, probes=None, clock=time.monotonic, sleep=time
         sleep(args.poll)
 
 
+def compact_window_missing(env=os.environ) -> str | None:
+    """A warning when the calling session runs without the auto-compact window.
+
+    Claude Code passes the `env` of the session's .claude/settings.json (read live from its
+    working directory) to the commands it runs, so this process sees the variable exactly
+    when the session has it. Without it the context grows toward 1M tokens
+    (docs/token-usage.md).
+    """
+    if env.get("CLAUDE_CODE_AUTO_COMPACT_WINDOW"):
+        return None
+    return ("context: this session runs without CLAUDE_CODE_AUTO_COMPACT_WINDOW, so it compacts "
+            "only near 1M tokens; ask Ben to bring master's .claude/settings.json into its worktree")
+
+
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     ap.add_argument("--unit", action="append", default=None)
@@ -185,6 +199,8 @@ def main(argv: list[str] | None = None) -> int:
     print("\n".join(events))
     jobs = gpu_jobs()
     print(f"gpu: {'busy: ' + ', '.join(jobs) if jobs else 'idle'}")
+    if warning := compact_window_missing():
+        print(warning)
     print("Act on this, keep the GPU queued, then re-arm ops/team/wait-next in the background.")
     return 0
 

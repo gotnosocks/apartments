@@ -136,3 +136,9 @@ def test_units_default_to_frontier_only_with_gpu(monkeypatch):
     mod.main([])
     mod.main(["--gpu"])
     assert seen == [[], ["frontier-*"]]
+
+
+def test_compact_window_warning():
+    mod = load()
+    assert mod.compact_window_missing({}) is not None
+    assert mod.compact_window_missing({"CLAUDE_CODE_AUTO_COMPACT_WINDOW": "200000"}) is None

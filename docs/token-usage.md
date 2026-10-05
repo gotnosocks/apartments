@@ -40,3 +40,26 @@ Cache reads are 98% of the tokens. Uncached input is negligible (7k).
 - `.claude/settings.json` sets `CLAUDE_CODE_AUTO_COMPACT_WINDOW=200000`, so sessions compact near
   200k (Ben approved 2026-10-05; it applies when a session restarts). CLAUDE.md asks for a handoff
   note at milestones, log reads with `tail`/`grep` only, and never asking Ben to type "go".
+
+## Second pass: 07:10 to 15:25 UTC, 2026-10-05
+
+| Session | Calls | Cache read | Cache write | Median / max context | Weight |
+|---|---:|---:|---:|---:|---:|
+| Website | 602 | 60.4M | 1.41M | 99k / 334k | 29% |
+| Data improvements | 107 | 43.6M | 1.28M | 421k / 479k | 21% |
+| Website playtesters (16 spawns) | 584 | 35.3M | 1.06M | 60k / 116k | 17% |
+| Modeling | 125 | 40.8M | 0.51M | 329k / 407k | 16% |
+| Website reviewers (31 spawns) | 238 | 9.0M | 1.05M | 42k / 58k | 9% |
+| Other reviewers (11 spawns) | 91 | 4.1M | 0.63M | 55k / 77k | 5% |
+| Data collection | 5 | 1.6M | 0.38M | 407k / 410k | 3% |
+
+Hourly cost peaked at 11:00 to 14:00 UTC (4.8, 7.8 and 9.3 units against about 2 before), driven by
+Website's playtest rounds 3 to 5 and its PR reviews.
+
+- The compaction window works without a restart: Claude Code reads `.claude/settings.json` live
+  from the session's worktree. Website's worktree has it and compacted six times at about 167k.
+  The Data improvements, Modeling and Data collection session worktrees are on branches from
+  before #234, so they still run at 330k to 480k and have not compacted once. `wait-next` now
+  says so when the session that runs it lacks the variable.
+- Subagent fan-out is now a third of the cost. Reviewers cost through cache writes: each spawn
+  starts cold. Playtesters cost through call count.
