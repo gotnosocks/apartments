@@ -1790,11 +1790,11 @@ def gate_misses(split: dict, gate: dict) -> list[str]:
     """The convergence thresholds a fit fell short of, in words."""
     out = []
     rhat, ess = split.get("max_rhat"), split.get("min_ess")
-    if isinstance(rhat, (int, float)) and gate.get("rhat") and rhat > gate["rhat"]:
+    if isinstance(rhat, (int, float)) and gate.get("rhat") and rhat >= gate["rhat"]:
         out.append(f"largest R-hat {rhat:.3f}; the gate needs below {gate['rhat']}")
-    if isinstance(ess, (int, float)) and gate.get("ess") and ess < gate["ess"]:
+    if isinstance(ess, (int, float)) and gate.get("ess") and ess <= gate["ess"]:
         out.append(
-            f"smallest effective sample size {ess:,.0f}; the gate needs at least "
+            f"smallest effective sample size {ess:,.0f}; the gate needs more than "
             f"{gate['ess']:,}"
         )
     return out

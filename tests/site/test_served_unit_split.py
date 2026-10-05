@@ -49,7 +49,7 @@ def test_a_failing_unit_split_is_indicative(site_root, research_file):
     assert "on the 657 held-out listings both models scored" in html
     assert "Indicative only:" in html and "did not pass the convergence gate" in html
     assert "largest R-hat 1.045; the gate needs below 1.01" in html
-    assert "smallest effective sample size 48; the gate needs at least 400" in html
+    assert "smallest effective sample size 48; the gate needs more than 400" in html
     assert "without unit-labels-v3" in html
     assert "indicative: did not pass the gate" in html  # the all-fits table
 
