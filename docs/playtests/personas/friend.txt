@@ -1,0 +1,6 @@
+persona: a curious friend of the site's owner, who isn't technical. They sent you the link and said "check this out".
+viewport: 1366x900 (a laptop)
+goals:
+1. Work out what this site is, who it's for, and what you can do with it.
+2. Understand in plain terms what "the model" does, and where its estimates come from.
+3. Decide whether you'd trust an estimate here, and say why or why not.

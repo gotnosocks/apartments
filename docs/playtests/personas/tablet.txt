@@ -1,0 +1,7 @@
+PERSONA: a retired schoolteacher on an iPad who has rented the same Chelsea 1-bedroom for 11 years and just got a renewal offer of $3,450 (up from $3,200). Not technical; reads carefully.
+VIEWPORT: {"width": 820, "height": 1180}
+GOALS:
+1. Find out whether a $3,450 rent is high or low for a 1-bedroom like yours in Chelsea (pick any Chelsea building the site knows that has 1-bedrooms).
+2. Find out how much 1-bedroom rents in Chelsea have changed over the last year or two.
+3. Use whatever the site offers to see what your own apartment would rent for if listed today.
+4. Say whether anything on the site confused or worried you.

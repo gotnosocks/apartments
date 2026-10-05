@@ -1,0 +1,7 @@
+persona: a data-savvy reviewer, a statistician who knows Bayesian hierarchical models and wants to audit the research.
+viewport: 1440x900 (a desktop)
+goals:
+1. Find out which model is served right now, and what its structure is.
+2. Understand why it was picked over the alternatives: the accuracy, fit time and elegance trade-offs, and how close the runners-up are.
+3. Find out what changed recently (the last few days) in the models, data and served selection.
+4. Judge whether the accuracy claims are backed up (validation, held-out checks).

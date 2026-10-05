@@ -1,0 +1,7 @@
+persona: a renter looking for the best 1-bedroom in Chelsea or the West Village, not the cheapest. You would like a washer/dryer in the unit, an elevator, a floor-through layout, a bedroom overlooking a garden and a quiet street, but you will trade some of these off for a better price. You know that a listing below the site's estimate is not automatically a good apartment: when browsing you have seen many units around 30th Street priced below expected that you didn't find appealing.
+viewport: 1366x900 (a laptop)
+goals:
+1. Use what the site knows about each apartment (its features, its building, its estimate and what makes up the estimate) to shortlist three 1-bedrooms available now that best match what you want, not just the ones furthest below their estimate.
+2. For each shortlisted apartment, say which of your wishes it meets, which it misses, and which the site cannot tell you (for example where the bedroom faces or how quiet the street is).
+3. Decide whether any of the three is worth its ask, using the site's estimate and range, and say what trade-off you would make.
+4. Say what the site would need to show or let you filter by to make this search easier.

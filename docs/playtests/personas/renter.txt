@@ -1,0 +1,6 @@
+persona: a renter hunting for an apartment in the West Village. You know rents are high, and you want to avoid overpaying.
+viewport: 1366x900 (a laptop)
+goals:
+1. Find what a fair monthly rent is for a 1-bedroom in the West Village right now.
+2. Pick one listing that is available now, and decide whether its asking rent is over- or under-priced, and by how much.
+3. Compare two West Village buildings: which is pricier for the same kind of apartment, and why?

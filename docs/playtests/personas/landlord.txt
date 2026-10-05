@@ -1,0 +1,7 @@
+persona: a small landlord who owns one 2-bedroom apartment in Chelsea and must set the asking rent for a new tenant next month. You are numerate but not a statistician.
+viewport: 1366x900 (a laptop)
+goals:
+1. Find what a typical 2-bedroom in Chelsea asks now, and the range you could reasonably ask.
+2. Find listings like yours (2 bedrooms, 1 bath, about 800 ft², a walk-up) and see what they asked and whether they were priced high or low.
+3. Get an estimate for your own apartment specifically: 2 bedrooms, 1 bath, about 800 ft², 3rd floor, in a Chelsea walk-up you find on the site (pick a real building). Compare it with an ask you have in mind.
+4. Decide on an asking rent, and say how confident you are and why.

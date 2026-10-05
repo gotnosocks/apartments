@@ -1,0 +1,7 @@
+PERSONA: a parent relocating from Chicago with a partner and a 6-year-old, renting in Manhattan for the first time. Comfortable with websites, knows nothing about statistics or NYC buildings.
+VIEWPORT: {"width": 1366, "height": 900}
+GOALS:
+1. Find 2-bedroom (or larger) apartments with an elevator that are on the market now in Chelsea or the West Village, and shortlist three that look like fair value.
+2. For one shortlisted apartment, work out whether its ask has changed since it was first listed and whether it has been on the market long.
+3. A broker mentioned an unlisted 2-bedroom, 2-bath, about 1,100 ft², 8th floor, in a building on your shortlist. Get the site's estimate for it and decide what you'd offer.
+4. Decide which of the two neighbourhoods is cheaper for a 2-bedroom right now, and how sure the site is.
