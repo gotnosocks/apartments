@@ -56,5 +56,8 @@ def test_the_default_status_and_elevator_are_spelled_out(client):
     )
     assert 'href="/listings?beds=2&amp;status=current"' in html
     assert 'href="/listings?beds=2&amp;elevator=yes"' in html
+    # The links read as actions, not as a caption of the current state.
+    assert ">show elevator buildings only</a>" in html
+    assert ">show only ads available now</a>" in html
     html = client.get("/listings?status=current&elevator=yes").get_data(as_text=True)
     assert "including ads no longer up" not in html and "with or without" not in html
