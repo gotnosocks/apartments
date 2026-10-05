@@ -12,6 +12,9 @@ ADDED = {
     # StreetEasy area 116. Its child area NoHo (118) is a separate neighborhood
     # and is not included, matching how West Village is scoped.
     "greenwich-village": ({"greenwich-village"}, {"Greenwich Village"}),
+    # StreetEasy areas Flatiron and Gramercy Park, crawled together (Ben, Oct 5 2026).
+    # Child areas such as NoMad are separate neighborhoods and are not included.
+    "flatiron-gramercy-park": ({"flatiron", "gramercy-park"}, {"Flatiron", "Gramercy Park"}),
 }
 
 for _name, _value in ADDED.items():
