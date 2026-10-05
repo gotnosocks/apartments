@@ -105,9 +105,9 @@
     <a class="download" href="{{ csv_url }}" download>Download CSV</a>
   </p>
 </div>
-{% if past %}<p class="note" id="few-current">Only {{ total }} listing{{ " is" if total == 1 else "s are" }} on the market now with
+{% if past %}<p class="note" id="few-current">{% if total == 0 %}No listings are{% else %}Only {{ total }} listing{{ " is" if total == 1 else "s are" }}{% endif %} on the market now with
 these filters: few apartments are listed at any one time. <a href="{{ page_url('listings', filters, status='past', page=None) }}">{{ "{:,}".format(past) }}
-past listing{{ "" if past == 1 else "s" }} match the same filters</a>, at their first ask.</p>{% endif %}
+past listing{{ " matches" if past == 1 else "s match" }} the same filters</a>, at their first ask.</p>{% endif %}
 {% if summary %}<p class="summary-line"><strong>{{ "{:,}".format(summary.n) }}</strong> {{ "listing matches" if summary.n == 1 else "listings match" }}:
 median ask <strong>{{ usd(summary.median) }}</strong>{% if summary.low is not none %}, middle 80% of asks {{ usd(summary.low) }}–{{ usd(summary.high) }}{% endif %}{% if summary.estimate is not none %}; median estimate <strong>{{ usd(summary.estimate) }}</strong>{% endif %}{% if filters.min_sqft is not none or filters.max_sqft is not none or filters.elevator %}
 <span class="muted">(size and elevator filters leave out listings that don't state them)</span>{% endif %}.</p>{% endif %}
