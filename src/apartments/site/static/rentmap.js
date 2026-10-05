@@ -451,6 +451,7 @@ function render() {
   $('year-label').textContent = String(yearOf(yearIndex()));
   const bedLabel = state.data.bedrooms.find((b) => b.key === state.bed).label;
   $('map-title').textContent = `Typical rent by building ${state.area ? 'in' : 'across'} ${areaName()}: ${bedLabel.toLowerCase()}, ${yearOf(yearIndex())}`;
+  $('area-caveat').hidden = !state.area;
   $('trend-title').textContent = `The median building ${state.area ? 'in' : 'across'} ${areaName()} by bedrooms over time`;
   renderKpis();
   renderMap();
