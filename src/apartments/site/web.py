@@ -1544,6 +1544,7 @@ def create_app(
                 if f["tier_frontier"]
                 else "other",
                 "tier": f["tier"],
+                "on_line": f["tier_frontier"],
                 "draws": f["draws"],
                 "group": f["group"],
                 "faded": f["faded"],
@@ -1583,8 +1584,9 @@ def create_app(
                 if (box := frontier_box(points))
                 else None,
                 "floored": floor is not None and any(p["y"] < floor for p in points),
+                "line": sum(1 for p in points if p["on_line"]) > 1,
                 "unscored": sum(
-                    f["delta"] is None
+                    f["delta"] is None and not f["prior"]
                     for f in view["fits"]
                     if (f["tier"] == "exploration") == (tier == "exploration")
                 ),
@@ -1603,8 +1605,62 @@ def create_app(
                     x_range=x_range,
                     y_range=y_range,
                     zoom=prefix,
+                    # The exploration line includes unconverged fits.
+                    frontier_line="solid" if tier == "full" else "dashed",
                 ),
             }
+            # Fits trained on the data before the board's re-baseline: drawn
+            # apart, on their own axis, never on any frontier.
+            earlier = [
+                f
+                for f in view["fits"]
+                if f["prior"]
+                and (f["tier"] == "exploration") == (tier == "exploration")
+            ]
+            charts_by_tier[tier]["earlier"] = len(earlier)
+            charts_by_tier[tier]["earlier_data"] = (
+                earlier[0]["prior"]["dataset"] if earlier else None
+            )
+            earlier_floor = (
+                None if full else outlier_floor([f["prior"]["delta"] for f in earlier])
+            )
+            charts_by_tier[tier]["earlier_floored"] = earlier_floor is not None and any(
+                f["prior"]["delta"] < earlier_floor for f in earlier
+            )
+            charts_by_tier[tier]["earlier_chart"] = (
+                charts.fit_scatter(
+                    [
+                        {
+                            "x": f["minutes"],
+                            "y": f["prior"]["delta"],
+                            "kind": "failing" if f["kind"] == "failing" else "other",
+                            "tier": f["tier"],
+                            "title": f["entry"]["key"],
+                            "rows": [
+                                [
+                                    "PSIS-LOO ΔELPD, earlier data (not comparable)",
+                                    (
+                                        f"{f['prior']['delta']:+,.1f} ± "
+                                        f"{f['prior']['se']:,.1f}"
+                                    ),
+                                ],
+                                *fit_rows(f),
+                            ],
+                            "href": url_for("research_fit", key=f["entry"]["key"]),
+                        }
+                        for f in earlier
+                    ],
+                    label=f"{TIERS[tier]}s scored on the earlier data, "
+                    "against its own baseline: not comparable with the chart above",
+                    x_title=f"Fit time on {device}, full dataset (minutes)",
+                    y_title="PSIS-LOO ΔELPD against the earlier baseline",
+                    x_format=lambda v: f"{v:g}",
+                    y_format=charts.signed,
+                    y_floor=earlier_floor,
+                )
+                if earlier
+                else None
+            )
         return render_template(
             "research_frontier.html",
             meta=m,

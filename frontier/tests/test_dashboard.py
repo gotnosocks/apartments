@@ -114,6 +114,20 @@ def test_snapshots_keep_a_frontier_per_tier(tmp_path):
     assert gpu["frontier_by_tier"] == {"exploration": ["quick"], "full": ["full"]}
 
 
+def test_the_exploration_line_counts_unconverged_fits(tmp_path):
+    slow_full = entry(tmp_path, "full", 300.0, 3000.0, at(1))
+    failing_full = entry(tmp_path, "ffull", 500.0, 2000.0, at(1), passes=False)
+    quick = entry(tmp_path, "quick", 400.0, 600.0, at(2), passes=False)
+    quick["tier"] = {"name": "exploration"}
+    entries = dashboard.assign_keys([slow_full, failing_full, quick])
+    gpu = dashboard.snapshots(entries)[-1]["by_class"]["gpu"]
+    # Ben, 2026-10-05: unconverged exploration fits are on their line; the
+    # full line keeps the gate, and the board-wide frontier is unchanged.
+    assert gpu["frontier_by_tier"] == {"exploration": ["quick"], "full": ["full"]}
+    assert gpu["frontier"] == ["full"]
+    assert quick["passes_checks"] is False
+
+
 def test_shared_ids_get_unique_keys_and_snapshots_use_them(tmp_path):
     first = entry(tmp_path, "m6", 400.0, 1800.0, at(1), passes=False)
     solo = entry(tmp_path, "m6-solo-dir", 400.0, 2400.0, at(2), passes=True)
@@ -416,3 +430,38 @@ def test_versus_served_pairs_full_passing_fits(monkeypatch, tmp_path):
         set(out) == {"a", "b"} and abs(out["a"]["pm"] - (3.0**2 + 0.5**2) ** 0.5) < 1e-9
     )
     assert out["a"]["delta"] == 10.0 and not out["a"]["tie"] and out["b"]["tie"]
+
+
+def test_prior_scores_pair_unscored_fits_with_the_earlier_baseline():
+    loos = {
+        dashboard.PRIOR_BASELINE: {"_dir": "base"},
+        "old": {"_dir": "old-dir"},
+        "now": {"_dir": "now-dir"},
+        "bad": {"_dir": "bad-dir"},
+    }
+
+    def paired(a, b):
+        assert b == "base"
+        if a == "bad-dir":
+            raise ValueError("rows differ")
+        return 50.0, 5.0, 1.0
+
+    def entry(key, run, psis=None):
+        return {"_key": key, "splits": {"rows": {"run": run}}, "psis": psis}
+
+    entries = [
+        entry("a", "old"),
+        entry("b", "now", psis={"delta": 3.0}),  # scored now: left alone
+        entry("c", "bad"),  # pairs with neither baseline
+        entry("d", "no-loo"),
+    ]
+    out = dashboard.prior_scores(entries, loos=loos, paired=paired)
+    assert out == {
+        "a": {
+            "delta": 50.0,
+            "se": 5.0,
+            "mcse": 1.0,
+            "baseline": dashboard.PRIOR_BASELINE,
+            "dataset": dashboard.PRIOR_DATASET,
+        }
+    }

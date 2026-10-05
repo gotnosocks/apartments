@@ -457,6 +457,7 @@ def fit_scatter(
     x_range=None,
     y_range=None,
     zoom=None,
+    frontier_line=None,
 ) -> Markup:
     """One dot per fit on two measures. points: [{"x", "y", "kind" (a
     FIT_KINDS key), "title", "rows", "href", "tier" (optional: "exploration"
@@ -464,7 +465,10 @@ def fit_scatter(
     x_line: (value, label) draws a reference line, such as a time target.
     x_range, y_range: (low, high) zoom the chart to that box; fits outside it
     are left off. zoom: the query-parameter prefix the page reads the box from,
-    so dragging across the chart can ask for a new one (site.js)."""
+    so dragging across the chart can ask for a new one (site.js).
+    frontier_line: "solid" or "dashed" joins the points marked "on_line" (the
+    chart's frontier) in fit-time order; dashed when the line includes fits
+    that fail the convergence checks."""
     if not points:
         return Markup("")
     if x_range or y_range:
@@ -533,6 +537,15 @@ def fit_scatter(
         group.sort(key=lambda p: p.get("draws") or 0)
         line = " ".join(f"{frame.x(p['x']):.1f},{frame.y(p['y']):.1f}" for p in group)
         parts.append(f'<polyline class="measured" points="{line}"/>')
+    on_line = sorted((p for p in points if p.get("on_line")), key=lambda p: p["x"])
+    if frontier_line and len(on_line) > 1:
+        line = " ".join(
+            f"{frame.x(p['x']):.1f},{frame.y(max(p['y'], frame.y0)):.1f}"
+            for p in on_line
+        )
+        parts.append(
+            f'<polyline class="frontier-line {frontier_line}" points="{line}"/>'
+        )
     order = {k: i for i, k in enumerate(FIT_KINDS)}
     hover = []
     for p in sorted(points, key=lambda p: (not p.get("faded"), order[p["kind"]])):
@@ -556,6 +569,18 @@ def fit_scatter(
             "</div>",
             '<span class="key"><span class="key-measured"></span>One design at '
             "several draw counts, joined; the faded points have fewer draws</span></div>",
+        )
+    if frontier_line and len(on_line) > 1:
+        legend = legend.replace(
+            "</div>",
+            f'<span class="key"><span class="key-frontier {frontier_line}"></span>'
+            + (
+                "The frontier, joined; it includes fits that fail the convergence "
+                "checks (not converged)"
+                if frontier_line == "dashed"
+                else "The frontier, joined"
+            )
+            + "</span></div>",
         )
     attrs = {}
     if zoom:

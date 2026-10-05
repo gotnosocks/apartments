@@ -1220,7 +1220,7 @@ def test_frontier_charts_zoom_by_url(client, research_file):
     assert 'name="fx1" value="1e+06"' in both
     # an unscored fit is counted under its own tier's chart
     subsets = client.get("/research?subsets=1").get_data(as_text=True)
-    assert "1 more exploration fit on this hardware\n  has no PSIS-LOO score" in subsets
+    assert "1 has no PSIS-LOO score at all" in subsets
     # a range that is empty, reversed or not a number is ignored
     for bad in (
         "fx0=abc&fx1=5",
@@ -1514,3 +1514,65 @@ def test_research_model_page_shows_a_pending_switch(site_root, research_file):
     assert "<td>chosen; not published yet</td>" in html
     assert "On the frontier</dt><dd>no" in html
     assert "another fit is at least as accurate" in html
+
+
+def test_fits_on_earlier_data_are_drawn_apart(client, research_file):
+    _with_exploration(research_file)
+    data = json.loads(research_file.read_text())
+    quick = next(e for e in data["entries"] if e["key"].endswith("[quick]"))
+    old = dict(
+        quick,
+        id="m-test/unitdesc-v1/nuts@ddddddd [old]",
+        key="m-test/unitdesc-v1/nuts@ddddddd [old]",
+        psis=None,
+        frontier=False,
+        psis_prior={
+            "delta": 777.0,
+            "se": 12.0,
+            "mcse": 1.0,
+            "baseline": "base-old",
+            "dataset": "chelsea-wv-old",
+        },
+        splits={"rows": {"run": "m-test-old-run"}},
+    )
+    data["entries"].append(old)
+    research_file.write_text(json.dumps(data))
+    html = client.get("/research").get_data(as_text=True)
+    card = html[html.index('id="exploration-fits"') :]
+    card = card[: card.index("</section>")]
+    # the count comes before the chart, and the earlier fit is in its own chart
+    notice = card.index('class="notice"')
+    assert notice < card.index("<svg")
+    assert "1 more</strong> was trained on the earlier data" in card
+    assert card.index('id="e-earlier"') < card.index("+777.0")
+    main = card[: card.index('id="e-earlier"')]
+    assert "ddddddd" not in main
+    full = html[html.index('id="full-fits"') : html.index('id="exploration-fits"')]
+    assert "earlier data" not in full
+
+
+def test_frontier_charts_join_their_line(client, research_file):
+    _with_exploration(research_file)
+    data = json.loads(research_file.read_text())
+    quick = next(e for e in data["entries"] if e["key"].endswith("[quick]"))
+    slower = dict(
+        quick,
+        id="m-test/unitdesc-v1/nuts@eeeeeee [slow]",
+        key="m-test/unitdesc-v1/nuts@eeeeeee [slow]",
+        fit_seconds=900.0,
+        psis={"delta": 5300.0, "delta_se": 100.0},
+        splits={"rows": {"run": "m-test-slow-run"}},
+    )
+    data["entries"].append(slower)
+    snap = data["snapshots"][-1]["by_class"]["thelio RTX 2060 SUPER"]
+    snap["frontier_by_tier"] = {
+        "exploration": [quick["key"], slower["key"]],
+        "full": snap["frontier"],
+    }
+    research_file.write_text(json.dumps(data))
+    html = client.get("/research").get_data(as_text=True)
+    card = html[html.index('id="exploration-fits"') :]
+    card = card[: card.index("</section>")]
+    # both failing exploration fits are on the dashed line, said so
+    assert card.count('class="frontier-line dashed"') == 1
+    assert "includes fits that fail the convergence" in card

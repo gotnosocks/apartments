@@ -389,6 +389,11 @@ details.table-view summary { cursor: pointer; color: var(--link); font-size: 0.9
 /* One design measured at several draw counts (#126): joined, the less-measured points faded. */
 .chart .measured { fill: none; stroke: var(--axis); stroke-width: 1.5; }
 .chart .fit.faded { fill-opacity: 0.35; stroke-opacity: 0.5; }
+/* The chart's frontier, joined; dashed on the exploration chart, whose line includes unconverged fits (Ben, 2026-10-05). */
+.chart .frontier-line { fill: none; stroke: var(--ink); stroke-width: 1.5; stroke-opacity: 0.7; }
+.chart .frontier-line.dashed { stroke-dasharray: 5 4; }
+.key-frontier { display: inline-block; width: 18px; height: 0; border-top: 1.5px solid var(--ink); vertical-align: middle; }
+.key-frontier.dashed { border-top-style: dashed; }
 .key-measured { display: inline-block; width: 16px; height: 0; border-top: 1.5px solid var(--axis); vertical-align: middle; }
 
 /* A design's structure (anatomy): nested plates, the equation, the parts table, the design matrix. */

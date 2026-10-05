@@ -174,7 +174,8 @@ def as_of(entries, t):
 
 def tier_frontiers(group):
     """The frontier among each tier's fits alone (full, exploration), by the
-    board's own rule: the site draws one chart per tier (Ben, 2026-10-05)."""
+    board's own rule (but for the gate on exploration fits): the site draws
+    one chart per tier (Ben, 2026-10-05)."""
     tiers = {}
     for v in group:
         # As the site files them: any tier other than exploration is full.
@@ -182,10 +183,19 @@ def tier_frontiers(group):
         tiers.setdefault("exploration" if name == "exploration" else "full", []).append(
             v
         )
-    return {
-        name: [v["_key"] for v, on in zip(vs, leaderboard.on_frontier(vs)) if on]
-        for name, vs in sorted(tiers.items())
-    }
+    out = {}
+    for name, vs in sorted(tiers.items()):
+        if name == "exploration":
+            # Ben, 2026-10-05: the exploration line is drawn from every scored
+            # exploration fit, converged or not; the site marks the ones that
+            # fail the gate. The full-fit line keeps the gate (#193).
+            candidates = [dict(v, passes_checks=True) for v in vs]
+        else:
+            candidates = vs
+        out[name] = [
+            v["_key"] for v, on in zip(vs, leaderboard.on_frontier(candidates)) if on
+        ]
+    return out
 
 
 def snapshots(entries):
@@ -372,6 +382,42 @@ def versus_served(entries) -> dict:
     return {"run": run, "fits": out}
 
 
+# The board's baseline before the Oct 5 re-baseline (#221), on the Oct 1 data.
+PRIOR_BASELINE = "m0-base-base-v1-rows-e61a794-x-2060-300w1500d-nb"
+PRIOR_DATASET = "chelsea-west-village-analysis-20261001-eea4f66"
+
+
+def prior_scores(entries, loos=None, paired=None) -> dict:
+    """Fits that lost their PSIS-LOO score because they do not pair with the
+    current baseline (trained on earlier data), scored instead against the
+    earlier baseline on the data they were trained on: {key: {delta, se,
+    mcse, baseline, dataset}}. For the site to draw apart, never on the
+    frontier: these numbers are not comparable with the board's."""
+    loos = leaderboard.load_loo() if loos is None else loos
+    paired = paired or leaderboard.paired_loo
+    base = (loos.get(PRIOR_BASELINE) or {}).get("_dir")
+    if not base:
+        return {}
+    out = {}
+    for e in entries:
+        run = (e["splits"].get("rows") or {}).get("run")
+        here = (loos.get(run) or {}).get("_dir")
+        if e.get("psis") or not here:
+            continue
+        try:
+            d, se, mc = paired(here, base)
+        except (OSError, ValueError, KeyError):
+            continue
+        out[e["_key"]] = {
+            "delta": d,
+            "se": se,
+            "mcse": mc,
+            "baseline": PRIOR_BASELINE,
+            "dataset": PRIOR_DATASET,
+        }
+    return out
+
+
 def data():
     board = leaderboard.build(keep_dirs=True)
     entries = assign_keys(board["entries"])
@@ -381,6 +427,7 @@ def data():
             s["_at"] = completed_at(s)
     snaps = snapshots(entries)
     against = versus_served(entries)
+    prior = prior_scores(entries)
     out = []
     for e in entries:
         design = e["model"]["name"]
@@ -427,6 +474,9 @@ def data():
                 "psis": psis_fields(e.get("psis")),
                 # Paired PSIS-LOO against the served fit (full, passing fits).
                 "vs_served": against["fits"].get(e["_key"]),
+                # Unpaired with the current baseline: the score against the
+                # earlier baseline on the earlier data, not comparable.
+                "psis_prior": prior.get(e["_key"]),
                 "note": e["note"],
                 "annotations": e.get("annotations", []),
                 "available_at": iso(e["splits"]["rows"]["_at"])
