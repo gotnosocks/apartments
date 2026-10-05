@@ -41,6 +41,7 @@ from pathlib import Path
 
 import duckdb
 
+from . import estimate_build
 from .selection import SELECTION, selection_note
 
 VERSION = "listings-site-v1"
@@ -617,6 +618,7 @@ def write_database(
     bundle: Path,
     scope: str | None,
     selection: dict | None = None,
+    kits: Path | None = None,
 ) -> dict:
     observations = load_observations(
         Path(record["dataset"]), record["dataset_observations_sha256"]
@@ -703,6 +705,12 @@ def write_database(
         _insert(db, "quarantined", quarantined)
         _insert(db, "market", market)
         _insert(db, "coefficients", coefficients)
+        kit_dir = estimate_build.find_kit(
+            record["run"], record["_sha256"], kits or estimate_build.KITS
+        )
+        stats["estimate_form"] = estimate_build.install(
+            db, kit_dir, listings, observations
+        )
         db.executemany(
             "INSERT INTO terms VALUES (?,?,?,?)",
             [(i, t["name"], t["label"], t["description"]) for i, t in enumerate(terms)],

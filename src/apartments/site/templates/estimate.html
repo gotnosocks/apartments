@@ -1,0 +1,162 @@
+{% extends "base.html" %}
+{% block title %}Estimate an apartment{% endblock %}
+{% macro select(name, label, choices, value, id) %}
+<div class="field">
+  <label for="{{ id }}">{{ label }}</label>
+  <select id="{{ id }}" name="{{ name }}">
+  {% for key, text in choices %}<option value="{{ key }}"{% if key == value %} selected{% endif %}>{{ text }}</option>{% endfor %}
+  </select>
+</div>
+{% endmacro %}
+{% macro checks(name, legend, choices, chosen) %}
+<fieldset class="field">
+  <legend>{{ legend }}</legend>
+  <div class="checks">
+  {% for c in choices %}<label class="check"><input type="checkbox" name="{{ name }}" value="{{ c[0] }}"{% if c[0] in chosen %} checked{% endif %}> {{ c[1] }}</label>{% endfor %}
+  </div>
+</fieldset>
+{% endmacro %}
+{% block content %}
+<h1>Estimate an apartment</h1>
+<p class="lede">The served model's estimate for an apartment that is not in the data: one you saw advertised, or one
+you are pricing. Choose its building, describe it, and add an ask if you have one.</p>
+
+{% if kit is none %}
+<section class="card notice"><p>Estimates for new apartments are not available for this build{% if unavailable %}: {{ unavailable }}{% endif %}.
+Every listing in the data still has its own estimate: <a href="{{ url_for('listings') }}">browse listings</a>.</p></section>
+{% else %}
+
+{% if result %}
+{% set band = "below" if result.ask_share_below is defined and result.ask_share_below < meta.price_bands[0]
+   else ("above" if result.ask_share_below is defined and result.ask_share_below > meta.price_bands[1] else "within") %}
+<section class="card" id="result" aria-labelledby="result-h">
+  <h2 id="result-h">An apartment like this at {{ b.name or b.address }}</h2>
+  <p class="subline">{{ options.BEDROOMS[form.bedrooms][1] }}{% if form.square_feet %}, {{ "{:,.0f}".format(form.square_feet) }} ft²{% endif %}{% if form.floor %}, floor {{ form.floor }}{% endif %}
+  · market level as of {{ month(kit.period) }}, season of {{ result.day.strftime("%-d %B %Y") }}</p>
+  <div class="figures">
+    <div class="figure">
+      <span class="figure-label">Typical rent</span>
+      <span class="figure-value">{{ usd(result.estimate) }}</span>
+      <span class="figure-note">range for the typical rent {{ usd(result.lower_95) }}–{{ usd(result.upper_95) }} (95%)</span>
+    </div>
+    <div class="figure">
+      <span class="figure-label">Likely ask range</span>
+      <span class="figure-value nowrap">{{ usd(result.pred_lower_80) }}–{{ usd(result.pred_upper_80) }}</span>
+      <span class="figure-note">80% of asks for an apartment like this would fall here ({{ usd(result.pred_lower_95) }}–{{ usd(result.pred_upper_95) }} for 95%)</span>
+    </div>
+    {% if result.ask %}
+    <div class="figure">
+      <span class="figure-label">Your ask</span>
+      <span class="figure-value">{{ usd(result.ask) }}</span>
+      <span class="figure-note">{% if band == "within" %}within the likely range{% else %}{{ band }} the likely range{% endif %}: higher than
+      {{ "{:.0f}".format(100 * result.ask_share_below) }}% of simulated asks</span>
+    </div>
+    {% endif %}
+  </div>
+  <p class="note">The typical rent is the model's middle estimate of the rent for an apartment like this; the likely ask range
+  adds how far single asks scatter around it. Both are from {{ "{:,}".format(result.samples) }} simulated asks over the
+  served fit's posterior, the way listing pages' <a href="{{ url_for('research_glossary', _anchor='estimate') }}">estimates</a>
+  are made for apartments the fit never saw.</p>
+
+  <h3>What makes up the estimate</h3>
+  <div class="table-wrap">
+  <table class="data">
+    <thead><tr><th scope="col">Part</th><th scope="col" class="num">Effect</th></tr></thead>
+    <tbody>
+      <tr><th scope="row">Market reference, {{ month(kit.period) }}</th><td class="num muted">a one-bedroom with every input at its reference level</td></tr>
+      {% for p in parts if p.pct | round(1) != 0 %}
+      <tr><th scope="row">{% if p.group == "season" %}{{ p.label }}{% else %}<a href="{{ url_for('research_glossary', _anchor=(p.group | term_id)) }}">{{ "This building" if p.group == "building" else p.label }}</a>{% endif %}</th>
+        <td class="num">{{ pct(p.pct, digits=1) }}</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  </div>
+  <p class="note">Percentages at the posterior mean, each against the reference level of its inputs; multiplied together they
+  give roughly the typical rent, which also averages over how this apartment might differ from the building's usual. "This
+  building" is its own level, trend and bedroom and size premiums.</p>
+
+  <h3>Building facts used</h3>
+  <dl class="facts">
+    <dt>Neighbourhood</dt><dd>{{ b.neighbourhood or "—" }}</dd>
+    <dt>Built</dt><dd>{{ b.year_built or "not usable" }}</dd>
+    <dt>Floors, apartments</dt><dd>{{ b.floors or "—" }}, {{ b.residential_units or "—" }}</dd>
+    <dt>Elevator</dt><dd>{{ facts.elevator }}</dd>
+    <dt>Doorman</dt><dd>{{ facts.doorman }}</dd>
+  </dl>
+  <p class="note">The building's records (MapPLUTO) give these, and its newest listing gives the elevator, doorman, heating
+  and pet policy; the form does not ask them.</p>
+
+  <h3>Things to know</h3>
+  <ul class="tight">
+    <li>A new apartment has no listing history, so its range is wider than a listed apartment's: the model does not know
+    whether it is a better or worse unit than the building's usual.</li>
+    {% if (b.fit_rows or 0) < 5 %}<li>The model has only {{ b.fit_rows or 0 }} listing{{ "" if b.fit_rows == 1 else "s" }} from this building,
+    so its building level leans on similar buildings.</li>{% endif %}
+    {% if form.floor and b.floors and form.floor > b.floors %}<li id="floor-caveat">Floor {{ form.floor }} is above the
+    {{ b.floors }} floors its records give this building, so the floor's effect is an extrapolation.</li>{% endif %}
+    {% if form.facing %}<li>What it looks onto is taken as you give it; the model has not checked that this building has
+    such a side.</li>{% endif %}
+    <li>It is treated as a first listing of the apartment at a current ask. Features the model does not code (light,
+    condition beyond "renovated", the view itself) are not counted.</li>
+    <li>Model outputs, not appraisals: they describe asking rents, not what an apartment would lease for.</li>
+  </ul>
+  <p><a href="{{ url_for('building', building_id=b.id) }}">{{ b.name or b.address }}</a> ·
+  <a href="{{ url_for('listings', q=b.name or b.address, beds=(form.bedrooms if form.bedrooms < 4 else 4) | string) }}">its listings</a></p>
+</section>
+{% endif %}
+
+<form class="filters estimate-form" action="{{ url_for('estimate_apartment') }}#result" method="get" aria-label="Describe the apartment">
+  {% if b %}
+  <input type="hidden" name="building" value="{{ b.id }}">
+  <div class="field grow">
+    <span class="field-label">Building</span>
+    <span><strong>{{ b.name or b.address }}</strong>{% if b.name %} · {{ b.address }}{% endif %} ·
+    <a href="{{ url_for('estimate_apartment') }}">choose another</a></span>
+  </div>
+  {% else %}
+  <div class="field grow">
+    <label for="e-q">Building: name or address</label>
+    <input id="e-q" name="q" type="search" value="{{ q }}" autocomplete="off" required>
+  </div>
+  {% endif %}
+  {{ select("bedrooms", "Bedrooms", options.BEDROOMS, form.bedrooms | string, "e-beds") }}
+  {{ select("baths", "Full baths", options.FULL_BATHS, form.full_baths | string, "e-baths") }}
+  {{ select("half", "Half baths", options.HALF_BATHS, form.half_baths, "e-half") }}
+  <div class="field">
+    <label for="e-sqft">Size (ft²)</label>
+    <input id="e-sqft" name="sqft" inputmode="numeric" size="6" value="{{ '{:g}'.format(form.square_feet) if form.square_feet else '' }}" placeholder="not stated">
+  </div>
+  <div class="field">
+    <label for="e-floor">Floor</label>
+    <input id="e-floor" name="floor" inputmode="numeric" size="4" value="{{ form.floor or '' }}" placeholder="not stated">
+  </div>
+  {{ select("laundry", "Laundry", options.LAUNDRY, form.laundry, "e-laundry") }}
+  {{ select("rooms", "Rooms besides bedrooms", options.ROOMS, form.rooms, "e-rooms") }}
+  {{ select("label", "Unit type", options.LABELS, form.label, "e-label") }}
+  {{ checks("facing", "It looks onto", options.FACING, form.facing) }}
+  {{ checks("outdoor", "Private outdoor space", options.OUTDOOR, form.outdoor) }}
+  {{ checks("views", "Views the ad lists", options.VIEWS, form.views) }}
+  {{ checks("windows", "Windows face", options.WINDOWS, form.windows) }}
+  {{ checks("extras", "The ad mentions", options.EXTRAS, form.extras) }}
+  <div class="field">
+    <label for="e-ask">Ask, if you have one</label>
+    <input id="e-ask" name="ask" inputmode="numeric" size="7" value="{{ '{:g}'.format(form.ask) if form.ask else '' }}" placeholder="$">
+  </div>
+  <div class="field actions"><button type="submit">{{ "Estimate" if b else "Find the building" }}</button></div>
+</form>
+<p class="note">Blank fields take the model's "not stated" level. Ticking none of what the ad mentions means an ad without
+those words. The building's own facts come from its records.</p>
+
+{% if matches and not b %}
+<section class="card" aria-labelledby="matches-h">
+  <h2 id="matches-h">Which building?</h2>
+  <ul class="tight">
+  {% for m_ in matches %}<li><a href="{{ pick(m_.id) }}">{{ m_.name or m_.address }}</a>{% if m_.name %} · {{ m_.address }}{% endif %}{% if m_.neighbourhood %} · {{ m_.neighbourhood }}{% endif %}</li>{% endfor %}
+  </ul>
+  {% if matches | length == 25 %}<p class="note">The first 25 matches; type more of the name or address to narrow them.</p>{% endif %}
+</section>
+{% elif q and not b %}
+<section class="card"><p class="note">No building matches “{{ q }}”. Try the street number and name, as in “250 West 19”.</p></section>
+{% endif %}
+{% endif %}
+{% endblock %}

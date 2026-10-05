@@ -28,6 +28,7 @@
     <a href="{{ url_for('listings', status='current', sort='diff_pct') }}"{% if here == "listings" and request.args.get("status") == "current" %} aria-current="page"{% endif %}>Available now</a>
     <a href="{{ url_for('buildings') }}"{% if here in ("buildings", "building") %} aria-current="page"{% endif %}>Buildings</a>
     <a href="{{ url_for('estimates_map') }}"{% if here == "estimates_map" %} aria-current="page"{% endif %}>Rent map</a>
+    <a href="{{ url_for('estimate_apartment') }}"{% if here == "estimate_apartment" %} aria-current="page"{% endif %}>Estimate an apartment</a>
     <a href="{{ url_for('quarantined') }}"{% if here == "quarantined" %} aria-current="page"{% endif %}>Left out</a>
     <a href="{{ url_for('about') }}"{% if here == "about" %} aria-current="page"{% endif %}>How estimates work</a>
   </nav></div>

@@ -40,7 +40,7 @@ from flask import (
 )
 from markupsafe import Markup
 
-from . import charts
+from . import charts, estimate, estimate_build
 from .anatomy import LEVELS as ANATOMY_LEVELS
 from .anatomy import describe, differences
 from .research import (
@@ -396,6 +396,7 @@ SECTIONS = {
         "quarantined",
         "about",
         "estimates_map",
+        "estimate_apartment",
     ),
     "research": (
         "research_frontier",
@@ -1177,6 +1178,7 @@ def create_app(
         return render_template(
             "building.html",
             typical=building_typical(building_id),
+            estimate_form=estimate_build.available(db()),
             meta=meta(),
             b=row,
             units=units,
@@ -1192,6 +1194,101 @@ def create_app(
                 if filters.status == "all"
                 or bool(q["is_current"]) == (filters.status == "current")
             ],
+        )
+
+    @app.get("/estimate")
+    def estimate_apartment():
+        kit, unavailable = estimate_build.read(db())
+        form = estimate.Form.parse(request.args)
+        building_id = (request.args.get("building") or "").strip()[:200]
+        q = (request.args.get("q") or "").strip()[:80]
+        b = (
+            db()
+            .execute("SELECT * FROM buildings WHERE id = ?", (building_id,))
+            .fetchone()
+            if building_id
+            else None
+        )
+        matches = []
+        if b is None and q:
+            matches = (
+                db()
+                .execute(
+                    "SELECT id, name, address, neighbourhood FROM buildings "
+                    "WHERE search LIKE ? ESCAPE '\\' ORDER BY sort_key LIMIT 25",
+                    ("%" + _escape_like(q.lower()) + "%",),
+                )
+                .fetchall()
+            )
+            if len(matches) == 1:
+                b = (
+                    db()
+                    .execute(
+                        "SELECT * FROM buildings WHERE id = ?", (matches[0]["id"],)
+                    )
+                    .fetchone()
+                )
+        result = parts = facts = None
+        if kit is not None and b is not None:
+            terms = estimate_build.building(db(), b["id"])
+            if terms is not None:
+                x = estimate.encode(form, kit, terms.inputs)
+                today = dt.datetime.now(dt.UTC).date()
+                result = estimate.score(
+                    kit,
+                    terms,
+                    x,
+                    form.bedrooms,
+                    today,
+                    seed=f"{b['id']}|{today}|{form.canonical()}",  # not the ask
+                    ask=form.ask,
+                )
+                result["day"] = today
+                labels = dict(db().execute("SELECT name, label FROM terms"))
+                labels["season"] = f"Season ({today.day} {today:%B})"
+                parts = [
+                    p | {"label": labels.get(p["group"], p["group"])}
+                    for p in estimate.parts(kit, terms, x, form.bedrooms, today)
+                ]
+                facts = {
+                    "elevator": "no"
+                    if x.get("elevator=no")
+                    else ("not stated" if x.get("elevator=unknown") else "yes"),
+                    "doorman": next(
+                        (
+                            n.split("=", 1)[1].replace("_", " ")
+                            for n in x
+                            if n.startswith("doorman=")
+                        ),
+                        "not stated",
+                    ),
+                }
+
+        def pick(chosen):
+            args = {
+                k: request.args.getlist(k)
+                for k in estimate.FORM_KEYS
+                if k in request.args
+            }
+            return (
+                url_for("estimate_apartment", **(args | {"building": chosen}))
+                + "#result"
+            )
+
+        return render_template(
+            "estimate.html",
+            meta=meta(),
+            kit=kit,
+            unavailable=unavailable,
+            form=form,
+            b=b,
+            q=q,
+            matches=matches,
+            result=result,
+            parts=parts,
+            facts=facts,
+            options=estimate,
+            pick=pick,
         )
 
     @app.get("/estimates/map")
