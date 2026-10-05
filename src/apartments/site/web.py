@@ -1608,10 +1608,13 @@ def create_app(
             and e.get("variance")
         ]
         frontier.sort(key=lambda e: -((e.get("psis") or {}).get("delta") or 0))
+        served_entry = entry_for_run(data, served_run)
         return render_template(
             "research_validation.html",
             meta=m,
-            served_entry=entry_for_run(data, served_run),
+            served_entry=served_entry,
+            served_units=served_unit_split(data, served_entry),
+            gate=data.get("gate"),
             reference=data.get("reference"),
             classes=classes,
             hardware=hardware,
@@ -1738,6 +1741,35 @@ def create_app(
         return Response("User-agent: *\nDisallow: /\n", mimetype="text/plain")
 
     return app
+
+
+def rules_of(entry: dict) -> list[str]:
+    """The data rules a board key names after its commit ("...@abc1234+rule+rule")."""
+    return entry["key"].split(" [")[0].split("@", 1)[-1].split("+")[1:]
+
+
+def served_unit_split(data: dict, served: dict | None) -> dict | None:
+    """The newest unit-split score of the served design and feature set:
+    {entry, split, missing_rules, extra_rules}, or None."""
+    if not served:
+        return None
+    found = [
+        e
+        for e in data.get("entries", [])
+        if e.get("design") == served.get("design")
+        and e.get("feature_set") == served.get("feature_set")
+        and (e.get("splits") or {}).get("units", {}).get("delta") is not None
+    ]
+    if not found:
+        return None
+    e = max(found, key=lambda e: e["splits"]["units"].get("completed_at") or "")
+    ours, theirs = rules_of(served), rules_of(e)
+    return {
+        "entry": e,
+        "split": e["splits"]["units"],
+        "missing_rules": [r for r in ours if r not in theirs],
+        "extra_rules": [r for r in theirs if r not in ours],
+    }
 
 
 def design_label(entry: dict) -> str:
