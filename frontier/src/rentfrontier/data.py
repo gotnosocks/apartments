@@ -167,7 +167,9 @@ def unit_aliases(path: Path = UNIT_ALIASES) -> tuple:
     return tuple(tuple(sorted(g)) for g in groups.values() if len(g) > 1)
 
 
-def merge_unit_aliases(frame: pd.DataFrame, aliases: Path = UNIT_ALIASES) -> pd.DataFrame:
+def merge_unit_aliases(
+    frame: pd.DataFrame, aliases: Path = UNIT_ALIASES
+) -> pd.DataFrame:
     """unit-labels-v1, and the West Village alias table's history-confirmed
     groups joined too (248 groups; most are already the same label under v1;
     the rest pad zeros inside the label: "ph04" and "ph4"). Groups that share
@@ -206,7 +208,9 @@ LABEL_WORDS = {
 _WORD_LABEL = re.compile(r"^(" + "|".join(LABEL_WORDS) + r")(?=$|[-_ ]?(?:fl|floor)$)")
 
 
-def merge_word_labels(frame: pd.DataFrame, aliases: Path = UNIT_ALIASES) -> pd.DataFrame:
+def merge_word_labels(
+    frame: pd.DataFrame, aliases: Path = UNIT_ALIASES
+) -> pd.DataFrame:
     """unit-labels-v2, and units labelled with a number word joined to the unit
     of the same building whose label is that number ("four" and "4",
     "third-fl" and "3fl"), where both units' median bedroom counts agree.

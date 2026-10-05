@@ -352,6 +352,11 @@ def relist_v1(
 LISTING_EXTRAS_FILE = (
     "/data1/apartments/external/listing-extras/20261004-14e27e9/listing-extras.parquet"
 )
+# Which listing-extras snapshot coded_v1 and prevprice_v1 read while a set is
+# built (`EXTRAS_SNAPSHOTS`); unlisted sets read the files above and below.
+_EXTRAS: contextvars.ContextVar[str | None] = contextvars.ContextVar(
+    "extras", default=None
+)
 # StreetEasy's private outdoor space types, grouped.
 OUTDOOR_TYPES = {
     "terrace": ("TERRACE",),
@@ -374,7 +379,8 @@ def coded_v1(
     bedrooms: 0-1, 2, 3 or 4+, against 2; unknown where the record has none or
     states more than ten extra rooms)."""
     base = FEATURE_SETS[base](frame, train)
-    extras = pd.read_parquet(LISTING_EXTRAS_FILE).set_index("listing_id")
+    extras = pd.read_parquet(_EXTRAS.get() or LISTING_EXTRAS_FILE)
+    extras = extras.set_index("listing_id")
     ids = frame.source_listing_id.astype(str)
     types = ids.map(extras.outdoor_types).fillna("").str.split("|")
     rooms = pd.to_numeric(ids.map(extras.room_count), errors="coerce")
@@ -433,7 +439,8 @@ def prevprice_v1(
     of that row see its target through this row's covariate. `change=False` keeps
     only the count of price changes, which reads no ask."""
     base = FEATURE_SETS[base](frame, train)
-    history = pd.read_parquet(PRICE_HISTORY_FILE).set_index("listing_id").price_changes
+    history = pd.read_parquet(_EXTRAS.get() or PRICE_HISTORY_FILE)
+    history = history.set_index("listing_id").price_changes
     at = pd.to_datetime(frame.price_at, utc=True)
     order = np.lexsort((at.to_numpy(), frame.unit_id.to_numpy()))
     units = frame.unit_id.to_numpy()
@@ -572,6 +579,7 @@ def lineface_v1(
         np.concatenate([base.prior_scale, out.prior_scale]),
     )
 
+
 # External snapshots read by feature sets (rentfrontier.registry, .external).
 REGISTRY_SNAPSHOT = "/data1/apartments/external/registry/20260925-6b67137"
 PLUTO_SNAPSHOT = "/data1/apartments/external/pluto/20260925-3096a62"
@@ -619,6 +627,20 @@ NB_FOOTPRINTS_FILE = (
     "/data1/apartments/external/footprints/20261001-9b54648/footprints.parquet"
 )
 NB_BASEMAP_FILE = "/data1/apartments/external/basemap/20261001-9b54648/basemap.parquet"
+# Chelsea, West Village and Greenwich Village (cohort
+# chelsea-wv-gv-analysis-20261005-2d5b3b6): Greenwich Village's registry and
+# snapshots merged into the two above, and the three crawls' listing extras.
+NB3_REGISTRY_FILE = (
+    "/data1/apartments/external/registry/20261005-2d5b3b6/buildings.parquet"
+)
+NB3_PLUTO_FILE = "/data1/apartments/external/pluto/20261005-2d5b3b6/pluto.parquet"
+NB3_FOOTPRINTS_FILE = (
+    "/data1/apartments/external/footprints/20261005-2d5b3b6/footprints.parquet"
+)
+NB3_BASEMAP_FILE = "/data1/apartments/external/basemap/20261005-2d5b3b6/basemap.parquet"
+NB3_EXTRAS_FILE = (
+    "/data1/apartments/external/listing-extras/20261005-77068ea/listing-extras.parquet"
+)
 # Whether the set being built dates the building's MapPLUTO alterations as of
 # each listing (`AS_OF_SETS`): an alteration counts only from the year after it,
 # so a listing never sees a later one (no future information).
@@ -1631,6 +1653,31 @@ def neighbourhood_v1(
     )
 
 
+def greenwich_v1(
+    frame: pd.DataFrame,
+    train: np.ndarray,
+    id: str = "greenwich-v1",
+    base: str = "nb-coded-v1",
+) -> Features:
+    """A base set plus Greenwich Village against Chelsea, beside the base set's
+    West Village term (`neighbourhood_v1`)."""
+    base = FEATURE_SETS[base](frame, train)
+    b = _Builder(frame)
+    b.add(
+        "neighbourhood",
+        "Greenwich Village",
+        frame.neighbourhood.eq("Greenwich Village"),
+    )
+    extra = b.build(id)
+    return Features(
+        id,
+        base.names + extra.names,
+        base.groups + extra.groups,
+        np.column_stack([base.values, extra.values]),
+        np.concatenate([base.prior_scale, extra.prior_scale]),
+    )
+
+
 # Feature sets that read the external snapshots (run records list them).
 EXTERNAL = {
     "nb-pluto-base",
@@ -1645,6 +1692,9 @@ EXTERNAL = {
     "nb-lineface-v1",
     "nb-prevprice-v1",
     "nb-prevprice-v2",
+    "nb3-coded-v1",
+    "nb3-prevprice-v1",
+    "nb3-lineface-v1",
     "wv-unitpluto-v1",
     "pluto-v1",
     "unitfloor-v2",
@@ -1683,6 +1733,9 @@ BASEMAP = {
     "nb-lineface-v1",
     "nb-prevprice-v1",
     "nb-prevprice-v2",
+    "nb3-coded-v1",
+    "nb3-prevprice-v1",
+    "nb3-lineface-v1",
 }
 # Feature sets that read the building footprints snapshot.
 FOOTPRINTS = {
@@ -1700,6 +1753,9 @@ FOOTPRINTS = {
     "nb-lineface-v1",
     "nb-prevprice-v1",
     "nb-prevprice-v2",
+    "nb3-coded-v1",
+    "nb3-prevprice-v1",
+    "nb3-lineface-v1",
 }
 # Feature sets that read the 311 noise complaints snapshot.
 NOISE = {"unitnoise-v1"}
@@ -1718,6 +1774,9 @@ DESCRIPTIONS = {
     "nb-lineface-v1",
     "nb-prevprice-v1",
     "nb-prevprice-v2",
+    "nb3-coded-v1",
+    "nb3-prevprice-v1",
+    "nb3-lineface-v1",
     "desc-v1",
     "unitdesc-v1",
     "unitdescpluto-v1",
@@ -1779,6 +1838,14 @@ FEATURE_SETS = {
     "nb-prevprice-v2": partial(
         prevprice_v1, id="nb-prevprice-v2", base="nb-coded-v1", change=False
     ),
+    # Chelsea, West Village and Greenwich Village: nb-coded-v1 plus Greenwich
+    # Village (`greenwich_v1`), on the three neighbourhoods' snapshots (NB3_*).
+    "nb3-coded-v1": partial(greenwich_v1, id="nb3-coded-v1", base="nb-coded-v1"),
+    # nb3-coded-v1 plus nb-prevprice-v1's and nb-lineface-v1's terms.
+    "nb3-prevprice-v1": partial(
+        prevprice_v1, id="nb3-prevprice-v1", base="nb3-coded-v1"
+    ),
+    "nb3-lineface-v1": partial(lineface_v1, id="nb3-lineface-v1", base="nb3-coded-v1"),
     # West Village: the app design's building facts (as unitdescpluto-v3) on the
     # unit and floor features (no West Village ads: see nb-facing-v2).
     "wv-unitpluto-v1": partial(
@@ -1879,6 +1946,9 @@ LOT_SNAPSHOTS = {
     "nb-lineface-v1": {"registry": NB_REGISTRY_FILE, "pluto": NB_PLUTO_FILE},
     "nb-prevprice-v1": {"registry": NB_REGISTRY_FILE, "pluto": NB_PLUTO_FILE},
     "nb-prevprice-v2": {"registry": NB_REGISTRY_FILE, "pluto": NB_PLUTO_FILE},
+    "nb3-coded-v1": {"registry": NB3_REGISTRY_FILE, "pluto": NB3_PLUTO_FILE},
+    "nb3-prevprice-v1": {"registry": NB3_REGISTRY_FILE, "pluto": NB3_PLUTO_FILE},
+    "nb3-lineface-v1": {"registry": NB3_REGISTRY_FILE, "pluto": NB3_PLUTO_FILE},
     "unitnoise-v1": {"registry": REGISTRY_V3_FILE, "pluto": PLUTO_V3_FILE},
 }
 
@@ -1888,6 +1958,10 @@ LOT_SNAPSHOTS = {
 _NB_DESCRIPTIONS = {
     "descriptions": str(descriptions_module.SOURCE),
     "descriptions_wv": str(descriptions_module.WV_SOURCE),
+}
+_NB3_DESCRIPTIONS = {
+    **_NB_DESCRIPTIONS,
+    "descriptions_gv": str(descriptions_module.GV_SOURCE),
 }
 DESCRIPTION_SOURCES = {
     "nb-facing-v2": _NB_DESCRIPTIONS,
@@ -1899,6 +1973,9 @@ DESCRIPTION_SOURCES = {
     "nb-lineface-v1": _NB_DESCRIPTIONS,
     "nb-prevprice-v1": _NB_DESCRIPTIONS,
     "nb-prevprice-v2": _NB_DESCRIPTIONS,
+    "nb3-coded-v1": _NB3_DESCRIPTIONS,
+    "nb3-prevprice-v1": _NB3_DESCRIPTIONS,
+    "nb3-lineface-v1": _NB3_DESCRIPTIONS,
 }
 
 
@@ -1911,6 +1988,9 @@ AS_OF_SETS = {
     "nb-lineface-v1",
     "nb-prevprice-v1",
     "nb-prevprice-v2",
+    "nb3-coded-v1",
+    "nb3-prevprice-v1",
+    "nb3-lineface-v1",
 }
 # Feature sets that read the listing-extras snapshot.
 LISTING_EXTRAS = {
@@ -1918,14 +1998,22 @@ LISTING_EXTRAS = {
     "nb-prevprice-v1",
     "nb-prevprice-v2",
     "nb-lineface-v1",
+    "nb3-coded-v1",
+    "nb3-prevprice-v1",
+    "nb3-lineface-v1",
 }
 # Feature sets that read the price-history snapshot.
-PRICE_HISTORY = {"nb-prevprice-v1", "nb-prevprice-v2"}
+PRICE_HISTORY = {"nb-prevprice-v1", "nb-prevprice-v2", "nb3-prevprice-v1"}
+# Feature sets that read another listing-extras snapshot (outdoor space, rooms
+# and price changes alike) than LISTING_EXTRAS_FILE and PRICE_HISTORY_FILE.
+EXTRAS_SNAPSHOTS = {
+    n: NB3_EXTRAS_FILE for n in ("nb3-coded-v1", "nb3-prevprice-v1", "nb3-lineface-v1")
+}
 # Feature sets that read the rents of a unit's earlier listings. Their PSIS-LOO is
 # not leak-free (a left-out row's rent reaches the fit through its unit's next
 # row), so they are judged on the latest split, never ranked on PSIS-LOO
 # (docs/leak-free-scoring.md). nb-prevprice-v2 reads only counts, not rents.
-READS_EARLIER_RENTS = {"nb-prevprice-v1"}
+READS_EARLIER_RENTS = {"nb-prevprice-v1", "nb3-prevprice-v1"}
 
 
 # Feature sets that read other basemap and footprints snapshots than the first.
@@ -1940,6 +2028,12 @@ AREA_SNAPSHOTS = {
     "nb-lineface-v1": {"basemap": NB_BASEMAP_FILE, "footprints": NB_FOOTPRINTS_FILE},
     "nb-prevprice-v1": {"basemap": NB_BASEMAP_FILE, "footprints": NB_FOOTPRINTS_FILE},
     "nb-prevprice-v2": {"basemap": NB_BASEMAP_FILE, "footprints": NB_FOOTPRINTS_FILE},
+    "nb3-coded-v1": {"basemap": NB3_BASEMAP_FILE, "footprints": NB3_FOOTPRINTS_FILE},
+    "nb3-prevprice-v1": {
+        "basemap": NB3_BASEMAP_FILE,
+        "footprints": NB3_FOOTPRINTS_FILE,
+    },
+    "nb3-lineface-v1": {"basemap": NB3_BASEMAP_FILE, "footprints": NB3_FOOTPRINTS_FILE},
 }
 
 
@@ -1968,6 +2062,7 @@ def build(name: str, frame: pd.DataFrame, train: np.ndarray) -> Features:
     token = _LOTS.set((files["registry"], files["pluto"]))
     as_of_token = _AS_OF.set(name in AS_OF_SETS)
     area_token = _AREA.set((area["basemap"], area["footprints"]))
+    extras_token = _EXTRAS.set(EXTRAS_SNAPSHOTS.get(name))
     text_token = descriptions_module.SOURCES.set(
         tuple(Path(p) for p in description_files(name).values())
     )
@@ -1977,4 +2072,5 @@ def build(name: str, frame: pd.DataFrame, train: np.ndarray) -> Features:
         _LOTS.reset(token)
         _AS_OF.reset(as_of_token)
         _AREA.reset(area_token)
+        _EXTRAS.reset(extras_token)
         descriptions_module.SOURCES.reset(text_token)
