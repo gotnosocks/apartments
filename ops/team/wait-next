@@ -25,7 +25,9 @@ Each wake re-reads the session's whole context, so wakes are batched. A GPU goin
 idle, a file change or the heartbeat ends the wait at once. A unit finishing or a PR
 changing starts a --batch window (default 15 minutes) that collects further events
 and ends early when every watched unit has finished or the GPU goes idle, so an idle
-GPU still wakes its owner within two polls. --batch 0 wakes on the first event.
+GPU still wakes its owner within two polls. A queued fit unit counts as watched, so
+a fit ending with the next one queued wakes after the full window while the queued
+fit holds the GPU. --batch 0 wakes on the first event.
 """
 
 from __future__ import annotations

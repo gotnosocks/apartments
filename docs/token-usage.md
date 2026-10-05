@@ -34,7 +34,8 @@ Cache reads are 98% of the tokens. Uncached input is negligible (7k).
 
 - `ops/team/wait-next` batches wakes: a unit finishing or a PR changing waits up to `--batch`
   minutes (default 15) for the other watched units, and an idle GPU, a watched file or the
-  heartbeat still ends the wait at once, so no GPU time is lost. `frontier-*` units are watched
+  heartbeat still ends the wait at once, so no GPU time is lost. A queued fit counts as a watched
+unit, so a fit that ends with the next one queued wakes its owner after the full window. `frontier-*` units are watched
   only with `--gpu`.
 - Proposed for Ben's approval (agent instructions and settings, not changed here): a lower
   auto-compact window (`CLAUDE_CODE_AUTO_COMPACT_WINDOW=200000` in `.claude/settings.json`), and
