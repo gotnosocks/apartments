@@ -608,6 +608,41 @@ def garden_v1(
     )
 
 
+def through_v1(
+    frame: pd.DataFrame,
+    train: np.ndarray,
+    id: str = "nb3-through-v1",
+    base: str = "nb3-coded-v2",
+) -> Features:
+    """A base set plus how likely a floor-through layout is
+    (`floorthrough`): a building with room for one apartment per floor
+    (`floorthrough.whole_floor`), two per floor, and the listing's ad saying floor-through.
+    Reads no rents; MapPLUTO counts are today's (~1% of rows see a material
+    change, 2026-10-06)."""
+    from . import descriptions, floorthrough
+
+    base = FEATURE_SETS[base](frame, train)
+    upf = floorthrough.units_per_floor(frame)
+    whole = floorthrough.whole_floor(frame)
+    text = descriptions.attach(frame).fillna("").str.lower()
+    b = _Builder(frame)
+    b.add("layout", "one apartment per floor", whole)
+    b.add("layout", "two apartments per floor", ~whole & (upf <= 2.0))
+    b.add(
+        "layout",
+        "ad says floor-through",
+        text.str.contains(floorthrough.THROUGH_TEXT, regex=True).to_numpy(),
+    )
+    out = b.build(id)
+    return Features(
+        id,
+        base.names + out.names,
+        base.groups + out.groups,
+        np.column_stack([base.values, out.values]),
+        np.concatenate([base.prior_scale, out.prior_scale]),
+    )
+
+
 # External snapshots read by feature sets (rentfrontier.registry, .external).
 REGISTRY_SNAPSHOT = "/data1/apartments/external/registry/20260925-6b67137"
 PLUTO_SNAPSHOT = "/data1/apartments/external/pluto/20260925-3096a62"
@@ -1911,6 +1946,7 @@ FEATURE_SETS = {
         prevprice_v1, id="nb3-prevprice-v2", base="nb3-coded-v2"
     ),
     "nb3-garden-v1": partial(garden_v1, id="nb3-garden-v1", base="nb3-coded-v2"),
+    "nb3-through-v1": partial(through_v1, id="nb3-through-v1", base="nb3-coded-v2"),
     # West Village: the app design's building facts (as unitdescpluto-v3) on the
     # unit and floor features (no West Village ads: see nb-facing-v2).
     "wv-unitpluto-v1": partial(
@@ -2138,26 +2174,27 @@ for _new, _old in (
             _table[_new] = _table[_old]
 
 
-# nb3-garden-v1 reads what nb3-coded-v2 (its base) reads.
-for _group in (
-    EXTERNAL,
-    BASEMAP,
-    FOOTPRINTS,
-    DESCRIPTIONS,
-    AS_OF_SETS,
-    LISTING_EXTRAS,
-):
-    if "nb3-coded-v2" in _group:
-        _group.add("nb3-garden-v1")
-for _table in (
-    LOT_SNAPSHOTS,
-    DESCRIPTION_SOURCES,
-    EXTRAS_SNAPSHOTS,
-    AREA_SNAPSHOTS,
-    LPC_SNAPSHOTS,
-):
-    if "nb3-coded-v2" in _table:
-        _table["nb3-garden-v1"] = _table["nb3-coded-v2"]
+# The wish sets read what nb3-coded-v2 (their base) reads.
+for _wish in ("nb3-garden-v1", "nb3-through-v1"):
+    for _group in (
+        EXTERNAL,
+        BASEMAP,
+        FOOTPRINTS,
+        DESCRIPTIONS,
+        AS_OF_SETS,
+        LISTING_EXTRAS,
+    ):
+        if "nb3-coded-v2" in _group:
+            _group.add(_wish)
+    for _table in (
+        LOT_SNAPSHOTS,
+        DESCRIPTION_SOURCES,
+        EXTRAS_SNAPSHOTS,
+        AREA_SNAPSHOTS,
+        LPC_SNAPSHOTS,
+    ):
+        if "nb3-coded-v2" in _table:
+            _table[_wish] = _table["nb3-coded-v2"]
 
 
 def lot_files(name: str) -> dict:
