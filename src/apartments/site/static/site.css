@@ -484,13 +484,10 @@ table.designs .feature-sets { display: block; white-space: normal; max-width: 16
 /* A submitted form while the next page loads (site.js). */
 button[aria-busy="true"] { cursor: progress; opacity: 0.75; }
 
-/* Ratings (docs/ratings.md) */
-.stars { color: var(--warn); letter-spacing: 0.05em; }
-.rated { font-size: 0.8rem; font-weight: 650; color: var(--warn); white-space: nowrap; }
+/* Pills: pluses, minuses and neutral facts on Best for you */
 .rtag { display: inline-block; font-size: 0.8rem; border-radius: 4px; padding: 0 0.35rem; margin: 0.1rem 0; background: var(--neutral-bg); color: var(--ink); }
 .rtag.good { color: var(--good); background: var(--good-bg); }
 .rtag.bad { color: var(--serious); background: var(--serious-bg); }
-.rating-note { white-space: pre-line; }
 /* Best for you on phones: each ranked listing becomes a card (rank and place, then fit, ask and
    estimate in a row, then the pills), and its links and the filters are thumb-sized. */
 @media (max-width: 640px) {
@@ -511,8 +508,6 @@ button[aria-busy="true"] { cursor: progress; opacity: 0.75; }
   table.best .feat { font-weight: 400; margin-top: 0.5rem; }
   table.best td.c-listing > a:first-child { display: block; padding: 0.7rem 0 0; margin: -0.7rem 0 0; }
   table.best .feat a { margin: -0.4rem 0; }
-  .rating-form input[type="radio"] { width: 1.3rem; height: 1.3rem; }
-  .rating-form label.check { display: inline-flex; align-items: center; gap: 0.3rem; min-height: 44px; margin-right: 0.6rem; }
   table.best .feat a, .se-links a { display: inline-flex; align-items: center; min-height: 44px; }
   .se-links { gap: 0 1.2rem; }
   .filters input:not([type="checkbox"]), .filters select, .filters button { min-height: 44px; }
@@ -525,9 +520,4 @@ button[aria-busy="true"] { cursor: progress; opacity: 0.75; }
   dl.facts dd { overflow-wrap: anywhere; }
 }
 
-.rating-form fieldset { border: 0; padding: 0; margin: 0 0 0.6rem; }
-.rating-form legend, .rating-form > label { font-size: 0.85rem; color: var(--ink-2); display: block; margin-top: 0.4rem; }
-.rating-form input[name="other"], .rating-form textarea { width: 100%; max-width: 40rem; box-sizing: border-box; font: inherit; }
-.rating-form .actions { display: flex; flex-wrap: wrap; gap: 0.5rem 1rem; align-items: center; margin-top: 0.6rem; }
-.rating-note-cell { max-width: 20rem; }
 .small { font-size: 0.85rem; }

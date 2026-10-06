@@ -344,3 +344,10 @@ def test_bed_size_shows_on_best_without_changing_the_fit(client, monkeypatch):
     )
     assert {x[-1] for x in after[1:]} == {"king"}
     assert [x[:-1] for x in after[1:]] == [x[:-1] for x in before[1:]]
+
+
+def test_ratings_are_gone(client):
+    """Ben removed My ratings on 2026-10-06 (backlog)."""
+    assert "My ratings" not in client.get("/best").get_data(as_text=True)
+    assert client.get("/ratings").status_code == 404
+    assert client.post("/ratings", data={"audit_id": "x"}).status_code in (404, 405)
