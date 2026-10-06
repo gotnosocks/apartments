@@ -10,7 +10,7 @@ measured three ways from today's basemap:
 - the roadway width of its address street, where narrow is at most `NARROW_FT`;
 - how far it stands from the nearest busy road (mid-block at `MID_BLOCK_M`).
 
-The address street is found for 98% of buildings. Ads call the street or block
+The address street is found for 98.8% of buildings. Ads call the street or block
 quiet or tree-lined (`QUIET_TEXT`) in 11% of a typical building's ads off busy
 roads, against 2% on them (2026-10-06, 2,941 buildings, unit-labels-v5). Off busy
 roads the share is 6.6% within 30 m of one and 11-12% past 30 m, and 5% on 35-45 ft
@@ -47,7 +47,7 @@ QUIET_TEXT = (
     r"\bquiet(?:,? (?:and )?(?:tree[- ]lined|residential|charming|leafy))?"
     r" (?:side )?(?:street|block)\b(?![- ]facing)"
     r"|\b(?:street|block) is (?:very |so )?quiet\b"
-    r"|\btree[- ]lined (?:side )?(?:street|block)\b"
+    r"|\btree[- ]lined (?:side )?(?:street|block)\b(?![- ]facing)"
 )
 _SUFFIX = {
     "STREET": "ST",
@@ -72,10 +72,10 @@ _ALIASES = {
 
 def centerline_name(label: str) -> list[str]:
     """LION centerline names an address label's street may go by, most likely
-    first ("10 PERRY STREET" -> ["PERRY ST"], "WEST 4 STREET" -> ["W  4 ST"],
+    first ("10 PERRY STREET" -> ["PERRY ST"], "WEST 4 STREET" -> ["W  4 ST", "4 ST"],
     "WEST HOUSTON STREET" -> ["W  HOUSTON ST", "HOUSTON ST"])."""
     address = str(label).upper().split(",")[0]
-    m = re.match(r"^\d+[A-Z]?(?:-\d+[A-Z]?)?\s+(.+)$", address)
+    m = re.match(r"^\d+[A-Z]?(?:-\d+[A-Z]?)?(?:\s+1/2)?(?:\s+REAR)?\s+(.+)$", address)
     if not m:
         return []
     words = [str(features.ORDINAL_AVENUES.get(w, w)) for w in m.group(1).split()]
@@ -168,6 +168,8 @@ def _building_streets(registry_file: str, basemap_file: str) -> pd.DataFrame:
             out.append((building, None, np.nan, None, to_busy))
             continue
         a, b, g = ends[name]
+        # No distance cap: a whole-block building's centre stands up to ~140 m
+        # from its address street's centerline (2026-10-06).
         i = int(_distance(p, a, b).argmin())
         out.append((building, name, g.width.iloc[i], bool(g.busy.iloc[i]), to_busy))
     return pd.DataFrame(

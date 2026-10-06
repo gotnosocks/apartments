@@ -14,6 +14,8 @@ def test_centerline_name():
     assert name("300 SIXTH AVENUE") == ["AVE OF THE AMERICAS"]
     assert name("20 B'WAY") == ["BROADWAY"]
     assert name("90 WEST STREET") == ["WEST ST"]
+    assert name("43 REAR PERRY STREET") == ["PERRY ST"]
+    assert name("5 1/2 JANE STREET") == ["JANE ST"]
     assert name("BRIGHT HORIZONS CHELSEA") == []
 
 
@@ -36,9 +38,10 @@ def test_quiet_text():
             "quiet bedroom away from the street",
             "quiet street-facing bedroom",
             "quiet streets nearby",
+            "tree-lined street-facing bedroom",
         ]
     ).str.contains(quiet.QUIET_TEXT, regex=True)
-    assert hits.tolist() == [True, True, True, True, False, False, False]
+    assert hits.tolist() == [True, True, True, True, False, False, False, False]
 
 
 def test_distance_to_segments():
