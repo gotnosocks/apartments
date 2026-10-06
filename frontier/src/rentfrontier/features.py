@@ -776,7 +776,7 @@ _LOTS: contextvars.ContextVar[tuple[str, str] | None] = contextvars.ContextVar(
 )
 SUBWAY_SNAPSHOT = "/data1/apartments/external/subway/20260929-8e7c364"
 SUBWAY_FILE = f"{SUBWAY_SNAPSHOT}/subway.parquet"
-GTFS_SNAPSHOT = "/data1/apartments/external/gtfs/PENDING"
+GTFS_SNAPSHOT = "/data1/apartments/external/gtfs/20261006-6158e22"
 GTFS_FILE = f"{GTFS_SNAPSHOT}/gtfs_subway.zip"
 # Street centerlines, parks and shoreline (`rentfrontier.external basemap`).
 BASEMAP_SNAPSHOT = "/data1/apartments/external/basemap/20260929-da7e40d"
