@@ -19,7 +19,8 @@ commute pill) once those fields exist.
 Location misses, all from big streets or poor transit, which the model doesn't price yet:
 
 - **3 Eleven 2105** (28 / 13): unfavourable street and location. 30th St is a large crosstown
-  traffic street, with weak street-level amenities.
+  traffic street, with weak street-level amenities; like 507 West Chelsea, north-west Chelsea
+  with bad transit.
 - **Ohm 26A** (20 / 18): the same 30th St. Ben commutes to midtown, and the subway access is bad
   (a J train trip with transfers is unappealing).
 - **507 West Chelsea 12D** (62 / 27): north-west Chelsea, bad transit.
@@ -27,35 +28,37 @@ Location misses, all from big streets or poor transit, which the model doesn't p
 - **225 West 14th St 5F** (43 / 59): a **missing minus**. It overlooks 14th St, a large, loud
   street.
 - **777 6th Avenue 22D** (40 / 17): a pretty good match, and a candidate for reading exposure
-  and floor plan from photos. The building's website (equityapartments.com, 777 6th Avenue) lists
+  and floor plan from photos. The building's website (equityapartments.com) lists
   exposures: mainly east with some north, so it overlooks 6th Avenue, which should be a **minus**
   (a wide, noisy street).
 
 Good finds:
 
 - **The Chelsea 12C** (44 / 37): looks pretty good. Courtyard-facing matches the photos and
-  Street View. (The label comes from StreetEasy's window-exposure field, east, plus the building's
-  east side facing no street; line C agrees.)
+  Street View. (Note from Website, not Ben: the label comes from StreetEasy's window-exposure
+  field, east, plus the building's east side facing no street; its line C agrees.)
 - **Ten23 04E** (22 / 35): looks good. From the photos it may front 10th Avenue or 23rd St; it
   appears to face north or east.
 - **225 West 28th St 6G** (8 / 43): a good find. Some amenities are past his point of
   diminishing returns.
 - **249 West 29th St 3E** (21 / 48): a good find.
-- **30 Horatio St 2C** (17 / 67): pretty good, but the photos show radiator heat and an older,
+- **30 Horatio St** (the one current listing, 2C; 17 / 67): pretty good, but the photos show radiator heat and an older,
   less good A/C unit.
 - **52 Barrow St 2W** (50 / 75): a good find, but the windows and light look poor.
 
 Feature ideas (location, mostly for Data improvements):
 
-1. **Fronts a big street** as a minus: crosstown traffic streets (14th, 23rd, 30th) and avenues
-   (6th), by the side the apartment faces, not only the building's address.
+1. **Fronts a big street** as a minus: crosstown traffic streets (14th, 30th) and avenues (6th).
+   (Website's note: ideally by the side the apartment faces, not only the building's address.)
 2. **Transit and commute:** subway travel-time isochrones (traveltime.com or similar) to work and
    amenities, graded as a plus; a poor commute (a J train trip with transfers) as a minus.
 3. **Nearby places:** Madison Square Garden, public housing complexes, homeless shelters and
    similar; parks for dog walking (he liked Carl Schurz Park from 401 E 88th St); hospitals,
    especially ambulance routes.
-4. **Photos:** exposure, floor plan, heating type (radiators) and A/C, and how much light comes in.
-5. **Building websites** with exposure information (e.g. 777 6th Avenue's).
+
+Website's notes, drawn from his comments rather than stated as ideas: photos could give exposure,
+floor plan, heating (radiators), A/C and light; building websites can give exposures (777 6th
+Avenue's does).
 
 ## Finding the best, not reproducing asks (from rounds 9 and 10, 2026-10-06)
 
