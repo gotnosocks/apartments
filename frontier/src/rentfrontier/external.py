@@ -44,6 +44,10 @@ Sources:
   drop-in centers (DHS, bmxf-3rd4, and the Facilities Database's), NYCHA
   tax lots (MapPLUTO owner NYC Housing Authority) and Madison Square Garden
   (`MSG`, a fixed point). DHS publishes no shelter addresses.
+- storefronts: the Storefront Registry (Department of Finance, NYC Open Data
+  92iy-9c3n), every ground- and second-floor storefront filed for in the box,
+  every reporting year (the first covers 2019 and 2020): its business
+  activity and whether it stood vacant at the year's end.
 - gtfs: the MTA's static subway GTFS feed (`GTFS_URL`), kept whole as
   gtfs_subway.zip: stations, timetables and transfers (subway time to midtown,
   `transit`).
@@ -595,6 +599,37 @@ def fetch_places(box) -> tuple[pd.DataFrame, list[str], dict]:
     return table[inside].reset_index(drop=True), queries, versions
 
 
+STOREFRONTS_ID = "92iy-9c3n"
+STOREFRONT_COLUMNS = (
+    "reporting_year",
+    "borough_block_lot",
+    "property_street_address_or",
+    "unit",
+    "primary_business_activity",
+    "vacant_on_12_31",
+    "latitude",
+    "longitude",
+)
+
+
+def fetch_storefronts(box) -> tuple[pd.DataFrame, list[str], dict]:
+    """Every Storefront Registry filing in the box (north, west, south, east)."""
+    north, west, south, east = box
+    rows, q = _rows(
+        STOREFRONTS_ID,
+        {
+            "$select": ", ".join(STOREFRONT_COLUMNS),
+            "$where": f"borough = 'MANHATTAN' and within_box(lat_long, {north}, "
+            f"{west}, {south}, {east})",
+            "$order": "reporting_year, borough_block_lot",
+        },
+    )
+    table = pd.DataFrame(rows, columns=list(STOREFRONT_COLUMNS))
+    for c in ("latitude", "longitude"):
+        table[c] = pd.to_numeric(table[c], errors="coerce")
+    return table, [q], _version(STOREFRONTS_ID)
+
+
 GTFS_URL = "https://rrgtfsfeeds.s3.amazonaws.com/gtfs_subway.zip"
 
 
@@ -678,6 +713,7 @@ def main(argv=None):
             "lpc",
             "gtfs",
             "places",
+            "storefronts",
         ),
     )
     parser.add_argument(
@@ -773,6 +809,19 @@ def main(argv=None):
             "places": counts,
         }
         summary = ", ".join(f"{v} {k}" for k, v in sorted(counts.items()))
+    elif args.source == "storefronts":
+        box = basemap_box(pd.read_parquet(registry_path))
+        table, queries, version = fetch_storefronts(box)
+        counts = table.reporting_year.value_counts().sort_index().to_dict()
+        details = {
+            "source": f"{SOCRATA}/{STOREFRONTS_ID}",
+            "dataset": "Storefronts Reported Vacant or Not via NYC Open Data",
+            "version": version,
+            "registry": str(registry_path),
+            "box_north_west_south_east": box,
+            "filings_by_year": counts,
+        }
+        summary = f"{len(table)} filings"
     elif args.source == "noise311":
         box = basemap_box(pd.read_parquet(registry_path))
         table, queries, versions = fetch_noise(box)
