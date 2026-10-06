@@ -7,6 +7,56 @@ Fixes for things that are broken or wrong on the live site still ship.
 Each round adds a section at the top, ranked by how much the finding gets in the way of
 finding the best one-bedroom. Reports are in `/data1/apartments/tmp/playtests/<round>/`.
 
+## Ben on /best, 2026-10-06
+
+Ben went through the Best for you shortlist listing by listing (16:45 UTC, relayed). Some of these
+came from the default sort ("Fits you, at a good price"), some from "Fits you"; he didn't say which.
+The ranks in brackets are for 1 BR on the live build at 16:50 UTC, as (at a good price / fits you).
+His filters weren't recorded, so his own ranks may differ. Data improvements is taking the new
+location features. Website adds the site-side parts (a "fronts a big street" minus, a transit or
+commute pill) once those fields exist.
+
+Location misses, all from big streets or poor transit, which the model doesn't price yet:
+
+- **3 Eleven 2105** (28 / 13): unfavourable street and location. 30th St is a large crosstown
+  traffic street, with weak street-level amenities.
+- **Ohm 26A** (20 / 18): the same 30th St. Ben commutes to midtown, and the subway access is bad
+  (a J train trip with transfers is unappealing).
+- **507 West Chelsea 12D** (62 / 27): north-west Chelsea, bad transit.
+- **Ava High Line 844** (25 / 36): appears to front 28th St; the same transit issue.
+- **225 West 14th St 5F** (43 / 59): a **missing minus**. It overlooks 14th St, a large, loud
+  street.
+- **777 6th Avenue 22D** (40 / 17): a pretty good match, and a candidate for reading exposure
+  and floor plan from photos. The building's website (equityapartments.com, 777 6th Avenue) lists
+  exposures: mainly east with some north, so it overlooks 6th Avenue, which should be a **minus**
+  (a wide, noisy street).
+
+Good finds:
+
+- **The Chelsea 12C** (44 / 37): looks pretty good. Courtyard-facing matches the photos and
+  Street View. (The label comes from StreetEasy's window-exposure field, east, plus the building's
+  east side facing no street; line C agrees.)
+- **Ten23 04E** (22 / 35): looks good. From the photos it may front 10th Avenue or 23rd St; it
+  appears to face north or east.
+- **225 West 28th St 6G** (8 / 43): a good find. Some amenities are past his point of
+  diminishing returns.
+- **249 West 29th St 3E** (21 / 48): a good find.
+- **30 Horatio St 2C** (17 / 67): pretty good, but the photos show radiator heat and an older,
+  less good A/C unit.
+- **52 Barrow St 2W** (50 / 75): a good find, but the windows and light look poor.
+
+Feature ideas (location, mostly for Data improvements):
+
+1. **Fronts a big street** as a minus: crosstown traffic streets (14th, 23rd, 30th) and avenues
+   (6th), by the side the apartment faces, not only the building's address.
+2. **Transit and commute:** subway travel-time isochrones (traveltime.com or similar) to work and
+   amenities, graded as a plus; a poor commute (a J train trip with transfers) as a minus.
+3. **Nearby places:** Madison Square Garden, public housing complexes, homeless shelters and
+   similar; parks for dog walking (he liked Carl Schurz Park from 401 E 88th St); hospitals,
+   especially ambulance routes.
+4. **Photos:** exposure, floor plan, heating type (radiators) and A/C, and how much light comes in.
+5. **Building websites** with exposure information (e.g. 777 6th Avenue's).
+
 ## Finding the best, not reproducing asks (from rounds 9 and 10, 2026-10-06)
 
 The model prices what it can see. Wishes it can't see (quiet, garden view, floor-through) end up
