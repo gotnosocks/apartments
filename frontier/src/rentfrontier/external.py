@@ -51,6 +51,11 @@ Sources:
 - gtfs: the MTA's static subway GTFS feed (`GTFS_URL`), kept whole as
   gtfs_subway.zip: stations, timetables and transfers (subway time to midtown,
   `transit`).
+- lodes: the Census LEHD Origin-Destination Employment Statistics (LODES8)
+  workplace area characteristics for New York, all jobs (`LODES_WAC`), every
+  year published (`LODES_YEARS`), by 2020 census block in New York City
+  (`NYC_COUNTIES`), with each block's internal point from the LODES
+  geography crosswalk: one row per block, a jobs column per year.
 """
 
 from __future__ import annotations
@@ -651,6 +656,43 @@ def fetch_gtfs(path: Path) -> dict:
     }
 
 
+LODES_ROOT = "https://lehd.ces.census.gov/data/lodes/LODES8/ny"
+LODES_WAC = LODES_ROOT + "/wac/ny_wac_S000_JT00_{year}.csv.gz"
+LODES_XWALK = LODES_ROOT + "/ny_xwalk.csv.gz"
+LODES_YEARS = range(2002, 2024)
+NYC_COUNTIES = ("36005", "36047", "36061", "36081", "36085")
+
+
+def fetch_lodes() -> tuple[pd.DataFrame, dict]:
+    """Jobs (C000) per New York City census block and year, with the block's
+    internal point."""
+    blocks = pd.read_csv(
+        LODES_XWALK,
+        dtype={"tabblk2020": str, "cty": str},
+        usecols=["tabblk2020", "cty", "blklatdd", "blklondd"],
+    )
+    blocks = blocks[blocks.cty.isin(NYC_COUNTIES)].rename(
+        columns={"tabblk2020": "block", "blklatdd": "latitude", "blklondd": "longitude"}
+    )
+    table = blocks.set_index("block")[["latitude", "longitude"]]
+    for year in LODES_YEARS:
+        wac = pd.read_csv(
+            LODES_WAC.format(year=year),
+            dtype={"w_geocode": str},
+            usecols=["w_geocode", "C000"],
+        ).set_index("w_geocode")
+        table[f"jobs_{year}"] = wac.C000.reindex(table.index).fillna(0).astype(int)
+    jobs = table.filter(like="jobs_")
+    table = table[jobs.sum(axis=1) > 0].reset_index()
+    details = {
+        "source": LODES_ROOT,
+        "dataset": "LEHD LODES8 workplace area characteristics, all jobs (S000, JT00)",
+        "years": [LODES_YEARS.start, LODES_YEARS.stop - 1],
+        "blocks": len(table),
+    }
+    return table, details
+
+
 def merge(source: str, snapshots: list) -> tuple[pd.DataFrame, dict]:
     """One snapshot from several of the same source (neighbourhoods' boxes):
     concatenated, a record kept once (MERGE_KEYS; whole rows for the basemap).
@@ -714,6 +756,7 @@ def main(argv=None):
             "gtfs",
             "places",
             "storefronts",
+            "lodes",
         ),
     )
     parser.add_argument(
@@ -742,6 +785,19 @@ def main(argv=None):
         }
         (out_dir / "provenance.json").write_text(json.dumps(provenance, indent=2))
         print(f"wrote {path}: feed {details['version'].get('feed_version')}")
+        return
+    if args.source == "lodes":
+        table, details = fetch_lodes()
+        out_dir.mkdir(parents=True, exist_ok=False)
+        table.to_parquet(path)
+        provenance = {
+            **details,
+            "retrieved_at": started.isoformat(),
+            "commit": commit,
+            "sha256": hashlib.sha256(path.read_bytes()).hexdigest(),
+        }
+        (out_dir / "provenance.json").write_text(json.dumps(provenance, indent=2))
+        print(f"wrote {path}: {len(table)} blocks")
         return
     if args.source == "pluto":
         registry = pd.read_parquet(registry_path)
