@@ -608,6 +608,49 @@ def garden_v1(
     )
 
 
+def quiet_v1(
+    frame: pd.DataFrame,
+    train: np.ndarray,
+    id: str = "nb3-quiet-v1",
+    base: str = "nb3-coded-v2",
+) -> Features:
+    """A base set plus how quiet the building's address street is (`quiet`):
+    on a busy road (an avenue or a roadway of `quiet.BUSY_WIDTH_FT` or more,
+    the Village's named streets included); off one, a narrow roadway or a
+    mid-block spot; and the listing's ad calling the street quiet or
+    tree-lined. Reads no rents; the street map is today's."""
+    from . import descriptions, quiet
+
+    base = FEATURE_SETS[base](frame, train)
+    terms = quiet.street_terms(frame)
+    text = descriptions.attach(frame).fillna("").str.lower()
+    b = _Builder(frame)
+    b.add("street", "on a busy road", terms["busy"])
+    b.add(
+        "street",
+        f"narrow street (roadway {quiet.NARROW_FT:.0f} ft or less)",
+        terms["narrow"],
+    )
+    b.add(
+        "street",
+        f"mid-block ({quiet.MID_BLOCK_M:.0f} m or more from a busy road)",
+        terms["mid_block"],
+    )
+    b.add(
+        "street",
+        "ad says quiet street",
+        text.str.contains(quiet.QUIET_TEXT, regex=True).to_numpy(),
+    )
+    out = b.build(id)
+    return Features(
+        id,
+        base.names + out.names,
+        base.groups + out.groups,
+        np.column_stack([base.values, out.values]),
+        np.concatenate([base.prior_scale, out.prior_scale]),
+    )
+
+
 def through_v1(
     frame: pd.DataFrame,
     train: np.ndarray,
@@ -1947,6 +1990,7 @@ FEATURE_SETS = {
     ),
     "nb3-garden-v1": partial(garden_v1, id="nb3-garden-v1", base="nb3-coded-v2"),
     "nb3-through-v1": partial(through_v1, id="nb3-through-v1", base="nb3-coded-v2"),
+    "nb3-quiet-v1": partial(quiet_v1, id="nb3-quiet-v1", base="nb3-coded-v2"),
     # West Village: the app design's building facts (as unitdescpluto-v3) on the
     # unit and floor features (no West Village ads: see nb-facing-v2).
     "wv-unitpluto-v1": partial(
@@ -2175,7 +2219,7 @@ for _new, _old in (
 
 
 # The wish sets read what nb3-coded-v2 (their base) reads.
-for _wish in ("nb3-garden-v1", "nb3-through-v1"):
+for _wish in ("nb3-garden-v1", "nb3-through-v1", "nb3-quiet-v1"):
     for _group in (
         EXTERNAL,
         BASEMAP,
