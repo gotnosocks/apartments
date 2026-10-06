@@ -2,6 +2,26 @@
 
 What the next turn of the website thread needs. Updated at each milestone.
 
+## State (2026-10-06 06:10 UTC)
+
+- **Greenwich Village model not served yet.** The three-neighbourhood refit
+  (`m7-…-nb3-coded-v2-rows-e8191b2-…-nb3-v5f1u5-gv1005`) finished (PSIS-LOO 106,014.8, held-out
+  dELPD +109.8) but fails the all-effects R-hat gate (unit 1.0598, bedroom_slope 1.0592 > 1.05),
+  so the live build still serves the Chelsea + West Village run `m7-…-nb-v5f1u3-d1005` and
+  Greenwich Village has no estimates on `/estimate`, listing pages or the map. What next is
+  Modeling's call. When a build with it goes live, check those three pages and ask Modeling for new
+  growth-decomposition figures.
+- **Board re-baselined on the Greenwich Village data (#310).** All 16 GV fits are scored on
+  `/research` and `/research/board`. Fits on the 1 October data and older now show no score,
+  because `dashboard.prior_scores` keeps a single earlier baseline (Modeling's code; suggested a
+  list of baselines to them).
+- **Playtester model back to `claude-sonnet-5-5` (#304)**, reverting #301; the
+  unrecognized_model warning is cosmetic.
+- **`wait-next` default `--max` is 25 (#308).** Claude Code 2.1.289 kills a background task after
+  about 30 minutes; `--max` now also caps the batch window.
+- Round 9 (best-1bed) was held for the Greenwich Village data; run it on the current site if the
+  model stays delayed.
+
 ## State (2026-10-05 20:30 UTC)
 
 - **Website features on hold (Ben, 18:22 UTC).** Playtest only with `best-1bed`, one persona a
