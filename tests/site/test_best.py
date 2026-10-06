@@ -162,3 +162,23 @@ def test_rows_and_listing_pages_link_to_streeteasy(client):
     top = listing.split('id="streeteasy"')[1].split("</p>")[0]
     assert "on StreetEasy ↗" in top
     assert listing.index('id="streeteasy"') < listing.index("<h2")
+
+
+def test_street_view_links(client):
+    """Ben (2026-10-06): Street View beside the StreetEasy links."""
+    from apartments.site.web import street_view
+
+    assert street_view(40.7, -74.0) == (
+        "https://www.google.com/maps/@?api=1&map_action=pano"
+        "&viewpoint=40.700000%2C-74.000000"
+    )
+    assert street_view(None, None, "1 Main St") == (
+        "https://www.google.com/maps/search/?api=1&query=1+Main+St%2C+New+York%2C+NY"
+    )
+    assert street_view(None, None) is None
+    page = client.get("/best").get_data(as_text=True)
+    assert "Street View ↗" in page
+    audit_id = page.split('href="/listings/')[1].split('"')[0]
+    listing = client.get(f"/listings/{audit_id}").get_data(as_text=True)
+    top = listing.split('id="streeteasy"')[1].split("</p>")[0]
+    assert "map_action=pano" in top and "Street View ↗" in top

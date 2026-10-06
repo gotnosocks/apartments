@@ -16,9 +16,11 @@
   · {{ m.layout(row) }}{% if row.floor is not none %} · floor {{ row.floor }}{% elif read_floor %} · floor {{ read_floor }}{% endif %}
 </p>
 {# Ben 2026-10-06: the StreetEasy links at the top, in the same place on every listing page. #}
-{% if row.listing_url or row.unit_url %}<p class="links se-links" id="streeteasy">
+{% set sv = street_view(row.latitude, row.longitude, row.building_address) %}
+{% if row.listing_url or row.unit_url or sv %}<p class="links se-links" id="streeteasy">
   {% if row.listing_url %}<a class="source" href="{{ row.listing_url }}" rel="noopener noreferrer" target="_blank">{{ "This ad" if row.is_current else "The ad" }} on StreetEasy ↗</a>{% endif %}
   {% if row.unit_url %}<a href="{{ row.unit_url }}" rel="noopener noreferrer" target="_blank">The unit on StreetEasy ↗</a>{% endif %}
+  {% if sv %}<a href="{{ sv }}" rel="noopener noreferrer" target="_blank">Street View ↗</a>{% endif %}
 </p>{% endif %}
 {% if ad_start %}{% set change = row.ask / ad_start.ask - 1 %}
 <p class="note" id="ad-start">This advertisement first appeared in {{ month(ad_start.period) }} asking {{ usd(ad_start.ask) }};

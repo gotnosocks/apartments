@@ -234,7 +234,8 @@ def rank(db, profile: dict) -> dict:
     buildings = {
         b["id"]: b
         for b in db.execute(
-            "SELECT b.id, b.name, b.address, b.level_pct, b.trend_pct FROM buildings b "
+            "SELECT b.id, b.name, b.address, b.latitude, b.longitude, b.level_pct, "
+            "b.trend_pct FROM buildings b "
             "WHERE b.id IN (SELECT building_id FROM listings WHERE is_current = 1)"
         )
     }
@@ -256,6 +257,9 @@ def rank(db, profile: dict) -> dict:
             estimate=r["estimate"],
             reliable=r["reliable"],
             listing_url=r["listing_url"],
+            latitude=b["latitude"] if b else None,
+            longitude=b["longitude"] if b else None,
+            address=b["address"] if b else None,
             income_restricted=bool(inputs.get("text:income_restricted")),
             fit_pct=100 * math.expm1(s["score"]),
             vs_estimate=r["ask"] / r["estimate"] - 1 if r["estimate"] else None,
