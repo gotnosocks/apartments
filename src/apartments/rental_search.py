@@ -17,12 +17,14 @@ from streeteasy_archive.flight import decode_records
 
 VERSION = 'rental-search-v3'
 AREAS = {'/for-rent/chelsea': 'Chelsea', '/for-rent/west-chelsea': 'West Chelsea',
-         '/for-rent/west-village': 'West Village'}
+         '/for-rent/west-village': 'West Village', '/for-rent/greenwich-village': 'Greenwich Village'}
 # Card area names that count as in scope for each search route. A search can show
 # cards from other areas (West Chelsea in-feed cards in Hudson Yards, for example).
 _CHELSEA = frozenset({'Chelsea', 'West Chelsea'})
 SCOPES = {'/for-rent/chelsea': _CHELSEA, '/for-rent/west-chelsea': _CHELSEA,
-          '/for-rent/west-village': frozenset({'West Village'})}
+          '/for-rent/west-village': frozenset({'West Village'}),
+          # Greenwich Village without its child area NoHo, as in the GV crawl scope.
+          '/for-rent/greenwich-village': frozenset({'Greenwich Village'})}
 ROLES = {'FeaturedRentalEdge': 'featured', 'SponsoredRentalEdge': 'infeed', 'OrganicRentalEdge': 'regular'}
 FIELDS = ('id', 'urlPath', 'street', 'unit', 'displayUnit', 'price', 'totalMonthlyPrice',
           'netEffectivePrice', 'monthsFree', 'leaseTermMonths', 'areaName', 'status',

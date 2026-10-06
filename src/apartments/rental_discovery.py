@@ -20,6 +20,7 @@ from streeteasy_archive.oxylabs import _result_item, build_payload
 VERSION = 'bounded-rental-discovery-v3'
 # Seeds come from the parser's supported routes, in order. scope.py is hashed by
 # saved datasets, so West Village (v3) is added here rather than to its SEEDS.
+# A run may freeze any subset of them, in this order (Greenwich Village alone, Oct 2026).
 SEEDS = tuple('https://streeteasy.com' + path for path in rental_search.AREAS)
 RAW_FILES = ('request.json', 'response.json', 'body.html', 'extracted.json', 'metadata.json')
 CODE_FILES = ('apartments/rental_discovery.py', 'apartments/rental_search.py',
@@ -69,7 +70,9 @@ def _implementation_paths():
 
 def _check_run(root, protocol):
     """Revalidate fixed intent and live/frozen code at each external boundary."""
-    if (protocol.get('version') != VERSION or protocol.get('seeds') != list(SEEDS)
+    seeds = protocol.get('seeds')
+    if (protocol.get('version') != VERSION or not isinstance(seeds, list) or not seeds
+            or seeds != [seed for seed in SEEDS if seed in seeds]
             or protocol.get('transport') != 'existing_one_request_oxylabs_probe_html'
             or type(protocol.get('max_requests')) is not int or protocol['max_requests'] < 1
             or type(protocol.get('timeout')) is not int or not 1 <= protocol['timeout'] <= 180
@@ -123,7 +126,7 @@ def _page(directory, url):
         'meaning': 'Provider request clock; not advertisement publication or modification time.'})
 
 
-def _preflights(bundle):
+def _preflights(bundle, seeds):
     if bundle is None:
         return [], None
     bundle = Path(bundle).resolve()
@@ -146,11 +149,11 @@ def _preflights(bundle):
                         'file_sha256': hashes, 'body_sha256': page['body_sha256']})
     # Require a source-backed continuous prefix, rather than letting supplied
     # captures silently authorize arbitrary later pages.
-    _pending([_page(Path(e['source_directory']), e['url']) for e in entries])
+    _pending([_page(Path(e['source_directory']), e['url']) for e in entries], seeds)
     return entries, {'path': str(bundle), 'manifest_sha256': digest(bundle / 'complete.json')}
 
 
-def _pending(pages):
+def _pending(pages, seeds):
     by_key = {}
     for page in pages:
         key = rental_search._route(page['source_url'])
@@ -158,7 +161,7 @@ def _pending(pages):
             raise ValueError('Duplicate seed/page capture')
         by_key[key] = page
     pending, consumed = [], set()
-    for seed in SEEDS:
+    for seed in seeds:
         url = seed
         while True:
             key = rental_search._route(url)
@@ -236,7 +239,7 @@ def _state(root, protocol):
         intent = json.loads(path.read_text())
         if intent['sequence'] != number or path.parent.name != f'{number:04d}':
             raise ValueError('Noncontiguous request ledger')
-        allowed = _pending(pages)
+        allowed = _pending(pages, protocol['seeds'])
         if attempts and attempts[-1]['outcome']['status'] != 'accepted':
             raise ValueError('Ledger continues after unresolved request')
         if intent['url'] not in allowed or intent['protocol_sha256'] != digest(root / 'protocol.json'):
@@ -260,7 +263,7 @@ def _publish(root, protocol, pages, attempts, reason):
               'reused_provider_submissions': len(protocol['preflights']),
               'new_request_intents': len(attempts),
               'global_reserved_requests': len(protocol['preflights']) + len(attempts),
-              'max_requests': protocol['max_requests'], 'pending_observed_urls': _pending(pages),
+              'max_requests': protocol['max_requests'], 'pending_observed_urls': _pending(pages, protocol['seeds']),
               'attempts': attempts, 'preflights': protocol['preflights'],
               'complete_inventory': False}
     key = rental_search.fingerprint({'report': report, 'coverage': coverage})
@@ -272,11 +275,13 @@ def _publish(root, protocol, pages, attempts, reason):
     return {'report_directory': str(target), **report}
 
 
-def run(output, *, max_requests=None, preflight_bundle=None, resume=False, replay_only=False, timeout=180):
+def run(output, *, max_requests=None, preflight_bundle=None, resume=False, replay_only=False, timeout=180,
+        seeds=None):
     """Start/resume one immutable protocol; replay_only can never submit requests.
 
     Ceiling counts reused submissions plus durable new intents. Uncertain or
     failed captures stop the pass permanently; a new run requires explicit review.
+    seeds (default all SEEDS) freezes a subset of the supported routes into the protocol.
     """
     root = Path(output).resolve()
     root.mkdir(parents=True, exist_ok=True)
@@ -288,6 +293,7 @@ def run(output, *, max_requests=None, preflight_bundle=None, resume=False, repla
             protocol = json.loads(protocol_path.read_text())
             if (protocol['version'] != VERSION or protocol['implementation_sha256'] != code
                     or (max_requests is not None and max_requests != protocol['max_requests'])
+                    or (seeds is not None and list(seeds) != protocol['seeds'])
                     or preflight_bundle is not None):
                 raise ValueError('Resume protocol differs; use original settings and sources')
         else:
@@ -297,11 +303,14 @@ def run(output, *, max_requests=None, preflight_bundle=None, resume=False, repla
                 raise ValueError('An explicit positive request ceiling is required')
             if isinstance(timeout, bool) or not isinstance(timeout, int) or not 1 <= timeout <= 180:
                 raise ValueError('Timeout must be between 1 and 180 seconds')
-            entries, bundle = _preflights(preflight_bundle)
+            seeds = list(SEEDS) if seeds is None else list(seeds)
+            if not seeds or seeds != [seed for seed in SEEDS if seed in seeds]:
+                raise ValueError('Seeds must be a nonempty subset of SEEDS, in order')
+            entries, bundle = _preflights(preflight_bundle, seeds)
             if len(entries) > max_requests:
                 raise ValueError('Reused submissions exceed request ceiling')
             protocol = {'version': VERSION, 'created_at': datetime.now(timezone.utc).isoformat(),
-                        'seeds': list(SEEDS), 'max_requests': max_requests, 'timeout': timeout,
+                        'seeds': seeds, 'max_requests': max_requests, 'timeout': timeout,
                         'transport': 'existing_one_request_oxylabs_probe_html',
                         'preflights': entries, 'preflight_bundle': bundle, 'implementation_sha256': code}
             for name, source in _implementation_paths().items():
@@ -313,7 +322,7 @@ def run(output, *, max_requests=None, preflight_bundle=None, resume=False, repla
             while True:
                 _check_run(root, protocol)
                 pages, attempts = _state(root, protocol)
-                pending = _pending(pages)
+                pending = _pending(pages, protocol['seeds'])
                 if attempts and attempts[-1]['outcome']['status'] != 'accepted':
                     reason = attempts[-1]['outcome']['status']
                 elif not pending:
