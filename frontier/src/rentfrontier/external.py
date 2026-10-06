@@ -37,7 +37,9 @@ Sources:
   district fields are today's status, with no date).
 - places: points of interest around the registry's buildings (their bounding
   box plus PLACES_MARGIN_M), one row each with its kind: dog runs and
-  off-leash areas (NYC Parks, hxx3-bwgv; the polygon's vertex mean), hospitals
+  off-leash areas (NYC Parks, hxx3-bwgv, the polygon's vertex mean; and
+  OpenStreetMap's leisure=dog_park in Manhattan, ODbL, which has Hudson River
+  Park's runs, not NYC Parks property), hospitals
   and ambulance or EMS stations (Facilities Database, ji82-xba5), homeless
   drop-in centers (DHS, bmxf-3rd4, and the Facilities Database's), NYCHA
   tax lots (MapPLUTO owner NYC Housing Authority) and Madison Square Garden
@@ -477,6 +479,11 @@ FACDB_KINDS = {
     "DROP-IN CENTER": "drop-in center",
     "DROP-IN CENTERS": "drop-in center",
 }
+OVERPASS = "https://overpass-api.de/api/interpreter"
+OSM_DOG_PARKS = (
+    '[out:json][timeout:60];area["boundary"="administrative"]["name"="Manhattan"]'
+    '["admin_level"="7"]->.m;nwr["leisure"="dog_park"](area.m);out center tags;'
+)
 # Madison Square Garden (opened 1968), 4 Pennsylvania Plaza.
 MSG = (40.75051, -73.99341)
 
@@ -508,6 +515,21 @@ def fetch_places(box) -> tuple[pd.DataFrame, list[str], dict]:
         lon = sum(p[0] for p in ring) / len(ring)
         lat = sum(p[1] for p in ring) / len(ring)
         out.append(("dog run", r.get("name"), None, lat, lon, DOG_RUNS_ID))
+    request = urllib.request.Request(
+        OVERPASS,
+        data=urllib.parse.urlencode({"data": OSM_DOG_PARKS}).encode(),
+        headers={"User-Agent": "apartments-research/1.0"},
+    )
+    with urllib.request.urlopen(request, timeout=120) as r:
+        osm = json.loads(r.read())
+    queries.append(f"{OVERPASS}?data={OSM_DOG_PARKS}")
+    for e in osm["elements"]:
+        tags = e.get("tags", {})
+        if tags.get("access") in ("private", "customers", "no"):
+            continue
+        at = e.get("center", e)
+        name = tags.get("name")
+        out.append(("dog run", name, None, at["lat"], at["lon"], "osm"))
     facilities, q = _rows(
         FACDB_ID,
         {
@@ -569,6 +591,7 @@ def fetch_places(box) -> tuple[pd.DataFrame, list[str], dict]:
         table[c] = pd.to_numeric(table[c], errors="coerce")
     inside = table.latitude.between(south, north) & table.longitude.between(west, east)
     versions = {d: _version(d) for d in (DOG_RUNS_ID, FACDB_ID, DROP_IN_ID, PLUTO_ID)}
+    versions["osm"] = osm["osm3s"]["timestamp_osm_base"]
     return table[inside].reset_index(drop=True), queries, versions
 
 
@@ -740,8 +763,9 @@ def main(argv=None):
         table, queries, versions = fetch_places(box)
         counts = table.kind.value_counts().to_dict()
         details = {
-            "source": [f"{SOCRATA}/{d}" for d in versions],
-            "dataset": "NYC Open Data: dog runs, facilities, drop-in centers, NYCHA lots",
+            "source": [f"{SOCRATA}/{d}" for d in versions if d != "osm"] + [OVERPASS],
+            "dataset": "NYC Open Data: dog runs, facilities, drop-in centers, NYCHA "
+            "lots; OpenStreetMap dog parks (ODbL)",
             "versions": versions,
             "registry": str(registry_path),
             "box_north_west_south_east": box,
