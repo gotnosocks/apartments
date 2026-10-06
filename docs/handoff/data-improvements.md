@@ -1,6 +1,6 @@
 # Data improvements — handoff
 
-Updated 2026-10-06 13:35 ET. Thread owner: the Data improvements project thread (bridge session on thelio).
+Updated 2026-10-06 14:00 ET. Thread owner: the Data improvements project thread (bridge session on thelio).
 
 ## State
 - **Greenwich Village fold-in: done on the data side.** #292 (cohort, listing extras, alias table
@@ -71,6 +71,19 @@ Updated 2026-10-06 13:35 ET. Thread owner: the Data improvements project thread 
     snapshot `20261006-5fd0c26`, 2019-2020 filings; vacancy left out as future information).
   Snapshot-writing commits are kept by `archive/snapshot-*` tags. Outside a build, set
   `features._LOTS` from `features.lot_files(set)`, or half the rows read the old registry.
+- **Commute table (Ben, 2026-10-06; #353):** `rentfrontier.commute` writes
+  `/data1/apartments/wishes/commute-<date>.parquet` and `.csv` (building, destination, address,
+  minutes, transfers, walk_to_station_min, station), weekday 08:00-09:00 subway to the places in
+  `config/commute-destinations.json` (default: office, 65 E 55th St). Ranking only, never a
+  feature set (Ben is wary of over-tuning to him). Website reads the newest CSV at runtime for
+  /best pills (#355); tell Website before renaming columns or moving the file.
+- **Photo/floor-plan pilot:** Ben approved it (17:41Z), but this session's permission check
+  refused the image download. Sample ready (`/data1/apartments/photo-pilot/sample.jsonl`, 200
+  labelled apartments + 777 6th 22D, 693 images), downloader
+  `/data1/apartments/tmp/suspect/photo-pilot/fetch.py`. Waits for Ben to allow it or run it;
+  then Sonnet subagents read the images (no API key on thelio; no stored credentials).
+- **Performance review items:** rebuild memory measured (#351, 44 KB per row, no change);
+  granular export row groups 8,192 (#352).
 - **#326 `unit-labels-v6`** (draft) waits for a batch full fit.
 
 ## Next
