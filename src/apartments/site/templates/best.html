@@ -62,7 +62,7 @@ plus nor a minus.</p>
       <td class="num nowrap">{{ pct(r.fit_pct, digits=0) }}</td>
       <td class="num">{{ usd(r.ask) }}</td>
       <td class="num nowrap">{{ usd(r.estimate) }}{% if r.vs_estimate is not none %} <span class="muted">(ask {{ pct(100 * r.vs_estimate, digits=0) }})</span>{% endif %}{% if not r.reliable %}<span class="warn-mark" title="Less reliable estimate">*</span>{% endif %}</td>
-      <td>{% for t in r.pros[:3] %}<span class="rtag good">+ {{ t.label }}</span> {% endfor %}{% if r.pros | length > 3 %}<details class="more"><summary>{{ r.pros | length - 3 }} more</summary>{% for t in r.pros[3:] %}<span class="rtag good">+ {{ t.label }}</span> {% endfor %}</details>{% endif %}</td>
+      <td>{% for t in r.pros %}<span class="rtag good">+ {{ t.label }}</span> {% endfor %}</td>
       <td>{% for t in r.cons[:2] %}<span class="rtag bad">− {{ t.label }}</span> {% endfor %}{% if r.cons | length > 2 %}<details class="more"><summary>{{ r.cons | length - 2 }} more</summary>{% for t in r.cons[2:] %}<span class="rtag bad">− {{ t.label }}</span> {% endfor %}</details>{% endif %}</td>
       <td class="muted">{{ r.unknown | join(", ") }}</td>
     </tr>
