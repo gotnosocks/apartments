@@ -23,11 +23,11 @@ The sampler runs in float64, so the GPU's float64 throughput sets the speed. A10
 
 | GPU | fit | PSIS-LOO | billed |
 |---|---|---|---|
-| A100-40GB | 822 s (warmup 288, sampling 516) | | $0.72 for the fit without LOO |
+| A100-40GB | 822 to 919 s (warmup 288 to 364, sampling 516 to 546) | 139 s, 106,764.6 ± 334 | $0.72 for the fit alone; $0.80 for a 1,188 s rerun against a $0.79 estimate |
 | L4 (300 warmup, 180 draws) | warmup 518 s | | |
 | RTX 2060 SUPER (thelio) | 6,578 s | 141 s | |
 
-The A100 reproduced thelio's diagnostics exactly (R-hat 1.00529, minimum ESS 469.07, held-out ELPD 13,139.0). Prices are in `ops/modal/app.py`, from [modal.com/pricing](https://modal.com/pricing).
+The A100 reproduced thelio's diagnostics and PSIS-LOO exactly (R-hat 1.00529, minimum ESS 469.07, held-out ELPD 13,139.0, PSIS-LOO 106,764.6 ± 334). PSIS-LOO gains nothing from the A100 (139 s against 141 s) but costs only about $0.09 inside the fit's container, so it stays there. Prices are in `ops/modal/app.py`, from [modal.com/pricing](https://modal.com/pricing).
 
 ### Setup
 
