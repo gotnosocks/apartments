@@ -21,17 +21,29 @@ price for what it is), "fit" (score alone) and "value" (score - log ask: fit
 for the money). Log asks spread about six times wider than scores, so
 "value" is close to cheapest first unless bedrooms or a budget narrow the
 list (Modeling, 2026-10-06); it is not the default. Point values only for now; intervals can follow if wanted.
+
+Commute (Data improvements' `rentfrontier.commute`, #353): weekday-morning
+subway minutes from each building to the destinations in
+`config/commute-destinations.json`, read at runtime from the newest
+`commute-*.csv` in the wishes folder. A sheet may name the destinations it
+wants (`"commute": ["office"]`; all of them otherwise). A trip at or under the
+median for the buildings, with no transfer, shows as a plus, otherwise a
+minus. It is shown, not counted: the model has no price for it, so it leaves
+the score alone.
 """
 
 from __future__ import annotations
 
+import csv
 import json
 import math
 import os
 import re
+import statistics
 from pathlib import Path
 
 DIR = Path(os.environ.get("PREFERENCES_DIR", "/data1/apartments/preferences"))
+WISHES = Path(os.environ.get("WISHES_DIR", "/data1/apartments/wishes"))
 DEFAULT_PROFILE = "ben-v1"
 PROFILE_NAME = re.compile(r"^[a-z0-9][a-z0-9-]{0,63}$")
 SORTS = {
@@ -132,7 +144,83 @@ def load_profile(path: Path) -> dict:
         "unmodelled": unmodelled,
         "neutral": raw.get("neutral_on_purpose") or [],
         "left_out": raw.get("taste_left_out") or [],
+        "commute": [str(d) for d in raw["commute"]]
+        if isinstance(raw.get("commute"), list)
+        else None,
     }
+
+
+def commute_path() -> Path | None:
+    """The newest commute table, or None."""
+    files = sorted(WISHES.glob("commute-*.csv"))
+    return files[-1] if files else None
+
+
+def load_commute(path: Path | None) -> dict:
+    """{destination: {address, median, buildings: {building: trip}}}; empty
+    without a readable table."""
+    if path is None:
+        return {}
+    try:
+        with path.open(newline="") as f:
+            rows = list(csv.DictReader(f))
+    except OSError:
+        return {}
+    out: dict[str, dict] = {}
+    for r in rows:
+        try:
+            trip = {
+                "minutes": float(r["minutes"]),
+                "transfers": int(float(r["transfers"] or 0)),
+                "station": r.get("station") or None,
+                "walk": float(r["walk_to_station_min"])
+                if r.get("walk_to_station_min")
+                else None,
+            }
+        except (KeyError, ValueError):
+            continue
+        d = out.setdefault(
+            r["destination"], {"address": r.get("address"), "buildings": {}}
+        )
+        d["buildings"][r["building"]] = trip
+    for d in out.values():
+        d["median"] = statistics.median(t["minutes"] for t in d["buildings"].values())
+    return out
+
+
+def commute_tags(building_id, commute: dict, wanted=None) -> list[dict]:
+    """A plus or minus per destination for one building: at or under the
+    median with no transfer is a plus."""
+    tags = []
+    for name, d in commute.items():
+        if wanted is not None and name not in wanted:
+            continue
+        trip = d["buildings"].get(building_id)
+        if trip is None:
+            continue
+        n = trip["transfers"]
+        words = f"{name}: {trip['minutes']:.0f} min by subway" + (
+            f", {n} transfer{'s' if n > 1 else ''}" if n else ""
+        )
+        how = []
+        if trip["station"]:
+            how.append(
+                f"from {trip['station']}"
+                + (f", {trip['walk']:.0f} min walk" if trip["walk"] is not None else "")
+            )
+        how.append(f"median {d['median']:.0f} min")
+        tags.append(
+            {
+                "destination": name,
+                "label": words,
+                "title": f"{d['address']}; " + "; ".join(how)
+                if d["address"]
+                else "; ".join(how),
+                "good": trip["minutes"] <= d["median"] and not n,
+                **trip,
+            }
+        )
+    return tags
 
 
 def label(feature: str) -> str:
@@ -221,7 +309,7 @@ def score(row, inputs: dict, building, profile: dict, betas: dict) -> dict:
     }
 
 
-def rank(db, profile: dict) -> dict:
+def rank(db, profile: dict, commute: dict | None = None) -> dict:
     """Every current listing, scored: {rows, not_modelled, everywhere}.
     `everywhere` lists the unknown details every listing shares (said once
     on the page rather than on every row)."""
@@ -261,6 +349,9 @@ def rank(db, profile: dict) -> dict:
             latitude=b["latitude"] if b else None,
             longitude=b["longitude"] if b else None,
             address=b["address"] if b else None,
+            commute=commute_tags(
+                r["building_id"], commute or {}, profile.get("commute")
+            ),
             income_restricted=bool(inputs.get("text:income_restricted")),
             fit_pct=100 * math.expm1(s["score"]),
             vs_estimate=r["ask"] / r["estimate"] - 1 if r["estimate"] else None,

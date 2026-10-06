@@ -1,5 +1,7 @@
 """Best for you: current listings ranked by a preference sheet (Ben, 2026-10-06)."""
 
+import csv
+import io
 import json
 import math
 
@@ -29,6 +31,7 @@ def sheets(tmp_path, monkeypatch):
     (folder / "test-v1.json").write_text(json.dumps(SHEET))
     monkeypatch.setattr(best, "DIR", folder)
     monkeypatch.setattr(best, "DEFAULT_PROFILE", "test-v1")
+    monkeypatch.setattr(best, "WISHES", tmp_path / "wishes")
     return folder
 
 
@@ -165,7 +168,7 @@ def test_rows_and_listing_pages_link_to_streeteasy(client):
         client.get("/best.csv")
         .get_data(as_text=True)
         .splitlines()[0]
-        .endswith(",streeteasy")
+        .endswith(",streeteasy,commute")
     )
     audit_id = page.split('href="/listings/')[1].split('"')[0]
     listing = client.get(f"/listings/{audit_id}").get_data(as_text=True)
@@ -229,3 +232,59 @@ def test_street_view_stands_in_the_buildings_street():
     assert abs(lat - 40.0006) < 1e-9 and round(heading) == 180
     url = streetview.link(data, "a", 40.0003, -74.0, "225 West 14th Street")
     assert "viewpoint=40.000000%2C-74.000000&heading=0" in url
+
+
+COMMUTE = """building,destination,address,minutes,transfers,walk_to_station_min,station
+a,office,65 E 55th St,18.3,0,0.9,14 St
+b,office,65 E 55th St,24.8,1,2.0,23 St
+c,office,65 E 55th St,30.0,0,13.5,23 St
+a,gym,1 Main St,10,0,1,14 St
+"""
+
+
+def test_commute_is_a_plus_at_or_under_the_median_without_a_transfer(tmp_path):
+    (tmp_path / "commute-20261005.csv").write_text("building,destination\n")
+    (tmp_path / "commute-20261006.csv").write_text(COMMUTE)
+    best.WISHES = tmp_path  # undone by the autouse fixture
+    commute = best.load_commute(best.commute_path())
+    assert commute["office"]["median"] == 24.8
+    a, b, c = (best.commute_tags(x, commute, ["office"]) for x in "abc")
+    assert [t["good"] for t in a + b + c] == [True, False, False]
+    assert b[0]["label"] == "office: 25 min by subway, 1 transfer"
+    assert "from 14 St, 1 min walk" in a[0]["title"]
+    assert [t["destination"] for t in best.commute_tags("a", commute)] == [
+        "office",
+        "gym",
+    ]
+    assert best.load_commute(None) == {}
+
+
+def test_commute_shows_on_best_without_changing_the_fit(client, monkeypatch):
+    before = list(
+        csv.reader(io.StringIO(client.get("/best.csv").get_data(as_text=True)))
+    )
+
+    class Every(dict):
+        def get(self, key, default=None):
+            return {"minutes": 40.0, "transfers": 1, "station": "8 Av", "walk": 3.0}
+
+    monkeypatch.setattr(
+        best,
+        "load_commute",
+        lambda path: {
+            "office": {"address": "65 E 55th St", "median": 23.0, "buildings": Every()}
+        },
+    )
+    # A commute file on disk gives the ranking cache a new key.
+    best.WISHES.mkdir()
+    (best.WISHES / "commute-20261006.csv").write_text("building,destination\n")
+    page = client.get("/best").get_data(as_text=True)
+    assert "− office: 40 min by subway, 1 transfer" in page
+    assert 'id="commute"' in page and "not counted in the fit" in page
+    after = list(
+        csv.reader(io.StringIO(client.get("/best.csv").get_data(as_text=True)))
+    )
+    assert after[0][-1] == "commute"
+    assert after[1][-1] == "office: 40 min by subway, 1 transfer"
+    # Same ranking and fit, row for row.
+    assert [x[:-1] for x in after[1:]] == [x[:-1] for x in before[1:]]

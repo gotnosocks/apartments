@@ -1189,14 +1189,30 @@ def create_app(
             stamp = None
         if stamp is None:
             abort(404, description=f"No preference sheet named {profile_name!r}.")
-        key = (str(database_path()), profile_name, stamp)
+        commute_file = best.commute_path()
+        try:
+            commute_stamp = commute_file.stat().st_mtime_ns if commute_file else None
+        except OSError:
+            commute_file = commute_stamp = None
+        key = (
+            str(database_path()),
+            profile_name,
+            stamp,
+            str(commute_file),
+            commute_stamp,
+        )
         if key not in best_cache:
             try:
                 profile = best.load_profile(path)
             except (OSError, ValueError, AttributeError) as error:
                 abort(503, description=f"The preference sheet can't be read: {error}")
             best_cache.clear()
-            best_cache[key] = {"profile": profile, **best.rank(db(), profile)}
+            commute = best.load_commute(commute_file)
+            best_cache[key] = {
+                "profile": profile,
+                "commute": commute,
+                **best.rank(db(), profile, commute),
+            }
         return best_cache[key]
 
     def best_choice() -> tuple[str, dict, dict]:
@@ -1227,6 +1243,7 @@ def create_app(
             profile_name=name,
             not_modelled=data["not_modelled"],
             everywhere=data["everywhere"],
+            commute=data["commute"],
             rows=shown,
             total=len(rows),
             current=len(data["rows"]),
@@ -1246,7 +1263,7 @@ def create_app(
             [
                 "rank", "audit_id", "building", "unit", "neighbourhood", "bedrooms",
                 "ask", "estimate", "ask_vs_estimate_pct", "fit_pct", "score",
-                "value", "deal", "pros", "cons", "not_stated", "streeteasy",
+                "value", "deal", "pros", "cons", "not_stated", "streeteasy", "commute",
             ]
         )  # fmt: skip
         for i, r in enumerate(best.choose(data["rows"], **choice), 1):
@@ -1261,6 +1278,7 @@ def create_app(
                     "; ".join(t["label"] for t in r["cons"]),
                     "; ".join(r["unknown"] + data["everywhere"]),
                     r["listing_url"],
+                    "; ".join(t["label"] for t in r["commute"]),
                 ]
             )  # fmt: skip
         return Response(
