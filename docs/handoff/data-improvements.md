@@ -58,7 +58,7 @@ Updated 2026-10-06 08:00 ET. Thread owner: the Data improvements project thread 
 - Next data item: unit-id splits (fragmented labels in small buildings; see the MapPLUTO note).
   Run full-data scripts only while the GPU is free: GPU fits lean on swap (memory note, 2026-10-06).
 - Backlog: bldgclass for condo conversions, Jane St registry fix, 13 excluded new-building rows, confirm
-  q-v3/q-v4 on held-out rows, gross rent, unit splits, relist gap.
+  q-v3/q-v4 on held-out rows, gross rent, relist gap.
 
 ## Rules that bind this thread
 - Rule-based changes, one PR per change, no future information; descriptions never override coded
