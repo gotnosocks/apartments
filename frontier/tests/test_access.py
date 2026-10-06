@@ -49,7 +49,10 @@ def test_jobs_within_as_of_the_month(monkeypatch):
         access, "building_jobs", lambda exclude=frozenset(): tables[exclude]
     )
     frame = pd.DataFrame(
-        {"building": ["x", "y", "z"], "period": ["2015-08", "2015-10", "2014-03"]}
+        {
+            "building": ["x", "y", "z"],
+            "period": pd.to_datetime(["2015-08-01", "2015-10-01", "2014-03-01"]),
+        }
     )
     out = access.jobs_within(frame)
     assert out[:2].tolist() == pytest.approx([6.0, 21.0])
