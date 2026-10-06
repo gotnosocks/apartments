@@ -54,10 +54,11 @@ frontier's time axis, so compare fit times only within one implementation.
       Greenwich Village 18,817 accepted rows 1.00 GB in 31 s; West Village 35,048 rows 1.72 GB in
       58 s. That is about 0.2 GB plus 44 KB per accepted row, so Chelsea (~53k rows) needs about
       2.5 GB and a single three-neighbourhood rebuild (~110k rows) about 5 GB. Each rebuild runs
-      per neighbourhood, so this is no risk on its own; it is one beside a GPU fit, which leaves
-      ~3 GB free. Until then, run rebuilds as `systemd-run --user -p MemoryMax=4G
-      -p MemorySwapMax=0` while the GPU is idle. Streaming becomes worth it if a combined rebuild
-      is needed: stage rows and audits on disk in two passes (cross-advertisement conflicts are
+      per neighbourhood, so on an idle machine this is no risk. Beside a GPU fit it is: with a fit
+      running, `free` showed ~3-4 GB available (2026-10-06). So run each rebuild while the GPU is
+      idle, as `systemd-run --user -p MemoryMax=4G -p MemorySwapMax=0`, which fits Chelsea
+      (~2.5 GB) but not a combined rebuild (~5 GB). Streaming becomes worth it if a combined
+      rebuild is needed: stage rows and audits on disk in two passes (cross-advertisement conflicts are
       resolved after all projections exist) and require byte-identical output. The review's
       copy-reduction item (`_project`, `Overlay.apply`) belongs to the same profile.
 - [ ] **Data (low): larger Parquet row groups in the granular export.** `granular_export.Tables`
