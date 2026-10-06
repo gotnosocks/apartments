@@ -42,7 +42,16 @@ from flask import (
 )
 from markupsafe import Markup
 
-from . import ad_dates, charts, estimate, estimate_build, exposure, ratings, summary
+from . import (
+    ad_dates,
+    best,
+    charts,
+    estimate,
+    estimate_build,
+    exposure,
+    ratings,
+    summary,
+)
 from .anatomy import LEVELS as ANATOMY_LEVELS
 from .anatomy import describe, differences
 from .research import (
@@ -91,6 +100,7 @@ BEDROOMS = {"0": "Studio", "1": "1 BR", "2": "2 BR", "3": "3 BR", "4": "4+ BR"}
 STATUS = {"all": "All listings", "current": "Available now", "past": "Past listings"}
 # Fewer "Available now" matches than this point to the past listings too.
 FEW_CURRENT = 10
+BEST_SHOWN = 100  # rows on /best; the CSV has them all
 BANDS = {
     "all": "Any price",
     "below": "Below typical",
@@ -544,6 +554,7 @@ SECTIONS = {
         "building",
         "quarantined",
         "my_ratings",
+        "best_listings",
         "about",
         "estimates_map",
         "estimate_apartment",
@@ -590,6 +601,7 @@ def create_app(
     app.config["TRUSTED_HOSTS"] = [*DEFAULT_HOSTS, *hosts]
     app.config["SEND_FILE_MAX_AGE_DEFAULT"] = 365 * 24 * 3600
     versions = _asset_versions(Path(app.static_folder))
+    best_cache: dict = {}
 
     def building_typical(building_id: str) -> dict | None:
         """The building's typical rent by bedroom count in the rent map's
@@ -1153,6 +1165,93 @@ def create_app(
         "score": "Score",
         "diff": "Ask vs estimate",
     }
+
+    def ranked(profile_name: str) -> dict:
+        """The profile and every current listing scored by it, cached per
+        build and per version of the sheet; 404 for an unknown profile."""
+        path = best.profile_path(profile_name)
+        try:
+            stamp = path.stat().st_mtime_ns if path else None
+        except OSError:
+            stamp = None
+        if stamp is None:
+            abort(404, description=f"No preference sheet named {profile_name!r}.")
+        key = (str(database_path()), profile_name, stamp)
+        if key not in best_cache:
+            try:
+                profile = best.load_profile(path)
+            except (OSError, ValueError, AttributeError) as error:
+                abort(503, description=f"The preference sheet can't be read: {error}")
+            best_cache.clear()
+            best_cache[key] = {"profile": profile, **best.rank(db(), profile)}
+        return best_cache[key]
+
+    def best_choice() -> tuple[str, dict, dict]:
+        args = request.args
+        beds = args.get("beds", "")
+        choice = {
+            "beds": int(beds) if beds in ("0", "1", "2", "3") else None,
+            "max_rent": _number(args.get("max")),
+            "income": args.get("income") == "1",
+            "sort": args.get("sort") if args.get("sort") in best.SORTS else "value",
+        }
+        name = args.get("profile") or best.DEFAULT_PROFILE
+        return name, ranked(name), choice
+
+    @app.get("/best")
+    def best_listings():
+        name, data, choice = best_choice()
+        rows = best.choose(data["rows"], **choice)
+        shown = rows[:BEST_SHOWN]
+        excluded = sum(r["income_restricted"] for r in data["rows"])
+        query = {k: v for k, v in request.args.items() if v}
+        return render_template(
+            "best.html",
+            meta=meta(),
+            profile=data["profile"],
+            profile_name=name,
+            not_modelled=data["not_modelled"],
+            everywhere=data["everywhere"],
+            rows=shown,
+            total=len(rows),
+            current=len(data["rows"]),
+            income_listings=excluded,
+            choice=choice,
+            sorts=best.SORTS,
+            label=best.label,
+            csv_url=url_for("best_csv") + ("?" + _query(query) if query else ""),
+        )
+
+    @app.get("/best.csv")
+    def best_csv():
+        _, data, choice = best_choice()
+        buffer = io.StringIO()
+        writer = csv.writer(buffer)
+        writer.writerow(
+            [
+                "rank", "audit_id", "building", "unit", "neighbourhood", "bedrooms",
+                "ask", "estimate", "ask_vs_estimate_pct", "fit_pct", "score",
+                "value", "deal", "pros", "cons", "not_stated",
+            ]
+        )  # fmt: skip
+        for i, r in enumerate(best.choose(data["rows"], **choice), 1):
+            writer.writerow(
+                [
+                    i, r["audit_id"], r["building"], r["unit"], r["neighbourhood"],
+                    r["bedrooms"], r["ask"], round(r["estimate"], 2),
+                    None if r["vs_estimate"] is None else round(100 * r["vs_estimate"], 2),
+                    round(r["fit_pct"], 2), round(r["score"], 5), round(r["value"], 5),
+                    round(r["deal"], 5),
+                    "; ".join(t["label"] for t in r["pros"]),
+                    "; ".join(t["label"] for t in r["cons"]),
+                    "; ".join(r["unknown"] + data["everywhere"]),
+                ]
+            )  # fmt: skip
+        return Response(
+            buffer.getvalue(),
+            mimetype="text/csv",
+            headers={"Content-Disposition": "attachment; filename=best.csv"},
+        )
 
     @app.get("/ratings")
     def my_ratings():
