@@ -680,6 +680,37 @@ def loud_v1(
     )
 
 
+def transit_v1(
+    frame: pd.DataFrame,
+    train: np.ndarray,
+    id: str = "nb3-transit-v1",
+    base: str = "nb3-coded-v2",
+) -> Features:
+    """A base set plus the weekday-morning subway time to midtown
+    (`transit.midtown_minutes`: walk, wait and ride to the nearest of Times Sq,
+    Grand Central and Herald Sq), in tens of minutes, as of the listing's month.
+    The base already has the walk to the nearest station. Reads no rents; the
+    timetable is today's."""
+    from . import transit
+
+    base = FEATURE_SETS[base](frame, train)
+    minutes = transit.midtown_minutes(frame)
+    b = _Builder(frame)
+    b.add(
+        "transit",
+        "subway to midtown (10 min)",
+        np.nan_to_num(minutes / 10, nan=np.nanmedian(minutes) / 10),
+    )
+    out = b.build(id)
+    return Features(
+        id,
+        base.names + out.names,
+        base.groups + out.groups,
+        np.column_stack([base.values, out.values]),
+        np.concatenate([base.prior_scale, out.prior_scale]),
+    )
+
+
 def through_v1(
     frame: pd.DataFrame,
     train: np.ndarray,
@@ -745,6 +776,8 @@ _LOTS: contextvars.ContextVar[tuple[str, str] | None] = contextvars.ContextVar(
 )
 SUBWAY_SNAPSHOT = "/data1/apartments/external/subway/20260929-8e7c364"
 SUBWAY_FILE = f"{SUBWAY_SNAPSHOT}/subway.parquet"
+GTFS_SNAPSHOT = "/data1/apartments/external/gtfs/PENDING"
+GTFS_FILE = f"{GTFS_SNAPSHOT}/gtfs_subway.zip"
 # Street centerlines, parks and shoreline (`rentfrontier.external basemap`).
 BASEMAP_SNAPSHOT = "/data1/apartments/external/basemap/20260929-da7e40d"
 BASEMAP_FILE = f"{BASEMAP_SNAPSHOT}/basemap.parquet"
@@ -1961,6 +1994,8 @@ FOOTPRINTS = {
 }
 # Feature sets that read the 311 noise complaints snapshot.
 NOISE = {"unitnoise-v1"}
+# Feature sets that read the subway GTFS (transit.network).
+TRANSIT = {"nb3-transit-v1"}
 # Feature sets that read the HPD violations snapshot.
 HPD = {"unitdescplutohpd-v1", "unitdescplutohpd-v2"}
 # Feature sets that read the advertisement descriptions (`descriptions.SOURCE`),
@@ -2059,6 +2094,7 @@ FEATURE_SETS = {
     "nb3-through-v1": partial(through_v1, id="nb3-through-v1", base="nb3-coded-v2"),
     "nb3-quiet-v1": partial(quiet_v1, id="nb3-quiet-v1", base="nb3-coded-v2"),
     "nb3-loud-v1": partial(loud_v1, id="nb3-loud-v1", base="nb3-coded-v2"),
+    "nb3-transit-v1": partial(transit_v1, id="nb3-transit-v1", base="nb3-coded-v2"),
     # West Village: the app design's building facts (as unitdescpluto-v3) on the
     # unit and floor features (no West Village ads: see nb-facing-v2).
     "wv-unitpluto-v1": partial(
@@ -2287,7 +2323,13 @@ for _new, _old in (
 
 
 # The wish sets read what nb3-coded-v2 (their base) reads.
-for _wish in ("nb3-garden-v1", "nb3-through-v1", "nb3-quiet-v1", "nb3-loud-v1"):
+for _wish in (
+    "nb3-garden-v1",
+    "nb3-through-v1",
+    "nb3-quiet-v1",
+    "nb3-loud-v1",
+    "nb3-transit-v1",
+):
     for _group in (
         EXTERNAL,
         BASEMAP,

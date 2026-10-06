@@ -35,6 +35,9 @@ Sources:
   the registry: individual or interior landmark, or a building in a historic
   district, with the designation date (MapPLUTO's landmark and historic
   district fields are today's status, with no date).
+- gtfs: the MTA's static subway GTFS feed (`GTFS_URL`), kept whole as
+  gtfs_subway.zip: stations, timetables and transfers (subway time to midtown,
+  `transit`).
 """
 
 from __future__ import annotations
@@ -454,6 +457,27 @@ def fetch_noise(box, page: int = 50_000):
 MERGE_KEYS = {"pluto": ["bbl"], "footprints": ["bin"], "basemap": None}
 
 
+GTFS_URL = "https://rrgtfsfeeds.s3.amazonaws.com/gtfs_subway.zip"
+
+
+def fetch_gtfs(path: Path) -> dict:
+    """Download the subway GTFS zip to path; its feed_info as the version."""
+    import io
+    import zipfile
+
+    with urllib.request.urlopen(GTFS_URL, timeout=120) as r:
+        body = r.read()
+    with zipfile.ZipFile(io.BytesIO(body)) as z:
+        info = pd.read_csv(z.open("feed_info.txt"), dtype=str).iloc[0].to_dict()
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_bytes(body)
+    return {
+        "source": GTFS_URL,
+        "dataset": "MTA New York City Transit static subway GTFS",
+        "version": info,
+    }
+
+
 def merge(source: str, snapshots: list) -> tuple[pd.DataFrame, dict]:
     """One snapshot from several of the same source (neighbourhoods' boxes):
     concatenated, a record kept once (MERGE_KEYS; whole rows for the basemap).
@@ -506,7 +530,16 @@ def main(argv=None):
     )
     parser.add_argument(
         "source",
-        choices=("pluto", "subway", "basemap", "hpd", "footprints", "noise311", "lpc"),
+        choices=(
+            "pluto",
+            "subway",
+            "basemap",
+            "hpd",
+            "footprints",
+            "noise311",
+            "lpc",
+            "gtfs",
+        ),
     )
     parser.add_argument(
         "--registry",
@@ -523,6 +556,18 @@ def main(argv=None):
     started = dt.datetime.now(dt.UTC)
     out_dir = EXTERNAL_ROOT / args.source / f"{started:%Y%m%d}-{commit[:7]}"
     path = out_dir / f"{args.source}.parquet"
+    if args.source == "gtfs":
+        path = out_dir / "gtfs_subway.zip"
+        details = fetch_gtfs(path)
+        provenance = {
+            **details,
+            "retrieved_at": started.isoformat(),
+            "commit": commit,
+            "sha256": hashlib.sha256(path.read_bytes()).hexdigest(),
+        }
+        (out_dir / "provenance.json").write_text(json.dumps(provenance, indent=2))
+        print(f"wrote {path}: feed {details['version'].get('feed_version')}")
+        return
     if args.source == "pluto":
         registry = pd.read_parquet(registry_path)
         table, queries = fetch_pluto(registry.bbl.dropna())
