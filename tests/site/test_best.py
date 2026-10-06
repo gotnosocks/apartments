@@ -192,6 +192,7 @@ def test_street_view_stands_in_the_buildings_street():
 
     assert streetview.street_key("225 West 14th Street") == "W 14 ST"
     assert streetview.street_key("1/2 Jane Street") == "JANE ST"
+    assert streetview.street_key("10 West Street") == "WEST ST"
     assert streetview.street_key("100 Seventh Avenue South") == "7 AVE S"
     assert streetview.street_key("500 Avenue of the Americas") == "AVE OF THE AMERICAS"
     # A grid in metres: x east, y north; 1e-5 degrees a metre or so.

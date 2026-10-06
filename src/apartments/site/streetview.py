@@ -46,7 +46,12 @@ NUMBERS = {
     "twelfth": "12",
 }
 AMERICAS = "AVE OF THE AMERICAS"
-ALIASES = {"6 AVE": AMERICAS, "AVE OF AMERICAS": AMERICAS, "AMERICAS AVE": AMERICAS}
+ALIASES = {
+    "6 AVE": AMERICAS,
+    "AVE OF AMERICAS": AMERICAS,
+    "AMERICAS AVE": AMERICAS,
+    "W ST": "WEST ST",
+}
 
 
 def street_key(address: str | None) -> str | None:
