@@ -49,14 +49,17 @@ frontier's time axis, so compare fit times only within one implementation.
       built from the same effect functions as `model` and `explain` (one model definition), not
       a third copy of the equation, and must include `area_market_curve`. Measure the share of
       the 127–151 s spent in `log_terms` before doing it.
-- [ ] **Data (when profiling a rebuild): stream the historical reconstruction.**
-      `historical_dataset` keeps every accepted row and audit in memory and joins the whole
-      `observations.jsonl` and `audit.jsonl` as strings. Thelio has 15 GB and has rebooted out
-      of memory before (2026-09-22), so first measure peak RSS of a full Chelsea + West Village
-      + Greenwich Village rebuild. If it is large, stage rows and audits on disk in two passes
-      (cross-advertisement conflicts are resolved after all projections exist) and require
-      byte-identical output.
-      The review's copy-reduction item (`_project`, `Overlay.apply`) belongs to the same profile.
+- [ ] **Data (if rebuilds grow): stream the historical reconstruction.** Measured 2026-10-06
+      (peak RSS, `build-historical` on master, outputs byte-identical to the published ones):
+      Greenwich Village 18,817 accepted rows 1.00 GB in 31 s; West Village 35,048 rows 1.72 GB in
+      58 s. That is about 0.2 GB plus 44 KB per accepted row, so Chelsea (~53k rows) needs about
+      2.5 GB and a single three-neighbourhood rebuild (~110k rows) about 5 GB. Each rebuild runs
+      per neighbourhood, so this is no risk on its own; it is one beside a GPU fit, which leaves
+      ~3 GB free. Until then, run rebuilds as `systemd-run --user -p MemoryMax=4G
+      -p MemorySwapMax=0` while the GPU is idle. Streaming becomes worth it if a combined rebuild
+      is needed: stage rows and audits on disk in two passes (cross-advertisement conflicts are
+      resolved after all projections exist) and require byte-identical output. The review's
+      copy-reduction item (`_project`, `Overlay.apply`) belongs to the same profile.
 - [ ] **Data (low): larger Parquet row groups in the granular export.** `granular_export.Tables`
       flushes every 256 rows, so each shard holds many tiny row groups. Try 2,048 and 8,192 rows
       per table; outputs then need new versioned manifests, since bytes change.
