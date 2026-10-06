@@ -23,11 +23,11 @@ import pandas as pd
 DATASET = Path(
     os.environ.get(
         "FRONTIER_DATASET",
-        # Chelsea + West Village (Ben, 2026-10-01: the full data is the target),
-        # with the Oct 5 current captures (#220) in place of the Sept 19 ones;
-        # before that chelsea-west-village-analysis-20261001-eea4f66, and
-        # Chelsea alone was data/model/chelsea-product-scope-analysis-20260921.
-        "/data1/apartments/frontier/datasets/chelsea-west-village-analysis-20261005-1222e51",
+        # Chelsea + West Village + Greenwich Village (#292); before that
+        # chelsea-west-village-analysis-20261005-1222e51 (Oct 5 captures, #220),
+        # chelsea-west-village-analysis-20261001-eea4f66, and Chelsea alone,
+        # data/model/chelsea-product-scope-analysis-20260921.
+        "/data1/apartments/frontier/datasets/chelsea-wv-gv-analysis-20261005-2d5b3b6",
     )
 )
 OUTPUT_ROOT = Path(os.environ.get("FRONTIER_OUTPUT_ROOT", "/data1/apartments/frontier"))
