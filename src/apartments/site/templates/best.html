@@ -57,7 +57,7 @@ plus nor a minus.</p>
       <td class="num">{{ loop.index }}</td>
       <td><a href="{{ url_for('listing', audit_id=r.audit_id) }}">{{ r.building }}{% if r.unit %} · {{ r.unit }}{% endif %}</a>
         <span class="feat">{{ beds_label(r.bedrooms) }} · {{ r.neighbourhood }}{% if r.income_restricted %} · income-restricted{% endif %}{% if r.listing_url %}
-        · <a href="{{ r.listing_url }}" rel="noopener noreferrer" target="_blank">StreetEasy ↗<span class="visually-hidden"> ad for {{ r.building }}{% if r.unit %} {{ r.unit }}{% endif %}</span></a>{% endif %}{% set sv = street_view(r.latitude, r.longitude, r.address) %}{% if sv %}
+        · <a href="{{ r.listing_url }}" rel="noopener noreferrer" target="_blank">StreetEasy ↗<span class="visually-hidden"> ad for {{ r.building }}{% if r.unit %} {{ r.unit }}{% endif %}</span></a>{% endif %}{% set sv = street_view(r.building_id, r.latitude, r.longitude, r.address) %}{% if sv %}
         · <a href="{{ sv }}" rel="noopener noreferrer" target="_blank">Street View ↗<span class="visually-hidden"> of {{ r.building }}</span></a>{% endif %}</span></td>
       <td class="num nowrap">{{ pct(r.fit_pct, digits=0) }}</td>
       <td class="num">{{ usd(r.ask) }}</td>

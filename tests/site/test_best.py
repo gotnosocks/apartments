@@ -165,20 +165,56 @@ def test_rows_and_listing_pages_link_to_streeteasy(client):
 
 
 def test_street_view_links(client):
-    """Ben (2026-10-06): Street View beside the StreetEasy links."""
-    from apartments.site.web import street_view
+    """Ben (2026-10-06): Street View beside the StreetEasy links; without a
+    rent map, the building's own point, then a Maps search."""
+    from apartments.site import streetview
 
-    assert street_view(40.7, -74.0) == (
+    assert streetview.link(None, "b", 40.7, -74.0, None) == (
         "https://www.google.com/maps/@?api=1&map_action=pano"
         "&viewpoint=40.700000%2C-74.000000"
     )
-    assert street_view(None, None, "1 Main St") == (
+    assert streetview.link(None, "b", None, None, "1 Main St") == (
         "https://www.google.com/maps/search/?api=1&query=1+Main+St%2C+New+York%2C+NY"
     )
-    assert street_view(None, None) is None
+    assert streetview.link(None, "b", None, None, None) is None
     page = client.get("/best").get_data(as_text=True)
     assert "Street View ↗" in page
     audit_id = page.split('href="/listings/')[1].split('"')[0]
     listing = client.get(f"/listings/{audit_id}").get_data(as_text=True)
     top = listing.split('id="streeteasy"')[1].split("</p>")[0]
     assert "map_action=pano" in top and "Street View ↗" in top
+
+
+def test_street_view_stands_in_the_buildings_street():
+    """The viewpoint moves from the lot (where the nearest panorama can be
+    inside a shop) to the building's own street, facing the building."""
+    from apartments.site import streetview
+
+    assert streetview.street_key("225 West 14th Street") == "W 14 ST"
+    assert streetview.street_key("1/2 Jane Street") == "JANE ST"
+    assert streetview.street_key("100 Seventh Avenue South") == "7 AVE S"
+    assert streetview.street_key("500 Avenue of the Americas") == "AVE OF THE AMERICAS"
+    # A grid in metres: x east, y north; 1e-5 degrees a metre or so.
+    buildings = [
+        {"id": "a", "x": 0.0, "y": 30.0, "lon": -74.0, "lat": 40.0003},
+        {"id": "b", "x": 100.0, "y": 0.0, "lon": -73.999, "lat": 40.0},
+        {"id": "c", "x": 0.0, "y": 0.0, "lon": -74.0, "lat": 40.0},
+    ]
+    data = {
+        "buildings": buildings,
+        "_index": {"a": 0, "b": 1, "c": 2},
+        "basemap": {
+            "streets": [
+                {"name": "W 14 ST", "points": [[-200.0, 0.0], [200.0, 0.0]]},
+                {"name": "W 15 ST", "points": [[-200.0, 60.0], [200.0, 60.0]]},
+            ]
+        },
+    }
+    lat, lon, heading = streetview.viewpoint(data, "a", "225 West 14th Street")
+    assert abs(lat - 40.0) < 1e-9 and abs(lon + 74.0) < 1e-9
+    assert round(heading) == 0  # north, back at the building
+    # Its own street is 30 m away, the other 30 m too: the address decides.
+    lat, _, heading = streetview.viewpoint(data, "a", "2 West 15th Street")
+    assert abs(lat - 40.0006) < 1e-9 and round(heading) == 180
+    url = streetview.link(data, "a", 40.0003, -74.0, "225 West 14th Street")
+    assert "viewpoint=40.000000%2C-74.000000&heading=0" in url

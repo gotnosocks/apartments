@@ -50,6 +50,7 @@ from . import (
     estimate_build,
     exposure,
     ratings,
+    streetview,
     summary,
 )
 from .anatomy import LEVELS as ANATOMY_LEVELS
@@ -603,6 +604,17 @@ def create_app(
     versions = _asset_versions(Path(app.static_folder))
     best_cache: dict = {}
 
+    def street_view(building_id, latitude=None, longitude=None, address=None):
+        """A Street View link from the building's street, facing it."""
+        path = database_path().parent / "map.json"
+        try:
+            data = _rent_map(str(path), path.stat().st_mtime)
+        except (OSError, ValueError):
+            data = None
+        return streetview.link(data, building_id, latitude, longitude, address)
+
+    app.jinja_env.globals["street_view"] = street_view
+
     def building_typical(building_id: str) -> dict | None:
         """The building's typical rent by bedroom count in the rent map's
         latest year: {year, months, extrapolated, rows: [{label, rent, low,
@@ -756,7 +768,6 @@ def create_app(
     app.jinja_env.globals["anatomy_levels"] = ANATOMY_LEVELS
     app.jinja_env.globals["design_label"] = design_label
     app.jinja_env.globals["chosen_by"] = chosen_by
-    app.jinja_env.globals["street_view"] = street_view
     app.jinja_env.filters["term_id"] = term_id
     # A rating tag picked from the fixed lists ("+light", "-noisy"), not typed.
     app.jinja_env.tests["rated_side"] = lambda t: ratings.tag_label(t)[0] != "own"
@@ -2643,26 +2654,6 @@ def _rent_map(path: str, mtime: float) -> dict:
     data = json.loads(Path(path).read_text())
     data["_index"] = {b["id"]: i for i, b in enumerate(data.get("buildings", []))}
     return data
-
-
-def street_view(latitude, longitude, address=None) -> str | None:
-    """A Google Street View link at the building (Ben, 2026-10-06): no API
-    key and nothing embedded. Without coordinates, a Maps search for the
-    address."""
-    # Builds without coordinates leave them undefined in a template.
-    if isinstance(latitude, (int, float)) and isinstance(longitude, (int, float)):
-        return "https://www.google.com/maps/@?" + urlencode(
-            {
-                "api": 1,
-                "map_action": "pano",
-                "viewpoint": f"{latitude:.6f},{longitude:.6f}",
-            }
-        )
-    if isinstance(address, str) and address:
-        return "https://www.google.com/maps/search/?" + urlencode(
-            {"api": 1, "query": f"{address}, New York, NY"}
-        )
-    return None
 
 
 def chosen_by(selected_by: str) -> str:
