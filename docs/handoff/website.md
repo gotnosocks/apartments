@@ -2,6 +2,12 @@
 
 What the next turn of the website thread needs. Updated at each milestone.
 
+## State (2026-10-06 21:15 UTC)
+
+- #366: on /best the floor counts from the usual floor (the median, the 4th), so floors 1–3
+  get a "low floor" minus. Ben keeps his sheet's floor weight at 1× (20:26 UTC). #367: every
+  minus pill is shown. Ratings removed at Ben's request (21:02 UTC); backlog entry added.
+
 ## State (2026-10-06 19:30 UTC)
 
 - **Display-only pills on /best, read at runtime from `/data1/apartments/wishes/` (newest file by
@@ -92,9 +98,8 @@ What the next turn of the website thread needs. Updated at each milestone.
   agreed with Data improvements.
 - **Estimate form: line facing and previous listing groups (#289).**
 
-- **Ratings live (#285).** Card on listing pages, `/ratings`, `/ratings.csv`, `/ratings.json`;
-  stored in `/data1/apartments/ratings/ratings.sqlite` (made on the first save). Design in
-  `docs/ratings.md`. Round 6 (#284) merged and deployed.
+- **Ratings (#285)** were removed on 2026-10-06 at Ben's request; see the backlog. Round 6
+  (#284) merged and deployed.
 - **Earlier-data charts on Chart.js.** Exploration fits trained before the board moved to the
   current data (100 at 17:00 UTC) sit in the "Scored on the earlier data" chart, now zoomable
   (prefixes `fp`, `ep`) with a best-so-far line (display only, `web.best_so_far`). Only 2

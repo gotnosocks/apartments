@@ -7,6 +7,15 @@ Fixes for things that are broken or wrong on the live site still ship.
 Each round adds a section at the top, ranked by how much the finding gets in the way of
 finding the best one-bedroom. Reports are in `/data1/apartments/tmp/playtests/<round>/`.
 
+## Ratings, removed 2026-10-06
+
+Ben asked for the "My ratings" view and its form to come off the site (21:02 UTC); the feature
+can come back later. It was a "Your rating" card on listing pages (1–5 stars, plus and minus
+tags, a note), a star in listing tables, and `/ratings` with CSV and JSON downloads, kept in a
+local SQLite file. No rating was ever saved, so nothing was stored. The code is in git at
+`archive/pr-285` and in the commit that removed it; bring it back from there, and consider feeding
+saved ratings into the Best for you sheet.
+
 ## Ben on /best, 2026-10-06
 
 Ben went through the Best for you shortlist listing by listing (16:45 UTC, relayed). Some of these

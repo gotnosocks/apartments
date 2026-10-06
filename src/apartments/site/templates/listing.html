@@ -108,46 +108,6 @@ called a one-bedroom, say), and sometimes the apartment was rebuilt; the estimat
   {% endif %}
 </section>
 
-<section class="card rating" id="rating">
-  <h2>Your rating</h2>
-  {% if rating and not editing %}
-  <p class="rating-line">{% if rating.score %}<strong class="stars" aria-label="{{ rating.score }} out of 5">{{ "★" * rating.score }}<span class="muted">{{ "★" * (5 - rating.score) }}</span></strong>{% else %}<span class="muted">No score</span>{% endif %}
-    {% for t in rating.tags %}{% set side, words = tag_label(t) %}<span class="rtag {{ side }}">{{ "+ " if side == "good" else ("− " if side == "bad") }}{{ words }}</span> {% endfor %}</p>
-  {% if rating.note %}<p class="rating-note">{{ rating.note }}</p>{% endif %}
-  <p class="muted small">Saved {{ rating.updated_at[:10] }} ·
-    <a href="{{ url_for('listing', audit_id=row.audit_id, edit=1, _anchor='rating') }}">Edit</a> ·
-    <a href="{{ url_for('my_ratings') }}">My ratings</a></p>
-  {% else %}
-  {% set have = rating.tags if rating else [] %}
-  <form method="post" action="{{ url_for('rate') }}" class="rating-form">
-    <input type="hidden" name="audit_id" value="{{ row.audit_id }}">
-    <fieldset>
-      <legend>Score</legend>
-      <div class="checks">
-        {% for n in range(1, 6) %}<label class="check"><input type="radio" name="score" value="{{ n }}"{% if rating and rating.score == n %} checked{% endif %}> {{ n }}</label>{% endfor %}
-        <label class="check"><input type="radio" name="score" value=""{% if not rating or not rating.score %} checked{% endif %}> none</label>
-      </div>
-    </fieldset>
-    <fieldset>
-      <legend>Appealing</legend>
-      <div class="checks">{% for t in RATING_GOOD %}<label class="check"><input type="checkbox" name="good" value="{{ t }}"{% if "+" ~ t in have %} checked{% endif %}> {{ t }}</label>{% endfor %}</div>
-    </fieldset>
-    <fieldset>
-      <legend>Unappealing</legend>
-      <div class="checks">{% for t in RATING_BAD %}<label class="check"><input type="checkbox" name="bad" value="{{ t }}"{% if "-" ~ t in have %} checked{% endif %}> {{ t }}</label>{% endfor %}</div>
-    </fieldset>
-    <label for="r-other">Other tags, separated by commas</label>
-    <input id="r-other" name="other" maxlength="400" value="{{ have | reject('rated_side') | join(', ') }}">
-    <label for="r-note">Note</label>
-    <textarea id="r-note" name="note" rows="3" maxlength="2000">{{ rating.note if rating else "" }}</textarea>
-    <p class="actions"><button type="submit" name="action" value="save">Save</button>
-      {% if rating %}<button type="submit" name="action" value="clear" class="link-button">Clear the rating</button>
-      <a href="{{ url_for('listing', audit_id=row.audit_id, _anchor='rating') }}">Cancel</a>{% endif %}
-      <span class="muted small">Kept on this machine, for you only: <a href="{{ url_for('my_ratings') }}">My ratings</a></span></p>
-  </form>
-  {% endif %}
-</section>
-
 <section class="card">
   <h2>What makes up the estimate</h2>
   <p class="note">Dollar contributions, starting from the market reference: a one-bedroom, one-bath apartment with every attribute

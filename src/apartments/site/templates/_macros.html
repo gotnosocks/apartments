@@ -38,7 +38,7 @@
   {% for row in rows %}
     <tr>
       <td class="nowrap c-date">{{ month(row.period) }}{% if row.is_current %} <span class="tag">now</span>{% endif %}</td>
-      <td class="c-place"><a href="{{ url_for('listing', audit_id=row.audit_id) }}">{% if show_building %}{{ place(row) }}{% else %}{{ row.unit_label or "Unit" }}{% endif %}</a>{% if row.audit_id in rated() %}{% set sc = rated()[row.audit_id] %} <span class="rated" title="Your rating">★{{ sc if sc }}</span>{% endif %}</td>
+      <td class="c-place"><a href="{{ url_for('listing', audit_id=row.audit_id) }}">{% if show_building %}{{ place(row) }}{% else %}{{ row.unit_label or "Unit" }}{% endif %}</a></td>
       <td class="c-layout"><span class="nowrap">{{ layout(row) }}</span>{% set f = features(row) %}{% if f %}<span class="feat">{{ f | join(" · ") }}</span>{% endif %}</td>
       <td class="num" data-label="Ask">{{ usd(row.ask) }}</td>
       <td class="num" data-label="Estimate">{{ usd(row.estimate) }}{% if not row.reliable %} <span class="warn-mark" title="Less reliable estimate (Pareto k {{ '%.2f' | format(row.pareto_k) }})">*</span>{% endif %}</td>
