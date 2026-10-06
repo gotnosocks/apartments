@@ -7,6 +7,27 @@ Fixes for things that are broken or wrong on the live site still ship.
 Each round adds a section at the top, ranked by how much the finding gets in the way of
 finding the best one-bedroom. Reports are in `/data1/apartments/tmp/playtests/<round>/`.
 
+## Round 9, 2026-10-06 (best-1bed)
+
+All goals reached on the Chelsea + West Village build (Greenwich Village not served yet). The
+shortlist was 110 Horatio #120, The Chelsea #12C and 277 W 11th #6F. The value pick was 277 W
+11th, 3rd percentile and $571 under the estimate, if six flights are acceptable. The persona
+liked the plain "where the ask sits" sentence and the unit's own past asks. Report:
+`2026-10-06-r9c/` (r9 and r9b stalled behind a full fit; see #313).
+
+1. **Four of six wishes unanswerable:** floor-through, bedroom over a garden, and quiet street
+   are unknown, and "rear or courtyard" isn't read as a garden. They want "likely" tags and a
+   rear-bedroom filter. The bedroom labels and evidence in item 11 would cover part of this.
+2. **Discount-first defaults:** the home page and the "available now" sort lead with the
+   biggest discount, and "Below typical" reads as "good". The top rows are studios and a 2BR,
+   not 1BRs with the wanted features. They asked for a wish-match sort ("4 of 6, which unknown").
+3. **Estimate parts too dense** (again; round 7): large offsetting lines (building +$1,166, change
+   over time +$1,028, this unit −$403) are hard to trust. They want a one-line summary on top.
+4. **"Not stated" filtered out silently** (again; carried over): elevator = yes dropped 277 W
+   11th, whose elevator isn't stated.
+5. **No compare view**; also photos or the StreetEasy link on list rows, avenue-vs-side-street
+   and transit distance, and grouping by building.
+
 ## Round 8, 2026-10-05 (best-1bed)
 
 All three goals reached: a shortlist (110 Horatio #120, 277 W 11th #6F, 43 Charles #2), wishes
