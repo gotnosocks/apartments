@@ -51,8 +51,11 @@ def field(name):
 print(open(brief).read().format(persona=field("persona"), url=url, outdir=out,
       viewport=field("viewport"), goals=field("goals")))
 PY
+  # A step queued behind a fit outlasts Bash's 2-minute default; claude -p then moves it to the
+  # background and the run ends with no report (round 9, 2026-10-06). Let a step block 10 minutes.
   systemd-run --user -q --unit "playtest-$ROUND-$p" --working-directory "$out" \
     -p MemoryMax=2G -E TMPDIR=/data1/apartments/tmp -E HOME="$HOME" -E PATH="$PATH" \
+    -E BASH_DEFAULT_TIMEOUT_MS=600000 -E BASH_MAX_TIMEOUT_MS=600000 \
     bash -c "claude -p --model '$MODEL' --strict-mcp-config --allowedTools=Bash,Read,Write < prompt.md > final.md 2> stderr.log"
   echo "started playtest-$ROUND-$p -> $out"
 done
