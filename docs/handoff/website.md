@@ -19,7 +19,7 @@ What the next turn of the website thread needs. Updated at each milestone.
 - **Exposure evidence (#315):** Data improvements' per-unit evidence table and wording are in
   backlog item 11, to build when the hold lifts.
 - Earlier today: #304 (playtester model `claude-sonnet-5-5`), #308 (`wait-next --max` 25),
-  #310 (board re-baselined on the Greenwich Village data; earlier-data fits unscored but one).
+  #310 (board re-baselined on the Greenwich Village data; fits on the 1 October data and older now unscored: `prior_scores` keeps one baseline, Modeling's code).
 
 ## State (2026-10-05 20:30 UTC)
 
