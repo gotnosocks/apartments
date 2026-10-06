@@ -774,8 +774,8 @@ def bedsize_v1(
     base: str = "nb3-coded-v2",
 ) -> Features:
     """A base set plus the largest bed the listing's own ad says its bedroom
-    takes (`bedsize.stated_size`: full, queen or king; an ad stating none is
-    the reference). Reads no rents."""
+    takes (`bedsize.stated_size`: full, with twin and double, queen or king;
+    an ad stating none is the reference). Reads no rents."""
     from . import bedsize
 
     base = FEATURE_SETS[base](frame, train)

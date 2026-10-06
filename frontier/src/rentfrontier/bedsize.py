@@ -5,8 +5,9 @@ its bedroom (or a studio's sleeping area) takes, "full", "queen" or "king"
 site.
 
 A listing states a size when its ad says the room fits one ("fits a king
-bed", "room for a queen-sized bed", "accommodates a full mattress") or names
-the room by it ("king-size bedroom", "queen sized bedroom"). Each row reads
+bed", "room for a queen-sized bed", "accommodates a full mattress"; with
+"king or queen" the larger) or names the room by a king or queen ("king-size
+bedroom": a "full-size bedroom" is only a real bedroom). Each row reads
 only its own ad, so nothing travels from later listings of the apartment, and
 the text adds these fields without overriding any coded one.
 
@@ -33,19 +34,29 @@ from . import data, descriptions, features
 WISHES = Path("/data1/apartments/wishes")
 FEATURE_SET = "nb3-bedsize-v1"
 SIZES = ("full", "queen", "king")
-_SIZE = r"(california king|cal king|king|queen|full|double|twin)"
+_SIZE = r"\b(?:california king|cal king|king|queen|full|double|twin)"
+_ROOM_SIZE = r"\b(?:california king|cal king|king|queen)"
 _SIZED = r"(?:[- ]?size[d]?)?"
+# "fits a king or queen bed": every size named in the phrase counts. A room
+# named by size counts for king and queen only: "full-size bedroom" means a
+# real bedroom, not one that takes a full bed.
 BED_TEXT = re.compile(
-    r"(?:fits?|fitting|accommodates?|room for|space for|holds?|enough for)\s+"
-    r"(?:(?:a|an|your|up ?to|even)\s+)*(?:\w+[- ]?){0,2}?"
+    r"\b(?:fits?|fitting|accommodates?|accommodating|room for|space for|holds?|"
+    r"enough for)\s+(?:(?:a|an|your|up ?to|even)\s+)*(?:\w+[- ]?){0,2}?"
     + _SIZE
+    + r"(?:"
     + _SIZED
-    + r"\s*(?:bed|mattress)"
-    + r"|"
+    + r"\s*(?:/|or|and|,)\s*"
     + _SIZE
+    + r")*"
+    + _SIZED
+    + r"(?:\s*(?:bed|mattress))?"
+    + r"|"
+    + _ROOM_SIZE
     + _SIZED
     + r"\s*(?:bed)?room"
 )
+_WORD = re.compile(r"\b(king|queen|full|double|twin)\b")
 _RANK = {"twin": 0, "double": 0, "full": 0, "queen": 1, "king": 2}
 
 
@@ -53,8 +64,12 @@ def stated_size(text: str) -> str | None:
     """The largest bed size the (lower-cased) text states, or None."""
     best = -1
     for m in BED_TEXT.finditer(text):
-        word = next(g for g in m.groups() if g).split()[-1]
-        best = max(best, _RANK[word])
+        span = m.group(0)
+        bed = "bed" in span or "mattress" in span
+        for word in _WORD.findall(span):
+            # "fits a full kitchen": full, double and twin need the word bed.
+            if bed or word in ("king", "queen"):
+                best = max(best, _RANK[word])
     return SIZES[best] if best >= 0 else None
 
 

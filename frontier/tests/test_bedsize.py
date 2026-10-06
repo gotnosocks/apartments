@@ -1,5 +1,6 @@
+import numpy as np
 import pandas as pd
-from rentfrontier import bedsize
+from rentfrontier import bedsize, features
 
 
 def test_stated_size_takes_the_largest_bed_stated():
@@ -31,3 +32,28 @@ def test_apartments_pools_only_ads_stating_a_size(monkeypatch):
     assert out.loc["u1", "largest"] == "king"
     assert out.loc["u1", "latest"] == "queen"
     assert out.loc["u1", "listings"] == 2
+
+
+def test_stated_size_takes_the_larger_of_alternatives():
+    assert bedsize.stated_size("fits a king or queen bed") == "king"
+    assert bedsize.stated_size("can accommodate a king or queen") == "king"
+
+
+def test_stated_size_skips_full_size_rooms_and_other_words():
+    assert bedsize.stated_size("two full-size bedrooms") is None
+    assert bedsize.stated_size("fits a full kitchen") is None
+    assert bedsize.stated_size("outfits a queen bed") is None
+    assert bedsize.stated_size("a speaking room") is None
+
+
+def test_bedsize_v1_adds_exclusive_terms(monkeypatch):
+    frame = pd.DataFrame({"unit_id": ["u1", "u2", "u3"]})
+    text = pd.Series(["fits a king bed", "fits a twin bed", "sunny"])
+    monkeypatch.setattr(bedsize.descriptions, "attach", lambda f: text)
+    base = features.Features("base", ["x"], ["unit"], np.ones((3, 1)), np.ones(1))
+    monkeypatch.setitem(features.FEATURE_SETS, "base", lambda f, t: base)
+    out = features.bedsize_v1(frame, np.ones(3, bool), id="t", base="base")
+    terms = [f"ad states a {s} bed" for s in bedsize.SIZES]
+    assert out.names == ["x"] + terms
+    values = out.values[:, 1:]
+    assert values.tolist() == [[0, 0, 1], [1, 0, 0], [0, 0, 0]]
