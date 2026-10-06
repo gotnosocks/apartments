@@ -1193,7 +1193,9 @@ def create_app(
             "beds": int(beds) if beds in ("0", "1", "2", "3") else None,
             "max_rent": _number(args.get("max")),
             "income": args.get("income") == "1",
-            "sort": args.get("sort") if args.get("sort") in best.SORTS else "value",
+            "sort": args.get("sort")
+            if args.get("sort") in best.SORTS
+            else best.DEFAULT_SORT,
         }
         name = args.get("profile") or best.DEFAULT_PROFILE
         return name, ranked(name), choice

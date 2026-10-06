@@ -130,6 +130,10 @@ def test_csv_and_sorts(client):
     page = client.get("/best?sort=deal&beds=1&max=9000").get_data(as_text=True)
     assert "Fits you, at a good price</strong>" in page
     assert 'value="9000"' in page
+    # Not "best for the money": across all sizes it ranks cheapest first.
+    assert "Fits you, at a good price</strong>" in client.get("/best").get_data(
+        as_text=True
+    )
 
 
 def test_unknown_profile_is_404(client):
