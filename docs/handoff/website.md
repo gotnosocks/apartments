@@ -2,25 +2,24 @@
 
 What the next turn of the website thread needs. Updated at each milestone.
 
-## State (2026-10-06 06:10 UTC)
+## State (2026-10-06 12:00 UTC)
 
-- **Greenwich Village model not served yet.** The three-neighbourhood refit
-  (`m7-…-nb3-coded-v2-rows-e8191b2-…-nb3-v5f1u5-gv1005`) finished (PSIS-LOO 106,014.8, held-out
-  dELPD +109.8) but fails the all-effects R-hat gate (unit 1.0598, bedroom_slope 1.0592 > 1.05),
-  so the live build still serves the Chelsea + West Village run `m7-…-nb-v5f1u3-d1005` and
-  Greenwich Village has no estimates on `/estimate`, listing pages or the map. What next is
-  Modeling's call. When a build with it goes live, check those three pages and ask Modeling for new
-  growth-decomposition figures.
-- **Board re-baselined on the Greenwich Village data (#310).** All 16 GV fits are scored on
-  `/research` and `/research/board`. Fits on the 1 October data and older now show no score,
-  because `dashboard.prior_scores` keeps a single earlier baseline (Modeling's code; suggested a
-  list of baselines to them).
-- **Playtester model back to `claude-sonnet-5-5` (#304)**, reverting #301; the
-  unrecognized_model warning is cosmetic.
-- **`wait-next` default `--max` is 25 (#308).** Claude Code 2.1.289 kills a background task after
-  about 30 minutes; `--max` now also caps the batch window.
-- Round 9 (best-1bed) was held for the Greenwich Village data; run it on the current site if the
-  model stays delayed.
+- **Three-neighbourhood model served (#318, Modeling).** Run
+  `m7-…-yearnoise-nb3-coded-v2-rows-9371a18-…-nb3-v5f1u5-gv1005`, build
+  20261006T110910914042Z-39eb773f (104,967 listings). Post-publish checks passed: map,
+  `/estimate`, Greenwich Village listing pages, counts, calibration by year (every year 93–95% /
+  77–79%). The two refits of the earlier design failed the effects gate; this one passed.
+- **Growth note back on the rent map (#321)** with Modeling's figures for this run (r7gv); it is
+  keyed to the run id, so after the next switch ask Modeling for new figures again.
+- **Anatomy describes `area_time` (#322)**: fixed the site test broken by #311. The count shows
+  unknown until a record gives `sizes["areas"]`.
+- **Playtests:** rounds 9 and 10 (best-1bed) logged (#316, #319). #313: a playtester step may
+  wait 10 minutes; a full fit (`ops/job gpu -x`) holds every light slot, so start rounds between
+  full fits (check with `timeout 15 ops/job light -m 1G -- true`).
+- **Exposure evidence (#315):** Data improvements' per-unit evidence table and wording are in
+  backlog item 11, to build when the hold lifts.
+- Earlier today: #304 (playtester model `claude-sonnet-5-5`), #308 (`wait-next --max` 25),
+  #310 (board re-baselined on the Greenwich Village data; fits on the 1 October data and older now unscored: `prior_scores` keeps one baseline, Modeling's code).
 
 ## State (2026-10-05 20:30 UTC)
 
