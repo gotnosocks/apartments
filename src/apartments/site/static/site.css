@@ -521,7 +521,6 @@ button[aria-busy="true"] { cursor: progress; opacity: 0.75; }
   .results-links .download { margin-left: 0; }
   .filters label.check { display: inline-flex; align-items: center; gap: 0.5rem; min-height: 44px; }
   .filters input[type="checkbox"] { width: 1.3rem; height: 1.3rem; flex: none; }
-  table.best details.more summary { min-height: 44px; display: flex; align-items: center; }
   dl.facts, dl.facts.wide { grid-template-columns: fit-content(45%) minmax(0, 1fr); }
   dl.facts dd { overflow-wrap: anywhere; }
 }
