@@ -23,6 +23,8 @@ the rest is ready.
   a systemd `--user` unit, `playtest-<round>-<persona>`. Its report goes to
   `/data1/apartments/tmp/playtests/<round>/<persona>/report.md`, with screenshots alongside. Wait
   for the units with `ops/team/wait-next --unit 'playtest-*'`.
+  A full fit (`ops/job gpu -x`) holds every light slot, so a round started during one waits for
+  it, polling for hours: check `ops/job status` first and start rounds between full fits.
 - **Browser:** the venv at `/data1/apartments/venvs/playtest` runs Playwright on the system
   Chrome. Browser steps run as `ops/job light`.
 - **Personas:** `persona:`, `viewport:` and `goals:` fields; add fresh ones each round.
