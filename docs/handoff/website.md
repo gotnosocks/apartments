@@ -2,6 +2,17 @@
 
 What the next turn of the website thread needs. Updated at each milestone.
 
+## State (2026-10-06 15:45 UTC)
+
+- **Best for you (/best, #331, #332)**: an exception to the hold (Ben, 15:13 UTC). It ranks current
+  listings by a preference sheet read at runtime from `/data1/apartments/preferences/<profile>.json`
+  (`ben-v1`). The sheet stays out of the repo: Ben's OK at 15:25 UTC was to push without it.
+  Score = Σ sign × |posterior-mean β| × input, plus the sheet's latent weights on the building's
+  level and trend; it is a recombination of the model's terms, not new scores. Modeling's check
+  matches to 5 digits. Default sort is fit at a good price (score − log(ask/estimate)); "best for
+  the money" (score − log ask) ranks cheapest first unless filtered. Code: `site/best.py`. No
+  intervals yet (Modeling: add only if Ben asks).
+
 ## State (2026-10-06 12:00 UTC)
 
 - **Three-neighbourhood model served (#318, Modeling).** Run
