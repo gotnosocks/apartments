@@ -181,4 +181,4 @@ def test_street_view_links(client):
     audit_id = page.split('href="/listings/')[1].split('"')[0]
     listing = client.get(f"/listings/{audit_id}").get_data(as_text=True)
     top = listing.split('id="streeteasy"')[1].split("</p>")[0]
-    assert "https://www.google.com/maps/" in top and "Street View ↗" in top
+    assert "map_action=pano" in top and "Street View ↗" in top

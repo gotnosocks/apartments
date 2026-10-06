@@ -415,8 +415,7 @@ def page_query(filters: Filters):
         f"SELECT l.id FROM listings l{join}{where}{filters.order_by()} LIMIT ? OFFSET ?"
     )
     sql = (
-        "SELECT l.*, b.name AS building_name, b.address AS building_address, "
-        "b.latitude, b.longitude "
+        "SELECT l.*, b.name AS building_name, b.address AS building_address "
         f"FROM ({ids}) page JOIN listings l ON l.id = page.id{LISTING_JOIN}"
         f"{filters.order_by()}"
     )
@@ -979,7 +978,8 @@ def create_app(
         row = (
             db()
             .execute(
-                "SELECT l.*, b.name AS building_name, b.address AS building_address "
+                "SELECT l.*, b.name AS building_name, b.address AS building_address, "
+                "b.latitude, b.longitude "
                 "FROM listings l JOIN buildings b ON b.id = l.building_id "
                 "WHERE l.audit_id = ?",
                 (audit_id,),
