@@ -1233,7 +1233,7 @@ def create_app(
             [
                 "rank", "audit_id", "building", "unit", "neighbourhood", "bedrooms",
                 "ask", "estimate", "ask_vs_estimate_pct", "fit_pct", "score",
-                "value", "deal", "pros", "cons", "not_stated",
+                "value", "deal", "pros", "cons", "not_stated", "streeteasy",
             ]
         )  # fmt: skip
         for i, r in enumerate(best.choose(data["rows"], **choice), 1):
@@ -1247,6 +1247,7 @@ def create_app(
                     "; ".join(t["label"] for t in r["pros"]),
                     "; ".join(t["label"] for t in r["cons"]),
                     "; ".join(r["unknown"] + data["everywhere"]),
+                    r["listing_url"],
                 ]
             )  # fmt: skip
         return Response(
