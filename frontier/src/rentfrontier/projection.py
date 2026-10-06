@@ -278,6 +278,8 @@ def t_logpdf(r, nu, sigma):
 def project(reference: str, candidates=CANDIDATES):
     _, result, kept = explain.load_run(reference)
     config = model.MODELS[result["model"]["name"]]
+    if config.area_time:
+        raise SystemExit("area_time runs have no neighbourhood curve here yet")
     frame = data.load()
     frame, heldout = data.split_and_rules(
         frame, result["split"], data.recorded_rules(result)

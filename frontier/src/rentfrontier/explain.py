@@ -99,6 +99,9 @@ def log_terms(
     terms["bedroom_market_curve"] = (
         kept["bedroom_time"][:, a.bed_group, a.month] if bedroom_time else zeros
     )
+    # Neighbourhood market curves (area_time): a placeholder scale of 0 otherwise.
+    if np.any(kept.get("area_time_scale", 0) > 0):
+        terms["area_market_curve"] = kept["area_time"][:, a.area, a.month]
     terms["building"] = kept["building"][:, a.building]
     if walk:
         w = kept["walk"]

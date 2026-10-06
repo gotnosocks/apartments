@@ -103,6 +103,8 @@ class Design:
     trend: slice
     season: slice
     bedroom_time: slice | None
+    area_time: slice | None
+    area_time_basis: jnp.ndarray
     trend_basis: jnp.ndarray
     bedroom_time_basis: jnp.ndarray
     slope_index: int | None  # local index of the bedroom slope
@@ -365,7 +367,17 @@ def build_design(
         if config.bedroom_time
         else None
     )
-    p = (bedroom_time or season).stop
+    # Neighbourhood curves: one per neighbourhood after the reference.
+    n_area = model_module.n_areas(prep)
+    area_basis = model_module.knot_basis(t, config.area_time_knot_months)
+    na = area_basis.shape[1]
+    start = (bedroom_time or season).stop
+    area_time = (
+        slice(start, start + (n_area - 1) * na) if config.area_time else None
+    )
+    if config.area_time and n_area < 2:
+        raise ValueError(f"{config.name}: area_time needs two neighbourhoods")
+    p = (area_time or bedroom_time or season).stop
     a = np.zeros((n, p))
     a[:, 0] = 1.0
     a[:, 1 : 1 + f] = tr.x
@@ -403,9 +415,21 @@ def build_design(
             bedroom_time,
             np.kron(np.eye(len(groups)), _rw1_anchored(nb)),
         )
-    # Keyed columns (all but the features) as a function of (bed group, month).
-    gram_n_keys = 4 * t
-    gram_key = np.minimum(tr.bed_group, 3) * t + tr.month
+    if area_time is not None:
+        for ai in range(1, n_area):
+            rows = np.flatnonzero(tr.area == ai)
+            cols = slice(area_time.start + (ai - 1) * na, area_time.start + ai * na)
+            a[rows, cols] = area_basis[tr.month[rows]]
+        blocks["area_time_scale"] = (
+            area_time,
+            np.kron(np.eye(n_area - 1), _rw1_anchored(na)),
+        )
+    # Keyed columns (all but the features) as a function of (bed group,
+    # neighbourhood, month); the neighbourhood only with area_time.
+    n_key_area = n_area if config.area_time else 1
+    gram_n_keys = 4 * n_key_area * t
+    key_area = np.asarray(tr.area) if config.area_time else 0
+    gram_key = (np.minimum(tr.bed_group, 3) * n_key_area + key_area) * t + tr.month
     fcols = np.arange(1, 1 + f)
     if config.season_daily:
         fcols = np.concatenate([fcols, np.arange(season.start, season.stop)])
@@ -505,6 +529,7 @@ def build_design(
         "season_scale": config.season_scale_sd,
         "walk_scale": config.walk_scale_sd,
         "bedroom_time_scale": config.bedroom_time_scale_sd,
+        "area_time_scale": config.area_time_scale_sd,
         "bedroom_slope_scale": config.bedroom_slope_scale_sd,
         "unit_drift_scale": config.unit_drift_scale_sd,
         **{
@@ -536,6 +561,8 @@ def build_design(
         else None,
         season_daily=bool(config.season_harmonics and config.season_daily),
         bedroom_time=bedroom_time,
+        area_time=area_time,
+        area_time_basis=jnp.asarray(area_basis),
         trend_basis=jnp.asarray(trend_basis),
         bedroom_time_basis=jnp.asarray(bed_basis),
         slope_index=slope_index,
@@ -963,6 +990,11 @@ def site_values(d: Design, state):
             )
         )
         out["bedroom_time_basis"] = d.bedroom_time_basis
+    if d.area_time is not None:
+        out["area_time_step"] = steps(
+            theta[d.area_time].reshape(-1, d.area_time_basis.shape[1])
+        )
+        out["area_time_basis"] = d.area_time_basis
 
     if d.slope_index is not None:
         out["bedroom_slope"] = theta_l[:, d.slope_index]
@@ -1412,6 +1444,7 @@ START = {
     "season_scale": 0.02,
     "walk_scale": 0.03,
     "bedroom_time_scale": 0.01,
+    "area_time_scale": 0.01,
     "bedroom_slope_scale": 0.05,
     "unit_drift_scale": 0.02,
 }

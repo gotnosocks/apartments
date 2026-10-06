@@ -373,6 +373,8 @@ def feature_slope_term(fslope, x, cols) -> np.ndarray:
 def compute(name: str) -> dict:
     _, result, kept = explain.load_run(name)
     config = model.MODELS[result["model"]["name"]]
+    if config.area_time:
+        raise SystemExit("area_time runs have no neighbourhood curve here yet")
     frame = data.load(Path(result["dataset"]))
     frame, heldout = data.split_and_rules(
         frame, result["split"], data.recorded_rules(result)

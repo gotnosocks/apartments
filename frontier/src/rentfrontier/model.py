@@ -175,6 +175,10 @@ class ModelConfig:
     # for studios, 2- and 3+-bedrooms, relative to 1-bedrooms.
     bedroom_time: bool = False
     bedroom_time_scale_sd: float = 0.02
+    # Neighbourhood market curves: random-walk deviations of the month trend
+    # for each neighbourhood, relative to the one with most training rows.
+    area_time: bool = False
+    area_time_scale_sd: float = 0.02
     # Per-building bedroom slope: each building's premium per bedroom around
     # the global bedroom coefficients.
     bedroom_slope: bool = False
@@ -187,6 +191,7 @@ class ModelConfig:
     # random walks over knots, linearly interpolated; 1 = one value per month.
     trend_knot_months: int = 1
     bedroom_time_knot_months: int = 1
+    area_time_knot_months: int = 1
     # Student-t degrees of freedom: None = estimated (Gamma(2, 0.1) prior),
     # a number = fixed (the promoted model fixes 5).
     nu_fixed: float | None = None
@@ -299,6 +304,8 @@ class Arrays:
     year_frac: np.ndarray | None = None
     # Calendar years from the panel's first (read only by `noise_by_year`).
     year: np.ndarray | None = None
+    # Index into Prepared.areas, 0 = the reference (read only by `area_time`).
+    area: np.ndarray | None = None
 
     FIELDS = (
         "y",
@@ -314,6 +321,7 @@ class Arrays:
         "unit_time",
         "year_frac",
         "year",
+        "area",
     )
 
     def __post_init__(self):
@@ -321,6 +329,8 @@ class Arrays:
             self.year_frac = (np.asarray(self.calendar) + 0.5) / 12
         if self.year is None:
             self.year = np.zeros_like(np.asarray(self.month))
+        if self.area is None:
+            self.area = np.zeros_like(np.asarray(self.month))
 
     def map(self, fn):
         return Arrays(*(fn(getattr(self, f)) for f in self.FIELDS))
@@ -357,6 +367,8 @@ class Prepared:
     # (units,) index of the unit's line among lines with at least 2 training
     # units, -1 otherwise (line_effects).
     unit_line: np.ndarray | None = None
+    # Neighbourhoods by training rows, most first (the area_time reference).
+    areas: np.ndarray | None = None
 
     @property
     def sizes(self):
@@ -383,6 +395,7 @@ def prepare(frame: pd.DataFrame, heldout: np.ndarray, features: Features) -> Pre
         test_audit_id=frame.audit_id[heldout].to_numpy(),
     )
     tr = frame[train]
+    prep.areas = _areas(tr)
     months = (
         (tr.period.dt.year - prep.periods[0].year) * 12
         + tr.period.dt.month
@@ -431,7 +444,25 @@ def row_arrays(prep: Prepared, frame: pd.DataFrame, mask: np.ndarray) -> Arrays:
         unit_time=_unit_time(prep, sub, month),
         year_frac=_year_frac(sub),
         year=(sub.period.dt.year - periods[0].year).to_numpy().astype(np.int32),
+        area=_area_index(prep, sub),
     )
+
+
+def _areas(tr: pd.DataFrame) -> np.ndarray:
+    if "neighbourhood" not in tr:
+        return np.array(["Chelsea"])
+    counts = tr.neighbourhood.value_counts()
+    return np.array(sorted(counts.index, key=lambda a: (-counts[a], a)))
+
+
+def _area_index(prep: Prepared, sub: pd.DataFrame) -> np.ndarray:
+    """Each row's index into prep.areas; a neighbourhood without training rows
+    (or no neighbourhood column) gets the reference, 0."""
+    areas = prep.areas if prep.areas is not None else np.array(["Chelsea"])
+    if "neighbourhood" not in sub:
+        return np.zeros(len(sub), dtype=np.int32)
+    idx = pd.Index(areas).get_indexer(sub.neighbourhood)
+    return np.maximum(idx, 0).astype(np.int32)
 
 
 def _year_frac(sub: pd.DataFrame) -> np.ndarray:
@@ -490,6 +521,8 @@ def linear_predictor(p, a: Arrays, include_unit=True):
         mu = mu + line_term(e["line"], p["unit_line"], a)
     if "bedroom_time_step" in p:
         mu = mu + e["bedroom_time"][a.bed_group, a.month]
+    if "area_time_step" in p:
+        mu = mu + e["area_time"][a.area, a.month]
     if "bedroom_slope" in p:
         mu = mu + e["bedroom_slope"][a.building] * a.beds_centered
     if "fslope" in p:
@@ -600,6 +633,9 @@ def effects(p):
         # Market-curve deviation per bedroom group (row 1 = 1-bedroom = 0).
         "bedroom_time": _bedroom_time(p),
         "bedroom_time_scale": p.get("bedroom_time_scale", jnp.zeros(())),
+        # Market-curve deviation per neighbourhood (row 0 = the reference = 0).
+        "area_time": _area_time(p),
+        "area_time_scale": p.get("area_time_scale", jnp.zeros(())),
         "bedroom_slope": p.get("bedroom_slope", jnp.zeros(1)),
         "bedroom_slope_scale": p.get("bedroom_slope_scale", jnp.zeros(())),
         "fslope": p.get("fslope", jnp.zeros((1, 1))),
@@ -623,6 +659,18 @@ def _bedroom_time(p):
     return out.at[jnp.asarray(TIME_GROUPS)].set(curves)
 
 
+def _area_time(p):
+    if "area_time_step" not in p:
+        return jnp.zeros((1, 1))
+    steps = p["area_time_step"]  # (areas - 1, knots - 1)
+    curves = jnp.cumsum(steps, axis=1) @ p["area_time_basis"].T  # (areas - 1, months)
+    return jnp.concatenate([jnp.zeros((1, curves.shape[1])), curves], axis=0)
+
+
+def n_areas(prep: Prepared) -> int:
+    return 1 if prep.areas is None else len(prep.areas)
+
+
 def constants(prep: Prepared, config: ModelConfig) -> dict:
     """Site values that are not sampled: bases, indices, and zero effects
     (scale 0) for the base terms the design drops."""
@@ -643,6 +691,12 @@ def constants(prep: Prepared, config: ModelConfig) -> dict:
     if config.bedroom_time:
         out["bedroom_time_basis"] = jnp.asarray(
             knot_basis(n_months, config.bedroom_time_knot_months)
+        )
+    if config.area_time:
+        if n_areas(prep) < 2:
+            raise ValueError(f"{config.name}: area_time needs two neighbourhoods")
+        out["area_time_basis"] = jnp.asarray(
+            knot_basis(n_months, config.area_time_knot_months)
         )
     if config.feature_slopes:
         out["fslope_index"] = jnp.asarray(
@@ -1106,6 +1160,16 @@ def build_model(prep: Prepared, config: ModelConfig):
                     [len(TIME_GROUPS), p["bedroom_time_basis"].shape[1]]
                 ),
             )
+        if config.area_time:
+            p["area_time_scale"] = numpyro.sample(
+                "area_time_scale", dist.HalfNormal(config.area_time_scale_sd)
+            )
+            p["area_time_step"] = numpyro.sample(
+                "area_time_step",
+                dist.Normal(0.0, p["area_time_scale"]).expand(
+                    [n_areas(prep) - 1, p["area_time_basis"].shape[1]]
+                ),
+            )
         if config.bedroom_slope and not slope_totals:
             bedroom_slope()
         if config.feature_slopes:
@@ -1491,6 +1555,40 @@ MODELS = {
         season_daily=True,
         bedroom_time=True,
         bedroom_time_knot_months=3,
+    ),
+    # The served design with a market curve per neighbourhood: each one's
+    # quarterly random-walk deviation from the reference neighbourhood's trend.
+    "m7-nocurves-floorslope-bednoise-dayfourier-bedtime-areatime": ModelConfig(
+        name="m7-nocurves-floorslope-bednoise-dayfourier-bedtime-areatime",
+        building_walk=True,
+        bedroom_slope=True,
+        trend_knot_months=3,
+        feature_slopes=("log_sqft_vs_bedroom_median", "bathrooms=2", "log_floor"),
+        unit_t=True,
+        noise_by_bedrooms=True,
+        season_harmonics=2,
+        season_daily=True,
+        bedroom_time=True,
+        bedroom_time_knot_months=3,
+        area_time=True,
+        area_time_knot_months=3,
+    ),
+    # ... and the residual scale by bedroom group and calendar year.
+    "m7-nocurves-floorslope-bednoise-dayfourier-bedtime-yearnoise-areatime": ModelConfig(
+        name="m7-nocurves-floorslope-bednoise-dayfourier-bedtime-yearnoise-areatime",
+        building_walk=True,
+        bedroom_slope=True,
+        trend_knot_months=3,
+        feature_slopes=("log_sqft_vs_bedroom_median", "bathrooms=2", "log_floor"),
+        unit_t=True,
+        noise_by_bedrooms=True,
+        noise_by_year=True,
+        season_harmonics=2,
+        season_daily=True,
+        bedroom_time=True,
+        bedroom_time_knot_months=3,
+        area_time=True,
+        area_time_knot_months=3,
     ),
     # The bedroom-group market curves at 6-month knots.
     "m7-nocurves-floorslope-bednoise-dayfourier-bedtime6": ModelConfig(

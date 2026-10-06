@@ -36,6 +36,7 @@ SCALARS = (
     "building_trend_scale",
     "line_scale",
     "bedroom_time_scale",
+    "area_time_scale",
     "bedroom_slope_scale",
     "unit_nu",
     "unit_drift_scale",
