@@ -12,7 +12,7 @@ finding the best one-bedroom. Reports are in `/data1/apartments/tmp/playtests/<r
 The model prices what it can see. Wishes it can't see (quiet, garden view, floor-through) end up
 in the residual and in the building and unit effects, so "below estimate" can mean "missing
 something good". Ben asked (14:54 UTC) what would help. Items 1 and 2 went to Data improvements
-and Modeling as proposals; items 3 and 4 are Website's, for when the hold lifts.
+and Modeling as proposals; items 3 to 5 are Website's, for when the hold lifts.
 
 1. **Wishes as model inputs** (Data improvements, Modeling): quiet street (avenue vs side
    street from `street_kind`, traffic or bus routes), floor-through likelihood from building
