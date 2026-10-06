@@ -415,7 +415,8 @@ def page_query(filters: Filters):
         f"SELECT l.id FROM listings l{join}{where}{filters.order_by()} LIMIT ? OFFSET ?"
     )
     sql = (
-        "SELECT l.*, b.name AS building_name, b.address AS building_address "
+        "SELECT l.*, b.name AS building_name, b.address AS building_address, "
+        "b.latitude, b.longitude "
         f"FROM ({ids}) page JOIN listings l ON l.id = page.id{LISTING_JOIN}"
         f"{filters.order_by()}"
     )
@@ -756,6 +757,7 @@ def create_app(
     app.jinja_env.globals["anatomy_levels"] = ANATOMY_LEVELS
     app.jinja_env.globals["design_label"] = design_label
     app.jinja_env.globals["chosen_by"] = chosen_by
+    app.jinja_env.globals["street_view"] = street_view
     app.jinja_env.filters["term_id"] = term_id
     # A rating tag picked from the fixed lists ("+light", "-noisy"), not typed.
     app.jinja_env.tests["rated_side"] = lambda t: ratings.tag_label(t)[0] != "own"
@@ -2641,6 +2643,26 @@ def _rent_map(path: str, mtime: float) -> dict:
     data = json.loads(Path(path).read_text())
     data["_index"] = {b["id"]: i for i, b in enumerate(data.get("buildings", []))}
     return data
+
+
+def street_view(latitude, longitude, address=None) -> str | None:
+    """A Google Street View link at the building (Ben, 2026-10-06): no API
+    key and nothing embedded. Without coordinates, a Maps search for the
+    address."""
+    # Builds without coordinates leave them undefined in a template.
+    if isinstance(latitude, (int, float)) and isinstance(longitude, (int, float)):
+        return "https://www.google.com/maps/@?" + urlencode(
+            {
+                "api": 1,
+                "map_action": "pano",
+                "viewpoint": f"{latitude:.6f},{longitude:.6f}",
+            }
+        )
+    if isinstance(address, str) and address:
+        return "https://www.google.com/maps/search/?" + urlencode(
+            {"api": 1, "query": f"{address}, New York, NY"}
+        )
+    return None
 
 
 def chosen_by(selected_by: str) -> str:
