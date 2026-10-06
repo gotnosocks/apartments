@@ -1194,12 +1194,19 @@ def create_app(
             commute_stamp = commute_file.stat().st_mtime_ns if commute_file else None
         except OSError:
             commute_file = commute_stamp = None
+        bed_file = best.bed_size_path()
+        try:
+            bed_stamp = bed_file.stat().st_mtime_ns if bed_file else None
+        except OSError:
+            bed_file = bed_stamp = None
         key = (
             str(database_path()),
             profile_name,
             stamp,
             str(commute_file),
             commute_stamp,
+            str(bed_file),
+            bed_stamp,
         )
         if key not in best_cache:
             try:
@@ -1211,7 +1218,7 @@ def create_app(
             best_cache[key] = {
                 "profile": profile,
                 "commute": commute,
-                **best.rank(db(), profile, commute),
+                **best.rank(db(), profile, commute, best.load_bed_size(bed_file)),
             }
         return best_cache[key]
 
@@ -1264,6 +1271,7 @@ def create_app(
                 "rank", "audit_id", "building", "unit", "neighbourhood", "bedrooms",
                 "ask", "estimate", "ask_vs_estimate_pct", "fit_pct", "score",
                 "value", "deal", "pros", "cons", "not_stated", "streeteasy", "commute",
+                "bed_size",
             ]
         )  # fmt: skip
         for i, r in enumerate(best.choose(data["rows"], **choice), 1):
@@ -1279,6 +1287,7 @@ def create_app(
                     "; ".join(r["unknown"] + data["everywhere"]),
                     r["listing_url"],
                     "; ".join(t["label"] for t in r["commute"]),
+                    r["bed_size"],
                 ]
             )  # fmt: skip
         return Response(
