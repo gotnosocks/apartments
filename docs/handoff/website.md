@@ -2,6 +2,24 @@
 
 What the next turn of the website thread needs. Updated at each milestone.
 
+## State (2026-10-06 17:30 UTC)
+
+- **Ben's /best asks, all merged and deployed:** #337 StreetEasy links at the top of listing pages
+  (`#streeteasy`) and on /best rows (plus a `streeteasy` CSV column); #338 Street View links on
+  listing, building and /best pages; #339 every plus shown; #340 Street View stands in the
+  building's own street facing it (`site/streetview.py`: address to basemap street, nearest
+  centreline point, affine grid-to-lat/lon fit, heading back to the building), after a lot-point
+  pano opened inside a restaurant; #343 /best on phones: rows become cards below 640px, 44px tap
+  targets, no sideways scroll at 320px (`.columns` uses `min(22rem, 100%)`).
+- **Ben's /best feedback** is logged at the top of `docs/playtests/backlog.md` (#341). The
+  site-side pills for "fronts a big street" and transit wait on Data improvements' fields.
+- **Hand-set facing (#342, Data improvements):** `config/corrections/exposure-manual.csv` rows reach
+  the site after `rentfrontier.exposure` and a site build; build 20261006T170007853712Z shows
+  16 Barrow 1B "set by hand". Rebuild: in `/data1/apartments/serve/site`, `ops/job light -m 3G --
+  /data1/apartments/venvs/serve-site/bin/python -m apartments.site build`.
+- **Phone checks:** Chrome at `/usr/bin/google-chrome` with the playtest venv's Playwright
+  (`executable_path=`); script at `/data1/apartments/tmp/mobile-best/shot.py`.
+
 ## State (2026-10-06 15:45 UTC)
 
 - **Best for you (/best, #331, #332)**: an exception to the hold (Ben, 15:13 UTC). It ranks current
