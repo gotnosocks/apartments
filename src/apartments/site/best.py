@@ -298,7 +298,7 @@ def score(
             continue
         if key == "floor":
             words = _floor_words(row["floor"])
-            if points < 0:
+            if row["floor"] is not None and row["floor"] < usual_floor:
                 words = f"a low floor ({words})"
         elif key == "log_sqft_vs_bedroom_median":
             words = (
