@@ -36,10 +36,20 @@ import pandas as pd
 
 from . import features
 
+# Every GTFS parent stop of each midtown complex: the feed gives each line its
+# own parent, so arriving on the 7 or the N/Q/R/W at Times Sq is arriving at
+# Times Sq. 42 St-Port Authority is in the Times Sq complex.
 MIDTOWN = {
     "127": "Times Sq-42 St",
+    "725": "Times Sq-42 St",
+    "902": "Times Sq-42 St",
+    "R16": "Times Sq-42 St",
+    "A27": "42 St-Port Authority Bus Terminal",
     "631": "Grand Central-42 St",
+    "723": "Grand Central-42 St",
+    "901": "Grand Central-42 St",
     "D17": "34 St-Herald Sq",
+    "R17": "34 St-Herald Sq",
 }
 WALK_M_PER_MIN = 80.0
 WALK_REACH_M = 1500.0

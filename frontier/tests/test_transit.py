@@ -63,3 +63,12 @@ def test_midtown_minutes_as_of_the_month(monkeypatch):
     )
     np.testing.assert_allclose(transit.midtown_minutes(frame), [5.0, 14.0, 9.0])
     assert features.stops_not_open("2015-08") == frozenset({"726"})
+
+
+def test_every_parent_of_a_complex_is_midtown():
+    assert {"127", "725", "902", "R16", "631", "723", "901", "D17", "R17"} <= set(
+        transit.MIDTOWN
+    )
+    edges = {"X": [("R16", 4.0)], "Y": [("127", 6.0)]}
+    minutes = transit.station_minutes(edges, list(transit.MIDTOWN))
+    assert minutes["X"] == 4.0 and minutes["Y"] == 6.0
