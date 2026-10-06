@@ -50,12 +50,13 @@ BED_TEXT = re.compile(
     + _SIZE
     + r")*"
     + _SIZED
-    + r"(?:\s*(?:bed|mattress))?"
+    + r"(?:\s*(?:bed|mattress)\b)?"
     + r"|"
     + _ROOM_SIZE
     + _SIZED
     + r"\s*(?:bed)?room"
 )
+_BED = re.compile(r"\b(?:bed|mattress)\b")
 _WORD = re.compile(r"\b(king|queen|full|double|twin)\b")
 _RANK = {"twin": 0, "double": 0, "full": 0, "queen": 1, "king": 2}
 
@@ -65,7 +66,7 @@ def stated_size(text: str) -> str | None:
     best = -1
     for m in BED_TEXT.finditer(text):
         span = m.group(0)
-        bed = "bed" in span or "mattress" in span
+        bed = _BED.search(span) is not None
         for word in _WORD.findall(span):
             # "fits a full kitchen": full, double and twin need the word bed.
             if bed or word in ("king", "queen"):

@@ -42,6 +42,7 @@ def test_stated_size_takes_the_larger_of_alternatives():
 def test_stated_size_skips_full_size_rooms_and_other_words():
     assert bedsize.stated_size("two full-size bedrooms") is None
     assert bedsize.stated_size("fits a full kitchen") is None
+    assert bedsize.stated_size("fits a full bedroom set") is None
     assert bedsize.stated_size("outfits a queen bed") is None
     assert bedsize.stated_size("a speaking room") is None
 
