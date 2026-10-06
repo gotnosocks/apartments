@@ -87,3 +87,30 @@ def test_describe_words():
         "(same letter or number) does"
     )
     assert both["short"] == "likely front and rear"
+
+
+def test_manual_labels_install_and_read_as_set_by_hand(tmp_path):
+    db = sqlite3.connect(":memory:")
+    db.row_factory = sqlite3.Row
+    labels = [
+        {
+            "unit_id": "u1",
+            "exposure": "street",
+            "source": "manual",
+            "street_kind": "",
+            "line_votes": 0,
+            "bedroom": "",
+            "checked_by": "Ben, from the listing photos",
+        },
+        # A labels file from before manual labels has no checked_by column.
+        {"unit_id": "u2", "exposure": "rear", "source": "own", "line_votes": 0},
+    ]
+    exposure.install(db, tmp_path / "labels.parquet", labels, {"u1", "u2"})
+    row = db.execute("SELECT * FROM exposure WHERE unit_id = 'u1'").fetchone()
+    words = exposure.describe(row)
+    assert words["long"] == (
+        "Faces the street (set by hand: Ben, from the listing photos)"
+    )
+    assert words["short"] == "street-facing" and words["own"]
+    row = db.execute("SELECT * FROM exposure WHERE unit_id = 'u2'").fetchone()
+    assert exposure.describe(row)["long"] == "Faces the rear or a courtyard"
