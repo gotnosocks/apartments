@@ -12,6 +12,9 @@ Sources, in order:
   (89% agreement with apartments' own evidence, leave-one-unit-out, 2026-10-05);
 - bedroom: separately, an ad that says which way the bedroom faces.
 
+A label set by hand (`MANUAL`: building, unit label, facing, who and from what)
+comes first, with source "manual", and votes for its line like an own label.
+
     python -m rentfrontier.exposure            # writes EXPOSURE/labels-<date>.parquet
                                                # and points labels.parquet at it
 """
@@ -29,6 +32,7 @@ import pandas as pd
 from . import data, descriptions, features
 
 EXPOSURE = Path("/data1/apartments/exposure")
+MANUAL = data.REPO / "config" / "corrections" / "exposure-manual.csv"
 # The feature set whose lot, area and description files the labels read.
 FEATURE_SET = "nb-lineface-v1"
 LABELS = {(True, False): "street", (False, True): "rear", (True, True): "both"}
@@ -61,6 +65,30 @@ def line_labels(unit_line: pd.Series, own: pd.Series) -> pd.DataFrame:
     return pd.DataFrame(
         {"line_label": label, "line_votes": total.astype(int)}, index=own.index
     )
+
+
+def manual_labels(units: pd.DataFrame, path: Path | None = None) -> pd.DataFrame:
+    """Per apartment (index, with building and url): the hand-set facing and
+    who set it from what ("" where none). Units match by building and
+    `data.unit_label_key` of the label."""
+    path = path or MANUAL
+    out = pd.DataFrame({"facing": "", "checked_by": ""}, index=units.index)
+    if not path.exists():
+        return out
+    manual = pd.read_csv(path, dtype=str).fillna("")
+    bad = set(manual.facing) - set(LABELS.values())
+    if bad:
+        raise ValueError(f"{path}: facing must be street, rear or both, not {bad}")
+    label = units.url.str.extract(r"/([^/]+)$")[0]
+    key = list(zip(units.building, label.map(data.unit_label_key, na_action="ignore")))
+    lookup = {
+        (r.building, data.unit_label_key(r.unit)): (r.facing, r.source)
+        for r in manual.itertuples()
+    }
+    hits = [lookup.get(k, ("", "")) for k in key]
+    out["facing"] = [h[0] for h in hits]
+    out["checked_by"] = [h[1] for h in hits]
+    return out
 
 
 def compute(frame: pd.DataFrame) -> pd.DataFrame:
@@ -97,12 +125,18 @@ def compute(frame: pd.DataFrame) -> pd.DataFrame:
         bed_street=("bed_street", "any"),
         listings=("own", "size"),
     )
+    manual = manual_labels(units)
+    is_manual = manual.facing.ne("")
+    units["own"] = units.own.where(~is_manual, manual.facing)
     units = units.join(line_labels(units.line, units.own))
     has_own = units.own.ne("")
     units["exposure"] = np.where(has_own, units.own, units.line_label)
     units["source"] = np.where(
-        has_own, "own", np.where(units.line_label.ne(""), "line", "")
+        is_manual,
+        "manual",
+        np.where(has_own, "own", np.where(units.line_label.ne(""), "line", "")),
     )
+    units["checked_by"] = manual.checked_by
     kinds = units[["avenue", "wide", "side"]].to_numpy()
     names = np.array(["avenue", "wide street", "side street"])
     units["street_kind"] = [", ".join(names[k]) for k in kinds]
@@ -112,7 +146,7 @@ def compute(frame: pd.DataFrame) -> pd.DataFrame:
         "",
     )
     cols = ["building", "url", "exposure", "source", "street_kind", "line"]
-    cols += ["line_votes", "bedroom", "listings"]
+    cols += ["line_votes", "bedroom", "listings", "checked_by"]
     return units[cols].reset_index()
 
 
