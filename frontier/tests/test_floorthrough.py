@@ -21,7 +21,31 @@ def test_units_per_floor_and_plain_labels(monkeypatch):
             ],
         }
     )
-    assert floorthrough.plain_labels(frame).tolist() == [True, True, False, False, True]
+    # c shows one label only: too little to tell.
+    assert floorthrough.plain_labels(frame).tolist() == [
+        True,
+        True,
+        False,
+        False,
+        False,
+    ]
+
+
+def test_numbered_apartments_are_not_floors(monkeypatch):
+    frame = pd.DataFrame(
+        {
+            "building": ["a", "a", "b", "b"],
+            "canonical_unit_url": [
+                "https://x/building/a/4",
+                "https://x/building/a/14",
+                "https://x/building/b/2",
+                "https://x/building/b/3",
+            ],
+        }
+    )
+    lots = pd.DataFrame({"unitsres": [48, 48, 4, 4], "numfloors": [4, 4, None, None]})
+    monkeypatch.setattr(features, "building_lots", lambda frame: lots)
+    assert floorthrough.whole_floor(frame).tolist() == [False, False, True, True]
 
 
 def test_label_and_text():

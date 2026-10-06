@@ -8,15 +8,16 @@ apartments, unit-labels-v5):
 
 - MapPLUTO residential units per floor (`units_per_floor`): 14% of apartments
   with at most one per floor, 13% up to 1.5, 6% up to 2, 1% above 3;
-- every apartment label in the building a plain floor ("2", "PH", "3rd-floor";
-  `PLAIN_LABEL`): 15%, against 1.2% where none is;
+- at least two apartment labels in the building, all plain floors ("2", "PH",
+  "3rd-floor"; `PLAIN_LABEL`): 15%, against 2.3% elsewhere; `whole_floor`
+  (either, unless MapPLUTO counts more than two per floor): 13.6% against 1.3%;
 - a narrow lot (at most 22 ft of frontage): 12%, against 1% above 60 ft.
 - its own listings show both a street and the rear (`exposure` "both"): 29%.
 
 Ads under-report, so these are lower bounds on how often such apartments are
 floor-throughs. Labels describe the evidence: "stated" (an ad says so), "whole
-floor" (at most `WHOLE_FLOOR` units per floor, or a building of plain-floor
-labels), "front and rear" (its own windows or ad show both a street and the
+floor" (`whole_floor`: at most `WHOLE_FLOOR` units per floor, or a building of
+plain-floor labels where MapPLUTO doesn't count more than two), "front and rear" (its own windows or ad show both a street and the
 rear), "" otherwise. A current snapshot, pooled over every listing like
 `exposure`.
 
@@ -52,11 +53,23 @@ def units_per_floor(frame: pd.DataFrame) -> np.ndarray:
 
 
 def plain_labels(frame: pd.DataFrame) -> np.ndarray:
-    """Per row: whether every apartment label seen in its building names a
-    floor only (one apartment per floor)."""
+    """Per row: whether its building shows at least two apartment labels, every
+    one naming a floor only (one apartment per floor). Labels from all of the
+    building's listings, later ones included (a label, not a rent)."""
     label = frame.canonical_unit_url.str.extract(r"/([^/]+)$")[0].str.upper()
     plain = label.fillna("").str.fullmatch(PLAIN_LABEL)
-    return plain.groupby(frame.building.to_numpy()).transform("all").to_numpy()
+    by = frame.building.to_numpy()
+    distinct = label.groupby(by).transform("nunique").to_numpy()
+    return plain.groupby(by).transform("all").to_numpy() & (distinct >= 2)
+
+
+def whole_floor(frame: pd.DataFrame) -> np.ndarray:
+    """Per row: room for one apartment per floor: MapPLUTO counts at most
+    `WHOLE_FLOOR` units per floor, or plain-floor labels where MapPLUTO doesn't
+    count more than two (numbered apartments, "4" and "14" on a floor of 12,
+    look like floors)."""
+    upf = units_per_floor(frame)
+    return (upf <= WHOLE_FLOOR) | (plain_labels(frame) & ~(upf > 2.0))
 
 
 def label(stated: bool, whole: bool, both: bool) -> str:
@@ -77,6 +90,7 @@ def compute(frame: pd.DataFrame) -> pd.DataFrame:
             "phrase": phrase.to_numpy(),
             "upf": units_per_floor(frame),
             "plain": plain_labels(frame),
+            "whole": whole_floor(frame),
             "front_ft": pd.to_numeric(lots.lotfront, errors="coerce").to_numpy(),
             "floor": pd.to_numeric(frame.listed_floor, errors="coerce").to_numpy(),
         }
@@ -85,6 +99,7 @@ def compute(frame: pd.DataFrame) -> pd.DataFrame:
         phrase=("phrase", "first"),
         upf=("upf", "median"),
         plain=("plain", "all"),
+        whole=("whole", "all"),
         front_ft=("front_ft", "median"),
         floor=("floor", "median"),
     )
@@ -93,7 +108,7 @@ def compute(frame: pd.DataFrame) -> pd.DataFrame:
     out = []
     for u in units.itertuples():
         stated = isinstance(u.phrase, str)
-        whole = bool(u.upf <= WHOLE_FLOOR) or bool(u.plain)
+        whole = bool(u.whole)
         both = u.exposure == "both" and u.source == "own"
         why = []
         if stated:

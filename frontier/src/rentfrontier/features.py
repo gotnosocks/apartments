@@ -616,15 +616,14 @@ def through_v1(
 ) -> Features:
     """A base set plus how likely a floor-through layout is
     (`floorthrough`): a building with room for one apartment per floor
-    (MapPLUTO units per floor at most `floorthrough.WHOLE_FLOOR`, or every
-    label a floor), two per floor, and the listing's ad saying floor-through.
+    (`floorthrough.whole_floor`), two per floor, and the listing's ad saying floor-through.
     Reads no rents; MapPLUTO counts are today's (~1% of rows see a material
     change, 2026-10-06)."""
     from . import descriptions, floorthrough
 
     base = FEATURE_SETS[base](frame, train)
     upf = floorthrough.units_per_floor(frame)
-    whole = (upf <= floorthrough.WHOLE_FLOOR) | floorthrough.plain_labels(frame)
+    whole = floorthrough.whole_floor(frame)
     text = descriptions.attach(frame).fillna("").str.lower()
     b = _Builder(frame)
     b.add("layout", "one apartment per floor", whole)
