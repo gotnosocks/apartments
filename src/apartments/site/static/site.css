@@ -126,7 +126,7 @@ h3 { font-size: 1rem; margin: 1rem 0 0.4rem; }
 .card-head { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 0.5rem 1rem; }
 .note { color: var(--muted); font-size: 0.88rem; margin: 0.4rem 0 0.6rem; max-width: 60rem; }
 .prose p, .prose ul { max-width: 50rem; }
-.columns { display: grid; grid-template-columns: repeat(auto-fit, minmax(22rem, 1fr)); gap: 0 1rem; }
+.columns { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(22rem, 100%), 1fr)); gap: 0 1rem; }
 .columns > .card { margin: 0.5rem 0; }
 .columns > .card.shrink { align-self: start; }
 .feat { display: block; color: var(--muted); font-size: 0.8rem; }
@@ -491,6 +491,41 @@ button[aria-busy="true"] { cursor: progress; opacity: 0.75; }
 .rtag.good { color: var(--good); background: var(--good-bg); }
 .rtag.bad { color: var(--serious); background: var(--serious-bg); }
 .rating-note { white-space: pre-line; }
+/* Best for you on phones: each ranked listing becomes a card (rank and place, then fit, ask and
+   estimate in a row, then the pills), and its links and the filters are thumb-sized. */
+@media (max-width: 640px) {
+  table.best thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+  table.best, table.best tbody { display: block; }
+  table.best tr { display: grid; grid-template-columns: auto 1fr 1fr 1fr; gap: 0.2rem 0.6rem; padding: 0.7rem 0; border-bottom: 1px solid var(--grid); }
+  table.best td { display: block; border: 0; padding: 0; text-align: left; white-space: normal; min-width: 0; }
+  table.data.best td.num { text-align: left; }
+  table.best td.c-rank { grid-row: 1; padding-top: 0.05rem; font-weight: 650; color: var(--ink-2); }
+  table.best td.c-rank::before { content: "#"; }
+  table.best td.c-listing { grid-column: 2 / -1; grid-row: 1; font-weight: 600; }
+  table.best td[data-label] { grid-column: span 1; }
+  table.best td[data-label="Fit"] { grid-column: 1 / 3; }
+  table.best td[data-label]::before { content: attr(data-label); display: block; color: var(--muted); font-size: 0.72rem; font-weight: 400; }
+  table.best td.c-tags { grid-column: 1 / -1; }
+  table.best td.c-tags:empty { display: none; }
+  table.best td.empty { grid-column: 1 / -1; }
+  table.best .feat { font-weight: 400; }
+  table.best td.c-listing > a:first-child { display: block; padding: 0.7rem 0; margin: -0.7rem 0 -0.4rem; }
+  table.best .feat a { margin: -0.6rem 0; }
+  .rating-form input[type="radio"] { width: 1.3rem; height: 1.3rem; }
+  .rating-form label.check { display: inline-flex; align-items: center; gap: 0.3rem; min-height: 44px; margin-right: 0.6rem; }
+  table.best .feat a, .se-links a { display: inline-flex; align-items: center; min-height: 44px; }
+  .se-links { gap: 0 1.2rem; }
+  .filters input:not([type="checkbox"]), .filters select, .filters button { min-height: 44px; }
+  .filters .field { flex: 1 1 8rem; }
+  .filters .field.actions { flex: 0 0 auto; }
+  .results-links .download { margin-left: 0; }
+  .filters label.check { display: inline-flex; align-items: center; gap: 0.5rem; min-height: 44px; }
+  .filters input[type="checkbox"] { width: 1.3rem; height: 1.3rem; flex: none; }
+  table.best details.more summary { min-height: 44px; display: flex; align-items: center; }
+  dl.facts, dl.facts.wide { grid-template-columns: minmax(0, 2fr) minmax(0, 3fr); }
+  dl.facts dd { overflow-wrap: anywhere; }
+}
+
 .rating-form fieldset { border: 0; padding: 0; margin: 0 0 0.6rem; }
 .rating-form legend, .rating-form > label { font-size: 0.85rem; color: var(--ink-2); display: block; margin-top: 0.4rem; }
 .rating-form input[name="other"], .rating-form textarea { width: 100%; max-width: 40rem; box-sizing: border-box; font: inherit; }
