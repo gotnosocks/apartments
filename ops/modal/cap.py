@@ -19,8 +19,8 @@ from zoneinfo import ZoneInfo
 
 MAX_PER_DAY = 10
 LEDGER = Path(
-    os.environ.get("MODAL_FIT_LEDGER", "/data1/apartments/modal/ledger.jsonl")
-)
+    "/data1/apartments/modal/ledger.jsonl"
+)  # fixed: no other ledger, no override
 ZONE = ZoneInfo("America/New_York")
 
 

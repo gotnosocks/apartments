@@ -104,7 +104,7 @@ def _fit(spec):
     stages = {}
     with open(out / "fit.log", "w") as log:
         t = time.time()
-        code = _run(
+        fit_code = code = _run(
             ["/venv/bin/python", "-m", "rentfrontier.run", *spec["run_args"]],
             env,
             log,
@@ -126,6 +126,7 @@ def _fit(spec):
         "name": spec["name"],
         "gpu": gpu,
         "exit": code,
+        "fit_exit": fit_code,
         "stage_seconds": staged,
         "stages": stages,
         "wall_seconds": time.time() - started,

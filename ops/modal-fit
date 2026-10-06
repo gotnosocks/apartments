@@ -15,11 +15,11 @@ state=${MODAL_FIT_STATE:-/data1/apartments/modal}
 [ -x "$venv/bin/python" ] || { echo "no Modal venv at $venv (docs/model/modal.md: Setup)" >&2; exit 2; }
 python3 "$here/modal/cap.py" --check >&2 || { echo "refused: the daily cap is used up" >&2; exit 1; }
 if [ "${1:-}" = --foreground ]; then shift; exec "$venv/bin/python" "$here/modal/fit.py" "$@"; fi
-unit=modal-fit-$(date +%Y%m%d-%H%M%S)
+unit=modal-fit-$(date +%Y%m%d-%H%M%S)-$$
 mkdir -p "$state/logs"
 log=$state/logs/$unit.log
 env_args=()
-for v in FRONTIER_OUTPUT_ROOT FRONTIER_DATASET MODAL_FIT_REPO MODAL_FIT_STATE MODAL_FIT_LEDGER; do
+for v in FRONTIER_OUTPUT_ROOT FRONTIER_DATASET MODAL_FIT_REPO MODAL_FIT_STATE; do
   [ -n "${!v:-}" ] && env_args+=(--setenv="$v=${!v}")
 done
 systemd-run --user --quiet --unit="$unit" -p MemoryMax=2G -p StandardOutput="append:$log" \

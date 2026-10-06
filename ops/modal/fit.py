@@ -16,6 +16,7 @@ deleted after 24 h without a launch (ops/modal/cleanup).
 
 import argparse
 import datetime
+import fcntl
 import importlib
 import json
 import os
@@ -81,9 +82,9 @@ def parse(argv):
     return args, run_args
 
 
-def plan(args, run_args, sha):
+def plan(args, run_args, sha, short=None):
     """The container's spec: run name, tier and the rentfrontier.run arguments, as drive.sh builds them."""
-    name = f"{args.model}-{args.features}-{args.split}-{sha[:7]}-{args.label}"
+    name = f"{args.model}-{args.features}-{args.split}-{short or sha[:7]}-{args.label}"
     joined = " ".join(run_args)
     exploration = (
         "--tier exploration" in joined
@@ -213,13 +214,19 @@ def touch():
 
 def main(argv):
     args, run_args = parse(argv)
+    short = subprocess.run(
+        ["git", "-C", str(REPO), "rev-parse", "--short", f"{args.commit}^{{commit}}"],
+        capture_output=True,
+        text=True,
+        check=True,
+    ).stdout.strip()
     sha = subprocess.run(
         ["git", "-C", str(REPO), "rev-parse", f"{args.commit}^{{commit}}"],
         capture_output=True,
         text=True,
         check=True,
     ).stdout.strip()
-    spec = plan(args, run_args, sha)
+    spec = plan(args, run_args, sha, short)
     if (OUTPUT_ROOT / "runs" / spec["name"]).exists():
         sys.exit(f"{spec['name']} already exists under {OUTPUT_ROOT / 'runs'}")
     stage = stage_code(sha)
@@ -228,6 +235,11 @@ def main(argv):
     modal_app = importlib.import_module("app")
     if args.gpu not in modal_app.FITS:
         sys.exit(f"--gpu must be one of {', '.join(modal_app.FITS)}")
+    STATE.mkdir(parents=True, exist_ok=True)
+    lock = open(
+        STATE / "launch.lock", "a"
+    )  # held until exit; ops/modal/cleanup waits for it
+    fcntl.flock(lock, fcntl.LOCK_SH)
     touch()
     left = cap.reserve(spec["name"], args.gpu)  # raises CapReached past 10 today
     print(
@@ -244,14 +256,22 @@ def main(argv):
             meta["wall_seconds"] * modal_app.usd_per_second(args.gpu), 2
         )
         finish(modal_app.volume, spec["name"], meta)
+    except Exception:
+        # A container timeout or Modal error: keep whatever reached the Volume, log included.
+        try:
+            download(modal_app.volume, spec["name"], STATE / "failed")
+        except Exception as e:  # noqa: BLE001
+            print(f"no outputs to download: {e}", flush=True)
+        raise
     finally:
         touch()
     return meta["exit"]
 
 
 def finish(volume, name, meta):
-    """Download the run; a failed one goes aside, off the research board, so a retry isn't blocked."""
-    root = OUTPUT_ROOT if meta["exit"] == 0 else STATE / "failed"
+    """Download the run. A failed fit goes aside, off the research board, so a retry isn't
+    blocked; a good fit whose PSIS-LOO failed is kept, as drive.sh keeps it."""
+    root = OUTPUT_ROOT if meta.get("fit_exit", meta["exit"]) == 0 else STATE / "failed"
     download(volume, name, root)
     (root / "runs" / name / "modal").mkdir(parents=True, exist_ok=True)
     (root / "runs" / name / "modal" / "modal.json").write_text(

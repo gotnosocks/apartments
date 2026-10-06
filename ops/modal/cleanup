@@ -7,13 +7,20 @@ venv=${MODAL_VENV:-/data1/apartments/venvs/modal}
 state=${MODAL_FIT_STATE:-/data1/apartments/modal}
 volume=apartments-modal-fits
 [ -f "$state/last-use" ] || { echo "never used"; exit 0; }
+# Every launch holds a shared lock on launch.lock until it returns, so a launch can't start
+# between the checks below and the delete.
+exec 9>"$state/launch.lock"
+flock -n 9 || { echo "a launch is in progress"; exit 0; }
 age=$(($(date +%s) - $(stat -c %Y "$state/last-use")))
 [ "$age" -lt 86400 ] && { echo "used ${age}s ago"; exit 0; }
-"$venv/bin/modal" volume list --json | python3 -c "import json,sys; sys.exit(0 if any(v.get('name') == '$volume' for v in json.load(sys.stdin)) else 1)" \
+# Fail closed: if Modal can't be asked, delete nothing.
+volumes=$("$venv/bin/modal" volume list --json) || { echo "modal volume list failed"; exit 1; }
+apps=$("$venv/bin/modal" app list --json) || { echo "modal app list failed"; exit 1; }
+python3 -c "import json,sys; sys.exit(0 if any(v.get('name') == '$volume' for v in json.loads(sys.argv[1])) else 1)" "$volumes" \
   || { echo "no volume"; exit 0; }
-if "$venv/bin/modal" app list --json | python3 -c "import json,sys; sys.exit(0 if any(a.get('description') == 'apartments-modal-fit' and a.get('state') not in ('stopped', 'stopping') for a in json.load(sys.stdin)) else 1)"; then
-  echo "a fit app is still running"; exit 0
-fi
+running=$(python3 -c "import json,sys; print(sum(a.get('description') == 'apartments-modal-fit' and a.get('state') not in ('stopped', 'stopping') for a in json.loads(sys.argv[1])))" "$apps") \
+  || { echo "could not read the app list"; exit 1; }
+[ "$running" = 0 ] || { echo "a fit app is still running"; exit 0; }
 "$venv/bin/modal" volume delete "$volume" --yes || exit 1
 rm -rf "$state/manifest.json" "$state/code"
 echo "deleted $volume $(date -Is)" | tee -a "$state/cleanup.log"
