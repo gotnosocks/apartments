@@ -7,6 +7,26 @@ Fixes for things that are broken or wrong on the live site still ship.
 Each round adds a section at the top, ranked by how much the finding gets in the way of
 finding the best one-bedroom. Reports are in `/data1/apartments/tmp/playtests/<round>/`.
 
+## Round 10, 2026-10-06 (best-1bed)
+
+First round on the three-neighbourhood model (#318). Goal reached in about 12 clicks
+(1 BR, elevator, in-unit laundry, then Faces = rear: 12 listings). The persona saw that Greenwich
+Village has no current listings, which the page explains. It liked "What the model makes of it"
+and the dollar breakdown. Report: `2026-10-06-r10/`.
+
+1. **No ranking by wishes** (again; round 9 item 2): the bargain-first default sort puts a
+   $9,995 studio, a 2BR and a walk-up on top.
+2. **Floor-through, bedroom orientation and quiet unknowable** (again; round 9 item 1); rear
+   facing is the only proxy.
+3. **Size "not stated" yet priced:** 110 Horatio #120 shows "Size: not stated" while Size adds
+   +$167 and the summary says "more space than usual". Not a bug: with the unit-size rule the
+   model uses the median size from the unit's other listings (`features.py`, `unit_size`). The page
+   should say "from its other listings" and show that size.
+4. **Unreliable-estimate marker cryptic:** "Pareto k" jargon and a small `*`, with no advice; a
+   wide range on one-listing units makes "Typical" nearly meaningless.
+5. **Filters shrink to tiny sets:** in-unit laundry + elevator is nearly all Chelsea towers. They
+   want a relaxed or "closest matches" mode. 1 BR also includes 1,241 ft² penthouses.
+
 ## Round 9, 2026-10-06 (best-1bed)
 
 All goals reached on the Chelsea + West Village build (Greenwich Village not served yet). The
