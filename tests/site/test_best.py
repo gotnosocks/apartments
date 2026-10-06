@@ -146,6 +146,16 @@ def test_glossary_entry(client):
     assert 'id="fit-score"' in page
 
 
+def test_rows_label_their_figures_for_phone_cards(client):
+    """On phones each row is a card; the figures carry their own labels."""
+    page = client.get("/best").get_data(as_text=True)
+    for label in ("Fit", "Ask", "Estimate"):
+        assert f'data-label="{label}"' in page
+    assert 'class="c-listing"' in page
+    css = client.get("/static/site.css").get_data(as_text=True)
+    assert "table.best tr { display: grid;" in css
+
+
 def test_rows_and_listing_pages_link_to_streeteasy(client):
     """Ben (2026-10-06): one click from /best to the ad, and the ad's link at the
     top of the listing page."""
