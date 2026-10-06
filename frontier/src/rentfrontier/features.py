@@ -740,6 +740,41 @@ def access_v1(
     )
 
 
+def parks_v1(
+    frame: pd.DataFrame,
+    train: np.ndarray,
+    id: str = "nb3-parks-v1",
+    base: str = "nb3-coded-v2",
+) -> Features:
+    """A base set plus the log of the walk to the nearest park of at least an
+    acre, centred on the training rows, and whether an open High Line section
+    is within 5 minutes (`parks.park_terms`: parks acquired, and High Line
+    sections opened, before the listing's month). Reads no rents."""
+    from . import parks
+
+    base = FEATURE_SETS[base](frame, train)
+    terms = parks.park_terms(frame)
+    walk = np.log(np.maximum(terms.park_min.to_numpy(), 1.0))
+    known = np.isfinite(walk)
+    centre = float(np.mean(walk[train & known]))
+    b = _Builder(frame)
+    # A building without a position (none in the registry today) sits at the mean.
+    b.add("parks", "log walk min to a park", np.where(known, walk - centre, 0.0))
+    b.add(
+        "parks",
+        f"High Line within {parks.HIGH_LINE_MIN:.0f} min",
+        np.nan_to_num(terms.high_line.to_numpy()),
+    )
+    out = b.build(id)
+    return Features(
+        id,
+        base.names + out.names,
+        base.groups + out.groups,
+        np.column_stack([base.values, out.values]),
+        np.concatenate([base.prior_scale, out.prior_scale]),
+    )
+
+
 def lines_v1(
     frame: pd.DataFrame,
     train: np.ndarray,
@@ -924,6 +959,8 @@ PLACES_SNAPSHOT = "/data1/apartments/external/places/20261006-7c4c408"
 PLACES_FILE = f"{PLACES_SNAPSHOT}/places.parquet"
 STOREFRONTS_SNAPSHOT = "/data1/apartments/external/storefronts/20261006-5fd0c26"
 STOREFRONTS_FILE = f"{STOREFRONTS_SNAPSHOT}/storefronts.parquet"
+PARKS_SNAPSHOT = "/data1/apartments/external/parks/20261006-d208294"
+PARKS_FILE = f"{PARKS_SNAPSHOT}/parks.parquet"
 # Street centerlines, parks and shoreline (`rentfrontier.external basemap`).
 BASEMAP_SNAPSHOT = "/data1/apartments/external/basemap/20260929-da7e40d"
 BASEMAP_FILE = f"{BASEMAP_SNAPSHOT}/basemap.parquet"
@@ -2148,6 +2185,8 @@ LODES = {"nb3-access-v1"}
 PLACES = {"nb3-nearby-v1"}
 # Feature sets that read the Storefront Registry snapshot (retail).
 STOREFRONTS = {"nb3-retail-v1"}
+# Feature sets that read the NYC Parks properties snapshot (parks).
+PARKS = {"nb3-parks-v1"}
 # Feature sets that read the HPD violations snapshot.
 HPD = {"unitdescplutohpd-v1", "unitdescplutohpd-v2"}
 # Feature sets that read the advertisement descriptions (`descriptions.SOURCE`),
@@ -2250,6 +2289,7 @@ FEATURE_SETS = {
     "nb3-access-v1": partial(access_v1, id="nb3-access-v1", base="nb3-coded-v2"),
     "nb3-lines-v1": partial(lines_v1, id="nb3-lines-v1", base="nb3-coded-v2"),
     "nb3-bedsize-v1": partial(bedsize_v1, id="nb3-bedsize-v1", base="nb3-coded-v2"),
+    "nb3-parks-v1": partial(parks_v1, id="nb3-parks-v1", base="nb3-coded-v2"),
     "nb3-nearby-v1": partial(nearby_v1, id="nb3-nearby-v1", base="nb3-coded-v2"),
     "nb3-retail-v1": partial(retail_v1, id="nb3-retail-v1", base="nb3-coded-v2"),
     # West Village: the app design's building facts (as unitdescpluto-v3) on the
@@ -2489,6 +2529,7 @@ for _wish in (
     "nb3-access-v1",
     "nb3-lines-v1",
     "nb3-bedsize-v1",
+    "nb3-parks-v1",
     "nb3-nearby-v1",
     "nb3-retail-v1",
 ):
