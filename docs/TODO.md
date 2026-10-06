@@ -53,8 +53,9 @@ frontier's time axis, so compare fit times only within one implementation.
       `historical_dataset` keeps every accepted row and audit in memory and joins the whole
       `observations.jsonl` and `audit.jsonl` as strings. Thelio has 15 GB and has rebooted out
       of memory before (2026-09-22), so first measure peak RSS of a full Chelsea + West Village
-      + Greenwich Village rebuild. If it is large, stage rows and audits on disk in two passes (cross-advertisement
-      conflicts are resolved after all projections exist) and require byte-identical output.
+      + Greenwich Village rebuild. If it is large, stage rows and audits on disk in two passes
+      (cross-advertisement conflicts are resolved after all projections exist) and require
+      byte-identical output.
       The review's copy-reduction item (`_project`, `Overlay.apply`) belongs to the same profile.
 - [ ] **Data (low): larger Parquet row groups in the granular export.** `granular_export.Tables`
       flushes every 256 rows, so each shard holds many tiny row groups. Try 2,048 and 8,192 rows
