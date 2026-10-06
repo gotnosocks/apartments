@@ -392,6 +392,16 @@ def correct_fields_review_v1(frame: pd.DataFrame) -> pd.DataFrame:
     )
 
 
+def correct_fields_review_v3(frame: pd.DataFrame) -> pd.DataFrame:
+    """Reverts v1: the listings keep their recorded bedroom and bath counts.
+    v1's 16 corrections came from the ad's words alone, and none of those
+    apartments has another listing to back them (Ben chose to revert them on
+    2026-10-05; since 2026-10-04 an ad's description does not override the
+    coded fields). As the latest version of the family, it takes v1 out of
+    the current rules. (v2, #170, was never merged.)"""
+    return frame
+
+
 def quarantine_v3(frame: pd.DataFrame) -> pd.DataFrame:
     """v2 and the third review's rows (261 in all): 65 West Village and 8
     Chelsea ads whose own words place the apartment elsewhere (Brooklyn's
@@ -454,6 +464,7 @@ DATA_RULES = {
     "bedrooms-ad-v2": correct_bedrooms_v2,
     "baths-ad-v2": correct_baths_v2,
     "fields-review-v1": correct_fields_review_v1,
+    "fields-review-v3": correct_fields_review_v3,
     "quarantine-v3": quarantine_v3,
     "quarantine-v4": quarantine_v4,
     "quarantine-v5": quarantine_v5,
