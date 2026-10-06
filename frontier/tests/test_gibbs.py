@@ -798,3 +798,84 @@ def test_build_model_records_the_daily_season_as_a_site():
         model.build_model(
             prep, dataclasses.replace(DESIGNS["dayfourier"], season_harmonics=0)
         )
+
+
+AREATIME = model.ModelConfig(
+    building_walk=True,
+    bedroom_slope=True,
+    feature_slopes=("x0",),
+    unit_t=True,
+    area_time=True,
+    area_time_knot_months=3,
+)
+
+
+def synthetic_areas(seed=0):
+    """synthetic() with buildings split over three neighbourhoods (by parity
+    and a third block), area 0 the reference."""
+    prep = synthetic(seed=seed)
+    prep.areas = np.array(["Chelsea", "West Village", "Greenwich Village"])
+    area_of = np.asarray(prep.buildings) % 3
+    for arrays in (prep.train, prep.test):
+        arrays.area = area_of[np.asarray(arrays.building)].astype(np.int32)
+    return prep
+
+
+def test_area_time_needs_two_neighbourhoods():
+    with pytest.raises(ValueError, match="two neighbourhoods"):
+        gibbs.build_design(synthetic(), AREATIME)
+
+
+def test_area_time_site_values_reproduce_linear_predictor():
+    prep = synthetic_areas()
+    d = gibbs.build_design(prep, AREATIME)
+    # One block of knot steps per non-reference neighbourhood.
+    assert d.area_time.stop - d.area_time.start == 2 * d.area_time_basis.shape[1]
+    rng = np.random.default_rng(3)
+    state = {
+        "theta": jnp.asarray(rng.normal(0, 0.1, d.a.shape[1])),
+        "local": jnp.asarray(rng.normal(0, 0.1, (d.n_buildings, d.n_local))),
+        "unit": jnp.asarray(rng.normal(0, 0.1, d.n_units)),
+        "nu": 5.0,
+        "unit_nu": 4.0,
+        "kappa": jnp.ones(d.n_units),
+        "drift": jnp.zeros(d.n_units),
+        **{k: SCALES.get(k, 0.05) for k in d.scale_names},
+    }
+    p = gibbs.site_values(d, state)
+    assert p["area_time_step"].shape[0] == 2
+    mu_model = model.linear_predictor(p, prep.train.map(jnp.asarray))
+    mu_gibbs = d.a @ state["theta"] + gibbs.local_value(
+        state["local"], d.building, d.slots, d.slot_values
+    )
+    mu_gibbs = mu_gibbs + state["unit"][d.unit]
+    np.testing.assert_allclose(np.asarray(mu_model), np.asarray(mu_gibbs), atol=1e-10)
+    # The reference neighbourhood has no curve; the others vary by month.
+    curve = np.asarray(model.effects(p)["area_time"])
+    assert curve.shape == (3, len(prep.periods))
+    np.testing.assert_array_equal(curve[0], 0.0)
+    assert np.ptp(curve[1:]) > 0
+
+
+def test_area_time_runs_and_reports_its_scale():
+    out = gibbs.run(
+        synthetic_areas(),
+        AREATIME,
+        gibbs.Settings(chains=2, warmup=40, draws=40, keep_every=4),
+        log=lambda *_: None,
+    )
+    assert float(np.asarray(out["mean"]["area_time_scale"])) > 0
+
+
+def test_area_time_designs_are_registered():
+    for name in (
+        "m7-nocurves-floorslope-bednoise-dayfourier-bedtime-areatime",
+        "m7-nocurves-floorslope-bednoise-dayfourier-bedtime-yearnoise-areatime",
+    ):
+        config = model.MODELS[name]
+        served = model.MODELS["m7-nocurves-floorslope-bednoise-dayfourier-bedtime"]
+        assert config.area_time and config.area_time_knot_months == 3
+        assert dataclasses.replace(
+            config, name=served.name, area_time=False, area_time_knot_months=1,
+            noise_by_year=False,
+        ) == served

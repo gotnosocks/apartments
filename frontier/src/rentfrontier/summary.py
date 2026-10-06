@@ -412,6 +412,10 @@ def check_run(result):
         if key not in now or now[key]["sha256"] != src["sha256"]:
             raise SystemExit(f"feature source {key} differs from the run's record")
     data.recorded_rules(result)
+    name = result.get("model", {}).get("name")
+    if name in model.MODELS and model.MODELS[name].area_time:
+        # The building tables, kit and rent map have no neighbourhood curve yet.
+        raise SystemExit("area_time runs are not summarized yet")
 
 
 def new_unit_levels(params, n_rows, key, *, t_units):
