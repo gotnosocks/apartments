@@ -580,6 +580,112 @@ def lineface_v1(
     )
 
 
+def garden_v1(
+    frame: pd.DataFrame,
+    train: np.ndarray,
+    id: str = "nb3-garden-v1",
+    base: str = "nb3-coded-v2",
+) -> Features:
+    """A base set plus what an apartment's rear windows look across
+    (`garden.rear_open`): the open middle of the block (gardens, rear yards),
+    or a wall or shaft within `garden.SHUT_OPEN_M`. Reads no rents. Like the
+    building sides of the base, it reads today's footprints (neighbours built
+    after a listing touch ~50 rows' facing, 2026-10-05)."""
+    from . import garden
+
+    base = FEATURE_SETS[base](frame, train)
+    seen = garden.rear_open(frame)
+    b = _Builder(frame)
+    b.add("rear view", "rear looks over the open block", seen >= garden.SHUT_OPEN_M)
+    b.add("rear view", "rear looks onto a wall or shaft", seen < garden.SHUT_OPEN_M)
+    out = b.build(id)
+    return Features(
+        id,
+        base.names + out.names,
+        base.groups + out.groups,
+        np.column_stack([base.values, out.values]),
+        np.concatenate([base.prior_scale, out.prior_scale]),
+    )
+
+
+def quiet_v1(
+    frame: pd.DataFrame,
+    train: np.ndarray,
+    id: str = "nb3-quiet-v1",
+    base: str = "nb3-coded-v2",
+) -> Features:
+    """A base set plus how quiet the building's address street is (`quiet`):
+    on a busy road (an avenue or a roadway of `quiet.BUSY_WIDTH_FT` or more,
+    the Village's named streets included); off one, a narrow roadway or a
+    mid-block spot; and the listing's ad calling the street quiet or
+    tree-lined. Reads no rents; the street map is today's."""
+    from . import descriptions, quiet
+
+    base = FEATURE_SETS[base](frame, train)
+    terms = quiet.street_terms(frame)
+    text = descriptions.attach(frame).fillna("").str.lower()
+    b = _Builder(frame)
+    b.add("street", "on a busy road", terms["busy"])
+    b.add(
+        "street",
+        f"narrow street (roadway {quiet.NARROW_FT:.0f} ft or less)",
+        terms["narrow"],
+    )
+    b.add(
+        "street",
+        f"mid-block ({quiet.MID_BLOCK_M:.0f} m or more from a busy road)",
+        terms["mid_block"],
+    )
+    b.add(
+        "street",
+        "ad says quiet street",
+        text.str.contains(quiet.QUIET_TEXT, regex=True).to_numpy(),
+    )
+    out = b.build(id)
+    return Features(
+        id,
+        base.names + out.names,
+        base.groups + out.groups,
+        np.column_stack([base.values, out.values]),
+        np.concatenate([base.prior_scale, out.prior_scale]),
+    )
+
+
+def through_v1(
+    frame: pd.DataFrame,
+    train: np.ndarray,
+    id: str = "nb3-through-v1",
+    base: str = "nb3-coded-v2",
+) -> Features:
+    """A base set plus how likely a floor-through layout is
+    (`floorthrough`): a building with room for one apartment per floor
+    (`floorthrough.whole_floor`), two per floor, and the listing's ad saying floor-through.
+    Reads no rents; MapPLUTO counts are today's (~1% of rows see a material
+    change, 2026-10-06)."""
+    from . import descriptions, floorthrough
+
+    base = FEATURE_SETS[base](frame, train)
+    upf = floorthrough.units_per_floor(frame)
+    whole = floorthrough.whole_floor(frame)
+    text = descriptions.attach(frame).fillna("").str.lower()
+    b = _Builder(frame)
+    b.add("layout", "one apartment per floor", whole)
+    b.add("layout", "two apartments per floor", ~whole & (upf <= 2.0))
+    b.add(
+        "layout",
+        "ad says floor-through",
+        text.str.contains(floorthrough.THROUGH_TEXT, regex=True).to_numpy(),
+    )
+    out = b.build(id)
+    return Features(
+        id,
+        base.names + out.names,
+        base.groups + out.groups,
+        np.column_stack([base.values, out.values]),
+        np.concatenate([base.prior_scale, out.prior_scale]),
+    )
+
+
 # External snapshots read by feature sets (rentfrontier.registry, .external).
 REGISTRY_SNAPSHOT = "/data1/apartments/external/registry/20260925-6b67137"
 PLUTO_SNAPSHOT = "/data1/apartments/external/pluto/20260925-3096a62"
@@ -1882,6 +1988,9 @@ FEATURE_SETS = {
     "nb3-prevprice-v2": partial(
         prevprice_v1, id="nb3-prevprice-v2", base="nb3-coded-v2"
     ),
+    "nb3-garden-v1": partial(garden_v1, id="nb3-garden-v1", base="nb3-coded-v2"),
+    "nb3-through-v1": partial(through_v1, id="nb3-through-v1", base="nb3-coded-v2"),
+    "nb3-quiet-v1": partial(quiet_v1, id="nb3-quiet-v1", base="nb3-coded-v2"),
     # West Village: the app design's building facts (as unitdescpluto-v3) on the
     # unit and floor features (no West Village ads: see nb-facing-v2).
     "wv-unitpluto-v1": partial(
@@ -2107,6 +2216,29 @@ for _new, _old in (
     ):
         if _old in _table:
             _table[_new] = _table[_old]
+
+
+# The wish sets read what nb3-coded-v2 (their base) reads.
+for _wish in ("nb3-garden-v1", "nb3-through-v1", "nb3-quiet-v1"):
+    for _group in (
+        EXTERNAL,
+        BASEMAP,
+        FOOTPRINTS,
+        DESCRIPTIONS,
+        AS_OF_SETS,
+        LISTING_EXTRAS,
+    ):
+        if "nb3-coded-v2" in _group:
+            _group.add(_wish)
+    for _table in (
+        LOT_SNAPSHOTS,
+        DESCRIPTION_SOURCES,
+        EXTRAS_SNAPSHOTS,
+        AREA_SNAPSHOTS,
+        LPC_SNAPSHOTS,
+    ):
+        if "nb3-coded-v2" in _table:
+            _table[_wish] = _table["nb3-coded-v2"]
 
 
 def lot_files(name: str) -> dict:

@@ -1,6 +1,6 @@
 # Data improvements — handoff
 
-Updated 2026-10-06 08:00 ET. Thread owner: the Data improvements project thread (bridge session on thelio).
+Updated 2026-10-06 12:00 ET. Thread owner: the Data improvements project thread (bridge session on thelio).
 
 ## State
 - **Greenwich Village fold-in: done on the data side.** #292 (cohort, listing extras, alias table
@@ -49,6 +49,16 @@ Updated 2026-10-06 08:00 ET. Thread owner: the Data improvements project thread 
   Buildings where we see far more units than MapPLUTO records (130) are unit-id fragmentation,
   not bad lots: 248 10th Ave has 9 units and 40 ids (`3`, `three`, `3a`, `a3`, `2b`, `2-b`).
   Notes and scripts: `/data1/apartments/tmp/suspect/pluto-asof/` (FINDINGS.md).
+
+- **Wish features (coordinator relay, 2026-10-06 15:03Z):** Ben wants no separate preference
+  model. Garden view, floor-through and quiet street become interpretable rent-model terms that
+  Modeling recombines into pros and cons. Each has a per-apartment table in `/data1/apartments/wishes/`.
+  - #328 `nb3-garden-v1` (merged): rear windows' openness from footprint rays. Fit `frontier-gvgarden`.
+  - #329 `nb3-through-v1` (merged): one or two apartments per floor, plus the ad text. Fit `frontier-gvthrough`.
+  - #330 `nb3-quiet-v1` (merged): busy road, narrow roadway, mid-block, plus the ad text. Modeling
+    chains its fit after gvthrough (`frontier-gvquiet`).
+  Each fit pairs the set with nb3-coded-v2 on PSIS-LOO; Modeling reports the paired numbers.
+- **#326 `unit-labels-v6`** (draft) waits for a batch full fit.
 
 ## Next
 - Relay to Ben: the lineface paired score and the prevprice outcome when Modeling sends them.
