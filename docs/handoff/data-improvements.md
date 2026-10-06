@@ -1,6 +1,6 @@
 # Data improvements — handoff
 
-Updated 2026-10-05 19:45 ET. Thread owner: the Data improvements project thread (bridge session on thelio).
+Updated 2026-10-06 07:00 ET. Thread owner: the Data improvements project thread (bridge session on thelio).
 
 ## State
 - **Greenwich Village fold-in: done on the data side.** #292 (cohort, listing extras, alias table
@@ -28,6 +28,18 @@ Updated 2026-10-05 19:45 ET. Thread owner: the Data improvements project thread 
   Dating them cost 154 s per feature build against 10 s. The patch (`nb3-coded-v3`,
   `building_sides_as_of`) is kept at `/data1/apartments/tmp/suspect/lpc/sides-as-of.patch` in
   case it is wanted later.
+
+- **#167 revert (Ben, 2026-10-05 "Revert them"): PR #314 `fields-review-v3`**, approved and
+  tagged, NOT merged. It is a no-op rule that takes `fields-review-v1` out of `current_rules()`.
+  None of the 16 apartments has another listing to back its correction. Held until Modeling's
+  `frontier-gvlatest48` prevprice pair lands (~12:15 ET) and latestselect has run; Modeling
+  messages then. Merge with `gh pr merge 314 --squash --match-head-commit 8d81e7e`. Full fits
+  after that use v3.
+- **Exposure evidence table sent to Website** (`/data1/apartments/exposure/labels-evidence-20261006.parquet`
+  and .csv; builder `/data1/apartments/tmp/suspect/exposure-evidence/evidence.py`). Logged in
+  their backlog item 11 (#315); website features are on hold (Ben, 2026-10-05).
+- **Prevprice on GV (v2 sets, latest split):** +92.5 ± 16.7 (5.5 SE), but both arms failed the ESS
+  gate (380 and 334 < 400). They are being rerun at 4800 draws as `frontier-gvlatest48`.
 
 ## Next
 - Relay to Ben: the lineface paired score and the prevprice outcome when Modeling sends them.
