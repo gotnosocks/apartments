@@ -56,6 +56,9 @@ Sources:
   year published (`LODES_YEARS`), by 2020 census block in New York City
   (`NYC_COUNTIES`), with each block's internal point from the LODES
   geography crosswalk: one row per block, a jobs column per year.
+- parks: NYC Parks properties (NYC Open Data enfh-gkve) in the box widened by
+  `PARKS_MARGIN_M`: name, type, acres, acquisition date and outline (GeoJSON),
+  for the walk to the nearest park open as of a listing (`parks`).
 """
 
 from __future__ import annotations
@@ -635,6 +638,36 @@ def fetch_storefronts(box) -> tuple[pd.DataFrame, list[str], dict]:
     return table, [q], _version(STOREFRONTS_ID)
 
 
+PARKS_MARGIN_M = 1500.0
+
+
+def fetch_parks(box) -> tuple[pd.DataFrame, list[str], dict]:
+    """NYC Parks properties touching the box (north, west, south, east), widened
+    by PARKS_MARGIN_M: name, typecategory, acres, acquired, geometry."""
+    north, west, south, east = box
+    dlat = PARKS_MARGIN_M / 111_320.0
+    dlon = dlat / math.cos(math.radians((north + south) / 2))
+    north, west, south, east = north + dlat, west - dlon, south - dlat, east + dlon
+    params = {
+        "$select": "signname, typecategory, acres, acquisitiondate, multipolygon",
+        "$where": f"within_box(multipolygon, {north}, {west}, {south}, {east})",
+        "$order": "signname",
+    }
+    rows, q = _rows(PARKS_ID, params)
+    table = pd.DataFrame(
+        {
+            "name": [r.get("signname") for r in rows],
+            "typecategory": [r.get("typecategory") for r in rows],
+            "acres": pd.to_numeric([r.get("acres") for r in rows], errors="coerce"),
+            "acquired": pd.to_datetime(
+                [r.get("acquisitiondate") for r in rows], errors="coerce"
+            ),
+            "geometry": [json.dumps(r.get("multipolygon")) for r in rows],
+        }
+    )
+    return table, [q], _version(PARKS_ID)
+
+
 GTFS_URL = "https://rrgtfsfeeds.s3.amazonaws.com/gtfs_subway.zip"
 
 
@@ -757,6 +790,7 @@ def main(argv=None):
             "places",
             "storefronts",
             "lodes",
+            "parks",
         ),
     )
     parser.add_argument(
@@ -865,6 +899,19 @@ def main(argv=None):
             "places": counts,
         }
         summary = ", ".join(f"{v} {k}" for k, v in sorted(counts.items()))
+    elif args.source == "parks":
+        box = basemap_box(pd.read_parquet(registry_path))
+        table, queries, version = fetch_parks(box)
+        details = {
+            "source": f"{SOCRATA}/{PARKS_ID}",
+            "dataset": "Parks Properties via NYC Open Data",
+            "version": version,
+            "registry": str(registry_path),
+            "box_north_west_south_east": box,
+            "margin_m": PARKS_MARGIN_M,
+            "parks": len(table),
+        }
+        summary = f"{len(table)} parks"
     elif args.source == "storefronts":
         box = basemap_box(pd.read_parquet(registry_path))
         table, queries, version = fetch_storefronts(box)
