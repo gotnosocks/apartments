@@ -257,18 +257,18 @@ part of this repository's commit graph. There is no nested scraper project to in
 
 ### Code style
 
-Format all Python files with [ruff](https://docs.astral.sh/ruff/formatter/)
-using its default settings. Format the files you create or change before committing:
+All Python is formatted with [ruff](https://docs.astral.sh/ruff/formatter/)'s default
+style, using the version pinned in `ops/fmt`. Run it before every commit:
 
 ```sh
-uvx ruff format path/to/changed_file.py
-uvx ruff format --check path/to/changed_file.py
+ops/fmt            # format the whole repo
+ops/fmt --check    # what tests/test_formatting.py checks
 ```
 
-Do not run `ruff format` over whole directories. Fit protocols record the SHA-256
-of their implementation files, so reformatting a file hashed by a running or
-selected fit aborts that fit or breaks verification of its saved results. Leave
-those files unchanged; reformat them only after the fits that hash them are retired.
+Fit protocols and saved datasets record the SHA-256 of the files that produced them,
+so the files they hash are listed in `ruff.toml`'s `extend-exclude` and `ops/fmt`
+leaves them byte-for-byte unchanged. Remove an entry once no retained artifact
+hashes that file.
 
 ## Chelsea pricing model
 
