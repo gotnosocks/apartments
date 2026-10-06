@@ -257,6 +257,7 @@ def rank(db, profile: dict) -> dict:
             estimate=r["estimate"],
             reliable=r["reliable"],
             listing_url=r["listing_url"],
+            building_id=r["building_id"],
             latitude=b["latitude"] if b else None,
             longitude=b["longitude"] if b else None,
             address=b["address"] if b else None,

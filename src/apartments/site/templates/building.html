@@ -8,7 +8,7 @@
 <h1>{{ b.name or b.address }}</h1>
 <p class="subline">{% if neighbourhoods | length > 1 and b.neighbourhood %}{{ b.neighbourhood }} · {% endif %}{% if b.name %}{{ b.address }} · {% endif %}{{ "{:,}".format(b.listings) }} listings of {{ "{:,}".format(b.units) }} units,
 {{ month(b.first_period) }} to {{ month(b.last_period) }}{% if b.current_listings %} · <a href="{{ url_for('building', building_id=b.id, status='current') }}">{{ b.current_listings }} available now</a>{% endif %}</p>
-{% set sv = street_view(b.latitude, b.longitude, b.address) %}{% if sv %}<p class="links se-links" id="street-view"><a href="{{ sv }}" rel="noopener noreferrer" target="_blank">Street View ↗</a></p>{% endif %}
+{% set sv = street_view(b.id, b.latitude, b.longitude, b.address) %}{% if sv %}<p class="links se-links" id="street-view"><a href="{{ sv }}" rel="noopener noreferrer" target="_blank">Street View ↗</a></p>{% endif %}
 
 <section class="figures" aria-label="Building effects">
   <div class="figure">
