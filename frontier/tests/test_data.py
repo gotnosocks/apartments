@@ -375,11 +375,11 @@ def test_unit_labels_v5_adds_greenwich_villages_alias_groups():
 def test_unit_labels_v7_joins_letter_first_labels_to_digit_first_twins():
     """ "C7" joins "7C" and "d-4" joins "4D" in the same building when bedroom
     counts agree; a disagreeing pair, another building's twin, and labels with
-    no twin stay apart; the joined id is the smallest."""
+    no twin or no bedroom counts stay apart; the joined id is the smallest."""
     url = "https://streeteasy.com/building/{}/{}".format
     frame = pd.DataFrame(
         {
-            "building": ["b1"] * 6 + ["b2"],
+            "building": ["b1"] * 6 + ["b2"] * 3,
             "canonical_unit_url": [
                 url("b1", "7c"),
                 url("b1", "c7"),
@@ -388,12 +388,24 @@ def test_unit_labels_v7_joins_letter_first_labels_to_digit_first_twins():
                 url("b1", "a2"),
                 url("b1", "2b"),
                 url("b2", "b2"),
+                url("b2", "e5"),
+                url("b2", "5e"),
             ],
-            "unit_id": ["u3", "u1", "u4", "u5", "u6", "u7", "u8"],
-            "bedrooms": [1.0, 1.0, 2.0, 1.0, 1.0, 1.0, 1.0],
+            "unit_id": ["u3", "u1", "u4", "u5", "u6", "u7", "u8", "u9", "u10"],
+            "bedrooms": [1.0, 1.0, 2.0, 1.0, 1.0, 1.0, 1.0, np.nan, np.nan],
         }
     )
     out = data.DATA_RULES["unit-labels-v7"](frame)
-    assert out.unit_id.tolist() == ["u1", "u1", "u4", "u5", "u6", "u7", "u8"]
+    assert out.unit_id.tolist() == [
+        "u1",
+        "u1",
+        "u4",
+        "u5",
+        "u6",
+        "u7",
+        "u8",
+        "u9",
+        "u10",
+    ]
     assert "unit-labels-v7" not in data.DROPPING_RULES
     assert data.RULE_SOURCES["unit-labels-v7"] == data.UNIT_ALIASES_GV
