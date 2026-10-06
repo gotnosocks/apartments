@@ -16,9 +16,11 @@ model learned about the building beyond its features; the sheet weighs them
 (`latent`). The score is in log points, shown as exp(score) - 1: what the
 listing's features, counted the renter's way, are worth as a share of rent.
 
-Sorts: "value" (score - log ask, the default: fit for the money), "deal"
-(score - log(ask / estimate): fit at a good price for what it is) and "fit"
-(score alone). Point values only for now; intervals can follow if wanted.
+Sorts: "deal" (score - log(ask / estimate), the default: fit at a good
+price for what it is), "fit" (score alone) and "value" (score - log ask: fit
+for the money). Log asks spread about six times wider than scores, so
+"value" is close to cheapest first unless bedrooms or a budget narrow the
+list (Modeling, 2026-10-06); it is not the default. Point values only for now; intervals can follow if wanted.
 """
 
 from __future__ import annotations
@@ -33,10 +35,11 @@ DIR = Path(os.environ.get("PREFERENCES_DIR", "/data1/apartments/preferences"))
 DEFAULT_PROFILE = "ben-v1"
 PROFILE_NAME = re.compile(r"^[a-z0-9][a-z0-9-]{0,63}$")
 SORTS = {
-    "value": "Best for the money",
     "deal": "Fits you, at a good price",
     "fit": "Fits you",
+    "value": "Best for the money",
 }
+DEFAULT_SORT = "deal"
 LATENT = {"level": "building level", "trend": "building trend"}
 
 # Features read together, so a floor is one pro rather than three.
@@ -272,7 +275,9 @@ def rank(db, profile: dict) -> dict:
     }
 
 
-def choose(rows: list[dict], *, beds=None, max_rent=None, income=False, sort="value"):
+def choose(
+    rows: list[dict], *, beds=None, max_rent=None, income=False, sort=DEFAULT_SORT
+):
     """The rows the hard filters keep, best first."""
     keep = []
     for r in rows:
@@ -285,7 +290,7 @@ def choose(rows: list[dict], *, beds=None, max_rent=None, income=False, sort="va
             if b is None or (beds >= 3 and b < 3) or (beds < 3 and b != beds):
                 continue
         keep.append(r)
-    key = sort if sort in SORTS else "value"
+    key = sort if sort in SORTS else DEFAULT_SORT
     field = {"fit": "score"}.get(key, key)
     keep.sort(key=lambda r: -r[field])
     return keep
