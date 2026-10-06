@@ -229,17 +229,16 @@ def main(argv):
     spec = plan(args, run_args, sha, short)
     if (OUTPUT_ROOT / "runs" / spec["name"]).exists():
         sys.exit(f"{spec['name']} already exists under {OUTPUT_ROOT / 'runs'}")
+    STATE.mkdir(parents=True, exist_ok=True)
+    # Held until exit, from before the code is staged: ops/modal/cleanup waits for it.
+    lock = open(STATE / "launch.lock", "a")
+    fcntl.flock(lock, fcntl.LOCK_SH)
     stage = stage_code(sha)
     # The image installs this commit's uv.lock.
     os.environ["MODAL_FIT_STAGE"] = str(stage)
     modal_app = importlib.import_module("app")
     if args.gpu not in modal_app.FITS:
         sys.exit(f"--gpu must be one of {', '.join(modal_app.FITS)}")
-    STATE.mkdir(parents=True, exist_ok=True)
-    lock = open(
-        STATE / "launch.lock", "a"
-    )  # held until exit; ops/modal/cleanup waits for it
-    fcntl.flock(lock, fcntl.LOCK_SH)
     touch()
     left = cap.reserve(spec["name"], args.gpu)  # raises CapReached past 10 today
     print(
