@@ -145,7 +145,10 @@ def test_offline_checkpoint_then_resume_follows_observed_urls(tmp_path, monkeypa
     bundle = preflight(tmp_path)
     monkeypatch.setattr(discovery.capture_probe, "probe", no_network)
     first = discovery.run(
-        tmp_path / "run", max_requests=6, preflight_bundle=bundle, replay_only=True
+        tmp_path / "run",
+        max_requests=2 * len(discovery.SEEDS),
+        preflight_bundle=bundle,
+        replay_only=True,
     )
     first_hash = digest(Path(first["report_directory"]) / "complete.json")
     assert (
@@ -414,6 +417,9 @@ def test_code_change_during_capture_stops_before_another_request_or_publication(
     "field,value",
     [
         ("seeds", ["https://evil.example"]),
+        ("seeds", []),
+        ("seeds", [discovery.SEEDS[1], discovery.SEEDS[0]]),
+        ("seeds", [discovery.SEEDS[0], discovery.SEEDS[0]]),
         ("transport", "direct"),
         ("max_requests", True),
         ("max_requests", 0),
@@ -446,3 +452,39 @@ def test_modified_valid_protocol_value_disagrees_with_frozen_copy(
     (root / "protocol.json").write_text(discovery._json(protocol))
     with pytest.raises(ValueError, match="Frozen protocol changed"):
         discovery.run(root, resume=True)
+
+
+GV = "https://streeteasy.com/for-rent/greenwich-village"
+
+
+def test_seed_subset_follows_only_its_own_routes(tmp_path, monkeypatch):
+    calls = []
+
+    def fake(url, mode, output, **kw):
+        calls.append(url)
+        return saved_probe(url, mode, output, terminal="page=2" in url, **kw)
+
+    monkeypatch.setattr(discovery.capture_probe, "probe", fake)
+    result = discovery.run(tmp_path / "run", max_requests=5, seeds=[GV])
+    assert calls == [GV, GV + "?page=2"]
+    assert result["stop_reason"] == "pagination_pass_finished_inventory_unverified"
+    protocol = json.loads((tmp_path / "run" / "protocol.json").read_text())
+    assert protocol["seeds"] == [GV]
+    monkeypatch.setattr(discovery.capture_probe, "probe", no_network)
+    assert (
+        discovery.run(tmp_path / "run", resume=True, replay_only=True)[
+            "pending_observed_urls"
+        ]
+        == []
+    )
+    with pytest.raises(ValueError, match="Resume protocol differs"):
+        discovery.run(tmp_path / "run", resume=True, seeds=list(discovery.SEEDS))
+
+
+@pytest.mark.parametrize(
+    "seeds", [[], [GV, GV], [GV, discovery.SEEDS[0]], ["https://evil.example"]]
+)
+def test_seed_subset_must_be_ordered_subset(tmp_path, monkeypatch, seeds):
+    monkeypatch.setattr(discovery.capture_probe, "probe", no_network)
+    with pytest.raises(ValueError, match="Seeds must be"):
+        discovery.run(tmp_path / "run", max_requests=2, seeds=seeds)

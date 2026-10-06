@@ -25,6 +25,7 @@ def test_review_queue_feeds_the_detail_plan_for_every_seed(tmp_path, monkeypatch
         "chelsea",
         "west-chelsea",
         "west-village",
+        "greenwich-village",
     ]
     report = Path(result["report_directory"])
     summary = discovery_review.publish(report, tmp_path / "review")
@@ -33,6 +34,7 @@ def test_review_queue_feeds_the_detail_plan_for_every_seed(tmp_path, monkeypatch
         "/for-rent/chelsea",
         "/for-rent/west-chelsea",
         "/for-rent/west-village",
+        "/for-rent/greenwich-village",
     }
     queue = [
         json.loads(s)
@@ -41,7 +43,7 @@ def test_review_queue_feeds_the_detail_plan_for_every_seed(tmp_path, monkeypatch
         .splitlines()
     ]
     # The test page carries the same advertisement on every seed, each in scope there.
-    assert [len(q["observations"]) for q in queue] == [3]
+    assert [len(q["observations"]) for q in queue] == [len(discovery.SEEDS)]
     plan, _ = detail.prepare(
         tmp_path / "review", report, tmp_path / "details", max_targets=5
     )
