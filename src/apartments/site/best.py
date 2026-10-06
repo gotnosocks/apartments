@@ -234,14 +234,15 @@ def rank(db, profile: dict) -> dict:
     buildings = {
         b["id"]: b
         for b in db.execute(
-            "SELECT b.id, b.name, b.address, b.level_pct, b.trend_pct FROM buildings b "
+            "SELECT b.id, b.name, b.address, b.latitude, b.longitude, b.level_pct, "
+            "b.trend_pct FROM buildings b "
             "WHERE b.id IN (SELECT building_id FROM listings WHERE is_current = 1)"
         )
     }
     rows = []
     for r in db.execute(
         "SELECT audit_id, building_id, unit_label, neighbourhood, bedrooms, ask, "
-        "estimate, floor, reliable, inputs FROM listings WHERE is_current = 1 AND ask > 0"
+        "estimate, floor, reliable, listing_url, inputs FROM listings WHERE is_current = 1 AND ask > 0"
     ):
         inputs = json.loads(r["inputs"])
         s = score(r, inputs, buildings.get(r["building_id"]), profile, betas)
@@ -255,6 +256,11 @@ def rank(db, profile: dict) -> dict:
             ask=r["ask"],
             estimate=r["estimate"],
             reliable=r["reliable"],
+            listing_url=r["listing_url"],
+            building_id=r["building_id"],
+            latitude=b["latitude"] if b else None,
+            longitude=b["longitude"] if b else None,
+            address=b["address"] if b else None,
             income_restricted=bool(inputs.get("text:income_restricted")),
             fit_pct=100 * math.expm1(s["score"]),
             vs_estimate=r["ask"] / r["estimate"] - 1 if r["estimate"] else None,

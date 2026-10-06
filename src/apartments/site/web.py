@@ -50,6 +50,7 @@ from . import (
     estimate_build,
     exposure,
     ratings,
+    streetview,
     summary,
 )
 from .anatomy import LEVELS as ANATOMY_LEVELS
@@ -603,6 +604,17 @@ def create_app(
     versions = _asset_versions(Path(app.static_folder))
     best_cache: dict = {}
 
+    def street_view(building_id, latitude=None, longitude=None, address=None):
+        """A Street View link from the building's street, facing it."""
+        path = database_path().parent / "map.json"
+        try:
+            data = _rent_map(str(path), path.stat().st_mtime)
+        except (OSError, ValueError):
+            data = None
+        return streetview.link(data, building_id, latitude, longitude, address)
+
+    app.jinja_env.globals["street_view"] = street_view
+
     def building_typical(building_id: str) -> dict | None:
         """The building's typical rent by bedroom count in the rent map's
         latest year: {year, months, extrapolated, rows: [{label, rent, low,
@@ -977,7 +989,8 @@ def create_app(
         row = (
             db()
             .execute(
-                "SELECT l.*, b.name AS building_name, b.address AS building_address "
+                "SELECT l.*, b.name AS building_name, b.address AS building_address, "
+                "b.latitude, b.longitude "
                 "FROM listings l JOIN buildings b ON b.id = l.building_id "
                 "WHERE l.audit_id = ?",
                 (audit_id,),
@@ -1233,7 +1246,7 @@ def create_app(
             [
                 "rank", "audit_id", "building", "unit", "neighbourhood", "bedrooms",
                 "ask", "estimate", "ask_vs_estimate_pct", "fit_pct", "score",
-                "value", "deal", "pros", "cons", "not_stated",
+                "value", "deal", "pros", "cons", "not_stated", "streeteasy",
             ]
         )  # fmt: skip
         for i, r in enumerate(best.choose(data["rows"], **choice), 1):
@@ -1247,6 +1260,7 @@ def create_app(
                     "; ".join(t["label"] for t in r["pros"]),
                     "; ".join(t["label"] for t in r["cons"]),
                     "; ".join(r["unknown"] + data["everywhere"]),
+                    r["listing_url"],
                 ]
             )  # fmt: skip
         return Response(
