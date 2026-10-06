@@ -99,7 +99,7 @@ FACING = "looks onto "
 
 
 def profile_path(name: str) -> Path | None:
-    if not PROFILE_NAME.match(name or ""):
+    if not PROFILE_NAME.fullmatch(name or ""):
         return None
     return DIR / f"{name}.json"
 
@@ -238,7 +238,7 @@ def rank(db, profile: dict) -> dict:
     rows = []
     for r in db.execute(
         "SELECT audit_id, building_id, unit_label, neighbourhood, bedrooms, ask, "
-        "estimate, floor, reliable, inputs FROM listings WHERE is_current = 1"
+        "estimate, floor, reliable, inputs FROM listings WHERE is_current = 1 AND ask > 0"
     ):
         inputs = json.loads(r["inputs"])
         s = score(r, inputs, buildings.get(r["building_id"]), profile, betas)
@@ -258,7 +258,7 @@ def rank(db, profile: dict) -> dict:
             value=s["score"] - math.log(r["ask"]),
             deal=s["score"] - math.log(r["ask"] / r["estimate"])
             if r["estimate"]
-            else s["score"],
+            else -math.inf,  # no estimate: last on this sort
         )
         rows.append(s)
     everywhere = set.intersection(*(set(r["unknown"]) for r in rows)) if rows else set()

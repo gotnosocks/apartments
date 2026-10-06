@@ -64,7 +64,7 @@ plus nor a minus.</p>
       <td class="muted">{{ r.unknown | join(", ") }}</td>
     </tr>
   {% else %}
-    <tr><td colspan="8" class="empty">No listing available now matches. Try more bedrooms choices or a higher rent.</td></tr>
+    <tr><td colspan="8" class="empty">No listing available now matches. Try other bedroom counts or a higher rent.</td></tr>
   {% endfor %}
   </tbody>
 </table>
@@ -80,7 +80,7 @@ doesn't read the text of current ads yet, so marks like a renovation, a dishwash
   {% set cons = profile.weights | dictsort | selectattr(1, "lt", 0) | list %}
   <p><strong>Pluses:</strong> {% for f, w in pros %}{{ label(f) }}{% if f in not_modelled %} <span class="muted">(not modelled)</span>{% endif %}{{ ", " if not loop.last }}{% endfor %}.</p>
   <p><strong>Minuses:</strong> {% for f, w in cons %}{{ label(f) }}{% if f in not_modelled %} <span class="muted">(not modelled)</span>{% endif %}{{ ", " if not loop.last }}{% endfor %}.</p>
-  {% if profile.latent %}<p><strong>The building:</strong> {% for kind, w in profile.latent | dictsort %}{{ "its rent level against similar buildings" if kind == "level" else "how fast its rents rise" }} at {{ "{:g}".format(w) }} weight{{ ", " if not loop.last }}{% endfor %}.</p>{% endif %}
+  {% if profile.latent %}<p><strong>The building:</strong> {% for kind, w in profile.latent | dictsort %}{{ "its rent level against similar buildings" if kind == "level" else "how fast its rents rise" }}{% if w == 0.5 %}, counted at half weight{% elif w != 1 %}, counted at {{ "{:g}".format(w) }} times its price{% endif %}{{ ", " if not loop.last }}{% endfor %}.</p>{% endif %}
   {% if profile.unmodelled %}<p class="muted">Not modelled yet: {{ profile.unmodelled | join("; ") }}.</p>{% endif %}
   {% if profile.neutral %}<p class="muted">Neutral on purpose: {{ profile.neutral | join(", ") }}.</p>{% endif %}
   {% if profile.left_out %}<p class="muted">Matters of taste, left out: {{ profile.left_out | join(", ") }}.</p>{% endif %}
