@@ -7,6 +7,29 @@ Fixes for things that are broken or wrong on the live site still ship.
 Each round adds a section at the top, ranked by how much the finding gets in the way of
 finding the best one-bedroom. Reports are in `/data1/apartments/tmp/playtests/<round>/`.
 
+## Finding the best, not reproducing asks (from rounds 9 and 10, 2026-10-06)
+
+The model prices what it can see. Wishes it can't see (quiet, garden view, floor-through) end up
+in the residual and in the building and unit effects, so "below estimate" can mean "missing
+something good". Ben asked (14:54 UTC) what would help. Items 1 and 2 went to Data improvements
+and Modeling as proposals; items 3 and 4 are Website's, for when the hold lifts.
+
+1. **Wishes as model inputs** (Data improvements, Modeling): quiet street (avenue vs side
+   street from `street_kind`, traffic or bus routes), floor-through likelihood from building
+   shape (PLUTO lot depth and frontage, units per floor, the line's window directions), garden
+   view (rear facing plus a rear yard). Each wish then has a price.
+2. **Wish-probability side model** (Modeling): per-unit probabilities ("likely, 70%") for
+   floor-through, bedroom over a garden, quiet street, and unstated elevator or laundry, from
+   the unit's other listings, its line, building shape and ad text. LLM extraction from ad text
+   needs Ben's costed OK first and adds fields only, never overriding coded ones.
+3. **Premiums as a quality signal** (Website): a large building or unit effect means the market
+   pays for something unmeasured; for a "best" search, show it as evidence of quality, not only
+   as cost.
+4. **Rank by wish match × value** (Website): the probability of matching the wishes, weighted by
+   the ask against the estimate given them; "4 of 6, these unknown".
+5. **Unstated elevator or laundry** (Website): estimate it from the building (e.g. building
+   class for an elevator) instead of filtering the listing out.
+
 ## Round 10, 2026-10-06 (best-1bed)
 
 First round on the three-neighbourhood model (#318). Goal reached in about 12 clicks
