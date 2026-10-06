@@ -108,6 +108,12 @@
     <dt id="price-band">Below typical, typical, above typical</dt>
     <dd>Where the ask falls among the asks the model expects for that apartment: the lowest 10%, the middle 80%, or the highest 10%.
     The middle 80% is the <em>likely ask range</em> shown on listing pages and in listing tables when the estimates carry it.</dd>
+    <dt id="fit-score">Fit (on Best for you)</dt>
+    <dd>How well an apartment matches a renter's preference sheet. The sheet marks features as a plus or a minus, all else equal.
+    The model's own price for each feature sets how much it counts. For example, in-unit laundry adds what the model says it adds
+    to rent, and a walk-up building takes off as much as the model says walk-ups save. +20% means the features the renter cares
+    about are worth about a fifth of the rent, counted their way. It is a ranking aid, not a price, and details a listing doesn't
+    state count as neither a plus nor a minus. See <a href="{{ url_for('best_listings') }}">Best for you</a>.</dd>
   </dl>
 </section>
 {% endblock %}
