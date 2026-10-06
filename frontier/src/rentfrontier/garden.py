@@ -32,8 +32,6 @@ import argparse
 import datetime as dt
 import functools
 import itertools
-import json
-import math
 import re
 from pathlib import Path
 
@@ -106,65 +104,11 @@ def block_openness() -> pd.DataFrame:
 @functools.lru_cache(maxsize=2)
 def _block_openness(registry_file: str, basemap_file: str, footprints_file: str):
     # The outline choice and the grid are `features._building_sides`'s.
-    registry = pd.read_parquet(registry_file).set_index("building")
-    lat0, lon0 = features._grid_origin()
-    phi, metres = math.radians(features.FRONTAGE_BEARING_DEG), 111_320.0
-    cos0 = math.cos(math.radians(lat0))
-
-    def grid(lon, lat):
-        east = (np.asarray(lon, float) - lon0) * metres * cos0
-        north = (np.asarray(lat, float) - lat0) * metres
-        return np.stack(
-            [
-                east * math.cos(phi) - north * math.sin(phi),
-                east * math.sin(phi) + north * math.cos(phi),
-            ],
-            -1,
-        )
-
-    def rings_of(geometry):
-        geometry = json.loads(geometry)
-        polygons = geometry["coordinates"]
-        polygons = polygons if geometry["type"] == "MultiPolygon" else [polygons]
-        return [grid([q[0] for q in pg[0]], [q[1] for q in pg[0]]) for pg in polygons]
-
-    footprints = pd.read_parquet(footprints_file)
-    e0, e1, owner = [], [], []
-    for r in footprints.itertuples():
-        for ring in rings_of(r.geometry):
-            e0.append(ring[:-1])
-            e1.append(ring[1:])
-            owner += [str(r.bin)] * (len(ring) - 1)
-    e0, e1 = np.concatenate(e0), np.concatenate(e1)
-    owner = np.array(owner)
-    by_bin = footprints.groupby(footprints.bin.astype(str))
-    by_lot = footprints.groupby(footprints.base_bbl.astype(str))
     out = {}
-    for building, r in registry.iterrows():
-        key_bin, key_lot = str(r.bin), str(r.bbl)
-        if not re.fullmatch(r"[1-5]000000", key_bin) and key_bin in by_bin.groups:
-            rows = by_bin.get_group(key_bin)
-        elif key_lot in by_lot.groups:
-            rows = by_lot.get_group(key_lot)
-        else:
-            continue
-        rings = [
-            (str(b), ring)
-            for b, g in zip(rows.bin, rows.geometry)
-            for ring in rings_of(g)
-        ]
-        here = grid(r.longitude, r.latitude)
-        ring_bin, ring = min(
-            rings, key=lambda q: float(np.hypot(*(q[1].mean(0) - here)))
-        )
-        if 0.5 * np.sum(ring[:-1, 0] * ring[1:, 1] - ring[1:, 0] * ring[:-1, 1]) < 0:
-            ring = ring[::-1]
-        own = (owner == ring_bin) & (not re.fullmatch(r"[1-5]000000", ring_bin))
-        centre = ring.mean(0)
-        radius = float(np.hypot(*(ring - centre).T).max()) + OPEN_REACH_M + 10.0
-        reach = np.minimum(np.hypot(*(e0 - centre).T), np.hypot(*(e1 - centre).T))
-        near = (reach - np.hypot(*(e1 - e0).T) < radius) & ~own
-        dist = clear_distances(ring, (e0[near], e1[near]))
+    for building, ring, occluders in features.building_outlines(
+        registry_file, footprints_file, OPEN_REACH_M
+    ):
+        dist = clear_distances(ring, occluders)
         out[building] = {d: openness(v) for d, v in dist.items()}
     return pd.DataFrame.from_dict(out, orient="index")
 
