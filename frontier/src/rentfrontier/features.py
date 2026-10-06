@@ -767,6 +767,32 @@ def lines_v1(
     )
 
 
+def bedsize_v1(
+    frame: pd.DataFrame,
+    train: np.ndarray,
+    id: str = "nb3-bedsize-v1",
+    base: str = "nb3-coded-v2",
+) -> Features:
+    """A base set plus the largest bed the listing's own ad says its bedroom
+    takes (`bedsize.stated_size`: full, with twin and double, queen or king;
+    an ad stating none is the reference). Reads no rents."""
+    from . import bedsize
+
+    base = FEATURE_SETS[base](frame, train)
+    size = bedsize.stated_sizes(frame).to_numpy()
+    b = _Builder(frame)
+    for s in bedsize.SIZES:
+        b.add("description", f"ad states a {s} bed", size == s)
+    out = b.build(id)
+    return Features(
+        id,
+        base.names + out.names,
+        base.groups + out.groups,
+        np.column_stack([base.values, out.values]),
+        np.concatenate([base.prior_scale, out.prior_scale]),
+    )
+
+
 def nearby_v1(
     frame: pd.DataFrame,
     train: np.ndarray,
@@ -2223,6 +2249,7 @@ FEATURE_SETS = {
     "nb3-transit-v1": partial(transit_v1, id="nb3-transit-v1", base="nb3-coded-v2"),
     "nb3-access-v1": partial(access_v1, id="nb3-access-v1", base="nb3-coded-v2"),
     "nb3-lines-v1": partial(lines_v1, id="nb3-lines-v1", base="nb3-coded-v2"),
+    "nb3-bedsize-v1": partial(bedsize_v1, id="nb3-bedsize-v1", base="nb3-coded-v2"),
     "nb3-nearby-v1": partial(nearby_v1, id="nb3-nearby-v1", base="nb3-coded-v2"),
     "nb3-retail-v1": partial(retail_v1, id="nb3-retail-v1", base="nb3-coded-v2"),
     # West Village: the app design's building facts (as unitdescpluto-v3) on the
@@ -2461,6 +2488,7 @@ for _wish in (
     "nb3-transit-v1",
     "nb3-access-v1",
     "nb3-lines-v1",
+    "nb3-bedsize-v1",
     "nb3-nearby-v1",
     "nb3-retail-v1",
 ):
