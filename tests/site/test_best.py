@@ -140,6 +140,7 @@ def test_page_ranks_current_listings(client):
     assert 'quiet street <span class="muted">(not modelled)</span>' in page
     assert "unit effect: later" in page
     assert "below the usual floor (the " in page
+    assert 'class="more"' not in page  # every minus shown, none folded away
     assert 'aria-current="page">Best for you</a>' in page
 
 
