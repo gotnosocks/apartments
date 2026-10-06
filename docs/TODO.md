@@ -67,8 +67,8 @@ frontier's time axis, so compare fit times only within one implementation.
     105,244-row cache (measured 2026-10-06), against a 25-minute fit.
   - Caching `/estimate` inputs and simulations (Website): a logged estimate today took
     0.11 s. Revisit if the form starts re-scoring on every keystroke.
-  - Bulk insert in `temporal.sync_observations` (Data): archive imports run by hand, not on a
-    timer, and are not a bottleneck today.
+  - Columnar insert in `temporal.sync_observations` (Data; it already batches through
+    `executemany`): archive imports run by hand, not on a timer, and are not a bottleneck today.
 
 **West Village: expand the analysis to include it** (Ben, 2026-10-01; to do).
 The collection is complete. The crawl finished on September 30, and the snapshot
