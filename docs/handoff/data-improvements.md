@@ -1,6 +1,6 @@
 # Data improvements — handoff
 
-Updated 2026-10-06 14:00 ET. Thread owner: the Data improvements project thread (bridge session on thelio).
+Updated 2026-10-06 16:00 ET. Thread owner: the Data improvements project thread (bridge session on thelio).
 
 ## State
 - **Greenwich Village fold-in: done on the data side.** #292 (cohort, listing extras, alias table
@@ -77,22 +77,37 @@ Updated 2026-10-06 14:00 ET. Thread owner: the Data improvements project thread 
   `config/commute-destinations.json` (default: office, 65 E 55th St). Ranking only, never a
   feature set (Ben is wary of over-tuning to him). Website reads the newest CSV at runtime for
   /best pills (#355); tell Website before renaming columns or moving the file.
-- **Photo/floor-plan pilot:** Ben approved it (17:41Z), but this session's permission check
-  refused the image download. Sample ready (`/data1/apartments/photo-pilot/sample.jsonl`, 200
-  labelled apartments + 777 6th 22D, 693 images), downloader
-  `/data1/apartments/tmp/suspect/photo-pilot/fetch.py`. Waits for Ben to allow it or run it;
-  then Sonnet subagents read the images (no API key on thelio; no stored credentials).
+- **Line and access wishes (Ben, 2026-10-06 18:34Z: "to price"):** #357 `nb3-lines-v1`
+  (`lines.py`: a "<group> within 8 min" term for each line group that at least 1% of buildings
+  have within an 8-minute walk; the 7, J/Z and G are too far away to price; PATH is not in the
+  MTA feed) and #358 `nb3-access-v1` (`access.py`: log of the jobs within 30 min by walking and
+  subway, from LODES8 WAC (`external lodes`, snapshot `20261006-e587e60`), lagged two years,
+  stations as of the listing month). Travel times are our own Dijkstra on the GTFS with grid
+  walks, not r5py or OSM. Modeling runs both in gvwish2 (results ~17:30-17:55 ET); Ben wants
+  to know which lines come out positive. The amenity half of access (groceries, parks and gyms
+  within 15 min) is a later PR.
+- **Photo pilot (done 2026-10-06; Ben OK'd the fetch at 18:35Z):** 202 apartments, 680 images
+  in `/data1/apartments/photo-pilot/` (answers/, key.json, QUESTIONS.md), 10 Sonnet readers,
+  ~1.3M tokens (under $4). Windows street/rear: 65 unknown, and 68% agreement with our exposure
+  labels where answered, so no full run. Floor plans: readers transcribe bedroom dimensions
+  well (85/86 match the clearance rule), but 77/86 bedrooms fit a king. Any full run needs a new
+  costed OK from Ben.
+- **Bed size (Ben's mattress idea; #359):** `bedsize.py` reads the largest bed each listing's
+  own ad states (king/queen/full; ~21% of rows), and `nb3-bedsize-v1` adds three 0/1 terms.
+  The per-apartment table `/data1/apartments/wishes/bed-size-<date>.*` goes to Website for
+  /best. I asked Modeling for an exploration fit.
 - **Performance review items:** rebuild memory measured (#351, 44 KB per row, no change);
   granular export row groups 8,192 (#352).
 - **#326 `unit-labels-v6`** (draft) waits for a batch full fit.
 
 ## Next
-- Relay the gvwish paired scores (loud, transit, nearby, retail) to Ben when Modeling sends them (~16:30 ET).
+- Relay the gvwish paired scores (loud, transit, nearby, retail) and the gvwish2 per-line
+  coefficients (90% interval, P(>0)) to Ben when Modeling sends them; tell the coordinator in
+  one line which lines come out positive. Then relay the bedsize fit.
+- The amenity half of access (nb3-access-v2), and PATH stations from their own GTFS snapshot.
 - Location follow-ups: loud's line orientation ignores Village named streets; a no-footprint flag;
   DOT traffic volumes (7ym2-wayt); more dog-run opening dates and closures (St Vincent's) in
   `nearby.OPENED`; drop the private OSM "The Fi Office" dog run.
-- A costed pilot proposal for exposure from photos/floor plans goes to the coordinator; no images
-  until Ben approves.
 - Relay to Ben: the lineface paired score and the prevprice outcome when Modeling sends them.
 - After the GV switch, Modeling updates the "map grows less than the median ask" note figures.
 - #222 `unit-labels-v4` waits for a batch full fit; the next unit-labels version should add the
