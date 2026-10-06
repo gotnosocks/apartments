@@ -48,11 +48,13 @@ DEFAULTS = {
     "line_min_units": 2,
     "building_trend": False,
     "bedroom_time": False,
+    "area_time": False,
     "bedroom_slope": False,
     "feature_slopes": (),
     "learned_feature_groups": (),
     "trend_knot_months": 1,
     "bedroom_time_knot_months": 1,
+    "area_time_knot_months": 1,
     "nu_fixed": None,
     "unit_t": False,
     "unit_nu_fixed": None,
@@ -71,6 +73,7 @@ PRIOR_FIELDS = {
     "line_scale_sd": 0.1,
     "building_trend_scale_sd": 0.05,
     "bedroom_time_scale_sd": 0.02,
+    "area_time_scale_sd": 0.02,
     "bedroom_slope_scale_sd": 0.1,
     "feature_slope_scale_sd": 0.1,
     "unit_drift_scale_sd": 0.05,
@@ -90,6 +93,7 @@ COLUMNS = {
     "trend": "Trend",
     "season": "Season",
     "bedroom_time": "Trend by bedrooms",
+    "area_time": "Trend by neighbourhood",
     "building": "Premium",
     "walk": "Drift over time",
     "building_trend": "Trend",
@@ -214,6 +218,7 @@ class Anatomy:
                 name = {
                     "walk": "building drift",
                     "bedroom_time": "trend by bedrooms",
+                    "area_time": "trend by neighbourhood",
                     "bedroom_slope": "price per bedroom",
                     "feature_slopes": "building's own prices:",
                     "line": "line premium",
@@ -501,6 +506,29 @@ def describe(model: dict | None, sizes: dict | None = None) -> Anatomy | None:
         count=_times(_knots(months, btk), 3, plus=-2),
         math=_sub(_mi("η"), _row(_of("g"), _mo(","), _of("m"))),
     )
+    atk = c["area_time_knot_months"]
+    areas = sizes.get("areas")
+    add(
+        "area_time",
+        "market",
+        "Market trend by neighbourhood",
+        c["area_time"],
+        setting=_every(atk),
+        plain=(
+            "Each neighbourhood follows its own market path, relative to the one "
+            "with the most listings."
+        ),
+        prior=(
+            "each neighbourhood's path is a random walk: step ~ Normal(0, σ_a), "
+            f"σ_a ~ HalfNormal({_num(c['area_time_scale_sd'])})"
+        ),
+        # A path of (knots - 1) steps for every neighbourhood but the reference,
+        # and their scale.
+        count=None
+        if areas is None
+        else _times(_knots(months, atk), areas - 1, plus=2 - areas),
+        math=_sub(_mi("ζ"), _row(_of("a"), _mo(","), _of("m"))),
+    )
 
     # Building.
     add(
@@ -766,6 +794,7 @@ def describe(model: dict | None, sizes: dict | None = None) -> Anatomy | None:
         if harmonics
         else "12 months",
         "bedroom_time": _every(btk),
+        "area_time": _every(atk),
         "walk": ", ".join(
             [f"{wk} mo"]
             + (
