@@ -74,7 +74,9 @@ def test_score_uses_the_model_size_and_the_sheet_sign():
     s = best.score(
         {"floor": 8}, inputs, {"level_pct": 10.0, "trend_pct": None}, profile, betas
     )
-    expected = 0.02 - 0.01 - 0.05 + (0.02 + 0.025) + 0.5 * math.log1p(0.10)
+    expected = (
+        0.02 - 0.01 - 0.05 + (0.01 * math.log(8) + 0.025) + 0.5 * math.log1p(0.10)
+    )
     assert s["score"] == pytest.approx(expected)
     assert [t["label"] for t in s["pros"]] == [
         "a building that rents above similar ones",
@@ -86,6 +88,21 @@ def test_score_uses_the_model_size_and_the_sheet_sign():
         "no elevator",
     ]
     assert s["unknown"] == []
+
+
+def test_a_floor_below_the_usual_one_is_a_minus():
+    profile = {"weights": {"log_floor": 1.0}, "latent": {}}
+    betas = {"log_floor": 0.01}
+    # The 1st floor has no log_floor input (log 1 = 0); it still counts.
+    low = best.score({"floor": 1}, {}, None, profile, betas, usual_floor=4)
+    assert low["score"] == pytest.approx(0.01 * math.log(1 / 4))
+    assert [t["label"] for t in low["cons"]] == ["a low floor (the 1st floor)"]
+    usual = best.score({"floor": 4}, {"log_floor": 1.386}, None, profile, betas, 4)
+    assert usual["score"] == 0 and not usual["pros"] + usual["cons"]
+    high = best.score({"floor": 9}, {"log_floor": 2.197}, None, profile, betas, 4)
+    assert [t["label"] for t in high["pros"]] == ["the 9th floor"]
+    # No floor stated: no floor term, named as unknown instead.
+    assert best.score({"floor": None}, {}, None, profile, betas, 4)["score"] == 0
 
 
 def test_unstated_details_are_named_not_counted():
@@ -122,6 +139,7 @@ def test_page_ranks_current_listings(client):
     assert 'href="/research/glossary#fit-score"' in page
     assert 'quiet street <span class="muted">(not modelled)</span>' in page
     assert "unit effect: later" in page
+    assert "below the usual floor (the " in page
     assert 'aria-current="page">Best for you</a>' in page
 
 

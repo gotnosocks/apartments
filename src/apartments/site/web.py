@@ -1250,6 +1250,8 @@ def create_app(
             profile_name=name,
             not_modelled=data["not_modelled"],
             everywhere=data["everywhere"],
+            usual_floor=data.get("usual_floor"),
+            ordinal=best.ordinal,
             commute=data["commute"],
             rows=shown,
             total=len(rows),

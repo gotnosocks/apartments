@@ -95,7 +95,7 @@ doesn't read the text of current ads yet, so marks like a renovation, a dishwash
   {% if profile.neutral %}<p class="muted">Neutral on purpose: {{ profile.neutral | join(", ") }}.</p>{% endif %}
   {% if profile.left_out %}<p class="muted">Matters of taste, left out: {{ profile.left_out | join(", ") }}.</p>{% endif %}
   <p class="note">How it adds up: each marked feature the listing has adds (or, for a minus, takes off) the model's price for it.
-  A size, a floor or the building's level counts by how far it is from usual, so a smaller-than-usual apartment loses fit.
+  A size, a floor or the building's level counts by how far it is from usual, so a smaller-than-usual apartment loses fit{% if usual_floor %}, and so does one below the usual floor (the {{ usual_floor }}{{ ordinal(usual_floor) }}, the median of every listing){% endif %}.
   Features the model hasn't priced don't count.</p>
 </details>
 {% endblock %}

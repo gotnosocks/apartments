@@ -253,14 +253,18 @@ def label(feature: str) -> str:
     return LABELS.get(feature, feature.replace("_", " ").replace("text:", ""))
 
 
+def ordinal(n: int) -> str:
+    """The suffix: 1 -> 'st', 12 -> 'th'."""
+    return (
+        "th" if 10 <= n % 100 <= 20 else {1: "st", 2: "nd", 3: "rd"}.get(n % 10, "th")
+    )
+
+
 def _floor_words(floor) -> str:
     if floor is None:
         return "a higher floor"
     n = int(floor)
-    suffix = (
-        "th" if 10 <= n % 100 <= 20 else {1: "st", 2: "nd", 3: "rd"}.get(n % 10, "th")
-    )
-    return f"the {n}{suffix} floor"
+    return f"the {n}{ordinal(n)} floor"
 
 
 def _hides(prefixes: tuple[str, ...], weights: dict) -> bool:
@@ -271,13 +275,19 @@ def _hides(prefixes: tuple[str, ...], weights: dict) -> bool:
     )
 
 
-def score(row, inputs: dict, building, profile: dict, betas: dict) -> dict:
+def score(
+    row, inputs: dict, building, profile: dict, betas: dict, usual_floor: int = 1
+) -> dict:
     """One listing's score and its signed terms: pros (> 0), cons (< 0),
-    largest first, and the marked details it doesn't state."""
+    largest first, and the marked details it doesn't state. The floor counts
+    from the usual floor, as space counts from the usual size: below it is a
+    minus (Ben, 2026-10-06)."""
     weights = profile["weights"]
     terms: dict[str, float] = {}
     for f, w in weights.items():
         x = inputs.get(f)
+        if f == "log_floor" and row["floor"] is not None:
+            x = math.log(max(row["floor"], 1) / usual_floor)
         if not x or f not in betas:
             continue
         key = COMBINED.get(f, f)
@@ -288,6 +298,8 @@ def score(row, inputs: dict, building, profile: dict, betas: dict) -> dict:
             continue
         if key == "floor":
             words = _floor_words(row["floor"])
+            if row["floor"] is not None and row["floor"] < usual_floor:
+                words = f"a low floor ({words})"
         elif key == "log_sqft_vs_bedroom_median":
             words = (
                 "more space than usual for its bedrooms"
@@ -355,13 +367,18 @@ def rank(
             "WHERE b.id IN (SELECT building_id FROM listings WHERE is_current = 1)"
         )
     }
+    # The usual floor: the median of every listing with a floor.
+    floors = [f for (f,) in db.execute("SELECT floor FROM listings WHERE floor >= 1")]
+    usual_floor = max(1, round(statistics.median(floors))) if floors else 1
     rows = []
     for r in db.execute(
         "SELECT audit_id, unit_id, building_id, unit_label, neighbourhood, bedrooms, ask, "
         "estimate, floor, reliable, listing_url, inputs FROM listings WHERE is_current = 1 AND ask > 0"
     ):
         inputs = json.loads(r["inputs"])
-        s = score(r, inputs, buildings.get(r["building_id"]), profile, betas)
+        s = score(
+            r, inputs, buildings.get(r["building_id"]), profile, betas, usual_floor
+        )
         b = buildings.get(r["building_id"])
         s.update(
             audit_id=r["audit_id"],
@@ -395,6 +412,7 @@ def rank(
         r["unknown"] = [u for u in r["unknown"] if u not in everywhere]
     return {
         "rows": rows,
+        "usual_floor": usual_floor,
         "not_modelled": not_modelled,
         "everywhere": [u for _, _, u in UNKNOWN if u in everywhere]
         + (["which way it faces"] if "which way it faces" in everywhere else []),
