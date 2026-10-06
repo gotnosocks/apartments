@@ -2,6 +2,7 @@ import json
 
 import numpy as np
 import pandas as pd
+import pytest
 from rentfrontier import features, parks
 
 
@@ -19,30 +20,46 @@ def test_outline_adds_points_along_long_edges():
     assert gaps.max() < 0.0003
 
 
-def test_places_keep_large_parks_and_split_the_high_line():
-    line = [[-74.005, 40.740], [-74.004, 40.750], [-74.003, 40.755], [-74.004, 40.740]]
-    table = pd.DataFrame(
+def _table(names, acres, acquired, geometries):
+    return pd.DataFrame(
         {
-            "name": ["Big", "Small", "Undated", parks.HIGH_LINE],
-            "acres": [2.0, 0.3, 1.5, 6.7],
-            "acquired": pd.to_datetime(
-                ["1900-01-01", "1900-01-01", None, "2006-02-24"]
-            ),
-            "geometry": [
-                _square(-74.0, 40.74),
-                _square(-74.01, 40.74),
-                _square(-74.02, 40.74),
-                json.dumps({"type": "Polygon", "coordinates": [line]}),
-            ],
+            "name": names,
+            "acres": acres,
+            "acquired": pd.to_datetime(acquired),
+            "geometry": geometries,
         }
     )
+
+
+def test_places_keep_large_parks_and_split_the_high_line():
+    line = [[-74.005, 40.740], [-74.004, 40.750], [-74.003, 40.752], [-74.004, 40.740]]
+    spur = [
+        [-74.0012, 40.7518],
+        [-74.0007, 40.7518],
+        [-74.0007, 40.7523],
+        [-74.0012, 40.7518],
+    ]
+    high_line = {"type": "MultiPolygon", "coordinates": [[line], [spur]]}
+    table = _table(
+        ["Big", "Small", parks.HIGH_LINE],
+        [2.0, 0.3, 6.7],
+        ["1900-01-01", "1900-01-01", "2006-02-24"],
+        [_square(-74.0, 40.74), _square(-74.01, 40.74), json.dumps(high_line)],
+    )
     out = parks.places(table)
-    assert out.name.tolist()[:2] == ["Big", "Undated"]
+    assert out.name.tolist()[0] == "Big"
     line = out[out.kind == "high line"]
-    assert len(line) == 3
-    assert line.opened.dt.year.tolist() == [2009, 2011, 2014]
-    north = [p[:, 1].max() for p in line.points]
-    assert north[0] < 40.7462 <= north[1] < 40.7522 <= north[2]
+    assert line.opened.dt.year.tolist() == [2009, 2011, 2019]
+    north = [p[:, 1].max() for p in line.points[:2]]
+    assert north[0] < 40.7462 <= north[1]
+    assert (line.points.iloc[2][:, 0] >= -74.0016).all()
+
+
+def test_places_refuse_recent_or_undated_large_parks():
+    for acquired in ["2015-08-14", None]:
+        table = _table(["New"], [2.0], [acquired], [_square(-74.0, 40.74)])
+        with pytest.raises(ValueError, match="add SECTIONS"):
+            parks.places(table)
 
 
 def test_park_terms_count_only_places_open_by_the_month(monkeypatch):

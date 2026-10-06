@@ -6,10 +6,9 @@ the rent model, and one row per building for the site.
 Parks come from NYC Parks properties (`features.PARKS_FILE`). A walk is the
 grid distance (`features.facing_grid`) to the nearest point of a park's
 outline, densified every `STEP_M` metres, at `transit.WALK_M_PER_MIN`. A
-listing counts only parks NYC Parks had acquired before its month began (a park
-without a date counts as always open), and the High Line only by the sections
-open by then (`HIGH_LINE_OPENED`): its acquisition date (2006) precedes every
-section. Hudson River Park is a state park and not in the source.
+listing counts only parks NYC Parks had acquired before its month began, and
+the parks acquired recently (the High Line, Hudson Park and Boulevard) only by
+the sections open by then (`SECTIONS`). Hudson River Park is a state park and not in the source.
 
     python -m rentfrontier.parks      # writes WISHES/parks-<date>.parquet and .csv
 """
@@ -34,12 +33,30 @@ MIN_ACRES = 1.0
 STEP_M = 20.0
 HIGH_LINE_MIN = 5.0
 HIGH_LINE = "The High Line"
-# High Line sections, the latitude of each one's south end, and opening days.
-HIGH_LINE_OPENED = (
-    ("Gansevoort St to W 20th St", -90.0, "2009-06-08"),
-    ("W 20th St to W 30th St", 40.7462, "2011-06-08"),
-    ("W 30th St to W 34th St", 40.7522, "2014-09-21"),
-)
+# Parks whose acquisition date is not when they opened, by section: name, the
+# section, its bounds (south, north, west, east; points outside every section
+# are left out) and the day it opened. The High Line in the source runs from
+# Gansevoort St to W 30th St, plus the Spur over 10th Ave (its second polygon);
+# Hudson Park and Boulevard's first phase (W 33rd to W 36th St) opened in 2015,
+# and only its two southern blocks are counted, as the later phase's day is
+# not checked.
+SECTIONS = {
+    HIGH_LINE: (
+        (
+            "Gansevoort St to W 20th St",
+            (-90.0, 40.7462, -180.0, -74.0016),
+            "2009-06-08",
+        ),
+        ("W 20th St to W 30th St", (40.7462, 90.0, -180.0, -74.0016), "2011-06-08"),
+        ("Spur over 10th Ave", (-90.0, 90.0, -74.0016, 180.0), "2019-06-04"),
+    ),
+    "Bella Abzug Park": (
+        ("W 33rd St to W 35th St", (-90.0, 40.7560, -180.0, 180.0), "2015-08-31"),
+    ),
+}
+# A park of MIN_ACRES or more acquired after this day (or undated) must have
+# SECTIONS: a recent acquisition is often a building site for years.
+DATED_BEFORE = "2000-01-01"
 
 
 def outline(geometry: dict, step: float = STEP_M) -> np.ndarray:
@@ -64,22 +81,24 @@ def outline(geometry: dict, step: float = STEP_M) -> np.ndarray:
 
 def places(table: pd.DataFrame) -> pd.DataFrame:
     """One row per place a listing can walk to: each park of MIN_ACRES or more
-    (opened = its acquisition date) and each High Line section (opened from
-    HIGH_LINE_OPENED), with its outline points (`lon`, `lat` arrays)."""
+    (opened = its acquisition date) or each of its SECTIONS (High Line
+    sections are kind "high line"), with its outline points (lon, lat)."""
     rows = []
     for park in table.itertuples():
         if park.name != HIGH_LINE and not park.acres >= MIN_ACRES:
             continue
         points = outline(json.loads(park.geometry))
-        if park.name != HIGH_LINE:
-            rows.append(("park", park.name, park.acquired, points))
+        kind = "high line" if park.name == HIGH_LINE else "park"
+        if park.name not in SECTIONS:
+            if not park.acquired < pd.Timestamp(DATED_BEFORE):
+                raise ValueError(f"{park.name}: acquired {park.acquired}; add SECTIONS")
+            rows.append((kind, park.name, park.acquired, points))
             continue
-        north = [lo for _, lo, _ in HIGH_LINE_OPENED[1:]] + [90.0]
-        for (section, lo, day), hi in zip(HIGH_LINE_OPENED, north, strict=True):
-            part = points[(points[:, 1] >= lo) & (points[:, 1] < hi)]
+        for section, (south, north, west, east), day in SECTIONS[park.name]:
+            lon, lat = points[:, 0], points[:, 1]
+            part = points[(lat >= south) & (lat < north) & (lon >= west) & (lon < east)]
             if len(part):
-                name = f"{HIGH_LINE}, {section}"
-                rows.append(("high line", name, pd.Timestamp(day), part))
+                rows.append((kind, f"{park.name}, {section}", pd.Timestamp(day), part))
     return pd.DataFrame(rows, columns=["kind", "name", "opened", "points"])
 
 
