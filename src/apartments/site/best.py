@@ -164,7 +164,7 @@ def load_commute(path: Path | None) -> dict:
     try:
         with path.open(newline="") as f:
             rows = list(csv.DictReader(f))
-    except OSError:
+    except (OSError, ValueError, csv.Error):
         return {}
     out: dict[str, dict] = {}
     for r in rows:
