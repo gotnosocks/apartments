@@ -314,6 +314,16 @@ def test_fields_review_corrects_bedrooms_and_baths_only(tmp_path, monkeypatch):
     assert out.full_baths.dtype == frame.full_baths.dtype
 
 
+def test_fields_review_v3_reverts_v1_and_is_current():
+    from rentfrontier import autoselect
+
+    frame = pd.DataFrame({"audit_id": ["a"], "bedrooms": [1.0], "full_baths": [1]})
+    out, _ = data.apply_rules(frame, np.zeros(1, bool), ["fields-review-v3"])
+    pd.testing.assert_frame_equal(out.reset_index(drop=True), frame)
+    current = autoselect.current_rules()
+    assert "fields-review-v3" in current and "fields-review-v1" not in current
+
+
 def test_fields_review_file_names_each_row_once_with_its_evidence():
     with open(data.FIELD_REVIEW) as f:
         rows = [json.loads(line) for line in f if line.strip()]
