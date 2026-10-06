@@ -508,9 +508,9 @@ button[aria-busy="true"] { cursor: progress; opacity: 0.75; }
   table.best td.c-tags { grid-column: 1 / -1; }
   table.best td.c-tags:empty { display: none; }
   table.best td.empty { grid-column: 1 / -1; }
-  table.best .feat { font-weight: 400; }
-  table.best td.c-listing > a:first-child { display: block; padding: 0.7rem 0; margin: -0.7rem 0 -0.4rem; }
-  table.best .feat a { margin: -0.6rem 0; }
+  table.best .feat { font-weight: 400; margin-top: 0.5rem; }
+  table.best td.c-listing > a:first-child { display: block; padding: 0.7rem 0 0; margin: -0.7rem 0 0; }
+  table.best .feat a { margin: -0.4rem 0; }
   .rating-form input[type="radio"] { width: 1.3rem; height: 1.3rem; }
   .rating-form label.check { display: inline-flex; align-items: center; gap: 0.3rem; min-height: 44px; margin-right: 0.6rem; }
   table.best .feat a, .se-links a { display: inline-flex; align-items: center; min-height: 44px; }
@@ -522,7 +522,7 @@ button[aria-busy="true"] { cursor: progress; opacity: 0.75; }
   .filters label.check { display: inline-flex; align-items: center; gap: 0.5rem; min-height: 44px; }
   .filters input[type="checkbox"] { width: 1.3rem; height: 1.3rem; flex: none; }
   table.best details.more summary { min-height: 44px; display: flex; align-items: center; }
-  dl.facts, dl.facts.wide { grid-template-columns: minmax(0, 2fr) minmax(0, 3fr); }
+  dl.facts, dl.facts.wide { grid-template-columns: fit-content(45%) minmax(0, 1fr); }
   dl.facts dd { overflow-wrap: anywhere; }
 }
 
