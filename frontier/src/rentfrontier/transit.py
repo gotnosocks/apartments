@@ -71,10 +71,14 @@ def _reader(gtfs: str):
     return lambda name, **kw: pd.read_csv(Path(gtfs) / name, dtype=str, **kw)
 
 
-def network(gtfs: str) -> tuple[dict, pd.DataFrame]:
+def network(
+    gtfs: str, hours: tuple[int, int] = HOURS, by_stop: bool = False
+) -> tuple[dict, pd.DataFrame]:
     """(edges, stations): edges[node] -> [(next node, minutes)] where a node is
     a station (parent stop id) or (station, route, direction) on board;
-    stations has each parent stop's name and position."""
+    stations has each parent stop's name and position. Trips starting within
+    `hours` (seconds after midnight), or with `by_stop` the departures from each
+    stop within them."""
     read = _reader(gtfs)
     stops = read("stops.txt")
     parent = dict(zip(stops.stop_id, stops.parent_station.fillna(stops.stop_id)))
@@ -97,8 +101,8 @@ def network(gtfs: str) -> tuple[dict, pd.DataFrame]:
     times["route"] = times.trip_id.map(trips.route_id)
     times["dir"] = times.trip_id.map(trips.direction_id)
     times = times.sort_values(["trip_id", "seq"])
-    start = times.groupby("trip_id").t.transform("min")
-    times = times[(start >= HOURS[0]) & (start < HOURS[1])]
+    start = times.t if by_stop else times.groupby("trip_id").t.transform("min")
+    times = times[(start >= hours[0]) & (start < hours[1])]
 
     nxt = times.groupby("trip_id").shift(-1)
     hops = pd.DataFrame(
