@@ -1,6 +1,6 @@
 # Data improvements — handoff
 
-Updated 2026-10-06 17:40 ET. Thread owner: the Data improvements project thread (bridge session on thelio).
+Updated 2026-10-06 19:45 ET. Thread owner: the Data improvements project thread (bridge session on thelio).
 
 ## State
 - **Greenwich Village fold-in: done on the data side.** #292 (cohort, listing extras, alias table
@@ -107,19 +107,25 @@ Updated 2026-10-06 17:40 ET. Thread owner: the Data improvements project thread 
   (two south blocks, 2015-08-31); `places()` refuses large undated or post-2000 parks without
   sections. Hudson River Park (state) is missing. Groceries and gyms: no dated source (NYS food
   licences undated, storefront categories too coarse). Exploration fit requested from Modeling.
+- **Wish-set verdicts (all exploration fits vs nb3-coded-v2; ledger docs/model/feature-tests.md):**
+  only lines-v1 is worth carrying (+21.6 ± 17.2; N/Q/R/W +9.4%, L +2.6%, 2/3 +1.8%; 1, A/C/E,
+  4/5/6 negative, all geography proxies). Null: loud −10.1, transit −7.4, nearby −1.3, retail
+  +6.2, access −12.7, bedsize −25.2, parks −6.0 (High Line within 5 min +3.0%). Modeling refits
+  lines and retail on the served design (gvnext). Location nulls get a retest after the
+  Flatiron + Gramercy fold-in. Full fits now go to Modal (Ben 23:00Z, via Modeling); thelio's
+  GPU is for exploration fits. DOT traffic counts: too sparse (89 one-year segments), dropped.
 - **Performance review items:** rebuild memory measured (#351, 44 KB per row, no change);
   granular export row groups 8,192 (#352).
 - **#326 `unit-labels-v6`** (draft) waits for a batch full fit.
 
 ## Next
-- Relay the gvwish paired scores (loud, transit, nearby, retail) and the gvwish2 per-line
-  coefficients (90% interval, P(>0)) to Ben when Modeling sends them; tell the coordinator in
-  one line which lines come out positive. Then relay the bedsize fit.
-- Relay the parks fit. PATH stations from their own GTFS snapshot; a dated Hudson River Park
-  source (state open data) for parks.
-- Location follow-ups: loud's line orientation ignores Village named streets; a no-footprint flag;
-  DOT traffic volumes (7ym2-wayt); more dog-run opening dates and closures (St Vincent's) in
-  `nearby.OPENED`; drop the private OSM "The Fi Office" dog run.
+- Relay Modeling's gvnext refit (lines, retail on the served design), the prevprice selection
+  (~01:30-02:00 ET) and the v8 pair; row-rule merges wait for the prevprice selection.
+- PATH stations from their own GTFS snapshot, only if lines-v1 holds up in the refit. Hudson
+  River Park has no dated outline in state open data (only plantings and facility points).
+- Location follow-ups (retest after the Flatiron + Gramercy fold-in): loud's line orientation
+  ignores Village named streets; a no-footprint flag; more dog-run opening dates and closures
+  (St Vincent's) in `nearby.OPENED`; drop the private OSM "The Fi Office" dog run.
 - Relay to Ben: the lineface paired score and the prevprice outcome when Modeling sends them.
 - After the GV switch, Modeling updates the "map grows less than the median ask" note figures.
 - #222 `unit-labels-v4` waits for a batch full fit; the next unit-labels version should add the
