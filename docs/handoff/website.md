@@ -2,6 +2,14 @@
 
 What the next turn of the website thread needs. Updated at each milestone.
 
+## State (2026-10-06 21:50 UTC)
+
+- #368 live: My ratings removed; no rating was ever stored. #369 live: a listing whose ad has
+  no size shows the size the model carried from the unit's earlier ad (only when the model has
+  a size input). Round 11 findings are in docs/playtests/backlog.md; none need action yet.
+- Next: pills for lines and jobs once Modeling's nb3-lines-v1 and nb3-access-v1 are in a
+  served build, then ask Ben once for weights. Features stay on hold otherwise.
+
 ## State (2026-10-06 21:15 UTC)
 
 - #366: on /best the floor counts from the usual floor (the median, the 4th), so floors 1–3
