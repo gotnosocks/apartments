@@ -188,6 +188,32 @@ def load_commute(path: Path | None) -> dict:
     return out
 
 
+def bed_size_path() -> Path | None:
+    """The newest bed-size table, or None."""
+    files = sorted(WISHES.glob("bed-size-*.csv"))
+    return files[-1] if files else None
+
+
+BED_SIZES = ("full", "queen", "king")
+
+
+def load_bed_size(path: Path | None) -> dict:
+    """{unit_id: largest bed an ad says fits}; empty without a readable
+    table. A lower bound read from the ads' text, never a measurement."""
+    if path is None:
+        return {}
+    try:
+        with path.open(newline="") as f:
+            rows = list(csv.DictReader(f))
+    except (OSError, ValueError, csv.Error):
+        return {}
+    return {
+        r["unit_id"]: r["largest"]
+        for r in rows
+        if r.get("unit_id") and r.get("largest") in BED_SIZES
+    }
+
+
 def commute_tags(building_id, commute: dict, wanted=None) -> list[dict]:
     """A plus or minus per destination for one building: at or under the
     median with no transfer is a plus."""
@@ -309,7 +335,9 @@ def score(row, inputs: dict, building, profile: dict, betas: dict) -> dict:
     }
 
 
-def rank(db, profile: dict, commute: dict | None = None) -> dict:
+def rank(
+    db, profile: dict, commute: dict | None = None, bed_size: dict | None = None
+) -> dict:
     """Every current listing, scored: {rows, not_modelled, everywhere}.
     `everywhere` lists the unknown details every listing shares (said once
     on the page rather than on every row)."""
@@ -329,7 +357,7 @@ def rank(db, profile: dict, commute: dict | None = None) -> dict:
     }
     rows = []
     for r in db.execute(
-        "SELECT audit_id, building_id, unit_label, neighbourhood, bedrooms, ask, "
+        "SELECT audit_id, unit_id, building_id, unit_label, neighbourhood, bedrooms, ask, "
         "estimate, floor, reliable, listing_url, inputs FROM listings WHERE is_current = 1 AND ask > 0"
     ):
         inputs = json.loads(r["inputs"])
@@ -352,6 +380,7 @@ def rank(db, profile: dict, commute: dict | None = None) -> dict:
             commute=commute_tags(
                 r["building_id"], commute or {}, profile.get("commute")
             ),
+            bed_size=(bed_size or {}).get(r["unit_id"]),
             income_restricted=bool(inputs.get("text:income_restricted")),
             fit_pct=100 * math.expm1(s["score"]),
             vs_estimate=r["ask"] / r["estimate"] - 1 if r["estimate"] else None,

@@ -168,7 +168,7 @@ def test_rows_and_listing_pages_link_to_streeteasy(client):
         client.get("/best.csv")
         .get_data(as_text=True)
         .splitlines()[0]
-        .endswith(",streeteasy,commute")
+        .endswith(",streeteasy,commute,bed_size")
     )
     audit_id = page.split('href="/listings/')[1].split('"')[0]
     listing = client.get(f"/listings/{audit_id}").get_data(as_text=True)
@@ -284,7 +284,44 @@ def test_commute_shows_on_best_without_changing_the_fit(client, monkeypatch):
     after = list(
         csv.reader(io.StringIO(client.get("/best.csv").get_data(as_text=True)))
     )
-    assert after[0][-1] == "commute"
-    assert after[1][-1] == "office: 40 min by subway, 1 transfer"
+    assert after[0][-2] == "commute"
+    assert after[1][-2] == "office: 40 min by subway, 1 transfer"
     # Same ranking and fit, row for row.
+    assert [x[:-2] for x in after[1:]] == [x[:-2] for x in before[1:]]
+
+
+def test_bed_size_reads_the_newest_table(tmp_path):
+    (tmp_path / "bed-size-20261005.csv").write_text("unit_id,largest\nu1,full\n")
+    (tmp_path / "bed-size-20261006.csv").write_text(
+        "unit_id,building,largest,listings,latest\n"
+        "u1,a,king,2,queen\nu2,a,twin,1,twin\n,a,queen,1,queen\n"
+    )
+    best.WISHES = tmp_path  # undone by the autouse fixture
+    assert best.load_bed_size(best.bed_size_path()) == {"u1": "king"}
+    assert best.load_bed_size(None) == {}
+    assert best.load_bed_size(tmp_path / "missing.csv") == {}
+
+
+def test_bed_size_shows_on_best_without_changing_the_fit(client, monkeypatch):
+    before = list(
+        csv.reader(io.StringIO(client.get("/best.csv").get_data(as_text=True)))
+    )
+    assert before[0][-1] == "bed_size" and before[1][-1] == ""
+    assert 'id="bed-size"' not in client.get("/best").get_data(as_text=True)
+
+    class Every(dict):
+        def get(self, key, default=None):
+            return "king"
+
+    monkeypatch.setattr(best, "load_bed_size", lambda path: Every(u="king"))
+    # A bed-size file on disk gives the ranking cache a new key.
+    best.WISHES.mkdir()
+    (best.WISHES / "bed-size-20261006.csv").write_text("unit_id,largest\n")
+    page = client.get("/best").get_data(as_text=True)
+    assert "King bed fits (ad)</span>" in page
+    assert 'id="bed-size"' in page and "not counted in the fit" in page
+    after = list(
+        csv.reader(io.StringIO(client.get("/best.csv").get_data(as_text=True)))
+    )
+    assert {x[-1] for x in after[1:]} == {"king"}
     assert [x[:-1] for x in after[1:]] == [x[:-1] for x in before[1:]]
