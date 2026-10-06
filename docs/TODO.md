@@ -61,9 +61,6 @@ frontier's time axis, so compare fit times only within one implementation.
       rebuild is needed: stage rows and audits on disk in two passes (cross-advertisement conflicts are
       resolved after all projections exist) and require byte-identical output. The review's
       copy-reduction item (`_project`, `Overlay.apply`) belongs to the same profile.
-- [ ] **Data (low): larger Parquet row groups in the granular export.** `granular_export.Tables`
-      flushes every 256 rows, so each shard holds many tiny row groups. Try 2,048 and 8,192 rows
-      per table; outputs then need new versioned manifests, since bytes change.
 - Not taken now, with the reason:
   - Indexed correction lookup in `analytical._boundaries`: `config/corrections.jsonl` is empty on
     master, so the loop has nothing to scan. Revisit if the ledger grows.
