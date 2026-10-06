@@ -1,6 +1,7 @@
 """Data rules: one unit id per physical unit (unit-labels-v1) and the
 divergence-review quarantine (quarantine-v1)."""
 
+import functools
 import json
 
 import numpy as np
@@ -420,3 +421,52 @@ def test_unit_labels_v6_joins_history_pairs_when_bedrooms_agree(tmp_path):
     assert data.DATA_RULES["unit-labels-v6"] is data.merge_history_pairs
     assert data.RULE_SOURCES["unit-labels-v6"] == data.UNIT_HISTORY_PAIRS
     assert "unit-labels-v6" not in data.DROPPING_RULES
+
+
+def test_unit_labels_v8_joins_letter_first_labels_to_digit_first_twins(tmp_path):
+    """v8 is v6 plus swaps: "C7" joins "7C" and "d-4" joins "4D" in the same
+    building when bedroom counts agree; a disagreeing pair, another building's
+    twin, and labels with no twin or no bedroom counts stay apart; a history
+    pair and a swap chain into one unit with the smallest id."""
+    url = "https://streeteasy.com/building/{}/{}".format
+    frame = pd.DataFrame(
+        {
+            "building": ["b1"] * 7 + ["b2"] * 3,
+            "canonical_unit_url": [
+                url("b1", "7c"),
+                url("b1", "c7"),
+                url("b1", "4d"),
+                url("b1", "d-4"),
+                url("b1", "a2"),
+                url("b1", "2b"),
+                url("b1", "9"),
+                url("b2", "b2"),
+                url("b2", "e5"),
+                url("b2", "5e"),
+            ],
+            "unit_id": ["u3", "u2", "u4", "u5", "u6", "u7", "u1", "u8", "u9", "u10"],
+            "bedrooms": [1.0, 1.0, 2.0, 1.0, 1.0, 1.0, 1.0, 1.0, np.nan, np.nan],
+        }
+    )
+    pairs = tmp_path / "pairs.jsonl"
+    pairs.write_text(json.dumps({"unit_id": "u1", "other_unit_id": "u3"}) + "\n")
+    rule = functools.partial(
+        data.merge_swapped_labels,
+        base=functools.partial(data.merge_history_pairs, pairs=pairs),
+    )
+    out = rule(frame)
+    assert out.unit_id.tolist() == [
+        "u1",
+        "u1",
+        "u4",
+        "u5",
+        "u6",
+        "u7",
+        "u1",
+        "u8",
+        "u9",
+        "u10",
+    ]
+    assert data.DATA_RULES["unit-labels-v8"] is data.merge_swapped_labels
+    assert "unit-labels-v8" not in data.DROPPING_RULES
+    assert data.RULE_SOURCES["unit-labels-v8"] == data.UNIT_HISTORY_PAIRS
