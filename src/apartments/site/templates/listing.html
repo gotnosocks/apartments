@@ -140,7 +140,7 @@ called a one-bedroom, say), and sometimes the apartment was rebuilt; the estimat
   <dl class="facts">
     <dt>Bedrooms</dt><dd>{{ beds_label(row.bedrooms) }}</dd>
     <dt>Bathrooms</dt><dd>{{ row.bathrooms | trim_float }}{% if row.half_baths %} ({{ row.full_baths }} full, {{ row.half_baths }} half){% endif %}</dd>
-    <dt>Size</dt><dd>{{ "{:,.0f} ft²".format(row.square_feet) if row.square_feet else "not stated" }}</dd>
+    <dt>Size</dt><dd>{% if row.square_feet %}{{ "{:,.0f} ft²".format(row.square_feet) }}{% elif carried_size %}{{ "{:,.0f} ft²".format(carried_size.square_feet) }} <span class="muted">(not in this ad: from this unit's {{ carried_size.year }} ad)</span>{% else %}not stated{% endif %}</dd>
     {% if row.bedrooms == 0 and ((row.bathrooms or 0) >= 2 or (row.square_feet or 0) > 1000) %}
     <dt>Note</dt><dd class="muted">An unusual combination for a studio: it may be a loft, or the ad may have
       a detail wrong.</dd>

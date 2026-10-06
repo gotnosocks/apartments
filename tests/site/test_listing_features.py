@@ -85,3 +85,27 @@ def test_the_capture_day_is_new_york_time(client, site_root):
     _set(site_root, "a1", is_current=1, collected_at="2026-10-05T02:05:20+00:00")
     html = client.get("/listings/a1").get_data(as_text=True)
     assert "Available now, captured 4 Oct 2026" in html
+
+
+def test_a_size_from_the_units_earlier_ad_says_so(client, site_root):
+    db = sqlite3.connect(site_root / "current" / "site.sqlite")
+    (unit,) = db.execute(
+        "SELECT unit_id FROM listings WHERE audit_id = 'a1'"
+    ).fetchone()
+    other = db.execute(
+        "SELECT audit_id FROM listings WHERE audit_id != 'a1' LIMIT 1"
+    ).fetchone()[0]
+    db.execute("UPDATE listings SET square_feet = NULL WHERE unit_id = ?", (unit,))
+    db.commit()
+    db.close()
+    _set(site_root, other, unit_id=unit, square_feet=500, period="2015-04-01")
+    _set(site_root, "a1", square_feet=None, period="2026-10-01", inputs="{}")
+    html = " ".join(client.get("/listings/a1").get_data(as_text=True).split())
+    assert (
+        '<dt>Size</dt><dd>500 ft² <span class="muted">(not in this ad: from this '
+        "unit's 2015 ad)</span>" in html
+    )
+    # The model treats the size as unknown: so does the page.
+    _set(site_root, "a1", inputs=json.dumps({"sqft_unknown": 1.0}))
+    html = " ".join(client.get("/listings/a1").get_data(as_text=True).split())
+    assert "<dt>Size</dt><dd>not stated" in html

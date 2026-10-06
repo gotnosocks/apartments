@@ -1066,6 +1066,7 @@ def create_app(
             captured=capture_day(row["collected_at"]),
             exposure=exposure_of(row["unit_id"]),
             read_floor=read_floor(row, inputs),
+            carried_size=carried_size(row, inputs, others),
             facing=next(
                 (
                     k.removeprefix("looks onto ")
@@ -2633,6 +2634,21 @@ def read_floor(row, inputs: dict[str, float]) -> int | None:
     if row["floor"] is not None or "floor_unknown" in inputs:
         return None
     return round(math.exp(inputs.get("log_floor", 0.0)))  # floor 1 has no input
+
+
+def carried_size(row, inputs: dict[str, float], others) -> dict | None:
+    """The size the model used for a listing whose ad states none: the
+    unit's latest earlier ad that does (playtest round 11). None when the
+    ad states one or the model treats the size as unknown."""
+    if row["square_feet"] or "sqft_unknown" in inputs:
+        return None
+    earlier = [
+        o for o in others if o["square_feet"] and o["period"] <= row["period"]
+    ] or [o for o in others if o["square_feet"]]
+    if not earlier:
+        return None
+    o = earlier[-1]
+    return {"square_feet": o["square_feet"], "year": o["period"][:4]}
 
 
 def day_label(iso: str) -> str:
