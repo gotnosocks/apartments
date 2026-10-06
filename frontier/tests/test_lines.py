@@ -11,6 +11,29 @@ def test_line_of_groups_express_and_drops_shuttles():
     assert lines.line_of("SI") is None
 
 
+def test_station_lines_from_the_network(monkeypatch):
+    stations = pd.DataFrame(
+        {
+            "stop_name": ["14 St", "8 Av", "Shuttle"],
+            "stop_lat": 40.7,
+            "stop_lon": -74.0,
+        },
+        index=["A", "B", "C"],
+    )
+    edges = {
+        "A": [(("A", "6X", "0"), 2.0), (("A", "L", "1"), 3.0)],
+        ("A", "6X", "0"): [("A", 0.0)],
+        ("A", "L", "1"): [("A", 0.0)],
+        ("B", "L", "0"): [("B", 0.0)],
+        ("C", "GS", "0"): [("C", 0.0)],
+    }
+    monkeypatch.setattr(lines.transit, "network", lambda gtfs: (edges, stations))
+    lines.station_lines.cache_clear()
+    out = lines.station_lines("fake.zip")
+    lines.station_lines.cache_clear()
+    assert dict(out.lines) == {"A": {"4/5/6", "L"}, "B": {"L"}}
+
+
 def _table(walks):
     return pd.DataFrame(
         [(b, g, w, f"{g} St") for (b, g), w in walks.items()],

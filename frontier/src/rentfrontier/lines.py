@@ -116,8 +116,9 @@ def priced_lines(table: pd.DataFrame) -> list[str]:
 
 def near_lines(frame: pd.DataFrame) -> pd.DataFrame:
     """Per row and priced line group: 1.0 when one of its stations is within
-    NEAR_MIN minutes' walk as of the listing's month, else 0.0 (also for a
-    building without a position)."""
+    NEAR_MIN minutes' walk as of the listing's month, else 0.0: a building
+    without a position (none in the registry today) counts as far from every
+    line."""
     groups = priced_lines(building_lines())
     closed = frame.period.map(features.stops_not_open)
     out = pd.DataFrame(0.0, index=range(len(frame)), columns=groups)
