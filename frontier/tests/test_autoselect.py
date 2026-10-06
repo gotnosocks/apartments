@@ -269,6 +269,9 @@ def test_a_fit_on_another_dataset_is_not_served(tmp_path, monkeypatch):
     (tmp_path / "runs" / "old" / "result.json").write_text(json.dumps(rec))
     monkeypatch.setattr(autoselect.data, "DATASET", tmp_path / "combined")
     assert "not the current combined" in autoselect.why_not(e, RULES)
+    # Named before the missing score: an old-dataset fit is unscored because of it.
+    e["psis"] = None
+    assert "not the current combined" in autoselect.why_not(e, RULES)
 
 
 def judged(monkeypatch, verdicts):
