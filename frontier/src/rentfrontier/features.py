@@ -838,7 +838,7 @@ GTFS_SNAPSHOT = "/data1/apartments/external/gtfs/20261006-6158e22"
 GTFS_FILE = f"{GTFS_SNAPSHOT}/gtfs_subway.zip"
 PLACES_SNAPSHOT = "/data1/apartments/external/places/20261006-7c4c408"
 PLACES_FILE = f"{PLACES_SNAPSHOT}/places.parquet"
-STOREFRONTS_SNAPSHOT = "/data1/apartments/external/storefronts/PENDING"
+STOREFRONTS_SNAPSHOT = "/data1/apartments/external/storefronts/20261006-5fd0c26"
 STOREFRONTS_FILE = f"{STOREFRONTS_SNAPSHOT}/storefronts.parquet"
 # Street centerlines, parks and shoreline (`rentfrontier.external basemap`).
 BASEMAP_SNAPSHOT = "/data1/apartments/external/basemap/20260929-da7e40d"
