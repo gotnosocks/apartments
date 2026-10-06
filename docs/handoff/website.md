@@ -2,6 +2,19 @@
 
 What the next turn of the website thread needs. Updated at each milestone.
 
+## State (2026-10-06 19:30 UTC)
+
+- **Display-only pills on /best, read at runtime from `/data1/apartments/wishes/` (newest file by
+  name; each table's path and mtime are in the ranking cache key; the ranking is unchanged):**
+  #355 commute (`commute-*.csv`: a plus at or under the median with no transfer, otherwise a minus)
+  and #362 bed size (`bed-size-*.csv`: "King bed fits (ad)", a floor read from the ad's text).
+  Each also has a `best.csv` column.
+- **Waiting on Modeling:** per-line subway (`nb3-lines-v1`, "L within 8 min" and so on; 7, J/Z and
+  G unpriced) and jobs access (`nb3-access-v1`, "log jobs within 30 min"). Once a served build
+  has their coefficients, add labels and hover text (`subway-lines-*.csv`, `jobs-access-*.csv`),
+  then ask Ben once for their weights in his sheet. Amenity isochrones come later (Data
+  improvements).
+
 ## State (2026-10-06 17:30 UTC)
 
 - **Ben's /best asks, all merged and deployed:** #337 StreetEasy links at the top of listing pages
