@@ -49,14 +49,24 @@ def pairs(loo: dict):
         base = base_set(fs) if fs else None
         if base and f"-{fs}-" in name:
             ref = name.replace(f"-{fs}-", f"-{base}-", 1)
-            if ref in loo:
-                yield fs, r, loo[ref]
+            other = loo.get(ref)
+            if (
+                other
+                and other.get("model") == model
+                and other.get("feature_set") == base
+            ):
+                yield fs, r, other
         if model and name.startswith(model + "-"):
             rest, terms = name[len(model) :], model.split("-")
             for i in range(1, len(terms)):
-                ref = "-".join(terms[:i] + terms[i + 1 :]) + rest
-                if ref in loo:
-                    yield "+" + terms[i], r, loo[ref]
+                parent = "-".join(terms[:i] + terms[i + 1 :])
+                other = loo.get(parent + rest)
+                if (
+                    other
+                    and other.get("model") == parent
+                    and other.get("feature_set") == fs
+                ):
+                    yield "+" + terms[i], r, other
 
 
 def run_record(name: str) -> dict:
@@ -136,7 +146,7 @@ def markdown(entries: list[dict], current: str) -> str:
         lines.append(
             f"| {e['date']} | `{e['change']}` | {e['about']} | {e['kind']} "
             f"| {e['diff']:+,.1f} ± {e['se']:,.1f} | {e['verdict']} | {e['retest']} "
-            f"| {e['dataset']} ({e['rows']:,}) | {pr} | `{e['test']}` | `{e['reference']}` |"
+            f"| {e['dataset']} ({e['rows'] or 0:,}) | {pr} | `{e['test']}` | `{e['reference']}` |"
         )
     return "\n".join(lines) + "\n"
 
