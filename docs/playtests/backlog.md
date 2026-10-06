@@ -62,7 +62,12 @@ Ranked roughly by how many personas hit the finding and how badly.
     only after choosing an area; Glossary entries for "typical rent" and "median building";
     90% vs 95% intervals; CSV for the table view.
 11. **Facing in "Looks onto" and the listing summary:** the exposure labels (#290) aren't used
-    there yet. Wording to be agreed with Data improvements.
+    there yet. Data improvements' proposal (2026-10-06): show the label, then "from the ad" or
+    "from window directions" for own labels and "from other apartments in the same line" for
+    line labels (they agree with an apartment's own evidence 89% of the time). Per-apartment
+    evidence: `/data1/apartments/exposure/labels-evidence-20261006.parquet` (13,126 units, same
+    labels as #290 plus an `evidence` column; rebuilt by
+    `/data1/apartments/tmp/suspect/exposure-evidence/evidence.py`).
 12. **Larger, later** (round 5): compare two buildings; a price column on the Buildings list;
     one sentence reconciling the map's typical rent with the listings' median estimate; a
     warning when a building link lands on a much pricier building.
