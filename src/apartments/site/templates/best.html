@@ -62,8 +62,8 @@ plus nor a minus.</p>
       <td class="num nowrap" data-label="Fit">{{ pct(r.fit_pct, digits=0) }}</td>
       <td class="num" data-label="Ask">{{ usd(r.ask) }}</td>
       <td class="num nowrap" data-label="Estimate">{{ usd(r.estimate) }}{% if r.vs_estimate is not none %} <span class="muted">(ask {{ pct(100 * r.vs_estimate, digits=0) }})</span>{% endif %}{% if not r.reliable %}<span class="warn-mark" title="Less reliable estimate">*</span>{% endif %}</td>
-      <td class="c-tags">{% for t in r.pros %}<span class="rtag good">+ {{ t.label }}</span> {% endfor %}</td>
-      <td class="c-tags">{% for t in r.cons[:2] %}<span class="rtag bad">− {{ t.label }}</span> {% endfor %}{% if r.cons | length > 2 %}<details class="more"><summary>{{ r.cons | length - 2 }} more</summary>{% for t in r.cons[2:] %}<span class="rtag bad">− {{ t.label }}</span> {% endfor %}</details>{% endif %}</td>
+      <td class="c-tags">{% for t in r.commute if t.good %}<span class="rtag good" title="{{ t.title }}; shown, not counted in the fit">+ {{ t.label }}</span> {% endfor %}{% for t in r.pros %}<span class="rtag good">+ {{ t.label }}</span> {% endfor %}</td>
+      <td class="c-tags">{% for t in r.commute if not t.good %}<span class="rtag bad" title="{{ t.title }}; shown, not counted in the fit">− {{ t.label }}</span> {% endfor %}{% for t in r.cons[:2] %}<span class="rtag bad">− {{ t.label }}</span> {% endfor %}{% if r.cons | length > 2 %}<details class="more"><summary>{{ r.cons | length - 2 }} more</summary>{% for t in r.cons[2:] %}<span class="rtag bad">− {{ t.label }}</span> {% endfor %}</details>{% endif %}</td>
       <td class="muted c-tags"{% if r.unknown %} data-label="Not stated"{% endif %}>{{ r.unknown | join(", ") }}</td>
     </tr>
   {% else %}
@@ -84,6 +84,10 @@ doesn't read the text of current ads yet, so marks like a renovation, a dishwash
   <p><strong>Pluses:</strong> {% for f, w in pros %}{{ label(f) }}{% if f in not_modelled %} <span class="muted">(not modelled)</span>{% endif %}{{ ", " if not loop.last }}{% endfor %}.</p>
   <p><strong>Minuses:</strong> {% for f, w in cons %}{{ label(f) }}{% if f in not_modelled %} <span class="muted">(not modelled)</span>{% endif %}{{ ", " if not loop.last }}{% endfor %}.</p>
   {% if profile.latent %}<p><strong>The building:</strong> {% for kind, w in profile.latent | dictsort %}{{ "its rent level against similar buildings" if kind == "level" else "how fast its rents rise" }}{% if w == 0.5 %}, counted at half weight{% elif w != 1 %}, counted at {{ "{:g}".format(w) }} times its price{% endif %}{{ ", " if not loop.last }}{% endfor %}.</p>{% endif %}
+  {% set shown_commute = commute | dictsort | selectattr(0, "in", profile.commute) | list if profile.commute is not none else commute | dictsort | list %}
+  {% if shown_commute %}<p id="commute"><strong>Commute:</strong> weekday subway time, door to door, leaving 8–9am, to {% for name, d in shown_commute %}{{ name }}{% if d.address %} ({{ d.address }}){% endif %}{{ ", " if not loop.last }}{% endfor %}.
+  A trip at or under the median for these buildings ({% for name, d in shown_commute %}{{ "{:.0f}".format(d.median) }} min{{ ", " if not loop.last }}{% endfor %}) with no transfer
+  shows as a plus, otherwise as a minus. It is shown but not counted in the fit: the model has no price for it.</p>{% endif %}
   {% if profile.unmodelled %}<p class="muted">Not modelled yet: {{ profile.unmodelled | join("; ") }}.</p>{% endif %}
   {% if profile.neutral %}<p class="muted">Neutral on purpose: {{ profile.neutral | join(", ") }}.</p>{% endif %}
   {% if profile.left_out %}<p class="muted">Matters of taste, left out: {{ profile.left_out | join(", ") }}.</p>{% endif %}
