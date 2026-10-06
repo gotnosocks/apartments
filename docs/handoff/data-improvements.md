@@ -1,6 +1,6 @@
 # Data improvements — handoff
 
-Updated 2026-10-06 07:00 ET. Thread owner: the Data improvements project thread (bridge session on thelio).
+Updated 2026-10-06 08:00 ET. Thread owner: the Data improvements project thread (bridge session on thelio).
 
 ## State
 - **Greenwich Village fold-in: done on the data side.** #292 (cohort, listing extras, alias table
@@ -40,14 +40,24 @@ Updated 2026-10-06 07:00 ET. Thread owner: the Data improvements project thread 
   their backlog item 11 (#315); website features are on hold (Ben, 2026-10-05).
 - **Prevprice on GV (v2 sets, latest split):** +92.5 ± 16.7 (5.5 SE), but both arms failed the ESS
   gate (380 and 334 < 400). They are being rerun at 4800 draws as `frontier-gvlatest48`.
+- **Present-day MapPLUTO unit counts: measured, NOT worth a feature set.** Dated by the DOB housing
+  database (`/data1/apartments/external/housingdb/20261002-f155dcc/`), 3,153 rows (3.0%) were
+  listed before a unit-changing job on their lot completed, but only ~1% see a material change in
+  units. The biggest apparent changes are new buildings whose final CO came years after leasing
+  under a TCO, so a naive as-of count adds noise. Only one lot is plainly wrong: London Terrace's
+  1007217501 records 2 units (4 building pages, 167 rows; its area per unit is already unknown).
+  Buildings where we see far more units than MapPLUTO records (130) are unit-id fragmentation,
+  not bad lots: 248 10th Ave has 9 units and 40 ids (`3`, `three`, `3a`, `a3`, `2b`, `2-b`).
+  Notes and scripts: `/data1/apartments/tmp/suspect/pluto-asof/` (FINDINGS.md).
 
 ## Next
 - Relay to Ben: the lineface paired score and the prevprice outcome when Modeling sends them.
 - After the GV switch, Modeling updates the "map grows less than the median ask" note figures.
 - #222 `unit-labels-v4` waits for a batch full fit; the next unit-labels version should add the
   Morton Square + 100 Morton join.
-- Backlog: other present-day MapPLUTO fields (numfloors, unitsres, bldgclass for condo
-  conversions; DOB permits would date them), Jane St registry fix, 13 excluded new-building rows, confirm
+- Next data item: unit-id splits (fragmented labels in small buildings; see the MapPLUTO note).
+  Run full-data scripts only while the GPU is free: GPU fits lean on swap (memory note, 2026-10-06).
+- Backlog: bldgclass for condo conversions, Jane St registry fix, 13 excluded new-building rows, confirm
   q-v3/q-v4 on held-out rows, gross rent, unit splits, relist gap.
 
 ## Rules that bind this thread
