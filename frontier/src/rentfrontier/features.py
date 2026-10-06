@@ -580,6 +580,34 @@ def lineface_v1(
     )
 
 
+def garden_v1(
+    frame: pd.DataFrame,
+    train: np.ndarray,
+    id: str = "nb3-garden-v1",
+    base: str = "nb3-coded-v2",
+) -> Features:
+    """A base set plus what an apartment's rear windows look across
+    (`garden.rear_open`): the open middle of the block (gardens, rear yards),
+    or a wall or shaft within `garden.SHUT_OPEN_M`. Reads no rents. Like the
+    building sides of the base, it reads today's footprints (neighbours built
+    after a listing touch ~50 rows' facing, 2026-10-05)."""
+    from . import garden
+
+    base = FEATURE_SETS[base](frame, train)
+    seen = garden.rear_open(frame)
+    b = _Builder(frame)
+    b.add("rear view", "rear looks over the open block", seen >= garden.SHUT_OPEN_M)
+    b.add("rear view", "rear looks onto a wall or shaft", seen < garden.SHUT_OPEN_M)
+    out = b.build(id)
+    return Features(
+        id,
+        base.names + out.names,
+        base.groups + out.groups,
+        np.column_stack([base.values, out.values]),
+        np.concatenate([base.prior_scale, out.prior_scale]),
+    )
+
+
 # External snapshots read by feature sets (rentfrontier.registry, .external).
 REGISTRY_SNAPSHOT = "/data1/apartments/external/registry/20260925-6b67137"
 PLUTO_SNAPSHOT = "/data1/apartments/external/pluto/20260925-3096a62"
@@ -1882,6 +1910,7 @@ FEATURE_SETS = {
     "nb3-prevprice-v2": partial(
         prevprice_v1, id="nb3-prevprice-v2", base="nb3-coded-v2"
     ),
+    "nb3-garden-v1": partial(garden_v1, id="nb3-garden-v1", base="nb3-coded-v2"),
     # West Village: the app design's building facts (as unitdescpluto-v3) on the
     # unit and floor features (no West Village ads: see nb-facing-v2).
     "wv-unitpluto-v1": partial(
@@ -2107,6 +2136,28 @@ for _new, _old in (
     ):
         if _old in _table:
             _table[_new] = _table[_old]
+
+
+# nb3-garden-v1 reads what nb3-coded-v2 (its base) reads.
+for _group in (
+    EXTERNAL,
+    BASEMAP,
+    FOOTPRINTS,
+    DESCRIPTIONS,
+    AS_OF_SETS,
+    LISTING_EXTRAS,
+):
+    if "nb3-coded-v2" in _group:
+        _group.add("nb3-garden-v1")
+for _table in (
+    LOT_SNAPSHOTS,
+    DESCRIPTION_SOURCES,
+    EXTRAS_SNAPSHOTS,
+    AREA_SNAPSHOTS,
+    LPC_SNAPSHOTS,
+):
+    if "nb3-coded-v2" in _table:
+        _table["nb3-garden-v1"] = _table["nb3-coded-v2"]
 
 
 def lot_files(name: str) -> dict:
