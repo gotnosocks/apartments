@@ -711,6 +711,33 @@ def transit_v1(
     )
 
 
+def lines_v1(
+    frame: pd.DataFrame,
+    train: np.ndarray,
+    id: str = "nb3-lines-v1",
+    base: str = "nb3-coded-v2",
+) -> Features:
+    """A base set plus, for each subway line group near enough buildings to
+    price (`lines.priced_lines`), whether one of its stations is within
+    `lines.NEAR_MIN` minutes' walk as of the listing's month (`lines.near_lines`).
+    Reads no rents; the timetable is today's."""
+    from . import lines
+
+    base = FEATURE_SETS[base](frame, train)
+    near = lines.near_lines(frame)
+    b = _Builder(frame)
+    for g in near.columns:
+        b.add("transit", f"{g} within {lines.NEAR_MIN:.0f} min", near[g].to_numpy())
+    out = b.build(id)
+    return Features(
+        id,
+        base.names + out.names,
+        base.groups + out.groups,
+        np.column_stack([base.values, out.values]),
+        np.concatenate([base.prior_scale, out.prior_scale]),
+    )
+
+
 def nearby_v1(
     frame: pd.DataFrame,
     train: np.ndarray,
@@ -2057,7 +2084,7 @@ FOOTPRINTS = {
 # Feature sets that read the 311 noise complaints snapshot.
 NOISE = {"unitnoise-v1"}
 # Feature sets that read the subway GTFS (transit.network).
-TRANSIT = {"nb3-transit-v1"}
+TRANSIT = {"nb3-transit-v1", "nb3-lines-v1"}
 # Feature sets that read the places snapshot (nearby).
 PLACES = {"nb3-nearby-v1"}
 # Feature sets that read the Storefront Registry snapshot (retail).
@@ -2161,6 +2188,7 @@ FEATURE_SETS = {
     "nb3-quiet-v1": partial(quiet_v1, id="nb3-quiet-v1", base="nb3-coded-v2"),
     "nb3-loud-v1": partial(loud_v1, id="nb3-loud-v1", base="nb3-coded-v2"),
     "nb3-transit-v1": partial(transit_v1, id="nb3-transit-v1", base="nb3-coded-v2"),
+    "nb3-lines-v1": partial(lines_v1, id="nb3-lines-v1", base="nb3-coded-v2"),
     "nb3-nearby-v1": partial(nearby_v1, id="nb3-nearby-v1", base="nb3-coded-v2"),
     "nb3-retail-v1": partial(retail_v1, id="nb3-retail-v1", base="nb3-coded-v2"),
     # West Village: the app design's building facts (as unitdescpluto-v3) on the
@@ -2397,6 +2425,7 @@ for _wish in (
     "nb3-quiet-v1",
     "nb3-loud-v1",
     "nb3-transit-v1",
+    "nb3-lines-v1",
     "nb3-nearby-v1",
     "nb3-retail-v1",
 ):
