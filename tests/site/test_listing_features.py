@@ -99,7 +99,13 @@ def test_a_size_from_the_units_earlier_ad_says_so(client, site_root):
     db.commit()
     db.close()
     _set(site_root, other, unit_id=unit, square_feet=500, period="2015-04-01")
-    _set(site_root, "a1", square_feet=None, period="2026-10-01", inputs="{}")
+    _set(
+        site_root,
+        "a1",
+        square_feet=None,
+        period="2026-10-01",
+        inputs=json.dumps({"log_sqft_vs_bedroom_median": 0.02}),
+    )
     html = " ".join(client.get("/listings/a1").get_data(as_text=True).split())
     assert (
         '<dt>Size</dt><dd>500 ft² <span class="muted">(not in this ad: from this '

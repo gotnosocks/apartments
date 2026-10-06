@@ -2640,7 +2640,8 @@ def carried_size(row, inputs: dict[str, float], others) -> dict | None:
     """The size the model used for a listing whose ad states none: the
     unit's latest earlier ad that does (playtest round 11). None when the
     ad states one or the model treats the size as unknown."""
-    if row["square_feet"] or "sqft_unknown" in inputs:
+    # Only when the model used a size for this listing, so the page shows what it priced.
+    if row["square_feet"] or "log_sqft_vs_bedroom_median" not in inputs:
         return None
     earlier = [
         o for o in others if o["square_feet"] and o["period"] <= row["period"]
