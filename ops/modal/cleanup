@@ -1,0 +1,19 @@
+#!/bin/bash
+# Delete Volume apartments-modal-fits once 24 h have passed since the last Modal fit launched or
+# returned (Ben, 2026-10-06), unless a fit app is still running. Run hourly by
+# apartments-modal-cleanup.timer. The next ops/modal-fit recreates the Volume and uploads every input.
+set -u
+venv=${MODAL_VENV:-/data1/apartments/venvs/modal}
+state=${MODAL_FIT_STATE:-/data1/apartments/modal}
+volume=apartments-modal-fits
+[ -f "$state/last-use" ] || { echo "never used"; exit 0; }
+age=$(($(date +%s) - $(stat -c %Y "$state/last-use")))
+[ "$age" -lt 86400 ] && { echo "used ${age}s ago"; exit 0; }
+"$venv/bin/modal" volume list --json | python3 -c "import json,sys; sys.exit(0 if any(v.get('name') == '$volume' for v in json.load(sys.stdin)) else 1)" \
+  || { echo "no volume"; exit 0; }
+if "$venv/bin/modal" app list --json | python3 -c "import json,sys; sys.exit(0 if any(a.get('description') == 'apartments-modal-fit' and a.get('state') not in ('stopped', 'stopping') for a in json.load(sys.stdin)) else 1)"; then
+  echo "a fit app is still running"; exit 0
+fi
+"$venv/bin/modal" volume delete "$volume" --yes || exit 1
+rm -rf "$state/manifest.json" "$state/code"
+echo "deleted $volume $(date -Is)" | tee -a "$state/cleanup.log"

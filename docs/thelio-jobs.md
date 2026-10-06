@@ -17,6 +17,9 @@ that path from any worktree. The job runs in the foreground and its exit status 
 `timeout`, `&&` and systemd units wrap it as before. Long jobs still go in a `systemd-run --user`
 unit so a session restart doesn't kill them.
 
+A fit can also run on a Modal GPU with `ops/modal-fit`, at most 10 a day; it takes no thelio
+lock. See [docs/model/modal.md](model/modal.md).
+
 ## The machine
 
 An AMD Ryzen 5 3600X: 6 cores, 12 threads, in two core complexes of 3 cores. Each complex has its
