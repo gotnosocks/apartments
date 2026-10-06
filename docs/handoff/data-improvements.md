@@ -1,6 +1,6 @@
 # Data improvements — handoff
 
-Updated 2026-10-06 12:00 ET. Thread owner: the Data improvements project thread (bridge session on thelio).
+Updated 2026-10-06 13:35 ET. Thread owner: the Data improvements project thread (bridge session on thelio).
 
 ## State
 - **Greenwich Village fold-in: done on the data side.** #292 (cohort, listing extras, alias table
@@ -58,9 +58,28 @@ Updated 2026-10-06 12:00 ET. Thread owner: the Data improvements project thread 
   - #330 `nb3-quiet-v1` (merged): busy road, narrow roadway, mid-block, plus the ad text. Modeling
     chains its fit after gvthrough (`frontier-gvquiet`).
   Each fit pairs the set with nb3-coded-v2 on PSIS-LOO; Modeling reports the paired numbers.
+- **Location features (coordinator relay, 2026-10-06 16:46Z, from Ben's /best feedback):** four
+  wish sets on nb3-coded-v2, from free open data, all merged. Modeling runs them in `frontier-gvwish`
+  (from ~14:15 ET, results ~16:30 ET) as reference + loud, transit, nearby, retail.
+  - #344 `nb3-loud-v1`: which building sides front a busy road (`loud.py`).
+  - #345 `nb3-transit-v1`: weekday-morning subway minutes to midtown from the MTA GTFS (`transit.py`,
+    `external gtfs`, snapshot `20261006-6158e22`), as of the 7 extension (Sept 2015).
+  - #346 `nb3-nearby-v1`: log metres to dog run, hospital, EMS, drop-in center, NYCHA, MSG
+    (`nearby.py`, `external places`, snapshot `20261006-7c4c408`, NYC open data + OSM dog parks),
+    as of `OPENED` dates. DHS shelters have no addresses, so they are left out.
+  - #347 `nb3-retail-v1`: storefronts and food places within 150 m (`retail.py`, `external storefronts`,
+    snapshot `20261006-5fd0c26`, 2019-2020 filings; vacancy left out as future information).
+  Snapshot-writing commits are kept by `archive/snapshot-*` tags. Outside a build, set
+  `features._LOTS` from `features.lot_files(set)`, or half the rows read the old registry.
 - **#326 `unit-labels-v6`** (draft) waits for a batch full fit.
 
 ## Next
+- Relay the gvwish paired scores (loud, transit, nearby, retail) to Ben when Modeling sends them (~16:30 ET).
+- Location follow-ups: loud's line orientation ignores Village named streets; a no-footprint flag;
+  DOT traffic volumes (7ym2-wayt); more dog-run opening dates and closures (St Vincent's) in
+  `nearby.OPENED`; drop the private OSM "The Fi Office" dog run.
+- A costed pilot proposal for exposure from photos/floor plans goes to the coordinator; no images
+  until Ben approves.
 - Relay to Ben: the lineface paired score and the prevprice outcome when Modeling sends them.
 - After the GV switch, Modeling updates the "map grows less than the median ask" note figures.
 - #222 `unit-labels-v4` waits for a batch full fit; the next unit-labels version should add the
