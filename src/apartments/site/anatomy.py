@@ -522,8 +522,11 @@ def describe(model: dict | None, sizes: dict | None = None) -> Anatomy | None:
             "each neighbourhood's path is a random walk: step ~ Normal(0, σ_a), "
             f"σ_a ~ HalfNormal({_num(c['area_time_scale_sd'])})"
         ),
-        # A path of knots for every neighbourhood but the reference, and their scale.
-        count=None if areas is None else _times(_knots(months, atk), areas - 1, plus=1),
+        # A path of (knots - 1) steps for every neighbourhood but the reference,
+        # and their scale.
+        count=None
+        if areas is None
+        else _times(_knots(months, atk), areas - 1, plus=2 - areas),
         math=_sub(_mi("ζ"), _row(_of("a"), _mo(","), _of("m"))),
     )
 
