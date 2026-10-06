@@ -86,19 +86,17 @@
   <p class="note" id="trend-vs-asks">This holds the building and the apartment fixed, so it grows differently from the median ask of
     the listings in a given year (set the years on <a href="{{ url_for('listings') }}">Listings</a>): that median also moves with which apartments
     happen to be listed, which can be newer, larger or in pricier buildings in some years than in others.</p>
-  {# Modeling's decomposition, playtest round 7 (economist), of the run served on 2026-10-05: shown only
-     while that run is served, since its figures (and "more West Village") don't hold for another fit. #}
-  {% if (meta.provenance or {}).run == "m7-nocurves-floorslope-bednoise-dayfourier-bedtime-nb-coded-v1-rows-c82aa9b-gibbs-2060-4500k9cb1-nb-v5f1u3-d1005" %}
+  {# Modeling's decomposition (method of playtest round 7, redone 2026-10-06) of the run served since
+     2026-10-06: shown only while that run is served, since its figures don't hold for another fit. #}
+  {% if (meta.provenance or {}).run == "m7-nocurves-floorslope-bednoise-dayfourier-bedtime-yearnoise-nb3-coded-v2-rows-9371a18-gibbs-2060-3600k9cb1-nb3-v5f1u5-gv1005" %}
   <details class="note" id="trend-mix">
-    <summary>Why the map grows less than the median ask</summary>
-    <p>For one-bedrooms from 2010 to 2026, the map follows one typical apartment in the median building, so it grows less
-    than the median ask (+75% against +83%). By 2026 the listings are a different mix: more West Village (10% of 2010's
-    one-bedroom listings, 44% of 2026's) and apartments with better features than the typical one, listed in different
-    months. The model's own estimates for those same listings rise +85%, so the model matches the asks once the mix is
-    accounted for: in 2010 the median ask was $3,180 against a median estimate of $3,140 (307 listings), and in 2026
-    $5,825 against $5,794 (2,195 listings).</p>
-    <p>In log points, of the 4.3-point gap: features and listing month 2.2, the median against the geometric mean about 0.8,
-    the building mix 0.7, and 0.5 unexplained. (The served model as of 5 October 2026.)</p>
+    <summary>Why the map grows less than the asks</summary>
+    <p>For one-bedrooms from 2010 to 2026, the map follows one typical apartment in the median building: $2,993 a month
+    to $5,255, +76%. The asks grew more, from a typical (geometric mean) $3,159 to $5,704, +81%. By 2026 the listings
+    are a different mix: more West Village (10% of 2010's one-bedroom listings, 36% of 2026's) and Greenwich Village
+    (6% and 17%), and apartments with better features than the typical one, listed in different months.</p>
+    <p>In log points, of the 2.8-point gap: features and listing month +3.3, the building mix −0.8 (the listed buildings
+    were a little cheaper than the median one), and 0.3 unexplained. (The served model as of 6 October 2026.)</p>
   </details>
   {% endif %}
   <div class="legend" id="legend-trend"></div>
