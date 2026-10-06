@@ -7,6 +7,27 @@ Fixes for things that are broken or wrong on the live site still ship.
 Each round adds a section at the top, ranked by how much the finding gets in the way of
 finding the best one-bedroom. Reports are in `/data1/apartments/tmp/playtests/<round>/`.
 
+## Round 11 (best-1bed, /best after the commute, bed-size and low-floor pills), 2026-10-06
+
+One persona, starting at `/best?beds=1` (`/data1/apartments/tmp/playtests/2026-10-06-r11/`).
+It shortlisted three in about 9 page loads but ignored the ranking:
+
+1. **The ranking is someone else's sheet.** ben-v1's commute, high floors and "rents above similar
+   buildings" are not this persona's wishes, and it can't change them. Let a visitor pick or edit
+   a sheet, or say plainly that the page ranks for Ben.
+2. **No feature filters on /best.** Laundry, elevator, doorman, floor range, neighbourhood, size
+   and facing are on /listings but not /best, so it scanned 100 rows by eye.
+3. **Size, floor and elevator as columns** on /best, and Views (garden, skyline).
+4. **A compare view** for two or three units side by side.
+5. **Explain the marks**: Fit, the `*`, and "(ad)" on the bed-size pill. Say why a cheap ask may
+   be cheap (what the model can't see, how wide the range is).
+6. **Unanswerable wishes**: floor-through, bedroom facing, garden and a quiet block are still not
+   shown (Data improvements has quiet-street, garden and floor-through tables in `wishes/`).
+
+Fixed (a wrong page, not a feature): a listing whose ad gives no size showed "Size: not stated"
+while the model used the size from the unit's earlier ad, so /best said "more space than usual".
+The listing page now shows that size and says it came from the unit's earlier ad.
+
 ## Ratings, removed 2026-10-06
 
 Ben asked for the "My ratings" view and its form to come off the site (21:02 UTC); the feature
