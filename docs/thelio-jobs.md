@@ -116,3 +116,13 @@ systemctl --user daemon-reload
 
 The research-data build (`apartments-dashboard-build.service`) runs in the light slice on the
 light CPUs, without taking a slot (it is small and runs at idle priority). After changing it, copy it to `~/.config/systemd/user/` and reload as above.
+
+## Recording a test
+
+Every one-change test (a feature set against its base set, or a model term against the design
+without it) goes in the ledger, `docs/model/feature-tests.md`, with its paired PSIS-LOO, verdict
+and retest marker. When a test's LOO lands, add what the change is to
+`docs/model/feature-tests.json` and regenerate the ledger from `frontier/`:
+`python -m rentfrontier.ledger --out ../docs/model/feature-tests.md`. Tests without a clear gain
+are retested when the dataset changes, location features first (Ben, 2026-10-06); the ledger's
+Retest column lists them.
