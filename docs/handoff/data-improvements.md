@@ -1,6 +1,6 @@
 # Data improvements — handoff
 
-Updated 2026-10-06 16:00 ET. Thread owner: the Data improvements project thread (bridge session on thelio).
+Updated 2026-10-06 17:40 ET. Thread owner: the Data improvements project thread (bridge session on thelio).
 
 ## State
 - **Greenwich Village fold-in: done on the data side.** #292 (cohort, listing extras, alias table
@@ -58,6 +58,10 @@ Updated 2026-10-06 16:00 ET. Thread owner: the Data improvements project thread 
   - #330 `nb3-quiet-v1` (merged): busy road, narrow roadway, mid-block, plus the ad text. Modeling
     chains its fit after gvthrough (`frontier-gvquiet`).
   Each fit pairs the set with nb3-coded-v2 on PSIS-LOO; Modeling reports the paired numbers.
+  Results (relayed to Ben): garden +11.8 ± 14.2, through +5.4 ± 15.7, quiet +8.1 ± 14.2, all
+  noise. Coefficients: one apartment per floor +18.9% [+15.9, +22.0], two per floor +8.3%, ad
+  says floor-through +0.9%; garden and quiet terms about zero. Suggested /best shows the
+  floor-through premiums only.
 - **Location features (coordinator relay, 2026-10-06 16:46Z, from Ben's /best feedback):** four
   wish sets on nb3-coded-v2, from free open data, all merged. Modeling runs them in `frontier-gvwish`
   (from ~14:15 ET, results ~16:30 ET) as reference + loud, transit, nearby, retail.
@@ -96,6 +100,13 @@ Updated 2026-10-06 16:00 ET. Thread owner: the Data improvements project thread 
   own ad states (king/queen/full; ~21% of rows), and `nb3-bedsize-v1` adds three 0/1 terms.
   The per-apartment table `/data1/apartments/wishes/bed-size-<date>.*` goes to Website for
   /best. I asked Modeling for an exploration fit.
+- **Parks (amenity access, parks half; #364):** `parks.py` and `external parks` (NYC Parks
+  properties enfh-gkve, snapshot `20261006-d208294`). `nb3-parks-v1` adds "log walk min to a park"
+  (1+ acre, acquired before the listing month) and "High Line within 5 min". `parks.SECTIONS`
+  dates the High Line (2009 / 2011 / Spur 2019; no Rail Yards in the source) and Bella Abzug Park
+  (two south blocks, 2015-08-31); `places()` refuses large undated or post-2000 parks without
+  sections. Hudson River Park (state) is missing. Groceries and gyms: no dated source (NYS food
+  licences undated, storefront categories too coarse). Exploration fit requested from Modeling.
 - **Performance review items:** rebuild memory measured (#351, 44 KB per row, no change);
   granular export row groups 8,192 (#352).
 - **#326 `unit-labels-v6`** (draft) waits for a batch full fit.
@@ -104,7 +115,8 @@ Updated 2026-10-06 16:00 ET. Thread owner: the Data improvements project thread 
 - Relay the gvwish paired scores (loud, transit, nearby, retail) and the gvwish2 per-line
   coefficients (90% interval, P(>0)) to Ben when Modeling sends them; tell the coordinator in
   one line which lines come out positive. Then relay the bedsize fit.
-- The amenity half of access (nb3-access-v2), and PATH stations from their own GTFS snapshot.
+- Relay the parks fit. PATH stations from their own GTFS snapshot; a dated Hudson River Park
+  source (state open data) for parks.
 - Location follow-ups: loud's line orientation ignores Village named streets; a no-footprint flag;
   DOT traffic volumes (7ym2-wayt); more dog-run opening dates and closures (St Vincent's) in
   `nearby.OPENED`; drop the private OSM "The Fi Office" dog run.
