@@ -241,7 +241,7 @@ def rank(db, profile: dict) -> dict:
     rows = []
     for r in db.execute(
         "SELECT audit_id, building_id, unit_label, neighbourhood, bedrooms, ask, "
-        "estimate, floor, reliable, inputs FROM listings WHERE is_current = 1 AND ask > 0"
+        "estimate, floor, reliable, listing_url, inputs FROM listings WHERE is_current = 1 AND ask > 0"
     ):
         inputs = json.loads(r["inputs"])
         s = score(r, inputs, buildings.get(r["building_id"]), profile, betas)
@@ -255,6 +255,7 @@ def rank(db, profile: dict) -> dict:
             ask=r["ask"],
             estimate=r["estimate"],
             reliable=r["reliable"],
+            listing_url=r["listing_url"],
             income_restricted=bool(inputs.get("text:income_restricted")),
             fit_pct=100 * math.expm1(s["score"]),
             vs_estimate=r["ask"] / r["estimate"] - 1 if r["estimate"] else None,

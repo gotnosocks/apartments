@@ -144,3 +144,21 @@ def test_unknown_profile_is_404(client):
 def test_glossary_entry(client):
     page = client.get("/research/glossary").get_data(as_text=True)
     assert 'id="fit-score"' in page
+
+
+def test_rows_and_listing_pages_link_to_streeteasy(client):
+    """Ben (2026-10-06): one click from /best to the ad, and the ad's link at the
+    top of the listing page."""
+    page = client.get("/best").get_data(as_text=True)
+    assert 'rel="noopener noreferrer" target="_blank">StreetEasy ↗' in page
+    assert (
+        client.get("/best.csv")
+        .get_data(as_text=True)
+        .splitlines()[0]
+        .endswith(",streeteasy")
+    )
+    audit_id = page.split('href="/listings/')[1].split('"')[0]
+    listing = client.get(f"/listings/{audit_id}").get_data(as_text=True)
+    top = listing.split('id="streeteasy"')[1].split("</p>")[0]
+    assert "on StreetEasy ↗" in top
+    assert listing.index('id="streeteasy"') < listing.index("<h2")

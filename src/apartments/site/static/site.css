@@ -213,6 +213,7 @@ dl.glossary dd { margin: 0.2rem 0 0; max-width: 50rem; }
 dl.glossary dt:target, dl.glossary dt:target + dd { background: var(--warn-bg); }
 .links { display: flex; flex-wrap: wrap; gap: 1rem; margin: 0.8rem 0 0; }
 .links .source { font-weight: 600; }
+.se-links { margin: -0.4rem 0 1rem; }
 
 details.table-view { margin-top: 0.4rem; }
 details.table-view summary { cursor: pointer; color: var(--link); font-size: 0.9rem; }
