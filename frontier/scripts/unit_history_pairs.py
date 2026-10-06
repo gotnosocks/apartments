@@ -51,7 +51,8 @@ def recorded_memberships(db):
 
 
 def parsed_memberships(db, urls):
-    """The same pairs, parsed from the latest saved body of each unit page."""
+    """The same pairs, parsed from the latest saved body of each unit page
+    (the crawler records every fetch; the latest page lists the most history)."""
     from apartments.granular_parse import parse_listing
 
     latest = {}
@@ -66,16 +67,23 @@ def parsed_memberships(db, urls):
             (ARCHIVE / "bodies" / digest[:2] / f"{digest}.gz").read_bytes()
         )
         row, events = parse_listing(body, url)
-        if row.get("canonical_unit_url") != url or row.get("listing_type") != "rental":
+        rental = [e for e in events if e["event_category"] == "rental"]
+        # collection_policy.annotate's eligibility, for a unit page (url == its unit).
+        if not (
+            row.get("canonical_unit_url") == url
+            and not row.get("canonical_unit_error")
+            and row.get("listing_id")
+            and row.get("listing_type") == "rental"
+            and rental
+            and row.get("parse_status") == "ok"
+        ):
             continue
         ids = {
             str(e["event_listing_id"])
-            for e in events
-            if e["event_category"] == "rental"
-            and str(e.get("event_listing_id", "")).isdigit()
+            for e in rental
+            if str(e.get("event_listing_id", "")).isdigit()
         }
-        if row.get("listing_id"):
-            ids.add(str(row["listing_id"]))
+        ids.add(str(row["listing_id"]))
         yield from ((i, url) for i in ids)
 
 

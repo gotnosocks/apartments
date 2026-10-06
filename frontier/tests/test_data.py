@@ -374,12 +374,14 @@ def test_unit_labels_v5_adds_greenwich_villages_alias_groups():
 
 def test_unit_labels_v6_joins_history_pairs_when_bedrooms_agree(tmp_path):
     """A unit-page history pair joins two units of one building whose bedroom
-    counts agree; pairs that disagree or cross buildings stay apart; groups
-    that share a unit become one, with the smallest id."""
+    counts agree; pairs that disagree, cross buildings, name a unit not in
+    the frame or lack bedrooms stay apart; a pair naming a unit v5 already
+    merged joins through it; groups that share a unit become one, with the
+    smallest id."""
     url = "https://streeteasy.com/building/{}/{}".format
     frame = pd.DataFrame(
         {
-            "building": ["b1"] * 5 + ["b2"],
+            "building": ["b1"] * 5 + ["b2"] + ["b1"] * 3,
             "canonical_unit_url": [
                 url("b1", "3"),
                 url("b1", "3f"),
@@ -387,20 +389,34 @@ def test_unit_labels_v6_joins_history_pairs_when_bedrooms_agree(tmp_path):
                 url("b1", "5"),
                 url("b1", "5r"),
                 url("b2", "3"),
+                url("b1", "07"),
+                url("b1", "7"),
+                url("b1", "7r"),
             ],
-            "unit_id": ["u1", "u2", "u3", "u4", "u5", "u6"],
-            "bedrooms": [1.0, 1.0, 1.0, 2.0, 3.0, 1.0],
+            "unit_id": ["u1", "u2", "u3", "u4", "u5", "u6", "u7", "u8", "u9"],
+            "bedrooms": [1.0, 1.0, 1.0, 2.0, 3.0, 1.0, 2.0, 2.0, np.nan],
         }
     )
     pairs = tmp_path / "pairs.jsonl"
     pairs.write_text(
         "".join(
             json.dumps({"unit_id": a, "other_unit_id": b}) + "\n"
-            for a, b in [("u2", "u3"), ("u1", "u2"), ("u4", "u5"), ("u1", "u6")]
+            for a, b in [
+                ("u2", "u3"),
+                ("u1", "u2"),
+                ("u4", "u5"),
+                ("u1", "u6"),
+                ("u8", "u4"),
+                ("u1", "u99"),
+                ("u9", "u7"),
+            ]
         )
     )
     out = data.merge_history_pairs(frame, pairs)
-    assert out.unit_id.tolist() == ["u1", "u1", "u1", "u4", "u5", "u6"]
+    # "07" and "7" are one unit under v5 (u7); the pair names u8 and joins u4.
+    assert out.unit_id.tolist() == ["u1", "u1", "u1", "u4", "u5", "u6"] + ["u4"] * 2 + [
+        "u9"
+    ]
     assert data.DATA_RULES["unit-labels-v6"] is data.merge_history_pairs
     assert data.RULE_SOURCES["unit-labels-v6"] == data.UNIT_HISTORY_PAIRS
     assert "unit-labels-v6" not in data.DROPPING_RULES
