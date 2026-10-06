@@ -25,10 +25,10 @@ covariates in the building-effect mean; (7) era-stability check on coefficients;
 (8) collapse `models/`, artifact retention, doc shape.
 
 **Speedups from an outside code review** (Ben, 2026-10-06; triaged against master `d7a1f96`).
-The review was read-only and measured only the first item, on a CPU rather than the 2060. Each
-change must leave results unchanged, so check outputs against the current code before and after. A change
-that shortens the sampler also shortens recorded fit times, the frontier's time axis, so note
-the commit in the run record and compare fit times only within one implementation.
+The review was read-only and measured only the first item, on a CPU rather than the 2060.
+Each change must leave results unchanged, so check outputs against the current code before
+and after. A change that shortens the sampler also shortens recorded fit times, the
+frontier's time axis, so compare fit times only within one implementation.
 - [ ] **Modeling: compile the LOO likelihood once.** `rentfrontier.loo.integrated_loglik` builds a
       new closure for `jax.lax.map` on every call, so each 4,096-row scoring chunk (about twenty
       per full fit) recompiles, although the caller pads chunks to one shape for this reason.
@@ -51,9 +51,9 @@ the commit in the run record and compare fit times only within one implementatio
       the 127–151 s spent in `log_terms` before doing it.
 - [ ] **Data (when profiling a rebuild): stream the historical reconstruction.**
       `historical_dataset` keeps every accepted row and audit in memory and joins the whole
-      `observations.jsonl` and `audit.jsonl` as strings. Thelio has 15 GB and has rebooted out of
-      memory before (2026-09-22), so measure peak RSS of a full Chelsea + West Village + Greenwich Village rebuild
-      first. If it is large, stage rows and audits on disk in two passes (cross-advertisement
+      `observations.jsonl` and `audit.jsonl` as strings. Thelio has 15 GB and has rebooted out
+      of memory before (2026-09-22), so first measure peak RSS of a full Chelsea + West Village
+      + Greenwich Village rebuild. If it is large, stage rows and audits on disk in two passes (cross-advertisement
       conflicts are resolved after all projections exist) and require byte-identical output.
       The review's copy-reduction item (`_project`, `Overlay.apply`) belongs to the same profile.
 - [ ] **Data (low): larger Parquet row groups in the granular export.** `granular_export.Tables`
