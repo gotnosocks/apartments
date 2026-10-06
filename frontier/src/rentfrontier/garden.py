@@ -2,9 +2,9 @@
 the apartment look out over the open middle of its block (the rear yards and
 gardens) rather than a light well, an air shaft or the next building's wall?
 
-A current snapshot, pooled over every listing like `exposure`: a label to show,
-not yet a model input (footprints are today's; neighbours built since a listing
-would need `building_sides_as_of`). Evidence, per apartment:
+The table is a current snapshot, pooled over every listing like `exposure`, to
+show. The model input is `features.garden_v1` (per row, its line read as of
+earlier listings; footprints are today's, as for the building sides). Evidence, per apartment:
 
 - stated: a listing ticks "garden view" or its ad says so (`GARDEN_TEXT`);
 - open: how far its rear windows can see before another building's wall

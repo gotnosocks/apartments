@@ -588,7 +588,9 @@ def garden_v1(
 ) -> Features:
     """A base set plus what an apartment's rear windows look across
     (`garden.rear_open`): the open middle of the block (gardens, rear yards),
-    or a wall or shaft within `garden.SHUT_OPEN_M`. Reads no rents."""
+    or a wall or shaft within `garden.SHUT_OPEN_M`. Reads no rents. Like the
+    building sides of the base, it reads today's footprints (neighbours built
+    after a listing touch ~50 rows' facing, 2026-10-05)."""
     from . import garden
 
     base = FEATURE_SETS[base](frame, train)
