@@ -35,6 +35,15 @@ Sources:
   the registry: individual or interior landmark, or a building in a historic
   district, with the designation date (MapPLUTO's landmark and historic
   district fields are today's status, with no date).
+- places: points of interest around the registry's buildings (their bounding
+  box plus PLACES_MARGIN_M), one row each with its kind: dog runs and
+  off-leash areas (NYC Parks, hxx3-bwgv, the polygon's vertex mean; and
+  OpenStreetMap's leisure=dog_park in Manhattan, ODbL, which has Hudson River
+  Park's runs, not NYC Parks property), hospitals
+  and ambulance or EMS stations (Facilities Database, ji82-xba5), homeless
+  drop-in centers (DHS, bmxf-3rd4, and the Facilities Database's), NYCHA
+  tax lots (MapPLUTO owner NYC Housing Authority) and Madison Square Garden
+  (`MSG`, a fixed point). DHS publishes no shelter addresses.
 - gtfs: the MTA's static subway GTFS feed (`GTFS_URL`), kept whole as
   gtfs_subway.zip: stations, timetables and transfers (subway time to midtown,
   `transit`).
@@ -457,6 +466,135 @@ def fetch_noise(box, page: int = 50_000):
 MERGE_KEYS = {"pluto": ["bbl"], "footprints": ["bin"], "basemap": None}
 
 
+PLACES_MARGIN_M = 2000.0
+DOG_RUNS_ID = "hxx3-bwgv"
+FACDB_ID = "ji82-xba5"
+DROP_IN_ID = "bmxf-3rd4"
+FACDB_KINDS = {
+    "HOSPITAL": "hospital",
+    "ACUTE CARE HOSPITAL": "hospital",
+    "AMBULANCE STATION": "ambulance station",
+    "EMERGENCY MEDICAL STATION": "ambulance station",
+    "EMERGENCY MEDICL STN": "ambulance station",
+    "DROP-IN CENTER": "drop-in center",
+    "DROP-IN CENTERS": "drop-in center",
+}
+OVERPASS = "https://overpass-api.de/api/interpreter"
+OSM_DOG_PARKS = (
+    '[out:json][timeout:60];area["boundary"="administrative"]["name"="Manhattan"]'
+    '["admin_level"="7"]->.m;nwr["leisure"="dog_park"](area.m);out center tags;'
+)
+# Madison Square Garden (opened 1968), 4 Pennsylvania Plaza.
+MSG = (40.75051, -73.99341)
+
+
+def _rows(dataset: str, params: dict) -> tuple[list[dict], str]:
+    query = urllib.parse.urlencode({**params, "$limit": 50_000})
+    with urllib.request.urlopen(f"{SOCRATA}/{dataset}.json?{query}", timeout=300) as r:
+        rows = json.loads(r.read())
+    if len(rows) >= 50_000:
+        raise SystemExit(f"{dataset}: a full page; split the query")
+    return rows, f"{dataset}?{query}"
+
+
+def fetch_places(box) -> tuple[pd.DataFrame, list[str], dict]:
+    """Points of interest in the box (north, west, south, east), widened by
+    PLACES_MARGIN_M: kind, name, address, latitude, longitude, dataset."""
+    north, west, south, east = box
+    dlat = PLACES_MARGIN_M / 111_320.0
+    dlon = dlat / math.cos(math.radians((north + south) / 2))
+    north, west, south, east = north + dlat, west - dlon, south - dlat, east + dlon
+    out, queries = [], []
+    runs, q = _rows(DOG_RUNS_ID, {"borough": "M"})
+    queries.append(q)
+    for r in runs:
+        geometry = r["the_geom"]
+        polygons = geometry["coordinates"]
+        polygons = polygons if geometry["type"] == "MultiPolygon" else [polygons]
+        ring = [p for polygon in polygons for p in polygon[0]]
+        lon = sum(p[0] for p in ring) / len(ring)
+        lat = sum(p[1] for p in ring) / len(ring)
+        out.append(("dog run", r.get("name"), None, lat, lon, DOG_RUNS_ID))
+    request = urllib.request.Request(
+        OVERPASS,
+        data=urllib.parse.urlencode({"data": OSM_DOG_PARKS}).encode(),
+        headers={"User-Agent": "apartments-research/1.0"},
+    )
+    with urllib.request.urlopen(request, timeout=120) as r:
+        osm = json.loads(r.read())
+    queries.append(f"{OVERPASS}?data={OSM_DOG_PARKS}")
+    for e in osm["elements"]:
+        tags = e.get("tags", {})
+        if tags.get("access") in ("private", "customers", "no"):
+            continue
+        at = e.get("center", e)
+        name = tags.get("name")
+        out.append(("dog run", name, None, at["lat"], at["lon"], "osm"))
+    facilities, q = _rows(
+        FACDB_ID,
+        {
+            "$select": "facname, address, factype, latitude, longitude",
+            "$where": "boro = 'MANHATTAN' and factype in ("
+            + ", ".join(f"'{k}'" for k in FACDB_KINDS)
+            + ")",
+        },
+    )
+    queries.append(q)
+    for r in facilities:
+        out.append(
+            (
+                FACDB_KINDS[r["factype"]],
+                r.get("facname"),
+                r.get("address"),
+                r.get("latitude"),
+                r.get("longitude"),
+                FACDB_ID,
+            )
+        )
+    drop_in, q = _rows(DROP_IN_ID, {"borough": "Manhattan"})
+    queries.append(q)
+    for r in drop_in:
+        out.append(
+            (
+                "drop-in center",
+                r.get("center_name"),
+                r.get("address"),
+                r.get("latitude"),
+                r.get("longitude"),
+                DROP_IN_ID,
+            )
+        )
+    nycha, q = _rows(
+        PLUTO_ID,
+        {
+            "$select": "bbl, address, latitude, longitude",
+            "$where": "borough = 'MN' and ownername like 'NYC HOUSING AUTH%'",
+        },
+    )
+    queries.append(q)
+    for r in nycha:
+        out.append(
+            (
+                "nycha",
+                r.get("bbl"),
+                r.get("address"),
+                r.get("latitude"),
+                r.get("longitude"),
+                PLUTO_ID,
+            )
+        )
+    out.append(("arena", "Madison Square Garden", "4 Pennsylvania Plaza", *MSG, None))
+    table = pd.DataFrame(
+        out, columns=["kind", "name", "address", "latitude", "longitude", "dataset"]
+    )
+    for c in ("latitude", "longitude"):
+        table[c] = pd.to_numeric(table[c], errors="coerce")
+    inside = table.latitude.between(south, north) & table.longitude.between(west, east)
+    versions = {d: _version(d) for d in (DOG_RUNS_ID, FACDB_ID, DROP_IN_ID, PLUTO_ID)}
+    versions["osm"] = osm["osm3s"]["timestamp_osm_base"]
+    return table[inside].reset_index(drop=True), queries, versions
+
+
 GTFS_URL = "https://rrgtfsfeeds.s3.amazonaws.com/gtfs_subway.zip"
 
 
@@ -539,6 +677,7 @@ def main(argv=None):
             "noise311",
             "lpc",
             "gtfs",
+            "places",
         ),
     )
     parser.add_argument(
@@ -619,6 +758,21 @@ def main(argv=None):
             "registry_bins_missing": missing,
         }
         summary = f"{len(table)} footprints, {len(missing)} registry BINs without one"
+    elif args.source == "places":
+        box = basemap_box(pd.read_parquet(registry_path))
+        table, queries, versions = fetch_places(box)
+        counts = table.kind.value_counts().to_dict()
+        details = {
+            "source": [f"{SOCRATA}/{d}" for d in versions if d != "osm"] + [OVERPASS],
+            "dataset": "NYC Open Data: dog runs, facilities, drop-in centers, NYCHA "
+            "lots; OpenStreetMap dog parks (ODbL)",
+            "versions": versions,
+            "registry": str(registry_path),
+            "box_north_west_south_east": box,
+            "margin_m": PLACES_MARGIN_M,
+            "places": counts,
+        }
+        summary = ", ".join(f"{v} {k}" for k, v in sorted(counts.items()))
     elif args.source == "noise311":
         box = basemap_box(pd.read_parquet(registry_path))
         table, queries, versions = fetch_noise(box)
