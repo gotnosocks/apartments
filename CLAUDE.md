@@ -38,6 +38,12 @@ starting a second one. Leave out `--gpu` only when you don't own GPU work.
 - After any wake, including a resume after a park or a usage-limit stop, check state yourself
   (`ops/job status`, `gh pr list`, your logs) and start `wait-next` again before ending the turn.
 
+## Format Python with ruff
+
+Run `ops/fmt` before every commit (Ben, 2026-10-06). It formats the whole repo with the pinned
+ruff and skips the hash-locked files in `ruff.toml`; `tests/test_formatting.py` fails on anything
+unformatted. After merging master into a branch, run `ops/fmt` again before committing.
+
 ## Keep the context small
 
 Every tool call re-reads the whole context, and a wake after the hour-long prompt cache expires

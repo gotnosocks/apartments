@@ -372,9 +372,7 @@ def build_design(
     area_basis = model_module.knot_basis(t, config.area_time_knot_months)
     na = area_basis.shape[1]
     start = (bedroom_time or season).stop
-    area_time = (
-        slice(start, start + (n_area - 1) * na) if config.area_time else None
-    )
+    area_time = slice(start, start + (n_area - 1) * na) if config.area_time else None
     if config.area_time and n_area < 2:
         raise ValueError(f"{config.name}: area_time needs two neighbourhoods")
     p = (area_time or bedroom_time or season).stop

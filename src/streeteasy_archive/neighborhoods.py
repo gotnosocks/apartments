@@ -14,7 +14,10 @@ ADDED = {
     "greenwich-village": ({"greenwich-village"}, {"Greenwich Village"}),
     # StreetEasy areas Flatiron and Gramercy Park, crawled together (Ben, Oct 5 2026).
     # Child areas such as NoMad are separate neighborhoods and are not included.
-    "flatiron-gramercy-park": ({"flatiron", "gramercy-park"}, {"Flatiron", "Gramercy Park"}),
+    "flatiron-gramercy-park": (
+        {"flatiron", "gramercy-park"},
+        {"Flatiron", "Gramercy Park"},
+    ),
 }
 
 for _name, _value in ADDED.items():

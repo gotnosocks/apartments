@@ -875,7 +875,13 @@ def test_area_time_designs_are_registered():
         config = model.MODELS[name]
         served = model.MODELS["m7-nocurves-floorslope-bednoise-dayfourier-bedtime"]
         assert config.area_time and config.area_time_knot_months == 3
-        assert dataclasses.replace(
-            config, name=served.name, area_time=False, area_time_knot_months=1,
-            noise_by_year=False,
-        ) == served
+        assert (
+            dataclasses.replace(
+                config,
+                name=served.name,
+                area_time=False,
+                area_time_knot_months=1,
+                noise_by_year=False,
+            )
+            == served
+        )
