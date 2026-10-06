@@ -56,7 +56,7 @@ Updated 2026-10-06 12:00 ET. Thread owner: the Data improvements project thread 
   - #328 `nb3-garden-v1` (merged): rear windows' openness from footprint rays. Fit `frontier-gvgarden`.
   - #329 `nb3-through-v1` (merged): one or two apartments per floor, plus the ad text. Fit `frontier-gvthrough`.
   - #330 `nb3-quiet-v1` (merged): busy road, narrow roadway, mid-block, plus the ad text. Modeling
-    chains its fit after gvthrough.
+    chains its fit after gvthrough (`frontier-gvquiet`).
   Each fit pairs the set with nb3-coded-v2 on PSIS-LOO; Modeling reports the paired numbers.
 - **#326 `unit-labels-v6`** (draft) waits for a batch full fit.
 
