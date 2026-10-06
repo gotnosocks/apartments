@@ -16,10 +16,12 @@ would need `building_sides_as_of`). Evidence, per apartment:
 
 Labels describe the evidence, not a probability: "stated"; "open rear" when
 the rear windows see at least `SHUT_OPEN_M` of open block; "walled rear" when
-they see less (a shaft or the next wall); "" with no rear windows known. Ads
-mention a garden about half as often from a walled rear (5% against 10%,
-2026-10-06); the floor matters more (a garden view is stated for 26% of measured
-apartments on floors 1-2, 3% above floor 10), so the table carries the floor.
+they see less (a shaft or the next wall); "" with no rear windows known. Ad text
+does not confirm the measure: ads mention a garden from 6-11% of measured
+apartments whatever the distance (2026-10-06), and the floor matters more
+(listings tick garden view for 18% of measured apartments on floors 1-5, 11%
+above), so the table carries the floor. Whether the rent model can use it is
+for PSIS-LOO to judge (`features.garden_v1`, nb3-garden-v1, which reads no rents).
 
     python -m rentfrontier.garden            # writes WISHES/garden-<date>.parquet and .csv
 """
@@ -45,16 +47,21 @@ FEATURE_SET = "nb3-lineface-v1"
 OPEN_REACH_M = 60.0
 CONTACT_M = 1.0  # a wall that touches the next building has no windows
 SHUT_OPEN_M = 8.0
+# Not Madison Square Garden or a roof garden.
+_GARDEN = r"(?<!square )(?<!roof )(?<!rooftop )\b(?:gardens?|back ?yards?|rear yards?)"
 GARDEN_TEXT = (
-    r"garden[- ]views?|(?:overlook\w*|views? (?:of|over|onto)|fac\w*|look\w* (?:out )?"
-    r"(?:on|over)\w*)[^.]{0,30}\b(?:gardens?|back ?yards?|rear yards?)"
+    rf"{_GARDEN}[- ]views?|\b(?:overlook\w*|views? (?:of|over|onto)|fac\w*|look\w* "
+    rf"(?:out )?(?:on|over)\w*)[^.]{{0,30}}{_GARDEN}"
 )
+# A far-off direction, so a parity count never runs along a grid-aligned edge.
+_FAR = np.array([1000.0, 731.0])
 
 
 def clear_distances(ring, occluders, reach: float = OPEN_REACH_M) -> dict:
     """For one counter-clockwise outline (grid metres): per grid direction the
     distances rays from its facades travel before a wall (capped at reach), one
-    per `features.SIDE_SPACING_M` of facade."""
+    per `features.SIDE_SPACING_M` of facade; 0 where the ray starts inside
+    another building (a party wall shared edge to edge)."""
     e0 = np.concatenate([occluders[0], ring[:-1]])
     e1 = np.concatenate([occluders[1], ring[1:]])
     out = {d: [] for d in features.GRID_DIRECTIONS}
@@ -71,6 +78,10 @@ def clear_distances(ring, occluders, reach: float = OPEN_REACH_M) -> dict:
         spots = np.arange(features.SIDE_SPACING_M / 2, length, features.SIDE_SPACING_M)
         for s in spots if len(spots) else [length / 2]:
             start = p + edge * (s / length) + 0.3 * normal
+            inside = np.isfinite(features._hits(start, start + _FAR, *occluders))
+            if inside.sum() % 2:
+                out[side].append(0.0)
+                continue
             hit = features._hits(start, start + reach * normal, e0, e1)
             out[side].append(
                 0.3 + reach * min(float(hit.min()) if len(hit) else 1.0, 1.0)
@@ -156,6 +167,30 @@ def _block_openness(registry_file: str, basemap_file: str, footprints_file: str)
         dist = clear_distances(ring, (e0[near], e1[near]))
         out[building] = {d: openness(v) for d, v in dist.items()}
     return pd.DataFrame.from_dict(out, orient="index")
+
+
+def rear_open(frame: pd.DataFrame) -> np.ndarray:
+    """Per row: how far its apartment's rear windows see across the block
+    (metres; NaN with no rear window known). From its own window directions,
+    pooled over its listings as `features.unit_sides` pools them; otherwise,
+    when its own listings or its line's earlier listings
+    (`features.line_orientation`) put it at the rear, its building's most open
+    rear side."""
+    b = frame.building.to_numpy()
+    sides = features.building_sides().reindex(b)
+    rear = block_openness().reindex(b).where(sides.eq("none").to_numpy())
+    windows = pd.DataFrame(
+        {d: frame[f"window_{d}"].eq("yes").to_numpy() for d in features.GRID_DIRECTIONS}
+    )
+    windows = windows.groupby(frame.unit_id.to_numpy()).transform("any")
+    windows = windows[rear.columns].to_numpy()
+    own = rear.where(windows).max(axis=1).to_numpy()
+    has_windows = windows.any(axis=1) & sides.notna().all(axis=1).to_numpy()
+    at_rear = features.unit_sides(frame)["none"].to_numpy() | np.isin(
+        features.line_orientation(frame).to_numpy(), ["rear", "both"]
+    )
+    building = rear.max(axis=1).to_numpy()
+    return np.where(has_windows, own, np.where(at_rear, building, np.nan))
 
 
 def rear_yard_ft(lots: pd.DataFrame) -> pd.Series:
