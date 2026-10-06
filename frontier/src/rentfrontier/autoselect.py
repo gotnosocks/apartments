@@ -102,10 +102,14 @@ def why_not(e, rules) -> str | None:
         return "it fails the convergence gate"
     if not e["interpretable"]:
         return "it has no named additive contributions"
-    if not leaderboard.scored(e):
-        return "it has no paired PSIS-LOO score"
     if e["hardware"] != TARGET_HARDWARE or "rows" not in e["splits"]:
         return f"it did not run on the {TARGET_HARDWARE} row split"
+    # Before the score: a fit on another dataset is unscored because of it.
+    dataset = _record(e).get("dataset")
+    if dataset is not None and Path(dataset).resolve() != Path(data.DATASET).resolve():
+        return f"it was fit on {Path(dataset).name}, not the current {Path(data.DATASET).name}"
+    if not leaderboard.scored(e):
+        return "it has no paired PSIS-LOO score"
     if e["fit_seconds"] > WINDOW_SECONDS:
         return "its fit took longer than the window"
     if _record(e).get("feature_set") in features.READS_EARLIER_RENTS:
@@ -116,9 +120,6 @@ def why_not(e, rules) -> str | None:
     tuning = sorted(r for r in _rules(e) if r.startswith(data.TUNING_PREFIX))
     if tuning:
         return f"it is a tuning fit on a subset ({', '.join(tuning)})"
-    dataset = _record(e).get("dataset")
-    if dataset is not None and Path(dataset).resolve() != Path(data.DATASET).resolve():
-        return f"it was fit on {Path(dataset).name}, not the current {Path(data.DATASET).name}"
     if _rules(e) != rules:
         used = " + ".join(sorted(_rules(e))) or "no data rules"
         return f"it was fit with {used}, not the current {' + '.join(sorted(rules))}"
