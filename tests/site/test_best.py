@@ -379,4 +379,4 @@ def test_flex_note_comes_from_the_ads_earlier_text(site_root, client):
     db.commit()
     db.close()
     page = client.get("/best").get_data(as_text=True)
-    assert "ad says flex or convertible" in page
+    assert "ad says it can be set up as a 2-bed</span>" in page
