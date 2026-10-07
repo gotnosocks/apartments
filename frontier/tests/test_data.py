@@ -570,6 +570,48 @@ def test_unit_splits_v3_rejoins_an_earlier_bedroom_count():
     assert v2.unit_id.tolist() == ["u1", "u1~1", "u1~1", "u1~2", "u1~3"]
 
 
+def test_unit_splits_v3_keeps_an_ad_whole_and_resets_per_unit():
+    """Every row of an ad lands in one piece, and a second unit starts fresh."""
+    frame = pd.DataFrame(
+        {
+            "unit_id": ["u1"] * 5 + ["u2"] * 2,
+            "source_listing_id": [1, 2, 2, 3, 3, 4, 5],
+            "price_at": [
+                "2020-01-01",
+                "2021-01-01",
+                "2021-06-01",
+                "2022-01-01",
+                "2022-06-01",
+                "2020-01-01",
+                "2021-01-01",
+            ],
+            "bedrooms": [1.0, 2.0, 2.0, 1.0, 1.0, 2.0, 1.0],
+        }
+    )
+    out = data.DATA_RULES["unit-splits-v3"](frame)
+    assert out.unit_id.tolist() == ["u1", "u1~1", "u1~1", "u1", "u1", "u2", "u2~1"]
+
+
+def test_unit_splits_v4_holds_a_change_that_adds_square_footage():
+    """A one-bedroom change splits under v4 unless the earlier ad had no square
+    footage and the new one has; a two-bedroom change still splits."""
+    frame = pd.DataFrame(
+        {
+            "unit_id": ["u1"] * 3 + ["u2"] * 2 + ["u3"] * 2,
+            "source_listing_id": [1, 2, 3, 4, 5, 6, 7],
+            "price_at": [
+                f"{y}-01-01" for y in (2015, 2017, 2020, 2015, 2017, 2015, 2017)
+            ],
+            "bedrooms": [1.0, 2.0, 0.0, 2.0, 1.0, 1.0, 3.0],
+            "square_feet": [np.nan, 1600.0, np.nan, 900.0, np.nan, np.nan, 1600.0],
+        }
+    )
+    out = data.DATA_RULES["unit-splits-v4"](frame)
+    assert out.unit_id.tolist() == ["u1", "u1", "u1~1", "u2", "u2~1", "u3", "u3~1"]
+    v3 = data.DATA_RULES["unit-splits-v3"](frame)
+    assert v3.unit_id.tolist() == ["u1", "u1~1", "u1~2", "u2", "u2~1", "u3", "u3~1"]
+
+
 def test_unit_splits_rules_must_come_last():
     frame = pd.DataFrame({"building": ["b"], "unit_id": ["u"]})
     with pytest.raises(ValueError, match="must come last"):

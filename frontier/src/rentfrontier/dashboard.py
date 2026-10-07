@@ -586,6 +586,10 @@ DATA_RULE_TEXT = {
     "unit-splits-v3": "unit-splits-v2, but a listing whose bedroom count an earlier "
     "piece of the apartment already had rejoins that piece, so a convertible coded "
     "1, 2, 1 keeps its 1-bedroom listings together. No listing is dropped.",
+    "unit-splits-v4": "unit-splits-v3, but a one-bedroom change does not split when "
+    "the earlier listing gave no square footage and the new one does, so a loft "
+    "listed once as a footage-less 1-bedroom stays with its full listings. No "
+    "listing is dropped.",
     "quarantine-v1": "Listings a review found are not an open-market lease of a whole "
     "Chelsea apartment at their address: offices and shops, ads that place the "
     "apartment elsewhere, SRO rooms, income-restricted and short-stay offers, and a "
