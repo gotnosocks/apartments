@@ -339,6 +339,18 @@ def test_scope_is_per_search_route():
     assert parse_page(encode(html, data), URL)["cards"][0]["in_scope"] is False
 
 
+def test_greenwich_village_scope_excludes_noho():
+    gv = "https://streeteasy.com/for-rent/greenwich-village"
+    html, data = fixture(ids=("123", "124"))
+    html = html.replace("Chelsea, Manhattan", "Greenwich Village, Manhattan").replace(
+        "/for-rent/chelsea", "/for-rent/greenwich-village"
+    )
+    data["listings"][0]["node"]["areaName"] = "Greenwich Village"
+    data["listings"][1]["node"]["areaName"] = "NoHo"
+    page = parse_page(encode(html, data), gv)
+    assert [c["in_scope"] for c in page["cards"]] == [True, False]
+
+
 def test_h1_page_suffix_is_optional_but_must_agree():
     html, data = fixture(page=2, ids=("123",))
     assert (
