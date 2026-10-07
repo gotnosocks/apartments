@@ -568,6 +568,12 @@ DATA_RULE_TEXT = {
     "unit-labels-v5": "unit-labels-v3, and Greenwich Village apartments StreetEasy "
     "lists under two spellings of one label, joined where the apartment's own "
     "StreetEasy history lists ads under both. No listing is dropped.",
+    "unit-labels-v6": "unit-labels-v5, and apartments in all three neighbourhoods "
+    "joined where one apartment's StreetEasy page lists an ad filed under the other, "
+    "when their bedroom counts agree. No listing is dropped.",
+    "unit-labels-v8": "unit-labels-v6, and apartments labelled letter first (C7) "
+    "joined to the apartment of the same building labelled digit first (7C), when "
+    "their bedroom counts agree. No listing is dropped.",
     "quarantine-v1": "Listings a review found are not an open-market lease of a whole "
     "Chelsea apartment at their address: offices and shops, ads that place the "
     "apartment elsewhere, SRO rooms, income-restricted and short-stay offers, and a "
@@ -652,7 +658,11 @@ def data_quality() -> dict:
                 file=str(path.relative_to(REPO))
                 if path.is_relative_to(REPO)
                 else str(path),
-                groups=len(data_module.unit_aliases(path)),
+                groups=len(
+                    data_module.unit_history_pairs(path)
+                    if path == Path(data_module.UNIT_HISTORY_PAIRS)
+                    else data_module.unit_aliases(path)
+                ),
             )
         elif rule in data_module.RULE_SOURCES:
             path = Path(data_module.RULE_SOURCES[rule])

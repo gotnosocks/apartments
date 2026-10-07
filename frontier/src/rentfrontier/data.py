@@ -242,6 +242,91 @@ def merge_word_labels(
     return out
 
 
+# Unit-id pairs a StreetEasy unit page's own rental history joins (an ad filed
+# under one unit appears in the other's page history), Chelsea, West Village and
+# Greenwich Village; built by frontier/scripts/unit_history_pairs.py, provenance
+# beside it.
+UNIT_HISTORY_PAIRS = UNIT_ALIASES.with_name("history-20261006.jsonl")
+
+
+@functools.lru_cache(maxsize=2)
+def unit_history_pairs(path: Path = UNIT_HISTORY_PAIRS) -> tuple:
+    """(unit id, unit id) pairs a unit page's own rental history joins."""
+    with open(path) as f:
+        rows = [json.loads(line) for line in f if line.strip()]
+    return tuple((r["unit_id"], r["other_unit_id"]) for r in rows)
+
+
+def merge_history_pairs(
+    frame: pd.DataFrame, pairs: Path = UNIT_HISTORY_PAIRS
+) -> pd.DataFrame:
+    """unit-labels-v5, and units joined where one's ad appears in the other's
+    StreetEasy unit-page history, when both are in the same building and their
+    median bedroom counts (under v5) agree. Groups that share a unit are one
+    unit, whose id is the smallest. Rows are unchanged."""
+    out = merge_word_labels(frame, UNIT_ALIASES_GV)
+    v5 = dict(zip(frame.unit_id, out.unit_id))
+    building = dict(zip(out.unit_id, frame.building))
+    beds = frame.bedrooms.groupby(out.unit_id).median().to_dict()
+    parent = {}
+
+    def find(u):
+        parent.setdefault(u, u)
+        while parent[u] != u:
+            parent[u] = parent[parent[u]]
+            u = parent[u]
+        return u
+
+    for first, second in unit_history_pairs(pairs):
+        a, b = v5.get(first), v5.get(second)
+        if a is None or b is None or a == b or building[a] != building[b]:
+            continue
+        if beds[a] == beds[b]:
+            ra, rb = find(a), find(b)
+            if ra != rb:
+                parent[max(ra, rb)] = min(ra, rb)
+    out["unit_id"] = out.unit_id.map(find)
+    return out
+
+
+_LETTER_FIRST = re.compile(r"^([A-Z]{1,2})(\d{1,2})$")
+
+
+def merge_swapped_labels(frame: pd.DataFrame, base=merge_history_pairs) -> pd.DataFrame:
+    """unit-labels-v6, and units labelled letter first ("C7", "D4") joined to
+    the unit of the same building labelled digit first ("7C", "4D"), where both
+    units' median bedroom counts (under the base rule) agree. Before the guard,
+    bedrooms agree for 89% of such pairs and square footage within 5% for 66%,
+    against 47% and 20% for other pairs of a building's lettered units
+    (2026-10-06, 635 pairs, 858 rows; #335 had the swaps alone on v5). Groups
+    that share a unit are one unit, whose id is the smallest. Rows are
+    unchanged."""
+    out = base(frame)
+    raw = frame.canonical_unit_url.str.extract(r"/([^/]+)$")[0]
+    key = raw.map(lambda v: unit_label_key(v) if isinstance(v, str) else v)
+    beds = frame.bedrooms.groupby(out.unit_id).median().to_dict()
+    unit_of = dict(zip(zip(frame.building, key), out.unit_id))
+    parent = {}
+
+    def find(u):
+        parent.setdefault(u, u)
+        while parent[u] != u:
+            parent[u] = parent[parent[u]]
+            u = parent[u]
+        return u
+
+    for (building, k), a in unit_of.items():
+        m = _LETTER_FIRST.match(k) if isinstance(k, str) else None
+        b = unit_of.get((building, m.group(2) + m.group(1))) if m else None
+        if b is None or a == b or beds[a] != beds[b]:
+            continue
+        ra, rb = find(a), find(b)
+        if ra != rb:
+            parent[max(ra, rb)] = min(ra, rb)
+    out["unit_id"] = out.unit_id.map(find)
+    return out
+
+
 def unit_line_key(frame: pd.DataFrame) -> pd.Series:
     """Each row's line ("column") within its building, from the unit label:
     "23C" and "4C" are line C, "1204" and "304" are line 04, "2ND", "4TH" and
@@ -457,6 +542,9 @@ DATA_RULES = {
     "unit-labels-v3": merge_word_labels,
     # unit-labels-v3 with Greenwich Village's alias groups too (UNIT_ALIASES_GV).
     "unit-labels-v5": functools.partial(merge_word_labels, aliases=UNIT_ALIASES_GV),
+    "unit-labels-v6": merge_history_pairs,
+    # unit-labels-v6 with letter-first labels joined to their digit-first twins.
+    "unit-labels-v8": merge_swapped_labels,
     "quarantine-v1": quarantine_v1,
     "quarantine-v2": quarantine_v2,
     "bedrooms-ad-v1": correct_bedrooms_v1,
@@ -479,6 +567,8 @@ RULE_SOURCES = {
     "unit-labels-v2": UNIT_ALIASES,
     "unit-labels-v3": UNIT_ALIASES,
     "unit-labels-v5": UNIT_ALIASES_GV,
+    "unit-labels-v6": UNIT_HISTORY_PAIRS,
+    "unit-labels-v8": UNIT_HISTORY_PAIRS,
     "bedrooms-ad-v1": BEDROOM_CORRECTIONS,
     "baths-ad-v1": BATH_CORRECTIONS,
     "bedrooms-ad-v2": BEDROOM_CORRECTIONS_V2,

@@ -1,0 +1,25 @@
+{
+  "made_by": "frontier/scripts/unit_history_pairs.py",
+  "script_sha256": "582ca8faed13a7fdafb8d1b74d82dd3f4f6da09d1364d0b63e14922b3ae51dac",
+  "parts": [
+    {
+      "neighbourhood": "Chelsea",
+      "dataset": "/data1/apartments/archive/datasets/chelsea-granular-20260917-canonical-url-v1",
+      "snapshot": "/data1/apartments/archive/snapshots/chelsea-backfill-20260912/archive.sqlite3",
+      "pairs": 807
+    },
+    {
+      "neighbourhood": "West Village",
+      "dataset": "/data1/apartments/archive/datasets/west-village-granular-20260930-canonical-url-v1",
+      "snapshot": "/data1/apartments/archive/snapshots/west-village-backfill-20260930/archive.sqlite3",
+      "pairs": 371
+    },
+    {
+      "neighbourhood": "Greenwich Village",
+      "dataset": "/data1/apartments/archive/datasets/greenwich-village-granular-20261005-canonical-url-v1",
+      "snapshot": "/data1/apartments/archive/snapshots/greenwich-village-20261001-final/archive.sqlite3",
+      "pairs": 158
+    }
+  ],
+  "sha256": "beaef56e9fff3b454095b7a76399ae86e0f3b128b066e4b8fc94cbd5823e4fc3"
+}
