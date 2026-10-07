@@ -7,17 +7,18 @@ from apartments.site import captures, estimate
 BUILDING = "b-grove"
 
 
-def kit(sigma=1e-6, unit_scale=1e-6, draws=4):
-    """A kit of no features: every apartment asks the market rent of 3000."""
+def kit(sigma=1e-6, unit_scale=1e-6, draws=4, features=()):
+    """A kit whose terms are all zero: every apartment asks the market rent
+    of 3000."""
     return estimate.Kit.from_record(
         {
             "period": "2026-09-01",
-            "features": [],
-            "groups": [],
+            "features": [n for n, _ in features],
+            "groups": [g for _, g in features],
             "slopes": ["log_sqft_vs_bedroom_median"],
             "market": [math.log(3000)] * draws,
             "season": {"daily": True, "coef": [[0.0] * 4] * draws},
-            "beta": [[]] * draws,
+            "beta": [[0.0] * len(features)] * draws,
             "bedroom_time": [[0.0] * 4] * draws,
             "sigma": [[sigma] * 4] * draws,
             "nu": [1e6] * draws,
@@ -213,3 +214,56 @@ def test_listing_page_says_the_kit_priced_it(site_root, client):
     assert "Priced with the kit, not in the fit" in page
     assert "priced with the kit, not in the fit (captured 2026-10-06)" in page
     assert "In-sample fit" not in page
+
+
+UNIT_TERMS = (
+    ("first_listing_of_unit", "relisting"),
+    ("log_months_since_last_listing", "relisting"),
+    ("looks onto an avenue", "facing"),
+    ("log_sqft_vs_bedroom_median", "size"),
+)
+
+
+def test_encode_takes_facing_size_and_gap_from_the_units_earlier_listing():
+    k = kit(features=UNIT_TERMS)
+    prev = fitted(
+        price_at="2026-07-07T15:00:00+00:00",
+        inputs=json.dumps(
+            {"looks onto an avenue": 1.0, "log_sqft_vs_bedroom_median": 0.1}
+        ),
+    )
+    x = captures.encode(k, candidate(1), {}, prev, centre=1.0)
+    assert x["looks onto an avenue"] == 1.0
+    assert x["log_sqft_vs_bedroom_median"] == 0.1
+    assert "first_listing_of_unit" not in x
+    assert (
+        abs(x["log_months_since_last_listing"] - (math.log1p(91 / 30.4) - 1.0)) < 1e-9
+    )
+
+
+def test_encode_takes_no_size_from_a_listing_with_other_bedrooms():
+    prev = fitted(bedrooms=2, inputs=json.dumps({"log_sqft_vs_bedroom_median": 0.1}))
+    x = captures.encode(kit(features=UNIT_TERMS), candidate(1), {}, prev, centre=1.0)
+    assert x.get("log_sqft_vs_bedroom_median", 0.0) != 0.1
+
+
+def test_encode_without_a_centre_keeps_the_gap_at_its_average():
+    x = captures.encode(
+        kit(features=UNIT_TERMS), candidate(1), {}, fitted(), centre=None
+    )
+    assert "first_listing_of_unit" not in x
+    assert x["log_months_since_last_listing"] == 0.0
+
+
+def test_relisting_centre_is_recovered_from_the_rows():
+    rows = [
+        fitted(audit_id="a", price_at="2026-01-01T00:00:00+00:00"),
+        fitted(
+            audit_id="b",
+            price_at="2026-03-02T00:00:00+00:00",
+            inputs=json.dumps(
+                {"log_months_since_last_listing": math.log1p(60 / 30.4) - 3.0}
+            ),
+        ),
+    ]
+    assert abs(captures.relisting_centre(rows) - 3.0) < 1e-9
