@@ -2528,6 +2528,10 @@ FEATURE_SETS = {
     "nb3-loc-v1": partial(location_v2, id="nb3-loc-v1", base="nb3-coded-v2"),
     "nb3-water-v1": partial(waterfront_v1, id="nb3-water-v1", base="nb3-parks-v1"),
     "nb3-text-v1": partial(text_flags_v1, id="nb3-text-v1", base="nb3-coded-v2"),
+    # The text flags over the unit's earlier repricing: text-v1 on top of prevprice.
+    "nb3-prevtext-v1": partial(
+        text_flags_v1, id="nb3-prevtext-v1", base="nb3-prevprice-v2"
+    ),
     "nb3-flagfix-v1": partial(flagfix_v1, id="nb3-flagfix-v1", base="nb3-coded-v2"),
     "nb3-noise-v1": partial(
         noise_v1, id="nb3-noise-v1", base="nb3-coded-v2", noise_file=NB3_NOISE_FILE
@@ -2836,3 +2840,27 @@ def build(name: str, frame: pd.DataFrame, train: np.ndarray) -> Features:
         _EXTRAS.reset(extras_token)
         _LPC.reset(lpc_token)
         descriptions_module.SOURCES.reset(text_token)
+
+
+# nb3-prevtext-v1 reads what its base, nb3-prevprice-v2, reads (earlier rents too).
+for _group in (
+    EXTERNAL,
+    BASEMAP,
+    FOOTPRINTS,
+    DESCRIPTIONS,
+    AS_OF_SETS,
+    LISTING_EXTRAS,
+    PRICE_HISTORY,
+    READS_EARLIER_RENTS,
+):
+    if "nb3-prevprice-v2" in _group:
+        _group.add("nb3-prevtext-v1")
+for _table in (
+    LOT_SNAPSHOTS,
+    DESCRIPTION_SOURCES,
+    EXTRAS_SNAPSHOTS,
+    AREA_SNAPSHOTS,
+    LPC_SNAPSHOTS,
+):
+    if "nb3-prevprice-v2" in _table:
+        _table["nb3-prevtext-v1"] = _table["nb3-prevprice-v2"]

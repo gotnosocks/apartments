@@ -1253,3 +1253,14 @@ def test_lpc_as_of_counts_a_designation_from_its_date(tmp_path):
         features._LOTS.reset(token)
     assert landmark.tolist() == [True, True, False, False]
     assert district.tolist() == [False, True, True, False]
+
+
+def test_prevtext_reads_what_prevprice_reads():
+    from rentfrontier import features as f
+
+    a, b = "nb3-prevtext-v1", "nb3-prevprice-v2"
+    for group in (f.EXTERNAL, f.BASEMAP, f.DESCRIPTIONS, f.PRICE_HISTORY):
+        assert (a in group) == (b in group)
+    assert a in f.READS_EARLIER_RENTS
+    for table in (f.LOT_SNAPSHOTS, f.DESCRIPTION_SOURCES, f.LPC_SNAPSHOTS):
+        assert table.get(a) == table.get(b)
