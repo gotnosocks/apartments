@@ -167,3 +167,51 @@ def test_main_swaps_the_link(monkeypatch, tmp_path):
     link = tmp_path / "labels.parquet"
     assert link.is_symlink() and pd.read_parquet(link).unit_id.tolist() == ["u"]
     assert sorted(p.name for p in tmp_path.iterdir() if "tmp" in p.name) == []
+
+
+def test_manual_outlook_is_its_own_and_never_spread(monkeypatch, tmp_path):
+    import numpy as np
+
+    from rentfrontier import descriptions, features
+
+    manual = tmp_path / "manual.csv"
+    manual.write_text(
+        "building,unit,facing,outlook,source,date,note\nb,2B,,wall,Ben,2026-10-07,\n"
+    )
+    monkeypatch.setattr(exposure, "MANUAL", manual)
+    url = "https://streeteasy.com/building/b/{}".format
+    frame = pd.DataFrame(
+        {
+            "unit_id": ["u2b", "u3b"],
+            "building": ["b"] * 2,
+            "canonical_unit_url": [url("2b"), url("3b")],
+            "price_at": pd.to_datetime(["2020-01-01"] * 2, utc=True),
+        }
+    )
+    rear = {"u3b"}
+
+    def sides(f):
+        r = np.array([u in rear for u in f.unit_id])
+        return pd.DataFrame(
+            {"avenue": False, "wide street": False, "side street": False, "none": r},
+            index=f.index,
+        )
+
+    monkeypatch.setattr(features, "unit_sides", sides)
+    monkeypatch.setattr(descriptions, "attach", lambda f: pd.Series("", index=f.index))
+    got = exposure.compute(frame).set_index("unit_id")
+    # 2B takes its facing from its line (3B) as before; the outlook is its own.
+    assert got.loc["u2b", ["exposure", "source", "outlook", "checked_by"]].tolist() == [
+        "rear",
+        "line",
+        "wall",
+        "Ben",
+    ]
+    assert got.loc["u3b", ["outlook", "checked_by"]].tolist() == ["", ""]
+
+    manual.write_text("building,unit,facing,outlook,source,date,note\nb,2B,,dark,x,,\n")
+    with pytest.raises(ValueError, match="outlook must be"):
+        exposure.compute(frame)
+    manual.write_text("building,unit,facing,outlook,source,date,note\nb,2B,,,x,,\n")
+    with pytest.raises(ValueError, match="neither"):
+        exposure.compute(frame)
