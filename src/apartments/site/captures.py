@@ -194,12 +194,16 @@ def encode(
             for name in [n for n in x if group_of.get(n) == g]:
                 del x[name]
             x.update({n: v for n, v in p.items() if group_of.get(n) == g})
-        if centre is not None and kit.has("log_months_since_last_listing"):
+        if kit.has("log_months_since_last_listing"):
+            # Not the unit's first listing; with no centre to recover, the
+            # gap stays at its centre (the average gap).
             x.pop("first_listing_of_unit", None)
-            days = (_time(c) - _time(prev)).total_seconds() / 86400
-            x["log_months_since_last_listing"] = (
-                math.log1p(max(days, 0) / 30.4) - centre
-            )
+            x["log_months_since_last_listing"] = 0.0
+            if centre is not None:
+                days = (_time(c) - _time(prev)).total_seconds() / 86400
+                x["log_months_since_last_listing"] = (
+                    math.log1p(max(days, 0) / 30.4) - centre
+                )
     if kit.has("rooms beyond bedrooms=unknown"):
         for name in [n for n in x if group_of.get(n) == "rooms beyond bedrooms"]:
             del x[name]
