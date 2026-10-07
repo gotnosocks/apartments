@@ -715,3 +715,11 @@ def test_quarantine_v6_is_v5_and_110_west_26th_bare_numbers():
     assert {r["building"] for r in added} == {"110-west-26-street-new_york"}
     assert sorted(r["unit_label"] for r in added) == ["3", "3", "4", "5", "6"]
     assert "quarantine-v6" in data.DROPPING_RULES
+
+
+def test_apply_rules_refuses_unit_reviews_before_unit_labels():
+    frame = pd.DataFrame({"audit_id": ["a"], "unit_id": ["u"]})
+    with pytest.raises(ValueError, match="unit-reviews"):
+        data.apply_rules(
+            frame, np.zeros(1, bool), ["unit-reviews-v1", "unit-labels-v9"]
+        )

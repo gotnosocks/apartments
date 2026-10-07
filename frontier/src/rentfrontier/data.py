@@ -823,6 +823,10 @@ def apply_rules(frame: pd.DataFrame, heldout: np.ndarray, rules):
     splits = [i for i, r in enumerate(rules) if r.startswith("unit-splits-")]
     if splits and splits != list(range(len(rules) - len(splits), len(rules))):
         raise ValueError(f"unit-splits rules must come last: {rules}")
+    labels = [i for i, r in enumerate(rules) if r.startswith("unit-labels-")]
+    reviews = [i for i, r in enumerate(rules) if r.startswith("unit-reviews-")]
+    if labels and reviews and min(reviews) < max(labels):
+        raise ValueError(f"unit-reviews rules must follow unit-labels: {rules}")
     mask = pd.Series(np.asarray(heldout, dtype=bool), index=frame.index)
     for rule in rules:
         frame = DATA_RULES[rule](frame)
