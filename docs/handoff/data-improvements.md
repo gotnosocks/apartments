@@ -1,6 +1,17 @@
 # Data improvements — handoff
 
-Updated 2026-10-07 01:00 ET. Thread owner: the Data improvements project thread (bridge session on thelio).
+Updated 2026-10-07 04:40 ET. Thread owner: the Data improvements project thread (bridge session on thelio).
+
+## 2026-10-07 04:40 ET
+
+- **unit-labels-v9 (#394, draft, reviewer approved):** v8 plus number-word-and-letter labels
+  ("fourb"/4B, "five-a"/5A) joined to their twins when bedrooms agree; 46 unit ids, 297 rows.
+  Exploration pair vs v8 (coded-v2, rows, b50430b): +29.9 ± 20.0 overall, +22.5 ± 8.2 on the 261
+  relabelled rows. **Merge only after Modeling decides v8** (its last v8 latest arm launches on
+  Modal at midnight ET 10-08; latestselect refuses arms off the current rules). Modeling then
+  queues the v9 Modal fits at the merged master commit.
+- What's left of label splits after v9 is too mixed for one rule; 55 rows carry listing-id-like
+  labels ("01226"), one-row units.
 
 ## 2026-10-07 01:00 ET
 
@@ -150,7 +161,7 @@ Updated 2026-10-07 01:00 ET. Thread owner: the Data improvements project thread 
 - After the GV switch, Modeling updates the "map grows less than the median ask" note figures.
 - #222 `unit-labels-v4` waits for a batch full fit; the next unit-labels version should add the
   Morton Square + 100 Morton join.
-- Next data item: unit-id splits (fragmented labels in small buildings; see the MapPLUTO note).
+- Merge #394 when Modeling messages that v8 is decided; then tell it the merge commit.
   Run full-data scripts only while the GPU is free: GPU fits lean on swap (memory note, 2026-10-06).
 - Backlog: bldgclass for condo conversions, Jane St registry fix, 13 excluded new-building rows, confirm
   q-v3/q-v4 on held-out rows, gross rent, relist gap.
