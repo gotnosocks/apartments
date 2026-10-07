@@ -497,6 +497,9 @@ def price(
     )
     if not check["passes"]:
         return [], {"priced": 0, "reason": check["reason"]}
+    units = estimate_build.load_units(kit_dir)
+    if any(len(v) != len(kit.market) for v in units.values()):
+        raise estimate.KitError("units.parquet has another number of draws")
     return rows(
         kit,
         kit_buildings,
@@ -505,5 +508,5 @@ def price(
         archives,
         names,
         observations,
-        estimate_build.load_units(kit_dir),
+        units,
     )
