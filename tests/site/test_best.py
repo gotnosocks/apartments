@@ -261,15 +261,15 @@ a,gym,1 Main St,10,0,1,14 St
 """
 
 
-def test_commute_is_a_plus_at_or_under_the_median_without_a_transfer(tmp_path):
+def test_commute_is_a_neutral_note_per_destination(tmp_path):
     (tmp_path / "commute-20261005.csv").write_text("building,destination\n")
     (tmp_path / "commute-20261006.csv").write_text(COMMUTE)
     best.WISHES = tmp_path  # undone by the autouse fixture
     commute = best.load_commute(best.commute_path())
     assert commute["office"]["median"] == 24.8
     a, b, c = (best.commute_tags(x, commute, ["office"]) for x in "abc")
-    assert [t["good"] for t in a + b + c] == [True, False, False]
-    assert b[0]["label"] == "office: 25 min by subway, 1 transfer"
+    assert all("good" not in t for t in a + b + c)
+    assert b[0]["label"] == "Commute to office: 25 min by subway, 1 transfer"
     assert "from 14 St, 1 min walk" in a[0]["title"]
     assert [t["destination"] for t in best.commute_tags("a", commute)] == [
         "office",
@@ -298,13 +298,15 @@ def test_commute_shows_on_best_without_changing_the_fit(client, monkeypatch):
     best.WISHES.mkdir()
     (best.WISHES / "commute-20261006.csv").write_text("building,destination\n")
     page = client.get("/best").get_data(as_text=True)
-    assert "− office: 40 min by subway, 1 transfer" in page
+    assert '<span class="rtag" title="65 E 55th St; from 8 Av' in page
+    assert "Commute to office: 40 min by subway, 1 transfer</span>" in page
+    assert "− Commute" not in page and "+ Commute" not in page
     assert 'id="commute"' in page and "not counted in the fit" in page
     after = list(
         csv.reader(io.StringIO(client.get("/best.csv").get_data(as_text=True)))
     )
     assert after[0][-2] == "commute"
-    assert after[1][-2] == "office: 40 min by subway, 1 transfer"
+    assert after[1][-2] == "Commute to office: 40 min by subway, 1 transfer"
     # Same ranking and fit, row for row.
     assert [x[:-2] for x in after[1:]] == [x[:-2] for x in before[1:]]
 
