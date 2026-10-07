@@ -6,6 +6,7 @@
     "nb-coded-v1": {"about": "listing record's outdoor space types and extra rooms", "kind": "listing"},
     "nb-prevprice-v1": {"about": "how the unit's previous listing was repriced", "pr": 211, "kind": "listing", "verdict": "blocked: no time dependence, semantically invalid (#403)"},
     "nb3-prevprice-v2": {"about": "how the unit's previous listing was repriced (nb3 base)", "kind": "listing", "verdict": "blocked: no time dependence, semantically invalid (#403)"},
+    "nb3-loc-v1": {"about": "smooth location surface: Gaussian bumps 250 m apart, so neighbouring buildings share a premium", "kind": "location", "verdict": "no clear gain; provisional: the coded-v2 reference failed its group R-hat gate (110 W 26th St under unit-splits-v3) and loc-v1 had min ESS 361; clean pair on unit-splits-v4 due 2026-10-08"},
     "nb3-text-v1": {"about": "ad names a physical attribute beyond the coded flags: whole house, penthouse, garden level, terrace, loft and others", "pr": 390, "kind": "listing", "verdict": "fair WV+GV score +43.7 ± 23.5 (1.9 SE); not served, back in the research backlog as text-v2 (Ben, 2026-10-07)"},
     "nb3-attrs-v1": {"about": "ad states one of 15 attributes: walk-in closet, live-in super, utilities included, pre-war and others", "pr": 390, "kind": "listing"},
     "nb3-lineface-v1": {"about": "orientation read from the apartment's line", "kind": "unit"},
