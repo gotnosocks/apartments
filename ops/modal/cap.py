@@ -38,7 +38,7 @@ USD_PER_HOUR = {"L4": 1.0851, "A100-40GB": 2.3851, "A100-80GB": 2.7841, "H100": 
 # Wall time of a fit's container: upload, image, fit and PSIS-LOO, from A100 fits of 2026-10-06/07
 # (the served design, 2 x 3,900 iterations, took 846 to 1,488 s; 2 x 12,300 took about 2,100 s).
 OVERHEAD_SECONDS, SECONDS_PER_ITERATION = 800, 0.11
-SERVED_FIT = (2, 300, 3600)  # chains, warmup, draws
+SERVED_FIT = (2, 300, 4500)  # chains, warmup, draws: the full fit since #432 ($0.88)
 
 
 class CapReached(RuntimeError):
@@ -53,7 +53,9 @@ def estimate(chains, warmup, draws, gpu="A100-40GB"):
     return round(seconds * USD_PER_HOUR[gpu] / 3600, 2)
 
 
-USD_PER_DAY = 10 * estimate(*SERVED_FIT)
+USD_PER_DAY = 10 * estimate(
+    *SERVED_FIT
+)  # Ben, 2026-10-07 22:32Z: $8.80 a day, and the cap
 CEILING = USD_PER_DAY  # Ben, 2026-10-07 22:23Z: cap the balance at ~10 full fits
 
 

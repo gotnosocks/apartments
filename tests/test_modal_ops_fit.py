@@ -54,7 +54,7 @@ def test_a_fit_waits_for_its_dollars_and_an_overrun_leaves_the_balance_negative(
         "run-0",
         "run-1",
     ]
-    assert cap.estimate(2, 100, 600) < usd < cap.estimate(2, 300, 4500)
+    assert cap.estimate(2, 100, 600) < cap.estimate(2, 300, 3600) < usd
 
 
 def test_launches_before_the_budget_began_are_not_charged(tmp_path):
@@ -90,7 +90,7 @@ def test_ten_served_fits_a_day_at_the_container_list_price(monkeypatch):
     assert {
         gpu: round(app.usd_per_second(gpu) * 3600, 4) for gpu in app.FITS
     } == pytest.approx(cap.USD_PER_HOUR, abs=1e-4)
-    assert cap.USD_PER_DAY == pytest.approx(10 * cap.estimate(2, 300, 3600))
+    assert cap.USD_PER_DAY == pytest.approx(8.80)
 
 
 def test_the_pre_check_reads_the_fit_size_from_modal_fit_arguments():
