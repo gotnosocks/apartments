@@ -76,3 +76,12 @@ def test_unit_merging_rules_are_refused_on_the_units_split():
             run.check_rules_for_split([rule, "quarantine-v2"], "units")
         run.check_rules_for_split([rule], "rows")
     run.check_rules_for_split(["quarantine-v2"], "units")
+
+
+def test_noise_provenance_records_each_sets_own_311_file(monkeypatch):
+    from rentfrontier import features, run
+
+    monkeypatch.setattr(run.data, "sha256", lambda path: "sha")
+    noise = {f: run.feature_sources(f)["noise311"]["path"] for f in features.NOISE}
+    assert noise["nb3-noise-v1"] == features.NB3_NOISE_FILE
+    assert noise["unitnoise-v1"] == features.NOISE_FILE

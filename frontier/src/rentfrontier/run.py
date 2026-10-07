@@ -273,7 +273,7 @@ def feature_sources(feature_set: str) -> dict:
         path = features.area_files(feature_set)["basemap"]
         out["basemap"] = {"path": path, "sha256": data.sha256(Path(path))}
     if feature_set in features.NOISE:
-        path = features.NOISE_FILE
+        path = features.NOISE_FILES.get(feature_set, features.NOISE_FILE)
         out["noise311"] = {"path": path, "sha256": data.sha256(Path(path))}
     if feature_set in features.FOOTPRINTS:
         path = features.area_files(feature_set)["footprints"]

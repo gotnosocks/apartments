@@ -675,7 +675,7 @@ def test_nearby_noise_counts_the_year_before_against_chelsea(monkeypatch):
         },
         "construction": {"a": t(), "b": t()},
     }
-    monkeypatch.setattr(features, "_noise_times", lambda path: times)
+    monkeypatch.setattr(features, "_noise_times", lambda path, noise_file: times)
     frame = pd.DataFrame(
         {
             "building": ["a", "b", "a", "c"],
