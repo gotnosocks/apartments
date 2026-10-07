@@ -162,7 +162,7 @@ Updated 2026-10-07 04:40 ET. Thread owner: the Data improvements project thread 
 - #222 `unit-labels-v4` waits for a batch full fit; the next unit-labels version should add the
   Morton Square + 100 Morton join.
 - Merge #394 when Modeling messages that v8 is decided; then tell it the merge commit.
-  Run full-data scripts only while the GPU is free: GPU fits lean on swap (memory note, 2026-10-06).
+- Run full-data scripts only while the GPU is free: GPU fits lean on swap (memory note, 2026-10-06).
 - Backlog: bldgclass for condo conversions, Jane St registry fix, 13 excluded new-building rows, confirm
   q-v3/q-v4 on held-out rows, gross rent, relist gap.
 
