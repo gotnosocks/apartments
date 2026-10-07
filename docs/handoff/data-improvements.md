@@ -1,6 +1,24 @@
 # Data improvements — handoff
 
-Updated 2026-10-07 04:40 ET. Thread owner: the Data improvements project thread (bridge session on thelio).
+Updated 2026-10-07 09:00 ET. Thread owner: the Data improvements project thread (bridge session on thelio).
+
+## 2026-10-07 09:00 ET
+
+- **Prevprice jump audit** (asked by Modeling). The served fit's high-k rows with a big rent jump
+  from the unit's previous listing are not from bad label joins: the share of jumps over 40% is
+  8.2% for raw StreetEasy ids and 6.5–9.7% for the v5/v8/v9 joins. They come from bedroom counts
+  that change inside one unit id. Change of 2 or more: 583 pairs, 63% big jumps, 5.8% high-k.
+  No change: 6.8% and 0.6%. Scripts: `/data1/apartments/tmp/suspect/prevjump/`.
+- **unit-splits-v1 (#397, merged 39c3c8a):** a unit's history splits where an ad's bedroom count
+  differs by 2 or more from the previous ad with a count; 1,058 rows of 463 units. `apply_rules`
+  refuses unit-splits unless it comes last. Exploration pairs (rows split, 69cb5c6, v8, splits
+  vs base): coded-v2 +475.4 ± 56.4, prevprice-v2 +488.2 ± 57.6. In both, the moved rows gain
+  about +210 and the rest comes from rows left in the original unit.
+- **#394 (v9) merged** as 9c96f74. Modeling cancelled the v8 latest arm and will run one Modal
+  trio on 39c3c8a from midnight ET 10-08: prevprice-v2 rows (the one to serve) and prevprice-v2
+  and coded-v2 latest.
+- A threshold of 1 for the split is untested: 3,871 pairs, 20.7% big jumps, 1,374 of them
+  involving a studio. Alcove and flex coding make that noisier.
 
 ## 2026-10-07 04:40 ET
 
@@ -161,7 +179,8 @@ Updated 2026-10-07 04:40 ET. Thread owner: the Data improvements project thread 
 - After the GV switch, Modeling updates the "map grows less than the median ask" note figures.
 - #222 `unit-labels-v4` waits for a batch full fit; the next unit-labels version should add the
   Morton Square + 100 Morton join.
-- Merge #394 when Modeling messages that v8 is decided; then tell it the merge commit.
+- Pair Modeling's 39c3c8a trio when it lands (10-08 overnight). A unit-splits threshold-1 or
+  studio-aware variant is the next candidate, after the trio.
 - Run full-data scripts only while the GPU is free: GPU fits lean on swap (memory note, 2026-10-06).
 - Backlog: bldgclass for condo conversions, Jane St registry fix, 13 excluded new-building rows, confirm
   q-v3/q-v4 on held-out rows, gross rent, relist gap.
