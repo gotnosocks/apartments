@@ -49,7 +49,6 @@ from . import (
     estimate,
     estimate_build,
     exposure,
-    ratings,
     streetview,
     summary,
 )
@@ -554,7 +553,6 @@ SECTIONS = {
         "buildings",
         "building",
         "quarantined",
-        "my_ratings",
         "best_listings",
         "about",
         "estimates_map",
@@ -585,12 +583,8 @@ def create_app(
     allowed_hosts=None,
     research_data=None,
     research_plan=None,
-    ratings_db=None,
 ) -> Flask:
     root = Path(root or os.environ.get("SITE_ROOT", "/data1/apartments/site"))
-    store = ratings.Store(
-        ratings_db or os.environ.get("RATINGS_DB") or ratings.DEFAULT_PATH
-    )
     research = Research(research_data)
     plan = Plan(research_plan)
     app = Flask(__name__)
@@ -660,12 +654,6 @@ def create_app(
             g.db.row_factory = sqlite3.Row
             g.build = path.parent.name
         return g.db
-
-    def rated() -> dict:
-        """Every rated listing's score (None for a rating with no score)."""
-        if "rated" not in g:
-            g.rated = store.scores()
-        return g.rated
 
     def meta() -> dict:
         if "meta" not in g:
@@ -769,8 +757,6 @@ def create_app(
     app.jinja_env.globals["design_label"] = design_label
     app.jinja_env.globals["chosen_by"] = chosen_by
     app.jinja_env.filters["term_id"] = term_id
-    # A rating tag picked from the fixed lists ("+light", "-noisy"), not typed.
-    app.jinja_env.tests["rated_side"] = lambda t: ratings.tag_label(t)[0] != "own"
 
     @app.context_processor
     def helpers():
@@ -824,10 +810,6 @@ def create_app(
             "features": lambda row: features(row, exposures().get(row["unit_id"])),
             "FACES": FACES,
             "has_exposure": has_exposure,
-            "rated": rated,
-            "RATING_GOOD": ratings.GOOD,
-            "RATING_BAD": ratings.BAD,
-            "tag_label": ratings.tag_label,
             "SORTS": SORTS,
             "PER_PAGE": PER_PAGE,
             "QUARANTINE_ACTIONS": QUARANTINE_ACTIONS,
@@ -1081,11 +1063,13 @@ def create_app(
             ).days
         return render_template(
             "listing.html",
-            rating=store.get(audit_id),
-            editing=request.args.get("edit") == "1",
             captured=capture_day(row["collected_at"]),
             exposure=exposure_of(row["unit_id"]),
+            unit_from_fit=any(
+                c.get("from_fit") for c in contributions if c["term"] == "unit"
+            ),
             read_floor=read_floor(row, inputs),
+            carried_size=carried_size(row, inputs, others),
             facing=next(
                 (
                     k.removeprefix("looks onto ")
@@ -1118,67 +1102,6 @@ def create_app(
             chart=unit_chart(others) if len(others) > 1 else None,
         )
 
-    def listing_row(audit_id):
-        return (
-            db()
-            .execute(
-                "SELECT l.*, b.name AS building_name, b.address AS building_address "
-                "FROM listings l JOIN buildings b ON b.id = l.building_id "
-                "WHERE l.audit_id = ?",
-                (audit_id,),
-            )
-            .fetchone()
-        )
-
-    @app.post("/ratings")
-    def rate():
-        """Save or clear the rating of one listing (docs/ratings.md)."""
-        origin = request.headers.get("Origin") or request.headers.get("Referer")
-        if not ratings.write_allowed(
-            request.remote_addr, origin, app.config["TRUSTED_HOSTS"]
-        ):
-            abort(403, description="Ratings are saved only from this site's own pages.")
-        audit_id = request.form.get("audit_id") or ""
-        row = listing_row(audit_id)
-        if row is None:
-            abort(404, description="No such listing in this build.")
-        if request.form.get("action") == "clear":
-            store.clear(audit_id)
-        else:
-            score, tags, note = ratings.parse_form(request.form)
-            snapshot = {
-                "building": row["building_name"] or row["building_address"],
-                "address": row["building_address"],
-                "unit": row["unit_label"],
-                "neighbourhood": row["neighbourhood"],
-                "period": row["period"],
-                "bedrooms": row["bedrooms"],
-                "bathrooms": row["bathrooms"],
-                "square_feet": row["square_feet"],
-                "ask": row["ask"],
-                "estimate": row["estimate"],
-                "likely_low": dict(row).get("pred_lower_80"),
-                "likely_high": dict(row).get("pred_upper_80"),
-                "listing_url": row["listing_url"],
-                "build": g.build,
-            }
-            store.save(
-                audit_id,
-                row["unit_id"],
-                row["building_id"],
-                score,
-                tags,
-                note,
-                snapshot,
-            )
-        return redirect(url_for("listing", audit_id=audit_id, _anchor="rating"), 303)
-
-    RATING_SORTS = {
-        "updated": "Last changed",
-        "score": "Score",
-        "diff": "Ask vs estimate",
-    }
-
     def ranked(profile_name: str) -> dict:
         """The profile and every current listing scored by it, cached per
         build and per version of the sheet; 404 for an unknown profile."""
@@ -1189,14 +1112,37 @@ def create_app(
             stamp = None
         if stamp is None:
             abort(404, description=f"No preference sheet named {profile_name!r}.")
-        key = (str(database_path()), profile_name, stamp)
+        commute_file = best.commute_path()
+        try:
+            commute_stamp = commute_file.stat().st_mtime_ns if commute_file else None
+        except OSError:
+            commute_file = commute_stamp = None
+        bed_file = best.bed_size_path()
+        try:
+            bed_stamp = bed_file.stat().st_mtime_ns if bed_file else None
+        except OSError:
+            bed_file = bed_stamp = None
+        key = (
+            str(database_path()),
+            profile_name,
+            stamp,
+            str(commute_file),
+            commute_stamp,
+            str(bed_file),
+            bed_stamp,
+        )
         if key not in best_cache:
             try:
                 profile = best.load_profile(path)
             except (OSError, ValueError, AttributeError) as error:
                 abort(503, description=f"The preference sheet can't be read: {error}")
             best_cache.clear()
-            best_cache[key] = {"profile": profile, **best.rank(db(), profile)}
+            commute = best.load_commute(commute_file)
+            best_cache[key] = {
+                "profile": profile,
+                "commute": commute,
+                **best.rank(db(), profile, commute, best.load_bed_size(bed_file)),
+            }
         return best_cache[key]
 
     def best_choice() -> tuple[str, dict, dict]:
@@ -1227,6 +1173,10 @@ def create_app(
             profile_name=name,
             not_modelled=data["not_modelled"],
             everywhere=data["everywhere"],
+            usual_floor=data.get("usual_floor"),
+            capture_days=data.get("capture_days", []),
+            ordinal=best.ordinal,
+            commute=data["commute"],
             rows=shown,
             total=len(rows),
             current=len(data["rows"]),
@@ -1246,7 +1196,8 @@ def create_app(
             [
                 "rank", "audit_id", "building", "unit", "neighbourhood", "bedrooms",
                 "ask", "estimate", "ask_vs_estimate_pct", "fit_pct", "score",
-                "value", "deal", "pros", "cons", "not_stated", "streeteasy",
+                "value", "deal", "pros", "cons", "not_stated", "streeteasy", "commute",
+                "bed_size",
             ]
         )  # fmt: skip
         for i, r in enumerate(best.choose(data["rows"], **choice), 1):
@@ -1261,6 +1212,8 @@ def create_app(
                     "; ".join(t["label"] for t in r["cons"]),
                     "; ".join(r["unknown"] + data["everywhere"]),
                     r["listing_url"],
+                    "; ".join(t["label"] for t in r["commute"]),
+                    r["bed_size"],
                 ]
             )  # fmt: skip
         return Response(
@@ -1268,90 +1221,6 @@ def create_app(
             mimetype="text/csv",
             headers={"Content-Disposition": "attachment; filename=best.csv"},
         )
-
-    @app.get("/ratings")
-    def my_ratings():
-        rows = store.all()
-        tag = request.args.get("tag") or None
-        try:
-            min_score = int(request.args.get("score") or 0)
-        except ValueError:
-            min_score = 0
-        sort = (
-            request.args.get("sort")
-            if request.args.get("sort") in RATING_SORTS
-            else "updated"
-        )
-        tags = sorted(
-            {t for r in rows for t in r["tags"]}, key=lambda t: ratings.tag_label(t)
-        )
-        if tag:
-            rows = [r for r in rows if tag in r["tags"]]
-        if min_score:
-            rows = [r for r in rows if (r["score"] or 0) >= min_score]
-        current = {}
-        if rows:
-            ids = [r["audit_id"] for r in rows]
-            for i in range(0, len(ids), 500):
-                chunk = ids[i : i + 500]
-                for c in db().execute(
-                    "SELECT audit_id, ask, estimate, residual_pct, is_current FROM listings "
-                    f"WHERE audit_id IN ({', '.join('?' * len(chunk))})",
-                    chunk,
-                ):
-                    current[c["audit_id"]] = c
-        for r in rows:
-            r["now"] = current.get(r["audit_id"])
-            snap = r["snapshot"]
-            r["diff"] = (
-                snap["ask"] / snap["estimate"] - 1
-                if snap.get("ask") and snap.get("estimate")
-                else None
-            )
-        if sort == "score":
-            rows.sort(key=lambda r: -(r["score"] or 0))
-        elif sort == "diff":
-            rows.sort(key=lambda r: (r["diff"] is None, r["diff"] or 0))
-        return render_template(
-            "ratings.html",
-            meta=meta(),
-            rows=rows,
-            tags=tags,
-            tag=tag,
-            min_score=min_score,
-            sort=sort,
-            sorts=RATING_SORTS,
-        )
-
-    def rating_export_rows() -> list[dict]:
-        out = []
-        for r in store.all():
-            flat = {k: v for k, v in r.items() if k != "snapshot"}
-            flat["tags"] = "; ".join(r["tags"])
-            for k, v in r["snapshot"].items():
-                flat[k] = v
-            out.append(flat)
-        return out
-
-    @app.get("/ratings.csv")
-    def ratings_csv():
-        rows = rating_export_rows()
-        columns = list(dict.fromkeys(k for r in rows for k in r)) or ["audit_id"]
-        buffer = io.StringIO()
-        writer = csv.DictWriter(buffer, columns)
-        writer.writeheader()
-        writer.writerows(rows)
-        return Response(
-            buffer.getvalue(),
-            mimetype="text/csv",
-            headers={"Content-Disposition": "attachment; filename=ratings.csv"},
-        )
-
-    @app.get("/ratings.json")
-    def ratings_json():
-        response = jsonify(store.all())
-        response.headers["Content-Disposition"] = "attachment; filename=ratings.json"
-        return response
 
     def building_exists(building_id) -> bool:
         return (
@@ -2769,6 +2638,22 @@ def read_floor(row, inputs: dict[str, float]) -> int | None:
     if row["floor"] is not None or "floor_unknown" in inputs:
         return None
     return round(math.exp(inputs.get("log_floor", 0.0)))  # floor 1 has no input
+
+
+def carried_size(row, inputs: dict[str, float], others) -> dict | None:
+    """The size the model used for a listing whose ad states none: the
+    unit's latest earlier ad that does (playtest round 11). None when the
+    ad states one or the model treats the size as unknown."""
+    # Only when the model used a size for this listing, so the page shows what it priced.
+    if row["square_feet"] or "log_sqft_vs_bedroom_median" not in inputs:
+        return None
+    earlier = [
+        o for o in others if o["square_feet"] and o["period"] <= row["period"]
+    ] or [o for o in others if o["square_feet"]]
+    if not earlier:
+        return None
+    o = earlier[-1]
+    return {"square_feet": o["square_feet"], "year": o["period"][:4]}
 
 
 def day_label(iso: str) -> str:

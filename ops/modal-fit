@@ -1,0 +1,27 @@
+#!/bin/bash
+# Run a frontier fit and its PSIS-LOO on a Modal GPU (Ben, 2026-10-06: at most 10 Modal fits a day).
+#
+#   ops/modal-fit [--foreground] [--gpu A100-40GB] [--dataset DIR] [--input PATH]... [--split rows]
+#                 [--chain-batch N] COMMIT LABEL MODEL FEATURES CHAINS WARMUP DRAWS KEEP [run options...]
+#
+# The arguments mirror drive.sh; ops/modal/fit.py has the details. It runs in a systemd --user
+# unit (so a session restart doesn't stop it), logs to /data1/apartments/modal/logs/<unit>.log,
+# and the results land in /data1/apartments/frontier/runs/<name> and loo/ like a thelio fit's.
+# Watch it with: ops/team/wait-next --unit 'modal-fit-*'. docs/model/modal.md has the rest.
+set -eu
+here=$(cd "$(dirname "$0")" && pwd)
+venv=${MODAL_VENV:-/data1/apartments/venvs/modal}
+state=${MODAL_FIT_STATE:-/data1/apartments/modal}
+[ -x "$venv/bin/python" ] || { echo "no Modal venv at $venv (docs/model/modal.md: Setup)" >&2; exit 2; }
+python3 "$here/modal/cap.py" --check >&2 || { echo "refused: the daily cap is used up" >&2; exit 1; }
+if [ "${1:-}" = --foreground ]; then shift; exec "$venv/bin/python" "$here/modal/fit.py" "$@"; fi
+unit=modal-fit-$(date +%Y%m%d-%H%M%S)-$$
+mkdir -p "$state/logs"
+log=$state/logs/$unit.log
+env_args=()
+for v in FRONTIER_OUTPUT_ROOT FRONTIER_DATASET MODAL_FIT_REPO MODAL_FIT_STATE; do
+  [ -n "${!v:-}" ] && env_args+=(--setenv="$v=${!v}")
+done
+systemd-run --user --quiet --unit="$unit" -p MemoryMax=2G -p StandardOutput="append:$log" \
+  -p StandardError="append:$log" "${env_args[@]}" "$venv/bin/python" "$here/modal/fit.py" "$@"
+echo "started $unit; log $log"

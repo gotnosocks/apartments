@@ -176,3 +176,17 @@ def test_unsupported_designs_are_refused():
         kit.kit_tables(kept | {"line_scale": np.full(12, 0.1)}, prep, config, feats)
     with pytest.raises(SystemExit, match="unit-drift"):
         kit.kit_tables(kept | {"unit_drift": np.zeros((12, 3))}, prep, config, feats)
+
+
+def test_unit_levels_are_the_fits_thinned_unit_draws():
+    kept, prep, config, feats = toy(draws=600)
+    prep.units = np.array([f"u{i}" for i in range(7)])
+    kept["unit"] = np.random.default_rng(1).normal(0, 0.1, (600, 7))
+    units = kit.unit_table(kept, prep)
+    assert units.unit.tolist() == list(prep.units)
+    idx = kit.thin(600)
+    for j in range(7):
+        np.testing.assert_allclose(
+            units.level[j], kept["unit"][idx, j].astype(np.float32), rtol=0, atol=0
+        )
+    assert len(units.level[0]) == 250

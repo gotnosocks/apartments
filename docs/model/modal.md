@@ -1,6 +1,46 @@
 # Modal posterior fitting
 
-**Fits run locally by default; Modal is opt-in.** A full-length remote refit of the product-scope spline model ran in 55.4 minutes against about 56 locally, reproduced the local protocol hash, and was billed $0.38 ([September 23 record](../analysis/modal-remote-fitting-2026-09-23.md)). One Modal core samples at local speed and the disk sampler uses at most four, so Modal helps only to run several fits at once or to keep load off the local machine.
+## Frontier fits on Modal
+
+Since 2026-10-06 (Ben), frontier fits may run on a Modal GPU, **at most 10 Modal fits a day**. `ops/modal-fit` takes drive.sh's arguments, runs the fit and its PSIS-LOO in one Modal container, and puts the results where a thelio fit's go:
+
+```sh
+ops/modal-fit [--gpu A100-40GB] [--dataset DIR] [--input PATH]... [--split rows] [--chain-batch N] \
+  COMMIT LABEL MODEL FEATURES CHAINS WARMUP DRAWS KEEP [rentfrontier.run options...]
+python3 ops/modal/cap.py                       # today's Modal launches and slots left
+ops/team/wait-next --unit 'modal-fit-*'        # wake when it lands
+```
+
+- **Cap.** Every launch takes a slot in `/data1/apartments/modal/ledger.jsonl` before its container starts, whether it later succeeds or fails. The day is the New York calendar day. The eleventh launch of a day is refused, and there is no override (`ops/modal/cap.py`).
+- **What runs.** `ops/modal-fit` starts `ops/modal/fit.py` in a `systemd-run --user` unit `modal-fit-<time>`, logging to `/data1/apartments/modal/logs/`. It ships a shallow git checkout of COMMIT, uploads only the inputs that changed since the last launch (the dataset, `/data1/apartments/external`, the frontier cache and descriptions, and a few files under `data/model/`), and runs `rentfrontier.run` then `rentfrontier.loo` in the container. The fit alone is capped at 2 h (30 min for an exploration fit, chosen as in drive.sh), the container at 3 h.
+- **Results.** The run directory lands in `FRONTIER_OUTPUT_ROOT/runs/<name>`, with the container log and `modal.json` (GPU, stage times, list-price estimate) under `modal/`, and the LOO directory in `FRONTIER_OUTPUT_ROOT/loo/`. Both are then deleted from the Volume. The variance decomposition of a full fit is light work; run it on thelio from a checkout of COMMIT as drive.sh does (`JAX_PLATFORMS=cpu uv run python -m rentfrontier.variance NAME`).
+- **Fit time.** A Modal fit's time is not comparable with a thelio fit's: the served design took 822 s on an A100-40GB against 6,578 s on the RTX 2060 SUPER. `result.json` records the GPU under `hardware`.
+- **Cleanup.** Inputs and code stay on Volume `apartments-modal-fits` between fits. `apartments-modal-cleanup.timer` checks hourly and deletes the Volume once 24 h have passed since the last launch returned and no fit app is running; the next launch uploads everything again (about 450 MB).
+
+### Choosing a GPU
+
+The sampler runs in float64, so the GPU's float64 throughput sets the speed. A100-40GB is the default. On 2026-10-06 the served design (94,453 rows, 2 chains, 300 warmup and 3,600 draws) ran:
+
+| GPU | fit | PSIS-LOO | billed |
+|---|---|---|---|
+| A100-40GB | 822 to 919 s (warmup 288 to 364, sampling 516 to 546) | 139 s, 106,764.6 ± 334 | $0.72 for the fit alone; $0.80 for a 1,188 s rerun against a $0.79 estimate |
+| L4 (300 warmup, 180 draws) | warmup 518 s | | |
+| RTX 2060 SUPER (thelio) | 6,578 s | 141 s | |
+
+The A100 reproduced thelio's diagnostics and PSIS-LOO exactly (R-hat 1.00529, minimum ESS 469.07, held-out ELPD 13,139.0, PSIS-LOO 106,764.6 ± 334). PSIS-LOO gains nothing from the A100 (139 s against 141 s) but costs only about $0.09 inside the fit's container, so it stays there. Prices are in `ops/modal/app.py`, from [modal.com/pricing](https://modal.com/pricing).
+
+### Setup
+
+```sh
+uv venv --python 3.12 /data1/apartments/venvs/modal && VIRTUAL_ENV=/data1/apartments/venvs/modal uv pip install modal==1.6.1
+/data1/apartments/venvs/modal/bin/modal setup          # once; writes ~/.modal.toml
+cp ops/systemd/apartments-modal-cleanup.{service,timer} ~/.config/systemd/user/
+systemctl --user daemon-reload && systemctl --user enable --now apartments-modal-cleanup.timer
+```
+
+## Root-project fits
+
+A full-length remote refit of the product-scope spline model ran in 55.4 minutes against about 56 locally, reproduced the local protocol hash, and was billed $0.38 ([September 23 record](../analysis/modal-remote-fitting-2026-09-23.md)). One Modal core samples at local speed and the disk sampler uses at most four, so Modal helps only to run several fits at once or to keep load off the local machine.
 
 ```sh
 # Main model through the CLI: same runner, same options, same protocol hash as a local run.

@@ -21,17 +21,29 @@ price for what it is), "fit" (score alone) and "value" (score - log ask: fit
 for the money). Log asks spread about six times wider than scores, so
 "value" is close to cheapest first unless bedrooms or a budget narrow the
 list (Modeling, 2026-10-06); it is not the default. Point values only for now; intervals can follow if wanted.
+
+Commute (Data improvements' `rentfrontier.commute`, #353): weekday-morning
+subway minutes from each building to the destinations in
+`config/commute-destinations.json`, read at runtime from the newest
+`commute-*.csv` in the wishes folder. A sheet may name the destinations it
+wants (`"commute": ["office"]`; all of them otherwise). It is a neutral note,
+neither a plus nor a minus, and not counted: pluses and minuses are the
+served model's terms only, and the model has no price for a commute (Ben,
+2026-10-07).
 """
 
 from __future__ import annotations
 
+import csv
 import json
 import math
 import os
 import re
+import statistics
 from pathlib import Path
 
 DIR = Path(os.environ.get("PREFERENCES_DIR", "/data1/apartments/preferences"))
+WISHES = Path(os.environ.get("WISHES_DIR", "/data1/apartments/wishes"))
 DEFAULT_PROFILE = "ben-v1"
 PROFILE_NAME = re.compile(r"^[a-z0-9][a-z0-9-]{0,63}$")
 SORTS = {
@@ -132,21 +144,125 @@ def load_profile(path: Path) -> dict:
         "unmodelled": unmodelled,
         "neutral": raw.get("neutral_on_purpose") or [],
         "left_out": raw.get("taste_left_out") or [],
+        "commute": [str(d) for d in raw["commute"]]
+        if isinstance(raw.get("commute"), list)
+        else None,
     }
+
+
+def commute_path() -> Path | None:
+    """The newest commute table, or None."""
+    files = sorted(WISHES.glob("commute-*.csv"))
+    return files[-1] if files else None
+
+
+def load_commute(path: Path | None) -> dict:
+    """{destination: {address, median, buildings: {building: trip}}}; empty
+    without a readable table."""
+    if path is None:
+        return {}
+    try:
+        with path.open(newline="") as f:
+            rows = list(csv.DictReader(f))
+    except (OSError, ValueError, csv.Error):
+        return {}
+    out: dict[str, dict] = {}
+    for r in rows:
+        try:
+            trip = {
+                "minutes": float(r["minutes"]),
+                "transfers": int(float(r["transfers"] or 0)),
+                "station": r.get("station") or None,
+                "walk": float(r["walk_to_station_min"])
+                if r.get("walk_to_station_min")
+                else None,
+            }
+        except (KeyError, ValueError):
+            continue
+        d = out.setdefault(
+            r["destination"], {"address": r.get("address"), "buildings": {}}
+        )
+        d["buildings"][r["building"]] = trip
+    for d in out.values():
+        d["median"] = statistics.median(t["minutes"] for t in d["buildings"].values())
+    return out
+
+
+def bed_size_path() -> Path | None:
+    """The newest bed-size table, or None."""
+    files = sorted(WISHES.glob("bed-size-*.csv"))
+    return files[-1] if files else None
+
+
+BED_SIZES = ("full", "queen", "king")
+
+
+def load_bed_size(path: Path | None) -> dict:
+    """{unit_id: largest bed an ad says fits}; empty without a readable
+    table. A lower bound read from the ads' text, never a measurement."""
+    if path is None:
+        return {}
+    try:
+        with path.open(newline="") as f:
+            rows = list(csv.DictReader(f))
+    except (OSError, ValueError, csv.Error):
+        return {}
+    return {
+        r["unit_id"]: r["largest"]
+        for r in rows
+        if r.get("unit_id") and r.get("largest") in BED_SIZES
+    }
+
+
+def commute_tags(building_id, commute: dict, wanted=None) -> list[dict]:
+    """A neutral note per destination for one building: its subway time."""
+    tags = []
+    for name, d in commute.items():
+        if wanted is not None and name not in wanted:
+            continue
+        trip = d["buildings"].get(building_id)
+        if trip is None:
+            continue
+        n = trip["transfers"]
+        words = f"Commute to {name}: {trip['minutes']:.0f} min by subway" + (
+            f", {n} transfer{'s' if n > 1 else ''}" if n else ""
+        )
+        how = []
+        if trip["station"]:
+            how.append(
+                f"from {trip['station']}"
+                + (f", {trip['walk']:.0f} min walk" if trip["walk"] is not None else "")
+            )
+        how.append(f"median {d['median']:.0f} min")
+        tags.append(
+            {
+                "destination": name,
+                "label": words,
+                "title": f"{d['address']}; " + "; ".join(how)
+                if d["address"]
+                else "; ".join(how),
+                **trip,
+            }
+        )
+    return tags
 
 
 def label(feature: str) -> str:
     return LABELS.get(feature, feature.replace("_", " ").replace("text:", ""))
 
 
+def ordinal(n: int) -> str:
+    """The suffix: 1 -> 'st', 12 -> 'th'."""
+    return (
+        "th" if 10 <= n % 100 <= 20 else {1: "st", 2: "nd", 3: "rd"}.get(n % 10, "th")
+    )
+
+
 def _floor_words(floor) -> str:
     if floor is None:
         return "a higher floor"
     n = int(floor)
-    suffix = (
-        "th" if 10 <= n % 100 <= 20 else {1: "st", 2: "nd", 3: "rd"}.get(n % 10, "th")
-    )
-    return f"the {n}{suffix} floor"
+    return f"the {n}{ordinal(n)} floor"
 
 
 def _hides(prefixes: tuple[str, ...], weights: dict) -> bool:
@@ -157,13 +273,19 @@ def _hides(prefixes: tuple[str, ...], weights: dict) -> bool:
     )
 
 
-def score(row, inputs: dict, building, profile: dict, betas: dict) -> dict:
+def score(
+    row, inputs: dict, building, profile: dict, betas: dict, usual_floor: int = 1
+) -> dict:
     """One listing's score and its signed terms: pros (> 0), cons (< 0),
-    largest first, and the marked details it doesn't state."""
+    largest first, and the marked details it doesn't state. The floor counts
+    from the usual floor, as space counts from the usual size: below it is a
+    minus (Ben, 2026-10-06)."""
     weights = profile["weights"]
     terms: dict[str, float] = {}
     for f, w in weights.items():
         x = inputs.get(f)
+        if f == "log_floor" and row["floor"] is not None:
+            x = math.log(max(row["floor"], 1) / usual_floor)
         if not x or f not in betas:
             continue
         key = COMBINED.get(f, f)
@@ -174,6 +296,8 @@ def score(row, inputs: dict, building, profile: dict, betas: dict) -> dict:
             continue
         if key == "floor":
             words = _floor_words(row["floor"])
+            if row["floor"] is not None and row["floor"] < usual_floor:
+                words = f"a low floor ({words})"
         elif key == "log_sqft_vs_bedroom_median":
             words = (
                 "more space than usual for its bedrooms"
@@ -221,7 +345,24 @@ def score(row, inputs: dict, building, profile: dict, betas: dict) -> dict:
     }
 
 
-def rank(db, profile: dict) -> dict:
+def earlier_ad_text(db) -> dict[str, dict]:
+    """The model inputs of the newest earlier row of each current ad that has
+    its description: a capture does not read the ad's text, so its notes
+    (income-restricted, flex) come from the same ad seen before."""
+    out: dict[str, dict] = {}
+    for listing_id, inputs in db.execute(
+        "SELECT listing_id, inputs FROM listings WHERE is_current = 0 AND listing_id IN "
+        "(SELECT listing_id FROM listings WHERE is_current = 1) ORDER BY period, price_at"
+    ):
+        x = json.loads(inputs)
+        if not x.get("description_missing"):
+            out[listing_id] = x
+    return out
+
+
+def rank(
+    db, profile: dict, commute: dict | None = None, bed_size: dict | None = None
+) -> dict:
     """Every current listing, scored: {rows, not_modelled, everywhere}.
     `everywhere` lists the unknown details every listing shares (said once
     on the page rather than on every row)."""
@@ -239,13 +380,25 @@ def rank(db, profile: dict) -> dict:
             "WHERE b.id IN (SELECT building_id FROM listings WHERE is_current = 1)"
         )
     }
+    # The usual floor: the median of every listing with a floor.
+    floors = [f for (f,) in db.execute("SELECT floor FROM listings WHERE floor >= 1")]
+    usual_floor = max(1, round(statistics.median(floors))) if floors else 1
+    ad_text = earlier_ad_text(db)
     rows = []
     for r in db.execute(
-        "SELECT audit_id, building_id, unit_label, neighbourhood, bedrooms, ask, "
-        "estimate, floor, reliable, listing_url, inputs FROM listings WHERE is_current = 1 AND ask > 0"
+        "SELECT audit_id, unit_id, building_id, unit_label, neighbourhood, bedrooms, ask, "
+        "estimate, floor, reliable, listing_url, listing_id, inputs, collected_at, method "
+        "FROM listings WHERE is_current = 1 AND ask > 0"
     ):
         inputs = json.loads(r["inputs"])
-        s = score(r, inputs, buildings.get(r["building_id"]), profile, betas)
+        text = (
+            ad_text.get(r["listing_id"], {})
+            if inputs.get("description_missing")
+            else inputs
+        )
+        s = score(
+            r, inputs, buildings.get(r["building_id"]), profile, betas, usual_floor
+        )
         b = buildings.get(r["building_id"])
         s.update(
             audit_id=r["audit_id"],
@@ -257,11 +410,18 @@ def rank(db, profile: dict) -> dict:
             estimate=r["estimate"],
             reliable=r["reliable"],
             listing_url=r["listing_url"],
+            captured=(r["collected_at"] or "")[:10] or None,
+            kit=r["method"] == "kit",
             building_id=r["building_id"],
             latitude=b["latitude"] if b else None,
             longitude=b["longitude"] if b else None,
             address=b["address"] if b else None,
-            income_restricted=bool(inputs.get("text:income_restricted")),
+            commute=commute_tags(
+                r["building_id"], commute or {}, profile.get("commute")
+            ),
+            bed_size=(bed_size or {}).get(r["unit_id"]),
+            income_restricted=bool(text.get("text:income_restricted")),
+            flex=bool(text.get("text:flex_convertible")),
             fit_pct=100 * math.expm1(s["score"]),
             vs_estimate=r["ask"] / r["estimate"] - 1 if r["estimate"] else None,
             value=s["score"] - math.log(r["ask"]),
@@ -275,6 +435,9 @@ def rank(db, profile: dict) -> dict:
         r["unknown"] = [u for u in r["unknown"] if u not in everywhere]
     return {
         "rows": rows,
+        "usual_floor": usual_floor,
+        # Captures of more than one day: each row says its own.
+        "capture_days": sorted({r["captured"] for r in rows if r["captured"]}),
         "not_modelled": not_modelled,
         "everywhere": [u for _, _, u in UNKNOWN if u in everywhere]
         + (["which way it faces"] if "which way it faces" in everywhere else []),

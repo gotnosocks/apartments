@@ -2,6 +2,76 @@
 
 What the next turn of the website thread needs. Updated at each milestone.
 
+## State (2026-10-07 04:00 UTC)
+
+- **Captures use the fit's unit levels (#385):** a captured current listing of a unit the fit has
+  seen is scored with that unit's level from the kit's `units.parquet` (#380), and copies the same
+  ad's earlier description (Modeling: keep it). The served kit `…gv1005-1c2790b` has the file;
+  live build 20261007T033530415762Z: 44 of 44 GV captures use fitted levels. 1 University Pl 2J
+  is $5,671 (fit $5,443; the gap is expected, says Modeling).
+- **/best rule (Ben, 2026-10-07; #383, docs/site.md):** pills only for served-model terms;
+  commute and ad-stated bed size are grey notes (#384). No pills for hand labels (2B "wall"
+  outlook, #382, not shown; waits for Data improvements' footprint feature).
+- **Flex note (#387):** "ad says it can be set up as a N+1-bed"; 2J stays coded as a 1-bed (Ben).
+
+## State (2026-10-07 00:40 UTC)
+
+- #377 (Ben's OK, 00:16Z) prices current-listings captures the served fit's dataset never read with the
+  run's prediction kit (`site/captures.py`, `method = "kit"`), using the dataset's own current-row rules
+  (`candidate_search.select_candidates` + layout/rent support). A dataset-dropped listing or a unit
+  the dataset prices as current stays out. Live: 44 Greenwich Village listings from the Oct 6 capture on
+  /best (best #7, Hilary Gardens 34A); Oct 4 Chelsea/WV unchanged. `build.json` stats `captured_current`
+  says how many were priced and why the others were skipped.
+- A data-only rebuild is `apartments.site build` from /data1/apartments/serve/site (step 3 of
+  `ops/autoselect-publish.sh`); site-deploy alone keeps the old build.
+- Open (non-blocking, reviewer): `first_listing_of_unit` stays set if a unit has an earlier listing
+  but no relisting centre is recoverable; no test of `captures.encode` with an earlier listing.
+
+## State (2026-10-06 21:50 UTC)
+
+- #368 live: My ratings removed; no rating was ever stored. #369 live: a listing whose ad has
+  no size shows the size the model carried from the unit's earlier ad (only when the model has
+  a size input). Round 11 findings are in docs/playtests/backlog.md; none need action yet.
+- Next: pills for lines and jobs once Modeling's nb3-lines-v1 and nb3-access-v1 are in a
+  served build, then ask Ben once for weights. Features stay on hold otherwise.
+
+## State (2026-10-06 21:15 UTC)
+
+- #366: on /best the floor counts from the usual floor (the median, the 4th), so floors 1–3
+  get a "low floor" minus. Ben keeps his sheet's floor weight at 1× (20:26 UTC). #367: every
+  minus pill is shown. Ratings removed at Ben's request (21:02 UTC); backlog entry added.
+
+## State (2026-10-06 19:30 UTC)
+
+- **Informational notes on /best (grey, not pills; Ben 2026-10-07), read at runtime from `/data1/apartments/wishes/` (newest file by
+  name; each table's path and mtime are in the ranking cache key; the ranking is unchanged):**
+  #355 commute (`commute-*.csv`; a neutral grey note since #384, not a plus or minus)
+  and #362 bed size (`bed-size-*.csv`: "King bed fits (ad)", a floor read from the ad's text).
+  Each also has a `best.csv` column.
+- **Waiting on Modeling:** per-line subway (`nb3-lines-v1`, "L within 8 min" and so on; 7, J/Z and
+  G unpriced) and jobs access (`nb3-access-v1`, "log jobs within 30 min"). Once a served build
+  has their coefficients, add labels and hover text (`subway-lines-*.csv`, `jobs-access-*.csv`),
+  then ask Ben once for their weights in his sheet. Amenity isochrones come later (Data
+  improvements).
+
+## State (2026-10-06 17:30 UTC)
+
+- **Ben's /best asks, all merged and deployed:** #337 StreetEasy links at the top of listing pages
+  (`#streeteasy`) and on /best rows (plus a `streeteasy` CSV column); #338 Street View links on
+  listing, building and /best pages; #339 every plus shown; #340 Street View stands in the
+  building's own street facing it (`site/streetview.py`: address to basemap street, nearest
+  centreline point, affine grid-to-lat/lon fit, heading back to the building), after a lot-point
+  pano opened inside a restaurant; #343 /best on phones: rows become cards below 640px, 44px tap
+  targets, no sideways scroll at 320px (`.columns` uses `min(22rem, 100%)`).
+- **Ben's /best feedback** is logged at the top of `docs/playtests/backlog.md` (#341). The
+  pills for "fronts a big street" and transit only once they are served-model terms.
+- **Hand-set facing (#342, Data improvements):** `config/corrections/exposure-manual.csv` rows reach
+  the site after `rentfrontier.exposure` and a site build; build 20261006T170007853712Z shows
+  16 Barrow 1B "set by hand". Rebuild: in `/data1/apartments/serve/site`, `ops/job light -m 3G --
+  /data1/apartments/venvs/serve-site/bin/python -m apartments.site build`.
+- **Phone checks:** Chrome at `/usr/bin/google-chrome` with the playtest venv's Playwright
+  (`executable_path=`); script at `/data1/apartments/tmp/mobile-best/shot.py`.
+
 ## State (2026-10-06 15:45 UTC)
 
 - **Best for you (/best, #331, #332)**: an exception to the hold (Ben, 15:13 UTC). It ranks current
@@ -61,9 +131,8 @@ What the next turn of the website thread needs. Updated at each milestone.
   agreed with Data improvements.
 - **Estimate form: line facing and previous listing groups (#289).**
 
-- **Ratings live (#285).** Card on listing pages, `/ratings`, `/ratings.csv`, `/ratings.json`;
-  stored in `/data1/apartments/ratings/ratings.sqlite` (made on the first save). Design in
-  `docs/ratings.md`. Round 6 (#284) merged and deployed.
+- **Ratings (#285)** were removed on 2026-10-06 at Ben's request; see the backlog. Round 6
+  (#284) merged and deployed.
 - **Earlier-data charts on Chart.js.** Exploration fits trained before the board moved to the
   current data (100 at 17:00 UTC) sit in the "Scored on the earlier data" chart, now zoomable
   (prefixes `fp`, `ep`) with a best-so-far line (display only, `web.best_so_far`). Only 2

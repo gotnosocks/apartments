@@ -24,6 +24,53 @@ extraction with evidence spans and one consolidated scope overlay; (6) building
 covariates in the building-effect mean; (7) era-stability check on coefficients;
 (8) collapse `models/`, artifact retention, doc shape.
 
+**Speedups from an outside code review** (Ben, 2026-10-06; triaged against master `d7a1f96`).
+The review was read-only and measured only the first item, on a CPU rather than the 2060.
+Each change must leave results unchanged, so check outputs against the current code before
+and after. A change that shortens the sampler also shortens recorded fit times, the
+frontier's time axis, so compare fit times only within one implementation.
+- [ ] **Modeling: compile the LOO likelihood once.** `rentfrontier.loo.integrated_loglik` builds a
+      new closure for `jax.lax.map` on every call, so each 4,096-row scoring chunk (about twenty
+      per full fit) recompiles, although the caller pads chunks to one shape for this reason.
+      Use one module-level `jax.jit` with `n_seg`, `t_units` and `drift` static. PSIS-LOO takes
+      127–151 s per full fit today; the review saw 0.08 s → 0.0004 s on warm calls of a toy
+      case. Check equality across Student-t and Gaussian unit priors, drift on and off, grouped
+      noise and padded chunks.
+- [ ] **Modeling: one compiled kernel for the three Gibbs adaptation rounds.** In
+      `rentfrontier.gibbs` phase 2, each round wraps a fresh lambda in `jax.jit`, capturing that
+      round's step sizes, so the full sampler step compiles three times inside the 288 s warmup.
+      Pass the step sizes (`prop_sd`, `ssd`, `cfg`) as traced arguments, with the round length
+      static (two of the three lengths are equal). `collect.batched` expects a leading chain
+      axis on its arguments, so shared step sizes need explicit handling. Measure compile time
+      first, so the saving on `fit_seconds` is known.
+- [ ] **Modeling (after the LOO item): a direct predictor for scoring.** LOO calls
+      `explain.log_terms` for a dict of named `(draws, rows)` arrays, including the unit terms it
+      drops, then sums them. A batched predictor would save memory and time, but it must be
+      built from the same effect functions as `model` and `explain` (one model definition), not
+      a third copy of the equation, and must include `area_market_curve`. Measure the share of
+      the 127–151 s spent in `log_terms` before doing it.
+- [ ] **Data (if rebuilds grow): stream the historical reconstruction.** Measured 2026-10-06
+      (peak RSS, `build-historical` on master, outputs byte-identical to the published ones):
+      Greenwich Village 18,817 accepted rows 1.00 GB in 31 s; West Village 35,048 rows 1.72 GB in
+      58 s. That is about 0.2 GB plus 44 KB per accepted row, so Chelsea (~53k rows) needs about
+      2.5 GB and a single three-neighbourhood rebuild (~110k rows) about 5 GB. Each rebuild runs
+      per neighbourhood, so on an idle machine this is no risk. Beside a GPU fit it is: with a fit
+      running, `free` showed ~3-4 GB available (2026-10-06). So run each rebuild while the GPU is
+      idle, as `systemd-run --user -p MemoryMax=4G -p MemorySwapMax=0`, which fits Chelsea
+      (~2.5 GB) but not a combined rebuild (~5 GB). Streaming becomes worth it if a combined
+      rebuild is needed: stage rows and audits on disk in two passes (cross-advertisement conflicts are
+      resolved after all projections exist) and require byte-identical output. The review's
+      copy-reduction item (`_project`, `Overlay.apply`) belongs to the same profile.
+- Not taken now, with the reason:
+  - Indexed correction lookup in `analytical._boundaries`: `config/corrections.jsonl` is empty on
+    master, so the loop has nothing to scan. Revisit if the ledger grows.
+  - Caching typed columns in `rentfrontier.data.load`: the conversions take 0.05 s on the
+    105,244-row cache (measured 2026-10-06), against a 25-minute fit.
+  - Caching `/estimate` inputs and simulations (Website): a logged estimate today took
+    0.11 s. Revisit if the form starts re-scoring on every keystroke.
+  - Columnar insert in `temporal.sync_observations` (Data; it already batches through
+    `executemany`): archive imports run by hand, not on a timer, and are not a bottleneck today.
+
 **West Village: expand the analysis to include it** (Ben, 2026-10-01; to do).
 The collection is complete. The crawl finished on September 30, and the snapshot
 `west-village-backfill-20260930`, the transform

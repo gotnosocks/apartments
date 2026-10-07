@@ -40,7 +40,10 @@ EFFICIENT_STRUCTURE_EXPERIMENT = "observable-bayesian-efficient-structure-experi
 
 
 def _v1(protocol):
-    if protocol.get("version") in (ATTRIBUTE_EXPERIMENT, EFFICIENT_STRUCTURE_EXPERIMENT):
+    if protocol.get("version") in (
+        ATTRIBUTE_EXPERIMENT,
+        EFFICIENT_STRUCTURE_EXPERIMENT,
+    ):
         return {**protocol, "version": v1.STRUCTURE_EXPERIMENT}
     return protocol
 

@@ -1,0 +1,20 @@
+#!/usr/bin/env bash
+# Format Python with the repo's pinned ruff (settings in ruff.toml).
+#
+#   ops/fmt                 format every Python file in the repo
+#   ops/fmt --check         list files that would change, exit 1 if any
+#   ops/fmt path/to/x.py    format only these paths
+#
+# Files listed in ruff.toml's extend-exclude are hashed by saved fits and
+# datasets and are skipped even when named on the command line. A new ruff
+# version can restyle files that a running fit hashes but that are not listed
+# there, so raise RUFF_VERSION only when no fit is running.
+set -euo pipefail
+RUFF_VERSION=0.16.10
+root="$(cd "$(dirname "$0")/.." && pwd)"
+check=()
+if [[ ${1:-} == --check ]]; then
+    check=(--check)
+    shift
+fi
+exec uvx "ruff@$RUFF_VERSION" format "${check[@]}" --force-exclude "${@:-$root}"

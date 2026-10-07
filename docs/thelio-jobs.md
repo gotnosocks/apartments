@@ -17,6 +17,9 @@ that path from any worktree. The job runs in the foreground and its exit status 
 `timeout`, `&&` and systemd units wrap it as before. Long jobs still go in a `systemd-run --user`
 unit so a session restart doesn't kill them.
 
+A fit can also run on a Modal GPU with `ops/modal-fit`, at most 10 a day; it takes no thelio
+lock. See [docs/model/modal.md](model/modal.md).
+
 ## The machine
 
 An AMD Ryzen 5 3600X: 6 cores, 12 threads, in two core complexes of 3 cores. Each complex has its
@@ -113,3 +116,13 @@ systemctl --user daemon-reload
 
 The research-data build (`apartments-dashboard-build.service`) runs in the light slice on the
 light CPUs, without taking a slot (it is small and runs at idle priority). After changing it, copy it to `~/.config/systemd/user/` and reload as above.
+
+## Recording a test
+
+Every one-change test (a feature set against its base set, or a model term against the design
+without it) goes in the ledger, `docs/model/feature-tests.md`, with its paired PSIS-LOO, verdict
+and retest marker. When a test's LOO lands, add what the change is to
+`docs/model/feature-tests.json` and regenerate the ledger from `frontier/`:
+`python -m rentfrontier.ledger --out ../docs/model/feature-tests.md`. Tests without a clear gain
+are retested when the dataset changes, location features first (Ben, 2026-10-06); the ledger's
+Retest column lists them.

@@ -7,6 +7,89 @@ Fixes for things that are broken or wrong on the live site still ship.
 Each round adds a section at the top, ranked by how much the finding gets in the way of
 finding the best one-bedroom. Reports are in `/data1/apartments/tmp/playtests/<round>/`.
 
+## Round 11 (best-1bed, /best after the commute, bed-size and low-floor pills), 2026-10-06
+
+One persona, starting at `/best?beds=1` (`/data1/apartments/tmp/playtests/2026-10-06-r11/`).
+It shortlisted three in about 9 page loads but ignored the ranking:
+
+1. **The ranking is someone else's sheet.** ben-v1's commute, high floors and "rents above similar
+   buildings" are not this persona's wishes, and it can't change them. Let a visitor pick or edit
+   a sheet, or say plainly that the page ranks for Ben.
+2. **No feature filters on /best.** Laundry, elevator, doorman, floor range, neighbourhood, size
+   and facing are on /listings but not /best, so it scanned 100 rows by eye.
+3. **Size, floor and elevator as columns** on /best, and Views (garden, skyline).
+4. **A compare view** for two or three units side by side.
+5. **Explain the marks**: Fit, the `*`, and "(ad)" on the bed-size pill. Say why a cheap ask may
+   be cheap (what the model can't see, how wide the range is).
+6. **Unanswerable wishes**: floor-through, bedroom facing, garden and a quiet block are still not
+   shown (Data improvements has quiet-street, garden and floor-through tables in `wishes/`).
+
+Fixed (a wrong page, not a feature): a listing whose ad gives no size showed "Size: not stated"
+while the model used the size from the unit's earlier ad, so /best said "more space than usual".
+The listing page now shows that size and says it came from the unit's earlier ad.
+
+## Ratings, removed 2026-10-06
+
+Ben asked for the "My ratings" view and its form to come off the site (21:02 UTC); the feature
+can come back later. It was a "Your rating" card on listing pages (1–5 stars, plus and minus
+tags, a note), a star in listing tables, and `/ratings` with CSV and JSON downloads, kept in a
+local SQLite file. No rating was ever saved, so nothing was stored. The code is in git at
+`archive/pr-285` and in the commit that removed it; bring it back from there, and consider feeding
+saved ratings into the Best for you sheet.
+
+## Ben on /best, 2026-10-06
+
+Ben went through the Best for you shortlist listing by listing (16:45 UTC, relayed). Some of these
+came from the default sort ("Fits you, at a good price"), some from "Fits you"; he didn't say which.
+The ranks in brackets are for 1 BR on the live build at 16:50 UTC, as (at a good price / fits you).
+His filters weren't recorded, so his own ranks may differ. Data improvements is taking the new
+location features. Website adds the site-side parts (a "fronts a big street" minus, a transit or
+commute pill) once those fields exist.
+
+Location misses, all from big streets or poor transit, which the model doesn't price yet:
+
+- **3 Eleven 2105** (28 / 13): unfavourable street and location. 30th St is a large crosstown
+  traffic street, with weak street-level amenities; like 507 West Chelsea, north-west Chelsea
+  with bad transit.
+- **Ohm 26A** (20 / 18): the same 30th St. Ben commutes to midtown, and the subway access is bad
+  (a J train trip with transfers is unappealing).
+- **507 West Chelsea 12D** (62 / 27): north-west Chelsea, bad transit.
+- **Ava High Line 844** (25 / 36): appears to front 28th St; the same transit issue.
+- **225 West 14th St 5F** (43 / 59): a **missing minus**. It overlooks 14th St, a large, loud
+  street.
+- **777 6th Avenue 22D** (40 / 17): a pretty good match, and a candidate for reading exposure
+  and floor plan from photos. The building's website (equityapartments.com) lists
+  exposures: mainly east with some north, so it overlooks 6th Avenue, which should be a **minus**
+  (a wide, noisy street).
+
+Good finds:
+
+- **The Chelsea 12C** (44 / 37): looks pretty good. Courtyard-facing matches the photos and
+  Street View. (Note from Website, not Ben: the label comes from StreetEasy's window-exposure
+  field, east, plus the building's east side facing no street; its line C agrees.)
+- **Ten23 04E** (22 / 35): looks good. From the photos it may front 10th Avenue or 23rd St; it
+  appears to face north or east.
+- **225 West 28th St 6G** (8 / 43): a good find. Some amenities are past his point of
+  diminishing returns.
+- **249 West 29th St 3E** (21 / 48): a good find.
+- **30 Horatio St** (the one current listing, 2C; 17 / 67): pretty good, but the photos show radiator heat and an older,
+  less good A/C unit.
+- **52 Barrow St 2W** (50 / 75): a good find, but the windows and light look poor.
+
+Feature ideas (location, mostly for Data improvements):
+
+1. **Fronts a big street** as a minus: crosstown traffic streets (14th, 30th) and avenues (6th).
+   (Website's note: ideally by the side the apartment faces, not only the building's address.)
+2. **Transit and commute:** subway travel-time isochrones (traveltime.com or similar) to work and
+   amenities, graded as a plus; a poor commute (a J train trip with transfers) as a minus.
+3. **Nearby places:** Madison Square Garden, public housing complexes, homeless shelters and
+   similar; parks for dog walking (he liked Carl Schurz Park from 401 E 88th St); hospitals,
+   especially ambulance routes.
+
+Website's notes, drawn from his comments rather than stated as ideas: photos could give exposure,
+floor plan, heating (radiators), A/C and light; building websites can give exposures (777 6th
+Avenue's does).
+
 ## Finding the best, not reproducing asks (from rounds 9 and 10, 2026-10-06)
 
 The model prices what it can see. Wishes it can't see (quiet, garden view, floor-through) end up
@@ -135,3 +218,8 @@ Ranked roughly by how many personas hit the finding and how badly.
 12. **Larger, later** (round 5): compare two buildings; a price column on the Buildings list;
     one sentence reconciling the map's typical rent with the listings' median estimate; a
     warning when a building link lands on a much pricier building.
+13. **Windows facing a nearby wall, as a /best minus:** this waits for Data improvements'
+    systematic footprint-based feature, and a pill only once the served model has the term. Ben
+    (2026-10-07): /best pills only for model terms, never for hand-labelled single listings, so
+    the one hand label (82-86 Washington Pl 2B, `outlook` = "wall", #382) is not shown; other facts
+    are grey informational notes (see `docs/site.md`).

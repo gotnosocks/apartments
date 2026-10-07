@@ -281,6 +281,21 @@ def feature_sources(feature_set: str) -> dict:
     if feature_set in features.SUBWAY:
         path = features.SUBWAY_FILE
         out["subway"] = {"path": path, "sha256": data.sha256(Path(path))}
+    if feature_set in features.TRANSIT:
+        path = features.GTFS_FILE
+        out["gtfs"] = {"path": path, "sha256": data.sha256(Path(path))}
+    if feature_set in features.LODES:
+        path = features.LODES_FILE
+        out["lodes"] = {"path": path, "sha256": data.sha256(Path(path))}
+    if feature_set in features.PARKS:
+        path = features.PARKS_FILE
+        out["parks"] = {"path": path, "sha256": data.sha256(Path(path))}
+    if feature_set in features.PLACES:
+        path = features.PLACES_FILE
+        out["places"] = {"path": path, "sha256": data.sha256(Path(path))}
+    if feature_set in features.STOREFRONTS:
+        path = features.STOREFRONTS_FILE
+        out["storefronts"] = {"path": path, "sha256": data.sha256(Path(path))}
     if feature_set in features.LISTING_EXTRAS:
         path = features.EXTRAS_SNAPSHOTS.get(feature_set, features.LISTING_EXTRAS_FILE)
         out["listing_extras"] = {"path": path, "sha256": data.sha256(Path(path))}

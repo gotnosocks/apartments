@@ -651,6 +651,241 @@ def quiet_v1(
     )
 
 
+def loud_v1(
+    frame: pd.DataFrame,
+    train: np.ndarray,
+    id: str = "nb3-loud-v1",
+    base: str = "nb3-coded-v2",
+) -> Features:
+    """A base set plus loud frontage (`loud`): the apartment looks onto a busy
+    road (an avenue or a roadway of `quiet.BUSY_WIDTH_FT` or more, the Village's
+    named streets included), from its own listings; and, for one that shows no
+    side, the chance one of its facades is busy (its building's busy facades,
+    narrowed by its line's earlier listings). Reads no rents; the street map
+    and footprints are today's."""
+    from . import loud
+
+    base = FEATURE_SETS[base](frame, train)
+    terms = loud.unit_terms(frame)
+    b = _Builder(frame)
+    b.add("loud street", "looks onto a busy road", terms["looks"])
+    b.add("loud street", "no side shown: share of busy facades", terms["chance"])
+    out = b.build(id)
+    return Features(
+        id,
+        base.names + out.names,
+        base.groups + out.groups,
+        np.column_stack([base.values, out.values]),
+        np.concatenate([base.prior_scale, out.prior_scale]),
+    )
+
+
+def transit_v1(
+    frame: pd.DataFrame,
+    train: np.ndarray,
+    id: str = "nb3-transit-v1",
+    base: str = "nb3-coded-v2",
+) -> Features:
+    """A base set plus the weekday-morning subway time to midtown
+    (`transit.midtown_minutes`: walk, wait and ride to the nearest of Times Sq,
+    Grand Central and Herald Sq), in tens of minutes, as of the listing's month.
+    The base already has the walk to the nearest station. Reads no rents; the
+    timetable is today's."""
+    from . import transit
+
+    base = FEATURE_SETS[base](frame, train)
+    minutes = transit.midtown_minutes(frame)
+    b = _Builder(frame)
+    b.add(
+        "transit",
+        "subway to midtown (10 min)",
+        np.nan_to_num(minutes / 10, nan=np.nanmedian(minutes) / 10),
+    )
+    out = b.build(id)
+    return Features(
+        id,
+        base.names + out.names,
+        base.groups + out.groups,
+        np.column_stack([base.values, out.values]),
+        np.concatenate([base.prior_scale, out.prior_scale]),
+    )
+
+
+def access_v1(
+    frame: pd.DataFrame,
+    train: np.ndarray,
+    id: str = "nb3-access-v1",
+    base: str = "nb3-coded-v2",
+) -> Features:
+    """A base set plus the log of the jobs within 30 minutes by walking and
+    the subway (`access.jobs_within`: LODES workplace counts of the year
+    published by the listing's month, stations open by then), centred on the
+    training rows. Reads no rents; the timetable is today's."""
+    from . import access
+
+    base = FEATURE_SETS[base](frame, train)
+    jobs = np.log(np.maximum(access.jobs_within(frame), 1.0))
+    known = np.isfinite(jobs)
+    centre = float(np.mean(jobs[train & known]))
+    b = _Builder(frame)
+    # A building without a position (none in the registry today) sits at the mean.
+    b.add("transit", "log jobs within 30 min", np.where(known, jobs - centre, 0.0))
+    out = b.build(id)
+    return Features(
+        id,
+        base.names + out.names,
+        base.groups + out.groups,
+        np.column_stack([base.values, out.values]),
+        np.concatenate([base.prior_scale, out.prior_scale]),
+    )
+
+
+def parks_v1(
+    frame: pd.DataFrame,
+    train: np.ndarray,
+    id: str = "nb3-parks-v1",
+    base: str = "nb3-coded-v2",
+) -> Features:
+    """A base set plus the log of the walk to the nearest park of at least an
+    acre, centred on the training rows, and whether an open High Line section
+    is within 5 minutes (`parks.park_terms`: parks acquired, and High Line
+    sections opened, before the listing's month). Reads no rents."""
+    from . import parks
+
+    base = FEATURE_SETS[base](frame, train)
+    terms = parks.park_terms(frame)
+    walk = np.log(np.maximum(terms.park_min.to_numpy(), 1.0))
+    known = np.isfinite(walk)
+    centre = float(np.mean(walk[train & known]))
+    b = _Builder(frame)
+    # A building without a position (none in the registry today) sits at the mean.
+    b.add("parks", "log walk min to a park", np.where(known, walk - centre, 0.0))
+    b.add(
+        "parks",
+        f"High Line within {parks.HIGH_LINE_MIN:.0f} min",
+        np.nan_to_num(terms.high_line.to_numpy()),
+    )
+    out = b.build(id)
+    return Features(
+        id,
+        base.names + out.names,
+        base.groups + out.groups,
+        np.column_stack([base.values, out.values]),
+        np.concatenate([base.prior_scale, out.prior_scale]),
+    )
+
+
+def lines_v1(
+    frame: pd.DataFrame,
+    train: np.ndarray,
+    id: str = "nb3-lines-v1",
+    base: str = "nb3-coded-v2",
+) -> Features:
+    """A base set plus, for each subway line group near enough buildings to
+    price (`lines.priced_lines`), whether one of its stations is within
+    `lines.NEAR_MIN` minutes' walk as of the listing's month (`lines.near_lines`).
+    Reads no rents; the timetable is today's."""
+    from . import lines
+
+    base = FEATURE_SETS[base](frame, train)
+    near = lines.near_lines(frame)
+    b = _Builder(frame)
+    for g in near.columns:
+        b.add("transit", f"{g} within {lines.NEAR_MIN:.0f} min", near[g].to_numpy())
+    out = b.build(id)
+    return Features(
+        id,
+        base.names + out.names,
+        base.groups + out.groups,
+        np.column_stack([base.values, out.values]),
+        np.concatenate([base.prior_scale, out.prior_scale]),
+    )
+
+
+def bedsize_v1(
+    frame: pd.DataFrame,
+    train: np.ndarray,
+    id: str = "nb3-bedsize-v1",
+    base: str = "nb3-coded-v2",
+) -> Features:
+    """A base set plus the largest bed the listing's own ad says its bedroom
+    takes (`bedsize.stated_size`: full, with twin and double, queen or king;
+    an ad stating none is the reference). Reads no rents."""
+    from . import bedsize
+
+    base = FEATURE_SETS[base](frame, train)
+    size = bedsize.stated_sizes(frame).to_numpy()
+    b = _Builder(frame)
+    for s in bedsize.SIZES:
+        b.add("description", f"ad states a {s} bed", size == s)
+    out = b.build(id)
+    return Features(
+        id,
+        base.names + out.names,
+        base.groups + out.groups,
+        np.column_stack([base.values, out.values]),
+        np.concatenate([base.prior_scale, out.prior_scale]),
+    )
+
+
+def nearby_v1(
+    frame: pd.DataFrame,
+    train: np.ndarray,
+    id: str = "nb3-nearby-v1",
+    base: str = "nb3-coded-v2",
+) -> Features:
+    """A base set plus what is nearby (`nearby`): log walk metres to the
+    nearest dog run, hospital, ambulance station, homeless drop-in center,
+    NYCHA lot and Madison Square Garden. Reads no rents; the places are
+    today's."""
+    from . import nearby
+
+    base = FEATURE_SETS[base](frame, train)
+    b = _Builder(frame)
+    for kind, values in nearby.terms(frame).items():
+        fill = np.nanmedian(values)
+        b.add(
+            "nearby", f"log m to {nearby.KINDS[kind]}", np.nan_to_num(values, nan=fill)
+        )
+    out = b.build(id)
+    return Features(
+        id,
+        base.names + out.names,
+        base.groups + out.groups,
+        np.column_stack([base.values, out.values]),
+        np.concatenate([base.prior_scale, out.prior_scale]),
+    )
+
+
+def retail_v1(
+    frame: pd.DataFrame,
+    train: np.ndarray,
+    id: str = "nb3-retail-v1",
+    base: str = "nb3-coded-v2",
+) -> Features:
+    """A base set plus street retail (`retail`): log1p of the storefronts, and
+    of the restaurants, cafes and bars, within `retail.RADIUS_M` in the
+    Storefront Registry's first year. Reads no rents."""
+    from . import retail
+
+    base = FEATURE_SETS[base](frame, train)
+    t = retail.terms(frame)
+    b = _Builder(frame)
+    for key, name in (
+        ("storefronts", "log1p storefronts nearby"),
+        ("food", "log1p food places nearby"),
+    ):
+        b.add("retail", name, np.nan_to_num(t[key], nan=np.nanmedian(t[key])))
+    out = b.build(id)
+    return Features(
+        id,
+        base.names + out.names,
+        base.groups + out.groups,
+        np.column_stack([base.values, out.values]),
+        np.concatenate([base.prior_scale, out.prior_scale]),
+    )
+
+
 def through_v1(
     frame: pd.DataFrame,
     train: np.ndarray,
@@ -716,6 +951,16 @@ _LOTS: contextvars.ContextVar[tuple[str, str] | None] = contextvars.ContextVar(
 )
 SUBWAY_SNAPSHOT = "/data1/apartments/external/subway/20260929-8e7c364"
 SUBWAY_FILE = f"{SUBWAY_SNAPSHOT}/subway.parquet"
+GTFS_SNAPSHOT = "/data1/apartments/external/gtfs/20261006-6158e22"
+GTFS_FILE = f"{GTFS_SNAPSHOT}/gtfs_subway.zip"
+LODES_SNAPSHOT = "/data1/apartments/external/lodes/20261006-e587e60"
+LODES_FILE = f"{LODES_SNAPSHOT}/lodes.parquet"
+PLACES_SNAPSHOT = "/data1/apartments/external/places/20261006-7c4c408"
+PLACES_FILE = f"{PLACES_SNAPSHOT}/places.parquet"
+STOREFRONTS_SNAPSHOT = "/data1/apartments/external/storefronts/20261006-5fd0c26"
+STOREFRONTS_FILE = f"{STOREFRONTS_SNAPSHOT}/storefronts.parquet"
+PARKS_SNAPSHOT = "/data1/apartments/external/parks/20261006-d208294"
+PARKS_FILE = f"{PARKS_SNAPSHOT}/parks.parquet"
 # Street centerlines, parks and shoreline (`rentfrontier.external basemap`).
 BASEMAP_SNAPSHOT = "/data1/apartments/external/basemap/20260929-da7e40d"
 BASEMAP_FILE = f"{BASEMAP_SNAPSHOT}/basemap.parquet"
@@ -1369,13 +1614,8 @@ def building_sides() -> pd.DataFrame:
     return _building_sides(lot_registry(), *area_snapshot())
 
 
-@functools.lru_cache(maxsize=2)
-def _building_sides(
-    registry_file: str,
-    basemap_file: str = BASEMAP_FILE,
-    footprints_file: str = FOOTPRINTS_FILE,
-) -> pd.DataFrame:
-    registry = pd.read_parquet(registry_file).set_index("building")
+def facing_grid():
+    """Lon/lat to the facing grid (metres; x across the avenues, y along them)."""
     lat0, lon0 = _grid_origin()
     phi, metres = math.radians(FRONTAGE_BEARING_DEG), 111_320.0
     cos0 = math.cos(math.radians(lat0))
@@ -1391,26 +1631,21 @@ def _building_sides(
             -1,
         )
 
+    return grid
+
+
+def building_outlines(registry_file: str, footprints_file: str, reach: float):
+    """Per registry building with a footprint: (building, its counter-clockwise
+    outline in grid metres, (starts, ends) of the other buildings' outline edges
+    within `reach` of it)."""
+    registry = pd.read_parquet(registry_file).set_index("building")
+    grid = facing_grid()
+
     def rings_of(geometry):
         geometry = json.loads(geometry)
         polygons = geometry["coordinates"]
         polygons = polygons if geometry["type"] == "MultiPolygon" else [polygons]
         return [grid([q[0] for q in pg[0]], [q[1] for q in pg[0]]) for pg in polygons]
-
-    starts, ends, kinds = [], [], []
-    for row in pd.read_parquet(basemap_file).query("layer == 'street'").itertuples():
-        roadway = json.loads(row.attributes).get("rw_type")
-        kind = street_kind(row.name, roadway)
-        if kind is None or roadway not in ("1", "2", "3", "9"):
-            continue
-        geometry = json.loads(row.geometry)
-        lines = geometry["coordinates"]
-        for line in lines if geometry["type"] == "MultiLineString" else [lines]:
-            pts = grid([p[0] for p in line], [p[1] for p in line])
-            starts.append(pts[:-1])
-            ends.append(pts[1:])
-            kinds += [kind] * (len(pts) - 1)
-    streets = (np.concatenate(starts), np.concatenate(ends), np.array(kinds))
 
     footprints = pd.read_parquet(footprints_file)
     e0, e1, owner = [], [], []
@@ -1423,7 +1658,6 @@ def _building_sides(
     owner = np.array(owner)
     by_bin = footprints.groupby(footprints.bin.astype(str))
     by_lot = footprints.groupby(footprints.base_bbl.astype(str))
-    out = {}
     for building, r in registry.iterrows():
         key_bin, key_lot = str(r.bin), str(r.bbl)
         if not re.fullmatch(r"[1-5]000000", key_bin) and key_bin in by_bin.groups:
@@ -1445,40 +1679,65 @@ def _building_sides(
         if 0.5 * np.sum(ring[:-1, 0] * ring[1:, 1] - ring[1:, 0] * ring[:-1, 1]) < 0:
             ring = ring[::-1]  # counter-clockwise, so the outward normal is (dy, -dx)
         # Every other building nearby blocks the view, on the same lot too;
-        # outlines of the building itself (its BIN) are left to facade_sides,
+        # outlines of the building itself (its BIN) are left to the caller,
         # which lets the outline's own walls block.
         own = (owner == ring_bin) & (not re.fullmatch(r"[1-5]000000", ring_bin))
         centre = ring.mean(0)
-        radius = float(np.hypot(*(ring - centre).T).max()) + SIDE_REACH_M + 10.0
+        radius = float(np.hypot(*(ring - centre).T).max()) + reach + 10.0
         # A lower bound on each edge's distance from the centre.
-        reach = np.minimum(np.hypot(*(e0 - centre).T), np.hypot(*(e1 - centre).T))
-        near = (reach - np.hypot(*(e1 - e0).T) < radius) & ~own
-        out[building] = facade_sides(ring, streets, (e0[near], e1[near]))
+        dist = np.minimum(np.hypot(*(e0 - centre).T), np.hypot(*(e1 - centre).T))
+        near = (dist - np.hypot(*(e1 - e0).T) < radius) & ~own
+        yield building, ring, (e0[near], e1[near])
+
+
+def street_lines(basemap_file: str, kind_of) -> tuple:
+    """(starts, ends, kinds) of the basemap's street centerline segments in grid
+    metres, kind_of(name, attributes) naming each street's kind (None skips it)."""
+    grid = facing_grid()
+    starts, ends, kinds = [], [], []
+    for row in pd.read_parquet(basemap_file).query("layer == 'street'").itertuples():
+        kind = kind_of(row.name, json.loads(row.attributes))
+        if kind is None:
+            continue
+        geometry = json.loads(row.geometry)
+        lines = geometry["coordinates"]
+        for line in lines if geometry["type"] == "MultiLineString" else [lines]:
+            pts = grid([p[0] for p in line], [p[1] for p in line])
+            starts.append(pts[:-1])
+            ends.append(pts[1:])
+            kinds += [kind] * (len(pts) - 1)
+    return np.concatenate(starts), np.concatenate(ends), np.array(kinds)
+
+
+def _side_kind(name: str, attributes: dict) -> str | None:
+    roadway = attributes.get("rw_type")
+    if roadway not in ("1", "2", "3", "9"):
+        return None
+    return street_kind(name, roadway)
+
+
+@functools.lru_cache(maxsize=2)
+def _building_sides(
+    registry_file: str,
+    basemap_file: str = BASEMAP_FILE,
+    footprints_file: str = FOOTPRINTS_FILE,
+) -> pd.DataFrame:
+    streets = street_lines(basemap_file, _side_kind)
+    out = {
+        building: facade_sides(ring, streets, occluders)
+        for building, ring, occluders in building_outlines(
+            registry_file, footprints_file, SIDE_REACH_M
+        )
+    }
     return pd.DataFrame.from_dict(out, orient="index")
 
 
-def unit_sides(frame: pd.DataFrame) -> pd.DataFrame:
-    """Per row: whether its unit looks onto an avenue, a wide street, a side
-    street, or no street (rear, courtyard), pooled over the unit's listings,
-    from window directions against its building's sides, front/rear labels,
-    ad text and views (text, labels and views place the front on the address
-    street)."""
+def front_rear(frame: pd.DataFrame) -> tuple[np.ndarray, np.ndarray]:
+    """Per row: whether the listing puts the apartment at its building's front
+    (on the address street) and at its rear, from F/R labels, ad text
+    (floor-throughs both) and views."""
     from . import descriptions
 
-    sides = building_sides().reindex(frame.building.to_numpy())
-    address_kind = (
-        building_frontage().street_type.reindex(frame.building.to_numpy()).to_numpy()
-    )
-    has_sides = sides.notna().all(axis=1).to_numpy()
-    looks = {
-        k: np.zeros(len(frame), bool)
-        for k in ("avenue", "wide street", "side street", "none")
-    }
-    for d in GRID_DIRECTIONS:
-        window = frame[f"window_{d}"].eq("yes").to_numpy() & has_sides
-        side = sides[d].to_numpy()
-        for kind in looks:
-            looks[kind] |= window & (side == kind)
     label = frame.canonical_unit_url.str.extract(r"/([^/]+)$")[0].str.upper().fillna("")
     letter = label.str.extract(r"^\d{1,2}([A-Z]+)$")[0]
     letters = letter.groupby(frame.building.to_numpy()).agg(lambda s: set(s.dropna()))
@@ -1499,6 +1758,30 @@ def unit_sides(frame: pd.DataFrame) -> pd.DataFrame:
         | through
         | frame.view_courtyard.eq("yes").to_numpy()
     )
+    return front, rear
+
+
+def unit_sides(frame: pd.DataFrame) -> pd.DataFrame:
+    """Per row: whether its unit looks onto an avenue, a wide street, a side
+    street, or no street (rear, courtyard), pooled over the unit's listings,
+    from window directions against its building's sides, front/rear labels,
+    ad text and views (text, labels and views place the front on the address
+    street)."""
+    sides = building_sides().reindex(frame.building.to_numpy())
+    address_kind = (
+        building_frontage().street_type.reindex(frame.building.to_numpy()).to_numpy()
+    )
+    has_sides = sides.notna().all(axis=1).to_numpy()
+    looks = {
+        k: np.zeros(len(frame), bool)
+        for k in ("avenue", "wide street", "side street", "none")
+    }
+    for d in GRID_DIRECTIONS:
+        window = frame[f"window_{d}"].eq("yes").to_numpy() & has_sides
+        side = sides[d].to_numpy()
+        for kind in looks:
+            looks[kind] |= window & (side == kind)
+    front, rear = front_rear(frame)
     for kind in ("avenue", "wide street", "side street"):
         looks[kind] |= front & (address_kind == kind)
     looks["none"] |= rear
@@ -1894,6 +2177,16 @@ FOOTPRINTS = {
 }
 # Feature sets that read the 311 noise complaints snapshot.
 NOISE = {"unitnoise-v1"}
+# Feature sets that read the subway GTFS (transit.network).
+TRANSIT = {"nb3-transit-v1", "nb3-lines-v1", "nb3-access-v1"}
+# Feature sets that read the LODES jobs snapshot (access).
+LODES = {"nb3-access-v1"}
+# Feature sets that read the places snapshot (nearby).
+PLACES = {"nb3-nearby-v1"}
+# Feature sets that read the Storefront Registry snapshot (retail).
+STOREFRONTS = {"nb3-retail-v1"}
+# Feature sets that read the NYC Parks properties snapshot (parks).
+PARKS = {"nb3-parks-v1"}
 # Feature sets that read the HPD violations snapshot.
 HPD = {"unitdescplutohpd-v1", "unitdescplutohpd-v2"}
 # Feature sets that read the advertisement descriptions (`descriptions.SOURCE`),
@@ -1991,6 +2284,14 @@ FEATURE_SETS = {
     "nb3-garden-v1": partial(garden_v1, id="nb3-garden-v1", base="nb3-coded-v2"),
     "nb3-through-v1": partial(through_v1, id="nb3-through-v1", base="nb3-coded-v2"),
     "nb3-quiet-v1": partial(quiet_v1, id="nb3-quiet-v1", base="nb3-coded-v2"),
+    "nb3-loud-v1": partial(loud_v1, id="nb3-loud-v1", base="nb3-coded-v2"),
+    "nb3-transit-v1": partial(transit_v1, id="nb3-transit-v1", base="nb3-coded-v2"),
+    "nb3-access-v1": partial(access_v1, id="nb3-access-v1", base="nb3-coded-v2"),
+    "nb3-lines-v1": partial(lines_v1, id="nb3-lines-v1", base="nb3-coded-v2"),
+    "nb3-bedsize-v1": partial(bedsize_v1, id="nb3-bedsize-v1", base="nb3-coded-v2"),
+    "nb3-parks-v1": partial(parks_v1, id="nb3-parks-v1", base="nb3-coded-v2"),
+    "nb3-nearby-v1": partial(nearby_v1, id="nb3-nearby-v1", base="nb3-coded-v2"),
+    "nb3-retail-v1": partial(retail_v1, id="nb3-retail-v1", base="nb3-coded-v2"),
     # West Village: the app design's building facts (as unitdescpluto-v3) on the
     # unit and floor features (no West Village ads: see nb-facing-v2).
     "wv-unitpluto-v1": partial(
@@ -2219,7 +2520,19 @@ for _new, _old in (
 
 
 # The wish sets read what nb3-coded-v2 (their base) reads.
-for _wish in ("nb3-garden-v1", "nb3-through-v1", "nb3-quiet-v1"):
+for _wish in (
+    "nb3-garden-v1",
+    "nb3-through-v1",
+    "nb3-quiet-v1",
+    "nb3-loud-v1",
+    "nb3-transit-v1",
+    "nb3-access-v1",
+    "nb3-lines-v1",
+    "nb3-bedsize-v1",
+    "nb3-parks-v1",
+    "nb3-nearby-v1",
+    "nb3-retail-v1",
+):
     for _group in (
         EXTERNAL,
         BASEMAP,

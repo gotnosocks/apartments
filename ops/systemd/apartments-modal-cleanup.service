@@ -1,0 +1,13 @@
+[Unit]
+Description=Delete the Modal fit Volume after 24 h without a Modal fit (ops/modal/cleanup)
+
+[Service]
+Type=oneshot
+# Follow master first, so the script below is master's.
+ExecStartPre=-/usr/bin/git -C /data1/apartments/serve/master fetch -q origin master
+ExecStartPre=-/usr/bin/git -C /data1/apartments/serve/master checkout -q --force --detach origin/master
+ExecStart=/data1/apartments/serve/master/ops/modal/cleanup
+TimeoutStartSec=10min
+Slice=apartments-light.slice
+MemoryMax=512M
+Nice=19

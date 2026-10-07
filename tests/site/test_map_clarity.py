@@ -80,5 +80,7 @@ def test_the_growth_decomposition_shows_only_for_its_own_run():
 
     assert 'id="trend-mix"' in render(run)
     assert 'id="trend-mix"' not in render("m8-nb3-coded-v1-gv")
-    assert 'id="trend-mix"' not in render("m7-nocurves-floorslope-bednoise-dayfourier-bedtime-nb-coded-v1-rows-c82aa9b-gibbs-2060-4500k9cb1-nb-v5f1u3-d1005")
+    assert 'id="trend-mix"' not in render(
+        "m7-nocurves-floorslope-bednoise-dayfourier-bedtime-nb-coded-v1-rows-c82aa9b-gibbs-2060-4500k9cb1-nb-v5f1u3-d1005"
+    )
     assert 'id="trend-mix"' not in env.from_string(fragment).render(meta={})

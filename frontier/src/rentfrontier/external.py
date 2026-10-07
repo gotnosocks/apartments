@@ -35,6 +35,30 @@ Sources:
   the registry: individual or interior landmark, or a building in a historic
   district, with the designation date (MapPLUTO's landmark and historic
   district fields are today's status, with no date).
+- places: points of interest around the registry's buildings (their bounding
+  box plus PLACES_MARGIN_M), one row each with its kind: dog runs and
+  off-leash areas (NYC Parks, hxx3-bwgv, the polygon's vertex mean; and
+  OpenStreetMap's leisure=dog_park in Manhattan, ODbL, which has Hudson River
+  Park's runs, not NYC Parks property), hospitals
+  and ambulance or EMS stations (Facilities Database, ji82-xba5), homeless
+  drop-in centers (DHS, bmxf-3rd4, and the Facilities Database's), NYCHA
+  tax lots (MapPLUTO owner NYC Housing Authority) and Madison Square Garden
+  (`MSG`, a fixed point). DHS publishes no shelter addresses.
+- storefronts: the Storefront Registry (Department of Finance, NYC Open Data
+  92iy-9c3n), every ground- and second-floor storefront filed for in the box,
+  every reporting year (the first covers 2019 and 2020): its business
+  activity and whether it stood vacant at the year's end.
+- gtfs: the MTA's static subway GTFS feed (`GTFS_URL`), kept whole as
+  gtfs_subway.zip: stations, timetables and transfers (subway time to midtown,
+  `transit`).
+- lodes: the Census LEHD Origin-Destination Employment Statistics (LODES8)
+  workplace area characteristics for New York, all jobs (`LODES_WAC`), every
+  year published (`LODES_YEARS`), by 2020 census block in New York City
+  (`NYC_COUNTIES`), with each block's internal point from the LODES
+  geography crosswalk: one row per block, a jobs column per year.
+- parks: NYC Parks properties (NYC Open Data enfh-gkve) in the box widened by
+  `PARKS_MARGIN_M`: name, type, acres, acquisition date and outline (GeoJSON),
+  for the walk to the nearest park open as of a listing (`parks`).
 """
 
 from __future__ import annotations
@@ -454,6 +478,254 @@ def fetch_noise(box, page: int = 50_000):
 MERGE_KEYS = {"pluto": ["bbl"], "footprints": ["bin"], "basemap": None}
 
 
+PLACES_MARGIN_M = 2000.0
+DOG_RUNS_ID = "hxx3-bwgv"
+FACDB_ID = "ji82-xba5"
+DROP_IN_ID = "bmxf-3rd4"
+FACDB_KINDS = {
+    "HOSPITAL": "hospital",
+    "ACUTE CARE HOSPITAL": "hospital",
+    "AMBULANCE STATION": "ambulance station",
+    "EMERGENCY MEDICAL STATION": "ambulance station",
+    "EMERGENCY MEDICL STN": "ambulance station",
+    "DROP-IN CENTER": "drop-in center",
+    "DROP-IN CENTERS": "drop-in center",
+}
+OVERPASS = "https://overpass-api.de/api/interpreter"
+OSM_DOG_PARKS = (
+    '[out:json][timeout:60];area["boundary"="administrative"]["name"="Manhattan"]'
+    '["admin_level"="7"]->.m;nwr["leisure"="dog_park"](area.m);out center tags;'
+)
+# Madison Square Garden (opened 1968), 4 Pennsylvania Plaza.
+MSG = (40.75051, -73.99341)
+
+
+def _rows(dataset: str, params: dict) -> tuple[list[dict], str]:
+    query = urllib.parse.urlencode({**params, "$limit": 50_000})
+    with urllib.request.urlopen(f"{SOCRATA}/{dataset}.json?{query}", timeout=300) as r:
+        rows = json.loads(r.read())
+    if len(rows) >= 50_000:
+        raise SystemExit(f"{dataset}: a full page; split the query")
+    return rows, f"{dataset}?{query}"
+
+
+def fetch_places(box) -> tuple[pd.DataFrame, list[str], dict]:
+    """Points of interest in the box (north, west, south, east), widened by
+    PLACES_MARGIN_M: kind, name, address, latitude, longitude, dataset."""
+    north, west, south, east = box
+    dlat = PLACES_MARGIN_M / 111_320.0
+    dlon = dlat / math.cos(math.radians((north + south) / 2))
+    north, west, south, east = north + dlat, west - dlon, south - dlat, east + dlon
+    out, queries = [], []
+    runs, q = _rows(DOG_RUNS_ID, {"borough": "M"})
+    queries.append(q)
+    for r in runs:
+        geometry = r["the_geom"]
+        polygons = geometry["coordinates"]
+        polygons = polygons if geometry["type"] == "MultiPolygon" else [polygons]
+        ring = [p for polygon in polygons for p in polygon[0]]
+        lon = sum(p[0] for p in ring) / len(ring)
+        lat = sum(p[1] for p in ring) / len(ring)
+        out.append(("dog run", r.get("name"), None, lat, lon, DOG_RUNS_ID))
+    request = urllib.request.Request(
+        OVERPASS,
+        data=urllib.parse.urlencode({"data": OSM_DOG_PARKS}).encode(),
+        headers={"User-Agent": "apartments-research/1.0"},
+    )
+    with urllib.request.urlopen(request, timeout=120) as r:
+        osm = json.loads(r.read())
+    queries.append(f"{OVERPASS}?data={OSM_DOG_PARKS}")
+    for e in osm["elements"]:
+        tags = e.get("tags", {})
+        if tags.get("access") in ("private", "customers", "no"):
+            continue
+        at = e.get("center", e)
+        name = tags.get("name")
+        out.append(("dog run", name, None, at["lat"], at["lon"], "osm"))
+    facilities, q = _rows(
+        FACDB_ID,
+        {
+            "$select": "facname, address, factype, latitude, longitude",
+            "$where": "boro = 'MANHATTAN' and factype in ("
+            + ", ".join(f"'{k}'" for k in FACDB_KINDS)
+            + ")",
+        },
+    )
+    queries.append(q)
+    for r in facilities:
+        out.append(
+            (
+                FACDB_KINDS[r["factype"]],
+                r.get("facname"),
+                r.get("address"),
+                r.get("latitude"),
+                r.get("longitude"),
+                FACDB_ID,
+            )
+        )
+    drop_in, q = _rows(DROP_IN_ID, {"borough": "Manhattan"})
+    queries.append(q)
+    for r in drop_in:
+        out.append(
+            (
+                "drop-in center",
+                r.get("center_name"),
+                r.get("address"),
+                r.get("latitude"),
+                r.get("longitude"),
+                DROP_IN_ID,
+            )
+        )
+    nycha, q = _rows(
+        PLUTO_ID,
+        {
+            "$select": "bbl, address, latitude, longitude",
+            "$where": "borough = 'MN' and ownername like 'NYC HOUSING AUTH%'",
+        },
+    )
+    queries.append(q)
+    for r in nycha:
+        out.append(
+            (
+                "nycha",
+                r.get("bbl"),
+                r.get("address"),
+                r.get("latitude"),
+                r.get("longitude"),
+                PLUTO_ID,
+            )
+        )
+    out.append(("arena", "Madison Square Garden", "4 Pennsylvania Plaza", *MSG, None))
+    table = pd.DataFrame(
+        out, columns=["kind", "name", "address", "latitude", "longitude", "dataset"]
+    )
+    for c in ("latitude", "longitude"):
+        table[c] = pd.to_numeric(table[c], errors="coerce")
+    inside = table.latitude.between(south, north) & table.longitude.between(west, east)
+    versions = {d: _version(d) for d in (DOG_RUNS_ID, FACDB_ID, DROP_IN_ID, PLUTO_ID)}
+    versions["osm"] = osm["osm3s"]["timestamp_osm_base"]
+    return table[inside].reset_index(drop=True), queries, versions
+
+
+STOREFRONTS_ID = "92iy-9c3n"
+STOREFRONT_COLUMNS = (
+    "reporting_year",
+    "borough_block_lot",
+    "property_street_address_or",
+    "unit",
+    "primary_business_activity",
+    "vacant_on_12_31",
+    "latitude",
+    "longitude",
+)
+
+
+def fetch_storefronts(box) -> tuple[pd.DataFrame, list[str], dict]:
+    """Every Storefront Registry filing in the box (north, west, south, east)."""
+    north, west, south, east = box
+    rows, q = _rows(
+        STOREFRONTS_ID,
+        {
+            "$select": ", ".join(STOREFRONT_COLUMNS),
+            "$where": f"borough = 'MANHATTAN' and within_box(lat_long, {north}, "
+            f"{west}, {south}, {east})",
+            "$order": "reporting_year, borough_block_lot",
+        },
+    )
+    table = pd.DataFrame(rows, columns=list(STOREFRONT_COLUMNS))
+    for c in ("latitude", "longitude"):
+        table[c] = pd.to_numeric(table[c], errors="coerce")
+    return table, [q], _version(STOREFRONTS_ID)
+
+
+PARKS_MARGIN_M = 1500.0
+
+
+def fetch_parks(box) -> tuple[pd.DataFrame, list[str], dict]:
+    """NYC Parks properties touching the box (north, west, south, east), widened
+    by PARKS_MARGIN_M: name, typecategory, acres, acquired, geometry."""
+    north, west, south, east = box
+    dlat = PARKS_MARGIN_M / 111_320.0
+    dlon = dlat / math.cos(math.radians((north + south) / 2))
+    north, west, south, east = north + dlat, west - dlon, south - dlat, east + dlon
+    params = {
+        "$select": "signname, typecategory, acres, acquisitiondate, multipolygon",
+        "$where": f"within_box(multipolygon, {north}, {west}, {south}, {east})",
+        "$order": "signname",
+    }
+    rows, q = _rows(PARKS_ID, params)
+    table = pd.DataFrame(
+        {
+            "name": [r.get("signname") for r in rows],
+            "typecategory": [r.get("typecategory") for r in rows],
+            "acres": pd.to_numeric([r.get("acres") for r in rows], errors="coerce"),
+            "acquired": pd.to_datetime(
+                [r.get("acquisitiondate") for r in rows], errors="coerce"
+            ),
+            "geometry": [json.dumps(r.get("multipolygon")) for r in rows],
+        }
+    )
+    return table, [q], _version(PARKS_ID)
+
+
+GTFS_URL = "https://rrgtfsfeeds.s3.amazonaws.com/gtfs_subway.zip"
+
+
+def fetch_gtfs(path: Path) -> dict:
+    """Download the subway GTFS zip to path; its feed_info as the version."""
+    import io
+    import zipfile
+
+    with urllib.request.urlopen(GTFS_URL, timeout=120) as r:
+        body = r.read()
+    with zipfile.ZipFile(io.BytesIO(body)) as z:
+        info = pd.read_csv(z.open("feed_info.txt"), dtype=str).iloc[0].to_dict()
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_bytes(body)
+    return {
+        "source": GTFS_URL,
+        "dataset": "MTA New York City Transit static subway GTFS",
+        "version": info,
+    }
+
+
+LODES_ROOT = "https://lehd.ces.census.gov/data/lodes/LODES8/ny"
+LODES_WAC = LODES_ROOT + "/wac/ny_wac_S000_JT00_{year}.csv.gz"
+LODES_XWALK = LODES_ROOT + "/ny_xwalk.csv.gz"
+LODES_YEARS = range(2002, 2024)
+NYC_COUNTIES = ("36005", "36047", "36061", "36081", "36085")
+
+
+def fetch_lodes() -> tuple[pd.DataFrame, dict]:
+    """Jobs (C000) per New York City census block and year, with the block's
+    internal point."""
+    blocks = pd.read_csv(
+        LODES_XWALK,
+        dtype={"tabblk2020": str, "cty": str},
+        usecols=["tabblk2020", "cty", "blklatdd", "blklondd"],
+    )
+    blocks = blocks[blocks.cty.isin(NYC_COUNTIES)].rename(
+        columns={"tabblk2020": "block", "blklatdd": "latitude", "blklondd": "longitude"}
+    )
+    table = blocks.set_index("block")[["latitude", "longitude"]]
+    for year in LODES_YEARS:
+        wac = pd.read_csv(
+            LODES_WAC.format(year=year),
+            dtype={"w_geocode": str},
+            usecols=["w_geocode", "C000"],
+        ).set_index("w_geocode")
+        table[f"jobs_{year}"] = wac.C000.reindex(table.index).fillna(0).astype(int)
+    jobs = table.filter(like="jobs_")
+    table = table[jobs.sum(axis=1) > 0].reset_index()
+    details = {
+        "source": LODES_ROOT,
+        "dataset": "LEHD LODES8 workplace area characteristics, all jobs (S000, JT00)",
+        "years": [LODES_YEARS.start, LODES_YEARS.stop - 1],
+        "blocks": len(table),
+    }
+    return table, details
+
+
 def merge(source: str, snapshots: list) -> tuple[pd.DataFrame, dict]:
     """One snapshot from several of the same source (neighbourhoods' boxes):
     concatenated, a record kept once (MERGE_KEYS; whole rows for the basemap).
@@ -506,7 +778,20 @@ def main(argv=None):
     )
     parser.add_argument(
         "source",
-        choices=("pluto", "subway", "basemap", "hpd", "footprints", "noise311", "lpc"),
+        choices=(
+            "pluto",
+            "subway",
+            "basemap",
+            "hpd",
+            "footprints",
+            "noise311",
+            "lpc",
+            "gtfs",
+            "places",
+            "storefronts",
+            "lodes",
+            "parks",
+        ),
     )
     parser.add_argument(
         "--registry",
@@ -523,6 +808,31 @@ def main(argv=None):
     started = dt.datetime.now(dt.UTC)
     out_dir = EXTERNAL_ROOT / args.source / f"{started:%Y%m%d}-{commit[:7]}"
     path = out_dir / f"{args.source}.parquet"
+    if args.source == "gtfs":
+        path = out_dir / "gtfs_subway.zip"
+        details = fetch_gtfs(path)
+        provenance = {
+            **details,
+            "retrieved_at": started.isoformat(),
+            "commit": commit,
+            "sha256": hashlib.sha256(path.read_bytes()).hexdigest(),
+        }
+        (out_dir / "provenance.json").write_text(json.dumps(provenance, indent=2))
+        print(f"wrote {path}: feed {details['version'].get('feed_version')}")
+        return
+    if args.source == "lodes":
+        table, details = fetch_lodes()
+        out_dir.mkdir(parents=True, exist_ok=False)
+        table.to_parquet(path)
+        provenance = {
+            **details,
+            "retrieved_at": started.isoformat(),
+            "commit": commit,
+            "sha256": hashlib.sha256(path.read_bytes()).hexdigest(),
+        }
+        (out_dir / "provenance.json").write_text(json.dumps(provenance, indent=2))
+        print(f"wrote {path}: {len(table)} blocks")
+        return
     if args.source == "pluto":
         registry = pd.read_parquet(registry_path)
         table, queries = fetch_pluto(registry.bbl.dropna())
@@ -574,6 +884,47 @@ def main(argv=None):
             "registry_bins_missing": missing,
         }
         summary = f"{len(table)} footprints, {len(missing)} registry BINs without one"
+    elif args.source == "places":
+        box = basemap_box(pd.read_parquet(registry_path))
+        table, queries, versions = fetch_places(box)
+        counts = table.kind.value_counts().to_dict()
+        details = {
+            "source": [f"{SOCRATA}/{d}" for d in versions if d != "osm"] + [OVERPASS],
+            "dataset": "NYC Open Data: dog runs, facilities, drop-in centers, NYCHA "
+            "lots; OpenStreetMap dog parks (ODbL)",
+            "versions": versions,
+            "registry": str(registry_path),
+            "box_north_west_south_east": box,
+            "margin_m": PLACES_MARGIN_M,
+            "places": counts,
+        }
+        summary = ", ".join(f"{v} {k}" for k, v in sorted(counts.items()))
+    elif args.source == "parks":
+        box = basemap_box(pd.read_parquet(registry_path))
+        table, queries, version = fetch_parks(box)
+        details = {
+            "source": f"{SOCRATA}/{PARKS_ID}",
+            "dataset": "Parks Properties via NYC Open Data",
+            "version": version,
+            "registry": str(registry_path),
+            "box_north_west_south_east": box,
+            "margin_m": PARKS_MARGIN_M,
+            "parks": len(table),
+        }
+        summary = f"{len(table)} parks"
+    elif args.source == "storefronts":
+        box = basemap_box(pd.read_parquet(registry_path))
+        table, queries, version = fetch_storefronts(box)
+        counts = table.reporting_year.value_counts().sort_index().to_dict()
+        details = {
+            "source": f"{SOCRATA}/{STOREFRONTS_ID}",
+            "dataset": "Storefronts Reported Vacant or Not via NYC Open Data",
+            "version": version,
+            "registry": str(registry_path),
+            "box_north_west_south_east": box,
+            "filings_by_year": counts,
+        }
+        summary = f"{len(table)} filings"
     elif args.source == "noise311":
         box = basemap_box(pd.read_parquet(registry_path))
         table, queries, versions = fetch_noise(box)
