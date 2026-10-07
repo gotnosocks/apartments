@@ -580,6 +580,10 @@ DATA_RULE_TEXT = {
     "and a letter (fourb, five-a) joined to the apartment of the same building "
     "labelled with the number (4B, 5A), when their bedroom counts agree. No listing "
     "is dropped.",
+    "unit-labels-v10": "unit-labels-v9, and apartments of a building whose labels "
+    "are one label spelled out and short (3RD-FL and 3, PENTHOUSE-A and PH-A, GARDEN "
+    "and G, 4-REAR and 4R) joined, whatever their bedroom counts. No listing is "
+    "dropped.",
     "unit-splits-v1": "An apartment's history split in two where a listing's bedroom "
     "count differs by two or more from the apartment's previous listing, as a "
     "combined, rebuilt or miscoded apartment. No listing is dropped.",
