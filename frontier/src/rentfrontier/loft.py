@@ -43,7 +43,10 @@ def prior_text_share(frame: pd.DataFrame, text: pd.Series) -> pd.Series:
     `MIN_ADS` such ads)."""
     has = text.ne("").to_numpy()
     hit = text.map(says_loft).to_numpy() & has
-    when = pd.to_datetime(frame.price_at, utc=True).to_numpy()
+    when = pd.to_datetime(frame.price_at, utc=True)
+    if when.isna().any():
+        raise ValueError("loft text share needs a capture time on every row")
+    when = when.astype("int64").to_numpy()
     out = np.full(len(frame), np.nan)
     for _, idx in frame.groupby("building", sort=False).indices.items():
         idx = idx[np.argsort(when[idx], kind="stable")]

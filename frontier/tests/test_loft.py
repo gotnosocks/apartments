@@ -48,3 +48,13 @@ def test_loft_flags_take_the_class_or_the_text(monkeypatch):
     assert list(out.text_loft) == [False] * 3 + [True] * 3 + [False]
     assert list(out.class_loft) == [False] * 6 + [True]
     assert list(out.loft) == [False] * 3 + [True] * 4
+
+
+def test_prior_share_ignores_row_order_and_index():
+    text = pd.Series(["huge loft", "flat", "loft space", "flat", "loft", "x", "loft"])
+    labels = [f"r{i}" for i in range(7)]
+    frame = _frame().set_axis(labels).iloc[::-1]
+    share = loft.prior_text_share(frame, text.set_axis(labels).iloc[::-1])
+    # r5, the last b1 ad, reads r0..r4: three of the five say loft
+    assert share["r5"] == 3 / 5
+    assert share[["r0", "r1", "r2"]].isna().all()
