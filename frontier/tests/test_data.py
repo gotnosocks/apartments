@@ -480,3 +480,63 @@ def test_unit_labels_v8_joins_letter_first_labels_to_digit_first_twins(tmp_path)
     assert data.DATA_RULES["unit-labels-v8"] is data.merge_swapped_labels
     assert "unit-labels-v8" not in data.DROPPING_RULES
     assert data.RULE_SOURCES["unit-labels-v8"] == data.UNIT_HISTORY_PAIRS
+
+
+def test_unit_labels_v9_joins_number_word_letter_labels_to_their_twins(tmp_path):
+    """v9 is v8 plus number words with a letter: "fourb" joins "4B", "five-a"
+    joins "5a" and "eleven" joins "11" when bedroom counts agree; "fourth"
+    reads as 4, not "four" and "th"; a disagreeing pair, another building's
+    twin, a word with no twin and a word with three letters stay apart; a
+    history pair and a word join chain into one unit with the smallest id."""
+    url = "https://streeteasy.com/building/{}/{}".format
+    frame = pd.DataFrame(
+        {
+            "building": ["b1"] * 10 + ["b2"] * 2,
+            "canonical_unit_url": [
+                url("b1", "fourb"),
+                url("b1", "4b"),
+                url("b1", "five-a"),
+                url("b1", "5a"),
+                url("b1", "eleven"),
+                url("b1", "11"),
+                url("b1", "sixc"),
+                url("b1", "6c"),
+                url("b1", "fourth"),
+                url("b1", "tenant"),
+                url("b2", "4b"),
+                url("b2", "twod"),
+            ],
+            "unit_id": [f"u{i}" for i in [4, 3, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14]],
+            "bedrooms": [1.0, 1.0, 2.0, 2.0, 0.0, 0.0, 1.0, 2.0, 1.0, 1.0, 1.0, 1.0],
+        }
+    )
+    pairs = tmp_path / "pairs.jsonl"
+    pairs.write_text(json.dumps({"unit_id": "u1", "other_unit_id": "u3"}) + "\n")
+    frame.loc[len(frame)] = ["b1", url("b1", "7"), "u1", 1.0]
+    frame.loc[len(frame)] = ["b1", url("b1", "4th"), "u15", 1.0]
+    frame.loc[len(frame)] = ["b1", url("b1", "10ant"), "u16", 1.0]
+    base = functools.partial(
+        data.merge_swapped_labels,
+        base=functools.partial(data.merge_history_pairs, pairs=pairs),
+    )
+    out = data.merge_word_letter_labels(frame, base=base)
+    assert out.unit_id.tolist() == [
+        "u1",
+        "u1",
+        "u5",
+        "u5",
+        "u7",
+        "u7",
+        "u9",
+        "u10",
+        "u11",
+        "u12",
+        "u13",
+        "u14",
+        "u1",
+        "u15",
+        "u16",
+    ]
+    assert data.DATA_RULES["unit-labels-v9"] is data.merge_word_letter_labels
+    assert "unit-labels-v9" not in data.DROPPING_RULES
+    assert data.RULE_SOURCES["unit-labels-v9"] == data.UNIT_HISTORY_PAIRS
