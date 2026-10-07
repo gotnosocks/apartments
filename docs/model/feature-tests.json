@@ -1,11 +1,12 @@
 {
-  "_doc": "What each tested change is, for docs/model/feature-tests.md (python -m rentfrontier.ledger). Keys are feature sets, or '+term' for a model term. kind 'location' marks features read from where a building is; their nulls are retested first when a neighbourhood is added (Ben, 2026-10-06).",
+  "_doc": "What each tested change is, for docs/model/feature-tests.md (python -m rentfrontier.ledger). Keys are feature sets, or '+term' for a model term. kind 'location' marks features read from where a building is; their nulls are retested first when a neighbourhood is added (Ben, 2026-10-06). An optional 'verdict' replaces the computed one, for a change blocked or failed on other grounds. 'hand_tests' lists pairs the ledger can't find itself: data rules, and pairs on a subset of rows.",
   "changes": {
     "nb-bedtext-v1": {"about": "ad states fewer or more bedrooms than the record", "pr": 149, "kind": "listing"},
     "nb-relist-v1": {"about": "months since the apartment's previous listing", "pr": 173, "kind": "listing"},
     "nb-coded-v1": {"about": "listing record's outdoor space types and extra rooms", "kind": "listing"},
-    "nb-prevprice-v1": {"about": "how the unit's previous listing was repriced", "pr": 211, "kind": "listing"},
-    "nb3-prevprice-v2": {"about": "how the unit's previous listing was repriced (nb3 base)", "kind": "listing"},
+    "nb-prevprice-v1": {"about": "how the unit's previous listing was repriced", "pr": 211, "kind": "listing", "verdict": "blocked: no time dependence, semantically invalid (#403)"},
+    "nb3-prevprice-v2": {"about": "how the unit's previous listing was repriced (nb3 base)", "kind": "listing", "verdict": "blocked: no time dependence, semantically invalid (#403)"},
+    "nb3-text-v1": {"about": "ad names a physical attribute beyond the coded flags: whole house, penthouse, garden level, terrace, loft and others", "pr": 390, "kind": "listing", "verdict": "fails selection-bias-free test (WV+GV +43.7 ± 23.5, 1.9 SE); retest only with phrases picked blind to residuals or on held-out neighbourhoods"},
     "nb3-attrs-v1": {"about": "ad states one of 15 attributes: walk-in closet, live-in super, utilities included, pre-war and others", "pr": 390, "kind": "listing"},
     "nb3-lineface-v1": {"about": "orientation read from the apartment's line", "kind": "unit"},
     "nb3-garden-v1": {"about": "rear windows over the open block or a wall", "pr": 328, "kind": "location"},
@@ -28,5 +29,10 @@
     "+bedtime": {"about": "a time trend by bedrooms", "kind": "model"},
     "+bednoise": {"about": "a residual scale by bedroom group", "pr": 154, "kind": "model"},
     "+yearnoise": {"about": "a residual scale by bedroom group and year", "pr": 295, "kind": "model"}
-  }
+  },
+  "hand_tests": [
+    {"date": "2026-10-07", "change": "unit-splits-v1", "about": "a unit's history splits where an ad's bedroom count differs by 2 or more from the previous ad's", "pr": 397, "feature_set": "nb3-coded-v2", "diff": 475.4, "se": 56.4, "test": "m7-nocurves-floorslope-bednoise-dayfourier-bedtime-yearnoise-nb3-coded-v2-rows-69cb5c6-x-2060-100w600d-gv1006-ul8-splits-69cb5c6", "reference": "m7-nocurves-floorslope-bednoise-dayfourier-bedtime-yearnoise-nb3-coded-v2-rows-69cb5c6-x-2060-100w600d-gv1006-ul8-base-69cb5c6"},
+    {"date": "2026-10-07", "change": "unit-labels-v9", "about": "number-word-and-letter unit labels (fourb, five-a) joined to their twins when bedrooms agree", "pr": 394, "feature_set": "nb3-coded-v2", "diff": 29.9, "se": 20.0, "test": "m7-nocurves-floorslope-bednoise-dayfourier-bedtime-yearnoise-nb3-coded-v2-rows-b50430b-x-2060-100w600d-gv1006-ul9-b50430b", "reference": "m7-nocurves-floorslope-bednoise-dayfourier-bedtime-yearnoise-nb3-coded-v2-rows-b50430b-x-2060-100w600d-gv1006-ul8-b50430b"},
+    {"date": "2026-10-07", "change": "nb3-text-v1", "about": "the text-v1 phrases scored on the West Village and Greenwich Village rows only", "pr": 390, "feature_set": "nb3-coded-v2", "diff": 43.7, "se": 23.5, "verdict": "fails selection-bias-free test (1.9 SE); retest only with phrases picked blind to residuals or on held-out neighbourhoods"}
+  ]
 }

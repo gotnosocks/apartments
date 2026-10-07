@@ -96,6 +96,7 @@ def rows(loo: dict, notes: dict, current: str, paired=leaderboard.paired_loo):
         v = verdict(diff, se)
         if change in features.READS_EARLIER_RENTS:
             v = "PSIS-LOO leaks; judged on the latest split"
+        v = note.get("verdict", v)
         retest = ""
         if v == "no clear gain" or v == "worse":
             location = note.get("kind") == "location"
@@ -123,7 +124,11 @@ def rows(loo: dict, notes: dict, current: str, paired=leaderboard.paired_loo):
     return sorted(out, key=lambda r: (r["date"], r["test"]), reverse=True)
 
 
-def markdown(entries: list[dict], current: str) -> str:
+def _code(name: str | None) -> str:
+    return f"`{name}`" if name else ""
+
+
+def markdown(entries: list[dict], current: str, hand: list[dict] = ()) -> str:
     lines = [
         "# Feature and model tests",
         "",
@@ -148,6 +153,26 @@ def markdown(entries: list[dict], current: str) -> str:
             f"| {e['diff']:+,.1f} ± {e['se']:,.1f} | {e['verdict']} | {e['retest']} "
             f"| {e['dataset']} ({e['rows'] or 0:,}) | {pr} | `{e['test']}` | `{e['reference']}` |"
         )
+    if hand:
+        lines += [
+            "",
+            "## Paired by hand",
+            "",
+            "Tests the table above can't pair: data rules (one model and feature set fitted"
+            " with and without the rule) and pairs on a subset of rows. From `hand_tests`"
+            " in `feature-tests.json`.",
+            "",
+            "| Date | Change | What | Feature set | ΔPSIS-LOO | Verdict | PR | Test run | Reference run |",
+            "|---|---|---|---|---|---|---|---|---|",
+        ]
+        for e in hand:
+            pr = f"#{e['pr']}" if e.get("pr") else ""
+            v = e.get("verdict") or verdict(e["diff"], e["se"])
+            lines.append(
+                f"| {e['date']} | `{e['change']}` | {e['about']} | `{e['feature_set']}` "
+                f"| {e['diff']:+,.1f} ± {e['se']:,.1f} | {v} | {pr} "
+                f"| {_code(e.get('test'))} | {_code(e.get('reference'))} |"
+            )
     return "\n".join(lines) + "\n"
 
 
@@ -157,9 +182,10 @@ def main():
     )
     parser.add_argument("--out", type=Path, help="write the markdown ledger here")
     args = parser.parse_args()
-    notes = json.loads(NOTES.read_text())["changes"] if NOTES.exists() else {}
+    doc = json.loads(NOTES.read_text()) if NOTES.exists() else {}
+    notes, hand = doc.get("changes", {}), doc.get("hand_tests", [])
     current = data.DATASET.name
-    text = markdown(rows(leaderboard.load_loo(), notes, current), current)
+    text = markdown(rows(leaderboard.load_loo(), notes, current), current, hand)
     if args.out:
         args.out.write_text(text)
     else:

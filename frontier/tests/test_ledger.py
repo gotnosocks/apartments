@@ -81,3 +81,31 @@ def test_notes_name_known_feature_sets():
     for change in notes:
         if not change.startswith("+"):
             assert change in features.FEATURE_SETS, change
+
+
+def test_verdict_override_and_rule_table(tmp_path, monkeypatch):
+    runs = loo((M, "nb3-text-v1"), (M, "nb3-coded-v2"))
+    for name in runs:
+        (tmp_path / name).mkdir()
+    monkeypatch.setattr(ledger.leaderboard, "RUNS", tmp_path)
+    notes = {"nb3-text-v1": {"about": "text", "verdict": "fails held-out test"}}
+    out = ledger.rows(runs, notes, "d", lambda a, b: (100.0, 10.0, 0.0))
+    assert out[0]["verdict"] == "fails held-out test"
+    rule = {
+        "date": "2026-10-07",
+        "change": "unit-splits-v1",
+        "about": "splits",
+        "pr": 397,
+        "feature_set": "nb3-coded-v2",
+        "diff": 475.4,
+        "se": 56.4,
+        "test": "t",
+        "reference": "r",
+    }
+    text = ledger.markdown(out, "d", [rule])
+    assert "## Paired by hand" in text
+    assert (
+        "| `unit-splits-v1` | splits | `nb3-coded-v2` | +475.4 ± 56.4 | gain | #397 |"
+        in text
+    )
+    assert "## Paired by hand" not in ledger.markdown(out, "d")
