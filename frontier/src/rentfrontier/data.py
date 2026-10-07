@@ -382,7 +382,9 @@ def merge_word_letter_labels(
 UNIT_SPLIT_BEDROOMS = 2
 
 
-def split_unit_histories(frame: pd.DataFrame) -> pd.DataFrame:
+def split_unit_histories(
+    frame: pd.DataFrame, bedrooms: int = UNIT_SPLIT_BEDROOMS
+) -> pd.DataFrame:
     """A unit's history split into separate units where an ad's bedroom count
     differs by 2 or more from the unit's previous ad with a bedroom count (as
     prevprice reads the previous listing): a 1-bedroom let at $3,395 and a
@@ -409,7 +411,7 @@ def split_unit_histories(frame: pd.DataFrame) -> pd.DataFrame:
         if k == 0 or units[order[k - 1]] != units[i]:
             piece_of, piece, last_beds = {}, 0, np.nan
         if ids[i] not in piece_of:
-            if abs(beds[i] - last_beds) >= UNIT_SPLIT_BEDROOMS:
+            if abs(beds[i] - last_beds) >= bedrooms:
                 piece += 1
             piece_of[ids[i]] = piece
             if not np.isnan(beds[i]):
@@ -641,6 +643,9 @@ DATA_RULES = {
     # unit-labels-v8 with number-word-and-letter labels joined to their twins.
     "unit-labels-v9": merge_word_letter_labels,
     "unit-splits-v1": split_unit_histories,
+    # unit-splits-v1 at any change of bedroom count: 3,871 more listing pairs,
+    # 20.7% of them moving rent by over 40% against 6.8% with no change.
+    "unit-splits-v2": functools.partial(split_unit_histories, bedrooms=1),
     "quarantine-v1": quarantine_v1,
     "quarantine-v2": quarantine_v2,
     "bedrooms-ad-v1": correct_bedrooms_v1,
