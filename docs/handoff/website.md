@@ -31,7 +31,7 @@ What the next turn of the website thread needs. Updated at each milestone.
 
 ## State (2026-10-06 19:30 UTC)
 
-- **Display-only pills on /best, read at runtime from `/data1/apartments/wishes/` (newest file by
+- **Informational notes on /best (grey, not pills; Ben 2026-10-07), read at runtime from `/data1/apartments/wishes/` (newest file by
   name; each table's path and mtime are in the ranking cache key; the ranking is unchanged):**
   #355 commute (`commute-*.csv`; a neutral grey note since #384, not a plus or minus)
   and #362 bed size (`bed-size-*.csv`: "King bed fits (ad)", a floor read from the ad's text).
@@ -52,7 +52,7 @@ What the next turn of the website thread needs. Updated at each milestone.
   pano opened inside a restaurant; #343 /best on phones: rows become cards below 640px, 44px tap
   targets, no sideways scroll at 320px (`.columns` uses `min(22rem, 100%)`).
 - **Ben's /best feedback** is logged at the top of `docs/playtests/backlog.md` (#341). The
-  site-side pills for "fronts a big street" and transit wait on Data improvements' fields.
+  pills for "fronts a big street" and transit only once they are served-model terms.
 - **Hand-set facing (#342, Data improvements):** `config/corrections/exposure-manual.csv` rows reach
   the site after `rentfrontier.exposure` and a site build; build 20261006T170007853712Z shows
   16 Barrow 1B "set by hand". Rebuild: in `/data1/apartments/serve/site`, `ops/job light -m 3G --
