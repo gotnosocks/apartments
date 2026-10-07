@@ -26,10 +26,10 @@ Commute (Data improvements' `rentfrontier.commute`, #353): weekday-morning
 subway minutes from each building to the destinations in
 `config/commute-destinations.json`, read at runtime from the newest
 `commute-*.csv` in the wishes folder. A sheet may name the destinations it
-wants (`"commute": ["office"]`; all of them otherwise). A trip at or under the
-median for the buildings, with no transfer, shows as a plus, otherwise a
-minus. It is shown, not counted: the model has no price for it, so it leaves
-the score alone.
+wants (`"commute": ["office"]`; all of them otherwise). It is a neutral note,
+neither a plus nor a minus, and not counted: pluses and minuses are the
+served model's terms only, and the model has no price for a commute (Ben,
+2026-10-07).
 """
 
 from __future__ import annotations
@@ -215,8 +215,7 @@ def load_bed_size(path: Path | None) -> dict:
 
 
 def commute_tags(building_id, commute: dict, wanted=None) -> list[dict]:
-    """A plus or minus per destination for one building: at or under the
-    median with no transfer is a plus."""
+    """A neutral note per destination for one building: its subway time."""
     tags = []
     for name, d in commute.items():
         if wanted is not None and name not in wanted:
@@ -225,7 +224,7 @@ def commute_tags(building_id, commute: dict, wanted=None) -> list[dict]:
         if trip is None:
             continue
         n = trip["transfers"]
-        words = f"{name}: {trip['minutes']:.0f} min by subway" + (
+        words = f"Commute to {name}: {trip['minutes']:.0f} min by subway" + (
             f", {n} transfer{'s' if n > 1 else ''}" if n else ""
         )
         how = []
@@ -242,7 +241,6 @@ def commute_tags(building_id, commute: dict, wanted=None) -> list[dict]:
                 "title": f"{d['address']}; " + "; ".join(how)
                 if d["address"]
                 else "; ".join(how),
-                "good": trip["minutes"] <= d["median"] and not n,
                 **trip,
             }
         )
