@@ -106,7 +106,7 @@ Updated 2026-10-07 15:40 ET. Thread owner: the Data improvements project thread 
   R-hat 1.07–1.10): text-v1 +106.4 ± 32.8 (later: fails 2 SE on the fair WV+GV score, not served;
   back on the backlog as text-v2, Ben 14:21Z/14:30Z); null: noise +3.3 ± 14.3, water +0.7 ± 14.6, flagfix +0.1 ± 23.7,
   walkup −6.2 ± 14.0, attrs −7.5 ± 28.9. loc-v1 OOMs at the 7G GPU-job cap on thelio; it ran on a
-  Modal A100 on 10-07 (+9.2 ± 9.2, provisional) and Modeling has it queued again after bedtime6. Results in `/data1/apartments/tmp/bridge/retest-pair-*.txt`. Don't relaunch
+  Modal A100 on 10-07 (+9.2 ± 15.3, provisional; ledger #415) and Modeling has it queued again after bedtime6. Results in `/data1/apartments/tmp/bridge/retest-pair-*.txt`. Don't relaunch
   scripts in that folder; it is Modeling's queue.
 - **Exposure outlook (#382):** `exposure-manual.csv` has an `outlook` column ("wall"); 82-86
   Washington Pl 2B is the only row. Website shows no pill for single hand labels (Ben).
