@@ -2,16 +2,16 @@
 
 ## Frontier fits on Modal
 
-Since 2026-10-06 (Ben), frontier fits may run on a Modal GPU, **at most 10 Modal fits a day**. `ops/modal-fit` takes drive.sh's arguments, runs the fit and its PSIS-LOO in one Modal container, and puts the results where a thelio fit's go:
+Since 2026-10-06 (Ben), frontier fits may run on a Modal GPU, **at most one launch every 144 minutes, with no daily cap** (Ben, 2026-10-07). `ops/modal-fit` takes drive.sh's arguments, runs the fit and its PSIS-LOO in one Modal container, and puts the results where a thelio fit's go:
 
 ```sh
 ops/modal-fit [--gpu A100-40GB] [--dataset DIR] [--input PATH]... [--split rows] [--chain-batch N] \
   COMMIT LABEL MODEL FEATURES CHAINS WARMUP DRAWS KEEP [rentfrontier.run options...]
-python3 ops/modal/cap.py                       # today's Modal launches and slots left
+python3 ops/modal/cap.py                       # recent Modal launches and when the next may start
 ops/team/wait-next --unit 'modal-fit-*'        # wake when it lands
 ```
 
-- **Cap.** Every launch takes a slot in `/data1/apartments/modal/ledger.jsonl` before its container starts, whether it later succeeds or fails. The day is the New York calendar day. The eleventh launch of a day is refused (`ops/modal/cap.py`). The only exception is a grant from Ben for one day, recorded with his words in `ops/modal/grants.json` by a reviewed PR; that day's cap is 10 plus the grant.
+- **Limit.** Every launch is recorded in `/data1/apartments/modal/ledger.jsonl` before its container starts, whether it later succeeds or fails. A launch less than 144 minutes after the previous one is refused (`ops/modal/cap.py`), which allows at most 10 a day. There is no daily cap. A queue script polls `python3 ops/modal/cap.py --check` before calling `ops/modal-fit`.
 - **What runs.** `ops/modal-fit` starts `ops/modal/fit.py` in a `systemd-run --user` unit `modal-fit-<time>`, logging to `/data1/apartments/modal/logs/`. It ships a shallow git checkout of COMMIT, uploads only the inputs that changed since the last launch (the dataset, `/data1/apartments/external`, the frontier cache and descriptions, and a few files under `data/model/`), and runs `rentfrontier.run` then `rentfrontier.loo` in the container. The fit alone is capped at 2 h (30 min for an exploration fit, chosen as in drive.sh), the container at 3 h.
 - **Results.** The run directory lands in `FRONTIER_OUTPUT_ROOT/runs/<name>`, with the container log and `modal.json` (GPU, stage times, list-price estimate) under `modal/`, and the LOO directory in `FRONTIER_OUTPUT_ROOT/loo/`. Both are then deleted from the Volume. The variance decomposition of a full fit is light work; run it on thelio from a checkout of COMMIT as drive.sh does (`JAX_PLATFORMS=cpu uv run python -m rentfrontier.variance NAME`).
 - **Fit time.** A Modal fit's time is not comparable with a thelio fit's: the served design took 822 s on an A100-40GB against 6,578 s on the RTX 2060 SUPER. `result.json` records the GPU under `hardware`.

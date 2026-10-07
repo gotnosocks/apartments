@@ -1,14 +1,12 @@
-"""The daily cap on Modal fits: at most MAX_PER_DAY launches per New York calendar day.
+"""The Modal launch limit: at most one launch every GAP_MINUTES, with no daily cap.
 
-Ben, 2026-10-06: full fits may run on Modal, but no more than 10 Modal fits in a day.
-Every launch takes a slot before its container starts, whether the fit later succeeds,
-fails or is stopped, so the count is an upper bound on what was billed. A launch past the
-cap is refused until midnight ET. The only way past it is a grant from Ben for one day,
-recorded in GRANTS (reviewed PRs only) with his words: that day's cap is MAX_PER_DAY plus
-the grant.
+Ben, 2026-10-07 20:22Z: "Change the Modal limit to 1 fit per 144 min with no daily cap".
+Every launch takes its turn before its container starts, whether the fit later succeeds,
+fails or is stopped, so the ledger is an upper bound on what was billed. A launch less than
+GAP_MINUTES after the previous one is refused until the gap has passed.
 
-    python3 ops/modal/cap.py            # today's launches and slots left
-    python3 ops/modal/cap.py --check    # exit 1 if today's slots are used up
+    python3 ops/modal/cap.py            # recent launches and when the next may start
+    python3 ops/modal/cap.py --check    # exit 1 if the gap since the last launch hasn't passed
 """
 
 import datetime
@@ -19,62 +17,55 @@ import sys
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
-MAX_PER_DAY = 10
+GAP_MINUTES = 144
 LEDGER = Path(
     "/data1/apartments/modal/ledger.jsonl"
 )  # fixed: no other ledger, no override
 ZONE = ZoneInfo("America/New_York")
-# Extra Modal fits Ben allowed on one ET day: {"YYYY-MM-DD": {"extra": n, "by": ..., "words": ...}}.
-GRANTS = Path(__file__).with_name("grants.json")
 
 
 class CapReached(RuntimeError):
     pass
 
 
-def _today(now=None):
-    return (now or datetime.datetime.now(ZONE)).astimezone(ZONE).date().isoformat()
+def _now(now=None):
+    return (now or datetime.datetime.now(ZONE)).astimezone(ZONE)
 
 
-def limit(day=None, grants=None):
-    """The cap for one ET day (default today): MAX_PER_DAY plus Ben's grant for that day."""
-    day = day or _today()
-    grants = GRANTS if grants is None else grants
-    extra = (
-        json.loads(grants.read_text()).get(day, {}).get("extra", 0)
-        if grants.exists()
-        else 0
-    )
-    return MAX_PER_DAY + int(extra)
+def _rows(lines):
+    return [json.loads(line) for line in lines if line.strip()]
 
 
-def launches(day=None, ledger=LEDGER):
-    """The ledger's entries for one ET day (default today)."""
-    day = day or _today()
-    if not ledger.exists():
-        return []
-    rows = [
-        json.loads(line) for line in ledger.read_text().splitlines() if line.strip()
-    ]
-    return [row for row in rows if row["day"] == day]
+def launches(ledger=LEDGER):
+    """Every launch in the ledger, oldest first."""
+    return _rows(ledger.read_text().splitlines()) if ledger.exists() else []
 
 
-def reserve(name, gpu, ledger=LEDGER, now=None, grants=None):
-    """Record a launch of `name`, or raise CapReached when today's cap (`limit`) is used."""
-    now = (now or datetime.datetime.now(ZONE)).astimezone(ZONE)
+def next_allowed(rows):
+    """The earliest time the next launch may start, or None if it may start now."""
+    if not rows:
+        return None
+    last = max(datetime.datetime.fromisoformat(row["at"]) for row in rows)
+    return last + datetime.timedelta(minutes=GAP_MINUTES)
+
+
+def reserve(name, gpu, ledger=LEDGER, now=None):
+    """Record a launch of `name`, or raise CapReached within GAP_MINUTES of the last one.
+
+    Returns the earliest time the launch after this one may start."""
+    now = _now(now)
     ledger.parent.mkdir(parents=True, exist_ok=True)
     with open(ledger, "a+") as f:
-        fcntl.flock(f, fcntl.LOCK_EX)  # two launchers can't both take the last slot
+        fcntl.flock(f, fcntl.LOCK_EX)  # two launchers can't both take the same turn
         f.seek(0)
-        day = _today(now)
-        used = sum(1 for line in f if line.strip() and json.loads(line)["day"] == day)
-        cap = limit(day, grants)
-        if used >= cap:
+        start = next_allowed(_rows(f))
+        if start is not None and now < start:
             raise CapReached(
-                f"{used} Modal fits already launched on {day} (ET); the cap is {cap} that day"
+                f"the last Modal launch was less than {GAP_MINUTES} min ago; "
+                f"the next may start at {start.astimezone(ZONE):%Y-%m-%d %H:%M} ET"
             )
         entry = {
-            "day": day,
+            "day": now.date().isoformat(),
             "at": now.isoformat(timespec="seconds"),
             "name": name,
             "gpu": gpu,
@@ -82,12 +73,19 @@ def reserve(name, gpu, ledger=LEDGER, now=None, grants=None):
         f.write(json.dumps(entry) + "\n")
         f.flush()
         os.fsync(f.fileno())
-    return cap - used - 1
+    return now + datetime.timedelta(minutes=GAP_MINUTES)
 
 
 if __name__ == "__main__":
-    today = launches()
-    for row in [] if "--check" in sys.argv else today:
+    rows = launches()
+    start = next_allowed(rows)
+    ready = start is None or _now() >= start
+    if "--check" in sys.argv:
+        sys.exit(0 if ready else 1)
+    for row in rows[-5:]:
         print(f"{row['at']}  {row['gpu']:<10} {row['name']}")
-    print(f"{len(today)} of {limit()} Modal fits launched today ({_today()} ET)")
-    sys.exit(1 if "--check" in sys.argv and len(today) >= limit() else 0)
+    print(
+        "next Modal launch: now"
+        if ready
+        else f"next Modal launch: {start.astimezone(ZONE):%Y-%m-%d %H:%M} ET"
+    )

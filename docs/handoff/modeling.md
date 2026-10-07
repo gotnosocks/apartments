@@ -38,12 +38,11 @@ in `/data1/apartments/tmp/bridge` (thelio).
    yearnoise's gain it explains; pooled per-year noise scales (random walk on log sigma) as a smaller fix.
 4. Areatime as a full fit (its exploration failed the gate at R-hat 1.045, ESS 46).
 5. Backlog: autoselect `why_not` should check the dataset before `scored`; elegance.needed_pairs and
-   the site's hardware view still assume TARGET_HARDWARE only (#391 review notes); comments in fit.py
-   and ops/modal-fit still say the cap is 10.
+   the site's hardware view still assume TARGET_HARDWARE only (#391 review notes).
 
 ## Modal fits (2026-10-06)
 
-Frontier fits can run on Modal with `ops/modal-fit` (docs/model/modal.md), at most 10 a day (ledger
+Frontier fits can run on Modal with `ops/modal-fit` (docs/model/modal.md), at most one launch every 144 min, no daily cap (Ben 2026-10-07; ledger
 /data1/apartments/modal/ledger.jsonl). The served design on an A100-40GB: fit 822 to 919 s, PSIS-LOO
 139 s, identical results to thelio, about $0.80 a full fit. The Modal Volume is deleted after 24 h
 unused by apartments-modal-cleanup.timer.
