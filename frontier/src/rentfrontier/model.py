@@ -1525,6 +1525,21 @@ MODELS = {
         season_harmonics=2,
         season_daily=True,
     ),
+    # The daily-season design with the residual scale by bedroom group and
+    # calendar year, without the per-bedroom market curves: yearnoise's gain at
+    # about half the served design's fit time.
+    "m7-nocurves-floorslope-bednoise-dayfourier-yearnoise": ModelConfig(
+        name="m7-nocurves-floorslope-bednoise-dayfourier-yearnoise",
+        building_walk=True,
+        bedroom_slope=True,
+        trend_knot_months=3,
+        feature_slopes=("log_sqft_vs_bedroom_median", "bathrooms=2", "log_floor"),
+        unit_t=True,
+        noise_by_bedrooms=True,
+        noise_by_year=True,
+        season_harmonics=2,
+        season_daily=True,
+    ),
     # The daily-season design with one market curve per bedroom group (studios
     # and large apartments can trend apart).
     "m7-nocurves-floorslope-bednoise-dayfourier-bedtime": ModelConfig(
