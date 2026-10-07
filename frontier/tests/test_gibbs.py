@@ -904,14 +904,15 @@ def test_dayfourier_yearnoise_is_the_served_design_without_bedtime():
     )
 
 
-def test_bedtime12_is_the_served_design_on_yearly_bedroom_knots():
+@pytest.mark.parametrize("months", [6, 12])
+def test_bedtime_n_is_the_served_design_on_coarser_bedroom_knots(months):
     config = model.MODELS[
-        "m7-nocurves-floorslope-bednoise-dayfourier-bedtime12-yearnoise"
+        f"m7-nocurves-floorslope-bednoise-dayfourier-bedtime{months}-yearnoise"
     ]
     served = model.MODELS[
         "m7-nocurves-floorslope-bednoise-dayfourier-bedtime-yearnoise"
     ]
-    assert config.bedroom_time_knot_months == 12
+    assert config.bedroom_time_knot_months == months
     assert (
         dataclasses.replace(
             config,
