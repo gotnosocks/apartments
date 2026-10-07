@@ -351,3 +351,30 @@ def test_ratings_are_gone(client):
     assert "My ratings" not in client.get("/best").get_data(as_text=True)
     assert client.get("/ratings").status_code == 404
     assert client.post("/ratings", data={"audit_id": "x"}).status_code in (404, 405)
+
+
+def test_flex_note_comes_from_the_ads_earlier_text(site_root, client):
+    """A capture does not read the ad's text, so a flex layout is noted from
+    the same ad's earlier row (Ben on 1 University Place 2J, 2026-10-07)."""
+    import sqlite3
+
+    db = sqlite3.connect((site_root / "current" / "site.sqlite").resolve())
+    audit_id, listing_id, bedrooms = db.execute(
+        "SELECT audit_id, listing_id, bedrooms FROM listings "
+        "WHERE is_current = 1 AND bedrooms = 1 LIMIT 1"
+    ).fetchone()
+    db.execute(
+        "UPDATE listings SET inputs = ? WHERE audit_id = ?",
+        (json.dumps({"description_missing": 1.0}), audit_id),
+    )
+    earlier = db.execute(
+        "SELECT audit_id FROM listings WHERE is_current = 0 LIMIT 1"
+    ).fetchone()[0]
+    db.execute(
+        "UPDATE listings SET listing_id = ?, inputs = ? WHERE audit_id = ?",
+        (listing_id, json.dumps({"text:flex_convertible": 1.0}), earlier),
+    )
+    db.commit()
+    db.close()
+    page = client.get("/best").get_data(as_text=True)
+    assert "flex 2: 1 BR with a temporary wall" in page

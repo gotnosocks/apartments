@@ -347,6 +347,21 @@ def score(
     }
 
 
+def earlier_ad_text(db) -> dict[str, dict]:
+    """The model inputs of the newest earlier row of each current ad that has
+    its description: a capture does not read the ad's text, so its notes
+    (income-restricted, flex) come from the same ad seen before."""
+    out: dict[str, dict] = {}
+    for listing_id, inputs in db.execute(
+        "SELECT listing_id, inputs FROM listings WHERE is_current = 0 AND listing_id IN "
+        "(SELECT listing_id FROM listings WHERE is_current = 1) ORDER BY period, price_at"
+    ):
+        x = json.loads(inputs)
+        if not x.get("description_missing"):
+            out[listing_id] = x
+    return out
+
+
 def rank(
     db, profile: dict, commute: dict | None = None, bed_size: dict | None = None
 ) -> dict:
@@ -370,13 +385,19 @@ def rank(
     # The usual floor: the median of every listing with a floor.
     floors = [f for (f,) in db.execute("SELECT floor FROM listings WHERE floor >= 1")]
     usual_floor = max(1, round(statistics.median(floors))) if floors else 1
+    ad_text = earlier_ad_text(db)
     rows = []
     for r in db.execute(
         "SELECT audit_id, unit_id, building_id, unit_label, neighbourhood, bedrooms, ask, "
-        "estimate, floor, reliable, listing_url, inputs, collected_at, method "
+        "estimate, floor, reliable, listing_url, listing_id, inputs, collected_at, method "
         "FROM listings WHERE is_current = 1 AND ask > 0"
     ):
         inputs = json.loads(r["inputs"])
+        text = (
+            ad_text.get(r["listing_id"], {})
+            if inputs.get("description_missing")
+            else inputs
+        )
         s = score(
             r, inputs, buildings.get(r["building_id"]), profile, betas, usual_floor
         )
@@ -401,7 +422,8 @@ def rank(
                 r["building_id"], commute or {}, profile.get("commute")
             ),
             bed_size=(bed_size or {}).get(r["unit_id"]),
-            income_restricted=bool(inputs.get("text:income_restricted")),
+            income_restricted=bool(text.get("text:income_restricted")),
+            flex=bool(text.get("text:flex_convertible")),
             fit_pct=100 * math.expm1(s["score"]),
             vs_estimate=r["ask"] / r["estimate"] - 1 if r["estimate"] else None,
             value=s["score"] - math.log(r["ask"]),
