@@ -1,19 +1,22 @@
 # Data collection — handoff
 
-Updated 2026-10-06 20:05 ET. Thread owner: the Data collection project thread (bridge session on thelio).
+Updated 2026-10-07 12:45 ET. Thread owner: the Data collection project thread (bridge session on thelio).
 
 ## State
 - **Flatiron + Gramercy Park crawl: RUNNING** since Oct 5 12:25 ET (Ben typed the go in this thread).
-  Unit `apartments-flatiron-gramercy-park-20261005`, runner `run-8pm-2w.py` (8/min, two workers),
-  fallbacks `run-8pm.py` then `run-4pm.py`. Neighborhood `flatiron-gramercy-park` (#281): StreetEasy
-  areas `flatiron` + `gramercy-park`, no child areas (NoMad). Frozen runtime master `efc2de7`.
-  Controls: `data/probes/flatiron-gramercy-park-20261005/README.md` (local). Archive
-  `/data1/apartments/archive/crawls/flatiron-gramercy-park-20261005`. Monitor
-  `apartments-fgp-monitor.timer` (every 2 h at :17). Oct 6 20:00 ET: 14.9k requests (~$17),
-  74 buildings finished. FGP buildings are much bigger than GV's (unit URLs per building median 47
-  vs 5, mean 92 vs 14.5; ~190 requests per finished building), so the estimate was raised from
-  $30–40 to 60k–160k requests, $70–180 (central ~$100), 5–14 more days; sent to Ben, who may set
-  a dollar cap (stop the crawl there). Next spend report at $50.
+  Unit `apartments-flatiron-gramercy-park-20261005`, runner `run-32pm-8w.py` (32/min, eight
+  workers) since Oct 7 11:53 ET (Ben, typed: 16/min first, then 32/min, 429s back to 8/min);
+  `run-16pm-4w.py` ran 30 clean minutes first. On 429s the monitor steps down `run-32pm-8w.py` or
+  `run-16pm-4w.py` → `run-8pm-2w.py` → `run-8pm.py` → `run-4pm.py` → STOPPED. Neighborhood
+  `flatiron-gramercy-park` (#281): StreetEasy areas `flatiron` + `gramercy-park`, no child areas
+  (NoMad). Frozen runtime master `efc2de7`. Controls: `data/probes/flatiron-gramercy-park-20261005/README.md`
+  (local). Archive `/data1/apartments/archive/crawls/flatiron-gramercy-park-20261005`. Monitor
+  `apartments-fgp-monitor.timer` (every 2 h at :17). No spend cap (Ben, Oct 6: "the Oxylabs budget
+  will stop it"); Oxylabs documents no separate out-of-credit code, so budget exhaustion likely
+  shows as 429 and ends in STOPPED via the step-down. Oct 7 12:43 ET: 23.8k requests (~$27), 188 of
+  ~770 buildings, 31 of ~102 directory pages; median finished building 23 unit pages. Estimate:
+  ~57k requests (~$65), finishing about Oct 8 06:00 ET (01:00–14:00). Report at $50 and at the end.
+  Oxylabs plan limit is 50 jobs/s; the Oct 1 GV 429s came at 4/min (quota, not rate).
 - **Greenwich Village: crawl FINISHED, dataset BUILT** Oct 5: see "Dataset (Oct 5 2026)" in
   `docs/data/greenwich-village-collection.md`. Dataset
   `greenwich-village-granular-20261005-canonical-url-v1`, aliases `...-unit-spelling-aliases-v2`.
