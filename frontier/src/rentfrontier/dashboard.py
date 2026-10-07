@@ -574,6 +574,9 @@ DATA_RULE_TEXT = {
     "unit-labels-v8": "unit-labels-v6, and apartments labelled letter first (C7) "
     "joined to the apartment of the same building labelled digit first (7C), when "
     "their bedroom counts agree. No listing is dropped.",
+    "unit-splits-v1": "An apartment's history split in two where a listing's bedroom "
+    "count differs by two or more from the apartment's previous listing, as a "
+    "combined, rebuilt or miscoded apartment. No listing is dropped.",
     "quarantine-v1": "Listings a review found are not an open-market lease of a whole "
     "Chelsea apartment at their address: offices and shops, ads that place the "
     "apartment elsewhere, SRO rooms, income-restricted and short-stay offers, and a "

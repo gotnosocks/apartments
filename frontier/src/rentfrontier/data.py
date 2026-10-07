@@ -327,6 +327,45 @@ def merge_swapped_labels(frame: pd.DataFrame, base=merge_history_pairs) -> pd.Da
     return out
 
 
+# A unit's history splits where its bedroom count moves by at least this much.
+UNIT_SPLIT_BEDROOMS = 2
+
+
+def split_unit_histories(frame: pd.DataFrame) -> pd.DataFrame:
+    """A unit's history split into separate units where a listing's bedroom
+    count differs by 2 or more from the unit's previous listing (its latest
+    earlier row of another advertisement, as prevprice reads it): a 1-bedroom
+    let at $3,395 and a 4-bedroom at $14,999 under one unit page are a combined
+    or rebuilt apartment, or a miscoded one, and should not share a unit effect
+    or a price history. On the served rows (2026-10-07), 583 consecutive
+    listing pairs in 285 buildings change by 2 or more; 63% of them move rent
+    by over 40% and 5.8% have a high Pareto k, against 6.8% and 0.6% for pairs
+    with no change. Under v8 it moves 1,058 rows of 463 units. A row's unit
+    depends only on its own and earlier rows. Later
+    pieces get the unit id plus "~1", "~2", ...; rows with no bedroom count never
+    split. It reads the unit ids it is given, so it runs after the unit-label
+    rules (runs apply rules in sorted order). Rows are unchanged."""
+    out = frame.copy()
+    at = pd.to_datetime(frame.price_at, utc=True).to_numpy()
+    units = frame.unit_id.to_numpy()
+    ids = frame.source_listing_id.astype(str).to_numpy()
+    beds = frame.bedrooms.to_numpy(dtype=float)
+    new = units.astype(object).copy()
+    piece, last_listing, last_beds = 0, None, np.nan
+    order = np.lexsort((at, units))
+    for k, i in enumerate(order):
+        if k == 0 or units[order[k - 1]] != units[i]:
+            piece, last_listing, last_beds = 0, None, np.nan
+        elif ids[i] != last_listing and abs(beds[i] - last_beds) >= UNIT_SPLIT_BEDROOMS:
+            piece += 1
+        if piece:
+            new[i] = f"{units[i]}~{piece}"
+        if ids[i] != last_listing:
+            last_listing, last_beds = ids[i], beds[i]
+    out["unit_id"] = new
+    return out
+
+
 def unit_line_key(frame: pd.DataFrame) -> pd.Series:
     """Each row's line ("column") within its building, from the unit label:
     "23C" and "4C" are line C, "1204" and "304" are line 04, "2ND", "4TH" and
@@ -545,6 +584,7 @@ DATA_RULES = {
     "unit-labels-v6": merge_history_pairs,
     # unit-labels-v6 with letter-first labels joined to their digit-first twins.
     "unit-labels-v8": merge_swapped_labels,
+    "unit-splits-v1": split_unit_histories,
     "quarantine-v1": quarantine_v1,
     "quarantine-v2": quarantine_v2,
     "bedrooms-ad-v1": correct_bedrooms_v1,

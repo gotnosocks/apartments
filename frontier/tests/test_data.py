@@ -480,3 +480,44 @@ def test_unit_labels_v8_joins_letter_first_labels_to_digit_first_twins(tmp_path)
     assert data.DATA_RULES["unit-labels-v8"] is data.merge_swapped_labels
     assert "unit-labels-v8" not in data.DROPPING_RULES
     assert data.RULE_SOURCES["unit-labels-v8"] == data.UNIT_HISTORY_PAIRS
+
+
+def test_unit_splits_v1_splits_a_history_where_bedrooms_jump_by_two():
+    """A listing two or more bedrooms from the unit's previous listing starts a
+    new unit; a change of one, another capture of the same ad, a missing count
+    and other units leave ids alone; a later jump starts a third piece."""
+    frame = pd.DataFrame(
+        {
+            "unit_id": ["u1"] * 7 + ["u2", "u2", "u3", "u3"],
+            "source_listing_id": [1, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
+            "price_at": [
+                "2020-01-01",
+                "2020-02-01",
+                "2021-01-01",  # 1 -> 2 bedrooms: same unit
+                "2022-01-01",  # 2 -> 4: new unit
+                "2023-01-01",  # 4 -> 1 bedroom: third piece
+                "2024-01-01",  # no count: never splits
+                "2025-01-01",
+                "2020-01-01",
+                "2021-01-01",
+                "2021-01-01",
+                "2020-01-01",  # u3 rows out of date order
+            ],
+            "bedrooms": [1.0, 3.0, 2.0, 4.0, 1.0, np.nan, 4.0, 0.0, 1.0, 3.0, 1.0],
+        }
+    )
+    out = data.DATA_RULES["unit-splits-v1"](frame)
+    assert out.unit_id.tolist() == [
+        "u1",
+        "u1",  # a second capture of ad 1 is never compared with ad 1
+        "u1",
+        "u1~1",
+        "u1~2",
+        "u1~2",
+        "u1~2",
+        "u2",
+        "u2",
+        "u3~1",
+        "u3",
+    ]
+    assert out.drop(columns="unit_id").equals(frame.drop(columns="unit_id"))
