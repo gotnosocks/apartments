@@ -1,12 +1,21 @@
-"""The Modal launch limit: at most one launch every GAP_MINUTES, with no daily cap.
+"""The Modal budget: dollars accrue at the rate of 10 full fits a day; a fit launches only once
+the balance covers its estimated cost.
 
-Ben, 2026-10-07 20:22Z: "Change the Modal limit to 1 fit per 144 min with no daily cap".
-Every launch takes its turn before its container starts, whether the fit later succeeds,
-fails or is stopped, so the ledger is an upper bound on what was billed. A launch less than
-GAP_MINUTES after the previous one is refused until the gap has passed.
+Ben, 2026-10-07 21:59Z: "we should accumulate Modal dollars at a rate consistent with 10 full
+fits per day, and only spend on a partial or full fit after we have accumulated enough for the
+estimated cost. If our estimate is too low, the accumulation should continue from the negative
+balance. e.g. $0 -> $10 -> -$0.50 -> $3 -> $1 -> $10 etc."
 
-    python3 ops/modal/cap.py            # recent launches and when the next may start
-    python3 ops/modal/cap.py --check    # exit 1 if the gap since the last launch hasn't passed
+The balance starts at $0 at START and accrues USD_PER_DAY = 10 x the estimated cost of the served
+full fit. A launch is charged its estimate when it takes its turn (reserve); when the fit returns,
+the launcher settles it at the container's list-price cost (or the time it ran, if it failed), so
+an estimate that was too low leaves the balance negative and accrual continues from there. There is
+no ceiling on the balance. Launches before START (the old daily cap) are not charged.
+
+    python3 ops/modal/cap.py                                  # balance, rate, recent launches
+    python3 ops/modal/cap.py --check [CHAINS WARMUP DRAWS]    # exit 1 until the balance covers that
+                                                              # fit (default: the served full fit)
+    python3 ops/modal/cap.py --check-launch ARGS...           # the same, from ops/modal-fit's ARGS
 """
 
 import datetime
@@ -17,15 +26,33 @@ import sys
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
-GAP_MINUTES = 144
 LEDGER = Path(
     "/data1/apartments/modal/ledger.jsonl"
 )  # fixed: no other ledger, no override
 ZONE = ZoneInfo("America/New_York")
+START = datetime.datetime(2026, 10, 7, 21, 59, 49, tzinfo=datetime.UTC)  # Ben's message
+# Container list price per hour, app.usd_per_second(gpu) * 3600 (kept equal by a test; app.py
+# imports modal, so the launcher's plain python3 can't import it).
+USD_PER_HOUR = {"L4": 1.0851, "A100-40GB": 2.3851, "A100-80GB": 2.7841, "H100": 4.2351}
+# Wall time of a fit's container: upload, image, fit and PSIS-LOO, from A100 fits of 2026-10-06/07
+# (the served design, 2 x 3,900 iterations, took 846 to 1,488 s; 2 x 12,300 took about 2,100 s).
+OVERHEAD_SECONDS, SECONDS_PER_ITERATION = 800, 0.11
+SERVED_FIT = (2, 300, 3600)  # chains, warmup, draws
 
 
 class CapReached(RuntimeError):
     pass
+
+
+def estimate(chains, warmup, draws, gpu="A100-40GB"):
+    """Estimated list-price cost of one fit, in USD."""
+    seconds = OVERHEAD_SECONDS + SECONDS_PER_ITERATION * (int(warmup) + int(draws)) * (
+        int(chains) / 2
+    )
+    return round(seconds * USD_PER_HOUR[gpu] / 3600, 2)
+
+
+USD_PER_DAY = 10 * estimate(*SERVED_FIT)
 
 
 def _now(now=None):
@@ -37,55 +64,123 @@ def _rows(lines):
 
 
 def launches(ledger=LEDGER):
-    """Every launch in the ledger, oldest first."""
+    """Every ledger row, oldest first: launches, and settlements of their cost."""
     return _rows(ledger.read_text().splitlines()) if ledger.exists() else []
 
 
-def next_allowed(rows):
-    """The earliest time the next launch may start, or None if it may start now."""
-    if not rows:
-        return None
-    last = max(datetime.datetime.fromisoformat(row["at"]) for row in rows)
-    return last + datetime.timedelta(minutes=GAP_MINUTES)
-
-
-def reserve(name, gpu, ledger=LEDGER, now=None):
-    """Record a launch of `name`, or raise CapReached within GAP_MINUTES of the last one.
-
-    Returns the earliest time the launch after this one may start."""
+def balance(rows, now=None):
+    """Dollars accrued since START less what launches since START cost (settled, else estimated)."""
     now = _now(now)
+    accrued = max((now - START).total_seconds(), 0) / 86400 * USD_PER_DAY
+    charged = {}  # launches since START: their estimate, replaced by what they cost once settled
+    for row in rows:
+        if row.get("kind") == "settle":
+            if row["name"] in charged:
+                charged[row["name"]] = row["usd"]
+        elif datetime.datetime.fromisoformat(row["at"]) >= START:
+            charged[row["name"]] = row["usd_estimate"]
+    return accrued - sum(charged.values())
+
+
+def ready_at(rows, usd, now=None):
+    """When the balance will cover `usd`: now, or the time accrual reaches it."""
+    now = _now(now)
+    short = usd - balance(rows, now)
+    if short <= 0:
+        return now
+    at = now + datetime.timedelta(days=short / USD_PER_DAY)
+    return at.replace(second=0, microsecond=0) + datetime.timedelta(
+        minutes=1
+    )  # round up
+
+
+def _append(ledger, decide, now):
     ledger.parent.mkdir(parents=True, exist_ok=True)
     with open(ledger, "a+") as f:
-        fcntl.flock(f, fcntl.LOCK_EX)  # two launchers can't both take the same turn
+        fcntl.flock(f, fcntl.LOCK_EX)  # two launchers can't both spend the same dollars
         f.seek(0)
-        start = next_allowed(_rows(f))
-        if start is not None and now < start:
-            raise CapReached(
-                f"the last Modal launch was less than {GAP_MINUTES} min ago; "
-                f"the next may start at {start.astimezone(ZONE):%Y-%m-%d %H:%M} ET"
-            )
+        entry = decide(_rows(f))
         entry = {
             "day": now.date().isoformat(),
             "at": now.isoformat(timespec="seconds"),
-            "name": name,
-            "gpu": gpu,
+            **entry,
         }
         f.write(json.dumps(entry) + "\n")
         f.flush()
         os.fsync(f.fileno())
-    return now + datetime.timedelta(minutes=GAP_MINUTES)
+
+
+def reserve(name, gpu, usd, ledger=LEDGER, now=None):
+    """Charge a launch of `name` its estimate `usd`, or raise CapReached if the balance is short.
+
+    Returns the balance left."""
+    now = _now(now)
+    left = {}
+
+    def decide(rows):
+        have = balance(rows, now)
+        if have < usd:
+            raise CapReached(
+                f"the Modal balance is ${have:.2f}, short of this fit's ${usd:.2f} estimate; "
+                f"enough from {ready_at(rows, usd, now):%Y-%m-%d %H:%M} ET"
+            )
+        left["usd"] = have - usd
+        return {"name": name, "gpu": gpu, "usd_estimate": usd}
+
+    _append(ledger, decide, now)
+    return left["usd"]
+
+
+def settle(name, usd, ledger=LEDGER, now=None):
+    """Replace a launch's estimate with what it cost."""
+    _append(
+        ledger,
+        lambda rows: {"kind": "settle", "name": name, "usd": round(usd, 2)},
+        _now(now),
+    )
+
+
+def fit_size(argv):
+    """(chains, warmup, draws, gpu) from ops/modal-fit's arguments, as fit.py parses them."""
+    positional, gpu, args = [], "A100-40GB", iter(argv)
+    for arg in args:
+        if arg in ("--gpu", "--dataset", "--input", "--split", "--chain-batch"):
+            value = next(args, "")
+            gpu = value if arg == "--gpu" else gpu
+        elif arg.startswith("--gpu="):
+            gpu = arg.split("=", 1)[1]
+        elif not arg.startswith("-"):
+            positional.append(arg)
+        if len(positional) == 8:  # COMMIT LABEL MODEL FEATURES CHAINS WARMUP DRAWS KEEP
+            break
+    return (*positional[4:7], gpu)
 
 
 if __name__ == "__main__":
     rows = launches()
-    start = next_allowed(rows)
-    ready = start is None or _now() >= start
     if "--check" in sys.argv:
-        sys.exit(0 if ready else 1)
-    for row in rows[-5:]:
-        print(f"{row['at']}  {row['gpu']:<10} {row['name']}")
+        fit = sys.argv[sys.argv.index("--check") + 1 :][:3] or SERVED_FIT
+        sys.exit(0 if balance(rows) >= estimate(*fit) else 1)
+    if (
+        "--check-launch" in sys.argv
+    ):  # ops/modal-fit's pre-check, with its own arguments
+        *fit, gpu = fit_size(sys.argv[sys.argv.index("--check-launch") + 1 :])
+        usd = estimate(*fit, gpu)
+        if balance(rows) < usd:
+            sys.exit(
+                f"refused: the Modal balance is ${balance(rows):.2f}, short of this fit's "
+                f"${usd:.2f} estimate; enough from {ready_at(rows, usd):%Y-%m-%d %H:%M} ET"
+            )
+        sys.exit(0)
+    for row in rows[-6:]:
+        cost = row.get("usd", row.get("usd_estimate"))
+        print(
+            f"{row['at']}  {row.get('kind', 'launch'):<6} {cost if cost is not None else '':>6}  {row['name']}"
+        )
+    usd = estimate(*SERVED_FIT)
     print(
-        "next Modal launch: now"
-        if ready
-        else f"next Modal launch: {start.astimezone(ZONE):%Y-%m-%d %H:%M} ET"
+        f"balance ${balance(rows):.2f}, accruing ${USD_PER_DAY:.2f} a day (10 x ${usd:.2f})"
+    )
+    print(
+        f"a served full fit (${usd:.2f}) may launch from {ready_at(rows, usd):%Y-%m-%d %H:%M} ET"
     )

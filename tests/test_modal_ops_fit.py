@@ -2,6 +2,7 @@ import datetime
 import importlib.util
 import sys
 from pathlib import Path
+from unittest import mock
 
 import pytest
 
@@ -23,24 +24,76 @@ fit = load("fit")
 ET = cap.ZONE
 
 
-def test_a_launch_within_the_gap_is_refused_and_the_next_waits_for_it(tmp_path):
+def test_a_fit_waits_for_its_dollars_and_an_overrun_leaves_the_balance_negative(
+    tmp_path,
+):
     ledger = tmp_path / "ledger.jsonl"
-    first = datetime.datetime(2026, 10, 7, 23, 0, tzinfo=ET)
-    gap = datetime.timedelta(minutes=cap.GAP_MINUTES)
-    assert cap.reserve("run-0", "A100-40GB", ledger, first) == first + gap
+    usd = cap.estimate(*cap.SERVED_FIT)
+    per_fit = datetime.timedelta(days=1) / 10  # the balance accrues 10 full fits a day
+    t0 = cap.START + per_fit
+    left = cap.reserve("run-0", "A100-40GB", usd, ledger, t0)
+    assert left == pytest.approx(0, abs=0.01)
+    with pytest.raises(cap.CapReached):  # spent: the next fit waits for its estimate
+        cap.reserve("run-1", "A100-40GB", usd, ledger, t0 + per_fit / 2)
+    # It ran over by $0.50: accrual continues from the negative balance.
+    cap.settle("run-0", usd + 0.5, ledger, t0 + per_fit / 4)
+    rows = cap.launches(ledger)
+    assert cap.balance(rows, t0) == pytest.approx(-0.5, abs=0.01)
+    ready = cap.ready_at(rows, usd, t0)
+    assert ready - t0 == pytest.approx(
+        per_fit * (1 + 0.5 / usd), abs=datetime.timedelta(minutes=1)
+    )
     with pytest.raises(cap.CapReached):
         cap.reserve(
-            "run-1", "A100-40GB", ledger, first + gap - datetime.timedelta(minutes=1)
+            "run-1", "A100-40GB", usd, ledger, ready - datetime.timedelta(minutes=2)
         )
-    # No daily cap: the next turn comes after the gap, across midnight ET, in any zone.
-    second = (first + gap).astimezone(datetime.UTC)
-    cap.reserve("run-1", "A100-40GB", ledger, second)
-    assert [row["name"] for row in cap.launches(ledger)] == ["run-0", "run-1"]
-    assert cap.next_allowed(cap.launches(ledger)) == second + gap
+    # A cheaper exploration fit spends less; across midnight ET, in any zone.
+    cap.reserve("run-1", "A100-40GB", usd, ledger, ready.astimezone(datetime.UTC))
+    assert [row["name"] for row in cap.launches(ledger) if "kind" not in row] == [
+        "run-0",
+        "run-1",
+    ]
+    assert cap.estimate(2, 100, 600) < usd < cap.estimate(2, 300, 4500)
 
 
-def test_ten_launches_a_day_fit_the_gap():
-    assert 10 * cap.GAP_MINUTES == 24 * 60
+def test_launches_before_the_budget_began_are_not_charged(tmp_path):
+    ledger = tmp_path / "ledger.jsonl"
+    before = cap.START - datetime.timedelta(hours=1)
+    cap.reserve("old", "A100-40GB", 0, ledger, before)
+    cap.settle("old", 5.0, ledger, cap.START + datetime.timedelta(hours=1))
+    rows = cap.launches(ledger)
+    assert cap.balance(rows, cap.START) == 0
+    assert cap.balance(rows, cap.START + datetime.timedelta(days=1)) == pytest.approx(
+        cap.USD_PER_DAY
+    )
+
+
+def test_ten_served_fits_a_day_at_the_container_list_price(monkeypatch):
+    monkeypatch.setitem(sys.modules, "modal", mock.MagicMock())
+    app = load("app")
+    assert {
+        gpu: round(app.usd_per_second(gpu) * 3600, 4) for gpu in app.FITS
+    } == pytest.approx(cap.USD_PER_HOUR, abs=1e-4)
+    assert cap.USD_PER_DAY == pytest.approx(10 * cap.estimate(2, 300, 3600))
+
+
+def test_the_pre_check_reads_the_fit_size_from_modal_fit_arguments():
+    argv = [
+        "--gpu",
+        "L4",
+        "--input",
+        "x",
+        "abc",
+        "lab",
+        "m7",
+        "nb3",
+        "2",
+        "300",
+        "4500",
+        "9",
+    ]
+    assert cap.fit_size([*argv, "--sampler", "gibbs"]) == ("2", "300", "4500", "L4")
+    assert cap.fit_size(argv[4:]) == ("2", "300", "4500", "A100-40GB")
 
 
 def test_plan_names_runs_like_drive_sh_and_reads_the_tier():

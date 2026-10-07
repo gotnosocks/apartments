@@ -6,8 +6,8 @@ arguments mirror drive.sh, so the run is named "<model>-<features>-<split>-<comm
     fit.py [--gpu A100-40GB] [--dataset DIR] [--input PATH]... [--split rows] [--chain-batch N]
            COMMIT LABEL MODEL FEATURES CHAINS WARMUP DRAWS KEEP [rentfrontier.run options...]
 
-Steps: refuse if the run already exists here; take a turn under the launch limit (cap.py, at
-most one Modal launch every 144 min); upload only the inputs that changed since the last sync; ship a
+Steps: refuse if the run already exists here; spend the fit's estimated cost from the Modal balance (cap.py:
+dollars accrue at 10 full fits a day; refused until the balance covers it); upload only the inputs that changed since the last sync; ship a
 shallow checkout of COMMIT; run the fit (capped at 2 h, or 30 min for an exploration fit)
 and PSIS-LOO in the container; download the run to FRONTIER_OUTPUT_ROOT/runs/<name> and the
 LOO to FRONTIER_OUTPUT_ROOT/loo/, then delete them from the Volume. The Volume itself is
@@ -22,6 +22,7 @@ import json
 import os
 import subprocess
 import sys
+import time
 import uuid
 from pathlib import Path
 
@@ -240,13 +241,18 @@ def main(argv):
     if args.gpu not in modal_app.FITS:
         sys.exit(f"--gpu must be one of {', '.join(modal_app.FITS)}")
     touch()
-    after = cap.reserve(spec["name"], args.gpu)  # raises CapReached within the gap
+    usd = cap.estimate(args.chains, args.warmup, args.draws, args.gpu)
+    left = cap.reserve(
+        spec["name"], args.gpu, usd
+    )  # raises CapReached if the balance is short
     print(
-        f"{spec['name']} on {args.gpu} ({spec['tier']}); next Modal launch from {after:%H:%M} ET",
+        f"{spec['name']} on {args.gpu} ({spec['tier']}); estimated ${usd:.2f}, "
+        f"Modal balance now ${left:.2f}",
         flush=True,
     )
     import modal
 
+    started, meta = time.monotonic(), None
     try:
         with modal.enable_output(), modal_app.app.run():
             sync(modal_app.volume, spec, stage)
@@ -264,6 +270,11 @@ def main(argv):
         raise
     finally:
         touch()
+        # The balance pays what the fit cost: its container time, or the time it ran if it failed.
+        cost = (meta or {}).get("usd_estimate")
+        if cost is None:
+            cost = (time.monotonic() - started) * modal_app.usd_per_second(args.gpu)
+        cap.settle(spec["name"], cost)
     return meta["exit"]
 
 

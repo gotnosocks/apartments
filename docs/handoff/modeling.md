@@ -42,7 +42,7 @@ in `/data1/apartments/tmp/bridge` (thelio).
 
 ## Modal fits (2026-10-06)
 
-Frontier fits can run on Modal with `ops/modal-fit` (docs/model/modal.md), at most one launch every 144 min, no daily cap (Ben 2026-10-07; ledger
+Frontier fits can run on Modal with `ops/modal-fit` (docs/model/modal.md), within a dollar budget accruing 10 full fits a day, about $8.10 (Ben 2026-10-07 21:59Z; ledger
 /data1/apartments/modal/ledger.jsonl). The served design on an A100-40GB: fit 822 to 919 s, PSIS-LOO
 139 s, identical results to thelio, about $0.80 a full fit. The Modal Volume is deleted after 24 h
 unused by apartments-modal-cleanup.timer.
