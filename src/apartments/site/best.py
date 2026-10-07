@@ -373,7 +373,8 @@ def rank(
     rows = []
     for r in db.execute(
         "SELECT audit_id, unit_id, building_id, unit_label, neighbourhood, bedrooms, ask, "
-        "estimate, floor, reliable, listing_url, inputs FROM listings WHERE is_current = 1 AND ask > 0"
+        "estimate, floor, reliable, listing_url, inputs, collected_at, method "
+        "FROM listings WHERE is_current = 1 AND ask > 0"
     ):
         inputs = json.loads(r["inputs"])
         s = score(
@@ -390,6 +391,8 @@ def rank(
             estimate=r["estimate"],
             reliable=r["reliable"],
             listing_url=r["listing_url"],
+            captured=(r["collected_at"] or "")[:10] or None,
+            kit=r["method"] == "kit",
             building_id=r["building_id"],
             latitude=b["latitude"] if b else None,
             longitude=b["longitude"] if b else None,
@@ -413,6 +416,8 @@ def rank(
     return {
         "rows": rows,
         "usual_floor": usual_floor,
+        # Captures of more than one day: each row says its own.
+        "capture_days": sorted({r["captured"] for r in rows if r["captured"]}),
         "not_modelled": not_modelled,
         "everywhere": [u for _, _, u in UNKNOWN if u in everywhere]
         + (["which way it faces"] if "which way it faces" in everywhere else []),

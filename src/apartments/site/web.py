@@ -1171,6 +1171,7 @@ def create_app(
             not_modelled=data["not_modelled"],
             everywhere=data["everywhere"],
             usual_floor=data.get("usual_floor"),
+            capture_days=data.get("capture_days", []),
             ordinal=best.ordinal,
             commute=data["commute"],
             rows=shown,

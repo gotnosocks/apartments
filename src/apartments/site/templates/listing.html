@@ -88,7 +88,12 @@ called a one-bedroom, say), and sometimes the apartment was rebuilt; the estimat
   likely ask range above, {{ usd(row.pred_lower_80) }}–{{ usd(row.pred_upper_80) }}.{% else %} The range under the estimate is the
   95% uncertainty of the typical rent itself, not where an ask will land: individual asks spread more widely, so an ask can
   sit inside that range and still be below or above typical, or outside it and still be typical.{% endif %}</p>
-  {% if row.method == "heldout" %}
+  {% if row.method == "kit" %}
+  <p>Priced with the kit, not in the fit: this listing was captured on {{ row.collected_at[:10] }}, after the served fit's
+  data was made, so it is priced as a new apartment in its building with the fit's
+  <a href="{{ url_for('estimate_apartment') }}">prediction kit</a>, the estimate form's scoring. The unit's own level is
+  drawn from the prior, not from its earlier listings, so the range is wider than for a listing in the fit.</p>
+  {% elif row.method == "heldout" %}
   <p>This listing was held out of the model fit as a validation row, so the estimate never saw its ask. It uses the unit's
   {{ row.unit_fit_rows }} other listing{{ "" if row.unit_fit_rows == 1 else "s" }}.</p>
   {% elif row.unit_fit_rows > 1 %}
@@ -173,13 +178,14 @@ called a one-bedroom, say), and sometimes the apartment was rebuilt; the estimat
     <dt>Typical rent, posterior median</dt><dd>{{ usd(row.estimate_median) }} <span class="muted">(the estimate above is the
       posterior mean, so the two differ a little)</span></dd>
     <dt>Ask percentile</dt><dd>{{ "%.1f" | format(100 * row.pit) }}</dd>
-    <dt>Method</dt><dd>{% if row.method == "heldout" %}<a href="{{ url_for('research_glossary', _anchor='held-out') }}">held out of the fit</a>{% else %}leave-own-row-out
+    <dt>Method</dt><dd>{% if row.method == "kit" %}priced with the kit, not in the fit (captured {{ row.collected_at[:10] }}){% elif row.method == "heldout" %}<a href="{{ url_for('research_glossary', _anchor='held-out') }}">held out of the fit</a>{% else %}leave-own-row-out
       (<a href="{{ url_for('research_glossary', _anchor='psis-loo') }}">PSIS</a>): the fit reweighted as if it had not seen this ask{% endif %}</dd>
     {% if row.pareto_k is not none %}<dt><a href="{{ url_for('research_glossary', _anchor='pareto-k') }}">Pareto k</a></dt><dd>{{ "%.2f" | format(row.pareto_k) }}{% if not row.reliable %} (above {{ meta.provenance.estimate_pareto_k.threshold | round(3) }}, so less reliable){% else %} <span class="muted">(below {{ meta.provenance.estimate_pareto_k.threshold | round(3) }}: the reweighting is reliable)</span>{% endif %}</dd>{% endif %}
     <dt>Unit's listings in the fit</dt><dd>{{ row.unit_fit_rows }}</dd>
-    <dt>{{ "Model fit" if row.method == "heldout" else "In-sample fit" }}</dt><dd>{{ usd(row.fitted) }} <span class="muted">({{ usd(row.fitted_lower) }}–{{ usd(row.fitted_upper) }})</span></dd>
+    {% if row.fitted is not none %}<dt>{{ "Model fit" if row.method == "heldout" else "In-sample fit" }}</dt><dd>{{ usd(row.fitted) }} <span class="muted">({{ usd(row.fitted_lower) }}–{{ usd(row.fitted_upper) }})</span></dd>{% endif %}
   </dl>
-  {% if row.method == "heldout" %}<p class="note">This listing was held out, so neither the fit nor the estimate saw its ask.</p>
+  {% if row.method == "kit" %}<p class="note">No fit saw this ask: the kit prices the apartment from its advertised details.</p>
+  {% elif row.method == "heldout" %}<p class="note">This listing was held out, so neither the fit nor the estimate saw its ask.</p>
   {% else %}<p class="note">The in-sample fit saw this ask, so it is pulled toward it; the estimate above does not.</p>{% endif %}
   </details>
 </section>
