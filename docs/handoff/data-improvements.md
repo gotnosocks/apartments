@@ -1,6 +1,29 @@
 # Data improvements — handoff
 
-Updated 2026-10-07 14:10 ET. Thread owner: the Data improvements project thread (bridge session on thelio).
+Updated 2026-10-07 15:40 ET. Thread owner: the Data improvements project thread (bridge session on thelio).
+
+## 2026-10-07 15:40 ET
+
+- **quarantine-v6 and unit-reviews-v1 (#419, merged 9b6c16d) are current.** At 110 W 26th St,
+  R and B are the same rear unit (Ben, 17:59Z: the R and B listings "both refer to the unit at the
+  back of the building"): `config/reviews/unit-joins-20261007.jsonl` joins 4R/4B and 5R/5B. The
+  five bare floor-number ads there are quarantined (`quarantine_unit_unknown`). `apply_rules` now
+  refuses unit-reviews before unit-labels. Modeling re-pointed the v4 serving refit
+  (frontier-modalq-sp4) to 9b6c16d. The cheap 2015 5F ad (https://streeteasy.com/rental/1566842)
+  is a genuine renovation and relist (Ben, 18:44Z), so it stays in the unit.
+- **unit-labels-v10 (#420, draft, head 2da098d) won its exploration pair:** +49.2 ± 21.9
+  (2.2 SE; Chelsea +19.3, WV +22.8) against fa61d6c's coded-v2 arm on v9 + v4. Each fit's LOO
+  MCSE is about 10. It joins spelled-out labels to short ones ("5 FL" = "5", "Penthouse" = "PH",
+  126 groups, 262 rows, no bedroom guard: v4 splits bedroom changes). Modeling queued its Modal
+  full fit after the v4 serving refit. Merge #420 only after that pair; merging makes v10 current.
+- **Renovation split (coordinator relay 18:45Z): sized, not run as a split.** Sizing is in
+  `/data1/apartments/tmp/suspect/renov/size.py`: 179 splits at a market-adjusted jump of at least 30%,
+  93 with a broker change, 51 at 50% or more, about 80% precision. A price-gated split reads the row's
+  own rent, so I proposed the leak-free feature instead: **nb3-renov-v1 (#422, draft)** flags
+  4,008 rows whose ad says newly or gut renovated when the unit's previous ad did not. Its arm
+  is unit frontier-renov-explore (`/data1/apartments/tmp/suspect/renovfit/`, rules q-v5, ul9, splits-v4,
+  label ul9s4), paired with fa61d6c's arm through `pair_subsets.py` (see `prevjump/pair3.sh`).
+- **Skipped or backlog:** loft flag skipped (Ben, 17:46Z); HowLoud sound scores to the backlog.
 
 ## 2026-10-07 14:10 ET
 
