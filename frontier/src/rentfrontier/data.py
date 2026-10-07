@@ -382,7 +382,9 @@ def merge_word_letter_labels(
 UNIT_SPLIT_BEDROOMS = 2
 
 
-def split_unit_histories(frame: pd.DataFrame) -> pd.DataFrame:
+def split_unit_histories(
+    frame: pd.DataFrame, bedrooms: int = UNIT_SPLIT_BEDROOMS, rejoin: bool = False
+) -> pd.DataFrame:
     """A unit's history split into separate units where an ad's bedroom count
     differs by 2 or more from the unit's previous ad with a bedroom count (as
     prevprice reads the previous listing): a 1-bedroom let at $3,395 and a
@@ -396,22 +398,32 @@ def split_unit_histories(frame: pd.DataFrame) -> pd.DataFrame:
     so a row's unit depends only on its own and earlier rows. Later pieces get
     the unit id plus "~1", "~2", ...; an ad with no bedroom count never splits.
     It reads the unit ids and bedroom counts it is given, so `apply_rules`
-    refuses it anywhere but last. Rows are unchanged."""
+    refuses it anywhere but last. Rows are unchanged.
+
+    With `rejoin`, an ad whose bedroom count an earlier piece of the unit
+    already had goes back to that piece instead of starting a new one, so a
+    convertible apartment coded 1, 2, 1 keeps its two 1-bedroom ads together.
+    It looks only at earlier ads, like the split itself."""
     out = frame.copy()
     at = pd.to_datetime(frame.price_at, utc=True).to_numpy()
     units = frame.unit_id.to_numpy()
     ids = frame.source_listing_id.astype(str).to_numpy()
     beds = frame.bedrooms.to_numpy(dtype=float)
     new = units.astype(object).copy()
-    piece_of, piece, last_beds = {}, 0, np.nan
+    piece_of, piece, pieces, last_beds, seen = {}, 0, 1, np.nan, {}
     order = np.lexsort((ids, at, units))
     for k, i in enumerate(order):
         if k == 0 or units[order[k - 1]] != units[i]:
-            piece_of, piece, last_beds = {}, 0, np.nan
+            piece_of, piece, pieces, last_beds, seen = {}, 0, 1, np.nan, {}
         if ids[i] not in piece_of:
-            if abs(beds[i] - last_beds) >= UNIT_SPLIT_BEDROOMS:
-                piece += 1
+            if abs(beds[i] - last_beds) >= bedrooms:
+                if rejoin and beds[i] in seen:
+                    piece = seen[beds[i]]
+                else:
+                    piece, pieces = pieces, pieces + 1
             piece_of[ids[i]] = piece
+            if not np.isnan(beds[i]):
+                seen[beds[i]] = piece
             if not np.isnan(beds[i]):
                 last_beds = beds[i]
         if piece_of[ids[i]]:
@@ -641,6 +653,10 @@ DATA_RULES = {
     # unit-labels-v8 with number-word-and-letter labels joined to their twins.
     "unit-labels-v9": merge_word_letter_labels,
     "unit-splits-v1": split_unit_histories,
+    # unit-splits-v1 at any change of bedroom count: 3,871 more listing pairs,
+    # 20.7% of them moving rent by over 40% against 6.8% with no change.
+    "unit-splits-v2": functools.partial(split_unit_histories, bedrooms=1),
+    "unit-splits-v3": functools.partial(split_unit_histories, bedrooms=1, rejoin=True),
     "quarantine-v1": quarantine_v1,
     "quarantine-v2": quarantine_v2,
     "bedrooms-ad-v1": correct_bedrooms_v1,
