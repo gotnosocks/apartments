@@ -1094,6 +1094,37 @@ ATTRIBUTE_FLAGS = {
 }
 
 
+def loft_v1(
+    frame: pd.DataFrame,
+    train: np.ndarray,
+    id: str = "nb3-loft-v1",
+    base: str = "nb3-coded-v2",
+) -> Features:
+    """A base set plus a loft-building flag (`loft.loft_flags`: MapPLUTO D5, or
+    at least half the building's earlier ads say loft), and the flag times the
+    bedroom count less one (one bedroom is the bedroom reference) and times
+    `log_sqft_vs_bedroom_median`, so lofts get their own bedroom and size
+    gradients. Reads no rents."""
+    from . import loft
+
+    base = FEATURE_SETS[base](frame, train)
+    flag = loft.loft_flags(frame, building_lots(frame).bldgclass).loft.to_numpy()
+    beds = frame.bedrooms.round().clip(0, 5).fillna(1.0).to_numpy() - 1.0
+    size = base.values[:, base.names.index("log_sqft_vs_bedroom_median")]
+    b = _Builder(frame)
+    b.add("loft", "loft", flag)
+    b.add("loft", "loft_x_bedrooms_vs_1", flag * beds)
+    b.add("loft", "loft_x_log_sqft_vs_bedroom_median", flag * size)
+    out = b.build(id)
+    return Features(
+        id,
+        base.names + out.names,
+        base.groups + out.groups,
+        np.column_stack([base.values, out.values]),
+        np.concatenate([base.prior_scale, out.prior_scale]),
+    )
+
+
 def text_flags_v1(
     frame: pd.DataFrame,
     train: np.ndarray,
@@ -2528,6 +2559,7 @@ FEATURE_SETS = {
     "nb3-loc-v1": partial(location_v2, id="nb3-loc-v1", base="nb3-coded-v2"),
     "nb3-water-v1": partial(waterfront_v1, id="nb3-water-v1", base="nb3-parks-v1"),
     "nb3-text-v1": partial(text_flags_v1, id="nb3-text-v1", base="nb3-coded-v2"),
+    "nb3-loft-v1": partial(loft_v1, id="nb3-loft-v1", base="nb3-coded-v2"),
     "nb3-flagfix-v1": partial(flagfix_v1, id="nb3-flagfix-v1", base="nb3-coded-v2"),
     "nb3-noise-v1": partial(
         noise_v1, id="nb3-noise-v1", base="nb3-coded-v2", noise_file=NB3_NOISE_FILE
@@ -2782,6 +2814,7 @@ for _wish in (
     "nb3-flagfix-v1",
     "nb3-attrs-v1",
     "nb3-noise-v1",
+    "nb3-loft-v1",
 ):
     for _group in (
         EXTERNAL,
