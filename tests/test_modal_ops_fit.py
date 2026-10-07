@@ -1,5 +1,6 @@
 import datetime
 import importlib.util
+import json
 import sys
 from pathlib import Path
 from unittest import mock
@@ -31,12 +32,12 @@ def test_a_fit_waits_for_its_dollars_and_an_overrun_leaves_the_balance_negative(
     usd = cap.estimate(*cap.SERVED_FIT)
     per_fit = datetime.timedelta(days=1) / 10  # the balance accrues 10 full fits a day
     t0 = cap.START + per_fit
-    left = cap.reserve("run-0", "A100-40GB", usd, ledger, t0)
+    launch, left = cap.reserve("run-0", "A100-40GB", usd, ledger, t0)
     assert left == pytest.approx(0, abs=0.01)
     with pytest.raises(cap.CapReached):  # spent: the next fit waits for its estimate
         cap.reserve("run-1", "A100-40GB", usd, ledger, t0 + per_fit / 2)
     # It ran over by $0.50: accrual continues from the negative balance.
-    cap.settle("run-0", usd + 0.5, ledger, t0 + per_fit / 4)
+    cap.settle(launch, usd + 0.5, ledger, t0 + per_fit / 4)
     rows = cap.launches(ledger)
     assert cap.balance(rows, t0) == pytest.approx(-0.5, abs=0.01)
     ready = cap.ready_at(rows, usd, t0)
@@ -59,12 +60,27 @@ def test_a_fit_waits_for_its_dollars_and_an_overrun_leaves_the_balance_negative(
 def test_launches_before_the_budget_began_are_not_charged(tmp_path):
     ledger = tmp_path / "ledger.jsonl"
     before = cap.START - datetime.timedelta(hours=1)
-    cap.reserve("old", "A100-40GB", 0, ledger, before)
-    cap.settle("old", 5.0, ledger, cap.START + datetime.timedelta(hours=1))
+    launch, _ = cap.reserve("old", "A100-40GB", 0, ledger, before)
+    cap.settle(launch, 5.0, ledger, cap.START + datetime.timedelta(hours=1))
     rows = cap.launches(ledger)
     assert cap.balance(rows, cap.START) == 0
     assert cap.balance(rows, cap.START + datetime.timedelta(days=1)) == pytest.approx(
         cap.USD_PER_DAY
+    )
+
+
+def test_a_retry_of_a_run_is_charged_as_its_own_launch(tmp_path):
+    ledger = tmp_path / "ledger.jsonl"
+    day = cap.START + datetime.timedelta(days=1)
+    first, _ = cap.reserve("run", "A100-40GB", 0.8, ledger, day)
+    cap.settle(first, 0.3, ledger, day)
+    cap.reserve("run", "A100-40GB", 0.8, ledger, day + datetime.timedelta(seconds=1))
+    # A row from the old launcher, after START, counts as a served full fit.
+    old = {"day": "x", "at": day.isoformat(), "name": "o", "gpu": "A100-40GB"}
+    with ledger.open("a") as f:
+        f.write(json.dumps(old) + "\n")
+    assert cap.balance(cap.launches(ledger), day) == pytest.approx(
+        cap.USD_PER_DAY - 0.3 - 0.8 - cap.estimate(*cap.SERVED_FIT)
     )
 
 

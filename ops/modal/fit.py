@@ -55,7 +55,7 @@ LAST_USE = STATE / "last-use"  # ops/modal/cleanup deletes the Volume 24 h after
 
 
 def parse(argv):
-    p = argparse.ArgumentParser(description=__doc__.split("\n")[0])
+    p = argparse.ArgumentParser(description=__doc__.split("\n")[0], allow_abbrev=False)
     p.add_argument(
         "--gpu", default="A100-40GB", help="L4, A100-40GB (default), A100-80GB or H100"
     )
@@ -242,9 +242,8 @@ def main(argv):
         sys.exit(f"--gpu must be one of {', '.join(modal_app.FITS)}")
     touch()
     usd = cap.estimate(args.chains, args.warmup, args.draws, args.gpu)
-    left = cap.reserve(
-        spec["name"], args.gpu, usd
-    )  # raises CapReached if the balance is short
+    # Raises CapReached if the balance is short.
+    launch, left = cap.reserve(spec["name"], args.gpu, usd)
     print(
         f"{spec['name']} on {args.gpu} ({spec['tier']}); estimated ${usd:.2f}, "
         f"Modal balance now ${left:.2f}",
@@ -274,7 +273,10 @@ def main(argv):
         cost = (meta or {}).get("usd_estimate")
         if cost is None:
             cost = (time.monotonic() - started) * modal_app.usd_per_second(args.gpu)
-        cap.settle(spec["name"], cost)
+        try:
+            cap.settle(launch, cost)
+        except Exception as e:  # noqa: BLE001 (keep the fit's own error; the estimate stays charged)
+            print(f"could not settle {launch} at ${cost:.2f}: {e}", flush=True)
     return meta["exit"]
 
 

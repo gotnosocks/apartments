@@ -75,10 +75,12 @@ def balance(rows, now=None):
     charged = {}  # launches since START: their estimate, replaced by what they cost once settled
     for row in rows:
         if row.get("kind") == "settle":
-            if row["name"] in charged:
-                charged[row["name"]] = row["usd"]
+            if row["id"] in charged:
+                charged[row["id"]] = row["usd"]
         elif datetime.datetime.fromisoformat(row["at"]) >= START:
-            charged[row["name"]] = row["usd_estimate"]
+            # A row from the old launcher (no estimate) counts as a served full fit.
+            usd = row.get("usd_estimate", estimate(*SERVED_FIT))
+            charged[row.get("id", f"{row['name']}@{row['at']}")] = usd
     return accrued - sum(charged.values())
 
 
@@ -113,7 +115,7 @@ def _append(ledger, decide, now):
 def reserve(name, gpu, usd, ledger=LEDGER, now=None):
     """Charge a launch of `name` its estimate `usd`, or raise CapReached if the balance is short.
 
-    Returns the balance left."""
+    Returns the launch's id, for settle, and the balance left."""
     now = _now(now)
     left = {}
 
@@ -125,17 +127,26 @@ def reserve(name, gpu, usd, ledger=LEDGER, now=None):
                 f"enough from {ready_at(rows, usd, now):%Y-%m-%d %H:%M} ET"
             )
         left["usd"] = have - usd
-        return {"name": name, "gpu": gpu, "usd_estimate": usd}
+        return {"id": launch, "name": name, "gpu": gpu, "usd_estimate": usd}
 
+    launch = (
+        f"{name}@{now.isoformat(timespec='seconds')}"  # a retry reuses the run's name
+    )
     _append(ledger, decide, now)
-    return left["usd"]
+    return launch, left["usd"]
 
 
-def settle(name, usd, ledger=LEDGER, now=None):
+def settle(launch, usd, ledger=LEDGER, now=None):
     """Replace a launch's estimate with what it cost."""
+    name = launch.rsplit("@", 1)[0]
     _append(
         ledger,
-        lambda rows: {"kind": "settle", "name": name, "usd": round(usd, 2)},
+        lambda rows: {
+            "kind": "settle",
+            "id": launch,
+            "name": name,
+            "usd": round(usd, 2),
+        },
         _now(now),
     )
 
@@ -164,8 +175,13 @@ if __name__ == "__main__":
     if (
         "--check-launch" in sys.argv
     ):  # ops/modal-fit's pre-check, with its own arguments
-        *fit, gpu = fit_size(sys.argv[sys.argv.index("--check-launch") + 1 :])
-        usd = estimate(*fit, gpu)
+        try:
+            *fit, gpu = fit_size(sys.argv[sys.argv.index("--check-launch") + 1 :])
+            usd = estimate(*fit, gpu)
+        except (TypeError, ValueError, KeyError):
+            sys.exit(
+                0
+            )  # bad arguments: fit.py reports them, and reserves before any launch
         if balance(rows) < usd:
             sys.exit(
                 f"refused: the Modal balance is ${balance(rows):.2f}, short of this fit's "
