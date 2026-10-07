@@ -1125,6 +1125,32 @@ def loft_v1(
     )
 
 
+def renovated_v1(
+    frame: pd.DataFrame,
+    train: np.ndarray,
+    id: str = "nb3-renov-v1",
+    base: str = "nb3-coded-v2",
+) -> Features:
+    """A base set plus a flag for an apartment renovated since its last ad
+    (`renovated.flags`: its own ad says newly or gut renovated and the unit's
+    previous ad, with text, does not). Reads the row's own and earlier ads, no
+    rents."""
+    from . import renovated
+
+    base = FEATURE_SETS[base](frame, train)
+    since = renovated.flags(frame).since_last_ad.to_numpy()
+    b = _Builder(frame)
+    b.add("description", "renovated since the unit's last ad", since)
+    out = b.build(id)
+    return Features(
+        id,
+        base.names + out.names,
+        base.groups + out.groups,
+        np.column_stack([base.values, out.values]),
+        np.concatenate([base.prior_scale, out.prior_scale]),
+    )
+
+
 def text_flags_v1(
     frame: pd.DataFrame,
     train: np.ndarray,
@@ -2560,6 +2586,7 @@ FEATURE_SETS = {
     "nb3-water-v1": partial(waterfront_v1, id="nb3-water-v1", base="nb3-parks-v1"),
     "nb3-text-v1": partial(text_flags_v1, id="nb3-text-v1", base="nb3-coded-v2"),
     "nb3-loft-v1": partial(loft_v1, id="nb3-loft-v1", base="nb3-coded-v2"),
+    "nb3-renov-v1": partial(renovated_v1, id="nb3-renov-v1", base="nb3-coded-v2"),
     "nb3-flagfix-v1": partial(flagfix_v1, id="nb3-flagfix-v1", base="nb3-coded-v2"),
     "nb3-noise-v1": partial(
         noise_v1, id="nb3-noise-v1", base="nb3-coded-v2", noise_file=NB3_NOISE_FILE
@@ -2815,6 +2842,7 @@ for _wish in (
     "nb3-attrs-v1",
     "nb3-noise-v1",
     "nb3-loft-v1",
+    "nb3-renov-v1",
 ):
     for _group in (
         EXTERNAL,
