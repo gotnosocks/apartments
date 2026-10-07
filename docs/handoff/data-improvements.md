@@ -1,6 +1,22 @@
 # Data improvements — handoff
 
-Updated 2026-10-07 09:00 ET. Thread owner: the Data improvements project thread (bridge session on thelio).
+Updated 2026-10-07 11:00 ET. Thread owner: the Data improvements project thread (bridge session on thelio).
+
+## 2026-10-07 11:00 ET
+
+- **unit-splits-v3 (#408, merged 8f40c96) is current.** It splits a unit's history at any change of
+  bedroom count (threshold 1, from #400's v2). When a count returns, those listings rejoin that
+  earlier piece. Coded-v2 pairs on v9: v3 vs v1 +953.0 ± 98.0 (Chelsea +381.8, WV +339.0); v2 vs
+  v1 +780.3 ± 101.5; v3 vs v2 +172.7 ± 42.6. #400 closed as superseded. I asked Modeling and the
+  coordinator for the coded-v2 serving full fit on 8f40c96 in place of the v1-rules fit.
+  Pair scripts: `/data1/apartments/tmp/suspect/prevjump/pair3.sh`.
+- **text-v1 (Ben, 2026-10-07):** fair WV+GV score +43.7 ± 23.5 (1.9 SE); not restored. It is back
+  in `docs/model/research-backlog.md` as text-v2 (#406). Ledger rows: `hand_tests` in
+  `docs/model/feature-tests.json` (#404).
+- **Yearnoise lead:** the gain is market scatter (residual SD about 9% from Sep 2020 to Feb 2021),
+  not a data problem; no rule. Modeling takes a pandemic term per segment.
+- Possible follow-ups: #408 reviewer nits (merge the duplicate isnan checks, test a multi-row ad
+  with rejoin); ledger hand_tests rows for unit-splits v2/v3.
 
 ## 2026-10-07 09:00 ET
 
