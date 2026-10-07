@@ -2,6 +2,19 @@
 
 What the next turn of the website thread needs. Updated at each milestone.
 
+## State (2026-10-07 00:40 UTC)
+
+- #377 (Ben's OK, 00:16Z) prices current-listings captures the served fit's dataset never read with the
+  run's prediction kit (`site/captures.py`, `method = "kit"`), using the dataset's own current-row rules
+  (`candidate_search.select_candidates` + layout/rent support). A dataset-dropped listing or a unit
+  the dataset prices as current stays out. Live: 44 Greenwich Village listings from the Oct 6 capture on
+  /best (best #7, Hilary Gardens 34A); Oct 4 Chelsea/WV unchanged. `build.json` stats `captured_current`
+  says how many were priced and why the others were skipped.
+- A data-only rebuild is `apartments.site build` from /data1/apartments/serve/site (step 3 of
+  `ops/autoselect-publish.sh`); site-deploy alone keeps the old build.
+- Open (non-blocking, reviewer): `first_listing_of_unit` stays set if a unit has an earlier listing
+  but no relisting centre is recoverable; no test of `captures.encode` with an earlier listing.
+
 ## State (2026-10-06 21:50 UTC)
 
 - #368 live: My ratings removed; no rating was ever stored. #369 live: a listing whose ad has
