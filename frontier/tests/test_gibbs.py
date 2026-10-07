@@ -885,3 +885,20 @@ def test_area_time_designs_are_registered():
             )
             == served
         )
+
+
+def test_dayfourier_yearnoise_is_the_served_design_without_bedtime():
+    config = model.MODELS["m7-nocurves-floorslope-bednoise-dayfourier-yearnoise"]
+    served = model.MODELS[
+        "m7-nocurves-floorslope-bednoise-dayfourier-bedtime-yearnoise"
+    ]
+    assert config.noise_by_year and not config.bedroom_time
+    assert (
+        dataclasses.replace(
+            config,
+            name=served.name,
+            bedroom_time=True,
+            bedroom_time_knot_months=served.bedroom_time_knot_months,
+        )
+        == served
+    )

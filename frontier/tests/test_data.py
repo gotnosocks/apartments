@@ -484,8 +484,9 @@ def test_unit_labels_v8_joins_letter_first_labels_to_digit_first_twins(tmp_path)
 
 def test_unit_splits_v1_splits_a_history_where_bedrooms_jump_by_two():
     """A listing two or more bedrooms from the unit's previous listing starts a
-    new unit; a change of one, another capture of the same ad, a missing count
-    and other units leave ids alone; a later jump starts a third piece."""
+    new unit; a change of one, another capture of the same ad and other units
+    leave ids alone; a later jump starts a third piece; an ad with no count
+    neither splits nor hides the count before it."""
     frame = pd.DataFrame(
         {
             "unit_id": ["u1"] * 7 + ["u2", "u2", "u3", "u3"],
@@ -497,7 +498,7 @@ def test_unit_splits_v1_splits_a_history_where_bedrooms_jump_by_two():
                 "2022-01-01",  # 2 -> 4: new unit
                 "2023-01-01",  # 4 -> 1 bedroom: third piece
                 "2024-01-01",  # no count: never splits
-                "2025-01-01",
+                "2025-01-01",  # 1 -> (none) -> 4: a fourth piece
                 "2020-01-01",
                 "2021-01-01",
                 "2021-01-01",
@@ -514,10 +515,94 @@ def test_unit_splits_v1_splits_a_history_where_bedrooms_jump_by_two():
         "u1~1",
         "u1~2",
         "u1~2",
-        "u1~2",
+        "u1~3",
         "u2",
         "u2",
         "u3~1",
         "u3",
     ]
     assert out.drop(columns="unit_id").equals(frame.drop(columns="unit_id"))
+
+
+def test_unit_splits_v1_keeps_an_ad_whole_and_breaks_ties_by_listing():
+    """An ad seen again after a jump stays in its first piece, and ads of one
+    date are taken in listing-id order whatever the row order."""
+    frame = pd.DataFrame(
+        {
+            "unit_id": ["u1"] * 3 + ["u2"] * 3,
+            "source_listing_id": [1, 2, 1, 5, 7, 6],
+            "price_at": ["2020-01-01", "2021-01-01", "2022-01-01"]
+            + ["2020-01-01", "2021-01-01", "2021-01-01"],
+            "bedrooms": [1.0, 3.0, 1.0, 1.0, 1.0, 3.0],
+        }
+    )
+    rule = data.DATA_RULES["unit-splits-v1"]
+    assert rule(frame).unit_id.tolist() == ["u1", "u1~1", "u1", "u2", "u2~2", "u2~1"]
+    flipped = frame.iloc[::-1]
+    assert rule(flipped).unit_id.tolist() == rule(frame).unit_id.tolist()[::-1]
+
+
+def test_unit_splits_rules_must_come_last():
+    frame = pd.DataFrame({"building": ["b"], "unit_id": ["u"]})
+    with pytest.raises(ValueError, match="must come last"):
+        data.apply_rules(frame, np.zeros(1, bool), ["unit-splits-v1", "unit-labels-v8"])
+
+
+def test_unit_labels_v9_joins_number_word_letter_labels_to_their_twins(tmp_path):
+    """v9 is v8 plus number words with a letter: "fourb" joins "4B", "five-a"
+    joins "5a" and "eleven" joins "11" when bedroom counts agree; "fourth"
+    reads as 4, not "four" and "th"; a disagreeing pair, another building's
+    twin, a word with no twin and a word with three letters stay apart; a
+    history pair and a word join chain into one unit with the smallest id."""
+    url = "https://streeteasy.com/building/{}/{}".format
+    frame = pd.DataFrame(
+        {
+            "building": ["b1"] * 10 + ["b2"] * 2,
+            "canonical_unit_url": [
+                url("b1", "fourb"),
+                url("b1", "4b"),
+                url("b1", "five-a"),
+                url("b1", "5a"),
+                url("b1", "eleven"),
+                url("b1", "11"),
+                url("b1", "sixc"),
+                url("b1", "6c"),
+                url("b1", "fourth"),
+                url("b1", "tenant"),
+                url("b2", "4b"),
+                url("b2", "twod"),
+            ],
+            "unit_id": [f"u{i}" for i in [4, 3, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14]],
+            "bedrooms": [1.0, 1.0, 2.0, 2.0, 0.0, 0.0, 1.0, 2.0, 1.0, 1.0, 1.0, 1.0],
+        }
+    )
+    pairs = tmp_path / "pairs.jsonl"
+    pairs.write_text(json.dumps({"unit_id": "u1", "other_unit_id": "u3"}) + "\n")
+    frame.loc[len(frame)] = ["b1", url("b1", "7"), "u1", 1.0]
+    frame.loc[len(frame)] = ["b1", url("b1", "4th"), "u15", 1.0]
+    frame.loc[len(frame)] = ["b1", url("b1", "10ant"), "u16", 1.0]
+    base = functools.partial(
+        data.merge_swapped_labels,
+        base=functools.partial(data.merge_history_pairs, pairs=pairs),
+    )
+    out = data.merge_word_letter_labels(frame, base=base)
+    assert out.unit_id.tolist() == [
+        "u1",
+        "u1",
+        "u5",
+        "u5",
+        "u7",
+        "u7",
+        "u9",
+        "u10",
+        "u11",
+        "u12",
+        "u13",
+        "u14",
+        "u1",
+        "u15",
+        "u16",
+    ]
+    assert data.DATA_RULES["unit-labels-v9"] is data.merge_word_letter_labels
+    assert "unit-labels-v9" not in data.DROPPING_RULES
+    assert data.RULE_SOURCES["unit-labels-v9"] == data.UNIT_HISTORY_PAIRS

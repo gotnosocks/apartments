@@ -327,41 +327,95 @@ def merge_swapped_labels(frame: pd.DataFrame, base=merge_history_pairs) -> pd.Da
     return out
 
 
+# Number words in unit labels with a letter after them ("fourb", "five-a"),
+# longest first so "fourth" is not read as "four" and "th".
+WORD_LETTER_WORDS = {
+    **LABEL_WORDS,
+    "eleven": "11", "twelve": "12", "sixth": "6", "seventh": "7",
+    "eighth": "8", "ninth": "9", "tenth": "10",
+}  # fmt: skip
+_WORD_LETTER = re.compile(
+    r"^(" + "|".join(sorted(WORD_LETTER_WORDS, key=len, reverse=True)) + r")"
+    r"[-_ ]?([a-z]{0,2})$"
+)
+
+
+def merge_word_letter_labels(
+    frame: pd.DataFrame, base=merge_swapped_labels
+) -> pd.DataFrame:
+    """unit-labels-v8, and units labelled with a number word and a letter
+    ("fourb", "five-a", "eleven") joined to the unit of the same building
+    labelled with that number ("4B", "5A", "11"), where both units' median
+    bedroom counts (under the base rule) agree. On the three-neighbourhood
+    cohort (2026-10-07) that joins 46 more unit ids than v8 does, 297 rows in
+    32 buildings ("one-e" and "1e", "twelvea" and "12a"). Groups that share a
+    unit are one unit, whose id is the smallest. Rows are unchanged."""
+    out = base(frame)
+    raw = frame.canonical_unit_url.str.extract(r"/([^/]+)$")[0].str.lower()
+    key = raw.map(lambda v: unit_label_key(v) if isinstance(v, str) else v)
+    beds = frame.bedrooms.groupby(out.unit_id).median().to_dict()
+    unit_of = dict(zip(zip(frame.building, key), out.unit_id))
+    parent = {}
+
+    def find(u):
+        parent.setdefault(u, u)
+        while parent[u] != u:
+            parent[u] = parent[parent[u]]
+            u = parent[u]
+        return u
+
+    for building, label, a in zip(frame.building, raw, out.unit_id):
+        m = _WORD_LETTER.match(label) if isinstance(label, str) else None
+        if m is None:
+            continue
+        b = unit_of.get((building, unit_label_key(WORD_LETTER_WORDS[m[1]] + m[2])))
+        if b is None or a == b or beds[a] != beds[b]:
+            continue
+        ra, rb = find(a), find(b)
+        if ra != rb:
+            parent[max(ra, rb)] = min(ra, rb)
+    out["unit_id"] = out.unit_id.map(find)
+    return out
+
+
 # A unit's history splits where its bedroom count moves by at least this much.
 UNIT_SPLIT_BEDROOMS = 2
 
 
 def split_unit_histories(frame: pd.DataFrame) -> pd.DataFrame:
-    """A unit's history split into separate units where a listing's bedroom
-    count differs by 2 or more from the unit's previous listing (its latest
-    earlier row of another advertisement, as prevprice reads it): a 1-bedroom
-    let at $3,395 and a 4-bedroom at $14,999 under one unit page are a combined
-    or rebuilt apartment, or a miscoded one, and should not share a unit effect
-    or a price history. On the served rows (2026-10-07), 583 consecutive
-    listing pairs in 285 buildings change by 2 or more; 63% of them move rent
-    by over 40% and 5.8% have a high Pareto k, against 6.8% and 0.6% for pairs
-    with no change. Under v8 it moves 1,058 rows of 463 units. A row's unit
-    depends only on its own and earlier rows. Later
-    pieces get the unit id plus "~1", "~2", ...; rows with no bedroom count never
-    split. It reads the unit ids it is given, so it runs after the unit-label
-    rules (runs apply rules in sorted order). Rows are unchanged."""
+    """A unit's history split into separate units where an ad's bedroom count
+    differs by 2 or more from the unit's previous ad with a bedroom count (as
+    prevprice reads the previous listing): a 1-bedroom let at $3,395 and a
+    4-bedroom at $14,999 under one unit page are a combined or rebuilt
+    apartment, or a miscoded one, and should not share a unit effect or a price
+    history. On the served rows (2026-10-07), 583 consecutive listing pairs in
+    285 buildings change by 2 or more; 63% of them move rent by over 40% and
+    5.8% have a high Pareto k, against 6.8% and 0.6% for pairs with no change.
+    Under v8 or v9 it moves 1,058 rows of 463 units. An ad's rows stay together in
+    the piece of its first row. Ads are taken by first date, then listing id,
+    so a row's unit depends only on its own and earlier rows. Later pieces get
+    the unit id plus "~1", "~2", ...; an ad with no bedroom count never splits.
+    It reads the unit ids and bedroom counts it is given, so `apply_rules`
+    refuses it anywhere but last. Rows are unchanged."""
     out = frame.copy()
     at = pd.to_datetime(frame.price_at, utc=True).to_numpy()
     units = frame.unit_id.to_numpy()
     ids = frame.source_listing_id.astype(str).to_numpy()
     beds = frame.bedrooms.to_numpy(dtype=float)
     new = units.astype(object).copy()
-    piece, last_listing, last_beds = 0, None, np.nan
-    order = np.lexsort((at, units))
+    piece_of, piece, last_beds = {}, 0, np.nan
+    order = np.lexsort((ids, at, units))
     for k, i in enumerate(order):
         if k == 0 or units[order[k - 1]] != units[i]:
-            piece, last_listing, last_beds = 0, None, np.nan
-        elif ids[i] != last_listing and abs(beds[i] - last_beds) >= UNIT_SPLIT_BEDROOMS:
-            piece += 1
-        if piece:
-            new[i] = f"{units[i]}~{piece}"
-        if ids[i] != last_listing:
-            last_listing, last_beds = ids[i], beds[i]
+            piece_of, piece, last_beds = {}, 0, np.nan
+        if ids[i] not in piece_of:
+            if abs(beds[i] - last_beds) >= UNIT_SPLIT_BEDROOMS:
+                piece += 1
+            piece_of[ids[i]] = piece
+            if not np.isnan(beds[i]):
+                last_beds = beds[i]
+        if piece_of[ids[i]]:
+            new[i] = f"{units[i]}~{piece_of[ids[i]]}"
     out["unit_id"] = new
     return out
 
@@ -584,6 +638,8 @@ DATA_RULES = {
     "unit-labels-v6": merge_history_pairs,
     # unit-labels-v6 with letter-first labels joined to their digit-first twins.
     "unit-labels-v8": merge_swapped_labels,
+    # unit-labels-v8 with number-word-and-letter labels joined to their twins.
+    "unit-labels-v9": merge_word_letter_labels,
     "unit-splits-v1": split_unit_histories,
     "quarantine-v1": quarantine_v1,
     "quarantine-v2": quarantine_v2,
@@ -609,6 +665,7 @@ RULE_SOURCES = {
     "unit-labels-v5": UNIT_ALIASES_GV,
     "unit-labels-v6": UNIT_HISTORY_PAIRS,
     "unit-labels-v8": UNIT_HISTORY_PAIRS,
+    "unit-labels-v9": UNIT_HISTORY_PAIRS,
     "bedrooms-ad-v1": BEDROOM_CORRECTIONS,
     "baths-ad-v1": BATH_CORRECTIONS,
     "bedrooms-ad-v2": BEDROOM_CORRECTIONS_V2,
@@ -674,6 +731,10 @@ def apply_rules(frame: pd.DataFrame, heldout: np.ndarray, rules):
     left (the building's other rows dropped, by a rule or in a new dataset)
     moves to training: a fit cannot score a building it never saw. On the
     datasets fit before 2026-10-05 no row moves."""
+    rules = tuple(rules)
+    splits = [i for i, r in enumerate(rules) if r.startswith("unit-splits-")]
+    if splits and splits != list(range(len(rules) - len(splits), len(rules))):
+        raise ValueError(f"unit-splits rules must come last: {rules}")
     mask = pd.Series(np.asarray(heldout, dtype=bool), index=frame.index)
     for rule in rules:
         frame = DATA_RULES[rule](frame)
