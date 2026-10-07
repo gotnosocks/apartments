@@ -9,7 +9,8 @@ card follow it.
 **Eligible fits.** A fit must meet all of these:
 - It passes the convergence gate, has named additive contributions and has a
   PSIS-LOO score (`leaderboard.scored`).
-- It ran on the target hardware (`TARGET_HARDWARE`) within the fit window
+- It ran on serving hardware (`SERVING_HARDWARE`: thelio's GPU, or a Modal
+  A100 since full fits moved there, Ben 2026-10-06) within the fit window
   (`WINDOW_SECONDS`: Ben, 2026-10-01, "the full fit can take more than 30
   mins", with a 2-hour hard stop; exploratory fits on a subset must run under
   30 minutes, and are never served).
@@ -61,7 +62,10 @@ from pathlib import Path
 
 from rentfrontier import data, elegance, features, leaderboard
 
-TARGET_HARDWARE = "thelio RTX 2060 SUPER"
+TARGET_HARDWARE = "thelio RTX 2060 SUPER"  # the research frontier's hardware
+# Fit times compare only on the same hardware: a fit is "faster" than another
+# only when both ran on the same class.
+SERVING_HARDWARE = (TARGET_HARDWARE, "Modal A100")
 WINDOW_SECONDS = (
     2 * 60 * 60
 )  # full fits; subset (tuning) fits: 30 minutes, never served
@@ -102,8 +106,8 @@ def why_not(e, rules) -> str | None:
         return "it fails the convergence gate"
     if not e["interpretable"]:
         return "it has no named additive contributions"
-    if e["hardware"] != TARGET_HARDWARE or "rows" not in e["splits"]:
-        return f"it did not run on the {TARGET_HARDWARE} row split"
+    if e["hardware"] not in SERVING_HARDWARE or "rows" not in e["splits"]:
+        return f"it did not run on the {' or '.join(SERVING_HARDWARE)} row split"
     # Before the score: a fit on another dataset is unscored because of it.
     dataset = _record(e).get("dataset")
     if dataset is not None and Path(dataset).resolve() != Path(data.DATASET).resolve():
@@ -173,10 +177,13 @@ def ranked(candidates, paired=leaderboard.paired_loo) -> list:
     rank = {id(e): beaten(e, tied) for e in tied}
     fastest = {}
     for e in tied:
-        fastest[rank[id(e)]] = min(fastest.get(rank[id(e)], math.inf), e["fit_seconds"])
+        key = (rank[id(e)], e["hardware"])
+        fastest[key] = min(fastest.get(key, math.inf), e["fit_seconds"])
 
     def order(e):
-        quick = e["fit_seconds"] <= fastest[rank[id(e)]] * (1 + TIME_TIE)
+        quick = e["fit_seconds"] <= fastest[(rank[id(e)], e["hardware"])] * (
+            1 + TIME_TIE
+        )
         return (rank[id(e)], not quick, -e["psis"]["delta"], e["fit_seconds"])
 
     tied.sort(key=order)
@@ -262,6 +269,7 @@ def decide(
             faster = (
                 tied
                 and judged == 0
+                and e["hardware"] == incumbent["hardware"]
                 and e["fit_seconds"] < incumbent["fit_seconds"] * (1 - TIME_TIE)
             )
             if inc_ok and tied and judged is None:

@@ -314,7 +314,8 @@ def hardware_class(r) -> str:
     remote = r.get("remote") or {}
     hw = r.get("hardware") or {}
     on_gpu = any("cuda" in d or "gpu" in d for d in hw.get("jax_devices", []))
-    if remote:
+    # ops/modal-fit runs record no remote block; Modal containers run under gVisor.
+    if remote or "gvisor" in hw.get("platform", ""):
         gpu = (remote.get("gpu_reported") or hw.get("gpu") or "").split(",")[0]
         return "Modal " + short_gpu(gpu) if on_gpu else "Modal CPU"
     if on_gpu:

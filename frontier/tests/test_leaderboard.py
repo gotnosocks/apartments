@@ -159,6 +159,15 @@ def test_hardware_class_uses_the_device_the_fit_ran_on():
     assert leaderboard.hardware_class(cpu_run) == leaderboard.THELIO_CPU
     assert leaderboard.hardware_class(gpu_run) == "thelio RTX 2060 SUPER"
     assert leaderboard.hardware_class(modal) == "Modal H100"
+    # ops/modal-fit runs have no remote block; the container runs under gVisor.
+    modal_fit = {
+        "hardware": {
+            "platform": "Linux-4.19.0-gvisor-x86_64-with-glibc2.36",
+            "gpu": "NVIDIA A100-SXM4-40GB",
+            "jax_devices": ["cuda:0"],
+        }
+    }
+    assert leaderboard.hardware_class(modal_fit) == "Modal A100"
     # The same design on two machines is two entries.
     base = {
         "commit": "abc",

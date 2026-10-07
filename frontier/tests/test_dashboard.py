@@ -318,7 +318,9 @@ def test_serve_check_gives_autoselects_reason_or_a_note(tmp_path):
     e = entry(tmp_path, "cpu-fit", 10.0, 100.0, at(1))
     e["hardware"] = "thelio CPU"
     reason = dashboard.serve_check(e, frozenset())
-    assert reason == f"it did not run on the {autoselect.TARGET_HARDWARE} row split"
+    assert reason == (
+        f"it did not run on the {' or '.join(autoselect.SERVING_HARDWARE)} row split"
+    )
     e["hardware"] = autoselect.TARGET_HARDWARE
     # its run directory has no result.json to read the data rules from
     assert dashboard.serve_check(e, frozenset()) == (
