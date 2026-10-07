@@ -223,3 +223,9 @@ Ranked roughly by how many personas hit the finding and how badly.
     (2026-10-07): /best pills only for model terms, never for hand-labelled single listings, so
     the one hand label (82-86 Washington Pl 2B, `outlook` = "wall", #382) is not shown; other facts
     are grey informational notes (see `docs/site.md`).
+14. **A current price for every apartment Ben has seen** (Ben, 2026-10-07, for later; not
+    started): estimate today's rent for every unit seen, from the latest listing's unit
+    attributes and the building's latest attributes, evaluated at the current date. It needs
+    the served model's predict path from Modeling. The nearest existing piece is the kit
+    pricing of current listings (#377, #385), which already takes the latest unit and building
+    attributes and evaluates them at today's date.
