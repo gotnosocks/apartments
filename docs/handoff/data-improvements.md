@@ -17,13 +17,13 @@ Updated 2026-10-07 14:10 ET. Thread owner: the Data improvements project thread 
 - **nb3-loc-v1 ledger note (#415):** +9.2 ± 15.3, provisional until the clean pair on v4.
 - **Lofts (Ben, 17:34Z: "a different category for these loft-style apartments?").** Sizing:
   MapPLUTO has no L class among our buildings. D5 (converted) covers 21 buildings and 2,111 rows.
-  In 310 buildings at least half the ads say "loft". In those buildings a 1-bed has a median of
+  In 310 buildings at least half of all ads (any date) say "loft". In those buildings a 1-bed has a median of
   1,015 sq ft against 700 elsewhere, and units change bedroom count 25% of the time against 12.5%.
   Room shares: no rule. A spot-check of "roommate" text hits found whole apartments; most cheap
   footage-less ads were real studios. Scripts: `/data1/apartments/tmp/suspect/loft/`.
 - **nb3-loft-v1 (#416, merged fa61d6c):** coded-v2 plus a causal loft flag (D5, or at least half
   of at least 3 strictly-earlier ads say loft), loft × (bedrooms − 1) and loft × size deviation.
-  It flags 7,890 rows: D5 only 1,634, text only 5,779, both 477. Modeling's exploration pair is
+  It flags 7,890 rows in 304 buildings (the causal rule is stricter than the sizing): D5 only 1,634, text only 5,779, both 477. Modeling's exploration pair is
   unit frontier-loft-explore (label x-2060-100w600d-gv1006-ul9s4, v9 + v4), due about 15:15 ET.
   If it gains, Modeling runs a Modal full fit. Record the pair in the ledger.
 
