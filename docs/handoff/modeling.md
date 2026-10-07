@@ -3,38 +3,38 @@
 What the next turn of the modeling thread needs. Updated at each milestone. Scripts and logs are
 in `/data1/apartments/tmp/bridge` (thelio).
 
-## State (2026-10-07 08:10 UTC)
+## State (2026-10-07 14:35 UTC)
 
-- **Served:** m7-nocurves-floorslope-bednoise-dayfourier-bedtime-yearnoise + nb3-prevprice-v2, run
-  `…-nb3-prevprice-v2-rows-163c6de-a100-3600k9cb1-gv1006` (Modal A100, #392), summary at 86a2578.
-  latestselect: latest split +84.2 ± 17.5 over coded-v2, both arms passing. PSIS-LOO 107,649.9 ± 334
-  (rows split; inflated for a feature that reads earlier rents). Rules unit-labels-v5, quarantine-v5,
-  bedrooms-ad-v2, baths-ad-v2, fields-review-v3. Deployed and published: build
-  20261007T060508384451Z-0c374f31; kit has 42,839 units.
-- **Serving hardware (#391, Ben 2026-10-07):** serve fits from the thelio RTX 2060 or Modal A100;
-  compare fit times only within one hardware class.
-- **Text features:** text-v1 is +110.8 ± 32.3 on rows but −1.1 ± 10.0 on the latest split; on top of
-  prevprice (prevtext-v1, branch features/prevtext, no PR) about −2.2 in exploration. Not served.
-- **unit-labels-v8 (#336, merged; current rule):** prevprice-v2 rows full fit at 4d6e6f7 passes the
-  gate, +304.7 ± 34.6 over the served fit on shared rows. Latest arms cannot pair across label rules
-  (the held-out rows differ). The test is coded-v2 vs prevprice-v2, both under v8 on the latest split:
-  prevprice arm done on Modal (`…-prevprice-v2-latest-4d6e6f7-a100-12000k30cb1-gv1006-ul8-latest`);
-  the coded-v2 arm waits for the Modal cap in `frontier-modalq-v8b`. Exploration read: +44.2 ± 19.1.
-- **Areatime:** the GPU memory probe was low; the 2060 exploration OOMed copying draws to host (2.30
-  GiB). It runs on Modal (`frontier-modalq-areatime`, after v8b) at 56251af, pairing with the thelio
-  base `…-nb3-prevprice-v2-rows-56251af-x-2060-100w600d-gv1006`.
-- **GPU queue:** `frontier-v9pair` (Data's unit-labels-v9, #394: coded-v2 v8 vs v9 at b50430b; Data
-  pairs it), then `frontier-ladder-v8` (floorslope design ladder with prevprice-v2 under v8, for the
-  lower fit-time frontier).
+- **Served:** m7-nocurves-floorslope-bednoise-dayfourier-bedtime-yearnoise + nb3-coded-v2, run
+  `…-nb3-coded-v2-rows-9371a18-gibbs-2060-3600k9cb1-nb3-v5f1u5-gv1005`, summary 838e50f, PSIS-LOO
+  106,764.6. Restored by hand in #403 (build 20261007T142452981592Z-39eb773f). It is on old rules
+  (unit-labels-v5, fields-review-v1), so autoselect will replace it with the first gate-passing full fit
+  on the current rules.
+- **prevprice removed (Ben, 2026-10-07 14:17Z):** semantically invalid (no time dependence of the
+  correction). `autoselect.BLOCKED` refuses every feature set containing `prevprice`, in autoselect and
+  latestselect; `manual_removal` in config/main-analysis.json records it. The elegance brief is
+  `elegance-v2`, with semantic validity first.
+- **Current rules:** baths-ad-v2, bedrooms-ad-v2, fields-review-v3, quarantine-v5, unit-labels-v9,
+  unit-splits-v1 (#394, #397).
+- **Serving hardware (#391):** thelio RTX 2060 or Modal A100; compare fit times only within one class.
+- **text-v1:** Data reports it fails the selection-bias-free test (WV+GV only: +43.7 ± 23.5, 1.9 SE).
+  Not served; a selection block waits for Ben's own word (asked 2026-10-07). Nothing text-v1 is queued.
+- **Designs:** dayfourier-yearnoise (#398) and bedtime12-yearnoise (#402) fill the fit-time gap below
+  the served design (prevprice-v2 exploration under v9 + splits: served 1,480 s; dfyn 640 s, −34.7 ± 8.5).
+- **Modal queue** `frontier-modalq-coded9` (waits for the midnight ET cap reset), all coded-v2 on the
+  current rules: served design rows full fit at 39c3c8a (label a100-3600k9cb1-gv1006-ul9s), dfyn full
+  fit, areatime exploration at d8fe0c2.
+- **GPU queue:** Data's `frontier-splits-v2` (sp1 vs sp2, Data pairs it), then
+  `frontier-coded9-explore`: coded-v2 explorations at d8fe0c2 of the served design, bedtime12 and dfyn
+  (label x-2060-100w600d-gv1006-ul9s).
 
 ## Next
 
-1. When the coded-v2 v8 latest arm lands: latestselect with candidate prevprice v8 latest, reference
-   coded-v2 v8 latest, serve `…-prevprice-v2-rows-4d6e6f7-a100-3600k9cb1-gv1006-ul8`; summary, selection
-   PR, deploy, publish.
-2. Pair the areatime Modal exploration with its thelio base.
-3. Ladder: pair the steps, mark the lower fit-time frontier.
-4. Backlog: autoselect `why_not` should check the dataset before `scored`; elegance.needed_pairs and
+1. When the coded-v2 rows full fit lands: `python -m rentfrontier.autoselect`; on a switch build the
+   summary (gpu job), `--write`, selection PR (default-model reviewer), merge, deploy, publish.
+2. Pair the coded9 explorations (bedtime12 and dfyn against the served design) and the dfyn full fit
+   against the served rows fit, for the fit-time frontier.
+3. Backlog: autoselect `why_not` should check the dataset before `scored`; elegance.needed_pairs and
    the site's hardware view still assume TARGET_HARDWARE only (#391 review notes).
 
 ## Modal fits (2026-10-06)
