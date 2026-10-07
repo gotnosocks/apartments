@@ -1,50 +1,36 @@
 {
   "version": "main-analysis-selection-v2",
   "model_family": "frontier_summary",
-  "summary": "/data1/apartments/frontier/summaries/m7-nocurves-floorslope-bednoise-dayfourier-bedtime-yearnoise-nb3-coded-v2-rows-9371a18-gibbs-2060-3600k9cb1-nb3-v5f1u5-gv1005-838e50f",
-  "summary_manifest_sha256": "39eb773f154b3f89f4b27daa5bf7187cc32e4de778176c43a363309553786d31",
-  "summary_commit": "838e50f171236b3c5e3c200fc234a31a1a6a6e4b",
-  "run": "m7-nocurves-floorslope-bednoise-dayfourier-bedtime-yearnoise-nb3-coded-v2-rows-9371a18-gibbs-2060-3600k9cb1-nb3-v5f1u5-gv1005",
-  "run_commit": "9371a186d8ca2c33c694eb60b80af20b8b640601",
+  "summary": "/data1/apartments/frontier/summaries/m7-nocurves-floorslope-bednoise-dayfourier-bedtime-yearnoise-nb3-coded-v2-rows-39c3c8a-a100-3600k9cb1-gv1006-ul9s-b65c406",
+  "summary_manifest_sha256": "3dba77be4dd46adb0b409d000e5a46d9d872f85ea6836bd74842236dbb2211f1",
+  "summary_commit": "b65c40666def1cf798cce04168508f7b81fa23f1",
+  "run": "m7-nocurves-floorslope-bednoise-dayfourier-bedtime-yearnoise-nb3-coded-v2-rows-39c3c8a-a100-3600k9cb1-gv1006-ul9s",
+  "run_commit": "39c3c8ab880d6d2f6b693331699a57f80610a3db",
   "model": "m7-nocurves-floorslope-bednoise-dayfourier-bedtime-yearnoise",
   "feature_set": "nb3-coded-v2",
   "data_rules": [
-    "unit-labels-v5",
-    "quarantine-v5",
-    "bedrooms-ad-v2",
     "baths-ad-v2",
-    "fields-review-v1"
+    "bedrooms-ad-v2",
+    "fields-review-v3",
+    "quarantine-v5",
+    "unit-labels-v9",
+    "unit-splits-v1"
   ],
   "dataset": "/data1/apartments/frontier/datasets/chelsea-wv-gv-analysis-20261005-2d5b3b6",
   "source_observations_sha256": "5745d3c1071629db66f6957c11ab2ea724ab6737c0f6483781b90f472f6f8dd4",
   "gate": {
     "passes": true,
-    "max_rhat": 1.0052933867233276,
-    "min_ess": 469.0729325398515,
+    "max_rhat": 1.0074337979609949,
+    "min_ess": 424.80508055552883,
     "divergences": null,
-    "group_rhat_max": 1.0359930065593999
+    "group_rhat_max": 1.0264816211030918
   },
   "psis_loo": {
-    "elpd_loo": 106764.62416435507,
-    "elpd_loo_se": 333.74573829877335,
-    "loo_commit": "9371a186d8ca2c33c694eb60b80af20b8b640601"
+    "elpd_loo": 107490.26690959597,
+    "elpd_loo_se": 333.5196573660944,
+    "loo_commit": "39c3c8ab880d6d2f6b693331699a57f80610a3db"
   },
-  "selected_by": "Ben, by hand, 2026-10-07 (manual removal of nb3-prevprice-v2 as semantically invalid)",
-  "selection_reason": "Restored by hand when Ben removed nb3-prevprice-v2 from serving on 2026-10-07 as semantically invalid: its correction from the unit's previous listing's repricing does not depend on the time since that listing. Every prevprice feature set is now blocked from automatic selection. This fit was first chosen on 2026-10-06: Chosen by the automatic rule because the incumbent cannot be served: it has no paired PSIS-LOO score. Gibbs m7-nocurves-floorslope-bednoise-dayfourier-bedtime-yearnoise + nb3-coded-v2 with unit-labels-v5 + quarantine-v5 + bedrooms-ad-v2 + baths-ad-v2 + fields-review-v1, 6,578 s on thelio RTX 2060 SUPER.",
-  "uncertainty": "Conditional posterior uncertainty; source errors, omitted features and incomplete market coverage remain separate. Estimates for a unit's only listing are under-covered (92.8% in the 95% predictive range).",
-  "manual_removal": {
-    "date": "2026-10-07",
-    "by": "Ben",
-    "reason": "semantically invalid: no time dependence of the correction from the unit's previous listing",
-    "removed_run": "m7-nocurves-floorslope-bednoise-dayfourier-bedtime-yearnoise-nb3-prevprice-v2-rows-163c6de-a100-3600k9cb1-gv1006",
-    "removed_feature_set": "nb3-prevprice-v2",
-    "removed_summary": "/data1/apartments/frontier/summaries/m7-nocurves-floorslope-bednoise-dayfourier-bedtime-yearnoise-nb3-prevprice-v2-rows-163c6de-a100-3600k9cb1-gv1006-86a2578",
-    "removed_latest_pair": {
-      "candidate": "m7-nocurves-floorslope-bednoise-dayfourier-bedtime-yearnoise-nb3-prevprice-v2-latest-163c6de-a100-12000k30cb1-gv1006-latest",
-      "reference": "m7-nocurves-floorslope-bednoise-dayfourier-bedtime-yearnoise-nb3-coded-v2-latest-163c6de-a100-12000k30cb1-gv1006-latest",
-      "heldout": 84.2384671489913,
-      "heldout_se": 17.467254989355702
-    },
-    "blocked": "every feature set whose name contains 'prevprice' (rentfrontier.autoselect.BLOCKED)"
-  }
+  "selected_by": "rentfrontier.autoselect, 2026-10-07 (Ben, 2026-09-30: switch automatically by the agreed metrics)",
+  "selection_reason": "Chosen by the automatic rule because the incumbent cannot be served: it was fit with baths-ad-v2 + bedrooms-ad-v2 + fields-review-v1 + quarantine-v5 + unit-labels-v5, not the current baths-ad-v2 + bedrooms-ad-v2 + fields-review-v3 + quarantine-v5 + unit-labels-v9 + unit-splits-v1. Gibbs m7-nocurves-floorslope-bednoise-dayfourier-bedtime-yearnoise + nb3-coded-v2 with baths-ad-v2 + bedrooms-ad-v2 + fields-review-v3 + quarantine-v5 + unit-labels-v9 + unit-splits-v1, 953 s on Modal A100. Against the previous selection on the rows both keep: PSIS-LOO +725.6 \u00b1 65.8, held-out +53.5 \u00b1 20.3.",
+  "uncertainty": "Conditional posterior uncertainty; source errors, omitted features and incomplete market coverage remain separate. Estimates for a unit's only listing are under-covered (92.6% in the 95% predictive range)."
 }
