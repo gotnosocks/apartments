@@ -921,6 +921,230 @@ def through_v1(
     )
 
 
+def walkup_v1(
+    frame: pd.DataFrame,
+    train: np.ndarray,
+    id: str = "nb3-walkup-v1",
+    base: str = "nb3-coded-v2",
+) -> Features:
+    """A base set plus a walk-up penalty past the third floor: log(floor / 3),
+    floored at zero, in buildings with no elevator. Reads no rents."""
+    base = FEATURE_SETS[base](frame, train)
+    log_floor = base.values[:, base.names.index("log_floor")]
+    walkup = frame.elevator.eq("no").to_numpy()
+    b = _Builder(frame)
+    b.add(
+        "floor",
+        "log_floor_above_3_x_no_elevator",
+        np.maximum(0.0, log_floor - np.log(3)) * walkup,
+    )
+    out = b.build(id)
+    return Features(
+        id,
+        base.names + out.names,
+        base.groups + out.groups,
+        np.column_stack([base.values, out.values]),
+        np.concatenate([base.prior_scale, out.prior_scale]),
+    )
+
+
+def location_v2(
+    frame: pd.DataFrame,
+    train: np.ndarray,
+    id: str = "nb3-loc-v1",
+    base: str = "nb3-coded-v2",
+) -> Features:
+    """A base set plus a smooth location surface over the map of the set's own
+    registry (`lot_registry`): the Gaussian bumps of `location_v1`, 250 m apart,
+    so neighbouring buildings share a premium (a fixed-scale basis-function
+    approximation of a spatial Gaussian process over building coordinates)."""
+    base = FEATURE_SETS[base](frame, train)
+    registry = pd.read_parquet(lot_registry()).set_index("building")
+    lat0, lon0 = registry.latitude.mean(), registry.longitude.mean()
+
+    def xy(buildings):
+        lat = registry.latitude.reindex(buildings).to_numpy()
+        lon = registry.longitude.reindex(buildings).to_numpy()
+        metres = 111_320.0
+        return np.column_stack(
+            [(lon - lon0) * metres * np.cos(np.radians(lat0)), (lat - lat0) * metres]
+        )
+
+    sites = xy(registry.index.to_numpy())
+    sites = sites[np.isfinite(sites).all(1)]
+    points = xy(frame.building.to_numpy())
+    known = np.isfinite(points).all(1)
+    values = np.where(known[:, None], location_bumps(np.nan_to_num(points), sites), 0.0)
+    b = _Builder(frame)
+    for k in range(values.shape[1]):
+        b.add("location", f"location_{k:02d}", values[:, k], scale=LOCATION_SCALE)
+    out = b.build(id)
+    return Features(
+        id,
+        base.names + out.names,
+        base.groups + out.groups,
+        np.column_stack([base.values, out.values]),
+        np.concatenate([base.prior_scale, out.prior_scale]),
+    )
+
+
+@functools.lru_cache(maxsize=2)
+def _waterfront_minutes(registry_file: str, basemap_file: str) -> pd.Series:
+    """Per registry building: the walk (facing-grid metres over
+    `WALK_M_PER_MIN`) to the nearest point of the basemap's Manhattan
+    shoreline, which Hudson River Park follows on the West Side."""
+    from . import parks
+
+    basemap = pd.read_parquet(basemap_file)
+    shore = parks.outline(json.loads(basemap[basemap.layer == "land"].geometry.iloc[0]))
+    grid = facing_grid()
+    at = grid(shore[:, 0], shore[:, 1])
+    registry = pd.read_parquet(registry_file).set_index("building")
+    registry = registry[registry.latitude.notna()]
+    homes = grid(registry.longitude.to_numpy(), registry.latitude.to_numpy())
+    walk = np.concatenate(
+        [
+            np.abs(homes[i : i + 256, None, :] - at[None]).sum(-1).min(1)
+            for i in range(0, len(homes), 256)
+        ]
+    )
+    return pd.Series(walk / WALK_M_PER_MIN, index=registry.index)
+
+
+def waterfront_v1(
+    frame: pd.DataFrame,
+    train: np.ndarray,
+    id: str = "nb3-water-v1",
+    base: str = "nb3-parks-v1",
+) -> Features:
+    """A base set plus the log of the walk to the waterfront, centred on the
+    training rows: the one term of the pre-GV open-space set (nb-openspace-v1)
+    that nb3-parks-v1 does not already carry. Reads no rents."""
+    base = FEATURE_SETS[base](frame, train)
+    minutes = _waterfront_minutes(lot_registry(), area_snapshot()[0])
+    walk = np.log(
+        np.maximum(minutes.reindex(frame.building.to_numpy()).to_numpy(), 1.0)
+    )
+    known = np.isfinite(walk)
+    centre = float(np.mean(walk[train & known]))
+    b = _Builder(frame)
+    b.add(
+        "parks", "log walk min to the waterfront", np.where(known, walk - centre, 0.0)
+    )
+    out = b.build(id)
+    return Features(
+        id,
+        base.names + out.names,
+        base.groups + out.groups,
+        np.column_stack([base.values, out.values]),
+        np.concatenate([base.prior_scale, out.prior_scale]),
+    )
+
+
+# Pre-GV null text sets, retested on the GV data (2026-10-06).
+# More of what an ad says about the apartment (nb-text-v1, 2026-10-02):
+# physical attributes beyond DESCRIPTION_FLAGS; market cues are left out.
+TEXT_FLAGS = {
+    "whole_house": r"(?:entire|whole|single[- ]family) (?:town ?house|house|home)|single[- ]family",
+    "penthouse_text": r"penthouse",
+    "garden_level": r"garden (?:level|apartment|floor)",
+    "terrace": r"\bterrace\b",
+    "loft": r"\bloft\b",
+    "gut_renovated": r"gut[- ]renovat",
+    "chefs_kitchen": r"chef'?s kitchen|viking|sub[- ]?zero|miele|wolf range",
+    "home_office": r"home office",
+    "walk_in_closet": r"walk[- ]?in closet",
+    "central_air": r"central (?:air|a/?c)\b",
+    "river_view": r"(?:river|water|hudson) views?",
+    "skyline_view": r"(?:skyline|city|empire state|panoramic) views?",
+    "large_words": r"\bhuge\b|massive|enormous|oversized|sprawling",
+    "small_words": r"\bcozy\b|\bpetite\b|\btiny\b",
+}
+# The six DESCRIPTION_FLAGS read worst, rewritten against a Sonnet reading of
+# 1,000 ads (nb-flagfix-v1, 2026-10-04; precision / recall before -> after):
+# washer/dryer in unit 0.99/0.42 -> 0.99/0.92, walk-up 0.93/0.73 -> 0.90/0.97,
+# shared outdoor 0.92/0.48 -> 0.86/0.82, furnished 0.24/0.91 -> 0.90/0.82,
+# private outdoor 0.94/0.64 -> 0.91/0.71, high ceilings 1.00/0.81 -> 1.00/0.83.
+REWRITTEN_FLAGS = {
+    "washer_dryer_in_unit": r"(?:washer|w)\s*(?:/|&|and)\s*(?:dryer|d)\b(?![^.]{0,25}(?:in|on|each) (?:the )?(?:building|basement|floor))|in[- ]unit (?:washer|laundry|w/?d)|laundry in (?:the )?(?:unit|apartment|residence)",
+    "outdoor_shared": r"roof ?(?:deck|top|terrace|garden)|rooftop|(?:shared|common|communal|landscaped|private) (?:roof|garden|courtyard)|courtyard garden|(?:common|shared) (?:outdoor|terrace)",
+    "private_outdoor": r"private (?:outdoor|terrace|balcony|roof|garden|patio|backyard|deck)|(?:your|its|their|own) (?:own )?(?:private )?(?:terrace|balcony|garden|patio|backyard|deck)|(?:with|w/|features|has|and) (?:a |an )?(?:large |huge |sunny |spacious |)?(?:balcony|terrace|patio|backyard)",
+    "high_ceilings": r"high ceiling|soaring ceiling|tall ceiling|(?:1[0-9]|[89])[- ]?(?:ft|foot|feet|'|’)[- ]?(?:high )?ceiling|ceilings? (?:of|over|up to) (?:1[0-9]|[89])",
+    "walkup_text": r"walk[- ]?up|flights? up|no elevator",
+    "furnished": r"(?<!un)(?<!not )(?<!information )(?<!come )\bfurnished\b(?! (?:and landscaped|common|roof|rooftop|terrace|deck|garden|lounge|sky|pictures|herein))(?! and (?:landscaped|planted))",
+}
+# Attributes the same Sonnet reading found stated often and not in the feature
+# list (nb-attrs-v1, 2026-10-04), each with a regex its labels support.
+ATTRIBUTE_FLAGS = {
+    "walk_in_closet": r"walk[- ]?in closet",
+    "live_in_super": r"live[- ]in super|on[- ]site super|super on[- ]site|resident super|live[- ]in (?:building )?(?:superintendent|manager)",
+    "utilities_included": r"(?:heat|hot water|gas|electric(?:ity)?|utilities|water)(?: and | & |, |/)?(?:hot water|gas|cold water|water|electric)?[^.\n]{0,20}\bincluded|includes? (?:heat|hot water|gas|electric|utilities)",
+    "windowed_kitchen": r"windowed (?:eat[- ]in )?kitchen|kitchen (?:has|with) (?:a )?window",
+    "windowed_bath": r"windowed (?:marble )?bath|bath(?:room)? (?:has|with) (?:a |its own )?window",
+    "tree_lined": r"tree[- ]lined",
+    "skylight": r"sky ?lights?|sky ?lites?",
+    "video_intercom": r"video intercom|virtual doorman",
+    "corner_unit": r"corner (?:unit|apartment|residence|home|loft|studio|one|two|1|2|3|bedroom)",
+    "separate_kitchen": r"separate (?:eat[- ]in |windowed )?kitchen",
+    "floor_to_ceiling_windows": r"floor[- ]to[- ]ceiling (?:windows|glass)",
+    "marble_bath": r"marble (?:bath|bathroom)",
+    "hardwood": r"hard ?wood|wood floor|wide[- ]plank|oak floor|parquet",
+    "stainless": r"stainless",
+    "prewar_text": r"pre[- ]?war",
+}
+
+
+def text_flags_v1(
+    frame: pd.DataFrame,
+    train: np.ndarray,
+    id: str = "nb3-text-v1",
+    base: str = "nb3-coded-v2",
+    flags: dict = TEXT_FLAGS,
+) -> Features:
+    """A base set that reads the ads plus `flags`, each a mention in the ad, 0
+    where the ad is unknown. Reads no rents."""
+    from . import descriptions
+
+    base = FEATURE_SETS[base](frame, train)
+    text = descriptions.attach(frame)
+    known = text.str.len() > 20
+    b = _Builder(frame)
+    for name, pattern in flags.items():
+        b.add(
+            "description",
+            f"text:{name}",
+            known & text.str.contains(pattern, regex=True),
+        )
+    out = b.build(id)
+    return Features(
+        id,
+        base.names + out.names,
+        base.groups + out.groups,
+        np.column_stack([base.values, out.values]),
+        np.concatenate([base.prior_scale, out.prior_scale]),
+    )
+
+
+def flagfix_v1(
+    frame: pd.DataFrame,
+    train: np.ndarray,
+    id: str = "nb3-flagfix-v1",
+    base: str = "nb3-coded-v2",
+) -> Features:
+    """A base set that reads the ads, with its REWRITTEN_FLAGS columns read by
+    the rewritten patterns. Reads no rents."""
+    from . import descriptions
+
+    base = FEATURE_SETS[base](frame, train)
+    text = descriptions.attach(frame)
+    known = (text.str.len() > 20).to_numpy()
+    values = base.values.copy()
+    for name, pattern in REWRITTEN_FLAGS.items():
+        k = base.names.index(f"text:{name}")
+        values[:, k] = known & text.str.contains(pattern, regex=True).to_numpy()
+    return Features(id, base.names, base.groups, values, base.prior_scale)
+
+
 # External snapshots read by feature sets (rentfrontier.registry, .external).
 REGISTRY_SNAPSHOT = "/data1/apartments/external/registry/20260925-6b67137"
 PLUTO_SNAPSHOT = "/data1/apartments/external/pluto/20260925-3096a62"
@@ -1944,6 +2168,8 @@ def facing_v4(
 # NYC 311 noise complaints (rentfrontier.external noise311).
 NOISE_SNAPSHOT = "/data1/apartments/external/noise311/20260930-1549d7a"
 NOISE_FILE = f"{NOISE_SNAPSHOT}/noise311.parquet"
+# The same complaints over the GV registry's box (2026-10-06), for nb3 sets.
+NB3_NOISE_FILE = "/data1/apartments/external/noise311/20261006-c095e36/noise311.parquet"
 NOISE_RADIUS_M = 100.0  # about a block
 NOISE_STREET = (
     "Noise - Street/Sidewalk",
@@ -1967,7 +2193,7 @@ def noise_kind(t: pd.DataFrame) -> pd.Series:
 
 
 @functools.lru_cache(maxsize=2)
-def _noise_times(registry_file: str) -> dict:
+def _noise_times(registry_file: str, noise_file: str = NOISE_FILE) -> dict:
     """{kind: {building: sorted times of complaints within NOISE_RADIUS_M}}."""
     from scipy.spatial import cKDTree
 
@@ -1976,7 +2202,7 @@ def _noise_times(registry_file: str) -> dict:
         .dropna(subset=["latitude", "longitude"])
         .set_index("building")
     )
-    t = pd.read_parquet(NOISE_FILE).dropna(subset=["latitude", "longitude"])
+    t = pd.read_parquet(noise_file).dropna(subset=["latitude", "longitude"])
     t = t.assign(kind=noise_kind(t), when=pd.to_datetime(t.created_date))
     t = t[t.kind.notna()]
     lat0, lon0 = _grid_origin()
@@ -1998,12 +2224,14 @@ def _noise_times(registry_file: str) -> dict:
     return out
 
 
-def nearby_noise(frame: pd.DataFrame, days: int = 365) -> dict:
+def nearby_noise(
+    frame: pd.DataFrame, days: int = 365, noise_file: str = NOISE_FILE
+) -> dict:
     """Per kind and row: log2 of 1 + the 311 noise complaints within
     NOISE_RADIUS_M of its building in the `days` before the row's month, less
     the same over every registry building that month (Chelsea's average: 311
     use grew over the years). Rows of buildings without coordinates get 0."""
-    times = _noise_times(lot_registry())
+    times = _noise_times(lot_registry(), noise_file)
     period = frame.period.to_numpy().astype("datetime64[ns]")
     months = np.unique(period)
     back = np.timedelta64(days, "D")
@@ -2031,12 +2259,13 @@ def noise_v1(
     train: np.ndarray,
     id: str = "noise-v1",
     base: str = "unitfacing-v5",
+    noise_file: str = NOISE_FILE,
 ) -> Features:
     """A base set plus the noise around the building as of the listing: 311
     complaints within about a block in the year before, street and nightlife,
     and construction, each in doublings against Chelsea's average that month."""
     base = FEATURE_SETS[base](frame, train)
-    noise = nearby_noise(frame)
+    noise = nearby_noise(frame, noise_file=noise_file)
     b = _Builder(frame)
     for kind in ("street and nightlife", "construction"):
         b.add("noise", f"{kind} noise complaints nearby (doublings)", noise[kind])
@@ -2176,7 +2405,9 @@ FOOTPRINTS = {
     "nb3-lineface-v1",
 }
 # Feature sets that read the 311 noise complaints snapshot.
-NOISE = {"unitnoise-v1"}
+NOISE = {"unitnoise-v1", "nb3-noise-v1"}
+# The 311 file each NOISE set reads (else NOISE_FILE).
+NOISE_FILES = {"nb3-noise-v1": NB3_NOISE_FILE}
 # Feature sets that read the subway GTFS (transit.network).
 TRANSIT = {"nb3-transit-v1", "nb3-lines-v1", "nb3-access-v1"}
 # Feature sets that read the LODES jobs snapshot (access).
@@ -2186,7 +2417,7 @@ PLACES = {"nb3-nearby-v1"}
 # Feature sets that read the Storefront Registry snapshot (retail).
 STOREFRONTS = {"nb3-retail-v1"}
 # Feature sets that read the NYC Parks properties snapshot (parks).
-PARKS = {"nb3-parks-v1"}
+PARKS = {"nb3-parks-v1", "nb3-water-v1"}
 # Feature sets that read the HPD violations snapshot.
 HPD = {"unitdescplutohpd-v1", "unitdescplutohpd-v2"}
 # Feature sets that read the advertisement descriptions (`descriptions.SOURCE`),
@@ -2292,6 +2523,18 @@ FEATURE_SETS = {
     "nb3-parks-v1": partial(parks_v1, id="nb3-parks-v1", base="nb3-coded-v2"),
     "nb3-nearby-v1": partial(nearby_v1, id="nb3-nearby-v1", base="nb3-coded-v2"),
     "nb3-retail-v1": partial(retail_v1, id="nb3-retail-v1", base="nb3-coded-v2"),
+    # Pre-GV null sets, retested on the GV data (2026-10-06).
+    "nb3-walkup-v1": partial(walkup_v1, id="nb3-walkup-v1", base="nb3-coded-v2"),
+    "nb3-loc-v1": partial(location_v2, id="nb3-loc-v1", base="nb3-coded-v2"),
+    "nb3-water-v1": partial(waterfront_v1, id="nb3-water-v1", base="nb3-parks-v1"),
+    "nb3-text-v1": partial(text_flags_v1, id="nb3-text-v1", base="nb3-coded-v2"),
+    "nb3-flagfix-v1": partial(flagfix_v1, id="nb3-flagfix-v1", base="nb3-coded-v2"),
+    "nb3-noise-v1": partial(
+        noise_v1, id="nb3-noise-v1", base="nb3-coded-v2", noise_file=NB3_NOISE_FILE
+    ),
+    "nb3-attrs-v1": partial(
+        text_flags_v1, id="nb3-attrs-v1", base="nb3-flagfix-v1", flags=ATTRIBUTE_FLAGS
+    ),
     # West Village: the app design's building facts (as unitdescpluto-v3) on the
     # unit and floor features (no West Village ads: see nb-facing-v2).
     "wv-unitpluto-v1": partial(
@@ -2532,6 +2775,13 @@ for _wish in (
     "nb3-parks-v1",
     "nb3-nearby-v1",
     "nb3-retail-v1",
+    "nb3-walkup-v1",
+    "nb3-loc-v1",
+    "nb3-water-v1",
+    "nb3-text-v1",
+    "nb3-flagfix-v1",
+    "nb3-attrs-v1",
+    "nb3-noise-v1",
 ):
     for _group in (
         EXTERNAL,
