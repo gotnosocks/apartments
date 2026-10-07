@@ -3,41 +3,39 @@
 What the next turn of the modeling thread needs. Updated at each milestone. Scripts and logs are
 in `/data1/apartments/tmp/bridge` (thelio).
 
-## State (2026-10-06 11:30 UTC)
+## State (2026-10-07 08:10 UTC)
 
-- **Served:** m7-nocurves-floorslope-bednoise-dayfourier-bedtime-yearnoise + nb3-coded-v2,
-  run `…-rows-9371a18-gibbs-2060-3600k9cb1-nb3-v5f1u5-gv1005` (#318), the first fit on Chelsea +
-  WV + GV to pass the gate: PSIS-LOO 106,764.6 ± 334 (+28,669 over the board baseline), R-hat
-  1.0053, min ESS 469, 6,578 s. `data.DATASET` is the GV dataset. Deployed and published (site-deploy,
-  autoselect-publish, /estimate checked): build 20261006T110910914042Z-39eb773f. The growth
-  decomposition for Website is redone (`r7gv/analyse.py`, `r7gv/out.txt`) and sent to Website.
-- **GV data:** `chelsea-wv-gv-analysis-20261005-2d5b3b6`, rules unit-labels-v5, quarantine-v5,
-  bedrooms-ad-v2, baths-ad-v2, fields-review-v1. Data's fields-review-v3 (Ben's revert of #167)
-  is held until the latest48 pair and latestselect; fits after that use v3.
-- **The served design without yearnoise fails the gate on the GV data** within 2 h: refit 1
-  group R-hat (unit 1.060, bedroom_slope 1.059); refit 2 (seed 2) R-hat 1.0122 on
-  bedroom_time_scale, min ESS 295. Both PSIS-LOO ~106,020.
-- **Prevprice latest48:** the 3600-draw pair was +92.5 ± 16.7 but both arms failed on min ESS.
-  Rerun at 4800 draws keep 12, at 86184c2: the prevprice arm runs in `frontier-gvlatest48`
-  (sampling since 07:30 ET); the coded-v2 arm was OOM-killed at 07:19 (a CPU probe took the swap)
-  and reruns next as `frontier-gvlatest48b` (`gvlatest48b.sh`). Then pair_subsets, latestselect,
-  and if prevprice wins by > 2 SE with both arms passing, a prevprice rows serving fit within 2 h
-  with fields-review-v3.
-- **Areatime (#311) runs out of GPU memory** at sampling start (a 2.24 GiB allocation in the
-  collect program `jit_run`; warmup runs fine). Both areatime designs in `frontier-gvareatime`
-  (`gvareatime.sh`: served, +areatime, +yearnoise+areatime, x-2060-100w600d-u5-gv1005) failed;
-  the served-design reference at 29a1c08 completed. `frontier-memprobe` (after latest48b) compiles the sampling
-  program on the GPU for the served design and areatime and prints XLA's memory analysis
-  (`memprobe/probe-gpu.log`). Never run a full-data CPU job beside a GPU fit: fits sit at the 7G
-  slice cap and use swap.
+- **Served:** m7-nocurves-floorslope-bednoise-dayfourier-bedtime-yearnoise + nb3-prevprice-v2, run
+  `…-nb3-prevprice-v2-rows-163c6de-a100-3600k9cb1-gv1006` (Modal A100, #392), summary at 86a2578.
+  latestselect: latest split +84.2 ± 17.5 over coded-v2, both arms passing. PSIS-LOO 107,649.9 ± 334
+  (rows split; inflated for a feature that reads earlier rents). Rules unit-labels-v5, quarantine-v5,
+  bedrooms-ad-v2, baths-ad-v2, fields-review-v3. Deployed and published: build
+  20261007T060508384451Z-0c374f31; kit has 42,839 units.
+- **Serving hardware (#391, Ben 2026-10-07):** serve fits from the thelio RTX 2060 or Modal A100;
+  compare fit times only within one hardware class.
+- **Text features:** text-v1 is +110.8 ± 32.3 on rows but −1.1 ± 10.0 on the latest split; on top of
+  prevprice (prevtext-v1, branch features/prevtext, no PR) about −2.2 in exploration. Not served.
+- **unit-labels-v8 (#336, merged; current rule):** prevprice-v2 rows full fit at 4d6e6f7 passes the
+  gate, +304.7 ± 34.6 over the served fit on shared rows. Latest arms cannot pair across label rules
+  (the held-out rows differ). The test is coded-v2 vs prevprice-v2, both under v8 on the latest split:
+  prevprice arm done on Modal (`…-prevprice-v2-latest-4d6e6f7-a100-12000k30cb1-gv1006-ul8-latest`);
+  the coded-v2 arm waits for the Modal cap in `frontier-modalq-v8b`. Exploration read: +44.2 ± 19.1.
+- **Areatime:** the GPU memory probe was low; the 2060 exploration OOMed copying draws to host (2.30
+  GiB). It runs on Modal (`frontier-modalq-areatime`, after v8b) at 56251af, pairing with the thelio
+  base `…-nb3-prevprice-v2-rows-56251af-x-2060-100w600d-gv1006`.
+- **GPU queue:** `frontier-v9pair` (Data's unit-labels-v9, #394: coded-v2 v8 vs v9 at b50430b; Data
+  pairs it), then `frontier-ladder-v8` (floorslope design ladder with prevprice-v2 under v8, for the
+  lower fit-time frontier).
 
 ## Next
 
-1. latest48: pair the arms when both land, then latestselect, then tell Data to merge
-   fields-review-v3.
-2. Areatime: read `memprobe/probe-gpu.log`, fix the memory (or coarser knots under new design
-   names), then rerun the `gvareatime.sh` explorations with a served-design reference at the same commit.
-3. Backlog: autoselect `why_not` should check the dataset before `scored`.
+1. When the coded-v2 v8 latest arm lands: latestselect with candidate prevprice v8 latest, reference
+   coded-v2 v8 latest, serve `…-prevprice-v2-rows-4d6e6f7-a100-3600k9cb1-gv1006-ul8`; summary, selection
+   PR, deploy, publish.
+2. Pair the areatime Modal exploration with its thelio base.
+3. Ladder: pair the steps, mark the lower fit-time frontier.
+4. Backlog: autoselect `why_not` should check the dataset before `scored`; elegance.needed_pairs and
+   the site's hardware view still assume TARGET_HARDWARE only (#391 review notes).
 
 ## Modal fits (2026-10-06)
 
