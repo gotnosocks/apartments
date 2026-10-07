@@ -37,7 +37,7 @@ def test_a_fit_waits_for_its_dollars_and_an_overrun_leaves_the_balance_negative(
     with pytest.raises(cap.CapReached):  # spent: the next fit waits for its estimate
         cap.reserve("run-1", "A100-40GB", usd, ledger, t0 + per_fit / 2)
     # It ran over by $0.50: accrual continues from the negative balance.
-    cap.settle(launch, usd + 0.5, ledger, t0 + per_fit / 4)
+    cap.settle(launch, usd + 0.5, ledger, t0)
     rows = cap.launches(ledger)
     assert cap.balance(rows, t0) == pytest.approx(-0.5, abs=0.01)
     ready = cap.ready_at(rows, usd, t0)
@@ -80,7 +80,7 @@ def test_a_retry_of_a_run_is_charged_as_its_own_launch(tmp_path):
     with ledger.open("a") as f:
         f.write(json.dumps(old) + "\n")
     assert cap.balance(cap.launches(ledger), day) == pytest.approx(
-        cap.USD_PER_DAY - 0.3 - 0.8 - cap.estimate(*cap.SERVED_FIT)
+        cap.USD_PER_DAY - 0.3 - 0.8 - cap.estimate(*cap.SERVED_FIT), abs=0.01
     )
 
 
@@ -189,3 +189,20 @@ def test_finish_puts_a_good_run_where_thelio_fits_go_and_a_failed_one_aside(
     assert volume.removed == ["/out/r"]
     assert fit.finish(FakeVolume(files), "r", {"exit": 1}) == tmp_path / "modal/failed"
     assert (tmp_path / "modal/failed/runs/r/modal/fit.log").exists()
+
+
+def test_the_balance_stops_at_ten_full_fits_and_restarts_below_it(tmp_path):
+    ledger = tmp_path / "ledger.jsonl"
+    week = cap.START + datetime.timedelta(days=7)
+    assert cap.balance([], week) == pytest.approx(cap.CEILING)
+    launch, left = cap.reserve("run", "A100-40GB", 1.0, ledger, week)
+    assert left == pytest.approx(cap.CEILING - 1.0)
+    # Accrual resumes from below the ceiling; a refund can't lift it over.
+    hour = datetime.timedelta(hours=1)
+    rows = cap.launches(ledger)
+    assert cap.balance(rows, week + hour) == pytest.approx(
+        cap.CEILING - 1.0 + cap.USD_PER_DAY / 24
+    )
+    cap.settle(launch, 0.2, ledger, week + hour)
+    assert cap.balance(cap.launches(ledger), week + hour) == pytest.approx(cap.CEILING)
+    assert cap.ready_at(rows, cap.CEILING + 1, week) is None

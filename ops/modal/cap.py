@@ -9,8 +9,9 @@ balance. e.g. $0 -> $10 -> -$0.50 -> $3 -> $1 -> $10 etc."
 The balance starts at $0 at START and accrues USD_PER_DAY = 10 x the estimated cost of the served
 full fit. A launch is charged its estimate when it takes its turn (reserve); when the fit returns,
 the launcher settles it at the container's list-price cost (or the time it ran, if it failed), so
-an estimate that was too low leaves the balance negative and accrual continues from there. There is
-no ceiling on the balance. Launches before START (the old daily cap) are not charged.
+an estimate that was too low leaves the balance negative and accrual continues from there. Ben,
+2026-10-07 22:23Z: "I would like to cap the balance on the dollar budget at ~10 full fits", so
+the balance stops accruing at CEILING = USD_PER_DAY. Launches before START (the old daily cap) are not charged.
 
     python3 ops/modal/cap.py                                  # balance, rate, recent launches
     python3 ops/modal/cap.py --check [CHAINS WARMUP DRAWS]    # exit 1 until the balance covers that
@@ -53,6 +54,7 @@ def estimate(chains, warmup, draws, gpu="A100-40GB"):
 
 
 USD_PER_DAY = 10 * estimate(*SERVED_FIT)
+CEILING = USD_PER_DAY  # Ben, 2026-10-07 22:23Z: cap the balance at ~10 full fits
 
 
 def _now(now=None):
@@ -69,31 +71,51 @@ def launches(ledger=LEDGER):
 
 
 def balance(rows, now=None):
-    """Dollars accrued since START less what launches since START cost (settled, else estimated)."""
+    """Dollars accrued since START, held to CEILING, less what launches since START cost.
+
+    Walks the ledger in time order: accrual stops while the balance is at the ceiling; a launch
+    takes its estimate and its settlement the difference between what it cost and the estimate."""
     now = _now(now)
-    accrued = max((now - START).total_seconds(), 0) / 86400 * USD_PER_DAY
-    charged = {}  # launches since START: their estimate, replaced by what they cost once settled
+    events, estimates = [], {}
     for row in rows:
+        at = datetime.datetime.fromisoformat(row["at"])
         if row.get("kind") == "settle":
-            if row["id"] in charged:
-                charged[row["id"]] = row["usd"]
-        elif datetime.datetime.fromisoformat(row["at"]) >= START:
+            if row["id"] in estimates:  # launches before START aren't charged
+                events.append((at, estimates[row["id"]] - row["usd"]))
+        elif at >= START:
             # A row from the old launcher (no estimate) counts as a served full fit.
             usd = row.get("usd_estimate", estimate(*SERVED_FIT))
-            charged[row.get("id", f"{row['name']}@{row['at']}")] = usd
-    return accrued - sum(charged.values())
+            estimates[row.get("id", f"{row['name']}@{row['at']}")] = usd
+            events.append((at, -usd))
+    have, last = 0.0, START
+    for at, change in sorted(events, key=lambda e: e[0]) + [(max(now, START), 0.0)]:
+        accrued = max((at - last).total_seconds(), 0) / 86400 * USD_PER_DAY
+        have = min(CEILING, min(CEILING, have + accrued) + change)
+        last = max(at, last)
+    return have
 
 
 def ready_at(rows, usd, now=None):
-    """When the balance will cover `usd`: now, or the time accrual reaches it."""
+    """When the balance will cover `usd`: now, the time accrual reaches it, or None if it never
+    will (an estimate over the ceiling)."""
     now = _now(now)
     short = usd - balance(rows, now)
     if short <= 0:
         return now
+    if usd > CEILING:
+        return None
     at = now + datetime.timedelta(days=short / USD_PER_DAY)
     return at.replace(second=0, microsecond=0) + datetime.timedelta(
         minutes=1
     )  # round up
+
+
+def when(rows, usd, now=None):
+    """ready_at, for a message."""
+    at = ready_at(rows, usd, now)
+    return (
+        f"{at:%Y-%m-%d %H:%M} ET" if at else f"never: over the ${CEILING:.2f} ceiling"
+    )
 
 
 def _append(ledger, decide, now):
@@ -124,7 +146,7 @@ def reserve(name, gpu, usd, ledger=LEDGER, now=None):
         if have < usd:
             raise CapReached(
                 f"the Modal balance is ${have:.2f}, short of this fit's ${usd:.2f} estimate; "
-                f"enough from {ready_at(rows, usd, now):%Y-%m-%d %H:%M} ET"
+                f"enough from {when(rows, usd, now)}"
             )
         left["usd"] = have - usd
         return {"id": launch, "name": name, "gpu": gpu, "usd_estimate": usd}
@@ -185,7 +207,7 @@ if __name__ == "__main__":
         if balance(rows) < usd:
             sys.exit(
                 f"refused: the Modal balance is ${balance(rows):.2f}, short of this fit's "
-                f"${usd:.2f} estimate; enough from {ready_at(rows, usd):%Y-%m-%d %H:%M} ET"
+                f"${usd:.2f} estimate; enough from {when(rows, usd)}"
             )
         sys.exit(0)
     for row in rows[-6:]:
@@ -195,8 +217,6 @@ if __name__ == "__main__":
         )
     usd = estimate(*SERVED_FIT)
     print(
-        f"balance ${balance(rows):.2f}, accruing ${USD_PER_DAY:.2f} a day (10 x ${usd:.2f})"
+        f"balance ${balance(rows):.2f}, accruing ${USD_PER_DAY:.2f} a day (10 x ${usd:.2f}) up to ${CEILING:.2f}"
     )
-    print(
-        f"a served full fit (${usd:.2f}) may launch from {ready_at(rows, usd):%Y-%m-%d %H:%M} ET"
-    )
+    print(f"a served full fit (${usd:.2f}) may launch from {when(rows, usd)}")
