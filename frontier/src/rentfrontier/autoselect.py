@@ -20,6 +20,9 @@ card follow it.
 - It is not a tuning fit on a subset of buildings (a `data.TUNING_PREFIX`
   rule): those are exploration only (Ben, 2026-10-01).
 - It was fit on the current dataset (`data.DATASET`).
+- Its feature set is not blocked as semantically invalid (`BLOCKED`): a term
+  whose meaning does not hold is not served whatever it scores. Ben removes
+  such a design by hand and the block keeps it out of `latestselect` too.
 
 **The choice.** It follows the board's `choose_best` on the eligible fits
 (Ben, 2026-10-01: ties go to the more elegant model):
@@ -71,6 +74,22 @@ WINDOW_SECONDS = (
 )  # full fits; subset (tuning) fits: 30 minutes, never served
 TIME_TIE = 0.10
 SELECTION = data.REPO / "config" / "main-analysis.json"
+# Feature sets removed from serving by hand as semantically invalid: every
+# feature set whose name contains the key is refused, whatever its scores.
+BLOCKED = {
+    "prevprice": (
+        "Ben, 2026-10-07: semantically invalid; the correction from the unit's "
+        "previous listing's repricing does not depend on the time since that listing"
+    ),
+}
+
+
+def blocked(feature_set) -> str | None:
+    """Why a feature set is blocked from serving, or None."""
+    for key, why in BLOCKED.items():
+        if key in (feature_set or ""):
+            return why
+    return None
 
 
 def current_rules(rules=None) -> frozenset:
@@ -116,6 +135,9 @@ def why_not(e, rules) -> str | None:
         return "it has no paired PSIS-LOO score"
     if e["fit_seconds"] > WINDOW_SECONDS:
         return "its fit took longer than the window"
+    why = blocked(_record(e).get("feature_set"))
+    if why is not None:
+        return f"it is blocked as semantically invalid ({why})"
     if _record(e).get("feature_set") in features.READS_EARLIER_RENTS:
         return (
             "it reads earlier rents of the same unit, so its PSIS-LOO is not "

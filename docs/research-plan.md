@@ -217,10 +217,13 @@ criterion):
 
 Elegance is a holistic judgement of each design as a statistical model, made by judge agents one pair
 of designs at a time and recorded (`rentfrontier.elegance`, `config/elegance-judgements.jsonl`, brief
-`elegance-v1`). A design is a model and a feature set; data rules, samplers and settings are not part
+`elegance-v2`). A design is a model and a feature set; data rules, samplers and settings are not part
 of it.
 
 - **What the judges weigh** (Ben, 2026-10-01 evening), as a whole:
+  - semantic validity (Ben, 2026-10-07): every term means what the design's story says it means; a
+    term that reads other information must carry how it relates to this listing (a correction from
+    a unit's earlier listing that ignores the time since it does not hold);
   - one coherent generative story whose structure mirrors the data (apartments within buildings
     within neighbourhoods, over time), not terms bolted on;
   - few distinct mechanisms, used consistently (the same pooling idea at every level);

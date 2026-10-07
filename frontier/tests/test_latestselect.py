@@ -146,3 +146,16 @@ def test_changed_rule_files_refuse_the_pair(runs, monkeypatch):
     )
     assert d["action"] == "keep"
     assert any("cannot be re-applied" in p for p in d["problems"]["serve"])
+
+
+def test_a_blocked_feature_set_is_never_a_candidate_or_served(runs, monkeypatch):
+    def never(a, b):
+        raise AssertionError("scored a blocked pair")
+
+    monkeypatch.setattr(features, "READS_EARLIER_RENTS", {"prev", "nb3-prevprice-v2"})
+    write(runs, "cand-pp", feature_set="nb3-prevprice-v2")
+    write(runs, "serve-pp", split="rows", feature_set="nb3-prevprice-v2")
+    d = latestselect.decide("cand-pp", "ref", "serve-pp", INC, RULES, paired=never)
+    assert d["action"] == "keep"
+    for part in ("candidate", "serve"):
+        assert any("semantically invalid" in p for p in d["problems"][part]), part
