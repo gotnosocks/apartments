@@ -2,6 +2,20 @@
 
 Updated 2026-10-06 19:45 ET. Thread owner: the Data improvements project thread (bridge session on thelio).
 
+## 2026-10-07 00:00 ET
+- **Retests on GV data** (yearnoise design, paired against nb3-coded-v2, 94,453 rows; none fully converged,
+  R-hat 1.07–1.10): text-v1 +106.4 ± 32.8 (Modeling: full fit on Modal, plus a latest-split check
+  `frontier-latesttext`); null: noise +3.3 ± 14.3, water +0.7 ± 14.6, flagfix +0.1 ± 23.7,
+  walkup −6.2 ± 14.0, attrs −7.5 ± 28.9. loc-v1 OOMs at the 7G GPU-job cap on thelio; Modeling
+  runs it on Modal. Results in `/data1/apartments/tmp/bridge/retest-pair-*.txt`. Don't relaunch
+  scripts in that folder; it is Modeling's queue.
+- **Exposure outlook (#382):** `exposure-manual.csv` has an `outlook` column ("wall"); 82-86
+  Washington Pl 2B is the only row. Website shows no pill for single hand labels (Ben).
+- **Facing-a-wall feature: dropped** (Ben, 2026-10-07 "don't build a facing-a-wall feature").
+  The WIP stays on the local branch `data/wall-v1`, unpushed.
+- **1 University Place J line:** Ben kept #2J coded 1BR (convertible unit; PR #386 closed). The
+  other J units have one-bedroom plans (Ben). /best notes "can be set up as a 2-bed" (#387).
+
 ## State
 - **Greenwich Village fold-in: done on the data side.** #292 (cohort, listing extras, alias table
   `config/unit-aliases/wv-gv-20261005.jsonl`, rule `unit-labels-v5`, feature sets
