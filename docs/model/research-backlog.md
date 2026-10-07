@@ -1,5 +1,16 @@
 # Chelsea pricing research backlog
 
+## Ad-text phrases, text-v2 (Ben, 2026-10-07)
+
+Normal priority; it comes up on the queue by the usual selection. Ben: "Rather than simply
+restoring the description phrases features, simply put that idea back in the research backlog."
+
+- `nb3-text-v1` gained +106.4 ± 32.8 on all rows (exploration fits), but scored on the West Village and Greenwich Village rows
+  alone it was +43.7 ± 23.5 (1.9 SE), short of 2 SE. It is not served.
+- **text-v2:** the same phrases without `central_air` and `skyline_view`, fitted on `nb3-coded-v2`
+  with the current rules (unit-labels-v9 and unit-splits). It is judged on the normal all-rows bar,
+  with the West Village + Greenwich Village score reported alongside.
+
 ## Exact dates instead of months (Ben, 2026-10-03)
 
 The daily Fourier season (`season_daily`, #168) beat 12 month effects by +77.0 ± 17.2 paired,
