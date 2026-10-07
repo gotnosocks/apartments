@@ -267,3 +267,109 @@ def test_relisting_centre_is_recovered_from_the_rows():
         ),
     ]
     assert abs(captures.relisting_centre(rows) - 3.0) < 1e-9
+
+
+def test_a_unit_the_fit_has_seen_is_priced_at_its_own_level(tmp_path):
+    write_capture(tmp_path, "20261006", [candidate(1, rent=3300)])
+    args = (
+        kit(sigma=0.05, unit_scale=0.05),
+        [kit_building()],
+        [fitted()],
+        [{"id": BUILDING, "neighbourhood": "Greenwich Village", "floors": 6}],
+        tmp_path,
+        [],
+    )
+    level = math.log(0.8)
+    (row,), status = captures.rows(*args, units={"u-4b": [level] * 4})
+    assert status["unit_levels"] == 1
+    assert abs(row["estimate"] - 2400) < 1  # 3000 at the unit's own -20%
+    parts = json.loads(row["contributions"])
+    (unit,) = [p for p in parts if p["term"] == "unit"]
+    assert unit["from_fit"] and unit["usd"] < -500
+    assert abs(sum(p["usd"] for p in parts) - row["estimate"]) < 1
+    # A unit the fit has not seen keeps the prior.
+    (row,), status = captures.rows(*args, units={"u-other": [level] * 4})
+    assert status["unit_levels"] == 0 and 2800 < row["estimate"] < 3300
+    assert "from_fit" not in json.dumps(row["contributions"])
+
+
+def test_encode_takes_the_description_from_the_same_ad_seen_earlier():
+    features = (
+        *UNIT_TERMS,
+        ("description_missing", "description"),
+        ("text:dishwasher", "description"),
+        ("outdoor:balcony", "outdoor space"),
+        ("rooms beyond bedrooms=unknown", "rooms beyond bedrooms"),
+        ("rooms beyond bedrooms=3", "rooms beyond bedrooms"),
+    )
+    k = kit(features=features)
+    text = {
+        "text:dishwasher": 1.0,
+        "outdoor:balcony": 1.0,
+        "rooms beyond bedrooms=3": 1.0,
+    }
+    same = fitted(listing_id="1001", inputs=json.dumps(text))
+    x = captures.encode(k, candidate(1), {}, same, centre=None)
+    assert x["text:dishwasher"] == x["outdoor:balcony"] == 1.0
+    assert x["rooms beyond bedrooms=3"] == 1.0
+    assert "description_missing" not in x
+    assert "rooms beyond bedrooms=unknown" not in x
+    # Another ad of the unit, or the same ad without its description, gives none.
+    for prev in (
+        fitted(listing_id="900", inputs=json.dumps(text)),
+        fitted(listing_id="1001", inputs=json.dumps({"description_missing": 1.0})),
+    ):
+        x = captures.encode(k, candidate(1), {}, prev, centre=None)
+        assert x["description_missing"] == 1.0 and "text:dishwasher" not in x
+        assert x["rooms beyond bedrooms=unknown"] == 1.0
+
+
+def test_unit_levels_load_from_the_kit_when_it_has_them(tmp_path):
+    import duckdb
+
+    from apartments.site import estimate_build
+
+    assert estimate_build.load_units(tmp_path) == {}
+    con = duckdb.connect()
+    con.execute(
+        f"COPY (SELECT 'u-4b' AS unit, [0.1, -0.2]::FLOAT[] AS level) "
+        f"TO '{tmp_path / 'units.parquet'}' (FORMAT parquet)"
+    )
+    con.close()
+    digest = estimate_build._sha256(tmp_path / "units.parquet")
+    (tmp_path / "complete.json").write_text(
+        json.dumps({"files": {"units.parquet": digest}})
+    )
+    got = estimate_build.load_units(tmp_path)
+    assert list(got) == ["u-4b"] and [round(v, 6) for v in got["u-4b"]] == [0.1, -0.2]
+    (tmp_path / "complete.json").write_text(json.dumps({"files": {}}))
+    try:
+        estimate_build.load_units(tmp_path)
+    except estimate.KitError:
+        pass
+    else:
+        raise AssertionError("an unhashed units.parquet must not load")
+
+
+def test_listing_page_says_when_the_unit_level_is_the_fits(site_root, client):
+    audit_id = as_kit_row(site_root)
+    db = sqlite3.connect((site_root / "current" / "site.sqlite").resolve())
+    (parts,) = db.execute(
+        "SELECT contributions FROM listings WHERE audit_id = ?", (audit_id,)
+    ).fetchone()
+    parts = [
+        {**p, "from_fit": True} if p["term"] == "unit" else p for p in json.loads(parts)
+    ]
+    if not any(p["term"] == "unit" for p in parts):
+        parts.append(
+            {"term": "unit", "usd": -5, "lower": -9, "upper": -1, "from_fit": True}
+        )
+    db.execute(
+        "UPDATE listings SET contributions = ? WHERE audit_id = ?",
+        (json.dumps(parts), audit_id),
+    )
+    db.commit()
+    db.close()
+    page = client.get(f"/listings/{audit_id}").get_data(as_text=True)
+    assert "level is the one the fit learned from its" in page
+    assert "drawn from the prior" not in page

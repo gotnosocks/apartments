@@ -36,6 +36,13 @@ is therefore a fair signal of over- or under-pricing ([what an estimate is](mode
     above the run's threshold (`loo.k_threshold`: 0.7, or lower for fewer than about 2,150 draws;
     0.675 at 1,200).
 - **Unit:** asks and estimates of each of its listings over time.
+- **Best for you** (`/best`, `apartments.site.best`): current listings ranked by a renter's
+  preference sheet, with pluses and minuses per listing.
+  - Pills (the Pluses and Minuses columns) are only for terms in the served rent model (Ben,
+    2026-10-07). No pill for a feature that is not systematic across listings, and never one for a
+    hand-labelled single listing.
+  - Other facts are informational notes under the listing, in neutral grey, with no plus or minus
+    and not counted in the fit: commute (#355, #384) and the bed size an ad states (#362).
 - **Buildings** (`/buildings`, searchable and sortable) and **building** pages:
   - level against a building with the same listed features, with its 95% interval, and the yearly trend for designs with
     a building trend (walk designs show the level only);

@@ -218,3 +218,8 @@ Ranked roughly by how many personas hit the finding and how badly.
 12. **Larger, later** (round 5): compare two buildings; a price column on the Buildings list;
     one sentence reconciling the map's typical rent with the listings' median estimate; a
     warning when a building link lands on a much pricier building.
+13. **Windows facing a nearby wall, as a /best minus:** this waits for Data improvements'
+    systematic footprint-based feature, and a pill only once the served model has the term. Ben
+    (2026-10-07): /best pills only for model terms, never for hand-labelled single listings, so
+    the one hand label (82-86 Washington Pl 2B, `outlook` = "wall", #382) is not shown; other facts
+    are grey informational notes (see `docs/site.md`).

@@ -1065,6 +1065,9 @@ def create_app(
             "listing.html",
             captured=capture_day(row["collected_at"]),
             exposure=exposure_of(row["unit_id"]),
+            unit_from_fit=any(
+                c.get("from_fit") for c in contributions if c["term"] == "unit"
+            ),
             read_floor=read_floor(row, inputs),
             carried_size=carried_size(row, inputs, others),
             facing=next(

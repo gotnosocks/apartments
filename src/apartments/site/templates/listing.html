@@ -91,8 +91,9 @@ called a one-bedroom, say), and sometimes the apartment was rebuilt; the estimat
   {% if row.method == "kit" %}
   <p>Priced with the kit, not in the fit: this listing was captured on {{ row.collected_at[:10] }}, after the served fit's
   data was made, so it is priced as a new apartment in its building with the fit's
-  <a href="{{ url_for('estimate_apartment') }}">prediction kit</a>, the estimate form's scoring. The unit's own level is
-  drawn from the prior, not from its earlier listings, so the range is wider than for a listing in the fit.</p>
+  <a href="{{ url_for('estimate_apartment') }}">prediction kit</a>, the estimate form's scoring.{% if unit_from_fit %} The unit's own
+  level is the one the fit learned from its {{ row.unit_fit_rows }} earlier listing{{ "" if row.unit_fit_rows == 1 else "s" }}.{% else %} The unit's own level is
+  drawn from the prior, not from its earlier listings, so the range is wider than for a listing in the fit.{% endif %}</p>
   {% elif row.method == "heldout" %}
   <p>This listing was held out of the model fit as a validation row, so the estimate never saw its ask. It uses the unit's
   {{ row.unit_fit_rows }} other listing{{ "" if row.unit_fit_rows == 1 else "s" }}.</p>
