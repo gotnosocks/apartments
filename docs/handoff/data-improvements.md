@@ -1,6 +1,31 @@
 # Data improvements — handoff
 
-Updated 2026-10-07 11:00 ET. Thread owner: the Data improvements project thread (bridge session on thelio).
+Updated 2026-10-07 14:10 ET. Thread owner: the Data improvements project thread (bridge session on thelio).
+
+## 2026-10-07 14:10 ET
+
+- **unit-splits-v4 (#414, merged 5f0a7f0) is current.** It is v3, but a one-bedroom change does not
+  split when the earlier ad gave no square footage and the new one does. Why: v3 failed coded-v2's
+  group R-hat gate at building 120 = 110 W 26th St, a loft building (split R-hat on level, bedroom
+  slope and size slope 1.08, against 1.00 under v1). Five cheap footage-less "1-bed" ads
+  ($2.4–2.6k, 2015–2021; probably room shares, no ad text) split its 1,400–1,650 sq ft units.
+  v4 moves 619 rows of 314 units in 184 buildings back relative to v3. The attribution of
+  v3-vs-v1's +953 put only +5.3 on those boundaries. Scripts: `/data1/apartments/tmp/suspect/rhat/`.
+  Modeling queued frontier-modalq-sp4 (coded-v2, loc-v1, bedtime6 at 5f0a7f0, label
+  a100-3600k9cb1-gv1006-ul9s4) to land about 00:30 ET 10-08. Autoselect switches if the gate passes.
+  Modeling then sends the v4-vs-v1 pair and loc-v1's clean pair. Record both in the ledger.
+- **nb3-loc-v1 ledger note (#415):** +9.2 ± 15.3, provisional until the clean pair on v4.
+- **Lofts (Ben, 17:34Z: "a different category for these loft-style apartments?").** Sizing:
+  MapPLUTO has no L class among our buildings. D5 (converted) covers 21 buildings and 2,111 rows.
+  In 310 buildings at least half the ads say "loft". In those buildings a 1-bed has a median of
+  1,015 sq ft against 700 elsewhere, and units change bedroom count 25% of the time against 12.5%.
+  Room shares: no rule. A spot-check of "roommate" text hits found whole apartments; most cheap
+  footage-less ads were real studios. Scripts: `/data1/apartments/tmp/suspect/loft/`.
+- **nb3-loft-v1 (#416, merged fa61d6c):** coded-v2 plus a causal loft flag (D5, or at least half
+  of at least 3 strictly-earlier ads say loft), loft × (bedrooms − 1) and loft × size deviation.
+  It flags 7,890 rows: D5 only 1,634, text only 5,779, both 477. Modeling's exploration pair is
+  unit frontier-loft-explore (label x-2060-100w600d-gv1006-ul9s4, v9 + v4), due about 15:15 ET.
+  If it gains, Modeling runs a Modal full fit. Record the pair in the ledger.
 
 ## 2026-10-07 11:00 ET
 
