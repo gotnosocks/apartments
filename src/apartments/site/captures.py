@@ -44,20 +44,23 @@ METHOD = "kit"
 
 def captures(archives: Path, known: set[str]) -> list[tuple[str, dict]]:
     """(capture directory name, candidate) for every ACTIVE listing of a
-    capture whose audit id is not already a site listing; newest capture wins
-    per listing."""
+    capture the fit's dataset never read; newest capture wins per listing.
+
+    A capture with any listing already on the site went into the dataset, and
+    the listings of it the dataset left out were left out by its row rules."""
     out: dict[str, tuple[str, dict]] = {}
     for d in sorted(p for p in archives.iterdir() if p.is_dir()):
         path = d / "details" / "snapshot" / "candidates.jsonl"
         if not path.is_file():
             continue
-        for line in path.read_text().splitlines():
-            c = json.loads(line)
-            if c.get("listing_status") != "ACTIVE" or not c.get("rent"):
-                continue
-            if f"capture:{c['capture_id']}" in known:
-                continue
-            out[str(c["source_listing_id"])] = (d.name, c)
+        found = [
+            json.loads(line) for line in path.read_text().splitlines() if line.strip()
+        ]
+        if any(f"capture:{c['capture_id']}" in known for c in found):
+            continue
+        for c in found:
+            if c.get("listing_status") == "ACTIVE" and c.get("rent"):
+                out[str(c["source_listing_id"])] = (d.name, c)
     # A listing in the fit's own current rows is priced there.
     return [v for k, v in out.items() if k not in known]
 
@@ -187,7 +190,7 @@ def contributions(
     centered = min(max(bedrooms, 0), 4) - 1.0
     frac = estimate.year_fraction(day)
     slopes = [x.get(n, 0.0) for n in kit.slopes]
-    per: dict[str, list[float]] = {n: [] for n in names}
+    per: dict[str, list[float]] = {}
     for s in range(len(kit.market)):
         logs = dict.fromkeys(names, 0.0)
         for n, v in x.items():
@@ -200,30 +203,29 @@ def contributions(
         logs["building_feature_slopes"] = sum(
             f * v for f, v in zip(building.fslope[s], slopes)
         )
+        # The unit levels `estimate.score` draws with the same seed (each
+        # followed by its ask's noise), so the parts add up to its estimate.
         scale = kit.unit_scale[s]
-        levels = [
-            scale
-            * max(
-                -estimate.UNIT_CLIP,
-                min(
-                    estimate.UNIT_CLIP,
-                    estimate._student_t(rng, kit.unit_nu[s])
-                    if kit.t_units
-                    else rng.gauss(0.0, 1.0),
-                ),
+        levels = []
+        for _ in range(estimate.SAMPLES_PER_DRAW):
+            z = (
+                estimate._student_t(rng, kit.unit_nu[s])
+                if kit.t_units
+                else rng.gauss(0.0, 1.0)
             )
-            for _ in range(estimate.SAMPLES_PER_DRAW)
-        ]
+            levels.append(scale * max(-estimate.UNIT_CLIP, min(estimate.UNIT_CLIP, z)))
+            estimate._student_t(rng, kit.nu[s])
         logs["unit"] = math.log(sum(math.exp(v) for v in levels) / len(levels))
         reference = math.exp(kit.market[s] + estimate._season(kit, s, frac, day.month))
         total = reference * math.exp(sum(v for k, v in logs.items() if k != "market"))
         weight = _logmean(total, reference)
-        per["market"].append(reference)
+        per.setdefault("market", []).append(reference)
         for k, v in logs.items():
             if k != "market":
-                per[k].append(weight * v)
+                per.setdefault(k, []).append(weight * v)
     out = []
-    for n in names:
+    # In the terms table's order, then any term it does not name.
+    for n in [*(n for n in names if n in per), *(n for n in per if n not in names)]:
         values = sorted(per[n])
         out.append(
             {
@@ -324,7 +326,9 @@ def rows(
                 "concession": None,
                 "collected_at": c["collected_at"],
                 "in_fit": 0,
-                "unit_fit_rows": 0,
+                "unit_fit_rows": sum(
+                    r["in_fit"] for r in by_unit.get(c["unit_id"], [])
+                ),
                 "method": METHOD,
                 "estimate": got["estimate"],
                 "estimate_lower": got["lower_95"],
@@ -353,3 +357,40 @@ def rows(
         )
         sources[source] = sources.get(source, 0) + 1
     return out, {"priced": len(out), "by_capture": sources, "skipped": skipped}
+
+
+def price(
+    kit_dir: Path | None,
+    listings: list[dict],
+    buildings: list[dict],
+    archives: Path,
+    names: list[str],
+) -> tuple[list[dict], dict]:
+    """The captures' listings priced with the run's kit, when it scores the
+    fit's own rows as the bundle does (`estimate_build.check_scoring`)."""
+    if kit_dir is None:
+        return [], {"priced": 0, "reason": "no prediction kit for this run"}
+    if not archives.is_dir():
+        return [], {"priced": 0, "reason": f"no captures at {archives}"}
+    record, kit_buildings = estimate_build.load_kit(kit_dir)
+    kit = estimate.Kit.from_record(
+        record,
+        estimate.sqft_medians(
+            (r["bedrooms"], r["square_feet"], r["inputs"]) for r in listings
+        ),
+    )
+    if kit.unknown_groups():
+        return [], {"priced": 0, "reason": "the kit has inputs the encoder lacks"}
+    check = estimate_build.check_scoring(
+        kit,
+        {
+            b["building"]: estimate.Building(
+                b["level"], b["bedroom_slope"], b["fslope"], {}
+            )
+            for b in kit_buildings
+        },
+        listings,
+    )
+    if not check["passes"]:
+        return [], {"priced": 0, "reason": check["reason"]}
+    return rows(kit, kit_buildings, listings, buildings, archives, names)

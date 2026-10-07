@@ -41,7 +41,7 @@ from pathlib import Path
 
 import duckdb
 
-from . import ad_dates, estimate_build, exposure
+from . import ad_dates, captures, estimate_build, exposure
 from .selection import SELECTION, selection_note
 
 VERSION = "listings-site-v1"
@@ -671,18 +671,35 @@ def write_database(
     if names != record["terms"]:
         raise BuildError("terms.json differs from the bundle's record")
     k_threshold = record["estimate_pareto_k"]["threshold"]
-    listings = listing_rows(rows, observations, names, k_threshold, scope or "Chelsea")
+    fitted = listing_rows(rows, observations, names, k_threshold, scope or "Chelsea")
     if not scope:
-        scope = scope_of(listings)
-    units = unit_rows(listings)
+        scope = scope_of(fitted)
     registry = external(record, "registry")
-    buildings = building_rows(
-        parquet_rows(bundle / "buildings.parquet"),
-        listings,
-        units,
-        registry,
-        external(record, "pluto"),
+
+    def units_and_buildings(listings):
+        units = unit_rows(listings)
+        return units, building_rows(
+            parquet_rows(bundle / "buildings.parquet"),
+            listings,
+            units,
+            registry,
+            external(record, "pluto"),
+        )
+
+    kit_dir = estimate_build.find_kit(
+        record["run"], record["_sha256"], kits or estimate_build.KITS
     )
+    # Current listings captured after the dataset was made, priced with the
+    # kit (captures.py); every other row is the bundle's.
+    captured, captured_status = captures.price(
+        kit_dir,
+        fitted,
+        units_and_buildings(fitted)[1],
+        archives or ad_dates.ARCHIVES,
+        names,
+    )
+    listings = fitted + captured
+    units, buildings = units_and_buildings(listings)
     quarantined = quarantined_rows(missing, observations, decisions, registry)
     market = [
         {
@@ -709,8 +726,8 @@ def write_database(
     ]
     periods = sorted(r["period"] for r in listings)
     stats = {
-        "calibration": calibration(listings),
-        "calibration_by_year": calibration_by_year(listings),
+        "calibration": calibration(fitted),
+        "calibration_by_year": calibration_by_year(fitted),
         "listings": len(listings),
         "current_listings": sum(r["is_current"] for r in listings),
         "neighbourhoods": dict(
@@ -721,6 +738,7 @@ def write_database(
         "first_period": periods[0],
         "last_period": periods[-1],
         "unreliable_estimates": sum(1 - r["reliable"] for r in listings),
+        "captured_current": captured_status,
         "quarantined_listings": len(quarantined),
         "quarantined_current": sum(r["is_current"] for r in quarantined),
     }
@@ -733,11 +751,8 @@ def write_database(
         _insert(db, "quarantined", quarantined)
         _insert(db, "market", market)
         _insert(db, "coefficients", coefficients)
-        kit_dir = estimate_build.find_kit(
-            record["run"], record["_sha256"], kits or estimate_build.KITS
-        )
         stats["estimate_form"] = estimate_build.install(
-            db, kit_dir, listings, observations
+            db, kit_dir, fitted, observations
         )
         stats["ad_dates"] = ad_dates.install(
             db,
