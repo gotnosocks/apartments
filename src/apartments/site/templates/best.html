@@ -56,15 +56,16 @@ plus nor a minus.</p>
     <tr>
       <td class="num c-rank">{{ loop.index }}</td>
       <td class="c-listing"><a href="{{ url_for('listing', audit_id=r.audit_id) }}">{{ r.building }}{% if r.unit %} · {{ r.unit }}{% endif %}</a>
-        <span class="feat">{{ beds_label(r.bedrooms) }} · {{ r.neighbourhood }}{% if r.income_restricted %} · income-restricted{% endif %}{% if r.listing_url %}
+        <span class="feat">{{ beds_label(r.bedrooms) }} · {{ r.neighbourhood }}{% if r.income_restricted %} · income-restricted{% endif %}{% if r.flex %} · <span title="The ad calls the layout flex or convertible: a room may already be or become another bedroom. The bedroom count shown is the ad's; check the floor plan.">ad says it can be set up as {{ "a 1-bed" if not r.bedrooms else "a " ~ (r.bedrooms | round | int + 1) ~ "-bed" }}</span>{% endif %}{% if capture_days | length > 1 and r.captured %} · seen {{ r.captured }}{% endif %}{% if r.kit %} · <span title="Captured after the served fit's data was made, so priced with the fit's prediction kit, not in the fit">priced with the kit</span>{% endif %}{% if r.listing_url %}
         · <a href="{{ r.listing_url }}" rel="noopener noreferrer" target="_blank">StreetEasy ↗<span class="visually-hidden"> ad for {{ r.building }}{% if r.unit %} {{ r.unit }}{% endif %}</span></a>{% endif %}{% set sv = street_view(r.building_id, r.latitude, r.longitude, r.address) %}{% if sv %}
         · <a href="{{ sv }}" rel="noopener noreferrer" target="_blank">Street View ↗<span class="visually-hidden"> of {{ r.building }}</span></a>{% endif %}</span>{% if r.bed_size %}
-        <span class="rtag" title="The ad says a {{ r.bed_size }} bed fits, so at least that does; read from the ad's text, shown, not counted in the fit">{{ r.bed_size | capitalize }} bed fits (ad)</span>{% endif %}</td>
+        <span class="rtag" title="The ad says a {{ r.bed_size }} bed fits, so at least that does; read from the ad's text, shown, not counted in the fit">{{ r.bed_size | capitalize }} bed fits (ad)</span>{% endif %}{% for t in r.commute %}
+        <span class="rtag" title="{{ t.title }}; shown, not counted in the fit">{{ t.label }}</span>{% endfor %}</td>
       <td class="num nowrap" data-label="Fit">{{ pct(r.fit_pct, digits=0) }}</td>
       <td class="num" data-label="Ask">{{ usd(r.ask) }}</td>
       <td class="num nowrap" data-label="Estimate">{{ usd(r.estimate) }}{% if r.vs_estimate is not none %} <span class="muted">(ask {{ pct(100 * r.vs_estimate, digits=0) }})</span>{% endif %}{% if not r.reliable %}<span class="warn-mark" title="Less reliable estimate">*</span>{% endif %}</td>
-      <td class="c-tags">{% for t in r.commute if t.good %}<span class="rtag good" title="{{ t.title }}; shown, not counted in the fit">+ {{ t.label }}</span> {% endfor %}{% for t in r.pros %}<span class="rtag good">+ {{ t.label }}</span> {% endfor %}</td>
-      <td class="c-tags">{% for t in r.commute if not t.good %}<span class="rtag bad" title="{{ t.title }}; shown, not counted in the fit">− {{ t.label }}</span> {% endfor %}{% for t in r.cons %}<span class="rtag bad">− {{ t.label }}</span> {% endfor %}</td>
+      <td class="c-tags">{% for t in r.pros %}<span class="rtag good">+ {{ t.label }}</span> {% endfor %}</td>
+      <td class="c-tags">{% for t in r.cons %}<span class="rtag bad">− {{ t.label }}</span> {% endfor %}</td>
       <td class="muted c-tags"{% if r.unknown %} data-label="Not stated"{% endif %}>{{ r.unknown | join(", ") }}</td>
     </tr>
   {% else %}
@@ -87,8 +88,8 @@ doesn't read the text of current ads yet, so marks like a renovation, a dishwash
   {% if profile.latent %}<p><strong>The building:</strong> {% for kind, w in profile.latent | dictsort %}{{ "its rent level against similar buildings" if kind == "level" else "how fast its rents rise" }}{% if w == 0.5 %}, counted at half weight{% elif w != 1 %}, counted at {{ "{:g}".format(w) }} times its price{% endif %}{{ ", " if not loop.last }}{% endfor %}.</p>{% endif %}
   {% set shown_commute = commute | dictsort | selectattr(0, "in", profile.commute) | list if profile.commute is not none else commute | dictsort | list %}
   {% if shown_commute %}<p id="commute"><strong>Commute:</strong> weekday subway time, door to door, leaving 8–9am, to {% for name, d in shown_commute %}{{ name }}{% if d.address %} ({{ d.address }}){% endif %}{{ ", " if not loop.last }}{% endfor %}.
-  A trip at or under the median for these buildings ({% for name, d in shown_commute %}{{ "{:.0f}".format(d.median) }} min{{ ", " if not loop.last }}{% endfor %}) with no transfer
-  shows as a plus, otherwise as a minus. It is shown but not counted in the fit: the model has no price for it.</p>{% endif %}
+  The median for these buildings is {% for name, d in shown_commute %}{{ "{:.0f}".format(d.median) }} min{{ ", " if not loop.last }}{% endfor %}.
+  It is a note under the listing, neither a plus nor a minus, and not counted in the fit: the model has no price for it.</p>{% endif %}
   {% if rows | selectattr("bed_size") | first %}<p id="bed-size"><strong>Bed size:</strong> "King bed fits" and the like come from the ad's own words (a "king-sized bedroom", "fits a queen"),
   so they are a floor: a bedroom an ad says nothing about may well fit one too. Shown but not counted in the fit.</p>{% endif %}
   {% if profile.unmodelled %}<p class="muted">Not modelled yet: {{ profile.unmodelled | join("; ") }}.</p>{% endif %}

@@ -24,6 +24,10 @@ kit.json            per draw: market (offset, intercept and trend at the last
 buildings.parquet   per building, a list over draws of: level (the building
                     effect plus its walk and trend at the last month),
                     bedroom_slope, and fslope (a list per draw).
+units.parquet       per unit with training rows, a list over draws of its
+                    level (the fit's own unit draws, thinned as the rest):
+                    an apartment the fit has seen is scored with these in
+                    place of the unit prior.
 complete.json       provenance and the sha256 of each file; written last.
 
 The kit does not encode x. The site copies a building's own columns from its
@@ -177,6 +181,16 @@ def kit_tables(kept, prep, config, feats, keep: int = DRAWS):
     return record, buildings
 
 
+def unit_table(kept, prep, keep: int = DRAWS) -> pd.DataFrame:
+    """Per fitted unit, its level over the kept draws (thinned as `kit_tables`),
+    in float32: the posterior unit effect a relisted apartment carries."""
+    idx = thin(np.asarray(kept["alpha"]).shape[0], keep)
+    if "unit" not in kept or not len(prep.units):
+        return pd.DataFrame({"unit": pd.Series(dtype=str), "level": []})
+    level = np.asarray(kept["unit"])[idx].astype(np.float32)  # (draws, units)
+    return pd.DataFrame({"unit": list(prep.units), "level": list(level.T)})
+
+
 def build_kit(name: str, summary_dir: Path, allow_failing: bool = False):
     import jax
 
@@ -200,6 +214,7 @@ def build_kit(name: str, summary_dir: Path, allow_failing: bool = False):
         result, frame, heldout, prep, run_dir, post["units"], post["buildings"]
     )
     record, buildings = kit_tables(kept, prep, config, feats)
+    units = unit_table(kept, prep)
     record |= {
         "run": result["name"],
         "run_commit": result["commit"],
@@ -209,14 +224,15 @@ def build_kit(name: str, summary_dir: Path, allow_failing: bool = False):
         "summary": str(summary_dir),
         "summary_sha256": data.sha256(summary_dir / "complete.json"),
     }
-    return record, buildings
+    return record, buildings, units
 
 
-def write(record, buildings, out_dir: Path, commit: str) -> Path:
+def write(record, buildings, units, out_dir: Path, commit: str) -> Path:
     tmp = out_dir.with_name(out_dir.name + ".tmp")
     tmp.mkdir(parents=True, exist_ok=False)
     (tmp / "kit.json").write_text(json.dumps(record, separators=(",", ":")))
     buildings.to_parquet(tmp / "buildings.parquet", index=False)
+    units.to_parquet(tmp / "units.parquet", index=False)
     complete = {
         "version": VERSION,
         "run": record["run"],
@@ -249,9 +265,12 @@ def main(argv=None):
     out_dir = KITS / f"{args.run}-{commit[:7]}"
     if (out_dir / "complete.json").exists():
         raise SystemExit(f"{out_dir} exists")
-    record, buildings = build_kit(args.run, args.summary, args.allow_failing)
-    path = write(record, buildings, out_dir, commit)
-    print(f"wrote {path}: {len(buildings)} buildings, {record['draws']} draws")
+    record, buildings, units = build_kit(args.run, args.summary, args.allow_failing)
+    path = write(record, buildings, units, out_dir, commit)
+    print(
+        f"wrote {path}: {len(buildings)} buildings, {len(units)} units, "
+        f"{record['draws']} draws"
+    )
 
 
 if __name__ == "__main__":

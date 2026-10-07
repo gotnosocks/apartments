@@ -26,10 +26,10 @@ Commute (Data improvements' `rentfrontier.commute`, #353): weekday-morning
 subway minutes from each building to the destinations in
 `config/commute-destinations.json`, read at runtime from the newest
 `commute-*.csv` in the wishes folder. A sheet may name the destinations it
-wants (`"commute": ["office"]`; all of them otherwise). A trip at or under the
-median for the buildings, with no transfer, shows as a plus, otherwise a
-minus. It is shown, not counted: the model has no price for it, so it leaves
-the score alone.
+wants (`"commute": ["office"]`; all of them otherwise). It is a neutral note,
+neither a plus nor a minus, and not counted: pluses and minuses are the
+served model's terms only, and the model has no price for a commute (Ben,
+2026-10-07).
 """
 
 from __future__ import annotations
@@ -215,8 +215,7 @@ def load_bed_size(path: Path | None) -> dict:
 
 
 def commute_tags(building_id, commute: dict, wanted=None) -> list[dict]:
-    """A plus or minus per destination for one building: at or under the
-    median with no transfer is a plus."""
+    """A neutral note per destination for one building: its subway time."""
     tags = []
     for name, d in commute.items():
         if wanted is not None and name not in wanted:
@@ -225,7 +224,7 @@ def commute_tags(building_id, commute: dict, wanted=None) -> list[dict]:
         if trip is None:
             continue
         n = trip["transfers"]
-        words = f"{name}: {trip['minutes']:.0f} min by subway" + (
+        words = f"Commute to {name}: {trip['minutes']:.0f} min by subway" + (
             f", {n} transfer{'s' if n > 1 else ''}" if n else ""
         )
         how = []
@@ -242,7 +241,6 @@ def commute_tags(building_id, commute: dict, wanted=None) -> list[dict]:
                 "title": f"{d['address']}; " + "; ".join(how)
                 if d["address"]
                 else "; ".join(how),
-                "good": trip["minutes"] <= d["median"] and not n,
                 **trip,
             }
         )
@@ -347,6 +345,21 @@ def score(
     }
 
 
+def earlier_ad_text(db) -> dict[str, dict]:
+    """The model inputs of the newest earlier row of each current ad that has
+    its description: a capture does not read the ad's text, so its notes
+    (income-restricted, flex) come from the same ad seen before."""
+    out: dict[str, dict] = {}
+    for listing_id, inputs in db.execute(
+        "SELECT listing_id, inputs FROM listings WHERE is_current = 0 AND listing_id IN "
+        "(SELECT listing_id FROM listings WHERE is_current = 1) ORDER BY period, price_at"
+    ):
+        x = json.loads(inputs)
+        if not x.get("description_missing"):
+            out[listing_id] = x
+    return out
+
+
 def rank(
     db, profile: dict, commute: dict | None = None, bed_size: dict | None = None
 ) -> dict:
@@ -370,12 +383,19 @@ def rank(
     # The usual floor: the median of every listing with a floor.
     floors = [f for (f,) in db.execute("SELECT floor FROM listings WHERE floor >= 1")]
     usual_floor = max(1, round(statistics.median(floors))) if floors else 1
+    ad_text = earlier_ad_text(db)
     rows = []
     for r in db.execute(
         "SELECT audit_id, unit_id, building_id, unit_label, neighbourhood, bedrooms, ask, "
-        "estimate, floor, reliable, listing_url, inputs FROM listings WHERE is_current = 1 AND ask > 0"
+        "estimate, floor, reliable, listing_url, listing_id, inputs, collected_at, method "
+        "FROM listings WHERE is_current = 1 AND ask > 0"
     ):
         inputs = json.loads(r["inputs"])
+        text = (
+            ad_text.get(r["listing_id"], {})
+            if inputs.get("description_missing")
+            else inputs
+        )
         s = score(
             r, inputs, buildings.get(r["building_id"]), profile, betas, usual_floor
         )
@@ -390,6 +410,8 @@ def rank(
             estimate=r["estimate"],
             reliable=r["reliable"],
             listing_url=r["listing_url"],
+            captured=(r["collected_at"] or "")[:10] or None,
+            kit=r["method"] == "kit",
             building_id=r["building_id"],
             latitude=b["latitude"] if b else None,
             longitude=b["longitude"] if b else None,
@@ -398,7 +420,8 @@ def rank(
                 r["building_id"], commute or {}, profile.get("commute")
             ),
             bed_size=(bed_size or {}).get(r["unit_id"]),
-            income_restricted=bool(inputs.get("text:income_restricted")),
+            income_restricted=bool(text.get("text:income_restricted")),
+            flex=bool(text.get("text:flex_convertible")),
             fit_pct=100 * math.expm1(s["score"]),
             vs_estimate=r["ask"] / r["estimate"] - 1 if r["estimate"] else None,
             value=s["score"] - math.log(r["ask"]),
@@ -413,6 +436,8 @@ def rank(
     return {
         "rows": rows,
         "usual_floor": usual_floor,
+        # Captures of more than one day: each row says its own.
+        "capture_days": sorted({r["captured"] for r in rows if r["captured"]}),
         "not_modelled": not_modelled,
         "everywhere": [u for _, _, u in UNKNOWN if u in everywhere]
         + (["which way it faces"] if "which way it faces" in everywhere else []),

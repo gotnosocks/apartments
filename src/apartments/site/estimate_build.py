@@ -108,6 +108,26 @@ def load_kit(kit_dir: Path) -> tuple[dict, list[dict]]:
     return record, buildings
 
 
+def load_units(kit_dir: Path) -> dict[str, list[float]]:
+    """The fit's level of each unit it has seen, over the kit's draws
+    (`units.parquet`, hashed in complete.json); empty for a kit built before
+    the file (#380)."""
+    path = kit_dir / "units.parquet"
+    if not path.exists():
+        return {}
+    complete = json.loads((kit_dir / "complete.json").read_text())
+    if _sha256(path) != complete["files"].get("units.parquet"):
+        raise estimate.KitError("units.parquet differs from the kit's record")
+    connection = duckdb.connect()
+    try:
+        result = connection.execute(
+            "SELECT unit, level FROM read_parquet(?)", [str(path)]
+        )
+        return {u: [float(v) for v in lv] for u, lv in result.fetchall()}
+    finally:
+        connection.close()
+
+
 def _date(text: str | None, period: str) -> dt.date:
     if text:
         try:

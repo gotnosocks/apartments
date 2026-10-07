@@ -2,6 +2,31 @@
 
 What the next turn of the website thread needs. Updated at each milestone.
 
+## State (2026-10-07 04:00 UTC)
+
+- **Captures use the fit's unit levels (#385):** a captured current listing of a unit the fit has
+  seen is scored with that unit's level from the kit's `units.parquet` (#380), and copies the same
+  ad's earlier description (Modeling: keep it). The served kit `…gv1005-1c2790b` has the file;
+  live build 20261007T033530415762Z: 44 of 44 GV captures use fitted levels. 1 University Pl 2J
+  is $5,671 (fit $5,443; the gap is expected, says Modeling).
+- **/best rule (Ben, 2026-10-07; #383, docs/site.md):** pills only for served-model terms;
+  commute and ad-stated bed size are grey notes (#384). No pills for hand labels (2B "wall"
+  outlook, #382, not shown; waits for Data improvements' footprint feature).
+- **Flex note (#387):** "ad says it can be set up as a N+1-bed"; 2J stays coded as a 1-bed (Ben).
+
+## State (2026-10-07 00:40 UTC)
+
+- #377 (Ben's OK, 00:16Z) prices current-listings captures the served fit's dataset never read with the
+  run's prediction kit (`site/captures.py`, `method = "kit"`), using the dataset's own current-row rules
+  (`candidate_search.select_candidates` + layout/rent support). A dataset-dropped listing or a unit
+  the dataset prices as current stays out. Live: 44 Greenwich Village listings from the Oct 6 capture on
+  /best (best #7, Hilary Gardens 34A); Oct 4 Chelsea/WV unchanged. `build.json` stats `captured_current`
+  says how many were priced and why the others were skipped.
+- A data-only rebuild is `apartments.site build` from /data1/apartments/serve/site (step 3 of
+  `ops/autoselect-publish.sh`); site-deploy alone keeps the old build.
+- Open (non-blocking, reviewer): `first_listing_of_unit` stays set if a unit has an earlier listing
+  but no relisting centre is recoverable; no test of `captures.encode` with an earlier listing.
+
 ## State (2026-10-06 21:50 UTC)
 
 - #368 live: My ratings removed; no rating was ever stored. #369 live: a listing whose ad has
@@ -18,9 +43,9 @@ What the next turn of the website thread needs. Updated at each milestone.
 
 ## State (2026-10-06 19:30 UTC)
 
-- **Display-only pills on /best, read at runtime from `/data1/apartments/wishes/` (newest file by
+- **Informational notes on /best (grey, not pills; Ben 2026-10-07), read at runtime from `/data1/apartments/wishes/` (newest file by
   name; each table's path and mtime are in the ranking cache key; the ranking is unchanged):**
-  #355 commute (`commute-*.csv`: a plus at or under the median with no transfer, otherwise a minus)
+  #355 commute (`commute-*.csv`; a neutral grey note since #384, not a plus or minus)
   and #362 bed size (`bed-size-*.csv`: "King bed fits (ad)", a floor read from the ad's text).
   Each also has a `best.csv` column.
 - **Waiting on Modeling:** per-line subway (`nb3-lines-v1`, "L within 8 min" and so on; 7, J/Z and
@@ -39,7 +64,7 @@ What the next turn of the website thread needs. Updated at each milestone.
   pano opened inside a restaurant; #343 /best on phones: rows become cards below 640px, 44px tap
   targets, no sideways scroll at 320px (`.columns` uses `min(22rem, 100%)`).
 - **Ben's /best feedback** is logged at the top of `docs/playtests/backlog.md` (#341). The
-  site-side pills for "fronts a big street" and transit wait on Data improvements' fields.
+  pills for "fronts a big street" and transit only once they are served-model terms.
 - **Hand-set facing (#342, Data improvements):** `config/corrections/exposure-manual.csv` rows reach
   the site after `rentfrontier.exposure` and a site build; build 20261006T170007853712Z shows
   16 Barrow 1B "set by hand". Rebuild: in `/data1/apartments/serve/site`, `ops/job light -m 3G --
