@@ -544,6 +544,8 @@ def data():
 
 # The review's actions (config/reviews/), as the listings site labels them.
 QUARANTINE_ACTIONS = {
+    "quarantine_unit_unknown": "Apartment not identified",
+    "join_units": "One apartment under two labels",
     "quarantine_nonresidential": "Not a home",
     "quarantine_location_conflict": "Placed elsewhere",
     "quarantine_product_scope": "Not a whole apartment on the open market",
@@ -632,6 +634,12 @@ DATA_RULE_TEXT = {
     "the model found far out of line, in apartments with other listings. Five more are "
     "left out: a commercial lease, an office, an ad for Broadway at West 104th, a "
     "three-month stay, and an ask the ad contradicts.",
+    "quarantine-v6": "quarantine-v5, and 110 West 26th Street's ads whose apartment "
+    "number gives no floor side: the building has a front and a rear apartment on each "
+    "floor, and five ads (3, 4, 5, 6) say neither.",
+    "unit-reviews-v1": "Apartments a review found to be one apartment under two labels: "
+    "at 110 West 26th Street, 4R and 4B, and 5R and 5B, are each floor's rear "
+    "apartment (R for rear, B for back). No listing is dropped.",
 }
 
 
