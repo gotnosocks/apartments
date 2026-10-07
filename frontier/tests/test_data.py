@@ -267,7 +267,7 @@ def test_the_alias_file_is_hashed_but_drops_no_rows():
     assert "unit-labels-v2" not in data.DROPPING_RULES
     groups = data.unit_aliases()
     assert len(groups) == 248 and all(len(g) > 1 for g in groups)
-    assert data.dropped_rows() == data.quarantined(data.QUARANTINE_V5)
+    assert data.dropped_rows() == data.quarantined(data.QUARANTINE_V6)
 
 
 @pytest.mark.parametrize(
@@ -676,3 +676,50 @@ def test_unit_labels_v9_joins_number_word_letter_labels_to_their_twins(tmp_path)
     assert data.DATA_RULES["unit-labels-v9"] is data.merge_word_letter_labels
     assert "unit-labels-v9" not in data.DROPPING_RULES
     assert data.RULE_SOURCES["unit-labels-v9"] == data.UNIT_HISTORY_PAIRS
+
+
+def test_unit_reviews_v1_joins_each_reviewed_group(tmp_path):
+    """A reviewed group's units take the group's smallest unit id, whatever
+    spelling the label has; other labels and other buildings keep theirs."""
+    url = "https://streeteasy.com/building/{}/{}".format
+    frame = pd.DataFrame(
+        {
+            "building": ["b1"] * 4 + ["b2"],
+            "canonical_unit_url": [
+                url("b1", "5r"),
+                url("b1", "5-B"),
+                url("b1", "5f"),
+                url("b1", "5"),
+                url("b2", "5b"),
+            ],
+            "unit_id": ["u3", "u2", "u1", "u4", "u0"],
+        }
+    )
+    joins = tmp_path / "joins.jsonl"
+    joins.write_text(json.dumps({"building": "b1", "unit_labels": ["5R", "5B"]}))
+    out = data.join_reviewed_units(frame, joins)
+    assert out.unit_id.tolist() == ["u2", "u2", "u1", "u4", "u0"]
+    assert data.DATA_RULES["unit-reviews-v1"] is data.join_reviewed_units
+    assert "unit-reviews-v1" not in data.DROPPING_RULES
+
+
+def test_quarantine_v6_is_v5_and_110_west_26th_bare_numbers():
+    """v6 keeps all of v5's rows and adds 110 West 26th Street's five ads with a
+    bare floor number."""
+    v5 = data.quarantined(data.QUARANTINE_V5)
+    v6 = data.quarantined(data.QUARANTINE_V6)
+    assert v5 < v6 and len(v6 - v5) == 5
+    with open(data.QUARANTINE_V6) as f:
+        rows = [json.loads(line) for line in f if line.strip()]
+    added = [r for r in rows if r["audit_id"] in v6 - v5]
+    assert {r["building"] for r in added} == {"110-west-26-street-new_york"}
+    assert sorted(r["unit_label"] for r in added) == ["3", "3", "4", "5", "6"]
+    assert "quarantine-v6" in data.DROPPING_RULES
+
+
+def test_apply_rules_refuses_unit_reviews_before_unit_labels():
+    frame = pd.DataFrame({"audit_id": ["a"], "unit_id": ["u"]})
+    with pytest.raises(ValueError, match="unit-reviews"):
+        data.apply_rules(
+            frame, np.zeros(1, bool), ["unit-reviews-v1", "unit-labels-v9"]
+        )

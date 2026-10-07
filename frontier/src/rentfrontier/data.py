@@ -646,6 +646,43 @@ def quarantine_v5(frame: pd.DataFrame) -> pd.DataFrame:
     return frame[~frame.audit_id.isin(quarantined(QUARANTINE_V5))]
 
 
+# v5 and a sixth review (2026-10-07): 110 West 26th Street's ads whose unit
+# label gives no floor side.
+QUARANTINE_V6 = REPO / "config" / "reviews" / "quarantine-v6-20261007.jsonl"
+
+
+def quarantine_v6(frame: pd.DataFrame) -> pd.DataFrame:
+    """v5 and the sixth review's rows (282 in all): 110 West 26th Street has a
+    front and a rear apartment on each floor (Ben, 2026-10-07: the R and B
+    listings "both refer to the unit at the back of the building"), and 5 of its
+    ads, labelled "3", "4", "5" or "6", say neither. The other rows are unchanged."""
+    return frame[~frame.audit_id.isin(quarantined(QUARANTINE_V6))]
+
+
+# Units of one building a review found to be one apartment under different
+# labels, one JSON line per group with its evidence (2026-10-07).
+UNIT_JOINS = REPO / "config" / "reviews" / "unit-joins-20261007.jsonl"
+
+
+def join_reviewed_units(frame: pd.DataFrame, path: Path = UNIT_JOINS) -> pd.DataFrame:
+    """The units of each reviewed group (a building and the labels of one
+    apartment) given one unit id, the group's smallest: at 110 West 26th Street,
+    4R and 4B, and 5R and 5B, are each floor's rear apartment (Ben, 2026-10-07:
+    the R and B listings "both refer to the unit at the back of the building").
+    It reads the rows' labels and the unit ids it is given, so it runs after the
+    unit-labels rules. Rows are unchanged."""
+    with open(path) as f:
+        groups = [json.loads(line) for line in f if line.strip()]
+    raw = frame.canonical_unit_url.str.extract(r"/([^/]+)$")[0]
+    key = raw.map(lambda v: unit_label_key(v) if isinstance(v, str) else v)
+    out = frame.copy()
+    for g in groups:
+        hit = (frame.building == g["building"]) & key.isin(g["unit_labels"])
+        if hit.any():
+            out.loc[hit, "unit_id"] = out.unit_id[hit].min()
+    return out
+
+
 # Named data rules, applied after the held-out split is drawn (the row split
 # depends on unit ids, and scored rows must not change). Run records list them.
 # Tuning subsets (Ben, 2026-10-01: "consider using a subset of the listings or
@@ -698,6 +735,8 @@ DATA_RULES = {
     "quarantine-v3": quarantine_v3,
     "quarantine-v4": quarantine_v4,
     "quarantine-v5": quarantine_v5,
+    "quarantine-v6": quarantine_v6,
+    "unit-reviews-v1": join_reviewed_units,
 }
 # Rules that read a file; run records hash the files.
 RULE_SOURCES = {
@@ -706,6 +745,8 @@ RULE_SOURCES = {
     "quarantine-v3": QUARANTINE_V3,
     "quarantine-v4": QUARANTINE_V4,
     "quarantine-v5": QUARANTINE_V5,
+    "quarantine-v6": QUARANTINE_V6,
+    "unit-reviews-v1": UNIT_JOINS,
     "unit-labels-v2": UNIT_ALIASES,
     "unit-labels-v3": UNIT_ALIASES,
     "unit-labels-v5": UNIT_ALIASES_GV,
@@ -725,6 +766,7 @@ DROPPING_RULES = (
     "quarantine-v3",
     "quarantine-v4",
     "quarantine-v5",
+    "quarantine-v6",
 )
 
 
@@ -781,6 +823,10 @@ def apply_rules(frame: pd.DataFrame, heldout: np.ndarray, rules):
     splits = [i for i, r in enumerate(rules) if r.startswith("unit-splits-")]
     if splits and splits != list(range(len(rules) - len(splits), len(rules))):
         raise ValueError(f"unit-splits rules must come last: {rules}")
+    labels = [i for i, r in enumerate(rules) if r.startswith("unit-labels-")]
+    reviews = [i for i, r in enumerate(rules) if r.startswith("unit-reviews-")]
+    if labels and reviews and min(reviews) < max(labels):
+        raise ValueError(f"unit-reviews rules must follow unit-labels: {rules}")
     mask = pd.Series(np.asarray(heldout, dtype=bool), index=frame.index)
     for rule in rules:
         frame = DATA_RULES[rule](frame)
