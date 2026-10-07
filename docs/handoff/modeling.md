@@ -12,7 +12,7 @@ in `/data1/apartments/tmp/bridge` (thelio).
   on the current rules.
 - **prevprice removed (Ben, 2026-10-07 14:17Z):** semantically invalid (no time dependence of the
   correction). `autoselect.BLOCKED` refuses every feature set containing `prevprice`, in autoselect and
-  latestselect; `manual_removal` in config/main-analysis.json records it. The elegance brief is
+  latestselect; `manual_removal` in config/main-analysis.json at #403 records it. The elegance brief is
   `elegance-v2`, with semantic validity first.
 - **Current rules:** baths-ad-v2, bedrooms-ad-v2, fields-review-v3, quarantine-v5, unit-labels-v9,
   unit-splits-v1 (#394, #397).
