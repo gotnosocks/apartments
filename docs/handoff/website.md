@@ -33,7 +33,7 @@ What the next turn of the website thread needs. Updated at each milestone.
 
 - **Display-only pills on /best, read at runtime from `/data1/apartments/wishes/` (newest file by
   name; each table's path and mtime are in the ranking cache key; the ranking is unchanged):**
-  #355 commute (`commute-*.csv`: a plus at or under the median with no transfer, otherwise a minus)
+  #355 commute (`commute-*.csv`; a neutral grey note since #384, not a plus or minus)
   and #362 bed size (`bed-size-*.csv`: "King bed fits (ad)", a floor read from the ad's text).
   Each also has a `best.csv` column.
 - **Waiting on Modeling:** per-line subway (`nb3-lines-v1`, "L within 8 min" and so on; 7, J/Z and
