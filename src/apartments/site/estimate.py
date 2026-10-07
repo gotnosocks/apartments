@@ -493,10 +493,13 @@ def score(
     seed: str,
     ask: float | None = None,
     samples: int = SAMPLES_PER_DRAW,
+    unit: list[float] | None = None,
 ) -> dict:
     """The typical rent of a new apartment like this (mean, median and 95%
     interval of its latent rent), the range its ask is likely to fall in (80%
-    and 95% predictive intervals), and where `ask` falls among simulated asks."""
+    and 95% predictive intervals), and where `ask` falls among simulated asks.
+    `unit`, the fit's own level of an apartment it has seen (one per draw),
+    takes the place of the unit prior."""
     rng = random.Random(int(hashlib.sha256(seed.encode()).hexdigest()[:16], 16))
     group = min(max(bedrooms, 0), 3)
     latent, asks = [], []
@@ -504,8 +507,15 @@ def score(
         scale = kit.unit_scale[s]
         sigma = kit.sigma[s][group if len(kit.sigma[s]) > 1 else 0]
         for _ in range(samples):
-            z = _student_t(rng, kit.unit_nu[s]) if kit.t_units else rng.gauss(0.0, 1.0)
-            level = scale * max(-UNIT_CLIP, min(UNIT_CLIP, z))
+            if unit is not None:
+                level = unit[s]
+            else:
+                z = (
+                    _student_t(rng, kit.unit_nu[s])
+                    if kit.t_units
+                    else rng.gauss(0.0, 1.0)
+                )
+                level = scale * max(-UNIT_CLIP, min(UNIT_CLIP, z))
             mu = total + level
             latent.append(mu)
             asks.append(mu + sigma * _student_t(rng, kit.nu[s]))

@@ -3,8 +3,9 @@
 The served fit prices the current listings in its own dataset. A later
 current-listings capture (Greenwich Village's of 2026-10-06) is not in that
 dataset, so its listings are priced here with the run's prediction kit, the
-same scoring the estimate form uses: a new apartment in its building, with the
-unit's level drawn from the unit prior. Until a fit includes them, these rows
+same scoring the estimate form uses: an apartment in its building whose level
+is the fit's own for a unit the fit has seen (the kit's `units.parquet`), and
+otherwise drawn from the unit prior, as for a new apartment. Until a fit includes them, these rows
 are marked `method = "kit"` and say so on their pages.
 
 A capture's listing gets its model inputs from three places:
@@ -19,7 +20,9 @@ A capture's listing gets its model inputs from three places:
 - the building's newest listing, for the building's own terms.
 
 The description is not read at capture, as for every current listing, so
-rooms beyond the bedrooms and outdoor space are unknown or absent, as there.
+rooms beyond the bedrooms and outdoor space are unknown or absent, as there,
+unless the unit's newest earlier listing is the same advertisement with its
+description: then they come from it.
 """
 
 from __future__ import annotations
@@ -38,6 +41,8 @@ from . import estimate, estimate_build
 
 # Groups the dataset keeps per unit, taken from the unit's newest earlier listing.
 UNIT_GROUPS = ("facing",)
+# Groups read from the ad's description, taken from the same ad seen earlier.
+DESCRIPTION_GROUPS = ("description", "outdoor space", "rooms beyond bedrooms")
 LETTERED = re.compile(r"^(?:APT-?)?(\d{1,2})[A-Z]{1,2}$")
 NUMBERED = re.compile(r"^(\d)\d\d$")
 METHOD = "kit"
@@ -204,6 +209,17 @@ def encode(
                 x["log_months_since_last_listing"] = (
                     math.log1p(max(days, 0) / 30.4) - centre
                 )
+    p = json.loads(prev["inputs"]) if prev is not None else {}
+    same_ad = (
+        prev is not None
+        and str(prev.get("listing_id")) == str(c.get("source_listing_id"))
+        and not p.get("description_missing")
+    )
+    if same_ad:
+        for name in [n for n in x if group_of.get(n) in DESCRIPTION_GROUPS]:
+            del x[name]
+        x.update({n: v for n, v in p.items() if group_of.get(n) in DESCRIPTION_GROUPS})
+        return x
     if kit.has("rooms beyond bedrooms=unknown"):
         for name in [n for n in x if group_of.get(n) == "rooms beyond bedrooms"]:
             del x[name]
@@ -225,11 +241,13 @@ def contributions(
     day,
     seed: str,
     names: list[str],
+    unit: list[float] | None = None,
 ) -> list[dict]:
     """Dollar contributions of the kit estimate against the market reference,
     as `rentfrontier.summary` gives them: per draw, the log-mean (LMDI)
     weight times each term's log, with the unit level's expected factor as
-    "unit"; means and 95% intervals over draws."""
+    "unit" (the fit's own level, `unit`, when given; "from_fit" says so);
+    means and 95% intervals over draws."""
     rng = random.Random(int(hashlib.sha256(seed.encode()).hexdigest()[:16], 16))
     group_of = dict(zip(kit.features, kit.groups))
     group = min(max(bedrooms, 0), 3)
@@ -254,12 +272,17 @@ def contributions(
         scale = kit.unit_scale[s]
         levels = []
         for _ in range(estimate.SAMPLES_PER_DRAW):
-            z = (
-                estimate._student_t(rng, kit.unit_nu[s])
-                if kit.t_units
-                else rng.gauss(0.0, 1.0)
-            )
-            levels.append(scale * max(-estimate.UNIT_CLIP, min(estimate.UNIT_CLIP, z)))
+            if unit is not None:
+                levels.append(unit[s])
+            else:
+                z = (
+                    estimate._student_t(rng, kit.unit_nu[s])
+                    if kit.t_units
+                    else rng.gauss(0.0, 1.0)
+                )
+                levels.append(
+                    scale * max(-estimate.UNIT_CLIP, min(estimate.UNIT_CLIP, z))
+                )
             estimate._student_t(rng, kit.nu[s])
         logs["unit"] = math.log(sum(math.exp(v) for v in levels) / len(levels))
         reference = math.exp(kit.market[s] + estimate._season(kit, s, frac, day.month))
@@ -279,6 +302,7 @@ def contributions(
                 "usd": round(sum(values) / len(values), 2),
                 "lower": round(estimate._quantile(values, 0.025), 2),
                 "upper": round(estimate._quantile(values, 0.975), 2),
+                **({"from_fit": True} if n == "unit" and unit is not None else {}),
             }
         )
     return out
@@ -292,9 +316,12 @@ def rows(
     archives: Path,
     names: list[str],
     observations: dict[str, dict] | None = None,
+    units: dict[str, list[float]] | None = None,
 ) -> tuple[list[dict], dict]:
     """Site listing rows of the captures' listings, and a status for
-    build.json: how many were priced and why the others were not."""
+    build.json: how many were priced, how many with the fit's own unit
+    level, and why the others were not."""
+    units = units or {}
     from .build import _true_keys, price_band, unit_label
 
     terms = {b["building"]: b for b in kit_buildings}
@@ -324,7 +351,7 @@ def rows(
             skip_listings |= {str(i) for i in ids if i}
         if current:
             skip_units.add(o["unit_id"])
-    out, skipped, sources = [], {}, {}
+    out, skipped, sources, fitted_levels = [], {}, {}, 0
     for source, c in captures(archives, set(observations), skip_listings, skip_units):
         b = c["building_id"]
         if b not in terms or b not in info or b not in newest:
@@ -348,8 +375,17 @@ def rows(
         bedrooms = round(min(max(c.get("bedrooms") or 0, 0), 5))
         day = _time(c).date()
         audit_id = f"capture:{c['capture_id']}"
+        fit_rows = sum(r["in_fit"] for r in by_unit.get(c["unit_id"], []))
+        unit = units.get(c["unit_id"]) if fit_rows else None
         got = estimate.score(
-            kit, building, x, bedrooms, day, seed=audit_id, ask=float(c["rent"])
+            kit,
+            building,
+            x,
+            bedrooms,
+            day,
+            seed=audit_id,
+            ask=float(c["rent"]),
+            unit=unit,
         )
         f = form(c, info[b].get("floors"))
         ask = float(c["rent"])
@@ -387,9 +423,7 @@ def rows(
                 "concession": None,
                 "collected_at": c["collected_at"],
                 "in_fit": 0,
-                "unit_fit_rows": sum(
-                    r["in_fit"] for r in by_unit.get(c["unit_id"], [])
-                ),
+                "unit_fit_rows": fit_rows,
                 "method": METHOD,
                 "estimate": got["estimate"],
                 "estimate_lower": got["lower_95"],
@@ -410,14 +444,22 @@ def rows(
                     for side in ("lower", "upper")
                 },
                 "contributions": json.dumps(
-                    contributions(kit, building, x, bedrooms, day, audit_id, names),
+                    contributions(
+                        kit, building, x, bedrooms, day, audit_id, names, unit
+                    ),
                     separators=(",", ":"),
                 ),
                 "inputs": json.dumps(x, separators=(",", ":")),
             }
         )
         sources[source] = sources.get(source, 0) + 1
-    return out, {"priced": len(out), "by_capture": sources, "skipped": skipped}
+        fitted_levels += unit is not None
+    return out, {
+        "priced": len(out),
+        "unit_levels": fitted_levels,
+        "by_capture": sources,
+        "skipped": skipped,
+    }
 
 
 def price(
@@ -455,4 +497,13 @@ def price(
     )
     if not check["passes"]:
         return [], {"priced": 0, "reason": check["reason"]}
-    return rows(kit, kit_buildings, listings, buildings, archives, names, observations)
+    return rows(
+        kit,
+        kit_buildings,
+        listings,
+        buildings,
+        archives,
+        names,
+        observations,
+        estimate_build.load_units(kit_dir),
+    )
