@@ -33,6 +33,7 @@ import re
 import statistics
 from pathlib import Path
 
+from .. import candidate_search, pricing
 from . import estimate, estimate_build
 
 # Groups the dataset keeps per unit, taken from the unit's newest earlier listing.
@@ -42,12 +43,37 @@ NUMBERED = re.compile(r"^(\d)\d\d$")
 METHOD = "kit"
 
 
-def captures(archives: Path, known: set[str]) -> list[tuple[str, dict]]:
-    """(capture directory name, candidate) for every ACTIVE listing of a
-    capture the fit's dataset never read; newest capture wins per listing.
+def supported(c: dict) -> bool:
+    """The layout and rent range the dataset's current rows keep
+    (`fit_robust_analysis.current_rows`)."""
+    beds, baths, rent = (
+        pricing._number(c.get(k)) for k in ("bedrooms", "bathrooms", "rent")
+    )
+    return (
+        beds is not None
+        and 0 <= beds <= 5
+        and not beds % 1
+        and baths is not None
+        and 1 <= baths <= 5
+        and not (baths * 2) % 1
+        and rent is not None
+        and 750 <= rent <= 50000
+    )
 
-    A capture with any listing already on the site went into the dataset, and
-    the listings of it the dataset left out were left out by its row rules."""
+
+def captures(
+    archives: Path, read: set[str], skip_listings: set[str], skip_units: set[str]
+) -> list[tuple[str, dict]]:
+    """(capture directory name, candidate) for the listings of captures the
+    fit's dataset never read that pass the dataset's own current-row rules
+    (`candidate_search.select_candidates`: active, gross ask, not furnished,
+    short-term or with a concession, one advertisement per unit; and the
+    layout and rent support); newest capture wins per unit.
+
+    A capture with any row in the dataset (`read`, its audit ids) went into
+    it, and the listings of it the dataset left out were left out by its
+    rules. Listings in `skip_listings` and units in `skip_units` are left
+    out too: the dataset dropped or already prices them."""
     out: dict[str, tuple[str, dict]] = {}
     for d in sorted(p for p in archives.iterdir() if p.is_dir()):
         path = d / "details" / "snapshot" / "candidates.jsonl"
@@ -56,13 +82,26 @@ def captures(archives: Path, known: set[str]) -> list[tuple[str, dict]]:
         found = [
             json.loads(line) for line in path.read_text().splitlines() if line.strip()
         ]
-        if any(f"capture:{c['capture_id']}" in known for c in found):
+        if not found or any(f"capture:{c['capture_id']}" in read for c in found):
             continue
-        for c in found:
-            if c.get("listing_status") == "ACTIVE" and c.get("rent"):
-                out[str(c["source_listing_id"])] = (d.name, c)
-    # A listing in the fit's own current rows is priced there.
-    return [v for k, v in out.items() if k not in known]
+        as_of = max(
+            pricing._timestamp(t)
+            for c in found
+            for t in (c.get("collected_at"), c.get("known_at"))
+            if t
+        )
+        selected, _, _ = candidate_search.select_candidates(found, as_of=as_of)
+        for c in selected:
+            if not supported(c) or str(c["source_listing_id"]) in skip_listings:
+                continue
+            if c["unit_id"] in skip_units:
+                continue
+            size = pricing._number(c.get("square_feet"))
+            c["square_feet"] = (
+                size if size is not None and 150 <= size <= 6000 else None
+            )
+            out[c["unit_id"]] = (d.name, c)
+    return list(out.values())
 
 
 def label_floor(url: str | None, height: int | None) -> int | None:
@@ -146,7 +185,10 @@ def encode(
     if prev is not None:
         p = json.loads(prev["inputs"])
         groups = list(UNIT_GROUPS)
-        if f.square_feet is None and "log_sqft_vs_bedroom_median" in p:
+        # The size is relative to the bedroom count's median, so only from a
+        # listing with as many bedrooms.
+        same_beds = prev.get("bedrooms") == c.get("bedrooms")
+        if f.square_feet is None and same_beds and "log_sqft_vs_bedroom_median" in p:
             groups.append("size")
         for g in groups:
             for name in [n for n in x if group_of.get(n) == g]:
@@ -245,6 +287,7 @@ def rows(
     buildings: list[dict],
     archives: Path,
     names: list[str],
+    observations: dict[str, dict] | None = None,
 ) -> tuple[list[dict], dict]:
     """Site listing rows of the captures' listings, and a status for
     build.json: how many were priced and why the others were not."""
@@ -260,11 +303,25 @@ def rows(
         if r["building_id"] not in newest or key > newest[r["building_id"]][0]:
             newest[r["building_id"]] = (key, r)
     centre = relisting_centre(listings)
-    known = {r["audit_id"] for r in listings} | {
-        r["listing_id"] for r in listings if r["is_current"]
-    }
+    # The dataset's rows (`observations`, the bundle's rows when not given):
+    # a listing it dropped stays out, and a unit it prices now is priced there.
+    if observations is None:
+        observations = {r["audit_id"]: r for r in listings}
+    fit_ids = {r["audit_id"] for r in listings}
+    skip_listings, skip_units = set(), set()
+    for a, o in observations.items():
+        ids = o.get("listing_ids")
+        ids = json.loads(ids) if isinstance(ids, str) else list(ids or [])
+        ids.append(o.get("listing_id") or o.get("source_listing_id"))
+        current = o.get(
+            "is_current", o.get("analysis_price_basis") == "current_capture_gross_ask"
+        )
+        if a not in fit_ids or current:
+            skip_listings |= {str(i) for i in ids if i}
+        if current:
+            skip_units.add(o["unit_id"])
     out, skipped, sources = [], {}, {}
-    for source, c in captures(archives, known):
+    for source, c in captures(archives, set(observations), skip_listings, skip_units):
         b = c["building_id"]
         if b not in terms or b not in info or b not in newest:
             skipped[c["capture_id"]] = "building not in the served fit"
@@ -365,6 +422,7 @@ def price(
     buildings: list[dict],
     archives: Path,
     names: list[str],
+    observations: dict[str, dict] | None = None,
 ) -> tuple[list[dict], dict]:
     """The captures' listings priced with the run's kit, when it scores the
     fit's own rows as the bundle does (`estimate_build.check_scoring`)."""
@@ -393,4 +451,4 @@ def price(
     )
     if not check["passes"]:
         return [], {"priced": 0, "reason": check["reason"]}
-    return rows(kit, kit_buildings, listings, buildings, archives, names)
+    return rows(kit, kit_buildings, listings, buildings, archives, names, observations)

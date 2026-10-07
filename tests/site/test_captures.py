@@ -37,6 +37,7 @@ def candidate(n, **kw):
         "canonical_unit_url": "https://streeteasy.com/building/grove/4b",
         "source_listing_id": 1000 + n,
         "listing_status": "ACTIVE",
+        "price_basis": "gross_advertised_rent",
         "rent": 4000,
         "bedrooms": 1,
         "bathrooms": 1,
@@ -81,35 +82,60 @@ def test_label_floor_reads_the_unit_number_within_the_buildings_height():
     assert captures.label_floor("https://x/building/a/2A", None) is None
 
 
-def test_only_active_listings_of_captures_the_dataset_never_read(tmp_path):
-    write_capture(
-        tmp_path,
-        "20261004",
-        [candidate(1), candidate(2, source_listing_id=2002)],
-    )
+def test_only_captures_the_dataset_never_read(tmp_path):
+    write_capture(tmp_path, "20261004", [candidate(1), candidate(2, unit_id="u-5")])
+    write_capture(tmp_path, "20261006", [candidate(3, unit_id="u-6")])
+    # The dataset read the Oct 4 capture (one of its rows is a dataset row),
+    # so its other listing was left out by the dataset's rules.
+    got = captures.captures(tmp_path, {"capture:refresh:abc:1"}, set(), set())
+    assert [(d, c["capture_id"]) for d, c in got] == [("20261006", "refresh:abc:3")]
+
+
+def test_the_datasets_current_row_rules_apply(tmp_path):
     write_capture(
         tmp_path,
         "20261006",
         [
-            candidate(3),
-            candidate(4, listing_status="RENTED"),
-            candidate(5, rent=None),
-            candidate(6, source_listing_id=777),
+            candidate(1, unit_id="u-1"),
+            candidate(2, unit_id="u-2", listing_status="RENTED"),
+            candidate(3, unit_id="u-3", rent=None),
+            candidate(4, unit_id="u-4", furnished=True),
+            candidate(5, unit_id="u-5", concession=True),
+            candidate(6, unit_id="u-6", bedrooms=1.5),
+            candidate(7, unit_id="u-7", rent=600),
+            candidate(8, unit_id="u-8", price_basis="net_effective_rent"),
+            candidate(9, unit_id="u-9", source_listing_id=777),
+            candidate(10, unit_id="u-10"),
+            candidate(11, unit_id="u-11", square_feet=90),
         ],
     )
-    # The dataset read the Oct 4 capture (one of its rows is a site row), so
-    # its other listing was left out by the dataset's rules.
-    got = captures.captures(tmp_path, {"capture:refresh:abc:1", "777"})
-    assert [(d, c["capture_id"]) for d, c in got] == [("20261006", "refresh:abc:3")]
+    got = captures.captures(tmp_path, set(), {"777"}, {"u-10"})
+    assert [c["capture_id"] for _, c in got] == ["refresh:abc:1", "refresh:abc:11"]
+    assert got[1][1]["square_feet"] is None  # outside 150-6000 sq ft
 
 
-def test_newest_capture_wins_per_listing(tmp_path):
+def test_newest_capture_wins_per_unit(tmp_path):
     write_capture(tmp_path, "20261006", [candidate(1, rent=4000)])
     write_capture(
         tmp_path, "20261008", [candidate(2, source_listing_id=1001, rent=3900)]
     )
-    got = captures.captures(tmp_path, set())
+    got = captures.captures(tmp_path, set(), set(), set())
     assert [(d, c["rent"]) for d, c in got] == [("20261008", 3900)]
+
+
+def test_a_listing_the_dataset_dropped_stays_out(tmp_path):
+    write_capture(tmp_path, "20261006", [candidate(1, source_listing_id=900)])
+    dropped = fitted(audit_id="obs:dropped", listing_id="900")
+    out, status = captures.rows(
+        kit(),
+        [kit_building()],
+        [fitted(listing_id="800")],
+        [{"id": BUILDING, "neighbourhood": "Greenwich Village", "floors": 6}],
+        tmp_path,
+        [],
+        {"obs:1": fitted(listing_id="800"), "obs:dropped": dropped},
+    )
+    assert out == [] and status["priced"] == 0
 
 
 def kit_building(level=0.0):

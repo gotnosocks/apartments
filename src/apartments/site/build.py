@@ -697,6 +697,7 @@ def write_database(
         units_and_buildings(fitted)[1],
         archives or ad_dates.ARCHIVES,
         names,
+        observations,
     )
     listings = fitted + captured
     units, buildings = units_and_buildings(listings)
