@@ -1,5 +1,6 @@
 import datetime
 import importlib.util
+import json
 import sys
 from pathlib import Path
 
@@ -21,6 +22,12 @@ def load(name):
 cap = load("cap")
 fit = load("fit")
 ET = cap.ZONE
+
+
+@pytest.fixture(autouse=True)
+def no_real_grants(tmp_path, monkeypatch):
+    # The repo's grants file names real days; these tests use their own.
+    monkeypatch.setattr(cap, "GRANTS", tmp_path / "no-grants.json")
 
 
 def test_cap_refuses_the_eleventh_launch_of_an_et_day(tmp_path):
@@ -136,3 +143,18 @@ def test_finish_puts_a_good_run_where_thelio_fits_go_and_a_failed_one_aside(
     assert volume.removed == ["/out/r"]
     assert fit.finish(FakeVolume(files), "r", {"exit": 1}) == tmp_path / "modal/failed"
     assert (tmp_path / "modal/failed/runs/r/modal/fit.log").exists()
+
+
+def test_a_grant_from_ben_raises_one_days_cap(tmp_path):
+    grants = tmp_path / "grants.json"
+    grants.write_text(
+        json.dumps({"2026-10-06": {"extra": 2, "by": "Ben", "words": "+2"}})
+    )
+    ledger = tmp_path / "ledger.jsonl"
+    day = datetime.datetime(2026, 10, 6, 9, tzinfo=cap.ZONE)
+    for i in range(cap.MAX_PER_DAY + 2):
+        cap.reserve(f"run-{i}", "A100-40GB", ledger, day, grants)
+    with pytest.raises(cap.CapReached):
+        cap.reserve("one-more", "A100-40GB", ledger, day, grants)
+    assert cap.limit("2026-10-06", grants) == cap.MAX_PER_DAY + 2
+    assert cap.limit("2026-10-07", grants) == cap.MAX_PER_DAY
