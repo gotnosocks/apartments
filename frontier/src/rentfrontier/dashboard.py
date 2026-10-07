@@ -597,6 +597,9 @@ DATA_RULE_TEXT = {
     "fields-review-v3": "Reverts fields-review-v1: the 16 listings keep their recorded "
     "bedroom and bath counts, since an ad's words alone do not override them and none "
     "of those apartments has another listing to back the ad.",
+    "fields-review-v4": "fields-review-v3, and 1 University Place 2J as a two-bedroom: "
+    "Ben read its second bedroom's windows on the floor plan, and the two ads recorded "
+    "as one-bedrooms say it was converted to two. No listing is dropped.",
     "quarantine-v3": "quarantine-v2 and a third review, the first of West Village: ads "
     "that place the apartment elsewhere (Brooklyn's Grove and Bleecker Streets, Park "
     "Slope, Harlem, the Upper West Side), shops, restaurants and event spaces, a room, "

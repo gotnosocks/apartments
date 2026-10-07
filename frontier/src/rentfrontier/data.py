@@ -349,6 +349,9 @@ BATH_CORRECTIONS_V2 = REPO / "config" / "corrections" / "baths-ad-v2-20261003.js
 # Field errors a review found by reading ads (the fourth review, of single-listing
 # apartments with a very large unit effect): bedroom and bath counts.
 FIELD_REVIEW = REPO / "config" / "corrections" / "fields-review-20261003.jsonl"
+# Bedroom counts Ben read on floor plans (2026-10-07): 1 University Place 2J's
+# second bedroom has windows, so its ads recorded as one-bedrooms are two.
+FIELD_REVIEW_V4 = REPO / "config" / "corrections" / "fields-review-20261006.jsonl"
 
 
 def correct_baths_v1(frame: pd.DataFrame) -> pd.DataFrame:
@@ -400,6 +403,16 @@ def correct_fields_review_v3(frame: pd.DataFrame) -> pd.DataFrame:
     coded fields). As the latest version of the family, it takes v1 out of
     the current rules. (v2, #170, was never merged.)"""
     return frame
+
+
+def correct_fields_review_v4(frame: pd.DataFrame) -> pd.DataFrame:
+    """v3, and the bedroom counts Ben read on the floor plans of 1 University
+    Place's J line (2026-10-07: "#2J floorplan clearly shows windows in the
+    second bedroom"): 2J's two ads recorded as one-bedrooms whose own text says
+    the apartment was converted to two bedrooms are two-bedrooms (2 rows). The
+    J-line ads that offer an unconverted one-bedroom keep their count. Every
+    row is kept; only `bedrooms` changes."""
+    return _correct_bedrooms(correct_fields_review_v3(frame), "fields-review-v4")
 
 
 def quarantine_v3(frame: pd.DataFrame) -> pd.DataFrame:
@@ -465,6 +478,7 @@ DATA_RULES = {
     "baths-ad-v2": correct_baths_v2,
     "fields-review-v1": correct_fields_review_v1,
     "fields-review-v3": correct_fields_review_v3,
+    "fields-review-v4": correct_fields_review_v4,
     "quarantine-v3": quarantine_v3,
     "quarantine-v4": quarantine_v4,
     "quarantine-v5": quarantine_v5,
@@ -484,6 +498,7 @@ RULE_SOURCES = {
     "bedrooms-ad-v2": BEDROOM_CORRECTIONS_V2,
     "baths-ad-v2": BATH_CORRECTIONS_V2,
     "fields-review-v1": FIELD_REVIEW,
+    "fields-review-v4": FIELD_REVIEW_V4,
 }
 # Of those, the rules that drop the rows their file lists.
 DROPPING_RULES = (

@@ -314,14 +314,29 @@ def test_fields_review_corrects_bedrooms_and_baths_only(tmp_path, monkeypatch):
     assert out.full_baths.dtype == frame.full_baths.dtype
 
 
-def test_fields_review_v3_reverts_v1_and_is_current():
-    from rentfrontier import autoselect
-
+def test_fields_review_v3_reverts_v1():
     frame = pd.DataFrame({"audit_id": ["a"], "bedrooms": [1.0], "full_baths": [1]})
     out, _ = data.apply_rules(frame, np.zeros(1, bool), ["fields-review-v3"])
     pd.testing.assert_frame_equal(out.reset_index(drop=True), frame)
+
+
+def test_fields_review_v4_makes_only_its_rows_two_bedrooms_and_is_current():
+    from rentfrontier import autoselect
+
+    with open(data.FIELD_REVIEW_V4) as f:
+        rows = [json.loads(line) for line in f if line.strip()]
+    assert len(rows) == len({r["audit_id"] for r in rows}) == 2
+    for r in rows:
+        assert r["building"] == "1-university-place-new_york", r
+        assert (r["field"], r["recorded"], r["corrected"]) == ("bedrooms", 1.0, 2.0)
+        assert "converted" in r["evidence"] and "Ben" in r["evidence"], r
+    ids = [r["audit_id"] for r in rows] + ["other"]
+    frame = pd.DataFrame({"audit_id": ids, "bedrooms": [1.0, 1.0, 1.0]})
+    out, _ = data.apply_rules(frame, np.zeros(3, bool), ["fields-review-v4"])
+    assert out.bedrooms.tolist() == [2.0, 2.0, 1.0]
     current = autoselect.current_rules()
-    assert "fields-review-v3" in current and "fields-review-v1" not in current
+    assert "fields-review-v4" in current
+    assert not {"fields-review-v1", "fields-review-v3"} & set(current)
 
 
 def test_fields_review_file_names_each_row_once_with_its_evidence():
