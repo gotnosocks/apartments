@@ -21,6 +21,7 @@
     "nb3-access-v1": {"about": "jobs within 30 minutes by walking and subway (LODES)", "pr": 358, "kind": "location"},
     "nb3-bedsize-v1": {"about": "bed size from the ad text", "pr": 359, "kind": "listing"},
     "nb3-parks-v1": {"about": "parks within reach", "pr": 364, "kind": "location"},
+    "nb3-loft-v1": {"about": "loft building (MapPLUTO D5, or half of >= 3 earlier ads say loft), with its own bedroom and size gradients", "pr": 416, "kind": "listing", "verdict": "skipped by Ben 2026-10-07 17:46Z before its exploration pair; not tested"},
     "+tunits": {"about": "Student-t unit levels", "pr": 86, "kind": "model"},
     "+floorslope": {"about": "a per-building floor slope", "pr": 92, "kind": "model"},
     "+2slopes": {"about": "per-building slopes for two features", "pr": 89, "kind": "model"},
