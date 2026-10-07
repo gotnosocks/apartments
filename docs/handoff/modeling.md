@@ -3,39 +3,43 @@
 What the next turn of the modeling thread needs. Updated at each milestone. Scripts and logs are
 in `/data1/apartments/tmp/bridge` (thelio).
 
-## State (2026-10-07 14:35 UTC)
+## State (2026-10-07 15:45 UTC)
 
-- **Served:** m7-nocurves-floorslope-bednoise-dayfourier-bedtime-yearnoise + nb3-coded-v2, run
-  `…-nb3-coded-v2-rows-9371a18-gibbs-2060-3600k9cb1-nb3-v5f1u5-gv1005`, summary 838e50f, PSIS-LOO
-  106,764.6. Restored by hand in #403 (build 20261007T142452981592Z-39eb773f). It is on old rules
-  (unit-labels-v5, fields-review-v1), so autoselect will replace it with the first gate-passing full fit
-  on the current rules.
+- **Served (#409, autoselect, build 20261007T153845309893Z-3dba77be):** m7-nocurves-floorslope-bednoise-
+  dayfourier-bedtime-yearnoise + nb3-coded-v2 on the current rules, run
+  `…-nb3-coded-v2-rows-39c3c8a-a100-3600k9cb1-gv1006-ul9s`, summary b65c406, 953 s on Modal A100,
+  PSIS-LOO 107,490.3. Against the previous selection on shared rows: +725.6 ± 65.8, held-out +53.5 ± 20.3.
 - **prevprice removed (Ben, 2026-10-07 14:17Z):** semantically invalid (no time dependence of the
   correction). `autoselect.BLOCKED` refuses every feature set containing `prevprice`, in autoselect and
   latestselect; `manual_removal` in config/main-analysis.json at #403 records it. The elegance brief is
   `elegance-v2`, with semantic validity first.
 - **Current rules:** baths-ad-v2, bedrooms-ad-v2, fields-review-v3, quarantine-v5, unit-labels-v9,
-  unit-splits-v1 (#394, #397).
-- **Serving hardware (#391):** thelio RTX 2060 or Modal A100; compare fit times only within one class.
-- **text-v1:** Data reports it fails the selection-bias-free test (WV+GV only: +43.7 ± 23.5, 1.9 SE).
-  Not served; a selection block waits for Ben's own word (asked 2026-10-07). Nothing text-v1 is queued.
-- **Designs:** dayfourier-yearnoise (#398) and bedtime12-yearnoise (#402) fill the fit-time gap below
-  the served design (prevprice-v2 exploration under v9 + splits: served 1,480 s; dfyn 640 s, −34.7 ± 8.5).
-- **Modal queue** `frontier-modalq-coded9` (waits for the midnight ET cap reset), all coded-v2 on the
-  current rules: served design rows full fit at 39c3c8a (label a100-3600k9cb1-gv1006-ul9s), dfyn full
-  fit, areatime exploration at d8fe0c2.
-- **GPU queue:** Data's `frontier-splits-v2` (sp1 vs sp2, Data pairs it), then
-  `frontier-coded9-explore`: coded-v2 explorations at d8fe0c2 of the served design, bedtime12 and dfyn
-  (label x-2060-100w600d-gv1006-ul9s).
+  unit-splits-v1. Data tests unit-splits v2 (#400) and v3 (#408) on coded-v2 explorations (GPU now).
+- **A100 full-fit frontier** (coded-v2, current rules; paired PSIS-LOO against served, 953 s):
+  bedtime12-yearnoise −65.0 ± 11.0 (756 s); dayfourier-yearnoise −193.9 ± 24.9 (539 s); floorslope-
+  bednoise-dayfourier −1,008 ± 60 (535 s); floorslope-bednoise −1,102 ± 61 (718 s); floorslope base
+  fails the group gate (building 845's bedroom slope, R-hat 1.097). Yearnoise is worth about +814;
+  quarterly bedroom curves +194 over none. Exploration fits under prevprice understated bedtime
+  (−35 there), so prevprice-era exploration results need rechecking on coded-v2.
+- **Year noise (Data, 2026-10-07):** residual sd 4–5% in 2017–19, about 9% Sep 2020–Feb 2021, 5–6% by
+  2022; symmetric, same in all neighbourhoods and sources, no data rule. Of +814, 2020–21 give +335 and
+  2017–19 +264. Per-row table in /data1/apartments/tmp/suspect/yearnoise/.
+- **Running:** bedtime6-yearnoise (#410) full fit on Modal at 2cab155 (18 of today's 20 slots; Ben
+  granted +10 for 2026-10-07). GPU: `frontier-coded9-explore` runs sp2, sp3, then bedtime12 and dfyn
+  coded-v2 explorations at d8fe0c2.
+- **Serving fits not on thelio** (Ben 2026-10-07 14:29Z); exploration fits continue there.
+- **text-v1:** back in the backlog as text-v2 (Ben, 2026-10-07); nothing text is queued.
 
 ## Next
 
-1. When the coded-v2 rows full fit lands: `python -m rentfrontier.autoselect`; on a switch build the
-   summary (gpu job), `--write`, selection PR (default-model reviewer), merge, deploy, publish.
-2. Pair the coded9 explorations (bedtime12 and dfyn against the served design) and the dfyn full fit
-   against the served rows fit, for the fit-time frontier.
-3. Backlog: autoselect `why_not` should check the dataset before `scored`; elegance.needed_pairs and
-   the site's hardware view still assume TARGET_HARDWARE only (#391 review notes).
+1. Pair bedtime6 against the served fit when it lands (pairs-ul9s.py).
+2. If Data's unit-splits v2 or v3 wins and merges: a serving refit on Modal (2 slots left today).
+3. A mean-side pandemic term (2020–21 deviation by price tier or bedroom group), to see how much of
+   yearnoise's gain it explains; pooled per-year noise scales (random walk on log sigma) as a smaller fix.
+4. Areatime as a full fit (its exploration failed the gate at R-hat 1.045, ESS 46).
+5. Backlog: autoselect `why_not` should check the dataset before `scored`; elegance.needed_pairs and
+   the site's hardware view still assume TARGET_HARDWARE only (#391 review notes); comments in fit.py
+   and ops/modal-fit still say the cap is 10.
 
 ## Modal fits (2026-10-06)
 
