@@ -1,6 +1,12 @@
 # Data improvements — handoff
 
-Updated 2026-10-07 00:00 ET. Thread owner: the Data improvements project thread (bridge session on thelio).
+Updated 2026-10-07 01:00 ET. Thread owner: the Data improvements project thread (bridge session on thelio).
+
+## 2026-10-07 01:00 ET
+
+- unit-labels-v8 (#336) merged as 4d6e6f7 (paired full fit +279.6 ± 33.5 vs current rules, gate passed).
+  Drafts #326 (v6) and #335 (v7) closed as superseded. Modeling queues the v8 full fits on Modal;
+  autoselect decides serving. Served model before v8: nb3-prevprice-v2 (#392).
 
 ## 2026-10-07 00:00 ET
 - **Retests on GV data** (yearnoise design, paired against nb3-coded-v2, 94,453 rows; none fully converged,
