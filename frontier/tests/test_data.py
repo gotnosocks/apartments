@@ -555,6 +555,21 @@ def test_unit_splits_v2_splits_at_any_change_of_bedrooms():
     assert out.unit_id.tolist() == ["u1", "u1", "u1~1", "u1~2"]
 
 
+def test_unit_splits_v3_rejoins_an_earlier_bedroom_count():
+    frame = pd.DataFrame(
+        {
+            "unit_id": ["u1"] * 5,
+            "source_listing_id": [1, 2, 3, 4, 5],
+            "price_at": [f"{y}-01-01" for y in range(2020, 2025)],
+            "bedrooms": [1.0, 2.0, np.nan, 1.0, 3.0],
+        }
+    )
+    out = data.DATA_RULES["unit-splits-v3"](frame)
+    assert out.unit_id.tolist() == ["u1", "u1~1", "u1~1", "u1", "u1~2"]
+    v2 = data.DATA_RULES["unit-splits-v2"](frame)
+    assert v2.unit_id.tolist() == ["u1", "u1~1", "u1~1", "u1~2", "u1~3"]
+
+
 def test_unit_splits_rules_must_come_last():
     frame = pd.DataFrame({"building": ["b"], "unit_id": ["u"]})
     with pytest.raises(ValueError, match="must come last"):
