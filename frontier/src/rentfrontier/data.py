@@ -769,6 +769,7 @@ DATA_RULES = {
         split_unit_histories, bedrooms=1, rejoin=True, footage_holds=True
     ),
     "unit-splits-v5": split_bath_changes,
+    "unit-splits-v6": functools.partial(split_bath_changes, baths=0.5),
     "quarantine-v1": quarantine_v1,
     "quarantine-v2": quarantine_v2,
     "bedrooms-ad-v1": correct_bedrooms_v1,
