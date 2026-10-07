@@ -592,6 +592,9 @@ DATA_RULE_TEXT = {
     "the earlier listing gave no square footage and the new one does, so a loft "
     "listed once as a footage-less 1-bedroom stays with its full listings. No "
     "listing is dropped.",
+    "unit-splits-v5": "unit-splits-v4, and an apartment's history also splits "
+    "where the bath count changes by a full bath or more, rejoining an earlier "
+    "piece with the same bath count. No listing is dropped.",
     "quarantine-v1": "Listings a review found are not an open-market lease of a whole "
     "Chelsea apartment at their address: offices and shops, ads that place the "
     "apartment elsewhere, SRO rooms, income-restricted and short-stay offers, and a "
