@@ -12,7 +12,7 @@ Updated 2026-10-07 15:40 ET. Thread owner: the Data improvements project thread 
   (frontier-modalq-sp4) to 9b6c16d. The cheap 2015 5F ad (https://streeteasy.com/rental/1566842)
   is a genuine renovation and relist (Ben, 18:44Z), so it stays in the unit.
 - **unit-labels-v10 (#420, draft, head 2da098d) won its exploration pair:** +49.2 ± 21.9
-  (2.2 SE; Chelsea +19.3, WV +22.8) against fa61d6c's coded-v2 arm on v9 + v4. Each fit's LOO
+  (2.2 SE; Chelsea +19.3, WV +22.8, GV the rest) against fa61d6c's coded-v2 arm on v9 + v4. Each fit's LOO
   MCSE is about 10. It joins spelled-out labels to short ones ("5 FL" = "5", "Penthouse" = "PH",
   126 groups, 262 rows, no bedroom guard: v4 splits bedroom changes). Modeling queued its Modal
   full fit after the v4 serving refit. Merge #420 only after that pair; merging makes v10 current.
