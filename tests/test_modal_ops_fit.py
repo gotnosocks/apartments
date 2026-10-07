@@ -1,6 +1,5 @@
 import datetime
 import importlib.util
-import json
 import sys
 from pathlib import Path
 
@@ -24,46 +23,24 @@ fit = load("fit")
 ET = cap.ZONE
 
 
-@pytest.fixture(autouse=True)
-def no_real_grants(tmp_path, monkeypatch):
-    # The repo's grants file names real days; these tests use their own.
-    monkeypatch.setattr(cap, "GRANTS", tmp_path / "no-grants.json")
-
-
-def test_cap_refuses_the_eleventh_launch_of_an_et_day(tmp_path):
+def test_a_launch_within_the_gap_is_refused_and_the_next_waits_for_it(tmp_path):
     ledger = tmp_path / "ledger.jsonl"
-    morning = datetime.datetime(2026, 10, 6, 0, 30, tzinfo=ET)
-    for i in range(cap.MAX_PER_DAY):
-        assert (
-            cap.reserve(f"run-{i}", "A100-40GB", ledger, morning)
-            == cap.MAX_PER_DAY - i - 1
-        )
-    with pytest.raises(cap.CapReached):
-        cap.reserve("run-10", "A100-40GB", ledger, morning)
-    assert len(cap.launches("2026-10-06", ledger)) == cap.MAX_PER_DAY
-
-
-def test_cap_day_is_new_york_not_utc(tmp_path):
-    ledger = tmp_path / "ledger.jsonl"
-    for i in range(cap.MAX_PER_DAY):
-        cap.reserve(
-            f"run-{i}", "L4", ledger, datetime.datetime(2026, 10, 6, 23, 0, tzinfo=ET)
-        )
-    # 03:30 UTC on Oct 7 is still Oct 6 in New York: refused.
+    first = datetime.datetime(2026, 10, 7, 23, 0, tzinfo=ET)
+    gap = datetime.timedelta(minutes=cap.GAP_MINUTES)
+    assert cap.reserve("run-0", "A100-40GB", ledger, first) == first + gap
     with pytest.raises(cap.CapReached):
         cap.reserve(
-            "late",
-            "L4",
-            ledger,
-            datetime.datetime(2026, 10, 7, 3, 30, tzinfo=datetime.UTC),
+            "run-1", "A100-40GB", ledger, first + gap - datetime.timedelta(minutes=1)
         )
-    # Midnight ET starts a new day.
-    assert (
-        cap.reserve(
-            "next", "L4", ledger, datetime.datetime(2026, 10, 7, 0, 0, tzinfo=ET)
-        )
-        == cap.MAX_PER_DAY - 1
-    )
+    # No daily cap: the next turn comes after the gap, across midnight ET, in any zone.
+    second = (first + gap).astimezone(datetime.UTC)
+    cap.reserve("run-1", "A100-40GB", ledger, second)
+    assert [row["name"] for row in cap.launches(ledger)] == ["run-0", "run-1"]
+    assert cap.next_allowed(cap.launches(ledger)) == second + gap
+
+
+def test_ten_launches_a_day_fit_the_gap():
+    assert 10 * cap.GAP_MINUTES == 24 * 60
 
 
 def test_plan_names_runs_like_drive_sh_and_reads_the_tier():
@@ -143,18 +120,3 @@ def test_finish_puts_a_good_run_where_thelio_fits_go_and_a_failed_one_aside(
     assert volume.removed == ["/out/r"]
     assert fit.finish(FakeVolume(files), "r", {"exit": 1}) == tmp_path / "modal/failed"
     assert (tmp_path / "modal/failed/runs/r/modal/fit.log").exists()
-
-
-def test_a_grant_from_ben_raises_one_days_cap(tmp_path):
-    grants = tmp_path / "grants.json"
-    grants.write_text(
-        json.dumps({"2026-10-06": {"extra": 2, "by": "Ben", "words": "+2"}})
-    )
-    ledger = tmp_path / "ledger.jsonl"
-    day = datetime.datetime(2026, 10, 6, 9, tzinfo=cap.ZONE)
-    for i in range(cap.MAX_PER_DAY + 2):
-        cap.reserve(f"run-{i}", "A100-40GB", ledger, day, grants)
-    with pytest.raises(cap.CapReached):
-        cap.reserve("one-more", "A100-40GB", ledger, day, grants)
-    assert cap.limit("2026-10-06", grants) == cap.MAX_PER_DAY + 2
-    assert cap.limit("2026-10-07", grants) == cap.MAX_PER_DAY

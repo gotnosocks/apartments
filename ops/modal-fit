@@ -1,5 +1,5 @@
 #!/bin/bash
-# Run a frontier fit and its PSIS-LOO on a Modal GPU (Ben, 2026-10-06: at most 10 Modal fits a day).
+# Run a frontier fit and its PSIS-LOO on a Modal GPU (Ben, 2026-10-07: at most one launch every 144 min).
 #
 #   ops/modal-fit [--foreground] [--gpu A100-40GB] [--dataset DIR] [--input PATH]... [--split rows]
 #                 [--chain-batch N] COMMIT LABEL MODEL FEATURES CHAINS WARMUP DRAWS KEEP [run options...]
@@ -13,7 +13,7 @@ here=$(cd "$(dirname "$0")" && pwd)
 venv=${MODAL_VENV:-/data1/apartments/venvs/modal}
 state=${MODAL_FIT_STATE:-/data1/apartments/modal}
 [ -x "$venv/bin/python" ] || { echo "no Modal venv at $venv (docs/model/modal.md: Setup)" >&2; exit 2; }
-python3 "$here/modal/cap.py" --check >&2 || { echo "refused: the daily cap is used up" >&2; exit 1; }
+python3 "$here/modal/cap.py" --check >&2 || { echo "refused: the last Modal launch was under 144 min ago (python3 ops/modal/cap.py)" >&2; exit 1; }
 if [ "${1:-}" = --foreground ]; then shift; exec "$venv/bin/python" "$here/modal/fit.py" "$@"; fi
 unit=modal-fit-$(date +%Y%m%d-%H%M%S)-$$
 mkdir -p "$state/logs"
