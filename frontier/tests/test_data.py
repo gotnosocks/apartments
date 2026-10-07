@@ -482,6 +482,72 @@ def test_unit_labels_v8_joins_letter_first_labels_to_digit_first_twins(tmp_path)
     assert data.RULE_SOURCES["unit-labels-v8"] == data.UNIT_HISTORY_PAIRS
 
 
+def test_unit_splits_v1_splits_a_history_where_bedrooms_jump_by_two():
+    """A listing two or more bedrooms from the unit's previous listing starts a
+    new unit; a change of one, another capture of the same ad and other units
+    leave ids alone; a later jump starts a third piece; an ad with no count
+    neither splits nor hides the count before it."""
+    frame = pd.DataFrame(
+        {
+            "unit_id": ["u1"] * 7 + ["u2", "u2", "u3", "u3"],
+            "source_listing_id": [1, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
+            "price_at": [
+                "2020-01-01",
+                "2020-02-01",
+                "2021-01-01",  # 1 -> 2 bedrooms: same unit
+                "2022-01-01",  # 2 -> 4: new unit
+                "2023-01-01",  # 4 -> 1 bedroom: third piece
+                "2024-01-01",  # no count: never splits
+                "2025-01-01",  # 1 -> (none) -> 4: a fourth piece
+                "2020-01-01",
+                "2021-01-01",
+                "2021-01-01",
+                "2020-01-01",  # u3 rows out of date order
+            ],
+            "bedrooms": [1.0, 3.0, 2.0, 4.0, 1.0, np.nan, 4.0, 0.0, 1.0, 3.0, 1.0],
+        }
+    )
+    out = data.DATA_RULES["unit-splits-v1"](frame)
+    assert out.unit_id.tolist() == [
+        "u1",
+        "u1",  # a second capture of ad 1 is never compared with ad 1
+        "u1",
+        "u1~1",
+        "u1~2",
+        "u1~2",
+        "u1~3",
+        "u2",
+        "u2",
+        "u3~1",
+        "u3",
+    ]
+    assert out.drop(columns="unit_id").equals(frame.drop(columns="unit_id"))
+
+
+def test_unit_splits_v1_keeps_an_ad_whole_and_breaks_ties_by_listing():
+    """An ad seen again after a jump stays in its first piece, and ads of one
+    date are taken in listing-id order whatever the row order."""
+    frame = pd.DataFrame(
+        {
+            "unit_id": ["u1"] * 3 + ["u2"] * 3,
+            "source_listing_id": [1, 2, 1, 5, 7, 6],
+            "price_at": ["2020-01-01", "2021-01-01", "2022-01-01"]
+            + ["2020-01-01", "2021-01-01", "2021-01-01"],
+            "bedrooms": [1.0, 3.0, 1.0, 1.0, 1.0, 3.0],
+        }
+    )
+    rule = data.DATA_RULES["unit-splits-v1"]
+    assert rule(frame).unit_id.tolist() == ["u1", "u1~1", "u1", "u2", "u2~2", "u2~1"]
+    flipped = frame.iloc[::-1]
+    assert rule(flipped).unit_id.tolist() == rule(frame).unit_id.tolist()[::-1]
+
+
+def test_unit_splits_rules_must_come_last():
+    frame = pd.DataFrame({"building": ["b"], "unit_id": ["u"]})
+    with pytest.raises(ValueError, match="must come last"):
+        data.apply_rules(frame, np.zeros(1, bool), ["unit-splits-v1", "unit-labels-v8"])
+
+
 def test_unit_labels_v9_joins_number_word_letter_labels_to_their_twins(tmp_path):
     """v9 is v8 plus number words with a letter: "fourb" joins "4B", "five-a"
     joins "5a" and "eleven" joins "11" when bedroom counts agree; "fourth"
