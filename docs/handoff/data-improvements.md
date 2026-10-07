@@ -6,7 +6,7 @@ Updated 2026-10-07 11:00 ET. Thread owner: the Data improvements project thread 
 
 - **unit-splits-v3 (#408, merged 8f40c96) is current.** It splits a unit's history at any change of
   bedroom count (threshold 1, from #400's v2). When a count returns, those listings rejoin that
-  earlier piece. Coded-v2 pairs on v9: v3 vs v1 +953.0 ± 98.0 (Chelsea +381.8, WV +339.0); v2 vs
+  earlier piece. Coded-v2 pairs on v9: v3 vs v1 +953.0 ± 98.0 (Chelsea +381.8, WV +339.0, GV the rest); v2 vs
   v1 +780.3 ± 101.5; v3 vs v2 +172.7 ± 42.6. #400 closed as superseded. I asked Modeling and the
   coordinator for the coded-v2 serving full fit on 8f40c96 in place of the v1-rules fit.
   Pair scripts: `/data1/apartments/tmp/suspect/prevjump/pair3.sh`.
