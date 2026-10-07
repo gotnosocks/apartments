@@ -1,5 +1,23 @@
 # Chelsea pricing research backlog
 
+## Sound scores from HowLoud (Ben, 2026-10-07)
+
+Normal priority; it comes up on the queue by the usual selection. Ben (17:49Z): "Item for the
+feature backlog - sound scores from HowLoud". Not built yet.
+
+- Judge it against the street-noise features that tested null: `nb3-quiet-v1` +8.1 ± 14.2 and
+  `nb3-loud-v1` −10.1 ± 14.4 (`docs/model/feature-tests.md`), and street noise on Greenwich
+  Village (+3.3, as reported to this thread). A score has to beat those, not just the base.
+- Open questions before any build: data access, licensing and cost (Ben approves any spend); and
+  whether scores are per address and fixed over time. A score built from recent traffic or
+  complaints would carry later information into older listings.
+
+## Loft buildings, nb3-loft-v1 (skipped, 2026-10-07)
+
+`nb3-loft-v1` (#416) adds a loft-building flag (MapPLUTO D5, or at least half of at least 3 earlier
+ads say loft) with its own bedroom and size gradients. It flags 7,890 rows. Ben skipped it at
+17:46Z, before its exploration pair ran; the code stays on master, untested.
+
 ## Ad-text phrases, text-v2 (Ben, 2026-10-07)
 
 Normal priority; it comes up on the queue by the usual selection. Ben: "Rather than simply
