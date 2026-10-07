@@ -7,7 +7,8 @@ wholistic judgement to the described rubric approach"). Later the same day he
 made the axis a modelling-oriented elegance target, not renter understanding:
 one coherent generative story whose structure mirrors the data, few mechanisms
 used consistently, no overlapping terms, few special cases, natural forms,
-economy (`BRIEF`).
+economy (`BRIEF`). On 2026-10-07 he added semantic validity: every term must
+mean what its story says (`elegance-v2`).
 
 **A design** is a model and a feature set (`design_id`: "model/feature set").
 Data rules, samplers and settings do not change what a model says, so they are
@@ -54,7 +55,7 @@ from pathlib import Path
 from rentfrontier import data
 
 JUDGEMENTS = data.REPO / "config" / "elegance-judgements.jsonl"
-BRIEF_VERSION = "elegance-v1"
+BRIEF_VERSION = "elegance-v2"
 
 
 def design_id(entry) -> str:
@@ -170,6 +171,12 @@ Read what you need. Do NOT look at scores, fit times, run results, the leaderboa
 plan's result sections. Judge the designs as models, blind to how well they fit.
 
 Weigh, as a whole, what makes a model elegant to a statistician:
+- semantic validity: every term means what the design's story says it means, under the conditions
+  it is applied in. A term that reads other information (an earlier observation, a neighbour, a
+  later date) must carry how that information relates to this listing; for example, a correction
+  from a unit's earlier listing that ignores how long ago that listing was does not hold. A design
+  with a term whose meaning does not hold is less elegant than one without it, whatever else it
+  has;
 - one coherent generative story whose structure mirrors the data (apartments within buildings within
   neighbourhoods, observed over time), not terms bolted on;
 - few distinct mechanisms, used consistently (the same pooling idea at every level);

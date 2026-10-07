@@ -11,6 +11,8 @@ judged instead on the latest-listing split, paired against the served design:
   rules, both pass the convergence gate, so they hold out the same rows.
 - **The decision.** The candidate's paired held-out ELPD on those rows must
   beat the reference by more than two SE (`leaderboard.paired`).
+- **Blocked sets.** A feature set in `autoselect.BLOCKED` (semantically
+  invalid, removed by hand) is never a candidate or a served fit.
 - **The served fit.** A full-tier rows-split run of the candidate design, which
   must meet every autoselect condition except the PSIS-LOO ones (`autoselect.
   why_not` refuses it only for reading earlier rents). Its summary bundle is
@@ -83,6 +85,10 @@ def decide(
     }
     if c["feature_set"] not in features.READS_EARLIER_RENTS:
         problems["candidate"].append("its feature set does not read earlier rents")
+    for role, r in (("candidate", c), ("serve", s)):
+        why = autoselect.blocked(r["feature_set"])
+        if why is not None:
+            problems[role].append(f"blocked as semantically invalid ({why})")
     if c["model"]["name"] != ref["model"]["name"]:
         problems["candidate"].append("a different model from the reference")
     if (ref["model"]["name"], ref["feature_set"]) != (
@@ -113,7 +119,8 @@ def decide(
         problems["serve"].append("not on the board")
     else:
         why = autoselect.why_not(entry, rules)
-        if why is not None and not why.startswith(READS_REASON):
+        # The block is reported above.
+        if why is not None and not why.startswith((READS_REASON, "it is blocked")):
             problems["serve"].append(why)
     out = {
         "candidate": candidate,

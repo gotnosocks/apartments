@@ -76,3 +76,5 @@ Ben approved this path on 2026-10-05. `autoselect` refuses feature sets in `feat
 3. a full-tier rows-split run of the candidate design meets every other autoselect condition (gate, hardware, window, dataset, rules).
 
 `--write <summary bundle>` writes the selection for the rows-split run. Its reason gives the latest-split comparison, and its `latest_pair` field names the two runs. Its PSIS-LOO is recorded, but not as a comparison.
+
+**prevprice removed (Ben, 2026-10-07).** nb3-prevprice-v2 was served from 2026-10-07 (#392) on a +84.2 ± 17.5 latest-split win. Ben removed it by hand as semantically invalid: the correction from the unit's previous listing's repricing has no time dependence, so a cut from years ago counts like one from last month. The coded-v2 selection was restored, with the removal recorded in `config/main-analysis.json` (`manual_removal`). Every feature set with `prevprice` in its name is blocked (`autoselect.BLOCKED`): `autoselect` and `latestselect` both refuse it, whatever it scores.

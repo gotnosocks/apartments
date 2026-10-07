@@ -116,6 +116,21 @@ def test_feature_sets_that_read_earlier_rents_are_never_served(tmp_path, monkeyp
     assert "selected on the latest split" in autoselect.why_not(e, RULES)
 
 
+def test_every_prevprice_set_is_blocked_as_semantically_invalid(tmp_path):
+    # Ben, 2026-10-07: removed by hand; no set with prevprice in its name is served.
+    from rentfrontier import features
+
+    for fs in [f for f in features.FEATURE_SETS if "prevprice" in f] + [
+        "x-prevprice-v9"
+    ]:
+        e = entry(tmp_path / fs, "prev", 10, 1300)
+        run = Path(e["splits"]["rows"]["_dir"])
+        rec = json.loads((run / "result.json").read_text())
+        (run / "result.json").write_text(json.dumps({**rec, "feature_set": fs}))
+        assert "semantically invalid" in autoselect.why_not(e, RULES), fs
+    assert autoselect.blocked("nb3-coded-v2") is None
+
+
 def test_ranked_prefers_the_fastest_tie_but_not_on_timing_noise(tmp_path):
     deltas = {"top": 10.0, "tie-fast": 9.0, "tie-noise": 9.5, "worse": 0.0}
     es = [
