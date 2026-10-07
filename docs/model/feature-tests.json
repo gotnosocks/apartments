@@ -5,6 +5,8 @@
     "nb-relist-v1": {"about": "months since the apartment's previous listing", "pr": 173, "kind": "listing"},
     "nb-coded-v1": {"about": "listing record's outdoor space types and extra rooms", "kind": "listing"},
     "nb-prevprice-v1": {"about": "how the unit's previous listing was repriced", "pr": 211, "kind": "listing"},
+    "nb3-prevprice-v2": {"about": "how the unit's previous listing was repriced (nb3 base)", "kind": "listing"},
+    "nb3-attrs-v1": {"about": "ad states a walk-in closet, live-in super or included utilities", "pr": 390, "kind": "listing"},
     "nb3-lineface-v1": {"about": "orientation read from the apartment's line", "kind": "unit"},
     "nb3-garden-v1": {"about": "rear windows over the open block or a wall", "pr": 328, "kind": "location"},
     "nb3-through-v1": {"about": "floor-through: apartments per floor, ad says floor-through", "pr": 329, "kind": "unit"},
