@@ -77,6 +77,33 @@ def test_eligible_needs_gate_hardware_window_and_current_rules(tmp_path):
     assert autoselect.eligible([ok, *out], RULES) == [ok]
 
 
+def test_a_modal_a100_full_fit_can_be_served(tmp_path):
+    modal = entry(tmp_path, "modal", 10, 800, hardware="Modal A100")
+    h100 = entry(tmp_path, "h100", 10, 800, hardware="Modal H100")
+    assert autoselect.eligible([modal, h100], RULES) == [modal]
+
+
+def test_fit_times_compare_only_on_the_same_hardware(tmp_path, monkeypatch):
+    deltas = {"thelio": 10.0, "modal": 9.5}
+    es = [
+        entry(tmp_path, "thelio", 10.0, 6500),
+        entry(tmp_path, "modal", 9.5, 800, hardware="Modal A100"),
+    ]
+    order = [
+        e["splits"]["rows"]["run"] for e in autoselect.ranked(es, paired_from(deltas))
+    ]
+    # Both are the fastest on their hardware: the higher PSIS wins.
+    assert order == ["thelio", "modal"]
+    judged(monkeypatch, {("inc", "new"): "equal"})
+    deltas = {"inc": 10.0, "new": 10.5}
+    es = [
+        entry(tmp_path, "inc", 10.0, 6500),
+        entry(tmp_path, "new", 10.5, 800, hardware="Modal A100"),
+    ]
+    d = autoselect.decide(es, "inc", RULES, paired_from(deltas), no_heldout_loss)
+    assert d["action"] == "keep" and d["run"] == "inc"
+
+
 def test_feature_sets_that_read_earlier_rents_are_never_served(tmp_path, monkeypatch):
     from rentfrontier import features
 
