@@ -514,6 +514,7 @@ def test_unit_labels_v9_joins_number_word_letter_labels_to_their_twins(tmp_path)
     pairs.write_text(json.dumps({"unit_id": "u1", "other_unit_id": "u3"}) + "\n")
     frame.loc[len(frame)] = ["b1", url("b1", "7"), "u1", 1.0]
     frame.loc[len(frame)] = ["b1", url("b1", "4th"), "u15", 1.0]
+    frame.loc[len(frame)] = ["b1", url("b1", "10ant"), "u16", 1.0]
     base = functools.partial(
         data.merge_swapped_labels,
         base=functools.partial(data.merge_history_pairs, pairs=pairs),
@@ -534,6 +535,7 @@ def test_unit_labels_v9_joins_number_word_letter_labels_to_their_twins(tmp_path)
         "u14",
         "u1",
         "u15",
+        "u16",
     ]
     assert data.DATA_RULES["unit-labels-v9"] is data.merge_word_letter_labels
     assert "unit-labels-v9" not in data.DROPPING_RULES
