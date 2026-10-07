@@ -1,6 +1,6 @@
 # Data improvements — handoff
 
-Updated 2026-10-06 19:45 ET. Thread owner: the Data improvements project thread (bridge session on thelio).
+Updated 2026-10-07 00:00 ET. Thread owner: the Data improvements project thread (bridge session on thelio).
 
 ## 2026-10-07 00:00 ET
 - **Retests on GV data** (yearnoise design, paired against nb3-coded-v2, 94,453 rows; none fully converged,
