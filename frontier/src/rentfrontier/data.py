@@ -520,6 +520,50 @@ def split_unit_histories(
     return out
 
 
+def split_bath_changes(
+    frame: pd.DataFrame,
+    baths: float = 1.0,
+    base=functools.partial(
+        split_unit_histories, bedrooms=1, rejoin=True, footage_holds=True
+    ),
+) -> pd.DataFrame:
+    """`base`'s units (unit-splits-v4) split again where an ad's bath count
+    differs by `baths` or more from the piece's previous ad with a bath count,
+    the bedroom split's rule applied to baths, with its rejoin: an ad whose
+    bath count an earlier piece already had goes back to that piece. On the
+    current rules under v10 (2026-10-07), 734 consecutive listing pairs change
+    bath count, and 8.0% of them move rent by 1.5x or more after market drift,
+    against 0.77% of pairs with no change. Ads are taken by first date, then
+    listing id, so a row's unit depends only on its own and earlier rows; an
+    ad with no bath count never splits. Later pieces get the unit id plus
+    "~b1", "~b2", ... Rows are unchanged."""
+    out = base(frame)
+    at = pd.to_datetime(out.price_at, utc=True).to_numpy()
+    units = out.unit_id.to_numpy()
+    ids = out.source_listing_id.astype(str).to_numpy()
+    count = out.bathrooms.to_numpy(dtype=float)
+    new = units.astype(object).copy()
+    order = np.lexsort((ids, at, units))
+    piece_of, piece, pieces, last, seen = {}, 0, 1, np.nan, {}
+    for k, i in enumerate(order):
+        if k == 0 or units[order[k - 1]] != units[i]:
+            piece_of, piece, pieces, last, seen = {}, 0, 1, np.nan, {}
+        if ids[i] not in piece_of:
+            if abs(count[i] - last) >= baths:
+                if count[i] in seen:
+                    piece = seen[count[i]]
+                else:
+                    piece, pieces = pieces, pieces + 1
+            piece_of[ids[i]] = piece
+            if not np.isnan(count[i]):
+                seen[count[i]] = piece
+                last = count[i]
+        if piece_of[ids[i]]:
+            new[i] = f"{units[i]}~b{piece_of[ids[i]]}"
+    out["unit_id"] = new
+    return out
+
+
 def unit_line_key(frame: pd.DataFrame) -> pd.Series:
     """Each row's line ("column") within its building, from the unit label:
     "23C" and "4C" are line C, "1204" and "304" are line 04, "2ND", "4TH" and
@@ -786,6 +830,7 @@ DATA_RULES = {
     "unit-splits-v4": functools.partial(
         split_unit_histories, bedrooms=1, rejoin=True, footage_holds=True
     ),
+    "unit-splits-v5": split_bath_changes,
     "quarantine-v1": quarantine_v1,
     "quarantine-v2": quarantine_v2,
     "bedrooms-ad-v1": correct_bedrooms_v1,
