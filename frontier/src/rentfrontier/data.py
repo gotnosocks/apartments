@@ -327,6 +327,57 @@ def merge_swapped_labels(frame: pd.DataFrame, base=merge_history_pairs) -> pd.Da
     return out
 
 
+# Number words in unit labels with a letter after them ("fourb", "five-a"),
+# longest first so "fourth" is not read as "four" and "th".
+WORD_LETTER_WORDS = {
+    **LABEL_WORDS,
+    "eleven": "11", "twelve": "12", "sixth": "6", "seventh": "7",
+    "eighth": "8", "ninth": "9", "tenth": "10",
+}  # fmt: skip
+_WORD_LETTER = re.compile(
+    r"^(" + "|".join(sorted(WORD_LETTER_WORDS, key=len, reverse=True)) + r")"
+    r"[-_ ]?([a-z]{0,2})$"
+)
+
+
+def merge_word_letter_labels(
+    frame: pd.DataFrame, base=merge_swapped_labels
+) -> pd.DataFrame:
+    """unit-labels-v8, and units labelled with a number word and a letter
+    ("fourb", "five-a", "eleven") joined to the unit of the same building
+    labelled with that number ("4B", "5A", "11"), where both units' median
+    bedroom counts (under the base rule) agree. On the three-neighbourhood
+    cohort (2026-10-07) that joins 46 more unit ids than v8 does, 297 rows in
+    32 buildings ("one-e" and "1e", "twelvea" and "12a"). Groups that share a
+    unit are one unit, whose id is the smallest. Rows are unchanged."""
+    out = base(frame)
+    raw = frame.canonical_unit_url.str.extract(r"/([^/]+)$")[0].str.lower()
+    key = raw.map(lambda v: unit_label_key(v) if isinstance(v, str) else v)
+    beds = frame.bedrooms.groupby(out.unit_id).median().to_dict()
+    unit_of = dict(zip(zip(frame.building, key), out.unit_id))
+    parent = {}
+
+    def find(u):
+        parent.setdefault(u, u)
+        while parent[u] != u:
+            parent[u] = parent[parent[u]]
+            u = parent[u]
+        return u
+
+    for building, label, a in zip(frame.building, raw, out.unit_id):
+        m = _WORD_LETTER.match(label) if isinstance(label, str) else None
+        if m is None:
+            continue
+        b = unit_of.get((building, unit_label_key(WORD_LETTER_WORDS[m[1]] + m[2])))
+        if b is None or a == b or beds[a] != beds[b]:
+            continue
+        ra, rb = find(a), find(b)
+        if ra != rb:
+            parent[max(ra, rb)] = min(ra, rb)
+    out["unit_id"] = out.unit_id.map(find)
+    return out
+
+
 def unit_line_key(frame: pd.DataFrame) -> pd.Series:
     """Each row's line ("column") within its building, from the unit label:
     "23C" and "4C" are line C, "1204" and "304" are line 04, "2ND", "4TH" and
@@ -545,6 +596,8 @@ DATA_RULES = {
     "unit-labels-v6": merge_history_pairs,
     # unit-labels-v6 with letter-first labels joined to their digit-first twins.
     "unit-labels-v8": merge_swapped_labels,
+    # unit-labels-v8 with number-word-and-letter labels joined to their twins.
+    "unit-labels-v9": merge_word_letter_labels,
     "quarantine-v1": quarantine_v1,
     "quarantine-v2": quarantine_v2,
     "bedrooms-ad-v1": correct_bedrooms_v1,
@@ -569,6 +622,7 @@ RULE_SOURCES = {
     "unit-labels-v5": UNIT_ALIASES_GV,
     "unit-labels-v6": UNIT_HISTORY_PAIRS,
     "unit-labels-v8": UNIT_HISTORY_PAIRS,
+    "unit-labels-v9": UNIT_HISTORY_PAIRS,
     "bedrooms-ad-v1": BEDROOM_CORRECTIONS,
     "baths-ad-v1": BATH_CORRECTIONS,
     "bedrooms-ad-v2": BEDROOM_CORRECTIONS_V2,
