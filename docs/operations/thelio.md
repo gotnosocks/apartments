@@ -36,7 +36,7 @@ is retained as a frozen backup.
 | Purpose | Thelio path |
 | --- | --- |
 | Archive volume mirror | `/data1/apartments/archive` |
-| Live crawl | `/data1/apartments/archive/crawls/chelsea-resume` |
+| Archive browser data (read-only links to the Chelsea snapshot and bodies; crawl database deleted Oct 8 2026) | `/data1/apartments/archive/browse/chelsea-backfill-20260912` |
 | Frozen source snapshots | `/data1/apartments/archive/snapshots` |
 | Content-addressed page bodies | `/data1/apartments/archive/bodies` |
 | Granular tables | `/data1/apartments/archive/datasets/chelsea-granular-20260917-canonical-units` |

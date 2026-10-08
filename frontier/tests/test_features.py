@@ -1436,3 +1436,126 @@ def test_nb4_snapshots_keep_nb3s_rows_and_add_flatiron_gramercys():
     assert set(features._NB4_DESCRIPTIONS) == set(features._NB3_DESCRIPTIONS) | {
         "descriptions_fgp"
     }
+
+
+def test_nb5_retests_are_the_nb3_sets_on_the_five_neighbourhoods():
+    pairs = {
+        "nb5-lines-v1": "nb3-lines-v1",
+        "nb5-loc-v1": "nb3-loc-v1",
+        "nb5-walkup-v1": "nb3-walkup-v1",
+        "nb5-parks-v1": "nb3-parks-v1",
+        "nb5-water-v1": "nb3-water-v1",
+        "nb5-noise-v1": "nb3-noise-v1",
+    }
+    for new, old in pairs.items():
+        new_set, old_set = features.FEATURE_SETS[new], features.FEATURE_SETS[old]
+        assert new_set.func is old_set.func
+        base = old_set.keywords["base"].replace("nb3-coded-v2", "nb5-coded-v2")
+        assert new_set.keywords["base"] == base.replace("nb3-", "nb5-")
+        assert features.lot_files(new) == features.lot_files("nb5-coded-v2")
+        assert features.area_files(new) == features.area_files("nb5-coded-v2")
+    assert "nb5-lines-v1" in features.TRANSIT
+    assert features.NOISE_FILES["nb5-noise-v1"] == features.NB4_NOISE_FILE
+    assert features.FEATURE_SETS["nb5-noise-v1"].keywords["noise_file"] == (
+        features.NB4_NOISE_FILE
+    )
+
+
+def test_nb5_parks_sets_read_manhattans_parks(monkeypatch):
+    assert {"nb5-parks-v1", "nb5-water-v1"} <= features.PARKS
+    seen = {}
+    for name in ("nb3-water-v1", "nb5-water-v1", "nb5-parks-v1"):
+        monkeypatch.setitem(
+            features.FEATURE_SETS,
+            name,
+            lambda f, t, name=name: seen.setdefault(name, features.parks_file()),
+        )
+        features.build(name, pd.DataFrame(), np.zeros(0, bool))
+    assert seen == {
+        "nb3-water-v1": features.PARKS_FILE,
+        "nb5-water-v1": features.NB5_PARKS_FILE,
+        "nb5-parks-v1": features.NB5_PARKS_FILE,
+    }
+    assert features.parks_file() == features.PARKS_FILE
+
+
+def test_nb5_singles_are_nb5_coded_v2_plus_one_item(monkeypatch):
+    from rentfrontier import nearby
+
+    singles = features.NB5_SINGLES
+    assert len(singles) == 21
+    assert {i for w, i in singles.values() if w == "attr"} == set(
+        features.ATTRIBUTE_FLAGS
+    )
+    assert {i for w, i in singles.values() if w == "near"} == set(nearby.KINDS)
+    for name, (what, item) in singles.items():
+        spec = features.FEATURE_SETS[name]
+        assert spec.keywords["base"] == "nb5-coded-v2"
+        assert spec.keywords["id"] == name
+        if what == "attr":
+            assert spec.func is features.text_flags_v1
+            assert spec.keywords["flags"] == {item: features.ATTRIBUTE_FLAGS[item]}
+        else:
+            assert spec.func is features.nearby_one_v1
+            assert spec.keywords["kind"] == item
+            assert name in features.PLACES
+        assert features.lot_files(name) == features.lot_files("nb5-coded-v2")
+        assert features.area_files(name) == features.area_files("nb5-coded-v2")
+        assert features.description_files(name) == features.description_files(
+            "nb5-coded-v2"
+        )
+        for group in (features.EXTERNAL, features.DESCRIPTIONS):
+            assert (name in group) == ("nb5-coded-v2" in group)
+    seen = {}
+    for name in ("nb3-nearby-v1", "nb5-near-hospital-v1"):
+        monkeypatch.setitem(
+            features.FEATURE_SETS,
+            name,
+            lambda f, t, name=name: seen.setdefault(name, features.places_file()),
+        )
+        features.build(name, pd.DataFrame(), np.zeros(0, bool))
+    assert seen == {
+        "nb3-nearby-v1": features.PLACES_FILE,
+        "nb5-near-hospital-v1": features.NB4_PLACES_FILE,
+    }
+    assert features.places_file() == features.PLACES_FILE
+
+
+def test_dated_alterations_date_only_the_alteration_years(tmp_path):
+    """A listing sees the alteration years of the release of the year before
+    it; size fields stay today's, as do a lot missing from that release and a
+    release older than the building."""
+    history = pd.DataFrame(
+        {
+            "release": [2015, 2015, 2015, 2020, 2020, 2020],
+            "bbl": ["1", "2", "3", "1", "2", "3"],
+            "yearalter1": ["0", "1990", "0", "2018", "1990", "0"],
+            "yearalter2": ["0", "0", "0", "0", "2019", "0"],
+            "unitsres": ["10", "20", "1", "12", "20", "1"],
+        }
+    )
+    history.to_parquet(tmp_path / "h.parquet")
+    frame = pd.DataFrame(
+        {
+            "period": pd.to_datetime(
+                ["2017-03-01", "2017-03-01", "2017-03-01", "2022-05-01"]
+            )
+        }
+    )
+    lots = pd.DataFrame(
+        {
+            "yearbuilt": ["1920", "1920", "2016", "1920"],
+            "yearalter1": ["2018", "1990", "0", "2018"],
+            "yearalter2": ["0", "2019", "0", "0"],
+            "unitsres": ["12", "20", "40", "12"],
+        }
+    )
+    bbl = np.array(["1", "2", "3", "1"])
+    out = features.dated_alterations(frame, bbl, lots, str(tmp_path / "h.parquet"))
+    # 2017 listings read the 2015 release: no 2018 or 2019 alteration yet.
+    assert out.yearalter1.tolist() == [0, 1990, 0, 2018]
+    assert out.yearalter2.tolist() == [0, 0, 0, 0]
+    # Size stays today's, and lot 3's building (2016) postdates its 2015 release.
+    assert out.unitsres.tolist() == lots.unitsres.tolist()
+    assert "nb5-plutoasof-v2" in features.ALTERATION_DATED_SETS
+    assert "nb5-plutoasof-v2" in features.NB4_SETS

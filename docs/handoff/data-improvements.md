@@ -1,6 +1,116 @@
 # Data improvements — handoff
 
-Updated 2026-10-07 22:20 ET. Thread owner: the Data improvements project thread (bridge session on thelio).
+Updated 2026-10-08 06:20 ET. Thread owner: the Data improvements project thread (bridge session on thelio).
+
+## 2026-10-08 06:20 ET
+
+- **#498 quarantine-v10 merged (c1a3a19).** It makes the Chelsea/WV quarantine rent-blind too.
+  It holds v9's 95 GV/GP/Flatiron rows plus 124 Chelsea/WV rows from the same screen
+  (`frontier/scripts/quarantine_v10_screen.py`, centre W 14th and 8th Ave, no v6), every hit read
+  blind, for 219 rows. 91 of the 124 were already in v6; the 191 other v6 rows come back.
+  Short stays count only when the ad calls itself short-term only or offers under 6 months.
+  Modeling queued it as `frontier-modalq-nb5q10` (`…nb5-ul11r1s4q10`) after nb5q9. Whichever
+  serves is decided by the paired dry run on shared rows, not by version order.
+- **#502 nb5-plutoasof-v2 merged (2b2d262).** v1 (#439) dated every MapPLUTO field and lost
+  (−71.1 ± 20.4, gate passed). The dated size fields differ on 8–10% of rows but almost never
+  because the building changed (`/data1/apartments/tmp/suspect/pluto/drift.out`), so they are
+  revision noise. v2 dates only yearalter1/2 (never from a release older than the building);
+  `altered_since_2000` differs on 3,137 rows. `AS_OF_SETS` already drops alterations after the
+  listing, so expect a small effect. Queued as `frontier-modalq-nb5pluto2` after nb5q10.
+  Close #439 once v2 is fitted.
+- **Record when they land:** nb5q9, nb5q10, nb5pluto2 in `hand_tests` of feature-tests.json.
+
+## 2026-10-08 05:00 ET
+
+- **#494 quarantine-v9 merged (b8aeed0).** It replaces v7 (#481) and v8 (#485). Both are held
+  and not fitted: v8 picked its candidates by the served model's residual, and v7's detector had
+  the same problem. v9 is v6's 282 rows plus 95 GV/GP/Flatiron rows from a rent-blind screen
+  (`frontier/scripts/quarantine_v9_screen.py`). The screen uses NTA place names over 2.5 km
+  away, generic category words and a guard against terms fitted to v7/v8 rows. Every hit was
+  read blind. That gives 377 rows. The ledger records v7 and v8 as held and v9 as queued.
+  - Modeling queued it as `frontier-modalq-nb5q9` (label `…nb5-ul11r1s4q9`, current rules with
+    quarantine-v6 swapped for v9). It runs after nb5permit2 and ahead of the singles filler.
+    Record the paired result in `hand_tests` when it lands.
+- **Next: a rent-blind Chelsea/WV replacement.** v1 to v6 were partly picked by rent
+  (divergence reviews, unit effects, residuals over 0.3). `/data1/apartments/tmp/suspect/q10`
+  runs the v9 screen over Chelsea and WV without v6: 86,819 rows give 749 hits, 93 of them
+  already in v6. Four blind readers have `review_[a-d].json`; 40 groups are read twice
+  (gid 1000+) as a consistency check, and `key.json` maps gids to rows. The plan is a new rule
+  (new file and id) that replaces v6's rent-picked rows with blind-confirmed hits. It gets its
+  own full fit via Modeling.
+
+## 2026-10-08 02:40 ET
+
+- **#481 quarantine-v7 (open, approved by a reviewer subagent, head a9dc5f5).** This is the first
+  quarantine review of Greenwich Village, Gramercy Park and Flatiron; v1 to v6 read only Chelsea
+  and WV. It keeps v6's 282 rows and adds 45 (27 ads for another address, 9 short stays only,
+  9 shops or offices), for 327 in all.
+  - Not merged: the full suite (`/data1/apartments/tmp/suspect/q7/suite.out`) is unconfirmed
+    because the auto-mode check refused a read of it. Ben has been told.
+  - Once merged, ask Modeling for its own Modal full fit with quarantine-v6 swapped for v7.
+  - Scratch: `/data1/apartments/tmp/suspect/q7` holds `detect.py` (loose cues, 3,121 hits),
+    `tight.py` (338 candidates) and `mkv7.py`.
+- **#478 nb5-permit-v2 (open, stacked on #437).** It reads every apartment of an ad's list. Room
+  counts, ordinals and PH-words are no longer read as labels. It flags 2,442 rows to v1's 1,785.
+  Modeling queued it last (`frontier-modalq-nb5permit2`). Merge it after #437 if it wins.
+- **#435 nb5-stab-v1 closed.** The result is a null (−1.1 ± 2.5) and has been recorded in
+  feature-tests.json.
+- **Next overlay work.** fields-review (bedroom and bath field errors) also covers only Chelsea
+  and WV (16 rows).
+
+## 2026-10-08 01:10 ET
+
+- **Geospatial retests on five neighbourhoods.** The ledger marks older-dataset tests as due for
+  a retest. These are the data-side ones, best prior first. Each is the nb3 set on
+  `nb5-coded-v2`, listed in NB4_SETS, and runs as its own Modal full fit on DATASET_NB5 with v11
+  rules.
+  - #472 (c9f0e1b): `nb5-lines-v1`, `nb5-loc-v1`, `nb5-walkup-v1`, `nb5-noise-v1`
+    (`NB4_NOISE_FILE`). Modeling queued them in that order as `frontier-modalq-nb5retests`, after
+    stab, plutoasof, bedtime6, v12, s5 and permit.
+  - #473 (d1868aa): `nb5-water-v1` and its base `nb5-parks-v1`, queued as
+    `frontier-modalq-nb5parks` after the four.
+- **Manhattan-only parks.** The NB4 parks snapshot reaches across the East River to Brooklyn and
+  Queens parks acquired after 2000 that `parks.SECTIONS` has no dates for, so `parks.places`
+  refuses it.
+  - `external parks --borough M` keeps one borough's properties.
+  - `NB5_PARKS_FILE` = `external/parks/20261008-f63bf6c` (180 parks; the NB4 snapshot has 204).
+  - `features.parks_file()` follows `PARKS_SNAPSHOTS` for the set being built.
+- When the retests land, record each in `hand_tests` of feature-tests.json against the nb5 base.
+
+## 2026-10-07 23:45 ET
+
+- **Five neighbourhoods are on master (#460, 5789d79):** Chelsea, the West Village,
+  Greenwich Village, Flatiron and Gramercy Park.
+  - `rentfrontier.areas` splits the FGP crawl into Flatiron and Gramercy Park, each building
+    taking the area named in its StreetEasy page title. Snapshot:
+    `external/areas/20261008-6027acc` (480 Gramercy Park and 327 Flatiron buildings; one Park
+    Slope building left out).
+  - `cohort areas` relabels each row's `neighbourhood` to its building's area. No rows or rules
+    change.
+  - `DATASET_NB5` = `datasets/chelsea-wv-gv-flatiron-gramercy-analysis-20261008-0a23057`.
+    Rows: Chelsea 52,614, WV 34,205, GV 18,425, GP 18,333, Flatiron 12,182.
+  - `nb5-coded-v2` = nb3-coded-v2 plus Flatiron and Gramercy Park indicators (`hoods_v1`); it
+    is in NB4_SETS.
+  - Map check: two contiguous areas. One Union Square South keeps StreetEasy's Flatiron label.
+- **Every queued test now runs on five neighbourhoods.** The nb4-* ids are gone from the
+  branches. Modeling queues each as its own full fit on DATASET_NB5, after the nb5-coded-v2 base
+  fit (launched 23:20) and its bedtime6 test.
+
+  | PR | Test | Head | Unit |
+  |---|---|---|---|
+  | #435 | nb5-stab-v1 | 0233ec5 | frontier-modalq-nb5tests; suite passed |
+  | #439 | nb5-plutoasof-v1 (`hoods_v1` over nb3-plutoasof-v1) | 8af14dc | frontier-modalq-nb5tests |
+  | #420 | unit-labels-v12 | 881b345 | frontier-modalq-nb5rules |
+  | #425 | unit-splits-v5 | d478a5b | frontier-modalq-nb5rules |
+  | #437 | nb5-permit-v1, DOB `external/dob/20261008-4e1948c` (50,420 jobs) | e935808 | frontier-modalq-nb5permit |
+
+- **The DOB fetch now retries 5xx errors and uses smaller queries** (25 BINs per request, pages
+  of 10,000), on the #437 branch.
+- **Run test suites with `JAX_PLATFORMS=cpu XLA_PYTHON_CLIENT_PREALLOCATE=false`.** A suite
+  held 6 GB of the GPU and made Modeling's m0-base baseline fail with a GPU OOM.
+- **PR bodies:** read them with `gh pr view` from inside a worktree. Run outside one, it prints
+  nothing, and a PATCH built from that wipes the body. #437's body was restored from its
+  userContentEdits history.
 
 ## 2026-10-07 22:20 ET
 
@@ -293,7 +403,7 @@ Updated 2026-10-07 22:20 ET. Thread owner: the Data improvements project thread 
   generic hits such as "HVAC UNITS" (harmless now).
 - More open data: unused MapPLUTO fields and dated DOB certificates of occupancy (new-building
   unit counts).
-- Flatiron + Gramercy: the data is done (see 22:20). Location retests go in as full fits.
+- Flatiron + Gramercy: the data is done (see 22:20). Geospatial retests are queued (see 01:10).
 - Backlog: bldgclass for condo conversions, Jane St registry fix, 13 excluded new-building
   rows, gross rent, relist gap.
 

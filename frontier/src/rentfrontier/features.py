@@ -857,6 +857,35 @@ def nearby_v1(
     )
 
 
+def nearby_one_v1(
+    frame: pd.DataFrame,
+    train: np.ndarray,
+    id: str,
+    base: str,
+    kind: str,
+) -> Features:
+    """A base set plus one `nearby_v1` term: log walk metres to the nearest
+    place of `kind` (`nearby.KINDS`). Reads no rents."""
+    from . import nearby
+
+    base = FEATURE_SETS[base](frame, train)
+    values = nearby.terms(frame)[kind]
+    b = _Builder(frame)
+    b.add(
+        "nearby",
+        f"log m to {nearby.KINDS[kind]}",
+        np.nan_to_num(values, nan=np.nanmedian(values)),
+    )
+    out = b.build(id)
+    return Features(
+        id,
+        base.names + out.names,
+        base.groups + out.groups,
+        np.column_stack([base.values, out.values]),
+        np.concatenate([base.prior_scale, out.prior_scale]),
+    )
+
+
 def retail_v1(
     frame: pd.DataFrame,
     train: np.ndarray,
@@ -1345,6 +1374,37 @@ NB4_PARKS_FILE = "/data1/apartments/external/parks/20261008-bda2959/parks.parque
 _LPC: contextvars.ContextVar[str | None] = contextvars.ContextVar("lpc", default=None)
 # The DOB jobs file the current build reads (`DOB_SNAPSHOTS`), else `DOB_FILE`.
 _DOB: contextvars.ContextVar[str | None] = contextvars.ContextVar("dob", default=None)
+# NYC Parks properties in the four crawls' box, Manhattan's only (`external
+# parks --borough M`): the box reaches across the East River, to parks no walk
+# from the buildings reaches and that `parks.SECTIONS` has no opening dates for.
+NB5_PARKS_FILE = "/data1/apartments/external/parks/20261008-f63bf6c/parks.parquet"
+# The parks file of the set being built (`PARKS_SNAPSHOTS`), else `PARKS_FILE`.
+_PARKS: contextvars.ContextVar[str | None] = contextvars.ContextVar(
+    "parks", default=None
+)
+# Parks files by feature set, where a set reads other than `PARKS_FILE`.
+PARKS_SNAPSHOTS = {"nb5-parks-v1": NB5_PARKS_FILE, "nb5-water-v1": NB5_PARKS_FILE}
+
+
+def parks_file() -> str:
+    """The NYC Parks properties file the set being built reads."""
+    return _PARKS.get() or PARKS_FILE
+
+
+# The places file of the set being built (`PLACES_SNAPSHOTS`), else `PLACES_FILE`.
+_PLACES: contextvars.ContextVar[str | None] = contextvars.ContextVar(
+    "places", default=None
+)
+# Places files by feature set, where a set reads other than `PLACES_FILE`
+# (the nb5 single-place sets, `NB5_SINGLES`, add theirs).
+PLACES_SNAPSHOTS: dict[str, str] = {}
+
+
+def places_file() -> str:
+    """The places file (`nearby`) the set being built reads."""
+    return _PLACES.get() or PLACES_FILE
+
+
 # Whether the set being built dates the building's MapPLUTO alterations as of
 # each listing (`AS_OF_SETS`): an alteration counts only from the year after it,
 # so a listing never sees a later one (no future information).
@@ -1373,6 +1433,15 @@ DOB_FILE = f"{DOB_SNAPSHOT}/dob.parquet"
 NB4_DOB_FILE = "/data1/apartments/external/dob/20261008-4e1948c/dob.parquet"
 # DOB jobs files by feature set, where a set reads other than `DOB_FILE`.
 DOB_SNAPSHOTS = {"nb5-permit-v1": NB4_DOB_FILE}
+# MapPLUTO's yearly releases (2009 on) of the five neighbourhoods' registry lots
+# (NB4_REGISTRY_FILE), the fields of today's MapPLUTO plus `release`.
+ALTERATIONS_FILE = (
+    "/data1/apartments/external/plutohistory/20261008-4fe46d6/plutohistory.parquet"
+)
+# Whether the set being built dates the lot's alteration years (`ALTERATION_DATED_SETS`).
+_ALTER_DATED: contextvars.ContextVar[str | None] = contextvars.ContextVar(
+    "alter_dated", default=None
+)
 ERAS = (
     (0, 1900, "pre-1900"),
     (1900, 1930, "1900-1929"),
@@ -1401,7 +1470,44 @@ def building_lots(frame: pd.DataFrame) -> pd.DataFrame:
     registry = pd.read_parquet(registry_file)
     pluto = pd.read_parquet(pluto_file).set_index("bbl")
     lot = registry.set_index("building").bbl.reindex(frame.building.to_numpy())
-    return pluto.reindex(lot.to_numpy()).reset_index(drop=True)
+    lots = pluto.reindex(lot.to_numpy()).reset_index(drop=True)
+    if _ALTER_DATED.get():
+        lots = dated_alterations(frame, lot.to_numpy(), lots, _ALTER_DATED.get())
+    return lots
+
+
+def dated_alterations(
+    frame: pd.DataFrame, bbl: np.ndarray, lots: pd.DataFrame, path: str
+) -> pd.DataFrame:
+    """`lots` (today's MapPLUTO per row) with the two alteration years as
+    MapPLUTO's release of the year before the listing's year had them (a year's
+    first release comes out in its spring, so a listing never sees a later
+    alteration), or the earliest release before that. Every other field keeps
+    today's value: across releases they are mostly revised estimates of the same
+    building, not changes to it. A lot missing from that release, and a release
+    older than today's year built (it describes the lot before the building),
+    keep today's values too. No rents are read."""
+    history = pd.read_parquet(
+        path, columns=["release", "bbl", "yearalter1", "yearalter2"]
+    )
+    history["bbl"] = history.bbl.astype(str).str.strip()
+    releases = np.sort(history.release.unique())
+    year = pd.DatetimeIndex(frame.period).year.to_numpy() - 1
+    release = releases[
+        np.clip(np.searchsorted(releases, year, side="right") - 1, 0, None)
+    ]
+    keys = pd.MultiIndex.from_arrays([release, pd.Series(bbl).astype(str).to_numpy()])
+    indexed = history.set_index(["release", "bbl"])
+    then = indexed.reindex(keys).reset_index(drop=True)
+    built = pd.to_numeric(lots.yearbuilt, errors="coerce").to_numpy()
+    use = keys.isin(indexed.index) & ~(built > release)
+    out = lots.copy()
+    for column in ("yearalter1", "yearalter2"):
+        dated = pd.to_numeric(then[column], errors="coerce").to_numpy()
+        out[column] = np.where(
+            use, dated, pd.to_numeric(out[column], errors="coerce").to_numpy()
+        )
+    return out
 
 
 def lpc_as_of(frame: pd.DataFrame, path: str) -> tuple[np.ndarray, np.ndarray]:
@@ -2582,11 +2688,11 @@ FOOTPRINTS = {
     "nb3-lineface-v1",
 }
 # Feature sets that read the 311 noise complaints snapshot.
-NOISE = {"unitnoise-v1", "nb3-noise-v1"}
+NOISE = {"unitnoise-v1", "nb3-noise-v1", "nb5-noise-v1"}
 # The 311 file each NOISE set reads (else NOISE_FILE).
-NOISE_FILES = {"nb3-noise-v1": NB3_NOISE_FILE}
+NOISE_FILES = {"nb3-noise-v1": NB3_NOISE_FILE, "nb5-noise-v1": NB4_NOISE_FILE}
 # Feature sets that read the subway GTFS (transit.network).
-TRANSIT = {"nb3-transit-v1", "nb3-lines-v1", "nb3-access-v1"}
+TRANSIT = {"nb3-transit-v1", "nb3-lines-v1", "nb3-access-v1", "nb5-lines-v1"}
 # Feature sets that read the LODES jobs snapshot (access).
 LODES = {"nb3-access-v1"}
 # Feature sets that read the places snapshot (nearby).
@@ -2594,7 +2700,7 @@ PLACES = {"nb3-nearby-v1"}
 # Feature sets that read the Storefront Registry snapshot (retail).
 STOREFRONTS = {"nb3-retail-v1"}
 # Feature sets that read the NYC Parks properties snapshot (parks).
-PARKS = {"nb3-parks-v1", "nb3-water-v1"}
+PARKS = {"nb3-parks-v1", "nb3-water-v1", "nb5-parks-v1", "nb5-water-v1"}
 # Feature sets that read the DOB permits snapshot.
 DOB = {"nb3-permit-v1", "nb5-permit-v1"}
 # Feature sets that read the HPD violations snapshot.
@@ -2703,6 +2809,14 @@ FEATURE_SETS = {
         base="nb3-coded-v2",
         hoods=("Flatiron", "Gramercy Park"),
     ),
+    # nb5-coded-v2 with the lot's alteration years as MapPLUTO had them before
+    # the listing (ALTERATION_DATED_SETS); size and class stay today's.
+    "nb5-plutoasof-v2": partial(
+        hoods_v1,
+        id="nb5-plutoasof-v2",
+        base="nb3-coded-v2",
+        hoods=("Flatiron", "Gramercy Park"),
+    ),
     "nb3-prevprice-v2": partial(
         prevprice_v1, id="nb3-prevprice-v2", base="nb3-coded-v2"
     ),
@@ -2728,6 +2842,16 @@ FEATURE_SETS = {
     "nb3-flagfix-v1": partial(flagfix_v1, id="nb3-flagfix-v1", base="nb3-coded-v2"),
     "nb3-noise-v1": partial(
         noise_v1, id="nb3-noise-v1", base="nb3-coded-v2", noise_file=NB3_NOISE_FILE
+    ),
+    # Retests on the five neighbourhoods (DATASET_NB5): the nb3 sets on
+    # nb5-coded-v2, reading the four crawls' snapshots.
+    "nb5-lines-v1": partial(lines_v1, id="nb5-lines-v1", base="nb5-coded-v2"),
+    "nb5-loc-v1": partial(location_v2, id="nb5-loc-v1", base="nb5-coded-v2"),
+    "nb5-walkup-v1": partial(walkup_v1, id="nb5-walkup-v1", base="nb5-coded-v2"),
+    "nb5-parks-v1": partial(parks_v1, id="nb5-parks-v1", base="nb5-coded-v2"),
+    "nb5-water-v1": partial(waterfront_v1, id="nb5-water-v1", base="nb5-parks-v1"),
+    "nb5-noise-v1": partial(
+        noise_v1, id="nb5-noise-v1", base="nb5-coded-v2", noise_file=NB4_NOISE_FILE
     ),
     "nb3-attrs-v1": partial(
         text_flags_v1, id="nb3-attrs-v1", base="nb3-flagfix-v1", flags=ATTRIBUTE_FLAGS
@@ -3013,7 +3137,50 @@ NB4_SETS = {
     "nb4-coded-v2": "nb3-coded-v2",
     "nb5-coded-v2": "nb3-coded-v2",
     "nb5-permit-v1": "nb3-permit-v1",
+    "nb5-lines-v1": "nb3-lines-v1",
+    "nb5-loc-v1": "nb3-loc-v1",
+    "nb5-walkup-v1": "nb3-walkup-v1",
+    "nb5-parks-v1": "nb3-parks-v1",
+    "nb5-water-v1": "nb3-water-v1",
+    "nb5-noise-v1": "nb3-noise-v1",
+    "nb5-plutoasof-v2": "nb3-coded-v2",
 }
+# Sets that date the lot's alteration years (`dated_alterations`).
+ALTERATION_DATED_SETS = {"nb5-plutoasof-v2"}
+# One set per ad attribute (`ATTRIBUTE_FLAGS`) and per place kind
+# (`nearby.KINDS`): nb5-coded-v2 plus that one column, each its own full fit.
+NB5_SINGLES = {
+    **{
+        f"nb5-attr-{name.replace('_', '-')}-v1": ("attr", name)
+        for name in ATTRIBUTE_FLAGS
+    },
+    **{
+        f"nb5-near-{kind.replace(' ', '-')}-v1": ("near", kind)
+        for kind in (
+            "dog run",
+            "hospital",
+            "ambulance station",
+            "drop-in center",
+            "nycha",
+            "arena",
+        )
+    },
+}
+for _name, (_what, _item) in NB5_SINGLES.items():
+    if _what == "attr":
+        FEATURE_SETS[_name] = partial(
+            text_flags_v1,
+            id=_name,
+            base="nb5-coded-v2",
+            flags={_item: ATTRIBUTE_FLAGS[_item]},
+        )
+    else:
+        FEATURE_SETS[_name] = partial(
+            nearby_one_v1, id=_name, base="nb5-coded-v2", kind=_item
+        )
+        PLACES.add(_name)
+        PLACES_SNAPSHOTS[_name] = NB4_PLACES_FILE
+    NB4_SETS[_name] = "nb5-coded-v2"
 for _new, _old in NB4_SETS.items():
     for _group in (
         EXTERNAL,
@@ -3058,6 +3225,11 @@ def build(name: str, frame: pd.DataFrame, train: np.ndarray) -> Features:
     extras_token = _EXTRAS.set(EXTRAS_SNAPSHOTS.get(name))
     lpc_token = _LPC.set(LPC_SNAPSHOTS.get(name))
     dob_token = _DOB.set(DOB_SNAPSHOTS.get(name))
+    alter_token = _ALTER_DATED.set(
+        ALTERATIONS_FILE if name in ALTERATION_DATED_SETS else None
+    )
+    parks_token = _PARKS.set(PARKS_SNAPSHOTS.get(name))
+    places_token = _PLACES.set(PLACES_SNAPSHOTS.get(name))
     text_token = descriptions_module.SOURCES.set(
         tuple(Path(p) for p in description_files(name).values())
     )
@@ -3070,4 +3242,7 @@ def build(name: str, frame: pd.DataFrame, train: np.ndarray) -> Features:
         _EXTRAS.reset(extras_token)
         _LPC.reset(lpc_token)
         _DOB.reset(dob_token)
+        _ALTER_DATED.reset(alter_token)
+        _PARKS.reset(parks_token)
+        _PLACES.reset(places_token)
         descriptions_module.SOURCES.reset(text_token)

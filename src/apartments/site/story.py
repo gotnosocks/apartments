@@ -13,6 +13,7 @@ import json
 import math
 import os
 import re
+import statistics
 import threading
 from pathlib import Path
 
@@ -356,6 +357,39 @@ def pick_listing(db):
     return None, False
 
 
+def _median_miss(rows) -> float:
+    """The median gap between ask and estimate, as a percentage of the estimate."""
+    gaps = sorted(abs(r["ask"] - r["estimate"]) / r["estimate"] for r in rows)
+    mid = len(gaps) // 2
+    return 100 * (gaps[mid] if len(gaps) % 2 else (gaps[mid - 1] + gaps[mid]) / 2)
+
+
+def accuracy(db, small: int = 30) -> dict | None:
+    """How close the estimates come on the held-out asks, which no fit saw:
+    the median miss, for apartments the fit saw in other listings ("seen") and
+    for ones it never saw ("new", reported only with at least `small` asks),
+    and the share of asks inside their likely ask range (the middle 80%)."""
+    rows = db.execute(
+        "SELECT ask, estimate, pit, unit_fit_rows FROM listings "
+        "WHERE method = 'heldout' AND ask > 0 AND estimate > 0"
+    ).fetchall()
+    if not rows:
+        return None
+    seen = [r for r in rows if r["unit_fit_rows"] > 0]
+    new = [r for r in rows if r["unit_fit_rows"] == 0]
+    return {
+        "n": len(rows),
+        "median": _median_miss(rows),
+        # the median ask, to $100, to put the miss in dollars
+        "typical": round(statistics.median(r["ask"] for r in rows), -2),
+        "seen": {"n": len(seen), "median": _median_miss(seen)} if seen else None,
+        "new": {"n": len(new), "median": _median_miss(new)}
+        if len(new) >= small
+        else None,
+        "likely": 100 * sum(0.1 <= r["pit"] <= 0.9 for r in rows) / len(rows),
+    }
+
+
 def build_up(listing, labels: dict, small: float = 40.0, current=False) -> dict | None:
     """The listing's estimate as steps: the market first, then each term in
     the estimate's order, with terms smaller than `small` dollars gathered
@@ -536,8 +570,8 @@ PLAIN = {
     "+floorslope": "each building's own price for height",
     "+fourier": "a smooth season, by calendar month",
     "+2slopes": "each building's own price for two more features",
-    "nb-prevprice-v1": "how the apartment's last ask was repriced",
-    "nb3-prevprice-v2": "the same, on the richer coded-features model",
+    "nb-prevprice-v1": "how the unit's previous listing was repriced",
+    "nb3-prevprice-v2": "the same repricing idea, retested once Greenwich Village joined",
 }
 _DIFF = re.compile(r"([+\-−]?[\d,]+\.?\d*)\s*±\s*([\d,]+\.?\d*)")
 
@@ -628,6 +662,9 @@ def theories(rows: list[dict]) -> list[dict]:
             retest=last.get("retest", ""),
             words=PLAIN.get(t["change"]) or t["about"] or t["change"].lstrip("+"),
         )
+        t["clear_gain"] = t["diff"] > 2 * t["se"]
+        # The ledger's words for the table, without its own asides.
+        t["note"] = re.sub(r"\s*\([^()]*\)", "", t["about"]).strip()
         out.append(t)
     order = {k[0]: i for i, k in enumerate(KINDS)}
     out.sort(key=lambda t: (order.get(t["kind"], 9), -t["diff"]))
@@ -677,6 +714,20 @@ def _signed_sqrt(v: float) -> float:
     return math.copysign(math.sqrt(abs(v)), v)
 
 
+def label_lines(words: str, width: int = 46, lines: int = 2) -> list[str]:
+    """`words` wrapped at spaces into at most `lines` lines of `width`
+    characters, the last cut with an ellipsis if the words still run on."""
+    out, rest = [], words
+    while rest and len(out) < lines - 1 and len(rest) > width:
+        cut = rest.rfind(" ", 0, width + 1)
+        cut = cut if cut > 0 else width
+        out.append(rest[:cut].rstrip())
+        rest = rest[cut:].lstrip()
+    if len(rest) > width:
+        rest = rest[: width - 1].rstrip() + "…"
+    return out + [rest]
+
+
 def theories_svg(entries: list[dict]) -> Markup:
     """Every theory as a row: a dot for each time it was tested, a band of
     two standard errors around the latest test, coloured by its verdict, on
@@ -684,7 +735,7 @@ def theories_svg(entries: list[dict]) -> Markup:
     the theories were first tried."""
     if not entries:
         return Markup("")
-    row, top, label_w, head = 20, 26, 300, 22
+    row, top, label_w, head, line = 20, 26, 300, 22, 13
     values = [0.0]
     for t in entries:
         values += [t["diff"] - 2 * t["se"], t["diff"] + 2 * t["se"]]
@@ -706,7 +757,9 @@ def theories_svg(entries: list[dict]) -> Markup:
     for t in entries:
         if not kinds or kinds[-1] != t["kind"]:
             kinds.append(t["kind"])
-    height = top + row * len(entries) + head * len(kinds) + 8
+    wrapped = [label_lines(t["words"]) for t in entries]
+    extra = sum(line * (len(w) - 1) for w in wrapped)
+    height = top + row * len(entries) + extra + head * len(kinds) + 8
     out = [
         f'<line class="grid" x1="{x(v):.1f}" y1="{top - 6}" x2="{x(v):.1f}" '
         f'y2="{height - 4}"/><text class="tick" x="{x(v):.1f}" y="{top - 12}" '
@@ -718,7 +771,7 @@ def theories_svg(entries: list[dict]) -> Markup:
     )
     names = {k[0]: k[1] for k in KINDS}
     y, kind = top, None
-    for t in entries:
+    for t, lines in zip(entries, wrapped):
         if t["kind"] != kind:
             kind = t["kind"]
             out.append(
@@ -726,15 +779,19 @@ def theories_svg(entries: list[dict]) -> Markup:
                 f"{escape(names.get(kind, kind))}</text>"
             )
             y += head
-        cy = y + row / 2
-        words = t["words"] if len(t["words"]) <= 46 else t["words"][:45] + "…"
+        tall = row + line * (len(lines) - 1)
+        cy = y + tall / 2
+        first = cy + 4 - line * (len(lines) - 1) / 2
+        text = "".join(
+            f'<tspan x="{label_w - 10}" y="{first + line * i:.1f}">{escape(part)}</tspan>'
+            for i, part in enumerate(lines)
+        )
         lo2, hi2 = t["diff"] - 2 * t["se"], t["diff"] + 2 * t["se"]
         out.append(
             f'<g class="trial v-{t["verdict"]} d{min(t["seq"], 39)}">'
             f"<title>{escape(t['words'])}: {t['diff']:+,.0f} ± {t['se']:,.0f}, "
             f"{VERDICT_WORDS[t['verdict']]}</title>"
-            f'<text class="eff-label" x="{label_w - 10}" y="{cy + 4:.1f}" '
-            f'text-anchor="end">{escape(words)}</text>'
+            f'<text class="eff-label" text-anchor="end">{text}</text>'
             f'<line class="ci" x1="{x(lo2):.1f}" y1="{cy:.1f}" x2="{x(hi2):.1f}" y2="{cy:.1f}"/>'
             + "".join(
                 f'<circle class="rep" cx="{x(r["diff"]):.1f}" cy="{cy:.1f}" r="2.5"/>'
@@ -742,7 +799,7 @@ def theories_svg(entries: list[dict]) -> Markup:
             )
             + f'<circle class="dot" cx="{x(t["diff"]):.1f}" cy="{cy:.1f}" r="4.5"/></g>'
         )
-        y += row
+        y += tall
     label = "Theories tested, with the change in PSIS-LOO and verdict: " + "; ".join(
         f"{t['words']} {t['diff']:+,.0f}, {VERDICT_WORDS[t['verdict']]}"
         for t in entries
@@ -777,6 +834,25 @@ TERM_WORDS = {
     "nocurves": "a straight line per feature, no curves",
     "btrend": "each building's own trend",
     "bathfloor": "each building's own price for baths and height",
+}
+# Words for the feature sets of served designs: the area prefix (the
+# neighbourhood each step took in, in order) and the body (what the features
+# read; an unknown body shows as its name).
+AREA_WORDS = {
+    "unit": "Chelsea",
+    "nb": "West Village",
+    "nb3": "Greenwich Village",
+    "nb5": "Flatiron and Gramercy Park",
+}
+SET_WORDS = {
+    "unitdesc": "words from the ads",
+    "unitdescpluto": "words from the ads and city building records",
+    "unitfacing": "which way each apartment faces",
+    "facing": "which way each apartment faces",
+    "bedtext": "bedroom details from the ads",
+    "relist": "each apartment's relisting history",
+    "coded": "the listings' coded fields",
+    "prevprice": "how the unit's previous listing was repriced",
 }
 _PR = re.compile(r"\(#(\d+)\)")
 _SET_START = re.compile(r"^(nb\d*|unit)")
@@ -846,6 +922,55 @@ def term_words(term: str) -> str:
     return PLAIN.get("+" + term) or TERM_WORDS.get(term) or term
 
 
+def _set_parts(feature_set: str) -> tuple[str, str, str]:
+    """`nb3-coded-v2` → ("nb3", "coded", "v2"); `unitfacing-v5` → ("unit",
+    "unitfacing", "v5")."""
+    m = re.fullmatch(r"(nb\d*)?-?([a-z]+?)(?:-(v\d+))?", feature_set or "")
+    if not m:
+        return "", feature_set or "", ""
+    area = m.group(1) or ("unit" if m.group(2).startswith("unit") else "")
+    return area, m.group(2), m.group(3) or ""
+
+
+def change_words(before: dict | None, after: dict, seen=()) -> str | None:
+    """What a frontier switch changed from the design before it, in plain
+    words (`seen`: the feature words of the designs served before it); None
+    for a design whose name doesn't parse."""
+    if after["terms"] is None:
+        return None
+    area, body, version = _set_parts(after["feature_set"])
+    what = SET_WORDS.get(body, body)
+    if before is None or before["terms"] is None:
+        terms = [term_words(t) for t in after["terms"]]
+        return f"The first searched design: {'; '.join(terms)}. Features: {what}"
+    parts = []
+    added = [term_words(t) for t in after["terms"] if t not in before["terms"]]
+    dropped = [term_words(t) for t in before["terms"] if t not in after["terms"]]
+    if added:
+        parts.append("Added " + "; ".join(added))
+    if dropped:
+        parts.append("Dropped " + "; ".join(dropped))
+    was_area, was_body, was_version = _set_parts(before["feature_set"])
+    order = list(AREA_WORDS)
+    if area in order and was_area in order and area != was_area:
+        grew = order.index(area) > order.index(was_area)
+        parts.append(
+            f"Took in {AREA_WORDS[area]}"
+            if grew
+            else f"Left out {AREA_WORDS[was_area]}"
+        )
+    if what != SET_WORDS.get(was_body, was_body):
+        back = what in seen
+        parts.append(f"Features {'back to' if back else 'now include'} {what}")
+    elif version != was_version and area == was_area:
+        parts.append(f"A revised version of {what}")
+    if parts:
+        return ". ".join(parts)
+    if after.get("rows") != before.get("rows"):
+        return "The same design, refitted on the current data rules"
+    return "The same design, refitted"
+
+
 def design_history(milestones: list[dict]) -> list[dict]:
     """Every switch of the served model, oldest first, with its era, PR and
     (for frontier fits) model terms and feature set."""
@@ -886,8 +1011,15 @@ def design_history(milestones: list[dict]) -> list[dict]:
                 "sha": m.get("sha"),
                 "terms": parsed[0] if parsed else None,
                 "feature_set": parsed[1] if parsed else None,
+                "rows": str(m.get("model") or "").partition("-rows-")[2].split("-")[0],
             }
         )
+    seen = []
+    for i, s in enumerate(out):
+        s["change"] = change_words(out[i - 1] if i else None, s, seen) or s["words"]
+        if s["feature_set"] is not None:
+            body = _set_parts(s["feature_set"])[1]
+            seen.append(SET_WORDS.get(body, body))
     return out
 
 
@@ -986,7 +1118,7 @@ def history_svg(switches: list[dict], lives: list[dict]) -> Markup:
         for s, d in mine:
             out.append(
                 f'<circle class="switch era-{key} d{min(s["seq"], 39)}" cx="{x(d):.1f}" '
-                f'cy="{cy:.1f}" r="5"><title>{escape(s["date"])}: {escape(s["words"])}'
+                f'cy="{cy:.1f}" r="5"><title>{escape(s["date"])}: {escape(s["change"])}'
                 "</title></circle>"
             )
     if lives:
@@ -1072,6 +1204,162 @@ class Cleaning(_Cached):
         except ValueError:
             return None
         return doc if isinstance(doc, dict) else None
+
+
+# Consecutive listings of one unit (the same price basis), as the cleaning
+# checks pair them, with the years between them (a bare "YYYY-MM" period counts
+# from the first of the month); a jump moves the ask by more
+# than 40% either way.
+_PAIRS = """
+WITH s AS (
+  SELECT unit_id, unit_label, building_id, ask, COALESCE(price_at, period) AS at,
+    LAG(ask) OVER w AS prev_ask, LAG(COALESCE(price_at, period)) OVER w AS prev_at
+  FROM listings
+  WINDOW w AS (PARTITION BY unit_id, price_basis ORDER BY COALESCE(price_at, period), id))
+SELECT s.*, b.address,
+  (julianday(CASE WHEN length(at) = 7 THEN at || '-01' ELSE substr(at, 1, 10) END)
+   - julianday(CASE WHEN length(prev_at) = 7 THEN prev_at || '-01' ELSE substr(prev_at, 1, 10) END))
+   / 365.25 AS years,
+  (ask > 1.4 * prev_ask OR prev_ask > 1.4 * ask) AS jump
+FROM s JOIN buildings b ON b.id = s.building_id
+WHERE prev_ask > 0 AND ask > 0
+"""
+GAPS = (
+    (0, 1, "within a year"),
+    (1, 2, "one to two years apart"),
+    (2, None, "two or more years apart"),
+)
+
+
+def _iso_day(at: str) -> str:
+    """An ISO date from a listing time or a bare "YYYY-MM" period."""
+    return f"{at}-01" if len(at) == 7 else at[:10]
+
+
+NUMBER_WORDS = ("one", "two", "three", "four", "five", "six")
+
+
+def bed_phrase(bedrooms) -> str:
+    """'a studio', 'a one-bedroom', 'a 7-bedroom'; 'an apartment' when unknown."""
+    if bedrooms is None:
+        return "an apartment"
+    n = max(0, round(bedrooms))
+    if n == 0:
+        return "a studio"
+    word = NUMBER_WORDS[n - 1] if n <= len(NUMBER_WORDS) else str(n)
+    return f"{'an' if word in ('8', '11', '18') else 'a'} {word}-bedroom"
+
+
+def rent_jumps(db) -> dict | None:
+    """The jumps between a unit's consecutive listings, by the years between
+    them, and the median-sized one as an example."""
+    rows = [r for r in db.execute(_PAIRS).fetchall() if r["years"] is not None]
+    jumps = [r for r in rows if r["jump"]]
+    if not jumps:
+        return None
+    gaps = []
+    for lo, hi, words in GAPS:
+        group = [
+            r for r in rows if r["years"] >= lo and (hi is None or r["years"] < hi)
+        ]
+        if group:
+            n = sum(r["jump"] for r in group)
+            gaps.append(
+                {
+                    "words": words,
+                    "pairs": len(group),
+                    "jumps": n,
+                    "share": 100 * n / len(group),
+                }
+            )
+    jumps.sort(
+        key=lambda r: (abs(math.log(r["ask"] / r["prev_ask"])), r["unit_id"], r["at"])
+    )
+    e = jumps[(len(jumps) - 1) // 2]
+    return {
+        "pairs": len(rows),
+        "jumps": len(jumps),
+        "late": 100 * sum(r["years"] >= 2 for r in jumps) / len(jumps),
+        "gaps": gaps,
+        "example": {
+            "unit_id": e["unit_id"],
+            "label": e["unit_label"],
+            "address": e["address"],
+            "before": e["prev_ask"],
+            "after": e["ask"],
+            "from": _iso_day(e["prev_at"]),
+            "to": _iso_day(e["at"]),
+            "years": e["years"],
+            "change": 100 * (e["ask"] / e["prev_ask"] - 1),
+        },
+    }
+
+
+# A unit's listings in order, with its building's address. The split rule
+# names the later pieces of a unit's history "<unit_id>~1", "~2", ...
+_UNIT_ROWS = """
+SELECT l.unit_id, l.unit_label, l.bedrooms, l.ask, COALESCE(l.price_at, l.period) AS at,
+  b.address, substr(l.unit_id, 1, instr(l.unit_id || '~', '~') - 1) AS base
+FROM listings l JOIN buildings b ON b.id = l.building_id
+ORDER BY base, at, l.id
+"""
+
+
+def unit_examples(db) -> dict:
+    """One real unit for each identity rule: the joined unit whose ads spell
+    its name the most ways, and a clean split: the unit with the most pieces
+    whose bedroom count and ask both rise from piece to piece, three pieces
+    preferred so the example stays short."""
+    units: dict = {}
+    for r in db.execute(_UNIT_ROWS):
+        units.setdefault(r["base"], []).append(r)
+    joined = split = None
+    for base, rows in units.items():
+        labels = list(dict.fromkeys(r["unit_label"] for r in rows if r["unit_label"]))
+        ids = list(dict.fromkeys(r["unit_id"] for r in rows))
+        if len(ids) == 1 and len(labels) > 1:
+            key = (len(labels), len(rows), base)
+            if joined is None or key > joined[0]:
+                joined = (key, rows, labels)
+        if len(ids) > 1:
+            pieces = [next(r for r in rows if r["unit_id"] == i) for i in ids]
+            beds = [r["bedrooms"] for r in pieces]
+            asks = [r["ask"] for r in pieces]
+            if None not in beds and all(
+                b1 < b2 and a1 < a2
+                for b1, b2, a1, a2 in zip(beds, beds[1:], asks, asks[1:])
+            ):
+                key = (len(pieces) == 3, len(pieces), len(rows), base)
+                if split is None or key > split[0]:
+                    split = (key, pieces)
+    out = {}
+    if joined:
+        _, rows, labels = joined
+        out["joined"] = {
+            "unit_id": rows[0]["unit_id"],
+            "address": rows[0]["address"],
+            "labels": labels,
+            "listings": len(rows),
+        }
+    if split:
+        pieces = split[1]
+        out["split"] = {
+            "address": pieces[0]["address"],
+            "label": pieces[0]["unit_label"],
+            "count": NUMBER_WORDS[len(pieces) - 1]
+            if len(pieces) <= len(NUMBER_WORDS)
+            else str(len(pieces)),
+            "pieces": [
+                {
+                    "unit_id": r["unit_id"],
+                    "words": bed_phrase(r["bedrooms"]),
+                    "ask": r["ask"],
+                    "at": _iso_day(r["at"]),
+                }
+                for r in pieces
+            ],
+        }
+    return out
 
 
 def _step_words(step: dict, before: dict) -> str:
@@ -1218,5 +1506,153 @@ def cleaning_svg(c: dict | None) -> Markup:
     )
     return Markup(
         f'<svg class="story-svg cleaning" viewBox="0 0 {WIDTH} {height}" role="img" '
+        f'aria-label="{escape(label)}">' + "".join(out) + "</svg>"
+    )
+
+
+# --- Inside two grouped tests ------------------------------------------------------
+
+# The items of two ideas the ledger tested as one group each
+# (rentfrontier.groupitems): how common each is on the served fit's rows, and
+# a raw rent difference with only bedrooms held fixed. No model effects.
+GROUP_ITEMS = Path(
+    os.environ.get(
+        "GROUP_ITEMS", "/data1/apartments/serve/master/docs/model/group-items.json"
+    )
+)
+REPO_GROUP_ITEMS = Path(__file__).resolve().parents[3] / "docs/model/group-items.json"
+
+ATTRIBUTE_WORDS = {
+    "walk_in_closet": ("Walk-in closet", "“walk-in closet”"),
+    "live_in_super": (
+        "Live-in super",
+        "“live-in super”, “on-site super”, “resident super”, “live-in manager”",
+    ),
+    "utilities_included": (
+        "Utilities included",
+        "“utilities included”, “heat and hot water included”, “includes heat”",
+    ),
+    "windowed_kitchen": (
+        "Windowed kitchen",
+        "“windowed kitchen”, “kitchen with a window”",
+    ),
+    "windowed_bath": ("Windowed bath", "“windowed bath”, “bathroom with a window”"),
+    "tree_lined": ("Tree-lined street", "“tree-lined”"),
+    "skylight": ("Skylight", "“skylight”"),
+    "video_intercom": ("Video intercom", "“video intercom”, “virtual doorman”"),
+    "corner_unit": (
+        "Corner unit",
+        "“corner unit”, “corner apartment”, “corner one-bedroom”",
+    ),
+    "separate_kitchen": ("Separate kitchen", "“separate kitchen”"),
+    "floor_to_ceiling_windows": (
+        "Floor-to-ceiling windows",
+        "“floor-to-ceiling windows” or “glass”",
+    ),
+    "marble_bath": ("Marble bath", "“marble bath”"),
+    "hardwood": (
+        "Hardwood floors",
+        "“hardwood”, “wood floors”, “wide-plank”, “oak floors”, “parquet”",
+    ),
+    "stainless": ("Stainless steel", "“stainless”"),
+    "prewar_text": ("Pre-war", "“pre-war” in the ad"),
+}
+PLACE_WORDS = {
+    "dog run": ("Dog run", "a dog run or off-leash area"),
+    "hospital": ("Hospital", "a hospital"),
+    "ambulance station": ("EMS station", "an ambulance or EMS station (sirens)"),
+    "drop-in center": ("Drop-in center", "a homeless drop-in center"),
+    "nycha": ("NYCHA housing", "a NYCHA public-housing lot"),
+    "arena": ("Madison Square Garden", "Madison Square Garden"),
+}
+GROUP_TESTS = {"attributes": "nb3-attrs-v1", "places": "nb3-nearby-v1"}
+
+
+class GroupItems(_Cached):
+    default, repo = GROUP_ITEMS, REPO_GROUP_ITEMS
+
+    def parse(self, text: str) -> dict | None:
+        try:
+            doc = json.loads(text)
+        except ValueError:
+            return None
+        return doc if isinstance(doc, dict) else None
+
+
+def group_items(
+    doc: dict | None, trials: list[dict], served_run: str | None, served=frozenset()
+) -> dict | None:
+    """The two grouped tests' items, in words, with the group's own ledger
+    result. None unless the file is for the served run, and None once the served
+    model has a term for any item (`served`, its coefficient names): the page
+    says the served model has no estimate for them."""
+    if not doc or doc.get("run") != served_run:
+        return None
+    terms = {f"text:{i.get('item')}" for i in doc.get("attributes") or []}
+    terms |= {f"log m to {i.get('words')}" for i in doc.get("places") or []}
+    if terms & set(served):
+        return None
+    tests = {t["change"]: t for t in trials}
+    out = {"rows": doc.get("rows"), "rows_with_text": doc.get("rows_with_text")}
+    out["near_m"] = doc.get("near_m")
+    for key, words in (("attributes", ATTRIBUTE_WORDS), ("places", PLACE_WORDS)):
+        items = []
+        for item in doc.get(key) or []:
+            name, what = words.get(item.get("item"), (item.get("item"), ""))
+            share = item.get("share", item.get("near_share"))
+            raw = item.get("raw_pct", item.get("raw_pct_per_doubling"))
+            if share is None:
+                continue
+            items.append(
+                {
+                    **item,
+                    "name": name,
+                    "what": what,
+                    "pct_share": 100 * share,
+                    "raw": raw,
+                }
+            )
+        items.sort(key=lambda i: -i["pct_share"])
+        out[key] = {"items": items, "test": tests.get(GROUP_TESTS[key])}
+    if not out["attributes"]["items"] and not out["places"]["items"]:
+        return None
+    return out
+
+
+def group_items_svg(items: list[dict], noun: str) -> Markup:
+    """Bars: each item's share of listings, with the share written at the end."""
+    if not items:
+        return Markup("")
+    row, top, label_w = 24, 22, 200
+    hi = max(max(i["pct_share"] for i in items), 1)
+    ticks = nice_ticks(0, hi, 5)
+    hi = max(hi, ticks[-1])
+    plot = WIDTH - label_w - 60
+
+    def x(v):
+        return label_w + plot * v / hi
+
+    height = top + row * len(items) + 8
+    out = [
+        f'<line class="grid" x1="{x(t):.1f}" y1="{top - 6}" x2="{x(t):.1f}" '
+        f'y2="{height - 4}"/><text class="tick" x="{x(t):.1f}" y="{top - 10}" '
+        f'text-anchor="middle">{t:g}%</text>'
+        for t in ticks
+    ]
+    for n, i in enumerate(items):
+        y = top + row * n
+        out.append(
+            f'<text class="eff-label" x="{label_w - 10}" y="{y + row / 2 + 4:.1f}" '
+            f'text-anchor="end">{escape(i["name"])}</text>'
+            f'<rect class="item-bar" x="{label_w}" y="{y + 5}" '
+            f'width="{max(x(i["pct_share"]) - label_w, 1):.1f}" height="{row - 10}"/>'
+            f'<text class="share-label" x="{x(i["pct_share"]) + 6:.1f}" '
+            f'y="{y + row / 2 + 4:.1f}">{i["pct_share"]:.1f}%</text>'
+        )
+    label = f"Share of listings {noun}: " + "; ".join(
+        f"{i['name']} {i['pct_share']:.1f}%" for i in items
+    )
+    return Markup(
+        f'<svg class="story-svg items" viewBox="0 0 {WIDTH} {height}" role="img" '
         f'aria-label="{escape(label)}">' + "".join(out) + "</svg>"
     )
