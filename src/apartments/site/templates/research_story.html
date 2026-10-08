@@ -253,10 +253,9 @@ apartment listed before, lean on the likely ask range shown with each listing mo
 {{ "{:.0f}".format(100 - accuracy.seen.likely) }} in 100, is not a sign the estimate is broken. For a new apartment the
 range runs too narrow: only {{ "{:.0f}".format(accuracy.new.likely) }}% of those asks fell inside their 80% range, and
 {{ "{:.0f}".format(accuracy.new.wide) }}% inside their 95% range, so read its range as narrower than the real
-uncertainty. Why is still open. Two checks are planned and neither has run: a look at the
-new apartments’ largest misses for a wrong unit, a wrong bedroom count or a furnished or short-term ask, and a fit
-that lets an apartment’s own effect have heavier tails, so a few far-off apartments widen every new one’s
-range.{% else %} Either way, lean on the
+uncertainty. Why is still open. Two checks are planned: a look at the new apartments’ largest
+misses for a wrong unit, a wrong bedroom count or a furnished or short-term ask, and a fit that gives apartments’
+own effects heavier tails.{% else %} Either way, lean on the
 likely ask range shown with each listing more than on the single number:
 {{ "{:.0f}".format(accuracy.likely) }}% of the held-out asks fell inside their range, so an ask outside it, about
 {{ "{:.0f}".format(100 - accuracy.likely) }} in 100, is not a sign the estimate is broken.{% endif %}</p>
