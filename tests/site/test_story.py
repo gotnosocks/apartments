@@ -157,6 +157,11 @@ def test_headline_effects_skip_unknowns_and_nulls():
     ]
     assert effects[0]["against"] == "Chelsea"
     assert effects[2]["against"] == "a one-bedroom"
+    svg = str(story.effects_svg(effects))
+    assert (
+        svg.count('<tspan class="vs"> vs Chelsea</tspan>') == 1
+    )  # only the area names it
+    assert "the West Village vs Chelsea +" in svg  # and so does the text alternative
     # 29.4% per log unit is about 2.5% per 10% more space.
     assert round(effects[1]["pct"], 1) == 2.5
 

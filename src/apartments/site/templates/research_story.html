@@ -78,7 +78,8 @@ draws. That breakdown hasn't been run for the served fit yet, and it will appear
 <h2>What the features are worth</h2>
 <p>Inside the features layer, each detail of a listing has a price. The chart shows the details that move the
 typical ask by at least 2% and whose 95% interval doesn't cross zero. Each one is set against what a renter would
-compare it with: a studio against a one-bedroom, a newer building against one from the 1900s. A dot is the model's
+compare it with: a studio against a one-bedroom, a newer building against one from the 1900s{% set area_base = effects | selectattr("is_area") | selectattr("against") | first %}{% if area_base %},
+a neighbourhood against {{ area_base.against }}{% endif %}. A dot is the model's
 best estimate, and the line is the range it can't rule out. All else is held equal, so "two full baths" means two
 baths in an apartment that is otherwise the same, not the typical two-bath apartment, which is also bigger.</p>
 

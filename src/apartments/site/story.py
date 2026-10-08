@@ -288,6 +288,7 @@ def headline_effects(coefficients, labels: dict, reference_area: str | None):
                 "lower": c["pct_lower"],
                 "upper": c["pct_upper"],
                 "group": labels.get(group, group),
+                "is_area": group == "neighbourhood",
             }
         )
     return sorted(out, key=lambda e: -e["pct"])
@@ -322,15 +323,23 @@ def effects_svg(effects: list[dict]) -> Markup:
     for i, e in enumerate(effects):
         y = top + row * i + row / 2
         side = "up" if e["pct"] > 0 else "down"
+        # a neighbourhood's baseline is not one a reader can guess
+        vs = (
+            f'<tspan class="vs"> vs {escape(e["against"])}</tspan>'
+            if e.get("is_area") and e["against"]
+            else ""
+        )
         out.append(
             f'<text class="eff-label" x="{label_w - 10}" y="{y + 4:.1f}" '
-            f'text-anchor="end">{escape(e["words"])}</text>'
+            f'text-anchor="end">{escape(e["words"])}{vs}</text>'
             f'<line class="ci {side}" x1="{x(e["lower"]):.1f}" y1="{y:.1f}" '
             f'x2="{x(e["upper"]):.1f}" y2="{y:.1f}"/>'
             f'<circle class="dot {side}" cx="{x(e["pct"]):.1f}" cy="{y:.1f}" r="4.5"/>'
         )
     label = "Feature effects on the typical ask, with 95% intervals: " + "; ".join(
-        f"{e['words']} {pct(e['pct'], digits=1)}" for e in effects
+        f"{e['words']}{' vs ' + e['against'] if e.get('is_area') and e['against'] else ''} "
+        f"{pct(e['pct'], digits=1)}"
+        for e in effects
     )
     return Markup(
         f'<svg class="story-svg effects" viewBox="0 0 {WIDTH} {height}" role="img" '
