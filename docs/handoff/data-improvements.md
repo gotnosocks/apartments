@@ -1,6 +1,26 @@
 # Data improvements — handoff
 
-Updated 2026-10-08 06:20 ET. Thread owner: the Data improvements project thread (bridge session on thelio).
+Updated 2026-10-08 10:58 ET. Thread owner: the Data improvements project thread (bridge session on thelio).
+
+## 2026-10-08 10:58 ET
+
+- **#523 nb5-plutoasof-v3 merged (b8b7e44).** This is point-in-time MapPLUTO, per Ben's
+  13:59–14:07Z directions relayed by Modeling: "Serve plutoasof-v3 on passing the gate, as the
+  new base."
+  - nb5-coded-v2 plus every field from the latest release with published + 7 days ≤ the
+    listing period (`released_lots` in features.py), falling back to the earliest release.
+  - Today's values stay for yearbuilt, location and address, for fields a release lacks, and
+    for releases older than the building.
+  - Snapshot `/data1/apartments/external/plutoreleases/20261008-bdb9e67/`: 44 releases, 3,406
+    lots; provenance.json holds each date's primary source and URL.
+  - Dates are the server Last-Modified unless it is the 2023-10-15 re-upload; otherwise the end
+    of the month after the release's own documents. 22v2 is undated, flagged and never read.
+  - On the latest split, features change on 27,564 of 135,540 rows beyond the uniform
+    re-centring shift.
+  - Later sets inherit the dating via `NB4_SETS[x] = "nb5-plutoasof-v3"`.
+  - v2 is dropped unfitted. Modeling queued `frontier-modalq-pluto3` (launches about 13:15 ET)
+    and will send the gate result and ΔELPD against the current-rules refit.
+  - Close #439 (v1) as superseded once v3 is fitted.
 
 ## 2026-10-08 06:20 ET
 
