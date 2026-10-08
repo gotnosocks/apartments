@@ -1,12 +1,18 @@
 # Data collection — handoff
 
-Updated 2026-10-08 04:20 ET. Thread owner: the Data collection project thread (bridge session on thelio).
+Updated 2026-10-08 12:05 ET. Thread owner: the Data collection project thread (bridge session on thelio).
 
 ## State
 - **NoMad, East Village, Stuyvesant Town/PCV crawls: RUNNING** since Oct 8 02:23 ET (Ben, typed
   06:19 UTC). One StreetEasy area each (`nomad`, `east-village`, `stuyvesant-town`; #482), FGP
-  policy, `run-8pm-2w.py` each (24/min combined), fallback 8pm → 4pm → STOP; monitors
-  `apartments-{nomad,ev,stuytown}-monitor.timer`. Controls: `data/probes/<name>-20261008/README.md`
+  policy, launched at `run-8pm-2w.py` each (24/min combined), fallback 8pm → 4pm → STOP; monitors
+  `apartments-{nomad,ev,stuytown}-monitor.timer`. **Combined 32/min** (Ben, typed Oct 8 15:53
+  UTC: "manipulate the scrape rates as each one finishes so that the overall rate stays at
+  32/min"): `data/probes/rate-balance-20261008/rebalance.py` (local; `apartments-rate-balance.timer`,
+  every 15 min) gives each live crawl 8/min and the rest to the first live one of EV, Stuy Town,
+  NoMad (runners `run-16pm-4w`, `run-24pm-6w`, `run-32pm-8w`; a 429 step-down from them goes to
+  `run-8pm-2w`). EV on 16/min since 11:55 ET. It holds while any crawl has a recent 429, a PAUSED
+  file or a monitor step-down. Disable the timer once all three finish. Controls: `data/probes/<name>-20261008/README.md`
   (local); archives `/data1/apartments/archive/crawls/<name>-20261008`. Estimates from FGP's ratio:
   NoMad ~8k requests (~$9), EV ~70k (~$80), Stuy Town 15–30k (unit pages dominate). When each
   finishes: snapshot, compact the snapshot (`streeteasy_archive.compact`), build the dataset,
@@ -59,6 +65,6 @@ Updated 2026-10-08 04:20 ET. Thread owner: the Data collection project thread (b
 ## Rules that bind this thread
 - Oxylabs requests and new timers need Ben's words typed in this thread (the classifier blocks
   relayed approvals).
-- Never raise rate/concurrency beyond Ben's setting (FGP's last setting: 32/min, Oct 7; it applies to any relaunch); never loosen eligibility; crawl code
+- Never raise rate/concurrency beyond Ben's setting (FGP's last setting: 32/min, Oct 7; the Oct 8 crawls: 32/min combined); never loosen eligibility; crawl code
   only through a new frozen runtime directory.
 - PRs: reviewer subagent, annotated `archive/pr-N` tag, `gh pr merge N --squash --match-head-commit`.
