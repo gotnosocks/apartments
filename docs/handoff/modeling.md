@@ -3,6 +3,18 @@
 What the next turn of the modeling thread needs. Updated at each milestone. Scripts and logs are
 in `/data1/apartments/tmp/bridge` (thelio).
 
+## Update (2026-10-08 23:00 UTC)
+
+- **Runs are still paused.** All 12 review checks (sections 9 and 10) and the coordinator's
+  follow-ups are recorded in `docs/model/research-backlog.md` (#570, #573) and reported to Ben.
+  Scripts are in `/data1/apartments/tmp/bridge/review/r12/`.
+- **The resume order changes.** The line term (ranked item 5) goes ahead of the noise fit. The
+  noise fit is bedroom group × single-listing × small building (≤ 5 rows), 16 scales in place of
+  `yearnoise`. Neither is in `modalq-resume.sh` yet.
+- **In progress:** a Gibbs line block. `gibbs.py` refuses `line_effects` today. Branch
+  `model/gibbs-lines`. It needs default-model review and a CPU test, with no fit.
+- **Open with Ben:** NB5-first or NB6-first on resume. The default is NB5 first.
+
 ## Update (2026-10-08 18:30 UTC)
 
 - **Runs are paused by Ben (16:07Z)** while scrapes collect more data. Launch nothing until he resumes.
