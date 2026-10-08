@@ -29,11 +29,18 @@ in `/data1/apartments/tmp/bridge` (thelio).
 
 ## Next
 
-1. As each queued fit lands: autoselect dry run, pair, report to Ben and Data; switch if it wins.
-2. Cut Modal's fixed ~800 s a fit (upload, image, PSIS-LOO), recommended to Ben.
-3. A mean-side pandemic term (2020–21 deviation by price tier or bedroom group); pooled per-year noise
+1. FGP (Flatiron + Gramercy Park): nb4-coded-v2 merged (#454). The nb4 base fit (served design,
+   DATASET_NB4, v11 rules, label a100-4500k9cb1-nb4-ul11r1s4) is queued by
+   /data1/apartments/tmp/bridge/modalq-nb4.sh (unit frontier-modalq-nb4). If it passes the gate, a
+   serving PR switches data.DATASET, ops/modal/fit.py's default and the selection to nb4 (as #318 did
+   for GV), with docs/model/cleaning.json regenerated and the variance breakdown. Then each test runs as
+   its own nb4 full fit: bedtime6, nb4-loc-v1, Data's v12, s5 and nb4-stab/permit/plutoasof. The CWG v11
+   queues (frontier-modalq-v11, -data11) are stopped, since the switch would make them unservable.
+2. As each queued fit lands: autoselect dry run, pair, report to Ben and Data; switch if it wins.
+3. Cut Modal's fixed ~800 s a fit (upload, image, PSIS-LOO), recommended to Ben.
+4. A mean-side pandemic term (2020–21 deviation by price tier or bedroom group); pooled per-year noise
    scales as a smaller fix. Areatime as a full fit. Each needs a queue slot under the Modal rule.
-4. Backlog: autoselect `why_not` should check the dataset before `scored`; elegance.needed_pairs and
+5. Backlog: autoselect `why_not` should check the dataset before `scored`; elegance.needed_pairs and
    the site's hardware view still assume TARGET_HARDWARE only (#391 review notes).
 
 ## Modal fits (2026-10-06)
