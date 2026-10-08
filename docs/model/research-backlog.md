@@ -856,7 +856,7 @@ text says label.
   - The fit is two regimes, though. In 2014–2021 the slope is +0.01 (r +0.03). In 2022–2026 it is
     +0.17 (r +0.99). On changes, r is +0.54 (p 0.07), and +0.17 without the 2022 step.
   - Predicted: a dip below 0 in 2020–21. There is no 2020 dip: the market fell 7 pp and WV −
-    Chelsea rose to +0.3, against a 2014–19 mean of −0.6. 2021 is −0.9, only 0.4 below that mean.
+    Chelsea rose to +0.3, against a 2014–19 mean of −0.6. 2021 is −0.94, only 0.37 below that mean (−0.57).
     A beta of 0.14 would have predicted about −1 pp in 2020.
   - Reading: WV did not move with the market before 2022. It moved with it after. That is a level
     change in 2022, not a beta.
