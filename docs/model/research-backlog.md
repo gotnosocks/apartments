@@ -810,6 +810,94 @@ coefficient, in pp.
   or the location surface's own cells) would be more honest, and it is a free choice to make
   before its fit.
 
+### NTA re-base, market beta, shared shape and attention (2026-10-08, no fits)
+
+These are post-hoc checks on the served fit. Each one has a prediction stated in advance; the
+results are set against it. The script is `review/r12/c23.py` on thelio. "Residual" is the row
+residual plus the building walk, in pp, as in the checks above. Areas are by 2020 NTA unless the
+text says label.
+
+- **1. NTA re-base: WV stays at +11, GV and Flatiron fall, and the share moves 1.6 to 3.3 pp.**
+  Building level = (building effect + label coefficient) × 100. The area means are re-estimated
+  from these levels, weighted by 1 / (building sd² + 1), relative to Chelsea.
+
+  | Area | Served label coefficient | Re-estimated, by label | Re-estimated, by NTA |
+  |---|---|---|---|
+  | West Village | +11.5 | +11.5 | +11.1 |
+  | Greenwich Village | +8.0 | +7.9 | +7.1 |
+  | Flatiron | +7.0 | +7.4 | +3.4 |
+  | Gramercy Park | −8.4 | −7.4 | −7.3 |
+
+  - Predicted: GV falls and WV rises toward +11. GV falls (−0.7). WV was already at +11 and moves
+    −0.4. Flatiron moves most (−3.9), because the 79 Chelsea-labelled buildings inside the Flatiron
+    NTA are cheap (mean building effect −4.2 under labels).
+  - Predicted: the descriptive share moves < 1 pp. The row-weighted share of building-level variance
+    in the area means is 25.3% with the served coefficients, 23.6% with label means re-estimated, and
+    22.0% by NTA. The move is 1.6 pp on like-for-like means, so the prediction fails, if narrowly.
+  - Predicted: the 98 GV-labelled buildings in the WV NTA move toward 0. Their mean building effect
+    goes from +1.6 to −1.5 (sd 12.3), so it does not shrink; it changes sign. The 79
+    Chelsea-labelled buildings in the Flatiron NTA go from −4.2 to −7.6.
+  - Caveat: the building effects were shrunk toward the label means, so a re-base inside a fit
+    would move these numbers further.
+- **2. Market beta: there is no stable beta. The correlation comes from 2022 on.** Market level =
+  yearly mean of the fitted `trend` × 100 (the served fit has no `market_drift`).
+
+  | | 2014 | 2015 | 2016 | 2017 | 2018 | 2019 | 2020 | 2021 | 2022 | 2023 | 2024 | 2025 | 2026 |
+  |---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+  | WV − Chelsea | −1.1 | −1.0 | +0.4 | −0.7 | −0.6 | −0.5 | +0.3 | −0.9 | +1.6 | +2.3 | +2.6 | +3.6 | +5.1 |
+  | Market | 18.5 | 21.5 | 22.8 | 22.6 | 23.1 | 25.5 | 18.1 | 20.8 | 37.7 | 41.3 | 44.9 | 51.4 | 57.5 |
+
+  2026 is a partial year.
+
+  - Regressed on market levels, 2014–2026: slope +0.14 pp per pp of market, r +0.96 (n 13), and
+    r +0.85 detrended. The prediction (r > 0.8) holds as stated.
+  - The fit is two regimes, though. In 2014–2021 the slope is +0.01 (r +0.03). In 2022–2026 it is
+    +0.17 (r +0.99). On changes, r is +0.54 (p 0.07), and +0.17 without the 2022 step.
+  - Predicted: a dip below 0 in 2020–21. There is no 2020 dip: the market fell 7 pp and WV −
+    Chelsea rose to +0.3, against a 2014–19 mean of −0.6. 2021 is −0.9, only 0.4 below that mean.
+    A beta of 0.14 would have predicted about −1 pp in 2020.
+  - Reading: WV did not move with the market before 2022. It moved with it after. That is a level
+    change in 2022, not a beta.
+- **3. Shared shape: PC1 holds 76%, and it is WV's.** The yearly residual series of the five areas,
+  2014–2026, are centred and decomposed. The SEs come from 200 bootstrap draws of buildings.
+
+  - Components: 75.9%, 17.5%, 4.6%, 1.4% and 0.6%. The prediction (> 80%) fails narrowly.
+  - PC1 loadings, in pp per sd of the component: WV +2.39 ± 0.23, Gramercy Park +0.86 ± 0.39,
+    GV +0.73 ± 0.30, Chelsea +0.54 ± 0.26, Flatiron −0.31 ± 0.74.
+  - Predicted: only WV > 2 SE. GV, Gramercy Park and Chelsea are each just over 2 SE, so that fails
+    too. WV's loading is 3 to 4 times theirs.
+  - The component is a post-2022 step. It is large in WV and small (under 1 pp) in GV, Gramercy Park
+    and Chelsea. Flatiron is noise, with its largest swings in 2020–21.
+- **4. Attention: search interest in WV rose from 2021, but Wikipedia views did not until 2025.
+  Neither tracks the residual once detrended.**
+
+  | WV share of the five areas (%) | 2016 | 2017 | 2018 | 2019 | 2020 | 2021 | 2022 | 2023 | 2024 | 2025 | 2026 |
+  |---|---|---|---|---|---|---|---|---|---|---|---|
+  | Wikipedia views | 10.2 | 12.7 | 12.8 | 13.2 | 13.3 | 13.5 | 12.1 | 13.2 | 13.6 | 16.5 | — |
+  | Google Trends | 11.7 | 12.6 | 12.5 | 11.6 | 11.6 | 13.9 | 14.7 | 15.0 | 15.9 | 16.5 | 17.9 |
+
+  2026 is a partial year.
+
+  - Sources: Wikipedia monthly pageviews (all agents, 2015-07 to 2026-10) for the five area
+    articles. East Village and NoMad were fetched but are not in the shares.
+  - Google Trends: the New York DMA, 2014-01 to 2026-10. The terms are West Village, Chelsea,
+    Greenwich Village, Gramercy and Flatiron. "Chelsea" is ambiguous (Chelsea FC) and takes about
+    65% of the five terms, which dilutes WV's share. In index terms, WV went from 8.8 (2019) to
+    15.0 (2026), while GV, Gramercy and Flatiron are at or below their 2019 levels.
+  - Against WV's residual minus the other four areas' mean:
+    - Trends: levels r +0.87, detrended r +0.56 (p 0.06), 2014–2025.
+    - Wikipedia: levels r +0.60, detrended r −0.15, 2016–2025.
+  - Pooled across the five areas, each area's share against its own residual series, detrended per
+    area: r 0.00 (Trends) and −0.06 (Wikipedia).
+  - Reading: WV's search share rises with its rent residual from 2021–22, a little ahead of it. That
+    is consistent with a neighbourhood growing more popular, and equally with people searching
+    because it is in the news. It explains none of the other four areas' moves. With 12 yearly
+    points and one step, it is not evidence of cause.
+- **What this means for the model.** All four checks point to one place-specific step around 2022,
+  not a market beta or a shared shape. If `area_time` is fitted, a per-area random walk (or a
+  2022 step per area) on NTA areas is the right form, not a beta on the market curve. The NTA
+  re-base costs little descriptive share and moves Flatiron's level by about 4 pp.
+
 ## Open-data survey: stabilization, permits, owners, dated MapPLUTO (2026-10-07)
 
 Four free sources, sized against the 105,244 rows of `chelsea-wv-gv-analysis-20261005-2d5b3b6`
