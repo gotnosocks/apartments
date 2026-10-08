@@ -84,6 +84,26 @@ and `granular_export`'s implementation hash covers parser code only. The tool do
   flags) and 28 and 96 (change counter). The only reader of `crawls/chelsea-resume` is the disabled
   `apartments-archive.service` (raw archive browser on :8765).
 
+- **Snapshots compacted** (Ben, typed Oct 8: "Compact the snapshots."), 01:56–04:16 ET, one at
+  a time, smallest first. Before each swap the driver checked every other table row for row,
+  every `snapshots` row for equality apart from `extracted`, and every changed `extracted` for
+  JSON equality once the HTML is replaced by `content_sha256` = `body_hash`; it also compared the
+  collection audit where the database has the rental-canonical tables (not the two Chelsea
+  snapshots). The 161 unchanged Chelsea rows predate Oxylabs (`no_provider_capture`). File modes
+  kept; `.sha256` regenerated. Driver and log: `/data1/apartments/tmp/se-compact/`.
+
+  | snapshot | rows stripped | GB before | GB after |
+  |---|---|---|---|
+  | `west-village-backfill-20260921` | 4,136 of 4,136 | 4.8 | 2.7 |
+  | `chelsea-20260908` | 6,080 of 6,241 | 7.4 | 4.3 |
+  | `greenwich-village-20261001-final` | 24,596 of 24,596 | 30.1 | 16.8 |
+  | `flatiron-gramercy-park-20261005-final` | 38,819 of 38,819 | 48.4 | 27.2 |
+  | `west-village-backfill-20260930` | 44,785 of 44,785 | 55.1 | 30.8 |
+  | `chelsea-backfill-20260912` | 124,808 of 124,969 | 158.9 | 89.1 |
+  | total | | 304.7 | 170.9 |
+
+  `snapshots/chelsea-20260908/complete.json` still records the pre-compaction byte count.
+
 ## Not done, and why
 
 - **Editing the crawler** so new crawls never store the copy. `crawler.py`, `capture.py`,
