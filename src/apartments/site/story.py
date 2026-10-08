@@ -732,3 +732,284 @@ def theories_svg(entries: list[dict]) -> Markup:
         f'<svg class="story-svg trials" viewBox="0 0 {WIDTH} {height}" role="img" '
         f'aria-label="{escape(label)}">' + "".join(out) + "</svg>"
     )
+
+
+# How the served design changed: every switch of the served model, from the
+# board's selection milestones.
+ERAS = (
+    (
+        "bayes",
+        "Hand-built Bayesian models",
+        "one Chelsea model in PyMC, refined fit by fit and chosen by hand",
+    ),
+    (
+        "frontier",
+        "A search for the best model",
+        "many designs fitted on the same rows and scored by PSIS-LOO, the winner picked by hand",
+    ),
+    (
+        "auto",
+        "Chosen automatically",
+        "a fixed rule serves a new fit only when it predicts better, or ties and is faster",
+    ),
+)
+# Words for the model terms that only show up in served designs.
+TERM_WORDS = {
+    "nocurves": "a straight line per feature, no curves",
+    "btrend": "each building's own trend",
+    "bathfloor": "each building's own price for baths and height",
+}
+_PR = re.compile(r"\(#(\d+)\)")
+_SET_START = re.compile(r"^(nb\d*|unit)")
+
+
+def design_terms(run: str) -> tuple[list[str], str] | None:
+    """A frontier run's model terms and feature set, from its name:
+    `m7-nocurves-floorslope-nb3-coded-v2-rows-…` → (["nocurves",
+    "floorslope"], "nb3-coded-v2"). None for a name in another form."""
+    head = run.split("-rows-")[0]
+    tokens = head.split("-")
+    if len(tokens) < 2 or not re.fullmatch(r"m\d+\w*", tokens[0]):
+        return None
+    for i, token in enumerate(tokens[1:], 1):
+        if _SET_START.match(token):
+            return tokens[1:i], "-".join(tokens[i:])
+    return tokens[1:], ""
+
+
+def _iso(at):
+    """The milestone's time, or None when it isn't an ISO timestamp with a zone."""
+    from datetime import datetime
+
+    try:
+        d = datetime.fromisoformat(at)
+    except (TypeError, ValueError):
+        return None
+    return d if d.tzinfo else None
+
+
+def _day_label(at: str) -> str:
+    from datetime import datetime
+
+    d = datetime.fromisoformat(at)
+    return f"{d:%b} {d.day}"
+
+
+def served_spells(switches: list[dict], word: str) -> list[dict]:
+    """Each run of switches whose feature set contains `word`, with the hours
+    until the next switch replaced it (None while it is still served)."""
+    from datetime import datetime
+
+    out = []
+    for i, s in enumerate(switches):
+        if word not in (s["feature_set"] or ""):
+            continue
+        if out and out[-1]["last"] == i - 1:
+            out[-1]["last"] = i
+        else:
+            out.append({"first": i, "last": i, "switch": s})
+    for spell in out:
+        nxt = spell["last"] + 1
+        spell["hours"] = (
+            (
+                datetime.fromisoformat(switches[nxt]["at"])
+                - datetime.fromisoformat(spell["switch"]["at"])
+            ).total_seconds()
+            / 3600
+            if nxt < len(switches)
+            else None
+        )
+        spell["until"] = switches[nxt] if nxt < len(switches) else None
+    return out
+
+
+def term_words(term: str) -> str:
+    return PLAIN.get("+" + term) or TERM_WORDS.get(term) or term
+
+
+def design_history(milestones: list[dict]) -> list[dict]:
+    """Every switch of the served model, oldest first, with its era, PR and
+    (for frontier fits) model terms and feature set."""
+    switches = sorted(
+        (
+            m
+            for m in milestones or []
+            if isinstance(m, dict)
+            and m.get("kind") == "selection"
+            and _iso(m.get("at"))
+        ),
+        key=lambda m: _iso(m["at"]),
+    )
+    out, auto = [], False
+    for i, m in enumerate(switches):
+        title = str(m.get("title") or "")
+        auto = auto or "autoselect" in title or "Automatic selection" in title
+        era = (
+            "bayes"
+            if m.get("family") == "pymc_bayesian"
+            else "auto"
+            if auto
+            else "frontier"
+        )
+        prs = _PR.findall(title)
+        words = _PR.sub("", title)
+        words = re.sub(r"^Selection \(autoselect\):\s*", "", words).strip(" ;")
+        parsed = design_terms(str(m.get("model") or "")) if era != "bayes" else None
+        out.append(
+            {
+                "seq": i,
+                "at": m["at"],
+                "date": m["at"][:10],
+                "day": _day_label(m["at"]),
+                "era": era,
+                "words": words[:1].upper() + words[1:],
+                "pr": prs[-1] if prs else None,
+                "sha": m.get("sha"),
+                "terms": parsed[0] if parsed else None,
+                "feature_set": parsed[1] if parsed else None,
+            }
+        )
+    return out
+
+
+def eras(switches: list[dict]) -> list[dict]:
+    """Each era that has switches: its name, words, first and last date
+    and how many switches it saw."""
+    out = []
+    for key, name, words in ERAS:
+        mine = [s for s in switches if s["era"] == key]
+        if mine:
+            out.append(
+                {
+                    "key": key,
+                    "name": name,
+                    "words": words,
+                    "first": mine[0]["date"],
+                    "last": mine[-1]["date"],
+                    "first_day": mine[0]["day"],
+                    "last_day": mine[-1]["day"],
+                    "count": len(mine),
+                }
+            )
+    return out
+
+
+def term_lives(switches: list[dict]) -> list[dict]:
+    """Each model term in a served frontier design, in the order it first
+    appeared, with the switches it was served in (by seq) and whether the
+    design served now still has it."""
+    designs = [s for s in switches if s["terms"] is not None]
+    if not designs:
+        return []
+    order, served = [], {}
+    for s in designs:
+        for t in s["terms"]:
+            if t not in served:
+                order.append(t)
+                served[t] = []
+            served[t].append(s["seq"])
+    now = set(designs[-1]["terms"])
+    return [
+        {"term": t, "words": term_words(t), "served": served[t], "now": t in now}
+        for t in order
+    ]
+
+
+def _day(at: str) -> float:
+    from datetime import datetime
+
+    return datetime.fromisoformat(at).timestamp() / 86400
+
+
+def history_svg(switches: list[dict], lives: list[dict]) -> Markup:
+    """The served model's switches on a date axis, in a band for each era,
+    and below them a strip for each model term: filled while a served
+    design had the term."""
+    if not switches:
+        return Markup("")
+    label_w, top, lane, row = 260, 30, 34, 18
+    days = [_day(s["at"]) for s in switches]
+    d0, d1 = math.floor(min(days)), math.ceil(max(days)) + 0.5
+    plot = WIDTH - label_w - 12
+
+    def x(day):
+        return label_w + plot * (day - d0) / (d1 - d0 or 1)
+
+    era_keys = [e[0] for e in ERAS if any(s["era"] == e[0] for s in switches)]
+    names = {e[0]: e[1] for e in ERAS}
+    strip_top = top + lane * len(era_keys) + 26
+    height = strip_top + row * len(lives) + 8
+    out = []
+    from datetime import datetime, timedelta, timezone
+
+    start = datetime.fromtimestamp(d0 * 86400, timezone.utc).date()
+    for k in range(0, int(d1 - d0) + 1):
+        day = start + timedelta(days=k)
+        if k % 2:
+            continue
+        xv = x(d0 + k)
+        out.append(
+            f'<line class="grid" x1="{xv:.1f}" y1="{top - 6}" x2="{xv:.1f}" y2="{height - 4}"/>'
+            f'<text class="tick" x="{xv:.1f}" y="{top - 12}" text-anchor="middle">'
+            f"{day.strftime('%b')} {day.day}</text>"
+        )
+    for i, key in enumerate(era_keys):
+        cy = top + lane * i + lane / 2
+        out.append(
+            f'<text class="eff-label" x="{label_w - 10}" y="{cy + 4:.1f}" '
+            f'text-anchor="end">{escape(names[key])}</text>'
+        )
+        mine = [(s, d) for s, d in zip(switches, days) if s["era"] == key]
+        out.append(
+            f'<line class="era-line era-{key}" x1="{x(mine[0][1]):.1f}" y1="{cy:.1f}" '
+            f'x2="{x(mine[-1][1]):.1f}" y2="{cy:.1f}"/>'
+        )
+        for s, d in mine:
+            out.append(
+                f'<circle class="switch era-{key} d{min(s["seq"], 39)}" cx="{x(d):.1f}" '
+                f'cy="{cy:.1f}" r="5"><title>{escape(s["date"])}: {escape(s["words"])}'
+                "</title></circle>"
+            )
+    if lives:
+        out.append(
+            f'<text class="kind-head" x="0" y="{strip_top - 8}">'
+            "Model terms in the served design</text>"
+        )
+        at = {s["seq"]: d for s, d in zip(switches, days)}
+        seqs = sorted(at)
+        for j, life in enumerate(lives):
+            cy = strip_top + row * j + row / 2
+            words = (
+                life["words"] if len(life["words"]) <= 40 else life["words"][:39] + "…"
+            )
+            out.append(
+                f'<text class="eff-label{"" if life["now"] else " gone"}" '
+                f'x="{label_w - 10}" y="{cy + 4:.1f}" text-anchor="end">'
+                f"{escape(words)}</text>"
+            )
+            for seq in life["served"]:
+                nxt = next((q for q in seqs if q > seq), None)
+                end = at[nxt] if nxt is not None else d1
+                out.append(
+                    f'<rect class="term-span{" now" if life["now"] else ""}" '
+                    f'x="{x(at[seq]):.1f}" y="{cy - 5:.1f}" '
+                    f'width="{max(x(end) - x(at[seq]), 1.5):.1f}" height="10">'
+                    f"<title>{escape(life['words'])}</title></rect>"
+                )
+    label = (
+        f"The served model changed {len(switches)} times between {switches[0]['date']} "
+        f"and {switches[-1]['date']}: "
+        + "; ".join(
+            f"{e['name']}, {e['count']} switches from {e['first']} to {e['last']}"
+            for e in eras(switches)
+        )
+        + ". Model terms served: "
+        + "; ".join(
+            f"{life['words']}{'' if life['now'] else ' (since dropped)'}"
+            for life in lives
+        )
+    )
+    return Markup(
+        f'<svg class="story-svg history" viewBox="0 0 {WIDTH} {height}" role="img" '
+        f'aria-label="{escape(label)}">' + "".join(out) + "</svg>"
+    )
