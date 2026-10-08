@@ -15,8 +15,8 @@ What the next turn of the website thread needs. Updated at each milestone.
   section hides when the file names another run (regenerate it after each switch) or once the
   served model has any item's term (`text:<flag>`, `log m to <place>`): then show the served
   per-item effects instead. The served nb5 model has no such terms. Ben dropped the grouped
-  per-item fits and put 21 single-feature fits on the backlog instead (#490). Modeling will send effects result.json paths
-  (`rentfrontier.effects`, #488) as they land; show them labelled as test fits unless served.
+  per-item fits and put 21 single-feature fits on the backlog instead (#490). Modeling will
+  send effects result.json paths (`rentfrontier.effects`, #488) as they land; show them labelled as test fits unless served.
   Never show the nb3 GV exploration numbers as served.
 
 ## State (2026-10-08 05:50 UTC)
