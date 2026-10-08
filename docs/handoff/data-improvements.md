@@ -1,6 +1,34 @@
 # Data improvements — handoff
 
-Updated 2026-10-08 10:58 ET. Thread owner: the Data improvements project thread (bridge session on thelio).
+Updated 2026-10-08 15:47 ET. Thread owner: the Data improvements project thread (bridge session on thelio).
+
+## 2026-10-08 15:47 ET
+
+- **Model runs are paused** (Ben, 16:07Z: "Let's pause model runs. I want to collect more data
+  (in progress scrapes) before doing more iterations"). Builds go on; Modeling holds a resume
+  queue. When the NoMad, East Village and Stuy Town scrapes land: neighbourhood splits, rent-blind
+  quarantine checks, ad-based fixes. Tell Modeling before merging any rule change.
+- **Explanatory single-feature sets** (Ben, 16:16Z: explanatory features over neighbourhood
+  premiums), each on nb5-plutoasof-v3 and queued by Modeling for the resume:
+  - #539 nb5-trees-v1 (a90fbea): street trees within 100 m, latest census published + 7 days.
+  - #548 nb5-crime-v1 (053277a): felonies within 250 m reported in the year before the
+    listing's New York day (`rentfrontier.crime`, table 20261008-c17e0ae).
+  - #552 nb5-hpd-v1 (140a44b): hpd_v1's past-year building condition from `NB4_HPD_FILE`
+    (five neighbourhoods; it had been unread). Retests the September Chelsea/WV null.
+  - Left: light and air. Schools stay deferred.
+- **#543 claims (840cf57):** nb5p3-claim-v1 and nb5p3-claimnolabel-v1, the area an ad says it is
+  in, on both sides of the location/label split. Queued.
+- **Concessions: no drop rule.** StreetEasy coded concessions from 2020, and the cohort drops
+  those listings; before 2020 only ad text records them (5.6% of rows match the flag). Modeling's
+  no-fit check: text:concession is −1.1% in the served fit and flagged residuals are under 0.3%,
+  so the asks are mostly gross. Of 4,785 "net effective" ads, 366 ask the figure next to the
+  phrase (about 0.27% of rows), too few for a rule. #551 nb5-concera-v1 (9631c96) adds the flag
+  for 2020 on beside the base's. Queued. Scratch: `/data1/apartments/tmp/suspect/conc/`.
+- **Held:** #542 quarantine-v11 (approved) until Modeling's v10→v11 swap fit passes. #478 permit:
+  suite passed 472; merge only if its fit wins.
+- **Coordinator relay items still open:** final_ask, n_cuts and days_listed on the frame (never
+  features); date or restrict the places map and subway timetable to 2010; first_listing_of_unit
+  against year (replace with log_months_since_last_listing if it moves).
 
 ## 2026-10-08 10:58 ET
 
