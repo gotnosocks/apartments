@@ -810,14 +810,15 @@ def test_dataset_nb5_splits_flatiron_gramercy_park_by_building():
 
 
 def test_dataset_nb4_is_the_current_dataset_plus_flatiron_gramercy_park():
-    """DATASET_NB4 combines the current dataset, unchanged, with Flatiron +
+    """DATASET_NB4 combines the Chelsea + West Village + Greenwich Village
+    dataset (the current one until DATASET_NB5), unchanged, with Flatiron +
     Gramercy Park's rows, each named by its neighbourhood."""
     complete = data.DATASET_NB4 / "complete.json"
     if not complete.exists():
         pytest.skip("combined dataset not on this machine")
     record = json.loads(complete.read_text())
     paths = {p["path"] for p in record["parts"].values()}
-    # The path itself, not data.DATASET: fits set FRONTIER_DATASET to this set.
+    # The path itself: data.DATASET is now DATASET_NB5.
     current = (
         "/data1/apartments/frontier/datasets/chelsea-wv-gv-analysis-20261005-2d5b3b6"
     )
