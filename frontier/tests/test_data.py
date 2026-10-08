@@ -625,6 +625,26 @@ def test_unit_splits_v4_holds_a_change_that_adds_square_footage():
     assert v3.unit_id.tolist() == ["u1", "u1~1", "u1~2", "u2", "u2~1", "u3", "u3~1"]
 
 
+def test_unit_splits_v5_splits_a_full_bath_change_and_rejoins():
+    """v5 splits v4's pieces where the bath count moves by a full bath, puts an
+    ad back with an earlier piece that had its count, and ignores half baths
+    and ads with no bath count."""
+    frame = pd.DataFrame(
+        {
+            "unit_id": ["u1"] * 4 + ["u2"] * 3,
+            "source_listing_id": [1, 2, 3, 4, 5, 6, 7],
+            "price_at": [
+                f"{y}-01-01" for y in (2015, 2017, 2019, 2021, 2015, 2017, 2019)
+            ],
+            "bedrooms": [1.0] * 7,
+            "square_feet": [np.nan] * 7,
+            "bathrooms": [1.0, 2.0, np.nan, 1.0, 1.0, 1.5, 2.5],
+        }
+    )
+    out = data.DATA_RULES["unit-splits-v5"](frame)
+    assert out.unit_id.tolist() == ["u1", "u1~b1", "u1~b1", "u1", "u2", "u2", "u2~b1"]
+
+
 def test_unit_splits_rules_must_come_last():
     frame = pd.DataFrame({"building": ["b"], "unit_id": ["u"]})
     with pytest.raises(ValueError, match="must come last"):
