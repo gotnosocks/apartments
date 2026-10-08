@@ -418,6 +418,10 @@ def check_run(result):
         raise SystemExit("area_time runs are not summarized yet")
 
 
+# A new unit's level is at most this many unit scales from zero.
+UNIT_CLIP = 40.0
+
+
 def new_unit_levels(params, n_rows, key, *, t_units):
     """(draws, rows) unit levels from the unit prior: for held-out rows of
     units with no rows in the fit (a row-dropping data rule can remove every
@@ -430,6 +434,10 @@ def new_unit_levels(params, n_rows, key, *, t_units):
         z = np.asarray(jax.random.t(key, nu, (draws, n_rows)))
     else:
         z = np.asarray(jax.random.normal(key, (draws, n_rows)))
+    # exp of a Student-t level has no mean: one draw far out in the tail made a
+    # held-out row's estimate $2 trillion (2026-10-08). Clip as the site's
+    # estimate form does (`apartments.site.estimate.UNIT_CLIP`).
+    z = np.clip(z, -UNIT_CLIP, UNIT_CLIP)
     return np.asarray(params["unit_scale"])[:, None] * z
 
 
