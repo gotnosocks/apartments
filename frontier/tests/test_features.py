@@ -1417,3 +1417,43 @@ def test_nb5_singles_are_nb5_coded_v2_plus_one_item(monkeypatch):
         "nb5-near-hospital-v1": features.NB4_PLACES_FILE,
     }
     assert features.places_file() == features.PLACES_FILE
+
+
+def test_dated_alterations_date_only_the_alteration_years(tmp_path):
+    """A listing sees the alteration years of the release of the year before
+    it; size fields stay today's, as do a lot missing from that release and a
+    release older than the building."""
+    history = pd.DataFrame(
+        {
+            "release": [2015, 2015, 2015, 2020, 2020, 2020],
+            "bbl": ["1", "2", "3", "1", "2", "3"],
+            "yearalter1": ["0", "1990", "0", "2018", "1990", "0"],
+            "yearalter2": ["0", "0", "0", "0", "2019", "0"],
+            "unitsres": ["10", "20", "1", "12", "20", "1"],
+        }
+    )
+    history.to_parquet(tmp_path / "h.parquet")
+    frame = pd.DataFrame(
+        {
+            "period": pd.to_datetime(
+                ["2017-03-01", "2017-03-01", "2017-03-01", "2022-05-01"]
+            )
+        }
+    )
+    lots = pd.DataFrame(
+        {
+            "yearbuilt": ["1920", "1920", "2016", "1920"],
+            "yearalter1": ["2018", "1990", "0", "2018"],
+            "yearalter2": ["0", "2019", "0", "0"],
+            "unitsres": ["12", "20", "40", "12"],
+        }
+    )
+    bbl = np.array(["1", "2", "3", "1"])
+    out = features.dated_alterations(frame, bbl, lots, str(tmp_path / "h.parquet"))
+    # 2017 listings read the 2015 release: no 2018 or 2019 alteration yet.
+    assert out.yearalter1.tolist() == [0, 1990, 0, 2018]
+    assert out.yearalter2.tolist() == [0, 0, 0, 0]
+    # Size stays today's, and lot 3's building (2016) postdates its 2015 release.
+    assert out.unitsres.tolist() == lots.unitsres.tolist()
+    assert "nb5-plutoasof-v2" in features.ALTERATION_DATED_SETS
+    assert "nb5-plutoasof-v2" in features.NB4_SETS
