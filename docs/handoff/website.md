@@ -2,6 +2,13 @@
 
 What the next turn of the website thread needs. Updated at each milestone.
 
+## State (2026-10-08 18:50 UTC)
+
+- #549 (Ben 18:39Z): every site estimate is the predictive median, never the mean. The build sets estimate = estimate_median, recomputes residuals against it and scales the *_usd parts by median/mean. The kit's score() reports the median and keeps "mean". The kit clip and #540's clip stay until Modeling says otherwise. Republished as build 20261008T184653876509Z-d23a0492 (`apartments.site build` from /data1/apartments/serve/site). A code-only deploy does not rebuild site.sqlite.
+- Headline accuracy before → after: held-out median miss 3.8% → 3.7%, seen 3.7% → 3.6%, new apartments 8.9% → 9.0% (517 asks), likely-range coverage 79% → 79%.
+- Open ask to Modeling: summary *_usd parts split against the median, which would replace the scaling.
+- #547: the story reads the ledger's "due" retest marker (#469 renamed it). #541: the layers maths is in a fold-out.
+
 ## State (2026-10-08 16:50 UTC)
 
 - **New served fit** (refit on quarantine-v10 and ad-v3, #533): build 20261008T160955228743Z-6e89346d,
