@@ -3,6 +3,19 @@
 What the next turn of the modeling thread needs. Updated at each milestone. Scripts and logs are
 in `/data1/apartments/tmp/bridge` (thelio).
 
+## Update (2026-10-08 18:30 UTC)
+
+- **Runs are paused by Ben (16:07Z)** while scrapes collect more data. Launch nothing until he resumes.
+- **On resume,** launch `/data1/apartments/tmp/bridge/modalq-resume.sh` as a systemd unit. It runs the
+  pluto3 base, the nb5p3 tests, locnolabel (#535), then unical and trees. Before launching, add Data's
+  claimed-area sets at #543's merge commit and the quarantine-v11 swap (#542 head); both are in the
+  script's comments.
+- **Served summary:** bundle `-37f33c1` of the same fit, with new-unit levels clipped (#540, #544).
+  Published and deployed at 13:50 ET.
+- **Free checks** have Ben's standing approval (17:52Z). The noise check is recorded under ranked
+  item 1 in `docs/model/research-backlog.md` (#545). Heteroscedastic noise is the first model-term
+  test on resume.
+
 ## State (2026-10-08 16:15 UTC)
 
 - **PAUSED (Ben 2026-10-08 16:07Z): "Let's pause model runs. I want to collect more data (in progress
