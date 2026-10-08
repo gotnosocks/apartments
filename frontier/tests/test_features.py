@@ -588,6 +588,25 @@ def test_building_violations_count_the_trailing_year_only(tmp_path, monkeypatch)
     assert features.building_violations(frame).tolist() == [2.0, 0.0, 1.0, 0.0]
 
 
+def test_nb4_permit_reads_the_four_neighbourhoods_dob_jobs(monkeypatch):
+    assert features.FEATURE_SETS["nb4-permit-v1"].keywords["base"] == "nb4-coded-v2"
+    seen = {}
+
+    def probe(name):
+        monkeypatch.setitem(
+            features.FEATURE_SETS,
+            name,
+            lambda f, t: seen.setdefault(name, features._DOB.get()),
+        )
+        features.build(name, pd.DataFrame(), np.zeros(0, bool))
+
+    probe("nb3-permit-v1")
+    probe("nb4-permit-v1")
+    assert seen == {"nb3-permit-v1": None, "nb4-permit-v1": features.NB4_DOB_FILE}
+    assert features.lot_files("nb4-permit-v1") == features.lot_files("nb4-coded-v2")
+    assert {"nb3-permit-v1", "nb4-permit-v1"} <= features.DOB
+
+
 def test_apartment_permits_name_the_unit_in_the_years_before(tmp_path, monkeypatch):
     registry = pd.DataFrame(
         {"building": ["a", "b"], "bbl": ["1", "2"], "bin": ["11", "22"]}

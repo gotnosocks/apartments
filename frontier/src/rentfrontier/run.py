@@ -309,7 +309,7 @@ def feature_sources(feature_set: str) -> dict:
         path = features.HPD_FILE
         out["hpd"] = {"path": path, "sha256": data.sha256(Path(path))}
     if feature_set in features.DOB:
-        path = features.DOB_FILE
+        path = features.DOB_SNAPSHOTS.get(feature_set, features.DOB_FILE)
         out["dob"] = {"path": path, "sha256": data.sha256(Path(path))}
     return out
 
