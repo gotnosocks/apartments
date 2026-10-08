@@ -77,6 +77,8 @@ def test_build_up_ends_at_the_estimate(client):
     assert "half of the asks the model never saw land within" in text
     # the accuracy chapter ends with plain advice for one estimate
     assert "What this means for one estimate." in text
+    # the effects caption explains the source tags on its labels
+    assert "“(ad)” marks a fact read from the ad’s own text" in text
     assert "lean on the likely ask range shown with each listing" in text
     # an example above the page's typical ask says why
     if "the median ask among the listings available now" in text:
