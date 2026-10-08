@@ -615,8 +615,8 @@ The test that answers it, the surface in place of the names, has run; the result
 {{ verdict_words.get(nolabel.verdict, nolabel.verdict) }}, {{ "{:+,.1f}".format(nolabel.diff) }} ± {{ "{:,.1f}".format(nolabel.se) }}
 against the names.{% else %}
 The test that answers it fits the surface in place of the names and compares the two; it has not run yet.{% endif %}{% if surface %}
-In an earlier test, added on top of the names, the surface made {% if surface.verdict == "gain" %}a clear gain{% else %}no clear
-difference{% endif %} ({{ "{:+,.1f}".format(surface.diff) }} ± {{ "{:,.1f}".format(surface.se) }}{% if surface.due %}, on data from before the latest neighbourhoods joined{% endif %}).{% endif %}</p>
+In an earlier test, added on top of the names, the surface’s result was: {{ verdict_words.get(surface.verdict, surface.verdict) }}
+({{ "{:+,.1f}".format(surface.diff) }} ± {{ "{:,.1f}".format(surface.se) }}{% if surface.due %}, on data from before the latest neighbourhoods joined{% endif %}).{% endif %}</p>
 {% endif %}
 
 {% if waiting %}<h3>Does the street around a building matter?</h3>
