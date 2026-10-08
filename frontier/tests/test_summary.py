@@ -174,7 +174,14 @@ def test_present_terms_leave_out_terms_a_design_does_not_have():
     three = summary.terms_record(
         ["neighbourhood"], ["West Village", "Greenwich Village"]
     )
-    assert three[0]["description"] == summary.NEIGHBOURHOODS_TEXT
+    assert three[0]["description"].startswith(
+        "Each neighbourhood against Chelsea (the West Village, Greenwich Village):"
+    )
+    four = summary.terms_record(
+        ["neighbourhood"],
+        ["West Village", "Greenwich Village", "Flatiron + Gramercy Park"],
+    )
+    assert "Greenwich Village, Flatiron + Gramercy Park):" in four[0]["description"]
 
 
 def test_write_records_every_file_and_renames_last(tmp_path, monkeypatch):

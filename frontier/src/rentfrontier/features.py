@@ -2380,6 +2380,28 @@ def greenwich_v1(
     )
 
 
+def hood_v1(
+    frame: pd.DataFrame,
+    train: np.ndarray,
+    id: str,
+    base: str,
+    hood: str,
+) -> Features:
+    """A base set plus one more neighbourhood against Chelsea (`hood`), beside
+    the base set's neighbourhood terms (`greenwich_v1`)."""
+    base = FEATURE_SETS[base](frame, train)
+    b = _Builder(frame)
+    b.add("neighbourhood", hood, frame.neighbourhood.eq(hood))
+    extra = b.build(id)
+    return Features(
+        id,
+        base.names + extra.names,
+        base.groups + extra.groups,
+        np.column_stack([base.values, extra.values]),
+        np.concatenate([base.prior_scale, extra.prior_scale]),
+    )
+
+
 # Feature sets that read the external snapshots (run records list them).
 EXTERNAL = {
     "nb-pluto-base",
@@ -2564,6 +2586,12 @@ FEATURE_SETS = {
     # dated as of each listing from the LPC's designations (`LPC_SNAPSHOTS`).
     # (nb3-prevprice-v2 has nb-prevprice-v1's terms, not nb-prevprice-v2's.)
     "nb3-coded-v2": partial(greenwich_v1, id="nb3-coded-v2", base="nb-coded-v1"),
+    # Chelsea, the West Village, Greenwich Village and Flatiron + Gramercy Park:
+    # nb3-coded-v2 plus Flatiron + Gramercy Park (`hood_v1`), every term on the
+    # four neighbourhoods' snapshots (NB4_*, `NB4_SETS`).
+    "nb4-coded-v2": partial(
+        hood_v1, id="nb4-coded-v2", base="nb3-coded-v2", hood="Flatiron + Gramercy Park"
+    ),
     "nb3-prevprice-v2": partial(
         prevprice_v1, id="nb3-prevprice-v2", base="nb3-coded-v2"
     ),
@@ -2863,6 +2891,32 @@ for _wish in (
     ):
         if "nb3-coded-v2" in _table:
             _table[_wish] = _table["nb3-coded-v2"]
+
+
+# The nb4 sets read what their nb3 counterpart reads, from the four
+# neighbourhoods' snapshots (#451) in place of the three's.
+NB4_SETS = {"nb4-coded-v2": "nb3-coded-v2"}
+for _new, _old in NB4_SETS.items():
+    for _group in (
+        EXTERNAL,
+        BASEMAP,
+        FOOTPRINTS,
+        DESCRIPTIONS,
+        AS_OF_SETS,
+        LISTING_EXTRAS,
+        PRICE_HISTORY,
+        READS_EARLIER_RENTS,
+    ):
+        if _old in _group:
+            _group.add(_new)
+    LOT_SNAPSHOTS[_new] = {"registry": NB4_REGISTRY_FILE, "pluto": NB4_PLUTO_FILE}
+    AREA_SNAPSHOTS[_new] = {
+        "basemap": NB4_BASEMAP_FILE,
+        "footprints": NB4_FOOTPRINTS_FILE,
+    }
+    DESCRIPTION_SOURCES[_new] = _NB4_DESCRIPTIONS
+    EXTRAS_SNAPSHOTS[_new] = NB4_EXTRAS_FILE
+    LPC_SNAPSHOTS[_new] = NB4_LPC_FILE
 
 
 def lot_files(name: str) -> dict:
