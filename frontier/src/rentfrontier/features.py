@@ -1372,7 +1372,7 @@ DOB_FILE = f"{DOB_SNAPSHOT}/dob.parquet"
 # The same jobs for the four neighbourhoods' registry (NB4_REGISTRY_FILE).
 NB4_DOB_FILE = "/data1/apartments/external/dob/20261008-a941744/dob.parquet"
 # DOB jobs files by feature set, where a set reads other than `DOB_FILE`.
-DOB_SNAPSHOTS = {"nb4-permit-v1": NB4_DOB_FILE}
+DOB_SNAPSHOTS = {"nb5-permit-v1": NB4_DOB_FILE}
 ERAS = (
     (0, 1900, "pre-1900"),
     (1900, 1930, "1900-1929"),
@@ -2479,6 +2479,29 @@ def hood_v1(
     )
 
 
+def hoods_v1(
+    frame: pd.DataFrame,
+    train: np.ndarray,
+    id: str,
+    base: str,
+    hoods: tuple[str, ...],
+) -> Features:
+    """A base set plus one column per neighbourhood in `hoods` against Chelsea,
+    beside the base set's neighbourhood terms (`hood_v1` for several)."""
+    base = FEATURE_SETS[base](frame, train)
+    b = _Builder(frame)
+    for hood in hoods:
+        b.add("neighbourhood", hood, frame.neighbourhood.eq(hood))
+    extra = b.build(id)
+    return Features(
+        id,
+        base.names + extra.names,
+        base.groups + extra.groups,
+        np.column_stack([base.values, extra.values]),
+        np.concatenate([base.prior_scale, extra.prior_scale]),
+    )
+
+
 # Feature sets that read the external snapshots (run records list them).
 EXTERNAL = {
     "nb-pluto-base",
@@ -2573,7 +2596,7 @@ STOREFRONTS = {"nb3-retail-v1"}
 # Feature sets that read the NYC Parks properties snapshot (parks).
 PARKS = {"nb3-parks-v1", "nb3-water-v1"}
 # Feature sets that read the DOB permits snapshot.
-DOB = {"nb3-permit-v1", "nb4-permit-v1"}
+DOB = {"nb3-permit-v1", "nb5-permit-v1"}
 # Feature sets that read the HPD violations snapshot.
 HPD = {"unitdescplutohpd-v1", "unitdescplutohpd-v2"}
 # Feature sets that read the advertisement descriptions (`descriptions.SOURCE`),
@@ -2671,6 +2694,15 @@ FEATURE_SETS = {
     "nb4-coded-v2": partial(
         hood_v1, id="nb4-coded-v2", base="nb3-coded-v2", hood="Flatiron + Gramercy Park"
     ),
+    # The five neighbourhoods: nb3-coded-v2 plus Flatiron and Gramercy Park
+    # (`hoods_v1`; DATASET_NB5 labels each Flatiron + Gramercy Park row with its
+    # building's StreetEasy area), on the four crawls' snapshots (`NB4_SETS`).
+    "nb5-coded-v2": partial(
+        hoods_v1,
+        id="nb5-coded-v2",
+        base="nb3-coded-v2",
+        hoods=("Flatiron", "Gramercy Park"),
+    ),
     "nb3-prevprice-v2": partial(
         prevprice_v1, id="nb3-prevprice-v2", base="nb3-coded-v2"
     ),
@@ -2692,7 +2724,7 @@ FEATURE_SETS = {
     "nb3-text-v1": partial(text_flags_v1, id="nb3-text-v1", base="nb3-coded-v2"),
     "nb3-loft-v1": partial(loft_v1, id="nb3-loft-v1", base="nb3-coded-v2"),
     "nb3-permit-v1": partial(permit_v1, id="nb3-permit-v1", base="nb3-coded-v2"),
-    "nb4-permit-v1": partial(permit_v1, id="nb4-permit-v1", base="nb4-coded-v2"),
+    "nb5-permit-v1": partial(permit_v1, id="nb5-permit-v1", base="nb5-coded-v2"),
     "nb3-flagfix-v1": partial(flagfix_v1, id="nb3-flagfix-v1", base="nb3-coded-v2"),
     "nb3-noise-v1": partial(
         noise_v1, id="nb3-noise-v1", base="nb3-coded-v2", noise_file=NB3_NOISE_FILE
@@ -2977,7 +3009,11 @@ for _wish in (
 
 # The nb4 sets read what their nb3 counterpart reads, from the four
 # neighbourhoods' snapshots (#451) in place of the three's.
-NB4_SETS = {"nb4-coded-v2": "nb3-coded-v2", "nb4-permit-v1": "nb3-permit-v1"}
+NB4_SETS = {
+    "nb4-coded-v2": "nb3-coded-v2",
+    "nb5-coded-v2": "nb3-coded-v2",
+    "nb5-permit-v1": "nb3-permit-v1",
+}
 for _new, _old in NB4_SETS.items():
     for _group in (
         EXTERNAL,
