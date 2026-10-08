@@ -92,6 +92,26 @@ def test_description_sets_record_their_source(monkeypatch):
     assert "descriptions" not in run.feature_sources("unitfloor-v2")
 
 
+def test_nb4_plutoasof_reads_the_four_neighbourhoods_lots_and_releases(monkeypatch):
+    assert features.lot_files("nb4-plutoasof-v1") == features.lot_files("nb4-coded-v2")
+    assert features.FEATURE_SETS["nb4-plutoasof-v1"].keywords["base"] == (
+        "nb3-plutoasof-v1"
+    )
+    seen = {}
+    for name in ("nb3-plutoasof-v1", "nb4-plutoasof-v1", "nb4-coded-v2"):
+        monkeypatch.setitem(
+            features.FEATURE_SETS,
+            name,
+            lambda f, t, name=name: seen.setdefault(name, features._PLUTO_DATED.get()),
+        )
+        features.build(name, pd.DataFrame(), np.zeros(0, bool))
+    assert seen == {
+        "nb3-plutoasof-v1": features.PLUTO_HISTORY_FILE,
+        "nb4-plutoasof-v1": features.NB4_PLUTO_HISTORY_FILE,
+        "nb4-coded-v2": None,
+    }
+
+
 def test_unitdescpluto_is_the_building_columns_on_unitdesc():
     fn = features.FEATURE_SETS["unitdescpluto-v1"]
     assert fn.func is features.pluto_v1

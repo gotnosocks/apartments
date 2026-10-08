@@ -1305,6 +1305,13 @@ HPD_FILE = f"{HPD_SNAPSHOT}/hpd.parquet"
 # MapPLUTO's yearly releases of the registry's lots (`rentfrontier.external plutohistory`).
 PLUTO_HISTORY_SNAPSHOT = "/data1/apartments/external/plutohistory/20261008-931c6e8"
 PLUTO_HISTORY_FILE = f"{PLUTO_HISTORY_SNAPSHOT}/plutohistory.parquet"
+# The same releases for the four neighbourhoods' registry (NB4_REGISTRY_FILE).
+NB4_PLUTO_HISTORY_FILE = (
+    "/data1/apartments/external/plutohistory/20261008-4fe46d6/plutohistory.parquet"
+)
+# MapPLUTO release files by dated set, where a set reads other than
+# `PLUTO_HISTORY_FILE`.
+PLUTO_HISTORY_SNAPSHOTS = {"nb4-plutoasof-v1": NB4_PLUTO_HISTORY_FILE}
 ERAS = (
     (0, 1900, "pre-1900"),
     (1900, 1930, "1900-1929"),
@@ -2643,6 +2650,14 @@ FEATURE_SETS = {
     "nb3-plutoasof-v1": partial(
         greenwich_v1, id="nb3-plutoasof-v1", base="nb-coded-v1"
     ),
+    # nb4-coded-v2 with the dated MapPLUTO: nb3-plutoasof-v1 plus Flatiron +
+    # Gramercy Park, on the four neighbourhoods' snapshots.
+    "nb4-plutoasof-v1": partial(
+        hood_v1,
+        id="nb4-plutoasof-v1",
+        base="nb3-plutoasof-v1",
+        hood="Flatiron + Gramercy Park",
+    ),
     "nb3-garden-v1": partial(garden_v1, id="nb3-garden-v1", base="nb3-coded-v2"),
     "nb3-through-v1": partial(through_v1, id="nb3-through-v1", base="nb3-coded-v2"),
     "nb3-quiet-v1": partial(quiet_v1, id="nb3-quiet-v1", base="nb3-coded-v2"),
@@ -2819,7 +2834,7 @@ AS_OF_SETS = {
 }
 # Feature sets that read each row's lot from MapPLUTO's release of the year
 # before the listing (`dated_lots`) instead of today's.
-PLUTO_DATED_SETS = {"nb3-plutoasof-v1"}
+PLUTO_DATED_SETS = {"nb3-plutoasof-v1", "nb4-plutoasof-v1"}
 # Feature sets that read the listing-extras snapshot.
 LISTING_EXTRAS = {
     "nb-coded-v1",
@@ -2947,7 +2962,7 @@ for _wish in (
 
 # The nb4 sets read what their nb3 counterpart reads, from the four
 # neighbourhoods' snapshots (#451) in place of the three's.
-NB4_SETS = {"nb4-coded-v2": "nb3-coded-v2"}
+NB4_SETS = {"nb4-coded-v2": "nb3-coded-v2", "nb4-plutoasof-v1": "nb3-plutoasof-v1"}
 for _new, _old in NB4_SETS.items():
     for _group in (
         EXTERNAL,
@@ -2989,7 +3004,9 @@ def build(name: str, frame: pd.DataFrame, train: np.ndarray) -> Features:
     token = _LOTS.set((files["registry"], files["pluto"]))
     as_of_token = _AS_OF.set(name in AS_OF_SETS)
     dated_token = _PLUTO_DATED.set(
-        PLUTO_HISTORY_FILE if name in PLUTO_DATED_SETS else None
+        PLUTO_HISTORY_SNAPSHOTS.get(name, PLUTO_HISTORY_FILE)
+        if name in PLUTO_DATED_SETS
+        else None
     )
     area_token = _AREA.set((area["basemap"], area["footprints"]))
     extras_token = _EXTRAS.set(EXTRAS_SNAPSHOTS.get(name))
