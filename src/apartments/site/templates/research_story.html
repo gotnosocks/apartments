@@ -156,7 +156,7 @@ Not every part is sure of its direction, either: the 95% interval{{ "s" if unsur
 whether {{ "they add to the ask or take from it" if unsure | length > 1 else "it adds to the ask or takes from it" }}.{% endif %}{% if accuracy %}{% set miss = 100 * (build.ask - build.estimate) / build.estimate %}
 The ask is {{ "{:.1f}".format(miss | abs) }}% {{ "above" if miss > 0 else "below" }} the estimate.
 {% if miss | abs > 2 * accuracy.median %}That is more than twice the typical miss{% elif miss | abs > accuracy.median %}That is wider than the typical miss{% else %}That is closer than the typical miss{% endif %}:
-half of the asks the model never saw land within {{ "{:.1f}".format(accuracy.median) }}% of their estimate.{% if build.lower is not none and miss | abs > accuracy.median %}{% if build.lower <= build.ask <= build.upper %}
+half of the asks the model never saw land within {{ "{:.1f}".format(accuracy.median) }}% of their estimate.{% if build.lower is not none and miss | abs > 2 * accuracy.median %}{% if build.lower <= build.ask <= build.upper %}
 Even so, the ask is inside the 95% range above, so the model allowed for a gap like this. Asks this far out
 are uncommon but expected; only about 1 ask in 20 should land outside the range.{% else %}
 It also falls outside the 95% range above, which should happen for only about 1 ask in 20.{% endif %}{% endif %}{% endif %}</p>

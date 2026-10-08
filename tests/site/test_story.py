@@ -75,7 +75,8 @@ def test_build_up_ends_at_the_estimate(client):
     assert re.search(r"The ask is [\d.]+% (above|below) the estimate\. That is", text)
     assert "half of the asks the model never saw land within" in text
     # a wide miss is set against the example's own 95% range
-    assert "That is closer" in text or "about 1 ask in 20" in text
+    wide = "more than twice the typical miss" in text
+    assert wide == ("about 1 ask in 20" in text)
     # a contents list links every chapter on the page, in order
     nav = text[text.index('aria-label="Contents"') :]
     toc = re.findall(r'<li><a href="#([a-z-]+)">', nav[: nav.index("</nav>")])
