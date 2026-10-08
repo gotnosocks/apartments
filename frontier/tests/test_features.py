@@ -1446,6 +1446,9 @@ def test_permit_v2_reads_every_apartment_of_a_list():
     assert read("UNIT #5S AND #5N, 3N/3E") == ["5S", "5N", "3N", "3E"]
     assert read("APTS 3N/3E") == ["3N", "3E"]
     assert read("APT 4D AND ON THE ROOF") == ["4D"]
+    assert read("APT 4D AND 2 BATHROOMS, 3 BEDROOMS") == ["4D"]
+    assert read("APT 4D & 6TH FLOOR HALL AND PHONE LINES") == ["4D"]
+    assert read("APTS PH-A AND PH2B") == ["PH-A", "PH2B"]
     assert read("HVAC UNITS ON ROOF") == features.named_apartments("HVAC UNITS ON ROOF")
     # v1 reads the first of each list only.
     assert features.named_apartments("COMBINE APTS 15B AND 15D") == ["15B"]

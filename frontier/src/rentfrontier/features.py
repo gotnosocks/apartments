@@ -1136,10 +1136,14 @@ APARTMENT_NAMED = re.compile(
 
 
 # v2: the rest of a list after a named apartment: ", 6S", " & 3A", " AND #5N",
-# "/3E". A listed label has a digit or is a penthouse, so "AND ON THE ROOF"
-# names none.
+# "/3E". A listed label has a digit or is a penthouse ("PH", "PH-2A"), so "AND ON
+# THE ROOF" names none; an ordinal ("& 6TH FLOOR") or a count of rooms or
+# floors ("AND 2 BATHROOMS", ", 3 BEDROOMS") is no label.
 LISTED_APARTMENT = re.compile(
-    r"\s*(?:,|&|\bAND\b|/)\s*#?\s*([0-9]{1,4}[A-Z]{0,2}|PH-?[0-9A-Z]*|[A-Z]{1,2}[0-9]{1,2})\b"
+    r"\s*(?:,|&|\bAND\b|/)\s*#?\s*"
+    r"(?![0-9]+(?:ST|ND|RD|TH)\b)"
+    r"([0-9]{1,4}[A-Z]{0,2}|PH-?[0-9A-Z]{0,2}|[A-Z]{1,2}[0-9]{1,2})\b"
+    r"(?!\s*(?:BED|BATH|BR\b|BA\b|FL|ROOM|STOR|STY|SQ|SF\b|FT\b))"
 )
 
 
