@@ -652,6 +652,11 @@ DATA_RULE_TEXT = {
     "Park and Flatiron: 45 more are left out, ads for another address (Bushwick's "
     "Bleecker Street, Prospect Park, the Upper West Side), short stays only, and shops "
     "and offices.",
+    "quarantine-v8": "quarantine-v7 and an eighth review: the ads of Greenwich Village, "
+    "Gramercy Park and Flatiron listings whose rent the model found far out of line. "
+    "51 more are left out: ads for another address (Harlem, the Upper West Side, "
+    "Prospect Park), shops and offices, rooms with a shared bath, and one ask for two "
+    "apartments.",
     "unit-reviews-v1": "Apartments a review found to be one apartment under two labels: "
     "at 110 West 26th Street, 4R and 4B, and 5R and 5B, are each floor's rear "
     "apartment (R for rear, B for back). No listing is dropped.",
