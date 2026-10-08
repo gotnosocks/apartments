@@ -586,11 +586,13 @@ def create_app(
     research_data=None,
     research_plan=None,
     feature_tests=None,
+    cleaning_steps=None,
 ) -> Flask:
     root = Path(root or os.environ.get("SITE_ROOT", "/data1/apartments/site"))
     research = Research(research_data)
     plan = Plan(research_plan)
     ledger = story.Ledger(feature_tests)
+    cleaning_file = story.Cleaning(cleaning_steps)
     app = Flask(__name__)
     if allowed_hosts is None:
         allowed_hosts = os.environ.get("SITE_ALLOWED_HOSTS", "").split(",")
@@ -748,6 +750,7 @@ def create_app(
         ), 500
 
     app.jinja_env.filters["trim_float"] = trim_float
+    app.jinja_env.filters["hood"] = summary.hood_name
     app.jinja_env.filters["minus"] = lambda text: str(text).replace("-", "−")
     app.jinja_env.tests["finite"] = lambda v: (
         isinstance(v, (int, float)) and not isinstance(v, bool) and math.isfinite(v)
@@ -2421,6 +2424,7 @@ def create_app(
         trials = story.theories(ledger.load())
         switches = story.design_history((data or {}).get("milestones") or [])
         lives = story.term_lives(switches)
+        cleaning = story.cleaning(cleaning_file.load(), m["provenance"]["run"])
         return render_template(
             "research_story.html",
             meta=m,
@@ -2444,6 +2448,8 @@ def create_app(
             lives=lives,
             prevprice=story.served_spells(switches, "prevprice"),
             history_svg=story.history_svg(switches, lives),
+            cleaning=cleaning,
+            cleaning_svg=story.cleaning_svg(cleaning),
             terms=terms,
             labels=labels,
         )

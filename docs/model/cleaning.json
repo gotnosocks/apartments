@@ -1,0 +1,103 @@
+{
+ "run": "m7-nocurves-floorslope-bednoise-dayfourier-bedtime-yearnoise-nb3-coded-v2-rows-9b6c16d-a100-4500k9cb1-gv1006-ul9r1s4",
+ "dataset": "chelsea-wv-gv-analysis-20261005-2d5b3b6",
+ "start": {
+  "rows": 105244,
+  "units": 44073,
+  "buildings": 2941,
+  "pairs": 60970,
+  "bed_changes": 0.07290470723306544,
+  "big_jumps": 0.08335246842709529
+ },
+ "steps": [
+  {
+   "rule": "baths-ad-v2",
+   "family": "correct",
+   "dropped": 0,
+   "changed": {
+    "full_baths": 20,
+    "half_baths": 21
+   },
+   "rows": 105244,
+   "units": 44073,
+   "buildings": 2941,
+   "pairs": 60970,
+   "bed_changes": 0.07290470723306544,
+   "big_jumps": 0.08335246842709529
+  },
+  {
+   "rule": "bedrooms-ad-v2",
+   "family": "correct",
+   "dropped": 0,
+   "changed": {
+    "bedrooms": 83
+   },
+   "rows": 105244,
+   "units": 44073,
+   "buildings": 2941,
+   "pairs": 60970,
+   "bed_changes": 0.07193701820567493,
+   "big_jumps": 0.08335246842709529
+  },
+  {
+   "rule": "fields-review-v3",
+   "family": "correct",
+   "dropped": 0,
+   "changed": {},
+   "rows": 105244,
+   "units": 44073,
+   "buildings": 2941,
+   "pairs": 60970,
+   "bed_changes": 0.07193701820567493,
+   "big_jumps": 0.08335246842709529
+  },
+  {
+   "rule": "quarantine-v6",
+   "family": "drop",
+   "dropped": 282,
+   "changed": {},
+   "rows": 104962,
+   "units": 43874,
+   "buildings": 2907,
+   "pairs": 60887,
+   "bed_changes": 0.07165733243549526,
+   "big_jumps": 0.08313761558296516
+  },
+  {
+   "rule": "unit-labels-v9",
+   "family": "join",
+   "dropped": 0,
+   "changed": {},
+   "rows": 104962,
+   "units": 42049,
+   "buildings": 2907,
+   "pairs": 62710,
+   "bed_changes": 0.0708658906075586,
+   "big_jumps": 0.08241109870833997
+  },
+  {
+   "rule": "unit-reviews-v1",
+   "family": "join",
+   "dropped": 0,
+   "changed": {},
+   "rows": 104962,
+   "units": 42047,
+   "buildings": 2907,
+   "pairs": 62712,
+   "bed_changes": 0.0708636305651231,
+   "big_jumps": 0.08240847046817196
+  },
+  {
+   "rule": "unit-splits-v4",
+   "family": "split",
+   "dropped": 0,
+   "changed": {},
+   "rows": 104962,
+   "units": 45164,
+   "buildings": 2907,
+   "pairs": 59597,
+   "bed_changes": 0.006845982180311089,
+   "big_jumps": 0.0707418158632146
+  }
+ ]
+}
