@@ -280,7 +280,7 @@ def test_the_alias_file_is_hashed_but_drops_no_rows():
     assert "unit-labels-v2" not in data.DROPPING_RULES
     groups = data.unit_aliases()
     assert len(groups) == 248 and all(len(g) > 1 for g in groups)
-    assert data.dropped_rows() == data.quarantined(data.QUARANTINE_V7)
+    assert data.dropped_rows() == data.quarantined(data.QUARANTINE_V8)
 
 
 @pytest.mark.parametrize(
@@ -856,3 +856,16 @@ def test_quarantine_v7_is_v6_and_the_three_new_neighbourhoods():
     assert all(r["evidence"] and r["reason"] for r in added)
     assert {r["action"] for r in added} <= {r["action"] for r in rows[: len(v6)]}
     assert "quarantine-v7" in data.DROPPING_RULES
+
+
+def test_quarantine_v8_is_v7_and_the_model_outliers_of_the_three():
+    """v8 keeps v7's file as its first lines and adds 51, each with its quote
+    and reason."""
+    v7 = data.quarantined(data.QUARANTINE_V7)
+    v8 = data.quarantined(data.QUARANTINE_V8)
+    assert v7 < v8 and len(v8 - v7) == 51
+    assert data.QUARANTINE_V8.read_text().startswith(data.QUARANTINE_V7.read_text())
+    with open(data.QUARANTINE_V8) as f:
+        rows = [json.loads(line) for line in f if line.strip()]
+    assert all(r["evidence"] and r["reason"] for r in rows[len(v7) :])
+    assert "quarantine-v8" in data.DROPPING_RULES
