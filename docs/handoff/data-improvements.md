@@ -1,6 +1,38 @@
 # Data improvements — handoff
 
-Updated 2026-10-08 18:00 ET. Thread owner: the Data improvements project thread (bridge session on thelio).
+Updated 2026-10-08 19:15 ET. Thread owner: the Data improvements project thread (bridge session on thelio).
+
+## 2026-10-08 19:15 ET
+
+- **Open share v2, #572 (8d5de8b).** Sets `nb6-nostuy-open-v2` and `nb6-nostuy-stabopen-v2`
+  (the v1 sets are not to be fitted).
+  - Lots are joined into a union when a lot's MapPLUTO point lies in another lot's footprint on
+    the block, built by the listing year, using the new `blocklots` source
+    (blocklots/20261008-d93eec2: 5,814 lots on 219 blocks).
+  - The covered area counts the union's footprints; the denominator is the union's lot area.
+  - Up to 1.10× (OPEN_SHARE_OVERHANG) reads as 0 open; above that the share is missing and
+    `open_lot_share_unknown` is flagged.
+  - Real data: unknown 96, zeros 286, Stuy 0.74, median 0.24.
+- **Single-owner complex, #575 (851e71b).** Sets `nb6-nostuy-owner-v1` and
+  `nb6-nostuy-explain-v1` (stabopen-v2 plus the owner flag).
+  - A building is flagged when one normalised DOF owner name holds at least 3 buildings and 300
+    units on its block. Placeholders and billing lots (lot ≥ 7501) are excluded.
+  - 73 listing buildings: Stuy 38, PCV 19, London Terrace 10, Penn South 2, Maestro 2,
+    NYU 110 Bleecker 1, NYCHA 1.
+  - Today's owner is applied to every year; the ledger notes this limit.
+- **Dated owner: checked, not built.** I pulled `mnreleases` (#580, 4eb5659):
+  - every Manhattan lot in all 44 archived MapPLUTO releases, at
+    mnreleases/20261008-049237a, 1.89M rows;
+  - owner names, units, buildings and State Plane coordinates (latitude/longitude only from
+    20v1);
+  - 22v2 has no publication date and is never read.
+
+  Per release, the owner rule flips only on record noise: NYCHA name variants, a 375→36 unit
+  drop, a split Penn South name, a one-release blip at 95–97 Horatio. Maestro is flagged from
+  15v1, the year after it was built. So today's owner leaks nothing real (comment on #575).
+  Modeling was sent the path for its new-supply vs bedroom-curve check.
+- **On resume** (model runs paused, Ben 16:07Z): Modeling compares `nb6-nostuy-explain-v1` and
+  `nb6-nostuy-stabopen-v2` against the reference `nb6-nostuy-v1`.
 
 ## 2026-10-08 18:00 ET
 
@@ -515,6 +547,10 @@ Updated 2026-10-08 18:00 ET. Thread owner: the Data improvements project thread 
 
 ## Next
 - Act on the stab, permit and plutoasof fits as they land (see 21:45 above), and on v10 and v5.
+- Next quarantine version, when the EV and NoMad crawls land: hold the Harlem row
+  (audit_id 50f8ccd4…), and fix the far-name check generically (bare "Stuyvesant" must not match
+  Bedford-Stuyvesant; the same for any name that is a substring of a local name). Tell Modeling
+  before merging.
 - Permit follow-ups: read every label in a list ("APTS 2A & 3A" reads 2A only), and drop
   generic hits such as "HVAC UNITS" (harmless now).
 - More open data: unused MapPLUTO fields and dated DOB certificates of occupancy (new-building
