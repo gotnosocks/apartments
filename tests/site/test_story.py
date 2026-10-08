@@ -492,6 +492,13 @@ def test_cleaning_chapter_reads_the_steps(site_root, research_file, tmp_path):
     assert "8.0% of the time; after the rules,\n0.7%." in html
     assert "an earlier served fit" in html  # the test site serves another run
     assert "Even after the cleaning, 7.0% of a unit" in html
+    # the ad-text concession term, read from the served coefficients
+    text = re.sub(r"\s+", " ", html)
+    assert (
+        "concession asks 1.1% less, all else equal (95% interval 0.9% to 1.4% less)"
+        in text
+    )
+    assert "splits the two eras is designed but has not been fitted" in text
     path.write_text("not json")
     html = _page(app.test_client())
     assert 'id="cleaning"' not in html

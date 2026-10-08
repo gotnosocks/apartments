@@ -512,6 +512,19 @@ the apartment somewhere else, offer a shop or a room, or contradict their own as
 counts were corrected, but only where the ad's count is backed by at least half of the unit's other listings,
 when it has any.
 An ad's description never overrides its coded fields by itself.</p>
+{% if concession %}
+<p>Some asks are not quite the rent. A landlord offering a month free may advertise the net-effective figure, the
+rent averaged over the free month, which is below what the lease says. Since 2020 the listing site has coded
+concessions in fields of its own, and those listings are left out. Before 2020 the ad’s wording is the only
+record, so those rows stay in and the model reads the wording as a term: an ad that mentions free months or a
+concession asks {{ "{:.1f}".format(-concession.pct) }}% less, all else equal (95% interval
+{{ "{:.1f}".format(-concession.pct_upper) }}% to {{ "{:.1f}".format(-concession.pct_lower) }}% less). A month free on a
+year’s lease would take about 8% off, so these asks look like the full rent with a sweetener mentioned, and the
+rows were kept rather than dropped.{% if concession_2020 %} After 2020 a flagged ad is one the coded fields missed,
+and the model prices those {{ "{:+.1f}".format(concession_2020.pct) }}% apart from the earlier ones.{% else %}
+After 2020 a flagged ad is one the coded fields missed, which may mean something different; a term that splits
+the two eras is designed but has not been fitted.{% endif %}</p>
+{% endif %}
 
 <p>Rules are tested like model terms: the model is fitted with and without the rule and scored on the rows
 both fits keep, the same trial as the ideas in <a href="#theories">Theories on trial</a>.
