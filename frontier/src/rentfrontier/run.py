@@ -288,10 +288,10 @@ def feature_sources(feature_set: str) -> dict:
         path = features.LODES_FILE
         out["lodes"] = {"path": path, "sha256": data.sha256(Path(path))}
     if feature_set in features.PARKS:
-        path = features.PARKS_FILE
+        path = features.PARKS_SNAPSHOTS.get(feature_set, features.PARKS_FILE)
         out["parks"] = {"path": path, "sha256": data.sha256(Path(path))}
     if feature_set in features.PLACES:
-        path = features.PLACES_FILE
+        path = features.PLACES_SNAPSHOTS.get(feature_set, features.PLACES_FILE)
         out["places"] = {"path": path, "sha256": data.sha256(Path(path))}
     if feature_set in features.STOREFRONTS:
         path = features.STOREFRONTS_FILE
@@ -308,6 +308,9 @@ def feature_sources(feature_set: str) -> dict:
     if feature_set in features.HPD:
         path = features.HPD_FILE
         out["hpd"] = {"path": path, "sha256": data.sha256(Path(path))}
+    if feature_set in features.ALTERATION_DATED_SETS:
+        path = features.ALTERATIONS_FILE
+        out["alterations"] = {"path": path, "sha256": data.sha256(Path(path))}
     return out
 
 

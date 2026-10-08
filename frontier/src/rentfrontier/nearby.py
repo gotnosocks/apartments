@@ -1,6 +1,6 @@
 """What is nearby: per registry building, the walk (grid metres, along the
 avenues and streets) to the nearest place of each kind in the places snapshot
-(`features.PLACES_FILE`, `external.fetch_places`), and the terms
+(`features.places_file()`, `external.fetch_places`), and the terms
 `features.nearby_v1` (nb3-nearby-v1) adds to the rent model.
 
 Kinds (`KINDS`): a dog run or off-leash area (Ben's benchmark: about 400 m
@@ -51,7 +51,7 @@ def not_open(month) -> frozenset:
 def building_places(exclude=frozenset()) -> pd.DataFrame:
     """Per registry building: grid metres to the nearest place of each kind
     (columns named by kind), without the places named in `exclude`."""
-    return _building_places(features.lot_registry(), features.PLACES_FILE, exclude)
+    return _building_places(features.lot_registry(), features.places_file(), exclude)
 
 
 @functools.lru_cache(maxsize=4)

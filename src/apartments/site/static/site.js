@@ -237,21 +237,47 @@
 })();
 
 // The story's animated figures play when scrolled into view, with a replay
-// button. Without script they play once on load (static/site.css).
+// button. Without script they play once on load (static/site.css); with it,
+// a figure on screen at load plays at once and one further down stays whole
+// until it nears view.
 (function () {
   var figures = document.querySelectorAll(".story-figure[data-play]");
   if (!figures.length || !("IntersectionObserver" in window)) return;
   if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+  // Play once the figure's top reaches the upper two thirds of the screen. A
+  // share-of-the-figure threshold never fires for a figure taller than the
+  // screen, which then stays blank.
   var seen = new IntersectionObserver(function (entries) {
     entries.forEach(function (entry) {
       if (!entry.isIntersecting) return;
       entry.target.classList.add("play");
       seen.unobserve(entry.target);
     });
-  }, { threshold: 0.35 });
+  }, { rootMargin: "0px 0px -35% 0px", threshold: 0 });
+  // A figure stays whole until it comes within a quarter screen of view, so
+  // print, find-in-page and full-page screenshots never catch it blank.
+  var near = new IntersectionObserver(function (entries) {
+    entries.forEach(function (entry) {
+      if (!entry.isIntersecting) return;
+      entry.target.classList.remove("whole");
+      entry.target.classList.add("armed");
+      near.unobserve(entry.target);
+      seen.observe(entry.target);
+    });
+  }, { rootMargin: "0px 0px 25% 0px", threshold: 0 });
   figures.forEach(function (figure) {
-    figure.classList.add("armed");
-    seen.observe(figure);
+    // Play the ones on screen at load now, and arm those just below it,
+    // before the first paint.
+    var box = figure.getBoundingClientRect();
+    if (box.bottom > 0 && box.top < window.innerHeight) {
+      figure.classList.add("armed", "play");
+    } else if (box.bottom > 0 && box.top < window.innerHeight * 1.25) {
+      figure.classList.add("armed");
+      seen.observe(figure);
+    } else {
+      figure.classList.add("whole");
+      near.observe(figure);
+    }
     var button = document.createElement("button");
     button.type = "button";
     button.className = "replay";
@@ -259,8 +285,8 @@
     button.addEventListener("click", function () {
       figure.classList.add("reset");
       void figure.offsetWidth; // restart the CSS animations
-      figure.classList.remove("reset");
-      figure.classList.add("play");
+      figure.classList.remove("reset", "whole");
+      figure.classList.add("armed", "play");
     });
     figure.appendChild(button);
   });

@@ -23,24 +23,25 @@ import pandas as pd
 DATASET = Path(
     os.environ.get(
         "FRONTIER_DATASET",
-        # Chelsea + West Village + Greenwich Village (#292); before that
-        # chelsea-west-village-analysis-20261005-1222e51 (Oct 5 captures, #220),
-        # chelsea-west-village-analysis-20261001-eea4f66, and Chelsea alone,
+        # The five neighbourhoods (DATASET_NB5, #460); before that Chelsea + West
+        # Village + Greenwich Village, chelsea-wv-gv-analysis-20261005-2d5b3b6
+        # (#292), chelsea-west-village-analysis-20261005-1222e51 (Oct 5 captures,
+        # #220), chelsea-west-village-analysis-20261001-eea4f66, and Chelsea alone,
         # data/model/chelsea-product-scope-analysis-20260921.
-        "/data1/apartments/frontier/datasets/chelsea-wv-gv-analysis-20261005-2d5b3b6",
+        "/data1/apartments/frontier/datasets/chelsea-wv-gv-flatiron-gramercy-analysis-20261008-0a23057",
     )
 )
 # Chelsea + West Village + Greenwich Village with Flatiron + Gramercy Park
 # (flatiron-gramercy-park-analysis-20261007-34b958d), combined by
-# `rentfrontier.cohort combine`: 135,759 rows. Fits read it through
-# FRONTIER_DATASET until a fit on it is served.
+# `rentfrontier.cohort combine`: 135,759 rows. Never served: DATASET_NB5
+# splits Flatiron + Gramercy Park.
 DATASET_NB4 = Path(
     "/data1/apartments/frontier/datasets/chelsea-wv-gv-fgp-analysis-20261008-b193e55"
 )
 # The five neighbourhoods: the same rows, with each Flatiron + Gramercy Park row
 # named Flatiron or Gramercy Park by its building's StreetEasy area
-# (`rentfrontier.cohort areas`, areas/20261008-6027acc), then combined. Fits
-# read it through FRONTIER_DATASET until a fit on it is served.
+# (`rentfrontier.cohort areas`, areas/20261008-6027acc), then combined. The
+# served dataset (DATASET).
 DATASET_NB5 = Path(
     "/data1/apartments/frontier/datasets/chelsea-wv-gv-flatiron-gramercy-analysis-20261008-0a23057"
 )
@@ -647,6 +648,12 @@ BEDROOM_CORRECTIONS_V2 = (
     REPO / "config" / "corrections" / "bedrooms-ad-v2-20261003.jsonl"
 )
 BATH_CORRECTIONS_V2 = REPO / "config" / "corrections" / "baths-ad-v2-20261003.jsonl"
+# The third pass (rentfrontier.corrections --version 3): the second's method on
+# the five neighbourhoods and all four crawls' ads. It keeps every v2 row.
+BEDROOM_CORRECTIONS_V3 = (
+    REPO / "config" / "corrections" / "bedrooms-ad-v3-20261008.jsonl"
+)
+BATH_CORRECTIONS_V3 = REPO / "config" / "corrections" / "baths-ad-v3-20261008.jsonl"
 # Field errors a review found by reading ads (the fourth review, of single-listing
 # apartments with a very large unit effect): bedroom and bath counts.
 FIELD_REVIEW = REPO / "config" / "corrections" / "fields-review-20261003.jsonl"
@@ -665,6 +672,21 @@ def correct_baths_v2(frame: pd.DataFrame) -> pd.DataFrame:
     count, no ad placed elsewhere or whose own bedroom counts leave out the
     record's, and at most one bath beyond the bedrooms (41 rows)."""
     return _correct_baths(frame, "baths-ad-v2")
+
+
+def correct_bedrooms_v3(frame: pd.DataFrame) -> pd.DataFrame:
+    """v2's rule on the five neighbourhoods: units joined by their alias table,
+    Flatiron and Gramercy Park other neighbourhoods to Chelsea and the Villages,
+    and no ad placed in another part of the city or whose count is a
+    comparison (148 rows: v2's 84 but one no longer in the dataset, and 65
+    more)."""
+    return _correct_bedrooms(frame, "bedrooms-ad-v3")
+
+
+def correct_baths_v3(frame: pd.DataFrame) -> pd.DataFrame:
+    """v2's rule on the five neighbourhoods, as bedrooms-ad-v3 (59 rows: v2's
+    41 and 18 more)."""
+    return _correct_baths(frame, "baths-ad-v3")
 
 
 def _correct_baths(frame: pd.DataFrame, rule: str) -> pd.DataFrame:
@@ -745,6 +767,64 @@ def quarantine_v6(frame: pd.DataFrame) -> pd.DataFrame:
     listings "both refer to the unit at the back of the building"), and 5 of its
     ads, labelled "3", "4", "5" or "6", say neither. The other rows are unchanged."""
     return frame[~frame.audit_id.isin(quarantined(QUARANTINE_V6))]
+
+
+QUARANTINE_V7 = REPO / "config" / "reviews" / "quarantine-v7-20261008.jsonl"
+
+
+def quarantine_v7(frame: pd.DataFrame) -> pd.DataFrame:
+    """v6 and the seventh review's rows (327 in all), the first of Greenwich
+    Village, Gramercy Park and Flatiron: of 338 listings whose ads name another
+    borough or area, a room share, a short stay or a commercial space, or whose
+    rent is over 2.2 times or under 0.45 times the building's median for its
+    bedrooms, read in full, 45 are an ad for another address (Bushwick's
+    Bleecker Street, Prospect Park, the Upper West Side), a short stay only, or
+    a shop or office. The other rows are unchanged."""
+    return frame[~frame.audit_id.isin(quarantined(QUARANTINE_V7))]
+
+
+QUARANTINE_V8 = REPO / "config" / "reviews" / "quarantine-v8-20261008.jsonl"
+
+
+def quarantine_v8(frame: pd.DataFrame) -> pd.DataFrame:
+    """v7 and the eighth review's rows (378 in all): of 604 Greenwich Village,
+    Gramercy Park and Flatiron listings the served model found far out of line
+    (rent over 1.8 times or under 0.56 times its estimate, Pareto k over 0.7,
+    or an extreme PIT) and v7 had not read, read in full, 51 are an ad for
+    another address (Harlem, the Upper West Side, Prospect Park, Park Slope), a
+    shop, office or restaurant, a room with a shared bath, or one ask for two
+    apartments. The other rows are unchanged."""
+    return frame[~frame.audit_id.isin(quarantined(QUARANTINE_V8))]
+
+
+QUARANTINE_V9 = REPO / "config" / "reviews" / "quarantine-v9-20261008.jsonl"
+
+
+def quarantine_v9(frame: pd.DataFrame) -> pd.DataFrame:
+    """v6 and the rent-blind review's rows (377 in all). v7 and v8 read only
+    ads picked by their rent or residual, which favours rows the model fits
+    badly. v9 replaces both: generic text checks (a far neighbourhood from
+    NYC's area list or a street above 40th, a shop or office, a shared bath or
+    room share, one ask for several apartments, a short stay) run over every
+    Greenwich Village, Gramercy Park and Flatiron ad whatever its rent, and
+    each hit read with no rent shown: 95 are left out. The other rows are
+    unchanged."""
+    return frame[~frame.audit_id.isin(quarantined(QUARANTINE_V9))]
+
+
+QUARANTINE_V10 = REPO / "config" / "reviews" / "quarantine-v10-20261008.jsonl"
+
+
+def quarantine_v10(frame: pd.DataFrame) -> pd.DataFrame:
+    """Only rows a review that never looks at rent finds (219 in all). v1 to
+    v6 read Chelsea and West Village ads picked partly by their rent (a
+    divergence review, a large unit effect, residuals over 0.3), which favours
+    rows the model fits badly. v10 runs v9's text checks over every Chelsea
+    and West Village ad as well, each hit read with no rent shown: 124 are left
+    out there, 91 of them already in v6. With v9's 95 Greenwich Village,
+    Gramercy Park and Flatiron rows that is 219; the 191 v6 rows no rent-blind
+    check reaches come back. The other rows are unchanged."""
+    return frame[~frame.audit_id.isin(quarantined(QUARANTINE_V10))]
 
 
 # Units of one building a review found to be one apartment under different
@@ -831,12 +911,18 @@ DATA_RULES = {
     "baths-ad-v1": correct_baths_v1,
     "bedrooms-ad-v2": correct_bedrooms_v2,
     "baths-ad-v2": correct_baths_v2,
+    "bedrooms-ad-v3": correct_bedrooms_v3,
+    "baths-ad-v3": correct_baths_v3,
     "fields-review-v1": correct_fields_review_v1,
     "fields-review-v3": correct_fields_review_v3,
     "quarantine-v3": quarantine_v3,
     "quarantine-v4": quarantine_v4,
     "quarantine-v5": quarantine_v5,
     "quarantine-v6": quarantine_v6,
+    "quarantine-v7": quarantine_v7,
+    "quarantine-v8": quarantine_v8,
+    "quarantine-v9": quarantine_v9,
+    "quarantine-v10": quarantine_v10,
     "unit-reviews-v1": join_reviewed_units,
 }
 # unit-labels-v11 with labels spelled out joined to their short spelling.
@@ -851,6 +937,10 @@ RULE_SOURCES = {
     "quarantine-v4": QUARANTINE_V4,
     "quarantine-v5": QUARANTINE_V5,
     "quarantine-v6": QUARANTINE_V6,
+    "quarantine-v7": QUARANTINE_V7,
+    "quarantine-v8": QUARANTINE_V8,
+    "quarantine-v9": QUARANTINE_V9,
+    "quarantine-v10": QUARANTINE_V10,
     "unit-reviews-v1": UNIT_JOINS,
     "unit-labels-v2": UNIT_ALIASES,
     "unit-labels-v3": UNIT_ALIASES,
@@ -864,6 +954,8 @@ RULE_SOURCES = {
     "baths-ad-v1": BATH_CORRECTIONS,
     "bedrooms-ad-v2": BEDROOM_CORRECTIONS_V2,
     "baths-ad-v2": BATH_CORRECTIONS_V2,
+    "bedrooms-ad-v3": BEDROOM_CORRECTIONS_V3,
+    "baths-ad-v3": BATH_CORRECTIONS_V3,
     "fields-review-v1": FIELD_REVIEW,
 }
 # Of those, the rules that drop the rows their file lists.
@@ -874,6 +966,10 @@ DROPPING_RULES = (
     "quarantine-v4",
     "quarantine-v5",
     "quarantine-v6",
+    "quarantine-v7",
+    "quarantine-v8",
+    "quarantine-v9",
+    "quarantine-v10",
 )
 
 

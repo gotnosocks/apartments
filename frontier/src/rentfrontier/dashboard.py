@@ -382,10 +382,11 @@ def versus_served(entries) -> dict:
     return {"run": run, "fits": out}
 
 
-# The board's baseline before the Greenwich Village re-baseline, on the Oct 5
-# Chelsea + West Village data (before that, #221: e61a794 on the Oct 1 data).
-PRIOR_BASELINE = "m0-base-base-v1-rows-a40e887-x-2060-300w1500d-nb-d1005"
-PRIOR_DATASET = "chelsea-west-village-analysis-20261005-1222e51"
+# The board's baseline before the five-neighbourhood re-baseline, on the Chelsea
+# + West Village + Greenwich Village data (before that, #310: a40e887 on the Oct 5
+# Chelsea + West Village data; #221: e61a794 on the Oct 1 data).
+PRIOR_BASELINE = "m0-base-base-v1-rows-32c09ef-x-2060-300w1500d-nb-gv1005"
+PRIOR_DATASET = "chelsea-wv-gv-analysis-20261005-2d5b3b6"
 
 
 def prior_scores(entries, loos=None, paired=None) -> dict:
@@ -623,6 +624,12 @@ DATA_RULE_TEXT = {
     "listings record the ad's count, ads placed elsewhere or whose bedroom count "
     "disagrees with the record are left alone, and no more than one bath beyond the "
     "bedrooms. No listing is dropped.",
+    "bedrooms-ad-v3": "bedrooms-ad-v2 on all five neighbourhoods: Flatiron and "
+    "Gramercy Park count as other neighbourhoods to Chelsea and the Villages, and ads "
+    "placed in another part of the city or whose count is a comparison are left "
+    "alone. No listing is dropped.",
+    "baths-ad-v3": "baths-ad-v2 on all five neighbourhoods, with the same checks as "
+    "bedrooms-ad-v3. No listing is dropped.",
     "fields-review-v1": "Bedroom and bath counts a review corrected by reading the "
     'listing\'s own ad ("huge alcove studio" recorded as a one-bedroom, "3br 2 bath" '
     "recorded with one bath). No listing is dropped.",
@@ -645,6 +652,24 @@ DATA_RULE_TEXT = {
     "quarantine-v6": "quarantine-v5, and 110 West 26th Street's ads whose apartment "
     "number gives no floor side: the building has a front and a rear apartment on each "
     "floor, and five ads (3, 4, 5, 6) say neither.",
+    "quarantine-v7": "quarantine-v6 and a first review of Greenwich Village, Gramercy "
+    "Park and Flatiron: 45 more are left out, ads for another address (Bushwick's "
+    "Bleecker Street, Prospect Park, the Upper West Side), short stays only, and shops "
+    "and offices.",
+    "quarantine-v8": "quarantine-v7 and an eighth review: the ads of Greenwich Village, "
+    "Gramercy Park and Flatiron listings whose rent the model found far out of line. "
+    "51 more are left out: ads for another address (Harlem, the Upper West Side, "
+    "Prospect Park), shops and offices, rooms with a shared bath, and one ask for two "
+    "apartments.",
+    "quarantine-v9": "quarantine-v6 and a review that never looks at rent, in place of "
+    "v7 and v8: fixed text checks run over every Greenwich Village, Gramercy Park and "
+    "Flatiron ad, and each hit is read with no rent shown. 95 are left out: ads for "
+    "another address, shops and offices, rooms with a shared bath, and short stays.",
+    "quarantine-v10": "Only what a review that never looks at rent finds, in place of "
+    "quarantine-v1 to v9: v9's text checks run over every ad of all five "
+    "neighbourhoods, each hit read with no rent shown. 219 are left out: ads for another "
+    "address, shops and offices, rooms with a shared bath, two apartments for one ask, "
+    "and short stays. v6's other 191 rows come back.",
     "unit-reviews-v1": "Apartments a review found to be one apartment under two labels: "
     "at 110 West 26th Street, 4R and 4B, and 5R and 5B, are each floor's rear "
     "apartment (R for rear, B for back). No listing is dropped.",

@@ -2,6 +2,74 @@
 
 What the next turn of the website thread needs. Updated at each milestone.
 
+## State (2026-10-08 08:40 UTC)
+
+- **#495, #499 (live):** plain words for the layers and the first design era; the theories
+  chart's labels wrap onto two lines (`story.label_lines`).
+- **#500 (live):** story figures stay whole until they near view (`.whole`), a figure on screen at
+  load plays at once, print shows every figure whole.
+- **Waiting on Modeling:** single-item effects (`rentfrontier.effects` result.json paths) to add
+  to "Inside two grouped tests", labelled as test fits unless served. Low priority, over days.
+- **Next:** remaining jargon in the ledger and milestone tables, then a fresh story playtest.
+
+## State (2026-10-08 07:50 UTC)
+
+- **#487 (live):** the two repricing ideas now read "how the unit's previous listing was
+  repriced" and "the same repricing idea, retested once Greenwich Village joined" (Ben asked what
+  "the richer coded-features model" meant; both bases had the coded features).
+- **#491 (live):** "Inside two grouped tests" on /research/story breaks out nb3-attrs-v1 (15 ad
+  attributes) and nb3-nearby-v1 (6 walk-to places): share of listings, median walk, and a raw
+  within-bedroom ask difference labelled as raw. Data: docs/model/group-items.json from
+  `python -m rentfrontier.groupitems RUN --out ...` (run under `ops/job light -m 6G` with
+  PYTHONPATH=frontier/src and the serve-frontier venv; tests run in the data-line venv). The
+  section hides when the file names another run (regenerate it after each switch) or once the
+  served model has any item's term (`text:<flag>`, `log m to <place>`): then show the served
+  per-item effects instead. The served nb5 model has no such terms. Ben dropped the grouped
+  per-item fits and put 21 single-feature fits on the backlog instead (#490). Modeling will
+  send effects result.json paths (`rentfrontier.effects`, #488) as they land; show them labelled as test fits unless served.
+  Never show the nb3 GV exploration numbers as served.
+
+## State (2026-10-08 05:50 UTC)
+
+- **Five neighbourhoods are served** (#468, nb5 run; build 20261008T044224922212Z-d3ede825,
+  135,521 listings). Checked live: all five names on /, /estimate, /research, /research/story and
+  /best; listings Chelsea 52,408, West Village 34,129, Greenwich Village 18,469, Gramercy Park
+  18,333, Flatiron 12,182; no Park Slope. The story reads the nb5 variance (features 73%,
+  building 9%) and the regenerated cleaning.json. #470: the summary fallback names any of the
+  four non-reference areas from the inputs (`summary.NEIGHBOURHOOD_INPUTS`).
+- **#477 (live):** the cleaning chapter names one joined unit (most spellings) and one clean
+  split (bedrooms and ask both rising piece to piece; `<unit_id>~N` pieces), from
+  `story.unit_examples`, cached per build in `web.story_checks()`. The story-reader playtest
+  list is done.
+- **Next:** an animated playback of the theories figure, then a fresh story playtest round.
+
+## State (2026-10-08 04:20 UTC)
+
+- **Story playtest follow-ups live:** #463 starts each figure's playback when it is well on screen
+  (the "empty figures" were screenshots taken mid-animation; truncated labels already carry
+  `<title>` tooltips). #465 adds a rent-jump example to "Are the remaining rent jumps real?":
+  jumps by years between listings (`story.rent_jumps`, consecutive asks of a unit on one price
+  basis, > 40% either way) and the middle-sized jump as a linked unit. `web.story_checks()` caches
+  `accuracy` and `rent_jumps` per build (the page dropped from ~0.9 s to ~0.2 s).
+- **Still waiting:** the five-neighbourhood fit is not served yet (build.json run is still the
+  nb3 rows run). When it is, check the names, map, filters and story counts.
+- **Next story item:** a real joined or split unit in the cleaning chapter (needs examples
+  from `rentfrontier.cleaning`, which is Modeling's to regenerate).
+
+## State (2026-10-08 03:30 UTC)
+
+- **Five neighbourhoods (Ben, 2026-10-08 02:53Z):** Flatiron and Gramercy Park are to be two
+  separate areas, five in total. Data is rebuilding the FGP dataset so `neighbourhood` itself is
+  "Flatiron" or "Gramercy Park" per building (from the StreetEasy pageTitle in the crawl's
+  `building_observations.raw_building_json`: 480 Gramercy Park, 327 Flatiron, 1 Park Slope). The
+  site, rent map and summaries read names from that column, so no site change is needed. Check
+  the live pages when that fit is served.
+- **Story-reader playtest** (persona `story-reader`, round 2026-10-08-story) drove #459 (held-out
+  row reconciliation, location-retest count, plain spread / standard error, glossary links;
+  `summary.py` no longer guesses Chelsea) and #461 ("How close does it get?": median miss and
+  likely-range coverage on the held-out asks, `story.accuracy`). Both live.
+- **Next from that report:** see the 04:20 state above.
+
 ## State (2026-10-08 03:00 UTC)
 
 - **The story's planned chapters are all live:** #450 "Cleaning the record" (reads

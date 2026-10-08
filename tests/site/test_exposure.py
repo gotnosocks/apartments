@@ -54,9 +54,10 @@ def test_labels_show_on_the_listing_its_table_and_filter(
     assert "Likely faces the rear or a courtyard: 4 other apartments" in html
     assert "The ad says the bedroom faces the rear or garden" in html
     rear = client.get("/listings?faces=rear&per=200").get_data(as_text=True)
-    assert row["audit_id"] in rear and "likely rear-facing" in rear
+    link = f'/listings/{row["audit_id"]}"'
+    assert link in rear and "likely rear-facing" in rear
     street = client.get("/listings?faces=street&per=200").get_data(as_text=True)
-    assert row["audit_id"] not in street
+    assert link not in street
     db = sqlite3.connect(root / "current" / "site.sqlite")
     assert db.execute("SELECT COUNT(*) FROM exposure").fetchone()[0] == 1
 
