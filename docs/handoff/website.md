@@ -2,6 +2,15 @@
 
 What the next turn of the website thread needs. Updated at each milestone.
 
+## State (2026-10-08 22:30 UTC)
+
+- Coordinator relay 20:56Z (model runs paused, continue the story) is done:
+  - #561 adds held-out coverage by group in "How close does it get?". New apartments hold 63% in the 80% range and 88% in the 95% range; seen apartments hold 80%. The advice paragraph splits the two and names the backlog's two planned checks.
+  - #563 adds a concessions paragraph to the cleaning chapter. It reads `text:concession`, and `text:concession, 2020 on` once a served fit has it.
+  - #564 adds the open question "Does a neighbourhood's name matter, or only where it is?". `story.borders()` bins building total premiums by signed distance to the border. The `*-locnolabel-v1` ledger verdict shows automatically once it lands.
+- Noise-scale numbers (+276 and so on) are left out on purpose: they come from a post-hoc rescale, not a fit.
+- Playtest round story-1008b (story-reader, reviewer) is running. Reports go to /data1/apartments/tmp/playtests/story-1008b/*/report.md. Fix real bugs; log off-story ideas in docs/playtests/backlog.md.
+
 ## State (2026-10-08 18:50 UTC)
 
 - #549 (Ben 18:39Z): every site estimate is the predictive median, never the mean. The build sets estimate = estimate_median, recomputes residuals against it and scales the *_usd parts by median/mean. The kit's score() reports the median and keeps "mean". The kit clip and #540's clip stay until Modeling says otherwise. Republished as build 20261008T184653876509Z-d23a0492 (`apartments.site build` from /data1/apartments/serve/site). A code-only deploy does not rebuild site.sqlite.
