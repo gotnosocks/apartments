@@ -27,6 +27,7 @@ CRAWLS = {
     "West Village": "/data1/apartments/archive/datasets/west-village-granular-20260930-canonical-url-v1",
     "Greenwich Village": "/data1/apartments/archive/datasets/greenwich-village-granular-20261005-canonical-url-v1",
     "Flatiron + Gramercy Park": "/data1/apartments/archive/datasets/flatiron-gramercy-park-granular-20261007-canonical-url-v1",
+    "Stuyvesant Town/PCV": "/data1/apartments/archive/datasets/stuyvesant-town-pcv-granular-20261008-canonical-url-v1",
 }
 
 
