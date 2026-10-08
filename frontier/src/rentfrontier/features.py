@@ -1338,7 +1338,7 @@ HPD_SNAPSHOT = "/data1/apartments/external/hpd/20260930-cb289ad"
 HPD_FILE = f"{HPD_SNAPSHOT}/hpd.parquet"
 
 # DOB permitted jobs of the registry's buildings (`rentfrontier.external dob`).
-DOB_SNAPSHOT = "/data1/apartments/external/dob/20261008-e357576"
+DOB_SNAPSHOT = "/data1/apartments/external/dob/20261008-ab3d278"
 DOB_FILE = f"{DOB_SNAPSHOT}/dob.parquet"
 ERAS = (
     (0, 1900, "pre-1900"),
