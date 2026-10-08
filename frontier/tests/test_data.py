@@ -282,7 +282,7 @@ def test_the_alias_file_is_hashed_but_drops_no_rows():
     assert len(groups) == 248 and all(len(g) > 1 for g in groups)
     assert data.dropped_rows() == data.quarantined(
         data.QUARANTINE_V8
-    ) | data.quarantined(data.QUARANTINE_V9)
+    ) | data.quarantined(data.QUARANTINE_V9) | data.quarantined(data.QUARANTINE_V10)
 
 
 @pytest.mark.parametrize(
@@ -885,3 +885,18 @@ def test_quarantine_v9_is_v6_and_rent_blind_text_checks():
     assert all(r["evidence"] and r["reason"] for r in rows[len(v6) :])
     assert not data.quarantined(data.QUARANTINE_V8) <= v9
     assert "quarantine-v9" in data.DROPPING_RULES
+
+
+def test_quarantine_v10_is_rent_blind_only():
+    """v10 is v9's 95 rows of the three and 124 Chelsea and West Village rows
+    from the same checks, each with its quote and reason; it keeps none of
+    v6's rows the checks don't reach."""
+    v6 = data.quarantined(data.QUARANTINE_V6)
+    v9 = data.quarantined(data.QUARANTINE_V9)
+    v10 = data.quarantined(data.QUARANTINE_V10)
+    assert len(v10) == 219 and v9 - v6 <= v10
+    assert len(v10 & v6) == 91 and len(v10 - v9) == 124 - 91
+    with open(data.QUARANTINE_V10) as f:
+        rows = [json.loads(line) for line in f if line.strip()]
+    assert len(rows) == 219 and all(r["evidence"] and r["reason"] for r in rows)
+    assert "quarantine-v10" in data.DROPPING_RULES
