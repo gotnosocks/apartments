@@ -1677,10 +1677,8 @@ def area_snapshot() -> tuple[str, str]:
 HPD_SNAPSHOT = "/data1/apartments/external/hpd/20260930-cb289ad"
 HPD_FILE = f"{HPD_SNAPSHOT}/hpd.parquet"
 
-# Rent-stabilized units per lot and tax-bill year (`rentfrontier.external rentstab`);
-# fetched from data/stab-v1 (6b42fe8), whose fetch code this file's
-# `external.fetch_rentstab` repeats.
-RENTSTAB_SNAPSHOT = "/data1/apartments/external/rentstab/20261008-6b42fe8"
+# Rent-stabilized units per lot and tax-bill year (`rentfrontier.external rentstab`).
+RENTSTAB_SNAPSHOT = "/data1/apartments/external/rentstab/20261008-b487c8a"
 RENTSTAB_FILE = f"{RENTSTAB_SNAPSHOT}/rentstab.parquet"
 
 # MapPLUTO's yearly releases (2009 on) of the five neighbourhoods' registry lots
