@@ -585,6 +585,60 @@ def test_building_violations_count_the_trailing_year_only(tmp_path, monkeypatch)
     assert features.building_violations(frame).tolist() == [2.0, 0.0, 1.0, 0.0]
 
 
+def test_apartment_permits_name_the_unit_in_the_years_before(tmp_path, monkeypatch):
+    registry = pd.DataFrame(
+        {"building": ["a", "b"], "bbl": ["1", "2"], "bin": ["11", "22"]}
+    )
+    jobs = pd.DataFrame(
+        {
+            "bin": ["11", "11", "11", "22"],
+            "job": ["j1", "j2", "j3", "j4"],
+            "kind": ["A2", "A2", "NB", "A2"],
+            "permitted": pd.to_datetime(
+                ["2015-03-01", "2020-06-15", "2019-01-01", "2018-01-01"]
+            ),
+            "description": [
+                "RENOVATION OF APT. #4D ON 4TH FLOOR",
+                "PLUMBING IN APARTMENT 2A AND HALLWAY",
+                "NEW BUILDING, UNIT 5B",
+                "COMBINE APT 3 & 4",
+            ],
+        }
+    )
+    registry.to_parquet(tmp_path / "r.parquet")
+    jobs.to_parquet(tmp_path / "d.parquet")
+    monkeypatch.setattr(features, "REGISTRY_FILE", str(tmp_path / "r.parquet"))
+    monkeypatch.setattr(features, "DOB_FILE", str(tmp_path / "d.parquet"))
+    frame = pd.DataFrame(
+        {
+            "building": ["a", "a", "a", "a", "a", "b", "b", "c"],
+            "canonical_unit_url": [
+                "x/a/4d",  # 2015 permit, 2 years before
+                "x/a/4d",  # 2015 permit, over 3 years before
+                "x/a/2-a",  # dash dropped; permitted in the listing's month
+                "x/a/2a",  # the month after the permit
+                "x/a/5b",  # a new-building job is not an alteration
+                "x/b/3",  # the first label of a list
+                "x/b/4",  # later labels of a list are not read
+                "x/c/4d",  # not in the registry
+            ],
+            "period": pd.to_datetime(
+                [
+                    "2017-01-01",
+                    "2018-04-01",
+                    "2020-06-01",
+                    "2020-07-01",
+                    "2020-01-01",
+                    "2019-01-01",
+                    "2019-01-01",
+                    "2017-01-01",
+                ]
+            ),
+        }
+    )
+    assert features.apartment_permits(frame).tolist() == [1, 0, 0, 1, 0, 1, 0, 0]
+
+
 def test_facing_v4_marks_loud_streets_on_low_floors(monkeypatch):
     frame = pd.DataFrame({"unit_id": ["a", "b", "c", "d"]})
     looks = pd.DataFrame(
