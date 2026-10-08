@@ -952,6 +952,43 @@ def fetch_lodes() -> tuple[pd.DataFrame, dict]:
     return table, details
 
 
+# Rent-stabilized units per tax lot, from the DOF property tax bills (Statements of Account),
+# as compiled by taxbills.nyc (2007-2017) and JustFix's nyc-doffer scrape (2018-2024).
+RENTSTAB_OLD = "https://taxbillsnyc.s3.amazonaws.com/joined.csv"
+RENTSTAB_NEW = (
+    "https://s3.amazonaws.com/justfix-data/rentstab_counts_from_doffer_2024.csv"
+)
+
+
+def fetch_rentstab() -> tuple[pd.DataFrame, dict]:
+    """Stabilized units per Manhattan lot and bill year (one row per lot and
+    year with a count). A lot with no row had no stabilized units on its bills."""
+    old = pd.read_csv(RENTSTAB_OLD, dtype={"ucbbl": str}, low_memory=False)
+    new = pd.read_csv(RENTSTAB_NEW, dtype={"ucbbl": str}, low_memory=False)
+    parts = []
+    for frame, pattern in ((old, "{y}uc"), (new, "uc{y}")):
+        for year in range(2007, 2025):
+            column = pattern.format(y=year)
+            if column not in frame:
+                continue
+            units = pd.to_numeric(frame[column], errors="coerce")
+            part = pd.DataFrame({"bbl": frame.ucbbl, "year": year, "units": units})
+            parts.append(part[part.units.notna()])
+    table = pd.concat(parts, ignore_index=True)
+    table = table[table.bbl.str.startswith("1")]
+    table = table.drop_duplicates(["bbl", "year"], keep="last")
+    table = table.astype({"units": int}).sort_values(["bbl", "year"])
+    table = table.reset_index(drop=True)
+    details = {
+        "source": [RENTSTAB_OLD, RENTSTAB_NEW],
+        "dataset": "Rent-stabilized units on DOF tax bills (taxbills.nyc 2007-2017, "
+        "JustFix nyc-doffer 2018-2024), Manhattan lots",
+        "years": [int(table.year.min()), int(table.year.max())],
+        "lots": int(table.bbl.nunique()),
+    }
+    return table, details
+
+
 def merge(source: str, snapshots: list) -> tuple[pd.DataFrame, dict]:
     """One snapshot from several of the same source (neighbourhoods' boxes):
     concatenated, a record kept once (MERGE_KEYS; whole rows for the basemap).
@@ -1017,6 +1054,7 @@ def main(argv=None):
             "places",
             "storefronts",
             "lodes",
+            "rentstab",
             "parks",
         ),
     )
@@ -1051,8 +1089,8 @@ def main(argv=None):
         (out_dir / "provenance.json").write_text(json.dumps(provenance, indent=2))
         print(f"wrote {path}: feed {details['version'].get('feed_version')}")
         return
-    if args.source == "lodes":
-        table, details = fetch_lodes()
+    if args.source in ("lodes", "rentstab"):
+        table, details = fetch_lodes() if args.source == "lodes" else fetch_rentstab()
         out_dir.mkdir(parents=True, exist_ok=False)
         table.to_parquet(path)
         provenance = {
@@ -1062,7 +1100,7 @@ def main(argv=None):
             "sha256": hashlib.sha256(path.read_bytes()).hexdigest(),
         }
         (out_dir / "provenance.json").write_text(json.dumps(provenance, indent=2))
-        print(f"wrote {path}: {len(table)} blocks")
+        print(f"wrote {path}: {len(table)} rows")
         return
     if args.source == "pluto":
         registry = pd.read_parquet(registry_path)
