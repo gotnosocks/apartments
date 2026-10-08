@@ -26,7 +26,7 @@ Updated 2026-10-07 21:15 ET. Thread owner: the Data collection project thread (b
   (Chelsea+West Chelsea 181 ACTIVE, West Village 109 ACTIVE + 1 RENTED) and
   `20261006-greenwich-village/` (Ben, Oct 6: 51 ACTIVE of 55 in-scope ads, 4
   canonical_unit_mismatch; GV without NoHo; 63 requests). The GV route and per-run seed subsets
-  came in #375; the capture paused FGP (pause-and-swap, combined rate 8/min) and resumed it.
+  came in #375; the capture paused FGP while it was running (pause-and-swap, combined rate 8/min) and resumed it.
   Controls: `data/probes/current-listings-gv-20261006/` (local; `swap.sh` is the template for
   later refreshes). Rows: `details/snapshot/candidates.jsonl`, `listing_status == "ACTIVE"`.
 
@@ -38,6 +38,6 @@ Updated 2026-10-07 21:15 ET. Thread owner: the Data collection project thread (b
 ## Rules that bind this thread
 - Oxylabs requests and new timers need Ben's words typed in this thread (the classifier blocks
   relayed approvals).
-- Never raise rate/concurrency beyond Ben's setting (32/min for FGP, Oct 7); never loosen eligibility; crawl code
+- Never raise rate/concurrency beyond Ben's setting (FGP's last setting: 32/min, Oct 7; it applies to any relaunch); never loosen eligibility; crawl code
   only through a new frozen runtime directory.
 - PRs: reviewer subagent, annotated `archive/pr-N` tag, `gh pr merge N --squash --match-head-commit`.
