@@ -796,6 +796,10 @@ def test_dataset_nb4_is_the_current_dataset_plus_flatiron_gramercy_park():
         pytest.skip("combined dataset not on this machine")
     record = json.loads(complete.read_text())
     paths = {p["path"] for p in record["parts"].values()}
-    assert str(data.DATASET) in paths
+    # The path itself, not data.DATASET: fits set FRONTIER_DATASET to this set.
+    current = (
+        "/data1/apartments/frontier/datasets/chelsea-wv-gv-analysis-20261005-2d5b3b6"
+    )
+    assert current in paths
     assert record["neighbourhoods"]["Flatiron + Gramercy Park"] == 30515
     assert sum(record["neighbourhoods"].values()) == sum(record["rows"].values())
