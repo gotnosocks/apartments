@@ -562,6 +562,63 @@ The <a href="{{ url_for('research_data_quality') }}">data quality</a> page lists
 <h2>Open questions</h2>
 <p>The model is far from finished. These are the questions the research is working on next.</p>
 
+{% if borders %}{% set fades = borders | selectattr("fades") | list %}
+{% set holds = borders | rejectattr("fades") | selectattr("gap", "ge", 5) | list + borders | rejectattr("fades") | selectattr("gap", "le", -5) | list %}
+{% macro pair(p) %}{{ p.a }}–{{ p.b }}{% endmacro %}
+{% macro pairs(ps) %}{% for p in ps %}{% if not loop.first %}{% if loop.last %} and {% else %}, {% endif %}{% endif %}{{ pair(p) }}{% endfor %}{% endmacro %}
+<h3 id="borders">Does a neighbourhood’s name matter, or only where it is?</h3>
+<p>The model gives each neighbourhood a premium of its own{% if reference_area %}, against {{ reference_area }}{% endif %}.
+A premium like that is a step: two buildings a street apart, on either side of the line, differ by all of it. Is the
+name worth that much to renters, or is it where the building stands, which changes gradually and only roughly
+follows the names? The served model can’t say by itself, because each building also has a level of its own,
+which takes up whatever its spot is worth beyond the name.</p>
+<p>One look needs no new fit. Add each building’s own level to its neighbourhood’s premium, and line the buildings
+up by their distance to the nearest building across a border. If the name carries the price, the dots follow the
+dashed step. If the location carries it, the buildings nearest the line meet in the middle.{% if fades %}
+At the {{ pairs(fades) }} border{{ "s" if fades | length > 1 }}, the step mostly fades: the buildings nearest the
+line sit less than half the names’ gap apart, so their own levels undo much of the name.{% endif %}{% if holds %}
+The {{ pairs(holds) }} border{{ "s keep their" if holds | length > 1 else " keeps its" }} step.{% endif %}</p>
+
+<figure class="story-figure" id="borders-figure">
+  <div class="figure-scroll" tabindex="0" role="region" aria-label="Figure, scrolls sideways on narrow screens">{{ borders_svg }}</div>
+  <figcaption>Each building’s total premium (its neighbourhood’s term with its own level), as the median of the
+  buildings in 75 m bins by distance to the nearest building across the border, first-named side on the left.
+  Bigger dots stand for more buildings; bins under five buildings are left out. The dashed line is the names
+  alone.</figcaption>
+</figure>
+
+<details class="table-view">
+  <summary>The borders as a table</summary>
+  <div class="table-wrap">
+  <table class="data">
+    <thead><tr><th scope="col">Border</th><th scope="col" class="num">Buildings within 300 m</th>
+      <th scope="col" class="num">Gap in the names</th><th scope="col" class="num">Gap within 75 m</th>
+      <th scope="col" class="num">Gap beyond 150 m</th></tr></thead>
+    <tbody>
+    {% for p in borders %}
+      <tr><td>{{ p.a }} → {{ p.b }}</td><td class="num">{{ "{:,}".format(p.buildings) }}</td>
+        <td class="num">{{ "{:+.1f}".format(p.gap) }}</td><td class="num">{{ "{:+.1f}".format(p.near) }}</td>
+        <td class="num">{% if p.far is not none %}{{ "{:+.1f}".format(p.far) }}{% else %}—{% endif %}</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  </div>
+  <p class="muted">Gaps are in percentage points of the typical ask, second side minus first, from medians of the
+  buildings’ total premiums.</p>
+</details>
+
+{% set surface, nolabel = border_tests.surface, border_tests.nolabel %}
+<p>This is a look at the served model’s own terms, not a test. If the names are mostly a stand-in for location, a
+smooth location surface, which lets neighbouring buildings share a premium whatever their names, would carry the
+correction near each border for a small or new building that has few asks to set its own level.{% if nolabel %}
+The test that answers it, the surface in place of the names, has run; the result:
+{{ verdict_words.get(nolabel.verdict, nolabel.verdict) }}, {{ "{:+,.1f}".format(nolabel.diff) }} ± {{ "{:,.1f}".format(nolabel.se) }}
+against the names.{% else %}
+The test that answers it fits the surface in place of the names and compares the two; it has not run yet.{% endif %}{% if surface %}
+In an earlier test, added on top of the names, the surface made {% if surface.verdict == "gain" %}a clear gain{% else %}no clear
+difference{% endif %} ({{ "{:+,.1f}".format(surface.diff) }} ± {{ "{:,.1f}".format(surface.se) }}{% if surface.due %}, on data from before the latest neighbourhoods joined{% endif %}).{% endif %}</p>
+{% endif %}
+
 {% if waiting %}<h3>Does the street around a building matter?</h3>
 <p>{{ waiting | length }} idea{{ "s" if waiting | length != 1 }} about where a building sits
 {{ "have" if waiting | length != 1 else "has" }} made no clear difference so far:</p>
