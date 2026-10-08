@@ -11,7 +11,9 @@ Updated 2026-10-08 18:45 ET. Thread owner: the Data collection project thread (b
   with "Oxylabs request failed (HTTP 429)" on both (likely the Oxylabs budget). `PAUSED` file in
   each probe dir; units stopped (NoMad 7.6k, EV 11.7k requests so far). Asked Ben to check
   Oxylabs; on his "resume the crawls": rm PAUSED, relaunch EV `run-24pm-6w.py` and NoMad
-  `run-8pm-2w.py` (its monitor had stepped it to `run-8pm.py` on the 429s). Launched (Ben, typed
+  `run-8pm-2w.py` (its monitor had stepped it to `run-8pm.py` on the 429s). The monitors and
+  the rate balancer take no action while a `PAUSED` file exists.
+- **NoMad, East Village crawl setup** (both paused, above): launched Oct 8 02:23 ET (Ben, typed
   06:19 UTC). One StreetEasy area each (`nomad`, `east-village`, `stuyvesant-town`; #482), FGP
   policy, launched at `run-8pm-2w.py` each (24/min combined), fallback 8pm → 4pm → STOP; monitors
   `apartments-{nomad,ev,stuytown}-monitor.timer`. **Combined 32/min** (Ben, typed Oct 8 15:53
@@ -19,7 +21,7 @@ Updated 2026-10-08 18:45 ET. Thread owner: the Data collection project thread (b
   32/min"): `data/probes/rate-balance-20261008/rebalance.py` (local; `apartments-rate-balance.timer`,
   every 15 min) gives each live crawl 8/min and the rest to the first live one of EV, Stuy Town,
   NoMad (runners `run-16pm-4w`, `run-24pm-6w`, `run-32pm-8w`; a 429 step-down from them goes to
-  `run-8pm-2w`). EV on 16/min from 11:55 ET, 24/min from 15:35 ET (Stuy Town finished). It holds while any crawl has a recent 429, a PAUSED
+  `run-8pm-2w`). EV on 16/min from 11:55 ET, 24/min from 15:35 ET (Stuy Town finished) until the pause. It holds while any crawl has a recent 429, a PAUSED
   file or a monitor step-down. Disable the timer once all three finish. Controls: `data/probes/<name>-20261008/README.md`
   (local); archives `/data1/apartments/archive/crawls/<name>-20261008`. Estimates from FGP's ratio:
   NoMad ~8k requests (~$9), EV ~70k (~$80), Stuy Town 15–30k (unit pages dominate). When each
