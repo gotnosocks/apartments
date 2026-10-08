@@ -621,21 +621,35 @@ STOREFRONT_COLUMNS = (
 
 
 def fetch_storefronts(box) -> tuple[pd.DataFrame, list[str], dict]:
-    """Every Storefront Registry filing in the box (north, west, south, east)."""
+    """Every Storefront Registry filing in the box (north, west, south, east),
+    one query per reporting year (a box of four neighbourhoods fills a page)."""
     north, west, south, east = box
-    rows, q = _rows(
-        STOREFRONTS_ID,
-        {
-            "$select": ", ".join(STOREFRONT_COLUMNS),
-            "$where": f"borough = 'MANHATTAN' and within_box(lat_long, {north}, "
-            f"{west}, {south}, {east})",
-            "$order": "reporting_year, borough_block_lot",
-        },
+    where = (
+        f"borough = 'MANHATTAN' and within_box(lat_long, {north}, "
+        f"{west}, {south}, {east})"
     )
+    years, q = _rows(
+        STOREFRONTS_ID,
+        {"$select": "reporting_year", "$where": where, "$group": "reporting_year"},
+    )
+    rows, queries = [], [q]
+    if any("reporting_year" not in y for y in years):
+        raise SystemExit("storefronts: a filing without a reporting year")
+    for year in sorted(y["reporting_year"] for y in years):
+        got, q = _rows(
+            STOREFRONTS_ID,
+            {
+                "$select": ", ".join(STOREFRONT_COLUMNS),
+                "$where": f"{where} and reporting_year = '{year}'",
+                "$order": "borough_block_lot",
+            },
+        )
+        rows += got
+        queries.append(q)
     table = pd.DataFrame(rows, columns=list(STOREFRONT_COLUMNS))
     for c in ("latitude", "longitude"):
         table[c] = pd.to_numeric(table[c], errors="coerce")
-    return table, [q], _version(STOREFRONTS_ID)
+    return table, queries, _version(STOREFRONTS_ID)
 
 
 PARKS_MARGIN_M = 1500.0
