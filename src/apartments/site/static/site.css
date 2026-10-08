@@ -569,9 +569,22 @@ button[aria-busy="true"] { cursor: progress; opacity: 0.75; }
 .swatch { display: inline-block; width: 0.7rem; height: 0.7rem; border-radius: 2px; margin-right: 0.4rem; vertical-align: baseline; }
 .table-view { margin: 0.4rem 0 1rem; }
 .table-view summary { cursor: pointer; color: var(--link); font-size: 0.9rem; }
+.story-svg .kind-head { font-weight: 600; font-size: 12.5px; }
+.story-svg .rep { fill: none; stroke-width: 1.5; }
+.v-gain .dot, .v-gain .rep, .swatch.v-gain { fill: var(--good); stroke: var(--good); background: var(--good); }
+.v-gain .ci { stroke: var(--good); }
+.v-null .dot, .v-null .rep, .swatch.v-null { fill: var(--muted); stroke: var(--muted); background: var(--muted); }
+.v-null .ci { stroke: var(--muted); }
+.v-worse .dot, .v-worse .rep, .swatch.v-worse { fill: var(--up); stroke: var(--up); background: var(--up); }
+.v-worse .ci { stroke: var(--up); }
+.v-blocked .dot, .v-blocked .rep, .swatch.v-blocked { fill: var(--warn); stroke: var(--warn); background: var(--warn); }
+.v-blocked .ci { stroke: var(--warn); }
+.story-svg .rep { fill: none; }
+.story-svg .trial .dot { stroke: var(--surface); stroke-width: 1.5; }
+.legend-row { display: flex; flex-wrap: wrap; gap: 0.3rem 1rem; font-size: 0.85rem; color: var(--ink-2); margin: 0.3rem 0; }
 /* The build-up and the layers play in order once; still for reduced motion. */
 @media (prefers-reduced-motion: no-preference) {
-  .buildup .step, .buildup .link, .compose .block { animation: story-in 0.5s ease-out both; }
+  .buildup .step, .buildup .link, .compose .block, .trials .trial { animation: story-in 0.5s ease-out both; }
   .story-svg .d0 { animation-delay: 0.1s; } .story-svg .d1 { animation-delay: 0.5s; } .story-svg .d2 { animation-delay: 0.9s; }
   .story-svg .d3 { animation-delay: 1.3s; } .story-svg .d4 { animation-delay: 1.7s; } .story-svg .d5 { animation-delay: 2.1s; }
   .story-svg .d6 { animation-delay: 2.5s; } .story-svg .d7 { animation-delay: 2.9s; } .story-svg .d8 { animation-delay: 3.3s; }
@@ -579,10 +592,12 @@ button[aria-busy="true"] { cursor: progress; opacity: 0.75; }
   .story-svg .d12 { animation-delay: 4.9s; } .story-svg .d13 { animation-delay: 5.3s; } .story-svg .d14 { animation-delay: 5.7s; }
   .story-svg .d15 { animation-delay: 6.1s; } .story-svg .d16 { animation-delay: 6.5s; } .story-svg .d17 { animation-delay: 6.9s; }
   .story-svg .d18 { animation-delay: 7.3s; } .story-svg .d19 { animation-delay: 7.7s; }
-  .story-figure.armed .step, .story-figure.armed .link, .story-figure.armed .block { animation-play-state: paused; }
-  .story-figure.armed.play .step, .story-figure.armed.play .link, .story-figure.armed.play .block { animation-play-state: running; }
+  /* After the shared delays, so the theories keep their quicker beat. */
+  .trials .d0 { animation-delay: 0.10s; } .trials .d1 { animation-delay: 0.25s; } .trials .d2 { animation-delay: 0.40s; } .trials .d3 { animation-delay: 0.55s; } .trials .d4 { animation-delay: 0.70s; } .trials .d5 { animation-delay: 0.85s; } .trials .d6 { animation-delay: 1.00s; } .trials .d7 { animation-delay: 1.15s; } .trials .d8 { animation-delay: 1.30s; } .trials .d9 { animation-delay: 1.45s; } .trials .d10 { animation-delay: 1.60s; } .trials .d11 { animation-delay: 1.75s; } .trials .d12 { animation-delay: 1.90s; } .trials .d13 { animation-delay: 2.05s; } .trials .d14 { animation-delay: 2.20s; } .trials .d15 { animation-delay: 2.35s; } .trials .d16 { animation-delay: 2.50s; } .trials .d17 { animation-delay: 2.65s; } .trials .d18 { animation-delay: 2.80s; } .trials .d19 { animation-delay: 2.95s; } .trials .d20 { animation-delay: 3.10s; } .trials .d21 { animation-delay: 3.25s; } .trials .d22 { animation-delay: 3.40s; } .trials .d23 { animation-delay: 3.55s; } .trials .d24 { animation-delay: 3.70s; } .trials .d25 { animation-delay: 3.85s; } .trials .d26 { animation-delay: 4.00s; } .trials .d27 { animation-delay: 4.15s; } .trials .d28 { animation-delay: 4.30s; } .trials .d29 { animation-delay: 4.45s; } .trials .d30 { animation-delay: 4.60s; } .trials .d31 { animation-delay: 4.75s; } .trials .d32 { animation-delay: 4.90s; } .trials .d33 { animation-delay: 5.05s; } .trials .d34 { animation-delay: 5.20s; } .trials .d35 { animation-delay: 5.35s; } .trials .d36 { animation-delay: 5.50s; } .trials .d37 { animation-delay: 5.65s; } .trials .d38 { animation-delay: 5.80s; } .trials .d39 { animation-delay: 5.95s; }
+  .story-figure.armed .step, .story-figure.armed .link, .story-figure.armed .block, .story-figure.armed .trial { animation-play-state: paused; }
+  .story-figure.armed.play .step, .story-figure.armed.play .link, .story-figure.armed.play .block, .story-figure.armed.play .trial { animation-play-state: running; }
 }
-.story-figure.reset .step, .story-figure.reset .link, .story-figure.reset .block { animation: none; }
+.story-figure.reset .step, .story-figure.reset .link, .story-figure.reset .block, .story-figure.reset .trial { animation: none; }
 .replay { font-size: 0.8rem; margin-top: 0.3rem; }
 @media (prefers-reduced-motion: reduce) { .replay { display: none; } }
 @keyframes story-in { from { opacity: 0; transform: translateX(-12px); } to { opacity: 1; transform: none; } }

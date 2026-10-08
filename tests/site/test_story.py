@@ -15,12 +15,12 @@ def _page(client) -> str:
 
 def test_story_page_has_its_figures_and_their_tables(client):
     html = _page(client)
-    for figure in ("compose-figure", "effects-figure", "build-figure"):
+    for figure in ("compose-figure", "effects-figure", "build-figure", "trials-figure"):
         assert f'id="{figure}"' in html
     # Every figure is an image with a text alternative and a table beside it.
-    assert html.count('role="img"') == 3
+    assert html.count('role="img"') == 4
     assert all(label.strip() for label in re.findall(r'aria-label="([^"]*)"', html))
-    assert html.count('class="table-view"') == 3
+    assert html.count('class="table-view"') == 4
     # No inline style: the site's CSP allows none.
     assert "style=" not in html
 
@@ -137,3 +137,45 @@ def test_headline_effects_skip_unknowns_and_nulls():
     assert effects[2]["against"] == "a one-bedroom"
     # 29.4% per log unit is about 2.5% per 10% more space.
     assert round(effects[1]["pct"], 1) == 2.5
+
+
+LEDGER = """# Feature and model tests
+
+| Date | Change | What | Kind | ΔPSIS-LOO | Verdict | Retest | Dataset (rows) | PR | Test run | Reference run |
+|---|---|---|---|---|---|---|---|---|---|---|
+| 2026-10-05 | `+bednoise` | a residual scale by bedroom group | | +347.0 ± 30.1 | gain | | d (1) | #300 | `a` | `b` |
+| 2026-10-04 | `nb3-parks-v1` | parks within reach | location | -6.2 ± 9.0 | no clear gain | next neighbourhood | d (1) | #250 | `c` | `d` |
+| 2026-10-03 | `nb3-parks-v1` | parks within reach | location | +3.0 ± 9.5 | no clear gain | | d (1) | #250 | `e` | `f` |
+| 2026-10-03 | `nb-prevprice-v1` | how the unit's previous listing was repriced | listing | +747.0 ± 40.0 | PSIS-LOO leaks; judged on the latest split | | d (1) | | `g` | `h` |
+
+## Paired by hand
+
+| Date | Change | What | Feature set | ΔPSIS-LOO | Verdict | PR | Test run | Reference run |
+|---|---|---|---|---|---|---|---|---|
+| 2026-10-06 | `unit-splits-v1` | a unit's history splits | `nb3-coded-v2` | +475.0 ± 50.0 | gain | #400 | | |
+"""
+
+
+def test_theories_keep_every_test_and_the_latest_verdict():
+    entries = story.theories(story.parse_ledger(LEDGER))
+    by = {t["change"]: t for t in entries}
+    assert [t["kind"] for t in entries] == ["model", "listing", "location", "data"]
+    parks = by["nb3-parks-v1"]
+    assert len(parks["tests"]) == 2 and parks["diff"] == -6.2
+    assert parks["verdict"] == "null" and parks["first"] == "2026-10-03"
+    assert by["nb-prevprice-v1"]["verdict"] == "blocked"
+    assert by["+bednoise"]["words"] == story.PLAIN["+bednoise"]
+    assert sorted(t["seq"] for t in entries) == [0, 1, 2, 3]
+
+
+def test_theories_chapter_reads_the_ledger(site_root, research_file, tmp_path):
+    ledger = tmp_path / "feature-tests.md"
+    ledger.write_text(LEDGER)
+    app = create_app(site_root, research_data=research_file, feature_tests=ledger)
+    html = _page(app.test_client())
+    assert 'id="theories"' in html
+    assert "So far 4 ideas have been tried, in 5 paired fits." in html
+    assert "2 helped and 1 made no clear difference." in html
+    assert "1 of the 1 ideas about where a building sits," in html
+    assert html.count('class="trial ') == 4
+    assert "Some ideas scored brilliantly" in html

@@ -11,6 +11,10 @@ from __future__ import annotations
 
 import json
 import math
+import os
+import re
+import threading
+from pathlib import Path
 
 from markupsafe import Markup, escape
 
@@ -491,5 +495,239 @@ def build_up_svg(b: dict | None) -> Markup:
     )
     return Markup(
         f'<svg class="story-svg buildup" viewBox="0 0 {WIDTH} {height}" role="img" '
+        f'aria-label="{escape(label)}">' + "".join(out) + "</svg>"
+    )
+
+
+# --- Theories on trial ------------------------------------------------------------
+
+# The feature-test ledger (rentfrontier.ledger), read from the checkout that
+# follows master, so new tests show between site deploys.
+LEDGER = Path(
+    os.environ.get(
+        "FEATURE_TESTS",
+        "/data1/apartments/serve/master/docs/model/feature-tests.md",
+    )
+)
+REPO_LEDGER = Path(__file__).resolve().parents[3] / "docs/model/feature-tests.md"
+KINDS = (
+    ("model", "The model's shape", "new terms in the model itself"),
+    ("listing", "What the ad and records say", "features read from the listing"),
+    ("unit", "The apartment's layout", "features of the unit within its building"),
+    ("location", "Where the building is", "features read from the building's location"),
+    ("data", "Data rules", "rules that fix or split the data, fitted with and without"),
+)
+VERDICT_WORDS = {
+    "gain": "helped",
+    "null": "no clear effect",
+    "worse": "made it worse",
+    "blocked": "set aside",
+}
+# Model terms in renter words (the ledger's own "about" is for modellers,
+# and stays in the table).
+PLAIN = {
+    "+tunits": "a few apartments far off their building",
+    "+yearnoise": "asks scatter more in some years",
+    "+bednoise": "bigger apartments' asks scatter more",
+    "+bedtime": "each size of apartment has its own trend",
+    "+bedtime12": "the trend by size, in a finer variant",
+    "+dayfourier": "a smooth season, at each ask's own date",
+    "+dayfourier3": "a simpler smooth season",
+    "+floorslope": "each building's own price for height",
+    "+fourier": "a smooth season, by calendar month",
+    "+2slopes": "each building's own price for two more features",
+    "nb-prevprice-v1": "how the apartment's last ask was repriced",
+    "nb3-prevprice-v2": "the same, on the richer coded-features model",
+}
+_DIFF = re.compile(r"([+\-−]?[\d,]+\.?\d*)\s*±\s*([\d,]+\.?\d*)")
+
+
+def _number(text: str) -> float:
+    return float(text.replace(",", "").replace("−", "-"))
+
+
+def _verdict(text: str) -> str:
+    text = text.strip().lower()
+    if text.startswith("gain"):
+        return "gain"
+    if text.startswith("worse"):
+        return "worse"
+    if text.startswith("no clear gain"):
+        return "null"
+    return "blocked"
+
+
+def parse_ledger(text: str) -> list[dict]:
+    """The ledger's two tables as rows, read by column heading: every
+    paired test with its date, change, ΔPSIS-LOO ± SE and verdict."""
+    out, header, hand = [], None, False
+    for line in text.splitlines():
+        if line.startswith("## Paired by hand"):
+            hand = True
+        if not line.startswith("|"):
+            header = None if not line.strip() else header
+            continue
+        cells = [c.strip() for c in line.strip().strip("|").split("|")]
+        if header is None:
+            header = cells
+            continue
+        if set(line) <= set("|-: "):
+            continue
+        row = dict(zip(header, cells))
+        m = _DIFF.search(row.get("ΔPSIS-LOO", ""))
+        if not m or not row.get("Change"):
+            continue
+        change = row["Change"].strip("`")
+        kind = (
+            "data"
+            if hand
+            else "model"
+            if change.startswith("+")
+            else row.get("Kind") or "listing"
+        )
+        out.append(
+            {
+                "date": row.get("Date", ""),
+                "change": change,
+                "about": row.get("What", ""),
+                "kind": kind if kind in dict((k[0], k) for k in KINDS) else "listing",
+                "diff": _number(m.group(1)),
+                "se": _number(m.group(2)),
+                "verdict": _verdict(row.get("Verdict", "")),
+                "verdict_text": row.get("Verdict", ""),
+                "pr": row.get("PR", "").lstrip("#") or None,
+            }
+        )
+    return out
+
+
+def theories(rows: list[dict]) -> list[dict]:
+    """One entry per change: its tests (repeats on other fits included),
+    and the latest test's verdict, which is the one that stands."""
+    by = {}
+    for r in sorted(rows, key=lambda r: r["date"]):
+        t = by.setdefault(
+            r["change"],
+            {"change": r["change"], "kind": r["kind"], "tests": [], "about": ""},
+        )
+        t["tests"].append(r)
+        t["about"] = r["about"] or t["about"]
+        t["pr"] = r["pr"] or t.get("pr")
+    out = []
+    for t in by.values():
+        last = t["tests"][-1]
+        t.update(
+            first=t["tests"][0]["date"],
+            date=last["date"],
+            diff=last["diff"],
+            se=last["se"],
+            verdict=last["verdict"],
+            verdict_text=last["verdict_text"],
+            words=PLAIN.get(t["change"]) or t["about"] or t["change"].lstrip("+"),
+        )
+        out.append(t)
+    order = {k[0]: i for i, k in enumerate(KINDS)}
+    out.sort(key=lambda t: (order.get(t["kind"], 9), -t["diff"]))
+    # The order the theories were first tried, for the playback.
+    for i, t in enumerate(sorted(out, key=lambda t: (t["first"], t["change"]))):
+        t["seq"] = i
+    return out
+
+
+class Ledger:
+    def __init__(self, path: Path | str | None = None):
+        self.path = Path(path) if path else LEDGER
+        self._key = None
+        self._value = None
+        self._lock = threading.Lock()
+
+    def load(self) -> list[dict]:
+        source = next((p for p in (self.path, REPO_LEDGER) if p.is_file()), None)
+        if source is None:
+            return []
+        stat = source.stat()
+        key = (str(source.resolve()), stat.st_mtime_ns, stat.st_size)
+        with self._lock:
+            if key != self._key:
+                self._key, self._value = key, parse_ledger(source.read_text())
+            return self._value
+
+
+def _signed_sqrt(v: float) -> float:
+    return math.copysign(math.sqrt(abs(v)), v)
+
+
+def theories_svg(entries: list[dict]) -> Markup:
+    """Every theory as a row: a dot for each time it was tested, a band of
+    two standard errors around the latest test, coloured by its verdict, on
+    a square-root axis so +2,000 and +20 both read. Rows appear in the order
+    the theories were first tried."""
+    if not entries:
+        return Markup("")
+    row, top, label_w, head = 20, 26, 300, 22
+    values = [0.0]
+    for t in entries:
+        values += [t["diff"] - 2 * t["se"], t["diff"] + 2 * t["se"]]
+        values += [x["diff"] for x in t["tests"]]
+    lo, hi = _signed_sqrt(min(values)), _signed_sqrt(max(values))
+    pad = 0.04 * (hi - lo or 1)
+    lo, hi = lo - pad, hi + pad
+    plot = WIDTH - label_w - 12
+
+    def x(v):
+        return label_w + plot * (_signed_sqrt(v) - lo) / (hi - lo)
+
+    ticks = [
+        t
+        for t in (-200, -50, 0, 50, 200, 500, 1000, 2000, 4000)
+        if lo <= _signed_sqrt(t) <= hi
+    ]
+    kinds = []
+    for t in entries:
+        if not kinds or kinds[-1] != t["kind"]:
+            kinds.append(t["kind"])
+    height = top + row * len(entries) + head * len(kinds) + 8
+    out = [
+        f'<line class="grid" x1="{x(v):.1f}" y1="{top - 6}" x2="{x(v):.1f}" '
+        f'y2="{height - 4}"/><text class="tick" x="{x(v):.1f}" y="{top - 12}" '
+        f'text-anchor="middle">{signed(v)}</text>'
+        for v in ticks
+    ]
+    out.append(
+        f'<line class="zero" x1="{x(0):.1f}" y1="{top - 6}" x2="{x(0):.1f}" y2="{height - 4}"/>'
+    )
+    names = {k[0]: k[1] for k in KINDS}
+    y, kind = top, None
+    for t in entries:
+        if t["kind"] != kind:
+            kind = t["kind"]
+            out.append(
+                f'<text class="kind-head" x="0" y="{y + head - 6}">'
+                f"{escape(names.get(kind, kind))}</text>"
+            )
+            y += head
+        cy = y + row / 2
+        words = t["words"] if len(t["words"]) <= 46 else t["words"][:45] + "…"
+        lo2, hi2 = t["diff"] - 2 * t["se"], t["diff"] + 2 * t["se"]
+        out.append(
+            f'<g class="trial v-{t["verdict"]} d{min(t["seq"], 39)}">'
+            f"<title>{escape(t['words'])}: {t['diff']:+,.0f} ± {t['se']:,.0f}, "
+            f"{VERDICT_WORDS[t['verdict']]}</title>"
+            f'<text class="eff-label" x="{label_w - 10}" y="{cy + 4:.1f}" '
+            f'text-anchor="end">{escape(words)}</text>'
+            f'<line class="ci" x1="{x(lo2):.1f}" y1="{cy:.1f}" x2="{x(hi2):.1f}" y2="{cy:.1f}"/>'
+            + "".join(
+                f'<circle class="rep" cx="{x(r["diff"]):.1f}" cy="{cy:.1f}" r="2.5"/>'
+                for r in t["tests"][:-1]
+            )
+            + f'<circle class="dot" cx="{x(t["diff"]):.1f}" cy="{cy:.1f}" r="4.5"/></g>'
+        )
+        y += row
+    label = "Theories tested, with the change in PSIS-LOO and verdict: " + "; ".join(
+        f"{t['words']} {t['diff']:+,.0f}, {VERDICT_WORDS[t['verdict']]}"
+        for t in entries
+    )
+    return Markup(
+        f'<svg class="story-svg trials" viewBox="0 0 {WIDTH} {height}" role="img" '
         f'aria-label="{escape(label)}">' + "".join(out) + "</svg>"
     )
