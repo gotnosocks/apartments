@@ -1,6 +1,27 @@
 # Data improvements — handoff
 
-Updated 2026-10-08 16:45 ET. Thread owner: the Data improvements project thread (bridge session on thelio).
+Updated 2026-10-08 18:00 ET. Thread owner: the Data improvements project thread (bridge session on thelio).
+
+## 2026-10-08 18:00 ET
+
+- **Stuy Town indicator replacement sets (builds only, nothing queued).** Each candidate goes in
+  place of the indicator on `nb6-nostuy-v1` (no indicator; its rows take Chelsea's level):
+  - #562 (81d6f1e) `nb6-stab-v1` (stabilized share beside the indicator), `nb6-nostuy-stab-v1`.
+    The share is year-before DOF bill units over MapPLUTO units; a bill counts for at most 3 years
+    (`STAB_CARRY_YEARS`, the reviewer's fix). The snapshot was re-fetched at
+    rentstab/20261008-b487c8a, with the same rows as 6b42fe8.
+  - #567 (3e3a538) `nb6-nostuy-open-v1` (lot's open share), `nb6-nostuy-stabopen-v1` (both).
+    Open share = 1 − footprints built by the listing year ÷ MapPLUTO lot area, clipped to [0, 1].
+    Stuy 0.73, PCV 0.75, Penn South 0.84, median lot 0.24. About 10% of buildings clip to 0
+    (a footprint spanning lots), which is a measurement error. Fix it before fitting (coordinator
+    relay 21:56Z): use the union of the lots sharing a footprint, else leave it missing with a
+    flag. A building demolished later is missing (a small leak). `footprint_area` rebuilds the
+    grid per footprint (about 15 s).
+  - On resume (Modeling and Ben plan it): after the nb6-plutoasof-v3 base, compare
+    `nb6-nostuy-stabopen-v1` and the single-term sets with the base; `nb6-nostuy-v1` is the
+    reference. Age and type are in the base (building era, class, log units). Single
+    ownership is not: try a "large single-owner complex" indicator from a public owner field
+    (HPD registration or DOF owner name).
 
 ## 2026-10-08 17:30 ET
 
