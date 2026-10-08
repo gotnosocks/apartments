@@ -579,7 +579,6 @@ button[aria-busy="true"] { cursor: progress; opacity: 0.75; }
 .v-worse .ci { stroke: var(--up); }
 .v-blocked .dot, .v-blocked .rep, .swatch.v-blocked { fill: var(--warn); stroke: var(--warn); background: var(--warn); }
 .v-blocked .ci { stroke: var(--warn); }
-.story-svg .rep { fill: none; }
 .story-svg .trial .dot { stroke: var(--surface); stroke-width: 1.5; }
 .legend-row { display: flex; flex-wrap: wrap; gap: 0.3rem 1rem; font-size: 0.85rem; color: var(--ink-2); margin: 0.3rem 0; }
 /* The build-up and the layers play in order once; still for reduced motion. */

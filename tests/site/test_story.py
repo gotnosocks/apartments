@@ -175,7 +175,10 @@ def test_theories_chapter_reads_the_ledger(site_root, research_file, tmp_path):
     html = _page(app.test_client())
     assert 'id="theories"' in html
     assert "So far 4 ideas have been tried, in 5 paired fits." in html
-    assert "2 helped and 1 made no clear difference." in html
+    assert (
+        "2 helped, 1\nmade no clear difference and 1 made it worse or were set aside."
+        in html
+    )
     assert "1 of the 1 ideas about where a building sits," in html
     assert html.count('class="trial ') == 4
     assert "Some ideas scored brilliantly" in html

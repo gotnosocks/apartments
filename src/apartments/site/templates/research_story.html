@@ -157,7 +157,8 @@ leaving each listing out in turn and predicting it from the rest. A change count
 the old model by more than twice its standard error.</p>
 
 <p>So far {{ trials | length }} ideas have been tried, in {{ tests | length }} paired fits.
-{{ gains | length }} helped and {{ nulls | length }} made no clear difference.{% if location %} The nulls tell a story
+{% set others = trials | length - gains | length - nulls | length %}{{ gains | length }} helped, {{ nulls | length }}
+made no clear difference{% if others %} and {{ others }} made it worse or were set aside{% endif %}.{% if location %} The nulls tell a story
 of their own: {{ location_nulls | length }} of the {{ location | length }} ideas about where a building sits, from nearby subway lines to parks and street noise,
 changed nothing we could measure. The likely reason is that each building already has its own premium. Whatever a location is
 worth is already priced into that premium, so a new location feature has little left to explain. These nulls get

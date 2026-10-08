@@ -578,8 +578,9 @@ def parse_ledger(text: str) -> list[dict]:
         if not m or not row.get("Change"):
             continue
         change = row["Change"].strip("`")
+        # The hand table holds data rules, and feature sets paired on a subset.
         kind = (
-            "data"
+            ("listing" if change.startswith("nb") else "data")
             if hand
             else "model"
             if change.startswith("+")
