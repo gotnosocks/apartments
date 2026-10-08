@@ -187,6 +187,16 @@ def hardware_classes(data: dict) -> list[str]:
     return sorted(counts, key=lambda c: (c != TARGET_HARDWARE, -counts[c], c))
 
 
+def default_hardware(data: dict, served_run: str) -> str:
+    """The hardware a research page opens on: the served fit's, so the page
+    shows it, else the target, else the busiest class."""
+    classes = hardware_classes(data)
+    for e in data.get("entries", []):
+        if served_run and run_of(e) == served_run and e["hardware_class"] in classes:
+            return e["hardware_class"]
+    return TARGET_HARDWARE if TARGET_HARDWARE in classes else classes[0]
+
+
 def snapshot_days(data: dict) -> list[str]:
     """Days (UTC) on which board results landed, newest first."""
     return sorted({s["at"][:10] for s in data.get("snapshots", [])}, reverse=True)
