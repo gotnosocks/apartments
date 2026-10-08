@@ -1105,6 +1105,73 @@ class Cleaning(_Cached):
         return doc if isinstance(doc, dict) else None
 
 
+# Consecutive listings of one unit (the same price basis), as the cleaning
+# checks pair them, with the years between them; a jump moves the ask by more
+# than 40% either way.
+_PAIRS = """
+WITH s AS (
+  SELECT unit_id, unit_label, building_id, ask, COALESCE(price_at, period) AS at,
+    LAG(ask) OVER w AS prev_ask, LAG(COALESCE(price_at, period)) OVER w AS prev_at
+  FROM listings
+  WINDOW w AS (PARTITION BY unit_id, price_basis ORDER BY COALESCE(price_at, period), id))
+SELECT s.*, b.address,
+  (julianday(substr(at, 1, 10)) - julianday(substr(prev_at, 1, 10))) / 365.25 AS years,
+  (ask > 1.4 * prev_ask OR prev_ask > 1.4 * ask) AS jump
+FROM s JOIN buildings b ON b.id = s.building_id
+WHERE prev_ask > 0 AND ask > 0
+"""
+GAPS = (
+    (0, 1, "within a year"),
+    (1, 2, "one to two years apart"),
+    (2, None, "two or more years apart"),
+)
+
+
+def rent_jumps(db) -> dict | None:
+    """The jumps between a unit's consecutive listings, by the years between
+    them, and the median-sized one as an example."""
+    rows = [r for r in db.execute(_PAIRS).fetchall() if r["years"] is not None]
+    jumps = [r for r in rows if r["jump"]]
+    if not jumps:
+        return None
+    gaps = []
+    for lo, hi, words in GAPS:
+        group = [
+            r for r in rows if r["years"] >= lo and (hi is None or r["years"] < hi)
+        ]
+        if group:
+            n = sum(r["jump"] for r in group)
+            gaps.append(
+                {
+                    "words": words,
+                    "pairs": len(group),
+                    "jumps": n,
+                    "share": 100 * n / len(group),
+                }
+            )
+    jumps.sort(
+        key=lambda r: (abs(math.log(r["ask"] / r["prev_ask"])), r["unit_id"], r["at"])
+    )
+    e = jumps[(len(jumps) - 1) // 2]
+    return {
+        "pairs": len(rows),
+        "jumps": len(jumps),
+        "late": 100 * sum(r["years"] >= 2 for r in jumps) / len(jumps),
+        "gaps": gaps,
+        "example": {
+            "unit_id": e["unit_id"],
+            "label": e["unit_label"],
+            "address": e["address"],
+            "before": e["prev_ask"],
+            "after": e["ask"],
+            "from": e["prev_at"][:10],
+            "to": e["at"][:10],
+            "years": e["years"],
+            "change": 100 * (e["ask"] / e["prev_ask"] - 1),
+        },
+    }
+
+
 def _step_words(step: dict, before: dict) -> str:
     family = step.get("family")
     if family == "correct":

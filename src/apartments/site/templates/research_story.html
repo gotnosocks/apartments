@@ -373,7 +373,15 @@ when the next neighbourhood joins and widens the range.</p>{% endif %}
 {% if jump %}<h3>Are the remaining rent jumps real?</h3>
 <p>Even after the cleaning, {{ "{:.1f}".format(jump.after) }}% of a unit's consecutive listings move rent by more
 than 40%. Is it a renovation, a furnished short let, a lease that left rent stabilisation, or a record error that
-no rule catches yet? Each answer calls for a different fix: a new feature, a filter or a new data rule.</p>{% endif %}
+no rule catches yet? Each answer calls for a different fix: a new feature, a filter or a new data rule.</p>
+{% if jumps %}{% set e = jumps.example %}
+<p>One clue is time. {{ "{:.0f}".format(jumps.late) }}% of the {{ "{:,}".format(jumps.jumps) }} jumps on the site come
+two or more years after the unit's previous listing, when the market itself has had time to move:
+{% for g in jumps.gaps %}{{ "{:.1f}".format(g.share) }}% of listing pairs {{ g.words }} jump{{ ", " if not loop.last else "." }}{% if loop.revindex == 2 %}and {% endif %}{% endfor %}
+The middle-sized one: <a href="{{ url_for('unit', unit_id=e.unit_id) }}">{{ e.label or "a unit" }}</a> at
+{{ e.address }} asked {{ "${:,.0f}".format(e.before) }} in {{ month(e.from) }} and {{ "${:,.0f}".format(e.after) }} in
+{{ month(e.to) }}, {{ "{:+.0f}".format(e.change) }}% after {{ "{:.1f}".format(e.years) }} years. Time explains part
+of a jump like that; what explains the rest is the open question.</p>{% endif %}{% endif %}
 
 {% if blocked %}<h3>When does a good score mean nothing?</h3>
 <p>{{ blocked | length }} idea{{ "s" if blocked | length != 1 }} scored well and {{ "were" if blocked | length != 1 else "was" }}
