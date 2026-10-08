@@ -1,13 +1,17 @@
 # Data collection — handoff
 
-Updated 2026-10-08 15:50 ET. Thread owner: the Data collection project thread (bridge session on thelio).
+Updated 2026-10-08 18:45 ET. Thread owner: the Data collection project thread (bridge session on thelio).
 
 ## State
 - **Stuyvesant Town/PCV: crawl FINISHED** Oct 8 15:21 ET (6,139 requests, ~$7, no 429s),
   **dataset BUILT** 15:41 ET: see `docs/data/stuyvesant-town-pcv-collection.md`. Snapshot written
   compacted (5.9 → 3.3 GB, rows and audit verified). `apartments-stuytown-monitor.timer` disabled.
   Handed to Data improvements and Modeling via the coordinator.
-- **NoMad, East Village crawls: RUNNING** since Oct 8 02:23 ET (Ben, typed
+- **NoMad, East Village crawls: PAUSED** Oct 8 18:40 ET: from ~18:14 ET every Oxylabs request failed
+  with "Oxylabs request failed (HTTP 429)" on both (likely the Oxylabs budget). `PAUSED` file in
+  each probe dir; units stopped (NoMad 7.6k, EV 11.7k requests so far). Asked Ben to check
+  Oxylabs; on his "resume the crawls": rm PAUSED, relaunch EV `run-24pm-6w.py` and NoMad
+  `run-8pm-2w.py` (its monitor had stepped it to `run-8pm.py` on the 429s). Launched (Ben, typed
   06:19 UTC). One StreetEasy area each (`nomad`, `east-village`, `stuyvesant-town`; #482), FGP
   policy, launched at `run-8pm-2w.py` each (24/min combined), fallback 8pm → 4pm → STOP; monitors
   `apartments-{nomad,ev,stuytown}-monitor.timer`. **Combined 32/min** (Ben, typed Oct 8 15:53
