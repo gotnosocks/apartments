@@ -74,6 +74,7 @@ import itertools
 import json
 import math
 import time
+import urllib.error
 import urllib.parse
 import urllib.request
 from pathlib import Path
@@ -130,15 +131,16 @@ PLUTO_COLUMNS = (
 def _socrata(
     dataset: str, params: dict, timeout: int = 60, tries: int = 1
 ) -> list[dict]:
-    """One Socrata query; a timed-out read is tried again up to `tries` times
-    in all, waiting a minute between tries."""
+    """One Socrata query; a timed-out read or a server error (5xx) is tried
+    again up to `tries` times in all, waiting a minute between tries."""
     url = f"{SOCRATA}/{dataset}.json?{urllib.parse.urlencode(params)}"
     for attempt in range(tries):
         try:
             with urllib.request.urlopen(url, timeout=timeout) as r:
                 return json.loads(r.read())
-        except TimeoutError:
-            if attempt == tries - 1:
+        except (TimeoutError, urllib.error.HTTPError) as e:
+            server = not isinstance(e, urllib.error.HTTPError) or e.code >= 500
+            if not server or attempt == tries - 1:
                 raise
             time.sleep(60)
 
@@ -397,7 +399,7 @@ DOB_LEGACY_ID = "ic3t-wcy2"
 DOB_NOW_ID = "w9ak-ipjd"
 
 
-def fetch_dob(registry: pd.DataFrame, batch: int = 100, page: int = 50_000):
+def fetch_dob(registry: pd.DataFrame, batch: int = 25, page: int = 10_000):
     """One row per job with a permit: bin, job, kind (A1 alteration with a new
     certificate of occupancy, A2 other alteration, NB new building), the date of
     its first permit and its description (DOB NOW's floor note in front)."""
