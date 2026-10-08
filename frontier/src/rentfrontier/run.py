@@ -305,6 +305,9 @@ def feature_sources(feature_set: str) -> dict:
     if feature_set in features.LPC_SNAPSHOTS:
         path = features.LPC_SNAPSHOTS[feature_set]
         out["lpc"] = {"path": path, "sha256": data.sha256(Path(path))}
+    if feature_set in features.UNICAL:
+        path = features.UNICAL_FILE
+        out["unical"] = {"path": path, "sha256": data.sha256(Path(path))}
     if feature_set in features.HPD:
         path = features.HPD_FILE
         out["hpd"] = {"path": path, "sha256": data.sha256(Path(path))}

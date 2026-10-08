@@ -2,6 +2,16 @@
 
 What the next turn of the website thread needs. Updated at each milestone.
 
+## State (2026-10-08 16:50 UTC)
+
+- **New served fit** (refit on quarantine-v10 and ad-v3, #533): build 20261008T160955228743Z-6e89346d,
+  run …ul11r1s4q10ad3. All page checks were clean, with no fixes needed: the /research/model refit notice hides
+  itself; story numbers follow the data (new-apartment miss 9.4% on 517 asks); the worked example is now
+  2G West Village; the design chapter shows 33 models after the 12:13 ET research-data rebuild.
+  Checker script: `$S/verify.py` in the scratchpad (not in the repo); it is easy to redo with curl and site.sqlite.
+- #536: "served model" defined at first use; the build-up band links to `#ranges`.
+- Ben paused model runs at 16:07Z (per Modeling).
+
 ## State (2026-10-08 16:00 UTC)
 
 - Playtest story7 (`/data1/apartments/tmp/playtests/2026-10-08-story7/`) acted on, all deployed:

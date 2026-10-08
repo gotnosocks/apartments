@@ -80,6 +80,9 @@ def test_build_up_ends_at_the_estimate(client):
     # an example above the page's typical ask says why
     if "the median ask among the listings available now" in text:
         assert "asks for listings available now run higher" in text
+    # the served model is defined where it is first named; the example's band links to the ranges box
+    assert "The served model (the one behind every estimate on the site)" in text
+    assert 'its 95% range for the ask (<a href="#ranges">' in text
     # a wide miss is set against the example's own 95% range
     wide = "more than twice the typical miss" in text
     assert wide == ("about 1 ask in 20" in text)
@@ -92,6 +95,9 @@ def test_build_up_ends_at_the_estimate(client):
     # the opening answers "can I trust it?" before the chapters
     shape = text[text.index('<section id="shape">') :]
     assert shape.index("the <em>spread</em> in asks") < shape.index("compose-figure")
+    # the layers chapter keeps its maths in a fold-out, after the figure
+    assert "(In the maths" not in shape and "(The shares split" not in shape
+    assert shape.index("compose-figure") < shape.index("the variance of the log asks")
     assert "the range the model is 90% sure holds the true share" in text
     # the two kinds of range are told apart once, before the chapters
     assert text.index('id="ranges"') < text.index('<section id="shape">')

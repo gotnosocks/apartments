@@ -365,6 +365,18 @@ def test_new_unit_levels_draw_from_the_unit_prior():
         assert 0.045 < levels.std() < 0.056
 
 
+def test_new_unit_levels_are_clipped_so_the_mean_is_finite():
+    """A Student-t unit prior with a small nu draws levels far out in the
+    tail; they are clipped at UNIT_CLIP unit scales, as the site's form does."""
+    import jax
+
+    assert summary.UNIT_CLIP == 40.0  # apartments.site.estimate.UNIT_CLIP
+    params = {"unit_scale": np.full(4000, 0.05), "unit_nu": np.full(4000, 0.3)}
+    levels = summary.new_unit_levels(params, 50, jax.random.PRNGKey(0), t_units=True)
+    assert np.abs(levels).max() <= 0.05 * summary.UNIT_CLIP + 1e-12
+    assert np.isfinite(np.exp(levels).mean())
+
+
 def test_predictive_quantiles_invert_the_mixture_cdf():
     from scipy.special import stdtr
 
