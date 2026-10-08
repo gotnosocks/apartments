@@ -765,6 +765,24 @@ def quarantine_v10(frame: pd.DataFrame) -> pd.DataFrame:
     return frame[~frame.audit_id.isin(quarantined(QUARANTINE_V10))]
 
 
+QUARANTINE_V11 = REPO / "config" / "reviews" / "quarantine-v11-20261008.jsonl"
+# The rows v11's review read: every screen hit outside v9's and v10's screens.
+QUARANTINE_V11_READ = REPO / "config" / "reviews" / "quarantine-v11-read-20261008.txt"
+
+
+def quarantine_v11(frame: pd.DataFrame) -> pd.DataFrame:
+    """v10 and 13 more rows (232 in all). v10's guard dropped "restaurant
+    space" because every ad it then matched was a v6 row. v11 runs v10's text
+    checks over all five neighbourhoods again with more words for shops and
+    restaurants (a retail location or store, frontage, a certificate of
+    occupancy, kitchen exhaust, an event space), and every hit outside v9's and
+    v10's screens (quarantine-v11-read-20261008.txt) is read with no rent shown:
+    shops, restaurants and an event studio on and near Bleecker, two 5-month
+    leases, and one ad for Battery Park are left out. 10 of the 13 are v6
+    rows. The other rows are unchanged."""
+    return frame[~frame.audit_id.isin(quarantined(QUARANTINE_V11))]
+
+
 # Units of one building a review found to be one apartment under different
 # labels, one JSON line per group with its evidence (2026-10-07).
 UNIT_JOINS = REPO / "config" / "reviews" / "unit-joins-20261007.jsonl"
@@ -861,6 +879,7 @@ DATA_RULES = {
     "quarantine-v8": quarantine_v8,
     "quarantine-v9": quarantine_v9,
     "quarantine-v10": quarantine_v10,
+    "quarantine-v11": quarantine_v11,
     "unit-reviews-v1": join_reviewed_units,
 }
 # Rules that read a file; run records hash the files.
@@ -875,6 +894,7 @@ RULE_SOURCES = {
     "quarantine-v8": QUARANTINE_V8,
     "quarantine-v9": QUARANTINE_V9,
     "quarantine-v10": QUARANTINE_V10,
+    "quarantine-v11": QUARANTINE_V11,
     "unit-reviews-v1": UNIT_JOINS,
     "unit-labels-v2": UNIT_ALIASES,
     "unit-labels-v3": UNIT_ALIASES,
@@ -903,6 +923,7 @@ DROPPING_RULES = (
     "quarantine-v8",
     "quarantine-v9",
     "quarantine-v10",
+    "quarantine-v11",
 )
 
 
