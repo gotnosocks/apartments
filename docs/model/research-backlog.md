@@ -110,7 +110,7 @@ Test, on Modal when fits resume:
    rebased tests, then unical.
 4. **Early years (2010–13).** Single listings are underpredicted by 1.6%, from sparse data. This is
    low priority: it fades with yearnoise, and few rows are affected.
-5. **Line term, re-tested** (check 7 below). Same-line peers predict single-listing residuals
+5. **Line term, re-tested** (check 7 below). This ranks above items 2–4 on the resume queue. Same-line peers predict single-listing residuals
    (slope 0.64). Run one Modal full fit of line effects (`line_min_units=2`) on the NB5 base
    after the pause.
 
@@ -128,7 +128,7 @@ fitted rows (121,971), unless a check says otherwise. Scripts:
 | 2 | Bedroom-time curves outside 2020–22 | Not flat | Keep `bedtime`; no COVID-only window |
 | 3 | Year × building class | Excess dispersion (χ²/df 2.34) | Low priority |
 | 4 | Variance shares | Labels 2.1%; labels + building + walk + unit 15.7% | Board note only |
-| 5 | Single-listing tails | Widest in a building's first year | Feeds ranked item 2 |
+| 5 | Single-listing tails | Widest in a building's first year | Data audit first, then ranked item 2 |
 | 6 | Residual SD by missing fields | Missing floor matters most | Floor-unknown noise scale |
 | 7 | Line peers of single-listing units | Strong signal (slope 0.64) | Re-test the line term (new item 5) |
 | 8 | Relative floor, top floor | Nothing beyond the floor terms | None |
@@ -168,7 +168,8 @@ fitted rows (121,971), unless a check says otherwise. Scripts:
      construction.
    - Building 7.0%, building walk 3.3%, unit 2.3%.
    - The descriptive "where and which apartment" share (labels + building + walk + unit) is 15.7%
-     overall. Per neighbourhood it is:
+     overall. That is the variance of the sum, so it includes the covariances among the four
+     (about +1 point net), not just the sum of their shares (14.7%). Per neighbourhood it is:
      - Chelsea 10.8%;
      - Flatiron 15.0%;
      - Greenwich Village 16.2%;
@@ -185,8 +186,8 @@ fitted rows (121,971), unless a check says otherwise. Scripts:
    |---|---|---|---|
    | 0–12 | 4,589 | −59% / +73% | 6.7% |
    | 12–36 | 4,271 | −38% / +50% | 2.6% |
-   | 36–96 | 11,486 | | 2.2% |
-   | 96+ | 9,171 | | 2.1% |
+   | 36–96 | 11,486 | n/a | 2.2% |
+   | 96+ | 9,171 | n/a | 2.1% |
 
    - By era, the share with |residual| > 40% is 3.8% (2010–14), 2.8% (2015–19), 3.5% (2020–22)
      and 2.3% (2023–26). Repeat units: 0.2%.
