@@ -206,9 +206,10 @@ for that apartment. If those ranges are honest, about 80% of the held-out asks s
 {% set tests = trials | sum(attribute="tests", start=[]) %}
 <section id="theories">
 <h2>Theories on trial</h2>
-<p class="notice">This chapter and the next are the most technical: how each idea was tested, and how the
-design changed over time. To skip them, go on to {% if cleaning %}<a href="#cleaning">Cleaning the
-record</a>{% else %}<a href="#next">Open questions</a>{% endif %}.</p>
+<p><em>{% if switches %}This chapter and the next are the most technical: how each idea was tested, and how the
+design changed over time. To skip them{% else %}This chapter is the most technical: how each idea was tested. To
+skip it{% endif %}, go on to {% if cleaning %}<a href="#cleaning">Cleaning the
+record</a>{% else %}<a href="#next">Open questions</a>{% endif %}.</em></p>
 <p>A model like this is a pile of hypotheses. Does a quiet street cost more? Do bigger apartments' asks scatter
 more widely? Does the ad's own text know something the structured fields don't? Each idea gets the same trial. We
 fit the model with it and without it, on the same rows, and ask which version better predicts asks it was not
