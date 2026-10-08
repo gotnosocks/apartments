@@ -886,6 +886,52 @@ def crime_v1(
     )
 
 
+# The year StreetEasy began coding concessions (pricing.monthsFree and
+# netEffectiveRent, from 2020); the cohort leaves those listings out, so an ad
+# mentioning one from then on is one the coded field missed.
+CONCESSION_CODED_FROM = 2020
+
+
+def concession_era_v1(
+    frame: pd.DataFrame,
+    train: np.ndarray,
+    id: str = "nb5-concera-v1",
+    base: str = "nb5-plutoasof-v3",
+) -> Features:
+    """A base set plus the ad-text concession flag (`DESCRIPTION_FLAGS`) for
+    listings from `CONCESSION_CODED_FROM` on. The base's text:concession then
+    carries the earlier ads, and this term is how the later ones differ:
+    before 2020 the ad text is the only record of a concession, after it the
+    coded ones are out of the cohort. Reads no rents."""
+    from . import descriptions
+
+    base = FEATURE_SETS[base](frame, train)
+    if "text:concession" not in base.names:
+        raise ValueError(f"{base.id} has no text:concession to split")
+    text = descriptions.attach(frame).fillna("").str.lower()
+    known = text.str.len().to_numpy() > 20
+    flag = known & text.str.contains(DESCRIPTION_FLAGS["concession"]).to_numpy()
+    year = (
+        frame.price_at.pipe(pd.to_datetime, utc=True)
+        .dt.tz_convert("America/New_York")
+        .dt.year.to_numpy()
+    )
+    b = _Builder(frame)
+    b.add(
+        "description",
+        f"text:concession, {CONCESSION_CODED_FROM} on",
+        flag & (year >= CONCESSION_CODED_FROM),
+    )
+    out = b.build(id)
+    return Features(
+        id,
+        base.names + out.names,
+        base.groups + out.groups,
+        np.column_stack([base.values, out.values]),
+        np.concatenate([base.prior_scale, out.prior_scale]),
+    )
+
+
 def unical_v1(
     frame: pd.DataFrame,
     train: np.ndarray,
@@ -3103,6 +3149,12 @@ FEATURE_SETS = {
     # nb5-plutoasof-v3 plus felonies reported near the building in the year
     # before the listing (`crime_v1`; coordinator relay 2026-10-08).
     "nb5-crime-v1": partial(crime_v1, id="nb5-crime-v1", base="nb5-plutoasof-v3"),
+    # nb5-plutoasof-v3 with the ad-text concession flag split at 2020, when
+    # StreetEasy began coding concessions (`concession_era_v1`; Modeling's
+    # proposal for the coordinator relay's concessions item, 2026-10-08).
+    "nb5-concera-v1": partial(
+        concession_era_v1, id="nb5-concera-v1", base="nb5-plutoasof-v3"
+    ),
     # nb5-plutoasof-v3 plus NYU calendar windows, near campus and not (Ben,
     # 2026-10-08).
     "nb5-unical-v1": partial(unical_v1, id="nb5-unical-v1", base="nb5-plutoasof-v3"),
@@ -3454,6 +3506,7 @@ NB4_SETS["nb5-trees-v1"] = "nb5-plutoasof-v3"
 CRIME_FILE = "/data1/apartments/external/crime/20261008-c17e0ae/felonies.csv"
 CRIME = {"nb5-crime-v1"}
 NB4_SETS["nb5-crime-v1"] = "nb5-plutoasof-v3"
+NB4_SETS["nb5-concera-v1"] = "nb5-plutoasof-v3"
 # One set per ad attribute (`ATTRIBUTE_FLAGS`) and per place kind
 # (`nearby.KINDS`): nb5-coded-v2 plus that one column, each its own full fit.
 NB5_SINGLES = {
