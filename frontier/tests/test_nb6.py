@@ -119,6 +119,7 @@ def test_stuyvesant_town_tests_drop_the_indicator_or_add_the_stabilized_share():
         "nb6-nostuy-stab-v1",
         "nb6-nostuy-stabopen-v1",
         "nb6-nostuy-stabopen-v2",
+        "nb6-nostuy-explain-v1",
     }
     groups = {
         k: v for k, v in vars(features).items() if k.isupper() and isinstance(v, set)
@@ -131,6 +132,8 @@ def test_stuyvesant_town_tests_drop_the_indicator_or_add_the_stabilized_share():
         "nb6-nostuy-stabopen-v1",
         "nb6-nostuy-open-v2",
         "nb6-nostuy-stabopen-v2",
+        "nb6-nostuy-owner-v1",
+        "nb6-nostuy-explain-v1",
     ):
         assert {k for k, v in groups.items() if name in v} - {
             "RENTSTAB",
@@ -367,3 +370,67 @@ def test_lot_open_share_v2_joins_the_lots_a_footprint_spans(tmp_path, monkeypatc
     assert np.isnan(out[4])
     assert out[5] == pytest.approx(0.5, abs=0.01)
     assert np.isnan(out[6])
+
+
+def test_owner_sets_add_the_complex_in_place_of_the_indicator():
+    for name, on in (
+        ("nb6-nostuy-owner-v1", "nb6-nostuy-v1"),
+        ("nb6-nostuy-explain-v1", "nb6-nostuy-stabopen-v2"),
+    ):
+        owner_set = features.FEATURE_SETS[name]
+        assert owner_set.func is features.owner_v1
+        assert owner_set.keywords == {"id": name, "base": on}
+        assert name in features.BLOCKLOTS
+
+
+def test_single_owner_complex_sums_an_owners_lots_on_a_block(tmp_path, monkeypatch):
+    lots = pd.DataFrame(
+        {
+            "bbl": [
+                "1000010001",
+                "1000010002",
+                "1000020001",
+                "1000030001",
+                "1000030002",
+                "1000047501",
+                "1000047502",
+            ],
+            "ownername": [
+                "Big Owner, LLC",
+                "BIG OWNER LLC",
+                "BIG OWNER LLC",
+                "Two Towers LLC",
+                "UNAVAILABLE OWNER",
+                None,
+                "CONDO BOARD",
+            ],
+            "lot": ["0001", "0002", "0001", "0001", "0002", "7501", "7502"],
+            "numbldgs": ["2", "1", "5", "2", "9", "1", "5"],
+            "unitsres": ["200", "150", "100", "900", "900", "400", "400"],
+        }
+    )
+    registry = pd.DataFrame(
+        {
+            "building": ["a", "b", "c", "d", "e", "f", "h"],
+            "bbl": lots.bbl,
+        }
+    )
+    lots.to_parquet(tmp_path / "l.parquet")
+    registry.to_parquet(tmp_path / "r.parquet")
+    monkeypatch.setattr(features, "BLOCKLOTS_FILE", str(tmp_path / "l.parquet"))
+    monkeypatch.setattr(features, "lot_registry", lambda: str(tmp_path / "r.parquet"))
+    frame = pd.DataFrame({"building": ["a", "b", "c", "d", "e", "f", "g", "h"]})
+    # a and b: one owner (spelt two ways), 3 buildings and 350 units on block
+    # 1; c: the same owner's 100 units on block 2; d: two buildings; e: no
+    # owner; f: a condominium's billing lot; g: not in the registry; h: a
+    # billing lot with an owner name and enough of everything.
+    assert features.single_owner_complex(frame).tolist() == [
+        True,
+        True,
+        False,
+        False,
+        False,
+        False,
+        False,
+        False,
+    ]
