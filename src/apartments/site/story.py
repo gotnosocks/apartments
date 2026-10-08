@@ -242,7 +242,11 @@ def headline_effects(coefficients, labels: dict, reference_area: str | None):
     for c in coefficients:
         c = dict(c)
         group = c["feature_group"]
+        if c["pct_lower"] is None or c["pct_upper"] is None:
+            continue
         if c["feature"] == "log_sqft_vs_bedroom_median":
+            # Size always shows: it is the one continuous feature a renter
+            # weighs directly.
             # The coefficient is per unit of log size; 10% more space is
             # log(1.1) of a unit.
             def per10(p):
@@ -261,7 +265,7 @@ def headline_effects(coefficients, labels: dict, reference_area: str | None):
             )
             continue
         words = feature_words(c["feature"], group, labels)
-        if not words or c["pct_lower"] is None or c["pct_upper"] is None:
+        if not words:
             continue
         if c["pct_lower"] <= 0 <= c["pct_upper"] or abs(c["pct"]) < 2:
             continue

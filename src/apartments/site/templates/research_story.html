@@ -85,7 +85,7 @@ baths in an apartment that is otherwise the same, not the typical two-bath apart
       <th scope="col" class="num">95% interval</th></tr></thead>
     <tbody>
     {% for e in effects %}
-      <tr><td>{{ e.words | capitalize }}</td><td class="muted">{{ e.against or "—" }}</td>
+      <tr><td>{{ e.words[:1] | upper }}{{ e.words[1:] }}</td><td class="muted">{{ e.against or "—" }}</td>
         <td class="num">{{ pct(e.pct, digits=1) }}</td>
         <td class="num muted nowrap">{{ pct(e.lower, digits=1) }} to {{ pct(e.upper, digits=1) }}</td></tr>
     {% endfor %}
@@ -105,8 +105,8 @@ baths in an apartment that is otherwise the same, not the typical two-bath apart
 <a href="{{ url_for('listing', audit_id=l.audit_id) }}">{{ l.unit_label or "an apartment" }}</a>
 in {{ l.neighbourhood }}, {{ beds_label(l.bedrooms) | lower }}{% if l.square_feet %}, {{ "{:,.0f}".format(l.square_feet) }} sq ft{% endif %}{% if l.floor %}, floor {{ l.floor }}{% endif %}.
 The estimate starts from the market for an apartment like it that month, then each part adds or takes off its share.
-The parts multiply on the log scale. We split each one's dollars in an order-free way, so a term's bar is the
-same size wherever it sits in the queue.</p>
+The parts add on the log scale, so in dollars they multiply. We split the dollars between them in an order-free
+way, so a term's bar is the same size wherever it sits in the queue.</p>
 
 <figure class="story-figure" id="build-figure" data-play>
   <div class="figure-scroll" tabindex="0" role="region" aria-label="Figure, scrolls sideways on narrow screens">{{ build_svg }}</div>
@@ -114,7 +114,7 @@ same size wherever it sits in the queue.</p>
   estimate, the band its 95% predictive range, and the diamond the ask itself.</figcaption>
 </figure>
 
-<p>{% set gap = build.ask - build.estimate %}The estimate is {{ usd(build.estimate) }} against an ask of
+<p>The estimate is {{ usd(build.estimate) }} against an ask of
 {{ usd(build.ask) }}{% if build.lower is not none %}, and the model gives 95% odds that an ask for this apartment
 falls between {{ usd(build.lower) }} and {{ usd(build.upper) }}{% endif %}. The spread is honest: the building and
 apartment terms are learned from a handful of listings, and asks scatter even for the same apartment.</p>

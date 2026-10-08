@@ -572,13 +572,13 @@ button[aria-busy="true"] { cursor: progress; opacity: 0.75; }
 /* The build-up and the layers play in order once; still for reduced motion. */
 @media (prefers-reduced-motion: no-preference) {
   .buildup .step, .buildup .link, .compose .block { animation: story-in 0.5s ease-out both; }
-  .d0 { animation-delay: 0.1s; } .d1 { animation-delay: 0.5s; } .d2 { animation-delay: 0.9s; }
-  .d3 { animation-delay: 1.3s; } .d4 { animation-delay: 1.7s; } .d5 { animation-delay: 2.1s; }
-  .d6 { animation-delay: 2.5s; } .d7 { animation-delay: 2.9s; } .d8 { animation-delay: 3.3s; }
-  .d9 { animation-delay: 3.7s; } .d10 { animation-delay: 4.1s; } .d11 { animation-delay: 4.5s; }
-  .d12 { animation-delay: 4.9s; } .d13 { animation-delay: 5.3s; } .d14 { animation-delay: 5.7s; }
-  .d15 { animation-delay: 6.1s; } .d16 { animation-delay: 6.5s; } .d17 { animation-delay: 6.9s; }
-  .d18 { animation-delay: 7.3s; } .d19 { animation-delay: 7.7s; }
+  .story-svg .d0 { animation-delay: 0.1s; } .story-svg .d1 { animation-delay: 0.5s; } .story-svg .d2 { animation-delay: 0.9s; }
+  .story-svg .d3 { animation-delay: 1.3s; } .story-svg .d4 { animation-delay: 1.7s; } .story-svg .d5 { animation-delay: 2.1s; }
+  .story-svg .d6 { animation-delay: 2.5s; } .story-svg .d7 { animation-delay: 2.9s; } .story-svg .d8 { animation-delay: 3.3s; }
+  .story-svg .d9 { animation-delay: 3.7s; } .story-svg .d10 { animation-delay: 4.1s; } .story-svg .d11 { animation-delay: 4.5s; }
+  .story-svg .d12 { animation-delay: 4.9s; } .story-svg .d13 { animation-delay: 5.3s; } .story-svg .d14 { animation-delay: 5.7s; }
+  .story-svg .d15 { animation-delay: 6.1s; } .story-svg .d16 { animation-delay: 6.5s; } .story-svg .d17 { animation-delay: 6.9s; }
+  .story-svg .d18 { animation-delay: 7.3s; } .story-svg .d19 { animation-delay: 7.7s; }
   .story-figure.armed .step, .story-figure.armed .link, .story-figure.armed .block { animation-play-state: paused; }
   .story-figure.armed.play .step, .story-figure.armed.play .link, .story-figure.armed.play .block { animation-play-state: running; }
 }
