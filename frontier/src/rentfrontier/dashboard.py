@@ -666,6 +666,10 @@ DATA_RULE_TEXT = {
     "neighbourhoods, each hit read with no rent shown. 219 are left out: ads for another "
     "address, shops and offices, rooms with a shared bath, two apartments for one ask, "
     "and short stays. v6's other 191 rows come back.",
+    "quarantine-v11": "quarantine-v10 and 14 more rows from the same review with more "
+    "words for shops and restaurants: three shops and two restaurant spaces on and "
+    "near Bleecker Street, an event studio hired by the day, three short leases and "
+    "one ad for Battery Park.",
     "unit-reviews-v1": "Apartments a review found to be one apartment under two labels: "
     "at 110 West 26th Street, 4R and 4B, and 5R and 5B, are each floor's rear "
     "apartment (R for rear, B for back). No listing is dropped.",
