@@ -211,6 +211,8 @@ def test_theories_chapter_reads_the_ledger(site_root, research_file, tmp_path):
         "2 helped, 1\nmade no clear difference and 1 made it worse or were set aside."
         in html
     )
+    assert re.search(r"The biggest wins: [^.,]+ and [^.,]+\.", html)
+    assert "(model term: " in html
     assert "1 of the 1 ideas about where a building sits," in html
     assert html.count('class="trial ') == 4
     assert "Some ideas scored brilliantly" in html

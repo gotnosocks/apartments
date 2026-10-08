@@ -204,7 +204,8 @@ far it could move by chance, and an idea counts as a real gain only when the gap
 
 <p>So far {{ trials | length }} ideas have been tried, in {{ tests | length }} paired fits.
 {% set others = trials | length - gains | length - nulls | length %}{{ gains | length }} helped, {{ nulls | length }}
-made no clear difference{% if others %} and {{ others }} made it worse or were set aside{% endif %}.{% if location %} The nulls tell a story
+made no clear difference{% if others %} and {{ others }} made it worse or were set aside{% endif %}.{% set top = gains | sort(attribute="diff", reverse=True) | list %}{% if top | length >= 2 %}
+The biggest wins: {% for t in top[:3] %}{% if not loop.first %}{% if loop.last %}{% if loop.length > 2 %},{% endif %} and {% else %}, {% endif %}{% endif %}{{ t.words }}{% endfor %}.{% endif %}{% if location %} The nulls tell a story
 of their own: {{ location_nulls | length }} of the {{ location | length }} ideas about where a building sits, from nearby subway lines to parks and street noise,
 changed nothing we could measure. The likely reason is that each building already has its own premium. Whatever a location is
 worth is already priced into that premium, so a new location feature has little left to explain. {% set waiting_now = location_nulls | selectattr("retest", "equalto", "next neighbourhood") | list %}{% if waiting_now %}
@@ -230,7 +231,7 @@ neighbourhoods give location more room to matter.{% endif %}{% endif %}</p>
       <th scope="col" class="num">Gain in <a href="{{ url_for('research_glossary') }}#psis-loo">PSIS-LOO</a></th><th scope="col">Verdict</th><th scope="col">PR</th></tr></thead>
     <tbody>
     {% for t in trials %}
-      <tr><td>{{ t.words[:1] | upper }}{{ t.words[1:] }}{% if t.note and t.note != t.words %} <span class="muted">({{ t.note }})</span>{% endif %}</td>
+      <tr><td>{{ t.words[:1] | upper }}{{ t.words[1:] }}{% if t.note and t.note != t.words %} <span class="muted">(model term: {{ t.note }})</span>{% endif %}</td>
         <td class="muted">{% for k in kinds %}{% if k[0] == t.kind %}{{ k[1] }}{% endif %}{% endfor %}</td>
         <td class="nowrap">{{ t.date }}{% if t.tests | length > 1 %} <span class="muted">({{ t.tests | length }} fits)</span>{% endif %}</td>
         <td class="num nowrap">{{ "{:+,.1f}".format(t.diff) }} <span class="muted">± {{ "{:,.1f}".format(t.se) }}</span></td>
