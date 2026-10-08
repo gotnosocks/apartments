@@ -683,6 +683,8 @@ def test_theories_chart_labels_are_whole(client):
     html = _page(client)
     chart = html[html.index('class="story-svg trials"') :]
     assert "…</tspan>" not in chart[: chart.index("</svg>")]
+    # wrapped lines keep a space between them, so copied text reads "two more features"
+    assert re.search(r"</tspan><tspan [^>]*> \w", chart[: chart.index("</svg>")])
 
 
 def test_theories_chapter_says_it_can_be_skipped(client):
