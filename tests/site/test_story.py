@@ -21,12 +21,13 @@ def test_story_page_has_its_figures_and_their_tables(client):
         "build-figure",
         "trials-figure",
         "history-figure",
+        "cleaning-figure",
     ):
         assert f'id="{figure}"' in html
     # Every figure is an image with a text alternative and a table beside it.
-    assert html.count('role="img"') == 5
+    assert html.count('role="img"') == 6
     assert all(label.strip() for label in re.findall(r'aria-label="([^"]*)"', html))
-    assert html.count('class="table-view"') == 5
+    assert html.count('class="table-view"') == 6
     # No inline style: the site's CSP allows none.
     assert "style=" not in html
 
@@ -268,3 +269,93 @@ def test_design_history_skips_malformed_milestones():
     assert len(switches) == 1 and switches[0]["terms"] is None
     assert story.design_history(None) == []
     assert story.history_svg(switches, story.term_lives(switches))
+
+
+CLEANING = {
+    "run": "served-run",
+    "start": {
+        "rows": 1000,
+        "units": 400,
+        "buildings": 50,
+        "bed_changes": 0.08,
+        "big_jumps": 0.09,
+    },
+    "steps": [
+        {
+            "rule": "baths-ad-v2",
+            "family": "correct",
+            "changed": {"full_baths": 3, "half_baths": 2},
+            "dropped": 0,
+            "rows": 1000,
+            "units": 400,
+            "buildings": 50,
+        },
+        {
+            "rule": "fields-review-v3",
+            "family": "correct",
+            "changed": {},
+            "dropped": 0,
+            "rows": 1000,
+            "units": 400,
+            "buildings": 50,
+        },
+        {
+            "rule": "quarantine-v6",
+            "family": "drop",
+            "changed": {},
+            "dropped": 20,
+            "rows": 980,
+            "units": 395,
+            "buildings": 48,
+        },
+        {
+            "rule": "unit-labels-v9",
+            "family": "join",
+            "changed": {},
+            "dropped": 0,
+            "rows": 980,
+            "units": 380,
+            "buildings": 48,
+        },
+        {
+            "rule": "unit-splits-v4",
+            "family": "split",
+            "changed": {},
+            "dropped": 0,
+            "rows": 980,
+            "units": 410,
+            "buildings": 48,
+            "bed_changes": 0.007,
+            "big_jumps": 0.07,
+        },
+    ],
+}
+
+
+def test_cleaning_sums_each_family():
+    c = story.cleaning(CLEANING, "served-run")
+    assert c["current"] and c["corrected"] == 5 and c["dropped"] == 20
+    assert c["dropped_buildings"] == 2 and c["joined"] == 15 and c["split"] == 30
+    words = [s["words"] for s in c["steps"]]
+    assert words[0] == "3 full baths, 2 half baths"
+    assert words[1].startswith("no change")
+    assert [round(k["after"], 1) for k in c["checks"]] == [0.7, 7.0]
+    assert not story.cleaning(CLEANING, "another-run")["current"]
+    assert story.cleaning(None) is None
+    assert story.cleaning({"start": {}, "steps": []}) is None
+    assert story.cleaning_svg(None) == ""
+
+
+def test_cleaning_chapter_reads_the_steps(site_root, research_file, tmp_path):
+    path = tmp_path / "cleaning.json"
+    path.write_text(json.dumps(CLEANING))
+    app = create_app(site_root, research_data=research_file, cleaning_steps=path)
+    html = _page(app.test_client())
+    assert 'id="cleaning"' in html
+    assert "the 1,000 rows pass through\n5 data rules" in html
+    assert "so 15 unit names were joined" in html
+    assert "8.0% of the time. After the rules,\n0.7%." in html
+    assert "an earlier served fit" in html  # the test site serves another run
+    path.write_text("not json")
+    html = _page(app.test_client())
+    assert 'id="cleaning"' not in html

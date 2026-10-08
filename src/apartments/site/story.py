@@ -635,23 +635,40 @@ def theories(rows: list[dict]) -> list[dict]:
     return out
 
 
-class Ledger:
+class _Cached:
+    """A file read from the checkout that follows master (or the repo's own
+    copy), parsed again only when it changes."""
+
+    default: Path
+    repo: Path
+    empty = None
+
     def __init__(self, path: Path | str | None = None):
-        self.path = Path(path) if path else LEDGER
+        self.path = Path(path) if path else self.default
         self._key = None
         self._value = None
         self._lock = threading.Lock()
 
-    def load(self) -> list[dict]:
-        source = next((p for p in (self.path, REPO_LEDGER) if p.is_file()), None)
+    def parse(self, text: str):
+        raise NotImplementedError
+
+    def load(self):
+        source = next((p for p in (self.path, self.repo) if p.is_file()), None)
         if source is None:
-            return []
+            return self.empty
         stat = source.stat()
         key = (str(source.resolve()), stat.st_mtime_ns, stat.st_size)
         with self._lock:
             if key != self._key:
-                self._key, self._value = key, parse_ledger(source.read_text())
+                self._key, self._value = key, self.parse(source.read_text())
             return self._value
+
+
+class Ledger(_Cached):
+    default, repo, empty = LEDGER, REPO_LEDGER, []
+
+    def parse(self, text: str) -> list[dict]:
+        return parse_ledger(text)
 
 
 def _signed_sqrt(v: float) -> float:
@@ -1011,5 +1028,170 @@ def history_svg(switches: list[dict], lives: list[dict]) -> Markup:
     )
     return Markup(
         f'<svg class="story-svg history" viewBox="0 0 {WIDTH} {height}" role="img" '
+        f'aria-label="{escape(label)}">' + "".join(out) + "</svg>"
+    )
+
+
+# --- Cleaning the record ----------------------------------------------------------
+
+# What the served fit's data rules do to its rows, one rule at a time
+# (rentfrontier.cleaning), read like the ledger.
+CLEANING = Path(
+    os.environ.get(
+        "CLEANING_STEPS", "/data1/apartments/serve/master/docs/model/cleaning.json"
+    )
+)
+REPO_CLEANING = Path(__file__).resolve().parents[3] / "docs/model/cleaning.json"
+FIELD_WORDS = {
+    "bedrooms": "bedroom counts",
+    "full_baths": "full baths",
+    "half_baths": "half baths",
+    "square_feet": "floor areas",
+    "listed_floor": "floors",
+}
+FAMILY_WORDS = {
+    "correct": "corrects fields from the ad",
+    "drop": "sets rows aside",
+    "join": "joins units listed under two names",
+    "split": "splits a unit's history",
+}
+CHECKS = (
+    ("bed_changes", "next listing has another bedroom count"),
+    ("big_jumps", "rent moves by more than 40%"),
+)
+
+
+class Cleaning(_Cached):
+    default, repo = CLEANING, REPO_CLEANING
+
+    def parse(self, text: str) -> dict | None:
+        try:
+            doc = json.loads(text)
+        except ValueError:
+            return None
+        return doc if isinstance(doc, dict) else None
+
+
+def _step_words(step: dict, before: dict) -> str:
+    family = step.get("family")
+    if family == "correct":
+        changed = step.get("changed") or {}
+        if not changed:
+            return "no change: it reverts an earlier rule"
+        return ", ".join(
+            f"{n:,} {FIELD_WORDS.get(f, f.replace('_', ' '))}"
+            for f, n in changed.items()
+        )
+    if family == "drop":
+        return f"{step['dropped']:,} rows set aside"
+    if family == "join":
+        return f"{before['units'] - step['units']:,} unit names joined"
+    if family == "split":
+        return f"{step['units'] - before['units']:,} more units"
+    return ""
+
+
+def cleaning(doc: dict | None, served_run: str | None = None) -> dict | None:
+    """The cleaning chapter's numbers: the rows before and after the served
+    fit's data rules, each rule's effect, and the two history checks."""
+    try:
+        start, steps = doc["start"], list(doc["steps"])
+        for key in ("rows", "units", "buildings"):
+            int(start[key])
+            for s in steps:
+                int(s[key])
+    except (KeyError, TypeError, ValueError):
+        return None
+    if not steps:
+        return None
+    rows, before = [], start
+    for s in steps:
+        rows.append(
+            {
+                "rule": s.get("rule", ""),
+                "family": s.get("family", ""),
+                "does": FAMILY_WORDS.get(s.get("family"), ""),
+                "words": _step_words(s, before),
+                **{k: s[k] for k in ("rows", "units", "buildings")},
+            }
+        )
+        before = s
+    end = steps[-1]
+
+    def total(family, fn):
+        out, prev = 0, start
+        for s in steps:
+            if s.get("family") == family:
+                out += fn(s, prev)
+            prev = s
+        return out
+
+    checks = []
+    for key, name in CHECKS:
+        a, b = start.get(key), end.get(key)
+        if isinstance(a, (int, float)) and isinstance(b, (int, float)):
+            checks.append(
+                {"key": key, "name": name, "before": 100 * a, "after": 100 * b}
+            )
+    return {
+        "run": doc.get("run"),
+        "current": served_run is None or doc.get("run") == served_run,
+        "start": start,
+        "end": end,
+        "steps": rows,
+        "corrected": total(
+            "correct", lambda s, p: sum((s.get("changed") or {}).values())
+        ),
+        "dropped": total("drop", lambda s, p: s["dropped"]),
+        "dropped_buildings": total(
+            "drop", lambda s, p: p["buildings"] - s["buildings"]
+        ),
+        "joined": total("join", lambda s, p: p["units"] - s["units"]),
+        "split": total("split", lambda s, p: s["units"] - p["units"]),
+        "checks": checks,
+    }
+
+
+def cleaning_svg(c: dict | None) -> Markup:
+    """Each history check before and after the rules: a hollow dot at the raw
+    rows, a filled one after the rules, and a line between them."""
+    if not c or not c["checks"]:
+        return Markup("")
+    row, top, label_w = 40, 26, 300
+    hi = max(max(k["before"], k["after"]) for k in c["checks"])
+    ticks = nice_ticks(0, hi, 5)
+    hi = max(hi, ticks[-1]) or 1
+    plot = WIDTH - label_w - 24
+
+    def x(v):
+        return label_w + plot * v / hi
+
+    height = top + row * len(c["checks"]) + 8
+    out = [
+        f'<line class="grid" x1="{x(t):.1f}" y1="{top - 6}" x2="{x(t):.1f}" '
+        f'y2="{height - 4}"/><text class="tick" x="{x(t):.1f}" y="{top - 10}" '
+        f'text-anchor="middle">{t:g}%</text>'
+        for t in ticks
+    ]
+    for i, k in enumerate(c["checks"]):
+        y = top + row * i + row / 2
+        out.append(
+            f'<g class="fix r{i}"><text class="eff-label" x="{label_w - 10}" '
+            f'y="{y + 4:.1f}" text-anchor="end">{escape(k["name"])}</text>'
+            f'<line class="shift" pathLength="1" x1="{x(k["before"]):.1f}" y1="{y:.1f}" '
+            f'x2="{x(k["after"]):.1f}" y2="{y:.1f}"/>'
+            f'<circle class="raw" cx="{x(k["before"]):.1f}" cy="{y:.1f}" r="5"/>'
+            f'<circle class="clean" cx="{x(k["after"]):.1f}" cy="{y:.1f}" r="5"/>'
+            f'<text class="tick" x="{x(k["after"]):.1f}" y="{y - 9:.1f}" '
+            f'text-anchor="middle">{k["after"]:.1f}%</text>'
+            f'<text class="tick" x="{x(k["before"]):.1f}" y="{y + 18:.1f}" '
+            f'text-anchor="middle">{k["before"]:.1f}%</text></g>'
+        )
+    label = "Share of a unit's consecutive listings where the " + "; ".join(
+        f"{k['name']}: {k['before']:.1f}% in the raw rows, {k['after']:.1f}% after the rules"
+        for k in c["checks"]
+    )
+    return Markup(
+        f'<svg class="story-svg cleaning" viewBox="0 0 {WIDTH} {height}" role="img" '
         f'aria-label="{escape(label)}">' + "".join(out) + "</svg>"
     )
