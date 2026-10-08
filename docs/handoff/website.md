@@ -2,6 +2,19 @@
 
 What the next turn of the website thread needs. Updated at each milestone.
 
+## State (2026-10-08 04:20 UTC)
+
+- **Story playtest follow-ups live:** #463 starts each figure's playback when it is well on screen
+  (the "empty figures" were screenshots taken mid-animation; truncated labels already carry
+  `<title>` tooltips). #465 adds a rent-jump example to "Are the remaining rent jumps real?":
+  jumps by years between listings (`story.rent_jumps`, consecutive asks of a unit on one price
+  basis, > 40% either way) and the middle-sized jump as a linked unit. `web.story_checks()` caches
+  `accuracy` and `rent_jumps` per build (the page dropped from ~0.9 s to ~0.2 s).
+- **Still waiting:** the five-neighbourhood fit is not served yet (build.json run is still the
+  nb3 rows run). When it is, check the names, map, filters and story counts.
+- **Next story item:** a real joined or split unit in the cleaning chapter (needs examples
+  from `rentfrontier.cleaning`, which is Modeling's to regenerate).
+
 ## State (2026-10-08 03:30 UTC)
 
 - **Five neighbourhoods (Ben, 2026-10-08 02:53Z):** Flatiron and Gramercy Park are to be two
@@ -14,9 +27,7 @@ What the next turn of the website thread needs. Updated at each milestone.
   row reconciliation, location-retest count, plain spread / standard error, glossary links;
   `summary.py` no longer guesses Chelsea) and #461 ("How close does it get?": median miss and
   likely-range coverage on the held-out asks, `story.accuracy`). Both live.
-- **Next from that report:** static first frames for the animated figures (they look empty
-  mid-animation), truncated labels in the theories and design figures, and one real example each
-  of a joined or split unit and a big rent jump in the cleaning chapter.
+- **Next from that report:** see the 04:20 state above.
 
 ## State (2026-10-08 03:00 UTC)
 
