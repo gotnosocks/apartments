@@ -1220,6 +1220,21 @@ def test_nb3_v2_sets_read_lpc_and_otherwise_their_v1s_files(monkeypatch):
     assert features._LPC.get() is None
 
 
+def test_nb5_coded_v2_is_nb3_coded_v2_plus_flatiron_and_gramercy_park(monkeypatch):
+    frame = pd.DataFrame(
+        {"neighbourhood": ["Chelsea", "Flatiron", "Gramercy Park", "West Village"]}
+    )
+    base = features.Features("b", ["x"], ["g"], np.zeros((4, 1)), np.ones(1))
+    monkeypatch.setitem(features.FEATURE_SETS, "nb3-coded-v2", lambda f, t: base)
+    out = features.FEATURE_SETS["nb5-coded-v2"](frame, np.ones(4, bool))
+    assert out.names == ["x", "Flatiron", "Gramercy Park"]
+    assert out.groups == ["g", "neighbourhood", "neighbourhood"]
+    assert out.values[:, 1].tolist() == [0, 1, 0, 0]
+    assert out.values[:, 2].tolist() == [0, 0, 1, 0]
+    assert features.lot_files("nb5-coded-v2") == features.lot_files("nb4-coded-v2")
+    assert features.EXTRAS_SNAPSHOTS["nb5-coded-v2"] == features.NB4_EXTRAS_FILE
+
+
 def test_nb4_coded_v2_is_nb3_coded_v2_plus_flatiron_on_the_nb4_snapshots(
     monkeypatch,
 ):

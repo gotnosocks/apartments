@@ -104,7 +104,10 @@ def test_phrases_follow_the_models_inputs():
     assert words("neighbourhood", {"Greenwich Village": 1}).endswith(
         "Greenwich Village."
     )
-    assert words("neighbourhood", {}).endswith("Chelsea.")
+    assert words("neighbourhood", {}) == ""  # not guessed
+    assert words("neighbourhood", {}, row={"neighbourhood": "Chelsea"}).endswith(
+        "Chelsea."
+    )
     # the size phrase follows the input's sign
     assert words("size", {"log_sqft_vs_bedroom_median": 0.3}, sign=-1).endswith(
         "more space than usual."

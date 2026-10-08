@@ -37,6 +37,13 @@ DATASET = Path(
 DATASET_NB4 = Path(
     "/data1/apartments/frontier/datasets/chelsea-wv-gv-fgp-analysis-20261008-b193e55"
 )
+# The five neighbourhoods: the same rows, with each Flatiron + Gramercy Park row
+# named Flatiron or Gramercy Park by its building's StreetEasy area
+# (`rentfrontier.cohort areas`, areas/20261008-6027acc), then combined. Fits
+# read it through FRONTIER_DATASET until a fit on it is served.
+DATASET_NB5 = Path(
+    "/data1/apartments/frontier/datasets/chelsea-wv-gv-flatiron-gramercy-analysis-20261008-0a23057"
+)
 OUTPUT_ROOT = Path(os.environ.get("FRONTIER_OUTPUT_ROOT", "/data1/apartments/frontier"))
 
 # Version of the flattened row (the cache key): v2 adds the neighbourhood.
@@ -871,6 +878,18 @@ def recorded_rules(result: dict) -> tuple:
                     f"data rule {rule}'s file differs from the run's record"
                 )
     return rules
+
+
+def rows_sha256(frame: pd.DataFrame, heldout) -> str:
+    """A hash of a run's rows after its split and data rules: the column names,
+    every value in order, and the held-out mask. Two rule sets whose rows hash
+    the same give a fit the same data, so autoselect treats them as the same
+    rules (Ben, 2026-10-08)."""
+    digest = hashlib.sha256()
+    digest.update(json.dumps([str(c) for c in frame.columns]).encode())
+    digest.update(pd.util.hash_pandas_object(frame, index=False).to_numpy().tobytes())
+    digest.update(np.asarray(heldout, dtype=bool).tobytes())
+    return digest.hexdigest()
 
 
 def split_and_rules(frame: pd.DataFrame, split: str, rules) -> tuple:

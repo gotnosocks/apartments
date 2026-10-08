@@ -241,7 +241,11 @@ def phrase(term: str, row, inputs: dict, sign: int) -> str | None:
             return hood_name(row["neighbourhood"])
         if inputs.get("Greenwich Village"):
             return "Greenwich Village"
-        return "the West Village" if inputs.get("West Village") else "Chelsea"
+        if inputs.get("West Village"):
+            return "the West Village"
+        # No neighbourhood column and no neighbourhood input: Chelsea is the
+        # reference, but so is any area the inputs don't name, so say nothing.
+        return None
     return None
 
 
