@@ -207,7 +207,7 @@ neighbourhoods give location more room to matter.{% endif %}{% endif %}</p>
 <figure class="story-figure" id="trials-figure" data-play>
   <div class="legend-row" aria-hidden="true">{% for key, words in verdict_words.items() %}{% if trials | selectattr("verdict", "equalto", key) | list %}<span><span class="swatch v-{{ key }}"></span>{{ words | capitalize }}</span>{% endif %}{% endfor %}</div>
   <div class="figure-scroll" tabindex="0" role="region" aria-label="Figure, scrolls sideways on narrow screens">{{ trials_svg }}</div>
-  <figcaption>One row per idea. A dot right of the centre line means the model predicted unseen asks better with
+  <figcaption>One row per idea. A dot right of the line at zero means the model predicted unseen asks better with
   the idea, left of it worse. The band is two standard errors either side: a band that crosses the line means no
   clear effect. Small rings are earlier repeats of the same test on other fits. The axis is stretched near zero
   (square-root scaled), so gains of 20 and 2,000 both fit. Rows are grouped by kind and sorted by gain; when the figure plays, they appear in the order the ideas were first tried.</figcaption>
