@@ -62,7 +62,7 @@ buildings.
 Test, on Modal when fits resume:
 - `nb5p3-loc-v1` (queued): the labels plus 250 m bumps. Read the label effects (`effects.py`).
   If they shrink toward zero, the price was proximity; if they hold, it is the label.
-- `nb5p3-locnolabel-v1` (#PR): the surface without the labels. If its PSIS-LOO ties loc-v1, drop
+- `nb5p3-locnolabel-v1` (#535): the surface without the labels. If its PSIS-LOO ties loc-v1, drop
   the labels (simpler model). If loc-v1 wins, the label carries a price beyond location.
 - Later: label × time against a space × time surface (Model structure, below). A 250 m bump grid
   can mimic part of a step, so read the border bins again after the fits.
