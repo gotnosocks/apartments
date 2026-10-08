@@ -144,7 +144,9 @@ baths in an apartment that is otherwise the same, not the typical two-bath apart
 <h2>One apartment, term by term</h2>
 <p>Here is a real ask, chosen because it is the median ask among the {{ "listings available now" if build.current else "listings in the fit" }}:
 <a href="{{ url_for('listing', audit_id=l.audit_id) }}">{{ l.unit_label or "an apartment" }}</a>
-in {{ l.neighbourhood }}, {{ beds_label(l.bedrooms) | lower }}{% if l.square_feet %}, {{ "{:,.0f}".format(l.square_feet) }} sq ft{% endif %}{% if l.floor %}, floor {{ l.floor }}{% endif %}.
+in {{ l.neighbourhood }}, {{ beds_label(l.bedrooms) | lower }}{% if l.square_feet %}, {{ "{:,.0f}".format(l.square_feet) }} sq ft{% endif %}{% if l.floor %}, floor {{ l.floor }}{% endif %}.{% if build.current and accuracy and build.ask > accuracy.typical %}
+Its ask, {{ usd(build.ask) }}, is above the typical ${{ "{:,.0f}".format(accuracy.typical) }} quoted at the top. That
+figure is the median of the held-out asks from every year in the data; asks for listings available now run higher.{% endif %}
 The estimate starts from the market for an apartment like it that month, then each part adds or takes off its share.
 The parts add on the log scale, so in dollars they multiply. We split the dollars between them in an order-free
 way, so a term's bar is the same size wherever it sits in the queue.</p>
