@@ -1366,7 +1366,7 @@ ALTERATIONS_FILE = (
 # neighbourhoods' registry lots, with each release's publication date
 # (`rentfrontier.external plutoreleases`).
 PLUTO_RELEASES_FILE = (
-    "/data1/apartments/external/plutoreleases/20261008-ab6040a/plutoreleases.parquet"
+    "/data1/apartments/external/plutoreleases/20261008-bdb9e67/plutoreleases.parquet"
 )
 PLUTO_RELEASE_BUFFER_DAYS = 7
 """Days after a MapPLUTO release is published before a listing reads it: the
