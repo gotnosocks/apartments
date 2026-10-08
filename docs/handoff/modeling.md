@@ -3,6 +3,18 @@
 What the next turn of the modeling thread needs. Updated at each milestone. Scripts and logs are
 in `/data1/apartments/tmp/bridge` (thelio).
 
+## Update (2026-10-08 23:45 UTC)
+
+- **Runs are still paused.** The coordinator's follow-up checks are recorded in
+  `docs/model/research-backlog.md`: #582 (A–E), #584 (what moved WV), #585 (label vs geography)
+  and the NTA re-base, market beta, shared shape and attention checks (this PR). Scripts are
+  `review/r12/c19.py` to `c23.py`.
+- **Finding:** the WV rise is a place-specific step around 2022 (checks 2 and 3), and its step and
+  drift follow the geocode rather than the label (#585). If `area_time` gets a fit, define it on 2020 NTA areas, as a per-area walk or a 2022 step,
+  not as a beta on the market curve.
+- **On resume:** Data's candidates nb6-nostuy-explain-v1 and nb6-nostuy-stabopen-v2 go against
+  nb6-nostuy-v1. `modalq-resume.sh` must be rewritten to the 22:10Z order before it is launched.
+
 ## Update (2026-10-08 23:00 UTC)
 
 - **Runs are still paused.** All 12 review checks (sections 9 and 10) and the coordinator's
