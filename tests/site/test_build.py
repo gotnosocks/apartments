@@ -63,6 +63,11 @@ def test_listing_rows_carry_the_estimate_bands_and_contributions(site_root):
     assert sum(p["usd"] for p in parts) == pytest.approx(
         rows["a1"]["estimate"], abs=0.05
     )
+    # The estimate is the predictive median, not the mean, and the gap and
+    # the parts are against it.
+    a1 = rows["a1"]
+    assert a1["estimate"] == a1["estimate_median"]
+    assert a1["residual_pct"] == pytest.approx(a1["ask"] / a1["estimate_median"] - 1)
 
 
 def test_units_follow_the_summary_unit_ids_and_latest_listing(site_root):

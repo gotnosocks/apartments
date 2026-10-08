@@ -176,8 +176,8 @@ called a one-bedroom, say), and sometimes the apartment was rebuilt; the estimat
   <details class="table-view" id="model-details">
   <summary>Model details, for statisticians</summary>
   <dl class="facts">
-    <dt>Typical rent, posterior median</dt><dd>{{ usd(row.estimate_median) }} <span class="muted">(the estimate above is the
-      posterior mean, so the two differ a little)</span></dd>
+    <dt>Typical rent</dt><dd>{{ usd(row.estimate_median) }}, the posterior predictive median <span class="muted">(not the
+      mean, which heavy-tailed apartment effects can pull far out)</span></dd>
     <dt>Ask percentile</dt><dd>{{ "%.1f" | format(100 * row.pit) }}</dd>
     <dt>Method</dt><dd>{% if row.method == "kit" %}priced with the kit, not in the fit (captured {{ row.collected_at[:10] }}){% elif row.method == "heldout" %}<a href="{{ url_for('research_glossary', _anchor='held-out') }}">held out of the fit</a>{% else %}leave-own-row-out
       (<a href="{{ url_for('research_glossary', _anchor='psis-loo') }}">PSIS</a>): the fit reweighted as if it had not seen this ask{% endif %}</dd>
