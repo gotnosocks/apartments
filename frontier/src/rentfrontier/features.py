@@ -1249,6 +1249,30 @@ NB3_EXTRAS_FILE = (
 )
 # LPC designations of the three neighbourhoods' lots (`rentfrontier.external lpc`).
 NB3_LPC_FILE = "/data1/apartments/external/lpc/20261005-8946d6f/lpc.parquet"
+# Chelsea, West Village, Greenwich Village and Flatiron + Gramercy Park:
+# Flatiron + Gramercy Park's registry (20261008-34b958d) merged into nb3's, its
+# MapPLUTO, footprints and basemap merged into nb3's (nb3's rows unchanged), the
+# four crawls' listing extras (also the price history), and the sources keyed
+# by lot, building or box fetched on the merged registry.
+NB4_REGISTRY_FILE = (
+    "/data1/apartments/external/registry/20261008-bda2959/buildings.parquet"
+)
+NB4_PLUTO_FILE = "/data1/apartments/external/pluto/20261008-e78c6fd/pluto.parquet"
+NB4_FOOTPRINTS_FILE = (
+    "/data1/apartments/external/footprints/20261008-e78c6fd/footprints.parquet"
+)
+NB4_BASEMAP_FILE = "/data1/apartments/external/basemap/20261008-e78c6fd/basemap.parquet"
+NB4_EXTRAS_FILE = (
+    "/data1/apartments/external/listing-extras/20261008-e78c6fd/listing-extras.parquet"
+)
+NB4_LPC_FILE = "/data1/apartments/external/lpc/20261008-bda2959/lpc.parquet"
+NB4_HPD_FILE = "/data1/apartments/external/hpd/20261008-bda2959/hpd.parquet"
+NB4_NOISE_FILE = "/data1/apartments/external/noise311/20261008-bda2959/noise311.parquet"
+NB4_PLACES_FILE = "/data1/apartments/external/places/20261008-bda2959/places.parquet"
+NB4_STOREFRONTS_FILE = (
+    "/data1/apartments/external/storefronts/20261008-e78c6fd/storefronts.parquet"
+)
+NB4_PARKS_FILE = "/data1/apartments/external/parks/20261008-bda2959/parks.parquet"
 # The LPC snapshot of the set being built (`LPC_SNAPSHOTS`): when set, a lot is a
 # landmark or in a historic district only from its designation date.
 _LPC: contextvars.ContextVar[str | None] = contextvars.ContextVar("lpc", default=None)
@@ -2683,6 +2707,10 @@ _NB_DESCRIPTIONS = {
 _NB3_DESCRIPTIONS = {
     **_NB_DESCRIPTIONS,
     "descriptions_gv": str(descriptions_module.GV_SOURCE),
+}
+_NB4_DESCRIPTIONS = {
+    **_NB3_DESCRIPTIONS,
+    "descriptions_fgp": str(descriptions_module.FGP_SOURCE),
 }
 DESCRIPTION_SOURCES = {
     "nb-facing-v2": _NB_DESCRIPTIONS,
