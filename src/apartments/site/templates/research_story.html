@@ -10,12 +10,15 @@ changes when the model does.</p>
 
 <p>The model has seen {{ "{:,}".format(counts[0]) }} asks for {{ "{:,}".format(counts[1]) }} apartments in
 {{ "{:,}".format(counts[2]) }} buildings, from {{ month(counts[3]) }} to {{ month(counts[4]) }}.
+An ask is the monthly rent a listing advertises, not the rent finally signed.
 Most apartments were listed more than once, so the same home shows up at different times and prices. That
 repetition is what lets a model separate the apartment from the building, and the building from the market.</p>
 
 <p>{% if accuracy %}In short, on asks it never saw, half the estimates land within
 {{ "{:.1f}".format(accuracy.median) }}% of their estimate: on a typical ${{ "{:,.0f}".format(accuracy.typical) }} ask, within about
-${{ "{:,.0f}".format((accuracy.typical * accuracy.median / 100) | round(-1)) }} (<a href="#accuracy">how close it gets</a>).
+${{ "{:,.0f}".format((accuracy.typical * accuracy.median / 100) | round(-1)) }}.{% if accuracy.new %} For an apartment
+it has never seen in any listing, the miss is wider: half land within {{ "{:.1f}".format(accuracy.new.median) }}%.{% endif %} The model’s likely
+ranges, meant to hold 80% of asks, hold {{ "{:.0f}".format(accuracy.likely) }}% (<a href="#accuracy">how close it gets</a>).
 {% endif %}This page is about the model. For how rents themselves have changed, by neighbourhood and bedroom count,
 see the <a href="{{ url_for('estimates_map') }}">rent map</a>.</p>
 
