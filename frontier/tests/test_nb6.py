@@ -352,14 +352,18 @@ def test_lot_open_share_v2_joins_the_lots_a_footprint_spans(tmp_path, monkeypatc
     )
     frame = pd.DataFrame(
         {
-            "building": ["a", "a", "b", "c", "d", "e"],
-            "period": pd.to_datetime(["1899-01-01"] + ["2016-01-01"] * 5),
+            "building": ["a", "a", "b", "c", "d", "e", "b"],
+            "period": pd.to_datetime(
+                ["1899-01-01"] + ["2016-01-01"] * 5 + ["1899-01-01"]
+            ),
         }
     )
     out = features.lot_open_share_v2(frame)
     # a and b: one footprint over the two lots' 1.2 sq (none before 1900);
-    # c: within the overhang, so 0; d: unknown; e: its own lot only.
+    # c: within the overhang, so 0; d: unknown; e: its own lot only; b before
+    # a's footprint was built: not yet joined, no footprint of its own.
     assert out[[0, 1, 2]] == pytest.approx([1.0, 1 / 6, 1 / 6], abs=0.01)
     assert out[3] == 0.0
     assert np.isnan(out[4])
     assert out[5] == pytest.approx(0.5, abs=0.01)
+    assert np.isnan(out[6])
