@@ -7,6 +7,27 @@ Fixes for things that are broken or wrong on the live site still ship.
 Each round adds a section at the top, ranked by how much the finding gets in the way of
 finding the best one-bedroom. Reports are in `/data1/apartments/tmp/playtests/<round>/`.
 
+## Story round 3 (story-reader, economist), 2026-10-08
+
+Reports in `/data1/apartments/tmp/playtests/2026-10-08-story3/`. The story fixes shipped in #505.
+The economist's findings outside the story are logged here, unbuilt (coordinator, 2026-10-08
+10:33 UTC: the feature hold applies):
+
+1. **Rent map: observed median ask and counts.** Draw the median ask per year on the same chart
+   as the typical-rent line, show how many listings back each cell, and link a cell to its
+   listings. West Village 1 BR 2019→2026 reads +41% on the map against +49% in median asks.
+2. **Versioned citation.** A "cite this" with the served run id and data snapshot id, or URLs
+   that carry them, so a cited figure doesn't move with each refit.
+3. **Calibration breakdowns.** Coverage by neighbourhood, bedroom count, price band and building
+   size, not only overall and by year.
+4. **Home "Available now (… only)".** Say why current listings cover three of the five
+   neighbourhoods.
+5. **Methods and data note.** One page to cite: source, crawl frequency, re-lists, how unit
+   identity is inferred, thin early years (692 listings in 2010), and a data dictionary for
+   listings.csv (which also lacks the 95% bounds).
+6. **The served fit's "servable: no" row** (fit with quarantine-v6, current rules v10) read as a
+   stale fit; passed to Modeling.
+
 ## Round 11 (best-1bed, /best after the commute, bed-size and low-floor pills), 2026-10-06
 
 One persona, starting at `/best?beds=1` (`/data1/apartments/tmp/playtests/2026-10-06-r11/`).

@@ -186,11 +186,14 @@ for that apartment. If those ranges are honest, about 80% of the held-out asks s
 <p>A model like this is a pile of hypotheses. Does a quiet street cost more? Do bigger apartments' asks scatter
 more widely? Does the ad's own text know something the structured fields don't? Each idea gets the same trial. We
 fit the model with it and without it, on the same rows, and ask which version better predicts asks it was not
-shown. The score is <a href="{{ url_for('research_glossary') }}#psis-loo">PSIS-LOO</a>, a fast stand-in for
-leaving each listing out in turn and predicting it from the rest. The score's unit is
-abstract; what matters is the difference between two fits (<a href="{{ url_for('research_glossary') }}#delta-elpd">ΔELPD</a>). Each difference
-comes with a standard error, a measure of how much it could move by chance, and a change counts as a real gain only
-when it beats the old model by more than twice that.</p>
+shown. Picture hiding one listing, pricing it from all the others, and noting how plausible the model found
+the real ask; then doing that for every listing and adding it up. The version that finds the real asks more
+plausible wins. (The score is called <a href="{{ url_for('research_glossary') }}#psis-loo">PSIS-LOO</a>, a shortcut
+that gets this hide-one-out total without refitting the model once per listing.)</p>
+
+<p>The score's units mean nothing on their own; only the gap between two fits does
+(<a href="{{ url_for('research_glossary') }}#delta-elpd">ΔELPD</a>). Each gap comes with a standard error, how
+far it could move by chance, and an idea counts as a real gain only when the gap is more than twice that.</p>
 
 <p>So far {{ trials | length }} ideas have been tried, in {{ tests | length }} paired fits.
 {% set others = trials | length - gains | length - nulls | length %}{{ gains | length }} helped, {{ nulls | length }}
@@ -204,9 +207,10 @@ neighbourhoods give location more room to matter.{% endif %}{% endif %}</p>
 <figure class="story-figure" id="trials-figure" data-play>
   <div class="legend-row" aria-hidden="true">{% for key, words in verdict_words.items() %}{% if trials | selectattr("verdict", "equalto", key) | list %}<span><span class="swatch v-{{ key }}"></span>{{ words | capitalize }}</span>{% endif %}{% endfor %}</div>
   <div class="figure-scroll" tabindex="0" role="region" aria-label="Figure, scrolls sideways on narrow screens">{{ trials_svg }}</div>
-  <figcaption>Each idea's gain in PSIS-LOO over the model without it, with a band of two standard errors. Small
-  rings are earlier repeats of the same test on other fits. The axis is square-root scaled, so gains of 20 and 2,000
-  both show. Rows are grouped by kind and sorted by gain; when the figure plays, they appear in the order the ideas were first tried.</figcaption>
+  <figcaption>One row per idea. A dot right of the centre line means the model predicted unseen asks better with
+  the idea, left of it worse. The band is two standard errors either side: a band that crosses the line means no
+  clear effect. Small rings are earlier repeats of the same test on other fits. The axis is stretched near zero
+  (square-root scaled), so gains of 20 and 2,000 both fit. Rows are grouped by kind and sorted by gain; when the figure plays, they appear in the order the ideas were first tried.</figcaption>
 </figure>
 
 {# Set aside despite a clear gain: the leak the paragraph after the table explains. #}
