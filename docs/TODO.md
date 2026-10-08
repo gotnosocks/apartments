@@ -40,7 +40,7 @@ the balance is within an hour's accrual of the cap, and stops if the served run 
 remaining sets are rebased first.
 - [x] **Data:** one feature set per item on nb5-coded-v2 (the attributes on an nb5 flagfix base; the
       places from the 2026-10-08 snapshot that reaches Bellevue), 21 sets.
-- [x] **Modeling:** queue the 21 fits behind the current queue, about $1 and 2.4 h of budget each
+- [ ] **Modeling:** (queued) the 21 fits behind the current queue, about $1 and 2.4 h of budget each
       (about 2½ days in all); run `rentfrontier.effects` on each as it lands.
 - [ ] **Website:** the story's per-item effects, labelled as from a test fit where it isn't served.
 
