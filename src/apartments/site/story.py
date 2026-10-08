@@ -226,7 +226,7 @@ def feature_words(feature: str, group: str, others: dict) -> str | None:
     if group == "building class":
         return summary.CLASSES.get(level)
     if group == "neighbourhood":
-        return "the West Village" if feature == "West Village" else feature
+        return summary.hood_name(feature)
     if feature.startswith("text:"):
         words = summary.TEXT.get(feature[5:])
         return f"{words} (ad)" if words else None

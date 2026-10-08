@@ -748,6 +748,7 @@ def create_app(
         ), 500
 
     app.jinja_env.filters["trim_float"] = trim_float
+    app.jinja_env.filters["hood"] = summary.hood_name
     app.jinja_env.filters["minus"] = lambda text: str(text).replace("-", "−")
     app.jinja_env.tests["finite"] = lambda v: (
         isinstance(v, (int, float)) and not isinstance(v, bool) and math.isfinite(v)

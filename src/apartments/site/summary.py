@@ -132,6 +132,15 @@ def _with(inputs: dict, prefix: str) -> list[str]:
     ]
 
 
+# Neighbourhoods said with "the" in a sentence.
+WITH_THE = frozenset({"West Village", "East Village", "Flatiron", "Flatiron District"})
+
+
+def hood_name(name: str) -> str:
+    """A neighbourhood as a sentence names it: "the West Village", "Chelsea"."""
+    return f"the {name}" if name in WITH_THE else name
+
+
 def phrase(term: str, row, inputs: dict, sign: int) -> str | None:
     """What the listing has that a model part prices, in a few words; None
     when the part rests only on a detail the listing leaves out, or is not
@@ -227,6 +236,9 @@ def phrase(term: str, row, inputs: dict, sign: int) -> str | None:
             words.append("a building altered since 2000")
         return _join(words) or None
     if term == "neighbourhood":
+        keys = row.keys() if hasattr(row, "keys") else ()
+        if "neighbourhood" in keys and row["neighbourhood"]:
+            return hood_name(row["neighbourhood"])
         if inputs.get("Greenwich Village"):
             return "Greenwich Village"
         return "the West Village" if inputs.get("West Village") else "Chelsea"
