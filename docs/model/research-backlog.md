@@ -30,6 +30,17 @@ with scripts in `/data1/apartments/tmp/bridge/review/`.
   held-out rows. The best τ is 20 years, which moves median absolute error by −0.01 points, and
   shorter τ is worse. The unit premium persists. Unit drift (m8, +360 earlier, slow to mix)
   stays deprioritized.
+- **First listing of a unit does not drift with year: refuted, keep the term.** The served fit
+  gives `first_listing_of_unit` +23.8% (95% 14.6 to 33.2). Its share falls from 96% of rows in 2010
+  to 25% in 2026, which is left-censoring at the start of the data. The median residual gap
+  between first listings and the rest stays within ±0.9% every year from 2012 to 2026, with no
+  trend. Data's check: `tmp/suspect/conc/firstlist.py`.
+- **Concession asks: no drop rule.** Structured concessions (monthsFree, netEffectiveRent, 2020
+  on) are already outside the cohort. Before 2020 a concession appears only in the ad text, on
+  about 6% of rows. The served fit prices that text at −1.1% (95% −1.35 to −0.88), and those rows
+  now miss by a median of +0.28% before 2020 and +0.17% after. Asks that equal a quoted net-effective
+  figure are about 0.27% of rows. Data kept the rows and added the era-split set
+  `nb5-concera-v1` (#551) to the resume queue. Script: `tmp/bridge/review/conc.py`.
 - **Missing square feet: no gap.** Rows with and without square feet have the same bias, error and
   coverage. This lowers "Latent square footage" (Model structure, below).
 - **Building effects are well pooled.** Among buildings with 20 or more rows, the mean residual

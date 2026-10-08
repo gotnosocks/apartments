@@ -10,6 +10,9 @@ in `/data1/apartments/tmp/bridge` (thelio).
   pluto3 base, the nb5p3 tests, locnolabel (#535), then unical and trees. Before launching, add Data's
   claimed-area sets at #543's merge commit and the quarantine-v11 swap (#542 head); both are in the
   script's comments.
+- **Queue additions since the pause:** claimed area (#543, 840cf57), crime (#548, 053277a),
+  concession by era (#551, 9631c96) and HPD condition (#552, 140a44b). All are additive on
+  plutoasof-v3 and already in `modalq-resume.sh`. #542 (quarantine-v11) still waits for its fit.
 - **Served summary:** bundle `-37f33c1` of the same fit, with new-unit levels clipped (#540, #544).
   Published and deployed at 13:50 ET.
 - **Free checks** have Ben's standing approval (17:52Z). The noise check is recorded under ranked
