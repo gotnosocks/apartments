@@ -2,6 +2,22 @@
 
 What the next turn of the website thread needs. Updated at each milestone.
 
+## State (2026-10-08 03:30 UTC)
+
+- **Five neighbourhoods (Ben, 2026-10-08 02:53Z):** Flatiron and Gramercy Park are to be two
+  separate areas, five in total. Data is rebuilding the FGP dataset so `neighbourhood` itself is
+  "Flatiron" or "Gramercy Park" per building (from the StreetEasy pageTitle in the crawl's
+  `building_observations.raw_building_json`: 480 Gramercy Park, 327 Flatiron, 1 Park Slope). The
+  site, rent map and summaries read names from that column, so no site change is needed. Check
+  the live pages when that fit is served.
+- **Story-reader playtest** (persona `story-reader`, round 2026-10-08-story) drove #459 (held-out
+  row reconciliation, location-retest count, plain spread / standard error, glossary links;
+  `summary.py` no longer guesses Chelsea) and #461 ("How close does it get?": median miss and
+  likely-range coverage on the held-out asks, `story.accuracy`). Both live.
+- **Next from that report:** static first frames for the animated figures (they look empty
+  mid-animation), truncated labels in the theories and design figures, and one real example each
+  of a joined or split unit and a big rent jump in the cleaning chapter.
+
 ## State (2026-10-08 03:00 UTC)
 
 - **The story's planned chapters are all live:** #450 "Cleaning the record" (reads
