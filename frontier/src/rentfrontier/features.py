@@ -1680,6 +1680,10 @@ HPD_FILE = f"{HPD_SNAPSHOT}/hpd.parquet"
 # Rent-stabilized units per lot and tax-bill year (`rentfrontier.external rentstab`).
 RENTSTAB_SNAPSHOT = "/data1/apartments/external/rentstab/20261008-b487c8a"
 RENTSTAB_FILE = f"{RENTSTAB_SNAPSHOT}/rentstab.parquet"
+# MapPLUTO for every lot on the six neighbourhoods' tax blocks (external.py
+# blocklots): which lots a footprint spans (`lot_open_share_v2`).
+BLOCKLOTS_SNAPSHOT = "/data1/apartments/external/blocklots/20261008-d93eec2"
+BLOCKLOTS_FILE = f"{BLOCKLOTS_SNAPSHOT}/blocklots.parquet"
 # Years a lot's last stabilized-units bill counts for (the 2019 bill reaches 2022).
 STAB_CARRY_YEARS = 3
 
@@ -3088,6 +3092,167 @@ def open_space_v1(
     )
 
 
+# A footprint may cover its lot by up to this share more than MapPLUTO's lot
+# area and still count as the whole lot built on: roof outlines take in
+# cornices and overhangs, and lot areas are rounded. About 290 of the six
+# neighbourhoods' 3,700 buildings are over by 0 to 10%, most of them row
+# houses that fill their lots; above 10% the lot area does not describe the
+# footprint, and the share is left unknown.
+OPEN_SHARE_OVERHANG = 0.10
+
+
+def _footprint_rings(geometry: str, grid) -> list[tuple[int, np.ndarray]]:
+    """Every ring of a footprint's GeoJSON polygon or polygons, in grid metres,
+    as (its index in its polygon, so 0 is the outer ring; the ring)."""
+    geometry = json.loads(geometry)
+    polygons = geometry["coordinates"]
+    polygons = polygons if geometry["type"] == "MultiPolygon" else [polygons]
+    return [
+        (k, grid([q[0] for q in ring], [q[1] for q in ring]))
+        for polygon in polygons
+        for k, ring in enumerate(polygon)
+    ]
+
+
+def _rings_area(rings) -> float:
+    """Square feet inside `_footprint_rings` (holes taken out)."""
+    total = 0.0
+    for k, r in rings:
+        a = abs(0.5 * np.sum(r[:-1, 0] * r[1:, 1] - r[1:, 0] * r[:-1, 1]))
+        total += a if k == 0 else -a
+    return total * 10.7639
+
+
+def _rings_contain(rings, points: np.ndarray) -> np.ndarray:
+    """Which points (grid metres, n x 2) lie inside the rings (even-odd, so
+    holes are out)."""
+    x, y = points[:, :1], points[:, 1:]
+    inside = np.zeros(len(points), bool)
+    for _, r in rings:
+        x1, y1, x2, y2 = r[:-1, 0], r[:-1, 1], r[1:, 0], r[1:, 1]
+        spans = (y1 > y) != (y2 > y)
+        with np.errstate(divide="ignore", invalid="ignore"):
+            at = x1 + (x2 - x1) * (y - y1) / (y2 - y1)
+        inside ^= (spans & (x < at)).sum(1) % 2 == 1
+    return inside
+
+
+def lot_open_share_v2(frame: pd.DataFrame) -> np.ndarray:
+    """Per row: the share of its building's lot no building stands on, as
+    `lot_open_share`, over the union of the lots its footprints span. A lot
+    joins the union when its MapPLUTO point (`BLOCKLOTS_FILE`, the lots of the
+    registry's blocks; not a condominium's billing lots) lies inside a
+    footprint built by the listing's year on another lot of the block, and
+    lots chained this way form one union: covered is every footprint on them
+    built by that year, over their summed lot areas (the building's own lot's
+    from its MapPLUTO release, the others' from today's). Covered up to
+    OPEN_SHARE_OVERHANG over the union's area is 0 open; more than that, no
+    footprint, or no lot area is NaN. Reads no rents."""
+    grid = facing_grid()
+    registry = pd.read_parquet(lot_registry()).set_index("building")
+    footprints = pd.read_parquet(area_snapshot()[1])
+    footprints["base_bbl"] = footprints.base_bbl.astype(str)
+    rings = [_footprint_rings(g, grid) for g in footprints.geometry]
+    footprints["area"] = [_rings_area(r) for r in rings]
+    built = pd.to_numeric(footprints.construction_year, errors="coerce").fillna(0)
+    footprints["built"] = built
+    lots = pd.read_parquet(BLOCKLOTS_FILE)
+    lots = lots[pd.to_numeric(lots.lot, errors="coerce") < 7501]
+    lots_area = dict(zip(lots.bbl, pd.to_numeric(lots.lotarea, errors="coerce")))
+    points = grid(
+        pd.to_numeric(lots.longitude, errors="coerce").to_numpy(),
+        pd.to_numeric(lots.latitude, errors="coerce").to_numpy(),
+    )
+    block = lots.bbl.str[:6].to_numpy()
+    # (footprint's lot, a lot whose point it covers, the year it was built)
+    joins = [
+        (lot, other, year)
+        for lot, r, year in zip(footprints.base_bbl, rings, footprints.built)
+        for other in lots.bbl[block == lot[:6]][
+            _rings_contain(r, points[block == lot[:6]])
+        ]
+        if other != lot
+    ]
+    by_lot = {
+        lot: (g.built.to_numpy(), g.area.to_numpy())
+        for lot, g in footprints.groupby("base_bbl")
+    }
+
+    def unions(year: int) -> dict[str, list[str]]:
+        """Each lot's union as of `year`: its lots."""
+        parent: dict[str, str] = {}
+
+        def find(lot: str) -> str:
+            while parent.get(lot, lot) != lot:
+                lot = parent[lot]
+            return lot
+
+        for lot, other, built_in in joins:
+            if built_in <= year and find(other) != find(lot):
+                parent[find(other)] = find(lot)
+        members: dict[str, list[str]] = {}
+        for lot in {x for j in joins for x in j[:2]}:
+            members.setdefault(find(lot), []).append(lot)
+        return {lot: m for m in members.values() for lot in m}
+
+    base_of = dict(zip(footprints.bin.astype(str), footprints.base_bbl))
+    lotarea = pd.to_numeric(building_lots(frame).lotarea, errors="coerce").to_numpy()
+    year = pd.DatetimeIndex(frame.period).year.to_numpy()
+    by_year = {y: unions(y) for y in np.unique(year)}
+    out = np.full(len(frame), np.nan)
+    for building, idx in frame.groupby("building").indices.items():
+        if building not in registry.index:
+            continue
+        r = registry.loc[building]
+        lot = base_of.get(str(r.bin), str(r.bbl))
+        for i in idx:
+            union = by_year[year[i]].get(lot, [lot])
+            if not any(m in by_lot for m in union):
+                continue
+            # The building's own lot is its registry lot's MapPLUTO area; its
+            # footprint's lot, where that differs, is the same ground.
+            others = sum(
+                lots_area.get(m, np.nan) for m in union if m not in (lot, str(r.bbl))
+            )
+            covered = sum(
+                area[built_in <= year[i]].sum()
+                for built_in, area in (by_lot[m] for m in union if m in by_lot)
+            )
+            with np.errstate(divide="ignore", invalid="ignore"):
+                out[i] = 1.0 - covered / (lotarea[i] + others)
+    out[~(np.isfinite(out) & (lotarea > 0) & (out >= -OPEN_SHARE_OVERHANG))] = np.nan
+    return np.clip(out, 0.0, 1.0)
+
+
+def open_space_v2(
+    frame: pd.DataFrame,
+    train: np.ndarray,
+    id: str,
+    base: str,
+) -> Features:
+    """`open_space_v1` with `lot_open_share_v2`: a footprint spanning lots is
+    measured over their union, and a lot area that cannot hold its footprint
+    is unknown rather than 0 open. Reads no rents."""
+    base = FEATURE_SETS[base](frame, train)
+    share = lot_open_share_v2(frame)
+    known = np.isfinite(share)
+    b = _Builder(frame)
+    b.add(
+        "building size",
+        "open lot share",
+        np.where(known, share - float(np.mean(share[train & known])), 0.0),
+    )
+    b.add("building size", "open_lot_share_unknown", ~known)
+    out = b.build(id)
+    return Features(
+        id,
+        base.names + out.names,
+        base.groups + out.groups,
+        np.column_stack([base.values, out.values]),
+        np.concatenate([base.prior_scale, out.prior_scale]),
+    )
+
+
 # Feature sets that read the external snapshots (run records list them).
 EXTERNAL = {
     "nb-pluto-base",
@@ -3184,7 +3349,14 @@ PARKS = {"nb3-parks-v1", "nb3-water-v1", "nb5-parks-v1", "nb5-water-v1"}
 # Feature sets that read the HPD violations snapshot.
 HPD = {"unitdescplutohpd-v1", "unitdescplutohpd-v2"}
 # Feature sets that read the rent-stabilized units snapshot (`RENTSTAB_FILE`).
-RENTSTAB = {"nb6-stab-v1", "nb6-nostuy-stab-v1", "nb6-nostuy-stabopen-v1"}
+RENTSTAB = {
+    "nb6-stab-v1",
+    "nb6-nostuy-stab-v1",
+    "nb6-nostuy-stabopen-v1",
+    "nb6-nostuy-stabopen-v2",
+}
+# Feature sets that read the block lots snapshot (`BLOCKLOTS_FILE`).
+BLOCKLOTS = {"nb6-nostuy-open-v2", "nb6-nostuy-stabopen-v2"}
 # Feature sets that read the advertisement descriptions (`descriptions.SOURCE`),
 # directly or through their base set.
 DESCRIPTIONS = {
@@ -3812,6 +3984,8 @@ NB6_SETS = {
     "nb6-nostuy-stab-v1": "nb5-plutoasof-v3",
     "nb6-nostuy-open-v1": "nb5-plutoasof-v3",
     "nb6-nostuy-stabopen-v1": "nb5-plutoasof-v3",
+    "nb6-nostuy-open-v2": "nb5-plutoasof-v3",
+    "nb6-nostuy-stabopen-v2": "nb5-plutoasof-v3",
 }
 # nb5-plutoasof-v3 plus Stuyvesant Town/PCV (`hoods_v1`): the six
 # neighbourhoods' base. Not fitted until runs resume (Ben, 2026-10-08: pause).
@@ -3850,6 +4024,18 @@ FEATURE_SETS["nb6-nostuy-open-v1"] = partial(
 )
 FEATURE_SETS["nb6-nostuy-stabopen-v1"] = partial(
     open_space_v1, id="nb6-nostuy-stabopen-v1", base="nb6-nostuy-stab-v1"
+)
+# v1's open share clips to 0 the 350 buildings whose footprints cover more than
+# their lot's area. v2 (`open_space_v2`) measures a footprint over the union of
+# the lots it spans and leaves a lot area that cannot hold it unknown: the v1
+# sets are not to be fitted. Building age and type are in the base (era,
+# class, units); a single owner is not, and is still to test as a large
+# single-owner complex from a public owner field.
+FEATURE_SETS["nb6-nostuy-open-v2"] = partial(
+    open_space_v2, id="nb6-nostuy-open-v2", base="nb6-nostuy-v1"
+)
+FEATURE_SETS["nb6-nostuy-stabopen-v2"] = partial(
+    open_space_v2, id="nb6-nostuy-stabopen-v2", base="nb6-nostuy-stab-v1"
 )
 for _new, _old in NB6_SETS.items():
     for _group in (

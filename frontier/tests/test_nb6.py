@@ -118,6 +118,7 @@ def test_stuyvesant_town_tests_drop_the_indicator_or_add_the_stabilized_share():
         "nb6-stab-v1",
         "nb6-nostuy-stab-v1",
         "nb6-nostuy-stabopen-v1",
+        "nb6-nostuy-stabopen-v2",
     }
     groups = {
         k: v for k, v in vars(features).items() if k.isupper() and isinstance(v, set)
@@ -128,10 +129,13 @@ def test_stuyvesant_town_tests_drop_the_indicator_or_add_the_stabilized_share():
         "nb6-nostuy-stab-v1",
         "nb6-nostuy-open-v1",
         "nb6-nostuy-stabopen-v1",
+        "nb6-nostuy-open-v2",
+        "nb6-nostuy-stabopen-v2",
     ):
-        assert {k for k, v in groups.items() if name in v} - {"RENTSTAB"} == {
-            k for k, v in groups.items() if "nb6-plutoasof-v3" in v
-        }
+        assert {k for k, v in groups.items() if name in v} - {
+            "RENTSTAB",
+            "BLOCKLOTS",
+        } == {k for k, v in groups.items() if "nb6-plutoasof-v3" in v}
         assert features.lot_files(name) == features.lot_files("nb6-plutoasof-v3")
 
 
@@ -242,3 +246,124 @@ def test_lot_open_share_counts_footprints_built_by_the_listing_year(
     # condominium's), no year; c: no footprint; d: no lot area.
     assert out[:3].tolist() == [0.7, 0.5, 0.5]
     assert np.isnan(out[3:]).all()
+
+
+def test_open_v2_sets_measure_over_the_lots_a_footprint_spans(monkeypatch):
+    for name, on in (
+        ("nb6-nostuy-open-v2", "nb6-nostuy-v1"),
+        ("nb6-nostuy-stabopen-v2", "nb6-nostuy-stab-v1"),
+    ):
+        open_set = features.FEATURE_SETS[name]
+        assert open_set.func is features.open_space_v2
+        assert open_set.keywords == {"id": name, "base": on}
+        assert name in features.FOOTPRINTS and name in features.BLOCKLOTS
+    monkeypatch.setattr(run.data, "sha256", lambda path: "x")
+    assert run.feature_sources("nb6-nostuy-open-v2")["blocklots"]["path"] == (
+        features.BLOCKLOTS_FILE
+    )
+    assert "blocklots" not in run.feature_sources("nb6-nostuy-open-v1")
+
+
+def _square(lon, lat, side, hole=None):
+    ring = [[lon, lat], [lon + side, lat], [lon + side, lat + side], [lon, lat + side]]
+    rings = [ring + ring[:1]]
+    if hole is not None:
+        rings.append(hole + hole[:1])
+    return rings
+
+
+def test_rings_contain_points_outside_holes_and_in_any_polygon():
+    grid = features.facing_grid()
+    hole = [[-73.9997, 40.7403], [-73.9993, 40.7403], [-73.9993, 40.7407]]
+    hole.append([-73.9997, 40.7407])
+    geometry = {
+        "type": "MultiPolygon",
+        "coordinates": [
+            _square(-74.0, 40.74, 0.001, hole),
+            _square(-73.99, 40.74, 0.001),
+        ],
+    }
+    rings = features._footprint_rings(json.dumps(geometry), grid)
+    points = grid(
+        np.array([-73.9999, -73.9995, -73.9895, -73.995]),
+        np.array([40.7401, 40.7405, 40.7405, 40.7405]),
+    )
+    # In the first square, in its hole, in the second square, between them.
+    assert features._rings_contain(rings, points).tolist() == [
+        True,
+        False,
+        True,
+        False,
+    ]
+    one = features._rings_area(rings[2:])
+    assert 0.95 < one / (84.3 * 111.2 * 10.7639) < 1.05
+    assert 0.80 < (features._rings_area(rings) - one) / one < 0.85
+
+
+def test_lot_open_share_v2_joins_the_lots_a_footprint_spans(tmp_path, monkeypatch):
+    sq = 84.3 * 111.2 * 10.7639 / 100  # a 0.0001-degree square here, sq ft
+    registry = pd.DataFrame(
+        {
+            "building": ["a", "b", "c", "d", "e"],
+            "bin": ["1", "2", "3", "4", "5"],
+            "bbl": [f"100001{n}" for n in ("0001", "0002", "0003", "0004", "7501")],
+        }
+    )
+    # a's footprint spans lot 1 and lot 2's point (b, on lot 2, has none of
+    # its own); c's covers its lot by 5% more than its area, d's by half as
+    # much again; e is a condominium on base lot 6 whose billing lot's point
+    # is inside its footprint.
+    footprints = pd.DataFrame(
+        {
+            "bin": ["1", "3", "4", "5"],
+            "base_bbl": [f"100001{n}" for n in ("0001", "0003", "0004", "0006")],
+            "construction_year": ["1900"] * 4,
+            "geometry": [
+                json.dumps(
+                    {"type": "Polygon", "coordinates": _square(lon, 40.7, 0.0001)}
+                )
+                for lon in (-74.0, -74.01, -74.02, -74.03)
+            ],
+        }
+    )
+    lotarea = [0.6 * sq, 0.6 * sq, sq / 1.05, sq / 1.5, 2 * sq]
+    lots = pd.DataFrame(
+        {
+            "bbl": registry.bbl,
+            "lot": ["1", "2", "3", "4", "7501"],
+            "lotarea": lotarea,
+            "longitude": [-73.99997, -73.99993, -74.00995, -74.01995, -74.02995],
+            "latitude": [40.70002, 40.70008, 40.70005, 40.70005, 40.70005],
+        }
+    )
+    registry.to_parquet(tmp_path / "r.parquet")
+    footprints.to_parquet(tmp_path / "f.parquet")
+    lots.to_parquet(tmp_path / "l.parquet")
+    monkeypatch.setattr(features, "lot_registry", lambda: str(tmp_path / "r.parquet"))
+    monkeypatch.setattr(
+        features, "area_snapshot", lambda: ("unused", str(tmp_path / "f.parquet"))
+    )
+    monkeypatch.setattr(features, "BLOCKLOTS_FILE", str(tmp_path / "l.parquet"))
+    by_building = dict(zip(registry.building, lotarea))
+    monkeypatch.setattr(
+        features,
+        "building_lots",
+        lambda f: pd.DataFrame({"lotarea": f.building.map(by_building).to_numpy()}),
+    )
+    frame = pd.DataFrame(
+        {
+            "building": ["a", "a", "b", "c", "d", "e", "b"],
+            "period": pd.to_datetime(
+                ["1899-01-01"] + ["2016-01-01"] * 5 + ["1899-01-01"]
+            ),
+        }
+    )
+    out = features.lot_open_share_v2(frame)
+    # a and b: one footprint over the two lots' 1.2 sq (none before 1900);
+    # c: within the overhang, so 0; d: unknown; e: its own lot only; b before
+    # a's footprint was built: not yet joined, no footprint of its own.
+    assert out[[0, 1, 2]] == pytest.approx([1.0, 1 / 6, 1 / 6], abs=0.01)
+    assert out[3] == 0.0
+    assert np.isnan(out[4])
+    assert out[5] == pytest.approx(0.5, abs=0.01)
+    assert np.isnan(out[6])
