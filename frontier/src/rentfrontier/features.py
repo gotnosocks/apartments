@@ -802,6 +802,47 @@ def lines_v1(
     )
 
 
+def trees_v1(
+    frame: pd.DataFrame,
+    train: np.ndarray,
+    id: str = "nb5-trees-v1",
+    base: str = "nb5-plutoasof-v3",
+    file: str | None = None,
+) -> Features:
+    """A base set plus the log of one plus the live street trees within
+    `trees.RADIUS_M` metres of the building in the latest street tree census
+    published a week before the listing (`trees.live_trees_near`), centred on
+    the training rows. Reads no rents."""
+    from . import trees
+
+    base = FEATURE_SETS[base](frame, train)
+    registry = pd.read_parquet(lot_registry()).set_index("building")
+    count = trees.live_trees_near(
+        registry.latitude.reindex(frame.building.to_numpy()),
+        registry.longitude.reindex(frame.building.to_numpy()),
+        frame.price_at.pipe(pd.to_datetime, utc=True).dt.tz_localize(None),
+        pd.read_csv(file or TREES_FILE),
+    )
+    value = np.log1p(count)
+    known = np.isfinite(value)
+    centre = float(np.mean(value[train & known]))
+    b = _Builder(frame)
+    # A building without a position sits at the mean.
+    b.add(
+        "greenery",
+        f"log(1 + street trees within {trees.RADIUS_M:.0f} m)",
+        np.where(known, value - centre, 0.0),
+    )
+    out = b.build(id)
+    return Features(
+        id,
+        base.names + out.names,
+        base.groups + out.groups,
+        np.column_stack([base.values, out.values]),
+        np.concatenate([base.prior_scale, out.prior_scale]),
+    )
+
+
 def bedsize_v1(
     frame: pd.DataFrame,
     train: np.ndarray,
@@ -2844,6 +2885,10 @@ FEATURE_SETS = {
         base="nb3-coded-v2",
         hoods=("Flatiron", "Gramercy Park"),
     ),
+    # nb5-plutoasof-v3 plus street trees near the building (`trees_v1`): an
+    # explanatory term for greenery (Ben, 2026-10-08: explanatory features
+    # over neighbourhood premiums).
+    "nb5-trees-v1": partial(trees_v1, id="nb5-trees-v1", base="nb5-plutoasof-v3"),
     # nb5-coded-v2 with the lot's alteration years as MapPLUTO had them before
     # the listing (ALTERATION_DATED_SETS); size and class stay today's.
     "nb5-plutoasof-v2": partial(
@@ -3183,6 +3228,10 @@ ALTERATION_DATED_SETS = {"nb5-plutoasof-v2"}
 # listing (`released_lots`). A set built on nb5-plutoasof-v3 joins it through
 # NB4_SETS (`NB4_SETS[name] = "nb5-plutoasof-v3"`), like the other groups.
 PLUTO_RELEASED_SETS = {"nb5-plutoasof-v3"}
+# The street tree table (`trees.main`) and the sets that read it.
+TREES_FILE = "/data1/apartments/external/trees/TODO/trees.csv"
+TREES = {"nb5-trees-v1"}
+NB4_SETS["nb5-trees-v1"] = "nb5-plutoasof-v3"
 # One set per ad attribute (`ATTRIBUTE_FLAGS`) and per place kind
 # (`nearby.KINDS`): nb5-coded-v2 plus that one column, each its own full fit.
 NB5_SINGLES = {
