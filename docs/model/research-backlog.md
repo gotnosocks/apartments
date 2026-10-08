@@ -347,6 +347,96 @@ Scripts: `r12/c13.py` and `r12/loc.py`.
   - The Gibbs sampler doesn't support `line_effects` yet (`gibbs.py` refuses it), so the line fit
     needs a Gibbs line block first. That is a code PR with no fit.
 
+**Three more checks (coordinator relay, 2026-10-08 22:12Z).** No fits. Scripts are in
+`/data1/apartments/tmp/bridge/review/r12` on thelio: `expl.py`, `c14.py` and `c15.py`.
+
+- **What explains the location surface.** I took the `nb3-loc-v1` surface at its 2,907 buildings
+  and ridge-regressed it on 30 candidates, averaged per building:
+  - the subway line groups within 8 minutes;
+  - parks, the High Line and the waterfront;
+  - retail and food places;
+  - 311 noise;
+  - subway time to midtown;
+  - the nearby amenities set;
+  - street trees;
+  - built FAR, historic district and landmark;
+  - avenue or wide-street frontage.
+
+  The results:
+  - **Out-of-fold R²:** 0.758 with building folds (in-sample 0.763; ridge barely overfits 30 columns on 2,907 buildings) and **0.54 with 400 m spatial
+    block folds**. The block-fold figure is the honest one: building folds leak through neighbours,
+    since both the surface and the candidates are smooth in space.
+  - **Families that matter, by drop-one block-fold ΔR²:** subway lines −0.16, parks −0.08,
+    retail −0.04, nearby −0.04. Noise, trees, frontage and PLUTO are each 0.01 or less. The water
+    and transit sets add nothing beyond these.
+  - **Labels:** the area labels explain 14.1% of the surface's variance and 0.2% of the residual's. The shifts below are the same thing area by area: each area's mean minus the all-building mean.
+
+  | Area | Surface shift (pp) | Residual shift (pp) |
+  |---|---|---|
+  | Chelsea | −3.15 | +0.11 |
+  | GV | +2.81 | +0.29 |
+  | WV | +1.47 | −0.26 |
+
+  So the part of the surface that looks like a neighbourhood label is explained by named location
+  features, mainly the N/Q/R/W and L lines, food density and park access. The residual surface
+  carries almost none of the label. If `locnolabel` wins on resume, the named features are the
+  more elegant replacement for the bump basis; the obvious test after it is `nb3-lines-v1` +
+  `nb3-parks-v1` + `nb3-retail-v1` without labels.
+- **Large-unit supply vs the bedroom curves.** I used the 44 dated PLUTO releases
+  (`plutoreleases` d2a8364, registry lots only, so buildings without listings are missing). New
+  units are lots whose `yearbuilt`, as each release records it, falls in the two years before the
+  release year. They are split by building size: ≤ 5 units, 6–49, 50+. Each month reads the
+  latest release published at least 7 days earlier.
+  - The aggregate yearly series correlates with the 3BR+ and 2BR curves only through trend
+    (mid-size buildings, r = +0.66 and +0.69).
+  - Year-on-year differences give r = −0.06 to −0.42, with 17 years.
+  - At the row level (new units within 1 km, year fixed effects, the served fit's residual), the
+    3BR+ extra slope per log unit is:
+
+    | Building size | 3BR+ extra slope (pp per log unit) |
+    |---|---|
+    | 50+ units | +0.09 ± 0.06 |
+    | 6–49 units | −0.08 ± 0.11 |
+    | ≤ 5 units | −0.53 ± 0.31 |
+
+    The 2BR extra slope is ≈ 0 in every class. The aggregate r values are per-year means of the monthly curves against log new units in the footprint, so they're small-sample (17 years) and registry-only.
+  - **No support** for local new supply driving the large-unit discount. A complete answer needs
+    all lots within 1 km, not only registry lots: a full-borough PLUTO pull is listed for Data.
+- **The West Village step.** On the served fit, the building level is the label plus the building
+  effect, over 2,900 Chelsea, GV and WV buildings. I regressed it, weighted by 1/sd², on area
+  dummies plus covariates. The covariates are:
+  - the PLUTO class: 1–2 family, walkup ≤ 5 units, walkup 6+, mixed S, condo R, elevator D,
+    other;
+  - log rows;
+  - historic district;
+  - log minutes to the waterfront;
+  - the surface's explained part and its residual (above).
+
+  | Specification | WV (pp) | GV (pp) |
+  |---|---|---|
+  | Labels only | +11.5 ± 0.5 | +7.8 ± 0.6 |
+  | + class | +11.7 | +7.6 |
+  | + class, rows | +11.6 | +7.4 |
+  | + class, rows, historic district | +11.4 ± 0.7 | +7.3 |
+  | + waterfront | +10.5 | +8.1 |
+  | + surface explained and residual | +9.3 ± 0.7 | +4.4 ± 0.8 |
+
+  - Only the first, fourth and last rows show standard errors; they are similar for the others, so steps of ≤ 1 pp between neighbouring rows are within noise.
+  - GV falls further than WV once the surface enters (+7.8 → +4.4): more of GV's step is location the candidates capture.
+  - The step holds **within every class**. The mean building level, WV minus Chelsea within the same class, is +9.6 for 1–2 family, +11.1 for
+    walkup 6+ and +10.4 for walkups ≤ 5.
+  - Neither townhouse stock nor small-building stock explains it. Historic district adds
+    nothing beyond the label.
+  - About 2 pp is location: the waterfront and the surface. **About 9 pp remains a WV name or
+    area premium** that the candidates don't capture. It is the main target for any further
+    location work, such as street-graph position or block-face character.
+- **Design notes for resume** (coordinator relay, 22:12Z):
+  - **Noise.** The noise test becomes log-linear: log σ_i = a_bedroom + b·single +
+    c·small_building(≤ 5) + d·floor_unknown + e·building_first_year. It replaces `yearnoise` and
+    the bedroom scales. It is sampled with a collapsed Metropolis step.
+  - **Walk.** `building_trend` goes in as an elegance test beside a yearly-knot walk.
+  - **Line term.** The Gibbs line block is #576.
+
 ## Open-data survey: stabilization, permits, owners, dated MapPLUTO (2026-10-07)
 
 Four free sources, sized against the 105,244 rows of `chelsea-wv-gv-analysis-20261005-2d5b3b6`
