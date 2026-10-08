@@ -2,6 +2,16 @@
 
 What the next turn of the website thread needs. Updated at each milestone.
 
+## State (2026-10-08 08:40 UTC)
+
+- **#495, #499 (live):** plain words for the layers and the first design era; the theories
+  chart's labels wrap onto two lines (`story.label_lines`).
+- **#500 (live):** story figures stay whole until they near view (`.whole`), a figure on screen at
+  load plays at once, print shows every figure whole.
+- **Waiting on Modeling:** single-item effects (`rentfrontier.effects` result.json paths) to add
+  to "Inside two grouped tests", labelled as test fits unless served. Low priority, over days.
+- **Next:** remaining jargon in the ledger and milestone tables, then a fresh story playtest.
+
 ## State (2026-10-08 07:50 UTC)
 
 - **#487 (live):** the two repricing ideas now read "how the unit's previous listing was
