@@ -836,7 +836,8 @@ TERM_WORDS = {
     "bathfloor": "each building's own price for baths and height",
 }
 # Words for the feature sets of served designs: the area prefix (the
-# neighbourhoods taken in) and the body (what the features read).
+# neighbourhood each step took in, in order) and the body (what the features
+# read; an unknown body shows as its name).
 AREA_WORDS = {
     "unit": "Chelsea",
     "nb": "West Village",
@@ -950,11 +951,17 @@ def change_words(before: dict | None, after: dict, seen=()) -> str | None:
     if dropped:
         parts.append("Dropped " + "; ".join(dropped))
     was_area, was_body, was_version = _set_parts(before["feature_set"])
-    if area != was_area and area in AREA_WORDS:
-        parts.append(f"Took in {AREA_WORDS[area]}")
+    order = list(AREA_WORDS)
+    if area in order and was_area in order and area != was_area:
+        grew = order.index(area) > order.index(was_area)
+        parts.append(
+            f"Took in {AREA_WORDS[area]}"
+            if grew
+            else f"Left out {AREA_WORDS[was_area]}"
+        )
     if what != SET_WORDS.get(was_body, was_body):
         back = what in seen
-        parts.append(f"{'Back to' if back else 'New'} features: {what}")
+        parts.append(f"Features {'back to' if back else 'now include'} {what}")
     elif version != was_version and area == was_area:
         parts.append(f"A revised version of {what}")
     if parts:

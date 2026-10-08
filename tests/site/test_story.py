@@ -3,6 +3,8 @@
 import json
 import re
 
+import pytest
+
 from apartments.site import story
 from apartments.site.web import create_app
 
@@ -260,6 +262,31 @@ def test_design_history_eras_terms_and_spells():
     assert [e["count"] for e in story.eras(switches)] == [1, 1, 3]
 
 
+@pytest.mark.parametrize(
+    "name, parts",
+    [
+        ("unitdesc-v1", ("unit", "unitdesc", "v1")),
+        ("unitdescpluto-v3", ("unit", "unitdescpluto", "v3")),
+        ("unitfacing-v5", ("unit", "unitfacing", "v5")),
+        ("nb-facing-v1", ("nb", "facing", "v1")),
+        ("nb3-coded-v2", ("nb3", "coded", "v2")),
+        ("nb5-coded-v2", ("nb5", "coded", "v2")),
+        ("nb3-prevprice-v2", ("nb3", "prevprice", "v2")),
+        ("", ("", "", "")),
+    ],
+)
+def test_set_parts(name, parts):
+    assert story._set_parts(name) == parts
+
+
+def test_change_words_shrink_and_unknown_set():
+    before = {"terms": ["nocurves"], "feature_set": "nb5-coded-v2", "rows": "a"}
+    after = {"terms": ["nocurves"], "feature_set": "nb3-newthing-v1", "rows": "a"}
+    assert story.change_words(before, after) == (
+        "Left out Flatiron and Gramercy Park. Features now include newthing"
+    )
+
+
 def test_design_history_says_what_changed():
     changes = [s["change"] for s in story.design_history(MILESTONES)]
     assert changes[0] == "Select a PyMC fit"
@@ -269,12 +296,12 @@ def test_design_history_says_what_changed():
     )
     assert changes[2] == (
         "Added each building's own price for two more features. "
-        "New features: which way each apartment faces"
+        "Features now include which way each apartment faces"
     )
     assert changes[3] == (
         "Added each building's own price for height. Dropped each building's own "
         "price for two more features. Took in Greenwich Village. "
-        "New features: how the unit's previous listing was repriced"
+        "Features now include how the unit's previous listing was repriced"
     )
     again = MILESTONES + [
         {**MILESTONES[-2], "at": "2026-10-08T01:00:00+00:00"},
@@ -286,7 +313,7 @@ def test_design_history_says_what_changed():
         },
     ]
     assert [s["change"] for s in story.design_history(again)][-3:] == [
-        "Back to features: how the unit's previous listing was repriced",
+        "Features back to how the unit's previous listing was repriced",
         "The same design, refitted",
         "The same design, refitted on the current data rules",
     ]

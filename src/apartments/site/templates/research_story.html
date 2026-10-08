@@ -220,7 +220,7 @@ neighbourhoods give location more room to matter.{% endif %}{% endif %}</p>
         <td class="muted">{% for k in kinds %}{% if k[0] == t.kind %}{{ k[1] }}{% endif %}{% endfor %}</td>
         <td class="nowrap">{{ t.date }}{% if t.tests | length > 1 %} <span class="muted">({{ t.tests | length }} fits)</span>{% endif %}</td>
         <td class="num nowrap">{{ "{:+,.1f}".format(t.diff) }} <span class="muted">± {{ "{:,.1f}".format(t.se) }}</span></td>
-        <td>{{ verdict_words[t.verdict] | capitalize }}{% if t.verdict == "blocked" %} <span class="muted">({% if t in blocked_leaks %}<a href="#set-aside">why</a>{% elif not t.clear_gain %}no clear gain{% else %}{{ t.verdict_text }}{% endif %})</span>{% endif %}</td>
+        <td>{{ verdict_words[t.verdict] | capitalize }}{% if t.verdict == "blocked" %} <span class="muted">({% if t.clear_gain %}<a href="#set-aside">why</a>{% else %}no clear gain{% endif %})</span>{% endif %}</td>
         <td>{% if t.pr %}<a href="https://github.com/gotnosocks/apartments/pull/{{ t.pr }}">#{{ t.pr }}</a>{% endif %}</td></tr>
     {% endfor %}
     </tbody>
