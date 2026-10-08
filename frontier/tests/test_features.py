@@ -1580,3 +1580,97 @@ def test_dated_alterations_date_only_the_alteration_years(tmp_path):
     assert out.unitsres.tolist() == lots.unitsres.tolist()
     assert "nb5-plutoasof-v2" in features.ALTERATION_DATED_SETS
     assert "nb5-plutoasof-v2" in features.NB4_SETS
+
+
+def test_released_lots_read_the_latest_release_a_week_old(tmp_path):
+    """A listing reads every field of the latest release published at least
+    PLUTO_RELEASE_BUFFER_DAYS before its period (the earliest before any), in
+    today's spelling of codes; an undated release is never read; the year
+    built, a lot missing from the release, a field the release lacks and a
+    release older than the building keep today's values."""
+    history = pd.DataFrame(
+        {
+            "release": ["15v1"] * 3 + ["16v1"] * 3 + ["16v2"] * 3,
+            "published": ["2015-06-30"] * 3 + ["2016-03-31"] * 3 + [None] * 3,
+            "bbl": ["1", "2", "3"] * 3,
+            "yearbuilt": ["1900", "1920", "2016"] * 3,
+            "unitsres": ["10", "20", "1", "11", "20", "1", "99", "99", "99"],
+            "landuse": ["04", "02", "11", "04", "03", "11", "05", "05", "05"],
+            "irrlotcode": ["N", "Y", "N"] * 3,
+            "pfirm15_flag": [None] * 9,
+        }
+    ).drop([4])
+    history.to_parquet(tmp_path / "r.parquet")
+    frame = pd.DataFrame(
+        {
+            "period": pd.to_datetime(
+                ["2014-01-01", "2016-04-01", "2016-04-08", "2016-12-01", "2016-12-01"]
+            )
+        }
+    )
+    lots = pd.DataFrame(
+        {
+            "yearbuilt": ["1920", "1920", "1920", "1920", "2016"],
+            "unitsres": ["12", "12", "12", "21", "40"],
+            "landuse": ["4", "4", "4", "2", "2"],
+            "irrlotcode": [True, True, True, False, False],
+            "pfirm15_flag": ["1", None, "1", None, None],
+        }
+    ).astype({"unitsres": "string", "landuse": "string", "pfirm15_flag": "string"})
+    bbl = np.array(["1", "1", "1", "2", "3"])
+    out = features.released_lots(frame, bbl, lots, str(tmp_path / "r.parquet"))
+    # 2014 reads the earliest release; 16v1 (Mar 31) is readable from Apr 7;
+    # lot 2 is missing from 16v1 and the undated 16v2 is never read, so the
+    # December rows read 16v1 for lot 3 and today's values for lot 2.
+    assert out.unitsres.tolist() == ["10", "10", "11", "21", "1"]
+    assert out.landuse.tolist() == ["4", "4", "4", "2", "11"]
+    assert out.irrlotcode.tolist() == [False, False, False, False, False]
+    # The flood flag no release carries, and the year built, stay today's.
+    assert out.pfirm15_flag.tolist() == lots.pfirm15_flag.tolist()
+    assert out.yearbuilt.tolist() == lots.yearbuilt.tolist()
+    assert out.dtypes.to_dict() == lots.dtypes.to_dict()
+    assert features.PLUTO_RELEASE_BUFFER_DAYS == 7
+    assert "nb5-plutoasof-v3" in features.PLUTO_RELEASED_SETS
+    assert features.NB4_SETS["nb5-plutoasof-v3"] == "nb3-coded-v2"
+    assert "nb5-plutoasof-v3" in features.AS_OF_SETS
+
+
+def test_released_lots_skip_a_release_older_than_the_building(tmp_path):
+    """A release published before today's year built describes the lot
+    before its building, so the row keeps today's values."""
+    pd.DataFrame(
+        {
+            "release": ["15v1"],
+            "published": ["2015-06-30"],
+            "bbl": ["1"],
+            "unitsres": ["3"],
+        }
+    ).to_parquet(tmp_path / "r.parquet")
+    frame = pd.DataFrame({"period": pd.to_datetime(["2018-01-01"])})
+    lots = pd.DataFrame({"yearbuilt": ["2017"], "unitsres": ["50"]})
+    out = features.released_lots(
+        frame, np.array(["1"]), lots, str(tmp_path / "r.parquet")
+    )
+    assert out.unitsres.tolist() == ["50"]
+
+
+def test_p3_tests_are_their_nb5_set_on_point_in_time_pluto():
+    """Each nb5p3 set is its nb5 set's builder on its new base, reads the same
+    snapshots, and differs in group membership only by the dated MapPLUTO."""
+    tables = {
+        k: v
+        for k, v in vars(features).items()
+        if k.isupper()
+        and isinstance(v, (set, dict))
+        and k not in ("FEATURE_SETS", "NB4_SETS", "P3_TESTS")
+    }
+    for name, (like, base) in features.P3_TESTS.items():
+        new, old = features.FEATURE_SETS[name], features.FEATURE_SETS[like]
+        assert new.func is old.func
+        assert new.keywords == {**old.keywords, "id": name, "base": base}
+        member = lambda s: {k for k, v in tables.items() if s in v}  # noqa: E731
+        assert member(name) - member(like) == {"PLUTO_RELEASED_SETS"}
+        assert member(like) <= member(name)
+        for k, v in tables.items():
+            if isinstance(v, dict) and like in v and k not in ("NB4_SETS",):
+                assert v[name] == v[like], k

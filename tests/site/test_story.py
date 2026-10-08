@@ -43,6 +43,7 @@ def test_layers_follow_the_served_design_with_shares(client):
     html = _page(client)
     # The test entry has a variance breakdown, so the shares are shown.
     assert "share of the spread in asks" in html
+    assert "between listings, not of the rent" in html
     assert 'id="shares-pending"' not in html
     assert (
         html.index("The market")
@@ -73,6 +74,34 @@ def test_build_up_ends_at_the_estimate(client):
     # the example's miss is set against the typical held-out miss
     assert re.search(r"The ask is [\d.]+% (above|below) the estimate\. That is", text)
     assert "half of the asks the model never saw land within" in text
+    # the accuracy chapter ends with plain advice for one estimate
+    assert "What this means for one estimate." in text
+    assert "lean on the likely ask range shown with each listing" in text
+    # an example above the page's typical ask says why
+    if "the median ask among the listings available now" in text:
+        assert "asks for listings available now run higher" in text
+    # a wide miss is set against the example's own 95% range
+    wide = "more than twice the typical miss" in text
+    assert wide == ("about 1 ask in 20" in text)
+    # a contents list links every chapter on the page, in order
+    nav = text[text.index('aria-label="Contents"') :]
+    toc = re.findall(r'<li><a href="#([a-z-]+)">', nav[: nav.index("</nav>")])
+    sections = re.findall(r'<section id="([a-z-]+)">', text)
+    assert toc and toc == [s for s in sections if s in toc] and toc[0] == "shape"
+    assert all(f'<section id="{s}">' in text for s in toc)
+    # the opening answers "can I trust it?" before the chapters
+    shape = text[text.index('<section id="shape">') :]
+    assert shape.index("the <em>spread</em> in asks") < shape.index("compose-figure")
+    assert "the range the model is 90% sure holds the true share" in text
+    # the two kinds of range are told apart once, before the chapters
+    assert text.index('id="ranges"') < text.index('<section id="shape">')
+    assert "How sure is the model of a number?" in text
+    assert "Where might an ask land?" in text and 'href="#ranges"' in text
+    opening = text[: text.index('<section id="shape">')]
+    assert "An ask is the monthly rent a listing advertises" in opening
+    assert re.search(
+        r"The model’s likely ranges, meant to hold 80% of asks, hold \d+%", opening
+    )
 
 
 def test_build_up_steps_sum_to_the_estimate():
@@ -151,6 +180,11 @@ def test_headline_effects_skip_unknowns_and_nulls():
     ]
     assert effects[0]["against"] == "Chelsea"
     assert effects[2]["against"] == "a one-bedroom"
+    svg = str(story.effects_svg(effects))
+    assert (
+        svg.count('<tspan class="vs"> vs Chelsea</tspan>') == 1
+    )  # only the area names it
+    assert "the West Village vs Chelsea +" in svg  # and so does the text alternative
     # 29.4% per log unit is about 2.5% per 10% more space.
     assert round(effects[1]["pct"], 1) == 2.5
 
@@ -196,6 +230,13 @@ def test_theories_chapter_reads_the_ledger(site_root, research_file, tmp_path):
     assert (
         "2 helped, 1\nmade no clear difference and 1 made it worse or were set aside."
         in html
+    )
+    assert re.search(r"The biggest wins: [^.,]+ and [^.,]+\.", html)
+    assert "(model term: " in html
+    # the scoring is told in plain words; the technical names wait in a fold-out
+    assert "margin for luck" in html
+    assert html.index("<summary>The technical names</summary>") < html.index(
+        "#psis-loo"
     )
     assert "1 of the 1 ideas about where a building sits," in html
     assert html.count('class="trial ') == 4
@@ -641,3 +682,20 @@ def test_label_lines_wrap_at_spaces():
     ]
     lines = story.label_lines("word " * 30)
     assert len(lines) == 2 and lines[1].endswith("…") and len(lines[1]) <= 46
+    assert len(story.label_lines("word " * 30, lines=4)) == 4
+
+
+def test_theories_chart_labels_are_whole(client):
+    html = _page(client)
+    chart = html[html.index('class="story-svg trials"') :]
+    assert "…</tspan>" not in chart[: chart.index("</svg>")]
+    # wrapped lines keep a space between them, so copied text reads "two more features"
+    assert re.search(r"</tspan><tspan [^>]*> \w", chart[: chart.index("</svg>")])
+
+
+def test_theories_chapter_says_it_can_be_skipped(client):
+    html = _page(client)
+    theories = html[html.index('<section id="theories">') :]
+    hint = theories[: theories.index("A model like this")]
+    assert "the most technical" in hint and 'href="#cleaning"' in hint
+    assert "square-root" not in theories and "not equal" in theories

@@ -10,25 +10,58 @@ changes when the model does.</p>
 
 <p>The model has seen {{ "{:,}".format(counts[0]) }} asks for {{ "{:,}".format(counts[1]) }} apartments in
 {{ "{:,}".format(counts[2]) }} buildings, from {{ month(counts[3]) }} to {{ month(counts[4]) }}.
+An ask is the monthly rent a listing advertises, not the rent finally signed.
 Most apartments were listed more than once, so the same home shows up at different times and prices. That
 repetition is what lets a model separate the apartment from the building, and the building from the market.</p>
 
 <p>{% if accuracy %}In short, on asks it never saw, half the estimates land within
 {{ "{:.1f}".format(accuracy.median) }}% of their estimate: on a typical ${{ "{:,.0f}".format(accuracy.typical) }} ask, within about
-${{ "{:,.0f}".format((accuracy.typical * accuracy.median / 100) | round(-1)) }} (<a href="#accuracy">how close it gets</a>).
+${{ "{:,.0f}".format((accuracy.typical * accuracy.median / 100) | round(-1)) }}.{% if accuracy.new %} For an apartment
+it has never seen in any listing, the miss is wider: half land within {{ "{:.1f}".format(accuracy.new.median) }}%.{% endif %} The model’s likely
+ranges, meant to hold 80% of asks, hold {{ "{:.0f}".format(accuracy.likely) }}% (<a href="#accuracy">how close it gets</a>).
 {% endif %}This page is about the model. For how rents themselves have changed, by neighbourhood and bedroom count,
 see the <a href="{{ url_for('estimates_map') }}">rent map</a>.</p>
+
+{% set chapters = [
+  ("shape", "An ask is a sum of a few stories", true),
+  ("effects", "What the features are worth", true),
+  ("build-up", "One apartment, term by term", build),
+  ("accuracy", "How close does it get?", accuracy),
+  ("theories", "Theories on trial", trials),
+  ("design", "How the design evolved", switches),
+  ("cleaning", "Cleaning the record", cleaning),
+  ("next", "Open questions", true),
+] %}
+<nav class="card toc" aria-label="Contents">
+  <h2>Contents</h2>
+  <ol>{% for slug, title, shown in chapters if shown %}<li><a href="#{{ slug }}">{{ title }}</a></li>{% endfor %}</ol>
+</nav>
+
+<aside class="card" id="ranges" aria-labelledby="ranges-title">
+  <h2 id="ranges-title">Two kinds of range</h2>
+  <p>The page shows two kinds of range, and they answer different questions.</p>
+  <ul>
+    <li><strong>How sure is the model of a number?</strong> An <em>interval</em> around an effect or a share is
+    the range the model is 90% (or 95%) sure holds the true value. A narrow interval means the data pin the
+    number down.</li>
+    <li><strong>Where might an ask land?</strong> A <em>range</em> around an estimate holds that share of the asks
+    themselves. The <a href="{{ url_for('research_glossary') }}#price-band">likely ask range</a> on each listing holds
+    the middle 80%{% if build and build.lower is not none %}; the worked example uses a wider one that holds 95%{% endif %}.</li>
+  </ul>
+</aside>
 
 <section id="shape">
 <h2>An ask is a sum of a few stories</h2>
 <p>Start with the shape. The model builds each ask from parts that multiply, so each part raises or lowers the
 ask by a percentage: a building that is 10% pricier than its features explain adds 10% to every one of its
-apartments, whatever their size. (In the maths, the parts add up on the logarithm of the ask.) Read the stack from the top. Each layer explains what the layers above it leave over.</p>
+apartments, whatever their size. (In the maths, the parts add up on the logarithm of the ask.) Read the stack from the top. Each layer explains what the layers above it leave over.{% if variance %} The
+bars show how much of the <em>spread</em> in asks each layer accounts for: how far asks differ from one listing to the
+next, measured in percentages.{% endif %}</p>
 
 <figure class="story-figure" id="compose-figure" data-play>
   <div class="figure-scroll" tabindex="0" role="region" aria-label="Figure, scrolls sideways on narrow screens">{{ composition_svg }}</div>
   <figcaption>The served model, layer by layer.{% if variance %} Each bar is the layer's share of why asks
-  differ from one listing to the next, with its 90% interval. A share of 50% would mean the layer accounts for
+  differ from one listing to the next, with its 90% interval: the range the model is 90% sure holds the true share. A share of 50% would mean the layer accounts for
   half of those differences, not half of the rent. (The shares split the variance of the log asks.){% endif %}</figcaption>
 </figure>
 
@@ -62,8 +95,7 @@ apartments, whatever their size. (In the maths, the parts add up on the logarith
 <p>The layers aren't equal. {% if f %}What a listing says about the apartment explains about
 {{ "%.0f" | format(100 * f.mean) }}% of the spread in asks{% endif %}{% if bl %}, and the building's own premium
 another {{ "%.0f" | format(100 * bl.mean) }}%{% endif %}.{% if res %} What's left, the part nobody could have
-predicted from anything the model knows, is about {{ "%.0f" | format(100 * res.mean) }}%.{% endif %} The spread here means how much
-asks differ from one listing to the next, measured on the percentage scale the model works in. When two layers move
+predicted from anything the model knows, is about {{ "%.0f" | format(100 * res.mean) }}%.{% endif %} When two layers move
 together, they share the credit for it.</p>
 {% else %}
 <p class="note" id="shares-pending">How much of the spread each layer explains is computed from the fit's
@@ -75,7 +107,8 @@ draws. That breakdown hasn't been run for the served fit yet, and it will appear
 <h2>What the features are worth</h2>
 <p>Inside the features layer, each detail of a listing has a price. The chart shows the details that move the
 typical ask by at least 2% and whose 95% interval doesn't cross zero. Each one is set against what a renter would
-compare it with: a studio against a one-bedroom, a newer building against one from the 1900s. A dot is the model's
+compare it with: a studio against a one-bedroom, a newer building against one from the 1900s{% set area_base = effects | selectattr("is_area") | selectattr("against") | first %}{% if area_base %},
+a neighbourhood against {{ area_base.against }}{% endif %}. A dot is the model's
 best estimate, and the line is the range it can't rule out. All else is held equal, so "two full baths" means two
 baths in an apartment that is otherwise the same, not the typical two-bath apartment, which is also bigger.</p>
 
@@ -111,7 +144,9 @@ baths in an apartment that is otherwise the same, not the typical two-bath apart
 <h2>One apartment, term by term</h2>
 <p>Here is a real ask, chosen because it is the median ask among the {{ "listings available now" if build.current else "listings in the fit" }}:
 <a href="{{ url_for('listing', audit_id=l.audit_id) }}">{{ l.unit_label or "an apartment" }}</a>
-in {{ l.neighbourhood }}, {{ beds_label(l.bedrooms) | lower }}{% if l.square_feet %}, {{ "{:,.0f}".format(l.square_feet) }} sq ft{% endif %}{% if l.floor %}, floor {{ l.floor }}{% endif %}.
+in {{ l.neighbourhood }}, {{ beds_label(l.bedrooms) | lower }}{% if l.square_feet %}, {{ "{:,.0f}".format(l.square_feet) }} sq ft{% endif %}{% if l.floor %}, floor {{ l.floor }}{% endif %}.{% if build.current and accuracy and build.ask > accuracy.typical %}
+Its ask, {{ usd(build.ask) }}, is above the typical ${{ "{:,.0f}".format(accuracy.typical) }} quoted at the top. That
+figure is the median of the held-out asks from every year in the data; asks for listings available now run higher.{% endif %}
 The estimate starts from the market for an apartment like it that month, then each part adds or takes off its share.
 The parts add on the log scale, so in dollars they multiply. We split the dollars between them in an order-free
 way, so a term's bar is the same size wherever it sits in the queue.</p>
@@ -125,16 +160,18 @@ way, so a term's bar is the same size wherever it sits in the queue.</p>
 <p>The estimate is {{ usd(build.estimate) }} against an ask of
 {{ usd(build.ask) }}{% if build.lower is not none %}, and the model gives 95% odds that an ask for this apartment
 falls between {{ usd(build.lower) }} and {{ usd(build.upper) }}{% endif %}. The spread is honest: the building and
-apartment terms are learned from a handful of listings, and asks scatter even for the same apartment. (This 95%
-range is wider than the <a href="{{ url_for('research_glossary') }}#price-band">likely ask range</a> shown with each
-listing, which holds the middle 80%.){% set unsure = build.steps | rejectattr("term", "equalto", "market") | selectattr("lower", "ne", none) | selectattr("lower", "lt", 0) | selectattr("upper", "gt", 0) | list %}{% if unsure %}
+apartment terms are learned from a handful of listings, and asks scatter even for the same apartment. This 95% range is
+wider than the likely ask range on each listing, which holds 80% (see <a href="#ranges">two kinds of range</a>).{% set unsure = build.steps | rejectattr("term", "equalto", "market") | selectattr("lower", "ne", none) | selectattr("lower", "lt", 0) | selectattr("upper", "gt", 0) | list %}{% if unsure %}
 Not every part is sure of its direction, either: the 95% interval{{ "s" if unsure | length > 1 }} for
 {% for u in unsure %}“{{ u.label }}” ({{ usd(u.usd, signed=True) }}){% if loop.revindex == 2 %} and {% elif not loop.last %}, {% endif %}{% endfor %}
 {{ "run" if unsure | length > 1 else "runs" }} from below zero to above it, so for this apartment the model can't say
 whether {{ "they add to the ask or take from it" if unsure | length > 1 else "it adds to the ask or takes from it" }}.{% endif %}{% if accuracy %}{% set miss = 100 * (build.ask - build.estimate) / build.estimate %}
 The ask is {{ "{:.1f}".format(miss | abs) }}% {{ "above" if miss > 0 else "below" }} the estimate.
 {% if miss | abs > 2 * accuracy.median %}That is more than twice the typical miss{% elif miss | abs > accuracy.median %}That is wider than the typical miss{% else %}That is closer than the typical miss{% endif %}:
-half of the asks the model never saw land within {{ "{:.1f}".format(accuracy.median) }}% of their estimate.{% endif %}</p>
+half of the asks the model never saw land within {{ "{:.1f}".format(accuracy.median) }}% of their estimate.{% if build.lower is not none and miss | abs > 2 * accuracy.median %}{% if build.lower <= build.ask <= build.upper %}
+Even so, the ask is inside the 95% range above, so the model allowed for a gap like this. Asks this far out
+are uncommon but expected; only about 1 ask in 20 should land outside the range.{% else %}
+It also falls outside the 95% range above, which should happen for only about 1 ask in 20.{% endif %}{% endif %}{% endif %}</p>
 
 <details class="table-view">
   <summary>The build-up as a table</summary>
@@ -167,11 +204,20 @@ site estimates each of them from the fit alone. Half of them land within
 {{ "{:.1f}".format(accuracy.median) }}% of their estimate.{% if accuracy.seen and accuracy.new %} It depends a lot on
 whether the model has seen the apartment before: for one listed at other times, half the asks land within
 {{ "{:.1f}".format(accuracy.seen.median) }}%; for the {{ "{:,}".format(accuracy.new.n) }} asks from apartments it has never seen,
-within {{ "{:.1f}".format(accuracy.new.median) }}%.{% endif %}</p>
+within {{ "{:.1f}".format(accuracy.new.median) }}%.{% if accuracy.new.n < 1000 %} That second figure rests on few asks, so
+treat it as rough.{% endif %}{% endif %}</p>
 <p>The model also says how sure it is. Each estimate carries a
 <a href="{{ url_for('research_glossary') }}#price-band">likely ask range</a>, the middle 80% of the asks it expects
 for that apartment. If those ranges are honest, about 80% of the held-out asks should fall inside them; here
 {{ "{:.0f}".format(accuracy.likely) }}% do.</p>
+{% macro near(pct) %}${{ "{:,.0f}".format((accuracy.typical * pct / 100) | round(-1)) }}{% endmacro %}
+<p><strong>What this means for one estimate.</strong>{% if accuracy.seen and accuracy.new %} If the apartment
+has been listed before, half the time its ask lands within {{ "{:.1f}".format(accuracy.seen.median) }}% of the
+estimate, about {{ near(accuracy.seen.median) }} on a typical ${{ "{:,.0f}".format(accuracy.typical) }} ask. If it
+is new to the data, expect a wider miss: half the time within {{ "{:.1f}".format(accuracy.new.median) }}%, about
+{{ near(accuracy.new.median) }}.{% endif %} Either way, lean on the likely ask range shown with each listing more
+than on the single number: {{ "{:.0f}".format(accuracy.likely) }}% of the held-out asks fell inside their range, so an
+ask outside it, about {{ "{:.0f}".format(100 - accuracy.likely) }} in 100, is not a sign the estimate is broken.</p>
 </section>
 {% endif %}
 
@@ -183,18 +229,31 @@ for that apartment. If those ranges are honest, about 80% of the held-out asks s
 {% set tests = trials | sum(attribute="tests", start=[]) %}
 <section id="theories">
 <h2>Theories on trial</h2>
+<p><em>{% if switches %}This chapter and the next are the most technical: how each idea was tested, and how the
+design changed over time. To skip them{% else %}This chapter is the most technical: how each idea was tested. To
+skip it{% endif %}, go on to {% if cleaning %}<a href="#cleaning">Cleaning the
+record</a>{% else %}<a href="#next">Open questions</a>{% endif %}.</em></p>
 <p>A model like this is a pile of hypotheses. Does a quiet street cost more? Do bigger apartments' asks scatter
 more widely? Does the ad's own text know something the structured fields don't? Each idea gets the same trial. We
 fit the model with it and without it, on the same rows, and ask which version better predicts asks it was not
-shown. The score is <a href="{{ url_for('research_glossary') }}#psis-loo">PSIS-LOO</a>, a fast stand-in for
-leaving each listing out in turn and predicting it from the rest. The score's unit is
-abstract; what matters is the difference between two fits (<a href="{{ url_for('research_glossary') }}#delta-elpd">ΔELPD</a>). Each difference
-comes with a standard error, a measure of how much it could move by chance, and a change counts as a real gain only
-when it beats the old model by more than twice that.</p>
+shown. Picture hiding one listing, pricing it from all the others, and noting how plausible the model found
+the real ask; then doing that for every listing and adding it up. The version that finds the real asks more
+plausible wins.</p>
+
+<p>The score's units mean nothing on their own; only the gap between the two versions does. Each gap comes with a
+margin for luck, and an idea counts as a real gain only when its gap is more than twice that margin.</p>
+
+<details class="aside">
+  <summary>The technical names</summary>
+  <p>The score is <a href="{{ url_for('research_glossary') }}#psis-loo">PSIS-LOO</a>, a shortcut that gets the
+  hide-one-out total without refitting the model once per listing. The gap between two fits is
+  <a href="{{ url_for('research_glossary') }}#delta-elpd">ΔELPD</a>, and the margin for luck is its standard error.</p>
+</details>
 
 <p>So far {{ trials | length }} ideas have been tried, in {{ tests | length }} paired fits.
 {% set others = trials | length - gains | length - nulls | length %}{{ gains | length }} helped, {{ nulls | length }}
-made no clear difference{% if others %} and {{ others }} made it worse or were set aside{% endif %}.{% if location %} The nulls tell a story
+made no clear difference{% if others %} and {{ others }} made it worse or were set aside{% endif %}.{% set top = gains | sort(attribute="diff", reverse=True) | list %}{% if top | length >= 2 %}
+The biggest wins: {% for t in top[:3] %}{% if not loop.first %}{% if loop.last %}{% if loop.length > 2 %},{% endif %} and {% else %}, {% endif %}{% endif %}{{ t.words }}{% endfor %}.{% endif %}{% if location %} The nulls tell a story
 of their own: {{ location_nulls | length }} of the {{ location | length }} ideas about where a building sits, from nearby subway lines to parks and street noise,
 changed nothing we could measure. The likely reason is that each building already has its own premium. Whatever a location is
 worth is already priced into that premium, so a new location feature has little left to explain. {% set waiting_now = location_nulls | selectattr("retest", "equalto", "next neighbourhood") | list %}{% if waiting_now %}
@@ -204,9 +263,11 @@ neighbourhoods give location more room to matter.{% endif %}{% endif %}</p>
 <figure class="story-figure" id="trials-figure" data-play>
   <div class="legend-row" aria-hidden="true">{% for key, words in verdict_words.items() %}{% if trials | selectattr("verdict", "equalto", key) | list %}<span><span class="swatch v-{{ key }}"></span>{{ words | capitalize }}</span>{% endif %}{% endfor %}</div>
   <div class="figure-scroll" tabindex="0" role="region" aria-label="Figure, scrolls sideways on narrow screens">{{ trials_svg }}</div>
-  <figcaption>Each idea's gain in PSIS-LOO over the model without it, with a band of two standard errors. Small
-  rings are earlier repeats of the same test on other fits. The axis is square-root scaled, so gains of 20 and 2,000
-  both show. Rows are grouped by kind and sorted by gain; when the figure plays, they appear in the order the ideas were first tried.</figcaption>
+  <figcaption>One row per idea. A dot right of the line at zero means the model predicted unseen asks better with
+  the idea, left of it worse. The band is twice the margin for luck either side: a band that crosses the line means no
+  clear effect. Small rings are earlier repeats of the same test on other fits. The axis is stretched near zero,
+  so small gains of 20 and large ones of 2,000 fit on one chart; equal gaps between tick marks are not equal
+  steps in score. Rows are grouped by kind and sorted by gain; when the figure plays, they appear in the order the ideas were first tried.</figcaption>
 </figure>
 
 {# Set aside despite a clear gain: the leak the paragraph after the table explains. #}
@@ -219,7 +280,7 @@ neighbourhoods give location more room to matter.{% endif %}{% endif %}</p>
       <th scope="col" class="num">Gain in <a href="{{ url_for('research_glossary') }}#psis-loo">PSIS-LOO</a></th><th scope="col">Verdict</th><th scope="col">PR</th></tr></thead>
     <tbody>
     {% for t in trials %}
-      <tr><td>{{ t.words[:1] | upper }}{{ t.words[1:] }}{% if t.note and t.note != t.words %} <span class="muted">({{ t.note }})</span>{% endif %}</td>
+      <tr><td>{{ t.words[:1] | upper }}{{ t.words[1:] }}{% if t.note and t.note != t.words %} <span class="muted">(model term: {{ t.note }})</span>{% endif %}</td>
         <td class="muted">{% for k in kinds %}{% if k[0] == t.kind %}{{ k[1] }}{% endif %}{% endfor %}</td>
         <td class="nowrap">{{ t.date }}{% if t.tests | length > 1 %} <span class="muted">({{ t.tests | length }} fits)</span>{% endif %}</td>
         <td class="num nowrap">{{ "{:+,.1f}".format(t.diff) }} <span class="muted">± {{ "{:,.1f}".format(t.se) }}</span></td>
@@ -314,7 +375,7 @@ one fit per item. Those fits are on the modeling backlog and haven't run yet.</p
 {% set era_words = {
   "bayes": "It began as one carefully built Bayesian model of Chelsea, a kind of model that gives every number it estimates a range of likely values rather than a single guess. Each improvement (a corrected data source, a better treatment of floors, a curve where a straight line fit badly) was reviewed and adopted by hand. That works while there is one model. It stops working once there are many candidates and no common score to compare them.",
   "frontier": "So the work turned into a search. Every candidate design was fitted to the same rows and scored on the same test, PSIS-LOO, and the winner was still picked by a person. The fits also had to get faster, so that many designs could be tried in a day.",
-  "auto": "Finally, the choice itself became a rule. A new fit replaces the served one only when it predicts unseen asks better by more than twice the combined standard error, or ties and is judged more elegant, or ties, is as elegant and fits faster. The rule decides without waiting for a person, so a better fit is served as soon as it lands."
+  "auto": "Finally, the choice itself became a rule. A new fit replaces the served one only when it predicts unseen asks better by more than twice the margin for luck, or ties and is judged more elegant, or ties, is as elegant and fits faster. The rule decides without waiting for a person, so a better fit is served as soon as it lands."
 } %}
 {% for e in eras %}
 <h3>{{ e.name }} <span class="muted">({{ e.first_day }}{% if e.last_day != e.first_day %} to {{ e.last_day }}{% endif %}, {{ e.count }} switch{{ "es" if e.count != 1 }})</span></h3>
@@ -472,7 +533,7 @@ of a jump like that; what explains the rest is the open question.</p>{% endif %}
 <p>{{ blocked | length }} idea{{ "s" if blocked | length != 1 }} raised the score and {{ "were" if blocked | length != 1 else "was" }}
 still set aside:</p>
 <ul>{% for t in blocked | sort(attribute="first") %}
-  <li>{{ t.words[:1] | upper }}{{ t.words[1:] }}: {{ "{:+,.1f}".format(t.diff) }} ± {{ "{:,.1f}".format(t.se) }}{% if t.diff < 2 * t.se %}, within two standard errors of no gain{% endif %}.</li>{% endfor %}
+  <li>{{ t.words[:1] | upper }}{{ t.words[1:] }}: {{ "{:+,.1f}".format(t.diff) }} ± {{ "{:,.1f}".format(t.se) }}{% if t.diff < 2 * t.se %}, too small to tell from luck{% endif %}.</li>{% endfor %}
 </ul>
 <p>A model can predict an apartment's ask from its own last ask without saying anything about why that apartment
 costs what it does. Telling the features that explain from those that only echo is still a person's call, made case

@@ -187,7 +187,8 @@ def composition_svg(rows: list[dict]) -> Markup:
     if has_share:
         out.insert(
             0,
-            f'<text class="axis-title" x="{bar_x}" y="0">share of the spread in asks</text>',
+            f'<text class="axis-title" x="{bar_x}" y="-14">share of the spread in asks</text>'
+            f'<text class="axis-title" x="{bar_x}" y="0">between listings, not of the rent</text>',
         )
     names = "; ".join(
         r["name"]
@@ -196,7 +197,7 @@ def composition_svg(rows: list[dict]) -> Markup:
     )
     label = f"An ask is built from {len(rows)} parts, added on the log scale: {names}."
     return Markup(
-        f'<svg class="story-svg compose" viewBox="0 -14 {WIDTH} {height + 14}" '
+        f'<svg class="story-svg compose" viewBox="0 -28 {WIDTH} {height + 28}" '
         f'role="img" aria-label="{escape(label)}">' + "".join(out) + "</svg>"
     )
 
@@ -288,6 +289,7 @@ def headline_effects(coefficients, labels: dict, reference_area: str | None):
                 "lower": c["pct_lower"],
                 "upper": c["pct_upper"],
                 "group": labels.get(group, group),
+                "is_area": group == "neighbourhood",
             }
         )
     return sorted(out, key=lambda e: -e["pct"])
@@ -322,15 +324,23 @@ def effects_svg(effects: list[dict]) -> Markup:
     for i, e in enumerate(effects):
         y = top + row * i + row / 2
         side = "up" if e["pct"] > 0 else "down"
+        # a neighbourhood's baseline is not one a reader can guess
+        vs = (
+            f'<tspan class="vs"> vs {escape(e["against"])}</tspan>'
+            if e.get("is_area") and e["against"]
+            else ""
+        )
         out.append(
             f'<text class="eff-label" x="{label_w - 10}" y="{y + 4:.1f}" '
-            f'text-anchor="end">{escape(e["words"])}</text>'
+            f'text-anchor="end">{escape(e["words"])}{vs}</text>'
             f'<line class="ci {side}" x1="{x(e["lower"]):.1f}" y1="{y:.1f}" '
             f'x2="{x(e["upper"]):.1f}" y2="{y:.1f}"/>'
             f'<circle class="dot {side}" cx="{x(e["pct"]):.1f}" cy="{y:.1f}" r="4.5"/>'
         )
     label = "Feature effects on the typical ask, with 95% intervals: " + "; ".join(
-        f"{e['words']} {pct(e['pct'], digits=1)}" for e in effects
+        f"{e['words']}{' vs ' + e['against'] if e.get('is_area') and e['against'] else ''} "
+        f"{pct(e['pct'], digits=1)}"
+        for e in effects
     )
     return Markup(
         f'<svg class="story-svg effects" viewBox="0 0 {WIDTH} {height}" role="img" '
@@ -757,7 +767,7 @@ def theories_svg(entries: list[dict]) -> Markup:
     for t in entries:
         if not kinds or kinds[-1] != t["kind"]:
             kinds.append(t["kind"])
-    wrapped = [label_lines(t["words"]) for t in entries]
+    wrapped = [label_lines(t["words"], lines=4) for t in entries]
     extra = sum(line * (len(w) - 1) for w in wrapped)
     height = top + row * len(entries) + extra + head * len(kinds) + 8
     out = [
@@ -782,8 +792,11 @@ def theories_svg(entries: list[dict]) -> Markup:
         tall = row + line * (len(lines) - 1)
         cy = y + tall / 2
         first = cy + 4 - line * (len(lines) - 1) / 2
+        # a space leading each later line keeps the words apart when the text is copied or
+        # read out; the lines are right-aligned, so it doesn't move them
         text = "".join(
-            f'<tspan x="{label_w - 10}" y="{first + line * i:.1f}">{escape(part)}</tspan>'
+            f'<tspan x="{label_w - 10}" y="{first + line * i:.1f}">'
+            f"{' ' if i else ''}{escape(part)}</tspan>"
             for i, part in enumerate(lines)
         )
         lo2, hi2 = t["diff"] - 2 * t["se"], t["diff"] + 2 * t["se"]

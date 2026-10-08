@@ -7,6 +7,46 @@ Fixes for things that are broken or wrong on the live site still ship.
 Each round adds a section at the top, ranked by how much the finding gets in the way of
 finding the best one-bedroom. Reports are in `/data1/apartments/tmp/playtests/<round>/`.
 
+## Story round 4 (story-reader, economist, journalist), 2026-10-08
+
+Reports in `/data1/apartments/tmp/playtests/2026-10-08-story4/`. The story fixes shipped in
+#509–#511 (the trust answer up front, "ask" defined, quicker figures, whole theory labels, the
+neighbourhood baseline). Outside the story, logged unbuilt under the feature hold:
+
+1. **Rent map: West Village and Chelsea side by side**, with a one-line "1 BR: $X in 2019, $Y
+   now" sentence, and the "Compare with" dropdown labelled as what sets the "Since" card
+   (journalist). The observed-median line is item 1 of round 3.
+2. **Map terms:** "median building", "typical apartment", "draws", "tax class C/D",
+   "extrapolated" (hollow dots) and narrow 90% intervals that read as false precision; and why
+   2020 drops and 2022 jumps (journalist).
+3. **Board readability:** long run ids, the m0-base reference failing its own gate, "not scored"
+   and "PSIS-LOO not paired" rows, who judges elegance, how the held-out set is drawn and how
+   many chains ran (economist).
+4. **Headline counts vs the served fit's rules:** the site's counts follow the current rules
+   (quarantine-v10) while the served fit used v6; the model-page notice (#507) explains the
+   wait, but the counts don't say which rules they follow (economist).
+
+## Story round 3 (story-reader, economist), 2026-10-08
+
+Reports in `/data1/apartments/tmp/playtests/2026-10-08-story3/`. The story fixes shipped in #505.
+The economist's findings outside the story are logged here, unbuilt (coordinator, 2026-10-08
+10:33 UTC: the feature hold applies):
+
+1. **Rent map: observed median ask and counts.** Draw the median ask per year on the same chart
+   as the typical-rent line, show how many listings back each cell, and link a cell to its
+   listings. West Village 1 BR 2019→2026 reads +41% on the map against +49% in median asks.
+2. **Versioned citation.** A "cite this" with the served run id and data snapshot id, or URLs
+   that carry them, so a cited figure doesn't move with each refit.
+3. **Calibration breakdowns.** Coverage by neighbourhood, bedroom count, price band and building
+   size, not only overall and by year.
+4. **Home "Available now (… only)".** Say why current listings cover three of the five
+   neighbourhoods.
+5. **Methods and data note.** One page to cite: source, crawl frequency, re-lists, how unit
+   identity is inferred, thin early years (692 listings in 2010), and a data dictionary for
+   listings.csv (which also lacks the 95% bounds).
+6. **The served fit's "servable: no" row** (fit with quarantine-v6, current rules v10) read as a
+   stale fit; passed to Modeling.
+
 ## Round 11 (best-1bed, /best after the commute, bed-size and low-floor pills), 2026-10-06
 
 One persona, starting at `/best?beds=1` (`/data1/apartments/tmp/playtests/2026-10-06-r11/`).
@@ -229,3 +269,22 @@ Ranked roughly by how many personas hit the finding and how badly.
     the served model's predict path from Modeling. The nearest existing piece is the kit
     pricing of current listings (#377, #385), which already takes the latest unit and building
     attributes and evaluates them at today's date.
+
+## Story round 6 (2026-10-08, lay reader)
+
+Logged, unbuilt (feature hold):
+- Glossary links on first use of each term (spread, heavy tails, held-out, served model, switches).
+- One place that reconciles the row counts (121,911 asks, 135,759 raw, 135,477 kept, 129,756 with ad text).
+- 12D build-up: explain the "when the building was built" adjustment, and why an ask 12.4% above the estimate is still inside the 95% range.
+- Grouped tests (ad attributes, walk-to places): say why they are in the story.
+- Design timeline: label the dot chart's axes.
+- Example listings for the renovation, furnished-let and rent-stabilisation possibilities. The set-aside ideas link only to GitHub PRs.
+- Figures caught mid-animation on a quick scroll. That is known from the armed/whole scheme and left as is.
+
+## Story round 7 (2026-10-08, lay reader)
+
+Logged, unbuilt (feature hold):
+- Accuracy chapter has no figure. Candidate: the miss distribution for seen and new apartments.
+- The cleaning chapter could show one bad ask that was set aside, and a picture of one split unit.
+- Layer descriptions repeat themselves. Terms still unexplained: log scale, Student-t, Fourier season, quarantine, predictive range. Glossary links on first use are still the open ask from round 6.
+- The design-timeline chapter is still a wall of detail, with PR numbers as labels.

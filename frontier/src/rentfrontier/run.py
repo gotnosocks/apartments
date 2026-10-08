@@ -314,6 +314,9 @@ def feature_sources(feature_set: str) -> dict:
     if feature_set in features.ALTERATION_DATED_SETS:
         path = features.ALTERATIONS_FILE
         out["alterations"] = {"path": path, "sha256": data.sha256(Path(path))}
+    if feature_set in features.PLUTO_RELEASED_SETS:
+        path = features.PLUTO_RELEASES_FILE
+        out["pluto_releases"] = {"path": path, "sha256": data.sha256(Path(path))}
     return out
 
 

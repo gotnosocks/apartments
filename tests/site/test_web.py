@@ -1519,6 +1519,35 @@ def test_research_model_page_shows_a_pending_switch(site_root, research_file):
     assert "another fit is at least as accurate" in html
 
 
+def test_research_model_page_explains_a_keep_on_old_rules(site_root, research_file):
+    data = json.loads(research_file.read_text())
+    data["autoselect"] = {
+        "action": "keep",
+        "incumbent_eligible": False,
+        "eligible": [],
+        "checked": [],
+        "reason": "no eligible fit; the incumbent stays although it was fit with quarantine-v6.",
+    }
+    research_file.write_text(json.dumps(data))
+    app = create_app(site_root, research_data=research_file)
+    html = app.test_client().get("/research/model").get_data(as_text=True)
+    assert "Waiting for a refit on the current data rules." in html
+    assert "no fit on the new rules has landed yet" in html
+    assert "this model stays although it was fit with quarantine-v6." in html
+    data["autoselect"]["eligible"] = [{"run": "m-new-run"}]
+    research_file.write_text(json.dumps(data))
+    app = create_app(site_root, research_data=research_file)
+    html = app.test_client().get("/research/model").get_data(as_text=True)
+    assert "Waiting for a refit on the current data rules." in html
+    assert "no fit on the new rules has landed yet" not in html
+    data["autoselect"]["eligible"] = []
+    data["autoselect"]["incumbent_eligible"] = True
+    research_file.write_text(json.dumps(data))
+    app = create_app(site_root, research_data=research_file)
+    html = app.test_client().get("/research/model").get_data(as_text=True)
+    assert "Waiting for a refit" not in html
+
+
 def test_fits_on_earlier_data_are_drawn_apart(client, research_file):
     _with_exploration(research_file)
     data = json.loads(research_file.read_text())

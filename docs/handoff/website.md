@@ -2,6 +2,65 @@
 
 What the next turn of the website thread needs. Updated at each milestone.
 
+## State (2026-10-08 16:00 UTC)
+
+- Playtest story7 (`/data1/apartments/tmp/playtests/2026-10-08-story7/`) acted on, all deployed:
+  #527 wrapped theory labels keep a space between lines (copied text read "morefeatures");
+  #528 the build-up says the opening's typical ask is the all-years held-out median and current
+  asks run higher; #529 the accuracy chapter ends with "What this means for one estimate".
+  The rest is under "Story round 7" in docs/playtests/backlog.md.
+
+## State (2026-10-08 15:10 UTC)
+
+- Story6 follow-ups merged and deployed: #522 the 12D example says a miss over twice the
+  typical one can still sit inside the 95% range (about 1 ask in 20 lands outside); #524 a
+  "Two kinds of range" box (`#ranges`) after the contents list separates intervals (how sure
+  of a number, 90%/95%) from ranges (where an ask lands, 80% likely range, 95% in the example).
+- Playtest story7 (story-reader) started to check them: `/data1/apartments/tmp/playtests/2026-10-08-story7/`.
+
+## State (2026-10-08 13:45 UTC)
+
+- **Playtest story6** (story-reader): the lay reader still gave up at Theories on trial. #520
+  adds a skip hint at its top (italic, links to Cleaning, or Open questions without it), says the stretched axis in plain
+  words, and flags the never-seen-apartment figure as rough under 1,000 asks (now 521).
+  The rest went to the backlog under "Story round 6".
+- Next on-story candidates: the 12D build-up (the "One apartment" example) (the built-year term, and why +12.4% is still
+  inside the 95% range); the interval levels (80/90/95%) are still confusing.
+
+## State (2026-10-08 13:35 UTC)
+
+- **Theories chapter for lay readers:** #515 "The biggest wins" line and "(model term: …)"
+  labels; #518 the score in plain words ("margin for luck" = standard error), PSIS-LOO and
+  ΔELPD in a "The technical names" fold-out.
+- **#516** a contents list of the story's chapters; **#517** the layers chart's axis says the
+  share is "of the spread in asks between listings, not of the rent" (story5 misread it).
+- **Playtest story6** (story-reader) started to check the theories rewrite:
+  `/data1/apartments/tmp/playtests/2026-10-08-story6/`.
+
+## State (2026-10-08 12:30 UTC)
+
+- **Playtest story4** (`/data1/apartments/tmp/playtests/2026-10-08-story4/`, story-reader,
+  economist, journalist) acted on: #509 the trust answer in the opening, "ask" defined, figure
+  delays about halved; #510 theory labels wrap to four lines, none cut; #511 neighbourhood
+  effects read "vs Chelsea"; #513 "spread" and the interval levels defined where first used.
+  Off-story points in `docs/playtests/backlog.md` "Story round 4" (#512), unbuilt.
+- **Next:** the theories chapter is still the hardest for a lay reader (36 rows, square-root
+  axis); Student-t and Fourier remain only as parentheticals in its table. Then a story5 round.
+
+## State (2026-10-08 11:30 UTC)
+
+- **Playtest round 3 (story3) acted on:** #503 plain words in the switches and theories tables
+  (`story.change_words`, "(why)" / "(no clear gain)" on blocked theories); #505 the example's
+  miss in context and the served-model count; #506 the theories' score in plain words. The
+  economist's off-story points are in `docs/playtests/backlog.md` ("Story round 3"), unbuilt
+  under the feature hold (coordinator relay, 10:33Z).
+- **#507 (live):** /research/model explains a `keep` when the served fit is on earlier data rules
+  (quarantine-v6 vs current v10): "Waiting for a refit on the current data rules". Modeling has
+  the current-rules refit queued, pending Ben's OK to stop the old queue; once it lands the notice
+  goes away by itself.
+- **Waiting on Modeling:** single-item effects result.json paths (low priority).
+- **Next:** a fresh story playtest to confirm the round-3 fixes, then the remaining jargon.
+
 ## State (2026-10-08 08:40 UTC)
 
 - **#495, #499 (live):** plain words for the layers and the first design era; the theories
