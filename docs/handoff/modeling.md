@@ -3,6 +3,16 @@
 What the next turn of the modeling thread needs. Updated at each milestone. Scripts and logs are
 in `/data1/apartments/tmp/bridge` (thelio).
 
+## Update (2026-10-09 00:30 UTC)
+
+- **Runs are still paused.** Label vs NTA, noise cells and line coverage are recorded in
+  `docs/model/research-backlog.md` (`review/r12/c24.py`, `c25.py`).
+- **Label vs NTA:** the NTA wins only for the 98 GV-labelled buildings in the WV NTA. The Midtown
+  South sets price with their label or below both, so NTA hoods are not queued as the served
+  geography. The WV line is closed; its served form would be a per-NTA 2022 step.
+- **Log-linear noise:** code-only PR from branch `model/lognoise` (config `…-bedtime-lognoise`), with
+  no fit. Held-out single-listing rows cover 0.62 at 80%, so judge it on new-unit coverage too.
+
 ## Update (2026-10-08 23:45 UTC)
 
 - **Runs are still paused.** The coordinator's follow-up checks are recorded in
