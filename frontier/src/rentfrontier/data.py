@@ -828,6 +828,18 @@ def recorded_rules(result: dict) -> tuple:
     return rules
 
 
+def rows_sha256(frame: pd.DataFrame, heldout) -> str:
+    """A hash of a run's rows after its split and data rules: the column names,
+    every value in order, and the held-out mask. Two rule sets whose rows hash
+    the same give a fit the same data, so autoselect treats them as the same
+    rules (Ben, 2026-10-08)."""
+    digest = hashlib.sha256()
+    digest.update(json.dumps([str(c) for c in frame.columns]).encode())
+    digest.update(pd.util.hash_pandas_object(frame, index=False).to_numpy().tobytes())
+    digest.update(np.asarray(heldout, dtype=bool).tobytes())
+    return digest.hexdigest()
+
+
 def split_and_rules(frame: pd.DataFrame, split: str, rules) -> tuple:
     """(frame, heldout) for a run's split and data rules, in the run's order: most
     splits are drawn first and the rules applied after; a split in
