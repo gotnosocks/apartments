@@ -7,7 +7,7 @@ Updated 2026-10-08 15:50 ET. Thread owner: the Data collection project thread (b
   **dataset BUILT** 15:41 ET: see `docs/data/stuyvesant-town-pcv-collection.md`. Snapshot written
   compacted (5.9 → 3.3 GB, rows and audit verified). `apartments-stuytown-monitor.timer` disabled.
   Handed to Data improvements and Modeling via the coordinator.
-- **NoMad, East Village crawls: RUNNING** (Stuy Town finished, above) since Oct 8 02:23 ET (Ben, typed
+- **NoMad, East Village crawls: RUNNING** since Oct 8 02:23 ET (Ben, typed
   06:19 UTC). One StreetEasy area each (`nomad`, `east-village`, `stuyvesant-town`; #482), FGP
   policy, launched at `run-8pm-2w.py` each (24/min combined), fallback 8pm → 4pm → STOP; monitors
   `apartments-{nomad,ev,stuytown}-monitor.timer`. **Combined 32/min** (Ben, typed Oct 8 15:53
