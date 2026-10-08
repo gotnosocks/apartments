@@ -445,3 +445,14 @@ def test_the_rows_hash_covers_values_columns_and_the_held_out_mask():
     assert h != data.rows_sha256(frame.rename(columns={"unit": "label"}), held)
     assert h != data.rows_sha256(frame, ~held)
     assert h != data.rows_sha256(frame.iloc[::-1], held)
+
+
+def test_current_rules_rebuild_in_an_order_apply_rules_accepts():
+    rules = {"zz-v1", "unit-splits-v4", "unit-reviews-v1", "unit-labels-v11", "a-v1"}
+    assert sorted(rules, key=autoselect._rule_order) == [
+        "a-v1",
+        "zz-v1",
+        "unit-labels-v11",
+        "unit-reviews-v1",
+        "unit-splits-v4",
+    ]

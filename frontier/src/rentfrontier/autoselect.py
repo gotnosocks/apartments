@@ -121,9 +121,22 @@ def _rules(entry) -> frozenset:
     return frozenset(_record(entry).get("data_rules", ()))
 
 
+# apply_rules wants unit labels, then unit reviews, then unit splits, last.
+_LAST = ("unit-labels-", "unit-reviews-", "unit-splits-")
+
+
+def _rule_order(rule: str) -> tuple:
+    return (next((i + 1 for i, p in enumerate(_LAST) if rule.startswith(p)), 0), rule)
+
+
+@functools.cache
+def _load(dataset: str):
+    return data.load(Path(dataset))  # one load per dataset for every rule set
+
+
 @functools.cache
 def _rows_sha256(dataset: str, split: str, rules: tuple) -> str:
-    frame, heldout = data.split_and_rules(data.load(Path(dataset)), split, rules)
+    frame, heldout = data.split_and_rules(_load(dataset).copy(), split, rules)
     return data.rows_sha256(frame, heldout)
 
 
@@ -138,10 +151,14 @@ def rows_sha256(record, rules=None) -> str | None:
     if dataset is None or split is None:
         return None
     try:
-        used = data.recorded_rules(record) if rules is None else tuple(sorted(rules))
-    except SystemExit:
+        used = (
+            data.recorded_rules(record)
+            if rules is None
+            else tuple(sorted(rules, key=_rule_order))
+        )
+        return _rows_sha256(str(Path(dataset).resolve()), split, used)
+    except (SystemExit, ValueError):  # changed rule files, or rules out of order
         return None
-    return _rows_sha256(str(Path(dataset).resolve()), split, used)
 
 
 def same_rows(record, rules) -> bool:
