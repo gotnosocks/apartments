@@ -3,47 +3,42 @@
 What the next turn of the modeling thread needs. Updated at each milestone. Scripts and logs are
 in `/data1/apartments/tmp/bridge` (thelio).
 
-## State (2026-10-07 15:45 UTC)
+## State (2026-10-08 01:30 UTC)
 
-- **Served (#409, autoselect, build 20261007T153845309893Z-3dba77be):** m7-nocurves-floorslope-bednoise-
-  dayfourier-bedtime-yearnoise + nb3-coded-v2 on the current rules, run
-  `…-nb3-coded-v2-rows-39c3c8a-a100-3600k9cb1-gv1006-ul9s`, summary b65c406, 953 s on Modal A100,
-  PSIS-LOO 107,490.3. Against the previous selection on shared rows: +725.6 ± 65.8, held-out +53.5 ± 20.3.
-- **prevprice removed (Ben, 2026-10-07 14:17Z):** semantically invalid (no time dependence of the
-  correction). `autoselect.BLOCKED` refuses every feature set containing `prevprice`, in autoselect and
-  latestselect; `manual_removal` in config/main-analysis.json at #403 records it. The elegance brief is
-  `elegance-v2`, with semantic validity first.
-- **Current rules:** baths-ad-v2, bedrooms-ad-v2, fields-review-v3, quarantine-v5, unit-labels-v9,
-  unit-splits-v1. Data tests unit-splits v2 (#400) and v3 (#408) on coded-v2 explorations (GPU now).
-- **A100 full-fit frontier** (coded-v2, current rules; paired PSIS-LOO against served, 953 s):
-  bedtime12-yearnoise −65.0 ± 11.0 (756 s); dayfourier-yearnoise −193.9 ± 24.9 (539 s); floorslope-
-  bednoise-dayfourier −1,008 ± 60 (535 s); floorslope-bednoise −1,102 ± 61 (718 s); floorslope base
-  fails the group gate (building 845's bedroom slope, R-hat 1.097). Yearnoise is worth about +814;
-  quarterly bedroom curves +194 over none. Exploration fits under prevprice understated bedtime
-  (−35 there), so prevprice-era exploration results need rechecking on coded-v2.
-- **Year noise (Data, 2026-10-07):** residual sd 4–5% in 2017–19, about 9% Sep 2020–Feb 2021, 5–6% by
-  2022; symmetric, same in all neighbourhoods and sources, no data rule. Of +814, 2020–21 give +335 and
-  2017–19 +264. Per-row table in /data1/apartments/tmp/suspect/yearnoise/.
-- **Running:** bedtime6-yearnoise (#410) full fit on Modal at 2cab155 (18 of today's 20 slots; Ben
-  granted +10 for 2026-10-07). GPU: `frontier-coded9-explore` runs sp2, sp3, then bedtime12 and dfyn
-  coded-v2 explorations at d8fe0c2.
-- **Serving fits not on thelio** (Ben 2026-10-07 14:29Z); exploration fits continue there.
-- **text-v1:** back in the backlog as text-v2 (Ben, 2026-10-07); nothing text is queued.
+- **Served (autoselect, this PR):** m7-nocurves-floorslope-bednoise-dayfourier-bedtime-yearnoise +
+  nb3-coded-v2 on the current rules, run `…-nb3-coded-v2-rows-9b6c16d-a100-4500k9cb1-gv1006-ul9r1s4`
+  (2 × (300 + 4500) draws), summary 344d260, 1,089 s on Modal A100, PSIS-LOO 108,319.3, R-hat 1.0065,
+  ESS 490, group R-hat 1.0095. Against the previous selection (39c3c8a, 3600 draws, older rules) on
+  shared rows: +829.5 ± 93.1, held-out +102.1 ± 33.6. The 3600-draw refit on these rules missed ESS
+  (bedroom_time_scale 399.9), so served fits now draw 4500.
+- **Current rules:** baths-ad-v2, bedrooms-ad-v2, fields-review-v3, quarantine-v6, unit-labels-v9,
+  unit-reviews-v1, unit-splits-v4.
+- **Modal rule (Ben 2026-10-07 22:27Z, #432):** every data-rule, feature or model-term test is its own
+  Modal full fit, 2 × (300 + 4500), no exploration, no thelio pairs, no bundling; autoselect serves the
+  best passing fit on master's rules (a rule or feature fit only after its PR merges). Budget (#433):
+  $8.80 a day accrual, capped at $8.80; one full fit about every 2.4 h.
+- **prevprice removed (Ben, 2026-10-07 14:17Z):** `autoselect.BLOCKED` refuses feature sets containing
+  `prevprice`.
+- **Queue (systemd units, scripts in /data1/apartments/tmp/bridge, each waits for the one before):**
+  `frontier-modalq-all`: unit-labels-v10 (2da098d), nb3-loc-v1, bedtime6, unit-splits-v5 (98a146d);
+  then `frontier-modalq-stab` nb3-stab-v1 (#435), `-permit` nb3-permit-v1 (#437), `-pluto`
+  nb3-plutoasof-v1 (#439). Pair each against the 4500 served refit; Data merges its PR only on a win.
+- **Variance:** run `rentfrontier.variance` on every served fit (Website's /research/story reads it).
+- **Not on thelio:** serving fits (Ben 2026-10-07 14:29Z); the thelio GPU idles under the all-Modal rule.
+  A solo bedroom_time_scale probe ran out of memory on the 2060; loc-v1 ran out of memory there too.
 
 ## Next
 
-1. Pair bedtime6 against the served fit when it lands (pairs-ul9s.py).
-2. If Data's unit-splits v2 or v3 wins and merges: a serving refit on Modal (2 slots left today).
-3. A mean-side pandemic term (2020–21 deviation by price tier or bedroom group), to see how much of
-   yearnoise's gain it explains; pooled per-year noise scales (random walk on log sigma) as a smaller fix.
-4. Areatime as a full fit (its exploration failed the gate at R-hat 1.045, ESS 46).
-5. Backlog: autoselect `why_not` should check the dataset before `scored`; elegance.needed_pairs and
-   the site's hardware view still assume TARGET_HARDWARE only (#391 review notes); comments in fit.py
-   and ops/modal-fit still say the cap is 10.
+1. As each queued fit lands: autoselect dry run, pair, report to Ben and Data; switch if it wins.
+2. Cut Modal's fixed ~800 s a fit (upload, image, PSIS-LOO), recommended to Ben.
+3. A mean-side pandemic term (2020–21 deviation by price tier or bedroom group); pooled per-year noise
+   scales as a smaller fix. Areatime as a full fit. Each needs a queue slot under the Modal rule.
+4. Backlog: autoselect `why_not` should check the dataset before `scored`; elegance.needed_pairs and
+   the site's hardware view still assume TARGET_HARDWARE only (#391 review notes).
 
 ## Modal fits (2026-10-06)
 
-Frontier fits can run on Modal with `ops/modal-fit` (docs/model/modal.md), at most 10 a day (ledger
+Frontier fits can run on Modal with `ops/modal-fit` (docs/model/modal.md), within a dollar budget accruing 10 full fits a day, $8.80, capped at that balance (Ben 2026-10-07 21:59Z and 22:23Z; ledger
 /data1/apartments/modal/ledger.jsonl). The served design on an A100-40GB: fit 822 to 919 s, PSIS-LOO
 139 s, identical results to thelio, about $0.80 a full fit. The Modal Volume is deleted after 24 h
 unused by apartments-modal-cleanup.timer.

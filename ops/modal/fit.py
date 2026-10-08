@@ -6,8 +6,8 @@ arguments mirror drive.sh, so the run is named "<model>-<features>-<split>-<comm
     fit.py [--gpu A100-40GB] [--dataset DIR] [--input PATH]... [--split rows] [--chain-batch N]
            COMMIT LABEL MODEL FEATURES CHAINS WARMUP DRAWS KEEP [rentfrontier.run options...]
 
-Steps: refuse if the run already exists here; take a slot under the daily cap (cap.py, at
-most 10 Modal fits a day); upload only the inputs that changed since the last sync; ship a
+Steps: refuse if the run already exists here; spend the fit's estimated cost from the Modal balance (cap.py:
+dollars accrue at 10 full fits a day; refused until the balance covers it); upload only the inputs that changed since the last sync; ship a
 shallow checkout of COMMIT; run the fit (capped at 2 h, or 30 min for an exploration fit)
 and PSIS-LOO in the container; download the run to FRONTIER_OUTPUT_ROOT/runs/<name> and the
 LOO to FRONTIER_OUTPUT_ROOT/loo/, then delete them from the Volume. The Volume itself is
@@ -22,6 +22,7 @@ import json
 import os
 import subprocess
 import sys
+import time
 import uuid
 from pathlib import Path
 
@@ -54,7 +55,7 @@ LAST_USE = STATE / "last-use"  # ops/modal/cleanup deletes the Volume 24 h after
 
 
 def parse(argv):
-    p = argparse.ArgumentParser(description=__doc__.split("\n")[0])
+    p = argparse.ArgumentParser(description=__doc__.split("\n")[0], allow_abbrev=False)
     p.add_argument(
         "--gpu", default="A100-40GB", help="L4, A100-40GB (default), A100-80GB or H100"
     )
@@ -240,13 +241,17 @@ def main(argv):
     if args.gpu not in modal_app.FITS:
         sys.exit(f"--gpu must be one of {', '.join(modal_app.FITS)}")
     touch()
-    left = cap.reserve(spec["name"], args.gpu)  # raises CapReached past 10 today
+    usd = cap.estimate(args.chains, args.warmup, args.draws, args.gpu)
+    # Raises CapReached if the balance is short.
+    launch, left = cap.reserve(spec["name"], args.gpu, usd)
     print(
-        f"{spec['name']} on {args.gpu} ({spec['tier']}); {left} Modal fits left today",
+        f"{spec['name']} on {args.gpu} ({spec['tier']}); estimated ${usd:.2f}, "
+        f"Modal balance now ${left:.2f}",
         flush=True,
     )
     import modal
 
+    started, meta = time.monotonic(), None
     try:
         with modal.enable_output(), modal_app.app.run():
             sync(modal_app.volume, spec, stage)
@@ -264,6 +269,14 @@ def main(argv):
         raise
     finally:
         touch()
+        # The balance pays what the fit cost: its container time, or the time it ran if it failed.
+        cost = (meta or {}).get("usd_estimate")
+        if cost is None:
+            cost = (time.monotonic() - started) * modal_app.usd_per_second(args.gpu)
+        try:
+            cap.settle(launch, cost)
+        except Exception as e:  # noqa: BLE001 (keep the fit's own error; the estimate stays charged)
+            print(f"could not settle {launch} at ${cost:.2f}: {e}", flush=True)
     return meta["exit"]
 
 

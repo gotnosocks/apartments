@@ -1,6 +1,34 @@
 # Data improvements — handoff
 
-Updated 2026-10-07 15:40 ET. Thread owner: the Data improvements project thread (bridge session on thelio).
+Updated 2026-10-07 21:45 ET. Thread owner: the Data improvements project thread (bridge session on thelio).
+
+## 2026-10-07 21:45 ET
+
+- **Policy (Ben, 22:27Z, relayed):** every test is its own Modal full fit through Modeling's
+  queue and is served if it passes the gate. There are no thelio exploration pairs and no
+  bundling. The Modal balance is capped at one day's accrual (#433). Merge a feature PR only once
+  its fit passes the gate.
+- **Open-data survey (#434, merged):** it is at the top of `docs/model/research-backlog.md`.
+  Survey scripts and data are in `/data1/apartments/tmp/suspect/opendata/`. HPD owners and agents
+  are not proposed.
+- **Three features are queued with Modeling as their own Modal full fits:**
+
+  | PR | Feature | Head | Snapshot | Rows affected | Fit |
+  |---|---|---|---|---|---|
+  | #435 | nb3-stab-v1 | 2c38a45 | rentstab/20261008-6b42fe8 | share > 0 on 73% | frontier-modalq-stab, about 08:30 ET 10-08; suite passed |
+  | #437 | nb3-permit-v1 | 9fdd817 | dob/20261008-ab3d278 | 1,390 rows, 928 units | frontier-modalq-permit, about 10:55 ET |
+  | #439 | nb3-plutoasof-v1 | 77c738e | plutohistory/20261008-931c6e8 | 23,352 rows | asked to queue after permit |
+
+  - **nb3-stab-v1:** rent-stabilized share as of the tax bill of the year before the listing.
+  - **nb3-permit-v1:** a DOB A1/A2 permit naming the apartment, issued in the 3 years before the
+    listing month.
+  - **nb3-plutoasof-v1:** nb3-coded-v2 with MapPLUTO from the release of the year before the
+    listing. Today's year built is kept.
+  - Each fit pairs against the 4500-draw serving refit, which passed the gate at 20:56 ET and
+    which autoselect switches to.
+  - After each fit lands: record it in `docs/model/feature-tests.json` `hand_tests`. If it passes,
+    merge the PR (frozen heads; merge master in first), and tell Modeling and the coordinator.
+- **Still queued with Modeling:** unit-labels v10 (#420, 2da098d) and v5 (#425, 98a146d).
 
 ## 2026-10-07 15:40 ET
 
@@ -103,10 +131,10 @@ Updated 2026-10-07 15:40 ET. Thread owner: the Data improvements project thread 
 
 ## 2026-10-07 00:00 ET
 - **Retests on GV data** (yearnoise design, paired against nb3-coded-v2, 94,453 rows; none fully converged,
-  R-hat 1.07–1.10): text-v1 +106.4 ± 32.8 (Modeling: full fit on Modal, plus a latest-split check
-  `frontier-latesttext`); null: noise +3.3 ± 14.3, water +0.7 ± 14.6, flagfix +0.1 ± 23.7,
-  walkup −6.2 ± 14.0, attrs −7.5 ± 28.9. loc-v1 OOMs at the 7G GPU-job cap on thelio; Modeling
-  runs it on Modal. Results in `/data1/apartments/tmp/bridge/retest-pair-*.txt`. Don't relaunch
+  R-hat 1.07–1.10): text-v1 +106.4 ± 32.8 (later: fails 2 SE on the fair WV+GV score, not served;
+  back on the backlog as text-v2, Ben 14:21Z/14:30Z); null: noise +3.3 ± 14.3, water +0.7 ± 14.6, flagfix +0.1 ± 23.7,
+  walkup −6.2 ± 14.0, attrs −7.5 ± 28.9. loc-v1 OOMs at the 7G GPU-job cap on thelio; it ran on a
+  Modal A100 on 10-07 (+9.2 ± 15.3, provisional; ledger #415) and Modeling has it queued again after bedtime6. Results in `/data1/apartments/tmp/bridge/retest-pair-*.txt`. Don't relaunch
   scripts in that folder; it is Modeling's queue.
 - **Exposure outlook (#382):** `exposure-manual.csv` has an `outlook` column ("wall"); 82-86
   Washington Pl 2B is the only row. Website shows no pill for single hand labels (Ben).
@@ -232,22 +260,15 @@ Updated 2026-10-07 15:40 ET. Thread owner: the Data improvements project thread 
 - **#326 `unit-labels-v6`** (draft) waits for a batch full fit.
 
 ## Next
-- Relay Modeling's gvnext refit (lines, retail on the served design), the prevprice selection
-  (~01:30-02:00 ET) and the v8 pair; row-rule merges wait for the prevprice selection.
-- PATH stations from their own GTFS snapshot, only if lines-v1 holds up in the refit. Hudson
-  River Park has no dated outline in state open data (only plantings and facility points).
-- Location follow-ups (retest after the Flatiron + Gramercy fold-in): loud's line orientation
-  ignores Village named streets; a no-footprint flag; more dog-run opening dates and closures
-  (St Vincent's) in `nearby.OPENED`; drop the private OSM "The Fi Office" dog run.
-- Relay to Ben: the lineface paired score and the prevprice outcome when Modeling sends them.
-- After the GV switch, Modeling updates the "map grows less than the median ask" note figures.
-- #222 `unit-labels-v4` waits for a batch full fit; the next unit-labels version should add the
-  Morton Square + 100 Morton join.
-- Pair Modeling's 39c3c8a trio when it lands (10-08 overnight). A unit-splits threshold-1 or
-  studio-aware variant is the next candidate, after the trio.
-- Run full-data scripts only while the GPU is free: GPU fits lean on swap (memory note, 2026-10-06).
-- Backlog: bldgclass for condo conversions, Jane St registry fix, 13 excluded new-building rows, confirm
-  q-v3/q-v4 on held-out rows, gross rent, relist gap.
+- Act on the stab, permit and plutoasof fits as they land (see 21:45 above), and on v10 and v5.
+- Permit follow-ups: read every label in a list ("APTS 2A & 3A" reads 2A only), and drop
+  generic hits such as "HVAC UNITS" (harmless now).
+- More open data: unused MapPLUTO fields and dated DOB certificates of occupancy (new-building
+  unit counts).
+- Flatiron + Gramercy fold-in: `/data1/apartments/tmp/suspect/fgp/PLAN.md`. Location retests go
+  in as full fits.
+- Backlog: bldgclass for condo conversions, Jane St registry fix, 13 excluded new-building
+  rows, gross rent, relist gap.
 
 ## Rules that bind this thread
 - Rule-based changes, one PR per change, no future information; descriptions never override coded

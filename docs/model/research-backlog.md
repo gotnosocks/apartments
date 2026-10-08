@@ -1,5 +1,68 @@
 # Chelsea pricing research backlog
 
+## Open-data survey: stabilization, permits, owners, dated MapPLUTO (2026-10-07)
+
+Four free sources, sized against the 105,244 rows of `chelsea-wv-gv-analysis-20261005-2d5b3b6`
+(2,941 buildings, 2,748 lots, 2,877 BINs, all in registry `20261005-2d5b3b6`). Scripts and raw
+pulls are in `/data1/apartments/tmp/suspect/opendata/`. Nothing here is a feature yet. Each build
+goes to Modeling's queue as its own Modal full fit, served if it passes the gate. Nothing needs paid
+data. In order of expected value:
+
+1. **Rent-stabilized units per lot, as of the listing (`nb3-stab-v1`).**
+   - **Data.** DOF tax-bill counts of DHCR-registered stabilized units: taxbills.nyc for 2007–2017
+     (`taxbillsnyc.s3.amazonaws.com/joined.csv`) and JustFix's DOF scrape for 2018–2024
+     (`justfix-data/rentstab_counts_from_doffer_2024.csv`). Join on BBL.
+   - **Coverage.** 1,068 of our lots appear. 73.0% of rows sit in a lot with stabilized units as of
+     the listing; a lot that never appears has none. 2.1% of rows are in a lot with no bill year
+     by then (2010 listings) and carry the earliest count back.
+   - **It moves within buildings.** As a share of the lot's peak count, the as-of count ranges
+     30–60% across a building's listings for 21,184 rows and 60% or more for 15,152. The building
+     level is fixed over time, so it can't absorb deregulation. A falling stabilized share means a
+     larger market-rate share among the listed apartments.
+   - **Leak risk: low.** Use the latest bill year at or before the listing's year − 1. Carry
+     forward over the 2020–2022 gaps (852–876 lots have bills, against about 990 in other years).
+   - **Proposed terms.** The stabilized share of MapPLUTO's residential units, and its change since
+     the building's first listing, both as of the listing.
+2. **DOB alteration permits that name the apartment (`nb3-permit-v1`).**
+   - **Data.** DOB job filings (BIS `ic3t-wcy2`, 57,833 jobs) and DOB NOW (`w9ak-ipjd`, 20,783),
+     joined on BIN. Of 47,399 permitted A1, A2 and new-building jobs, 11,374 name an apartment
+     ("APT 5F", "UNIT 4B") in the description or floor field.
+   - **Coverage.** 1,210 rows (1.1%) are listed within 3 years after a permit naming their
+     apartment, and 5,019 (4.8%) at any time after one. 247 units (1,132 rows) were listed both
+     before and after their first naming permit. That before/after step is what the term would
+     learn. At building level: an A1 (change of use or occupancy) in the 3 years before covers
+     4.4% of rows, and 5 or more alteration permits in 2 years 19.2%.
+   - **Leak risk: low.** Date by permit (`fully_permitted`, `first_permit_date`), never filing,
+     strictly before `price_at`.
+   - **Before the fit.** The label match needs a review sample. "UNIT" also means HVAC units, and
+     labels need the same spelling joins as `unit-labels`. These permits also date alterations
+     exactly, which retires MapPLUTO's present-day `yearalter1/2` (the leak in item 5 of the
+     exact-dates section).
+3. **MapPLUTO as of the listing (`nb3-plutoasof-v1`).**
+   - **Data.** DCP's archived releases download freely from
+     `s-media.nyc.gov/agencies/dcp/assets/files/zip/data-tools/bytes/pluto/nyc_pluto_<YYvN>.zip`
+     (10v1, 12v1, 14v1, 16v1 and 18v1 checked). Of our lots, 2,662 match in 10v1 and 2,718 in 18v1.
+   - **How much the present-day values differ** (rows whose lot differs from today in 2010 /
+     2018): building class 10.5% / 4.1%, residential units 19.8% / 5.3%, floors 3.8% / 1.5%,
+     `yearalter1` 1.6% / 1.0%. Historic district reads 27.1% / 0.6%, mostly renamed districts.
+     Class changes are mostly within a letter (D to D, C to C), plus 610 rows K to D and 589 G to D.
+   - **Expected gain: small.** MapPLUTO facts added no accuracy before (A.1), and the earlier
+     unit-count check found only about 1% of rows with a material change
+     (`/data1/apartments/tmp/suspect/pluto-asof/FINDINGS.md`). The case is the no-future-information
+     rule. Use the latest release before the listing; take the alteration years from item 2.
+   - **Test.** One Modal full fit against the served set, swapping present-day MapPLUTO for the
+     as-of values and nothing else.
+4. **HPD registrations: owner and managing agent. Not proposed.**
+   - **Coverage.** 94.7% of rows are in a registered building. 97% of those are corporate owners.
+     809 agents; 72 manage 5 or more of our buildings, covering 30.2% of rows.
+   - **Why not.** Open Data holds only each building's current registration: 2,117 of 2,332 registered buildings last
+     registered in 2025–2026. An agent as of a 2012 listing isn't available, so the term would
+     carry later information.
+   - **Little to gain.** A shared agent effect would help only small buildings, and just 466 of
+     the 2,286 rows in buildings with 5 rows or fewer are under a 5-building agent. HPD
+     violations already tested null (`unitdescplutohpd-v1/v2`).
+   - Revisit only if dated registration history turns up.
+
 ## Sound scores from HowLoud (Ben, 2026-10-07)
 
 Normal priority; it comes up on the queue by the usual selection. Ben (17:49Z): "Item for the
