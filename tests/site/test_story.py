@@ -780,11 +780,14 @@ def test_borders_line_buildings_up_by_distance_to_the_other_name():
             rows.append(("East", lat, -74.0 + east, -10.0 if i <= 2 else 0.0, 3))
     rows.append(("East", 40.74, -74.0, 50.0, 0))  # not in the fit: left out
     db.executemany("INSERT INTO buildings VALUES (?, ?, ?, ?, ?)", rows)
-    (p,) = story.borders(db)
+    (p,) = story.borders(db, reach=300)
     assert (p["a"], p["b"], p["gap"]) == ("East", "West", -10.0)
-    # East's buildings by the line total 1.1 * 0.9 - 1 = -1%, so the names'
-    # -10 points shrink to +1 there: the step fades
-    assert round(p["near"], 6) == 1.0 and round(p["far"], 6) == -10.0 and p["fades"]
+    # East's buildings by the line total 1.1 * 0.9 - 1 = -1% against +10%
+    # further in, so East falls 11 points on the way to the line and the
+    # names' -10 points shrink to +1 across it; West stays level
+    assert round(p["near"], 6) == 1.0 and p["near_n"] == 6
+    assert round(p["toward_a"], 6) == -11.0 and p["toward_b"] == 0.0
+    assert round(p["in_a"], 6) == 10.0 and p["in_b"] == 0.0
     assert [b["mid"] for b in p["bins"]] == [
         -262.5,
         -187.5,
@@ -796,9 +799,9 @@ def test_borders_line_buildings_up_by_distance_to_the_other_name():
         262.5,
     ]
     assert [b["n"] for b in p["bins"]] == [6, 12, 6, 6, 6, 6, 12, 6]
-    svg = str(story.borders_svg([p]))
+    svg = str(story.borders_svg([p], reach=300))
     assert (
-        "East to West: labels alone −10 points, buildings within 75 m differ by +1"
+        "East to West: names alone −10 points, buildings within 75 m of the line +1"
         in svg
     )
     assert 'class="target"' in svg and svg.count("<circle") == len(p["bins"])

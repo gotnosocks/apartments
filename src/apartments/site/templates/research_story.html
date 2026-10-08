@@ -562,10 +562,8 @@ The <a href="{{ url_for('research_data_quality') }}">data quality</a> page lists
 <h2>Open questions</h2>
 <p>The model is far from finished. These are the questions the research is working on next.</p>
 
-{% if borders %}{% set fades = borders | selectattr("fades") | list %}
-{% set holds = borders | rejectattr("fades") | selectattr("gap", "ge", 5) | list + borders | rejectattr("fades") | selectattr("gap", "le", -5) | list %}
-{% macro pair(p) %}{{ p.a }}–{{ p.b }}{% endmacro %}
-{% macro pairs(ps) %}{% for p in ps %}{% if not loop.first %}{% if loop.last %} and {% else %}, {% endif %}{% endif %}{{ pair(p) }}{% endfor %}{% endmacro %}
+{% if borders %}
+{% macro move(v) %}{% if v is none %}—{% elif v | abs < 1.5 %}stay level{% elif v > 0 %}rise {{ "{:.0f}".format(v) }} points{% else %}fall {{ "{:.0f}".format(-v) }} points{% endif %}{% endmacro %}
 <h3 id="borders">Does a neighbourhood’s name matter, or only where it is?</h3>
 <p>The model gives each neighbourhood a premium of its own{% if reference_area %}, against {{ reference_area }}{% endif %}.
 A premium like that is a step: two buildings a street apart, on either side of the line, differ by all of it. Is the
@@ -573,11 +571,16 @@ name worth that much to renters, or is it where the building stands, which chang
 follows the names? The served model can’t say by itself, because each building also has a level of its own,
 which takes up whatever its spot is worth beyond the name.</p>
 <p>One look needs no new fit. Add each building’s own level to its neighbourhood’s premium, and line the buildings
-up by their distance to the nearest building across a border. If the name carries the price, the dots follow the
-dashed step. If the location carries it, the buildings nearest the line meet in the middle.{% if fades %}
-At the {{ pairs(fades) }} border{{ "s" if fades | length > 1 }}, the step mostly fades: the buildings nearest the
-line sit less than half the names’ gap apart, so their own levels undo much of the name.{% endif %}{% if holds %}
-The {{ pairs(holds) }} border{{ "s keep their" if holds | length > 1 else " keeps its" }} step.{% endif %}</p>
+up by their distance to the nearest building across a border. Each side is read from its buildings 300 to 600 m
+from the line and those within 75 m of it. If the name carries the price, each side is level
+and the gap sits at the line, like the dashed step. If the location carries it, the buildings climb toward the
+dearer side and the gap at the line is small. Most borders show some of each:</p>
+<ul>{% for p in borders %}
+  <li><strong>{{ p.a }} → {{ p.b }}</strong> (the names differ by {{ "{:+.0f}".format(p.gap) }} points):{% if p.toward_a is not none %}
+  {{ p.a }}’s buildings {{ move(p.toward_a) }} on the way to the line,{% endif %} the buildings either side of it
+  differ by {{ "{:+.0f}".format(p.near) }}{% if p.near_n < 15 %} (from only {{ p.near_n }} buildings on one side){% endif %}{% if p.toward_b is not none %}, and {{ p.b }}’s {{ move(-p.toward_b) }}
+  going in{% endif %}.</li>{% endfor %}
+</ul>
 
 <figure class="story-figure" id="borders-figure">
   <div class="figure-scroll" tabindex="0" role="region" aria-label="Figure, scrolls sideways on narrow screens">{{ borders_svg }}</div>
@@ -591,20 +594,21 @@ The {{ pairs(holds) }} border{{ "s keep their" if holds | length > 1 else " keep
   <summary>The borders as a table</summary>
   <div class="table-wrap">
   <table class="data">
-    <thead><tr><th scope="col">Border</th><th scope="col" class="num">Buildings within 300 m</th>
-      <th scope="col" class="num">Gap in the names</th><th scope="col" class="num">Gap within 75 m</th>
-      <th scope="col" class="num">Gap beyond 150 m</th></tr></thead>
+    <thead><tr><th scope="col">Border</th><th scope="col" class="num">Buildings</th>
+      <th scope="col" class="num">Names’ gap</th><th scope="col" class="num">First side, 300–600 m out</th>
+      <th scope="col" class="num">First side, last 75 m</th><th scope="col" class="num">Second side, first 75 m</th>
+      <th scope="col" class="num">Second side, 300–600 m in</th></tr></thead>
     <tbody>
     {% for p in borders %}
       <tr><td>{{ p.a }} → {{ p.b }}</td><td class="num">{{ "{:,}".format(p.buildings) }}</td>
-        <td class="num">{{ "{:+.1f}".format(p.gap) }}</td><td class="num">{{ "{:+.1f}".format(p.near) }}</td>
-        <td class="num">{% if p.far is not none %}{{ "{:+.1f}".format(p.far) }}{% else %}—{% endif %}</td></tr>
+        <td class="num">{{ "{:+.1f}".format(p.gap) }}</td>
+        {% for v in (p.in_a, p.near_a, p.near_b, p.in_b) %}<td class="num">{% if v is not none %}{{ "{:+.1f}".format(v) }}%{% else %}—{% endif %}</td>{% endfor %}</tr>
     {% endfor %}
     </tbody>
   </table>
   </div>
-  <p class="muted">Gaps are in percentage points of the typical ask, second side minus first, from medians of the
-  buildings’ total premiums.</p>
+  <p class="muted">Medians of the buildings’ total premiums{% if reference_area %} against {{ reference_area }}{% endif %},
+  for buildings within 600 m of the border; the names’ gap is in percentage points, second side minus first.</p>
 </details>
 
 {% set surface, nolabel = border_tests.surface, border_tests.nolabel %}

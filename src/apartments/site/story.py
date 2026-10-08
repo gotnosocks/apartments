@@ -375,7 +375,7 @@ def _median_miss(rows) -> float:
 
 
 def borders(
-    db, reach: float = 300, step: float = 75, near_min: int = 5, bin_min: int = 5
+    db, reach: float = 600, step: float = 75, near_min: int = 5, bin_min: int = 5
 ) -> list[dict]:
     """Does a neighbourhood's name carry its premium, or only where it is?
     Every building's total premium, its neighbourhood's label term times its
@@ -383,7 +383,10 @@ def borders(
     label (negative on the first side), as medians in `step`-metre bins out
     to `reach`. Pairs with under `near_min` buildings within one step of the
     line on either side don't share a border; bins under `bin_min` are not
-    drawn. A no-fit look at the served terms, not a test."""
+    drawn. Each side is summed up by its buildings within one step of the
+    line and those from half of `reach` to `reach` in: how a side moves
+    toward the line, and the gap across it. A no-fit look at the served
+    terms, not a test."""
     labels = {
         r["feature"]: r["pct"]
         for r in db.execute(
@@ -455,23 +458,27 @@ def borders(
                     bins.append(
                         {"mid": (j + 0.5) * step, "median": median(v), "n": len(v)}
                     )
-            far_a = [t for d, t in pts if d < -2 * step]
-            far_b = [t for d, t in pts if d >= 2 * step]
-            gap = labels.get(b, 0.0) - labels.get(a, 0.0)
-            near = median(near_b) - median(near_a)
+            in_a = [t for d, t in pts if d <= -reach / 2]
+            in_b = [t for d, t in pts if d >= reach / 2]
+            in_a = median(in_a) if len(in_a) >= bin_min else None
+            in_b = median(in_b) if len(in_b) >= bin_min else None
             out.append(
                 {
                     "a": a,
                     "b": b,
                     "label_a": labels.get(a, 0.0),
                     "label_b": labels.get(b, 0.0),
-                    "gap": gap,
+                    "gap": labels.get(b, 0.0) - labels.get(a, 0.0),
                     "buildings": len(pts),
-                    "near": near,
-                    "far": median(far_b) - median(far_a) if far_a and far_b else None,
-                    # a real step in the names whose buildings at the line
-                    # sit less than half of it apart
-                    "fades": abs(gap) >= 5 and near * gap < (gap * gap) / 2,
+                    "in_a": in_a,
+                    "near_a": median(near_a),
+                    "near_b": median(near_b),
+                    "in_b": in_b,
+                    # the gap across the line, and each side's move toward it
+                    "near": median(near_b) - median(near_a),
+                    "near_n": min(len(near_a), len(near_b)),
+                    "toward_a": None if in_a is None else median(near_a) - in_a,
+                    "toward_b": None if in_b is None else median(near_b) - in_b,
                     "bins": bins,
                 }
             )
@@ -488,7 +495,7 @@ def border_tests(trials: list[dict]) -> dict:
     return out
 
 
-def borders_svg(pairs: list[dict], reach: float = 300) -> Markup:
+def borders_svg(pairs: list[dict], reach: float = 600) -> Markup:
     """Small multiples, one per border: dots at the median total premium of
     the buildings in each distance bin, and a dashed step at the two label
     terms alone. Dots that follow the step: the name carries the premium;
@@ -524,7 +531,7 @@ def borders_svg(pairs: list[dict], reach: float = 300) -> Markup:
                 f'y2="{y(t):.1f}"/><text class="tick" x="{ox - 6:.1f}" y="{y(t) + 4:.1f}" '
                 f'text-anchor="end">{signed(t)}%</text>'
             )
-        for d in (-reach, 0, reach):
+        for d in (-reach, -reach / 2, 0, reach / 2, reach):
             out.append(
                 f'<text class="tick" x="{x(d):.1f}" y="{oy + ph + 18:.1f}" '
                 f'text-anchor="middle">{abs(d):.0f} m</text>'
@@ -543,8 +550,8 @@ def borders_svg(pairs: list[dict], reach: float = 300) -> Markup:
                 f"{signed(round(b['median'], 1))}%</title></circle>"
             )
     label = "Total building premium by distance to each border: " + "; ".join(
-        f"{p['a']} to {p['b']}: labels alone {signed(round(p['label_b'] - p['label_a']))} "
-        f"points, buildings within 75 m differ by {signed(round(p['near']))}"
+        f"{p['a']} to {p['b']}: names alone {signed(round(p['gap']))} points, "
+        f"buildings within 75 m of the line {signed(round(p['near']))}"
         for p in pairs
     )
     return Markup(
