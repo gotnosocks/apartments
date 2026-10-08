@@ -59,21 +59,12 @@ CUES = {
     "far_street": re.compile(
         r"\b(?:e|w|east|west)\.? ?(?:4[0-9]|[5-9][0-9]|1[0-9][0-9])(?:st|nd|rd|th)?\.? (?:st|street)\b|\b(?:[4-9][0-9]|1[0-9][0-9])(?:st|nd|rd|th) (?:st|street) (?:&|and) "
     ),
-    # Places no ad in the three neighbourhoods has reason to name: any mention.
-    "far_place": re.compile(
-        r"harlem|bushwick|prospect park|park slope|ditmas|flatbush|clinton hill|bed[- ]?stuy|"
-        r"astoria|\bplg\b|prospect lefferts|lenox ave|adam clayton powell|beverly r(?:oa)?d|cortelyou|"
-        r"church ave|strivers|myrtle|stock exchange|\bbpc\b|battery park city|crown heights|sunset park"
-    ),
-    "far_corner": re.compile(
-        r"\b(?:e|w|east|west)\.? ?(?:4[0-9]|[5-9][0-9]|1[0-9][0-9])(?:st|nd|rd|th)? (?:st(?:reet)? )?(?:and|&|at) (?:\d(?:st|nd|rd|th)|\w+) ave"
-    ),
     "address_not": re.compile(r"address is [^.\n]{0,40}\bnot\b"),
     "nonresidential": re.compile(
         r"commercial (?:space|unit|lease|use|tenant)|retail (?:space|use)|office space|office suite|"
         r"(?:intimate|private|executive) office|restaurant (?:space|owner)|used as (?:a )?restaurant|"
         r"medical (?:office|space)|professional office|showroom|show room|swing space|"
-        r"not suitable for residential|professional space|non[- ]residential|sublease the space|skin spa|day spa (?:space|business)|"
+        r"not suitable for residential|non[- ]residential|sublease the space|skin spa|day spa (?:space|business)|"
         r"zoned (?:for )?commercial|storefront|ground floor retail"
     ),
     "shared_bath": re.compile(
@@ -94,23 +85,6 @@ CUES = {
     ),
 }
 hits = pd.DataFrame({k: text.str.contains(rx) for k, rx in CUES.items()})
-
-
-def wrong_side(building, t):
-    m = re.match(r"(\d+)-(east|west)-(\d+)-street", str(building))
-    if not m:
-        return False
-    side, street = m.group(2), m.group(3)
-    for n, s2, st in re.findall(
-        r"\b(\d{1,3}) (east|west|e|w)\.? (\d{1,2})(?:st|nd|rd|th)? (?:st\b|street)", t
-    ):
-        s2 = {"e": "east", "w": "west"}.get(s2, s2)
-        if st == street and s2 != side:
-            return True
-    return False
-
-
-hits["wrong_side"] = [wrong_side(b, t) for b, t in zip(f.building, text)]
 hits["far_v3"] = text.str.contains(c.FAR_V3)
 # A zip code outside lower Manhattan below 34th Street.
 ZIPS = {
@@ -157,9 +131,6 @@ def snips(t, flags):
     for k in flags:
         rx = CUES.get(k) or {
             "far_v3": c.FAR_V3,
-            "wrong_side": re.compile(
-                r"\b\d{1,3} (?:east|west|e|w)\.? \d{1,2}(?:st|nd|rd|th)? (?:st\b|street)"
-            ),
             "zip": re.compile(r"\bny,? 1[01]\d{3}\b"),
         }.get(k)
         if rx is not None and (m := rx.search(t)):
