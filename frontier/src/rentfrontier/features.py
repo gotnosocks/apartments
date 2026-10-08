@@ -1125,6 +1125,73 @@ def loft_v1(
     )
 
 
+# An apartment named in a DOB job description: "APT 4D", "APARTMENT #12",
+# "UNIT NO. 1203", "UNIT PH-A". Only the first label of a list ("APTS 2A & 3A")
+# is read. Dashes are dropped, as from StreetEasy's labels.
+APARTMENT_NAMED = re.compile(
+    r"\b(?:APARTMENTS?|APTS?|UNITS?)\.?\s*(?:NO\.?\s*)?#?\s*"
+    r"([0-9]{1,4}[A-Z]{0,2}|PH-?[0-9A-Z]*|[A-Z]{1,2}[0-9]{0,2})\b"
+)
+
+
+def apartment_permits(frame: pd.DataFrame, years: int = 3) -> np.ndarray:
+    """Per row: 1 if a DOB alteration job (A1 or A2) naming the row's apartment
+    got its first permit in the `years` before the listing's month, else 0.
+    The apartment is matched on its StreetEasy label without dashes, in the
+    building's BIN."""
+    registry = pd.read_parquet(lot_registry()).set_index("building")
+    jobs = pd.read_parquet(_DOB.get() or DOB_FILE)
+    jobs = jobs[jobs.kind.isin(["A1", "A2"])]
+    named = jobs.assign(
+        label=jobs.description.map(
+            lambda d: sorted({x.replace("-", "") for x in APARTMENT_NAMED.findall(d)})
+        )
+    ).explode("label")
+    named = named.dropna(subset=["label"])[["bin", "label", "permitted"]]
+    rows = pd.DataFrame(
+        {
+            "row": np.arange(len(frame)),
+            "bin": frame.building.map(registry.bin).astype(str).str.removesuffix(".0"),
+            "label": frame.canonical_unit_url.str.extract(r"/([^/]+)$")[0]
+            .str.upper()
+            .str.replace("-", "", regex=False),
+            "period": pd.DatetimeIndex(frame.period),
+        }
+    )
+    hits = rows.merge(named.astype({"bin": str}), on=["bin", "label"])
+    recent = (hits.permitted < hits.period) & (
+        hits.permitted >= hits.period - pd.DateOffset(years=years)
+    )
+    out = np.zeros(len(frame))
+    out[hits.row[recent].unique()] = 1.0
+    return out
+
+
+def permit_v1(
+    frame: pd.DataFrame,
+    train: np.ndarray,
+    id: str = "nb3-permit-v1",
+    base: str = "nb3-coded-v2",
+) -> Features:
+    """A base set plus whether the apartment itself was permitted for an
+    alteration (renovation, plumbing, combining) in the 3 years before the
+    listing (`apartment_permits`), centred on the training rows. A renovated
+    unit is a different product from the one listed before it, which the unit
+    level cannot follow. Reads no rents."""
+    base = FEATURE_SETS[base](frame, train)
+    permitted = apartment_permits(frame)
+    b = _Builder(frame)
+    b.add("condition", "apartment permit", permitted - float(np.mean(permitted[train])))
+    out = b.build(id)
+    return Features(
+        id,
+        base.names + out.names,
+        base.groups + out.groups,
+        np.column_stack([base.values, out.values]),
+        np.concatenate([base.prior_scale, out.prior_scale]),
+    )
+
+
 def text_flags_v1(
     frame: pd.DataFrame,
     train: np.ndarray,
@@ -1276,6 +1343,8 @@ NB4_PARKS_FILE = "/data1/apartments/external/parks/20261008-bda2959/parks.parque
 # The LPC snapshot of the set being built (`LPC_SNAPSHOTS`): when set, a lot is a
 # landmark or in a historic district only from its designation date.
 _LPC: contextvars.ContextVar[str | None] = contextvars.ContextVar("lpc", default=None)
+# The DOB jobs file the current build reads (`DOB_SNAPSHOTS`), else `DOB_FILE`.
+_DOB: contextvars.ContextVar[str | None] = contextvars.ContextVar("dob", default=None)
 # Whether the set being built dates the building's MapPLUTO alterations as of
 # each listing (`AS_OF_SETS`): an alteration counts only from the year after it,
 # so a listing never sees a later one (no future information).
@@ -1296,6 +1365,14 @@ def area_snapshot() -> tuple[str, str]:
 # HPD housing-code violations of the registry's buildings (`rentfrontier.external hpd`).
 HPD_SNAPSHOT = "/data1/apartments/external/hpd/20260930-cb289ad"
 HPD_FILE = f"{HPD_SNAPSHOT}/hpd.parquet"
+
+# DOB permitted jobs of the registry's buildings (`rentfrontier.external dob`).
+DOB_SNAPSHOT = "/data1/apartments/external/dob/20261008-ab3d278"
+DOB_FILE = f"{DOB_SNAPSHOT}/dob.parquet"
+# The same jobs for the four neighbourhoods' registry (NB4_REGISTRY_FILE).
+NB4_DOB_FILE = "/data1/apartments/external/dob/20261008-4e1948c/dob.parquet"
+# DOB jobs files by feature set, where a set reads other than `DOB_FILE`.
+DOB_SNAPSHOTS = {"nb5-permit-v1": NB4_DOB_FILE}
 ERAS = (
     (0, 1900, "pre-1900"),
     (1900, 1930, "1900-1929"),
@@ -2518,6 +2595,8 @@ PLACES = {"nb3-nearby-v1"}
 STOREFRONTS = {"nb3-retail-v1"}
 # Feature sets that read the NYC Parks properties snapshot (parks).
 PARKS = {"nb3-parks-v1", "nb3-water-v1"}
+# Feature sets that read the DOB permits snapshot.
+DOB = {"nb3-permit-v1", "nb5-permit-v1"}
 # Feature sets that read the HPD violations snapshot.
 HPD = {"unitdescplutohpd-v1", "unitdescplutohpd-v2"}
 # Feature sets that read the advertisement descriptions (`descriptions.SOURCE`),
@@ -2644,6 +2723,8 @@ FEATURE_SETS = {
     "nb3-water-v1": partial(waterfront_v1, id="nb3-water-v1", base="nb3-parks-v1"),
     "nb3-text-v1": partial(text_flags_v1, id="nb3-text-v1", base="nb3-coded-v2"),
     "nb3-loft-v1": partial(loft_v1, id="nb3-loft-v1", base="nb3-coded-v2"),
+    "nb3-permit-v1": partial(permit_v1, id="nb3-permit-v1", base="nb3-coded-v2"),
+    "nb5-permit-v1": partial(permit_v1, id="nb5-permit-v1", base="nb5-coded-v2"),
     "nb3-flagfix-v1": partial(flagfix_v1, id="nb3-flagfix-v1", base="nb3-coded-v2"),
     "nb3-noise-v1": partial(
         noise_v1, id="nb3-noise-v1", base="nb3-coded-v2", noise_file=NB3_NOISE_FILE
@@ -2903,6 +2984,7 @@ for _wish in (
     "nb3-attrs-v1",
     "nb3-noise-v1",
     "nb3-loft-v1",
+    "nb3-permit-v1",
 ):
     for _group in (
         EXTERNAL,
@@ -2927,7 +3009,11 @@ for _wish in (
 
 # The nb4 sets read what their nb3 counterpart reads, from the four
 # neighbourhoods' snapshots (#451) in place of the three's.
-NB4_SETS = {"nb4-coded-v2": "nb3-coded-v2", "nb5-coded-v2": "nb3-coded-v2"}
+NB4_SETS = {
+    "nb4-coded-v2": "nb3-coded-v2",
+    "nb5-coded-v2": "nb3-coded-v2",
+    "nb5-permit-v1": "nb3-permit-v1",
+}
 for _new, _old in NB4_SETS.items():
     for _group in (
         EXTERNAL,
@@ -2971,6 +3057,7 @@ def build(name: str, frame: pd.DataFrame, train: np.ndarray) -> Features:
     area_token = _AREA.set((area["basemap"], area["footprints"]))
     extras_token = _EXTRAS.set(EXTRAS_SNAPSHOTS.get(name))
     lpc_token = _LPC.set(LPC_SNAPSHOTS.get(name))
+    dob_token = _DOB.set(DOB_SNAPSHOTS.get(name))
     text_token = descriptions_module.SOURCES.set(
         tuple(Path(p) for p in description_files(name).values())
     )
@@ -2982,4 +3069,5 @@ def build(name: str, frame: pd.DataFrame, train: np.ndarray) -> Features:
         _AREA.reset(area_token)
         _EXTRAS.reset(extras_token)
         _LPC.reset(lpc_token)
+        _DOB.reset(dob_token)
         descriptions_module.SOURCES.reset(text_token)
