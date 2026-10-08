@@ -1124,6 +1124,126 @@ def location_nolabel(
     )
 
 
+# Areas an ad may say it is in: pattern of the name and its usual spellings.
+CLAIM_AREAS = {
+    "Chelsea": r"chelsea",
+    "West Village": r"west village",
+    "Greenwich Village": r"greenwich village",
+    "Gramercy Park": r"gramercy(?: park)?",
+    "Flatiron": r"flat ?iron(?: district)?",
+    "East Village": r"east village",
+    "Union Square": r"union square",
+    "Meatpacking": r"meat ?packing(?: district)?",
+    "SoHo": r"soho",
+    "NoHo": r"noho",
+    "NoMad": r"nomad",
+    "Murray Hill": r"murray hill",
+    "Kips Bay": r"kips bay",
+    "Hudson Yards": r"hudson yards",
+    "Hell's Kitchen": r"hell'?s kitchen|clinton(?! hill)",
+    "Hudson Square": r"hudson square",
+    "Tribeca": r"tribeca",
+    "Stuy Town": r"stuy(?:vesant)? town|peter cooper",
+    "Midtown": r"midtown",
+    "Nolita": r"nolita",
+    "Lower East Side": r"lower east side",
+}
+# A claim is the name after "in", "located in", "heart of" and the like, not
+# followed by a street word or a landmark (Chelsea Market, Chelsea Piers, the
+# Flatiron Building, Union Square Park). "In Gramercy Park" counts: the
+# area's pattern takes the "park".
+CLAIM_LEAD = (
+    r"\b(?:in|located in|located on|heart of|nestled in|situated in|prime|"
+    r"living in|live in|life in) (?:the )?(?:beautiful |historic |prime |trendy |"
+    r"charming |vibrant |lovely |coveted |desirable )?"
+)
+CLAIM_TRAIL = (
+    r"\b(?! ?(?:ave|avenue|st|street|sq|square|pl|place|market|piers?|park(?! area)|"
+    r"building|hotel|post office|station|mews|houses|plaza|landing|lofts|"
+    r"condominium|towers?)\b)"
+)
+# Names that count as a label's own: West Village is part of Greenwich Village.
+CLAIM_OWN = {"West Village": ("West Village", "Greenwich Village")}
+# Other areas with a column of their own; the rest share "another area".
+CLAIM_OTHERS = (
+    "Chelsea",
+    "West Village",
+    "Greenwich Village",
+    "Gramercy Park",
+    "Flatiron",
+    "East Village",
+    "Union Square",
+    "Meatpacking",
+)
+
+
+def claimed_areas(text: pd.Series, label: pd.Series) -> pd.DataFrame:
+    """Per ad (lower-case text) and its listing's neighbourhood label: whether
+    the ad says the apartment is in its own neighbourhood, in each of
+    `CLAIM_OTHERS` that is not its own, or in another area of `CLAIM_AREAS`."""
+    text = text.str.replace(r"\s+", " ", regex=True)
+    said = pd.DataFrame(
+        {
+            area: text.str.contains(CLAIM_LEAD + "(?:" + rx + ")" + CLAIM_TRAIL)
+            for area, rx in CLAIM_AREAS.items()
+        },
+        index=text.index,
+    )
+    label = label.to_numpy()
+    own_of = {a: CLAIM_OWN.get(a, (a,)) for a in set(label)}
+    own = np.zeros(len(text), bool)
+    other = {a: np.zeros(len(text), bool) for a in CLAIM_OTHERS}
+    another = np.zeros(len(text), bool)
+    for area in CLAIM_AREAS:
+        hit = said[area].to_numpy()
+        mine = np.array([area in own_of[x] for x in label])
+        own |= hit & mine
+        if area in other:
+            other[area] |= hit & ~mine
+        else:
+            another |= hit & ~mine
+    return pd.DataFrame(
+        {
+            "names its own neighbourhood": own,
+            **{f"names {a}": v for a, v in other.items()},
+            "names another area": another,
+        },
+        index=text.index,
+    )
+
+
+def claims_v1(
+    frame: pd.DataFrame,
+    train: np.ndarray,
+    id: str = "nb5p3-claim-v1",
+    base: str = "nb5p3-loc-v1",
+) -> Features:
+    """A base set plus the areas the listing's own ad says it is in
+    (`claimed_areas`), per ad, so a building's listings can differ: naming
+    none is the reference, and an ad without text has none (the base's
+    description indicator carries it). On
+    the location surface with and without the neighbourhood labels it tests
+    whether the name an ad uses carries a price beyond where the building is
+    (Ben, 2026-10-08). Reads no rents."""
+    from . import descriptions
+
+    base = FEATURE_SETS[base](frame, train)
+    text = descriptions.attach(frame).fillna("").str.lower()
+    known = text.str.len().to_numpy() > 20
+    claims = claimed_areas(text, frame.neighbourhood)
+    b = _Builder(frame)
+    for name in claims:
+        b.add("claimed area", f"ad {name}", claims[name].to_numpy() & known)
+    out = b.build(id)
+    return Features(
+        id,
+        base.names + out.names,
+        base.groups + out.groups,
+        np.column_stack([base.values, out.values]),
+        np.concatenate([base.prior_scale, out.prior_scale]),
+    )
+
+
 @functools.lru_cache(maxsize=2)
 def _waterfront_minutes(registry_file: str, basemap_file: str) -> pd.Series:
     """Per registry building: the walk (facing-grid metres over
@@ -3348,6 +3468,14 @@ FEATURE_SETS["nb5p3-locnolabel-v1"] = partial(
     location_nolabel, id="nb5p3-locnolabel-v1", base="nb5-plutoasof-v3"
 )
 NB4_SETS["nb5p3-locnolabel-v1"] = "nb5-plutoasof-v3"
+# The names an ad uses (`claims_v1`) on both sides of that split (Ben,
+# 2026-10-08: a label effect apart from location).
+for _name, _base in (
+    ("nb5p3-claim-v1", "nb5p3-loc-v1"),
+    ("nb5p3-claimnolabel-v1", "nb5p3-locnolabel-v1"),
+):
+    FEATURE_SETS[_name] = partial(claims_v1, id=_name, base=_base)
+    NB4_SETS[_name] = "nb5-plutoasof-v3"
 
 for _new, _old in NB4_SETS.items():
     for _group in (
