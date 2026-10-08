@@ -618,6 +618,9 @@ button[aria-busy="true"] { cursor: progress; opacity: 0.75; }
   .story-figure.armed.play .shift, .story-figure.armed.play .clean { animation-play-state: running; }
 }
 .story-figure.reset .shift, .story-figure.reset .clean { animation: none; }
+/* Printed pages show every figure whole. */
+@media print { .story-svg * { animation: none !important; } .replay { display: none; } }
+.story-figure.whole .story-svg * { animation: none; }
 @keyframes story-draw { from { stroke-dashoffset: 1; } to { stroke-dashoffset: 0; } }
 @keyframes story-pop { from { opacity: 0; } to { opacity: 1; } }
 .replay { font-size: 0.8rem; margin-top: 0.3rem; }
