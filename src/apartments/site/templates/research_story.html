@@ -26,12 +26,16 @@ see the <a href="{{ url_for('estimates_map') }}">rent map</a>.</p>
 <h2>An ask is a sum of a few stories</h2>
 <p>Start with the shape. The model builds each ask from parts that multiply, so each part raises or lowers the
 ask by a percentage: a building that is 10% pricier than its features explain adds 10% to every one of its
-apartments, whatever their size. (In the maths, the parts add up on the logarithm of the ask.) Read the stack from the top. Each layer explains what the layers above it leave over.</p>
+apartments, whatever their size. (In the maths, the parts add up on the logarithm of the ask.) Read the stack from the top. Each layer explains what the layers above it leave over.{% if variance %} The
+bars show how much of the <em>spread</em> in asks each layer accounts for: how far asks differ from one listing to the
+next, measured in percentages.{% endif %}</p>
 
 <figure class="story-figure" id="compose-figure" data-play>
   <div class="figure-scroll" tabindex="0" role="region" aria-label="Figure, scrolls sideways on narrow screens">{{ composition_svg }}</div>
   <figcaption>The served model, layer by layer.{% if variance %} Each bar is the layer's share of why asks
-  differ from one listing to the next, with its 90% interval. A share of 50% would mean the layer accounts for
+  differ from one listing to the next, with its 90% interval: the range the model is 90% sure holds the true share.
+(The page's intervals say how sure the model is of its own numbers, at 90% or 95%; the likely ask range is different,
+the middle 80% of the asks it expects for one apartment.) A share of 50% would mean the layer accounts for
   half of those differences, not half of the rent. (The shares split the variance of the log asks.){% endif %}</figcaption>
 </figure>
 
@@ -65,8 +69,7 @@ apartments, whatever their size. (In the maths, the parts add up on the logarith
 <p>The layers aren't equal. {% if f %}What a listing says about the apartment explains about
 {{ "%.0f" | format(100 * f.mean) }}% of the spread in asks{% endif %}{% if bl %}, and the building's own premium
 another {{ "%.0f" | format(100 * bl.mean) }}%{% endif %}.{% if res %} What's left, the part nobody could have
-predicted from anything the model knows, is about {{ "%.0f" | format(100 * res.mean) }}%.{% endif %} The spread here means how much
-asks differ from one listing to the next, measured on the percentage scale the model works in. When two layers move
+predicted from anything the model knows, is about {{ "%.0f" | format(100 * res.mean) }}%.{% endif %} When two layers move
 together, they share the credit for it.</p>
 {% else %}
 <p class="note" id="shares-pending">How much of the spread each layer explains is computed from the fit's

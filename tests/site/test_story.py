@@ -74,6 +74,9 @@ def test_build_up_ends_at_the_estimate(client):
     assert re.search(r"The ask is [\d.]+% (above|below) the estimate\. That is", text)
     assert "half of the asks the model never saw land within" in text
     # the opening answers "can I trust it?" before the chapters
+    shape = text[text.index('<section id="shape">') :]
+    assert shape.index("the <em>spread</em> in asks") < shape.index("compose-figure")
+    assert "the range the model is 90% sure holds the true share" in text
     opening = text[: text.index('<section id="shape">')]
     assert "An ask is the monthly rent a listing advertises" in opening
     assert re.search(
