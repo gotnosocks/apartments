@@ -1,7 +1,10 @@
 """Feature sets: unit-consistent bedrooms (unitbeds-v1)."""
 
+from pathlib import Path
+
 import numpy as np
 import pandas as pd
+import pytest
 from rentfrontier import features
 
 
@@ -1272,6 +1275,48 @@ def test_nb3_v2_sets_read_lpc_and_otherwise_their_v1s_files(monkeypatch):
     assert features._LPC.get() is None
 
 
+def test_nb4_coded_v2_is_nb3_coded_v2_plus_flatiron_on_the_nb4_snapshots(
+    monkeypatch,
+):
+    frame = pd.DataFrame(
+        {"neighbourhood": ["Chelsea", "Greenwich Village", "Flatiron + Gramercy Park"]}
+    )
+    base = features.Features(
+        "b", ["x"], ["g"], np.ones((3, 1)), np.ones(1, dtype=float)
+    )
+    seen = {}
+
+    def spy(frame, train):
+        seen["lots"] = features._LOTS.get()
+        seen["lpc"] = features._LPC.get()
+        return base
+
+    monkeypatch.setitem(features.FEATURE_SETS, "nb3-coded-v2", spy)
+    out = features.build("nb4-coded-v2", frame, np.ones(3, dtype=bool))
+    assert out.names == ["x", "Flatiron + Gramercy Park"]
+    assert out.values[:, -1].tolist() == [0, 0, 1]
+    assert seen["lots"] == (features.NB4_REGISTRY_FILE, features.NB4_PLUTO_FILE)
+    assert seen["lpc"] == features.NB4_LPC_FILE
+    new, old = "nb4-coded-v2", "nb3-coded-v2"
+    assert features.area_files(new) == {
+        "basemap": features.NB4_BASEMAP_FILE,
+        "footprints": features.NB4_FOOTPRINTS_FILE,
+    }
+    assert features.description_files(new) == features._NB4_DESCRIPTIONS
+    assert features.EXTRAS_SNAPSHOTS[new] == features.NB4_EXTRAS_FILE
+    for group in (
+        features.EXTERNAL,
+        features.BASEMAP,
+        features.FOOTPRINTS,
+        features.DESCRIPTIONS,
+        features.AS_OF_SETS,
+        features.LISTING_EXTRAS,
+        features.PRICE_HISTORY,
+        features.READS_EARLIER_RENTS,
+    ):
+        assert (new in group) == (old in group)
+
+
 def test_lpc_as_of_counts_a_designation_from_its_date(tmp_path):
     registry = tmp_path / "registry.parquet"
     pd.DataFrame(
@@ -1308,3 +1353,24 @@ def test_lpc_as_of_counts_a_designation_from_its_date(tmp_path):
         features._LOTS.reset(token)
     assert landmark.tolist() == [True, True, False, False]
     assert district.tolist() == [False, True, True, False]
+
+
+def test_nb4_snapshots_keep_nb3s_rows_and_add_flatiron_gramercys():
+    """The nb4 registry, MapPLUTO and footprints hold nb3's rows unchanged plus
+    Flatiron + Gramercy Park's; the description sources add its evidence file."""
+    pairs = (
+        (features.NB3_REGISTRY_FILE, features.NB4_REGISTRY_FILE, "building"),
+        (features.NB3_PLUTO_FILE, features.NB4_PLUTO_FILE, "bbl"),
+        (features.NB3_FOOTPRINTS_FILE, features.NB4_FOOTPRINTS_FILE, "bin"),
+    )
+    if not all(Path(p).exists() for old, new, _ in pairs for p in (old, new)):
+        pytest.skip("external snapshots not on this machine")
+    for old, new, key in pairs:
+        o, n = pd.read_parquet(old), pd.read_parquet(new)
+        assert len(n) > len(o) and not n[key].duplicated().any()
+        kept = n[n[key].isin(o[key])].sort_values(key).reset_index(drop=True)
+        o = o.sort_values(key).reset_index(drop=True)
+        pd.testing.assert_frame_equal(kept[o.columns], o)
+    assert set(features._NB4_DESCRIPTIONS) == set(features._NB3_DESCRIPTIONS) | {
+        "descriptions_fgp"
+    }

@@ -2,6 +2,19 @@
 
 What the next turn of the website thread needs. Updated at each milestone.
 
+## State (2026-10-08 02:10 UTC)
+
+- **Story chapters 2 and 3 are live** (#445 theories on trial, from the feature-test ledger;
+  #446 how the design evolved, from the `selection` milestones: eras, a term-span strip, the
+  prevprice spell). story.py holds the parsers; tests/site/test_story.py pins them.
+- **Next chapter: data-quality before/after views**, then open questions, then an animated
+  playback of the theories.
+- **#448 merged and deployed: site ready for Flatiron + Gramercy Park.** The rentmap guides read
+  E/W streets, word and named avenues (Park Av S, Lexington, Irving Pl). Neighbourhood names come
+  from the rows (`summary.hood_name` adds "the" for the West/East Village only). Data stamps the
+  single name "Flatiron + Gramercy Park"; no sub-area split. Data refetches the basemap on the nb4
+  registry in its registry PR. Check the map once the first FGP fit is served.
+
 ## State (2026-10-07 21:45 UTC)
 
 - **Storytelling is now the standing work** (Ben, 2026-10-08 ~01:12Z via the coordinator; it lifts the
