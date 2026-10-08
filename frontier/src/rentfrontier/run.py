@@ -308,6 +308,9 @@ def feature_sources(feature_set: str) -> dict:
     if feature_set in features.TREES:
         path = features.TREES_FILE
         out["trees"] = {"path": path, "sha256": data.sha256(Path(path))}
+    if feature_set in features.CRIME:
+        path = features.CRIME_FILE
+        out["crime"] = {"path": path, "sha256": data.sha256(Path(path))}
     if feature_set in features.UNICAL:
         path = features.UNICAL_FILE
         out["unical"] = {"path": path, "sha256": data.sha256(Path(path))}

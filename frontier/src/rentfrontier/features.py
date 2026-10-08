@@ -843,6 +843,49 @@ def trees_v1(
     )
 
 
+def crime_v1(
+    frame: pd.DataFrame,
+    train: np.ndarray,
+    id: str = "nb5-crime-v1",
+    base: str = "nb5-plutoasof-v3",
+    file: str | None = None,
+) -> Features:
+    """A base set plus the log of one plus the felonies reported within
+    `crime.RADIUS_M` metres of the building in the year before the listing
+    (`crime.felonies_near`), centred on the training rows. Reads no rents."""
+    from . import crime
+
+    base = FEATURE_SETS[base](frame, train)
+    registry = pd.read_parquet(lot_registry()).set_index("building")
+    count = crime.felonies_near(
+        registry.latitude.reindex(frame.building.to_numpy()),
+        registry.longitude.reindex(frame.building.to_numpy()),
+        # The listing day in New York, where NYPD dates its reports.
+        frame.price_at.pipe(pd.to_datetime, utc=True)
+        .dt.tz_convert("America/New_York")
+        .dt.tz_localize(None),
+        pd.read_csv(file or CRIME_FILE),
+    )
+    value = np.log1p(count)
+    known = np.isfinite(value)
+    centre = float(np.mean(value[train & known]))
+    b = _Builder(frame)
+    # A building without a position, or a listing past the table, sits at the mean.
+    b.add(
+        "safety",
+        f"log(1 + felonies within {crime.RADIUS_M:.0f} m in the year before)",
+        np.where(known, value - centre, 0.0),
+    )
+    out = b.build(id)
+    return Features(
+        id,
+        base.names + out.names,
+        base.groups + out.groups,
+        np.column_stack([base.values, out.values]),
+        np.concatenate([base.prior_scale, out.prior_scale]),
+    )
+
+
 def unical_v1(
     frame: pd.DataFrame,
     train: np.ndarray,
@@ -3057,6 +3100,9 @@ FEATURE_SETS = {
     # explanatory term for greenery (Ben, 2026-10-08: explanatory features
     # over neighbourhood premiums).
     "nb5-trees-v1": partial(trees_v1, id="nb5-trees-v1", base="nb5-plutoasof-v3"),
+    # nb5-plutoasof-v3 plus felonies reported near the building in the year
+    # before the listing (`crime_v1`; coordinator relay 2026-10-08).
+    "nb5-crime-v1": partial(crime_v1, id="nb5-crime-v1", base="nb5-plutoasof-v3"),
     # nb5-plutoasof-v3 plus NYU calendar windows, near campus and not (Ben,
     # 2026-10-08).
     "nb5-unical-v1": partial(unical_v1, id="nb5-unical-v1", base="nb5-plutoasof-v3"),
@@ -3404,6 +3450,10 @@ PLUTO_RELEASED_SETS = {"nb5-plutoasof-v3"}
 TREES_FILE = "/data1/apartments/external/trees/20261008-e8ae3db/trees.csv"
 TREES = {"nb5-trees-v1"}
 NB4_SETS["nb5-trees-v1"] = "nb5-plutoasof-v3"
+# The NYPD felony table (`crime.main`) and the sets that read it.
+CRIME_FILE = "/data1/apartments/external/crime/20261008-c17e0ae/felonies.csv"
+CRIME = {"nb5-crime-v1"}
+NB4_SETS["nb5-crime-v1"] = "nb5-plutoasof-v3"
 # One set per ad attribute (`ATTRIBUTE_FLAGS`) and per place kind
 # (`nearby.KINDS`): nb5-coded-v2 plus that one column, each its own full fit.
 NB5_SINGLES = {
