@@ -563,6 +563,77 @@ it is +9.2 ± 0.5.
   - The level correlation has the wrong sign for buyers-in-waiting: high rates go with a *larger*
     3BR+ discount. Changes show nothing. **No support.**
 
+### Follow-up checks A–E (2026-10-08, no fits)
+
+The coordinator's 22:44Z list. Scripts: `/data1/apartments/tmp/bridge/review/r12/c18.py`,
+`c18b.py`.
+
+- **A. Did location prices change, or did WV move as an area?** Building levels (building effect
+  plus mean residual) for the 1,607 buildings with ≥ 2 rows in both 2014–19 and 2022–26 (Chelsea
+  658, WV 608, GV 341), regressed on the location features per period. Pre → post (difference ±
+  400 m block-bootstrap SE):
+
+  | Feature | 2014–19 | 2022–26 | Difference |
+  |---|---|---|---|
+  | N/Q/R/W | 3.35 | 2.90 | −0.45 ± 0.55 |
+  | L | 0.22 | 0.54 | +0.32 ± 0.58 |
+  | 1 | −2.18 | −1.30 | +0.88 ± 0.54 |
+  | Park minutes | 1.20 | 1.77 | +0.57 ± 0.62 |
+  | Waterfront | −0.38 | −1.88 | −1.50 ± 1.21 |
+  | Food | −1.61 | −0.32 | +1.29 ± 0.95 |
+  | Nightlife noise | −1.37 | −2.11 | −0.74 ± 0.84 |
+  | Dog run | −0.49 | −1.34 | −0.84 ± 0.52 |
+  | Trees | 1.11 | 1.24 | +0.13 ± 0.50 |
+
+  - No coefficient moves by 2 SE. The area labels do move: WV −2.06 → +1.05, GV −0.16 → +1.73.
+  - Off-grid within WV is stable: +9.33 ± 2.06 → +8.12 ± 2.37.
+  - **Location prices are stable; WV rose as an area.** So `area_time` is the honest term, not
+    period-varying location coefficients.
+- **B. Stabilized share under the explained-share rule** (nb5-stab-v1 against its same-rows base,
+  no refit).
+  - Fitted coefficient −1.08 ± 0.44 pp per unit of share (feature sd 0.32).
+  - It takes 1.2% of the base fit's building variance (building sd 12.05 → 11.97%).
+  - R² of the base building effects on building-mean share: 0.032, against a permutation null of
+    0.0004 (95th percentile 0.0014), p = 0.001.
+  - Between buildings: −8.0 pp per unit. Within buildings (1,050 buildings, 61% of rows with
+    varying share): +0.87 ± 0.25 on residual plus walk, +0.03 ± 0.22 on residual alone.
+  - **The effect is cross-sectional.** A building's rent doesn't rise as its stabilized share
+    falls. It is real but small, so it stays a candidate under the rule, not a priority.
+- **C. Does WV off-grid survive an avenue-frontage control?** 168 of 1,179 WV buildings lie within
+  25 m of 7 Ave S, 7 Ave, 8 Ave, Hudson, Greenwich Ave or West St; 92% of those are off-grid.
+  - Off-grid: +4.72 ± 1.11 alone; +4.72 with on-avenue (on-avenue −0.04 ± 1.01); +4.68 adding log
+    distance to the avenue.
+  - **It survives.** The off-grid premium is not avenue frontage.
+- **D. 3BR+ against 1BR by building class and area.** The shared curve plus each group's mean
+  residual gap, in pp:
+
+  | Group | 2010–14 | 2015–19 | 2020–24 | 2025–26 |
+  |---|---|---|---|---|
+  | Elevator or condo (3,034 3BR+ rows) | 2.8 | −6.0 | −10.8 | −9.7 |
+  | Other (4,827) | 2.3 | −3.4 | −7.9 | −1.1 |
+  | Walkup (3,990) | −0.8 | −1.6 | −0.5 | 1.2 |
+  | Chelsea | 1.5 | −4.7 | −6.8 | −2.4 |
+  | Flatiron | 0.9 | −5.9 | −8.8 | −9.1 |
+  | Gramercy | 0.7 | −3.4 | −8.3 | 1.6 |
+  | GV | −1.4 | −3.6 | −7.2 | −6.6 |
+  | WV | 4.1 | −2.0 | −3.3 | −3.3 |
+
+  - **The 3BR+ discount sits in elevator and condo buildings** (the family market), not in
+    walkups (the sharer market, flat throughout). Every area shows it, WV least.
+  - A bedroom-time × walkup interaction is a candidate if the curves are kept.
+- **E. One drifting per-bedroom slope or three curves?**
+  [Plot](img/bedroom-curves-20261008.svg): studio, 2BR and 3BR+ against 1BR, served fit.
+  - SVD of the centred curves: the first component carries 84.6% (then 12.6%, 2.9%), with
+    loadings studio −0.26, 2BR 0.58, 3BR+ 1.
+  - RMS misfit (pp) per curve, studio / 2BR / 3BR+: rank one with free loadings 0.96 / 0.47 /
+    0.42; fixed linear-in-bedrooms loadings (−1, 1, 2) 1.01 / 0.52 / 0.55. Posterior sd of the
+    curves: 1.00 / 0.99 / 1.73.
+  - **One drifting slope β0 + β1·g(t) fits within posterior noise** for 2BR and 3BR+; the studio
+    curve is mostly noise.
+  - Elegance candidate: replace the three bedroom-time curves with a loading per bedroom group
+    times one common g(t) (free loadings, or linear in bedrooms). It interacts with D: the drift
+    is a family-building effect, so g(t) may want a walkup interaction instead.
+
 ## Open-data survey: stabilization, permits, owners, dated MapPLUTO (2026-10-07)
 
 Four free sources, sized against the 105,244 rows of `chelsea-wv-gv-analysis-20261005-2d5b3b6`
