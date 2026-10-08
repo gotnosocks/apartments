@@ -300,7 +300,8 @@ Scripts: `r12/c13.py` and `r12/loc.py`.
   bedroom group × single-listing unit × small building (≤ 5 rows): 16 scales in place of
   `yearnoise`. This replaces the "scale per neighbourhood" part of ranked item 1.
 - **What the walk is.** These are fitted 6-month steps, in RMS %, against a mean posterior step
-  sd of 2.8–3.1%.
+  sd of 2.8–3.1%. Before the building's first row there is no data, so every building's steps
+  there come from the prior and have the same RMS.
 
   | Rows per building | Before the building's first row | First 3 years | Later |
   |---|---|---|---|
@@ -312,13 +313,15 @@ Scripts: `r12/c13.py` and `r12/loc.py`.
   - In small buildings the walk is shrunk to almost nothing, so it is not prior noise there
     either.
   - The walk is a slow drift that only data-rich buildings can show. Almost no step is more than
-    2 sd from 0: 0.7% later and 1.1% in buildings with 21+ rows.
+    2 posterior sd from 0. That share is 0.7% of steps after a building's first 3 years, and
+    1.1% of steps in buildings with 21+ rows.
   - A coarser yearly-knot walk would lose little and is worth a test for elegance and speed.
 - **The location surface, re-scored with no refit.** This is `nb3-loc-v1`, Gaussian bumps 250 m
-  apart (500 m wide in diameter), on the A100 pair at 8f40c96 (chelsea-wv-gv, 2,907 buildings,
+  apart with SD 250 m, on the A100 pair at 8f40c96 (chelsea-wv-gv, 2,907 buildings,
   87 bumps).
   - The fitted surface has SD 6.7%. It takes 19.5% of the base fit's building variance: building
-    SD falls from 12.2% to 11.0%.
+    SD falls from 12.2% to 11.0%, weighted by the base fit's building precision, so the 19.5%
+    comes from unrounded variances.
   - Projecting the base fit's building effects on the bump basis (WLS) gives R² 0.131, against
     a permutation null of 0.041 (95% 0.051, p = 0.005).
   - Neighbourhood shifts: the surface's mean departs from the overall mean in each area, all
