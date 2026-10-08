@@ -1,0 +1,26 @@
+{
+  "parts": [
+    {
+      "file": "wv-gv-20261005.jsonl",
+      "provenance": "wv-gv-20261005.provenance.json"
+    },
+    {
+      "source": "/data1/apartments/archive/datasets/flatiron-gramercy-park-granular-20261007-unit-spelling-aliases-v2",
+      "rule": "unit-spelling-alias-v2",
+      "source_dataset": "/data1/apartments/archive/datasets/flatiron-gramercy-park-granular-20261007-canonical-url-v1",
+      "evidence_snapshot": "/data1/apartments/archive/snapshots/flatiron-gramercy-park-20261005-final/archive.sqlite3",
+      "implementation_sha256": "bd3abb079a9fcd00148ae093dfcd46f55bc09514e74722336a4b31b54556fd44",
+      "output_sha256": {
+        "unit_spelling_aliases": "2d7b80c754df9eca8c7f1c7b920426b66e73d12267d1e46fa9d3f141229c59a8"
+      },
+      "counts": {
+        "groups": 562,
+        "history_confirmed_groups": 522,
+        "listings_in_groups": 2671,
+        "units_in_groups": 1151
+      },
+      "made_by": "apartments.unit_spelling_aliases (unit-spelling-alias-v2, PR #213)"
+    }
+  ],
+  "sha256": "c0a2021a4f90ff2d4d0f92708976d088ced24ddf5e867ae87dba117e9b01d3e2"
+}

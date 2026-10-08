@@ -691,6 +691,56 @@ def test_unit_labels_v9_joins_number_word_letter_labels_to_their_twins(tmp_path)
     assert data.RULE_SOURCES["unit-labels-v9"] == data.UNIT_HISTORY_PAIRS
 
 
+def test_unit_labels_v11_is_v9_on_the_tables_with_flatiron_gramercys_appended():
+    """v11 reads the alias table and history pairs that start with the files
+    v5 to v9 read, line for line, and add Flatiron + Gramercy Park's; on a
+    frame of other neighbourhoods' units it joins what v9 joins."""
+    for old, new in (
+        (data.UNIT_ALIASES_GV, data.UNIT_ALIASES_FGP),
+        (data.UNIT_HISTORY_PAIRS, data.UNIT_HISTORY_PAIRS_FGP),
+    ):
+        before, after = old.read_text(), new.read_text()
+        assert after.startswith(before) and len(after) > len(before)
+    gv, fgp = (
+        set(data.unit_aliases(data.UNIT_ALIASES_GV)),
+        set(data.unit_aliases(data.UNIT_ALIASES_FGP)),
+    )
+    assert gv < fgp and len(fgp - gv) == 522
+    assert data.RULE_SOURCES["unit-labels-v11"] == data.UNIT_ALIASES_FGP
+    assert "unit-labels-v11" not in data.DROPPING_RULES
+    url = "https://streeteasy.com/building/{}/{}".format
+    group = next(iter(fgp - gv))
+    frame = pd.DataFrame(
+        {
+            "building": ["b1"] * 4 + ["b2"] * 2,
+            "canonical_unit_url": [
+                url("b1", "fourb"),
+                url("b1", "4b"),
+                url("b1", "c7"),
+                url("b1", "7c"),
+                url("b2", "2a"),
+                url("b2", "2b"),
+            ],
+            "unit_id": ["u4", "u3", "u5", "u6", group[0], group[1]],
+            "bedrooms": [1.0, 1.0, 2.0, 2.0, 1.0, 1.0],
+        }
+    )
+    v9 = data.DATA_RULES["unit-labels-v9"](frame)
+    v11 = data.DATA_RULES["unit-labels-v11"](frame)
+    assert (
+        v11.unit_id.tolist()[:4]
+        == v9.unit_id.tolist()[:4]
+        == [
+            "u3",
+            "u3",
+            "u5",
+            "u5",
+        ]
+    )
+    assert v9.unit_id.iat[4] != v9.unit_id.iat[5]
+    assert v11.unit_id.iat[4] == v11.unit_id.iat[5] == min(group[:2])
+
+
 def test_unit_reviews_v1_joins_each_reviewed_group(tmp_path):
     """A reviewed group's units take the group's smallest unit id, whatever
     spelling the label has; other labels and other buildings keep theirs."""
