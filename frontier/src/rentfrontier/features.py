@@ -3665,6 +3665,10 @@ PLUTO_RELEASES_SNAPSHOTS: dict[str, str] = {}
 NB6_SETS = {"nb6-plutoasof-v3": "nb5-plutoasof-v3"}
 # nb5-plutoasof-v3 plus Stuyvesant Town/PCV (`hoods_v1`): the six
 # neighbourhoods' base. Not fitted until runs resume (Ben, 2026-10-08: pause).
+# The Stuyvesant Town/PCV indicator is a placeholder, a descriptive premium: a
+# later test replaces it with what explains it (one landlord, the share of
+# rent-stabilized units, campus open space, building age and type), per Ben's
+# preference for explanatory features over neighbourhood premiums.
 FEATURE_SETS["nb6-plutoasof-v3"] = partial(
     hoods_v1,
     id="nb6-plutoasof-v3",
