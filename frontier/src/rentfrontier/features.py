@@ -3101,9 +3101,9 @@ def open_space_v1(
 OPEN_SHARE_OVERHANG = 0.10
 
 
-def _footprint_rings(geometry: str, grid) -> list[np.ndarray]:
+def _footprint_rings(geometry: str, grid) -> list[tuple[int, np.ndarray]]:
     """Every ring of a footprint's GeoJSON polygon or polygons, in grid metres,
-    each polygon's outer ring first."""
+    as (its index in its polygon, so 0 is the outer ring; the ring)."""
     geometry = json.loads(geometry)
     polygons = geometry["coordinates"]
     polygons = polygons if geometry["type"] == "MultiPolygon" else [polygons]
@@ -3142,18 +3142,20 @@ def lot_open_share_v2(frame: pd.DataFrame) -> np.ndarray:
     `lot_open_share`, over the union of the lots its footprints span. A lot
     joins the union when its MapPLUTO point (`BLOCKLOTS_FILE`, the lots of the
     registry's blocks; not a condominium's billing lots) lies inside a
-    footprint on another lot of the block, and lots chained this way form one
-    union: covered is every footprint on them built by the listing's year,
-    over their summed lot areas. Covered up to OPEN_SHARE_OVERHANG over the
-    union's area is 0 open; more than that, no footprint, or no lot area is
-    NaN. Reads no rents."""
+    footprint built by the listing's year on another lot of the block, and
+    lots chained this way form one union: covered is every footprint on them
+    built by that year, over their summed lot areas (the building's own lot's
+    from its MapPLUTO release, the others' from today's). Covered up to
+    OPEN_SHARE_OVERHANG over the union's area is 0 open; more than that, no
+    footprint, or no lot area is NaN. Reads no rents."""
     grid = facing_grid()
     registry = pd.read_parquet(lot_registry()).set_index("building")
     footprints = pd.read_parquet(area_snapshot()[1])
     footprints["base_bbl"] = footprints.base_bbl.astype(str)
     rings = [_footprint_rings(g, grid) for g in footprints.geometry]
     footprints["area"] = [_rings_area(r) for r in rings]
-    footprints["built"] = pd.to_numeric(footprints.construction_year, errors="coerce")
+    built = pd.to_numeric(footprints.construction_year, errors="coerce").fillna(0)
+    footprints["built"] = built
     lots = pd.read_parquet(BLOCKLOTS_FILE)
     lots = lots[pd.to_numeric(lots.lot, errors="coerce") < 7501]
     lots_area = dict(zip(lots.bbl, pd.to_numeric(lots.lotarea, errors="coerce")))
@@ -3162,43 +3164,62 @@ def lot_open_share_v2(frame: pd.DataFrame) -> np.ndarray:
         pd.to_numeric(lots.latitude, errors="coerce").to_numpy(),
     )
     block = lots.bbl.str[:6].to_numpy()
-    parent: dict[str, str] = {}
-
-    def find(lot: str) -> str:
-        while parent.get(lot, lot) != lot:
-            lot = parent[lot]
-        return lot
-
-    for lot, r in zip(footprints.base_bbl, rings):
-        on_block = block == lot[:6]
-        for other in lots.bbl[on_block][_rings_contain(r, points[on_block])]:
-            if find(other) != find(lot):
-                parent[find(other)] = find(lot)
-    footprints["union"] = footprints.base_bbl.map(find)
-    by_union = {
-        union: (g.built.fillna(0).to_numpy(), g.area.to_numpy())
-        for union, g in footprints.groupby("union")
+    # (footprint's lot, a lot whose point it covers, the year it was built)
+    joins = [
+        (lot, other, year)
+        for lot, r, year in zip(footprints.base_bbl, rings, footprints.built)
+        for other in lots.bbl[block == lot[:6]][
+            _rings_contain(r, points[block == lot[:6]])
+        ]
+        if other != lot
+    ]
+    by_lot = {
+        lot: (g.built.to_numpy(), g.area.to_numpy())
+        for lot, g in footprints.groupby("base_bbl")
     }
-    members: dict[str, list[str]] = {}
-    for lot in set(lots.bbl) | set(footprints.base_bbl):
-        members.setdefault(find(lot), []).append(lot)
+
+    def unions(year: int) -> dict[str, list[str]]:
+        """Each lot's union as of `year`: its lots."""
+        parent: dict[str, str] = {}
+
+        def find(lot: str) -> str:
+            while parent.get(lot, lot) != lot:
+                lot = parent[lot]
+            return lot
+
+        for lot, other, built_in in joins:
+            if built_in <= year and find(other) != find(lot):
+                parent[find(other)] = find(lot)
+        members: dict[str, list[str]] = {}
+        for lot in {x for j in joins for x in j[:2]}:
+            members.setdefault(find(lot), []).append(lot)
+        return {lot: m for m in members.values() for lot in m}
+
     base_of = dict(zip(footprints.bin.astype(str), footprints.base_bbl))
     lotarea = pd.to_numeric(building_lots(frame).lotarea, errors="coerce").to_numpy()
     year = pd.DatetimeIndex(frame.period).year.to_numpy()
+    by_year = {y: unions(y) for y in np.unique(year)}
     out = np.full(len(frame), np.nan)
     for building, idx in frame.groupby("building").indices.items():
         if building not in registry.index:
             continue
         r = registry.loc[building]
         lot = base_of.get(str(r.bin), str(r.bbl))
-        union = find(lot)
-        if union not in by_union:
-            continue
-        others = sum(lots_area.get(m, np.nan) for m in members[union] if m != lot)
-        built, area = by_union[union]
-        covered = np.array([area[built <= y].sum() for y in year[idx]])
-        with np.errstate(divide="ignore", invalid="ignore"):
-            out[idx] = 1.0 - covered / (lotarea[idx] + others)
+        for i in idx:
+            union = by_year[year[i]].get(lot, [lot])
+            if not any(m in by_lot for m in union):
+                continue
+            # The building's own lot is its registry lot's MapPLUTO area; its
+            # footprint's lot, where that differs, is the same ground.
+            others = sum(
+                lots_area.get(m, np.nan) for m in union if m not in (lot, str(r.bbl))
+            )
+            covered = sum(
+                area[built_in <= year[i]].sum()
+                for built_in, area in (by_lot[m] for m in union if m in by_lot)
+            )
+            with np.errstate(divide="ignore", invalid="ignore"):
+                out[i] = 1.0 - covered / (lotarea[i] + others)
     out[~(np.isfinite(out) & (lotarea > 0) & (out >= -OPEN_SHARE_OVERHANG))] = np.nan
     return np.clip(out, 0.0, 1.0)
 
