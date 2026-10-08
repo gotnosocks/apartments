@@ -1,6 +1,6 @@
 # Data collection — handoff
 
-Updated 2026-10-08 00:45 ET. Thread owner: the Data collection project thread (bridge session on thelio).
+Updated 2026-10-08 01:20 ET. Thread owner: the Data collection project thread (bridge session on thelio).
 
 ## State
 - **Flatiron + Gramercy Park crawl: FINISHED** Oct 7 21:01 ET (spider `finish_reason: finished`).
@@ -34,6 +34,15 @@ Updated 2026-10-08 00:45 ET. Thread owner: the Data collection project thread (b
   later refreshes). Rows: `details/snapshot/candidates.jsonl`, `listing_status == "ACTIVE"`.
 
 ## Next
+- **Storage review** (Ben, Oct 8): see `docs/data/archive-storage.md`. `streeteasy_archive.compact`
+  (#471) copies a database without the duplicate provider HTML, saving 44%; the GV trial gave
+  30.1 → 16.8 GB with an identical audit. Two proposals await Ben's typed go:
+  1. "Delete the Chelsea and West Village crawl databases; keep the snapshots." Both
+     (`crawls/chelsea-resume`, `crawls/west-village-low-rate-20260919`) cmp-match their snapshots
+     apart from 4 header bytes (~199 GiB). Then repoint the disabled `apartments-archive.service`
+     (:8765) at the Chelsea snapshot.
+  2. "Compact the snapshots." Do one at a time (~125 GiB in total), check audit equality before
+     each swap, regenerate `.sha256`, and never prune `bodies/`.
 - Ben, Oct 8 00:49 UTC: the Oxylabs budget is limited. Before proposing any new paid collection,
   estimate its value to the model (coverage gaps, unit-history depth) against its cost.
 

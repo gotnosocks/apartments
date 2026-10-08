@@ -72,6 +72,18 @@ Datasets do not pin the snapshot file: their `source_evidence_sha256` hashes the
 and `granular_export`'s implementation hash covers parser code only. The tool does not write an
 `archive.sqlite3.sha256`; whoever swaps a compacted copy in regenerates it with `sha256sum`.
 
+## Measurements (Oct 8)
+
+- **GV trial**: `snapshots/greenwich-village-20261001-final` went from 30.1 to 16.8 GB in about
+  7 minutes. All 24,596 snapshot rows were stripped with verified bodies, and
+  `collection_audit.audit` gave identical output on the original and on the copy. The trial copy
+  was then deleted.
+- **Duplicate crawl databases**: `cmp -l` of `crawls/chelsea-resume` against
+  `snapshots/chelsea-backfill-20260912`, and of `crawls/west-village-low-rate-20260919` against
+  `snapshots/west-village-backfill-20260930`, differs only in header bytes 19–20 (journal-mode
+  flags) and 28 and 96 (change counter). The only reader of `crawls/chelsea-resume` is the disabled
+  `apartments-archive.service` (raw archive browser on :8765).
+
 ## Not done, and why
 
 - **Editing the crawler** so new crawls never store the copy. `crawler.py`, `capture.py`,
