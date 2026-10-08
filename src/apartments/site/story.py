@@ -1410,3 +1410,151 @@ def cleaning_svg(c: dict | None) -> Markup:
         f'<svg class="story-svg cleaning" viewBox="0 0 {WIDTH} {height}" role="img" '
         f'aria-label="{escape(label)}">' + "".join(out) + "</svg>"
     )
+
+
+# --- Inside two grouped tests ------------------------------------------------------
+
+# The items of two ideas the ledger tested as one group each
+# (rentfrontier.groupitems): how common each is on the served fit's rows, and
+# a raw rent difference with only bedrooms held fixed. No model effects.
+GROUP_ITEMS = Path(
+    os.environ.get(
+        "GROUP_ITEMS", "/data1/apartments/serve/master/docs/model/group-items.json"
+    )
+)
+REPO_GROUP_ITEMS = Path(__file__).resolve().parents[3] / "docs/model/group-items.json"
+
+ATTRIBUTE_WORDS = {
+    "walk_in_closet": ("Walk-in closet", "“walk-in closet”"),
+    "live_in_super": (
+        "Live-in super",
+        "“live-in super”, “on-site super”, “resident manager”",
+    ),
+    "utilities_included": (
+        "Utilities included",
+        "heat, hot water, gas or electricity “included”",
+    ),
+    "windowed_kitchen": (
+        "Windowed kitchen",
+        "“windowed kitchen”, “kitchen with a window”",
+    ),
+    "windowed_bath": ("Windowed bath", "“windowed bath”, “bathroom with a window”"),
+    "tree_lined": ("Tree-lined street", "“tree-lined”"),
+    "skylight": ("Skylight", "“skylight”"),
+    "video_intercom": ("Video intercom", "“video intercom”, “virtual doorman”"),
+    "corner_unit": (
+        "Corner unit",
+        "“corner unit”, “corner apartment”, “corner one-bedroom”",
+    ),
+    "separate_kitchen": ("Separate kitchen", "“separate kitchen”"),
+    "floor_to_ceiling_windows": (
+        "Floor-to-ceiling windows",
+        "“floor-to-ceiling windows” or “glass”",
+    ),
+    "marble_bath": ("Marble bath", "“marble bath”"),
+    "hardwood": (
+        "Hardwood floors",
+        "“hardwood”, “wood floors”, “wide-plank”, “oak floors”, “parquet”",
+    ),
+    "stainless": ("Stainless steel", "“stainless”"),
+    "prewar_text": ("Pre-war", "“pre-war” in the ad"),
+}
+PLACE_WORDS = {
+    "dog run": ("Dog run", "a dog run or off-leash area"),
+    "hospital": ("Hospital", "a hospital"),
+    "ambulance station": ("EMS station", "an ambulance or EMS station (sirens)"),
+    "drop-in center": ("Drop-in center", "a homeless drop-in center"),
+    "nycha": ("NYCHA housing", "a NYCHA public-housing lot"),
+    "arena": ("Madison Square Garden", "Madison Square Garden"),
+}
+GROUP_TESTS = {"attributes": "nb3-attrs-v1", "places": "nb3-nearby-v1"}
+
+
+class GroupItems(_Cached):
+    default, repo = GROUP_ITEMS, REPO_GROUP_ITEMS
+
+    def parse(self, text: str) -> dict | None:
+        try:
+            doc = json.loads(text)
+        except ValueError:
+            return None
+        return doc if isinstance(doc, dict) else None
+
+
+def group_items(
+    doc: dict | None, trials: list[dict], served_run: str | None, served=frozenset()
+) -> dict | None:
+    """The two grouped tests' items, in words, with the group's own ledger
+    result. None unless the file is for the served run, and None once the served
+    model has a term for any item (`served`, its coefficient names): the page
+    says the served model has no estimate for them."""
+    if not doc or doc.get("run") != served_run:
+        return None
+    terms = {f"text:{i.get('item')}" for i in doc.get("attributes") or []}
+    terms |= {f"log m to {i.get('words')}" for i in doc.get("places") or []}
+    if terms & set(served):
+        return None
+    tests = {t["change"]: t for t in trials}
+    out = {"rows": doc.get("rows"), "rows_with_text": doc.get("rows_with_text")}
+    out["near_m"] = doc.get("near_m")
+    for key, words in (("attributes", ATTRIBUTE_WORDS), ("places", PLACE_WORDS)):
+        items = []
+        for item in doc.get(key) or []:
+            name, what = words.get(item.get("item"), (item.get("item"), ""))
+            share = item.get("share", item.get("near_share"))
+            raw = item.get("raw_pct", item.get("raw_pct_per_doubling"))
+            if share is None or raw is None:
+                continue
+            items.append(
+                {
+                    **item,
+                    "name": name,
+                    "what": what,
+                    "pct_share": 100 * share,
+                    "raw": raw,
+                }
+            )
+        items.sort(key=lambda i: -i["pct_share"])
+        out[key] = {"items": items, "test": tests.get(GROUP_TESTS[key])}
+    if not out["attributes"]["items"] and not out["places"]["items"]:
+        return None
+    return out
+
+
+def group_items_svg(items: list[dict], noun: str) -> Markup:
+    """Bars: each item's share of listings, with the share written at the end."""
+    if not items:
+        return Markup("")
+    row, top, label_w = 24, 22, 200
+    hi = max(max(i["pct_share"] for i in items), 1)
+    ticks = nice_ticks(0, hi, 5)
+    hi = max(hi, ticks[-1])
+    plot = WIDTH - label_w - 60
+
+    def x(v):
+        return label_w + plot * v / hi
+
+    height = top + row * len(items) + 8
+    out = [
+        f'<line class="grid" x1="{x(t):.1f}" y1="{top - 6}" x2="{x(t):.1f}" '
+        f'y2="{height - 4}"/><text class="tick" x="{x(t):.1f}" y="{top - 10}" '
+        f'text-anchor="middle">{t:g}%</text>'
+        for t in ticks
+    ]
+    for n, i in enumerate(items):
+        y = top + row * n
+        out.append(
+            f'<text class="eff-label" x="{label_w - 10}" y="{y + row / 2 + 4:.1f}" '
+            f'text-anchor="end">{escape(i["name"])}</text>'
+            f'<rect class="item-bar" x="{label_w}" y="{y + 5}" '
+            f'width="{max(x(i["pct_share"]) - label_w, 1):.1f}" height="{row - 10}"/>'
+            f'<text class="share-label" x="{x(i["pct_share"]) + 6:.1f}" '
+            f'y="{y + row / 2 + 4:.1f}">{i["pct_share"]:.1f}%</text>'
+        )
+    label = f"Share of listings {noun}: " + "; ".join(
+        f"{i['name']} {i['pct_share']:.1f}%" for i in items
+    )
+    return Markup(
+        f'<svg class="story-svg items" viewBox="0 0 {WIDTH} {height}" role="img" '
+        f'aria-label="{escape(label)}">' + "".join(out) + "</svg>"
+    )

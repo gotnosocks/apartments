@@ -554,6 +554,7 @@ button[aria-busy="true"] { cursor: progress; opacity: 0.75; }
 .story-svg .dot { stroke: var(--surface); stroke-width: 1.5; }
 .story-svg .link { stroke: var(--axis); stroke-width: 1; }
 .story-svg .bar { fill-opacity: 0.85; }
+.story-svg .item-bar { fill: var(--s1); fill-opacity: 0.75; }
 .story-svg .range { stroke: var(--s1); stroke-width: 10; stroke-opacity: 0.22; stroke-linecap: round; }
 .story-svg .est { fill: var(--s1); stroke: var(--surface); stroke-width: 2; }
 .story-svg .ask-mark { fill: var(--ink); }

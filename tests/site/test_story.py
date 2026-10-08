@@ -497,3 +497,72 @@ def test_unit_examples_pick_a_joined_and_a_split_unit():
         story.bed_phrase(0) == "a studio" and story.bed_phrase(None) == "an apartment"
     )
     assert story.bed_phrase(8) == "an 8-bedroom" and story.bed_phrase(-1) == "a studio"
+
+
+GROUP_ITEMS = {
+    "run": "m-test-run",
+    "rows": 1000,
+    "rows_with_text": 900,
+    "near_m": 400.0,
+    "attributes": [
+        {"item": "walk_in_closet", "rows": 90, "share": 0.1, "raw_pct": 31.9},
+        {"item": "stainless", "rows": 360, "share": 0.4, "raw_pct": 6.8},
+    ],
+    "places": [
+        {
+            "item": "nycha",
+            "words": "NYCHA housing",
+            "rows": 1000,
+            "median_m": 910,
+            "near_share": 0.134,
+            "raw_pct_per_doubling": 1.2,
+        }
+    ],
+}
+
+
+def test_group_items_need_the_served_run():
+    trials = story.theories(story.parse_ledger(LEDGER))
+    g = story.group_items(GROUP_ITEMS, trials, "m-test-run")
+    assert [i["name"] for i in g["attributes"]["items"]] == [
+        "Stainless steel",
+        "Walk-in closet",
+    ]
+    assert g["places"]["items"][0]["pct_share"] == 13.4
+    assert g["attributes"]["test"] is None  # not in this ledger
+    assert story.group_items(GROUP_ITEMS, trials, "m-other-run") is None
+    svg = str(story.group_items_svg(g["attributes"]["items"], "whose ad states it"))
+    assert "Share of listings whose ad states it: Stainless steel 40.0%" in svg
+
+
+def test_group_items_chapter(site_root, research_file, tmp_path):
+    ledger = tmp_path / "feature-tests.md"
+    ledger.write_text(
+        LEDGER.replace(
+            "| 2026-10-03 | `nb-prevprice-v1`",
+            "| 2026-10-06 | `nb3-attrs-v1` | ad states one of 15 attributes | listing"
+            " | -7.6 ± 21.9 | no clear gain | | d (1) | #390 | `i` | `j` |\n"
+            "| 2026-10-03 | `nb-prevprice-v1`",
+        )
+    )
+    path = tmp_path / "group-items.json"
+    path.write_text(json.dumps(GROUP_ITEMS))
+    app = create_app(
+        site_root, research_data=research_file, feature_tests=ledger, group_items=path
+    )
+    html = _page(app.test_client())
+    assert 'id="inside-groups"' in html
+    assert "“Ad states one of 15 attributes” (-7.6 ± 21.9" in html
+    assert "the walk to nearby places." in html
+    assert "<strong>raw</strong> difference" in html
+    assert "<td>Walk-in closet</td>" in html and "+31.9%" in html
+    assert "910 m" in html
+    path.write_text(json.dumps({**GROUP_ITEMS, "run": "m-other-run"}))
+    assert 'id="inside-groups"' not in _page(app.test_client())
+
+
+def test_group_items_step_aside_once_served():
+    trials = story.theories(story.parse_ledger(LEDGER))
+    served = {"text:corner_unit", "log m to NYCHA housing"}
+    assert story.group_items(GROUP_ITEMS, trials, "m-test-run", served) is None
+    assert story.group_items(GROUP_ITEMS, trials, "m-test-run", {"text:x"})

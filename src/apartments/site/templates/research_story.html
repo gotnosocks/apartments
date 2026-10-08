@@ -234,6 +234,66 @@ a stricter test: fit on the earlier asks and predict only each apartment's lates
 {{ "they were" if blocked | length > 1 else "it was" }} set aside for a reason no score measures. The feature
 predicts an apartment's next ask from its last one, with no account of the time in between, and it says nothing
 about what the apartment is made of.</p>{% endif %}
+
+{% if groups %}{% set ga, gp = groups.attributes, groups.places %}
+<h3 id="inside-groups">Inside two grouped tests</h3>
+<p>Two of the ideas above bundle several items into one test:
+{% if ga.test %}“{{ ga.test.words[:1] | upper }}{{ ga.test.words[1:] }}” ({{ "{:+,.1f}".format(ga.test.diff) }} ± {{ "{:,.1f}".format(ga.test.se) }}{% if ga.test.pr %}, <a href="https://github.com/gotnosocks/apartments/pull/{{ ga.test.pr }}">#{{ ga.test.pr }}</a>{% endif %}){% else %}the ad attributes{% endif %}
+and {% if gp.test %}“{{ gp.test.words[:1] | lower }}{{ gp.test.words[1:] }}” ({{ "{:+,.1f}".format(gp.test.diff) }} ± {{ "{:,.1f}".format(gp.test.se) }}{% if gp.test.pr %}, <a href="https://github.com/gotnosocks/apartments/pull/{{ gp.test.pr }}">#{{ gp.test.pr }}</a>{% endif %}){% else %}the walk to nearby places{% endif %}.
+Each group was tested as one feature: all its items went in together, and the score is for the group, so there is
+no score for any single item. Neither group is in the served model, so it has no estimate for these items either.
+Below is what each item is and how common it is among the {{ "{:,}".format(groups.rows) }} listings the served model
+was fitted on.</p>
+<p>The last column of each table is a <strong>raw</strong> difference in asks, not an effect. It compares listings
+with the same bedroom count and nothing else held fixed, so it carries whatever tends to come with the item, such as
+the apartment's size, its building or its neighbourhood. Telling an item's own effect apart needs a fit with that item alone,
+one fit per item. Those fits are on the modeling backlog and haven't run yet.</p>
+
+{% if ga["items"] %}
+<figure class="story-figure" id="attrs-figure">
+  <div class="figure-scroll" tabindex="0" role="region" aria-label="Figure, scrolls sideways on narrow screens">{{ attrs_svg }}</div>
+  <figcaption>Share of the {{ "{:,}".format(groups.rows_with_text) }} listings with ad text whose ad states each attribute.</figcaption>
+</figure>
+<details class="table-view">
+  <summary>The 15 ad attributes as a table</summary>
+  <div class="table-wrap">
+  <table class="data">
+    <thead><tr><th scope="col">Attribute</th><th scope="col">The ad says</th><th scope="col" class="num">Listings</th>
+      <th scope="col" class="num">Share</th><th scope="col" class="num">Raw ask difference, same bedrooms</th></tr></thead>
+    <tbody>
+    {% for i in ga["items"] %}
+      <tr><td>{{ i.name }}</td><td class="muted">{{ i.what }}</td><td class="num">{{ "{:,}".format(i.rows) }}</td>
+        <td class="num">{{ "{:.1f}".format(i.pct_share) }}%</td><td class="num">{{ "{:+.1f}".format(i.raw) }}%</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  </div>
+</details>
+{% endif %}
+
+{% if gp["items"] %}
+<figure class="story-figure" id="places-figure">
+  <div class="figure-scroll" tabindex="0" role="region" aria-label="Figure, scrolls sideways on narrow screens">{{ places_svg }}</div>
+  <figcaption>Share of listings within a {{ "{:,.0f}".format(groups.near_m) }} m walk of each kind of place, walking along
+  the streets and avenues, counting only places open in the listing's month.</figcaption>
+</figure>
+<details class="table-view">
+  <summary>The six walk-to places as a table</summary>
+  <div class="table-wrap">
+  <table class="data">
+    <thead><tr><th scope="col">Place</th><th scope="col">What it is</th><th scope="col" class="num">Median walk</th>
+      <th scope="col" class="num">Within {{ "{:,.0f}".format(groups.near_m) }} m</th><th scope="col" class="num">Raw ask difference per doubling of the walk, same bedrooms</th></tr></thead>
+    <tbody>
+    {% for i in gp["items"] %}
+      <tr><td>{{ i.name }}</td><td class="muted">{{ i.what }}</td><td class="num">{{ "{:,}".format(i.median_m) }} m</td>
+        <td class="num">{{ "{:.1f}".format(i.pct_share) }}%</td><td class="num">{{ "{:+.1f}".format(i.raw) }}%</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  </div>
+</details>
+{% endif %}
+{% endif %}
 </section>
 {% endif %}
 

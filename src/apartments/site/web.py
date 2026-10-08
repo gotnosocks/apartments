@@ -587,12 +587,14 @@ def create_app(
     research_plan=None,
     feature_tests=None,
     cleaning_steps=None,
+    group_items=None,
 ) -> Flask:
     root = Path(root or os.environ.get("SITE_ROOT", "/data1/apartments/site"))
     research = Research(research_data)
     plan = Plan(research_plan)
     ledger = story.Ledger(feature_tests)
     cleaning_file = story.Cleaning(cleaning_steps)
+    group_file = story.GroupItems(group_items)
     app = Flask(__name__)
     if allowed_hosts is None:
         allowed_hosts = os.environ.get("SITE_ALLOWED_HOSTS", "").split(",")
@@ -2445,6 +2447,12 @@ def create_app(
         switches = story.design_history((data or {}).get("milestones") or [])
         lives = story.term_lives(switches)
         cleaning = story.cleaning(cleaning_file.load(), m["provenance"]["run"])
+        groups = story.group_items(
+            group_file.load(),
+            trials,
+            m["provenance"]["run"],
+            {c["feature"] for c in coefficients},
+        )
         return render_template(
             "research_story.html",
             meta=m,
@@ -2474,6 +2482,14 @@ def create_app(
             cleaning=cleaning,
             areas=sorted(a for a in areas if a),
             cleaning_svg=story.cleaning_svg(cleaning),
+            groups=groups,
+            attrs_svg=story.group_items_svg(
+                groups["attributes"]["items"] if groups else [], "whose ad states it"
+            ),
+            places_svg=story.group_items_svg(
+                groups["places"]["items"] if groups else [],
+                f"within {groups['near_m']:.0f} m" if groups else "",
+            ),
             terms=terms,
             labels=labels,
         )
