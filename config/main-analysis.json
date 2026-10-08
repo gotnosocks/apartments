@@ -1,36 +1,37 @@
 {
   "version": "main-analysis-selection-v2",
   "model_family": "frontier_summary",
-  "summary": "/data1/apartments/frontier/summaries/m7-nocurves-floorslope-bednoise-dayfourier-bedtime-yearnoise-nb3-coded-v2-rows-39c3c8a-a100-3600k9cb1-gv1006-ul9s-b65c406",
-  "summary_manifest_sha256": "3dba77be4dd46adb0b409d000e5a46d9d872f85ea6836bd74842236dbb2211f1",
-  "summary_commit": "b65c40666def1cf798cce04168508f7b81fa23f1",
-  "run": "m7-nocurves-floorslope-bednoise-dayfourier-bedtime-yearnoise-nb3-coded-v2-rows-39c3c8a-a100-3600k9cb1-gv1006-ul9s",
-  "run_commit": "39c3c8ab880d6d2f6b693331699a57f80610a3db",
+  "summary": "/data1/apartments/frontier/summaries/m7-nocurves-floorslope-bednoise-dayfourier-bedtime-yearnoise-nb3-coded-v2-rows-9b6c16d-a100-4500k9cb1-gv1006-ul9r1s4-344d260",
+  "summary_manifest_sha256": "1bd99e5fc87dd3d542cb6ed7c1548694b9d9174b702894c2c225653fdef1bf14",
+  "summary_commit": "344d2608a269e4d68500f47b2dd1b9208d809fa8",
+  "run": "m7-nocurves-floorslope-bednoise-dayfourier-bedtime-yearnoise-nb3-coded-v2-rows-9b6c16d-a100-4500k9cb1-gv1006-ul9r1s4",
+  "run_commit": "9b6c16dc81ebcf3ec8ad546fcd256cfbb6e4a971",
   "model": "m7-nocurves-floorslope-bednoise-dayfourier-bedtime-yearnoise",
   "feature_set": "nb3-coded-v2",
   "data_rules": [
     "baths-ad-v2",
     "bedrooms-ad-v2",
     "fields-review-v3",
-    "quarantine-v5",
+    "quarantine-v6",
     "unit-labels-v9",
-    "unit-splits-v1"
+    "unit-reviews-v1",
+    "unit-splits-v4"
   ],
   "dataset": "/data1/apartments/frontier/datasets/chelsea-wv-gv-analysis-20261005-2d5b3b6",
   "source_observations_sha256": "5745d3c1071629db66f6957c11ab2ea724ab6737c0f6483781b90f472f6f8dd4",
   "gate": {
     "passes": true,
-    "max_rhat": 1.0074337979609949,
-    "min_ess": 424.80508055552883,
+    "max_rhat": 1.006531880029436,
+    "min_ess": 489.75476719598737,
     "divergences": null,
-    "group_rhat_max": 1.0264816211030918
+    "group_rhat_max": 1.009500900947453
   },
   "psis_loo": {
-    "elpd_loo": 107490.26690959597,
-    "elpd_loo_se": 333.5196573660944,
-    "loo_commit": "39c3c8ab880d6d2f6b693331699a57f80610a3db"
+    "elpd_loo": 108319.313334521,
+    "elpd_loo_se": 333.92699442060876,
+    "loo_commit": "9b6c16dc81ebcf3ec8ad546fcd256cfbb6e4a971"
   },
-  "selected_by": "rentfrontier.autoselect, 2026-10-07 (Ben, 2026-09-30: switch automatically by the agreed metrics)",
-  "selection_reason": "Chosen by the automatic rule because the incumbent cannot be served: it was fit with baths-ad-v2 + bedrooms-ad-v2 + fields-review-v1 + quarantine-v5 + unit-labels-v5, not the current baths-ad-v2 + bedrooms-ad-v2 + fields-review-v3 + quarantine-v5 + unit-labels-v9 + unit-splits-v1. Gibbs m7-nocurves-floorslope-bednoise-dayfourier-bedtime-yearnoise + nb3-coded-v2 with baths-ad-v2 + bedrooms-ad-v2 + fields-review-v3 + quarantine-v5 + unit-labels-v9 + unit-splits-v1, 953 s on Modal A100. Against the previous selection on the rows both keep: PSIS-LOO +725.6 \u00b1 65.8, held-out +53.5 \u00b1 20.3.",
-  "uncertainty": "Conditional posterior uncertainty; source errors, omitted features and incomplete market coverage remain separate. Estimates for a unit's only listing are under-covered (92.6% in the 95% predictive range)."
+  "selected_by": "rentfrontier.autoselect, 2026-10-08 (Ben, 2026-09-30: switch automatically by the agreed metrics)",
+  "selection_reason": "Chosen by the automatic rule because the incumbent cannot be served: it was fit with baths-ad-v2 + bedrooms-ad-v2 + fields-review-v3 + quarantine-v5 + unit-labels-v9 + unit-splits-v1, not the current baths-ad-v2 + bedrooms-ad-v2 + fields-review-v3 + quarantine-v6 + unit-labels-v9 + unit-reviews-v1 + unit-splits-v4. Gibbs m7-nocurves-floorslope-bednoise-dayfourier-bedtime-yearnoise + nb3-coded-v2 with baths-ad-v2 + bedrooms-ad-v2 + fields-review-v3 + quarantine-v6 + unit-labels-v9 + unit-reviews-v1 + unit-splits-v4, 1,089 s on Modal A100. Against the previous selection on the rows both keep: PSIS-LOO +829.5 \u00b1 93.1, held-out +102.1 \u00b1 33.6.",
+  "uncertainty": "Conditional posterior uncertainty; source errors, omitted features and incomplete market coverage remain separate. Estimates for a unit's only listing are under-covered (92.0% in the 95% predictive range)."
 }
