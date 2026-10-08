@@ -657,6 +657,10 @@ DATA_RULE_TEXT = {
     "51 more are left out: ads for another address (Harlem, the Upper West Side, "
     "Prospect Park), shops and offices, rooms with a shared bath, and one ask for two "
     "apartments.",
+    "quarantine-v9": "quarantine-v8 and a ninth review that does not look at rent: "
+    "fixed text checks run over every Greenwich Village, Gramercy Park and Flatiron "
+    "ad, and each hit is read with no rent shown. 73 more are left out: ads for "
+    "another address, shops and offices, short stays, and rooms with a shared bath.",
     "unit-reviews-v1": "Apartments a review found to be one apartment under two labels: "
     "at 110 West 26th Street, 4R and 4B, and 5R and 5B, are each floor's rear "
     "apartment (R for rear, B for back). No listing is dropped.",

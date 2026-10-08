@@ -735,6 +735,20 @@ def quarantine_v8(frame: pd.DataFrame) -> pd.DataFrame:
     return frame[~frame.audit_id.isin(quarantined(QUARANTINE_V8))]
 
 
+QUARANTINE_V9 = REPO / "config" / "reviews" / "quarantine-v9-20261008.jsonl"
+
+
+def quarantine_v9(frame: pd.DataFrame) -> pd.DataFrame:
+    """v8 and the ninth review's rows (451 in all). v7 and v8 read only ads
+    whose rent looked out of line, so their picks leaned on each row's own
+    rent. v9 runs fixed text checks (another address, a shop or office, a
+    shared bath, one ask for several apartments, a short stay) over every
+    Greenwich Village, Gramercy Park and Flatiron ad regardless of rent, and
+    reads each hit with no rent shown: 73 more are left out. Every v7 and v8
+    row is also caught by these checks. The other rows are unchanged."""
+    return frame[~frame.audit_id.isin(quarantined(QUARANTINE_V9))]
+
+
 # Units of one building a review found to be one apartment under different
 # labels, one JSON line per group with its evidence (2026-10-07).
 UNIT_JOINS = REPO / "config" / "reviews" / "unit-joins-20261007.jsonl"
@@ -829,6 +843,7 @@ DATA_RULES = {
     "quarantine-v6": quarantine_v6,
     "quarantine-v7": quarantine_v7,
     "quarantine-v8": quarantine_v8,
+    "quarantine-v9": quarantine_v9,
     "unit-reviews-v1": join_reviewed_units,
 }
 # Rules that read a file; run records hash the files.
@@ -841,6 +856,7 @@ RULE_SOURCES = {
     "quarantine-v6": QUARANTINE_V6,
     "quarantine-v7": QUARANTINE_V7,
     "quarantine-v8": QUARANTINE_V8,
+    "quarantine-v9": QUARANTINE_V9,
     "unit-reviews-v1": UNIT_JOINS,
     "unit-labels-v2": UNIT_ALIASES,
     "unit-labels-v3": UNIT_ALIASES,
@@ -867,6 +883,7 @@ DROPPING_RULES = (
     "quarantine-v6",
     "quarantine-v7",
     "quarantine-v8",
+    "quarantine-v9",
 )
 
 

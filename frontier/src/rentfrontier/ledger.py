@@ -168,9 +168,12 @@ def markdown(entries: list[dict], current: str, hand: list[dict] = ()) -> str:
         for e in hand:
             pr = f"#{e['pr']}" if e.get("pr") else ""
             v = e.get("verdict") or verdict(e["diff"], e["se"])
+            score = (
+                f"{e['diff']:+,.1f} ± {e['se']:,.1f}" if "diff" in e else "not fitted"
+            )
             lines.append(
                 f"| {e['date']} | `{e['change']}` | {e['about']} | `{e['feature_set']}` "
-                f"| {e['diff']:+,.1f} ± {e['se']:,.1f} | {v} | {pr} "
+                f"| {score} | {v} | {pr} "
                 f"| {_code(e.get('test'))} | {_code(e.get('reference'))} |"
             )
     return "\n".join(lines) + "\n"
