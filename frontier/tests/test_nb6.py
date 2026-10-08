@@ -393,6 +393,7 @@ def test_single_owner_complex_sums_an_owners_lots_on_a_block(tmp_path, monkeypat
                 "1000030001",
                 "1000030002",
                 "1000047501",
+                "1000047502",
             ],
             "ownername": [
                 "Big Owner, LLC",
@@ -401,14 +402,16 @@ def test_single_owner_complex_sums_an_owners_lots_on_a_block(tmp_path, monkeypat
                 "Two Towers LLC",
                 "UNAVAILABLE OWNER",
                 None,
+                "CONDO BOARD",
             ],
-            "numbldgs": ["2", "1", "5", "2", "9", "1"],
-            "unitsres": ["200", "150", "100", "900", "900", "400"],
+            "lot": ["0001", "0002", "0001", "0001", "0002", "7501", "7502"],
+            "numbldgs": ["2", "1", "5", "2", "9", "1", "5"],
+            "unitsres": ["200", "150", "100", "900", "900", "400", "400"],
         }
     )
     registry = pd.DataFrame(
         {
-            "building": ["a", "b", "c", "d", "e", "f"],
+            "building": ["a", "b", "c", "d", "e", "f", "h"],
             "bbl": lots.bbl,
         }
     )
@@ -416,13 +419,15 @@ def test_single_owner_complex_sums_an_owners_lots_on_a_block(tmp_path, monkeypat
     registry.to_parquet(tmp_path / "r.parquet")
     monkeypatch.setattr(features, "BLOCKLOTS_FILE", str(tmp_path / "l.parquet"))
     monkeypatch.setattr(features, "lot_registry", lambda: str(tmp_path / "r.parquet"))
-    frame = pd.DataFrame({"building": ["a", "b", "c", "d", "e", "f", "g"]})
+    frame = pd.DataFrame({"building": ["a", "b", "c", "d", "e", "f", "g", "h"]})
     # a and b: one owner (spelt two ways), 3 buildings and 350 units on block
     # 1; c: the same owner's 100 units on block 2; d: two buildings; e: no
-    # owner; f: a condominium's billing lot; g: not in the registry.
+    # owner; f: a condominium's billing lot; g: not in the registry; h: a
+    # billing lot with an owner name and enough of everything.
     assert features.single_owner_complex(frame).tolist() == [
         True,
         True,
+        False,
         False,
         False,
         False,

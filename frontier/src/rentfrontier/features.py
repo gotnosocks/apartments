@@ -3267,8 +3267,9 @@ def single_owner_complex(frame: pd.DataFrame) -> np.ndarray:
     single-owner complex (COMPLEX_MIN_BUILDINGS, COMPLEX_MIN_UNITS): the lots
     of its block with the same owner name hold that many buildings and
     residential units between them. The owner is today's, read for every
-    year: a complex is sold whole, not split. A condominium's billing lot has
-    no owner name. Reads no rents."""
+    year: a complex is sold whole, not split. A condominium's billing lots
+    (7501 on) hold nothing. A campus held by differently named companies is
+    missed. Reads no rents."""
     lots = pd.read_parquet(BLOCKLOTS_FILE)
     lots["owner"] = (
         lots.ownername.fillna("")
@@ -3277,7 +3278,8 @@ def single_owner_complex(frame: pd.DataFrame) -> np.ndarray:
         .str.replace(r"\s+", " ", regex=True)
         .str.strip()
     )
-    lots = lots[~lots.owner.isin(_NO_OWNER)].copy()
+    billing = pd.to_numeric(lots.lot, errors="coerce") >= 7501
+    lots = lots[~lots.owner.isin(_NO_OWNER) & ~billing].copy()
     lots["block"] = lots.bbl.str[:6]
     for column in ("numbldgs", "unitsres"):
         lots[column] = pd.to_numeric(lots[column], errors="coerce").fillna(0)
