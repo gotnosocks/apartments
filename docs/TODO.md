@@ -32,9 +32,15 @@ center / NYCHA / MSG") gets its own Modal full fit on the five neighbourhoods: t
 one column, on master's rules, scored by paired PSIS-LOO against the served fit, so each item has its
 own ΔELPD (about ±3) and, from `rentfrontier.effects` (#488), its effect with 90% and 95% intervals for
 /research/story's "What the features are worth". Autoselect serves any that pass the gate and win.
-- [ ] **Data:** one feature set per item on nb5-coded-v2 (the attributes on an nb5 flagfix base; the
+Ben, 07:24Z: "Just plan to do the fits relative to whatever is in the current model so we can put on
+the delta elpd visual" (add-one against the served fit; no joint fit), and 07:25Z: "this is pretty low
+priority so only use it if the modal budget would otherwise expire because we are at the cap". The
+queue (`frontier-modalq-singles`) launches the next fit only when no other Modal queue is active and
+the balance is within an hour's accrual of the cap, and stops if the served run changes, so the
+remaining sets are rebased first.
+- [x] **Data:** one feature set per item on nb5-coded-v2 (the attributes on an nb5 flagfix base; the
       places from the 2026-10-08 snapshot that reaches Bellevue), 21 sets.
-- [ ] **Modeling:** queue the 21 fits behind the current queue, about $1 and 2.4 h of budget each
+- [x] **Modeling:** queue the 21 fits behind the current queue, about $1 and 2.4 h of budget each
       (about 2½ days in all); run `rentfrontier.effects` on each as it lands.
 - [ ] **Website:** the story's per-item effects, labelled as from a test fit where it isn't served.
 
