@@ -315,7 +315,7 @@ def feature_sources(feature_set: str) -> dict:
         path = features.UNICAL_FILE
         out["unical"] = {"path": path, "sha256": data.sha256(Path(path))}
     if feature_set in features.HPD:
-        path = features.HPD_FILE
+        path = features.HPD_SNAPSHOTS.get(feature_set, features.HPD_FILE)
         out["hpd"] = {"path": path, "sha256": data.sha256(Path(path))}
     if feature_set in features.ALTERATION_DATED_SETS:
         path = features.ALTERATIONS_FILE
