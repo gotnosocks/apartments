@@ -557,6 +557,9 @@ button[aria-busy="true"] { cursor: progress; opacity: 0.75; }
 .story-svg .ci.down, .story-svg .dot.down { stroke: var(--down); fill: var(--down); }
 .story-svg .dot { stroke: var(--surface); stroke-width: 1.5; }
 .story-svg .link { stroke: var(--axis); stroke-width: 1; }
+.story-svg .target { stroke: var(--axis); stroke-width: 1.5; stroke-dasharray: 4 3; }
+.story-svg .cov80 { fill: var(--s1); stroke: var(--surface); stroke-width: 1.5; }
+.story-svg .cov95 { fill: var(--surface); stroke: var(--s1); stroke-width: 2; }
 .story-svg .bar { fill-opacity: 0.85; }
 .story-svg .item-bar { fill: var(--s1); fill-opacity: 0.75; }
 .story-svg .range { stroke: var(--s1); stroke-width: 10; stroke-opacity: 0.22; stroke-linecap: round; }
