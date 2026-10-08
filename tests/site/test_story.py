@@ -377,3 +377,25 @@ def test_cleaning_chapter_reads_the_steps(site_root, research_file, tmp_path):
     path.write_text("not json")
     html = _page(app.test_client())
     assert 'id="cleaning"' not in html
+
+
+def test_accuracy_reads_the_held_out_asks():
+    import sqlite3
+
+    db = sqlite3.connect(":memory:")
+    db.row_factory = sqlite3.Row
+    db.execute(
+        "CREATE TABLE listings(method TEXT, ask REAL, estimate REAL, pit REAL, "
+        "unit_fit_rows INTEGER)"
+    )
+    assert story.accuracy(db) is None
+    rows = [("psis", 9000.0, 1000.0, 0.5, 3)]  # in the fit: not counted
+    rows += [("heldout", 1100.0, 1000.0, 0.5, 2)] * 3  # seen, 10% off
+    rows += [("heldout", 1000.0, 1000.0, 0.95, 0)] * 2  # new, exact
+    db.executemany("INSERT INTO listings VALUES (?, ?, ?, ?, ?)", rows)
+    a = story.accuracy(db, small=2)
+    assert a["n"] == 5 and round(a["median"], 6) == 10.0
+    assert a["seen"] == {"n": 3, "median": a["seen"]["median"]}
+    assert round(a["seen"]["median"], 6) == 10.0 and a["new"]["median"] == 0.0
+    assert a["likely"] == 60.0
+    assert story.accuracy(db)["new"] is None  # too few new apartments to report

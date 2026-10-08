@@ -2412,6 +2412,7 @@ def create_app(
         effects = story.headline_effects(coefficients, labels, reference_area)
         listing, current = story.pick_listing(db())
         build = story.build_up(listing, labels, current=current)
+        accuracy = story.accuracy(db())
         counts = (
             db()
             .execute(
@@ -2438,6 +2439,7 @@ def create_app(
             reference_area=reference_area,
             build=build,
             build_svg=story.build_up_svg(build),
+            accuracy=accuracy,
             counts=counts,
             trials=trials,
             trials_svg=story.theories_svg(trials),

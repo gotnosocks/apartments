@@ -356,6 +356,37 @@ def pick_listing(db):
     return None, False
 
 
+def _median_miss(rows) -> float:
+    """The median gap between ask and estimate, as a percentage of the estimate."""
+    gaps = sorted(abs(r["ask"] - r["estimate"]) / r["estimate"] for r in rows)
+    mid = len(gaps) // 2
+    return 100 * (gaps[mid] if len(gaps) % 2 else (gaps[mid - 1] + gaps[mid]) / 2)
+
+
+def accuracy(db, small: int = 30) -> dict | None:
+    """How close the estimates come on the held-out asks, which no fit saw:
+    the median miss, for apartments the fit saw in other listings ("seen") and
+    for ones it never saw ("new", reported only with at least `small` asks),
+    and the share of asks inside their likely ask range (the middle 80%)."""
+    rows = db.execute(
+        "SELECT ask, estimate, pit, unit_fit_rows FROM listings "
+        "WHERE method = 'heldout' AND ask > 0 AND estimate > 0"
+    ).fetchall()
+    if not rows:
+        return None
+    seen = [r for r in rows if r["unit_fit_rows"] > 0]
+    new = [r for r in rows if r["unit_fit_rows"] == 0]
+    return {
+        "n": len(rows),
+        "median": _median_miss(rows),
+        "seen": {"n": len(seen), "median": _median_miss(seen)} if seen else None,
+        "new": {"n": len(new), "median": _median_miss(new)}
+        if len(new) >= small
+        else None,
+        "likely": 100 * sum(0.1 <= r["pit"] <= 0.9 for r in rows) / len(rows),
+    }
+
+
 def build_up(listing, labels: dict, small: float = 40.0, current=False) -> dict | None:
     """The listing's estimate as steps: the market first, then each term in
     the estimate's order, with terms smaller than `small` dollars gathered
