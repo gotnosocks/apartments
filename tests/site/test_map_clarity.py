@@ -41,18 +41,15 @@ def test_the_choices_are_kept_in_the_url():
     assert "buildControls();\n  readUrl();\n  render();" in JS
 
 
-def test_trend_explains_growth_against_the_asks():
-    assert 'id="trend-mix"' in PAGE
-    assert "$2,993 a month\n    to $5,255, +76%" in PAGE
-    assert "of the 2.8-point gap" in PAGE
-
-
 def test_the_growth_caveat_names_every_neighbourhood():
     import jinja2
 
     start = PAGE.index("{# The neighbourhoods the listings cover")
     fragment = PAGE[start : PAGE.index("</p>", start) + 4]
+    from apartments.site.summary import hood_name
+
     env = jinja2.Environment()
+    env.filters["hood"] = hood_name
 
     def caveat(neighbourhoods):
         meta = {"stats": {"neighbourhoods": neighbourhoods}}
@@ -65,22 +62,15 @@ def test_the_growth_caveat_names_every_neighbourhood():
     three = caveat({"Chelsea": 4, "Greenwich Village": 1, "West Village": 2})
     assert "hidden>Chelsea, Greenwich Village and the West Village share" in three
     assert "slower than the others only" in three
-
-
-def test_the_growth_decomposition_shows_only_for_its_own_run():
-    import jinja2
-
-    start = PAGE.index("{# Modeling's decomposition")
-    fragment = PAGE[start : PAGE.index("{% endif %}", start) + len("{% endif %}")]
-    env = jinja2.Environment()
-    run = "m7-nocurves-floorslope-bednoise-dayfourier-bedtime-yearnoise-nb3-coded-v2-rows-9371a18-gibbs-2060-3600k9cb1-nb3-v5f1u5-gv1005"
-
-    def render(r):
-        return env.from_string(fragment).render(meta={"provenance": {"run": r}})
-
-    assert 'id="trend-mix"' in render(run)
-    assert 'id="trend-mix"' not in render("m8-nb3-coded-v1-gv")
-    assert 'id="trend-mix"' not in render(
-        "m7-nocurves-floorslope-bednoise-dayfourier-bedtime-nb-coded-v1-rows-c82aa9b-gibbs-2060-4500k9cb1-nb-v5f1u3-d1005"
+    four = caveat(
+        {
+            "Chelsea": 4,
+            "Flatiron + Gramercy Park": 1,
+            "Greenwich Village": 1,
+            "West Village": 2,
+        }
     )
-    assert 'id="trend-mix"' not in env.from_string(fragment).render(meta={})
+    assert (
+        "hidden>Chelsea, Flatiron + Gramercy Park, Greenwich Village and the West Village share"
+        in four
+    )

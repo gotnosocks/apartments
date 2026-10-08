@@ -30,6 +30,13 @@ DATASET = Path(
         "/data1/apartments/frontier/datasets/chelsea-wv-gv-analysis-20261005-2d5b3b6",
     )
 )
+# Chelsea + West Village + Greenwich Village with Flatiron + Gramercy Park
+# (flatiron-gramercy-park-analysis-20261007-34b958d), combined by
+# `rentfrontier.cohort combine`: 135,759 rows. Fits read it through
+# FRONTIER_DATASET until a fit on it is served.
+DATASET_NB4 = Path(
+    "/data1/apartments/frontier/datasets/chelsea-wv-gv-fgp-analysis-20261008-b193e55"
+)
 OUTPUT_ROOT = Path(os.environ.get("FRONTIER_OUTPUT_ROOT", "/data1/apartments/frontier"))
 
 # Version of the flattened row (the cache key): v2 adds the neighbourhood.

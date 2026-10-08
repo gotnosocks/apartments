@@ -668,11 +668,13 @@ def coefficient_table(kept, feats: features.Features) -> pd.DataFrame:
 
 
 # The neighbourhood term when the design has more than one neighbourhood column
-# (Greenwich Village beside the West Village, `features.greenwich_v1`).
+# (Greenwich Village beside the West Village, `features.greenwich_v1`, and
+# Flatiron + Gramercy Park, `features.hood_v1`).
 NEIGHBOURHOODS_TEXT = (
-    "Each neighbourhood against Chelsea (the West Village, Greenwich Village): the "
-    "shift of every building's level there, before the building's own effect."
+    "Each neighbourhood against Chelsea ({hoods}): the shift of every building's "
+    "level there, before the building's own effect."
 )
+OTHER_HOODS = ("the West Village", "Greenwich Village", "Flatiron + Gramercy Park")
 
 
 def terms_record(names, columns=()) -> list[dict]:
@@ -680,7 +682,8 @@ def terms_record(names, columns=()) -> list[dict]:
     names) picks the neighbourhood text for three neighbourhoods."""
     text = dict(TERM_TEXT)
     if "Greenwich Village" in columns:
-        text["neighbourhood"] = NEIGHBOURHOODS_TEXT
+        hoods = [h for h in OTHER_HOODS if h.removeprefix("the ") in columns]
+        text["neighbourhood"] = NEIGHBOURHOODS_TEXT.format(hoods=", ".join(hoods))
     return [
         {
             "name": n,
