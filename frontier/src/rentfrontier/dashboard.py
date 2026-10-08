@@ -661,6 +661,11 @@ DATA_RULE_TEXT = {
     "v7 and v8: fixed text checks run over every Greenwich Village, Gramercy Park and "
     "Flatiron ad, and each hit is read with no rent shown. 95 are left out: ads for "
     "another address, shops and offices, rooms with a shared bath, and short stays.",
+    "quarantine-v10": "Only what a review that never looks at rent finds, in place of "
+    "quarantine-v1 to v9: v9's text checks run over every ad of all five "
+    "neighbourhoods, each hit read with no rent shown. 219 are left out: ads for another "
+    "address, shops and offices, rooms with a shared bath, two apartments for one ask, "
+    "and short stays. v6's other 191 rows come back.",
     "unit-reviews-v1": "Apartments a review found to be one apartment under two labels: "
     "at 110 West 26th Street, 4R and 4B, and 5R and 5B, are each floor's rear "
     "apartment (R for rear, B for back). No listing is dropped.",
