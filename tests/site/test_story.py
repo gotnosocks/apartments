@@ -220,6 +220,11 @@ def test_theories_chapter_reads_the_ledger(site_root, research_file, tmp_path):
     )
     assert re.search(r"The biggest wins: [^.,]+ and [^.,]+\.", html)
     assert "(model term: " in html
+    # the scoring is told in plain words; the technical names wait in a fold-out
+    assert "margin for luck" in html
+    assert html.index("<summary>The technical names</summary>") < html.index(
+        "#psis-loo"
+    )
     assert "1 of the 1 ideas about where a building sits," in html
     assert html.count('class="trial ') == 4
     assert "Some ideas scored brilliantly" in html
