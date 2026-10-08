@@ -263,6 +263,73 @@ picks the better predictor. Whether a feature means anything is still a person's
 </section>
 {% endif %}
 
+{% if cleaning %}
+{% set bed = cleaning.checks | selectattr("key", "equalto", "bed_changes") | first %}
+{% set jump = cleaning.checks | selectattr("key", "equalto", "big_jumps") | first %}
+<section id="cleaning">
+<h2>Cleaning the record</h2>
+<p>Before the model sees a single ask, the {{ "{:,}".format(cleaning.start.rows) }} rows pass through
+{{ cleaning.steps | length }} data rules. A listing site records the same apartment many times, from many brokers,
+over many years, and each rule fixes one way that record goes wrong.{% if not cleaning.current %} (These
+numbers are for the rules of an earlier served fit; they are refreshed when the rules change.){% endif %}</p>
+
+<p>The rules that matter most are about identity. The model gives every apartment its own level, so it has to
+know which asks are the same apartment. Brokers spell unit names in different ways, "4-FLR" and "4FLR", "PH04"
+and "PH4", so {{ "{:,}".format(cleaning.joined) }} unit names were joined to the apartment they name. The
+opposite mistake happens too: one unit page can hold a one-bedroom and, years later, a combined four-bedroom.
+Where a unit's bedroom count changes from one ad to the next, its history is split there, and that made
+{{ "{:,}".format(cleaning.split) }} more units.</p>
+
+{% if bed %}<p>Reading each unit's history shows what this does. In the raw rows, a unit's next listing has a
+different bedroom count {{ "{:.1f}".format(bed.before) }}% of the time; after the rules,
+{{ "{:.1f}".format(bed.after) }}%. That fall is mostly by design, since the splits are made exactly there.{% if jump %}
+The fairer check is the rent, which the joins and splits never look at: jumps of more than 40% from one listing to the next fall from
+{{ "{:.1f}".format(jump.before) }}% to {{ "{:.1f}".format(jump.after) }}%.{% endif %}</p>{% endif %}
+
+<figure class="story-figure" id="cleaning-figure" data-play>
+  <div class="legend-row" aria-hidden="true"><span><span class="swatch raw"></span>raw rows</span>
+    <span><span class="swatch clean"></span>after the rules</span></div>
+  <div class="figure-scroll" tabindex="0" role="region" aria-label="Figure, scrolls sideways on narrow screens">{{ cleaning_svg }}</div>
+  <figcaption>Two checks on each unit's history, as a share of the pairs of consecutive listings of one unit,
+  before and after the data rules.</figcaption>
+</figure>
+
+<p>The other rules touch fewer rows.
+{{ "{:,}".format(cleaning.dropped) }} rows{% if cleaning.dropped_buildings %}, including every row of
+{{ cleaning.dropped_buildings }} buildings,{% endif %} were set aside after a review, for example ads that place
+the apartment somewhere else, offer a shop or a room, or contradict their own ask. {{ "{:,}".format(cleaning.corrected) }} bedroom and bath
+counts were corrected, but only where the ad's count is backed by at least half of the unit's other listings,
+when it has any.
+An ad's description never overrides its coded fields by itself.</p>
+
+<p>Rules are tested like model terms: the model is fitted with and without the rule and scored on the rows
+both fits keep. They are the data rules in the chapter above.
+The <a href="{{ url_for('research_data_quality') }}">data quality</a> page lists every rule and its reviews.</p>
+
+<details class="table-view">
+  <summary>Every rule as a table</summary>
+  <div class="table-wrap">
+  <table class="data">
+    <thead><tr><th scope="col">Rule</th><th scope="col">What it does</th><th scope="col">Effect</th>
+      <th scope="col" class="num">Rows</th><th scope="col" class="num">Units</th><th scope="col" class="num">Buildings</th></tr></thead>
+    <tbody>
+    <tr><td class="muted">raw rows</td><td></td><td></td><td class="num">{{ "{:,}".format(cleaning.start.rows) }}</td>
+      <td class="num">{{ "{:,}".format(cleaning.start.units) }}</td><td class="num">{{ "{:,}".format(cleaning.start.buildings) }}</td></tr>
+    {% for s in cleaning.steps %}
+    <tr><td class="nowrap"><code>{{ s.rule }}</code></td><td>{{ s.does }}</td><td>{{ s.words }}</td>
+      <td class="num">{{ "{:,}".format(s.rows) }}</td><td class="num">{{ "{:,}".format(s.units) }}</td>
+      <td class="num">{{ "{:,}".format(s.buildings) }}</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  </div>
+  {% if cleaning.checks %}<p class="muted">{% for k in cleaning.checks %}A unit's {{ k.name }}:
+  {{ "{:.1f}".format(k.before) }}% of consecutive listing pairs in the raw rows, {{ "{:.1f}".format(k.after) }}% after the rules.
+  {% endfor %}</p>{% endif %}
+</details>
+</section>
+{% endif %}
+
 <section id="next">
 <h2>Where to go from here</h2>
 <p>The model got this shape through many fits, and most ideas didn't survive. The

@@ -16,6 +16,43 @@ def test_year_weights_average_the_interpolated_walk():
     np.testing.assert_allclose(w @ walk_year, monthly @ by_year.T)
 
 
+def test_grid_layout_reads_east_side_and_named_avenues():
+    # Flatiron + Gramercy Park addresses: East streets, avenues in words and
+    # with names, and a street with buildings on both sides of Fifth Avenue.
+    phi = np.radians(rentmap.GRID_BEARING_DEG)
+    lat0, lon0, m = 40.738, -73.985, 111_320.0
+
+    def place(across, up, label):
+        east = across * np.cos(phi) + up * np.sin(phi)
+        north = -across * np.sin(phi) + up * np.cos(phi)
+        lat = lat0 + north / m
+        lon = lon0 + east / (m * np.cos(np.radians(lat0)))
+        return {"label": label, "lat": float(lat), "lon": float(lon)}
+
+    buildings = [
+        place(100, -300, "120 East 18 Street"),
+        place(300, -300, "241 East 18 Street"),
+        place(100, 100, "112 East 23 Street"),
+        place(-200, 100, "35 West 23 Street"),
+        place(600, -100, "387 First Avenue"),
+        place(600, 50, "400 1 Avenue"),
+        place(400, -100, "287 3 Avenue"),
+        place(400, 50, "300 Third Avenue"),
+        place(200, -100, "66 Irving Place"),
+        place(200, 50, "80 Irving Place"),
+        place(150, -100, "200 Park Avenue South"),
+        place(150, 50, "250 Park Avenue South"),
+        place(-100, -100, "861 Broadway"),
+        place(-100, 50, "864 Broadway"),
+    ]
+    grid = rentmap.grid_layout(buildings)
+    streets = [s["label"] for s in grid["streets"]]
+    assert streets == ["E 18 St", "23 St"]
+    avenues = [a["label"] for a in grid["avenues"]]
+    assert avenues == ["1st Av", "3rd Av", "Irving Pl", "Park Av S"]
+    assert rentmap.ordinal(2) == "2nd" and rentmap.ordinal(11) == "11th"
+
+
 def test_grid_layout_puts_streets_up_and_avenues_across():
     # Two buildings on each of W 14 St and W 23 St, and two on each of 8th and
     # 9th Avenue, placed on a grid rotated 29 degrees east of north.

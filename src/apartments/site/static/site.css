@@ -604,6 +604,21 @@ button[aria-busy="true"] { cursor: progress; opacity: 0.75; }
   .story-figure.armed.play .step, .story-figure.armed.play .link, .story-figure.armed.play .block, .story-figure.armed.play .trial, .story-figure.armed.play .switch { animation-play-state: running; }
 }
 .story-figure.reset .step, .story-figure.reset .link, .story-figure.reset .block, .story-figure.reset .trial, .story-figure.reset .switch { animation: none; }
+/* Cleaning: each check's line draws from the raw share to the cleaned one, then its dot lands. */
+.cleaning .shift { stroke: var(--ink-2); stroke-width: 2; }
+.cleaning .raw, .swatch.raw { fill: var(--surface); stroke: var(--ink-2); stroke-width: 2; background: transparent; box-shadow: inset 0 0 0 2px var(--ink-2); }
+.cleaning .clean, .swatch.clean { fill: var(--s3); background: var(--s3); }
+.swatch.raw, .swatch.clean { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 0.3rem; vertical-align: -1px; }
+@media (prefers-reduced-motion: no-preference) {
+  .cleaning .shift { stroke-dasharray: 1; animation: story-draw 0.9s ease-in-out both; }
+  .cleaning .clean { animation: story-pop 0.3s ease-out both; animation-delay: 0.9s; }
+  .cleaning .r1 .shift { animation-delay: 0.6s; } .cleaning .r1 .clean { animation-delay: 1.5s; }
+  .story-figure.armed .shift, .story-figure.armed .clean { animation-play-state: paused; }
+  .story-figure.armed.play .shift, .story-figure.armed.play .clean { animation-play-state: running; }
+}
+.story-figure.reset .shift, .story-figure.reset .clean { animation: none; }
+@keyframes story-draw { from { stroke-dashoffset: 1; } to { stroke-dashoffset: 0; } }
+@keyframes story-pop { from { opacity: 0; } to { opacity: 1; } }
 .replay { font-size: 0.8rem; margin-top: 0.3rem; }
 @media (prefers-reduced-motion: reduce) { .replay { display: none; } }
 @keyframes story-in { from { opacity: 0; transform: translateX(-12px); } to { opacity: 1; transform: none; } }
