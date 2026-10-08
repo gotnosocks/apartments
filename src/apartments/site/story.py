@@ -1077,7 +1077,7 @@ def _step_words(step: dict, before: dict) -> str:
     if family == "correct":
         changed = step.get("changed") or {}
         if not changed:
-            return "no change: it reverts an earlier rule"
+            return "no change (it reverts an earlier rule)"
         return ", ".join(
             f"{n:,} {FIELD_WORDS.get(f, f.replace('_', ' '))}"
             for f, n in changed.items()
@@ -1091,16 +1091,39 @@ def _step_words(step: dict, before: dict) -> str:
     return ""
 
 
+def _count(value) -> int:
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        raise ValueError(value)
+    return int(value)
+
+
+def _share(value) -> float | None:
+    ok = isinstance(value, (int, float)) and not isinstance(value, bool)
+    return float(value) if ok and math.isfinite(value) else None
+
+
+def _clean_step(step: dict) -> dict:
+    changed = step.get("changed") or {}
+    if not isinstance(changed, dict):
+        raise ValueError(changed)
+    return {
+        "rule": str(step.get("rule", "")),
+        "family": step.get("family"),
+        "dropped": _count(step.get("dropped", 0)),
+        "changed": {str(f): _count(n) for f, n in changed.items()},
+        **{k: _count(step[k]) for k in ("rows", "units", "buildings")},
+        **{k: _share(step.get(k)) for k, _ in CHECKS},
+    }
+
+
 def cleaning(doc: dict | None, served_run: str | None = None) -> dict | None:
     """The cleaning chapter's numbers: the rows before and after the served
-    fit's data rules, each rule's effect, and the two history checks."""
+    fit's data rules, each rule's effect, and the two history checks. None
+    when the file is missing or malformed."""
     try:
-        start, steps = doc["start"], list(doc["steps"])
-        for key in ("rows", "units", "buildings"):
-            int(start[key])
-            for s in steps:
-                int(s[key])
-    except (KeyError, TypeError, ValueError):
+        start = _clean_step(doc["start"])
+        steps = [_clean_step(s) for s in doc["steps"]]
+    except (KeyError, TypeError, ValueError, AttributeError):
         return None
     if not steps:
         return None
@@ -1108,9 +1131,9 @@ def cleaning(doc: dict | None, served_run: str | None = None) -> dict | None:
     for s in steps:
         rows.append(
             {
-                "rule": s.get("rule", ""),
-                "family": s.get("family", ""),
-                "does": FAMILY_WORDS.get(s.get("family"), ""),
+                "rule": s["rule"],
+                "family": s["family"] or "",
+                "does": FAMILY_WORDS.get(s["family"], ""),
                 "words": _step_words(s, before),
                 **{k: s[k] for k in ("rows", "units", "buildings")},
             }
@@ -1128,8 +1151,8 @@ def cleaning(doc: dict | None, served_run: str | None = None) -> dict | None:
 
     checks = []
     for key, name in CHECKS:
-        a, b = start.get(key), end.get(key)
-        if isinstance(a, (int, float)) and isinstance(b, (int, float)):
+        a, b = start[key], end[key]
+        if a is not None and b is not None:
             checks.append(
                 {"key": key, "name": name, "before": 100 * a, "after": 100 * b}
             )

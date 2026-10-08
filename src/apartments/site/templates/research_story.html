@@ -277,12 +277,14 @@ numbers are for the rules of an earlier served fit; they are refreshed when the 
 know which asks are the same apartment. Brokers spell unit names in different ways, "4-FLR" and "4FLR", "PH04"
 and "PH4", so {{ "{:,}".format(cleaning.joined) }} unit names were joined to the apartment they name. The
 opposite mistake happens too: one unit page can hold a one-bedroom and, years later, a combined four-bedroom.
-Where a unit's bedroom count changes from one ad to the next, its history is split in two, and that made
+Where a unit's bedroom count changes from one ad to the next, its history is split there, and that made
 {{ "{:,}".format(cleaning.split) }} more units.</p>
 
-{% if bed %}<p>The way to check that the units are right is to read each unit's history. In the raw rows, a
-unit's next listing has a different bedroom count {{ "{:.1f}".format(bed.before) }}% of the time. After the rules,
-{{ "{:.1f}".format(bed.after) }}%.{% if jump %} Rent jumps of more than 40% from one listing to the next fall from {{ "{:.1f}".format(jump.before) }}% to {{ "{:.1f}".format(jump.after) }}%.{% endif %}</p>{% endif %}
+{% if bed %}<p>Reading each unit's history shows what this does. In the raw rows, a unit's next listing has a
+different bedroom count {{ "{:.1f}".format(bed.before) }}% of the time; after the rules,
+{{ "{:.1f}".format(bed.after) }}%. That fall is mostly by design, since the splits are made exactly there.{% if jump %}
+The fairer check is the rent, which the joins and splits never look at: jumps of more than 40% from one listing to the next fall from
+{{ "{:.1f}".format(jump.before) }}% to {{ "{:.1f}".format(jump.after) }}%.{% endif %}</p>{% endif %}
 
 <figure class="story-figure" id="cleaning-figure" data-play>
   <div class="legend-row" aria-hidden="true"><span><span class="swatch raw"></span>raw rows</span>
@@ -296,7 +298,8 @@ unit's next listing has a different bedroom count {{ "{:.1f}".format(bed.before)
 {{ "{:,}".format(cleaning.dropped) }} rows{% if cleaning.dropped_buildings %}, including every row of
 {{ cleaning.dropped_buildings }} buildings,{% endif %} were set aside after a review, for example ads that place
 the apartment somewhere else, offer a shop or a room, or contradict their own ask. {{ "{:,}".format(cleaning.corrected) }} bedroom and bath
-counts were corrected, but only where the ad's count is backed by at least half of the unit's other listings.
+counts were corrected, but only where the ad's count is backed by at least half of the unit's other listings,
+when it has any.
 An ad's description never overrides its coded fields by itself.</p>
 
 <p>Rules are tested like model terms: the model is fitted with and without the rule and scored on the rows

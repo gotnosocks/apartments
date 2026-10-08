@@ -42,6 +42,7 @@ def family(rule: str) -> str:
         ("unit-reviews-", "join"),
         ("unit-splits-", "split"),
         ("quarantine-", "drop"),
+        ("tune-", "drop"),
     ):
         if rule.startswith(prefix):
             return name
@@ -123,7 +124,7 @@ def main():
     record = json.loads(
         (data.OUTPUT_ROOT / "runs" / args.run / "result.json").read_text()
     )
-    rules = record.get("data_rules") or []
+    rules = data.recorded_rules(record)
     frame = data.load(Path(record["dataset"]))
     doc = {"run": args.run, "dataset": Path(record["dataset"]).name}
     doc.update(steps(frame, rules))

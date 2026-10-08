@@ -344,6 +344,15 @@ def test_cleaning_sums_each_family():
     assert story.cleaning(None) is None
     assert story.cleaning({"start": {}, "steps": []}) is None
     assert story.cleaning_svg(None) == ""
+    for broken in (
+        {"dropped": None},
+        {"changed": {"bedrooms": "x"}},
+        {"changed": [1]},
+        {"units": "1"},
+    ):
+        doc = json.loads(json.dumps(CLEANING))
+        doc["steps"][2].update(broken)
+        assert story.cleaning(doc) is None, broken
 
 
 def test_cleaning_chapter_reads_the_steps(site_root, research_file, tmp_path):
@@ -354,7 +363,7 @@ def test_cleaning_chapter_reads_the_steps(site_root, research_file, tmp_path):
     assert 'id="cleaning"' in html
     assert "the 1,000 rows pass through\n5 data rules" in html
     assert "so 15 unit names were joined" in html
-    assert "8.0% of the time. After the rules,\n0.7%." in html
+    assert "8.0% of the time; after the rules,\n0.7%." in html
     assert "an earlier served fit" in html  # the test site serves another run
     path.write_text("not json")
     html = _page(app.test_client())
