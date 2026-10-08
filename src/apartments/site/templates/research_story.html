@@ -574,7 +574,7 @@ which takes up whatever its spot is worth beyond the name.</p>
 up by their distance to the nearest building across a border. Each side is read from its buildings 300 to 600 m
 from the line and those within 75 m of it. If the name carries the price, each side is level
 and the gap sits at the line, like the dashed step. If the location carries it, the buildings climb toward the
-dearer side and the gap at the line is small. Most borders show some of each:</p>
+dearer side and the gap at the line is small. Each border, in those terms:</p>
 <ul>{% for p in borders %}
   <li><strong>{{ p.a }} → {{ p.b }}</strong> (the names differ by {{ "{:+.0f}".format(p.gap) }} points):{% if p.toward_a is not none %}
   {{ p.a }}’s buildings {{ move(p.toward_a) }} on the way to the line,{% endif %} the buildings either side of it
