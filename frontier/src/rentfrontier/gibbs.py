@@ -1089,7 +1089,7 @@ def make_step(d: Design):
             rescale_step_sd,
             unit_rescale_step_sd,
         ) = cfg
-        keys = jax.random.split(key, 15)
+        keys = jax.random.split(key, 16)
         s = {k: state[k] for k in d.scale_names}
         z = (
             jax.random.normal(keys[0], (d.a.shape[1],)),
@@ -1454,7 +1454,7 @@ def make_step(d: Design):
             e = e - (c_tot - 1.0) * contrib
             info["rescale_accept"] = acc / rescale_steps
         c_u, tau_u, acc_u = _rescale(
-            jax.random.fold_in(keys[10], 1),
+            keys[15],
             e,
             wts,
             u[d.unit],
