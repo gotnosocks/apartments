@@ -37,6 +37,13 @@ DATASET = Path(
 DATASET_NB4 = Path(
     "/data1/apartments/frontier/datasets/chelsea-wv-gv-fgp-analysis-20261008-b193e55"
 )
+# The five neighbourhoods: the same rows, with each Flatiron + Gramercy Park row
+# named Flatiron or Gramercy Park by its building's StreetEasy area
+# (`rentfrontier.cohort areas`, areas/20261008-6027acc), then combined. Fits
+# read it through FRONTIER_DATASET until a fit on it is served.
+DATASET_NB5 = Path(
+    "/data1/apartments/frontier/datasets/chelsea-wv-gv-flatiron-gramercy-analysis-20261008-0a23057"
+)
 OUTPUT_ROOT = Path(os.environ.get("FRONTIER_OUTPUT_ROOT", "/data1/apartments/frontier"))
 
 # Version of the flattened row (the cache key): v2 adds the neighbourhood.
