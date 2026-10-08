@@ -141,7 +141,7 @@ def kit_tables(kept, prep, config, feats, keep: int = DRAWS):
     fslope_names = list(config.feature_slopes)
     fslope = kept["fslope"] if fslope_names else np.zeros((d, level.shape[1], 0))
     sigma = kept["sigma"] if kept["sigma"].ndim == 2 else kept["sigma"][:, None]
-    if config.noise_loglinear:
+    if getattr(config, "noise_loglinear", False):
         # By bedroom group and noise cell (group-major): the kit prices a new
         # unit, so it keeps the single-listing cell (floor known, an
         # established building).

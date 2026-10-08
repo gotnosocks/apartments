@@ -60,6 +60,11 @@ def synthetic(seed=0, n_buildings=15, units_per_building=8, months=24):
         unit_time=(
             (frame.m - frame.groupby("u").m.transform("mean")) / 12.0
         ).to_numpy(),
+        # First listing of the unit as of its month (bit 0) for the log-linear
+        # noise design; the other factors off.
+        noise_cell=(frame.groupby("u").m.transform("min") == frame.m)
+        .to_numpy()
+        .astype(np.int32),
     )
     feats = Features("synthetic", ["x0", "x1"], ["x", "x"], x, np.ones(2))
     return model.Prepared(
@@ -212,10 +217,14 @@ def dense_mean(d, lam, s, kappa=None):
 
 
 # The dense reference has one residual scale; "bednoise" is checked against
-# the one-scale block with rescaled weights instead.
+# the one-scale block with rescaled weights instead ("lognoise" shares its
+# scale path).
 @pytest.mark.parametrize(
     "design",
-    sorted(set(DESIGNS) - {"bednoise", "bednoise-fourier", "yearnoise", "lines"}),
+    sorted(
+        set(DESIGNS)
+        - {"bednoise", "bednoise-fourier", "yearnoise", "lognoise", "lines"}
+    ),
 )
 def test_joint_gaussian_mean_matches_dense_solve(design):
     prep = synthetic()
@@ -794,12 +803,12 @@ def test_year_noise_runs_and_reports_a_scale_per_group():
 
 def with_noise_cells(prep, extra=0.15, seed=3):
     """prep with each row in a random noise cell, and extra noise of sd
-    `extra` added to rows whose unit is single (bit 0)."""
+    `extra` added to first-listing rows (bit 0)."""
     rng = np.random.default_rng(seed)
     tr = prep.train
     cell = rng.integers(0, model.NOISE_CELLS, len(tr.y)).astype(np.int32)
-    single = (cell & 1) == 1
-    y = tr.y + np.where(single, rng.normal(0, extra, len(tr.y)), 0.0)
+    first = (cell & 1) == 1
+    y = tr.y + np.where(first, rng.normal(0, extra, len(tr.y)), 0.0)
     train = dataclasses.replace(tr, y=y, noise_cell=cell)
     return dataclasses.replace(prep, train=train, test=train.map(lambda v: v[:10]))
 
@@ -847,7 +856,7 @@ def test_loglinear_noise_finds_the_noisier_factor():
     mean = out["mean"]
     assert np.asarray(mean["sigma"]).shape == (4 * model.NOISE_CELLS,)
     mult = np.asarray(mean["noise_mult"])
-    assert mult[0] > 1.8  # single: sd ~ 0.16 against ~ 0.05
+    assert mult[0] > 1.8  # first listing: sd ~ 0.16 against ~ 0.05
     assert np.all((mult[1:] > 0.6) & (mult[1:] < 1.6))
 
 
@@ -910,8 +919,9 @@ def test_loglinear_noise_gibbs_matches_nuts():
 
 
 def test_prepare_sets_noise_cells():
-    """`model.prepare` encodes single (unit with one training row), small
-    building, floor unknown and the building's first training year."""
+    """`model.prepare` encodes first listing (no earlier training row of the
+    unit), small building, floor unknown and the building's first training
+    year."""
     frame = pd.DataFrame(
         {
             "building": ["a"] * 7 + ["b"] * 2,
@@ -934,9 +944,9 @@ def test_prepare_sets_noise_cells():
     heldout = np.zeros(9, bool)
     heldout[6] = True  # a6: a unit with no training rows
     prep = model.prepare(frame, heldout, feats)
-    # Bits: single 1, small 2, floor_unknown 4, first_year 8.
+    # Bits: first_listing 1, small 2, floor_unknown 4, first_year 8.
     np.testing.assert_array_equal(
-        prep.train.noise_cell, [8, 0, 1 + 4 + 8, 1, 1, 1, 1 + 2 + 8, 1 + 2 + 4]
+        prep.train.noise_cell, [1 + 8, 0, 1 + 4 + 8, 1, 1, 1, 1 + 2 + 8, 1 + 2 + 4]
     )
     np.testing.assert_array_equal(prep.test.noise_cell, [1])
 

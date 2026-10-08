@@ -219,10 +219,13 @@ class ModelConfig:
 KNOT_MONTHS = 6
 BEDROOM_GROUPS = ("studio", "one_bedroom", "two_bedroom", "three_plus")
 # The log-linear noise factors (`noise_loglinear`), bit k of `Arrays.noise_cell`:
-# the unit has at most one training row; the building has at most
+# the row is the unit's first listing as of its date (no training row of the
+# unit is earlier; every new unit's ask is one); the building has at most
 # SMALL_BUILDING_ROWS; the floor is unknown; the row is in the building's first
-# training year (or earlier).
-NOISE_FACTORS = ("single", "small", "floor_unknown", "first_year")
+# training year (or earlier). "Listed once in the dataset" would key on rows
+# from the future, and units that never return are not knowable when a new
+# unit is priced.
+NOISE_FACTORS = ("first_listing", "small", "floor_unknown", "first_year")
 NOISE_CELLS = 2 ** len(NOISE_FACTORS)
 SMALL_BUILDING_ROWS = 5
 
@@ -422,9 +425,9 @@ class Prepared:
     unit_line: np.ndarray | None = None
     # Neighbourhoods by training rows, most first (the area_time reference).
     areas: np.ndarray | None = None
-    # Training rows per unit and per building, and each building's first
-    # training year (`Arrays.noise_cell`).
-    unit_rows: np.ndarray | None = None
+    # Each unit's first training period, training rows per building, and each
+    # building's first training year (`Arrays.noise_cell`).
+    unit_first_period: np.ndarray | None = None
     building_rows: np.ndarray | None = None
     building_first_year: np.ndarray | None = None
 
@@ -468,7 +471,9 @@ def prepare(frame: pd.DataFrame, heldout: np.ndarray, features: Features) -> Pre
     shared = lines.map(lines.value_counts()).ge(2)
     codes = pd.Categorical(lines.where(shared)).codes  # -1 for NaN
     prep.unit_line = np.asarray(codes, dtype=np.int32)
-    prep.unit_rows = tr.unit_id.value_counts().reindex(prep.units).to_numpy()
+    prep.unit_first_period = (
+        tr.period.groupby(tr.unit_id).min().reindex(prep.units).to_numpy()
+    )
     prep.building_rows = tr.building.value_counts().reindex(prep.buildings).to_numpy()
     prep.building_first_year = (
         tr.period.dt.year.groupby(tr.building).min().reindex(prep.buildings).to_numpy()
@@ -515,10 +520,11 @@ def row_arrays(prep: Prepared, frame: pd.DataFrame, mask: np.ndarray) -> Arrays:
 def _noise_cell(prep: Prepared, sub, building, mask) -> np.ndarray | None:
     """Each row's log-linear noise cell (NOISE_FACTORS as bits); None for a
     prep without the training counts."""
-    if prep.unit_rows is None:
+    if prep.unit_first_period is None:
         return None
     unit = pd.Index(prep.units).get_indexer(sub.unit_id)
-    unit_rows = np.where(unit >= 0, prep.unit_rows[np.maximum(unit, 0)], 0)
+    first = prep.unit_first_period[np.maximum(unit, 0)]
+    first_listing = (unit < 0) | (sub.period.to_numpy() <= first)
     names = list(prep.features.names)
     floor_unknown = (
         prep.features.values[mask][:, names.index("floor_unknown")] > 0
@@ -526,7 +532,7 @@ def _noise_cell(prep: Prepared, sub, building, mask) -> np.ndarray | None:
         else np.zeros(len(sub), bool)
     )
     bits = (
-        unit_rows <= 1,
+        first_listing,
         prep.building_rows[building] <= SMALL_BUILDING_ROWS,
         floor_unknown,
         sub.period.dt.year.to_numpy() <= prep.building_first_year[building],
