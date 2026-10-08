@@ -657,13 +657,15 @@ Chelsea −0.90 ± 0.39 (658), GV −0.50 ± 0.76 (341).
   | 400–600 | +2.5 ± 0.8 (238) | −0.3 ± 0.8 (126) |
   | 600–800 | +1.4 ± 0.9 (178) | −0.5 ± 0.8 (173) |
   | 800–1,200 | +1.5 ± 2.9 (13) | −1.4 ± 0.7 (234) |
+  | 1,200–1,600 | — | +0.4 ± 2.0 (27) |
 
   - WV by side: west of Hudson St +4.2 ± 1.0 (116), Hudson St to 7 Ave S +2.7 ± 0.7 (325), east
     of 7 Ave S +1.0 ± 0.8 (167).
-  - Slope on distance within WV: −4.6 ± 2.7 pp per km (with off-grid as a control). Chelsea:
-    −0.2 ± 1.4.
-  - **Partly as predicted.** The WV drift is largest west of Hudson St and small (not
-    distinguishable from 0) east of 7 Ave S. But the gradient is only about 1.7 SE. Chelsea's west
+  - Slope on distance within WV: −4.6 ± 2.7 pp per km, controlling for off-grid (which is also
+    western). Chelsea: −0.2 ± 1.4.
+  - **Weakly as predicted.** By side, the WV drift is largest west of Hudson St and not
+    distinguishable from 0 east of 7 Ave S. By distance it is not monotone: the 0–200 m band is
+    among the lowest. The slope is only about 1.7 SE. Chelsea's west
     side shows no rise, even next to Pier 57 and Little Island, which sit at the Chelsea–WV
     border. So the parks alone can't be the story: the rise stops at the area line.
   - `parks.SECTIONS` dates the High Line (Gansevoort–W 20th 2009-06-08, W 20th–W 30th
@@ -675,7 +677,9 @@ Chelsea −0.90 ± 0.39 (658), GV −0.50 ± 0.76 (341).
     mixed S +1.1 ± 1.3 (69), condo R −1.1 ± 1.6 (49). **Not concentrated in R-class**; the
     elevator and walkup stock carry it.
   - The WV row mix by class barely moves (D 35% → 32%, R 6% → 6%, walkups 52% → 55%). The row-level
-    WV drift is +4.75 raw and +4.97 at the pre-period class mix.
+    WV drift is +4.75 raw and +4.97 at the pre-period class mix. It is larger than the
+    building mean (+2.53) because it weights by rows and uses all rows, not only the panel
+    buildings.
   - By pre-period price quintile (log rent against the bedroom × year mean), cheapest to dearest:
     WV +4.9, +2.3, +4.3, +1.4, −0.3; Chelsea +2.0, +0.5, −0.3, −0.4, −6.3. Both fall with price,
     which is mostly regression to the mean. WV sits 2 to 6 pp above Chelsea in every quintile.
@@ -686,9 +690,10 @@ Chelsea −0.90 ± 0.39 (658), GV −0.50 ± 0.76 (341).
       matches GV's and Gramercy's, so it doesn't explain a WV-only rise.
     - Sublet or short-term (0.6–1.6%), furnished (1.8–2.6%) and townhouse or brownstone (6–8%)
       mentions are flat in WV.
-  - Every row is a StreetEasy listing with the same price basis, so there is no source-mix shift.
-  - **No sign that new kinds of listings (townhouse or condo sublets) entering the data explain
-    the drift.**
+  - Every row comes through StreetEasy (Corcoran and Compass listings included), with one price
+    basis apart from about 4% current captures in 2026, so the source can't shift.
+  - **No sign that composition explains the drift.** Building class, price tier and the sublet,
+    furnished and townhouse mentions don't move. Condo units are tested only through class R.
 - **3. Open Restaurants and Open Streets.**
   - Open Restaurant Applications (Historical, `pitm-atqc`) has dated, geocoded applications:
     3,646 unique Manhattan restaurants approved for roadway seating, 80% from 2020. Dining Out NYC
@@ -697,26 +702,31 @@ Chelsea −0.90 ± 0.39 (658), GV −0.50 ± 0.76 (341).
     is not usable by year.
   - Mean roadway sheds within 300 m (2020–23): WV 67, GV 77, Chelsea 33.
   - Cross-section: drift per sd of shed count is WV −0.74 ± 0.48 (terciles +3.1, +2.9, +1.6),
-    Chelsea +0.75 ± 0.39, GV +0.28 ± 0.75; pooled with area dummies −0.05 ± 0.37.
+    Chelsea +0.75 ± 0.39 (about 1.9 SE, opposite sign to WV), GV +0.28 ± 0.75; pooled with area
+    dummies −0.05 ± 0.37.
   - Panel (building-year residual plus walk, building and area × year fixed effects; exposure
     rises 2020–23, held in 2024, Dining Out roadway licences from 2025): −0.41 ± 0.08 pp per 10
     sheds in WV, −0.37 ± 0.05 across the three areas. Those SEs aren't clustered by building, so
     they are too small.
-  - **The WV drift doesn't track shed density.** Within buildings, more sheds nearby go with
-    slightly lower rent, if anything.
+  - **The WV drift doesn't track shed density.** The within-building panel leans slightly
+    negative, but with unclustered SEs that is suggestive at most.
 - **4. 3BR+ family market and households with children.**
   - ACS 1-year PUMS household files, 2012–2024. The study buildings fall in 2010 PUMAs 3807
     (Chelsea) and 3810 (WV, GV), and in 2020 PUMAs 4104, 4165 (Chelsea) and 4121 (WV, GV).
     The geography changes in 2022, and 2020 is the experimental release.
   - Share of households with children: 11.9% (2012) → 9.9% (2024); renters 9.2% → 7.1%. The
-    single-year sampling SE is about 1.4 pp, about as big as the whole 12-year change.
-  - Against the elevator/condo 3BR+ curve (+1.7 → −11.0 pp): levels r = +0.47 (p 0.11), renters
+    single-year sampling SE is about 1.4 pp, against a 2.0 pp change over 12 years, so year to
+    year moves are mostly noise.
+  - The elevator/condo 3BR+ curve is check D's (above), by year: the served 3BR+ curve plus the
+    mean residual-plus-walk gap of 3BR+ over 1BR rows in D and R buildings. It goes +1.7 (2012) →
+    −11.0 (2024) pp. Against it: levels r = +0.47 (p 0.11), renters
     +0.54 (p 0.06); annual changes +0.39 and +0.31 (n 12). After removing linear trends: r = +0.06
     and +0.02. Walkup 3BR+: levels −0.14 and −0.03.
   - **The only link is a shared downward trend.** Fewer households with children and a growing
     family-building 3BR+ discount point the same way, but the ACS is too noisy at this geography to
     test more than that.
-- **What this means for the model.** The WV rise is area-wide, strongest west of Hudson St. It
+- **What this means for the model.** The WV rise is area-wide, perhaps stronger west of
+  Hudson St. It
   isn't composition and isn't outdoor dining. That is the `area_time` term again, perhaps with a
   west-of-Hudson-St split later. Nothing here argues for a new feature ahead of it.
 
