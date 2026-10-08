@@ -280,7 +280,7 @@ def test_the_alias_file_is_hashed_but_drops_no_rows():
     assert "unit-labels-v2" not in data.DROPPING_RULES
     groups = data.unit_aliases()
     assert len(groups) == 248 and all(len(g) > 1 for g in groups)
-    assert data.dropped_rows() == data.quarantined(data.QUARANTINE_V6)
+    assert data.dropped_rows() == data.quarantined(data.QUARANTINE_V7)
 
 
 @pytest.mark.parametrize(
@@ -843,3 +843,16 @@ def test_ad_corrections_v3_keep_v2s_rows_and_values():
         assert len(set(old) - set(new)) == missing
         assert all(new[a] == c for a, c in old.items() if a in new)
     assert {"bedrooms-ad-v3", "baths-ad-v3"} <= set(data.RULE_SOURCES)
+
+
+def test_quarantine_v7_is_v6_and_the_three_new_neighbourhoods():
+    """v7 keeps all of v6's rows and adds 45, each with its quote and reason."""
+    v6 = data.quarantined(data.QUARANTINE_V6)
+    v7 = data.quarantined(data.QUARANTINE_V7)
+    assert v6 < v7 and len(v7 - v6) == 45
+    with open(data.QUARANTINE_V7) as f:
+        rows = [json.loads(line) for line in f if line.strip()]
+    added = [r for r in rows if r["audit_id"] in v7 - v6]
+    assert all(r["evidence"] and r["reason"] for r in added)
+    assert {r["action"] for r in added} <= {r["action"] for r in rows[: len(v6)]}
+    assert "quarantine-v7" in data.DROPPING_RULES
