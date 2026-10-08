@@ -1126,10 +1126,11 @@ def loft_v1(
 
 
 # An apartment named in a DOB job description: "APT 4D", "APARTMENT #12",
-# "UNIT PH2". Only the first label of a list ("APTS 2A & 3A") is read.
+# "UNIT NO. 1203", "UNIT PH-A". Only the first label of a list ("APTS 2A & 3A")
+# is read. Dashes are dropped, as from StreetEasy's labels.
 APARTMENT_NAMED = re.compile(
-    r"\b(?:APT|APARTMENT|UNIT|APTS|APARTMENTS)\.?\s*#?\s*"
-    r"([0-9]{1,2}[A-Z]{0,2}|[A-Z]{1,2}[0-9]{0,2}|PH[0-9A-Z]*)\b"
+    r"\b(?:APARTMENTS?|APTS?|UNITS?)\.?\s*(?:NO\.?\s*)?#?\s*"
+    r"([0-9]{1,4}[A-Z]{0,2}|PH-?[0-9A-Z]*|[A-Z]{1,2}[0-9]{0,2})\b"
 )
 
 
@@ -1142,7 +1143,9 @@ def apartment_permits(frame: pd.DataFrame, years: int = 3) -> np.ndarray:
     jobs = pd.read_parquet(DOB_FILE)
     jobs = jobs[jobs.kind.isin(["A1", "A2"])]
     named = jobs.assign(
-        label=jobs.description.map(lambda d: sorted(set(APARTMENT_NAMED.findall(d))))
+        label=jobs.description.map(
+            lambda d: sorted({x.replace("-", "") for x in APARTMENT_NAMED.findall(d)})
+        )
     ).explode("label")
     named = named.dropna(subset=["label"])[["bin", "label", "permitted"]]
     rows = pd.DataFrame(

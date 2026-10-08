@@ -591,17 +591,28 @@ def test_apartment_permits_name_the_unit_in_the_years_before(tmp_path, monkeypat
     )
     jobs = pd.DataFrame(
         {
-            "bin": ["11", "11", "11", "22"],
-            "job": ["j1", "j2", "j3", "j4"],
-            "kind": ["A2", "A2", "NB", "A2"],
+            "bin": ["11", "11", "11", "22", "22", "22", "22"],
+            "job": ["j1", "j2", "j3", "j4", "j5", "j6", "j7"],
+            "kind": ["A2", "A2", "NB", "A2", "A2", "A2", "A1"],
             "permitted": pd.to_datetime(
-                ["2015-03-01", "2020-06-15", "2019-01-01", "2018-01-01"]
+                [
+                    "2015-03-01",
+                    "2020-06-15",
+                    "2019-01-01",
+                    "2018-01-01",
+                    "2018-01-01",
+                    "2018-01-01",
+                    "2018-01-01",
+                ]
             ),
             "description": [
                 "RENOVATION OF APT. #4D ON 4TH FLOOR",
                 "PLUMBING IN APARTMENT 2A AND HALLWAY",
                 "NEW BUILDING, UNIT 5B",
                 "COMBINE APT 3 & 4",
+                "COMBINE APTS 8D & 8E",
+                "WORK IN UNIT NO. 1203",
+                "RENOVATE PENTHOUSE UNIT PH-A",
             ],
         }
     )
@@ -611,7 +622,7 @@ def test_apartment_permits_name_the_unit_in_the_years_before(tmp_path, monkeypat
     monkeypatch.setattr(features, "DOB_FILE", str(tmp_path / "d.parquet"))
     frame = pd.DataFrame(
         {
-            "building": ["a", "a", "a", "a", "a", "b", "b", "c"],
+            "building": ["a", "a", "a", "a", "a", "b", "b", "c", "b", "b", "b"],
             "canonical_unit_url": [
                 "x/a/4d",  # 2015 permit, 2 years before
                 "x/a/4d",  # 2015 permit, over 3 years before
@@ -621,6 +632,9 @@ def test_apartment_permits_name_the_unit_in_the_years_before(tmp_path, monkeypat
                 "x/b/3",  # the first label of a list
                 "x/b/4",  # later labels of a list are not read
                 "x/c/4d",  # not in the registry
+                "x/b/8d",  # a plural prefix
+                "x/b/1203",  # "NO." and four digits
+                "x/b/ph-a",  # dashes dropped on both sides
             ],
             "period": pd.to_datetime(
                 [
@@ -632,11 +646,26 @@ def test_apartment_permits_name_the_unit_in_the_years_before(tmp_path, monkeypat
                     "2019-01-01",
                     "2019-01-01",
                     "2017-01-01",
+                    "2019-01-01",
+                    "2019-01-01",
+                    "2019-01-01",
                 ]
             ),
         }
     )
-    assert features.apartment_permits(frame).tolist() == [1, 0, 0, 1, 0, 1, 0, 0]
+    assert features.apartment_permits(frame).tolist() == [
+        1,
+        0,
+        0,
+        1,
+        0,
+        1,
+        0,
+        0,
+        1,
+        1,
+        1,
+    ]
 
 
 def test_facing_v4_marks_loud_streets_on_low_floors(monkeypatch):
