@@ -1,6 +1,40 @@
 # Data improvements — handoff
 
-Updated 2026-10-08 15:47 ET. Thread owner: the Data improvements project thread (bridge session on thelio).
+Updated 2026-10-08 16:45 ET. Thread owner: the Data improvements project thread (bridge session on thelio).
+
+## 2026-10-08 16:45 ET
+
+- **Stuyvesant Town/PCV (coordinator relay 20:04Z): builds only, no fits.**
+  - #557 unit-labels-v13 merged (365cbc8): v11 plus Stuy Town's 535 alias rows and 276 history
+    pairs. Not in the current rules (CR still has v11); Modeling plans it with the NB6 base.
+  - #558 (approved; suite running) adds DATASET_NB6 (139,387 rows, 3,628 Stuy Town), the NB6_*
+    snapshots, `PLUTO_RELEASES_SNAPSHOTS`, and nb6-plutoasof-v3 (nb5-plutoasof-v3 plus a Stuy Town
+    indicator). Modeling has the dataset path; the NB6 base fit and FRONTIER_DATASET reset are
+    theirs to plan with Ben on resume.
+  - Registry: StreetEasy gives the complex one centroid, so 43 pages are geocoded from their own
+    slug address (`config/reviews/registry-overrides-20261008-stuy.json`). 346 and 330 1 Avenue
+    share BIN 1082865.
+  - Not fetched for NB6: noise311 (a year fills a page; split the query) and places (Overpass
+    504). Needed before any nb6 noise or places set. An nb6 parks, places or HPD set also needs
+    its own PARKS/PLACES/HPD_SNAPSHOTS entries (the NB6 loop doesn't copy those).
+  - Floors: "10H"-style labels already read as floors through `row_floor`. The remaining 23% of
+    Stuy Town rows are "M"/"0M" units (743) and "0T" (82), with no floor in records or ads. Left
+    unknown; no rule.
+  - **The Stuy Town indicator is a placeholder** (coordinator, 20:38Z, after Ben's 16:16Z
+    preference). Candidates to replace it: the rent-stabilized share (DOF bills: lot 1009720001 has
+    8,634-8,770 stabilized units a year since 2011, lot 1009780001 about 2,480, close to all units),
+    one landlord, campus open space, building age and type. nb5-stab-v1 was null (#435) on five
+    neighbourhoods, but Stuy Town is the first near-all-stabilized complex in the data.
+  - Next: rent-blind quarantine screen for Stuy Town, ad-based fixes, then an nb6 stab test.
+- **Light and air: null.** The within-building residual slope for the share of facade clear above
+  facing roofs is +0.96% ± 0.16% (all sides), +0.4% ± 0.25% (own windows); floor and facing
+  terms already carry it. No set. Scratch: `/data1/apartments/tmp/suspect/light/`.
+- **Places map and subway timetable: already dated where it matters.** STOP_OPENED gives
+  34 St–Hudson Yards from 2015-09-13. The model reads the weekday-morning timetable, and the
+  L-train work was nights and weekends. Places OPENED covers Lenox Health (2014-07) and the
+  Gansevoort dog run (2023-10). Drop-in centres are undated, and St. Vincent's closed in April 2010.
+  Neither source is in the base.
+- **#554 merged (8e40d3f):** final_ask, n_cuts and days_listed on the frame, never features.
 
 ## 2026-10-08 15:47 ET
 
