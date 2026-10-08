@@ -2,6 +2,20 @@
 
 What the next turn of the website thread needs. Updated at each milestone.
 
+## State (2026-10-08 11:30 UTC)
+
+- **Playtest round 3 (story3) acted on:** #503 plain words in the switches and theories tables
+  (`story.change_words`, "(why)" / "(no clear gain)" on blocked theories); #505 the example's
+  miss in context and the served-model count; #506 the theories' score in plain words. The
+  economist's off-story points are in `docs/playtests/backlog.md` ("Story round 3"), unbuilt
+  under the feature hold (coordinator relay, 10:33Z).
+- **#507 (live):** /research/model explains a `keep` when the served fit is on earlier data rules
+  (quarantine-v6 vs current v10): "Waiting for a refit on the current data rules". Modeling has
+  the current-rules refit queued, pending Ben's OK to stop the old queue; once it lands the notice
+  goes away by itself.
+- **Waiting on Modeling:** single-item effects result.json paths (low priority).
+- **Next:** a fresh story playtest to confirm the round-3 fixes, then the remaining jargon.
+
 ## State (2026-10-08 08:40 UTC)
 
 - **#495, #499 (live):** plain words for the layers and the first design era; the theories
