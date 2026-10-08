@@ -196,7 +196,8 @@ def test_theories_chapter_reads_the_ledger(site_root, research_file, tmp_path):
         in html
     )
     assert "<li>parks within reach</li>" in html
-    assert "1 idea scored well and was\nstill set aside" in html
+    assert "1 idea raised the score and was\nstill set aside" in html
+    assert "still set aside:</p>\n<ul>" in html and "<li>" in html
 
 
 MILESTONES = [
@@ -395,6 +396,7 @@ def test_accuracy_reads_the_held_out_asks():
     db.executemany("INSERT INTO listings VALUES (?, ?, ?, ?, ?)", rows)
     a = story.accuracy(db, small=2)
     assert a["n"] == 5 and round(a["median"], 6) == 10.0
+    assert a["typical"] == 1100  # the median ask
     assert a["seen"] == {"n": 3, "median": a["seen"]["median"]}
     assert round(a["seen"]["median"], 6) == 10.0 and a["new"]["median"] == 0.0
     assert a["likely"] == 60.0
