@@ -242,13 +242,16 @@
   var figures = document.querySelectorAll(".story-figure[data-play]");
   if (!figures.length || !("IntersectionObserver" in window)) return;
   if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+  // Play once the figure's top reaches the upper two thirds of the screen. A
+  // share-of-the-figure threshold never fires for a figure taller than the
+  // screen, which then stays blank.
   var seen = new IntersectionObserver(function (entries) {
     entries.forEach(function (entry) {
       if (!entry.isIntersecting) return;
       entry.target.classList.add("play");
       seen.unobserve(entry.target);
     });
-  }, { threshold: 0.35 });
+  }, { rootMargin: "0px 0px -35% 0px", threshold: 0 });
   figures.forEach(function (figure) {
     figure.classList.add("armed");
     seen.observe(figure);
