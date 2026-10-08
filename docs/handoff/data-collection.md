@@ -15,7 +15,7 @@ Updated 2026-10-08 00:45 ET. Thread owner: the Data collection project thread (b
   `flatiron-gramercy-park-granular-20261007-canonical-url-v1`, aliases `...-unit-spelling-aliases-v2`.
   Reported to Ben and the coordinator for Data improvements and Modeling.
 - **Crawl databases deleted** Oct 8 00:40 ET (Ben, typed: "Delete the FGP and GV crawl databases;
-  keep the snapshots."). The snapshots were byte-identical apart from 4 header bytes. Kept: both
+  keep the snapshots."). Each snapshot matched its crawl DB apart from 4 header bytes. Kept: both
   `snapshots/*-final`, both crawls' `bodies/`, and all datasets. `/data1` went from 37 to 109 GB free.
   `apartments-gv-monitor.timer` and `apartments-fgp-monitor.timer` are disabled; their unit files
   stay. A re-crawl starts from a writable copy of the snapshot. Active-listing top-ups
