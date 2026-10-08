@@ -87,6 +87,10 @@ def test_build_up_ends_at_the_estimate(client):
     shape = text[text.index('<section id="shape">') :]
     assert shape.index("the <em>spread</em> in asks") < shape.index("compose-figure")
     assert "the range the model is 90% sure holds the true share" in text
+    # the two kinds of range are told apart once, before the chapters
+    assert text.index('id="ranges"') < text.index('<section id="shape">')
+    assert "How sure is the model of a number?" in text
+    assert "Where might an ask land?" in text and 'href="#ranges"' in text
     opening = text[: text.index('<section id="shape">')]
     assert "An ask is the monthly rent a listing advertises" in opening
     assert re.search(

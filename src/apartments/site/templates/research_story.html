@@ -37,6 +37,19 @@ see the <a href="{{ url_for('estimates_map') }}">rent map</a>.</p>
   <ol>{% for slug, title, shown in chapters if shown %}<li><a href="#{{ slug }}">{{ title }}</a></li>{% endfor %}</ol>
 </nav>
 
+<aside class="card" id="ranges" aria-labelledby="ranges-title">
+  <h2 id="ranges-title">Two kinds of range</h2>
+  <p>The page shows two kinds of range, and they answer different questions.</p>
+  <ul>
+    <li><strong>How sure is the model of a number?</strong> An <em>interval</em> around an effect or a share is
+    the range the model is 90% (or 95%) sure holds the true value. A narrow interval means the data pin the
+    number down.</li>
+    <li><strong>Where might an ask land?</strong> A <em>range</em> around an estimate holds that share of the asks
+    themselves. The <a href="{{ url_for('research_glossary') }}#price-band">likely ask range</a> on each listing holds
+    the middle 80%{% if build and build.lower is not none %}; the worked example uses a wider one that holds 95%{% endif %}.</li>
+  </ul>
+</aside>
+
 <section id="shape">
 <h2>An ask is a sum of a few stories</h2>
 <p>Start with the shape. The model builds each ask from parts that multiply, so each part raises or lowers the
@@ -48,9 +61,7 @@ next, measured in percentages.{% endif %}</p>
 <figure class="story-figure" id="compose-figure" data-play>
   <div class="figure-scroll" tabindex="0" role="region" aria-label="Figure, scrolls sideways on narrow screens">{{ composition_svg }}</div>
   <figcaption>The served model, layer by layer.{% if variance %} Each bar is the layer's share of why asks
-  differ from one listing to the next, with its 90% interval: the range the model is 90% sure holds the true share.
-(The page's intervals say how sure the model is of its own numbers, at 90% or 95%; the likely ask range is different,
-the middle 80% of the asks it expects for one apartment.) A share of 50% would mean the layer accounts for
+  differ from one listing to the next, with its 90% interval: the range the model is 90% sure holds the true share. A share of 50% would mean the layer accounts for
   half of those differences, not half of the rent. (The shares split the variance of the log asks.){% endif %}</figcaption>
 </figure>
 
@@ -147,9 +158,8 @@ way, so a term's bar is the same size wherever it sits in the queue.</p>
 <p>The estimate is {{ usd(build.estimate) }} against an ask of
 {{ usd(build.ask) }}{% if build.lower is not none %}, and the model gives 95% odds that an ask for this apartment
 falls between {{ usd(build.lower) }} and {{ usd(build.upper) }}{% endif %}. The spread is honest: the building and
-apartment terms are learned from a handful of listings, and asks scatter even for the same apartment. (This 95%
-range is wider than the <a href="{{ url_for('research_glossary') }}#price-band">likely ask range</a> shown with each
-listing, which holds the middle 80%.){% set unsure = build.steps | rejectattr("term", "equalto", "market") | selectattr("lower", "ne", none) | selectattr("lower", "lt", 0) | selectattr("upper", "gt", 0) | list %}{% if unsure %}
+apartment terms are learned from a handful of listings, and asks scatter even for the same apartment. This 95% range is
+wider than the likely ask range on each listing, which holds 80% (see <a href="#ranges">two kinds of range</a>).{% set unsure = build.steps | rejectattr("term", "equalto", "market") | selectattr("lower", "ne", none) | selectattr("lower", "lt", 0) | selectattr("upper", "gt", 0) | list %}{% if unsure %}
 Not every part is sure of its direction, either: the 95% interval{{ "s" if unsure | length > 1 }} for
 {% for u in unsure %}“{{ u.label }}” ({{ usd(u.usd, signed=True) }}){% if loop.revindex == 2 %} and {% elif not loop.last %}, {% endif %}{% endfor %}
 {{ "run" if unsure | length > 1 else "runs" }} from below zero to above it, so for this apartment the model can't say
