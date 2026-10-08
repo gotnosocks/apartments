@@ -36,6 +36,37 @@ with scripts in `/data1/apartments/tmp/bridge/review/`.
   varies by only 1.6%. Spatial priors matter for small buildings only, so "Small-building
   pooling" stays scoped to them.
 
+**Neighbourhood label against location (Ben, 2026-10-08 16:29Z).** A Chelsea building beside the
+West Village may be pricier from proximity, and separately carry a "Chelsea" label effect. Here
+the label is StreetEasy's area for the building, fixed per building (no building has two labels).
+So the split is identified only at the borders, as a spatial discontinuity: a label effect is a
+step at the border, while proximity is a smooth gradient.
+
+The no-fit border check (`review/rd.py`) uses the served fit's building level plus its label
+term, in bins of distance to the nearest building with the other label:
+- **Chelsea → West Village.** About +12%, mostly a step:
+  - Chelsea buildings within 150 m of the border are flat (−1% to 0%), so there is no spillover
+    on the Chelsea side.
+  - West Village buildings within 75 m sit 6% below their label. Part of the label's step there
+    is smooth.
+- **Chelsea → Flatiron.** Smooth: Chelsea buildings within 150 m are already +4 to +5%.
+- **Flatiron → Gramercy Park.** Gramercy Park's label is −14%, but its buildings within 150 m
+  of Flatiron carry +7 to +9% building levels that undo most of it. That is proximity which
+  the building effects absorb, one building at a time.
+- **Greenwich Village → West Village.** Nearly continuous.
+
+So the labels act as steps that the per-building effects partly undo near the borders. A smooth
+location surface would pool that correction across buildings, which matters for small and new
+buildings.
+
+Test, on Modal when fits resume:
+- `nb5p3-loc-v1` (queued): the labels plus 250 m bumps. Read the label effects (`effects.py`).
+  If they shrink toward zero, the price was proximity; if they hold, it is the label.
+- `nb5p3-locnolabel-v1` (#PR): the surface without the labels. If its PSIS-LOO ties loc-v1, drop
+  the labels (simpler model). If loc-v1 wins, the label carries a price beyond location.
+- Later: label × time against a space × time surface (Model structure, below). A 250 m bump grid
+  can mimic part of a step, so read the border bins again after the fits.
+
 **Ranked for when fits resume:**
 1. **Heteroscedastic noise beyond bedrooms.** Use a noise scale per neighbourhood and a smooth
    log-scale in log asking level or log size. The under-coverage in Greenwich Village, the top
