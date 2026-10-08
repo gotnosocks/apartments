@@ -60,7 +60,7 @@ next, measured in percentages.{% endif %}</p>
 
 <figure class="story-figure" id="compose-figure" data-play>
   <div class="figure-scroll" tabindex="0" role="region" aria-label="Figure, scrolls sideways on narrow screens">{{ composition_svg }}</div>
-  <figcaption>The served model, layer by layer.{% if variance %} Each bar is the layer's share of why asks
+  <figcaption>The served model (the one behind every estimate on the site), layer by layer.{% if variance %} Each bar is the layer's share of why asks
   differ from one listing to the next, with its 90% interval: the range the model is 90% sure holds the true share. A share of 50% would mean the layer accounts for
   half of those differences, not half of the rent. (The shares split the variance of the log asks.){% endif %}</figcaption>
 </figure>
@@ -154,7 +154,7 @@ way, so a term's bar is the same size wherever it sits in the queue.</p>
 <figure class="story-figure" id="build-figure" data-play>
   <div class="figure-scroll" tabindex="0" role="region" aria-label="Figure, scrolls sideways on narrow screens">{{ build_svg }}</div>
   <figcaption>The estimate for {{ l.unit_label or "this apartment" }}, built up from the market. The dot is the
-  estimate, the band its 95% predictive range, and the diamond the ask itself.</figcaption>
+  estimate, the band its 95% range for the ask (<a href="#ranges">which kind of range</a>), and the diamond the ask itself.</figcaption>
 </figure>
 
 <p>The estimate is {{ usd(build.estimate) }} against an ask of

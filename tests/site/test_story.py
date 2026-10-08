@@ -80,6 +80,9 @@ def test_build_up_ends_at_the_estimate(client):
     # an example above the page's typical ask says why
     if "the median ask among the listings available now" in text:
         assert "asks for listings available now run higher" in text
+    # the served model is defined where it is first named; the example's band links to the ranges box
+    assert "The served model (the one behind every estimate on the site)" in text
+    assert 'its 95% range for the ask (<a href="#ranges">' in text
     # a wide miss is set against the example's own 95% range
     wide = "more than twice the typical miss" in text
     assert wide == ("about 1 ask in 20" in text)
