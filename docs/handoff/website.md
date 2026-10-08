@@ -2,6 +2,16 @@
 
 What the next turn of the website thread needs. Updated at each milestone.
 
+## State (2026-10-08 12:30 UTC)
+
+- **Playtest story4** (`/data1/apartments/tmp/playtests/2026-10-08-story4/`, story-reader,
+  economist, journalist) acted on: #509 the trust answer in the opening, "ask" defined, figure
+  delays about halved; #510 theory labels wrap to four lines, none cut; #511 neighbourhood
+  effects read "vs Chelsea"; #513 "spread" and the interval levels defined where first used.
+  Off-story points in `docs/playtests/backlog.md` "Story round 4" (#512), unbuilt.
+- **Next:** the theories chapter is still the hardest for a lay reader (36 rows, square-root
+  axis); Student-t and Fourier remain only as parentheticals in its table. Then a story5 round.
+
 ## State (2026-10-08 11:30 UTC)
 
 - **Playtest round 3 (story3) acted on:** #503 plain words in the switches and theories tables
