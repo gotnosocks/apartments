@@ -2505,11 +2505,11 @@ FOOTPRINTS = {
     "nb3-lineface-v1",
 }
 # Feature sets that read the 311 noise complaints snapshot.
-NOISE = {"unitnoise-v1", "nb3-noise-v1"}
+NOISE = {"unitnoise-v1", "nb3-noise-v1", "nb5-noise-v1"}
 # The 311 file each NOISE set reads (else NOISE_FILE).
-NOISE_FILES = {"nb3-noise-v1": NB3_NOISE_FILE}
+NOISE_FILES = {"nb3-noise-v1": NB3_NOISE_FILE, "nb5-noise-v1": NB4_NOISE_FILE}
 # Feature sets that read the subway GTFS (transit.network).
-TRANSIT = {"nb3-transit-v1", "nb3-lines-v1", "nb3-access-v1"}
+TRANSIT = {"nb3-transit-v1", "nb3-lines-v1", "nb3-access-v1", "nb5-lines-v1"}
 # Feature sets that read the LODES jobs snapshot (access).
 LODES = {"nb3-access-v1"}
 # Feature sets that read the places snapshot (nearby).
@@ -2647,6 +2647,14 @@ FEATURE_SETS = {
     "nb3-flagfix-v1": partial(flagfix_v1, id="nb3-flagfix-v1", base="nb3-coded-v2"),
     "nb3-noise-v1": partial(
         noise_v1, id="nb3-noise-v1", base="nb3-coded-v2", noise_file=NB3_NOISE_FILE
+    ),
+    # Retests on the five neighbourhoods (DATASET_NB5): the nb3 sets on
+    # nb5-coded-v2, reading the four crawls' snapshots.
+    "nb5-lines-v1": partial(lines_v1, id="nb5-lines-v1", base="nb5-coded-v2"),
+    "nb5-loc-v1": partial(location_v2, id="nb5-loc-v1", base="nb5-coded-v2"),
+    "nb5-walkup-v1": partial(walkup_v1, id="nb5-walkup-v1", base="nb5-coded-v2"),
+    "nb5-noise-v1": partial(
+        noise_v1, id="nb5-noise-v1", base="nb5-coded-v2", noise_file=NB4_NOISE_FILE
     ),
     "nb3-attrs-v1": partial(
         text_flags_v1, id="nb3-attrs-v1", base="nb3-flagfix-v1", flags=ATTRIBUTE_FLAGS
@@ -2927,7 +2935,14 @@ for _wish in (
 
 # The nb4 sets read what their nb3 counterpart reads, from the four
 # neighbourhoods' snapshots (#451) in place of the three's.
-NB4_SETS = {"nb4-coded-v2": "nb3-coded-v2", "nb5-coded-v2": "nb3-coded-v2"}
+NB4_SETS = {
+    "nb4-coded-v2": "nb3-coded-v2",
+    "nb5-coded-v2": "nb3-coded-v2",
+    "nb5-lines-v1": "nb3-lines-v1",
+    "nb5-loc-v1": "nb3-loc-v1",
+    "nb5-walkup-v1": "nb3-walkup-v1",
+    "nb5-noise-v1": "nb3-noise-v1",
+}
 for _new, _old in NB4_SETS.items():
     for _group in (
         EXTERNAL,

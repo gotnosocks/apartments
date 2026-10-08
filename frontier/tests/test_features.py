@@ -1334,3 +1334,24 @@ def test_nb4_snapshots_keep_nb3s_rows_and_add_flatiron_gramercys():
     assert set(features._NB4_DESCRIPTIONS) == set(features._NB3_DESCRIPTIONS) | {
         "descriptions_fgp"
     }
+
+
+def test_nb5_retests_are_the_nb3_sets_on_the_five_neighbourhoods():
+    pairs = {
+        "nb5-lines-v1": "nb3-lines-v1",
+        "nb5-loc-v1": "nb3-loc-v1",
+        "nb5-walkup-v1": "nb3-walkup-v1",
+        "nb5-noise-v1": "nb3-noise-v1",
+    }
+    for new, old in pairs.items():
+        new_set, old_set = features.FEATURE_SETS[new], features.FEATURE_SETS[old]
+        assert new_set.func is old_set.func
+        base = old_set.keywords["base"].replace("nb3-coded-v2", "nb5-coded-v2")
+        assert new_set.keywords["base"] == base.replace("nb3-", "nb5-")
+        assert features.lot_files(new) == features.lot_files("nb5-coded-v2")
+        assert features.area_files(new) == features.area_files("nb5-coded-v2")
+    assert "nb5-lines-v1" in features.TRANSIT
+    assert features.NOISE_FILES["nb5-noise-v1"] == features.NB4_NOISE_FILE
+    assert features.FEATURE_SETS["nb5-noise-v1"].keywords["noise_file"] == (
+        features.NB4_NOISE_FILE
+    )
