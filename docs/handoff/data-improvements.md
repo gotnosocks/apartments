@@ -2,6 +2,19 @@
 
 Updated 2026-10-08 16:45 ET. Thread owner: the Data improvements project thread (bridge session on thelio).
 
+## 2026-10-08 17:30 ET
+
+- **Stuy Town rent-blind screen: no rule yet.** `/data1/apartments/tmp/suspect/stuy/screen/`
+  (`screen.py` runs quarantine_v10_screen's checks with the centre moved to 1st Ave and E 20th St,
+  rules with unit-labels-v13). 3,628 rows give 56 hits, all far_place. 55 are "in stuyvesant"
+  (Bedford-Stuyvesant's NTA part). For the EV/NoMad screen, change the check (not a row pick): a far
+  name that is part of a local name (Stuyvesant Town) must match only in its full NTA form. One is real: audit
+  `50f8ccd4…` (listing 2595533, 312 1st Ave, 2018-12), an ad for "beautiful studio in Harlem".
+  Hold it for the next quarantine version with the EV and NoMad screens; tell Modeling first.
+- **Stuy Town ad fixes: none.** The ads' bedroom counts agree with the coded ones, except "convertible
+  2BR" and "1 bedroom flex" ads, where the coded count stands (ad text doesn't override). 46
+  rows on 14 units are 5 bed / 2 bath in every listing from 2014 to 2025, so they are taken as real.
+
 ## 2026-10-08 16:45 ET
 
 - **Stuyvesant Town/PCV (coordinator relay 20:04Z): builds only, no fits.**
