@@ -1,5 +1,58 @@
 # Chelsea pricing research backlog
 
+## Served-model review and ranked hypotheses (2026-10-08, during the run pause)
+
+This is a no-fit review of the served fit (coded-v2 refit on quarantine-v10 and ad-v3, PSIS-LOO
+139,842.7 ± 386.4, 135,540 rows). It uses only the summary's rows, intervals and term columns,
+with scripts in `/data1/apartments/tmp/bridge/review/`.
+
+**Calibration.**
+- Held-out rows (13,569): bias −0.6%, median absolute error 3.8%, 80% interval coverage 0.792,
+  95% coverage 0.949.
+- Weak spots in 95% coverage:
+  - units with a single listing: 0.921 (32,500 rows), with a median absolute error of 6.0% against
+    3.8% for repeat units;
+  - 5-bedroom units: 0.891;
+  - Greenwich Village: 0.931;
+  - the top price quintile: 0.931, overpredicted by 0.5%;
+  - elevator buildings: 0.942.
+- Non-elevator rows are over-covered (0.954).
+- Single-listing residuals have tails twice as wide as repeat units: the 1% and 99% quantiles are
+  −43% and +47%, against −21% and +21%.
+
+**Tested without a fit:**
+- **Unit drift or decay: refuted as a gain.** Two things looked like drift:
+  - Consecutive residuals of a unit grow more negatively correlated as the gap between them grows.
+    For units with 3 to 5 rows, the correlation falls from −0.02 within a year to −0.34 past 8 years.
+  - Held-out rows more than 4 years outside the unit's training span are overpredicted by 1.2%.
+
+  But fading the unit effect with the time distance, `u · exp(−d/τ)`, does not improve those
+  held-out rows. The best τ is 20 years, which moves median absolute error by −0.01 points, and
+  shorter τ is worse. The unit premium persists. Unit drift (m8, +360 earlier, slow to mix)
+  stays deprioritized.
+- **Missing square feet: no gap.** Rows with and without square feet have the same bias, error and
+  coverage. This lowers "Latent square footage" (Model structure, below).
+- **Building effects are well pooled.** Among buildings with 20 or more rows, the mean residual
+  varies by only 1.6%. Spatial priors matter for small buildings only, so "Small-building
+  pooling" stays scoped to them.
+
+**Ranked for when fits resume:**
+1. **Heteroscedastic noise beyond bedrooms.** Use a noise scale per neighbourhood and a smooth
+   log-scale in log asking level or log size. The under-coverage in Greenwich Village, the top
+   quintile and 5-bedroom units, and the over-coverage without an elevator, all point here, and
+   the bedroom noise scales were a large gain (#142). This sharpens the open item of the same name
+   under "Model structure for the full-data frontier": with Greenwich Village now in the data, use
+   neighbourhoods rather than the two areas. It is a model-term change: one exploration
+   fit, then a full fit if it gains.
+2. **Intervals for new apartments.** This is the site's "new apartment" case (Website measured a
+   9.4% miss on 517 asks). First, a no-fit audit of the single-listing rows with |residual| > 40%,
+   for Data: wrong unit or bedroom count, or a furnished or short-term ask. Then a fit with
+   Student-t unit effects (`t_units`) on Modal, where mixing time matters less than on the local RTX 2060 SUPER.
+3. **The queue after the pause** is unchanged by this review: the pluto3 base, then the nb5p3
+   rebased tests, then unical.
+4. **Early years (2010–13).** Single listings are underpredicted by 1.6%, from sparse data. This is
+   low priority: it fades with yearnoise, and few rows are affected.
+
 ## Open-data survey: stabilization, permits, owners, dated MapPLUTO (2026-10-07)
 
 Four free sources, sized against the 105,244 rows of `chelsea-wv-gv-analysis-20261005-2d5b3b6`
