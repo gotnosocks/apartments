@@ -8,8 +8,8 @@ without the NoMad child area. Canonical rental crawl through the frozen runtime 
 ## Dataset (Oct 7 2026)
 
 The crawl finished on Oct 7 at 21:01 EDT (`finish_reason: finished`). It made 39,191 requests
-(about $45 on Oxylabs) with no HTTP 429s. The 8,659 frontier rows still pending are not
-dispatched by the run, as in Greenwich Village. Built the same evening with no requests, from
+(about $45 on Oxylabs) with no HTTP 429s. The crawler's final status (unit journal) lists
+8,659 frontier rows still pending; as in Greenwich Village, they are out of scope. Built the same evening with no requests, from
 master `6ec13ad`, with the Greenwich Village build script as template
 (`/data1/apartments/tmp/fgp-build-20261007/build.sh`):
 
