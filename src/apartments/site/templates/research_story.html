@@ -189,7 +189,8 @@ site estimates each of them from the fit alone. Half of them land within
 {{ "{:.1f}".format(accuracy.median) }}% of their estimate.{% if accuracy.seen and accuracy.new %} It depends a lot on
 whether the model has seen the apartment before: for one listed at other times, half the asks land within
 {{ "{:.1f}".format(accuracy.seen.median) }}%; for the {{ "{:,}".format(accuracy.new.n) }} asks from apartments it has never seen,
-within {{ "{:.1f}".format(accuracy.new.median) }}%.{% endif %}</p>
+within {{ "{:.1f}".format(accuracy.new.median) }}%.{% if accuracy.new.n < 1000 %} That second figure rests on few asks, so
+treat it as rough.{% endif %}{% endif %}</p>
 <p>The model also says how sure it is. Each estimate carries a
 <a href="{{ url_for('research_glossary') }}#price-band">likely ask range</a>, the middle 80% of the asks it expects
 for that apartment. If those ranges are honest, about 80% of the held-out asks should fall inside them; here
@@ -205,6 +206,10 @@ for that apartment. If those ranges are honest, about 80% of the held-out asks s
 {% set tests = trials | sum(attribute="tests", start=[]) %}
 <section id="theories">
 <h2>Theories on trial</h2>
+<p><em>{% if switches %}This chapter and the next are the most technical: how each idea was tested, and how the
+design changed over time. To skip them{% else %}This chapter is the most technical: how each idea was tested. To
+skip it{% endif %}, go on to {% if cleaning %}<a href="#cleaning">Cleaning the
+record</a>{% else %}<a href="#next">Open questions</a>{% endif %}.</em></p>
 <p>A model like this is a pile of hypotheses. Does a quiet street cost more? Do bigger apartments' asks scatter
 more widely? Does the ad's own text know something the structured fields don't? Each idea gets the same trial. We
 fit the model with it and without it, on the same rows, and ask which version better predicts asks it was not
@@ -237,8 +242,9 @@ neighbourhoods give location more room to matter.{% endif %}{% endif %}</p>
   <div class="figure-scroll" tabindex="0" role="region" aria-label="Figure, scrolls sideways on narrow screens">{{ trials_svg }}</div>
   <figcaption>One row per idea. A dot right of the line at zero means the model predicted unseen asks better with
   the idea, left of it worse. The band is twice the margin for luck either side: a band that crosses the line means no
-  clear effect. Small rings are earlier repeats of the same test on other fits. The axis is stretched near zero
-  (square-root scaled), so gains of 20 and 2,000 both fit. Rows are grouped by kind and sorted by gain; when the figure plays, they appear in the order the ideas were first tried.</figcaption>
+  clear effect. Small rings are earlier repeats of the same test on other fits. The axis is stretched near zero,
+  so small gains of 20 and large ones of 2,000 fit on one chart; equal gaps between tick marks are not equal
+  steps in score. Rows are grouped by kind and sorted by gain; when the figure plays, they appear in the order the ideas were first tried.</figcaption>
 </figure>
 
 {# Set aside despite a clear gain: the leak the paragraph after the table explains. #}
