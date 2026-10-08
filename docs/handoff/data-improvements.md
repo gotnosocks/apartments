@@ -1,6 +1,41 @@
 # Data improvements — handoff
 
-Updated 2026-10-07 22:20 ET. Thread owner: the Data improvements project thread (bridge session on thelio).
+Updated 2026-10-07 23:45 ET. Thread owner: the Data improvements project thread (bridge session on thelio).
+
+## 2026-10-07 23:45 ET
+
+- **Five neighbourhoods are on master (#460, 5789d79):** Chelsea, the West Village,
+  Greenwich Village, Flatiron and Gramercy Park.
+  - `rentfrontier.areas` splits the FGP crawl into Flatiron and Gramercy Park, each building
+    taking the area named in its StreetEasy page title. Snapshot:
+    `external/areas/20261008-6027acc` (480 Gramercy Park and 327 Flatiron buildings; one Park
+    Slope building left out).
+  - `cohort areas` relabels each row's `neighbourhood` to its building's area. No rows or rules
+    change.
+  - `DATASET_NB5` = `datasets/chelsea-wv-gv-flatiron-gramercy-analysis-20261008-0a23057`.
+    Rows: Chelsea 52,614, WV 34,205, GV 18,425, GP 18,333, Flatiron 12,182.
+  - `nb5-coded-v2` = nb3-coded-v2 plus Flatiron and Gramercy Park indicators (`hoods_v1`); it
+    is in NB4_SETS.
+  - Map check: two contiguous areas. One Union Square South keeps StreetEasy's Flatiron label.
+- **Every queued test now runs on five neighbourhoods.** The nb4-* ids are gone from the
+  branches. Modeling queues each as its own full fit on DATASET_NB5, after the nb5-coded-v2 base
+  fit (launched 23:20) and its bedtime6 test.
+
+  | PR | Test | Head | Unit |
+  |---|---|---|---|
+  | #435 | nb5-stab-v1 | 0233ec5 | frontier-modalq-nb5tests; suite passed |
+  | #439 | nb5-plutoasof-v1 (`hoods_v1` over nb3-plutoasof-v1) | 8af14dc | frontier-modalq-nb5tests |
+  | #420 | unit-labels-v12 | 881b345 | frontier-modalq-nb5rules |
+  | #425 | unit-splits-v5 | d478a5b | frontier-modalq-nb5rules |
+  | #437 | nb5-permit-v1, DOB `external/dob/20261008-4e1948c` (50,420 jobs) | e935808 | frontier-modalq-nb5permit |
+
+- **The DOB fetch now retries 5xx errors and uses smaller queries** (25 BINs per request, pages
+  of 10,000), on the #437 branch.
+- **Run test suites with `JAX_PLATFORMS=cpu XLA_PYTHON_CLIENT_PREALLOCATE=false`.** A suite
+  held 6 GB of the GPU and made Modeling's m0-base baseline fail with a GPU OOM.
+- **PR bodies:** read them with `gh pr view` from inside a worktree. Run outside one, it prints
+  nothing, and a PATCH built from that wipes the body. #437's body was restored from its
+  userContentEdits history.
 
 ## 2026-10-07 22:20 ET
 
