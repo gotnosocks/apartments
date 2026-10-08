@@ -214,3 +214,28 @@ def test_refuses_existing_destination_and_leaves_source_unchanged(tmp_path, caps
     out = capsys.readouterr().out
     assert json.loads(out[out.index("{") :])["snapshots"]["stripped"] == 1
     assert db.read_bytes() == before
+
+
+def test_refuses_while_a_crawler_holds_the_lock(tmp_path):
+    import fcntl
+
+    source = tmp_path / "crawl"
+    crawl(source)
+    with (source / "crawler.lock").open("a") as lock:
+        fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        with pytest.raises(RuntimeError, match="crawler holds"):
+            compact_database(source / "archive.sqlite3", tmp_path / "x.sqlite3", source)
+    assert not (tmp_path / "x.sqlite3").exists()
+    assert not (tmp_path / "x.sqlite3.partial").exists()
+
+
+def test_planner_statistics_are_copied(tmp_path):
+    source = tmp_path / "crawl"
+    crawl(source)
+    db = sqlite3.connect(source / "archive.sqlite3")
+    db.execute("ANALYZE")
+    db.commit()
+    db.close()
+    compact_database(source / "archive.sqlite3", tmp_path / "x.sqlite3", source)
+    sql = "SELECT * FROM sqlite_stat1 ORDER BY tbl, idx"
+    assert rows(tmp_path / "x.sqlite3", sql) == rows(source / "archive.sqlite3", sql)

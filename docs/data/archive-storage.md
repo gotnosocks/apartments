@@ -52,8 +52,13 @@ source is opened immutable and never changed. The copy keeps every table, row id
 `content` is replaced by `content_sha256` (= `body_hash`). A row is stripped only when its
 content hashes to `body_hash` and the body file under `CRAWL/bodies/` exists and decompresses to
 that hash (`--no-verify-bodies` skips the decompression). Every other row is copied unchanged
-and counted in the JSON report. The copy uses `journal_mode=DELETE` and passes
-`integrity_check`.
+and counted in the JSON report. The copy uses `journal_mode=DELETE`, passes `integrity_check`
+and is fsynced before the tool renames it into place and reports. The tool refuses a source whose
+`crawler.lock` is held: an immutable read of a database still being written is silently wrong.
+
+A compacted database is no longer self-contained: the stripped HTML exists only in `bodies/`.
+Never prune `bodies/` (for Chelsea that is the shared `/data1/apartments/archive/bodies`, reached
+through a symlink).
 
 `tests/archive/test_compact.py` checks that the collection audit, the granular transform
 (`listing_observations`, `event_mentions`, `snapshots`), `listing_identity.capture_evidence` and
@@ -63,8 +68,8 @@ and model inputs read the parquet datasets, and current-listings captures never 
 databases.
 
 Datasets do not pin the snapshot file: their `source_evidence_sha256` hashes the parsed rows,
-and `granular_export`'s implementation hash covers parser code only. A compacted snapshot gets a
-new `archive.sqlite3.sha256`.
+and `granular_export`'s implementation hash covers parser code only. The tool does not write an
+`archive.sqlite3.sha256`; whoever swaps a compacted copy in regenerates it with `sha256sum`.
 
 ## Not done, and why
 

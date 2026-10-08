@@ -16,9 +16,11 @@ with that hash). Any other row is copied unchanged and counted in the report.
 
 from __future__ import annotations
 
+import fcntl
 import gzip
 import hashlib
 import json
+import os
 from pathlib import Path
 import sqlite3
 
@@ -90,6 +92,15 @@ def compact_database(source, destination, crawl_dir, verify_bodies=True):
     wal = Path(str(source) + "-wal")
     if wal.exists() and wal.stat().st_size:
         raise RuntimeError("Refusing to compact a database with a nonempty WAL")
+    # immutable=1 reads a database that is still being written silently wrong.
+    for lock in {source.parent / "crawler.lock", crawl_dir / "crawler.lock"}:
+        if lock.exists():
+            with lock.open("a") as f:
+                try:
+                    fcntl.flock(f, fcntl.LOCK_EX | fcntl.LOCK_NB)
+                except BlockingIOError:
+                    raise RuntimeError(f"A crawler holds {lock}") from None
+                fcntl.flock(f, fcntl.LOCK_UN)
     src = sqlite3.connect(source.as_uri() + "?immutable=1", uri=True)
     objects = src.execute(
         "SELECT type, name, tbl_name, sql FROM sqlite_master"
@@ -177,6 +188,14 @@ def compact_database(source, destination, crawl_dir, verify_bodies=True):
             if kind != "table":
                 db.execute(sql)
         db.execute(f"PRAGMA user_version={int(user_version)}")
+        if db.execute(
+            "SELECT 1 FROM src.sqlite_master WHERE name='sqlite_stat1'"
+        ).fetchone():
+            # Keep the source's planner statistics; ANALYZE of one table creates
+            # sqlite_stat1, whose rows are then replaced by the source's.
+            db.execute(f'ANALYZE main."{tables[0]}"')
+            db.execute("DELETE FROM main.sqlite_stat1")
+            db.execute("INSERT INTO main.sqlite_stat1 SELECT * FROM src.sqlite_stat1")
         db.commit()
         db.execute("DETACH DATABASE src")
         db.execute("PRAGMA journal_mode=DELETE")
@@ -187,7 +206,15 @@ def compact_database(source, destination, crawl_dir, verify_bodies=True):
         partial.unlink(missing_ok=True)
         raise
     db.close()
+    # Callers may delete the source after this returns, so make the copy durable.
+    with partial.open("rb") as f:
+        os.fsync(f.fileno())
     partial.replace(destination)
+    directory = os.open(destination.parent, os.O_RDONLY)
+    try:
+        os.fsync(directory)
+    finally:
+        os.close(directory)
     return {
         "source": str(source),
         "destination": str(destination),
