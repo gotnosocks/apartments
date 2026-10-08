@@ -3,7 +3,7 @@ least `MIN_ACRES` acres and whether an open section of the High Line is within
 `HIGH_LINE_MIN` minutes, the terms `features.parks_v1` (nb3-parks-v1) adds to
 the rent model, and one row per building for the site.
 
-Parks come from NYC Parks properties (`features.PARKS_FILE`). A walk is the
+Parks come from NYC Parks properties (`features.parks_file()`). A walk is the
 grid distance (`features.facing_grid`) to the nearest point of a park's
 outline, densified every `STEP_M` metres, at `transit.WALK_M_PER_MIN`. A
 listing counts only parks NYC Parks had acquired before its month began, and
@@ -105,7 +105,7 @@ def places(table: pd.DataFrame) -> pd.DataFrame:
 def building_minutes() -> tuple[pd.DataFrame, pd.DataFrame]:
     """Per registry building (index) and place (columns): walk minutes; and the
     places table (`places`)."""
-    return _building_minutes(features.lot_registry(), features.PARKS_FILE)
+    return _building_minutes(features.lot_registry(), features.parks_file())
 
 
 @functools.lru_cache(maxsize=2)

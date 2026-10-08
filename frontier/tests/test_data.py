@@ -280,7 +280,9 @@ def test_the_alias_file_is_hashed_but_drops_no_rows():
     assert "unit-labels-v2" not in data.DROPPING_RULES
     groups = data.unit_aliases()
     assert len(groups) == 248 and all(len(g) > 1 for g in groups)
-    assert data.dropped_rows() == data.quarantined(data.QUARANTINE_V6)
+    assert data.dropped_rows() == data.quarantined(
+        data.QUARANTINE_V8
+    ) | data.quarantined(data.QUARANTINE_V9) | data.quarantined(data.QUARANTINE_V10)
 
 
 @pytest.mark.parametrize(
@@ -830,17 +832,91 @@ def test_dataset_nb5_splits_flatiron_gramercy_park_by_building():
 
 
 def test_dataset_nb4_is_the_current_dataset_plus_flatiron_gramercy_park():
-    """DATASET_NB4 combines the current dataset, unchanged, with Flatiron +
+    """DATASET_NB4 combines the Chelsea + West Village + Greenwich Village
+    dataset (the current one until DATASET_NB5), unchanged, with Flatiron +
     Gramercy Park's rows, each named by its neighbourhood."""
     complete = data.DATASET_NB4 / "complete.json"
     if not complete.exists():
         pytest.skip("combined dataset not on this machine")
     record = json.loads(complete.read_text())
     paths = {p["path"] for p in record["parts"].values()}
-    # The path itself, not data.DATASET: fits set FRONTIER_DATASET to this set.
+    # The path itself: data.DATASET is now DATASET_NB5.
     current = (
         "/data1/apartments/frontier/datasets/chelsea-wv-gv-analysis-20261005-2d5b3b6"
     )
     assert current in paths
     assert record["neighbourhoods"]["Flatiron + Gramercy Park"] == 30515
     assert sum(record["neighbourhoods"].values()) == sum(record["rows"].values())
+
+
+def test_ad_corrections_v3_keep_v2s_rows_and_values():
+    import json
+
+    def rows(path):
+        with open(path) as f:
+            return {r["audit_id"]: r["corrected"] for r in map(json.loads, f) if r}
+
+    for v2, v3, missing in (
+        (data.BEDROOM_CORRECTIONS_V2, data.BEDROOM_CORRECTIONS_V3, 1),
+        (data.BATH_CORRECTIONS_V2, data.BATH_CORRECTIONS_V3, 0),
+    ):
+        old, new = rows(v2), rows(v3)
+        # One v2 row has left the dataset since; the rest are kept as they were.
+        assert len(set(old) - set(new)) == missing
+        assert all(new[a] == c for a, c in old.items() if a in new)
+    assert {"bedrooms-ad-v3", "baths-ad-v3"} <= set(data.RULE_SOURCES)
+
+
+def test_quarantine_v7_is_v6_and_the_three_new_neighbourhoods():
+    """v7 keeps all of v6's rows and adds 45, each with its quote and reason."""
+    v6 = data.quarantined(data.QUARANTINE_V6)
+    v7 = data.quarantined(data.QUARANTINE_V7)
+    assert v6 < v7 and len(v7 - v6) == 45
+    with open(data.QUARANTINE_V7) as f:
+        rows = [json.loads(line) for line in f if line.strip()]
+    added = [r for r in rows if r["audit_id"] in v7 - v6]
+    assert all(r["evidence"] and r["reason"] for r in added)
+    assert {r["action"] for r in added} <= {r["action"] for r in rows[: len(v6)]}
+    assert "quarantine-v7" in data.DROPPING_RULES
+
+
+def test_quarantine_v8_is_v7_and_the_model_outliers_of_the_three():
+    """v8 keeps v7's file as its first lines and adds 51, each with its quote
+    and reason."""
+    v7 = data.quarantined(data.QUARANTINE_V7)
+    v8 = data.quarantined(data.QUARANTINE_V8)
+    assert v7 < v8 and len(v8 - v7) == 51
+    assert data.QUARANTINE_V8.read_text().startswith(data.QUARANTINE_V7.read_text())
+    with open(data.QUARANTINE_V8) as f:
+        rows = [json.loads(line) for line in f if line.strip()]
+    assert all(r["evidence"] and r["reason"] for r in rows[len(v7) :])
+    assert "quarantine-v8" in data.DROPPING_RULES
+
+
+def test_quarantine_v9_is_v6_and_rent_blind_text_checks():
+    """v9 keeps v6's file as its first lines and adds 95, each with its quote
+    and reason; it replaces v7 and v8, not extends them."""
+    v6 = data.quarantined(data.QUARANTINE_V6)
+    v9 = data.quarantined(data.QUARANTINE_V9)
+    assert v6 < v9 and len(v9 - v6) == 95
+    assert data.QUARANTINE_V9.read_text().startswith(data.QUARANTINE_V6.read_text())
+    with open(data.QUARANTINE_V9) as f:
+        rows = [json.loads(line) for line in f if line.strip()]
+    assert all(r["evidence"] and r["reason"] for r in rows[len(v6) :])
+    assert not data.quarantined(data.QUARANTINE_V8) <= v9
+    assert "quarantine-v9" in data.DROPPING_RULES
+
+
+def test_quarantine_v10_is_rent_blind_only():
+    """v10 is v9's 95 rows of the three and 124 Chelsea and West Village rows
+    from the same checks, each with its quote and reason; it keeps none of
+    v6's rows the checks don't reach."""
+    v6 = data.quarantined(data.QUARANTINE_V6)
+    v9 = data.quarantined(data.QUARANTINE_V9)
+    v10 = data.quarantined(data.QUARANTINE_V10)
+    assert len(v10) == 219 and v9 - v6 <= v10
+    assert len(v10 & v6) == 91 and len(v10 - v9) == 124 - 91
+    with open(data.QUARANTINE_V10) as f:
+        rows = [json.loads(line) for line in f if line.strip()]
+    assert len(rows) == 219 and all(r["evidence"] and r["reason"] for r in rows)
+    assert "quarantine-v10" in data.DROPPING_RULES

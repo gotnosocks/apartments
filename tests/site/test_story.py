@@ -3,6 +3,8 @@
 import json
 import re
 
+import pytest
+
 from apartments.site import story
 from apartments.site.web import create_app
 
@@ -64,6 +66,13 @@ def test_build_up_ends_at_the_estimate(client):
     html = _page(client)
     m = re.search(r'class="story-svg buildup"[^>]*aria-label="([^"]*)"', html)
     assert m and "estimate $" in m.group(1) and "the ask $" in m.group(1)
+    # a part whose interval spans zero is called out by name
+    text = re.sub(r"\s+", " ", html)
+    assert "the 95% interval for “Unit” (+$45) runs from below zero" in text
+    assert "whether it adds to the ask or takes from it" in text
+    # the example's miss is set against the typical held-out miss
+    assert re.search(r"The ask is [\d.]+% (above|below) the estimate\. That is", text)
+    assert "half of the asks the model never saw land within" in text
 
 
 def test_build_up_steps_sum_to_the_estimate():
@@ -150,7 +159,7 @@ LEDGER = """# Feature and model tests
 
 | Date | Change | What | Kind | ΔPSIS-LOO | Verdict | Retest | Dataset (rows) | PR | Test run | Reference run |
 |---|---|---|---|---|---|---|---|---|---|---|
-| 2026-10-05 | `+bednoise` | a residual scale by bedroom group | | +347.0 ± 30.1 | gain | | d (1) | #300 | `a` | `b` |
+| 2026-10-05 | `+bednoise` | a residual scale by bedroom group (σ by group) | | +347.0 ± 30.1 | gain | | d (1) | #300 | `a` | `b` |
 | 2026-10-04 | `nb3-parks-v1` | parks within reach | location | -6.2 ± 9.0 | no clear gain | next neighbourhood | d (1) | #250 | `c` | `d` |
 | 2026-10-03 | `nb3-parks-v1` | parks within reach | location | +3.0 ± 9.5 | no clear gain | | d (1) | #250 | `e` | `f` |
 | 2026-10-03 | `nb-prevprice-v1` | how the unit's previous listing was repriced | listing | +747.0 ± 40.0 | PSIS-LOO leaks; judged on the latest split | | d (1) | | `g` | `h` |
@@ -173,6 +182,8 @@ def test_theories_keep_every_test_and_the_latest_verdict():
     assert by["nb-prevprice-v1"]["verdict"] == "blocked"
     assert by["+bednoise"]["words"] == story.PLAIN["+bednoise"]
     assert sorted(t["seq"] for t in entries) == [0, 1, 2, 3]
+    assert by["+bednoise"]["note"] == "a residual scale by bedroom group"
+    assert by["nb-prevprice-v1"]["clear_gain"] and not parks["clear_gain"]
 
 
 def test_theories_chapter_reads_the_ledger(site_root, research_file, tmp_path):
@@ -196,7 +207,8 @@ def test_theories_chapter_reads_the_ledger(site_root, research_file, tmp_path):
         in html
     )
     assert "<li>parks within reach</li>" in html
-    assert "1 idea scored well and was\nstill set aside" in html
+    assert "1 idea raised the score and was\nstill set aside" in html
+    assert "still set aside:</p>\n<ul>" in html and "<li>" in html
 
 
 MILESTONES = [
@@ -253,13 +265,70 @@ def test_design_history_eras_terms_and_spells():
     assert [e["count"] for e in story.eras(switches)] == [1, 1, 3]
 
 
+@pytest.mark.parametrize(
+    "name, parts",
+    [
+        ("unitdesc-v1", ("unit", "unitdesc", "v1")),
+        ("unitdescpluto-v3", ("unit", "unitdescpluto", "v3")),
+        ("unitfacing-v5", ("unit", "unitfacing", "v5")),
+        ("nb-facing-v1", ("nb", "facing", "v1")),
+        ("nb3-coded-v2", ("nb3", "coded", "v2")),
+        ("nb5-coded-v2", ("nb5", "coded", "v2")),
+        ("nb3-prevprice-v2", ("nb3", "prevprice", "v2")),
+        ("", ("", "", "")),
+    ],
+)
+def test_set_parts(name, parts):
+    assert story._set_parts(name) == parts
+
+
+def test_change_words_shrink_and_unknown_set():
+    before = {"terms": ["nocurves"], "feature_set": "nb5-coded-v2", "rows": "a"}
+    after = {"terms": ["nocurves"], "feature_set": "nb3-newthing-v1", "rows": "a"}
+    assert story.change_words(before, after) == (
+        "Left out Flatiron and Gramercy Park. Features now include newthing"
+    )
+
+
+def test_design_history_says_what_changed():
+    changes = [s["change"] for s in story.design_history(MILESTONES)]
+    assert changes[0] == "Select a PyMC fit"
+    assert changes[1] == (
+        "The first searched design: a straight line per feature, no curves. "
+        "Features: words from the ads"
+    )
+    assert changes[2] == (
+        "Added each building's own price for two more features. "
+        "Features now include which way each apartment faces"
+    )
+    assert changes[3] == (
+        "Added each building's own price for height. Dropped each building's own "
+        "price for two more features. Took in Greenwich Village. "
+        "Features now include how the unit's previous listing was repriced"
+    )
+    again = MILESTONES + [
+        {**MILESTONES[-2], "at": "2026-10-08T01:00:00+00:00"},
+        {**MILESTONES[-2], "at": "2026-10-08T02:00:00+00:00"},
+        {
+            **MILESTONES[-2],
+            "at": "2026-10-08T03:00:00+00:00",
+            "model": MILESTONES[-2]["model"].replace("163c6de", "5789d79"),
+        },
+    ]
+    assert [s["change"] for s in story.design_history(again)][-3:] == [
+        "Features back to how the unit's previous listing was repriced",
+        "The same design, refitted",
+        "The same design, refitted on the current data rules",
+    ]
+
+
 def test_design_chapter_reads_the_milestones(site_root, research_file):
     data = json.loads(research_file.read_text())
     data["milestones"] = MILESTONES
     research_file.write_text(json.dumps(data))
     html = _page(create_app(site_root, research_data=research_file).test_client())
     assert 'id="history-figure"' in html
-    assert "It has been replaced\n4 times since Sep 18" in html
+    assert "Since Sep 18,\n5 models have been served in turn" in html
     assert html.count('class="switch era-') == 5
     assert "8 hours later they were withdrawn" in html
     assert "style=" not in html
@@ -377,3 +446,198 @@ def test_cleaning_chapter_reads_the_steps(site_root, research_file, tmp_path):
     path.write_text("not json")
     html = _page(app.test_client())
     assert 'id="cleaning"' not in html
+
+
+def test_accuracy_reads_the_held_out_asks():
+    import sqlite3
+
+    db = sqlite3.connect(":memory:")
+    db.row_factory = sqlite3.Row
+    db.execute(
+        "CREATE TABLE listings(method TEXT, ask REAL, estimate REAL, pit REAL, "
+        "unit_fit_rows INTEGER)"
+    )
+    assert story.accuracy(db) is None
+    rows = [("psis", 9000.0, 1000.0, 0.5, 3)]  # in the fit: not counted
+    rows += [("heldout", 1100.0, 1000.0, 0.5, 2)] * 3  # seen, 10% off
+    rows += [("heldout", 1000.0, 1000.0, 0.95, 0)] * 2  # new, exact
+    db.executemany("INSERT INTO listings VALUES (?, ?, ?, ?, ?)", rows)
+    a = story.accuracy(db, small=2)
+    assert a["n"] == 5 and round(a["median"], 6) == 10.0
+    assert a["typical"] == 1100  # the median ask
+    assert a["seen"] == {"n": 3, "median": a["seen"]["median"]}
+    assert round(a["seen"]["median"], 6) == 10.0 and a["new"]["median"] == 0.0
+    assert a["likely"] == 60.0
+    assert story.accuracy(db)["new"] is None  # too few new apartments to report
+
+
+def test_rent_jumps_by_the_years_between_listings():
+    import sqlite3
+
+    db = sqlite3.connect(":memory:")
+    db.row_factory = sqlite3.Row
+    db.executescript(
+        "CREATE TABLE buildings(id TEXT, address TEXT);"
+        "INSERT INTO buildings VALUES ('b1', '1 Main Street');"
+        "CREATE TABLE listings(id INTEGER, unit_id TEXT, unit_label TEXT, building_id TEXT,"
+        " ask REAL, price_at TEXT, period TEXT, price_basis TEXT);"
+    )
+    assert story.rent_jumps(db) is None
+    rows = [
+        (1, "u1", "4B", "2020-01-01", 1000.0, "ask"),
+        (2, "u1", "4B", "2020-06-01", 1500.0, "ask"),  # +50% within a year
+        (3, "u1", "4B", "2024-06-01", 1600.0, "ask"),  # no jump, 4 years on
+        (4, "u1", "4B", "2025-01", 900.0, "rent"),  # another basis: no pair
+        (5, "u2", None, "2019-01-01", 2000.0, "ask"),
+        (6, "u2", None, "2023-01-01", 3000.0, "ask"),  # +50% after 4 years
+        (7, "u2", None, "2025-01", 3000.0, "ask"),  # a bare month still pairs
+    ]
+    db.executemany(
+        "INSERT INTO listings VALUES (?, ?, ?, 'b1', ?, ?, ?, ?)",
+        [(i, u, label, ask, at, at[:7], basis) for i, u, label, at, ask, basis in rows],
+    )
+    j = story.rent_jumps(db)
+    assert (j["pairs"], j["jumps"], j["late"]) == (4, 2, 50.0)
+    assert [(g["words"], g["pairs"], g["jumps"]) for g in j["gaps"]] == [
+        ("within a year", 1, 1),  # an empty gap group is left out
+        ("two or more years apart", 3, 1),
+    ]
+    e = j["example"]  # the first of two equal jumps, by unit
+    assert (e["unit_id"], e["before"], e["after"], e["address"]) == (
+        "u1",
+        1000.0,
+        1500.0,
+        "1 Main Street",
+    )
+    assert round(e["change"]) == 50 and e["from"] == "2020-01-01"
+
+
+def test_unit_examples_pick_a_joined_and_a_split_unit():
+    import sqlite3
+
+    db = sqlite3.connect(":memory:")
+    db.row_factory = sqlite3.Row
+    db.executescript(
+        "CREATE TABLE buildings(id TEXT, address TEXT);"
+        "INSERT INTO buildings VALUES ('b1', '1 Main Street'), ('b2', '2 Side Street');"
+        "CREATE TABLE listings(id INTEGER, unit_id TEXT, unit_label TEXT, building_id TEXT,"
+        " bedrooms REAL, ask REAL, price_at TEXT, period TEXT);"
+    )
+    assert story.unit_examples(db) == {}
+    rows = [
+        (1, "j1", "3C", "b1", 1, 3000.0, "2020-01-01"),
+        (2, "j1", "UNIT-3C", "b1", 1, 3100.0, "2021-01-01"),
+        (3, "j1", "3C", "b1", 1, 3200.0, "2022-01-01"),
+        (4, "j2", "4", "b1", 2, 4000.0, "2020-01-01"),
+        (5, "j2", "4FL", "b1", 2, 4100.0, "2021-01-01"),  # 2 names, fewer ads
+        (6, "s1", "2", "b2", 1, 3995.0, "2017-03-27"),
+        (7, "s1~1", "2", "b2", 2, 6750.0, "2019-06"),  # a bare month
+        (8, "s1~2", "2", "b2", 4, 10500.0, "2025-10-10"),
+        (9, "s2", "5", "b2", 1, 3000.0, "2018-01-01"),
+        (10, "s2~1", "5", "b2", 1, 3000.0, "2020-01-01"),  # same bedrooms: no example
+        (11, "s3", "6", "b2", 3, 5000.0, "2018-01-01"),
+        (12, "s3~1", "6", "b2", 1, 6000.0, "2019-01-01"),  # fewer bedrooms: unclear
+        (13, "s3~2", "6", "b2", 4, 7000.0, "2020-01-01"),
+    ]
+    db.executemany(
+        "INSERT INTO listings VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+        [(i, u, lab, b, bd, ask, at, at[:7]) for i, u, lab, b, bd, ask, at in rows],
+    )
+    ex = story.unit_examples(db)
+    assert ex["joined"] == {
+        "unit_id": "j1",
+        "address": "1 Main Street",
+        "labels": ["3C", "UNIT-3C"],
+        "listings": 3,
+    }
+    s = ex["split"]
+    assert (s["address"], s["label"], s["count"]) == ("2 Side Street", "2", "three")
+    assert [(p["unit_id"], p["words"], p["at"]) for p in s["pieces"]] == [
+        ("s1", "a one-bedroom", "2017-03-27"),
+        ("s1~1", "a two-bedroom", "2019-06-01"),
+        ("s1~2", "a four-bedroom", "2025-10-10"),
+    ]
+    assert (
+        story.bed_phrase(0) == "a studio" and story.bed_phrase(None) == "an apartment"
+    )
+    assert story.bed_phrase(8) == "an 8-bedroom" and story.bed_phrase(-1) == "a studio"
+
+
+GROUP_ITEMS = {
+    "run": "m-test-run",
+    "rows": 1000,
+    "rows_with_text": 900,
+    "near_m": 400.0,
+    "attributes": [
+        {"item": "walk_in_closet", "rows": 90, "share": 0.1, "raw_pct": 31.9},
+        {"item": "stainless", "rows": 360, "share": 0.4, "raw_pct": 6.8},
+    ],
+    "places": [
+        {
+            "item": "nycha",
+            "words": "NYCHA housing",
+            "rows": 1000,
+            "median_m": 910,
+            "near_share": 0.134,
+            "raw_pct_per_doubling": 1.2,
+        }
+    ],
+}
+
+
+def test_group_items_need_the_served_run():
+    trials = story.theories(story.parse_ledger(LEDGER))
+    g = story.group_items(GROUP_ITEMS, trials, "m-test-run")
+    assert [i["name"] for i in g["attributes"]["items"]] == [
+        "Stainless steel",
+        "Walk-in closet",
+    ]
+    assert g["places"]["items"][0]["pct_share"] == 13.4
+    assert g["attributes"]["test"] is None  # not in this ledger
+    assert story.group_items(GROUP_ITEMS, trials, "m-other-run") is None
+    svg = str(story.group_items_svg(g["attributes"]["items"], "whose ad states it"))
+    assert "Share of listings whose ad states it: Stainless steel 40.0%" in svg
+
+
+def test_group_items_chapter(site_root, research_file, tmp_path):
+    ledger = tmp_path / "feature-tests.md"
+    ledger.write_text(
+        LEDGER.replace(
+            "| 2026-10-03 | `nb-prevprice-v1`",
+            "| 2026-10-06 | `nb3-attrs-v1` | ad states one of 15 attributes | listing"
+            " | -7.6 ± 21.9 | no clear gain | | d (1) | #390 | `i` | `j` |\n"
+            "| 2026-10-03 | `nb-prevprice-v1`",
+        )
+    )
+    path = tmp_path / "group-items.json"
+    path.write_text(json.dumps(GROUP_ITEMS))
+    app = create_app(
+        site_root, research_data=research_file, feature_tests=ledger, group_items=path
+    )
+    html = _page(app.test_client())
+    assert 'id="inside-groups"' in html
+    assert "“Ad states one of 15 attributes” (-7.6 ± 21.9" in html
+    assert "the walk to nearby places." in html
+    assert "<strong>raw</strong> difference" in html
+    assert "<td>Walk-in closet</td>" in html and "+31.9%" in html
+    assert "910 m" in html
+    path.write_text(json.dumps({**GROUP_ITEMS, "run": "m-other-run"}))
+    assert 'id="inside-groups"' not in _page(app.test_client())
+
+
+def test_group_items_step_aside_once_served():
+    trials = story.theories(story.parse_ledger(LEDGER))
+    served = {"text:corner_unit", "log m to NYCHA housing"}
+    assert story.group_items(GROUP_ITEMS, trials, "m-test-run", served) is None
+    assert story.group_items(GROUP_ITEMS, trials, "m-test-run", {"text:x"})
+
+
+def test_label_lines_wrap_at_spaces():
+    assert story.label_lines("short") == ["short"]
+    long = "the same repricing idea, retested once Greenwich Village joined"
+    assert story.label_lines(long) == [
+        "the same repricing idea, retested once",
+        "Greenwich Village joined",
+    ]
+    lines = story.label_lines("word " * 30)
+    assert len(lines) == 2 and lines[1].endswith("…") and len(lines[1]) <= 46

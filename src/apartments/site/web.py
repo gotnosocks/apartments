@@ -587,12 +587,14 @@ def create_app(
     research_plan=None,
     feature_tests=None,
     cleaning_steps=None,
+    group_items=None,
 ) -> Flask:
     root = Path(root or os.environ.get("SITE_ROOT", "/data1/apartments/site"))
     research = Research(research_data)
     plan = Plan(research_plan)
     ledger = story.Ledger(feature_tests)
     cleaning_file = story.Cleaning(cleaning_steps)
+    group_file = story.GroupItems(group_items)
     app = Flask(__name__)
     if allowed_hosts is None:
         allowed_hosts = os.environ.get("SITE_ALLOWED_HOSTS", "").split(",")
@@ -1389,6 +1391,25 @@ def create_app(
         return cached[1]
 
     exposure_short: dict = {}
+    story_cache: dict = {}
+
+    def story_checks() -> tuple:
+        """The story's held-out accuracy, rent jumps and unit examples, which
+        scan every listing; read once per build, swapped in whole like
+        exposures()."""
+        conn = db()  # also sets g.build
+        cached = story_cache.get("cached")
+        if cached is None or cached[0] != g.build:
+            cached = (
+                g.build,
+                (
+                    story.accuracy(conn),
+                    story.rent_jumps(conn),
+                    story.unit_examples(conn),
+                ),
+            )
+            story_cache["cached"] = cached
+        return cached[1]
 
     def has_quarantine() -> bool:
         """Builds before schema 2 have no quarantined table."""
@@ -2412,6 +2433,7 @@ def create_app(
         effects = story.headline_effects(coefficients, labels, reference_area)
         listing, current = story.pick_listing(db())
         build = story.build_up(listing, labels, current=current)
+        accuracy, jumps, units = story_checks()
         counts = (
             db()
             .execute(
@@ -2425,6 +2447,12 @@ def create_app(
         switches = story.design_history((data or {}).get("milestones") or [])
         lives = story.term_lives(switches)
         cleaning = story.cleaning(cleaning_file.load(), m["provenance"]["run"])
+        groups = story.group_items(
+            group_file.load(),
+            trials,
+            m["provenance"]["run"],
+            {c["feature"] for c in coefficients},
+        )
         return render_template(
             "research_story.html",
             meta=m,
@@ -2438,6 +2466,9 @@ def create_app(
             reference_area=reference_area,
             build=build,
             build_svg=story.build_up_svg(build),
+            accuracy=accuracy,
+            jumps=jumps,
+            units=units,
             counts=counts,
             trials=trials,
             trials_svg=story.theories_svg(trials),
@@ -2451,6 +2482,14 @@ def create_app(
             cleaning=cleaning,
             areas=sorted(a for a in areas if a),
             cleaning_svg=story.cleaning_svg(cleaning),
+            groups=groups,
+            attrs_svg=story.group_items_svg(
+                groups["attributes"]["items"] if groups else [], "whose ad states it"
+            ),
+            places_svg=story.group_items_svg(
+                groups["places"]["items"] if groups else [],
+                f"within {groups['near_m']:.0f} m" if groups else "",
+            ),
             terms=terms,
             labels=labels,
         )
