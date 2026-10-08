@@ -187,7 +187,8 @@ def composition_svg(rows: list[dict]) -> Markup:
     if has_share:
         out.insert(
             0,
-            f'<text class="axis-title" x="{bar_x}" y="0">share of the spread in asks</text>',
+            f'<text class="axis-title" x="{bar_x}" y="-14">share of the spread in asks</text>'
+            f'<text class="axis-title" x="{bar_x}" y="0">between listings, not of the rent</text>',
         )
     names = "; ".join(
         r["name"]
@@ -196,7 +197,7 @@ def composition_svg(rows: list[dict]) -> Markup:
     )
     label = f"An ask is built from {len(rows)} parts, added on the log scale: {names}."
     return Markup(
-        f'<svg class="story-svg compose" viewBox="0 -14 {WIDTH} {height + 14}" '
+        f'<svg class="story-svg compose" viewBox="0 -28 {WIDTH} {height + 28}" '
         f'role="img" aria-label="{escape(label)}">' + "".join(out) + "</svg>"
     )
 
