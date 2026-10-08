@@ -74,13 +74,13 @@ def test_build_up_ends_at_the_estimate(client):
     # the example's miss is set against the typical held-out miss
     assert re.search(r"The ask is [\d.]+% (above|below) the estimate\. That is", text)
     assert "half of the asks the model never saw land within" in text
-    # a wide miss is set against the example's own 95% range
     # the accuracy chapter ends with plain advice for one estimate
     assert "What this means for one estimate." in text
     assert "lean on the likely ask range shown with each listing" in text
     # an example above the page's typical ask says why
     if "the median ask among the listings available now" in text:
         assert "asks for listings available now run higher" in text
+    # a wide miss is set against the example's own 95% range
     wide = "more than twice the typical miss" in text
     assert wide == ("about 1 ask in 20" in text)
     # a contents list links every chapter on the page, in order
