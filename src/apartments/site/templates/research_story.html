@@ -41,12 +41,12 @@ see the <a href="{{ url_for('estimates_map') }}">rent map</a>.</p>
   <h2 id="ranges-title">Two kinds of range</h2>
   <p>The page shows two kinds of range, and they answer different questions.</p>
   <ul>
-    <li><strong>How sure is the model of a number?</strong> An <em>interval</em> around an effect or a share, at 90%
-    or 95%, is the range the model is that sure holds the true value. A narrow interval means the data pin the
+    <li><strong>How sure is the model of a number?</strong> An <em>interval</em> around an effect or a share is
+    the range the model is 90% (or 95%) sure holds the true value. A narrow interval means the data pin the
     number down.</li>
     <li><strong>Where might an ask land?</strong> A <em>range</em> around an estimate holds that share of the asks
     themselves. The <a href="{{ url_for('research_glossary') }}#price-band">likely ask range</a> on each listing holds
-    the middle 80%{% if build %}; the worked example uses a wider one that holds 95%{% endif %}.</li>
+    the middle 80%{% if build and build.lower is not none %}; the worked example uses a wider one that holds 95%{% endif %}.</li>
   </ul>
 </aside>
 
