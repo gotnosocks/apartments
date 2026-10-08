@@ -288,7 +288,7 @@ def feature_sources(feature_set: str) -> dict:
         path = features.LODES_FILE
         out["lodes"] = {"path": path, "sha256": data.sha256(Path(path))}
     if feature_set in features.PARKS:
-        path = features.PARKS_FILE
+        path = features.PARKS_SNAPSHOTS.get(feature_set, features.PARKS_FILE)
         out["parks"] = {"path": path, "sha256": data.sha256(Path(path))}
     if feature_set in features.PLACES:
         path = features.PLACES_FILE
