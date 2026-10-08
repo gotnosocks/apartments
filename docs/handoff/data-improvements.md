@@ -1,6 +1,25 @@
 # Data improvements — handoff
 
-Updated 2026-10-08 01:10 ET. Thread owner: the Data improvements project thread (bridge session on thelio).
+Updated 2026-10-08 02:40 ET. Thread owner: the Data improvements project thread (bridge session on thelio).
+
+## 2026-10-08 02:40 ET
+
+- **#481 quarantine-v7 (open, approved by a reviewer subagent, head a9dc5f5).** This is the first
+  quarantine review of Greenwich Village, Gramercy Park and Flatiron; v1 to v6 read only Chelsea
+  and WV. It keeps v6's 282 rows and adds 45 (27 ads for another address, 9 short stays only,
+  9 shops or offices), for 327 in all.
+  - Not merged: the full suite (`/data1/apartments/tmp/suspect/q7/suite.out`) is unconfirmed
+    because the auto-mode check refused a read of it. Ben has been told.
+  - Once merged, ask Modeling for its own Modal full fit with quarantine-v6 swapped for v7.
+  - Scratch: `/data1/apartments/tmp/suspect/q7` holds `detect.py` (loose cues, 3,121 hits),
+    `tight.py` (338 candidates) and `mkv7.py`.
+- **#478 nb5-permit-v2 (open, stacked on #437).** It reads every apartment of an ad's list. Room
+  counts, ordinals and PH-words are no longer read as labels. It flags 2,442 rows to v1's 1,785.
+  Modeling queued it last (`frontier-modalq-nb5permit2`). Merge it after #437 if it wins.
+- **#435 nb5-stab-v1 closed.** The result is a null (−1.1 ± 2.5) and has been recorded in
+  feature-tests.json.
+- **Next overlay work.** fields-review (bedroom and bath field errors) also covers only Chelsea
+  and WV (16 rows).
 
 ## 2026-10-08 01:10 ET
 
