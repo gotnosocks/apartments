@@ -1356,6 +1356,16 @@ def area_snapshot() -> tuple[str, str]:
 # HPD housing-code violations of the registry's buildings (`rentfrontier.external hpd`).
 HPD_SNAPSHOT = "/data1/apartments/external/hpd/20260930-cb289ad"
 HPD_FILE = f"{HPD_SNAPSHOT}/hpd.parquet"
+
+# MapPLUTO's yearly releases (2009 on) of the five neighbourhoods' registry lots
+# (NB4_REGISTRY_FILE), the fields of today's MapPLUTO plus `release`.
+ALTERATIONS_FILE = (
+    "/data1/apartments/external/plutohistory/20261008-4fe46d6/plutohistory.parquet"
+)
+# Whether the set being built dates the lot's alteration years (`ALTERATION_DATED_SETS`).
+_ALTER_DATED: contextvars.ContextVar[str | None] = contextvars.ContextVar(
+    "alter_dated", default=None
+)
 ERAS = (
     (0, 1900, "pre-1900"),
     (1900, 1930, "1900-1929"),
@@ -1384,7 +1394,44 @@ def building_lots(frame: pd.DataFrame) -> pd.DataFrame:
     registry = pd.read_parquet(registry_file)
     pluto = pd.read_parquet(pluto_file).set_index("bbl")
     lot = registry.set_index("building").bbl.reindex(frame.building.to_numpy())
-    return pluto.reindex(lot.to_numpy()).reset_index(drop=True)
+    lots = pluto.reindex(lot.to_numpy()).reset_index(drop=True)
+    if _ALTER_DATED.get():
+        lots = dated_alterations(frame, lot.to_numpy(), lots, _ALTER_DATED.get())
+    return lots
+
+
+def dated_alterations(
+    frame: pd.DataFrame, bbl: np.ndarray, lots: pd.DataFrame, path: str
+) -> pd.DataFrame:
+    """`lots` (today's MapPLUTO per row) with the two alteration years as
+    MapPLUTO's release of the year before the listing's year had them (a year's
+    first release comes out in its spring, so a listing never sees a later
+    alteration), or the earliest release before that. Every other field keeps
+    today's value: across releases they are mostly revised estimates of the same
+    building, not changes to it. A lot missing from that release, and a release
+    older than today's year built (it describes the lot before the building),
+    keep today's values too. No rents are read."""
+    history = pd.read_parquet(
+        path, columns=["release", "bbl", "yearalter1", "yearalter2"]
+    )
+    history["bbl"] = history.bbl.astype(str).str.strip()
+    releases = np.sort(history.release.unique())
+    year = pd.DatetimeIndex(frame.period).year.to_numpy() - 1
+    release = releases[
+        np.clip(np.searchsorted(releases, year, side="right") - 1, 0, None)
+    ]
+    keys = pd.MultiIndex.from_arrays([release, pd.Series(bbl).astype(str).to_numpy()])
+    indexed = history.set_index(["release", "bbl"])
+    then = indexed.reindex(keys).reset_index(drop=True)
+    built = pd.to_numeric(lots.yearbuilt, errors="coerce").to_numpy()
+    use = keys.isin(indexed.index) & ~(built > release)
+    out = lots.copy()
+    for column in ("yearalter1", "yearalter2"):
+        dated = pd.to_numeric(then[column], errors="coerce").to_numpy()
+        out[column] = np.where(
+            use, dated, pd.to_numeric(out[column], errors="coerce").to_numpy()
+        )
+    return out
 
 
 def lpc_as_of(frame: pd.DataFrame, path: str) -> tuple[np.ndarray, np.ndarray]:
@@ -2684,6 +2731,14 @@ FEATURE_SETS = {
         base="nb3-coded-v2",
         hoods=("Flatiron", "Gramercy Park"),
     ),
+    # nb5-coded-v2 with the lot's alteration years as MapPLUTO had them before
+    # the listing (ALTERATION_DATED_SETS); size and class stay today's.
+    "nb5-plutoasof-v2": partial(
+        hoods_v1,
+        id="nb5-plutoasof-v2",
+        base="nb3-coded-v2",
+        hoods=("Flatiron", "Gramercy Park"),
+    ),
     "nb3-prevprice-v2": partial(
         prevprice_v1, id="nb3-prevprice-v2", base="nb3-coded-v2"
     ),
@@ -3006,7 +3061,10 @@ NB4_SETS = {
     "nb5-parks-v1": "nb3-parks-v1",
     "nb5-water-v1": "nb3-water-v1",
     "nb5-noise-v1": "nb3-noise-v1",
+    "nb5-plutoasof-v2": "nb3-coded-v2",
 }
+# Sets that date the lot's alteration years (`dated_alterations`).
+ALTERATION_DATED_SETS = {"nb5-plutoasof-v2"}
 # One set per ad attribute (`ATTRIBUTE_FLAGS`) and per place kind
 # (`nearby.KINDS`): nb5-coded-v2 plus that one column, each its own full fit.
 NB5_SINGLES = {
@@ -3084,6 +3142,9 @@ def build(name: str, frame: pd.DataFrame, train: np.ndarray) -> Features:
     area_token = _AREA.set((area["basemap"], area["footprints"]))
     extras_token = _EXTRAS.set(EXTRAS_SNAPSHOTS.get(name))
     lpc_token = _LPC.set(LPC_SNAPSHOTS.get(name))
+    alter_token = _ALTER_DATED.set(
+        ALTERATIONS_FILE if name in ALTERATION_DATED_SETS else None
+    )
     parks_token = _PARKS.set(PARKS_SNAPSHOTS.get(name))
     places_token = _PLACES.set(PLACES_SNAPSHOTS.get(name))
     text_token = descriptions_module.SOURCES.set(
@@ -3097,6 +3158,7 @@ def build(name: str, frame: pd.DataFrame, train: np.ndarray) -> Features:
         _AREA.reset(area_token)
         _EXTRAS.reset(extras_token)
         _LPC.reset(lpc_token)
+        _ALTER_DATED.reset(alter_token)
         _PARKS.reset(parks_token)
         _PLACES.reset(places_token)
         descriptions_module.SOURCES.reset(text_token)
