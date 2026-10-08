@@ -1,6 +1,6 @@
 # Data collection — handoff
 
-Updated 2026-10-07 21:15 ET. Thread owner: the Data collection project thread (bridge session on thelio).
+Updated 2026-10-07 21:45 ET. Thread owner: the Data collection project thread (bridge session on thelio).
 
 ## State
 - **Flatiron + Gramercy Park crawl: FINISHED** Oct 7 21:01 ET (spider `finish_reason: finished`).
@@ -11,12 +11,12 @@ Updated 2026-10-07 21:15 ET. Thread owner: the Data collection project thread (b
   relaunch". Neighborhood `flatiron-gramercy-park` (#281): StreetEasy `flatiron` + `gramercy-park`,
   without NoMad. Archive `/data1/apartments/archive/crawls/flatiron-gramercy-park-20261005` (48 GB DB).
   Controls are in `data/probes/flatiron-gramercy-park-20261005/README.md` (local).
-- **FGP dataset: BUILDING** since Oct 7 21:08 ET as unit `apartments-fgp-build-20261007`. It is the
-  GV `build.sh` template on master code (`/data1/apartments/tmp/fgp-build-20261007`, log
-  `build.log`). Outputs: snapshot `/data1/apartments/archive/snapshots/flatiron-gramercy-park-20261005-final`,
-  dataset `flatiron-gramercy-park-granular-20261007-canonical-url-v1`, aliases
-  `...-unit-spelling-aliases-v2`, audit `audit.json`. Hand off to Data improvements and Modeling
-  when it is done.
+- **FGP dataset: BUILT** Oct 7 21:30 ET: see "Dataset (Oct 7 2026)" in
+  `docs/data/flatiron-gramercy-park-collection.md`. Dataset
+  `flatiron-gramercy-park-granular-20261007-canonical-url-v1`, aliases `...-unit-spelling-aliases-v2`.
+  Reported to Ben and the coordinator for Data improvements and Modeling. `/data1` is at 96%
+  (38 GB free). Deleting the crawl DBs (keeping the snapshots) would free about 77 GB, but that
+  needs Ben's word.
 - **Greenwich Village: crawl FINISHED, dataset BUILT** Oct 5: see "Dataset (Oct 5 2026)" in
   `docs/data/greenwich-village-collection.md`. Dataset
   `greenwich-village-granular-20261005-canonical-url-v1`, aliases `...-unit-spelling-aliases-v2`.
@@ -31,7 +31,6 @@ Updated 2026-10-07 21:15 ET. Thread owner: the Data collection project thread (b
   later refreshes). Rows: `details/snapshot/candidates.jsonl`, `listing_status == "ACTIVE"`.
 
 ## Next
-- Finish the FGP build, document it like GV's "Dataset (Oct 5 2026)", and hand it off.
 - Ben, Oct 8 00:49 UTC: the Oxylabs budget is limited. Before proposing any new paid collection,
   estimate its value to the model (coverage gaps, unit-history depth) against its cost.
 
