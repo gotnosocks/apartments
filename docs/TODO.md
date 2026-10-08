@@ -41,7 +41,7 @@ own ΔELPD (about ±3) and, from `rentfrontier.effects` (#488), its effect with 
 The items. Ad attributes: walk-in closet, live-in super, utilities included, windowed kitchen, windowed bath,
 tree-lined, skylight, video intercom, corner unit, separate kitchen, floor-to-ceiling windows,
 marble bath, hardwood, stainless, pre-war. Places: dog run, hospital, ambulance station, homeless
-drop-in center, NYCHA lot, Madison Square Garden.
+drop-in center, NYCHA housing, Madison Square Garden.
 
 **Speedups from an outside code review** (Ben, 2026-10-06; triaged against master `d7a1f96`).
 The review was read-only and measured only the first item, on a CPU rather than the 2060.
