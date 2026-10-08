@@ -280,3 +280,11 @@ Logged, unbuilt (feature hold):
 - Design timeline: label the dot chart's axes.
 - Example listings for the renovation, furnished-let and rent-stabilisation possibilities. The set-aside ideas link only to GitHub PRs.
 - Figures caught mid-animation on a quick scroll. That is known from the armed/whole scheme and left as is.
+
+## Story round 7 (2026-10-08, lay reader)
+
+Logged, unbuilt (feature hold):
+- Accuracy chapter has no figure. Candidate: the miss distribution for seen and new apartments.
+- The cleaning chapter could show one bad ask that was set aside, and a picture of one split unit.
+- Layer descriptions repeat themselves. Terms still unexplained: log scale, Student-t, Fourier season, quarantine, predictive range. Glossary links on first use are still the open ask from round 6.
+- The design-timeline chapter is still a wall of detail, with PR numbers as labels.

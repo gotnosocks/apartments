@@ -2,6 +2,14 @@
 
 What the next turn of the website thread needs. Updated at each milestone.
 
+## State (2026-10-08 16:00 UTC)
+
+- Playtest story7 (`/data1/apartments/tmp/playtests/2026-10-08-story7/`) acted on, all deployed:
+  #527 wrapped theory labels keep a space between lines (copied text read "morefeatures");
+  #528 the build-up says the opening's typical ask is the all-years held-out median and current
+  asks run higher; #529 the accuracy chapter ends with "What this means for one estimate".
+  The rest is under "Story round 7" in docs/playtests/backlog.md.
+
 ## State (2026-10-08 15:10 UTC)
 
 - Story6 follow-ups merged and deployed: #522 the 12D example says a miss over twice the
