@@ -730,6 +730,78 @@ Chelsea −0.90 ± 0.39 (658), GV −0.50 ± 0.76 (341).
   isn't composition and isn't outdoor dining. That is the `area_time` term again, perhaps with a
   west-of-Hudson-St split later. Nothing here argues for a new feature ahead of it.
 
+### Label, geography, placebo lines and timing: checks 1–4 (2026-10-08, no fits)
+
+The coordinator's 23:07Z list. Script: `/data1/apartments/tmp/bridge/review/r12/c22.py`. Drift is
+as in the section above. **Level** is a building's served building effect plus its label's
+coefficient, in pp.
+
+- **1. Label vs geocode.** Every building has one label across all its listings. Against the 2020
+  NTAs:
+  - 98 GV-labelled buildings geocode into the West Village NTA, and 79 Chelsea-labelled ones into
+    the Flatiron NTA.
+  - Nothing labelled WV geocodes outside the WV NTA, and nothing labelled Chelsea geocodes into WV.
+  - Within 300 m of the WV NTA line:
+
+    | Label | Geocode | Level | Drift |
+    |---|---|---|---|
+    | West Village | West Village | +10.7 ± 0.4 (804) | +2.0 ± 0.6 (416) |
+    | Greenwich Village | West Village | +9.6 ± 1.2 (98) | +5.3 ± 2.4 (42) |
+    | Greenwich Village | Greenwich Village | +6.2 ± 0.7 (365) | −0.6 ± 0.8 (219) |
+    | Chelsea | Chelsea | −0.1 ± 0.7 (269) | −0.5 ± 0.8 (185) |
+
+  - **Both the step and the drift follow the geocode.** GV-labelled buildings inside the WV NTA
+    price within about 1 pp of WV and drift like WV, even though the model gives them the GV
+    label; their building effects make up the gap.
+  - Claimed neighbourhood. 10,557 ads (354 buildings) are labelled Chelsea or GV and lie within
+    150 m outside the WV NTA. Of these, 8% name the West Village in 2012–20 and 4% in 2021–26,
+    against 0.7% and 0.4% further away.
+  - Within a building, ads naming WV earn +0.36 ± 0.64 pp (2012–20) and −0.17 ± 1.04 (2021–26).
+  - **The claim earns nothing and doesn't grow after 2020.** The premium belongs to the location,
+    not to the name in the ad.
+- **2. Placebo lines.** The drift on one side of a line minus the other, for buildings within 300 m
+  of it and with one label (the sign follows the street's direction):
+
+  | Line | Difference | Buildings |
+  |---|---|---|
+  | 8 Ave inside Chelsea | +0.2 ± 1.0 | 158 / 248 |
+  | W 23 St inside Chelsea | +0.4 ± 1.1 | 272 / 98 |
+  | Bleecker St inside WV | +1.0 ± 1.1 | 226 / 266 |
+  | Hudson St inside WV | +2.0 ± 1.2 | 113 / 323 |
+  | W 4 St inside GV | −0.1 ± 2.2 | 91 / 64 |
+  | 6 Ave inside GV | +5.9 ± 2.5 | 42 / 219 |
+  | Real: W 14 St, WV vs Chelsea | +3.2 ± 1.3 | 115 / 185 |
+  | Real: WV vs GV labels, within 300 m of the other | +1.6 ± 1.1 | 304 / 219 |
+
+  - 7 Ave S inside GV has GV-labelled buildings on one side only, so it can't be tested. 6 Ave is
+    the nearest substitute, but it is not a placebo: its west side is the 42 GV-labelled buildings
+    in the WV NTA (check 1).
+  - **The true placebos are all within 1 SE of 0**, though Bleecker St (+1.0) touches the 1 pp bar.
+    Hudson St (+2.0, 1.7 SE) repeats the west-of-Hudson pattern above. The real 14 St border
+    (+3.2) is the biggest of the clean lines. With SEs of about 1 pp, these tests can only rule out
+    lines of 2 pp or more.
+- **3. Google Trends.** Skipped. The Trends API returns 429 to unauthenticated requests from
+  thelio, and pytrends goes through the same endpoint.
+- **4. Short-term rentals.**
+  - Inside Airbnb's dated NYC snapshots aren't freely downloadable: only the latest (2026-09-14)
+    is public, and older ones return 403 directly and from the Wayback Machine (archives are by
+    request). The latest snapshot's reviews only cover listings still active, so they would
+    understate pre-2023 density, which is the side of the comparison that matters. Not run.
+  - Timing alone, from mean residual plus walk by half-year (rows with ad text), WV minus Chelsea:
+
+    | 2019 | 2020 | 2021 | 2022 | 2023 | 2024 | 2025 | 2026 |
+    |---|---|---|---|---|---|---|---|
+    | −0.1, −0.9 | +0.1, +0.2 | −2.5, 0.0 | +1.3, +1.8 | +3.1, +2.3 | +3.5, +2.5 | +3.6, +4.4 | +6.2, +4.3 |
+
+    WV minus GV runs about 0 to 1.5 through 2021, then +2 to +5 from 2022.
+  - **The drift doesn't flatten after Local Law 18 (Sept 2023).** The WV gap opens in 2022 and keeps
+    growing through 2026.
+- **What this means for the model.** The WV premium and its rise belong to the place (the WV NTA
+  area), not to the StreetEasy label or the name in the ad. An `area_time` term on labels would
+  miss the 98 GV-labelled buildings inside the WV NTA. A geography-based area for that term (NTA,
+  or the location surface's own cells) would be more honest, and it is a free choice to make
+  before its fit.
+
 ## Open-data survey: stabilization, permits, owners, dated MapPLUTO (2026-10-07)
 
 Four free sources, sized against the 105,244 rows of `chelsea-wv-gv-analysis-20261005-2d5b3b6`
