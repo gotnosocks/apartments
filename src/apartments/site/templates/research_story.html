@@ -555,7 +555,7 @@ The <a href="{{ url_for('research_data_quality') }}">data quality</a> page lists
 </section>
 {% endif %}
 
-{% set waiting = trials | selectattr("kind", "equalto", "location") | selectattr("due") | list %}
+{% set waiting = trials | selectattr("kind", "equalto", "location") | selectattr("verdict", "equalto", "null") | selectattr("due") | list %}
 {% set blocked = trials | selectattr("verdict", "equalto", "blocked") | selectattr("diff", "gt", 0) | list %}
 {% set jump = (cleaning.checks if cleaning else []) | selectattr("key", "equalto", "big_jumps") | first %}
 <section id="next">
@@ -624,11 +624,11 @@ In an earlier test, added on top of the names, the surface’s result was: {{ ve
 {% endif %}
 
 {% if waiting %}<h3>Does the street around a building matter?</h3>
-<p>{{ waiting | length }} idea{{ "s" if waiting | length != 1 }} about where a building sits
-{{ "have" if waiting | length != 1 else "has" }} made no clear difference so far:</p>
+<p>{{ waiting | length }} of the {{ trials | selectattr("kind", "equalto", "location") | list | length }} ideas about where a building sits
+made no clear difference on the older, smaller data:</p>
 <ul>{% for t in waiting %}<li>{{ t.words }}</li>{% endfor %}</ul>
 <p>{% if areas | length > 1 %}The {{ areas | length }} neighbourhoods modelled now are next to each other, which
-may leave too little variety in surroundings to learn from. {% endif %}Each of these ideas was tested before
+may leave too little variety in surroundings to learn from. {% endif %}Each of these was tested before
 the latest neighbourhoods joined, so each is due to be tested again on the wider data.</p>{% endif %}
 
 {% if jump %}<h3>Are the remaining rent jumps real?</h3>

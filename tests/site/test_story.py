@@ -251,8 +251,8 @@ def test_theories_chapter_reads_the_ledger(site_root, research_file, tmp_path):
     # Open questions: the location idea due for a retest,
     # and the idea set aside.
     assert (
-        "1 idea about where a building sits\nhas made no clear difference so far:</p>"
-        in html
+        "1 of the 1 ideas about where a building sits\n"
+        "made no clear difference on the older, smaller data:</p>" in html
     )
     assert "<li>parks within reach</li>" in html
     assert "due to be tested again on the wider data" in html
