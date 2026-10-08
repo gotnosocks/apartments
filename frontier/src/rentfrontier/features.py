@@ -860,7 +860,10 @@ def crime_v1(
     count = crime.felonies_near(
         registry.latitude.reindex(frame.building.to_numpy()),
         registry.longitude.reindex(frame.building.to_numpy()),
-        frame.price_at.pipe(pd.to_datetime, utc=True).dt.tz_localize(None),
+        # The listing day in New York, where NYPD dates its reports.
+        frame.price_at.pipe(pd.to_datetime, utc=True)
+        .dt.tz_convert("America/New_York")
+        .dt.tz_localize(None),
         pd.read_csv(file or CRIME_FILE),
     )
     value = np.log1p(count)
