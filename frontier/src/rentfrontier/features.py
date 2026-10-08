@@ -1125,6 +1125,58 @@ def loft_v1(
     )
 
 
+def stabilized_units(frame: pd.DataFrame) -> np.ndarray:
+    """Per row: the rent-stabilized units on its lot's tax bill of the year
+    before the listing's year, or of the latest earlier bill year (the
+    2020-2022 bills are missing for some lots). Bills come out in June, so a
+    year's gap keeps any later bill out. A lot with no bill by then counts 0."""
+    registry = pd.read_parquet(lot_registry()).set_index("building")
+    stab = pd.read_parquet(RENTSTAB_FILE)
+    by_lot = {
+        lot: (g.year.to_numpy(), g.units.to_numpy())
+        for lot, g in stab.sort_values("year").groupby("bbl")
+    }
+    cutoff = pd.DatetimeIndex(frame.period).year.to_numpy() - 1
+    out = np.zeros(len(frame))
+    for building, idx in frame.groupby("building").indices.items():
+        if building not in registry.index:
+            continue
+        years, units = by_lot.get(str(registry.loc[building].bbl), (None, None))
+        if years is None:
+            continue
+        at = np.searchsorted(years, cutoff[idx], side="right") - 1
+        out[idx] = np.where(at >= 0, units[np.maximum(at, 0)], 0)
+    return out
+
+
+def stabilized_v1(
+    frame: pd.DataFrame,
+    train: np.ndarray,
+    id: str = "nb3-stab-v1",
+    base: str = "nb3-coded-v2",
+) -> Features:
+    """A base set plus the share of the building's apartments that were rent
+    stabilized as of the listing (`stabilized_units` over MapPLUTO's
+    residential units, or the units listed where the lot records none; at most
+    1), centred on the training rows. It changes within a building as units
+    leave stabilization, which the building level cannot follow. Reads no rents."""
+    base = FEATURE_SETS[base](frame, train)
+    units = pd.to_numeric(building_lots(frame).unitsres, errors="coerce").to_numpy()
+    listed = frame.groupby("building").unit_id.transform("nunique").to_numpy()
+    units = np.where(units > 0, units, listed).clip(min=1)
+    share = np.clip(stabilized_units(frame) / units, 0.0, 1.0)
+    b = _Builder(frame)
+    b.add("regulation", "stabilized share", share - float(np.mean(share[train])))
+    out = b.build(id)
+    return Features(
+        id,
+        base.names + out.names,
+        base.groups + out.groups,
+        np.column_stack([base.values, out.values]),
+        np.concatenate([base.prior_scale, out.prior_scale]),
+    )
+
+
 def text_flags_v1(
     frame: pd.DataFrame,
     train: np.ndarray,
@@ -1272,6 +1324,10 @@ def area_snapshot() -> tuple[str, str]:
 # HPD housing-code violations of the registry's buildings (`rentfrontier.external hpd`).
 HPD_SNAPSHOT = "/data1/apartments/external/hpd/20260930-cb289ad"
 HPD_FILE = f"{HPD_SNAPSHOT}/hpd.parquet"
+
+# Rent-stabilized units per lot and tax-bill year (`rentfrontier.external rentstab`).
+RENTSTAB_SNAPSHOT = "/data1/apartments/external/rentstab/20261008-6b42fe8"
+RENTSTAB_FILE = f"{RENTSTAB_SNAPSHOT}/rentstab.parquet"
 ERAS = (
     (0, 1900, "pre-1900"),
     (1900, 1930, "1900-1929"),
@@ -2449,6 +2505,7 @@ PLACES = {"nb3-nearby-v1"}
 STOREFRONTS = {"nb3-retail-v1"}
 # Feature sets that read the NYC Parks properties snapshot (parks).
 PARKS = {"nb3-parks-v1", "nb3-water-v1"}
+RENTSTAB = {"nb3-stab-v1"}
 # Feature sets that read the HPD violations snapshot.
 HPD = {"unitdescplutohpd-v1", "unitdescplutohpd-v2"}
 # Feature sets that read the advertisement descriptions (`descriptions.SOURCE`),
@@ -2560,6 +2617,7 @@ FEATURE_SETS = {
     "nb3-water-v1": partial(waterfront_v1, id="nb3-water-v1", base="nb3-parks-v1"),
     "nb3-text-v1": partial(text_flags_v1, id="nb3-text-v1", base="nb3-coded-v2"),
     "nb3-loft-v1": partial(loft_v1, id="nb3-loft-v1", base="nb3-coded-v2"),
+    "nb3-stab-v1": partial(stabilized_v1, id="nb3-stab-v1", base="nb3-coded-v2"),
     "nb3-flagfix-v1": partial(flagfix_v1, id="nb3-flagfix-v1", base="nb3-coded-v2"),
     "nb3-noise-v1": partial(
         noise_v1, id="nb3-noise-v1", base="nb3-coded-v2", noise_file=NB3_NOISE_FILE
@@ -2815,6 +2873,7 @@ for _wish in (
     "nb3-attrs-v1",
     "nb3-noise-v1",
     "nb3-loft-v1",
+    "nb3-stab-v1",
 ):
     for _group in (
         EXTERNAL,

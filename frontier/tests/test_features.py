@@ -585,6 +585,37 @@ def test_building_violations_count_the_trailing_year_only(tmp_path, monkeypatch)
     assert features.building_violations(frame).tolist() == [2.0, 0.0, 1.0, 0.0]
 
 
+def test_stabilized_units_use_the_bill_before_the_listing_year(tmp_path, monkeypatch):
+    registry = pd.DataFrame({"building": ["a", "b"], "bbl": ["1", "2"]})
+    stab = pd.DataFrame(
+        {
+            "bbl": ["1", "1", "1", "2"],
+            "year": [2012, 2019, 2023, 2015],
+            "units": [40, 30, 10, 5],
+        }
+    )
+    registry.to_parquet(tmp_path / "r.parquet")
+    stab.to_parquet(tmp_path / "s.parquet")
+    monkeypatch.setattr(features, "REGISTRY_FILE", str(tmp_path / "r.parquet"))
+    monkeypatch.setattr(features, "RENTSTAB_FILE", str(tmp_path / "s.parquet"))
+    frame = pd.DataFrame(
+        {
+            "building": ["a", "a", "a", "a", "b", "c"],
+            "period": pd.to_datetime(
+                [
+                    "2012-06-01",  # the 2011 bill: none yet
+                    "2013-01-01",  # the 2012 bill
+                    "2022-03-01",  # 2021 missing: carry 2019 forward
+                    "2023-09-01",  # the 2023 bill is not out the year before
+                    "2016-01-01",  # b's 2015 bill
+                    "2016-01-01",  # not in the registry
+                ]
+            ),
+        }
+    )
+    assert features.stabilized_units(frame).tolist() == [0, 40, 30, 30, 5, 0]
+
+
 def test_facing_v4_marks_loud_streets_on_low_floors(monkeypatch):
     frame = pd.DataFrame({"unit_id": ["a", "b", "c", "d"]})
     looks = pd.DataFrame(
