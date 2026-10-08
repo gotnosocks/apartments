@@ -900,6 +900,105 @@ text says label.
   2022 step per area) on NTA areas is the right form, not a beta on the market curve. The NTA
   re-base lowers the descriptive area share by 1.6 to 3.3 pp and moves Flatiron's level by about 4 pp.
 
+### Label vs NTA everywhere, noise cells and line coverage (2026-10-08, no fits)
+
+These are post-hoc checks on the served fit. The scripts are `review/r12/c24.py` and `c25.py` on
+thelio. Building level = (building effect + label coefficient) × 100, as above. Area means here are
+precision-weighted means over the buildings whose label and 2020 NTA agree.
+
+- **1. Label vs NTA: NTA wins only for the 98 West Village buildings.** There are four
+  discordant sets. Every building has exactly one label.
+
+  | Set | Buildings | Minus its label's area mean | Minus its NTA's area mean (label residual) | Closer to |
+  |---|---|---|---|---|
+  | GV-labelled, WV NTA | 98 | +3.0 ± 1.4 | −1.0 ± 1.3 | NTA |
+  | Chelsea-labelled, Flatiron NTA | 79 | −6.1 ± 2.0 | −13.5 ± 2.1 | label |
+  | Flatiron-labelled, Gramercy NTA | 18 | −3.8 ± 5.3 | +11.3 ± 5.3 | label |
+  | Gramercy-labelled, Flatiron NTA | 1 | +17.6 | +2.4 | NTA |
+
+  The concordant area means, relative to Chelsea, are: WV +11.1, Flatiron +7.4, GV +7.1 and
+  Gramercy Park −7.8.
+
+  - The prediction (the NTA wins everywhere, and the label residual within an NTA is under 1 pp)
+    fails. Only the 98 GV-labelled buildings in the WV NTA price with their NTA. Their residual,
+    −1.0 ± 1.3, is consistent with under 1 pp.
+  - The 79 Chelsea-labelled buildings in the Flatiron NTA sit on W 26–29 St between 6th and 7th
+    Aves, the NTA's west end. They price 13.5 pp below the Flatiron NTA and 6.1 pp below
+    Chelsea: cheaper than both.
+  - The 18 Flatiron-labelled buildings in the Gramercy NTA sit on E 24–25 St between Park and
+    Lexington. They price like their label, 11 pp above the Gramercy NTA (± 5.3).
+  - Caveat: building effects are shrunk toward their label's mean, which favours the label. The
+    shrinkage is too small to make a −13.5 pp gap, though.
+  - Reading: in Midtown South neither label nor NTA is right; the polygons are too coarse there.
+    The result does not support NTA-based hoods as the served geography in general, so I have not
+    queued that change. The WV step can still be defined on the WV NTA polygon (below). Finer
+    geography belongs to the location surface.
+- **2. Noise cells: held-out asks of single-listing units are badly under-covered. The other
+  factors matter little.** The table covers the 13,569 held-out rows. Factors per row:
+  - single: the unit has one row in all;
+  - small: the building has ≤ 5 rows;
+  - floor unknown;
+  - first year: the row falls in the building's first year.
+
+  | Factor | Held-out rows | Median abs error | 80% coverage | 95% coverage | Median 95% width |
+  |---|---|---|---|---|---|
+  | All | 13,569 | 3.7% | 0.792 | 0.949 | — |
+  | Studio | 3,656 | 3.4% | 0.785 | 0.950 | 22.3% |
+  | 1BR | 5,656 | 3.6% | 0.785 | 0.944 | 25.4% |
+  | 2BR | 2,982 | 4.4% | 0.807 | 0.961 | 30.7% |
+  | 3+BR | 1,275 | 4.6% | 0.812 | 0.946 | 34.4% |
+  | Single | 472 | 8.9% | 0.619 | 0.869 | 45.2% |
+  | Small building | 106 | 5.3% | 0.802 | 0.925 | 41.1% |
+  | Floor unknown | 3,734 | 4.0% | 0.791 | 0.942 | 29.1% |
+  | Building's first year | 658 | 4.1% | 0.799 | 0.951 | 29.9% |
+
+  The rows fall in 51 of the 64 cells, 9 of them with ≥ 100 rows. The cell table is in
+  `review/r12/c25cells.csv`.
+
+  - The worst large cell is 1BR with floor unknown: 1,199 rows, 80% coverage 0.757, 95% coverage
+    0.927.
+  - 2BR and 3+BR are slightly over-covered: 0.81 to 0.83 at 80%.
+  - Held-out single rows are new units, so their error includes the unseen unit effect. Their
+    under-coverage says the predictive range of a new unit is too narrow. A noise multiplier fitted
+    on in-fit single rows only partly reaches that, because in-fit singles' residuals are confounded
+    with their unit effects. Scoring the log-linear noise fit should therefore look at held-out
+    coverage of new units, not only PSIS-LOO.
+  - The log-linear noise term itself is code only, with no fit (see the model PR).
+- **3. Line coverage: 39% of single-listing units have a line with 2+ peers.** There are 29,517
+  in-fit units with one training row.
+
+  | Case | Units | Share |
+  |---|---|---|
+  | (a) in a line with 2+ other units | 11,617 | 39.4% |
+  | (b) known building; line with 0–1 other units, or no line | 17,471 | 59.2% |
+  | (c) a building with no other unit | 429 | 1.5% |
+
+  - The prediction (under half in (a)) holds.
+  - Of the single-listing units, 48% have a line at all.
+  - The 517 held-out rows of units with no training rows are all in known buildings. The served
+    prep builds lines from training units, so their lines can't be split out here. Their median
+    abs error is 8.8%, and their 80% coverage is 0.63.
+  - The prediction hierarchy for a new unit, for the line-term follow-up:
+    1. **Known line** (the unit's label puts it in a line with training units): building effect,
+       plus that line's posterior effect, plus the unit prior. This is case (a)'s share of the
+       gain.
+    2. **Known building, no usable line**: building effect, plus the line prior (line sd added to
+       the variance, mean 0), plus the unit prior.
+    3. **New building**: the location surface (or the area mean without one), plus the building
+       prior sd, plus the line and unit priors.
+
+    The line term can improve only step 1, and through 2's variance the coverage. About 60% of new
+    single units stay at step 2.
+- **The West Village line is closed.** It reads as "a one-time 2022 repricing of the WV polygon
+  that no dated feature we have explains".
+  - The served form, if fitted, is a per-NTA 2022 step on the NTA polygons; the walk is the
+    elegance comparison. Check 1 above limits this to the step: the base area means stay on labels,
+    or move to the location surface.
+  - Pre-registered for the East Village and NoMad scrapes:
+    - the East Village border shows no post-2020 step above 1 pp;
+    - NoMad-labelled buildings price as their NTA plus the surface, with a label residual under
+      3 pp and no drift.
+
 ## Open-data survey: stabilization, permits, owners, dated MapPLUTO (2026-10-07)
 
 Four free sources, sized against the 105,244 rows of `chelsea-wv-gv-analysis-20261005-2d5b3b6`
