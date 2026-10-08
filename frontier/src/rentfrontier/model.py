@@ -55,6 +55,14 @@ class ModelConfig:
     # every year leaves those years' predictive ranges too narrow (2010: 67% of
     # asks inside the 80% range, 2021: 68%).
     noise_by_year: bool = False
+    # With noise_by_bedrooms: a log-linear residual scale, log sigma = a_bedroom
+    # + b single + c small + d floor_unknown + e first_year (`NOISE_FACTORS`,
+    # `Arrays.noise_cell`), instead of one free scale per group. exp(a) keeps
+    # the half-normal prior of a group scale; each multiplier exp(b..e) is
+    # log-normal(0, noise_mult_sd). Held-out asks of units with one listing
+    # scatter more (80% range covers 62%), and of 2-3+ bedrooms less.
+    noise_loglinear: bool = False
+    noise_mult_sd: float = 0.5
     # The calendar season as K sine-cosine pairs over the month (season(m) =
     # sum_k a_k sin(2 pi k m / 12) + b_k cos(2 pi k m / 12)), coefficient sd
     # season_scale / k, instead of 12 month effects; 0 = month effects.
@@ -210,6 +218,13 @@ class ModelConfig:
 
 KNOT_MONTHS = 6
 BEDROOM_GROUPS = ("studio", "one_bedroom", "two_bedroom", "three_plus")
+# The log-linear noise factors (`noise_loglinear`), bit k of `Arrays.noise_cell`:
+# the unit has at most one training row; the building has at most
+# SMALL_BUILDING_ROWS; the floor is unknown; the row is in the building's first
+# training year (or earlier).
+NOISE_FACTORS = ("single", "small", "floor_unknown", "first_year")
+NOISE_CELLS = 2 ** len(NOISE_FACTORS)
+SMALL_BUILDING_ROWS = 5
 
 
 def row_sigma(sigma, group):
@@ -228,9 +243,18 @@ def n_noise(config: ModelConfig, prep: "Prepared") -> int:
     bedroom group and calendar year of the panel (`noise_by_year`)."""
     if config.noise_by_year and not config.noise_by_bedrooms:
         raise ValueError("noise_by_year needs noise_by_bedrooms")
+    if config.noise_loglinear and (
+        config.noise_by_year or not config.noise_by_bedrooms
+    ):
+        raise ValueError("noise_loglinear needs noise_by_bedrooms, not noise_by_year")
     if not config.noise_by_bedrooms:
         return 1
+    if config.noise_loglinear:
+        return len(BEDROOM_GROUPS) * NOISE_CELLS
     years = prep.periods[-1].year - prep.periods[0].year + 1
+    if config.noise_by_year and years == NOISE_CELLS:
+        # noise_group tells the two layouts apart by their length.
+        raise ValueError(f"noise_by_year needs a panel of other than {years} years")
     return len(BEDROOM_GROUPS) * (years if config.noise_by_year else 1)
 
 
@@ -238,14 +262,34 @@ def noise_group(n_groups: int, a: "Arrays") -> np.ndarray:
     """Each row's residual scale among `n_groups` (the length of sigma's last
     axis): 0 for one scale, the bedroom group for one per group, else the
     bedroom group's scale in the row's calendar year (group-major), years
-    outside the panel taking its nearest."""
+    outside the panel taking its nearest, or (`noise_loglinear`, NOISE_CELLS
+    per group) the bedroom group's scale in the row's noise cell."""
     xp = jnp if isinstance(a.bed_group, jnp.ndarray) else np
     if n_groups <= 1:
         return xp.zeros_like(a.bed_group)
+    if n_groups == len(BEDROOM_GROUPS) * NOISE_CELLS:
+        if a.noise_cell is None:
+            raise ValueError("log-linear noise needs Arrays.noise_cell")
+        return a.bed_group * NOISE_CELLS + a.noise_cell
     years = n_groups // len(BEDROOM_GROUPS)
     if years == 1:
         return a.bed_group
     return a.bed_group * years + xp.clip(a.year, 0, years - 1)
+
+
+def noise_cell_bits() -> np.ndarray:
+    """(NOISE_CELLS, factors) each noise cell's factor indicators."""
+    cells = np.arange(NOISE_CELLS)[:, None]
+    return ((cells >> np.arange(len(NOISE_FACTORS))[None, :]) & 1).astype(float)
+
+
+def loglinear_sigma(base, mult):
+    """(..., groups * NOISE_CELLS) the scale of each bedroom group's noise
+    cells: base (..., groups) times the product of the multipliers
+    (..., factors) of the cell's factors, group-major."""
+    log_cell = jnp.log(mult) @ noise_cell_bits().T  # (..., cells)
+    cells = jnp.log(base)[..., :, None] + log_cell[..., None, :]
+    return jnp.exp(cells).reshape(*cells.shape[:-2], -1)
 
 
 def season_basis(harmonics: int) -> np.ndarray:
@@ -306,6 +350,9 @@ class Arrays:
     year: np.ndarray | None = None
     # Index into Prepared.areas, 0 = the reference (read only by `area_time`).
     area: np.ndarray | None = None
+    # The row's log-linear noise cell, bits as NOISE_FACTORS (read only by
+    # `noise_loglinear`).
+    noise_cell: np.ndarray | None = None
 
     FIELDS = (
         "y",
@@ -322,6 +369,7 @@ class Arrays:
         "year_frac",
         "year",
         "area",
+        "noise_cell",
     )
 
     def __post_init__(self):
@@ -333,7 +381,12 @@ class Arrays:
             self.area = np.zeros_like(np.asarray(self.month))
 
     def map(self, fn):
-        return Arrays(*(fn(getattr(self, f)) for f in self.FIELDS))
+        return Arrays(
+            *(
+                None if getattr(self, f) is None else fn(getattr(self, f))
+                for f in self.FIELDS
+            )
+        )
 
 
 def n_knots(n_months: int, spacing: int = KNOT_MONTHS) -> int:
@@ -369,6 +422,11 @@ class Prepared:
     unit_line: np.ndarray | None = None
     # Neighbourhoods by training rows, most first (the area_time reference).
     areas: np.ndarray | None = None
+    # Training rows per unit and per building, and each building's first
+    # training year (`Arrays.noise_cell`).
+    unit_rows: np.ndarray | None = None
+    building_rows: np.ndarray | None = None
+    building_first_year: np.ndarray | None = None
 
     @property
     def sizes(self):
@@ -410,6 +468,11 @@ def prepare(frame: pd.DataFrame, heldout: np.ndarray, features: Features) -> Pre
     shared = lines.map(lines.value_counts()).ge(2)
     codes = pd.Categorical(lines.where(shared)).codes  # -1 for NaN
     prep.unit_line = np.asarray(codes, dtype=np.int32)
+    prep.unit_rows = tr.unit_id.value_counts().reindex(prep.units).to_numpy()
+    prep.building_rows = tr.building.value_counts().reindex(prep.buildings).to_numpy()
+    prep.building_first_year = (
+        tr.period.dt.year.groupby(tr.building).min().reindex(prep.buildings).to_numpy()
+    )
     prep.train = row_arrays(prep, frame, train)
     prep.test = row_arrays(prep, frame, heldout)
     return prep
@@ -445,6 +508,31 @@ def row_arrays(prep: Prepared, frame: pd.DataFrame, mask: np.ndarray) -> Arrays:
         year_frac=_year_frac(sub),
         year=(sub.period.dt.year - periods[0].year).to_numpy().astype(np.int32),
         area=_area_index(prep, sub),
+        noise_cell=_noise_cell(prep, sub, building, mask),
+    )
+
+
+def _noise_cell(prep: Prepared, sub, building, mask) -> np.ndarray | None:
+    """Each row's log-linear noise cell (NOISE_FACTORS as bits); None for a
+    prep without the training counts."""
+    if prep.unit_rows is None:
+        return None
+    unit = pd.Index(prep.units).get_indexer(sub.unit_id)
+    unit_rows = np.where(unit >= 0, prep.unit_rows[np.maximum(unit, 0)], 0)
+    names = list(prep.features.names)
+    floor_unknown = (
+        prep.features.values[mask][:, names.index("floor_unknown")] > 0
+        if "floor_unknown" in names
+        else np.zeros(len(sub), bool)
+    )
+    bits = (
+        unit_rows <= 1,
+        prep.building_rows[building] <= SMALL_BUILDING_ROWS,
+        floor_unknown,
+        sub.period.dt.year.to_numpy() <= prep.building_first_year[building],
+    )
+    return sum(np.asarray(b, np.int32) << k for k, b in enumerate(bits)).astype(
+        np.int32
     )
 
 
@@ -612,6 +700,8 @@ def effects(p):
         "building": p["building"],
         "unit": p["unit"],
         "sigma": p["sigma"],
+        # The log-linear noise's base scales and multipliers (noise_loglinear).
+        **{k: p[k] for k in ("noise_base", "noise_mult") if k in p},
         "nu": p["nu"],
         "unit_scale": p["unit_scale"],
         "unit_nu": p.get("unit_nu", jnp.zeros(())),  # 0 = Gaussian unit effects
@@ -953,12 +1043,32 @@ def build_model(prep: Prepared, config: ModelConfig):
             p["unit_scale"] = numpyro.sample(
                 "unit_scale", dist.HalfNormal(config.unit_scale_sd)
             )
-        p["sigma"] = numpyro.sample(
-            "sigma",
-            dist.HalfNormal(config.noise_scale_sd).expand([n_noise(config, prep)])
-            if config.noise_by_bedrooms
-            else dist.HalfNormal(config.noise_scale_sd),
-        )
+        if config.noise_loglinear:
+            n_noise(config, prep)  # checks the flags
+            p["sigma"] = numpyro.deterministic(
+                "sigma",
+                loglinear_sigma(
+                    numpyro.sample(
+                        "noise_base",
+                        dist.HalfNormal(config.noise_scale_sd).expand(
+                            [len(BEDROOM_GROUPS)]
+                        ),
+                    ),
+                    numpyro.sample(
+                        "noise_mult",
+                        dist.LogNormal(0.0, config.noise_mult_sd).expand(
+                            [len(NOISE_FACTORS)]
+                        ),
+                    ),
+                ),
+            )
+        else:
+            p["sigma"] = numpyro.sample(
+                "sigma",
+                dist.HalfNormal(config.noise_scale_sd).expand([n_noise(config, prep)])
+                if config.noise_by_bedrooms
+                else dist.HalfNormal(config.noise_scale_sd),
+            )
         p["nu"] = (
             jnp.asarray(config.nu_fixed)
             if config.nu_fixed is not None
@@ -1598,6 +1708,23 @@ MODELS = {
         unit_t=True,
         noise_by_bedrooms=True,
         noise_by_year=True,
+        season_harmonics=2,
+        season_daily=True,
+        bedroom_time=True,
+        bedroom_time_knot_months=3,
+    ),
+    # ... with a log-linear residual scale (bedroom group, single listing,
+    # small building, floor unknown, building's first year) in place of one
+    # scale per bedroom group and year.
+    "m7-nocurves-floorslope-bednoise-dayfourier-bedtime-lognoise": ModelConfig(
+        name="m7-nocurves-floorslope-bednoise-dayfourier-bedtime-lognoise",
+        building_walk=True,
+        bedroom_slope=True,
+        trend_knot_months=3,
+        feature_slopes=("log_sqft_vs_bedroom_median", "bathrooms=2", "log_floor"),
+        unit_t=True,
+        noise_by_bedrooms=True,
+        noise_loglinear=True,
         season_harmonics=2,
         season_daily=True,
         bedroom_time=True,

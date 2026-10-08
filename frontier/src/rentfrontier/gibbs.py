@@ -143,6 +143,10 @@ class Design:
     # group; None for one scale.
     noise_group: jnp.ndarray | None = None
     n_noise: int = 1
+    # Log-linear noise (`noise_loglinear`): each row's factor indicators
+    # (rows, NOISE_FACTORS); the group scales are then each bedroom group's
+    # base scale, and the multipliers MULT_NAMES scale them. None otherwise.
+    noise_x: jnp.ndarray | None = None
     # (12, 2K) Fourier basis of the season (`season_harmonics`); None for 12
     # month effects.
     season_basis: jnp.ndarray | None = None
@@ -157,9 +161,15 @@ class Design:
     def noise_names(self):
         return (
             tuple(f"sigma_{g}" for g in range(self.n_noise))
+            + (MULT_NAMES if self.noise_x is not None else ())
             if self.noise_group is not None
             else ("sigma",)
         )
+
+    @property
+    def group_noise_names(self):
+        """The per-group scales (the base scales with noise_x)."""
+        return self.noise_names[: self.n_noise]
 
     @property
     def scale_names(self):
@@ -519,12 +529,24 @@ def build_design(
         )
 
     n_noise = model_module.n_noise(config, prep)
+    if config.noise_loglinear:
+        # One base scale per bedroom group; the cells' multipliers ride on
+        # noise_x.
+        n_noise = len(model_module.BEDROOM_GROUPS)
+        noise_group = tr.bed_group
+        noise_x = model_module.noise_cell_bits()[np.asarray(tr.noise_cell)]
+    elif config.noise_by_bedrooms:
+        noise_group = model_module.noise_group(n_noise, tr)
+        noise_x = None
+    else:
+        noise_group = noise_x = None
     noise_names = (
         [f"sigma_{g}" for g in range(n_noise)] if config.noise_by_bedrooms else []
     )
     prior_sd = {
         "sigma": config.noise_scale_sd,
         **{name: config.noise_scale_sd for name in noise_names},
+        **{name: config.noise_mult_sd for name in MULT_NAMES},
         "unit_scale": config.unit_scale_sd,
         "building_scale": config.building_scale_sd,
         "trend_scale": config.trend_scale_sd,
@@ -591,10 +613,11 @@ def build_design(
         gram_fcols=fcols,
         gram_kcols=kcols,
         buckets=buckets,
-        noise_group=jnp.asarray(model_module.noise_group(n_noise, tr), jnp.int32)
-        if config.noise_by_bedrooms
+        noise_group=jnp.asarray(noise_group, jnp.int32)
+        if noise_group is not None
         else None,
         n_noise=n_noise,
+        noise_x=jnp.asarray(noise_x) if noise_x is not None else None,
         fill=fill,
         walk_rank=walk_rank,
         **line_design(prep, config),
@@ -667,18 +690,31 @@ def local_value(theta_l, building, slots, values):
 # enter only `block_solve`, so a proposal that changes only those reuses the
 # parts: the row sums over every row, about half of a block draw's cost.
 PART_SCALES = frozenset({"sigma", "unit_scale", "unit_drift_scale"})
+# The log-linear noise multipliers (`noise_loglinear`), one per noise factor.
+MULT_NAMES = tuple(f"noise_mult_{f}" for f in model_module.NOISE_FACTORS)
 
 
 def is_part_scale(name: str) -> bool:
     """A scale `block_parts` reads: the residual scale(s) and the unit scales."""
-    return name in PART_SCALES or name.startswith("sigma_")
+    return name in PART_SCALES or name.startswith(("sigma_", "noise_mult_"))
+
+
+def scale_log_prior(name: str, sc, prior_sd):
+    """Log prior of a positive scale on log coordinates (with the Jacobian):
+    half-normal(prior_sd), or log-normal(0, prior_sd) for a noise multiplier."""
+    if name.startswith("noise_mult_"):
+        return -(jnp.log(sc) ** 2) / (2 * prior_sd**2)
+    return -(sc**2) / (2 * prior_sd**2) + jnp.log(sc)
 
 
 def sigma_rows(d, s):
     """Each row's residual scale: s["sigma"], or its noise group's."""
     if d.noise_group is None:
         return s["sigma"]
-    return jnp.stack([s[n] for n in d.noise_names])[d.noise_group]
+    base = jnp.stack([s[n] for n in d.group_noise_names])[d.noise_group]
+    if d.noise_x is None:
+        return base
+    return base * jnp.exp(d.noise_x @ jnp.log(jnp.stack([s[n] for n in MULT_NAMES])))
 
 
 def gaussian_block(d: Design, lam, s, z_g, z_l, z_u, kappa=None, z_f=None):
@@ -1011,10 +1047,25 @@ def site_values(d: Design, state):
         **({"unit_nu": state["unit_nu"]} if d.unit_t else {}),
         **({"unit_drift": state["drift"]} if d.unit_drift else {}),
         **{n: state[n] for n in d.scale_names},
-        # The NumPyro site: one scale, or one per bedroom group.
+        # The NumPyro site: one scale, or one per bedroom group (and with
+        # noise_x, per noise cell, from noise_base and noise_mult).
         **(
             {"sigma": jnp.stack([state[n] for n in d.noise_names], axis=-1)}
-            if d.noise_group is not None
+            if d.noise_group is not None and d.noise_x is None
+            else {}
+        ),
+        **(
+            {
+                "noise_base": jnp.stack(
+                    [state[n] for n in d.group_noise_names], axis=-1
+                ),
+                "noise_mult": jnp.stack([state[n] for n in MULT_NAMES], axis=-1),
+                "sigma": model_module.loglinear_sigma(
+                    jnp.stack([state[n] for n in d.group_noise_names], axis=-1),
+                    jnp.stack([state[n] for n in MULT_NAMES], axis=-1),
+                ),
+            }
+            if d.noise_x is not None
             else {}
         ),
     }
@@ -1060,6 +1111,14 @@ def make_step(d: Design):
                 for g in range(d.n_noise)
             }
             if d.noise_group is not None
+            else {}
+        ),
+        **(
+            {
+                n: int(np.sum(np.asarray(d.noise_x)[:, k]))
+                for k, n in enumerate(MULT_NAMES)
+            }
+            if d.noise_x is not None
             else {}
         ),
         "unit_scale": d.n_units,
@@ -1121,10 +1180,7 @@ def make_step(d: Design):
             out_new = block_solve(d, parts_new, s_new, *z)
 
             def log_prior(sc):
-                return sum(
-                    -(sc[k] ** 2) / (2 * d.prior_sd[k] ** 2) + jnp.log(sc[k])
-                    for k in hier
-                )
+                return sum(scale_log_prior(k, sc[k], d.prior_sd[k]) for k in hier)
 
             log_ratio = out_new[-1] - out[-1] + log_prior(s_new) - log_prior(s)
             ok = jnp.log(jax.random.uniform(k2)) < log_ratio
@@ -1155,8 +1211,8 @@ def make_step(d: Design):
                 log_ratio = (
                     out_new[-1]
                     - out[-1]
-                    - (s_new[name] ** 2 - s[name] ** 2) / (2 * d.prior_sd[name] ** 2)
-                    + jnp.log(s_new[name] / s[name])
+                    + scale_log_prior(name, s_new[name], d.prior_sd[name])
+                    - scale_log_prior(name, s[name], d.prior_sd[name])
                 )
                 ok = jnp.log(jax.random.uniform(k2)) < log_ratio
                 out = jax.tree.map(
@@ -1208,50 +1264,72 @@ def make_step(d: Design):
         else:
             # One scale per bedroom group: the groups' likelihoods factor given
             # nu, so each step moves every group's log scale at once (accepted
-            # per group), then log nu given the scales.
+            # per group), then (noise_x) each log multiplier in turn, then
+            # log nu given the scales.
             G, grp = d.n_noise, d.noise_group
+            K = 0 if d.noise_x is None else d.noise_x.shape[1]
+            mult_sd = d.prior_sd[MULT_NAMES[0]] if K else 1.0
 
-            def group_lp(zs, nu):
-                sig = jnp.exp(zs)
-                rows = collect_module.student_t_logpdf(e, nu, sig[grp])
+            def row_offset(zm):
+                return 0.0 if not K else d.noise_x @ zm
+
+            def group_lp(zs, zm, nu):
+                sig = jnp.exp(zs[grp] + row_offset(zm))
+                rows = collect_module.student_t_logpdf(e, nu, sig)
+                base = jnp.exp(zs)
                 return (
                     jax.ops.segment_sum(rows, grp, G)
-                    - sig**2 / (2 * sigma_prior**2)
+                    - base**2 / (2 * sigma_prior**2)
                     + zs
                 )
 
-            def nu_lp(zs, znu):
+            def mult_lp(zs, zm, nu):
+                # Log-normal(0, mult_sd) on each multiplier, on log coordinates.
+                return jnp.sum(group_lp(zs, zm, nu)) - jnp.sum(zm**2) / (2 * mult_sd**2)
+
+            def nu_lp(zs, zm, znu):
                 nu = jnp.exp(znu)
                 return (
-                    jnp.sum(group_lp(zs, nu))
+                    jnp.sum(group_lp(zs, zm, nu))
                     + jax.scipy.stats.gamma.logpdf(nu, 2.0, scale=10.0)
                     + znu
                 )
 
             def noise_mh(carry, k):
-                zs, znu, acc = carry
-                k1, k2, k3, k4 = jax.random.split(k, 4)
+                zs, zm, znu, acc = carry
+                k1, k2, k3, k4, k5 = jax.random.split(k, 5)
                 nu = jnp.exp(znu)
                 prop = zs + sigma_step_sd * jax.random.normal(k1, (G,))
                 ok = jnp.log(jax.random.uniform(k2, (G,))) < group_lp(
-                    prop, nu
-                ) - group_lp(zs, nu)
+                    prop, zm, nu
+                ) - group_lp(zs, zm, nu)
                 zs = jnp.where(ok, prop, zs)
+                for j in range(K):
+                    kj1, kj2 = jax.random.split(jax.random.fold_in(k5, j))
+                    pm = zm.at[j].add(sigma_step_sd * jax.random.normal(kj1))
+                    ok_m = jnp.log(jax.random.uniform(kj2)) < mult_lp(
+                        zs, pm, nu
+                    ) - mult_lp(zs, zm, nu)
+                    zm = jnp.where(ok_m, pm, zm)
                 pnu = znu + nu_sd * jax.random.normal(k3)
-                ok_nu = jnp.log(jax.random.uniform(k4)) < nu_lp(zs, pnu) - nu_lp(
-                    zs, znu
+                ok_nu = jnp.log(jax.random.uniform(k4)) < nu_lp(zs, zm, pnu) - nu_lp(
+                    zs, zm, znu
                 )
                 znu = jnp.where(ok_nu, pnu, znu)
-                return (zs, znu, acc + ok.mean()), None
+                return (zs, zm, znu, acc + ok.mean()), None
 
-            zs0 = jnp.log(jnp.stack([s[n] for n in d.noise_names]))
-            (zs, znu, noise_acc), _ = jax.lax.scan(
+            zs0 = jnp.log(jnp.stack([s[n] for n in d.group_noise_names]))
+            zm0 = (
+                jnp.log(jnp.stack([s[n] for n in MULT_NAMES])) if K else jnp.zeros((0,))
+            )
+            (zs, zm, znu, noise_acc), _ = jax.lax.scan(
                 noise_mh,
-                (zs0, jnp.log(state["nu"]), jnp.zeros(())),
+                (zs0, zm0, jnp.log(state["nu"]), jnp.zeros(())),
                 jax.random.split(keys[3], noise_steps),
             )
             nu = jnp.exp(znu)
-            new = {n: jnp.exp(zs[g]) for g, n in enumerate(d.noise_names)}
+            new = {n: jnp.exp(zs[g]) for g, n in enumerate(d.group_noise_names)}
+            new.update({n: jnp.exp(zm[j]) for j, n in enumerate(MULT_NAMES[:K])})
         sigma = sigma_rows(d, new)  # per row (a scalar with one scale)
         lam = jax.random.gamma(keys[4], (nu + 1) / 2, (n,)) / (
             (nu + (e / sigma) ** 2) / 2
@@ -1533,6 +1611,7 @@ def init_states(d: Design, key, chains):
         **START,
         **{n: 0.05 for n in names if n.startswith("fslope_scale_")},
         **{n: START["sigma"] for n in names if n.startswith("sigma_")},
+        **{n: 1.0 for n in names if n.startswith("noise_mult_")},
     }
     k1, _ = jax.random.split(key)
     jitter = jnp.exp(0.7 * jax.random.normal(k1, (chains, len(names) + 1)))
