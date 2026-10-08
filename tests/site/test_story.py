@@ -189,6 +189,14 @@ def test_theories_chapter_reads_the_ledger(site_root, research_file, tmp_path):
     assert "1 of the 1 ideas about where a building sits," in html
     assert html.count('class="trial ') == 4
     assert "Some ideas scored brilliantly" in html
+    # Open questions: the location idea waiting for the next neighbourhood,
+    # and the idea set aside.
+    assert (
+        "1 idea about where a building sits\nhas made no clear difference so far:</p>"
+        in html
+    )
+    assert "<li>parks within reach</li>" in html
+    assert "1 idea scored well and was\nstill set aside" in html
 
 
 MILESTONES = [
@@ -365,6 +373,7 @@ def test_cleaning_chapter_reads_the_steps(site_root, research_file, tmp_path):
     assert "so 15 unit names were joined" in html
     assert "8.0% of the time; after the rules,\n0.7%." in html
     assert "an earlier served fit" in html  # the test site serves another run
+    assert "Even after the cleaning, 7.0% of a unit" in html
     path.write_text("not json")
     html = _page(app.test_client())
     assert 'id="cleaning"' not in html

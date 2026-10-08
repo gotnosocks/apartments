@@ -2,6 +2,17 @@
 
 What the next turn of the website thread needs. Updated at each milestone.
 
+## State (2026-10-08 03:00 UTC)
+
+- **The story's planned chapters are all live:** #450 "Cleaning the record" (reads
+  docs/model/cleaning.json from `rentfrontier.cleaning`; Modeling regenerates it with each switch
+  PR, alongside the variance) and #456 "Open questions" (location retests from the ledger's Retest
+  column, rent jumps left after cleaning, ideas set aside despite a gain).
+- **Next:** check the site when the first Flatiron + Gramercy Park fit is served (map guides,
+  basemap, neighbourhood names, the cleaning chapter's "earlier served fit" note until cleaning.json
+  is regenerated). Then polish the story: an animated playback of the theories, and a playtest of
+  /research/story with a persona subagent.
+
 ## State (2026-10-08 02:10 UTC)
 
 - **Story chapters 2 and 3 are live** (#445 theories on trial, from the feature-test ledger;

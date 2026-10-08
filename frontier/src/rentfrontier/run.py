@@ -429,6 +429,7 @@ def main(argv=None):
     rules = args.data_rules
     check_rules_for_split(rules, args.split)
     frame, heldout = data.split_and_rules(frame, args.split, rules)
+    rows_sha256 = data.rows_sha256(frame, heldout)
     feats = features.build(args.features, frame, ~heldout)
     prep = model.prepare(frame, heldout, feats)
     prep_seconds = time.perf_counter() - t0
@@ -512,6 +513,7 @@ def main(argv=None):
         "started_at": time.strftime("%Y-%m-%dT%H:%M:%S%z", time.localtime(started)),
         "dataset": frame.attrs["dataset"],
         "dataset_observations_sha256": frame.attrs["source_sha256"],
+        "rows_sha256": rows_sha256,
         "split": args.split,
         "split_seed": splits.SEED,
         "feature_set": args.features,

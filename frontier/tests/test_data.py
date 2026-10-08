@@ -858,6 +858,27 @@ def test_apply_rules_refuses_unit_reviews_before_unit_labels():
         )
 
 
+def test_dataset_nb5_splits_flatiron_gramercy_park_by_building():
+    """DATASET_NB5 is DATASET_NB4 with Flatiron + Gramercy Park's rows named
+    Flatiron or Gramercy Park."""
+    complete = data.DATASET_NB5 / "complete.json"
+    if not complete.exists():
+        pytest.skip("five-neighbourhood dataset not on this machine")
+    record = json.loads(complete.read_text())
+    fgp = data.Path(record["parts"]["Flatiron + Gramercy Park"]["path"])
+    split = json.loads((fgp / "complete.json").read_text())
+    assert split["source"]["path"] == (
+        "/data1/apartments/frontier/datasets/flatiron-gramercy-park-analysis-20261007-34b958d"
+    )
+    assert record["neighbourhoods"] == {
+        "Chelsea": 52614,
+        "West Village": 34205,
+        "Greenwich Village": 18425,
+        "Gramercy Park": 18333,
+        "Flatiron": 12182,
+    }
+
+
 def test_dataset_nb4_is_the_current_dataset_plus_flatiron_gramercy_park():
     """DATASET_NB4 combines the current dataset, unchanged, with Flatiron +
     Gramercy Park's rows, each named by its neighbourhood."""

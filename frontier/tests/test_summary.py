@@ -182,6 +182,14 @@ def test_present_terms_leave_out_terms_a_design_does_not_have():
         ["West Village", "Greenwich Village", "Flatiron + Gramercy Park"],
     )
     assert "Greenwich Village, Flatiron + Gramercy Park):" in four[0]["description"]
+    five = summary.terms_record(
+        ["neighbourhood"],
+        ["West Village", "Greenwich Village", "Flatiron", "Gramercy Park"],
+    )
+    assert (
+        "(the West Village, Greenwich Village, Flatiron, Gramercy Park):"
+        in (five[0]["description"])
+    )
 
 
 def test_write_records_every_file_and_renames_last(tmp_path, monkeypatch):

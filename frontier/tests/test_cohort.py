@@ -1,5 +1,8 @@
+import json
+
 import numpy as np
 import pandas as pd
+import pytest
 from rentfrontier import cohort
 
 
@@ -113,3 +116,36 @@ def test_combine_adds_the_neighbourhood_and_refuses_overlap(tmp_path):
     c = part("c", [row("3", "u3", "30", "b1")])  # a building in both
     with pytest.raises(SystemExit):
         cohort.combine(tmp_path / "ac", {"Chelsea": a, "Other": c})
+
+
+def test_areas_relabels_each_row_by_its_building_and_refuses_gaps(tmp_path):
+    source = tmp_path / "fgp"
+    source.mkdir()
+    rows = [
+        {"audit_id": "1", "building": "a", "rent": 3000},
+        {"audit_id": "2", "building": "b", "rent": 4000},
+        {"audit_id": "3", "building": "a", "rent": 3100},
+    ]
+    (source / "observations.jsonl").write_text(
+        "".join(json.dumps(r) + "\n" for r in rows)
+    )
+    table = tmp_path / "areas.parquet"
+    pd.DataFrame(
+        {"building": ["a", "b"], "area": ["Flatiron", "Gramercy Park"]}
+    ).to_parquet(table)
+    done = cohort.areas(tmp_path / "out", source, table)
+    out = [
+        json.loads(line)
+        for line in (tmp_path / "out" / "observations.jsonl").read_text().splitlines()
+    ]
+    assert [r["neighbourhood"] for r in out] == [
+        "Flatiron",
+        "Gramercy Park",
+        "Flatiron",
+    ]
+    assert [{k: v for k, v in r.items() if k != "neighbourhood"} for r in out] == rows
+    assert done["neighbourhoods"] == {"Flatiron": 2, "Gramercy Park": 1}
+    pd.DataFrame({"building": ["a"], "area": ["Flatiron"]}).to_parquet(table)
+    with pytest.raises(SystemExit, match="1 buildings have no area"):
+        cohort.areas(tmp_path / "out2", source, table)
+    assert not (tmp_path / "out2").exists()
