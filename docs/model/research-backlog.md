@@ -110,6 +110,242 @@ Test, on Modal when fits resume:
    rebased tests, then unical.
 4. **Early years (2010–13).** Single listings are underpredicted by 1.6%, from sparse data. This is
    low priority: it fades with yearnoise, and few rows are affected.
+5. **Line term, re-tested** (check 7 below). This ranks above items 2–4 on the resume queue. Same-line peers predict single-listing residuals
+   (slope 0.64). Run one Modal full fit of line effects (`line_min_units=2`) on the NB5 base
+   after the pause.
+
+### Review checks, sections 9 and 10 (Ben, 2026-10-08 20:11Z)
+
+These are 12 no-fit checks on the same served fit. Residual means log(ask / median estimate) on
+fitted rows (121,971), unless a check says otherwise. Scripts:
+`/data1/apartments/tmp/bridge/review/r12/` (c12.py, c3.py, c8.py, c9.py).
+
+**Results at a glance:**
+
+| # | Check | Result | Next step |
+|---|---|---|---|
+| 1 | Walk steps on DOB permits | Responds barely | Leave permits out |
+| 2 | Bedroom-time curves outside 2020–22 | Not flat | Keep `bedtime`; no COVID-only window |
+| 3 | Year × building class | Excess dispersion (χ²/df 2.34) | Low priority |
+| 4 | Variance shares | Labels 2.1%; labels + building + walk + unit 15.7% | Board note only |
+| 5 | Single-listing tails | Widest in a building's first year | Data audit first, then ranked item 2 |
+| 6 | Residual SD by missing fields | Missing floor matters most | Floor-unknown noise scale |
+| 7 | Line peers of single-listing units | Strong signal (slope 0.64) | Re-test the line term (new item 5) |
+| 8 | Relative floor, top floor | Nothing beyond the floor terms | None |
+| 9 | Spatial correlation, small buildings | Weak, out to 500 m | Low priority |
+| 10 | GV/WV multiplier within cells | Concentrated in small buildings and non-C classes | Building-size noise scale |
+| 11 | 5-bedroom ad phrases | No mean shift, wider tails | Noise, not a mean feature |
+| 12 | Ledger: global ×1.037 | Noise scales under-dispersed out of sample | Fit-side noise design |
+
+1. **The building walk barely responds to DOB permits** (#437/#478).
+   - The regression is a WLS of each fitted 6-month walk step (×100) on A1/A2/NB filing
+     indicators at lags 0–2, weighted by 1/sd².
+   - Over 122,536 steps (14,583 with a permit), the coefficients are:
+     - A1 at lag 0: +0.06% (SE 0.035);
+     - A2 at lags 0 and 1: +0.02% and +0.03%;
+     - NB and all other lags: about 0.
+   - For buildings with at least 20 rows, A1 at lag 0 is +0.20% (SE 0.08).
+   - A permit-dated step feature would move estimates by a fifth of a percent, so leave permits
+     out of the model.
+2. **The bedroom-time curves are not flat outside 2020–22.** They are slow trends, not a COVID
+   bump:
+   - 2BR: +0.4% (2010) → −2.9% (2019) → −3.4% (2020) → −2.0% (2026).
+   - 3BR+: −0.4% → −3.8% (2019) → −6.4% (2020) → −3.9% (2026).
+   - Studio: −1.4% (2011) → +2.0% (2019) → −0.7% (2021) → +1.3% (2026).
+
+   46% of the 2BR months outside 2020–22 are more than 2 sd from 0. Keep `bedtime` as it is; a
+   COVID-only window would lose the trend.
+3. **Year × building class shows excess dispersion** (χ²/df 2.34 over 77 cells).
+   - The notable cells are 2021 C −1.1% (z −5.1), 2021 R +1.0%, 2014 R +1.0% and 2020 D −0.6%.
+   - Year × lift class gives χ²/df 2.76 over 34 cells, led by 2013 lift-unknown at +1.6% and
+     2014 elevator/doorman at +0.9%.
+   - Over all years, the class means are C +0.07%, D +0.02%, R +0.29%, S +0.24% and other
+     +0.63%.
+   - A class × time curve could take the 2021 rental (C) dip. It is low priority: the cells are
+     about 1%.
+4. **Variance shares**, as a share of the variance of the log median estimate (0.206 overall):
+   - Neighbourhood labels as their own group: 2.1% overall, and 0 within a neighbourhood by
+     construction.
+   - Building 7.0%, building walk 3.3%, unit 2.3%.
+   - The descriptive "where and which apartment" share (labels + building + walk + unit) is 15.7%
+     overall. That is the variance of the sum, so it includes the covariances among the four
+     (about +1 point net), not just the sum of their shares (14.7%). Per neighbourhood it is:
+     - Chelsea 10.8%;
+     - Flatiron 15.0%;
+     - Greenwich Village 16.2%;
+     - Gramercy 17.4%;
+     - West Village 18.4%.
+   - The other features take 77%, mostly bedrooms (28%), bathrooms (5%) and building size (3%).
+   - The residual is 5.2% of total variance overall, and 3.9% (Chelsea) to 6.5% (WV, Gramercy)
+     per neighbourhood.
+   - Labels against building effects: the covariance term is −0.7%, so building effects slightly
+     offset the labels rather than doubling them.
+5. **Single-listing tails are widest in a building's first year on the data:**
+
+   | Months since the building's first row | Rows | 1% / 99% residual | \|residual\| > 40% |
+   |---|---|---|---|
+   | 0–12 | 4,589 | −59% / +73% | 6.7% |
+   | 12–36 | 4,271 | −38% / +50% | 2.6% |
+   | 36–96 | 11,486 | n/a | 2.2% |
+   | 96+ | 9,171 | n/a | 2.1% |
+
+   - By era, the share with |residual| > 40% is 3.8% (2010–14), 2.8% (2015–19), 3.5% (2020–22)
+     and 2.3% (2023–26). Repeat units: 0.2%.
+   - The new-building tail adds to ranked item 2 (intervals for new apartments): a building with
+     no history yet is the widest case.
+   - The audit of those rows for Data comes first, since new-building rows are where bad joins
+     land.
+6. **Residual SD by missing fields: missing floor matters most.**
+
+   | Fields | Repeat units | Single-listing units |
+   |---|---|---|
+   | All known | 7.9% | 15.5% |
+   | Floor unknown, sqft known | 11.0% | 22.9% (6.2% of rows have \|residual\| > 40%) |
+   | Sqft unknown, floor known | 7.4% | |
+   | Sqft and floor unknown | | 17.0% |
+   | Floor, sqft and description unknown | | 20.9% |
+
+   A floor-unknown noise scale is a cheap addition to the noise design in ranked item 1.
+7. **Line peers predict single-listing residuals.** This is the strongest new signal.
+   - Sample: single-listing rows whose line (e.g. 4C) has other units with at least 2 fitted
+     rows. That is 25,699 of 29,517 single-listing rows; the median line has 3 units.
+   - Regressing the row residual (%) on the mean fitted unit effect of those peer units gives:
+     - all such rows: slope 0.34 (SE 0.04);
+     - lines with at least 2 peers: 0.64 (SE 0.05);
+     - lines with at least 4 peers: 0.72 (SE 0.08).
+   - The SD of the peer mean is 3.0%.
+   - Line effects are off in the served fit. When they were last tested (research plan,
+     2026-09-26), they gained +151 to +176 PSIS-LOO but failed the gate on line_scale R-hat
+     (1.02–1.03).
+   - The model has changed since then (walks, bedtime, noise terms, the NB5 data), and the slope
+     says the signal is still there.
+   - **New ranked item 5:** re-test the line term on the NB5 base with `line_min_units=2` as one
+     Modal full fit after the pause. Whether R-hat passes on the A100 chain length is the
+     question.
+8. **Relative floor and the top floor add nothing beyond the floor terms.**
+   - The floor is the listed floor where known. The floor count is PLUTO numfloors via the
+     registry BBL.
+   - Mean residual by floor / numfloors bin is −0.3% (below 0.2) and +0.3% (0.8–0.95); every
+     other bin is within ±0.1%.
+   - Top floor against the rest: −0.09% against −0.02%.
+   - Split by lift, the top floor is −0.6% without an elevator (916 rows), −0.3% with lift
+     unknown and +0.3% with an elevator. The walk-up penalty already in
+     `log_floor_x_no_elevator` covers most of it.
+   - No feature needed.
+9. **Small buildings show weak spatial correlation out to 500 m.**
+   - Sample: building mean residuals for the 1,225 buildings with 5 or fewer fitted rows.
+     Significance comes from 199 permutations.
+
+   | Distance band | Moran's I | p |
+   |---|---|---|
+   | 0–100 m | 0.035 | 0.01 |
+   | 100–250 m | 0.010 | 0.03 |
+   | 250–500 m | 0.007 | 0.015 |
+   | 500–1,000 m | −0.008 | |
+   | 1,000–2,000 m | 0.002 | |
+
+   - Neighbouring small buildings share some residual. The size is small (I = 0.035 at 0–100 m),
+     so a block-level smooth would help only these thin buildings.
+   - It is behind the location items; the label-vs-location test (`nb5p3-locnolabel-v1`, queued)
+     is the first look.
+10. **The GV/WV noise excess sits in small buildings and non-C classes.**
+    - Method: per-cell Student-t scale multipliers c on the served predictive (the noisegain
+      method), within each neighbourhood.
+    - Overall, c is 1.010 (Chelsea), 1.028 (Gramercy), 1.053 (WV), 1.055 (Flatiron) and 1.103
+      (GV).
+    - By rows per building:
+      - 1–5 rows: c = 1.33–1.37 in every neighbourhood;
+      - 6–20 rows: 1.06–1.34;
+      - 21+ rows: 0.99–1.08 (WV 1.031, GV 1.081).
+    - By class:
+      - C: 0.995 in WV and 1.048 in GV;
+      - D: 1.067 and 1.074;
+      - R: 1.351 and 1.223;
+      - other: 1.37 and 1.30.
+    - So the WV multiplier falls to about 1.03 in large buildings and C buildings, but GV stays
+      above 1.03 in every cell. The neighbourhood excess is mostly a mix of small, R and "other"
+      buildings.
+    - A noise scale on building row count (or on building class) would explain more than one per
+      neighbourhood. This refines ranked item 1.
+11. **5-bedroom ad phrases: no mean shift, wider tails.**
+    - 433 rows have 5 or more bedrooms; 142 of them have an ad text.
+    - Phrase counts are "duplex"/"triplex" 35, "entire floor"/"floor-through" 17,
+      "townhouse"/"brownstone" 11 and "combined" 6.
+    - Matched rows have median residuals between −1% and +6%, but a wider SD: 18.4% against
+      16.2%. 6.2% of matched rows have |residual| > 40%, against 2.6% unmatched.
+    - The sample is too small for a mean feature, and `text:duplex` already exists. It points to
+      the noise side (ranked item 1's 5-bedroom inflation of 1.32), not a new term.
+12. **Ledger note.** The global predictive-scale multiplier of 1.037 (ranked item 1) means the
+    served noise scales are under-dispersed out of sample.
+    - Checks 6 and 10 locate the under-dispersion: single-listing units, missing floor, buildings
+      with few rows, and R/other classes.
+    - A fitted noise design along those lines should take the multiplier to about 1. A
+      calibration rescale on the site would only hide it.
+
+**Follow-ups to the checks (coordinator relay, 2026-10-08 22:03Z).** Same served fit unless noted.
+Scripts: `r12/c13.py` and `r12/loc.py`.
+
+- **Bedroom-curve shape.** The 1BR curve is the reference (0), so each curve is its departure from
+  1BR. Yearly means, with * where the year mean is more than 2 posterior sd from 0:
+  - 3BR+ drifts below 1BR from 2015 (−2.5%) and is clearly below from 2017 (−4.4%*). It is
+    deepest in 2020–24 (−5.2% to −6.4%*) and recovers to −3.9%* in 2026.
+  - 2BR follows the same shape at about half the size: −2.5%* from 2017, −3.4%* in 2020, −2.0%*
+    in 2026.
+  - Studios rise above 1BR in 2015–19 (+1.2% to +2.0%*), dip in 2021 (−0.8%) and sit at about
+    +1.5% since 2023.
+  - So the large-unit discount builds through 2015–19, before COVID, peaks in 2020–24 and is
+    easing now.
+- **Noise design: no neighbourhood scales.** Check 10 puts the GV/WV excess in small buildings
+  and non-C classes, so a scale per neighbourhood is not needed. The noise design to fit is
+  bedroom group × single-listing unit × small building (≤ 5 rows): 16 scales in place of
+  `yearnoise`. This replaces the "scale per neighbourhood" part of ranked item 1.
+- **What the walk is.** These are fitted 6-month steps, in RMS %, against a mean posterior step
+  sd of 2.8–3.1%. Before the building's first row there is no data, so every building's steps
+  there come from the prior and have the same RMS.
+
+  | Rows per building | Before the building's first row | First 3 years | Later |
+  |---|---|---|---|
+  | 1–5 | 0.44 | 0.52 | 0.36 |
+  | 6–20 | 0.44 | 0.91 | 0.87 |
+  | 21+ | 0.44 | 1.31 | 1.59 |
+
+  - Steps are larger later than early (1.17 against 0.99 RMS), so the walk is not a lease-up term.
+  - In small buildings the walk is shrunk to almost nothing, so it is not prior noise there
+    either.
+  - The walk is a slow drift that only data-rich buildings can show. Almost no step is more than
+    2 posterior sd from 0. That share is 0.7% of steps after a building's first 3 years, and
+    1.1% of steps in buildings with 21+ rows.
+  - A coarser yearly-knot walk would lose little and is worth a test for elegance and speed.
+- **The location surface, re-scored with no refit.** This is `nb3-loc-v1`, Gaussian bumps 250 m
+  apart with SD 250 m, on the A100 pair at 8f40c96 (chelsea-wv-gv, 2,907 buildings,
+  87 bumps).
+  - The fitted surface has SD 6.7%. It takes 19.5% of the base fit's building variance: building
+    SD falls from 12.2% to 11.0%, weighted by the base fit's building precision, so the 19.5%
+    comes from unrounded variances.
+  - Projecting the base fit's building effects on the bump basis (WLS) gives R² 0.131, against
+    a permutation null of 0.041 (95% 0.051, p = 0.005).
+  - Neighbourhood shifts: the surface's mean departs from the overall mean in each area, all
+    with permutation p = 0.001:
+    - Chelsea: −3.2%;
+    - GV: +2.8%;
+    - WV: +1.5%.
+  - The label coefficients fall from 12.1% to 8.0% (WV) and from 8.1% to 2.8% (GV).
+  - Held-out ΔELPD, loc − base:
+    - all rows: −1.2 ± 1.5;
+    - buildings with ≤ 5 fit rows: −1.0 ± 0.7 (166 rows);
+    - 6–20 rows: −1.4 ± 0.9;
+    - 21+ rows: +1.1 ± 1.0.
+  - So the surface is real structure: it absorbs part of the labels and of the building effects.
+    But it doesn't predict new rows better, even for thin buildings. The queued
+    `nb5p3-locnolabel-v1` remains the deciding test.
+- **Status of the 12 checks.** All 12 are done; none is open. The descriptive share (labels +
+  building + walk + unit) on the served fit is 15.7% overall: Chelsea 10.8%, Flatiron 15.0%, GV
+  16.2%, Gramercy 17.4%, WV 18.4%.
+- **Resume queue.**
+  - The line term (ranked item 5) goes ahead of the noise fit. Score it on all rows and on
+    single-listing units in a line with peers.
+  - The Gibbs sampler doesn't support `line_effects` yet (`gibbs.py` refuses it), so the line fit
+    needs a Gibbs line block first. That is a code PR with no fit.
 
 ## Open-data survey: stabilization, permits, owners, dated MapPLUTO (2026-10-07)
 

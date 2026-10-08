@@ -288,3 +288,20 @@ Logged, unbuilt (feature hold):
 - The cleaning chapter could show one bad ask that was set aside, and a picture of one split unit.
 - Layer descriptions repeat themselves. Terms still unexplained: log scale, Student-t, Fourier season, quarantine, predictive range. Glossary links on first use are still the open ask from round 6.
 - The design-timeline chapter is still a wall of detail, with PR numbers as labels.
+
+## Story round 8 (2026-10-08, story-1008b: lay reader and statistician)
+
+Fixed in this round:
+- Research pages (Frontier, History, Validation) opened on the RTX 2060, which holds no served fit, so they looked empty. They now open on the served fit's hardware.
+- "10 of the 10" location ideas in Theories against "9 ideas" in Open questions. The second count now reads "9 of the 10 … on the older, smaller data", and counts only the null results.
+
+Logged, unbuilt (feature hold):
+- Link the worked-example addresses (cleaning chapter, example apartment) to their listings.
+- Back-to-contents links on a 14,000 px page. About 80 bare PR icons are noise for a lay reader.
+- The example studio at $6,000 against a "typical $4,200", and its large terms that cancel: explain them, or pick a more typical example.
+- Counts 121,971 / 135,540 / 129,814 explained in one place.
+- A closing "can I trust an estimate?" line: inside the likely range 80% of the time, less for new apartments.
+- Statistician: there is no selection-bias or untouched-test-set discussion after 287 fits, and no time-forward split stated for the headline held-out score.
+- Statistician: the History changelog is PR titles with no before/after effect on estimates. The #544 note ("held-out estimates stay finite") needs a plain explanation.
+- Statistician: the served run shows unit-labels-v11 while the text calls v13 current. This is for Modeling to confirm. It is not changed on the site.
+- Theories chart caught mid-animation again (holes and faded rows in a screenshot). It is the known armed/whole scheme, left as is.

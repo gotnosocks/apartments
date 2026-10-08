@@ -1701,3 +1701,21 @@ def test_about_shows_calibration_by_year_and_names_narrow_years(client, site_roo
     assert 'id="calibration-by-year"' in html
     assert "in some years (2010) than in others" in html
     assert '<td class="num">67%</td>' in html and "−0.4%" in html
+
+
+def test_research_pages_open_on_the_served_fits_hardware():
+    from apartments.site import research
+
+    def entry(hw, run):
+        return {"hardware_class": hw, "splits": {"rows": {"run": run}}}
+
+    data = {
+        "entries": [
+            entry(research.TARGET_HARDWARE, "m-old"),
+            entry(research.TARGET_HARDWARE, "m-older"),
+            entry("modal A100", "m-served"),
+        ]
+    }
+    assert research.default_hardware(data, "m-served") == "modal A100"
+    assert research.default_hardware(data, "m-gone") == research.TARGET_HARDWARE
+    assert research.default_hardware(data, "") == research.TARGET_HARDWARE

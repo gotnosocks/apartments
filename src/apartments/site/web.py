@@ -77,6 +77,7 @@ from .research import (
     entry_for_run,
     frontier_view,
     full_fits_of,
+    default_hardware,
     hardware_classes,
     implementations,
     judgements,
@@ -1864,7 +1865,7 @@ def create_app(
             abort(503, description="The board has no fits yet.")
         hardware = request.args.get("hardware")
         if hardware not in classes:
-            hardware = TARGET_HARDWARE if TARGET_HARDWARE in classes else classes[0]
+            hardware = default_hardware(data, m["provenance"]["run"])
         days = snapshot_days(data)
         day = request.args.get("as_of")
         day = day if day in days else None
@@ -2211,7 +2212,7 @@ def create_app(
             abort(503, description="The board has no fits yet.")
         hardware = request.args.get("hardware")
         if hardware not in classes:
-            hardware = TARGET_HARDWARE if TARGET_HARDWARE in classes else classes[0]
+            hardware = default_hardware(data, m["provenance"]["run"])
         served_run = m["provenance"]["run"]
         best = best_over_time(data, hardware)
         fits = []
@@ -2296,7 +2297,7 @@ def create_app(
             abort(503, description="The board has no fits yet.")
         hardware = request.args.get("hardware")
         if hardware not in classes:
-            hardware = TARGET_HARDWARE if TARGET_HARDWARE in classes else classes[0]
+            hardware = default_hardware(data, m["provenance"]["run"])
         served_run = m["provenance"]["run"]
         pairs = validation_pairs(data, hardware)
         floor = outlier_floor([p["psis"] for p in pairs])

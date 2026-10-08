@@ -266,6 +266,7 @@ likely ask range shown with each listing more than on the single number:
 {% set gains = trials | selectattr("verdict", "equalto", "gain") | list %}
 {% set nulls = trials | selectattr("verdict", "equalto", "null") | list %}
 {% set location = trials | selectattr("kind", "equalto", "location") | list %}
+{% macro of_n(k, n, noun) %}{% if k == n %}{% if n == 1 %}the one {{ noun }}{% else %}all {{ n }} {{ noun }}s{% endif %}{% else %}{{ k }} of the {{ n }} {{ noun }}{{ "s" if n != 1 }}{% endif %}{% endmacro %}
 {% set location_nulls = location | selectattr("verdict", "equalto", "null") | list %}
 {% set tests = trials | sum(attribute="tests", start=[]) %}
 <section id="theories">
@@ -295,7 +296,7 @@ margin for luck, and an idea counts as a real gain only when its gap is more tha
 {% set others = trials | length - gains | length - nulls | length %}{{ gains | length }} helped, {{ nulls | length }}
 made no clear difference{% if others %} and {{ others }} made it worse or were set aside{% endif %}.{% set top = gains | sort(attribute="diff", reverse=True) | list %}{% if top | length >= 2 %}
 The biggest wins: {% for t in top[:3] %}{% if not loop.first %}{% if loop.last %}{% if loop.length > 2 %},{% endif %} and {% else %}, {% endif %}{% endif %}{{ t.words }}{% endfor %}.{% endif %}{% if location %} The nulls tell a story
-of their own: {{ location_nulls | length }} of the {{ location | length }} ideas about where a building sits, from nearby subway lines to parks and street noise,
+of their own: {{ of_n(location_nulls | length, location | length, "idea") }} about where a building sits, from nearby subway lines to parks and street noise,
 changed nothing we could measure. The likely reason is that each building already has its own premium. Whatever a location is
 worth is already priced into that premium, so a new location feature has little left to explain. {% set waiting_now = location_nulls | selectattr("due") | list %}{% if waiting_now %}
 {{ waiting_now | length }} of these nulls ran before the latest neighbourhoods joined and are due to be retested,
@@ -555,7 +556,7 @@ The <a href="{{ url_for('research_data_quality') }}">data quality</a> page lists
 </section>
 {% endif %}
 
-{% set waiting = trials | selectattr("kind", "equalto", "location") | selectattr("due") | list %}
+{% set waiting = trials | selectattr("kind", "equalto", "location") | selectattr("verdict", "equalto", "null") | selectattr("due") | list %}
 {% set blocked = trials | selectattr("verdict", "equalto", "blocked") | selectattr("diff", "gt", 0) | list %}
 {% set jump = (cleaning.checks if cleaning else []) | selectattr("key", "equalto", "big_jumps") | first %}
 <section id="next">
@@ -624,11 +625,11 @@ In an earlier test, added on top of the names, the surface’s result was: {{ ve
 {% endif %}
 
 {% if waiting %}<h3>Does the street around a building matter?</h3>
-<p>{{ waiting | length }} idea{{ "s" if waiting | length != 1 }} about where a building sits
-{{ "have" if waiting | length != 1 else "has" }} made no clear difference so far:</p>
+<p>{{ of_n(waiting | length, trials | selectattr("kind", "equalto", "location") | list | length, "idea") | capitalize }} about where a building sits
+made no clear difference on the older, smaller data:</p>
 <ul>{% for t in waiting %}<li>{{ t.words }}</li>{% endfor %}</ul>
 <p>{% if areas | length > 1 %}The {{ areas | length }} neighbourhoods modelled now are next to each other, which
-may leave too little variety in surroundings to learn from. {% endif %}Each of these ideas was tested before
+may leave too little variety in surroundings to learn from. {% endif %}Each of these was tested before
 the latest neighbourhoods joined, so each is due to be tested again on the wider data.</p>{% endif %}
 
 {% if jump %}<h3>Are the remaining rent jumps real?</h3>
