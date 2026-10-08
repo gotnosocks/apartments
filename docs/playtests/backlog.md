@@ -7,6 +7,25 @@ Fixes for things that are broken or wrong on the live site still ship.
 Each round adds a section at the top, ranked by how much the finding gets in the way of
 finding the best one-bedroom. Reports are in `/data1/apartments/tmp/playtests/<round>/`.
 
+## Story round 4 (story-reader, economist, journalist), 2026-10-08
+
+Reports in `/data1/apartments/tmp/playtests/2026-10-08-story4/`. The story fixes shipped in
+#509–#511 (the trust answer up front, "ask" defined, quicker figures, whole theory labels, the
+neighbourhood baseline). Outside the story, logged unbuilt under the feature hold:
+
+1. **Rent map: West Village and Chelsea side by side**, with a one-line "1 BR: $X in 2019, $Y
+   now" sentence, and the "Compare with" dropdown labelled as what sets the "Since" card
+   (journalist). The observed-median line is item 1 of round 3.
+2. **Map terms:** "median building", "typical apartment", "draws", "tax class C/D",
+   "extrapolated" (hollow dots) and narrow 90% intervals that read as false precision; and why
+   2020 drops and 2022 jumps (journalist).
+3. **Board readability:** long run ids, the m0-base reference failing its own gate, "not scored"
+   and "PSIS-LOO not paired" rows, who judges elegance, how the held-out set is drawn and how
+   many chains ran (economist).
+4. **Headline counts vs the served fit's rules:** the site's counts follow the current rules
+   (quarantine-v10) while the served fit used v6; the model-page notice (#507) explains the
+   wait, but the counts don't say which rules they follow (economist).
+
 ## Story round 3 (story-reader, economist), 2026-10-08
 
 Reports in `/data1/apartments/tmp/playtests/2026-10-08-story3/`. The story fixes shipped in #505.
