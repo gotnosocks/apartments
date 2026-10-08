@@ -269,3 +269,14 @@ Ranked roughly by how many personas hit the finding and how badly.
     the served model's predict path from Modeling. The nearest existing piece is the kit
     pricing of current listings (#377, #385), which already takes the latest unit and building
     attributes and evaluates them at today's date.
+
+## Story round 6 (2026-10-08, lay reader)
+
+Logged, unbuilt (feature hold):
+- Glossary links on first use of each term (spread, heavy tails, held-out, served model, switches).
+- One place that reconciles the row counts (121,911 asks, 135,759 raw, 135,477 kept, 129,756 with ad text).
+- 12D build-up: explain the "when the building was built" adjustment, and why an ask 12.4% above the estimate is still inside the 95% range.
+- Grouped tests (ad attributes, walk-to places): say why they are in the story.
+- Design timeline: label the dot chart's axes.
+- Example listings for the renovation, furnished-let and rent-stabilisation possibilities. The set-aside ideas link only to GitHub PRs.
+- Figures caught mid-animation on a quick scroll. That is known from the armed/whole scheme and left as is.
