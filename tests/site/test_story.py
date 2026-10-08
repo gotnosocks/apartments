@@ -43,6 +43,7 @@ def test_layers_follow_the_served_design_with_shares(client):
     html = _page(client)
     # The test entry has a variance breakdown, so the shares are shown.
     assert "share of the spread in asks" in html
+    assert "between listings, not of the rent" in html
     assert 'id="shares-pending"' not in html
     assert (
         html.index("The market")
