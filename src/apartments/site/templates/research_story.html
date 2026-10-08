@@ -13,16 +13,23 @@ changes when the model does.</p>
 Most apartments were listed more than once, so the same home shows up at different times and prices. That
 repetition is what lets a model separate the apartment from the building, and the building from the market.</p>
 
+<p>{% if accuracy %}In short, on asks it never saw, half the estimates land within
+{{ "{:.1f}".format(accuracy.median) }}% of their estimate: on a typical ${{ "{:,.0f}".format(accuracy.typical) }} ask, within about
+${{ "{:,.0f}".format((accuracy.typical * accuracy.median / 100) | round(-1)) }} (<a href="#accuracy">how close it gets</a>).
+{% endif %}This page is about the model. For how rents themselves have changed, by neighbourhood and bedroom count,
+see the <a href="{{ url_for('estimates_map') }}">rent map</a>.</p>
+
 <section id="shape">
 <h2>An ask is a sum of a few stories</h2>
-<p>Start with the shape. The model writes the logarithm of each ask as a sum of parts, so each part works as a
-percentage: a building that is 10% pricier than its features explain adds 10% to every one of its apartments,
-whatever their size. Read the stack from the top. Each layer explains what the layers above it leave over.</p>
+<p>Start with the shape. The model builds each ask from parts that multiply, so each part raises or lowers the
+ask by a percentage: a building that is 10% pricier than its features explain adds 10% to every one of its
+apartments, whatever their size. (In the maths, the parts add up on the logarithm of the ask.) Read the stack from the top. Each layer explains what the layers above it leave over.</p>
 
 <figure class="story-figure" id="compose-figure" data-play>
   <div class="figure-scroll" tabindex="0" role="region" aria-label="Figure, scrolls sideways on narrow screens">{{ composition_svg }}</div>
-  <figcaption>The served model, layer by layer.{% if variance %} The bars show each layer's share of the
-  spread in asks across every listing (the log asks' variance), with its 90% interval.{% endif %}</figcaption>
+  <figcaption>The served model, layer by layer.{% if variance %} Each bar is the layer's share of why asks
+  differ from one listing to the next, with its 90% interval. A share of 50% would mean the layer accounts for
+  half of those differences, not half of the rent. (The shares split the variance of the log asks.){% endif %}</figcaption>
 </figure>
 
 <dl class="facts wide story-layers">
@@ -118,7 +125,16 @@ way, so a term's bar is the same size wherever it sits in the queue.</p>
 <p>The estimate is {{ usd(build.estimate) }} against an ask of
 {{ usd(build.ask) }}{% if build.lower is not none %}, and the model gives 95% odds that an ask for this apartment
 falls between {{ usd(build.lower) }} and {{ usd(build.upper) }}{% endif %}. The spread is honest: the building and
-apartment terms are learned from a handful of listings, and asks scatter even for the same apartment.</p>
+apartment terms are learned from a handful of listings, and asks scatter even for the same apartment. (This 95%
+range is wider than the <a href="{{ url_for('research_glossary') }}#price-band">likely ask range</a> shown with each
+listing, which holds the middle 80%.){% set unsure = build.steps | rejectattr("term", "equalto", "market") | selectattr("lower", "ne", none) | selectattr("lower", "lt", 0) | selectattr("upper", "gt", 0) | list %}{% if unsure %}
+Not every part is sure of its direction, either: the 95% interval{{ "s" if unsure | length > 1 }} for
+{% for u in unsure %}“{{ u.label }}” ({{ usd(u.usd, signed=True) }}){% if loop.revindex == 2 %} and {% elif not loop.last %}, {% endif %}{% endfor %}
+{{ "run" if unsure | length > 1 else "runs" }} from below zero to above it, so for this apartment the model can't say
+whether {{ "they add to the ask or take from it" if unsure | length > 1 else "it adds to the ask or takes from it" }}.{% endif %}{% if accuracy %}{% set miss = 100 * (build.ask - build.estimate) / build.estimate %}
+The ask is {{ "{:.1f}".format(miss | abs) }}% {{ "above" if miss > 0 else "below" }} the estimate.
+{% if miss | abs > 2 * accuracy.median %}That is more than twice the typical miss{% elif miss | abs > accuracy.median %}That is wider than the typical miss{% else %}That is closer than the typical miss{% endif %}:
+half of the asks the model never saw land within {{ "{:.1f}".format(accuracy.median) }}% of their estimate.{% endif %}</p>
 
 <details class="table-view">
   <summary>The build-up as a table</summary>
@@ -139,6 +155,23 @@ apartment terms are learned from a handful of listings, and asks scatter even fo
   </table>
   </div>
 </details>
+</section>
+{% endif %}
+
+{% if accuracy %}
+<section id="accuracy">
+<h2>How close does it get?</h2>
+<p>The fairest test of an estimate is an ask the model never saw. The served fit left out
+{{ "{:,}".format(accuracy.n) }} asks (the <a href="{{ url_for('research_glossary') }}#held-out">held-out</a> listings), and the
+site estimates each of them from the fit alone. Half of them land within
+{{ "{:.1f}".format(accuracy.median) }}% of their estimate.{% if accuracy.seen and accuracy.new %} It depends a lot on
+whether the model has seen the apartment before: for one listed at other times, half the asks land within
+{{ "{:.1f}".format(accuracy.seen.median) }}%; for the {{ "{:,}".format(accuracy.new.n) }} asks from apartments it has never seen,
+within {{ "{:.1f}".format(accuracy.new.median) }}%.{% endif %}</p>
+<p>The model also says how sure it is. Each estimate carries a
+<a href="{{ url_for('research_glossary') }}#price-band">likely ask range</a>, the middle 80% of the asks it expects
+for that apartment. If those ranges are honest, about 80% of the held-out asks should fall inside them; here
+{{ "{:.0f}".format(accuracy.likely) }}% do.</p>
 </section>
 {% endif %}
 
@@ -176,19 +209,21 @@ neighbourhoods give location more room to matter.{% endif %}{% endif %}</p>
   both show. Rows are grouped by kind and sorted by gain; when the figure plays, they appear in the order the ideas were first tried.</figcaption>
 </figure>
 
+{# Set aside despite a clear gain: the leak the paragraph after the table explains. #}
+{% set blocked_leaks = trials | selectattr("verdict", "equalto", "blocked") | selectattr("clear_gain") | list %}
 <details class="table-view">
   <summary>The theories as a table</summary>
   <div class="table-wrap">
   <table class="data">
     <thead><tr><th scope="col">Idea</th><th scope="col">Kind</th><th scope="col">Tested</th>
-      <th scope="col" class="num">ΔPSIS-LOO</th><th scope="col">Verdict</th><th scope="col">PR</th></tr></thead>
+      <th scope="col" class="num">Gain in <a href="{{ url_for('research_glossary') }}#psis-loo">PSIS-LOO</a></th><th scope="col">Verdict</th><th scope="col">PR</th></tr></thead>
     <tbody>
     {% for t in trials %}
-      <tr><td>{{ t.words[:1] | upper }}{{ t.words[1:] }}{% if t.about and t.about != t.words %} <span class="muted">({{ t.about }})</span>{% endif %}</td>
+      <tr><td>{{ t.words[:1] | upper }}{{ t.words[1:] }}{% if t.note and t.note != t.words %} <span class="muted">({{ t.note }})</span>{% endif %}</td>
         <td class="muted">{% for k in kinds %}{% if k[0] == t.kind %}{{ k[1] }}{% endif %}{% endfor %}</td>
         <td class="nowrap">{{ t.date }}{% if t.tests | length > 1 %} <span class="muted">({{ t.tests | length }} fits)</span>{% endif %}</td>
         <td class="num nowrap">{{ "{:+,.1f}".format(t.diff) }} <span class="muted">± {{ "{:,.1f}".format(t.se) }}</span></td>
-        <td>{{ verdict_words[t.verdict] | capitalize }}{% if t.verdict == "blocked" %} <span class="muted">({{ t.verdict_text }})</span>{% endif %}</td>
+        <td>{{ verdict_words[t.verdict] | capitalize }}{% if t.verdict == "blocked" %} <span class="muted">({% if t.clear_gain %}<a href="#set-aside">why</a>{% else %}no clear gain{% endif %})</span>{% endif %}</td>
         <td>{% if t.pr %}<a href="https://github.com/gotnosocks/apartments/pull/{{ t.pr }}">#{{ t.pr }}</a>{% endif %}</td></tr>
     {% endfor %}
     </tbody>
@@ -196,8 +231,8 @@ neighbourhoods give location more room to matter.{% endif %}{% endif %}</p>
   </div>
 </details>
 
-{% set blocked = trials | selectattr("verdict", "equalto", "blocked") | selectattr("diff", "gt", 0) | list %}
-{% if blocked %}<p>Some ideas scored brilliantly and were set aside anyway.
+{% set blocked = blocked_leaks %}
+{% if blocked %}<p id="set-aside">Some ideas scored brilliantly and were set aside anyway.
 {% for t in blocked[:1] %}"{{ t.words[:1] | upper }}{{ t.words[1:] }}" gained {{ "{:+,.0f}".format(t.diff) }}.{% endfor %}
 Part of that score is a leak. Leaving one ask out doesn't hide it from the model, because the apartment's earlier
 ask is part of the feature itself. So {{ "these ideas were" if blocked | length > 1 else "this idea was" }} judged on
@@ -205,6 +240,66 @@ a stricter test: fit on the earlier asks and predict only each apartment's lates
 {{ "they were" if blocked | length > 1 else "it was" }} set aside for a reason no score measures. The feature
 predicts an apartment's next ask from its last one, with no account of the time in between, and it says nothing
 about what the apartment is made of.</p>{% endif %}
+
+{% if groups %}{% set ga, gp = groups.attributes, groups.places %}
+<h3 id="inside-groups">Inside two grouped tests</h3>
+<p>Two of the ideas above bundle several items into one test:
+{% if ga.test %}“{{ ga.test.words[:1] | upper }}{{ ga.test.words[1:] }}” ({{ "{:+,.1f}".format(ga.test.diff) }} ± {{ "{:,.1f}".format(ga.test.se) }}{% if ga.test.pr %}, <a href="https://github.com/gotnosocks/apartments/pull/{{ ga.test.pr }}">#{{ ga.test.pr }}</a>{% endif %}){% else %}the ad attributes{% endif %}
+and {% if gp.test %}“{{ gp.test.words[:1] | lower }}{{ gp.test.words[1:] }}” ({{ "{:+,.1f}".format(gp.test.diff) }} ± {{ "{:,.1f}".format(gp.test.se) }}{% if gp.test.pr %}, <a href="https://github.com/gotnosocks/apartments/pull/{{ gp.test.pr }}">#{{ gp.test.pr }}</a>{% endif %}){% else %}the walk to nearby places{% endif %}.
+Each group was tested as one feature: all its items went in together, and the score is for the group, so there is
+no score for any single item. Neither group is in the served model, so it has no estimate for these items either.
+Below is what each item is and how common it is among the {{ "{:,}".format(groups.rows) }} listings the served model
+was fitted on.</p>
+<p>The last column of each table is a <strong>raw</strong> difference in asks, not an effect. It compares listings
+with the same bedroom count (four or more counted together) and the same kind of price, and holds nothing else fixed, so it carries whatever tends to come with the item, such as
+the apartment's size, its building or its neighbourhood. Telling an item's own effect apart needs a fit with that item alone,
+one fit per item. Those fits are on the modeling backlog and haven't run yet.</p>
+
+{% if ga["items"] %}
+<figure class="story-figure" id="attrs-figure">
+  <div class="figure-scroll" tabindex="0" role="region" aria-label="Figure, scrolls sideways on narrow screens">{{ attrs_svg }}</div>
+  <figcaption>Share of the {{ "{:,}".format(groups.rows_with_text) }} listings with ad text whose ad states each attribute.</figcaption>
+</figure>
+<details class="table-view">
+  <summary>The {{ ga["items"] | length }} ad attributes as a table</summary>
+  <div class="table-wrap">
+  <table class="data">
+    <thead><tr><th scope="col">Attribute</th><th scope="col">The ad says</th><th scope="col" class="num">Listings</th>
+      <th scope="col" class="num">Share</th><th scope="col" class="num">Raw ask difference, same bedrooms</th></tr></thead>
+    <tbody>
+    {% for i in ga["items"] %}
+      <tr><td>{{ i.name }}</td><td class="muted">{{ i.what }}</td><td class="num">{{ "{:,}".format(i.rows) }}</td>
+        <td class="num">{{ "{:.1f}".format(i.pct_share) }}%</td><td class="num">{% if i.raw is none %}—{% else %}{{ "{:+.1f}".format(i.raw) }}%{% endif %}</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  </div>
+</details>
+{% endif %}
+
+{% if gp["items"] %}
+<figure class="story-figure" id="places-figure">
+  <div class="figure-scroll" tabindex="0" role="region" aria-label="Figure, scrolls sideways on narrow screens">{{ places_svg }}</div>
+  <figcaption>Share of listings within a {{ "{:,.0f}".format(groups.near_m) }} m walk of each kind of place, walking along
+  the streets and avenues, counting only places open in the listing's month.</figcaption>
+</figure>
+<details class="table-view">
+  <summary>The {{ gp["items"] | length }} walk-to places as a table</summary>
+  <div class="table-wrap">
+  <table class="data">
+    <thead><tr><th scope="col">Place</th><th scope="col">What it is</th><th scope="col" class="num">Median walk</th>
+      <th scope="col" class="num">Within {{ "{:,.0f}".format(groups.near_m) }} m</th><th scope="col" class="num">Raw ask difference per doubling of the walk, same bedrooms</th></tr></thead>
+    <tbody>
+    {% for i in gp["items"] %}
+      <tr><td>{{ i.name }}</td><td class="muted">{{ i.what }}</td><td class="num">{{ "{:,}".format(i.median_m) }} m</td>
+        <td class="num">{{ "{:.1f}".format(i.pct_share) }}%</td><td class="num">{% if i.raw is none %}—{% else %}{{ "{:+.1f}".format(i.raw) }}%{% endif %}</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  </div>
+</details>
+{% endif %}
+{% endif %}
 </section>
 {% endif %}
 
@@ -213,12 +308,11 @@ about what the apartment is made of.</p>{% endif %}
 {% set gone = lives | rejectattr("now") | list %}
 <section id="design">
 <h2>How the design evolved</h2>
-<p>The model that prices these apartments wasn't designed in one go. It has been replaced
-{{ switches | length - 1 }} times since {{ switches[0].day }}, and how each replacement got chosen changed
-along the way.</p>
+<p>The model that prices these apartments wasn't designed in one go. Since {{ switches[0].day }},
+{{ switches | length }} models have been served in turn, and how each one got chosen changed along the way.</p>
 
 {% set era_words = {
-  "bayes": "It began as one carefully built Bayesian model of Chelsea. Each improvement (a corrected data source, a better treatment of floors, a curve where a straight line fit badly) was reviewed and promoted by hand. That works while there is one model. It stops working once there are many candidates and no common score to compare them.",
+  "bayes": "It began as one carefully built Bayesian model of Chelsea, a kind of model that gives every number it estimates a range of likely values rather than a single guess. Each improvement (a corrected data source, a better treatment of floors, a curve where a straight line fit badly) was reviewed and adopted by hand. That works while there is one model. It stops working once there are many candidates and no common score to compare them.",
   "frontier": "So the work turned into a search. Every candidate design was fitted to the same rows and scored on the same test, PSIS-LOO, and the winner was still picked by a person. The fits also had to get faster, so that many designs could be tried in a day.",
   "auto": "Finally, the choice itself became a rule. A new fit replaces the served one only when it predicts unseen asks better by more than twice the combined standard error, or ties and is judged more elegant, or ties, is as elegant and fits faster. The rule decides without waiting for a person, so a better fit is served as soon as it lands."
 } %}
@@ -256,7 +350,7 @@ picks the better predictor. Whether a feature means anything is still a person's
     {% for s in switches | reverse %}
       <tr><td class="nowrap">{{ s.date }}</td>
         <td class="muted">{% for e in eras %}{% if e.key == s.era %}{{ e.name }}{% endif %}{% endfor %}</td>
-        <td>{{ s.words }}</td>
+        <td>{{ s.change }}</td>
         <td>{% if s.pr %}<a href="https://github.com/gotnosocks/apartments/pull/{{ s.pr }}">#{{ s.pr }}</a>{% endif %}</td></tr>
     {% endfor %}
     </tbody>
@@ -286,6 +380,14 @@ and "PH4", so {{ "{:,}".format(cleaning.joined) }} unit names were joined to the
 opposite mistake happens too: one unit page can hold a one-bedroom and, years later, a combined four-bedroom.
 Where a unit's bedroom count changes from one ad to the next, its history is split there, and that made
 {{ "{:,}".format(cleaning.split) }} more units.</p>
+{% set uj, us = units.joined, units.split %}{% if uj or us %}
+<p>{% if uj %}One joined unit:
+<a href="{{ url_for('unit', unit_id=uj.unit_id) }}">unit {{ uj.labels[0] }} at {{ uj.address }}</a> was
+listed as {% for l in uj.labels %}"{{ l }}"{% if loop.revindex == 2 %} and {% elif not loop.last %}, {% endif %}{% endfor %}
+across {{ uj.listings }} ads, and is one apartment now.{% endif %}{% if us %}{{ " " if uj }}One clean split: {% if us.label %}unit {{ us.label }}{% else %}a unit{% endif %} at
+{{ us.address }} was {% for p in us.pieces %}<a href="{{ url_for('unit', unit_id=p.unit_id) }}">{{ p.words }}
+at ${{ "{:,.0f}".format(p.ask) }} in {{ month(p.at) }}</a>{% if loop.revindex == 2 %} and {% elif not loop.last %}, {% endif %}{% endfor %};
+it is {{ us.count }} units now.{% endif %}</p>{% endif %}
 
 {% if bed %}<p>Reading each unit's history shows what this does. In the raw rows, a unit's next listing has a
 different bedroom count {{ "{:.1f}".format(bed.before) }}% of the time; after the rules,
@@ -356,13 +458,25 @@ when the next neighbourhood joins and widens the range.</p>{% endif %}
 {% if jump %}<h3>Are the remaining rent jumps real?</h3>
 <p>Even after the cleaning, {{ "{:.1f}".format(jump.after) }}% of a unit's consecutive listings move rent by more
 than 40%. Is it a renovation, a furnished short let, a lease that left rent stabilisation, or a record error that
-no rule catches yet? Each answer calls for a different fix: a new feature, a filter or a new data rule.</p>{% endif %}
+no rule catches yet? Each answer calls for a different fix: a new feature, a filter or a new data rule.</p>
+{% if jumps %}{% set e = jumps.example %}
+<p>One clue is time. {{ "{:.0f}".format(jumps.late) }}% of the {{ "{:,}".format(jumps.jumps) }} jumps on the site come
+two or more years after the unit's previous listing, when the market itself has had time to move:
+{% for g in jumps.gaps %}{{ "{:.1f}".format(g.share) }}% of listing pairs {{ g.words }} jump{% if loop.last %}.{% elif loop.revindex == 2 %}{{ "," if loop.length > 2 }} and {% else %}, {% endif %}{% endfor %}
+The middle-sized one: <a href="{{ url_for('unit', unit_id=e.unit_id) }}">{{ e.label or "a unit" }}</a> at
+{{ e.address }} asked {{ "${:,.0f}".format(e.before) }} in {{ month(e.from) }} and {{ "${:,.0f}".format(e.after) }} in
+{{ month(e.to) }}, {{ "{:+.0f}".format(e.change) }}% after {{ "{:.1f}".format(e.years) }} years. Time explains part
+of a jump like that; what explains the rest is the open question.</p>{% endif %}{% endif %}
 
 {% if blocked %}<h3>When does a good score mean nothing?</h3>
-<p>{{ blocked | length }} idea{{ "s" if blocked | length != 1 }} scored well and {{ "were" if blocked | length != 1 else "was" }}
-still set aside ({% for t in blocked | sort(attribute="first") %}{{ t.words }}{{ "; " if not loop.last }}{% endfor %}). A model can predict an
-apartment's ask from its own last ask without saying anything about why that apartment costs what it does. Telling
-the features that explain from those that only echo is still a person's call, made case by case.</p>{% endif %}
+<p>{{ blocked | length }} idea{{ "s" if blocked | length != 1 }} raised the score and {{ "were" if blocked | length != 1 else "was" }}
+still set aside:</p>
+<ul>{% for t in blocked | sort(attribute="first") %}
+  <li>{{ t.words[:1] | upper }}{{ t.words[1:] }}: {{ "{:+,.1f}".format(t.diff) }} ± {{ "{:,.1f}".format(t.se) }}{% if t.diff < 2 * t.se %}, within two standard errors of no gain{% endif %}.</li>{% endfor %}
+</ul>
+<p>A model can predict an apartment's ask from its own last ask without saying anything about why that apartment
+costs what it does. Telling the features that explain from those that only echo is still a person's call, made case
+by case.</p>{% endif %}
 
 <p>To follow along: the <a href="{{ url_for('research_history') }}">history</a> shows each design that has served
 and why it was replaced. The <a href="{{ url_for('research_board') }}">board</a> scores every design we fitted. The

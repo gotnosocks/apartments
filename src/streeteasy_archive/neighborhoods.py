@@ -18,6 +18,11 @@ ADDED = {
         {"flatiron", "gramercy-park"},
         {"Flatiron", "Gramercy Park"},
     ),
+    # Each its own crawl, scoped like Flatiron + Gramercy Park: one StreetEasy area,
+    # without child areas (Ben, Oct 8 2026). Display names as StreetEasy's areaName.
+    "nomad": ({"nomad"}, {"NoMad"}),
+    "east-village": ({"east-village"}, {"East Village"}),
+    "stuyvesant-town-pcv": ({"stuyvesant-town"}, {"Stuyvesant Town/PCV"}),
 }
 
 for _name, _value in ADDED.items():

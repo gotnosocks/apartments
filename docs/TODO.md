@@ -24,6 +24,31 @@ extraction with evidence spans and one consolidated scope overlay; (6) building
 covariates in the building-effect mean; (7) era-stability check on coefficients;
 (8) collapse `models/`, artifact retention, doc shape.
 
+**Single-feature fits for the ad attributes and walk-to places** (Ben, 2026-10-08 07:13Z: "Instead
+of the current plan, please put on backlog a series of single feature fits for the qualities in those
+two grouped tests"; replaces the two grouped full fits, which are not run). Each item of `nb3-attrs-v1`
+("ad states one of 15 attributes") and `nb3-nearby-v1` ("walk to dog run / hospital / EMS / drop-in
+center / NYCHA / MSG") gets its own Modal full fit on the five neighbourhoods: the served set plus that
+one column, on master's rules, scored by paired PSIS-LOO against the served fit, so each item has its
+own ΔELPD (about ±3) and, from `rentfrontier.effects` (#488), its effect with 90% and 95% intervals for
+/research/story's "What the features are worth". Autoselect serves any that pass the gate and win.
+Ben, 07:24Z: "Just plan to do the fits relative to whatever is in the current model so we can put on
+the delta elpd visual" (add-one against the served fit; no joint fit), and 07:25Z: "this is pretty low
+priority so only use it if the modal budget would otherwise expire because we are at the cap". The
+queue (`frontier-modalq-singles`) launches the next fit only when no other Modal queue is active and
+the balance is within an hour's accrual of the cap, and stops if the served run changes, so the
+remaining sets are rebased first.
+- [x] **Data:** one feature set per item on nb5-coded-v2 (the attributes on an nb5 flagfix base; the
+      places from the 2026-10-08 snapshot that reaches Bellevue), 21 sets.
+- [ ] **Modeling:** (queued) the 21 fits behind the current queue, about $1 and 2.4 h of budget each
+      (about 2½ days in all); run `rentfrontier.effects` on each as it lands.
+- [ ] **Website:** the story's per-item effects, labelled as from a test fit where it isn't served.
+
+The items. Ad attributes: walk-in closet, live-in super, utilities included, windowed kitchen, windowed bath,
+tree-lined, skylight, video intercom, corner unit, separate kitchen, floor-to-ceiling windows,
+marble bath, hardwood, stainless, pre-war. Places: dog run, hospital, ambulance station, homeless
+drop-in center, NYCHA housing, Madison Square Garden.
+
 **Speedups from an outside code review** (Ben, 2026-10-06; triaged against master `d7a1f96`).
 The review was read-only and measured only the first item, on a CPU rather than the 2060.
 Each change must leave results unchanged, so check outputs against the current code before

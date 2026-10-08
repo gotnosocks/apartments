@@ -763,16 +763,20 @@ def fetch_storefronts(box) -> tuple[pd.DataFrame, list[str], dict]:
 PARKS_MARGIN_M = 1500.0
 
 
-def fetch_parks(box) -> tuple[pd.DataFrame, list[str], dict]:
+def fetch_parks(box, borough=None) -> tuple[pd.DataFrame, list[str], dict]:
     """NYC Parks properties touching the box (north, west, south, east), widened
-    by PARKS_MARGIN_M: name, typecategory, acres, acquired, geometry."""
+    by PARKS_MARGIN_M: name, typecategory, acres, acquired, geometry. `borough`
+    (the dataset's code, e.g. "M") keeps only that borough's properties: a box
+    near the East River otherwise reaches parks across it, which no walk from
+    the buildings reaches."""
     north, west, south, east = box
     dlat = PARKS_MARGIN_M / 111_320.0
     dlon = dlat / math.cos(math.radians((north + south) / 2))
     north, west, south, east = north + dlat, west - dlon, south - dlat, east + dlon
     params = {
         "$select": "signname, typecategory, acres, acquisitiondate, multipolygon",
-        "$where": f"within_box(multipolygon, {north}, {west}, {south}, {east})",
+        "$where": f"within_box(multipolygon, {north}, {west}, {south}, {east})"
+        + (f" AND borough = '{borough}'" if borough else ""),
         "$order": "signname",
     }
     rows, q = _rows(PARKS_ID, params)
@@ -922,6 +926,10 @@ def main(argv=None):
         default=REGISTRY,
         help="registry buildings.parquet to join through (default: the first snapshot)",
     )
+    parser.add_argument(
+        "--borough",
+        help="parks only: keep this borough's properties (the dataset's code, e.g. M)",
+    )
     args = parser.parse_args(argv)
     registry_path = args.registry
     dirty = git("status", "--porcelain")
@@ -1037,7 +1045,7 @@ def main(argv=None):
         summary = ", ".join(f"{v} {k}" for k, v in sorted(counts.items()))
     elif args.source == "parks":
         box = basemap_box(pd.read_parquet(registry_path))
-        table, queries, version = fetch_parks(box)
+        table, queries, version = fetch_parks(box, args.borough)
         details = {
             "source": f"{SOCRATA}/{PARKS_ID}",
             "dataset": "Parks Properties via NYC Open Data",
@@ -1045,6 +1053,7 @@ def main(argv=None):
             "registry": str(registry_path),
             "box_north_west_south_east": box,
             "margin_m": PARKS_MARGIN_M,
+            **({"borough": args.borough} if args.borough else {}),
             "parks": len(table),
         }
         summary = f"{len(table)} parks"
