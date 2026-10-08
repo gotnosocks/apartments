@@ -9,8 +9,8 @@ in `/data1/apartments/tmp/bridge` (thelio).
   `docs/model/research-backlog.md`: #582 (A–E), #584 (what moved WV), #585 (label vs geography)
   and the NTA re-base, market beta, shared shape and attention checks (this PR). Scripts are
   `review/r12/c19.py` to `c23.py`.
-- **Finding:** the WV rise is one place-specific step around 2022, tied to the NTA area, not the
-  label. If `area_time` gets a fit, define it on 2020 NTA areas, as a per-area walk or a 2022 step,
+- **Finding:** the WV rise is a place-specific step around 2022 (checks 2 and 3), and its step and
+  drift follow the geocode rather than the label (#585). If `area_time` gets a fit, define it on 2020 NTA areas, as a per-area walk or a 2022 step,
   not as a beta on the market curve.
 - **On resume:** Data's candidates nb6-nostuy-explain-v1 and nb6-nostuy-stabopen-v2 go against
   nb6-nostuy-v1. `modalq-resume.sh` must be rewritten to the 22:10Z order before it is launched.
