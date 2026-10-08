@@ -2467,6 +2467,7 @@ def create_app(
             build=build,
             build_svg=story.build_up_svg(build),
             accuracy=accuracy,
+            coverage_svg=story.coverage_svg(accuracy["groups"] if accuracy else []),
             jumps=jumps,
             units=units,
             counts=counts,

@@ -378,9 +378,11 @@ def accuracy(db, small: int = 30) -> dict | None:
     """How close the estimates come on the held-out asks, which no fit saw:
     the median miss, for apartments the fit saw in other listings ("seen") and
     for ones it never saw ("new", reported only with at least `small` asks),
-    and the share of asks inside their likely ask range (the middle 80%)."""
+    and the share of asks inside their likely ask range (the middle 80%).
+    `groups` are the same shares, and the 95% range's, by neighbourhood, by
+    estimate fifth and for seen and new apartments: where the ranges hold."""
     rows = db.execute(
-        "SELECT ask, estimate, pit, unit_fit_rows FROM listings "
+        "SELECT ask, estimate, pit, unit_fit_rows, neighbourhood FROM listings "
         "WHERE method = 'heldout' AND ask > 0 AND estimate > 0"
     ).fetchall()
     if not rows:
@@ -392,12 +394,101 @@ def accuracy(db, small: int = 30) -> dict | None:
         "median": _median_miss(rows),
         # the median ask, to $100, to put the miss in dollars
         "typical": round(statistics.median(r["ask"] for r in rows), -2),
-        "seen": {"n": len(seen), "median": _median_miss(seen)} if seen else None,
-        "new": {"n": len(new), "median": _median_miss(new)}
+        "seen": {"n": len(seen), "median": _median_miss(seen), **_inside(seen)}
+        if seen
+        else None,
+        "new": {"n": len(new), "median": _median_miss(new), **_inside(new)}
         if len(new) >= small
         else None,
-        "likely": 100 * sum(0.1 <= r["pit"] <= 0.9 for r in rows) / len(rows),
+        "likely": _inside(rows)["likely"],
+        "groups": _coverage_groups(rows, small),
     }
+
+
+def _inside(rows) -> dict:
+    """The share of asks inside their 80% and their 95% ranges, in percent."""
+    n = len(rows)
+    return {
+        "likely": 100 * sum(0.1 <= r["pit"] <= 0.9 for r in rows) / n,
+        "wide": 100 * sum(0.025 <= r["pit"] <= 0.975 for r in rows) / n,
+    }
+
+
+def _coverage_groups(rows, small: int) -> list[dict]:
+    """Coverage by neighbourhood, by fifth of the estimate (cheapest first)
+    and by whether the fit saw the apartment; groups under `small` asks out."""
+    out = []
+
+    def add(kind, name, part):
+        if len(part) >= small:
+            out.append({"kind": kind, "name": name, "n": len(part), **_inside(part)})
+
+    for area in sorted({r["neighbourhood"] or "" for r in rows} - {""}):
+        add("Neighbourhood", area, [r for r in rows if r["neighbourhood"] == area])
+    ranked = sorted(rows, key=lambda r: r["estimate"])
+    for i, name in enumerate(
+        ("Cheapest fifth", "", "Middle fifth", "", "Priciest fifth")
+    ):
+        part = ranked[i * len(ranked) // 5 : (i + 1) * len(ranked) // 5]
+        if part:
+            add("Estimate", name or f"Fifth {i + 1}", part)
+    add("Apartment", "Listed before", [r for r in rows if r["unit_fit_rows"] > 0])
+    add("Apartment", "New to the data", [r for r in rows if r["unit_fit_rows"] == 0])
+    return out
+
+
+def coverage_svg(groups: list[dict]) -> Markup:
+    """Where the ranges hold: per group, a dot at the share of held-out asks
+    inside the 80% range and a ring at the share inside the 95% range, with
+    dashed lines at the 80% and 95% an honest range would hold."""
+    if not groups:
+        return Markup("")
+    row, head, top, label_w = 22, 22, 30, 200
+    lo = min(50, 5 * math.floor(min(g["likely"] for g in groups) / 5))
+    plot = WIDTH - label_w - 24
+
+    def x(v):
+        return label_w + plot * (v - lo) / (100 - lo)
+
+    out, y, kind = [], top, None
+    for g in groups:
+        if g["kind"] != kind:
+            kind = g["kind"]
+            y += head if len(out) else head - 8
+            out.append(
+                f'<text class="eff-label strong" x="{label_w - 10}" y="{y - 4:.1f}" '
+                f'text-anchor="end">{escape(kind)}</text>'
+            )
+        y += row
+        cy = y - row / 2
+        out.append(
+            f'<text class="eff-label" x="{label_w - 10}" y="{cy + 4:.1f}" '
+            f'text-anchor="end">{escape(g["name"])}</text>'
+            f'<line class="link" x1="{x(g["likely"]):.1f}" y1="{cy:.1f}" '
+            f'x2="{x(g["wide"]):.1f}" y2="{cy:.1f}"/>'
+            f'<circle class="cov80" cx="{x(g["likely"]):.1f}" cy="{cy:.1f}" r="5"/>'
+            f'<circle class="cov95" cx="{x(g["wide"]):.1f}" cy="{cy:.1f}" r="4.5"/>'
+        )
+    height = y + 10
+    axis = [
+        f'<line class="grid" x1="{x(t):.1f}" y1="{top - 6}" x2="{x(t):.1f}" '
+        f'y2="{height - 4}"/><text class="tick" x="{x(t):.1f}" y="{top - 10}" '
+        f'text-anchor="middle">{t}%</text>'
+        for t in range(lo, 101, 10)
+        if t not in (80,)
+    ] + [
+        f'<line class="target" x1="{x(t):.1f}" y1="{top - 6}" x2="{x(t):.1f}" '
+        f'y2="{height - 4}"/><text class="tick" x="{x(t):.1f}" y="{top - 10}" '
+        f'text-anchor="middle">{t}%</text>'
+        for t in (80, 95)
+    ]
+    label = "Share of held-out asks inside their 80% and 95% ranges: " + "; ".join(
+        f"{g['name']} {g['likely']:.0f}% and {g['wide']:.0f}%" for g in groups
+    )
+    return Markup(
+        f'<svg class="story-svg coverage" viewBox="0 0 {WIDTH} {height:.0f}" '
+        f'role="img" aria-label="{escape(label)}">' + "".join(axis + out) + "</svg>"
+    )
 
 
 def build_up(listing, labels: dict, small: float = 40.0, current=False) -> dict | None:

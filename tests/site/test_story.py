@@ -504,20 +504,59 @@ def test_accuracy_reads_the_held_out_asks():
     db.row_factory = sqlite3.Row
     db.execute(
         "CREATE TABLE listings(method TEXT, ask REAL, estimate REAL, pit REAL, "
-        "unit_fit_rows INTEGER)"
+        "unit_fit_rows INTEGER, neighbourhood TEXT)"
     )
     assert story.accuracy(db) is None
-    rows = [("psis", 9000.0, 1000.0, 0.5, 3)]  # in the fit: not counted
-    rows += [("heldout", 1100.0, 1000.0, 0.5, 2)] * 3  # seen, 10% off
-    rows += [("heldout", 1000.0, 1000.0, 0.95, 0)] * 2  # new, exact
-    db.executemany("INSERT INTO listings VALUES (?, ?, ?, ?, ?)", rows)
+    rows = [("psis", 9000.0, 1000.0, 0.5, 3, "Chelsea")]  # in the fit: not counted
+    rows += [("heldout", 1100.0, 1000.0, 0.5, 2, "Chelsea")] * 3  # seen, 10% off
+    rows += [("heldout", 1000.0, 1000.0, 0.95, 0, "Flatiron")]  # new, exact
+    rows += [("heldout", 1000.0, 1000.0, 0.99, 0, None)]  # new, outside both
+    db.executemany("INSERT INTO listings VALUES (?, ?, ?, ?, ?, ?)", rows)
     a = story.accuracy(db, small=2)
     assert a["n"] == 5 and round(a["median"], 6) == 10.0
     assert a["typical"] == 1100  # the median ask
-    assert a["seen"] == {"n": 3, "median": a["seen"]["median"]}
+    assert a["seen"] == {
+        "n": 3,
+        "median": a["seen"]["median"],
+        "likely": 100.0,
+        "wide": 100.0,
+    }
     assert round(a["seen"]["median"], 6) == 10.0 and a["new"]["median"] == 0.0
+    assert a["new"]["likely"] == 0.0 and a["new"]["wide"] == 50.0
     assert a["likely"] == 60.0
+    groups = {(g["kind"], g["name"]): g for g in a["groups"]}
+    # Flatiron's one ask and the unnamed one are under `small`; fifths of 5 are 1
+    assert set(groups) == {
+        ("Neighbourhood", "Chelsea"),
+        ("Apartment", "Listed before"),
+        ("Apartment", "New to the data"),
+    }
+    assert groups[("Apartment", "New to the data")]["wide"] == 50.0
     assert story.accuracy(db)["new"] is None  # too few new apartments to report
+
+
+def test_coverage_svg_marks_both_ranges_and_the_targets():
+    groups = [
+        {
+            "kind": "Apartment",
+            "name": "Listed before",
+            "n": 10,
+            "likely": 79.9,
+            "wide": 95.2,
+        },
+        {
+            "kind": "Apartment",
+            "name": "New to the data",
+            "n": 5,
+            "likely": 62.9,
+            "wide": 87.6,
+        },
+    ]
+    svg = str(story.coverage_svg(groups))
+    assert svg.count('class="cov80"') == 2 and svg.count('class="cov95"') == 2
+    assert svg.count('class="target"') == 2  # dashed lines at 80% and 95%
+    assert "New to the data 63% and 88%" in svg  # the text alternative
+    assert story.coverage_svg([]) == ""
 
 
 def test_rent_jumps_by_the_years_between_listings():

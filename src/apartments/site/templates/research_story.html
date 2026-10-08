@@ -215,15 +215,50 @@ treat it as rough.{% endif %}{% endif %}</p>
 <p>The model also says how sure it is. Each estimate carries a
 <a href="{{ url_for('research_glossary') }}#price-band">likely ask range</a>, the middle 80% of the asks it expects
 for that apartment. If those ranges are honest, about 80% of the held-out asks should fall inside them; here
-{{ "{:.0f}".format(accuracy.likely) }}% do.</p>
+{{ "{:.0f}".format(accuracy.likely) }}% do.{% if accuracy.groups %} A share over all the asks can hide groups where the
+ranges run too narrow or too wide, so the figure splits it by neighbourhood, by how high the estimate is, and by
+whether the model had seen the apartment. The ring is the same check for the wider 95% range.{% endif %}</p>
+{% if accuracy.groups %}
+<figure class="story-figure" id="coverage-figure">
+  <div class="figure-scroll" tabindex="0" role="region" aria-label="Figure, scrolls sideways on narrow screens">{{ coverage_svg }}</div>
+  <figcaption>Share of held-out asks inside their range, by group. Dots: the 80% likely range; rings: the 95% range.
+  Dashed lines mark the 80% and 95% an honest range would hold. Fifths split the asks by their estimate, cheapest
+  first.</figcaption>
+</figure>
+
+<details class="table-view">
+  <summary>The shares as a table</summary>
+  <div class="table-wrap">
+  <table class="data">
+    <thead><tr><th scope="col">Group</th><th scope="col"></th><th scope="col" class="num">Asks</th>
+      <th scope="col" class="num">Inside 80% range</th><th scope="col" class="num">Inside 95% range</th></tr></thead>
+    <tbody>
+    {% for g in accuracy.groups %}
+      <tr><td class="muted">{{ g.kind }}</td><td>{{ g.name }}</td><td class="num">{{ "{:,}".format(g.n) }}</td>
+        <td class="num">{{ "{:.1f}".format(g.likely) }}%</td><td class="num">{{ "{:.1f}".format(g.wide) }}%</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  </div>
+</details>
+{% endif %}
 {% macro near(pct) %}${{ "{:,.0f}".format((accuracy.typical * pct / 100) | round(-1)) }}{% endmacro %}
 <p><strong>What this means for one estimate.</strong>{% if accuracy.seen and accuracy.new %} If the apartment
 has been listed before, half the time its ask lands within {{ "{:.1f}".format(accuracy.seen.median) }}% of the
 estimate, about {{ near(accuracy.seen.median) }} on a typical ${{ "{:,.0f}".format(accuracy.typical) }} ask. If it
 is new to the data, expect a wider miss: half the time within {{ "{:.1f}".format(accuracy.new.median) }}%, about
-{{ near(accuracy.new.median) }}.{% endif %} Either way, lean on the likely ask range shown with each listing more
-than on the single number: {{ "{:.0f}".format(accuracy.likely) }}% of the held-out asks fell inside their range, so an
-ask outside it, about {{ "{:.0f}".format(100 - accuracy.likely) }} in 100, is not a sign the estimate is broken.</p>
+{{ near(accuracy.new.median) }}.{% endif %}{% if accuracy.seen and accuracy.new and accuracy.new.likely < 75 %} For an
+apartment listed before, lean on the likely ask range shown with each listing more than on the single number:
+{{ "{:.0f}".format(accuracy.seen.likely) }}% of those asks fell inside their range, so an ask outside it, about
+{{ "{:.0f}".format(100 - accuracy.seen.likely) }} in 100, is not a sign the estimate is broken. For a new apartment the
+range runs too narrow: only {{ "{:.0f}".format(accuracy.new.likely) }}% of those asks fell inside their 80% range, and
+{{ "{:.0f}".format(accuracy.new.wide) }}% inside their 95% range, so read its range as narrower than the real
+uncertainty. Why is still open. Two checks are planned: a look at the new apartments’ largest
+misses for a wrong unit, a wrong bedroom count or a furnished or short-term ask, and a fit that gives apartments’
+own effects heavier tails.{% else %} Either way, lean on the
+likely ask range shown with each listing more than on the single number:
+{{ "{:.0f}".format(accuracy.likely) }}% of the held-out asks fell inside their range, so an ask outside it, about
+{{ "{:.0f}".format(100 - accuracy.likely) }} in 100, is not a sign the estimate is broken.{% endif %}</p>
 </section>
 {% endif %}
 
