@@ -1389,6 +1389,17 @@ def create_app(
         return cached[1]
 
     exposure_short: dict = {}
+    story_cache: dict = {}
+
+    def story_checks() -> tuple:
+        """The story's held-out accuracy and rent jumps, which scan every
+        listing; read once per build, swapped in whole like exposures()."""
+        conn = db()  # also sets g.build
+        cached = story_cache.get("cached")
+        if cached is None or cached[0] != g.build:
+            cached = (g.build, (story.accuracy(conn), story.rent_jumps(conn)))
+            story_cache["cached"] = cached
+        return cached[1]
 
     def has_quarantine() -> bool:
         """Builds before schema 2 have no quarantined table."""
@@ -2412,7 +2423,7 @@ def create_app(
         effects = story.headline_effects(coefficients, labels, reference_area)
         listing, current = story.pick_listing(db())
         build = story.build_up(listing, labels, current=current)
-        accuracy = story.accuracy(db())
+        accuracy, jumps = story_checks()
         counts = (
             db()
             .execute(
@@ -2440,6 +2451,7 @@ def create_app(
             build=build,
             build_svg=story.build_up_svg(build),
             accuracy=accuracy,
+            jumps=jumps,
             counts=counts,
             trials=trials,
             trials_svg=story.theories_svg(trials),

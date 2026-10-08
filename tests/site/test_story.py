@@ -399,3 +399,44 @@ def test_accuracy_reads_the_held_out_asks():
     assert round(a["seen"]["median"], 6) == 10.0 and a["new"]["median"] == 0.0
     assert a["likely"] == 60.0
     assert story.accuracy(db)["new"] is None  # too few new apartments to report
+
+
+def test_rent_jumps_by_the_years_between_listings():
+    import sqlite3
+
+    db = sqlite3.connect(":memory:")
+    db.row_factory = sqlite3.Row
+    db.executescript(
+        "CREATE TABLE buildings(id TEXT, address TEXT);"
+        "INSERT INTO buildings VALUES ('b1', '1 Main Street');"
+        "CREATE TABLE listings(id INTEGER, unit_id TEXT, unit_label TEXT, building_id TEXT,"
+        " ask REAL, price_at TEXT, period TEXT, price_basis TEXT);"
+    )
+    assert story.rent_jumps(db) is None
+    rows = [
+        (1, "u1", "4B", "2020-01-01", 1000.0, "ask"),
+        (2, "u1", "4B", "2020-06-01", 1500.0, "ask"),  # +50% within a year
+        (3, "u1", "4B", "2024-06-01", 1600.0, "ask"),  # no jump, 4 years on
+        (4, "u1", "4B", "2025-01", 900.0, "rent"),  # another basis: no pair
+        (5, "u2", None, "2019-01-01", 2000.0, "ask"),
+        (6, "u2", None, "2023-01-01", 3000.0, "ask"),  # +50% after 4 years
+        (7, "u2", None, "2025-01", 3000.0, "ask"),  # a bare month still pairs
+    ]
+    db.executemany(
+        "INSERT INTO listings VALUES (?, ?, ?, 'b1', ?, ?, ?, ?)",
+        [(i, u, label, ask, at, at[:7], basis) for i, u, label, at, ask, basis in rows],
+    )
+    j = story.rent_jumps(db)
+    assert (j["pairs"], j["jumps"], j["late"]) == (4, 2, 50.0)
+    assert [(g["words"], g["pairs"], g["jumps"]) for g in j["gaps"]] == [
+        ("within a year", 1, 1),  # an empty gap group is left out
+        ("two or more years apart", 3, 1),
+    ]
+    e = j["example"]  # the first of two equal jumps, by unit
+    assert (e["unit_id"], e["before"], e["after"], e["address"]) == (
+        "u1",
+        1000.0,
+        1500.0,
+        "1 Main Street",
+    )
+    assert round(e["change"]) == 50 and e["from"] == "2020-01-01"
