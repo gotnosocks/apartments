@@ -151,6 +151,10 @@ UNIT_ALIASES = (
 # (PR #213) on greenwich-village-granular-20261005-canonical-url-v1, 136
 # history-confirmed groups; provenance beside it.
 UNIT_ALIASES_GV = UNIT_ALIASES.with_name("wv-gv-20261005.jsonl")
+# That table with Flatiron + Gramercy Park's appended (unit-spelling-alias-v2 on
+# flatiron-gramercy-park-granular-20261007-canonical-url-v1, 522
+# history-confirmed groups); provenance beside it.
+UNIT_ALIASES_FGP = UNIT_ALIASES.with_name("wv-gv-fgp-20261007.jsonl")
 
 
 @functools.lru_cache(maxsize=3)
@@ -247,6 +251,8 @@ def merge_word_labels(
 # Greenwich Village; built by frontier/scripts/unit_history_pairs.py, provenance
 # beside it.
 UNIT_HISTORY_PAIRS = UNIT_ALIASES.with_name("history-20261006.jsonl")
+# The same pairs with Flatiron + Gramercy Park's (551) appended.
+UNIT_HISTORY_PAIRS_FGP = UNIT_ALIASES.with_name("history-20261007.jsonl")
 
 
 @functools.lru_cache(maxsize=2)
@@ -258,13 +264,15 @@ def unit_history_pairs(path: Path = UNIT_HISTORY_PAIRS) -> tuple:
 
 
 def merge_history_pairs(
-    frame: pd.DataFrame, pairs: Path = UNIT_HISTORY_PAIRS
+    frame: pd.DataFrame,
+    pairs: Path = UNIT_HISTORY_PAIRS,
+    aliases: Path = UNIT_ALIASES_GV,
 ) -> pd.DataFrame:
     """unit-labels-v5, and units joined where one's ad appears in the other's
     StreetEasy unit-page history, when both are in the same building and their
     median bedroom counts (under v5) agree. Groups that share a unit are one
     unit, whose id is the smallest. Rows are unchanged."""
-    out = merge_word_labels(frame, UNIT_ALIASES_GV)
+    out = merge_word_labels(frame, aliases)
     v5 = dict(zip(frame.unit_id, out.unit_id))
     building = dict(zip(out.unit_id, frame.building))
     beds = frame.bedrooms.groupby(out.unit_id).median().to_dict()
@@ -407,7 +415,8 @@ def spelled_label_key(label: str) -> str:
 def merge_spelled_labels(
     frame: pd.DataFrame, base=merge_word_letter_labels
 ) -> pd.DataFrame:
-    """unit-labels-v9, and units of a building whose labels are one label
+    """A labels rule (`base`, unit-labels-v9 by default), and units of a
+    building whose labels are one label
     spelled out and short ("3RDFL" and "3", "PENTHOUSEA" and "PHA", "GARDEN"
     and "G", "4REAR" and "4R", "THIRD" and "3"). Unlike v3 to v9 there is no
     bedroom guard: a join reads only the two labels, never the units' bedroom
@@ -653,6 +662,10 @@ def _correct_baths(frame: pd.DataFrame, rule: str) -> pd.DataFrame:
         }
     out = frame.copy()
     hit = out.audit_id.isin(rows)
+    if not hit.any():
+        # No listed row in this dataset (a new neighbourhood): an empty
+        # assignment would fail on the integer columns.
+        return out
     for col in ("full_baths", "half_baths"):
         out.loc[hit, col] = (
             out.loc[hit, "audit_id"].map(lambda a, col=col: rows[a][col]).to_numpy()
@@ -777,7 +790,19 @@ DATA_RULES = {
     "unit-labels-v8": merge_swapped_labels,
     # unit-labels-v8 with number-word-and-letter labels joined to their twins.
     "unit-labels-v9": merge_word_letter_labels,
-    "unit-labels-v10": merge_spelled_labels,
+    # unit-labels-v9 on the alias table and history pairs with Flatiron +
+    # Gramercy Park's appended (UNIT_ALIASES_FGP, UNIT_HISTORY_PAIRS_FGP).
+    "unit-labels-v11": functools.partial(
+        merge_word_letter_labels,
+        base=functools.partial(
+            merge_swapped_labels,
+            base=functools.partial(
+                merge_history_pairs,
+                pairs=UNIT_HISTORY_PAIRS_FGP,
+                aliases=UNIT_ALIASES_FGP,
+            ),
+        ),
+    ),
     "unit-splits-v1": split_unit_histories,
     # unit-splits-v1 at any change of bedroom count: 3,871 more listing pairs,
     # 20.7% of them moving rent by over 40% against 6.8% with no change.
@@ -800,6 +825,10 @@ DATA_RULES = {
     "quarantine-v6": quarantine_v6,
     "unit-reviews-v1": join_reviewed_units,
 }
+# unit-labels-v11 with labels spelled out joined to their short spelling.
+DATA_RULES["unit-labels-v12"] = functools.partial(
+    merge_spelled_labels, base=DATA_RULES["unit-labels-v11"]
+)
 # Rules that read a file; run records hash the files.
 RULE_SOURCES = {
     "quarantine-v1": QUARANTINE_V1,
@@ -815,7 +844,8 @@ RULE_SOURCES = {
     "unit-labels-v6": UNIT_HISTORY_PAIRS,
     "unit-labels-v8": UNIT_HISTORY_PAIRS,
     "unit-labels-v9": UNIT_HISTORY_PAIRS,
-    "unit-labels-v10": UNIT_HISTORY_PAIRS,
+    "unit-labels-v11": UNIT_ALIASES_FGP,
+    "unit-labels-v12": UNIT_ALIASES_FGP,
     "bedrooms-ad-v1": BEDROOM_CORRECTIONS,
     "baths-ad-v1": BATH_CORRECTIONS,
     "bedrooms-ad-v2": BEDROOM_CORRECTIONS_V2,

@@ -37,6 +37,7 @@
   </nav></div>
   {% elif section == "research" %}
   <div class="subnav"><nav class="wrap" aria-label="Research">
+    <a href="{{ url_for('research_story') }}"{% if here == "research_story" %} aria-current="page"{% endif %}>Story</a>
     <a href="{{ url_for('research_frontier') }}"{% if here == "research_frontier" %} aria-current="page"{% endif %}>Frontier</a>
     <a href="{{ url_for('research_board') }}"{% if here in ("research_board", "research_fit") %} aria-current="page"{% endif %}>Board</a>
     <a href="{{ url_for('research_history') }}"{% if here == "research_history" %} aria-current="page"{% endif %}>History</a>

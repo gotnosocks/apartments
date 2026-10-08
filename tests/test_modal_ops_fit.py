@@ -3,6 +3,7 @@ import importlib.util
 import json
 import sys
 from pathlib import Path
+from unittest import mock
 
 import pytest
 
@@ -24,46 +25,91 @@ fit = load("fit")
 ET = cap.ZONE
 
 
-@pytest.fixture(autouse=True)
-def no_real_grants(tmp_path, monkeypatch):
-    # The repo's grants file names real days; these tests use their own.
-    monkeypatch.setattr(cap, "GRANTS", tmp_path / "no-grants.json")
-
-
-def test_cap_refuses_the_eleventh_launch_of_an_et_day(tmp_path):
+def test_a_fit_waits_for_its_dollars_and_an_overrun_leaves_the_balance_negative(
+    tmp_path,
+):
     ledger = tmp_path / "ledger.jsonl"
-    morning = datetime.datetime(2026, 10, 6, 0, 30, tzinfo=ET)
-    for i in range(cap.MAX_PER_DAY):
-        assert (
-            cap.reserve(f"run-{i}", "A100-40GB", ledger, morning)
-            == cap.MAX_PER_DAY - i - 1
-        )
-    with pytest.raises(cap.CapReached):
-        cap.reserve("run-10", "A100-40GB", ledger, morning)
-    assert len(cap.launches("2026-10-06", ledger)) == cap.MAX_PER_DAY
-
-
-def test_cap_day_is_new_york_not_utc(tmp_path):
-    ledger = tmp_path / "ledger.jsonl"
-    for i in range(cap.MAX_PER_DAY):
-        cap.reserve(
-            f"run-{i}", "L4", ledger, datetime.datetime(2026, 10, 6, 23, 0, tzinfo=ET)
-        )
-    # 03:30 UTC on Oct 7 is still Oct 6 in New York: refused.
-    with pytest.raises(cap.CapReached):
-        cap.reserve(
-            "late",
-            "L4",
-            ledger,
-            datetime.datetime(2026, 10, 7, 3, 30, tzinfo=datetime.UTC),
-        )
-    # Midnight ET starts a new day.
-    assert (
-        cap.reserve(
-            "next", "L4", ledger, datetime.datetime(2026, 10, 7, 0, 0, tzinfo=ET)
-        )
-        == cap.MAX_PER_DAY - 1
+    usd = cap.estimate(*cap.SERVED_FIT)
+    per_fit = datetime.timedelta(days=1) / 10  # the balance accrues 10 full fits a day
+    t0 = cap.START + per_fit
+    launch, left = cap.reserve("run-0", "A100-40GB", usd, ledger, t0)
+    assert left == pytest.approx(0, abs=0.01)
+    with pytest.raises(cap.CapReached):  # spent: the next fit waits for its estimate
+        cap.reserve("run-1", "A100-40GB", usd, ledger, t0 + per_fit / 2)
+    # It ran over by $0.50: accrual continues from the negative balance.
+    cap.settle(launch, usd + 0.5, ledger, t0)
+    rows = cap.launches(ledger)
+    assert cap.balance(rows, t0) == pytest.approx(-0.5, abs=0.01)
+    ready = cap.ready_at(rows, usd, t0)
+    assert ready - t0 == pytest.approx(
+        per_fit * (1 + 0.5 / usd), abs=datetime.timedelta(minutes=1)
     )
+    with pytest.raises(cap.CapReached):
+        cap.reserve(
+            "run-1", "A100-40GB", usd, ledger, ready - datetime.timedelta(minutes=2)
+        )
+    # A cheaper exploration fit spends less; across midnight ET, in any zone.
+    cap.reserve("run-1", "A100-40GB", usd, ledger, ready.astimezone(datetime.UTC))
+    assert [row["name"] for row in cap.launches(ledger) if "kind" not in row] == [
+        "run-0",
+        "run-1",
+    ]
+    assert cap.estimate(2, 100, 600) < cap.estimate(2, 300, 3600) < usd
+
+
+def test_launches_before_the_budget_began_are_not_charged(tmp_path):
+    ledger = tmp_path / "ledger.jsonl"
+    before = cap.START - datetime.timedelta(hours=1)
+    launch, _ = cap.reserve("old", "A100-40GB", 0, ledger, before)
+    cap.settle(launch, 5.0, ledger, cap.START + datetime.timedelta(hours=1))
+    rows = cap.launches(ledger)
+    assert cap.balance(rows, cap.START) == 0
+    assert cap.balance(rows, cap.START + datetime.timedelta(days=1)) == pytest.approx(
+        cap.USD_PER_DAY
+    )
+
+
+def test_a_retry_of_a_run_is_charged_as_its_own_launch(tmp_path):
+    ledger = tmp_path / "ledger.jsonl"
+    day = cap.START + datetime.timedelta(days=1)
+    first, _ = cap.reserve("run", "A100-40GB", 0.8, ledger, day)
+    cap.settle(first, 0.3, ledger, day)
+    cap.reserve("run", "A100-40GB", 0.8, ledger, day + datetime.timedelta(seconds=1))
+    # A row from the old launcher, after START, counts as a served full fit.
+    old = {"day": "x", "at": day.isoformat(), "name": "o", "gpu": "A100-40GB"}
+    with ledger.open("a") as f:
+        f.write(json.dumps(old) + "\n")
+    assert cap.balance(cap.launches(ledger), day) == pytest.approx(
+        cap.USD_PER_DAY - 0.3 - 0.8 - cap.estimate(*cap.SERVED_FIT), abs=0.01
+    )
+
+
+def test_ten_served_fits_a_day_at_the_container_list_price(monkeypatch):
+    monkeypatch.setitem(sys.modules, "modal", mock.MagicMock())
+    app = load("app")
+    assert {
+        gpu: round(app.usd_per_second(gpu) * 3600, 4) for gpu in app.FITS
+    } == pytest.approx(cap.USD_PER_HOUR, abs=1e-4)
+    assert cap.USD_PER_DAY == pytest.approx(8.80)
+
+
+def test_the_pre_check_reads_the_fit_size_from_modal_fit_arguments():
+    argv = [
+        "--gpu",
+        "L4",
+        "--input",
+        "x",
+        "abc",
+        "lab",
+        "m7",
+        "nb3",
+        "2",
+        "300",
+        "4500",
+        "9",
+    ]
+    assert cap.fit_size([*argv, "--sampler", "gibbs"]) == ("2", "300", "4500", "L4")
+    assert cap.fit_size(argv[4:]) == ("2", "300", "4500", "A100-40GB")
 
 
 def test_plan_names_runs_like_drive_sh_and_reads_the_tier():
@@ -145,16 +191,18 @@ def test_finish_puts_a_good_run_where_thelio_fits_go_and_a_failed_one_aside(
     assert (tmp_path / "modal/failed/runs/r/modal/fit.log").exists()
 
 
-def test_a_grant_from_ben_raises_one_days_cap(tmp_path):
-    grants = tmp_path / "grants.json"
-    grants.write_text(
-        json.dumps({"2026-10-06": {"extra": 2, "by": "Ben", "words": "+2"}})
-    )
+def test_the_balance_stops_at_ten_full_fits_and_restarts_below_it(tmp_path):
     ledger = tmp_path / "ledger.jsonl"
-    day = datetime.datetime(2026, 10, 6, 9, tzinfo=cap.ZONE)
-    for i in range(cap.MAX_PER_DAY + 2):
-        cap.reserve(f"run-{i}", "A100-40GB", ledger, day, grants)
-    with pytest.raises(cap.CapReached):
-        cap.reserve("one-more", "A100-40GB", ledger, day, grants)
-    assert cap.limit("2026-10-06", grants) == cap.MAX_PER_DAY + 2
-    assert cap.limit("2026-10-07", grants) == cap.MAX_PER_DAY
+    week = cap.START + datetime.timedelta(days=7)
+    assert cap.balance([], week) == pytest.approx(cap.CEILING)
+    launch, left = cap.reserve("run", "A100-40GB", 1.0, ledger, week)
+    assert left == pytest.approx(cap.CEILING - 1.0)
+    # Accrual resumes from below the ceiling; a refund can't lift it over.
+    hour = datetime.timedelta(hours=1)
+    rows = cap.launches(ledger)
+    assert cap.balance(rows, week + hour) == pytest.approx(
+        cap.CEILING - 1.0 + cap.USD_PER_DAY / 24
+    )
+    cap.settle(launch, 0.2, ledger, week + hour)
+    assert cap.balance(cap.launches(ledger), week + hour) == pytest.approx(cap.CEILING)
+    assert cap.ready_at(rows, cap.CEILING + 1, week) is None

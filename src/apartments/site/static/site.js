@@ -235,3 +235,33 @@
     });
   });
 })();
+
+// The story's animated figures play when scrolled into view, with a replay
+// button. Without script they play once on load (static/site.css).
+(function () {
+  var figures = document.querySelectorAll(".story-figure[data-play]");
+  if (!figures.length || !("IntersectionObserver" in window)) return;
+  if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+  var seen = new IntersectionObserver(function (entries) {
+    entries.forEach(function (entry) {
+      if (!entry.isIntersecting) return;
+      entry.target.classList.add("play");
+      seen.unobserve(entry.target);
+    });
+  }, { threshold: 0.35 });
+  figures.forEach(function (figure) {
+    figure.classList.add("armed");
+    seen.observe(figure);
+    var button = document.createElement("button");
+    button.type = "button";
+    button.className = "replay";
+    button.textContent = "Replay";
+    button.addEventListener("click", function () {
+      figure.classList.add("reset");
+      void figure.offsetWidth; // restart the CSS animations
+      figure.classList.remove("reset");
+      figure.classList.add("play");
+    });
+    figure.appendChild(button);
+  });
+})();

@@ -580,7 +580,11 @@ DATA_RULE_TEXT = {
     "and a letter (fourb, five-a) joined to the apartment of the same building "
     "labelled with the number (4B, 5A), when their bedroom counts agree. No listing "
     "is dropped.",
-    "unit-labels-v10": "unit-labels-v9, and apartments of a building whose labels "
+    "unit-labels-v11": "unit-labels-v9, with Flatiron and Gramercy Park apartments "
+    "StreetEasy lists under two spellings of one label (0503 and 503, 6thfloor and "
+    "6) joined too, and those whose own StreetEasy page lists an ad filed under the "
+    "other. No listing is dropped.",
+    "unit-labels-v12": "unit-labels-v11, and apartments of a building whose labels "
     "are one label spelled out and short (3RD-FL and 3, PENTHOUSE-A and PH-A, GARDEN "
     "and G, 4-REAR and 4R) joined, whatever their bedroom counts. No listing is "
     "dropped.",

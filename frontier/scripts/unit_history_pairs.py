@@ -2,7 +2,7 @@
 
 A unit page lists the ads of its apartment's past rentals. When an ad the
 canonical-url-v1 transform filed under unit A appears in unit B's page history,
-A and B are one apartment written two ways. West Village and Greenwich Village
+A and B are one apartment written two ways. West Village, Greenwich Village and Flatiron + Gramercy Park
 crawls record these memberships (`collection_memberships`); the Chelsea crawl
 predates that table, so its saved unit pages are parsed here with the
 crawler's own rule (`streeteasy_archive.collection_policy.annotate`).
@@ -36,6 +36,10 @@ PARTS = {
     "Greenwich Village": (
         "datasets/greenwich-village-granular-20261005-canonical-url-v1",
         "snapshots/greenwich-village-20261001-final/archive.sqlite3",
+    ),
+    "Flatiron + Gramercy Park": (
+        "datasets/flatiron-gramercy-park-granular-20261007-canonical-url-v1",
+        "snapshots/flatiron-gramercy-park-20261005-final/archive.sqlite3",
     ),
 }
 
