@@ -43,7 +43,7 @@ from __future__ import annotations
 
 import itertools
 import time
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, replace
 
 import jax
 import jax.numpy as jnp
@@ -147,6 +147,11 @@ class Design:
     # month effects.
     season_basis: jnp.ndarray | None = None
     season_daily: bool = False  # the season at each row's date (dense block)
+    # Line effects (`line_effects`): each row's line, -1 for units without a
+    # shared line; drawn given everything else after the block (`line_draw`).
+    line_row: jnp.ndarray | None = None
+    unit_line: jnp.ndarray | None = None
+    n_lines: int = 0
 
     @property
     def noise_names(self):
@@ -339,12 +344,11 @@ def build_design(
         or config.walk_t
         or config.walk_min_rows_per_knot
         or config.walk_anchor_data
-        or config.line_effects
         or config.walk_zero_sum
     ):
         raise ValueError(
             f"{config.name}: the Gibbs sampler needs every base term and no market "
-            "drift, building trend, line effects or walk options (t steps, "
+            "drift, building trend or walk options (t steps, "
             "mask, anchor, zero-sum); "
             "fit these designs with --sampler nuts"
         )
@@ -530,6 +534,7 @@ def build_design(
         "area_time_scale": config.area_time_scale_sd,
         "bedroom_slope_scale": config.bedroom_slope_scale_sd,
         "unit_drift_scale": config.unit_drift_scale_sd,
+        "line_scale": config.line_scale_sd,
         **{
             f"fslope_scale_{i}": config.feature_slope_scale_sd
             for i in range(len(fslope_cols))
@@ -592,7 +597,39 @@ def build_design(
         n_noise=n_noise,
         fill=fill,
         walk_rank=walk_rank,
+        **line_design(prep, config),
     )
+
+
+def line_design(prep, config) -> dict:
+    """The Design fields of line effects: each training row's line (-1 for
+    units without a shared line) and the number of lines."""
+    if not config.line_effects:
+        return {}
+    if prep.unit_line is None or not (prep.unit_line >= 0).any():
+        raise ValueError("line_effects needs units in shared lines")
+    unit_line = np.asarray(prep.unit_line, dtype=np.int32)
+    return {
+        "line_row": jnp.asarray(unit_line[np.asarray(prep.train.unit)]),
+        "unit_line": jnp.asarray(unit_line),
+        "n_lines": int(unit_line.max()) + 1,
+    }
+
+
+def line_rows(d: Design, line):
+    """Each training row's line effect (0 without a shared line)."""
+    return jnp.where(d.line_row >= 0, line[jnp.maximum(d.line_row, 0)], 0.0)
+
+
+def line_draw(key, d: Design, r, wts, scale):
+    """line | everything else: r is each row's residual with the line
+    effect included (y minus every other term), wts its precision."""
+    has = d.line_row >= 0
+    idx = jnp.maximum(d.line_row, 0)
+    w = jnp.where(has, wts, 0.0)
+    prec = jax.ops.segment_sum(w, idx, d.n_lines) + 1.0 / scale**2
+    mean = jax.ops.segment_sum(w * r, idx, d.n_lines) / prec
+    return mean + jax.random.normal(key, (d.n_lines,)) / jnp.sqrt(prec)
 
 
 def gram(d: Design, w):
@@ -1002,6 +1039,10 @@ def site_values(d: Design, state):
             [state[f"fslope_scale_{i}"] for i in range(len(d.fslope_local))]
         )
         out["fslope_index"] = jnp.asarray(d.fslope_cols, dtype=jnp.int32)
+    if d.line_row is not None:
+        out["line"] = state["line"]
+        out["line_scale"] = state["line_scale"]
+        out["unit_line"] = d.unit_line
     if d.knot_start is not None:
         out["walk_step"] = steps(theta_l[:, d.knot_start :])
         # The spacing linear_predictor interpolates the walk with (held-out scores).
@@ -1028,11 +1069,18 @@ def make_step(d: Design):
     }
 
     hier = list(d.scale_names)  # collapsed update covers sigma and every group scale
+    d_base = d
 
     def step(key, state, cfg, prop_sd=None, solo_sd=None):
         """One iteration. `cfg` holds the step sizes; with `prop_sd` (one
         proposal sd per hierarchical log-scale) the scales are first updated
         by a collapsed Metropolis step that integrates out every latent."""
+        # With line effects the block sees y minus the current line effects.
+        d = (
+            d_base
+            if d_base.line_row is None
+            else replace(d_base, y=d_base.y - line_rows(d_base, state["line"]))
+        )
         (
             noise_steps,
             sigma_step_sd,
@@ -1416,8 +1464,36 @@ def make_step(d: Design):
             rescale_steps,
         )
         new["unit_scale"] = tau_u
+        e = e - (c_u - 1.0) * u[d.unit]
         u = u * c_u
         info["unit_rescale_accept"] = acc_u / rescale_steps
+        lines = {}
+        if d.line_row is not None:
+            # line | the rest, line_scale | line, then a (scale, line) rescale.
+            r = e + line_rows(d, state["line"])
+            line = line_draw(
+                jax.random.fold_in(keys[12], 1), d, r, wts, state["line_scale"]
+            )
+            line_scale = _update_scale(
+                jax.random.fold_in(keys[12], 2),
+                state["line_scale"],
+                jnp.sum(line * line),
+                d.n_lines,
+                d.prior_sd["line_scale"],
+            )
+            contrib = line_rows(d, line)
+            c_l, line_scale, acc_l = _rescale(
+                jax.random.fold_in(keys[12], 3),
+                r - contrib,
+                wts,
+                contrib,
+                line_scale,
+                d.prior_sd["line_scale"],
+                unit_rescale_step_sd,
+                rescale_steps,
+            )
+            lines = {"line": line * c_l, "line_scale": line_scale}
+            info["line_rescale_accept"] = acc_l / rescale_steps
         state = {
             "theta": theta,
             "local": theta_l,
@@ -1428,6 +1504,7 @@ def make_step(d: Design):
             "drift": drift,
             "unit_nu": unit_nu,
             **new,
+            **lines,
         }
         return state, info
 
@@ -1445,6 +1522,7 @@ START = {
     "area_time_scale": 0.01,
     "bedroom_slope_scale": 0.05,
     "unit_drift_scale": 0.02,
+    "line_scale": 0.04,
 }
 
 
@@ -1468,6 +1546,11 @@ def init_states(d: Design, key, chains):
     state["lam"] = jnp.ones((chains, d.y.shape[0]))
     state["kappa"] = jnp.ones((chains, d.n_units))
     state["drift"] = jnp.zeros((chains, d.n_units))
+    if d.line_row is not None:
+        state["line"] = jnp.zeros((chains, d.n_lines))
+        state["line_scale"] = START["line_scale"] * jnp.exp(
+            0.7 * jax.random.normal(jax.random.fold_in(k1, 1), (chains,))
+        )
     state["unit_nu"] = (
         jnp.full((chains,), d.unit_nu_fixed if d.unit_nu_fixed is not None else 5.0)
         if d.unit_t
