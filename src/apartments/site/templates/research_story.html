@@ -307,7 +307,7 @@ Where a unit's bedroom count changes from one ad to the next, its history is spl
 <p>{% if uj %}One joined unit:
 <a href="{{ url_for('unit', unit_id=uj.unit_id) }}">unit {{ uj.labels[0] }} at {{ uj.address }}</a> was
 listed as {% for l in uj.labels %}"{{ l }}"{% if loop.revindex == 2 %} and {% elif not loop.last %}, {% endif %}{% endfor %}
-across {{ uj.listings }} ads, and is one apartment now.{% endif %}{% if us %}{{ " " if uj }}A clear split: {% if us.label %}unit {{ us.label }}{% else %}a unit{% endif %} at
+across {{ uj.listings }} ads, and is one apartment now.{% endif %}{% if us %}{{ " " if uj }}One clean split: {% if us.label %}unit {{ us.label }}{% else %}a unit{% endif %} at
 {{ us.address }} was {% for p in us.pieces %}<a href="{{ url_for('unit', unit_id=p.unit_id) }}">{{ p.words }}
 at ${{ "{:,.0f}".format(p.ask) }} in {{ month(p.at) }}</a>{% if loop.revindex == 2 %} and {% elif not loop.last %}, {% endif %}{% endfor %};
 it is {{ us.count }} units now.{% endif %}</p>{% endif %}

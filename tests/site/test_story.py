@@ -490,3 +490,4 @@ def test_unit_examples_pick_a_joined_and_a_split_unit():
     assert (
         story.bed_phrase(0) == "a studio" and story.bed_phrase(None) == "an apartment"
     )
+    assert story.bed_phrase(8) == "an 8-bedroom" and story.bed_phrase(-1) == "a studio"

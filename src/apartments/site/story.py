@@ -1142,10 +1142,11 @@ def bed_phrase(bedrooms) -> str:
     """'a studio', 'a one-bedroom', 'a 7-bedroom'; 'an apartment' when unknown."""
     if bedrooms is None:
         return "an apartment"
-    n = round(bedrooms)
+    n = max(0, round(bedrooms))
     if n == 0:
         return "a studio"
-    return f"a {NUMBER_WORDS[n - 1] if n <= len(NUMBER_WORDS) else n}-bedroom"
+    word = NUMBER_WORDS[n - 1] if n <= len(NUMBER_WORDS) else str(n)
+    return f"{'an' if word in ('8', '11', '18') else 'a'} {word}-bedroom"
 
 
 def rent_jumps(db) -> dict | None:
@@ -1205,7 +1206,7 @@ ORDER BY base, at, l.id
 
 def unit_examples(db) -> dict:
     """One real unit for each identity rule: the joined unit whose ads spell
-    its name the most ways, and a clear split: the unit with the most pieces
+    its name the most ways, and a clean split: the unit with the most pieces
     whose bedroom count and ask both rise from piece to piece, three pieces
     preferred so the example stays short."""
     units: dict = {}
