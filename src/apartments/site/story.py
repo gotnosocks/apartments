@@ -792,8 +792,11 @@ def theories_svg(entries: list[dict]) -> Markup:
         tall = row + line * (len(lines) - 1)
         cy = y + tall / 2
         first = cy + 4 - line * (len(lines) - 1) / 2
+        # a space leading each later line keeps the words apart when the text is copied or
+        # read out; the lines are right-aligned, so it doesn't move them
         text = "".join(
-            f'<tspan x="{label_w - 10}" y="{first + line * i:.1f}">{escape(part)}</tspan>'
+            f'<tspan x="{label_w - 10}" y="{first + line * i:.1f}">'
+            f"{' ' if i else ''}{escape(part)}</tspan>"
             for i, part in enumerate(lines)
         )
         lo2, hi2 = t["diff"] - 2 * t["se"], t["diff"] + 2 * t["se"]
