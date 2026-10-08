@@ -1129,7 +1129,8 @@ def stabilized_units(frame: pd.DataFrame) -> np.ndarray:
     """Per row: the rent-stabilized units on its lot's tax bill of the year
     before the listing's year, or of the latest earlier bill year (the
     2020-2022 bills are missing for some lots). Bills come out in June, so a
-    year's gap keeps any later bill out. A lot with no bill by then counts 0."""
+    year's gap keeps any later bill out. A lot with no bill by then counts 0,
+    as does a lot whose earlier bills sit under an old lot number."""
     registry = pd.read_parquet(lot_registry()).set_index("building")
     stab = pd.read_parquet(RENTSTAB_FILE)
     by_lot = {
