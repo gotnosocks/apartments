@@ -358,10 +358,9 @@ def pick_listing(db):
 
 def _median_miss(rows) -> float:
     """The median gap between ask and estimate, as a percentage of the estimate."""
-    gaps = sorted(abs(math.log(r["ask"] / r["estimate"])) for r in rows)
+    gaps = sorted(abs(r["ask"] - r["estimate"]) / r["estimate"] for r in rows)
     mid = len(gaps) // 2
-    gap = gaps[mid] if len(gaps) % 2 else (gaps[mid - 1] + gaps[mid]) / 2
-    return 100 * (math.exp(gap) - 1)
+    return 100 * (gaps[mid] if len(gaps) % 2 else (gaps[mid - 1] + gaps[mid]) / 2)
 
 
 def accuracy(db, small: int = 30) -> dict | None:
