@@ -193,7 +193,7 @@ matter.{% endif %}</p>
   </div>
 </details>
 
-{% set blocked = trials | selectattr("verdict", "equalto", "blocked") | list %}
+{% set blocked = trials | selectattr("verdict", "equalto", "blocked") | selectattr("diff", "gt", 0) | list %}
 {% if blocked %}<p>Some ideas scored brilliantly and were set aside anyway.
 {% for t in blocked[:1] %}"{{ t.words[:1] | upper }}{{ t.words[1:] }}" gained {{ "{:+,.0f}".format(t.diff) }}.{% endfor %}
 Part of that score is a leak. Leaving one ask out doesn't hide it from the model, because the apartment's earlier
@@ -331,7 +331,7 @@ The <a href="{{ url_for('research_data_quality') }}">data quality</a> page lists
 {% endif %}
 
 {% set waiting = trials | selectattr("kind", "equalto", "location") | selectattr("retest", "equalto", "next neighbourhood") | list %}
-{% set blocked = trials | selectattr("verdict", "equalto", "blocked") | list %}
+{% set blocked = trials | selectattr("verdict", "equalto", "blocked") | selectattr("diff", "gt", 0) | list %}
 {% set jump = (cleaning.checks if cleaning else []) | selectattr("key", "equalto", "big_jumps") | first %}
 <section id="next">
 <h2>Open questions</h2>
