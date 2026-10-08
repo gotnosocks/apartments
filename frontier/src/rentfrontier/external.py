@@ -73,6 +73,7 @@ import hashlib
 import itertools
 import json
 import math
+import time
 import urllib.parse
 import urllib.request
 from pathlib import Path
@@ -126,10 +127,20 @@ PLUTO_COLUMNS = (
 )
 
 
-def _socrata(dataset: str, params: dict) -> list[dict]:
+def _socrata(
+    dataset: str, params: dict, timeout: int = 60, tries: int = 1
+) -> list[dict]:
+    """One Socrata query; a timed-out read is tried again up to `tries` times
+    in all, waiting a minute between tries."""
     url = f"{SOCRATA}/{dataset}.json?{urllib.parse.urlencode(params)}"
-    with urllib.request.urlopen(url, timeout=60) as r:
-        return json.loads(r.read())
+    for attempt in range(tries):
+        try:
+            with urllib.request.urlopen(url, timeout=timeout) as r:
+                return json.loads(r.read())
+        except TimeoutError:
+            if attempt == tries - 1:
+                raise
+            time.sleep(60)
 
 
 def fetch_pluto(bbls, batch: int = 100) -> tuple[pd.DataFrame, list[str]]:
@@ -417,7 +428,8 @@ def fetch_dob(registry: pd.DataFrame, batch: int = 100, page: int = 50_000):
                     "$limit": page,
                     "$offset": offset,
                 }
-                got = _socrata(dataset, params)
+                # DOB queries of large buildings can run past a minute.
+                got = _socrata(dataset, params, timeout=300, tries=3)
                 for r in got:
                     kind = r.get("job_type") or ""
                     if dataset == DOB_NOW_ID:
