@@ -211,6 +211,7 @@ def test_the_likely_range_is_the_noise_quantiles():
     assert out["pred_lower_80"] == pytest.approx(3000 * math.exp(-0.1 * z80), rel=0.01)
     assert out["pred_upper_80"] == pytest.approx(3000 * math.exp(0.1 * z80), rel=0.01)
     assert out["median"] == pytest.approx(3000, rel=1e-4)  # no unit spread
+    assert out["estimate"] == out["median"]  # never the mean
     again = estimate.score(k, flat_building(50), {}, 1, DAY, seed="s", samples=400)
     assert again == out  # the same inputs give the same numbers
 

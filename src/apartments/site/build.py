@@ -305,12 +305,18 @@ def listing_rows(rows, observations, names, k_threshold, scope="Chelsea") -> lis
             raise BuildError(f"{r['audit_id']} is not in the dataset")
         if abs(float(obs["asking_rent"]) - r["asking_rent"]) > 1e-6:
             raise BuildError(f"{r['audit_id']}: ask differs from the dataset")
+        # The estimate is the predictive median, never the mean: with
+        # Student-t apartment effects of low ν the mean of a new apartment's
+        # rent barely exists. The parts add up to the mean, so they are
+        # scaled to add up to the median.
+        median = r["estimate_median"]
+        scale = median / r["estimate"] if r["estimate"] else 1.0
         contributions = [
             {
                 "term": name,
-                "usd": round(r[f"{name}_usd"], 2),
-                "lower": round(r[f"{name}_usd_lower_95"], 2),
-                "upper": round(r[f"{name}_usd_upper_95"], 2),
+                "usd": round(scale * r[f"{name}_usd"], 2),
+                "lower": round(scale * r[f"{name}_usd_lower_95"], 2),
+                "upper": round(scale * r[f"{name}_usd_upper_95"], 2),
             }
             for name in names
         ]
@@ -356,12 +362,12 @@ def listing_rows(rows, observations, names, k_threshold, scope="Chelsea") -> lis
                 "in_fit": int(r["in_fit"]),
                 "unit_fit_rows": int(r["unit_fit_rows"]),
                 "method": r["estimate_method"],
-                "estimate": r["estimate"],
+                "estimate": median,
                 "estimate_lower": r["estimate_lower_95"],
                 "estimate_upper": r["estimate_upper_95"],
                 "estimate_median": r["estimate_median"],
-                "residual_usd": r["residual_usd"],
-                "residual_pct": r["residual_pct"],
+                "residual_usd": r["asking_rent"] - median,
+                "residual_pct": r["asking_rent"] / median - 1,
                 "pit": r["pit"],
                 "price_band": price_band(r["pit"]),
                 "pareto_k": k,

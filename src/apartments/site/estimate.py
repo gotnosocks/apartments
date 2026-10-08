@@ -495,8 +495,8 @@ def score(
     samples: int = SAMPLES_PER_DRAW,
     unit: list[float] | None = None,
 ) -> dict:
-    """The typical rent of a new apartment like this (mean, median and 95%
-    interval of its latent rent), the range its ask is likely to fall in (80%
+    """The typical rent of a new apartment like this (the median of its latent
+    rent as "estimate", with its mean and 95% interval), the range its ask is likely to fall in (80%
     and 95% predictive intervals), and where `ask` falls among simulated asks.
     `unit`, the fit's own level of an apartment it has seen (one per draw),
     takes the place of the unit prior."""
@@ -522,8 +522,11 @@ def score(
     latent.sort()
     asks.sort()
     out = {
-        "estimate": sum(math.exp(v) for v in latent) / len(latent),
+        # The median, not the mean: with Student-t unit levels of low ν
+        # the mean of a new apartment's rent barely exists.
+        "estimate": math.exp(_quantile(latent, 0.5)),
         "median": math.exp(_quantile(latent, 0.5)),
+        "mean": sum(math.exp(v) for v in latent) / len(latent),
         "lower_95": math.exp(_quantile(latent, 0.025)),
         "upper_95": math.exp(_quantile(latent, 0.975)),
         "pred_lower_80": math.exp(_quantile(asks, 0.10)),

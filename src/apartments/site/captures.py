@@ -308,6 +308,15 @@ def contributions(
     return out
 
 
+def scaled(parts: list[dict], factor: float) -> list[dict]:
+    """The parts, which add up to the mean, scaled to add up to the median
+    the estimate reports."""
+    return [
+        p | {k: round(factor * p[k], 2) for k in ("usd", "lower", "upper")}
+        for p in parts
+    ]
+
+
 def rows(
     kit: estimate.Kit,
     kit_buildings: list[dict],
@@ -444,8 +453,11 @@ def rows(
                     for side in ("lower", "upper")
                 },
                 "contributions": json.dumps(
-                    contributions(
-                        kit, building, x, bedrooms, day, audit_id, names, unit
+                    scaled(
+                        contributions(
+                            kit, building, x, bedrooms, day, audit_id, names, unit
+                        ),
+                        got["median"] / got["mean"],
                     ),
                     separators=(",", ":"),
                 ),

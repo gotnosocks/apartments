@@ -117,7 +117,7 @@ called a one-bedroom, say), and sometimes the apartment was rebuilt; the estimat
 <section class="card">
   <h2>What makes up the estimate</h2>
   <p class="note">Dollar contributions, starting from the market reference: a one-bedroom, one-bath apartment with every attribute
-  at its reference level, in an average building that month. They add up to the estimate. Bars show the mean; whiskers show the 95% interval.
+  at its reference level, in an average building that month. They add up to the estimate. Bars show each part; whiskers show its 95% interval.
   A detail the listing leaves out (“not stated”) is a level of its own: such listings ask differently from the reference, so it
   can add or subtract dollars too. A feature's line is only what it adds on its own: features that come with pricier apartments
   and buildings, such as a penthouse or a view, can look small here because much of their premium shows in the “This unit” and
@@ -176,8 +176,8 @@ called a one-bedroom, say), and sometimes the apartment was rebuilt; the estimat
   <details class="table-view" id="model-details">
   <summary>Model details, for statisticians</summary>
   <dl class="facts">
-    <dt>Typical rent, posterior median</dt><dd>{{ usd(row.estimate_median) }} <span class="muted">(the estimate above is the
-      posterior mean, so the two differ a little)</span></dd>
+    <dt>Typical rent</dt><dd>{{ usd(row.estimate_median) }}, the posterior predictive median <span class="muted">(not the
+      mean, which heavy-tailed apartment effects can pull far out)</span></dd>
     <dt>Ask percentile</dt><dd>{{ "%.1f" | format(100 * row.pit) }}</dd>
     <dt>Method</dt><dd>{% if row.method == "kit" %}priced with the kit, not in the fit (captured {{ row.collected_at[:10] }}){% elif row.method == "heldout" %}<a href="{{ url_for('research_glossary', _anchor='held-out') }}">held out of the fit</a>{% else %}leave-own-row-out
       (<a href="{{ url_for('research_glossary', _anchor='psis-loo') }}">PSIS</a>): the fit reweighted as if it had not seen this ask{% endif %}</dd>
