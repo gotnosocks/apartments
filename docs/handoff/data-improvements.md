@@ -2,6 +2,25 @@
 
 Updated 2026-10-08 16:45 ET. Thread owner: the Data improvements project thread (bridge session on thelio).
 
+## 2026-10-08 18:00 ET
+
+- **Stuy Town indicator replacement sets (builds only, nothing queued).** Each candidate goes in
+  place of the indicator on `nb6-nostuy-v1` (no indicator; its rows take Chelsea's level):
+  - #562 (81d6f1e) `nb6-stab-v1` (stabilized share beside the indicator), `nb6-nostuy-stab-v1`.
+    The share is year-before DOF bill units over MapPLUTO units; a bill counts for at most 3 years
+    (`STAB_CARRY_YEARS`, the reviewer's fix). The snapshot was re-fetched at
+    rentstab/20261008-b487c8a, with the same rows as 6b42fe8.
+  - #567 (3e3a538) `nb6-nostuy-open-v1` (lot's open share), `nb6-nostuy-stabopen-v1` (both).
+    Open share = 1 − footprints built by the listing year ÷ MapPLUTO lot area, clipped to [0, 1].
+    Stuy 0.73, PCV 0.75, Penn South 0.84, median lot 0.24. Known limits: about 10% of buildings
+    clip to 0 (a footprint spanning lots), and a building demolished later is missing (a small
+    leak). `footprint_area` rebuilds the grid per footprint (about 15 s); fix it if the term is
+    fitted.
+  - On resume (Modeling and Ben plan it): after the nb6-plutoasof-v3 base, compare
+    `nb6-nostuy-stabopen-v1` and the single-term sets with the base; `nb6-nostuy-v1` is the
+    reference. Landlord, age and type are already covered by the base (one owner = the two lots;
+    building era, class and log units are in it).
+
 ## 2026-10-08 17:30 ET
 
 - **Stuy Town rent-blind screen: no rule yet.** `/data1/apartments/tmp/suspect/stuy/screen/`
