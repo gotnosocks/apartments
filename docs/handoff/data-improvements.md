@@ -30,7 +30,7 @@ Updated 2026-10-08 19:15 ET. Thread owner: the Data improvements project thread 
   Per release, the owner rule flips only on record noise: NYCHA name variants, a 375→36 unit
   drop, a split Penn South name, a one-release blip at 95–97 Horatio. Maestro is flagged from
   15v1, the year after it was built. So today's owner leaks nothing real (comment on #575).
-  Modeling has the snapshot for its new-supply vs bedroom-curve check.
+  Modeling was sent the path for its new-supply vs bedroom-curve check.
 - **On resume** (model runs paused, Ben 16:07Z): Modeling compares `nb6-nostuy-explain-v1` and
   `nb6-nostuy-stabopen-v2` against the reference `nb6-nostuy-v1`.
 
