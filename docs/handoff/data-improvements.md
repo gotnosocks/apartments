@@ -22,7 +22,7 @@ Updated 2026-10-08 16:45 ET. Thread owner: the Data improvements project thread 
     unknown; no rule.
   - **The Stuy Town indicator is a placeholder** (coordinator, 20:38Z, after Ben's 16:16Z
     preference). Candidates to replace it: the rent-stabilized share (DOF bills: lot 1009720001 has
-    8,768 stabilized units since 2018, lot 1009780001 has 2,480, so close to 100% since 2011),
+    8,634-8,770 stabilized units a year since 2011, lot 1009780001 about 2,480, close to all units),
     one landlord, campus open space, building age and type. nb5-stab-v1 was null (#435) on five
     neighbourhoods, but Stuy Town is the first near-all-stabilized complex in the data.
   - Next: rent-blind quarantine screen for Stuy Town, ad-based fixes, then an nb6 stab test.
