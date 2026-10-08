@@ -60,13 +60,15 @@ def record_outcomes(raw: str, collected_at: float) -> dict:
     still = status == "ACTIVE" or pd.isna(end)
     if still:
         end = pd.Timestamp(collected_at, unit="s", tz="UTC")
+    days = (end - start).days if pd.notna(start) else None
     return {
         "final_ask": final,
         "first_ask": prices[0] if prices else final,
         "n_changes": len(steps),
         "n_cuts": sum(b < a for a, b in steps),
         "n_raises": sum(b > a for a, b in steps),
-        "days_listed": (end - start).days if pd.notna(start) else None,
+        # A relisted record can keep an earlier cycle's offMarketAt: no count.
+        "days_listed": days if days is not None and days >= 0 else None,
         "still_listed": still,
         "status": status,
     }

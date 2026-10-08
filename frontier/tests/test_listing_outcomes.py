@@ -46,3 +46,10 @@ def test_attach_matches_on_source_listing_id(tmp_path):
     frame = pd.DataFrame({"source_listing_id": [8, 9]})
     got = lo.attach(frame, str(tmp_path / "o.parquet"))
     assert got.final_ask.iloc[0] == 2 and pd.isna(got.final_ask.iloc[1])
+
+
+def test_record_outcomes_leaves_a_stale_off_market_day_uncounted():
+    got = lo.record_outcomes(
+        _raw([3000], 3000, "RENTED", "2026-02-01", "2026-01-01"), 0.0
+    )
+    assert got["days_listed"] is None
