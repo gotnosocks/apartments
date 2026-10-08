@@ -49,6 +49,7 @@ from . import (
     estimate,
     estimate_build,
     exposure,
+    story,
     streetview,
     summary,
 )
@@ -569,6 +570,7 @@ SECTIONS = {
         "research_glossary",
         "research_model",
         "research_elegance",
+        "research_story",
     ),
 }
 
@@ -2379,6 +2381,57 @@ def create_app(
     def research_glossary():
         return render_template(
             "research_glossary.html", meta=meta(), terms=terms_list()
+        )
+
+    @app.get("/research/story")
+    def research_story():
+        m = meta()
+        terms = terms_list()
+        labels = {t["name"]: t["label"] for t in terms}
+        data = research.load()
+        entry = entry_for_run(data, m["provenance"]["run"])
+        anatomy = (
+            describe(entry.get("model"), entry.get("sizes")) if entry else None
+        ) or describe(m["provenance"].get("model"))
+        variance = (entry or {}).get("variance")
+        coefficients = db().execute("SELECT * FROM coefficients").fetchall()
+        areas = {
+            r[0] for r in db().execute("SELECT DISTINCT neighbourhood FROM listings")
+        }
+        named = {
+            c["feature"] for c in coefficients if c["feature_group"] == "neighbourhood"
+        }
+        reference_area = (
+            next(iter(areas - named), None) if len(areas - named) == 1 else None
+        )
+        effects = story.headline_effects(coefficients, labels, reference_area)
+        listing, current = story.pick_listing(db())
+        build = story.build_up(listing, labels, current=current)
+        counts = (
+            db()
+            .execute(
+                "SELECT COUNT(*), COUNT(DISTINCT unit_id), COUNT(DISTINCT building_id), "
+                "MIN(period), MAX(period) FROM listings WHERE in_fit = 1"
+            )
+            .fetchone()
+        )
+        rows = story.composition(anatomy, variance)
+        return render_template(
+            "research_story.html",
+            meta=m,
+            entry=entry,
+            anatomy=anatomy,
+            composition=rows,
+            composition_svg=story.composition_svg(rows),
+            variance=variance,
+            effects=effects,
+            effects_svg=story.effects_svg(effects),
+            reference_area=reference_area,
+            build=build,
+            build_svg=story.build_up_svg(build),
+            counts=counts,
+            terms=terms,
+            labels=labels,
         )
 
     @app.get("/research/model")

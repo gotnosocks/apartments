@@ -521,3 +521,68 @@ button[aria-busy="true"] { cursor: progress; opacity: 0.75; }
 }
 
 .small { font-size: 0.85rem; }
+
+/* The research story (/research/story): long-form reading and its figures. */
+.story { max-width: 48rem; }
+.story p { line-height: 1.6; }
+.story h2 { margin-top: 2.2rem; }
+.story-figure { margin: 1.2rem 0; }
+.story-figure svg { display: block; width: 100%; height: auto; overflow: visible; }
+/* On a phone the figures keep a readable text size and scroll sideways
+   inside their own box, not the page. */
+@media (max-width: 640px) {
+  .story-figure .figure-scroll { overflow-x: auto; }
+  .story-figure .figure-scroll svg { min-width: 600px; }
+}
+.story-figure figcaption { font-size: 0.85rem; color: var(--ink-2); margin-top: 0.4rem; }
+.story-svg text { fill: var(--ink); font-size: 12px; }
+.story-svg .tick, .story-svg .axis-title { fill: var(--muted); font-size: 11px; font-variant-numeric: tabular-nums; }
+.story-svg .grid { stroke: var(--grid); stroke-width: 1; }
+.story-svg .zero { stroke: var(--axis); stroke-width: 1.5; }
+.story-svg .op { fill: var(--muted); font-size: 18px; }
+.story-svg .box { stroke: none; fill-opacity: 0.16; }
+.story-svg .box-title { font-weight: 600; font-size: 13px; }
+.story-svg .box-parts { fill: var(--ink-2); font-size: 11.5px; }
+.story-svg .share { fill-opacity: 0.85; }
+.story-svg .share-ci { stroke: var(--ink-2); stroke-width: 1.5; }
+.story-svg .share-label, .story-svg .step-value { font-size: 11.5px; font-variant-numeric: tabular-nums; }
+.story-svg .eff-label { fill: var(--ink-2); font-size: 12px; }
+.story-svg .eff-label.strong { fill: var(--ink); font-weight: 600; }
+.story-svg .ci { stroke-width: 2.5; stroke-linecap: round; stroke-opacity: 0.55; }
+.story-svg .ci.up, .story-svg .dot.up { stroke: var(--up); fill: var(--up); }
+.story-svg .ci.down, .story-svg .dot.down { stroke: var(--down); fill: var(--down); }
+.story-svg .dot { stroke: var(--surface); stroke-width: 1.5; }
+.story-svg .link { stroke: var(--axis); stroke-width: 1; }
+.story-svg .bar { fill-opacity: 0.85; }
+.story-svg .range { stroke: var(--s1); stroke-width: 10; stroke-opacity: 0.22; stroke-linecap: round; }
+.story-svg .est { fill: var(--s1); stroke: var(--surface); stroke-width: 2; }
+.story-svg .ask-mark { fill: var(--ink); }
+.g-market .box, .g-market .share, .g-market .bar, .swatch.g-market { fill: var(--s1); background: var(--s1); }
+.g-features .box, .g-features .share, .g-features .bar, .swatch.g-features { fill: var(--s3); background: var(--s3); }
+.g-building .box, .g-building .share, .g-building .bar, .swatch.g-building { fill: var(--s2); background: var(--s2); }
+.g-building-time .box, .g-building-time .share, .g-building-time .bar, .swatch.g-building-time { fill: var(--s2); background: var(--s2); }
+.g-building-slopes .box, .g-building-slopes .share, .g-building-slopes .bar, .swatch.g-building-slopes { fill: var(--s2); background: var(--s2); }
+.g-unit .box, .g-unit .share, .g-unit .bar, .swatch.g-unit { fill: var(--s4); background: var(--s4); }
+.g-residual .box, .g-residual .share, .g-residual .bar, .swatch.g-residual,
+.g-minor .bar { fill: var(--muted); background: var(--muted); }
+.g-building-time .bar, .g-building-time .share, .g-building-slopes .bar, .g-building-slopes .share { fill-opacity: 0.55; }
+.swatch { display: inline-block; width: 0.7rem; height: 0.7rem; border-radius: 2px; margin-right: 0.4rem; vertical-align: baseline; }
+.table-view { margin: 0.4rem 0 1rem; }
+.table-view summary { cursor: pointer; color: var(--link); font-size: 0.9rem; }
+/* The build-up and the layers play in order once; still for reduced motion. */
+@media (prefers-reduced-motion: no-preference) {
+  .buildup .step, .buildup .link, .compose .block { animation: story-in 0.5s ease-out both; }
+  .story-svg .d0 { animation-delay: 0.1s; } .story-svg .d1 { animation-delay: 0.5s; } .story-svg .d2 { animation-delay: 0.9s; }
+  .story-svg .d3 { animation-delay: 1.3s; } .story-svg .d4 { animation-delay: 1.7s; } .story-svg .d5 { animation-delay: 2.1s; }
+  .story-svg .d6 { animation-delay: 2.5s; } .story-svg .d7 { animation-delay: 2.9s; } .story-svg .d8 { animation-delay: 3.3s; }
+  .story-svg .d9 { animation-delay: 3.7s; } .story-svg .d10 { animation-delay: 4.1s; } .story-svg .d11 { animation-delay: 4.5s; }
+  .story-svg .d12 { animation-delay: 4.9s; } .story-svg .d13 { animation-delay: 5.3s; } .story-svg .d14 { animation-delay: 5.7s; }
+  .story-svg .d15 { animation-delay: 6.1s; } .story-svg .d16 { animation-delay: 6.5s; } .story-svg .d17 { animation-delay: 6.9s; }
+  .story-svg .d18 { animation-delay: 7.3s; } .story-svg .d19 { animation-delay: 7.7s; }
+  .story-figure.armed .step, .story-figure.armed .link, .story-figure.armed .block { animation-play-state: paused; }
+  .story-figure.armed.play .step, .story-figure.armed.play .link, .story-figure.armed.play .block { animation-play-state: running; }
+}
+.story-figure.reset .step, .story-figure.reset .link, .story-figure.reset .block { animation: none; }
+.replay { font-size: 0.8rem; margin-top: 0.3rem; }
+@media (prefers-reduced-motion: reduce) { .replay { display: none; } }
+@keyframes story-in { from { opacity: 0; transform: translateX(-12px); } to { opacity: 1; transform: none; } }
