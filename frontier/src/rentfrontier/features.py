@@ -1443,8 +1443,11 @@ def released_lots(
     flood-zone flags before 2017), the fields in RELEASE_KEEPS_TODAY, and a
     release published before today's year built (it describes the lot before
     the building) keep today's values. Codes are written as today's file
-    writes them (landuse "04" as "4", irrlotcode "Y" as True), so a field
-    changes only when the release's value does. No rents are read."""
+    writes them (landuse "04" as "4", irrlotcode "Y" as True), so a code
+    changes only when the release's code does (decimals may be written with
+    other trailing zeros; every reader parses them as numbers). A listing
+    before the earliest release reads it anyway (none in the data, which
+    starts in 2010). No rents are read."""
     history = pd.read_parquet(path)
     history = history[history.published.notna()]
     published = pd.to_datetime(
@@ -1465,7 +1468,7 @@ def released_lots(
     ):
         value = then[column].astype("string").str.strip().replace("", pd.NA)
         carried = indexed[column].notna().groupby(level="release").any()
-        take = use & carried.reindex(release).fillna(False).to_numpy()
+        take = use & carried.reindex(release).fillna(False).astype(bool).to_numpy()
         today = out[column]
         if pd.api.types.is_bool_dtype(today):
             flag = value.str.upper().map({"Y": True, "N": False, "TRUE": True})

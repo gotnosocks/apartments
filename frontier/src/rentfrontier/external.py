@@ -386,81 +386,83 @@ PLUTO_ARCHIVE = (
 )
 # Every MapPLUTO release City Planning archives, 09v1 to 26v2 (no 15v2 or 17v2
 # was archived): release -> (archive file, publication date, evidence). The
-# date is the latest of the end of the month the release's own documents
-# (README, data dictionary, file layout) are dated, and the file's
-# Last-Modified on the archive server where that is not the 2023-10-15
-# re-upload of the older files: a conservative (late) date, never an earlier
-# one. A release with neither (22v2) has no date and is never used.
+# date is the file's Last-Modified on the archive server where that is not the
+# 2023-10-15 re-upload of the older files (21v1, and 22v3 on). Otherwise it is
+# the end of the month after the one the release's own documents (README, data
+# dictionary, file layout) are dated: where a release has both, the file came
+# out up to 27 days after its documents' month (24v3, 25v3), so the month
+# alone would be early. A release with neither (22v2) has no date and is never
+# used.
 PLUTO_RELEASES = {
     "09v1": (
         "nyc_pluto_09v1.zip",
-        "2009-06-30",
+        "2009-07-31",
         "June 2009 (Plutolay09v1.pdf); May 2009 (PlutoDD09v1.pdf)",
     ),
     "09v2": (
         "nyc_pluto_09v2.zip",
-        "2009-10-31",
+        "2009-11-30",
         "October 2009 (PlutoDD09v2.pdf); October 2009 (Plutolay09v2.pdf)",
     ),
     "10v1": (
         "nyc_pluto_10v1.zip",
-        "2010-03-31",
+        "2010-04-30",
         "March 2010 (PlutoDD10v1.pdf); March 2010 (Plutolay10v1.pdf)",
     ),
     "10v2": (
         "nyc_pluto_10v2.zip",
-        "2010-12-31",
+        "2011-01-31",
         "December 2010 (PlutoDD10v2.pdf); December 2010 (Plutolay10v2.pdf)",
     ),
     "11v1": (
         "nyc_pluto_11v1.zip",
-        "2011-03-31",
+        "2011-04-30",
         "March 2011 (PLUTODD11v1.pdf); March 2011 (Plutolay11v1.pdf)",
     ),
     "11v2": (
         "nyc_pluto_11v2.zip",
-        "2011-11-30",
+        "2011-12-31",
         "November 2011 (PLUTODD11v2.pdf); November 2011 (Plutolay11v2.pdf)",
     ),
     "12v1": (
         "nyc_pluto_12v1.zip",
-        "2012-05-31",
+        "2012-06-30",
         "May 2012 (PLUTODD12v1.pdf); May 2012 (Plutolay12v1.pdf)",
     ),
     "12v2": (
         "nyc_pluto_12v2.zip",
-        "2013-05-31",
+        "2013-06-30",
         "May 2013 (PLUTODD12v2.pdf); October 2012 (Plutolay12v2.pdf)",
     ),
-    "13v1": ("nyc_pluto_13v1.zip", "2013-06-30", "June 2013 (README)"),
-    "13v2": ("nyc_pluto_13v2.zip", "2013-10-31", "October 2013 (README)"),
-    "14v1": ("nyc_pluto_14v1.zip", "2014-05-31", "May 2014 (README)"),
-    "14v2": ("nyc_pluto_14v2.zip", "2014-12-31", "December 2014 (README)"),
+    "13v1": ("nyc_pluto_13v1.zip", "2013-07-31", "June 2013 (README)"),
+    "13v2": ("nyc_pluto_13v2.zip", "2013-11-30", "October 2013 (README)"),
+    "14v1": ("nyc_pluto_14v1.zip", "2014-06-30", "May 2014 (README)"),
+    "14v2": ("nyc_pluto_14v2.zip", "2015-01-31", "December 2014 (README)"),
     "15v1": (
         "nyc_pluto_15v1.zip",
-        "2015-06-30",
+        "2015-07-31",
         "June 2015 (PLUTODD15v1.pdf); June 2015 (Plutolay15v1.pdf)",
     ),
-    "16v1": ("nyc_pluto_16v1.zip", "2016-03-31", "March 2016 (README)"),
-    "16v2": ("nyc_pluto_16v2.zip", "2016-10-31", "October 2016 (README)"),
-    "17v1": ("nyc_pluto_17v1.zip", "2017-12-31", "December 2017 (README)"),
-    "18v1": ("nyc_pluto_18v1.zip", "2018-06-30", "June 2018 (README)"),
-    "18v2": ("nyc_pluto_18v2_csv.zip", "2018-12-31", "December 2018 (README)"),
-    "19v1": ("nyc_pluto_19v1_csv.zip", "2019-09-30", "September 2019 (README)"),
-    "19v2": ("nyc_pluto_19v2_csv.zip", "2019-11-30", "November 2019 (README)"),
-    "20v1": ("nyc_pluto_20v1_csv.zip", "2020-01-31", "January 2020 (README)"),
-    "20v2": ("nyc_pluto_20v2_csv.zip", "2020-03-31", "March 2020 (README)"),
-    "20v3": ("nyc_pluto_20v3_csv.zip", "2020-04-30", "April 2020 (README)"),
-    "20v4": ("nyc_pluto_20v4_csv.zip", "2020-06-30", "June 2020 (README)"),
+    "16v1": ("nyc_pluto_16v1.zip", "2016-04-30", "March 2016 (README)"),
+    "16v2": ("nyc_pluto_16v2.zip", "2016-11-30", "October 2016 (README)"),
+    "17v1": ("nyc_pluto_17v1.zip", "2018-01-31", "December 2017 (README)"),
+    "18v1": ("nyc_pluto_18v1.zip", "2018-07-31", "June 2018 (README)"),
+    "18v2": ("nyc_pluto_18v2_csv.zip", "2019-01-31", "December 2018 (README)"),
+    "19v1": ("nyc_pluto_19v1_csv.zip", "2019-10-31", "September 2019 (README)"),
+    "19v2": ("nyc_pluto_19v2_csv.zip", "2019-12-31", "November 2019 (README)"),
+    "20v1": ("nyc_pluto_20v1_csv.zip", "2020-02-29", "January 2020 (README)"),
+    "20v2": ("nyc_pluto_20v2_csv.zip", "2020-04-30", "March 2020 (README)"),
+    "20v3": ("nyc_pluto_20v3_csv.zip", "2020-05-31", "April 2020 (README)"),
+    "20v4": ("nyc_pluto_20v4_csv.zip", "2020-07-31", "June 2020 (README)"),
     "21v1": (
         "nyc_pluto_21v1_arc_csv.zip",
-        "2021-02-28",
+        "2021-02-26",
         "February 2021 (README). Last-Modified 2021-02-26",
     ),
-    "21v2": ("nyc_pluto_21v2_arc_csv.zip", "2021-06-30", "June 2021 (README)"),
-    "21v3": ("nyc_pluto_21v3_arc_csv.zip", "2021-09-30", "September 2021 (README)"),
-    "21v4": ("nyc_pluto_21v4_arc_csv.zip", "2021-12-31", "December 2021 (README)"),
-    "22v1": ("nyc_pluto_22v1_arc_csv.zip", "2022-05-31", "May 2022 (README)"),
+    "21v2": ("nyc_pluto_21v2_arc_csv.zip", "2021-07-31", "June 2021 (README)"),
+    "21v3": ("nyc_pluto_21v3_arc_csv.zip", "2021-10-31", "September 2021 (README)"),
+    "21v4": ("nyc_pluto_21v4_arc_csv.zip", "2022-01-31", "December 2021 (README)"),
+    "22v1": ("nyc_pluto_22v1_arc_csv.zip", "2022-06-30", "May 2022 (README)"),
     "22v2": (
         "nyc_pluto_22v2_arc_csv.zip",
         None,
@@ -520,12 +522,12 @@ PLUTO_RELEASES = {
     ),
     "26v1": (
         "nyc_pluto_26v1_csv.zip",
-        "2026-05-31",
+        "2026-05-26",
         "May 2026 (README). Last-Modified 2026-05-26",
     ),
     "26v2": (
         "nyc_pluto_26v2_csv.zip",
-        "2026-08-31",
+        "2026-08-17",
         "August 2026 (README). Last-Modified 2026-08-17",
     ),
 }
