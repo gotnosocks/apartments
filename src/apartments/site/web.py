@@ -1406,6 +1406,7 @@ def create_app(
                     story.accuracy(conn),
                     story.rent_jumps(conn),
                     story.unit_examples(conn),
+                    story.borders(conn),
                 ),
             )
             story_cache["cached"] = cached
@@ -2437,7 +2438,7 @@ def create_app(
         }
         listing, current = story.pick_listing(db())
         build = story.build_up(listing, labels, current=current)
-        accuracy, jumps, units = story_checks()
+        accuracy, jumps, units, borders = story_checks()
         counts = (
             db()
             .execute(
@@ -2474,6 +2475,9 @@ def create_app(
             coverage_svg=story.coverage_svg(accuracy["groups"] if accuracy else []),
             jumps=jumps,
             units=units,
+            borders=borders,
+            borders_svg=story.borders_svg(borders),
+            border_tests=story.border_tests(trials),
             counts=counts,
             trials=trials,
             trials_svg=story.theories_svg(trials),

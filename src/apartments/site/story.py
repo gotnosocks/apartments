@@ -374,6 +374,185 @@ def _median_miss(rows) -> float:
     return 100 * (gaps[mid] if len(gaps) % 2 else (gaps[mid - 1] + gaps[mid]) / 2)
 
 
+def borders(
+    db, reach: float = 300, step: float = 75, near_min: int = 5, bin_min: int = 5
+) -> list[dict]:
+    """Does a neighbourhood's name carry its premium, or only where it is?
+    Every building's total premium, its neighbourhood's label term times its
+    own level, by signed distance to the nearest building with the other
+    label (negative on the first side), as medians in `step`-metre bins out
+    to `reach`. Pairs with under `near_min` buildings within one step of the
+    line on either side don't share a border; bins under `bin_min` are not
+    drawn. A no-fit look at the served terms, not a test."""
+    labels = {
+        r["feature"]: r["pct"]
+        for r in db.execute(
+            "SELECT feature, pct FROM coefficients WHERE feature_group = 'neighbourhood'"
+        )
+    }
+    if not labels:
+        return []
+    rows = db.execute(
+        "SELECT neighbourhood, latitude, longitude, level_pct FROM buildings "
+        "WHERE latitude IS NOT NULL AND level_pct IS NOT NULL AND fit_rows > 0 "
+        "AND neighbourhood IS NOT NULL"
+    ).fetchall()
+    if not rows:
+        return []
+    # metres on a flat projection about one latitude; fine at this scale
+    east = (
+        math.cos(math.radians(statistics.mean(r["latitude"] for r in rows))) * 111_320
+    )
+    by = {}
+    for r in rows:
+        label = labels.get(r["neighbourhood"], 0.0)
+        by.setdefault(r["neighbourhood"], []).append(
+            (
+                r["longitude"] * east,
+                r["latitude"] * 110_540,
+                100 * ((1 + label / 100) * (1 + r["level_pct"] / 100) - 1),
+            )
+        )
+
+    def grid(points):
+        cells = {}
+        for p in points:
+            cells.setdefault((int(p[0] // reach), int(p[1] // reach)), []).append(p)
+        return cells
+
+    def nearest(p, cells):
+        cx, cy = int(p[0] // reach), int(p[1] // reach)
+        best_d = None
+        for dx in (-1, 0, 1):
+            for dy in (-1, 0, 1):
+                for q in cells.get((cx + dx, cy + dy), ()):
+                    d = math.hypot(p[0] - q[0], p[1] - q[1])
+                    best_d = d if best_d is None or d < best_d else best_d
+        return best_d
+
+    def median(v):
+        return statistics.median(v) if v else None
+
+    out = []
+    names = sorted(by)
+    for i, a in enumerate(names):
+        for b in names[i + 1 :]:
+            pts = []
+            for side, own, other in ((-1, by[a], grid(by[b])), (1, by[b], grid(by[a]))):
+                for p in own:
+                    d = nearest(p, other)
+                    if d is not None and d < reach:
+                        pts.append((side * d, p[2]))
+            near_a = [t for d, t in pts if -step <= d < 0]
+            near_b = [t for d, t in pts if 0 <= d < step]
+            if len(near_a) < near_min or len(near_b) < near_min:
+                continue
+            bins = []
+            k = int(reach // step)
+            for j in range(-k, k):
+                v = [t for d, t in pts if j * step <= d < (j + 1) * step]
+                if len(v) >= bin_min:
+                    bins.append(
+                        {"mid": (j + 0.5) * step, "median": median(v), "n": len(v)}
+                    )
+            far_a = [t for d, t in pts if d < -2 * step]
+            far_b = [t for d, t in pts if d >= 2 * step]
+            gap = labels.get(b, 0.0) - labels.get(a, 0.0)
+            near = median(near_b) - median(near_a)
+            out.append(
+                {
+                    "a": a,
+                    "b": b,
+                    "label_a": labels.get(a, 0.0),
+                    "label_b": labels.get(b, 0.0),
+                    "gap": gap,
+                    "buildings": len(pts),
+                    "near": near,
+                    "far": median(far_b) - median(far_a) if far_a and far_b else None,
+                    # a real step in the names whose buildings at the line
+                    # sit less than half of it apart
+                    "fades": abs(gap) >= 5 and near * gap < (gap * gap) / 2,
+                    "bins": bins,
+                }
+            )
+    return out
+
+
+def border_tests(trials: list[dict]) -> dict:
+    """The ledger's latest tests of a smooth location surface added to the
+    neighbourhood names ("-loc-v1") and in place of them ("-locnolabel-v1")."""
+    out = {}
+    for key, suffix in (("surface", "-loc-v1"), ("nolabel", "-locnolabel-v1")):
+        found = [t for t in trials if t["change"].endswith(suffix)]
+        out[key] = max(found, key=lambda t: t["date"]) if found else None
+    return out
+
+
+def borders_svg(pairs: list[dict], reach: float = 300) -> Markup:
+    """Small multiples, one per border: dots at the median total premium of
+    the buildings in each distance bin, and a dashed step at the two label
+    terms alone. Dots that follow the step: the name carries the premium;
+    dots that climb across the line: the buildings' own levels carry it."""
+    if not pairs:
+        return Markup("")
+    cols, gap, top, ph, axis_h = 2, 70, 34, 150, 32
+    pw = (WIDTH - 66 - gap * (cols - 1)) / cols
+    values = [b["median"] for p in pairs for b in p["bins"]]
+    values += [v for p in pairs for v in (p["label_a"], p["label_b"])]
+    ticks = nice_ticks(min(values + [0]), max(values + [0]), 5)
+    lo, hi = ticks[0], ticks[-1]
+    rows = math.ceil(len(pairs) / cols)
+    height = rows * (top + ph + axis_h)
+    out = []
+    for i, p in enumerate(pairs):
+        ox = 44 + (i % cols) * (pw + gap)
+        oy = (i // cols) * (top + ph + axis_h) + top
+
+        def x(d):
+            return ox + pw * (d + reach) / (2 * reach)
+
+        def y(v):
+            return oy + ph * (hi - v) / (hi - lo)
+
+        out.append(
+            f'<text class="eff-label strong" x="{ox:.1f}" y="{oy - 18}">'
+            f"{escape(p['a'])} → {escape(p['b'])}</text>"
+        )
+        for t in ticks:
+            out.append(
+                f'<line class="grid" x1="{ox:.1f}" y1="{y(t):.1f}" x2="{ox + pw:.1f}" '
+                f'y2="{y(t):.1f}"/><text class="tick" x="{ox - 6:.1f}" y="{y(t) + 4:.1f}" '
+                f'text-anchor="end">{signed(t)}%</text>'
+            )
+        for d in (-reach, 0, reach):
+            out.append(
+                f'<text class="tick" x="{x(d):.1f}" y="{oy + ph + 18:.1f}" '
+                f'text-anchor="middle">{abs(d):.0f} m</text>'
+            )
+        out.append(
+            f'<line class="zero" x1="{x(0):.1f}" y1="{oy - 6:.1f}" x2="{x(0):.1f}" '
+            f'y2="{oy + ph:.1f}"/>'
+            f'<polyline class="target" fill="none" points="{x(-reach):.1f},{y(p["label_a"]):.1f} '
+            f"{x(0):.1f},{y(p['label_a']):.1f} {x(0):.1f},{y(p['label_b']):.1f} "
+            f'{x(reach):.1f},{y(p["label_b"]):.1f}"/>'
+        )
+        for b in p["bins"]:
+            out.append(
+                f'<circle class="cov80" cx="{x(b["mid"]):.1f}" cy="{y(b["median"]):.1f}" '
+                f'r="{min(7, 2.5 + math.sqrt(b["n"]) / 2):.1f}"><title>{b["n"]} buildings, '
+                f"{signed(round(b['median'], 1))}%</title></circle>"
+            )
+    label = "Total building premium by distance to each border: " + "; ".join(
+        f"{p['a']} to {p['b']}: labels alone {signed(round(p['label_b'] - p['label_a']))} "
+        f"points, buildings within 75 m differ by {signed(round(p['near']))}"
+        for p in pairs
+    )
+    return Markup(
+        f'<svg class="story-svg borders" viewBox="0 0 {WIDTH} {height:.0f}" '
+        f'role="img" aria-label="{escape(label)}">' + "".join(out) + "</svg>"
+    )
+
+
 def accuracy(db, small: int = 30) -> dict | None:
     """How close the estimates come on the held-out asks, which no fit saw:
     the median miss, for apartments the fit saw in other listings ("seen") and

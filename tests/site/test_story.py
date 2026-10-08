@@ -1,6 +1,7 @@
 """The research story (/research/story): its figures come from the served data."""
 
 import json
+import math
 import re
 
 import pytest
@@ -753,3 +754,67 @@ def test_theories_chapter_says_it_can_be_skipped(client):
     hint = theories[: theories.index("A model like this")]
     assert "the most technical" in hint and 'href="#cleaning"' in hint
     assert "square-root" not in theories and "not equal" in theories
+
+
+def test_borders_line_buildings_up_by_distance_to_the_other_name():
+    import sqlite3
+
+    db = sqlite3.connect(":memory:")
+    db.row_factory = sqlite3.Row
+    db.executescript(
+        "CREATE TABLE coefficients(feature TEXT, feature_group TEXT, pct REAL);"
+        "CREATE TABLE buildings(neighbourhood TEXT, latitude REAL, longitude REAL,"
+        " level_pct REAL, fit_rows INTEGER);"
+    )
+    assert story.borders(db) == []
+    db.execute("INSERT INTO coefficients VALUES ('East', 'neighbourhood', 10.0)")
+    # West at 0% and East at +10% by name, a column of buildings every 50 m
+    # east to west; the East buildings by the line carry -10% of their own
+    rows = []
+    for i in range(1, 7):
+        for j in range(6):
+            lat = 40.74 + j * 0.0002
+            m = 111_320 * math.cos(math.radians(40.74))
+            west, east = (i - 0.5) * 50 / m, ((i - 0.5) * 50 + 10) / m
+            rows.append(("West", lat, -74.0 - west, 0.0, 3))
+            rows.append(("East", lat, -74.0 + east, -10.0 if i <= 2 else 0.0, 3))
+    rows.append(("East", 40.74, -74.0, 50.0, 0))  # not in the fit: left out
+    db.executemany("INSERT INTO buildings VALUES (?, ?, ?, ?, ?)", rows)
+    (p,) = story.borders(db)
+    assert (p["a"], p["b"], p["gap"]) == ("East", "West", -10.0)
+    # East's buildings by the line total 1.1 * 0.9 - 1 = -1%, so the names'
+    # -10 points shrink to +1 there: the step fades
+    assert round(p["near"], 6) == 1.0 and round(p["far"], 6) == -10.0 and p["fades"]
+    assert [b["mid"] for b in p["bins"]] == [
+        -262.5,
+        -187.5,
+        -112.5,
+        -37.5,
+        37.5,
+        112.5,
+        187.5,
+        262.5,
+    ]
+    assert [b["n"] for b in p["bins"]] == [6, 12, 6, 6, 6, 6, 12, 6]
+    svg = str(story.borders_svg([p]))
+    assert (
+        "East to West: labels alone −10 points, buildings within 75 m differ by +1"
+        in svg
+    )
+    assert 'class="target"' in svg and svg.count("<circle") == len(p["bins"])
+    assert story.borders_svg([]) == ""
+    # a pair that never meets is no border
+    db.execute(
+        "UPDATE buildings SET longitude = longitude + 0.05 WHERE neighbourhood = 'East'"
+    )
+    assert story.borders(db) == []
+
+
+def test_border_tests_take_the_latest_location_surface_trials():
+    trials = [
+        {"change": "nb3-loc-v1", "date": "2026-10-07"},
+        {"change": "nb5p3-loc-v1", "date": "2026-10-09"},
+        {"change": "nb3-lines-v1", "date": "2026-10-10"},
+    ]
+    found = story.border_tests(trials)
+    assert found["surface"]["change"] == "nb5p3-loc-v1" and found["nolabel"] is None
