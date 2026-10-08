@@ -79,10 +79,34 @@ PROBABILITIES = (0.05, 0.5, 0.95)
 # drawn in grid coordinates (avenues vertical, streets horizontal).
 GRID_BEARING_DEG = 29.0
 GUIDE_STREETS = (14, 18, 23, 28, 34)
-SIDE_STREET = re.compile(r"^\d+\s+WEST\s+(\d+)\s+STREET")
-# Not Seventh Avenue South (Greenwich Village), which leaves the avenue's line.
-AVENUE = re.compile(r"^\d+\s+(\d+)\s+AVENUE(?!\s+SOUTH)")
+SIDE_STREET = re.compile(
+    r"^\d+[A-Z]?\s+(EAST|WEST|E|W)\s+(\d+)(?:ST|ND|RD|TH)?\s+STREET"
+)
+# Numbered avenues, in digits or words. Not Seventh Avenue South (Greenwich
+# Village), which leaves the avenue's line.
+NUMBER_WORDS = ("FIRST", "SECOND", "THIRD", "FOURTH", "FIFTH", "SIXTH", "SEVENTH")
+NUMBER_WORDS += ("EIGHTH", "NINTH", "TENTH", "ELEVENTH")
+AVENUE = re.compile(
+    r"^\d+[A-Z]?\s+(\d+|"
+    + "|".join(NUMBER_WORDS)
+    + r")(?:ST|ND|RD|TH)?\s+AVENUE(?!\s+SOUTH)"
+)
 AMERICAS = re.compile(r"AVENUE OF (THE )?AMERICAS|AMERICAS AVENUE")
+# Avenues with names, on the grid's north-south lines (Broadway is not).
+NAMED_AVENUES = (
+    (re.compile(r"^\d+[A-Z]?\s+PARK AVENUE SOUTH"), "Park Av S"),
+    (re.compile(r"^\d+[A-Z]?\s+(LEXINGTON|LEX)\s+AVENUE"), "Lexington Av"),
+    (re.compile(r"^\d+[A-Z]?\s+IRVING PLACE"), "Irving Pl"),
+)
+
+
+def ordinal(n: int) -> str:
+    suffix = (
+        "th" if 10 <= n % 100 <= 20 else {1: "st", 2: "nd", 3: "rd"}.get(n % 10, "th")
+    )
+    return f"{n}{suffix}"
+
+
 # The map under the dots (`rentfrontier.external basemap`), clipped to the
 # buildings' extent plus BASEMAP_PAD_M; street widths in feet, as recorded.
 BASEMAP_FILE = features.BASEMAP_FILE
@@ -223,24 +247,46 @@ def grid_layout(buildings: list[dict]) -> dict:
         b["x"], b["y"] = round(x, 1), round(y, 1)
         address = b["label"].upper()
         if m := SIDE_STREET.match(address):
-            streets.setdefault(int(m.group(1)), []).append(b["y"])
+            side = "E" if m.group(1).startswith("E") else "W"
+            streets.setdefault(int(m.group(2)), []).append((side, b["y"]))
         elif AMERICAS.search(address):
-            avenues.setdefault(6, []).append(b["x"])
+            avenues.setdefault("6th Av", []).append(b["x"])
         elif m := AVENUE.match(address):
-            avenues.setdefault(int(m.group(1)), []).append(b["x"])
+            n = m.group(1)
+            n = int(n) if n.isdigit() else NUMBER_WORDS.index(n) + 1
+            avenues.setdefault(f"{ordinal(n)} Av", []).append(b["x"])
+        else:
+            for pattern, name in NAMED_AVENUES:
+                if pattern.match(address):
+                    avenues.setdefault(name, []).append(b["x"])
+                    break
     median = lambda v: float(np.median(v))
+
+    def street_label(n, on):
+        sides = {side for side, _ in on}
+        # East and West of Fifth Avenue are one line: name the side only when
+        # the buildings are all on one side.
+        return f"{sides.pop()} {n} St" if len(sides) == 1 else f"{n} St"
+
     return {
         "bearing_deg": GRID_BEARING_DEG,
         "streets": [
-            {"label": f"W {n} St", "y": round(median(streets[n]), 1)}
+            {
+                "label": street_label(n, streets[n]),
+                "y": round(median([y for _, y in streets[n]]), 1),
+            }
             for n in GUIDE_STREETS
             if len(streets.get(n, ())) >= 2
         ],
-        "avenues": [
-            {"label": f"{n}th Av", "x": round(median(v), 1)}
-            for n, v in sorted(avenues.items())
-            if len(v) >= 2
-        ],
+        "avenues": sorted(
+            (
+                {"label": name, "x": round(median(v), 1)}
+                for name, v in avenues.items()
+                if len(v) >= 2
+            ),
+            key=lambda a: a["x"],
+            reverse=True,
+        ),
     }
 
 
