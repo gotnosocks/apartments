@@ -1,6 +1,25 @@
 # Data improvements — handoff
 
-Updated 2026-10-08 02:40 ET. Thread owner: the Data improvements project thread (bridge session on thelio).
+Updated 2026-10-08 05:00 ET. Thread owner: the Data improvements project thread (bridge session on thelio).
+
+## 2026-10-08 05:00 ET
+
+- **#494 quarantine-v9 merged (b8aeed0).** It replaces v7 (#481) and v8 (#485). Both are held
+  and not fitted: v8 picked its candidates by the served model's residual, and v7's detector had
+  the same problem. v9 is v6's 282 rows plus 95 GV/GP/Flatiron rows from a rent-blind screen
+  (`frontier/scripts/quarantine_v9_screen.py`). The screen uses NTA place names over 2.5 km
+  away, generic category words and a guard against terms fitted to v7/v8 rows. Every hit was
+  read blind. That gives 377 rows. The ledger records v7 and v8 as held and v9 as queued.
+  - Modeling queued it as `frontier-modalq-nb5q9` (label `…nb5-ul11r1s4q9`, current rules with
+    quarantine-v6 swapped for v9). It runs after nb5permit2 and ahead of the singles filler.
+    Record the paired result in `hand_tests` when it lands.
+- **Next: a rent-blind Chelsea/WV replacement.** v1 to v6 were partly picked by rent
+  (divergence reviews, unit effects, residuals over 0.3). `/data1/apartments/tmp/suspect/q10`
+  runs the v9 screen over Chelsea and WV without v6: 86,819 rows give 749 hits, 93 of them
+  already in v6. Four blind readers have `review_[a-d].json`; 40 groups are read twice
+  (gid 1000+) as a consistency check, and `key.json` maps gids to rows. The plan is a new rule
+  (new file and id) that replaces v6's rent-picked rows with blind-confirmed hits. It gets its
+  own full fit via Modeling.
 
 ## 2026-10-08 02:40 ET
 
