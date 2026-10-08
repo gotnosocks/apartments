@@ -585,6 +585,10 @@ DATA_RULE_TEXT = {
     "StreetEasy lists under two spellings of one label (0503 and 503, 6thfloor and "
     "6) joined too, and those whose own StreetEasy page lists an ad filed under the "
     "other. No listing is dropped.",
+    "unit-labels-v13": "unit-labels-v11, with Stuyvesant Town and Peter Cooper "
+    "Village apartments StreetEasy lists under two spellings of one label (03d and "
+    "3d, 10-h and 10h) joined too, and those whose own StreetEasy page lists an ad "
+    "filed under the other. No listing is dropped.",
     "unit-splits-v1": "An apartment's history split in two where a listing's bedroom "
     "count differs by two or more from the apartment's previous listing, as a "
     "combined, rebuilt or miscoded apartment. No listing is dropped.",
