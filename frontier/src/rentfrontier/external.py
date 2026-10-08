@@ -20,6 +20,9 @@ Sources:
   speed and roadway type (NYC Open Data inkn-q76z), parks (enfh-gkve) and
   Manhattan's shoreline (borough boundary, gthc-hcne). One row per feature,
   geometry as GeoJSON.
+- plutohistory: MapPLUTO's archived yearly releases (the first of each year,
+  2009-2026, from City Planning's archive), the registry's lots in each, so a
+  listing can read its building as MapPLUTO had it then.
 - hpd: HPD Housing Maintenance Code Violations (NYC Open Data wvxf-dwi5) of
   the registry's buildings, by BIN, and by tax lot (BBL) for placeholder BINs
   (n000000): class (A non-hazardous, B hazardous, C immediately hazardous, I
@@ -374,6 +377,71 @@ def fetch_hpd(registry: pd.DataFrame, batch: int = 100, page: int = 50_000):
         ).isoformat(),
     }
     return table.reset_index(drop=True), queries, version
+
+
+# MapPLUTO's yearly releases (each year's first, YYv1), archived by City Planning.
+PLUTO_ARCHIVE = (
+    "https://s-media.nyc.gov/agencies/dcp/assets/files/zip/data-tools/bytes/pluto"
+)
+PLUTO_RELEASES = {
+    **{y: f"nyc_pluto_{y % 100:02d}v1.zip" for y in range(2009, 2019)},
+    **{y: f"nyc_pluto_{y % 100:02d}v1_csv.zip" for y in (2019, 2020, 2024, 2025, 2026)},
+    **{y: f"nyc_pluto_{y % 100:02d}v1_arc_csv.zip" for y in (2021, 2022, 2023)},
+}
+
+
+def fetch_pluto_history(bbls) -> tuple[pd.DataFrame, dict]:
+    """The registry's lots in each yearly MapPLUTO release: one row per release
+    and lot, with the PLUTO_COLUMNS the release has (an older release lacks
+    some, e.g. the flood-zone flags; they are left empty). Manhattan's file of
+    a release split by borough, else the rows of Manhattan lots."""
+    import io
+    import tempfile
+    import zipfile
+
+    bbls = set(bbls)
+    parts, files = [], {}
+    for year, name in sorted(PLUTO_RELEASES.items()):
+        with tempfile.TemporaryFile() as tmp:
+            with urllib.request.urlopen(f"{PLUTO_ARCHIVE}/{name}", timeout=600) as r:
+                while chunk := r.read(1 << 20):
+                    tmp.write(chunk)
+            tmp.seek(0)
+            archive = zipfile.ZipFile(tmp)
+            tables = [
+                m
+                for m in archive.namelist()
+                if m.lower().endswith((".csv", ".txt")) and "readme" not in m.lower()
+            ]
+            manhattan = [m for m in tables if Path(m).name.lower().startswith("mn")]
+            member = (
+                manhattan or sorted(tables, key=lambda m: -archive.getinfo(m).file_size)
+            )[0]
+            files[year] = f"{name}:{member}"
+            reader = pd.read_csv(
+                io.TextIOWrapper(archive.open(member), encoding="latin-1"),
+                dtype=str,
+                chunksize=200_000,
+            )
+            for chunk in reader:
+                chunk.columns = [str(c).strip().lower() for c in chunk.columns]
+                lot = pd.to_numeric(chunk.bbl, errors="coerce")
+                chunk["bbl"] = lot.astype("Int64").astype(str)
+                chunk = chunk[chunk.bbl.isin(bbls)]
+                keep = chunk.reindex(columns=list(PLUTO_COLUMNS))
+                parts.append(keep.assign(release=year))
+    table = pd.concat(parts, ignore_index=True)
+    text = [c for c in table.columns if c != "release"]
+    table[text] = table[text].apply(lambda c: c.str.strip())
+    table = table.drop_duplicates(["release", "bbl"]).reset_index(drop=True)
+    details = {
+        "source": PLUTO_ARCHIVE,
+        "dataset": "MapPLUTO archived releases (NYC DCP), the first of each year",
+        "files": {str(k): v for k, v in files.items()},
+        "lots": int(table.bbl.nunique()),
+        "rows": len(table),
+    }
+    return table, details
 
 
 LPC_ID = "ncre-qhxs"
@@ -797,6 +865,7 @@ def main(argv=None):
             "subway",
             "basemap",
             "hpd",
+            "plutohistory",
             "footprints",
             "noise311",
             "lpc",
@@ -872,6 +941,12 @@ def main(argv=None):
             "buildings": int(table.bin.nunique()),
         }
         summary = f"{len(table)} violations in {table.bin.nunique()} buildings"
+    elif args.source == "plutohistory":
+        registry = pd.read_parquet(registry_path)
+        table, details = fetch_pluto_history(registry.bbl.dropna().astype(str))
+        details["registry"] = str(registry_path)
+        queries = [f"{PLUTO_ARCHIVE}/{n}" for n in PLUTO_RELEASES.values()]
+        summary = f"{details['lots']} lots in {table.release.nunique()} releases"
     elif args.source == "lpc":
         registry = pd.read_parquet(registry_path)
         table, queries, version = fetch_lpc(registry)

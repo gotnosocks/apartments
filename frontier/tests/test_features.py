@@ -92,6 +92,26 @@ def test_description_sets_record_their_source(monkeypatch):
     assert "descriptions" not in run.feature_sources("unitfloor-v2")
 
 
+def test_nb5_plutoasof_reads_the_five_neighbourhoods_lots_and_releases(monkeypatch):
+    assert features.lot_files("nb5-plutoasof-v1") == features.lot_files("nb5-coded-v2")
+    assert features.FEATURE_SETS["nb5-plutoasof-v1"].keywords["base"] == (
+        "nb3-plutoasof-v1"
+    )
+    seen = {}
+    for name in ("nb3-plutoasof-v1", "nb5-plutoasof-v1", "nb4-coded-v2"):
+        monkeypatch.setitem(
+            features.FEATURE_SETS,
+            name,
+            lambda f, t, name=name: seen.setdefault(name, features._PLUTO_DATED.get()),
+        )
+        features.build(name, pd.DataFrame(), np.zeros(0, bool))
+    assert seen == {
+        "nb3-plutoasof-v1": features.PLUTO_HISTORY_FILE,
+        "nb5-plutoasof-v1": features.NB4_PLUTO_HISTORY_FILE,
+        "nb4-coded-v2": None,
+    }
+
+
 def test_unitdescpluto_is_the_building_columns_on_unitdesc():
     fn = features.FEATURE_SETS["unitdescpluto-v1"]
     assert fn.func is features.pluto_v1
@@ -586,6 +606,61 @@ def test_building_violations_count_the_trailing_year_only(tmp_path, monkeypatch)
         }
     )
     assert features.building_violations(frame).tolist() == [2.0, 0.0, 1.0, 0.0]
+
+
+def test_dated_lots_read_the_release_of_the_year_before(tmp_path, monkeypatch):
+    registry = pd.DataFrame({"building": ["a", "b"], "bbl": ["1", "2"]})
+    today = pd.DataFrame(
+        {
+            "bbl": ["1", "2"],
+            "unitsres": ["30", "8"],
+            "bldgclass": ["D1", "C4"],
+            "pfirm15_flag": ["1", None],
+            "yearbuilt": ["1925", "1890"],
+        }
+    )
+    history = pd.DataFrame(
+        {
+            "release": [2010, 2014, 2014, 2018],
+            "bbl": ["1", "1", "2", "1"],
+            "unitsres": ["10", "20", "6", "30"],
+            "bldgclass": ["K4  ", "D1", "C4", "D1"],
+            "pfirm15_flag": [None, None, None, "1"],
+            "yearbuilt": ["1920", "1925", "1900", "1925"],
+        }
+    )
+    registry.to_parquet(tmp_path / "r.parquet")
+    today.to_parquet(tmp_path / "p.parquet")
+    history.to_parquet(tmp_path / "h.parquet")
+    monkeypatch.setattr(features, "REGISTRY_FILE", str(tmp_path / "r.parquet"))
+    monkeypatch.setattr(features, "PLUTO_FILE", str(tmp_path / "p.parquet"))
+    frame = pd.DataFrame(
+        {
+            "building": ["a", "a", "a", "a", "b", "b"],
+            "period": pd.to_datetime(
+                [
+                    "2009-05-01",  # before any release: the earliest
+                    "2014-12-01",  # 2013: still the 2010 release
+                    "2015-01-01",  # 2014's release
+                    "2020-01-01",  # 2018's, the latest before 2019
+                    "2012-01-01",  # b is missing from 2010's: today's
+                    "2016-01-01",  # b in 2014's
+                ]
+            ),
+        }
+    )
+    token = features._PLUTO_DATED.set(str(tmp_path / "h.parquet"))
+    try:
+        lots = features.building_lots(frame)
+    finally:
+        features._PLUTO_DATED.reset(token)
+    assert lots.unitsres.tolist() == ["10", "10", "20", "30", "8", "6"]
+    assert lots.bldgclass.tolist() == ["K4", "K4", "D1", "D1", "C4", "C4"]
+    # the flag is carried by 2018's release only: earlier releases keep today's
+    assert lots.pfirm15_flag.fillna("-").tolist() == ["1", "1", "1", "1", "-", "-"]
+    # the year built does not change: today's, whatever a release estimated
+    assert lots.yearbuilt.tolist() == ["1925"] * 4 + ["1890"] * 2
+    assert features.building_lots(frame).unitsres.tolist() == ["30"] * 4 + ["8"] * 2
 
 
 def test_facing_v4_marks_loud_streets_on_low_floors(monkeypatch):

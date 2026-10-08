@@ -308,6 +308,11 @@ def feature_sources(feature_set: str) -> dict:
     if feature_set in features.HPD:
         path = features.HPD_FILE
         out["hpd"] = {"path": path, "sha256": data.sha256(Path(path))}
+    if feature_set in features.PLUTO_DATED_SETS:
+        path = features.PLUTO_HISTORY_SNAPSHOTS.get(
+            feature_set, features.PLUTO_HISTORY_FILE
+        )
+        out["plutohistory"] = {"path": path, "sha256": data.sha256(Path(path))}
     return out
 
 
