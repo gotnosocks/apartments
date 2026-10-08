@@ -1140,7 +1140,7 @@ CLAIM_AREAS = {
     "Murray Hill": r"murray hill",
     "Kips Bay": r"kips bay",
     "Hudson Yards": r"hudson yards",
-    "Hell's Kitchen": r"hell'?s kitchen|clinton",
+    "Hell's Kitchen": r"hell'?s kitchen|clinton(?! hill)",
     "Hudson Square": r"hudson square",
     "Tribeca": r"tribeca",
     "Stuy Town": r"stuy(?:vesant)? town|peter cooper",
@@ -1149,8 +1149,9 @@ CLAIM_AREAS = {
     "Lower East Side": r"lower east side",
 }
 # A claim is the name after "in", "located in", "heart of" and the like, not
-# followed by a street, a square's own word or a landmark (Chelsea Market,
-# Gramercy Park itself, the Flatiron Building).
+# followed by a street word or a landmark (Chelsea Market, Chelsea Piers, the
+# Flatiron Building, Union Square Park). "In Gramercy Park" counts: the
+# area's pattern takes the "park".
 CLAIM_LEAD = (
     r"\b(?:in|located in|located on|heart of|nestled in|situated in|prime|"
     r"living in|live in|life in) (?:the )?(?:beautiful |historic |prime |trendy |"
@@ -1159,7 +1160,7 @@ CLAIM_LEAD = (
 CLAIM_TRAIL = (
     r"\b(?! ?(?:ave|avenue|st|street|sq|square|pl|place|market|piers?|park(?! area)|"
     r"building|hotel|post office|station|mews|houses|plaza|landing|lofts|"
-    r"condominium|towers?))"
+    r"condominium|towers?)\b)"
 )
 # Names that count as a label's own: West Village is part of Greenwich Village.
 CLAIM_OWN = {"West Village": ("West Village", "Greenwich Village")}
@@ -1219,7 +1220,8 @@ def claims_v1(
 ) -> Features:
     """A base set plus the areas the listing's own ad says it is in
     (`claimed_areas`), per ad, so a building's listings can differ: naming
-    none is the reference and an ad without text has its own indicator. On
+    none is the reference, and an ad without text has none (the base's
+    description indicator carries it). On
     the location surface with and without the neighbourhood labels it tests
     whether the name an ad uses carries a price beyond where the building is
     (Ben, 2026-10-08). Reads no rents."""
@@ -1230,7 +1232,6 @@ def claims_v1(
     known = text.str.len().to_numpy() > 20
     claims = claimed_areas(text, frame.neighbourhood)
     b = _Builder(frame)
-    b.add("claimed area", "ad text missing", ~known)
     for name in claims:
         b.add("claimed area", f"ad {name}", claims[name].to_numpy() & known)
     out = b.build(id)

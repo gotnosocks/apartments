@@ -46,3 +46,20 @@ def test_claim_sets_pair_with_the_location_split():
         assert features.FEATURE_SETS[name].keywords["base"] == base
         assert features.NB4_SETS[name] == "nb5-plutoasof-v3"
         assert features.description_files(name) == features.description_files(base)
+
+
+def test_claim_trail_words_are_whole():
+    text = pd.Series(
+        [
+            "in the heart of chelsea steps from the high line.",
+            "in chelsea stunning views.",
+            "in chelsea parking included.",
+            "in chelsea park.",
+            "in clinton hill, brooklyn.",
+            "in clinton near the river.",
+        ]
+    )
+    label = pd.Series(["Chelsea"] * 6)
+    got = features.claimed_areas(text, label)
+    assert got["names its own neighbourhood"].tolist() == [1, 1, 1, 0, 0, 0]
+    assert got["names another area"].tolist() == [0, 0, 0, 0, 0, 1]
