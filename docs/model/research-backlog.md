@@ -282,6 +282,71 @@ fitted rows (121,971), unless a check says otherwise. Scripts:
     - A fitted noise design along those lines should take the multiplier to about 1. A
       calibration rescale on the site would only hide it.
 
+**Follow-ups to the checks (coordinator relay, 2026-10-08 22:03Z).** Same served fit unless noted.
+Scripts: `r12/c13.py` and `r12/loc.py`.
+
+- **Bedroom-curve shape.** The 1BR curve is the reference (0), so each curve is its departure from
+  1BR. Yearly means, with * where the year mean is more than 2 posterior sd from 0:
+  - 3BR+ drifts below 1BR from 2015 (−2.5%) and is clearly below from 2017 (−4.4%*). It is
+    deepest in 2020–24 (−5.2% to −6.4%*) and recovers to −3.9%* in 2026.
+  - 2BR follows the same shape at about half the size: −2.5%* from 2017, −3.4%* in 2020, −2.0%*
+    in 2026.
+  - Studios rise above 1BR in 2015–19 (+1.2% to +2.0%*), dip in 2021 (−0.8%) and sit at about
+    +1.5% since 2023.
+  - So the large-unit discount builds through 2015–19, before COVID, peaks in 2020–24 and is
+    easing now.
+- **Noise design: no neighbourhood scales.** Check 10 puts the GV/WV excess in small buildings
+  and non-C classes, so a scale per neighbourhood is not needed. The noise design to fit is
+  bedroom group × single-listing unit × small building (≤ 5 rows): 16 scales in place of
+  `yearnoise`. This replaces the "scale per neighbourhood" part of ranked item 1.
+- **What the walk is.** These are fitted 6-month steps, in RMS %, against a mean posterior step
+  sd of 2.8–3.1%. Before the building's first row there is no data, so every building's steps
+  there come from the prior and have the same RMS.
+
+  | Rows per building | Before the building's first row | First 3 years | Later |
+  |---|---|---|---|
+  | 1–5 | 0.44 | 0.52 | 0.36 |
+  | 6–20 | 0.44 | 0.91 | 0.87 |
+  | 21+ | 0.44 | 1.31 | 1.59 |
+
+  - Steps are larger later than early (1.17 against 0.99 RMS), so the walk is not a lease-up term.
+  - In small buildings the walk is shrunk to almost nothing, so it is not prior noise there
+    either.
+  - The walk is a slow drift that only data-rich buildings can show. Almost no step is more than
+    2 posterior sd from 0. That share is 0.7% of steps after a building's first 3 years, and
+    1.1% of steps in buildings with 21+ rows.
+  - A coarser yearly-knot walk would lose little and is worth a test for elegance and speed.
+- **The location surface, re-scored with no refit.** This is `nb3-loc-v1`, Gaussian bumps 250 m
+  apart with SD 250 m, on the A100 pair at 8f40c96 (chelsea-wv-gv, 2,907 buildings,
+  87 bumps).
+  - The fitted surface has SD 6.7%. It takes 19.5% of the base fit's building variance: building
+    SD falls from 12.2% to 11.0%, weighted by the base fit's building precision, so the 19.5%
+    comes from unrounded variances.
+  - Projecting the base fit's building effects on the bump basis (WLS) gives R² 0.131, against
+    a permutation null of 0.041 (95% 0.051, p = 0.005).
+  - Neighbourhood shifts: the surface's mean departs from the overall mean in each area, all
+    with permutation p = 0.001:
+    - Chelsea: −3.2%;
+    - GV: +2.8%;
+    - WV: +1.5%.
+  - The label coefficients fall from 12.1% to 8.0% (WV) and from 8.1% to 2.8% (GV).
+  - Held-out ΔELPD, loc − base:
+    - all rows: −1.2 ± 1.5;
+    - buildings with ≤ 5 fit rows: −1.0 ± 0.7 (166 rows);
+    - 6–20 rows: −1.4 ± 0.9;
+    - 21+ rows: +1.1 ± 1.0.
+  - So the surface is real structure: it absorbs part of the labels and of the building effects.
+    But it doesn't predict new rows better, even for thin buildings. The queued
+    `nb5p3-locnolabel-v1` remains the deciding test.
+- **Status of the 12 checks.** All 12 are done; none is open. The descriptive share (labels +
+  building + walk + unit) on the served fit is 15.7% overall: Chelsea 10.8%, Flatiron 15.0%, GV
+  16.2%, Gramercy 17.4%, WV 18.4%.
+- **Resume queue.**
+  - The line term (ranked item 5) goes ahead of the noise fit. Score it on all rows and on
+    single-listing units in a line with peers.
+  - The Gibbs sampler doesn't support `line_effects` yet (`gibbs.py` refuses it), so the line fit
+    needs a Gibbs line block first. That is a code PR with no fit.
+
 ## Open-data survey: stabilization, permits, owners, dated MapPLUTO (2026-10-07)
 
 Four free sources, sized against the 105,244 rows of `chelsea-wv-gv-analysis-20261005-2d5b3b6`
