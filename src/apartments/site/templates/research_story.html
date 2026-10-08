@@ -131,7 +131,10 @@ listing, which holds the middle 80%.){% set unsure = build.steps | rejectattr("t
 Not every part is sure of its direction, either: the 95% interval{{ "s" if unsure | length > 1 }} for
 {% for u in unsure %}“{{ u.label }}” ({{ usd(u.usd, signed=True) }}){% if loop.revindex == 2 %} and {% elif not loop.last %}, {% endif %}{% endfor %}
 {{ "run" if unsure | length > 1 else "runs" }} from below zero to above it, so for this apartment the model can't say
-whether {{ "they add to the ask or take from it" if unsure | length > 1 else "it adds to the ask or takes from it" }}.{% endif %}</p>
+whether {{ "they add to the ask or take from it" if unsure | length > 1 else "it adds to the ask or takes from it" }}.{% endif %}{% if accuracy %}{% set miss = 100 * (build.ask - build.estimate) / build.estimate %}
+The ask is {{ "{:.1f}".format(miss | abs) }}% {{ "above" if miss > 0 else "below" }} the estimate.
+{% if miss | abs > 2 * accuracy.median %}That is more than twice the typical miss{% elif miss | abs > accuracy.median %}That is wider than the typical miss{% else %}That is closer than the typical miss{% endif %}:
+half of the asks the model never saw land within {{ "{:.1f}".format(accuracy.median) }}% of their estimate.{% endif %}</p>
 
 <details class="table-view">
   <summary>The build-up as a table</summary>
@@ -305,9 +308,8 @@ one fit per item. Those fits are on the modeling backlog and haven't run yet.</p
 {% set gone = lives | rejectattr("now") | list %}
 <section id="design">
 <h2>How the design evolved</h2>
-<p>The model that prices these apartments wasn't designed in one go. It has been replaced
-{{ switches | length - 1 }} times since {{ switches[0].day }}, and how each replacement got chosen changed
-along the way.</p>
+<p>The model that prices these apartments wasn't designed in one go. Since {{ switches[0].day }},
+{{ switches | length }} models have been served in turn, and how each one got chosen changed along the way.</p>
 
 {% set era_words = {
   "bayes": "It began as one carefully built Bayesian model of Chelsea, a kind of model that gives every number it estimates a range of likely values rather than a single guess. Each improvement (a corrected data source, a better treatment of floors, a curve where a straight line fit badly) was reviewed and adopted by hand. That works while there is one model. It stops working once there are many candidates and no common score to compare them.",
