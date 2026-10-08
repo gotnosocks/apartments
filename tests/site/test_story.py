@@ -440,3 +440,53 @@ def test_rent_jumps_by_the_years_between_listings():
         "1 Main Street",
     )
     assert round(e["change"]) == 50 and e["from"] == "2020-01-01"
+
+
+def test_unit_examples_pick_a_joined_and_a_split_unit():
+    import sqlite3
+
+    db = sqlite3.connect(":memory:")
+    db.row_factory = sqlite3.Row
+    db.executescript(
+        "CREATE TABLE buildings(id TEXT, address TEXT);"
+        "INSERT INTO buildings VALUES ('b1', '1 Main Street'), ('b2', '2 Side Street');"
+        "CREATE TABLE listings(id INTEGER, unit_id TEXT, unit_label TEXT, building_id TEXT,"
+        " bedrooms REAL, ask REAL, price_at TEXT, period TEXT);"
+    )
+    assert story.unit_examples(db) == {}
+    rows = [
+        (1, "j1", "3C", "b1", 1, 3000.0, "2020-01-01"),
+        (2, "j1", "UNIT-3C", "b1", 1, 3100.0, "2021-01-01"),
+        (3, "j1", "3C", "b1", 1, 3200.0, "2022-01-01"),
+        (4, "j2", "4", "b1", 2, 4000.0, "2020-01-01"),
+        (5, "j2", "4FL", "b1", 2, 4100.0, "2021-01-01"),  # 2 names, fewer ads
+        (6, "s1", "2", "b2", 1, 3995.0, "2017-03-27"),
+        (7, "s1~1", "2", "b2", 2, 6750.0, "2019-06"),  # a bare month
+        (8, "s1~2", "2", "b2", 4, 10500.0, "2025-10-10"),
+        (9, "s2", "5", "b2", 1, 3000.0, "2018-01-01"),
+        (10, "s2~1", "5", "b2", 1, 3000.0, "2020-01-01"),  # same bedrooms: no example
+        (11, "s3", "6", "b2", 3, 5000.0, "2018-01-01"),
+        (12, "s3~1", "6", "b2", 1, 6000.0, "2019-01-01"),  # fewer bedrooms: unclear
+        (13, "s3~2", "6", "b2", 4, 7000.0, "2020-01-01"),
+    ]
+    db.executemany(
+        "INSERT INTO listings VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+        [(i, u, lab, b, bd, ask, at, at[:7]) for i, u, lab, b, bd, ask, at in rows],
+    )
+    ex = story.unit_examples(db)
+    assert ex["joined"] == {
+        "unit_id": "j1",
+        "address": "1 Main Street",
+        "labels": ["3C", "UNIT-3C"],
+        "listings": 3,
+    }
+    s = ex["split"]
+    assert (s["address"], s["label"], s["count"]) == ("2 Side Street", "2", "three")
+    assert [(p["unit_id"], p["words"], p["at"]) for p in s["pieces"]] == [
+        ("s1", "a one-bedroom", "2017-03-27"),
+        ("s1~1", "a two-bedroom", "2019-06-01"),
+        ("s1~2", "a four-bedroom", "2025-10-10"),
+    ]
+    assert (
+        story.bed_phrase(0) == "a studio" and story.bed_phrase(None) == "an apartment"
+    )
