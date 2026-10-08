@@ -245,13 +245,13 @@ def test_theories_chapter_reads_the_ledger(site_root, research_file, tmp_path):
     assert html.index("<summary>The technical names</summary>") < html.index(
         "#psis-loo"
     )
-    assert "1 of the 1 ideas about where a building sits," in html
+    assert "the one idea about where a building sits," in html
     assert html.count('class="trial ') == 4
     assert "Some ideas scored brilliantly" in html
     # Open questions: the location idea due for a retest,
     # and the idea set aside.
     assert (
-        "1 of the 1 ideas about where a building sits\n"
+        "The one idea about where a building sits\n"
         "made no clear difference on the older, smaller data:</p>" in html
     )
     assert "<li>parks within reach</li>" in html
