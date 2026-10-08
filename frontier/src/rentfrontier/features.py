@@ -1677,6 +1677,12 @@ def area_snapshot() -> tuple[str, str]:
 HPD_SNAPSHOT = "/data1/apartments/external/hpd/20260930-cb289ad"
 HPD_FILE = f"{HPD_SNAPSHOT}/hpd.parquet"
 
+# Rent-stabilized units per lot and tax-bill year (`rentfrontier.external rentstab`).
+RENTSTAB_SNAPSHOT = "/data1/apartments/external/rentstab/20261008-b487c8a"
+RENTSTAB_FILE = f"{RENTSTAB_SNAPSHOT}/rentstab.parquet"
+# Years a lot's last stabilized-units bill counts for (the 2019 bill reaches 2022).
+STAB_CARRY_YEARS = 3
+
 # MapPLUTO's yearly releases (2009 on) of the five neighbourhoods' registry lots
 # (NB4_REGISTRY_FILE), the fields of today's MapPLUTO plus `release`.
 ALTERATIONS_FILE = (
@@ -2947,6 +2953,63 @@ def hoods_v1(
     )
 
 
+def stabilized_units(frame: pd.DataFrame) -> np.ndarray:
+    """Per row: the rent-stabilized units on its lot's tax bill of the year
+    before the listing's year, or of the latest earlier bill year (the
+    2020-2022 bills are missing for some lots). Bills come out in June, so a
+    year's gap keeps any later bill out. A bill counts for at most
+    `STAB_CARRY_YEARS` after its year (enough to bridge 2020-2022), so a lot
+    that left the bills counts 0 afterwards. A lot with no bill by then counts
+    0, as does a lot whose earlier bills sit under an old lot number."""
+    registry = pd.read_parquet(lot_registry()).set_index("building")
+    stab = pd.read_parquet(RENTSTAB_FILE)
+    by_lot = {
+        lot: (g.year.to_numpy(), g.units.to_numpy())
+        for lot, g in stab.sort_values("year").groupby("bbl")
+    }
+    cutoff = pd.DatetimeIndex(frame.period).year.to_numpy() - 1
+    out = np.zeros(len(frame))
+    for building, idx in frame.groupby("building").indices.items():
+        if building not in registry.index:
+            continue
+        years, units = by_lot.get(str(registry.loc[building].bbl), (None, None))
+        if years is None:
+            continue
+        at = np.searchsorted(years, cutoff[idx], side="right") - 1
+        last = np.maximum(at, 0)
+        fresh = (at >= 0) & (cutoff[idx] - years[last] <= STAB_CARRY_YEARS)
+        out[idx] = np.where(fresh, units[last], 0)
+    return out
+
+
+def stabilized_v1(
+    frame: pd.DataFrame,
+    train: np.ndarray,
+    id: str,
+    base: str,
+) -> Features:
+    """A base set plus the share of the building's apartments that were rent
+    stabilized as of the listing (`stabilized_units` over MapPLUTO's
+    residential units, or the units listed where the lot records none; at most
+    1), centred on the training rows. It changes within a building as units
+    leave stabilization, which the building level cannot follow. Reads no rents."""
+    base = FEATURE_SETS[base](frame, train)
+    units = pd.to_numeric(building_lots(frame).unitsres, errors="coerce").to_numpy()
+    listed = frame.groupby("building").unit_id.transform("nunique").to_numpy()
+    units = np.where(units > 0, units, listed).clip(min=1)
+    share = np.clip(stabilized_units(frame) / units, 0.0, 1.0)
+    b = _Builder(frame)
+    b.add("regulation", "stabilized share", share - float(np.mean(share[train])))
+    out = b.build(id)
+    return Features(
+        id,
+        base.names + out.names,
+        base.groups + out.groups,
+        np.column_stack([base.values, out.values]),
+        np.concatenate([base.prior_scale, out.prior_scale]),
+    )
+
+
 # Feature sets that read the external snapshots (run records list them).
 EXTERNAL = {
     "nb-pluto-base",
@@ -3042,6 +3105,8 @@ STOREFRONTS = {"nb3-retail-v1"}
 PARKS = {"nb3-parks-v1", "nb3-water-v1", "nb5-parks-v1", "nb5-water-v1"}
 # Feature sets that read the HPD violations snapshot.
 HPD = {"unitdescplutohpd-v1", "unitdescplutohpd-v2"}
+# Feature sets that read the rent-stabilized units snapshot (`RENTSTAB_FILE`).
+RENTSTAB = {"nb6-stab-v1", "nb6-nostuy-stab-v1"}
 # Feature sets that read the advertisement descriptions (`descriptions.SOURCE`),
 # directly or through their base set.
 DESCRIPTIONS = {
@@ -3662,7 +3727,12 @@ _NB6_DESCRIPTIONS = {
 PLUTO_RELEASES_SNAPSHOTS: dict[str, str] = {}
 # The nb6 sets read what their nb5 counterpart reads, from the six
 # neighbourhoods' snapshots in place of the five's.
-NB6_SETS = {"nb6-plutoasof-v3": "nb5-plutoasof-v3"}
+NB6_SETS = {
+    "nb6-plutoasof-v3": "nb5-plutoasof-v3",
+    "nb6-nostuy-v1": "nb5-plutoasof-v3",
+    "nb6-stab-v1": "nb5-plutoasof-v3",
+    "nb6-nostuy-stab-v1": "nb5-plutoasof-v3",
+}
 # nb5-plutoasof-v3 plus Stuyvesant Town/PCV (`hoods_v1`): the six
 # neighbourhoods' base. Not fitted until runs resume (Ben, 2026-10-08: pause).
 # The Stuyvesant Town/PCV indicator is a placeholder, a descriptive premium: a
@@ -3674,6 +3744,23 @@ FEATURE_SETS["nb6-plutoasof-v3"] = partial(
     id="nb6-plutoasof-v3",
     base="nb3-coded-v2",
     hoods=("Flatiron", "Gramercy Park", "Stuyvesant Town/PCV"),
+)
+# Tests of what explains the Stuyvesant Town/PCV indicator: nb6-nostuy-v1
+# leaves it out (Stuyvesant Town/PCV rows take Chelsea's level);
+# nb6-stab-v1 adds the rent-stabilized share beside it, and
+# nb6-nostuy-stab-v1 has the share in its place. Both lots are close to
+# fully stabilized on the tax bills since 2011.
+FEATURE_SETS["nb6-nostuy-v1"] = partial(
+    hoods_v1,
+    id="nb6-nostuy-v1",
+    base="nb3-coded-v2",
+    hoods=("Flatiron", "Gramercy Park"),
+)
+FEATURE_SETS["nb6-stab-v1"] = partial(
+    stabilized_v1, id="nb6-stab-v1", base="nb6-plutoasof-v3"
+)
+FEATURE_SETS["nb6-nostuy-stab-v1"] = partial(
+    stabilized_v1, id="nb6-nostuy-stab-v1", base="nb6-nostuy-v1"
 )
 for _new, _old in NB6_SETS.items():
     for _group in (

@@ -41,7 +41,9 @@ def test_nb6_sets_read_nb5s_sources_from_the_six_neighbourhoods_snapshots():
     assert set(features._NB6_DESCRIPTIONS) == set(features._NB4_DESCRIPTIONS) | {
         "descriptions_stuy"
     }
-    assert features.PLUTO_RELEASES_SNAPSHOTS == {name: features.NB6_PLUTO_RELEASES_FILE}
+    assert features.PLUTO_RELEASES_SNAPSHOTS == dict.fromkeys(
+        features.NB6_SETS, features.NB6_PLUTO_RELEASES_FILE
+    )
 
 
 def test_build_reads_the_sets_own_pluto_releases(monkeypatch):
@@ -90,3 +92,72 @@ def test_nb6_snapshots_keep_nb4s_rows_and_add_stuyvesant_towns():
     registry = pd.read_parquet(features.NB6_REGISTRY_FILE)
     stuy = registry[registry.bbl.isin(["1009720001", "1009780001"])]
     assert len(stuy) == 57 and not stuy.bin.eq("1000000").any()
+
+
+def test_stuyvesant_town_tests_drop_the_indicator_or_add_the_stabilized_share():
+    base, nostuy = (
+        features.FEATURE_SETS["nb6-plutoasof-v3"],
+        features.FEATURE_SETS["nb6-nostuy-v1"],
+    )
+    assert nostuy.func is base.func
+    assert nostuy.keywords == {
+        **base.keywords,
+        "id": "nb6-nostuy-v1",
+        "hoods": ("Flatiron", "Gramercy Park"),
+    }
+    for name, on in (
+        ("nb6-stab-v1", "nb6-plutoasof-v3"),
+        ("nb6-nostuy-stab-v1", "nb6-nostuy-v1"),
+    ):
+        stab = features.FEATURE_SETS[name]
+        assert stab.func is features.stabilized_v1
+        assert stab.keywords == {"id": name, "base": on}
+    assert features.RENTSTAB == {"nb6-stab-v1", "nb6-nostuy-stab-v1"}
+    groups = {
+        k: v for k, v in vars(features).items() if k.isupper() and isinstance(v, set)
+    }
+    for name in ("nb6-nostuy-v1", "nb6-stab-v1", "nb6-nostuy-stab-v1"):
+        assert {k for k, v in groups.items() if name in v} - {"RENTSTAB"} == {
+            k for k, v in groups.items() if "nb6-plutoasof-v3" in v
+        }
+        assert features.lot_files(name) == features.lot_files("nb6-plutoasof-v3")
+
+
+def test_run_records_the_rentstab_snapshot(monkeypatch):
+    monkeypatch.setattr(run.data, "sha256", lambda path: "x")
+    assert run.feature_sources("nb6-stab-v1")["rentstab"]["path"] == (
+        features.RENTSTAB_FILE
+    )
+    assert "rentstab" not in run.feature_sources("nb6-plutoasof-v3")
+
+
+def test_stabilized_units_use_the_bill_before_the_listing_year(tmp_path, monkeypatch):
+    registry = pd.DataFrame({"building": ["a", "b"], "bbl": ["1", "2"]})
+    stab = pd.DataFrame(
+        {
+            "bbl": ["1", "1", "1", "2"],
+            "year": [2012, 2019, 2023, 2010],
+            "units": [40, 30, 10, 5],
+        }
+    )
+    registry.to_parquet(tmp_path / "r.parquet")
+    stab.to_parquet(tmp_path / "s.parquet")
+    monkeypatch.setattr(features, "lot_registry", lambda: str(tmp_path / "r.parquet"))
+    monkeypatch.setattr(features, "RENTSTAB_FILE", str(tmp_path / "s.parquet"))
+    frame = pd.DataFrame(
+        {
+            "building": ["a", "a", "a", "a", "b", "b", "c"],
+            "period": pd.to_datetime(
+                [
+                    "2012-06-01",  # the 2011 bill: none yet
+                    "2013-01-01",  # the 2012 bill
+                    "2022-03-01",  # 2021 missing: carry 2019 forward
+                    "2023-09-01",  # the 2023 bill is not out the year before
+                    "2014-01-01",  # b's 2010 bill, three years on
+                    "2015-01-01",  # b left the bills after 2010
+                    "2016-01-01",  # not in the registry
+                ]
+            ),
+        }
+    )
+    assert features.stabilized_units(frame).tolist() == [0, 40, 30, 30, 5, 0, 0]
