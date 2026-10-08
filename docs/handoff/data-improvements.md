@@ -1,8 +1,8 @@
 # Data improvements — handoff
 
-Updated 2026-10-08 11:55 ET. Thread owner: the Data improvements project thread (bridge session on thelio).
+Updated 2026-10-08 15:47 ET. Thread owner: the Data improvements project thread (bridge session on thelio).
 
-## 2026-10-08 11:55 ET
+## 2026-10-08 15:47 ET
 
 - **Model runs are paused** (Ben, 16:07Z: "Let's pause model runs. I want to collect more data
   (in progress scrapes) before doing more iterations"). Builds go on; Modeling holds a resume
