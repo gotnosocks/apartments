@@ -38,9 +38,9 @@ equally elegant ones the fastest.{% endif %}</p>
   {% endif %}
   {% if not pending and autoselect.action == "keep" and autoselect.incumbent_eligible is false %}
   <p class="notice"><strong>Waiting for a refit on the current data rules.</strong> The data rules changed after this
-  model was fitted, so the rule can no longer compare it fairly with fits on the new rules{% if not autoselect.eligible %},
+  model was fitted, so the automatic rule can no longer compare it fairly with fits on the new rules{% if not autoselect.eligible %},
   and no fit on the new rules has landed yet{% endif %}. Until one does, this model keeps serving, and every estimate on
-  the site comes from it, on the earlier rule versions listed below.</p>
+  the site comes from it, on the earlier rule versions named in the decision below.</p>
   {% endif %}
   <p>{% if pending %}{{ autoselect.reason }}{% else %}{{ autoselect.reason | replace("the incumbent", "this model") | replace("The incumbent", "This model") }}{% endif %}</p>
   {% if autoselect.checked %}
