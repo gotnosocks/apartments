@@ -2431,6 +2431,10 @@ def create_app(
             next(iter(areas - named), None) if len(areas - named) == 1 else None
         )
         effects = story.headline_effects(coefficients, labels, reference_area)
+        # the ad-text concession term, and its 2020-on split once a fit has it
+        concession = {
+            c["feature"]: c for c in coefficients if "concession" in c["feature"]
+        }
         listing, current = story.pick_listing(db())
         build = story.build_up(listing, labels, current=current)
         accuracy, jumps, units = story_checks()
@@ -2481,6 +2485,8 @@ def create_app(
             prevprice=story.served_spells(switches, "prevprice"),
             history_svg=story.history_svg(switches, lives),
             cleaning=cleaning,
+            concession=concession.get("text:concession"),
+            concession_2020=concession.get("text:concession, 2020 on"),
             areas=sorted(a for a in areas if a),
             cleaning_svg=story.cleaning_svg(cleaning),
             groups=groups,

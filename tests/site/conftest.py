@@ -387,7 +387,15 @@ def make_bundle(root: Path, *, gate=True, rule_lines=None, neighbourhoods=None) 
                 "pct_lower_95": 28.0,
                 "pct_upper_95": 32.0,
                 "probability_positive": 1.0,
-            }
+            },
+            {
+                "feature": "text:concession",
+                "group": "description",
+                "pct": -1.1,
+                "pct_lower_95": -1.4,
+                "pct_upper_95": -0.9,
+                "probability_positive": 0.0,
+            },
         ],
     )
     (bundle / "terms.json").write_text(
