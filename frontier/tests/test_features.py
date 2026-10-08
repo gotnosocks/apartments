@@ -619,6 +619,13 @@ def test_stabilized_units_use_the_bill_before_the_listing_year(tmp_path, monkeyp
     assert features.stabilized_units(frame).tolist() == [0, 40, 30, 30, 5, 0]
 
 
+def test_nb4_stab_reads_the_four_neighbourhoods_lots_and_the_stabilized_counts():
+    assert features.lot_files("nb4-stab-v1") == features.lot_files("nb4-coded-v2")
+    assert features.LISTING_EXTRAS >= {"nb4-stab-v1"}
+    assert {"nb3-stab-v1", "nb4-stab-v1"} <= features.RENTSTAB
+    assert features.FEATURE_SETS["nb4-stab-v1"].keywords["base"] == "nb4-coded-v2"
+
+
 def test_facing_v4_marks_loud_streets_on_low_floors(monkeypatch):
     frame = pd.DataFrame({"unit_id": ["a", "b", "c", "d"]})
     looks = pd.DataFrame(

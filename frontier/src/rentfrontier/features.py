@@ -2552,7 +2552,7 @@ PLACES = {"nb3-nearby-v1"}
 STOREFRONTS = {"nb3-retail-v1"}
 # Feature sets that read the NYC Parks properties snapshot (parks).
 PARKS = {"nb3-parks-v1", "nb3-water-v1"}
-RENTSTAB = {"nb3-stab-v1"}
+RENTSTAB = {"nb3-stab-v1", "nb4-stab-v1"}
 # Feature sets that read the HPD violations snapshot.
 HPD = {"unitdescplutohpd-v1", "unitdescplutohpd-v2"}
 # Feature sets that read the advertisement descriptions (`descriptions.SOURCE`),
@@ -2671,6 +2671,7 @@ FEATURE_SETS = {
     "nb3-text-v1": partial(text_flags_v1, id="nb3-text-v1", base="nb3-coded-v2"),
     "nb3-loft-v1": partial(loft_v1, id="nb3-loft-v1", base="nb3-coded-v2"),
     "nb3-stab-v1": partial(stabilized_v1, id="nb3-stab-v1", base="nb3-coded-v2"),
+    "nb4-stab-v1": partial(stabilized_v1, id="nb4-stab-v1", base="nb4-coded-v2"),
     "nb3-flagfix-v1": partial(flagfix_v1, id="nb3-flagfix-v1", base="nb3-coded-v2"),
     "nb3-noise-v1": partial(
         noise_v1, id="nb3-noise-v1", base="nb3-coded-v2", noise_file=NB3_NOISE_FILE
@@ -2955,7 +2956,7 @@ for _wish in (
 
 # The nb4 sets read what their nb3 counterpart reads, from the four
 # neighbourhoods' snapshots (#451) in place of the three's.
-NB4_SETS = {"nb4-coded-v2": "nb3-coded-v2"}
+NB4_SETS = {"nb4-coded-v2": "nb3-coded-v2", "nb4-stab-v1": "nb3-stab-v1"}
 for _new, _old in NB4_SETS.items():
     for _group in (
         EXTERNAL,
