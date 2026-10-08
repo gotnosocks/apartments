@@ -857,6 +857,35 @@ def nearby_v1(
     )
 
 
+def nearby_one_v1(
+    frame: pd.DataFrame,
+    train: np.ndarray,
+    id: str,
+    base: str,
+    kind: str,
+) -> Features:
+    """A base set plus one `nearby_v1` term: log walk metres to the nearest
+    place of `kind` (`nearby.KINDS`). Reads no rents."""
+    from . import nearby
+
+    base = FEATURE_SETS[base](frame, train)
+    values = nearby.terms(frame)[kind]
+    b = _Builder(frame)
+    b.add(
+        "nearby",
+        f"log m to {nearby.KINDS[kind]}",
+        np.nan_to_num(values, nan=np.nanmedian(values)),
+    )
+    out = b.build(id)
+    return Features(
+        id,
+        base.names + out.names,
+        base.groups + out.groups,
+        np.column_stack([base.values, out.values]),
+        np.concatenate([base.prior_scale, out.prior_scale]),
+    )
+
+
 def retail_v1(
     frame: pd.DataFrame,
     train: np.ndarray,
@@ -1297,9 +1326,9 @@ def parks_file() -> str:
 _PLACES: contextvars.ContextVar[str | None] = contextvars.ContextVar(
     "places", default=None
 )
-# Places files by feature set, where a set reads other than `PLACES_FILE`: the
-# four crawls' box reaches east of First Avenue, to Bellevue and NYU Langone.
-PLACES_SNAPSHOTS = {"nb5-nearby-v1": NB4_PLACES_FILE}
+# Places files by feature set, where a set reads other than `PLACES_FILE`
+# (the nb5 single-place sets, `NB5_SINGLES`, add theirs).
+PLACES_SNAPSHOTS: dict[str, str] = {}
 
 
 def places_file() -> str:
@@ -2544,7 +2573,7 @@ TRANSIT = {"nb3-transit-v1", "nb3-lines-v1", "nb3-access-v1", "nb5-lines-v1"}
 # Feature sets that read the LODES jobs snapshot (access).
 LODES = {"nb3-access-v1"}
 # Feature sets that read the places snapshot (nearby).
-PLACES = {"nb3-nearby-v1", "nb5-nearby-v1"}
+PLACES = {"nb3-nearby-v1"}
 # Feature sets that read the Storefront Registry snapshot (retail).
 STOREFRONTS = {"nb3-retail-v1"}
 # Feature sets that read the NYC Parks properties snapshot (parks).
@@ -2688,11 +2717,6 @@ FEATURE_SETS = {
     "nb5-water-v1": partial(waterfront_v1, id="nb5-water-v1", base="nb5-parks-v1"),
     "nb5-noise-v1": partial(
         noise_v1, id="nb5-noise-v1", base="nb5-coded-v2", noise_file=NB4_NOISE_FILE
-    ),
-    "nb5-nearby-v1": partial(nearby_v1, id="nb5-nearby-v1", base="nb5-coded-v2"),
-    "nb5-flagfix-v1": partial(flagfix_v1, id="nb5-flagfix-v1", base="nb5-coded-v2"),
-    "nb5-attrs-v1": partial(
-        text_flags_v1, id="nb5-attrs-v1", base="nb5-flagfix-v1", flags=ATTRIBUTE_FLAGS
     ),
     "nb3-attrs-v1": partial(
         text_flags_v1, id="nb3-attrs-v1", base="nb3-flagfix-v1", flags=ATTRIBUTE_FLAGS
@@ -2982,10 +3006,41 @@ NB4_SETS = {
     "nb5-parks-v1": "nb3-parks-v1",
     "nb5-water-v1": "nb3-water-v1",
     "nb5-noise-v1": "nb3-noise-v1",
-    "nb5-nearby-v1": "nb3-nearby-v1",
-    "nb5-flagfix-v1": "nb3-flagfix-v1",
-    "nb5-attrs-v1": "nb3-attrs-v1",
 }
+# One set per ad attribute (`ATTRIBUTE_FLAGS`) and per place kind
+# (`nearby.KINDS`): nb5-coded-v2 plus that one column, each its own full fit.
+NB5_SINGLES = {
+    **{
+        f"nb5-attr-{name.replace('_', '-')}-v1": ("attr", name)
+        for name in ATTRIBUTE_FLAGS
+    },
+    **{
+        f"nb5-near-{kind.replace(' ', '-')}-v1": ("near", kind)
+        for kind in (
+            "dog run",
+            "hospital",
+            "ambulance station",
+            "drop-in center",
+            "nycha",
+            "arena",
+        )
+    },
+}
+for _name, (_what, _item) in NB5_SINGLES.items():
+    if _what == "attr":
+        FEATURE_SETS[_name] = partial(
+            text_flags_v1,
+            id=_name,
+            base="nb5-coded-v2",
+            flags={_item: ATTRIBUTE_FLAGS[_item]},
+        )
+    else:
+        FEATURE_SETS[_name] = partial(
+            nearby_one_v1, id=_name, base="nb5-coded-v2", kind=_item
+        )
+        PLACES.add(_name)
+        PLACES_SNAPSHOTS[_name] = NB4_PLACES_FILE
+    NB4_SETS[_name] = "nb5-coded-v2"
 for _new, _old in NB4_SETS.items():
     for _group in (
         EXTERNAL,
