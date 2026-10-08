@@ -20,6 +20,10 @@ Sources:
   speed and roadway type (NYC Open Data inkn-q76z), parks (enfh-gkve) and
   Manhattan's shoreline (borough boundary, gthc-hcne). One row per feature,
   geometry as GeoJSON.
+- plutoreleases: every MapPLUTO release City Planning archives (09v1-26v2),
+  the registry's lots in each, with the release's publication date from its
+  own documents (PLUTO_RELEASES), so a listing can read its building as the
+  latest MapPLUTO published before it had it.
 - hpd: HPD Housing Maintenance Code Violations (NYC Open Data wvxf-dwi5) of
   the registry's buildings, by BIN, and by tax lot (BBL) for placeholder BINs
   (n000000): class (A non-hazardous, B hazardous, C immediately hazardous, I
@@ -374,6 +378,210 @@ def fetch_hpd(registry: pd.DataFrame, batch: int = 100, page: int = 50_000):
         ).isoformat(),
     }
     return table.reset_index(drop=True), queries, version
+
+
+# City Planning's archive of MapPLUTO releases.
+PLUTO_ARCHIVE = (
+    "https://s-media.nyc.gov/agencies/dcp/assets/files/zip/data-tools/bytes/pluto"
+)
+# Every MapPLUTO release City Planning archives, 09v1 to 26v2 (no 15v2 or 17v2
+# was archived): release -> (archive file, publication date, evidence). The
+# date is the file's Last-Modified on the archive server where that is not the
+# 2023-10-15 re-upload of the older files (21v1, and 22v3 on). Otherwise it is
+# the end of the month after the one the release's own documents (README, data
+# dictionary, file layout) are dated: where a release has both, the file came
+# out up to 27 days after its documents' month (24v3, 25v3), so the month
+# alone would be early. A release with neither (22v2) has no date and is never
+# used.
+PLUTO_RELEASES = {
+    "09v1": (
+        "nyc_pluto_09v1.zip",
+        "2009-07-31",
+        "June 2009 (Plutolay09v1.pdf); May 2009 (PlutoDD09v1.pdf)",
+    ),
+    "09v2": (
+        "nyc_pluto_09v2.zip",
+        "2009-11-30",
+        "October 2009 (PlutoDD09v2.pdf); October 2009 (Plutolay09v2.pdf)",
+    ),
+    "10v1": (
+        "nyc_pluto_10v1.zip",
+        "2010-04-30",
+        "March 2010 (PlutoDD10v1.pdf); March 2010 (Plutolay10v1.pdf)",
+    ),
+    "10v2": (
+        "nyc_pluto_10v2.zip",
+        "2011-01-31",
+        "December 2010 (PlutoDD10v2.pdf); December 2010 (Plutolay10v2.pdf)",
+    ),
+    "11v1": (
+        "nyc_pluto_11v1.zip",
+        "2011-04-30",
+        "March 2011 (PLUTODD11v1.pdf); March 2011 (Plutolay11v1.pdf)",
+    ),
+    "11v2": (
+        "nyc_pluto_11v2.zip",
+        "2011-12-31",
+        "November 2011 (PLUTODD11v2.pdf); November 2011 (Plutolay11v2.pdf)",
+    ),
+    "12v1": (
+        "nyc_pluto_12v1.zip",
+        "2012-06-30",
+        "May 2012 (PLUTODD12v1.pdf); May 2012 (Plutolay12v1.pdf)",
+    ),
+    "12v2": (
+        "nyc_pluto_12v2.zip",
+        "2013-06-30",
+        "May 2013 (PLUTODD12v2.pdf); October 2012 (Plutolay12v2.pdf)",
+    ),
+    "13v1": ("nyc_pluto_13v1.zip", "2013-07-31", "June 2013 (README)"),
+    "13v2": ("nyc_pluto_13v2.zip", "2013-11-30", "October 2013 (README)"),
+    "14v1": ("nyc_pluto_14v1.zip", "2014-06-30", "May 2014 (README)"),
+    "14v2": ("nyc_pluto_14v2.zip", "2015-01-31", "December 2014 (README)"),
+    "15v1": (
+        "nyc_pluto_15v1.zip",
+        "2015-07-31",
+        "June 2015 (PLUTODD15v1.pdf); June 2015 (Plutolay15v1.pdf)",
+    ),
+    "16v1": ("nyc_pluto_16v1.zip", "2016-04-30", "March 2016 (README)"),
+    "16v2": ("nyc_pluto_16v2.zip", "2016-11-30", "October 2016 (README)"),
+    "17v1": ("nyc_pluto_17v1.zip", "2018-01-31", "December 2017 (README)"),
+    "18v1": ("nyc_pluto_18v1.zip", "2018-07-31", "June 2018 (README)"),
+    "18v2": ("nyc_pluto_18v2_csv.zip", "2019-01-31", "December 2018 (README)"),
+    "19v1": ("nyc_pluto_19v1_csv.zip", "2019-10-31", "September 2019 (README)"),
+    "19v2": ("nyc_pluto_19v2_csv.zip", "2019-12-31", "November 2019 (README)"),
+    "20v1": ("nyc_pluto_20v1_csv.zip", "2020-02-29", "January 2020 (README)"),
+    "20v2": ("nyc_pluto_20v2_csv.zip", "2020-04-30", "March 2020 (README)"),
+    "20v3": ("nyc_pluto_20v3_csv.zip", "2020-05-31", "April 2020 (README)"),
+    "20v4": ("nyc_pluto_20v4_csv.zip", "2020-07-31", "June 2020 (README)"),
+    "21v1": (
+        "nyc_pluto_21v1_arc_csv.zip",
+        "2021-02-26",
+        "February 2021 (README). Last-Modified 2021-02-26",
+    ),
+    "21v2": ("nyc_pluto_21v2_arc_csv.zip", "2021-07-31", "June 2021 (README)"),
+    "21v3": ("nyc_pluto_21v3_arc_csv.zip", "2021-10-31", "September 2021 (README)"),
+    "21v4": ("nyc_pluto_21v4_arc_csv.zip", "2022-01-31", "December 2021 (README)"),
+    "22v1": ("nyc_pluto_22v1_arc_csv.zip", "2022-06-30", "May 2022 (README)"),
+    "22v2": (
+        "nyc_pluto_22v2_arc_csv.zip",
+        None,
+        "no dated document in the zip, server date is the 2023-10-15 re-upload",
+    ),
+    "22v3": ("nyc_pluto_22v3_arc_csv.zip", "2022-11-21", "Last-Modified 2022-11-21"),
+    "23v1": ("nyc_pluto_23v1_arc_csv.zip", "2023-04-04", "Last-Modified 2023-04-04"),
+    "23v2": (
+        "nyc_pluto_23v2_csv.zip",
+        "2023-08-02",
+        "July 2023 (README). Last-Modified 2023-08-02",
+    ),
+    "23v3": (
+        "nyc_pluto_23v3_csv.zip",
+        "2023-10-31",
+        "October 2023 (README). Last-Modified 2023-10-31",
+    ),
+    "24v1": (
+        "nyc_pluto_24v1_csv.zip",
+        "2024-03-11",
+        "February 2024 (README). Last-Modified 2024-03-11",
+    ),
+    "24v2": (
+        "nyc_pluto_24v2_csv.zip",
+        "2024-06-18",
+        "May 2024 (README). Last-Modified 2024-06-18",
+    ),
+    "24v3": (
+        "nyc_pluto_24v3_csv.zip",
+        "2024-09-26",
+        "August 2024 (README). Last-Modified 2024-09-26",
+    ),
+    "24v4": (
+        "nyc_pluto_24v4_csv.zip",
+        "2024-12-23",
+        "November 2024 (README). Last-Modified 2024-12-23",
+    ),
+    "25v1": (
+        "nyc_pluto_25v1_csv.zip",
+        "2025-03-21",
+        "February 2025 (README). Last-Modified 2025-03-21",
+    ),
+    "25v2": (
+        "nyc_pluto_25v2_csv.zip",
+        "2025-07-03",
+        "June 2025 (README). Last-Modified 2025-07-03",
+    ),
+    "25v3": (
+        "nyc_pluto_25v3_csv.zip",
+        "2025-10-27",
+        "September 2025 (README). Last-Modified 2025-10-27",
+    ),
+    "25v4": (
+        "nyc_pluto_25v4_csv.zip",
+        "2026-02-06",
+        "January 2026 (README). Last-Modified 2026-02-06",
+    ),
+    "26v1": (
+        "nyc_pluto_26v1_csv.zip",
+        "2026-05-26",
+        "May 2026 (README). Last-Modified 2026-05-26",
+    ),
+    "26v2": (
+        "nyc_pluto_26v2_csv.zip",
+        "2026-08-17",
+        "August 2026 (README). Last-Modified 2026-08-17",
+    ),
+}
+
+
+def fetch_pluto_releases(bbls) -> tuple[pd.DataFrame, list[str]]:
+    """The registry's lots in every archived MapPLUTO release: one row per
+    release and lot, with the PLUTO_COLUMNS the release has (an older release
+    lacks some, e.g. the flood-zone flags; they are left empty), its `release`
+    and its `published` date (PLUTO_RELEASES). Manhattan's file of a release
+    split by borough, else the rows of Manhattan lots."""
+    import io
+    import tempfile
+    import zipfile
+
+    bbls = set(bbls)
+    parts, files = [], []
+    for release, (name, published, _) in PLUTO_RELEASES.items():
+        with tempfile.TemporaryFile() as tmp:
+            request = urllib.request.Request(
+                f"{PLUTO_ARCHIVE}/{name}", headers={"User-Agent": "Mozilla/5.0"}
+            )
+            with urllib.request.urlopen(request, timeout=900) as r:
+                while chunk := r.read(1 << 20):
+                    tmp.write(chunk)
+            tmp.seek(0)
+            archive = zipfile.ZipFile(tmp)
+            tables = [
+                m
+                for m in archive.namelist()
+                if m.lower().endswith((".csv", ".txt")) and "readme" not in m.lower()
+            ]
+            manhattan = [m for m in tables if Path(m).name.lower().startswith("mn")]
+            member = (
+                manhattan or sorted(tables, key=lambda m: -archive.getinfo(m).file_size)
+            )[0]
+            files.append(f"{PLUTO_ARCHIVE}/{name}:{member}")
+            reader = pd.read_csv(
+                io.TextIOWrapper(archive.open(member), encoding="latin-1"),
+                dtype=str,
+                chunksize=200_000,
+            )
+            for chunk in reader:
+                chunk.columns = [str(c).strip().lower() for c in chunk.columns]
+                lot = pd.to_numeric(chunk.bbl, errors="coerce")
+                chunk["bbl"] = lot.astype("Int64").astype(str)
+                chunk = chunk[chunk.bbl.isin(bbls)]
+                keep = chunk.reindex(columns=list(PLUTO_COLUMNS))
+                parts.append(keep.assign(release=release, published=published))
+    table = pd.concat(parts, ignore_index=True)
+    text = [c for c in PLUTO_COLUMNS]
+    table[text] = table[text].apply(lambda c: c.str.strip())
+    table = table.drop_duplicates(["release", "bbl"]).reset_index(drop=True)
+    return table, files
 
 
 LPC_ID = "ncre-qhxs"
@@ -801,6 +1009,7 @@ def main(argv=None):
             "subway",
             "basemap",
             "hpd",
+            "plutoreleases",
             "footprints",
             "noise311",
             "lpc",
@@ -880,6 +1089,29 @@ def main(argv=None):
             "buildings": int(table.bin.nunique()),
         }
         summary = f"{len(table)} violations in {table.bin.nunique()} buildings"
+    elif args.source == "plutoreleases":
+        registry = pd.read_parquet(registry_path)
+        table, queries = fetch_pluto_releases(registry.bbl.dropna().astype(str))
+        details = {
+            "source": PLUTO_ARCHIVE,
+            "dataset": "MapPLUTO archived releases (NYC Department of City Planning)",
+            "registry": str(registry_path),
+            "buffer_note": "features.PLUTO_RELEASE_BUFFER_DAYS is applied when reading",
+            "releases": {
+                release: {
+                    "file": f"{PLUTO_ARCHIVE}/{name}",
+                    "published": published,
+                    "evidence": evidence,
+                    "flag": None
+                    if published
+                    else "no publication date found; never used",
+                    "lots": int(table.release.eq(release).sum()),
+                }
+                for release, (name, published, evidence) in PLUTO_RELEASES.items()
+            },
+            "lots": int(table.bbl.nunique()),
+        }
+        summary = f"{details['lots']} lots in {table.release.nunique()} releases"
     elif args.source == "lpc":
         registry = pd.read_parquet(registry_path)
         table, queries, version = fetch_lpc(registry)
