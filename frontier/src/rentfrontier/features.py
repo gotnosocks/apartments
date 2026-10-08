@@ -1362,6 +1362,23 @@ HPD_FILE = f"{HPD_SNAPSHOT}/hpd.parquet"
 ALTERATIONS_FILE = (
     "/data1/apartments/external/plutohistory/20261008-4fe46d6/plutohistory.parquet"
 )
+# Every MapPLUTO release City Planning archives (09v1-26v2) of the five
+# neighbourhoods' registry lots, with each release's publication date
+# (`rentfrontier.external plutoreleases`).
+PLUTO_RELEASES_FILE = (
+    "/data1/apartments/external/plutoreleases/20261008-ab6040a/plutoreleases.parquet"
+)
+PLUTO_RELEASE_BUFFER_DAYS = 7
+"""Days after a MapPLUTO release is published before a listing reads it: the
+lag between the data being available and a new scrape and model fit using it.
+Ben, 2026-10-08: "Don't do 60 days for the lag - do like a week! We just want to
+allow a realistic lag between when the data would have been available and we
+could have done a new scrape and model fit." """
+# The releases file when the set being built reads each lot as the latest
+# MapPLUTO release published before the listing (`PLUTO_RELEASED_SETS`).
+_RELEASED: contextvars.ContextVar[str | None] = contextvars.ContextVar(
+    "released", default=None
+)
 # Whether the set being built dates the lot's alteration years (`ALTERATION_DATED_SETS`).
 _ALTER_DATED: contextvars.ContextVar[str | None] = contextvars.ContextVar(
     "alter_dated", default=None
@@ -1397,7 +1414,69 @@ def building_lots(frame: pd.DataFrame) -> pd.DataFrame:
     lots = pluto.reindex(lot.to_numpy()).reset_index(drop=True)
     if _ALTER_DATED.get():
         lots = dated_alterations(frame, lot.to_numpy(), lots, _ALTER_DATED.get())
+    if _RELEASED.get():
+        lots = released_lots(frame, lot.to_numpy(), lots, _RELEASED.get())
     return lots
+
+
+# Fields every release keeps as today's: the lot's identity and position, and
+# the year built, a fact that does not change which older releases often
+# estimate (round years).
+RELEASE_KEEPS_TODAY = (
+    "bbl",
+    "address",
+    "version",
+    "yearbuilt",
+    "latitude",
+    "longitude",
+)
+
+
+def released_lots(
+    frame: pd.DataFrame, bbl: np.ndarray, lots: pd.DataFrame, path: str
+) -> pd.DataFrame:
+    """`lots` (today's MapPLUTO per row) with each row's lot as the latest
+    MapPLUTO release published at least PLUTO_RELEASE_BUFFER_DAYS before the
+    listing's period had it, or the earliest release for a listing before
+    that. A release with no publication date is never read. A lot missing from
+    the release (numbered later), a field the release does not carry (the
+    flood-zone flags before 2017), the fields in RELEASE_KEEPS_TODAY, and a
+    release published before today's year built (it describes the lot before
+    the building) keep today's values. Codes are written as today's file
+    writes them (landuse "04" as "4", irrlotcode "Y" as True), so a field
+    changes only when the release's value does. No rents are read."""
+    history = pd.read_parquet(path)
+    history = history[history.published.notna()]
+    published = pd.to_datetime(
+        history.drop_duplicates("release").set_index("release").published
+    ).sort_values()
+    usable = (published + pd.Timedelta(days=PLUTO_RELEASE_BUFFER_DAYS)).to_numpy()
+    listed = pd.DatetimeIndex(frame.period).to_numpy()
+    order = np.clip(np.searchsorted(usable, listed, side="right") - 1, 0, None)
+    release = published.index.to_numpy()[order]
+    keys = pd.MultiIndex.from_arrays([release, pd.Series(bbl).astype(str).to_numpy()])
+    indexed = history.set_index(["release", "bbl"])
+    then = indexed.reindex(keys).reset_index(drop=True)
+    built = pd.to_numeric(lots.yearbuilt, errors="coerce").to_numpy()
+    use = keys.isin(indexed.index) & ~(built > published.dt.year.to_numpy()[order])
+    out = lots.copy()
+    for column in out.columns.intersection(then.columns).difference(
+        RELEASE_KEEPS_TODAY
+    ):
+        value = then[column].astype("string").str.strip().replace("", pd.NA)
+        carried = indexed[column].notna().groupby(level="release").any()
+        take = use & carried.reindex(release).fillna(False).to_numpy()
+        today = out[column]
+        if pd.api.types.is_bool_dtype(today):
+            flag = value.str.upper().map({"Y": True, "N": False, "TRUE": True})
+            take &= flag.notna().to_numpy()
+            out[column] = np.where(take, flag.to_numpy(), today.to_numpy()).astype(bool)
+            continue
+        if today.dropna().astype(str).str.fullmatch(r"0|[1-9]\d*").all():
+            value = value.str.replace(r"^0+(?=\d)", "", regex=True)
+        out[column] = today.astype(object).where(~take, value.to_numpy(dtype=object))
+        out[column] = out[column].astype(today.dtype)
+    return out
 
 
 def dated_alterations(
@@ -2731,6 +2810,15 @@ FEATURE_SETS = {
         base="nb3-coded-v2",
         hoods=("Flatiron", "Gramercy Park"),
     ),
+    # nb5-coded-v2 with each building as the latest MapPLUTO release published
+    # a week before the listing had it (PLUTO_RELEASED_SETS): the base for sets
+    # after it (Ben, 2026-10-08).
+    "nb5-plutoasof-v3": partial(
+        hoods_v1,
+        id="nb5-plutoasof-v3",
+        base="nb3-coded-v2",
+        hoods=("Flatiron", "Gramercy Park"),
+    ),
     # nb5-coded-v2 with the lot's alteration years as MapPLUTO had them before
     # the listing (ALTERATION_DATED_SETS); size and class stay today's.
     "nb5-plutoasof-v2": partial(
@@ -3062,9 +3150,14 @@ NB4_SETS = {
     "nb5-water-v1": "nb3-water-v1",
     "nb5-noise-v1": "nb3-noise-v1",
     "nb5-plutoasof-v2": "nb3-coded-v2",
+    "nb5-plutoasof-v3": "nb3-coded-v2",
 }
 # Sets that date the lot's alteration years (`dated_alterations`).
 ALTERATION_DATED_SETS = {"nb5-plutoasof-v2"}
+# Sets that read each lot as the latest MapPLUTO release published before the
+# listing (`released_lots`). A set built on nb5-plutoasof-v3 joins it through
+# NB4_SETS (`NB4_SETS[name] = "nb5-plutoasof-v3"`), like the other groups.
+PLUTO_RELEASED_SETS = {"nb5-plutoasof-v3"}
 # One set per ad attribute (`ATTRIBUTE_FLAGS`) and per place kind
 # (`nearby.KINDS`): nb5-coded-v2 plus that one column, each its own full fit.
 NB5_SINGLES = {
@@ -3109,6 +3202,7 @@ for _new, _old in NB4_SETS.items():
         LISTING_EXTRAS,
         PRICE_HISTORY,
         READS_EARLIER_RENTS,
+        PLUTO_RELEASED_SETS,
     ):
         if _old in _group:
             _group.add(_new)
@@ -3145,6 +3239,9 @@ def build(name: str, frame: pd.DataFrame, train: np.ndarray) -> Features:
     alter_token = _ALTER_DATED.set(
         ALTERATIONS_FILE if name in ALTERATION_DATED_SETS else None
     )
+    released_token = _RELEASED.set(
+        PLUTO_RELEASES_FILE if name in PLUTO_RELEASED_SETS else None
+    )
     parks_token = _PARKS.set(PARKS_SNAPSHOTS.get(name))
     places_token = _PLACES.set(PLACES_SNAPSHOTS.get(name))
     text_token = descriptions_module.SOURCES.set(
@@ -3159,6 +3256,7 @@ def build(name: str, frame: pd.DataFrame, train: np.ndarray) -> Features:
         _EXTRAS.reset(extras_token)
         _LPC.reset(lpc_token)
         _ALTER_DATED.reset(alter_token)
+        _RELEASED.reset(released_token)
         _PARKS.reset(parks_token)
         _PLACES.reset(places_token)
         descriptions_module.SOURCES.reset(text_token)
