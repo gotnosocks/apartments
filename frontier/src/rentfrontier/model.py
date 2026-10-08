@@ -1603,6 +1603,23 @@ MODELS = {
         bedroom_time=True,
         bedroom_time_knot_months=3,
     ),
+    # ... with line effects: units stacked in the same line of a building
+    # (4C, 7C) share an effect (lines with at least 2 training units).
+    "m7-nocurves-floorslope-bednoise-dayfourier-bedtime-yearnoise-lines": ModelConfig(
+        name="m7-nocurves-floorslope-bednoise-dayfourier-bedtime-yearnoise-lines",
+        building_walk=True,
+        bedroom_slope=True,
+        trend_knot_months=3,
+        feature_slopes=("log_sqft_vs_bedroom_median", "bathrooms=2", "log_floor"),
+        unit_t=True,
+        noise_by_bedrooms=True,
+        noise_by_year=True,
+        season_harmonics=2,
+        season_daily=True,
+        bedroom_time=True,
+        bedroom_time_knot_months=3,
+        line_effects=True,
+    ),
     # The served design with a market curve per neighbourhood: each one's
     # quarterly random-walk deviation from the reference neighbourhood's trend.
     "m7-nocurves-floorslope-bednoise-dayfourier-bedtime-areatime": ModelConfig(

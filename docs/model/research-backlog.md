@@ -437,6 +437,132 @@ Scripts: `r12/c13.py` and `r12/loc.py`.
   - **Walk.** `building_trend` goes in as an elegance test beside a yearly-knot walk.
   - **Line term.** The Gibbs line block is #576.
 
+**Six more checks, numbered 0–5 (coordinator relay, 2026-10-08 22:31Z).** No fits. Scripts `c16.py` and
+`c17.py` are in the same directory. Free, public downloads are in
+`/data1/apartments/tmp/bridge/review/ext`:
+- today's MapPLUTO for all of Manhattan (Socrata `64uk-42ks`: floors and coordinates);
+- FRED `MORTGAGE30US`.
+
+The WV-step regressions are those of the West Village step above: class dummies, log rows and
+1/sd² weights. Their baseline is WV +11.6 ± 0.5. With the surface (explained part and residual)
+it is +9.2 ± 0.5.
+
+- **0. Subway lines and parks in the surface.** Ridge on the lines, parks and midtown-time
+  columns alone: R² = 0.61.
+
+  | Feature | pp per SD | Chelsea | GV | WV |
+  |---|---|---|---|---|
+  | N/Q/R/W within 8 min | +2.9 | 0.11 | 0.41 | 0.00 |
+  | L within 8 min | +2.5 | 0.39 | 0.64 | 0.41 |
+  | B/D within 8 min | +1.0 | 0.02 | 0.72 | 0.52 |
+  | 2/3 within 8 min | +0.9 | 0.30 | 0.30 | 0.41 |
+  | 4/5/6 within 8 min | −1.7 | 0.00 | 0.38 | 0.00 |
+  | 1 within 8 min | −1.5 | 0.74 | 0.63 | 0.90 |
+  | A/C/E within 8 min | −1.3 | 0.85 | 0.73 | 0.74 |
+  | log walk minutes to a park | +1.1 | +0.21 | −0.14 | −0.06 |
+  | Subway time to midtown (units of 10 min) | +3.6 | 1.05 | 1.22 | 1.32 |
+
+  The area columns are each area's mean of the raw feature: the share of buildings for the line
+  groups, and the centred mean for the park and midtown columns (in the column's own units). Signs are partial and the line groups are collinear, so read
+  the contributions by family instead.
+
+  | Family contribution (area mean minus all, pp) | Chelsea | GV | WV |
+  |---|---|---|---|
+  | Lines | −0.8 | +2.6 | −0.6 |
+  | Parks | +0.4 | −0.3 | −0.2 |
+  | Midtown time | −2.0 | +0.3 | +1.7 |
+
+  - WV is poor on the positive line groups. It has no N/Q/R/W and fewer L stops than GV, so its
+    lines contribution is −0.6 pp.
+  - Midtown time is positive and largest for WV. It acts as a "downtown" gradient, not a
+    commuting penalty.
+  - The lines family alone puts WV 0.6 pp below the all-building mean, so the WV step is net of a
+    small transit penalty, not a large one. With parks and midtown time the three families net
+    WV +0.9 pp.
+  - **Ledger note:** `nb3-lines-v1` and `nb3-parks-v1` are explanatory under the explained-share
+    rule. Dropping them from the surface regression loses 0.16 and 0.08 of block-fold R². They
+    were within noise under PSIS-LOO: lines-v1 +14.7 ± 15.8 and +20.5 ± 17.1 (two runs), parks-v1
+    −5.2 ± 14.3. The generated
+    `feature-tests.md` has no field for this yet, so the note lives here.
+- **1. Street geometry (pre-1811 grid).** For each building I took the nearest street centerline
+  in the six-neighbourhood basemap (median 20 m away). From it:
+  - the angle off the 29° Manhattan grid, with off-grid meaning > 10°;
+  - the segment (block) length;
+  - "through", meaning the named street runs > 1.5 km in the basemap.
+
+  | Area | Off-grid share | Mean angle |
+  |---|---|---|
+  | Chelsea | 0.4% | 0.2° |
+  | GV | 8.1% | 4.1° |
+  | WV | 89.7% | 31.3° |
+
+  Off-grid is almost the WV label: r = 0.87 with the WV dummy.
+
+  | Area | Off-grid on building level (pp) | Off-grid on surface residual (pp) |
+  |---|---|---|
+  | Chelsea | −13.2 ± 6.2 (only 0.4% off-grid) | |
+  | GV | +3.7 ± 2.2 | |
+  | WV | +4.2 ± 1.1 | +0.1 ± 0.4 |
+
+  | Specification | WV (pp) | Off-grid (pp) |
+  |---|---|---|
+  | Geometry added to the step | +11.6 ± 1.2 (SE doubles) | +3.3 ± 1.0 |
+  | Surface and geometry together | +9.7 ± 1.2 | +1.4 ± 1.0 |
+
+  - **The prediction fails:** angle does not take the surface-adjusted step (+9.2). It has a real within-WV effect of
+    about 4 pp, but it can't be separated from the label across areas.
+  - Block length and through streets have mixed signs by area. The surface already carries the
+    within-WV part: its residual is flat in off-grid.
+- **2. Low-rise context.** Per building, the mean floors of the other lots within 100 m, from today's Manhattan
+  PLUTO. It isn't dated by release; heights of old low-rise blocks rarely change. The median is
+  5.3 in Chelsea, 5.0 in GV and 4.1 in WV (the median over buildings of that per-building mean).
+
+  | Area | Surface residual per log floor (pp) |
+  |---|---|
+  | Chelsea | −2.1 ± 0.5 |
+  | GV | +0.6 ± 0.9 |
+  | WV | +3.2 ± 0.8 |
+  | Pooled | −0.4 ± 0.3 |
+
+  - In the WV step it adds nothing: WV +11.5, or +8.8 ± 0.6 with the surface (low-rise −1.4 ±
+    1.0).
+  - So low-rise context isn't the WV step. Its opposite signs inside Chelsea and WV suggest it
+    stands in for something else, such as Chelsea's towers along the avenues.
+- **3. Name or structure.** The served fit has no area-time term, so the drift lives in the
+  building walks and residuals. Below are area-by-year means of row residual + building walk,
+  minus Chelsea.
+
+  | Area | 2014–19 (pp) | 2022 | 2023 | 2024 | 2025 | 2026 | Slope 2014–26 (pp/yr) |
+  |---|---|---|---|---|---|---|---|
+  | WV | between −1.2 and +0.3 each year | +1.6 | +2.5 | +2.9 | +3.8 | +5.6 | +0.48 |
+  | GV | between −0.7 and +0.5 | −0.8 | +0.3 | +0.5 | −0.1 | +1.6 | +0.09 |
+  | Gramercy | between −0.4 and +1.2 | +1.0 | +1.2 | −0.4 | +1.2 | +2.4 | +0.08 |
+  | Flatiron | between −1.3 and +0.9 | −0.6 | −1.9 | −0.2 | −3.5 | −1.1 | −0.20 |
+
+  - The building walks alone show it as well: by 2026 the mean WV walk is +1.6 pp and Chelsea's
+    is −0.9 pp.
+  - **The WV premium is growing** — fashion, or WV-specific demand — on top of a large constant
+    step. The constant label under-predicts WV now by several pp. The walks and residuals absorb
+    it building by building, which is weak for new buildings.
+  - So an area-time term (`area_time`, already in the backlog as "Areatime as a full fit") moves
+    up. It is cheap, and it would also stop the walks from carrying area trend.
+- **4. Stabilized share.** The stabilized units in the latest tax bill up to 2024 (stab-v1 file),
+  divided by PLUTO residential units. Mean share: Chelsea 0.17, GV 0.13, WV 0.15.
+  - Building level per unit of share: −10.9 ± 1.5 pp within WV, −8.9 ± 0.9 across the three
+    areas.
+  - It is a strong building-level covariate. It doesn't explain the WV step (+11.4).
+  - It supports Data's `stabopen-v2` and `explain-v1` sets as next-in-line tests.
+- **5. Buyers in waiting.** The 30-year mortgage rate (monthly mean) against the monthly 3BR+ and
+  2BR curves, 2010–2026, with the rate leading by 0–24 months:
+  - 3BR+: levels r = −0.31 at lag 0, fading to +0.11 at 24 months. On 12-month changes, r is
+    −0.13 to +0.03 at every lag. Annual changes: r = +0.12 (lag 0) and −0.17 (lag 1 year).
+  - 2BR: levels r = −0.22 at lag 0, +0.23 at 24 months; 12-month changes −0.15 to +0.06; annual
+    changes +0.18 and −0.04.
+  - Monthly series are strongly serially correlated, so the effective n is near the 16 years;
+    none of these r values is distinguishable from 0.
+  - The level correlation has the wrong sign for buyers-in-waiting: high rates go with a *larger*
+    3BR+ discount. Changes show nothing. **No support.**
+
 ## Open-data survey: stabilization, permits, owners, dated MapPLUTO (2026-10-07)
 
 Four free sources, sized against the 105,244 rows of `chelsea-wv-gv-analysis-20261005-2d5b3b6`

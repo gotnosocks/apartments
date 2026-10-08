@@ -74,6 +74,23 @@ def synthetic(seed=0, n_buildings=15, units_per_building=8, months=24):
     )
 
 
+def with_lines(prep, scale=0.1, seed=5):
+    """prep with units in lines (2 per line, units of 1 building) and a line
+    effect of sd `scale` added to y; every 7th unit has no shared line."""
+    rng = np.random.default_rng(seed)
+    unit_line = (np.asarray(prep.units) // 100) * 4 + (np.asarray(prep.units) % 4)
+    unit_line[::7] = -1
+    _, codes = np.unique(unit_line[unit_line >= 0], return_inverse=True)
+    unit_line[unit_line >= 0] = codes
+    effect = rng.normal(0, scale, unit_line.max() + 1)
+    row_line = unit_line[prep.train.unit]
+    y = prep.train.y + np.where(row_line >= 0, effect[np.maximum(row_line, 0)], 0.0)
+    train = dataclasses.replace(prep.train, y=y)
+    out = dataclasses.replace(prep, train=train, test=train.map(lambda v: v[:10]))
+    out.unit_line = unit_line.astype(np.int32)
+    return out
+
+
 DESIGNS = {
     "base": model.ModelConfig(),
     "walk": model.ModelConfig(building_walk=True),
@@ -128,6 +145,7 @@ DESIGNS = {
         unit_t=True,
         unit_drift=True,
     ),
+    "lines": model.ModelConfig(building_walk=True, line_effects=True),
     "quarterly": model.ModelConfig(
         building_walk=True,
         bedroom_time=True,
@@ -188,7 +206,8 @@ def dense_mean(d, lam, s, kappa=None):
 # The dense reference has one residual scale; "bednoise" is checked against
 # the one-scale block with rescaled weights instead.
 @pytest.mark.parametrize(
-    "design", sorted(set(DESIGNS) - {"bednoise", "bednoise-fourier", "yearnoise"})
+    "design",
+    sorted(set(DESIGNS) - {"bednoise", "bednoise-fourier", "yearnoise", "lines"}),
 )
 def test_joint_gaussian_mean_matches_dense_solve(design):
     prep = synthetic()
@@ -423,11 +442,12 @@ def test_student_t_units_block_matches_dense():
         "fourier",
         "bednoise-fourier",
         "dayfourier",
+        "lines",
     ],
 )
 def test_site_values_reproduce_linear_predictor(design):
     """Gibbs state -> NumPyro sites -> model.linear_predictor equals the Gibbs fit."""
-    prep = synthetic()
+    prep = with_lines(synthetic()) if design == "lines" else synthetic()
     d = gibbs.build_design(prep, DESIGNS[design])
     rng = np.random.default_rng(3)
     state = {
@@ -440,6 +460,9 @@ def test_site_values_reproduce_linear_predictor(design):
         "drift": jnp.asarray(rng.normal(0, 0.05, d.n_units)),
         **{k: SCALES.get(k, 0.05) for k in d.scale_names},
     }
+    if d.line_row is not None:
+        state["line"] = jnp.asarray(rng.normal(0, 0.1, d.n_lines))
+        state["line_scale"] = 0.1
     p = gibbs.site_values(d, state)
     mu_model = model.linear_predictor(p, prep.train.map(jnp.asarray))
     mu_gibbs = d.a @ state["theta"] + gibbs.local_value(
@@ -448,6 +471,8 @@ def test_site_values_reproduce_linear_predictor(design):
     mu_gibbs = mu_gibbs + state["unit"][d.unit]
     if d.unit_drift:
         mu_gibbs = mu_gibbs + state["drift"][d.unit] * d.unit_time
+    if d.line_row is not None:
+        mu_gibbs = mu_gibbs + gibbs.line_rows(d, state["line"])
     np.testing.assert_allclose(np.asarray(mu_model), np.asarray(mu_gibbs), atol=1e-10)
 
 
@@ -464,6 +489,7 @@ def test_site_values_reproduce_linear_predictor(design):
         # from the centred reference. Gibbs ESS on unit_drift_scale is ~80-200
         # here, so the 15% sd tolerance is about 2 sigma.
         "tdrift",
+        "lines",
     ],
 )
 def test_gibbs_matches_nuts_on_same_model(design):
@@ -471,6 +497,8 @@ def test_gibbs_matches_nuts_on_same_model(design):
     from numpyro.infer import MCMC, NUTS
 
     prep = synthetic(seed=2)
+    if design == "lines":
+        prep = with_lines(prep)
     config = DESIGNS[design]
     # Reference: NUTS with the walk and drift sites non-centred. On this small
     # synthetic dataset their scales sit near zero, where centred NUTS mixes
@@ -548,6 +576,13 @@ def test_gibbs_matches_nuts_on_same_model(design):
             means["unit_drift"][0],
             sds["unit_drift"][0],
         )
+    if config.line_effects:
+        checks["line_scale"] = (
+            nuts["line_scale"],
+            means["line_scale"],
+            sds["line_scale"],
+        )
+        checks["line[0]"] = (nuts["line"][:, 0], means["line"][0], sds["line"][0])
     if config.unit_t:
         checks["unit_nu"] = (nuts["unit_nu"], means["unit_nu"], sds["unit_nu"])
         checks["unit0"] = (nuts["unit"][:, 0], means["unit"][0], sds["unit"][0])
@@ -683,6 +718,34 @@ def test_per_group_noise_runs_and_reports_a_scale_per_group():
     )
     assert np.asarray(out["mean"]["sigma"]).shape == (4,)
     assert np.all(np.asarray(out["mean"]["sigma"]) > 0)
+
+
+def test_lines_run_and_report_line_effects():
+    prep = with_lines(synthetic())
+    out = gibbs.run(
+        prep,
+        DESIGNS["lines"],
+        gibbs.Settings(chains=2, warmup=40, draws=40, keep_every=4),
+        log=lambda *_: None,
+    )
+    assert np.asarray(out["mean"]["line"]).shape == (int(prep.unit_line.max()) + 1,)
+    assert float(np.asarray(out["mean"]["line_scale"])) > 0
+
+
+def test_line_draw_is_the_conjugate_normal():
+    """line | rest: precision sum(w) + 1/scale^2 over the line's rows."""
+    prep = with_lines(synthetic())
+    d = gibbs.build_design(prep, DESIGNS["lines"])
+    rng = np.random.default_rng(4)
+    r = jnp.asarray(rng.normal(0, 0.1, d.y.shape[0]))
+    w = jnp.asarray(rng.gamma(2.0, 50.0, d.y.shape[0]))
+    keys = jax.random.split(jax.random.PRNGKey(0), 4000)
+    draws = np.asarray(jax.vmap(lambda k: gibbs.line_draw(k, d, r, w, 0.1))(keys))
+    rows = np.asarray(d.line_row) == 0
+    prec = float(np.asarray(w)[rows].sum()) + 100.0
+    mean = float((np.asarray(w) * np.asarray(r))[rows].sum()) / prec
+    assert abs(draws[:, 0].mean() - mean) < 4 / np.sqrt(prec * 4000)
+    assert abs(draws[:, 0].std() * np.sqrt(prec) - 1) < 0.05
 
 
 def test_year_noise_groups_are_bedroom_group_by_calendar_year():

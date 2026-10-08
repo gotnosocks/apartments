@@ -3253,6 +3253,72 @@ def open_space_v2(
     )
 
 
+# A large single-owner complex: one Department of Finance owner name (MapPLUTO
+# `ownername`, `BLOCKLOTS_FILE`) holding at least this many buildings and
+# residential units on one tax block. Owner names that stand for no one
+# (unavailable, not on file) hold nothing.
+COMPLEX_MIN_BUILDINGS = 3
+COMPLEX_MIN_UNITS = 300
+_NO_OWNER = {"", "UNAVAILABLE OWNER", "NAME NOT ON FILE"}
+
+
+def single_owner_complex(frame: pd.DataFrame) -> np.ndarray:
+    """Per row: whether its building's registry lot belongs to a large
+    single-owner complex (COMPLEX_MIN_BUILDINGS, COMPLEX_MIN_UNITS): the lots
+    of its block with the same owner name hold that many buildings and
+    residential units between them. The owner is today's, read for every
+    year: a complex is sold whole, not split. A condominium's billing lots
+    (7501 on) hold nothing. A campus held by differently named companies is
+    missed. Reads no rents."""
+    lots = pd.read_parquet(BLOCKLOTS_FILE)
+    lots["owner"] = (
+        lots.ownername.fillna("")
+        .str.upper()
+        .str.replace(r"[^A-Z0-9 ]", "", regex=True)
+        .str.replace(r"\s+", " ", regex=True)
+        .str.strip()
+    )
+    billing = pd.to_numeric(lots.lot, errors="coerce") >= 7501
+    lots = lots[~lots.owner.isin(_NO_OWNER) & ~billing].copy()
+    lots["block"] = lots.bbl.str[:6]
+    for column in ("numbldgs", "unitsres"):
+        lots[column] = pd.to_numeric(lots[column], errors="coerce").fillna(0)
+    held = lots.groupby(["owner", "block"])[["numbldgs", "unitsres"]].transform("sum")
+    complex_lots = set(
+        lots.bbl[
+            (held.numbldgs >= COMPLEX_MIN_BUILDINGS)
+            & (held.unitsres >= COMPLEX_MIN_UNITS)
+        ]
+    )
+    registry = pd.read_parquet(lot_registry()).set_index("building")
+    in_complex = {
+        building: str(bbl) in complex_lots for building, bbl in registry.bbl.items()
+    }
+    return frame.building.map(in_complex).fillna(False).to_numpy(bool)
+
+
+def owner_v1(
+    frame: pd.DataFrame,
+    train: np.ndarray,
+    id: str,
+    base: str,
+) -> Features:
+    """A base set plus an indicator of a large single-owner complex
+    (`single_owner_complex`): one landlord's campus, as Stuyvesant Town, Peter
+    Cooper Village, London Terrace or Penn South. Reads no rents."""
+    base = FEATURE_SETS[base](frame, train)
+    b = _Builder(frame)
+    b.add("building size", "single-owner complex", single_owner_complex(frame))
+    out = b.build(id)
+    return Features(
+        id,
+        base.names + out.names,
+        base.groups + out.groups,
+        np.column_stack([base.values, out.values]),
+        np.concatenate([base.prior_scale, out.prior_scale]),
+    )
+
+
 # Feature sets that read the external snapshots (run records list them).
 EXTERNAL = {
     "nb-pluto-base",
@@ -3354,9 +3420,15 @@ RENTSTAB = {
     "nb6-nostuy-stab-v1",
     "nb6-nostuy-stabopen-v1",
     "nb6-nostuy-stabopen-v2",
+    "nb6-nostuy-explain-v1",
 }
 # Feature sets that read the block lots snapshot (`BLOCKLOTS_FILE`).
-BLOCKLOTS = {"nb6-nostuy-open-v2", "nb6-nostuy-stabopen-v2"}
+BLOCKLOTS = {
+    "nb6-nostuy-open-v2",
+    "nb6-nostuy-stabopen-v2",
+    "nb6-nostuy-owner-v1",
+    "nb6-nostuy-explain-v1",
+}
 # Feature sets that read the advertisement descriptions (`descriptions.SOURCE`),
 # directly or through their base set.
 DESCRIPTIONS = {
@@ -3986,6 +4058,8 @@ NB6_SETS = {
     "nb6-nostuy-stabopen-v1": "nb5-plutoasof-v3",
     "nb6-nostuy-open-v2": "nb5-plutoasof-v3",
     "nb6-nostuy-stabopen-v2": "nb5-plutoasof-v3",
+    "nb6-nostuy-owner-v1": "nb5-plutoasof-v3",
+    "nb6-nostuy-explain-v1": "nb5-plutoasof-v3",
 }
 # nb5-plutoasof-v3 plus Stuyvesant Town/PCV (`hoods_v1`): the six
 # neighbourhoods' base. Not fitted until runs resume (Ben, 2026-10-08: pause).
@@ -4029,13 +4103,21 @@ FEATURE_SETS["nb6-nostuy-stabopen-v1"] = partial(
 # their lot's area. v2 (`open_space_v2`) measures a footprint over the union of
 # the lots it spans and leaves a lot area that cannot hold it unknown: the v1
 # sets are not to be fitted. Building age and type are in the base (era,
-# class, units); a single owner is not, and is still to test as a large
-# single-owner complex from a public owner field.
+# class, units); a single owner is not (`owner_v1` below).
 FEATURE_SETS["nb6-nostuy-open-v2"] = partial(
     open_space_v2, id="nb6-nostuy-open-v2", base="nb6-nostuy-v1"
 )
 FEATURE_SETS["nb6-nostuy-stabopen-v2"] = partial(
     open_space_v2, id="nb6-nostuy-stabopen-v2", base="nb6-nostuy-stab-v1"
+)
+# One landlord's campus (`owner_v1`) in place of the indicator, alone and with
+# the stabilized and open shares (nb6-nostuy-explain-v1): every explanation of
+# the Stuyvesant Town/PCV premium at once.
+FEATURE_SETS["nb6-nostuy-owner-v1"] = partial(
+    owner_v1, id="nb6-nostuy-owner-v1", base="nb6-nostuy-v1"
+)
+FEATURE_SETS["nb6-nostuy-explain-v1"] = partial(
+    owner_v1, id="nb6-nostuy-explain-v1", base="nb6-nostuy-stabopen-v2"
 )
 for _new, _old in NB6_SETS.items():
     for _group in (
