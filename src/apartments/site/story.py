@@ -711,6 +711,20 @@ def _signed_sqrt(v: float) -> float:
     return math.copysign(math.sqrt(abs(v)), v)
 
 
+def label_lines(words: str, width: int = 46, lines: int = 2) -> list[str]:
+    """`words` wrapped at spaces into at most `lines` lines of `width`
+    characters, the last cut with an ellipsis if the words still run on."""
+    out, rest = [], words
+    while rest and len(out) < lines - 1 and len(rest) > width:
+        cut = rest.rfind(" ", 0, width + 1)
+        cut = cut if cut > 0 else width
+        out.append(rest[:cut].rstrip())
+        rest = rest[cut:].lstrip()
+    if len(rest) > width:
+        rest = rest[: width - 1].rstrip() + "…"
+    return out + [rest]
+
+
 def theories_svg(entries: list[dict]) -> Markup:
     """Every theory as a row: a dot for each time it was tested, a band of
     two standard errors around the latest test, coloured by its verdict, on
@@ -718,7 +732,7 @@ def theories_svg(entries: list[dict]) -> Markup:
     the theories were first tried."""
     if not entries:
         return Markup("")
-    row, top, label_w, head = 20, 26, 300, 22
+    row, top, label_w, head, line = 20, 26, 300, 22, 13
     values = [0.0]
     for t in entries:
         values += [t["diff"] - 2 * t["se"], t["diff"] + 2 * t["se"]]
@@ -740,7 +754,9 @@ def theories_svg(entries: list[dict]) -> Markup:
     for t in entries:
         if not kinds or kinds[-1] != t["kind"]:
             kinds.append(t["kind"])
-    height = top + row * len(entries) + head * len(kinds) + 8
+    wrapped = [label_lines(t["words"]) for t in entries]
+    extra = sum(line * (len(w) - 1) for w in wrapped)
+    height = top + row * len(entries) + extra + head * len(kinds) + 8
     out = [
         f'<line class="grid" x1="{x(v):.1f}" y1="{top - 6}" x2="{x(v):.1f}" '
         f'y2="{height - 4}"/><text class="tick" x="{x(v):.1f}" y="{top - 12}" '
@@ -752,7 +768,7 @@ def theories_svg(entries: list[dict]) -> Markup:
     )
     names = {k[0]: k[1] for k in KINDS}
     y, kind = top, None
-    for t in entries:
+    for t, lines in zip(entries, wrapped):
         if t["kind"] != kind:
             kind = t["kind"]
             out.append(
@@ -760,15 +776,19 @@ def theories_svg(entries: list[dict]) -> Markup:
                 f"{escape(names.get(kind, kind))}</text>"
             )
             y += head
-        cy = y + row / 2
-        words = t["words"] if len(t["words"]) <= 46 else t["words"][:45] + "…"
+        tall = row + line * (len(lines) - 1)
+        cy = y + tall / 2
+        first = cy + 4 - line * (len(lines) - 1) / 2
+        text = "".join(
+            f'<tspan x="{label_w - 10}" y="{first + line * i:.1f}">{escape(part)}</tspan>'
+            for i, part in enumerate(lines)
+        )
         lo2, hi2 = t["diff"] - 2 * t["se"], t["diff"] + 2 * t["se"]
         out.append(
             f'<g class="trial v-{t["verdict"]} d{min(t["seq"], 39)}">'
             f"<title>{escape(t['words'])}: {t['diff']:+,.0f} ± {t['se']:,.0f}, "
             f"{VERDICT_WORDS[t['verdict']]}</title>"
-            f'<text class="eff-label" x="{label_w - 10}" y="{cy + 4:.1f}" '
-            f'text-anchor="end">{escape(words)}</text>'
+            f'<text class="eff-label" text-anchor="end">{text}</text>'
             f'<line class="ci" x1="{x(lo2):.1f}" y1="{cy:.1f}" x2="{x(hi2):.1f}" y2="{cy:.1f}"/>'
             + "".join(
                 f'<circle class="rep" cx="{x(r["diff"]):.1f}" cy="{cy:.1f}" r="2.5"/>'
@@ -776,7 +796,7 @@ def theories_svg(entries: list[dict]) -> Markup:
             )
             + f'<circle class="dot" cx="{x(t["diff"]):.1f}" cy="{cy:.1f}" r="4.5"/></g>'
         )
-        y += row
+        y += tall
     label = "Theories tested, with the change in PSIS-LOO and verdict: " + "; ".join(
         f"{t['words']} {t['diff']:+,.0f}, {VERDICT_WORDS[t['verdict']]}"
         for t in entries

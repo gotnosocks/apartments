@@ -566,3 +566,14 @@ def test_group_items_step_aside_once_served():
     served = {"text:corner_unit", "log m to NYCHA housing"}
     assert story.group_items(GROUP_ITEMS, trials, "m-test-run", served) is None
     assert story.group_items(GROUP_ITEMS, trials, "m-test-run", {"text:x"})
+
+
+def test_label_lines_wrap_at_spaces():
+    assert story.label_lines("short") == ["short"]
+    long = "the same repricing idea, retested once Greenwich Village joined"
+    assert story.label_lines(long) == [
+        "the same repricing idea, retested once",
+        "Greenwich Village joined",
+    ]
+    lines = story.label_lines("word " * 30)
+    assert len(lines) == 2 and lines[1].endswith("…") and len(lines[1]) <= 46
