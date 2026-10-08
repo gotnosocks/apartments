@@ -1,0 +1,149 @@
+{
+ "run": "m7-nocurves-floorslope-bednoise-dayfourier-bedtime-yearnoise-nb5-coded-v2-rows-5789d79-a100-4500k9cb1-nb5-ul11r1s4",
+ "dataset": "chelsea-wv-gv-flatiron-gramercy-analysis-20261008-0a23057",
+ "rows": 135477,
+ "rows_with_text": 129756,
+ "near_m": 400.0,
+ "attributes": [
+  {
+   "item": "walk_in_closet",
+   "rows": 11217,
+   "share": 0.0864,
+   "raw_pct": 31.9
+  },
+  {
+   "item": "live_in_super",
+   "rows": 20804,
+   "share": 0.1603,
+   "raw_pct": -6.7
+  },
+  {
+   "item": "utilities_included",
+   "rows": 6748,
+   "share": 0.052,
+   "raw_pct": -11.1
+  },
+  {
+   "item": "windowed_kitchen",
+   "rows": 7651,
+   "share": 0.059,
+   "raw_pct": -2.3
+  },
+  {
+   "item": "windowed_bath",
+   "rows": 5797,
+   "share": 0.0447,
+   "raw_pct": -13.0
+  },
+  {
+   "item": "tree_lined",
+   "rows": 12688,
+   "share": 0.0978,
+   "raw_pct": -5.9
+  },
+  {
+   "item": "skylight",
+   "rows": 3206,
+   "share": 0.0247,
+   "raw_pct": 6.2
+  },
+  {
+   "item": "video_intercom",
+   "rows": 6233,
+   "share": 0.048,
+   "raw_pct": 0.6
+  },
+  {
+   "item": "corner_unit",
+   "rows": 4755,
+   "share": 0.0366,
+   "raw_pct": 22.2
+  },
+  {
+   "item": "separate_kitchen",
+   "rows": 8316,
+   "share": 0.0641,
+   "raw_pct": -16.4
+  },
+  {
+   "item": "floor_to_ceiling_windows",
+   "rows": 8606,
+   "share": 0.0663,
+   "raw_pct": 38.4
+  },
+  {
+   "item": "marble_bath",
+   "rows": 11546,
+   "share": 0.089,
+   "raw_pct": -0.2
+  },
+  {
+   "item": "hardwood",
+   "rows": 58619,
+   "share": 0.4518,
+   "raw_pct": -2.9
+  },
+  {
+   "item": "stainless",
+   "rows": 46827,
+   "share": 0.3609,
+   "raw_pct": 6.8
+  },
+  {
+   "item": "prewar_text",
+   "rows": 16000,
+   "share": 0.1233,
+   "raw_pct": -4.7
+  }
+ ],
+ "places": [
+  {
+   "item": "dog run",
+   "words": "dog run",
+   "rows": 135477,
+   "median_m": 620,
+   "near_share": 0.2542,
+   "raw_pct_per_doubling": -1.6
+  },
+  {
+   "item": "hospital",
+   "words": "hospital",
+   "rows": 135477,
+   "median_m": 860,
+   "near_share": 0.1469,
+   "raw_pct_per_doubling": 6.0
+  },
+  {
+   "item": "ambulance station",
+   "words": "ambulance station",
+   "rows": 135477,
+   "median_m": 1350,
+   "near_share": 0.0919,
+   "raw_pct_per_doubling": -1.6
+  },
+  {
+   "item": "drop-in center",
+   "words": "homeless drop-in center",
+   "rows": 135477,
+   "median_m": 810,
+   "near_share": 0.0992,
+   "raw_pct_per_doubling": -2.3
+  },
+  {
+   "item": "nycha",
+   "words": "NYCHA housing",
+   "rows": 135477,
+   "median_m": 910,
+   "near_share": 0.1341,
+   "raw_pct_per_doubling": 1.2
+  },
+  {
+   "item": "arena",
+   "words": "Madison Square Garden",
+   "rows": 135477,
+   "median_m": 1870,
+   "near_share": 0.0125,
+   "raw_pct_per_doubling": -5.6
+  }
+ ]
+}
