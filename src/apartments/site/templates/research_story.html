@@ -133,7 +133,7 @@ Not every part is sure of its direction, either: the 95% interval{{ "s" if unsur
 {{ "run" if unsure | length > 1 else "runs" }} from below zero to above it, so for this apartment the model can't say
 whether {{ "they add to the ask or take from it" if unsure | length > 1 else "it adds to the ask or takes from it" }}.{% endif %}{% if accuracy %}{% set miss = 100 * (build.ask - build.estimate) / build.estimate %}
 The ask is {{ "{:.1f}".format(miss | abs) }}% {{ "above" if miss > 0 else "below" }} the estimate.
-{% if miss | abs > 2 * accuracy.median %}That is a wider miss than most{% elif miss | abs > accuracy.median %}That is a little wider than the typical miss{% else %}That is closer than the typical miss{% endif %}:
+{% if miss | abs > 2 * accuracy.median %}That is more than twice the typical miss{% elif miss | abs > accuracy.median %}That is wider than the typical miss{% else %}That is closer than the typical miss{% endif %}:
 half of the asks the model never saw land within {{ "{:.1f}".format(accuracy.median) }}% of their estimate.{% endif %}</p>
 
 <details class="table-view">
