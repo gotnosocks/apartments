@@ -210,6 +210,14 @@ treat it as rough.{% endif %}{% endif %}</p>
 <a href="{{ url_for('research_glossary') }}#price-band">likely ask range</a>, the middle 80% of the asks it expects
 for that apartment. If those ranges are honest, about 80% of the held-out asks should fall inside them; here
 {{ "{:.0f}".format(accuracy.likely) }}% do.</p>
+{% macro near(pct) %}${{ "{:,.0f}".format((accuracy.typical * pct / 100) | round(-1)) }}{% endmacro %}
+<p><strong>What this means for one estimate.</strong>{% if accuracy.seen and accuracy.new %} If the apartment
+has been listed before, half the time its ask lands within {{ "{:.1f}".format(accuracy.seen.median) }}% of the
+estimate, about {{ near(accuracy.seen.median) }} on a typical ${{ "{:,.0f}".format(accuracy.typical) }} ask. If it
+is new to the data, expect a wider miss: half the time within {{ "{:.1f}".format(accuracy.new.median) }}%, about
+{{ near(accuracy.new.median) }}.{% endif %} Either way, lean on the likely ask range shown with each listing more
+than on the single number: {{ "{:.0f}".format(accuracy.likely) }}% of the held-out asks fell inside their range, so an
+ask outside it, about {{ "{:.0f}".format(100 - accuracy.likely) }} in 100, is not a sign the estimate is broken.</p>
 </section>
 {% endif %}
 
