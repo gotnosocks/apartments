@@ -95,6 +95,9 @@ def test_build_up_ends_at_the_estimate(client):
     # the opening answers "can I trust it?" before the chapters
     shape = text[text.index('<section id="shape">') :]
     assert shape.index("the <em>spread</em> in asks") < shape.index("compose-figure")
+    # the layers chapter keeps its maths in a fold-out, after the figure
+    assert "(In the maths" not in shape and "(The shares split" not in shape
+    assert shape.index("compose-figure") < shape.index("the variance of the log asks")
     assert "the range the model is 90% sure holds the true share" in text
     # the two kinds of range are told apart once, before the chapters
     assert text.index('id="ranges"') < text.index('<section id="shape">')
