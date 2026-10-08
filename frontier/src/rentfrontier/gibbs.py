@@ -1089,7 +1089,7 @@ def make_step(d: Design):
             rescale_step_sd,
             unit_rescale_step_sd,
         ) = cfg
-        keys = jax.random.split(key, 14)
+        keys = jax.random.split(key, 15)
         s = {k: state[k] for k in d.scale_names}
         z = (
             jax.random.normal(keys[0], (d.a.shape[1],)),
@@ -1472,10 +1472,10 @@ def make_step(d: Design):
             # line | the rest, line_scale | line, then a (scale, line) rescale.
             r = e + line_rows(d, state["line"])
             line = line_draw(
-                jax.random.fold_in(keys[12], 1), d, r, wts, state["line_scale"]
+                jax.random.fold_in(keys[14], 1), d, r, wts, state["line_scale"]
             )
             line_scale = _update_scale(
-                jax.random.fold_in(keys[12], 2),
+                jax.random.fold_in(keys[14], 2),
                 state["line_scale"],
                 jnp.sum(line * line),
                 d.n_lines,
@@ -1483,7 +1483,7 @@ def make_step(d: Design):
             )
             contrib = line_rows(d, line)
             c_l, line_scale, acc_l = _rescale(
-                jax.random.fold_in(keys[12], 3),
+                jax.random.fold_in(keys[14], 3),
                 r - contrib,
                 wts,
                 contrib,
