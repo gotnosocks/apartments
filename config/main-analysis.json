@@ -1,9 +1,9 @@
 {
   "version": "main-analysis-selection-v2",
   "model_family": "frontier_summary",
-  "summary": "/data1/apartments/frontier/summaries/m7-nocurves-floorslope-bednoise-dayfourier-bedtime-yearnoise-nb5-coded-v2-rows-fedd83d-a100-4500k9cb1-nb5-ul11r1s4q10ad3-d3e8c34",
-  "summary_manifest_sha256": "6e89346d6c45f31ea32974d442cf13b15479e9e167a42216675fe541f0d698b9",
-  "summary_commit": "d3e8c345c47a6b9b0d79b32992ec91319a6db820",
+  "summary": "/data1/apartments/frontier/summaries/m7-nocurves-floorslope-bednoise-dayfourier-bedtime-yearnoise-nb5-coded-v2-rows-fedd83d-a100-4500k9cb1-nb5-ul11r1s4q10ad3-37f33c1",
+  "summary_manifest_sha256": "d23a0492d67188f7dbe07ad71955d2140c26466000791417e17b8ce27c39157a",
+  "summary_commit": "37f33c19d6519139df851ce5ddffb654939d3088",
   "run": "m7-nocurves-floorslope-bednoise-dayfourier-bedtime-yearnoise-nb5-coded-v2-rows-fedd83d-a100-4500k9cb1-nb5-ul11r1s4q10ad3",
   "run_commit": "fedd83d91af5264e0a6576b6e50d8a0cac5f3f27",
   "model": "m7-nocurves-floorslope-bednoise-dayfourier-bedtime-yearnoise",
