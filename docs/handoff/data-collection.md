@@ -1,8 +1,16 @@
 # Data collection — handoff
 
-Updated 2026-10-08 01:55 ET. Thread owner: the Data collection project thread (bridge session on thelio).
+Updated 2026-10-08 02:30 ET. Thread owner: the Data collection project thread (bridge session on thelio).
 
 ## State
+- **NoMad, East Village, Stuyvesant Town/PCV crawls: RUNNING** since Oct 8 02:23 ET (Ben, typed
+  06:19 UTC). One StreetEasy area each (`nomad`, `east-village`, `stuyvesant-town`; #482), FGP
+  policy, `run-8pm-2w.py` each (24/min combined), fallback 8pm → 4pm → STOP; monitors
+  `apartments-{nomad,ev,stuytown}-monitor.timer`. Controls: `data/probes/<name>-20261008/README.md`
+  (local); archives `/data1/apartments/archive/crawls/<name>-20261008`. Estimates from FGP's ratio:
+  NoMad ~8k requests (~$9), EV ~70k (~$80), Stuy Town 15–30k (unit pages dominate). When each
+  finishes: snapshot, compact the snapshot (`streeteasy_archive.compact`), build the dataset,
+  audit and alias table as for FGP, and hand off via the coordinator.
 - **Flatiron + Gramercy Park crawl: FINISHED** Oct 7 21:01 ET (spider `finish_reason: finished`).
   39,191 requests (~$45), no 429s or account errors, 372 coverage-gap 404s; 1,067 building, 450
   directory and 68k listing frontier entries. It ended with 8,659 pending that the run does not
@@ -42,8 +50,11 @@ Updated 2026-10-08 01:55 ET. Thread owner: the Data collection project thread (b
      matched its snapshot apart from 4 header bytes. `/data1` went from 108 to 308 GB free. Logs
      and bodies stay. The disabled `apartments-archive.service` now serves
      `archive/browse/chelsea-backfill-20260912` (symlinks to the snapshot and `archive/bodies`).
-  2. "Compact the snapshots." Do one at a time (~125 GiB in total), check audit equality before
-     each swap, regenerate `.sha256`, and never prune `bodies/`.
+  2. RUNNING since Oct 8 01:56 ET (Ben, typed: "Compact the snapshots."): unit
+     `se-compact-snapshots`, driver and log in `/data1/apartments/tmp/se-compact/`. Smallest first;
+     each copy is checked row by row (and by audit where the tables exist) before it replaces the
+     original; `.sha256` regenerated. Never prune `bodies/`. The `bytes` in
+     `snapshots/chelsea-20260908/complete.json` is the pre-compaction size.
 - Ben, Oct 8 00:49 UTC: the Oxylabs budget is limited. Before proposing any new paid collection,
   estimate its value to the model (coverage gaps, unit-history depth) against its cost.
 
