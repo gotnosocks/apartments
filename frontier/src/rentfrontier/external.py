@@ -20,6 +20,10 @@ Sources:
   speed and roadway type (NYC Open Data inkn-q76z), parks (enfh-gkve) and
   Manhattan's shoreline (borough boundary, gthc-hcne). One row per feature,
   geometry as GeoJSON.
+- dob: DOB job filings (NYC Open Data ic3t-wcy2, legacy BIS, and w9ak-ipjd,
+  DOB NOW) of the registry's buildings, by BIN: alterations and new buildings
+  with the date of their first permit and the job description, which often
+  names the apartment worked on.
 - hpd: HPD Housing Maintenance Code Violations (NYC Open Data wvxf-dwi5) of
   the registry's buildings, by BIN, and by tax lot (BBL) for placeholder BINs
   (n000000): class (A non-hazardous, B hazardous, C immediately hazardous, I
@@ -374,6 +378,96 @@ def fetch_hpd(registry: pd.DataFrame, batch: int = 100, page: int = 50_000):
         ).isoformat(),
     }
     return table.reset_index(drop=True), queries, version
+
+
+# DOB job filings of the registry's buildings: legacy BIS and DOB NOW. Alterations
+# and new buildings, dated by their first permit (a filing alone is not work).
+DOB_LEGACY_ID = "ic3t-wcy2"
+DOB_NOW_ID = "w9ak-ipjd"
+
+
+def fetch_dob(registry: pd.DataFrame, batch: int = 100, page: int = 50_000):
+    """One row per job with a permit: bin, job, kind (A1 alteration with a new
+    certificate of occupancy, A2 other alteration, NB new building), the date of
+    its first permit and its description (DOB NOW's floor note in front)."""
+    bins = registry.bin.dropna().astype(str)
+    bins = sorted(set(bins[~bins.str.fullmatch(r"[1-5]000000")]))
+    specs = (
+        (DOB_LEGACY_ID, "bin__", "job__", "fully_permitted", ("job_description",)),
+        (
+            DOB_NOW_ID,
+            "bin",
+            "job_filing_number",
+            "first_permit_date",
+            ("work_on_floor", "job_description"),
+        ),
+    )
+    rows, queries, versions = [], [], {}
+    for dataset, bin_field, job_field, date_field, text_fields in specs:
+        select = [bin_field, job_field, "job_type", date_field, *text_fields]
+        for i in range(0, len(bins), batch):
+            where = (
+                f"{bin_field} in ({', '.join(repr(v) for v in bins[i : i + batch])})"
+            )
+            for offset in itertools.count(0, page):
+                params = {
+                    "$select": ", ".join(select),
+                    "$where": where,
+                    "$order": ":id",
+                    "$limit": page,
+                    "$offset": offset,
+                }
+                got = _socrata(dataset, params)
+                for r in got:
+                    kind = r.get("job_type") or ""
+                    if dataset == DOB_NOW_ID:
+                        if not kind.startswith(
+                            ("Alteration", "New Building", "ALT-CO")
+                        ):
+                            continue
+                        kind = (
+                            "NB"
+                            if kind.startswith("New")
+                            else "A1"
+                            if "CO" in kind
+                            else "A2"
+                        )
+                    elif kind not in ("A1", "A2", "NB"):
+                        continue
+                    text = " ".join(r.get(f) or "" for f in text_fields)
+                    rows.append(
+                        {
+                            "bin": r.get(bin_field),
+                            "job": r.get(job_field),
+                            "kind": kind,
+                            "permitted": r.get(date_field),
+                            "description": text.strip().upper(),
+                        }
+                    )
+                queries.append(f"{dataset}?{urllib.parse.urlencode(params)}")
+                if len(got) < page:
+                    break
+        with urllib.request.urlopen(
+            f"{NYC_OPEN_DATA}/api/views/{dataset}.json", timeout=60
+        ) as r:
+            meta = json.loads(r.read())
+        versions[dataset] = {
+            "name": meta.get("name"),
+            "rows_updated_at": dt.datetime.fromtimestamp(
+                meta["rowsUpdatedAt"], dt.UTC
+            ).isoformat(),
+        }
+    table = pd.DataFrame(
+        rows, columns=["bin", "job", "kind", "permitted", "description"]
+    )
+    text = table.permitted.fillna("").str[:10]
+    table["permitted"] = pd.to_datetime(
+        text, format="%m/%d/%Y", errors="coerce"
+    ).fillna(pd.to_datetime(text, format="%Y-%m-%d", errors="coerce"))
+    table = table.dropna(subset=["permitted"]).sort_values(["bin", "job", "permitted"])
+    # A legacy job has a row per document: keep its first permit.
+    table = table.drop_duplicates(["bin", "job"]).reset_index(drop=True)
+    return table, queries, versions
 
 
 LPC_ID = "ncre-qhxs"
@@ -783,6 +877,7 @@ def main(argv=None):
             "subway",
             "basemap",
             "hpd",
+            "dob",
             "footprints",
             "noise311",
             "lpc",
@@ -858,6 +953,19 @@ def main(argv=None):
             "buildings": int(table.bin.nunique()),
         }
         summary = f"{len(table)} violations in {table.bin.nunique()} buildings"
+    elif args.source == "dob":
+        registry = pd.read_parquet(registry_path)
+        table, queries, versions = fetch_dob(registry)
+        details = {
+            "source": [f"{SOCRATA}/{DOB_LEGACY_ID}", f"{SOCRATA}/{DOB_NOW_ID}"],
+            "dataset": "DOB Job Application Filings and DOB NOW Job Filings via NYC "
+            "Open Data: alterations and new buildings with a permit",
+            "versions": versions,
+            "registry": str(registry_path),
+            "jobs": len(table),
+            "buildings": int(table.bin.nunique()),
+        }
+        summary = f"{len(table)} permitted jobs in {table.bin.nunique()} buildings"
     elif args.source == "lpc":
         registry = pd.read_parquet(registry_path)
         table, queries, version = fetch_lpc(registry)
