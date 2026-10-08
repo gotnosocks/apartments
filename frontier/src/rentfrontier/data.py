@@ -739,13 +739,13 @@ QUARANTINE_V9 = REPO / "config" / "reviews" / "quarantine-v9-20261008.jsonl"
 
 
 def quarantine_v9(frame: pd.DataFrame) -> pd.DataFrame:
-    """v6 and the rent-blind review's rows (414 in all). v7 and v8 read only
+    """v6 and the rent-blind review's rows (377 in all). v7 and v8 read only
     ads picked by their rent or residual, which favours rows the model fits
-    badly. v9 replaces both: fixed text checks (another address, a shop or
-    office, a shared bath or room share, one ask for several apartments, a
-    short stay), frozen before any were fitted to v7 or v8 rows, run over every
+    badly. v9 replaces both: generic text checks (a far neighbourhood from
+    NYC's area list or a street above 40th, a shop or office, a shared bath or
+    room share, one ask for several apartments, a short stay) run over every
     Greenwich Village, Gramercy Park and Flatiron ad whatever its rent, and
-    each hit read with no rent shown: 132 are left out. The other rows are
+    each hit read with no rent shown: 95 are left out. The other rows are
     unchanged."""
     return frame[~frame.audit_id.isin(quarantined(QUARANTINE_V9))]
 

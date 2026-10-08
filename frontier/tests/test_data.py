@@ -874,11 +874,11 @@ def test_quarantine_v8_is_v7_and_the_model_outliers_of_the_three():
 
 
 def test_quarantine_v9_is_v6_and_rent_blind_text_checks():
-    """v9 keeps v6's file as its first lines and adds 132, each with its quote
+    """v9 keeps v6's file as its first lines and adds 95, each with its quote
     and reason; it replaces v7 and v8, not extends them."""
     v6 = data.quarantined(data.QUARANTINE_V6)
     v9 = data.quarantined(data.QUARANTINE_V9)
-    assert v6 < v9 and len(v9 - v6) == 132
+    assert v6 < v9 and len(v9 - v6) == 95
     assert data.QUARANTINE_V9.read_text().startswith(data.QUARANTINE_V6.read_text())
     with open(data.QUARANTINE_V9) as f:
         rows = [json.loads(line) for line in f if line.strip()]
