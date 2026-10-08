@@ -16,6 +16,7 @@ with that hash). Any other row is copied unchanged and counted in the report.
 
 from __future__ import annotations
 
+import contextlib
 import fcntl
 import gzip
 import hashlib
@@ -92,15 +93,20 @@ def compact_database(source, destination, crawl_dir, verify_bodies=True):
     wal = Path(str(source) + "-wal")
     if wal.exists() and wal.stat().st_size:
         raise RuntimeError("Refusing to compact a database with a nonempty WAL")
-    # immutable=1 reads a database that is still being written silently wrong.
-    for lock in {source.parent / "crawler.lock", crawl_dir / "crawler.lock"}:
-        if lock.exists():
-            with lock.open("a") as f:
+    # immutable=1 reads a database that is still being written silently wrong, so
+    # hold the crawler's lock for the whole copy.
+    with contextlib.ExitStack() as held:
+        for lock in {source.parent / "crawler.lock", crawl_dir / "crawler.lock"}:
+            if lock.exists():
+                f = held.enter_context(lock.open("a"))
                 try:
                     fcntl.flock(f, fcntl.LOCK_EX | fcntl.LOCK_NB)
                 except BlockingIOError:
                     raise RuntimeError(f"A crawler holds {lock}") from None
-                fcntl.flock(f, fcntl.LOCK_UN)
+        return _copy(source, destination, crawl_dir, verify_bodies)
+
+
+def _copy(source, destination, crawl_dir, verify_bodies):
     src = sqlite3.connect(source.as_uri() + "?immutable=1", uri=True)
     objects = src.execute(
         "SELECT type, name, tbl_name, sql FROM sqlite_master"

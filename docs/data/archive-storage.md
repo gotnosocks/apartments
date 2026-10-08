@@ -54,7 +54,8 @@ content hashes to `body_hash` and the body file under `CRAWL/bodies/` exists and
 that hash (`--no-verify-bodies` skips the decompression). Every other row is copied unchanged
 and counted in the JSON report. The copy uses `journal_mode=DELETE`, passes `integrity_check`
 and is fsynced before the tool renames it into place and reports. The tool refuses a source whose
-`crawler.lock` is held: an immutable read of a database still being written is silently wrong.
+`crawler.lock` is held, and holds that lock for the whole copy: an immutable read of a database
+still being written is silently wrong.
 
 A compacted database is no longer self-contained: the stripped HTML exists only in `bodies/`.
 Never prune `bodies/` (for Chelsea that is the shared `/data1/apartments/archive/bodies`, reached
