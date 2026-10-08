@@ -20,7 +20,7 @@ def test_live_trees_counts_the_census_published_a_week_before():
     )
     at = pd.Series(
         pd.to_datetime(
-            ["2006-12-31", "2012-05-01", "2016-06-09", "2016-06-10", "2020-01-01"]
+            ["2016-06-07", "2016-06-08", "2017-10-10", "2017-10-11", "2020-01-01"]
         )
     )
     got = trees.live_trees_near([lat] * 5, [lon] * 5, at, table)

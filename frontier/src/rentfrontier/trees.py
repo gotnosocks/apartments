@@ -25,12 +25,14 @@ from scipy.spatial import cKDTree
 
 from rentfrontier.listing_extras import EXTERNAL_ROOT, _git
 
-# Census year: (dataset, the statuses of a live tree, the day it was published).
-# The 2005 census was reported in 2006-07, before the first listing (2010);
-# the 2015 census went up on NYC Open Data on 2016-06-03.
+# Census year: (dataset, the statuses of a live tree, the first day the whole
+# census was public on NYC Open Data). The 2005 census went up on 2016-06-01,
+# long after its survey; the 2015 census's dataset was created on 2016-06-03
+# but its survey ran to 2016-10-05, so it counts from its publication on
+# 2017-10-04. A listing before 2016-06-08 has no count.
 CENSUSES = {
-    2005: ("29bw-z7pj", ("Excellent", "Good", "Poor"), "2007-01-01"),
-    2015: ("uvpi-gqnh", ("Alive",), "2016-06-03"),
+    2005: ("29bw-z7pj", ("Excellent", "Good", "Poor"), "2016-06-01"),
+    2015: ("uvpi-gqnh", ("Alive",), "2017-10-04"),
 }
 BUFFER = dt.timedelta(days=7)
 # South, north, west, east: lower Manhattan from Canal St to 59th St, with a margin.
