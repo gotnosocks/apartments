@@ -24,6 +24,9 @@ Sources:
   the registry's lots in each, with the release's publication date from its
   own documents (PLUTO_RELEASES), so a listing can read its building as the
   latest MapPLUTO published before it had it.
+- mnreleases: every Manhattan lot in every archived MapPLUTO release, with
+  its owner of record, size, class and coordinates (State Plane before 20v1),
+  for what a block or the area around a building held as of a date.
 - hpd: HPD Housing Maintenance Code Violations (NYC Open Data wvxf-dwi5) of
   the registry's buildings, by BIN, and by tax lot (BBL) for placeholder BINs
   (n000000): class (A non-hazardous, B hazardous, C immediately hazardous, I
@@ -571,18 +574,15 @@ PLUTO_RELEASES = {
 }
 
 
-def fetch_pluto_releases(bbls) -> tuple[pd.DataFrame, list[str]]:
-    """The registry's lots in every archived MapPLUTO release: one row per
-    release and lot, with the PLUTO_COLUMNS the release has (an older release
-    lacks some, e.g. the flood-zone flags; they are left empty), its `release`
-    and its `published` date (PLUTO_RELEASES). Manhattan's file of a release
-    split by borough, else the rows of Manhattan lots."""
+def _release_chunks():
+    """(release, published, file, chunk) for every archived MapPLUTO release
+    (PLUTO_RELEASES), in chunks of its Manhattan table as text with lowercase
+    column names and `bbl` as a plain integer string: Manhattan's file of a
+    release split by borough, else the release's one citywide table."""
     import io
     import tempfile
     import zipfile
 
-    bbls = set(bbls)
-    parts, files = [], []
     for release, (name, published, _) in PLUTO_RELEASES.items():
         with tempfile.TemporaryFile() as tmp:
             request = urllib.request.Request(
@@ -602,7 +602,6 @@ def fetch_pluto_releases(bbls) -> tuple[pd.DataFrame, list[str]]:
             member = (
                 manhattan or sorted(tables, key=lambda m: -archive.getinfo(m).file_size)
             )[0]
-            files.append(f"{PLUTO_ARCHIVE}/{name}:{member}")
             reader = pd.read_csv(
                 io.TextIOWrapper(archive.open(member), encoding="latin-1"),
                 dtype=str,
@@ -612,12 +611,78 @@ def fetch_pluto_releases(bbls) -> tuple[pd.DataFrame, list[str]]:
                 chunk.columns = [str(c).strip().lower() for c in chunk.columns]
                 lot = pd.to_numeric(chunk.bbl, errors="coerce")
                 chunk["bbl"] = lot.astype("Int64").astype(str)
-                chunk = chunk[chunk.bbl.isin(bbls)]
-                keep = chunk.reindex(columns=list(PLUTO_COLUMNS))
-                parts.append(keep.assign(release=release, published=published))
+                yield release, published, f"{PLUTO_ARCHIVE}/{name}:{member}", chunk
+
+
+def fetch_pluto_releases(bbls) -> tuple[pd.DataFrame, list[str]]:
+    """The registry's lots in every archived MapPLUTO release: one row per
+    release and lot, with the PLUTO_COLUMNS the release has (an older release
+    lacks some, e.g. the flood-zone flags; they are left empty), its `release`
+    and its `published` date (PLUTO_RELEASES). Manhattan's file of a release
+    split by borough, else the rows of Manhattan lots."""
+    bbls = set(bbls)
+    parts, files = [], []
+    for release, published, file, chunk in _release_chunks():
+        if file not in files:
+            files.append(file)
+        chunk = chunk[chunk.bbl.isin(bbls)]
+        keep = chunk.reindex(columns=list(PLUTO_COLUMNS))
+        parts.append(keep.assign(release=release, published=published))
     table = pd.concat(parts, ignore_index=True)
     text = [c for c in PLUTO_COLUMNS]
     table[text] = table[text].apply(lambda c: c.str.strip())
+    table = table.drop_duplicates(["release", "bbl"]).reset_index(drop=True)
+    return table, files
+
+
+# Every Manhattan lot in every archived release: what a block or a
+# neighbourhood held as of a date (single-owner complexes from the owner of
+# record, new supply around a building). Older releases have State Plane
+# coordinates (xcoord, ycoord, feet) but no latitude or longitude (before 20v1).
+MNRELEASE_TEXT = ("bbl", "bldgclass", "landuse", "ownername", "ownertype")
+MNRELEASE_NUMBERS = (
+    "yearbuilt",
+    "yearalter1",
+    "yearalter2",
+    "numfloors",
+    "numbldgs",
+    "unitsres",
+    "unitstotal",
+    "lotarea",
+    "bldgarea",
+    "resarea",
+    "xcoord",
+    "ycoord",
+    "latitude",
+    "longitude",
+)
+
+
+def fetch_mn_releases() -> tuple[pd.DataFrame, list[str]]:
+    """Every Manhattan lot (BBL 1xxxxxxxxx) in every archived MapPLUTO release:
+    one row per release and lot with MNRELEASE_TEXT and MNRELEASE_NUMBERS
+    (numbers as floats, empty where a release lacks the column), the tax
+    `block` and `lot` from the BBL, and the release's `release` and
+    `published` date (PLUTO_RELEASES)."""
+    parts, files = [], []
+    for release, published, file, chunk in _release_chunks():
+        if file not in files:
+            files.append(file)
+        chunk = chunk[chunk.bbl.str.fullmatch(r"1\d{9}")]
+        text = chunk.reindex(columns=list(MNRELEASE_TEXT))
+        text = text.apply(lambda c: c.astype("string").str.strip())
+        numbers = chunk.reindex(columns=list(MNRELEASE_NUMBERS)).apply(
+            lambda c: pd.to_numeric(c.astype("string").str.strip(), errors="coerce")
+        )
+        parts.append(
+            pd.concat([text, numbers], axis=1).assign(
+                block=text.bbl.str[1:6].astype(int),
+                lot=text.bbl.str[6:].astype(int),
+                release=release,
+                published=published,
+            )
+        )
+    table = pd.concat(parts, ignore_index=True)
     table = table.drop_duplicates(["release", "bbl"]).reset_index(drop=True)
     return table, files
 
@@ -1095,6 +1160,7 @@ def main(argv=None):
             "rentstab",
             "parks",
             "blocklots",
+            "mnreleases",
         ),
     )
     parser.add_argument(
@@ -1186,6 +1252,28 @@ def main(argv=None):
             "source": PLUTO_ARCHIVE,
             "dataset": "MapPLUTO archived releases (NYC Department of City Planning)",
             "registry": str(registry_path),
+            "buffer_note": "features.PLUTO_RELEASE_BUFFER_DAYS is applied when reading",
+            "releases": {
+                release: {
+                    "file": f"{PLUTO_ARCHIVE}/{name}",
+                    "published": published,
+                    "evidence": evidence,
+                    "flag": None
+                    if published
+                    else "no publication date found; never used",
+                    "lots": int(table.release.eq(release).sum()),
+                }
+                for release, (name, published, evidence) in PLUTO_RELEASES.items()
+            },
+            "lots": int(table.bbl.nunique()),
+        }
+        summary = f"{details['lots']} lots in {table.release.nunique()} releases"
+    elif args.source == "mnreleases":
+        table, queries = fetch_mn_releases()
+        details = {
+            "source": PLUTO_ARCHIVE,
+            "dataset": "MapPLUTO archived releases (NYC Department of City Planning), "
+            "every Manhattan lot",
             "buffer_note": "features.PLUTO_RELEASE_BUFFER_DAYS is applied when reading",
             "releases": {
                 release: {
