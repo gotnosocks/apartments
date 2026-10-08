@@ -1436,3 +1436,21 @@ def test_nb4_snapshots_keep_nb3s_rows_and_add_flatiron_gramercys():
     assert set(features._NB4_DESCRIPTIONS) == set(features._NB3_DESCRIPTIONS) | {
         "descriptions_fgp"
     }
+
+
+def test_permit_v2_reads_every_apartment_of_a_list():
+    read = features.listed_apartments
+    assert read("COMBINE APTS 15B AND 15D") == ["15B", "15D"]
+    assert read("RENOVATE APTS 6L, 6S, 6T, 6U") == ["6L", "6S", "6T", "6U"]
+    assert read("APT 5B &AMP; 6B KITCHEN") == ["5B", "6B"]
+    assert read("UNIT #5S AND #5N, 3N/3E") == ["5S", "5N", "3N", "3E"]
+    assert read("APTS 3N/3E") == ["3N", "3E"]
+    assert read("APT 4D AND ON THE ROOF") == ["4D"]
+    assert read("HVAC UNITS ON ROOF") == features.named_apartments("HVAC UNITS ON ROOF")
+    # v1 reads the first of each list only.
+    assert features.named_apartments("COMBINE APTS 15B AND 15D") == ["15B"]
+    v2 = features.FEATURE_SETS["nb5-permit-v2"]
+    assert v2.func is features.FEATURE_SETS["nb5-permit-v1"].func
+    assert v2.keywords["labels"] is read
+    assert features.DOB_SNAPSHOTS["nb5-permit-v2"] == features.NB4_DOB_FILE
+    assert features.lot_files("nb5-permit-v2") == features.lot_files("nb5-coded-v2")

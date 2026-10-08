@@ -16,6 +16,7 @@ import functools
 import itertools
 import json
 import math
+import html
 import re
 from dataclasses import dataclass
 from functools import partial
@@ -1126,25 +1127,54 @@ def loft_v1(
 
 
 # An apartment named in a DOB job description: "APT 4D", "APARTMENT #12",
-# "UNIT NO. 1203", "UNIT PH-A". Only the first label of a list ("APTS 2A & 3A")
-# is read. Dashes are dropped, as from StreetEasy's labels.
+# "UNIT NO. 1203", "UNIT PH-A". v1 reads only the first label of a list ("APTS
+# 2A & 3A"); v2 reads them all (`listed_apartments`). Dashes are dropped, as from StreetEasy's labels.
 APARTMENT_NAMED = re.compile(
     r"\b(?:APARTMENTS?|APTS?|UNITS?)\.?\s*(?:NO\.?\s*)?#?\s*"
     r"([0-9]{1,4}[A-Z]{0,2}|PH-?[0-9A-Z]*|[A-Z]{1,2}[0-9]{0,2})\b"
 )
 
 
-def apartment_permits(frame: pd.DataFrame, years: int = 3) -> np.ndarray:
+# v2: the rest of a list after a named apartment: ", 6S", " & 3A", " AND #5N",
+# "/3E". A listed label has a digit or is a penthouse, so "AND ON THE ROOF"
+# names none.
+LISTED_APARTMENT = re.compile(
+    r"\s*(?:,|&|\bAND\b|/)\s*#?\s*([0-9]{1,4}[A-Z]{0,2}|PH-?[0-9A-Z]*|[A-Z]{1,2}[0-9]{1,2})\b"
+)
+
+
+def named_apartments(description: str) -> list:
+    """v1's labels: the first apartment of each mention."""
+    return APARTMENT_NAMED.findall(description)
+
+
+def listed_apartments(description: str) -> list:
+    """v2's labels: every apartment of each mention's list ("APTS 2A & 3A" names
+    2A and 3A), after HTML entities ("&AMP;") are read."""
+    text = html.unescape(description)
+    labels = []
+    for m in APARTMENT_NAMED.finditer(text):
+        labels.append(m.group(1))
+        end = m.end()
+        while tail := LISTED_APARTMENT.match(text, end):
+            labels.append(tail.group(1))
+            end = tail.end()
+    return labels
+
+
+def apartment_permits(
+    frame: pd.DataFrame, years: int = 3, labels=named_apartments
+) -> np.ndarray:
     """Per row: 1 if a DOB alteration job (A1 or A2) naming the row's apartment
     got its first permit in the `years` before the listing's month, else 0.
     The apartment is matched on its StreetEasy label without dashes, in the
-    building's BIN."""
+    building's BIN; `labels` reads a job's apartments from its description."""
     registry = pd.read_parquet(lot_registry()).set_index("building")
     jobs = pd.read_parquet(_DOB.get() or DOB_FILE)
     jobs = jobs[jobs.kind.isin(["A1", "A2"])]
     named = jobs.assign(
         label=jobs.description.map(
-            lambda d: sorted({x.replace("-", "") for x in APARTMENT_NAMED.findall(d)})
+            lambda d: sorted({x.replace("-", "") for x in labels(d)})
         )
     ).explode("label")
     named = named.dropna(subset=["label"])[["bin", "label", "permitted"]]
@@ -1172,6 +1202,7 @@ def permit_v1(
     train: np.ndarray,
     id: str = "nb3-permit-v1",
     base: str = "nb3-coded-v2",
+    labels=named_apartments,
 ) -> Features:
     """A base set plus whether the apartment itself was permitted for an
     alteration (renovation, plumbing, combining) in the 3 years before the
@@ -1179,7 +1210,7 @@ def permit_v1(
     unit is a different product from the one listed before it, which the unit
     level cannot follow. Reads no rents."""
     base = FEATURE_SETS[base](frame, train)
-    permitted = apartment_permits(frame)
+    permitted = apartment_permits(frame, labels=labels)
     b = _Builder(frame)
     b.add("condition", "apartment permit", permitted - float(np.mean(permitted[train])))
     out = b.build(id)
@@ -1372,7 +1403,7 @@ DOB_FILE = f"{DOB_SNAPSHOT}/dob.parquet"
 # The same jobs for the four neighbourhoods' registry (NB4_REGISTRY_FILE).
 NB4_DOB_FILE = "/data1/apartments/external/dob/20261008-4e1948c/dob.parquet"
 # DOB jobs files by feature set, where a set reads other than `DOB_FILE`.
-DOB_SNAPSHOTS = {"nb5-permit-v1": NB4_DOB_FILE}
+DOB_SNAPSHOTS = {"nb5-permit-v1": NB4_DOB_FILE, "nb5-permit-v2": NB4_DOB_FILE}
 ERAS = (
     (0, 1900, "pre-1900"),
     (1900, 1930, "1900-1929"),
@@ -2596,7 +2627,7 @@ STOREFRONTS = {"nb3-retail-v1"}
 # Feature sets that read the NYC Parks properties snapshot (parks).
 PARKS = {"nb3-parks-v1", "nb3-water-v1"}
 # Feature sets that read the DOB permits snapshot.
-DOB = {"nb3-permit-v1", "nb5-permit-v1"}
+DOB = {"nb3-permit-v1", "nb5-permit-v1", "nb5-permit-v2"}
 # Feature sets that read the HPD violations snapshot.
 HPD = {"unitdescplutohpd-v1", "unitdescplutohpd-v2"}
 # Feature sets that read the advertisement descriptions (`descriptions.SOURCE`),
@@ -2725,6 +2756,13 @@ FEATURE_SETS = {
     "nb3-loft-v1": partial(loft_v1, id="nb3-loft-v1", base="nb3-coded-v2"),
     "nb3-permit-v1": partial(permit_v1, id="nb3-permit-v1", base="nb3-coded-v2"),
     "nb5-permit-v1": partial(permit_v1, id="nb5-permit-v1", base="nb5-coded-v2"),
+    # v2: every apartment of a listed job ("APTS 2A & 3A"), not only the first.
+    "nb5-permit-v2": partial(
+        permit_v1,
+        id="nb5-permit-v2",
+        base="nb5-coded-v2",
+        labels=listed_apartments,
+    ),
     "nb3-flagfix-v1": partial(flagfix_v1, id="nb3-flagfix-v1", base="nb3-coded-v2"),
     "nb3-noise-v1": partial(
         noise_v1, id="nb3-noise-v1", base="nb3-coded-v2", noise_file=NB3_NOISE_FILE
@@ -3013,6 +3051,7 @@ NB4_SETS = {
     "nb4-coded-v2": "nb3-coded-v2",
     "nb5-coded-v2": "nb3-coded-v2",
     "nb5-permit-v1": "nb3-permit-v1",
+    "nb5-permit-v2": "nb3-permit-v1",
 }
 for _new, _old in NB4_SETS.items():
     for _group in (
