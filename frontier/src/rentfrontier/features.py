@@ -857,6 +857,35 @@ def nearby_v1(
     )
 
 
+def nearby_one_v1(
+    frame: pd.DataFrame,
+    train: np.ndarray,
+    id: str,
+    base: str,
+    kind: str,
+) -> Features:
+    """A base set plus one `nearby_v1` term: log walk metres to the nearest
+    place of `kind` (`nearby.KINDS`). Reads no rents."""
+    from . import nearby
+
+    base = FEATURE_SETS[base](frame, train)
+    values = nearby.terms(frame)[kind]
+    b = _Builder(frame)
+    b.add(
+        "nearby",
+        f"log m to {nearby.KINDS[kind]}",
+        np.nan_to_num(values, nan=np.nanmedian(values)),
+    )
+    out = b.build(id)
+    return Features(
+        id,
+        base.names + out.names,
+        base.groups + out.groups,
+        np.column_stack([base.values, out.values]),
+        np.concatenate([base.prior_scale, out.prior_scale]),
+    )
+
+
 def retail_v1(
     frame: pd.DataFrame,
     train: np.ndarray,
@@ -1291,6 +1320,20 @@ PARKS_SNAPSHOTS = {"nb5-parks-v1": NB5_PARKS_FILE, "nb5-water-v1": NB5_PARKS_FIL
 def parks_file() -> str:
     """The NYC Parks properties file the set being built reads."""
     return _PARKS.get() or PARKS_FILE
+
+
+# The places file of the set being built (`PLACES_SNAPSHOTS`), else `PLACES_FILE`.
+_PLACES: contextvars.ContextVar[str | None] = contextvars.ContextVar(
+    "places", default=None
+)
+# Places files by feature set, where a set reads other than `PLACES_FILE`
+# (the nb5 single-place sets, `NB5_SINGLES`, add theirs).
+PLACES_SNAPSHOTS: dict[str, str] = {}
+
+
+def places_file() -> str:
+    """The places file (`nearby`) the set being built reads."""
+    return _PLACES.get() or PLACES_FILE
 
 
 # Whether the set being built dates the building's MapPLUTO alterations as of
@@ -2964,6 +3007,40 @@ NB4_SETS = {
     "nb5-water-v1": "nb3-water-v1",
     "nb5-noise-v1": "nb3-noise-v1",
 }
+# One set per ad attribute (`ATTRIBUTE_FLAGS`) and per place kind
+# (`nearby.KINDS`): nb5-coded-v2 plus that one column, each its own full fit.
+NB5_SINGLES = {
+    **{
+        f"nb5-attr-{name.replace('_', '-')}-v1": ("attr", name)
+        for name in ATTRIBUTE_FLAGS
+    },
+    **{
+        f"nb5-near-{kind.replace(' ', '-')}-v1": ("near", kind)
+        for kind in (
+            "dog run",
+            "hospital",
+            "ambulance station",
+            "drop-in center",
+            "nycha",
+            "arena",
+        )
+    },
+}
+for _name, (_what, _item) in NB5_SINGLES.items():
+    if _what == "attr":
+        FEATURE_SETS[_name] = partial(
+            text_flags_v1,
+            id=_name,
+            base="nb5-coded-v2",
+            flags={_item: ATTRIBUTE_FLAGS[_item]},
+        )
+    else:
+        FEATURE_SETS[_name] = partial(
+            nearby_one_v1, id=_name, base="nb5-coded-v2", kind=_item
+        )
+        PLACES.add(_name)
+        PLACES_SNAPSHOTS[_name] = NB4_PLACES_FILE
+    NB4_SETS[_name] = "nb5-coded-v2"
 for _new, _old in NB4_SETS.items():
     for _group in (
         EXTERNAL,
@@ -3008,6 +3085,7 @@ def build(name: str, frame: pd.DataFrame, train: np.ndarray) -> Features:
     extras_token = _EXTRAS.set(EXTRAS_SNAPSHOTS.get(name))
     lpc_token = _LPC.set(LPC_SNAPSHOTS.get(name))
     parks_token = _PARKS.set(PARKS_SNAPSHOTS.get(name))
+    places_token = _PLACES.set(PLACES_SNAPSHOTS.get(name))
     text_token = descriptions_module.SOURCES.set(
         tuple(Path(p) for p in description_files(name).values())
     )
@@ -3020,4 +3098,5 @@ def build(name: str, frame: pd.DataFrame, train: np.ndarray) -> Features:
         _EXTRAS.reset(extras_token)
         _LPC.reset(lpc_token)
         _PARKS.reset(parks_token)
+        _PLACES.reset(places_token)
         descriptions_module.SOURCES.reset(text_token)

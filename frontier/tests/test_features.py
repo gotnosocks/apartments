@@ -1375,3 +1375,45 @@ def test_nb5_parks_sets_read_manhattans_parks(monkeypatch):
         "nb5-parks-v1": features.NB5_PARKS_FILE,
     }
     assert features.parks_file() == features.PARKS_FILE
+
+
+def test_nb5_singles_are_nb5_coded_v2_plus_one_item(monkeypatch):
+    from rentfrontier import nearby
+
+    singles = features.NB5_SINGLES
+    assert len(singles) == 21
+    assert {i for w, i in singles.values() if w == "attr"} == set(
+        features.ATTRIBUTE_FLAGS
+    )
+    assert {i for w, i in singles.values() if w == "near"} == set(nearby.KINDS)
+    for name, (what, item) in singles.items():
+        spec = features.FEATURE_SETS[name]
+        assert spec.keywords["base"] == "nb5-coded-v2"
+        assert spec.keywords["id"] == name
+        if what == "attr":
+            assert spec.func is features.text_flags_v1
+            assert spec.keywords["flags"] == {item: features.ATTRIBUTE_FLAGS[item]}
+        else:
+            assert spec.func is features.nearby_one_v1
+            assert spec.keywords["kind"] == item
+            assert name in features.PLACES
+        assert features.lot_files(name) == features.lot_files("nb5-coded-v2")
+        assert features.area_files(name) == features.area_files("nb5-coded-v2")
+        assert features.description_files(name) == features.description_files(
+            "nb5-coded-v2"
+        )
+        for group in (features.EXTERNAL, features.DESCRIPTIONS):
+            assert (name in group) == ("nb5-coded-v2" in group)
+    seen = {}
+    for name in ("nb3-nearby-v1", "nb5-near-hospital-v1"):
+        monkeypatch.setitem(
+            features.FEATURE_SETS,
+            name,
+            lambda f, t, name=name: seen.setdefault(name, features.places_file()),
+        )
+        features.build(name, pd.DataFrame(), np.zeros(0, bool))
+    assert seen == {
+        "nb3-nearby-v1": features.PLACES_FILE,
+        "nb5-near-hospital-v1": features.NB4_PLACES_FILE,
+    }
+    assert features.places_file() == features.PLACES_FILE
