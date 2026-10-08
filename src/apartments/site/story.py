@@ -662,6 +662,9 @@ def theories(rows: list[dict]) -> list[dict]:
             retest=last.get("retest", ""),
             words=PLAIN.get(t["change"]) or t["about"] or t["change"].lstrip("+"),
         )
+        t["clear_gain"] = t["diff"] > 2 * t["se"]
+        # The ledger's words for the table, without its own asides.
+        t["note"] = re.sub(r"\s*\([^()]*\)", "", t["about"]).strip()
         out.append(t)
     order = {k[0]: i for i, k in enumerate(KINDS)}
     out.sort(key=lambda t: (order.get(t["kind"], 9), -t["diff"]))
@@ -832,6 +835,24 @@ TERM_WORDS = {
     "btrend": "each building's own trend",
     "bathfloor": "each building's own price for baths and height",
 }
+# Words for the feature sets of served designs: the area prefix (the
+# neighbourhoods taken in) and the body (what the features read).
+AREA_WORDS = {
+    "unit": "Chelsea",
+    "nb": "West Village",
+    "nb3": "Greenwich Village",
+    "nb5": "Flatiron and Gramercy Park",
+}
+SET_WORDS = {
+    "unitdesc": "words from the ads",
+    "unitdescpluto": "words from the ads and city building records",
+    "unitfacing": "which way each apartment faces",
+    "facing": "which way each apartment faces",
+    "bedtext": "bedroom details from the ads",
+    "relist": "each apartment's relisting history",
+    "coded": "the listings' coded fields",
+    "prevprice": "how the unit's previous listing was repriced",
+}
 _PR = re.compile(r"\(#(\d+)\)")
 _SET_START = re.compile(r"^(nb\d*|unit)")
 
@@ -900,6 +921,49 @@ def term_words(term: str) -> str:
     return PLAIN.get("+" + term) or TERM_WORDS.get(term) or term
 
 
+def _set_parts(feature_set: str) -> tuple[str, str, str]:
+    """`nb3-coded-v2` → ("nb3", "coded", "v2"); `unitfacing-v5` → ("unit",
+    "unitfacing", "v5")."""
+    m = re.fullmatch(r"(nb\d*)?-?([a-z]+?)(?:-(v\d+))?", feature_set or "")
+    if not m:
+        return "", feature_set or "", ""
+    area = m.group(1) or ("unit" if m.group(2).startswith("unit") else "")
+    return area, m.group(2), m.group(3) or ""
+
+
+def change_words(before: dict | None, after: dict, seen=()) -> str | None:
+    """What a frontier switch changed from the design before it, in plain
+    words (`seen`: the feature words of the designs served before it); None
+    for a design whose name doesn't parse."""
+    if after["terms"] is None:
+        return None
+    area, body, version = _set_parts(after["feature_set"])
+    what = SET_WORDS.get(body, body)
+    if before is None or before["terms"] is None:
+        terms = [term_words(t) for t in after["terms"]]
+        return f"The first searched design: {'; '.join(terms)}. Features: {what}"
+    parts = []
+    added = [term_words(t) for t in after["terms"] if t not in before["terms"]]
+    dropped = [term_words(t) for t in before["terms"] if t not in after["terms"]]
+    if added:
+        parts.append("Added " + "; ".join(added))
+    if dropped:
+        parts.append("Dropped " + "; ".join(dropped))
+    was_area, was_body, was_version = _set_parts(before["feature_set"])
+    if area != was_area and area in AREA_WORDS:
+        parts.append(f"Took in {AREA_WORDS[area]}")
+    if what != SET_WORDS.get(was_body, was_body):
+        back = what in seen
+        parts.append(f"{'Back to' if back else 'New'} features: {what}")
+    elif version != was_version and area == was_area:
+        parts.append(f"A revised version of {what}")
+    if parts:
+        return ". ".join(parts)
+    if after.get("rows") != before.get("rows"):
+        return "The same design, refitted on the current data rules"
+    return "The same design, refitted"
+
+
 def design_history(milestones: list[dict]) -> list[dict]:
     """Every switch of the served model, oldest first, with its era, PR and
     (for frontier fits) model terms and feature set."""
@@ -940,8 +1004,15 @@ def design_history(milestones: list[dict]) -> list[dict]:
                 "sha": m.get("sha"),
                 "terms": parsed[0] if parsed else None,
                 "feature_set": parsed[1] if parsed else None,
+                "rows": str(m.get("model") or "").partition("-rows-")[2].split("-")[0],
             }
         )
+    seen = []
+    for i, s in enumerate(out):
+        s["change"] = change_words(out[i - 1] if i else None, s, seen) or s["words"]
+        if s["feature_set"] is not None:
+            body = _set_parts(s["feature_set"])[1]
+            seen.append(SET_WORDS.get(body, body))
     return out
 
 
@@ -1040,7 +1111,7 @@ def history_svg(switches: list[dict], lives: list[dict]) -> Markup:
         for s, d in mine:
             out.append(
                 f'<circle class="switch era-{key} d{min(s["seq"], 39)}" cx="{x(d):.1f}" '
-                f'cy="{cy:.1f}" r="5"><title>{escape(s["date"])}: {escape(s["words"])}'
+                f'cy="{cy:.1f}" r="5"><title>{escape(s["date"])}: {escape(s["change"])}'
                 "</title></circle>"
             )
     if lives:

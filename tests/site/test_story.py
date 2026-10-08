@@ -154,7 +154,7 @@ LEDGER = """# Feature and model tests
 
 | Date | Change | What | Kind | ΔPSIS-LOO | Verdict | Retest | Dataset (rows) | PR | Test run | Reference run |
 |---|---|---|---|---|---|---|---|---|---|---|
-| 2026-10-05 | `+bednoise` | a residual scale by bedroom group | | +347.0 ± 30.1 | gain | | d (1) | #300 | `a` | `b` |
+| 2026-10-05 | `+bednoise` | a residual scale by bedroom group (σ by group) | | +347.0 ± 30.1 | gain | | d (1) | #300 | `a` | `b` |
 | 2026-10-04 | `nb3-parks-v1` | parks within reach | location | -6.2 ± 9.0 | no clear gain | next neighbourhood | d (1) | #250 | `c` | `d` |
 | 2026-10-03 | `nb3-parks-v1` | parks within reach | location | +3.0 ± 9.5 | no clear gain | | d (1) | #250 | `e` | `f` |
 | 2026-10-03 | `nb-prevprice-v1` | how the unit's previous listing was repriced | listing | +747.0 ± 40.0 | PSIS-LOO leaks; judged on the latest split | | d (1) | | `g` | `h` |
@@ -177,6 +177,8 @@ def test_theories_keep_every_test_and_the_latest_verdict():
     assert by["nb-prevprice-v1"]["verdict"] == "blocked"
     assert by["+bednoise"]["words"] == story.PLAIN["+bednoise"]
     assert sorted(t["seq"] for t in entries) == [0, 1, 2, 3]
+    assert by["+bednoise"]["note"] == "a residual scale by bedroom group"
+    assert by["nb-prevprice-v1"]["clear_gain"] and not parks["clear_gain"]
 
 
 def test_theories_chapter_reads_the_ledger(site_root, research_file, tmp_path):
@@ -256,6 +258,38 @@ def test_design_history_eras_terms_and_spells():
     (spell,) = story.served_spells(switches, "prevprice")
     assert spell["hours"] == 8.0
     assert [e["count"] for e in story.eras(switches)] == [1, 1, 3]
+
+
+def test_design_history_says_what_changed():
+    changes = [s["change"] for s in story.design_history(MILESTONES)]
+    assert changes[0] == "Select a PyMC fit"
+    assert changes[1] == (
+        "The first searched design: a straight line per feature, no curves. "
+        "Features: words from the ads"
+    )
+    assert changes[2] == (
+        "Added each building's own price for two more features. "
+        "New features: which way each apartment faces"
+    )
+    assert changes[3] == (
+        "Added each building's own price for height. Dropped each building's own "
+        "price for two more features. Took in Greenwich Village. "
+        "New features: how the unit's previous listing was repriced"
+    )
+    again = MILESTONES + [
+        {**MILESTONES[-2], "at": "2026-10-08T01:00:00+00:00"},
+        {**MILESTONES[-2], "at": "2026-10-08T02:00:00+00:00"},
+        {
+            **MILESTONES[-2],
+            "at": "2026-10-08T03:00:00+00:00",
+            "model": MILESTONES[-2]["model"].replace("163c6de", "5789d79"),
+        },
+    ]
+    assert [s["change"] for s in story.design_history(again)][-3:] == [
+        "Back to features: how the unit's previous listing was repriced",
+        "The same design, refitted",
+        "The same design, refitted on the current data rules",
+    ]
 
 
 def test_design_chapter_reads_the_milestones(site_root, research_file):

@@ -206,19 +206,21 @@ neighbourhoods give location more room to matter.{% endif %}{% endif %}</p>
   both show. Rows are grouped by kind and sorted by gain; when the figure plays, they appear in the order the ideas were first tried.</figcaption>
 </figure>
 
+{# Set aside despite a clear gain: the leak the paragraph after the table explains. #}
+{% set blocked_leaks = trials | selectattr("verdict", "equalto", "blocked") | selectattr("clear_gain") | list %}
 <details class="table-view">
   <summary>The theories as a table</summary>
   <div class="table-wrap">
   <table class="data">
     <thead><tr><th scope="col">Idea</th><th scope="col">Kind</th><th scope="col">Tested</th>
-      <th scope="col" class="num">ΔPSIS-LOO</th><th scope="col">Verdict</th><th scope="col">PR</th></tr></thead>
+      <th scope="col" class="num">Gain in <a href="{{ url_for('research_glossary') }}#psis-loo">PSIS-LOO</a></th><th scope="col">Verdict</th><th scope="col">PR</th></tr></thead>
     <tbody>
     {% for t in trials %}
-      <tr><td>{{ t.words[:1] | upper }}{{ t.words[1:] }}{% if t.about and t.about != t.words %} <span class="muted">({{ t.about }})</span>{% endif %}</td>
+      <tr><td>{{ t.words[:1] | upper }}{{ t.words[1:] }}{% if t.note and t.note != t.words %} <span class="muted">({{ t.note }})</span>{% endif %}</td>
         <td class="muted">{% for k in kinds %}{% if k[0] == t.kind %}{{ k[1] }}{% endif %}{% endfor %}</td>
         <td class="nowrap">{{ t.date }}{% if t.tests | length > 1 %} <span class="muted">({{ t.tests | length }} fits)</span>{% endif %}</td>
         <td class="num nowrap">{{ "{:+,.1f}".format(t.diff) }} <span class="muted">± {{ "{:,.1f}".format(t.se) }}</span></td>
-        <td>{{ verdict_words[t.verdict] | capitalize }}{% if t.verdict == "blocked" %} <span class="muted">({{ t.verdict_text }})</span>{% endif %}</td>
+        <td>{{ verdict_words[t.verdict] | capitalize }}{% if t.verdict == "blocked" %} <span class="muted">({% if t in blocked_leaks %}<a href="#set-aside">why</a>{% elif not t.clear_gain %}no clear gain{% else %}{{ t.verdict_text }}{% endif %})</span>{% endif %}</td>
         <td>{% if t.pr %}<a href="https://github.com/gotnosocks/apartments/pull/{{ t.pr }}">#{{ t.pr }}</a>{% endif %}</td></tr>
     {% endfor %}
     </tbody>
@@ -226,8 +228,8 @@ neighbourhoods give location more room to matter.{% endif %}{% endif %}</p>
   </div>
 </details>
 
-{% set blocked = trials | selectattr("verdict", "equalto", "blocked") | selectattr("diff", "gt", 0) | list %}
-{% if blocked %}<p>Some ideas scored brilliantly and were set aside anyway.
+{% set blocked = blocked_leaks %}
+{% if blocked %}<p id="set-aside">Some ideas scored brilliantly and were set aside anyway.
 {% for t in blocked[:1] %}"{{ t.words[:1] | upper }}{{ t.words[1:] }}" gained {{ "{:+,.0f}".format(t.diff) }}.{% endfor %}
 Part of that score is a leak. Leaving one ask out doesn't hide it from the model, because the apartment's earlier
 ask is part of the feature itself. So {{ "these ideas were" if blocked | length > 1 else "this idea was" }} judged on
@@ -346,7 +348,7 @@ picks the better predictor. Whether a feature means anything is still a person's
     {% for s in switches | reverse %}
       <tr><td class="nowrap">{{ s.date }}</td>
         <td class="muted">{% for e in eras %}{% if e.key == s.era %}{{ e.name }}{% endif %}{% endfor %}</td>
-        <td>{{ s.words }}</td>
+        <td>{{ s.change }}</td>
         <td>{% if s.pr %}<a href="https://github.com/gotnosocks/apartments/pull/{{ s.pr }}">#{{ s.pr }}</a>{% endif %}</td></tr>
     {% endfor %}
     </tbody>
