@@ -26,7 +26,7 @@ import pyarrow.parquet as pq
 from rentfrontier.listing_extras import CRAWLS, EXTERNAL_ROOT, _git
 
 OUTCOMES_FILE = (
-    "/data1/apartments/external/listing-outcomes/20261008-PENDING/"
+    "/data1/apartments/external/listing-outcomes/20261008-afb3446/"
     "listing-outcomes.parquet"
 )
 COLUMNS = [
