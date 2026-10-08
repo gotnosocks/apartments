@@ -75,6 +75,22 @@ Test, on Modal when fits resume:
    under "Model structure for the full-data frontier": with Greenwich Village now in the data, use
    neighbourhoods rather than the two areas. It is a model-term change: one exploration
    fit, then a full fit if it gains.
+   *No-fit check (2026-10-08):* I approximated each in-fit row's LOO predictive under the served
+   fit as a Student-t, using its 80% and 95% intervals. Then I fitted a noise-scale multiplier per
+   group on half the rows (even audit_id) and scored it on the other half. One global multiplier
+   (1.037) gains +118 ELPD (doubled from the held half). Gains beyond that global multiplier:
+
+   | Groups | Gain beyond global | Notes |
+   |---|---|---|
+   | Predicted-level quintile | +100 | top quintile 1.12, the rest 1.01–1.02 |
+   | Neighbourhood | +66 | Greenwich Village 1.10, West Village 1.05, Chelsea 1.01 |
+   | Single-listing units | +49 | single listings 1.09, repeat units 1.02 |
+   | All three crossed | +276 | |
+
+   Residual 5-bedroom inflation is 1.32, even with the bedroom noise scales. This is a post-hoc
+   rescale of the predictive, not a refit, so a real fit will gain less. Still, it supports a
+   design with three parts: a smooth noise log-scale in the predicted level, a scale per
+   neighbourhood, and a single-listing scale. Script: `tmp/bridge/review/noisegain.py`.
 2. **Intervals for new apartments.** This is the site's "new apartment" case (Website measured a
    9.4% miss on 517 asks). First, a no-fit audit of the single-listing rows with |residual| > 40%,
    for Data: wrong unit or bedroom count, or a furnished or short-term ask. Then a fit with
