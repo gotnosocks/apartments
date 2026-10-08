@@ -2,6 +2,20 @@
 
 What the next turn of the website thread needs. Updated at each milestone.
 
+## State (2026-10-08 05:50 UTC)
+
+- **Five neighbourhoods are served** (#468, nb5 run; build 20261008T044224922212Z-d3ede825,
+  135,521 listings). Checked live: all five names on /, /estimate, /research, /research/story and
+  /best; listings Chelsea 52,408, West Village 34,129, Greenwich Village 18,469, Gramercy Park
+  18,333, Flatiron 12,182; no Park Slope. The story reads the nb5 variance (features 73%,
+  building 9%) and the regenerated cleaning.json. #470: the summary fallback names any of the
+  four non-reference areas from the inputs (`summary.NEIGHBOURHOOD_INPUTS`).
+- **#477 (live):** the cleaning chapter names one joined unit (most spellings) and one clean
+  split (bedrooms and ask both rising piece to piece; `<unit_id>~N` pieces), from
+  `story.unit_examples`, cached per build in `web.story_checks()`. The story-reader playtest
+  list is done.
+- **Next:** an animated playback of the theories figure, then a fresh story playtest round.
+
 ## State (2026-10-08 04:20 UTC)
 
 - **Story playtest follow-ups live:** #463 starts each figure's playback when it is well on screen
