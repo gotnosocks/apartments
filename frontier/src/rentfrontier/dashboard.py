@@ -648,6 +648,10 @@ DATA_RULE_TEXT = {
     "quarantine-v6": "quarantine-v5, and 110 West 26th Street's ads whose apartment "
     "number gives no floor side: the building has a front and a rear apartment on each "
     "floor, and five ads (3, 4, 5, 6) say neither.",
+    "quarantine-v7": "quarantine-v6 and a first review of Greenwich Village, Gramercy "
+    "Park and Flatiron: 47 more are left out, ads for another address (Bushwick's "
+    "Bleecker Street, Prospect Park, the Upper West Side), short stays only, shops and "
+    "offices, and an ask the ad contradicts.",
     "unit-reviews-v1": "Apartments a review found to be one apartment under two labels: "
     "at 110 West 26th Street, 4R and 4B, and 5R and 5B, are each floor's rear "
     "apartment (R for rear, B for back). No listing is dropped.",
