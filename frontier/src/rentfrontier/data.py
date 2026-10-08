@@ -766,17 +766,20 @@ def quarantine_v10(frame: pd.DataFrame) -> pd.DataFrame:
 
 
 QUARANTINE_V11 = REPO / "config" / "reviews" / "quarantine-v11-20261008.jsonl"
+# The rows v11's review read: every screen hit outside v9's and v10's screens.
+QUARANTINE_V11_READ = REPO / "config" / "reviews" / "quarantine-v11-read-20261008.txt"
 
 
 def quarantine_v11(frame: pd.DataFrame) -> pd.DataFrame:
-    """v10 and 14 more rows (233 in all). v10's guard dropped "restaurant
+    """v10 and 13 more rows (232 in all). v10's guard dropped "restaurant
     space" because every ad it then matched was a v6 row. v11 runs v10's text
     checks over all five neighbourhoods again with more words for shops and
     restaurants (a retail location or store, frontage, a certificate of
-    occupancy, kitchen exhaust, an event space), each new hit read with no rent
-    shown: shops, restaurants and an event studio on Bleecker and nearby, short
-    leases, and one ad for Battery Park are left out. The other rows are
-    unchanged."""
+    occupancy, kitchen exhaust, an event space), and every hit outside v9's and
+    v10's screens (quarantine-v11-read-20261008.txt) is read with no rent shown:
+    shops, restaurants and an event studio on and near Bleecker, two 5-month
+    leases, and one ad for Battery Park are left out. 10 of the 13 are v6
+    rows. The other rows are unchanged."""
     return frame[~frame.audit_id.isin(quarantined(QUARANTINE_V11))]
 
 

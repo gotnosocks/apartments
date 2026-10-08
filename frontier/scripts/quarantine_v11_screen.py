@@ -8,8 +8,9 @@ The place check names only the boroughs and New Jersey: v10's area list, measure
 from W 14th St and 8th Ave, flags "east village" in Gramercy Park ads by 14th
 Street, which is a question of the area an ad claims rather than a wrong address.
 The guard drops a hand-written term whose hits are all quarantine-v6 rows, since
-v1 to v6 were partly picked by rent. Only hits outside v9's and v10's screens are
-new to the review.
+v1 to v6 were partly picked by rent. Every hit outside v9's and v10's screens
+(1,581 hits, 693 of them; config/reviews/quarantine-v11-read-20261008.txt) was read,
+in batches by identical text.
 
 Usage: quarantine_v11_screen.py OUT.jsonl [CACHE_ROOT]
 """
