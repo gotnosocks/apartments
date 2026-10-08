@@ -1370,7 +1370,7 @@ HPD_FILE = f"{HPD_SNAPSHOT}/hpd.parquet"
 DOB_SNAPSHOT = "/data1/apartments/external/dob/20261008-ab3d278"
 DOB_FILE = f"{DOB_SNAPSHOT}/dob.parquet"
 # The same jobs for the four neighbourhoods' registry (NB4_REGISTRY_FILE).
-NB4_DOB_FILE = "/data1/apartments/external/dob/20261008-a941744/dob.parquet"
+NB4_DOB_FILE = "/data1/apartments/external/dob/20261008-4e1948c/dob.parquet"
 # DOB jobs files by feature set, where a set reads other than `DOB_FILE`.
 DOB_SNAPSHOTS = {"nb5-permit-v1": NB4_DOB_FILE}
 ERAS = (
