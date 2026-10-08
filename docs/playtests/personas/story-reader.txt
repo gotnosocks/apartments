@@ -1,0 +1,6 @@
+persona: a curious reader with no statistics background who found the site's research story through a friend and wants to understand how the rent estimates were built and whether to trust them.
+viewport: 1280x800 (a laptop)
+goals:
+1. Start at /research/story and read it from top to bottom. Note every sentence, number or figure you did not understand, and every place you stopped reading.
+2. For each figure, say what you think it shows before reading its caption, then whether the caption and the table view matched what you thought.
+3. Say in two sentences what the cleaning chapter did to the listings and why, and what the open questions are. Note where the story leaves you wanting a link or an example.

@@ -55,8 +55,9 @@ whatever their size. Read the stack from the top. Each layer explains what the l
 <p>The layers aren't equal. {% if f %}What a listing says about the apartment explains about
 {{ "%.0f" | format(100 * f.mean) }}% of the spread in asks{% endif %}{% if bl %}, and the building's own premium
 another {{ "%.0f" | format(100 * bl.mean) }}%{% endif %}.{% if res %} What's left, the part nobody could have
-predicted from anything the model knows, is about {{ "%.0f" | format(100 * res.mean) }}%.{% endif %} These shares are
-split by covariance: when two layers move together, they share the credit.</p>
+predicted from anything the model knows, is about {{ "%.0f" | format(100 * res.mean) }}%.{% endif %} The spread here means how much
+asks differ from one listing to the next, measured on the percentage scale the model works in. When two layers move
+together, they share the credit for it.</p>
 {% else %}
 <p class="note" id="shares-pending">How much of the spread each layer explains is computed from the fit's
 draws. That breakdown hasn't been run for the served fit yet, and it will appear here once it has.</p>
@@ -153,17 +154,19 @@ apartment terms are learned from a handful of listings, and asks scatter even fo
 more widely? Does the ad's own text know something the structured fields don't? Each idea gets the same trial. We
 fit the model with it and without it, on the same rows, and ask which version better predicts asks it was not
 shown. The score is <a href="{{ url_for('research_glossary') }}#psis-loo">PSIS-LOO</a>, a fast stand-in for
-leaving each listing out in turn and predicting it from the rest. A change counts as a real gain only when it beats
-the old model by more than twice its standard error.</p>
+leaving each listing out in turn and predicting it from the rest. The score's unit is
+abstract; what matters is the difference between two fits (<a href="{{ url_for('research_glossary') }}#delta-elpd">ΔELPD</a>). Each difference
+comes with a standard error, a measure of how much it could move by chance, and a change counts as a real gain only
+when it beats the old model by more than twice that.</p>
 
 <p>So far {{ trials | length }} ideas have been tried, in {{ tests | length }} paired fits.
 {% set others = trials | length - gains | length - nulls | length %}{{ gains | length }} helped, {{ nulls | length }}
 made no clear difference{% if others %} and {{ others }} made it worse or were set aside{% endif %}.{% if location %} The nulls tell a story
 of their own: {{ location_nulls | length }} of the {{ location | length }} ideas about where a building sits, from nearby subway lines to parks and street noise,
 changed nothing we could measure. The likely reason is that each building already has its own premium. Whatever a location is
-worth is already priced into that premium, so a new location feature has little left to explain. These nulls get
-retested whenever a new neighbourhood joins the data, since more neighbourhoods give location more room to
-matter.{% endif %}</p>
+worth is already priced into that premium, so a new location feature has little left to explain. {% set waiting_now = location_nulls | selectattr("retest", "equalto", "next neighbourhood") | list %}{% if waiting_now %}
+{{ waiting_now | length }} of these nulls will be retested when a new neighbourhood joins the data, since more
+neighbourhoods give location more room to matter.{% endif %}{% endif %}</p>
 
 <figure class="story-figure" id="trials-figure" data-play>
   <div class="legend-row" aria-hidden="true">{% for key, words in verdict_words.items() %}{% if trials | selectattr("verdict", "equalto", key) | list %}<span><span class="swatch v-{{ key }}"></span>{{ words | capitalize }}</span>{% endif %}{% endfor %}</div>
@@ -270,7 +273,11 @@ picks the better predictor. Whether a feature means anything is still a person's
 <h2>Cleaning the record</h2>
 <p>Before the model sees a single ask, the {{ "{:,}".format(cleaning.start.rows) }} rows pass through
 {{ cleaning.steps | length }} data rules. A listing site records the same apartment many times, from many brokers,
-over many years, and each rule fixes one way that record goes wrong.{% if not cleaning.current %} (These
+over many years, and each rule fixes one way that record goes wrong.{% if cleaning.current and cleaning.end.rows > counts[0] %}
+Of the {{ "{:,}".format(cleaning.end.rows) }} rows that come out, the model is fitted on the
+{{ "{:,}".format(counts[0]) }} counted at the top of this page; the other
+{{ "{:,}".format(cleaning.end.rows - counts[0]) }} are <a href="{{ url_for('research_glossary') }}#held-out">held out</a> to check its predictions
+on asks it hasn't seen.{% endif %}{% if not cleaning.current %} (These
 numbers are for the rules of an earlier served fit; they are refreshed when the rules change.){% endif %}</p>
 
 <p>The rules that matter most are about identity. The model gives every apartment its own level, so it has to
@@ -303,8 +310,9 @@ when it has any.
 An ad's description never overrides its coded fields by itself.</p>
 
 <p>Rules are tested like model terms: the model is fitted with and without the rule and scored on the rows
-both fits keep. They are the data rules in the chapter above.
-The <a href="{{ url_for('research_data_quality') }}">data quality</a> page lists every rule and its reviews.</p>
+both fits keep, the same trial as the ideas in <a href="#theories">Theories on trial</a>.
+The <a href="{{ url_for('research_data_quality') }}">data quality</a> page lists every
+<a href="{{ url_for('research_glossary') }}#data-rules">data rule</a> and its reviews.</p>
 
 <details class="table-view">
   <summary>Every rule as a table</summary>
