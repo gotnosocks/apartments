@@ -23,6 +23,11 @@ or a rec room anywhere, with an adjectival count ("3 true bedrooms") that
 disagrees, or a bare count on a unit with no other listing are left alone;
 bath counts must fit the ad's own bedrooms.
 
+Version 3 (`bedrooms-ad-v3`, `baths-ad-v3`; `--version 3`) is version 2 on
+the five neighbourhoods (`data.DATASET_NB5`) and all four crawls' ads, units
+joined by their alias table (`data.UNIT_ALIASES_FGP`), and Flatiron and
+Gramercy Park counted as other neighbourhoods (`OTHER_NEIGHBOURHOOD_V3`).
+
 Baths (`baths-ad-v1`, `... baths --out ...`): the ad states one bathroom
 count, more than the record's full baths plus half its half baths and not
 their plain sum, with no shared, powder-room, hedging or other-area words; the
@@ -98,11 +103,14 @@ def corroborated(frame: pd.DataFrame, field: str, value: pd.Series) -> pd.Series
     return (others == 0) | wanted.map(counts).fillna(0).gt(0)
 
 
-def majority(frame: pd.DataFrame, field: str, value: pd.Series) -> pd.Series:
+def majority(
+    frame: pd.DataFrame, field: str, value: pd.Series, aliases: Path | None = None
+) -> pd.Series:
     """v2's corroboration: whether each row's unit, with units joined as
-    unit-labels-v2 joins them, has no other listing, or at least half of its
-    other listings record `value` for `field`."""
-    units = data.merge_unit_aliases(frame).unit_id
+    unit-labels-v2 joins them (v3: by the five neighbourhoods' alias table), has
+    no other listing, or at least half of its other listings record `value` for
+    `field`."""
+    units = _units(frame, aliases)
     recorded = pd.to_numeric(frame[field], errors="coerce")
     others = units.groupby(units).transform("size") - 1
     counts = pd.Series(list(zip(units, recorded)), index=frame.index).value_counts()
@@ -126,17 +134,38 @@ ORDINALS = {
     "tenth": 10, "10th": 10, "eleventh": 11, "11th": 11,
 }  # fmt: skip
 ON_AVENUE = re.compile(r"\bon (\w+) ave(?:nue)?\b")
+# v3, on the five neighbourhoods: Flatiron and Gramercy Park are other
+# neighbourhoods to Chelsea and the Villages, and the reverse. Flatiron and
+# Gramercy Park are split by building from one crawl and their ads name either
+# for the same blocks, so neither is another neighbourhood to the other.
+_VILLAGE = r"(?:west |greenwich )?village"
+_CHELSEA = r"(?:west )?chelsea\b"
+_FG = r"flatiron|gramercy"
+OTHER_NEIGHBOURHOOD_V3 = {
+    n: re.compile(rf"(?:in|heart of) (?:the )?(?:{other})")
+    for n, other in {
+        "Chelsea": rf"(?:west|greenwich) village|{_FG}",
+        "West Village": rf"{_CHELSEA}|{_FG}",
+        "Greenwich Village": rf"{_CHELSEA}|{_FG}",
+        "Flatiron": rf"{_CHELSEA}|{_VILLAGE}",
+        "Gramercy Park": rf"{_CHELSEA}|{_VILLAGE}",
+    }.items()
+}
+# What v3 reads: the five neighbourhoods, all four crawls' ads, and the alias
+# table that joins units across them.
+DATASET_V3 = data.DATASET_NB5
+ALIASES_V3 = data.UNIT_ALIASES_FGP
 
 
-def placed_elsewhere(frame: pd.DataFrame, text: pd.Series) -> pd.Series:
+def placed_elsewhere(
+    frame: pd.DataFrame, text: pd.Series, others: dict = OTHER_NEIGHBOURHOOD
+) -> pd.Series:
     """Whether an ad names the other neighbourhood as the apartment's, or puts
     it on another avenue than the one its building's slug ("202-8-avenue")
     names."""
     hood = pd.Series(
         [
-            bool(OTHER_NEIGHBOURHOOD[n].search(t))
-            if n in OTHER_NEIGHBOURHOOD
-            else False
+            bool(others[n].search(t)) if n in others else False
             for n, t in zip(frame.neighbourhood, text)
         ],
         index=frame.index,
@@ -193,6 +222,20 @@ def first_count(text: str) -> float:
     return _count(m) if m else np.nan
 
 
+def _v(version: int) -> tuple:
+    """The alias table and other-neighbourhood words a version reads."""
+    if version >= 3:
+        return ALIASES_V3, OTHER_NEIGHBOURHOOD_V3
+    return None, OTHER_NEIGHBOURHOOD
+
+
+def _units(frame: pd.DataFrame, aliases: Path | None) -> pd.Series:
+    """Unit ids joined by the alias table (None: unit-labels-v2's)."""
+    if aliases is None:
+        return data.merge_unit_aliases(frame).unit_id
+    return data.merge_unit_aliases(frame, aliases).unit_id
+
+
 def bedroom_corrections(
     frame: pd.DataFrame, text: pd.Series, version: int = 1
 ) -> pd.DataFrame:
@@ -219,11 +262,12 @@ def bedroom_corrections(
         & ~frame.audit_id.isin(data.dropped_rows())
     )
     if version >= 2:
-        units = data.merge_unit_aliases(frame).unit_id
+        aliases, others = _v(version)
+        units = _units(frame, aliases)
         alone = units.groupby(units).transform("size").eq(1)
         clear &= (
-            majority(frame, "bedrooms", stated)
-            & ~placed_elsewhere(frame, text)
+            majority(frame, "bedrooms", stated, aliases)
+            & ~placed_elsewhere(frame, text, others)
             & ~text.str.contains(DOUBT_V2)
             & ~(alone & text.str.strip().str.len().lt(20))
             & text.map(lambda t: stated_counts_v2(t) <= {s for s in stated_counts(t)})
@@ -303,9 +347,10 @@ def bathroom_corrections(
             [not c or b in c for c, b in zip(text.map(stated_counts), beds)],
             index=frame.index,
         )
+        aliases, others = _v(version)
         clear &= (
-            majority(frame, "bathrooms", stated)
-            & ~placed_elsewhere(frame, text)
+            majority(frame, "bathrooms", stated, aliases)
+            & ~placed_elsewhere(frame, text, others)
             & (stated <= beds + 1)
             & beds_agree
         )
@@ -329,13 +374,22 @@ def _git(*args) -> str:
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     parser.add_argument("kind", choices=["bedrooms", "baths"])
-    parser.add_argument("--version", type=int, choices=[1, 2], default=1)
+    parser.add_argument("--version", type=int, choices=[1, 2, 3], default=1)
     parser.add_argument("--out", type=Path, required=True)
     args = parser.parse_args(argv)
     if _git("status", "--porcelain", "--untracked-files=no"):
         raise SystemExit("refusing a dirty tree")
-    frame = data.load()
-    sources = (descriptions.SOURCE, descriptions.WV_SOURCE)
+    if args.version >= 3:
+        frame = data.load(DATASET_V3)
+        sources = (
+            descriptions.SOURCE,
+            descriptions.WV_SOURCE,
+            descriptions.GV_SOURCE,
+            descriptions.FGP_SOURCE,
+        )
+    else:
+        frame = data.load()
+        sources = (descriptions.SOURCE, descriptions.WV_SOURCE)
     token = descriptions.SOURCES.set(sources)
     try:
         text = descriptions.attach(frame)
