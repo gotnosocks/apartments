@@ -1130,6 +1130,25 @@ GAPS = (
 )
 
 
+def _iso_day(at: str) -> str:
+    """An ISO date from a listing time or a bare "YYYY-MM" period."""
+    return f"{at}-01" if len(at) == 7 else at[:10]
+
+
+NUMBER_WORDS = ("one", "two", "three", "four", "five", "six")
+
+
+def bed_phrase(bedrooms) -> str:
+    """'a studio', 'a one-bedroom', 'a 7-bedroom'; 'an apartment' when unknown."""
+    if bedrooms is None:
+        return "an apartment"
+    n = max(0, round(bedrooms))
+    if n == 0:
+        return "a studio"
+    word = NUMBER_WORDS[n - 1] if n <= len(NUMBER_WORDS) else str(n)
+    return f"{'an' if word in ('8', '11', '18') else 'a'} {word}-bedroom"
+
+
 def rent_jumps(db) -> dict | None:
     """The jumps between a unit's consecutive listings, by the years between
     them, and the median-sized one as an example."""
@@ -1167,12 +1186,79 @@ def rent_jumps(db) -> dict | None:
             "address": e["address"],
             "before": e["prev_ask"],
             "after": e["ask"],
-            "from": e["prev_at"][:10],
-            "to": e["at"][:10],
+            "from": _iso_day(e["prev_at"]),
+            "to": _iso_day(e["at"]),
             "years": e["years"],
             "change": 100 * (e["ask"] / e["prev_ask"] - 1),
         },
     }
+
+
+# A unit's listings in order, with its building's address. The split rule
+# names the later pieces of a unit's history "<unit_id>~1", "~2", ...
+_UNIT_ROWS = """
+SELECT l.unit_id, l.unit_label, l.bedrooms, l.ask, COALESCE(l.price_at, l.period) AS at,
+  b.address, substr(l.unit_id, 1, instr(l.unit_id || '~', '~') - 1) AS base
+FROM listings l JOIN buildings b ON b.id = l.building_id
+ORDER BY base, at, l.id
+"""
+
+
+def unit_examples(db) -> dict:
+    """One real unit for each identity rule: the joined unit whose ads spell
+    its name the most ways, and a clean split: the unit with the most pieces
+    whose bedroom count and ask both rise from piece to piece, three pieces
+    preferred so the example stays short."""
+    units: dict = {}
+    for r in db.execute(_UNIT_ROWS):
+        units.setdefault(r["base"], []).append(r)
+    joined = split = None
+    for base, rows in units.items():
+        labels = list(dict.fromkeys(r["unit_label"] for r in rows if r["unit_label"]))
+        ids = list(dict.fromkeys(r["unit_id"] for r in rows))
+        if len(ids) == 1 and len(labels) > 1:
+            key = (len(labels), len(rows), base)
+            if joined is None or key > joined[0]:
+                joined = (key, rows, labels)
+        if len(ids) > 1:
+            pieces = [next(r for r in rows if r["unit_id"] == i) for i in ids]
+            beds = [r["bedrooms"] for r in pieces]
+            asks = [r["ask"] for r in pieces]
+            if None not in beds and all(
+                b1 < b2 and a1 < a2
+                for b1, b2, a1, a2 in zip(beds, beds[1:], asks, asks[1:])
+            ):
+                key = (len(pieces) == 3, len(pieces), len(rows), base)
+                if split is None or key > split[0]:
+                    split = (key, pieces)
+    out = {}
+    if joined:
+        _, rows, labels = joined
+        out["joined"] = {
+            "unit_id": rows[0]["unit_id"],
+            "address": rows[0]["address"],
+            "labels": labels,
+            "listings": len(rows),
+        }
+    if split:
+        pieces = split[1]
+        out["split"] = {
+            "address": pieces[0]["address"],
+            "label": pieces[0]["unit_label"],
+            "count": NUMBER_WORDS[len(pieces) - 1]
+            if len(pieces) <= len(NUMBER_WORDS)
+            else str(len(pieces)),
+            "pieces": [
+                {
+                    "unit_id": r["unit_id"],
+                    "words": bed_phrase(r["bedrooms"]),
+                    "ask": r["ask"],
+                    "at": _iso_day(r["at"]),
+                }
+                for r in pieces
+            ],
+        }
+    return out
 
 
 def _step_words(step: dict, before: dict) -> str:
