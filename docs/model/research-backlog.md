@@ -604,6 +604,9 @@ The coordinator's 22:44Z list. Scripts: `/data1/apartments/tmp/bridge/review/r12
   - Off-grid: +4.72 ± 1.11 alone; +4.72 with on-avenue (on-avenue −0.04 ± 1.01); +4.68 adding log
     distance to the avenue.
   - **It survives.** The off-grid premium is not avenue frontage.
+  - The size differs from A's (+8 to +9) because the sample and target differ: C uses all WV
+    buildings and only these controls; A uses the buildings seen in both periods, with the full
+    location regression. Compare within a check, not across.
 - **D. 3BR+ against 1BR by building class and area.** The shared curve plus each group's mean
   residual gap, in pp:
 
@@ -619,7 +622,8 @@ The coordinator's 22:44Z list. Scripts: `/data1/apartments/tmp/bridge/review/r12
   | WV | 4.1 | −2.0 | −3.3 | −3.3 |
 
   - **The 3BR+ discount sits in elevator and condo buildings** (the family market), not in
-    walkups (the sharer market, flat throughout). Every area shows it, WV least.
+    walkups (the sharer market, flat throughout). Every area shows it in 2015–24, WV least in
+    2020–24; in 2025–26 Gramercy reverses (+1.6) and Chelsea eases to −2.4.
   - A bedroom-time × walkup interaction is a candidate if the curves are kept.
 - **E. One drifting per-bedroom slope or three curves?**
   [Plot](img/bedroom-curves-20261008.svg): studio, 2BR and 3BR+ against 1BR, served fit.
@@ -628,8 +632,9 @@ The coordinator's 22:44Z list. Scripts: `/data1/apartments/tmp/bridge/review/r12
   - RMS misfit (pp) per curve, studio / 2BR / 3BR+: rank one with free loadings 0.96 / 0.47 /
     0.42; fixed linear-in-bedrooms loadings (−1, 1, 2) 1.01 / 0.52 / 0.55. Posterior sd of the
     curves: 1.00 / 0.99 / 1.73.
-  - **One drifting slope β0 + β1·g(t) fits within posterior noise** for 2BR and 3BR+; the studio
-    curve is mostly noise.
+  - **One drifting slope β0 + β1·g(t) fits within posterior noise** for 2BR and 3BR+. The studio
+    curve is mostly noise: its rank-one misfit (0.96) is about its posterior sd (1.00), and so is
+    its whole RMS (1.13).
   - Elegance candidate: replace the three bedroom-time curves with a loading per bedroom group
     times one common g(t) (free loadings, or linear in bedrooms). It interacts with D: the drift
     is a family-building effect, so g(t) may want a walkup interaction instead.
