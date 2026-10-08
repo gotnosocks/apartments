@@ -673,6 +673,8 @@ def theories(rows: list[dict]) -> list[dict]:
             words=PLAIN.get(t["change"]) or t["about"] or t["change"].lstrip("+"),
         )
         t["clear_gain"] = t["diff"] > 2 * t["se"]
+        # The ledger marks a test "due" when it ran on an older dataset.
+        t["due"] = t["retest"].startswith("due")
         # The ledger's words for the table, without its own asides.
         t["note"] = re.sub(r"\s*\([^()]*\)", "", t["about"]).strip()
         out.append(t)
