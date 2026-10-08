@@ -2,6 +2,16 @@
 
 What the next turn of the website thread needs. Updated at each milestone.
 
+## State (2026-10-08 13:35 UTC)
+
+- **Theories chapter for lay readers:** #515 "The biggest wins" line and "(model term: …)"
+  labels; #518 the score in plain words ("margin for luck" = standard error), PSIS-LOO and
+  ΔELPD in a "The technical names" fold-out.
+- **#516** a contents list of the story's chapters; **#517** the layers chart's axis says the
+  share is "of the spread in asks between listings, not of the rent" (story5 misread it).
+- **Playtest story6** (story-reader) started to check the theories rewrite:
+  `/data1/apartments/tmp/playtests/2026-10-08-story6/`.
+
 ## State (2026-10-08 12:30 UTC)
 
 - **Playtest story4** (`/data1/apartments/tmp/playtests/2026-10-08-story4/`, story-reader,
