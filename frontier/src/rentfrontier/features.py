@@ -1251,7 +1251,9 @@ def flagfix_v1(
 
 # External snapshots read by feature sets (rentfrontier.registry, .external).
 # University calendars (rentfrontier.unical).
-UNICAL_FILE = "/data1/apartments/external/unical/PENDING/calendar.csv"
+UNICAL_FILE = "/data1/apartments/external/unical/20261008-571dd02/calendar.csv"
+# Feature sets that read UNICAL_FILE.
+UNICAL = {"nb5-unical-v1"}
 REGISTRY_SNAPSHOT = "/data1/apartments/external/registry/20260925-6b67137"
 PLUTO_SNAPSHOT = "/data1/apartments/external/pluto/20260925-3096a62"
 REGISTRY_FILE = f"{REGISTRY_SNAPSHOT}/buildings.parquet"
