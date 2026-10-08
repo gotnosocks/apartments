@@ -2419,6 +2419,8 @@ def create_app(
         )
         rows = story.composition(anatomy, variance)
         trials = story.theories(ledger.load())
+        switches = story.design_history((data or {}).get("milestones") or [])
+        lives = story.term_lives(switches)
         return render_template(
             "research_story.html",
             meta=m,
@@ -2437,6 +2439,11 @@ def create_app(
             trials_svg=story.theories_svg(trials),
             verdict_words=story.VERDICT_WORDS,
             kinds=story.KINDS,
+            switches=switches,
+            eras=story.eras(switches),
+            lives=lives,
+            prevprice=story.served_spells(switches, "prevprice"),
+            history_svg=story.history_svg(switches, lives),
             terms=terms,
             labels=labels,
         )
