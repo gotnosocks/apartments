@@ -63,6 +63,10 @@ Sources:
 - parks: NYC Parks properties (NYC Open Data enfh-gkve) in the box widened by
   `PARKS_MARGIN_M`: name, type, acres, acquisition date and outline (GeoJSON),
   for the walk to the nearest park open as of a listing (`parks`).
+- blocklots: MapPLUTO (64uk-42ks) for every lot on the registry's tax blocks,
+  not just the registry's own lots: its area, buildings, residential units,
+  class, owner name (Department of Finance) and the lot's point. A footprint
+  that spans several lots of a block is matched to them by their points.
 """
 
 from __future__ import annotations
@@ -143,6 +147,40 @@ def fetch_pluto(bbls, batch: int = 100) -> tuple[pd.DataFrame, list[str]]:
     table = pd.DataFrame(rows, columns=list(PLUTO_COLUMNS))
     table["bbl"] = table.bbl.astype(float).astype("int64").astype(str)
     return table, queries
+
+
+BLOCKLOT_COLUMNS = (
+    "bbl",
+    "version",
+    "borough",
+    "block",
+    "lot",
+    "lotarea",
+    "numbldgs",
+    "unitsres",
+    "bldgclass",
+    "ownername",
+    "latitude",
+    "longitude",
+)
+
+
+def fetch_blocklots(bbls, batch: int = 50) -> tuple[pd.DataFrame, list[str]]:
+    """Every MapPLUTO lot on the tax blocks of `bbls` (Manhattan)."""
+    blocks = sorted({int(str(b)[1:6]) for b in bbls if str(b).startswith("1")})
+    rows, queries = [], []
+    for i in range(0, len(blocks), batch):
+        where = f"borough = 'MN' and block in ({', '.join(map(str, blocks[i : i + batch]))})"
+        params = {
+            "$select": ", ".join(BLOCKLOT_COLUMNS),
+            "$where": where,
+            "$limit": 50_000,
+        }
+        rows += _socrata(PLUTO_ID, params)
+        queries.append(urllib.parse.urlencode(params))
+    table = pd.DataFrame(rows, columns=list(BLOCKLOT_COLUMNS))
+    table["bbl"] = table.bbl.astype(float).astype("int64").astype(str)
+    return table.drop_duplicates("bbl").reset_index(drop=True), queries
 
 
 NY_SOCRATA = "https://data.ny.gov"
@@ -1056,6 +1094,7 @@ def main(argv=None):
             "lodes",
             "rentstab",
             "parks",
+            "blocklots",
         ),
     )
     parser.add_argument(
@@ -1115,6 +1154,19 @@ def main(argv=None):
             "registry_lots_missing": missing,
         }
         summary = f"{len(table)} lots, {len(missing)} registry lots missing"
+    elif args.source == "blocklots":
+        registry = pd.read_parquet(registry_path)
+        table, queries = fetch_blocklots(registry.bbl.dropna())
+        details = {
+            "source": f"{SOCRATA}/{PLUTO_ID}",
+            "dataset": "MapPLUTO (NYC DCP) via NYC Open Data, every lot on the "
+            "registry's tax blocks",
+            "versions": sorted(table.version.dropna().unique().tolist()),
+            "registry": str(registry_path),
+            "blocks": int(table.block.nunique()),
+            "lots": len(table),
+        }
+        summary = f"{len(table)} lots on {table.block.nunique()} blocks"
     elif args.source == "hpd":
         registry = pd.read_parquet(registry_path)
         table, queries, version = fetch_hpd(registry)
