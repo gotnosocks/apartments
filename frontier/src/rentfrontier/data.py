@@ -170,6 +170,10 @@ UNIT_ALIASES_GV = UNIT_ALIASES.with_name("wv-gv-20261005.jsonl")
 # flatiron-gramercy-park-granular-20261007-canonical-url-v1, 522
 # history-confirmed groups); provenance beside it.
 UNIT_ALIASES_FGP = UNIT_ALIASES.with_name("wv-gv-fgp-20261007.jsonl")
+# That table with Stuyvesant Town/PCV's appended (unit-spelling-alias-v2 on
+# stuyvesant-town-pcv-granular-20261008-canonical-url-v1, 265
+# history-confirmed groups); provenance beside it.
+UNIT_ALIASES_STUY = UNIT_ALIASES.with_name("wv-gv-fgp-stuy-20261008.jsonl")
 
 
 @functools.lru_cache(maxsize=3)
@@ -268,6 +272,8 @@ def merge_word_labels(
 UNIT_HISTORY_PAIRS = UNIT_ALIASES.with_name("history-20261006.jsonl")
 # The same pairs with Flatiron + Gramercy Park's (551) appended.
 UNIT_HISTORY_PAIRS_FGP = UNIT_ALIASES.with_name("history-20261007.jsonl")
+# The same pairs with Stuyvesant Town/PCV's (276) appended.
+UNIT_HISTORY_PAIRS_STUY = UNIT_ALIASES.with_name("history-20261008.jsonl")
 
 
 @functools.lru_cache(maxsize=2)
@@ -835,6 +841,19 @@ DATA_RULES = {
             ),
         ),
     ),
+    # unit-labels-v11 on the tables with Stuyvesant Town/PCV's appended too
+    # (UNIT_ALIASES_STUY, UNIT_HISTORY_PAIRS_STUY).
+    "unit-labels-v13": functools.partial(
+        merge_word_letter_labels,
+        base=functools.partial(
+            merge_swapped_labels,
+            base=functools.partial(
+                merge_history_pairs,
+                pairs=UNIT_HISTORY_PAIRS_STUY,
+                aliases=UNIT_ALIASES_STUY,
+            ),
+        ),
+    ),
     "unit-splits-v1": split_unit_histories,
     # unit-splits-v1 at any change of bedroom count: 3,871 more listing pairs,
     # 20.7% of them moving rent by over 40% against 6.8% with no change.
@@ -883,6 +902,7 @@ RULE_SOURCES = {
     "unit-labels-v8": UNIT_HISTORY_PAIRS,
     "unit-labels-v9": UNIT_HISTORY_PAIRS,
     "unit-labels-v11": UNIT_ALIASES_FGP,
+    "unit-labels-v13": UNIT_ALIASES_STUY,
     "bedrooms-ad-v1": BEDROOM_CORRECTIONS,
     "baths-ad-v1": BATH_CORRECTIONS,
     "bedrooms-ad-v2": BEDROOM_CORRECTIONS_V2,

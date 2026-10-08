@@ -1,0 +1,26 @@
+{
+  "parts": [
+    {
+      "file": "wv-gv-fgp-20261007.jsonl",
+      "provenance": "wv-gv-fgp-20261007.provenance.json"
+    },
+    {
+      "source": "/data1/apartments/archive/datasets/stuyvesant-town-pcv-granular-20261008-unit-spelling-aliases-v2",
+      "rule": "unit-spelling-alias-v2",
+      "source_dataset": "/data1/apartments/archive/datasets/stuyvesant-town-pcv-granular-20261008-canonical-url-v1",
+      "evidence_snapshot": "/data1/apartments/archive/snapshots/stuyvesant-town-pcv-20261008-final/archive.sqlite3",
+      "implementation_sha256": "bd3abb079a9fcd00148ae093dfcd46f55bc09514e74722336a4b31b54556fd44",
+      "output_sha256": {
+        "unit_spelling_aliases": "361cd1bca4173f9747a5118fb24d1f8113cbad2d33e74364adbe4c0cfac976bb"
+      },
+      "counts": {
+        "groups": 266,
+        "history_confirmed_groups": 265,
+        "listings_in_groups": 1250,
+        "units_in_groups": 535
+      },
+      "made_by": "apartments.unit_spelling_aliases (unit-spelling-alias-v2, PR #213)"
+    }
+  ],
+  "sha256": "3e93ba926803dbcb6103b6b627ea0bfae5cf0ec98358e1dab2a1512188234a8b"
+}

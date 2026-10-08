@@ -900,3 +900,46 @@ def test_quarantine_v10_is_rent_blind_only():
         rows = [json.loads(line) for line in f if line.strip()]
     assert len(rows) == 219 and all(r["evidence"] and r["reason"] for r in rows)
     assert "quarantine-v10" in data.DROPPING_RULES
+
+
+def test_unit_labels_v13_is_v11_on_the_tables_with_stuyvesant_towns_appended():
+    """v13 reads the alias table and history pairs v11 reads, line for line,
+    with Stuyvesant Town/PCV's added; on other neighbourhoods' units it joins
+    what v11 joins, and it joins a Stuyvesant Town alias group."""
+    for old, new in (
+        (data.UNIT_ALIASES_FGP, data.UNIT_ALIASES_STUY),
+        (data.UNIT_HISTORY_PAIRS_FGP, data.UNIT_HISTORY_PAIRS_STUY),
+    ):
+        before, after = old.read_text(), new.read_text()
+        assert after.startswith(before) and len(after) > len(before)
+    fgp, stuy = (
+        set(data.unit_aliases(data.UNIT_ALIASES_FGP)),
+        set(data.unit_aliases(data.UNIT_ALIASES_STUY)),
+    )
+    assert fgp < stuy and len(stuy - fgp) == 265
+    assert data.RULE_SOURCES["unit-labels-v13"] == data.UNIT_ALIASES_STUY
+    assert "unit-labels-v13" not in data.DROPPING_RULES
+    url = "https://streeteasy.com/building/{}/{}".format
+    group = next(iter(stuy - fgp))
+    frame = pd.DataFrame(
+        {
+            "building": ["b1"] * 4 + ["b2"] * 2,
+            "canonical_unit_url": [
+                url("b1", "fourb"),
+                url("b1", "4b"),
+                url("b1", "c7"),
+                url("b1", "7c"),
+                url("b2", "2a"),
+                url("b2", "2b"),
+            ],
+            "unit_id": ["u4", "u3", "u5", "u6", group[0], group[1]],
+            "bedrooms": [1.0, 1.0, 2.0, 2.0, 1.0, 1.0],
+        }
+    )
+    v11 = data.DATA_RULES["unit-labels-v11"](frame)
+    v13 = data.DATA_RULES["unit-labels-v13"](frame)
+    assert (
+        v13.unit_id.tolist()[:4] == v11.unit_id.tolist()[:4] == ["u3", "u3", "u5", "u5"]
+    )
+    assert v11.unit_id.iat[4] != v11.unit_id.iat[5]
+    assert v13.unit_id.iat[4] == v13.unit_id.iat[5] == min(group[:2])
