@@ -1,0 +1,153 @@
+{% extends "base.html" %}
+{% block title %}What a rent is made of{% endblock %}
+{% block content %}
+<article class="story">
+<h1>What a rent is made of</h1>
+<p class="lede">Why does one one-bedroom in {{ meta.scope }} ask far more than another a few blocks away?
+This page tells the story of the model behind this site: what it says an ask is built from, how sure it is,
+and what we learned building it. Every number here is read from the model now serving estimates, so the page
+changes when the model does.</p>
+
+<p>The model has seen {{ "{:,}".format(counts[0]) }} asks for {{ "{:,}".format(counts[1]) }} apartments in
+{{ "{:,}".format(counts[2]) }} buildings, from {{ month(counts[3]) }} to {{ month(counts[4]) }}.
+Most apartments were listed more than once, so the same home shows up at different times and prices. That
+repetition is what lets a model separate the apartment from the building, and the building from the market.</p>
+
+<section id="shape">
+<h2>An ask is a sum of a few stories</h2>
+<p>Start with the shape. The model writes the logarithm of each ask as a sum of parts, so each part works as a
+percentage: a building that is 10% pricier than its features explain adds 10% to every one of its apartments,
+whatever their size. Read the stack from the top. Each layer explains what the layers above it leave over.</p>
+
+<figure class="story-figure" id="compose-figure" data-play>
+  <div class="figure-scroll" tabindex="0" role="region" aria-label="Figure, scrolls sideways on narrow screens">{{ composition_svg }}</div>
+  <figcaption>The served model, layer by layer.{% if variance %} The bars show each layer's share of the
+  spread in asks across every listing (the log asks' variance), with its 90% interval.{% endif %}</figcaption>
+</figure>
+
+<dl class="facts wide story-layers">
+{% for r in composition %}
+  <dt><span class="swatch {{ r.css }}" aria-hidden="true"></span>{{ r.name }}</dt>
+  <dd>{{ r.words | capitalize }}. {% for p in r.plain %}{{ p }} {% endfor %}</dd>
+{% endfor %}
+</dl>
+
+<details class="table-view">
+  <summary>The layers as a table</summary>
+  <div class="table-wrap">
+  <table class="data">
+    <thead><tr><th scope="col">Layer</th><th scope="col">Parts in the served model</th>
+      <th scope="col" class="num">Share of the spread</th><th scope="col" class="num">90% interval</th></tr></thead>
+    <tbody>
+    {% for r in composition %}
+      <tr><td>{{ r.name }}</td><td>{{ r.parts | join(", ") }}</td>
+        {% if r.share %}<td class="num">{{ "%.1f" | format(100 * r.share.mean) }}%</td>
+        <td class="num muted nowrap">{{ "%.1f" | format(100 * r.share.lower_90) }}% to {{ "%.1f" | format(100 * r.share.upper_90) }}%</td>
+        {% else %}<td class="num muted">—</td><td class="num muted">—</td>{% endif %}</tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  </div>
+</details>
+
+{% if variance %}
+{% set f = variance.get("features") %}{% set bl = variance.get("building") %}{% set res = variance.get("residual") %}
+<p>The layers aren't equal. {% if f %}What a listing says about the apartment explains about
+{{ "%.0f" | format(100 * f.mean) }}% of the spread in asks{% endif %}{% if bl %}, and the building's own premium
+another {{ "%.0f" | format(100 * bl.mean) }}%{% endif %}.{% if res %} What's left, the part nobody could have
+predicted from anything the model knows, is about {{ "%.0f" | format(100 * res.mean) }}%.{% endif %} These shares are
+split by covariance: when two layers move together, they share the credit.</p>
+{% else %}
+<p class="note" id="shares-pending">How much of the spread each layer explains is computed from the fit's
+draws. That breakdown hasn't been run for the served fit yet, and it will appear here once it has.</p>
+{% endif %}
+</section>
+
+<section id="effects">
+<h2>What the features are worth</h2>
+<p>Inside the features layer, each detail of a listing has a price. The chart shows the details that move the
+typical ask by at least 2% and whose 95% interval doesn't cross zero. Each one is set against what a renter would
+compare it with: a studio against a one-bedroom, a newer building against one from the 1900s. A dot is the model's
+best estimate, and the line is the range it can't rule out. All else is held equal, so "two full baths" means two
+baths in an apartment that is otherwise the same, not the typical two-bath apartment, which is also bigger.</p>
+
+<figure class="story-figure" id="effects-figure">
+  <div class="figure-scroll" tabindex="0" role="region" aria-label="Figure, scrolls sideways on narrow screens">{{ effects_svg }}</div>
+  <figcaption>Effect on the typical ask, all else equal, in percent, with 95% intervals. Red raises the rent and
+  blue lowers it.</figcaption>
+</figure>
+
+<details class="table-view">
+  <summary>The effects as a table</summary>
+  <div class="table-wrap">
+  <table class="data">
+    <thead><tr><th scope="col">Detail</th><th scope="col">Against</th><th scope="col" class="num">Effect</th>
+      <th scope="col" class="num">95% interval</th></tr></thead>
+    <tbody>
+    {% for e in effects %}
+      <tr><td>{{ e.words | capitalize }}</td><td class="muted">{{ e.against or "—" }}</td>
+        <td class="num">{{ pct(e.pct, digits=1) }}</td>
+        <td class="num muted nowrap">{{ pct(e.lower, digits=1) }} to {{ pct(e.upper, digits=1) }}</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  </div>
+</details>
+<p class="note">Every feature the model prices, including the ones that make little difference, is listed on the
+<a href="{{ url_for('research_model') }}">served model</a> page.</p>
+</section>
+
+{% if build %}
+{% set l = build.listing %}
+<section id="build-up">
+<h2>One apartment, term by term</h2>
+<p>Here is a real ask, chosen because it is the median ask among the {{ "listings available now" if build.current else "listings in the fit" }}:
+<a href="{{ url_for('listing', audit_id=l.audit_id) }}">{{ l.unit_label or "an apartment" }}</a>
+in {{ l.neighbourhood }}, {{ beds_label(l.bedrooms) | lower }}{% if l.square_feet %}, {{ "{:,.0f}".format(l.square_feet) }} sq ft{% endif %}{% if l.floor %}, floor {{ l.floor }}{% endif %}.
+The estimate starts from the market for an apartment like it that month, then each part adds or takes off its share.
+The parts multiply on the log scale. We split each one's dollars in an order-free way, so a term's bar is the
+same size wherever it sits in the queue.</p>
+
+<figure class="story-figure" id="build-figure" data-play>
+  <div class="figure-scroll" tabindex="0" role="region" aria-label="Figure, scrolls sideways on narrow screens">{{ build_svg }}</div>
+  <figcaption>The estimate for {{ l.unit_label or "this apartment" }}, built up from the market. The dot is the
+  estimate, the band its 95% predictive range, and the diamond the ask itself.</figcaption>
+</figure>
+
+<p>{% set gap = build.ask - build.estimate %}The estimate is {{ usd(build.estimate) }} against an ask of
+{{ usd(build.ask) }}{% if build.lower is not none %}, and the model gives 95% odds that an ask for this apartment
+falls between {{ usd(build.lower) }} and {{ usd(build.upper) }}{% endif %}. The spread is honest: the building and
+apartment terms are learned from a handful of listings, and asks scatter even for the same apartment.</p>
+
+<details class="table-view">
+  <summary>The build-up as a table</summary>
+  <div class="table-wrap">
+  <table class="data">
+    <thead><tr><th scope="col">Part</th><th scope="col" class="num">Adds</th><th scope="col" class="num">95% interval</th>
+      <th scope="col" class="num">Running total</th></tr></thead>
+    <tbody>
+    {% for s in build.steps %}
+      <tr><td>{{ s.label }}{% if s.names %} <span class="muted">({{ s.names | join(", ") }})</span>{% endif %}</td>
+        <td class="num">{{ usd(s.usd, signed=s.term != "market") }}</td>
+        <td class="num muted nowrap">{% if s.lower is not none %}{{ usd(s.lower, signed=s.term != "market") }} to {{ usd(s.upper, signed=s.term != "market") }}{% else %}—{% endif %}</td>
+        <td class="num">{{ usd(s.end) }}</td></tr>
+    {% endfor %}
+      <tr><th scope="row">Estimate</th><td></td><td class="num muted nowrap">{% if build.lower is not none %}{{ usd(build.lower) }} to {{ usd(build.upper) }}{% endif %}</td><td class="num"><strong>{{ usd(build.estimate) }}</strong></td></tr>
+      <tr><th scope="row">The ask</th><td></td><td></td><td class="num">{{ usd(build.ask) }}</td></tr>
+    </tbody>
+  </table>
+  </div>
+</details>
+</section>
+{% endif %}
+
+<section id="next">
+<h2>Where to go from here</h2>
+<p>The model got this shape through many fits, and most ideas didn't survive. The
+<a href="{{ url_for('research_history') }}">history</a> shows each design that has served and why it was replaced.
+The <a href="{{ url_for('research_board') }}">board</a> scores every design we fitted. The
+<a href="{{ url_for('research_data_quality') }}">data quality</a> page lists the rules that fix or set aside
+listings with bad data. The <a href="{{ url_for('research_glossary') }}">glossary</a> explains each term.</p>
+</section>
+</article>
+{% endblock %}
