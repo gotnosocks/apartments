@@ -1,9 +1,13 @@
 # Data collection — handoff
 
-Updated 2026-10-08 12:05 ET. Thread owner: the Data collection project thread (bridge session on thelio).
+Updated 2026-10-08 15:50 ET. Thread owner: the Data collection project thread (bridge session on thelio).
 
 ## State
-- **NoMad, East Village, Stuyvesant Town/PCV crawls: RUNNING** since Oct 8 02:23 ET (Ben, typed
+- **Stuyvesant Town/PCV: crawl FINISHED** Oct 8 15:21 ET (6,139 requests, ~$7, no 429s),
+  **dataset BUILT** 15:41 ET: see `docs/data/stuyvesant-town-pcv-collection.md`. Snapshot written
+  compacted (5.9 → 3.3 GB, rows and audit verified). `apartments-stuytown-monitor.timer` disabled.
+  Handed to Data improvements and Modeling via the coordinator.
+- **NoMad, East Village crawls: RUNNING** (Stuy Town finished, above) since Oct 8 02:23 ET (Ben, typed
   06:19 UTC). One StreetEasy area each (`nomad`, `east-village`, `stuyvesant-town`; #482), FGP
   policy, launched at `run-8pm-2w.py` each (24/min combined), fallback 8pm → 4pm → STOP; monitors
   `apartments-{nomad,ev,stuytown}-monitor.timer`. **Combined 32/min** (Ben, typed Oct 8 15:53
@@ -11,7 +15,7 @@ Updated 2026-10-08 12:05 ET. Thread owner: the Data collection project thread (b
   32/min"): `data/probes/rate-balance-20261008/rebalance.py` (local; `apartments-rate-balance.timer`,
   every 15 min) gives each live crawl 8/min and the rest to the first live one of EV, Stuy Town,
   NoMad (runners `run-16pm-4w`, `run-24pm-6w`, `run-32pm-8w`; a 429 step-down from them goes to
-  `run-8pm-2w`). EV on 16/min since 11:55 ET. It holds while any crawl has a recent 429, a PAUSED
+  `run-8pm-2w`). EV on 16/min from 11:55 ET, 24/min from 15:35 ET (Stuy Town finished). It holds while any crawl has a recent 429, a PAUSED
   file or a monitor step-down. Disable the timer once all three finish. Controls: `data/probes/<name>-20261008/README.md`
   (local); archives `/data1/apartments/archive/crawls/<name>-20261008`. Estimates from FGP's ratio:
   NoMad ~8k requests (~$9), EV ~70k (~$80), Stuy Town 15–30k (unit pages dominate). When each
