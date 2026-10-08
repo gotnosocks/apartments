@@ -200,7 +200,7 @@ LEDGER = """# Feature and model tests
 | Date | Change | What | Kind | ΔPSIS-LOO | Verdict | Retest | Dataset (rows) | PR | Test run | Reference run |
 |---|---|---|---|---|---|---|---|---|---|---|
 | 2026-10-05 | `+bednoise` | a residual scale by bedroom group (σ by group) | | +347.0 ± 30.1 | gain | | d (1) | #300 | `a` | `b` |
-| 2026-10-04 | `nb3-parks-v1` | parks within reach | location | -6.2 ± 9.0 | no clear gain | next neighbourhood | d (1) | #250 | `c` | `d` |
+| 2026-10-04 | `nb3-parks-v1` | parks within reach | location | -6.2 ± 9.0 | no clear gain | due, location | d (1) | #250 | `c` | `d` |
 | 2026-10-03 | `nb3-parks-v1` | parks within reach | location | +3.0 ± 9.5 | no clear gain | | d (1) | #250 | `e` | `f` |
 | 2026-10-03 | `nb-prevprice-v1` | how the unit's previous listing was repriced | listing | +747.0 ± 40.0 | PSIS-LOO leaks; judged on the latest split | | d (1) | | `g` | `h` |
 
@@ -247,13 +247,15 @@ def test_theories_chapter_reads_the_ledger(site_root, research_file, tmp_path):
     assert "1 of the 1 ideas about where a building sits," in html
     assert html.count('class="trial ') == 4
     assert "Some ideas scored brilliantly" in html
-    # Open questions: the location idea waiting for the next neighbourhood,
+    # Open questions: the location idea due for a retest,
     # and the idea set aside.
     assert (
         "1 idea about where a building sits\nhas made no clear difference so far:</p>"
         in html
     )
     assert "<li>parks within reach</li>" in html
+    assert "due to be tested again on the wider data" in html
+    assert "1 of these nulls ran before the latest neighbourhoods joined" in html
     assert "1 idea raised the score and was\nstill set aside" in html
     assert "still set aside:</p>\n<ul>" in html and "<li>" in html
 
