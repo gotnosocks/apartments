@@ -1375,3 +1375,39 @@ def test_nb5_parks_sets_read_manhattans_parks(monkeypatch):
         "nb5-parks-v1": features.NB5_PARKS_FILE,
     }
     assert features.parks_file() == features.PARKS_FILE
+
+
+def test_nb5_attrs_and_nearby_are_the_nb3_sets_on_the_five(monkeypatch):
+    pairs = {
+        "nb5-nearby-v1": "nb3-nearby-v1",
+        "nb5-flagfix-v1": "nb3-flagfix-v1",
+        "nb5-attrs-v1": "nb3-attrs-v1",
+    }
+    for new, old in pairs.items():
+        new_set, old_set = features.FEATURE_SETS[new], features.FEATURE_SETS[old]
+        assert new_set.func is old_set.func
+        assert new_set.keywords["base"] == old_set.keywords["base"].replace(
+            "nb3-", "nb5-"
+        )
+        assert features.lot_files(new) == features.lot_files("nb5-coded-v2")
+        assert features.description_files(new) == features.description_files(
+            "nb5-coded-v2"
+        )
+        assert (new in features.DESCRIPTIONS) == (old in features.DESCRIPTIONS)
+    assert features.FEATURE_SETS["nb5-attrs-v1"].keywords["flags"] is (
+        features.ATTRIBUTE_FLAGS
+    )
+    assert "nb5-nearby-v1" in features.PLACES
+    seen = {}
+    for name in ("nb3-nearby-v1", "nb5-nearby-v1"):
+        monkeypatch.setitem(
+            features.FEATURE_SETS,
+            name,
+            lambda f, t, name=name: seen.setdefault(name, features.places_file()),
+        )
+        features.build(name, pd.DataFrame(), np.zeros(0, bool))
+    assert seen == {
+        "nb3-nearby-v1": features.PLACES_FILE,
+        "nb5-nearby-v1": features.NB4_PLACES_FILE,
+    }
+    assert features.places_file() == features.PLACES_FILE
