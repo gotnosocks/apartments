@@ -592,6 +592,10 @@ def _correct_baths(frame: pd.DataFrame, rule: str) -> pd.DataFrame:
         }
     out = frame.copy()
     hit = out.audit_id.isin(rows)
+    if not hit.any():
+        # No listed row in this dataset (a new neighbourhood): an empty
+        # assignment would fail on the integer columns.
+        return out
     for col in ("full_baths", "half_baths"):
         out.loc[hit, col] = (
             out.loc[hit, "audit_id"].map(lambda a, col=col: rows[a][col]).to_numpy()
