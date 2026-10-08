@@ -64,6 +64,10 @@ def test_build_up_ends_at_the_estimate(client):
     html = _page(client)
     m = re.search(r'class="story-svg buildup"[^>]*aria-label="([^"]*)"', html)
     assert m and "estimate $" in m.group(1) and "the ask $" in m.group(1)
+    # a part whose interval spans zero is called out by name
+    text = re.sub(r"\s+", " ", html)
+    assert "the 95% interval for “Unit” (+$45) runs from below zero" in text
+    assert "whether it adds to the ask or takes from it" in text
 
 
 def test_build_up_steps_sum_to_the_estimate():
