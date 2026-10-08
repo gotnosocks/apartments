@@ -1,6 +1,6 @@
 # Chelsea pricing research backlog
 
-## Open-data survey: stabilization, permits, owners, dated MapPLUTO (2026-10-08)
+## Open-data survey: stabilization, permits, owners, dated MapPLUTO (2026-10-07)
 
 Four free sources, sized against the 105,244 rows of `chelsea-wv-gv-analysis-20261005-2d5b3b6`
 (2,941 buildings, 2,748 lots, 2,877 BINs, all in registry `20261005-2d5b3b6`). Scripts and raw
@@ -50,6 +50,8 @@ data. In order of expected value:
      unit-count check found only about 1% of rows with a material change
      (`/data1/apartments/tmp/suspect/pluto-asof/FINDINGS.md`). The case is the no-future-information
      rule. Use the latest release before the listing; take the alteration years from item 2.
+   - **Test.** One Modal full fit against the served set, swapping present-day MapPLUTO for the
+     as-of values and nothing else.
 4. **HPD registrations: owner and managing agent. Not proposed.**
    - **Coverage.** 94.7% of rows are in a registered building. 97% of those are corporate owners.
      809 agents; 72 manage 5 or more of our buildings, covering 30.2% of rows.
