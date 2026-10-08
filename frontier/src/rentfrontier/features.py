@@ -3626,6 +3626,79 @@ for _new, _old in NB4_SETS.items():
     EXTRAS_SNAPSHOTS[_new] = NB4_EXTRAS_FILE
     LPC_SNAPSHOTS[_new] = NB4_LPC_FILE
 
+# The six neighbourhoods (data.DATASET_NB6): the five plus Stuyvesant Town/PCV
+# (stuyvesant-town-pcv-analysis-20261008-966f0a0). Its registry
+# (20261008-330937b, each page geocoded from its own address,
+# config/reviews/registry-overrides-20261008-stuy.json) merged into nb4's, its
+# MapPLUTO, footprints and basemap merged into nb4's (nb4's rows unchanged), the
+# five crawls' listing extras, and the sources keyed by lot fetched on the
+# merged registry.
+NB6_REGISTRY_FILE = (
+    "/data1/apartments/external/registry/20261008-d405de4/buildings.parquet"
+)
+NB6_PLUTO_FILE = "/data1/apartments/external/pluto/20261008-d2a8364/pluto.parquet"
+NB6_FOOTPRINTS_FILE = (
+    "/data1/apartments/external/footprints/20261008-d2a8364/footprints.parquet"
+)
+NB6_BASEMAP_FILE = "/data1/apartments/external/basemap/20261008-d2a8364/basemap.parquet"
+NB6_EXTRAS_FILE = (
+    "/data1/apartments/external/listing-extras/20261008-0076126/listing-extras.parquet"
+)
+NB6_LPC_FILE = "/data1/apartments/external/lpc/20261008-d2a8364/lpc.parquet"
+NB6_HPD_FILE = "/data1/apartments/external/hpd/20261008-d2a8364/hpd.parquet"
+NB6_STOREFRONTS_FILE = (
+    "/data1/apartments/external/storefronts/20261008-d2a8364/storefronts.parquet"
+)
+NB6_PARKS_FILE = "/data1/apartments/external/parks/20261008-d2a8364/parks.parquet"
+NB6_PLUTO_RELEASES_FILE = (
+    "/data1/apartments/external/plutoreleases/20261008-d2a8364/plutoreleases.parquet"
+)
+_NB6_DESCRIPTIONS = {
+    **_NB4_DESCRIPTIONS,
+    "descriptions_stuy": str(descriptions_module.STUY_SOURCE),
+}
+# The MapPLUTO releases file by feature set, where a set in
+# PLUTO_RELEASED_SETS reads other than `PLUTO_RELEASES_FILE`.
+PLUTO_RELEASES_SNAPSHOTS: dict[str, str] = {}
+# The nb6 sets read what their nb5 counterpart reads, from the six
+# neighbourhoods' snapshots in place of the five's.
+NB6_SETS = {"nb6-plutoasof-v3": "nb5-plutoasof-v3"}
+# nb5-plutoasof-v3 plus Stuyvesant Town/PCV (`hoods_v1`): the six
+# neighbourhoods' base. Not fitted until runs resume (Ben, 2026-10-08: pause).
+# The Stuyvesant Town/PCV indicator is a placeholder, a descriptive premium: a
+# later test replaces it with what explains it (one landlord, the share of
+# rent-stabilized units, campus open space, building age and type), per Ben's
+# preference for explanatory features over neighbourhood premiums.
+FEATURE_SETS["nb6-plutoasof-v3"] = partial(
+    hoods_v1,
+    id="nb6-plutoasof-v3",
+    base="nb3-coded-v2",
+    hoods=("Flatiron", "Gramercy Park", "Stuyvesant Town/PCV"),
+)
+for _new, _old in NB6_SETS.items():
+    for _group in (
+        EXTERNAL,
+        BASEMAP,
+        FOOTPRINTS,
+        DESCRIPTIONS,
+        AS_OF_SETS,
+        LISTING_EXTRAS,
+        PRICE_HISTORY,
+        READS_EARLIER_RENTS,
+        PLUTO_RELEASED_SETS,
+    ):
+        if _old in _group:
+            _group.add(_new)
+    LOT_SNAPSHOTS[_new] = {"registry": NB6_REGISTRY_FILE, "pluto": NB6_PLUTO_FILE}
+    AREA_SNAPSHOTS[_new] = {
+        "basemap": NB6_BASEMAP_FILE,
+        "footprints": NB6_FOOTPRINTS_FILE,
+    }
+    DESCRIPTION_SOURCES[_new] = _NB6_DESCRIPTIONS
+    EXTRAS_SNAPSHOTS[_new] = NB6_EXTRAS_FILE
+    LPC_SNAPSHOTS[_new] = NB6_LPC_FILE
+    PLUTO_RELEASES_SNAPSHOTS[_new] = NB6_PLUTO_RELEASES_FILE
+
 
 def lot_files(name: str) -> dict:
     """The registry and MapPLUTO files a feature set's building lots read."""
@@ -3651,7 +3724,9 @@ def build(name: str, frame: pd.DataFrame, train: np.ndarray) -> Features:
         ALTERATIONS_FILE if name in ALTERATION_DATED_SETS else None
     )
     released_token = _RELEASED.set(
-        PLUTO_RELEASES_FILE if name in PLUTO_RELEASED_SETS else None
+        PLUTO_RELEASES_SNAPSHOTS.get(name, PLUTO_RELEASES_FILE)
+        if name in PLUTO_RELEASED_SETS
+        else None
     )
     parks_token = _PARKS.set(PARKS_SNAPSHOTS.get(name))
     places_token = _PLACES.set(PLACES_SNAPSHOTS.get(name))

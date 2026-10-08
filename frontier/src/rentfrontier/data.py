@@ -45,6 +45,12 @@ DATASET_NB4 = Path(
 DATASET_NB5 = Path(
     "/data1/apartments/frontier/datasets/chelsea-wv-gv-flatiron-gramercy-analysis-20261008-0a23057"
 )
+# The six neighbourhoods: DATASET_NB5 and Stuyvesant Town/PCV
+# (stuyvesant-town-pcv-analysis-20261008-966f0a0), combined by
+# `rentfrontier.cohort combine`: 139,387 rows. Not served or fitted yet.
+DATASET_NB6 = Path(
+    "/data1/apartments/frontier/datasets/chelsea-wv-gv-flatiron-gramercy-stuy-analysis-20261008-d2a8364"
+)
 OUTPUT_ROOT = Path(os.environ.get("FRONTIER_OUTPUT_ROOT", "/data1/apartments/frontier"))
 
 # Version of the flattened row (the cache key): v2 adds the neighbourhood.

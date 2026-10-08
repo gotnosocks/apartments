@@ -1,0 +1,265 @@
+{
+  "version": "registry-overrides-stuy-v1",
+  "reviewed_at": "2026-10-08",
+  "rule": "Stuyvesant Town/PCV pages the registry matched by reverse geocoding (StreetEasy gives the whole complex one centroid, so they land on 425 East 14 Street or 'Peter Cooper Village' with placeholder BIN 1000000), and Peter Cooper Road pages the address search put on 4 Peter Cooper Road, are geocoded from their own slug address. 346 1 Avenue resolves to the same BIN as 330 1 Avenue (one structure, two entrances in GeoSearch); kept as GeoSearch gives it.",
+  "overrides": [
+    {
+      "building": "1-stuyvesant-oval-new_york",
+      "address": "1 Stuyvesant Oval",
+      "evidence": "own slug address; StreetEasy's archived coordinates are one centroid shared by the complex",
+      "registry_was": "425 EAST 14 STREET (reverse), BIN 1000000"
+    },
+    {
+      "building": "12-stuyvesant-oval-new_york",
+      "address": "12 Stuyvesant Oval",
+      "evidence": "own slug address; StreetEasy's archived coordinates are one centroid shared by the complex",
+      "registry_was": "425 EAST 14 STREET (reverse), BIN 1000000"
+    },
+    {
+      "building": "17-stuyvesant-oval-new_york",
+      "address": "17 Stuyvesant Oval",
+      "evidence": "own slug address; StreetEasy's archived coordinates are one centroid shared by the complex",
+      "registry_was": "425 EAST 14 STREET (reverse), BIN 1000000"
+    },
+    {
+      "building": "18-stuyvesant-oval-new_york",
+      "address": "18 Stuyvesant Oval",
+      "evidence": "own slug address; StreetEasy's archived coordinates are one centroid shared by the complex",
+      "registry_was": "425 EAST 14 STREET (reverse), BIN 1000000"
+    },
+    {
+      "building": "2-peter-cooper-road-new_york",
+      "address": "2 Peter Cooper Road",
+      "evidence": "own slug address; GeoSearch's address match fell on 4 Peter Cooper Road",
+      "registry_was": "4 PETER COOPER ROAD (address), BIN 1083693"
+    },
+    {
+      "building": "2-stuyvesant-oval-new_york",
+      "address": "2 Stuyvesant Oval",
+      "evidence": "own slug address; StreetEasy's archived coordinates are one centroid shared by the complex",
+      "registry_was": "425 EAST 14 STREET (reverse), BIN 1000000"
+    },
+    {
+      "building": "21-stuyvesant-oval-new_york",
+      "address": "21 Stuyvesant Oval",
+      "evidence": "own slug address; StreetEasy's archived coordinates are one centroid shared by the complex",
+      "registry_was": "425 EAST 14 STREET (reverse), BIN 1000000"
+    },
+    {
+      "building": "240-1-avenue-new_york",
+      "address": "240 1 Avenue",
+      "evidence": "own slug address; StreetEasy's archived coordinates are one centroid shared by the complex",
+      "registry_was": "425 EAST 14 STREET (reverse), BIN 1000000"
+    },
+    {
+      "building": "245-avenue-c-new_york",
+      "address": "245 Avenue C",
+      "evidence": "own slug address; StreetEasy's archived coordinates are one centroid shared by the complex",
+      "registry_was": "425 EAST 14 STREET (reverse), BIN 1000000"
+    },
+    {
+      "building": "254-1-avenue-new_york",
+      "address": "254 1 Avenue",
+      "evidence": "own slug address; StreetEasy's archived coordinates are one centroid shared by the complex",
+      "registry_was": "425 EAST 14 STREET (reverse), BIN 1000000"
+    },
+    {
+      "building": "270-1-avenue-new_york",
+      "address": "270 1 Avenue",
+      "evidence": "own slug address; StreetEasy's archived coordinates are one centroid shared by the complex",
+      "registry_was": "425 EAST 14 STREET (reverse), BIN 1000000"
+    },
+    {
+      "building": "271-avenue-c-new_york",
+      "address": "271 Avenue C",
+      "evidence": "own slug address; StreetEasy's archived coordinates are one centroid shared by the complex",
+      "registry_was": "425 EAST 14 STREET (reverse), BIN 1000000"
+    },
+    {
+      "building": "272-1-avenue-new_york",
+      "address": "272 1 Avenue",
+      "evidence": "own slug address; StreetEasy's archived coordinates are one centroid shared by the complex",
+      "registry_was": "425 EAST 14 STREET (reverse), BIN 1000000"
+    },
+    {
+      "building": "277-avenue-c-new_york",
+      "address": "277 Avenue C",
+      "evidence": "own slug address; StreetEasy's archived coordinates are one centroid shared by the complex",
+      "registry_was": "425 EAST 14 STREET (reverse), BIN 1000000"
+    },
+    {
+      "building": "280-1-avenue-new_york",
+      "address": "280 1 Avenue",
+      "evidence": "own slug address; StreetEasy's archived coordinates are one centroid shared by the complex",
+      "registry_was": "425 EAST 14 STREET (reverse), BIN 1000000"
+    },
+    {
+      "building": "281-avenue-c-new_york",
+      "address": "281 Avenue C",
+      "evidence": "own slug address; StreetEasy's archived coordinates are one centroid shared by the complex",
+      "registry_was": "425 EAST 14 STREET (reverse), BIN 1000000"
+    },
+    {
+      "building": "284-1-avenue-new_york",
+      "address": "284 1 Avenue",
+      "evidence": "own slug address; StreetEasy's archived coordinates are one centroid shared by the complex",
+      "registry_was": "425 EAST 14 STREET (reverse), BIN 1000000"
+    },
+    {
+      "building": "3-peter-cooper-road-new_york",
+      "address": "3 Peter Cooper Road",
+      "evidence": "own slug address; GeoSearch's address match fell on 4 Peter Cooper Road",
+      "registry_was": "4 PETER COOPER ROAD (address), BIN 1083693"
+    },
+    {
+      "building": "309-avenue-c-new_york",
+      "address": "309 Avenue C",
+      "evidence": "own slug address; StreetEasy's archived coordinates are one centroid shared by the complex",
+      "registry_was": "309 LOISAIDA AVENUE (reverse), BIN 1082850"
+    },
+    {
+      "building": "312-1-avenue-new_york",
+      "address": "312 1 Avenue",
+      "evidence": "own slug address; StreetEasy's archived coordinates are one centroid shared by the complex",
+      "registry_was": "425 EAST 14 STREET (reverse), BIN 1000000"
+    },
+    {
+      "building": "315-avenue-c-new_york",
+      "address": "315 Avenue C",
+      "evidence": "own slug address; StreetEasy's archived coordinates are one centroid shared by the complex",
+      "registry_was": "425 EAST 14 STREET (reverse), BIN 1000000"
+    },
+    {
+      "building": "346-1-avenue-new_york",
+      "address": "346 1 Avenue",
+      "evidence": "own slug address; StreetEasy's archived coordinates are one centroid shared by the complex",
+      "registry_was": "PETER COOPER VILLAGE (reverse), BIN 1000000"
+    },
+    {
+      "building": "360-1-avenue-new_york",
+      "address": "360 1 Avenue",
+      "evidence": "own slug address; StreetEasy's archived coordinates are one centroid shared by the complex",
+      "registry_was": "PETER COOPER VILLAGE (reverse), BIN 1000000"
+    },
+    {
+      "building": "390-1-avenue-new_york",
+      "address": "390 1 Avenue",
+      "evidence": "own slug address; StreetEasy's archived coordinates are one centroid shared by the complex",
+      "registry_was": "PETER COOPER VILLAGE (reverse), BIN 1000000"
+    },
+    {
+      "building": "420-east-20-street-new_york",
+      "address": "420 East 20 Street",
+      "evidence": "own slug address; StreetEasy's archived coordinates are one centroid shared by the complex",
+      "registry_was": "425 EAST 14 STREET (reverse), BIN 1000000"
+    },
+    {
+      "building": "435-east-14-street-new_york",
+      "address": "435 East 14 Street",
+      "evidence": "own slug address; StreetEasy's archived coordinates are one centroid shared by the complex",
+      "registry_was": "425 EAST 14 STREET (reverse), BIN 1000000"
+    },
+    {
+      "building": "447-east-14-street-new_york",
+      "address": "447 East 14 Street",
+      "evidence": "own slug address; StreetEasy's archived coordinates are one centroid shared by the complex",
+      "registry_was": "425 EAST 14 STREET (reverse), BIN 1000000"
+    },
+    {
+      "building": "5-peter-cooper-road-new_york",
+      "address": "5 Peter Cooper Road",
+      "evidence": "own slug address; GeoSearch's address match fell on 4 Peter Cooper Road",
+      "registry_was": "4 PETER COOPER ROAD (address), BIN 1083693"
+    },
+    {
+      "building": "5-stuyvesant-oval-new_york",
+      "address": "5 Stuyvesant Oval",
+      "evidence": "own slug address; StreetEasy's archived coordinates are one centroid shared by the complex",
+      "registry_was": "425 EAST 14 STREET (reverse), BIN 1000000"
+    },
+    {
+      "building": "505-east-14-street-new_york",
+      "address": "505 East 14 Street",
+      "evidence": "own slug address; StreetEasy's archived coordinates are one centroid shared by the complex",
+      "registry_was": "425 EAST 14 STREET (reverse), BIN 1000000"
+    },
+    {
+      "building": "510-east-20-street-new_york",
+      "address": "510 East 20 Street",
+      "evidence": "own slug address; StreetEasy's archived coordinates are one centroid shared by the complex",
+      "registry_was": "425 EAST 14 STREET (reverse), BIN 1000000"
+    },
+    {
+      "building": "528-east-20-street-new_york",
+      "address": "528 East 20 Street",
+      "evidence": "own slug address; StreetEasy's archived coordinates are one centroid shared by the complex",
+      "registry_was": "425 EAST 14 STREET (reverse), BIN 1000000"
+    },
+    {
+      "building": "535-east-14-street-new_york",
+      "address": "535 East 14 Street",
+      "evidence": "own slug address; StreetEasy's archived coordinates are one centroid shared by the complex",
+      "registry_was": "425 EAST 14 STREET (reverse), BIN 1000000"
+    },
+    {
+      "building": "541-east-20-street-new_york",
+      "address": "541 East 20 Street",
+      "evidence": "own slug address; StreetEasy's archived coordinates are one centroid shared by the complex",
+      "registry_was": "PETER COOPER VILLAGE (reverse), BIN 1000000"
+    },
+    {
+      "building": "6-peter-cooper-road-new_york",
+      "address": "6 Peter Cooper Road",
+      "evidence": "own slug address; GeoSearch's address match fell on 4 Peter Cooper Road",
+      "registry_was": "4 PETER COOPER ROAD (address), BIN 1083693"
+    },
+    {
+      "building": "6-stuyvesant-oval-new_york",
+      "address": "6 Stuyvesant Oval",
+      "evidence": "own slug address; StreetEasy's archived coordinates are one centroid shared by the complex",
+      "registry_was": "425 EAST 14 STREET (reverse), BIN 1000000"
+    },
+    {
+      "building": "601-east-20-street-new_york",
+      "address": "601 East 20 Street",
+      "evidence": "own slug address; StreetEasy's archived coordinates are one centroid shared by the complex",
+      "registry_was": "PETER COOPER VILLAGE (reverse), BIN 1000000"
+    },
+    {
+      "building": "605-east-14-street-new_york",
+      "address": "605 East 14 Street",
+      "evidence": "own slug address; StreetEasy's archived coordinates are one centroid shared by the complex",
+      "registry_was": "425 EAST 14 STREET (reverse), BIN 1000000"
+    },
+    {
+      "building": "610-east-20-street-new_york",
+      "address": "610 East 20 Street",
+      "evidence": "own slug address; StreetEasy's archived coordinates are one centroid shared by the complex",
+      "registry_was": "425 EAST 14 STREET (reverse), BIN 1000000"
+    },
+    {
+      "building": "622-east-20-street-new_york",
+      "address": "622 East 20 Street",
+      "evidence": "own slug address; StreetEasy's archived coordinates are one centroid shared by the complex",
+      "registry_was": "425 EAST 14 STREET (reverse), BIN 1000000"
+    },
+    {
+      "building": "647-east-14-street-new_york",
+      "address": "647 East 14 Street",
+      "evidence": "own slug address; StreetEasy's archived coordinates are one centroid shared by the complex",
+      "registry_was": "425 EAST 14 STREET (reverse), BIN 1000000"
+    },
+    {
+      "building": "7-peter-cooper-road-new_york",
+      "address": "7 Peter Cooper Road",
+      "evidence": "own slug address; GeoSearch's address match fell on 4 Peter Cooper Road",
+      "registry_was": "4 PETER COOPER ROAD (address), BIN 1083693"
+    },
+    {
+      "building": "8-peter-cooper-road-new_york",
+      "address": "8 Peter Cooper Road",
+      "evidence": "own slug address; GeoSearch's address match fell on 4 Peter Cooper Road",
+      "registry_was": "4 PETER COOPER ROAD (address), BIN 1083693"
+    }
+  ]
+}
