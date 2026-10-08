@@ -1,6 +1,6 @@
 # Data collection — handoff
 
-Updated 2026-10-08 02:30 ET. Thread owner: the Data collection project thread (bridge session on thelio).
+Updated 2026-10-08 04:20 ET. Thread owner: the Data collection project thread (bridge session on thelio).
 
 ## State
 - **NoMad, East Village, Stuyvesant Town/PCV crawls: RUNNING** since Oct 8 02:23 ET (Ben, typed
@@ -50,11 +50,9 @@ Updated 2026-10-08 02:30 ET. Thread owner: the Data collection project thread (b
      matched its snapshot apart from 4 header bytes. `/data1` went from 108 to 308 GB free. Logs
      and bodies stay. The disabled `apartments-archive.service` now serves
      `archive/browse/chelsea-backfill-20260912` (symlinks to the snapshot and `archive/bodies`).
-  2. RUNNING since Oct 8 01:56 ET (Ben, typed: "Compact the snapshots."): unit
-     `se-compact-snapshots`, driver and log in `/data1/apartments/tmp/se-compact/`. Smallest first;
-     each copy is checked row by row (and by audit where the tables exist) before it replaces the
-     original; `.sha256` regenerated. Never prune `bodies/`. The `bytes` in
-     `snapshots/chelsea-20260908/complete.json` is the pre-compaction size.
+  2. DONE Oct 8 04:16 ET (Ben, typed: "Compact the snapshots."): all six snapshots compacted
+     and swapped in, 304.7 → 170.9 GB (see `docs/data/archive-storage.md`). Never prune `bodies/`.
+     The `bytes` in `snapshots/chelsea-20260908/complete.json` is the pre-compaction size.
 - Ben, Oct 8 00:49 UTC: the Oxylabs budget is limited. Before proposing any new paid collection,
   estimate its value to the model (coverage gaps, unit-history depth) against its cost.
 
