@@ -1341,6 +1341,8 @@ def test_nb5_retests_are_the_nb3_sets_on_the_five_neighbourhoods():
         "nb5-lines-v1": "nb3-lines-v1",
         "nb5-loc-v1": "nb3-loc-v1",
         "nb5-walkup-v1": "nb3-walkup-v1",
+        "nb5-parks-v1": "nb3-parks-v1",
+        "nb5-water-v1": "nb3-water-v1",
         "nb5-noise-v1": "nb3-noise-v1",
     }
     for new, old in pairs.items():
@@ -1355,3 +1357,21 @@ def test_nb5_retests_are_the_nb3_sets_on_the_five_neighbourhoods():
     assert features.FEATURE_SETS["nb5-noise-v1"].keywords["noise_file"] == (
         features.NB4_NOISE_FILE
     )
+
+
+def test_nb5_parks_sets_read_manhattans_parks(monkeypatch):
+    assert {"nb5-parks-v1", "nb5-water-v1"} <= features.PARKS
+    seen = {}
+    for name in ("nb3-water-v1", "nb5-water-v1", "nb5-parks-v1"):
+        monkeypatch.setitem(
+            features.FEATURE_SETS,
+            name,
+            lambda f, t, name=name: seen.setdefault(name, features.parks_file()),
+        )
+        features.build(name, pd.DataFrame(), np.zeros(0, bool))
+    assert seen == {
+        "nb3-water-v1": features.PARKS_FILE,
+        "nb5-water-v1": features.NB5_PARKS_FILE,
+        "nb5-parks-v1": features.NB5_PARKS_FILE,
+    }
+    assert features.parks_file() == features.PARKS_FILE

@@ -1276,6 +1276,23 @@ NB4_PARKS_FILE = "/data1/apartments/external/parks/20261008-bda2959/parks.parque
 # The LPC snapshot of the set being built (`LPC_SNAPSHOTS`): when set, a lot is a
 # landmark or in a historic district only from its designation date.
 _LPC: contextvars.ContextVar[str | None] = contextvars.ContextVar("lpc", default=None)
+# NYC Parks properties in the four crawls' box, Manhattan's only (`external
+# parks --borough M`): the box reaches across the East River, to parks no walk
+# from the buildings reaches and that `parks.SECTIONS` has no opening dates for.
+NB5_PARKS_FILE = "/data1/apartments/external/parks/20261008-f63bf6c/parks.parquet"
+# The parks file of the set being built (`PARKS_SNAPSHOTS`), else `PARKS_FILE`.
+_PARKS: contextvars.ContextVar[str | None] = contextvars.ContextVar(
+    "parks", default=None
+)
+# Parks files by feature set, where a set reads other than `PARKS_FILE`.
+PARKS_SNAPSHOTS = {"nb5-parks-v1": NB5_PARKS_FILE, "nb5-water-v1": NB5_PARKS_FILE}
+
+
+def parks_file() -> str:
+    """The NYC Parks properties file the set being built reads."""
+    return _PARKS.get() or PARKS_FILE
+
+
 # Whether the set being built dates the building's MapPLUTO alterations as of
 # each listing (`AS_OF_SETS`): an alteration counts only from the year after it,
 # so a listing never sees a later one (no future information).
@@ -2517,7 +2534,7 @@ PLACES = {"nb3-nearby-v1"}
 # Feature sets that read the Storefront Registry snapshot (retail).
 STOREFRONTS = {"nb3-retail-v1"}
 # Feature sets that read the NYC Parks properties snapshot (parks).
-PARKS = {"nb3-parks-v1", "nb3-water-v1"}
+PARKS = {"nb3-parks-v1", "nb3-water-v1", "nb5-parks-v1", "nb5-water-v1"}
 # Feature sets that read the HPD violations snapshot.
 HPD = {"unitdescplutohpd-v1", "unitdescplutohpd-v2"}
 # Feature sets that read the advertisement descriptions (`descriptions.SOURCE`),
@@ -2653,6 +2670,8 @@ FEATURE_SETS = {
     "nb5-lines-v1": partial(lines_v1, id="nb5-lines-v1", base="nb5-coded-v2"),
     "nb5-loc-v1": partial(location_v2, id="nb5-loc-v1", base="nb5-coded-v2"),
     "nb5-walkup-v1": partial(walkup_v1, id="nb5-walkup-v1", base="nb5-coded-v2"),
+    "nb5-parks-v1": partial(parks_v1, id="nb5-parks-v1", base="nb5-coded-v2"),
+    "nb5-water-v1": partial(waterfront_v1, id="nb5-water-v1", base="nb5-parks-v1"),
     "nb5-noise-v1": partial(
         noise_v1, id="nb5-noise-v1", base="nb5-coded-v2", noise_file=NB4_NOISE_FILE
     ),
@@ -2941,6 +2960,8 @@ NB4_SETS = {
     "nb5-lines-v1": "nb3-lines-v1",
     "nb5-loc-v1": "nb3-loc-v1",
     "nb5-walkup-v1": "nb3-walkup-v1",
+    "nb5-parks-v1": "nb3-parks-v1",
+    "nb5-water-v1": "nb3-water-v1",
     "nb5-noise-v1": "nb3-noise-v1",
 }
 for _new, _old in NB4_SETS.items():
@@ -2986,6 +3007,7 @@ def build(name: str, frame: pd.DataFrame, train: np.ndarray) -> Features:
     area_token = _AREA.set((area["basemap"], area["footprints"]))
     extras_token = _EXTRAS.set(EXTRAS_SNAPSHOTS.get(name))
     lpc_token = _LPC.set(LPC_SNAPSHOTS.get(name))
+    parks_token = _PARKS.set(PARKS_SNAPSHOTS.get(name))
     text_token = descriptions_module.SOURCES.set(
         tuple(Path(p) for p in description_files(name).values())
     )
@@ -2997,4 +3019,5 @@ def build(name: str, frame: pd.DataFrame, train: np.ndarray) -> Features:
         _AREA.reset(area_token)
         _EXTRAS.reset(extras_token)
         _LPC.reset(lpc_token)
+        _PARKS.reset(parks_token)
         descriptions_module.SOURCES.reset(text_token)
