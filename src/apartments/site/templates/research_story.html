@@ -13,6 +13,12 @@ changes when the model does.</p>
 Most apartments were listed more than once, so the same home shows up at different times and prices. That
 repetition is what lets a model separate the apartment from the building, and the building from the market.</p>
 
+<p>{% if accuracy %}In short, on asks it never saw, half the estimates land within
+{{ "{:.1f}".format(accuracy.median) }}% of the ask: on a typical ${{ "{:,.0f}".format(accuracy.typical) }} ask, within about
+${{ "{:,.0f}".format((accuracy.typical * accuracy.median / 100) | round(-1)) }} (<a href="#accuracy">how close it gets</a>).
+{% endif %}This page is about the model. For how rents themselves have changed, by neighbourhood and bedroom count,
+see the <a href="{{ url_for('estimates_map') }}">rent map</a>.</p>
+
 <section id="shape">
 <h2>An ask is a sum of a few stories</h2>
 <p>Start with the shape. The model writes the logarithm of each ask as a sum of parts, so each part works as a
@@ -392,10 +398,14 @@ The middle-sized one: <a href="{{ url_for('unit', unit_id=e.unit_id) }}">{{ e.la
 of a jump like that; what explains the rest is the open question.</p>{% endif %}{% endif %}
 
 {% if blocked %}<h3>When does a good score mean nothing?</h3>
-<p>{{ blocked | length }} idea{{ "s" if blocked | length != 1 }} scored well and {{ "were" if blocked | length != 1 else "was" }}
-still set aside ({% for t in blocked | sort(attribute="first") %}{{ t.words }}{{ "; " if not loop.last }}{% endfor %}). A model can predict an
-apartment's ask from its own last ask without saying anything about why that apartment costs what it does. Telling
-the features that explain from those that only echo is still a person's call, made case by case.</p>{% endif %}
+<p>{{ blocked | length }} idea{{ "s" if blocked | length != 1 }} raised the score and {{ "were" if blocked | length != 1 else "was" }}
+still set aside:</p>
+<ul>{% for t in blocked | sort(attribute="first") %}
+  <li>{{ t.words[:1] | upper }}{{ t.words[1:] }}: {{ "{:+,.1f}".format(t.diff) }} ± {{ "{:,.1f}".format(t.se) }}{% if t.diff < 2 * t.se %}, within two standard errors of no gain{% endif %}.</li>{% endfor %}
+</ul>
+<p>A model can predict an apartment's ask from its own last ask without saying anything about why that apartment
+costs what it does. Telling the features that explain from those that only echo is still a person's call, made case
+by case.</p>{% endif %}
 
 <p>To follow along: the <a href="{{ url_for('research_history') }}">history</a> shows each design that has served
 and why it was replaced. The <a href="{{ url_for('research_board') }}">board</a> scores every design we fitted. The

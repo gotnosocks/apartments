@@ -13,6 +13,7 @@ import json
 import math
 import os
 import re
+import statistics
 import threading
 from pathlib import Path
 
@@ -379,6 +380,8 @@ def accuracy(db, small: int = 30) -> dict | None:
     return {
         "n": len(rows),
         "median": _median_miss(rows),
+        # the median ask, to $100, to put the miss in dollars
+        "typical": round(statistics.median(r["ask"] for r in rows), -2),
         "seen": {"n": len(seen), "median": _median_miss(seen)} if seen else None,
         "new": {"n": len(new), "median": _median_miss(new)}
         if len(new) >= small
