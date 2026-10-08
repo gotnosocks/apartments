@@ -2,6 +2,22 @@
 
 What the next turn of the website thread needs. Updated at each milestone.
 
+## State (2026-10-07 21:45 UTC)
+
+- **Storytelling is now the standing work** (Ben, 2026-10-08 ~01:12Z via the coordinator; it lifts the
+  feature hold for this). Whenever no redeploy or fix is pending, improve `/research/story`: a long-form,
+  blog-style narrative. Every number is read from data, every figure has a text alternative and a table,
+  and it stays inside the CSP (server SVG, CSS animation).
+- **#438 merged and deployed:** `/research/story`, "What a rent is made of" (src/apartments/site/story.py).
+  - Layers diagram from the anatomy, grouped like `rentfrontier.variance`. It shows shares once the served
+    entry has `variance`; Modeling runs the variance on every switch, starting with the 9b6c16d 4500 refit.
+  - Forest plot of headline effects.
+  - Animated waterfall of the median current listing's LMDI contributions.
+- **Next chapters, in order:** theories tested (a timeline from docs/model/feature-tests.json); design
+  evolution (milestones and served history); data-quality before/after views; open questions. Also an
+  animated playback of the theories.
+- Backlog item 14 (a current price for every unit seen) was added in #421; not started.
+
 ## State (2026-10-07 04:00 UTC)
 
 - **Captures use the fit's unit levels (#385):** a captured current listing of a unit the fit has

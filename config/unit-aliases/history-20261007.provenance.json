@@ -1,0 +1,31 @@
+{
+  "made_by": "frontier/scripts/unit_history_pairs.py",
+  "script_sha256": "121abc54c5c5d525cc784e513b3ff30bf8ad87f4d81a95bfcf1d101a5d3efd3f",
+  "parts": [
+    {
+      "neighbourhood": "Chelsea",
+      "dataset": "/data1/apartments/archive/datasets/chelsea-granular-20260917-canonical-url-v1",
+      "snapshot": "/data1/apartments/archive/snapshots/chelsea-backfill-20260912/archive.sqlite3",
+      "pairs": 807
+    },
+    {
+      "neighbourhood": "West Village",
+      "dataset": "/data1/apartments/archive/datasets/west-village-granular-20260930-canonical-url-v1",
+      "snapshot": "/data1/apartments/archive/snapshots/west-village-backfill-20260930/archive.sqlite3",
+      "pairs": 371
+    },
+    {
+      "neighbourhood": "Greenwich Village",
+      "dataset": "/data1/apartments/archive/datasets/greenwich-village-granular-20261005-canonical-url-v1",
+      "snapshot": "/data1/apartments/archive/snapshots/greenwich-village-20261001-final/archive.sqlite3",
+      "pairs": 158
+    },
+    {
+      "neighbourhood": "Flatiron + Gramercy Park",
+      "dataset": "/data1/apartments/archive/datasets/flatiron-gramercy-park-granular-20261007-canonical-url-v1",
+      "snapshot": "/data1/apartments/archive/snapshots/flatiron-gramercy-park-20261005-final/archive.sqlite3",
+      "pairs": 551
+    }
+  ],
+  "sha256": "57056833fae1f88fdc01f71856b8a6076ca10e50764b489b315205f52d8632aa"
+}
