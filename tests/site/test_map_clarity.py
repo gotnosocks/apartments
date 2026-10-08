@@ -62,16 +62,15 @@ def test_the_growth_caveat_names_every_neighbourhood():
     three = caveat({"Chelsea": 4, "Greenwich Village": 1, "West Village": 2})
     assert "hidden>Chelsea, Greenwich Village and the West Village share" in three
     assert "slower than the others only" in three
-    five = caveat(
+    four = caveat(
         {
             "Chelsea": 4,
-            "Flatiron": 1,
-            "Gramercy Park": 1,
+            "Flatiron + Gramercy Park": 1,
             "Greenwich Village": 1,
             "West Village": 2,
         }
     )
     assert (
-        "hidden>Chelsea, the Flatiron, Gramercy Park, Greenwich Village and the West Village share"
-        in five
+        "hidden>Chelsea, Flatiron + Gramercy Park, Greenwich Village and the West Village share"
+        in four
     )

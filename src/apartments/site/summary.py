@@ -133,7 +133,7 @@ def _with(inputs: dict, prefix: str) -> list[str]:
 
 
 # Neighbourhoods said with "the" in a sentence.
-WITH_THE = frozenset({"West Village", "East Village", "Flatiron", "Flatiron District"})
+WITH_THE = frozenset({"West Village", "East Village"})
 
 
 def hood_name(name: str) -> str:
