@@ -1220,6 +1220,48 @@ def test_nb3_v2_sets_read_lpc_and_otherwise_their_v1s_files(monkeypatch):
     assert features._LPC.get() is None
 
 
+def test_nb4_coded_v2_is_nb3_coded_v2_plus_flatiron_on_the_nb4_snapshots(
+    monkeypatch,
+):
+    frame = pd.DataFrame(
+        {"neighbourhood": ["Chelsea", "Greenwich Village", "Flatiron + Gramercy Park"]}
+    )
+    base = features.Features(
+        "b", ["x"], ["g"], np.ones((3, 1)), np.ones(1, dtype=float)
+    )
+    seen = {}
+
+    def spy(frame, train):
+        seen["lots"] = features._LOTS.get()
+        seen["lpc"] = features._LPC.get()
+        return base
+
+    monkeypatch.setitem(features.FEATURE_SETS, "nb3-coded-v2", spy)
+    out = features.build("nb4-coded-v2", frame, np.ones(3, dtype=bool))
+    assert out.names == ["x", "Flatiron + Gramercy Park"]
+    assert out.values[:, -1].tolist() == [0, 0, 1]
+    assert seen["lots"] == (features.NB4_REGISTRY_FILE, features.NB4_PLUTO_FILE)
+    assert seen["lpc"] == features.NB4_LPC_FILE
+    new, old = "nb4-coded-v2", "nb3-coded-v2"
+    assert features.area_files(new) == {
+        "basemap": features.NB4_BASEMAP_FILE,
+        "footprints": features.NB4_FOOTPRINTS_FILE,
+    }
+    assert features.description_files(new) == features._NB4_DESCRIPTIONS
+    assert features.EXTRAS_SNAPSHOTS[new] == features.NB4_EXTRAS_FILE
+    for group in (
+        features.EXTERNAL,
+        features.BASEMAP,
+        features.FOOTPRINTS,
+        features.DESCRIPTIONS,
+        features.AS_OF_SETS,
+        features.LISTING_EXTRAS,
+        features.PRICE_HISTORY,
+        features.READS_EARLIER_RENTS,
+    ):
+        assert (new in group) == (old in group)
+
+
 def test_lpc_as_of_counts_a_designation_from_its_date(tmp_path):
     registry = tmp_path / "registry.parquet"
     pd.DataFrame(
