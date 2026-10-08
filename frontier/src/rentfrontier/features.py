@@ -802,6 +802,50 @@ def lines_v1(
     )
 
 
+def unical_v1(
+    frame: pd.DataFrame,
+    train: np.ndarray,
+    id: str = "nb5-unical-v1",
+    base: str = "nb5-plutoasof-v3",
+    calendar: str | None = None,
+) -> Features:
+    """A base set plus whether the listing day falls in each of the NYU
+    calendar windows (`unical.WINDOWS`: the 6 weeks before move-in, move-in
+    to the first day of classes, and 2 weeks either side of spring finals),
+    and each window again for buildings within `unical.NEAR_M` metres of the
+    NYU or New School main campus. The calendars are published months ahead,
+    so a listing reads its own year's. Reads no rents."""
+    from . import unical
+
+    base = FEATURE_SETS[base](frame, train)
+    cal = pd.read_csv(calendar or UNICAL_FILE)
+    inside = unical.windows(
+        frame.price_at.pipe(pd.to_datetime, utc=True).dt.tz_localize(None), cal
+    )
+    registry = pd.read_parquet(lot_registry()).set_index("building")
+    near = unical.near_campus(
+        registry.latitude.reindex(frame.building.to_numpy()),
+        registry.longitude.reindex(frame.building.to_numpy()),
+    )
+    b = _Builder(frame)
+    for name in unical.WINDOWS:
+        b.add("calendar", name, inside[name].to_numpy())
+    for name in unical.WINDOWS:
+        b.add(
+            "calendar",
+            f"{name}, within {unical.NEAR_M:.0f} m of NYU or New School",
+            inside[name].to_numpy() & near,
+        )
+    out = b.build(id)
+    return Features(
+        id,
+        base.names + out.names,
+        base.groups + out.groups,
+        np.column_stack([base.values, out.values]),
+        np.concatenate([base.prior_scale, out.prior_scale]),
+    )
+
+
 def bedsize_v1(
     frame: pd.DataFrame,
     train: np.ndarray,
@@ -1206,6 +1250,8 @@ def flagfix_v1(
 
 
 # External snapshots read by feature sets (rentfrontier.registry, .external).
+# University calendars (rentfrontier.unical).
+UNICAL_FILE = "/data1/apartments/external/unical/PENDING/calendar.csv"
 REGISTRY_SNAPSHOT = "/data1/apartments/external/registry/20260925-6b67137"
 PLUTO_SNAPSHOT = "/data1/apartments/external/pluto/20260925-3096a62"
 REGISTRY_FILE = f"{REGISTRY_SNAPSHOT}/buildings.parquet"
@@ -2824,6 +2870,9 @@ FEATURE_SETS = {
     ),
     # nb5-coded-v2 with the lot's alteration years as MapPLUTO had them before
     # the listing (ALTERATION_DATED_SETS); size and class stay today's.
+    # nb5-plutoasof-v3 plus NYU calendar windows, near campus and not (Ben,
+    # 2026-10-08).
+    "nb5-unical-v1": partial(unical_v1, id="nb5-unical-v1", base="nb5-plutoasof-v3"),
     "nb5-plutoasof-v2": partial(
         hoods_v1,
         id="nb5-plutoasof-v2",
@@ -3154,6 +3203,7 @@ NB4_SETS = {
     "nb5-noise-v1": "nb3-noise-v1",
     "nb5-plutoasof-v2": "nb3-coded-v2",
     "nb5-plutoasof-v3": "nb3-coded-v2",
+    "nb5-unical-v1": "nb5-plutoasof-v3",
 }
 # Sets that date the lot's alteration years (`dated_alterations`).
 ALTERATION_DATED_SETS = {"nb5-plutoasof-v2"}
