@@ -570,7 +570,7 @@ PLAIN = {
     "+floorslope": "each building's own price for height",
     "+fourier": "a smooth season, by calendar month",
     "+2slopes": "each building's own price for two more features",
-    "nb-prevprice-v1": "how the apartment's previous listing was repriced",
+    "nb-prevprice-v1": "how the unit's previous listing was repriced",
     "nb3-prevprice-v2": "the same repricing idea, retested once Greenwich Village joined",
 }
 _DIFF = re.compile(r"([+\-−]?[\d,]+\.?\d*)\s*±\s*([\d,]+\.?\d*)")
