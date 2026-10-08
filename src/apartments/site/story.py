@@ -777,6 +777,17 @@ def design_terms(run: str) -> tuple[list[str], str] | None:
     return tokens[1:], ""
 
 
+def _iso(at):
+    """The milestone's time, or None when it isn't an ISO timestamp with a zone."""
+    from datetime import datetime
+
+    try:
+        d = datetime.fromisoformat(at)
+    except (TypeError, ValueError):
+        return None
+    return d if d.tzinfo else None
+
+
 def _day_label(at: str) -> str:
     from datetime import datetime
 
@@ -820,12 +831,18 @@ def design_history(milestones: list[dict]) -> list[dict]:
     """Every switch of the served model, oldest first, with its era, PR and
     (for frontier fits) model terms and feature set."""
     switches = sorted(
-        (m for m in milestones if m.get("kind") == "selection" and m.get("at")),
-        key=lambda m: m["at"],
+        (
+            m
+            for m in milestones or []
+            if isinstance(m, dict)
+            and m.get("kind") == "selection"
+            and _iso(m.get("at"))
+        ),
+        key=lambda m: _iso(m["at"]),
     )
     out, auto = [], False
     for i, m in enumerate(switches):
-        title = m.get("title") or ""
+        title = str(m.get("title") or "")
         auto = auto or "autoselect" in title or "Automatic selection" in title
         era = (
             "bayes"
@@ -837,7 +854,7 @@ def design_history(milestones: list[dict]) -> list[dict]:
         prs = _PR.findall(title)
         words = _PR.sub("", title)
         words = re.sub(r"^Selection \(autoselect\):\s*", "", words).strip(" ;")
-        parsed = design_terms(m.get("model") or "") if era != "bayes" else None
+        parsed = design_terms(str(m.get("model") or "")) if era != "bayes" else None
         out.append(
             {
                 "seq": i,
@@ -923,9 +940,9 @@ def history_svg(switches: list[dict], lives: list[dict]) -> Markup:
     strip_top = top + lane * len(era_keys) + 26
     height = strip_top + row * len(lives) + 8
     out = []
-    from datetime import date, timedelta
+    from datetime import datetime, timedelta, timezone
 
-    start = date.fromtimestamp(d0 * 86400)
+    start = datetime.fromtimestamp(d0 * 86400, timezone.utc).date()
     for k in range(0, int(d1 - d0) + 1):
         day = start + timedelta(days=k)
         if k % 2:

@@ -254,3 +254,17 @@ def test_design_chapter_reads_the_milestones(site_root, research_file):
     assert html.count('class="switch era-') == 5
     assert "8 hours later they were withdrawn" in html
     assert "style=" not in html
+
+
+def test_design_history_skips_malformed_milestones():
+    odd = [
+        {"kind": "selection", "at": "not a date", "title": "x"},
+        {"kind": "selection", "at": "2026-10-01", "title": "no zone"},
+        {"kind": "selection", "at": None},
+        "junk",
+        {"kind": "selection", "at": "2026-10-01T02:00:00+00:00", "title": None},
+    ]
+    switches = story.design_history(odd)
+    assert len(switches) == 1 and switches[0]["terms"] is None
+    assert story.design_history(None) == []
+    assert story.history_svg(switches, story.term_lives(switches))

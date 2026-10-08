@@ -2419,7 +2419,7 @@ def create_app(
         )
         rows = story.composition(anatomy, variance)
         trials = story.theories(ledger.load())
-        switches = story.design_history((data or {}).get("milestones", []))
+        switches = story.design_history((data or {}).get("milestones") or [])
         lives = story.term_lives(switches)
         return render_template(
             "research_story.html",

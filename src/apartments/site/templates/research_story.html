@@ -216,8 +216,8 @@ along the way.</p>
 
 {% set era_words = {
   "bayes": "It began as one carefully built Bayesian model of Chelsea. Each improvement (a corrected data source, a better treatment of floors, a curve where a straight line fit badly) was reviewed and promoted by hand. That works while there is one model. It stops working once there are many candidates and no common score to compare them.",
-  "frontier": "So the work turned into a search. Every candidate design was fitted to the same rows and scored on the same test, PSIS-LOO, and the winner was still picked by a person. The fits were also made fast enough to run many in a day, by moving to a sampler built for this model's shape.",
-  "auto": "Finally, the choice itself became a rule. A new fit replaces the served one only when it predicts unseen asks better by more than twice the standard error, or ties and fits faster. Nobody has to approve a switch, which is why switches now come quickly and in small steps."
+  "frontier": "So the work turned into a search. Every candidate design was fitted to the same rows and scored on the same test, PSIS-LOO, and the winner was still picked by a person. The fits also had to get faster, so that many designs could be tried in a day.",
+  "auto": "Finally, the choice itself became a rule. A new fit replaces the served one only when it predicts unseen asks better by more than twice the combined standard error, or ties and is judged more elegant, or ties, is as elegant and fits faster. The rule decides without waiting for a person, so a better fit is served as soon as it lands."
 } %}
 {% for e in eras %}
 <h3>{{ e.name }} <span class="muted">({{ e.first_day }}{% if e.last_day != e.first_day %} to {{ e.last_day }}{% endif %}, {{ e.count }} switch{{ "es" if e.count != 1 }})</span></h3>
