@@ -22,6 +22,21 @@ ranges, meant to hold 80% of asks, hold {{ "{:.0f}".format(accuracy.likely) }}% 
 {% endif %}This page is about the model. For how rents themselves have changed, by neighbourhood and bedroom count,
 see the <a href="{{ url_for('estimates_map') }}">rent map</a>.</p>
 
+{% set chapters = [
+  ("shape", "An ask is a sum of a few stories", true),
+  ("effects", "What the features are worth", true),
+  ("build-up", "One apartment, term by term", build),
+  ("accuracy", "How close does it get?", accuracy),
+  ("theories", "Theories on trial", trials),
+  ("design", "How the design evolved", switches),
+  ("cleaning", "Cleaning the record", cleaning),
+  ("next", "Open questions", true),
+] %}
+<nav class="card toc" aria-label="Contents">
+  <h2>Contents</h2>
+  <ol>{% for slug, title, shown in chapters if shown %}<li><a href="#{{ slug }}">{{ title }}</a></li>{% endfor %}</ol>
+</nav>
+
 <section id="shape">
 <h2>An ask is a sum of a few stories</h2>
 <p>Start with the shape. The model builds each ask from parts that multiply, so each part raises or lowers the

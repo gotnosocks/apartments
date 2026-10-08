@@ -73,6 +73,12 @@ def test_build_up_ends_at_the_estimate(client):
     # the example's miss is set against the typical held-out miss
     assert re.search(r"The ask is [\d.]+% (above|below) the estimate\. That is", text)
     assert "half of the asks the model never saw land within" in text
+    # a contents list links every chapter on the page, in order
+    nav = text[text.index('aria-label="Contents"') :]
+    toc = re.findall(r'<li><a href="#([a-z-]+)">', nav[: nav.index("</nav>")])
+    sections = re.findall(r'<section id="([a-z-]+)">', text)
+    assert toc and toc == [s for s in sections if s in toc] and toc[0] == "shape"
+    assert all(f'<section id="{s}">' in text for s in toc)
     # the opening answers "can I trust it?" before the chapters
     shape = text[text.index('<section id="shape">') :]
     assert shape.index("the <em>spread</em> in asks") < shape.index("compose-figure")
