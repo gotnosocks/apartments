@@ -2870,11 +2870,11 @@ FEATURE_SETS = {
         base="nb3-coded-v2",
         hoods=("Flatiron", "Gramercy Park"),
     ),
-    # nb5-coded-v2 with the lot's alteration years as MapPLUTO had them before
-    # the listing (ALTERATION_DATED_SETS); size and class stay today's.
     # nb5-plutoasof-v3 plus NYU calendar windows, near campus and not (Ben,
     # 2026-10-08).
     "nb5-unical-v1": partial(unical_v1, id="nb5-unical-v1", base="nb5-plutoasof-v3"),
+    # nb5-coded-v2 with the lot's alteration years as MapPLUTO had them before
+    # the listing (ALTERATION_DATED_SETS); size and class stay today's.
     "nb5-plutoasof-v2": partial(
         hoods_v1,
         id="nb5-plutoasof-v2",
