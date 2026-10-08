@@ -3330,6 +3330,8 @@ P3_TESTS = {
     "nb5p3-noise-v1": ("nb5-noise-v1", "nb5-plutoasof-v3"),
     "nb5p3-parks-v1": ("nb5-parks-v1", "nb5-plutoasof-v3"),
     "nb5p3-water-v1": ("nb5-water-v1", "nb5p3-parks-v1"),
+    "nb5p3-permit-v1": ("nb5-permit-v1", "nb5-plutoasof-v3"),
+    "nb5p3-permit-v2": ("nb5-permit-v2", "nb5-plutoasof-v3"),
 }
 for _name, (_like, _base) in P3_TESTS.items():
     _builder = FEATURE_SETS[_like]
@@ -3337,10 +3339,10 @@ for _name, (_like, _base) in P3_TESTS.items():
         _builder.func, **{**_builder.keywords, "id": _name, "base": _base}
     )
     NB4_SETS[_name] = "nb5-plutoasof-v3"
-    for _group in (TRANSIT, PARKS, NOISE, LODES, PLACES, STOREFRONTS, HPD):
+    for _group in (TRANSIT, PARKS, NOISE, LODES, PLACES, STOREFRONTS, HPD, DOB):
         if _like in _group:
             _group.add(_name)
-    for _table in (NOISE_FILES, PARKS_SNAPSHOTS, PLACES_SNAPSHOTS):
+    for _table in (NOISE_FILES, PARKS_SNAPSHOTS, PLACES_SNAPSHOTS, DOB_SNAPSHOTS):
         if _like in _table:
             _table[_name] = _table[_like]
 
