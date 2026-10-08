@@ -2,6 +2,14 @@
 
 What the next turn of the website thread needs. Updated at each milestone.
 
+## State (2026-10-08 15:10 UTC)
+
+- Story6 follow-ups merged and deployed: #522 the 12D example says a miss over twice the
+  typical one can still sit inside the 95% range (about 1 ask in 20 lands outside); #524 a
+  "Two kinds of range" box (`#ranges`) after the contents list separates intervals (how sure
+  of a number, 90%/95%) from ranges (where an ask lands, 80% likely range, 95% in the example).
+- Playtest story7 (story-reader) started to check them: `/data1/apartments/tmp/playtests/2026-10-08-story7/`.
+
 ## State (2026-10-08 13:45 UTC)
 
 - **Playtest story6** (story-reader): the lay reader still gave up at Theories on trial. #520
