@@ -124,7 +124,13 @@ way, so a term's bar is the same size wherever it sits in the queue.</p>
 <p>The estimate is {{ usd(build.estimate) }} against an ask of
 {{ usd(build.ask) }}{% if build.lower is not none %}, and the model gives 95% odds that an ask for this apartment
 falls between {{ usd(build.lower) }} and {{ usd(build.upper) }}{% endif %}. The spread is honest: the building and
-apartment terms are learned from a handful of listings, and asks scatter even for the same apartment.</p>
+apartment terms are learned from a handful of listings, and asks scatter even for the same apartment. (This 95%
+range is wider than the <a href="{{ url_for('research_glossary') }}#price-band">likely ask range</a> shown with each
+listing, which holds the middle 80%.){% set unsure = build.steps | rejectattr("term", "equalto", "market") | selectattr("lower", "ne", none) | selectattr("lower", "lt", 0) | selectattr("upper", "gt", 0) | list %}{% if unsure %}
+Not every part is sure of its direction, either: the 95% interval{{ "s" if unsure | length > 1 }} for
+{% for u in unsure %}“{{ u.label }}” ({{ usd(u.usd, signed=True) }}){% if loop.revindex == 2 %} and {% elif not loop.last %}, {% endif %}{% endfor %}
+{{ "run" if unsure | length > 1 else "runs" }} from below zero to above it, so for this apartment the model can't say
+whether {{ "they add to the ask or take from it" if unsure | length > 1 else "it adds to the ask or takes from it" }}.{% endif %}</p>
 
 <details class="table-view">
   <summary>The build-up as a table</summary>
