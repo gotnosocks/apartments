@@ -1,6 +1,34 @@
 # Data improvements — handoff
 
-Updated 2026-10-07 21:45 ET. Thread owner: the Data improvements project thread (bridge session on thelio).
+Updated 2026-10-07 22:20 ET. Thread owner: the Data improvements project thread (bridge session on thelio).
+
+## 2026-10-07 22:20 ET
+
+- **Flatiron + Gramercy Park data is on master:**
+  - #447 adds unit-labels-v11 (FGP aliases and history pairs). This is now the current rule.
+  - #451 adds the nb4 snapshots: `NB4_*_FILE` in features.py, `_NB4_DESCRIPTIONS`, and
+    `descriptions.FGP_SOURCE`. Storefronts are now fetched one reporting year at a time. The
+    pre-squash commit e78c6fd is kept in archive/pr-451.
+  - #452 adds `DATASET_NB4`: 135,759 rows, 30,515 of them FGP; 135,477 pass the master rules.
+  - In listing extras, 165 nb3 listings now take FGP's later capture. That touches 39 CWG rows.
+- **Modeling's part:** Modeling builds nb4-coded-v2 in its own PR and queues one full fit of the
+  served design on DATASET_NB4. DATASET, `ops/modal/fit.py` and `config/main-analysis.json` stay
+  on CWG until an nb4 fit is served.
+- **The queued tests are rebased onto v11** so their fits stay servable.
+
+  | PR | Test | Head |
+  |---|---|---|
+  | #420 | now unit-labels-v12: v11 plus merging spelled-out labels | dc65ba3 |
+  | #425 | unit-splits-v5 | 65260da |
+  | #435 | stab | 5bd6e4b |
+  | #437 | permit | a941744 |
+  | #439 | plutoasof | bbc0805 |
+
+  The queue is frontier-modalq-data11. The first fit starts about 06:30 ET and the rest follow
+  about every 2.4 h. Merge #420 only if its fit passes. Bump no other rule version mid-queue
+  without telling Modeling first.
+- **Possible follow-up:** RULE_SOURCES for v11/v12 records only the alias file, not
+  history-20261007.jsonl. Ask Modeling before changing it.
 
 ## 2026-10-07 21:45 ET
 
@@ -265,8 +293,7 @@ Updated 2026-10-07 21:45 ET. Thread owner: the Data improvements project thread 
   generic hits such as "HVAC UNITS" (harmless now).
 - More open data: unused MapPLUTO fields and dated DOB certificates of occupancy (new-building
   unit counts).
-- Flatiron + Gramercy fold-in: `/data1/apartments/tmp/suspect/fgp/PLAN.md`. Location retests go
-  in as full fits.
+- Flatiron + Gramercy: the data is done (see 22:20). Location retests go in as full fits.
 - Backlog: bldgclass for condo conversions, Jane St registry fix, 13 excluded new-building
   rows, gross rent, relist gap.
 
