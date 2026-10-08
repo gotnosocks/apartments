@@ -70,6 +70,9 @@ def test_build_up_ends_at_the_estimate(client):
     text = re.sub(r"\s+", " ", html)
     assert "the 95% interval for “Unit” (+$45) runs from below zero" in text
     assert "whether it adds to the ask or takes from it" in text
+    # the example's miss is set against the typical held-out miss
+    assert re.search(r"The ask is [\d.]+% (above|below) the estimate\. That is", text)
+    assert "half of the asks the model never saw land within" in text
 
 
 def test_build_up_steps_sum_to_the_estimate():
@@ -325,7 +328,7 @@ def test_design_chapter_reads_the_milestones(site_root, research_file):
     research_file.write_text(json.dumps(data))
     html = _page(create_app(site_root, research_data=research_file).test_client())
     assert 'id="history-figure"' in html
-    assert "It has been replaced\n4 times since Sep 18" in html
+    assert "Since Sep 18,\n5 models have been served in turn" in html
     assert html.count('class="switch era-') == 5
     assert "8 hours later they were withdrawn" in html
     assert "style=" not in html
