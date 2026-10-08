@@ -711,13 +711,13 @@ QUARANTINE_V7 = REPO / "config" / "reviews" / "quarantine-v7-20261008.jsonl"
 
 
 def quarantine_v7(frame: pd.DataFrame) -> pd.DataFrame:
-    """v6 and the seventh review's rows (329 in all), the first of Greenwich
+    """v6 and the seventh review's rows (327 in all), the first of Greenwich
     Village, Gramercy Park and Flatiron: of 338 listings whose ads name another
     borough or area, a room share, a short stay or a commercial space, or whose
     rent is over 2.2 times or under 0.45 times the building's median for its
-    bedrooms, read in full, 47 are an ad for another address (Bushwick's
-    Bleecker Street, Prospect Park, the Upper West Side), a short stay only, a
-    shop or office, or an ask the ad contradicts. The other rows are unchanged."""
+    bedrooms, read in full, 45 are an ad for another address (Bushwick's
+    Bleecker Street, Prospect Park, the Upper West Side), a short stay only, or
+    a shop or office. The other rows are unchanged."""
     return frame[~frame.audit_id.isin(quarantined(QUARANTINE_V7))]
 
 

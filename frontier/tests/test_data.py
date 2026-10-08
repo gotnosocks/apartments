@@ -846,11 +846,10 @@ def test_ad_corrections_v3_keep_v2s_rows_and_values():
 
 
 def test_quarantine_v7_is_v6_and_the_three_new_neighbourhoods():
-    """v7 keeps all of v6's rows and adds 47, each with its quote, all in
-    Greenwich Village, Gramercy Park or Flatiron buildings."""
+    """v7 keeps all of v6's rows and adds 45, each with its quote and reason."""
     v6 = data.quarantined(data.QUARANTINE_V6)
     v7 = data.quarantined(data.QUARANTINE_V7)
-    assert v6 < v7 and len(v7 - v6) == 47
+    assert v6 < v7 and len(v7 - v6) == 45
     with open(data.QUARANTINE_V7) as f:
         rows = [json.loads(line) for line in f if line.strip()]
     added = [r for r in rows if r["audit_id"] in v7 - v6]
