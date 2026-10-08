@@ -216,6 +216,19 @@ def test_bath_corrections_change_only_the_bath_counts(tmp_path, monkeypatch):
     assert "b" not in data.dropped_rows()
 
 
+def test_bath_corrections_keep_a_dataset_with_none_of_their_rows(tmp_path, monkeypatch):
+    import numpy as np
+
+    path = tmp_path / "c.jsonl"
+    path.write_text('{"audit_id": "z", "full_baths": 2, "half_baths": 0}\n')
+    monkeypatch.setitem(data.RULE_SOURCES, "baths-ad-v1", path)
+    frame = pd.DataFrame(
+        {"audit_id": ["a", "b"], "full_baths": [1, 1], "half_baths": [0, 0]}
+    )
+    out, _ = data.apply_rules(frame, np.zeros(2, bool), ["baths-ad-v1"])
+    pd.testing.assert_frame_equal(out, frame)
+
+
 def test_bath_corrections_file_names_each_row_once_with_its_evidence():
     with open(data.BATH_CORRECTIONS) as f:
         rows = [json.loads(line) for line in f if line.strip()]
@@ -676,6 +689,56 @@ def test_unit_labels_v9_joins_number_word_letter_labels_to_their_twins(tmp_path)
     assert data.DATA_RULES["unit-labels-v9"] is data.merge_word_letter_labels
     assert "unit-labels-v9" not in data.DROPPING_RULES
     assert data.RULE_SOURCES["unit-labels-v9"] == data.UNIT_HISTORY_PAIRS
+
+
+def test_unit_labels_v11_is_v9_on_the_tables_with_flatiron_gramercys_appended():
+    """v11 reads the alias table and history pairs that start with the files
+    v5 to v9 read, line for line, and add Flatiron + Gramercy Park's; on a
+    frame of other neighbourhoods' units it joins what v9 joins."""
+    for old, new in (
+        (data.UNIT_ALIASES_GV, data.UNIT_ALIASES_FGP),
+        (data.UNIT_HISTORY_PAIRS, data.UNIT_HISTORY_PAIRS_FGP),
+    ):
+        before, after = old.read_text(), new.read_text()
+        assert after.startswith(before) and len(after) > len(before)
+    gv, fgp = (
+        set(data.unit_aliases(data.UNIT_ALIASES_GV)),
+        set(data.unit_aliases(data.UNIT_ALIASES_FGP)),
+    )
+    assert gv < fgp and len(fgp - gv) == 522
+    assert data.RULE_SOURCES["unit-labels-v11"] == data.UNIT_ALIASES_FGP
+    assert "unit-labels-v11" not in data.DROPPING_RULES
+    url = "https://streeteasy.com/building/{}/{}".format
+    group = next(iter(fgp - gv))
+    frame = pd.DataFrame(
+        {
+            "building": ["b1"] * 4 + ["b2"] * 2,
+            "canonical_unit_url": [
+                url("b1", "fourb"),
+                url("b1", "4b"),
+                url("b1", "c7"),
+                url("b1", "7c"),
+                url("b2", "2a"),
+                url("b2", "2b"),
+            ],
+            "unit_id": ["u4", "u3", "u5", "u6", group[0], group[1]],
+            "bedrooms": [1.0, 1.0, 2.0, 2.0, 1.0, 1.0],
+        }
+    )
+    v9 = data.DATA_RULES["unit-labels-v9"](frame)
+    v11 = data.DATA_RULES["unit-labels-v11"](frame)
+    assert (
+        v11.unit_id.tolist()[:4]
+        == v9.unit_id.tolist()[:4]
+        == [
+            "u3",
+            "u3",
+            "u5",
+            "u5",
+        ]
+    )
+    assert v9.unit_id.iat[4] != v9.unit_id.iat[5]
+    assert v11.unit_id.iat[4] == v11.unit_id.iat[5] == min(group[:2])
 
 
 def test_unit_reviews_v1_joins_each_reviewed_group(tmp_path):
