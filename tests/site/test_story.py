@@ -73,6 +73,12 @@ def test_build_up_ends_at_the_estimate(client):
     # the example's miss is set against the typical held-out miss
     assert re.search(r"The ask is [\d.]+% (above|below) the estimate\. That is", text)
     assert "half of the asks the model never saw land within" in text
+    # the opening answers "can I trust it?" before the chapters
+    opening = text[: text.index('<section id="shape">')]
+    assert "An ask is the monthly rent a listing advertises" in opening
+    assert re.search(
+        r"Its likely ranges, meant to hold 80% of asks, hold \d+%", opening
+    )
 
 
 def test_build_up_steps_sum_to_the_estimate():
