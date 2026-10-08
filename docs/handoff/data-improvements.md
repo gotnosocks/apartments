@@ -15,7 +15,8 @@ Updated 2026-10-08 10:58 ET. Thread owner: the Data improvements project thread 
     lots; provenance.json holds each date's primary source and URL.
   - Dates are the server Last-Modified unless it is the 2023-10-15 re-upload; otherwise the end
     of the month after the release's own documents. 22v2 is undated, flagged and never read.
-  - On the latest split, features change on 27,564 of 135,540 rows.
+  - On the latest split, features change on 27,564 of 135,540 rows beyond the uniform
+    re-centring shift.
   - Later sets inherit the dating via `NB4_SETS[x] = "nb5-plutoasof-v3"`.
   - v2 is dropped unfitted. Modeling queued `frontier-modalq-pluto3` (launches about 13:15 ET)
     and will send the gate result and ΔELPD against the current-rules refit.
