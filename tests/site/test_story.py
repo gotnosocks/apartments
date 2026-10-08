@@ -417,10 +417,10 @@ def test_rent_jumps_by_the_years_between_listings():
         (1, "u1", "4B", "2020-01-01", 1000.0, "ask"),
         (2, "u1", "4B", "2020-06-01", 1500.0, "ask"),  # +50% within a year
         (3, "u1", "4B", "2024-06-01", 1600.0, "ask"),  # no jump, 4 years on
-        (4, "u1", "4B", "2025-01-01", 900.0, "rent"),  # another basis: no pair
+        (4, "u1", "4B", "2025-01", 900.0, "rent"),  # another basis: no pair
         (5, "u2", None, "2019-01-01", 2000.0, "ask"),
         (6, "u2", None, "2023-01-01", 3000.0, "ask"),  # +50% after 4 years
-        (7, "u2", None, "2025-01-01", 3000.0, "ask"),
+        (7, "u2", None, "2025-01", 3000.0, "ask"),  # a bare month still pairs
     ]
     db.executemany(
         "INSERT INTO listings VALUES (?, ?, ?, 'b1', ?, ?, ?, ?)",

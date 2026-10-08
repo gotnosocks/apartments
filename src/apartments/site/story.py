@@ -1106,7 +1106,8 @@ class Cleaning(_Cached):
 
 
 # Consecutive listings of one unit (the same price basis), as the cleaning
-# checks pair them, with the years between them; a jump moves the ask by more
+# checks pair them, with the years between them (a bare "YYYY-MM" period counts
+# from the first of the month); a jump moves the ask by more
 # than 40% either way.
 _PAIRS = """
 WITH s AS (
@@ -1115,7 +1116,9 @@ WITH s AS (
   FROM listings
   WINDOW w AS (PARTITION BY unit_id, price_basis ORDER BY COALESCE(price_at, period), id))
 SELECT s.*, b.address,
-  (julianday(substr(at, 1, 10)) - julianday(substr(prev_at, 1, 10))) / 365.25 AS years,
+  (julianday(CASE WHEN length(at) = 7 THEN at || '-01' ELSE substr(at, 1, 10) END)
+   - julianday(CASE WHEN length(prev_at) = 7 THEN prev_at || '-01' ELSE substr(prev_at, 1, 10) END))
+   / 365.25 AS years,
   (ask > 1.4 * prev_ask OR prev_ask > 1.4 * ask) AS jump
 FROM s JOIN buildings b ON b.id = s.building_id
 WHERE prev_ask > 0 AND ask > 0
