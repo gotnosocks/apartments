@@ -363,13 +363,13 @@ Scripts: `r12/c13.py` and `r12/loc.py`.
   - avenue or wide-street frontage.
 
   The results:
-  - **Out-of-fold R²:** 0.76 with building folds (in-sample 0.76) and **0.54 with 400 m spatial
+  - **Out-of-fold R²:** 0.758 with building folds (in-sample 0.763; ridge barely overfits 30 columns on 2,907 buildings) and **0.54 with 400 m spatial
     block folds**. The block-fold figure is the honest one: building folds leak through neighbours,
     since both the surface and the candidates are smooth in space.
   - **Families that matter, by drop-one block-fold ΔR²:** subway lines −0.16, parks −0.08,
     retail −0.04, nearby −0.04. Noise, trees, frontage and PLUTO are each 0.01 or less. The water
     and transit sets add nothing beyond these.
-  - **Labels:** the area labels explain 14.1% of the surface's variance and 0.2% of the residual's.
+  - **Labels:** the area labels explain 14.1% of the surface's variance and 0.2% of the residual's. The shifts below are the same thing area by area: each area's mean minus the all-building mean.
 
   | Area | Surface shift (pp) | Residual shift (pp) |
   |---|---|---|
@@ -399,7 +399,7 @@ Scripts: `r12/c13.py` and `r12/loc.py`.
     | 6–49 units | −0.08 ± 0.11 |
     | ≤ 5 units | −0.53 ± 0.31 |
 
-    The 2BR extra slope is ≈ 0 in every class.
+    The 2BR extra slope is ≈ 0 in every class. The aggregate r values are per-year means of the monthly curves against log new units in the footprint, so they're small-sample (17 years) and registry-only.
   - **No support** for local new supply driving the large-unit discount. A complete answer needs
     all lots within 1 km, not only registry lots: a full-borough PLUTO pull is listed for Data.
 - **The West Village step.** On the served fit, the building level is the label plus the building
@@ -421,7 +421,9 @@ Scripts: `r12/c13.py` and `r12/loc.py`.
   | + waterfront | +10.5 | +8.1 |
   | + surface explained and residual | +9.3 ± 0.7 | +4.4 ± 0.8 |
 
-  - The step holds **within every class**. WV over Chelsea is +9.6 for 1–2 family, +11.1 for
+  - Only the first, fourth and last rows show standard errors; they are similar for the others, so steps of ≤ 1 pp between neighbouring rows are within noise.
+  - GV falls further than WV once the surface enters (+7.8 → +4.4): more of GV's step is location the candidates capture.
+  - The step holds **within every class**. The mean building level, WV minus Chelsea within the same class, is +9.6 for 1–2 family, +11.1 for
     walkup 6+ and +10.4 for walkups ≤ 5.
   - Neither townhouse stock nor small-building stock explains it. Historic district adds
     nothing beyond the label.
