@@ -92,13 +92,13 @@ def test_description_sets_record_their_source(monkeypatch):
     assert "descriptions" not in run.feature_sources("unitfloor-v2")
 
 
-def test_nb4_plutoasof_reads_the_four_neighbourhoods_lots_and_releases(monkeypatch):
-    assert features.lot_files("nb4-plutoasof-v1") == features.lot_files("nb4-coded-v2")
-    assert features.FEATURE_SETS["nb4-plutoasof-v1"].keywords["base"] == (
+def test_nb5_plutoasof_reads_the_five_neighbourhoods_lots_and_releases(monkeypatch):
+    assert features.lot_files("nb5-plutoasof-v1") == features.lot_files("nb5-coded-v2")
+    assert features.FEATURE_SETS["nb5-plutoasof-v1"].keywords["base"] == (
         "nb3-plutoasof-v1"
     )
     seen = {}
-    for name in ("nb3-plutoasof-v1", "nb4-plutoasof-v1", "nb4-coded-v2"):
+    for name in ("nb3-plutoasof-v1", "nb5-plutoasof-v1", "nb4-coded-v2"):
         monkeypatch.setitem(
             features.FEATURE_SETS,
             name,
@@ -107,7 +107,7 @@ def test_nb4_plutoasof_reads_the_four_neighbourhoods_lots_and_releases(monkeypat
         features.build(name, pd.DataFrame(), np.zeros(0, bool))
     assert seen == {
         "nb3-plutoasof-v1": features.PLUTO_HISTORY_FILE,
-        "nb4-plutoasof-v1": features.NB4_PLUTO_HISTORY_FILE,
+        "nb5-plutoasof-v1": features.NB4_PLUTO_HISTORY_FILE,
         "nb4-coded-v2": None,
     }
 
@@ -1293,6 +1293,21 @@ def test_nb3_v2_sets_read_lpc_and_otherwise_their_v1s_files(monkeypatch):
     features.build("nb3-coded-v2", pd.DataFrame({"a": [1]}), np.ones(1, dtype=bool))
     assert seen["lpc"] == features.NB3_LPC_FILE
     assert features._LPC.get() is None
+
+
+def test_nb5_coded_v2_is_nb3_coded_v2_plus_flatiron_and_gramercy_park(monkeypatch):
+    frame = pd.DataFrame(
+        {"neighbourhood": ["Chelsea", "Flatiron", "Gramercy Park", "West Village"]}
+    )
+    base = features.Features("b", ["x"], ["g"], np.zeros((4, 1)), np.ones(1))
+    monkeypatch.setitem(features.FEATURE_SETS, "nb3-coded-v2", lambda f, t: base)
+    out = features.FEATURE_SETS["nb5-coded-v2"](frame, np.ones(4, bool))
+    assert out.names == ["x", "Flatiron", "Gramercy Park"]
+    assert out.groups == ["g", "neighbourhood", "neighbourhood"]
+    assert out.values[:, 1].tolist() == [0, 1, 0, 0]
+    assert out.values[:, 2].tolist() == [0, 0, 1, 0]
+    assert features.lot_files("nb5-coded-v2") == features.lot_files("nb4-coded-v2")
+    assert features.EXTRAS_SNAPSHOTS["nb5-coded-v2"] == features.NB4_EXTRAS_FILE
 
 
 def test_nb4_coded_v2_is_nb3_coded_v2_plus_flatiron_on_the_nb4_snapshots(

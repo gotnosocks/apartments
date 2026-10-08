@@ -1311,7 +1311,7 @@ NB4_PLUTO_HISTORY_FILE = (
 )
 # MapPLUTO release files by dated set, where a set reads other than
 # `PLUTO_HISTORY_FILE`.
-PLUTO_HISTORY_SNAPSHOTS = {"nb4-plutoasof-v1": NB4_PLUTO_HISTORY_FILE}
+PLUTO_HISTORY_SNAPSHOTS = {"nb5-plutoasof-v1": NB4_PLUTO_HISTORY_FILE}
 ERAS = (
     (0, 1900, "pre-1900"),
     (1900, 1930, "1900-1929"),
@@ -2452,6 +2452,29 @@ def hood_v1(
     )
 
 
+def hoods_v1(
+    frame: pd.DataFrame,
+    train: np.ndarray,
+    id: str,
+    base: str,
+    hoods: tuple[str, ...],
+) -> Features:
+    """A base set plus one column per neighbourhood in `hoods` against Chelsea,
+    beside the base set's neighbourhood terms (`hood_v1` for several)."""
+    base = FEATURE_SETS[base](frame, train)
+    b = _Builder(frame)
+    for hood in hoods:
+        b.add("neighbourhood", hood, frame.neighbourhood.eq(hood))
+    extra = b.build(id)
+    return Features(
+        id,
+        base.names + extra.names,
+        base.groups + extra.groups,
+        np.column_stack([base.values, extra.values]),
+        np.concatenate([base.prior_scale, extra.prior_scale]),
+    )
+
+
 # Feature sets that read the external snapshots (run records list them).
 EXTERNAL = {
     "nb-pluto-base",
@@ -2642,6 +2665,15 @@ FEATURE_SETS = {
     "nb4-coded-v2": partial(
         hood_v1, id="nb4-coded-v2", base="nb3-coded-v2", hood="Flatiron + Gramercy Park"
     ),
+    # The five neighbourhoods: nb3-coded-v2 plus Flatiron and Gramercy Park
+    # (`hoods_v1`; DATASET_NB5 labels each Flatiron + Gramercy Park row with its
+    # building's StreetEasy area), on the four crawls' snapshots (`NB4_SETS`).
+    "nb5-coded-v2": partial(
+        hoods_v1,
+        id="nb5-coded-v2",
+        base="nb3-coded-v2",
+        hoods=("Flatiron", "Gramercy Park"),
+    ),
     "nb3-prevprice-v2": partial(
         prevprice_v1, id="nb3-prevprice-v2", base="nb3-coded-v2"
     ),
@@ -2650,13 +2682,13 @@ FEATURE_SETS = {
     "nb3-plutoasof-v1": partial(
         greenwich_v1, id="nb3-plutoasof-v1", base="nb-coded-v1"
     ),
-    # nb4-coded-v2 with the dated MapPLUTO: nb3-plutoasof-v1 plus Flatiron +
-    # Gramercy Park, on the four neighbourhoods' snapshots.
-    "nb4-plutoasof-v1": partial(
-        hood_v1,
-        id="nb4-plutoasof-v1",
+    # nb5-coded-v2 with the dated MapPLUTO: nb3-plutoasof-v1 plus Flatiron and
+    # Gramercy Park, on the four crawls' snapshots.
+    "nb5-plutoasof-v1": partial(
+        hoods_v1,
+        id="nb5-plutoasof-v1",
         base="nb3-plutoasof-v1",
-        hood="Flatiron + Gramercy Park",
+        hoods=("Flatiron", "Gramercy Park"),
     ),
     "nb3-garden-v1": partial(garden_v1, id="nb3-garden-v1", base="nb3-coded-v2"),
     "nb3-through-v1": partial(through_v1, id="nb3-through-v1", base="nb3-coded-v2"),
@@ -2834,7 +2866,7 @@ AS_OF_SETS = {
 }
 # Feature sets that read each row's lot from MapPLUTO's release of the year
 # before the listing (`dated_lots`) instead of today's.
-PLUTO_DATED_SETS = {"nb3-plutoasof-v1", "nb4-plutoasof-v1"}
+PLUTO_DATED_SETS = {"nb3-plutoasof-v1", "nb5-plutoasof-v1"}
 # Feature sets that read the listing-extras snapshot.
 LISTING_EXTRAS = {
     "nb-coded-v1",
@@ -2962,7 +2994,11 @@ for _wish in (
 
 # The nb4 sets read what their nb3 counterpart reads, from the four
 # neighbourhoods' snapshots (#451) in place of the three's.
-NB4_SETS = {"nb4-coded-v2": "nb3-coded-v2", "nb4-plutoasof-v1": "nb3-plutoasof-v1"}
+NB4_SETS = {
+    "nb4-coded-v2": "nb3-coded-v2",
+    "nb5-coded-v2": "nb3-coded-v2",
+    "nb5-plutoasof-v1": "nb3-plutoasof-v1",
+}
 for _new, _old in NB4_SETS.items():
     for _group in (
         EXTERNAL,

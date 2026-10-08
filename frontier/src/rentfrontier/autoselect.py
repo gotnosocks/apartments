@@ -16,7 +16,10 @@ card follow it.
   30 minutes, and are never served).
 - It used the current data rules: the latest version of every rule family
   (`current_rules`). A fit on rows a later review has shown to be wrong is not
-  served.
+  served. Rules that give the same rows count as the same (Ben, 2026-10-08):
+  a fit whose rows hash (`data.rows_sha256`, after its split and rules) equals
+  that of the current rules on its dataset and split is eligible, so a new
+  rule version that changes no row needs no refit.
 - It is not a tuning fit on a subset of buildings (a `data.TUNING_PREFIX`
   rule): those are exploration only (Ben, 2026-10-01).
 - It was fit on the current dataset (`data.DATASET`).
@@ -58,6 +61,7 @@ from __future__ import annotations
 
 import argparse
 import datetime as dt
+import functools
 import json
 import math
 import re
@@ -117,6 +121,52 @@ def _rules(entry) -> frozenset:
     return frozenset(_record(entry).get("data_rules", ()))
 
 
+# apply_rules wants unit labels, then unit reviews, then unit splits, last.
+_LAST = ("unit-labels-", "unit-reviews-", "unit-splits-")
+
+
+def _rule_order(rule: str) -> tuple:
+    return (next((i + 1 for i, p in enumerate(_LAST) if rule.startswith(p)), 0), rule)
+
+
+@functools.cache
+def _load(dataset: str):
+    return data.load(Path(dataset))  # one load per dataset for every rule set
+
+
+@functools.cache
+def _rows_sha256(dataset: str, split: str, rules: tuple) -> str:
+    frame, heldout = data.split_and_rules(_load(dataset).copy(), split, rules)
+    return data.rows_sha256(frame, heldout)
+
+
+def rows_sha256(record, rules=None) -> str | None:
+    """The hash of a run's rows: as recorded, or rebuilt from its dataset, split
+    and recorded rules. With `rules`, the hash of the rows those rules give on
+    the run's dataset and split. None when the record names no dataset or split,
+    or its rule files have changed."""
+    if rules is None and record.get("rows_sha256"):
+        return record["rows_sha256"]
+    dataset, split = record.get("dataset"), record.get("split")
+    if dataset is None or split is None:
+        return None
+    try:
+        used = (
+            data.recorded_rules(record)
+            if rules is None
+            else tuple(sorted(rules, key=_rule_order))
+        )
+        return _rows_sha256(str(Path(dataset).resolve()), split, used)
+    except (SystemExit, ValueError):  # changed rule files, or rules out of order
+        return None
+
+
+def same_rows(record, rules) -> bool:
+    """Whether a run's rows are the rows `rules` give (see the module docstring)."""
+    mine = rows_sha256(record)
+    return mine is not None and mine == rows_sha256(record, rules)
+
+
 def why_not(e, rules) -> str | None:
     """Why an entry cannot be served, or None if it can."""
     if (e.get("tier") or {}).get("name", "full") != "full":
@@ -146,9 +196,12 @@ def why_not(e, rules) -> str | None:
     tuning = sorted(r for r in _rules(e) if r.startswith(data.TUNING_PREFIX))
     if tuning:
         return f"it is a tuning fit on a subset ({', '.join(tuning)})"
-    if _rules(e) != rules:
+    if _rules(e) != rules and not same_rows(_record(e), rules):
         used = " + ".join(sorted(_rules(e))) or "no data rules"
-        return f"it was fit with {used}, not the current {' + '.join(sorted(rules))}"
+        return (
+            f"it was fit with {used}, not the current {' + '.join(sorted(rules))}, "
+            "and its rows differ"
+        )
     try:
         data.recorded_rules(_record(e))  # the rule files are the ones it was fit on
     except SystemExit as err:
