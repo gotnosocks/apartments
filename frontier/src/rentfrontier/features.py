@@ -1258,6 +1258,11 @@ _LPC: contextvars.ContextVar[str | None] = contextvars.ContextVar("lpc", default
 _AS_OF: contextvars.ContextVar[bool] = contextvars.ContextVar(
     "pluto_as_of", default=False
 )
+# The MapPLUTO yearly releases building_lots reads each row's lot from while a
+# set in PLUTO_DATED_SETS is built (`dated_lots`); None reads today's MapPLUTO.
+_PLUTO_DATED: contextvars.ContextVar[str | None] = contextvars.ContextVar(
+    "pluto_dated", default=None
+)
 # Which basemap and footprints snapshots facing reads while a set is built.
 _AREA: contextvars.ContextVar[tuple[str, str] | None] = contextvars.ContextVar(
     "area", default=None
@@ -1272,6 +1277,10 @@ def area_snapshot() -> tuple[str, str]:
 # HPD housing-code violations of the registry's buildings (`rentfrontier.external hpd`).
 HPD_SNAPSHOT = "/data1/apartments/external/hpd/20260930-cb289ad"
 HPD_FILE = f"{HPD_SNAPSHOT}/hpd.parquet"
+
+# MapPLUTO's yearly releases of the registry's lots (`rentfrontier.external plutohistory`).
+PLUTO_HISTORY_SNAPSHOT = "/data1/apartments/external/plutohistory/20261008-931c6e8"
+PLUTO_HISTORY_FILE = f"{PLUTO_HISTORY_SNAPSHOT}/plutohistory.parquet"
 ERAS = (
     (0, 1900, "pre-1900"),
     (1900, 1930, "1900-1929"),
@@ -1300,7 +1309,41 @@ def building_lots(frame: pd.DataFrame) -> pd.DataFrame:
     registry = pd.read_parquet(registry_file)
     pluto = pd.read_parquet(pluto_file).set_index("bbl")
     lot = registry.set_index("building").bbl.reindex(frame.building.to_numpy())
-    return pluto.reindex(lot.to_numpy()).reset_index(drop=True)
+    lots = pluto.reindex(lot.to_numpy()).reset_index(drop=True)
+    if _PLUTO_DATED.get():
+        lots = dated_lots(frame, lot.to_numpy(), lots, _PLUTO_DATED.get())
+    return lots
+
+
+def dated_lots(
+    frame: pd.DataFrame, bbl: np.ndarray, lots: pd.DataFrame, path: str
+) -> pd.DataFrame:
+    """`lots` (today's MapPLUTO per row) with each row's lot as MapPLUTO's
+    release of the year before the listing's year had it (a year's first
+    release comes out in its spring, so a listing never sees a later one), or
+    the earliest release before that. A field the release does not carry (the
+    flood-zone flags before 2017), and a lot missing from it (a lot numbered
+    later), keep today's values, as does the year built: a fact that does not
+    change, which older releases often estimate (round years). No rents are
+    read."""
+    history = pd.read_parquet(path)
+    # Older releases pad text fields with spaces and mark empty flags with "".
+    text = [c for c in history.columns if c != "release"]
+    history[text] = history[text].apply(lambda c: c.str.strip()).replace("", np.nan)
+    releases = np.sort(history.release.unique())
+    year = pd.DatetimeIndex(frame.period).year.to_numpy() - 1
+    release = releases[
+        np.clip(np.searchsorted(releases, year, side="right") - 1, 0, None)
+    ]
+    keys = pd.MultiIndex.from_arrays([release, pd.Series(bbl).astype(str).to_numpy()])
+    then = history.set_index(["release", "bbl"]).reindex(keys).reset_index(drop=True)
+    found = keys.isin(history.set_index(["release", "bbl"]).index)
+    out = lots.copy()
+    for column in out.columns.intersection(then.columns).difference(["yearbuilt"]):
+        carried = history.groupby("release")[column].apply(lambda c: c.notna().any())
+        use = found & carried.reindex(release).fillna(False).to_numpy()
+        out[column] = out[column].astype(object).where(~use, then[column].to_numpy())
+    return out
 
 
 def lpc_as_of(frame: pd.DataFrame, path: str) -> tuple[np.ndarray, np.ndarray]:
@@ -2543,6 +2586,11 @@ FEATURE_SETS = {
     "nb3-prevprice-v2": partial(
         prevprice_v1, id="nb3-prevprice-v2", base="nb3-coded-v2"
     ),
+    # nb3-coded-v2 with each building as MapPLUTO had it before the listing
+    # (PLUTO_DATED_SETS).
+    "nb3-plutoasof-v1": partial(
+        greenwich_v1, id="nb3-plutoasof-v1", base="nb-coded-v1"
+    ),
     "nb3-garden-v1": partial(garden_v1, id="nb3-garden-v1", base="nb3-coded-v2"),
     "nb3-through-v1": partial(through_v1, id="nb3-through-v1", base="nb3-coded-v2"),
     "nb3-quiet-v1": partial(quiet_v1, id="nb3-quiet-v1", base="nb3-coded-v2"),
@@ -2713,6 +2761,9 @@ AS_OF_SETS = {
     "nb3-prevprice-v1",
     "nb3-lineface-v1",
 }
+# Feature sets that read each row's lot from MapPLUTO's release of the year
+# before the listing (`dated_lots`) instead of today's.
+PLUTO_DATED_SETS = {"nb3-plutoasof-v1"}
 # Feature sets that read the listing-extras snapshot.
 LISTING_EXTRAS = {
     "nb-coded-v1",
@@ -2815,6 +2866,7 @@ for _wish in (
     "nb3-attrs-v1",
     "nb3-noise-v1",
     "nb3-loft-v1",
+    "nb3-plutoasof-v1",
 ):
     for _group in (
         EXTERNAL,
@@ -2854,6 +2906,9 @@ def build(name: str, frame: pd.DataFrame, train: np.ndarray) -> Features:
     area = area_files(name)
     token = _LOTS.set((files["registry"], files["pluto"]))
     as_of_token = _AS_OF.set(name in AS_OF_SETS)
+    dated_token = _PLUTO_DATED.set(
+        PLUTO_HISTORY_FILE if name in PLUTO_DATED_SETS else None
+    )
     area_token = _AREA.set((area["basemap"], area["footprints"]))
     extras_token = _EXTRAS.set(EXTRAS_SNAPSHOTS.get(name))
     lpc_token = _LPC.set(LPC_SNAPSHOTS.get(name))
@@ -2865,6 +2920,7 @@ def build(name: str, frame: pd.DataFrame, train: np.ndarray) -> Features:
     finally:
         _LOTS.reset(token)
         _AS_OF.reset(as_of_token)
+        _PLUTO_DATED.reset(dated_token)
         _AREA.reset(area_token)
         _EXTRAS.reset(extras_token)
         _LPC.reset(lpc_token)

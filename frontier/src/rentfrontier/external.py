@@ -431,7 +431,8 @@ def fetch_pluto_history(bbls) -> tuple[pd.DataFrame, dict]:
                 keep = chunk.reindex(columns=list(PLUTO_COLUMNS))
                 parts.append(keep.assign(release=year))
     table = pd.concat(parts, ignore_index=True)
-    table = table.apply(lambda c: c.str.strip() if c.dtype == object else c)
+    text = [c for c in table.columns if c != "release"]
+    table[text] = table[text].apply(lambda c: c.str.strip())
     table = table.drop_duplicates(["release", "bbl"]).reset_index(drop=True)
     details = {
         "source": PLUTO_ARCHIVE,
