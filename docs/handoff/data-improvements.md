@@ -1,6 +1,24 @@
 # Data improvements — handoff
 
-Updated 2026-10-08 05:00 ET. Thread owner: the Data improvements project thread (bridge session on thelio).
+Updated 2026-10-08 06:20 ET. Thread owner: the Data improvements project thread (bridge session on thelio).
+
+## 2026-10-08 06:20 ET
+
+- **#498 quarantine-v10 merged (c1a3a19).** It makes the Chelsea/WV quarantine rent-blind too.
+  It holds v9's 95 GV/GP/Flatiron rows plus 124 Chelsea/WV rows from the same screen
+  (`frontier/scripts/quarantine_v10_screen.py`, centre W 14th and 8th Ave, no v6), every hit read
+  blind, for 219 rows. 91 of the 124 were already in v6; the 191 other v6 rows come back.
+  Short stays count only when the ad calls itself short-term only or offers under 6 months.
+  Modeling queued it as `frontier-modalq-nb5q10` (`…nb5-ul11r1s4q10`) after nb5q9. Whichever
+  serves is decided by the paired dry run on shared rows, not by version order.
+- **#502 nb5-plutoasof-v2 merged (2b2d262).** v1 (#439) dated every MapPLUTO field and lost
+  (−71.1 ± 20.4, gate passed). The dated size fields differ on 8–10% of rows but almost never
+  because the building changed (`/data1/apartments/tmp/suspect/pluto/drift.out`), so they are
+  revision noise. v2 dates only yearalter1/2 (never from a release older than the building);
+  `altered_since_2000` differs on 3,137 rows. `AS_OF_SETS` already drops alterations after the
+  listing, so expect a small effect. Queued as `frontier-modalq-nb5pluto2` after nb5q10.
+  Close #439 once v2 is fitted.
+- **Record when they land:** nb5q9, nb5q10, nb5pluto2 in `hand_tests` of feature-tests.json.
 
 ## 2026-10-08 05:00 ET
 
