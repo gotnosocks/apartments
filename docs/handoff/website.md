@@ -2,6 +2,15 @@
 
 What the next turn of the website thread needs. Updated at each milestone.
 
+## State (2026-10-08 13:45 UTC)
+
+- **Playtest story6** (story-reader): the lay reader still gave up at Theories on trial. #520
+  adds a skip hint at its top (italic, links to Cleaning, or Open questions without it), says the stretched axis in plain
+  words, and flags the never-seen-apartment figure as rough under 1,000 asks (now 521).
+  The rest went to the backlog under "Story round 6".
+- Next on-story candidates: the 12D build-up (the "One apartment" example) (the built-year term, and why +12.4% is still
+  inside the 95% range); the interval levels (80/90/95%) are still confusing.
+
 ## State (2026-10-08 13:35 UTC)
 
 - **Theories chapter for lay readers:** #515 "The biggest wins" line and "(model term: …)"
