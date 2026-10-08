@@ -346,7 +346,7 @@ one fit per item. Those fits are on the modeling backlog and haven't run yet.</p
 {% set era_words = {
   "bayes": "It began as one carefully built Bayesian model of Chelsea, a kind of model that gives every number it estimates a range of likely values rather than a single guess. Each improvement (a corrected data source, a better treatment of floors, a curve where a straight line fit badly) was reviewed and adopted by hand. That works while there is one model. It stops working once there are many candidates and no common score to compare them.",
   "frontier": "So the work turned into a search. Every candidate design was fitted to the same rows and scored on the same test, PSIS-LOO, and the winner was still picked by a person. The fits also had to get faster, so that many designs could be tried in a day.",
-  "auto": "Finally, the choice itself became a rule. A new fit replaces the served one only when it predicts unseen asks better by more than twice the combined standard error, or ties and is judged more elegant, or ties, is as elegant and fits faster. The rule decides without waiting for a person, so a better fit is served as soon as it lands."
+  "auto": "Finally, the choice itself became a rule. A new fit replaces the served one only when it predicts unseen asks better by more than twice the margin for luck, or ties and is judged more elegant, or ties, is as elegant and fits faster. The rule decides without waiting for a person, so a better fit is served as soon as it lands."
 } %}
 {% for e in eras %}
 <h3>{{ e.name }} <span class="muted">({{ e.first_day }}{% if e.last_day != e.first_day %} to {{ e.last_day }}{% endif %}, {{ e.count }} switch{{ "es" if e.count != 1 }})</span></h3>
@@ -504,7 +504,7 @@ of a jump like that; what explains the rest is the open question.</p>{% endif %}
 <p>{{ blocked | length }} idea{{ "s" if blocked | length != 1 }} raised the score and {{ "were" if blocked | length != 1 else "was" }}
 still set aside:</p>
 <ul>{% for t in blocked | sort(attribute="first") %}
-  <li>{{ t.words[:1] | upper }}{{ t.words[1:] }}: {{ "{:+,.1f}".format(t.diff) }} ± {{ "{:,.1f}".format(t.se) }}{% if t.diff < 2 * t.se %}, within two standard errors of no gain{% endif %}.</li>{% endfor %}
+  <li>{{ t.words[:1] | upper }}{{ t.words[1:] }}: {{ "{:+,.1f}".format(t.diff) }} ± {{ "{:,.1f}".format(t.se) }}{% if t.diff < 2 * t.se %}, too small to tell from luck{% endif %}.</li>{% endfor %}
 </ul>
 <p>A model can predict an apartment's ask from its own last ask without saying anything about why that apartment
 costs what it does. Telling the features that explain from those that only echo is still a person's call, made case
