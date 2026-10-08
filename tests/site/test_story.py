@@ -77,7 +77,7 @@ def test_build_up_ends_at_the_estimate(client):
     opening = text[: text.index('<section id="shape">')]
     assert "An ask is the monthly rent a listing advertises" in opening
     assert re.search(
-        r"Its likely ranges, meant to hold 80% of asks, hold \d+%", opening
+        r"The model’s likely ranges, meant to hold 80% of asks, hold \d+%", opening
     )
 
 

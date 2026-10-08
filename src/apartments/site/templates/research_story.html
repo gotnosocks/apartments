@@ -17,7 +17,7 @@ repetition is what lets a model separate the apartment from the building, and th
 <p>{% if accuracy %}In short, on asks it never saw, half the estimates land within
 {{ "{:.1f}".format(accuracy.median) }}% of their estimate: on a typical ${{ "{:,.0f}".format(accuracy.typical) }} ask, within about
 ${{ "{:,.0f}".format((accuracy.typical * accuracy.median / 100) | round(-1)) }}.{% if accuracy.new %} For an apartment
-it has never seen, the miss is wider: half land within {{ "{:.1f}".format(accuracy.new.median) }}%.{% endif %} Its likely
+it has never seen in any listing, the miss is wider: half land within {{ "{:.1f}".format(accuracy.new.median) }}%.{% endif %} The model’s likely
 ranges, meant to hold 80% of asks, hold {{ "{:.0f}".format(accuracy.likely) }}% (<a href="#accuracy">how close it gets</a>).
 {% endif %}This page is about the model. For how rents themselves have changed, by neighbourhood and bedroom count,
 see the <a href="{{ url_for('estimates_map') }}">rent map</a>.</p>
