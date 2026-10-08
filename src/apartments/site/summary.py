@@ -134,6 +134,14 @@ def _with(inputs: dict, prefix: str) -> list[str]:
 
 # Neighbourhoods said with "the" in a sentence.
 WITH_THE = frozenset({"West Village", "East Village"})
+# The neighbourhood inputs a fit can carry, one per area besides Chelsea, the
+# reference.
+NEIGHBOURHOOD_INPUTS = (
+    "West Village",
+    "Greenwich Village",
+    "Flatiron",
+    "Gramercy Park",
+)
 
 
 def hood_name(name: str) -> str:
@@ -239,10 +247,9 @@ def phrase(term: str, row, inputs: dict, sign: int) -> str | None:
         keys = row.keys() if hasattr(row, "keys") else ()
         if "neighbourhood" in keys and row["neighbourhood"]:
             return hood_name(row["neighbourhood"])
-        if inputs.get("Greenwich Village"):
-            return "Greenwich Village"
-        if inputs.get("West Village"):
-            return "the West Village"
+        for name in NEIGHBOURHOOD_INPUTS:
+            if inputs.get(name):
+                return hood_name(name)
         # No neighbourhood column and no neighbourhood input: Chelsea is the
         # reference, but so is any area the inputs don't name, so say nothing.
         return None

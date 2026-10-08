@@ -104,6 +104,8 @@ def test_phrases_follow_the_models_inputs():
     assert words("neighbourhood", {"Greenwich Village": 1}).endswith(
         "Greenwich Village."
     )
+    assert words("neighbourhood", {"Flatiron": 1}).endswith("Flatiron.")
+    assert words("neighbourhood", {"Gramercy Park": 1}).endswith("Gramercy Park.")
     assert words("neighbourhood", {}) == ""  # not guessed
     assert words("neighbourhood", {}, row={"neighbourhood": "Chelsea"}).endswith(
         "Chelsea."
