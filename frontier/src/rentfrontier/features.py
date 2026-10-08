@@ -3195,6 +3195,30 @@ for _name, (_what, _item) in NB5_SINGLES.items():
         PLACES.add(_name)
         PLACES_SNAPSHOTS[_name] = NB4_PLACES_FILE
     NB4_SETS[_name] = "nb5-coded-v2"
+# The queued nb5 tests again on nb5-plutoasof-v3 (point-in-time MapPLUTO) in
+# place of nb5-coded-v2: the same builder and arguments, the new base, and the
+# same snapshots as the nb5 set (`P3_TESTS[new] = (nb5 set, base)`).
+P3_TESTS = {
+    "nb5p3-lines-v1": ("nb5-lines-v1", "nb5-plutoasof-v3"),
+    "nb5p3-loc-v1": ("nb5-loc-v1", "nb5-plutoasof-v3"),
+    "nb5p3-walkup-v1": ("nb5-walkup-v1", "nb5-plutoasof-v3"),
+    "nb5p3-noise-v1": ("nb5-noise-v1", "nb5-plutoasof-v3"),
+    "nb5p3-parks-v1": ("nb5-parks-v1", "nb5-plutoasof-v3"),
+    "nb5p3-water-v1": ("nb5-water-v1", "nb5p3-parks-v1"),
+}
+for _name, (_like, _base) in P3_TESTS.items():
+    _builder = FEATURE_SETS[_like]
+    FEATURE_SETS[_name] = partial(
+        _builder.func, **{**_builder.keywords, "id": _name, "base": _base}
+    )
+    NB4_SETS[_name] = "nb5-plutoasof-v3"
+    for _group in (TRANSIT, PARKS, NOISE, LODES, PLACES, STOREFRONTS, HPD):
+        if _like in _group:
+            _group.add(_name)
+    for _table in (NOISE_FILES, PARKS_SNAPSHOTS, PLACES_SNAPSHOTS):
+        if _like in _table:
+            _table[_name] = _table[_like]
+
 for _new, _old in NB4_SETS.items():
     for _group in (
         EXTERNAL,

@@ -1529,3 +1529,25 @@ def test_released_lots_skip_a_release_older_than_the_building(tmp_path):
         frame, np.array(["1"]), lots, str(tmp_path / "r.parquet")
     )
     assert out.unitsres.tolist() == ["50"]
+
+
+def test_p3_tests_are_their_nb5_set_on_point_in_time_pluto():
+    """Each nb5p3 set is its nb5 set's builder on its new base, reads the same
+    snapshots, and differs in group membership only by the dated MapPLUTO."""
+    tables = {
+        k: v
+        for k, v in vars(features).items()
+        if k.isupper()
+        and isinstance(v, (set, dict))
+        and k not in ("FEATURE_SETS", "NB4_SETS", "P3_TESTS")
+    }
+    for name, (like, base) in features.P3_TESTS.items():
+        new, old = features.FEATURE_SETS[name], features.FEATURE_SETS[like]
+        assert new.func is old.func
+        assert new.keywords == {**old.keywords, "id": name, "base": base}
+        member = lambda s: {k for k, v in tables.items() if s in v}  # noqa: E731
+        assert member(name) - member(like) == {"PLUTO_RELEASED_SETS"}
+        assert member(like) <= member(name)
+        for k, v in tables.items():
+            if isinstance(v, dict) and like in v and k not in ("NB4_SETS",):
+                assert v[name] == v[like], k
