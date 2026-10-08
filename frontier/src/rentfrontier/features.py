@@ -1249,6 +1249,30 @@ NB3_EXTRAS_FILE = (
 )
 # LPC designations of the three neighbourhoods' lots (`rentfrontier.external lpc`).
 NB3_LPC_FILE = "/data1/apartments/external/lpc/20261005-8946d6f/lpc.parquet"
+# Chelsea, West Village, Greenwich Village and Flatiron + Gramercy Park:
+# Flatiron + Gramercy Park's registry (20261008-34b958d) merged into nb3's, its
+# MapPLUTO, footprints and basemap merged into nb3's (nb3's rows unchanged), the
+# four crawls' listing extras (also the price history), and the sources keyed
+# by lot, building or box fetched on the merged registry.
+NB4_REGISTRY_FILE = (
+    "/data1/apartments/external/registry/20261008-bda2959/buildings.parquet"
+)
+NB4_PLUTO_FILE = "/data1/apartments/external/pluto/20261008-e78c6fd/pluto.parquet"
+NB4_FOOTPRINTS_FILE = (
+    "/data1/apartments/external/footprints/20261008-e78c6fd/footprints.parquet"
+)
+NB4_BASEMAP_FILE = "/data1/apartments/external/basemap/20261008-e78c6fd/basemap.parquet"
+NB4_EXTRAS_FILE = (
+    "/data1/apartments/external/listing-extras/20261008-e78c6fd/listing-extras.parquet"
+)
+NB4_LPC_FILE = "/data1/apartments/external/lpc/20261008-bda2959/lpc.parquet"
+NB4_HPD_FILE = "/data1/apartments/external/hpd/20261008-bda2959/hpd.parquet"
+NB4_NOISE_FILE = "/data1/apartments/external/noise311/20261008-bda2959/noise311.parquet"
+NB4_PLACES_FILE = "/data1/apartments/external/places/20261008-bda2959/places.parquet"
+NB4_STOREFRONTS_FILE = (
+    "/data1/apartments/external/storefronts/20261008-e78c6fd/storefronts.parquet"
+)
+NB4_PARKS_FILE = "/data1/apartments/external/parks/20261008-bda2959/parks.parquet"
 # The LPC snapshot of the set being built (`LPC_SNAPSHOTS`): when set, a lot is a
 # landmark or in a historic district only from its designation date.
 _LPC: contextvars.ContextVar[str | None] = contextvars.ContextVar("lpc", default=None)
@@ -2356,6 +2380,28 @@ def greenwich_v1(
     )
 
 
+def hood_v1(
+    frame: pd.DataFrame,
+    train: np.ndarray,
+    id: str,
+    base: str,
+    hood: str,
+) -> Features:
+    """A base set plus one more neighbourhood against Chelsea (`hood`), beside
+    the base set's neighbourhood terms (`greenwich_v1`)."""
+    base = FEATURE_SETS[base](frame, train)
+    b = _Builder(frame)
+    b.add("neighbourhood", hood, frame.neighbourhood.eq(hood))
+    extra = b.build(id)
+    return Features(
+        id,
+        base.names + extra.names,
+        base.groups + extra.groups,
+        np.column_stack([base.values, extra.values]),
+        np.concatenate([base.prior_scale, extra.prior_scale]),
+    )
+
+
 # Feature sets that read the external snapshots (run records list them).
 EXTERNAL = {
     "nb-pluto-base",
@@ -2540,6 +2586,12 @@ FEATURE_SETS = {
     # dated as of each listing from the LPC's designations (`LPC_SNAPSHOTS`).
     # (nb3-prevprice-v2 has nb-prevprice-v1's terms, not nb-prevprice-v2's.)
     "nb3-coded-v2": partial(greenwich_v1, id="nb3-coded-v2", base="nb-coded-v1"),
+    # Chelsea, the West Village, Greenwich Village and Flatiron + Gramercy Park:
+    # nb3-coded-v2 plus Flatiron + Gramercy Park (`hood_v1`), every term on the
+    # four neighbourhoods' snapshots (NB4_*, `NB4_SETS`).
+    "nb4-coded-v2": partial(
+        hood_v1, id="nb4-coded-v2", base="nb3-coded-v2", hood="Flatiron + Gramercy Park"
+    ),
     "nb3-prevprice-v2": partial(
         prevprice_v1, id="nb3-prevprice-v2", base="nb3-coded-v2"
     ),
@@ -2683,6 +2735,10 @@ _NB_DESCRIPTIONS = {
 _NB3_DESCRIPTIONS = {
     **_NB_DESCRIPTIONS,
     "descriptions_gv": str(descriptions_module.GV_SOURCE),
+}
+_NB4_DESCRIPTIONS = {
+    **_NB3_DESCRIPTIONS,
+    "descriptions_fgp": str(descriptions_module.FGP_SOURCE),
 }
 DESCRIPTION_SOURCES = {
     "nb-facing-v2": _NB_DESCRIPTIONS,
@@ -2835,6 +2891,32 @@ for _wish in (
     ):
         if "nb3-coded-v2" in _table:
             _table[_wish] = _table["nb3-coded-v2"]
+
+
+# The nb4 sets read what their nb3 counterpart reads, from the four
+# neighbourhoods' snapshots (#451) in place of the three's.
+NB4_SETS = {"nb4-coded-v2": "nb3-coded-v2"}
+for _new, _old in NB4_SETS.items():
+    for _group in (
+        EXTERNAL,
+        BASEMAP,
+        FOOTPRINTS,
+        DESCRIPTIONS,
+        AS_OF_SETS,
+        LISTING_EXTRAS,
+        PRICE_HISTORY,
+        READS_EARLIER_RENTS,
+    ):
+        if _old in _group:
+            _group.add(_new)
+    LOT_SNAPSHOTS[_new] = {"registry": NB4_REGISTRY_FILE, "pluto": NB4_PLUTO_FILE}
+    AREA_SNAPSHOTS[_new] = {
+        "basemap": NB4_BASEMAP_FILE,
+        "footprints": NB4_FOOTPRINTS_FILE,
+    }
+    DESCRIPTION_SOURCES[_new] = _NB4_DESCRIPTIONS
+    EXTRAS_SNAPSHOTS[_new] = NB4_EXTRAS_FILE
+    LPC_SNAPSHOTS[_new] = NB4_LPC_FILE
 
 
 def lot_files(name: str) -> dict:

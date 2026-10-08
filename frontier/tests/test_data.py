@@ -856,3 +856,20 @@ def test_apply_rules_refuses_unit_reviews_before_unit_labels():
         data.apply_rules(
             frame, np.zeros(1, bool), ["unit-reviews-v1", "unit-labels-v9"]
         )
+
+
+def test_dataset_nb4_is_the_current_dataset_plus_flatiron_gramercy_park():
+    """DATASET_NB4 combines the current dataset, unchanged, with Flatiron +
+    Gramercy Park's rows, each named by its neighbourhood."""
+    complete = data.DATASET_NB4 / "complete.json"
+    if not complete.exists():
+        pytest.skip("combined dataset not on this machine")
+    record = json.loads(complete.read_text())
+    paths = {p["path"] for p in record["parts"].values()}
+    # The path itself, not data.DATASET: fits set FRONTIER_DATASET to this set.
+    current = (
+        "/data1/apartments/frontier/datasets/chelsea-wv-gv-analysis-20261005-2d5b3b6"
+    )
+    assert current in paths
+    assert record["neighbourhoods"]["Flatiron + Gramercy Park"] == 30515
+    assert sum(record["neighbourhoods"].values()) == sum(record["rows"].values())

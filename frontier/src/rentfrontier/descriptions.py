@@ -49,6 +49,11 @@ WV_SOURCE = Path(
 GV_SOURCE = Path(
     "/data1/apartments/frontier/descriptions/greenwich-village-20261005-2d5b3b6/evidence.jsonl"
 )
+# Flatiron + Gramercy Park: each row's own ad from the granular crawl of 2026-10-07
+# (cohort flatiron-gramercy-park-analysis-20261007-34b958d; 30,468 of 30,515 rows).
+FGP_SOURCE = Path(
+    "/data1/apartments/frontier/descriptions/flatiron-gramercy-park-20261008-bda2959/evidence.jsonl"
+)
 # The evidence files `attach` reads while a feature set is built
 # (`features.build`); Chelsea's alone unless the feature set lists more.
 SOURCES: contextvars.ContextVar[tuple[Path, ...]] = contextvars.ContextVar(
