@@ -676,3 +676,11 @@ def test_theories_chart_labels_are_whole(client):
     html = _page(client)
     chart = html[html.index('class="story-svg trials"') :]
     assert "…</tspan>" not in chart[: chart.index("</svg>")]
+
+
+def test_theories_chapter_says_it_can_be_skipped(client):
+    html = _page(client)
+    theories = html[html.index('<section id="theories">') :]
+    hint = theories[: theories.index("A model like this")]
+    assert "the most technical" in hint and 'href="#cleaning"' in hint
+    assert "square-root" not in theories and "not equal" in theories
