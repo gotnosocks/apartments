@@ -210,12 +210,17 @@ more widely? Does the ad's own text know something the structured fields don't? 
 fit the model with it and without it, on the same rows, and ask which version better predicts asks it was not
 shown. Picture hiding one listing, pricing it from all the others, and noting how plausible the model found
 the real ask; then doing that for every listing and adding it up. The version that finds the real asks more
-plausible wins. (The score is called <a href="{{ url_for('research_glossary') }}#psis-loo">PSIS-LOO</a>, a shortcut
-that gets this hide-one-out total without refitting the model once per listing.)</p>
+plausible wins.</p>
 
-<p>The score's units mean nothing on their own; only the gap between two fits does
-(<a href="{{ url_for('research_glossary') }}#delta-elpd">ΔELPD</a>). Each gap comes with a standard error, how
-far it could move by chance, and an idea counts as a real gain only when the gap is more than twice that.</p>
+<p>The score's units mean nothing on their own; only the gap between the two versions does. Each gap comes with a
+margin for luck, and an idea counts as a real gain only when its gap is more than twice that margin.</p>
+
+<details class="aside">
+  <summary>The technical names</summary>
+  <p>The score is <a href="{{ url_for('research_glossary') }}#psis-loo">PSIS-LOO</a>, a shortcut that gets the
+  hide-one-out total without refitting the model once per listing. The gap between two fits is
+  <a href="{{ url_for('research_glossary') }}#delta-elpd">ΔELPD</a>, and the margin for luck is its standard error.</p>
+</details>
 
 <p>So far {{ trials | length }} ideas have been tried, in {{ tests | length }} paired fits.
 {% set others = trials | length - gains | length - nulls | length %}{{ gains | length }} helped, {{ nulls | length }}
@@ -231,7 +236,7 @@ neighbourhoods give location more room to matter.{% endif %}{% endif %}</p>
   <div class="legend-row" aria-hidden="true">{% for key, words in verdict_words.items() %}{% if trials | selectattr("verdict", "equalto", key) | list %}<span><span class="swatch v-{{ key }}"></span>{{ words | capitalize }}</span>{% endif %}{% endfor %}</div>
   <div class="figure-scroll" tabindex="0" role="region" aria-label="Figure, scrolls sideways on narrow screens">{{ trials_svg }}</div>
   <figcaption>One row per idea. A dot right of the line at zero means the model predicted unseen asks better with
-  the idea, left of it worse. The band is two standard errors either side: a band that crosses the line means no
+  the idea, left of it worse. The band is twice the margin for luck either side: a band that crosses the line means no
   clear effect. Small rings are earlier repeats of the same test on other fits. The axis is stretched near zero
   (square-root scaled), so gains of 20 and 2,000 both fit. Rows are grouped by kind and sorted by gain; when the figure plays, they appear in the order the ideas were first tried.</figcaption>
 </figure>
@@ -341,7 +346,7 @@ one fit per item. Those fits are on the modeling backlog and haven't run yet.</p
 {% set era_words = {
   "bayes": "It began as one carefully built Bayesian model of Chelsea, a kind of model that gives every number it estimates a range of likely values rather than a single guess. Each improvement (a corrected data source, a better treatment of floors, a curve where a straight line fit badly) was reviewed and adopted by hand. That works while there is one model. It stops working once there are many candidates and no common score to compare them.",
   "frontier": "So the work turned into a search. Every candidate design was fitted to the same rows and scored on the same test, PSIS-LOO, and the winner was still picked by a person. The fits also had to get faster, so that many designs could be tried in a day.",
-  "auto": "Finally, the choice itself became a rule. A new fit replaces the served one only when it predicts unseen asks better by more than twice the combined standard error, or ties and is judged more elegant, or ties, is as elegant and fits faster. The rule decides without waiting for a person, so a better fit is served as soon as it lands."
+  "auto": "Finally, the choice itself became a rule. A new fit replaces the served one only when it predicts unseen asks better by more than twice the margin for luck, or ties and is judged more elegant, or ties, is as elegant and fits faster. The rule decides without waiting for a person, so a better fit is served as soon as it lands."
 } %}
 {% for e in eras %}
 <h3>{{ e.name }} <span class="muted">({{ e.first_day }}{% if e.last_day != e.first_day %} to {{ e.last_day }}{% endif %}, {{ e.count }} switch{{ "es" if e.count != 1 }})</span></h3>
@@ -499,7 +504,7 @@ of a jump like that; what explains the rest is the open question.</p>{% endif %}
 <p>{{ blocked | length }} idea{{ "s" if blocked | length != 1 }} raised the score and {{ "were" if blocked | length != 1 else "was" }}
 still set aside:</p>
 <ul>{% for t in blocked | sort(attribute="first") %}
-  <li>{{ t.words[:1] | upper }}{{ t.words[1:] }}: {{ "{:+,.1f}".format(t.diff) }} ± {{ "{:,.1f}".format(t.se) }}{% if t.diff < 2 * t.se %}, within two standard errors of no gain{% endif %}.</li>{% endfor %}
+  <li>{{ t.words[:1] | upper }}{{ t.words[1:] }}: {{ "{:+,.1f}".format(t.diff) }} ± {{ "{:,.1f}".format(t.se) }}{% if t.diff < 2 * t.se %}, too small to tell from luck{% endif %}.</li>{% endfor %}
 </ul>
 <p>A model can predict an apartment's ask from its own last ask without saying anything about why that apartment
 costs what it does. Telling the features that explain from those that only echo is still a person's call, made case

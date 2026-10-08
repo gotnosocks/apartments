@@ -217,6 +217,8 @@ dl.glossary dt:target, dl.glossary dt:target + dd { background: var(--warn-bg); 
 
 details.table-view { margin-top: 0.4rem; }
 details.table-view summary { cursor: pointer; color: var(--link); font-size: 0.9rem; }
+details.aside { margin: 0 0 1rem; }
+details.aside summary { cursor: pointer; color: var(--link); font-size: 0.9rem; }
 
 /* Charts: thin marks, hairline grid, series by class. */
 .chart { position: relative; margin: 0.5rem 0; }
