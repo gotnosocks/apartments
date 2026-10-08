@@ -2610,11 +2610,16 @@ def facing_v3(
 # no later information enters.
 
 
-def building_violations(frame: pd.DataFrame, days: int = 365) -> np.ndarray:
+def building_violations(
+    frame: pd.DataFrame,
+    days: int = 365,
+    hpd_file: str | None = None,
+    registry_file: str | None = None,
+) -> np.ndarray:
     """Per row: class B and C violations found in its building (registry BIN,
     or its lot for placeholder BINs) in the `days` before the row's month."""
-    registry = pd.read_parquet(REGISTRY_FILE).set_index("building")
-    hpd = pd.read_parquet(HPD_FILE)
+    registry = pd.read_parquet(registry_file or REGISTRY_FILE).set_index("building")
+    hpd = pd.read_parquet(hpd_file or HPD_FILE)
     hpd = hpd[hpd["class"].isin(["B", "C"])]
     found = pd.to_datetime(hpd.inspectiondate, errors="coerce")
     hpd = hpd.assign(found=found)[found.notna()]
@@ -2649,18 +2654,26 @@ def hpd_v1(
     base: str = "base-v1",
     years: int = 1,
     many: float = 0.25,
+    file: str | None = None,
 ) -> Features:
     """A base set plus the building's condition as of the listing: hazardous
     housing-code violations HPD found in the `years` before, per apartment and
     year (none, a few, or `many` or more). Apartments are MapPLUTO's
     residential units, or the units listed in the building where the lot
-    records none (condominium lots)."""
+    records none (condominium lots). With `file`, the violations are that
+    snapshot's, matched through the set's own registry (`lot_registry`)."""
     base = FEATURE_SETS[base](frame, train)
     lot = building_lots(frame)
     units = pd.to_numeric(lot.unitsres, errors="coerce").to_numpy()
     listed = frame.groupby("building").unit_id.transform("nunique").to_numpy()
     units = np.where(units > 0, units, listed).clip(min=1)
-    rate = building_violations(frame, days=365 * years) / units / years
+    found = building_violations(
+        frame,
+        days=365 * years,
+        hpd_file=file,
+        registry_file=lot_registry() if file else None,
+    )
+    rate = found / units / years
     past = "the past year" if years == 1 else f"the past {years} years"
     b = _Builder(frame)
     b.add(
@@ -3149,6 +3162,12 @@ FEATURE_SETS = {
     # nb5-plutoasof-v3 plus felonies reported near the building in the year
     # before the listing (`crime_v1`; coordinator relay 2026-10-08).
     "nb5-crime-v1": partial(crime_v1, id="nb5-crime-v1", base="nb5-plutoasof-v3"),
+    # nb5-plutoasof-v3 plus building condition (`hpd_v1`, the past year) from
+    # the five-neighbourhood HPD snapshot: retests the Chelsea and West Village
+    # null of unitdescplutohpd-v1 as an explanatory term (Ben, 2026-10-08).
+    "nb5-hpd-v1": partial(
+        hpd_v1, id="nb5-hpd-v1", base="nb5-plutoasof-v3", file=NB4_HPD_FILE
+    ),
     # nb5-plutoasof-v3 with the ad-text concession flag split at 2020, when
     # StreetEasy began coding concessions (`concession_era_v1`; Modeling's
     # proposal for the coordinator relay's concessions item, 2026-10-08).
@@ -3506,6 +3525,10 @@ NB4_SETS["nb5-trees-v1"] = "nb5-plutoasof-v3"
 CRIME_FILE = "/data1/apartments/external/crime/20261008-c17e0ae/felonies.csv"
 CRIME = {"nb5-crime-v1"}
 NB4_SETS["nb5-crime-v1"] = "nb5-plutoasof-v3"
+# The HPD snapshot each set reads where it is not HPD_FILE.
+HPD_SNAPSHOTS = {"nb5-hpd-v1": NB4_HPD_FILE}
+HPD.add("nb5-hpd-v1")
+NB4_SETS["nb5-hpd-v1"] = "nb5-plutoasof-v3"
 NB4_SETS["nb5-concera-v1"] = "nb5-plutoasof-v3"
 # One set per ad attribute (`ATTRIBUTE_FLAGS`) and per place kind
 # (`nearby.KINDS`): nb5-coded-v2 plus that one column, each its own full fit.
