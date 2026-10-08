@@ -2,6 +2,23 @@
 
 What the next turn of the website thread needs. Updated at each milestone.
 
+## State (2026-10-08 07:50 UTC)
+
+- **#487 (live):** the two repricing ideas now read "how the unit's previous listing was
+  repriced" and "the same repricing idea, retested once Greenwich Village joined" (Ben asked what
+  "the richer coded-features model" meant; both bases had the coded features).
+- **#491 (live):** "Inside two grouped tests" on /research/story breaks out nb3-attrs-v1 (15 ad
+  attributes) and nb3-nearby-v1 (6 walk-to places): share of listings, median walk, and a raw
+  within-bedroom ask difference labelled as raw. Data: docs/model/group-items.json from
+  `python -m rentfrontier.groupitems RUN --out ...` (run under `ops/job light -m 6G` with
+  PYTHONPATH=frontier/src and the serve-frontier venv; tests run in the data-line venv). The
+  section hides when the file names another run (regenerate it after each switch) or once the
+  served model has any item's term (`text:<flag>`, `log m to <place>`): then show the served
+  per-item effects instead. The served nb5 model has no such terms. Ben dropped the grouped
+  per-item fits and put 21 single-feature fits on the backlog instead (#490). Modeling will send effects result.json paths
+  (`rentfrontier.effects`, #488) as they land; show them labelled as test fits unless served.
+  Never show the nb3 GV exploration numbers as served.
+
 ## State (2026-10-08 05:50 UTC)
 
 - **Five neighbourhoods are served** (#468, nb5 run; build 20261008T044224922212Z-d3ede825,
