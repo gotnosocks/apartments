@@ -3229,7 +3229,7 @@ ALTERATION_DATED_SETS = {"nb5-plutoasof-v2"}
 # NB4_SETS (`NB4_SETS[name] = "nb5-plutoasof-v3"`), like the other groups.
 PLUTO_RELEASED_SETS = {"nb5-plutoasof-v3"}
 # The street tree table (`trees.main`) and the sets that read it.
-TREES_FILE = "/data1/apartments/external/trees/20261008-9dc52af/trees.csv"
+TREES_FILE = "/data1/apartments/external/trees/20261008-e8ae3db/trees.csv"
 TREES = {"nb5-trees-v1"}
 NB4_SETS["nb5-trees-v1"] = "nb5-plutoasof-v3"
 # One set per ad attribute (`ATTRIBUTE_FLAGS`) and per place kind
