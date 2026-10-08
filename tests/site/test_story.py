@@ -15,12 +15,18 @@ def _page(client) -> str:
 
 def test_story_page_has_its_figures_and_their_tables(client):
     html = _page(client)
-    for figure in ("compose-figure", "effects-figure", "build-figure", "trials-figure"):
+    for figure in (
+        "compose-figure",
+        "effects-figure",
+        "build-figure",
+        "trials-figure",
+        "history-figure",
+    ):
         assert f'id="{figure}"' in html
     # Every figure is an image with a text alternative and a table beside it.
-    assert html.count('role="img"') == 4
+    assert html.count('role="img"') == 5
     assert all(label.strip() for label in re.findall(r'aria-label="([^"]*)"', html))
-    assert html.count('class="table-view"') == 4
+    assert html.count('class="table-view"') == 5
     # No inline style: the site's CSP allows none.
     assert "style=" not in html
 
@@ -182,3 +188,69 @@ def test_theories_chapter_reads_the_ledger(site_root, research_file, tmp_path):
     assert "1 of the 1 ideas about where a building sits," in html
     assert html.count('class="trial ') == 4
     assert "Some ideas scored brilliantly" in html
+
+
+MILESTONES = [
+    {"kind": "pr", "at": "2026-09-18T10:00:00+00:00", "title": "Something else"},
+    {
+        "kind": "selection",
+        "at": "2026-09-18T22:00:00+00:00",
+        "title": "Select a PyMC fit",
+        "model": "chelsea-bayesian-x",
+        "family": "pymc_bayesian",
+    },
+    {
+        "kind": "selection",
+        "at": "2026-09-29T17:00:00+00:00",
+        "title": "Select the Gibbs fit (#45)",
+        "model": "m5-nocurves-unitdesc-v1-rows-ab2a7df-gibbs-2060",
+        "family": "frontier_summary",
+    },
+    {
+        "kind": "selection",
+        "at": "2026-10-01T02:00:00+00:00",
+        "title": "Selection (autoselect): serve 2slopes (#89)",
+        "model": "m7-nocurves-2slopes-unitfacing-v5-rows-8502559-gibbs",
+        "family": "frontier_summary",
+    },
+    {
+        "kind": "selection",
+        "at": "2026-10-07T06:00:00+00:00",
+        "title": "Serve nb3-prevprice-v2 by the latest-split rule (#392)",
+        "model": "m7-nocurves-floorslope-nb3-prevprice-v2-rows-163c6de-a100",
+        "family": "frontier_summary",
+    },
+    {
+        "kind": "selection",
+        "at": "2026-10-07T14:00:00+00:00",
+        "title": "Unserve prevprice (#403)",
+        "model": "m7-nocurves-floorslope-nb3-coded-v2-rows-9371a18-a100",
+        "family": "frontier_summary",
+    },
+]
+
+
+def test_design_history_eras_terms_and_spells():
+    switches = story.design_history(MILESTONES)
+    assert [s["era"] for s in switches] == ["bayes", "frontier", "auto", "auto", "auto"]
+    assert switches[2]["words"] == "Serve 2slopes" and switches[2]["pr"] == "89"
+    assert switches[1]["terms"] == ["nocurves"]
+    assert switches[3]["feature_set"] == "nb3-prevprice-v2"
+    lives = {life["term"]: life for life in story.term_lives(switches)}
+    assert lives["2slopes"]["served"] == [2] and not lives["2slopes"]["now"]
+    assert lives["floorslope"]["now"] and lives["nocurves"]["served"] == [1, 2, 3, 4]
+    (spell,) = story.served_spells(switches, "prevprice")
+    assert spell["hours"] == 8.0
+    assert [e["count"] for e in story.eras(switches)] == [1, 1, 3]
+
+
+def test_design_chapter_reads_the_milestones(site_root, research_file):
+    data = json.loads(research_file.read_text())
+    data["milestones"] = MILESTONES
+    research_file.write_text(json.dumps(data))
+    html = _page(create_app(site_root, research_data=research_file).test_client())
+    assert 'id="history-figure"' in html
+    assert "It has been replaced\n4 times since Sep 18" in html
+    assert html.count('class="switch era-') == 5
+    assert "8 hours later they were withdrawn" in html
+    assert "style=" not in html
