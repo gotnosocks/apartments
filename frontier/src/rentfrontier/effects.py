@@ -45,7 +45,8 @@ def base_of(feature_set: str) -> str | None:
 def kind_of(name: str, values: np.ndarray) -> str:
     if np.isin(values, (0.0, 1.0)).all():
         return "indicator"
-    return "log" if name.startswith("log") else "other"
+    # "log m to dog run" (natural log); not log1p counts or hinges like log_floor_above_6
+    return "log" if name.startswith("log ") else "other"
 
 
 def item_effects(beta, names, groups, values, items) -> list[dict]:
