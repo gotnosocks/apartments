@@ -304,6 +304,39 @@ def combine(output: Path, parts: dict) -> dict:
     return complete
 
 
+def areas(output: Path, dataset: Path, areas_file: Path) -> dict:
+    """The analysis dataset with each row's `neighbourhood` set to its
+    building's StreetEasy area (`rentfrontier.areas`), splitting Flatiron +
+    Gramercy Park into Flatiron and Gramercy Park. Refused, before anything is
+    written, if a row's building has no area. Nothing else changes."""
+    area = pd.read_parquet(areas_file).set_index("building").area.to_dict()
+    with open(dataset / "observations.jsonl") as f:
+        rows = [json.loads(line) for line in f if line.strip()]
+    missing = {r["building"] for r in rows if r["building"] not in area}
+    if missing:
+        raise SystemExit(f"{len(missing)} buildings have no area, e.g. {min(missing)}")
+    output.mkdir(parents=True, exist_ok=False)
+    path = output / "observations.jsonl"
+    with open(path, "w") as out:
+        for row in rows:
+            row["neighbourhood"] = area[row["building"]]
+            out.write(json.dumps(row, default=str) + "\n")
+    complete = {
+        "version": "area-neighbourhood-cohort-v1",
+        "built_at": dt.datetime.now(dt.UTC).isoformat(),
+        "source": {
+            "path": str(dataset),
+            "observations_sha256": _sha(dataset / "observations.jsonl"),
+        },
+        "areas": {"path": str(areas_file), "sha256": _sha(areas_file)},
+        "rows": len(rows),
+        "neighbourhoods": dict(Counter(r["neighbourhood"] for r in rows)),
+        "files": {"observations.jsonl": _sha(path)},
+    }
+    (output / "complete.json").write_text(json.dumps(complete, indent=2) + "\n")
+    return complete
+
+
 def building_covariates(granular: Path) -> pd.DataFrame:
     """Per building in the transform: its median archived coordinates, the
     smallest floor count and residential-unit count its pages report, as the
@@ -343,6 +376,10 @@ def main(argv=None):
                 combine(Path(argv[1]), {k: Path(v) for k, v in parts.items()}), indent=2
             )
         )
+        return
+    if argv and argv[0] == "areas":
+        # python -m rentfrontier.cohort areas <output dir> <dataset dir> <areas.parquet>
+        print(json.dumps(areas(Path(argv[1]), Path(argv[2]), Path(argv[3])), indent=2))
         return
     if argv and argv[0] == "covariates":
         # python -m rentfrontier.cohort covariates <granular dir> <buildings.csv>
