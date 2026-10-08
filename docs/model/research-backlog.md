@@ -906,10 +906,11 @@ These are post-hoc checks on the served fit. The scripts are `review/r12/c24.py`
 thelio. Building level = (building effect + label coefficient) × 100, as above. Area means here are
 precision-weighted means over the buildings whose label and 2020 NTA agree.
 
-- **1. Label vs NTA: NTA wins only for the 98 West Village buildings.** There are four
+- **1. Label vs NTA: among sets of more than one building, the NTA wins only for the 98 West
+  Village buildings.** There are four
   discordant sets. Every building has exactly one label.
 
-  | Set | Buildings | Minus its label's area mean | Minus its NTA's area mean (label residual) | Closer to |
+  | Set | Buildings | Minus its label's area mean | Minus its NTA's area mean | Closer to |
   |---|---|---|---|---|
   | GV-labelled, WV NTA | 98 | +3.0 ± 1.4 | −1.0 ± 1.3 | NTA |
   | Chelsea-labelled, Flatiron NTA | 79 | −6.1 ± 2.0 | −13.5 ± 2.1 | label |
@@ -921,7 +922,8 @@ precision-weighted means over the buildings whose label and 2020 NTA agree.
 
   - The prediction (the NTA wins everywhere, and the label residual within an NTA is under 1 pp)
     fails. Only the 98 GV-labelled buildings in the WV NTA price with their NTA. Their residual,
-    −1.0 ± 1.3, is consistent with under 1 pp.
+    −1.0 ± 1.3, is consistent with zero (it cannot
+    show a gap under 1 pp). The single Gramercy-labelled building is also closer to its NTA.
   - The 79 Chelsea-labelled buildings in the Flatiron NTA sit on W 26–29 St between 6th and 7th
     Aves, the NTA's west end. They price 13.5 pp below the Flatiron NTA and 6.1 pp below
     Chelsea: cheaper than both.
@@ -956,9 +958,11 @@ precision-weighted means over the buildings whose label and 2020 NTA agree.
   `review/r12/c25cells.csv`.
 
   - The worst large cell is 1BR with floor unknown: 1,199 rows, 80% coverage 0.757, 95% coverage
-    0.927.
-  - 2BR and 3+BR are slightly over-covered: 0.81 to 0.83 at 80%.
-  - Held-out single rows are new units, so their error includes the unseen unit effect. Their
+    0.927, median 95% width 25.7%.
+  - 2BR and 3+BR are slightly over-covered: about 0.81 at 80% overall, 0.80 to 0.83 by cell.
+  - The 472 single rows are held-out rows of units with exactly one row in all. The 517 rows in
+    check 3 are all held-out rows of units with no training rows, including units with several
+    held-out rows. Both are new units, so their error includes the unseen unit effect. Their
     under-coverage says the predictive range of a new unit is too narrow. A noise multiplier fitted
     on in-fit single rows only partly reaches that, because in-fit singles' residuals are confounded
     with their unit effects. Scoring the log-linear noise fit should therefore look at held-out
@@ -974,7 +978,7 @@ precision-weighted means over the buildings whose label and 2020 NTA agree.
   | (c) a building with no other unit | 429 | 1.5% |
 
   - The prediction (under half in (a)) holds.
-  - Of the single-listing units, 48% have a line at all.
+  - Of the single-listing units, 48% have a line at all (`unit_line` ≥ 0 in the served prep).
   - The 517 held-out rows of units with no training rows are all in known buildings. The served
     prep builds lines from training units, so their lines can't be split out here. Their median
     abs error is 8.8%, and their 80% coverage is 0.63.
