@@ -1551,3 +1551,32 @@ def test_p3_tests_are_their_nb5_set_on_point_in_time_pluto():
         for k, v in tables.items():
             if isinstance(v, dict) and like in v and k not in ("NB4_SETS",):
                 assert v[name] == v[like], k
+
+
+def test_location_nolabel_drops_only_the_labels(monkeypatch):
+    """nb5p3-locnolabel-v1 is nb5p3-loc-v1 less the neighbourhood columns, and
+    reads the same snapshots."""
+    full = features.Features(
+        "x",
+        ["West Village", "rooms", "location_00"],
+        ["neighbourhood", "rooms", "location"],
+        np.array([[1.0, 2.0, 0.5], [0.0, 3.0, 0.1]]),
+        np.array([1.0, 0.5, 0.2]),
+    )
+    monkeypatch.setattr(features, "location_v2", lambda *a, **k: full)
+    out = features.location_nolabel(None, None)
+    assert out.names == ["rooms", "location_00"]
+    assert out.groups == ["rooms", "location"]
+    np.testing.assert_array_equal(out.values, full.values[:, 1:])
+    np.testing.assert_array_equal(out.prior_scale, full.prior_scale[1:])
+    keywords = features.FEATURE_SETS["nb5p3-locnolabel-v1"].keywords
+    assert keywords == {"id": "nb5p3-locnolabel-v1", "base": "nb5-plutoasof-v3"}
+    tables = {
+        k: v
+        for k, v in vars(features).items()
+        if k.isupper() and isinstance(v, (set, dict)) and k != "FEATURE_SETS"
+    }
+    for k, v in tables.items():
+        assert ("nb5p3-locnolabel-v1" in v) == (
+            "nb5p3-loc-v1" in v
+        ) or k == "P3_TESTS", k

@@ -1017,6 +1017,28 @@ def location_v2(
     )
 
 
+def location_nolabel(
+    frame: pd.DataFrame,
+    train: np.ndarray,
+    id: str = "nb5p3-locnolabel-v1",
+    base: str = "nb5-plutoasof-v3",
+) -> Features:
+    """`location_v2` without the base's neighbourhood labels: the smooth
+    location surface alone carries where a building is. Against the matching
+    loc set, which keeps the labels, it tests whether the label has a price
+    effect beyond location (Ben, 2026-10-08: a Chelsea building beside the
+    West Village may gain from proximity and, separately, from its label)."""
+    full = location_v2(frame, train, id=id, base=base)
+    keep = np.array([g != "neighbourhood" for g in full.groups])
+    return Features(
+        id,
+        [n for n, k in zip(full.names, keep) if k],
+        [g for g, k in zip(full.groups, keep) if k],
+        full.values[:, keep],
+        full.prior_scale[keep],
+    )
+
+
 @functools.lru_cache(maxsize=2)
 def _waterfront_minutes(registry_file: str, basemap_file: str) -> pd.Series:
     """Per registry building: the walk (facing-grid metres over
@@ -3218,6 +3240,13 @@ for _name, (_like, _base) in P3_TESTS.items():
     for _table in (NOISE_FILES, PARKS_SNAPSHOTS, PLACES_SNAPSHOTS):
         if _like in _table:
             _table[_name] = _table[_like]
+
+# The label against location split (`location_nolabel`), on the same base as
+# nb5p3-loc-v1.
+FEATURE_SETS["nb5p3-locnolabel-v1"] = partial(
+    location_nolabel, id="nb5p3-locnolabel-v1", base="nb5-plutoasof-v3"
+)
+NB4_SETS["nb5p3-locnolabel-v1"] = "nb5-plutoasof-v3"
 
 for _new, _old in NB4_SETS.items():
     for _group in (
