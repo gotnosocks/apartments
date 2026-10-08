@@ -647,3 +647,10 @@ def test_label_lines_wrap_at_spaces():
     ]
     lines = story.label_lines("word " * 30)
     assert len(lines) == 2 and lines[1].endswith("…") and len(lines[1]) <= 46
+    assert len(story.label_lines("word " * 30, lines=4)) == 4
+
+
+def test_theories_chart_labels_are_whole(client):
+    html = _page(client)
+    chart = html[html.index('class="story-svg trials"') :]
+    assert "…</tspan>" not in chart[: chart.index("</svg>")]

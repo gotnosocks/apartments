@@ -757,7 +757,7 @@ def theories_svg(entries: list[dict]) -> Markup:
     for t in entries:
         if not kinds or kinds[-1] != t["kind"]:
             kinds.append(t["kind"])
-    wrapped = [label_lines(t["words"]) for t in entries]
+    wrapped = [label_lines(t["words"], lines=4) for t in entries]
     extra = sum(line * (len(w) - 1) for w in wrapped)
     height = top + row * len(entries) + extra + head * len(kinds) + 8
     out = [
