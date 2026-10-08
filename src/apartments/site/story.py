@@ -1428,11 +1428,11 @@ ATTRIBUTE_WORDS = {
     "walk_in_closet": ("Walk-in closet", "“walk-in closet”"),
     "live_in_super": (
         "Live-in super",
-        "“live-in super”, “on-site super”, “resident manager”",
+        "“live-in super”, “on-site super”, “resident super”, “live-in manager”",
     ),
     "utilities_included": (
         "Utilities included",
-        "heat, hot water, gas or electricity “included”",
+        "“utilities included”, “heat and hot water included”, “includes heat”",
     ),
     "windowed_kitchen": (
         "Windowed kitchen",
@@ -1503,7 +1503,7 @@ def group_items(
             name, what = words.get(item.get("item"), (item.get("item"), ""))
             share = item.get("share", item.get("near_share"))
             raw = item.get("raw_pct", item.get("raw_pct_per_doubling"))
-            if share is None or raw is None:
+            if share is None:
                 continue
             items.append(
                 {

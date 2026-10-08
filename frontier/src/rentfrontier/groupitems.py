@@ -26,15 +26,19 @@ from . import data, descriptions, features, nearby
 NEAR_M = 400.0
 
 
-def raw_slope(x: np.ndarray, frame: pd.DataFrame) -> float:
-    """Percent change in ask per unit of `x`, within bedroom count and price
-    basis (both demeaned in each cell)."""
+def raw_slope(x: np.ndarray, frame: pd.DataFrame) -> float | None:
+    """Percent change in ask per unit of `x`, within bedroom count (4 and more
+    pooled) and price basis (both demeaned in each cell); None where `x` does
+    not vary within any cell."""
     cell = frame.bedrooms.clip(upper=4).astype(str) + "/" + frame.price_basis
     xs = pd.Series(x, index=frame.index, dtype=float)
     y = frame.log_rent
     xt = xs - xs.groupby(cell).transform("mean")
     yt = y - y.groupby(cell).transform("mean")
-    slope = float((xt * yt).sum() / (xt * xt).sum())
+    spread = float((xt * xt).sum())
+    if spread <= 1e-12:
+        return None
+    slope = float((xt * yt).sum()) / spread
     return round(100 * (np.exp(slope) - 1), 1)
 
 

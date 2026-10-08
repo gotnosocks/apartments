@@ -245,7 +245,7 @@ no score for any single item. Neither group is in the served model, so it has no
 Below is what each item is and how common it is among the {{ "{:,}".format(groups.rows) }} listings the served model
 was fitted on.</p>
 <p>The last column of each table is a <strong>raw</strong> difference in asks, not an effect. It compares listings
-with the same bedroom count and nothing else held fixed, so it carries whatever tends to come with the item, such as
+with the same bedroom count (four or more counted together) and the same kind of price, and holds nothing else fixed, so it carries whatever tends to come with the item, such as
 the apartment's size, its building or its neighbourhood. Telling an item's own effect apart needs a fit with that item alone,
 one fit per item. Those fits are on the modeling backlog and haven't run yet.</p>
 
@@ -255,7 +255,7 @@ one fit per item. Those fits are on the modeling backlog and haven't run yet.</p
   <figcaption>Share of the {{ "{:,}".format(groups.rows_with_text) }} listings with ad text whose ad states each attribute.</figcaption>
 </figure>
 <details class="table-view">
-  <summary>The 15 ad attributes as a table</summary>
+  <summary>The {{ ga["items"] | length }} ad attributes as a table</summary>
   <div class="table-wrap">
   <table class="data">
     <thead><tr><th scope="col">Attribute</th><th scope="col">The ad says</th><th scope="col" class="num">Listings</th>
@@ -263,7 +263,7 @@ one fit per item. Those fits are on the modeling backlog and haven't run yet.</p
     <tbody>
     {% for i in ga["items"] %}
       <tr><td>{{ i.name }}</td><td class="muted">{{ i.what }}</td><td class="num">{{ "{:,}".format(i.rows) }}</td>
-        <td class="num">{{ "{:.1f}".format(i.pct_share) }}%</td><td class="num">{{ "{:+.1f}".format(i.raw) }}%</td></tr>
+        <td class="num">{{ "{:.1f}".format(i.pct_share) }}%</td><td class="num">{% if i.raw is none %}—{% else %}{{ "{:+.1f}".format(i.raw) }}%{% endif %}</td></tr>
     {% endfor %}
     </tbody>
   </table>
@@ -278,7 +278,7 @@ one fit per item. Those fits are on the modeling backlog and haven't run yet.</p
   the streets and avenues, counting only places open in the listing's month.</figcaption>
 </figure>
 <details class="table-view">
-  <summary>The six walk-to places as a table</summary>
+  <summary>The {{ gp["items"] | length }} walk-to places as a table</summary>
   <div class="table-wrap">
   <table class="data">
     <thead><tr><th scope="col">Place</th><th scope="col">What it is</th><th scope="col" class="num">Median walk</th>
@@ -286,7 +286,7 @@ one fit per item. Those fits are on the modeling backlog and haven't run yet.</p
     <tbody>
     {% for i in gp["items"] %}
       <tr><td>{{ i.name }}</td><td class="muted">{{ i.what }}</td><td class="num">{{ "{:,}".format(i.median_m) }} m</td>
-        <td class="num">{{ "{:.1f}".format(i.pct_share) }}%</td><td class="num">{{ "{:+.1f}".format(i.raw) }}%</td></tr>
+        <td class="num">{{ "{:.1f}".format(i.pct_share) }}%</td><td class="num">{% if i.raw is none %}—{% else %}{{ "{:+.1f}".format(i.raw) }}%{% endif %}</td></tr>
     {% endfor %}
     </tbody>
   </table>
