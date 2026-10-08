@@ -18,7 +18,9 @@ repetition is what lets a model separate the apartment from the building, and th
 {{ "{:.1f}".format(accuracy.median) }}% of their estimate: on a typical ${{ "{:,.0f}".format(accuracy.typical) }} ask, within about
 ${{ "{:,.0f}".format((accuracy.typical * accuracy.median / 100) | round(-1)) }}.{% if accuracy.new %} For an apartment
 it has never seen in any listing, the miss is wider: half land within {{ "{:.1f}".format(accuracy.new.median) }}%.{% endif %} The model’s likely
-ranges, meant to hold 80% of asks, hold {{ "{:.0f}".format(accuracy.likely) }}% (<a href="#accuracy">how close it gets</a>).
+ranges, meant to hold 80% of asks, hold {{ "{:.0f}".format(accuracy.likely) }}%{% if accuracy.new and accuracy.new.likely < 75 %},
+but only {{ "{:.0f}".format(accuracy.new.likely) }}% for apartments it has never seen{% endif %}
+(<a href="#accuracy">how close it gets</a>, and <a href="#one-estimate">what that means for one estimate</a>).
 {% endif %}This page is about the model. For how rents themselves have changed, by neighbourhood and bedroom count,
 see the <a href="{{ url_for('estimates_map') }}">rent map</a>.</p>
 
@@ -243,7 +245,7 @@ whether the model had seen the apartment. The ring is the same check for the wid
 </details>
 {% endif %}
 {% macro near(pct) %}${{ "{:,.0f}".format((accuracy.typical * pct / 100) | round(-1)) }}{% endmacro %}
-<p><strong>What this means for one estimate.</strong>{% if accuracy.seen and accuracy.new %} If the apartment
+<p id="one-estimate"><strong>What this means for one estimate.</strong>{% if accuracy.seen and accuracy.new %} If the apartment
 has been listed before, half the time its ask lands within {{ "{:.1f}".format(accuracy.seen.median) }}% of the
 estimate, about {{ near(accuracy.seen.median) }} on a typical ${{ "{:,.0f}".format(accuracy.typical) }} ask. If it
 is new to the data, expect a wider miss: half the time within {{ "{:.1f}".format(accuracy.new.median) }}%, about

@@ -109,6 +109,8 @@ def test_build_up_ends_at_the_estimate(client):
     assert re.search(
         r"The model’s likely ranges, meant to hold 80% of asks, hold \d+%", opening
     )
+    # the opening points to the plain advice, which carries the anchor
+    assert 'href="#one-estimate"' in opening and 'id="one-estimate"' in text
 
 
 def test_build_up_steps_sum_to_the_estimate():
