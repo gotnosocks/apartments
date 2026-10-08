@@ -26,7 +26,9 @@ bath counts must fit the ad's own bedrooms.
 Version 3 (`bedrooms-ad-v3`, `baths-ad-v3`; `--version 3`) is version 2 on
 the five neighbourhoods (`data.DATASET_NB5`) and all four crawls' ads, units
 joined by their alias table (`data.UNIT_ALIASES_FGP`), and Flatiron and
-Gramercy Park counted as other neighbourhoods (`OTHER_NEIGHBOURHOOD_V3`).
+Gramercy Park counted as other neighbourhoods (`OTHER_NEIGHBOURHOOD_V3`); ads
+placed in another part of the city (`FAR_V3`) or whose bedroom count is a
+comparison (`COMPARE_V3`) are left alone.
 
 Baths (`baths-ad-v1`, `... baths --out ...`): the ad states one bathroom
 count, more than the record's full baths plus half its half baths and not
@@ -151,6 +153,17 @@ OTHER_NEIGHBOURHOOD_V3 = {
         "Gramercy Park": rf"{_CHELSEA}|{_VILLAGE}",
     }.items()
 }
+# v3 also leaves alone an ad that places the apartment in another part of the
+# city ("beautiful 1 bedroom on the uws" for a Greenwich Village building) or
+# whose count is a comparison ("more storage than some two bedrooms").
+FAR_V3 = re.compile(
+    r"(?:in|on|heart of) (?:the )?(?:uws|ues|upper (?:west|east) side|harlem|"
+    r"brooklyn|queens|bronx|midtown|murray hill|tribeca|soho|financial district|"
+    r"fidi|hell'?s kitchen|lower east side)\b"
+)
+COMPARE_V3 = re.compile(
+    r"\bthan (?:\w+ ){0,3}(?:one|two|three|four|five|[1-5])[- ]{0,2}(?:bed|br|bd)"
+)
 # What v3 reads: the five neighbourhoods, all four crawls' ads, and the alias
 # table that joins units across them.
 DATASET_V3 = data.DATASET_NB5
@@ -272,6 +285,8 @@ def bedroom_corrections(
             & ~(alone & text.str.strip().str.len().lt(20))
             & text.map(lambda t: stated_counts_v2(t) <= {s for s in stated_counts(t)})
         )
+    if version >= 3:
+        clear &= ~text.str.contains(FAR_V3) & ~text.str.contains(COMPARE_V3)
     rows = frame.loc[clear, ["audit_id", "building", "unit_id"]].copy()
     rows["action"] = "correct_bedrooms"
     rows["field"] = "bedrooms"
@@ -354,6 +369,8 @@ def bathroom_corrections(
             & (stated <= beds + 1)
             & beds_agree
         )
+    if version >= 3:
+        clear &= ~text.str.contains(FAR_V3)
     rows = frame.loc[clear, ["audit_id", "building", "unit_id"]].copy()
     rows["action"] = "correct_baths"
     rows["field"] = "baths"

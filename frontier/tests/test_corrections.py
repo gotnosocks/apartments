@@ -240,3 +240,13 @@ def test_v3_counts_flatiron_and_gramercy_as_other_neighbourhoods():
         data.UNIT_ALIASES_FGP,
         corrections.OTHER_NEIGHBOURHOOD_V3,
     )
+
+
+def test_v3_leaves_far_places_and_comparisons_alone():
+    assert corrections.FAR_V3.search("beautiful 1 bedroom on the uws")
+    assert corrections.FAR_V3.search("sunny 2 bed in brooklyn heights")
+    assert not corrections.FAR_V3.search("2 bed in the heart of greenwich village")
+    assert corrections.COMPARE_V3.search(
+        "more storage space than some two bedrooms have to offer"
+    )
+    assert not corrections.COMPARE_V3.search("larger than most, this two bedroom")
