@@ -197,6 +197,7 @@ def test_theories_chapter_reads_the_ledger(site_root, research_file, tmp_path):
     )
     assert "<li>parks within reach</li>" in html
     assert "1 idea raised the score and was\nstill set aside" in html
+    assert "still set aside:</p>\n<ul>" in html and "<li>" in html
 
 
 MILESTONES = [
