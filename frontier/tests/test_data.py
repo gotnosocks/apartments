@@ -691,6 +691,76 @@ def test_unit_labels_v9_joins_number_word_letter_labels_to_their_twins(tmp_path)
     assert data.RULE_SOURCES["unit-labels-v9"] == data.UNIT_HISTORY_PAIRS
 
 
+def test_spelled_label_key_shortens_spelled_out_labels():
+    """Floors, number words, front and rear, penthouse, garden and parlor
+    labels take their short spelling; other labels keep unit_label_key's."""
+    cases = {
+        "3RD-FL": "3",
+        "3-floor": "3",
+        "1st": "1",
+        "third": "3",
+        "THREE-FL": "3",
+        "2W-FL": "2W",
+        "4-REAR": "4R",
+        "4th-back": "4R",
+        "2FRONT": "2F",
+        "PENTHOUSE-A": "PHA",
+        "garden": "G",
+        "GDN": "G",
+        "ground-floor": "G",
+        "parlour": "PARLOR",
+        "PARLOR-FL": "PARLOR",
+        "4B": "4B",
+        "tenant": "TENANT",
+        "fourb": "FOURB",
+        "3F": "3F",
+    }
+    assert {k: data.spelled_label_key(k) for k in cases} == cases
+
+
+def test_unit_labels_v12_joins_spelled_out_labels_without_a_bedroom_guard(
+    tmp_path,
+):
+    """v12 is v11 plus spelled-out labels: "3rd-fl" joins "3" and "penthouse"
+    joins "ph" even when their bedroom counts differ; another building's "3",
+    and "3a" or "4", stay apart; a v9 join chains with a v12 one into one unit
+    with the smallest id."""
+    url = "https://streeteasy.com/building/{}/{}".format
+    frame = pd.DataFrame(
+        {
+            "building": ["b1"] * 7 + ["b2"],
+            "canonical_unit_url": [
+                url("b1", "3rd-fl"),
+                url("b1", "3"),
+                url("b1", "penthouse"),
+                url("b1", "ph"),
+                url("b1", "3a"),
+                url("b1", "four"),
+                url("b1", "4th-floor"),
+                url("b2", "3"),
+            ],
+            "unit_id": [f"u{i}" for i in [5, 2, 7, 6, 8, 9, 3, 1]],
+            "bedrooms": [1.0, 2.0, 3.0, 3.0, 1.0, 1.0, 1.0, 1.0],
+        }
+    )
+    pairs = tmp_path / "pairs.jsonl"
+    pairs.write_text("")
+    base = functools.partial(
+        data.merge_word_letter_labels,
+        base=functools.partial(
+            data.merge_swapped_labels,
+            base=functools.partial(data.merge_history_pairs, pairs=pairs),
+        ),
+    )
+    out = data.merge_spelled_labels(frame, base=base)
+    assert out.unit_id.tolist() == ["u2", "u2", "u6", "u6", "u8", "u3", "u3", "u1"]
+    v12 = data.DATA_RULES["unit-labels-v12"]
+    assert v12.func is data.merge_spelled_labels
+    assert v12.keywords["base"] is data.DATA_RULES["unit-labels-v11"]
+    assert "unit-labels-v12" not in data.DROPPING_RULES
+    assert data.RULE_SOURCES["unit-labels-v12"] == data.UNIT_ALIASES_FGP
+
+
 def test_unit_labels_v11_is_v9_on_the_tables_with_flatiron_gramercys_appended():
     """v11 reads the alias table and history pairs that start with the files
     v5 to v9 read, line for line, and add Flatiron + Gramercy Park's; on a

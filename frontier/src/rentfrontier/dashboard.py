@@ -584,6 +584,10 @@ DATA_RULE_TEXT = {
     "StreetEasy lists under two spellings of one label (0503 and 503, 6thfloor and "
     "6) joined too, and those whose own StreetEasy page lists an ad filed under the "
     "other. No listing is dropped.",
+    "unit-labels-v12": "unit-labels-v11, and apartments of a building whose labels "
+    "are one label spelled out and short (3RD-FL and 3, PENTHOUSE-A and PH-A, GARDEN "
+    "and G, 4-REAR and 4R) joined, whatever their bedroom counts. No listing is "
+    "dropped.",
     "unit-splits-v1": "An apartment's history split in two where a listing's bedroom "
     "count differs by two or more from the apartment's previous listing, as a "
     "combined, rebuilt or miscoded apartment. No listing is dropped.",
