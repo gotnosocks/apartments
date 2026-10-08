@@ -136,7 +136,7 @@ def test_stabilized_units_use_the_bill_before_the_listing_year(tmp_path, monkeyp
     stab = pd.DataFrame(
         {
             "bbl": ["1", "1", "1", "2"],
-            "year": [2012, 2019, 2023, 2015],
+            "year": [2012, 2019, 2023, 2010],
             "units": [40, 30, 10, 5],
         }
     )
@@ -146,17 +146,18 @@ def test_stabilized_units_use_the_bill_before_the_listing_year(tmp_path, monkeyp
     monkeypatch.setattr(features, "RENTSTAB_FILE", str(tmp_path / "s.parquet"))
     frame = pd.DataFrame(
         {
-            "building": ["a", "a", "a", "a", "b", "c"],
+            "building": ["a", "a", "a", "a", "b", "b", "c"],
             "period": pd.to_datetime(
                 [
                     "2012-06-01",  # the 2011 bill: none yet
                     "2013-01-01",  # the 2012 bill
                     "2022-03-01",  # 2021 missing: carry 2019 forward
                     "2023-09-01",  # the 2023 bill is not out the year before
-                    "2016-01-01",  # b's 2015 bill
+                    "2014-01-01",  # b's 2010 bill, three years on
+                    "2015-01-01",  # b left the bills after 2010
                     "2016-01-01",  # not in the registry
                 ]
             ),
         }
     )
-    assert features.stabilized_units(frame).tolist() == [0, 40, 30, 30, 5, 0]
+    assert features.stabilized_units(frame).tolist() == [0, 40, 30, 30, 5, 0, 0]

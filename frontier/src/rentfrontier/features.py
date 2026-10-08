@@ -1680,6 +1680,8 @@ HPD_FILE = f"{HPD_SNAPSHOT}/hpd.parquet"
 # Rent-stabilized units per lot and tax-bill year (`rentfrontier.external rentstab`).
 RENTSTAB_SNAPSHOT = "/data1/apartments/external/rentstab/20261008-b487c8a"
 RENTSTAB_FILE = f"{RENTSTAB_SNAPSHOT}/rentstab.parquet"
+# Years a lot's last stabilized-units bill counts for (the 2019 bill reaches 2022).
+STAB_CARRY_YEARS = 3
 
 # MapPLUTO's yearly releases (2009 on) of the five neighbourhoods' registry lots
 # (NB4_REGISTRY_FILE), the fields of today's MapPLUTO plus `release`.
@@ -2955,8 +2957,10 @@ def stabilized_units(frame: pd.DataFrame) -> np.ndarray:
     """Per row: the rent-stabilized units on its lot's tax bill of the year
     before the listing's year, or of the latest earlier bill year (the
     2020-2022 bills are missing for some lots). Bills come out in June, so a
-    year's gap keeps any later bill out. A lot with no bill by then counts 0,
-    as does a lot whose earlier bills sit under an old lot number."""
+    year's gap keeps any later bill out. A bill counts for at most
+    `STAB_CARRY_YEARS` after its year (enough to bridge 2020-2022), so a lot
+    that left the bills counts 0 afterwards. A lot with no bill by then counts
+    0, as does a lot whose earlier bills sit under an old lot number."""
     registry = pd.read_parquet(lot_registry()).set_index("building")
     stab = pd.read_parquet(RENTSTAB_FILE)
     by_lot = {
@@ -2972,7 +2976,9 @@ def stabilized_units(frame: pd.DataFrame) -> np.ndarray:
         if years is None:
             continue
         at = np.searchsorted(years, cutoff[idx], side="right") - 1
-        out[idx] = np.where(at >= 0, units[np.maximum(at, 0)], 0)
+        last = np.maximum(at, 0)
+        fresh = (at >= 0) & (cutoff[idx] - years[last] <= STAB_CARRY_YEARS)
+        out[idx] = np.where(fresh, units[last], 0)
     return out
 
 
