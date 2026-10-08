@@ -3,17 +3,23 @@
 What the next turn of the modeling thread needs. Updated at each milestone. Scripts and logs are
 in `/data1/apartments/tmp/bridge` (thelio).
 
-## State (2026-10-08 04:45 UTC)
+## State (2026-10-08 16:15 UTC)
 
-- **Served (autoselect, this PR): five neighbourhoods** (Ben 2026-10-08 02:53Z: Chelsea, West Village,
-  Greenwich Village, Flatiron, Gramercy Park; dataset chelsea-wv-gv-flatiron-gramercy-analysis-20261008-0a23057,
-  Data's #460). m7-nocurves-floorslope-bednoise-dayfourier-bedtime-yearnoise + nb5-coded-v2, run
-  `…-nb5-coded-v2-rows-5789d79-a100-4500k9cb1-nb5-ul11r1s4` (2 × (300 + 4500)), summary 65362da,
-  1,021 s on Modal A100, R-hat 1.0041, ESS 714, group R-hat 1.029, PSIS-LOO 139,864.1 ± 384.9,
-  +33,920.9 against the new board baseline `m0-base-base-v1-rows-5789d79-x-2060-300w1500d-nb-nb5`
-  (thelio). Variance: features 73%, building 9%, market and time 7%, R² 0.979. The nb4 fit never ran.
-- **Current rules:** baths-ad-v2, bedrooms-ad-v2, fields-review-v3, quarantine-v6, unit-labels-v11,
-  unit-reviews-v1, unit-splits-v4.
+- **PAUSED (Ben 2026-10-08 16:07Z): "Let's pause model runs. I want to collect more data (in progress
+  scrapes) before doing more iterations."** No fit queue units run; launch nothing until Ben resumes.
+- **Served (autoselect, this PR): the current-rules refit** of the five-neighbourhood design.
+  m7-nocurves-floorslope-bednoise-dayfourier-bedtime-yearnoise + nb5-coded-v2, run
+  `…-nb5-coded-v2-rows-fedd83d-a100-4500k9cb1-nb5-ul11r1s4q10ad3`, summary d3e8c34, 1,120 s on Modal
+  A100, R-hat 1.0054, ESS 820, group R-hat 1.024, PSIS-LOO 139,842.7 ± 386.4; against the previous
+  selection on shared rows +84.6 ± 32.7 (held-out +6.6 ± 9.4). Variance: features 73.0%, building 8.9%,
+  market and time 7.3%.
+- **Current rules:** baths-ad-v3, bedrooms-ad-v3, fields-review-v3, quarantine-v10, unit-labels-v11,
+  unit-reviews-v1, unit-splits-v4. A merged rule version makes the served fit unservable: Data tells
+  Modeling before merging one.
+- **Next base (Ben 2026-10-08 14:07Z): "Serve plutoasof-v3 on passing the gate, as the new base."**
+  nb5-plutoasof-v3 (#523, b8b7e44): point-in-time PLUTO, 44 releases, published + 7 days. Its queue
+  script is /data1/apartments/tmp/bridge/modalq-pluto3.sh (stopped by the pause, never launched). Serve
+  it on passing the gate whatever its ELPD; later tests build on it (NB4_SETS → nb5-plutoasof-v3).
 - **Same rows, same rules (Ben 2026-10-08 02:51Z, #458):** autoselect treats a fit whose rule set
   differs from master's as on the current rules when its rows hash (`rows_sha256`) matches.
 - **Modal rule (Ben 2026-10-07 22:27Z, #432):** every data-rule, feature or model-term test is its own
@@ -22,11 +28,11 @@ in `/data1/apartments/tmp/bridge` (thelio).
   $8.80 a day accrual, capped at $8.80; one full fit about every 2.4 h.
 - **prevprice removed (Ben, 2026-10-07 14:17Z):** `autoselect.BLOCKED` refuses feature sets containing
   `prevprice`.
-- **Queue (nb5, systemd units, scripts in /data1/apartments/tmp/bridge, each waits for the one before):**
-  `frontier-modalq-nb5tests`: nb5-stab-v1 (0233ec5), nb5-plutoasof-v1 (8af14dc), bedtime6 (5789d79);
-  `frontier-modalq-nb5rules`: unit-labels-v12 (881b345), unit-splits-v5 (d478a5b);
-  `frontier-modalq-nb5permit`: nb5-permit-v1 (e935808). Pair each against the served fit; Data merges
-  its PR only on a win.
+- **After the pause:** modalq-pluto3.sh first; then the feature tests rebased on v3 (Data adds nb5p3-*
+  copies of lines, loc, walkup, noise, parks, water, permit-v1/v2), the rule swaps unit-labels-v12 (e8b247e)
+  and unit-splits-v5 (9a10335) on v3, the university calendar nb5-unical-v1 (Ben approved 15:40Z; Data
+  building on v3), and last the 21 single-feature fits (filler only, docs/TODO.md). The old queues
+  (nb5tests … singles) were stopped on Ben's word, 14:30Z; modalq-current.sh is superseded.
 - **Variance:** run `rentfrontier.variance` on every served fit (Website's /research/story reads it);
   regenerate docs/model/cleaning.json with every switch PR.
 - **Not on thelio:** serving fits (Ben 2026-10-07 14:29Z); the thelio GPU idles under the all-Modal rule,
@@ -34,7 +40,7 @@ in `/data1/apartments/tmp/bridge` (thelio).
 
 ## Next
 
-1. nb5-loc-v1 is not queued yet (needs a Data feature set on nb5).
+1. Wait for Ben to resume model runs (new scrapes first); then the queue above.
 2. As each queued fit lands: autoselect dry run, pair, report to Ben and Data; switch if it wins.
 3. Cut Modal's fixed ~800 s a fit (upload, image, PSIS-LOO), recommended to Ben.
 4. A mean-side pandemic term (2020–21 deviation by price tier or bedroom group); pooled per-year noise
