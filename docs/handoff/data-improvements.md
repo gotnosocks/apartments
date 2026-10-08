@@ -1,6 +1,25 @@
 # Data improvements — handoff
 
-Updated 2026-10-07 23:45 ET. Thread owner: the Data improvements project thread (bridge session on thelio).
+Updated 2026-10-08 01:10 ET. Thread owner: the Data improvements project thread (bridge session on thelio).
+
+## 2026-10-08 01:10 ET
+
+- **Geospatial retests on five neighbourhoods.** The ledger marks older-dataset tests as due for
+  a retest. These are the data-side ones, best prior first. Each is the nb3 set on
+  `nb5-coded-v2`, listed in NB4_SETS, and runs as its own Modal full fit on DATASET_NB5 with v11
+  rules.
+  - #472 (c9f0e1b): `nb5-lines-v1`, `nb5-loc-v1`, `nb5-walkup-v1`, `nb5-noise-v1`
+    (`NB4_NOISE_FILE`). Modeling queued them in that order as `frontier-modalq-nb5retests`, after
+    stab, plutoasof, bedtime6, v12, s5 and permit.
+  - #473 (d1868aa): `nb5-water-v1` and its base `nb5-parks-v1`, queued as
+    `frontier-modalq-nb5parks` after the four.
+- **Manhattan-only parks.** The NB4 parks snapshot reaches across the East River to Brooklyn and
+  Queens parks acquired after 2000 that `parks.SECTIONS` has no dates for, so `parks.places`
+  refuses it.
+  - `external parks --borough M` keeps one borough's properties.
+  - `NB5_PARKS_FILE` = `external/parks/20261008-f63bf6c` (180 parks; the NB4 snapshot has 204).
+  - `features.parks_file()` follows `PARKS_SNAPSHOTS` for the set being built.
+- When the retests land, record each in `hand_tests` of feature-tests.json against the nb5 base.
 
 ## 2026-10-07 23:45 ET
 
@@ -328,7 +347,7 @@ Updated 2026-10-07 23:45 ET. Thread owner: the Data improvements project thread 
   generic hits such as "HVAC UNITS" (harmless now).
 - More open data: unused MapPLUTO fields and dated DOB certificates of occupancy (new-building
   unit counts).
-- Flatiron + Gramercy: the data is done (see 22:20). Location retests go in as full fits.
+- Flatiron + Gramercy: the data is done (see 22:20). Geospatial retests are queued (see 01:10).
 - Backlog: bldgclass for condo conversions, Jane St registry fix, 13 excluded new-building
   rows, gross rent, relist gap.
 
