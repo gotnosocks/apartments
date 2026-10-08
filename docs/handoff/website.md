@@ -2,6 +2,15 @@
 
 What the next turn of the website thread needs. Updated at each milestone.
 
+## State (2026-10-08 23:50 UTC)
+
+- Coordinator relay 21:20Z (border check) is done in #566. My bin numbers match Modeling's border read; my one-word reading in #564 was wrong. The chapter now gives three numbers per border, with no verdict: each side's move toward the line (median of buildings 300–600 m out against the last 75 m), and the gap between the two 75 m bins. Thin bins are flagged. The reach is 600 m. Reported to the coordinator.
+- Playtest story-1008b is read. #569 fixes the real bugs:
+  - The Frontier, History and Validation pages now open on the served fit's hardware (`research.default_hardware`), Modal A100 today. They used to open on the empty RTX 2060.
+  - The location-idea counts agree: "all 10" / "9 of the 10 … on the older, smaller data".
+  - The off-story ideas are logged under backlog "Story round 8".
+- Open, for Modeling: the reviewer asked why the served run shows unit-labels-v11 while the text calls v13 current. Not changed on the site.
+
 ## State (2026-10-08 22:30 UTC)
 
 - Coordinator relay 20:56Z (model runs paused, continue the story) is done:
