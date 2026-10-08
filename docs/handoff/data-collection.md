@@ -1,6 +1,6 @@
 # Data collection — handoff
 
-Updated 2026-10-08 01:20 ET. Thread owner: the Data collection project thread (bridge session on thelio).
+Updated 2026-10-08 01:55 ET. Thread owner: the Data collection project thread (bridge session on thelio).
 
 ## State
 - **Flatiron + Gramercy Park crawl: FINISHED** Oct 7 21:01 ET (spider `finish_reason: finished`).
@@ -36,11 +36,12 @@ Updated 2026-10-08 01:20 ET. Thread owner: the Data collection project thread (b
 ## Next
 - **Storage review** (Ben, Oct 8): see `docs/data/archive-storage.md`. `streeteasy_archive.compact`
   (#471) copies a database without the duplicate provider HTML, saving 44%; the GV trial gave
-  30.1 → 16.8 GB with an identical audit. Two proposals await Ben's typed go:
-  1. "Delete the Chelsea and West Village crawl databases; keep the snapshots." Both
-     (`crawls/chelsea-resume`, `crawls/west-village-low-rate-20260919`) cmp-match their snapshots
-     apart from 4 header bytes (~199 GiB). Then repoint the disabled `apartments-archive.service`
-     (:8765) at the Chelsea snapshot.
+  30.1 → 16.8 GB with an identical audit. Proposals:
+  1. DONE Oct 8 01:50 ET (Ben, typed): deleted the `archive.sqlite3` files (with `-wal` and
+     `-shm`) in `crawls/chelsea-resume` and `crawls/west-village-low-rate-20260919`. Each had
+     matched its snapshot apart from 4 header bytes. `/data1` went from 108 to 308 GB free. Logs
+     and bodies stay. The disabled `apartments-archive.service` now serves
+     `archive/browse/chelsea-backfill-20260912` (symlinks to the snapshot and `archive/bodies`).
   2. "Compact the snapshots." Do one at a time (~125 GiB in total), check audit equality before
      each swap, regenerate `.sha256`, and never prune `bodies/`.
 - Ben, Oct 8 00:49 UTC: the Oxylabs budget is limited. Before proposing any new paid collection,
