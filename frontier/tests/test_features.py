@@ -619,11 +619,11 @@ def test_stabilized_units_use_the_bill_before_the_listing_year(tmp_path, monkeyp
     assert features.stabilized_units(frame).tolist() == [0, 40, 30, 30, 5, 0]
 
 
-def test_nb4_stab_reads_the_four_neighbourhoods_lots_and_the_stabilized_counts():
-    assert features.lot_files("nb4-stab-v1") == features.lot_files("nb4-coded-v2")
-    assert features.LISTING_EXTRAS >= {"nb4-stab-v1"}
-    assert {"nb3-stab-v1", "nb4-stab-v1"} <= features.RENTSTAB
-    assert features.FEATURE_SETS["nb4-stab-v1"].keywords["base"] == "nb4-coded-v2"
+def test_nb5_stab_reads_the_five_neighbourhoods_lots_and_the_stabilized_counts():
+    assert features.lot_files("nb5-stab-v1") == features.lot_files("nb5-coded-v2")
+    assert features.LISTING_EXTRAS >= {"nb5-stab-v1"}
+    assert {"nb3-stab-v1", "nb5-stab-v1"} <= features.RENTSTAB
+    assert features.FEATURE_SETS["nb5-stab-v1"].keywords["base"] == "nb5-coded-v2"
 
 
 def test_facing_v4_marks_loud_streets_on_low_floors(monkeypatch):
@@ -1256,6 +1256,21 @@ def test_nb3_v2_sets_read_lpc_and_otherwise_their_v1s_files(monkeypatch):
     features.build("nb3-coded-v2", pd.DataFrame({"a": [1]}), np.ones(1, dtype=bool))
     assert seen["lpc"] == features.NB3_LPC_FILE
     assert features._LPC.get() is None
+
+
+def test_nb5_coded_v2_is_nb3_coded_v2_plus_flatiron_and_gramercy_park(monkeypatch):
+    frame = pd.DataFrame(
+        {"neighbourhood": ["Chelsea", "Flatiron", "Gramercy Park", "West Village"]}
+    )
+    base = features.Features("b", ["x"], ["g"], np.zeros((4, 1)), np.ones(1))
+    monkeypatch.setitem(features.FEATURE_SETS, "nb3-coded-v2", lambda f, t: base)
+    out = features.FEATURE_SETS["nb5-coded-v2"](frame, np.ones(4, bool))
+    assert out.names == ["x", "Flatiron", "Gramercy Park"]
+    assert out.groups == ["g", "neighbourhood", "neighbourhood"]
+    assert out.values[:, 1].tolist() == [0, 1, 0, 0]
+    assert out.values[:, 2].tolist() == [0, 0, 1, 0]
+    assert features.lot_files("nb5-coded-v2") == features.lot_files("nb4-coded-v2")
+    assert features.EXTRAS_SNAPSHOTS["nb5-coded-v2"] == features.NB4_EXTRAS_FILE
 
 
 def test_nb4_coded_v2_is_nb3_coded_v2_plus_flatiron_on_the_nb4_snapshots(

@@ -2449,6 +2449,7 @@ def create_app(
             prevprice=story.served_spells(switches, "prevprice"),
             history_svg=story.history_svg(switches, lives),
             cleaning=cleaning,
+            areas=sorted(a for a in areas if a),
             cleaning_svg=story.cleaning_svg(cleaning),
             terms=terms,
             labels=labels,

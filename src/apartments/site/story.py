@@ -597,6 +597,7 @@ def parse_ledger(text: str) -> list[dict]:
                 "verdict": _verdict(row.get("Verdict", "")),
                 "verdict_text": row.get("Verdict", ""),
                 "pr": row.get("PR", "").lstrip("#") or None,
+                "retest": row.get("Retest", ""),
             }
         )
     return out
@@ -624,6 +625,7 @@ def theories(rows: list[dict]) -> list[dict]:
             se=last["se"],
             verdict=last["verdict"],
             verdict_text=last["verdict_text"],
+            retest=last.get("retest", ""),
             words=PLAIN.get(t["change"]) or t["about"] or t["change"].lstrip("+"),
         )
         out.append(t)

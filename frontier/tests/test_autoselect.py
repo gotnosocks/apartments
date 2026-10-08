@@ -404,3 +404,55 @@ def test_an_exploration_fit_is_never_served(tmp_path):
     e = entry(tmp_path, "quick", 10.0, 300, tier={"name": "exploration"})
     assert "exploration fit" in autoselect.why_not(e, RULES)
     assert autoselect.eligible([e], RULES) == []
+
+
+def test_rules_that_give_the_same_rows_count_as_the_same(tmp_path, monkeypatch):
+    old = {"unit-labels-v1", "quarantine-v1"}
+    e = entry(tmp_path, "v1", 10, 1300, rules=old)
+    rec = {**record(old), "dataset": str(data.DATASET), "split": "rows"}
+    rec["rows_sha256"] = "a" * 64
+    (tmp_path / "runs" / "v1" / "result.json").write_text(json.dumps(rec))
+    built = {}
+
+    def rows(dataset, split, rules):
+        built[rules] = (dataset, split)
+        return hashes[rules]
+
+    monkeypatch.setattr(autoselect, "_rows_sha256", rows)
+    hashes = {tuple(sorted(RULES)): "a" * 64}
+    assert autoselect.why_not(e, RULES) is None
+    assert built == {tuple(sorted(RULES)): (str(data.DATASET.resolve()), "rows")}
+    hashes = {tuple(sorted(RULES)): "b" * 64}
+    assert "its rows differ" in autoselect.why_not(e, RULES)
+    # Without a recorded hash, the run's own rows are rebuilt from its rules.
+    del rec["rows_sha256"]
+    (tmp_path / "runs" / "v1" / "result.json").write_text(json.dumps(rec))
+    hashes[tuple(sorted(old))] = "b" * 64
+    assert autoselect.why_not(e, RULES) is None
+    # A record without its dataset and split is never matched by rows.
+    assert autoselect.rows_sha256({"data_rules": sorted(old)}) is None
+
+
+def test_the_rows_hash_covers_values_columns_and_the_held_out_mask():
+    import numpy as np
+    import pandas as pd
+
+    frame = pd.DataFrame({"rent": [3000.0, 4000.0], "unit": ["1A", "2B"]})
+    held = np.array([False, True])
+    h = data.rows_sha256(frame, held)
+    assert h == data.rows_sha256(frame.copy(), held.copy())
+    assert h != data.rows_sha256(frame.assign(rent=[3000.0, 4001.0]), held)
+    assert h != data.rows_sha256(frame.rename(columns={"unit": "label"}), held)
+    assert h != data.rows_sha256(frame, ~held)
+    assert h != data.rows_sha256(frame.iloc[::-1], held)
+
+
+def test_current_rules_rebuild_in_an_order_apply_rules_accepts():
+    rules = {"zz-v1", "unit-splits-v4", "unit-reviews-v1", "unit-labels-v11", "a-v1"}
+    assert sorted(rules, key=autoselect._rule_order) == [
+        "a-v1",
+        "zz-v1",
+        "unit-labels-v11",
+        "unit-reviews-v1",
+        "unit-splits-v4",
+    ]
