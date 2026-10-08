@@ -3328,7 +3328,7 @@ TREES_FILE = "/data1/apartments/external/trees/20261008-e8ae3db/trees.csv"
 TREES = {"nb5-trees-v1"}
 NB4_SETS["nb5-trees-v1"] = "nb5-plutoasof-v3"
 # The NYPD felony table (`crime.main`) and the sets that read it.
-CRIME_FILE = "/data1/apartments/external/crime/PENDING/felonies.csv"
+CRIME_FILE = "/data1/apartments/external/crime/20261008-c17e0ae/felonies.csv"
 CRIME = {"nb5-crime-v1"}
 NB4_SETS["nb5-crime-v1"] = "nb5-plutoasof-v3"
 # One set per ad attribute (`ATTRIBUTE_FLAGS`) and per place kind
