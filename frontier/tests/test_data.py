@@ -825,3 +825,21 @@ def test_dataset_nb4_is_the_current_dataset_plus_flatiron_gramercy_park():
     assert current in paths
     assert record["neighbourhoods"]["Flatiron + Gramercy Park"] == 30515
     assert sum(record["neighbourhoods"].values()) == sum(record["rows"].values())
+
+
+def test_ad_corrections_v3_keep_v2s_rows_and_values():
+    import json
+
+    def rows(path):
+        with open(path) as f:
+            return {r["audit_id"]: r["corrected"] for r in map(json.loads, f) if r}
+
+    for v2, v3, missing in (
+        (data.BEDROOM_CORRECTIONS_V2, data.BEDROOM_CORRECTIONS_V3, 1),
+        (data.BATH_CORRECTIONS_V2, data.BATH_CORRECTIONS_V3, 0),
+    ):
+        old, new = rows(v2), rows(v3)
+        # One v2 row has left the dataset since; the rest are kept as they were.
+        assert len(set(old) - set(new)) == missing
+        assert all(new[a] == c for a, c in old.items() if a in new)
+    assert {"bedrooms-ad-v3", "baths-ad-v3"} <= set(data.RULE_SOURCES)

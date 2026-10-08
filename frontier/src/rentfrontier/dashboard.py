@@ -620,6 +620,12 @@ DATA_RULE_TEXT = {
     "listings record the ad's count, ads placed elsewhere or whose bedroom count "
     "disagrees with the record are left alone, and no more than one bath beyond the "
     "bedrooms. No listing is dropped.",
+    "bedrooms-ad-v3": "bedrooms-ad-v2 on all five neighbourhoods: Flatiron and "
+    "Gramercy Park count as other neighbourhoods to Chelsea and the Villages, and ads "
+    "placed in another part of the city or whose count is a comparison are left "
+    "alone. No listing is dropped.",
+    "baths-ad-v3": "baths-ad-v2 on all five neighbourhoods, with the same checks as "
+    "bedrooms-ad-v3. No listing is dropped.",
     "fields-review-v1": "Bedroom and bath counts a review corrected by reading the "
     'listing\'s own ad ("huge alcove studio" recorded as a one-bedroom, "3br 2 bath" '
     "recorded with one bath). No listing is dropped.",

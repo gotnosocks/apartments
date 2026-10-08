@@ -586,6 +586,12 @@ BEDROOM_CORRECTIONS_V2 = (
     REPO / "config" / "corrections" / "bedrooms-ad-v2-20261003.jsonl"
 )
 BATH_CORRECTIONS_V2 = REPO / "config" / "corrections" / "baths-ad-v2-20261003.jsonl"
+# The third pass (rentfrontier.corrections --version 3): the second's method on
+# the five neighbourhoods and all four crawls' ads. It keeps every v2 row.
+BEDROOM_CORRECTIONS_V3 = (
+    REPO / "config" / "corrections" / "bedrooms-ad-v3-20261008.jsonl"
+)
+BATH_CORRECTIONS_V3 = REPO / "config" / "corrections" / "baths-ad-v3-20261008.jsonl"
 # Field errors a review found by reading ads (the fourth review, of single-listing
 # apartments with a very large unit effect): bedroom and bath counts.
 FIELD_REVIEW = REPO / "config" / "corrections" / "fields-review-20261003.jsonl"
@@ -604,6 +610,21 @@ def correct_baths_v2(frame: pd.DataFrame) -> pd.DataFrame:
     count, no ad placed elsewhere or whose own bedroom counts leave out the
     record's, and at most one bath beyond the bedrooms (41 rows)."""
     return _correct_baths(frame, "baths-ad-v2")
+
+
+def correct_bedrooms_v3(frame: pd.DataFrame) -> pd.DataFrame:
+    """v2's rule on the five neighbourhoods: units joined by their alias table,
+    Flatiron and Gramercy Park other neighbourhoods to Chelsea and the Villages,
+    and no ad placed in another part of the city or whose count is a
+    comparison (148 rows: v2's 84 but one no longer in the dataset, and 65
+    more)."""
+    return _correct_bedrooms(frame, "bedrooms-ad-v3")
+
+
+def correct_baths_v3(frame: pd.DataFrame) -> pd.DataFrame:
+    """v2's rule on the five neighbourhoods, as bedrooms-ad-v3 (59 rows: v2's
+    41 and 18 more)."""
+    return _correct_baths(frame, "baths-ad-v3")
 
 
 def _correct_baths(frame: pd.DataFrame, rule: str) -> pd.DataFrame:
@@ -770,6 +791,8 @@ DATA_RULES = {
     "baths-ad-v1": correct_baths_v1,
     "bedrooms-ad-v2": correct_bedrooms_v2,
     "baths-ad-v2": correct_baths_v2,
+    "bedrooms-ad-v3": correct_bedrooms_v3,
+    "baths-ad-v3": correct_baths_v3,
     "fields-review-v1": correct_fields_review_v1,
     "fields-review-v3": correct_fields_review_v3,
     "quarantine-v3": quarantine_v3,
@@ -798,6 +821,8 @@ RULE_SOURCES = {
     "baths-ad-v1": BATH_CORRECTIONS,
     "bedrooms-ad-v2": BEDROOM_CORRECTIONS_V2,
     "baths-ad-v2": BATH_CORRECTIONS_V2,
+    "bedrooms-ad-v3": BEDROOM_CORRECTIONS_V3,
+    "baths-ad-v3": BATH_CORRECTIONS_V3,
     "fields-review-v1": FIELD_REVIEW,
 }
 # Of those, the rules that drop the rows their file lists.

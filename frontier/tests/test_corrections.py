@@ -1,6 +1,6 @@
 import numpy as np
 import pandas as pd
-from rentfrontier import corrections
+from rentfrontier import corrections, data
 
 
 def test_first_count_reads_the_first_sentence_only():
@@ -205,3 +205,48 @@ def test_greenwich_village_ads_may_name_the_west_village():
         ]
     )
     assert corrections.placed_elsewhere(frame, text).tolist() == [False, True, True]
+
+
+def test_v3_counts_flatiron_and_gramercy_as_other_neighbourhoods():
+    frame = pd.DataFrame(
+        {
+            "neighbourhood": [
+                "Flatiron",
+                "Flatiron",
+                "Gramercy Park",
+                "Chelsea",
+                "West Village",
+                "Chelsea",
+            ],
+            "building": ["a", "b", "c", "d", "e", "f"],
+        }
+    )
+    text = pd.Series(
+        [
+            "sunny 2 bed in gramercy",
+            "sunny 2 bed in the heart of chelsea",
+            "sunny 2 bed in the west village",
+            "sunny 2 bed in the flatiron district",
+            "sunny 2 bed in gramercy park",
+            "sunny 2 bed in chelsea",
+        ]
+    )
+    v3 = corrections.placed_elsewhere(frame, text, corrections.OTHER_NEIGHBOURHOOD_V3)
+    assert v3.tolist() == [False, True, True, True, True, False]
+    # v2 is unchanged: it knows only Chelsea and the Villages.
+    assert corrections.placed_elsewhere(frame, text).tolist() == [False] * 6
+    assert corrections._v(2) == (None, corrections.OTHER_NEIGHBOURHOOD)
+    assert corrections._v(3) == (
+        data.UNIT_ALIASES_FGP,
+        corrections.OTHER_NEIGHBOURHOOD_V3,
+    )
+
+
+def test_v3_leaves_far_places_and_comparisons_alone():
+    assert corrections.FAR_V3.search("beautiful 1 bedroom on the uws")
+    assert corrections.FAR_V3.search("sunny 2 bed in brooklyn heights")
+    assert not corrections.FAR_V3.search("2 bed in the heart of greenwich village")
+    assert corrections.COMPARE_V3.search(
+        "more storage space than some two bedrooms have to offer"
+    )
+    assert not corrections.COMPARE_V3.search("larger than most, this two bedroom")
