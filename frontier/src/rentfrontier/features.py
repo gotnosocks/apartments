@@ -3010,6 +3010,84 @@ def stabilized_v1(
     )
 
 
+def footprint_area(geometry: str) -> float:
+    """Square feet inside a footprint's GeoJSON polygon or polygons (holes
+    taken out)."""
+    grid = facing_grid()
+    geometry = json.loads(geometry)
+    polygons = geometry["coordinates"]
+    polygons = polygons if geometry["type"] == "MultiPolygon" else [polygons]
+    total = 0.0
+    for polygon in polygons:
+        for k, ring in enumerate(polygon):
+            r = grid([q[0] for q in ring], [q[1] for q in ring])
+            a = abs(0.5 * np.sum(r[:-1, 0] * r[1:, 1] - r[1:, 0] * r[:-1, 1]))
+            total += a if k == 0 else -a
+    return total * 10.7639
+
+
+def lot_open_share(frame: pd.DataFrame) -> np.ndarray:
+    """Per row: the share of its building's lot no building stands on, from
+    the footprints on the lot built by the listing's year (a footprint with no
+    year counts throughout) over MapPLUTO's lot area, in [0, 1]. The lot is the
+    one the building's own footprint sits on (the base lot of a condominium),
+    else its registry lot. NaN where the lot has no footprint or no area."""
+    registry = pd.read_parquet(lot_registry()).set_index("building")
+    footprints = pd.read_parquet(area_snapshot()[1])
+    footprints["area"] = footprints.geometry.map(footprint_area)
+    footprints["built"] = pd.to_numeric(footprints.construction_year, errors="coerce")
+    base_of = dict(zip(footprints.bin.astype(str), footprints.base_bbl.astype(str)))
+    by_lot = {
+        lot: (g.built.fillna(0).to_numpy(), g.area.to_numpy())
+        for lot, g in footprints.groupby(footprints.base_bbl.astype(str))
+    }
+    lotarea = pd.to_numeric(building_lots(frame).lotarea, errors="coerce").to_numpy()
+    year = pd.DatetimeIndex(frame.period).year.to_numpy()
+    out = np.full(len(frame), np.nan)
+    for building, idx in frame.groupby("building").indices.items():
+        if building not in registry.index:
+            continue
+        r = registry.loc[building]
+        lot = base_of.get(str(r.bin), str(r.bbl))
+        if lot not in by_lot:
+            continue
+        built, area = by_lot[lot]
+        covered = np.array([area[built <= y].sum() for y in year[idx]])
+        with np.errstate(divide="ignore", invalid="ignore"):
+            out[idx] = 1.0 - covered / lotarea[idx]
+    out[~(np.isfinite(out) & (lotarea > 0))] = np.nan
+    return np.clip(out, 0.0, 1.0)
+
+
+def open_space_v1(
+    frame: pd.DataFrame,
+    train: np.ndarray,
+    id: str,
+    base: str,
+) -> Features:
+    """A base set plus the share of the building's lot left open
+    (`lot_open_share`: courtyards, gardens, a campus's grounds), centred on the
+    training rows, 0 with an indicator where unknown. Reads no rents."""
+    base = FEATURE_SETS[base](frame, train)
+    share = lot_open_share(frame)
+    known = np.isfinite(share)
+    b = _Builder(frame)
+    b.add(
+        "building size",
+        "open lot share",
+        np.where(known, share - float(np.mean(share[train & known])), 0.0),
+    )
+    b.add("building size", "open_lot_share_unknown", ~known)
+    out = b.build(id)
+    return Features(
+        id,
+        base.names + out.names,
+        base.groups + out.groups,
+        np.column_stack([base.values, out.values]),
+        np.concatenate([base.prior_scale, out.prior_scale]),
+    )
+
+
 # Feature sets that read the external snapshots (run records list them).
 EXTERNAL = {
     "nb-pluto-base",
@@ -3106,7 +3184,7 @@ PARKS = {"nb3-parks-v1", "nb3-water-v1", "nb5-parks-v1", "nb5-water-v1"}
 # Feature sets that read the HPD violations snapshot.
 HPD = {"unitdescplutohpd-v1", "unitdescplutohpd-v2"}
 # Feature sets that read the rent-stabilized units snapshot (`RENTSTAB_FILE`).
-RENTSTAB = {"nb6-stab-v1", "nb6-nostuy-stab-v1"}
+RENTSTAB = {"nb6-stab-v1", "nb6-nostuy-stab-v1", "nb6-nostuy-stabopen-v1"}
 # Feature sets that read the advertisement descriptions (`descriptions.SOURCE`),
 # directly or through their base set.
 DESCRIPTIONS = {
@@ -3732,6 +3810,8 @@ NB6_SETS = {
     "nb6-nostuy-v1": "nb5-plutoasof-v3",
     "nb6-stab-v1": "nb5-plutoasof-v3",
     "nb6-nostuy-stab-v1": "nb5-plutoasof-v3",
+    "nb6-nostuy-open-v1": "nb5-plutoasof-v3",
+    "nb6-nostuy-stabopen-v1": "nb5-plutoasof-v3",
 }
 # nb5-plutoasof-v3 plus Stuyvesant Town/PCV (`hoods_v1`): the six
 # neighbourhoods' base. Not fitted until runs resume (Ben, 2026-10-08: pause).
@@ -3761,6 +3841,15 @@ FEATURE_SETS["nb6-stab-v1"] = partial(
 )
 FEATURE_SETS["nb6-nostuy-stab-v1"] = partial(
     stabilized_v1, id="nb6-nostuy-stab-v1", base="nb6-nostuy-v1"
+)
+# The lot's open share (`open_space_v1`) in place of the indicator, alone and
+# with the stabilized share: Stuyvesant Town and Peter Cooper Village leave
+# about three quarters of their lots open, a typical lot here about a quarter.
+FEATURE_SETS["nb6-nostuy-open-v1"] = partial(
+    open_space_v1, id="nb6-nostuy-open-v1", base="nb6-nostuy-v1"
+)
+FEATURE_SETS["nb6-nostuy-stabopen-v1"] = partial(
+    open_space_v1, id="nb6-nostuy-stabopen-v1", base="nb6-nostuy-stab-v1"
 )
 for _new, _old in NB6_SETS.items():
     for _group in (

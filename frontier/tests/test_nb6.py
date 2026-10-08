@@ -1,5 +1,7 @@
+import json
 from pathlib import Path
 
+import numpy as np
 import pandas as pd
 import pytest
 
@@ -112,11 +114,21 @@ def test_stuyvesant_town_tests_drop_the_indicator_or_add_the_stabilized_share():
         stab = features.FEATURE_SETS[name]
         assert stab.func is features.stabilized_v1
         assert stab.keywords == {"id": name, "base": on}
-    assert features.RENTSTAB == {"nb6-stab-v1", "nb6-nostuy-stab-v1"}
+    assert features.RENTSTAB == {
+        "nb6-stab-v1",
+        "nb6-nostuy-stab-v1",
+        "nb6-nostuy-stabopen-v1",
+    }
     groups = {
         k: v for k, v in vars(features).items() if k.isupper() and isinstance(v, set)
     }
-    for name in ("nb6-nostuy-v1", "nb6-stab-v1", "nb6-nostuy-stab-v1"):
+    for name in (
+        "nb6-nostuy-v1",
+        "nb6-stab-v1",
+        "nb6-nostuy-stab-v1",
+        "nb6-nostuy-open-v1",
+        "nb6-nostuy-stabopen-v1",
+    ):
         assert {k for k, v in groups.items() if name in v} - {"RENTSTAB"} == {
             k for k, v in groups.items() if "nb6-plutoasof-v3" in v
         }
@@ -161,3 +173,72 @@ def test_stabilized_units_use_the_bill_before_the_listing_year(tmp_path, monkeyp
         }
     )
     assert features.stabilized_units(frame).tolist() == [0, 40, 30, 30, 5, 0, 0]
+
+
+def test_open_sets_add_the_open_share_in_place_of_the_indicator():
+    for name, on in (
+        ("nb6-nostuy-open-v1", "nb6-nostuy-v1"),
+        ("nb6-nostuy-stabopen-v1", "nb6-nostuy-stab-v1"),
+    ):
+        open_set = features.FEATURE_SETS[name]
+        assert open_set.func is features.open_space_v1
+        assert open_set.keywords == {"id": name, "base": on}
+        assert name in features.FOOTPRINTS
+
+
+def test_footprint_area_takes_holes_out():
+    square = [[-74.0, 40.74], [-73.999, 40.74], [-73.999, 40.741], [-74.0, 40.741]]
+    hole = [[-73.9998, 40.7402], [-73.9992, 40.7402], [-73.9992, 40.7408]]
+    whole = features.footprint_area(
+        json.dumps({"type": "Polygon", "coordinates": [square + square[:1]]})
+    )
+    holed = features.footprint_area(
+        json.dumps(
+            {"type": "Polygon", "coordinates": [square + square[:1], hole + hole[:1]]}
+        )
+    )
+    # About 84 m by 111 m.
+    assert 0.95 < whole / (84.3 * 111.2 * 10.7639) < 1.05
+    assert 0.80 < holed / whole < 0.85
+
+
+def test_lot_open_share_counts_footprints_built_by_the_listing_year(
+    tmp_path, monkeypatch
+):
+    registry = pd.DataFrame(
+        {"building": ["a", "b", "c", "d"], "bin": ["1", "2", "9", "8"]}
+    ).assign(bbl=["L", "M", "N", "P"])
+    footprints = pd.DataFrame(
+        {
+            "bin": ["1", "3", "2", "8"],
+            "base_bbl": ["L", "L", "C", "P"],
+            "construction_year": ["1900", "2015", None, "1950"],
+            "geometry": ["300", "200", "400", "100"],
+        }
+    )
+    registry.to_parquet(tmp_path / "r.parquet")
+    footprints.to_parquet(tmp_path / "f.parquet")
+    monkeypatch.setattr(features, "lot_registry", lambda: str(tmp_path / "r.parquet"))
+    monkeypatch.setattr(
+        features, "area_snapshot", lambda: ("unused", str(tmp_path / "f.parquet"))
+    )
+    monkeypatch.setattr(features, "footprint_area", float)
+    frame = pd.DataFrame(
+        {
+            "building": ["a", "a", "b", "c", "d"],
+            "period": pd.to_datetime(
+                ["2010-01-01", "2016-01-01", "2016-01-01", "2016-01-01", "2016-01-01"]
+            ),
+        }
+    )
+    lotarea = {"a": 1000, "b": 800, "c": 500, "d": 0}
+    monkeypatch.setattr(
+        features,
+        "building_lots",
+        lambda f: pd.DataFrame({"lotarea": f.building.map(lotarea).to_numpy()}),
+    )
+    out = features.lot_open_share(frame)
+    # a: 300 built by 2010, 500 by 2016; b: its footprint's base lot C (a
+    # condominium's), no year; c: no footprint; d: no lot area.
+    assert out[:3].tolist() == [0.7, 0.5, 0.5]
+    assert np.isnan(out[3:]).all()
