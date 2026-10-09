@@ -3,6 +3,18 @@
 What the next turn of the modeling thread needs. Updated at each milestone. Scripts and logs are
 in `/data1/apartments/tmp/bridge` (thelio).
 
+## Update (2026-10-09 03:00 UTC)
+
+- **Runs are still paused. The free-check round rests** until the East Village and NoMad scrapes
+  land or Ben weighs in. The last checks (`c32.py`):
+  - large buildings' walks rose about 8 pp against small ones in 2021, then converged;
+  - the per-building bedroom slope's variance is 0.4–0.6× as large where size is known.
+- **Candidates for resume (post hoc, unfitted):**
+  - #590 lognoise (`first_listing`), plus lister type as a factor;
+  - drop the per-building floor slope;
+  - a 3+ bedroom × elevator/condo curve;
+  - a bedroom-slope scale that depends on the size-known share.
+
 ## Update (2026-10-09 02:30 UTC)
 
 - **Runs are still paused.** The per-building parameter checks are recorded (`c31.py`). The noise

@@ -1372,6 +1372,68 @@ predictions are the coordinator's.
   - Candidate, as a proposal: a new 3+ bedroom × (elevator or condo) time curve beside
     `bedroom_time`. Its size is a few pp.
 
+### What the data-rich walks and the bedroom slope are (2026-10-09, no fits)
+
+These are post-hoc checks on the served fit (`review/r12/c32.py`, output `c32.out`). The
+predictions are the coordinator's.
+
+- **1. Large buildings rose against the market in 2021, not dipped.** The table gives the
+  row-level fitted building walk, in percentage points, as the mean over fit rows by half-year.
+  Class D is PLUTO's elevator-apartment class; Rest is every other class. Bands are fit rows
+  per building: 37,755 rows in buildings under 50, 46,858 in 50–199 and
+  37,358 in 200+.
+
+  | Half-year | Under 50 | 50–199 | 200+ | Class D | Rest |
+  |---|---|---|---|---|---|
+  | 2019 H1 | −0.13 | 0.76 | 3.95 | 2.96 | 0.41 |
+  | 2020 H1 | −0.42 | 0.40 | 3.03 | 2.12 | 0.14 |
+  | 2020 H2 | −1.07 | −0.81 | 2.85 | 1.43 | −0.76 |
+  | 2021 H1 | −1.41 | −1.04 | 6.18 | 3.59 | −0.68 |
+  | 2021 H2 | −1.28 | 0.77 | 7.40 | 5.54 | −0.39 |
+  | 2022 H1 | −0.03 | 1.40 | 6.77 | 5.98 | 0.56 |
+  | 2023 H1 | 0.60 | 2.53 | 5.05 | 4.83 | 1.31 |
+  | 2025 H1 | 1.61 | 3.37 | 4.43 | 4.80 | 1.98 |
+  | 2026 H1 | 2.50 | 3.69 | 2.66 | 3.43 | 2.73 |
+
+  - The prediction (large buildings about 5 pp below small in 2020–21, then a rebound) fails in
+    sign. In 2021, buildings with 200+ rows sit 7.6–8.7 pp above those under 50, and elevator
+    buildings 4–6 pp above the rest. Small buildings dip about 1 pp in 2020 H2 to 2021 and
+    rebound in 2022.
+  - By 2026 the bands converge (2.5–3.7).
+  - The market curve is fit on all rows, so a 2021 hump in large buildings means their asks
+    rose relative to the market curve in the pandemic. That is consistent with large managed buildings
+    holding gross asks and giving concessions (#551's concession-by-era sets), but this check does
+    not test it.
+  - PC1 of the 84 walks of buildings with 200+ rows (23 half-year knots, 2015–2026, each building
+    centred) carries 0.442 (PC2 0.206, PC3 0.107). That is over 40%, as predicted.
+  - PC1 is not the pandemic shape. Its loadings run steadily from +0.31 in 2015 to −0.27 in
+    2025, so it is a slow divergence between buildings that rose and fell relative to the market.
+    The pandemic hump shows in the mean of these walks instead: −0.7 in 2020 H2, +3.3 in 2021
+    H2, then back to −0.7 by 2026.
+- **2. The per-building bedroom slope is consistent with standing in, in part, for missing size.** Size is known on 27% of
+  fit rows. The comparison is between buildings with size on over 80% of rows and those with size
+  on under 20%, within row bands, since posterior SDs shrink with rows.
+
+  | Rows per building | Size known | Buildings | SD of fitted slopes | Mean posterior SD | Beyond 2 SD |
+  |---|---|---|---|---|---|
+  | 20–49 | > 80% | 70 | 0.063 | 0.046 | 0.243 |
+  | 20–49 | < 20% | 471 | 0.085 | 0.048 | 0.342 |
+  | 50–199 | > 80% | 31 | 0.067 | 0.028 | 0.484 |
+  | 50–199 | < 20% | 372 | 0.087 | 0.028 | 0.551 |
+  | 200+ | > 80% | 14 | 0.047 | 0.013 | 0.571 |
+  | 200+ | < 20% | 39 | 0.074 | 0.010 | 0.667 |
+
+  - With posterior SDs alike, the spread of fitted slopes is 0.64–0.77× as large where size is
+    known, so its variance is 0.40–0.59× as large.
+  - The prediction (dispersion halves) holds in variance, not in SD. Few buildings with 50+ rows
+    have size known (31 and 14 buildings). The comparison is observational: buildings with size
+    known may differ in source, era or type.
+  - About half the slope's variance remains where size is known. So the slope is part stand-in for
+    size and part a real building difference, for example a premium for large units in some
+    buildings.
+  - A cheaper design could let the slope's scale depend on the building's size-known share.
+    That is a proposal only.
+
 ## Open-data survey: stabilization, permits, owners, dated MapPLUTO (2026-10-07)
 
 Four free sources, sized against the 105,244 rows of `chelsea-wv-gv-analysis-20261005-2d5b3b6`
