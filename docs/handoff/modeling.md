@@ -3,6 +3,19 @@
 What the next turn of the modeling thread needs. Updated at each milestone. Scripts and logs are
 in `/data1/apartments/tmp/bridge` (thelio).
 
+## Update (2026-10-09 03:30 UTC)
+
+- **Data's sets for resume, no rule changes, all on base nb6-nostuy-v1:**
+  - `nb6-nostuy-lister-v1`: lister type plus the building's as-of agent share (#600, merged);
+  - `nb6-nostuy-sizefill-v1`: as-of size fill (#602);
+  - `nb6-nostuy-nta-v1`: 2020 NTAs (#603);
+  - `nb6-nostuy-riverparks-v1`: Hudson River Park and its piers, dated (#604).
+
+  Each is its own Modal full fit against nb6-nostuy-v1.
+- **As-of note (Data):** `unit_size=True` (unitfloor-v2, the whole nb6-nostuy-v1 lineage) fills
+  sqft with the unit's median over all its listings, later ones included. That covers about 41%
+  of rows, against about 36% as-of. sizefill-v1 is the as-of fix.
+
 ## Update (2026-10-09 03:00 UTC)
 
 - **Runs are still paused. The free-check round rests** until the East Village and NoMad scrapes
