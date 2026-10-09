@@ -1003,9 +1003,9 @@ precision-weighted means over the buildings whose label and 2020 NTA agree.
     - NoMad-labelled buildings price as their NTA plus the surface, with a label residual under
       3 pp and no drift.
 
-### Why new-unit coverage is low (2026-10-09, no fits)
+### Why new-unit coverage is low (2026-10-08, no fits)
 
-These are post-hoc checks on the served fit (`review/r12/c26.py` on thelio). They ask why held-out
+These are post-hoc checks on the served fit (`review/r12/c26.py` and `c26b.py` on thelio). They ask why held-out
 single-listing rows cover 0.62 at 80% and 0.87 at 95% (above).
 
 Residual SD here is robust (1.4826 × MAD), in percent. Within repeat-listed units, "residual with
@@ -1014,13 +1014,13 @@ later rows and singles are on the same footing.
 
 - **0. Not a code bug.** For a held-out row of a new unit, the summary
   (`summary.new_unit_levels`) draws the unit level from the Student-t unit prior at the fitted
-  ν, 1.84 (scale 0.035), once per posterior draw. It then takes quantiles of the Student-t
+  ν, 1.84 (scale 0.0346; posterior means from the served run's `posterior.npz`), once per posterior draw. It then takes quantiles of the Student-t
   noise mixture at ν 2.74. It does not use a Gaussian.
-  - Analytically, t(1.84) × 0.035 plus noise t(2.74) × σ gives an 80% band of 19–23% and a 95%
+  - Analytically, t(1.84) × 0.0346 plus noise t(2.74) × σ gives an 80% band of 19–23% and a 95%
     band of 40–47% for σ = 0.030 to 0.045.
   - The held-out singles' median bands are 23.0% and 45.2%.
   - The bands are as the model says; the model's spread for these units is too small.
-- **1. First asks are not much noisier: 1.05×, against the predicted 1.2–1.3×.** There are
+- **1. First asks are not much noisier: 1.05×, against the coordinator's predicted 1.2–1.3×.** There are
   26,115 units with 2+ training rows and their first row in the fit.
 
   | Group | First rows | Later rows | Ratio | Singles in fit |
@@ -1040,13 +1040,16 @@ later rows and singles are on the same footing.
   - The 27,341 in-fit singles (units with one row in all) have a residual SD of 9.2, far above
     both first rows (6.9) and later rows (6.6). The excess belongs to **units that never
     return**, not to first asks.
-  - Units that never return are about half of all units: 27,341 against 26,115 repeat units.
-- **2. Units that never return: rent-blind phrases explain a little; condo and co-op buildings
+  - Units that never return: 27,341 of 58,446 units (47%) have one row in the whole dataset.
+    That flag is censored, because recent units have had no time to return. But 79.5% of these
+    rows are from 2023 or earlier, and they have the highest SD, 9.45 (2024: 8.12; 2025–26: 8.74).
+    So the excess is not an artefact of censoring.
+- **2. Units that never return: listing phrases explain a little; building class a little
   more.** These rows are the in-fit singles with a description, 10,381 of 27,341.
 
   | Phrase | Share of singles | n | SD | Mean | Median |
   |---|---|---|---|---|---|
-  | Any of the seven | 0.204 | — | 9.99 (others 8.26) | — | — |
+  | Any of the seven (rent-blind and building-type phrases) | 0.204 | — | 9.99 (others 8.26) | — | — |
   | Furnished | 0.071 | 741 | 9.20 | +2.6 | +1.4 |
   | Short term | 0.005 | 57 | 13.6 | −0.1 | −1.7 |
   | Sublet | 0.008 | 80 | 12.5 | +1.8 | −1.3 |
@@ -1055,25 +1058,26 @@ later rows and singles are on the same footing.
   | Condo | 0.104 | 1,082 | 11.2 | +1.8 | +1.3 |
   | Co-op | 0.026 | 274 | 12.5 | +3.5 | +2.1 |
 
-  - The prediction (about a quarter of singles flagged, about 1.4×) half holds: the share is 20%,
+  - The coordinator's prediction (about a quarter of singles flagged, about 1.4×) half holds: the share is 20%,
     but the SD ratio is only 1.21. The same phrases flag 18.9% of repeat-unit rows, so they hardly
     mark the units that never return.
-  - Over all fit rows, furnished shifts the residual by +1.1 pp (mean; median +0.35) and utilities
-    included by +0.2 pp (median +0.07). The model's existing features absorb both.
+  - Over all fit rows with a description, furnished shifts the residual with no unit level by
+    +1.1 pp (mean; median +0.35), and utilities included by +0.2 pp (median +0.07). Both shifts
+    are small.
   - Building class (latest MapPLUTO release per lot):
     - C and D (walk-up and elevator rentals) are 73% of singles, with SD 8.7.
     - R (condo) and other classes are 27%, with SD 11.1: 1.28×.
     - R is 15% of singles and 18% of repeat-unit rows, so condos are not over-represented among
       singles. R asks are noisier in both groups: singles 10.3 against 8.6–8.8 for C and D, and repeat-unit
       rows 7.5 against 6.3–6.7.
-  - Within singles, class and phrases each explain a part. Neither accounts for most of the gap
-    from 6.9 to 9.2.
+  - Class and phrases each explain part of the singles' spread. Their joint effect was not
+    checked.
 - **3. Key the noise factor on as-of first listing.** Check 1 fails, so a first-listing multiplier
-  will be small, about 1.05× by this check. I changed the noise code anyway (#590):
+  will be small, about 1.05× by this check. The noise code keys on it anyway (#590):
   - "Listed once in the dataset" uses rows from the future, and every new unit's ask is a first
     listing.
   - A multiplier fitted on units that never return would be applied to every new unit, though
-    about half of them do return.
+    about half of them (53% of units) do return.
 
   Held-out coverage of as-of first listings (3,959 rows, all in known buildings):
 
@@ -1092,8 +1096,8 @@ later rows and singles are on the same footing.
   - An honest as-of new-unit coverage needs a time-split refit. On the served fit, the closest
     figure is the 472 rows: 0.62 and 0.87.
 - **Reading.**
-  - The miss is in the spread of units that never return: about half of all units, residual SD
-    9.2 against 6.6–6.9 for returners.
+  - The miss is in the spread of units that never return: 47% of units, residual SD 9.2 against
+    6.6–6.9 for returners.
   - It is not in first asks or in a code shortcut.
   - The noise fit (#590) keys on as-of first listing, which by check 1 will move little. The larger
     lever is to model the unit-level spread of units that never return:
