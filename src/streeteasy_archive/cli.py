@@ -138,6 +138,13 @@ def main(argv=None):
             "before any request; persists across resumes (0 clears)",
         )
         command.add_argument(
+            "--claim-order",
+            choices=("structure-first", "original"),
+            default="structure-first",
+            help="structure-first (default) claims directory, then building pages "
+            "before units and advertisements; original keeps store.py's order",
+        )
+        command.add_argument(
             "--max-requests",
             type=int,
             default=0,
@@ -530,7 +537,10 @@ def run_crawler(args, generation, lock=None):
         include_unavailable=args.include_unavailable,
     )
     deferred.addErrback(lambda failure: errors.append(str(failure)))
-    process.start()
+    from .structure_first import claim_order
+
+    with claim_order(getattr(args, "claim_order", "structure-first")):
+        process.start()
     store = ArchiveStore(args.data)
     try:
         state = store.status(generation)
