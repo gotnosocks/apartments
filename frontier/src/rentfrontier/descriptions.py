@@ -59,6 +59,11 @@ FGP_SOURCE = Path(
 STUY_SOURCE = Path(
     "/data1/apartments/frontier/descriptions/stuyvesant-town-pcv-20261008-d405de4/evidence.jsonl"
 )
+# NoMad: each row's own ad from the granular crawl of 2026-10-08
+# (cohort nomad-analysis-20261009-d3b4050; 9,258 of 9,286 rows).
+NOMAD_SOURCE = Path(
+    "/data1/apartments/frontier/descriptions/nomad-20261009-d3b4050/evidence.jsonl"
+)
 # The evidence files `attach` reads while a feature set is built
 # (`features.build`); Chelsea's alone unless the feature set lists more.
 SOURCES: contextvars.ContextVar[tuple[Path, ...]] = contextvars.ContextVar(
