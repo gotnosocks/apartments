@@ -141,7 +141,12 @@ def kit_tables(kept, prep, config, feats, keep: int = DRAWS):
     fslope_names = list(config.feature_slopes)
     fslope = kept["fslope"] if fslope_names else np.zeros((d, level.shape[1], 0))
     sigma = kept["sigma"] if kept["sigma"].ndim == 2 else kept["sigma"][:, None]
-    if sigma.shape[1] > len(model.BEDROOM_GROUPS):
+    if getattr(config, "noise_loglinear", False):
+        # By bedroom group and noise cell (group-major): the kit prices a new
+        # unit, so it keeps the single-listing cell (floor known, an
+        # established building).
+        sigma = sigma.reshape(d, len(model.BEDROOM_GROUPS), -1)[:, :, 1]
+    elif sigma.shape[1] > len(model.BEDROOM_GROUPS):
         # By bedroom group and year (group-major): the kit prices the last
         # period, so it keeps that year's scales.
         sigma = sigma.reshape(d, len(model.BEDROOM_GROUPS), -1)[:, :, -1]

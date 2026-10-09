@@ -60,6 +60,11 @@ def synthetic(seed=0, n_buildings=15, units_per_building=8, months=24):
         unit_time=(
             (frame.m - frame.groupby("u").m.transform("mean")) / 12.0
         ).to_numpy(),
+        # First listing of the unit as of its month (bit 0) for the log-linear
+        # noise design; the other factors off.
+        noise_cell=(frame.groupby("u").m.transform("min") == frame.m)
+        .to_numpy()
+        .astype(np.int32),
     )
     feats = Features("synthetic", ["x0", "x1"], ["x", "x"], x, np.ones(2))
     return model.Prepared(
@@ -122,6 +127,14 @@ DESIGNS = {
         unit_t=True,
         noise_by_bedrooms=True,
         noise_by_year=True,
+    ),
+    "lognoise": model.ModelConfig(
+        building_walk=True,
+        bedroom_slope=True,
+        feature_slopes=("x0",),
+        unit_t=True,
+        noise_by_bedrooms=True,
+        noise_loglinear=True,
     ),
     "fourier": model.ModelConfig(
         building_walk=True, bedroom_slope=True, season_harmonics=2
@@ -204,10 +217,14 @@ def dense_mean(d, lam, s, kappa=None):
 
 
 # The dense reference has one residual scale; "bednoise" is checked against
-# the one-scale block with rescaled weights instead.
+# the one-scale block with rescaled weights instead ("lognoise" shares its
+# scale path).
 @pytest.mark.parametrize(
     "design",
-    sorted(set(DESIGNS) - {"bednoise", "bednoise-fourier", "yearnoise", "lines"}),
+    sorted(
+        set(DESIGNS)
+        - {"bednoise", "bednoise-fourier", "yearnoise", "lognoise", "lines"}
+    ),
 )
 def test_joint_gaussian_mean_matches_dense_solve(design):
     prep = synthetic()
@@ -782,6 +799,156 @@ def test_year_noise_runs_and_reports_a_scale_per_group():
     )
     assert np.asarray(out["mean"]["sigma"]).shape == (4 * years,)
     assert np.all(np.asarray(out["mean"]["sigma"]) > 0)
+
+
+def with_noise_cells(prep, extra=0.15, seed=3):
+    """prep with each row in a random noise cell, and extra noise of sd
+    `extra` added to first-listing rows (bit 0)."""
+    rng = np.random.default_rng(seed)
+    tr = prep.train
+    cell = rng.integers(0, model.NOISE_CELLS, len(tr.y)).astype(np.int32)
+    first = (cell & 1) == 1
+    y = tr.y + np.where(first, rng.normal(0, extra, len(tr.y)), 0.0)
+    train = dataclasses.replace(tr, y=y, noise_cell=cell)
+    return dataclasses.replace(prep, train=train, test=train.map(lambda v: v[:10]))
+
+
+def test_loglinear_noise_cells_are_bedroom_group_by_factor_bits():
+    """noise_loglinear: 4 x 16 scales, group-major; each cell's scale is the
+    group's base times the multipliers of its factors."""
+    prep = with_noise_cells(synthetic())
+    config = DESIGNS["lognoise"]
+    n = model.n_noise(config, prep)
+    assert n == len(model.BEDROOM_GROUPS) * model.NOISE_CELLS
+    tr = prep.train
+    group = model.noise_group(n, tr)
+    np.testing.assert_array_equal(group // model.NOISE_CELLS, tr.bed_group)
+    np.testing.assert_array_equal(group % model.NOISE_CELLS, tr.noise_cell)
+    bits = model.noise_cell_bits()
+    assert bits.shape == (model.NOISE_CELLS, len(model.NOISE_FACTORS))
+    np.testing.assert_array_equal(bits[5], [1, 0, 1, 0])
+    base, mult = np.array([0.1, 0.2, 0.3, 0.4]), np.array([2.0, 3.0, 5.0, 7.0])
+    sig = np.asarray(model.loglinear_sigma(base, mult)).reshape(4, -1)
+    np.testing.assert_allclose(sig[2, 5], 0.3 * 2 * 5)
+    np.testing.assert_allclose(sig[1, 0], 0.2)
+    # The Gibbs design's row scales are the same cells.
+    d = gibbs.build_design(prep, config)
+    s = {f"sigma_{g}": base[g] for g in range(4)}
+    s.update(dict(zip(gibbs.MULT_NAMES, mult)))
+    np.testing.assert_allclose(
+        np.asarray(gibbs.sigma_rows(d, s)), sig.reshape(-1)[group]
+    )
+    # Without the cells, the log-linear groups are refused.
+    with pytest.raises(ValueError, match="noise_cell"):
+        model.noise_group(n, dataclasses.replace(tr, noise_cell=None))
+    with pytest.raises(ValueError, match="noise_loglinear"):
+        model.n_noise(dataclasses.replace(config, noise_by_year=True), prep)
+
+
+def test_loglinear_noise_finds_the_noisier_factor():
+    prep = with_noise_cells(synthetic(), extra=0.15)
+    out = gibbs.run(
+        prep,
+        DESIGNS["lognoise"],
+        gibbs.Settings(chains=2, warmup=200, draws=200, keep_every=4),
+        log=lambda *_: None,
+    )
+    mean = out["mean"]
+    assert np.asarray(mean["sigma"]).shape == (4 * model.NOISE_CELLS,)
+    mult = np.asarray(mean["noise_mult"])
+    assert mult[0] > 1.8  # first listing: sd ~ 0.16 against ~ 0.05
+    assert np.all((mult[1:] > 0.6) & (mult[1:] < 1.6))
+
+
+def test_loglinear_noise_gibbs_matches_nuts():
+    """Both samplers target the NumPyro model's log-linear noise posterior."""
+    from numpyro.diagnostics import effective_sample_size
+    from numpyro.infer import MCMC, NUTS
+
+    prep = with_noise_cells(synthetic(seed=2), extra=0.1)
+    config = DESIGNS["lognoise"]
+    mcmc = MCMC(
+        NUTS(
+            model.build_model(
+                prep, dataclasses.replace(config, noncentered=("walk_step",))
+            ),
+            target_accept_prob=0.9,
+        ),
+        num_warmup=1000,
+        num_samples=2000,
+        num_chains=2,
+        chain_method="sequential",
+        progress_bar=False,
+    )
+    mcmc.run(jax.random.PRNGKey(0))
+    nuts = {k: np.asarray(v) for k, v in mcmc.get_samples().items()}
+    out = gibbs.run(
+        prep,
+        config,
+        gibbs.Settings(chains=8, warmup=500, draws=2000, keep_every=500),
+        log=lambda *_: None,
+    )
+    means, sds = out["mean"], out["sd"]
+    n_gibbs = 8 * 2000
+    checks = {
+        **{
+            f"noise_mult[{k}]": (
+                nuts["noise_mult"][:, k],
+                means["noise_mult"][k],
+                sds["noise_mult"][k],
+            )
+            for k in range(len(model.NOISE_FACTORS))
+        },
+        "noise_base[1]": (
+            nuts["noise_base"][:, 1],
+            means["noise_base"][1],
+            sds["noise_base"][1],
+        ),
+        "sigma[1, cell 5]": (
+            nuts["sigma"][:, model.NOISE_CELLS + 5],
+            means["sigma"][model.NOISE_CELLS + 5],
+            sds["sigma"][model.NOISE_CELLS + 5],
+        ),
+        "nu": (nuts["nu"], means["nu"], sds["nu"]),
+    }
+    for name, (draws, g_mean, g_sd) in checks.items():
+        ess_nuts = float(effective_sample_size(draws.reshape(2, -1)[..., None])[0])
+        mcse = np.sqrt(draws.var() / ess_nuts + g_sd**2 / (0.05 * n_gibbs))
+        assert abs(draws.mean() - g_mean) < 4 * mcse, (name, draws.mean(), g_mean, mcse)
+        assert abs(draws.std() - g_sd) < 0.15 * draws.std(), (name, draws.std(), g_sd)
+
+
+def test_prepare_sets_noise_cells():
+    """`model.prepare` encodes first listing (no earlier training row of the
+    unit), small building, floor unknown and the building's first training
+    year."""
+    frame = pd.DataFrame(
+        {
+            "building": ["a"] * 7 + ["b"] * 2,
+            "unit_id": ["a1", "a1", "a2", "a3", "a4", "a5", "a6", "b1", "b2"],
+            "period": pd.to_datetime(
+                ["2020-01-01", "2021-01-01", "2020-06-01"]
+                + ["2021-03-01"] * 4
+                + ["2022-01-01", "2023-01-01"]
+            ),
+            "audit_id": [f"r{i}" for i in range(9)],
+            "canonical_unit_url": ["x/ph"] * 9,
+            "log_rent": np.linspace(8, 8.5, 9),
+            "bedrooms": [1.0] * 9,
+        }
+    )
+    floor_unknown = np.array([0, 0, 1, 0, 0, 0, 0, 0, 1], float)
+    feats = Features(
+        "t", ["floor_unknown"], ["floor"], floor_unknown[:, None], np.ones(1)
+    )
+    heldout = np.zeros(9, bool)
+    heldout[6] = True  # a6: a unit with no training rows
+    prep = model.prepare(frame, heldout, feats)
+    # Bits: first_listing 1, small 2, floor_unknown 4, first_year 8.
+    np.testing.assert_array_equal(
+        prep.train.noise_cell, [1 + 8, 0, 1 + 4 + 8, 1, 1, 1, 1 + 2 + 8, 1 + 2 + 4]
+    )
+    np.testing.assert_array_equal(prep.test.noise_cell, [1])
 
 
 def test_fourier_season_basis_is_centred_and_shrinks_higher_harmonics():
