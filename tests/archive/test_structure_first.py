@@ -1,5 +1,9 @@
 import inspect
 
+import pytest
+
+from streeteasy_archive import cli
+
 from streeteasy_archive import structure_first
 from streeteasy_archive.collection_policy import setup
 from streeteasy_archive.store import ArchiveStore
@@ -43,7 +47,7 @@ def test_directory_then_buildings_then_original_order(tmp_path):
     )
     original, _ = drain(
         tmp_path / "b",
-        ArchiveStore.claim,
+        structure_first.ORIGINAL_CLAIM,
         ROWS,
         prefer_inventory=True,
         prefer_units=True,
@@ -71,7 +75,9 @@ def test_same_pages_and_order_without_structure_rows(tmp_path):
             rows,
             **kwargs,
         )
-        old = drain(tmp_path / ("old-" + name), ArchiveStore.claim, rows, **kwargs)
+        old = drain(
+            tmp_path / ("old-" + name), structure_first.ORIGINAL_CLAIM, rows, **kwargs
+        )
         assert new == old
 
 
@@ -84,12 +90,32 @@ def test_filter_matches_store_claim():
         src = "\n".join(line.split("--")[0] for line in src.splitlines())
         return " ".join(src.replace('"""', "").replace("+", "").split())
 
-    original = sql(ArchiveStore.claim)
+    original = sql(structure_first.ORIGINAL_CLAIM)
     copy = sql(structure_first.claim_structure_first).replace(" STRUCTURE_RANK ,", "")
     assert copy == original
 
 
-def test_install_replaces_claim(monkeypatch):
-    monkeypatch.setattr(ArchiveStore, "claim", ArchiveStore.claim)
-    structure_first.install()
-    assert ArchiveStore.claim is structure_first.claim_structure_first
+def test_claim_order_is_scoped():
+    assert ArchiveStore.claim is structure_first.ORIGINAL_CLAIM
+    with structure_first.claim_order("structure-first"):
+        assert ArchiveStore.claim is structure_first.claim_structure_first
+        with structure_first.claim_order("original"):
+            assert ArchiveStore.claim is structure_first.ORIGINAL_CLAIM
+        assert ArchiveStore.claim is structure_first.claim_structure_first
+    assert ArchiveStore.claim is structure_first.ORIGINAL_CLAIM
+    with pytest.raises(ValueError):
+        with structure_first.claim_order("buildings"):
+            pass
+
+
+def test_crawl_commands_default_to_structure_first(tmp_path, monkeypatch):
+    seen = []
+    monkeypatch.setattr(
+        cli, "run_crawler", lambda args, generation, lock: seen.append(args) or 0
+    )
+    assert cli.main(["--data", str(tmp_path), "backfill"]) == 0
+    assert cli.main(
+        ["--data", str(tmp_path), "resume", "--claim-order", "original"]
+    ) in (0, 3)
+    assert seen[0].claim_order == "structure-first"
+    assert [a.claim_order for a in seen] == ["structure-first", "original"]

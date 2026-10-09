@@ -6,8 +6,11 @@ advertisements that jump ahead of the directory, so the building census finishes
 the crawl's size stays unknown until near the end (East Village, Oct 2026). Ben, Oct 9
 2026: "pull all the buildings first and then traverse the apartments and listings".
 
-install() swaps in claim_structure_first, which is ArchiveStore.claim with one leading sort
-key: directory pages, then building pages, then everything else in the original order.
+claim_structure_first is ArchiveStore.claim with one leading sort key: directory pages,
+then building pages, then everything else in the original order. It is the default for
+backfill, update and resume (Ben, Oct 9 2026: "make that the default for future crawls");
+`--claim-order original` keeps store.py's order. cli.run_crawler applies it with
+claim_order() for the crawl's duration only.
 The candidate filter, policy exclusions and capture reuse are unchanged. Two claim-time
 exclusions are judged on what has been discovered so far, and are permanent: an ad with no
 unit membership yet (missing_canonical_unit_association), and a unit whose route was first
@@ -15,14 +18,15 @@ enrolled as an inventory probe from a pre-cutoff ad (probe_source_before_min_lis
 scope_urls keeps the first reason). Claiming buildings first enrolls units from their
 building pages before those rules run, so some ads and re-let units that the original
 order excluded early are fetched: the same rules, more coverage, somewhat more requests.
-store.py is hashed by saved datasets, so the change lives here; a runner opts in by
-calling install() before cli.main.
+store.py is hashed by saved datasets, so the change lives here.
 """
 
 import time
+from contextlib import contextmanager
 
 from .store import ArchiveStore
 
+ORDERS = ("structure-first", "original")
 STRUCTURE_RANK = "CASE f.kind WHEN 'directory' THEN 0 WHEN 'building' THEN 1 ELSE 2 END"
 
 
@@ -99,5 +103,19 @@ def claim_structure_first(
             return row
 
 
-def install():
-    ArchiveStore.claim = claim_structure_first
+ORIGINAL_CLAIM = ArchiveStore.claim
+
+
+@contextmanager
+def claim_order(order):
+    """Use the named claim order for ArchiveStore inside the block."""
+    if order not in ORDERS:
+        raise ValueError(f"claim order must be one of {ORDERS}")
+    previous = ArchiveStore.claim
+    ArchiveStore.claim = (
+        claim_structure_first if order == "structure-first" else ORIGINAL_CLAIM
+    )
+    try:
+        yield
+    finally:
+        ArchiveStore.claim = previous
