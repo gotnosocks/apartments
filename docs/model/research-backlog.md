@@ -1116,7 +1116,7 @@ These are post-hoc checks on the served fit (`review/r12/c27.py`, output `c27.ou
 
 - **1. Missing unit labels: none.** Every row's unit URL carries a unit label: 0 rows without
   one. The dataset build drops rows without a unit id (`invalid_identity`), and none of the
-  served dataset's parts recorded such a drop. So no unit gets a synthetic id.
+  served dataset's parts recorded such a drop (the build's exclusion counts). So no unit gets a synthetic id.
   - The prediction (over a third of singles unlabelled, at SD about 11) fails.
   - Non-standard labels (not a floor number plus letters, e.g. PH, GARDEN, a lone letter) are 18.9%
     of singles against 10.1% of repeat rows. Among singles they are no noisier: 9.34 against
@@ -1125,11 +1125,11 @@ These are post-hoc checks on the served fit (`review/r12/c27.py`, output `c27.ou
     beds, size and baths) remains a possible Data request against unit splits. This check gives
     no evidence for it.
 - **2. Building stock: class orders the spread more sharply than line coverage, and once-listed
-  units are about 1.3–1.4× wider in every stratum.**
+  units are 1.25–1.53× wider in every stratum, typically about 1.35×.**
 
   | Covariate | Stratum | Singles | SD singles | SD repeat rows | Single / repeat |
   |---|---|---|---|---|---|
-  | Line coverage | Q1 (< 0.36) | 8,684 | 10.33 | 7.26 | 1.42 |
+  | Line coverage | Q1 (≤ 0.36) | 8,684 | 10.33 | 7.26 | 1.42 |
   | | Q2 | 8,429 | 8.81 | 7.01 | 1.26 |
   | | Q3 | 5,928 | 8.81 | 6.80 | 1.30 |
   | | Q4 (> 0.90) | 4,300 | 8.66 | 6.00 | 1.44 |
@@ -1151,7 +1151,8 @@ These are post-hoc checks on the served fit (`review/r12/c27.py`, output `c27.ou
     - The single flag adds 25–53% on top of every stratum, not under 10%.
   - Small buildings with few units per floor and few lines are noisier for every unit, not only
     for singles.
-- **3. Seller type: owners are noisiest but rare; the once-listed excess holds for every seller.**
+- **3. Seller type: owners are noisiest but rare; the once-listed excess holds for every source type**
+  (Partner 1.32×, Feed 1.44×, Owner 1.63×).
   StreetEasy's `source_type` and `broker_group` come from `external/listing-extras`, matched for
   99.9% of fit rows.
 
@@ -1163,9 +1164,10 @@ These are post-hoc checks on the served fit (`review/r12/c27.py`, output `c27.ou
 
   - By broker group, the large brokerages' singles have SD 10.4–11.1: Compass, Douglas Elliman
     and Corcoran.
-  - Related Rentals, a management company with a 34% single share, has SD 7.8.
+  - Related Rentals, a management company with a 34% single share, has SD 7.8. Its excess is
+    smaller (1.13×), as is City Connections' (1.21×).
 - **Reading.**
-  - Once-listed units are about 1.35× wider whatever is known about them at prediction time:
+  - Once-listed units are about 1.35× wider (1.13–1.63× across all cuts) whatever is known about them at prediction time:
     label type, building stock or seller.
   - The excess is a property of the unit, not of any covariate here. That fits a unit-effect
     spread the model fits mostly from units that return.
