@@ -14,9 +14,10 @@ this order (`SOURCES`):
   and full baths.
 - none: no fill.
 
-Accuracy, leave-one-unit-out on rows that state a size (NB6 frame,
-2026-10-09): unit 0% median error, 93% within 10%; line 0.7%, 89%; building
-5.5%, 70%. The cascade fills 49,753 of the 99,124 rows that state no size.
+Accuracy of each fill on rows that state a size (NB6 frame, 2026-10-09; a
+row's own unit never fills it as another unit): unit 0% median error, 93%
+within 10%; line 0.7%, 88%; building 5.5%, 70%. The cascade fills 49,753 of
+the 99,124 rows that state no size (unit 10,191, line 10,486, building 29,076).
 """
 
 from __future__ import annotations
@@ -32,7 +33,7 @@ SOURCES = ("own", "unit", "line", "building", "none")
 
 def earlier_sum(query_key, query_day, event_key, event_day, event_value):
     """Per query: the sum and count of events with its key on an earlier day.
-    Queries with a missing key get 0 and 0."""
+    Queries with a missing key or day get 0 and 0."""
     q = pd.DataFrame(
         {"key": query_key, "day": query_day, "event": 0, "v": 0.0, "q": True}
     ).reset_index(drop=True)
@@ -41,7 +42,9 @@ def earlier_sum(query_key, query_day, event_key, event_day, event_value):
         {"key": event_key, "day": event_day, "event": 1, "v": event_value, "q": False}
     ).dropna(subset=["key", "v"])
     e["pos"] = -1
-    d = pd.concat([q.dropna(subset=["key"]), e], ignore_index=True)
+    d = pd.concat(
+        [q.dropna(subset=["key", "day"]), e.dropna(subset=["day"])], ignore_index=True
+    )
     # A query sorts before the events of its own day, so they do not count.
     d = d.sort_values(["key", "day", "event"], kind="stable")
     g = d.groupby("key", sort=False)

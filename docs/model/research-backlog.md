@@ -1384,19 +1384,19 @@ predictions are the coordinator's.
   (unitfloor-v2, so all of nb6-nostuy-v1's lineage) fills from the median over all of the unit's
   listings, later ones included. That is a physical attribute, never rent, but not as-of. It
   gives about 41% coverage; the same fill from earlier listings gives about 36%.
-- **Fills**, scored leave-one-unit-out on rows that state a size (as-of share of unknown rows
-  filled / median error / within 10%):
+- **Fills**, each alone, scored on rows that state a size with the shipped estimators (as-of;
+  share of unknown rows filled / median error / within 10%):
 
   | Fill | Filled | Median error | Within 10% |
   |---|---|---|---|
   | The unit's earlier rows | 10.3% | 0% | 93% |
-  | Other units, same line + bedrooms + full baths | 15.2% | 0.7% | 89% |
+  | Other units, same line + bedrooms + full baths | 15.2% | 0.7% | 88% |
   | Other units, same building + bedrooms + full baths | 48.3% | 5.5% | 70% |
   | MapPLUTO residential area ÷ units × bedroom ratio | 98% | 16% | 37% |
   | The ad states one size | 2.2% | – | 75% |
 
-  - The cascade (unit, line, building) fills 49,753 of 99,124 unknown rows, taking coverage from
-    29% to about 65%. `sizefill.asof_size` builds it, and `nb6-nostuy-sizefill-v1` uses it in
+  - The cascade (unit, line, building) fills 49,753 of 99,124 unknown rows (10.3%, 10.6% and
+    29.3% of them), taking coverage from 29% to about 65%. `sizefill.asof_size` builds it, and `nb6-nostuy-sizefill-v1` uses it in
     place of the unit median. It is its own test when runs resume.
   - MapPLUTO is too rough. Ads often quote other areas (a terrace, the building).
   - 31.6% of unknown rows (31k) have a floor-plan image. The crawls kept only each image's key.
