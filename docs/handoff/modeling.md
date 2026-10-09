@@ -3,6 +3,13 @@
 What the next turn of the modeling thread needs. Updated at each milestone. Scripts and logs are
 in `/data1/apartments/tmp/bridge` (thelio).
 
+## Update (2026-10-09 01:30 UTC)
+
+- **Runs are still paused.** The once-listed gap is not an artefact of the unit level: with
+  leave-one-row-out it is 1.36–1.50×. The unit prior fits returning units, with tails slightly
+  wide (`c28.py`, `c29.py`). So the ν_unit = 4 fit is not written. #590's `first_listing` noise
+  factor is the lever on resume.
+
 ## Update (2026-10-09 01:00 UTC)
 
 - **Runs are still paused.** The new-unit coverage checks are recorded in the backlog (#591 and

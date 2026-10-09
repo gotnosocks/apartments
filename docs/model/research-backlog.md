@@ -1177,6 +1177,55 @@ These are post-hoc checks on the served fit (`review/r12/c27.py`, output `c27.ou
       listings.
   - Both are proposals only; runs stay paused.
 
+### Is the once-listed gap an artefact of the unit level? (2026-10-09, no fits)
+
+The coordinator asked whether comparing singles with repeat rows is apples to oranges. A repeat
+row's residual is net of a unit level fitted from that unit's own rows, while a single's level is
+shrunk to about 0. These are post-hoc checks on the served fit (`review/r12/c28.py`, `c29.py`;
+outputs `c28.out`, `c29.out`); SDs are robust, in percent.
+
+- **1. Once-listed units really are wider.** The comparisons above already use the residual with
+  no unit level. Here repeat rows are also scored against the unit's other rows only
+  (leave-one-row-out), so both sides are predicted without their own row.
+
+  | Repeat-unit rows, predicted from | All | First rows | 2-row units | Singles / all |
+  |---|---|---|---|---|
+  | No unit level | 6.68 | 6.89 | 7.27 | 1.36 |
+  | Shrunk mean of the unit's other rows | 6.08 | 6.42 | 6.96 | 1.50 |
+  | Raw mean of the unit's other rows | 6.46 | 6.93 | 7.92 | 1.41 |
+
+  - Singles are at 9.11. The shrinkage weight comes from moment estimates on units with 3+ rows:
+    within-unit SD 4.7, unit SD 5.7.
+  - The prediction (within 10%) fails. Even the residual with no unit level, which carries the
+    whole unit spread, is 1.32× narrower than the singles'.
+  - The gap holds by class: C 1.29, D 1.31, R 1.29, other 1.44.
+  - It also holds where the unit's own rows barely move its building's level: units with ≤ 5% of
+    their building's fit rows give 1.27.
+- **2. The unit prior is not too narrow for repeat units; its tails are, if anything, too wide.**
+  Half-widths of central intervals, in percent:
+
+  | | 80% | 95% |
+  |---|---|---|
+  | Fitted prior t(ν 1.84, scale 0.0346) | 6.79 | 16.22 |
+  | Fitted unit levels, units with 3+ rows (16,745) | 4.29 | 10.12 |
+  | Unit mean of the unit-free residual, 3+ rows | 6.80 | 13.34 |
+  | Same, 5+ rows (4,996) | 5.97 | 11.84 |
+
+  - The unit means still carry within-unit noise over n and building misfit, so they overstate
+    the unit spread. Even so, their 95% half-width is 0.8× the prior's, not 1.4×. The prediction
+    fails.
+  - The fitted levels are shrunk, so they are narrower again.
+  - The posterior is tight: unit_scale 0.0346 ± 0.0005, ν 1.84 ± 0.03. With ν < 2 the SD is
+    undefined, so the comparison uses quantiles.
+- **Reading.**
+  - Units that list once differ from units that return. Their spread is about 1.3–1.5× wider
+    however the comparison is made.
+  - The unit prior describes returning units well. Fixing ν_unit at 4 would narrow its tails
+    further and worsen new-unit coverage. So the planned ν = 4 fit is not written, because its
+    condition (empirical tails 1.4× the prior's) failed.
+  - The lever stays a wider scale for as-of first listings. That is the `first_listing` factor
+    of the log-linear noise (#590), already in code.
+
 ## Open-data survey: stabilization, permits, owners, dated MapPLUTO (2026-10-07)
 
 Four free sources, sized against the 105,244 rows of `chelsea-wv-gv-analysis-20261005-2d5b3b6`
