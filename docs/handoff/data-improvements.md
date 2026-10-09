@@ -8,10 +8,12 @@ Research-review items, relayed by the coordinator at 20:26 ET. Frame and data on
 Ben's run pause holds. Modeling has been told about each new set.
 
 - **1. Concessions by building size:** checked; answered in the thread.
-- **2. Lister type, #600 (08d4767).** Set `nb6-nostuy-lister-v1`.
+- **2. Lister type, #600 (08d4767).** Set `nb6-nostuy-lister-v1`
+  (snapshot lister/20261009-24e19c9).
 - **3. `first_listing_of_unit`:** already as-of; nothing to change.
 - **4. Sqft completeness, #602 (c1d47e2).** `sizefill.py` and set `nb6-nostuy-sizefill-v1`:
-  as-of A→B→C fill with a source flag.
+  a size from the row itself, else from the unit's, then its line's, then
+  its building's earlier rows, with a source flag.
 - **5. 2020 NTAs, #603 (25f343d).** `nta.py` and set `nb6-nostuy-nta-v1`
   (snapshot nta/20261009-a944359).
 - **6. Dated parks, #604 (11e9abe).** `riverparks.py` and set `nb6-nostuy-riverparks-v1` on
