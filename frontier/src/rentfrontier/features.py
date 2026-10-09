@@ -1685,6 +1685,9 @@ RENTSTAB_FILE = f"{RENTSTAB_SNAPSHOT}/rentstab.parquet"
 # blocklots): which lots a footprint spans (`lot_open_share_v2`).
 BLOCKLOTS_SNAPSHOT = "/data1/apartments/external/blocklots/20261008-d93eec2"
 BLOCKLOTS_FILE = f"{BLOCKLOTS_SNAPSHOT}/blocklots.parquet"
+# 2020 Neighborhood Tabulation Areas by building (`python -m rentfrontier.nta`).
+NTA_FILE = "/data1/apartments/external/nta/20261009-a944359/nta.parquet"
+NTA_FOLDED = "Stuyvesant Town-Peter Cooper Village"
 # Years a lot's last stabilized-units bill counts for (the 2019 bill reaches 2022).
 STAB_CARRY_YEARS = 3
 
@@ -3335,6 +3338,36 @@ def sizefill_v1(
     )
 
 
+def nta_v1(
+    frame: pd.DataFrame,
+    train: np.ndarray,
+    id: str,
+    base: str,
+) -> Features:
+    """A base set plus the building's 2020 Neighborhood Tabulation Area
+    (`rentfrontier.nta`, `NTA_FILE`), against Chelsea-Hudson Yards. The areas
+    cut across StreetEasy's: Chelsea's east side is in Midtown South-Flatiron-
+    Union Square, part of Flatiron in Gramercy, part of Greenwich Village in
+    West Village. A building in no area is "unknown". Stuyvesant Town-Peter
+    Cooper Village takes the reference level: its own level would be the
+    Stuyvesant Town/PCV indicator the nostuy base leaves out for explanatory
+    terms. Reads no rents."""
+    base = FEATURE_SETS[base](frame, train)
+    areas = pd.read_parquet(NTA_FILE).set_index("building").ntaname
+    name = frame.building.map(areas).fillna("unknown")
+    name = name.replace(NTA_FOLDED, "Chelsea-Hudson Yards")
+    b = _Builder(frame)
+    b.categorical("nta", name, reference="Chelsea-Hudson Yards")
+    out = b.build(id)
+    return Features(
+        id,
+        base.names + out.names,
+        base.groups + out.groups,
+        np.column_stack([base.values, out.values]),
+        np.concatenate([base.prior_scale, out.prior_scale]),
+    )
+
+
 def owner_v1(
     frame: pd.DataFrame,
     train: np.ndarray,
@@ -3500,6 +3533,8 @@ RENTSTAB = {
     "nb6-nostuy-stabopen-v2",
     "nb6-nostuy-explain-v1",
 }
+# Feature sets that read the NTA snapshot (`NTA_FILE`).
+NTA = {"nb6-nostuy-nta-v1"}
 # Feature sets that read the block lots snapshot (`BLOCKLOTS_FILE`).
 BLOCKLOTS = {
     "nb6-nostuy-open-v2",
@@ -4141,6 +4176,7 @@ NB6_SETS = {
     "nb6-nostuy-owner-v1": "nb5-plutoasof-v3",
     "nb6-nostuy-explain-v1": "nb5-plutoasof-v3",
     "nb6-nostuy-sizefill-v1": "nb5-plutoasof-v3",
+    "nb6-nostuy-nta-v1": "nb5-plutoasof-v3",
     "nb6-nostuy-lister-v1": "nb5-plutoasof-v3",
 }
 # nb5-plutoasof-v3 plus Stuyvesant Town/PCV (`hoods_v1`): the six
@@ -4205,6 +4241,10 @@ FEATURE_SETS["nb6-nostuy-explain-v1"] = partial(
 # all of the unit's listings, which reads later listings (2026-10-09).
 FEATURE_SETS["nb6-nostuy-sizefill-v1"] = partial(
     sizefill_v1, id="nb6-nostuy-sizefill-v1", base="nb6-nostuy-v1"
+)
+# The 2020 NTAs (`nta_v1`): City Planning's areas, which cut across StreetEasy's.
+FEATURE_SETS["nb6-nostuy-nta-v1"] = partial(
+    nta_v1, id="nb6-nostuy-nta-v1", base="nb6-nostuy-v1"
 )
 # Who listed the advertisement (`lister_v1`), on the six neighbourhoods' base
 # without the Stuyvesant Town/PCV indicator.
