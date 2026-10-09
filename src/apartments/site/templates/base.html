@@ -4,8 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex, nofollow">
-{% set scope = meta.scope if meta else "NYC" %}
-<title>{% block title %}{% endblock %} · {{ scope }} rents</title>
+<title>{% block title %}{% endblock %} · NYC Rents</title>
 <link rel="icon" href="data:,">
 <link rel="stylesheet" href="{{ static_url('site.css') }}">
 {% block scripts %}{% endblock %}
@@ -15,7 +14,7 @@
 <a class="skip" href="#main">Skip to content</a>
 <header class="top">
   <div class="wrap top-inner">
-    <a class="brand" href="{{ url_for('index') }}">{{ scope }} rents</a>
+    <a class="brand" href="{{ url_for('index') }}">NYC Rents</a>
     <nav aria-label="Sections" class="sections">
       <a href="{{ url_for('estimates') }}"{% if section == "estimates" %} aria-current="true"{% endif %}>Estimates</a>
       <a href="{{ url_for('research_frontier') }}"{% if section == "research" %} aria-current="true"{% endif %}>Research</a>
