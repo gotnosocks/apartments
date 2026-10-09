@@ -2,8 +2,8 @@
 
 NYC Parks properties (`parks`) leave out Hudson River Park, a state park, so no
 feature has carried the river parks that opened during the listings. This
-module adds them as places a listing walks to, each counted from the day it
-opened (`PLACES`):
+module adds them as places a listing walks to, each counted from the month after
+it opened (`PLACES`):
 
 - the park's esplanade and greenway (NYC Open Data jr73-mxkz, "Publicly Owned
   Waterfront", agency HRPT). Its sections beside the six neighbourhoods were
@@ -101,9 +101,8 @@ def building_minutes(registry_file: str, parks_file: str, river_file: str):
     the facing grid; and the places table."""
     table = places(pd.read_parquet(parks_file), pd.read_parquet(river_file))
     grid = features.facing_grid()
-    registry = pd.read_parquet(registry_file).drop_duplicates("building")
-    registry = registry.set_index("building")
-    registry = registry[registry.latitude.notna()]
+    registry = pd.read_parquet(registry_file).dropna(subset=["latitude", "longitude"])
+    registry = registry.drop_duplicates("building").set_index("building")
     homes = grid(registry.longitude.to_numpy(), registry.latitude.to_numpy())
     walk = np.empty((len(homes), len(table)))
     for k, points in enumerate(table.points):
