@@ -1,18 +1,23 @@
 # Data collection — handoff
 
-Updated 2026-10-08 20:15 ET. Thread owner: the Data collection project thread (bridge session on thelio).
+Updated 2026-10-09 09:20 ET. Thread owner: the Data collection project thread (bridge session on thelio).
 
 ## State
 - **Stuyvesant Town/PCV: crawl FINISHED** Oct 8 15:21 ET (6,139 requests, ~$7, no 429s),
   **dataset BUILT** 15:41 ET: see `docs/data/stuyvesant-town-pcv-collection.md`. Snapshot written
   compacted (5.9 → 3.3 GB, rows and audit verified). `apartments-stuytown-monitor.timer` disabled.
   Handed to Data improvements and Modeling via the coordinator.
-- **NoMad, East Village crawls: RUNNING** again since Oct 8 20:00 ET (Ben, typed Oct 9 00:00 UTC:
-  "Resume the crawls"): EV `run-24pm-6w.py`, NoMad `run-8pm-2w.py`, 32/min combined, no 429s
-  after the restart. They were paused 18:40–20:00 ET after every Oxylabs request failed with
-  HTTP 429 from ~18:14 ET (NoMad 7.6k, EV 11.7k requests by then). The balancer ignores monitor
-  step-down notes above a README's last `**RESUMED**` line. A restart rebuilds scope from the
-  crawl's snapshots first (EV ~8 min) before fetching.
+- **NoMad: crawl FINISHED** Oct 9 08:39 ET (13,504 requests, ~$15), **dataset BUILT** 08:59 ET:
+  see `docs/data/nomad-collection.md`. Snapshot written compacted (20.4 → 11.5 GB, rows and audit
+  verified). `apartments-nomad-monitor.timer` disabled. Handed to Data improvements and Modeling
+  via the coordinator.
+- **East Village crawl: RUNNING**, on `run-32pm-8w.py` (32/min) since the balancer moved it at
+  08:50 ET when NoMad finished. The relaunch rebuilds scope from its ~30k snapshots before
+  fetching (~45 min). It was paused 18:40–20:00 ET Oct 8 after every Oxylabs request failed with
+  HTTP 429 from ~18:14 ET, then resumed (Ben, typed Oct 9 00:00 UTC: "Resume the crawls"). Its
+  in-scope queue hovers between ~30 and ~550 pages as building pages add unit pages, so there is
+  no firm finish time. When it finishes: disable `apartments-ev-monitor.timer` and
+  `apartments-rate-balance.timer`, then build as for NoMad (`/data1/apartments/tmp/nomad-build-20261009`).
 - **NoMad, East Village crawl setup**: launched Oct 8 02:23 ET (Ben, typed
   06:19 UTC). One StreetEasy area each (`nomad`, `east-village`, `stuyvesant-town`; #482), FGP
   policy, launched at `run-8pm-2w.py` each (24/min combined), fallback 8pm → 4pm → STOP; monitors
