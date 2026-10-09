@@ -3,6 +3,15 @@
 What the next turn of the modeling thread needs. Updated at each milestone. Scripts and logs are
 in `/data1/apartments/tmp/bridge` (thelio).
 
+## Update (2026-10-09 01:00 UTC)
+
+- **Runs are still paused.** The new-unit coverage checks are recorded in the backlog (#591 and
+  this PR; scripts `review/r12/c26.py`, `c27.py`). Once-listed units, 47% of units, are about
+  1.35× wider in every stratum checked; it is not labels, building stock or seller.
+- **Merged:** log-linear noise code (#590, config `…-bedtime-lognoise`), keyed on as-of first
+  listing. No fit yet; on resume, judge it on new-unit coverage too, and watch the multiplier
+  acceptance rate.
+
 ## Update (2026-10-09 00:30 UTC)
 
 - **Runs are still paused.** Label vs NTA, noise cells and line coverage are recorded in
