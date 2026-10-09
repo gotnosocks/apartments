@@ -1471,6 +1471,26 @@ predictions are the coordinator's.
   - A cheaper design could let the slope's scale depend on the building's size-known share.
     That is a proposal only.
 
+### Dated certificates of occupancy: checked, not built (2026-10-09, no fits)
+
+This checks whether DOB new-building certificates of occupancy (NYC Open Data bs8b-p36w and
+DOB NOW pkdm-hqz6, Manhattan, first certificate per BIN) date a building's lease-up better than
+MapPLUTO `yearbuilt`. Script: `/data1/apartments/tmp/suspect/co/probe.py`.
+
+- **Coverage.** 114 of the 3,678 NB6 buildings have one, with 8% of rows. Chelsea has 8,329 of
+  those rows. The records start in July 2012, so a building finished before then shows a later
+  certificate. Ohm, AVA High Line and Chelsea Stratus have rows up to 58 months before their
+  "first" certificate.
+- **Against `yearbuilt`.** The first certificate's year is a median 3 years after `yearbuilt`.
+  So 2,058 rows fall in a building's first 24 months by certificate, but only 254 by
+  `yearbuilt`.
+- **Rent.** The check uses the 67 buildings built from 2012, residuals within neighbourhood ×
+  bedrooms × year, demeaned within building × bedrooms. Rows in the first year after the
+  certificate are 2.2% above their building's mean. Later rows are 0.3% to 0.9% below.
+- **Verdict.** A lease-up flag would move about 500 rows by about 3%, which is a new-building
+  premium that fades over time. That is too small a gain for a new source. Revisit if a model
+  term for building age by month is wanted.
+
 ## Open-data survey: stabilization, permits, owners, dated MapPLUTO (2026-10-07)
 
 Four free sources, sized against the 105,244 rows of `chelsea-wv-gv-analysis-20261005-2d5b3b6`
