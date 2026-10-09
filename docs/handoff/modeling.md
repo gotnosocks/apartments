@@ -6,7 +6,7 @@ in `/data1/apartments/tmp/bridge` (thelio).
 ## Update (2026-10-09 02:00 UTC)
 
 - **Runs are still paused.** Lister type, building history and skew are recorded (`c30.py`). The
-  once-listed excess is symmetric heavy tails, and it stays at about 1.3× within lister type.
+  once-listed excess is heavy tails on both sides, and it stays at 1.27–1.46× within lister type.
   Lister type (brokerage, management, other) is a candidate noise factor beside #590's
   `first_listing`.
 

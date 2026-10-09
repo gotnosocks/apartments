@@ -1240,7 +1240,7 @@ These are post-hoc checks on the served fit (`review/r12/c30.py`, output `c30.ou
 - The predictions are the coordinator's.
 
 - **1. Lister type: brokerages list more once-only units and are noisier, but the once-listed
-  excess stays at about 1.3× within each type.**
+  excess stays at 1.27–1.46× within each type.**
   - Listers are classified from `broker_group` names in `external/listing-extras`, brokerage
     patterns first. Management covers names such as Related, Equity, Rose, Rockrose, Stonehenge,
     "Properties" and "Management", plus owner listings.
@@ -1256,15 +1256,18 @@ These are post-hoc checks on the served fit (`review/r12/c30.py`, output `c30.ou
   - The prediction gets the direction right but overstates every size:
     - brokerage's once-listed share is 1.16× management's, not 2×;
     - singles' SD is 9.75 against 8.13, not 10.5 against 8;
-    - the excess within type is 1.27–1.32×, not 1.15×.
+    - the excess within type is 1.27× (management), 1.32× (brokerage) and 1.46× (other), not
+      1.15×.
 - **2. Building history as of the row: a weak order, shared with repeat units.** The two measures
   are the building's once-listed share and its rows per unit per year. Both are computed from
   rows listed before the row, in buildings with 5+ units listed before (78% of singles).
   - Singles' SD falls from 8.93 in the lowest once-listed-share quartile to 8.05 in the highest,
     1.11×. Repeat first rows fall alike, from 7.32 to 6.34.
-  - Within brokerage the fall is 9.45 to 7.87. Within management it is flat, 7.57 to 7.85.
+  - Within brokerage the fall is 9.45 to 7.87. Within management it is flat, 7.70 to 7.85.
   - Rows per unit per year gives no monotone order: 8.15, 9.22, 8.40 and 8.12.
-  - Neither measure adds much beyond lister type, and neither explains the once-listed excess.
+  - Brokerage's share of singles also falls across the quartiles, from 0.64 to 0.49, so part of
+    the fall is lister mix. It persists within brokerage but not within management. Neither
+    measure explains the once-listed excess, and incremental value was not tested.
 - **3. Skew: heavier tails on both sides, not a lower centre.**
 
   | Rows | n | Median (pp) | Below −20% | Above +20% |
@@ -1275,16 +1278,17 @@ These are post-hoc checks on the served fit (`review/r12/c30.py`, output `c30.ou
 
   - The prediction (median about −1.5 pp, a heavier left tail) fails. Singles sit at the same
     centre and have about 3× the left tail and 2× the right tail.
-- **4. Recent new-unit coverage needs a refit.** The held-out rows are a random draw, so a true
+- **4. Recent new-unit coverage needs a refit.** The held-out rows are a random draw across years (`docs/model/research-backlog.md`, new-unit
+  coverage section), so a true
   time split needs a fit.
   - The random split has only 44 held-out as-of first listings in the panel's last 12 months:
     0.705 at 80%, 0.909 at 95%, too few to read.
   - Across all years the figures are 3,959 rows, 0.759 and 0.931.
 - **Reading.**
   - Lister type is a real but modest noise factor: brokerage singles are 1.2× management
-    singles, and it is known at prediction.
-  - It explains little of the once-listed excess. That excess is mostly symmetric heavy tails, a
-    unit's ask far off in either direction.
+    singles. The broker field is on the ad, so it is known when an ad is scored.
+  - It explains little of the once-listed excess. That excess is mostly heavy tails on both sides,
+    a unit's ask far off in either direction.
   - This fits a wider first-listing scale (#590's `first_listing` factor) better than a mean
     shift. Lister type (brokerage, management, other) is a candidate fifth factor for the
     log-linear noise, as a proposal only.
