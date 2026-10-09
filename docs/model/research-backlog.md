@@ -1492,8 +1492,8 @@ Manhattan, taking the first certificate per BIN. They are joined through the NB6
 - **Rent, in logs.** The 67 buildings are chosen by `yearbuilt` ≥ 2012, so this step leans on
   `yearbuilt`. Residuals are taken within neighbourhood × bedrooms × year, then demeaned within
   building × bedrooms, counting the rows from before the certificate. Rows in the first 12 months
-  after the certificate (523) are 0.022 above their building's mean. Rows from 12 to 24 months
-  are 0.006 below, and later rows 0.003 to 0.009 below.
+  after the certificate (523) are 0.022 (about 2.2%) above their building's mean. Rows from 12 to 24 months
+  are 0.006 (0.6%) below, and later rows 0.003 to 0.009 below.
 - **Verdict, a judgment.** A lease-up flag would touch about 500 rows by about 3%. That looks
   like a new-building premium that fades. The estimate has no standard error and rests on only
   67 buildings, so this is a judgment: too little for a new source. Revisit if a model term for
