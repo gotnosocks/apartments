@@ -1293,6 +1293,82 @@ These are post-hoc checks on the served fit (`review/r12/c30.py`, output `c30.ou
     shift. Lister type (brokerage, management, other) is a candidate fifth factor for the
     log-linear noise, as a proposal only.
 
+### Fewer per-building parameters: noise split, slopes, walks, large-unit curve (2026-10-09, no fits)
+
+These are post-hoc checks on the served fit (`review/r12/c31.py`, output `c31.out`). The
+predictions are the coordinator's.
+
+- **1. The noise multiplier splits by once-listed status.** Each in-fit row's predictive is
+  approximated as a Student-t, using its 80% and 95% intervals (median row ν 4.1). One scale
+  multiplier is then fitted by maximum likelihood, with a hashed split into halves as a stability
+  check.
+
+  | Rows | n | Multiplier | Halves | 80% coverage |
+  |---|---|---|---|---|
+  | All | 121,971 | 1.051 | 1.051 / 1.051 | 0.787 |
+  | Repeat units | 94,630 | 1.016 | 1.018 / 1.015 | 0.798 |
+  | Single-listing units | 27,341 | 1.192 | 1.187 / 1.196 | 0.748 |
+
+  - This t approximation gives 1.051 globally, against 1.037 for the original ledger check's.
+  - The prediction holds: repeat rows need almost no widening and singles need about 1.19×.
+- **2. Per-building slopes: few buildings are distinguishable, and building type explains little.**
+  The served model has four per-building slopes, all deviations from a global slope:
+  - bedrooms, with scale 0.099;
+  - log size against the bedroom median (0.270);
+  - second bath (0.161);
+  - log floor (0.021).
+
+  "Distinguishable" means more than 2 posterior SD from the global slope. R² comes from regressing
+  the fitted deviations on class, pre-war, log floors and log units (PLUTO, 3,572 buildings).
+
+  | Slope | SD of fitted deviations | Distinguishable | Same, buildings 20+ rows | R² | R², row-weighted |
+  |---|---|---|---|---|---|
+  | Bedrooms | 0.072 | 0.202 | 0.426 | 0.017 | 0.039 |
+  | Log size | 0.146 | 0.090 | 0.200 | 0.058 | 0.191 |
+  | Second bath | 0.082 | 0.093 | 0.203 | 0.015 | 0.059 |
+  | Log floor | 0.008 | 0.019 | 0.052 | 0.022 | 0.288 |
+
+  - The prediction holds that under a quarter are distinguishable overall. Among buildings with
+    20+ rows, 43% have a distinguishable bedroom slope.
+  - The prediction fails for the floor slope. It is the least distinguishable (2%), and building
+    type explains 2% of it (29% row-weighted), not over half.
+  - The prediction holds that size and second bath have R² under 0.2.
+  - The deviations are shrunk posterior means, so R² is measured on shrunk values.
+  - **Slopes by building type** is a candidate replacement only for the floor slope. Drop its
+    per-building deviation and give the global floor slope a class and log-floors interaction.
+  - The bedroom slope varies between buildings in a way type does not capture, so it stays per
+    building. Size and second bath are in between: few buildings are distinguishable, and type
+    carries under a fifth.
+  - These are proposals only; runs stay paused.
+- **3. Walks are not linear in larger buildings.** A line in time is fitted through each building's
+  row-level walk values.
+
+  | Rows per building | Buildings | Pooled share on the line | Median per building | Median walk SD |
+  |---|---|---|---|---|
+  | 5–19 | 1,158 | 0.753 | 0.720 | 2.96 pp |
+  | 20–49 | 731 | 0.660 | 0.491 | 3.40 pp |
+  | 50–199 | 532 | 0.536 | 0.419 | 3.40 pp |
+  | 200+ | 84 | 0.394 | 0.289 | 3.73 pp |
+
+  - The prediction (over 80% for 50+ rows) fails. The more rows, and so the longer the span, the
+    less a line carries.
+  - A per-building trend could replace the walk only in small buildings, where the walk is mostly
+    prior anyway.
+- **4. Elevator and condo large units share a curve, carried by 3+ bedrooms.**
+  - The input is mean residuals by year (2013–2026; cells with 30+ rows) for 2BR and 3BR+ rows in
+    D (elevator) and R (condo) buildings.
+  - One shared curve carries 0.755 of their year variance (first principal component 0.768).
+    That is just under the predicted 80%.
+  - Loadings: D 2BR 0.25, D 3BR+ 1.33, R 2BR 0.32, R 3BR+ 2.10. The curve is a 3+ bedroom curve
+    and 2BR barely loads.
+  - Condo 3BR+ sits +1.5 to +6.6 pp in 2012–16 and −1.0 to −2.3 pp in 2024–26. Large condo units'
+    premium over the fitted model has fallen.
+  - Walk-ups are flat for 1BR and 3BR+ (year SD 0.7 pp). Studios and 2BR swing only in small
+    early cells: +4.6 to +5.8 in 2012–13 for studios, +4.9 in 2011 for 2BR.
+  - Candidate, as a proposal: a 3+ bedroom × (elevator or condo) time curve, about 30 knots, in
+    place of nothing. It would sit beside `bedroom_time`. Its size is a few pp on about 10% of
+    rows.
+
 ## Open-data survey: stabilization, permits, owners, dated MapPLUTO (2026-10-07)
 
 Four free sources, sized against the 105,244 rows of `chelsea-wv-gv-analysis-20261005-2d5b3b6`

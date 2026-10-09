@@ -3,6 +3,13 @@
 What the next turn of the modeling thread needs. Updated at each milestone. Scripts and logs are
 in `/data1/apartments/tmp/bridge` (thelio).
 
+## Update (2026-10-09 02:30 UTC)
+
+- **Runs are still paused.** The per-building parameter checks are recorded (`c31.py`). The noise
+  multiplier is 1.02 on repeat rows and 1.19 on singles. The floor slope's per-building
+  deviation is a drop candidate. Walks are not linear in large buildings. A 3+ bedroom ×
+  elevator/condo curve is a candidate term.
+
 ## Update (2026-10-09 02:00 UTC)
 
 - **Runs are still paused.** Lister type, building history and skew are recorded (`c30.py`). The
