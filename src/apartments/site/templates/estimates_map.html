@@ -1,9 +1,9 @@
 {% extends "base.html" %}
 {% block title %}Rent map{% endblock %}
 {% block content %}
-<div class="rent-map" id="rent-map" data-src="{{ url_for('estimates_map_data') }}" data-area="{{ meta.scope or '' }}">
+<div class="rent-map" id="rent-map" data-src="{{ url_for('estimates_map_data') }}" data-area="{{ all_areas or meta.scope or '' }}">
 <h1>Rent map</h1>
-<p class="lede">What a typical apartment rents for in each {{ meta.scope }} building, by year and number of bedrooms, from the served model.
+<p class="lede">What a typical apartment rents for in each {% if all_areas %}building across {{ all_areas }}{% else %}{{ meta.scope }} building{% endif %}, by year and number of bedrooms, from the served model.
 <span id="map-meta" class="muted"></span></p>
 {% if not has_map %}
 <p class="empty-note">There is no rent map for the served model yet. It is made after each switch of the served model.</p>

@@ -70,7 +70,9 @@ Neighbourhoods: every listing and building carries one (the summary's `neighbour
 else the dataset's, else the build's `--scope`, or "Chelsea" when no `--scope` is given). Without
 `--scope` the site's name for the area comes from the listings' neighbourhoods ("Chelsea and West
 Village"; `build.scope_of`), which pages use where they describe the data's coverage; the site's
-title, header and home heading read "NYC Rents" whatever the scope. The listings and buildings pages show a
+title, header and home heading read "NYC Rents" whatever the scope. Where every neighbourhood is meant (the
+estimates heading and reference note, the rent map's lede, titles and all-choice), a build with several
+names them by count ("all five neighbourhoods", "All neighbourhoods"), not as a list. The listings and buildings pages show a
 neighbourhood filter, and tables and building pages name the neighbourhood, only when a build covers
 more than one, so a Chelsea-only build looks as before. Older builds without the column are served
 without the filter.

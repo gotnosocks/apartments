@@ -93,6 +93,7 @@ from .research import (
     verdicts,
 )
 from .selection import SELECTION, selection_note
+from .story import NUMBER_WORDS
 
 log = logging.getLogger("apartments.site")
 NEW_YORK = ZoneInfo("America/New_York")
@@ -799,6 +800,14 @@ def create_app(
             nbs = {}
         return {
             "neighbourhoods": nbs,
+            # Several neighbourhoods are named by their count, not listed (Ben, 2026-10-09).
+            "all_areas": (
+                "both neighbourhoods"
+                if len(nbs) == 2
+                else f"all {NUMBER_WORDS[len(nbs) - 1] if len(nbs) <= len(NUMBER_WORDS) else len(nbs)} neighbourhoods"
+                if len(nbs) > 2
+                else None
+            ),
             "host_name": f"[{host}]" if ":" in host else host,
             "section": section_of(request.endpoint),
             "sort_url": sort_url,

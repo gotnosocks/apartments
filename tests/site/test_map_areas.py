@@ -80,3 +80,10 @@ def test_map_script_filters_by_kind_and_shows_their_middle():
     assert "(!state.kind || b.kind === state.kind)" in JS
     assert "if (!kindTile) tile(`Median building" in JS
     assert "put('kind', state.kind);" in JS
+
+
+def test_map_names_every_neighbourhood_by_count():
+    # the all-choice and the titles do not list every name (Ben, 2026-10-09)
+    assert "[['', 'All neighbourhoods']" in JS
+    assert "d.area = `all ${COUNT_WORDS[nAreas] || nAreas} neighbourhoods`" in JS
+    assert "All of ${d.area}" not in JS
