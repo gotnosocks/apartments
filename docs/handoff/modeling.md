@@ -3,6 +3,20 @@
 What the next turn of the modeling thread needs. Updated at each milestone. Scripts and logs are
 in `/data1/apartments/tmp/bridge` (thelio).
 
+## Update (2026-10-09 12:10 UTC)
+
+- **Runs still paused** (Ben, 2026-10-08 16:07Z); no fits queued.
+- **NoMad (Data):**
+  - `unit-labels-v14` (#611) is a rule change that appends NoMad unit spellings. nb6 rows are
+    unchanged. Data reported (by message to Modeling, 2026-10-09, before the merge) that
+    `autoselect.eligible()` is the same set on v13 and v14: the served fit, with `same_rows`
+    True.
+  - #615 adds `data.DATASET_NB7` (the six neighbourhoods plus NoMad, 148,673 rows) and the
+    `nb7-nostuy-v1` sets on rule base nb5-plutoasof-v3.
+  - It repoints NTA_FILE, BLOCKLOTS_SNAPSHOT and LISTER_FILE to supersets. That changes the
+    source hashes of the nb6 nta, lister, explain, stabopen-v2, owner and open-v2 sets, so queue
+    any nb6 fit from current master.
+
 ## Update (2026-10-09 03:30 UTC)
 
 - **Data's sets for resume, no rule changes, all on base nb6-nostuy-v1:**
