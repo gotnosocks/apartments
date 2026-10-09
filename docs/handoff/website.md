@@ -2,6 +2,14 @@
 
 What the next turn of the website thread needs. Updated at each milestone.
 
+## State (2026-10-09 00:45 UTC)
+
+- Story follow-ups from playtest story-1008b, all live:
+  - #583: the opening adds "but only N% for apartments it has never seen" while new-apartment 80% coverage is below 75%, and links to `#one-estimate`.
+  - #588: the effects caption explains the "(ad)" and "(tax records)" tags.
+  - #596: the accuracy chapter's "why is it still open" paragraph now summarises Modeling's no-fit checks (#591, #593, #595). It is not a bug; once-listed apartments vary more; it is not labels or the unit level.
+- **To do when a #590 first-listing noise fit is served:** rewrite the #596 paragraph. It currently says that version is "written but not yet fitted".
+
 ## State (2026-10-08 23:50 UTC)
 
 - Coordinator relay 21:20Z (border check) is done in #566. My bin numbers match Modeling's border read; my one-word reading in #564 was wrong. The chapter now gives three numbers per border, with no verdict: each side's move toward the line (median of buildings 300–600 m out against the last 75 m), and the gap between the two 75 m bins. Thin bins are flagged. The reach is 600 m. Reported to the coordinator.
