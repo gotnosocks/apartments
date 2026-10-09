@@ -4125,7 +4125,9 @@ FEATURE_SETS["nb6-nostuy-explain-v1"] = partial(
 # Hudson River Park and its new piers (`riverparks`), dated, beside the NYC
 # Parks properties: Little Island 2021, Pier 57's roof 2022, Gansevoort
 # Peninsula 2023. Built with `python -m rentfrontier.riverparks`.
-RIVERPARKS_FILE = "/data1/apartments/external/riverparks/PENDING/riverparks.parquet"
+RIVERPARKS_FILE = (
+    "/data1/apartments/external/riverparks/20261009-6f20a5f/riverparks.parquet"
+)
 RIVERPARKS = {"nb6-nostuy-riverparks-v1"}
 
 
