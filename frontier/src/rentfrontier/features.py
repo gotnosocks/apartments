@@ -26,6 +26,7 @@ import pandas as pd
 
 from . import data as data_module
 from . import descriptions as descriptions_module
+from . import lister as lister_module
 
 
 @dataclass
@@ -3356,6 +3357,46 @@ def owner_v1(
     )
 
 
+# Each listing's lister (`rentfrontier.lister`): name kind and how many of the
+# building's earlier listings the same lister listed.
+LISTER_FILE = "/data1/apartments/external/lister/20261009-24e19c9/lister.parquet"
+
+
+def lister_v1(
+    frame: pd.DataFrame,
+    train: np.ndarray,
+    id: str,
+    base: str,
+) -> Features:
+    """A base set plus who listed the advertisement, from its own record: the
+    lister's kind by name (management, owner or other, against brokerage) and
+    whether the lister is the building's own agent, having listed at least half
+    of at least five of the building's earlier captured listings (own or
+    fewer than five earlier, against outside). Reads no rents; a listing
+    missing from the snapshot is other and has fewer than five earlier."""
+    base = FEATURE_SETS[base](frame, train)
+    snap = pd.read_parquet(
+        LISTER_FILE, columns=["listing_id", "kind", "earlier", "earlier_same"]
+    ).set_index("listing_id")
+    ids = frame.source_listing_id.astype(str)
+    kinds = ids.map(snap.kind).fillna("other")
+    earlier = pd.to_numeric(ids.map(snap.earlier), errors="coerce").fillna(0)
+    same = pd.to_numeric(ids.map(snap.earlier_same), errors="coerce").fillna(0)
+    b = _Builder(frame)
+    b.categorical("lister", kinds, reference="brokerage")
+    b.categorical(
+        "building agent", lister_module.own_agent(earlier, same), reference="outside"
+    )
+    out = b.build(id)
+    return Features(
+        id,
+        base.names + out.names,
+        base.groups + out.groups,
+        np.column_stack([base.values, out.values]),
+        np.concatenate([base.prior_scale, out.prior_scale]),
+    )
+
+
 # Feature sets that read the external snapshots (run records list them).
 EXTERNAL = {
     "nb-pluto-base",
@@ -3466,6 +3507,8 @@ BLOCKLOTS = {
     "nb6-nostuy-owner-v1",
     "nb6-nostuy-explain-v1",
 }
+# Feature sets that read the lister snapshot (`LISTER_FILE`).
+LISTER = {"nb6-nostuy-lister-v1"}
 # Feature sets that read the advertisement descriptions (`descriptions.SOURCE`),
 # directly or through their base set.
 DESCRIPTIONS = {
@@ -4098,6 +4141,7 @@ NB6_SETS = {
     "nb6-nostuy-owner-v1": "nb5-plutoasof-v3",
     "nb6-nostuy-explain-v1": "nb5-plutoasof-v3",
     "nb6-nostuy-sizefill-v1": "nb5-plutoasof-v3",
+    "nb6-nostuy-lister-v1": "nb5-plutoasof-v3",
 }
 # nb5-plutoasof-v3 plus Stuyvesant Town/PCV (`hoods_v1`): the six
 # neighbourhoods' base. Not fitted until runs resume (Ben, 2026-10-08: pause).
@@ -4161,6 +4205,11 @@ FEATURE_SETS["nb6-nostuy-explain-v1"] = partial(
 # all of the unit's listings, which reads later listings (2026-10-09).
 FEATURE_SETS["nb6-nostuy-sizefill-v1"] = partial(
     sizefill_v1, id="nb6-nostuy-sizefill-v1", base="nb6-nostuy-v1"
+)
+# Who listed the advertisement (`lister_v1`), on the six neighbourhoods' base
+# without the Stuyvesant Town/PCV indicator.
+FEATURE_SETS["nb6-nostuy-lister-v1"] = partial(
+    lister_v1, id="nb6-nostuy-lister-v1", base="nb6-nostuy-v1"
 )
 for _new, _old in NB6_SETS.items():
     for _group in (
