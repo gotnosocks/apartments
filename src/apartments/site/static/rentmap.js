@@ -18,6 +18,7 @@ const RAMP = {
   dark: ['#86b6ef', '#3987e5', '#184f95', 'var(--map-neutral)', '#892b2a', '#d75853', '#ea9a93'],
 };
 const BED_COLORS = ['var(--s1)', 'var(--s2)', 'var(--s3)', 'var(--s4)'];
+const COUNT_WORDS = [null, 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine', 'ten'];
 const state = { data: null, area: null, kind: null, base: 0, bed: '1', year: 0, showBefore: false, playing: null, sort: { key: 'rent', dir: -1 } };
 
 function svg(tag, attrs = {}, parent) {
@@ -102,7 +103,7 @@ function buildControls() {
   if (areas.length > 1 && d.buildings.some((b) => b.neighbourhood)) {
     const box = $('area-select');
     box.hidden = false;
-    for (const [value, label] of [['', `All of ${d.area}`], ...areas.map((a) => [a, a])]) {
+    for (const [value, label] of [['', 'All neighbourhoods'], ...areas.map((a) => [a, a])]) {
       const lab = html('label', { class: 'chip' }, box);
       const inp = html('input', { type: 'radio', name: 'area', value, checked: value === '' }, lab);
       lab.appendChild(document.createTextNode(' ' + label));
@@ -534,6 +535,10 @@ async function main() {
   // area: the site's own name for its area stands in.
   d.median = d.median || d.chelsea_median;
   d.area = d.area || $('rent-map').dataset.area || 'Chelsea';
+  // Several neighbourhoods read as their count, not a list of every name (Ben, 2026-10-09).
+  const nAreas = Object.keys(d.median_by_area || {}).length;
+  if (nAreas === 2) d.area = 'both neighbourhoods';
+  else if (nAreas > 2) d.area = `all ${COUNT_WORDS[nAreas] || nAreas} neighbourhoods`;
   state.data = d;
   $('map-definition').textContent = d.definition;
   $('map-meta').textContent = `${d.model} · ${d.feature_set} · ${d.draws.toLocaleString('en-US')} draws · made ${d.created_at.slice(0, 10)}`;

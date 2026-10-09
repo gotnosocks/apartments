@@ -1057,6 +1057,14 @@ def test_neighbourhoods_filter_listings_and_buildings(
     assert "The Grove" in buildings and "134 West 23rd Street" not in buildings
     page = client.get("/buildings/134-west-23-street-new_york").get_data(as_text=True)
     assert '<p class="subline">West Village · ' in page
+    # several neighbourhoods are named by their count, not listed (Ben, 2026-10-09)
+    estimates = client.get("/estimates").get_data(as_text=True)
+    assert "<h1>All rental listings, with" in estimates
+    assert "in an average building across both neighbourhoods," in estimates
+    assert "Chelsea and West Village" not in estimates
+    rent_map = client.get("/estimates/map").get_data(as_text=True)
+    assert 'data-area="both neighbourhoods"' in rent_map
+    assert "in each building across both neighbourhoods," in rent_map
 
 
 def test_elegance_page_lists_every_judgement(client):
