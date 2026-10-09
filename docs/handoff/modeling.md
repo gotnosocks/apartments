@@ -7,7 +7,7 @@ in `/data1/apartments/tmp/bridge` (thelio).
 
 - **Runs are still paused.** The per-building parameter checks are recorded (`c31.py`). The noise
   multiplier is 1.02 on repeat rows and 1.19 on singles. The floor slope's per-building
-  deviation is a drop candidate. Walks are not linear in large buildings. A 3+ bedroom ×
+  deviation is a drop candidate (post hoc). Walks are not linear in large buildings. A 3+ bedroom ×
   elevator/condo curve is a candidate term.
 
 ## Update (2026-10-09 02:00 UTC)

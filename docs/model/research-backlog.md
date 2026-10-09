@@ -1309,10 +1309,12 @@ predictions are the coordinator's.
   | Repeat units | 94,630 | 1.016 | 1.018 / 1.015 | 0.798 |
   | Single-listing units | 27,341 | 1.192 | 1.187 / 1.196 | 0.748 |
 
-  - This t approximation gives 1.051 globally, against 1.037 for the original ledger check's.
+  - Globally this t approximation gives 1.051. The ledger's 1.037 (ranked item 1 above) came from
+    an earlier version of the same approximation, fitted on even audit ids.
   - The prediction holds: repeat rows need almost no widening and singles need about 1.19×.
 - **2. Per-building slopes: few buildings are distinguishable, and building type explains little.**
-  The served model has four per-building slopes, all deviations from a global slope:
+  The served model has four per-building slopes, all deviations from a global slope. Their prior
+  scales (posterior means of `bedroom_slope_scale` and `fslope_scales`) are:
   - bedrooms, with scale 0.099;
   - log size against the bedroom median (0.270);
   - second bath (0.161);
@@ -1334,13 +1336,14 @@ predictions are the coordinator's.
     type explains 2% of it (29% row-weighted), not over half.
   - The prediction holds that size and second bath have R² under 0.2.
   - The deviations are shrunk posterior means, so R² is measured on shrunk values.
-  - **Slopes by building type** is a candidate replacement only for the floor slope. Drop its
-    per-building deviation and give the global floor slope a class and log-floors interaction.
+  - **Slopes by building type** is a candidate replacement only for the floor slope. Its
+    per-building deviation could be dropped. A class and log-floors interaction on the global
+    floor slope is supported only by the row-weighted R² (0.29; unweighted 0.02).
   - The bedroom slope varies between buildings in a way type does not capture, so it stays per
     building. Size and second bath are in between: few buildings are distinguishable, and type
     carries under a fifth.
   - These are proposals only; runs stay paused.
-- **3. Walks are not linear in larger buildings.** A line in time is fitted through each building's
+- **3. Walks get less linear as buildings get more rows.** A line in time is fitted through each building's
   row-level walk values.
 
   | Rows per building | Buildings | Pooled share on the line | Median per building | Median walk SD |
@@ -1350,10 +1353,9 @@ predictions are the coordinator's.
   | 50–199 | 532 | 0.536 | 0.419 | 3.40 pp |
   | 200+ | 84 | 0.394 | 0.289 | 3.73 pp |
 
-  - The prediction (over 80% for 50+ rows) fails. The more rows, and so the longer the span, the
-    less a line carries.
-  - A per-building trend could replace the walk only in small buildings, where the walk is mostly
-    prior anyway.
+  - The prediction (over 80% for 50+ rows) fails: a line carries 0.54 at 50–199 rows and 0.39 at
+    200+.
+  - A per-building trend could stand in for the walk only in buildings with few rows.
 - **4. Elevator and condo large units share a curve, carried by 3+ bedrooms.**
   - The input is mean residuals by year (2013–2026; cells with 30+ rows) for 2BR and 3BR+ rows in
     D (elevator) and R (condo) buildings.
@@ -1364,10 +1366,11 @@ predictions are the coordinator's.
   - Condo 3BR+ sits +1.5 to +6.6 pp in 2012–16 and −1.0 to −2.3 pp in 2024–26. Large condo units'
     premium over the fitted model has fallen.
   - Walk-ups are flat for 1BR and 3BR+ (year SD 0.7 pp). Studios and 2BR swing only in small
-    early cells: +4.6 to +5.8 in 2012–13 for studios, +4.9 in 2011 for 2BR.
-  - Candidate, as a proposal: a 3+ bedroom × (elevator or condo) time curve, about 30 knots, in
-    place of nothing. It would sit beside `bedroom_time`. Its size is a few pp on about 10% of
-    rows.
+    early years: +4.6 to +5.8 in 2012–13 for studios, +4.9 in 2011 for 2BR.
+  - The share is on raw mean residuals, so the noisier 3BR+ cells dominate the shared curve. It
+    rests mostly on two series.
+  - Candidate, as a proposal: a new 3+ bedroom × (elevator or condo) time curve beside
+    `bedroom_time`. Its size is a few pp.
 
 ## Open-data survey: stabilization, permits, owners, dated MapPLUTO (2026-10-07)
 
