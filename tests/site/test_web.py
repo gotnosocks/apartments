@@ -40,7 +40,7 @@ def test_pages_render(client, path):
     response = client.get(path)
     assert response.status_code == 200
     assert response.mimetype == "text/html"
-    assert b"Chelsea rents" in response.data
+    assert b"NYC Rents" in response.data
 
 
 def listed(client, query=""):
@@ -186,7 +186,7 @@ def test_untrusted_host_is_refused(client):
 def test_gzip_when_accepted(client):
     response = client.get("/listings", headers={"Accept-Encoding": "gzip"})
     assert response.headers["Content-Encoding"] == "gzip"
-    assert b"Chelsea rents" in gzip.decompress(response.data)
+    assert b"NYC Rents" in gzip.decompress(response.data)
 
 
 def test_healthz(client):
@@ -1719,3 +1719,12 @@ def test_research_pages_open_on_the_served_fits_hardware():
     assert research.default_hardware(data, "m-served") == "modal A100"
     assert research.default_hardware(data, "m-gone") == research.TARGET_HARDWARE
     assert research.default_hardware(data, "") == research.TARGET_HARDWARE
+
+
+def test_site_is_titled_nyc_rents(client):
+    html = client.get("/").get_data(as_text=True)
+    assert "· NYC Rents</title>" in html
+    assert 'class="brand" href="/">NYC Rents</a>' in html
+    assert "<h1>NYC Rents: estimates and research</h1>" in html
+    story = client.get("/research/story").get_data(as_text=True)
+    assert "· NYC Rents</title>" in story
