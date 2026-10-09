@@ -672,6 +672,13 @@ Chelsea −0.90 ± 0.39 (658), GV −0.50 ± 0.76 (341).
     2011-06-08, the 10th Ave spur 2019-06-04) and Bella Abzug Park (2015-08-31). Hudson River Park
     is a state park and not in the parks source, so Little Island (2021), Pier 57's roof (2022) and
     the Gansevoort beach (2023) are in no feature; the waterfront feature is a static distance.
+  - **Since 2026-10-09** `nb6-nostuy-riverparks-v1` (`riverparks`, not fitted while runs are
+    paused) adds them, dated: the esplanade (NYC Open Data jr73-mxkz, open before 2010) joins the
+    parks of an acre or more, and "river pier park within 10 min" counts Little Island
+    (2021-05-21), Pier 57's roof (2022-04-18) and Gansevoort Peninsula (2023-10-02) from the month
+    after each opened. On the NB6 frame the pier term is 1 for 16% of 2024–26 rows (Chelsea 21%,
+    WV 32%, none elsewhere). With the esplanade, 6.5% of rows have a nearer park (median walk
+    −40% there); the log walk correlates 0.97 with the NYC-Parks-only one.
 - **2. Composition.**
   - WV drift by building class: elevator (D) +4.7 ± 1.1 (93), walkup 6+ units +2.9 ± 0.6 (352),
     mixed S +1.1 ± 1.3 (69), condo R −1.1 ± 1.6 (49). **Not concentrated in R-class**; the

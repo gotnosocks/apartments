@@ -4175,6 +4175,7 @@ NB6_SETS = {
     "nb6-nostuy-stabopen-v2": "nb5-plutoasof-v3",
     "nb6-nostuy-owner-v1": "nb5-plutoasof-v3",
     "nb6-nostuy-explain-v1": "nb5-plutoasof-v3",
+    "nb6-nostuy-riverparks-v1": "nb5-plutoasof-v3",
     "nb6-nostuy-sizefill-v1": "nb5-plutoasof-v3",
     "nb6-nostuy-nta-v1": "nb5-plutoasof-v3",
     "nb6-nostuy-lister-v1": "nb5-plutoasof-v3",
@@ -4237,6 +4238,61 @@ FEATURE_SETS["nb6-nostuy-owner-v1"] = partial(
 FEATURE_SETS["nb6-nostuy-explain-v1"] = partial(
     owner_v1, id="nb6-nostuy-explain-v1", base="nb6-nostuy-stabopen-v2"
 )
+
+
+# Hudson River Park and its new piers (`riverparks`), dated, beside the NYC
+# Parks properties: Little Island 2021, Pier 57's roof 2022, Gansevoort
+# Peninsula 2023. Built with `python -m rentfrontier.riverparks`.
+RIVERPARKS_FILE = (
+    "/data1/apartments/external/riverparks/20261009-6f20a5f/riverparks.parquet"
+)
+RIVERPARKS = {"nb6-nostuy-riverparks-v1"}
+
+
+def riverparks_v1(
+    frame: pd.DataFrame,
+    train: np.ndarray,
+    id: str = "nb6-nostuy-riverparks-v1",
+    base: str = "nb6-nostuy-v1",
+) -> Features:
+    """A base set plus `parks_v1`'s two terms with Hudson River Park among the
+    parks, and whether one of its new piers (Little Island, Pier 57's roof,
+    Gansevoort Peninsula) is within 10 minutes (`riverparks.terms`: places
+    open before the listing's month). Reads no rents."""
+    from . import parks, riverparks
+
+    base = FEATURE_SETS[base](frame, train)
+    terms = riverparks.terms(frame, parks_file(), RIVERPARKS_FILE)
+    walk = np.log(np.maximum(terms.park_min.to_numpy(), 1.0))
+    known = np.isfinite(walk)
+    centre = float(np.mean(walk[train & known]))
+    b = _Builder(frame)
+    b.add("parks", "log walk min to a park", np.where(known, walk - centre, 0.0))
+    b.add(
+        "parks",
+        f"High Line within {parks.HIGH_LINE_MIN:.0f} min",
+        np.nan_to_num(terms.high_line.to_numpy()),
+    )
+    b.add(
+        "parks",
+        f"river pier park within {riverparks.PIER_MIN:.0f} min",
+        np.nan_to_num(terms.pier.to_numpy()),
+    )
+    out = b.build(id)
+    return Features(
+        id,
+        base.names + out.names,
+        base.groups + out.groups,
+        np.column_stack([base.values, out.values]),
+        np.concatenate([base.prior_scale, out.prior_scale]),
+    )
+
+
+FEATURE_SETS["nb6-nostuy-riverparks-v1"] = partial(
+    riverparks_v1, id="nb6-nostuy-riverparks-v1", base="nb6-nostuy-v1"
+)
+PARKS.add("nb6-nostuy-riverparks-v1")
+PARKS_SNAPSHOTS["nb6-nostuy-riverparks-v1"] = NB6_PARKS_FILE
 # Size as of the row's day (`sizefill_v1`) in place of the unit median over
 # all of the unit's listings, which reads later listings (2026-10-09).
 FEATURE_SETS["nb6-nostuy-sizefill-v1"] = partial(
