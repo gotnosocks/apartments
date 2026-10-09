@@ -1379,7 +1379,8 @@ predictions are the coordinator's.
 
 - **1. Large buildings rose against the market in 2021, not dipped.** The table gives the
   row-level fitted building walk, in percentage points, as the mean over fit rows by half-year.
-  Bands are fit rows per building: 37,755 rows in buildings under 50, 46,858 in 50–199 and
+  Class D is PLUTO's elevator-apartment class; Rest is every other class. Bands are fit rows
+  per building: 37,755 rows in buildings under 50, 46,858 in 50–199 and
   37,358 in 200+.
 
   | Half-year | Under 50 | 50–199 | 200+ | Class D | Rest |
@@ -1400,7 +1401,7 @@ predictions are the coordinator's.
     rebound in 2022.
   - By 2026 the bands converge (2.5–3.7).
   - The market curve is fit on all rows, so a 2021 hump in large buildings means their asks
-    fell less than the market's in the pandemic. That is consistent with large managed buildings
+    rose relative to the market curve in the pandemic. That is consistent with large managed buildings
     holding gross asks and giving concessions (#551's concession-by-era sets), but this check does
     not test it.
   - PC1 of the 84 walks of buildings with 200+ rows (23 half-year knots, 2015–2026, each building
@@ -1409,7 +1410,7 @@ predictions are the coordinator's.
     2025, so it is a slow divergence between buildings that rose and fell relative to the market.
     The pandemic hump shows in the mean of these walks instead: −0.7 in 2020 H2, +3.3 in 2021
     H2, then back to −0.7 by 2026.
-- **2. The per-building bedroom slope partly stands in for missing size.** Size is known on 27% of
+- **2. The per-building bedroom slope is consistent with standing in, in part, for missing size.** Size is known on 27% of
   fit rows. The comparison is between buildings with size on over 80% of rows and those with size
   on under 20%, within row bands, since posterior SDs shrink with rows.
 
@@ -1422,11 +1423,12 @@ predictions are the coordinator's.
   | 200+ | > 80% | 14 | 0.047 | 0.013 | 0.571 |
   | 200+ | < 20% | 39 | 0.074 | 0.010 | 0.667 |
 
-  - With posterior SDs alike, the spread of fitted slopes is 0.63–0.78× as large where size is
-    known, so its variance is 0.40–0.60× as large.
+  - With posterior SDs alike, the spread of fitted slopes is 0.64–0.77× as large where size is
+    known, so its variance is 0.40–0.59× as large.
   - The prediction (dispersion halves) holds in variance, not in SD. Few buildings with 50+ rows
-    have size known.
-  - About half the slope's spread remains where size is known. So the slope is part stand-in for
+    have size known (31 and 14 buildings). The comparison is observational: buildings with size
+    known may differ in source, era or type.
+  - About half the slope's variance remains where size is known. So the slope is part stand-in for
     size and part a real building difference, for example a premium for large units in some
     buildings.
   - A cheaper design could let the slope's scale depend on the building's size-known share.
