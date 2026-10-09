@@ -256,9 +256,12 @@ apartment listed before, lean on the likely ask range shown with each listing mo
 {{ "{:.0f}".format(100 - accuracy.seen.likely) }} in 100, is not a sign the estimate is broken. For a new apartment the
 range runs too narrow: only {{ "{:.0f}".format(accuracy.new.likely) }}% of those asks fell inside their 80% range, and
 {{ "{:.0f}".format(accuracy.new.wide) }}% inside their 95% range, so read its range as narrower than the real
-uncertainty. Why is still open. Two checks are planned: a look at the new apartments’ largest
-misses for a wrong unit, a wrong bedroom count or a furnished or short-term ask, and a fit that gives apartments’
-own effects heavier tails.{% else %} Either way, lean on the
+uncertainty. Checks on the served fit have narrowed down why. The ranges are computed as the model intends, so
+this is not a bug. Apartments listed only once vary more around their estimates than apartments listed again,
+in every building type checked. It is not missing unit labels, and it is not an artefact of how a returning
+apartment’s own price is learned. The model gives both kinds of listing the same spread. A version that lets the
+spread depend on whether an apartment is listed for the first time is written but not yet fitted, so this stays
+open until it is (<a href="https://github.com/gotnosocks/apartments/blob/master/docs/model/research-backlog.md">the checks</a>).{% else %} Either way, lean on the
 likely ask range shown with each listing more than on the single number:
 {{ "{:.0f}".format(accuracy.likely) }}% of the held-out asks fell inside their range, so an ask outside it, about
 {{ "{:.0f}".format(100 - accuracy.likely) }} in 100, is not a sign the estimate is broken.{% endif %}</p>
