@@ -1,6 +1,44 @@
 # Data improvements — handoff
 
-Updated 2026-10-08 21:50 ET. Thread owner: the Data improvements project thread (bridge session on thelio).
+Updated 2026-10-09 13:45 ET. Thread owner: the Data improvements project thread (bridge session on thelio).
+
+## 2026-10-09 13:45 ET
+
+NoMad opt-in, as relayed by the coordinator at 09:13 ET. Builds only: no fits while Ben's run
+pause holds. Modeling was told before #611 merged (the only rule change) and after #615.
+
+- **Unit labels v14, #611 (59f03bf).** Adds the NoMad alias table and history pairs: 107 of the
+  113 groups, the history-confirmed ones. The served fit stays eligible: `autoselect.eligible`
+  returns the same set on master and the branch.
+- **NB7 sets, #615 (3baf5cb).** `data.DATASET_NB7` (`...-nomad-analysis-20261009-d3b4050`) has
+  148,673 rows: the NB6 rows (139,387) plus NoMad (9,286 rows, 171 buildings, 3,157 units).
+  - The sets are `nb7-nostuy-v1` plus the stab-v1, stabopen-v2, explain-v1, riverparks-v1,
+    sizefill-v1, nta-v1 and lister-v1 twins. All are on rule base nb5-plutoasof-v3, and all 8
+    build in 275 s with no NaN columns.
+  - Per-area snapshots are at 20261009-dcee63b.
+  - `NTA_FILE`, `BLOCKLOTS_SNAPSHOT` and `LISTER_FILE` now point to supersets that keep the NB6
+    rows byte-identical. Only the nb6 source hashes change.
+  - Smoke script: `/data1/apartments/tmp/suspect/nomad/smoke7b.py`.
+- **Quarantine screen v13, #618 (cefc1bf).**
+  - Screened areas: Chelsea, West Village, Stuyvesant Town and NoMad.
+  - When a far NTA part is also a word in a screened building's name ("madison-parq",
+    "kensington-house", West Village's Bedford St buildings), it matches only with its borough
+    or inside the far NTA's whole name and short forms (Bed-Stuy).
+  - Compared with v12 it drops 22 false positives and adds none.
+  - Use it for East Village. Add EV's centre to `CENTRES` and its description source to the
+    `SOURCES` tuple.
+  - Reviewer nit, not fixed: when two far NTAs share a dropped part, only the first gets its
+    whole-name spellings. Today only Bedford-Stuyvesant does.
+- **v12 staging.** 10 NoMad rows are in `/data1/apartments/tmp/suspect/nomad/screen/v12-nomad-staged.jsonl`:
+  3 location conflicts, 3 non-residential and 4 short-term. The reasons for the 40 kept are in
+  `NOTES.md`. Hold them with the Harlem row until East Village lands.
+- **Checked, no change:**
+  - Beds and baths: the disagreements are building boilerplate, so the coded fields stand.
+  - Boundary: Flatiron covers 14th–25th St and NoMad 25th–31st; they share only 25th St.
+- **Surprises:**
+  - The 69th Regiment Armory (unitsres 0) has 3 rows.
+  - 6 buildings have placeholder BINs.
+  - NoMad is 84% Midtown South-Flatiron NTA, with a low stabilized share.
 
 ## 2026-10-08 21:50 ET
 
@@ -577,10 +615,15 @@ Ben's run pause holds. Modeling has been told about each new set.
   resumes model runs; Modeling owns the queue.
 - Floor-plan OCR if Ben approves the image fetch.
 - Act on the stab, permit and plutoasof fits as they land (see 21:45 above), and on v10 and v5.
-- Next quarantine version, when the EV and NoMad crawls land: hold the Harlem row
-  (audit_id 50f8ccd4…), and fix the far-name check generically (bare "Stuyvesant" must not match
-  Bedford-Stuyvesant; the same for any name that is a substring of a local name). Tell Modeling
-  before merging.
+- Next quarantine rule, quarantine-v12, when the East Village crawl lands. The rule versions and
+  the screen scripts are numbered separately: the rule is v12, and the screen to use is
+  `quarantine_v13_screen.py`.
+  - Screen EV with `quarantine_v13_screen.py`. Its building-name fix is new in v13; the screen
+    script v12 has only the Stuyvesant fix.
+  - Merge the 10 staged NoMad rows and the Harlem row (audit_id 50f8ccd4…) with EV's.
+  - Tell Modeling before merging.
+  - #542 (quarantine-v11) stays held.
+- Then EV prep, as for NoMad: alias table, cohort, snapshots, NB8 sets.
 - Permit follow-ups: read every label in a list ("APTS 2A & 3A" reads 2A only), and drop
   generic hits such as "HVAC UNITS" (harmless now).
 - More open data: unused MapPLUTO fields and dated DOB certificates of occupancy (new-building
