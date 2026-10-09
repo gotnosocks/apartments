@@ -1003,6 +1003,109 @@ precision-weighted means over the buildings whose label and 2020 NTA agree.
     - NoMad-labelled buildings price as their NTA plus the surface, with a label residual under
       3 pp and no drift.
 
+### Why new-unit coverage is low (2026-10-08, no fits)
+
+These are post-hoc checks on the served fit (`review/r12/c26.py` and `c26b.py` on thelio). They ask why held-out
+single-listing rows cover 0.62 at 80% and 0.87 at 95% (above).
+
+Residual SD here is robust (1.4826 × MAD), in percent. Within repeat-listed units, "residual with
+no unit level" adds the row's unit term back to the leave-own-row-out residual, so first rows,
+later rows and singles are on the same footing.
+
+- **0. Not a code bug.** For a held-out row of a new unit, the summary
+  (`summary.new_unit_levels`) draws the unit level from the Student-t unit prior at the fitted
+  ν, 1.84 (scale 0.0346; posterior means from the served run's `posterior.npz`), once per posterior draw. It then takes quantiles of the Student-t
+  noise mixture at ν 2.74. It does not use a Gaussian.
+  - Analytically, t(1.84) × 0.0346 plus noise t(2.74) × σ gives an 80% band of 19–23% and a 95%
+    band of 40–47% for σ = 0.030 to 0.045.
+  - The held-out singles' median bands are 23.0% and 45.2%.
+  - The bands are as the model says; the model's spread for these units is too small.
+- **1. First asks are not much noisier: 1.05×, against the coordinator's predicted 1.2–1.3×.** There are
+  26,115 units with 2+ training rows and their first row in the fit.
+
+  | Group | First rows | Later rows | Ratio | Singles in fit |
+  |---|---|---|---|---|
+  | All | 6.91 | 6.59 | 1.05 ± 0.01 | 9.23 |
+  | Studio | 6.17 | 6.09 | 1.01 | 7.70 |
+  | 1BR | 6.66 | 6.43 | 1.04 | 9.04 |
+  | 2BR | 7.98 | 7.38 | 1.08 | 10.28 |
+  | 3+BR | 8.32 | 7.24 | 1.15 | 11.06 |
+  | Floor unknown | 7.62 | 7.22 | 1.06 | 9.79 |
+  | Floor known | 6.68 | 6.40 | 1.04 | 8.87 |
+  | Size unknown | 6.99 | 6.71 | 1.04 | 9.05 |
+  | Size known | 6.78 | 6.46 | 1.05 | 9.92 |
+
+  - On the leave-own-row-out residual itself the ratio is 1.09 (5.94 against 5.46).
+  - First rows sit +0.34 pp above the estimate and later rows −0.10 pp: little first-ask premium.
+  - The 27,341 in-fit singles (units with one row in all) have a residual SD of 9.2, far above
+    both first rows (6.9) and later rows (6.6). The excess belongs to **units that never
+    return**, not to first asks.
+  - Units that never return: 27,341 of 58,446 units (47%) have one row in the whole dataset.
+    That flag is censored, because recent units have had no time to return. But 79.5% of these
+    rows are from 2023 or earlier, and they have the highest SD, 9.45 (2024: 8.12; 2025–26: 8.74).
+    So the excess is not an artefact of censoring.
+- **2. Units that never return: listing phrases explain a little; building class a little
+  more.** These rows are the in-fit singles with a description, 10,381 of 27,341.
+
+  | Phrase | Share of singles | n | SD | Mean | Median |
+  |---|---|---|---|---|---|
+  | Any of the seven (rent-blind and building-type phrases) | 0.204 | — | 9.99 (others 8.26) | — | — |
+  | Furnished | 0.071 | 741 | 9.20 | +2.6 | +1.4 |
+  | Short term | 0.005 | 57 | 13.6 | −0.1 | −1.7 |
+  | Sublet | 0.008 | 80 | 12.5 | +1.8 | −1.3 |
+  | Utilities included | 0.018 | 182 | 7.2 | −0.1 | +0.7 |
+  | Owner | 0.021 | 213 | 10.7 | +1.7 | +0.4 |
+  | Condo | 0.104 | 1,082 | 11.2 | +1.8 | +1.3 |
+  | Co-op | 0.026 | 274 | 12.5 | +3.5 | +2.1 |
+
+  - The coordinator's prediction (about a quarter of singles flagged, about 1.4×) half holds: the share is 20%,
+    but the SD ratio is only 1.21. The same phrases flag 18.9% of repeat-unit rows, so they hardly
+    mark the units that never return.
+  - Over all fit rows with a description, furnished shifts the residual with no unit level by
+    +1.1 pp (mean; median +0.35), and utilities included by +0.2 pp (median +0.07). Both shifts
+    are small.
+  - Building class (latest MapPLUTO release per lot):
+    - C and D (walk-up and elevator rentals) are 73% of singles, with SD 8.7.
+    - R (condo) and other classes are 27%, with SD 11.1: 1.28×.
+    - R is 15% of singles and 18% of repeat-unit rows, so condos are not over-represented among
+      singles. R asks are noisier in both groups: singles 10.3 against 8.6–8.8 for C and D, and repeat-unit
+      rows 7.5 against 6.3–6.7.
+  - Class and phrases each explain part of the singles' spread. Their joint effect was not
+    checked.
+- **3. Key the noise factor on as-of first listing.** Check 1 fails, so a first-listing multiplier
+  will be small, about 1.05× by this check. The noise code keys on it anyway (#590):
+  - "Listed once in the dataset" uses rows from the future, and every new unit's ask is a first
+    listing.
+  - A multiplier fitted on units that never return would be applied to every new unit, though
+    about half of them (53% of units) do return.
+
+  Held-out coverage of as-of first listings (3,959 rows, all in known buildings):
+
+  | Held-out rows | n | 80% | 95% | Residual SD | Median abs error |
+  |---|---|---|---|---|---|
+  | Not a first listing | 9,610 | 0.806 | 0.957 | 5.3 | 3.6% |
+  | First listing, unit relisted later | 3,487 | 0.778 | 0.939 | — | — |
+  | First listing, never relisted | 472 | 0.619 | 0.869 | — | — |
+  | First listing, all | 3,959 | 0.759 | 0.931 | 6.2 | 4.2% |
+
+  - The held-out rows are a random draw across years, not a later period. So 3,465 of these
+    first listings have later rows of the same unit in the fit. Their estimates use the unit's
+    later asks, which a real new unit doesn't have.
+  - Only 494 are true new units (no training rows of the unit), and 472 of those are units that
+    never return.
+  - An honest as-of new-unit coverage needs a time-split refit. On the served fit, the closest
+    figure is the 472 rows: 0.62 and 0.87.
+- **Reading.**
+  - The miss is in the spread of units that never return: 47% of units, residual SD 9.2 against
+    6.6–6.9 for returners.
+  - It is not in first asks or in a code shortcut.
+  - The noise fit (#590) keys on as-of first listing, which by check 1 will move little. The larger
+    lever is to model the unit-level spread of units that never return:
+    - a heavier or wider unit prior for condo and co-op lots, with building class R or S as a unit
+      scale group;
+    - a time-split evaluation that scores new units honestly.
+  - Both are proposals only, with no fit queued while runs are paused.
+
 ## Open-data survey: stabilization, permits, owners, dated MapPLUTO (2026-10-07)
 
 Four free sources, sized against the 105,244 rows of `chelsea-wv-gv-analysis-20261005-2d5b3b6`
