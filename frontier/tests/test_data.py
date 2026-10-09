@@ -943,3 +943,46 @@ def test_unit_labels_v13_is_v11_on_the_tables_with_stuyvesant_towns_appended():
     )
     assert v11.unit_id.iat[4] != v11.unit_id.iat[5]
     assert v13.unit_id.iat[4] == v13.unit_id.iat[5] == min(group[:2])
+
+
+def test_unit_labels_v14_is_v13_on_the_tables_with_nomads_appended():
+    """v14 reads the alias table and history pairs v13 reads, line for line,
+    with NoMad's added; on other neighbourhoods' units it joins what v13
+    joins, and it joins a NoMad alias group."""
+    for old, new in (
+        (data.UNIT_ALIASES_STUY, data.UNIT_ALIASES_NOMAD),
+        (data.UNIT_HISTORY_PAIRS_STUY, data.UNIT_HISTORY_PAIRS_NOMAD),
+    ):
+        before, after = old.read_text(), new.read_text()
+        assert after.startswith(before) and len(after) > len(before)
+    stuy, nomad = (
+        set(data.unit_aliases(data.UNIT_ALIASES_STUY)),
+        set(data.unit_aliases(data.UNIT_ALIASES_NOMAD)),
+    )
+    assert stuy < nomad and len(nomad - stuy) == 107
+    assert data.RULE_SOURCES["unit-labels-v14"] == data.UNIT_ALIASES_NOMAD
+    assert "unit-labels-v14" not in data.DROPPING_RULES
+    url = "https://streeteasy.com/building/{}/{}".format
+    group = next(iter(nomad - stuy))
+    frame = pd.DataFrame(
+        {
+            "building": ["b1"] * 4 + ["b2"] * 2,
+            "canonical_unit_url": [
+                url("b1", "fourb"),
+                url("b1", "4b"),
+                url("b1", "c7"),
+                url("b1", "7c"),
+                url("b2", "2a"),
+                url("b2", "2b"),
+            ],
+            "unit_id": ["u4", "u3", "u5", "u6", group[0], group[1]],
+            "bedrooms": [1.0, 1.0, 2.0, 2.0, 1.0, 1.0],
+        }
+    )
+    v13 = data.DATA_RULES["unit-labels-v13"](frame)
+    v14 = data.DATA_RULES["unit-labels-v14"](frame)
+    assert (
+        v14.unit_id.tolist()[:4] == v13.unit_id.tolist()[:4] == ["u3", "u3", "u5", "u5"]
+    )
+    assert v13.unit_id.iat[4] != v13.unit_id.iat[5]
+    assert v14.unit_id.iat[4] == v14.unit_id.iat[5] == min(group[:2])

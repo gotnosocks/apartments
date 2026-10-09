@@ -180,6 +180,10 @@ UNIT_ALIASES_FGP = UNIT_ALIASES.with_name("wv-gv-fgp-20261007.jsonl")
 # stuyvesant-town-pcv-granular-20261008-canonical-url-v1, 265
 # history-confirmed groups); provenance beside it.
 UNIT_ALIASES_STUY = UNIT_ALIASES.with_name("wv-gv-fgp-stuy-20261008.jsonl")
+# That table with NoMad's appended (unit-spelling-alias-v2 on
+# nomad-granular-20261009-canonical-url-v1, 107 history-confirmed groups);
+# provenance beside it.
+UNIT_ALIASES_NOMAD = UNIT_ALIASES.with_name("wv-gv-fgp-stuy-nomad-20261009.jsonl")
 
 
 @functools.lru_cache(maxsize=3)
@@ -280,6 +284,8 @@ UNIT_HISTORY_PAIRS = UNIT_ALIASES.with_name("history-20261006.jsonl")
 UNIT_HISTORY_PAIRS_FGP = UNIT_ALIASES.with_name("history-20261007.jsonl")
 # The same pairs with Stuyvesant Town/PCV's (276) appended.
 UNIT_HISTORY_PAIRS_STUY = UNIT_ALIASES.with_name("history-20261008.jsonl")
+# The same pairs with NoMad's appended.
+UNIT_HISTORY_PAIRS_NOMAD = UNIT_ALIASES.with_name("history-20261009.jsonl")
 
 
 @functools.lru_cache(maxsize=2)
@@ -860,6 +866,19 @@ DATA_RULES = {
             ),
         ),
     ),
+    # unit-labels-v13 on the tables with NoMad's appended too
+    # (UNIT_ALIASES_NOMAD, UNIT_HISTORY_PAIRS_NOMAD).
+    "unit-labels-v14": functools.partial(
+        merge_word_letter_labels,
+        base=functools.partial(
+            merge_swapped_labels,
+            base=functools.partial(
+                merge_history_pairs,
+                pairs=UNIT_HISTORY_PAIRS_NOMAD,
+                aliases=UNIT_ALIASES_NOMAD,
+            ),
+        ),
+    ),
     "unit-splits-v1": split_unit_histories,
     # unit-splits-v1 at any change of bedroom count: 3,871 more listing pairs,
     # 20.7% of them moving rent by over 40% against 6.8% with no change.
@@ -909,6 +928,7 @@ RULE_SOURCES = {
     "unit-labels-v9": UNIT_HISTORY_PAIRS,
     "unit-labels-v11": UNIT_ALIASES_FGP,
     "unit-labels-v13": UNIT_ALIASES_STUY,
+    "unit-labels-v14": UNIT_ALIASES_NOMAD,
     "bedrooms-ad-v1": BEDROOM_CORRECTIONS,
     "baths-ad-v1": BATH_CORRECTIONS,
     "bedrooms-ad-v2": BEDROOM_CORRECTIONS_V2,

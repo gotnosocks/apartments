@@ -1,0 +1,26 @@
+{
+  "parts": [
+    {
+      "file": "wv-gv-fgp-stuy-20261008.jsonl",
+      "provenance": "wv-gv-fgp-stuy-20261008.provenance.json"
+    },
+    {
+      "source": "/data1/apartments/archive/datasets/nomad-granular-20261009-unit-spelling-aliases-v2",
+      "rule": "unit-spelling-alias-v2",
+      "source_dataset": "/data1/apartments/archive/datasets/nomad-granular-20261009-canonical-url-v1",
+      "evidence_snapshot": "/data1/apartments/archive/snapshots/nomad-20261008-final/archive.sqlite3",
+      "implementation_sha256": "bd3abb079a9fcd00148ae093dfcd46f55bc09514e74722336a4b31b54556fd44",
+      "output_sha256": {
+        "unit_spelling_aliases": "a384c2a3ccd46919c2eebc65eac0d2cb8bd0b4198fc9c756ead0b7d709697552"
+      },
+      "counts": {
+        "groups": 113,
+        "history_confirmed_groups": 107,
+        "listings_in_groups": 509,
+        "units_in_groups": 233
+      },
+      "made_by": "apartments.unit_spelling_aliases (unit-spelling-alias-v2, PR #213)"
+    }
+  ],
+  "sha256": "2eaffc2f567286663b84365793f4121506a93a24fc273205190bda67230b550f"
+}
