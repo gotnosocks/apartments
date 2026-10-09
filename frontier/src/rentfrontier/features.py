@@ -1686,6 +1686,7 @@ BLOCKLOTS_SNAPSHOT = "/data1/apartments/external/blocklots/20261008-d93eec2"
 BLOCKLOTS_FILE = f"{BLOCKLOTS_SNAPSHOT}/blocklots.parquet"
 # 2020 Neighborhood Tabulation Areas by building (`python -m rentfrontier.nta`).
 NTA_FILE = "/data1/apartments/external/nta/20261009-a944359/nta.parquet"
+NTA_FOLDED = "Stuyvesant Town-Peter Cooper Village"
 # Years a lot's last stabilized-units bill counts for (the 2019 bill reaches 2022).
 STAB_CARRY_YEARS = 3
 
@@ -3309,10 +3310,14 @@ def nta_v1(
     (`rentfrontier.nta`, `NTA_FILE`), against Chelsea-Hudson Yards. The areas
     cut across StreetEasy's: Chelsea's east side is in Midtown South-Flatiron-
     Union Square, part of Flatiron in Gramercy, part of Greenwich Village in
-    West Village. A building in no area is "unknown". Reads no rents."""
+    West Village. A building in no area is "unknown". Stuyvesant Town-Peter
+    Cooper Village takes the reference level: its own level would be the
+    Stuyvesant Town/PCV indicator the nostuy base leaves out for explanatory
+    terms. Reads no rents."""
     base = FEATURE_SETS[base](frame, train)
     areas = pd.read_parquet(NTA_FILE).set_index("building").ntaname
     name = frame.building.map(areas).fillna("unknown")
+    name = name.replace(NTA_FOLDED, "Chelsea-Hudson Yards")
     b = _Builder(frame)
     b.categorical("nta", name, reference="Chelsea-Hudson Yards")
     out = b.build(id)

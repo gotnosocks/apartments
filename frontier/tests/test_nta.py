@@ -52,17 +52,22 @@ def test_nta_v1_adds_areas_against_chelsea(monkeypatch, tmp_path):
     path = tmp_path / "nta.parquet"
     pd.DataFrame(
         {
-            "building": ["a", "b"],
-            "ntaname": ["Chelsea-Hudson Yards", "Gramercy"],
+            "building": ["a", "b", "s"],
+            "ntaname": [
+                "Chelsea-Hudson Yards",
+                "Gramercy",
+                "Stuyvesant Town-Peter Cooper Village",
+            ],
         }
     ).to_parquet(path)
     monkeypatch.setattr(features, "NTA_FILE", str(path))
-    frame = pd.DataFrame({"building": ["a", "b", "c"]})
-    base = features.Features("b", [], [], np.zeros((3, 0)), np.zeros(0))
+    frame = pd.DataFrame({"building": ["a", "b", "c", "s"]})
+    base = features.Features("b", [], [], np.zeros((4, 0)), np.zeros(0))
     monkeypatch.setitem(features.FEATURE_SETS, "toy", lambda f, t: base)
-    got = features.nta_v1(frame, np.ones(3, bool), id="t", base="toy")
+    got = features.nta_v1(frame, np.ones(4, bool), id="t", base="toy")
     cols = dict(zip(got.names, got.values.T.tolist()))
-    assert cols == {"nta=Gramercy": [0, 1, 0], "nta=unknown": [0, 0, 1]}
+    # Stuyvesant Town-PCV takes the reference: no Stuy Town premium.
+    assert cols == {"nta=Gramercy": [0, 1, 0, 0], "nta=unknown": [0, 0, 1, 0]}
     assert got.groups == ["nta", "nta"]
 
 
