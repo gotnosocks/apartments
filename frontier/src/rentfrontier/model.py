@@ -224,7 +224,8 @@ BEDROOM_GROUPS = ("studio", "one_bedroom", "two_bedroom", "three_plus")
 # SMALL_BUILDING_ROWS; the floor is unknown; the row is in the building's first
 # training year (or earlier). "Listed once in the dataset" would key on rows
 # from the future, and units that never return are not knowable when a new
-# unit is priced.
+# unit is priced. "small" counts the building's training rows over the whole
+# panel (a building attribute, not as of the row's date).
 NOISE_FACTORS = ("first_listing", "small", "floor_unknown", "first_year")
 NOISE_CELLS = 2 ** len(NOISE_FACTORS)
 SMALL_BUILDING_ROWS = 5
