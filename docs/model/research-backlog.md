@@ -1408,6 +1408,10 @@ predictions are the coordinator's.
   - MapPLUTO is too rough. Ads often quote other areas (a terrace, the building).
   - 31.6% of unknown rows (31k) have a floor-plan image. The crawls kept only each image's key.
     Reading them needs the images fetched from StreetEasy and an OCR step; neither is done.
+  - **Floor-plan size reading is deferred (Ben chose "Skip for now", 2026-10-09 03:13Z).** No
+    images are fetched. It is reconsidered only when a fit of `nb6-nostuy-sizefill-v1` shows
+    that missing size costs accuracy. The 2026-10-06 photo pilot (103 plans for 102 apartments)
+    is the only floor-plan download so far.
 
 ### What the data-rich walks and the bedroom slope are (2026-10-09, no fits)
 
