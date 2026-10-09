@@ -1379,6 +1379,36 @@ predictions are the coordinator's.
   - Candidate, as a proposal: a new 3+ bedroom × (elevator or condo) time curve beside
     `bedroom_time`. Its size is a few pp.
 
+### Apartment size: coverage and as-of fills (2026-10-09, no fits, no rent read)
+
+- **Coverage.** 28.9% of the NB6 frame's 139,387 rows state a size between 150 and 8,000 sq ft.
+  - By neighbourhood: Stuyvesant Town/PCV 95%, Chelsea 35%, Flatiron 34%, Gramercy Park 24%,
+    Greenwich Village 19%, West Village 18%.
+  - Over time it falls, from 41% in 2010 to 24% in 2026.
+  - 1,214 buildings (22.7k rows) never state one, including large rentals: The Caroline 2% of
+    1,238 rows, Abington House 3%, The Grove 1%, Park 23 0%.
+- **The served base reads later listings for size.** `base_v1`'s `unit_size` option
+  (unitfloor-v2, so all of nb6-nostuy-v1's lineage) fills from the median over all of the unit's
+  listings, later ones included. That is a physical attribute, never rent, but not as-of. It
+  gives about 41% coverage; the same fill from earlier listings gives about 36%.
+- **Fills**, each alone, scored on rows that state a size with the shipped estimators (as-of;
+  share of unknown rows filled / median error / within 10%):
+
+  | Fill | Filled | Median error | Within 10% |
+  |---|---|---|---|
+  | The unit's earlier rows | 10.3% | 0% | 93% |
+  | Other units, same line + bedrooms + full baths | 15.2% | 0.7% | 88% |
+  | Other units, same building + bedrooms + full baths | 48.3% | 5.5% | 70% |
+  | MapPLUTO residential area ÷ units × bedroom ratio | 98% | 16% | 37% |
+  | The ad states one size | 2.2% | – | 75% |
+
+  - The cascade (unit, line, building) fills 49,753 of 99,124 unknown rows (10.3%, 10.6% and
+    29.3% of them), taking coverage from 29% to about 65%. `sizefill.asof_size` builds it, and `nb6-nostuy-sizefill-v1` uses it in
+    place of the unit median. It is its own test when runs resume.
+  - MapPLUTO is too rough. Ads often quote other areas (a terrace, the building).
+  - 31.6% of unknown rows (31k) have a floor-plan image. The crawls kept only each image's key.
+    Reading them needs the images fetched from StreetEasy and an OCR step; neither is done.
+
 ### What the data-rich walks and the bedroom slope are (2026-10-09, no fits)
 
 These are post-hoc checks on the served fit (`review/r12/c32.py`, output `c32.out`). The
