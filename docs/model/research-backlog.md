@@ -1408,6 +1408,22 @@ predictions are the coordinator's.
   - MapPLUTO is too rough. Ads often quote other areas (a terrace, the building).
   - 31.6% of unknown rows (31k) have a floor-plan image. The crawls kept only each image's key.
     Reading them needs the images fetched from StreetEasy and an OCR step; neither is done.
+  - **Floor-plan size reading is deferred (Ben chose "Skip for now", 2026-10-09 03:13Z).** No
+    images are fetched. It is reconsidered only when a fit of `nb6-nostuy-sizefill-v1` shows
+    that missing size costs accuracy. The 2026-10-06 photo pilot (103 plans for 102 apartments)
+    is the only floor-plan download so far.
+  - **Pilot plans read for size (2026-10-09, Ben's OK to reuse them).** Two Sonnet readers read
+    the 103 plans (`/data1/apartments/tmp/suspect/plans/`: answers, `fills.csv`):
+    - Only 6 of 102 print a total area; 94 don't, and 2 are unreadable. Four of the 6 match the
+      size the listing already states. In one, the plan says 715 sq ft where the building fill
+      gives 1,175. In another, the plan reads 638 against the unit's 720, from small print the
+      reader wasn't sure of.
+    - 86 print room dimensions. Their summed area × 1.63 (the median ratio to a stated size, on
+      36 apartments) gives a median error of 14% with 28% within 10%. The building fill does
+      better (5.5%, 70%), and MapPLUTO does about the same (16%, 37%); both figures are from the
+      table above, on a larger sample.
+    - So a full plan read would mostly give room sums, which are rougher than the free fill.
+      Total areas are rarely printed. This supports the deferral.
 
 ### What the data-rich walks and the bedroom slope are (2026-10-09, no fits)
 
