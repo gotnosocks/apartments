@@ -2,6 +2,15 @@
 
 What the next turn of the website thread needs. Updated at each milestone.
 
+## State (2026-10-09 15:00 UTC)
+
+- Ben (14:30Z, 14:38Z): the site is called "NYC Rents" (#612: titles, header, home heading), and
+  labels meaning every neighbourhood say so by count, not as a list (#614: rent map "All
+  neighbourhoods" / "across all five neighbourhoods", Estimates heading "All rental listings",
+  `all_areas` in the template context). Lines saying what the data covers still name the five.
+- #613: anatomy describes #590's `noise_loglinear` / `noise_mult_sd` (the field test was red on master).
+- Still to do: rewrite the story's #596 coverage paragraph when a #590 first-listing noise fit is served.
+
 ## State (2026-10-09 00:45 UTC)
 
 - Story follow-ups from playtest story-1008b, all live:
