@@ -1420,7 +1420,8 @@ predictions are the coordinator's.
       reader wasn't sure of.
     - 86 print room dimensions. Their summed area × 1.63 (the median ratio to a stated size, on
       36 apartments) gives a median error of 14% with 28% within 10%. The building fill does
-      better (5.5%, 70%), and MapPLUTO does about the same (16%, 37%).
+      better (5.5%, 70%), and MapPLUTO does about the same (16%, 37%); both figures are from the
+      table above, on a larger sample.
     - So a full plan read would mostly give room sums, which are rougher than the free fill.
       Total areas are rarely printed. This supports the deferral.
 
