@@ -7,7 +7,8 @@ source type (PARTNER, FEED or OWNER), and two classifications that read no rent:
   `MANAGEMENT`; the patterns of the 2026-10-09 research review).
 - `earlier` and `earlier_same`: how many of the building's captured rental
   listings were first listed before this one, and how many of those were by
-  the same lister. Excluded listings count. The lister is the building's own
+  the same lister. Excluded listings count; listings with no ACTIVE rental
+  event (no `listed_at`) count for none, and unnamed listers share one name. The lister is the building's own
   agent (`own_agent`) when it listed at least `AGENT_SHARE` of at least
   `AGENT_MIN_EARLIER` earlier listings: a management company or an exclusive
   leasing broker.
