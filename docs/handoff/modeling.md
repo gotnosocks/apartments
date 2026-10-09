@@ -6,8 +6,7 @@ in `/data1/apartments/tmp/bridge` (thelio).
 ## Update (2026-10-09 01:30 UTC)
 
 - **Runs are still paused.** The once-listed gap is not an artefact of the unit level: with
-  leave-one-row-out it is 1.36–1.50×. The unit prior fits returning units, with tails slightly
-  wide (`c28.py`, `c29.py`). So the ν_unit = 4 fit is not written. #590's `first_listing` noise
+  leave-one-row-out it is 1.36–1.50×. The unit prior is not too narrow for returning units (`c28.py`, `c29.py`). So the ν_unit = 4 fit is not written. #590's `first_listing` noise
   factor is the lever on resume.
 
 ## Update (2026-10-09 01:00 UTC)

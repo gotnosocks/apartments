@@ -1196,12 +1196,13 @@ outputs `c28.out`, `c29.out`); SDs are robust, in percent.
 
   - Singles are at 9.11. The shrinkage weight comes from moment estimates on units with 3+ rows:
     within-unit SD 4.7, unit SD 5.7.
-  - The prediction (within 10%) fails. Even the residual with no unit level, which carries the
-    whole unit spread, is 1.32× narrower than the singles'.
-  - The gap holds by class: C 1.29, D 1.31, R 1.29, other 1.44.
+  - The coordinator predicted singles within 10% of repeat rows; that fails. Even the residual
+    with no unit level, which carries the whole unit spread, is 1.36× narrower on all repeat rows
+    and 1.32× on first rows.
+  - On first rows, the gap holds by class: C 1.29, D 1.31, R 1.29, other 1.44.
   - It also holds where the unit's own rows barely move its building's level: units with ≤ 5% of
     their building's fit rows give 1.27.
-- **2. The unit prior is not too narrow for repeat units; its tails are, if anything, too wide.**
+- **2. The unit prior is not too narrow for repeat units.**
   Half-widths of central intervals, in percent:
 
   | | 80% | 95% |
@@ -1212,17 +1213,22 @@ outputs `c28.out`, `c29.out`); SDs are robust, in percent.
   | Same, 5+ rows (4,996) | 5.97 | 11.84 |
 
   - The unit means still carry within-unit noise over n and building misfit, so they overstate
-    the unit spread. Even so, their 95% half-width is 0.8× the prior's, not 1.4×. The prediction
-    fails.
+    the unit spread. Even so, their 80% half-width equals the prior's (1.00×) and their 95%
+    half-width is 0.82× it. The coordinator predicted 1.4×, which fails.
+  - The like-for-like check is for units with 10+ rows (76 units). There the prior plus noise
+    over n gives a 95% half-width of 15.48, against 9.01 observed. That suggests tails that are
+    too wide, but the sample is small.
   - The fitted levels are shrunk, so they are narrower again.
   - The posterior is tight: unit_scale 0.0346 ± 0.0005, ν 1.84 ± 0.03. With ν < 2 the SD is
     undefined, so the comparison uses quantiles.
 - **Reading.**
   - Units that list once differ from units that return. Their spread is about 1.3–1.5× wider
     however the comparison is made.
-  - The unit prior describes returning units well. Fixing ν_unit at 4 would narrow its tails
-    further and worsen new-unit coverage. So the planned ν = 4 fit is not written, because its
-    condition (empirical tails 1.4× the prior's) failed.
+  - The unit prior describes returning units well. The 3+ row units are a selected group, and
+    singles are not drawn from it, so this says nothing direct about new-unit coverage.
+  - Fixing ν_unit at 4 narrows the prior's tails (c29's simulated quantiles). By inference, that
+    would not help new-unit coverage. The planned ν = 4 fit is not written, because its condition
+    (empirical tails about 1.4× the prior's) failed.
   - The lever stays a wider scale for as-of first listings. That is the `first_listing` factor
     of the log-linear noise (#590), already in code.
 
