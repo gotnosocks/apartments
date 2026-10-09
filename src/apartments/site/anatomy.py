@@ -37,6 +37,7 @@ DEFAULTS = {
     "season_daily": False,
     "noise_by_bedrooms": False,
     "noise_by_year": False,
+    "noise_loglinear": False,
     "building_walk": False,
     "walk_knot_months": 6,
     "walk_t": False,
@@ -69,6 +70,7 @@ PRIOR_FIELDS = {
     "building_scale_sd": 0.5,
     "unit_scale_sd": 0.2,
     "noise_scale_sd": 0.2,
+    "noise_mult_sd": 0.5,
     "walk_scale_sd": 0.1,
     "line_scale_sd": 0.1,
     "building_trend_scale_sd": 0.05,
@@ -759,6 +761,7 @@ def describe(model: dict | None, sizes: dict | None = None) -> Anatomy | None:
     nu = c["nu_fixed"]
     by_beds = c["noise_by_bedrooms"]
     by_year = by_beds and c["noise_by_year"]
+    loglin = by_beds and not by_year and c["noise_loglinear"]
     add(
         "noise",
         "listing",
@@ -768,12 +771,19 @@ def describe(model: dict | None, sizes: dict | None = None) -> Anatomy | None:
             ("Student-t" + (f", ν = {_num(nu)}" if nu else ""))
             + (", one scale per bedroom count" if by_beds else "")
             + (" and year" if by_year else "")
+            + (", times a factor for each of four kinds of listing" if loglin else "")
         ),
         plain=(
             "Each ask's own scatter around the model: mostly small, with occasional big "
             "surprises (heavy tails)"
             + ("; each bedroom count has its own scatter" if by_beds else "")
             + (", in each calendar year" if by_year else "")
+            + (
+                ", scaled up or down for an apartment's first listing, a small building, an "
+                "unknown floor and a building's first year"
+                if loglin
+                else ""
+            )
             + "."
         ),
         prior=(
@@ -781,10 +791,17 @@ def describe(model: dict | None, sizes: dict | None = None) -> Anatomy | None:
             + ("σ_g(i),y(i)" if by_year else "σ_g(i)" if by_beds else "σ")
             + ("), each σ_g,y" if by_year else "), each σ_g" if by_beds else "), σ")
             + f" ~ HalfNormal({_num(c['noise_scale_sd'])}), "
+            + (
+                f"times exp(b_k) for each listing kind k, exp(b_k) ~ LogNormal(0, {_num(c['noise_mult_sd'])}), "
+                if loglin
+                else ""
+            )
             + (f"ν = {_num(nu)}" if nu else "ν ~ Gamma(2, 0.1)")
         ),
         # By year, the scale count depends on the panel's span.
-        count=None if by_year else (4 if by_beds else 1) + (0 if nu else 1),
+        count=None
+        if by_year
+        else (4 if by_beds else 1) + (4 if loglin else 0) + (0 if nu else 1),
         math=_sub(_mi("ε"), _mi("i")),
     )
 
