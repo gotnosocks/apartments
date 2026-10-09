@@ -323,6 +323,9 @@ def feature_sources(feature_set: str) -> dict:
     if feature_set in features.BLOCKLOTS:
         path = features.BLOCKLOTS_FILE
         out["blocklots"] = {"path": path, "sha256": data.sha256(Path(path))}
+    if feature_set in features.LISTER:
+        path = features.LISTER_FILE
+        out["lister"] = {"path": path, "sha256": data.sha256(Path(path))}
     if feature_set in features.ALTERATION_DATED_SETS:
         path = features.ALTERATIONS_FILE
         out["alterations"] = {"path": path, "sha256": data.sha256(Path(path))}

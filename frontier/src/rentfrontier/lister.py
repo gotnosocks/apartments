@@ -109,7 +109,8 @@ def earlier_counts(listings: pd.DataFrame) -> pd.DataFrame:
 def own_agent(earlier: pd.Series, earlier_same: pd.Series) -> pd.Series:
     """own (the lister listed at least AGENT_SHARE of the building's earlier
     listings), outside, or few_earlier (under AGENT_MIN_EARLIER of them)."""
-    share = earlier_same / earlier.where(earlier > 0)
+    earlier = earlier.astype(float)
+    share = earlier_same.astype(float) / earlier.where(earlier > 0)
     return pd.Series(
         np.select(
             [
