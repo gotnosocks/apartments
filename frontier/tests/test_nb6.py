@@ -43,9 +43,11 @@ def test_nb6_sets_read_nb5s_sources_from_the_six_neighbourhoods_snapshots():
     assert set(features._NB6_DESCRIPTIONS) == set(features._NB4_DESCRIPTIONS) | {
         "descriptions_stuy"
     }
-    assert features.PLUTO_RELEASES_SNAPSHOTS == dict.fromkeys(
-        features.NB6_SETS, features.NB6_PLUTO_RELEASES_FILE
-    )
+    assert {
+        k: v
+        for k, v in features.PLUTO_RELEASES_SNAPSHOTS.items()
+        if k.startswith("nb6-")
+    } == dict.fromkeys(features.NB6_SETS, features.NB6_PLUTO_RELEASES_FILE)
 
 
 def test_build_reads_the_sets_own_pluto_releases(monkeypatch):
@@ -114,7 +116,7 @@ def test_stuyvesant_town_tests_drop_the_indicator_or_add_the_stabilized_share():
         stab = features.FEATURE_SETS[name]
         assert stab.func is features.stabilized_v1
         assert stab.keywords == {"id": name, "base": on}
-    assert features.RENTSTAB == {
+    assert {s for s in features.RENTSTAB if s.startswith("nb6-")} == {
         "nb6-stab-v1",
         "nb6-nostuy-stab-v1",
         "nb6-nostuy-stabopen-v1",

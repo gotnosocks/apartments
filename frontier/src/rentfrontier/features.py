@@ -1681,12 +1681,12 @@ HPD_FILE = f"{HPD_SNAPSHOT}/hpd.parquet"
 # Rent-stabilized units per lot and tax-bill year (`rentfrontier.external rentstab`).
 RENTSTAB_SNAPSHOT = "/data1/apartments/external/rentstab/20261008-b487c8a"
 RENTSTAB_FILE = f"{RENTSTAB_SNAPSHOT}/rentstab.parquet"
-# MapPLUTO for every lot on the six neighbourhoods' tax blocks (external.py
+# MapPLUTO for every lot on the seven neighbourhoods' tax blocks (external.py
 # blocklots): which lots a footprint spans (`lot_open_share_v2`).
-BLOCKLOTS_SNAPSHOT = "/data1/apartments/external/blocklots/20261008-d93eec2"
+BLOCKLOTS_SNAPSHOT = "/data1/apartments/external/blocklots/20261009-98db59b"
 BLOCKLOTS_FILE = f"{BLOCKLOTS_SNAPSHOT}/blocklots.parquet"
 # 2020 Neighborhood Tabulation Areas by building (`python -m rentfrontier.nta`).
-NTA_FILE = "/data1/apartments/external/nta/20261009-a944359/nta.parquet"
+NTA_FILE = "/data1/apartments/external/nta/20261009-98db59b/nta.parquet"
 NTA_FOLDED = "Stuyvesant Town-Peter Cooper Village"
 # Years a lot's last stabilized-units bill counts for (the 2019 bill reaches 2022).
 STAB_CARRY_YEARS = 3
@@ -3392,7 +3392,7 @@ def owner_v1(
 
 # Each listing's lister (`rentfrontier.lister`): name kind and how many of the
 # building's earlier listings the same lister listed.
-LISTER_FILE = "/data1/apartments/external/lister/20261009-24e19c9/lister.parquet"
+LISTER_FILE = "/data1/apartments/external/lister/20261009-dcee63b/lister.parquet"
 
 
 def lister_v1(
@@ -4330,6 +4330,113 @@ for _new, _old in NB6_SETS.items():
     EXTRAS_SNAPSHOTS[_new] = NB6_EXTRAS_FILE
     LPC_SNAPSHOTS[_new] = NB6_LPC_FILE
     PLUTO_RELEASES_SNAPSHOTS[_new] = NB6_PLUTO_RELEASES_FILE
+
+
+# The seven neighbourhoods (data.DATASET_NB7): the six plus NoMad
+# (nomad-analysis-20261009-d3b4050), StreetEasy's child area of Flatiron north
+# of 25th Street, which the Flatiron crawl left out. Its registry
+# (20261009-d3b4050, each page geocoded from its own address, no overrides)
+# merged into nb6's, its MapPLUTO, footprints and basemap merged into nb6's
+# (nb6's rows unchanged), the seven crawls' listing extras, and the sources
+# keyed by lot fetched on the merged registry.
+NB7_REGISTRY_FILE = (
+    "/data1/apartments/external/registry/20261009-dcee63b/buildings.parquet"
+)
+NB7_PLUTO_FILE = "/data1/apartments/external/pluto/20261009-dcee63b/pluto.parquet"
+NB7_FOOTPRINTS_FILE = (
+    "/data1/apartments/external/footprints/20261009-dcee63b/footprints.parquet"
+)
+NB7_BASEMAP_FILE = "/data1/apartments/external/basemap/20261009-dcee63b/basemap.parquet"
+NB7_EXTRAS_FILE = (
+    "/data1/apartments/external/listing-extras/20261009-dcee63b/listing-extras.parquet"
+)
+NB7_LPC_FILE = "/data1/apartments/external/lpc/20261009-dcee63b/lpc.parquet"
+NB7_HPD_FILE = "/data1/apartments/external/hpd/20261009-dcee63b/hpd.parquet"
+NB7_STOREFRONTS_FILE = (
+    "/data1/apartments/external/storefronts/20261009-dcee63b/storefronts.parquet"
+)
+NB7_PARKS_FILE = "/data1/apartments/external/parks/20261009-dcee63b/parks.parquet"
+NB7_PLUTO_RELEASES_FILE = (
+    "/data1/apartments/external/plutoreleases/20261009-dcee63b/plutoreleases.parquet"
+)
+_NB7_DESCRIPTIONS = {
+    **_NB6_DESCRIPTIONS,
+    "descriptions_nomad": str(descriptions_module.NOMAD_SOURCE),
+}
+# The nb7 sets read what their nb5 counterpart reads, from the seven
+# neighbourhoods' snapshots in place of the six's.
+NB7_SETS = {
+    "nb7-nostuy-v1": "nb5-plutoasof-v3",
+    "nb7-nostuy-stab-v1": "nb5-plutoasof-v3",
+    "nb7-nostuy-stabopen-v2": "nb5-plutoasof-v3",
+    "nb7-nostuy-explain-v1": "nb5-plutoasof-v3",
+    "nb7-nostuy-riverparks-v1": "nb5-plutoasof-v3",
+    "nb7-nostuy-sizefill-v1": "nb5-plutoasof-v3",
+    "nb7-nostuy-nta-v1": "nb5-plutoasof-v3",
+    "nb7-nostuy-lister-v1": "nb5-plutoasof-v3",
+}
+# nb6-nostuy-v1 plus a NoMad indicator beside Flatiron's: the seven
+# neighbourhoods' base. Not fitted until runs resume (Ben, 2026-10-08: pause).
+# The NoMad indicator is a descriptive premium like the others; the nb7 tests
+# below carry nb6's explanations (parks, size as of the day, NTAs, lister,
+# stabilized and open shares, one landlord) to NoMad's buildings.
+FEATURE_SETS["nb7-nostuy-v1"] = partial(
+    hoods_v1,
+    id="nb7-nostuy-v1",
+    base="nb3-coded-v2",
+    hoods=("Flatiron", "Gramercy Park", "NoMad"),
+)
+FEATURE_SETS["nb7-nostuy-stab-v1"] = partial(
+    stabilized_v1, id="nb7-nostuy-stab-v1", base="nb7-nostuy-v1"
+)
+FEATURE_SETS["nb7-nostuy-stabopen-v2"] = partial(
+    open_space_v2, id="nb7-nostuy-stabopen-v2", base="nb7-nostuy-stab-v1"
+)
+FEATURE_SETS["nb7-nostuy-explain-v1"] = partial(
+    owner_v1, id="nb7-nostuy-explain-v1", base="nb7-nostuy-stabopen-v2"
+)
+FEATURE_SETS["nb7-nostuy-riverparks-v1"] = partial(
+    riverparks_v1, id="nb7-nostuy-riverparks-v1", base="nb7-nostuy-v1"
+)
+FEATURE_SETS["nb7-nostuy-sizefill-v1"] = partial(
+    sizefill_v1, id="nb7-nostuy-sizefill-v1", base="nb7-nostuy-v1"
+)
+FEATURE_SETS["nb7-nostuy-nta-v1"] = partial(
+    nta_v1, id="nb7-nostuy-nta-v1", base="nb7-nostuy-v1"
+)
+FEATURE_SETS["nb7-nostuy-lister-v1"] = partial(
+    lister_v1, id="nb7-nostuy-lister-v1", base="nb7-nostuy-v1"
+)
+RENTSTAB |= {"nb7-nostuy-stab-v1", "nb7-nostuy-stabopen-v2", "nb7-nostuy-explain-v1"}
+BLOCKLOTS |= {"nb7-nostuy-stabopen-v2", "nb7-nostuy-explain-v1"}
+RIVERPARKS.add("nb7-nostuy-riverparks-v1")
+NTA.add("nb7-nostuy-nta-v1")
+LISTER.add("nb7-nostuy-lister-v1")
+PARKS.add("nb7-nostuy-riverparks-v1")
+PARKS_SNAPSHOTS["nb7-nostuy-riverparks-v1"] = NB7_PARKS_FILE
+for _new, _old in NB7_SETS.items():
+    for _group in (
+        EXTERNAL,
+        BASEMAP,
+        FOOTPRINTS,
+        DESCRIPTIONS,
+        AS_OF_SETS,
+        LISTING_EXTRAS,
+        PRICE_HISTORY,
+        READS_EARLIER_RENTS,
+        PLUTO_RELEASED_SETS,
+    ):
+        if _old in _group:
+            _group.add(_new)
+    LOT_SNAPSHOTS[_new] = {"registry": NB7_REGISTRY_FILE, "pluto": NB7_PLUTO_FILE}
+    AREA_SNAPSHOTS[_new] = {
+        "basemap": NB7_BASEMAP_FILE,
+        "footprints": NB7_FOOTPRINTS_FILE,
+    }
+    DESCRIPTION_SOURCES[_new] = _NB7_DESCRIPTIONS
+    EXTRAS_SNAPSHOTS[_new] = NB7_EXTRAS_FILE
+    LPC_SNAPSHOTS[_new] = NB7_LPC_FILE
+    PLUTO_RELEASES_SNAPSHOTS[_new] = NB7_PLUTO_RELEASES_FILE
 
 
 def lot_files(name: str) -> dict:
