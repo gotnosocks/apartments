@@ -1,6 +1,31 @@
 # Data improvements — handoff
 
-Updated 2026-10-08 19:15 ET. Thread owner: the Data improvements project thread (bridge session on thelio).
+Updated 2026-10-08 21:50 ET. Thread owner: the Data improvements project thread (bridge session on thelio).
+
+## 2026-10-08 21:50 ET
+
+Research-review items, relayed by the coordinator at 20:26 ET. Frame and data only; no fits while
+Ben's run pause holds. Modeling has been told about each new set.
+
+- **1. Concessions by building size:** checked; answered in the thread.
+- **2. Lister type, #600 (08d4767).** Set `nb6-nostuy-lister-v1`.
+- **3. `first_listing_of_unit`:** already as-of; nothing to change.
+- **4. Sqft completeness, #602 (c1d47e2).** `sizefill.py` and set `nb6-nostuy-sizefill-v1`:
+  as-of A→B→C fill with a source flag.
+- **5. 2020 NTAs, #603 (25f343d).** `nta.py` and set `nb6-nostuy-nta-v1`
+  (snapshot nta/20261009-a944359).
+- **6. Dated parks, #604 (11e9abe).** `riverparks.py` and set `nb6-nostuy-riverparks-v1` on
+  nb6-nostuy-v1 (snapshot riverparks/20261009-6f20a5f). Its three terms:
+  - log walk minutes to the nearest park, which now includes the Hudson River Park esplanade
+    (2003-05-30);
+  - High Line within 5 min;
+  - river-pier park within 10 min: Little Island 2021-05-21, Pier 57 rooftop 2022-04-18 and
+    Gansevoort 2023-10-02.
+
+  A place counts from the month after it opened. `parks.py` is unchanged; Andrew Haswell Green
+  Park is dated 2023-12-19 in the module. The pier term covers 16% of 2024–26 rows.
+- **Floor-plan OCR:** blocked. The crawls kept only image keys, fetching images from StreetEasy
+  needs Ben's OK, and tesseract isn't installed. Asked Ben; nothing paid runs meanwhile.
 
 ## 2026-10-08 19:15 ET
 
@@ -546,6 +571,9 @@ Updated 2026-10-08 19:15 ET. Thread owner: the Data improvements project thread 
 - **#326 `unit-labels-v6`** (draft) waits for a batch full fit.
 
 ## Next
+- Fit the new sets (lister, sizefill, nta, riverparks; open-v2, owner, explain) once Ben
+  resumes model runs; Modeling owns the queue.
+- Floor-plan OCR if Ben approves the image fetch.
 - Act on the stab, permit and plutoasof fits as they land (see 21:45 above), and on v10 and v5.
 - Next quarantine version, when the EV and NoMad crawls land: hold the Harlem row
   (audit_id 50f8ccd4…), and fix the far-name check generically (bare "Stuyvesant" must not match
