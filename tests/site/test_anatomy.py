@@ -187,6 +187,17 @@ def test_noise_differences_read_plainly():
     ]
 
 
+def test_loglinear_noise_is_described():
+    d = anatomy.describe(
+        {**SERVED, "noise_by_bedrooms": True, "noise_loglinear": True, "nu_fixed": None}
+    )
+    noise = next(p for p in d.parts if p.key == "noise")
+    assert "four kinds of listing" in noise.setting
+    assert "first listing" in noise.plain
+    assert "LogNormal(0, 0.5)" in noise.prior
+    assert noise.count == 4 + 4 + 1
+
+
 def test_symbols_are_the_ones_the_equation_uses():
     a = anatomy.describe({**SERVED, "season_harmonics": 2, "season_daily": True})
     names = [s for s, _ in a.symbols]
