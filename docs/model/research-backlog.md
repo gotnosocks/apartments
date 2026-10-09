@@ -1106,6 +1106,77 @@ later rows and singles are on the same footing.
     - a time-split evaluation that scores new units honestly.
   - Both are proposals only, with no fit queued while runs are paused.
 
+### Why once-listed units are wider: labels, building stock, seller (2026-10-09, no fits)
+
+These are post-hoc checks on the served fit (`review/r12/c27.py`, output `c27.out`).
+- Residuals are the residual with no unit level, as in the previous section.
+- SDs are robust (1.4826 × MAD), in percent.
+- "Singles" are in-fit rows of units with one row in the dataset; "repeat rows" are the rest.
+- The predictions are the coordinator's.
+
+- **1. Missing unit labels: none.** Every row's unit URL carries a unit label: 0 rows without
+  one. The dataset build drops rows without a unit id (`invalid_identity`), and none of the
+  served dataset's parts recorded such a drop (the build's exclusion counts). So no unit gets a synthetic id.
+  - The prediction (over a third of singles unlabelled, at SD about 11) fails.
+  - Non-standard labels (not a floor number plus letters, e.g. PH, GARDEN, a lone letter) are 18.9%
+    of singles against 10.1% of repeat rows. Among singles they are no noisier: 9.34 against
+    9.20.
+  - So the label-missing factor is not added to the noise code. A fuzzy unit key (address, floor,
+    beds, size and baths) remains a possible Data request against unit splits. This check gives
+    no evidence for it.
+- **2. Building stock: class orders the spread more sharply than line coverage, and once-listed
+  units are 1.25–1.53× wider in every stratum, typically about 1.35×.**
+
+  | Covariate | Stratum | Singles | SD singles | SD repeat rows | Single / repeat |
+  |---|---|---|---|---|---|
+  | Line coverage | Q1 (≤ 0.36) | 8,684 | 10.33 | 7.26 | 1.42 |
+  | | Q2 | 8,429 | 8.81 | 7.01 | 1.26 |
+  | | Q3 | 5,928 | 8.81 | 6.80 | 1.30 |
+  | | Q4 (> 0.90) | 4,300 | 8.66 | 6.00 | 1.44 |
+  | Units per floor | Q1 (≤ 3) | 8,854 | 10.94 | 7.60 | 1.44 |
+  | | Q2 | 6,472 | 8.22 | 6.57 | 1.25 |
+  | | Q3 | 5,527 | 8.84 | 6.36 | 1.39 |
+  | | Q4 (> 11) | 6,354 | 8.68 | 6.44 | 1.35 |
+  | Era | Pre-war (built before 1940) | 18,918 | 9.58 | 7.01 | 1.37 |
+  | | Post-war | 8,411 | 8.48 | 6.23 | 1.36 |
+  | Class | C (walk-up) | 9,738 | 8.83 | 6.65 | 1.33 |
+  | | D (elevator) | 10,334 | 8.63 | 6.30 | 1.37 |
+  | | R (condo) | 4,148 | 10.32 | 7.49 | 1.38 |
+  | | Other | 3,121 | 12.05 | 7.88 | 1.53 |
+
+  - Line coverage is each building's share of training units in a line with another unit.
+  - The prediction fails on both counts:
+    - For singles, the lowest line-coverage quartile is 1.19× the highest, not 1.5×. Units per
+      floor gives 1.26×. Class (other against D) gives 1.40×.
+    - The single flag adds 25–53% on top of every stratum, not under 10%.
+  - Small buildings with few units per floor and few lines are noisier for every unit, not only
+    for singles.
+- **3. Seller type: owners are noisiest but rare; the once-listed excess holds for every source type**
+  (Partner 1.32×, Feed 1.44×, Owner 1.63×).
+  StreetEasy's `source_type` and `broker_group` come from `external/listing-extras`, matched for
+  99.9% of fit rows.
+
+  | Source | Fit rows | Single share | Share of singles | SD singles | SD repeat rows |
+  |---|---|---|---|---|---|
+  | Partner (brokerage) | 65,323 | 0.249 | 0.594 | 9.37 | 7.12 |
+  | Feed (management) | 54,495 | 0.195 | 0.389 | 8.93 | 6.22 |
+  | Owner | 2,041 | 0.214 | 0.016 | 12.95 | 7.96 |
+
+  - By broker group, the large brokerages' singles have SD 10.4–11.1: Compass, Douglas Elliman
+    and Corcoran.
+  - Related Rentals, a management company with a 34% single share, has SD 7.8. Its excess is
+    smaller (1.13×), as is City Connections' (1.21×).
+- **Reading.**
+  - Once-listed units are about 1.35× wider (1.13–1.63× across all cuts) whatever is known about them at prediction time:
+    label type, building stock or seller.
+  - The excess is a property of the unit, not of any covariate here. That fits a unit-effect
+    spread the model fits mostly from units that return.
+  - What the model can use at prediction time:
+    - building class and units per floor as noise factors, both available for new buildings;
+    - a wider unit prior for a unit's first listing, which needs the unit term to know first
+      listings.
+  - Both are proposals only; runs stay paused.
+
 ## Open-data survey: stabilization, permits, owners, dated MapPLUTO (2026-10-07)
 
 Four free sources, sized against the 105,244 rows of `chelsea-wv-gv-analysis-20261005-2d5b3b6`
