@@ -20,9 +20,10 @@ Updated 2026-10-09 16:50 ET. Thread owner: the Data collection project thread (b
   the East Village crawl to fetch all directory and building pages first, then units and listings,
   and make that the default for future crawls."): PR #620 made `--claim-order structure-first`
   the default (directory, then building pages, then units and ads in the old order; `original`
-  keeps store.py's order). The runners load `runtime-91f9ed4/src`; old runners are in
-  `runners-df7a0aa/`. Fetching resumed 16:43 ET on directory and building pages. Once the census
-  is done, give Ben a firm finish time and cost (Oct 9 estimate: Sat morning to Sun midday,
+  keeps store.py's order). The runners in `data/probes/east-village-20261008/` (local) load
+  `runtime-91f9ed4/src` there; the old runners are in
+  `runners-df7a0aa/`. Fetching resumed 16:43 ET on directory and building pages. Once those are
+  all read, give Ben a firm finish time and cost (Oct 9 estimate: Sat morning to Sun midday,
   ~$40–100 more). When it finishes: disable `apartments-ev-monitor.timer` and
   `apartments-rate-balance.timer`, then build as for NoMad (`/data1/apartments/tmp/nomad-build-20261009`).
 - **NoMad, East Village crawl setup**: launched Oct 8 02:23 ET (Ben, typed
