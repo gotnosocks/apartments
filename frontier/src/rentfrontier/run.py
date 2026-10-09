@@ -326,6 +326,9 @@ def feature_sources(feature_set: str) -> dict:
     if feature_set in features.BLOCKLOTS:
         path = features.BLOCKLOTS_FILE
         out["blocklots"] = {"path": path, "sha256": data.sha256(Path(path))}
+    if feature_set in features.NTA:
+        path = features.NTA_FILE
+        out["nta"] = {"path": path, "sha256": data.sha256(Path(path))}
     if feature_set in features.LISTER:
         path = features.LISTER_FILE
         out["lister"] = {"path": path, "sha256": data.sha256(Path(path))}
