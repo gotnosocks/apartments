@@ -8,9 +8,15 @@ the crawl's size stays unknown until near the end (East Village, Oct 2026). Ben,
 
 install() swaps in claim_structure_first, which is ArchiveStore.claim with one leading sort
 key: directory pages, then building pages, then everything else in the original order.
-The candidate filter, policy exclusions and capture reuse are unchanged, so only the order
-of requests changes, not which pages are fetched. store.py is hashed by saved datasets,
-so the change lives here; a runner opts in by calling install() before cli.main.
+The candidate filter, policy exclusions and capture reuse are unchanged. Two claim-time
+exclusions are judged on what has been discovered so far, and are permanent: an ad with no
+unit membership yet (missing_canonical_unit_association), and a unit whose route was first
+enrolled as an inventory probe from a pre-cutoff ad (probe_source_before_min_listing_id;
+scope_urls keeps the first reason). Claiming buildings first enrolls units from their
+building pages before those rules run, so some ads and re-let units that the original
+order excluded early are fetched: the same rules, more coverage, somewhat more requests.
+store.py is hashed by saved datasets, so the change lives here; a runner opts in by
+calling install() before cli.main.
 """
 
 import time
