@@ -1232,6 +1232,67 @@ outputs `c28.out`, `c29.out`); SDs are robust, in percent.
   - The lever stays a wider scale for as-of first listings. That is the `first_listing` factor
     of the log-linear noise (#590), already in code.
 
+### Once-listed units: lister type, building history, skew (2026-10-09, no fits)
+
+These are post-hoc checks on the served fit (`review/r12/c30.py`, output `c30.out`).
+- Residuals have no unit level; SDs are robust, in percent.
+- "Repeat first rows" are the first rows of units listed more than once.
+- The predictions are the coordinator's.
+
+- **1. Lister type: brokerages list more once-only units and are noisier, but the once-listed
+  excess stays at 1.27–1.46× within each type.**
+  - Listers are classified from `broker_group` names in `external/listing-extras`, brokerage
+    patterns first. Management covers names such as Related, Equity, Rose, Rockrose, Stonehenge,
+    "Properties" and "Management", plus owner listings.
+  - The "other" group is names neither pattern catches, e.g. AJ Clarke, Point NYC and Chelsea
+    Tower.
+
+  | Lister | Fit rows | Once-listed share of units | SD singles | SD repeat first rows | Ratio |
+  |---|---|---|---|---|---|
+  | Brokerage | 68,592 | 0.434 | 9.75 | 7.36 | 1.32 |
+  | Management | 33,697 | 0.374 | 8.13 | 6.39 | 1.27 |
+  | Other | 19,570 | 0.401 | 9.58 | 6.54 | 1.46 |
+
+  - The prediction gets the direction right but overstates every size:
+    - brokerage's once-listed share is 1.16× management's, not 2×;
+    - singles' SD is 9.75 against 8.13, not 10.5 against 8;
+    - the excess within type is 1.27× (management), 1.32× (brokerage) and 1.46× (other), not
+      1.15×.
+- **2. Building history as of the row: a weak order, shared with repeat units.** The two measures
+  are the building's once-listed share and its rows per unit per year. Both are computed from
+  rows listed before the row, in buildings with 5+ units listed before (78% of singles).
+  - Singles' SD falls from 8.93 in the lowest once-listed-share quartile to 8.05 in the highest,
+    1.11×. Repeat first rows fall alike, from 7.32 to 6.34.
+  - Within brokerage the fall is 9.45 to 7.87. Within management it is flat, 7.70 to 7.85.
+  - Rows per unit per year gives no monotone order: 8.15, 9.22, 8.40 and 8.12.
+  - Brokerage's share of singles also falls across the quartiles, from 0.64 to 0.49, so part of
+    the fall is lister mix. It persists within brokerage but not within management. Neither
+    measure explains the once-listed excess, and incremental value was not tested.
+- **3. Skew: heavier tails on both sides, not a lower centre.**
+
+  | Rows | n | Median (pp) | Below −20% | Above +20% |
+  |---|---|---|---|---|
+  | Singles | 27,341 | +0.35 | 0.059 | 0.071 |
+  | Repeat first rows | 27,146 | +0.16 | 0.020 | 0.034 |
+  | Repeat later rows | 67,484 | +0.08 | 0.017 | 0.020 |
+
+  - The prediction (median about −1.5 pp, a heavier left tail) fails. Singles sit at the same
+    centre and have about 3× the left tail and 2× the right tail.
+- **4. Recent new-unit coverage needs a refit.** The held-out rows are a random draw across years (`docs/model/research-backlog.md`, new-unit
+  coverage section), so a true
+  time split needs a fit.
+  - The random split has only 44 held-out as-of first listings in the panel's last 12 months:
+    0.705 at 80%, 0.909 at 95%, too few to read.
+  - Across all years the figures are 3,959 rows, 0.759 and 0.931.
+- **Reading.**
+  - Lister type is a real but modest noise factor: brokerage singles are 1.2× management
+    singles. The broker field is on the ad, so it is known when an ad is scored.
+  - It explains little of the once-listed excess. That excess is mostly heavy tails on both sides,
+    a unit's ask far off in either direction.
+  - This fits a wider first-listing scale (#590's `first_listing` factor) better than a mean
+    shift. Lister type (brokerage, management, other) is a candidate fifth factor for the
+    log-linear noise, as a proposal only.
+
 ## Open-data survey: stabilization, permits, owners, dated MapPLUTO (2026-10-07)
 
 Four free sources, sized against the 105,244 rows of `chelsea-wv-gv-analysis-20261005-2d5b3b6`
