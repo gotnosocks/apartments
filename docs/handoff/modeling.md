@@ -7,8 +7,10 @@ in `/data1/apartments/tmp/bridge` (thelio).
 
 - **Runs still paused** (Ben, 2026-10-08 16:07Z); no fits queued.
 - **NoMad (Data):**
-  - `unit-labels-v14` (#611) appends NoMad unit spellings. nb6 rows are unchanged, and
-    `autoselect.eligible()` is the same set before and after: the served fit, with `same_rows` True.
+  - `unit-labels-v14` (#611) is a rule change that appends NoMad unit spellings. nb6 rows are
+    unchanged. Data reported (by message to Modeling, 2026-10-09, before the merge) that
+    `autoselect.eligible()` is the same set on v13 and v14: the served fit, with `same_rows`
+    True.
   - #615 adds `data.DATASET_NB7` (the six neighbourhoods plus NoMad, 148,673 rows) and the
     `nb7-nostuy-v1` sets on rule base nb5-plutoasof-v3.
   - It repoints NTA_FILE, BLOCKLOTS_SNAPSHOT and LISTER_FILE to supersets. That changes the
