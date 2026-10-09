@@ -5,7 +5,7 @@ Updated 2026-10-09 13:45 ET. Thread owner: the Data improvements project thread 
 ## 2026-10-09 13:45 ET
 
 NoMad opt-in, as relayed by the coordinator at 09:13 ET. Builds only: no fits while Ben's run
-pause holds, and Modeling was told before each merge.
+pause holds. Modeling was told before #611 merged (the only rule change) and after #615.
 
 - **Unit labels v14, #611 (59f03bf).** Adds the NoMad alias table and history pairs: 107 of the
   113 groups, the history-confirmed ones. The served fit stays eligible: `autoselect.eligible`
@@ -615,8 +615,11 @@ Ben's run pause holds. Modeling has been told about each new set.
   resumes model runs; Modeling owns the queue.
 - Floor-plan OCR if Ben approves the image fetch.
 - Act on the stab, permit and plutoasof fits as they land (see 21:45 above), and on v10 and v5.
-- Next quarantine version (v12), when the East Village crawl lands:
-  - Screen EV with `quarantine_v13_screen.py` (the far-name fixes are in v12 and v13).
+- Next quarantine rule, quarantine-v12, when the East Village crawl lands. The rule versions and
+  the screen scripts are numbered separately: the rule is v12, and the screen to use is
+  `quarantine_v13_screen.py`.
+  - Screen EV with `quarantine_v13_screen.py`. Its building-name fix is new in v13; the screen
+    script v12 has only the Stuyvesant fix.
   - Merge the 10 staged NoMad rows and the Harlem row (audit_id 50f8ccd4…) with EV's.
   - Tell Modeling before merging.
   - #542 (quarantine-v11) stays held.
