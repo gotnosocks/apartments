@@ -6,8 +6,10 @@ The fix: a far NTA name part that is also a word of a screened building's name
 named a local building, not a far place. Brooklyn's NTA "Madison" gave
 "madison", which hit "situated in the madison parq" and "in madison house" in
 13 NoMad ads. Here such a part is not matched alone, only with its borough
-("madison, brooklyn", "madison brooklyn"). Other spellings, such as a far
-NTA's whole hyphenated name, are kept as in v12.
+("madison, brooklyn", "madison brooklyn"), or within the far NTA's whole
+name and its short forms, as v12 does for a part inside a local NTA name
+("bedford-stuyvesant", "bed-stuy" from West Village, whose Bedford St
+buildings name "bedford").
 
 Usage: quarantine_v13_screen.py config/reviews/nta-2020-centres.json OUT.jsonl [CACHE_ROOT]
 """
@@ -40,7 +42,8 @@ def building_words(buildings):
 
 def far_places(areas, centre, buildings=()):
     """v12's far places, except that a bare far part that is a word of a
-    local building's name is matched only with its borough."""
+    local building's name is matched only with its borough or in the far
+    NTA's whole name."""
     names = set(v12.far_places(areas, centre))
     words = building_words(buildings)
     for a in areas:
@@ -52,6 +55,11 @@ def far_places(areas, centre, buildings=()):
                 names.discard(part)
                 if boro:
                     names |= {f"{part}, {boro}", f"{part} {boro}"}
+                stem = v12._stem(a["ntaname"])
+                whole = [w.strip() for w in stem.split("-") if w.strip()]
+                if len(whole) > 1:
+                    names |= {"-".join(whole), " ".join(whole)}
+                names |= set(v12.SHORT_FORMS.get(stem, []))
     return sorted(names)
 
 
