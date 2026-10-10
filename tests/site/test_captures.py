@@ -132,7 +132,7 @@ def test_a_capture_ages_out_a_week_after_it_was_seen(tmp_path):
     seen = dt.datetime(2026, 10, 6, 15, tzinfo=dt.UTC)
     assert captures.captures(tmp_path, set(), set(), {}, seen + dt.timedelta(days=7))
     assert not captures.captures(
-        tmp_path, set(), set(), set(), seen + dt.timedelta(days=7, seconds=1)
+        tmp_path, set(), set(), {}, seen + dt.timedelta(days=7, seconds=1)
     )
 
 
