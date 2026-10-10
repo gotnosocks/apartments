@@ -305,9 +305,3 @@ Logged, unbuilt (feature hold):
 - Statistician: the History changelog is PR titles with no before/after effect on estimates. The #544 note ("held-out estimates stay finite") needs a plain explanation.
 - Statistician: the served run shows unit-labels-v11 while the text calls v13 current. This is for Modeling to confirm. It is not changed on the site.
 - Theories chart caught mid-animation again (holes and faded rows in a screenshot). It is the known armed/whole scheme, left as is.
-
-## Evaluation framework (Fable review, 2026-10-10)
-
-Logged, unbuilt (held by the coordinator, 20:14Z):
-- Predictions recorded before a fit (Fable §10): show each test's prediction beside its result, hit or miss, on the fit page and the board. Waits for Modeling's predictions block in the research data.
-- Explained share against a permutation null: a slot beside the descriptive share once Modeling publishes the explained records and their keys.

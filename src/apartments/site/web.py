@@ -2284,6 +2284,7 @@ def create_app(
         )
         return render_template(
             "research_history.html",
+            predictions=predictions_made(data),
             meta=m,
             classes=classes,
             hardware=hardware,
@@ -2468,6 +2469,7 @@ def create_app(
             .fetchone()
         )
         rows = story.composition(anatomy, variance)
+        explained = story.explained(entry)
         trials = story.theories(ledger.load())
         switches = story.design_history((data or {}).get("milestones") or [])
         lives = story.term_lives(switches)
@@ -2497,6 +2499,8 @@ def create_app(
             units=units,
             borders=borders,
             borders_svg=story.borders_svg(borders),
+            explained=explained,
+            explained_svg=story.explained_svg(explained),
             border_tests=story.border_tests(trials),
             counts=counts,
             trials=trials,
@@ -2642,6 +2646,13 @@ def ordinal(n: int) -> str:
         "th" if 10 <= n % 100 <= 20 else {1: "st", 2: "nd", 3: "rd"}.get(n % 10, "th")
     )
     return f"{n}{suffix}"
+
+
+def predictions_made(data: dict) -> list[dict]:
+    """The predictions written before each fit, newest first; malformed lines
+    (kept by the research data as {"error": ...}) are left out."""
+    rows = [p for p in data.get("predictions") or [] if "error" not in p]
+    return sorted(rows, key=lambda p: p.get("written") or "", reverse=True)
 
 
 def mid(share: dict | None) -> float | None:

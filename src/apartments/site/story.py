@@ -1987,3 +1987,95 @@ def group_items_svg(items: list[dict], noun: str) -> Markup:
         f'<svg class="story-svg items" viewBox="0 0 {WIDTH} {height}" role="img" '
         f'aria-label="{escape(label)}">' + "".join(out) + "</svg>"
     )
+
+
+# --- What the building premium is made of -----------------------------------
+
+
+def explained(entry: dict | None) -> list[dict]:
+    """The fit's own explained-share screens (rentfrontier.explained): for each
+    family of building features, the share of the spread in the fit's building
+    premiums it predicts out of fold, beside the 95th percentile of the same
+    share with the features shuffled across buildings. A family beats chance
+    when its share is above zero and above that percentile. Largest excess
+    first; empty when the fit has no screens."""
+    rows = []
+    for cs, r in sorted(((entry or {}).get("explained") or {}).items()):
+        for family, f in (r.get("families") or {}).items():
+            if not all(
+                isinstance(f.get(k), (int, float)) for k in ("explained", "null_95")
+            ):
+                continue
+            rows.append(
+                {
+                    "name": family,
+                    "set": cs,
+                    "buildings": r.get("buildings"),
+                    "explained": f["explained"],
+                    "null_mean": f.get("null_mean"),
+                    "null_95": f["null_95"],
+                    "excess": f.get("excess"),
+                    "beats": f["explained"] > max(0.0, f["null_95"]),
+                }
+            )
+    rows.sort(
+        key=lambda r: -(r["excess"] if r["excess"] is not None else r["explained"])
+    )
+    return rows
+
+
+def _pct1(v: float) -> str:
+    """A percentage to one decimal, without a minus sign on a value that rounds to zero."""
+    return f"{v:.1f}%" if round(v, 1) else "0.0%"
+
+
+def explained_svg(rows: list[dict]) -> Markup:
+    """Bars: each family's out-of-fold share of the building premium, with a
+    dashed mark where shuffled features reach 95% of the time; families that
+    don't beat chance are drawn faint."""
+    if not rows:
+        return Markup("")
+    row, top, label_w = 26, 22, 200
+    vals = [100 * v for r in rows for v in (r["explained"], r["null_95"])]
+    ticks = nice_ticks(min(0.0, *vals), max(0.5, *vals), 5)
+    lo, hi = ticks[0], ticks[-1]
+    plot = WIDTH - label_w - 70
+
+    def x(v):
+        return label_w + plot * (v - lo) / (hi - lo)
+
+    height = top + row * len(rows) + 8
+    out = [
+        f'<line class="grid" x1="{x(t):.1f}" y1="{top - 6}" x2="{x(t):.1f}" '
+        f'y2="{height - 4}"/><text class="tick" x="{x(t):.1f}" y="{top - 10}" '
+        f'text-anchor="middle">{t:g}%</text>'
+        for t in ticks
+    ]
+    out.append(
+        f'<line class="zero" x1="{x(0):.1f}" y1="{top - 6}" x2="{x(0):.1f}" y2="{height - 4}"/>'
+    )
+    for n, r in enumerate(rows):
+        y = top + row * n
+        v, c = 100 * r["explained"], 100 * r["null_95"]
+        left, right = sorted((x(0), x(v)))
+        out.append(
+            f'<text class="eff-label" x="{label_w - 10}" y="{y + row / 2 + 4:.1f}" '
+            f'text-anchor="end">{escape(r["name"].capitalize())}</text>'
+            f'<rect class="item-bar{"" if r["beats"] else " faint"}" x="{left:.1f}" y="{y + 6}" '
+            f'width="{max(right - left, 1):.1f}" height="{row - 12}"/>'
+            f'<line class="target" x1="{x(c):.1f}" y1="{y + 2}" x2="{x(c):.1f}" y2="{y + row - 2}"/>'
+            f'<text class="share-label" x="{max(x(v), x(0), x(c)) + 6:.1f}" '
+            f'y="{y + row / 2 + 4:.1f}">{_pct1(v)}</text>'
+        )
+    label = (
+        "Share of the building premium each family of features predicts: "
+        + "; ".join(
+            f"{r['name']} {_pct1(100 * r['explained'])} against {_pct1(100 * r['null_95'])} by chance"
+            + (", beats chance" if r["beats"] else ", no better than chance")
+            for r in rows
+        )
+    )
+    return Markup(
+        f'<svg class="story-svg items" viewBox="0 0 {WIDTH} {height}" role="img" '
+        f'aria-label="{escape(label)}">' + "".join(out) + "</svg>"
+    )

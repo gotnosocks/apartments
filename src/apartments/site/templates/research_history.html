@@ -62,6 +62,38 @@ every merged change and switch of the served model.</p>
   </details>
 </section>
 
+{% if predictions %}
+{% set scored = predictions | selectattr("outcome", "in", ["hit", "miss"]) | list %}
+{% set hits = scored | selectattr("outcome", "equalto", "hit") | list %}
+<section class="card" id="predictions">
+  <h2>Predictions made before fitting <span class="muted">(all hardware)</span></h2>
+  <p class="note">Before a test fit runs, the thread that queues it writes down what it expects: how much the fit should gain or lose
+  against a named fit, as a range of <a href="{{ url_for('research_glossary') }}#delta-elpd">ΔELPD</a> on the same listings, and whether
+  the gain should clear the bar of about twice its margin for luck. Once the fit lands, the prediction is scored. A hit means the result fell in
+  the range and cleared, or stayed within, the bar as predicted. Writing predictions first keeps the research honest
+  about what it expected, rather than explaining results afterwards.
+  {{ predictions | length }} recorded{% if scored %}: {{ hits | length }} hit{{ "" if hits | length == 1 else "s" }} and
+  {{ scored | length - hits | length }} miss{{ "" if scored | length - hits | length == 1 else "es" }} so far{% endif %}{% if predictions | length > scored | length %},
+  {{ predictions | length - scored | length }} waiting for a fit or not scored on this split{% endif %}.</p>
+  <div class="table-wrap tall">
+  <table class="data">
+    <thead><tr><th scope="col">Written</th><th scope="col">By</th><th scope="col">Prediction and test fit</th>
+      <th scope="col" class="num">Predicted ΔELPD</th><th scope="col" class="num">Result</th><th scope="col">Outcome</th></tr></thead>
+    <tbody>
+    {% for p in predictions %}{% set lo, hi = p.delta_elpd or [none, none] %}{% set r = p.result %}
+      <tr><td class="nowrap">{{ (p.written or "")[:16] | replace("T", " ") }}</td><td>{{ p.by or "—" }}</td>
+        <td>{{ p.prediction or "—" }}
+          <span class="design-ref">{% if p.key %}<a href="{{ url_for('research_fit', key=p.key) }}"><code>{{ p.design }}</code></a>{% else %}<code>{{ p.design }}</code>{% endif %}</span></td>
+        <td class="num nowrap">{% if lo is number and hi is number %}{{ "{:+,.0f}".format(lo) }} to {{ "{:+,.0f}".format(hi) }}{% elif lo is number %}at least {{ "{:+,.0f}".format(lo) }}{% elif hi is number %}at most {{ "{:+,.0f}".format(hi) }}{% else %}—{% endif %}{% if p.clears_2se is true %}, clears the bar{% elif p.clears_2se is false %}, a tie{% endif %}</td>
+        <td class="num nowrap">{% if r %}{{ "{:+,.1f}".format(r.delta) }} <span class="muted">± {{ "{:,.1f}".format(r.pm) }}</span>{% else %}—{% endif %}</td>
+        <td>{% if p.outcome == "hit" %}hit{% elif p.outcome == "miss" %}<strong>miss</strong>{% elif p.outcome == "pending" %}<span class="muted">waiting for the fit</span>{% else %}<span class="muted">not scored here</span>{% endif %}</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  </div>
+</section>
+{% endif %}
+
 <section class="card" id="changes">
   <h2>Changes</h2>
   <p class="note">Merged changes to the code and data, and switches of the served model, newest first.
