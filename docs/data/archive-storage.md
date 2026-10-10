@@ -112,8 +112,9 @@ created." Since then `crawler.py` stores `provider_capture` through `compact.wit
 each `results[].content` that is the page body is replaced by `content_sha256` when the row is
 written, the same rewrite `compact_database` makes afterwards (shared `compact.strip_results`).
 A new crawl's database is therefore already compact, and its final snapshot is a plain copy;
-running the compaction tool on it changes nothing. A frozen runtime keeps the crawler it froze,
-so the change reaches only runs prepared after it. The three Oct 8 crawl databases (East Village,
+running the compaction tool on it changes nothing. `crawler.py` is in the implementation hashes
+of `rental_discovery` and `candidate_refresh` plans, so a run prepared before the change refuses
+to resume (none was running) and a rebuilt plan gets a new hash. The three Oct 8 crawl databases (East Village,
 NoMad, Stuyvesant Town/PCV) were deleted on Oct 10 (Ben: "delete them."); their compacted
 snapshots and `bodies/` remain.
 
