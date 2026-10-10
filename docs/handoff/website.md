@@ -13,7 +13,10 @@ What the next turn of the website thread needs. Updated at each milestone.
   listing (splits.rows.elpd / sizes.heldout_rows) is the one accuracy measure for every switch since Sept 26.
 - #631: the story's "Two kinds of range" box says which interval level is used where (90% shares, 95%
   effects and worked example) and that the level sets the width.
-- Next on-story: the 12D build-up example (built-year term; why +12.4% is still inside the 95% range).
+- #635: the worked example names its biggest part after the market and quotes all of its layer's plain
+  parts (live: "This building's change over time" +$2,157). The example listing changes with the data,
+  so the old 12D note is stale.
+- Next on-story: read the live worked example and accuracy chapter fresh for unexplained numbers.
 
 ## State (2026-10-09 15:00 UTC)
 
