@@ -35,6 +35,11 @@
     <dt id="reference-model">Reference model</dt>
     <dd>The PyMC model that was served before this research began. Held-out scores are measured against it so that every fit is
     compared with the same yardstick on the same held-out listings.</dd>
+    <dt id="descriptive-share">Descriptive share</dt>
+    <dd>The share of the spread in log asks a fit puts down to where and which apartment a listing is: the neighbourhood labels,
+    the building, the building's drift and the apartment itself, rather than named features. It is the median over the fit's
+    draws, with a 90% interval. Between two fits tied on accuracy, the automatic rule prefers the one whose descriptive share is
+    lower by more than chance would give.</dd>
     <dt id="pareto-k">Pareto k</dt>
     <dd>How trustworthy the PSIS shortcut is for one listing. Above the threshold, 1 − 1/log<sub>10</sub>(draws) capped at 0.7
     (0.67 for the usual 1,000 draws), the estimate for that listing is shaky; a few such listings are normal, many mean the

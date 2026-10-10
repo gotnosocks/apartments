@@ -21,7 +21,7 @@
     flattering the model.</span></dd>
   {% endif %}
   {% set d = (e.variance or {}).descriptive %}
-  <dt>Descriptive share</dt>
+  <dt><a href="{{ url_for('research_glossary', _anchor='descriptive-share') }}">Descriptive share</a></dt>
   <dd>{% if d %}{{ "%.1f" | format(100 * (d | mid)) }}%{% if d.lower_90 is number %} <span class="muted">(90% interval
     {{ "%.1f" | format(100 * d.lower_90) }}% to {{ "%.1f" | format(100 * d.upper_90) }}%)</span>{% endif %}{% else %}— <span class="muted">not
     yet measured for this fit</span>{% endif %}.
@@ -30,7 +30,7 @@
     is better, and the automatic rule prefers the less descriptive of tied fits.</span></dd>
   {% set c = e.new_unit_coverage %}
   <dt>Coverage for new apartments</dt>
-  <dd>{% if c and c.cover_80 is number %}{{ "%.0f" | format(100 * c.cover_80) }}% of asks inside the 80% range and
+  <dd>{% if c and c.cover_80 is number and c.cover_95 is number %}{{ "%.0f" | format(100 * c.cover_80) }}% of asks inside the 80% range and
     {{ "%.0f" | format(100 * c.cover_95) }}% inside the 95% range{% if c.rows is number %}, on {{ "{:,}".format(c.rows) }} asks
     from apartments first listed after the fit's cut-off date{% endif %}{% else %}— <span class="muted">not yet measured for
     this fit</span>{% endif %}.

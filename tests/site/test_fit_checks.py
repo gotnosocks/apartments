@@ -49,7 +49,10 @@ def test_validation_page_leads_with_the_served_fits_checks(site_root, research_f
     assert "held-out listings the" not in html and "(reference)" not in html
     assert "Unseen apartments" not in html
     # the fit's own descriptive share, as the median over draws, not the mean
-    assert "Descriptive share</dt> <dd>22.1% <span" in html and "21.4% to 22.7%" in html
+    assert (
+        "Descriptive share</a></dt> <dd>22.1% <span" in html
+        and "21.4% to 22.7%" in html
+    )
     assert "30.0%" not in html
     assert "79% of asks inside the 80% range and 95% inside the 95% range" in html
     assert "on 1,234 asks" in html
@@ -81,7 +84,7 @@ def test_descriptive_share_falls_back_to_the_mean(site_root, research_file):
     research_file.write_text(json.dumps(data))
     client = create_app(site_root, research_data=research_file).test_client()
     html = " ".join(client.get("/research/model").get_data(as_text=True).split())
-    assert "Descriptive share</dt> <dd>25.0%." in html
+    assert "Descriptive share</a></dt> <dd>25.0%." in html
 
 
 def test_board_sorts_by_descriptive_share(site_root, research_file):

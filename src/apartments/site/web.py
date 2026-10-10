@@ -2382,7 +2382,7 @@ def create_app(
                 points,
                 label="Each fit's PSIS-LOO score against its genuine held-out score",
                 x_title="PSIS-LOO ΔELPD against the simplest baseline (from the fit itself)",
-                y_title="Held-out ΔELPD against a fixed early model",
+                y_title="Held-out ΔELPD against the reference model",
                 x_format=charts.signed,
                 y_format=charts.signed,
                 x_zero=False,
