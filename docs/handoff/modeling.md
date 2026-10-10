@@ -3,6 +3,20 @@
 What the next turn of the modeling thread needs. Updated at each milestone. Scripts and logs are
 in `/data1/apartments/tmp/bridge` (thelio).
 
+## Update (2026-10-10 18:10 UTC)
+
+- **Served (this PR, Ben 16:56Z): the eight-neighbourhood no-size-slope fit**,
+  `m7-…-yearnoise-nosizeslope-nb8-nostuy-v1-rows-71f317f3-a100-4500k9cb1-nb8-ul15r1s4q12ad3`, summary
+  `-fe76a90`. Gate R-hat 1.0072, ESS 595. PSIS-LOO 222,318.6 ± 483.9, +51,134.7 vs the new board
+  baseline `m0-base-base-v1-rows-fe76a905-x-2060-300w1500d-nb-nb8` (fit on thelio with CHAIN_BATCH=1:
+  two vmapped chains ran out of the 2060's 8 GB in collect). `data.DATASET` and the Modal default
+  move to NB8; the NB5 baseline and dataset become `dashboard.PRIOR_*`.
+- **Autoselect's own pick is option C** (`…-sizeunkslope-…-rows-5c1e5c7e-…`): PSIS-LOO +2,306 over
+  the served fit, held-out +166.2 ± 25.3 paired. Ben has the swap question; its summary
+  (`summary-nb8c` unit) and the R-hat checks at 423 E 12th, West Coast and Everett come first.
+- **Queue:** lines running on Modal on the no-size-slope base, elevfill queued behind it
+  (`bridge/modalq-nb8-lines-elevfill.sh`); later items go on C.
+
 ## Update (2026-10-10 12:30 UTC)
 
 - **Runs still paused.** Launch nothing on Modal or the GPU until Ben lifts the pause.

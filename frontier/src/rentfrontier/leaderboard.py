@@ -75,7 +75,7 @@ VARIANCE_ROOT = data.OUTPUT_ROOT / "variance"
 # nb-d1005" (Chelsea + West Village with the Oct 5 captures),
 # "m0-base-base-v1-rows-e61a794-x-2060-300w1500d-nb" (the 2026-10-01 dataset),
 # "m0-base/base-v1/gibbs@5cc0809" (Chelsea).
-BASELINE = "m0-base-base-v1-rows-fe76a90-x-2060-300w1500d-nb-nb8"
+BASELINE = "m0-base-base-v1-rows-fe76a905-x-2060-300w1500d-nb-nb8"
 
 
 def is_baseline(e) -> bool:
