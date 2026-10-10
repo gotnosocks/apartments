@@ -19,7 +19,7 @@ def test_nb8_base_is_nb7_nostuy_plus_east_village():
 
 
 # nb8 sets with no nb7 twin; each has its own test below.
-NB8_ONLY = {"nb8-nostuy-lines-v1"}
+NB8_ONLY = {"nb8-nostuy-lines-v1", "nb8-nostuy-retail-v1"}
 
 
 def test_nb8_tests_are_nb7s_on_the_nb8_base():
@@ -284,3 +284,43 @@ def test_nb8_lines_price_the_j_z_from_east_village():
 
     new, old = priced(features.NB8_REGISTRY_FILE), priced(features.NB7_REGISTRY_FILE)
     assert set(new) - set(old) == {"J/Z"} and set(old) <= set(new)
+
+
+def test_nb8_retail_reads_the_nb8_storefronts(monkeypatch):
+    """nb8-nostuy-retail-v1 is retail_v2 on the nb8 base, and its fit records
+    the nb8 storefronts snapshot, which is what it reads."""
+    name = "nb8-nostuy-retail-v1"
+    assert features.FEATURE_SETS[name].func is features.retail_v2
+    assert features.FEATURE_SETS[name].keywords == {"id": name, "base": "nb8-nostuy-v1"}
+    groups = {
+        k for k, v in vars(features).items() if k.isupper() and isinstance(v, set)
+    }
+    assert {k for k in groups if name in getattr(features, k)} == {
+        k for k in groups if "nb8-nostuy-v1" in getattr(features, k)
+    } | {"STOREFRONTS"}
+    assert features.STOREFRONTS_SNAPSHOTS[name] == features.NB8_STOREFRONTS_FILE
+    monkeypatch.setattr(run.data, "sha256", lambda path: "x")
+    sources = run.feature_sources(name)
+    assert sources["storefronts"]["path"] == features.NB8_STOREFRONTS_FILE
+    assert run.feature_sources("nb3-retail-v1")["storefronts"]["path"] == (
+        features.STOREFRONTS_FILE
+    )
+
+
+def test_retail_v2_matches_retail_v1_on_the_same_file(monkeypatch):
+    """retail_v2 with STOREFRONTS_FILE as its snapshot builds retail_v1's
+    terms."""
+    if not all(
+        Path(p).exists() for p in (features.STOREFRONTS_FILE, features.REGISTRY_FILE)
+    ):
+        pytest.skip("external snapshots not on this machine")
+    registry = pd.read_parquet(features.REGISTRY_FILE)
+    frame = pd.DataFrame({"building": registry.building.iloc[::40].tolist()})
+    base = features.Features("b", [], [], np.zeros((len(frame), 0)), np.zeros(0))
+    monkeypatch.setitem(features.FEATURE_SETS, "b", lambda frame, train: base)
+    monkeypatch.setitem(features.STOREFRONTS_SNAPSHOTS, "x", features.STOREFRONTS_FILE)
+    train = np.ones(len(frame), bool)
+    new = features.retail_v2(frame, train, id="x", base="b")
+    old = features.retail_v1(frame, train, id="x", base="b")
+    assert new.names == old.names
+    np.testing.assert_array_equal(new.values, old.values)
