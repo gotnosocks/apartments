@@ -44,12 +44,16 @@ see the <a href="{{ url_for('estimates_map') }}">rent map</a>.</p>
   <p>The page shows two kinds of range, and they answer different questions.</p>
   <ul>
     <li><strong>How sure is the model of a number?</strong> An <em>interval</em> around an effect or a share is
-    the range the model is 90% (or 95%) sure holds the true value. A narrow interval means the data pin the
-    number down.</li>
+    the range the model is 90% or 95% sure holds the true value: 90% for the shares of the spread in
+    “<a href="#shape">An ask is a sum of a few stories</a>” (the only level the fit records for them), 95% for the
+    effects and for the parts of the <a href="#build-up">worked example</a>. A narrow
+    interval means the data pin the number down.</li>
     <li><strong>Where might an ask land?</strong> A <em>range</em> around an estimate holds that share of the asks
     themselves. The <a href="{{ url_for('research_glossary') }}#price-band">likely ask range</a> on each listing holds
     the middle 80%{% if build and build.lower is not none %}; the worked example uses a wider one that holds 95%{% endif %}.</li>
   </ul>
+  <p>The percentage only sets the width: a range meant to hold 95% must be wider than one meant to hold 80%, and an honest one
+  holds its share. <a href="#accuracy">How close does it get?</a> checks that on asks the fit never saw.</p>
 </aside>
 
 <section id="shape">
