@@ -460,3 +460,12 @@ def test_predictive_bounds_agree_with_pit():
         ask <= table.estimate_pred_upper_80
     )
     assert 0.6 < inside.mean() < 0.95
+
+
+def test_summary_reports_the_median_and_the_95_interval():
+    # A skewed draw set: the mean (2.8) is far from the median (1.0).
+    x = np.array([[0.0], [1.0], [1.0], [1.0], [11.0]])
+    mid, lo, hi = summary._summary(x)
+    assert mid[0] == pytest.approx(1.0)
+    assert lo[0] == pytest.approx(np.quantile(x[:, 0], 0.025))
+    assert hi[0] == pytest.approx(np.quantile(x[:, 0], 0.975))

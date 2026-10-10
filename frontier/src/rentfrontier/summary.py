@@ -621,8 +621,10 @@ def summarize(name: str, allow_failing: bool = False):
 
 
 def _summary(x, axis=0):
-    q = np.quantile(x, [PROBABILITIES[0], PROBABILITIES[2]], axis=axis)
-    return x.mean(axis), q[0], q[1]
+    """Median over draws and the 95% interval (medians, not means: the Fable
+    review framework, Ben 2026-10-10)."""
+    q = np.quantile(x, PROBABILITIES, axis=axis)
+    return q[1], q[0], q[2]
 
 
 def market_table(kept, prep) -> pd.DataFrame:
