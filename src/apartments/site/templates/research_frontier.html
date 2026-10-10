@@ -80,7 +80,7 @@ then the most elegant, then the fastest, and it changes only when another fit cl
 <section class="card" id="{{ 'full-fits' if tier == 'full' else 'exploration-fits' }}">
   <h2>{{ 'Full fits' if tier == 'full' else 'Exploration fits' }}: accuracy against fit time</h2>
   <p class="note">{% if tier == 'full' %}Each dot is one full fit, the kind that can be served. {% if target %}Ben's window on the RTX 2060
-  graphics card is a full fit of the Chelsea + West Village data within {{ (target_minutes / 60) | int }} hours (a line marks it
+  graphics card is a full fit of {{ 'the data in ' ~ all_areas if all_areas else 'the full data' }} within {{ (target_minutes / 60) | int }} hours (a line marks it
   when fits reach it). {% endif %}{% else %}Each diamond is one exploration fit: fewer draws, to try an idea quickly. {% if target %}They
   aim to finish within {{ subset_minutes }} minutes. {% endif %}They are research points: only a full fit is served.
   {% endif %}Up is more accurate; left is faster. "On the frontier" here means no other

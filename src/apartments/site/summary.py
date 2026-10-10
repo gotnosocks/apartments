@@ -141,6 +141,9 @@ NEIGHBOURHOOD_INPUTS = (
     "Greenwich Village",
     "Flatiron",
     "Gramercy Park",
+    "Stuyvesant Town/PCV",
+    "NoMad",
+    "East Village",
 )
 
 

@@ -1135,6 +1135,9 @@ AREA_WORDS = {
     "nb": "West Village",
     "nb3": "Greenwich Village",
     "nb5": "Flatiron and Gramercy Park",
+    "nb6": "Stuyvesant Town/PCV",
+    "nb7": "NoMad",
+    "nb8": "East Village",
 }
 SET_WORDS = {
     "unitdesc": "words from the ads",
@@ -1145,7 +1148,33 @@ SET_WORDS = {
     "relist": "each apartment's relisting history",
     "coded": "the listings' coded fields",
     "prevprice": "how the unit's previous listing was repriced",
+    # nb6 on: the coded fields with city building records as of each
+    # listing's day, and no Stuyvesant Town/PCV indicator
+    "nostuy": "the coded fields with building records as of each listing's day",
 }
+# What a test set adds to its base (`nb8-nostuy-sizefill-v1`: "sizefill" on
+# "nostuy"), said after the base's words.
+EXTRA_WORDS = {
+    "sizefill": "each apartment's size as of the listing's day",
+    "elevfill": "the elevator as of the listing's day",
+    "nta": "the city's neighbourhood tabulation areas",
+    "lister": "who listed the ad",
+    "lines": "the subway lines within an 8-minute walk",
+    "riverparks": "the river parks nearby",
+}
+
+
+def set_words(body: str) -> str:
+    """A feature set's body in words: "coded" → "the listings' coded fields";
+    "nostuy-lister" → its base's words plus "who listed the ad"."""
+    if body in SET_WORDS:
+        return SET_WORDS[body]
+    base, _, extra = body.partition("-")
+    if extra and base in SET_WORDS:
+        return f"{SET_WORDS[base]}, plus {EXTRA_WORDS.get(extra, extra)}"
+    return body
+
+
 _PR = re.compile(r"\(#(\d+)\)")
 _SET_START = re.compile(r"^(nb\d*|unit)")
 
@@ -1217,7 +1246,7 @@ def term_words(term: str) -> str:
 def _set_parts(feature_set: str) -> tuple[str, str, str]:
     """`nb3-coded-v2` → ("nb3", "coded", "v2"); `unitfacing-v5` → ("unit",
     "unitfacing", "v5")."""
-    m = re.fullmatch(r"(nb\d*)?-?([a-z]+?)(?:-(v\d+))?", feature_set or "")
+    m = re.fullmatch(r"(nb\d*)?-?([a-z][a-z-]*?)(?:-(v\d+))?", feature_set or "")
     if not m:
         return "", feature_set or "", ""
     area = m.group(1) or ("unit" if m.group(2).startswith("unit") else "")
@@ -1231,7 +1260,7 @@ def change_words(before: dict | None, after: dict, seen=()) -> str | None:
     if after["terms"] is None:
         return None
     area, body, version = _set_parts(after["feature_set"])
-    what = SET_WORDS.get(body, body)
+    what = set_words(body)
     if before is None or before["terms"] is None:
         terms = [term_words(t) for t in after["terms"]]
         return f"The first searched design: {'; '.join(terms)}. Features: {what}"
@@ -1245,13 +1274,14 @@ def change_words(before: dict | None, after: dict, seen=()) -> str | None:
     was_area, was_body, was_version = _set_parts(before["feature_set"])
     order = list(AREA_WORDS)
     if area in order and was_area in order and area != was_area:
-        grew = order.index(area) > order.index(was_area)
-        parts.append(
-            f"Took in {AREA_WORDS[area]}"
-            if grew
-            else f"Left out {AREA_WORDS[was_area]}"
+        a, b = order.index(was_area), order.index(area)
+        # every area between the two steps, as a switch can skip some
+        steps = [AREA_WORDS[k] for k in order[min(a, b) + 1 : max(a, b) + 1]]
+        names = (
+            steps[0] if len(steps) == 1 else ", ".join(steps[:-1]) + " and " + steps[-1]
         )
-    if what != SET_WORDS.get(was_body, was_body):
+        parts.append(f"{'Took in' if b > a else 'Left out'} {names}")
+    if what != set_words(was_body):
         back = what in seen
         parts.append(f"Features {'back to' if back else 'now include'} {what}")
     elif version != was_version and area == was_area:
@@ -1311,7 +1341,7 @@ def design_history(milestones: list[dict]) -> list[dict]:
         s["change"] = change_words(out[i - 1] if i else None, s, seen) or s["words"]
         if s["feature_set"] is not None:
             body = _set_parts(s["feature_set"])[1]
-            seen.append(SET_WORDS.get(body, body))
+            seen.append(set_words(body))
     return out
 
 
