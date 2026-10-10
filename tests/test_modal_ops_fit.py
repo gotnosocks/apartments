@@ -65,7 +65,7 @@ def test_launches_before_the_budget_began_are_not_charged(tmp_path):
     rows = cap.launches(ledger)
     assert cap.balance(rows, cap.START) == 0
     assert cap.balance(rows, cap.START + datetime.timedelta(days=1)) == pytest.approx(
-        cap.USD_PER_DAY
+        cap.RATES[0][1]
     )
 
 
@@ -80,7 +80,7 @@ def test_a_retry_of_a_run_is_charged_as_its_own_launch(tmp_path):
     with ledger.open("a") as f:
         f.write(json.dumps(old) + "\n")
     assert cap.balance(cap.launches(ledger), day) == pytest.approx(
-        cap.USD_PER_DAY - 0.3 - 0.8 - cap.estimate(*cap.SERVED_FIT), abs=0.01
+        cap.RATES[0][1] - 0.3 - 0.8 - cap.estimate(*cap.SERVED_FIT), abs=0.01
     )
 
 
@@ -90,7 +90,8 @@ def test_ten_served_fits_a_day_at_the_container_list_price(monkeypatch):
     assert {
         gpu: round(app.usd_per_second(gpu) * 3600, 4) for gpu in app.FITS
     } == pytest.approx(cap.USD_PER_HOUR, abs=1e-4)
-    assert cap.USD_PER_DAY == pytest.approx(8.80)
+    assert cap.RATES[0][1] == pytest.approx(8.80)
+    assert cap.USD_PER_DAY == 10.0
 
 
 def test_the_pre_check_reads_the_fit_size_from_modal_fit_arguments():
@@ -206,3 +207,28 @@ def test_the_balance_stops_at_ten_full_fits_and_restarts_below_it(tmp_path):
     cap.settle(launch, 0.2, ledger, week + hour)
     assert cap.balance(cap.launches(ledger), week + hour) == pytest.approx(cap.CEILING)
     assert cap.ready_at(rows, cap.CEILING + 1, week) is None
+
+
+def test_the_rate_rose_to_ten_dollars_a_day_without_repricing_the_past():
+    change = cap.RATES[1][0]
+    hour = datetime.timedelta(hours=1)
+    assert cap.accrued(change - hour, change) == pytest.approx(8.80 / 24)
+    assert cap.accrued(change, change + hour) == pytest.approx(10.0 / 24)
+    assert cap.accrued(change - hour, change + hour) == pytest.approx(18.80 / 24)
+
+
+def test_time_at_the_old_ceiling_does_not_earn_the_new_one():
+    change = cap.RATES[1][0]
+    hour = datetime.timedelta(hours=1)
+    # No launches: the balance sat at the old $8.80 ceiling until the change.
+    assert cap.balance([], change - hour) == pytest.approx(8.80)
+    assert cap.balance([], change) == pytest.approx(8.80)
+    assert cap.balance([], change + hour) == pytest.approx(8.80 + 10.0 / 24)
+    assert cap.balance([], change + 2 * datetime.timedelta(days=1)) == pytest.approx(
+        10.0
+    )
+
+
+def test_ready_at_before_start_uses_the_first_rate():
+    early = cap.START - datetime.timedelta(days=1)
+    assert cap.ready_at([], 1.0, early) is not None

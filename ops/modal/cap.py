@@ -6,8 +6,8 @@ fits per day, and only spend on a partial or full fit after we have accumulated 
 estimated cost. If our estimate is too low, the accumulation should continue from the negative
 balance. e.g. $0 -> $10 -> -$0.50 -> $3 -> $1 -> $10 etc."
 
-The balance starts at $0 at START and accrues USD_PER_DAY = 10 x the estimated cost of the served
-full fit. A launch is charged its estimate when it takes its turn (reserve); when the fit returns,
+The balance starts at $0 at START and accrues at the rates in RATES: 10 x the estimated cost of
+the served full fit ($8.80) a day, then $10 a day from Ben's message of 2026-10-10 16:25Z. A launch is charged its estimate when it takes its turn (reserve); when the fit returns,
 the launcher settles it at the container's list-price cost (or the time it ran, if it failed), so
 an estimate that was too low leaves the balance negative and accrual continues from there. Ben,
 2026-10-07 22:23Z: "I would like to cap the balance on the dollar budget at ~10 full fits", so
@@ -53,10 +53,34 @@ def estimate(chains, warmup, draws, gpu="A100-40GB"):
     return round(seconds * USD_PER_HOUR[gpu] / 3600, 2)
 
 
-USD_PER_DAY = 10 * estimate(
-    *SERVED_FIT
-)  # Ben, 2026-10-07 22:32Z: $8.80 a day, and the cap
-CEILING = USD_PER_DAY  # Ben, 2026-10-07 22:23Z: cap the balance at ~10 full fits
+# The accrual rate, in USD a day, from each time on. Ben, 2026-10-07 22:32Z: $8.80 a day (10 x
+# the served full fit's estimate). Ben, 2026-10-10 16:25Z: "OK: run the fit queue at $10/day".
+RATES = (
+    (START, 10 * estimate(*SERVED_FIT)),
+    (datetime.datetime(2026, 10, 10, 16, 25, 53, tzinfo=datetime.UTC), 10.0),
+)
+USD_PER_DAY = RATES[-1][1]
+CEILING = USD_PER_DAY  # Ben, 2026-10-07 22:23Z: cap the balance at ~10 full fits (a day's accrual)
+
+
+def rate_at(at):
+    """The accrual rate in force at `at` (the first rate before START)."""
+    return next((r for since, r in reversed(RATES) if since <= at), RATES[0][1])
+
+
+def ceiling_at(at):
+    """The balance cap in force at `at`: a day's accrual at the rate then."""
+    return rate_at(at)
+
+
+def accrued(start, end):
+    """Dollars accrued from start to end at the rates in force."""
+    total = 0.0
+    for i, (since, rate) in enumerate(RATES):
+        until = RATES[i + 1][0] if i + 1 < len(RATES) else end
+        a, b = max(start, since), min(end, until)
+        total += max((b - a).total_seconds(), 0) / 86400 * rate
+    return total
 
 
 def _now(now=None):
@@ -73,9 +97,11 @@ def launches(ledger=LEDGER):
 
 
 def balance(rows, now=None):
-    """Dollars accrued since START, held to CEILING, less what launches since START cost.
+    """Dollars accrued since START, held to the ceiling then in force, less what launches since
+    START cost.
 
-    Walks the ledger in time order: accrual stops while the balance is at the ceiling; a launch
+    Walks the ledger in time order: accrual stops while the balance is at the ceiling (a day's
+    accrual at the rate in force, so time spent at an old ceiling is not repriced); a launch
     takes its estimate and its settlement the difference between what it cost and the estimate."""
     now = _now(now)
     events, estimates = [], {}
@@ -89,10 +115,12 @@ def balance(rows, now=None):
             usd = row.get("usd_estimate", estimate(*SERVED_FIT))
             estimates[row.get("id", f"{row['name']}@{row['at']}")] = usd
             events.append((at, -usd))
+    # Rate changes are events too, so each step between events accrues at one rate.
+    events += [(since, 0.0) for since, _ in RATES[1:] if since <= now]
     have, last = 0.0, START
     for at, change in sorted(events, key=lambda e: e[0]) + [(max(now, START), 0.0)]:
-        accrued = max((at - last).total_seconds(), 0) / 86400 * USD_PER_DAY
-        have = min(CEILING, min(CEILING, have + accrued) + change)
+        have = min(ceiling_at(last), have + accrued(last, at))
+        have = min(ceiling_at(at), have + change)
         last = max(at, last)
     return have
 
@@ -106,7 +134,7 @@ def ready_at(rows, usd, now=None):
         return now
     if usd > CEILING:
         return None
-    at = now + datetime.timedelta(days=short / USD_PER_DAY)
+    at = now + datetime.timedelta(days=short / rate_at(now))
     return at.replace(second=0, microsecond=0) + datetime.timedelta(
         minutes=1
     )  # round up
@@ -219,6 +247,6 @@ if __name__ == "__main__":
         )
     usd = estimate(*SERVED_FIT)
     print(
-        f"balance ${balance(rows):.2f}, accruing ${USD_PER_DAY:.2f} a day (10 x ${usd:.2f}) up to ${CEILING:.2f}"
+        f"balance ${balance(rows):.2f}, accruing ${USD_PER_DAY:.2f} a day up to ${CEILING:.2f}"
     )
     print(f"a served full fit (${usd:.2f}) may launch from {when(rows, usd)}")
