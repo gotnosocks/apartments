@@ -3354,7 +3354,9 @@ def bigbed_v1(
         name = f"bedrooms={level}"
         if name in base.names:
             big |= base.values[:, base.names.index(name)] == 1.0
-    condo = base.values[:, base.names.index("building class=R")] == 1.0
+    condo = np.zeros(len(frame), dtype=bool)
+    if "building class=R" in base.names:
+        condo = base.values[:, base.names.index("building class=R")] == 1.0
     b = _Builder(frame)
     b.add("bedrooms", "3+ bedrooms x elevator", big & frame.elevator.eq("yes"))
     b.add("bedrooms", "3+ bedrooms x condominium", big & condo)
