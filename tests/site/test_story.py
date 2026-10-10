@@ -341,6 +341,8 @@ def test_design_history_eras_terms_and_spells():
         ("nb3-coded-v2", ("nb3", "coded", "v2")),
         ("nb5-coded-v2", ("nb5", "coded", "v2")),
         ("nb3-prevprice-v2", ("nb3", "prevprice", "v2")),
+        ("nb8-nostuy-v1", ("nb8", "nostuy", "v1")),
+        ("nb8-nostuy-sizefill-v1", ("nb8", "nostuy-sizefill", "v1")),
         ("", ("", "", "")),
     ],
 )
@@ -353,6 +355,20 @@ def test_change_words_shrink_and_unknown_set():
     after = {"terms": ["nocurves"], "feature_set": "nb3-newthing-v1", "rows": "a"}
     assert story.change_words(before, after) == (
         "Left out Flatiron and Gramercy Park. Features now include newthing"
+    )
+
+
+def test_change_words_names_every_area_a_switch_takes_in():
+    before = {"terms": ["nocurves"], "feature_set": "nb5-coded-v2", "rows": "a"}
+    after = {"terms": ["nocurves"], "feature_set": "nb8-coded-v2", "rows": "a"}
+    assert story.change_words(before, after) == (
+        "Took in Stuyvesant Town/PCV, NoMad and East Village"
+    )
+    after["feature_set"] = "nb8-nostuy-sizefill-v1"
+    assert story.change_words(before, after) == (
+        "Took in Stuyvesant Town/PCV, NoMad and East Village. Features now include "
+        "the coded fields with building records as of each listing's day, plus "
+        "each apartment's size as of the listing's day"
     )
 
 
@@ -369,7 +385,7 @@ def test_design_history_says_what_changed():
     )
     assert changes[3] == (
         "Added each building's own price for height. Dropped each building's own "
-        "price for two more features. Took in Greenwich Village. "
+        "price for two more features. Took in West Village and Greenwich Village. "
         "Features now include how the unit's previous listing was repriced"
     )
     again = MILESTONES + [
