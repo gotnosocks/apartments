@@ -9,8 +9,11 @@ arguments mirror drive.sh, so the run is named "<model>-<features>-<split>-<comm
 Steps: refuse if the run already exists here; spend the fit's estimated cost from the Modal balance (cap.py:
 dollars accrue at 10 full fits a day; refused until the balance covers it); upload only the inputs that changed since the last sync; ship a
 shallow checkout of COMMIT; run the fit (capped at 2 h, or 30 min for an exploration fit)
-and PSIS-LOO in the container; download the run to FRONTIER_OUTPUT_ROOT/runs/<name> and the
-LOO to FRONTIER_OUTPUT_ROOT/loo/, then delete them from the Volume. The Volume itself is
+and PSIS-LOO in the container, then its post-fit statistics (variance decomposition, the
+summary bundle for a full fit, and the explained share of each --explain SET; each capped, and
+none can fail the fit); download the run to FRONTIER_OUTPUT_ROOT/runs/<name>, the LOO to
+FRONTIER_OUTPUT_ROOT/loo/ and the statistics to FRONTIER_OUTPUT_ROOT/{variance,summaries,
+explained}/, then delete them from the Volume. The Volume itself is
 deleted after 24 h without a launch (ops/modal/cleanup).
 """
 
@@ -20,6 +23,7 @@ import fcntl
 import importlib
 import json
 import os
+import shutil
 import subprocess
 import sys
 import time
@@ -68,6 +72,13 @@ def parse(argv):
     )
     p.add_argument("--split", default="rows")
     p.add_argument("--chain-batch", type=int)
+    p.add_argument(
+        "--explain",
+        action="append",
+        default=[],
+        help="a candidate feature set to screen on the fit's building levels afterwards "
+        "(rentfrontier.explained; repeatable)",
+    )
     for name in (
         "commit",
         "label",
@@ -110,6 +121,7 @@ def plan(args, run_args, sha, short=None):
         "dataset": inputs[0],
         "inputs": inputs,
         "run_args": run,
+        "explain": list(args.explain),
     }
 
 
@@ -189,22 +201,49 @@ def _marker(volume_id):
     return str(path)
 
 
+POST_KINDS = ("variance", "summaries", "explained")
+
+
 def download(volume, name, root):
-    """/out/<name>/run -> runs/<name>, /out/<name>/loo/* -> loo/, log and modal.json into runs/<name>/modal/."""
+    """/out/<name>/run -> runs/<name>, /out/<name>/loo/* -> loo/, the post-fit statistics'
+    /out/<name>/{variance,summaries,explained}/* -> the same directories under root, log and
+    modal.json into runs/<name>/modal/. A post-fit directory lands whole: it is written under
+    root/.incoming/<name>/ (out of every reader's glob) and renamed into place once every
+    file is down."""
     prefix = f"out/{name}/"
+    incoming = root / ".incoming" / name
+    shutil.rmtree(incoming, ignore_errors=True)  # an interrupted download's leftovers
+    staged = set()
     for entry in volume.iterdir(f"/out/{name}", recursive=True):
         if entry.type.name != "FILE":
             continue
         rel = entry.path.lstrip("/").removeprefix(prefix)
-        if rel.startswith("run/"):
-            dst = root / "runs" / name / rel.removeprefix("run/")
-        elif rel.startswith("loo/"):
-            dst = root / "loo" / rel.removeprefix("loo/")
+        kind, _, rest = rel.partition("/")
+        if kind == "run":
+            dst = root / "runs" / name / rest
+        elif kind == "loo":
+            dst = root / "loo" / rest
+        elif kind in POST_KINDS and "/" in rest:
+            d, _, inner = rest.partition("/")
+            staged.add((kind, d))
+            dst = incoming / kind / d / inner
         else:
             dst = root / "runs" / name / "modal" / rel
         dst.parent.mkdir(parents=True, exist_ok=True)
         with open(dst, "wb") as f:
             volume.read_file_into_fileobj(entry.path, f)
+    for kind, d in sorted(staged):
+        final = root / kind / d
+        if final.exists():
+            print(f"kept {final}: it already exists", flush=True)
+        else:
+            final.parent.mkdir(parents=True, exist_ok=True)
+            (incoming / kind / d).rename(final)
+    shutil.rmtree(incoming, ignore_errors=True)
+    try:
+        incoming.parent.rmdir()  # only when no other download is in flight
+    except OSError:
+        pass
     volume.remove_file(f"/out/{name}", recursive=True)
 
 

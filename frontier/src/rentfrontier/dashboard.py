@@ -546,6 +546,7 @@ def data():
                 "hardware": e["hardware"],
                 "hardware_class": e["hardware_class"],
                 "variance": (e.get("variance") or {}).get("intervals"),
+                "explained": e.get("explained"),
                 "fit_seconds": e["fit_seconds"],
                 # Other work on the fit's own cores (ops/job pins a GPU job to
                 # its core complex); runs before that have only the
