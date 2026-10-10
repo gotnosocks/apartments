@@ -106,7 +106,9 @@ def building_means(values, building, n_buildings):
     return sums / np.maximum(counts, 1)[:, None]
 
 
-def score_run(name: str, candidate_set: str, seed=0):
+def load(name: str) -> dict:
+    """What every candidate set's screen of a run shares: the run's building
+    levels, its training rows and features (loaded once for all the sets)."""
     _, result, kept = explain.load_run(name)
     frame = data.load()
     if frame.attrs["source_sha256"] != result["dataset_observations_sha256"]:
@@ -116,12 +118,26 @@ def score_run(name: str, candidate_set: str, seed=0):
     )
     train = ~heldout
     own = features.build(result["feature_set"], frame, train)
-    cand = features.build(candidate_set, frame, train)
     prep = model.prepare(frame, heldout, own)
     a = model.row_arrays(prep, frame, train)
     levels = kept["building"]
-    level, sd2 = levels.mean(0), levels.var(0)
-    have = set(map(str, own.names))
+    return {
+        "name": name,
+        "result": result,
+        "frame": frame,
+        "train": train,
+        "building": a.building,
+        "level": levels.mean(0),
+        "sd2": levels.var(0),
+        "have": set(map(str, own.names)),
+    }
+
+
+def score(run: dict, candidate_set: str, seed=0):
+    """Screen one candidate set's feature families on a loaded run (`load`)."""
+    name, result, frame, train = run["name"], run["result"], run["frame"], run["train"]
+    level, sd2, have = run["level"], run["sd2"], run["have"]
+    cand = features.build(candidate_set, frame, train)
     groups = np.asarray(cand.groups)
     names = np.asarray([str(n) for n in cand.names])
     x_train = cand.values[train]
@@ -132,7 +148,7 @@ def score_run(name: str, candidate_set: str, seed=0):
         if not len(cols):
             continue
         x = building_means(
-            np.asarray(x_train[:, cols], dtype=float), a.building, len(level)
+            np.asarray(x_train[:, cols], dtype=float), run["building"], len(level)
         )
         families[g] = {"columns": names[cols].tolist(), **screen(level, sd2, x, rng)}
     return {
@@ -149,6 +165,10 @@ def score_run(name: str, candidate_set: str, seed=0):
     }
 
 
+def score_run(name: str, candidate_set: str, seed=0):
+    return score(load(name), candidate_set, seed)
+
+
 def main(argv=None):
     parser = argparse.ArgumentParser(
         description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
@@ -160,15 +180,26 @@ def main(argv=None):
     if dirty:
         raise SystemExit(f"Refusing to run on a dirty working tree:\n{dirty}")
     commit = git("rev-parse", "HEAD")
+    todo = {}
     for cs in args.candidate_sets:
         out_dir = EXPLAINED_ROOT / f"{args.run}-{cs}-{commit[:7]}"
         if (out_dir / "result.json").exists():
             print(f"skip {cs}: {out_dir} exists")
-            continue
+        else:
+            todo[cs] = out_dir
+    if not todo:
+        return
+    t0 = time.perf_counter()
+    run = load(args.run)
+    loaded = time.perf_counter() - t0
+    for cs, out_dir in todo.items():
         t0 = time.perf_counter()
-        record = score_run(args.run, cs)
+        record = score(run, cs)
         record.update(
-            commit=commit, seconds=time.perf_counter() - t0, hardware=hardware()
+            commit=commit,
+            seconds=time.perf_counter() - t0,
+            load_seconds=loaded,
+            hardware=hardware(),
         )
         out_dir.mkdir(parents=True, exist_ok=True)
         (out_dir / "result.json").write_text(json.dumps(record, indent=2))
