@@ -3,6 +3,19 @@
 What the next turn of the modeling thread needs. Updated at each milestone. Scripts and logs are
 in `/data1/apartments/tmp/bridge` (thelio).
 
+## Update (2026-10-10 19:00 UTC)
+
+- **NB8 live 18:27:55Z (#655)** on the no-size-slope fit. The site build peaked at about 5.0 GB, so it was
+  published at MemoryMax=5G; this PR raises ops/autoselect-publish.sh's cap to 6G.
+- **This PR serves option C** (`…-sizeunkslope-nb8-nostuy-v1-rows-5c1e5c7e-…`, summary `-fe76a90`) by
+  autoselect: PSIS-LOO +2,305.5 ± 105.9 and held-out +167.2 ± 25.3 against the no-size-slope fit. Ben
+  17:59Z "Swap after checks". Checks: group R-hat max 1.022 (unit); split R-hat for the building
+  effect is 1.0013 at 423 E 12th, 0.9989 at The West Coast and 0.9995 at The Everett Building. 78 of
+  214,887 rows move more than 40%; all are single-listing units, 55% of them toward the ask.
+- **Queue results on the no-size-slope base:** lines +2.0 ± 1.7 held-out and PSIS-LOO +21.7, but it
+  fails the gate (group R-hat 1.079). elevfill +0.4 ± 2.3 and PSIS-LOO +8.3, passes. Both tie. Later
+  items run on C.
+
 ## Update (2026-10-10 18:10 UTC)
 
 - **Served (this PR, Ben 16:56Z): the eight-neighbourhood no-size-slope fit**,
