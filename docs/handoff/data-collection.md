@@ -1,6 +1,6 @@
 # Data collection — handoff
 
-Updated 2026-10-10 07:15 ET. Thread owner: the Data collection project thread (bridge session on thelio).
+Updated 2026-10-10 19:20 ET. Thread owner: the Data collection project thread (bridge session on thelio).
 
 ## State
 - **Stuyvesant Town/PCV: crawl FINISHED** Oct 8 15:21 ET (6,139 requests, ~$7, no 429s),
@@ -17,8 +17,10 @@ Updated 2026-10-10 07:15 ET. Thread owner: the Data collection project thread (b
   18:57 ET Oct 9 (Ben, typed 22:56 UTC: "Double the rate to 64/min"). Snapshot written compacted
   (99.7 → 55.7 GB, rows and audit verified). `apartments-ev-monitor.timer` and
   `apartments-rate-balance.timer` disabled; no crawl is running. Handed to Data improvements and
-  Modeling via the coordinator. The crawl database is kept until Ben says to delete
-  it, as for FGP and GV.
+  Modeling via the coordinator.
+- **EV, NoMad and Stuy Town crawl databases deleted** Oct 10 16:00 ET (Ben, typed: "delete
+  them."): `/data1` went from 230 to 347 GB free. Kept: the three `snapshots/*-final`, each
+  crawl's `bodies/`, and all datasets.
 - **NoMad, East Village crawl setup**: launched Oct 8 02:23 ET (Ben, typed
   06:19 UTC). One StreetEasy area each (`nomad`, `east-village`, `stuyvesant-town`; #482), FGP
   policy, launched at `run-8pm-2w.py` each (24/min combined), fallback 8pm → 4pm → STOP; monitors
@@ -62,6 +64,19 @@ Updated 2026-10-10 07:15 ET. Thread owner: the Data collection project thread (b
   came in #375; the capture paused FGP while it was running (pause-and-swap, combined rate 8/min) and resumed it.
   Controls: `data/probes/current-listings-gv-20261006/` (local; `swap.sh` is the template for
   later refreshes). Rows: `details/snapshot/candidates.jsonl`, `listing_status == "ACTIVE"`.
+- **Current listings, Oct 10** (Ben, typed 19:09 UTC: "go ahead with scraping the new
+  neighborhoods for active listings"): `20261010-{flatiron,gramercy-park,nomad,east-village,stuyvesant-town}/`,
+  15:16–15:32 ET at 30/min, 366 requests (~$0.40): 38, 46, 56, 141 and 25 ACTIVE; 9
+  `canonical_unit_mismatch` failures. Needed #662 (`rental-search-v4`: the five routes and
+  StreetEasy's new `listingData` search template, live since about Oct 8). Controls:
+  `data/probes/current-listings-new-areas-20261010/` (local; `run-capture.py`, `run-all.sh`).
+  The Website thread reads them; its reader measures the 7-day window from today (#665) and lets
+  a newer capture replace a unit's dataset row (#667).
+- **History crawl → current listings** (#664, Ben 19:11 UTC): `apartments.crawl_current_listings`
+  turns a finished crawl's newest-ACTIVE ads into `candidates.jsonl` with no requests, dated by
+  page capture time. Not published: the Oct 10 capture is newer for those areas.
+- **No daily refresh** of current listings exists; every capture so far was on demand. Proposed
+  to Ben Oct 10 (about 2–3k requests a day, roughly $2–4); awaiting his typed answer.
 
 ## Next
 - **Storage review** (Ben, Oct 8): see `docs/data/archive-storage.md`. `streeteasy_archive.compact`
@@ -75,6 +90,9 @@ Updated 2026-10-10 07:15 ET. Thread owner: the Data collection project thread (b
   2. DONE Oct 8 04:16 ET (Ben, typed: "Compact the snapshots."): all six snapshots compacted
      and swapped in, 304.7 → 170.9 GB (see `docs/data/archive-storage.md`). Never prune `bodies/`.
      The `bytes` in `snapshots/chelsea-20260908/complete.json` is the pre-compaction size.
+  3. DONE Oct 10 (#671, Ben: "Stop at 671"): the crawler writes the provider envelope without
+     its HTML copy, so new crawl databases are compact and need no compaction step. Compressing
+     `extracted` or dropping `scripts` is declined.
 - Ben, Oct 8 00:49 UTC: the Oxylabs budget is limited. Before proposing any new paid collection,
   estimate its value to the model (coverage gaps, unit-history depth) against its cost.
 
