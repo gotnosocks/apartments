@@ -2,6 +2,35 @@
 
 Updated 2026-10-10 08:45 ET. Thread owner: the Data improvements project thread (bridge session on thelio).
 
+## 2026-10-10 10:05 ET
+
+- **#636 (90f03f5):** `fetch_noise` pages each year by `$offset` in `unique_key` order. A year with
+  more than 50k complaints no longer stops the fetch.
+- **#638 (0e3d4a6e) `nb8-nostuy-noise-v1`:** `noise_v1` on `nb8-nostuy-v1`, reading
+  `NB8_NOISE_FILE` (noise311/20261010-90f03f5, 642,911 complaints, boxed on the nb8 registry).
+  - Street/nightlife mean: EV +0.89 doublings, GV +0.60, Chelsea −0.56, Gramercy −0.82.
+  - Modeling has it queued behind lines and retail. Tests wait for a base that passes the gate,
+    and each launch needs Ben's OK.
+- **423 E 12th St (the nb8 base's R-hat 1.48 failure; Modeling asked):**
+  - Lot 1004400048 holds two buildings: BIN 1076986 at the front (42.7 ft) and BIN 1076987 at the
+    rear (34.9 ft). The registry maps the address to the front BIN only.
+  - Labels are clean: front `1f`–`4f` (~800 sqft, $4–5.5k) and rear `1re`–`4re`, `1rw`–`4rw`
+    (~300 sqft, $2–3k). The 0/1BR flips are on the rear units.
+  - Not a stabilized mix: 4 stabilized units in 2007, 1 in 2015–18.
+  - Sizefill gives most rear rows 300 from the unit or line. Early rows get the building median.
+  - Candidate rule, decided by labels and footprints and never by rent: on lots with ≥ 2 footprint
+    BINs, rear-labelled units (`r`, `re`, `rw`, `rr`, `rear`) become `<building>-rear`. It covers
+    21 buildings and 205 rows.
+  - It needs registry rows for the rear buildings, since features reindex the registry by slug,
+    plus new nb8 sets. Held until the sizefill base reports (Modeling, about 14:30Z). Build it only
+    if 423 still fails, and tell Modeling before merging.
+- **the-west-coast (521 West St), narrow failure:** a model issue, now Modeling's.
+  - PLUTO lists 2 buildings, but there is no footprint row for the lot.
+  - It mixes 3-digit and floor-letter labels. Zero-padded aliases are already merged by
+    unit-labels-v15, all but 7.
+  - Only about 10% of rows are sized.
+- **Next:** the 423 result from sizefill. Then trees on nb8, if worth a test.
+
 ## 2026-10-10 09:45 ET
 
 - **Runs resumed (Ben, via the coordinator).**
