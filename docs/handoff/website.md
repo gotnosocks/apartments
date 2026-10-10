@@ -2,6 +2,19 @@
 
 What the next turn of the website thread needs. Updated at each milestone.
 
+## State (2026-10-10 19:45 UTC)
+
+- NB8 size-unknown-slope run serves (build 20261010T185000170565Z, ΔELPD +53,440). Model-term words
+  live in `story.TERM_WORDS` (#658 added `nosizeslope`, `sizeunkslope`); a new term needs words there.
+- #656: story, home and about ledes use `all_areas` ("across all eight neighbourhoods").
+- Current listings (Ben 19:03Z, 19:11Z): "current" means seen active within 7 days of the build
+  (`captures.CURRENT_DAYS`, clock `captures.now()`, #665). Dataset current rows past a week, quarantined
+  ones too, show as past; a capture newer than a unit's dataset sighting replaces that row (#667).
+  Listings age out only when the site rebuilds.
+- Data collection captured the five new areas (archive/current-listings/20261010-*, done by 19:32Z).
+  The site build needs ~5 GB: 3G OOMs. Run step 3 of ops/autoselect-publish.sh alone (it globs
+  maps/kits of any commit) and only when the GPU is idle (memory budget).
+
 ## State (2026-10-10 13:40 UTC)
 
 - #629: page text counts neighbourhoods in words up to ten (`web.COUNT_WORDS`), pinned to rentmap.js's
