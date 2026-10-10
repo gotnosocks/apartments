@@ -14,6 +14,9 @@ def test_classify_reads_bans_restrictions_and_permissions():
             "no broker fee, no pet deposits",
             "$50 per month pet fee",
             "steps from the hudson river park dog run",
+            "cats allowed",
+            "no dogs over 25 lbs",
+            "no pet policy restrictions, pets ok",
             None,
         ]
     )
@@ -26,6 +29,9 @@ def test_classify_reads_bans_restrictions_and_permissions():
         "none",
         "allowed",
         "none",
+        "allowed",
+        "case_by_case",
+        "allowed",
         "none",
     ]
 
@@ -57,3 +63,48 @@ def test_asof_pets_reads_only_earlier_days_in_the_building():
         "allowed",
     ]
     assert out.source.tolist() == ["building", "none", "own", "building", "none", "own"]
+
+
+def test_overlay_pets_fills_unknown_and_narrows_allowed_to_no_dogs():
+    frame = pd.DataFrame(
+        {
+            "building": ["a", "a", "b", "b", "c", "c"],
+            "price_at": [
+                "2020-01-01",
+                "2020-01-05",
+                "2020-01-01",
+                "2020-01-01",
+                "2020-01-01",
+                "2020-01-01",
+            ],
+            "pets": [
+                "unknown",
+                "unknown",
+                "allowed_restrictions_unknown",
+                "not_allowed",
+                "unknown",
+                "unknown",
+            ],
+        }
+    )
+    text = pd.Series(
+        ["no dogs", "", "pets allowed (cats only)", "pets ok", "case by case", ""]
+    )
+    out = petstext.overlay_pets(frame, text)
+    # A known "not allowed" stays even when the ad says pets ok.
+    assert out.pets.tolist() == [
+        "no_dogs",
+        "no_dogs",
+        "no_dogs",
+        "not_allowed",
+        "approval_required",
+        "unknown",
+    ]
+    assert out.source.tolist() == [
+        "text",
+        "building text",
+        "text",
+        "coded",
+        "text",
+        "coded",
+    ]

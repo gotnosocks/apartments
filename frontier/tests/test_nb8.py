@@ -29,7 +29,7 @@ NB8_ONLY = {
     "nb8-nostuy-elevfill-v1",
     "nb8-nostuy-bigbed-v1",
     "nb8-nostuy-amenlevel-v1",
-    "nb8-nostuy-pets-v1",
+    "nb8-nostuy-petsfill-v1",
 }
 
 
@@ -423,10 +423,10 @@ def test_nb8_elevfill_is_elevfill_v1_on_the_nb8_base():
     }
 
 
-def test_nb8_pets_is_pets_text_v1_on_the_nb8_base():
-    """nb8-nostuy-pets-v1 is pets_text_v1 on the nb8 base, in the base's groups only."""
-    name = "nb8-nostuy-pets-v1"
-    assert features.FEATURE_SETS[name].func is features.pets_text_v1
+def test_nb8_petsfill_is_pets_fill_v1_on_the_nb8_base():
+    """nb8-nostuy-petsfill-v1 is pets_fill_v1 on the nb8 base, in the base's groups only."""
+    name = "nb8-nostuy-petsfill-v1"
+    assert features.FEATURE_SETS[name].func is features.pets_fill_v1
     assert features.FEATURE_SETS[name].keywords == {"id": name, "base": "nb8-nostuy-v1"}
     groups = {
         k for k, v in vars(features).items() if k.isupper() and isinstance(v, set)

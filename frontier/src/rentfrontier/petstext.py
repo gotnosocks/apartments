@@ -12,14 +12,16 @@ import pandas as pd
 # A ban on all pets. "no pet fee" and "no pet deposit" are not bans.
 NO_PETS = (
     r"\bnot? (?:pets?|animals?)\b"
-    r"(?! ?(?:fees?|deposits?|rent|charges?|restrictions?|weight|limit|size)\b)"
+    r"(?! ?(?:fees?|deposits?|rent|charges?|restrictions?|weight|limit|size|policy restrictions?)\b)"
     r"|\bpets? (?:are )?(?:not|never) (?:allowed|permitted|accepted|welcome)"
-    r"|\bnot pet[- ]friendly|\bpet[- ]free\b|\bno[- ]pet (?:building|policy)"
+    r"|\bnot pet[- ]friendly|\bpet[- ]free\b"
+    r"|\bno[- ]pet (?:building|policy)\b(?! restrictions?)"
     r"|\bsorry,? no pets?\b|\bpets?: ?no\b"
 )
 # Cats but no dogs.
 NO_DOGS = (
-    r"\bno dogs?\b|\bdogs? (?:are )?(?:not|never) (?:allowed|permitted|accepted)"
+    r"\bno dogs?\b(?! (?:over|above|larger|bigger|heavier|more than|weighing)\b)"
+    r"|\bdogs? (?:are )?(?:not|never) (?:allowed|permitted|accepted)"
     r"|\bcats? only\b|\bonly cats?\b"
 )
 # Pets subject to approval, size or number.
@@ -29,6 +31,7 @@ CASE = (
     r"|approval[^.]{0,20}pets?|pets? (?:considered|negotiable)"
     r"|small (?:dogs?|pets?) (?:only|ok|okay|allowed|welcome|considered)"
     r"|(?:one|1) (?:small )?(?:dog|pet|cat) (?:allowed|ok|max)"
+    r"|\bno dogs? (?:over|above|larger|bigger|heavier|more than|weighing)\b"
 )
 # Pets allowed, or a pet fee or building pet amenity that implies it. "dog
 # run" is left out: ads name the neighbourhood's dog runs too.
@@ -36,6 +39,7 @@ ALLOWED = (
     r"(?<!not )(?<!no )\bpets? (?:are )?(?:welcome|allowed|ok|okay|accepted|permitted)\b"
     r"|\bpet[- ]friendly\b|\bdog[- ]friendly\b|\bdogs? (?:are )?(?:welcome|allowed|ok|okay)\b"
     r"|\bcats? and dogs? (?:are )?(?:welcome|allowed|ok)"
+    r"|(?<!no )\bcats? (?:are )?(?:welcome|allowed|ok|okay|permitted)\b"
     r"|\bdogs? and cats? (?:are )?(?:welcome|allowed|ok)"
     r"|\bpet (?:fee|deposit|rent)\b"
     r"|\bpet (?:spa|wash|care|grooming|washing station)\b|\bpets? (?:are )?fine\b"
@@ -92,4 +96,38 @@ def asof_pets(frame: pd.DataFrame, text: pd.Series) -> pd.DataFrame:
     filled = ~stated & pd.notna(earlier)
     pets = np.where(stated, own, np.where(filled, earlier, "none"))
     source = np.where(stated, "own", np.where(filled, "building", "none"))
+    return pd.DataFrame({"pets": pets, "source": source}, index=frame.index)
+
+
+# The coded pet level each text class sets. The coded field has no "no dogs"
+# level, so the text adds one.
+CODED = {
+    "allowed": "allowed_restrictions_unknown",
+    "case_by_case": "approval_required",
+    "no_dogs": "no_dogs",
+    "no_pets": "not_allowed",
+}
+
+
+def overlay_pets(frame: pd.DataFrame, text: pd.Series) -> pd.DataFrame:
+    """The coded pet policy updated from the ad text, and its source for audit.
+    A known coded policy stays, except that "allowed" becomes "no_dogs" when
+    the row's own ad says no dogs or cats only ("text"). An unknown one takes
+    the text class from the row's own ad or the building's earlier ads
+    (`asof_pets`; "text" or "building text"); else it stays unknown."""
+    asof = asof_pets(frame, text)
+    coded = frame.pets.to_numpy()
+    mapped = asof.pets.map(CODED).to_numpy()
+    fill = (coded == "unknown") & (asof.pets.to_numpy() != "none")
+    narrow = (
+        (coded == "allowed_restrictions_unknown")
+        & asof.source.eq("own").to_numpy()
+        & (asof.pets.to_numpy() == "no_dogs")
+    )
+    pets = np.where(fill | narrow, mapped, coded)
+    source = np.where(
+        fill & asof.source.eq("building").to_numpy(),
+        "building text",
+        np.where(fill | narrow, "text", "coded"),
+    )
     return pd.DataFrame({"pets": pets, "source": source}, index=frame.index)
