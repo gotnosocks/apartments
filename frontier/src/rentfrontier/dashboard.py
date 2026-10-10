@@ -592,6 +592,9 @@ DATA_RULE_TEXT = {
     "unit-labels-v14": "unit-labels-v13, with NoMad apartments StreetEasy lists "
     "under two spellings of one label joined too, and those whose own StreetEasy "
     "page lists an ad filed under the other. No listing is dropped.",
+    "unit-labels-v15": "unit-labels-v14, with East Village apartments StreetEasy "
+    "lists under two spellings of one label joined too, and those whose own "
+    "StreetEasy page lists an ad filed under the other. No listing is dropped.",
     "unit-splits-v1": "An apartment's history split in two where a listing's bedroom "
     "count differs by two or more from the apartment's previous listing, as a "
     "combined, rebuilt or miscoded apartment. No listing is dropped.",
