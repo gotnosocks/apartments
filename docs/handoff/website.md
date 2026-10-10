@@ -2,6 +2,19 @@
 
 What the next turn of the website thread needs. Updated at each milestone.
 
+## State (2026-10-10 20:45 UTC)
+
+- **Evaluation framework (Ben 20:03Z)**: #677 merged and deployed. Discuss fit results with paired ΔELPD against
+  about 2 SE, the descriptive share, time-split coverage and medians with 90% intervals.
+- The site reads the served entry's `variance.<group>` (intervals dict, `median`, else `mean`, via the `mid` filter)
+  and `new_unit_coverage` {rows, cover_80, cover_95}. Both slots show "— not yet measured" until the entry has them.
+  Modeling was asked to pass `new_unit_coverage` through dashboard.py (~line 459).
+- The board has a `descriptive` sort column. The PyMC reference comparison and unit-split table are gone from the
+  validation and model pages (`served_unit_split` and `gate_misses` deleted).
+- Backlog (unbuilt, coordinator hold): predictions with hit/miss (#675 table), explained share against the null.
+  Build these when Modeling gives the keys and the coordinator lifts the hold.
+- Live build is unchanged: 20261010T200723992516Z-37822512, served NB8 nb8-nostuy-v1 fit.
+
 ## State (2026-10-10 19:45 UTC)
 
 - NB8 size-unknown-slope run serves (build 20261010T185000170565Z, ΔELPD +53,440). Model-term words
