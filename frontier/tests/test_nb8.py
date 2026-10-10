@@ -1,5 +1,6 @@
 from pathlib import Path
 
+import numpy as np
 import pandas as pd
 import pytest
 
@@ -26,7 +27,10 @@ def test_nb8_tests_are_nb7s_on_the_nb8_base():
     for name in features.NB8_SETS:
         like = name.replace("nb8-", "nb7-")
         new, old = features.FEATURE_SETS[name], features.FEATURE_SETS[like]
-        assert new.func is old.func
+        if name == "nb8-nostuy-nta-v1":
+            assert old.func is features.nta_v1 and new.func is features.nta_v2
+        else:
+            assert new.func is old.func
         if name != "nb8-nostuy-v1":
             assert new.keywords == {
                 **old.keywords,
@@ -106,3 +110,63 @@ def test_dataset_nb8_is_nb7_plus_east_village():
     complete = json.loads(path.read_text())
     assert complete["parts"]["nb7"]["path"] == str(data.DATASET_NB7)
     assert complete["rows"] == {"nb7": 148673, "East Village": 66483}
+
+
+def test_nta_v2_folds_its_areas_into_the_reference(monkeypatch, tmp_path):
+    path = tmp_path / "nta.parquet"
+    pd.DataFrame(
+        {
+            "building": ["a", "b", "c", "d"],
+            "ntaname": [
+                "East Village",
+                "Stuyvesant Town-Peter Cooper Village",
+                "Gramercy",
+                "Chelsea-Hudson Yards",
+            ],
+        }
+    ).to_parquet(path)
+    monkeypatch.setattr(features, "NTA_FILE", str(path))
+    frame = pd.DataFrame({"building": ["a", "b", "c", "d", "e"]})
+    assert features.nta_names(frame, features.NB8_NTA_FOLDED).tolist() == [
+        "Chelsea-Hudson Yards",
+        "Chelsea-Hudson Yards",
+        "Gramercy",
+        "Chelsea-Hudson Yards",
+        "unknown",
+    ]
+    assert features.FEATURE_SETS["nb8-nostuy-nta-v1"].keywords == {
+        "id": "nb8-nostuy-nta-v1",
+        "base": "nb8-nostuy-v1",
+    }
+
+
+def test_nb8_nta_levels_add_to_the_neighbourhood_indicators():
+    """On the NB8 rows, nb8-nostuy-nta-v1's NTA levels, nb8-nostuy-v1's
+    neighbourhood indicators and an intercept are linearly independent: no NTA
+    level is a neighbourhood indicator, and no NTA levels sum to neighbourhood
+    indicators. East Village's or Greenwich Village's NTA level would break
+    that. (Stuy's is folded because the nostuy base has no Stuy indicator for
+    explanatory terms to take over from.)"""
+    if not (data.DATASET_NB8 / "complete.json").exists():
+        pytest.skip("dataset not on this machine")
+    if not Path(features.NTA_FILE).exists():
+        pytest.skip("external snapshots not on this machine")
+    frame = data.load(data.DATASET_NB8)
+    hoods = features.FEATURE_SETS["nb8-nostuy-v1"].keywords["hoods"]
+    hoods += ("West Village", "Greenwich Village")
+
+    def rank(folded):
+        names = features.nta_names(frame, folded)
+        levels = sorted(set(names) - {"Chelsea-Hudson Yards"})
+        X = np.column_stack(
+            [np.ones(len(frame))]
+            + [frame.neighbourhood.eq(h) for h in hoods]
+            + [names.eq(n) for n in levels]
+        ).astype(float)
+        return np.linalg.matrix_rank(X), X.shape[1]
+
+    r, k = rank(features.NB8_NTA_FOLDED)
+    assert r == k
+    for kept in ("East Village", "Greenwich Village"):
+        r, k = rank(tuple(n for n in features.NB8_NTA_FOLDED if n != kept))
+        assert r < k, kept

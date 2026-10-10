@@ -3368,6 +3368,47 @@ def nta_v1(
     )
 
 
+# NTAs that take the reference level in nb8's NTA set (`nta_v2`), besides
+# Stuyvesant Town-Peter Cooper Village. East Village's NTA holds exactly
+# StreetEasy's East Village rows, so its level would equal nb8-nostuy-v1's East
+# Village indicator. The West Village and Greenwich Village NTAs together hold
+# exactly those two neighbourhoods' rows, so with both levels the four columns
+# sum to zero in one direction; Greenwich Village's level adds nothing the
+# other three don't hold.
+NB8_NTA_FOLDED = (NTA_FOLDED, "East Village", "Greenwich Village")
+
+
+def nta_names(frame: pd.DataFrame, folded: tuple[str, ...]) -> pd.Series:
+    """Each row's building's 2020 NTA (`NTA_FILE`), "unknown" for a building in
+    none, and each NTA in `folded` as the reference, Chelsea-Hudson Yards."""
+    areas = pd.read_parquet(NTA_FILE).set_index("building").ntaname
+    name = frame.building.map(areas).fillna("unknown")
+    return name.replace(dict.fromkeys(folded, "Chelsea-Hudson Yards"))
+
+
+def nta_v2(
+    frame: pd.DataFrame,
+    train: np.ndarray,
+    id: str,
+    base: str,
+    folded: tuple[str, ...] = NB8_NTA_FOLDED,
+) -> Features:
+    """`nta_v1` with each NTA in `folded` taking the reference level: an NTA
+    whose rows are one neighbourhood's would only repeat that neighbourhood's
+    indicator. Reads no rents."""
+    base = FEATURE_SETS[base](frame, train)
+    b = _Builder(frame)
+    b.categorical("nta", nta_names(frame, folded), reference="Chelsea-Hudson Yards")
+    out = b.build(id)
+    return Features(
+        id,
+        base.names + out.names,
+        base.groups + out.groups,
+        np.column_stack([base.values, out.values]),
+        np.concatenate([base.prior_scale, out.prior_scale]),
+    )
+
+
 def owner_v1(
     frame: pd.DataFrame,
     train: np.ndarray,
@@ -4492,7 +4533,7 @@ FEATURE_SETS["nb8-nostuy-sizefill-v1"] = partial(
     sizefill_v1, id="nb8-nostuy-sizefill-v1", base="nb8-nostuy-v1"
 )
 FEATURE_SETS["nb8-nostuy-nta-v1"] = partial(
-    nta_v1, id="nb8-nostuy-nta-v1", base="nb8-nostuy-v1"
+    nta_v2, id="nb8-nostuy-nta-v1", base="nb8-nostuy-v1"
 )
 FEATURE_SETS["nb8-nostuy-lister-v1"] = partial(
     lister_v1, id="nb8-nostuy-lister-v1", base="nb8-nostuy-v1"
