@@ -143,8 +143,12 @@ asked:
   judgement to the described rubric approach, and I don't expect we have that many pairs to evaluate
   so it should be possible for an agent to do at reasonable cost." See "The elegance axis".
 - **Serving:** "serve the best fit and break ties with which model is simpler", now the more
-  elegant. The top PSIS-LOO and the fits tied with it come first. Among the tied fits, the
-  less descriptive wins first (Ben, 2026-10-10, from the Fable review §3: "prefer the one with
+  elegant. The top PSIS-LOO and the fits tied with it come first. Among the tied fits, a fit
+  whose added building-level feature families all beat chance wins first (Ben, 2026-10-10,
+  APPROVAL PENDING): in `rentfrontier.explained`'s grouped-building-holdout screen on the other
+  fit's building levels, every added family explains more than max(0, null_95). PSIS-LOO and the
+  descriptive share barely see such families (about 0.1 x explained share, under the posterior
+  noise of about 0.006), so the screen is their evidence. Next the less descriptive wins (Ben, 2026-10-10, from the Fable review §3: "prefer the one with
   the lower descriptive share by more than its permutation null, before the elegance judges").
   The descriptive share is `rentfrontier.variance`'s neighbourhood labels + building + building
   over time + unit. Its null is the larger of the two fits' 90% posterior half-widths and, when

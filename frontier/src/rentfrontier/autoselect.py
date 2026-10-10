@@ -31,23 +31,32 @@ card follow it.
 (Ben, 2026-10-01: ties go to the more elegant model):
 1. Take the top paired PSIS-LOO, and the fits tied with it within two combined
    SE.
-2. Among those, take the less descriptive (Ben, 2026-10-10, the Fable research
+2. Among those, take a fit whose added building-level feature families all beat
+   chance over a tied fit without them (`screen_wins`): in the `explained`
+   grouped-building-holdout screen on the other fit's building levels, every
+   added family explains more than max(0, null_95). PSIS-LOO and the descriptive
+   share barely see building families (about building share x explained share,
+   under the posterior noise), so the screen is their evidence. Fits are ordered
+   by how many tied fits win against them this way, fewest first.
+3. Among those, take the less descriptive (Ben, 2026-10-10, the Fable research
    review §3): a fit ranks ahead of a tied fit whose descriptive share
    (`variance`: neighbourhood labels + building + building over time + unit)
    is higher by more than the null, see `less_descriptive`. Fits are ordered
    by how many tied fits are clearly less descriptive than them, fewest first.
-3. Among those, take the most elegant, by the judge agents' recorded pairwise
+4. Among those, take the most elegant, by the judge agents' recorded pairwise
    judgements (`elegance`): fits are ordered by how many other tied fits are
    judged more elegant than them, fewest first (a cycle of judgements leaves
    its fits level).
-4. Then take the fastest. Fit times within `TIME_TIE` of
+5. Then take the fastest. Fit times within `TIME_TIE` of
    the fastest count as equal, and among them the higher PSIS-LOO wins, so
    run-to-run timing noise cannot decide.
 
 **Against the incumbent,** the currently selected run:
 - Fits ranked below an eligible incumbent are not tried.
 - An eligible incumbent is kept unless the choice beats it clearly: better
-  PSIS-LOO beyond the tie tolerance, or tied and clearly less descriptive, or
+  PSIS-LOO beyond the tie tolerance, or tied with added building families that
+  all beat chance (refused when the incumbent's added families do), or tied
+  and clearly less descriptive, or
   tied, level on descriptive share and judged more elegant, or tied, level,
   judged equally elegant and faster by more than `TIME_TIE`. A tied challenger
   that is level on descriptive share and whose pair with the incumbent has not
@@ -285,6 +294,32 @@ def descriptive_null(base, other) -> float | None:
     return shares["building"]["mean"] * null
 
 
+def beats_chance(family) -> bool:
+    """A screened family explains more than chance: above max(0, null_95)
+    (excess is explained - null_mean and is no test)."""
+    return family["explained"] > max(family["null_95"], 0.0)
+
+
+def screen_wins(a, b) -> int:
+    """1 if a adds building-level families to b and every one beats chance in
+    the `explained` screen of a's candidate set on b's building levels; -1 if
+    the same holds with a and b swapped; 0 otherwise (no screen, or a family
+    that does not beat chance), leaving the tie to the descriptive share."""
+    for x, y, sign in ((a, b, 1), (b, a, -1)):
+        if x["feature_set"] == y["feature_set"]:
+            return 0
+        rec = _latest(EXPLAINED_ROOT, f"{_run(y)}-{x['feature_set']}")
+        fams = (rec or {}).get("families") or {}
+        if fams and all(beats_chance(f) for f in fams.values()):
+            return sign
+    return 0
+
+
+def screen_losses(e, others) -> int:
+    """How many of `others` win against e on the screen."""
+    return sum(screen_wins(o, e) == 1 for o in others)
+
+
 def half_width(shares) -> float:
     d = shares["descriptive"]
     return (d["upper_90"] - d["lower_90"]) / 2
@@ -331,7 +366,14 @@ def ranked(candidates, paired=leaderboard.paired_loo) -> list:
     tied, rest = _split_tied(candidates, paired)
     if not tied:
         return []
-    rank = {id(e): (more_descriptive_than(e, tied), beaten(e, tied)) for e in tied}
+    rank = {
+        id(e): (
+            screen_losses(e, tied),
+            more_descriptive_than(e, tied),
+            beaten(e, tied),
+        )
+        for e in tied
+    }
     fastest = {}
     for e in tied:
         key = (rank[id(e)], e["hardware"])
@@ -418,7 +460,15 @@ def decide(
                 check["refused"] = "held-out worse than the incumbent by more than 2 SE"
                 continue
             tied = abs(d) <= tol
-            plain = less_descriptive(e, incumbent) if tied else 0
+            screen = screen_wins(e, incumbent) if tied else 0
+            check["screen"] = screen
+            if inc_ok and screen == -1:
+                check["refused"] = (
+                    "tied with the incumbent, whose added building families all "
+                    "beat chance in the screen"
+                )
+                continue
+            plain = less_descriptive(e, incumbent) if tied and screen == 0 else 0
             check["less_descriptive"] = plain
             if inc_ok and plain == -1:
                 check["refused"] = (
@@ -429,16 +479,17 @@ def decide(
                 elegance.design_id(e), elegance.design_id(incumbent)
             )
             check["elegance"] = judged
+            screened = screen == 1
             less_desc = plain == 1
-            more_elegant = tied and plain == 0 and judged == 1
+            level = tied and screen == 0 and plain == 0
+            more_elegant = level and judged == 1
             faster = (
-                tied
-                and plain == 0
+                level
                 and judged == 0
                 and e["hardware"] == incumbent["hardware"]
                 and e["fit_seconds"] < incumbent["fit_seconds"] * (1 - TIME_TIE)
             )
-            if inc_ok and tied and plain == 0 and judged is None:
+            if inc_ok and level and judged is None:
                 check["refused"] = (
                     "tied with the incumbent, and the pair has no elegance "
                     "judgement yet (rentfrontier.elegance pending)"
@@ -449,12 +500,17 @@ def decide(
                 if pair not in out["pending_judgements"]:
                     out["pending_judgements"].append(pair)
                 continue
-            if inc_ok and not (d > tol or less_desc or more_elegant or faster):
+            if inc_ok and not (
+                d > tol or screened or less_desc or more_elegant or faster
+            ):
                 check["refused"] = "does not clearly beat the eligible incumbent"
                 continue
             won = (
                 "its PSIS-LOO is clearly better than the incumbent's"
                 if d > tol
+                else "it ties the incumbent on PSIS-LOO and every building family it "
+                "adds beats chance in the screen"
+                if screened
                 else "it ties the incumbent on PSIS-LOO and its descriptive share is "
                 "clearly lower"
                 if less_desc
