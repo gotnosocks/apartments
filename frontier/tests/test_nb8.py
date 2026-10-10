@@ -53,9 +53,7 @@ def test_nb8_tests_are_nb7s_on_the_nb8_base():
     assert set(features._NB8_DESCRIPTIONS) == set(features._NB7_DESCRIPTIONS) | {
         "descriptions_ev"
     }
-    assert features.PARKS_SNAPSHOTS["nb8-nostuy-riverparks-v1"] == (
-        features.NB8_PARKS_FILE
-    )
+    assert "nb8-nostuy-riverparks-v1" not in features.FEATURE_SETS
 
 
 def test_run_records_the_nb8_snapshots(monkeypatch):

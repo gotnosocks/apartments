@@ -4473,22 +4473,20 @@ _NB8_DESCRIPTIONS = {
 # neighbourhoods' snapshots in place of the seven's.
 NB8_SETS = {
     "nb8-nostuy-v1": "nb5-plutoasof-v3",
-    "nb8-nostuy-riverparks-v1": "nb5-plutoasof-v3",
     "nb8-nostuy-sizefill-v1": "nb5-plutoasof-v3",
     "nb8-nostuy-nta-v1": "nb5-plutoasof-v3",
     "nb8-nostuy-lister-v1": "nb5-plutoasof-v3",
 }
 # nb7-nostuy-v1 plus an East Village indicator: the eight neighbourhoods'
-# base, and the base the tests below sit on (parks, size as of the day, NTAs,
-# lister). Not fitted while model runs are paused.
+# base, and the base the tests below sit on (size as of the day, NTAs,
+# lister). Not fitted while model runs are paused. No riverparks twin yet:
+# the parks snapshot adds Pier 42 (acquired 2006; interim use 2013, the
+# finished park 2024-07-03), which `riverparks.OPENED` has no date for.
 FEATURE_SETS["nb8-nostuy-v1"] = partial(
     hoods_v1,
     id="nb8-nostuy-v1",
     base="nb3-coded-v2",
     hoods=("Flatiron", "Gramercy Park", "NoMad", "East Village"),
-)
-FEATURE_SETS["nb8-nostuy-riverparks-v1"] = partial(
-    riverparks_v1, id="nb8-nostuy-riverparks-v1", base="nb8-nostuy-v1"
 )
 FEATURE_SETS["nb8-nostuy-sizefill-v1"] = partial(
     sizefill_v1, id="nb8-nostuy-sizefill-v1", base="nb8-nostuy-v1"
@@ -4499,11 +4497,8 @@ FEATURE_SETS["nb8-nostuy-nta-v1"] = partial(
 FEATURE_SETS["nb8-nostuy-lister-v1"] = partial(
     lister_v1, id="nb8-nostuy-lister-v1", base="nb8-nostuy-v1"
 )
-RIVERPARKS.add("nb8-nostuy-riverparks-v1")
 NTA.add("nb8-nostuy-nta-v1")
 LISTER.add("nb8-nostuy-lister-v1")
-PARKS.add("nb8-nostuy-riverparks-v1")
-PARKS_SNAPSHOTS["nb8-nostuy-riverparks-v1"] = NB8_PARKS_FILE
 for _new, _old in NB8_SETS.items():
     for _group in (
         EXTERNAL,
