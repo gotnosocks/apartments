@@ -297,7 +297,9 @@ def feature_sources(feature_set: str) -> dict:
         path = features.PLACES_SNAPSHOTS.get(feature_set, features.PLACES_FILE)
         out["places"] = {"path": path, "sha256": data.sha256(Path(path))}
     if feature_set in features.STOREFRONTS:
-        path = features.STOREFRONTS_FILE
+        path = features.STOREFRONTS_SNAPSHOTS.get(
+            feature_set, features.STOREFRONTS_FILE
+        )
         out["storefronts"] = {"path": path, "sha256": data.sha256(Path(path))}
     if feature_set in features.LISTING_EXTRAS:
         path = features.EXTRAS_SNAPSHOTS.get(feature_set, features.LISTING_EXTRAS_FILE)

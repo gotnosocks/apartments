@@ -4594,6 +4594,50 @@ FEATURE_SETS["nb8-nostuy-lines-v1"] = partial(
     lines_v1, id="nb8-nostuy-lines-v1", base="nb8-nostuy-v1"
 )
 TRANSIT.add("nb8-nostuy-lines-v1")
+
+
+def retail_v2(
+    frame: pd.DataFrame,
+    train: np.ndarray,
+    id: str,
+    base: str,
+) -> Features:
+    """`retail_v1` reading the set's storefronts snapshot
+    (`STOREFRONTS_SNAPSHOTS`) in place of `STOREFRONTS_FILE`, which holds
+    storefronts near the first crawls' buildings only. Reads no rents."""
+    from . import retail
+
+    base = FEATURE_SETS[base](frame, train)
+    table = retail._building_retail(lot_registry(), STOREFRONTS_SNAPSHOTS[id])
+    table = table.reindex(frame.building.to_numpy())
+    b = _Builder(frame)
+    for key, name in (
+        ("storefronts", "log1p storefronts nearby"),
+        ("food", "log1p food places nearby"),
+    ):
+        t = np.log1p(table[key].to_numpy())
+        b.add("retail", name, np.nan_to_num(t, nan=np.nanmedian(t)))
+    out = b.build(id)
+    return Features(
+        id,
+        base.names + out.names,
+        base.groups + out.groups,
+        np.column_stack([base.values, out.values]),
+        np.concatenate([base.prior_scale, out.prior_scale]),
+    )
+
+
+# nb8-nostuy-v1 plus street retail (`retail_v2`): an explanation of the
+# neighbourhood premiums (Ben, 2026-10-08). STOREFRONTS_FILE gives East
+# Village's buildings a median of 5 storefronts within 150 m (NoMad 3, Gramercy
+# Park 0) where the nb8 snapshot gives 39 (44, 23), so the set reads the nb8
+# snapshot. No base set reads retail terms.
+STOREFRONTS_SNAPSHOTS = {"nb8-nostuy-retail-v1": NB8_STOREFRONTS_FILE}
+NB8_SETS["nb8-nostuy-retail-v1"] = "nb5-plutoasof-v3"
+FEATURE_SETS["nb8-nostuy-retail-v1"] = partial(
+    retail_v2, id="nb8-nostuy-retail-v1", base="nb8-nostuy-v1"
+)
+STOREFRONTS.add("nb8-nostuy-retail-v1")
 for _new, _old in NB8_SETS.items():
     for _group in (
         EXTERNAL,
