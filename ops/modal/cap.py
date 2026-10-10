@@ -63,6 +63,16 @@ USD_PER_DAY = RATES[-1][1]
 CEILING = USD_PER_DAY  # Ben, 2026-10-07 22:23Z: cap the balance at ~10 full fits (a day's accrual)
 
 
+def rate_at(at):
+    """The accrual rate in force at `at` (the first rate before START)."""
+    return next((r for since, r in reversed(RATES) if since <= at), RATES[0][1])
+
+
+def ceiling_at(at):
+    """The balance cap in force at `at`: a day's accrual at the rate then."""
+    return rate_at(at)
+
+
 def accrued(start, end):
     """Dollars accrued from start to end at the rates in force."""
     total = 0.0
@@ -87,9 +97,11 @@ def launches(ledger=LEDGER):
 
 
 def balance(rows, now=None):
-    """Dollars accrued since START, held to CEILING, less what launches since START cost.
+    """Dollars accrued since START, held to the ceiling then in force, less what launches since
+    START cost.
 
-    Walks the ledger in time order: accrual stops while the balance is at the ceiling; a launch
+    Walks the ledger in time order: accrual stops while the balance is at the ceiling (a day's
+    accrual at the rate in force, so time spent at an old ceiling is not repriced); a launch
     takes its estimate and its settlement the difference between what it cost and the estimate."""
     now = _now(now)
     events, estimates = [], {}
@@ -103,9 +115,12 @@ def balance(rows, now=None):
             usd = row.get("usd_estimate", estimate(*SERVED_FIT))
             estimates[row.get("id", f"{row['name']}@{row['at']}")] = usd
             events.append((at, -usd))
+    # Rate changes are events too, so each step between events accrues at one rate.
+    events += [(since, 0.0) for since, _ in RATES[1:] if since <= now]
     have, last = 0.0, START
     for at, change in sorted(events, key=lambda e: e[0]) + [(max(now, START), 0.0)]:
-        have = min(CEILING, min(CEILING, have + accrued(last, at)) + change)
+        have = min(ceiling_at(last), have + accrued(last, at))
+        have = min(ceiling_at(at), have + change)
         last = max(at, last)
     return have
 
@@ -119,8 +134,7 @@ def ready_at(rows, usd, now=None):
         return now
     if usd > CEILING:
         return None
-    rate = next(r for since, r in reversed(RATES) if since <= now)
-    at = now + datetime.timedelta(days=short / rate)
+    at = now + datetime.timedelta(days=short / rate_at(now))
     return at.replace(second=0, microsecond=0) + datetime.timedelta(
         minutes=1
     )  # round up

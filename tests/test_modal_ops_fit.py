@@ -215,3 +215,20 @@ def test_the_rate_rose_to_ten_dollars_a_day_without_repricing_the_past():
     assert cap.accrued(change - hour, change) == pytest.approx(8.80 / 24)
     assert cap.accrued(change, change + hour) == pytest.approx(10.0 / 24)
     assert cap.accrued(change - hour, change + hour) == pytest.approx(18.80 / 24)
+
+
+def test_time_at_the_old_ceiling_does_not_earn_the_new_one():
+    change = cap.RATES[1][0]
+    hour = datetime.timedelta(hours=1)
+    # No launches: the balance sat at the old $8.80 ceiling until the change.
+    assert cap.balance([], change - hour) == pytest.approx(8.80)
+    assert cap.balance([], change) == pytest.approx(8.80)
+    assert cap.balance([], change + hour) == pytest.approx(8.80 + 10.0 / 24)
+    assert cap.balance([], change + 2 * datetime.timedelta(days=1)) == pytest.approx(
+        10.0
+    )
+
+
+def test_ready_at_before_start_uses_the_first_rate():
+    early = cap.START - datetime.timedelta(days=1)
+    assert cap.ready_at([], 1.0, early) is not None
