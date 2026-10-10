@@ -461,3 +461,24 @@ def test_load_calibration_keeps_the_newest_record_per_run(monkeypatch, tmp_path)
     out = leaderboard.load_calibration()
     assert set(out) == {"r"}
     assert out["r"]["kinds"]["held out, new unit"]["cover_80"] == 0.8
+
+
+def test_new_unit_coverage_comes_from_the_newest_calibrated_latest_split_refit():
+    def run(name, fs="f"):
+        return {
+            "name": name,
+            "model": {"name": "m"},
+            "feature_set": fs,
+            "data_rules": ["q"],
+        }
+
+    def cal(cover, mtime, rows=10):
+        kind = {"rows": rows, "cover_80": cover, "cover_95": 0.9}
+        return {"kinds": {"held out, new unit": kind}, "_mtime": mtime}
+
+    runs = [run("a"), run("b"), run("c"), run("d", fs="g"), run("e", fs="h")]
+    calibrations = {"a": cal(0.7, 2), "b": cal(0.8, 1), "d": cal(0.6, 1, rows=0)}
+    out = leaderboard.new_unit_coverage(runs, calibrations)
+    assert out == {
+        ("m", "f", ("q",)): {"run": "a", "rows": 10, "cover_80": 0.7, "cover_95": 0.9}
+    }

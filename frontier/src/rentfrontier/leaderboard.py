@@ -116,7 +116,7 @@ PROMOTED = {
 }
 
 
-def load_runs():
+def load_runs(splits=("rows", "units")):
     runs = []
     for path in sorted(RUNS.glob("*/result.json")):
         r = json.loads(path.read_text())
@@ -124,7 +124,7 @@ def load_runs():
         if (
             not r.get("reportable")
             or r["name"].startswith(("dev-", "canary-"))
-            or r["split"] not in ("rows", "units")
+            or r["split"] not in splits
         ):
             continue
         r["_dir"] = path.parent
@@ -206,8 +206,34 @@ def load_calibration():
         except (OSError, ValueError):
             continue
         if r.get("run") and isinstance(r.get("kinds"), dict):
-            rows.append((path.stat().st_mtime, r))
-    return {r["run"]: r for _, r in sorted(rows, key=lambda t: t[0])}
+            r["_mtime"] = path.stat().st_mtime
+            rows.append(r)
+    return {r["run"]: r for r in sorted(rows, key=lambda r: r["_mtime"])}
+
+
+def structure_key(r):
+    """A design's model, feature set and data rules: what a latest-split
+    refit shares with its row-split fit (often launched at a later commit)."""
+    return (r["model"]["name"], r["feature_set"], tuple(r.get("data_rules", ())))
+
+
+def new_unit_coverage(latest_runs, calibrations):
+    """{structure_key: coverage} from the newest calibrated latest-split run
+    of each structure: the Fable framework's new-unit coverage, held-out rows
+    of units with no fit rows in buildings the fit has (nominal 0.80 and 0.95;
+    the served fit's reference is 0.79/0.95)."""
+    out = {}
+    calibrated = [r for r in latest_runs if r["name"] in calibrations]
+    for r in sorted(calibrated, key=lambda r: calibrations[r["name"]]["_mtime"]):
+        k = calibrations[r["name"]]["kinds"].get("held out, new unit")
+        if k and k.get("rows"):
+            out[structure_key(r)] = {
+                "run": r["name"],
+                "rows": k["rows"],
+                "cover_80": k["cover_80"],
+                "cover_95": k["cover_95"],
+            }
+    return out
 
 
 def shared_rows(a: dict, b: dict, what: str, a_dir, b_dir) -> list:
@@ -682,7 +708,7 @@ def build(keep_dirs=False):
     loos = load_loo()
     variances = load_variance()
     explained = load_explained()
-    calibrations = load_calibration()
+    coverage = new_unit_coverage(load_runs(("latest",)), load_calibration())
     annotations = load_annotations()
     groups = group_runs(load_runs())
     entries = []
@@ -796,19 +822,8 @@ def build(keep_dirs=False):
                 }
                 for cs, r in explained[rows_run["name"]].items()
             }
-        latest_run = by_split.get("latest")
-        if latest_run and latest_run["name"] in calibrations:
-            # The Fable framework's new-unit coverage: held-out rows of units
-            # with no fit rows, in fit buildings, on the time split (nominal
-            # 0.80 and 0.95; the served fit's reference is 0.79/0.95).
-            k = calibrations[latest_run["name"]]["kinds"].get("held out, new unit")
-            if k and k.get("rows"):
-                e["new_unit_coverage"] = {
-                    "run": latest_run["name"],
-                    "rows": k["rows"],
-                    "cover_80": k["cover_80"],
-                    "cover_95": k["cover_95"],
-                }
+        if structure_key(any_run) in coverage:
+            e["new_unit_coverage"] = coverage[structure_key(any_run)]
         if rows_run and rows_run["name"] in loos:
             lr = loos[rows_run["name"]]
             e["psis"] = {
