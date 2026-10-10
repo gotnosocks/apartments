@@ -282,7 +282,9 @@ def test_the_alias_file_is_hashed_but_drops_no_rows():
     assert len(groups) == 248 and all(len(g) > 1 for g in groups)
     assert data.dropped_rows() == data.quarantined(
         data.QUARANTINE_V8
-    ) | data.quarantined(data.QUARANTINE_V9) | data.quarantined(data.QUARANTINE_V10)
+    ) | data.quarantined(data.QUARANTINE_V9) | data.quarantined(
+        data.QUARANTINE_V10
+    ) | data.quarantined(data.QUARANTINE_V12)
 
 
 @pytest.mark.parametrize(
@@ -986,3 +988,18 @@ def test_unit_labels_v14_is_v13_on_the_tables_with_nomads_appended():
     )
     assert v13.unit_id.iat[4] != v13.unit_id.iat[5]
     assert v14.unit_id.iat[4] == v14.unit_id.iat[5] == min(group[:2])
+
+
+def test_quarantine_v12_adds_the_new_neighbourhoods_to_v10():
+    """v12 is v10's 219 rows and 50 more from the rent-blind checks over East
+    Village, NoMad and Stuyvesant Town/PCV, each with its quote and reason, all
+    among the rows read."""
+    v10 = data.quarantined(data.QUARANTINE_V10)
+    v12 = data.quarantined(data.QUARANTINE_V12)
+    assert v10 < v12 and len(v12 - v10) == 50
+    read = set(data.QUARANTINE_V12_READ.read_text().split())
+    assert len(read) == 510 and v12 - v10 <= read
+    with open(data.QUARANTINE_V12) as f:
+        rows = [json.loads(line) for line in f if line.strip()]
+    assert len(rows) == 269 and all(r["evidence"] and r["reason"] for r in rows)
+    assert "quarantine-v12" in data.DROPPING_RULES
