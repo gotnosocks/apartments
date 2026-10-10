@@ -385,10 +385,14 @@ def versus_served(entries) -> dict:
 def predictions(entries) -> list:
     """The predictions written before each fit (config/predictions.jsonl, the
     Fable review's §10), each scored once its fit lands: the paired PSIS-LOO
-    difference from the fit it names (`against`) on the rows both keep, and a
-    hit when that difference falls in the predicted range and clears (or does
-    not clear) the tie tolerance as predicted. Latest-split predictions are
-    left to latestselect (outcome None); "pending" until the fit is on the board."""
+    difference from the fit it names (`against`) on the rows both keep. A hit
+    when that difference is in the predicted range and, where the prediction
+    says, clears the tie tolerance as a gain (`clears_2se` true) or stays a tie
+    (`clears_2se` false: within the tolerance either way). The fit scored is
+    the latest full, gate-passing fit of the design, else the latest of any
+    tier. Latest-split predictions are left to latestselect (outcome None);
+    "pending" until the fit is on the board; a malformed line is kept as
+    {"error": ...}."""
     try:
         lines = (REPO / "config" / "predictions.jsonl").read_text().splitlines()
     except OSError:
@@ -397,22 +401,29 @@ def predictions(entries) -> list:
         (e["splits"].get("rows") or {}).get("run"): (e.get("psis") or {}).get("_dir")
         for e in entries
     }
+    dirs.pop(None, None)
     out = []
     for line in lines:
         if not line.strip():
             continue
-        p = json.loads(line)
-        model, _, feature_set = p["design"].partition("/")
-        split = p.get("split", "rows")
-        fit = next(
-            (
-                e
-                for e in entries
-                if e["model"]["name"] == model
-                and e.get("feature_set") == feature_set
-                and e["splits"].get(split)
+        try:
+            p = json.loads(line)
+            design, split = p["design"], p.get("split", "rows")
+            lo, hi = p.get("delta_elpd") or (None, None)
+            if not isinstance(design, str):
+                raise ValueError("design is not a string")
+        except (ValueError, KeyError, TypeError) as err:
+            out.append({"error": f"{type(err).__name__}: {err}", "line": line})
+            continue
+        fits = [e for e in entries if structure(e) == design and e["splits"].get(split)]
+        fit = max(
+            fits,
+            key=lambda e: (
+                bool(e.get("passes_checks"))
+                and (e.get("tier") or {}).get("name", "full") == "full",
+                getattr(e["splits"][split].get("_at"), "timestamp", lambda: 0)(),
             ),
-            None,
+            default=None,
         )
         p = {**p, "key": None, "run": None, "result": None, "outcome": "pending"}
         if fit is None:
@@ -421,7 +432,9 @@ def predictions(entries) -> list:
         p["key"] = fit["_key"]
         p["run"] = fit["splits"][split].get("run")
         p["passes_checks"] = bool(fit.get("passes_checks"))
-        here, base = (fit.get("psis") or {}).get("_dir"), dirs.get(p.get("against"))
+        p["tier"] = (fit.get("tier") or {}).get("name", "full")
+        here = (fit.get("psis") or {}).get("_dir")
+        base = dirs.get(p.get("against")) if p.get("against") else None
         if split != "rows" or not here or not base:
             p["outcome"] = None
             out.append(p)
@@ -432,21 +445,24 @@ def predictions(entries) -> list:
             p["outcome"] = None
             out.append(p)
             continue
-        clears = d > leaderboard.tie_tolerance(se, mc)
-        lo, hi = p.get("delta_elpd") or (None, None)
+        tol = leaderboard.tie_tolerance(se, mc)
         in_range = (lo is None or d >= lo) and (hi is None or d <= hi)
         p["result"] = {
             "delta": d,
             "se": se,
             "mcse": mc,
             "pm": math.hypot(se, mc),
-            "clears_2se": clears,
+            "tie": abs(d) <= tol,
+            "clears_2se": d > tol,
             "in_range": in_range,
         }
         expected = p.get("clears_2se")
-        p["outcome"] = (
-            "hit" if in_range and (expected is None or expected == clears) else "miss"
+        as_said = (
+            expected is None
+            or (expected and d > tol)
+            or (expected is False and abs(d) <= tol)
         )
+        p["outcome"] = "hit" if in_range and as_said else "miss"
         out.append(p)
     return out
 

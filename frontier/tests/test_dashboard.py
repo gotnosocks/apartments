@@ -491,9 +491,10 @@ def test_predictions_score_landed_fits_against_the_fit_they_name(monkeypatch, tm
             "clears_2se": False,
         },
         {"design": "m/a", "split": "latest", "against": "s-rows", "delta_elpd": None},
+        {"design": "m/a", "delta_elpd": [-40, 0], "clears_2se": False},
     ]
     (tmp_path / "config" / "predictions.jsonl").write_text(
-        "".join(json.dumps(r) + "\n" for r in rows)
+        "".join(json.dumps(r) + "\n" for r in rows) + "{not json\n"
     )
     monkeypatch.setattr(dashboard, "REPO", tmp_path)
     paired = {"a": (12.0, 10.0, 1.0), "b": (50.0, 10.0, 1.0)}
@@ -517,15 +518,54 @@ def test_predictions_score_landed_fits_against_the_fit_they_name(monkeypatch, tm
         entry("b", "b", ["rows"]),
     ]
     entries[0]["splits"]["rows"]["run"] = "s-rows"
-    a, b, c, latest = dashboard.predictions(entries)
+    a, b, c, latest, no_against, bad = dashboard.predictions(entries)
     # +12 ± 10 is in [0, 40] and a tie, as predicted.
     assert a["outcome"] == "hit" and a["result"]["clears_2se"] is False
     # +50 ± 10 is in range; no prediction about clearing.
     assert b["outcome"] == "hit" and b["result"]["clears_2se"] is True
     assert c["outcome"] == "pending" and c["result"] is None
     assert latest["run"] == "a-latest" and latest["outcome"] is None
+    # No `against`: nothing to pair with, so no outcome.
+    assert no_against["outcome"] is None and no_against["result"] is None
+    assert "error" in bad
     paired["a"] = (60.0, 10.0, 1.0)
     assert dashboard.predictions(entries)[0]["outcome"] == "miss"
+    # A predicted tie that turns out a clear loss misses even inside the range.
+    rows[0]["delta_elpd"] = [-40, 0]
+    (tmp_path / "config" / "predictions.jsonl").write_text(json.dumps(rows[0]) + "\n")
+    paired["a"] = (-39.0, 10.0, 1.0)
+    (a,) = dashboard.predictions(entries)
+    assert a["result"]["in_range"] and a["outcome"] == "miss"
+
+
+def test_predictions_prefer_the_latest_full_passing_fit(monkeypatch, tmp_path):
+    (tmp_path / "config").mkdir()
+    (tmp_path / "config" / "predictions.jsonl").write_text(
+        json.dumps({"design": "m/a", "against": "s-rows", "delta_elpd": None}) + "\n"
+    )
+    monkeypatch.setattr(dashboard, "REPO", tmp_path)
+    monkeypatch.setattr(dashboard.leaderboard, "paired_loo", lambda h, b: (0, 1, 0))
+
+    def entry(key, run, at, passes=True, tier="full"):
+        return {
+            "_key": key,
+            "model": {"name": "m"},
+            "feature_set": "a",
+            "splits": {"rows": {"run": run, "_at": dt.datetime(2026, 10, at)}},
+            "psis": {"_dir": key},
+            "passes_checks": passes,
+            "tier": {"name": tier},
+        }
+
+    entries = [
+        entry("s", "s-rows", 1),
+        entry("old", "old", 2),
+        entry("new", "new", 3),
+        entry("subset", "subset", 4, tier="subset"),
+        entry("failed", "failed", 5, passes=False),
+    ]
+    entries[0]["feature_set"] = "base"
+    assert dashboard.predictions(entries)[0]["key"] == "new"
 
 
 def test_the_recorded_predictions_parse():
