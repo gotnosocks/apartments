@@ -57,10 +57,10 @@ def test_level_boundary_and_bedrooms():
     # A source exactly a week back is excluded; another bedroom count never
     # centres a listing.
     f = frame(
-        [3000.0, 3300.0, 8000.0, 4000.0, 4400.0],
-        [0, 5, 6, 12, 13],
+        [3000.0, 8000.0, 3300.0, 4000.0, 4400.0],
+        [0, 2, 5, 12, 13],
         ["a"] * 5,
-        [1, 1, 3, 1, 1],
+        [1, 3, 1, 1, 1],
     )
     level = features.building_level_asof(f)
     assert level[3] == 0.0  # day 5 is exactly a week before day 12
