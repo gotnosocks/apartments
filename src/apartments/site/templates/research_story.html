@@ -319,6 +319,44 @@ changed nothing we could measure. The likely reason is that each building alread
 worth is already priced into that premium, so a new location feature has little left to explain. {% set waiting_now = location_nulls | selectattr("due") | list %}{% if waiting_now %}
 {{ waiting_now | length }} of these nulls ran before the latest neighbourhoods joined and are due to be retested,
 since more neighbourhoods give location more room to matter.{% endif %}{% endif %}</p>
+{% if explained %}{% set beat = explained | selectattr("beats") | list %}{% set top = explained | first %}
+<p id="explained">That premium can be tested directly. Take each building's premium as the served fit estimates it, and ask
+how much of its spread a family of building features predicts, scoring each building with a model that never saw it.
+Then shuffle the same features across buildings, so they keep their mix but lose any link to a building, and score
+again. A family is worth something only if it beats the shuffled versions 95 times out of 100. {% if beat %}Of
+{{ explained | length }} families tried on the served fit, {{ beat | length }} {{ "does" if beat | length == 1 else "do" }}:
+{% for r in beat %}{% if not loop.first %}{% if loop.last %} and {% else %}, {% endif %}{% endif %}{{ r.name }}
+({{ "%.1f" | format(100 * r.explained) }}%){% endfor %} of the spread in building premiums. Even the best leaves
+almost all of it unexplained, which is why these features add so little once each building has its own
+premium.{% elif explained | length == 1 %}The one family tried on the served fit, {{ top.name }}, doesn't: it predicts no
+more of the building premium than the shuffled features.{% else %}None of the {{ explained | length }} families tried on
+the served fit does: each predicts no more of the building premium than the shuffled features.{% endif %}</p>
+
+<figure class="story-figure" id="explained-figure">
+  <div class="figure-scroll" tabindex="0" role="region" aria-label="Figure, scrolls sideways on narrow screens">{{ explained_svg }}</div>
+  <figcaption>Each bar is the share of the spread in the served fit's building premiums that a family of features
+  predicts for buildings it was not shown. The dashed mark is where the shuffled features reach 95 times out of 100. A bar
+  past its mark beats chance; faint bars don't.{% if top.buildings %} Over {{ "{:,}".format(top.buildings) }} buildings.{% endif %}</figcaption>
+</figure>
+<details class="table-view">
+  <summary>The families as a table</summary>
+  <div class="table-wrap">
+  <table class="data">
+    <thead><tr><th scope="col">Family</th><th scope="col">Feature set</th><th scope="col" class="num">Share predicted</th>
+      <th scope="col" class="num">Chance, 95th percentile</th><th scope="col" class="num">Above chance on average</th><th scope="col">Beats chance?</th></tr></thead>
+    <tbody>
+    {% for r in explained %}
+      <tr><td>{{ r.name | capitalize }}</td><td><code>{{ r.set }}</code></td>
+        <td class="num">{{ "%.2f" | format(100 * r.explained) }}%</td>
+        <td class="num">{{ "%.2f" | format(100 * r.null_95) }}%</td>
+        <td class="num">{% if r.excess is number %}{{ "%+.2f" | format(100 * r.excess) }}%{% else %}—{% endif %}</td>
+        <td>{{ "yes" if r.beats else "no" }}</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  </div>
+</details>
+{% endif %}
 
 <figure class="story-figure" id="trials-figure" data-play>
   <div class="legend-row" aria-hidden="true">{% for key, words in verdict_words.items() %}{% if trials | selectattr("verdict", "equalto", key) | list %}<span><span class="swatch v-{{ key }}"></span>{{ words | capitalize }}</span>{% endif %}{% endfor %}</div>

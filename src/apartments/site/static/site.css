@@ -562,6 +562,8 @@ button[aria-busy="true"] { cursor: progress; opacity: 0.75; }
 .story-svg .cov95 { fill: var(--surface); stroke: var(--s1); stroke-width: 2; }
 .story-svg .bar { fill-opacity: 0.85; }
 .story-svg .item-bar { fill: var(--s1); fill-opacity: 0.75; }
+.design-ref { display: block; color: var(--muted); font-size: 0.8rem; margin-top: 0.15rem; }
+.story-svg .item-bar.faint { fill: var(--muted); fill-opacity: 0.45; }
 .story-svg .range { stroke: var(--s1); stroke-width: 10; stroke-opacity: 0.22; stroke-linecap: round; }
 .story-svg .est { fill: var(--s1); stroke: var(--surface); stroke-width: 2; }
 .story-svg .ask-mark { fill: var(--ink); }
