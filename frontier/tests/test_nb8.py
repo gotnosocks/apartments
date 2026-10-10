@@ -26,6 +26,8 @@ def test_nb8_tests_are_nb7s_on_the_nb8_base():
     }
     for name in features.NB8_SETS:
         like = name.replace("nb8-", "nb7-")
+        if like not in features.FEATURE_SETS:
+            continue
         new, old = features.FEATURE_SETS[name], features.FEATURE_SETS[like]
         if name == "nb8-nostuy-nta-v1":
             assert old.func is features.nta_v1 and new.func is features.nta_v2
@@ -244,3 +246,38 @@ def _without_pier_42(read, path):
         return table[~table.name.eq("Pier 42")] if str(p) == str(path) else table
 
     return read_parquet
+
+
+def test_nb8_lines_is_lines_v1_on_the_nb8_base():
+    """nb8-nostuy-lines-v1 has no nb7 twin: it is nb5p3-lines-v1's builder on
+    the nb8 base, in its groups, reading the nb8 snapshots and the GTFS."""
+    name = "nb8-nostuy-lines-v1"
+    new, like = features.FEATURE_SETS[name], features.FEATURE_SETS["nb5p3-lines-v1"]
+    assert new.func is like.func is features.lines_v1
+    assert new.keywords == {"id": name, "base": "nb8-nostuy-v1"}
+    groups = {
+        k for k, v in vars(features).items() if k.isupper() and isinstance(v, set)
+    }
+    assert {k for k in groups if name in getattr(features, k)} == {
+        k for k in groups if "nb8-nostuy-v1" in getattr(features, k)
+    } | {"TRANSIT"}
+    assert features.lot_files(name)["registry"] == features.NB8_REGISTRY_FILE
+    assert features.PLUTO_RELEASES_SNAPSHOTS[name] == features.NB8_PLUTO_RELEASES_FILE
+
+
+def test_nb8_lines_price_the_j_z_from_east_village():
+    """On the nb8 registry the J/Z is within 8 minutes of enough buildings to
+    price; on nb7's it is not."""
+    from rentfrontier import lines
+
+    paths = (features.NB8_REGISTRY_FILE, features.NB7_REGISTRY_FILE, features.GTFS_FILE)
+    if not all(Path(p).exists() for p in paths):
+        pytest.skip("external snapshots not on this machine")
+
+    def priced(registry):
+        return lines.priced_lines(
+            lines._building_lines(registry, features.GTFS_FILE, frozenset())
+        )
+
+    new, old = priced(features.NB8_REGISTRY_FILE), priced(features.NB7_REGISTRY_FILE)
+    assert set(new) - set(old) == {"J/Z"} and set(old) <= set(new)

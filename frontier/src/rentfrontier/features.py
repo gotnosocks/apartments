@@ -4585,6 +4585,15 @@ FEATURE_SETS["nb8-nostuy-riverparks-v1"] = partial(
 RIVERPARKS.add("nb8-nostuy-riverparks-v1")
 PARKS.add("nb8-nostuy-riverparks-v1")
 PARKS_SNAPSHOTS["nb8-nostuy-riverparks-v1"] = NB8_PARKS_FILE
+# nb8-nostuy-v1 plus each subway line group within an 8-minute walk
+# (`lines_v1`): an explanation of the neighbourhood premiums (Ben, 2026-10-08).
+# A quarter of East Village's rows have no line that near, against a ninth of
+# Chelsea's, and the eight neighbourhoods' registry prices the J/Z.
+NB8_SETS["nb8-nostuy-lines-v1"] = "nb5-plutoasof-v3"
+FEATURE_SETS["nb8-nostuy-lines-v1"] = partial(
+    lines_v1, id="nb8-nostuy-lines-v1", base="nb8-nostuy-v1"
+)
+TRANSIT.add("nb8-nostuy-lines-v1")
 for _new, _old in NB8_SETS.items():
     for _group in (
         EXTERNAL,
