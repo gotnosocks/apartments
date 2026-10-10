@@ -65,16 +65,18 @@ RESCORES = data.OUTPUT_ROOT / "rescores"
 LOO_ROOT = data.OUTPUT_ROOT / "loo"
 VARIANCE_ROOT = data.OUTPUT_ROOT / "variance"
 # PSIS-LOO dELPD is paired against this entry (the plainest gate-passing design).
-# The plainest design on the current dataset (the five neighbourhoods,
-# data.DATASET_NB5, #460), named by its run; it misses the R-hat gate (1.0107), as
-# the Greenwich Village baseline did (1.0112). An entry id also matches. A new
+# The plainest design on the current dataset (the eight neighbourhoods,
+# data.DATASET_NB8, #625), named by its run; it misses the gate on group R-hat
+# (building 1.085; max R-hat 1.0058), as the five-neighbourhood (1.0107) and
+# Greenwich Village (1.0112) baselines missed it on R-hat. An entry id also matches. A new
 # dataset redraws the rows split, so fits on another dataset do not pair with it.
-# Earlier: "m0-base-base-v1-rows-32c09ef-x-2060-300w1500d-nb-gv1005" (Chelsea +
+# Earlier: "m0-base-base-v1-rows-5789d79-x-2060-300w1500d-nb-nb5" (the five
+# neighbourhoods), "m0-base-base-v1-rows-32c09ef-x-2060-300w1500d-nb-gv1005" (Chelsea +
 # West Village + Greenwich Village), "m0-base-base-v1-rows-a40e887-x-2060-300w1500d-
 # nb-d1005" (Chelsea + West Village with the Oct 5 captures),
 # "m0-base-base-v1-rows-e61a794-x-2060-300w1500d-nb" (the 2026-10-01 dataset),
 # "m0-base/base-v1/gibbs@5cc0809" (Chelsea).
-BASELINE = "m0-base-base-v1-rows-5789d79-x-2060-300w1500d-nb-nb5"
+BASELINE = "m0-base-base-v1-rows-fe76a905-x-2060-300w1500d-nb-nb8"
 
 
 def is_baseline(e) -> bool:

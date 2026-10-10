@@ -1,13 +1,13 @@
 {
- "run": "m7-nocurves-floorslope-bednoise-dayfourier-bedtime-yearnoise-nb5-coded-v2-rows-fedd83d-a100-4500k9cb1-nb5-ul11r1s4q10ad3",
- "dataset": "chelsea-wv-gv-flatiron-gramercy-analysis-20261008-0a23057",
+ "run": "m7-nocurves-floorslope-bednoise-dayfourier-bedtime-yearnoise-nosizeslope-nb8-nostuy-v1-rows-71f317f3-a100-4500k9cb1-nb8-ul15r1s4q12ad3",
+ "dataset": "chelsea-wv-gv-flatiron-gramercy-stuy-nomad-ev-analysis-20261010-3ebfea0",
  "start": {
-  "rows": 135759,
-  "units": 56877,
-  "buildings": 3621,
-  "pairs": 78681,
-  "bed_changes": 0.07740115148511076,
-  "big_jumps": 0.08256122825078481
+  "rows": 215156,
+  "units": 88331,
+  "buildings": 5436,
+  "pairs": 126624,
+  "bed_changes": 0.09028304270912307,
+  "big_jumps": 0.08550511751326763
  },
  "steps": [
   {
@@ -18,12 +18,12 @@
     "full_baths": 29,
     "half_baths": 30
    },
-   "rows": 135759,
-   "units": 56877,
-   "buildings": 3621,
-   "pairs": 78681,
-   "bed_changes": 0.07740115148511076,
-   "big_jumps": 0.08256122825078481
+   "rows": 215156,
+   "units": 88331,
+   "buildings": 5436,
+   "pairs": 126624,
+   "bed_changes": 0.09028304270912307,
+   "big_jumps": 0.08550511751326763
   },
   {
    "rule": "bedrooms-ad-v3",
@@ -32,72 +32,72 @@
    "changed": {
     "bedrooms": 148
    },
-   "rows": 135759,
-   "units": 56877,
-   "buildings": 3621,
-   "pairs": 78681,
-   "bed_changes": 0.07585058654567177,
-   "big_jumps": 0.08256122825078481
+   "rows": 215156,
+   "units": 88331,
+   "buildings": 5436,
+   "pairs": 126624,
+   "bed_changes": 0.08931956027293404,
+   "big_jumps": 0.08550511751326763
   },
   {
    "rule": "fields-review-v3",
    "family": "correct",
    "dropped": 0,
    "changed": {},
-   "rows": 135759,
-   "units": 56877,
-   "buildings": 3621,
-   "pairs": 78681,
-   "bed_changes": 0.07585058654567177,
-   "big_jumps": 0.08256122825078481
+   "rows": 215156,
+   "units": 88331,
+   "buildings": 5436,
+   "pairs": 126624,
+   "bed_changes": 0.08931956027293404,
+   "big_jumps": 0.08550511751326763
   },
   {
-   "rule": "quarantine-v10",
+   "rule": "quarantine-v12",
    "family": "drop",
-   "dropped": 219,
+   "dropped": 269,
    "changed": {},
-   "rows": 135540,
-   "units": 56717,
-   "buildings": 3604,
-   "pairs": 78622,
-   "bed_changes": 0.07567856325201598,
-   "big_jumps": 0.08244511714278446
+   "rows": 214887,
+   "units": 88139,
+   "buildings": 5415,
+   "pairs": 126547,
+   "bed_changes": 0.08915264684267506,
+   "big_jumps": 0.0853753941223419
   },
   {
-   "rule": "unit-labels-v11",
+   "rule": "unit-labels-v15",
    "family": "join",
    "dropped": 0,
    "changed": {},
-   "rows": 135540,
-   "units": 54148,
-   "buildings": 3604,
-   "pairs": 81189,
-   "bed_changes": 0.07496089371712916,
-   "big_jumps": 0.08157509022158174
+   "rows": 214887,
+   "units": 83804,
+   "buildings": 5415,
+   "pairs": 130880,
+   "bed_changes": 0.08830226161369194,
+   "big_jumps": 0.08453545232273839
   },
   {
    "rule": "unit-reviews-v1",
    "family": "join",
    "dropped": 0,
    "changed": {},
-   "rows": 135540,
-   "units": 54146,
-   "buildings": 3604,
-   "pairs": 81191,
-   "bed_changes": 0.07495904718503282,
-   "big_jumps": 0.08157308076018278
+   "rows": 214887,
+   "units": 83802,
+   "buildings": 5415,
+   "pairs": 130882,
+   "bed_changes": 0.08830091227212299,
+   "big_jumps": 0.08453416054155652
   },
   {
    "rule": "unit-splits-v4",
    "family": "split",
    "dropped": 0,
    "changed": {},
-   "rows": 135540,
-   "units": 58446,
-   "buildings": 3604,
-   "pairs": 76893,
-   "bed_changes": 0.007113781488562028,
-   "big_jumps": 0.06961621994199732
+   "rows": 214887,
+   "units": 91909,
+   "buildings": 5415,
+   "pairs": 122777,
+   "bed_changes": 0.007118597131384543,
+   "big_jumps": 0.06835970906603028
   }
  ]
 }
