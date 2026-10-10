@@ -1160,7 +1160,12 @@ EXTRA_WORDS = {
     "nta": "the city's neighbourhood tabulation areas",
     "lister": "who listed the ad",
     "lines": "the subway lines within an 8-minute walk",
-    "riverparks": "the river parks nearby",
+    "riverparks": "the parks nearby, Hudson River Park and its new piers",
+    "retail": "the shops, restaurants and bars nearby",
+    "noise": "the noise complaints around the building",
+    "trees": "the street trees nearby",
+    "crime": "the felonies reported nearby in the past year",
+    "hpd": "the hazardous housing-code violations found in the building in the past year",
 }
 
 
