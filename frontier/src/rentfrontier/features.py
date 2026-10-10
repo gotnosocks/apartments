@@ -3338,6 +3338,33 @@ def sizefill_v1(
     )
 
 
+def elevfill_v1(
+    frame: pd.DataFrame,
+    train: np.ndarray,
+    id: str,
+    base: str,
+) -> Features:
+    """A base set built with the elevator as of the row's day
+    (`elevfill.asof_elevator`): an unstated elevator takes the building's
+    latest stated value from earlier days, so the elevator levels and the
+    walk-up floor slope cover those rows. An indicator marks the filled rows.
+    Reads no rents."""
+    from . import elevfill
+
+    asof = elevfill.asof_elevator(frame)
+    base = FEATURE_SETS[base](frame.assign(elevator=asof.elevator), train)
+    b = _Builder(frame)
+    b.add("elevator", "elevator from an earlier listing", asof.source.eq("building"))
+    out = b.build(id)
+    return Features(
+        id,
+        base.names + out.names,
+        base.groups + out.groups,
+        np.column_stack([base.values, out.values]),
+        np.concatenate([base.prior_scale, out.prior_scale]),
+    )
+
+
 def nta_v1(
     frame: pd.DataFrame,
     train: np.ndarray,
@@ -4676,6 +4703,13 @@ FEATURE_SETS["nb8-nostuy-hpd-v1"] = partial(
 )
 HPD.add("nb8-nostuy-hpd-v1")
 HPD_SNAPSHOTS["nb8-nostuy-hpd-v1"] = NB8_HPD_FILE
+
+# nb8-nostuy-v1 with an unstated elevator filled from earlier listings in the
+# building (`elevfill_v1`). It reads only the listings, so no snapshot.
+NB8_SETS["nb8-nostuy-elevfill-v1"] = "nb5-plutoasof-v3"
+FEATURE_SETS["nb8-nostuy-elevfill-v1"] = partial(
+    elevfill_v1, id="nb8-nostuy-elevfill-v1", base="nb8-nostuy-v1"
+)
 for _new, _old in NB8_SETS.items():
     for _group in (
         EXTERNAL,
