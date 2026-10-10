@@ -1,6 +1,6 @@
 """Explained share of building levels by candidate features, against a permutation null.
 
-    python -m rentfrontier.explained <run-name> <candidate-feature-set>
+    python -m rentfrontier.explained <run-name> <candidate-feature-set> [...]
 
 No refit. The run's building levels (the per-building intercepts of its kept
 draws) are what its features leave unexplained about each building. For each
@@ -9,7 +9,8 @@ feature group, e.g. "trees"), the family's columns are averaged over each
 building's training rows and the levels are regressed on them with the
 buildings held out in grouped 5-fold cross-validation:
 
-    weights      1 / (posterior SD of the level^2 + residual variance)
+    weights      1 / (posterior SD of the level^2 + between-building variance
+                 left after the regression, net of posterior noise)
     explained    out-of-fold weighted R^2: how much of a building's level the
                  family predicts for a building the regression has not seen
                  (also the "new building" answer)
