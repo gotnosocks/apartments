@@ -29,6 +29,9 @@ def test_nb8_tests_are_nb7s_on_the_nb8_base():
         new, old = features.FEATURE_SETS[name], features.FEATURE_SETS[like]
         if name == "nb8-nostuy-nta-v1":
             assert old.func is features.nta_v1 and new.func is features.nta_v2
+        elif name == "nb8-nostuy-riverparks-v1":
+            assert old.func is features.riverparks_v1
+            assert new.func is features.riverparks_v2
         else:
             assert new.func is old.func
         if name != "nb8-nostuy-v1":
@@ -57,7 +60,9 @@ def test_nb8_tests_are_nb7s_on_the_nb8_base():
     assert set(features._NB8_DESCRIPTIONS) == set(features._NB7_DESCRIPTIONS) | {
         "descriptions_ev"
     }
-    assert "nb8-nostuy-riverparks-v1" not in features.FEATURE_SETS
+    assert features.PARKS_SNAPSHOTS["nb8-nostuy-riverparks-v1"] == (
+        features.NB8_PARKS_FILE
+    )
 
 
 def test_run_records_the_nb8_snapshots(monkeypatch):
@@ -170,3 +175,72 @@ def test_nb8_nta_levels_add_to_the_neighbourhood_indicators():
     for kept in ("East Village", "Greenwich Village"):
         r, k = rank(tuple(n for n in features.NB8_NTA_FOLDED if n != kept))
         assert r < k, kept
+
+
+def test_eastparks_dates_pier_42_and_keeps_riverparks_places():
+    """With the nb8 parks file, `riverparks.places` refuses Pier 42 and
+    `eastparks.places` is its table plus Pier 42 from 2024-07-03."""
+    from rentfrontier import eastparks, riverparks
+
+    paths = (features.NB8_PARKS_FILE, features.NB7_PARKS_FILE, features.RIVERPARKS_FILE)
+    if not all(Path(p).exists() for p in paths):
+        pytest.skip("external snapshots not on this machine")
+    nyc, river = (
+        pd.read_parquet(features.NB8_PARKS_FILE),
+        pd.read_parquet(features.RIVERPARKS_FILE),
+    )
+    with pytest.raises(ValueError, match="Pier 42"):
+        riverparks.places(nyc, river)
+    table = eastparks.places(nyc, river)
+    pier = table[table.name.eq("Pier 42")]
+    assert len(pier) == 1 and pier.opened.iloc[0] == pd.Timestamp("2024-07-03")
+    rest = table[~table.name.eq("Pier 42")].reset_index(drop=True)
+    expected = riverparks.places(nyc[~nyc.name.eq("Pier 42")], river)
+    pd.testing.assert_frame_equal(
+        rest.drop(columns="points"), expected.drop(columns="points")
+    )
+    old = riverparks.places(pd.read_parquet(features.NB7_PARKS_FILE), river)
+    assert set(old.name) <= set(table.name)
+
+
+def test_eastparks_terms_match_riverparks_before_pier_42(monkeypatch):
+    """Before Pier 42 opened, `eastparks.terms` is `riverparks.terms` on a parks
+    file without it; from July 2024 a building beside it walks no further."""
+    from rentfrontier import eastparks, riverparks
+
+    if not all(
+        Path(p).exists()
+        for p in (
+            features.NB8_PARKS_FILE,
+            features.RIVERPARKS_FILE,
+            features.NB8_REGISTRY_FILE,
+        )
+    ):
+        pytest.skip("external snapshots not on this machine")
+    registry = pd.read_parquet(features.NB8_REGISTRY_FILE).dropna(subset=["latitude"])
+    buildings = registry.building.iloc[::50].tolist()
+    frame = pd.DataFrame(
+        {
+            "building": buildings * 2,
+            "period": ["2024-06"] * len(buildings) + ["2024-08"] * len(buildings),
+        }
+    )
+    monkeypatch.setattr(features, "lot_registry", lambda: features.NB8_REGISTRY_FILE)
+    new = eastparks.terms(frame, features.NB8_PARKS_FILE, features.RIVERPARKS_FILE)
+    monkeypatch.setattr(
+        pd, "read_parquet", _without_pier_42(pd.read_parquet, features.NB8_PARKS_FILE)
+    )
+    riverparks.building_minutes.cache_clear()
+    old = riverparks.terms(frame, features.NB8_PARKS_FILE, features.RIVERPARKS_FILE)
+    riverparks.building_minutes.cache_clear()
+    june = frame.period.eq("2024-06").to_numpy()
+    pd.testing.assert_frame_equal(new[june], old[june])
+    assert (new.park_min[~june] <= old.park_min[~june]).all()
+
+
+def _without_pier_42(read, path):
+    def read_parquet(p, *args, **kwargs):
+        table = read(p, *args, **kwargs)
+        return table[~table.name.eq("Pier 42")] if str(p) == str(path) else table
+
+    return read_parquet
