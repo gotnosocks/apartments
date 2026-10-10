@@ -3338,6 +3338,85 @@ def sizefill_v1(
     )
 
 
+# The as-of building level: its earlier listings count from 7 days before the
+# row, each against the trailing year's mean for its bedroom count, shrunk as
+# n / (n + BUILDING_LEVEL_SHRINK).
+BUILDING_LEVEL_BUFFER_DAYS = 7
+BUILDING_LEVEL_WINDOW_DAYS = 365
+BUILDING_LEVEL_SHRINK = 5.0
+
+
+def building_level_asof(
+    frame: pd.DataFrame, train: np.ndarray | None = None
+) -> np.ndarray:
+    """Per row, the building's rent level as of the row's date, in log points:
+    the shrunk mean, over the building's training listings dated more than
+    BUILDING_LEVEL_BUFFER_DAYS before the row, of each listing's log ask less
+    the mean log ask of training listings with the same bedroom count in the
+    year before it. Every term is a training row dated before the row, so a row
+    never sees its own, a later or a held-out ask (the latest split holds out
+    each unit's last listing, which can predate other units' training rows).
+    0 where the building has no earlier training listing."""
+    train = np.ones(len(frame), bool) if train is None else np.asarray(train, bool)
+    at = pd.to_datetime(frame.price_at, utc=True)
+    t = ((at - pd.Timestamp(0, tz="UTC")).dt.total_seconds() / 86400.0).to_numpy()
+    y = frame.log_rent.to_numpy()
+    beds = frame.bedrooms.round().clip(0, 5).to_numpy()
+    z = np.zeros(len(frame))
+    have = np.zeros(len(frame), bool)
+    for bed in np.unique(beds):
+        rows = np.flatnonzero((beds == bed) & train)
+        rows = rows[np.argsort(t[rows], kind="stable")]
+        ts, cum = t[rows], np.concatenate([[0.0], np.cumsum(y[rows])])
+        hi = np.searchsorted(ts, ts, side="left")
+        lo = np.searchsorted(ts, ts - BUILDING_LEVEL_WINDOW_DAYS, side="left")
+        n = hi - lo
+        ok = n > 0
+        z[rows[ok]] = y[rows[ok]] - (cum[hi] - cum[lo])[ok] / n[ok]
+        have[rows[ok]] = True
+    level = np.zeros(len(frame))
+    buildings = frame.building.to_numpy()
+    for idx in pd.Series(np.arange(len(frame))).groupby(buildings).indices.values():
+        src = idx[have[idx]]
+        if not len(src):
+            continue
+        src = src[np.argsort(t[src], kind="stable")]
+        ts = t[src]
+        cum = np.concatenate([[0.0], np.cumsum(z[src])])
+        k = np.searchsorted(ts, t[idx] - BUILDING_LEVEL_BUFFER_DAYS, side="left")
+        level[idx] = cum[k] / (k + BUILDING_LEVEL_SHRINK)
+    return level
+
+
+def amenlevel_v1(
+    frame: pd.DataFrame,
+    train: np.ndarray,
+    id: str,
+    base: str,
+    amenities: tuple = ("laundry=in_unit", "text:dishwasher"),
+) -> Features:
+    """A base set plus each amenity times the building's as-of rent level
+    (`building_level_asof`, centred on the training rows): a negative
+    coefficient says the amenity adds about the same dollars in cheap and
+    dear buildings, so a smaller share of a dear building's rent. The level
+    reads only training asks dated more than a week before the row."""
+    base = FEATURE_SETS[base](frame, train)
+    level = building_level_asof(frame, train)
+    level = level - float(level[train].mean())
+    b = _Builder(frame)
+    for name in amenities:
+        flag = base.values[:, base.names.index(name)]
+        b.add("amenity scaling", f"{name} x building level", flag * level)
+    out = b.build(id)
+    return Features(
+        id,
+        base.names + out.names,
+        base.groups + out.groups,
+        np.column_stack([base.values, out.values]),
+        np.concatenate([base.prior_scale, out.prior_scale]),
+    )
+
+
 def bigbed_v1(
     frame: pd.DataFrame,
     train: np.ndarray,
@@ -4040,7 +4119,13 @@ EXTRAS_SNAPSHOTS = {
 # not leak-free (a left-out row's rent reaches the fit through its unit's next
 # row), so they are judged on the latest split, never ranked on PSIS-LOO
 # (docs/leak-free-scoring.md). nb-prevprice-v2 reads only counts, not rents.
-READS_EARLIER_RENTS = {"nb-prevprice-v1", "nb3-prevprice-v1"}
+# nb8-nostuy-amenlevel-v1 reads the earlier rents of the unit's building, which
+# leaks the same way.
+READS_EARLIER_RENTS = {
+    "nb-prevprice-v1",
+    "nb3-prevprice-v1",
+    "nb8-nostuy-amenlevel-v1",
+}
 
 
 # Feature sets that read other basemap and footprints snapshots than the first.
@@ -4794,6 +4879,15 @@ NB8_SETS["nb8-nostuy-bigbed-v1"] = "nb5-plutoasof-v3"
 FEATURE_SETS["nb8-nostuy-bigbed-v1"] = partial(
     bigbed_v1, id="nb8-nostuy-bigbed-v1", base="nb8-nostuy-v1"
 )
+
+# nb8-nostuy-v1 with in-unit laundry and the dishwasher scaled by the
+# building's as-of rent level (`amenlevel_v1`). It reads earlier asks, so it is
+# judged on the latest split.
+NB8_SETS["nb8-nostuy-amenlevel-v1"] = "nb5-plutoasof-v3"
+FEATURE_SETS["nb8-nostuy-amenlevel-v1"] = partial(
+    amenlevel_v1, id="nb8-nostuy-amenlevel-v1", base="nb8-nostuy-v1"
+)
+
 # nb8-nostuy-v1 plus the pet policy the ad text states where the coded policy
 # is unknown, and a flag where the two conflict (`pets_text_v1`). It reads only
 # the listings' descriptions, so no snapshot.

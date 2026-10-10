@@ -28,6 +28,7 @@ NB8_ONLY = {
     "nb8-nostuy-hpd-v1",
     "nb8-nostuy-elevfill-v1",
     "nb8-nostuy-bigbed-v1",
+    "nb8-nostuy-amenlevel-v1",
     "nb8-nostuy-pets-v1",
 }
 
