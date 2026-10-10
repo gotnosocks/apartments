@@ -30,7 +30,8 @@ def test_a_fit_waits_for_its_dollars_and_an_overrun_leaves_the_balance_negative(
 ):
     ledger = tmp_path / "ledger.jsonl"
     usd = cap.estimate(*cap.SERVED_FIT)
-    per_fit = datetime.timedelta(days=1) / 10  # the balance accrues 10 full fits a day
+    # The time the balance takes to accrue one served fit's estimate.
+    per_fit = datetime.timedelta(days=usd / cap.RATES[0][1])
     t0 = cap.START + per_fit
     launch, left = cap.reserve("run-0", "A100-40GB", usd, ledger, t0)
     assert left == pytest.approx(0, abs=0.01)
@@ -75,12 +76,12 @@ def test_a_retry_of_a_run_is_charged_as_its_own_launch(tmp_path):
     first, _ = cap.reserve("run", "A100-40GB", 0.8, ledger, day)
     cap.settle(first, 0.3, ledger, day)
     cap.reserve("run", "A100-40GB", 0.8, ledger, day + datetime.timedelta(seconds=1))
-    # A row from the old launcher, after START, counts as a served full fit.
+    # A row from the old launcher, after START, counts as an NB5 served full fit.
     old = {"day": "x", "at": day.isoformat(), "name": "o", "gpu": "A100-40GB"}
     with ledger.open("a") as f:
         f.write(json.dumps(old) + "\n")
     assert cap.balance(cap.launches(ledger), day) == pytest.approx(
-        cap.RATES[0][1] - 0.3 - 0.8 - cap.estimate(*cap.SERVED_FIT), abs=0.01
+        cap.RATES[0][1] - 0.3 - 0.8 - cap.NB5_SERVED_FIT_USD, abs=0.01
     )
 
 
@@ -91,6 +92,8 @@ def test_ten_served_fits_a_day_at_the_container_list_price(monkeypatch):
         gpu: round(app.usd_per_second(gpu) * 3600, 4) for gpu in app.FITS
     } == pytest.approx(cap.USD_PER_HOUR, abs=1e-4)
     assert cap.RATES[0][1] == pytest.approx(8.80)
+    # Recalibrating the estimate never reprices the ledger's past.
+    assert cap.NB5_SERVED_FIT_USD == 0.88
     assert cap.USD_PER_DAY == 10.0
 
 
