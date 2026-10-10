@@ -3338,6 +3338,36 @@ def sizefill_v1(
     )
 
 
+def bigbed_v1(
+    frame: pd.DataFrame,
+    train: np.ndarray,
+    id: str,
+    base: str,
+) -> Features:
+    """A base set plus the 3+ bedroom premium's shift in elevator buildings
+    and in condominiums (building class R): large apartments in walk-ups and
+    rentals may price their extra rooms differently. The 3+ bedroom rows come
+    from the base set's own bedroom levels. Reads no rents."""
+    base = FEATURE_SETS[base](frame, train)
+    big = np.zeros(len(frame), dtype=bool)
+    for level in ("3", "4", "5+"):
+        name = f"bedrooms={level}"
+        if name in base.names:
+            big |= base.values[:, base.names.index(name)] == 1.0
+    condo = base.values[:, base.names.index("building class=R")] == 1.0
+    b = _Builder(frame)
+    b.add("bedrooms", "3+ bedrooms x elevator", big & frame.elevator.eq("yes"))
+    b.add("bedrooms", "3+ bedrooms x condominium", big & condo)
+    out = b.build(id)
+    return Features(
+        id,
+        base.names + out.names,
+        base.groups + out.groups,
+        np.column_stack([base.values, out.values]),
+        np.concatenate([base.prior_scale, out.prior_scale]),
+    )
+
+
 def elevfill_v1(
     frame: pd.DataFrame,
     train: np.ndarray,
@@ -4709,6 +4739,13 @@ HPD_SNAPSHOTS["nb8-nostuy-hpd-v1"] = NB8_HPD_FILE
 NB8_SETS["nb8-nostuy-elevfill-v1"] = "nb5-plutoasof-v3"
 FEATURE_SETS["nb8-nostuy-elevfill-v1"] = partial(
     elevfill_v1, id="nb8-nostuy-elevfill-v1", base="nb8-nostuy-v1"
+)
+
+# nb8-nostuy-v1 with the 3+ bedroom premium shifted in elevator buildings and
+# condominiums (`bigbed_v1`). It reads only the listings and PLUTO.
+NB8_SETS["nb8-nostuy-bigbed-v1"] = "nb5-plutoasof-v3"
+FEATURE_SETS["nb8-nostuy-bigbed-v1"] = partial(
+    bigbed_v1, id="nb8-nostuy-bigbed-v1", base="nb8-nostuy-v1"
 )
 for _new, _old in NB8_SETS.items():
     for _group in (
