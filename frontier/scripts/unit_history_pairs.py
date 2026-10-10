@@ -3,7 +3,7 @@
 A unit page lists the ads of its apartment's past rentals. When an ad the
 canonical-url-v1 transform filed under unit A appears in unit B's page history,
 A and B are one apartment written two ways. West Village, Greenwich Village, Flatiron + Gramercy Park, Stuyvesant
-Town/PCV and NoMad crawls record these memberships (`collection_memberships`); the Chelsea crawl
+Town/PCV, NoMad and East Village crawls record these memberships (`collection_memberships`); the Chelsea crawl
 predates that table, so its saved unit pages are parsed here with the
 crawler's own rule (`streeteasy_archive.collection_policy.annotate`).
 
@@ -48,6 +48,10 @@ PARTS = {
     "NoMad": (
         "datasets/nomad-granular-20261009-canonical-url-v1",
         "snapshots/nomad-20261008-final/archive.sqlite3",
+    ),
+    "East Village": (
+        "datasets/east-village-granular-20261010-canonical-url-v1",
+        "snapshots/east-village-20261008-final/archive.sqlite3",
     ),
 }
 

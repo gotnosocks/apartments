@@ -1,0 +1,26 @@
+{
+  "parts": [
+    {
+      "file": "wv-gv-fgp-stuy-nomad-20261009.jsonl",
+      "provenance": "wv-gv-fgp-stuy-nomad-20261009.provenance.json"
+    },
+    {
+      "source": "/data1/apartments/archive/datasets/east-village-granular-20261010-unit-spelling-aliases-v2",
+      "rule": "unit-spelling-alias-v2",
+      "source_dataset": "/data1/apartments/archive/datasets/east-village-granular-20261010-canonical-url-v1",
+      "evidence_snapshot": "/data1/apartments/archive/snapshots/east-village-20261008-final/archive.sqlite3",
+      "implementation_sha256": "bd3abb079a9fcd00148ae093dfcd46f55bc09514e74722336a4b31b54556fd44",
+      "output_sha256": {
+        "unit_spelling_aliases": "8a465ea9a494c3a6a54582726c4183316644ca26ba67f9adbd6b6814ec6ad478"
+      },
+      "counts": {
+        "groups": 558,
+        "history_confirmed_groups": 405,
+        "listings_in_groups": 3253,
+        "units_in_groups": 1162
+      },
+      "made_by": "apartments.unit_spelling_aliases (unit-spelling-alias-v2, PR #213)"
+    }
+  ],
+  "sha256": "48eee1e14a372aefee082a25a146249146456c668e1d3d8945e83d62e115260b"
+}
