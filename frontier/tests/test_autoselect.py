@@ -456,3 +456,103 @@ def test_current_rules_rebuild_in_an_order_apply_rules_accepts():
         "unit-reviews-v1",
         "unit-splits-v4",
     ]
+
+
+@pytest.fixture
+def records(tmp_path, monkeypatch):
+    """Write variance and explained records for test entries."""
+    monkeypatch.setattr(autoselect, "VARIANCE_ROOT", tmp_path / "variance")
+    monkeypatch.setattr(autoselect, "EXPLAINED_ROOT", tmp_path / "explained")
+
+    def variance(run, mean, half=0.002, building=0.13):
+        d = tmp_path / "variance" / f"{run}-abc1234"
+        d.mkdir(parents=True)
+        shares = {
+            "descriptive": {
+                "mean": mean,
+                "lower_90": mean - half,
+                "upper_90": mean + half,
+            },
+            "building": {"mean": building},
+        }
+        (d / "result.json").write_text(json.dumps({"shares": shares}))
+
+    def screened(base, candidate_set, null_95):
+        d = tmp_path / "explained" / f"{base}-{candidate_set}-abc1234"
+        d.mkdir(parents=True)
+        families = {"fam": {"null_95": null_95}}
+        (d / "result.json").write_text(json.dumps({"families": families}))
+
+    return variance, screened
+
+
+def test_a_tied_clearly_less_descriptive_fit_ranks_before_the_more_elegant(
+    tmp_path, monkeypatch, records
+):
+    variance, _ = records
+    judged(monkeypatch, {("plain", "elegant"): "elegant"})
+    variance("plain", 0.20)
+    variance("elegant", 0.25)
+    deltas = {"plain": 10.0, "elegant": 10.5}
+    es = [entry(tmp_path, "plain", 10.0, 1300), entry(tmp_path, "elegant", 10.5, 1300)]
+    order = [
+        e["splits"]["rows"]["run"] for e in autoselect.ranked(es, paired_from(deltas))
+    ]
+    assert order == ["plain", "elegant"]
+
+
+def test_a_drop_within_the_posterior_half_width_is_level(tmp_path, records):
+    variance, _ = records
+    variance("a", 0.250, half=0.004)
+    variance("b", 0.253, half=0.002)
+    a, b = entry(tmp_path, "a", 0, 1), entry(tmp_path, "b", 0, 1)
+    assert autoselect.less_descriptive(a, b) == 0
+    variance("c", 0.240)
+    c = entry(tmp_path, "c", 0, 1)
+    assert autoselect.less_descriptive(c, b) == 1
+    assert autoselect.less_descriptive(b, c) == -1
+
+
+def test_a_feature_family_must_beat_its_permutation_null(tmp_path, records):
+    variance, screened = records
+    variance("base", 0.256, half=0.001, building=0.13)
+    variance("cand", 0.250, half=0.001)
+    base = entry(tmp_path, "base", 0, 1, feature_set="f")
+    cand = entry(tmp_path, "cand", 0, 1, feature_set="g")
+    assert autoselect.less_descriptive(cand, base) == 1
+    # A permuted family explaining 5% of the building levels moves 0.65 pp by chance.
+    screened("base", "g", 0.05)
+    assert autoselect.less_descriptive(cand, base) == 0
+
+
+def test_a_fit_without_a_variance_record_is_level(tmp_path, records):
+    variance, _ = records
+    variance("a", 0.10)
+    a, b = entry(tmp_path, "a", 0, 1), entry(tmp_path, "b", 0, 1)
+    assert autoselect.less_descriptive(a, b) == 0
+
+
+def test_a_tied_clearly_less_descriptive_challenger_replaces_the_incumbent(
+    tmp_path, monkeypatch, records
+):
+    variance, _ = records
+    judged(monkeypatch, {})
+    variance("inc", 0.26)
+    variance("new", 0.22)
+    deltas = {"inc": 10.0, "new": 9.5}
+    es = [entry(tmp_path, "inc", 10.0, 1300), entry(tmp_path, "new", 9.5, 1300)]
+    d = autoselect.decide(es, "inc", RULES, paired_from(deltas), no_heldout_loss)
+    assert d["action"] == "switch" and "descriptive share" in d["reason"]
+
+
+def test_a_tied_more_descriptive_challenger_is_refused_even_if_more_elegant(
+    tmp_path, monkeypatch, records
+):
+    variance, _ = records
+    judged(monkeypatch, {("inc", "new"): "new"})
+    variance("inc", 0.22)
+    variance("new", 0.26)
+    deltas = {"inc": 10.0, "new": 10.5}
+    es = [entry(tmp_path, "inc", 10.0, 1300), entry(tmp_path, "new", 10.5, 1300)]
+    d = autoselect.decide(es, "inc", RULES, paired_from(deltas), no_heldout_loss)
+    assert d["action"] == "keep"

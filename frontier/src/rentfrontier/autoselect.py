@@ -31,21 +31,27 @@ card follow it.
 (Ben, 2026-10-01: ties go to the more elegant model):
 1. Take the top paired PSIS-LOO, and the fits tied with it within two combined
    SE.
-2. Among those, take the most elegant, by the judge agents' recorded pairwise
+2. Among those, take the less descriptive (Ben, 2026-10-10, the Fable research
+   review §3): a fit ranks ahead of a tied fit whose descriptive share
+   (`variance`: neighbourhood labels + building + building over time + unit)
+   is higher by more than the null, see `less_descriptive`. Fits are ordered
+   by how many tied fits are clearly less descriptive than them, fewest first.
+3. Among those, take the most elegant, by the judge agents' recorded pairwise
    judgements (`elegance`): fits are ordered by how many other tied fits are
    judged more elegant than them, fewest first (a cycle of judgements leaves
    its fits level).
-3. Then take the fastest. Fit times within `TIME_TIE` of
+4. Then take the fastest. Fit times within `TIME_TIE` of
    the fastest count as equal, and among them the higher PSIS-LOO wins, so
    run-to-run timing noise cannot decide.
 
 **Against the incumbent,** the currently selected run:
 - Fits ranked below an eligible incumbent are not tried.
 - An eligible incumbent is kept unless the choice beats it clearly: better
-  PSIS-LOO beyond the tie tolerance, or tied and judged more elegant, or tied,
+  PSIS-LOO beyond the tie tolerance, or tied and clearly less descriptive, or
+  tied, level on descriptive share and judged more elegant, or tied, level,
   judged equally elegant and faster by more than `TIME_TIE`. A tied challenger
-  whose pair with the incumbent has not been judged is refused until it is
-  (`elegance.pending` lists such pairs).
+  that is level on descriptive share and whose pair with the incumbent has not
+  been judged is refused until it is (`elegance.pending` lists such pairs).
 - A challenger is refused if its paired held-out score is below the
   incumbent's by more than two SE (the board's independent check), and the
   next eligible fit is tried.
@@ -77,6 +83,8 @@ WINDOW_SECONDS = (
     2 * 60 * 60
 )  # full fits; subset (tuning) fits: 30 minutes, never served
 TIME_TIE = 0.10
+VARIANCE_ROOT = data.OUTPUT_ROOT / "variance"  # rentfrontier.variance records
+EXPLAINED_ROOT = data.OUTPUT_ROOT / "explained"  # rentfrontier.explained records
 SELECTION = data.REPO / "config" / "main-analysis.json"
 # Feature sets removed from serving by hand as semantically invalid: every
 # feature set whose name contains the key is refused, whatever its scores.
@@ -238,6 +246,80 @@ def tie_pairs(candidates, paired=leaderboard.paired_loo) -> set:
     return {(a, b) for i, a in enumerate(ids) for b in ids[i + 1 :]}
 
 
+def _latest(root: Path, prefix: str) -> dict | None:
+    """The newest root/<prefix>-<commit>/result.json, or None."""
+    paths = [
+        d / "result.json"
+        for d in (root.iterdir() if root.is_dir() else ())
+        if d.name.startswith(f"{prefix}-")
+        and "-" not in d.name[len(prefix) + 1 :]
+        and (d / "result.json").exists()
+    ]
+    paths.sort(key=lambda p: p.stat().st_mtime)
+    return json.loads(paths[-1].read_text()) if paths else None
+
+
+def descriptive(e) -> dict | None:
+    """The fit's variance record shares, if it has one with a descriptive share."""
+    rec = _latest(VARIANCE_ROOT, _run(e))
+    shares = (rec or {}).get("shares", {})
+    return shares if "descriptive" in shares else None
+
+
+def descriptive_null(base, other) -> float | None:
+    """The descriptive-share drop `other` would show over `base` by chance, from the
+    permutation null of the feature families it adds (`explained`, scored on base's
+    building levels), or None when there is no such screen.
+
+    Adding a family moves a share of the building levels' variance from
+    "building" into "features": about the building share times the explained
+    share of the levels. A permuted family explains up to null_95, so its drop is
+    building share x null_95, summed over the families the candidate set adds."""
+    if base["feature_set"] == other["feature_set"]:
+        return None
+    rec = _latest(EXPLAINED_ROOT, f"{_run(base)}-{other['feature_set']}")
+    shares = descriptive(base)
+    if rec is None or shares is None or not rec.get("families"):
+        return None
+    null = sum(max(f["null_95"], 0.0) for f in rec["families"].values())
+    return shares["building"]["mean"] * null
+
+
+def half_width(shares) -> float:
+    d = shares["descriptive"]
+    return (d["upper_90"] - d["lower_90"]) / 2
+
+
+def less_descriptive(a, b) -> int:
+    """1 if a's descriptive share is clearly below b's, -1 if clearly above, 0 if
+    level or unknown (either fit has no variance record).
+
+    Clearly: the drop exceeds the null. When one fit adds feature families to the
+    other's and `explained` has screened them on the other's building levels, the
+    null is that screen's permutation null (`descriptive_null`; the review's null
+    is a fit with the family permuted across buildings, and the screen stands in
+    for it without a fit). A fit's descriptive share also carries posterior
+    noise, which a permuted-family fit would show too and the screen leaves
+    out, so the drop must also exceed the larger of the two fits' 90% posterior
+    half-widths. That half-width alone is the null for model-term tests (same
+    feature set) and for families no screen covers."""
+    sa, sb = descriptive(a), descriptive(b)
+    if sa is None or sb is None:
+        return 0
+    drop = sb["descriptive"]["mean"] - sa["descriptive"]["mean"]
+    lower, higher = (a, b) if drop > 0 else (b, a)
+    null = max(half_width(sa), half_width(sb))
+    family = descriptive_null(higher, lower)
+    if family is not None:
+        null = max(null, family)
+    return 0 if abs(drop) <= null else (1 if drop > 0 else -1)
+
+
+def more_descriptive_than(e, others) -> int:
+    """How many of `others` are clearly less descriptive than e."""
+    return sum(less_descriptive(o, e) == 1 for o in others)
+
+
 def beaten(e, others) -> int:
     """How many of `others` are judged more elegant than e."""
     me = elegance.design_id(e)
@@ -249,7 +331,7 @@ def ranked(candidates, paired=leaderboard.paired_loo) -> list:
     tied, rest = _split_tied(candidates, paired)
     if not tied:
         return []
-    rank = {id(e): beaten(e, tied) for e in tied}
+    rank = {id(e): (more_descriptive_than(e, tied), beaten(e, tied)) for e in tied}
     fastest = {}
     for e in tied:
         key = (rank[id(e)], e["hardware"])
@@ -336,18 +418,27 @@ def decide(
                 check["refused"] = "held-out worse than the incumbent by more than 2 SE"
                 continue
             tied = abs(d) <= tol
+            plain = less_descriptive(e, incumbent) if tied else 0
+            check["less_descriptive"] = plain
+            if inc_ok and plain == -1:
+                check["refused"] = (
+                    "tied with the incumbent, and clearly more descriptive"
+                )
+                continue
             judged = elegance.compare(
                 elegance.design_id(e), elegance.design_id(incumbent)
             )
             check["elegance"] = judged
-            more_elegant = tied and judged == 1
+            less_desc = plain == 1
+            more_elegant = tied and plain == 0 and judged == 1
             faster = (
                 tied
+                and plain == 0
                 and judged == 0
                 and e["hardware"] == incumbent["hardware"]
                 and e["fit_seconds"] < incumbent["fit_seconds"] * (1 - TIME_TIE)
             )
-            if inc_ok and tied and judged is None:
+            if inc_ok and tied and plain == 0 and judged is None:
                 check["refused"] = (
                     "tied with the incumbent, and the pair has no elegance "
                     "judgement yet (rentfrontier.elegance pending)"
@@ -358,12 +449,15 @@ def decide(
                 if pair not in out["pending_judgements"]:
                     out["pending_judgements"].append(pair)
                 continue
-            if inc_ok and not (d > tol or more_elegant or faster):
+            if inc_ok and not (d > tol or less_desc or more_elegant or faster):
                 check["refused"] = "does not clearly beat the eligible incumbent"
                 continue
             won = (
                 "its PSIS-LOO is clearly better than the incumbent's"
                 if d > tol
+                else "it ties the incumbent on PSIS-LOO and its descriptive share is "
+                "clearly lower"
+                if less_desc
                 else "it ties the incumbent on PSIS-LOO and is judged more elegant"
                 if more_elegant
                 else "it ties the incumbent on PSIS-LOO, is judged as elegant, and is "
