@@ -793,6 +793,26 @@ def quarantine_v10(frame: pd.DataFrame) -> pd.DataFrame:
     return frame[~frame.audit_id.isin(quarantined(QUARANTINE_V10))]
 
 
+QUARANTINE_V12 = REPO / "config" / "reviews" / "quarantine-v12-20261010.jsonl"
+# The rows v12's review read: every hit of the rent-blind screens over East
+# Village, NoMad and Stuyvesant Town/PCV.
+QUARANTINE_V12_READ = REPO / "config" / "reviews" / "quarantine-v12-read-20261010.txt"
+
+
+def quarantine_v12(frame: pd.DataFrame) -> pd.DataFrame:
+    """v10 and 50 more rows (269 in all) from neighbourhoods v10 never read.
+    v10's text checks run over every East Village ad (quarantine_v13_screen.py),
+    every NoMad ad (quarantine_v12_screen.py) and every Stuyvesant Town/PCV ad
+    (quarantine_v10_screen.py with its centre moved), each place measured from
+    the neighbourhood's own centre. Every hit (quarantine-v12-read-20261010.txt)
+    is read with no rent shown: 39 East Village rows (shops, offices and medical
+    offices; ads for apartments elsewhere; dorm rooms with a shared bath; summer
+    and few-month sublets), 10 NoMad rows and a Stuyvesant Town ad for a studio
+    in Harlem are left out. v11's rows are not in it. The other rows are
+    unchanged."""
+    return frame[~frame.audit_id.isin(quarantined(QUARANTINE_V12))]
+
+
 # Units of one building a review found to be one apartment under different
 # labels, one JSON line per group with its evidence (2026-10-07).
 UNIT_JOINS = REPO / "config" / "reviews" / "unit-joins-20261007.jsonl"
@@ -928,6 +948,7 @@ DATA_RULES = {
     "quarantine-v8": quarantine_v8,
     "quarantine-v9": quarantine_v9,
     "quarantine-v10": quarantine_v10,
+    "quarantine-v12": quarantine_v12,
     "unit-reviews-v1": join_reviewed_units,
 }
 # Rules that read a file; run records hash the files.
@@ -942,6 +963,7 @@ RULE_SOURCES = {
     "quarantine-v8": QUARANTINE_V8,
     "quarantine-v9": QUARANTINE_V9,
     "quarantine-v10": QUARANTINE_V10,
+    "quarantine-v12": QUARANTINE_V12,
     "unit-reviews-v1": UNIT_JOINS,
     "unit-labels-v2": UNIT_ALIASES,
     "unit-labels-v3": UNIT_ALIASES,
@@ -973,6 +995,7 @@ DROPPING_RULES = (
     "quarantine-v8",
     "quarantine-v9",
     "quarantine-v10",
+    "quarantine-v12",
 )
 
 
