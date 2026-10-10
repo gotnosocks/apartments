@@ -60,7 +60,7 @@
     consistently, and has no overlapping or competing terms. It avoids one-off flags, hand-tuned cutoffs and patches, uses natural
     forms for its likelihood and priors, and needs no more structural choices than what it captures. For pairs of models that matter,
     two independent AI judges read both model definitions without seeing any scores. Each says which one is more elegant, or that
-    they are about equal, and why. If they disagree, the pair counts as equal. Ties in accuracy go to the more elegant model. <a href="{{ url_for('research_elegance') }}">Every judgement</a> is listed with its reason.</dd>
+    they are about equal, and why. If they disagree, the pair counts as equal. Ties in accuracy go first to the less descriptive model, then to the more elegant one. <a href="{{ url_for('research_elegance') }}">Every judgement</a> is listed with its reason.</dd>
     <dt id="p-loo">Effective parameters</dt>
     <dd>How many parameters the fit effectively uses, measured from the data (the
     in-sample fit minus the leave-one-out fit). An objective check beside the judges: of two equally accurate models, the one with

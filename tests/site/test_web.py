@@ -403,7 +403,7 @@ def test_research_model_page(client):
     html = client.get("/research/model").get_data(as_text=True)
     assert "published by hand" in html  # the fixture bundle is not the repo's selection
     assert "+5,221.3 ± 120.4 over the" in html and "−12.5" not in html
-    assert "+-12.5" not in html and "-12.5 ± 30.1" in html
+    assert "-12.5" not in html  # the retired PyMC reference comparison
     assert "On the frontier</dt><dd>yes, and the best fit on its hardware" in html
     assert "Convergence gate</dt><dd>passes" in html
 
@@ -682,7 +682,7 @@ def test_review_fixes_on_research_model_and_home(client, research_file):
     home = client.get("/").get_data(as_text=True)
     assert "Model switch" in home
     html = client.get("/research/model").get_data(as_text=True)
-    assert "-12.5 on the held-out listings the" in " ".join(html.split())
+    assert "held-out listings the" not in " ".join(html.split())
     assert html.count("<dt>Convergence gate</dt>") == 1
     # published by hand: no claim that the rule picked it
     assert "A rule picks it" not in html
@@ -887,6 +887,7 @@ def test_validation_page(client, research_file):
             rows["delta_se"] = 5.0
     served = next(e for e in data["entries"] if e["id"].startswith("m-test"))
     served["splits"]["units"] = {"run": "u", "delta": 120.0, "delta_se": 9.0}
+    served["variance"]["descriptive"] = {"mean": 0.3, "median": 0.2}
     data["entries"].append(
         dict(served, id="m-test-gibbs", key="m-test-gibbs", sampler="gibbs")
     )
@@ -896,7 +897,9 @@ def test_validation_page(client, research_file):
     assert "1 simple baseline far below" in html  # L0-mean left out
     assert "Same model, different implementations" in html
     assert ">gibbs</a>" in html and ">nuts</a>" in html
-    assert "+120.0" in html  # the unit split
+    assert "+120.0" not in html  # the unit split table is retired
+    assert '<th scope="col" class="num">Descriptive</th>' in html
+    assert "20.0%" in html  # descriptive as the median over draws
     assert "78.6%" in html  # the served fit is on the frontier with a breakdown
     empty = client.get("/research/validation?hardware=thelio+CPU").get_data(
         as_text=True

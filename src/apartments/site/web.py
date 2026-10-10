@@ -78,6 +78,7 @@ from .research import (
     frontier_view,
     full_fits_of,
     default_hardware,
+    descriptive_share,
     hardware_classes,
     implementations,
     judgements,
@@ -770,6 +771,7 @@ def create_app(
 
     app.jinja_env.filters["trim_float"] = trim_float
     app.jinja_env.filters["hood"] = summary.hood_name
+    app.jinja_env.filters["mid"] = mid
     app.jinja_env.filters["minus"] = lambda text: str(text).replace("-", "−")
     app.jinja_env.tests["finite"] = lambda v: (
         isinstance(v, (int, float)) and not isinstance(v, bool) and math.isfinite(v)
@@ -2137,6 +2139,7 @@ def create_app(
             served_run=m["provenance"]["run"],
             run_of=run_of,
             serve_status=serve_status,
+            descriptive_share=descriptive_share,
         )
 
     @app.get("/research/fits/<path:key>")
@@ -2370,8 +2373,6 @@ def create_app(
             "research_validation.html",
             meta=m,
             served_entry=served_entry,
-            served_units=served_unit_split(data, served_entry),
-            reference=data.get("reference"),
             classes=classes,
             hardware=hardware,
             rho=rho,
@@ -2381,7 +2382,7 @@ def create_app(
                 points,
                 label="Each fit's PSIS-LOO score against its genuine held-out score",
                 x_title="PSIS-LOO ΔELPD against the simplest baseline (from the fit itself)",
-                y_title="Held-out ΔELPD against the reference model",
+                y_title="Held-out ΔELPD against a fixed early model",
                 x_format=charts.signed,
                 y_format=charts.signed,
                 x_zero=False,
@@ -2389,12 +2390,6 @@ def create_app(
             variance=frontier,
             groups=data.get("variance_groups", []),
             implementations=implementations(data),
-            units=[
-                e
-                for e in data.get("entries", [])
-                if "units" in (e.get("splits") or {})
-                and e["splits"]["units"].get("delta") is not None
-            ],
         )
 
     @app.get("/research/data")
@@ -2560,7 +2555,6 @@ def create_app(
                 else (),
                 key=lambda e: -e["vs_served"]["delta"],
             )[:8],
-            reference=data.get("reference") if data else None,
             meta=m,
             selection=served_selection(m),
             coefficients=coefficients,
@@ -2597,59 +2591,6 @@ def create_app(
 def rules_of(entry: dict) -> list[str]:
     """The data rules a board key names after its commit ("...@abc1234+rule+rule")."""
     return entry["key"].split(" [")[0].split("@", 1)[-1].split("+")[1:]
-
-
-def served_unit_split(data: dict, served: dict | None) -> dict | None:
-    """The unit-split score of the served design and feature set: a passing
-    fit first, then the one whose data rules differ least from the served
-    fit's, then the newest. {entry, split, missing_rules, extra_rules,
-    missed}, where missed lists the gate thresholds the fit fell short of."""
-    if not served:
-        return None
-    ours = rules_of(served)
-
-    def candidate(e):
-        theirs = rules_of(e)
-        return {
-            "entry": e,
-            "split": e["splits"]["units"],
-            "missing_rules": [r for r in ours if r not in theirs],
-            "extra_rules": [r for r in theirs if r not in ours],
-        }
-
-    found = [
-        candidate(e)
-        for e in data.get("entries", [])
-        if e.get("design") == served.get("design")
-        and e.get("feature_set") == served.get("feature_set")
-        and (e.get("splits") or {}).get("units", {}).get("delta") is not None
-    ]
-    if not found:
-        return None
-    best = max(
-        found,
-        key=lambda c: (
-            c["split"].get("passes") is True,
-            -(len(c["missing_rules"]) + len(c["extra_rules"])),
-            c["split"].get("completed_at") or "",
-        ),
-    )
-    best["missed"] = gate_misses(best["split"], data.get("gate") or {})
-    return best
-
-
-def gate_misses(split: dict, gate: dict) -> list[str]:
-    """The convergence thresholds a fit fell short of, in words."""
-    out = []
-    rhat, ess = split.get("max_rhat"), split.get("min_ess")
-    if isinstance(rhat, (int, float)) and gate.get("rhat") and rhat >= gate["rhat"]:
-        out.append(f"largest R-hat {rhat:.3f}; the gate needs below {gate['rhat']}")
-    if isinstance(ess, (int, float)) and gate.get("ess") and ess <= gate["ess"]:
-        out.append(
-            f"smallest effective sample size {ess:,.0f}; the gate needs more than "
-            f"{gate['ess']:,}"
-        )
-    return out
 
 
 def design_label(entry: dict) -> str:
@@ -2701,6 +2642,15 @@ def ordinal(n: int) -> str:
         "th" if 10 <= n % 100 <= 20 else {1: "st", 2: "nd", 3: "rd"}.get(n % 10, "th")
     )
     return f"{n}{suffix}"
+
+
+def mid(share: dict | None) -> float | None:
+    """A variance share's central value: the median over draws, or the mean
+    in records written before the median was kept (the Fable review asks for
+    medians, 2026-10-10)."""
+    if not share:
+        return None
+    return share.get("median", share.get("mean"))
 
 
 def trim_float(value) -> str:

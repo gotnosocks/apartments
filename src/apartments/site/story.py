@@ -171,17 +171,19 @@ def composition_svg(rows: list[dict]) -> Markup:
         share = r["share"]
         if share:
             scale = WIDTH - bar_x - 70
-            mean = max(share["mean"], 0.0)
-            lo = max(share.get("lower_90", share["mean"]), 0.0)
-            hi = max(share.get("upper_90", share["mean"]), 0.0)
+            # the median over draws; records from before it was kept carry only the mean
+            central = share.get("median", share["mean"])
+            mid = max(central, 0.0)
+            lo = max(share.get("lower_90", central), 0.0)
+            hi = max(share.get("upper_90", central), 0.0)
             cy = y + box_h / 2
             out.append(
                 f'<rect class="share" x="{bar_x}" y="{cy - 9:.1f}" '
-                f'width="{max(scale * mean, 1.5):.1f}" height="18" rx="3"/>'
+                f'width="{max(scale * mid, 1.5):.1f}" height="18" rx="3"/>'
                 f'<line class="share-ci" x1="{bar_x + scale * lo:.1f}" y1="{cy:.1f}" '
                 f'x2="{bar_x + scale * hi:.1f}" y2="{cy:.1f}"/>'
-                f'<text class="share-label" x="{bar_x + scale * max(hi, mean) + 6:.1f}" '
-                f'y="{cy + 4:.1f}">{100 * share["mean"]:.0f}%</text>'
+                f'<text class="share-label" x="{bar_x + scale * max(hi, mid) + 6:.1f}" '
+                f'y="{cy + 4:.1f}">{100 * central:.0f}%</text>'
             )
         out.append("</g>")
     if has_share:
