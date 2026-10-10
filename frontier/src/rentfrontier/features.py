@@ -4445,21 +4445,25 @@ for _new, _old in NB7_SETS.items():
 # overrides) merged into nb7's, its MapPLUTO, footprints and basemap merged
 # into nb7's (nb7's rows unchanged), the eight crawls' listing extras, and the
 # sources keyed by lot fetched on the merged registry.
-NB8_REGISTRY_FILE = "/data1/apartments/external/registry/@SNAP@/buildings.parquet"
-NB8_PLUTO_FILE = "/data1/apartments/external/pluto/@SNAP@/pluto.parquet"
-NB8_FOOTPRINTS_FILE = "/data1/apartments/external/footprints/@SNAP@/footprints.parquet"
-NB8_BASEMAP_FILE = "/data1/apartments/external/basemap/@SNAP@/basemap.parquet"
+NB8_REGISTRY_FILE = (
+    "/data1/apartments/external/registry/20261010-b5c71cf/buildings.parquet"
+)
+NB8_PLUTO_FILE = "/data1/apartments/external/pluto/20261010-b5c71cf/pluto.parquet"
+NB8_FOOTPRINTS_FILE = (
+    "/data1/apartments/external/footprints/20261010-b5c71cf/footprints.parquet"
+)
+NB8_BASEMAP_FILE = "/data1/apartments/external/basemap/20261010-b5c71cf/basemap.parquet"
 NB8_EXTRAS_FILE = (
-    "/data1/apartments/external/listing-extras/@SNAP@/listing-extras.parquet"
+    "/data1/apartments/external/listing-extras/20261010-b5c71cf/listing-extras.parquet"
 )
-NB8_LPC_FILE = "/data1/apartments/external/lpc/@SNAP@/lpc.parquet"
-NB8_HPD_FILE = "/data1/apartments/external/hpd/@SNAP@/hpd.parquet"
+NB8_LPC_FILE = "/data1/apartments/external/lpc/20261010-b5c71cf/lpc.parquet"
+NB8_HPD_FILE = "/data1/apartments/external/hpd/20261010-b5c71cf/hpd.parquet"
 NB8_STOREFRONTS_FILE = (
-    "/data1/apartments/external/storefronts/@SNAP@/storefronts.parquet"
+    "/data1/apartments/external/storefronts/20261010-b5c71cf/storefronts.parquet"
 )
-NB8_PARKS_FILE = "/data1/apartments/external/parks/@SNAP@/parks.parquet"
+NB8_PARKS_FILE = "/data1/apartments/external/parks/20261010-b5c71cf/parks.parquet"
 NB8_PLUTO_RELEASES_FILE = (
-    "/data1/apartments/external/plutoreleases/@SNAP@/plutoreleases.parquet"
+    "/data1/apartments/external/plutoreleases/20261010-b5c71cf/plutoreleases.parquet"
 )
 _NB8_DESCRIPTIONS = {
     **_NB7_DESCRIPTIONS,
