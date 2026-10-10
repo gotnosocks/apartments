@@ -2,6 +2,10 @@
 
 ## Served-model review and ranked hypotheses (2026-10-08, during the run pause)
 
+An independent review from the Fable thread, with its eighteen-round free-check exchange with
+Modeling and the pre-registered post-pause order, is in
+`docs/model/research-review-fable-2026-10-08.md`.
+
 This is a no-fit review of the served fit (coded-v2 refit on quarantine-v10 and ad-v3, PSIS-LOO
 139,842.7 ± 386.4, 135,540 rows). It uses only the summary's rows, intervals and term columns,
 with scripts in `/data1/apartments/tmp/bridge/review/`.
