@@ -264,11 +264,11 @@ def test_post_fit_steps_by_tier_and_explain(monkeypatch):
     monkeypatch.setitem(sys.modules, "modal", mock.MagicMock())
     app = load("app")
     spec = {"name": "r", "tier": "full", "explain": ["a", "b"]}
-    assert app.post_steps(spec) == [
-        ("variance", ["rentfrontier.variance", "r"]),
-        ("summary", ["rentfrontier.summary", "r"]),
-        ("explained", ["rentfrontier.explained", "r", "a", "b"]),
-    ]
+    steps = app.post_steps(spec)
+    assert [s for s, _ in steps] == ["variance", "summary", "calibration", "explained"]
+    assert steps[0][1] == ["rentfrontier.variance", "r"]
+    assert steps[1][1] == ["rentfrontier.summary", "r"]
+    assert steps[3][1] == ["rentfrontier.explained", "r", "a", "b"]
     assert [s for s, _ in app.post_steps({"name": "r", "tier": "exploration"})] == [
         "variance"
     ]
@@ -286,7 +286,23 @@ def test_post_fit_steps_by_tier_and_explain(monkeypatch):
     done = app._post(spec, {}, None, now + 600)
     assert done["variance"]["exit"] == 0 and "boom" in done["summary"]["exit"]
     assert calls[0] == ("rentfrontier.variance", 600)
+    # The summary failed, so calibration has no bundle to read.
+    assert done["calibration"]["exit"] == "skipped: no summary bundle"
+    assert ("rentfrontier.calibration", 600) not in calls
     assert app._post(spec, {}, None, now + 30)["variance"]["exit"].startswith("skipped")
+
+
+def test_calibration_reads_the_finished_summary_bundle(tmp_path, monkeypatch):
+    monkeypatch.setitem(sys.modules, "modal", mock.MagicMock())
+    app = load("app")
+    monkeypatch.setattr(app, "OUTPUT", tmp_path)
+    (tmp_path / "summaries" / "r-abc1234").mkdir(parents=True)
+    (tmp_path / "summaries" / "r-abc1234" / "complete.json").write_text("{}")
+    (tmp_path / "summaries" / "r-cut5678").mkdir()  # killed mid-write
+    (tmp_path / "summaries" / "rx-abc1234").mkdir()
+    (tmp_path / "summaries" / "rx-abc1234" / "complete.json").write_text("{}")
+    step = dict(app.post_steps({"name": "r", "tier": "full"}))["calibration"]
+    assert step() == ["rentfrontier.calibration", str(tmp_path / "summaries/r-abc1234")]
 
 
 def test_plan_carries_the_candidate_sets_to_explain():

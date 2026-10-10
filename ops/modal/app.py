@@ -8,7 +8,8 @@ inputs back to their thelio paths, runs rentfrontier.run and rentfrontier.loo as
 thelio, and leaves the run directory, the LOO directory and the log under /out/<name>
 for the launcher to download. A fit that finishes also gets its post-fit statistics here,
 while the container has its draws (`_post`): the variance decomposition, the summary
-bundle (full fits) and the explained share of any --explain candidate sets.
+bundle (full fits), its predictive coverage by kind of row (rentfrontier.calibration: the
+new-unit coverage of a time-split fit) and the explained share of any --explain candidate sets.
 """
 
 import json
@@ -36,7 +37,7 @@ POST_MARGIN = 10 * 60  # left before TIMEOUT for copying the outputs to the Volu
 OUTPUT = Path(
     "/data1/apartments/frontier"
 )  # rentfrontier's OUTPUT_ROOT in the container
-POST_KINDS = ("variance", "summaries", "explained")
+POST_KINDS = ("variance", "summaries", "calibration", "explained")
 USD_PER_CORE_SECOND, USD_PER_GIB_SECOND = 0.0000131, 0.00000222
 
 
@@ -81,9 +82,20 @@ def post_steps(spec):
     if spec["tier"] == "full":
         # The site's bundle; only full fits are served.
         steps.append(("summary", ["rentfrontier.summary", name]))
+        # Reads the bundle the summary step just wrote, so its path is found at run time.
+        steps.append(("calibration", lambda: _calibration_args(name)))
     if spec.get("explain"):
         steps.append(("explained", ["rentfrontier.explained", name, *spec["explain"]]))
     return steps
+
+
+def _calibration_args(name):
+    bundles = sorted(
+        str(d)
+        for d in (OUTPUT / "summaries").glob(f"{name}-*")
+        if (d / "complete.json").exists()
+    )
+    return ["rentfrontier.calibration", *bundles] if bundles else None
 
 
 def _post(spec, env, log, deadline):
@@ -97,6 +109,11 @@ def _post(spec, env, log, deadline):
             continue
         t = time.time()
         try:
+            if callable(args):
+                args = args()
+            if args is None:
+                done[step] = {"exit": "skipped: no summary bundle"}
+                continue
             code = _run(["/venv/bin/python", "-m", *args], env, log, left)
         except Exception as e:  # noqa: BLE001
             code = repr(e)
