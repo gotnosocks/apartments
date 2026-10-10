@@ -3,6 +3,27 @@
 What the next turn of the modeling thread needs. Updated at each milestone. Scripts and logs are
 in `/data1/apartments/tmp/bridge` (thelio).
 
+## Update (2026-10-10 12:30 UTC)
+
+- **Runs still paused.** Launch nothing on Modal or the GPU until Ben lifts the pause.
+- **Base order** (Ben 2026-10-08 20:58Z, "Wait for all"): one plutoasof-v3 base fit on all eight
+  neighbourhoods first, then each feature test rebased on it. The nb6/nb7 feature-set fits do not go first.
+- **Merged on master:** quarantine-v12 (#622), unit-labels-v15 (#624, East Village aliases) and NB8
+  (#625, cb38e88). That makes DATASET_NB8 215,156 rows with East Village, plus nb8-nostuy-v1 and the
+  lister, sizefill and nta sets on it. The served fit stays eligible: same_rows holds on v12 and v15.
+- **nta set:** nb8-nostuy-nta-v1 uses nta_v2, which folds the East Village and Greenwich Village NTAs
+  into the reference so the NTA levels and neighbourhood indicators are not collinear (rank test in
+  test_nb8). nb7-nostuy-nta-v1 has a West Village + Greenwich Village ridge, so read any nb7 nta fit with that in mind.
+- **Riverparks** is not in NB8 yet. Pier 42 has no opening date, so Data will date it, and East River
+  Park's closure, in its own PR.
+- **Ready to run:** /data1/apartments/tmp/bridge/modalq-nb8.sh (the base, current rules, not launched).
+  It supersedes modalq-pluto3.sh. After it, each nb8 set gets its own Modal full fit.
+- **Registered predictions** (pre-check, no fit, review/r12/c33.py):
+  - East Village border: not checkable before the NB8 registry, because East Village buildings had no coordinates.
+  - NoMad label: no drift (−0.20 ± 0.09 pp/yr). The level is inconclusive without a surface
+    (+3.3 pp against the Flatiron NTA, −5.2 pp against buildings within 400 m).
+  - The registered tests run on the NB8 base fit.
+
 ## Update (2026-10-09 12:10 UTC)
 
 - **Runs still paused** (Ben, 2026-10-08 16:07Z); no fits queued.
