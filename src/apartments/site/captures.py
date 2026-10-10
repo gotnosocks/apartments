@@ -46,6 +46,24 @@ DESCRIPTION_GROUPS = ("description", "outdoor space", "rooms beyond bedrooms")
 LETTERED = re.compile(r"^(?:APT-?)?(\d{1,2})[A-Z]{1,2}$")
 NUMBERED = re.compile(r"^(\d)\d\d$")
 METHOD = "kit"
+# A listing is on the market now when it was last seen active within this many
+# days of the build (the dataset's own window, `candidate_search.select_candidates`).
+CURRENT_DAYS = 7
+
+
+def now() -> dt.datetime:
+    """The build's clock: the windows for current listings end here."""
+    return dt.datetime.now(dt.UTC)
+
+
+def fresh(r: dict, at: dt.datetime) -> bool:
+    """Whether a row was last seen within CURRENT_DAYS of `at`. A dataset
+    row's `collected_at` is when it was last seen; `price_at` is the ask's own
+    date, the same instant for a current capture."""
+    text = r.get("collected_at") or r.get("price_at")
+    if not text:
+        return False
+    return (at - pricing._timestamp(text)).total_seconds() <= CURRENT_DAYS * 86400
 
 
 def supported(c: dict) -> bool:
@@ -67,7 +85,11 @@ def supported(c: dict) -> bool:
 
 
 def captures(
-    archives: Path, read: set[str], skip_listings: set[str], skip_units: set[str]
+    archives: Path,
+    read: set[str],
+    skip_listings: set[str],
+    skip_units: set[str],
+    at: dt.datetime | None = None,
 ) -> list[tuple[str, dict]]:
     """(capture directory name, candidate) for the listings of captures the
     fit's dataset never read that pass the dataset's own current-row rules
@@ -78,7 +100,10 @@ def captures(
     A capture with any row in the dataset (`read`, its audit ids) went into
     it, and the listings of it the dataset left out were left out by its
     rules. Listings in `skip_listings` and units in `skip_units` are left
-    out too: the dataset dropped or already prices them."""
+    out too: the dataset dropped or already prices them. The window for
+    an active listing ends at `at`, the build's clock, so an old capture's
+    listings age out."""
+    at = at or now()
     out: dict[str, tuple[str, dict]] = {}
     for d in sorted(p for p in archives.iterdir() if p.is_dir()):
         path = d / "details" / "snapshot" / "candidates.jsonl"
@@ -89,13 +114,9 @@ def captures(
         ]
         if not found or any(f"capture:{c['capture_id']}" in read for c in found):
             continue
-        as_of = max(
-            pricing._timestamp(t)
-            for c in found
-            for t in (c.get("collected_at"), c.get("known_at"))
-            if t
+        selected, _, _ = candidate_search.select_candidates(
+            found, as_of=at, max_age_days=CURRENT_DAYS
         )
-        selected, _, _ = candidate_search.select_candidates(found, as_of=as_of)
         for c in selected:
             if not supported(c) or str(c["source_listing_id"]) in skip_listings:
                 continue
@@ -326,11 +347,13 @@ def rows(
     names: list[str],
     observations: dict[str, dict] | None = None,
     units: dict[str, list[float]] | None = None,
+    at: dt.datetime | None = None,
 ) -> tuple[list[dict], dict]:
     """Site listing rows of the captures' listings, and a status for
     build.json: how many were priced, how many with the fit's own unit
     level, and why the others were not."""
     units = units or {}
+    at = at or now()
     from .build import _true_keys, price_band, unit_label
 
     terms = {b["building"]: b for b in kit_buildings}
@@ -353,15 +376,19 @@ def rows(
         ids = o.get("listing_ids")
         ids = json.loads(ids) if isinstance(ids, str) else list(ids or [])
         ids.append(o.get("listing_id") or o.get("source_listing_id"))
+        # a row the dataset priced as current but last saw over a week ago is
+        # past, so a newer capture of its unit is priced here
         current = o.get(
             "is_current", o.get("analysis_price_basis") == "current_capture_gross_ask"
-        )
+        ) and fresh(o, at)
         if a not in fit_ids or current:
             skip_listings |= {str(i) for i in ids if i}
         if current:
             skip_units.add(o["unit_id"])
     out, skipped, sources, fitted_levels = [], {}, {}, 0
-    for source, c in captures(archives, set(observations), skip_listings, skip_units):
+    for source, c in captures(
+        archives, set(observations), skip_listings, skip_units, at
+    ):
         b = c["building_id"]
         if b not in terms or b not in info or b not in newest:
             skipped[c["capture_id"]] = "building not in the served fit"
@@ -481,6 +508,7 @@ def price(
     archives: Path,
     names: list[str],
     observations: dict[str, dict] | None = None,
+    at: dt.datetime | None = None,
 ) -> tuple[list[dict], dict]:
     """The captures' listings priced with the run's kit, when it scores the
     fit's own rows as the bundle does (`estimate_build.check_scoring`)."""
@@ -521,4 +549,5 @@ def price(
         names,
         observations,
         units,
+        at=at,
     )

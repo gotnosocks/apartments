@@ -695,6 +695,12 @@ def write_database(
     kit_dir = estimate_build.find_kit(
         record["run"], record["_sha256"], kits or estimate_build.KITS
     )
+    # A listing is on the market now when it was seen active within a week of
+    # this build (Ben, 2026-10-10): the dataset's current rows age out too.
+    at = captures.now()
+    for r in fitted:
+        if r["is_current"] and not captures.fresh(r, at):
+            r["is_current"] = 0
     # Current listings captured after the dataset was made, priced with the
     # kit (captures.py); every other row is the bundle's.
     captured, captured_status = captures.price(
@@ -704,10 +710,14 @@ def write_database(
         archives or ad_dates.ARCHIVES,
         names,
         observations,
+        at,
     )
     listings = fitted + captured
     units, buildings = units_and_buildings(listings)
     quarantined = quarantined_rows(missing, observations, decisions, registry)
+    for r in quarantined:
+        if r["is_current"] and not captures.fresh(observations[r["audit_id"]], at):
+            r["is_current"] = 0
     market = [
         {
             "period": m["period"],

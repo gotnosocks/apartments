@@ -1,3 +1,4 @@
+import datetime as dt
 import json
 import math
 import sqlite3
@@ -124,6 +125,15 @@ def test_newest_capture_wins_per_unit(tmp_path):
     assert [(d, c["rent"]) for d, c in got] == [("20261008", 3900)]
 
 
+def test_a_capture_ages_out_a_week_after_it_was_seen(tmp_path):
+    write_capture(tmp_path, "20261006", [candidate(1)])
+    seen = dt.datetime(2026, 10, 6, 15, tzinfo=dt.UTC)
+    assert captures.captures(tmp_path, set(), set(), set(), seen + dt.timedelta(days=7))
+    assert not captures.captures(
+        tmp_path, set(), set(), set(), seen + dt.timedelta(days=7, seconds=1)
+    )
+
+
 def test_a_listing_the_dataset_dropped_stays_out(tmp_path):
     write_capture(tmp_path, "20261006", [candidate(1, source_listing_id=900)])
     dropped = fitted(audit_id="obs:dropped", listing_id="900")
@@ -137,6 +147,21 @@ def test_a_listing_the_dataset_dropped_stays_out(tmp_path):
         {"obs:1": fitted(listing_id="800"), "obs:dropped": dropped},
     )
     assert out == [] and status["priced"] == 0
+
+
+def test_a_stale_current_dataset_row_lets_a_newer_capture_in(tmp_path):
+    write_capture(tmp_path, "20261006", [candidate(1, rent=3300)])
+    buildings = [{"id": BUILDING, "neighbourhood": "Greenwich Village", "floors": 6}]
+
+    def priced(seen):
+        row = fitted(is_current=1, collected_at=seen, price_at=seen)
+        out, _ = captures.rows(
+            kit(), [kit_building()], [row], buildings, tmp_path, [], {"obs:1": row}
+        )
+        return len(out)
+
+    assert priced("2026-10-05T00:00:00+00:00") == 0  # the dataset prices the unit
+    assert priced("2026-09-20T00:00:00+00:00") == 1  # seen over a week ago
 
 
 def kit_building(level=0.0):
