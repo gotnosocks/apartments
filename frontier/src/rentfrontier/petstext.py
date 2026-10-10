@@ -9,10 +9,14 @@ no rents."""
 import numpy as np
 import pandas as pd
 
+# A size limit ("no dogs over 25 lbs") restricts pets rather than banning them.
+SIZE = r"(?:over|above|larger|bigger|heavier|more than|weighing)\b"
 # A ban on all pets. "no pet fee" and "no pet deposit" are not bans.
 NO_PETS = (
     r"\bnot? (?:pets?|animals?)\b"
-    r"(?! ?(?:fees?|deposits?|rent|charges?|restrictions?|weight|limit|size|policy restrictions?)\b)"
+    r"(?! ?(?:fees?|deposits?|rent|charges?|restrictions?|weight|limit|size"
+    r"|policy restrictions?)\b)(?! " + SIZE + ")"
+    r"|\bno (?:cats? (?:or|and|nor) dogs?|dogs? (?:or|and|nor) cats?)\b"
     r"|\bpets? (?:are )?(?:not|never) (?:allowed|permitted|accepted|welcome)"
     r"|\bnot pet[- ]friendly|\bpet[- ]free\b"
     r"|\bno[- ]pet (?:building|policy)\b(?! restrictions?)"
@@ -20,7 +24,7 @@ NO_PETS = (
 )
 # Cats but no dogs.
 NO_DOGS = (
-    r"\bno dogs?\b(?! (?:over|above|larger|bigger|heavier|more than|weighing)\b)"
+    r"\bno dogs?\b(?! " + SIZE + ")"
     r"|\bdogs? (?:are )?(?:not|never) (?:allowed|permitted|accepted)"
     r"|\bcats? only\b|\bonly cats?\b"
 )
@@ -31,7 +35,7 @@ CASE = (
     r"|approval[^.]{0,20}pets?|pets? (?:considered|negotiable)"
     r"|small (?:dogs?|pets?) (?:only|ok|okay|allowed|welcome|considered)"
     r"|(?:one|1) (?:small )?(?:dog|pet|cat) (?:allowed|ok|max)"
-    r"|\bno dogs? (?:over|above|larger|bigger|heavier|more than|weighing)\b"
+    r"|\bno (?:pets?|dogs?|animals?) " + SIZE
 )
 # Pets allowed, or a pet fee or building pet amenity that implies it. "dog
 # run" is left out: ads name the neighbourhood's dog runs too.
@@ -41,7 +45,7 @@ ALLOWED = (
     r"|\bcats? and dogs? (?:are )?(?:welcome|allowed|ok)"
     r"|(?<!no )\bcats? (?:are )?(?:welcome|allowed|ok|okay|permitted)\b"
     r"|\bdogs? and cats? (?:are )?(?:welcome|allowed|ok)"
-    r"|\bpet (?:fee|deposit|rent)\b"
+    r"|\bpet (?:fees?|deposits?|rent)\b"
     r"|\bpet (?:spa|wash|care|grooming|washing station)\b|\bpets? (?:are )?fine\b"
 )
 # Most restrictive first: an ad saying "pets allowed" and "no dogs" is no_dogs.

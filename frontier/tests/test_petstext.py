@@ -17,6 +17,9 @@ def test_classify_reads_bans_restrictions_and_permissions():
             "cats allowed",
             "no dogs over 25 lbs",
             "no pet policy restrictions, pets ok",
+            "no pets over 15 lbs",
+            "no cats or dogs",
+            "no pet fees",
             None,
         ]
     )
@@ -26,11 +29,14 @@ def test_classify_reads_bans_restrictions_and_permissions():
         "no_dogs",
         "case_by_case",
         "allowed",
-        "none",
+        "allowed",
         "allowed",
         "none",
         "allowed",
         "case_by_case",
+        "allowed",
+        "case_by_case",
+        "no_pets",
         "allowed",
         "none",
     ]
