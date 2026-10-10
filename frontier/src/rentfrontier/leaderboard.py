@@ -65,6 +65,7 @@ RESCORES = data.OUTPUT_ROOT / "rescores"
 LOO_ROOT = data.OUTPUT_ROOT / "loo"
 VARIANCE_ROOT = data.OUTPUT_ROOT / "variance"
 EXPLAINED_ROOT = data.OUTPUT_ROOT / "explained"
+CALIBRATION_ROOT = data.OUTPUT_ROOT / "calibration"
 # PSIS-LOO dELPD is paired against this entry (the plainest gate-passing design).
 # The plainest design on the current dataset (the eight neighbourhoods,
 # data.DATASET_NB8, #625), named by its run; it misses the gate on group R-hat
@@ -193,6 +194,20 @@ def load_explained():
     for *_, r in sorted(rows, key=lambda t: t[:2]):
         out.setdefault(r["source_run"], {})[r["candidate_set"]] = r
     return out
+
+
+def load_calibration():
+    """Latest predictive-coverage record per run (`rentfrontier.calibration`,
+    one per summary bundle): {run: record}."""
+    rows = []
+    for path in CALIBRATION_ROOT.glob("*/result.json"):
+        try:
+            r = json.loads(path.read_text())
+        except (OSError, ValueError):
+            continue
+        if r.get("run") and isinstance(r.get("kinds"), dict):
+            rows.append((path.stat().st_mtime, r))
+    return {r["run"]: r for _, r in sorted(rows, key=lambda t: t[0])}
 
 
 def shared_rows(a: dict, b: dict, what: str, a_dir, b_dir) -> list:
@@ -667,6 +682,7 @@ def build(keep_dirs=False):
     loos = load_loo()
     variances = load_variance()
     explained = load_explained()
+    calibrations = load_calibration()
     annotations = load_annotations()
     groups = group_runs(load_runs())
     entries = []
@@ -780,6 +796,19 @@ def build(keep_dirs=False):
                 }
                 for cs, r in explained[rows_run["name"]].items()
             }
+        latest_run = by_split.get("latest")
+        if latest_run and latest_run["name"] in calibrations:
+            # The Fable framework's new-unit coverage: held-out rows of units
+            # with no fit rows, in fit buildings, on the time split (nominal
+            # 0.80 and 0.95; the served fit's reference is 0.79/0.95).
+            k = calibrations[latest_run["name"]]["kinds"].get("held out, new unit")
+            if k and k.get("rows"):
+                e["new_unit_coverage"] = {
+                    "run": latest_run["name"],
+                    "rows": k["rows"],
+                    "cover_80": k["cover_80"],
+                    "cover_95": k["cover_95"],
+                }
         if rows_run and rows_run["name"] in loos:
             lr = loos[rows_run["name"]]
             e["psis"] = {

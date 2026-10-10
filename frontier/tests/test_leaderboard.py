@@ -1,4 +1,5 @@
 import json
+import os
 
 import numpy as np
 import pytest
@@ -441,3 +442,22 @@ def test_load_explained_keeps_the_latest_record_per_run_and_candidate_set(
     out = leaderboard.load_explained()
     assert out["r"]["a"]["families"]["g"]["excess"] == 0.2
     assert set(out["r"]) == {"a", "b"}
+
+
+def test_load_calibration_keeps_the_newest_record_per_run(monkeypatch, tmp_path):
+    monkeypatch.setattr(leaderboard, "CALIBRATION_ROOT", tmp_path)
+
+    def record(d, run, cover, mtime):
+        (tmp_path / d).mkdir()
+        path = tmp_path / d / "result.json"
+        kinds = {"held out, new unit": {"rows": 10, "cover_80": cover, "cover_95": 0.9}}
+        path.write_text(json.dumps({"run": run, "kinds": kinds}))
+        os.utime(path, (mtime, mtime))
+
+    record("r-new", "r", 0.8, 2)
+    record("r-old", "r", 0.7, 1)
+    (tmp_path / "broken").mkdir()
+    (tmp_path / "broken" / "result.json").write_text("{")
+    out = leaderboard.load_calibration()
+    assert set(out) == {"r"}
+    assert out["r"]["kinds"]["held out, new unit"]["cover_80"] == 0.8

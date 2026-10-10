@@ -10,6 +10,7 @@ PathChanged=/data1/apartments/frontier/loo
 PathChanged=/data1/apartments/frontier/variance
 # Explained-share screens of a fit's building levels (rentfrontier.explained).
 PathChanged=/data1/apartments/frontier/explained
+PathChanged=/data1/apartments/frontier/calibration
 # A kept-draw rescore of an earlier fit (rentfrontier.rescore).
 PathChanged=/data1/apartments/frontier/rescores
 Unit=apartments-dashboard-build.service
