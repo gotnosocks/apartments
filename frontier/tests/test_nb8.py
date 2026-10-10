@@ -19,7 +19,12 @@ def test_nb8_base_is_nb7_nostuy_plus_east_village():
 
 
 # nb8 sets with no nb7 twin; each has its own test below.
-NB8_ONLY = {"nb8-nostuy-lines-v1", "nb8-nostuy-retail-v1", "nb8-nostuy-noise-v1"}
+NB8_ONLY = {
+    "nb8-nostuy-lines-v1",
+    "nb8-nostuy-retail-v1",
+    "nb8-nostuy-noise-v1",
+    "nb8-nostuy-trees-v1",
+}
 
 
 def test_nb8_tests_are_nb7s_on_the_nb8_base():
@@ -345,3 +350,19 @@ def test_nb8_noise_reads_the_nb8_311_snapshot(monkeypatch):
     assert features.NOISE_FILES[name] == features.NB8_NOISE_FILE
     monkeypatch.setattr(run.data, "sha256", lambda path: "x")
     assert run.feature_sources(name)["noise311"]["path"] == features.NB8_NOISE_FILE
+
+
+def test_nb8_trees_is_trees_v1_on_the_nb8_base(monkeypatch):
+    """nb8-nostuy-trees-v1 is trees_v1 on the nb8 base, and its fit records the
+    street tree census it reads, which spans every nb8 registry building."""
+    name = "nb8-nostuy-trees-v1"
+    assert features.FEATURE_SETS[name].func is features.trees_v1
+    assert features.FEATURE_SETS[name].keywords == {"id": name, "base": "nb8-nostuy-v1"}
+    groups = {
+        k for k, v in vars(features).items() if k.isupper() and isinstance(v, set)
+    }
+    assert {k for k in groups if name in getattr(features, k)} == {
+        k for k in groups if "nb8-nostuy-v1" in getattr(features, k)
+    } | {"TREES"}
+    monkeypatch.setattr(run.data, "sha256", lambda path: "x")
+    assert run.feature_sources(name)["trees"]["path"] == features.TREES_FILE
