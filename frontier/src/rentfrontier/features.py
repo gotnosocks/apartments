@@ -4520,9 +4520,7 @@ NB8_SETS = {
 }
 # nb7-nostuy-v1 plus an East Village indicator: the eight neighbourhoods'
 # base, and the base the tests below sit on (size as of the day, NTAs,
-# lister). Not fitted while model runs are paused. No riverparks twin yet:
-# the parks snapshot adds Pier 42 (acquired 2006; interim use 2013, the
-# finished park 2024-07-03), which `riverparks.OPENED` has no date for.
+# lister, river parks). Not fitted while model runs are paused.
 FEATURE_SETS["nb8-nostuy-v1"] = partial(
     hoods_v1,
     id="nb8-nostuy-v1",
@@ -4540,6 +4538,53 @@ FEATURE_SETS["nb8-nostuy-lister-v1"] = partial(
 )
 NTA.add("nb8-nostuy-nta-v1")
 LISTER.add("nb8-nostuy-lister-v1")
+
+
+def riverparks_v2(
+    frame: pd.DataFrame,
+    train: np.ndarray,
+    id: str,
+    base: str,
+) -> Features:
+    """`riverparks_v1` with Pier 42 dated (`eastparks.terms`): the eight
+    neighbourhoods' parks file adds it, and `riverparks` has no day for it.
+    Reads no rents."""
+    from . import eastparks, parks, riverparks
+
+    base = FEATURE_SETS[base](frame, train)
+    terms = eastparks.terms(frame, parks_file(), RIVERPARKS_FILE)
+    walk = np.log(np.maximum(terms.park_min.to_numpy(), 1.0))
+    known = np.isfinite(walk)
+    centre = float(np.mean(walk[train & known]))
+    b = _Builder(frame)
+    b.add("parks", "log walk min to a park", np.where(known, walk - centre, 0.0))
+    b.add(
+        "parks",
+        f"High Line within {parks.HIGH_LINE_MIN:.0f} min",
+        np.nan_to_num(terms.high_line.to_numpy()),
+    )
+    b.add(
+        "parks",
+        f"river pier park within {riverparks.PIER_MIN:.0f} min",
+        np.nan_to_num(terms.pier.to_numpy()),
+    )
+    out = b.build(id)
+    return Features(
+        id,
+        base.names + out.names,
+        base.groups + out.groups,
+        np.column_stack([base.values, out.values]),
+        np.concatenate([base.prior_scale, out.prior_scale]),
+    )
+
+
+NB8_SETS["nb8-nostuy-riverparks-v1"] = "nb5-plutoasof-v3"
+FEATURE_SETS["nb8-nostuy-riverparks-v1"] = partial(
+    riverparks_v2, id="nb8-nostuy-riverparks-v1", base="nb8-nostuy-v1"
+)
+RIVERPARKS.add("nb8-nostuy-riverparks-v1")
+PARKS.add("nb8-nostuy-riverparks-v1")
+PARKS_SNAPSHOTS["nb8-nostuy-riverparks-v1"] = NB8_PARKS_FILE
 for _new, _old in NB8_SETS.items():
     for _group in (
         EXTERNAL,
