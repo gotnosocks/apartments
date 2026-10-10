@@ -1,6 +1,46 @@
 # Data improvements — handoff
 
-Updated 2026-10-09 13:45 ET. Thread owner: the Data improvements project thread (bridge session on thelio).
+Updated 2026-10-10 08:45 ET. Thread owner: the Data improvements project thread (bridge session on thelio).
+
+## 2026-10-10 08:45 ET
+
+East Village opt-in, as relayed by the coordinator on 2026-10-10 at 07:27 ET. Builds only: no
+fits while Ben's run pause holds. Modeling was told before each rule merge, has the SHAs, and
+plans its base fit as `nb8-nostuy-v1` on the final rules once Ben lifts the pause.
+
+- **Quarantine v12, #622 (c1b2e6c).** Adds the staged NoMad rows, East Village's screen rows and
+  the held Harlem row.
+- **Unit labels v15, #624 (94d308d).**
+  - The alias table `wv-gv-fgp-stuy-nomad-ev-20261010.jsonl` is v14's 2,807 lines unchanged
+    plus 1,162 East Village rows. Only the 405 history-confirmed groups are mapped, per the
+    relay.
+  - The history pairs (`history-20261010.jsonl`) add 448 EV pairs.
+  - On the NB8 rows, 359 East Village rows change unit (84,134 units become 83,992).
+  - The served fit stays eligible: same_rows is True against c1b2e6c.
+- **NB8 sets, #625 (cb38e88).**
+  - `data.DATASET_NB8` (`...-nomad-ev-analysis-20261010-3ebfea0`) has 215,156 rows: NB7's
+    148,673 plus East Village's 66,483.
+  - The sets are `nb8-nostuy-v1` plus the sizefill-v1, nta-v1 and lister-v1 twins, on rule base
+    nb5-plutoasof-v3. Per-area snapshots are at 20261010-b5c71cf.
+  - `NTA_FILE`, `BLOCKLOTS_SNAPSHOT` (20261010-c90ddbd) and `LISTER_FILE` (20261010-b5c71cf)
+    are supersets that keep the nb7 rows unchanged.
+- **NTA folds (Modeling's review).** `nb8-nostuy-nta-v1` uses the new `nta_v2`, which folds the
+  Stuy, East Village and Greenwich Village NTAs into the Chelsea-Hudson Yards reference.
+  - East Village's NTA level equalled the EV indicator.
+  - The West Village and Greenwich Village NTA levels summed to those two neighbourhoods'
+    indicators. `nb7-nostuy-nta-v1` still has that ridge (its code is hashed).
+  - A test checks the NTA levels, neighbourhood indicators and intercept are independent on the
+    NB8 rows.
+- **No nb8 twins:** stab, stabopen-v2 and explain were left out (not in the post-pause plan).
+  Riverparks was also left out: the new park Pier 42 makes `parks.places` raise because
+  `riverparks.OPENED` doesn't date it.
+- **Next:**
+  - A new module dating the East River parks: Pier 42 finished 2024-07-03 (interim use from
+    2013-05-04); East River Park closed for reconstruction from 2021. Then the nb8 riverparks
+    twin.
+  - #542 (quarantine-v11) stays held.
+- **Scratch:** `/data1/apartments/tmp/suspect/ev/` (`smoke8.py`, `smoke8rank.py`, `elig15.sh`,
+  the PR bodies). The `ext*.sh` scripts built the EV externals.
 
 ## 2026-10-09 13:45 ET
 
