@@ -1720,6 +1720,23 @@ MODELS = {
         bedroom_time=True,
         bedroom_time_knot_months=3,
     ),
+    # ... with size priced by one global coefficient: no per-building size
+    # slope. Where few units state a size (423 E 12th, the West Coast), that
+    # slope trades off against the unit effects and the chains disagree.
+    "m7-nocurves-floorslope-bednoise-dayfourier-bedtime-yearnoise-nosizeslope": ModelConfig(
+        name="m7-nocurves-floorslope-bednoise-dayfourier-bedtime-yearnoise-nosizeslope",
+        building_walk=True,
+        bedroom_slope=True,
+        trend_knot_months=3,
+        feature_slopes=("bathrooms=2", "log_floor"),
+        unit_t=True,
+        noise_by_bedrooms=True,
+        noise_by_year=True,
+        season_harmonics=2,
+        season_daily=True,
+        bedroom_time=True,
+        bedroom_time_knot_months=3,
+    ),
     # ... with a log-linear residual scale (bedroom group, single listing,
     # small building, floor unknown, building's first year) in place of one
     # scale per bedroom group and year.
