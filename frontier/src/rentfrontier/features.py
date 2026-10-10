@@ -3476,6 +3476,23 @@ def elevfill_v1(
     )
 
 
+def pets_fill_v1(
+    frame: pd.DataFrame,
+    train: np.ndarray,
+    id: str,
+    base: str,
+) -> Features:
+    """A base set built with the pet policy updated from the ad text
+    (`petstext.overlay_pets`): an unknown policy takes the text's class from
+    the row's own ad or the building's earlier ads, and "allowed" narrows to
+    "no_dogs" when the row's own ad says so. The pets levels gain "no_dogs".
+    Reads no rents."""
+    from . import descriptions, petstext
+
+    pets = petstext.overlay_pets(frame, descriptions.attach(frame)).pets
+    return FEATURE_SETS[base](frame.assign(pets=pets), train)
+
+
 def nta_v1(
     frame: pd.DataFrame,
     train: np.ndarray,
@@ -4841,6 +4858,14 @@ FEATURE_SETS["nb8-nostuy-bigbed-v1"] = partial(
 NB8_SETS["nb8-nostuy-amenlevel-v1"] = "nb5-plutoasof-v3"
 FEATURE_SETS["nb8-nostuy-amenlevel-v1"] = partial(
     amenlevel_v1, id="nb8-nostuy-amenlevel-v1", base="nb8-nostuy-v1"
+)
+
+# nb8-nostuy-v1 with the pet policy updated from the ad text (`pets_fill_v1`).
+# It replaces the pets field rather than adding columns, and reads only the
+# listings' descriptions, so no snapshot.
+NB8_SETS["nb8-nostuy-petsfill-v1"] = "nb5-plutoasof-v3"
+FEATURE_SETS["nb8-nostuy-petsfill-v1"] = partial(
+    pets_fill_v1, id="nb8-nostuy-petsfill-v1", base="nb8-nostuy-v1"
 )
 for _new, _old in NB8_SETS.items():
     for _group in (
