@@ -1,6 +1,21 @@
 # Data improvements — handoff
 
-Updated 2026-10-10 10:05 ET. Thread owner: the Data improvements project thread (bridge session on thelio).
+Updated 2026-10-10 11:05 ET. Thread owner: the Data improvements project thread (bridge session on thelio).
+
+## 2026-10-10 11:05 ET
+
+- Merged two more nb8 feature sets, each its own PR on the `nb8-nostuy-v1` base, with no rule changes:
+  #642 `nb8-nostuy-trees-v1` (`trees_v1`) and #643 `nb8-nostuy-crime-v1` (`crime_v1`, master
+  `ed40acad`; `CRIME_FILE` covers every nb8 registry building). I told Modeling both set names and SHAs.
+  Modeling now has five nb8 sets to fit: lines, retail, noise, trees and crime. Modeling owns the
+  queue, and the sets wait on its #641 base (Modal) and the gate.
+- The 423 E 12th rear rule is withdrawn. A general rule (lots with at least two footprints, one set
+  back from the curb, `R`-labelled units) would move 742 rows in 70 buildings. But `R` units elsewhere
+  are not smaller than the building's other units (median size ratio 1.01), so `R` mostly means
+  rear-facing, not a separate rear building. 423, the-west-coast and the-everett-building are model
+  issues (size filled from the building median across two size clusters), and Modeling has them.
+  The script is `ev/rear4.py`; the setback cache is `ev/fp_setback.parquet`.
+- #542 (quarantine-v11) stays held.
 
 ## 2026-10-10 10:05 ET
 
