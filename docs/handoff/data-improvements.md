@@ -2,6 +2,31 @@
 
 Updated 2026-10-10 08:45 ET. Thread owner: the Data improvements project thread (bridge session on thelio).
 
+## 2026-10-10 09:45 ET
+
+- **Runs resumed (Ben, 12:46Z in Modeling, via the coordinator):** Modeling owns the fit queue and
+  runs our sets one at a time on the nb8 base. We queue no fits. Message Modeling with the set
+  name and merge SHA when a set merges, and before any rule merge.
+- **#630 (a533dd0) `nb8-nostuy-lines-v1`:** `lines_v1` on `nb8-nostuy-v1`.
+  - 27% of East Village rows have no line within 8 min (Chelsea 12%, WV 11%).
+  - The nb8 registry prices the J/Z.
+  - `tests/test_nb8.py` has an `NB8_ONLY` set for sets without an nb7 twin. They still get the
+    snapshot asserts.
+- **#632 (31b6a05) `nb8-nostuy-retail-v1`:** `retail_v2` reads `STOREFRONTS_SNAPSHOTS[id]`, and
+  `run.feature_sources` records that path.
+  - `retail_v1` reads `STOREFRONTS_FILE` (20261006), which mostly misses EV, NoMad and Gramercy.
+    Median storefronts within 150 m: EV 5 vs 39, NoMad 3 vs 44, Gramercy 0 vs 23.
+  - The NB4/6/7 storefront snapshots were never read. No base set reads retail, so served and
+    base fits are unaffected.
+- **Dropped:**
+  - DOB certificates of occupancy: EV has 3.1% of rows in buildings with yearbuilt ≥ 2010,
+    against Chelsea's 13.1%, so #608's picture holds.
+  - East River Park closures: 37 rows.
+- **Next:** audit the other explanatory builders (trees, noise, places, HPD, crime) for global
+  files that miss EV, as retail's did, then build nb8 twins where the gap is real. `lines.py` and
+  `retail.py` docstrings are stale (J/Z priceable on nb8; per-set storefronts). Leave them: editing
+  changes the module hash.
+
 ## 2026-10-10 08:45 ET
 
 East Village opt-in, as relayed by the coordinator on 2026-10-10 at 07:27 ET. Builds only: no
