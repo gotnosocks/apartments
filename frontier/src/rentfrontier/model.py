@@ -1760,6 +1760,69 @@ MODELS = {
         bedroom_time=True,
         bedroom_time_knot_months=3,
     ),
+    # The served size-unknown design (option C) with the log-linear residual
+    # scale in place of one scale per bedroom group and year.
+    "m7-nocurves-floorslope-bednoise-dayfourier-bedtime-lognoise-sizeunkslope": ModelConfig(
+        name="m7-nocurves-floorslope-bednoise-dayfourier-bedtime-lognoise-sizeunkslope",
+        building_walk=True,
+        bedroom_slope=True,
+        trend_knot_months=3,
+        feature_slopes=(
+            "log_sqft_vs_bedroom_median",
+            "sqft_unknown",
+            "bathrooms=2",
+            "log_floor",
+        ),
+        unit_t=True,
+        noise_by_bedrooms=True,
+        noise_loglinear=True,
+        season_harmonics=2,
+        season_daily=True,
+        bedroom_time=True,
+        bedroom_time_knot_months=3,
+    ),
+    # ... option C with a quarterly market curve per neighbourhood.
+    "m7-nocurves-floorslope-bednoise-dayfourier-bedtime-yearnoise-sizeunkslope-areatime": ModelConfig(
+        name="m7-nocurves-floorslope-bednoise-dayfourier-bedtime-yearnoise-sizeunkslope-areatime",
+        building_walk=True,
+        bedroom_slope=True,
+        trend_knot_months=3,
+        feature_slopes=(
+            "log_sqft_vs_bedroom_median",
+            "sqft_unknown",
+            "bathrooms=2",
+            "log_floor",
+        ),
+        unit_t=True,
+        noise_by_bedrooms=True,
+        noise_by_year=True,
+        season_harmonics=2,
+        season_daily=True,
+        bedroom_time=True,
+        bedroom_time_knot_months=3,
+        area_time=True,
+        area_time_knot_months=3,
+    ),
+    # ... option C without the per-building floor slope (log_floor stays a
+    # fixed feature).
+    "m7-nocurves-floorslope-bednoise-dayfourier-bedtime-yearnoise-sizeunkslope-nofloorslope": ModelConfig(
+        name="m7-nocurves-floorslope-bednoise-dayfourier-bedtime-yearnoise-sizeunkslope-nofloorslope",
+        building_walk=True,
+        bedroom_slope=True,
+        trend_knot_months=3,
+        feature_slopes=(
+            "log_sqft_vs_bedroom_median",
+            "sqft_unknown",
+            "bathrooms=2",
+        ),
+        unit_t=True,
+        noise_by_bedrooms=True,
+        noise_by_year=True,
+        season_harmonics=2,
+        season_daily=True,
+        bedroom_time=True,
+        bedroom_time_knot_months=3,
+    ),
     # ... with a log-linear residual scale (bedroom group, single listing,
     # small building, floor unknown, building's first year) in place of one
     # scale per bedroom group and year.
