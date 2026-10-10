@@ -6,7 +6,9 @@ The launcher (ops/modal/fit.py) syncs the fit's inputs to Volume VOLUME under
 so the image installs exactly the commit's frontier/uv.lock. The container copies the
 inputs back to their thelio paths, runs rentfrontier.run and rentfrontier.loo as on
 thelio, and leaves the run directory, the LOO directory and the log under /out/<name>
-for the launcher to download.
+for the launcher to download. A fit that finishes also gets its post-fit statistics here,
+while the container has its draws (`_post`): the variance decomposition, the summary
+bundle (full fits) and the explained share of any --explain candidate sets.
 """
 
 import json
@@ -28,7 +30,13 @@ LOO = Path("/data1/apartments/frontier/loo")
 GPUS = {"L4": 0.799, "A100-40GB": 2.099, "A100-80GB": 2.498, "H100": 3.949}
 CPU, MEMORY_MIB = 2, 24576  # the served design peaks near 15 GB of host memory
 FIT_CAP = {"full": 2 * 3600, "exploration": 30 * 60}  # the fit alone, as on thelio
-TIMEOUT = 3 * 3600  # the whole container: staging, fit, PSIS-LOO
+TIMEOUT = 3 * 3600  # the whole container: staging, fit, PSIS-LOO, post-fit statistics
+POST_CAP = 20 * 60  # each post-fit statistic
+POST_MARGIN = 10 * 60  # left before TIMEOUT for copying the outputs to the Volume
+OUTPUT = Path(
+    "/data1/apartments/frontier"
+)  # rentfrontier's OUTPUT_ROOT in the container
+POST_KINDS = ("variance", "summaries", "explained")
 USD_PER_CORE_SECOND, USD_PER_GIB_SECOND = 0.0000131, 0.00000222
 
 
@@ -64,6 +72,36 @@ def _run(cmd, env, log, timeout=None):
     return subprocess.run(
         cmd, cwd=f"{WORK}/frontier", env=env, stdout=log, stderr=subprocess.STDOUT
     ).returncode
+
+
+def post_steps(spec):
+    """The post-fit statistics for a finished fit, as (step, rentfrontier arguments)."""
+    name = spec["name"]
+    steps = [("variance", ["rentfrontier.variance", name])]
+    if spec["tier"] == "full":
+        # The site's bundle; only full fits are served.
+        steps.append(("summary", ["rentfrontier.summary", name]))
+    if spec.get("explain"):
+        steps.append(("explained", ["rentfrontier.explained", name, *spec["explain"]]))
+    return steps
+
+
+def _post(spec, env, log, deadline):
+    """Run each post-fit statistic, capped at POST_CAP and at the container's deadline. A
+    failure is recorded and never fails the fit: its run and PSIS-LOO still come back."""
+    done = {}
+    for step, args in post_steps(spec):
+        left = int(min(POST_CAP, deadline - time.time()))
+        if left < 60:
+            done[step] = {"exit": "skipped: container deadline"}
+            continue
+        t = time.time()
+        try:
+            code = _run(["/venv/bin/python", "-m", *args], env, log, left)
+        except Exception as e:  # noqa: BLE001
+            code = repr(e)
+        done[step] = {"exit": code, "seconds": round(time.time() - t, 1)}
+    return done
 
 
 def _fit(spec):
@@ -117,11 +155,20 @@ def _fit(spec):
                 ["/venv/bin/python", "-m", "rentfrontier.loo", spec["name"]], env, log
             )
             stages["loo"] = time.time() - t
+        post = (
+            _post(spec, env, log, started + TIMEOUT - POST_MARGIN)
+            if fit_code == 0
+            else {}
+        )
     run = RUNS / spec["name"]
     if run.exists():
         shutil.copytree(run, out / "run", dirs_exist_ok=True)
     for d in LOO.glob(f"{spec['name']}-*"):
         shutil.copytree(d, out / "loo" / d.name, dirs_exist_ok=True)
+    for kind in POST_KINDS:
+        for d in (OUTPUT / kind).glob(f"{spec['name']}-*"):
+            if d.is_dir() and not d.name.endswith(".tmp"):
+                shutil.copytree(d, out / kind / d.name, dirs_exist_ok=True)
     meta = {
         "name": spec["name"],
         "gpu": gpu,
@@ -129,6 +176,7 @@ def _fit(spec):
         "fit_exit": fit_code,
         "stage_seconds": staged,
         "stages": stages,
+        "post": post,
         "wall_seconds": time.time() - started,
     }
     (out / "modal.json").write_text(json.dumps(meta, indent=2))

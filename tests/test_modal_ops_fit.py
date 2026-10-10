@@ -232,3 +232,76 @@ def test_time_at_the_old_ceiling_does_not_earn_the_new_one():
 def test_ready_at_before_start_uses_the_first_rate():
     early = cap.START - datetime.timedelta(days=1)
     assert cap.ready_at([], 1.0, early) is not None
+
+
+def test_post_fit_statistics_land_whole_beside_the_run(tmp_path, monkeypatch):
+    monkeypatch.setattr(fit, "OUTPUT_ROOT", tmp_path / "frontier")
+    monkeypatch.setattr(fit, "STATE", tmp_path / "modal")
+    files = {
+        "out/r/run/result.json": b"{}",
+        "out/r/variance/r-abc1234/result.json": b"{}",
+        "out/r/summaries/r-abc1234/rows.parquet": b"x",
+        "out/r/summaries/r-abc1234/complete.json": b"{}",
+        "out/r/explained/r-trees-abc1234/result.json": b"{}",
+        "out/r/fit.log": b"log",
+    }
+    root = tmp_path / "frontier"
+    (root / "variance" / "r-abc1234").mkdir(parents=True)
+    (root / "variance" / "r-abc1234" / "result.json").write_text("old")
+    fit.finish(FakeVolume(files), "r", {"exit": 0})
+    assert (root / "summaries/r-abc1234/complete.json").exists()
+    assert (root / "summaries/r-abc1234/rows.parquet").read_bytes() == b"x"
+    assert (root / "explained/r-trees-abc1234/result.json").exists()
+    # An existing record is kept, and nothing is left half-written.
+    assert (root / "variance/r-abc1234/result.json").read_text() == "old"
+    assert not list(root.glob("*/*.tmp"))
+
+
+def test_post_fit_steps_by_tier_and_explain(monkeypatch):
+    monkeypatch.setitem(sys.modules, "modal", mock.MagicMock())
+    app = load("app")
+    spec = {"name": "r", "tier": "full", "explain": ["a", "b"]}
+    assert app.post_steps(spec) == [
+        ("variance", ["rentfrontier.variance", "r"]),
+        ("summary", ["rentfrontier.summary", "r"]),
+        ("explained", ["rentfrontier.explained", "r", "a", "b"]),
+    ]
+    assert [s for s, _ in app.post_steps({"name": "r", "tier": "exploration"})] == [
+        "variance"
+    ]
+    calls = []
+
+    def run(cmd, env, log, timeout=None):
+        calls.append((cmd[2], timeout))
+        if cmd[2] == "rentfrontier.summary":
+            raise OSError("boom")
+        return 0
+
+    monkeypatch.setattr(app, "_run", run)
+    now = 1000.0
+    monkeypatch.setattr(app.time, "time", lambda: now)
+    done = app._post(spec, {}, None, now + 600)
+    assert done["variance"]["exit"] == 0 and "boom" in done["summary"]["exit"]
+    assert calls[0] == ("rentfrontier.variance", 600)
+    assert app._post(spec, {}, None, now + 30)["variance"]["exit"].startswith("skipped")
+
+
+def test_plan_carries_the_candidate_sets_to_explain():
+    args, run_args = fit.parse(
+        [
+            "--explain",
+            "a",
+            "--explain",
+            "b",
+            "c",
+            "l",
+            "m",
+            "f",
+            "2",
+            "300",
+            "4500",
+            "1",
+        ]
+    )
+    assert fit.plan(args, run_args, "c" * 40)["explain"] == ["a", "b"]
+    assert "--explain" not in fit.plan(args, run_args, "c" * 40)["run_args"]

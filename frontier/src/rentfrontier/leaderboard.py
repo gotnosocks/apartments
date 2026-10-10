@@ -64,6 +64,7 @@ RUNS = data.OUTPUT_ROOT / "runs"
 RESCORES = data.OUTPUT_ROOT / "rescores"
 LOO_ROOT = data.OUTPUT_ROOT / "loo"
 VARIANCE_ROOT = data.OUTPUT_ROOT / "variance"
+EXPLAINED_ROOT = data.OUTPUT_ROOT / "explained"
 # PSIS-LOO dELPD is paired against this entry (the plainest gate-passing design).
 # The plainest design on the current dataset (the eight neighbourhoods,
 # data.DATASET_NB8, #625), named by its run; it misses the gate on group R-hat
@@ -175,6 +176,23 @@ def load_loo():
 def load_variance():
     """Latest reportable variance decomposition per source run name."""
     return latest_records(VARIANCE_ROOT)
+
+
+def load_explained():
+    """Latest explained-share screen per source run and candidate set
+    (`rentfrontier.explained`): {run: {candidate set: record}}."""
+    rows = []
+    for path in EXPLAINED_ROOT.glob("*/result.json"):
+        try:
+            r = json.loads(path.read_text())
+        except (OSError, ValueError):
+            continue
+        if not r.get("dirty") and r.get("source_run") and r.get("candidate_set"):
+            rows.append((commit_time(r.get("commit", "")), path.stat().st_mtime, r))
+    out = {}
+    for *_, r in sorted(rows, key=lambda t: t[:2]):
+        out.setdefault(r["source_run"], {})[r["candidate_set"]] = r
+    return out
 
 
 def shared_rows(a: dict, b: dict, what: str, a_dir, b_dir) -> list:
@@ -648,6 +666,7 @@ def build(keep_dirs=False):
     rescores = load_rescores()
     loos = load_loo()
     variances = load_variance()
+    explained = load_explained()
     annotations = load_annotations()
     groups = group_runs(load_runs())
     entries = []
@@ -743,6 +762,23 @@ def build(keep_dirs=False):
                     k: v.get("median", v["mean"]) for k, v in vr["shares"].items()
                 },
                 "intervals": vr["shares"],
+            }
+        if rows_run and rows_run["name"] in explained:
+            # Explained share of the fit's building levels by each screened
+            # candidate set's families, against the permutation null.
+            e["explained"] = {
+                cs: {
+                    "commit": r["commit"],
+                    "buildings": r["buildings"],
+                    "families": {
+                        g: {
+                            k: f[k]
+                            for k in ("explained", "null_mean", "null_95", "excess")
+                        }
+                        for g, f in r["families"].items()
+                    },
+                }
+                for cs, r in explained[rows_run["name"]].items()
             }
         if rows_run and rows_run["name"] in loos:
             lr = loos[rows_run["name"]]

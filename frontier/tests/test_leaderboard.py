@@ -416,3 +416,28 @@ def test_features_that_read_earlier_rents_are_off_the_frontier_line():
     }
     assert not leaderboard.frontier_candidate(e)
     assert leaderboard.frontier_candidate({**e, "feature_set": "nb-coded-v1"})
+
+
+def test_load_explained_keeps_the_latest_record_per_run_and_candidate_set(
+    monkeypatch, tmp_path
+):
+    monkeypatch.setattr(leaderboard, "EXPLAINED_ROOT", tmp_path)
+    monkeypatch.setattr(leaderboard, "commit_time", lambda c: {"old": 1, "new": 2}[c])
+
+    def record(d, cs, commit, excess):
+        (tmp_path / d).mkdir()
+        (tmp_path / d / "result.json").write_text(
+            json.dumps(
+                {"source_run": "r", "candidate_set": cs, "commit": commit,
+                 "families": {"g": {"excess": excess}}}
+            )
+        )  # fmt: skip
+
+    record("a-new", "a", "new", 0.2)
+    record("a-old", "a", "old", 0.1)
+    record("b-old", "b", "old", 0.3)
+    (tmp_path / "broken").mkdir()
+    (tmp_path / "broken" / "result.json").write_text("{")
+    out = leaderboard.load_explained()
+    assert out["r"]["a"]["families"]["g"]["excess"] == 0.2
+    assert set(out["r"]) == {"a", "b"}
