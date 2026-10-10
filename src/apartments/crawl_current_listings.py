@@ -17,6 +17,7 @@ from __future__ import annotations
 import argparse
 from datetime import UTC, datetime
 import gzip
+import hashlib
 import json
 from pathlib import Path
 import sqlite3
@@ -43,19 +44,24 @@ def active_ads(dataset):
                 json_extract_string(raw_listing_json, '$.status') status,
                 row_number() over (partition by listing_id
                                    order by collected_at desc, snapshot_id desc) rn
-            from read_parquet('{observations}'))
+            from read_parquet('{observations}') where listing_type = 'rental')
         select o.listing_id, o.url, o.canonical_unit_url, o.snapshot_id, s.body_hash, s.observed_at
         from o join read_parquet('{snapshots}') s using (snapshot_id)
-        where o.rn = 1 and o.status = 'ACTIVE' and o.listing_type = 'rental'
+        where o.rn = 1 and o.status = 'ACTIVE'
         order by o.listing_id""").fetchall()
 
 
 def _body(db, crawl, body_hash):
-    path = Path(
-        db.execute("select path from bodies where hash = ?", (body_hash,)).fetchone()[0]
-    )
-    data = (path if path.is_absolute() else Path(crawl) / path).read_bytes()
-    return gzip.decompress(data) if data[:2] == b"\x1f\x8b" else data
+    """The saved page, or None when it is missing or does not match its hash."""
+    row = db.execute("select path from bodies where hash = ?", (body_hash,)).fetchone()
+    path = Path(row[0]) if row else None
+    if path is not None and not path.is_absolute():
+        path = Path(crawl) / path
+    if path is None or not path.is_file():
+        return None
+    data = path.read_bytes()
+    data = gzip.decompress(data) if data[:2] == b"\x1f\x8b" else data
+    return data if hashlib.sha256(data).hexdigest() == body_hash else None
 
 
 def build(dataset, snapshot, crawl, output):
@@ -77,6 +83,7 @@ def build(dataset, snapshot, crawl, output):
         "limitations": [
             "ACTIVE is what each saved page said when it was captured, not now.",
             "Ads listed after a unit's page was captured are missing; this is not a census.",
+            "No corrections overlay is applied; source attributes are as captured.",
         ],
     }
     plan_hash = refresh._hash(plan)
@@ -98,12 +105,14 @@ def build(dataset, snapshot, crawl, output):
             "status": 200,
         }
         at = datetime.fromtimestamp(observed, UTC).isoformat()
+        body = _body(db, crawl, body_hash)
+        if body is None:
+            observation["error"] = (
+                observation["error"] or "saved body missing or hash mismatch"
+            )
+            body = b""
         result = refresh.interpret(
-            target,
-            observation,
-            _body(db, crawl, body_hash),
-            plan_hash,
-            interpreted_at=at,
+            target, observation, body, plan_hash, interpreted_at=at
         )
         if result["status"] != "parsed":
             failures.append(
