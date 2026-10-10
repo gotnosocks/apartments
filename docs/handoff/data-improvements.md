@@ -1,6 +1,23 @@
 # Data improvements — handoff
 
-Updated 2026-10-10 11:05 ET. Thread owner: the Data improvements project thread (bridge session on thelio).
+Updated 2026-10-10 13:20 ET. Thread owner: the Data improvements project thread (bridge session on thelio).
+
+## 2026-10-10 13:20 ET
+
+- #645 `nb8-nostuy-hpd-v1` (merged, `3be06e9d`): `hpd_v1` (Class B and C housing-code violations in
+  the past year, per apartment, "a few" or "many") on the nb8 base. It reads the HPD snapshot
+  `/data1/apartments/external/hpd/20261010-b5c71cf`, which was fetched for the NB8 registry.
+- #651 `nb8-nostuy-elevfill-v1` (merged, `e49d9e5d`): `elevfill.asof_elevator` fills an unstated
+  elevator with the building's latest stated value from strictly earlier days, and the base is rebuilt
+  on the filled field, with an indicator for filled rows. elevator=unknown goes from 43% to 18% of
+  rows and elevator=no from 7% to 29%. I told Modeling this is the nb8 set most likely to move LOO.
+- Modeling now has seven nb8 sets: lines, retail, noise, trees, crime, hpd and elevfill. I told
+  Modeling each set name and SHA.
+- Dropped: an nb8 walk-up hinge (`walkup_v1`). The base already has `log_floor_x_no_elevator`, and
+  the hinge is non-zero on only about 1.5% of rows.
+- Next ideas: doorman could be filled the same way (31k rows have an earlier stated value), but the
+  stated values are mostly "virtual", which is ambiguous, so it is held. The other nb5 sets not yet on
+  nb8 are loc, parks, water and unical.
 
 ## 2026-10-10 11:05 ET
 
