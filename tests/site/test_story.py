@@ -108,6 +108,11 @@ def test_build_up_ends_at_the_estimate(client):
     assert text.index('id="ranges"') < text.index('<section id="shape">')
     assert "How sure is the model of a number?" in text
     assert "Where might an ask land?" in text and 'href="#ranges"' in text
+    # each interval level is tied to where it is used, and the width explained
+    ranges = text[text.index('id="ranges"') : text.index('<section id="shape">')]
+    assert "90% for the shares of the spread" in ranges
+    assert "95% for the" in ranges and 'href="#build-up"' in ranges
+    assert "The percentage only sets the width" in ranges
     opening = text[: text.index('<section id="shape">')]
     assert "An ask is the monthly rent a listing advertises" in opening
     assert re.search(
