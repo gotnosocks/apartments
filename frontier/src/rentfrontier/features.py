@@ -4658,6 +4658,14 @@ FEATURE_SETS["nb8-nostuy-trees-v1"] = partial(
     trees_v1, id="nb8-nostuy-trees-v1", base="nb8-nostuy-v1"
 )
 TREES.add("nb8-nostuy-trees-v1")
+# nb8-nostuy-v1 plus the felonies reported near the building in the year before
+# the listing (`crime_v1`). CRIME_FILE covers every nb8 registry building,
+# so the set reads it. No base set reads crime.
+NB8_SETS["nb8-nostuy-crime-v1"] = "nb5-plutoasof-v3"
+FEATURE_SETS["nb8-nostuy-crime-v1"] = partial(
+    crime_v1, id="nb8-nostuy-crime-v1", base="nb8-nostuy-v1"
+)
+CRIME.add("nb8-nostuy-crime-v1")
 for _new, _old in NB8_SETS.items():
     for _group in (
         EXTERNAL,
