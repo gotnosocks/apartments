@@ -13,7 +13,8 @@ and PSIS-LOO in the container, then its post-fit statistics (variance decomposit
 summary bundle and its calibration for a full fit, and the explained share of each --explain
 SET; each capped, and none can fail the fit); download the run to
 FRONTIER_OUTPUT_ROOT/runs/<name>, the LOO to FRONTIER_OUTPUT_ROOT/loo/ and the statistics to
-FRONTIER_OUTPUT_ROOT/{variance,summaries,calibration,explained}/, then delete them from the Volume. The Volume itself is
+FRONTIER_OUTPUT_ROOT/{variance,summaries,calibration,explained}/, then delete them from the
+Volume. The Volume itself is
 deleted after 24 h without a launch (ops/modal/cleanup).
 """
 
