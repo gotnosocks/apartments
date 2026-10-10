@@ -4441,7 +4441,7 @@ for _new, _old in NB7_SETS.items():
 
 # The eight neighbourhoods (data.DATASET_NB8): the seven plus East Village
 # (east-village-analysis-20261010-3ebfea04), crawled building first. Its
-# registry (@REG@, each page geocoded from its own address, no
+# registry (20261010-3ebfea0, each page geocoded from its own address, no
 # overrides) merged into nb7's, its MapPLUTO, footprints and basemap merged
 # into nb7's (nb7's rows unchanged), the eight crawls' listing extras, and the
 # sources keyed by lot fetched on the merged registry.
