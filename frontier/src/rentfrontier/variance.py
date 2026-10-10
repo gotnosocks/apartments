@@ -162,6 +162,7 @@ def summarize(per_draw: dict):
         lo, hi = np.quantile(v, [0.05, 0.95])
         out[k.lstrip("_")] = {
             "mean": float(v.mean()),
+            "median": float(np.median(v)),
             "lower_90": float(lo),
             "upper_90": float(hi),
         }
@@ -249,9 +250,11 @@ def main(argv=None):
         print(
             f"{name}: "
             + ", ".join(
-                f"{g} {100 * sh[g]['mean']:.1f}%" for g in (*GROUPS, "residual")
+                f"{g} {100 * sh[g]['median']:.1f}%" for g in (*GROUPS, "residual")
             )
-            + f"; descriptive {100 * sh['descriptive']['mean']:.1f}%"
+            + f"; descriptive {100 * sh['descriptive']['median']:.1f}%"
+            + f" (90% {100 * sh['descriptive']['lower_90']:.1f}"
+            + f"-{100 * sh['descriptive']['upper_90']:.1f}%)"
             + f" ({record['seconds']:.0f} s)",
             flush=True,
         )

@@ -68,3 +68,15 @@ def test_descriptive_share_adds_neighbourhood_labels_to_building_and_unit():
     assert sh["_descriptive"].mean() == pytest.approx(
         true[2] + true[3] + true[5], abs=0.01
     )
+
+
+def test_summarize_keeps_the_median_beside_the_mean_and_interval():
+    v = np.array([0.0, 0.1, 0.2, 0.3, 1.0])
+    s = variance.summarize({"_descriptive": v, "building": v})
+    assert s["descriptive"]["median"] == pytest.approx(0.2)
+    assert s["descriptive"]["mean"] == pytest.approx(0.32)
+    assert (
+        s["building"]["lower_90"]
+        <= s["building"]["median"]
+        <= s["building"]["upper_90"]
+    )
