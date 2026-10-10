@@ -3,6 +3,32 @@
 What the next turn of the modeling thread needs. Updated at each milestone. Scripts and logs are
 in `/data1/apartments/tmp/bridge` (thelio).
 
+## Update (2026-10-10 21:10 UTC)
+
+- **The Fable framework applies to every fit report** (Ben 20:03Z, via the coordinator). Each report
+  gives paired PSIS-LOO vs the served fit at about 2 SE, and explained share vs the permutation null.
+  A family beats chance only when explained > max(0, null_95); excess is explained − null_mean, so it
+  is not a test. It also gives the latest-split result for rent terms, new-unit coverage vs 0.79/0.95,
+  the descriptive share, and the prediction written before the fit with hit or miss, all as medians and
+  intervals. Predictions live in `config/predictions.jsonl` (#675); write a one-line prediction there
+  and send it to the coordinator before each queue launch.
+- **Modal post-fit steps** (#678, #681): after a fit and its PSIS-LOO, the container runs variance,
+  summary (full tier), calibration (after the summary) and explained (`--explain SET`). Each step is
+  capped, and none can fail the fit. The records land on thelio through `.incoming` staging. Thelio
+  keeps the research-data build, autoselect and the site build. Open question: run the post-fit steps
+  on a CPU container instead of the idle A100 (about $0.10–0.15 a fit). Decide from lognoise's
+  `runs/<name>/modal/modal.json` post timings.
+- **Budget:** #680 estimates a served full fit at $1.80 (old rows stay at $0.88, so the history isn't
+  repriced). Ben 20:39Z: keep the accruing $10/day balance. Today's real spend was $11.48 by 20:30Z.
+- **Board:** entries carry `explained` (#678) and `new_unit_coverage` (#682). Coverage comes from the
+  newest calibrated latest-split refit with the same model, feature set and rules. data.json carries
+  `predictions` (#675). The installed path unit watches explained/ and calibration/.
+- **Queue** (`modalq-c.queue`, unit modalq-c2; it checks out origin/master before each launch):
+  lognoise (about 23:51Z), then C `--split latest` (for C's new-unit coverage), areatime,
+  nofloorslope, bigbed, amenlevel latest, amenlevel, petsfill, lister, then Data's
+  retail/noise/trees/crime/hpd. For Data's sets, send ΔELPD ± SE vs nb8-nostuy-v1 and coefficient
+  medians with 90% intervals.
+
 ## Update (2026-10-10 19:00 UTC)
 
 - **NB8 live 18:27:55Z (#655)** on the no-size-slope fit. The site build peaked at about 5.0 GB, so it was
