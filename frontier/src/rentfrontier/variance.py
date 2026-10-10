@@ -22,6 +22,16 @@ split their joint variance, and a share can be slightly negative). The
 residual uses observed residuals rather than sigma^2, which is infinite under
 Student-t noise with nu <= 2 (the Bayesian R^2 of Gelman et al. 2019).
 
+Two more numbers are reported beside the groups (not summed with them):
+
+    neighbourhood labels  the share of the neighbourhood indicator features
+                          and the neighbourhood-by-month curve (inside "features", where
+                          explain.log_terms puts both)
+    descriptive           neighbourhood labels + building + building over
+                          time + unit: rent attributed to where and which
+                          apartment it is rather than to named attributes
+                          (the Fable research review, 2026-10-08, §5)
+
 Reading it: a higher PSIS-LOO bought by a larger "unit" share explains
 less: the rent is attributed to the apartment's identity, not to named
 features. Rows in the fit are in-sample; the decomposition describes the
@@ -63,6 +73,10 @@ FIXED = {
     "unit_drift": "unit",
     "line": "unit",
 }
+# Terms that are labels of place: the neighbourhood indicators and the
+# neighbourhood-by-month curve.
+LABELS = ("neighbourhood", "area_market_curve")
+DESCRIPTIVE = ("building", "building over time", "unit")
 
 
 def group_of(term: str) -> str:
@@ -80,8 +94,11 @@ class Moments:
         self.s_mu, self.s_mu2, self.s_r, self.s_r2 = z(), z(), z(), z()
         self.s_g = {g: z() for g in GROUPS}
         self.s_gmu = {g: z() for g in GROUPS}
+        self.s_l, self.s_lmu = z(), z()
 
-    def add(self, groups: dict, y: np.ndarray):
+    def add(self, groups: dict, y: np.ndarray, labels=None):
+        """labels: the neighbourhood-label terms of these rows, (draws, rows), already
+        inside `groups`; tracked for their own share only."""
         mu = sum(groups.values())
         r = y[None, :] - mu
         self.n += y.shape[0]
@@ -92,6 +109,9 @@ class Moments:
         for g, v in groups.items():
             self.s_g[g] += v.sum(1)
             self.s_gmu[g] += (v * mu).sum(1)
+        if labels is not None:
+            self.s_l += labels.sum(1)
+            self.s_lmu += (labels * mu).sum(1)
 
     def shares(self):
         n = self.n
@@ -104,6 +124,12 @@ class Moments:
         }
         out["residual"] = var_r / total
         out["_r2"] = var_mu / total
+        out["_neighbourhood labels"] = (
+            self.s_lmu / n - (self.s_l / n) * (self.s_mu / n)
+        ) / total
+        out["_descriptive"] = out["_neighbourhood labels"] + sum(
+            out[g] for g in DESCRIPTIVE
+        )
         return out
 
 
@@ -111,8 +137,16 @@ def decompose(y, terms: dict):
     """Shares (per draw) for one block of rows: y (rows,), terms {name: (draws, rows)}."""
     draws = next(iter(terms.values())).shape[0]
     m = Moments(draws)
-    m.add(grouped(terms, draws, y.shape[0]), y)
+    m.add(grouped(terms, draws, y.shape[0]), y, labels_of(terms, draws, y.shape[0]))
     return m.shares()
+
+
+def labels_of(terms, draws, rows):
+    out = np.zeros((draws, rows))
+    for k in LABELS:
+        if k in terms:
+            out = out + terms[k]
+    return out
 
 
 def grouped(terms, draws, rows):
@@ -168,7 +202,11 @@ def score_run(name: str):
         )
         # Constants do not change variances; drop the offset for stability.
         terms["market"] = terms["market"] - prep.offset
-        moments.add(grouped(terms, draws, a.y.shape[0]), a.y)
+        moments.add(
+            grouped(terms, draws, a.y.shape[0]),
+            a.y,
+            labels_of(terms, draws, a.y.shape[0]),
+        )
     return {
         "source_run": name,
         "source_commit": result["commit"],
@@ -213,6 +251,7 @@ def main(argv=None):
             + ", ".join(
                 f"{g} {100 * sh[g]['mean']:.1f}%" for g in (*GROUPS, "residual")
             )
+            + f"; descriptive {100 * sh['descriptive']['mean']:.1f}%"
             + f" ({record['seconds']:.0f} s)",
             flush=True,
         )

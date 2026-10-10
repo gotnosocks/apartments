@@ -1,4 +1,5 @@
 import numpy as np
+import pytest
 from rentfrontier import variance
 
 
@@ -42,3 +43,28 @@ def test_streaming_chunks_match_one_shot():
     many = m.shares()
     for g in (*variance.GROUPS, "residual"):
         np.testing.assert_allclose(many[g], one[g], atol=1e-10)
+
+
+def test_descriptive_share_adds_neighbourhood_labels_to_building_and_unit():
+    rng = np.random.default_rng(2)
+    y, terms = synthetic(rng)
+    hood = rng.normal(0, 0.2, (1, y.shape[0])).repeat(50, 0)
+    terms["neighbourhood"] = hood
+    y = y + hood[0]
+    sh = variance.decompose(y, terms)
+    # The labels stay inside "features"; the groups still sum to one.
+    total = sum(sh[g] for g in (*variance.GROUPS, "residual"))
+    np.testing.assert_allclose(total, 1.0, atol=1e-12)
+    true = np.array([0.01, 0.09, 0.04, 0.01, 0.0025, 0.04])
+    true = true / true.sum()
+    assert sh["_neighbourhood labels"].mean() == pytest.approx(true[5], abs=0.01)
+    np.testing.assert_allclose(
+        sh["_descriptive"],
+        sh["_neighbourhood labels"]
+        + sh["building"]
+        + sh["building over time"]
+        + sh["unit"],
+    )
+    assert sh["_descriptive"].mean() == pytest.approx(
+        true[2] + true[3] + true[5], abs=0.01
+    )
