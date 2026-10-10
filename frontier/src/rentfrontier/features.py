@@ -1681,12 +1681,12 @@ HPD_FILE = f"{HPD_SNAPSHOT}/hpd.parquet"
 # Rent-stabilized units per lot and tax-bill year (`rentfrontier.external rentstab`).
 RENTSTAB_SNAPSHOT = "/data1/apartments/external/rentstab/20261008-b487c8a"
 RENTSTAB_FILE = f"{RENTSTAB_SNAPSHOT}/rentstab.parquet"
-# MapPLUTO for every lot on the seven neighbourhoods' tax blocks (external.py
+# MapPLUTO for every lot on the eight neighbourhoods' tax blocks (external.py
 # blocklots): which lots a footprint spans (`lot_open_share_v2`).
-BLOCKLOTS_SNAPSHOT = "/data1/apartments/external/blocklots/20261009-98db59b"
+BLOCKLOTS_SNAPSHOT = "/data1/apartments/external/blocklots/20261010-c90ddbd"
 BLOCKLOTS_FILE = f"{BLOCKLOTS_SNAPSHOT}/blocklots.parquet"
 # 2020 Neighborhood Tabulation Areas by building (`python -m rentfrontier.nta`).
-NTA_FILE = "/data1/apartments/external/nta/20261009-98db59b/nta.parquet"
+NTA_FILE = "/data1/apartments/external/nta/20261010-c90ddbd/nta.parquet"
 NTA_FOLDED = "Stuyvesant Town-Peter Cooper Village"
 # Years a lot's last stabilized-units bill counts for (the 2019 bill reaches 2022).
 STAB_CARRY_YEARS = 3
@@ -3392,7 +3392,7 @@ def owner_v1(
 
 # Each listing's lister (`rentfrontier.lister`): name kind and how many of the
 # building's earlier listings the same lister listed.
-LISTER_FILE = "/data1/apartments/external/lister/20261009-dcee63b/lister.parquet"
+LISTER_FILE = "/data1/apartments/external/lister/20261010-b5c71cf/lister.parquet"
 
 
 def lister_v1(

@@ -96,7 +96,7 @@ def test_nb8_snapshots_keep_nb7s_rows_and_add_east_villages():
         o = o.sort_values(key).reset_index(drop=True)
         pd.testing.assert_frame_equal(kept[o.columns], o)
     registry = pd.read_parquet(features.NB8_REGISTRY_FILE)
-    assert len(registry) == @REGROWS@
+    assert len(registry) == 5436
 
 
 def test_dataset_nb8_is_nb7_plus_east_village():
