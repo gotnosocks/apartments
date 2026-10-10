@@ -4649,6 +4649,15 @@ FEATURE_SETS["nb8-nostuy-noise-v1"] = partial(
 )
 NOISE.add("nb8-nostuy-noise-v1")
 NOISE_FILES["nb8-nostuy-noise-v1"] = NB8_NOISE_FILE
+# nb8-nostuy-v1 plus the live street trees near the building in the census
+# published before the listing (`trees_v1`). TREES_FILE spans latitude
+# 40.70-40.77 and longitude -74.018 to -73.960, which holds every nb8 registry
+# building, so the set reads it. No base set reads trees.
+NB8_SETS["nb8-nostuy-trees-v1"] = "nb5-plutoasof-v3"
+FEATURE_SETS["nb8-nostuy-trees-v1"] = partial(
+    trees_v1, id="nb8-nostuy-trees-v1", base="nb8-nostuy-v1"
+)
+TREES.add("nb8-nostuy-trees-v1")
 for _new, _old in NB8_SETS.items():
     for _group in (
         EXTERNAL,
