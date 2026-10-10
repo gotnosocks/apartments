@@ -25,8 +25,8 @@ Student-t noise with nu <= 2 (the Bayesian R^2 of Gelman et al. 2019).
 Two more numbers are reported beside the groups (not summed with them):
 
     neighbourhood labels  the share of the neighbourhood indicator features
-                          and the neighbourhood-by-month curve (part of
-                          "features" or "market and time")
+                          and the neighbourhood-by-month curve (inside "features", where
+                          explain.log_terms puts both)
     descriptive           neighbourhood labels + building + building over
                           time + unit: rent attributed to where and which
                           apartment it is rather than to named attributes
