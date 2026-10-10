@@ -42,7 +42,8 @@ else
 fi
 
 echo "== site build $(date +%T)"
-# A combined publish peaks at about 1.9 GB (docs/site.md): cap it at 3 GB.
+# The eight-neighbourhood publish peaks at about 5.0 GB (1:42, 2026-10-10; docs/site.md):
+# cap it at 6 GB.
 cd "$SITE"
-systemd-run --user --scope -q -p MemoryMax=3G env TMPDIR="$TMPDIR" "$SITE_VENV/bin/python" -m apartments.site build
+systemd-run --user --scope -q -p MemoryMax=6G env TMPDIR="$TMPDIR" "$SITE_VENV/bin/python" -m apartments.site build
 curl -s -m 10 http://127.0.0.1:8600/healthz || true; echo

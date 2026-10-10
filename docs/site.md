@@ -190,7 +190,8 @@ listings fall in each band, as calibration predicts.
    It refuses a failing gate. It writes `/data1/apartments/site/builds/<stamp>/site.sqlite` and
    `build.json`, swaps the `current` symlink atomically, and keeps the newest three builds. It takes
    about 8 s with a 1.1 GB peak for Chelsea alone, and about 18 s with a 1.9 GB peak for Chelsea and
-   West Village (86,568 listings), with a database of about 130 MB and 400 MB respectively.
+   West Village (86,568 listings), with a database of about 130 MB and 400 MB respectively. The
+   eight neighbourhoods (214,931 listings) take 1:42 with a peak of about 5.0 GB.
 3. **Serve.** The app opens `current/site.sqlite` read-only (immutable) on each request, so a publish
    needs no restart.
 4. **Research data.** `rentfrontier.dashboard` (frontier environment, run from
