@@ -87,3 +87,11 @@ def test_map_names_every_neighbourhood_by_count():
     assert "[['', 'All neighbourhoods']" in JS
     assert "d.area = `all ${COUNT_WORDS[nAreas] || nAreas} neighbourhoods`" in JS
     assert "All of ${d.area}" not in JS
+
+
+def test_page_and_map_count_neighbourhoods_alike():
+    # "all eight neighbourhoods" reads the same in the page text and the map
+    from apartments.site.web import COUNT_WORDS
+
+    words = ", ".join("null" if w is None else f"'{w}'" for w in COUNT_WORDS)
+    assert f"const COUNT_WORDS = [{words}];" in JS
