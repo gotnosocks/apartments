@@ -3,7 +3,7 @@
 {% block content %}
 <article class="story">
 <h1>What a rent is made of</h1>
-<p class="lede">Why does one one-bedroom in {{ meta.scope }} ask far more than another a few blocks away?
+<p class="lede">Why does one one-bedroom {{ "across " ~ all_areas if all_areas else "in " ~ meta.scope }} ask far more than another a few blocks away?
 This page tells the story of the model behind this site: what it says an ask is built from, how sure it is,
 and what we learned building it. Every number here is read from the model now serving estimates, so the page
 changes when the model does.</p>

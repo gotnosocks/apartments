@@ -1065,6 +1065,12 @@ def test_neighbourhoods_filter_listings_and_buildings(
     rent_map = client.get("/estimates/map").get_data(as_text=True)
     assert 'data-area="both neighbourhoods"' in rent_map
     assert "in each building across both neighbourhoods," in rent_map
+    home = client.get("/").get_data(as_text=True)
+    assert "Every scraped rental listing in both neighbourhoods," in home
+    about = client.get("/about").get_data(as_text=True)
+    assert "listings in both neighbourhoods (Chelsea and West Village)," in about
+    story = client.get("/research/story").get_data(as_text=True)
+    assert "one one-bedroom across both neighbourhoods ask" in story
 
 
 def test_elegance_page_lists_every_judgement(client):
