@@ -1,5 +1,5 @@
 """Per-item effects of a feature test: each column a feature set adds to its base, with its
-posterior mean and credible intervals, from a recorded run's kept draws.
+posterior median and credible intervals, from a recorded run's kept draws.
 
     python -m rentfrontier.effects <run-name> [<run-name> ...]
 
@@ -61,7 +61,7 @@ def item_effects(beta, names, groups, values, items) -> list[dict]:
             "feature": names[j],
             "group": groups[j],
             "kind": kind,
-            "pct": float(pct.mean()),
+            "pct": float(np.median(pct)),
             "pct_lower_90": float(q[1]),
             "pct_upper_90": float(q[2]),
             "pct_lower_95": float(q[0]),

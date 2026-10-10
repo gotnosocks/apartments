@@ -47,10 +47,10 @@ rows.parquet          one row per dataset row (the columns above plus
                       audit_id, unit_id after the run's data rules, building,
                       period, asking_rent, in_fit, unit_fit_rows).
 market.parquet        per month: the market reference rent (with and without
-                      the calendar season), mean and 95% interval.
+                      the calendar season), median and 95% interval.
 buildings.parquet     per building: level and yearly trend as percentages,
-                      mean, 95% interval, training rows and units.
-coefficients.parquet  per feature column: exp(beta) - 1, mean, 95% interval
+                      median, 95% interval, training rows and units.
+coefficients.parquet  per feature column: exp(beta) - 1, median, 95% interval
                       and probability positive.
 terms.json            the contribution terms in display order, with labels.
 data-rule-<rule>.jsonl  a copy of each row-dropping rule's file (the run's
@@ -638,8 +638,8 @@ def market_table(kept, prep) -> pd.DataFrame:
         ("reference_rent", trend + kept["season"][:, calendar]),
         ("reference_rent_deseasoned", trend),
     ):
-        mean, lo, hi = _summary(np.exp(log_rent))
-        out[label], out[f"{label}_lower_95"], out[f"{label}_upper_95"] = mean, lo, hi
+        mid, lo, hi = _summary(np.exp(log_rent))
+        out[label], out[f"{label}_lower_95"], out[f"{label}_upper_95"] = mid, lo, hi
     return pd.DataFrame(out)
 
 
@@ -657,19 +657,19 @@ def building_table(kept, prep) -> pd.DataFrame:
         if log_value is None or log_value.shape[1] != len(prep.buildings):
             continue
         pct = 100.0 * np.expm1(log_value)
-        mean, lo, hi = _summary(pct)
-        out[label], out[f"{label}_lower_95"], out[f"{label}_upper_95"] = mean, lo, hi
+        mid, lo, hi = _summary(pct)
+        out[label], out[f"{label}_lower_95"], out[f"{label}_upper_95"] = mid, lo, hi
     return pd.DataFrame(out)
 
 
 def coefficient_table(kept, feats: features.Features) -> pd.DataFrame:
     pct = 100.0 * np.expm1(kept["beta"])
-    mean, lo, hi = _summary(pct)
+    mid, lo, hi = _summary(pct)
     return pd.DataFrame(
         {
             "feature": feats.names,
             "group": feats.groups,
-            "pct": mean,
+            "pct": mid,
             "pct_lower_95": lo,
             "pct_upper_95": hi,
             "probability_positive": (kept["beta"] > 0).mean(0),
