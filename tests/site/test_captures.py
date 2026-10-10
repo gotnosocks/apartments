@@ -89,7 +89,7 @@ def test_only_captures_the_dataset_never_read(tmp_path):
     write_capture(tmp_path, "20261006", [candidate(3, unit_id="u-6")])
     # The dataset read the Oct 4 capture (one of its rows is a dataset row),
     # so its other listing was left out by the dataset's rules.
-    got = captures.captures(tmp_path, {"capture:refresh:abc:1"}, set(), set())
+    got = captures.captures(tmp_path, {"capture:refresh:abc:1"}, set(), {})
     assert [(d, c["capture_id"]) for d, c in got] == [("20261006", "refresh:abc:3")]
 
 
@@ -111,7 +111,9 @@ def test_the_datasets_current_row_rules_apply(tmp_path):
             candidate(11, unit_id="u-11", square_feet=90),
         ],
     )
-    got = captures.captures(tmp_path, set(), {"777"}, {"u-10"})
+    got = captures.captures(
+        tmp_path, set(), {"777"}, {"u-10": dt.datetime(2026, 10, 6, 15, tzinfo=dt.UTC)}
+    )
     assert [c["capture_id"] for _, c in got] == ["refresh:abc:1", "refresh:abc:11"]
     assert got[1][1]["square_feet"] is None  # outside 150-6000 sq ft
 
@@ -121,16 +123,16 @@ def test_newest_capture_wins_per_unit(tmp_path):
     write_capture(
         tmp_path, "20261008", [candidate(2, source_listing_id=1001, rent=3900)]
     )
-    got = captures.captures(tmp_path, set(), set(), set())
+    got = captures.captures(tmp_path, set(), set(), {})
     assert [(d, c["rent"]) for d, c in got] == [("20261008", 3900)]
 
 
 def test_a_capture_ages_out_a_week_after_it_was_seen(tmp_path):
     write_capture(tmp_path, "20261006", [candidate(1)])
     seen = dt.datetime(2026, 10, 6, 15, tzinfo=dt.UTC)
-    assert captures.captures(tmp_path, set(), set(), set(), seen + dt.timedelta(days=7))
+    assert captures.captures(tmp_path, set(), set(), {}, seen + dt.timedelta(days=7))
     assert not captures.captures(
-        tmp_path, set(), set(), set(), seen + dt.timedelta(days=7, seconds=1)
+        tmp_path, set(), set(), {}, seen + dt.timedelta(days=7, seconds=1)
     )
 
 
@@ -149,7 +151,7 @@ def test_a_listing_the_dataset_dropped_stays_out(tmp_path):
     assert out == [] and status["priced"] == 0
 
 
-def test_a_stale_current_dataset_row_lets_a_newer_capture_in(tmp_path):
+def test_a_newer_capture_wins_over_the_datasets_current_row(tmp_path):
     write_capture(tmp_path, "20261006", [candidate(1, rent=3300)])
     buildings = [{"id": BUILDING, "neighbourhood": "Greenwich Village", "floors": 6}]
 
@@ -160,7 +162,9 @@ def test_a_stale_current_dataset_row_lets_a_newer_capture_in(tmp_path):
         )
         return len(out)
 
-    assert priced("2026-10-05T00:00:00+00:00") == 0  # the dataset prices the unit
+    assert priced("2026-10-06T16:00:00+00:00") == 0  # the dataset saw it later
+    assert priced("2026-10-06T15:00:00+00:00") == 0  # the same sighting
+    assert priced("2026-10-05T00:00:00+00:00") == 1  # the capture is newer
     assert priced("2026-09-20T00:00:00+00:00") == 1  # seen over a week ago
 
 

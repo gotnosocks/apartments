@@ -88,7 +88,7 @@ def captures(
     archives: Path,
     read: set[str],
     skip_listings: set[str],
-    skip_units: set[str],
+    skip_units: dict[str, dt.datetime],
     at: dt.datetime | None = None,
 ) -> list[tuple[str, dict]]:
     """(capture directory name, candidate) for the listings of captures the
@@ -99,8 +99,9 @@ def captures(
 
     A capture with any row in the dataset (`read`, its audit ids) went into
     it, and the listings of it the dataset left out were left out by its
-    rules. Listings in `skip_listings` and units in `skip_units` are left
-    out too: the dataset dropped or already prices them. The window for
+    rules. Listings in `skip_listings` are left out too: the dataset dropped
+    them. So is a unit in `skip_units` seen no later than the dataset last saw
+    it current: the dataset prices it; a newer sighting wins. The window for
     an active listing ends at `at`, the build's clock, so an old capture's
     listings age out."""
     at = at or now()
@@ -120,7 +121,8 @@ def captures(
         for c in selected:
             if not supported(c) or str(c["source_listing_id"]) in skip_listings:
                 continue
-            if c["unit_id"] in skip_units:
+            seen = skip_units.get(c["unit_id"])
+            if seen is not None and pricing._timestamp(c["collected_at"]) <= seen:
                 continue
             size = pricing._number(c.get("square_feet"))
             c["square_feet"] = (
@@ -371,7 +373,8 @@ def rows(
     if observations is None:
         observations = {r["audit_id"]: r for r in listings}
     fit_ids = {r["audit_id"] for r in listings}
-    skip_listings, skip_units = set(), set()
+    skip_listings: set[str] = set()
+    skip_units: dict[str, dt.datetime] = {}
     for a, o in observations.items():
         ids = o.get("listing_ids")
         ids = json.loads(ids) if isinstance(ids, str) else list(ids or [])
@@ -381,10 +384,11 @@ def rows(
         current = o.get(
             "is_current", o.get("analysis_price_basis") == "current_capture_gross_ask"
         ) and fresh(o, at)
-        if a not in fit_ids or current:
+        if a not in fit_ids:
             skip_listings |= {str(i) for i in ids if i}
         if current:
-            skip_units.add(o["unit_id"])
+            seen = pricing._timestamp(o.get("collected_at") or o["price_at"])
+            skip_units[o["unit_id"]] = max(seen, skip_units.get(o["unit_id"], seen))
     out, skipped, sources, fitted_levels = [], {}, {}, 0
     for source, c in captures(
         archives, set(observations), skip_listings, skip_units, at
