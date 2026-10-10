@@ -1,6 +1,42 @@
 # Data improvements — handoff
 
-Updated 2026-10-10 08:45 ET. Thread owner: the Data improvements project thread (bridge session on thelio).
+Updated 2026-10-10 10:05 ET. Thread owner: the Data improvements project thread (bridge session on thelio).
+
+## 2026-10-10 10:05 ET
+
+- **#636 (90f03f5):** `fetch_noise` pages each year by `$offset` in `unique_key` order. A year with
+  more than 50k complaints no longer stops the fetch.
+- **#638 (0e3d4a6e) `nb8-nostuy-noise-v1`:** `noise_v1` on `nb8-nostuy-v1`, reading
+  `NB8_NOISE_FILE` (noise311/20261010-90f03f5, 642,911 complaints, boxed on the nb8 registry).
+  - Street/nightlife mean: EV +0.89 doublings, GV +0.60, Chelsea −0.56, Gramercy −0.82.
+  - Per Modeling's message (about 10:00 ET), the set is in its test queue behind lines and
+    retail. Tests start only once a base passes the gate, and Modeling says each launch needs
+    Ben's OK. #638 itself queues no fit.
+- **Terms:** the nb8 base is `nb8-nostuy-v1`, the 8-area base set. The sizefill base is the
+  candidate base with `sizefill_v1` (`sizefill.asof_size`: size as of the day, from the unit,
+  the line or the building).
+- **423 E 12th St:** Modeling reported that the nb8 base fit failed the group gate with R-hat 1.48,
+  mostly from this building, and asked for a label check. My checks are below; the scripts are
+  in `/data1/apartments/tmp/suspect/ev/` (`b423b.py`, `b423c.py`, `rear.py`).
+  - Lot 1004400048 holds two buildings: BIN 1076986 at the front (42.7 ft) and BIN 1076987 at the
+    rear (34.9 ft). The registry maps the address to the front BIN only.
+  - Labels are clean: front `1f`–`4f` (~800 sqft, $4–5.5k) and rear `1re`–`4re`, `1rw`–`4rw`
+    (~300 sqft, $2–3k). The 0/1BR flips are on the rear units.
+  - Not a stabilized mix: 4 stabilized units in 2007, 1 in 2015–18.
+  - Sizefill gives most rear rows 300 from the unit or line. Early rows get the building median.
+  - Candidate rule, decided by labels and footprints and never by rent: on lots with ≥ 2 footprint
+    BINs, rear-labelled units (`r`, `re`, `rw`, `rr`, `rear`) become `<building>-rear`. It covers
+    21 buildings and 205 rows.
+  - It needs registry rows for the rear buildings, since features reindex the registry by slug,
+    plus new nb8 sets. Held until the sizefill base reports (Modeling's estimate: about 14:30Z). Build it only
+    if 423 still fails, and tell Modeling before merging.
+- **the-west-coast (521 West St):** Modeling reported a narrow gate failure here. My checks
+  (`westcoast.py`, `zeropad.py`) found no data fault. I called it a model issue, and Modeling took it.
+  - PLUTO lists 2 buildings, but there is no footprint row for the lot.
+  - It mixes 3-digit and floor-letter labels. Zero-padded aliases are already merged by
+    unit-labels-v15, all but 7.
+  - Only about 10% of rows are sized.
+- **Next:** the 423 result from sizefill. Then trees on nb8, if worth a test.
 
 ## 2026-10-10 09:45 ET
 
