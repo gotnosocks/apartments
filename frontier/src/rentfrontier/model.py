@@ -1737,6 +1737,29 @@ MODELS = {
         bedroom_time=True,
         bedroom_time_knot_months=3,
     ),
+    # ... with the per-building size slope kept and a per-building offset for
+    # units with no stated size, partially pooled like the other slopes. Where
+    # few units state a size, the offset prices the unsized units directly, so
+    # the size slope no longer has to trade off against their unit effects.
+    "m7-nocurves-floorslope-bednoise-dayfourier-bedtime-yearnoise-sizeunkslope": ModelConfig(
+        name="m7-nocurves-floorslope-bednoise-dayfourier-bedtime-yearnoise-sizeunkslope",
+        building_walk=True,
+        bedroom_slope=True,
+        trend_knot_months=3,
+        feature_slopes=(
+            "log_sqft_vs_bedroom_median",
+            "sqft_unknown",
+            "bathrooms=2",
+            "log_floor",
+        ),
+        unit_t=True,
+        noise_by_bedrooms=True,
+        noise_by_year=True,
+        season_harmonics=2,
+        season_daily=True,
+        bedroom_time=True,
+        bedroom_time_knot_months=3,
+    ),
     # ... with a log-linear residual scale (bedroom group, single listing,
     # small building, floor unknown, building's first year) in place of one
     # scale per bedroom group and year.
