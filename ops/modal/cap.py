@@ -7,7 +7,7 @@ estimated cost. If our estimate is too low, the accumulation should continue fro
 balance. e.g. $0 -> $10 -> -$0.50 -> $3 -> $1 -> $10 etc."
 
 The balance starts at $0 at START and accrues at the rates in RATES: 10 x the estimated cost of
-the served full fit ($8.80) a day, then $10 a day from Ben's message of 2026-10-10 16:25Z. A launch is charged its estimate when it takes its turn (reserve); when the fit returns,
+the NB5 served full fit ($8.80) a day, then $10 a day from Ben's message of 2026-10-10 16:25Z. A launch is charged its estimate when it takes its turn (reserve); when the fit returns,
 the launcher settles it at the container's list-price cost (or the time it ran, if it failed), so
 an estimate that was too low leaves the balance negative and accrual continues from there. Ben,
 2026-10-07 22:23Z: "I would like to cap the balance on the dollar budget at ~10 full fits", so
@@ -35,10 +35,17 @@ START = datetime.datetime(2026, 10, 7, 21, 59, 49, tzinfo=datetime.UTC)  # Ben's
 # Container list price per hour, app.usd_per_second(gpu) * 3600 (kept equal by a test; app.py
 # imports modal, so the launcher's plain python3 can't import it).
 USD_PER_HOUR = {"L4": 1.0851, "A100-40GB": 2.3851, "A100-80GB": 2.7841, "H100": 4.2351}
-# Wall time of a fit's container: upload, image, fit and PSIS-LOO, from A100 fits of 2026-10-06/07
-# (the served design, 2 x 3,900 iterations, took 846 to 1,488 s; 2 x 12,300 took about 2,100 s).
-OVERHEAD_SECONDS, SECONDS_PER_ITERATION = 800, 0.11
-SERVED_FIT = (2, 300, 4500)  # chains, warmup, draws: the full fit since #432 ($0.88)
+# Wall time of a fit's container: upload, image, fit, PSIS-LOO and the post-fit statistics, from
+# the eight-neighbourhood A100 fits of 2026-10-10 (2 x 4,800 iterations: fit about 2,015 s,
+# PSIS-LOO 373 s, 2,413 s in all, settled at $1.27 to $1.85), plus about 4 minutes for the
+# post-fit statistics (#678). The NB5 calibration (800 s + 0.11 s an iteration, $0.88 a served
+# fit) underestimated NB8 fits by about 40%.
+OVERHEAD_SECONDS, SECONDS_PER_ITERATION = 700, 0.42
+SERVED_FIT = (2, 300, 4500)  # chains, warmup, draws: the full fit since #432 ($1.80)
+# What the ledger's history was priced at: the accrual rate before 2026-10-10 16:25Z and a launch
+# row from the old launcher (no estimate) are 10 x and 1 x the NB5 served-fit estimate, kept
+# fixed so recalibrating the estimate never reprices the past.
+NB5_SERVED_FIT_USD = 0.88
 
 
 class CapReached(RuntimeError):
@@ -56,7 +63,7 @@ def estimate(chains, warmup, draws, gpu="A100-40GB"):
 # The accrual rate, in USD a day, from each time on. Ben, 2026-10-07 22:32Z: $8.80 a day (10 x
 # the served full fit's estimate). Ben, 2026-10-10 16:25Z: "OK: run the fit queue at $10/day".
 RATES = (
-    (START, 10 * estimate(*SERVED_FIT)),
+    (START, 10 * NB5_SERVED_FIT_USD),
     (datetime.datetime(2026, 10, 10, 16, 25, 53, tzinfo=datetime.UTC), 10.0),
 )
 USD_PER_DAY = RATES[-1][1]
@@ -112,7 +119,7 @@ def balance(rows, now=None):
                 events.append((at, estimates[row["id"]] - row["usd"]))
         elif at >= START:
             # A row from the old launcher (no estimate) counts as a served full fit.
-            usd = row.get("usd_estimate", estimate(*SERVED_FIT))
+            usd = row.get("usd_estimate", NB5_SERVED_FIT_USD)
             estimates[row.get("id", f"{row['name']}@{row['at']}")] = usd
             events.append((at, -usd))
     # Rate changes are events too, so each step between events accrues at one rate.
