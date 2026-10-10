@@ -4659,7 +4659,7 @@ FEATURE_SETS["nb8-nostuy-trees-v1"] = partial(
 )
 TREES.add("nb8-nostuy-trees-v1")
 # nb8-nostuy-v1 plus the felonies reported near the building in the year before
-# the listing (`crime_v1`). CRIME_FILE spans Manhattan (latitude 40.64-40.79),
+# the listing (`crime_v1`). CRIME_FILE covers every nb8 registry building,
 # so the set reads it. No base set reads crime.
 NB8_SETS["nb8-nostuy-crime-v1"] = "nb5-plutoasof-v3"
 FEATURE_SETS["nb8-nostuy-crime-v1"] = partial(
