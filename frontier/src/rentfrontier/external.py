@@ -744,7 +744,8 @@ NOISE_COLUMNS = (
 
 def fetch_noise(box, page: int = 50_000):
     """Every 311 noise complaint in the box (north, west, south, east), a
-    calendar year per query (each year is well under a page)."""
+    calendar year per query, paged by `$offset` in unique_key order when a
+    year is over a page."""
     north, west, south, east = box
     area = (
         f"latitude between {south} and {north} and longitude between {west} and "
@@ -753,20 +754,24 @@ def fetch_noise(box, page: int = 50_000):
     rows, queries, versions = [], [], {}
     for dataset, years in zip(NOISE_IDS, (range(2010, 2020), range(2020, 2031))):
         for year in years:
-            params = {
-                "$select": ", ".join(NOISE_COLUMNS),
-                "$where": f"{area} and created_date >= '{year}-01-01T00:00:00' "
-                f"and created_date < '{year + 1}-01-01T00:00:00'",
-                "$order": "unique_key",
-                "$limit": page,
-            }
-            url = f"{SOCRATA}/{dataset}.json?{urllib.parse.urlencode(params)}"
-            with urllib.request.urlopen(url, timeout=600) as r:
-                got = json.loads(r.read())
-            if len(got) >= page:
-                raise SystemExit(f"{dataset} {year}: a full page; split the query")
-            rows += [{k: r.get(k) for k in NOISE_COLUMNS} for r in got]
-            queries.append(f"{dataset}?{urllib.parse.urlencode(params)}")
+            offset = 0
+            while True:
+                params = {
+                    "$select": ", ".join(NOISE_COLUMNS),
+                    "$where": f"{area} and created_date >= '{year}-01-01T00:00:00' "
+                    f"and created_date < '{year + 1}-01-01T00:00:00'",
+                    "$order": "unique_key",
+                    "$limit": page,
+                    "$offset": offset,
+                }
+                url = f"{SOCRATA}/{dataset}.json?{urllib.parse.urlencode(params)}"
+                with urllib.request.urlopen(url, timeout=600) as r:
+                    got = json.loads(r.read())
+                rows += [{k: r.get(k) for k in NOISE_COLUMNS} for r in got]
+                queries.append(f"{dataset}?{urllib.parse.urlencode(params)}")
+                if len(got) < page:
+                    break
+                offset += page
         with urllib.request.urlopen(
             f"{NYC_OPEN_DATA}/api/views/{dataset}.json", timeout=60
         ) as r:
