@@ -737,7 +737,11 @@ def build(keep_dirs=False):
             vr = variances[rows_run["name"]]
             e["variance"] = {
                 "commit": vr["commit"],
-                "shares": {k: v["mean"] for k, v in vr["shares"].items()},
+                # Medians over draws (the Fable review, 2026-10-10); records
+                # written before the median was kept fall back to the mean.
+                "shares": {
+                    k: v.get("median", v["mean"]) for k, v in vr["shares"].items()
+                },
                 "intervals": vr["shares"],
             }
         if rows_run and rows_run["name"] in loos:
