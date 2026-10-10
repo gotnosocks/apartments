@@ -4666,6 +4666,16 @@ FEATURE_SETS["nb8-nostuy-crime-v1"] = partial(
     crime_v1, id="nb8-nostuy-crime-v1", base="nb8-nostuy-v1"
 )
 CRIME.add("nb8-nostuy-crime-v1")
+
+# nb8-nostuy-v1 plus building condition (`hpd_v1`, the past year) from the HPD
+# snapshot fetched for the nb8 registry's buildings. No base set reads HPD.
+NB8_HPD_FILE = "/data1/apartments/external/hpd/20261010-b5c71cf/hpd.parquet"
+NB8_SETS["nb8-nostuy-hpd-v1"] = "nb5-plutoasof-v3"
+FEATURE_SETS["nb8-nostuy-hpd-v1"] = partial(
+    hpd_v1, id="nb8-nostuy-hpd-v1", base="nb8-nostuy-v1", file=NB8_HPD_FILE
+)
+HPD.add("nb8-nostuy-hpd-v1")
+HPD_SNAPSHOTS["nb8-nostuy-hpd-v1"] = NB8_HPD_FILE
 for _new, _old in NB8_SETS.items():
     for _group in (
         EXTERNAL,

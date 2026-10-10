@@ -25,6 +25,7 @@ NB8_ONLY = {
     "nb8-nostuy-noise-v1",
     "nb8-nostuy-trees-v1",
     "nb8-nostuy-crime-v1",
+    "nb8-nostuy-hpd-v1",
 }
 
 
@@ -383,3 +384,23 @@ def test_nb8_crime_is_crime_v1_on_the_nb8_base(monkeypatch):
     } | {"CRIME"}
     monkeypatch.setattr(run.data, "sha256", lambda path: "x")
     assert run.feature_sources(name)["crime"]["path"] == features.CRIME_FILE
+
+
+def test_nb8_hpd_reads_the_nb8_hpd_snapshot(monkeypatch):
+    """nb8-nostuy-hpd-v1 is hpd_v1 on the nb8 base with the HPD snapshot
+    fetched for the nb8 registry, and its fit records that file."""
+    name = "nb8-nostuy-hpd-v1"
+    assert features.FEATURE_SETS[name].func is features.hpd_v1
+    assert features.FEATURE_SETS[name].keywords == {
+        "id": name,
+        "base": "nb8-nostuy-v1",
+        "file": features.NB8_HPD_FILE,
+    }
+    groups = {
+        k for k, v in vars(features).items() if k.isupper() and isinstance(v, set)
+    }
+    assert {k for k in groups if name in getattr(features, k)} == {
+        k for k in groups if "nb8-nostuy-v1" in getattr(features, k)
+    } | {"HPD"}
+    monkeypatch.setattr(run.data, "sha256", lambda path: "x")
+    assert run.feature_sources(name)["hpd"]["path"] == features.NB8_HPD_FILE
