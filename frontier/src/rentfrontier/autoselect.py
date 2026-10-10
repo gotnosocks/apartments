@@ -198,7 +198,7 @@ def why_not(e, rules) -> str | None:
         return f"it is blocked as semantically invalid ({why})"
     if _record(e).get("feature_set") in features.READS_EARLIER_RENTS:
         return (
-            "it reads earlier rents of the same unit, so its PSIS-LOO is not "
+            "it reads earlier rents of the same unit or building, so its PSIS-LOO is not "
             "comparable; it is selected on the latest split"
         )
     tuning = sorted(r for r in _rules(e) if r.startswith(data.TUNING_PREFIX))

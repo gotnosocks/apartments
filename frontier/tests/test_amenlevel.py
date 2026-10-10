@@ -37,3 +37,32 @@ def test_level_reads_only_asks_dated_a_week_before():
     z2 = np.log(3500.0) - np.mean(np.log([3000.0, 4000.0]))
     z3 = np.log(5000.0) - np.mean(np.log([3000.0, 4000.0, 3500.0]))
     assert np.isclose(level[4], (z2 + z3) / (2 + features.BUILDING_LEVEL_SHRINK))
+
+
+def test_level_never_reads_a_heldout_ask():
+    f = frame(
+        [3000.0, 4000.0, 3500.0, 5000.0, 9000.0],
+        [0, 10, 30, 31, 60],
+        ["a", "a", "a", "a", "a"],
+        [1, 1, 1, 1, 1],
+    )
+    train = np.array([True, False, True, True, True])
+    level = features.building_level_asof(f, train)
+    moved = f.copy()
+    moved.loc[1, "log_rent"] = np.log(50.0)  # a held-out ask
+    assert np.array_equal(features.building_level_asof(moved, train), level)
+
+
+def test_level_boundary_and_bedrooms():
+    # A source exactly a week back is excluded; another bedroom count never
+    # centres a listing.
+    f = frame(
+        [3000.0, 3300.0, 8000.0, 4000.0, 4400.0],
+        [0, 5, 6, 12, 13],
+        ["a"] * 5,
+        [1, 1, 3, 1, 1],
+    )
+    level = features.building_level_asof(f)
+    assert level[3] == 0.0  # day 5 is exactly a week before day 12
+    z1 = np.log(3300.0) - np.log(3000.0)
+    assert np.isclose(level[4], z1 / (1 + features.BUILDING_LEVEL_SHRINK))
