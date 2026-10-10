@@ -185,6 +185,9 @@ half of the asks the model never saw land within {{ "{:.1f}".format(accuracy.med
 Even so, the ask is inside the 95% range above, so the model allowed for a gap like this. Asks this far out
 are uncommon but expected; only about 1 ask in 20 should land outside the range.{% else %}
 It also falls outside the 95% range above, which should happen for only about 1 ask in 20.{% endif %}{% endif %}{% endif %}</p>
+{% set big = build.steps | rejectattr("term", "in", ["market", "minor"]) | list | sort(attribute="usd") %}{% set big = ((big | last) if (big | last).usd >= -(big | first).usd else (big | first)) if big else none %}{% set layer = (composition | selectattr("css", "equalto", big.css) | first) if big and composition else none %}{% if layer and layer.plain %}
+<p>The biggest part after the market is “{{ big.label }}” ({{ usd(big.usd, signed=True) }}). It belongs to
+“{{ layer.name }}” in <a href="#shape">the stack above</a>. {{ layer.plain | join(" ") }}</p>{% endif %}
 
 <details class="table-view">
   <summary>The build-up as a table</summary>
