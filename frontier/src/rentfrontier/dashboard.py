@@ -382,6 +382,95 @@ def versus_served(entries) -> dict:
     return {"run": run, "fits": out}
 
 
+def predictions(entries) -> list:
+    """The predictions written before each fit (config/predictions.jsonl, the
+    Fable review's §10), each scored once its fit lands: the paired PSIS-LOO
+    difference from the fit it names (`against`) on the rows both keep. A hit
+    when that difference is in the predicted range and, where the prediction
+    says, clears the tie tolerance as a gain (`clears_2se` true) or stays a tie
+    (`clears_2se` false: within the tolerance either way). The fit scored is
+    the latest full, gate-passing fit of the design, else the latest of any
+    tier. Latest-split predictions are left to latestselect (outcome None);
+    "pending" until the fit is on the board; a malformed line is kept as
+    {"error": ...}."""
+    try:
+        lines = (REPO / "config" / "predictions.jsonl").read_text().splitlines()
+    except OSError:
+        return []
+    dirs = {
+        (e["splits"].get("rows") or {}).get("run"): (e.get("psis") or {}).get("_dir")
+        for e in entries
+    }
+    dirs.pop(None, None)
+    out = []
+    for line in lines:
+        if not line.strip():
+            continue
+        try:
+            p = json.loads(line)
+            design, split = p["design"], p.get("split", "rows")
+            lo, hi = p.get("delta_elpd") or (None, None)
+            if not isinstance(design, str):
+                raise ValueError("design is not a string")
+            if not isinstance(p.get("against"), (str, type(None))):
+                raise ValueError("against is not a string")
+            if not all(b is None or isinstance(b, (int, float)) for b in (lo, hi)):
+                raise ValueError("delta_elpd bounds are not numbers")
+        except (ValueError, KeyError, TypeError) as err:
+            out.append({"error": f"{type(err).__name__}: {err}", "line": line})
+            continue
+        fits = [e for e in entries if structure(e) == design and e["splits"].get(split)]
+        fit = max(
+            fits,
+            key=lambda e: (
+                bool(e.get("passes_checks"))
+                and (e.get("tier") or {}).get("name", "full") == "full",
+                getattr(e["splits"][split].get("_at"), "timestamp", lambda: 0)(),
+            ),
+            default=None,
+        )
+        p = {**p, "key": None, "run": None, "result": None, "outcome": "pending"}
+        if fit is None:
+            out.append(p)
+            continue
+        p["key"] = fit["_key"]
+        p["run"] = fit["splits"][split].get("run")
+        p["passes_checks"] = bool(fit.get("passes_checks"))
+        p["tier"] = (fit.get("tier") or {}).get("name", "full")
+        here = (fit.get("psis") or {}).get("_dir")
+        base = dirs.get(p.get("against")) if p.get("against") else None
+        if split != "rows" or not here or not base:
+            p["outcome"] = None
+            out.append(p)
+            continue
+        try:
+            d, se, mc = leaderboard.paired_loo(here, base)
+        except (OSError, ValueError, KeyError):
+            p["outcome"] = None
+            out.append(p)
+            continue
+        tol = leaderboard.tie_tolerance(se, mc)
+        in_range = (lo is None or d >= lo) and (hi is None or d <= hi)
+        p["result"] = {
+            "delta": d,
+            "se": se,
+            "mcse": mc,
+            "pm": math.hypot(se, mc),
+            "tie": abs(d) <= tol,
+            "clears_2se": d > tol,
+            "in_range": in_range,
+        }
+        expected = p.get("clears_2se")
+        as_said = (
+            expected is None
+            or (expected and d > tol)
+            or (expected is False and abs(d) <= tol)
+        )
+        p["outcome"] = "hit" if in_range and as_said else "miss"
+        out.append(p)
+    return out
+
+
 # The board's baseline before the eight-neighbourhood re-baseline, on the five
 # neighbourhoods (before that, #468: 32c09ef on Chelsea + West Village + Greenwich
 # Village; #310: a40e887 on the Oct 5 Chelsea + West Village data; #221: e61a794
@@ -540,6 +629,8 @@ def data():
                 elegance.judgements().items(), key=lambda kv: sorted(kv[0])
             )
         ],
+        # The predictions written before each fit, scored when it lands.
+        "predictions": predictions(entries),
         "footer": board.get("footer", []),
     }
 
