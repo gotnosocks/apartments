@@ -412,6 +412,10 @@ def predictions(entries) -> list:
             lo, hi = p.get("delta_elpd") or (None, None)
             if not isinstance(design, str):
                 raise ValueError("design is not a string")
+            if not isinstance(p.get("against"), (str, type(None))):
+                raise ValueError("against is not a string")
+            if not all(b is None or isinstance(b, (int, float)) for b in (lo, hi)):
+                raise ValueError("delta_elpd bounds are not numbers")
         except (ValueError, KeyError, TypeError) as err:
             out.append({"error": f"{type(err).__name__}: {err}", "line": line})
             continue
