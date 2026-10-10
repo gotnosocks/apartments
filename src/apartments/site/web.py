@@ -93,7 +93,6 @@ from .research import (
     verdicts,
 )
 from .selection import SELECTION, selection_note
-from .story import NUMBER_WORDS
 
 log = logging.getLogger("apartments.site")
 NEW_YORK = ZoneInfo("America/New_York")
@@ -373,6 +372,22 @@ FACES = {
 # Minimum bathrooms the listings filter offers.
 BATHS = ("1", "1.5", "2", "3")
 LISTING_JOIN = " JOIN buildings b ON b.id = l.building_id"
+
+
+# Count words for "all eight neighbourhoods"; matches COUNT_WORDS in static/rentmap.js.
+COUNT_WORDS = (
+    None,
+    "one",
+    "two",
+    "three",
+    "four",
+    "five",
+    "six",
+    "seven",
+    "eight",
+    "nine",
+    "ten",
+)
 
 
 def asks_summary(db, filters: Filters) -> dict | None:
@@ -804,7 +819,7 @@ def create_app(
             "all_areas": (
                 "both neighbourhoods"
                 if len(nbs) == 2
-                else f"all {NUMBER_WORDS[len(nbs) - 1] if len(nbs) <= len(NUMBER_WORDS) else len(nbs)} neighbourhoods"
+                else f"all {COUNT_WORDS[len(nbs)] if len(nbs) < len(COUNT_WORDS) else len(nbs)} neighbourhoods"
                 if len(nbs) > 2
                 else None
             ),
