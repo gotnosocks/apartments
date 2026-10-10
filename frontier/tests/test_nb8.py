@@ -18,6 +18,10 @@ def test_nb8_base_is_nb7_nostuy_plus_east_village():
     }
 
 
+# nb8 sets with no nb7 twin; each has its own test below.
+NB8_ONLY = {"nb8-nostuy-lines-v1"}
+
+
 def test_nb8_tests_are_nb7s_on_the_nb8_base():
     """Each nb8 test is its nb7 counterpart's builder on the nb8 base, in the
     same groups, reading the eight neighbourhoods' snapshots."""
@@ -25,9 +29,23 @@ def test_nb8_tests_are_nb7s_on_the_nb8_base():
         k: v for k, v in vars(features).items() if k.isupper() and isinstance(v, set)
     }
     for name in features.NB8_SETS:
-        like = name.replace("nb8-", "nb7-")
-        if like not in features.FEATURE_SETS:
+        assert features.lot_files(name) == {
+            "registry": features.NB8_REGISTRY_FILE,
+            "pluto": features.NB8_PLUTO_FILE,
+        }
+        assert features.AREA_SNAPSHOTS[name] == {
+            "basemap": features.NB8_BASEMAP_FILE,
+            "footprints": features.NB8_FOOTPRINTS_FILE,
+        }
+        assert features.EXTRAS_SNAPSHOTS[name] == features.NB8_EXTRAS_FILE
+        assert features.LPC_SNAPSHOTS[name] == features.NB8_LPC_FILE
+        assert features.PLUTO_RELEASES_SNAPSHOTS[name] == (
+            features.NB8_PLUTO_RELEASES_FILE
+        )
+        assert features.description_files(name) == features._NB8_DESCRIPTIONS
+        if name in NB8_ONLY:
             continue
+        like = name.replace("nb8-", "nb7-")
         new, old = features.FEATURE_SETS[name], features.FEATURE_SETS[like]
         if name == "nb8-nostuy-nta-v1":
             assert old.func is features.nta_v1 and new.func is features.nta_v2
@@ -45,20 +63,7 @@ def test_nb8_tests_are_nb7s_on_the_nb8_base():
         assert {k for k, v in groups.items() if name in v} == {
             k for k, v in groups.items() if like in v
         }
-        assert features.lot_files(name) == {
-            "registry": features.NB8_REGISTRY_FILE,
-            "pluto": features.NB8_PLUTO_FILE,
-        }
-        assert features.AREA_SNAPSHOTS[name] == {
-            "basemap": features.NB8_BASEMAP_FILE,
-            "footprints": features.NB8_FOOTPRINTS_FILE,
-        }
-        assert features.EXTRAS_SNAPSHOTS[name] == features.NB8_EXTRAS_FILE
-        assert features.LPC_SNAPSHOTS[name] == features.NB8_LPC_FILE
-        assert features.PLUTO_RELEASES_SNAPSHOTS[name] == (
-            features.NB8_PLUTO_RELEASES_FILE
-        )
-        assert features.description_files(name) == features._NB8_DESCRIPTIONS
+    assert NB8_ONLY <= set(features.NB8_SETS)
     assert set(features._NB8_DESCRIPTIONS) == set(features._NB7_DESCRIPTIONS) | {
         "descriptions_ev"
     }
@@ -261,8 +266,6 @@ def test_nb8_lines_is_lines_v1_on_the_nb8_base():
     assert {k for k in groups if name in getattr(features, k)} == {
         k for k in groups if "nb8-nostuy-v1" in getattr(features, k)
     } | {"TRANSIT"}
-    assert features.lot_files(name)["registry"] == features.NB8_REGISTRY_FILE
-    assert features.PLUTO_RELEASES_SNAPSHOTS[name] == features.NB8_PLUTO_RELEASES_FILE
 
 
 def test_nb8_lines_price_the_j_z_from_east_village():
