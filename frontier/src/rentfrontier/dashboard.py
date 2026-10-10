@@ -382,6 +382,75 @@ def versus_served(entries) -> dict:
     return {"run": run, "fits": out}
 
 
+def predictions(entries) -> list:
+    """The predictions written before each fit (config/predictions.jsonl, the
+    Fable review's §10), each scored once its fit lands: the paired PSIS-LOO
+    difference from the fit it names (`against`) on the rows both keep, and a
+    hit when that difference falls in the predicted range and clears (or does
+    not clear) the tie tolerance as predicted. Latest-split predictions are
+    left to latestselect (outcome None); "pending" until the fit is on the board."""
+    try:
+        lines = (REPO / "config" / "predictions.jsonl").read_text().splitlines()
+    except OSError:
+        return []
+    dirs = {
+        (e["splits"].get("rows") or {}).get("run"): (e.get("psis") or {}).get("_dir")
+        for e in entries
+    }
+    out = []
+    for line in lines:
+        if not line.strip():
+            continue
+        p = json.loads(line)
+        model, _, feature_set = p["design"].partition("/")
+        split = p.get("split", "rows")
+        fit = next(
+            (
+                e
+                for e in entries
+                if e["model"]["name"] == model
+                and e.get("feature_set") == feature_set
+                and e["splits"].get(split)
+            ),
+            None,
+        )
+        p = {**p, "key": None, "run": None, "result": None, "outcome": "pending"}
+        if fit is None:
+            out.append(p)
+            continue
+        p["key"] = fit["_key"]
+        p["run"] = fit["splits"][split].get("run")
+        p["passes_checks"] = bool(fit.get("passes_checks"))
+        here, base = (fit.get("psis") or {}).get("_dir"), dirs.get(p.get("against"))
+        if split != "rows" or not here or not base:
+            p["outcome"] = None
+            out.append(p)
+            continue
+        try:
+            d, se, mc = leaderboard.paired_loo(here, base)
+        except (OSError, ValueError, KeyError):
+            p["outcome"] = None
+            out.append(p)
+            continue
+        clears = d > leaderboard.tie_tolerance(se, mc)
+        lo, hi = p.get("delta_elpd") or (None, None)
+        in_range = (lo is None or d >= lo) and (hi is None or d <= hi)
+        p["result"] = {
+            "delta": d,
+            "se": se,
+            "mcse": mc,
+            "pm": math.hypot(se, mc),
+            "clears_2se": clears,
+            "in_range": in_range,
+        }
+        expected = p.get("clears_2se")
+        p["outcome"] = (
+            "hit" if in_range and (expected is None or expected == clears) else "miss"
+        )
+        out.append(p)
+    return out
+
+
 # The board's baseline before the eight-neighbourhood re-baseline, on the five
 # neighbourhoods (before that, #468: 32c09ef on Chelsea + West Village + Greenwich
 # Village; #310: a40e887 on the Oct 5 Chelsea + West Village data; #221: e61a794
@@ -540,6 +609,8 @@ def data():
                 elegance.judgements().items(), key=lambda kv: sorted(kv[0])
             )
         ],
+        # The predictions written before each fit, scored when it lands.
+        "predictions": predictions(entries),
         "footer": board.get("footer", []),
     }
 
