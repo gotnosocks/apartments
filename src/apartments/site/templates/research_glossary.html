@@ -35,6 +35,11 @@
     <dt id="reference-model">Reference model</dt>
     <dd>The PyMC model that was served before this research began. Held-out scores are measured against it so that every fit is
     compared with the same yardstick on the same held-out listings.</dd>
+    <dt id="descriptive-share">Descriptive share</dt>
+    <dd>The share of the spread in log asks a fit puts down to where and which apartment a listing is: the neighbourhood labels,
+    the building, the building's drift and the apartment itself, rather than named features. It is the median over the fit's
+    draws, with a 90% interval. Between two fits tied on accuracy, the automatic rule prefers the one whose descriptive share is
+    lower by more than chance would give.</dd>
     <dt id="pareto-k">Pareto k</dt>
     <dd>How trustworthy the PSIS shortcut is for one listing. Above the threshold, 1 − 1/log<sub>10</sub>(draws) capped at 0.7
     (0.67 for the usual 1,000 draws), the estimate for that listing is shaky; a few such listings are normal, many mean the
@@ -60,7 +65,7 @@
     consistently, and has no overlapping or competing terms. It avoids one-off flags, hand-tuned cutoffs and patches, uses natural
     forms for its likelihood and priors, and needs no more structural choices than what it captures. For pairs of models that matter,
     two independent AI judges read both model definitions without seeing any scores. Each says which one is more elegant, or that
-    they are about equal, and why. If they disagree, the pair counts as equal. Ties in accuracy go to the more elegant model. <a href="{{ url_for('research_elegance') }}">Every judgement</a> is listed with its reason.</dd>
+    they are about equal, and why. If they disagree, the pair counts as equal. Ties in accuracy go first to the less descriptive model, then to the more elegant one. <a href="{{ url_for('research_elegance') }}">Every judgement</a> is listed with its reason.</dd>
     <dt id="p-loo">Effective parameters</dt>
     <dd>How many parameters the fit effectively uses, measured from the data (the
     in-sample fit minus the leave-one-out fit). An objective check beside the judges: of two equally accurate models, the one with

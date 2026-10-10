@@ -1,9 +1,9 @@
-{# The served fit's own accuracy checks, from its research-data entry: Pareto k, the held-out cross-check
-   and the held-out score against the reference model. #}
-{% macro fit_checks(e, reference=none) %}
+{# The served fit's own accuracy checks, from its research-data entry: Pareto k, the held-out cross-check,
+   the descriptive share and new-apartment coverage from a time-split refit (the Fable review's framework, 2026-10-10).
+   Both of the last show "—" until the fit's own entry carries them, so no other fit's number appears. #}
+{% macro fit_checks(e) %}
 {% set ps = e.psis or {} %}
 {% set v = ps.validation or {} %}
-{% set rows = (e.splits or {}).rows or {} %}
 <dl class="facts wide">
   {% if ps.k_share is number %}
   <dt><a href="{{ url_for('research_glossary', _anchor='pareto-k') }}">Pareto k</a> above {{ "%.2f" | format(ps.k_threshold) if ps.k_threshold is number else "the threshold" }}</dt>
@@ -20,13 +20,22 @@
     <span class="muted">Mean log score per listing, higher is better. The two agreeing closely means the shortcut is not
     flattering the model.</span></dd>
   {% endif %}
-  {% if rows.delta is number %}
-  <dt>Held-out score against the reference</dt>
-  <dd>{{ "{:+,.1f}".format(rows.delta) }}{% if rows.delta_se is number %} ± {{ "{:,.1f}".format(rows.delta_se) }}{% endif %} on the
-    {% if rows.paired_rows is number %}{{ "{:,}".format(rows.paired_rows) }} {% endif %}held-out listings the
-    <a href="{{ url_for('research_glossary', _anchor='reference-model') }}">reference model</a>{% if reference %} ({{ reference.label }}){% endif %}
-    also scored, summed over those listings.
-    <span class="muted">Positive means this fit predicts asks it never saw better than the reference does.</span></dd>
-  {% endif %}
+  {% set d = (e.variance or {}).descriptive %}
+  <dt><a href="{{ url_for('research_glossary', _anchor='descriptive-share') }}">Descriptive share</a></dt>
+  <dd>{% if d %}{{ "%.1f" | format(100 * (d | mid)) }}%{% if d.lower_90 is number %} <span class="muted">(90% interval
+    {{ "%.1f" | format(100 * d.lower_90) }}% to {{ "%.1f" | format(100 * d.upper_90) }}%)</span>{% endif %}{% else %}— <span class="muted">not
+    yet measured for this fit</span>{% endif %}.
+    <span class="muted">The share of the spread in asks put down to where and which apartment a listing is (neighbourhood
+    labels, building, building over time, the apartment itself) rather than to named features. At equal accuracy, lower
+    is better, and the automatic rule prefers the less descriptive of tied fits.</span></dd>
+  {% set c = e.new_unit_coverage %}
+  <dt>Coverage for new apartments</dt>
+  <dd>{% if c and c.cover_80 is number and c.cover_95 is number %}{{ "%.0f" | format(100 * c.cover_80) }}% of asks inside the 80% range and
+    {{ "%.0f" | format(100 * c.cover_95) }}% inside the 95% range{% if c.rows is number %}, on {{ "{:,}".format(c.rows) }} asks
+    from apartments first listed after the fit's cut-off date{% endif %}{% else %}— <span class="muted">not yet measured for
+    this fit</span>{% endif %}.
+    <span class="muted">From a refit on listings before a cut-off date, scored on apartments first seen after it, the
+    honest test of an estimate for an apartment the model has never seen. An honest 80% range holds about 79–80%
+    of them, an honest 95% range about 95%.</span></dd>
 </dl>
 {% endmacro %}

@@ -160,7 +160,7 @@
     <tbody>
     {% for g in groups if g in e.variance %}
       {% set v = e.variance[g] %}
-      <tr><th scope="row">{{ g | capitalize }}</th><td class="num">{{ "%.1f" | format(100 * v.mean) }}%</td>
+      <tr><th scope="row">{{ g | capitalize }}</th><td class="num">{{ "%.1f" | format(100 * (v | mid)) }}%</td>
         <td class="num muted nowrap">{{ ("%.1f" | format(100 * v.lower_90)) | minus }}–{{ ("%.1f" | format(100 * v.upper_90)) | minus }}%</td></tr>
     {% endfor %}
     </tbody>

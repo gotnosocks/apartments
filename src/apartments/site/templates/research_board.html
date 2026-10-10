@@ -57,6 +57,7 @@ be served. Select a fit for its details.</p>
     {{ sort_head("Fit time", "time") }}
     <th scope="col">Elegance <span class="muted">(judged pairs)</span></th>
     {{ sort_head("Effective parameters", "params") }}
+    {{ sort_head("Descriptive share", "descriptive") }}
     <th scope="col" title="Whether the sampler settled on one stable answer (R-hat, effective sample size, divergences)">Checks</th>
     <th scope="col">Servable</th>
     {{ sort_head("Landed", "landed", num=False) }}
@@ -74,19 +75,22 @@ be served. Select a fit for its details.</p>
       <td class="num nowrap">{{ "%.1f" | format(e.fit_seconds / 60) }} min</td>
       <td>{{ elegance_summary(e) or "—" }}</td>
       <td class="num">{{ "{:,.0f}".format(e.psis.p_loo) if e.psis and e.psis.p_loo is number else "—" }}</td>
+      {% set d = descriptive_share(e) %}<td class="num">{{ "%.1f%%" | format(100 * d) if d is number else "—" }}</td>
       <td>{{ "pass" if e.passes_checks else "fail" }}</td>
       {% set serve, why = serve_status(e) %}
       <td>{% if serve == "yes" %}yes{% elif serve == "no" %}no: {{ why }}{% else %}<span class="muted">not known yet</span>{% endif %}</td>
       <td class="nowrap">{{ e.available_at[:10] if e.available_at else "—" }}</td>
     </tr>
   {% else %}
-    <tr><td colspan="9" class="empty">No fits match.</td></tr>
+    <tr><td colspan="10" class="empty">No fits match.</td></tr>
   {% endfor %}
   </tbody>
 </table>
 </div>
 <p class="note">PSIS-LOO ΔELPD: how well a fit predicts each listing's ask from the others, against the simplest baseline; higher is
-better. The ± is against the baseline; whether two fits differ is their paired difference: a beaten fit's note gives its paired
+better. Descriptive share: the median share of the spread in asks the fit puts down to where and which apartment a listing
+is (neighbourhood labels, building, building over time, the apartment itself) rather than to named features; at equal accuracy,
+lower is better, and "—" until the fit's variance breakdown has been run. The ± is against the baseline; whether two fits differ is their paired difference: a beaten fit's note gives its paired
 difference from the best
 (<a href="{{ url_for('research_glossary', _anchor='delta-elpd') }}">why</a>). Fit times compare only on the same hardware. Elegance counts the judge agents'
 verdicts against other designs (<a href="{{ url_for('research_elegance') }}">every judgement</a>); effective parameters are an

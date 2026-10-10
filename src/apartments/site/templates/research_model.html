@@ -8,8 +8,8 @@
 <h1>The served model</h1>
 <p class="lede">The model whose estimates the site shows: <code>{{ p.model.name }}</code> with the <code>{{ p.feature_set }}</code>
 features.{% if sel %} A rule picks it automatically from the board of every fit: among fits that pass the convergence checks on the
-target hardware within the fit-time window, the most accurate. When several are equally accurate, the most elegant wins, and between
-equally elegant ones the fastest.{% endif %}</p>
+target hardware within the fit-time window, the most accurate. When several are equally accurate, the less descriptive wins (a lower
+<a href="#served-checks">descriptive share</a> by more than chance), then the most elegant, then the fastest.{% endif %}</p>
 
 {% if anatomy %}
 <section class="card" id="structure">
@@ -122,8 +122,8 @@ equally elegant ones the fastest.{% endif %}</p>
       <span class="muted">(not yet compared with the other fits on the same listings)</span>{% endif %}</dd>
 
   </dl>
-  <h3>Is the accuracy score trustworthy?</h3>
-  {{ fit_checks(entry, reference) }}
+  <h3 id="served-checks">Is the accuracy score trustworthy, and how much does it explain?</h3>
+  {{ fit_checks(entry) }}
 </section>
 {% endif %}
 

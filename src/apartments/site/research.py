@@ -308,14 +308,29 @@ LINES = {
     "pymc": "PyMC",
 }
 # The first direction of each board sort: most accurate, fastest, fewest
-# effective parameters, newest first.
-BOARD_ORDERS = {"delta": "desc", "time": "asc", "params": "asc", "landed": "desc"}
+# effective parameters, least descriptive, newest first.
+BOARD_ORDERS = {
+    "delta": "desc",
+    "time": "asc",
+    "params": "asc",
+    "descriptive": "asc",
+    "landed": "desc",
+}
 BOARD_SORTS = {
     "delta": lambda e: (e.get("psis") or {}).get("delta"),
     "time": lambda e: e.get("fit_seconds"),
     "params": lambda e: (e.get("psis") or {}).get("p_loo"),
+    "descriptive": lambda e: descriptive_share(e),
     "landed": lambda e: e.get("available_at"),
 }
+
+
+def descriptive_share(e: dict) -> float | None:
+    """The fit's descriptive share (the Fable review, 2026-10-10): the median
+    over draws of neighbourhood labels + building + building over time + unit,
+    from its own variance record; None until the record has one."""
+    d = (e.get("variance") or {}).get("descriptive")
+    return d.get("median", d.get("mean")) if d else None
 
 
 # The judge agents' pairwise elegance judgements, as rentfrontier writes them

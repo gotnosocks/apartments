@@ -93,7 +93,7 @@ next, measured in percentages.{% endif %}</p>
     <tbody>
     {% for r in composition %}
       <tr><td>{{ r.name }}</td><td>{{ r.parts | join(", ") }}</td>
-        {% if r.share %}<td class="num">{{ "%.1f" | format(100 * r.share.mean) }}%</td>
+        {% if r.share %}<td class="num">{{ "%.1f" | format(100 * (r.share | mid)) }}%</td>
         <td class="num muted nowrap">{{ "%.1f" | format(100 * r.share.lower_90) }}% to {{ "%.1f" | format(100 * r.share.upper_90) }}%</td>
         {% else %}<td class="num muted">—</td><td class="num muted">—</td>{% endif %}</tr>
     {% endfor %}
@@ -103,12 +103,17 @@ next, measured in percentages.{% endif %}</p>
 </details>
 
 {% if variance %}
-{% set f = variance.get("features") %}{% set bl = variance.get("building") %}{% set res = variance.get("residual") %}
+{% set f = variance.get("features") %}{% set bl = variance.get("building") %}{% set res = variance.get("residual") %}{% set nl = variance.get("neighbourhood labels") %}
 <p>The layers aren't equal. {% if f %}What a listing says about the apartment explains about
-{{ "%.0f" | format(100 * f.mean) }}% of the spread in asks{% endif %}{% if bl %}, and the building's own premium
-another {{ "%.0f" | format(100 * bl.mean) }}%{% endif %}.{% if res %} What's left, the part nobody could have
-predicted from anything the model knows, is about {{ "%.0f" | format(100 * res.mean) }}%.{% endif %} When two layers move
-together, they share the credit for it.</p>
+{{ "%.0f" | format(100 * (f | mid)) }}% of the spread in asks{% if nl %}, about
+{{ "%.0f" | format(100 * (nl | mid)) }}% of it from the neighbourhood labels alone{% endif %}{% endif %}{% if bl %}, and the building's own premium
+another {{ "%.0f" | format(100 * (bl | mid)) }}%{% endif %}.{% if res %} What's left, the part nobody could have
+predicted from anything the model knows, is about {{ "%.0f" | format(100 * (res | mid)) }}%.{% endif %} When two layers move
+together, they share the credit for it.{% set d = variance.get("descriptive") %}{% if d %} Adding up the parts that
+say only where and which apartment a listing is (the neighbourhood labels, the building, its drift and the apartment itself) gives
+the <em>descriptive share</em>, about {{ "%.0f" | format(100 * (d | mid)) }}%. The research tries to push that down without losing
+accuracy, so that more of each estimate comes from things a renter can name.{% endif %} The shares are medians over the fit's
+draws.</p>
 {% else %}
 <p class="note" id="shares-pending">How much of the spread each layer explains is computed from the fit's
 draws. That breakdown hasn't been run for the served fit yet, and it will appear here once it has.</p>
@@ -454,7 +459,9 @@ Each is there because the model predicted unseen asks better with it, or as well
 previous-price features passed their stricter test and were served automatically.{% if spell.hours is not none %}
 {{ "{:,.0f}".format(spell.hours) }} hours later they were withdrawn, by a person rather than the rule, because a
 model that prices an apartment from its own last ask can score well while explaining nothing.{% endif %} The rule
-picks the better predictor. Whether a feature means anything is still a person's call.</p>{% endfor %}
+picks the better predictor. Since then it has a second test for ties: between two fits about equally accurate, the one
+that puts less of the spread down to where and which apartment a listing is wins, and a feature built from rents gets a
+check on later listings it could not have seen.</p>{% endfor %}
 
 <details class="table-view">
   <summary>Every switch as a table</summary>
@@ -665,8 +672,10 @@ still set aside:</p>
   <li>{{ t.words[:1] | upper }}{{ t.words[1:] }}: {{ "{:+,.1f}".format(t.diff) }} ± {{ "{:,.1f}".format(t.se) }}{% if t.diff < 2 * t.se %}, too small to tell from luck{% endif %}.</li>{% endfor %}
 </ul>
 <p>A model can predict an apartment's ask from its own last ask without saying anything about why that apartment
-costs what it does. Telling the features that explain from those that only echo is still a person's call, made case
-by case.</p>{% endif %}
+costs what it does. Two checks now separate the features that explain from those that only echo. A feature built
+from rents must also predict later listings in a refit that stops at a cut-off date. A feature of the building must
+take more of the buildings' spread than the same column shuffled across buildings would by chance. Between two fits
+about equally accurate, the automatic rule picks the less descriptive one.</p>{% endif %}
 
 <p>To follow along: the <a href="{{ url_for('research_history') }}">history</a> shows each design that has served
 and why it was replaced. The <a href="{{ url_for('research_board') }}">board</a> scores every design we fitted. The

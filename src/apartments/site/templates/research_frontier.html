@@ -131,7 +131,7 @@ then the most elegant, then the fastest, and it changes only when another fit cl
 <section class="card">
   <h2>Elegance</h2>
   <p class="note">Elegance is not a score, so it has no chart: judge agents compare two model designs at a time and say which one
-  is the more coherent statistical model. When two models predict equally well, the more elegant one is served, and a fit judged
+  is the more coherent statistical model. When two models predict equally well, the less descriptive one is served, then the more elegant one, and a fit judged
   more elegant than one that beats it on accuracy and fit time stays on the frontier. {% if judged_pairs %}{{ judged_pairs }} pair{{ "" if judged_pairs == 1 else "s" }}
   of designs {{ "has" if judged_pairs == 1 else "have" }} been judged so far; see <a href="{{ url_for('research_elegance') }}">every
   judgement and its reason</a>.{% else %}No pair of designs has been judged under the elegance brief yet.{% endif %}</p>
@@ -166,7 +166,7 @@ then the most elegant, then the fastest, and it changes only when another fit cl
     consistently, and has no overlapping or competing terms. It avoids one-off flags, hand-tuned cutoffs and patches, uses natural
     forms for its likelihood and priors, and needs no more structural choices than what it captures. For pairs of models that matter,
     two independent AI judges read both model definitions without seeing any scores. Each says which one is more elegant, or that
-    they are about equal, and why. If they disagree, the pair counts as equal. Ties in accuracy go to the more elegant model. The table counts each fit's judged pairs.</dd>
+    they are about equal, and why. If they disagree, the pair counts as equal. Ties in accuracy go first to the less descriptive model, then to the more elegant one. The table counts each fit's judged pairs.</dd>
     <dt>Convergence checks</dt><dd>Whether the sampler settled on one stable answer (R-hat and effective sample size). A fit that
       fails them is shown hollow and never served.</dd>
     <dt>Exploration fits</dt><dd>Short fits (fewer draws) that show quickly whether a design is promising. They count on the
