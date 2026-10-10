@@ -1,6 +1,29 @@
 # Data improvements — handoff
 
-Updated 2026-10-10 13:20 ET. Thread owner: the Data improvements project thread (bridge session on thelio).
+Updated 2026-10-10 15:45 ET. Thread owner: the Data improvements project thread (bridge session on thelio).
+
+## 2026-10-10 15:45 ET
+
+- Ben (19:07Z, 19:16Z) asked for the structured pet field to be updated from the description text.
+  The prompt was 225 W 12th: its pets field is coded unknown on 76 of 79 rows, but its ads say
+  "no dogs". For pets only, this is an exception to the 2026-10-04 rule that ad text must not
+  override coded fields.
+- #666 `nb8-nostuy-petsfill-v1` (merged, `bf2937a0`):
+  - Classifier: `petstext.classify` sorts ad text into no_pets, no_dogs, case_by_case, allowed or
+    none, with the most restrictive class winning. It does not read "no pet fee(s)/deposit(s)" as a
+    ban, and it reads a size limit as case by case.
+  - Building fill: `asof_pets` falls back to the building's latest class from strictly earlier days.
+  - Overlay: `overlay_pets` keeps a known code, except that "allowed" becomes `no_dogs` when the
+    row's own ad says no dogs. An unknown code takes the mapped text class (allowed, approval_required,
+    not_allowed, or a new `no_dogs`).
+  - Effect: unknown pets falls from 171k rows to 50k. The model gains one column, `pets=no_dogs`.
+  - Status: I sent Modeling the set name and SHA, and they queue it after the amenlevel fits.
+- Measurement: where the coded field is known, the text agrees on 43k rows. It is more specific
+  (allowed vs cats only) on 30, and contradicts it on none.
+- #663 (the version with parallel columns) is closed. #666 also added bigbed and amenlevel to
+  `NB8_ONLY` in test_nb8.py, which Modeling asked for.
+- Possible v2 for pets: a place phrase such as "no pets above the store" reads as case by case
+  (rare). Descriptions are the last captured text.
 
 ## 2026-10-10 13:20 ET
 
