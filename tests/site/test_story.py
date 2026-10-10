@@ -88,6 +88,11 @@ def test_build_up_ends_at_the_estimate(client):
     # the served model is defined where it is first named; the example's band links to the ranges box
     assert "The served model (the one behind every estimate on the site)" in text
     assert 'its 95% range for the ask (<a href="#ranges">' in text
+    # the example's biggest part is explained in its layer's words
+    assert re.search(
+        r"The biggest part after the market is “[^”]+” \([+−-]\$[\d,]+\)\. It belongs to “[^”]+” in <a href=\"#shape\">",
+        text,
+    )
     # a wide miss is set against the example's own 95% range
     wide = "more than twice the typical miss" in text
     assert wide == ("about 1 ask in 20" in text)
