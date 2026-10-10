@@ -1,6 +1,6 @@
 # Data collection — handoff
 
-Updated 2026-10-09 16:50 ET. Thread owner: the Data collection project thread (bridge session on thelio).
+Updated 2026-10-10 07:15 ET. Thread owner: the Data collection project thread (bridge session on thelio).
 
 ## State
 - **Stuyvesant Town/PCV: crawl FINISHED** Oct 8 15:21 ET (6,139 requests, ~$7, no 429s),
@@ -11,21 +11,14 @@ Updated 2026-10-09 16:50 ET. Thread owner: the Data collection project thread (b
   see `docs/data/nomad-collection.md`. Snapshot written compacted (20.4 → 11.5 GB, rows and audit
   verified). `apartments-nomad-monitor.timer` disabled. Handed to Data improvements and Modeling
   via the coordinator.
-- **East Village crawl: RUNNING**, on `run-32pm-8w.py` (32/min) since the balancer moved it at
-  08:50 ET when NoMad finished. The relaunch rebuilds scope from its ~30k snapshots before
-  fetching (~45 min). It was paused 18:40–20:00 ET Oct 8 after every Oxylabs request failed with
-  HTTP 429 from ~18:14 ET, then resumed (Ben, typed Oct 9 00:00 UTC: "Resume the crawls"). Its
-  in-scope queue hovers between ~30 and ~550 pages as building pages add unit pages, so there is
-  no firm finish time. **Building-first since 16:10 ET Oct 9** (Ben, typed 20:03 UTC: "Restructure
-  the East Village crawl to fetch all directory and building pages first, then units and listings,
-  and make that the default for future crawls."): PR #620 made `--claim-order structure-first`
-  the default (directory, then building pages, then units and ads in the old order; `original`
-  keeps store.py's order). The runners in `data/probes/east-village-20261008/` (local) load
-  `runtime-91f9ed4/src` there; the old runners are in
-  `runners-df7a0aa/`. Fetching resumed 16:43 ET on directory and building pages. Once those are
-  all read, give Ben a firm finish time and cost (Oct 9 estimate: Sat morning to Sun midday,
-  ~$40–100 more). When it finishes: disable `apartments-ev-monitor.timer` and
-  `apartments-rate-balance.timer`, then build as for NoMad (`/data1/apartments/tmp/nomad-build-20261009`).
+- **East Village: crawl FINISHED** Oct 10 05:55 ET (82,979 requests, ~$95, no 429s after Oct 8),
+  **dataset BUILT** 07:02 ET: see `docs/data/east-village-collection.md`. Building-first from
+  16:10 ET Oct 9 (#620, now the default claim order for backfill/update/resume) and 64/min from
+  18:57 ET Oct 9 (Ben, typed 22:56 UTC: "Double the rate to 64/min"). Snapshot written compacted
+  (99.7 → 55.7 GB, rows and audit verified). `apartments-ev-monitor.timer` and
+  `apartments-rate-balance.timer` disabled; no crawl is running. Handed to Data improvements and
+  Modeling via the coordinator. The crawl database is kept until Ben says to delete
+  it, as for FGP and GV.
 - **NoMad, East Village crawl setup**: launched Oct 8 02:23 ET (Ben, typed
   06:19 UTC). One StreetEasy area each (`nomad`, `east-village`, `stuyvesant-town`; #482), FGP
   policy, launched at `run-8pm-2w.py` each (24/min combined), fallback 8pm → 4pm → STOP; monitors
@@ -88,6 +81,6 @@ Updated 2026-10-09 16:50 ET. Thread owner: the Data collection project thread (b
 ## Rules that bind this thread
 - Oxylabs requests and new timers need Ben's words typed in this thread (the classifier blocks
   relayed approvals).
-- Never raise rate/concurrency beyond Ben's setting (FGP's last setting: 32/min, Oct 7; the Oct 8 crawls: 32/min combined); never loosen eligibility; crawl code
+- Never raise rate/concurrency beyond Ben's setting (FGP's last setting: 32/min, Oct 7; the Oct 8 crawls: 32/min combined, then 64/min from Oct 9); never loosen eligibility; crawl code
   only through a new frozen runtime directory.
 - PRs: reviewer subagent, annotated `archive/pr-N` tag, `gh pr merge N --squash --match-head-commit`.
