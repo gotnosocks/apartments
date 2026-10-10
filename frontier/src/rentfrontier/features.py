@@ -3397,6 +3397,51 @@ def elevfill_v1(
     )
 
 
+def pets_text_v1(
+    frame: pd.DataFrame,
+    train: np.ndarray,
+    id: str,
+    base: str,
+) -> Features:
+    """A base set plus the pet policy the ad text states (`petstext.asof_pets`:
+    the row's own ad, else the building's latest earlier ad). The coded policy
+    stays as the base has it. The text classes split the rows whose coded
+    policy is unknown, where they add information and are not near copies of
+    the coded levels, against no text signal. A flag marks rows whose coded
+    policy allows pets but whose own ad says no dogs or no pets. Reads no
+    rents."""
+    from . import descriptions, petstext
+
+    asof = petstext.asof_pets(frame, descriptions.attach(frame))
+    unknown = frame.pets.eq("unknown").to_numpy()
+    text = asof.pets.to_numpy()
+    own = asof.source.eq("own").to_numpy()
+    base = FEATURE_SETS[base](frame, train)
+    b = _Builder(frame)
+    for name, label in (
+        ("allowed", "allowed"),
+        ("case_by_case", "case by case"),
+        ("no_dogs", "no dogs"),
+        ("no_pets", "no pets"),
+    ):
+        b.add("pets", f"pets unknown, ad text says {label}", unknown & (text == name))
+    b.add(
+        "pets",
+        "pets allowed, ad text forbids",
+        frame.pets.eq("allowed_restrictions_unknown").to_numpy()
+        & own
+        & np.isin(text, ["no_dogs", "no_pets"]),
+    )
+    out = b.build(id)
+    return Features(
+        id,
+        base.names + out.names,
+        base.groups + out.groups,
+        np.column_stack([base.values, out.values]),
+        np.concatenate([base.prior_scale, out.prior_scale]),
+    )
+
+
 def nta_v1(
     frame: pd.DataFrame,
     train: np.ndarray,
@@ -4748,6 +4793,13 @@ FEATURE_SETS["nb8-nostuy-elevfill-v1"] = partial(
 NB8_SETS["nb8-nostuy-bigbed-v1"] = "nb5-plutoasof-v3"
 FEATURE_SETS["nb8-nostuy-bigbed-v1"] = partial(
     bigbed_v1, id="nb8-nostuy-bigbed-v1", base="nb8-nostuy-v1"
+)
+# nb8-nostuy-v1 plus the pet policy the ad text states where the coded policy
+# is unknown, and a flag where the two conflict (`pets_text_v1`). It reads only
+# the listings' descriptions, so no snapshot.
+NB8_SETS["nb8-nostuy-pets-v1"] = "nb5-plutoasof-v3"
+FEATURE_SETS["nb8-nostuy-pets-v1"] = partial(
+    pets_text_v1, id="nb8-nostuy-pets-v1", base="nb8-nostuy-v1"
 )
 for _new, _old in NB8_SETS.items():
     for _group in (
