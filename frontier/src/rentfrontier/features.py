@@ -1681,12 +1681,12 @@ HPD_FILE = f"{HPD_SNAPSHOT}/hpd.parquet"
 # Rent-stabilized units per lot and tax-bill year (`rentfrontier.external rentstab`).
 RENTSTAB_SNAPSHOT = "/data1/apartments/external/rentstab/20261008-b487c8a"
 RENTSTAB_FILE = f"{RENTSTAB_SNAPSHOT}/rentstab.parquet"
-# MapPLUTO for every lot on the seven neighbourhoods' tax blocks (external.py
+# MapPLUTO for every lot on the eight neighbourhoods' tax blocks (external.py
 # blocklots): which lots a footprint spans (`lot_open_share_v2`).
-BLOCKLOTS_SNAPSHOT = "/data1/apartments/external/blocklots/20261009-98db59b"
+BLOCKLOTS_SNAPSHOT = "/data1/apartments/external/blocklots/20261010-c90ddbd"
 BLOCKLOTS_FILE = f"{BLOCKLOTS_SNAPSHOT}/blocklots.parquet"
 # 2020 Neighborhood Tabulation Areas by building (`python -m rentfrontier.nta`).
-NTA_FILE = "/data1/apartments/external/nta/20261009-98db59b/nta.parquet"
+NTA_FILE = "/data1/apartments/external/nta/20261010-c90ddbd/nta.parquet"
 NTA_FOLDED = "Stuyvesant Town-Peter Cooper Village"
 # Years a lot's last stabilized-units bill counts for (the 2019 bill reaches 2022).
 STAB_CARRY_YEARS = 3
@@ -3368,6 +3368,47 @@ def nta_v1(
     )
 
 
+# NTAs that take the reference level in nb8's NTA set (`nta_v2`), besides
+# Stuyvesant Town-Peter Cooper Village. East Village's NTA holds exactly
+# StreetEasy's East Village rows, so its level would equal nb8-nostuy-v1's East
+# Village indicator. The West Village and Greenwich Village NTAs together hold
+# exactly those two neighbourhoods' rows, so with both levels the four columns
+# sum to zero in one direction; Greenwich Village's level adds nothing the
+# other three don't hold.
+NB8_NTA_FOLDED = (NTA_FOLDED, "East Village", "Greenwich Village")
+
+
+def nta_names(frame: pd.DataFrame, folded: tuple[str, ...]) -> pd.Series:
+    """Each row's building's 2020 NTA (`NTA_FILE`), "unknown" for a building in
+    none, and each NTA in `folded` as the reference, Chelsea-Hudson Yards."""
+    areas = pd.read_parquet(NTA_FILE).set_index("building").ntaname
+    name = frame.building.map(areas).fillna("unknown")
+    return name.replace(dict.fromkeys(folded, "Chelsea-Hudson Yards"))
+
+
+def nta_v2(
+    frame: pd.DataFrame,
+    train: np.ndarray,
+    id: str,
+    base: str,
+    folded: tuple[str, ...] = NB8_NTA_FOLDED,
+) -> Features:
+    """`nta_v1` with each NTA in `folded` taking the reference level: an NTA
+    whose rows are one neighbourhood's would only repeat that neighbourhood's
+    indicator. Reads no rents."""
+    base = FEATURE_SETS[base](frame, train)
+    b = _Builder(frame)
+    b.categorical("nta", nta_names(frame, folded), reference="Chelsea-Hudson Yards")
+    out = b.build(id)
+    return Features(
+        id,
+        base.names + out.names,
+        base.groups + out.groups,
+        np.column_stack([base.values, out.values]),
+        np.concatenate([base.prior_scale, out.prior_scale]),
+    )
+
+
 def owner_v1(
     frame: pd.DataFrame,
     train: np.ndarray,
@@ -3392,7 +3433,7 @@ def owner_v1(
 
 # Each listing's lister (`rentfrontier.lister`): name kind and how many of the
 # building's earlier listings the same lister listed.
-LISTER_FILE = "/data1/apartments/external/lister/20261009-dcee63b/lister.parquet"
+LISTER_FILE = "/data1/apartments/external/lister/20261010-b5c71cf/lister.parquet"
 
 
 def lister_v1(
@@ -4437,6 +4478,91 @@ for _new, _old in NB7_SETS.items():
     EXTRAS_SNAPSHOTS[_new] = NB7_EXTRAS_FILE
     LPC_SNAPSHOTS[_new] = NB7_LPC_FILE
     PLUTO_RELEASES_SNAPSHOTS[_new] = NB7_PLUTO_RELEASES_FILE
+
+
+# The eight neighbourhoods (data.DATASET_NB8): the seven plus East Village
+# (east-village-analysis-20261010-3ebfea04), crawled building first. Its
+# registry (20261010-3ebfea0, each page geocoded from its own address, no
+# overrides) merged into nb7's, its MapPLUTO, footprints and basemap merged
+# into nb7's (nb7's rows unchanged), the eight crawls' listing extras, and the
+# sources keyed by lot fetched on the merged registry.
+NB8_REGISTRY_FILE = (
+    "/data1/apartments/external/registry/20261010-b5c71cf/buildings.parquet"
+)
+NB8_PLUTO_FILE = "/data1/apartments/external/pluto/20261010-b5c71cf/pluto.parquet"
+NB8_FOOTPRINTS_FILE = (
+    "/data1/apartments/external/footprints/20261010-b5c71cf/footprints.parquet"
+)
+NB8_BASEMAP_FILE = "/data1/apartments/external/basemap/20261010-b5c71cf/basemap.parquet"
+NB8_EXTRAS_FILE = (
+    "/data1/apartments/external/listing-extras/20261010-b5c71cf/listing-extras.parquet"
+)
+NB8_LPC_FILE = "/data1/apartments/external/lpc/20261010-b5c71cf/lpc.parquet"
+NB8_HPD_FILE = "/data1/apartments/external/hpd/20261010-b5c71cf/hpd.parquet"
+NB8_STOREFRONTS_FILE = (
+    "/data1/apartments/external/storefronts/20261010-b5c71cf/storefronts.parquet"
+)
+NB8_PARKS_FILE = "/data1/apartments/external/parks/20261010-b5c71cf/parks.parquet"
+NB8_PLUTO_RELEASES_FILE = (
+    "/data1/apartments/external/plutoreleases/20261010-b5c71cf/plutoreleases.parquet"
+)
+_NB8_DESCRIPTIONS = {
+    **_NB7_DESCRIPTIONS,
+    "descriptions_ev": str(descriptions_module.EV_SOURCE),
+}
+# The nb8 sets read what their nb5 counterpart reads, from the eight
+# neighbourhoods' snapshots in place of the seven's.
+NB8_SETS = {
+    "nb8-nostuy-v1": "nb5-plutoasof-v3",
+    "nb8-nostuy-sizefill-v1": "nb5-plutoasof-v3",
+    "nb8-nostuy-nta-v1": "nb5-plutoasof-v3",
+    "nb8-nostuy-lister-v1": "nb5-plutoasof-v3",
+}
+# nb7-nostuy-v1 plus an East Village indicator: the eight neighbourhoods'
+# base, and the base the tests below sit on (size as of the day, NTAs,
+# lister). Not fitted while model runs are paused. No riverparks twin yet:
+# the parks snapshot adds Pier 42 (acquired 2006; interim use 2013, the
+# finished park 2024-07-03), which `riverparks.OPENED` has no date for.
+FEATURE_SETS["nb8-nostuy-v1"] = partial(
+    hoods_v1,
+    id="nb8-nostuy-v1",
+    base="nb3-coded-v2",
+    hoods=("Flatiron", "Gramercy Park", "NoMad", "East Village"),
+)
+FEATURE_SETS["nb8-nostuy-sizefill-v1"] = partial(
+    sizefill_v1, id="nb8-nostuy-sizefill-v1", base="nb8-nostuy-v1"
+)
+FEATURE_SETS["nb8-nostuy-nta-v1"] = partial(
+    nta_v2, id="nb8-nostuy-nta-v1", base="nb8-nostuy-v1"
+)
+FEATURE_SETS["nb8-nostuy-lister-v1"] = partial(
+    lister_v1, id="nb8-nostuy-lister-v1", base="nb8-nostuy-v1"
+)
+NTA.add("nb8-nostuy-nta-v1")
+LISTER.add("nb8-nostuy-lister-v1")
+for _new, _old in NB8_SETS.items():
+    for _group in (
+        EXTERNAL,
+        BASEMAP,
+        FOOTPRINTS,
+        DESCRIPTIONS,
+        AS_OF_SETS,
+        LISTING_EXTRAS,
+        PRICE_HISTORY,
+        READS_EARLIER_RENTS,
+        PLUTO_RELEASED_SETS,
+    ):
+        if _old in _group:
+            _group.add(_new)
+    LOT_SNAPSHOTS[_new] = {"registry": NB8_REGISTRY_FILE, "pluto": NB8_PLUTO_FILE}
+    AREA_SNAPSHOTS[_new] = {
+        "basemap": NB8_BASEMAP_FILE,
+        "footprints": NB8_FOOTPRINTS_FILE,
+    }
+    DESCRIPTION_SOURCES[_new] = _NB8_DESCRIPTIONS
+    EXTRAS_SNAPSHOTS[_new] = NB8_EXTRAS_FILE
+    LPC_SNAPSHOTS[_new] = NB8_LPC_FILE
+    PLUTO_RELEASES_SNAPSHOTS[_new] = NB8_PLUTO_RELEASES_FILE
 
 
 def lot_files(name: str) -> dict:
