@@ -477,10 +477,13 @@ def records(tmp_path, monkeypatch):
         }
         (d / "result.json").write_text(json.dumps({"shares": shares}))
 
-    def screened(base, candidate_set, null_95):
+    def screened(base, candidate_set, null_95, explained=0.0, **more):
+        """more: further families, name=(explained, null_95)."""
         d = tmp_path / "explained" / f"{base}-{candidate_set}-abc1234"
         d.mkdir(parents=True)
-        families = {"fam": {"null_95": null_95}}
+        families = {"fam": {"explained": explained, "null_95": null_95}}
+        for name, (x, n) in more.items():
+            families[name] = {"explained": x, "null_95": n}
         (d / "result.json").write_text(json.dumps({"families": families}))
 
     return variance, screened
@@ -556,3 +559,110 @@ def test_a_tied_more_descriptive_challenger_is_refused_even_if_more_elegant(
     es = [entry(tmp_path, "inc", 10.0, 1300), entry(tmp_path, "new", 10.5, 1300)]
     d = autoselect.decide(es, "inc", RULES, paired_from(deltas), no_heldout_loss)
     assert d["action"] == "keep"
+
+
+def test_added_building_families_win_a_tie_only_if_all_beat_chance(tmp_path, records):
+    _, screened = records
+    inc = entry(tmp_path, "inc", 0, 1, feature_set="f")
+    new = entry(tmp_path, "new", 0, 1, feature_set="g")
+    assert autoselect.screen_wins(new, inc) == 0  # no screen
+    # C's hpd: explained 0.014 over a null_95 of -0.001 beats max(0, null_95).
+    screened("inc", "g", -0.001, explained=0.014)
+    assert autoselect.screen_wins(new, inc) == 1
+    assert autoselect.screen_wins(inc, new) == -1
+
+
+def test_one_family_at_chance_leaves_the_tie_to_the_descriptive_share(
+    tmp_path, records
+):
+    _, screened = records
+    inc = entry(tmp_path, "inc", 0, 1, feature_set="f")
+    new = entry(tmp_path, "new", 0, 1, feature_set="g")
+    # C's crime: negative explained, though above its (negative) null_95.
+    screened("inc", "g", -0.001, explained=0.014, crime=(-0.0004, -0.0005))
+    assert autoselect.screen_wins(new, inc) == 0
+
+
+def test_a_tied_challenger_whose_families_beat_chance_replaces_the_incumbent(
+    tmp_path, monkeypatch, records
+):
+    variance, screened = records
+    judged(monkeypatch, {("inc", "new"): "inc"})
+    variance("inc", 0.2206, half=0.0063)
+    variance("new", 0.2192, half=0.0063)  # a drop the descriptive rule can't see
+    screened("inc", "g", -0.001, explained=0.014)
+    deltas = {"inc": 10.0, "new": 10.5}
+    es = [
+        entry(tmp_path, "inc", 10.0, 1300, feature_set="f"),
+        entry(tmp_path, "new", 10.5, 1300, feature_set="g"),
+    ]
+    order = [
+        e["splits"]["rows"]["run"] for e in autoselect.ranked(es, paired_from(deltas))
+    ]
+    assert order == ["new", "inc"]
+    d = autoselect.decide(es, "inc", RULES, paired_from(deltas), no_heldout_loss)
+    assert d["action"] == "switch" and "beats chance" in d["reason"]
+    assert d["checked"][0]["screen"] == 1
+
+
+def test_dropping_families_that_beat_chance_is_refused_even_if_more_elegant(
+    tmp_path, monkeypatch, records
+):
+    _, screened = records
+    judged(monkeypatch, {("inc", "new"): "new"})
+    screened("new", "f", -0.001, explained=0.014)  # inc adds them to new's set
+    deltas = {"inc": 10.0, "new": 10.5}
+    es = [
+        entry(tmp_path, "inc", 10.0, 1300, feature_set="f"),
+        entry(tmp_path, "new", 10.5, 1300, feature_set="g"),
+    ]
+    d = autoselect.decide(es, "inc", RULES, paired_from(deltas), no_heldout_loss)
+    assert d["action"] == "keep"
+
+
+def test_a_screen_at_chance_leaves_the_tie_to_elegance(tmp_path, monkeypatch, records):
+    _, screened = records
+    judged(monkeypatch, {("inc", "new"): "inc"})
+    screened("inc", "g", -0.001, explained=-0.0004)  # C's trees/crime: no signal
+    deltas = {"inc": 10.0, "new": 10.5}
+    es = [
+        entry(tmp_path, "inc", 10.0, 1300, feature_set="f"),
+        entry(tmp_path, "new", 10.5, 1300, feature_set="g"),
+    ]
+    d = autoselect.decide(es, "inc", RULES, paired_from(deltas), no_heldout_loss)
+    assert d["action"] == "keep" and d["checked"][0]["screen"] == 0
+
+
+def test_sibling_sets_that_both_pass_the_screen_leave_the_tie_open(
+    tmp_path, monkeypatch, records
+):
+    _, screened = records
+    judged(monkeypatch, {("inc", "new"): "inc"})
+    screened("inc", "g", -0.001, explained=0.014)
+    screened("new", "f", -0.001, explained=0.009)
+    deltas = {"inc": 10.0, "new": 10.5}
+    es = [
+        entry(tmp_path, "inc", 10.0, 1300, feature_set="f"),
+        entry(tmp_path, "new", 10.5, 1300, feature_set="g"),
+    ]
+    d = autoselect.decide(es, "inc", RULES, paired_from(deltas), no_heldout_loss)
+    assert d["action"] == "keep" and d["checked"][0]["screen"] == 0
+
+
+def test_a_screen_loser_ranks_behind_a_less_descriptive_fit(
+    tmp_path, monkeypatch, records
+):
+    variance, screened = records
+    judged(monkeypatch, {("inc", "new"): "new"})
+    variance("inc", 0.25)
+    variance("new", 0.20)
+    screened("new", "f", -0.001, explained=0.014)  # inc's families beat chance
+    deltas = {"inc": 10.0, "new": 10.5}
+    es = [
+        entry(tmp_path, "inc", 10.0, 1300, feature_set="f"),
+        entry(tmp_path, "new", 10.5, 1300, feature_set="g"),
+    ]
+    order = [
+        e["splits"]["rows"]["run"] for e in autoselect.ranked(es, paired_from(deltas))
+    ]
+    assert order == ["inc", "new"]
