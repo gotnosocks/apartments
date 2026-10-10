@@ -4439,6 +4439,92 @@ for _new, _old in NB7_SETS.items():
     PLUTO_RELEASES_SNAPSHOTS[_new] = NB7_PLUTO_RELEASES_FILE
 
 
+# The eight neighbourhoods (data.DATASET_NB8): the seven plus East Village
+# (east-village-analysis-20261010-3ebfea04), crawled building first. Its
+# registry (@REG@, each page geocoded from its own address, no
+# overrides) merged into nb7's, its MapPLUTO, footprints and basemap merged
+# into nb7's (nb7's rows unchanged), the eight crawls' listing extras, and the
+# sources keyed by lot fetched on the merged registry.
+NB8_REGISTRY_FILE = "/data1/apartments/external/registry/@SNAP@/buildings.parquet"
+NB8_PLUTO_FILE = "/data1/apartments/external/pluto/@SNAP@/pluto.parquet"
+NB8_FOOTPRINTS_FILE = "/data1/apartments/external/footprints/@SNAP@/footprints.parquet"
+NB8_BASEMAP_FILE = "/data1/apartments/external/basemap/@SNAP@/basemap.parquet"
+NB8_EXTRAS_FILE = (
+    "/data1/apartments/external/listing-extras/@SNAP@/listing-extras.parquet"
+)
+NB8_LPC_FILE = "/data1/apartments/external/lpc/@SNAP@/lpc.parquet"
+NB8_HPD_FILE = "/data1/apartments/external/hpd/@SNAP@/hpd.parquet"
+NB8_STOREFRONTS_FILE = (
+    "/data1/apartments/external/storefronts/@SNAP@/storefronts.parquet"
+)
+NB8_PARKS_FILE = "/data1/apartments/external/parks/@SNAP@/parks.parquet"
+NB8_PLUTO_RELEASES_FILE = (
+    "/data1/apartments/external/plutoreleases/@SNAP@/plutoreleases.parquet"
+)
+_NB8_DESCRIPTIONS = {
+    **_NB7_DESCRIPTIONS,
+    "descriptions_ev": str(descriptions_module.EV_SOURCE),
+}
+# The nb8 sets read what their nb5 counterpart reads, from the eight
+# neighbourhoods' snapshots in place of the seven's.
+NB8_SETS = {
+    "nb8-nostuy-v1": "nb5-plutoasof-v3",
+    "nb8-nostuy-riverparks-v1": "nb5-plutoasof-v3",
+    "nb8-nostuy-sizefill-v1": "nb5-plutoasof-v3",
+    "nb8-nostuy-nta-v1": "nb5-plutoasof-v3",
+    "nb8-nostuy-lister-v1": "nb5-plutoasof-v3",
+}
+# nb7-nostuy-v1 plus an East Village indicator: the eight neighbourhoods'
+# base, and the base the tests below sit on (parks, size as of the day, NTAs,
+# lister). Not fitted while model runs are paused.
+FEATURE_SETS["nb8-nostuy-v1"] = partial(
+    hoods_v1,
+    id="nb8-nostuy-v1",
+    base="nb3-coded-v2",
+    hoods=("Flatiron", "Gramercy Park", "NoMad", "East Village"),
+)
+FEATURE_SETS["nb8-nostuy-riverparks-v1"] = partial(
+    riverparks_v1, id="nb8-nostuy-riverparks-v1", base="nb8-nostuy-v1"
+)
+FEATURE_SETS["nb8-nostuy-sizefill-v1"] = partial(
+    sizefill_v1, id="nb8-nostuy-sizefill-v1", base="nb8-nostuy-v1"
+)
+FEATURE_SETS["nb8-nostuy-nta-v1"] = partial(
+    nta_v1, id="nb8-nostuy-nta-v1", base="nb8-nostuy-v1"
+)
+FEATURE_SETS["nb8-nostuy-lister-v1"] = partial(
+    lister_v1, id="nb8-nostuy-lister-v1", base="nb8-nostuy-v1"
+)
+RIVERPARKS.add("nb8-nostuy-riverparks-v1")
+NTA.add("nb8-nostuy-nta-v1")
+LISTER.add("nb8-nostuy-lister-v1")
+PARKS.add("nb8-nostuy-riverparks-v1")
+PARKS_SNAPSHOTS["nb8-nostuy-riverparks-v1"] = NB8_PARKS_FILE
+for _new, _old in NB8_SETS.items():
+    for _group in (
+        EXTERNAL,
+        BASEMAP,
+        FOOTPRINTS,
+        DESCRIPTIONS,
+        AS_OF_SETS,
+        LISTING_EXTRAS,
+        PRICE_HISTORY,
+        READS_EARLIER_RENTS,
+        PLUTO_RELEASED_SETS,
+    ):
+        if _old in _group:
+            _group.add(_new)
+    LOT_SNAPSHOTS[_new] = {"registry": NB8_REGISTRY_FILE, "pluto": NB8_PLUTO_FILE}
+    AREA_SNAPSHOTS[_new] = {
+        "basemap": NB8_BASEMAP_FILE,
+        "footprints": NB8_FOOTPRINTS_FILE,
+    }
+    DESCRIPTION_SOURCES[_new] = _NB8_DESCRIPTIONS
+    EXTRAS_SNAPSHOTS[_new] = NB8_EXTRAS_FILE
+    LPC_SNAPSHOTS[_new] = NB8_LPC_FILE
+    PLUTO_RELEASES_SNAPSHOTS[_new] = NB8_PLUTO_RELEASES_FILE
+
+
 def lot_files(name: str) -> dict:
     """The registry and MapPLUTO files a feature set's building lots read."""
     return LOT_SNAPSHOTS.get(name, {"registry": REGISTRY_FILE, "pluto": PLUTO_FILE})

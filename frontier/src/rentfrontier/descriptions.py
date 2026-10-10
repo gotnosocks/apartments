@@ -64,6 +64,11 @@ STUY_SOURCE = Path(
 NOMAD_SOURCE = Path(
     "/data1/apartments/frontier/descriptions/nomad-20261009-d3b4050/evidence.jsonl"
 )
+# East Village: each row's own ad from the building-first crawl of 2026-10-08
+# (cohort east-village-analysis-20261010-3ebfea04; 66,340 evidence lines).
+EV_SOURCE = Path(
+    "/data1/apartments/frontier/descriptions/east-village-20261010-3ebfea0/evidence.jsonl"
+)
 # The evidence files `attach` reads while a feature set is built
 # (`features.build`); Chelsea's alone unless the feature set lists more.
 SOURCES: contextvars.ContextVar[tuple[Path, ...]] = contextvars.ContextVar(

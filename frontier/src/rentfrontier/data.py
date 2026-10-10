@@ -55,6 +55,11 @@ DATASET_NB6 = Path(
 DATASET_NB7 = Path(
     "/data1/apartments/frontier/datasets/chelsea-wv-gv-flatiron-gramercy-stuy-nomad-analysis-20261009-d3b4050"
 )
+# The seven plus East Village (cohort east-village-analysis-20261010-3ebfea04),
+# no rule change.
+DATASET_NB8 = Path(
+    "/data1/apartments/frontier/datasets/chelsea-wv-gv-flatiron-gramercy-stuy-nomad-ev-analysis-20261010-3ebfea0"
+)
 OUTPUT_ROOT = Path(os.environ.get("FRONTIER_OUTPUT_ROOT", "/data1/apartments/frontier"))
 
 # Version of the flattened row (the cache key): v2 adds the neighbourhood.

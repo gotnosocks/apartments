@@ -87,7 +87,7 @@ def main():
     started = dt.datetime.now(dt.UTC)
     collection, url = fetch()
     areas = collection["features"]
-    registry = pd.read_parquet(features.NB7_REGISTRY_FILE)
+    registry = pd.read_parquet(features.NB8_REGISTRY_FILE)
     registry = registry.drop_duplicates("building")
     table = assign(registry, areas)
     out_dir = EXTERNAL_ROOT / "nta" / f"{started:%Y%m%d}-{commit[:7]}"
@@ -100,7 +100,7 @@ def main():
             {
                 "source": url,
                 "dataset": DATASET,
-                "registry": features.NB7_REGISTRY_FILE,
+                "registry": features.NB8_REGISTRY_FILE,
                 "retrieved_at": started.isoformat(),
                 "commit": commit,
                 "areas": len(areas),
