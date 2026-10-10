@@ -49,6 +49,10 @@ PARTS = {
         "datasets/nomad-granular-20261009-canonical-url-v1",
         "snapshots/nomad-20261008-final/archive.sqlite3",
     ),
+    "East Village": (
+        "datasets/east-village-granular-20261010-canonical-url-v1",
+        "snapshots/east-village-20261008-final/archive.sqlite3",
+    ),
 }
 
 

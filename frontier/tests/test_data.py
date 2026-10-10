@@ -986,3 +986,46 @@ def test_unit_labels_v14_is_v13_on_the_tables_with_nomads_appended():
     )
     assert v13.unit_id.iat[4] != v13.unit_id.iat[5]
     assert v14.unit_id.iat[4] == v14.unit_id.iat[5] == min(group[:2])
+
+
+def test_unit_labels_v15_is_v14_on_the_tables_with_east_villages_appended():
+    """v15 reads the alias table and history pairs v14 reads, line for line,
+    with East Village's added; on other neighbourhoods' units it joins what v14
+    joins, and it joins an East Village alias group."""
+    for old, new in (
+        (data.UNIT_ALIASES_NOMAD, data.UNIT_ALIASES_EV),
+        (data.UNIT_HISTORY_PAIRS_NOMAD, data.UNIT_HISTORY_PAIRS_EV),
+    ):
+        before, after = old.read_text(), new.read_text()
+        assert after.startswith(before) and len(after) > len(before)
+    nomad, ev = (
+        set(data.unit_aliases(data.UNIT_ALIASES_NOMAD)),
+        set(data.unit_aliases(data.UNIT_ALIASES_EV)),
+    )
+    assert nomad < ev and len(ev - nomad) == 405
+    assert data.RULE_SOURCES["unit-labels-v15"] == data.UNIT_ALIASES_EV
+    assert "unit-labels-v15" not in data.DROPPING_RULES
+    url = "https://streeteasy.com/building/{}/{}".format
+    group = next(iter(ev - nomad))
+    frame = pd.DataFrame(
+        {
+            "building": ["b1"] * 4 + ["b2"] * 2,
+            "canonical_unit_url": [
+                url("b1", "fourb"),
+                url("b1", "4b"),
+                url("b1", "c7"),
+                url("b1", "7c"),
+                url("b2", "2a"),
+                url("b2", "2b"),
+            ],
+            "unit_id": ["u4", "u3", "u5", "u6", group[0], group[1]],
+            "bedrooms": [1.0, 1.0, 2.0, 2.0, 1.0, 1.0],
+        }
+    )
+    v14 = data.DATA_RULES["unit-labels-v14"](frame)
+    v15 = data.DATA_RULES["unit-labels-v15"](frame)
+    assert (
+        v15.unit_id.tolist()[:4] == v14.unit_id.tolist()[:4] == ["u3", "u3", "u5", "u5"]
+    )
+    assert v14.unit_id.iat[4] != v14.unit_id.iat[5]
+    assert v15.unit_id.iat[4] == v15.unit_id.iat[5] == min(group[:2])
