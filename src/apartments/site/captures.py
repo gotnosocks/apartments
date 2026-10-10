@@ -57,7 +57,9 @@ def now() -> dt.datetime:
 
 
 def fresh(r: dict, at: dt.datetime) -> bool:
-    """Whether a row was last seen within CURRENT_DAYS of `at`."""
+    """Whether a row was last seen within CURRENT_DAYS of `at`. A dataset
+    row's `collected_at` is when it was last seen; `price_at` is the ask's own
+    date, the same instant for a current capture."""
     text = r.get("collected_at") or r.get("price_at")
     if not text:
         return False

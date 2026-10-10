@@ -149,6 +149,21 @@ def test_a_listing_the_dataset_dropped_stays_out(tmp_path):
     assert out == [] and status["priced"] == 0
 
 
+def test_a_stale_current_dataset_row_lets_a_newer_capture_in(tmp_path):
+    write_capture(tmp_path, "20261006", [candidate(1, rent=3300)])
+    buildings = [{"id": BUILDING, "neighbourhood": "Greenwich Village", "floors": 6}]
+
+    def priced(seen):
+        row = fitted(is_current=1, collected_at=seen, price_at=seen)
+        out, _ = captures.rows(
+            kit(), [kit_building()], [row], buildings, tmp_path, [], {"obs:1": row}
+        )
+        return len(out)
+
+    assert priced("2026-10-05T00:00:00+00:00") == 0  # the dataset prices the unit
+    assert priced("2026-09-20T00:00:00+00:00") == 1  # seen over a week ago
+
+
 def kit_building(level=0.0):
     return {
         "building": BUILDING,

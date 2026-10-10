@@ -715,6 +715,9 @@ def write_database(
     listings = fitted + captured
     units, buildings = units_and_buildings(listings)
     quarantined = quarantined_rows(missing, observations, decisions, registry)
+    for r in quarantined:
+        if r["is_current"] and not captures.fresh(observations[r["audit_id"]], at):
+            r["is_current"] = 0
     market = [
         {
             "period": m["period"],
