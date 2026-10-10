@@ -23,12 +23,14 @@ import pandas as pd
 DATASET = Path(
     os.environ.get(
         "FRONTIER_DATASET",
-        # The five neighbourhoods (DATASET_NB5, #460); before that Chelsea + West
+        # The eight neighbourhoods (DATASET_NB8, #625); before that the five
+        # (DATASET_NB5, #460, chelsea-wv-gv-flatiron-gramercy-analysis-20261008-0a23057),
+        # and before that Chelsea + West
         # Village + Greenwich Village, chelsea-wv-gv-analysis-20261005-2d5b3b6
         # (#292), chelsea-west-village-analysis-20261005-1222e51 (Oct 5 captures,
         # #220), chelsea-west-village-analysis-20261001-eea4f66, and Chelsea alone,
         # data/model/chelsea-product-scope-analysis-20260921.
-        "/data1/apartments/frontier/datasets/chelsea-wv-gv-flatiron-gramercy-analysis-20261008-0a23057",
+        "/data1/apartments/frontier/datasets/chelsea-wv-gv-flatiron-gramercy-stuy-nomad-ev-analysis-20261010-3ebfea0",
     )
 )
 # Chelsea + West Village + Greenwich Village with Flatiron + Gramercy Park
@@ -56,7 +58,7 @@ DATASET_NB7 = Path(
     "/data1/apartments/frontier/datasets/chelsea-wv-gv-flatiron-gramercy-stuy-nomad-analysis-20261009-d3b4050"
 )
 # The seven plus East Village (cohort east-village-analysis-20261010-3ebfea04),
-# no rule change.
+# no rule change. The served dataset (DATASET).
 DATASET_NB8 = Path(
     "/data1/apartments/frontier/datasets/chelsea-wv-gv-flatiron-gramercy-stuy-nomad-ev-analysis-20261010-3ebfea0"
 )
