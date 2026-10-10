@@ -124,3 +124,40 @@ def test_cli_rejects_direct_collection_before_creating_archive(tmp_path, transpo
     with pytest.raises(SystemExit):
         cli.main(["--data", str(path), "backfill", "--transport", transport])
     assert not path.exists()
+
+
+@pytest.mark.parametrize("content", ["<html>original</html>", "<html>other</html>"])
+def test_snapshot_keeps_page_html_once(tmp_path, content):
+    """The crawl database is written compact: the provider envelope names the body by hash
+    instead of repeating it, exactly as `compact_database` would rewrite it."""
+    from streeteasy_archive.compact import compact_database
+
+    spider = ArchiveSpider(data_dir=tmp_path / "crawl", max_requests=1)
+    spider.store.enqueue(spider.generation, [{"url": URL, "kind": "building"}])
+    request = next(spider.start_requests())
+    request.meta["archive_provider"] = {
+        "submission_attempts": 1,
+        "results": [{"job_id": "job-1", "content": content, "status_code": 200}],
+    }
+    body = b"<html>original</html>"
+    list(spider.parse(HtmlResponse(URL, status=200, body=body, request=request)))
+    body_hash, extracted = spider.store.db.execute(
+        "SELECT body_hash, extracted FROM snapshots"
+    ).fetchone()
+    spider.store.close()
+    result = json.loads(extracted)["provider_capture"]["results"][0]
+    if content.encode() == body:
+        assert result == {
+            "job_id": "job-1",
+            "status_code": 200,
+            "content_sha256": body_hash,
+        }
+    else:
+        # Not the stored body: kept as it came, as compaction would keep it.
+        assert result["content"] == content
+    report = compact_database(
+        tmp_path / "crawl" / "archive.sqlite3",
+        tmp_path / "copy.sqlite3",
+        tmp_path / "crawl",
+    )
+    assert "stripped" not in report["snapshots"]
