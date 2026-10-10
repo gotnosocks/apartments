@@ -204,7 +204,9 @@ class ArchiveSpider(scrapy.Spider):
                 if response.meta.get('archive_browser'):
                     data['browser_capture'] = response.meta['archive_browser']
                 if response.meta.get('archive_provider'):
-                    data['provider_capture'] = response.meta['archive_provider']
+                    # The page HTML is kept once, in bodies/; the envelope keeps its hash.
+                    from .compact import without_page_copy
+                    data['provider_capture'] = without_page_copy(response.meta['archive_provider'], body)
                 from .scope import discovery_links
                 links = discovery_links(data, url, self.include_unavailable)
             except Exception as exc:

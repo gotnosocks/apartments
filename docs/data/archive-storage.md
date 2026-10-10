@@ -104,13 +104,23 @@ and `granular_export`'s implementation hash covers parser code only. The tool do
 
   `snapshots/chelsea-20260908/complete.json` still records the pre-compaction byte count.
 
+## Crawls write compact databases (Oct 10)
+
+Ben, Oct 10: "Can we change the code, without changing functionality that we depend on, so that
+either 1) the extra data is never created or 2) only the compressed version of the data is
+created." Since then `crawler.py` stores `provider_capture` through `compact.without_page_copy`:
+each `results[].content` that is the page body is replaced by `content_sha256` when the row is
+written, the same rewrite `compact_database` makes afterwards (shared `compact.strip_results`).
+A new crawl's database is therefore already compact, and its final snapshot is a plain copy;
+running the compaction tool on it changes nothing. A frozen runtime keeps the crawler it froze,
+so the change reaches only runs prepared after it. The three Oct 8 crawl databases (East Village,
+NoMad, Stuyvesant Town/PCV) were deleted on Oct 10 (Ben: "delete them."); their compacted
+snapshots and `bodies/` remain.
+
 ## Not done, and why
 
-- **Editing the crawler** so new crawls never store the copy. `crawler.py`, `capture.py`,
-  `oxylabs.py` and `store.py` are hash-locked (`ruff.toml`; `rental_discovery.py` checks them
-  against frozen implementations). For the next crawl, compact its final snapshot with this tool
-  instead of a plain copy.
 - **Compressing `extracted`** (zstd in SQLite, or a sidecar). Many readers parse the column
-  directly with `json.loads` or SQL `json_extract`; a format change would touch all of them.
+  directly with `json.loads` or SQL `json_extract`; a format change would touch all of them. A
+  sample of 300 Stuyvesant Town rows (Oct 10) compresses 7.7× with zlib; `scripts` is 74% of it.
 - **Dropping `scripts`**: in use (above).
 - **Transparent compression**: `/data1` is ext4.

@@ -28,6 +28,36 @@ import sqlite3
 STRIPPED_KEY = "content_sha256"
 
 
+def strip_results(results, body_hash):
+    """`results` with each `content` replaced by `content_sha256`, or (None, reason) when
+    any content is not the page HTML that hashes to `body_hash`."""
+    stripped = []
+    for result in results:
+        if not isinstance(result, dict) or "content" not in result:
+            stripped.append(result)
+            continue
+        content = result["content"]
+        if not isinstance(content, str):
+            return None, "content_not_text"
+        if hashlib.sha256(content.encode()).hexdigest() != body_hash:
+            return None, "content_differs_from_body"
+        item = {k: v for k, v in result.items() if k != "content"}
+        item[STRIPPED_KEY] = body_hash
+        stripped.append(item)
+    return stripped, "stripped"
+
+
+def without_page_copy(provider, body):
+    """The provider envelope as the crawler stores it: the page HTML it repeats is replaced by
+    the hash of `body`, which the store keeps once in `bodies/`. Returned unchanged when the
+    HTML is not that body, as `compact_database` would leave it."""
+    results = provider.get("results") if isinstance(provider, dict) else None
+    if not isinstance(results, list):
+        return provider
+    stripped, _ = strip_results(results, hashlib.sha256(body).hexdigest())
+    return provider if stripped is None else {**provider, "results": stripped}
+
+
 def strip_provider_content(extracted, body_hash, body_ok):
     """Return (new extracted text or None if unchanged, bytes removed, reason)."""
     if not extracted or '"provider_capture"' not in extracted:
@@ -39,19 +69,9 @@ def strip_provider_content(extracted, body_hash, body_ok):
         isinstance(r, dict) and "content" in r for r in results
     ):
         return None, 0, "no_provider_content"
-    stripped = []
-    for result in results:
-        if not isinstance(result, dict) or "content" not in result:
-            stripped.append(result)
-            continue
-        content = result["content"]
-        if not isinstance(content, str):
-            return None, 0, "content_not_text"
-        if hashlib.sha256(content.encode()).hexdigest() != body_hash:
-            return None, 0, "content_differs_from_body"
-        item = {k: v for k, v in result.items() if k != "content"}
-        item[STRIPPED_KEY] = body_hash
-        stripped.append(item)
+    stripped, reason = strip_results(results, body_hash)
+    if stripped is None:
+        return None, 0, reason
     if not body_ok(body_hash):
         return None, 0, "body_unavailable"
     provider["results"] = stripped
