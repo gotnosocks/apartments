@@ -372,6 +372,15 @@ def test_change_words_names_every_area_a_switch_takes_in():
     )
 
 
+def test_change_words_for_the_size_slope_switches():
+    before = {"terms": ["nocurves", "nosizeslope"], "feature_set": "nb8-nostuy-v1"}
+    after = {"terms": ["nocurves", "sizeunkslope"], "feature_set": "nb8-nostuy-v1"}
+    assert story.change_words(before, after) == (
+        "Added each building's own price for an apartment of unstated size. "
+        "Dropped the same price for size in every building"
+    )
+
+
 def test_design_history_says_what_changed():
     changes = [s["change"] for s in story.design_history(MILESTONES)]
     assert changes[0] == "Select a PyMC fit"
