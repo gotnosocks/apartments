@@ -187,7 +187,7 @@ are uncommon but expected; only about 1 ask in 20 should land outside the range.
 It also falls outside the 95% range above, which should happen for only about 1 ask in 20.{% endif %}{% endif %}{% endif %}</p>
 {% set big = build.steps | rejectattr("term", "in", ["market", "minor"]) | list | sort(attribute="usd") %}{% set big = ((big | last) if (big | last).usd >= -(big | first).usd else (big | first)) if big else none %}{% set layer = (composition | selectattr("css", "equalto", big.css) | first) if big and composition else none %}{% if layer and layer.plain %}
 <p>The biggest part after the market is “{{ big.label }}” ({{ usd(big.usd, signed=True) }}). It belongs to
-“{{ layer.name }}” in <a href="#shape">the stack above</a>: {{ layer.plain[0][0] | lower }}{{ layer.plain[0][1:] }}</p>{% endif %}
+“{{ layer.name }}” in <a href="#shape">the stack above</a>. {{ layer.plain | join(" ") }}</p>{% endif %}
 
 <details class="table-view">
   <summary>The build-up as a table</summary>
