@@ -104,6 +104,19 @@ def _post(spec, env, log, deadline):
     return done
 
 
+def _complete(d):
+    """A post-fit record finished writing: a summary bundle has its complete.json (written
+    last), and a variance or explained result.json parses (a step its cap killed mid-write
+    leaves neither)."""
+    if (d / "complete.json").exists():
+        return True
+    try:
+        json.loads((d / "result.json").read_text())
+        return True
+    except (OSError, ValueError):
+        return False
+
+
 def _fit(spec):
     started = time.time()
     for path in spec["inputs"]:
@@ -167,7 +180,7 @@ def _fit(spec):
         shutil.copytree(d, out / "loo" / d.name, dirs_exist_ok=True)
     for kind in POST_KINDS:
         for d in (OUTPUT / kind).glob(f"{spec['name']}-*"):
-            if d.is_dir() and not d.name.endswith(".tmp"):
+            if d.is_dir() and _complete(d):
                 shutil.copytree(d, out / kind / d.name, dirs_exist_ok=True)
     meta = {
         "name": spec["name"],

@@ -254,7 +254,7 @@ def test_post_fit_statistics_land_whole_beside_the_run(tmp_path, monkeypatch):
     assert (root / "explained/r-trees-abc1234/result.json").exists()
     # An existing record is kept, and nothing is left half-written.
     assert (root / "variance/r-abc1234/result.json").read_text() == "old"
-    assert not list(root.glob("*/*.tmp"))
+    assert not (root / ".incoming").exists()
 
 
 def test_post_fit_steps_by_tier_and_explain(monkeypatch):
@@ -305,3 +305,19 @@ def test_plan_carries_the_candidate_sets_to_explain():
     )
     assert fit.plan(args, run_args, "c" * 40)["explain"] == ["a", "b"]
     assert "--explain" not in fit.plan(args, run_args, "c" * 40)["run_args"]
+
+
+def test_only_finished_post_fit_records_leave_the_container(tmp_path, monkeypatch):
+    monkeypatch.setitem(sys.modules, "modal", mock.MagicMock())
+    app = load("app")
+    (tmp_path / "s").mkdir()
+    (tmp_path / "s" / "complete.json").write_text("{}")
+    (tmp_path / "v").mkdir()
+    (tmp_path / "v" / "result.json").write_text("{}")
+    (tmp_path / "cut").mkdir()
+    (tmp_path / "cut" / "result.json").write_text('{"shares": {')
+    assert [app._complete(tmp_path / d) for d in ("s", "v", "cut")] == [
+        True,
+        True,
+        False,
+    ]

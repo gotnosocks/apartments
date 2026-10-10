@@ -207,9 +207,12 @@ POST_KINDS = ("variance", "summaries", "explained")
 def download(volume, name, root):
     """/out/<name>/run -> runs/<name>, /out/<name>/loo/* -> loo/, the post-fit statistics'
     /out/<name>/{variance,summaries,explained}/* -> the same directories under root, log and
-    modal.json into runs/<name>/modal/. A post-fit directory lands whole: it is written beside
-    its place as <dir>.tmp and renamed once every file is down."""
+    modal.json into runs/<name>/modal/. A post-fit directory lands whole: it is written under
+    root/.incoming/<name>/ (out of every reader's glob) and renamed into place once every
+    file is down."""
     prefix = f"out/{name}/"
+    incoming = root / ".incoming" / name
+    shutil.rmtree(incoming, ignore_errors=True)  # an interrupted download's leftovers
     staged = set()
     for entry in volume.iterdir(f"/out/{name}", recursive=True):
         if entry.type.name != "FILE":
@@ -223,7 +226,7 @@ def download(volume, name, root):
         elif kind in POST_KINDS and "/" in rest:
             d, _, inner = rest.partition("/")
             staged.add((kind, d))
-            dst = root / kind / f"{d}.tmp" / inner
+            dst = incoming / kind / d / inner
         else:
             dst = root / "runs" / name / "modal" / rel
         dst.parent.mkdir(parents=True, exist_ok=True)
@@ -233,9 +236,14 @@ def download(volume, name, root):
         final = root / kind / d
         if final.exists():
             print(f"kept {final}: it already exists", flush=True)
-            shutil.rmtree(root / kind / f"{d}.tmp")
         else:
-            (root / kind / f"{d}.tmp").rename(final)
+            final.parent.mkdir(parents=True, exist_ok=True)
+            (incoming / kind / d).rename(final)
+    shutil.rmtree(incoming, ignore_errors=True)
+    try:
+        incoming.parent.rmdir()  # only when no other download is in flight
+    except OSError:
+        pass
     volume.remove_file(f"/out/{name}", recursive=True)
 
 
