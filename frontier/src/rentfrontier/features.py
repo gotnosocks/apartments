@@ -4638,6 +4638,17 @@ FEATURE_SETS["nb8-nostuy-retail-v1"] = partial(
     retail_v2, id="nb8-nostuy-retail-v1", base="nb8-nostuy-v1"
 )
 STOREFRONTS.add("nb8-nostuy-retail-v1")
+# nb8-nostuy-v1 plus the noise around the building as of the listing
+# (`noise_v1`): street and nightlife, and construction. NB4_NOISE_FILE stops at
+# latitude 40.723 and misses the southern East Village, so the set reads a 311
+# snapshot boxed on the nb8 registry. No base set reads noise terms.
+NB8_NOISE_FILE = "/data1/apartments/external/noise311/20261010-90f03f5/noise311.parquet"
+NB8_SETS["nb8-nostuy-noise-v1"] = "nb5-plutoasof-v3"
+FEATURE_SETS["nb8-nostuy-noise-v1"] = partial(
+    noise_v1, id="nb8-nostuy-noise-v1", base="nb8-nostuy-v1", noise_file=NB8_NOISE_FILE
+)
+NOISE.add("nb8-nostuy-noise-v1")
+NOISE_FILES["nb8-nostuy-noise-v1"] = NB8_NOISE_FILE
 for _new, _old in NB8_SETS.items():
     for _group in (
         EXTERNAL,

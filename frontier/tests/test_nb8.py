@@ -19,7 +19,7 @@ def test_nb8_base_is_nb7_nostuy_plus_east_village():
 
 
 # nb8 sets with no nb7 twin; each has its own test below.
-NB8_ONLY = {"nb8-nostuy-lines-v1", "nb8-nostuy-retail-v1"}
+NB8_ONLY = {"nb8-nostuy-lines-v1", "nb8-nostuy-retail-v1", "nb8-nostuy-noise-v1"}
 
 
 def test_nb8_tests_are_nb7s_on_the_nb8_base():
@@ -324,3 +324,24 @@ def test_retail_v2_matches_retail_v1_on_the_same_file(monkeypatch):
     old = features.retail_v1(frame, train, id="x", base="b")
     assert new.names == old.names
     np.testing.assert_array_equal(new.values, old.values)
+
+
+def test_nb8_noise_reads_the_nb8_311_snapshot(monkeypatch):
+    """nb8-nostuy-noise-v1 is noise_v1 on the nb8 base, reading the 311 snapshot
+    boxed on the nb8 registry, and its fit records that file."""
+    name = "nb8-nostuy-noise-v1"
+    assert features.FEATURE_SETS[name].func is features.noise_v1
+    assert features.FEATURE_SETS[name].keywords == {
+        "id": name,
+        "base": "nb8-nostuy-v1",
+        "noise_file": features.NB8_NOISE_FILE,
+    }
+    groups = {
+        k for k, v in vars(features).items() if k.isupper() and isinstance(v, set)
+    }
+    assert {k for k in groups if name in getattr(features, k)} == {
+        k for k in groups if "nb8-nostuy-v1" in getattr(features, k)
+    } | {"NOISE"}
+    assert features.NOISE_FILES[name] == features.NB8_NOISE_FILE
+    monkeypatch.setattr(run.data, "sha256", lambda path: "x")
+    assert run.feature_sources(name)["noise311"]["path"] == features.NB8_NOISE_FILE
