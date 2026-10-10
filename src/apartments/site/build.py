@@ -712,6 +712,11 @@ def write_database(
         observations,
         at,
     )
+    # a unit captured since the dataset last saw it is current in the capture
+    newer = {r["unit_id"] for r in captured}
+    for r in fitted:
+        if r["is_current"] and r["unit_id"] in newer:
+            r["is_current"] = 0
     listings = fitted + captured
     units, buildings = units_and_buildings(listings)
     quarantined = quarantined_rows(missing, observations, decisions, registry)
