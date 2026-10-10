@@ -2,6 +2,19 @@
 
 What the next turn of the website thread needs. Updated at each milestone.
 
+## State (2026-10-10 13:40 UTC)
+
+- #629: page text counts neighbourhoods in words up to ten (`web.COUNT_WORDS`), pinned to rentmap.js's
+  list by a test, ready for NB8 ("all eight neighbourhoods").
+- Ben's research-progress dashboard (13:02Z) is built as a Claude dashboard by its own thread, not as a
+  site page. The coordinator stopped /research/progress; nothing was merged. I sent that thread CSVs
+  (switches, fits_daily, tests, served_now); the export script is in my scratchpad (csv/export.py).
+  Key fact: the served-model switches match board fits by run-name prefix, and the held-out score per
+  listing (splits.rows.elpd / sizes.heldout_rows) is the one accuracy measure for every switch since Sept 26.
+- #631: the story's "Two kinds of range" box says which interval level is used where (90% shares, 95%
+  effects and worked example) and that the level sets the width.
+- Next on-story: the 12D build-up example (built-year term; why +12.4% is still inside the 95% range).
+
 ## State (2026-10-09 15:00 UTC)
 
 - Ben (14:30Z, 14:38Z): the site is called "NYC Rents" (#612: titles, header, home heading), and
