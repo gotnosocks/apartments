@@ -143,19 +143,20 @@ asked:
   judgement to the described rubric approach, and I don't expect we have that many pairs to evaluate
   so it should be possible for an agent to do at reasonable cost." See "The elegance axis".
 - **Serving:** "serve the best fit and break ties with which model is simpler", now the more
-  elegant. The top PSIS-LOO and the fits tied with it come first. Among the tied fits, a fit
-  whose added building-level feature families all beat chance wins first (Ben, 2026-10-10,
-  APPROVAL PENDING): in `rentfrontier.explained`'s grouped-building-holdout screen on the other
-  fit's building levels, every added family explains more than max(0, null_95). PSIS-LOO and the
-  descriptive share barely see such families (about 0.1 x explained share, under the posterior
-  noise of about 0.006), so the screen is their evidence. Next the less descriptive wins (Ben, 2026-10-10, from the Fable review §3: "prefer the one with
-  the lower descriptive share by more than its permutation null, before the elegance judges").
-  The descriptive share is `rentfrontier.variance`'s neighbourhood labels + building + building
-  over time + unit. Its null is the larger of the two fits' 90% posterior half-widths and, when
-  the fit adds feature families screened by `rentfrontier.explained`, the base's building share
-  times the screen's permutation null (null_95, summed over the families). A fit with no variance
-  record is level. Then the most elegant wins, and fit time decides only between equally elegant
-  fits. `autoselect` applies this automatically.
+  elegant. The top PSIS-LOO and the fits tied with it come first. Among the tied fits, a fit whose
+  added building-level feature families all beat chance wins first (Ben, 2026-10-10 21:36Z,
+  "Approved: serve building sets that win the screen on a tie"): in `rentfrontier.explained`'s
+  grouped-building-holdout screen on the other fit's building levels, every added family explains
+  more than max(0, null_95). PSIS-LOO and the descriptive share barely see such families (about 0.1
+  x explained share, under the posterior noise of about 0.006), so the screen is their evidence.
+  Next the less descriptive wins (Ben, 2026-10-10, from the Fable review §3: "prefer the one with
+  the lower descriptive share by more than its permutation null, before the elegance judges"). The
+  descriptive share is `rentfrontier.variance`'s neighbourhood labels + building + building over
+  time + unit. Its null is the larger of the two fits' 90% posterior half-widths and, when the fit
+  adds feature families screened by `rentfrontier.explained`, the base's building share times the
+  screen's permutation null (null_95, summed over the families). A fit with no variance record is
+  level. Then the most elegant wins, and fit time decides only between equally elegant fits.
+  `autoselect` applies this automatically.
 - **One site:** the dashboard pages and the listings site become one coherent site with two sections.
   The research section covers the frontier, runs, data quality and this plan. The estimates section
   browses and visualizes the estimates for every listing and building.

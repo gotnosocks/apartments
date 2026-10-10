@@ -32,7 +32,8 @@ card follow it.
 1. Take the top paired PSIS-LOO, and the fits tied with it within two combined
    SE.
 2. Among those, take a fit whose added building-level feature families all beat
-   chance over a tied fit without them (`screen_wins`): in the `explained`
+   chance over a tied fit without them (`screen_wins`; Ben, 2026-10-10 21:36Z:
+   "serve building sets that win the screen on a tie"): in the `explained`
    grouped-building-holdout screen on the other fit's building levels, every
    added family explains more than max(0, null_95). PSIS-LOO and the descriptive
    share barely see building families (about building share x explained share,
