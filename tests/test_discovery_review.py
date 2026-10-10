@@ -26,6 +26,11 @@ def test_review_queue_feeds_the_detail_plan_for_every_seed(tmp_path, monkeypatch
         "west-chelsea",
         "west-village",
         "greenwich-village",
+        "flatiron",
+        "gramercy-park",
+        "nomad",
+        "east-village",
+        "stuyvesant-town",
     ]
     report = Path(result["report_directory"])
     summary = discovery_review.publish(report, tmp_path / "review")
@@ -35,6 +40,11 @@ def test_review_queue_feeds_the_detail_plan_for_every_seed(tmp_path, monkeypatch
         "/for-rent/west-chelsea",
         "/for-rent/west-village",
         "/for-rent/greenwich-village",
+        "/for-rent/flatiron",
+        "/for-rent/gramercy-park",
+        "/for-rent/nomad",
+        "/for-rent/east-village",
+        "/for-rent/stuyvesant-town",
     }
     queue = [
         json.loads(s)
