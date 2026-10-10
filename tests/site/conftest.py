@@ -1,5 +1,6 @@
 """A tiny summary bundle, dataset and registry in the shape of the real ones."""
 
+import datetime as dt
 import hashlib
 import json
 from pathlib import Path
@@ -262,7 +263,7 @@ def observations():
                 "view_exposures": {"city": True, "park": None},
                 "window_exposures": {"south": True},
                 "concession": "<script>alert(1)</script>" if audit == "a3" else None,
-                "collected_at": "2026-09-19T00:00:00+00:00" if current else None,
+                "collected_at": "2026-10-03T00:00:00+00:00" if current else None,
             }
         )
     return out
@@ -469,6 +470,19 @@ def make_bundle_fixture():
 @pytest.fixture
 def bundle(tmp_path):
     return make_bundle(tmp_path / "inputs")
+
+
+# The build's clock in tests: the fixtures' current listings were seen within
+# a week of it.
+NOW = dt.datetime(2026, 10, 7, tzinfo=dt.UTC)
+
+
+@pytest.fixture(autouse=True)
+def build_clock(monkeypatch):
+    from apartments.site import captures
+
+    monkeypatch.setattr(captures, "now", lambda: NOW)
+    return NOW
 
 
 @pytest.fixture(autouse=True)

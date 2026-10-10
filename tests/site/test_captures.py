@@ -1,3 +1,4 @@
+import datetime as dt
 import json
 import math
 import sqlite3
@@ -122,6 +123,15 @@ def test_newest_capture_wins_per_unit(tmp_path):
     )
     got = captures.captures(tmp_path, set(), set(), set())
     assert [(d, c["rent"]) for d, c in got] == [("20261008", 3900)]
+
+
+def test_a_capture_ages_out_a_week_after_it_was_seen(tmp_path):
+    write_capture(tmp_path, "20261006", [candidate(1)])
+    seen = dt.datetime(2026, 10, 6, 15, tzinfo=dt.UTC)
+    assert captures.captures(tmp_path, set(), set(), set(), seen + dt.timedelta(days=7))
+    assert not captures.captures(
+        tmp_path, set(), set(), set(), seen + dt.timedelta(days=7, seconds=1)
+    )
 
 
 def test_a_listing_the_dataset_dropped_stays_out(tmp_path):
