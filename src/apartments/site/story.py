@@ -1126,6 +1126,8 @@ TERM_WORDS = {
     "nocurves": "a straight line per feature, no curves",
     "btrend": "each building's own trend",
     "bathfloor": "each building's own price for baths and height",
+    "nosizeslope": "the same price for size in every building",
+    "sizeunkslope": "each building's own price for an apartment of unstated size",
 }
 # Words for the feature sets of served designs: the area prefix (the
 # neighbourhood each step took in, in order) and the body (what the features
