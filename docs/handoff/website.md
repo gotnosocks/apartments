@@ -11,7 +11,7 @@ What the next turn of the website thread needs. Updated at each milestone.
   (`captures.CURRENT_DAYS`, clock `captures.now()`, #665). Dataset current rows past a week, quarantined
   ones too, show as past; a capture newer than a unit's dataset sighting replaces that row (#667).
   Listings age out only when the site rebuilds.
-- Data collection captured the five new areas (archive/current-listings/20261010-*, done 19:4xZ).
+- Data collection captured the five new areas (archive/current-listings/20261010-*, done by 19:32Z).
   The site build needs ~5 GB: 3G OOMs. Run step 3 of ops/autoselect-publish.sh alone (it globs
   maps/kits of any commit) and only when the GPU is idle (memory budget).
 
