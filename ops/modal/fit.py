@@ -10,10 +10,11 @@ Steps: refuse if the run already exists here; spend the fit's estimated cost fro
 dollars accrue at 10 full fits a day; refused until the balance covers it); upload only the inputs that changed since the last sync; ship a
 shallow checkout of COMMIT; run the fit (capped at 2 h, or 30 min for an exploration fit)
 and PSIS-LOO in the container, then its post-fit statistics (variance decomposition, the
-summary bundle for a full fit, and the explained share of each --explain SET; each capped, and
-none can fail the fit); download the run to FRONTIER_OUTPUT_ROOT/runs/<name>, the LOO to
-FRONTIER_OUTPUT_ROOT/loo/ and the statistics to FRONTIER_OUTPUT_ROOT/{variance,summaries,
-explained}/, then delete them from the Volume. The Volume itself is
+summary bundle and its calibration for a full fit, and the explained share of each --explain
+SET; each capped, and none can fail the fit); download the run to
+FRONTIER_OUTPUT_ROOT/runs/<name>, the LOO to FRONTIER_OUTPUT_ROOT/loo/ and the statistics to
+FRONTIER_OUTPUT_ROOT/{variance,summaries,calibration,explained}/, then delete them from the
+Volume. The Volume itself is
 deleted after 24 h without a launch (ops/modal/cleanup).
 """
 
@@ -201,12 +202,12 @@ def _marker(volume_id):
     return str(path)
 
 
-POST_KINDS = ("variance", "summaries", "explained")
+POST_KINDS = ("variance", "summaries", "calibration", "explained")
 
 
 def download(volume, name, root):
     """/out/<name>/run -> runs/<name>, /out/<name>/loo/* -> loo/, the post-fit statistics'
-    /out/<name>/{variance,summaries,explained}/* -> the same directories under root, log and
+    /out/<name>/{variance,summaries,calibration,explained}/* -> the same directories under root, log and
     modal.json into runs/<name>/modal/. A post-fit directory lands whole: it is written under
     root/.incoming/<name>/ (out of every reader's glob) and renamed into place once every
     file is down."""
