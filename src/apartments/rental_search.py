@@ -15,16 +15,24 @@ from streeteasy_archive.crawler import is_challenge
 from streeteasy_archive.extract import _selector, _scripts, canonical_url, flight_text
 from streeteasy_archive.flight import decode_records
 
-VERSION = 'rental-search-v3'
+VERSION = 'rental-search-v4'
 AREAS = {'/for-rent/chelsea': 'Chelsea', '/for-rent/west-chelsea': 'West Chelsea',
-         '/for-rent/west-village': 'West Village', '/for-rent/greenwich-village': 'Greenwich Village'}
+         '/for-rent/west-village': 'West Village', '/for-rent/greenwich-village': 'Greenwich Village',
+         '/for-rent/flatiron': 'Flatiron', '/for-rent/gramercy-park': 'Gramercy Park',
+         '/for-rent/nomad': 'NoMad', '/for-rent/east-village': 'East Village',
+         '/for-rent/stuyvesant-town': 'Stuyvesant Town/PCV'}
 # Card area names that count as in scope for each search route. A search can show
 # cards from other areas (West Chelsea in-feed cards in Hudson Yards, for example).
 _CHELSEA = frozenset({'Chelsea', 'West Chelsea'})
 SCOPES = {'/for-rent/chelsea': _CHELSEA, '/for-rent/west-chelsea': _CHELSEA,
           '/for-rent/west-village': frozenset({'West Village'}),
           # Greenwich Village without its child area NoHo, as in the GV crawl scope.
-          '/for-rent/greenwich-village': frozenset({'Greenwich Village'})}
+          '/for-rent/greenwich-village': frozenset({'Greenwich Village'}),
+          # One area each, without child areas, as in the crawl scopes: NoMad cards on the
+          # Flatiron search are out of scope there and in scope on the NoMad search.
+          **{path: frozenset({name}) for path, name in AREAS.items()
+             if path in ('/for-rent/flatiron', '/for-rent/gramercy-park', '/for-rent/nomad',
+                         '/for-rent/east-village', '/for-rent/stuyvesant-town')}}
 ROLES = {'FeaturedRentalEdge': 'featured', 'SponsoredRentalEdge': 'infeed', 'OrganicRentalEdge': 'regular'}
 FIELDS = ('id', 'urlPath', 'street', 'unit', 'displayUnit', 'price', 'totalMonthlyPrice',
           'netEffectivePrice', 'monthsFree', 'leaseTermMonths', 'areaName', 'status',
@@ -148,12 +156,38 @@ def parse_page(body: bytes, url: str, *, source_clock=None):
     candidates = [(p, obj) for root_path, root in roots for p, obj in _walk(root, root_path)
                   if obj.get('listingType') == 'rentals' and isinstance(obj.get('listings'), list)
                   and isinstance(obj.get('searchMetadata'), dict)]
+    if candidates:
+        template = 'listings'
+    else:
+        # From October 2026 later pages carry the edges inline in the search page props,
+        # with no listings/searchMetadata container. Page 1 still has both, and there the
+        # props edges are unresolved references, so the container above takes precedence.
+        template = 'listingData'
+        candidates = [(p, obj) for root_path, root in roots for p, obj in _walk(root, root_path)
+                      if isinstance(obj.get('paramsState'), dict)
+                      and obj['paramsState'].get('listingType') == 'rentals'
+                      and isinstance(obj.get('listingData'), dict)
+                      and isinstance(obj['listingData'].get('edges'), list)]
     if len(candidates) != 1:
         raise ValueError('Missing or ambiguous ordered rental edge container')
     source_path, container = candidates[0]
-    if container['searchMetadata'].get('totalResults') != total:
-        raise ValueError('Structured total and H1 disagree')
-    edges = container['listings']
+    if template == 'listings':
+        metadata, edges_key = container['searchMetadata'], 'listings'
+        if metadata.get('totalResults') != total:
+            raise ValueError('Structured total and H1 disagree')
+    else:
+        data = container['listingData']
+        metadata, edges_key = {k: v for k, v in data.items() if k != 'edges'}, 'listingData/edges'
+        if data.get('totalCount') != total:
+            raise ValueError('Structured total and H1 disagree')
+        info = data.get('pageInfo')
+        if (not isinstance(info, dict) or info.get('currentPage') != page_number
+                or container['paramsState'].get('page', 1) != page_number):
+            raise ValueError('Structured page and source route disagree')
+    edges = container['listings'] if template == 'listings' else container['listingData']['edges']
+    experiments = container.get('experiments')
+    # The search page props name experiments by an unresolved Flight reference.
+    experiments = experiments if isinstance(experiments, dict) or template == 'listings' else None
     if len(edges) != len(dom_cards):
         raise ValueError('Ordered source edges and DOM card counts disagree')
     cards = []
@@ -181,7 +215,7 @@ def parse_page(body: bytes, url: str, *, source_clock=None):
                 or not 0 < node['price'] < float('inf')):
             raise ValueError('Missing or invalid source identity/address/price/area')
         identity = _detail_identity(canonical, listing_id)
-        edge_path = f'{source_path}/listings/{index}'
+        edge_path = f'{source_path}/{edges_key}/{index}'
         cards.append({'position': index + 1, 'href': href, 'href_query': query,
                       'canonical_url': canonical, 'detail_url_identity': identity, 'address_text': anchors[0].xpath('normalize-space(string(.))').get(),
                       'placement': placement, 'source_role': role, 'source_listing_id': listing_id,
@@ -220,8 +254,8 @@ def parse_page(body: bytes, url: str, *, source_clock=None):
                            'max_displayed_page': max_displayed, 'terminal_observed': not next_links},
             'ordered_page_signature': fingerprint([(c['source_listing_id'], c['canonical_url'], c['placement']) for c in cards]),
             'ordered_regular_signature': fingerprint([(c['source_listing_id'], c['canonical_url']) for c in cards if c['placement'] == 'regular']),
-            'search_source_reference': {'path': source_path, 'searchMetadata': container['searchMetadata'],
-                                        'experiments': container.get('experiments'),
+            'search_source_reference': {'path': source_path, 'template': template, 'searchMetadata': metadata,
+                                        'experiments': experiments,
                                         'sort_controls': [{'text': e.xpath('normalize-space(string(.))').get(),
                                                            'attributes': dict(e.attrib)}
                                                           for e in main.css('[data-testid="sort-by-trigger-id"]')],

@@ -361,3 +361,87 @@ def test_h1_page_suffix_is_optional_but_must_agree():
         parse_page(
             encode(html.replace(" - Page 2", " - Page 3"), data), URL + "?page=2"
         )
+
+
+def props_template(data, page):
+    """The October 2026 later-page shape: edges inline in the search page props."""
+    return {
+        "paramsState": {"listingType": "rentals", "page": page},
+        "experiments": "$1f",
+        "listingData": {
+            "totalCount": data["searchMetadata"]["totalResults"],
+            "pageInfo": {"currentPage": page},
+            "edges": data["listings"],
+        },
+    }
+
+
+def test_search_page_props_template():
+    html, data = fixture(page=2, ids=("123", "124", "125"), total=3, last=2)
+    data["listings"][1]["__typename"] = "FeaturedRentalEdge"
+    html = html.replace(
+        'href="/building/example/124"', 'href="/building/example/124?featured=1"'
+    )
+    legacy = parse_page(encode(html, data), URL + "?page=2")
+    page = parse_page(encode(html, props_template(data, 2)), URL + "?page=2")
+    assert page["cards"] and [
+        {k: v for k, v in c.items() if k != "source_reference"} for c in page["cards"]
+    ] == [
+        {k: v for k, v in c.items() if k != "source_reference"} for c in legacy["cards"]
+    ]
+    assert page["cards"][0]["source_reference"]["edge_path"].endswith(
+        "/listingData/edges/0"
+    )
+    reference = page["search_source_reference"]
+    assert reference["template"] == "listingData" and reference["experiments"] is None
+    assert legacy["search_source_reference"]["template"] == "listings"
+
+
+def test_legacy_container_takes_precedence_over_props():
+    # Page 1 carries both; there the props edges are unresolved references.
+    html, data = fixture(ids=("123",), total=1, last=1)
+    props = props_template(data, 1)
+    props["listingData"]["edges"] = ["$5a"]
+    body = encode(html, {"x": [data, props]})
+    assert parse_page(body, URL)["search_source_reference"]["template"] == "listings"
+
+
+@pytest.mark.parametrize(
+    "mutation, match",
+    [
+        (lambda p: p["listingData"].update(totalCount=9), "total"),
+        (
+            lambda p: p["listingData"].update(pageInfo={"currentPage": 3}),
+            "Structured page",
+        ),
+        (lambda p: p["paramsState"].update(page=3), "Structured page"),
+        (lambda p: p["paramsState"].update(listingType="sales"), "edge container"),
+    ],
+)
+def test_props_template_fails_closed(mutation, match):
+    html, data = fixture(page=2, ids=("123",), total=1, last=2)
+    props = props_template(data, 2)
+    mutation(props)
+    with pytest.raises(ValueError, match=match):
+        parse_page(encode(html, props), URL + "?page=2")
+
+
+@pytest.mark.parametrize(
+    "path, area, out",
+    [
+        ("flatiron", "Flatiron", "NoMad"),
+        ("gramercy-park", "Gramercy Park", "Murray Hill"),
+        ("nomad", "NoMad", "Flatiron"),
+        ("east-village", "East Village", "Noho"),
+        ("stuyvesant-town", "Stuyvesant Town/PCV", "Gramercy Park"),
+    ],
+)
+def test_new_area_routes_scope_one_area(path, area, out):
+    html, data = fixture(ids=("123", "124"))
+    html = html.replace("Chelsea, Manhattan", area + ", Manhattan").replace(
+        "/for-rent/chelsea", "/for-rent/" + path
+    )
+    data["listings"][0]["node"]["areaName"] = area
+    data["listings"][1]["node"]["areaName"] = out
+    page = parse_page(encode(html, data), "https://streeteasy.com/for-rent/" + path)
+    assert [c["in_scope"] for c in page["cards"]] == [True, False]
