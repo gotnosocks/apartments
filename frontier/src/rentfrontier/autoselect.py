@@ -304,16 +304,18 @@ def beats_chance(family) -> bool:
 def screen_wins(a, b) -> int:
     """1 if a adds building-level families to b and every one beats chance in
     the `explained` screen of a's candidate set on b's building levels; -1 if
-    the same holds with a and b swapped; 0 otherwise (no screen, or a family
-    that does not beat chance), leaving the tie to the descriptive share."""
-    for x, y, sign in ((a, b, 1), (b, a, -1)):
-        if x["feature_set"] == y["feature_set"]:
-            return 0
+    the same holds with a and b swapped; 0 otherwise (no screen, a family that
+    does not beat chance, or both directions passing, as for sibling sets),
+    leaving the tie to the descriptive share."""
+    if a["feature_set"] == b["feature_set"]:
+        return 0
+
+    def passes(x, y):
         rec = _latest(EXPLAINED_ROOT, f"{_run(y)}-{x['feature_set']}")
         fams = (rec or {}).get("families") or {}
-        if fams and all(beats_chance(f) for f in fams.values()):
-            return sign
-    return 0
+        return bool(fams) and all(beats_chance(f) for f in fams.values())
+
+    return int(passes(a, b)) - int(passes(b, a))
 
 
 def screen_losses(e, others) -> int:
