@@ -276,7 +276,12 @@ spread depend on whether an apartment is listed for the first time is written bu
 open until it is (<a href="https://github.com/gotnosocks/apartments/blob/master/docs/model/research-backlog.md">the checks</a>).{% else %} Either way, lean on the
 likely ask range shown with each listing more than on the single number:
 {{ "{:.0f}".format(accuracy.likely) }}% of the held-out asks fell inside their range, so an ask outside it, about
-{{ "{:.0f}".format(100 - accuracy.likely) }} in 100, is not a sign the estimate is broken.{% endif %}</p>
+{{ "{:.0f}".format(100 - accuracy.likely) }} in 100, is not a sign the estimate is broken.{% endif %}{% from "_checks.html" import short_of %}{% set nc = entry.new_unit_coverage if entry else none %}{% if nc and nc.cover_80 is number and nc.cover_95 is number %}
+<span id="new-unit-check">The research check on the served fit scores held-out new units: of {% if nc.rows is number %}{{ "{:,}".format(nc.rows) }} {% endif %}held-out
+asks from apartments with no listing in the fit, in buildings it knows, {{ "%.0f" | format(100 * nc.cover_80) }}% fell
+inside the 80% range and {{ "%.0f" | format(100 * nc.cover_95) }}% inside the 95% range{% set miss = short_of(nc) %}{% if miss %},
+so new apartments fall short of {{ miss }}{% endif %}. Its count differs from the figures above, which come from the
+site’s own scoring of held-out asks from never-seen apartments, because it scores only the rows the fit held out.</span>{% endif %}</p>
 </section>
 {% endif %}
 
