@@ -2,6 +2,16 @@
 
 What the next turn of the website thread needs. Updated at each milestone.
 
+## State (2026-10-11 00:50 UTC)
+
+- New-unit coverage is live (#689, #690, deployed 4465b9e). It comes from each fit's calibration record, kind "held out, new unit"
+  (row split, not a time-split), via `new_unit_coverage` (#688). For the served fit: 964 rows, 67%/89%, the same asks as the story's
+  never-seen figure. `_checks.html` has a `short_of(c)` macro (targets missed when below 78%/93%) used by the checks and by
+  the story's `#new-unit-check` sentence. The slot is hidden when the entry lacks the key. Only the descriptive-share slot still says
+  "not yet measured".
+- Calibration records live in /data1/apartments/frontier/calibration. Modal fits from #678 on bring their own. Since #691 a
+  record on its own triggers a rebuild of the research data.
+
 ## State (2026-10-10 20:45 UTC)
 
 - **Evaluation framework (Ben 20:03Z)**: #677 merged and deployed. Discuss fit results with paired ΔELPD against
