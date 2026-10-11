@@ -212,18 +212,20 @@ def load_calibration():
 
 
 def structure_key(r):
-    """A design's model, feature set and data rules: what a latest-split
-    refit shares with its row-split fit (often launched at a later commit)."""
+    """A design's model, feature set and data rules: what refits of one design
+    share (often launched at a later commit)."""
     return (r["model"]["name"], r["feature_set"], tuple(r.get("data_rules", ())))
 
 
-def new_unit_coverage(latest_runs, calibrations):
-    """{structure_key: coverage} from the newest calibrated latest-split run
-    of each structure: the Fable framework's new-unit coverage, held-out rows
-    of units with no fit rows in buildings the fit has (nominal 0.80 and 0.95;
-    the served fit's reference is 0.79/0.95)."""
+def new_unit_coverage(runs, calibrations):
+    """{structure_key: coverage} from the newest calibrated row-split run of
+    each structure: the Fable framework's new-unit coverage, held-out rows of
+    units with no fit rows in buildings the fit has (nominal 0.80 and 0.95;
+    all held-out rows of the served fit cover 0.79/0.95). Latest-split runs
+    have none: each holds out the newest listing of a unit whose earlier
+    listings are in the fit."""
     out = {}
-    calibrated = [r for r in latest_runs if r["name"] in calibrations]
+    calibrated = [r for r in runs if r["name"] in calibrations]
     for r in sorted(calibrated, key=lambda r: calibrations[r["name"]]["_mtime"]):
         k = calibrations[r["name"]]["kinds"].get("held out, new unit")
         if k and k.get("rows"):
@@ -708,7 +710,7 @@ def build(keep_dirs=False):
     loos = load_loo()
     variances = load_variance()
     explained = load_explained()
-    coverage = new_unit_coverage(load_runs(("latest",)), load_calibration())
+    coverage = new_unit_coverage(load_runs(("rows",)), load_calibration())
     annotations = load_annotations()
     groups = group_runs(load_runs())
     entries = []
