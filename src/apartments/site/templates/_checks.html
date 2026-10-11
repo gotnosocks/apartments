@@ -1,6 +1,6 @@
 {# The served fit's own accuracy checks, from its research-data entry: Pareto k, the held-out cross-check,
-   the descriptive share and new-apartment coverage from a time-split refit (the Fable review's framework, 2026-10-10).
-   Both of the last show "—" until the fit's own entry carries them, so no other fit's number appears. #}
+   the descriptive share and the coverage of held-out new units (the Fable review's framework, 2026-10-10). The
+   descriptive share shows "—" and the coverage is left out until the fit's own entry carries them, so no other fit's number appears. #}
 {% macro fit_checks(e) %}
 {% set ps = e.psis or {} %}
 {% set v = ps.validation or {} %}
@@ -29,13 +29,15 @@
     labels, building, building over time, the apartment itself) rather than to named features. At equal accuracy, lower
     is better, and the automatic rule prefers the less descriptive of tied fits.</span></dd>
   {% set c = e.new_unit_coverage %}
-  <dt>Coverage for new apartments</dt>
-  <dd>{% if c and c.cover_80 is number and c.cover_95 is number %}{{ "%.0f" | format(100 * c.cover_80) }}% of asks inside the 80% range and
-    {{ "%.0f" | format(100 * c.cover_95) }}% inside the 95% range{% if c.rows is number %}, on {{ "{:,}".format(c.rows) }} asks
-    from apartments first listed after the fit's cut-off date{% endif %}{% else %}— <span class="muted">not yet measured for
-    this fit</span>{% endif %}.
-    <span class="muted">From a refit on listings before a cut-off date, scored on apartments first seen after it, the
-    honest test of an estimate for an apartment the model has never seen. An honest 80% range holds about 79–80%
-    of them, an honest 95% range about 95%.</span></dd>
+  {% if c and c.cover_80 is number and c.cover_95 is number %}
+  <dt>Coverage for held-out new units</dt>
+  <dd>{{ "%.0f" | format(100 * c.cover_80) }}% of asks inside the 80% range and {{ "%.0f" | format(100 * c.cover_95) }}% inside
+    the 95% range{% if c.rows is number %}, on {{ "{:,}".format(c.rows) }} held-out asks{% endif %}.
+    {% if c.cover_80 < 0.78 or c.cover_95 < 0.93 %}New apartments fall short of the 80% and 95% targets: their ranges run too
+    narrow.{% else %}Close to the 80% and 95% targets.{% endif %}
+    <span class="muted">Held-out listings of apartments with no listing in the fit, in buildings the fit knows: the
+    test of an estimate for an apartment the model has never seen. An honest 80% range holds about 80% of them, an honest
+    95% range about 95%.</span></dd>
+  {% endif %}
 </dl>
 {% endmacro %}
