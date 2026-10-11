@@ -770,6 +770,35 @@ def test_unit_reviews_v1_joins_each_reviewed_group(tmp_path):
     assert "unit-reviews-v1" not in data.DROPPING_RULES
 
 
+def test_unit_reviews_v2_is_v1_and_21_west_12th_rear():
+    """v2's list is v1's with one group appended: 21 West 12th Street's 2, 2B, 2F
+    and 2R, which become one unit."""
+    v1 = data.UNIT_JOINS.read_text().splitlines()
+    v2 = data.UNIT_JOINS_V2.read_text().splitlines()
+    assert v2[: len(v1)] == v1 and len(v2) == len(v1) + 1
+    added = json.loads(v2[-1])
+    assert added["building"] == "21-west-12-street-new_york"
+    assert sorted(added["unit_labels"]) == ["2", "2B", "2F", "2R"]
+
+    def url(b, label):
+        return f"https://streeteasy.com/building/{b}/{label}"
+
+    b = "21-west-12-street-new_york"
+    frame = pd.DataFrame(
+        {
+            "building": [b] * 6,
+            "canonical_unit_url": [
+                url(b, x) for x in ("2", "2b", "2f", "2r", "3b", "1b")
+            ],
+            "unit_id": ["u5", "u2", "u4", "u3", "u1", "u0"],
+        }
+    )
+    out = data.DATA_RULES["unit-reviews-v2"](frame)
+    assert out.unit_id.tolist() == ["u2", "u2", "u2", "u2", "u1", "u0"]
+    assert data.RULE_SOURCES["unit-reviews-v2"] == data.UNIT_JOINS_V2
+    assert "unit-reviews-v2" not in data.DROPPING_RULES
+
+
 def test_quarantine_v6_is_v5_and_110_west_26th_bare_numbers():
     """v6 keeps all of v5's rows and adds 110 West 26th Street's five ads with a
     bare floor number."""

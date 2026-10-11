@@ -823,6 +823,9 @@ def quarantine_v12(frame: pd.DataFrame) -> pd.DataFrame:
 # Units of one building a review found to be one apartment under different
 # labels, one JSON line per group with its evidence (2026-10-07).
 UNIT_JOINS = REPO / "config" / "reviews" / "unit-joins-20261007.jsonl"
+# That list with 21 West 12th Street's second-floor rear apartment (2, 2B, 2F and
+# 2R, one apartment by its ad text) appended (2026-10-11).
+UNIT_JOINS_V2 = UNIT_JOINS.with_name("unit-joins-20261011.jsonl")
 
 
 def join_reviewed_units(frame: pd.DataFrame, path: Path = UNIT_JOINS) -> pd.DataFrame:
@@ -957,6 +960,7 @@ DATA_RULES = {
     "quarantine-v10": quarantine_v10,
     "quarantine-v12": quarantine_v12,
     "unit-reviews-v1": join_reviewed_units,
+    "unit-reviews-v2": functools.partial(join_reviewed_units, path=UNIT_JOINS_V2),
 }
 # Rules that read a file; run records hash the files.
 RULE_SOURCES = {
@@ -972,6 +976,7 @@ RULE_SOURCES = {
     "quarantine-v10": QUARANTINE_V10,
     "quarantine-v12": QUARANTINE_V12,
     "unit-reviews-v1": UNIT_JOINS,
+    "unit-reviews-v2": UNIT_JOINS_V2,
     "unit-labels-v2": UNIT_ALIASES,
     "unit-labels-v3": UNIT_ALIASES,
     "unit-labels-v5": UNIT_ALIASES_GV,
