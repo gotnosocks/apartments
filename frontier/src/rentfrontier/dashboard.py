@@ -777,6 +777,9 @@ DATA_RULE_TEXT = {
     "unit-reviews-v1": "Apartments a review found to be one apartment under two labels: "
     "at 110 West 26th Street, 4R and 4B, and 5R and 5B, are each floor's rear "
     "apartment (R for rear, B for back). No listing is dropped.",
+    "unit-reviews-v2": "unit-reviews-v1, with 21 West 12th Street's second-floor rear "
+    "apartment, listed as 2, 2B, 2F and 2R with the same ad text, as one apartment. "
+    "No listing is dropped.",
 }
 
 
