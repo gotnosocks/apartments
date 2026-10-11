@@ -347,10 +347,11 @@ def feature_sources(feature_set: str) -> dict:
 
 def _data_rules(value: str) -> tuple:
     rules = tuple(r for r in value.split(",") if r)
-    unknown = [r for r in rules if r not in data.DATA_RULES]
+    unknown = [r for r in rules if r not in data.DATA_RULES or data.amended_rule(r)]
     if unknown:
+        known = sorted(r for r in data.DATA_RULES if not data.amended_rule(r))
         raise argparse.ArgumentTypeError(
-            f"unknown data rules {unknown}; known: {sorted(data.DATA_RULES)}"
+            f"unknown data rules {unknown}; known: {known}"
         )
     return rules
 

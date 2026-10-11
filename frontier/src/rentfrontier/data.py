@@ -822,7 +822,12 @@ def quarantine_v12(frame: pd.DataFrame) -> pd.DataFrame:
 
 # Units of one building a review found to be one apartment under different
 # labels, one JSON line per group with its evidence (2026-10-07).
-UNIT_JOINS = REPO / "config" / "reviews" / "unit-joins-20261007.jsonl"
+UNIT_JOINS_20261007 = REPO / "config" / "reviews" / "unit-joins-20261007.jsonl"
+# unit-reviews-v1 amended in place (Ben, 2026-10-11: "treat it as the same
+# dataset"): that list with 21 West 12th Street's second-floor rear apartment
+# (2, 2B, 2F and 2R, one apartment by its ad text) appended. Runs recorded on the
+# first list rebuild with it (`RULE_AMENDMENTS`); docs/data/rule-amendments.md.
+UNIT_JOINS = UNIT_JOINS_20261007.with_name("unit-joins-20261011.jsonl")
 
 
 def join_reviewed_units(frame: pd.DataFrame, path: Path = UNIT_JOINS) -> pd.DataFrame:
@@ -957,6 +962,10 @@ DATA_RULES = {
     "quarantine-v10": quarantine_v10,
     "quarantine-v12": quarantine_v12,
     "unit-reviews-v1": join_reviewed_units,
+    # The rule as fit before its amendment, for runs that recorded the first list.
+    "unit-reviews-v1@20261007": functools.partial(
+        join_reviewed_units, path=UNIT_JOINS_20261007
+    ),
 }
 # Rules that read a file; run records hash the files.
 RULE_SOURCES = {
@@ -972,6 +981,7 @@ RULE_SOURCES = {
     "quarantine-v10": QUARANTINE_V10,
     "quarantine-v12": QUARANTINE_V12,
     "unit-reviews-v1": UNIT_JOINS,
+    "unit-reviews-v1@20261007": UNIT_JOINS_20261007,
     "unit-labels-v2": UNIT_ALIASES,
     "unit-labels-v3": UNIT_ALIASES,
     "unit-labels-v5": UNIT_ALIASES_GV,
@@ -1012,23 +1022,44 @@ def dropped_rows() -> frozenset:
     return frozenset().union(*(quarantined(RULE_SOURCES[r]) for r in DROPPING_RULES))
 
 
+# Rules whose file Ben chose to amend in place rather than version: the rule and
+# the hash of the file before the amendment, mapped to the rule that applies that
+# file. A run that recorded the old hash rebuilds its own rows under the old rule;
+# it still carries, and is compared under, the rule's name.
+RULE_AMENDMENTS = {
+    (
+        "unit-reviews-v1",
+        "a3f9630b57bd52019c7e0b5a190f835bf107a9da304f916659f5df2dd0bb66c2",
+    ): "unit-reviews-v1@20261007",
+}
+
+
+def amended_rule(name: str) -> bool:
+    """Whether a DATA_RULES name is a rule as it stood before an in-place
+    amendment (`RULE_AMENDMENTS`): never chosen for a new run or listed as a rule."""
+    return "@" in name
+
+
 def recorded_rules(result: dict) -> tuple:
     """A run record's data rules, refused if a rule is unknown or its file
     differs now from the hash the run recorded (the rows would not be the
-    run's rows)."""
-    rules = tuple(result.get("data_rules", ()))
-    for rule in rules:
-        if rule not in DATA_RULES:
+    run's rows). A rule amended in place since the run (`RULE_AMENDMENTS`) comes
+    back as the rule that applies the file the run recorded."""
+    rules = []
+    for rule in result.get("data_rules", ()):
+        if rule not in DATA_RULES or amended_rule(rule):
             raise SystemExit(f"unknown data rule {rule} in the run's record")
         if rule in RULE_SOURCES:
             src = result.get("data_rule_sources", {}).get(rule)
             if src is None:
                 raise SystemExit(f"the run records no hash for data rule {rule}'s file")
+            rule = RULE_AMENDMENTS.get((rule, src["sha256"]), rule)
             if sha256(RULE_SOURCES[rule]) != src["sha256"]:
                 raise SystemExit(
                     f"data rule {rule}'s file differs from the run's record"
                 )
-    return rules
+        rules.append(rule)
+    return tuple(rules)
 
 
 def rows_sha256(frame: pd.DataFrame, heldout) -> str:

@@ -770,6 +770,68 @@ def test_unit_reviews_v1_joins_each_reviewed_group(tmp_path):
     assert "unit-reviews-v1" not in data.DROPPING_RULES
 
 
+def test_unit_reviews_v1_amended_with_21_west_12th_rear():
+    """unit-reviews-v1 amended in place (2026-10-11): the list is the first one
+    with 21 West 12th Street's 2, 2B, 2F and 2R appended, which become one unit.
+    A run that recorded the first list rebuilds with it, under the alias rule;
+    a new run gets the amended list; the alias is never a current rule."""
+    old = data.UNIT_JOINS_20261007.read_text().splitlines()
+    now = data.UNIT_JOINS.read_text().splitlines()
+    assert now[: len(old)] == old and len(now) == len(old) + 1
+    added = json.loads(now[-1])
+    assert added["building"] == "21-west-12-street-new_york"
+    assert sorted(added["unit_labels"]) == ["2", "2B", "2F", "2R"]
+
+    def url(b, label):
+        return f"https://streeteasy.com/building/{b}/{label}"
+
+    b = "21-west-12-street-new_york"
+    frame = pd.DataFrame(
+        {
+            "building": [b] * 6,
+            "canonical_unit_url": [
+                url(b, x) for x in ("2", "2b", "2f", "2r", "3b", "1b")
+            ],
+            "unit_id": ["u5", "u2", "u4", "u3", "u1", "u0"],
+        }
+    )
+    out = data.DATA_RULES["unit-reviews-v1"](frame)
+    assert out.unit_id.tolist() == ["u2", "u2", "u2", "u2", "u1", "u0"]
+    alias = "unit-reviews-v1@20261007"
+    before = data.DATA_RULES[alias](frame)
+    assert before.unit_id.tolist() == frame.unit_id.tolist()
+
+    def record(path):
+        return {
+            "data_rules": ["unit-labels-v15", "unit-reviews-v1"],
+            "data_rule_sources": {
+                "unit-labels-v15": {
+                    "sha256": data.sha256(data.RULE_SOURCES["unit-labels-v15"])
+                },
+                "unit-reviews-v1": {"sha256": data.sha256(path)},
+            },
+        }
+
+    old_run = record(data.UNIT_JOINS_20261007)
+    assert old_run["data_rule_sources"]["unit-reviews-v1"]["sha256"] == (
+        "a3f9630b57bd52019c7e0b5a190f835bf107a9da304f916659f5df2dd0bb66c2"
+    )
+    assert data.recorded_rules(old_run) == ("unit-labels-v15", alias)
+    assert data.recorded_rules(record(data.UNIT_JOINS)) == (
+        "unit-labels-v15",
+        "unit-reviews-v1",
+    )
+    # Any other hash is still refused, and the alias cannot be recorded by name.
+    other = record(data.UNIT_JOINS)
+    other["data_rule_sources"]["unit-reviews-v1"]["sha256"] = "0" * 64
+    with pytest.raises(SystemExit, match="differs"):
+        data.recorded_rules(other)
+    with pytest.raises(SystemExit, match="unknown"):
+        data.recorded_rules({"data_rules": [alias], "data_rule_sources": {}})
+    assert data.RULE_SOURCES["unit-reviews-v1"] == data.UNIT_JOINS
+    assert {"unit-reviews-v1", alias}.isdisjoint(data.DROPPING_RULES)
+
+
 def test_quarantine_v6_is_v5_and_110_west_26th_bare_numbers():
     """v6 keeps all of v5's rows and adds 110 West 26th Street's five ads with a
     bare floor number."""

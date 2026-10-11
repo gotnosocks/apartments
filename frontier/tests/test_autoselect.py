@@ -18,6 +18,11 @@ def test_current_rules_take_the_latest_version_of_each_family():
         "legacy",
         "quarantine-v1",
     }
+    # A rule as it stood before an in-place amendment is never current.
+    assert autoselect.current_rules(
+        ["unit-reviews-v1@20261007", "unit-reviews-v1"]
+    ) == {"unit-reviews-v1"}
+    assert "unit-reviews-v1" in autoselect.current_rules()
 
 
 def record(rules):
