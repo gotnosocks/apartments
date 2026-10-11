@@ -121,6 +121,8 @@ def current_rules(rules=None) -> frozenset:
     for name in rules if rules is not None else data.DATA_RULES:
         if name.startswith(data.TUNING_PREFIX):
             continue  # tuning subsets are never part of the served rules
+        if data.amended_rule(name):
+            continue  # a rule as it stood before an in-place amendment
         m = re.fullmatch(r"(.+)-v(\d+)", name)
         family, version = (m.group(1), int(m.group(2))) if m else (name, 0)
         if family not in latest or version > latest[family][0]:

@@ -774,12 +774,11 @@ DATA_RULE_TEXT = {
     "over East Village, NoMad and Stuyvesant Town/PCV: shops, offices and medical "
     "offices, ads for apartments elsewhere, dorm rooms with a shared bath, and summer "
     "and few-month sublets.",
-    "unit-reviews-v1": "Apartments a review found to be one apartment under two labels: "
-    "at 110 West 26th Street, 4R and 4B, and 5R and 5B, are each floor's rear "
-    "apartment (R for rear, B for back). No listing is dropped.",
-    "unit-reviews-v2": "unit-reviews-v1, with 21 West 12th Street's second-floor rear "
-    "apartment, listed as 2, 2B, 2F and 2R with the same ad text, as one apartment. "
-    "No listing is dropped.",
+    "unit-reviews-v1": "Apartments a review found to be one apartment under different "
+    "labels: at 110 West 26th Street, 4R and 4B, and 5R and 5B, are each floor's rear "
+    "apartment (R for rear, B for back); at 21 West 12th Street, 2, 2B, 2F and 2R are "
+    "the second floor's rear apartment, by its ad text (added 2026-10-11). No listing "
+    "is dropped.",
 }
 
 
@@ -813,6 +812,8 @@ def data_quality() -> dict:
         app_rules = []
     rules = []
     for rule, fn in data_module.DATA_RULES.items():
+        if data_module.amended_rule(rule):
+            continue
         doc = DATA_RULE_TEXT.get(rule) or " ".join((fn.__doc__ or "").split())
         entry = {"rule": rule, "text": doc, "in_app_model": rule in app_rules}
         # The unit alias table (unit-labels-*) joins units; it has no per-row actions.
