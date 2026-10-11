@@ -1,6 +1,24 @@
 # Data improvements — handoff
 
-Updated 2026-10-10 15:45 ET. Thread owner: the Data improvements project thread (bridge session on thelio).
+Updated 2026-10-10 21:05 ET. Thread owner: the Data improvements project thread (bridge session on thelio).
+
+## 2026-10-10 21:05 ET
+
+- **Pre-registrations (#672, merged `49d6c1c6`):** predictions for retail, noise, trees, crime, hpd
+  and petsfill are in `docs/model/predictions-nb8-data-2026-10-10.md`, following the Fable review's
+  framework. When Modeling sends results, score each fit against its prediction: paired ΔELPD ± SE,
+  whether it clears ~2 SE, and medians with intervals.
+- **21 W 12th (Ben, via the coordinator):** the mixing failures are model-side. It is a two-tier
+  townhouse with 34 of 36 sizes missing, and C mixes it. The one real defect was a single apartment
+  listed under four labels (2, 2B, 2F, 2R).
+- **#687 (merged `e76570bb`):** fixes that defect by amending `unit-reviews-v1` in place, by Ben's
+  decision ("treat it as the same dataset"). There is no v2.
+  - Runs that recorded the old file's hash rebuild with it, as the hidden rule
+    `unit-reviews-v1@20261007` (`data.RULE_AMENDMENTS`, `data.amended_rule`).
+  - Ledger: `docs/data/rule-amendments.md`. Use the same mechanism for any future in-place amendment
+    Ben asks for.
+  - Both Modeling sessions were told before and after the merge.
+- #542 (quarantine-v11) stays held.
 
 ## 2026-10-10 15:45 ET
 
