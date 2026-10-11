@@ -113,5 +113,23 @@ def test_new_units_short_of_the_targets_said_plainly(site_root, research_file):
         html = " ".join(client.get(page).get_data(as_text=True).split())
         assert "63% of asks inside the 80% range and 88% inside the 95% range" in html
         assert "on 517 held-out asks" in html
-        assert "New apartments fall short of the 80% and 95% targets" in html
+        assert "New apartments fall short of the 80% and the 95% targets" in html
         assert "time-split" not in html and "cut-off date" not in html
+
+
+def test_story_cites_the_new_unit_check(site_root, research_file):
+    data = json.loads(research_file.read_text())
+    served = next(e for e in data["entries"] if e["id"].startswith("m-test/"))
+    served["new_unit_coverage"] = {"rows": 517, "cover_80": 0.79, "cover_95": 0.88}
+    research_file.write_text(json.dumps(data))
+    client = create_app(site_root, research_data=research_file).test_client()
+    html = " ".join(client.get("/research/story").get_data(as_text=True).split())
+    assert 'id="new-unit-check"' in html
+    assert "of 517 held-out asks" in html and "79% fell inside the 80% range" in html
+    # only the missed target is named
+    assert "so new apartments fall short of the 95% target." in html
+
+
+def test_story_leaves_the_check_out_without_it(client):
+    html = client.get("/research/story").get_data(as_text=True)
+    assert 'id="new-unit-check"' not in html

@@ -1,6 +1,12 @@
 {# The served fit's own accuracy checks, from its research-data entry: Pareto k, the held-out cross-check,
    the descriptive share and the coverage of held-out new units (the Fable review's framework, 2026-10-10). The
    descriptive share shows "—" and the coverage is left out until the fit's own entry carries them, so no other fit's number appears. #}
+{# Which interval targets a coverage misses, e.g. "the 80% and the 95% targets"; empty when it is close to both.
+   Close means within 2 points of 80% and of 95%, one rule for the checks and the story. #}
+{% macro short_of(c) -%}
+{%- set m80 = c.cover_80 < 0.78 -%}{%- set m95 = c.cover_95 < 0.93 -%}
+{%- if m80 and m95 %}the 80% and the 95% targets{% elif m80 %}the 80% target{% elif m95 %}the 95% target{% endif -%}
+{%- endmacro %}
 {% macro fit_checks(e) %}
 {% set ps = e.psis or {} %}
 {% set v = ps.validation or {} %}
@@ -33,7 +39,7 @@
   <dt>Coverage for held-out new units</dt>
   <dd>{{ "%.0f" | format(100 * c.cover_80) }}% of asks inside the 80% range and {{ "%.0f" | format(100 * c.cover_95) }}% inside
     the 95% range{% if c.rows is number %}, on {{ "{:,}".format(c.rows) }} held-out asks{% endif %}.
-    {% if c.cover_80 < 0.78 or c.cover_95 < 0.93 %}New apartments fall short of the 80% and 95% targets: their ranges run too
+    {% set miss = short_of(c) %}{% if miss %}New apartments fall short of {{ miss }}: their ranges run too
     narrow.{% else %}Close to the 80% and 95% targets.{% endif %}
     <span class="muted">Held-out listings of apartments with no listing in the fit, in buildings the fit knows: the
     test of an estimate for an apartment the model has never seen. An honest 80% range holds about 80% of them, an honest
