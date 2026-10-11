@@ -31,6 +31,7 @@ fingerprint() {
   {
     git -C "$MASTER" rev-parse HEAD
     find "$FRONTIER/runs" "$FRONTIER/loo" "$FRONTIER/variance" "$FRONTIER/rescores" \
+      "$FRONTIER/calibration" \
       -mindepth 2 -maxdepth 2 \
       \( -name result.json -o -name pointwise.npz -o -name heldout.npz \) -printf '%p %T@ %s\n' 2>/dev/null | sort
   } | sha256sum | cut -d' ' -f1
