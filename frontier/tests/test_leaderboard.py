@@ -463,7 +463,7 @@ def test_load_calibration_keeps_the_newest_record_per_run(monkeypatch, tmp_path)
     assert out["r"]["kinds"]["held out, new unit"]["cover_80"] == 0.8
 
 
-def test_new_unit_coverage_comes_from_the_newest_calibrated_latest_split_refit():
+def test_new_unit_coverage_comes_from_the_newest_calibrated_run_of_a_design():
     def run(name, fs="f"):
         return {
             "name": name,
