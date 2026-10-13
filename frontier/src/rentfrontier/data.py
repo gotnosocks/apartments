@@ -870,8 +870,57 @@ def tune_b35_v1(frame: pd.DataFrame) -> pd.DataFrame:
     return frame[keep.to_numpy()]
 
 
+# Held-out lots (2026-10-13, the grouped-building check of the new-building
+# score): every row of about 10% of buildings, drawn by tax lot, dropped so a
+# fit never sees them; `rentfrontier.newbuilding.score_holdout` scores them.
+# A subset of buildings, so the name is a tuning one: never served or paired.
+HOLDOUT_PREFIX = TUNING_PREFIX + "holdout-"
+HOLDOUT_LOTS_V1 = REPO / "config" / "holdout" / "lots-v1.tsv"
+
+
+def holdout_buildings(path: Path = HOLDOUT_LOTS_V1) -> frozenset:
+    """The building slugs of a held-out-lots file (tab-separated lot, building)."""
+    lines = Path(path).read_text().splitlines()
+    return frozenset(
+        line.split("\t")[1] for line in lines if line and not line.startswith("#")
+    )
+
+
+def drop_holdout_lots(
+    frame: pd.DataFrame, path: Path = HOLDOUT_LOTS_V1
+) -> pd.DataFrame:
+    """Rows outside the held-out lots' buildings."""
+    return frame[~frame.building.isin(holdout_buildings(path)).to_numpy()]
+
+
+# Final asks (2026-10-13, Ben's final-ask fit): each row priced at its
+# listing's last ask (#554), for a fit on what a listing ended at. A different
+# price, so the name is a tuning one: never served or paired.
+FINAL_ASK_MAX_RATIO = 2.0
+
+
+def final_ask_v1(frame: pd.DataFrame) -> pd.DataFrame:
+    """Rows priced at their listing's last ask, of listings over by the last
+    capture whose last ask is within a factor of `FINAL_ASK_MAX_RATIO` of the
+    first ask: a still-live listing, one no crawl captured, and a sale price
+    or typo (0.5% of captured rows) are left out."""
+    from . import listing_outcomes
+
+    out = listing_outcomes.attach(frame)
+    ratio = out.final_ask / out.asking_rent
+    keep = (
+        out.final_ask.notna()
+        & out.still_listed.eq(False)
+        & ratio.between(1 / FINAL_ASK_MAX_RATIO, FINAL_ASK_MAX_RATIO)
+    ).to_numpy()
+    final = out.final_ask.to_numpy()[keep]
+    return frame[keep].assign(asking_rent=final, log_rent=np.log(final))
+
+
 DATA_RULES = {
     "tune-b35-v1": tune_b35_v1,
+    "tune-holdout-lots-v1": drop_holdout_lots,
+    "tune-finalask-v1": final_ask_v1,
     "unit-labels-v1": merge_unit_labels,
     "unit-labels-v2": merge_unit_aliases,
     "unit-labels-v3": merge_word_labels,
@@ -969,6 +1018,11 @@ DATA_RULES = {
 }
 # Rules that read a file; run records hash the files.
 RULE_SOURCES = {
+    "tune-holdout-lots-v1": HOLDOUT_LOTS_V1,
+    "tune-finalask-v1": Path(
+        "/data1/apartments/external/listing-outcomes/20261008-afb3446/"
+        "listing-outcomes.parquet"
+    ),
     "quarantine-v1": QUARANTINE_V1,
     "quarantine-v2": QUARANTINE_V2,
     "quarantine-v3": QUARANTINE_V3,

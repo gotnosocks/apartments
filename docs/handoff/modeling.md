@@ -3,6 +3,31 @@
 What the next turn of the modeling thread needs. Updated at each milestone. Scripts and logs are
 in `/data1/apartments/tmp/bridge` (thelio).
 
+## Update (2026-10-13 03:15 UTC)
+
+Ben's "go" (02:47Z) approved three steps from the coordinator. They run in this order, ahead of the
+building sets in the modalq-c queue.
+
+1. **New-building score.**
+   - Code: `rentfrontier.newbuilding`, on branch model/newbuilding-score (PR pending).
+   - Both rungs are scored from kept draws on thelio.
+   - Building slopes now count as descriptive.
+   - Back-fill on C, areatime (and its rerun), lines and nofloorslope.
+2. **Held-out-lots refit.** Fit C with `tune-holdout-lots-v1` (`config/holdout/lots-v1.tsv`: 542
+   buildings on 508 lots), then score with `newbuilding --holdout`. Compare against `newbuilding
+   --only config/holdout/lots-v1.tsv <C>`. A tune- rule never gets served.
+   `ops/modal/fit.py` keeps `--tier full` with a tune- rule.
+3. **Final-ask fit.** Fit C with `tune-finalask-v1`, then compare with `rentfrontier.finalask
+   <run> <C>`.
+
+Predictions are in `docs/model/predictions-newbuilding-2026-10-13.md`.
+
+Queued after those: predsize (coordinator note, 02:59Z; Ben may drop it). I've asked Data for a
+per-row predicted-size parquet.
+
+The queue runner needs a way to add a rule. Either restart modalq-c2 with a per-line rule prefix,
+or pass rules on the queue line.
+
 ## Update (2026-10-10 21:10 UTC)
 
 - **The Fable framework applies to every fit report** (Ben 20:03Z, via the coordinator). Each report

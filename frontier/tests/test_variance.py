@@ -45,7 +45,7 @@ def test_streaming_chunks_match_one_shot():
         np.testing.assert_allclose(many[g], one[g], atol=1e-10)
 
 
-def test_descriptive_share_adds_neighbourhood_labels_to_building_and_unit():
+def test_descriptive_share_adds_neighbourhood_labels_to_building_slopes_and_unit():
     rng = np.random.default_rng(2)
     y, terms = synthetic(rng)
     hood = rng.normal(0, 0.2, (1, y.shape[0])).repeat(50, 0)
@@ -63,6 +63,7 @@ def test_descriptive_share_adds_neighbourhood_labels_to_building_and_unit():
         sh["_neighbourhood labels"]
         + sh["building"]
         + sh["building over time"]
+        + sh["building slopes"]
         + sh["unit"],
     )
     assert sh["_descriptive"].mean() == pytest.approx(

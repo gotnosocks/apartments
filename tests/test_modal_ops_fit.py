@@ -139,6 +139,12 @@ def test_plan_names_runs_like_drive_sh_and_reads_the_tier():
     assert fit.plan(args, rest, "9371a18")["tier"] == "exploration"
     args, rest = fit.parse(["abc", "x-probe", *argv[2:8]])
     assert fit.plan(args, rest, "9371a18")["tier"] == "exploration"
+    # A tuning subset is exploration, unless it asks for the full tier.
+    args, rest = fit.parse([*argv[:8], "--data-rules", "tune-b35-v1"])
+    assert fit.plan(args, rest, "9371a18")["tier"] == "exploration"
+    tier = ["--tier", "full", "--data-rules", "tune-holdout-lots-v1"]
+    args, rest = fit.parse([*argv[:8], *tier])
+    assert fit.plan(args, rest, "9371a18")["tier"] == "full"
 
 
 def test_only_changed_inputs_are_uploaded(tmp_path):
