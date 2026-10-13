@@ -73,3 +73,48 @@ def test_scope_keeps_only_its_own_area(tmp_path, slug):
     others = [s for s in [*AREAS, "brooklyn-heights"] if s != slug]
     assert not any(f"/{s}?page" in u for u in urls for s in others)
     store.close()
+
+
+COMBINED = "downtown-brooklyn-fort-greene-boerum-hill"
+
+
+def test_combined_scope_keeps_all_three(tmp_path):
+    assert NEIGHBORHOODS[COMBINED] == (set(AREAS), set(AREAS.values()))
+    seeds = neighborhood_seeds(COMBINED)
+    for slug in AREAS:
+        assert f"https://streeteasy.com/buildings/{slug}" in seeds
+    store = ArchiveStore(tmp_path)
+    generation = store.new_generation()
+    configure(store, generation, neighborhood=COMBINED)
+    data = {
+        "scripts": [
+            {
+                "json": [
+                    {"areaName": a, "urlPath": f"/building/b{i}/1a"}
+                    for i, a in enumerate(NAMES)
+                ]
+            }
+        ],
+        "links": [
+            {"url": f"https://streeteasy.com/for-rent/{s}?page=2"}
+            for s in [*AREAS, "brooklyn-heights"]
+        ],
+    }
+    expand(
+        store,
+        generation,
+        data,
+        "https://streeteasy.com/for-rent/fort-greene",
+        neighborhood=COMBINED,
+    )
+    urls = {r[0] for r in store.db.execute("SELECT url FROM scope_urls")}
+    keep = {NAMES.index(a) for a in AREAS.values()}
+    assert {f"https://streeteasy.com/building/b{i}/1a" for i in keep} <= urls
+    assert not urls & {
+        f"https://streeteasy.com/building/b{i}/1a"
+        for i in range(len(NAMES))
+        if i not in keep
+    }
+    assert {f"https://streeteasy.com/for-rent/{s}?page=2" for s in AREAS} <= urls
+    assert not any("brooklyn-heights?page" in u for u in urls)
+    store.close()
