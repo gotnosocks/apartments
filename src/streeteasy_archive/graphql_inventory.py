@@ -46,7 +46,6 @@ A guess that returned 404 counts for nothing.
 """
 
 import asyncio
-import functools
 import html
 import json
 import re
@@ -526,16 +525,13 @@ class GraphQLOxylabsHandler(OxylabsDownloadHandler):
             result = None
             try:
                 await self._submission_slot()
-                post = functools.partial(
+                result = await asyncio.to_thread(
                     requests.post,
                     API_URL,
                     json=payload,
                     auth=(username, password),
                     timeout=180,
                     allow_redirects=False,
-                )
-                result = await asyncio.get_running_loop().run_in_executor(
-                    self._executor, post
                 )
                 if result.status_code in (401, 402, 403):
                     result.raise_for_status()

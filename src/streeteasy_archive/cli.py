@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import asyncio
 import base64
 import datetime
 import hashlib
@@ -11,6 +12,7 @@ import math
 import os
 import sys
 import time
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 from .crawler import approved_links, is_challenge
@@ -523,6 +525,16 @@ def export(store, generation, path, offline):
     return 0
 
 
+def size_thread_pool(loop, workers):
+    """Give the crawl's event loop a thread per Oxylabs worker.
+
+    The Oxylabs handlers post through asyncio.to_thread, and asyncio's default pool holds
+    min(32, cpus + 4) threads, 16 on thelio. oxylabs.py is hashed by rental discovery runs,
+    so the pool is sized here when the engine starts.
+    """
+    loop.set_default_executor(ThreadPoolExecutor(max_workers=workers))
+
+
 def run_crawler(args, generation, lock=None):
     if args.transport != "oxylabs":
         raise ValueError("All live collection must use Oxylabs")
@@ -554,6 +566,13 @@ def run_crawler(args, generation, lock=None):
     process = CrawlerProcess(settings=settings)
     errors = []
     crawler = process.create_crawler(ArchiveSpider)
+    from scrapy import signals
+
+    crawler.signals.connect(
+        lambda: size_thread_pool(asyncio.get_event_loop(), args.concurrency),
+        signal=signals.engine_started,
+        weak=False,
+    )
     deferred = process.crawl(
         crawler,
         data_dir=args.data,
