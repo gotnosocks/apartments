@@ -183,6 +183,12 @@ def main(argv=None):
         help="Explicit space-separated host:port listeners; defaults to loopback",
     )
     sub.add_parser("import-har").add_argument("path")
+    close_parser = sub.add_parser(
+        "close-queue",
+        help="mark a stopped generation's pending pages abandoned (close_queue.py)",
+    )
+    close_parser.add_argument("--generation", type=int, required=True)
+    close_parser.add_argument("--reason", required=True)
     export_parser = sub.add_parser("export")
     export_parser.add_argument("path")
     export_parser.add_argument("--generation", type=int)
@@ -223,6 +229,11 @@ def main(argv=None):
         generation = store.current_generation()
         if args.command == "status":
             print(json.dumps(store.status(args.generation), indent=2))
+            return 0
+        if args.command == "close-queue":
+            from .close_queue import close_queue
+
+            print(json.dumps(close_queue(store, args.generation, args.reason)))
             return 0
         if args.command == "import-har":
             return import_har(store, args.path)

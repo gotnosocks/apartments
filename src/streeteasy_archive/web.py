@@ -215,6 +215,7 @@ def create_app(data_dir="data", *, allowed_hosts=None):
                 "deferred",
                 "superseded",
                 "excluded",
+                "abandoned",
             ):
                 abort(400, description="Invalid queue state")
             where.append("f.state=?")
