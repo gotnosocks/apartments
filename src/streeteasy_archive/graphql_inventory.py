@@ -272,8 +272,30 @@ def unit_path_probes(store, generation, data, source_url, include_unavailable):
     if probes:
         with store._tx():
             _enroll(store, generation, probes)
+            _newest(store, generation, probes)
             _retire(store, generation, retired)
     return len(probes)
+
+
+def _newest(store, generation, probes):
+    """Give an enrolled probe the newer source ad, which the ad-ID cutoff reads.
+
+    _enroll keeps the first reason a URL was enrolled with. When a later inventory
+    names a newer ad for the same unit page, the reason moves to that ad. A probe the
+    cutoff has already excluded stays excluded.
+    """
+    from .collection_policy import PROBE_RULE
+
+    for url, reason in probes.items():
+        row = store.db.execute(
+            "SELECT reason FROM scope_urls WHERE generation=? AND url=?",
+            (generation, url),
+        ).fetchone()
+        if row and (row[0] or "").startswith(PROBE_RULE) and _ad(row[0]) < _ad(reason):
+            store.db.execute(
+                "UPDATE scope_urls SET reason=? WHERE generation=? AND url=?",
+                (reason, generation, url),
+            )
 
 
 def _retire(store, generation, retired):
@@ -391,11 +413,12 @@ def replay_unit_paths(store, generation, include_unavailable, building=None):
             store, generation, data, row["url"], include_unavailable, roots, probes
         )
         for unit, reason in found.items():
-            probes.setdefault(unit, reason)
+            probes[unit] = max(reason, probes.get(unit, ""), key=_ad)
         retired.update(gone)
     if probes:
         with store._tx():
             _enroll(store, generation, probes)
+            _newest(store, generation, probes)
             _retire(store, generation, retired)
     return len(probes)
 

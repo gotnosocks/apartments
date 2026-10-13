@@ -511,3 +511,41 @@ def test_api_path_retires_a_pending_guess_and_ignores_a_404(tmp_path):
     assert states[ROOT + "/4c"] == "superseded"
     assert states[ROOT + "/04c"] == "pending" and states[ROOT + "/05e"] == "pending"
     store.close()
+
+
+def test_enrolled_probe_moves_to_the_newer_ad(tmp_path):
+    from streeteasy_archive.collection_policy import PROBE_RULE
+
+    old = f"{PROBE_RULE} from https://streeteasy.com/rental/735970"
+    store, g = _store_with_guesses(tmp_path, {ROOT + "/4c": old})
+    store.db.execute(
+        "UPDATE frontier SET state='deferred' WHERE url=?", (ROOT + "/4c",)
+    )
+    store.db.commit()
+    new = "https://streeteasy.com/rental/4615133"
+    data = {"inventory": {"unit_paths": {ROOT + "/4c": new}}}
+    gi.unit_path_probes(store, g, data, VIEW, True)
+    reason = store.db.execute(
+        "SELECT reason FROM scope_urls WHERE generation=? AND url=?", (g, ROOT + "/4c")
+    ).fetchone()[0]
+    assert reason == f"{PROBE_RULE} from {new}"
+    # An older ad leaves the newer reason alone.
+    gi.unit_path_probes(
+        store,
+        g,
+        {
+            "inventory": {
+                "unit_paths": {ROOT + "/4c": "https://streeteasy.com/rental/1"}
+            }
+        },
+        VIEW,
+        True,
+    )
+    assert (
+        store.db.execute(
+            "SELECT reason FROM scope_urls WHERE generation=? AND url=?",
+            (g, ROOT + "/4c"),
+        ).fetchone()[0]
+        == reason
+    )
+    store.close()
