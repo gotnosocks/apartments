@@ -1,6 +1,6 @@
 # Data collection — handoff
 
-Updated 2026-10-13 12:30 ET. Thread owner: the Data collection project thread (bridge session on thelio).
+Updated 2026-10-13 12:45 ET. Thread owner: the Data collection project thread (bridge session on thelio).
 
 ## State
 - **GraphQL past-rentals reads (no-JS), Oct 13.** Ben 09:42 ET: switch the Brooklyn crawl to
@@ -29,7 +29,7 @@ Updated 2026-10-13 12:30 ET. Thread owner: the Data collection project thread (b
   probe keeps the newer source ad for the cutoff). Pilot: guesses 743 -> 508; 112 API paths
   give way to spellings already captured. Known nit: an older probe reason already in
   `scope_urls` wins over a newer one (INSERT OR IGNORE). Next: Ben decides on any resume; the
-  scrape stays stopped until he says so.
+  Brooklyn scrape stays stopped until he says so.
 - **Unit pages could be skipped (Oxylabs check, `unitcheck/` in that probe dir).** On 30 Manhattan
   pilot buildings the probe-style guess from the API's `displayUnit` gives the crawl's unit for
   5,844/5,857 post-cutoff ads (12 of 13 misses are zero-padded spellings). The API lists 1,066
@@ -45,10 +45,15 @@ Updated 2026-10-13 12:30 ET. Thread owner: the Data collection project thread (b
   queue (#715, closed unmerged), and the old modal histories had no unit paths. An offline dry
   run of that restart queued 76,249 pages and skipped 9,212 recent captures, which a fresh run
   fetches again. The small `downtown-brooklyn-20261013` (131 pages) is still there; deleting it
-  is Ben's call. Next: a short live test of `--graphql-inventory --graphql-unit-paths` on a few
-  Brooklyn buildings within the $10 test budget, then the full backfill (new frozen runtime from
-  master, 64/min) once Ben adds credits and says go. When it finishes: snapshot (compacted),
-  dataset, tell Modeling and Data improvements (first Brooklyn rows).
+  is Ben's call. Ben moved the next crawl to Midtown West (below) at 12:25 ET.
+- **Midtown West crawl running since Oct 13 12:29 ET** (Ben 12:25 ET, after adding Oxylabs
+  credits). Area 124 with its children Hudson Yards and Hell's Kitchen (#717). Service
+  `apartments-midtown-west-20261013`, archive `/data1/apartments/archive/crawls/midtown-west-20261013`,
+  runtime and runner in `data/probes/midtown-west-20261013/` (frozen cb52b526), 64/min, 16
+  workers, `--graphql-inventory --graphql-unit-paths`, ad cutoff 1210000. The runner resumes
+  when the archive exists. On 401/402/403 or repeated 429s, stop and tell Ben. When the GraphQL
+  histories start, report the unit-path counts (API paths, guesses retired, spellings skipped).
+  When it finishes: snapshot (compacted), dataset, tell Modeling and Data improvements.
 - **Brooklyn scout** Oct 13 (22 requests): `data/probes/brooklyn-scout-20261013/README.md` has
   live rentals and directory pages for Greenpoint, Williamsburg, East Williamsburg, Bushwick, Park
   Slope, Prospect Heights, Boerum Hill, Fort Greene, Clinton Hill, Downtown Brooklyn. Suggested
