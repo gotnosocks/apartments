@@ -1,6 +1,6 @@
 # Data collection — handoff
 
-Updated 2026-10-13 11:40 ET. Thread owner: the Data collection project thread (bridge session on thelio).
+Updated 2026-10-13 12:10 ET. Thread owner: the Data collection project thread (bridge session on thelio).
 
 ## State
 - **GraphQL past-rentals reads (no-JS), Oct 13.** Ben 09:42 ET: switch the Brooklyn crawl to
@@ -19,8 +19,17 @@ Updated 2026-10-13 11:40 ET. Thread owner: the Data collection project thread (b
   whose `urlPath` is `/rental/ID` keep the label guess. Membership still comes only from the
   unit page's history; the rule and dedup are unchanged. Offline on the 30 pilot responses:
   2,743 API unit paths replace 3,128 label guesses (2,251 of which were right), plus 743 guesses
-  for ads that open on their own page. Next: Ben decides on 1 or 2 live check requests (does
-  `/building/330-1-avenue-new_york/05e` list ad 3822968?) and on any resume.
+  for ads that open on their own page.
+- **One spelling per unit (#710, merged Oct 13).** Ben asked for `/04c` at 240 1st Ave (1
+  Oxylabs request, 9 of the $10 test budget used): it lists the same 7 ads as the captured `/4c`,
+  so StreetEasy keeps two records for one unit and fetching both would exclude those ads as
+  conflicting. With `--graphql-unit-paths` the crawl now compares spellings as letter and digit
+  runs without leading zeros. A label guess yields to an API path, an API path yields to a
+  captured, in-flight, deferred or linked spelling, and a pending guess is superseded (the
+  probe keeps the newer source ad for the cutoff). Pilot: guesses 743 -> 508; 112 API paths
+  give way to spellings already captured. Known nit: an older probe reason already in
+  `scope_urls` wins over a newer one (INSERT OR IGNORE). Next: Ben decides on any resume; the
+  scrape stays stopped until he says so.
 - **Unit pages could be skipped (Oxylabs check, `unitcheck/` in that probe dir).** On 30 Manhattan
   pilot buildings the probe-style guess from the API's `displayUnit` gives the crawl's unit for
   5,844/5,857 post-cutoff ads (12 of 13 misses are zero-padded spellings). The API lists 1,066
