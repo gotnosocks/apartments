@@ -1,8 +1,26 @@
 # Data collection — handoff
 
-Updated 2026-10-13 03:50 ET. Thread owner: the Data collection project thread (bridge session on thelio).
+Updated 2026-10-13 10:40 ET. Thread owner: the Data collection project thread (bridge session on thelio).
 
 ## State
+- **GraphQL past-rentals reads (no-JS), Oct 13.** Ben 09:42 ET: switch the Brooklyn crawl to
+  StreetEasy's GraphQL `rentalsHistoryByBuildingId` (api-v6, plain Oxylabs GET with
+  `apollo-require-preflight`, 24 buildings/request, browser as fallback). Built as #705
+  (`streeteasy_archive/graphql_inventory.py`, crawl flag `--graphql-inventory`). Ben 09:53 ET:
+  "DO NOT RESUME THE SCRAPE YET ... only test the no-JS change" ($10 added for testing). Tested
+  with 8 requests (`data/probes/graphql-inventory-test-20261013/`): 96/96 Brooklyn histories
+  contain every browser-list ad (1,007; API has 2,041 = all ads per unit, the browser list
+  shows only the latest per unit); end to end on a scratch archive 30/30 recorded, no fallbacks.
+  It replaces only the rendered list step; unit and ad pages are plain requests and still
+  fetched. **Resume needs Ben's word** and a new frozen runtime from master with the flag.
+- **Unit pages could be skipped (Oxylabs check, `unitcheck/` in that probe dir).** On 30 Manhattan
+  pilot buildings the probe-style guess from the API's `displayUnit` gives the crawl's unit for
+  5,844/5,857 post-cutoff ads (12 of 13 misses are zero-padded spellings). The API lists 1,066
+  more post-cutoff ads no unit page vouched for: 900 sit on a unit page the crawl never fetched
+  (API slug `05e`, crawl guessed `/5e` → 404), so the label guess misses real unit records; 166
+  have a unit page that vouched for nothing. Proposed to Ben: API vouching rule (saves ~26k
+  Brooklyn unit pages), or at least probe the API's `slug`. Awaiting his answer; offered a 1–2
+  request live check that `/05e`-style pages list those ads.
 - **Brooklyn crawl STOPPED on Oxylabs 429s (likely credits), waiting on Ben.** Ran Oct 12 23:01 ET at 64/min: Downtown Brooklyn + Fort Greene +
   Boerum Hill as one scrape (neighborhood `downtown-brooklyn-fort-greene-boerum-hill`, #695–#697).
   Service `apartments-brooklyn-pass-20261013`, controls `data/probes/brooklyn-pass-20261013/`
@@ -17,7 +35,7 @@ Updated 2026-10-13 03:50 ET. Thread owner: the Data collection project thread (b
   7 h with no 429s at the same rate, so most likely credits ran out. Ben told 03:24 ET. At the stop:
   12,322 pages done (12,049 OK, 273 404), 71,510 pending (detail pages), about $14–15 spent.
   On Ben's word that credits are added: `systemctl --user reset-failed` the unit and relaunch the
-  same runner (it resumes). 429s again: `run-32pm-8w.py`; still at 32/min: stop and ask Ben.
+  same runner (it resumes), or a GraphQL-flag runtime if Ben chooses it (see above). 429s again: `run-32pm-8w.py`; still at 32/min: stop and ask Ben.
 - **Brooklyn scout** Oct 13 (22 requests): `data/probes/brooklyn-scout-20261013/README.md` has
   live rentals and directory pages for Greenpoint, Williamsburg, East Williamsburg, Bushwick, Park
   Slope, Prospect Heights, Boerum Hill, Fort Greene, Clinton Hill, Downtown Brooklyn. Suggested
