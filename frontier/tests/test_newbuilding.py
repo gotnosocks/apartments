@@ -96,3 +96,36 @@ def test_holdout_rule_drops_the_listed_buildings(tmp_path):
     assert data.holdout_buildings() and "tune-holdout-lots-v1".startswith(
         data.HOLDOUT_PREFIX
     )
+
+
+def test_final_ask_rule_prices_ended_listings_at_their_last_ask(monkeypatch):
+    import pandas as pd
+
+    from rentfrontier import data, listing_outcomes
+
+    frame = pd.DataFrame(
+        {
+            "source_listing_id": ["1", "2", "3", "4", "5"],
+            "asking_rent": [3000.0, 3000.0, 3000.0, 3000.0, 3000.0],
+            "log_rent": np.log([3000.0] * 5),
+        }
+    )
+    outcomes = {
+        "final_ask": [2900.0, None, 3100.0, 900000.0, 2800.0],
+        "still_listed": [False, False, True, False, False],
+    }
+    monkeypatch.setattr(
+        listing_outcomes,
+        "attach",
+        lambda f: f.assign(
+            **{
+                k: np.array(v, dtype=float if k == "final_ask" else bool)
+                for k, v in outcomes.items()
+            }
+        ),
+    )
+    out = data.DATA_RULES["tune-finalask-v1"](frame)
+    assert out.source_listing_id.tolist() == ["1", "5"]
+    assert out.asking_rent.tolist() == [2900.0, 2800.0]
+    np.testing.assert_allclose(out.log_rent, np.log([2900.0, 2800.0]))
+    assert str(data.RULE_SOURCES["tune-finalask-v1"]) == listing_outcomes.OUTCOMES_FILE

@@ -225,8 +225,11 @@ def _score_chunk(kept, config, prep, a, building, rungs, ctx, rng):
             out[rung] = scores(
                 a.y, rest + units, np.sqrt(b_var), sigma, kept["nu"], rng
             )
-        else:
+        elif rung == "new unit":
             out[rung] = scores(a.y, rest + b_part + units, None, sigma, kept["nu"], rng)
+        else:  # "held out": the fit as is, a new unit's terms drawn
+            mean = total + np.where(a.unit[None] < 0, units, 0.0)
+            out[rung] = scores(a.y, mean, None, sigma, kept["nu"], rng)
     return out
 
 
