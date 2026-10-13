@@ -123,6 +123,73 @@ final-ask fit trains on 37% fewer rows than C, mostly rows whose listing no craw
 two fits describe different listings. One example is East Village, whose capture rate differs from the other areas. A fit of
 C on the same 121,035 rows at their first ask would separate the two causes. It has not been run.
 
+## Latest-ask fit
+
+Ben asked for a fit priced at each listing's latest available ask. I refit C with
+`tune-latestask-v1` (#706). Each row takes the last ask any crawl recorded for its listing, from
+the outcomes file I rebuilt on 2026-10-13 from all seven crawls (`listing-outcomes/20261013-57c2a78`).
+A listing with a single ask keeps it. The rule handles two kinds of row differently:
+
+- A listing still live at its last capture (1,076 rows) takes its current ask.
+- A row whose listing no crawl captured (0.1%), or whose latest ask is under half or over twice the
+  row's ask (587 rows), keeps the row's own ask.
+
+The rule drops no rows, so the fit trains on C's 193,376 rows. Of all 214,887 rows, 79,719 change
+price, 8,350 of them held out. Asks went down on 27% of rows and up on 10%. The fit passed the gate:
+max R-hat 1.005, min ESS 663, a 2,307 s fit, $2.05.
+
+`python -m rentfrontier.finalask` scores both fits on all 21,511 held-out rows against the latest ask:
+
+| Fit, against | Miss | 80% | 95% |
+|---|---:|---:|---:|
+| Latest-ask fit, latest ask | 3.73% | 79.3 | 94.9 |
+| C, latest ask | 4.01% | 76.8 | 93.5 |
+| C, its own ask | 3.74% | 79.3 | 94.7 |
+
+Against the latest ask, C misses 0.28 pp more than the latest-ask fit and covers 2.5 points too few
+at 80%. The latest-ask fit predicts the latest ask about as well as C predicts its own ask.
+
+**Coefficients.** I compared posterior means, in units of C's posterior SD. Of 223 parameters, 82
+moved by more than 1 SD and 42 by more than 2.
+
+- `text:concession` moved the most, from −1.0% to −3.6% (28 SD). The final-ask fit moved it to −3.9%.
+  Listings with a concession get cut more often after they first list.
+- Four noise scales (`sigma` 27, 10, 61 and 44) grew by 20 to 30%.
+- `text:no_fee` went from +0.5% to +0.2% and `outdoor:roof_deck` from +1.8% to +1.2%. The
+  month-of-year season terms flattened by 0.4 to 0.6 pp.
+- The intercept fell 0.4%.
+- East Village is outside the 30 largest moves. Its −13% swing in the final-ask fit came from the
+  old outcomes file, which predates the East Village crawl.
+
+**Descriptive share.** 25.9% (90% interval 25.2–26.6%), against C's 26.1%.
+
+With the rows held fixed, the price change alone moves the concession term, a few noise scales and
+the season, while the descriptive share stays put. Most of the large moves in the final-ask fit
+therefore came from its smaller set of rows.
+
+## New-building score of the ask fits
+
+I ran these on Modal with `ops/modal/newbuilding.py` (#712): a 32-core container, one worker per
+core. The latest-ask fit's score took 157 s and cost $0.13; on thelio a single process takes about
+1,120 s on the same number of rows.
+
+| Rows | Latest ask: n | New building: miss | 80% | 95% | New unit (in-sample): miss | 80% | 95% |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| all | 193,376 | 12.0% | 90.4 | 98.0 | 3.7% | 86.2 | 97.0 |
+| size stated | 70,981 | 11.7% | 90.5 | 97.9 | 3.6% | 88.2 | 97.8 |
+| size unknown | 122,395 | 12.1% | 90.3 | 98.1 | 3.8% | 85.0 | 96.5 |
+| building rows 1–5 | 4,128 | 16.8% | 78.5 | 92.5 | 2.5% | 95.2 | 98.3 |
+| building rows 6–20 | 17,451 | 14.1% | 86.0 | 96.5 | 3.2% | 91.0 | 97.1 |
+| building rows 21–100 | 85,450 | 11.7% | 91.4 | 98.3 | 3.6% | 87.4 | 96.9 |
+| building rows 101+ | 86,347 | 11.7% | 90.8 | 98.3 | 4.0% | 83.6 | 96.9 |
+
+The final-ask fit, on its 121,035 rows, scores 12.5% miss and 90.6 / 98.4 for a new building, and
+3.9% and 86.2 / 97.0 for a new unit. It took 119 s and cost $0.14.
+
+The latest-ask fit and C give nearly the same new-building score: 12.0% against 11.9% miss. Each
+is scored on its own prices, so the numbers compare the fits' quotes for unseen buildings rather
+than a shared target.
+
 ## Prediction outcomes
 
 | Prediction | Outcome |
@@ -133,3 +200,8 @@ C on the same 121,035 rows at their first ask would separate the two causes. It 
 | Intercept down about 1% | Miss: down about 6.5%, though not cleanly identified |
 | Coefficients move less than their SD, except size | Miss: 58 of 115 moved more than 1 SD |
 | Descriptive share within 1 pp | Miss: 4.5 pp lower |
+| Latest-ask miss 0.1–0.4 pp below C's | Hit: 0.28 pp |
+| Latest-ask 80% and 95% coverage within 0.02 | Partly: 95% within 0.014; 80% differs by 0.025 |
+| Latest-ask intercept down about 1% | Miss: down 0.4% |
+| Concession moves down; most others under 1 SD; East Village steady | Hit on concession and East Village; 82 of 223 moved more than 1 SD |
+| Latest-ask descriptive share within 1 pp | Hit: 25.9% vs 26.1% |
