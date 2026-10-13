@@ -1,8 +1,22 @@
 # Data collection — handoff
 
-Updated 2026-10-10 19:20 ET. Thread owner: the Data collection project thread (bridge session on thelio).
+Updated 2026-10-12 23:35 ET. Thread owner: the Data collection project thread (bridge session on thelio).
 
 ## State
+- **Brooklyn crawl RUNNING** since Oct 12 23:01 ET at 64/min: Downtown Brooklyn + Fort Greene +
+  Boerum Hill as one scrape (neighborhood `downtown-brooklyn-fort-greene-boerum-hill`, #695–#697).
+  Service `apartments-brooklyn-pass-20261013`, controls `data/probes/brooklyn-pass-20261013/`
+  (runner `run-64pm-16w.py`, fallback `run-32pm-8w.py` on 429s), archive
+  `/data1/apartments/archive/crawls/brooklyn-dtbk-fg-bh-20261013`. No monitor timer. Ben, typed
+  Oct 13: "go at 64/min if possible until the credits run out"; 03:04Z: "If oxylabs starts
+  refusing just stop and wait for me to resolve by adding credits on oxylabs." On a credit or
+  account refusal: leave it stopped, tell Ben, resume only on his word. Estimate 75–200k requests
+  ($85–225), 20–50 h. When it finishes: snapshot (compacted), dataset, tell Modeling and Data
+  improvements (first Brooklyn rows; Manhattan-only features need checking).
+- **Brooklyn scout** Oct 13 (22 requests): `data/probes/brooklyn-scout-20261013/README.md` has
+  live rentals and directory pages for Greenpoint, Williamsburg, East Williamsburg, Bushwick, Park
+  Slope, Prospect Heights, Boerum Hill, Fort Greene, Clinton Hill, Downtown Brooklyn. Suggested
+  next: Greenpoint, Williamsburg, Clinton Hill; Park Slope and Bushwick last (cost per rental).
 - **Stuyvesant Town/PCV: crawl FINISHED** Oct 8 15:21 ET (6,139 requests, ~$7, no 429s),
   **dataset BUILT** 15:41 ET: see `docs/data/stuyvesant-town-pcv-collection.md`. Snapshot written
   compacted (5.9 → 3.3 GB, rows and audit verified). `apartments-stuytown-monitor.timer` disabled.
