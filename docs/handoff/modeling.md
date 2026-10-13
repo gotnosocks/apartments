@@ -284,3 +284,19 @@ and publishing are on hold.
 - Tasks 2 and 3: unit `ben3` (`tmp/bridge/ben3.sh`) launches `modal-one.sh` for C with tune-holdout-lots-v1
   and then tune-finalask-v1, one at a time, when cap.py allows.
 - Then: `python -m rentfrontier.newbuilding --holdout <refit>` and `python -m rentfrontier.finalask <final> <C>`.
+
+## Update (2026-10-13 10:40 UTC): Ben's three tasks done
+
+All three tasks are done and written up in `docs/model/newbuilding-2026-10-13.md`.
+
+- Step 2 agrees with step 1 on the held-out lots (12.20% vs 12.09%), so step 1's new-building score
+  is the board number.
+- The final-ask fit misses the final ask by 0.32 pp less than C does (3.71% vs 4.02%). The
+  coefficient and descriptive-share moves were much larger than predicted, probably because the
+  rule changes which rows are in the fit.
+- A fit of C on the same rows at their first ask would separate the two causes. It has not been
+  run or queued.
+- `finalask.compare` had an unpacking bug, fixed in #703.
+
+Still in force: run or enqueue nothing beyond Ben's three tasks (03:16Z). The modalq-c runner is
+stopped and the held fits are in docs/research-plan.md. `ben3` has exited.
