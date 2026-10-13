@@ -4918,6 +4918,131 @@ NB8_SETS["nb8-nostuy-petsfill-v1"] = "nb5-plutoasof-v3"
 FEATURE_SETS["nb8-nostuy-petsfill-v1"] = partial(
     pets_fill_v1, id="nb8-nostuy-petsfill-v1", base="nb8-nostuy-v1"
 )
+
+# Base groups that describe the ad or the apartment rather than the building.
+# Their building means over earlier ads go into `building_means_v1`.
+AD_GROUPS = (
+    "bedrooms",
+    "bathrooms",
+    "size",
+    "floor",
+    "elevator",
+    "doorman",
+    "laundry",
+    "hvac",
+    "pets",
+    "views",
+    "windows",
+    "unit label",
+    "description",
+    "outdoor space",
+    "rooms beyond bedrooms",
+    "facing",
+)
+
+
+def earlier_building_means(
+    values: np.ndarray, building: np.ndarray, day: np.ndarray
+) -> tuple[np.ndarray, np.ndarray]:
+    """Per row: the mean of each column over the same building's rows dated
+    strictly before the row's day (NaN where there are none), and how many
+    rows that mean covers."""
+    order = np.lexsort((day, building))
+    v, b, t = values[order], building[order], day[order]
+    means = np.full(v.shape, np.nan)
+    count = np.zeros(len(v))
+    starts = np.flatnonzero(np.r_[True, b[1:] != b[:-1]])
+    for s, e in zip(starts, np.r_[starts[1:], len(b)]):
+        cum = np.vstack([np.zeros(v.shape[1]), np.cumsum(v[s:e], 0)])
+        n = np.searchsorted(t[s:e], t[s:e], side="left")
+        count[s:e] = n
+        with np.errstate(invalid="ignore", divide="ignore"):
+            means[s:e] = cum[n] / n[:, None]
+    out, cnt = np.empty_like(means), np.empty_like(count)
+    out[order], cnt[order] = means, count
+    return out, cnt
+
+
+def building_means_v1(
+    frame: pd.DataFrame,
+    train: np.ndarray,
+    id: str,
+    base: str,
+    groups: tuple = AD_GROUPS,
+) -> Features:
+    """A base set plus, for each of its ad-level columns (`groups`), the mean
+    of that column over the building's ads dated before the row's day: the
+    building's typical apartment and ad as of the listing. The base's own
+    columns price an apartment against others in its building, and the means
+    price the building's mix, which the building level otherwise absorbs and
+    a new building's level cannot know. A row whose building has no earlier
+    ad takes the training rows' average mean and an indicator. Also the log
+    count of those earlier ads. Reads no rents."""
+    base = FEATURE_SETS[base](frame, train)
+    cols = [j for j, g in enumerate(base.groups) if g in groups]
+    day = pd.to_datetime(frame.period).to_numpy().astype("datetime64[D]")
+    means, count = earlier_building_means(
+        base.values[:, cols].astype(float),
+        frame.building.to_numpy(),
+        day.astype(np.int64),
+    )
+    have = count > 0
+    b = _Builder(frame)
+    for k, j in enumerate(cols):
+        fill = float(np.mean(means[have & train, k]))
+        b.add(
+            "building means",
+            f"building mean: {base.names[j]}",
+            np.where(have, means[:, k], fill),
+        )
+    b.add("building means", "no earlier ad in the building", ~have)
+    b.add("building means", "log1p earlier ads in the building", np.log1p(count))
+    out = b.build(id)
+    return Features(
+        id,
+        base.names + out.names,
+        base.groups + out.groups,
+        np.column_stack([base.values, out.values]),
+        np.concatenate([base.prior_scale, out.prior_scale]),
+    )
+
+
+# Option C's base with every held building family whose explained share
+# cleared its permutation null with an interval above 0 on the held-data
+# ceiling check (docs/model/held-data-ceiling-2026-10-13.md), then the
+# building means of the ad-level columns over earlier ads. Each step's base is
+# the step before it, as the nb7 explain set chains its families.
+HELDMEANS_STEPS = (
+    ("nb8-nostuy-heldmeans-elev-v1", elevfill_v1, {}),
+    ("nb8-nostuy-heldmeans-stab-v1", stabilized_v1, {}),
+    ("nb8-nostuy-heldmeans-lister-v1", lister_v1, {}),
+    ("nb8-nostuy-heldmeans-noise-v1", noise_v1, {"noise_file": NB8_NOISE_FILE}),
+    ("nb8-nostuy-heldmeans-hpd-v1", hpd_v1, {"file": NB8_HPD_FILE}),
+    ("nb8-nostuy-heldmeans-lines-v1", lines_v1, {}),
+    ("nb8-nostuy-heldmeans-retail-v1", retail_v2, {}),
+    ("nb8-nostuy-heldmeans-v1", building_means_v1, {}),
+)
+_base = "nb8-nostuy-petsfill-v1"
+for _step, (_name, _func, _kw) in enumerate(HELDMEANS_STEPS):
+    NB8_SETS[_name] = "nb5-plutoasof-v3"
+    FEATURE_SETS[_name] = partial(_func, id=_name, base=_base, **_kw)
+    # Each step reads its own family's snapshot and every earlier step's.
+    if _step >= 1:
+        RENTSTAB.add(_name)
+    if _step >= 2:
+        LISTER.add(_name)
+    if _step >= 3:
+        NOISE.add(_name)
+        NOISE_FILES[_name] = NB8_NOISE_FILE
+    if _step >= 4:
+        HPD.add(_name)
+        HPD_SNAPSHOTS[_name] = NB8_HPD_FILE
+    if _step >= 5:
+        TRANSIT.add(_name)
+    if _step >= 6:
+        STOREFRONTS.add(_name)
+        STOREFRONTS_SNAPSHOTS[_name] = NB8_STOREFRONTS_FILE
+    _base = _name
 for _new, _old in NB8_SETS.items():
     for _group in (
         EXTERNAL,

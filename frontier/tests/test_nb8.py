@@ -31,6 +31,7 @@ NB8_ONLY = {
     "nb8-nostuy-bigbed-v1",
     "nb8-nostuy-amenlevel-v1",
     "nb8-nostuy-petsfill-v1",
+    *(name for name, _, _ in features.HELDMEANS_STEPS),
 }
 
 
@@ -435,3 +436,40 @@ def test_nb8_petsfill_is_pets_fill_v1_on_the_nb8_base():
     assert {k for k in groups if name in getattr(features, k)} == {
         k for k in groups if "nb8-nostuy-v1" in getattr(features, k)
     }
+
+
+def test_heldmeans_chain():
+    steps = features.HELDMEANS_STEPS
+    base = "nb8-nostuy-petsfill-v1"
+    for name, func, kw in steps:
+        spec = features.FEATURE_SETS[name]
+        assert spec.func is func
+        assert spec.keywords == {"id": name, "base": base, **kw}
+        base = name
+    final = steps[-1][0]
+    assert final == "nb8-nostuy-heldmeans-v1"
+    for registry in (
+        features.RENTSTAB,
+        features.LISTER,
+        features.NOISE,
+        features.HPD,
+        features.TRANSIT,
+        features.STOREFRONTS,
+    ):
+        assert final in registry
+    assert features.NOISE_FILES[final] == features.NB8_NOISE_FILE
+    assert features.HPD_SNAPSHOTS[final] == features.NB8_HPD_FILE
+    assert features.STOREFRONTS_SNAPSHOTS[final] == features.NB8_STOREFRONTS_FILE
+    assert features.LOT_SNAPSHOTS[final] == features.LOT_SNAPSHOTS["nb8-nostuy-v1"]
+
+
+def test_earlier_building_means():
+    values = np.array([[1.0], [0.0], [1.0], [1.0], [0.0]])
+    building = np.array(["a", "a", "a", "b", "a"])
+    day = np.array([1, 2, 2, 1, 5])
+    means, count = features.earlier_building_means(values, building, day)
+    # Rows on the same day see only earlier days, never each other.
+    assert count.tolist() == [0, 1, 1, 0, 3]
+    assert np.isnan(means[0, 0]) and np.isnan(means[3, 0])
+    assert means[1:3, 0].tolist() == [1.0, 1.0]
+    assert means[4, 0] == pytest.approx(2 / 3)
