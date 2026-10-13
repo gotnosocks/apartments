@@ -346,3 +346,47 @@ def test_only_finished_post_fit_records_leave_the_container(tmp_path, monkeypatc
         True,
         False,
     ]
+
+
+def test_the_new_building_score_lands_beside_the_run_and_never_fails_the_fit(
+    tmp_path, monkeypatch
+):
+    monkeypatch.setattr(fit, "OUTPUT_ROOT", tmp_path / "frontier")
+    monkeypatch.setattr(fit, "STATE", tmp_path / "modal")
+    files = {
+        "out/r/run/result.json": b"{}",
+        "out/r/newbuilding/r-abc1234/result.json": b"{}",
+        "out/r/newbuilding.log": b"log",
+    }
+    fit.finish(FakeVolume(files), "r", {"exit": 0})
+    root = tmp_path / "frontier"
+    assert (root / "newbuilding/r-abc1234/result.json").exists()
+    assert (root / "runs/r/modal/newbuilding.log").read_bytes() == b"log"
+
+    def broken(spec):
+        raise RuntimeError("container lost")
+
+    app = type("App", (), {"newbuilding_cpu": type("F", (), {"remote": broken})})
+    assert fit.score_new_buildings(app, {"name": "r"}) == {
+        "exit": "RuntimeError('container lost')"
+    }
+
+
+def test_scoring_an_existing_run_downloads_only_its_new_building_score(
+    tmp_path, monkeypatch
+):
+    nb = load("newbuilding")
+    monkeypatch.setattr(nb.fit, "OUTPUT_ROOT", tmp_path / "frontier")
+    monkeypatch.setattr(nb.fit, "STATE", tmp_path / "modal")
+    files = {
+        "out/r/run/result.json": b"{}",
+        "out/r/newbuilding/r-only-lots-v1-abc1234/result.json": b"{}",
+        "out/r/newbuilding.log": b"log",
+    }
+    volume = FakeVolume(files)
+    nb.download(volume, "r")
+    root = tmp_path / "frontier"
+    assert (root / "newbuilding/r-only-lots-v1-abc1234/result.json").exists()
+    assert (tmp_path / "modal/logs/newbuilding-r.log").read_bytes() == b"log"
+    assert not (root / "runs").exists()
+    assert volume.removed == ["/out/r"]
