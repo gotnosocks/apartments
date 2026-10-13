@@ -35,7 +35,7 @@ Updated 2026-10-13 10:40 ET. Thread owner: the Data collection project thread (b
   7 h with no 429s at the same rate, so most likely credits ran out. Ben told 03:24 ET. At the stop:
   12,322 pages done (12,049 OK, 273 404), 71,510 pending (detail pages), about $14–15 spent.
   On Ben's word that credits are added: `systemctl --user reset-failed` the unit and relaunch the
-  same runner (it resumes). 429s again: `run-32pm-8w.py`; still at 32/min: stop and ask Ben.
+  same runner (it resumes), or a GraphQL-flag runtime if Ben chooses it (see above). 429s again: `run-32pm-8w.py`; still at 32/min: stop and ask Ben.
 - **Brooklyn scout** Oct 13 (22 requests): `data/probes/brooklyn-scout-20261013/README.md` has
   live rentals and directory pages for Greenpoint, Williamsburg, East Williamsburg, Bushwick, Park
   Slope, Prospect Heights, Boerum Hill, Fort Greene, Clinton Hill, Downtown Brooklyn. Suggested
